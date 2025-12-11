@@ -1,0 +1,61 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Page
+    x:Class="FolderRewind.Views.BackupTasksPage"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:models="using:FolderRewind.Models">
+
+    <Grid Padding="32">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/>
+        </Grid.RowDefinitions>
+
+        <StackPanel Spacing="4" Margin="0,0,0,24">
+            <TextBlock Text="备份任务队列" Style="{ThemeResource TitleTextBlockStyle}"/>
+            <TextBlock Text="正在处理 2 个任务，等待 1 个" Foreground="{ThemeResource TextFillColorSecondaryBrush}"/>
+        </StackPanel>
+
+        <ListView Grid.Row="1" SelectionMode="None">
+            <ListView.ItemTemplate>
+                <DataTemplate x:DataType="models:BackupTask">
+                    <Grid Margin="0,0,0,16">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*"/>
+                            <ColumnDefinition Width="Auto"/>
+                        </Grid.ColumnDefinitions>
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="Auto"/>
+                        </Grid.RowDefinitions>
+
+                        <!-- 标题与状态 -->
+                        <StackPanel Orientation="Horizontal" Spacing="12">
+                            <TextBlock Text="{x:Bind FolderName}" FontWeight="Bold"/>
+                            <TextBlock Text="-" Foreground="Gray"/>
+                            <TextBlock Text="{x:Bind Status}" Foreground="{ThemeResource SystemControlForegroundAccentBrush}"/>
+                            <TextBlock Text="{x:Bind Speed}" Foreground="Gray" FontSize="12" VerticalAlignment="Center"/>
+                        </StackPanel>
+
+                        <!-- 控制按钮 -->
+                        <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="8">
+                            <Button Padding="6" CornerRadius="16" ToolTipService.ToolTip="暂停">
+                                <FontIcon Glyph="&#xE769;" FontSize="12"/>
+                            </Button>
+                            <Button Padding="6" CornerRadius="16" ToolTipService.ToolTip="取消">
+                                <FontIcon Glyph="&#xE711;" FontSize="12"/>
+                            </Button>
+                        </StackPanel>
+
+                        <!-- 进度条 -->
+                        <ProgressBar Grid.Row="1" Grid.ColumnSpan="2" Value="{x:Bind Progress}" Maximum="100" Margin="0,8,0,0" Height="4"/>
+                    </Grid>
+                </DataTemplate>
+            </ListView.ItemTemplate>
+
+            <!-- 模拟数据 -->
+            <models:BackupTask FolderName="Work_Project_V2" Progress="45" Status="正在上传..." Speed="12.5 MB/s"/>
+            <models:BackupTask FolderName="Photos_2024" Progress="0" Status="等待中" Speed=""/>
+        </ListView>
+    </Grid>
+</Page>

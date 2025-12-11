@@ -1,0 +1,156 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Page
+    x:Class="FolderRewind.Views.ConfigurationPage"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:models="using:FolderRewind.Models"
+    xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+    xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    mc:Ignorable="d">
+
+    <Grid>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/>
+            <RowDefinition Height="Auto"/>
+        </Grid.RowDefinitions>
+
+        <!-- 1. 面包屑导航 -->
+        <StackPanel Grid.Row="0" Orientation="Horizontal" Spacing="8" Padding="24,16">
+            <Button Click="OnBackClick" Background="Transparent" BorderThickness="0" Padding="4">
+                <StackPanel Orientation="Horizontal" Spacing="4">
+                    <FontIcon Glyph="&#xE72B;" FontSize="12"/>
+                    <TextBlock Text="返回概览" />
+                </StackPanel>
+            </Button>
+            <TextBlock Text="/" VerticalAlignment="Center" Opacity="0.5"/>
+            <TextBlock Text="{x:Bind CurrentConfig.Name, Mode=OneWay}" VerticalAlignment="Center" FontWeight="Bold"/>
+        </StackPanel>
+
+        <!-- 2. 工具栏 -->
+        <Grid Grid.Row="1" Padding="24,0,24,12">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*"/>
+                <ColumnDefinition Width="Auto"/>
+            </Grid.ColumnDefinitions>
+
+            <StackPanel Orientation="Horizontal" Spacing="8">
+                <Button>
+                    <StackPanel Orientation="Horizontal" Spacing="8">
+                        <FontIcon Glyph="&#xE710;"/>
+                        <TextBlock Text="添加文件夹"/>
+                    </StackPanel>
+                    <Button.Flyout>
+                        <MenuFlyout>
+                            <MenuFlyoutItem Text="选择单个文件夹">
+                                <MenuFlyoutItem.Icon>
+                                    <SymbolIcon Symbol="Folder"/>
+                                </MenuFlyoutItem.Icon>
+                            </MenuFlyoutItem>
+                            <MenuFlyoutItem Text="批量导入">
+                                <MenuFlyoutItem.Icon>
+                                    <SymbolIcon Symbol="List"/>
+                                </MenuFlyoutItem.Icon>
+                            </MenuFlyoutItem>
+                        </MenuFlyout>
+                    </Button.Flyout>
+                </Button>
+
+                <Button Style="{ThemeResource AccentButtonStyle}">
+                    <StackPanel Orientation="Horizontal" Spacing="8">
+                        <FontIcon Glyph="&#xE896;"/>
+                        <TextBlock Text="备份全部"/>
+                    </StackPanel>
+                </Button>
+            </StackPanel>
+
+            <!-- 修正：Button 没有 Icon 属性，需使用 Content -->
+            <Button Grid.Column="1" Click="OnSettingsClick">
+                <StackPanel Orientation="Horizontal" Spacing="8">
+                    <FontIcon Glyph="&#xE713;"/>
+                    <!-- Setting Symbol -->
+                    <TextBlock Text="配置设置"/>
+                </StackPanel>
+            </Button>
+        </Grid>
+
+        <!-- 3. 文件夹列表 -->
+        <ListView x:Name="FolderListView"
+                  Grid.Row="2"
+                  ItemsSource="{x:Bind CurrentConfig.Folders, Mode=OneWay}"
+                  SelectionMode="Multiple"
+                  Padding="12,0">
+
+            <ListView.Header>
+                <Grid Padding="12,8">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="60"/>
+                        <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="150"/>
+                        <ColumnDefinition Width="100"/>
+                    </Grid.ColumnDefinitions>
+                    <TextBlock Text="图标" Opacity="0.6"/>
+                    <TextBlock Grid.Column="1" Text="名称 / 路径" Opacity="0.6"/>
+                    <TextBlock Grid.Column="2" Text="状态" Opacity="0.6"/>
+                    <TextBlock Grid.Column="3" Text="操作" Opacity="0.6" HorizontalAlignment="Center"/>
+                </Grid>
+            </ListView.Header>
+
+            <ListView.ItemTemplate>
+                <DataTemplate x:DataType="models:ManagedFolder">
+                    <Grid Padding="0,12">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="60"/>
+                            <ColumnDefinition Width="*"/>
+                            <ColumnDefinition Width="150"/>
+                            <ColumnDefinition Width="100"/>
+                        </Grid.ColumnDefinitions>
+
+                        <!-- 图标 -->
+                        <PersonPicture DisplayName="{x:Bind DisplayName}" Width="32" Height="32" HorizontalAlignment="Left" />
+
+                        <!-- 名称和路径 -->
+                        <StackPanel Grid.Column="1" VerticalAlignment="Center" Margin="12,0,0,0">
+                            <TextBlock Text="{x:Bind DisplayName}" FontWeight="SemiBold"/>
+                            <TextBlock Text="{x:Bind FullPath}" FontSize="12" Opacity="0.6"/>
+                        </StackPanel>
+
+                        <!-- 状态 -->
+                        <StackPanel Grid.Column="2" VerticalAlignment="Center">
+                            <TextBlock Text="{x:Bind StatusText}" Foreground="Green"/>
+                            <TextBlock Text="{x:Bind LastBackupTime}" FontSize="12" Opacity="0.6"/>
+                        </StackPanel>
+
+                        <!-- 操作 -->
+                        <Button Grid.Column="3" Background="Transparent" BorderThickness="0" HorizontalAlignment="Center">
+                            <FontIcon Glyph="&#xE712;"/>
+                            <Button.Flyout>
+                                <MenuFlyout>
+                                    <MenuFlyoutItem Text="立即备份">
+                                        <MenuFlyoutItem.Icon>
+                                            <SymbolIcon Symbol="Upload"/>
+                                        </MenuFlyoutItem.Icon>
+                                    </MenuFlyoutItem>
+                                    <MenuFlyoutItem Text="移除" Foreground="Red">
+                                        <MenuFlyoutItem.Icon>
+                                            <SymbolIcon Symbol="Delete"/>
+                                        </MenuFlyoutItem.Icon>
+                                    </MenuFlyoutItem>
+                                </MenuFlyout>
+                            </Button.Flyout>
+                        </Button>
+                    </Grid>
+                </DataTemplate>
+            </ListView.ItemTemplate>
+        </ListView>
+
+        <!-- 4. 底部批量操作栏 (示例：一直显示，实际应用可绑定 Visibility) -->
+        <Grid Grid.Row="3" Background="{ThemeResource SolidBackgroundFillColorBaseBrush}" BorderBrush="{ThemeResource SurfaceStrokeColorDefaultBrush}" BorderThickness="0,1,0,0" Padding="16">
+            <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Spacing="12">
+                <Button Content="批量备份"/>
+                <Button Content="批量删除" Foreground="Red"/>
+            </StackPanel>
+        </Grid>
+    </Grid>
+</Page>
