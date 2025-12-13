@@ -5,33 +5,33 @@
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
 
     <NavigationView x:Name="NavView"
+                    x:Uid="ShellPage_Header"
                     PaneDisplayMode="Left"
-                    Header="FolderRewind"
                     IsSettingsVisible="True" 
                     SelectionChanged="NavView_SelectionChanged"
                     Loaded="NavView_Loaded">
 
         <NavigationView.MenuItems>
-            <NavigationViewItem Tag="Home" Content="Home">
+            <NavigationViewItem x:Uid="ShellPage_NavHome" Tag="Home">
                 <NavigationViewItem.Icon>
                     <SymbolIcon Symbol="Home"/>
                 </NavigationViewItem.Icon>
             </NavigationViewItem>
 
             <!-- 管理页直接放在导航栏 -->
-            <NavigationViewItem Tag="Manager" Content="Manager">
+            <NavigationViewItem x:Uid="ShellPage_NavManager" Tag="Manager">
                 <NavigationViewItem.Icon>
                     <SymbolIcon Symbol="Manage"/>
                 </NavigationViewItem.Icon>
             </NavigationViewItem>
 
-            <NavigationViewItem Tag="Tasks" Content="Backup Tasks">
+            <NavigationViewItem x:Uid="ShellPage_NavTasks" Tag="Tasks">
                 <NavigationViewItem.Icon>
                     <SymbolIcon Symbol="Copy"/>
                 </NavigationViewItem.Icon>
             </NavigationViewItem>
 
-            <NavigationViewItem Tag="History" Content="History">
+            <NavigationViewItem x:Uid="ShellPage_NavHistory" Tag="History">
                 <NavigationViewItem.Icon>
                     <SymbolIcon Symbol="Clock"/>
                 </NavigationViewItem.Icon>

@@ -14,8 +14,10 @@
 
             <!-- 注册全局转换器 -->
             <converters:BoolToVisibilityConverter x:Key="BoolToVisConverter"/>
+            <converters:BoolToVisibilityInvertConverter x:Key="BoolToVisInvertConverter"/>
             <converters:BoolToStarIconConverter x:Key="BoolToStarIconConverter"/>
             <converters:BoolToColorConverter x:Key="BoolToColorConverter"/>
+            <converters:CountToStringConverter x:Key="CountToStringConverter"/>
 
             <!-- 定义一些常用的颜色或样式 -->
             <SolidColorBrush x:Key="CardBackgroundBrush" Color="#05FFFFFF" />

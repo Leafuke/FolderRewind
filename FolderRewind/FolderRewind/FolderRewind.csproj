@@ -12,13 +12,23 @@
     <Nullable>enable</Nullable>
   </PropertyGroup>
   <ItemGroup>
+    <None Remove="App.xaml - 副本.cs.txt" />
     <None Remove="Views\BackupTasksPage.xaml" />
+    <None Remove="Views\BackupTasksPage.xaml - 副本.cs.txt" />
+    <None Remove="Views\BackupTasksPage.xaml - 副本.cs.xaml.txt" />
+    <None Remove="Views\ConfigSettingsDialog.xaml" />
     <None Remove="Views\ConfigurationPage.xaml" />
-    <None Remove="Views\ConfigurationSettingsDialog.xaml" />
     <None Remove="Views\FolderManagerPage.xaml" />
+    <None Remove="Views\HistoryPage - 副本.xaml.txt" />
     <None Remove="Views\HistoryPage.xaml" />
+    <None Remove="Views\HistoryPage.xaml - 副本.cs.txt" />
+    <None Remove="Views\HomePage - 副本.xaml.txt" />
     <None Remove="Views\HomePage.xaml" />
+    <None Remove="Views\HomePage.xaml - 副本.cs.txt" />
+    <None Remove="Views\LogWindow.xaml" />
+    <None Remove="Views\SettingsPage - 副本.xaml.txt" />
     <None Remove="Views\SettingsPage.xaml" />
+    <None Remove="Views\SettingsPage.xaml - 副本.cs.txt" />
     <None Remove="Views\ShellPage.xaml" />
   </ItemGroup>
 
@@ -29,6 +39,18 @@
   <ItemGroup>
     <PackageReference Include="Microsoft.Windows.SDK.BuildTools" Version="10.0.26100.7175" />
     <PackageReference Include="Microsoft.WindowsAppSDK" Version="1.8.251106002" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Page Update="Views\LogWindow.xaml">
+      <Generator>MSBuild:Compile</Generator>
+    </Page>
+  </ItemGroup>
+
+  <ItemGroup>
+    <Page Update="Views\ConfigSettingsDialog.xaml">
+      <Generator>MSBuild:Compile</Generator>
+    </Page>
   </ItemGroup>
 
   <ItemGroup>
@@ -51,12 +73,6 @@
 
   <ItemGroup>
     <Page Update="Views\FolderManagerPage.xaml">
-      <Generator>MSBuild:Compile</Generator>
-    </Page>
-  </ItemGroup>
-
-  <ItemGroup>
-    <Page Update="Views\ConfigurationSettingsDialog.xaml">
       <Generator>MSBuild:Compile</Generator>
     </Page>
   </ItemGroup>

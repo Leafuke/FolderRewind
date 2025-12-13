@@ -1,0 +1,453 @@
+<?xml version="1.0" encoding="utf-8"?>
+<root>
+  <!-- 
+    Microsoft ResX Schema 
+    
+    Version 2.0
+    
+    The primary goals of this format is to allow a simple XML format 
+    that is mostly human readable. The generation and parsing of the 
+    various data types are done through the TypeConverter classes 
+    associated with the data types.
+    
+    Example:
+    
+    ... ado.net/XML headers & schema ...
+    <resheader name="resmimetype">text/microsoft-resx</resheader>
+    <resheader name="version">2.0</resheader>
+    <resheader name="reader">System.Resources.ResXResourceReader, System.Windows.Forms, ...</resheader>
+    <resheader name="writer">System.Resources.ResXResourceWriter, System.Windows.Forms, ...</resheader>
+    <data name="Name1"><value>this is my long string</value><comment>this is a comment</comment></data>
+    <data name="Color1" type="System.Drawing.Color, System.Drawing">Blue</data>
+    <data name="Bitmap1" mimetype="application/x-microsoft.net.object.binary.base64">
+        <value>[base64 mime encoded serialized .NET Framework object]</value>
+    </data>
+    <data name="Icon1" type="System.Drawing.Icon, System.Drawing" mimetype="application/x-microsoft.net.object.bytearray.base64">
+        <value>[base64 mime encoded string representing a byte array form of the .NET Framework object]</value>
+        <comment>This is a comment</comment>
+    </data>
+                
+    There are any number of "resheader" rows that contain simple 
+    name/value pairs.
+    
+    Each data row contains a name, and value. The row also contains a 
+    type or mimetype. Type corresponds to a .NET class that support 
+    text/value conversion through the TypeConverter architecture. 
+    Classes that don't support this are serialized and stored with the 
+    mimetype set.
+    
+    The mimetype is used for serialized objects, and tells the 
+    ResXResourceReader how to depersist the object. This is currently not 
+    extensible. For a given mimetype the value must be set accordingly:
+    
+    Note - application/x-microsoft.net.object.binary.base64 is the format 
+    that the ResXResourceWriter will generate, however the reader can 
+    read any of the formats listed below.
+    
+    mimetype: application/x-microsoft.net.object.binary.base64
+    value   : The object must be serialized with 
+            : System.Runtime.Serialization.Formatters.Binary.BinaryFormatter
+            : and then encoded with base64 encoding.
+    
+    mimetype: application/x-microsoft.net.object.soap.base64
+    value   : The object must be serialized with 
+            : System.Runtime.Serialization.Formatters.Soap.SoapFormatter
+            : and then encoded with base64 encoding.
+
+    mimetype: application/x-microsoft.net.object.bytearray.base64
+    value   : The object must be serialized into a byte array 
+            : using a System.ComponentModel.TypeConverter
+            : and then encoded with base64 encoding.
+    -->
+  <xsd:schema id="root" xmlns="" xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:msdata="urn:schemas-microsoft-com:xml-msdata">
+    <xsd:import namespace="http://www.w3.org/XML/1998/namespace" />
+    <xsd:element name="root" msdata:IsDataSet="true">
+      <xsd:complexType>
+        <xsd:choice maxOccurs="unbounded">
+          <xsd:element name="metadata">
+            <xsd:complexType>
+              <xsd:sequence>
+                <xsd:element name="value" type="xsd:string" minOccurs="0" />
+              </xsd:sequence>
+              <xsd:attribute name="name" use="required" type="xsd:string" />
+              <xsd:attribute name="type" type="xsd:string" />
+              <xsd:attribute name="mimetype" type="xsd:string" />
+              <xsd:attribute ref="xml:space" />
+            </xsd:complexType>
+          </xsd:element>
+          <xsd:element name="assembly">
+            <xsd:complexType>
+              <xsd:attribute name="alias" type="xsd:string" />
+              <xsd:attribute name="name" type="xsd:string" />
+            </xsd:complexType>
+          </xsd:element>
+          <xsd:element name="data">
+            <xsd:complexType>
+              <xsd:sequence>
+                <xsd:element name="value" type="xsd:string" minOccurs="0" msdata:Ordinal="1" />
+                <xsd:element name="comment" type="xsd:string" minOccurs="0" msdata:Ordinal="2" />
+              </xsd:sequence>
+              <xsd:attribute name="name" type="xsd:string" use="required" msdata:Ordinal="1" />
+              <xsd:attribute name="type" type="xsd:string" msdata:Ordinal="3" />
+              <xsd:attribute name="mimetype" type="xsd:string" msdata:Ordinal="4" />
+              <xsd:attribute ref="xml:space" />
+            </xsd:complexType>
+          </xsd:element>
+          <xsd:element name="resheader">
+            <xsd:complexType>
+              <xsd:sequence>
+                <xsd:element name="value" type="xsd:string" minOccurs="0" msdata:Ordinal="1" />
+              </xsd:sequence>
+              <xsd:attribute name="name" type="xsd:string" use="required" />
+            </xsd:complexType>
+          </xsd:element>
+        </xsd:choice>
+      </xsd:complexType>
+    </xsd:element>
+  </xsd:schema>
+  <resheader name="resmimetype">
+    <value>text/microsoft-resx</value>
+  </resheader>
+  <resheader name="version">
+    <value>2.0</value>
+  </resheader>
+  <resheader name="reader">
+    <value>System.Resources.ResXResourceReader, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </resheader>
+  <resheader name="writer">
+    <value>System.Resources.ResXResourceWriter, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </resheader>
+  <data name="HomePage_ConfigNameHeader" xml:space="preserve">
+    <value>配置名称</value>
+  </data>
+  <data name="HomePage_ConfigNamePlaceholder" xml:space="preserve">
+    <value>输入名称</value>
+  </data>
+  <data name="HomePage_SelectIcon" xml:space="preserve">
+    <value>选择图标</value>
+  </data>
+  <data name="HomePage_NewConfigDialogTitle" xml:space="preserve">
+    <value>新建备份配置</value>
+  </data>
+  <data name="HomePage_CreateButton" xml:space="preserve">
+    <value>创建</value>
+  </data>
+  <data name="HomePage_CancelButton" xml:space="preserve">
+    <value>取消</value>
+  </data>
+  <data name="HomePage_NewConfigSummary" xml:space="preserve">
+    <value>新建 · 暂无数据</value>
+  </data>
+  <data name="FolderManager_NeverBackedUp" xml:space="preserve">
+    <value>从未备份</value>
+  </data>
+  <data name="ShellPage_Header.Header" xml:space="preserve">
+    <value>FolderRewind</value>
+  </data>
+  <data name="ShellPage_NavHome.Content" xml:space="preserve">
+    <value>主页</value>
+  </data>
+  <data name="ShellPage_NavManager.Content" xml:space="preserve">
+    <value>管理</value>
+  </data>
+  <data name="ShellPage_NavTasks.Content" xml:space="preserve">
+    <value>备份任务</value>
+  </data>
+  <data name="ShellPage_NavHistory.Content" xml:space="preserve">
+    <value>历史</value>
+  </data>
+  <data name="BackupTasksPage_Title.Text" xml:space="preserve">
+    <value>备份任务队列</value>
+  </data>
+  <data name="BackupTasksPage_EmptyState.Text" xml:space="preserve">
+    <value>当前没有正在进行的备份任务</value>
+  </data>
+  <data name="SettingsPage_Title.Text" xml:space="preserve">
+    <value>设置</value>
+  </data>
+  <data name="SettingsPage_CoreBehavior.Text" xml:space="preserve">
+    <value>核心行为</value>
+  </data>
+  <data name="SettingsPage_RunOnStartup.Text" xml:space="preserve">
+    <value>开机自动启动</value>
+  </data>
+  <data name="SettingsPage_RunOnStartupDesc.Text" xml:space="preserve">
+    <value>登录 Windows 时自动运行 FolderRewind</value>
+  </data>
+  <data name="SettingsPage_CheckUpdates.Text" xml:space="preserve">
+    <value>自动检查更新</value>
+  </data>
+  <data name="SettingsPage_CheckUpdatesDesc.Text" xml:space="preserve">
+    <value>启动时检查新版本</value>
+  </data>
+  <data name="SettingsPage_Environment.Text" xml:space="preserve">
+    <value>运行环境</value>
+  </data>
+  <data name="SettingsPage_7zPath.Text" xml:space="preserve">
+    <value>7-Zip 可执行文件路径</value>
+  </data>
+  <data name="SettingsPage_7zPathDesc.Text" xml:space="preserve">
+    <value>用于执行压缩的核心组件</value>
+  </data>
+  <data name="SettingsPage_BrowseButton.Content" xml:space="preserve">
+    <value>浏览...</value>
+  </data>
+  <data name="SettingsPage_Personalization.Text" xml:space="preserve">
+    <value>个性化</value>
+  </data>
+  <data name="SettingsPage_Language.Text" xml:space="preserve">
+    <value>语言</value>
+  </data>
+  <data name="SettingsPage_LanguageDesc.Text" xml:space="preserve">
+    <value>选择界面语言（需重启生效）</value>
+  </data>
+  <data name="SettingsPage_LanguageSystem.Content" xml:space="preserve">
+    <value>跟随系统</value>
+  </data>
+  <data name="SettingsPage_LanguageEnglish.Content" xml:space="preserve">
+    <value>English</value>
+  </data>
+  <data name="SettingsPage_LanguageChinese.Content" xml:space="preserve">
+    <value>简体中文</value>
+  </data>
+  <data name="SettingsPage_AppTheme.Text" xml:space="preserve">
+    <value>应用程序主题</value>
+  </data>
+  <data name="SettingsPage_AppThemeDesc.Text" xml:space="preserve">
+    <value>选择要显示的应用外观（需重启生效）</value>
+  </data>
+  <data name="SettingsPage_ThemeDark.Content" xml:space="preserve">
+    <value>深色</value>
+  </data>
+  <data name="SettingsPage_ThemeLight.Content" xml:space="preserve">
+    <value>浅色</value>
+  </data>
+  <data name="HomePage_FavoriteFolders.Text" xml:space="preserve">
+    <value>收藏的文件夹</value>
+  </data>
+  <data name="HomePage_QuickBackupButton.ToolTipService.ToolTip" xml:space="preserve">
+    <value>立即备份</value>
+  </data>
+  <data name="HomePage_NoFavoriteFolders.Text" xml:space="preserve">
+    <value>暂无收藏的文件夹</value>
+  </data>
+  <data name="HomePage_ConfigOverview.Text" xml:space="preserve">
+    <value>配置概览</value>
+  </data>
+  <data name="HomePage_NewConfig.Text" xml:space="preserve">
+    <value>新建配置</value>
+  </data>
+  <data name="HistoryPage_Title.Text" xml:space="preserve">
+    <value>备份历史与恢复</value>
+  </data>
+  <data name="HistoryPage_ConfigFilter.Header" xml:space="preserve">
+    <value>所属配置</value>
+  </data>
+  <data name="HistoryPage_FolderFilter.Header" xml:space="preserve">
+    <value>文件夹</value>
+  </data>
+  <data name="HistoryPage_FolderFilter.PlaceholderText" xml:space="preserve">
+    <value>请先选择配置</value>
+  </data>
+  <data name="HistoryPage_RestoreButton.Content" xml:space="preserve">
+    <value>恢复</value>
+  </data>
+  <data name="HistoryPage_EmptyState.Text" xml:space="preserve">
+    <value>请选择文件夹以查看历史</value>
+  </data>
+  <data name="FolderManager_CurrentConfig.Text" xml:space="preserve">
+    <value>当前配置:</value>
+  </data>
+  <data name="FolderManager_ConfigSettingsButton.ToolTipService.ToolTip" xml:space="preserve">
+    <value>配置设置</value>
+  </data>
+  <data name="FolderManager_ViewLogButton.ToolTipService.ToolTip" xml:space="preserve">
+    <value>查看日志</value>
+  </data>
+  <data name="FolderManager_AddFolder.Text" xml:space="preserve">
+    <value>添加文件夹</value>
+  </data>
+  <data name="FolderManager_AddSingleFolder.Text" xml:space="preserve">
+    <value>选择单个文件夹</value>
+  </data>
+  <data name="FolderManager_AddSubFolders.Text" xml:space="preserve">
+    <value>批量导入子文件夹</value>
+  </data>
+  <data name="FolderManager_BackupAll.Text" xml:space="preserve">
+    <value>一键备份所有</value>
+  </data>
+  <data name="FolderManager_SelectedAction.Text" xml:space="preserve">
+    <value>选中项操作：</value>
+  </data>
+  <data name="FolderManager_BackupComment.Text" xml:space="preserve">
+    <value>本次备份注释:</value>
+  </data>
+  <data name="FolderManager_CommentPlaceholder.PlaceholderText" xml:space="preserve">
+    <value>例如: 修复了一处bug (选填)</value>
+  </data>
+  <data name="FolderManager_BackupSelected.Text" xml:space="preserve">
+    <value>备份此文件夹</value>
+  </data>
+  <data name="FolderManager_History.Text" xml:space="preserve">
+    <value>历史版本</value>
+  </data>
+  <data name="FolderManager_ChangeCover.ToolTipService.ToolTip" xml:space="preserve">
+    <value>点击更换封面</value>
+  </data>
+  <data name="FolderManager_FavoriteToggle.ToolTipService.ToolTip" xml:space="preserve">
+    <value>收藏/取消收藏</value>
+  </data>
+  <data name="FolderManager_AddDescription.PlaceholderText" xml:space="preserve">
+    <value>添加描述...</value>
+  </data>
+  <data name="FolderManager_OpenFolder.Text" xml:space="preserve">
+    <value>浏览文件夹</value>
+  </data>
+  <data name="FolderManager_Rescan.Text" xml:space="preserve">
+    <value>强制重新扫描</value>
+  </data>
+  <data name="FolderManager_RemoveFolder.Text" xml:space="preserve">
+    <value>从配置中移除</value>
+  </data>
+  <data name="ConfigurationPage_BackToOverview.Text" xml:space="preserve">
+    <value>返回概览</value>
+  </data>
+  <data name="ConfigurationPage_AddFolder.Text" xml:space="preserve">
+    <value>添加文件夹</value>
+  </data>
+  <data name="ConfigurationPage_AddSingleFolder.Text" xml:space="preserve">
+    <value>选择单个文件夹</value>
+  </data>
+  <data name="ConfigurationPage_BatchImport.Text" xml:space="preserve">
+    <value>批量导入</value>
+  </data>
+  <data name="ConfigurationPage_BackupAll.Text" xml:space="preserve">
+    <value>备份全部</value>
+  </data>
+  <data name="ConfigurationPage_ConfigSettings.Text" xml:space="preserve">
+    <value>配置设置</value>
+  </data>
+  <data name="ConfigurationPage_HeaderIcon.Text" xml:space="preserve">
+    <value>图标</value>
+  </data>
+  <data name="ConfigurationPage_HeaderNamePath.Text" xml:space="preserve">
+    <value>名称 / 路径</value>
+  </data>
+  <data name="ConfigurationPage_HeaderStatus.Text" xml:space="preserve">
+    <value>状态</value>
+  </data>
+  <data name="ConfigurationPage_HeaderActions.Text" xml:space="preserve">
+    <value>操作</value>
+  </data>
+  <data name="ConfigurationPage_BackupNow.Text" xml:space="preserve">
+    <value>立即备份</value>
+  </data>
+  <data name="ConfigurationPage_Remove.Text" xml:space="preserve">
+    <value>移除</value>
+  </data>
+  <data name="ConfigurationPage_BatchBackup.Content" xml:space="preserve">
+    <value>批量备份</value>
+  </data>
+  <data name="ConfigurationPage_BatchDelete.Content" xml:space="preserve">
+    <value>批量删除</value>
+  </data>
+  <data name="ConfigSettingsDialog.Title" xml:space="preserve">
+    <value>配置详情设置</value>
+  </data>
+  <data name="ConfigSettingsDialog.PrimaryButtonText" xml:space="preserve">
+    <value>保存</value>
+  </data>
+  <data name="ConfigSettingsDialog.CloseButtonText" xml:space="preserve">
+    <value>取消</value>
+  </data>
+  <data name="ConfigSettingsDialog_General.Header" xml:space="preserve">
+    <value>常规</value>
+  </data>
+  <data name="ConfigSettingsDialog_ConfigName.Header" xml:space="preserve">
+    <value>配置名称</value>
+  </data>
+  <data name="ConfigSettingsDialog_DestPath.Text" xml:space="preserve">
+    <value>备份存储位置 (目标路径)</value>
+  </data>
+  <data name="ConfigSettingsDialog_DestPathPlaceholder.PlaceholderText" xml:space="preserve">
+    <value>例如 D:\Backups</value>
+  </data>
+  <data name="ConfigSettingsDialog_BrowseButton.ToolTipService.ToolTip" xml:space="preserve">
+    <value>浏览文件夹</value>
+  </data>
+  <data name="ConfigSettingsDialog_DestPathDesc.Text" xml:space="preserve">
+    <value>生成的备份文件将存放在此文件夹中</value>
+  </data>
+  <data name="ConfigSettingsDialog_Icon.Text" xml:space="preserve">
+    <value>界面图标</value>
+  </data>
+  <data name="ConfigSettingsDialog_Compression.Header" xml:space="preserve">
+    <value>压缩与策略</value>
+  </data>
+  <data name="ConfigSettingsDialog_BackupMode.Header" xml:space="preserve">
+    <value>备份模式</value>
+  </data>
+  <data name="ConfigSettingsDialog_ModeFull.Content" xml:space="preserve">
+    <value>全量备份 (每次生成新文件)</value>
+  </data>
+  <data name="ConfigSettingsDialog_ModeIncremental.Content" xml:space="preserve">
+    <value>智能增量 (仅备份变更文件)</value>
+  </data>
+  <data name="ConfigSettingsDialog_ModeOverwrite.Content" xml:space="preserve">
+    <value>覆写备份 (更新最近的备份)</value>
+  </data>
+  <data name="ConfigSettingsDialog_Format.Header" xml:space="preserve">
+    <value>压缩格式</value>
+  </data>
+  <data name="ConfigSettingsDialog_Format7z.Content" xml:space="preserve">
+    <value>7z (推荐)</value>
+  </data>
+  <data name="ConfigSettingsDialog_FormatZip.Content" xml:space="preserve">
+    <value>zip (通用)</value>
+  </data>
+  <data name="ConfigSettingsDialog_CompressionLevel.Text" xml:space="preserve">
+    <value>压缩等级 (0-9)</value>
+  </data>
+  <data name="ConfigSettingsDialog_KeepCount.Header" xml:space="preserve">
+    <value>保留最近备份数 (0 为无限)</value>
+  </data>
+  <data name="ConfigSettingsDialog_Automation.Header" xml:space="preserve">
+    <value>自动化</value>
+  </data>
+  <data name="ConfigSettingsDialog_AutoBackup.Header" xml:space="preserve">
+    <value>启用自动备份</value>
+  </data>
+  <data name="ConfigSettingsDialog_RunOnAppStart.Content" xml:space="preserve">
+    <value>程序启动时运行</value>
+  </data>
+  <data name="ConfigSettingsDialog_ScheduledMode.Content" xml:space="preserve">
+    <value>每日定时运行</value>
+  </data>
+  <data name="ConfigSettingsDialog_ScheduledTime.Text" xml:space="preserve">
+    <value>执行时间:</value>
+  </data>
+  <data name="ConfigSettingsDialog_ScheduledTimeSuffix.Text" xml:space="preserve">
+    <value>点 (24小时制)</value>
+  </data>
+  <data name="ConfigSettingsDialog_Filter.Header" xml:space="preserve">
+    <value>过滤</value>
+  </data>
+  <data name="ConfigSettingsDialog_Blacklist.Text" xml:space="preserve">
+    <value>黑名单 (排除的文件/文件夹)</value>
+  </data>
+  <data name="ConfigSettingsDialog_BlacklistPlaceholder.PlaceholderText" xml:space="preserve">
+    <value>输入文件名或路径...</value>
+  </data>
+  <data name="ConfigSettingsDialog_AddBlacklist.Content" xml:space="preserve">
+    <value>添加</value>
+  </data>
+  <data name="LogWindow.Title" xml:space="preserve">
+    <value>FolderRewind 控制台日志</value>
+  </data>
+  <data name="LogWindow_ClearLog.Content" xml:space="preserve">
+    <value>清空日志</value>
+  </data>
+  <data name="LogWindow_AutoScroll.Content" xml:space="preserve">
+    <value>自动滚动</value>
+  </data>
+</root>

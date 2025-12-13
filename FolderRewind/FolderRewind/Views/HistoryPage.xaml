@@ -12,7 +12,7 @@
             <RowDefinition Height="*"/>
         </Grid.RowDefinitions>
 
-        <TextBlock Text="备份历史与恢复" Style="{ThemeResource TitleTextBlockStyle}" Margin="0,0,0,24"/>
+        <TextBlock x:Uid="HistoryPage_Title" Style="{ThemeResource TitleTextBlockStyle}" Margin="0,0,0,24"/>
 
         <!-- 筛选区 -->
         <Grid Grid.Row="1" Margin="0,0,0,24" ColumnSpacing="16">
@@ -21,15 +21,15 @@
                 <ColumnDefinition Width="200"/>
             </Grid.ColumnDefinitions>
 
-            <ComboBox x:Name="ConfigFilter" Header="所属配置" 
+            <!-- 移除了 ItemsSource绑定，改为代码设置 -->
+            <ComboBox x:Name="ConfigFilter" x:Uid="HistoryPage_ConfigFilter" 
                       HorizontalAlignment="Stretch"
                       DisplayMemberPath="Name"
                       SelectionChanged="ConfigFilter_SelectionChanged"/>
 
-            <ComboBox x:Name="FolderFilter" Grid.Column="1" Header="文件夹" 
+            <ComboBox x:Name="FolderFilter" Grid.Column="1" x:Uid="HistoryPage_FolderFilter" 
                       HorizontalAlignment="Stretch"
                       DisplayMemberPath="DisplayName"
-                      PlaceholderText="请先选择配置"
                       SelectionChanged="FolderFilter_SelectionChanged"/>
         </Grid>
 
@@ -45,8 +45,8 @@
                             <ColumnDefinition Width="*"/>
                         </Grid.ColumnDefinitions>
                         <StackPanel VerticalAlignment="Center" HorizontalAlignment="Right" Margin="0,0,16,0">
-                            <TextBlock Text="{x:Bind Time}" FontWeight="Bold" HorizontalAlignment="Right"/>
-                            <TextBlock Text="{x:Bind Date}" FontSize="12" Foreground="Gray" HorizontalAlignment="Right"/>
+                            <TextBlock Text="{x:Bind TimeDisplay}" FontWeight="Bold" HorizontalAlignment="Right"/>
+                            <TextBlock Text="{x:Bind DateDisplay}" FontSize="12" Foreground="Gray" HorizontalAlignment="Right"/>
                         </StackPanel>
                         <Grid Grid.Column="1">
                             <Rectangle Width="2" Fill="{ThemeResource SystemControlForegroundBaseLowBrush}" VerticalAlignment="Stretch" HorizontalAlignment="Center"/>
@@ -60,9 +60,9 @@
                                 </Grid.ColumnDefinitions>
                                 <StackPanel>
                                     <TextBlock Text="{x:Bind Message}" FontWeight="SemiBold"/>
-                                    <TextBlock Text="{x:Bind CommitId}" FontSize="11" Opacity="0.5" FontFamily="Consolas"/>
+                                    <!--TextBlock Text="{x:Bind CommitId}" FontSize="11" Opacity="0.5" FontFamily="Consolas"/-->
                                 </StackPanel>
-                                <Button Grid.Column="1" Content="恢复此版本" FontSize="12"/>
+                                <Button Grid.Column="1" x:Uid="HistoryPage_RestoreButton" FontSize="12" Click="OnRestoreClick"/>
                             </Grid>
                         </Border>
                     </Grid>
@@ -74,7 +74,7 @@
         <StackPanel Grid.Row="2" VerticalAlignment="Center" HorizontalAlignment="Center" 
                     Visibility="{x:Bind IsEmpty, Mode=OneWay, Converter={StaticResource BoolToVisConverter}}">
             <FontIcon Glyph="&#xE7BA;" FontSize="48" Opacity="0.3"/>
-            <TextBlock Text="请选择文件夹以查看历史" Margin="0,16,0,0" Opacity="0.5"/>
+            <TextBlock x:Uid="HistoryPage_EmptyState" Margin="0,16,0,0" Opacity="0.5"/>
         </StackPanel>
     </Grid>
 </Page>

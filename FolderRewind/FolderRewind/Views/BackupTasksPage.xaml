@@ -12,50 +12,50 @@
         </Grid.RowDefinitions>
 
         <StackPanel Spacing="4" Margin="0,0,0,24">
-            <TextBlock Text="备份任务队列" Style="{ThemeResource TitleTextBlockStyle}"/>
-            <TextBlock Text="正在处理 2 个任务，等待 1 个" Foreground="{ThemeResource TextFillColorSecondaryBrush}"/>
+            <TextBlock x:Uid="BackupTasksPage_Title" Style="{ThemeResource TitleTextBlockStyle}"/>
+            <TextBlock Text="{x:Bind ViewModel.Count, Mode=OneWay, Converter={StaticResource CountToStringConverter}}" 
+                       Foreground="{ThemeResource TextFillColorSecondaryBrush}"/>
         </StackPanel>
 
-        <ListView Grid.Row="1" SelectionMode="None">
+        <!-- 绑定到 Service 的静态列表 -->
+        <ListView Grid.Row="1" SelectionMode="None" ItemsSource="{x:Bind ViewModel}">
             <ListView.ItemTemplate>
                 <DataTemplate x:DataType="models:BackupTask">
-                    <Grid Margin="0,0,0,16">
-                        <Grid.ColumnDefinitions>
-                            <ColumnDefinition Width="*"/>
-                            <ColumnDefinition Width="Auto"/>
-                        </Grid.ColumnDefinitions>
+                    <Grid Margin="0,0,0,16" Padding="12" Background="{ThemeResource LayerFillColorDefaultBrush}" CornerRadius="4">
                         <Grid.RowDefinitions>
                             <RowDefinition Height="Auto"/>
                             <RowDefinition Height="Auto"/>
                         </Grid.RowDefinitions>
 
-                        <!-- 标题与状态 -->
-                        <StackPanel Orientation="Horizontal" Spacing="12">
-                            <TextBlock Text="{x:Bind FolderName}" FontWeight="Bold"/>
-                            <TextBlock Text="-" Foreground="Gray"/>
-                            <TextBlock Text="{x:Bind Status}" Foreground="{ThemeResource SystemControlForegroundAccentBrush}"/>
-                            <TextBlock Text="{x:Bind Speed}" Foreground="Gray" FontSize="12" VerticalAlignment="Center"/>
-                        </StackPanel>
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="Auto"/>
+                            </Grid.ColumnDefinitions>
 
-                        <!-- 控制按钮 -->
-                        <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="8">
-                            <Button Padding="6" CornerRadius="16" ToolTipService.ToolTip="暂停">
-                                <FontIcon Glyph="&#xE769;" FontSize="12"/>
-                            </Button>
-                            <Button Padding="6" CornerRadius="16" ToolTipService.ToolTip="取消">
+                            <StackPanel Orientation="Horizontal" Spacing="12">
+                                <TextBlock Text="{x:Bind FolderName}" FontWeight="Bold"/>
+                                <TextBlock Text="-" Foreground="Gray"/>
+                                <TextBlock Text="{x:Bind Status}" Foreground="{ThemeResource SystemControlForegroundAccentBrush}"/>
+                            </StackPanel>
+
+                            <!-- 只有未完成时显示取消按钮 -->
+                            <Button Grid.Column="1" Padding="6" CornerRadius="16" Visibility="{x:Bind IsCompleted, Converter={StaticResource BoolToVisInvertConverter}}">
                                 <FontIcon Glyph="&#xE711;" FontSize="12"/>
                             </Button>
-                        </StackPanel>
+                        </Grid>
 
-                        <!-- 进度条 -->
-                        <ProgressBar Grid.Row="1" Grid.ColumnSpan="2" Value="{x:Bind Progress}" Maximum="100" Margin="0,8,0,0" Height="4"/>
+                        <ProgressBar Grid.Row="1" Value="{x:Bind Progress, Mode=OneWay}" Maximum="100" Margin="0,8,0,0" Height="4"/>
                     </Grid>
                 </DataTemplate>
             </ListView.ItemTemplate>
-
-            <!-- 模拟数据 -->
-            <models:BackupTask FolderName="Work_Project_V2" Progress="45" Status="正在上传..." Speed="12.5 MB/s"/>
-            <models:BackupTask FolderName="Photos_2024" Progress="0" Status="等待中" Speed=""/>
         </ListView>
+
+        <!-- 空状态提示：当没有任务时显示 -->
+        <StackPanel Grid.Row="1" VerticalAlignment="Center" HorizontalAlignment="Center" 
+                    Visibility="{x:Bind IsEmpty, Mode=OneWay, Converter={StaticResource BoolToVisConverter}}">
+            <FontIcon Glyph="&#xE8FB;" FontSize="48" Opacity="0.3"/>
+            <TextBlock x:Uid="BackupTasksPage_EmptyState" Margin="0,16,0,0" Opacity="0.6"/>
+        </StackPanel>
     </Grid>
 </Page>

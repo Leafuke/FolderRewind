@@ -3,61 +3,55 @@ using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using System;
 using System.Collections.ObjectModel;
+using System.Collections.Specialized;
+using System.ComponentModel;
 
 namespace FolderRewind.Views
 {
-    public sealed partial class BackupTasksPage : Page
+    public sealed partial class BackupTasksPage : Page, INotifyPropertyChanged
     {
-        public ObservableCollection<BackupTask> Tasks { get; set; } = new();
-        private DispatcherTimer _timer;
+        public event PropertyChangedEventHandler PropertyChanged;
+
+        public ObservableCollection<BackupTask> ViewModel => Services.BackupService.ActiveTasks;
+
+        private bool _isEmpty = true;
+        public bool IsEmpty
+        {
+            get => _isEmpty;
+            private set
+            {
+                if (_isEmpty == value) return;
+                _isEmpty = value;
+                PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(IsEmpty)));
+            }
+        }
 
         public BackupTasksPage()
         {
             this.InitializeComponent();
-            LoadMockTasks();
-            StartSimulation();
-        }
 
-        private void LoadMockTasks()
-        {
-            Tasks.Add(new BackupTask { FolderName = "Work_Project_V2", Progress = 45, Status = "æ­£åœ¨ä¸Šä¼ ...", Speed = "12.5 MB/s", IsPaused = false });
-            Tasks.Add(new BackupTask { FolderName = "Photos_2024", Progress = 0, Status = "ç­‰å¾…ä¸­", Speed = "-", IsPaused = false });
-        }
-
-        // æ¨¡æ‹Ÿè¿›åº¦æ›´æ–°
-        private void StartSimulation()
-        {
-            _timer = new DispatcherTimer();
-            _timer.Interval = TimeSpan.FromMilliseconds(500);
-            _timer.Tick += (s, e) =>
+            // ¶©ÔÄ¼¯ºÏ±ä»¯ÒÔ¸üÐÂ IsEmpty
+            if (ViewModel != null)
             {
-                foreach (var task in Tasks)
-                {
-                    if (!task.IsPaused && task.Progress < 100)
-                    {
-                        task.Progress += 2;
-                        if (task.Progress >= 100)
-                        {
-                            task.Progress = 100;
-                            task.Status = "å®Œæˆ";
-                            task.Speed = "";
-                        }
-                    }
-                }
-            };
-            _timer.Start();
-        }
-
-        // æš‚åœ/ç»§ç»­æŒ‰é’®ç‚¹å‡»
-        private void OnTaskControlClick(object sender, RoutedEventArgs e)
-        {
-            if ((sender as Button)?.DataContext is BackupTask task)
-            {
-                task.IsPaused = !task.IsPaused;
-                task.Status = task.IsPaused ? "å·²æš‚åœ" : "æ­£åœ¨ä¸Šä¼ ...";
-                task.Speed = task.IsPaused ? "0 KB/s" : "10.2 MB/s";
-                // è§¦å‘ PropertyChanged (éœ€åœ¨ Model ä¸­å®žçŽ°)
+                ViewModel.CollectionChanged += OnTasksChanged;
+                IsEmpty = ViewModel.Count == 0;
             }
+
+            // ÔÚÒ³ÃæÐ¶ÔØÊ±È¡Ïû¶©ÔÄ£¬·ÀÖ¹ÄÚ´æÐ¹Â©
+            this.Unloaded += (_, __) =>
+            {
+                if (ViewModel != null)
+                    ViewModel.CollectionChanged -= OnTasksChanged;
+            };
+        }
+
+        private void OnTasksChanged(object? sender, NotifyCollectionChangedEventArgs e)
+        {
+            // Ö±½Ó¶ÁÈ¡¼¯ºÏ³¤¶È²¢¸üÐÂÊôÐÔ£¨ÔÚ UI Ïß³Ì£©
+            _ = DispatcherQueue.TryEnqueue(() =>
+            {
+                IsEmpty = ViewModel == null || ViewModel.Count == 0;
+            });
         }
     }
 }

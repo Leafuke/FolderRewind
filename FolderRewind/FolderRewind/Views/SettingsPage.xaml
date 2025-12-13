@@ -2,68 +2,60 @@
 <Page
     x:Class="FolderRewind.Views.SettingsPage"
     xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
-    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+    xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    xmlns:models="using:FolderRewind.Models"
+    mc:Ignorable="d">
 
     <ScrollViewer Padding="36,24">
-        <StackPanel Spacing="24" MaxWidth="1000" HorizontalAlignment="Stretch">
+        <StackPanel Spacing="24" HorizontalAlignment="Stretch">
 
-            <TextBlock Text="设置" Style="{ThemeResource TitleTextBlockStyle}" Margin="0,0,0,12"/>
+            <TextBlock x:Uid="SettingsPage_Title" Style="{ThemeResource TitleTextBlockStyle}" Margin="0,0,0,12"/>
 
-            <!-- 1. 备份引擎 (仿照“播放器”部分) -->
+            <!-- 1. 核心行为 -->
             <StackPanel Spacing="8">
-                <TextBlock Text="备份引擎" Style="{ThemeResource SubtitleTextBlockStyle}"/>
+                <TextBlock x:Uid="SettingsPage_CoreBehavior" Style="{ThemeResource SubtitleTextBlockStyle}"/>
 
-                <!-- 折叠的高级设置 -->
-                <Expander HorizontalAlignment="Stretch" IsExpanded="True">
-                    <Expander.Header>
-                        <Grid ColumnSpacing="16">
+                <Border Background="{ThemeResource CardBackgroundFillColorDefaultBrush}" 
+                        BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}" BorderThickness="1" CornerRadius="4" Padding="16">
+                    <StackPanel Spacing="20">
+                        <!-- 开机自启 -->
+                        <Grid>
                             <Grid.ColumnDefinitions>
-                                <ColumnDefinition Width="Auto"/>
                                 <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="Auto"/>
                             </Grid.ColumnDefinitions>
-                            <FontIcon Glyph="&#xE946;" FontSize="20"/>
-                            <!-- Engine Icon -->
-                            <StackPanel Grid.Column="1">
-                                <TextBlock Text="核心行为控制" FontWeight="SemiBold"/>
-                                <TextBlock Text="包含压缩、去重以及资源占用的设置" FontSize="12" Opacity="0.6"/>
+                            <StackPanel>
+                                <TextBlock x:Uid="SettingsPage_RunOnStartup"/>
+                                <TextBlock x:Uid="SettingsPage_RunOnStartupDesc" FontSize="12" Opacity="0.6"/>
                             </StackPanel>
+                            <!-- 添加 Toggled 事件 -->
+                            <ToggleSwitch Grid.Column="1" IsOn="{x:Bind Settings.RunOnStartup, Mode=TwoWay}" Toggled="OnRunOnStartupToggled"/>
                         </Grid>
-                    </Expander.Header>
-                    <Expander.Content>
-                        <StackPanel Spacing="0">
-                            <!-- 设置项 1 -->
-                            <Grid Padding="0,8">
-                                <Grid.ColumnDefinitions>
-                                    <ColumnDefinition Width="*"/>
-                                    <ColumnDefinition Width="Auto"/>
-                                </Grid.ColumnDefinitions>
-                                <StackPanel>
-                                    <TextBlock Text="启用重复文件检测"/>
-                                    <TextBlock Text="备份时自动跳过哈希值相同的文件" FontSize="12" Opacity="0.6"/>
-                                </StackPanel>
-                                <ToggleSwitch Grid.Column="1" IsOn="True" Margin="0,-4,0,-4"/>
-                            </Grid>
-                            <Border Height="1" Background="{ThemeResource SurfaceStrokeColorDefaultBrush}" Margin="0,4"/>
-                            <!-- 设置项 2 -->
-                            <Grid Padding="0,8">
-                                <Grid.ColumnDefinitions>
-                                    <ColumnDefinition Width="*"/>
-                                    <ColumnDefinition Width="Auto"/>
-                                </Grid.ColumnDefinitions>
-                                <StackPanel>
-                                    <TextBlock Text="压缩算法"/>
-                                </StackPanel>
-                                <ComboBox Grid.Column="1" SelectedIndex="1" Width="140">
-                                    <ComboBoxItem Content="无 (存储优先)"/>
-                                    <ComboBoxItem Content="Zstd (平衡)"/>
-                                    <ComboBoxItem Content="LZMA (体积优先)"/>
-                                </ComboBox>
-                            </Grid>
-                        </StackPanel>
-                    </Expander.Content>
-                </Expander>
 
-                <!-- 简单的卡片设置 -->
+                        <MenuFlyoutSeparator/>
+
+                        <!-- 检查更新 -->
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="Auto"/>
+                            </Grid.ColumnDefinitions>
+                            <StackPanel>
+                                <TextBlock x:Uid="SettingsPage_CheckUpdates"/>
+                                <TextBlock x:Uid="SettingsPage_CheckUpdatesDesc" FontSize="12" Opacity="0.6"/>
+                            </StackPanel>
+                            <!-- 添加 Toggled 事件 -->
+                            <ToggleSwitch Grid.Column="1" IsOn="{x:Bind Settings.CheckForUpdates, Mode=TwoWay}" Toggled="OnSettingChanged"/>
+                        </Grid>
+                    </StackPanel>
+                </Border>
+            </StackPanel>
+
+            <!-- 2. 运行环境 (7-Zip) -->
+            <StackPanel Spacing="8">
+                <TextBlock x:Uid="SettingsPage_Environment" Style="{ThemeResource SubtitleTextBlockStyle}"/>
                 <Border Background="{ThemeResource CardBackgroundFillColorDefaultBrush}" 
                         BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}" BorderThickness="1" CornerRadius="4" Padding="16">
                     <Grid>
@@ -71,77 +63,75 @@
                             <ColumnDefinition Width="*"/>
                             <ColumnDefinition Width="Auto"/>
                         </Grid.ColumnDefinitions>
-                        <StackPanel>
-                            <TextBlock Text="后台静默模式"/>
-                            <TextBlock Text="关闭主窗口时最小化到托盘而不是退出" FontSize="12" Opacity="0.6"/>
+                        <StackPanel Spacing="4">
+                            <TextBlock x:Uid="SettingsPage_7zPath"/>
+                            <TextBox Text="{x:Bind Settings.SevenZipPath, Mode=TwoWay}" Width="300" HorizontalAlignment="Left" IsReadOnly="True"/>
+                            <TextBlock x:Uid="SettingsPage_7zPathDesc" FontSize="12" Opacity="0.6"/>
                         </StackPanel>
-                        <ToggleSwitch Grid.Column="1" IsOn="True" OnContent="开" OffContent="关"/>
+                        <Button x:Uid="SettingsPage_BrowseButton" Grid.Column="1" VerticalAlignment="Top" Click="OnBrowse7zClick"/>
                     </Grid>
                 </Border>
             </StackPanel>
 
-            <!-- 2. 存储 (仿照“下载设置”) -->
+            <!-- 3. 外观 -->
             <StackPanel Spacing="8">
-                <TextBlock Text="存储与路径" Style="{ThemeResource SubtitleTextBlockStyle}"/>
-
-                <Expander HorizontalAlignment="Stretch" IsExpanded="False">
-                    <Expander.Header>
-                        <Grid ColumnSpacing="16">
-                            <Grid.ColumnDefinitions>
-                                <ColumnDefinition Width="Auto"/>
-                                <ColumnDefinition Width="*"/>
-                            </Grid.ColumnDefinitions>
-                            <FontIcon Glyph="&#xE8B7;" FontSize="20"/>
-                            <StackPanel Grid.Column="1">
-                                <TextBlock Text="WebDAV 设置 [预览]" FontWeight="SemiBold"/>
-                                <TextBlock Text="使用远程云存储作为备份目标" FontSize="12" Opacity="0.6"/>
-                            </StackPanel>
-                        </Grid>
-                    </Expander.Header>
-                    <Expander.Content>
-                        <StackPanel Spacing="12" Padding="0,8">
-                            <TextBox Header="服务器地址" PlaceholderText="https://dav.example.com"/>
-                            <TextBox Header="用户名"/>
-                            <PasswordBox Header="密码"/>
-                            <Button Content="测试连接"/>
-                        </StackPanel>
-                    </Expander.Content>
-                </Expander>
-            </StackPanel>
-
-            <!-- 3. 通用 (仿照“通用”) -->
-            <StackPanel Spacing="8">
-                <TextBlock Text="通用" Style="{ThemeResource SubtitleTextBlockStyle}"/>
-
+                <TextBlock x:Uid="SettingsPage_Personalization" Style="{ThemeResource SubtitleTextBlockStyle}"/>
                 <Border Background="{ThemeResource CardBackgroundFillColorDefaultBrush}" 
                         BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}" BorderThickness="1" CornerRadius="4" Padding="16">
-                    <Grid>
-                        <Grid.ColumnDefinitions>
-                            <ColumnDefinition Width="*"/>
-                            <ColumnDefinition Width="Auto"/>
-                        </Grid.ColumnDefinitions>
-                        <StackPanel VerticalAlignment="Center">
-                            <Grid ColumnSpacing="12">
-                                <Grid.ColumnDefinitions>
-                                    <ColumnDefinition Width="Auto"/>
-                                    <ColumnDefinition Width="*"/>
-                                </Grid.ColumnDefinitions>
-                                <FontIcon Glyph="&#xE790;" FontSize="18"/>
-                                <StackPanel Grid.Column="1">
-                                    <TextBlock Text="应用程序主题"/>
-                                    <TextBlock Text="选择要显示的应用外观" FontSize="12" Opacity="0.6"/>
-                                </StackPanel>
-                            </Grid>
-                        </StackPanel>
-                        <ComboBox Grid.Column="1" SelectedIndex="0" MinWidth="140">
-                            <ComboBoxItem Content="使用系统设置"/>
-                            <ComboBoxItem Content="浅色"/>
-                            <ComboBoxItem Content="深色"/>
-                        </ComboBox>
-                    </Grid>
+                    <StackPanel Spacing="20">
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="Auto"/>
+                            </Grid.ColumnDefinitions>
+                            <StackPanel VerticalAlignment="Center">
+                                <Grid ColumnSpacing="12">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="Auto"/>
+                                        <ColumnDefinition Width="*"/>
+                                    </Grid.ColumnDefinitions>
+                                    <FontIcon Glyph="&#xE775;" FontSize="18"/>
+                                    <StackPanel Grid.Column="1">
+                                        <TextBlock x:Uid="SettingsPage_Language"/>
+                                        <TextBlock x:Uid="SettingsPage_LanguageDesc" FontSize="12" Opacity="0.6"/>
+                                    </StackPanel>
+                                </Grid>
+                            </StackPanel>
+                            <ComboBox x:Name="LanguageCombo" Grid.Column="1" MinWidth="180" SelectionChanged="OnLanguageChanged">
+                                <ComboBoxItem x:Uid="SettingsPage_LanguageSystem"/>
+                                <ComboBoxItem x:Uid="SettingsPage_LanguageEnglish"/>
+                                <ComboBoxItem x:Uid="SettingsPage_LanguageChinese"/>
+                            </ComboBox>
+                        </Grid>
+
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="Auto"/>
+                            </Grid.ColumnDefinitions>
+                            <StackPanel VerticalAlignment="Center">
+                                <Grid ColumnSpacing="12">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="Auto"/>
+                                        <ColumnDefinition Width="*"/>
+                                    </Grid.ColumnDefinitions>
+                                    <FontIcon Glyph="&#xE790;" FontSize="18"/>
+                                    <StackPanel Grid.Column="1">
+                                        <TextBlock x:Uid="SettingsPage_AppTheme"/>
+                                        <TextBlock x:Uid="SettingsPage_AppThemeDesc" FontSize="12" Opacity="0.6"/>
+                                    </StackPanel>
+                                </Grid>
+                            </StackPanel>
+                            <!-- 添加 SelectionChanged 事件 -->
+                            <ComboBox Grid.Column="1" SelectedIndex="{x:Bind Settings.ThemeIndex, Mode=TwoWay}" MinWidth="140" SelectionChanged="OnThemeChanged">
+                                <ComboBoxItem x:Uid="SettingsPage_ThemeDark"/>
+                                <ComboBoxItem x:Uid="SettingsPage_ThemeLight"/>
+                            </ComboBox>
+                        </Grid>
+                    </StackPanel>
                 </Border>
             </StackPanel>
 
         </StackPanel>
     </ScrollViewer>
-    </Page>
+</Page>

@@ -4,34 +4,29 @@ using System.Linq;
 
 namespace FolderRewind.Services
 {
+    // 这个类现在只是为了兼容现有代码，实际上直接透传 ConfigService 的数据
     public static class MockDataService
     {
-        // 全局唯一的配置列表
-        public static ObservableCollection<BackupConfig> AllConfigs { get; } = new();
+        public static ObservableCollection<BackupConfig> AllConfigs => ConfigService.CurrentConfig.BackupConfigs;
 
-        // 获取所有被收藏的文件夹（跨配置聚合）
-        public static ObservableCollection<ManagedFolder> GetFavorites()
-        {
-            var favorites = new ObservableCollection<ManagedFolder>();
-            foreach (var config in AllConfigs)
-            {
-                foreach (var folder in config.Folders)
-                {
-                    if (folder.IsFavorite) favorites.Add(folder);
-                }
-            }
-            return favorites;
-        }
-
-        // 初始化一些测试数据（可选，为了防止一片空白）
         public static void Initialize()
         {
-            if (AllConfigs.Count > 0) return;
+            ConfigService.Initialize();
+        }
 
-            var c1 = new BackupConfig { Name = "工作项目", SummaryText = "默认配置", IconGlyph = "\uE82D" };
-            c1.Folders.Add(new ManagedFolder { DisplayName = "演示文件夹 A", FullPath = @"C:\Demo\A", IsFavorite = true });
-
-            AllConfigs.Add(c1);
+        // 获取所有配置下的所有文件夹，用于“收藏的文件夹”展示
+        // 这里暂时简单的返回前几个文件夹作为示例
+        public static ObservableCollection<ManagedFolder> GetFavorites()
+        {
+            var favs = new ObservableCollection<ManagedFolder>();
+            if (AllConfigs.Count > 0)
+            {
+                foreach (var folder in AllConfigs[0].SourceFolders)
+                {
+                    favs.Add(folder);
+                }
+            }
+            return favs;
         }
     }
 }

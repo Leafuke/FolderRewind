@@ -21,7 +21,7 @@
             <Button Click="OnBackClick" Background="Transparent" BorderThickness="0" Padding="4">
                 <StackPanel Orientation="Horizontal" Spacing="4">
                     <FontIcon Glyph="&#xE72B;" FontSize="12"/>
-                    <TextBlock Text="返回概览" />
+                    <TextBlock x:Uid="ConfigurationPage_BackToOverview" />
                 </StackPanel>
             </Button>
             <TextBlock Text="/" VerticalAlignment="Center" Opacity="0.5"/>
@@ -39,16 +39,16 @@
                 <Button>
                     <StackPanel Orientation="Horizontal" Spacing="8">
                         <FontIcon Glyph="&#xE710;"/>
-                        <TextBlock Text="添加文件夹"/>
+                        <TextBlock x:Uid="ConfigurationPage_AddFolder"/>
                     </StackPanel>
                     <Button.Flyout>
                         <MenuFlyout>
-                            <MenuFlyoutItem Text="选择单个文件夹">
+                            <MenuFlyoutItem x:Uid="ConfigurationPage_AddSingleFolder">
                                 <MenuFlyoutItem.Icon>
                                     <SymbolIcon Symbol="Folder"/>
                                 </MenuFlyoutItem.Icon>
                             </MenuFlyoutItem>
-                            <MenuFlyoutItem Text="批量导入">
+                            <MenuFlyoutItem x:Uid="ConfigurationPage_BatchImport">
                                 <MenuFlyoutItem.Icon>
                                     <SymbolIcon Symbol="List"/>
                                 </MenuFlyoutItem.Icon>
@@ -60,7 +60,7 @@
                 <Button Style="{ThemeResource AccentButtonStyle}">
                     <StackPanel Orientation="Horizontal" Spacing="8">
                         <FontIcon Glyph="&#xE896;"/>
-                        <TextBlock Text="备份全部"/>
+                        <TextBlock x:Uid="ConfigurationPage_BackupAll"/>
                     </StackPanel>
                 </Button>
             </StackPanel>
@@ -70,7 +70,7 @@
                 <StackPanel Orientation="Horizontal" Spacing="8">
                     <FontIcon Glyph="&#xE713;"/>
                     <!-- Setting Symbol -->
-                    <TextBlock Text="配置设置"/>
+                    <TextBlock x:Uid="ConfigurationPage_ConfigSettings"/>
                 </StackPanel>
             </Button>
         </Grid>
@@ -78,7 +78,7 @@
         <!-- 3. 文件夹列表 -->
         <ListView x:Name="FolderListView"
                   Grid.Row="2"
-                  ItemsSource="{x:Bind CurrentConfig.Folders, Mode=OneWay}"
+                  ItemsSource="{x:Bind CurrentConfig.SourceFolders, Mode=OneWay}"
                   SelectionMode="Multiple"
                   Padding="12,0">
 
@@ -90,10 +90,10 @@
                         <ColumnDefinition Width="150"/>
                         <ColumnDefinition Width="100"/>
                     </Grid.ColumnDefinitions>
-                    <TextBlock Text="图标" Opacity="0.6"/>
-                    <TextBlock Grid.Column="1" Text="名称 / 路径" Opacity="0.6"/>
-                    <TextBlock Grid.Column="2" Text="状态" Opacity="0.6"/>
-                    <TextBlock Grid.Column="3" Text="操作" Opacity="0.6" HorizontalAlignment="Center"/>
+                    <TextBlock x:Uid="ConfigurationPage_HeaderIcon" Opacity="0.6"/>
+                    <TextBlock Grid.Column="1" x:Uid="ConfigurationPage_HeaderNamePath" Opacity="0.6"/>
+                    <TextBlock Grid.Column="2" x:Uid="ConfigurationPage_HeaderStatus" Opacity="0.6"/>
+                    <TextBlock Grid.Column="3" x:Uid="ConfigurationPage_HeaderActions" Opacity="0.6" HorizontalAlignment="Center"/>
                 </Grid>
             </ListView.Header>
 
@@ -113,13 +113,13 @@
                         <!-- 名称和路径 -->
                         <StackPanel Grid.Column="1" VerticalAlignment="Center" Margin="12,0,0,0">
                             <TextBlock Text="{x:Bind DisplayName}" FontWeight="SemiBold"/>
-                            <TextBlock Text="{x:Bind FullPath}" FontSize="12" Opacity="0.6"/>
+                            <!--TextBlock Text="{x:Bind FullPath}" FontSize="12" Opacity="0.6"/-->
                         </StackPanel>
 
                         <!-- 状态 -->
                         <StackPanel Grid.Column="2" VerticalAlignment="Center">
                             <TextBlock Text="{x:Bind StatusText}" Foreground="Green"/>
-                            <TextBlock Text="{x:Bind LastBackupTime}" FontSize="12" Opacity="0.6"/>
+                            <!--TextBlock Text="{x:Bind LastBackupTime}" FontSize="12" Opacity="0.6"/-->
                         </StackPanel>
 
                         <!-- 操作 -->
@@ -127,12 +127,12 @@
                             <FontIcon Glyph="&#xE712;"/>
                             <Button.Flyout>
                                 <MenuFlyout>
-                                    <MenuFlyoutItem Text="立即备份">
+                                    <MenuFlyoutItem x:Uid="ConfigurationPage_BackupNow">
                                         <MenuFlyoutItem.Icon>
                                             <SymbolIcon Symbol="Upload"/>
                                         </MenuFlyoutItem.Icon>
                                     </MenuFlyoutItem>
-                                    <MenuFlyoutItem Text="移除" Foreground="Red">
+                                    <MenuFlyoutItem x:Uid="ConfigurationPage_Remove" Foreground="Red">
                                         <MenuFlyoutItem.Icon>
                                             <SymbolIcon Symbol="Delete"/>
                                         </MenuFlyoutItem.Icon>
@@ -148,8 +148,8 @@
         <!-- 4. 底部批量操作栏 (示例：一直显示，实际应用可绑定 Visibility) -->
         <Grid Grid.Row="3" Background="{ThemeResource SolidBackgroundFillColorBaseBrush}" BorderBrush="{ThemeResource SurfaceStrokeColorDefaultBrush}" BorderThickness="0,1,0,0" Padding="16">
             <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Spacing="12">
-                <Button Content="批量备份"/>
-                <Button Content="批量删除" Foreground="Red"/>
+                <Button x:Uid="ConfigurationPage_BatchBackup"/>
+                <Button x:Uid="ConfigurationPage_BatchDelete" Foreground="Red"/>
             </StackPanel>
         </Grid>
     </Grid>
