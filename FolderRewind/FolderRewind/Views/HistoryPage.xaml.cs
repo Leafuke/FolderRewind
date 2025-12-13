@@ -46,41 +46,59 @@ namespace FolderRewind.Views
         {
             base.OnNavigatedTo(e);
 
+            if (e.Parameter is ManagerNavigationParameter managerParam)
+            {
+                ApplySelectionFromNavigation(managerParam.ConfigId, managerParam.FolderPath);
+                return;
+            }
+
             if (e.Parameter is ManagedFolder folder)
             {
-                // 开始导航设置，立起 Flag
-                _isNavigating = true;
+                ApplySelectionFromNavigation(null, folder.Path);
+            }
+        }
 
-                try
+        private void ApplySelectionFromNavigation(string? configId, string? folderPath)
+        {
+            _isNavigating = true;
+
+            try
+            {
+                BackupConfig? targetConfig = null;
+                if (!string.IsNullOrWhiteSpace(configId))
                 {
-                    // 1. 找到对应的 Config
-                    var targetConfig = Configs.FirstOrDefault(c => c.SourceFolders.Any(f => f.Path == folder.Path));
-
-                    if (targetConfig != null)
-                    {
-                        // 2. 选中配置
-                        ConfigFilter.SelectedItem = targetConfig;
-
-                        // 3. 手动刷新文件夹列表 (因为我们在 SelectionChanged 里屏蔽了逻辑，所以这里要手动做)
-                        FolderFilter.ItemsSource = targetConfig.SourceFolders;
-
-                        // 4. 找到并选中对应的 Folder
-                        // 注意：这里要用 Path 匹配，确保选中引用正确的对象
-                        var targetFolder = targetConfig.SourceFolders.FirstOrDefault(f => f.Path == folder.Path);
-                        FolderFilter.SelectedItem = targetFolder;
-
-                        // 5. 刷新历史
-                        if (targetFolder != null)
-                        {
-                            RefreshHistory(targetConfig, targetFolder);
-                        }
-                    }
+                    targetConfig = Configs.FirstOrDefault(c => c.Id == configId);
                 }
-                finally
+
+                if (targetConfig == null && !string.IsNullOrWhiteSpace(folderPath))
                 {
-                    // 无论如何，最后放下 Flag
-                    _isNavigating = false;
+                    targetConfig = Configs.FirstOrDefault(c => c.SourceFolders.Any(f => f.Path == folderPath));
                 }
+
+                if (targetConfig == null)
+                {
+                    return;
+                }
+
+                ConfigFilter.SelectedItem = targetConfig;
+                FolderFilter.ItemsSource = targetConfig.SourceFolders;
+
+                ManagedFolder? targetFolder = null;
+                if (!string.IsNullOrWhiteSpace(folderPath))
+                {
+                    targetFolder = targetConfig.SourceFolders.FirstOrDefault(f => f.Path == folderPath);
+                }
+
+                FolderFilter.SelectedItem = targetFolder;
+
+                if (targetFolder != null)
+                {
+                    RefreshHistory(targetConfig, targetFolder);
+                }
+            }
+            finally
+            {
+                _isNavigating = false;
             }
         }
 

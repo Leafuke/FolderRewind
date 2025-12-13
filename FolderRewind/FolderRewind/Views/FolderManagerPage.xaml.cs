@@ -384,11 +384,11 @@ namespace FolderRewind.Views
 
         private void OnHistoryClick(object sender, RoutedEventArgs e)
         {
+            if (CurrentConfig == null) return;
             if (FolderList.SelectedItem is ManagedFolder folder)
             {
-                // 必须传递一个包含 Config 和 Folder 的复合对象，或者简单点，
-                // 我们传递 Folder，然后在 HistoryPage 里反查 Config (上一轮代码里已包含此逻辑)
-                App.Shell.NavigateTo("History", folder);
+                var param = ManagerNavigationParameter.ForFolder(CurrentConfig.Id, folder.Path);
+                App.Shell.NavigateTo("History", param);
             }
         }
 
@@ -418,11 +418,7 @@ namespace FolderRewind.Views
         // 打开日志窗口
         private void OnOpenLogClick(object sender, RoutedEventArgs e)
         {
-            // 创建并显示日志窗口
-            // 注意：WinUI 3 窗口管理比较原始，最好在 App 类里做一个单例管理
-            // 这里为了演示，我们使用简单的 new Window
-            var logWindow = new LogWindow();
-            logWindow.Activate();
+            LogWindowService.Show();
         }
 
         // 在 FolderManagerPage 类中添加 PickFolderAsync 方法
