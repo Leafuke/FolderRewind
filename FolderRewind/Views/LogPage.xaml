@@ -9,6 +9,11 @@
     xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
     mc:Ignorable="d">
 
+    <Page.Resources>
+        <local:LogLevelToBrushConverter x:Key="LogLevelBrushConverter" />
+        <Thickness x:Key="LogCardPadding">12,10,12,12</Thickness>
+    </Page.Resources>
+
     <Grid RowDefinitions="Auto,Auto,*,Auto">
         <StackPanel Grid.Row="0" Padding="24,16,24,8" Spacing="4">
             <TextBlock Text="日志中心" Style="{ThemeResource TitleTextBlockStyle}" />
@@ -48,20 +53,47 @@
                       ItemsSource="{x:Bind FilteredEntries, Mode=OneWay}"
                       SelectionMode="Extended"
                       IsMultiSelectCheckBoxEnabled="True"
-                      IsItemClickEnabled="False">
+                      IsItemClickEnabled="False"
+                      Padding="4">
+                <ListView.ItemContainerStyle>
+                    <Style TargetType="ListViewItem">
+                        <Setter Property="Margin" Value="0,4" />
+                        <Setter Property="Padding" Value="0" />
+                        <Setter Property="MinHeight" Value="0" />
+                    </Style>
+                </ListView.ItemContainerStyle>
+                <ListView.ItemsPanel>
+                    <ItemsPanelTemplate>
+                        <ItemsStackPanel />
+                    </ItemsPanelTemplate>
+                </ListView.ItemsPanel>
                 <ListView.ItemTemplate>
                     <DataTemplate x:DataType="models:LogEntry">
-                        <StackPanel Spacing="4" Padding="8,6" Background="{ThemeResource LayerFillColorDefaultBrush}" CornerRadius="6">
-                            <StackPanel Orientation="Horizontal" Spacing="8">
-                                <TextBlock Text="{Binding Timestamp}" FontFamily="Consolas" Opacity="0.7" />
-                                <Border CornerRadius="4" Padding="6,2" Background="{ThemeResource SystemControlBackgroundBaseLowBrush}">
-                                    <TextBlock Text="{x:Bind Level}" FontWeight="SemiBold" />
-                                </Border>
-                                <TextBlock Text="{x:Bind Source}" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
-                            </StackPanel>
-                            <TextBlock Text="{x:Bind Message}" TextWrapping="WrapWholeWords" />
-                            <TextBlock Text="{x:Bind Exception}" TextWrapping="WrapWholeWords" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
-                        </StackPanel>
+                        <Border Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
+                                BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
+                                BorderThickness="1"
+                                CornerRadius="10"
+                                Padding="{StaticResource LogCardPadding}">
+                            <Grid RowDefinitions="Auto,Auto,Auto" ColumnDefinitions="Auto,*" ColumnSpacing="12" RowSpacing="6">
+                                <StackPanel Orientation="Horizontal" Spacing="8" Grid.ColumnSpan="2">
+                                    <Rectangle Width="8" Height="24" RadiusX="4" RadiusY="4"
+                                               Fill="{Binding Level, Converter={StaticResource LogLevelBrushConverter}}" />
+                                    <TextBlock Text="{Binding Timestamp}" FontFamily="Consolas" Opacity="0.7" />
+                                    <Border CornerRadius="6" Padding="8,2"
+                                            Background="{Binding Level, Converter={StaticResource LogLevelBrushConverter}, ConverterParameter=background}"
+                                            BorderBrush="{Binding Level, Converter={StaticResource LogLevelBrushConverter}}"
+                                            BorderThickness="1">
+                                        <TextBlock Text="{x:Bind Level}" FontWeight="SemiBold" />
+                                    </Border>
+                                    <TextBlock Text="{x:Bind Source}" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                                </StackPanel>
+
+                                <TextBlock Grid.Row="1" Grid.ColumnSpan="2" Text="{x:Bind Message}" TextWrapping="WrapWholeWords" FontSize="14" />
+                                <TextBlock Grid.Row="2" Grid.ColumnSpan="2" Text="{x:Bind Exception}" TextWrapping="WrapWholeWords"
+                                   Foreground="{ThemeResource TextFillColorSecondaryBrush}" Opacity="0.85"
+                                   Visibility="{Binding Exception, Converter={StaticResource BoolToVisInvertConverter}}" />
+                            </Grid>
+                        </Border>
                     </DataTemplate>
                 </ListView.ItemTemplate>
             </ListView>

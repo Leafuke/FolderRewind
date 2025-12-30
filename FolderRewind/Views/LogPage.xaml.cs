@@ -2,12 +2,15 @@ using FolderRewind.Models;
 using FolderRewind.Services;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
+using Microsoft.UI.Xaml.Data;
+using Microsoft.UI.Xaml.Media;
 using System;
 using System.Collections.ObjectModel;
 using System.Diagnostics;
 using System.Linq;
 using System.IO;
 using Windows.ApplicationModel.DataTransfer;
+using Windows.UI;
 
 namespace FolderRewind.Views
 {
@@ -200,6 +203,68 @@ namespace FolderRewind.Views
             catch
             {
             }
+        }
+    }
+
+    internal class LogLevelToBrushConverter : IValueConverter
+    {
+        private static readonly SolidColorBrush InfoBrush = new(Color.FromArgb(255, 37, 99, 235));
+        private static readonly SolidColorBrush WarningBrush = new(Color.FromArgb(255, 180, 83, 9));
+        private static readonly SolidColorBrush ErrorBrush = new(Color.FromArgb(255, 185, 28, 28));
+        private static readonly SolidColorBrush DebugBrush = new(Color.FromArgb(255, 71, 85, 105));
+        private static readonly SolidColorBrush NeutralBrush = new(Color.FromArgb(255, 75, 85, 99));
+
+        private static readonly SolidColorBrush InfoBackground = CreateTint(InfoBrush);
+        private static readonly SolidColorBrush WarningBackground = CreateTint(WarningBrush);
+        private static readonly SolidColorBrush ErrorBackground = CreateTint(ErrorBrush);
+        private static readonly SolidColorBrush DebugBackground = CreateTint(DebugBrush);
+        private static readonly SolidColorBrush NeutralBackground = CreateTint(NeutralBrush);
+
+        public object Convert(object value, Type targetType, object parameter, string language)
+        {
+            var mode = parameter as string;
+
+            if (string.Equals(mode, "background", StringComparison.OrdinalIgnoreCase))
+            {
+                return value is LogLevel levelBg ? GetBackgroundBrush(levelBg) : NeutralBackground;
+            }
+
+            return value is LogLevel level ? GetAccentBrush(level) : NeutralBrush;
+        }
+
+        public object ConvertBack(object value, Type targetType, object parameter, string language)
+        {
+            throw new NotSupportedException();
+        }
+
+        private static Brush GetAccentBrush(LogLevel level)
+        {
+            return level switch
+            {
+                LogLevel.Info => InfoBrush,
+                LogLevel.Warning => WarningBrush,
+                LogLevel.Error => ErrorBrush,
+                LogLevel.Debug => DebugBrush,
+                _ => NeutralBrush
+            };
+        }
+
+        private static Brush GetBackgroundBrush(LogLevel level)
+        {
+            return level switch
+            {
+                LogLevel.Info => InfoBackground,
+                LogLevel.Warning => WarningBackground,
+                LogLevel.Error => ErrorBackground,
+                LogLevel.Debug => DebugBackground,
+                _ => NeutralBackground
+            };
+        }
+
+        private static SolidColorBrush CreateTint(SolidColorBrush source)
+        {
+            var c = source.Color;
+            return new SolidColorBrush(Color.FromArgb(28, c.R, c.G, c.B));
         }
     }
 }

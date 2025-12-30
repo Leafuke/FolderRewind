@@ -9,7 +9,12 @@ namespace FolderRewind.Services
         public static ElementTheme GetCurrentTheme()
         {
             var idx = ConfigService.CurrentConfig?.GlobalSettings?.ThemeIndex ?? 0;
-            return idx == 0 ? ElementTheme.Dark : ElementTheme.Light;
+            return idx switch
+            {
+                0 => ElementTheme.Dark,
+                1 => ElementTheme.Light,
+                _ => ElementTheme.Light
+            };
         }
 
         public static void ApplyThemeToWindow(Window? window)

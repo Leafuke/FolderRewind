@@ -53,7 +53,7 @@ namespace FolderRewind.Models
     public class GlobalSettings : ObservableObject
     {
         private string _language = "zh_CN";
-        private int _themeIndex = 0; // 0: Dark, 1: Light, etc.
+        private int _themeIndex = 1; // 0: Dark, 1: Light, etc. (default now Light)
         private string _sevenZipPath = "7z.exe"; // 全局 7z 路径
         private bool _runOnStartup = false;
         private bool _checkForUpdates = true;
@@ -61,6 +61,9 @@ namespace FolderRewind.Models
         private bool _enableDebugLogs = false;
         private int _logRetentionDays = 7;
         private int _maxLogFileSizeMb = 5;
+        private bool _isNavPaneOpen = true;
+        private double _startupWidth = 1200;
+        private double _startupHeight = 800;
 
         public string Language { get => _language; set => SetProperty(ref _language, value); }
         public int ThemeIndex { get => _themeIndex; set => SetProperty(ref _themeIndex, value); }
@@ -71,6 +74,9 @@ namespace FolderRewind.Models
         public bool EnableDebugLogs { get => _enableDebugLogs; set => SetProperty(ref _enableDebugLogs, value); }
         public int LogRetentionDays { get => _logRetentionDays; set => SetProperty(ref _logRetentionDays, value); }
         public int MaxLogFileSizeMb { get => _maxLogFileSizeMb; set => SetProperty(ref _maxLogFileSizeMb, value); }
+        public bool IsNavPaneOpen { get => _isNavPaneOpen; set => SetProperty(ref _isNavPaneOpen, value); }
+        public double StartupWidth { get => _startupWidth; set => SetProperty(ref _startupWidth, value); }
+        public double StartupHeight { get => _startupHeight; set => SetProperty(ref _startupHeight, value); }
     }
 
     /// <summary>

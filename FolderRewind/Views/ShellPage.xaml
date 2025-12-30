@@ -9,7 +9,9 @@
                     PaneDisplayMode="Left"
                     IsSettingsVisible="True" 
                     SelectionChanged="NavView_SelectionChanged"
-                    Loaded="NavView_Loaded">
+                    Loaded="NavView_Loaded"
+                    PaneOpened="NavView_PaneOpened"
+                    PaneClosed="NavView_PaneClosed">
 
         <NavigationView.MenuItems>
             <NavigationViewItem x:Uid="ShellPage_NavHome" Tag="Home">

@@ -19,6 +19,8 @@ using Windows.ApplicationModel.Activation;
 using Windows.Foundation;
 using Windows.Foundation.Collections;
 using Windows.Globalization;
+using Windows.Graphics;
+using Windows.System.UserProfile;
 
 // To learn more about WinUI, the WinUI project structure,
 // and more about our project templates, see: http://aka.ms/winui-project-info.
@@ -92,9 +94,13 @@ namespace FolderRewind
 
                 _window = new MainWindow();
 
+                ApplyWindowPreferences(_window);
+
                 Services.AutomationService.Start();
 
                 Services.ThemeService.ApplyThemeToWindow(_window);
+
+                UpdateWindowTitle();
 
                 _window.Activate();
 
@@ -173,6 +179,77 @@ namespace FolderRewind
             if (string.Equals(value, "en-US", StringComparison.OrdinalIgnoreCase)) return "en-US";
 
             return value;
+        }
+
+        public static void UpdateWindowTitle()
+        {
+            if (_window == null) return;
+
+            var title = GetLocalizedWindowTitle();
+
+            try
+            {
+                _window.Title = title;
+            }
+            catch
+            {
+                // ignore
+            }
+
+            try
+            {
+                _window.AppWindow.Title = title;
+            }
+            catch
+            {
+                // ignore
+            }
+        }
+
+        private static string GetLocalizedWindowTitle()
+        {
+            var language = Services.ConfigService.CurrentConfig?.GlobalSettings?.Language;
+
+            if (string.IsNullOrWhiteSpace(language) || string.Equals(language, "system", StringComparison.OrdinalIgnoreCase))
+            {
+                language = ApplicationLanguages.PrimaryLanguageOverride;
+                if (string.IsNullOrWhiteSpace(language))
+                {
+                    language = GlobalizationPreferences.Languages?.FirstOrDefault() ?? string.Empty;
+                }
+            }
+
+            var normalized = language.ToLowerInvariant();
+            if (normalized.StartsWith("zh")) return "存档时光机";
+            return "FolderRewind";
+        }
+
+        private static void ApplyWindowPreferences(Window window)
+        {
+            if (window == null) return;
+
+            var settings = Services.ConfigService.CurrentConfig?.GlobalSettings;
+            if (settings == null) return;
+
+            double width = Math.Clamp(settings.StartupWidth, 640, 3840);
+            double height = Math.Clamp(settings.StartupHeight, 480, 2160);
+
+            try
+            {
+                var appWindow = window.AppWindow;
+                if (appWindow != null)
+                {
+                    appWindow.Resize(new SizeInt32((int)Math.Round(width), (int)Math.Round(height)));
+                }
+                else
+                {
+                    
+                }
+            }
+            catch
+            {
+                
+            }
         }
     }
 }

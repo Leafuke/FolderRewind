@@ -89,6 +89,8 @@ namespace FolderRewind.Services
             if (CurrentConfig.GlobalSettings == null)
                 CurrentConfig.GlobalSettings = new GlobalSettings();
 
+            NormalizeGlobalSettings(CurrentConfig.GlobalSettings);
+
             ApplyLogSettings(CurrentConfig.GlobalSettings);
 
             _initialized = true;
@@ -181,6 +183,28 @@ namespace FolderRewind.Services
             catch (Exception ex)
             {
                 LogService.Log($"[Config] 无法打开配置文件：{ex.Message}");
+            }
+        }
+
+        private static void NormalizeGlobalSettings(GlobalSettings settings)
+        {
+            if (settings == null) return;
+
+            // Theme: default to light when value is unexpected
+            if (settings.ThemeIndex < 0 || settings.ThemeIndex > 1)
+            {
+                settings.ThemeIndex = 1;
+            }
+
+            // Startup size: clamp to reasonable desktop values
+            if (double.IsNaN(settings.StartupWidth) || settings.StartupWidth < 640 || settings.StartupWidth > 3840)
+            {
+                settings.StartupWidth = 1200;
+            }
+
+            if (double.IsNaN(settings.StartupHeight) || settings.StartupHeight < 480 || settings.StartupHeight > 2160)
+            {
+                settings.StartupHeight = 800;
             }
         }
 

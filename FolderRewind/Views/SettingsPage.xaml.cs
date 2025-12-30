@@ -4,6 +4,7 @@ using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using System;
 using Windows.Storage.Pickers;
+using Windows.Graphics;
 using WinRT.Interop;
 
 namespace FolderRewind.Views
@@ -68,6 +69,7 @@ namespace FolderRewind.Views
             {
                 Settings.Language = IndexToLanguage(cb.SelectedIndex);
                 ConfigService.Save();
+                App.UpdateWindowTitle();
             }
         }
 
@@ -178,6 +180,60 @@ namespace FolderRewind.Views
         private void OnOpenLogCenterClick(object sender, RoutedEventArgs e)
         {
             App.Shell?.NavigateTo("Logs");
+        }
+
+        private void OnStartupSizeChanged(object sender, NumberBoxValueChangedEventArgs e)
+        {
+            if (sender == StartupWidthBox)
+            {
+                Settings.StartupWidth = ClampWidth(e.NewValue);
+            }
+            else if (sender == StartupHeightBox)
+            {
+                Settings.StartupHeight = ClampHeight(e.NewValue);
+            }
+
+            ConfigService.Save();
+        }
+
+        private void OnApplyStartupSizeClick(object sender, RoutedEventArgs e)
+        {
+            Settings.StartupWidth = ClampWidth(Settings.StartupWidth);
+            Settings.StartupHeight = ClampHeight(Settings.StartupHeight);
+
+            ConfigService.Save();
+            ApplyWindowSize(Settings.StartupWidth, Settings.StartupHeight);
+        }
+
+        private static double ClampWidth(double value)
+        {
+            if (double.IsNaN(value) || value <= 0) return 1200;
+            return Math.Clamp(value, 640, 3840);
+        }
+
+        private static double ClampHeight(double value)
+        {
+            if (double.IsNaN(value) || value <= 0) return 800;
+            return Math.Clamp(value, 480, 2160);
+        }
+
+        private static void ApplyWindowSize(double width, double height)
+        {
+            if (App._window == null) return;
+
+            var clampedWidth = ClampWidth(width);
+            var clampedHeight = ClampHeight(height);
+
+            try
+            {
+                App._window.AppWindow?.Resize(new SizeInt32((int)Math.Round(clampedWidth), (int)Math.Round(clampedHeight)));
+            }
+            catch
+            {
+                // ignore and fall back to managed size
+            }
+
+            
         }
     }
 }

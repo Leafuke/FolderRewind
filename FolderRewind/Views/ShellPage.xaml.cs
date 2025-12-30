@@ -1,3 +1,4 @@
+using FolderRewind.Services;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Media.Animation;
 using System;
@@ -18,6 +19,12 @@ namespace FolderRewind.Views
 
         private void NavView_Loaded(object sender, Microsoft.UI.Xaml.RoutedEventArgs e)
         {
+            var settings = ConfigService.CurrentConfig?.GlobalSettings;
+            if (settings != null)
+            {
+                NavView.IsPaneOpen = settings.IsNavPaneOpen;
+            }
+
             NavigateTo("Home");
         }
 
@@ -90,6 +97,28 @@ namespace FolderRewind.Views
             finally
             {
                 _isSyncingSelection = false;
+            }
+        }
+
+        private void NavView_PaneOpened(NavigationView sender, object args)
+        {
+            PersistPaneState(true);
+        }
+
+        private void NavView_PaneClosed(NavigationView sender, object args)
+        {
+            PersistPaneState(false);
+        }
+
+        private static void PersistPaneState(bool isOpen)
+        {
+            var settings = ConfigService.CurrentConfig?.GlobalSettings;
+            if (settings == null) return;
+
+            if (settings.IsNavPaneOpen != isOpen)
+            {
+                settings.IsNavPaneOpen = isOpen;
+                ConfigService.Save();
             }
         }
     }

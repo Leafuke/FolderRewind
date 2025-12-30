@@ -209,6 +209,38 @@
                                         <ComboBoxItem x:Uid="SettingsPage_ThemeLight"/>
                                     </ComboBox>
                                 </Grid>
+
+                                <Grid>
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*"/>
+                                        <ColumnDefinition Width="Auto"/>
+                                    </Grid.ColumnDefinitions>
+                                    <StackPanel Spacing="6">
+                                        <TextBlock Text="启动窗口大小" />
+                                        <TextBlock Text="设定应用启动时的窗口宽高，便于大屏或多显示器使用。" FontSize="12" Opacity="0.6" />
+                                        <StackPanel Orientation="Horizontal" Spacing="12">
+                                            <NumberBox x:Name="StartupWidthBox"
+                                                       Width="140"
+                                                       Minimum="640"
+                                                       Maximum="3840"
+                                                       SmallChange="20"
+                                                       LargeChange="100"
+                                                       Value="{x:Bind Settings.StartupWidth, Mode=TwoWay}"
+                                                       ValueChanged="OnStartupSizeChanged"/>
+                                            <TextBlock Text="×" VerticalAlignment="Center" Opacity="0.5" />
+                                            <NumberBox x:Name="StartupHeightBox"
+                                                       Width="140"
+                                                       Minimum="480"
+                                                       Maximum="2160"
+                                                       SmallChange="20"
+                                                       LargeChange="100"
+                                                       Value="{x:Bind Settings.StartupHeight, Mode=TwoWay}"
+                                                       ValueChanged="OnStartupSizeChanged"/>
+                                            <TextBlock Text="px" VerticalAlignment="Center" Opacity="0.6" />
+                                        </StackPanel>
+                                    </StackPanel>
+                                    <Button Grid.Column="1" Content="立即应用" VerticalAlignment="Center" Click="OnApplyStartupSizeClick" />
+                                </Grid>
                             </StackPanel>
                         </Border>
                     </Grid>
