@@ -1,0 +1,220 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Page
+    x:Class="FolderRewind.Views.SettingsPage"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+    xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    xmlns:models="using:FolderRewind.Models"
+    mc:Ignorable="d">
+
+    <ScrollViewer Padding="36,24">
+        <StackPanel Spacing="24" HorizontalAlignment="Stretch">
+
+            <TextBlock x:Uid="SettingsPage_Title" Style="{ThemeResource TitleTextBlockStyle}" Margin="0,0,0,12"/>
+
+            <!-- 1. 核心行为 -->
+            <StackPanel Spacing="8">
+                <TextBlock x:Uid="SettingsPage_CoreBehavior" Style="{ThemeResource SubtitleTextBlockStyle}"/>
+
+                <Grid CornerRadius="8">
+                    <Grid Background="{ThemeResource CardBackgroundFillColorDefaultBrush}" CornerRadius="8" Translation="0,0,8">
+                        <Grid.Shadow>
+                            <ThemeShadow />
+                        </Grid.Shadow>
+                        <Border BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}" BorderThickness="1" CornerRadius="8" Padding="16">
+                            <StackPanel Spacing="20">
+                                <!-- 开机自启 -->
+                                <Grid>
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*"/>
+                                        <ColumnDefinition Width="Auto"/>
+                                    </Grid.ColumnDefinitions>
+                                    <StackPanel>
+                                        <TextBlock x:Uid="SettingsPage_RunOnStartup"/>
+                                        <TextBlock x:Uid="SettingsPage_RunOnStartupDesc" FontSize="12" Opacity="0.6"/>
+                                    </StackPanel>
+                                    <!-- 添加 Toggled 事件 -->
+                                    <ToggleSwitch Grid.Column="1" IsOn="{x:Bind Settings.RunOnStartup, Mode=TwoWay}" Toggled="OnRunOnStartupToggled"/>
+                                </Grid>
+
+                                <MenuFlyoutSeparator/>
+
+                                <!-- 检查更新 -->
+                                <Grid>
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*"/>
+                                        <ColumnDefinition Width="Auto"/>
+                                    </Grid.ColumnDefinitions>
+                                    <StackPanel>
+                                        <TextBlock x:Uid="SettingsPage_CheckUpdates"/>
+                                        <TextBlock x:Uid="SettingsPage_CheckUpdatesDesc" FontSize="12" Opacity="0.6"/>
+                                    </StackPanel>
+                                    <!-- 添加 Toggled 事件 -->
+                                    <ToggleSwitch Grid.Column="1" IsOn="{x:Bind Settings.CheckForUpdates, Mode=TwoWay}" Toggled="OnSettingChanged"/>
+                                </Grid>
+                            </StackPanel>
+                        </Border>
+                    </Grid>
+                </Grid>
+            </StackPanel>
+
+            <!-- 2. 运行环境 (7-Zip) -->
+            <StackPanel Spacing="8">
+                <TextBlock x:Uid="SettingsPage_Environment" Style="{ThemeResource SubtitleTextBlockStyle}"/>
+                <Grid CornerRadius="8">
+                    <Grid Background="{ThemeResource CardBackgroundFillColorDefaultBrush}" CornerRadius="8" Translation="0,0,8">
+                        <Grid.Shadow>
+                            <ThemeShadow />
+                        </Grid.Shadow>
+                        <Border BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}" BorderThickness="1" CornerRadius="8" Padding="16">
+                            <Grid>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*"/>
+                                    <ColumnDefinition Width="Auto"/>
+                                </Grid.ColumnDefinitions>
+                                <StackPanel Spacing="4">
+                                    <TextBlock x:Uid="SettingsPage_7zPath"/>
+                                    <TextBox Text="{x:Bind Settings.SevenZipPath, Mode=TwoWay}" Width="300" HorizontalAlignment="Left" IsReadOnly="True"/>
+                                    <TextBlock x:Uid="SettingsPage_7zPathDesc" FontSize="12" Opacity="0.6"/>
+                                </StackPanel>
+                                <Button x:Uid="SettingsPage_BrowseButton" Grid.Column="1" VerticalAlignment="Top" Click="OnBrowse7zClick"/>
+                            </Grid>
+                        </Border>
+                    </Grid>
+                </Grid>
+            </StackPanel>
+
+            <!-- 3. 日志与诊断 -->
+            <StackPanel Spacing="8">
+                <TextBlock Text="日志与诊断" Style="{ThemeResource SubtitleTextBlockStyle}"/>
+                <Grid CornerRadius="8">
+                    <Grid Background="{ThemeResource CardBackgroundFillColorDefaultBrush}" CornerRadius="8" Translation="0,0,8">
+                        <Grid.Shadow>
+                            <ThemeShadow />
+                        </Grid.Shadow>
+                        <Border BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}" BorderThickness="1" CornerRadius="8" Padding="16">
+                            <StackPanel Spacing="16">
+                                <Grid>
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*"/>
+                                        <ColumnDefinition Width="Auto"/>
+                                    </Grid.ColumnDefinitions>
+                                    <StackPanel Spacing="2">
+                                        <TextBlock Text="自动记录应用日志" />
+                                        <TextBlock Text="记录到本地文件供排查，可随时关闭。" FontSize="12" Opacity="0.6" />
+                                    </StackPanel>
+                                    <ToggleSwitch Grid.Column="1" IsOn="{x:Bind Settings.EnableFileLogging, Mode=TwoWay}" Toggled="OnLoggingChanged"/>
+                                </Grid>
+
+                                <Grid>
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*"/>
+                                        <ColumnDefinition Width="Auto"/>
+                                    </Grid.ColumnDefinitions>
+                                    <StackPanel Spacing="2">
+                                        <TextBlock Text="日志文件大小上限 (MB)" />
+                                        <TextBlock Text="超过上限后自动分卷留档" FontSize="12" Opacity="0.6" />
+                                    </StackPanel>
+                                    <NumberBox x:Name="MaxLogSizeBox" Grid.Column="1" Width="120" Minimum="1" Maximum="50" Value="{x:Bind Settings.MaxLogFileSizeMb, Mode=TwoWay}" ValueChanged="OnLogSizeChanged"/>
+                                </Grid>
+
+                                <Grid>
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*"/>
+                                        <ColumnDefinition Width="Auto"/>
+                                    </Grid.ColumnDefinitions>
+                                    <StackPanel Spacing="2">
+                                        <TextBlock Text="日志保留天数" />
+                                        <TextBlock Text="到期后自动清理历史日志" FontSize="12" Opacity="0.6" />
+                                    </StackPanel>
+                                    <NumberBox x:Name="LogRetentionBox" Grid.Column="1" Width="120" Minimum="1" Maximum="60" Value="{x:Bind Settings.LogRetentionDays, Mode=TwoWay}" ValueChanged="OnRetentionChanged"/>
+                                </Grid>
+
+                                <Grid>
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*"/>
+                                        <ColumnDefinition Width="Auto"/>
+                                    </Grid.ColumnDefinitions>
+                                    <StackPanel Spacing="2">
+                                        <TextBlock Text="包含调试日志" />
+                                        <TextBlock Text="用于更细粒度的诊断" FontSize="12" Opacity="0.6" />
+                                    </StackPanel>
+                                    <ToggleSwitch Grid.Column="1" IsOn="{x:Bind Settings.EnableDebugLogs, Mode=TwoWay}" Toggled="OnLoggingChanged"/>
+                                </Grid>
+
+                                <Button Content="打开日志中心" HorizontalAlignment="Left" Click="OnOpenLogCenterClick" />
+                            </StackPanel>
+                        </Border>
+                    </Grid>
+                </Grid>
+            </StackPanel>
+
+            <!-- 3. 外观 -->
+            <StackPanel Spacing="8">
+                <TextBlock x:Uid="SettingsPage_Personalization" Style="{ThemeResource SubtitleTextBlockStyle}"/>
+                <Grid CornerRadius="8">
+                    <Grid Background="{ThemeResource CardBackgroundFillColorDefaultBrush}" CornerRadius="8" Translation="0,0,8">
+                        <Grid.Shadow>
+                            <ThemeShadow />
+                        </Grid.Shadow>
+                        <Border BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}" BorderThickness="1" CornerRadius="8" Padding="16">
+                            <StackPanel Spacing="20">
+                                <Grid>
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*"/>
+                                        <ColumnDefinition Width="Auto"/>
+                                    </Grid.ColumnDefinitions>
+                                    <StackPanel VerticalAlignment="Center">
+                                        <Grid ColumnSpacing="12">
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="Auto"/>
+                                                <ColumnDefinition Width="*"/>
+                                            </Grid.ColumnDefinitions>
+                                            <FontIcon Glyph="&#xE775;" FontSize="18"/>
+                                            <StackPanel Grid.Column="1">
+                                                <TextBlock x:Uid="SettingsPage_Language"/>
+                                                <TextBlock x:Uid="SettingsPage_LanguageDesc" FontSize="12" Opacity="0.6"/>
+                                            </StackPanel>
+                                        </Grid>
+                                    </StackPanel>
+                                    <ComboBox x:Name="LanguageCombo" Grid.Column="1" MinWidth="180" SelectionChanged="OnLanguageChanged">
+                                        <ComboBoxItem x:Uid="SettingsPage_LanguageSystem"/>
+                                        <ComboBoxItem x:Uid="SettingsPage_LanguageEnglish"/>
+                                        <ComboBoxItem x:Uid="SettingsPage_LanguageChinese"/>
+                                    </ComboBox>
+                                </Grid>
+
+                                <Grid>
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*"/>
+                                        <ColumnDefinition Width="Auto"/>
+                                    </Grid.ColumnDefinitions>
+                                    <StackPanel VerticalAlignment="Center">
+                                        <Grid ColumnSpacing="12">
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="Auto"/>
+                                                <ColumnDefinition Width="*"/>
+                                            </Grid.ColumnDefinitions>
+                                            <FontIcon Glyph="&#xE790;" FontSize="18"/>
+                                            <StackPanel Grid.Column="1">
+                                                <TextBlock x:Uid="SettingsPage_AppTheme"/>
+                                                <TextBlock x:Uid="SettingsPage_AppThemeDesc" FontSize="12" Opacity="0.6"/>
+                                            </StackPanel>
+                                        </Grid>
+                                    </StackPanel>
+                                    <!-- 添加 SelectionChanged 事件 -->
+                                    <ComboBox Grid.Column="1" SelectedIndex="{x:Bind Settings.ThemeIndex, Mode=TwoWay}" MinWidth="140" SelectionChanged="OnThemeChanged">
+                                        <ComboBoxItem x:Uid="SettingsPage_ThemeDark"/>
+                                        <ComboBoxItem x:Uid="SettingsPage_ThemeLight"/>
+                                    </ComboBox>
+                                </Grid>
+                            </StackPanel>
+                        </Border>
+                    </Grid>
+                </Grid>
+            </StackPanel>
+
+        </StackPanel>
+    </ScrollViewer>
+</Page>

@@ -1,0 +1,159 @@
+<?xml version="1.0" encoding="utf-8"?>
+<ContentDialog
+    x:Class="FolderRewind.Views.ConfigSettingsDialog"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:models="using:FolderRewind.Models"
+    x:Uid="ConfigSettingsDialog"
+    DefaultButton="Primary"
+    PrimaryButtonClick="OnSaveClick"
+    Style="{StaticResource DefaultContentDialogStyle}">
+
+    <Pivot Height="450" Width="500">
+        <!-- 1. 常规设置 -->
+        <PivotItem x:Uid="ConfigSettingsDialog_General">
+            <StackPanel Spacing="20" Padding="0,12">
+                <TextBox x:Uid="ConfigSettingsDialog_ConfigName" Text="{x:Bind Config.Name, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"/>
+
+                <StackPanel Spacing="8">
+                    <TextBlock x:Uid="ConfigSettingsDialog_DestPath" FontWeight="SemiBold"/>
+                    <Grid>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*"/>
+                            <ColumnDefinition Width="Auto"/>
+                            <ColumnDefinition Width="Auto"/>
+                        </Grid.ColumnDefinitions>
+                        <TextBox x:Name="DestPathBox" x:Uid="ConfigSettingsDialog_DestPathPlaceholder" Text="{x:Bind Config.DestinationPath, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"/>
+                        <Button Grid.Column="1" Margin="8,0,0,0" Click="OnBrowseClick" x:Uid="ConfigSettingsDialog_BrowseButton">
+                            <FontIcon Glyph="&#xE8B7;"/>
+                        </Button>
+                        <Button Grid.Column="2" Margin="8,0,0,0" Click="OnOpenDestinationClick" x:Uid="ConfigSettingsDialog_OpenDestination">
+                            <FontIcon Glyph="&#xE8A7;"/>
+                        </Button>
+                    </Grid>
+                    <TextBlock x:Uid="ConfigSettingsDialog_DestPathDesc" FontSize="12" Opacity="0.6"/>
+                </StackPanel>
+
+                <StackPanel Spacing="8">
+                    <TextBlock x:Uid="ConfigSettingsDialog_ConfigFilePath" FontWeight="SemiBold"/>
+                    <Grid>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*"/>
+                            <ColumnDefinition Width="Auto"/>
+                            <ColumnDefinition Width="Auto"/>
+                        </Grid.ColumnDefinitions>
+                        <TextBox x:Name="ConfigPathBox" Text="{x:Bind ConfigFilePath, Mode=OneWay}" IsReadOnly="True"/>
+                        <Button Grid.Column="1" Margin="8,0,0,0" Click="OnOpenConfigFolderClick" x:Uid="ConfigSettingsDialog_OpenConfigFolder">
+                            <FontIcon Glyph="&#xE8B7;"/>
+                        </Button>
+                        <Button Grid.Column="2" Margin="8,0,0,0" Click="OnOpenConfigFileClick" x:Uid="ConfigSettingsDialog_OpenConfigFile">
+                            <FontIcon Glyph="&#xE8A7;"/>
+                        </Button>
+                    </Grid>
+                    <TextBlock x:Uid="ConfigSettingsDialog_ConfigFilePathDesc" FontSize="12" Opacity="0.6"/>
+                </StackPanel>
+
+                <StackPanel Spacing="8">
+                    <TextBlock x:Uid="ConfigSettingsDialog_Icon"/>
+                    <GridView x:Name="IconGrid" SelectionMode="Single" Height="100">
+                        <GridView.ItemTemplate>
+                            <DataTemplate>
+                                <Border Width="40" Height="40" CornerRadius="4" Background="{ThemeResource LayerFillColorDefaultBrush}">
+                                    <FontIcon Glyph="{Binding}" FontSize="20" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                                </Border>
+                            </DataTemplate>
+                        </GridView.ItemTemplate>
+                    </GridView>
+                </StackPanel>
+            </StackPanel>
+        </PivotItem>
+
+        <!-- 2. 压缩策略 -->
+        <PivotItem x:Uid="ConfigSettingsDialog_Compression">
+            <StackPanel Spacing="20" Padding="0,12">
+                <ComboBox x:Uid="ConfigSettingsDialog_BackupMode" SelectedIndex="{x:Bind ModeSelectedIndex, Mode=TwoWay}" HorizontalAlignment="Stretch">
+                    <ComboBoxItem x:Uid="ConfigSettingsDialog_ModeFull"/>
+                    <ComboBoxItem x:Uid="ConfigSettingsDialog_ModeIncremental"/>
+                    <ComboBoxItem x:Uid="ConfigSettingsDialog_ModeOverwrite"/>
+                </ComboBox>
+
+                <Grid>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="*"/>
+                    </Grid.ColumnDefinitions>
+                    <ComboBox x:Uid="ConfigSettingsDialog_Format" SelectedIndex="{x:Bind FormatSelectedIndex, Mode=TwoWay}" HorizontalAlignment="Stretch" Margin="0,0,8,0">
+                        <ComboBoxItem x:Uid="ConfigSettingsDialog_Format7z"/>
+                        <ComboBoxItem x:Uid="ConfigSettingsDialog_FormatZip"/>
+                    </ComboBox>
+                    <StackPanel Grid.Column="1" Spacing="4" Margin="8,0,0,0">
+                        <TextBlock x:Uid="ConfigSettingsDialog_CompressionLevel"/>
+                        <Slider Minimum="0" Maximum="9" Value="{x:Bind Config.Archive.CompressionLevel, Mode=TwoWay}"/>
+                    </StackPanel>
+                </Grid>
+
+                <NumberBox x:Uid="ConfigSettingsDialog_KeepCount" Value="{x:Bind Config.Archive.KeepCount, Mode=TwoWay}" Minimum="0" SpinButtonPlacementMode="Inline"/>
+
+                <StackPanel Spacing="4">
+                    <TextBlock x:Uid="ConfigSettingsDialog_ArchivePassword"/>
+                    <TextBox x:Uid="ConfigSettingsDialog_ArchivePasswordPlaceholder" Text="{x:Bind Config.Archive.Password, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" InputScope="Password"/>
+                    <TextBlock x:Uid="ConfigSettingsDialog_ArchivePasswordDesc" FontSize="12" Opacity="0.6"/>
+                </StackPanel>
+            </StackPanel>
+        </PivotItem>
+
+        <!-- 3. 自动化 -->
+        <PivotItem x:Uid="ConfigSettingsDialog_Automation">
+            <StackPanel Spacing="20" Padding="0,12">
+                <ToggleSwitch x:Uid="ConfigSettingsDialog_AutoBackup" IsOn="{x:Bind Config.Automation.AutoBackupEnabled, Mode=TwoWay}"/>
+
+                <StackPanel Visibility="{x:Bind Config.Automation.AutoBackupEnabled, Mode=OneWay, Converter={StaticResource BoolToVisConverter}}" Spacing="12">
+                    <CheckBox x:Uid="ConfigSettingsDialog_RunOnAppStart" IsChecked="{x:Bind Config.Automation.RunOnAppStart, Mode=TwoWay}"/>
+                    <StackPanel Orientation="Horizontal" Spacing="8">
+                        <TextBlock x:Uid="ConfigSettingsDialog_IntervalMinutes" VerticalAlignment="Center"/>
+                        <NumberBox Value="{x:Bind Config.Automation.IntervalMinutes, Mode=TwoWay}" Minimum="1" Maximum="10080" SpinButtonPlacementMode="Inline" Width="140"/>
+                        <TextBlock x:Uid="ConfigSettingsDialog_IntervalMinutesSuffix" VerticalAlignment="Center"/>
+                    </StackPanel>
+                    <CheckBox x:Uid="ConfigSettingsDialog_ScheduledMode" IsChecked="{x:Bind Config.Automation.ScheduledMode, Mode=TwoWay}"/>
+
+                    <StackPanel Orientation="Horizontal" Spacing="8" Visibility="{x:Bind Config.Automation.ScheduledMode, Mode=OneWay, Converter={StaticResource BoolToVisConverter}}">
+                        <TextBlock x:Uid="ConfigSettingsDialog_ScheduledTime" VerticalAlignment="Center"/>
+                        <NumberBox Value="{x:Bind Config.Automation.ScheduledHour, Mode=TwoWay}" Minimum="0" Maximum="23" SpinButtonPlacementMode="Inline"/>
+                        <TextBlock x:Uid="ConfigSettingsDialog_ScheduledTimeSuffix" VerticalAlignment="Center"/>
+                    </StackPanel>
+                </StackPanel>
+            </StackPanel>
+        </PivotItem>
+
+        <!-- 4. 过滤器 (黑名单) -->
+        <PivotItem x:Uid="ConfigSettingsDialog_Filter">
+            <StackPanel Spacing="12" Padding="0,12">
+                <TextBlock x:Uid="ConfigSettingsDialog_Blacklist" FontWeight="SemiBold"/>
+                <ListView Height="200" ItemsSource="{x:Bind Config.Filters.Blacklist}" BorderThickness="1" BorderBrush="{ThemeResource SurfaceStrokeColorDefaultBrush}">
+                    <ListView.ItemTemplate>
+                        <DataTemplate>
+                            <Grid>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*"/>
+                                    <ColumnDefinition Width="Auto"/>
+                                </Grid.ColumnDefinitions>
+                                <TextBlock Text="{Binding}" VerticalAlignment="Center"/>
+                                <Button Grid.Column="1" Content="&#xE711;" FontFamily="Segoe MDL2 Assets" Click="OnRemoveBlacklistClick"/>
+                            </Grid>
+                        </DataTemplate>
+                    </ListView.ItemTemplate>
+                </ListView>
+                <CheckBox x:Uid="ConfigSettingsDialog_UseRegex" IsChecked="{x:Bind Config.Filters.UseRegex, Mode=TwoWay}"/>
+                <Grid>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="Auto"/>
+                    </Grid.ColumnDefinitions>
+                    <TextBox x:Name="BlacklistBox" x:Uid="ConfigSettingsDialog_BlacklistPlaceholder"/>
+                    <Button Grid.Column="1" x:Uid="ConfigSettingsDialog_AddBlacklist" Margin="8,0,0,0" Click="OnAddBlacklistClick"/>
+                </Grid>
+            </StackPanel>
+        </PivotItem>
+    </Pivot>
+</ContentDialog>
+
