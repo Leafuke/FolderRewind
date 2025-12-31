@@ -1,4 +1,5 @@
 ﻿using FolderRewind.Models;
+using Microsoft.UI.Dispatching;
 using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
@@ -16,6 +17,39 @@ namespace FolderRewind.Services
     public static class BackupService
     {
         public static ObservableCollection<BackupTask> ActiveTasks { get; } = new();
+
+        private static DispatcherQueue? UiQueue => App._window?.DispatcherQueue;
+
+        private static Task RunOnUIAsync(Action action)
+        {
+            var queue = UiQueue;
+            if (queue == null || queue.HasThreadAccess)
+            {
+                action();
+                return Task.CompletedTask;
+            }
+
+            var tcs = new TaskCompletionSource<object?>();
+
+            if (!queue.TryEnqueue(() =>
+            {
+                try
+                {
+                    action();
+                    tcs.SetResult(null);
+                }
+                catch (Exception ex)
+                {
+                    tcs.SetException(ex);
+                }
+            }))
+            {
+                action();
+                tcs.TrySetResult(null);
+            }
+
+            return tcs.Task;
+        }
 
         /// <summary>
         /// 备份配置下的所有文件夹
@@ -38,7 +72,9 @@ namespace FolderRewind.Services
         /// </summary>
         public static async Task BackupFolderAsync(BackupConfig config, ManagedFolder folder, string comment = "")
         {
-            // 1. 创建任务对象
+            if (config == null || folder == null) return;
+
+            // 1. 创建任务对象并确保在 UI 线程添加到集合
             var task = new BackupTask
             {
                 FolderName = folder.DisplayName,
@@ -46,12 +82,7 @@ namespace FolderRewind.Services
                 Progress = 0
             };
 
-            // 必须在 UI 线程添加 (如果你在非 UI 线程调用 BackupFolderAsync，这里需要 Dispatcher)
-            // 假设我们都在 UI 线程触发，或者使用 BindingOperations.EnableCollectionSynchronization
-            ActiveTasks.Insert(0, task); // 新任务放前面
-
-
-            if (config == null || folder == null) return;
+            await RunOnUIAsync(() => ActiveTasks.Insert(0, task));
 
             string sourcePath = folder.Path;
             // 按照要求：备份路径 = 用户设置的目标路径 \ 文件夹名
@@ -61,13 +92,24 @@ namespace FolderRewind.Services
             if (!Directory.Exists(sourcePath))
             {
                 Log($"[错误] 源文件夹不存在: {sourcePath}");
-                folder.StatusText = "源不存在";
+                await RunOnUIAsync(() =>
+                {
+                    folder.StatusText = "源不存在";
+                    task.Status = "失败";
+                    task.IsCompleted = true;
+                });
                 return;
             }
 
             if (string.IsNullOrEmpty(config.DestinationPath))
             {
                 Log("错误：未设置备份目标路径！");
+                await RunOnUIAsync(() =>
+                {
+                    folder.StatusText = "未设置目标";
+                    task.Status = "失败";
+                    task.IsCompleted = true;
+                });
                 return;
             }
 
@@ -76,15 +118,18 @@ namespace FolderRewind.Services
             if (!Directory.Exists(metadataDir)) Directory.CreateDirectory(metadataDir);
 
             Log($"[处理中] {folder.DisplayName}");
-            folder.StatusText = "正在备份...";
+            await RunOnUIAsync(() => folder.StatusText = "正在备份...");
 
             bool success = false;
             string generatedFileName = null;
             try
             {
 
-                task.Status = "正在处理...";
-                folder.StatusText = "备份中...";
+                await RunOnUIAsync(() =>
+                {
+                    task.Status = "正在处理...";
+                    folder.StatusText = "备份中...";
+                });
 
                 // 调用核心逻辑，传入 task 以便更新进度
 
@@ -123,27 +168,43 @@ namespace FolderRewind.Services
 
             if (success)
             {
+                bool hasNewFile = !string.IsNullOrWhiteSpace(generatedFileName);
 
-                task.Status = "完成";
-                task.Progress = 100;
-                task.IsCompleted = true;
+                await RunOnUIAsync(() =>
+                {
+                    task.Status = hasNewFile ? "完成" : "无变更";
+                    task.Progress = 100;
+                    task.IsCompleted = true;
 
-                folder.StatusText = "备份完成";
-                folder.LastBackupTime = DateTime.Now.ToString("yyyy/MM/dd HH:mm");
-                ConfigService.Save();
+                    folder.StatusText = hasNewFile ? "备份完成" : "无变更";
+                    if (hasNewFile)
+                    {
+                        folder.LastBackupTime = DateTime.Now.ToString("yyyy/MM/dd HH:mm");
+                    }
+                });
 
-                // === 新增：写入历史记录 ===
-                string typeStr = config.Archive.Mode.ToString(); // Full, Incremental, Overwrite
+                if (hasNewFile)
+                {
+                    ConfigService.Save();
 
-                // 使用刚刚得到的文件名
-                HistoryService.AddEntry(config, folder, generatedFileName, typeStr, comment);
+                    string typeStr = config.Archive.Mode.ToString();
+                    HistoryService.AddEntry(config, folder, generatedFileName, typeStr, comment);
 
-                Log($"[完成] {folder.DisplayName} 备份成功");
+                    PruneOldArchives(backupSubDir, config.Archive.Format, config.Archive.KeepCount, config.Archive.Mode);
+                }
+
+                Log(hasNewFile
+                    ? $"[完成] {folder.DisplayName} 备份成功"
+                    : $"[跳过] {folder.DisplayName} 无文件变更");
             }
             else
             {
-                task.Status = "失败";
-                folder.StatusText = "备份失败";
+                await RunOnUIAsync(() =>
+                {
+                    task.Status = "失败";
+                    task.IsCompleted = true;
+                    folder.StatusText = "备份失败";
+                });
                 Log($"[失败] {folder.DisplayName} 备份未完成");
             }
         }
@@ -173,6 +234,33 @@ namespace FolderRewind.Services
                 }
             }
             return sb.ToString();
+        }
+
+        private static void PruneOldArchives(string destDir, string format, int keepCount, BackupMode mode)
+        {
+            if (keepCount <= 0) return;
+            if (mode == BackupMode.Incremental) return; // 保留增量链，避免破坏恢复
+            try
+            {
+                var di = new DirectoryInfo(destDir);
+                if (!di.Exists) return;
+
+                var files = di.GetFiles($"*.{format}")
+                              .OrderByDescending(f => f.LastWriteTimeUtc)
+                              .ToList();
+
+                if (files.Count <= keepCount) return;
+
+                foreach (var file in files.Skip(keepCount))
+                {
+                    try { file.Delete(); }
+                    catch { /* ignore single delete failure */ }
+                }
+            }
+            catch
+            {
+                // ignore pruning errors
+            }
         }
 
         // --- 模式 1: 全量备份 ---
