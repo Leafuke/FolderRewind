@@ -30,6 +30,8 @@ namespace FolderRewind.Views
         // 当前文件夹列表的绑定视图
         public ObservableCollection<object> CurrentFoldersView { get; } = new();
 
+        private GlobalSettings Settings => ConfigService.CurrentConfig?.GlobalSettings;
+
         private BackupConfig _currentConfig;
         public BackupConfig CurrentConfig
         {
@@ -44,6 +46,8 @@ namespace FolderRewind.Views
 
                     HookCurrentFoldersChanged(_currentConfig);
                     RefreshCurrentFoldersView();
+
+                    PersistManagerSelection(_currentConfig?.Id, null);
                 }
             }
         }
@@ -73,7 +77,30 @@ namespace FolderRewind.Views
 
         private void OnConfigsChanged(object? sender, NotifyCollectionChangedEventArgs e)
         {
-            _ = DispatcherQueue.TryEnqueue(RefreshConfigsView);
+            _ = DispatcherQueue.TryEnqueue(() =>
+            {
+                RefreshConfigsView();
+
+                // 如果当前选择的配置被删除，自动切换到列表首项
+                if (CurrentConfig != null && !Configs.Contains(CurrentConfig))
+                {
+                    CurrentConfig = Configs.FirstOrDefault();
+                }
+
+                // 如果还没有选中项，尝试恢复上次选择
+                if (CurrentConfig == null && Configs.Count > 0)
+                {
+                    var lastConfigId = Settings?.LastManagerConfigId;
+                    CurrentConfig = Configs.FirstOrDefault(c => !string.IsNullOrWhiteSpace(lastConfigId) && c.Id == lastConfigId)
+                                   ?? Configs.FirstOrDefault();
+                }
+
+                if (CurrentConfig != null && !string.IsNullOrWhiteSpace(Settings?.LastManagerFolderPath))
+                {
+                    _pendingFolderPath = Settings.LastManagerFolderPath;
+                    TryApplyPendingSelection();
+                }
+            });
         }
 
         private void RefreshConfigsView()
@@ -173,7 +200,13 @@ namespace FolderRewind.Views
             // 如果没有参数，且列表不为空，且当前未选中任何项，则默认选中第一个
             else if (CurrentConfig == null && Configs.Count > 0)
             {
-                CurrentConfig = Configs[0];
+                // 优先恢复上次在管理页选择的配置
+                var lastConfigId = Settings?.LastManagerConfigId;
+                var remembered = Configs.FirstOrDefault(c => !string.IsNullOrWhiteSpace(lastConfigId) && c.Id == lastConfigId);
+                CurrentConfig = remembered ?? Configs[0];
+
+                // 如果有记录的文件夹路径，稍后尝试选中
+                _pendingFolderPath = Settings?.LastManagerFolderPath;
             }
 
             RefreshCurrentFoldersView();
@@ -226,10 +259,21 @@ namespace FolderRewind.Views
                 var target = CurrentConfig.SourceFolders.FirstOrDefault(f =>
                     f.Path != null && f.Path.Equals(path, StringComparison.OrdinalIgnoreCase));
 
-                if (target == null) return;
+                if (target == null)
+                {
+                    if (Settings != null && string.Equals(Settings.LastManagerFolderPath, path, StringComparison.OrdinalIgnoreCase))
+                    {
+                        Settings.LastManagerFolderPath = null;
+                        ConfigService.Save();
+                    }
+                    _pendingFolderPath = null;
+                    return;
+                }
 
                 FolderList.SelectedItem = target;
                 FolderList.ScrollIntoView(target);
+
+                PersistManagerSelection(CurrentConfig?.Id, target.Path);
 
                 _pendingFolderPath = null;
             });
@@ -242,6 +286,11 @@ namespace FolderRewind.Views
             // Binding Mode=TwoWay 应该会自动更新 CurrentConfig，
             // 但如果需要额外逻辑（如刷新列表），可以在这里写。
             // 目前因为 ListView 绑定的是 CurrentConfig.SourceFolders，所以会自动刷新。
+
+            if (CurrentConfig != null)
+            {
+                PersistManagerSelection(CurrentConfig.Id, null);
+            }
         }
 
         private void FolderList_SelectionChanged(object sender, SelectionChangedEventArgs e)
@@ -249,6 +298,11 @@ namespace FolderRewind.Views
             bool hasSelection = FolderList.SelectedItem != null;
             BackupSelectedButton.IsEnabled = hasSelection;
             HistoryButton.IsEnabled = hasSelection;
+
+            if (hasSelection && FolderList.SelectedItem is ManagedFolder folder)
+            {
+                PersistManagerSelection(CurrentConfig?.Id, folder.Path);
+            }
         }
 
         // 添加文件夹 (核心逻辑)
@@ -517,6 +571,31 @@ namespace FolderRewind.Views
             }
 
             return await picker.PickSingleFolderAsync();
+        }
+
+        private void PersistManagerSelection(string configId, string folderPath)
+        {
+            var settings = Settings;
+            if (settings == null) return;
+
+            bool updated = false;
+
+            if (!string.IsNullOrWhiteSpace(configId) && settings.LastManagerConfigId != configId)
+            {
+                settings.LastManagerConfigId = configId;
+                updated = true;
+            }
+
+            if (!string.IsNullOrWhiteSpace(folderPath) && settings.LastManagerFolderPath != folderPath)
+            {
+                settings.LastManagerFolderPath = folderPath;
+                updated = true;
+            }
+
+            if (updated)
+            {
+                ConfigService.Save();
+            }
         }
     }
 }

@@ -90,9 +90,16 @@ namespace FolderRewind.Views
         {
             if (sender is ToggleSwitch ts)
             {
-                // 先将设置写回模型，保证保存的是最新值
-                Settings.RunOnStartup = ts.IsOn;
-                StartupService.SetStartup(ts.IsOn);
+                var desired = ts.IsOn;
+                var success = StartupService.SetStartup(desired);
+
+                Settings.RunOnStartup = success && desired;
+
+                if (!success && desired)
+                {
+                    ts.IsOn = false;
+                }
+
                 ConfigService.Save();
             }
         }

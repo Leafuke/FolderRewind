@@ -8,7 +8,7 @@
     xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
     mc:Ignorable="d">
 
-    <ScrollViewer Padding="32">
+    <ScrollViewer Padding="24">
         <StackPanel Spacing="32">
 
             <!-- 第一部分：收藏的文件夹 -->
@@ -31,7 +31,7 @@
                     <GridView.ItemTemplate>
                         <DataTemplate x:DataType="models:ManagedFolder">
                             <Grid Width="240" Height="100" CornerRadius="8">
-                                <Grid x:Name="ShadowGrid" Background="{ThemeResource LayerFillColorDefaultBrush}" CornerRadius="8" Translation="0,0,8">
+                                <Grid x:Name="ShadowGrid" Background="{ThemeResource CardBackgroundFillColorDefaultBrush}" CornerRadius="8" Translation="0,0,8">
                                     <Grid.Shadow>
                                         <ThemeShadow />
                                     </Grid.Shadow>
@@ -97,7 +97,7 @@
                     <GridView.ItemTemplate>
                         <DataTemplate x:DataType="models:BackupConfig">
                             <Grid Width="320" Height="140" CornerRadius="8">
-                                <Grid Background="{ThemeResource LayerFillColorDefaultBrush}" CornerRadius="8" Translation="0,0,8">
+                                <Grid Background="{ThemeResource CardBackgroundFillColorDefaultBrush}" CornerRadius="8" Translation="0,0,8">
                                     <Grid.Shadow>
                                         <ThemeShadow />
                                     </Grid.Shadow>

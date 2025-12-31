@@ -8,7 +8,7 @@
     xmlns:models="using:FolderRewind.Models"
     mc:Ignorable="d">
 
-    <ScrollViewer Padding="36,24">
+    <ScrollViewer Padding="24">
         <StackPanel Spacing="24" HorizontalAlignment="Stretch">
 
             <TextBlock x:Uid="SettingsPage_Title" Style="{ThemeResource TitleTextBlockStyle}" Margin="0,0,0,12"/>
@@ -208,6 +208,27 @@
                                         <ComboBoxItem x:Uid="SettingsPage_ThemeDark"/>
                                         <ComboBoxItem x:Uid="SettingsPage_ThemeLight"/>
                                     </ComboBox>
+                                </Grid>
+
+                                <Grid>
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*"/>
+                                        <ColumnDefinition Width="Auto"/>
+                                    </Grid.ColumnDefinitions>
+                                    <StackPanel VerticalAlignment="Center">
+                                        <Grid ColumnSpacing="12">
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="Auto"/>
+                                                <ColumnDefinition Width="*"/>
+                                            </Grid.ColumnDefinitions>
+                                            <FontIcon Glyph="&#xE700;" FontSize="18"/>
+                                            <StackPanel Grid.Column="1">
+                                                <TextBlock Text="导航栏宽度"/>
+                                                <TextBlock Text="调整左侧导航栏展开时的宽度" FontSize="12" Opacity="0.6"/>
+                                            </StackPanel>
+                                        </Grid>
+                                    </StackPanel>
+                                    <NumberBox Grid.Column="1" Width="140" Minimum="200" Maximum="600" Value="{x:Bind Settings.NavPaneWidth, Mode=TwoWay}" SpinButtonPlacementMode="Inline" SmallChange="10" LargeChange="50" />
                                 </Grid>
 
                                 <Grid>

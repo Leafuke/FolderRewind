@@ -64,6 +64,11 @@ namespace FolderRewind.Models
         private bool _isNavPaneOpen = true;
         private double _startupWidth = 1200;
         private double _startupHeight = 800;
+        private double _navPaneWidth = 320;
+        private string _lastManagerConfigId;
+        private string _lastManagerFolderPath;
+        private string _lastHistoryConfigId;
+        private string _lastHistoryFolderPath;
 
         public string Language { get => _language; set => SetProperty(ref _language, value); }
         public int ThemeIndex { get => _themeIndex; set => SetProperty(ref _themeIndex, value); }
@@ -77,6 +82,13 @@ namespace FolderRewind.Models
         public bool IsNavPaneOpen { get => _isNavPaneOpen; set => SetProperty(ref _isNavPaneOpen, value); }
         public double StartupWidth { get => _startupWidth; set => SetProperty(ref _startupWidth, value); }
         public double StartupHeight { get => _startupHeight; set => SetProperty(ref _startupHeight, value); }
+        public double NavPaneWidth { get => _navPaneWidth; set => SetProperty(ref _navPaneWidth, value); }
+
+        // 记住上次在“管理/历史”页选择的配置与文件夹，避免每次回到页面都跳到第一项
+        public string LastManagerConfigId { get => _lastManagerConfigId; set => SetProperty(ref _lastManagerConfigId, value); }
+        public string LastManagerFolderPath { get => _lastManagerFolderPath; set => SetProperty(ref _lastManagerFolderPath, value); }
+        public string LastHistoryConfigId { get => _lastHistoryConfigId; set => SetProperty(ref _lastHistoryConfigId, value); }
+        public string LastHistoryFolderPath { get => _lastHistoryFolderPath; set => SetProperty(ref _lastHistoryFolderPath, value); }
     }
 
     /// <summary>

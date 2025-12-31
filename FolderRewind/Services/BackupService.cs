@@ -397,7 +397,7 @@ namespace FolderRewind.Services
 
             string sevenZipExe = ResolveSevenZipExecutable();
             if (string.IsNullOrEmpty(sevenZipExe)) return;
-
+            
             var backupDir = new DirectoryInfo(Path.GetDirectoryName(backupFilePath)!);
             var targetFile = new FileInfo(backupFilePath);
             var chain = BuildRestoreChain(backupDir, targetFile, historyItem.BackupType);
@@ -654,13 +654,13 @@ namespace FolderRewind.Services
                 pInfo.WorkingDirectory = workingDirectory;
             }
 
-            Log($"[CMD] {Path.GetFileName(sevenZipExe)} {(logArguments ?? arguments)}");
+            Log($"[CMD] {Path.GetFileName(sevenZipExe)} {(logArguments ?? arguments)}", LogLevel.Debug);
 
             try
             {
                 using var p = new Process { StartInfo = pInfo };
                 p.OutputDataReceived += (s, e) => { if (!string.IsNullOrWhiteSpace(e.Data)) Log($"[7z] {e.Data}"); };
-                p.ErrorDataReceived += (s, e) => { if (!string.IsNullOrWhiteSpace(e.Data)) Log($"[7z Err] {e.Data}"); };
+                p.ErrorDataReceived += (s, e) => { if (!string.IsNullOrWhiteSpace(e.Data)) Log($"[7z Err] {e.Data}", LogLevel.Error); };
 
                 p.Start();
                 p.BeginOutputReadLine();
@@ -679,7 +679,31 @@ namespace FolderRewind.Services
         private static void Log(string message)
         {
             System.Diagnostics.Debug.WriteLine(message);
-            LogService.Log(message);
+            LogService.Log(message, InferLevel(message));
+        }
+
+        private static void Log(string message, LogLevel level)
+        {
+            System.Diagnostics.Debug.WriteLine(message);
+            LogService.Log(message, level);
+        }
+
+        private static LogLevel InferLevel(string message)
+        {
+            if (string.IsNullOrWhiteSpace(message)) return LogLevel.Info;
+
+            var lower = message.ToLowerInvariant();
+
+            if (lower.Contains("[7z err]") || lower.Contains("[错误]") || lower.Contains("[失败]") || lower.Contains("[异常]") || lower.Contains("严重错误") || lower.Contains("[系统错误]"))
+                return LogLevel.Error;
+
+            if (lower.Contains("[警告]") || lower.Contains("[warning]"))
+                return LogLevel.Warning;
+
+            if (lower.Contains("[debug]") || lower.Contains("[调试]") || lower.Contains("[cmd]"))
+                return LogLevel.Debug;
+
+            return LogLevel.Info;
         }
     }
 }

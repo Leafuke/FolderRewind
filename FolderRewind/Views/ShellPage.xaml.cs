@@ -1,8 +1,10 @@
+using FolderRewind.Models;
 using FolderRewind.Services;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Media.Animation;
 using System;
 using System.Linq;
+using Microsoft.UI.Xaml.Navigation;
 
 namespace FolderRewind.Views
 {
@@ -10,11 +12,15 @@ namespace FolderRewind.Views
     {
         private bool _isSyncingSelection;
 
+        public GlobalSettings Settings => ConfigService.CurrentConfig?.GlobalSettings;
+
         public ShellPage()
         {
             this.InitializeComponent();
             // 注册自己，方便全局调用
             App.Shell = this;
+
+            ContentFrame.Navigated += ContentFrame_Navigated;
         }
 
         private void NavView_Loaded(object sender, Microsoft.UI.Xaml.RoutedEventArgs e)
@@ -23,6 +29,8 @@ namespace FolderRewind.Views
             if (settings != null)
             {
                 NavView.IsPaneOpen = settings.IsNavPaneOpen;
+                // Ensure binding updates if settings was null initially (though unlikely here)
+                Bindings.Update();
             }
 
             NavigateTo("Home");
@@ -55,6 +63,13 @@ namespace FolderRewind.Views
 
             if (pageType != null)
             {
+                if (ContentFrame.SourcePageType == pageType && parameter == null)
+                {
+                    UpdateNavSelection(pageTag);
+                    UpdatePageHeader(pageTag);
+                    return;
+                }
+
                 // 1. 执行跳转
                 ContentFrame.Navigate(pageType, parameter, new SlideNavigationTransitionInfo());
 
@@ -120,6 +135,37 @@ namespace FolderRewind.Views
                 settings.IsNavPaneOpen = isOpen;
                 ConfigService.Save();
             }
+        }
+
+        private void NavView_BackRequested(NavigationView sender, NavigationViewBackRequestedEventArgs args)
+        {
+            if (ContentFrame.CanGoBack)
+            {
+                ContentFrame.GoBack(new SlideNavigationTransitionInfo { Effect = SlideNavigationTransitionEffect.FromLeft });
+            }
+        }
+
+        private void ContentFrame_Navigated(object sender, NavigationEventArgs e)
+        {
+            NavView.IsBackEnabled = ContentFrame.CanGoBack;
+
+            var pageTag = GetPageTagFromType(e.SourcePageType);
+            if (pageTag != null)
+            {
+                UpdateNavSelection(pageTag);
+                UpdatePageHeader(pageTag);
+            }
+        }
+
+        private static string GetPageTagFromType(Type sourcePageType)
+        {
+            if (sourcePageType == typeof(HomePage)) return "Home";
+            if (sourcePageType == typeof(FolderManagerPage)) return "Manager";
+            if (sourcePageType == typeof(BackupTasksPage)) return "Tasks";
+            if (sourcePageType == typeof(HistoryPage)) return "History";
+            if (sourcePageType == typeof(LogPage)) return "Logs";
+            if (sourcePageType == typeof(SettingsPage)) return "Settings";
+            return null;
         }
     }
 }

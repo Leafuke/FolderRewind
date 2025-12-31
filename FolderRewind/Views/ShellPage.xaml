@@ -8,10 +8,13 @@
                     x:Uid="ShellPage_Header"
                     PaneDisplayMode="Left"
                     IsSettingsVisible="True" 
+                    OpenPaneLength="{x:Bind Settings.NavPaneWidth, Mode=OneWay}"
+                    IsBackButtonVisible="Visible"
                     SelectionChanged="NavView_SelectionChanged"
                     Loaded="NavView_Loaded"
                     PaneOpened="NavView_PaneOpened"
-                    PaneClosed="NavView_PaneClosed">
+                    PaneClosed="NavView_PaneClosed"
+                    BackRequested="NavView_BackRequested">
 
         <NavigationView.MenuItems>
             <NavigationViewItem x:Uid="ShellPage_NavHome" Tag="Home">

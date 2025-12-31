@@ -5,7 +5,7 @@
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
     xmlns:models="using:FolderRewind.Models">
 
-    <Grid Padding="32">
+    <Grid Padding="24">
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto"/>
             <RowDefinition Height="Auto"/>
@@ -52,7 +52,7 @@
                             <Rectangle Width="2" Fill="{ThemeResource SystemControlForegroundBaseLowBrush}" VerticalAlignment="Stretch" HorizontalAlignment="Center"/>
                             <Border Width="14" Height="14" CornerRadius="7" Background="{ThemeResource SystemControlBackgroundChromeMediumBrush}" BorderBrush="{ThemeResource SystemControlForegroundBaseHighBrush}" BorderThickness="2" VerticalAlignment="Center" HorizontalAlignment="Center"/>
                         </Grid>
-                        <Border Grid.Column="2" Background="{ThemeResource LayerFillColorDefaultBrush}" CornerRadius="4" Padding="12" Margin="0,4">
+                        <Border Grid.Column="2" Background="{ThemeResource CardBackgroundFillColorDefaultBrush}" CornerRadius="4" Padding="12" Margin="0,4">
                             <Grid>
                                 <Grid.ColumnDefinitions>
                                     <ColumnDefinition Width="*"/>

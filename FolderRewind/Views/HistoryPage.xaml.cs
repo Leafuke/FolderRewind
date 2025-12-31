@@ -20,6 +20,8 @@ namespace FolderRewind.Views
         // 快捷访问配置列表
         public ObservableCollection<BackupConfig> Configs => ConfigService.CurrentConfig?.BackupConfigs ?? new ObservableCollection<BackupConfig>();
 
+        private GlobalSettings Settings => ConfigService.CurrentConfig?.GlobalSettings;
+
         private bool _isEmpty = true;
         public bool IsEmpty
         {
@@ -55,7 +57,10 @@ namespace FolderRewind.Views
             if (e.Parameter is ManagedFolder folder)
             {
                 ApplySelectionFromNavigation(null, folder.Path);
+                return;
             }
+
+            RestoreLastSelection();
         }
 
         private void ApplySelectionFromNavigation(string? configId, string? folderPath)
@@ -95,6 +100,8 @@ namespace FolderRewind.Views
                 {
                     RefreshHistory(targetConfig, targetFolder);
                 }
+
+                PersistHistorySelection(targetConfig, targetFolder);
             }
             finally
             {
@@ -116,6 +123,8 @@ namespace FolderRewind.Views
                     FolderFilter.SelectedIndex = 0;
                 else
                     FolderFilter.SelectedIndex = -1;
+
+                PersistHistorySelection(config, null);
             }
         }
 
@@ -125,6 +134,7 @@ namespace FolderRewind.Views
             if (FolderFilter.SelectedItem is ManagedFolder folder && ConfigFilter.SelectedItem is BackupConfig config)
             {
                 RefreshHistory(config, folder);
+                PersistHistorySelection(config, folder);
             }
         }
 
@@ -176,6 +186,74 @@ namespace FolderRewind.Views
                 {
                     await BackupService.RestoreBackupAsync(config, folder, item, BackupService.RestoreMode.Overwrite);
                 }
+            }
+        }
+
+        private void RestoreLastSelection()
+        {
+            if (_isNavigating) return;
+
+            var settings = Settings;
+            if (settings == null) return;
+            if (Configs.Count == 0) return;
+
+            _isNavigating = true;
+            try
+            {
+                var config = Configs.FirstOrDefault(c => !string.IsNullOrWhiteSpace(settings.LastHistoryConfigId) && c.Id == settings.LastHistoryConfigId)
+                             ?? Configs.FirstOrDefault();
+
+                ConfigFilter.SelectedItem = config;
+                FolderFilter.ItemsSource = config?.SourceFolders;
+
+                ManagedFolder folder = null;
+                if (config != null && !string.IsNullOrWhiteSpace(settings.LastHistoryFolderPath))
+                {
+                    folder = config.SourceFolders.FirstOrDefault(f => f.Path == settings.LastHistoryFolderPath);
+                }
+
+                if (folder == null && config?.SourceFolders.Count > 0)
+                {
+                    folder = config.SourceFolders[0];
+                }
+
+                FolderFilter.SelectedItem = folder;
+
+                if (config != null && folder != null)
+                {
+                    RefreshHistory(config, folder);
+                }
+
+                PersistHistorySelection(config, folder);
+            }
+            finally
+            {
+                _isNavigating = false;
+            }
+        }
+
+        private void PersistHistorySelection(BackupConfig? config, ManagedFolder? folder)
+        {
+            var settings = Settings;
+            if (settings == null) return;
+
+            bool updated = false;
+
+            if (config != null && settings.LastHistoryConfigId != config.Id)
+            {
+                settings.LastHistoryConfigId = config.Id;
+                updated = true;
+            }
+
+            if (folder != null && settings.LastHistoryFolderPath != folder.Path)
+            {
+                settings.LastHistoryFolderPath = folder.Path;
+                updated = true;
+            }
+
+            if (updated)
+            {
+                ConfigService.Save();
             }
         }
     }

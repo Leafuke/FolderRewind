@@ -7,6 +7,8 @@
     x:Uid="ConfigSettingsDialog"
     DefaultButton="Primary"
     PrimaryButtonClick="OnSaveClick"
+    SecondaryButtonText="删除配置"
+    SecondaryButtonClick="OnDeleteClick"
     Style="{StaticResource DefaultContentDialogStyle}">
 
     <Pivot Height="450" Width="500">
@@ -55,7 +57,7 @@
 
                 <StackPanel Spacing="8">
                     <TextBlock x:Uid="ConfigSettingsDialog_Icon"/>
-                    <GridView x:Name="IconGrid" SelectionMode="Single" Height="100">
+                    <GridView x:Name="IconGrid" SelectionMode="Single" Height="100" SelectionChanged="OnIconSelectionChanged">
                         <GridView.ItemTemplate>
                             <DataTemplate>
                                 <Border Width="40" Height="40" CornerRadius="4" Background="{ThemeResource LayerFillColorDefaultBrush}">

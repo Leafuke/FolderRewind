@@ -90,6 +90,17 @@ namespace FolderRewind
                 Services.ConfigService.Initialize();
                 LogService.MarkSessionStart();
 
+                var startupSettings = Services.ConfigService.CurrentConfig?.GlobalSettings;
+                if (startupSettings != null)
+                {
+                    var startupApplied = Services.StartupService.SetStartup(startupSettings.RunOnStartup);
+                    if (!startupApplied && startupSettings.RunOnStartup)
+                    {
+                        startupSettings.RunOnStartup = false;
+                        Services.ConfigService.Save();
+                    }
+                }
+
                 ApplyLanguageOverride(Services.ConfigService.CurrentConfig.GlobalSettings.Language);
 
                 _window = new MainWindow();
@@ -117,7 +128,7 @@ namespace FolderRewind
                     // ignore
                 }
 
-                // 最小错误窗口：避免用户看到“点了没反应”
+                // 最小错误窗口
                 try
                 {
                     _window = new Window();

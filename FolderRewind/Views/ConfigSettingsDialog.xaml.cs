@@ -5,6 +5,7 @@ using Microsoft.UI.Xaml.Controls;
 using System;
 using System.Diagnostics;
 using System.IO;
+using System.Linq;
 using Windows.Storage.Pickers;
 using WinRT.Interop;
 
@@ -15,6 +16,8 @@ namespace FolderRewind.Views
         public BackupConfig Config { get; private set; }
 
         public string ConfigFilePath => ConfigService.ConfigFilePath;
+
+        public string[] IconOptions { get; } = { "\uE8B7", "\uEB9F", "\uE82D", "\uE943", "\uE77B", "\uEA86" };
 
         // �������ԣ��� ComboBox ����ӳ�䵽 Config.Archive.Format �ַ���
         public int FormatSelectedIndex
@@ -29,6 +32,9 @@ namespace FolderRewind.Views
             this.Config = config;
             // ȷ�� XamlRoot �����ã����� ContentDialog �� WinUI3 ���
             this.XamlRoot = App._window.Content.XamlRoot;
+
+            IconGrid.ItemsSource = IconOptions;
+            IconGrid.SelectedItem = IconOptions.FirstOrDefault(i => i == Config.IconGlyph) ?? IconOptions.First();
         }
 
         public int ModeSelectedIndex
@@ -91,6 +97,47 @@ namespace FolderRewind.Views
             ConfigService.Save();
         }
 
+        private async void OnDeleteClick(ContentDialog sender, ContentDialogButtonClickEventArgs args)
+        {
+            args.Cancel = true;
+
+            var confirm = new ContentDialog
+            {
+                Title = "删除配置",
+                Content = new TextBlock { Text = "确定要删除当前配置吗？此操作不可撤销。", TextWrapping = TextWrapping.Wrap },
+                PrimaryButtonText = "删除",
+                CloseButtonText = "取消",
+                DefaultButton = ContentDialogButton.Close,
+                XamlRoot = this.XamlRoot
+            };
+
+            var result = await confirm.ShowAsync();
+            if (result != ContentDialogResult.Primary) return;
+
+            var settings = ConfigService.CurrentConfig?.GlobalSettings;
+            var fallback = ConfigService.CurrentConfig?.BackupConfigs?.FirstOrDefault(c => !ReferenceEquals(c, Config));
+
+            ConfigService.CurrentConfig.BackupConfigs.Remove(Config);
+
+            if (settings != null)
+            {
+                if (settings.LastManagerConfigId == Config.Id)
+                {
+                    settings.LastManagerConfigId = fallback?.Id;
+                    settings.LastManagerFolderPath = null;
+                }
+
+                if (settings.LastHistoryConfigId == Config.Id)
+                {
+                    settings.LastHistoryConfigId = fallback?.Id;
+                    settings.LastHistoryFolderPath = null;
+                }
+            }
+
+            ConfigService.Save();
+            sender.Hide();
+        }
+
         private static void OpenPathInShell(string path)
         {
             try
@@ -123,6 +170,15 @@ namespace FolderRewind.Views
             if (sender is Button btn && btn.DataContext is string item)
             {
                 Config.Filters.Blacklist.Remove(item);
+            }
+        }
+
+        private void OnIconSelectionChanged(object sender, SelectionChangedEventArgs e)
+        {
+            if (IconGrid.SelectedItem is string glyph && !string.IsNullOrWhiteSpace(glyph))
+            {
+                Config.IconGlyph = glyph;
+                ConfigService.Save();
             }
         }
     }

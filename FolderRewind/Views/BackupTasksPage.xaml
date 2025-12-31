@@ -5,7 +5,7 @@
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
     xmlns:models="using:FolderRewind.Models">
 
-    <Grid Padding="32">
+    <Grid Padding="24">
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto"/>
             <RowDefinition Height="*"/>
@@ -29,7 +29,7 @@
             <ListView.ItemTemplate>
                 <DataTemplate x:DataType="models:BackupTask">
                     <Grid CornerRadius="8" Margin="4">
-                        <Grid Background="{ThemeResource LayerFillColorDefaultBrush}" CornerRadius="8" Translation="0,0,8" Padding="16">
+                        <Grid Background="{ThemeResource CardBackgroundFillColorDefaultBrush}" CornerRadius="8" Translation="0,0,8" Padding="16">
                             <Grid.Shadow>
                                 <ThemeShadow />
                             </Grid.Shadow>
