@@ -11,6 +11,13 @@ namespace FolderRewind.Models
     [JsonSerializable(typeof(ManagedFolder))]
     [JsonSerializable(typeof(HistoryItem))]
     [JsonSerializable(typeof(List<HistoryItem>))]
+    [JsonSerializable(typeof(PluginHostSettings))]
+    [JsonSerializable(typeof(PluginInstallManifest))]
+    [JsonSerializable(typeof(PluginSettingDefinition))]
+    [JsonSerializable(typeof(InstalledPluginInfo))]
+    [JsonSerializable(typeof(Dictionary<string, bool>))]
+    [JsonSerializable(typeof(Dictionary<string, string>))]
+    [JsonSerializable(typeof(Dictionary<string, Dictionary<string, string>>))]
     [JsonSourceGenerationOptions(WriteIndented = true)]
     internal partial class AppJsonContext : JsonSerializerContext
     {

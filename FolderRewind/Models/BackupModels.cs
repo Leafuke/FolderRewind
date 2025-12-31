@@ -73,6 +73,9 @@ namespace FolderRewind.Models
         private string _lastHistoryConfigId;
         private string _lastHistoryFolderPath;
 
+        // 插件系统设置（集中管理，避免散落在 GlobalSettings 顶层）
+        private PluginHostSettings _plugins = new();
+
         public string Language { get => _language; set => SetProperty(ref _language, value); }
         public int ThemeIndex { get => _themeIndex; set => SetProperty(ref _themeIndex, value); }
         public string SevenZipPath { get => _sevenZipPath; set => SetProperty(ref _sevenZipPath, value); }
@@ -95,6 +98,11 @@ namespace FolderRewind.Models
         public string LastManagerFolderPath { get => _lastManagerFolderPath; set => SetProperty(ref _lastManagerFolderPath, value); }
         public string LastHistoryConfigId { get => _lastHistoryConfigId; set => SetProperty(ref _lastHistoryConfigId, value); }
         public string LastHistoryFolderPath { get => _lastHistoryFolderPath; set => SetProperty(ref _lastHistoryFolderPath, value); }
+
+        /// <summary>
+        /// 插件系统设置。
+        /// </summary>
+        public PluginHostSettings Plugins { get => _plugins; set => SetProperty(ref _plugins, value ?? new PluginHostSettings()); }
     }
 
     /// <summary>

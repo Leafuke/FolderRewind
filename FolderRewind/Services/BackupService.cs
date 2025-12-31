@@ -84,7 +84,20 @@ namespace FolderRewind.Services
 
             await RunOnUIAsync(() => ActiveTasks.Insert(0, task));
 
+            // 允许插件在备份前创建快照并替换源路径（例如 Minecraft 热备份：先复制到 snapshot 再备份）。
             string sourcePath = folder.Path;
+            try
+            {
+                var pluginOverride = Services.Plugins.PluginService.InvokeBeforeBackupFolder(config, folder);
+                if (!string.IsNullOrWhiteSpace(pluginOverride))
+                {
+                    sourcePath = pluginOverride;
+                }
+            }
+            catch
+            {
+                // 插件异常不会影响核心备份流程（具体异常会在 PluginService 内记录）
+            }
             // 按照要求：备份路径 = 用户设置的目标路径 \ 文件夹名
             string backupSubDir = Path.Combine(config.DestinationPath, folder.DisplayName);
             string metadataDir = Path.Combine(config.DestinationPath, "_metadata", folder.DisplayName);
@@ -206,6 +219,15 @@ namespace FolderRewind.Services
                     folder.StatusText = "备份失败";
                 });
                 Log($"[失败] {folder.DisplayName} 备份未完成");
+            }
+
+            // 备份后回调（用于清理快照等）
+            try
+            {
+                Services.Plugins.PluginService.InvokeAfterBackupFolder(config, folder, success, generatedFileName);
+            }
+            catch
+            {
             }
         }
 

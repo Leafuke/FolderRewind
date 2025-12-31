@@ -89,6 +89,16 @@ namespace FolderRewind.Services
             if (CurrentConfig.GlobalSettings == null)
                 CurrentConfig.GlobalSettings = new GlobalSettings();
 
+            // 兼容旧版配置：Plugins 节点可能为 null
+            if (CurrentConfig.GlobalSettings.Plugins == null)
+                CurrentConfig.GlobalSettings.Plugins = new PluginHostSettings();
+
+            // 兼容旧版配置：字典可能反序列化为 null
+            if (CurrentConfig.GlobalSettings.Plugins.PluginEnabled == null)
+                CurrentConfig.GlobalSettings.Plugins.PluginEnabled = new System.Collections.Generic.Dictionary<string, bool>();
+            if (CurrentConfig.GlobalSettings.Plugins.PluginSettings == null)
+                CurrentConfig.GlobalSettings.Plugins.PluginSettings = new System.Collections.Generic.Dictionary<string, System.Collections.Generic.Dictionary<string, string>>();
+
             NormalizeGlobalSettings(CurrentConfig.GlobalSettings);
 
             ApplyLogSettings(CurrentConfig.GlobalSettings);

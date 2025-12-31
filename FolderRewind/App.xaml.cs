@@ -1,5 +1,6 @@
 ﻿using FolderRewind;
 using FolderRewind.Services;
+using FolderRewind.Services.Plugins;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Controls.Primitives;
@@ -89,6 +90,10 @@ namespace FolderRewind
 
                 Services.ConfigService.Initialize();
                 LogService.MarkSessionStart();
+
+                // 插件系统初始化：尽量早，但不影响主窗口创建。
+                // 这里使用同步扫描+按启用状态加载（异常会写入 LogService）。
+                PluginService.Initialize();
 
                 var startupSettings = Services.ConfigService.CurrentConfig?.GlobalSettings;
                 if (startupSettings != null)

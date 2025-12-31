@@ -18,6 +18,7 @@
             <converters:BoolToStarIconConverter x:Key="BoolToStarIconConverter"/>
             <converters:BoolToColorConverter x:Key="BoolToColorConverter"/>
             <converters:CountToStringConverter x:Key="CountToStringConverter"/>
+            <converters:StringNullOrEmptyToVisibilityConverter x:Key="StringNullOrEmptyToVisConverter"/>
 
             <!-- 定义一些常用的颜色或样式 -->
             <SolidColorBrush x:Key="CardBackgroundBrush" Color="#05FFFFFF" />
