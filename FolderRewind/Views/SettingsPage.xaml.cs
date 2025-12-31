@@ -3,6 +3,8 @@ using FolderRewind.Services;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using System;
+using System.Collections.ObjectModel;
+using System.Linq;
 using Windows.Storage.Pickers;
 using Windows.Graphics;
 using WinRT.Interop;
@@ -14,22 +16,46 @@ namespace FolderRewind.Views
         public GlobalSettings Settings => ConfigService.CurrentConfig.GlobalSettings;
 
         private bool _isInitializingLanguage;
+        private bool _isInitializingFont;
+
+        public ObservableCollection<string> FontFamilies { get; } = new()
+        {
+            "Segoe UI Variable",
+            "Segoe UI",
+            "Arial",
+            "Calibri",
+            "Consolas",
+            "Sitka Text"
+        };
 
         public SettingsPage()
         {
             this.InitializeComponent();
 
             _isInitializingLanguage = true;
+            _isInitializingFont = true;
             try
             {
                 if (LanguageCombo != null)
                 {
                     LanguageCombo.SelectedIndex = LanguageToIndex(Settings.Language);
                 }
+
+                if (FontFamilyCombo != null)
+                {
+                    var current = FontFamilies.FirstOrDefault(f => string.Equals(f, Settings.FontFamily, StringComparison.OrdinalIgnoreCase));
+                    FontFamilyCombo.SelectedItem = current ?? Settings.FontFamily ?? FontFamilies.FirstOrDefault();
+                }
+
+                if (FontSizeBox != null)
+                {
+                    FontSizeBox.Value = Settings.BaseFontSize;
+                }
             }
             finally
             {
                 _isInitializingLanguage = false;
+                _isInitializingFont = false;
             }
         }
 
@@ -210,6 +236,29 @@ namespace FolderRewind.Views
 
             ConfigService.Save();
             ApplyWindowSize(Settings.StartupWidth, Settings.StartupHeight);
+        }
+
+        private void OnFontFamilyChanged(object sender, SelectionChangedEventArgs e)
+        {
+            if (_isInitializingFont) return;
+
+            if (sender is ComboBox cb && cb.SelectedItem is string selected)
+            {
+                Settings.FontFamily = selected;
+                TypographyService.ApplyTypography(Settings);
+                ConfigService.Save();
+            }
+        }
+
+        private void OnFontSizeChanged(object sender, NumberBoxValueChangedEventArgs e)
+        {
+            if (_isInitializingFont) return;
+
+            var newSize = Math.Clamp(e.NewValue, 12, 20);
+            Settings.BaseFontSize = newSize;
+
+            TypographyService.ApplyTypography(Settings);
+            ConfigService.Save();
         }
 
         private static double ClampWidth(double value)

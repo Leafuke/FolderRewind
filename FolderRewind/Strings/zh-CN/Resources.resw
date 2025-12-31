@@ -222,6 +222,18 @@
   <data name="SettingsPage_ThemeLight.Content" xml:space="preserve">
     <value>浅色</value>
   </data>
+  <data name="SettingsPage_FontFamily.Text" xml:space="preserve">
+    <value>界面字体</value>
+  </data>
+  <data name="SettingsPage_FontFamilyDesc.Text" xml:space="preserve">
+    <value>应用于大部分界面文字</value>
+  </data>
+  <data name="SettingsPage_FontSize.Text" xml:space="preserve">
+    <value>基础字号</value>
+  </data>
+  <data name="SettingsPage_FontSizeDesc.Text" xml:space="preserve">
+    <value>12–20 号，影响文字区块</value>
+  </data>
   <data name="HomePage_FavoriteFolders.Text" xml:space="preserve">
     <value>收藏的文件夹</value>
   </data>
@@ -236,6 +248,24 @@
   </data>
   <data name="HomePage_NewConfig.Text" xml:space="preserve">
     <value>新建配置</value>
+  </data>
+  <data name="HomePage_SortLabel.Text" xml:space="preserve">
+    <value>排序</value>
+  </data>
+  <data name="HomePage_Sort_NameAsc.Content" xml:space="preserve">
+    <value>名称（A→Z）</value>
+  </data>
+  <data name="HomePage_Sort_NameDesc.Content" xml:space="preserve">
+    <value>名称（Z→A）</value>
+  </data>
+  <data name="HomePage_Sort_FolderCount.Content" xml:space="preserve">
+    <value>源文件夹数量</value>
+  </data>
+  <data name="HomePage_Sort_Destination.Content" xml:space="preserve">
+    <value>目标路径</value>
+  </data>
+  <data name="HomePage_Config_Auto.Text" xml:space="preserve">
+    <value>自动</value>
   </data>
   <data name="HistoryPage_Title.Text" xml:space="preserve">
     <value>备份历史与恢复</value>

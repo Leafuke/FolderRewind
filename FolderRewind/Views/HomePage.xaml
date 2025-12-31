@@ -21,44 +21,68 @@
                 <!-- 绑定到 Favorites 集合 -->
                 <GridView ItemsSource="{x:Bind FavoriteFoldersView}" 
                           SelectionMode="None" 
-                          IsItemClickEnabled="True" 
-                          ItemClick="OnFavoriteItemClick">
+                          IsItemClickEnabled="False">
                     <GridView.ItemContainerStyle>
                         <Style TargetType="GridViewItem">
-                            <Setter Property="Margin" Value="0,0,12,12"/>
+                            <Setter Property="Margin" Value="0"/>
+                            <Setter Property="Padding" Value="0"/>
+                            <Setter Property="MinWidth" Value="0"/>
+                            <Setter Property="MinHeight" Value="0"/>
+                            <Setter Property="Template">
+                                <Setter.Value>
+                                    <ControlTemplate TargetType="GridViewItem">
+                                        <ContentPresenter />
+                                    </ControlTemplate>
+                                </Setter.Value>
+                            </Setter>
                         </Style>
                     </GridView.ItemContainerStyle>
+                    <GridView.ItemsPanel>
+                        <ItemsPanelTemplate>
+                            <ItemsWrapGrid ItemWidth="320" ItemHeight="120" Orientation="Horizontal"/>
+                        </ItemsPanelTemplate>
+                    </GridView.ItemsPanel>
                     <GridView.ItemTemplate>
                         <DataTemplate x:DataType="models:ManagedFolder">
-                            <Grid Width="240" Height="100" CornerRadius="8">
-                                <Grid x:Name="ShadowGrid" Background="{ThemeResource CardBackgroundFillColorDefaultBrush}" CornerRadius="8" Translation="0,0,8">
-                                    <Grid.Shadow>
-                                        <ThemeShadow />
-                                    </Grid.Shadow>
-                                    <Border CornerRadius="8" BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}" BorderThickness="1" Padding="16">
-                                        <Grid>
-                                            <Grid.ColumnDefinitions>
-                                                <ColumnDefinition Width="Auto"/>
-                                                <ColumnDefinition Width="*"/>
-                                                <ColumnDefinition Width="Auto"/>
-                                            </Grid.ColumnDefinitions>
+                            <Border Width="300" Height="100" Margin="0,0,12,12"
+                                    Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
+                                    BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
+                                    BorderThickness="1"
+                                    CornerRadius="12"
+                                    Translation="0,0,16">
+                                <Border.Shadow>
+                                    <ThemeShadow />
+                                </Border.Shadow>
 
-                                            <FontIcon Glyph="&#xE8B7;" FontSize="28" VerticalAlignment="Center" Margin="0,0,16,0" Foreground="{ThemeResource SystemControlForegroundAccentBrush}"/>
+                                <Button Background="Transparent"
+                                        BorderThickness="0"
+                                        CornerRadius="12"
+                                        Padding="12"
+                                        HorizontalContentAlignment="Stretch"
+                                        VerticalContentAlignment="Stretch"
+                                        Click="OnFavoriteCardClick">
+                                    <Grid ColumnSpacing="12">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="Auto"/>
+                                            <ColumnDefinition Width="*"/>
+                                            <ColumnDefinition Width="Auto"/>
+                                        </Grid.ColumnDefinitions>
+                                        
+                                        <FontIcon Glyph="&#xE8B7;" FontSize="24" Foreground="{ThemeResource SystemControlForegroundAccentBrush}" VerticalAlignment="Center"/>
+                                        
+                                        <StackPanel Grid.Column="1" VerticalAlignment="Center" Spacing="2">
+                                            <TextBlock Text="{x:Bind DisplayName}" Style="{ThemeResource BodyStrongTextBlockStyle}" TextTrimming="CharacterEllipsis" TextAlignment="Left"/>
+                                            <TextBlock Text="{x:Bind FullPath}" Style="{ThemeResource CaptionTextBlockStyle}" Opacity="0.6" TextTrimming="CharacterEllipsis" TextAlignment="Left"/>
+                                            <TextBlock Text="{x:Bind LastBackupTime}" Style="{ThemeResource CaptionTextBlockStyle}" Opacity="0.6" TextTrimming="CharacterEllipsis" TextAlignment="Left"/>
+                                        </StackPanel>
 
-                                            <StackPanel Grid.Column="1" VerticalAlignment="Center" Spacing="4">
-                                                <TextBlock Text="{x:Bind DisplayName}" FontWeight="SemiBold" TextTrimming="CharacterEllipsis" Style="{ThemeResource BodyStrongTextBlockStyle}"/>
-                                                <TextBlock Text="{x:Bind StatusText}" FontSize="12" Opacity="0.6" TextTrimming="CharacterEllipsis"/>
-                                            </StackPanel>
-
-                                            <!-- 快速备份按钮 -->
-                                            <Button Grid.Column="2" Padding="8" Background="Transparent" BorderThickness="0" 
-                                                    Click="OnQuickBackupClick" x:Uid="HomePage_QuickBackupButton" VerticalAlignment="Center">
-                                                <FontIcon Glyph="&#xE896;" FontSize="16"/>
-                                            </Button>
-                                        </Grid>
-                                    </Border>
-                                </Grid>
-                            </Grid>
+                                        <Button Grid.Column="2" Padding="6" Background="Transparent" BorderThickness="0" 
+                                                Click="OnQuickBackupClick" x:Uid="HomePage_QuickBackupButton" VerticalAlignment="Center">
+                                            <FontIcon Glyph="&#xE896;" FontSize="16"/>
+                                        </Button>
+                                    </Grid>
+                                </Button>
+                            </Border>
                         </DataTemplate>
                     </GridView.ItemTemplate>
                 </GridView>
@@ -70,13 +94,26 @@
 
             <!-- 第二部分：配置概览 -->
             <StackPanel Spacing="12">
-                <Grid>
+                <Grid ColumnSpacing="12">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="Auto"/>
+                        <ColumnDefinition Width="Auto"/>
+                    </Grid.ColumnDefinitions>
                     <StackPanel Orientation="Horizontal" Spacing="8">
                         <FontIcon Glyph="&#xE71D;" Foreground="{ThemeResource SystemControlForegroundAccentBrush}"/>
                         <TextBlock x:Uid="HomePage_ConfigOverview" Style="{ThemeResource SubtitleTextBlockStyle}"/>
                     </StackPanel>
 
-                    <Button HorizontalAlignment="Right" Style="{ThemeResource AccentButtonStyle}" Click="OnAddConfigClick">
+                    <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="6" VerticalAlignment="Center">
+                        <TextBlock x:Uid="HomePage_SortLabel" Opacity="0.7"/>
+                        <ComboBox x:Name="SortCombo" MinWidth="160" SelectionChanged="OnSortModeChanged">
+                            <ComboBoxItem Tag="NameAsc" x:Uid="HomePage_Sort_NameAsc"/>
+                            <ComboBoxItem Tag="NameDesc" x:Uid="HomePage_Sort_NameDesc"/>
+                        </ComboBox>
+                    </StackPanel>
+
+                    <Button Grid.Column="2" HorizontalAlignment="Right" Style="{ThemeResource AccentButtonStyle}" Click="OnAddConfigClick">
                         <StackPanel Orientation="Horizontal" Spacing="8">
                             <FontIcon Glyph="&#xE710;"/>
                             <TextBlock x:Uid="HomePage_NewConfig"/>
@@ -87,53 +124,77 @@
                 <GridView x:Name="ConfigGridView" 
                           ItemsSource="{x:Bind ConfigsView, Mode=OneWay}"
                           SelectionMode="None" 
-                          IsItemClickEnabled="True" 
-                          ItemClick="OnConfigClick">
+                          IsItemClickEnabled="False">
                     <GridView.ItemContainerStyle>
                         <Style TargetType="GridViewItem">
-                            <Setter Property="Margin" Value="0,0,16,16"/>
+                            <Setter Property="Margin" Value="0"/>
+                            <Setter Property="Padding" Value="0"/>
+                            <Setter Property="MinWidth" Value="0"/>
+                            <Setter Property="MinHeight" Value="0"/>
+                            <Setter Property="Template">
+                                <Setter.Value>
+                                    <ControlTemplate TargetType="GridViewItem">
+                                        <ContentPresenter />
+                                    </ControlTemplate>
+                                </Setter.Value>
+                            </Setter>
                         </Style>
                     </GridView.ItemContainerStyle>
+                    <GridView.ItemsPanel>
+                        <ItemsPanelTemplate>
+                            <ItemsWrapGrid ItemWidth="320" ItemHeight="120" Orientation="Horizontal"/>
+                        </ItemsPanelTemplate>
+                    </GridView.ItemsPanel>
                     <GridView.ItemTemplate>
                         <DataTemplate x:DataType="models:BackupConfig">
-                            <Grid Width="320" Height="140" CornerRadius="8">
-                                <Grid Background="{ThemeResource CardBackgroundFillColorDefaultBrush}" CornerRadius="8" Translation="0,0,8">
-                                    <Grid.Shadow>
-                                        <ThemeShadow />
-                                    </Grid.Shadow>
-                                    <Border CornerRadius="8" BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}" BorderThickness="1" Padding="20">
-                                        <Grid>
-                                            <Grid.RowDefinitions>
-                                                <RowDefinition Height="Auto"/>
-                                                <RowDefinition Height="*"/>
-                                            </Grid.RowDefinitions>
+                            <Border Width="300" Height="100" Margin="0,0,12,12"
+                                    Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
+                                    BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
+                                    BorderThickness="1"
+                                    CornerRadius="12"
+                                    Translation="0,0,16">
+                                <Border.Shadow>
+                                    <ThemeShadow />
+                                </Border.Shadow>
 
-                                            <Grid>
-                                                <Grid.ColumnDefinitions>
-                                                    <ColumnDefinition Width="Auto"/>
-                                                    <ColumnDefinition Width="*"/>
-                                                </Grid.ColumnDefinitions>
-                                                
-                                                <!-- Icon -->
-                                                <Border Width="48" Height="48" CornerRadius="24" Background="{ThemeResource LayerFillColorAltBrush}" Margin="0,0,16,0">
-                                                    <FontIcon Glyph="{x:Bind IconGlyph}" FontSize="24" Foreground="{ThemeResource SystemControlForegroundAccentBrush}"/>
-                                                </Border>
-
-                                                <StackPanel Grid.Column="1" VerticalAlignment="Center">
-                                                    <TextBlock Text="{x:Bind Name}" Style="{ThemeResource SubtitleTextBlockStyle}" TextTrimming="CharacterEllipsis"/>
-                                                    <TextBlock Text="{x:Bind SummaryText}" FontSize="12" Opacity="0.6" TextTrimming="CharacterEllipsis" MaxLines="2"/>
+                                <Button Background="Transparent"
+                                        BorderThickness="0"
+                                        CornerRadius="12"
+                                        Padding="12"
+                                        HorizontalContentAlignment="Stretch"
+                                        VerticalContentAlignment="Stretch"
+                                        Click="OnConfigCardClick">
+                                    <Grid ColumnSpacing="12">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="Auto"/>
+                                            <ColumnDefinition Width="*"/>
+                                            <ColumnDefinition Width="Auto"/>
+                                        </Grid.ColumnDefinitions>
+                                        
+                                        <Border Width="40" Height="40" CornerRadius="20" Background="{ThemeResource LayerFillColorAltBrush}" VerticalAlignment="Center">
+                                            <FontIcon Glyph="{x:Bind IconGlyph}" FontSize="20" Foreground="{ThemeResource SystemControlForegroundAccentBrush}" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                                        </Border>
+                                        
+                                        <StackPanel Grid.Column="1" VerticalAlignment="Center" Spacing="2">
+                                            <TextBlock Text="{x:Bind Name}" Style="{ThemeResource BodyStrongTextBlockStyle}" TextTrimming="CharacterEllipsis" TextAlignment="Left"/>
+                                            <TextBlock Text="{x:Bind DestinationPath}" Style="{ThemeResource CaptionTextBlockStyle}" Opacity="0.6" TextTrimming="CharacterEllipsis" TextAlignment="Left"/>
+                                            
+                                            <StackPanel Orientation="Horizontal" Spacing="12" Margin="0,4,0,0">
+                                                 <StackPanel Orientation="Horizontal" Spacing="4" Opacity="0.7">
+                                                    <FontIcon Glyph="&#xE8B7;" FontSize="12"/>
+                                                    <TextBlock Text="{x:Bind SourceFolders.Count, TargetNullValue=0}" Style="{ThemeResource CaptionTextBlockStyle}"/>
                                                 </StackPanel>
-                                            </Grid>
+                                                <StackPanel Orientation="Horizontal" Spacing="4" Opacity="0.7" Visibility="{x:Bind Automation.AutoBackupEnabled, Converter={StaticResource BoolToVisConverter}}">
+                                                    <FontIcon Glyph="&#xE823;" FontSize="12"/>
+                                                    <TextBlock x:Uid="HomePage_Config_Auto" Style="{ThemeResource CaptionTextBlockStyle}"/>
+                                                </StackPanel>
+                                            </StackPanel>
+                                        </StackPanel>
 
-                                            <!-- Action / Status -->
-                                            <Grid Grid.Row="1" Margin="0,12,0,0" VerticalAlignment="Bottom">
-                                                <TextBlock Text="{x:Bind DestinationPath}" FontSize="11" Opacity="0.4" TextTrimming="CharacterEllipsis" VerticalAlignment="Center"/>
-                                                <FontIcon Glyph="&#xE76C;" HorizontalAlignment="Right" FontSize="14" Opacity="0.4"/>
-                                            </Grid>
-                                        </Grid>
-                                    </Border>
-                                </Grid>
-                            </Grid>
+                                        <FontIcon Grid.Column="2" Glyph="&#xE76C;" FontSize="14" Opacity="0.4" VerticalAlignment="Center"/>
+                                    </Grid>
+                                </Button>
+                            </Border>
                         </DataTemplate>
                     </GridView.ItemTemplate>
                 </GridView>

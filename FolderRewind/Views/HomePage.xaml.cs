@@ -4,6 +4,7 @@ using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Navigation;
 using System;
+using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.Collections.Specialized;
 using System.ComponentModel;
@@ -28,6 +29,8 @@ namespace FolderRewind.Views
         // 配置列表（业务逻辑仍使用强类型）
         public ObservableCollection<BackupConfig> Configs => ConfigService.CurrentConfig?.BackupConfigs;
 
+        public GlobalSettings Settings => ConfigService.CurrentConfig?.GlobalSettings;
+
         private bool _isFavoritesEmpty = true;
         public bool IsFavoritesEmpty
         {
@@ -39,6 +42,7 @@ namespace FolderRewind.Views
         {
             this.InitializeComponent();
 
+            this.Loaded += OnLoaded;
             FavoriteFolders.CollectionChanged += (_, __) => SyncFavoritesView();
             HookConfigsChanged();
         }
@@ -77,12 +81,28 @@ namespace FolderRewind.Views
         private void RefreshConfigsView()
         {
             ConfigsView.Clear();
-            if (Configs != null)
+            foreach (var cfg in GetSortedConfigs())
             {
-                foreach (var cfg in Configs)
-                {
-                    ConfigsView.Add(cfg);
-                }
+                ConfigsView.Add(cfg);
+            }
+        }
+
+        private IEnumerable<BackupConfig> GetSortedConfigs()
+        {
+            if (Configs == null) yield break;
+
+            var mode = Settings?.HomeSortMode ?? "NameAsc";
+            IEnumerable<BackupConfig> query = Configs;
+
+            query = mode switch
+            {
+                "NameDesc" => query.OrderByDescending(c => c.Name),
+                _ => query.OrderBy(c => c.Name)
+            };
+
+            foreach (var cfg in query)
+            {
+                yield return cfg;
             }
         }
 
@@ -118,9 +138,9 @@ namespace FolderRewind.Views
         }
 
         // 点击收藏项卡片 -> 跳转到管理页并选中该文件夹
-        private void OnFavoriteItemClick(object sender, ItemClickEventArgs e)
+        private void OnFavoriteCardClick(object sender, RoutedEventArgs e)
         {
-            if (e.ClickedItem is ManagedFolder folder)
+            if (sender is Button btn && btn.DataContext is ManagedFolder folder)
             {
                 // 需要找到它属于哪个 Config，才能导航
                 var parentConfig = FindParentConfig(folder);
@@ -133,11 +153,23 @@ namespace FolderRewind.Views
         }
 
         // 点击配置卡片 -> 跳转到管理页
-        private void OnConfigClick(object sender, ItemClickEventArgs e)
+        private void OnConfigCardClick(object sender, RoutedEventArgs e)
         {
-            if (e.ClickedItem is BackupConfig config)
+            if (sender is Button btn && btn.DataContext is BackupConfig config)
             {
                 App.Shell.NavigateTo("Manager", ManagerNavigationParameter.ForConfig(config.Id));
+            }
+        }
+
+        private void OnSortModeChanged(object sender, SelectionChangedEventArgs e)
+        {
+            if (Settings == null || SortCombo == null) return;
+
+            if (SortCombo.SelectedItem is ComboBoxItem item && item.Tag is string tag)
+            {
+                Settings.HomeSortMode = tag;
+                ConfigService.Save();
+                RefreshConfigsView();
             }
         }
 
@@ -162,6 +194,27 @@ namespace FolderRewind.Views
                     }
                 }
             }
+        }
+
+        private void OnLoaded(object sender, RoutedEventArgs e)
+        {
+            ApplySortSelection();
+        }
+
+        private void ApplySortSelection()
+        {
+            if (SortCombo == null || Settings == null) return;
+
+            foreach (var obj in SortCombo.Items)
+            {
+                if (obj is ComboBoxItem item && item.Tag is string tag && string.Equals(tag, Settings.HomeSortMode, StringComparison.OrdinalIgnoreCase))
+                {
+                    SortCombo.SelectedItem = item;
+                    return;
+                }
+            }
+
+            SortCombo.SelectedIndex = 0;
         }
 
         // 辅助方法：查找文件夹所属的配置

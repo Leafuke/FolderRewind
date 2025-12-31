@@ -13,5 +13,5 @@
         <MicaBackdrop />
     </Window.SystemBackdrop>
 
-    <views:ShellPage />
+    <views:ShellPage x:Name="ShellRoot" />
 </Window>

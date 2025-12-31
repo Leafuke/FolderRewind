@@ -110,6 +110,7 @@ namespace FolderRewind
                 Services.AutomationService.Start();
 
                 Services.ThemeService.ApplyThemeToWindow(_window);
+                Services.TypographyService.ApplyTypography(Services.ConfigService.CurrentConfig?.GlobalSettings);
 
                 UpdateWindowTitle();
 

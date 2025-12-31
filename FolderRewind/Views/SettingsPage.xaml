@@ -221,6 +221,48 @@
                                                 <ColumnDefinition Width="Auto"/>
                                                 <ColumnDefinition Width="*"/>
                                             </Grid.ColumnDefinitions>
+                                            <FontIcon Glyph="&#xE8D2;" FontSize="18"/>
+                                            <StackPanel Grid.Column="1">
+                                                <TextBlock x:Uid="SettingsPage_FontFamily"/>
+                                                <TextBlock x:Uid="SettingsPage_FontFamilyDesc" FontSize="12" Opacity="0.6"/>
+                                            </StackPanel>
+                                        </Grid>
+                                    </StackPanel>
+                                    <ComboBox x:Name="FontFamilyCombo" Grid.Column="1" MinWidth="180" ItemsSource="{x:Bind FontFamilies}" SelectionChanged="OnFontFamilyChanged"/>
+                                </Grid>
+
+                                <Grid>
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*"/>
+                                        <ColumnDefinition Width="Auto"/>
+                                    </Grid.ColumnDefinitions>
+                                    <StackPanel VerticalAlignment="Center">
+                                        <Grid ColumnSpacing="12">
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="Auto"/>
+                                                <ColumnDefinition Width="*"/>
+                                            </Grid.ColumnDefinitions>
+                                            <FontIcon Glyph="&#xE73E;" FontSize="18"/>
+                                            <StackPanel Grid.Column="1">
+                                                <TextBlock x:Uid="SettingsPage_FontSize"/>
+                                                <TextBlock x:Uid="SettingsPage_FontSizeDesc" FontSize="12" Opacity="0.6"/>
+                                            </StackPanel>
+                                        </Grid>
+                                    </StackPanel>
+                                    <NumberBox x:Name="FontSizeBox" Grid.Column="1" Width="140" Minimum="12" Maximum="20" SmallChange="0.5" LargeChange="1" Value="{x:Bind Settings.BaseFontSize, Mode=TwoWay}" ValueChanged="OnFontSizeChanged"/>
+                                </Grid>
+
+                                <Grid>
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*"/>
+                                        <ColumnDefinition Width="Auto"/>
+                                    </Grid.ColumnDefinitions>
+                                    <StackPanel VerticalAlignment="Center">
+                                        <Grid ColumnSpacing="12">
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="Auto"/>
+                                                <ColumnDefinition Width="*"/>
+                                            </Grid.ColumnDefinitions>
                                             <FontIcon Glyph="&#xE700;" FontSize="18"/>
                                             <StackPanel Grid.Column="1">
                                                 <TextBlock Text="导航栏宽度"/>

@@ -196,6 +196,20 @@ namespace FolderRewind.Services
                 settings.ThemeIndex = 1;
             }
 
+            if (string.IsNullOrWhiteSpace(settings.FontFamily))
+            {
+                settings.FontFamily = "Segoe UI Variable";
+            }
+
+            if (double.IsNaN(settings.BaseFontSize) || settings.BaseFontSize <= 0)
+            {
+                settings.BaseFontSize = 14;
+            }
+            else
+            {
+                settings.BaseFontSize = Math.Clamp(settings.BaseFontSize, 12, 20);
+            }
+
             // Startup size: clamp to reasonable desktop values
             if (double.IsNaN(settings.StartupWidth) || settings.StartupWidth < 640 || settings.StartupWidth > 3840)
             {
@@ -205,6 +219,11 @@ namespace FolderRewind.Services
             if (double.IsNaN(settings.StartupHeight) || settings.StartupHeight < 480 || settings.StartupHeight > 2160)
             {
                 settings.StartupHeight = 800;
+            }
+
+            if (string.IsNullOrWhiteSpace(settings.HomeSortMode))
+            {
+                settings.HomeSortMode = "NameAsc";
             }
         }
 

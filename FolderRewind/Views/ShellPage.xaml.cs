@@ -12,6 +12,8 @@ namespace FolderRewind.Views
     {
         private bool _isSyncingSelection;
 
+        public Border AppTitleBarElement => AppTitleBar;
+
         public GlobalSettings Settings => ConfigService.CurrentConfig?.GlobalSettings;
 
         public ShellPage()

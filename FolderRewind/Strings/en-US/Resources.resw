@@ -125,6 +125,18 @@
   <data name="SettingsPage_ThemeLight.Content" xml:space="preserve">
     <value>Light</value>
   </data>
+  <data name="SettingsPage_FontFamily.Text" xml:space="preserve">
+    <value>App font</value>
+  </data>
+  <data name="SettingsPage_FontFamilyDesc.Text" xml:space="preserve">
+    <value>Applies to most UI text</value>
+  </data>
+  <data name="SettingsPage_FontSize.Text" xml:space="preserve">
+    <value>Base font size</value>
+  </data>
+  <data name="SettingsPage_FontSizeDesc.Text" xml:space="preserve">
+    <value>12–20 pt, affects text-heavy areas</value>
+  </data>
 
   <!-- HomePage -->
   <data name="HomePage_FavoriteFolders.Text" xml:space="preserve">
@@ -141,6 +153,24 @@
   </data>
   <data name="HomePage_NewConfig.Text" xml:space="preserve">
     <value>New config</value>
+  </data>
+  <data name="HomePage_SortLabel.Text" xml:space="preserve">
+    <value>Sort</value>
+  </data>
+  <data name="HomePage_Sort_NameAsc.Content" xml:space="preserve">
+    <value>Name (A–Z)</value>
+  </data>
+  <data name="HomePage_Sort_NameDesc.Content" xml:space="preserve">
+    <value>Name (Z–A)</value>
+  </data>
+  <data name="HomePage_Sort_FolderCount.Content" xml:space="preserve">
+    <value>Folder count</value>
+  </data>
+  <data name="HomePage_Sort_Destination.Content" xml:space="preserve">
+    <value>Destination path</value>
+  </data>
+  <data name="HomePage_Config_Auto.Text" xml:space="preserve">
+    <value>Auto</value>
   </data>
 
   <!-- HistoryPage -->
