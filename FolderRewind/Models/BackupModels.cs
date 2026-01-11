@@ -148,11 +148,18 @@ namespace FolderRewind.Models
         private string _destinationPath = "";
         private string _iconGlyph = "\uE8B7"; // 默认文件夹图标
         private string _summaryText = "暂无状态";
+        private string _configType = "Default"; // 配置类型，由插件定义，如 "Minecraft Saves"
 
         // 核心路径
         public string Id { get => _id; set => SetProperty(ref _id, value); }
         public string Name { get => _name; set => SetProperty(ref _name, value); }
         public string DestinationPath { get => _destinationPath; set => SetProperty(ref _destinationPath, value); }
+
+        /// <summary>
+        /// 配置类型。默认为 "Default"。
+        /// 插件可以定义自己的配置类型，如 "Minecraft Saves"。
+        /// </summary>
+        public string ConfigType { get => _configType; set => SetProperty(ref _configType, value ?? "Default"); }
 
         // UI 显示用
         public string IconGlyph { get => _iconGlyph; set => SetProperty(ref _iconGlyph, value); }

@@ -37,6 +37,50 @@ namespace FolderRewind.Services.Plugins
 
         public static string PluginRootDirectory => Path.Combine(GetWritableAppDataDir(), "FolderRewind", "plugins");
 
+        /// <summary>
+        /// 获取当前 Host 版本号
+        /// </summary>
+        public static string GetHostVersion()
+        {
+            try
+            {
+                var version = Windows.ApplicationModel.Package.Current.Id.Version;
+                return $"{version.Major}.{version.Minor}.{version.Build}";
+            }
+            catch
+            {
+                return "1.0.0";
+            }
+        }
+
+        /// <summary>
+        /// 检查版本兼容性
+        /// </summary>
+        private static bool IsVersionCompatible(string? minHostVersion, out string? incompatibleReason)
+        {
+            incompatibleReason = null;
+            if (string.IsNullOrWhiteSpace(minHostVersion)) return true;
+
+            try
+            {
+                var hostVersion = Version.Parse(GetHostVersion());
+                var minVersion = Version.Parse(minHostVersion);
+
+                if (hostVersion < minVersion)
+                {
+                    incompatibleReason = $"需要 Host 版本 {minHostVersion}，当前版本 {GetHostVersion()}";
+                    return false;
+                }
+
+                return true;
+            }
+            catch (Exception ex)
+            {
+                incompatibleReason = $"版本解析失败: {ex.Message}";
+                return false;
+            }
+        }
+
         public static void Initialize()
         {
             if (_initialized) return;
@@ -292,6 +336,160 @@ namespace FolderRewind.Services.Plugins
         }
 
         /// <summary>
+        /// 获取所有已加载插件支持的配置类型
+        /// </summary>
+        public static IReadOnlyList<string> GetAllSupportedConfigTypes()
+        {
+            if (!IsPluginSystemEnabled()) return Array.Empty<string>();
+
+            var types = new HashSet<string>(StringComparer.OrdinalIgnoreCase) { "Default" };
+
+            foreach (var plugin in GetEnabledLoadedPluginsSnapshot())
+            {
+                try
+                {
+                    var pluginTypes = plugin.GetSupportedConfigTypes();
+                    if (pluginTypes != null)
+                    {
+                        foreach (var t in pluginTypes)
+                        {
+                            if (!string.IsNullOrWhiteSpace(t))
+                                types.Add(t);
+                        }
+                    }
+                }
+                catch (Exception ex)
+                {
+                    LogService.LogError($"[Plugin] GetSupportedConfigTypes 失败：{plugin.Manifest.Id} - {ex.Message}", "PluginService", ex);
+                }
+            }
+
+            return types.ToList();
+        }
+
+        /// <summary>
+        /// 检查是否有插件希望接管指定配置的备份
+        /// </summary>
+        public static (bool ShouldHandle, IFolderRewindPlugin? Plugin) CheckPluginWantsToHandleBackup(BackupConfig config)
+        {
+            if (!IsPluginSystemEnabled()) return (false, null);
+
+            foreach (var plugin in GetEnabledLoadedPluginsSnapshot())
+            {
+                try
+                {
+                    if (plugin.WantsToHandleBackup(config))
+                    {
+                        return (true, plugin);
+                    }
+                }
+                catch (Exception ex)
+                {
+                    LogService.LogError($"[Plugin] WantsToHandleBackup 失败：{plugin.Manifest.Id} - {ex.Message}", "PluginService", ex);
+                }
+            }
+
+            return (false, null);
+        }
+
+        /// <summary>
+        /// 检查是否有插件希望接管指定配置的还原
+        /// </summary>
+        public static (bool ShouldHandle, IFolderRewindPlugin? Plugin) CheckPluginWantsToHandleRestore(BackupConfig config)
+        {
+            if (!IsPluginSystemEnabled()) return (false, null);
+
+            foreach (var plugin in GetEnabledLoadedPluginsSnapshot())
+            {
+                try
+                {
+                    if (plugin.WantsToHandleRestore(config))
+                    {
+                        return (true, plugin);
+                    }
+                }
+                catch (Exception ex)
+                {
+                    LogService.LogError($"[Plugin] WantsToHandleRestore 失败：{plugin.Manifest.Id} - {ex.Message}", "PluginService", ex);
+                }
+            }
+
+            return (false, null);
+        }
+
+        /// <summary>
+        /// 调用插件执行备份
+        /// </summary>
+        public static async Task<PluginBackupResult> InvokePluginBackupAsync(
+            IFolderRewindPlugin plugin,
+            BackupConfig config,
+            ManagedFolder folder,
+            string comment,
+            Action<double, string>? progressCallback = null)
+        {
+            try
+            {
+                var settings = GetPluginSettings(plugin.Manifest.Id);
+                return await plugin.PerformBackupAsync(config, folder, comment, settings, progressCallback);
+            }
+            catch (Exception ex)
+            {
+                LogService.LogError($"[Plugin] PerformBackupAsync 失败：{plugin.Manifest.Id} - {ex.Message}", "PluginService", ex);
+                return new PluginBackupResult { Success = false, Message = ex.Message };
+            }
+        }
+
+        /// <summary>
+        /// 调用插件执行还原
+        /// </summary>
+        public static async Task<PluginRestoreResult> InvokePluginRestoreAsync(
+            IFolderRewindPlugin plugin,
+            BackupConfig config,
+            ManagedFolder folder,
+            string archiveFileName,
+            Action<double, string>? progressCallback = null)
+        {
+            try
+            {
+                var settings = GetPluginSettings(plugin.Manifest.Id);
+                return await plugin.PerformRestoreAsync(config, folder, archiveFileName, settings, progressCallback);
+            }
+            catch (Exception ex)
+            {
+                LogService.LogError($"[Plugin] PerformRestoreAsync 失败：{plugin.Manifest.Id} - {ex.Message}", "PluginService", ex);
+                return new PluginRestoreResult { Success = false, Message = ex.Message };
+            }
+        }
+
+        /// <summary>
+        /// 调用插件批量创建配置
+        /// </summary>
+        public static PluginCreateConfigResult InvokeCreateConfigs(string selectedRootPath)
+        {
+            if (!IsPluginSystemEnabled()) return new PluginCreateConfigResult { Handled = false };
+            if (string.IsNullOrWhiteSpace(selectedRootPath)) return new PluginCreateConfigResult { Handled = false };
+
+            foreach (var plugin in GetEnabledLoadedPluginsSnapshot())
+            {
+                try
+                {
+                    var settings = GetPluginSettings(plugin.Manifest.Id);
+                    var result = plugin.TryCreateConfigs(selectedRootPath, settings);
+                    if (result.Handled)
+                    {
+                        return result;
+                    }
+                }
+                catch (Exception ex)
+                {
+                    LogService.LogError($"[Plugin] TryCreateConfigs 失败：{plugin.Manifest.Id} - {ex.Message}", "PluginService", ex);
+                }
+            }
+
+            return new PluginCreateConfigResult { Handled = false };
+        }
+
+        /// <summary>
         /// 从 zip 安装插件（zip 内需包含 manifest.json）。
         /// 目标目录：plugins/{pluginId}/...
         /// </summary>
@@ -490,6 +688,14 @@ namespace FolderRewind.Services.Plugins
                 if (manifest == null || string.IsNullOrWhiteSpace(manifest.EntryAssembly) || string.IsNullOrWhiteSpace(manifest.EntryType))
                 {
                     installed.LoadError = "manifest 缺少 EntryAssembly/EntryType";
+                    return false;
+                }
+
+                // 版本兼容性检查
+                if (!IsVersionCompatible(manifest.MinHostVersion, out var incompatibleReason))
+                {
+                    installed.LoadError = incompatibleReason;
+                    LogService.LogWarning($"[Plugin] 版本不兼容：{pluginId} - {incompatibleReason}", "PluginService");
                     return false;
                 }
 

@@ -84,6 +84,14 @@ namespace FolderRewind.Services
 
             await RunOnUIAsync(() => ActiveTasks.Insert(0, task));
 
+            // 检查是否有插件希望完全接管备份流程
+            var (shouldHandle, handlerPlugin) = Services.Plugins.PluginService.CheckPluginWantsToHandleBackup(config);
+            if (shouldHandle && handlerPlugin != null)
+            {
+                await HandlePluginBackupAsync(config, folder, task, handlerPlugin, comment);
+                return;
+            }
+
             // 允许插件在备份前创建快照并替换源路径（例如 Minecraft 热备份：先复制到 snapshot 再备份）。
             string sourcePath = folder.Path;
             try
@@ -228,6 +236,89 @@ namespace FolderRewind.Services
             }
             catch
             {
+            }
+        }
+
+        /// <summary>
+        /// 由插件完全接管的备份流程
+        /// </summary>
+        private static async Task HandlePluginBackupAsync(
+            BackupConfig config,
+            ManagedFolder folder,
+            BackupTask task,
+            Services.Plugins.IFolderRewindPlugin plugin,
+            string comment)
+        {
+            Log($"[插件] {plugin.Manifest.Name} 接管备份: {folder.DisplayName}");
+
+            await RunOnUIAsync(() =>
+            {
+                task.Status = "插件处理中...";
+                folder.StatusText = "插件备份中...";
+            });
+
+            try
+            {
+                var result = await Services.Plugins.PluginService.InvokePluginBackupAsync(
+                    plugin, config, folder, comment,
+                    async (progress, status) =>
+                    {
+                        await RunOnUIAsync(() =>
+                        {
+                            task.Progress = progress;
+                            task.Status = status;
+                        });
+                    });
+
+                if (result.Success)
+                {
+                    bool hasNewFile = !string.IsNullOrWhiteSpace(result.GeneratedFileName);
+
+                    await RunOnUIAsync(() =>
+                    {
+                        task.Status = hasNewFile ? "完成" : "无变更";
+                        task.Progress = 100;
+                        task.IsCompleted = true;
+
+                        folder.StatusText = hasNewFile ? "备份完成" : "无变更";
+                        if (hasNewFile)
+                        {
+                            folder.LastBackupTime = DateTime.Now.ToString("yyyy/MM/dd HH:mm");
+                        }
+                    });
+
+                    if (hasNewFile)
+                    {
+                        ConfigService.Save();
+                        HistoryService.AddEntry(config, folder, result.GeneratedFileName!, "Plugin", comment);
+                    }
+
+                    Log(hasNewFile
+                        ? $"[插件完成] {folder.DisplayName} 备份成功"
+                        : $"[插件跳过] {folder.DisplayName} 无文件变更");
+                }
+                else
+                {
+                    await RunOnUIAsync(() =>
+                    {
+                        task.Status = "失败";
+                        task.IsCompleted = true;
+                        folder.StatusText = "备份失败";
+                    });
+
+                    Log($"[插件失败] {folder.DisplayName} - {result.Message}");
+                }
+            }
+            catch (Exception ex)
+            {
+                await RunOnUIAsync(() =>
+                {
+                    task.Status = "异常";
+                    task.IsCompleted = true;
+                    folder.StatusText = "插件异常";
+                });
+
+                Log($"[插件异常] {folder.DisplayName} - {ex.Message}");
             }
         }
 
