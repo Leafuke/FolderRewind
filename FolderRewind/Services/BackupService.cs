@@ -558,6 +558,22 @@ namespace FolderRewind.Services
             Log("[成功] 还原操作完成！");
         }
 
+        /// <summary>
+        /// 通过备份文件名还原（供 KnotLink 远程调用使用）
+        /// </summary>
+        public static async Task RestoreBackupAsync(BackupConfig config, ManagedFolder folder, string backupFileName)
+        {
+            // 构造一个临时的 HistoryItem
+            var historyItem = new HistoryItem
+            {
+                FileName = backupFileName,
+                // 根据文件名推测备份类型
+                BackupType = backupFileName.Contains("_smart_") ? "Smart" : "Full"
+            };
+
+            await RestoreBackupAsync(config, folder, historyItem, RestoreMode.Overwrite);
+        }
+
 
         // --- 辅助：元数据处理 ---
         private static Dictionary<string, FileState> ScanDirectory(string path)

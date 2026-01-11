@@ -76,6 +76,13 @@ namespace FolderRewind.Models
         // 插件系统设置（集中管理，避免散落在 GlobalSettings 顶层）
         private PluginHostSettings _plugins = new();
 
+        // KnotLink 互联设置
+        private bool _enableKnotLink = false;
+        private string _knotLinkHost = "127.0.0.1";
+        private string _knotLinkAppId = "0x00000030";
+        private string _knotLinkOpenSocketId = "0x00000010";
+        private string _knotLinkSignalId = "0x00000020";
+
         public string Language { get => _language; set => SetProperty(ref _language, value); }
         public int ThemeIndex { get => _themeIndex; set => SetProperty(ref _themeIndex, value); }
         public string SevenZipPath { get => _sevenZipPath; set => SetProperty(ref _sevenZipPath, value); }
@@ -103,6 +110,32 @@ namespace FolderRewind.Models
         /// 插件系统设置。
         /// </summary>
         public PluginHostSettings Plugins { get => _plugins; set => SetProperty(ref _plugins, value ?? new PluginHostSettings()); }
+
+        // KnotLink 互联设置属性
+        /// <summary>
+        /// 是否启用 KnotLink 互联功能
+        /// </summary>
+        public bool EnableKnotLink { get => _enableKnotLink; set => SetProperty(ref _enableKnotLink, value); }
+
+        /// <summary>
+        /// KnotLink 服务器地址
+        /// </summary>
+        public string KnotLinkHost { get => _knotLinkHost; set => SetProperty(ref _knotLinkHost, value); }
+
+        /// <summary>
+        /// KnotLink 应用标识符
+        /// </summary>
+        public string KnotLinkAppId { get => _knotLinkAppId; set => SetProperty(ref _knotLinkAppId, value); }
+
+        /// <summary>
+        /// KnotLink OpenSocket ID（用于命令响应）
+        /// </summary>
+        public string KnotLinkOpenSocketId { get => _knotLinkOpenSocketId; set => SetProperty(ref _knotLinkOpenSocketId, value); }
+
+        /// <summary>
+        /// KnotLink 信号 ID（用于事件广播）
+        /// </summary>
+        public string KnotLinkSignalId { get => _knotLinkSignalId; set => SetProperty(ref _knotLinkSignalId, value); }
     }
 
     /// <summary>

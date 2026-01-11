@@ -4,10 +4,13 @@ using FolderRewind.Services.Plugins;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Controls.Primitives;
+using Microsoft.UI.Xaml.Media;
 using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
+using System.ComponentModel;
 using System.Linq;
+using System.Runtime.CompilerServices;
 using System.Threading.Tasks;
 using Windows.Storage.Pickers;
 using Windows.Graphics;
@@ -15,7 +18,7 @@ using WinRT.Interop;
 
 namespace FolderRewind.Views
 {
-    public sealed partial class SettingsPage : Page
+    public sealed partial class SettingsPage : Page, INotifyPropertyChanged
     {
         public GlobalSettings Settings => ConfigService.CurrentConfig.GlobalSettings;
 
@@ -23,6 +26,29 @@ namespace FolderRewind.Views
 
         private bool _isInitializingLanguage;
         private bool _isInitializingFont;
+
+        // KnotLink 状态相关属性
+        private string _knotLinkStatusMessage = "未启用";
+        private Brush _knotLinkStatusColor;
+
+        public string KnotLinkStatusMessage
+        {
+            get => _knotLinkStatusMessage;
+            set { _knotLinkStatusMessage = value; OnPropertyChanged(); }
+        }
+
+        public Brush KnotLinkStatusColor
+        {
+            get => _knotLinkStatusColor ??= new SolidColorBrush(Microsoft.UI.Colors.Gray);
+            set { _knotLinkStatusColor = value; OnPropertyChanged(); }
+        }
+
+        public event PropertyChangedEventHandler? PropertyChanged;
+
+        private void OnPropertyChanged([CallerMemberName] string? propertyName = null)
+        {
+            PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(propertyName));
+        }
 
         public ObservableCollection<string> FontFamilies { get; } = new()
         {
@@ -66,6 +92,9 @@ namespace FolderRewind.Views
                 {
                     FontSizeBox.Value = Settings.BaseFontSize;
                 }
+
+                // 初始化 KnotLink 状态显示
+                UpdateKnotLinkStatus();
             }
             finally
             {
@@ -73,6 +102,143 @@ namespace FolderRewind.Views
                 _isInitializingFont = false;
             }
         }
+
+        #region KnotLink 互联设置
+
+        /// <summary>
+        /// 更新 KnotLink 状态显示
+        /// </summary>
+        private void UpdateKnotLinkStatus()
+        {
+            if (!Settings.EnableKnotLink)
+            {
+                KnotLinkStatusMessage = "未启用";
+                KnotLinkStatusColor = new SolidColorBrush(Microsoft.UI.Colors.Gray);
+                return;
+            }
+
+            if (KnotLinkService.IsInitialized)
+            {
+                var responserOk = KnotLinkService.IsResponserRunning;
+                var senderOk = KnotLinkService.IsSenderRunning;
+
+                if (responserOk && senderOk)
+                {
+                    KnotLinkStatusMessage = "已连接，命令响应器和信号发送器均正常运行";
+                    KnotLinkStatusColor = new SolidColorBrush(Microsoft.UI.Colors.LimeGreen);
+                }
+                else if (responserOk || senderOk)
+                {
+                    KnotLinkStatusMessage = $"部分连接 (响应器: {(responserOk ? "✓" : "✗")}, 发送器: {(senderOk ? "✓" : "✗")})";
+                    KnotLinkStatusColor = new SolidColorBrush(Microsoft.UI.Colors.Orange);
+                }
+                else
+                {
+                    KnotLinkStatusMessage = "已初始化但连接失败，请检查 KnotLink 服务是否运行";
+                    KnotLinkStatusColor = new SolidColorBrush(Microsoft.UI.Colors.OrangeRed);
+                }
+            }
+            else
+            {
+                KnotLinkStatusMessage = "服务未初始化，请点击 [重启服务]";
+                KnotLinkStatusColor = new SolidColorBrush(Microsoft.UI.Colors.Orange);
+            }
+        }
+
+        /// <summary>
+        /// KnotLink 开关切换
+        /// </summary>
+        private void OnKnotLinkToggled(object sender, RoutedEventArgs e)
+        {
+            ConfigService.Save();
+
+            if (Settings.EnableKnotLink)
+            {
+                // 启用时自动初始化
+                KnotLinkService.Initialize();
+            }
+            else
+            {
+                // 禁用时关闭服务
+                KnotLinkService.Shutdown();
+            }
+
+            UpdateKnotLinkStatus();
+        }
+
+        /// <summary>
+        /// KnotLink 设置更改
+        /// </summary>
+        private void OnKnotLinkSettingChanged(object sender, TextChangedEventArgs e)
+        {
+            ConfigService.Save();
+        }
+
+        /// <summary>
+        /// 重启 KnotLink 服务
+        /// </summary>
+        private async void OnKnotLinkRestartClick(object sender, RoutedEventArgs e)
+        {
+            ConfigService.Save();
+            KnotLinkService.Restart();
+            UpdateKnotLinkStatus();
+
+            // 显示提示
+            var dialog = new ContentDialog
+            {
+                Title = "KnotLink",
+                Content = KnotLinkService.IsInitialized ? "服务已重启" : "服务重启失败，请检查配置和日志",
+                CloseButtonText = "确定",
+                XamlRoot = this.XamlRoot
+            };
+            await dialog.ShowAsync();
+        }
+
+        /// <summary>
+        /// 测试 KnotLink 连接
+        /// </summary>
+        private async void OnKnotLinkTestClick(object sender, RoutedEventArgs e)
+        {
+            if (!KnotLinkService.IsInitialized)
+            {
+                var errorDialog = new ContentDialog
+                {
+                    Title = "KnotLink 测试",
+                    Content = "服务未初始化，请先点击 [重启服务]",
+                    CloseButtonText = "确定",
+                    XamlRoot = this.XamlRoot
+                };
+                await errorDialog.ShowAsync();
+                return;
+            }
+
+            // 发送测试事件
+            KnotLinkService.BroadcastEvent("event=test;message=Hello from FolderRewind!");
+
+            var dialog = new ContentDialog
+            {
+                Title = "KnotLink 测试",
+                Content = "测试事件已广播。\n\n如果您有监听器订阅了此信号，应该能收到消息。",
+                CloseButtonText = "确定",
+                XamlRoot = this.XamlRoot
+            };
+            await dialog.ShowAsync();
+        }
+
+        /// <summary>
+        /// 重置 KnotLink 设置为默认值
+        /// </summary>
+        private void OnKnotLinkResetClick(object sender, RoutedEventArgs e)
+        {
+            Settings.KnotLinkHost = "127.0.0.1";
+            Settings.KnotLinkAppId = "0x00000030";
+            Settings.KnotLinkOpenSocketId = "0x00000010";
+            Settings.KnotLinkSignalId = "0x00000020";
+            ConfigService.Save();
+            Bindings.Update();
+        }
+
+        #endregion
 
         private void OnPluginsEnabledToggled(object sender, RoutedEventArgs e)
         {

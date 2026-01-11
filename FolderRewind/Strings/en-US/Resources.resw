@@ -428,4 +428,134 @@
   <data name="LogWindow_AutoScroll.Content" xml:space="preserve">
     <value>Auto-scroll</value>
   </data>
+  <!-- Log and diagnostics -->
+  <data name="SettingsPage_LogDiag.Text" xml:space="preserve">
+    <value>Logs &amp; Diagnostics</value>
+  </data>
+  <data name="SettingsPage_LogEnabled.Text" xml:space="preserve">
+    <value>Enable file logging</value>
+  </data>
+  <data name="SettingsPage_LogEnabledDesc.Text" xml:space="preserve">
+    <value>Write logs to local files for troubleshooting</value>
+  </data>
+  <data name="SettingsPage_MaxLogSize.Text" xml:space="preserve">
+    <value>Max log file size (MB)</value>
+  </data>
+  <data name="SettingsPage_MaxLogSizeDesc.Text" xml:space="preserve">
+    <value>Automatically rotate when exceeded</value>
+  </data>
+  <data name="SettingsPage_LogRetention.Text" xml:space="preserve">
+    <value>Log retention days</value>
+  </data>
+  <data name="SettingsPage_LogRetentionDesc.Text" xml:space="preserve">
+    <value>Automatically clean up old logs</value>
+  </data>
+  <data name="SettingsPage_DebugLog.Text" xml:space="preserve">
+    <value>Include debug logs</value>
+  </data>
+  <data name="SettingsPage_DebugLogDesc.Text" xml:space="preserve">
+    <value>For more detailed diagnostics</value>
+  </data>
+  <data name="SettingsPage_OpenLogCenter.Content" xml:space="preserve">
+    <value>Open log center</value>
+  </data>
+  <!-- Plugins -->
+  <data name="SettingsPage_Plugins.Text" xml:space="preserve">
+    <value>Plugins</value>
+  </data>
+  <data name="SettingsPage_PluginsEnabled.Text" xml:space="preserve">
+    <value>Enable plugin system</value>
+  </data>
+  <data name="SettingsPage_PluginsEnabledDesc.Text" xml:space="preserve">
+    <value>Enable to download and use plugins from the store</value>
+  </data>
+  <data name="SettingsPage_OpenPluginStore.Content" xml:space="preserve">
+    <value>Open plugin store</value>
+  </data>
+  <data name="SettingsPage_OpenPluginFolder.Content" xml:space="preserve">
+    <value>Open plugin folder</value>
+  </data>
+  <data name="SettingsPage_RefreshPlugins.Content" xml:space="preserve">
+    <value>Refresh</value>
+  </data>
+  <data name="SettingsPage_InstalledPlugins.Text" xml:space="preserve">
+    <value>Installed plugins</value>
+  </data>
+  <data name="SettingsPage_PluginSettings.Content" xml:space="preserve">
+    <value>Settings</value>
+  </data>
+  <data name="SettingsPage_PluginUninstall.Content" xml:space="preserve">
+    <value>Uninstall</value>
+  </data>
+  <!-- KnotLink integration -->
+  <data name="SettingsPage_KnotLink.Text" xml:space="preserve">
+    <value>KnotLink Integration</value>
+  </data>
+  <data name="SettingsPage_KnotLinkEnabled.Text" xml:space="preserve">
+    <value>Enable integration</value>
+  </data>
+  <data name="SettingsPage_KnotLinkEnabledDesc.Text" xml:space="preserve">
+    <value>Allow other apps to control backup tasks via KnotLink protocol</value>
+  </data>
+  <data name="SettingsPage_KnotLinkStatus.Text" xml:space="preserve">
+    <value>Connection status</value>
+  </data>
+  <data name="SettingsPage_KnotLinkAdvanced.Header" xml:space="preserve">
+    <value>Advanced settings</value>
+  </data>
+  <data name="SettingsPage_KnotLinkHost.Text" xml:space="preserve">
+    <value>Server address</value>
+  </data>
+  <data name="SettingsPage_KnotLinkHostDesc.Text" xml:space="preserve">
+    <value>Host address where KnotLink service is running</value>
+  </data>
+  <data name="SettingsPage_KnotLinkAppId.Text" xml:space="preserve">
+    <value>App ID</value>
+  </data>
+  <data name="SettingsPage_KnotLinkAppIdDesc.Text" xml:space="preserve">
+    <value>Identifier for this app, usually no need to change</value>
+  </data>
+  <data name="SettingsPage_KnotLinkOpenSocketId.Text" xml:space="preserve">
+    <value>Command Socket ID</value>
+  </data>
+  <data name="SettingsPage_KnotLinkOpenSocketIdDesc.Text" xml:space="preserve">
+    <value>Channel ID for receiving remote commands</value>
+  </data>
+  <data name="SettingsPage_KnotLinkSignalId.Text" xml:space="preserve">
+    <value>Signal ID</value>
+  </data>
+  <data name="SettingsPage_KnotLinkSignalIdDesc.Text" xml:space="preserve">
+    <value>Channel ID for broadcasting events</value>
+  </data>
+  <data name="SettingsPage_KnotLinkResetDefault.Content" xml:space="preserve">
+    <value>Reset to defaults</value>
+  </data>
+  <data name="SettingsPage_KnotLinkRestart.Content" xml:space="preserve">
+    <value>Restart service</value>
+  </data>
+  <data name="SettingsPage_KnotLinkTest.Content" xml:space="preserve">
+    <value>Test connection</value>
+  </data>
+  <data name="SettingsPage_KnotLinkCommands.Header" xml:space="preserve">
+    <value>Supported commands</value>
+  </data>
+  <data name="SettingsPage_KnotLinkCommandsDesc.Text" xml:space="preserve">
+    <value>The following commands can be called via KnotLink:</value>
+  </data>
+  <!-- Personalization extras -->
+  <data name="SettingsPage_NavPaneWidth.Text" xml:space="preserve">
+    <value>Navigation pane width</value>
+  </data>
+  <data name="SettingsPage_NavPaneWidthDesc.Text" xml:space="preserve">
+    <value>Adjust the width of the expanded navigation pane</value>
+  </data>
+  <data name="SettingsPage_StartupSize.Text" xml:space="preserve">
+    <value>Startup window size</value>
+  </data>
+  <data name="SettingsPage_StartupSizeDesc.Text" xml:space="preserve">
+    <value>Set window size at launch for larger or multi-monitor setups</value>
+  </data>
+  <data name="SettingsPage_ApplySize.Content" xml:space="preserve">
+    <value>Apply now</value>
+  </data>
 </root>

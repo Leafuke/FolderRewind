@@ -513,4 +513,134 @@
   <data name="LogWindow_AutoScroll.Content" xml:space="preserve">
     <value>自动滚动</value>
   </data>
+  <!-- 日志与诊断 -->
+  <data name="SettingsPage_LogDiag.Text" xml:space="preserve">
+    <value>日志与诊断</value>
+  </data>
+  <data name="SettingsPage_LogEnabled.Text" xml:space="preserve">
+    <value>自动记录应用日志</value>
+  </data>
+  <data name="SettingsPage_LogEnabledDesc.Text" xml:space="preserve">
+    <value>记录到本地文件供排查，可随时关闭</value>
+  </data>
+  <data name="SettingsPage_MaxLogSize.Text" xml:space="preserve">
+    <value>日志文件大小上限 (MB)</value>
+  </data>
+  <data name="SettingsPage_MaxLogSizeDesc.Text" xml:space="preserve">
+    <value>超过上限后自动分卷留档</value>
+  </data>
+  <data name="SettingsPage_LogRetention.Text" xml:space="preserve">
+    <value>日志保留天数</value>
+  </data>
+  <data name="SettingsPage_LogRetentionDesc.Text" xml:space="preserve">
+    <value>到期后自动清理历史日志</value>
+  </data>
+  <data name="SettingsPage_DebugLog.Text" xml:space="preserve">
+    <value>包含调试日志</value>
+  </data>
+  <data name="SettingsPage_DebugLogDesc.Text" xml:space="preserve">
+    <value>用于更细粒度的诊断</value>
+  </data>
+  <data name="SettingsPage_OpenLogCenter.Content" xml:space="preserve">
+    <value>打开日志中心</value>
+  </data>
+  <!-- 插件 -->
+  <data name="SettingsPage_Plugins.Text" xml:space="preserve">
+    <value>插件</value>
+  </data>
+  <data name="SettingsPage_PluginsEnabled.Text" xml:space="preserve">
+    <value>启用插件系统</value>
+  </data>
+  <data name="SettingsPage_PluginsEnabledDesc.Text" xml:space="preserve">
+    <value>开启后可在插件商店下载并启用插件</value>
+  </data>
+  <data name="SettingsPage_OpenPluginStore.Content" xml:space="preserve">
+    <value>打开插件商店</value>
+  </data>
+  <data name="SettingsPage_OpenPluginFolder.Content" xml:space="preserve">
+    <value>打开插件目录</value>
+  </data>
+  <data name="SettingsPage_RefreshPlugins.Content" xml:space="preserve">
+    <value>刷新</value>
+  </data>
+  <data name="SettingsPage_InstalledPlugins.Text" xml:space="preserve">
+    <value>已安装插件</value>
+  </data>
+  <data name="SettingsPage_PluginSettings.Content" xml:space="preserve">
+    <value>设置</value>
+  </data>
+  <data name="SettingsPage_PluginUninstall.Content" xml:space="preserve">
+    <value>卸载</value>
+  </data>
+  <!-- KnotLink 互联 -->
+  <data name="SettingsPage_KnotLink.Text" xml:space="preserve">
+    <value>KnotLink 互联</value>
+  </data>
+  <data name="SettingsPage_KnotLinkEnabled.Text" xml:space="preserve">
+    <value>启用互联功能</value>
+  </data>
+  <data name="SettingsPage_KnotLinkEnabledDesc.Text" xml:space="preserve">
+    <value>允许其他应用通过 KnotLink 协议远程控制备份任务</value>
+  </data>
+  <data name="SettingsPage_KnotLinkStatus.Text" xml:space="preserve">
+    <value>连接状态</value>
+  </data>
+  <data name="SettingsPage_KnotLinkAdvanced.Header" xml:space="preserve">
+    <value>高级设置</value>
+  </data>
+  <data name="SettingsPage_KnotLinkHost.Text" xml:space="preserve">
+    <value>服务器地址</value>
+  </data>
+  <data name="SettingsPage_KnotLinkHostDesc.Text" xml:space="preserve">
+    <value>KnotLink 服务运行的主机地址</value>
+  </data>
+  <data name="SettingsPage_KnotLinkAppId.Text" xml:space="preserve">
+    <value>应用标识符 (AppId)</value>
+  </data>
+  <data name="SettingsPage_KnotLinkAppIdDesc.Text" xml:space="preserve">
+    <value>用于标识本应用，通常无需修改</value>
+  </data>
+  <data name="SettingsPage_KnotLinkOpenSocketId.Text" xml:space="preserve">
+    <value>命令 Socket ID</value>
+  </data>
+  <data name="SettingsPage_KnotLinkOpenSocketIdDesc.Text" xml:space="preserve">
+    <value>用于接收远程命令的通道标识</value>
+  </data>
+  <data name="SettingsPage_KnotLinkSignalId.Text" xml:space="preserve">
+    <value>信号 ID</value>
+  </data>
+  <data name="SettingsPage_KnotLinkSignalIdDesc.Text" xml:space="preserve">
+    <value>用于广播事件的通道标识</value>
+  </data>
+  <data name="SettingsPage_KnotLinkResetDefault.Content" xml:space="preserve">
+    <value>重置为默认值</value>
+  </data>
+  <data name="SettingsPage_KnotLinkRestart.Content" xml:space="preserve">
+    <value>重启服务</value>
+  </data>
+  <data name="SettingsPage_KnotLinkTest.Content" xml:space="preserve">
+    <value>测试连接</value>
+  </data>
+  <data name="SettingsPage_KnotLinkCommands.Header" xml:space="preserve">
+    <value>支持的命令</value>
+  </data>
+  <data name="SettingsPage_KnotLinkCommandsDesc.Text" xml:space="preserve">
+    <value>以下命令可通过 KnotLink 远程调用：</value>
+  </data>
+  <!-- 个性化补充 -->
+  <data name="SettingsPage_NavPaneWidth.Text" xml:space="preserve">
+    <value>导航栏宽度</value>
+  </data>
+  <data name="SettingsPage_NavPaneWidthDesc.Text" xml:space="preserve">
+    <value>调整左侧导航栏展开时的宽度</value>
+  </data>
+  <data name="SettingsPage_StartupSize.Text" xml:space="preserve">
+    <value>启动窗口大小</value>
+  </data>
+  <data name="SettingsPage_StartupSizeDesc.Text" xml:space="preserve">
+    <value>设定应用启动时的窗口宽高，便于大屏或多显示器使用</value>
+  </data>
+  <data name="SettingsPage_ApplySize.Content" xml:space="preserve">
+    <value>立即应用</value>
+  </data>
 </root>

@@ -114,6 +114,19 @@ namespace FolderRewind
 
                 Services.AutomationService.Start();
 
+                // 初始化 KnotLink 互联服务（根据用户设置决定是否启用）
+                Task.Run(() =>
+                {
+                    try
+                    {
+                        KnotLinkService.Initialize();
+                    }
+                    catch (Exception knotEx)
+                    {
+                        LogService.Log($"[KnotLink] 初始化异常: {knotEx.Message}");
+                    }
+                });
+
                 Services.ThemeService.ApplyThemeToWindow(_window);
                 Services.TypographyService.ApplyTypography(Services.ConfigService.CurrentConfig?.GlobalSettings);
 
