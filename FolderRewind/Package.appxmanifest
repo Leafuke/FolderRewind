@@ -9,8 +9,8 @@
 
   <Identity
     Name="5fc1991e-c6d8-4cc1-867e-4165d5214481"
-    Publisher="CN=Admin"
-    Version="1.0.0.0" />
+    Publisher="CN=Leafuke"
+    Version="0.1.0.0" />
 
   <mp:PhoneIdentity PhoneProductId="5fc1991e-c6d8-4cc1-867e-4165d5214481" PhonePublisherId="00000000-0000-0000-0000-000000000000"/>
 
