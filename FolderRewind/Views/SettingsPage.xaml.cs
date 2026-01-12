@@ -57,12 +57,6 @@ namespace FolderRewind.Views
 
         public ObservableCollection<string> FontFamilies { get; } = new()
         {
-            "Segoe UI Variable",
-            "Segoe UI",
-            "Arial",
-            "Calibri",
-            "Consolas",
-            "Sitka Text"
         };
 
         public SettingsPage()
@@ -82,6 +76,8 @@ namespace FolderRewind.Views
             _isInitializingFont = true;
             try
             {
+                LoadFontFamilies();
+
                 if (LanguageCombo != null)
                 {
                     LanguageCombo.SelectedIndex = LanguageToIndex(Settings.Language);
@@ -105,6 +101,46 @@ namespace FolderRewind.Views
             {
                 _isInitializingLanguage = false;
                 _isInitializingFont = false;
+            }
+        }
+
+        private void LoadFontFamilies()
+        {
+            FontFamilies.Clear();
+
+            IReadOnlyList<string> fonts;
+            try
+            {
+                fonts = FontService.GetInstalledFontFamilies();
+            }
+            catch
+            {
+                fonts = new[] { "Segoe UI Variable", "Segoe UI", "Microsoft YaHei", "Microsoft YaHei UI" };
+            }
+
+            foreach (var f in fonts)
+            {
+                if (!string.IsNullOrWhiteSpace(f)) FontFamilies.Add(f);
+            }
+
+            // 若当前配置字体不存在于系统列表，仍然保留它作为可选项
+            if (!string.IsNullOrWhiteSpace(Settings.FontFamily)
+                && !FontFamilies.Any(f => string.Equals(f, Settings.FontFamily, StringComparison.OrdinalIgnoreCase)))
+            {
+                FontFamilies.Insert(0, Settings.FontFamily);
+            }
+
+            // 若还未设置字体，则按推荐默认值设置一次
+            if (string.IsNullOrWhiteSpace(Settings.FontFamily))
+            {
+                try
+                {
+                    Settings.FontFamily = FontService.GetRecommendedDefaultFontFamily();
+                    ConfigService.Save();
+                }
+                catch
+                {
+                }
             }
         }
 

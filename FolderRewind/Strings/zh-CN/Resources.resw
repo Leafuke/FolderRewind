@@ -295,7 +295,7 @@
     <value>应用程序主题</value>
   </data>
   <data name="SettingsPage_AppThemeDesc.Text" xml:space="preserve">
-    <value>选择要显示的应用外观（需重启生效）</value>
+    <value>选择要显示的应用外观</value>
   </data>
   <data name="SettingsPage_ThemeDark.Content" xml:space="preserve">
     <value>深色</value>

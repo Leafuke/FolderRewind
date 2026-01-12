@@ -53,8 +53,8 @@ namespace FolderRewind.Models
     public class GlobalSettings : ObservableObject
     {
         private string _language = "zh_CN";
-        private int _themeIndex = 1; // 0: Dark, 1: Light, etc. (default now Light)
-        private string _sevenZipPath = "7z.exe"; // 全局 7z 路径
+        private int _themeIndex = 1; // 0: Dark, 1: Light
+        private string _sevenZipPath = "7za.exe"; // 全局 7z 路径（内置 7za.exe）
         private bool _runOnStartup = false;
         private bool _checkForUpdates = true;
         private bool _enableFileLogging = true;
@@ -65,7 +65,7 @@ namespace FolderRewind.Models
         private double _startupWidth = 1200;
         private double _startupHeight = 800;
         private double _navPaneWidth = 320;
-        private string _fontFamily = "Segoe UI Variable";
+        private string _fontFamily = "";
         private double _baseFontSize = 14;
         private string _homeSortMode = "NameAsc";
         private string _lastManagerConfigId;
@@ -264,12 +264,21 @@ namespace FolderRewind.Models
         private bool _scheduledMode = false;
         private int _scheduledHour = 3;
 
+        // 用于去重/防止重复触发：持久化记录上次自动备份时间
+        private DateTime _lastAutoBackupUtc = DateTime.MinValue;
+        private DateTime _lastScheduledRunDateLocal = DateTime.MinValue;
+
         public bool AutoBackupEnabled { get => _autoBackupEnabled; set => SetProperty(ref _autoBackupEnabled, value); }
         public int IntervalMinutes { get => _intervalMinutes; set => SetProperty(ref _intervalMinutes, value); }
         public bool RunOnAppStart { get => _runOnAppStart; set => SetProperty(ref _runOnAppStart, value); }
 
         public bool ScheduledMode { get => _scheduledMode; set => SetProperty(ref _scheduledMode, value); }
         public int ScheduledHour { get => _scheduledHour; set => SetProperty(ref _scheduledHour, value); }
+
+        public DateTime LastAutoBackupUtc { get => _lastAutoBackupUtc; set => SetProperty(ref _lastAutoBackupUtc, value); }
+
+        // 仅用于“每日定时”去重：记录上次成功运行的日期（本地日期）
+        public DateTime LastScheduledRunDateLocal { get => _lastScheduledRunDateLocal; set => SetProperty(ref _lastScheduledRunDateLocal, value); }
     }
 
     /// <summary>

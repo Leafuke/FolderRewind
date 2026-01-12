@@ -295,7 +295,7 @@
     <value>App theme</value>
   </data>
   <data name="SettingsPage_AppThemeDesc.Text" xml:space="preserve">
-    <value>Choose app appearance (requires restart)</value>
+    <value>Choose app appearance</value>
   </data>
   <data name="SettingsPage_ThemeDark.Content" xml:space="preserve">
     <value>Dark</value>
