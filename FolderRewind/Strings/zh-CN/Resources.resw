@@ -204,6 +204,51 @@
   <data name="SettingsPage_CoreBehavior.Text" xml:space="preserve">
     <value>核心行为</value>
   </data>
+  <data name="SettingsPage_CoreBehaviorSectionDesc.Text" xml:space="preserve">
+    <value>影响应用启动行为与更新检查方式</value>
+  </data>
+  <data name="SettingsPage_PersonalizationSectionDesc.Text" xml:space="preserve">
+    <value>语言、主题、字体与布局等显示设置</value>
+  </data>
+  <data name="SettingsPage_EnvironmentSectionDesc.Text" xml:space="preserve">
+    <value>外部工具与依赖项配置</value>
+  </data>
+  <data name="SettingsPage_LogDiagSectionDesc.Text" xml:space="preserve">
+    <value>日志记录、保留策略与调试输出</value>
+  </data>
+  <data name="SettingsPage_PluginsSectionDesc.Text" xml:space="preserve">
+    <value>插件系统开关、安装与管理</value>
+  </data>
+  <data name="SettingsPage_KnotLinkSectionDesc.Text" xml:space="preserve">
+    <value>与 KnotLink 服务互联及高级参数</value>
+  </data>
+  <data name="SettingsPage_Section_General.Text" xml:space="preserve">
+    <value>常规</value>
+  </data>
+  <data name="SettingsPage_Section_Tools.Text" xml:space="preserve">
+    <value>工具与依赖</value>
+  </data>
+  <data name="SettingsPage_Section_Extensions.Text" xml:space="preserve">
+    <value>扩展</value>
+  </data>
+  <data name="SettingsPage_Section_About.Text" xml:space="preserve">
+    <value>关于</value>
+  </data>
+  <data name="SettingsPage_About.Text" xml:space="preserve">
+    <value>关于 FolderRewind</value>
+  </data>
+  <data name="SettingsPage_AboutDesc.Text" xml:space="preserve">
+    <value>© 2025 Leafuke。GPL 开源许可。</value>
+  </data>
+  <data name="SettingsPage_About_Link_Repository.Content" xml:space="preserve">
+    <value>项目主页</value>
+  </data>
+  <data name="SettingsPage_About_Link_Bilibili.Content" xml:space="preserve">
+    <value>开发者 B 站主页</value>
+  </data>
+  <data name="SettingsPage_About_Link_Privacy.Content" xml:space="preserve">
+    <value>隐私政策</value>
+  </data>
   <data name="SettingsPage_RunOnStartup.Text" xml:space="preserve">
     <value>开机自动启动</value>
   </data>

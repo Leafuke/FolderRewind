@@ -204,6 +204,51 @@
   <data name="SettingsPage_CoreBehavior.Text" xml:space="preserve">
     <value>Core behavior</value>
   </data>
+  <data name="SettingsPage_CoreBehaviorSectionDesc.Text" xml:space="preserve">
+    <value>Startup behavior and update checks</value>
+  </data>
+  <data name="SettingsPage_PersonalizationSectionDesc.Text" xml:space="preserve">
+    <value>Language, theme, fonts, and layout</value>
+  </data>
+  <data name="SettingsPage_EnvironmentSectionDesc.Text" xml:space="preserve">
+    <value>External tools and dependencies</value>
+  </data>
+  <data name="SettingsPage_LogDiagSectionDesc.Text" xml:space="preserve">
+    <value>Logging, retention, and diagnostics</value>
+  </data>
+  <data name="SettingsPage_PluginsSectionDesc.Text" xml:space="preserve">
+    <value>Plugin system, installation, and management</value>
+  </data>
+  <data name="SettingsPage_KnotLinkSectionDesc.Text" xml:space="preserve">
+    <value>KnotLink integration and advanced parameters</value>
+  </data>
+  <data name="SettingsPage_Section_General.Text" xml:space="preserve">
+    <value>General</value>
+  </data>
+  <data name="SettingsPage_Section_Tools.Text" xml:space="preserve">
+    <value>Tools</value>
+  </data>
+  <data name="SettingsPage_Section_Extensions.Text" xml:space="preserve">
+    <value>Extensions</value>
+  </data>
+  <data name="SettingsPage_Section_About.Text" xml:space="preserve">
+    <value>About</value>
+  </data>
+  <data name="SettingsPage_About.Text" xml:space="preserve">
+    <value>About FolderRewind</value>
+  </data>
+  <data name="SettingsPage_AboutDesc.Text" xml:space="preserve">
+    <value>© 2025 Leafuke. GPL License.</value>
+  </data>
+  <data name="SettingsPage_About_Link_Repository.Content" xml:space="preserve">
+    <value>Project (GitHub)</value>
+  </data>
+  <data name="SettingsPage_About_Link_Bilibili.Content" xml:space="preserve">
+    <value>Developer Bilibili</value>
+  </data>
+  <data name="SettingsPage_About_Link_Privacy.Content" xml:space="preserve">
+    <value>Privacy Policy</value>
+  </data>
   <data name="SettingsPage_RunOnStartup.Text" xml:space="preserve">
     <value>Run on startup</value>
   </data>

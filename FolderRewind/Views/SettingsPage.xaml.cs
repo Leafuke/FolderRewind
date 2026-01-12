@@ -16,12 +16,16 @@ using System.Threading.Tasks;
 using Windows.Storage.Pickers;
 using Windows.Graphics;
 using WinRT.Interop;
+using Windows.ApplicationModel.DataTransfer;
+using Windows.Storage;
 
 namespace FolderRewind.Views
 {
     public sealed partial class SettingsPage : Page, INotifyPropertyChanged
     {
         public GlobalSettings Settings => ConfigService.CurrentConfig.GlobalSettings;
+
+        public string AppVersion => GetAppVersionString();
 
         public ReadOnlyObservableCollection<InstalledPluginInfo> InstalledPlugins => PluginService.InstalledPlugins;
 
@@ -103,6 +107,77 @@ namespace FolderRewind.Views
                 _isInitializingFont = false;
             }
         }
+
+        #region About
+
+        private static string GetAppVersionString()
+        {
+            try
+            {
+                var v = Windows.ApplicationModel.Package.Current.Id.Version;
+                return $"Version {v.Major}.{v.Minor}.{v.Build}.{v.Revision}";
+            }
+            catch
+            {
+                // Unpackaged / test environment fallback
+                try
+                {
+                    var asm = typeof(SettingsPage).Assembly;
+                    var v = asm.GetName().Version;
+                    return v == null ? "Version (unknown)" : $"Version {v.Major}.{v.Minor}.{v.Build}.{v.Revision}";
+                }
+                catch
+                {
+                    return "Version (unknown)";
+                }
+            }
+        }
+
+        private static async Task<string> TryReadPackagedTextAsync(string relativePath)
+        {
+            try
+            {
+                var uri = new Uri($"ms-appx:///{relativePath.Replace('\\', '/')}");
+                var file = await StorageFile.GetFileFromApplicationUriAsync(uri);
+                return await FileIO.ReadTextAsync(file);
+            }
+            catch
+            {
+                return string.Empty;
+            }
+        }
+
+        private async Task ShowTextDialogAsync(string title, string content)
+        {
+            var tb = new TextBox
+            {
+                Text = content,
+                IsReadOnly = true,
+                TextWrapping = TextWrapping.Wrap,
+                AcceptsReturn = true,
+                MinHeight = 320
+            };
+
+            var scroll = new ScrollViewer
+            {
+                Content = tb,
+                MaxHeight = 560
+            };
+
+            var dialog = new ContentDialog
+            {
+                Title = title,
+                Content = scroll,
+                CloseButtonText = I18n.GetString("Common_Close"),
+                XamlRoot = this.XamlRoot
+            };
+
+            await dialog.ShowAsync();
+        }
+
+        // Removed obsolete about button handlers: copy-version, open-build-diag, privacy, license
+
+        #endregion
 
         #region KnotLink 互联设置
 
