@@ -73,12 +73,14 @@
                                     <ColumnDefinition Width="*"/>
                                     <ColumnDefinition Width="Auto"/>
                                 </Grid.ColumnDefinitions>
-                                <StackPanel Spacing="4">
+                                <StackPanel Spacing="2" VerticalAlignment="Center">
                                     <TextBlock x:Uid="SettingsPage_7zPath"/>
-                                    <TextBox Text="{x:Bind Settings.SevenZipPath, Mode=TwoWay}" Width="300" HorizontalAlignment="Left" IsReadOnly="True"/>
                                     <TextBlock x:Uid="SettingsPage_7zPathDesc" FontSize="12" Opacity="0.6"/>
                                 </StackPanel>
-                                <Button x:Uid="SettingsPage_BrowseButton" Grid.Column="1" VerticalAlignment="Top" Click="OnBrowse7zClick"/>
+                                <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
+                                    <TextBox Text="{x:Bind Settings.SevenZipPath, Mode=TwoWay}" Width="260" IsReadOnly="True" VerticalAlignment="Center"/>
+                                    <Button x:Uid="SettingsPage_BrowseButton" Click="OnBrowse7zClick" VerticalAlignment="Center"/>
+                                </StackPanel>
                             </Grid>
                         </Border>
                     </Grid>
@@ -116,7 +118,7 @@
                                         <TextBlock x:Uid="SettingsPage_MaxLogSize" />
                                         <TextBlock x:Uid="SettingsPage_MaxLogSizeDesc" FontSize="12" Opacity="0.6" />
                                     </StackPanel>
-                                    <NumberBox x:Name="MaxLogSizeBox" Grid.Column="1" Width="120" Minimum="1" Maximum="50" Value="{x:Bind Settings.MaxLogFileSizeMb, Mode=TwoWay}" ValueChanged="OnLogSizeChanged"/>
+                                    <NumberBox x:Name="MaxLogSizeBox" Grid.Column="1" Width="160" Minimum="1" Maximum="50" Value="{x:Bind Settings.MaxLogFileSizeMb, Mode=TwoWay}" ValueChanged="OnLogSizeChanged"/>
                                 </Grid>
 
                                 <Grid>
@@ -128,7 +130,7 @@
                                         <TextBlock x:Uid="SettingsPage_LogRetention" />
                                         <TextBlock x:Uid="SettingsPage_LogRetentionDesc" FontSize="12" Opacity="0.6" />
                                     </StackPanel>
-                                    <NumberBox x:Name="LogRetentionBox" Grid.Column="1" Width="120" Minimum="1" Maximum="60" Value="{x:Bind Settings.LogRetentionDays, Mode=TwoWay}" ValueChanged="OnRetentionChanged"/>
+                                    <NumberBox x:Name="LogRetentionBox" Grid.Column="1" Width="160" Minimum="1" Maximum="60" Value="{x:Bind Settings.LogRetentionDays, Mode=TwoWay}" ValueChanged="OnRetentionChanged"/>
                                 </Grid>
 
                                 <Grid>
@@ -205,7 +207,7 @@
                                                 </StackPanel>
 
                                                 <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
-                                                    <ToggleSwitch IsOn="{x:Bind IsEnabled, Mode=TwoWay}" Toggled="OnPluginEnabledToggled"/>
+                                                    <ToggleSwitch IsOn="{x:Bind IsEnabled, Mode=TwoWay}"  Margin="20,0,0,0" Toggled="OnPluginEnabledToggled"/>
                                                     <Button x:Uid="SettingsPage_PluginSettings" Click="OnPluginSettingsClick" Tag="{x:Bind}"/>
                                                     <Button x:Uid="SettingsPage_PluginUninstall" Click="OnPluginUninstallClick" Tag="{x:Bind}"/>
                                                 </StackPanel>
@@ -265,52 +267,52 @@
                                         <Grid>
                                             <Grid.ColumnDefinitions>
                                                 <ColumnDefinition Width="*"/>
-                                                <ColumnDefinition Width="200"/>
+                                                <ColumnDefinition Width="Auto"/>
                                             </Grid.ColumnDefinitions>
                                             <StackPanel Spacing="2">
                                                 <TextBlock x:Uid="SettingsPage_KnotLinkHost"/>
                                                 <TextBlock x:Uid="SettingsPage_KnotLinkHostDesc" FontSize="12" Opacity="0.6"/>
                                             </StackPanel>
-                                            <TextBox Grid.Column="1" Text="{x:Bind Settings.KnotLinkHost, Mode=TwoWay}" TextChanged="OnKnotLinkSettingChanged"/>
+                                            <TextBox Grid.Column="1" Text="{x:Bind Settings.KnotLinkHost, Mode=TwoWay}" Width="160" TextChanged="OnKnotLinkSettingChanged"/>
                                         </Grid>
 
                                         <!-- AppId -->
                                         <Grid>
                                             <Grid.ColumnDefinitions>
                                                 <ColumnDefinition Width="*"/>
-                                                <ColumnDefinition Width="200"/>
+                                                <ColumnDefinition Width="Auto"/>
                                             </Grid.ColumnDefinitions>
                                             <StackPanel Spacing="2">
                                                 <TextBlock x:Uid="SettingsPage_KnotLinkAppId"/>
                                                 <TextBlock x:Uid="SettingsPage_KnotLinkAppIdDesc" FontSize="12" Opacity="0.6"/>
                                             </StackPanel>
-                                            <TextBox Grid.Column="1" Text="{x:Bind Settings.KnotLinkAppId, Mode=TwoWay}" TextChanged="OnKnotLinkSettingChanged"/>
+                                            <TextBox Grid.Column="1" Text="{x:Bind Settings.KnotLinkAppId, Mode=TwoWay}" Width="160" TextChanged="OnKnotLinkSettingChanged"/>
                                         </Grid>
 
                                         <!-- OpenSocket ID -->
                                         <Grid>
                                             <Grid.ColumnDefinitions>
                                                 <ColumnDefinition Width="*"/>
-                                                <ColumnDefinition Width="200"/>
+                                                <ColumnDefinition Width="Auto"/>
                                             </Grid.ColumnDefinitions>
                                             <StackPanel Spacing="2">
                                                 <TextBlock x:Uid="SettingsPage_KnotLinkOpenSocketId"/>
                                                 <TextBlock x:Uid="SettingsPage_KnotLinkOpenSocketIdDesc" FontSize="12" Opacity="0.6"/>
                                             </StackPanel>
-                                            <TextBox Grid.Column="1" Text="{x:Bind Settings.KnotLinkOpenSocketId, Mode=TwoWay}" TextChanged="OnKnotLinkSettingChanged"/>
+                                            <TextBox Grid.Column="1" Text="{x:Bind Settings.KnotLinkOpenSocketId, Mode=TwoWay}" Width="160" TextChanged="OnKnotLinkSettingChanged"/>
                                         </Grid>
 
                                         <!-- Signal ID -->
                                         <Grid>
                                             <Grid.ColumnDefinitions>
                                                 <ColumnDefinition Width="*"/>
-                                                <ColumnDefinition Width="200"/>
+                                                <ColumnDefinition Width="Auto"/>
                                             </Grid.ColumnDefinitions>
                                             <StackPanel Spacing="2">
                                                 <TextBlock x:Uid="SettingsPage_KnotLinkSignalId"/>
                                                 <TextBlock x:Uid="SettingsPage_KnotLinkSignalIdDesc" FontSize="12" Opacity="0.6"/>
                                             </StackPanel>
-                                            <TextBox Grid.Column="1" Text="{x:Bind Settings.KnotLinkSignalId, Mode=TwoWay}" TextChanged="OnKnotLinkSettingChanged"/>
+                                            <TextBox Grid.Column="1" Text="{x:Bind Settings.KnotLinkSignalId, Mode=TwoWay}" Width="160" TextChanged="OnKnotLinkSettingChanged"/>
                                         </Grid>
 
                                         <!-- 重置默认按钮 -->
@@ -381,7 +383,7 @@
                                             </StackPanel>
                                         </Grid>
                                     </StackPanel>
-                                    <ComboBox x:Name="LanguageCombo" Grid.Column="1" MinWidth="180" SelectionChanged="OnLanguageChanged">
+                                    <ComboBox x:Name="LanguageCombo" Grid.Column="1" Width="160" SelectionChanged="OnLanguageChanged">
                                         <ComboBoxItem x:Uid="SettingsPage_LanguageSystem"/>
                                         <ComboBoxItem x:Uid="SettingsPage_LanguageEnglish"/>
                                         <ComboBoxItem x:Uid="SettingsPage_LanguageChinese"/>
@@ -407,7 +409,7 @@
                                         </Grid>
                                     </StackPanel>
                                     <!-- 添加 SelectionChanged 事件 -->
-                                    <ComboBox Grid.Column="1" SelectedIndex="{x:Bind Settings.ThemeIndex, Mode=TwoWay}" MinWidth="140" SelectionChanged="OnThemeChanged">
+                                    <ComboBox Grid.Column="1" SelectedIndex="{x:Bind Settings.ThemeIndex, Mode=TwoWay}" Width="160" SelectionChanged="OnThemeChanged">
                                         <ComboBoxItem x:Uid="SettingsPage_ThemeDark"/>
                                         <ComboBoxItem x:Uid="SettingsPage_ThemeLight"/>
                                     </ComboBox>
@@ -431,7 +433,7 @@
                                             </StackPanel>
                                         </Grid>
                                     </StackPanel>
-                                    <ComboBox x:Name="FontFamilyCombo" Grid.Column="1" MinWidth="180" ItemsSource="{x:Bind FontFamilies}" SelectionChanged="OnFontFamilyChanged"/>
+                                    <ComboBox x:Name="FontFamilyCombo" Grid.Column="1" Width="160" ItemsSource="{x:Bind FontFamilies}" SelectionChanged="OnFontFamilyChanged"/>
                                 </Grid>
 
                                 <Grid>
@@ -452,7 +454,7 @@
                                             </StackPanel>
                                         </Grid>
                                     </StackPanel>
-                                    <NumberBox x:Name="FontSizeBox" Grid.Column="1" Width="140" Minimum="12" Maximum="20" SmallChange="0.5" LargeChange="1" Value="{x:Bind Settings.BaseFontSize, Mode=TwoWay}" ValueChanged="OnFontSizeChanged"/>
+                                    <NumberBox x:Name="FontSizeBox" Grid.Column="1" Width="160" Minimum="12" Maximum="20" SmallChange="0.5" LargeChange="1" Value="{x:Bind Settings.BaseFontSize, Mode=TwoWay}" ValueChanged="OnFontSizeChanged"/>
                                 </Grid>
 
                                 <Grid>
@@ -473,7 +475,7 @@
                                             </StackPanel>
                                         </Grid>
                                     </StackPanel>
-                                    <NumberBox Grid.Column="1" Width="140" Minimum="200" Maximum="600" Value="{x:Bind Settings.NavPaneWidth, Mode=TwoWay}" SpinButtonPlacementMode="Inline" SmallChange="10" LargeChange="50" />
+                                    <NumberBox Grid.Column="1" Width="160" Minimum="160" Maximum="600" Value="{x:Bind Settings.NavPaneWidth, Mode=TwoWay}" SpinButtonPlacementMode="Inline" SmallChange="10" LargeChange="50" />
                                 </Grid>
 
                                 <Grid>
@@ -486,7 +488,7 @@
                                         <TextBlock x:Uid="SettingsPage_StartupSizeDesc" FontSize="12" Opacity="0.6" />
                                         <StackPanel Orientation="Horizontal" Spacing="12">
                                             <NumberBox x:Name="StartupWidthBox"
-                                                       Width="140"
+                                                       Width="100"
                                                        Minimum="640"
                                                        Maximum="3840"
                                                        SmallChange="20"
@@ -495,7 +497,7 @@
                                                        ValueChanged="OnStartupSizeChanged"/>
                                             <TextBlock Text="×" VerticalAlignment="Center" Opacity="0.5" />
                                             <NumberBox x:Name="StartupHeightBox"
-                                                       Width="140"
+                                                       Width="100"
                                                        Minimum="480"
                                                        Maximum="2160"
                                                        SmallChange="20"

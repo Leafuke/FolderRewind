@@ -27,11 +27,10 @@
             </Grid.ColumnDefinitions>
             <Grid.RowDefinitions>
                 <RowDefinition Height="Auto" />
-                <RowDefinition Height="Auto" />
             </Grid.RowDefinitions>
 
-            <StackPanel Grid.Row="0" Grid.Column="0" Orientation="Horizontal" Spacing="8" MinWidth="240" VerticalAlignment="Center">
-                <ComboBox x:Name="LevelFilter" Width="150" SelectionChanged="OnLevelChanged" SelectedIndex="0">
+            <StackPanel Grid.Row="0" Grid.Column="0" Orientation="Horizontal" Spacing="12" MinWidth="240" VerticalAlignment="Center">
+                <ComboBox x:Name="LevelFilter" Width="120" Margin="0,4,0,0" SelectionChanged="OnLevelChanged" SelectedIndex="0">
                     <ComboBoxItem Content="全部级别" Tag="All" />
                     <ComboBoxItem Content="信息" Tag="Info" />
                     <ComboBoxItem Content="警告" Tag="Warning" />
@@ -39,10 +38,17 @@
                     <ComboBoxItem Content="调试" Tag="Debug" />
                 </ComboBox>
 
-                <TextBox x:Name="SearchBox" Width="260" MinWidth="200" PlaceholderText="搜索关键字" TextChanged="OnKeywordChanged" />
+                <TextBox x:Name="SearchBox" Width="200" Height="33" PlaceholderText="搜索关键字" TextChanged="OnKeywordChanged" />
 
-                <ToggleSwitch x:Name="LiveToggle" Header="实时刷新" IsOn="True" Toggled="OnLiveToggled" VerticalAlignment="Center" />
-                <ToggleSwitch x:Name="AutoScrollToggle" Header="自动滚动" IsOn="True" VerticalAlignment="Center" />
+                <StackPanel Orientation="Horizontal" Spacing="4" VerticalAlignment="Center">
+                    <TextBlock Text="实时刷新" VerticalAlignment="Center" FontSize="14" Opacity="0.8"/>
+                    <ToggleSwitch x:Name="LiveToggle" IsOn="True" Toggled="OnLiveToggled" OnContent="" OffContent="" VerticalAlignment="Center" Margin="4,0,0,0"/>
+                </StackPanel>
+
+                <StackPanel Orientation="Horizontal" Spacing="4" VerticalAlignment="Center">
+                    <TextBlock Text="自动滚动" VerticalAlignment="Center" FontSize="14" Opacity="0.8"/>
+                    <ToggleSwitch x:Name="AutoScrollToggle" IsOn="True" OnContent="" OffContent="" VerticalAlignment="Center" Margin="4,0,0,0"/>
+                </StackPanel>
             </StackPanel>
 
             <StackPanel Grid.Row="0" Grid.Column="1" Orientation="Horizontal" Spacing="8" HorizontalAlignment="Right" VerticalAlignment="Center">
