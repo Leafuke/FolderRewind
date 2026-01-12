@@ -6,6 +6,7 @@ using System.IO;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
+using Windows.ApplicationModel.Resources;
 
 namespace FolderRewind.Services.Plugins
 {
@@ -15,6 +16,8 @@ namespace FolderRewind.Services.Plugins
     /// </summary>
     public static class PluginStoreService
     {
+        private static readonly ResourceLoader _rl = ResourceLoader.GetForViewIndependentUse();
+
         public static bool TryParseRepo(string repoText, out string owner, out string repo)
         {
             owner = string.Empty;
@@ -45,11 +48,11 @@ namespace FolderRewind.Services.Plugins
         public static async Task<(bool Success, string Message)> DownloadAndInstallAsync(PluginStoreAssetItem asset, CancellationToken ct)
         {
             if (asset == null || string.IsNullOrWhiteSpace(asset.DownloadUrl))
-                return (false, "无效的下载项");
+                return (false, _rl.GetString("PluginStore_InvalidItem"));
 
             // 当前版本仅支持 zip
             if (!asset.Name.EndsWith(".zip", StringComparison.OrdinalIgnoreCase))
-                return (false, "当前仅支持 zip 插件包（需要包含 manifest.json）");
+                return (false, _rl.GetString("PluginStore_OnlyZipSupported"));
 
             try
             {
@@ -70,12 +73,12 @@ namespace FolderRewind.Services.Plugins
             }
             catch (OperationCanceledException)
             {
-                return (false, "已取消");
+                return (false, _rl.GetString("Common_Canceled"));
             }
             catch (Exception ex)
             {
-                LogService.LogError($"[PluginStore] 下载/安装失败：{ex.Message}", "PluginStoreService", ex);
-                return (false, $"下载/安装失败：{ex.Message}");
+                LogService.LogError(I18n.Format("PluginStore_Log_DownloadInstallFailed", ex.Message), "PluginStoreService", ex);
+                return (false, string.Format(_rl.GetString("PluginStore_DownloadInstallFailed"), ex.Message));
             }
         }
     }

@@ -7,6 +7,7 @@ using System;
 using System.Collections.ObjectModel;
 using System.Threading;
 using System.Threading.Tasks;
+using Windows.ApplicationModel.Resources;
 
 namespace FolderRewind.Views
 {
@@ -100,8 +101,10 @@ namespace FolderRewind.Views
             if (sender is not Button btn || btn.Tag is not PluginStoreAssetItem item) return;
             if (!PluginService.IsPluginSystemEnabled()) return;
 
+            var rl = ResourceLoader.GetForViewIndependentUse();
+
             item.IsBusy = true;
-            item.Status = "下载中...";
+            item.Status = rl.GetString("PluginStorePage_StatusDownloading");
 
             try
             {
@@ -119,7 +122,7 @@ namespace FolderRewind.Views
             }
             catch (OperationCanceledException)
             {
-                item.Status = "已取消";
+                item.Status = rl.GetString("Common_Canceled");
             }
             catch (Exception ex)
             {

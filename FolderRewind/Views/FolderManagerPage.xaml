@@ -10,7 +10,6 @@
     mc:Ignorable="d">
 
     <Page.Resources>
-        <!-- 确保这些 Converter 类在 Converters 文件夹下存在 -->
         <converters:BoolToStarIconConverter x:Key="BoolToStarIconConverter"/>
         <converters:BoolToColorConverter x:Key="BoolToColorConverter"/>
         <converters:StringToBitmapConverter x:Key="StringToBitmapConverter"/>
@@ -23,7 +22,6 @@
         </Grid.RowDefinitions>
 
         <!-- 顶部操作栏 -->
-        <!-- 顶部操作栏区域 -->
         <StackPanel Background="{ThemeResource LayerFillColorAltBrush}" BorderBrush="{ThemeResource SurfaceStrokeColorDefaultBrush}" BorderThickness="0,0,0,1">
 
             <!-- 第一行：配置选择与全局操作 -->
@@ -61,6 +59,8 @@
                             <MenuFlyout>
                                 <MenuFlyoutItem x:Uid="FolderManager_AddSingleFolder" Icon="Folder" Click="OnAddSingleFolderClick"/>
                                 <MenuFlyoutItem x:Uid="FolderManager_AddSubFolders" Icon="List" Click="OnAddSubFoldersClick"/>
+                                <MenuFlyoutSeparator />
+                                <MenuFlyoutItem x:Uid="FolderManager_PluginDiscover" Icon="Find" Click="OnPluginDiscoverFoldersClick"/>
                             </MenuFlyout>
                         </Button.Flyout>
                     </Button>
@@ -87,7 +87,7 @@
                 <StackPanel Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
                     <FontIcon Glyph="&#xE8B7;" FontSize="16" Foreground="{ThemeResource AccentFillColorDefaultBrush}"/>
                     <TextBlock x:Uid="FolderManager_SelectedAction" VerticalAlignment="Center" FontWeight="SemiBold"/>
-                    <TextBlock Text="{x:Bind FolderList.SelectedItem.(models:ManagedFolder.DisplayName), Mode=OneWay, FallbackValue='(未选择)'}" 
+                    <TextBlock Text="{x:Bind SelectedFolderDisplayName, Mode=OneWay}" 
                                VerticalAlignment="Center" Opacity="0.8"/>
                 </StackPanel>
 

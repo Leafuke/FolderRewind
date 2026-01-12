@@ -35,6 +35,22 @@ namespace FolderRewind
 
             InitializeIntegratedTitleBar();
             UpdateTitleBar(currentTheme);
+
+            // 窗口关闭时清理 KnotLink 服务
+            Closed += MainWindow_Closed;
+        }
+
+        private void MainWindow_Closed(object sender, WindowEventArgs args)
+        {
+            // 关闭 KnotLink 服务，释放网络资源
+            try
+            {
+                KnotLinkService.Shutdown();
+            }
+            catch
+            {
+                // 忽略关闭时的异常
+            }
         }
 
         private void ThemeService_ThemeChanged(ElementTheme theme)

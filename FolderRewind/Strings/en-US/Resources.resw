@@ -1,5 +1,110 @@
 <?xml version="1.0" encoding="utf-8"?>
 <root>
+  <!-- 
+    Microsoft ResX Schema 
+    
+    Version 2.0
+    
+    The primary goals of this format is to allow a simple XML format 
+    that is mostly human readable. The generation and parsing of the 
+    various data types are done through the TypeConverter classes 
+    associated with the data types.
+    
+    Example:
+    
+    ... ado.net/XML headers & schema ...
+    <resheader name="resmimetype">text/microsoft-resx</resheader>
+    <resheader name="version">2.0</resheader>
+    <resheader name="reader">System.Resources.ResXResourceReader, System.Windows.Forms, ...</resheader>
+    <resheader name="writer">System.Resources.ResXResourceWriter, System.Windows.Forms, ...</resheader>
+    <data name="Name1"><value>this is my long string</value><comment>this is a comment</comment></data>
+    <data name="Color1" type="System.Drawing.Color, System.Drawing">Blue</data>
+    <data name="Bitmap1" mimetype="application/x-microsoft.net.object.binary.base64">
+        <value>[base64 mime encoded serialized .NET Framework object]</value>
+    </data>
+    <data name="Icon1" type="System.Drawing.Icon, System.Drawing" mimetype="application/x-microsoft.net.object.bytearray.base64">
+        <value>[base64 mime encoded string representing a byte array form of the .NET Framework object]</value>
+        <comment>This is a comment</comment>
+    </data>
+                
+    There are any number of "resheader" rows that contain simple 
+    name/value pairs.
+    
+    Each data row contains a name, and value. The row also contains a 
+    type or mimetype. Type corresponds to a .NET class that support 
+    text/value conversion through the TypeConverter architecture. 
+    Classes that don't support this are serialized and stored with the 
+    mimetype set.
+    
+    The mimetype is used for serialized objects, and tells the 
+    ResXResourceReader how to depersist the object. This is currently not 
+    extensible. For a given mimetype the value must be set accordingly:
+    
+    Note - application/x-microsoft.net.object.binary.base64 is the format 
+    that the ResXResourceWriter will generate, however the reader can 
+    read any of the formats listed below.
+    
+    mimetype: application/x-microsoft.net.object.binary.base64
+    value   : The object must be serialized with 
+            : System.Runtime.Serialization.Formatters.Binary.BinaryFormatter
+            : and then encoded with base64 encoding.
+    
+    mimetype: application/x-microsoft.net.object.soap.base64
+    value   : The object must be serialized with 
+            : System.Runtime.Serialization.Formatters.Soap.SoapFormatter
+            : and then encoded with base64 encoding.
+
+    mimetype: application/x-microsoft.net.object.bytearray.base64
+    value   : The object must be serialized into a byte array 
+            : using a System.ComponentModel.TypeConverter
+            : and then encoded with base64 encoding.
+    -->
+  <xsd:schema id="root" xmlns="" xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:msdata="urn:schemas-microsoft-com:xml-msdata">
+    <xsd:import namespace="http://www.w3.org/XML/1998/namespace" />
+    <xsd:element name="root" msdata:IsDataSet="true">
+      <xsd:complexType>
+        <xsd:choice maxOccurs="unbounded">
+          <xsd:element name="metadata">
+            <xsd:complexType>
+              <xsd:sequence>
+                <xsd:element name="value" type="xsd:string" minOccurs="0" />
+              </xsd:sequence>
+              <xsd:attribute name="name" use="required" type="xsd:string" />
+              <xsd:attribute name="type" type="xsd:string" />
+              <xsd:attribute name="mimetype" type="xsd:string" />
+              <xsd:attribute ref="xml:space" />
+            </xsd:complexType>
+          </xsd:element>
+          <xsd:element name="assembly">
+            <xsd:complexType>
+              <xsd:attribute name="alias" type="xsd:string" />
+              <xsd:attribute name="name" type="xsd:string" />
+            </xsd:complexType>
+          </xsd:element>
+          <xsd:element name="data">
+            <xsd:complexType>
+              <xsd:sequence>
+                <xsd:element name="value" type="xsd:string" minOccurs="0" msdata:Ordinal="1" />
+                <xsd:element name="comment" type="xsd:string" minOccurs="0" msdata:Ordinal="2" />
+              </xsd:sequence>
+              <xsd:attribute name="name" type="xsd:string" use="required" msdata:Ordinal="1" />
+              <xsd:attribute name="type" type="xsd:string" msdata:Ordinal="3" />
+              <xsd:attribute name="mimetype" type="xsd:string" msdata:Ordinal="4" />
+              <xsd:attribute ref="xml:space" />
+            </xsd:complexType>
+          </xsd:element>
+          <xsd:element name="resheader">
+            <xsd:complexType>
+              <xsd:sequence>
+                <xsd:element name="value" type="xsd:string" minOccurs="0" msdata:Ordinal="1" />
+              </xsd:sequence>
+              <xsd:attribute name="name" type="xsd:string" use="required" />
+            </xsd:complexType>
+          </xsd:element>
+        </xsd:choice>
+      </xsd:complexType>
+    </xsd:element>
+  </xsd:schema>
   <resheader name="resmimetype">
     <value>text/microsoft-resx</value>
   </resheader>
@@ -12,8 +117,6 @@
   <resheader name="writer">
     <value>System.Resources.ResXResourceWriter, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
   </resheader>
-
-  <!-- ResourceLoader keys (code-behind) -->
   <data name="HomePage_ConfigNameHeader" xml:space="preserve">
     <value>Config name</value>
   </data>
@@ -35,11 +138,39 @@
   <data name="HomePage_NewConfigSummary" xml:space="preserve">
     <value>New · No data yet</value>
   </data>
+  <data name="HomePage_ConfigTypeHeader" xml:space="preserve">
+    <value>Config type</value>
+  </data>
+  <data name="HomePage_ConfigTypeDesc" xml:space="preserve">
+    <value>Different config types can be enhanced by plugins (e.g., Minecraft hot backup, auto discovery).</value>
+  </data>
+  <data name="HomePage_PluginBatchCreateHeader" xml:space="preserve">
+    <value>Batch create (plugin)</value>
+  </data>
+  <data name="HomePage_PluginBatchCreateOff" xml:space="preserve">
+    <value>Off</value>
+  </data>
+  <data name="HomePage_PluginBatchCreateOn" xml:space="preserve">
+    <value>On: scan and create multiple configs</value>
+  </data>
+  <data name="HomePage_PluginBatchCreatePickRootTitle" xml:space="preserve">
+    <value>Select a folder to scan (e.g., .minecraft / versions / saves)</value>
+  </data>
+  <data name="HomePage_PluginBatchCreatePickDestinationTitle" xml:space="preserve">
+    <value>Select a backup destination folder (optional)</value>
+  </data>
+  <data name="HomePage_PluginBatchCreateFailedTitle" xml:space="preserve">
+    <value>Batch create failed</value>
+  </data>
+  <data name="HomePage_PluginBatchCreateFailedContent" xml:space="preserve">
+    <value>No plugin handled this folder. Make sure the plugin is enabled, and pick the correct .minecraft/versions/&lt;version&gt;/saves path.</value>
+  </data>
   <data name="FolderManager_NeverBackedUp" xml:space="preserve">
     <value>Never backed up</value>
   </data>
-
-  <!-- ShellPage -->
+  <data name="FolderManager_NotSelected" xml:space="preserve">
+    <value>(Not selected)</value>
+  </data>
   <data name="ShellPage_Header.Header" xml:space="preserve">
     <value>FolderRewind</value>
   </data>
@@ -55,16 +186,18 @@
   <data name="ShellPage_NavHistory.Content" xml:space="preserve">
     <value>History</value>
   </data>
-
-  <!-- BackupTasksPage -->
+  <data name="ShellPage_NavLogs.Content" xml:space="preserve">
+    <value>Logs</value>
+  </data>
+  <data name="ShellPage_TitleBarAppName.Text" xml:space="preserve">
+    <value>FolderRewind</value>
+  </data>
   <data name="BackupTasksPage_Title.Text" xml:space="preserve">
     <value>Backup tasks</value>
   </data>
   <data name="BackupTasksPage_EmptyState.Text" xml:space="preserve">
     <value>No backup tasks in progress</value>
   </data>
-
-  <!-- SettingsPage -->
   <data name="SettingsPage_Title.Text" xml:space="preserve">
     <value>Settings</value>
   </data>
@@ -137,8 +270,6 @@
   <data name="SettingsPage_FontSizeDesc.Text" xml:space="preserve">
     <value>12–20 pt, affects text-heavy areas</value>
   </data>
-
-  <!-- HomePage -->
   <data name="HomePage_FavoriteFolders.Text" xml:space="preserve">
     <value>Favorite folders</value>
   </data>
@@ -172,8 +303,6 @@
   <data name="HomePage_Config_Auto.Text" xml:space="preserve">
     <value>Auto</value>
   </data>
-
-  <!-- HistoryPage -->
   <data name="HistoryPage_Title.Text" xml:space="preserve">
     <value>Backup history &amp; restore</value>
   </data>
@@ -192,8 +321,6 @@
   <data name="HistoryPage_EmptyState.Text" xml:space="preserve">
     <value>Select a folder to view history</value>
   </data>
-
-  <!-- FolderManagerPage -->
   <data name="FolderManager_CurrentConfig.Text" xml:space="preserve">
     <value>Current config:</value>
   </data>
@@ -211,6 +338,27 @@
   </data>
   <data name="FolderManager_AddSubFolders.Text" xml:space="preserve">
     <value>Import subfolders</value>
+  </data>
+  <data name="FolderManager_PluginDiscover.Text" xml:space="preserve">
+    <value>Scan (plugin discovery)</value>
+  </data>
+  <data name="FolderManager_PluginDiscover_NoResultTitle" xml:space="preserve">
+    <value>Nothing found</value>
+  </data>
+  <data name="FolderManager_PluginDiscover_NoResultContent" xml:space="preserve">
+    <value>The plugin didn't discover any folders from this path. Try selecting .minecraft or versions/&lt;version&gt;/saves.</value>
+  </data>
+  <data name="FolderManager_PluginDiscover_NoNewTitle" xml:space="preserve">
+    <value>No new items</value>
+  </data>
+  <data name="FolderManager_PluginDiscover_NoNewContent" xml:space="preserve">
+    <value>All discovered folders already exist in the current config.</value>
+  </data>
+  <data name="FolderManager_PluginDiscover_ConfirmTitle" xml:space="preserve">
+    <value>Confirm add</value>
+  </data>
+  <data name="FolderManager_PluginDiscover_ConfirmContent" xml:space="preserve">
+    <value>The plugin discovered {0} folders. Add them to the current config?</value>
   </data>
   <data name="FolderManager_BackupAll.Text" xml:space="preserve">
     <value>Backup all</value>
@@ -248,8 +396,6 @@
   <data name="FolderManager_RemoveFolder.Text" xml:space="preserve">
     <value>Remove from config</value>
   </data>
-
-  <!-- ConfigurationPage -->
   <data name="ConfigurationPage_BackToOverview.Text" xml:space="preserve">
     <value>Back to overview</value>
   </data>
@@ -292,8 +438,6 @@
   <data name="ConfigurationPage_BatchDelete.Content" xml:space="preserve">
     <value>Batch delete</value>
   </data>
-
-  <!-- ConfigSettingsDialog -->
   <data name="ConfigSettingsDialog.Title" xml:space="preserve">
     <value>Configuration settings</value>
   </data>
@@ -303,11 +447,41 @@
   <data name="ConfigSettingsDialog.CloseButtonText" xml:space="preserve">
     <value>Cancel</value>
   </data>
+  <data name="ConfigSettingsDialog.SecondaryButtonText" xml:space="preserve">
+    <value>Delete config</value>
+  </data>
+  <data name="ConfigSettingsDialog_DeleteConfirmTitle" xml:space="preserve">
+    <value>Delete configuration</value>
+  </data>
+  <data name="ConfigSettingsDialog_DeleteConfirmContent" xml:space="preserve">
+    <value>Delete this configuration? This action cannot be undone.</value>
+  </data>
+  <data name="Config_OpenDestination_Empty" xml:space="preserve">
+    <value>Destination path is empty</value>
+  </data>
+  <data name="Config_OpenDestination_NotFound" xml:space="preserve">
+    <value>Destination folder not found</value>
+  </data>
+  <data name="Config_Delete_CurrentConfigNull" xml:space="preserve">
+    <value>Current config is null; cannot delete</value>
+  </data>
+  <data name="Config_Delete_NotFound" xml:space="preserve">
+    <value>Config not found; cannot delete</value>
+  </data>
+  <data name="Config_OpenPath_Failed" xml:space="preserve">
+    <value>Failed to open path: {0}</value>
+  </data>
   <data name="ConfigSettingsDialog_General.Header" xml:space="preserve">
     <value>General</value>
   </data>
   <data name="ConfigSettingsDialog_ConfigName.Header" xml:space="preserve">
     <value>Config name</value>
+  </data>
+  <data name="ConfigSettingsDialog_ConfigType.Text" xml:space="preserve">
+    <value>Config type</value>
+  </data>
+  <data name="ConfigSettingsDialog_ConfigTypeDesc.Text" xml:space="preserve">
+    <value>Changing the config type affects whether plugins can hook into backup/restore (e.g., Minecraft hot backup snapshots).</value>
   </data>
   <data name="ConfigSettingsDialog_DestPath.Text" xml:space="preserve">
     <value>Backup destination</value>
@@ -417,8 +591,6 @@
   <data name="ConfigSettingsDialog_UseRegex.Content" xml:space="preserve">
     <value>Treat blacklist entries as regex</value>
   </data>
-
-  <!-- LogWindow -->
   <data name="LogWindow.Title" xml:space="preserve">
     <value>FolderRewind console log</value>
   </data>
@@ -427,5 +599,517 @@
   </data>
   <data name="LogWindow_AutoScroll.Content" xml:space="preserve">
     <value>Auto-scroll</value>
+  </data>
+  <data name="SettingsPage_LogDiag.Text" xml:space="preserve">
+    <value>Logs &amp; Diagnostics</value>
+  </data>
+  <data name="SettingsPage_LogEnabled.Text" xml:space="preserve">
+    <value>Enable file logging</value>
+  </data>
+  <data name="SettingsPage_LogEnabledDesc.Text" xml:space="preserve">
+    <value>Write logs to local files for troubleshooting</value>
+  </data>
+  <data name="SettingsPage_MaxLogSize.Text" xml:space="preserve">
+    <value>Max log file size (MB)</value>
+  </data>
+  <data name="SettingsPage_MaxLogSizeDesc.Text" xml:space="preserve">
+    <value>Automatically rotate when exceeded</value>
+  </data>
+  <data name="SettingsPage_LogRetention.Text" xml:space="preserve">
+    <value>Log retention days</value>
+  </data>
+  <data name="SettingsPage_LogRetentionDesc.Text" xml:space="preserve">
+    <value>Automatically clean up old logs</value>
+  </data>
+  <data name="SettingsPage_DebugLog.Text" xml:space="preserve">
+    <value>Include debug logs</value>
+  </data>
+  <data name="SettingsPage_DebugLogDesc.Text" xml:space="preserve">
+    <value>For more detailed diagnostics</value>
+  </data>
+  <data name="SettingsPage_OpenLogCenter.Content" xml:space="preserve">
+    <value>Open log center</value>
+  </data>
+  <data name="SettingsPage_Plugins.Text" xml:space="preserve">
+    <value>Plugins</value>
+  </data>
+  <data name="SettingsPage_PluginsEnabled.Text" xml:space="preserve">
+    <value>Enable plugin system</value>
+  </data>
+  <data name="SettingsPage_PluginsEnabledDesc.Text" xml:space="preserve">
+    <value>Enable to download and use plugins from the store</value>
+  </data>
+  <data name="SettingsPage_OpenPluginStore.Content" xml:space="preserve">
+    <value>Open plugin store</value>
+  </data>
+  <data name="SettingsPage_ManualInstallPlugin.Content" xml:space="preserve">
+    <value>Install plugin from .zip</value>
+  </data>
+  <data name="SettingsPage_OpenPluginFolder.Content" xml:space="preserve">
+    <value>Open plugin folder</value>
+  </data>
+  <data name="SettingsPage_RefreshPlugins.Content" xml:space="preserve">
+    <value>Refresh</value>
+  </data>
+  <data name="SettingsPage_InstalledPlugins.Text" xml:space="preserve">
+    <value>Installed plugins</value>
+  </data>
+  <data name="SettingsPage_PluginSettings.Content" xml:space="preserve">
+    <value>Settings</value>
+  </data>
+  <data name="SettingsPage_PluginUninstall.Content" xml:space="preserve">
+    <value>Uninstall</value>
+  </data>
+  <data name="PluginStorePage_Title.Text" xml:space="preserve">
+    <value>Plugin store</value>
+  </data>
+  <data name="PluginStorePage_Desc.Text" xml:space="preserve">
+    <value>Download plugin zip from the latest GitHub Release. The zip root must contain manifest.json.</value>
+  </data>
+  <data name="PluginStorePage_RepoBox.Header" xml:space="preserve">
+    <value>GitHub repo (owner/repo)</value>
+  </data>
+  <data name="PluginStorePage_RepoBox.PlaceholderText" xml:space="preserve">
+    <value>e.g. YourOrg/FolderRewind.Plugins</value>
+  </data>
+  <data name="PluginStorePage_Load.Content" xml:space="preserve">
+    <value>Load</value>
+  </data>
+  <data name="PluginStorePage_EmptyRepoHint.Text" xml:space="preserve">
+    <value>No repository configured. Cannot load plugin assets.</value>
+  </data>
+  <data name="PluginStorePage_Install.Content" xml:space="preserve">
+    <value>Install</value>
+  </data>
+  <data name="LogPage_Title.Text" xml:space="preserve">
+    <value>Logs</value>
+  </data>
+  <data name="LogPage_Subtitle.Text" xml:space="preserve">
+    <value>View runtime logs and events</value>
+  </data>
+  <data name="LogPage_Level_All.Content" xml:space="preserve">
+    <value>All</value>
+  </data>
+  <data name="LogPage_Level_Info.Content" xml:space="preserve">
+    <value>Info</value>
+  </data>
+  <data name="LogPage_Level_Warning.Content" xml:space="preserve">
+    <value>Warning</value>
+  </data>
+  <data name="LogPage_Level_Error.Content" xml:space="preserve">
+    <value>Error</value>
+  </data>
+  <data name="LogPage_Level_Debug.Content" xml:space="preserve">
+    <value>Debug</value>
+  </data>
+  <data name="LogPage_SearchBox.PlaceholderText" xml:space="preserve">
+    <value>Search logs</value>
+  </data>
+  <data name="LogPage_LiveRefresh.Text" xml:space="preserve">
+    <value>Live refresh</value>
+  </data>
+  <data name="LogPage_AutoScroll.Text" xml:space="preserve">
+    <value>Auto scroll</value>
+  </data>
+  <data name="LogPage_CopySelected.Content" xml:space="preserve">
+    <value>Copy</value>
+  </data>
+  <data name="LogPage_Clear.Content" xml:space="preserve">
+    <value>Clear</value>
+  </data>
+  <data name="LogPage_OpenLogFolder.Content" xml:space="preserve">
+    <value>Open log folder</value>
+  </data>
+  <data name="LogPage_BottomHint.Text" xml:space="preserve">
+    <value>Tip: selecting nothing copies all entries</value>
+  </data>
+  <data name="LogPage_OpenCurrentLogFile.Content" xml:space="preserve">
+    <value>Open current log file</value>
+  </data>
+  <data name="LogLevel_Info" xml:space="preserve">
+    <value>Info</value>
+  </data>
+  <data name="LogLevel_Warning" xml:space="preserve">
+    <value>Warning</value>
+  </data>
+  <data name="LogLevel_Error" xml:space="preserve">
+    <value>Error</value>
+  </data>
+  <data name="LogLevel_Debug" xml:space="preserve">
+    <value>Debug</value>
+  </data>
+  <data name="Common_Ok" xml:space="preserve">
+    <value>OK</value>
+  </data>
+  <data name="Common_Cancel" xml:space="preserve">
+    <value>Cancel</value>
+  </data>
+  <data name="Common_Delete" xml:space="preserve">
+    <value>Delete</value>
+  </data>
+  <data name="Common_Close" xml:space="preserve">
+    <value>Close</value>
+  </data>
+  <data name="Common_Done" xml:space="preserve">
+    <value>Done</value>
+  </data>
+  <data name="Common_Failed" xml:space="preserve">
+    <value>Failed</value>
+  </data>
+  <data name="Common_Canceled" xml:space="preserve">
+    <value>Canceled</value>
+  </data>
+  <data name="Plugins_StoreDialogTitle" xml:space="preserve">
+    <value>Plugin store</value>
+  </data>
+  <data name="Plugins_UninstallTitle" xml:space="preserve">
+    <value>Uninstall plugin</value>
+  </data>
+  <data name="Plugins_UninstallConfirm" xml:space="preserve">
+    <value>Uninstall plugin: {0} ({1})?\n\nTip: If plugin files are in use, you may need to close the app and try again.</value>
+  </data>
+  <data name="Plugins_UninstallButton" xml:space="preserve">
+    <value>Uninstall</value>
+  </data>
+  <data name="Plugins_SettingsTitle" xml:space="preserve">
+    <value>Plugin settings</value>
+  </data>
+  <data name="Plugins_NoSettings" xml:space="preserve">
+    <value>This plugin does not provide configurable settings.</value>
+  </data>
+  <data name="PluginStore_InvalidItem" xml:space="preserve">
+    <value>Invalid download item</value>
+  </data>
+  <data name="PluginStore_OnlyZipSupported" xml:space="preserve">
+    <value>Only .zip plugin packages are supported (must contain manifest.json)</value>
+  </data>
+  <data name="PluginStore_DownloadInstallFailed" xml:space="preserve">
+    <value>Download/install failed: {0}</value>
+  </data>
+  <data name="PluginStorePage_StatusDownloading" xml:space="preserve">
+    <value>Downloading...</value>
+  </data>
+  <data name="PluginService_IncompatibleHostVersion" xml:space="preserve">
+    <value>Requires host version {0}, current version is {1}</value>
+  </data>
+  <data name="PluginService_VersionParseFailed" xml:space="preserve">
+    <value>Version parse failed: {0}</value>
+  </data>
+  <data name="PluginService_PackageNotFound" xml:space="preserve">
+    <value>Plugin package not found</value>
+  </data>
+  <data name="PluginService_MissingManifest" xml:space="preserve">
+    <value>Plugin package is missing manifest.json</value>
+  </data>
+  <data name="PluginService_InvalidManifestNoId" xml:space="preserve">
+    <value>Invalid manifest.json (missing Id)</value>
+  </data>
+  <data name="PluginService_OverwriteFailed" xml:space="preserve">
+    <value>Cannot overwrite (failed to delete old version): {0}</value>
+  </data>
+  <data name="PluginService_ZipSlip" xml:space="preserve">
+    <value>Invalid package path (ZipSlip)</value>
+  </data>
+  <data name="PluginService_InstallSuccessDisabled" xml:space="preserve">
+    <value>Installed successfully (enable it in Settings)</value>
+  </data>
+  <data name="PluginService_InstallFailed" xml:space="preserve">
+    <value>Install failed: {0}</value>
+  </data>
+  <data name="PluginService_EmptyPluginId" xml:space="preserve">
+    <value>Plugin ID is empty</value>
+  </data>
+  <data name="PluginService_NotInstalled" xml:space="preserve">
+    <value>Plugin is not installed</value>
+  </data>
+  <data name="PluginService_UninstallSuccess" xml:space="preserve">
+    <value>Uninstalled successfully</value>
+  </data>
+  <data name="PluginService_UninstallFailed" xml:space="preserve">
+    <value>Uninstall failed: {0} (if files are in use, close the app and try again)</value>
+  </data>
+  <data name="PluginService_Load_MissingManifest" xml:space="preserve">
+    <value>Missing manifest.json</value>
+  </data>
+  <data name="PluginService_Load_ManifestParseFailed" xml:space="preserve">
+    <value>Failed to parse manifest.json</value>
+  </data>
+  <data name="PluginService_Load_MissingEntry" xml:space="preserve">
+    <value>Manifest missing EntryAssembly/EntryType</value>
+  </data>
+  <data name="PluginService_Load_EntryAssemblyMissing" xml:space="preserve">
+    <value>Entry assembly not found</value>
+  </data>
+  <data name="PluginService_Load_EntryTypeMissing" xml:space="preserve">
+    <value>Entry type not found</value>
+  </data>
+  <data name="PluginService_Load_EntryTypeNotPlugin" xml:space="preserve">
+    <value>Entry type does not implement IFolderRewindPlugin</value>
+  </data>
+  <data name="PluginService_Load_CreateInstanceFailed" xml:space="preserve">
+    <value>Failed to create plugin instance</value>
+  </data>
+  <data name="SettingsPage_KnotLink.Text" xml:space="preserve">
+    <value>KnotLink Integration</value>
+  </data>
+  <data name="SettingsPage_KnotLinkEnabled.Text" xml:space="preserve">
+    <value>Enable integration</value>
+  </data>
+  <data name="SettingsPage_KnotLinkEnabledDesc.Text" xml:space="preserve">
+    <value>Allow other apps to control backup tasks via KnotLink protocol</value>
+  </data>
+  <data name="SettingsPage_KnotLinkStatus.Text" xml:space="preserve">
+    <value>Connection status</value>
+  </data>
+  <data name="SettingsPage_KnotLinkAdvanced.Header" xml:space="preserve">
+    <value>Advanced settings</value>
+  </data>
+  <data name="SettingsPage_KnotLinkHost.Text" xml:space="preserve">
+    <value>Server address</value>
+  </data>
+  <data name="SettingsPage_KnotLinkHostDesc.Text" xml:space="preserve">
+    <value>Host address where KnotLink service is running</value>
+  </data>
+  <data name="SettingsPage_KnotLinkAppId.Text" xml:space="preserve">
+    <value>App ID</value>
+  </data>
+  <data name="SettingsPage_KnotLinkAppIdDesc.Text" xml:space="preserve">
+    <value>Identifier for this app, usually no need to change</value>
+  </data>
+  <data name="SettingsPage_KnotLinkOpenSocketId.Text" xml:space="preserve">
+    <value>Command Socket ID</value>
+  </data>
+  <data name="SettingsPage_KnotLinkOpenSocketIdDesc.Text" xml:space="preserve">
+    <value>Channel ID for receiving remote commands</value>
+  </data>
+  <data name="SettingsPage_KnotLinkSignalId.Text" xml:space="preserve">
+    <value>Signal ID</value>
+  </data>
+  <data name="SettingsPage_KnotLinkSignalIdDesc.Text" xml:space="preserve">
+    <value>Channel ID for broadcasting events</value>
+  </data>
+  <data name="SettingsPage_KnotLinkResetDefault.Content" xml:space="preserve">
+    <value>Reset to defaults</value>
+  </data>
+  <data name="SettingsPage_KnotLinkRestart.Content" xml:space="preserve">
+    <value>Restart service</value>
+  </data>
+  <data name="SettingsPage_KnotLinkTest.Content" xml:space="preserve">
+    <value>Test connection</value>
+  </data>
+  <data name="SettingsPage_KnotLinkCommands.Header" xml:space="preserve">
+    <value>Supported commands</value>
+  </data>
+  <data name="SettingsPage_KnotLinkCommandsDesc.Text" xml:space="preserve">
+    <value>The following commands can be called via KnotLink:</value>
+  </data>
+  <data name="SettingsPage_NavPaneWidth.Text" xml:space="preserve">
+    <value>Navigation pane width</value>
+  </data>
+  <data name="SettingsPage_NavPaneWidthDesc.Text" xml:space="preserve">
+    <value>Adjust the width of the expanded navigation pane</value>
+  </data>
+  <data name="SettingsPage_StartupSize.Text" xml:space="preserve">
+    <value>Startup window size</value>
+  </data>
+  <data name="SettingsPage_StartupSizeDesc.Text" xml:space="preserve">
+    <value>Set window size at launch for larger or multi-monitor setups</value>
+  </data>
+  <data name="SettingsPage_ApplySize.Content" xml:space="preserve">
+    <value>Apply now</value>
+  </data>
+  <data name="Startup_SetFailed" xml:space="preserve">
+    <value>[Startup] Failed to set startup: {0}</value>
+  </data>
+  <data name="Config_ParseNull_Reset" xml:space="preserve">
+    <value>[Config] Config parsed as null; resetting to default.</value>
+  </data>
+  <data name="Config_LoadFailed_Reset" xml:space="preserve">
+    <value>[Config] Failed to load config; resetting to default: {0}</value>
+  </data>
+  <data name="Config_CurrentConfigNull_ForceDefault" xml:space="preserve">
+    <value>[Config] CurrentConfig is null; created default config.</value>
+  </data>
+  <data name="Config_Save_CurrentConfigNull" xml:space="preserve">
+    <value>[Config] CurrentConfig is null; cannot save.</value>
+  </data>
+  <data name="Config_SaveFailed" xml:space="preserve">
+    <value>[Config] Failed to save config: {0}</value>
+  </data>
+  <data name="Config_OpenConfigDirFailed" xml:space="preserve">
+    <value>[Config] Failed to open config directory: {0}</value>
+  </data>
+  <data name="Config_OpenConfigFileFailed" xml:space="preserve">
+    <value>[Config] Failed to open config file: {0}</value>
+  </data>
+  <data name="PluginStore_Log_DownloadInstallFailed" xml:space="preserve">
+    <value>[PluginStore] Download/install failed: {0}</value>
+  </data>
+  <data name="PluginStore_GetReleaseFailed_Log" xml:space="preserve">
+    <value>[PluginStore] Failed to fetch latest release: {0}</value>
+  </data>
+  <data name="PluginService_CreatePluginDirFailed" xml:space="preserve">
+    <value>[Plugin] Unable to create plugins directory: {0}</value>
+  </data>
+  <data name="PluginService_ScanPluginsFailed" xml:space="preserve">
+    <value>[Plugin] Failed to scan plugins: {0}</value>
+  </data>
+  <data name="PluginService_ReinitializeFailed" xml:space="preserve">
+    <value>[Plugin] Reinitialize failed: {0} - {1}</value>
+  </data>
+  <data name="PluginService_GetSettingsDefinitionsFailed" xml:space="preserve">
+    <value>[Plugin] Failed to get settings definitions: {0} - {1}</value>
+  </data>
+  <data name="PluginService_BeforeBackupFailed" xml:space="preserve">
+    <value>[Plugin] BeforeBackup failed: {0} - {1}</value>
+  </data>
+  <data name="PluginService_AfterBackupFailed" xml:space="preserve">
+    <value>[Plugin] AfterBackup failed: {0} - {1}</value>
+  </data>
+  <data name="PluginService_DiscoverManagedFoldersFailed" xml:space="preserve">
+    <value>[Plugin] DiscoverManagedFolders failed: {0} - {1}</value>
+  </data>
+  <data name="PluginService_GetSupportedConfigTypesFailed" xml:space="preserve">
+    <value>[Plugin] GetSupportedConfigTypes failed: {0} - {1}</value>
+  </data>
+  <data name="PluginService_WantsToHandleBackupFailed" xml:space="preserve">
+    <value>[Plugin] WantsToHandleBackup failed: {0} - {1}</value>
+  </data>
+  <data name="PluginService_WantsToHandleRestoreFailed" xml:space="preserve">
+    <value>[Plugin] WantsToHandleRestore failed: {0} - {1}</value>
+  </data>
+  <data name="PluginService_PerformBackupFailed" xml:space="preserve">
+    <value>[Plugin] PerformBackupAsync failed: {0} - {1}</value>
+  </data>
+  <data name="PluginService_PerformRestoreFailed" xml:space="preserve">
+    <value>[Plugin] PerformRestoreAsync failed: {0} - {1}</value>
+  </data>
+  <data name="PluginService_TryCreateConfigsFailed" xml:space="preserve">
+    <value>[Plugin] TryCreateConfigs failed: {0} - {1}</value>
+  </data>
+  <data name="PluginService_InstallFailed_Log" xml:space="preserve">
+    <value>[Plugin] Install failed: {0}</value>
+  </data>
+  <data name="PluginService_UninstallFailed_Log" xml:space="preserve">
+    <value>[Plugin] Uninstall failed: {0} - {1}</value>
+  </data>
+  <data name="PluginService_OpenPluginFolderFailed" xml:space="preserve">
+    <value>[Plugin] Failed to open plugins folder: {0}</value>
+  </data>
+  <data name="PluginService_ManifestParseFailed" xml:space="preserve">
+    <value>[Plugin] Manifest parse failed: {0} - {1}</value>
+  </data>
+  <data name="PluginService_VersionIncompatible" xml:space="preserve">
+    <value>[Plugin] Incompatible version: {0} - {1}</value>
+  </data>
+  <data name="PluginService_Loaded" xml:space="preserve">
+    <value>[Plugin] Loaded: {0} ({1} {2})</value>
+  </data>
+  <data name="PluginService_LoadFailed" xml:space="preserve">
+    <value>[Plugin] Load failed: {0} - {1}</value>
+  </data>
+  <data name="PluginService_ReadInfoFailed" xml:space="preserve">
+    <value>[Plugin] Failed to read plugin info: {0} - {1}</value>
+  </data>
+  <data name="KnotLink_Disabled_SkipInit" xml:space="preserve">
+    <value>[KnotLink] Service disabled; skipping initialization.</value>
+  </data>
+  <data name="KnotLink_InitSuccess" xml:space="preserve">
+    <value>[KnotLink] Initialized successfully - AppId: {0}, Host: {1}</value>
+  </data>
+  <data name="KnotLink_InitFailed" xml:space="preserve">
+    <value>[KnotLink] Initialization failed: {0}</value>
+  </data>
+  <data name="KnotLink_SenderInitSuccess" xml:space="preserve">
+    <value>[KnotLink] Signal sender initialized successfully</value>
+  </data>
+  <data name="KnotLink_SenderInitFailed" xml:space="preserve">
+    <value>[KnotLink] Signal sender initialization failed: {0}</value>
+  </data>
+  <data name="KnotLink_CommandReceived" xml:space="preserve">
+    <value>[KnotLink] Command received: {0}</value>
+  </data>
+  <data name="KnotLink_CommandResponse" xml:space="preserve">
+    <value>[KnotLink] Response: {0}</value>
+  </data>
+  <data name="KnotLink_ResponderInitSuccess" xml:space="preserve">
+    <value>[KnotLink] Command responder initialized successfully</value>
+  </data>
+  <data name="KnotLink_ResponderInitFailed" xml:space="preserve">
+    <value>[KnotLink] Command responder initialization failed: {0}</value>
+  </data>
+  <data name="KnotLink_Shutdown" xml:space="preserve">
+    <value>[KnotLink] Service shut down</value>
+  </data>
+  <data name="KnotLink_BroadcastFailed" xml:space="preserve">
+    <value>[KnotLink] Failed to broadcast event: {0}</value>
+  </data>
+  <data name="KnotLink_AutoBackupStarted" xml:space="preserve">
+    <value>[KnotLink] Auto backup started: {0}, interval {1} minutes</value>
+  </data>
+  <data name="KnotLink_AutoBackupExecute" xml:space="preserve">
+    <value>[KnotLink] Running auto backup: {0}</value>
+  </data>
+  <data name="KnotLink_AutoBackupFailed" xml:space="preserve">
+    <value>[KnotLink] Auto backup failed: {0}</value>
+  </data>
+  <data name="KnotLink_AutoBackupStopped" xml:space="preserve">
+    <value>[KnotLink] Auto backup stopped: {0}</value>
+  </data>
+  <data name="SettingsPage_KnotLink_Title" xml:space="preserve">
+    <value>KnotLink</value>
+  </data>
+  <data name="SettingsPage_KnotLink_RestartSuccess" xml:space="preserve">
+    <value>Service restarted.</value>
+  </data>
+  <data name="SettingsPage_KnotLink_RestartFailed" xml:space="preserve">
+    <value>Service restart failed. Check configuration and logs.</value>
+  </data>
+  <data name="SettingsPage_KnotLinkTest_Title" xml:space="preserve">
+    <value>KnotLink test</value>
+  </data>
+  <data name="SettingsPage_KnotLinkTest_NotInitialized" xml:space="preserve">
+    <value>Service not initialized. Please click [Restart service] first.</value>
+  </data>
+  <data name="SettingsPage_KnotLinkTest_Broadcasted" xml:space="preserve">
+    <value>Test event broadcast.
+
+If you have a listener subscribed to this signal, it should receive a message.</value>
+  </data>
+  <data name="App_Log_AppDomainUnhandledException" xml:space="preserve">
+    <value>[AppDomain UnhandledException] {0}
+{1}</value>
+  </data>
+  <data name="App_Log_TaskUnobservedException" xml:space="preserve">
+    <value>[Task UnobservedException] {0}
+{1}</value>
+  </data>
+  <data name="App_Log_OnLaunchedBegin" xml:space="preserve">
+    <value>[App] OnLaunched begin</value>
+  </data>
+  <data name="App_Log_OnLaunchedEnd" xml:space="preserve">
+    <value>[App] OnLaunched end</value>
+  </data>
+  <data name="App_Log_KnotLinkInitException" xml:space="preserve">
+    <value>[KnotLink] Init exception: {0}</value>
+  </data>
+  <data name="App_Log_Fatal" xml:space="preserve">
+    <value>[App Fatal] {0}
+{1}</value>
+  </data>
+  <data name="App_Log_UnhandledException" xml:space="preserve">
+    <value>[App UnhandledException] {0}
+{1}</value>
+  </data>
+  <data name="App_StartupFailedWindowTitle" xml:space="preserve">
+    <value>FolderRewind - Startup failed</value>
+  </data>
+  <data name="App_StartupFailedWindowContent" xml:space="preserve">
+    <value>Startup failed: {0}
+
+{1}</value>
+  </data>
+  <data name="Config_DefaultBackupName" xml:space="preserve">
+    <value>Default Config</value>
   </data>
 </root>

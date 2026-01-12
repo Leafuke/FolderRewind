@@ -67,7 +67,7 @@ namespace FolderRewind.Services.Plugins
             }
             catch (Exception ex)
             {
-                LogService.LogError($"[PluginStore] 获取 Release 失败：{ex.Message}", "GitHubReleaseService", ex);
+                LogService.LogError(I18n.Format("PluginStore_GetReleaseFailed_Log", ex.Message), "GitHubReleaseService", ex);
                 return Array.Empty<GitHubReleaseAsset>();
             }
         }

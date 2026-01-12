@@ -73,12 +73,14 @@
                                     <ColumnDefinition Width="*"/>
                                     <ColumnDefinition Width="Auto"/>
                                 </Grid.ColumnDefinitions>
-                                <StackPanel Spacing="4">
+                                <StackPanel Spacing="2" VerticalAlignment="Center">
                                     <TextBlock x:Uid="SettingsPage_7zPath"/>
-                                    <TextBox Text="{x:Bind Settings.SevenZipPath, Mode=TwoWay}" Width="300" HorizontalAlignment="Left" IsReadOnly="True"/>
                                     <TextBlock x:Uid="SettingsPage_7zPathDesc" FontSize="12" Opacity="0.6"/>
                                 </StackPanel>
-                                <Button x:Uid="SettingsPage_BrowseButton" Grid.Column="1" VerticalAlignment="Top" Click="OnBrowse7zClick"/>
+                                <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
+                                    <TextBox Text="{x:Bind Settings.SevenZipPath, Mode=TwoWay}" Width="260" IsReadOnly="True" VerticalAlignment="Center"/>
+                                    <Button x:Uid="SettingsPage_BrowseButton" Click="OnBrowse7zClick" VerticalAlignment="Center"/>
+                                </StackPanel>
                             </Grid>
                         </Border>
                     </Grid>
@@ -87,7 +89,7 @@
 
             <!-- 3. 日志与诊断 -->
             <StackPanel Spacing="8">
-                <TextBlock Text="日志与诊断" Style="{ThemeResource SubtitleTextBlockStyle}"/>
+                <TextBlock x:Uid="SettingsPage_LogDiag" Style="{ThemeResource SubtitleTextBlockStyle}"/>
                 <Grid CornerRadius="8">
                     <Grid Background="{ThemeResource CardBackgroundFillColorDefaultBrush}" CornerRadius="8" Translation="0,0,8">
                         <Grid.Shadow>
@@ -101,8 +103,8 @@
                                         <ColumnDefinition Width="Auto"/>
                                     </Grid.ColumnDefinitions>
                                     <StackPanel Spacing="2">
-                                        <TextBlock Text="自动记录应用日志" />
-                                        <TextBlock Text="记录到本地文件供排查，可随时关闭。" FontSize="12" Opacity="0.6" />
+                                        <TextBlock x:Uid="SettingsPage_LogEnabled" />
+                                        <TextBlock x:Uid="SettingsPage_LogEnabledDesc" FontSize="12" Opacity="0.6" />
                                     </StackPanel>
                                     <ToggleSwitch Grid.Column="1" IsOn="{x:Bind Settings.EnableFileLogging, Mode=TwoWay}" Toggled="OnLoggingChanged"/>
                                 </Grid>
@@ -113,10 +115,10 @@
                                         <ColumnDefinition Width="Auto"/>
                                     </Grid.ColumnDefinitions>
                                     <StackPanel Spacing="2">
-                                        <TextBlock Text="日志文件大小上限 (MB)" />
-                                        <TextBlock Text="超过上限后自动分卷留档" FontSize="12" Opacity="0.6" />
+                                        <TextBlock x:Uid="SettingsPage_MaxLogSize" />
+                                        <TextBlock x:Uid="SettingsPage_MaxLogSizeDesc" FontSize="12" Opacity="0.6" />
                                     </StackPanel>
-                                    <NumberBox x:Name="MaxLogSizeBox" Grid.Column="1" Width="120" Minimum="1" Maximum="50" Value="{x:Bind Settings.MaxLogFileSizeMb, Mode=TwoWay}" ValueChanged="OnLogSizeChanged"/>
+                                    <NumberBox x:Name="MaxLogSizeBox" Grid.Column="1" Width="160" Minimum="1" Maximum="50" Value="{x:Bind Settings.MaxLogFileSizeMb, Mode=TwoWay}" ValueChanged="OnLogSizeChanged"/>
                                 </Grid>
 
                                 <Grid>
@@ -125,10 +127,10 @@
                                         <ColumnDefinition Width="Auto"/>
                                     </Grid.ColumnDefinitions>
                                     <StackPanel Spacing="2">
-                                        <TextBlock Text="日志保留天数" />
-                                        <TextBlock Text="到期后自动清理历史日志" FontSize="12" Opacity="0.6" />
+                                        <TextBlock x:Uid="SettingsPage_LogRetention" />
+                                        <TextBlock x:Uid="SettingsPage_LogRetentionDesc" FontSize="12" Opacity="0.6" />
                                     </StackPanel>
-                                    <NumberBox x:Name="LogRetentionBox" Grid.Column="1" Width="120" Minimum="1" Maximum="60" Value="{x:Bind Settings.LogRetentionDays, Mode=TwoWay}" ValueChanged="OnRetentionChanged"/>
+                                    <NumberBox x:Name="LogRetentionBox" Grid.Column="1" Width="160" Minimum="1" Maximum="60" Value="{x:Bind Settings.LogRetentionDays, Mode=TwoWay}" ValueChanged="OnRetentionChanged"/>
                                 </Grid>
 
                                 <Grid>
@@ -137,13 +139,13 @@
                                         <ColumnDefinition Width="Auto"/>
                                     </Grid.ColumnDefinitions>
                                     <StackPanel Spacing="2">
-                                        <TextBlock Text="包含调试日志" />
-                                        <TextBlock Text="用于更细粒度的诊断" FontSize="12" Opacity="0.6" />
+                                        <TextBlock x:Uid="SettingsPage_DebugLog" />
+                                        <TextBlock x:Uid="SettingsPage_DebugLogDesc" FontSize="12" Opacity="0.6" />
                                     </StackPanel>
                                     <ToggleSwitch Grid.Column="1" IsOn="{x:Bind Settings.EnableDebugLogs, Mode=TwoWay}" Toggled="OnLoggingChanged"/>
                                 </Grid>
 
-                                <Button Content="打开日志中心" HorizontalAlignment="Left" Click="OnOpenLogCenterClick" />
+                                <Button x:Uid="SettingsPage_OpenLogCenter" HorizontalAlignment="Left" Click="OnOpenLogCenterClick" />
                             </StackPanel>
                         </Border>
                     </Grid>
@@ -152,7 +154,7 @@
 
             <!-- 4. 插件 -->
             <StackPanel Spacing="8">
-                <TextBlock Text="插件" Style="{ThemeResource SubtitleTextBlockStyle}"/>
+                <TextBlock x:Uid="SettingsPage_Plugins" Style="{ThemeResource SubtitleTextBlockStyle}"/>
                 <Grid CornerRadius="8">
                     <Grid Background="{ThemeResource CardBackgroundFillColorDefaultBrush}" CornerRadius="8" Translation="0,0,8">
                         <Grid.Shadow>
@@ -167,19 +169,20 @@
                                         <ColumnDefinition Width="Auto"/>
                                     </Grid.ColumnDefinitions>
                                     <StackPanel Spacing="2">
-                                        <TextBlock Text="启用插件系统"/>
-                                        <TextBlock Text="开启后可在插件商店下载并启用插件。" FontSize="12" Opacity="0.6"/>
+                                        <TextBlock x:Uid="SettingsPage_PluginsEnabled"/>
+                                        <TextBlock x:Uid="SettingsPage_PluginsEnabledDesc" FontSize="12" Opacity="0.6"/>
                                     </StackPanel>
                                     <ToggleSwitch x:Name="PluginsMasterSwitch" Grid.Column="1" IsOn="{x:Bind Settings.Plugins.Enabled, Mode=TwoWay}" Toggled="OnPluginsEnabledToggled"/>
                                 </Grid>
 
                                 <StackPanel Orientation="Horizontal" Spacing="8">
-                                    <Button Content="打开插件商店" Click="OnOpenPluginStoreClick" IsEnabled="{x:Bind Settings.Plugins.Enabled, Mode=OneWay}"/>
-                                    <Button Content="打开插件目录" Click="OnOpenPluginFolderClick"/>
-                                    <Button Content="刷新" Click="OnRefreshPluginsClick"/>
+                                    <Button x:Uid="SettingsPage_OpenPluginStore" Click="OnOpenPluginStoreClick" IsEnabled="{x:Bind Settings.Plugins.Enabled, Mode=OneWay}"/>
+                                    <Button x:Uid="SettingsPage_ManualInstallPlugin" Click="OnManualInstallPluginClick" IsEnabled="{x:Bind Settings.Plugins.Enabled, Mode=OneWay}"/>
+                                    <Button x:Uid="SettingsPage_OpenPluginFolder" Click="OnOpenPluginFolderClick"/>
+                                    <Button x:Uid="SettingsPage_RefreshPlugins" Click="OnRefreshPluginsClick"/>
                                 </StackPanel>
 
-                                <TextBlock Text="已安装插件" FontWeight="SemiBold"/>
+                                <TextBlock x:Uid="SettingsPage_InstalledPlugins" FontWeight="SemiBold"/>
 
                                 <ListView ItemsSource="{x:Bind InstalledPlugins, Mode=OneWay}"
                                           IsEnabled="{x:Bind Settings.Plugins.Enabled, Mode=OneWay}">
@@ -204,9 +207,9 @@
                                                 </StackPanel>
 
                                                 <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
-                                                    <ToggleSwitch IsOn="{x:Bind IsEnabled, Mode=TwoWay}" Toggled="OnPluginEnabledToggled"/>
-                                                    <Button Content="设置" Click="OnPluginSettingsClick" Tag="{x:Bind}"/>
-                                                    <Button Content="卸载" Click="OnPluginUninstallClick" Tag="{x:Bind}"/>
+                                                    <ToggleSwitch IsOn="{x:Bind IsEnabled, Mode=TwoWay}"  Margin="20,0,0,0" Toggled="OnPluginEnabledToggled"/>
+                                                    <Button x:Uid="SettingsPage_PluginSettings" Click="OnPluginSettingsClick" Tag="{x:Bind}"/>
+                                                    <Button x:Uid="SettingsPage_PluginUninstall" Click="OnPluginUninstallClick" Tag="{x:Bind}"/>
                                                 </StackPanel>
                                             </Grid>
                                         </DataTemplate>
@@ -219,7 +222,140 @@
                 </Grid>
             </StackPanel>
 
-            <!-- 3. 外观 -->
+            <!-- 5. KnotLink 互联 -->
+            <StackPanel Spacing="8">
+                <TextBlock x:Uid="SettingsPage_KnotLink" Style="{ThemeResource SubtitleTextBlockStyle}"/>
+                <Grid CornerRadius="8">
+                    <Grid Background="{ThemeResource CardBackgroundFillColorDefaultBrush}" CornerRadius="8" Translation="0,0,8">
+                        <Grid.Shadow>
+                            <ThemeShadow />
+                        </Grid.Shadow>
+                        <Border BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}" BorderThickness="1" CornerRadius="8" Padding="16">
+                            <StackPanel Spacing="16">
+                                <!-- 启用 KnotLink -->
+                                <Grid>
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*"/>
+                                        <ColumnDefinition Width="Auto"/>
+                                    </Grid.ColumnDefinitions>
+                                    <StackPanel Spacing="2">
+                                        <TextBlock x:Uid="SettingsPage_KnotLinkEnabled"/>
+                                        <TextBlock x:Uid="SettingsPage_KnotLinkEnabledDesc" FontSize="12" Opacity="0.6"/>
+                                    </StackPanel>
+                                    <ToggleSwitch x:Name="KnotLinkSwitch" Grid.Column="1" IsOn="{x:Bind Settings.EnableKnotLink, Mode=TwoWay}" Toggled="OnKnotLinkToggled"/>
+                                </Grid>
+
+                                <MenuFlyoutSeparator/>
+
+                                <!-- 状态显示 -->
+                                <Grid>
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="Auto"/>
+                                        <ColumnDefinition Width="*"/>
+                                    </Grid.ColumnDefinitions>
+                                    <FontIcon Glyph="&#xE774;" FontSize="16" Foreground="{x:Bind KnotLinkStatusColor, Mode=OneWay}" VerticalAlignment="Center" Margin="0,0,8,0"/>
+                                    <StackPanel Grid.Column="1" Spacing="2">
+                                        <TextBlock x:Uid="SettingsPage_KnotLinkStatus"/>
+                                        <TextBlock x:Name="KnotLinkStatusText" Text="{x:Bind KnotLinkStatusMessage, Mode=OneWay}" FontSize="12" Opacity="0.7"/>
+                                    </StackPanel>
+                                </Grid>
+
+                                <!-- 高级设置 -->
+                                <Expander x:Uid="SettingsPage_KnotLinkAdvanced" IsExpanded="False" HorizontalAlignment="Stretch" HorizontalContentAlignment="Stretch">
+                                    <StackPanel Spacing="12">
+                                        <!-- 服务器地址 -->
+                                        <Grid>
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="*"/>
+                                                <ColumnDefinition Width="Auto"/>
+                                            </Grid.ColumnDefinitions>
+                                            <StackPanel Spacing="2">
+                                                <TextBlock x:Uid="SettingsPage_KnotLinkHost"/>
+                                                <TextBlock x:Uid="SettingsPage_KnotLinkHostDesc" FontSize="12" Opacity="0.6"/>
+                                            </StackPanel>
+                                            <TextBox Grid.Column="1" Text="{x:Bind Settings.KnotLinkHost, Mode=TwoWay}" Width="160" TextChanged="OnKnotLinkSettingChanged"/>
+                                        </Grid>
+
+                                        <!-- AppId -->
+                                        <Grid>
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="*"/>
+                                                <ColumnDefinition Width="Auto"/>
+                                            </Grid.ColumnDefinitions>
+                                            <StackPanel Spacing="2">
+                                                <TextBlock x:Uid="SettingsPage_KnotLinkAppId"/>
+                                                <TextBlock x:Uid="SettingsPage_KnotLinkAppIdDesc" FontSize="12" Opacity="0.6"/>
+                                            </StackPanel>
+                                            <TextBox Grid.Column="1" Text="{x:Bind Settings.KnotLinkAppId, Mode=TwoWay}" Width="160" TextChanged="OnKnotLinkSettingChanged"/>
+                                        </Grid>
+
+                                        <!-- OpenSocket ID -->
+                                        <Grid>
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="*"/>
+                                                <ColumnDefinition Width="Auto"/>
+                                            </Grid.ColumnDefinitions>
+                                            <StackPanel Spacing="2">
+                                                <TextBlock x:Uid="SettingsPage_KnotLinkOpenSocketId"/>
+                                                <TextBlock x:Uid="SettingsPage_KnotLinkOpenSocketIdDesc" FontSize="12" Opacity="0.6"/>
+                                            </StackPanel>
+                                            <TextBox Grid.Column="1" Text="{x:Bind Settings.KnotLinkOpenSocketId, Mode=TwoWay}" Width="160" TextChanged="OnKnotLinkSettingChanged"/>
+                                        </Grid>
+
+                                        <!-- Signal ID -->
+                                        <Grid>
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="*"/>
+                                                <ColumnDefinition Width="Auto"/>
+                                            </Grid.ColumnDefinitions>
+                                            <StackPanel Spacing="2">
+                                                <TextBlock x:Uid="SettingsPage_KnotLinkSignalId"/>
+                                                <TextBlock x:Uid="SettingsPage_KnotLinkSignalIdDesc" FontSize="12" Opacity="0.6"/>
+                                            </StackPanel>
+                                            <TextBox Grid.Column="1" Text="{x:Bind Settings.KnotLinkSignalId, Mode=TwoWay}" Width="160" TextChanged="OnKnotLinkSettingChanged"/>
+                                        </Grid>
+
+                                        <!-- 重置默认按钮 -->
+                                        <Button x:Uid="SettingsPage_KnotLinkResetDefault" HorizontalAlignment="Left" Click="OnKnotLinkResetClick"/>
+                                    </StackPanel>
+                                </Expander>
+
+                                <!-- 操作按钮 -->
+                                <StackPanel Orientation="Horizontal" Spacing="8">
+                                    <Button x:Uid="SettingsPage_KnotLinkRestart" Click="OnKnotLinkRestartClick" IsEnabled="{x:Bind Settings.EnableKnotLink, Mode=OneWay}"/>
+                                    <Button x:Uid="SettingsPage_KnotLinkTest" Click="OnKnotLinkTestClick" IsEnabled="{x:Bind Settings.EnableKnotLink, Mode=OneWay}"/>
+                                </StackPanel>
+
+                                <!-- 命令参考 -->
+                                <Expander x:Uid="SettingsPage_KnotLinkCommands" IsExpanded="False" HorizontalAlignment="Stretch" HorizontalContentAlignment="Stretch">
+                                    <StackPanel Spacing="8">
+                                        <TextBlock x:Uid="SettingsPage_KnotLinkCommandsDesc" TextWrapping="Wrap" Opacity="0.8"/>
+                                        <RichTextBlock FontFamily="Consolas" FontSize="12" IsTextSelectionEnabled="True">
+                                            <Paragraph>
+                                                <Run Text="LIST_CONFIGS" FontWeight="SemiBold"/><LineBreak/>
+                                                <Run Text="LIST_FOLDERS &lt;config_id&gt;"/><LineBreak/>
+                                                <Run Text="LIST_BACKUPS &lt;config_id&gt; &lt;folder&gt;"/><LineBreak/>
+                                                <Run Text="GET_CONFIG &lt;config_id&gt;"/><LineBreak/>
+                                                <Run Text="SET_CONFIG &lt;config_id&gt; &lt;key&gt; &lt;value&gt;"/><LineBreak/>
+                                                <Run Text="BACKUP &lt;config_id&gt; &lt;folder&gt; [comment]"/><LineBreak/>
+                                                <Run Text="RESTORE &lt;config_id&gt; &lt;folder&gt; &lt;file&gt;"/><LineBreak/>
+                                                <Run Text="BACKUP_ALL &lt;config_id&gt; [comment]"/><LineBreak/>
+                                                <Run Text="AUTO_BACKUP &lt;config_id&gt; &lt;folder&gt; &lt;minutes&gt;"/><LineBreak/>
+                                                <Run Text="STOP_AUTO_BACKUP &lt;config_id&gt; &lt;folder&gt;"/><LineBreak/>
+                                                <Run Text="GET_STATUS"/><LineBreak/>
+                                                <Run Text="PING"/><LineBreak/>
+                                                <Run Text="SEND &lt;event_data&gt;"/>
+                                            </Paragraph>
+                                        </RichTextBlock>
+                                    </StackPanel>
+                                </Expander>
+                            </StackPanel>
+                        </Border>
+                    </Grid>
+                </Grid>
+            </StackPanel>
+
+            <!-- 6. 外观 -->
             <StackPanel Spacing="8">
                 <TextBlock x:Uid="SettingsPage_Personalization" Style="{ThemeResource SubtitleTextBlockStyle}"/>
                 <Grid CornerRadius="8">
@@ -247,7 +383,7 @@
                                             </StackPanel>
                                         </Grid>
                                     </StackPanel>
-                                    <ComboBox x:Name="LanguageCombo" Grid.Column="1" MinWidth="180" SelectionChanged="OnLanguageChanged">
+                                    <ComboBox x:Name="LanguageCombo" Grid.Column="1" Width="160" SelectionChanged="OnLanguageChanged">
                                         <ComboBoxItem x:Uid="SettingsPage_LanguageSystem"/>
                                         <ComboBoxItem x:Uid="SettingsPage_LanguageEnglish"/>
                                         <ComboBoxItem x:Uid="SettingsPage_LanguageChinese"/>
@@ -273,7 +409,7 @@
                                         </Grid>
                                     </StackPanel>
                                     <!-- 添加 SelectionChanged 事件 -->
-                                    <ComboBox Grid.Column="1" SelectedIndex="{x:Bind Settings.ThemeIndex, Mode=TwoWay}" MinWidth="140" SelectionChanged="OnThemeChanged">
+                                    <ComboBox Grid.Column="1" SelectedIndex="{x:Bind Settings.ThemeIndex, Mode=TwoWay}" Width="160" SelectionChanged="OnThemeChanged">
                                         <ComboBoxItem x:Uid="SettingsPage_ThemeDark"/>
                                         <ComboBoxItem x:Uid="SettingsPage_ThemeLight"/>
                                     </ComboBox>
@@ -297,7 +433,7 @@
                                             </StackPanel>
                                         </Grid>
                                     </StackPanel>
-                                    <ComboBox x:Name="FontFamilyCombo" Grid.Column="1" MinWidth="180" ItemsSource="{x:Bind FontFamilies}" SelectionChanged="OnFontFamilyChanged"/>
+                                    <ComboBox x:Name="FontFamilyCombo" Grid.Column="1" Width="160" ItemsSource="{x:Bind FontFamilies}" SelectionChanged="OnFontFamilyChanged"/>
                                 </Grid>
 
                                 <Grid>
@@ -318,7 +454,7 @@
                                             </StackPanel>
                                         </Grid>
                                     </StackPanel>
-                                    <NumberBox x:Name="FontSizeBox" Grid.Column="1" Width="140" Minimum="12" Maximum="20" SmallChange="0.5" LargeChange="1" Value="{x:Bind Settings.BaseFontSize, Mode=TwoWay}" ValueChanged="OnFontSizeChanged"/>
+                                    <NumberBox x:Name="FontSizeBox" Grid.Column="1" Width="160" Minimum="12" Maximum="20" SmallChange="0.5" LargeChange="1" Value="{x:Bind Settings.BaseFontSize, Mode=TwoWay}" ValueChanged="OnFontSizeChanged"/>
                                 </Grid>
 
                                 <Grid>
@@ -334,12 +470,12 @@
                                             </Grid.ColumnDefinitions>
                                             <FontIcon Glyph="&#xE700;" FontSize="18"/>
                                             <StackPanel Grid.Column="1">
-                                                <TextBlock Text="导航栏宽度"/>
-                                                <TextBlock Text="调整左侧导航栏展开时的宽度" FontSize="12" Opacity="0.6"/>
+                                                <TextBlock x:Uid="SettingsPage_NavPaneWidth"/>
+                                                <TextBlock x:Uid="SettingsPage_NavPaneWidthDesc" FontSize="12" Opacity="0.6"/>
                                             </StackPanel>
                                         </Grid>
                                     </StackPanel>
-                                    <NumberBox Grid.Column="1" Width="140" Minimum="200" Maximum="600" Value="{x:Bind Settings.NavPaneWidth, Mode=TwoWay}" SpinButtonPlacementMode="Inline" SmallChange="10" LargeChange="50" />
+                                    <NumberBox Grid.Column="1" Width="160" Minimum="160" Maximum="600" Value="{x:Bind Settings.NavPaneWidth, Mode=TwoWay}" SpinButtonPlacementMode="Inline" SmallChange="10" LargeChange="50" />
                                 </Grid>
 
                                 <Grid>
@@ -348,11 +484,11 @@
                                         <ColumnDefinition Width="Auto"/>
                                     </Grid.ColumnDefinitions>
                                     <StackPanel Spacing="6">
-                                        <TextBlock Text="启动窗口大小" />
-                                        <TextBlock Text="设定应用启动时的窗口宽高，便于大屏或多显示器使用。" FontSize="12" Opacity="0.6" />
+                                        <TextBlock x:Uid="SettingsPage_StartupSize" />
+                                        <TextBlock x:Uid="SettingsPage_StartupSizeDesc" FontSize="12" Opacity="0.6" />
                                         <StackPanel Orientation="Horizontal" Spacing="12">
                                             <NumberBox x:Name="StartupWidthBox"
-                                                       Width="140"
+                                                       Width="100"
                                                        Minimum="640"
                                                        Maximum="3840"
                                                        SmallChange="20"
@@ -361,7 +497,7 @@
                                                        ValueChanged="OnStartupSizeChanged"/>
                                             <TextBlock Text="×" VerticalAlignment="Center" Opacity="0.5" />
                                             <NumberBox x:Name="StartupHeightBox"
-                                                       Width="140"
+                                                       Width="100"
                                                        Minimum="480"
                                                        Maximum="2160"
                                                        SmallChange="20"
@@ -371,7 +507,7 @@
                                             <TextBlock Text="px" VerticalAlignment="Center" Opacity="0.6" />
                                         </StackPanel>
                                     </StackPanel>
-                                    <Button Grid.Column="1" Content="立即应用" VerticalAlignment="Center" Click="OnApplyStartupSizeClick" />
+                                    <Button x:Uid="SettingsPage_ApplySize" Grid.Column="1" VerticalAlignment="Center" Click="OnApplyStartupSizeClick" />
                                 </Grid>
                             </StackPanel>
                         </Border>

@@ -55,7 +55,10 @@ namespace FolderRewind
                     try
                     {
                         var ex = e.ExceptionObject as Exception;
-                        LogService.Log($"[AppDomain UnhandledException] {ex?.Message}\n{ex?.StackTrace}");
+                        LogService.Log(I18n.Format(
+                            "App_Log_AppDomainUnhandledException",
+                            ex?.Message ?? string.Empty,
+                            ex?.StackTrace ?? string.Empty));
                     }
                     catch { }
                 };
@@ -64,14 +67,17 @@ namespace FolderRewind
                 {
                     try
                     {
-                        LogService.Log($"[Task UnobservedException] {e.Exception.Message}\n{e.Exception.StackTrace}");
+                        LogService.Log(I18n.Format(
+                            "App_Log_TaskUnobservedException",
+                            e.Exception.Message,
+                            e.Exception.StackTrace ?? string.Empty));
                     }
                     catch { }
                 };
             }
             catch
             {
-                // ignore any handler setup failure
+                
             }
         }
 
@@ -86,7 +92,7 @@ namespace FolderRewind
 
             try
             {
-                LogService.Log("[App] OnLaunched begin");
+                LogService.Log(I18n.GetString("App_Log_OnLaunchedBegin"));
 
                 Services.ConfigService.Initialize();
                 LogService.MarkSessionStart();
@@ -114,6 +120,19 @@ namespace FolderRewind
 
                 Services.AutomationService.Start();
 
+                // 初始化 KnotLink 互联服务（根据用户设置决定是否启用）
+                Task.Run(() =>
+                {
+                    try
+                    {
+                        KnotLinkService.Initialize();
+                    }
+                    catch (Exception knotEx)
+                    {
+                        LogService.Log(I18n.Format("App_Log_KnotLinkInitException", knotEx.Message));
+                    }
+                });
+
                 Services.ThemeService.ApplyThemeToWindow(_window);
                 Services.TypographyService.ApplyTypography(Services.ConfigService.CurrentConfig?.GlobalSettings);
 
@@ -121,30 +140,33 @@ namespace FolderRewind
 
                 _window.Activate();
 
-                LogService.Log("[App] OnLaunched end");
+                LogService.Log(I18n.GetString("App_Log_OnLaunchedEnd"));
             }
             catch (Exception ex)
             {
                 try
                 {
-                    LogService.Log($"[App Fatal] {ex.Message}\n{ex.StackTrace}");
+                    LogService.Log(I18n.Format(
+                        "App_Log_Fatal",
+                        ex.Message,
+                        ex.StackTrace ?? string.Empty));
                 }
                 catch
                 {
-                    // ignore
+                    
                 }
 
                 // 最小错误窗口
                 try
                 {
                     _window = new Window();
-                    _window.Title = "FolderRewind - 启动失败";
+                    _window.Title = I18n.GetString("App_StartupFailedWindowTitle");
                     _window.Content = new ScrollViewer
                     {
                         Padding = new Thickness(24),
                         Content = new TextBlock
                         {
-                            Text = $"启动失败：{ex.Message}\n\n{ex.StackTrace}",
+                            Text = I18n.Format("App_StartupFailedWindowContent", ex.Message, ex.StackTrace ?? string.Empty),
                             TextWrapping = TextWrapping.Wrap
                         }
                     };
@@ -162,7 +184,10 @@ namespace FolderRewind
         {
             System.Diagnostics.Debug.WriteLine($"[App UnhandledException] {e.Exception.Message}\n{e.Exception.StackTrace}");
             // 写入自定义日志文件
-            LogService.Log($"[App UnhandledException] {e.Exception.Message}\n{e.Exception.StackTrace}");
+            LogService.Log(I18n.Format(
+                "App_Log_UnhandledException",
+                e.Exception.Message,
+                e.Exception.StackTrace ?? string.Empty));
             e.Handled = true; // 防止直接崩溃
         }
 
@@ -210,7 +235,7 @@ namespace FolderRewind
             }
             catch
             {
-                // ignore
+                
             }
 
             try
@@ -219,7 +244,7 @@ namespace FolderRewind
             }
             catch
             {
-                // ignore
+                
             }
         }
 

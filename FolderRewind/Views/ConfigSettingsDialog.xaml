@@ -7,7 +7,6 @@
     x:Uid="ConfigSettingsDialog"
     DefaultButton="Primary"
     PrimaryButtonClick="OnSaveClick"
-    SecondaryButtonText="删除配置"
     SecondaryButtonClick="OnDeleteClick"
     Style="{StaticResource DefaultContentDialogStyle}">
 
@@ -16,6 +15,14 @@
         <PivotItem x:Uid="ConfigSettingsDialog_General">
             <StackPanel Spacing="20" Padding="0,12">
                 <TextBox x:Uid="ConfigSettingsDialog_ConfigName" Text="{x:Bind Config.Name, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"/>
+
+                <StackPanel Spacing="8">
+                    <TextBlock x:Uid="ConfigSettingsDialog_ConfigType" FontWeight="SemiBold"/>
+                    <ComboBox ItemsSource="{x:Bind ConfigTypesView, Mode=OneWay}"
+                             SelectedItem="{x:Bind SelectedConfigType, Mode=TwoWay}"
+                             HorizontalAlignment="Stretch" />
+                    <TextBlock x:Uid="ConfigSettingsDialog_ConfigTypeDesc" FontSize="12" Opacity="0.6" TextWrapping="Wrap"/>
+                </StackPanel>
 
                 <StackPanel Spacing="8">
                     <TextBlock x:Uid="ConfigSettingsDialog_DestPath" FontWeight="SemiBold"/>

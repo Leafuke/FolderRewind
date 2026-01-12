@@ -1,5 +1,6 @@
 using FolderRewind.Models;
 using FolderRewind.Services;
+using FolderRewind.Services.Plugins;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Navigation;
@@ -10,6 +11,9 @@ using System.Collections.Specialized;
 using System.ComponentModel;
 using System.Linq;
 using Windows.ApplicationModel.Resources;
+using Windows.Storage;
+using Windows.Storage.Pickers;
+using WinRT.Interop;
 
 namespace FolderRewind.Views
 {
@@ -69,7 +73,7 @@ namespace FolderRewind.Views
             }
             catch
             {
-                // ignore
+                
             }
         }
 
@@ -228,9 +232,56 @@ namespace FolderRewind.Views
         private async void OnAddConfigClick(object sender, RoutedEventArgs e)
         {
             var resourceLoader = ResourceLoader.GetForViewIndependentUse();
-            // (保持之前的逻辑不变)
+            PluginService.Initialize();
+
             var stack = new StackPanel { Spacing = 16 };
-            var nameBox = new TextBox { Header = resourceLoader.GetString("HomePage_ConfigNameHeader"), PlaceholderText = resourceLoader.GetString("HomePage_ConfigNamePlaceholder") };
+            var nameBox = new TextBox
+            {
+                Header = resourceLoader.GetString("HomePage_ConfigNameHeader"),
+                PlaceholderText = resourceLoader.GetString("HomePage_ConfigNamePlaceholder")
+            };
+
+            // 配置类型（含插件扩展类型）
+            var configTypes = PluginService.GetAllSupportedConfigTypes();
+            var typeCombo = new ComboBox
+            {
+                Header = resourceLoader.GetString("HomePage_ConfigTypeHeader"),
+                HorizontalAlignment = HorizontalAlignment.Stretch
+            };
+            foreach (var t in configTypes) typeCombo.Items.Add(t);
+            typeCombo.SelectedIndex = 0;
+
+            var typeDesc = new TextBlock
+            {
+                Text = resourceLoader.GetString("HomePage_ConfigTypeDesc"),
+                FontSize = 12,
+                Opacity = 0.7,
+                TextWrapping = TextWrapping.Wrap
+            };
+
+            // 插件批量创建（用于 Minecraft 扫描 .minecraft/versions/*/saves 等）
+            var batchCreateToggle = new ToggleSwitch
+            {
+                Header = resourceLoader.GetString("HomePage_PluginBatchCreateHeader"),
+                OffContent = resourceLoader.GetString("HomePage_PluginBatchCreateOff"),
+                OnContent = resourceLoader.GetString("HomePage_PluginBatchCreateOn"),
+                IsOn = false
+            };
+
+            void RefreshBatchToggleState()
+            {
+                var selectedType = typeCombo.SelectedItem as string;
+                var canBatch = !string.IsNullOrWhiteSpace(selectedType) && !string.Equals(selectedType, "Default", StringComparison.OrdinalIgnoreCase);
+                batchCreateToggle.IsEnabled = canBatch;
+                if (!canBatch) batchCreateToggle.IsOn = false;
+
+                // 批量创建模式下，名称由插件生成
+                nameBox.IsEnabled = !batchCreateToggle.IsOn;
+            }
+
+            typeCombo.SelectionChanged += (_, __) => RefreshBatchToggleState();
+            batchCreateToggle.Toggled += (_, __) => RefreshBatchToggleState();
+            RefreshBatchToggleState();
 
             // 图标选择器
             var iconGrid = new GridView { SelectionMode = ListViewSelectionMode.Single, Height = 100 };
@@ -246,6 +297,9 @@ namespace FolderRewind.Views
                   </DataTemplate>");
 
             stack.Children.Add(nameBox);
+            stack.Children.Add(typeCombo);
+            stack.Children.Add(typeDesc);
+            stack.Children.Add(batchCreateToggle);
             stack.Children.Add(new TextBlock { Text = resourceLoader.GetString("HomePage_SelectIcon"), Style = (Style)Application.Current.Resources["BaseTextBlockStyle"], Margin = new Thickness(0, 8, 0, 0) });
             stack.Children.Add(iconGrid);
 
@@ -259,19 +313,84 @@ namespace FolderRewind.Views
                 XamlRoot = this.XamlRoot
             };
 
-            if (await dialog.ShowAsync() == ContentDialogResult.Primary && !string.IsNullOrWhiteSpace(nameBox.Text))
+            if (await dialog.ShowAsync() == ContentDialogResult.Primary)
             {
+                var selectedType = typeCombo.SelectedItem as string;
+                if (string.IsNullOrWhiteSpace(selectedType)) selectedType = "Default";
+
+                if (batchCreateToggle.IsOn)
+                {
+                    var rootFolder = await PickFolderAsync(resourceLoader.GetString("HomePage_PluginBatchCreatePickRootTitle"));
+                    if (rootFolder == null) return;
+
+                    var result = PluginService.InvokeCreateConfigs(rootFolder.Path, selectedType);
+                    if (!result.Handled || result.CreatedConfigs == null || result.CreatedConfigs.Count == 0)
+                    {
+                        var failed = new ContentDialog
+                        {
+                            Title = resourceLoader.GetString("HomePage_PluginBatchCreateFailedTitle"),
+                            Content = string.IsNullOrWhiteSpace(result.Message)
+                                ? resourceLoader.GetString("HomePage_PluginBatchCreateFailedContent")
+                                : result.Message,
+                            CloseButtonText = resourceLoader.GetString("Common_Ok"),
+                            XamlRoot = this.XamlRoot
+                        };
+                        await failed.ShowAsync();
+                        return;
+                    }
+
+                    // 让用户一次性选择目标目录（可选；不选则稍后在配置设置里填）
+                    var destFolder = await PickFolderAsync(resourceLoader.GetString("HomePage_PluginBatchCreatePickDestinationTitle"));
+                    var destPath = destFolder?.Path;
+
+                    foreach (var c in result.CreatedConfigs)
+                    {
+                        // 兜底：确保 ConfigType
+                        if (string.IsNullOrWhiteSpace(c.ConfigType)) c.ConfigType = selectedType;
+                        if (!string.IsNullOrWhiteSpace(destPath)) c.DestinationPath = destPath;
+                        c.SummaryText = resourceLoader.GetString("HomePage_NewConfigSummary");
+                        ConfigService.CurrentConfig.BackupConfigs.Add(c);
+                    }
+
+                    ConfigService.Save();
+                    App.Shell.NavigateTo("Manager", ManagerNavigationParameter.ForConfig(result.CreatedConfigs[0].Id));
+                    return;
+                }
+
+                if (string.IsNullOrWhiteSpace(nameBox.Text)) return;
+
                 var selectedIcon = iconGrid.SelectedItem as string ?? "\uE8B7";
                 var newConfig = new BackupConfig
                 {
                     Name = nameBox.Text,
                     IconGlyph = selectedIcon,
+                    ConfigType = selectedType,
                     SummaryText = resourceLoader.GetString("HomePage_NewConfigSummary")
                 };
+
                 ConfigService.CurrentConfig.BackupConfigs.Add(newConfig);
                 ConfigService.Save();
                 App.Shell.NavigateTo("Manager", ManagerNavigationParameter.ForConfig(newConfig.Id));
             }
+        }
+
+        private async System.Threading.Tasks.Task<StorageFolder?> PickFolderAsync(string title)
+        {
+            var picker = new FolderPicker();
+            picker.SuggestedStartLocation = PickerLocationId.ComputerFolder;
+            picker.FileTypeFilter.Add("*");
+
+            if (!string.IsNullOrWhiteSpace(title))
+            {
+                picker.SettingsIdentifier = "FolderRewind.HomePage.Picker";
+            }
+
+            if (App._window != null)
+            {
+                InitializeWithWindow.Initialize(picker, WindowNative.GetWindowHandle(App._window));
+            }
+
+            return await picker.PickSingleFolderAsync();
         }
     }
 }

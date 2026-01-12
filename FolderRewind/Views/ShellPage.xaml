@@ -10,7 +10,6 @@
             <RowDefinition Height="*" />
         </Grid.RowDefinitions>
 
-        <!-- Custom app title bar (WinUI 3 Gallery-like): blends with Mica and uses theme strokes -->
         <Border x:Name="AppTitleBar"
                 Grid.Row="0"
                 Height="48"
@@ -24,7 +23,7 @@
 
                 <FontIcon Glyph="&#xE8B7;" FontSize="16" Opacity="0.9" />
                 <TextBlock Grid.Column="1"
-                           Text="FolderRewind"
+                           x:Uid="ShellPage_TitleBarAppName"
                            Style="{ThemeResource BodyStrongTextBlockStyle}"
                            VerticalAlignment="Center"
                            TextTrimming="CharacterEllipsis" />
@@ -51,7 +50,6 @@
                     </NavigationViewItem.Icon>
                 </NavigationViewItem>
 
-                <!-- 管理页直接放在导航栏 -->
                 <NavigationViewItem x:Uid="ShellPage_NavManager" Tag="Manager">
                     <NavigationViewItem.Icon>
                         <SymbolIcon Symbol="Manage"/>
@@ -70,7 +68,7 @@
                     </NavigationViewItem.Icon>
                 </NavigationViewItem>
 
-                <NavigationViewItem Content="日志" Tag="Logs">
+                <NavigationViewItem x:Uid="ShellPage_NavLogs" Tag="Logs">
                     <NavigationViewItem.Icon>
                         <SymbolIcon Symbol="Library"/>
                     </NavigationViewItem.Icon>

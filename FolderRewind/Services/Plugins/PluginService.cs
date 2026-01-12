@@ -11,6 +11,7 @@ using System.Reflection;
 using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
+using Windows.ApplicationModel.Resources;
 using Windows.Storage;
 
 namespace FolderRewind.Services.Plugins
@@ -27,6 +28,8 @@ namespace FolderRewind.Services.Plugins
     {
         private const string ManifestFileName = "manifest.json";
 
+        private static readonly ResourceLoader _rl = ResourceLoader.GetForViewIndependentUse();
+
         private static readonly object _lock = new();
         private static bool _initialized;
 
@@ -36,6 +39,50 @@ namespace FolderRewind.Services.Plugins
         public static ReadOnlyObservableCollection<InstalledPluginInfo> InstalledPlugins { get; } = new(_installed);
 
         public static string PluginRootDirectory => Path.Combine(GetWritableAppDataDir(), "FolderRewind", "plugins");
+
+        /// <summary>
+        /// 获取当前 Host 版本号
+        /// </summary>
+        public static string GetHostVersion()
+        {
+            try
+            {
+                var version = Windows.ApplicationModel.Package.Current.Id.Version;
+                return $"{version.Major}.{version.Minor}.{version.Build}";
+            }
+            catch
+            {
+                return "1.0.0";
+            }
+        }
+
+        /// <summary>
+        /// 检查版本兼容性
+        /// </summary>
+        private static bool IsVersionCompatible(string? minHostVersion, out string? incompatibleReason)
+        {
+            incompatibleReason = null;
+            if (string.IsNullOrWhiteSpace(minHostVersion)) return true;
+
+            try
+            {
+                var hostVersion = Version.Parse(GetHostVersion());
+                var minVersion = Version.Parse(minHostVersion);
+
+                if (hostVersion < minVersion)
+                {
+                    incompatibleReason = string.Format(_rl.GetString("PluginService_IncompatibleHostVersion"), minHostVersion, GetHostVersion());
+                    return false;
+                }
+
+                return true;
+            }
+            catch (Exception ex)
+            {
+                incompatibleReason = string.Format(_rl.GetString("PluginService_VersionParseFailed"), ex.Message);
+                return false;
+            }
+        }
 
         public static void Initialize()
         {
@@ -51,7 +98,7 @@ namespace FolderRewind.Services.Plugins
                 }
                 catch (Exception ex)
                 {
-                    LogService.LogError($"[Plugin] 无法创建插件目录：{ex.Message}", "PluginService", ex);
+                    LogService.LogError(I18n.Format("PluginService_CreatePluginDirFailed", ex.Message), "PluginService", ex);
                 }
 
                 // 扫描安装清单（不一定加载插件）
@@ -88,7 +135,7 @@ namespace FolderRewind.Services.Plugins
                 }
                 catch (Exception ex)
                 {
-                    LogService.LogError($"[Plugin] 扫描插件失败：{ex.Message}", "PluginService", ex);
+                    LogService.LogError(I18n.Format("PluginService_ScanPluginsFailed", ex.Message), "PluginService", ex);
                 }
             }
         }
@@ -196,7 +243,7 @@ namespace FolderRewind.Services.Plugins
                 }
                 catch (Exception ex)
                 {
-                    LogService.LogError($"[Plugin] 重新初始化失败：{pluginId} - {ex.Message}", "PluginService", ex);
+                    LogService.LogError(I18n.Format("PluginService_ReinitializeFailed", pluginId, ex.Message), "PluginService", ex);
                 }
             }
         }
@@ -214,7 +261,7 @@ namespace FolderRewind.Services.Plugins
                 }
                 catch (Exception ex)
                 {
-                    LogService.LogError($"[Plugin] 获取设置定义失败：{pluginId} - {ex.Message}", "PluginService", ex);
+                    LogService.LogError(I18n.Format("PluginService_GetSettingsDefinitionsFailed", pluginId, ex.Message), "PluginService", ex);
                 }
             }
 
@@ -240,7 +287,7 @@ namespace FolderRewind.Services.Plugins
                 }
                 catch (Exception ex)
                 {
-                    LogService.LogError($"[Plugin] BeforeBackup 失败：{plugin.Manifest.Id} - {ex.Message}", "PluginService", ex);
+                    LogService.LogError(I18n.Format("PluginService_BeforeBackupFailed", plugin.Manifest.Id, ex.Message), "PluginService", ex);
                 }
             }
 
@@ -260,7 +307,7 @@ namespace FolderRewind.Services.Plugins
                 }
                 catch (Exception ex)
                 {
-                    LogService.LogError($"[Plugin] AfterBackup 失败：{plugin.Manifest.Id} - {ex.Message}", "PluginService", ex);
+                    LogService.LogError(I18n.Format("PluginService_AfterBackupFailed", plugin.Manifest.Id, ex.Message), "PluginService", ex);
                 }
             }
         }
@@ -284,11 +331,196 @@ namespace FolderRewind.Services.Plugins
                 }
                 catch (Exception ex)
                 {
-                    LogService.LogError($"[Plugin] DiscoverManagedFolders 失败：{plugin.Manifest.Id} - {ex.Message}", "PluginService", ex);
+                    LogService.LogError(I18n.Format("PluginService_DiscoverManagedFoldersFailed", plugin.Manifest.Id, ex.Message), "PluginService", ex);
                 }
             }
 
             return results;
+        }
+
+        /// <summary>
+        /// 获取所有已加载插件支持的配置类型
+        /// </summary>
+        public static IReadOnlyList<string> GetAllSupportedConfigTypes()
+        {
+            if (!IsPluginSystemEnabled()) return Array.Empty<string>();
+
+            var types = new HashSet<string>(StringComparer.OrdinalIgnoreCase) { "Default" };
+
+            foreach (var plugin in GetEnabledLoadedPluginsSnapshot())
+            {
+                try
+                {
+                    var pluginTypes = plugin.GetSupportedConfigTypes();
+                    if (pluginTypes != null)
+                    {
+                        foreach (var t in pluginTypes)
+                        {
+                            if (!string.IsNullOrWhiteSpace(t))
+                                types.Add(t);
+                        }
+                    }
+                }
+                catch (Exception ex)
+                {
+                    LogService.LogError(I18n.Format("PluginService_GetSupportedConfigTypesFailed", plugin.Manifest.Id, ex.Message), "PluginService", ex);
+                }
+            }
+
+            return types.ToList();
+        }
+
+        /// <summary>
+        /// 检查是否有插件希望接管指定配置的备份
+        /// </summary>
+        public static (bool ShouldHandle, IFolderRewindPlugin? Plugin) CheckPluginWantsToHandleBackup(BackupConfig config)
+        {
+            if (!IsPluginSystemEnabled()) return (false, null);
+
+            foreach (var plugin in GetEnabledLoadedPluginsSnapshot())
+            {
+                try
+                {
+                    if (plugin.WantsToHandleBackup(config))
+                    {
+                        return (true, plugin);
+                    }
+                }
+                catch (Exception ex)
+                {
+                    LogService.LogError(I18n.Format("PluginService_WantsToHandleBackupFailed", plugin.Manifest.Id, ex.Message), "PluginService", ex);
+                }
+            }
+
+            return (false, null);
+        }
+
+        /// <summary>
+        /// 检查是否有插件希望接管指定配置的还原
+        /// </summary>
+        public static (bool ShouldHandle, IFolderRewindPlugin? Plugin) CheckPluginWantsToHandleRestore(BackupConfig config)
+        {
+            if (!IsPluginSystemEnabled()) return (false, null);
+
+            foreach (var plugin in GetEnabledLoadedPluginsSnapshot())
+            {
+                try
+                {
+                    if (plugin.WantsToHandleRestore(config))
+                    {
+                        return (true, plugin);
+                    }
+                }
+                catch (Exception ex)
+                {
+                    LogService.LogError(I18n.Format("PluginService_WantsToHandleRestoreFailed", plugin.Manifest.Id, ex.Message), "PluginService", ex);
+                }
+            }
+
+            return (false, null);
+        }
+
+        /// <summary>
+        /// 调用插件执行备份
+        /// </summary>
+        public static async Task<PluginBackupResult> InvokePluginBackupAsync(
+            IFolderRewindPlugin plugin,
+            BackupConfig config,
+            ManagedFolder folder,
+            string comment,
+            Action<double, string>? progressCallback = null)
+        {
+            try
+            {
+                var settings = GetPluginSettings(plugin.Manifest.Id);
+                return await plugin.PerformBackupAsync(config, folder, comment, settings, progressCallback);
+            }
+            catch (Exception ex)
+            {
+                LogService.LogError(I18n.Format("PluginService_PerformBackupFailed", plugin.Manifest.Id, ex.Message), "PluginService", ex);
+                return new PluginBackupResult { Success = false, Message = ex.Message };
+            }
+        }
+
+        /// <summary>
+        /// 调用插件执行还原
+        /// </summary>
+        public static async Task<PluginRestoreResult> InvokePluginRestoreAsync(
+            IFolderRewindPlugin plugin,
+            BackupConfig config,
+            ManagedFolder folder,
+            string archiveFileName,
+            Action<double, string>? progressCallback = null)
+        {
+            try
+            {
+                var settings = GetPluginSettings(plugin.Manifest.Id);
+                return await plugin.PerformRestoreAsync(config, folder, archiveFileName, settings, progressCallback);
+            }
+            catch (Exception ex)
+            {
+                LogService.LogError(I18n.Format("PluginService_PerformRestoreFailed", plugin.Manifest.Id, ex.Message), "PluginService", ex);
+                return new PluginRestoreResult { Success = false, Message = ex.Message };
+            }
+        }
+
+        /// <summary>
+        /// 调用插件批量创建配置
+        /// </summary>
+        public static PluginCreateConfigResult InvokeCreateConfigs(string selectedRootPath, string? configType = null)
+        {
+            if (!IsPluginSystemEnabled()) return new PluginCreateConfigResult { Handled = false };
+            if (string.IsNullOrWhiteSpace(selectedRootPath)) return new PluginCreateConfigResult { Handled = false };
+
+            var typeFilter = string.IsNullOrWhiteSpace(configType) ? null : configType;
+            if (string.Equals(typeFilter, "Default", StringComparison.OrdinalIgnoreCase))
+            {
+                // Default 不是插件类型，不走插件批量创建
+                return new PluginCreateConfigResult { Handled = false };
+            }
+
+            foreach (var plugin in GetEnabledLoadedPluginsSnapshot())
+            {
+                try
+                {
+                    if (!string.IsNullOrWhiteSpace(typeFilter))
+                    {
+                        bool canHandleType = false;
+                        try
+                        {
+                            canHandleType = plugin.CanHandleConfigType(typeFilter);
+                        }
+                        catch
+                        {
+                            // ignore; fallback to supported types list
+                        }
+
+                        if (!canHandleType)
+                        {
+                            var supported = plugin.GetSupportedConfigTypes();
+                            canHandleType = supported != null && supported.Any(t => string.Equals(t, typeFilter, StringComparison.OrdinalIgnoreCase));
+                        }
+
+                        if (!canHandleType)
+                        {
+                            continue;
+                        }
+                    }
+
+                    var settings = GetPluginSettings(plugin.Manifest.Id);
+                    var result = plugin.TryCreateConfigs(selectedRootPath, settings);
+                    if (result.Handled)
+                    {
+                        return result;
+                    }
+                }
+                catch (Exception ex)
+                {
+                    LogService.LogError(I18n.Format("PluginService_TryCreateConfigsFailed", plugin.Manifest.Id, ex.Message), "PluginService", ex);
+                }
+            }
+
+            return new PluginCreateConfigResult { Handled = false };
         }
 
         /// <summary>
@@ -299,7 +531,7 @@ namespace FolderRewind.Services.Plugins
         {
             if (string.IsNullOrWhiteSpace(zipFilePath) || !File.Exists(zipFilePath))
             {
-                return (false, "安装包不存在");
+                return (false, _rl.GetString("PluginService_PackageNotFound"));
             }
 
             try
@@ -311,7 +543,7 @@ namespace FolderRewind.Services.Plugins
                 using (var zip = ZipFile.OpenRead(zipFilePath))
                 {
                     var entry = zip.Entries.FirstOrDefault(e => string.Equals(NormalizeZipPath(e.FullName), ManifestFileName, StringComparison.OrdinalIgnoreCase));
-                    if (entry == null) return (false, "安装包缺少 manifest.json");
+                    if (entry == null) return (false, _rl.GetString("PluginService_MissingManifest"));
 
                     await using var s = entry.Open();
                     manifest = await JsonSerializer.DeserializeAsync(s, AppJsonContext.Default.PluginInstallManifest, ct);
@@ -319,8 +551,10 @@ namespace FolderRewind.Services.Plugins
 
                 if (manifest == null || string.IsNullOrWhiteSpace(manifest.Id))
                 {
-                    return (false, "manifest.json 无效（缺少 Id）");
+                    return (false, _rl.GetString("PluginService_InvalidManifestNoId"));
                 }
+
+                ApplyManifestLocalization(manifest);
 
                 var targetDir = Path.Combine(PluginRootDirectory, SanitizeFolderName(manifest.Id));
 
@@ -328,7 +562,7 @@ namespace FolderRewind.Services.Plugins
                 if (Directory.Exists(targetDir))
                 {
                     try { Directory.Delete(targetDir, recursive: true); }
-                    catch (Exception ex) { return (false, $"无法覆盖安装（删除旧版本失败）：{ex.Message}"); }
+                    catch (Exception ex) { return (false, string.Format(_rl.GetString("PluginService_OverwriteFailed"), ex.Message)); }
                 }
 
                 Directory.CreateDirectory(targetDir);
@@ -354,7 +588,7 @@ namespace FolderRewind.Services.Plugins
                         var fullTargetDir = Path.GetFullPath(targetDir);
                         if (!destPath.StartsWith(fullTargetDir, StringComparison.OrdinalIgnoreCase))
                         {
-                            return (false, "安装包路径非法（ZipSlip）");
+                            return (false, _rl.GetString("PluginService_ZipSlip"));
                         }
 
                         Directory.CreateDirectory(Path.GetDirectoryName(destPath)!);
@@ -376,27 +610,27 @@ namespace FolderRewind.Services.Plugins
                     }
                 }
 
-                return (true, "安装成功（可在设置中启用）");
+                return (true, _rl.GetString("PluginService_InstallSuccessDisabled"));
             }
             catch (OperationCanceledException)
             {
-                return (false, "已取消");
+                return (false, _rl.GetString("Common_Canceled"));
             }
             catch (Exception ex)
             {
-                LogService.LogError($"[Plugin] 安装失败：{ex.Message}", "PluginService", ex);
-                return (false, $"安装失败：{ex.Message}");
+                LogService.LogError(I18n.Format("PluginService_InstallFailed_Log", ex.Message), "PluginService", ex);
+                return (false, string.Format(_rl.GetString("PluginService_InstallFailed"), ex.Message));
             }
         }
 
         public static (bool Success, string Message) Uninstall(string pluginId)
         {
-            if (string.IsNullOrWhiteSpace(pluginId)) return (false, "插件 ID 为空");
+            if (string.IsNullOrWhiteSpace(pluginId)) return (false, _rl.GetString("PluginService_EmptyPluginId"));
 
             try
             {
                 var dir = Path.Combine(PluginRootDirectory, SanitizeFolderName(pluginId));
-                if (!Directory.Exists(dir)) return (false, "插件未安装");
+                if (!Directory.Exists(dir)) return (false, _rl.GetString("PluginService_NotInstalled"));
 
                 // 注意：已加载的程序集无法真正卸载（本设计不做热卸载）。
                 // 这里仍允许删除文件，但某些情况下可能失败（文件被占用）。
@@ -412,12 +646,12 @@ namespace FolderRewind.Services.Plugins
                     ConfigService.Save();
                 }
 
-                return (true, "卸载成功");
+                return (true, _rl.GetString("PluginService_UninstallSuccess"));
             }
             catch (Exception ex)
             {
-                LogService.LogError($"[Plugin] 卸载失败：{pluginId} - {ex.Message}", "PluginService", ex);
-                return (false, $"卸载失败：{ex.Message}（如提示文件被占用，可关闭应用后重试）");
+                LogService.LogError(I18n.Format("PluginService_UninstallFailed_Log", pluginId, ex.Message), "PluginService", ex);
+                return (false, string.Format(_rl.GetString("PluginService_UninstallFailed"), ex.Message));
             }
         }
 
@@ -435,7 +669,7 @@ namespace FolderRewind.Services.Plugins
             }
             catch (Exception ex)
             {
-                LogService.LogError($"[Plugin] 打开插件目录失败：{ex.Message}", "PluginService", ex);
+                LogService.LogError(I18n.Format("PluginService_OpenPluginFolderFailed", ex.Message), "PluginService", ex);
             }
         }
 
@@ -470,7 +704,7 @@ namespace FolderRewind.Services.Plugins
                 var manifestPath = Path.Combine(dir, ManifestFileName);
                 if (!File.Exists(manifestPath))
                 {
-                    installed.LoadError = "缺少 manifest.json";
+                    installed.LoadError = _rl.GetString("PluginService_Load_MissingManifest");
                     return false;
                 }
 
@@ -482,21 +716,34 @@ namespace FolderRewind.Services.Plugins
                 }
                 catch (Exception ex)
                 {
-                    installed.LoadError = "manifest.json 解析失败";
-                    LogService.LogError($"[Plugin] manifest 解析失败：{pluginId} - {ex.Message}", "PluginService", ex);
+                    installed.LoadError = _rl.GetString("PluginService_Load_ManifestParseFailed");
+                    LogService.LogError(I18n.Format("PluginService_ManifestParseFailed", pluginId, ex.Message), "PluginService", ex);
                     return false;
+                }
+
+                if (manifest != null)
+                {
+                    ApplyManifestLocalization(manifest);
                 }
 
                 if (manifest == null || string.IsNullOrWhiteSpace(manifest.EntryAssembly) || string.IsNullOrWhiteSpace(manifest.EntryType))
                 {
-                    installed.LoadError = "manifest 缺少 EntryAssembly/EntryType";
+                    installed.LoadError = _rl.GetString("PluginService_Load_MissingEntry");
+                    return false;
+                }
+
+                // 版本兼容性检查
+                if (!IsVersionCompatible(manifest.MinHostVersion, out var incompatibleReason))
+                {
+                    installed.LoadError = incompatibleReason;
+                    LogService.LogWarning(I18n.Format("PluginService_VersionIncompatible", pluginId, incompatibleReason ?? string.Empty), "PluginService");
                     return false;
                 }
 
                 var entryAssemblyPath = Path.Combine(dir, manifest.EntryAssembly);
                 if (!File.Exists(entryAssemblyPath))
                 {
-                    installed.LoadError = "入口程序集不存在";
+                    installed.LoadError = _rl.GetString("PluginService_Load_EntryAssemblyMissing");
                     return false;
                 }
 
@@ -508,20 +755,20 @@ namespace FolderRewind.Services.Plugins
 
                     if (type == null)
                     {
-                        installed.LoadError = "入口类型不存在";
+                        installed.LoadError = _rl.GetString("PluginService_Load_EntryTypeMissing");
                         return false;
                     }
 
                     if (!typeof(IFolderRewindPlugin).IsAssignableFrom(type))
                     {
-                        installed.LoadError = "入口类型未实现 IFolderRewindPlugin";
+                        installed.LoadError = _rl.GetString("PluginService_Load_EntryTypeNotPlugin");
                         return false;
                     }
 
                     var instance = (IFolderRewindPlugin?)Activator.CreateInstance(type);
                     if (instance == null)
                     {
-                        installed.LoadError = "创建插件实例失败";
+                        installed.LoadError = _rl.GetString("PluginService_Load_CreateInstanceFailed");
                         return false;
                     }
 
@@ -532,13 +779,13 @@ namespace FolderRewind.Services.Plugins
                     _loaded[manifest.Id] = new LoadedPlugin(manifest, instance, alc);
                     installed.LoadError = null;
 
-                    LogService.LogInfo($"[Plugin] 已加载：{manifest.Id} ({manifest.Name} {manifest.Version})", "PluginService");
+                    LogService.LogInfo(I18n.Format("PluginService_Loaded", manifest.Id, manifest.Name ?? string.Empty, manifest.Version ?? string.Empty), "PluginService");
                     return true;
                 }
                 catch (Exception ex)
                 {
                     installed.LoadError = ex.Message;
-                    LogService.LogError($"[Plugin] 加载失败：{pluginId} - {ex.Message}", "PluginService", ex);
+                    LogService.LogError(I18n.Format("PluginService_LoadFailed", pluginId, ex.Message), "PluginService", ex);
                     return false;
                 }
             }
@@ -555,6 +802,8 @@ namespace FolderRewind.Services.Plugins
                 var manifest = JsonSerializer.Deserialize(json, AppJsonContext.Default.PluginInstallManifest);
                 if (manifest == null || string.IsNullOrWhiteSpace(manifest.Id)) return null;
 
+                ApplyManifestLocalization(manifest);
+
                 var enabled = GetPluginEnabled(manifest.Id);
                 return new InstalledPluginInfo
                 {
@@ -569,9 +818,20 @@ namespace FolderRewind.Services.Plugins
             }
             catch (Exception ex)
             {
-                LogService.LogError($"[Plugin] 读取插件信息失败：{pluginDir} - {ex.Message}", "PluginService", ex);
+                LogService.LogError(I18n.Format("PluginService_ReadInfoFailed", pluginDir, ex.Message), "PluginService", ex);
                 return null;
             }
+        }
+
+        private static void ApplyManifestLocalization(PluginInstallManifest manifest)
+        {
+            if (manifest == null) return;
+
+            var name = I18n.PickBest(manifest.LocalizedName, manifest.Name);
+            if (!string.IsNullOrWhiteSpace(name)) manifest.Name = name;
+
+            var desc = I18n.PickBest(manifest.LocalizedDescription, manifest.Description);
+            if (!string.IsNullOrWhiteSpace(desc)) manifest.Description = desc;
         }
 
         private static IReadOnlyList<IFolderRewindPlugin> GetEnabledLoadedPluginsSnapshot()

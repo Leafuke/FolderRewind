@@ -46,7 +46,7 @@ namespace FolderRewind.Services
             catch (Exception ex)
             {
                 System.Diagnostics.Debug.WriteLine($"Startup set failed: {ex.Message}");
-                LogService.Log($"[Startup] 设置开机自启失败：{ex.Message}");
+                LogService.Log(I18n.Format("Startup_SetFailed", ex.Message));
                 return false;
             }
         }

@@ -85,14 +85,15 @@ namespace FolderRewind.Views
 
         private void UpdatePageHeader(string pageTag)
         {
-            if (pageTag == "Home")
-            {
-                NavView.Header = "FolderRewind";
-            }
-            else
-            {
-                NavView.Header = null;
-            }
+            NavView.Header = null;
+            //if (pageTag == "Home")
+            //{
+            //    NavView.Header = "FolderRewind";
+            //}
+            //else
+            //{
+            //    NavView.Header = null;
+            //}
         }
 
         private void UpdateNavSelection(string pageTag)

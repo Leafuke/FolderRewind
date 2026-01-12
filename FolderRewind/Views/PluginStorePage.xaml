@@ -10,21 +10,21 @@
 
     <ScrollViewer Padding="16">
         <StackPanel Spacing="12">
-            <TextBlock Text="插件商店" Style="{ThemeResource TitleTextBlockStyle}"/>
-            <TextBlock Text="从 GitHub Release（latest）下载插件 zip。zip 根目录需包含 manifest.json。" Opacity="0.7" TextWrapping="Wrap"/>
+            <TextBlock x:Uid="PluginStorePage_Title" Style="{ThemeResource TitleTextBlockStyle}"/>
+            <TextBlock x:Uid="PluginStorePage_Desc" Opacity="0.7" TextWrapping="Wrap"/>
 
             <Grid ColumnSpacing="8">
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="*"/>
                     <ColumnDefinition Width="Auto"/>
                 </Grid.ColumnDefinitions>
-                <TextBox Header="GitHub 仓库 (owner/repo)" Text="{x:Bind StoreRepo, Mode=TwoWay}" PlaceholderText="例如：YourOrg/FolderRewind.Plugins"/>
-                <Button Grid.Column="1" Content="加载" VerticalAlignment="Bottom" Click="OnLoadClick" IsEnabled="{x:Bind CanLoad, Mode=OneWay}"/>
+                <TextBox x:Uid="PluginStorePage_RepoBox" Text="{x:Bind StoreRepo, Mode=TwoWay}"/>
+                <Button x:Uid="PluginStorePage_Load" Grid.Column="1" VerticalAlignment="Bottom" Click="OnLoadClick" IsEnabled="{x:Bind CanLoad, Mode=OneWay}"/>
             </Grid>
 
             <ProgressRing IsActive="{x:Bind IsLoading, Mode=OneWay}" Visibility="{x:Bind IsLoading, Mode=OneWay, Converter={StaticResource BoolToVisConverter}}" Width="28" Height="28"/>
 
-            <TextBlock Text="未配置仓库，无法加载插件列表。" Opacity="0.7" Visibility="{x:Bind EmptyRepoHintVisibility, Mode=OneWay}"/>
+            <TextBlock x:Uid="PluginStorePage_EmptyRepoHint" Opacity="0.7" Visibility="{x:Bind EmptyRepoHintVisibility, Mode=OneWay}"/>
 
             <ListView ItemsSource="{x:Bind Assets, Mode=OneWay}">
                 <ListView.ItemTemplate>
@@ -43,7 +43,7 @@
                                 </StackPanel>
                             </StackPanel>
 
-                            <Button Grid.Column="1" Content="安装" Click="OnInstallClick" Tag="{x:Bind}" IsEnabled="{x:Bind CanInstall, Mode=OneWay}"/>
+                            <Button x:Uid="PluginStorePage_Install" Grid.Column="1" Click="OnInstallClick" Tag="{x:Bind}" IsEnabled="{x:Bind CanInstall, Mode=OneWay}"/>
                         </Grid>
                     </DataTemplate>
                 </ListView.ItemTemplate>

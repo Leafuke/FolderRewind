@@ -3,11 +3,15 @@ using FolderRewind.Services;
 using FolderRewind.Services.Plugins;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
+using Windows.ApplicationModel.Resources;
 using Microsoft.UI.Xaml.Controls.Primitives;
+using Microsoft.UI.Xaml.Media;
 using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
+using System.ComponentModel;
 using System.Linq;
+using System.Runtime.CompilerServices;
 using System.Threading.Tasks;
 using Windows.Storage.Pickers;
 using Windows.Graphics;
@@ -15,7 +19,7 @@ using WinRT.Interop;
 
 namespace FolderRewind.Views
 {
-    public sealed partial class SettingsPage : Page
+    public sealed partial class SettingsPage : Page, INotifyPropertyChanged
     {
         public GlobalSettings Settings => ConfigService.CurrentConfig.GlobalSettings;
 
@@ -23,6 +27,29 @@ namespace FolderRewind.Views
 
         private bool _isInitializingLanguage;
         private bool _isInitializingFont;
+
+        // KnotLink 状态相关属性
+        private string _knotLinkStatusMessage = "未启用";
+        private Brush _knotLinkStatusColor;
+
+        public string KnotLinkStatusMessage
+        {
+            get => _knotLinkStatusMessage;
+            set { _knotLinkStatusMessage = value; OnPropertyChanged(); }
+        }
+
+        public Brush KnotLinkStatusColor
+        {
+            get => _knotLinkStatusColor ??= new SolidColorBrush(Microsoft.UI.Colors.Gray);
+            set { _knotLinkStatusColor = value; OnPropertyChanged(); }
+        }
+
+        public event PropertyChangedEventHandler? PropertyChanged;
+
+        private void OnPropertyChanged([CallerMemberName] string? propertyName = null)
+        {
+            PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(propertyName));
+        }
 
         public ObservableCollection<string> FontFamilies { get; } = new()
         {
@@ -66,6 +93,9 @@ namespace FolderRewind.Views
                 {
                     FontSizeBox.Value = Settings.BaseFontSize;
                 }
+
+                // 初始化 KnotLink 状态显示
+                UpdateKnotLinkStatus();
             }
             finally
             {
@@ -73,6 +103,145 @@ namespace FolderRewind.Views
                 _isInitializingFont = false;
             }
         }
+
+        #region KnotLink 互联设置
+
+        /// <summary>
+        /// 更新 KnotLink 状态显示
+        /// </summary>
+        private void UpdateKnotLinkStatus()
+        {
+            if (!Settings.EnableKnotLink)
+            {
+                KnotLinkStatusMessage = "未启用";
+                KnotLinkStatusColor = new SolidColorBrush(Microsoft.UI.Colors.Gray);
+                return;
+            }
+
+            if (KnotLinkService.IsInitialized)
+            {
+                var responserOk = KnotLinkService.IsResponserRunning;
+                var senderOk = KnotLinkService.IsSenderRunning;
+
+                if (responserOk && senderOk)
+                {
+                    KnotLinkStatusMessage = "已连接，命令响应器和信号发送器均正常运行";
+                    KnotLinkStatusColor = new SolidColorBrush(Microsoft.UI.Colors.LimeGreen);
+                }
+                else if (responserOk || senderOk)
+                {
+                    KnotLinkStatusMessage = $"部分连接 (响应器: {(responserOk ? "✓" : "✗")}, 发送器: {(senderOk ? "✓" : "✗")})";
+                    KnotLinkStatusColor = new SolidColorBrush(Microsoft.UI.Colors.Orange);
+                }
+                else
+                {
+                    KnotLinkStatusMessage = "已初始化但连接失败，请检查 KnotLink 服务是否运行";
+                    KnotLinkStatusColor = new SolidColorBrush(Microsoft.UI.Colors.OrangeRed);
+                }
+            }
+            else
+            {
+                KnotLinkStatusMessage = "服务未初始化，请点击 [重启服务]";
+                KnotLinkStatusColor = new SolidColorBrush(Microsoft.UI.Colors.Orange);
+            }
+        }
+
+        /// <summary>
+        /// KnotLink 开关切换
+        /// </summary>
+        private void OnKnotLinkToggled(object sender, RoutedEventArgs e)
+        {
+            ConfigService.Save();
+
+            if (Settings.EnableKnotLink)
+            {
+                // 启用时自动初始化
+                KnotLinkService.Initialize();
+            }
+            else
+            {
+                // 禁用时关闭服务
+                KnotLinkService.Shutdown();
+            }
+
+            UpdateKnotLinkStatus();
+        }
+
+        /// <summary>
+        /// KnotLink 设置更改
+        /// </summary>
+        private void OnKnotLinkSettingChanged(object sender, TextChangedEventArgs e)
+        {
+            ConfigService.Save();
+        }
+
+        /// <summary>
+        /// 重启 KnotLink 服务
+        /// </summary>
+        private async void OnKnotLinkRestartClick(object sender, RoutedEventArgs e)
+        {
+            ConfigService.Save();
+            KnotLinkService.Restart();
+            UpdateKnotLinkStatus();
+
+            // 显示提示
+            var dialog = new ContentDialog
+            {
+                Title = I18n.GetString("SettingsPage_KnotLink_Title"),
+                Content = KnotLinkService.IsInitialized
+                    ? I18n.GetString("SettingsPage_KnotLink_RestartSuccess")
+                    : I18n.GetString("SettingsPage_KnotLink_RestartFailed"),
+                CloseButtonText = I18n.GetString("Common_Ok"),
+                XamlRoot = this.XamlRoot
+            };
+            await dialog.ShowAsync();
+        }
+
+        /// <summary>
+        /// 测试 KnotLink 连接
+        /// </summary>
+        private async void OnKnotLinkTestClick(object sender, RoutedEventArgs e)
+        {
+            if (!KnotLinkService.IsInitialized)
+            {
+                var errorDialog = new ContentDialog
+                {
+                    Title = I18n.GetString("SettingsPage_KnotLinkTest_Title"),
+                    Content = I18n.GetString("SettingsPage_KnotLinkTest_NotInitialized"),
+                    CloseButtonText = I18n.GetString("Common_Ok"),
+                    XamlRoot = this.XamlRoot
+                };
+                await errorDialog.ShowAsync();
+                return;
+            }
+
+            // 发送测试事件
+            KnotLinkService.BroadcastEvent("event=test;message=Hello from FolderRewind!");
+
+            var dialog = new ContentDialog
+            {
+                Title = I18n.GetString("SettingsPage_KnotLinkTest_Title"),
+                Content = I18n.GetString("SettingsPage_KnotLinkTest_Broadcasted"),
+                CloseButtonText = I18n.GetString("Common_Ok"),
+                XamlRoot = this.XamlRoot
+            };
+            await dialog.ShowAsync();
+        }
+
+        /// <summary>
+        /// 重置 KnotLink 设置为默认值
+        /// </summary>
+        private void OnKnotLinkResetClick(object sender, RoutedEventArgs e)
+        {
+            Settings.KnotLinkHost = "127.0.0.1";
+            Settings.KnotLinkAppId = "0x00000030";
+            Settings.KnotLinkOpenSocketId = "0x00000010";
+            Settings.KnotLinkSignalId = "0x00000020";
+            ConfigService.Save();
+            Bindings.Update();
+        }
+
+        #endregion
 
         private void OnPluginsEnabledToggled(object sender, RoutedEventArgs e)
         {
@@ -88,10 +257,12 @@ namespace FolderRewind.Views
         {
             if (!PluginService.IsPluginSystemEnabled()) return;
 
+            var rl = ResourceLoader.GetForViewIndependentUse();
+
             var dialog = new ContentDialog
             {
-                Title = "插件商店",
-                CloseButtonText = "关闭",
+                Title = rl.GetString("Plugins_StoreDialogTitle"),
+                CloseButtonText = rl.GetString("Common_Close"),
                 XamlRoot = this.XamlRoot,
                 DefaultButton = ContentDialogButton.Close,
                 Content = new Frame()
@@ -103,6 +274,40 @@ namespace FolderRewind.Views
             }
 
             await dialog.ShowAsync();
+        }
+
+        private async void OnManualInstallPluginClick(object sender, RoutedEventArgs e)
+        {
+            if (!PluginService.IsPluginSystemEnabled()) return;
+
+            var rl = ResourceLoader.GetForViewIndependentUse();
+
+            var picker = new FileOpenPicker();
+            picker.ViewMode = PickerViewMode.List;
+            picker.SuggestedStartLocation = PickerLocationId.Downloads;
+            picker.FileTypeFilter.Add(".zip");
+
+            if (App._window != null)
+            {
+                InitializeWithWindow.Initialize(picker, WindowNative.GetWindowHandle(App._window));
+            }
+
+            var file = await picker.PickSingleFileAsync();
+            if (file == null) return;
+
+            var res = await PluginService.InstallFromZipAsync(file.Path);
+
+            var msg = new ContentDialog
+            {
+                Title = res.Success ? rl.GetString("Common_Done") : rl.GetString("Common_Failed"),
+                Content = res.Message,
+                CloseButtonText = rl.GetString("Common_Ok"),
+                XamlRoot = this.XamlRoot
+            };
+            await msg.ShowAsync();
+
+            PluginService.RefreshInstalledList();
+            Bindings.Update();
         }
 
         private void OnOpenPluginFolderClick(object sender, RoutedEventArgs e)
@@ -128,12 +333,14 @@ namespace FolderRewind.Views
         {
             if (sender is not Button btn || btn.Tag is not InstalledPluginInfo plugin) return;
 
+            var rl = ResourceLoader.GetForViewIndependentUse();
+
             var confirm = new ContentDialog
             {
-                Title = "卸载插件",
-                Content = $"确定卸载插件：{plugin.Name} ({plugin.Id})？\n\n提示：如果插件文件被占用，可能需要关闭应用后再卸载。",
-                PrimaryButtonText = "卸载",
-                CloseButtonText = "取消",
+                Title = rl.GetString("Plugins_UninstallTitle"),
+                Content = string.Format(rl.GetString("Plugins_UninstallConfirm"), plugin.Name, plugin.Id),
+                PrimaryButtonText = rl.GetString("Plugins_UninstallButton"),
+                CloseButtonText = rl.GetString("Common_Cancel"),
                 DefaultButton = ContentDialogButton.Close,
                 XamlRoot = this.XamlRoot
             };
@@ -145,9 +352,9 @@ namespace FolderRewind.Views
 
             var msg = new ContentDialog
             {
-                Title = result.Success ? "完成" : "失败",
+                Title = result.Success ? rl.GetString("Common_Done") : rl.GetString("Common_Failed"),
                 Content = result.Message,
-                CloseButtonText = "确定",
+                CloseButtonText = rl.GetString("Common_Ok"),
                 XamlRoot = this.XamlRoot
             };
             await msg.ShowAsync();
@@ -160,14 +367,16 @@ namespace FolderRewind.Views
         {
             if (sender is not Button btn || btn.Tag is not InstalledPluginInfo plugin) return;
 
+            var rl = ResourceLoader.GetForViewIndependentUse();
+
             var defs = PluginService.GetSettingsDefinitions(plugin.Id);
             if (defs == null || defs.Count == 0)
             {
                 var noSettings = new ContentDialog
                 {
-                    Title = "插件设置",
-                    Content = "该插件未提供可配置项。",
-                    CloseButtonText = "确定",
+                    Title = rl.GetString("Plugins_SettingsTitle"),
+                    Content = rl.GetString("Plugins_NoSettings"),
+                    CloseButtonText = rl.GetString("Common_Ok"),
                     XamlRoot = this.XamlRoot
                 };
                 await noSettings.ShowAsync();
@@ -509,7 +718,7 @@ namespace FolderRewind.Views
             }
             catch
             {
-                // ignore and fall back to managed size
+                
             }
 
             
