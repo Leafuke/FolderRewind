@@ -57,6 +57,16 @@ namespace FolderRewind.Models
         public string Description { get; set; } = string.Empty;
 
         /// <summary>
+        /// 可选：多语言名称（key: BCP-47 tag，例如 "en-US" / "zh-CN"）。
+        /// </summary>
+        public Dictionary<string, string>? LocalizedName { get; set; }
+
+        /// <summary>
+        /// 可选：多语言描述（key: BCP-47 tag，例如 "en-US" / "zh-CN"）。
+        /// </summary>
+        public Dictionary<string, string>? LocalizedDescription { get; set; }
+
+        /// <summary>
         /// 插件入口程序集文件名（相对插件目录），例如 "MyPlugin.dll"。
         /// </summary>
         public string EntryAssembly { get; set; } = string.Empty;

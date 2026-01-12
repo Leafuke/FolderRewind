@@ -372,7 +372,7 @@ namespace FolderRewind.Services
             }
             catch
             {
-                // ignore pruning errors
+                
             }
         }
 

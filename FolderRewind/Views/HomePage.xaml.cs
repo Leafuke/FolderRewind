@@ -73,7 +73,7 @@ namespace FolderRewind.Views
             }
             catch
             {
-                // ignore
+                
             }
         }
 

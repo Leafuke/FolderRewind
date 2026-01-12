@@ -168,6 +168,9 @@
   <data name="FolderManager_NeverBackedUp" xml:space="preserve">
     <value>从未备份</value>
   </data>
+  <data name="FolderManager_NotSelected" xml:space="preserve">
+    <value>(未选择)</value>
+  </data>
   <data name="ShellPage_Header.Header" xml:space="preserve">
     <value>FolderRewind</value>
   </data>
@@ -182,6 +185,12 @@
   </data>
   <data name="ShellPage_NavHistory.Content" xml:space="preserve">
     <value>历史</value>
+  </data>
+  <data name="ShellPage_NavLogs.Content" xml:space="preserve">
+    <value>日志</value>
+  </data>
+  <data name="ShellPage_TitleBarAppName.Text" xml:space="preserve">
+    <value>FolderRewind</value>
   </data>
   <data name="BackupTasksPage_Title.Text" xml:space="preserve">
     <value>备份任务队列</value>
@@ -330,27 +339,27 @@
   <data name="FolderManager_AddSubFolders.Text" xml:space="preserve">
     <value>批量导入子文件夹</value>
   </data>
-    <data name="FolderManager_PluginDiscover.Text" xml:space="preserve">
-      <value>扫描（插件自动发现）</value>
-    </data>
-    <data name="FolderManager_PluginDiscover_NoResultTitle" xml:space="preserve">
-      <value>未发现任何内容</value>
-    </data>
-    <data name="FolderManager_PluginDiscover_NoResultContent" xml:space="preserve">
-      <value>插件没有从该目录发现可添加的文件夹。你可以尝试选择 .minecraft 或 versions/版本名/saves 等目录。</value>
-    </data>
-    <data name="FolderManager_PluginDiscover_NoNewTitle" xml:space="preserve">
-      <value>没有新项目</value>
-    </data>
-    <data name="FolderManager_PluginDiscover_NoNewContent" xml:space="preserve">
-      <value>发现的文件夹已全部存在于当前配置中，无需重复添加。</value>
-    </data>
-    <data name="FolderManager_PluginDiscover_ConfirmTitle" xml:space="preserve">
-      <value>确认添加</value>
-    </data>
-    <data name="FolderManager_PluginDiscover_ConfirmContent" xml:space="preserve">
-      <value>插件发现了 {0} 个文件夹，是否全部添加到当前配置？</value>
-    </data>
+  <data name="FolderManager_PluginDiscover.Text" xml:space="preserve">
+    <value>扫描（插件自动发现）</value>
+  </data>
+  <data name="FolderManager_PluginDiscover_NoResultTitle" xml:space="preserve">
+    <value>未发现任何内容</value>
+  </data>
+  <data name="FolderManager_PluginDiscover_NoResultContent" xml:space="preserve">
+    <value>插件没有从该目录发现可添加的文件夹。你可以尝试选择 .minecraft 或 versions/版本名/saves 等目录。</value>
+  </data>
+  <data name="FolderManager_PluginDiscover_NoNewTitle" xml:space="preserve">
+    <value>没有新项目</value>
+  </data>
+  <data name="FolderManager_PluginDiscover_NoNewContent" xml:space="preserve">
+    <value>发现的文件夹已全部存在于当前配置中，无需重复添加。</value>
+  </data>
+  <data name="FolderManager_PluginDiscover_ConfirmTitle" xml:space="preserve">
+    <value>确认添加</value>
+  </data>
+  <data name="FolderManager_PluginDiscover_ConfirmContent" xml:space="preserve">
+    <value>插件发现了 {0} 个文件夹，是否全部添加到当前配置？</value>
+  </data>
   <data name="FolderManager_BackupAll.Text" xml:space="preserve">
     <value>一键备份所有</value>
   </data>
@@ -437,6 +446,30 @@
   </data>
   <data name="ConfigSettingsDialog.CloseButtonText" xml:space="preserve">
     <value>取消</value>
+  </data>
+  <data name="ConfigSettingsDialog.SecondaryButtonText" xml:space="preserve">
+    <value>删除配置</value>
+  </data>
+  <data name="ConfigSettingsDialog_DeleteConfirmTitle" xml:space="preserve">
+    <value>删除配置</value>
+  </data>
+  <data name="ConfigSettingsDialog_DeleteConfirmContent" xml:space="preserve">
+    <value>确定删除该配置吗？此操作不可撤销。</value>
+  </data>
+  <data name="Config_OpenDestination_Empty" xml:space="preserve">
+    <value>目标路径为空</value>
+  </data>
+  <data name="Config_OpenDestination_NotFound" xml:space="preserve">
+    <value>未找到目标文件夹</value>
+  </data>
+  <data name="Config_Delete_CurrentConfigNull" xml:space="preserve">
+    <value>当前配置为空，无法删除</value>
+  </data>
+  <data name="Config_Delete_NotFound" xml:space="preserve">
+    <value>未找到要删除的配置</value>
+  </data>
+  <data name="Config_OpenPath_Failed" xml:space="preserve">
+    <value>打开路径失败：{0}</value>
   </data>
   <data name="ConfigSettingsDialog_General.Header" xml:space="preserve">
     <value>常规</value>
@@ -567,7 +600,6 @@
   <data name="LogWindow_AutoScroll.Content" xml:space="preserve">
     <value>自动滚动</value>
   </data>
-  <!-- 日志与诊断 -->
   <data name="SettingsPage_LogDiag.Text" xml:space="preserve">
     <value>日志与诊断</value>
   </data>
@@ -598,7 +630,6 @@
   <data name="SettingsPage_OpenLogCenter.Content" xml:space="preserve">
     <value>打开日志中心</value>
   </data>
-  <!-- 插件 -->
   <data name="SettingsPage_Plugins.Text" xml:space="preserve">
     <value>插件</value>
   </data>
@@ -629,8 +660,6 @@
   <data name="SettingsPage_PluginUninstall.Content" xml:space="preserve">
     <value>卸载</value>
   </data>
-
-  <!-- 插件商店页 -->
   <data name="PluginStorePage_Title.Text" xml:space="preserve">
     <value>插件商店</value>
   </data>
@@ -652,13 +681,71 @@
   <data name="PluginStorePage_Install.Content" xml:space="preserve">
     <value>安装</value>
   </data>
-
-  <!-- 通用（代码调用） -->
+  <data name="LogPage_Title.Text" xml:space="preserve">
+    <value>日志</value>
+  </data>
+  <data name="LogPage_Subtitle.Text" xml:space="preserve">
+    <value>查看运行日志与事件</value>
+  </data>
+  <data name="LogPage_Level_All.Content" xml:space="preserve">
+    <value>全部</value>
+  </data>
+  <data name="LogPage_Level_Info.Content" xml:space="preserve">
+    <value>信息</value>
+  </data>
+  <data name="LogPage_Level_Warning.Content" xml:space="preserve">
+    <value>警告</value>
+  </data>
+  <data name="LogPage_Level_Error.Content" xml:space="preserve">
+    <value>错误</value>
+  </data>
+  <data name="LogPage_Level_Debug.Content" xml:space="preserve">
+    <value>调试</value>
+  </data>
+  <data name="LogPage_SearchBox.PlaceholderText" xml:space="preserve">
+    <value>搜索日志</value>
+  </data>
+  <data name="LogPage_LiveRefresh.Text" xml:space="preserve">
+    <value>实时刷新</value>
+  </data>
+  <data name="LogPage_AutoScroll.Text" xml:space="preserve">
+    <value>自动滚动</value>
+  </data>
+  <data name="LogPage_CopySelected.Content" xml:space="preserve">
+    <value>复制</value>
+  </data>
+  <data name="LogPage_Clear.Content" xml:space="preserve">
+    <value>清空</value>
+  </data>
+  <data name="LogPage_OpenLogFolder.Content" xml:space="preserve">
+    <value>打开日志文件夹</value>
+  </data>
+  <data name="LogPage_BottomHint.Text" xml:space="preserve">
+    <value>提示：未选中任何项时会复制全部</value>
+  </data>
+  <data name="LogPage_OpenCurrentLogFile.Content" xml:space="preserve">
+    <value>打开当前日志文件</value>
+  </data>
+  <data name="LogLevel_Info" xml:space="preserve">
+    <value>信息</value>
+  </data>
+  <data name="LogLevel_Warning" xml:space="preserve">
+    <value>警告</value>
+  </data>
+  <data name="LogLevel_Error" xml:space="preserve">
+    <value>错误</value>
+  </data>
+  <data name="LogLevel_Debug" xml:space="preserve">
+    <value>调试</value>
+  </data>
   <data name="Common_Ok" xml:space="preserve">
     <value>确定</value>
   </data>
   <data name="Common_Cancel" xml:space="preserve">
     <value>取消</value>
+  </data>
+  <data name="Common_Delete" xml:space="preserve">
+    <value>删除</value>
   </data>
   <data name="Common_Close" xml:space="preserve">
     <value>关闭</value>
@@ -672,8 +759,6 @@
   <data name="Common_Canceled" xml:space="preserve">
     <value>已取消</value>
   </data>
-
-  <!-- 插件（代码调用） -->
   <data name="Plugins_StoreDialogTitle" xml:space="preserve">
     <value>插件商店</value>
   </data>
@@ -692,8 +777,6 @@
   <data name="Plugins_NoSettings" xml:space="preserve">
     <value>该插件未提供可配置项。</value>
   </data>
-
-  <!-- 插件商店服务（代码调用） -->
   <data name="PluginStore_InvalidItem" xml:space="preserve">
     <value>无效的下载项</value>
   </data>
@@ -706,8 +789,6 @@
   <data name="PluginStorePage_StatusDownloading" xml:space="preserve">
     <value>下载中...</value>
   </data>
-
-  <!-- 插件服务（代码调用） -->
   <data name="PluginService_IncompatibleHostVersion" xml:space="preserve">
     <value>需要 Host 版本 {0}，当前版本 {1}</value>
   </data>
@@ -768,7 +849,6 @@
   <data name="PluginService_Load_CreateInstanceFailed" xml:space="preserve">
     <value>创建插件实例失败</value>
   </data>
-  <!-- KnotLink 互联 -->
   <data name="SettingsPage_KnotLink.Text" xml:space="preserve">
     <value>KnotLink 互联</value>
   </data>
@@ -823,7 +903,6 @@
   <data name="SettingsPage_KnotLinkCommandsDesc.Text" xml:space="preserve">
     <value>以下命令可通过 KnotLink 远程调用：</value>
   </data>
-  <!-- 个性化补充 -->
   <data name="SettingsPage_NavPaneWidth.Text" xml:space="preserve">
     <value>导航栏宽度</value>
   </data>
@@ -838,5 +917,199 @@
   </data>
   <data name="SettingsPage_ApplySize.Content" xml:space="preserve">
     <value>立即应用</value>
+  </data>
+  <data name="Startup_SetFailed" xml:space="preserve">
+    <value>[Startup] 设置开机自启失败：{0}</value>
+  </data>
+  <data name="Config_ParseNull_Reset" xml:space="preserve">
+    <value>[Config] 配置文件解析结果为 null，将重置为默认配置。</value>
+  </data>
+  <data name="Config_LoadFailed_Reset" xml:space="preserve">
+    <value>[Config] 配置加载失败，将重置为默认配置：{0}</value>
+  </data>
+  <data name="Config_CurrentConfigNull_ForceDefault" xml:space="preserve">
+    <value>[Config] CurrentConfig 为空，已强制创建默认配置。</value>
+  </data>
+  <data name="Config_Save_CurrentConfigNull" xml:space="preserve">
+    <value>[Config] CurrentConfig 为空，无法保存。</value>
+  </data>
+  <data name="Config_SaveFailed" xml:space="preserve">
+    <value>[Config] 配置保存失败：{0}</value>
+  </data>
+  <data name="Config_OpenConfigDirFailed" xml:space="preserve">
+    <value>[Config] 无法打开配置目录：{0}</value>
+  </data>
+  <data name="Config_OpenConfigFileFailed" xml:space="preserve">
+    <value>[Config] 无法打开配置文件：{0}</value>
+  </data>
+  <data name="PluginStore_Log_DownloadInstallFailed" xml:space="preserve">
+    <value>[PluginStore] 下载/安装失败：{0}</value>
+  </data>
+  <data name="PluginStore_GetReleaseFailed_Log" xml:space="preserve">
+    <value>[PluginStore] 获取 Release 失败：{0}</value>
+  </data>
+  <data name="PluginService_CreatePluginDirFailed" xml:space="preserve">
+    <value>[Plugin] 无法创建插件目录：{0}</value>
+  </data>
+  <data name="PluginService_ScanPluginsFailed" xml:space="preserve">
+    <value>[Plugin] 扫描插件失败：{0}</value>
+  </data>
+  <data name="PluginService_ReinitializeFailed" xml:space="preserve">
+    <value>[Plugin] 重新初始化失败：{0} - {1}</value>
+  </data>
+  <data name="PluginService_GetSettingsDefinitionsFailed" xml:space="preserve">
+    <value>[Plugin] 获取设置定义失败：{0} - {1}</value>
+  </data>
+  <data name="PluginService_BeforeBackupFailed" xml:space="preserve">
+    <value>[Plugin] BeforeBackup 失败：{0} - {1}</value>
+  </data>
+  <data name="PluginService_AfterBackupFailed" xml:space="preserve">
+    <value>[Plugin] AfterBackup 失败：{0} - {1}</value>
+  </data>
+  <data name="PluginService_DiscoverManagedFoldersFailed" xml:space="preserve">
+    <value>[Plugin] DiscoverManagedFolders 失败：{0} - {1}</value>
+  </data>
+  <data name="PluginService_GetSupportedConfigTypesFailed" xml:space="preserve">
+    <value>[Plugin] GetSupportedConfigTypes 失败：{0} - {1}</value>
+  </data>
+  <data name="PluginService_WantsToHandleBackupFailed" xml:space="preserve">
+    <value>[Plugin] WantsToHandleBackup 失败：{0} - {1}</value>
+  </data>
+  <data name="PluginService_WantsToHandleRestoreFailed" xml:space="preserve">
+    <value>[Plugin] WantsToHandleRestore 失败：{0} - {1}</value>
+  </data>
+  <data name="PluginService_PerformBackupFailed" xml:space="preserve">
+    <value>[Plugin] PerformBackupAsync 失败：{0} - {1}</value>
+  </data>
+  <data name="PluginService_PerformRestoreFailed" xml:space="preserve">
+    <value>[Plugin] PerformRestoreAsync 失败：{0} - {1}</value>
+  </data>
+  <data name="PluginService_TryCreateConfigsFailed" xml:space="preserve">
+    <value>[Plugin] TryCreateConfigs 失败：{0} - {1}</value>
+  </data>
+  <data name="PluginService_InstallFailed_Log" xml:space="preserve">
+    <value>[Plugin] 安装失败：{0}</value>
+  </data>
+  <data name="PluginService_UninstallFailed_Log" xml:space="preserve">
+    <value>[Plugin] 卸载失败：{0} - {1}</value>
+  </data>
+  <data name="PluginService_OpenPluginFolderFailed" xml:space="preserve">
+    <value>[Plugin] 打开插件目录失败：{0}</value>
+  </data>
+  <data name="PluginService_ManifestParseFailed" xml:space="preserve">
+    <value>[Plugin] manifest 解析失败：{0} - {1}</value>
+  </data>
+  <data name="PluginService_VersionIncompatible" xml:space="preserve">
+    <value>[Plugin] 版本不兼容：{0} - {1}</value>
+  </data>
+  <data name="PluginService_Loaded" xml:space="preserve">
+    <value>[Plugin] 已加载：{0} ({1} {2})</value>
+  </data>
+  <data name="PluginService_LoadFailed" xml:space="preserve">
+    <value>[Plugin] 加载失败：{0} - {1}</value>
+  </data>
+  <data name="PluginService_ReadInfoFailed" xml:space="preserve">
+    <value>[Plugin] 读取插件信息失败：{0} - {1}</value>
+  </data>
+  <data name="KnotLink_Disabled_SkipInit" xml:space="preserve">
+    <value>[KnotLink] 服务已禁用，跳过初始化。</value>
+  </data>
+  <data name="KnotLink_InitSuccess" xml:space="preserve">
+    <value>[KnotLink] 服务初始化成功 - AppId: {0}, Host: {1}</value>
+  </data>
+  <data name="KnotLink_InitFailed" xml:space="preserve">
+    <value>[KnotLink] 服务初始化失败: {0}</value>
+  </data>
+  <data name="KnotLink_SenderInitSuccess" xml:space="preserve">
+    <value>[KnotLink] 信号发送器初始化成功</value>
+  </data>
+  <data name="KnotLink_SenderInitFailed" xml:space="preserve">
+    <value>[KnotLink] 信号发送器初始化失败: {0}</value>
+  </data>
+  <data name="KnotLink_CommandReceived" xml:space="preserve">
+    <value>[KnotLink] 收到命令: {0}</value>
+  </data>
+  <data name="KnotLink_CommandResponse" xml:space="preserve">
+    <value>[KnotLink] 响应: {0}</value>
+  </data>
+  <data name="KnotLink_ResponderInitSuccess" xml:space="preserve">
+    <value>[KnotLink] 命令响应器初始化成功</value>
+  </data>
+  <data name="KnotLink_ResponderInitFailed" xml:space="preserve">
+    <value>[KnotLink] 命令响应器初始化失败: {0}</value>
+  </data>
+  <data name="KnotLink_Shutdown" xml:space="preserve">
+    <value>[KnotLink] 服务已关闭</value>
+  </data>
+  <data name="KnotLink_BroadcastFailed" xml:space="preserve">
+    <value>[KnotLink] 广播事件失败: {0}</value>
+  </data>
+  <data name="KnotLink_AutoBackupStarted" xml:space="preserve">
+    <value>[KnotLink] 自动备份任务已启动: {0}, 间隔 {1} 分钟</value>
+  </data>
+  <data name="KnotLink_AutoBackupExecute" xml:space="preserve">
+    <value>[KnotLink] 执行自动备份: {0}</value>
+  </data>
+  <data name="KnotLink_AutoBackupFailed" xml:space="preserve">
+    <value>[KnotLink] 自动备份失败: {0}</value>
+  </data>
+  <data name="KnotLink_AutoBackupStopped" xml:space="preserve">
+    <value>[KnotLink] 自动备份任务已停止: {0}</value>
+  </data>
+  <data name="SettingsPage_KnotLink_Title" xml:space="preserve">
+    <value>KnotLink</value>
+  </data>
+  <data name="SettingsPage_KnotLink_RestartSuccess" xml:space="preserve">
+    <value>服务已重启</value>
+  </data>
+  <data name="SettingsPage_KnotLink_RestartFailed" xml:space="preserve">
+    <value>服务重启失败，请检查配置和日志</value>
+  </data>
+  <data name="SettingsPage_KnotLinkTest_Title" xml:space="preserve">
+    <value>KnotLink 测试</value>
+  </data>
+  <data name="SettingsPage_KnotLinkTest_NotInitialized" xml:space="preserve">
+    <value>服务未初始化，请先点击 [重启服务]</value>
+  </data>
+  <data name="SettingsPage_KnotLinkTest_Broadcasted" xml:space="preserve">
+    <value>测试事件已广播。
+
+如果您有监听器订阅了此信号，应该能收到消息。</value>
+  </data>
+  <data name="App_Log_AppDomainUnhandledException" xml:space="preserve">
+    <value>[AppDomain UnhandledException] {0}
+{1}</value>
+  </data>
+  <data name="App_Log_TaskUnobservedException" xml:space="preserve">
+    <value>[Task UnobservedException] {0}
+{1}</value>
+  </data>
+  <data name="App_Log_OnLaunchedBegin" xml:space="preserve">
+    <value>[App] OnLaunched begin</value>
+  </data>
+  <data name="App_Log_OnLaunchedEnd" xml:space="preserve">
+    <value>[App] OnLaunched end</value>
+  </data>
+  <data name="App_Log_KnotLinkInitException" xml:space="preserve">
+    <value>[KnotLink] 初始化异常: {0}</value>
+  </data>
+  <data name="App_Log_Fatal" xml:space="preserve">
+    <value>[App Fatal] {0}
+{1}</value>
+  </data>
+  <data name="App_Log_UnhandledException" xml:space="preserve">
+    <value>[App UnhandledException] {0}
+{1}</value>
+  </data>
+  <data name="App_StartupFailedWindowTitle" xml:space="preserve">
+    <value>FolderRewind - 启动失败</value>
+  </data>
+  <data name="App_StartupFailedWindowContent" xml:space="preserve">
+    <value>启动失败：{0}
+
+{1}</value>
+  </data>
+  <data name="Config_DefaultBackupName" xml:space="preserve">
+    <value>示例配置</value>
   </data>
 </root>

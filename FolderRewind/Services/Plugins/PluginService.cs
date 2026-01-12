@@ -98,7 +98,7 @@ namespace FolderRewind.Services.Plugins
                 }
                 catch (Exception ex)
                 {
-                    LogService.LogError($"[Plugin] 无法创建插件目录：{ex.Message}", "PluginService", ex);
+                    LogService.LogError(I18n.Format("PluginService_CreatePluginDirFailed", ex.Message), "PluginService", ex);
                 }
 
                 // 扫描安装清单（不一定加载插件）
@@ -135,7 +135,7 @@ namespace FolderRewind.Services.Plugins
                 }
                 catch (Exception ex)
                 {
-                    LogService.LogError($"[Plugin] 扫描插件失败：{ex.Message}", "PluginService", ex);
+                    LogService.LogError(I18n.Format("PluginService_ScanPluginsFailed", ex.Message), "PluginService", ex);
                 }
             }
         }
@@ -243,7 +243,7 @@ namespace FolderRewind.Services.Plugins
                 }
                 catch (Exception ex)
                 {
-                    LogService.LogError($"[Plugin] 重新初始化失败：{pluginId} - {ex.Message}", "PluginService", ex);
+                    LogService.LogError(I18n.Format("PluginService_ReinitializeFailed", pluginId, ex.Message), "PluginService", ex);
                 }
             }
         }
@@ -261,7 +261,7 @@ namespace FolderRewind.Services.Plugins
                 }
                 catch (Exception ex)
                 {
-                    LogService.LogError($"[Plugin] 获取设置定义失败：{pluginId} - {ex.Message}", "PluginService", ex);
+                    LogService.LogError(I18n.Format("PluginService_GetSettingsDefinitionsFailed", pluginId, ex.Message), "PluginService", ex);
                 }
             }
 
@@ -287,7 +287,7 @@ namespace FolderRewind.Services.Plugins
                 }
                 catch (Exception ex)
                 {
-                    LogService.LogError($"[Plugin] BeforeBackup 失败：{plugin.Manifest.Id} - {ex.Message}", "PluginService", ex);
+                    LogService.LogError(I18n.Format("PluginService_BeforeBackupFailed", plugin.Manifest.Id, ex.Message), "PluginService", ex);
                 }
             }
 
@@ -307,7 +307,7 @@ namespace FolderRewind.Services.Plugins
                 }
                 catch (Exception ex)
                 {
-                    LogService.LogError($"[Plugin] AfterBackup 失败：{plugin.Manifest.Id} - {ex.Message}", "PluginService", ex);
+                    LogService.LogError(I18n.Format("PluginService_AfterBackupFailed", plugin.Manifest.Id, ex.Message), "PluginService", ex);
                 }
             }
         }
@@ -331,7 +331,7 @@ namespace FolderRewind.Services.Plugins
                 }
                 catch (Exception ex)
                 {
-                    LogService.LogError($"[Plugin] DiscoverManagedFolders 失败：{plugin.Manifest.Id} - {ex.Message}", "PluginService", ex);
+                    LogService.LogError(I18n.Format("PluginService_DiscoverManagedFoldersFailed", plugin.Manifest.Id, ex.Message), "PluginService", ex);
                 }
             }
 
@@ -363,7 +363,7 @@ namespace FolderRewind.Services.Plugins
                 }
                 catch (Exception ex)
                 {
-                    LogService.LogError($"[Plugin] GetSupportedConfigTypes 失败：{plugin.Manifest.Id} - {ex.Message}", "PluginService", ex);
+                    LogService.LogError(I18n.Format("PluginService_GetSupportedConfigTypesFailed", plugin.Manifest.Id, ex.Message), "PluginService", ex);
                 }
             }
 
@@ -388,7 +388,7 @@ namespace FolderRewind.Services.Plugins
                 }
                 catch (Exception ex)
                 {
-                    LogService.LogError($"[Plugin] WantsToHandleBackup 失败：{plugin.Manifest.Id} - {ex.Message}", "PluginService", ex);
+                    LogService.LogError(I18n.Format("PluginService_WantsToHandleBackupFailed", plugin.Manifest.Id, ex.Message), "PluginService", ex);
                 }
             }
 
@@ -413,7 +413,7 @@ namespace FolderRewind.Services.Plugins
                 }
                 catch (Exception ex)
                 {
-                    LogService.LogError($"[Plugin] WantsToHandleRestore 失败：{plugin.Manifest.Id} - {ex.Message}", "PluginService", ex);
+                    LogService.LogError(I18n.Format("PluginService_WantsToHandleRestoreFailed", plugin.Manifest.Id, ex.Message), "PluginService", ex);
                 }
             }
 
@@ -437,7 +437,7 @@ namespace FolderRewind.Services.Plugins
             }
             catch (Exception ex)
             {
-                LogService.LogError($"[Plugin] PerformBackupAsync 失败：{plugin.Manifest.Id} - {ex.Message}", "PluginService", ex);
+                LogService.LogError(I18n.Format("PluginService_PerformBackupFailed", plugin.Manifest.Id, ex.Message), "PluginService", ex);
                 return new PluginBackupResult { Success = false, Message = ex.Message };
             }
         }
@@ -459,7 +459,7 @@ namespace FolderRewind.Services.Plugins
             }
             catch (Exception ex)
             {
-                LogService.LogError($"[Plugin] PerformRestoreAsync 失败：{plugin.Manifest.Id} - {ex.Message}", "PluginService", ex);
+                LogService.LogError(I18n.Format("PluginService_PerformRestoreFailed", plugin.Manifest.Id, ex.Message), "PluginService", ex);
                 return new PluginRestoreResult { Success = false, Message = ex.Message };
             }
         }
@@ -516,7 +516,7 @@ namespace FolderRewind.Services.Plugins
                 }
                 catch (Exception ex)
                 {
-                    LogService.LogError($"[Plugin] TryCreateConfigs 失败：{plugin.Manifest.Id} - {ex.Message}", "PluginService", ex);
+                    LogService.LogError(I18n.Format("PluginService_TryCreateConfigsFailed", plugin.Manifest.Id, ex.Message), "PluginService", ex);
                 }
             }
 
@@ -553,6 +553,8 @@ namespace FolderRewind.Services.Plugins
                 {
                     return (false, _rl.GetString("PluginService_InvalidManifestNoId"));
                 }
+
+                ApplyManifestLocalization(manifest);
 
                 var targetDir = Path.Combine(PluginRootDirectory, SanitizeFolderName(manifest.Id));
 
@@ -616,7 +618,7 @@ namespace FolderRewind.Services.Plugins
             }
             catch (Exception ex)
             {
-                LogService.LogError($"[Plugin] 安装失败：{ex.Message}", "PluginService", ex);
+                LogService.LogError(I18n.Format("PluginService_InstallFailed_Log", ex.Message), "PluginService", ex);
                 return (false, string.Format(_rl.GetString("PluginService_InstallFailed"), ex.Message));
             }
         }
@@ -648,7 +650,7 @@ namespace FolderRewind.Services.Plugins
             }
             catch (Exception ex)
             {
-                LogService.LogError($"[Plugin] 卸载失败：{pluginId} - {ex.Message}", "PluginService", ex);
+                LogService.LogError(I18n.Format("PluginService_UninstallFailed_Log", pluginId, ex.Message), "PluginService", ex);
                 return (false, string.Format(_rl.GetString("PluginService_UninstallFailed"), ex.Message));
             }
         }
@@ -667,7 +669,7 @@ namespace FolderRewind.Services.Plugins
             }
             catch (Exception ex)
             {
-                LogService.LogError($"[Plugin] 打开插件目录失败：{ex.Message}", "PluginService", ex);
+                LogService.LogError(I18n.Format("PluginService_OpenPluginFolderFailed", ex.Message), "PluginService", ex);
             }
         }
 
@@ -715,8 +717,13 @@ namespace FolderRewind.Services.Plugins
                 catch (Exception ex)
                 {
                     installed.LoadError = _rl.GetString("PluginService_Load_ManifestParseFailed");
-                    LogService.LogError($"[Plugin] manifest 解析失败：{pluginId} - {ex.Message}", "PluginService", ex);
+                    LogService.LogError(I18n.Format("PluginService_ManifestParseFailed", pluginId, ex.Message), "PluginService", ex);
                     return false;
+                }
+
+                if (manifest != null)
+                {
+                    ApplyManifestLocalization(manifest);
                 }
 
                 if (manifest == null || string.IsNullOrWhiteSpace(manifest.EntryAssembly) || string.IsNullOrWhiteSpace(manifest.EntryType))
@@ -729,7 +736,7 @@ namespace FolderRewind.Services.Plugins
                 if (!IsVersionCompatible(manifest.MinHostVersion, out var incompatibleReason))
                 {
                     installed.LoadError = incompatibleReason;
-                    LogService.LogWarning($"[Plugin] 版本不兼容：{pluginId} - {incompatibleReason}", "PluginService");
+                    LogService.LogWarning(I18n.Format("PluginService_VersionIncompatible", pluginId, incompatibleReason ?? string.Empty), "PluginService");
                     return false;
                 }
 
@@ -772,13 +779,13 @@ namespace FolderRewind.Services.Plugins
                     _loaded[manifest.Id] = new LoadedPlugin(manifest, instance, alc);
                     installed.LoadError = null;
 
-                    LogService.LogInfo($"[Plugin] 已加载：{manifest.Id} ({manifest.Name} {manifest.Version})", "PluginService");
+                    LogService.LogInfo(I18n.Format("PluginService_Loaded", manifest.Id, manifest.Name ?? string.Empty, manifest.Version ?? string.Empty), "PluginService");
                     return true;
                 }
                 catch (Exception ex)
                 {
                     installed.LoadError = ex.Message;
-                    LogService.LogError($"[Plugin] 加载失败：{pluginId} - {ex.Message}", "PluginService", ex);
+                    LogService.LogError(I18n.Format("PluginService_LoadFailed", pluginId, ex.Message), "PluginService", ex);
                     return false;
                 }
             }
@@ -795,6 +802,8 @@ namespace FolderRewind.Services.Plugins
                 var manifest = JsonSerializer.Deserialize(json, AppJsonContext.Default.PluginInstallManifest);
                 if (manifest == null || string.IsNullOrWhiteSpace(manifest.Id)) return null;
 
+                ApplyManifestLocalization(manifest);
+
                 var enabled = GetPluginEnabled(manifest.Id);
                 return new InstalledPluginInfo
                 {
@@ -809,9 +818,20 @@ namespace FolderRewind.Services.Plugins
             }
             catch (Exception ex)
             {
-                LogService.LogError($"[Plugin] 读取插件信息失败：{pluginDir} - {ex.Message}", "PluginService", ex);
+                LogService.LogError(I18n.Format("PluginService_ReadInfoFailed", pluginDir, ex.Message), "PluginService", ex);
                 return null;
             }
+        }
+
+        private static void ApplyManifestLocalization(PluginInstallManifest manifest)
+        {
+            if (manifest == null) return;
+
+            var name = I18n.PickBest(manifest.LocalizedName, manifest.Name);
+            if (!string.IsNullOrWhiteSpace(name)) manifest.Name = name;
+
+            var desc = I18n.PickBest(manifest.LocalizedDescription, manifest.Description);
+            if (!string.IsNullOrWhiteSpace(desc)) manifest.Description = desc;
         }
 
         private static IReadOnlyList<IFolderRewindPlugin> GetEnabledLoadedPluginsSnapshot()

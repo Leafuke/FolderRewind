@@ -46,10 +46,32 @@ namespace FolderRewind.Views
                     PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(CurrentConfig)));
 
                     HookCurrentFoldersChanged(_currentConfig);
+
+                    Bindings.Update();
                     RefreshCurrentFoldersView();
 
                     PersistManagerSelection(_currentConfig?.Id, null);
                 }
+            }
+        }
+
+        public string SelectedFolderDisplayName
+        {
+            get
+            {
+                try
+                {
+                    if (FolderList?.SelectedItem is ManagedFolder folder && !string.IsNullOrWhiteSpace(folder.DisplayName))
+                    {
+                        return folder.DisplayName;
+                    }
+                }
+                catch
+                {
+                    
+                }
+
+                return I18n.GetString("FolderManager_NotSelected");
             }
         }
 
@@ -72,7 +94,7 @@ namespace FolderRewind.Views
             }
             catch
             {
-                // ignore
+                
             }
         }
 
@@ -123,7 +145,7 @@ namespace FolderRewind.Views
             }
             catch
             {
-                // ignore
+                
             }
         }
 
@@ -136,7 +158,7 @@ namespace FolderRewind.Views
             }
             catch
             {
-                // ignore
+                
             }
         }
 
@@ -304,6 +326,8 @@ namespace FolderRewind.Views
             {
                 PersistManagerSelection(CurrentConfig?.Id, folder.Path);
             }
+
+            Bindings.Update();
         }
 
         // 添加文件夹 (核心逻辑)

@@ -41,7 +41,7 @@ namespace FolderRewind.Services
                     // 这会导致后续访问 CurrentConfig.* 直接崩溃（打包安装后更容易遇到）。
                     if (CurrentConfig == null)
                     {
-                        LogService.Log("[Config] 配置文件解析结果为 null，将重置为默认配置。");
+                        LogService.Log(I18n.GetString("Config_ParseNull_Reset"));
                         CreateDefaultConfig();
                     }
                 }
@@ -49,7 +49,7 @@ namespace FolderRewind.Services
                 {
                     // 这里应该记录日志：配置文件损坏
                     System.Diagnostics.Debug.WriteLine($"Config load error: {ex.Message}");
-                    LogService.Log($"[Config] 配置加载失败，将重置为默认配置：{ex.Message}");
+                    LogService.Log(I18n.Format("Config_LoadFailed_Reset", ex.Message));
                     CreateDefaultConfig();
                 }
             }
@@ -61,7 +61,7 @@ namespace FolderRewind.Services
             // 兜底：确保无论如何 CurrentConfig 都不为 null
             if (CurrentConfig == null)
             {
-                LogService.Log("[Config] CurrentConfig 为空，已强制创建默认配置。");
+                LogService.Log(I18n.GetString("Config_CurrentConfigNull_ForceDefault"));
                 CreateDefaultConfig();
             }
 
@@ -113,12 +113,12 @@ namespace FolderRewind.Services
         {
             CurrentConfig = new AppConfig();
 
-            // 示例：创建一个默认配置引导用户
+            // 示例配置
             var defaultConfig = new BackupConfig
             {
-                Name = "示例配置",
+                Name = I18n.Format("Config_DefaultBackupName"),
                 DestinationPath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments), "MyBackups"),
-                SummaryText = "新创建"
+                SummaryText = ""
             };
             // 默认 7z 压缩
             defaultConfig.Archive.Format = "7z";
@@ -132,7 +132,7 @@ namespace FolderRewind.Services
         {
             if (CurrentConfig == null)
             {
-                LogService.Log("[Config] CurrentConfig 为空，无法保存。");
+                LogService.Log(I18n.GetString("Config_Save_CurrentConfigNull"));
                 return;
             }
 
@@ -149,7 +149,7 @@ namespace FolderRewind.Services
             catch (Exception ex)
             {
                 System.Diagnostics.Debug.WriteLine($"Config save error: {ex.Message}");
-                LogService.Log($"[Config] 配置保存失败：{ex.Message}");
+                LogService.Log(I18n.Format("Config_SaveFailed", ex.Message));
             }
         }
 
@@ -174,7 +174,7 @@ namespace FolderRewind.Services
             }
             catch (Exception ex)
             {
-                LogService.Log($"[Config] 无法打开配置目录：{ex.Message}");
+                LogService.Log(I18n.Format("Config_OpenConfigDirFailed", ex.Message));
             }
         }
 
@@ -192,7 +192,7 @@ namespace FolderRewind.Services
             }
             catch (Exception ex)
             {
-                LogService.Log($"[Config] 无法打开配置文件：{ex.Message}");
+                LogService.Log(I18n.Format("Config_OpenConfigFileFailed", ex.Message));
             }
         }
 

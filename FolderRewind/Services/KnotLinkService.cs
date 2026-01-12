@@ -76,7 +76,7 @@ namespace FolderRewind.Services
             _isEnabled = settings.EnableKnotLink;
             if (!_isEnabled)
             {
-                LogService.Log("[KnotLink] 服务已禁用，跳过初始化。");
+                LogService.Log(I18n.GetString("KnotLink_Disabled_SkipInit"));
                 return;
             }
 
@@ -98,12 +98,12 @@ namespace FolderRewind.Services
                     InitializeCommandResponser(appId, openSocketId, host);
 
                     _isInitialized = true;
-                    LogService.Log($"[KnotLink] 服务初始化成功 - AppId: {appId}, Host: {host}");
+                    LogService.Log(I18n.Format("KnotLink_InitSuccess", appId, host));
                     BroadcastEvent($"event=app_startup;version={GetAppVersion()}");
                 }
                 catch (Exception ex)
                 {
-                    LogService.Log($"[KnotLink] 服务初始化失败: {ex.Message}");
+                    LogService.Log(I18n.Format("KnotLink_InitFailed", ex.Message));
                 }
             }
         }
@@ -116,11 +116,11 @@ namespace FolderRewind.Services
             try
             {
                 _signalSender = new SignalSender(appId, signalId, host);
-                LogService.Log($"[KnotLink] 信号发送器初始化成功");
+                LogService.Log(I18n.GetString("KnotLink_SenderInitSuccess"));
             }
             catch (Exception ex)
             {
-                LogService.Log($"[KnotLink] 信号发送器初始化失败: {ex.Message}");
+                LogService.Log(I18n.Format("KnotLink_SenderInitFailed", ex.Message));
             }
         }
 
@@ -134,16 +134,16 @@ namespace FolderRewind.Services
                 _commandResponser = new OpenSocketResponser(appId, openSocketId, host);
                 _commandResponser.OnQuestionAsync = async question =>
                 {
-                    LogService.Log($"[KnotLink] 收到命令: {question}");
+                    LogService.Log(I18n.Format("KnotLink_CommandReceived", question));
                     var response = await ProcessCommandAsync(question);
-                    LogService.Log($"[KnotLink] 响应: {response}");
+                    LogService.Log(I18n.Format("KnotLink_CommandResponse", response));
                     return response;
                 };
-                LogService.Log($"[KnotLink] 命令响应器初始化成功");
+                LogService.Log(I18n.GetString("KnotLink_ResponderInitSuccess"));
             }
             catch (Exception ex)
             {
-                LogService.Log($"[KnotLink] 命令响应器初始化失败: {ex.Message}");
+                LogService.Log(I18n.Format("KnotLink_ResponderInitFailed", ex.Message));
             }
         }
 
@@ -169,7 +169,7 @@ namespace FolderRewind.Services
                 _commandResponser = null;
                 _isInitialized = false;
 
-                LogService.Log("[KnotLink] 服务已关闭");
+                LogService.Log(I18n.GetString("KnotLink_Shutdown"));
             }
         }
 
@@ -200,7 +200,7 @@ namespace FolderRewind.Services
             }
             catch (Exception ex)
             {
-                LogService.Log($"[KnotLink] 广播事件失败: {ex.Message}");
+                LogService.Log(I18n.Format("KnotLink_BroadcastFailed", ex.Message));
             }
         }
 
@@ -643,7 +643,7 @@ namespace FolderRewind.Services
             // 启动自动备份线程
             _ = Task.Run(async () =>
             {
-                LogService.Log($"[KnotLink] 自动备份任务已启动: {folder.DisplayName}, 间隔 {intervalMinutes} 分钟");
+                LogService.Log(I18n.Format("KnotLink_AutoBackupStarted", folder.DisplayName, intervalMinutes));
 
                 while (!cts.Token.IsCancellationRequested)
                 {
@@ -652,7 +652,7 @@ namespace FolderRewind.Services
                         await Task.Delay(TimeSpan.FromMinutes(intervalMinutes), cts.Token);
                         if (cts.Token.IsCancellationRequested) break;
 
-                        LogService.Log($"[KnotLink] 执行自动备份: {folder.DisplayName}");
+                        LogService.Log(I18n.Format("KnotLink_AutoBackupExecute", folder.DisplayName));
                         await BackupService.BackupFolderAsync(config, folder, "Auto backup via KnotLink");
                         BroadcastEvent($"event=auto_backup_executed;config={config.Id};folder={folder.DisplayName}");
                     }
@@ -662,13 +662,13 @@ namespace FolderRewind.Services
                     }
                     catch (Exception ex)
                     {
-                        LogService.Log($"[KnotLink] 自动备份失败: {ex.Message}");
+                        LogService.Log(I18n.Format("KnotLink_AutoBackupFailed", ex.Message));
                         BroadcastEvent($"event=auto_backup_error;config={config.Id};folder={folder.DisplayName};error={ex.Message}");
                     }
                 }
 
                 _activeAutoBackups.TryRemove(taskKey, out _);
-                LogService.Log($"[KnotLink] 自动备份任务已停止: {folder.DisplayName}");
+                LogService.Log(I18n.Format("KnotLink_AutoBackupStopped", folder.DisplayName));
             });
 
             BroadcastEvent($"event=auto_backup_started;config={config.Id};folder={folder.DisplayName};interval={intervalMinutes}");

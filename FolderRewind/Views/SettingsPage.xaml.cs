@@ -187,9 +187,11 @@ namespace FolderRewind.Views
             // 显示提示
             var dialog = new ContentDialog
             {
-                Title = "KnotLink",
-                Content = KnotLinkService.IsInitialized ? "服务已重启" : "服务重启失败，请检查配置和日志",
-                CloseButtonText = "确定",
+                Title = I18n.GetString("SettingsPage_KnotLink_Title"),
+                Content = KnotLinkService.IsInitialized
+                    ? I18n.GetString("SettingsPage_KnotLink_RestartSuccess")
+                    : I18n.GetString("SettingsPage_KnotLink_RestartFailed"),
+                CloseButtonText = I18n.GetString("Common_Ok"),
                 XamlRoot = this.XamlRoot
             };
             await dialog.ShowAsync();
@@ -204,9 +206,9 @@ namespace FolderRewind.Views
             {
                 var errorDialog = new ContentDialog
                 {
-                    Title = "KnotLink 测试",
-                    Content = "服务未初始化，请先点击 [重启服务]",
-                    CloseButtonText = "确定",
+                    Title = I18n.GetString("SettingsPage_KnotLinkTest_Title"),
+                    Content = I18n.GetString("SettingsPage_KnotLinkTest_NotInitialized"),
+                    CloseButtonText = I18n.GetString("Common_Ok"),
                     XamlRoot = this.XamlRoot
                 };
                 await errorDialog.ShowAsync();
@@ -218,9 +220,9 @@ namespace FolderRewind.Views
 
             var dialog = new ContentDialog
             {
-                Title = "KnotLink 测试",
-                Content = "测试事件已广播。\n\n如果您有监听器订阅了此信号，应该能收到消息。",
-                CloseButtonText = "确定",
+                Title = I18n.GetString("SettingsPage_KnotLinkTest_Title"),
+                Content = I18n.GetString("SettingsPage_KnotLinkTest_Broadcasted"),
+                CloseButtonText = I18n.GetString("Common_Ok"),
                 XamlRoot = this.XamlRoot
             };
             await dialog.ShowAsync();
@@ -716,7 +718,7 @@ namespace FolderRewind.Views
             }
             catch
             {
-                // ignore and fall back to managed size
+                
             }
 
             

@@ -7,17 +7,19 @@
     xmlns:local="using:FolderRewind.Views"
     xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
     xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    x:Uid="LogPage"
     mc:Ignorable="d">
 
     <Page.Resources>
         <local:LogLevelToBrushConverter x:Key="LogLevelBrushConverter" />
+        <local:LogLevelToStringConverter x:Key="LogLevelStringConverter" />
         <Thickness x:Key="LogCardPadding">12,10,12,12</Thickness>
     </Page.Resources>
 
     <Grid RowDefinitions="Auto,Auto,*,Auto">
         <StackPanel Grid.Row="0" Padding="24,16,24,8" Spacing="4">
-            <TextBlock Text="日志中心" Style="{ThemeResource TitleTextBlockStyle}" />
-            <TextBlock Text="查看、搜索、导出应用日志" Opacity="0.7" />
+            <TextBlock x:Uid="LogPage_Title" Style="{ThemeResource TitleTextBlockStyle}" />
+            <TextBlock x:Uid="LogPage_Subtitle" Opacity="0.7" />
         </StackPanel>
 
         <Grid Grid.Row="1" Padding="24,0" ColumnSpacing="12" RowSpacing="8">
@@ -31,30 +33,30 @@
 
             <StackPanel Grid.Row="0" Grid.Column="0" Orientation="Horizontal" Spacing="12" MinWidth="240" VerticalAlignment="Center">
                 <ComboBox x:Name="LevelFilter" Width="120" Margin="0,4,0,0" SelectionChanged="OnLevelChanged" SelectedIndex="0">
-                    <ComboBoxItem Content="全部级别" Tag="All" />
-                    <ComboBoxItem Content="信息" Tag="Info" />
-                    <ComboBoxItem Content="警告" Tag="Warning" />
-                    <ComboBoxItem Content="错误" Tag="Error" />
-                    <ComboBoxItem Content="调试" Tag="Debug" />
+                    <ComboBoxItem x:Uid="LogPage_Level_All" Tag="All" />
+                    <ComboBoxItem x:Uid="LogPage_Level_Info" Tag="Info" />
+                    <ComboBoxItem x:Uid="LogPage_Level_Warning" Tag="Warning" />
+                    <ComboBoxItem x:Uid="LogPage_Level_Error" Tag="Error" />
+                    <ComboBoxItem x:Uid="LogPage_Level_Debug" Tag="Debug" />
                 </ComboBox>
 
-                <TextBox x:Name="SearchBox" Width="200" Height="33" PlaceholderText="搜索关键字" TextChanged="OnKeywordChanged" />
+                <TextBox x:Name="SearchBox" x:Uid="LogPage_SearchBox" Width="200" Height="33" TextChanged="OnKeywordChanged" />
 
                 <StackPanel Orientation="Horizontal" Spacing="4" VerticalAlignment="Center">
-                    <TextBlock Text="实时刷新" VerticalAlignment="Center" FontSize="14" Opacity="0.8"/>
+                    <TextBlock x:Uid="LogPage_LiveRefresh" VerticalAlignment="Center" FontSize="14" Opacity="0.8"/>
                     <ToggleSwitch x:Name="LiveToggle" IsOn="True" Toggled="OnLiveToggled" OnContent="" OffContent="" VerticalAlignment="Center" Margin="4,0,0,0"/>
                 </StackPanel>
 
                 <StackPanel Orientation="Horizontal" Spacing="4" VerticalAlignment="Center">
-                    <TextBlock Text="自动滚动" VerticalAlignment="Center" FontSize="14" Opacity="0.8"/>
+                    <TextBlock x:Uid="LogPage_AutoScroll" VerticalAlignment="Center" FontSize="14" Opacity="0.8"/>
                     <ToggleSwitch x:Name="AutoScrollToggle" IsOn="True" OnContent="" OffContent="" VerticalAlignment="Center" Margin="4,0,0,0"/>
                 </StackPanel>
             </StackPanel>
 
             <StackPanel Grid.Row="0" Grid.Column="1" Orientation="Horizontal" Spacing="8" HorizontalAlignment="Right" VerticalAlignment="Center">
-                <Button Content="复制选中" Click="OnCopyClick" />
-                <Button Content="清空" Click="OnClearClick" />
-                <Button Content="打开日志文件夹" Click="OnOpenFolderClick" />
+                <Button x:Uid="LogPage_CopySelected" Click="OnCopyClick" />
+                <Button x:Uid="LogPage_Clear" Click="OnClearClick" />
+                <Button x:Uid="LogPage_OpenLogFolder" Click="OnOpenFolderClick" />
             </StackPanel>
         </Grid>
 
@@ -94,7 +96,7 @@
                                             Background="{Binding Level, Converter={StaticResource LogLevelBrushConverter}, ConverterParameter=background}"
                                             BorderBrush="{Binding Level, Converter={StaticResource LogLevelBrushConverter}}"
                                             BorderThickness="1">
-                                        <TextBlock Text="{x:Bind Level}" FontWeight="SemiBold" />
+                                        <TextBlock Text="{Binding Level, Converter={StaticResource LogLevelStringConverter}}" FontWeight="SemiBold" />
                                     </Border>
                                     <TextBlock Text="{x:Bind Source}" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
                                 </StackPanel>
@@ -111,8 +113,8 @@
         </Grid>
 
         <Grid Grid.Row="3" Padding="24,8,24,16" ColumnDefinitions="*,Auto" VerticalAlignment="Center">
-            <TextBlock Text="最新日志自动保存在本地，可在设置中关闭。" Opacity="0.6" />
-            <Button Grid.Column="1" Content="打开当前日志文件" Click="OnOpenFileClick" />
+            <TextBlock x:Uid="LogPage_BottomHint" Opacity="0.6" />
+            <Button Grid.Column="1" x:Uid="LogPage_OpenCurrentLogFile" Click="OnOpenFileClick" />
         </Grid>
     </Grid>
 </Page>

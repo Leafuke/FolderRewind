@@ -77,7 +77,7 @@ namespace FolderRewind.Services.Plugins
             }
             catch (Exception ex)
             {
-                LogService.LogError($"[PluginStore] 下载/安装失败：{ex.Message}", "PluginStoreService", ex);
+                LogService.LogError(I18n.Format("PluginStore_Log_DownloadInstallFailed", ex.Message), "PluginStoreService", ex);
                 return (false, string.Format(_rl.GetString("PluginStore_DownloadInstallFailed"), ex.Message));
             }
         }

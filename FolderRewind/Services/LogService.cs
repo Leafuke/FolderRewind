@@ -65,7 +65,7 @@ namespace FolderRewind.Services
             }
             catch
             {
-                // ignore subscriber failures
+                
             }
         }
 
@@ -94,7 +94,7 @@ namespace FolderRewind.Services
             }
             catch
             {
-                // ignore file IO errors
+                
             }
         }
 
@@ -116,7 +116,7 @@ namespace FolderRewind.Services
             }
             catch
             {
-                // ignore
+                
             }
         }
 
@@ -142,7 +142,7 @@ namespace FolderRewind.Services
             }
             catch
             {
-                // ignore file IO errors
+                
             }
         }
 
@@ -169,7 +169,7 @@ namespace FolderRewind.Services
             }
             catch
             {
-                // ignore rotation errors
+               
             }
         }
 
@@ -190,13 +190,13 @@ namespace FolderRewind.Services
                     }
                     catch
                     {
-                        // ignore single-file errors
+                        
                     }
                 }
             }
             catch
             {
-                // ignore
+                
             }
         }
 
