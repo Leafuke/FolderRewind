@@ -178,7 +178,7 @@
                                             <TextBlock x:Uid="SettingsPage_NavPaneWidth" />
                                             <TextBlock x:Uid="SettingsPage_NavPaneWidthDesc" FontSize="12" Opacity="0.6" TextWrapping="Wrap" />
                                         </StackPanel>
-                                        <NumberBox Grid.Column="1" Width="180" Minimum="160" Maximum="600" Value="{x:Bind Settings.NavPaneWidth, Mode=TwoWay}" SpinButtonPlacementMode="Inline" SmallChange="10" LargeChange="50" />
+                                        <NumberBox Grid.Column="1" Width="180" Minimum="100" Maximum="600" Value="{x:Bind Settings.NavPaneWidth, Mode=TwoWay}" SpinButtonPlacementMode="Inline" SmallChange="10" LargeChange="50" />
                                     </Grid>
 
                                     <Grid>

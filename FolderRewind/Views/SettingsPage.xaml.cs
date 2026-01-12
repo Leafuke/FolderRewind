@@ -345,7 +345,7 @@ namespace FolderRewind.Views
         private void OnKnotLinkResetClick(object sender, RoutedEventArgs e)
         {
             Settings.KnotLinkHost = "127.0.0.1";
-            Settings.KnotLinkAppId = "0x00000030";
+            Settings.KnotLinkAppId = "0x00000020";
             Settings.KnotLinkOpenSocketId = "0x00000010";
             Settings.KnotLinkSignalId = "0x00000020";
             ConfigService.Save();
