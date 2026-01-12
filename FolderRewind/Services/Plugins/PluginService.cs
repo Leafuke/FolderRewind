@@ -467,15 +467,46 @@ namespace FolderRewind.Services.Plugins
         /// <summary>
         /// 调用插件批量创建配置
         /// </summary>
-        public static PluginCreateConfigResult InvokeCreateConfigs(string selectedRootPath)
+        public static PluginCreateConfigResult InvokeCreateConfigs(string selectedRootPath, string? configType = null)
         {
             if (!IsPluginSystemEnabled()) return new PluginCreateConfigResult { Handled = false };
             if (string.IsNullOrWhiteSpace(selectedRootPath)) return new PluginCreateConfigResult { Handled = false };
+
+            var typeFilter = string.IsNullOrWhiteSpace(configType) ? null : configType;
+            if (string.Equals(typeFilter, "Default", StringComparison.OrdinalIgnoreCase))
+            {
+                // Default 不是插件类型，不走插件批量创建
+                return new PluginCreateConfigResult { Handled = false };
+            }
 
             foreach (var plugin in GetEnabledLoadedPluginsSnapshot())
             {
                 try
                 {
+                    if (!string.IsNullOrWhiteSpace(typeFilter))
+                    {
+                        bool canHandleType = false;
+                        try
+                        {
+                            canHandleType = plugin.CanHandleConfigType(typeFilter);
+                        }
+                        catch
+                        {
+                            // ignore; fallback to supported types list
+                        }
+
+                        if (!canHandleType)
+                        {
+                            var supported = plugin.GetSupportedConfigTypes();
+                            canHandleType = supported != null && supported.Any(t => string.Equals(t, typeFilter, StringComparison.OrdinalIgnoreCase));
+                        }
+
+                        if (!canHandleType)
+                        {
+                            continue;
+                        }
+                    }
+
                     var settings = GetPluginSettings(plugin.Manifest.Id);
                     var result = plugin.TryCreateConfigs(selectedRootPath, settings);
                     if (result.Handled)

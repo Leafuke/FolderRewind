@@ -1,5 +1,6 @@
 using FolderRewind.Models;
 using FolderRewind.Services;
+using FolderRewind.Services.Plugins;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Navigation;
@@ -405,6 +406,81 @@ namespace FolderRewind.Views
                     System.Diagnostics.Debug.WriteLine(ex.Message);
                 }
             }
+        }
+
+        // 2.5 插件自动发现（例如 Minecraft：从 .minecraft/versions/*/saves 发现世界）
+        private async void OnPluginDiscoverFoldersClick(object sender, RoutedEventArgs e)
+        {
+            if (CurrentConfig == null) return;
+
+            PluginService.Initialize();
+
+            var rootFolder = await PickFolderAsync();
+            if (rootFolder == null) return;
+
+            var discovered = PluginService.InvokeDiscoverManagedFolders(rootFolder.Path);
+            if (discovered == null || discovered.Count == 0)
+            {
+                var rl = ResourceLoader.GetForViewIndependentUse();
+                var dialog = new ContentDialog
+                {
+                    Title = rl.GetString("FolderManager_PluginDiscover_NoResultTitle"),
+                    Content = rl.GetString("FolderManager_PluginDiscover_NoResultContent"),
+                    CloseButtonText = rl.GetString("Common_Ok"),
+                    DefaultButton = ContentDialogButton.Close,
+                    XamlRoot = this.XamlRoot
+                };
+                await dialog.ShowAsync();
+                return;
+            }
+
+            var toAdd = discovered
+                .Where(f => f != null && !string.IsNullOrWhiteSpace(f.Path))
+                .Where(f => !CurrentConfig.SourceFolders.Any(x => string.Equals(x.Path, f.Path, StringComparison.OrdinalIgnoreCase)))
+                .ToList();
+
+            if (toAdd.Count == 0)
+            {
+                var rl = ResourceLoader.GetForViewIndependentUse();
+                var dialog = new ContentDialog
+                {
+                    Title = rl.GetString("FolderManager_PluginDiscover_NoNewTitle"),
+                    Content = rl.GetString("FolderManager_PluginDiscover_NoNewContent"),
+                    CloseButtonText = rl.GetString("Common_Ok"),
+                    DefaultButton = ContentDialogButton.Close,
+                    XamlRoot = this.XamlRoot
+                };
+                await dialog.ShowAsync();
+                return;
+            }
+
+            {
+                var rl = ResourceLoader.GetForViewIndependentUse();
+                var confirm = new ContentDialog
+                {
+                    Title = rl.GetString("FolderManager_PluginDiscover_ConfirmTitle"),
+                    Content = string.Format(rl.GetString("FolderManager_PluginDiscover_ConfirmContent"), toAdd.Count),
+                    PrimaryButtonText = rl.GetString("Common_Ok"),
+                    CloseButtonText = rl.GetString("Common_Cancel"),
+                    DefaultButton = ContentDialogButton.Primary,
+                    XamlRoot = this.XamlRoot
+                };
+
+                var res = await confirm.ShowAsync();
+                if (res != ContentDialogResult.Primary) return;
+            }
+
+            var resourceLoader = ResourceLoader.GetForViewIndependentUse();
+            foreach (var f in toAdd)
+            {
+                if (string.IsNullOrWhiteSpace(f.LastBackupTime))
+                {
+                    f.LastBackupTime = resourceLoader.GetString("FolderManager_NeverBackedUp");
+                }
+                CurrentConfig.SourceFolders.Add(f);
+            }
+
+            ConfigService.Save();
         }
 
         // 通用添加逻辑

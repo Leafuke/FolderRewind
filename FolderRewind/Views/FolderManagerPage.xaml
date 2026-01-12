@@ -61,6 +61,8 @@
                             <MenuFlyout>
                                 <MenuFlyoutItem x:Uid="FolderManager_AddSingleFolder" Icon="Folder" Click="OnAddSingleFolderClick"/>
                                 <MenuFlyoutItem x:Uid="FolderManager_AddSubFolders" Icon="List" Click="OnAddSubFoldersClick"/>
+                                <MenuFlyoutSeparator />
+                                <MenuFlyoutItem x:Uid="FolderManager_PluginDiscover" Icon="Find" Click="OnPluginDiscoverFoldersClick"/>
                             </MenuFlyout>
                         </Button.Flyout>
                     </Button>

@@ -1,11 +1,13 @@
 using FolderRewind.Models;
 using FolderRewind.Services;
+using FolderRewind.Services.Plugins;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using System;
 using System.Diagnostics;
 using System.IO;
 using System.Linq;
+using System.Collections.ObjectModel;
 using Windows.Storage.Pickers;
 using WinRT.Interop;
 
@@ -14,6 +16,19 @@ namespace FolderRewind.Views
     public sealed partial class ConfigSettingsDialog : ContentDialog
     {
         public BackupConfig Config { get; private set; }
+
+        // 绑定视图（避免 MSIX + Trim 下 WinRT 对自定义泛型集合投影异常）
+        public ObservableCollection<object> ConfigTypesView { get; } = new();
+
+        public string SelectedConfigType
+        {
+            get => Config?.ConfigType ?? "Default";
+            set
+            {
+                if (Config == null) return;
+                Config.ConfigType = string.IsNullOrWhiteSpace(value) ? "Default" : value;
+            }
+        }
 
         public string ConfigFilePath => ConfigService.ConfigFilePath;
 
@@ -32,6 +47,19 @@ namespace FolderRewind.Views
             this.Config = config;
             // ȷ�� XamlRoot �����ã����� ContentDialog �� WinUI3 ���
             this.XamlRoot = App._window.Content.XamlRoot;
+
+            PluginService.Initialize();
+            ConfigTypesView.Clear();
+            foreach (var t in PluginService.GetAllSupportedConfigTypes())
+            {
+                ConfigTypesView.Add(t);
+            }
+
+            // 如果当前类型不在列表里，也允许展示出来（避免旧配置类型丢失）
+            if (!ConfigTypesView.OfType<string>().Any(t => string.Equals(t, Config.ConfigType, StringComparison.OrdinalIgnoreCase)))
+            {
+                ConfigTypesView.Add(Config.ConfigType);
+            }
 
             IconGrid.ItemsSource = IconOptions;
             IconGrid.SelectedItem = IconOptions.FirstOrDefault(i => i == Config.IconGlyph) ?? IconOptions.First();

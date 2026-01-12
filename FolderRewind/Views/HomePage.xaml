@@ -9,7 +9,7 @@
     mc:Ignorable="d">
 
     <ScrollViewer Padding="24">
-        <StackPanel Spacing="32">
+        <StackPanel Spacing="0">
 
             <!-- 第一部分：收藏的文件夹 -->
             <StackPanel Spacing="12">
@@ -60,6 +60,10 @@
                                         Padding="12"
                                         HorizontalContentAlignment="Stretch"
                                         VerticalContentAlignment="Stretch"
+                                        HorizontalAlignment="Stretch"
+                                        VerticalAlignment="Stretch"
+                                        Width="300"
+                                        Height="100"
                                         Click="OnFavoriteCardClick">
                                     <Grid ColumnSpacing="12">
                                         <Grid.ColumnDefinitions>
@@ -163,6 +167,10 @@
                                         Padding="12"
                                         HorizontalContentAlignment="Stretch"
                                         VerticalContentAlignment="Stretch"
+                                        HorizontalAlignment="Stretch"
+                                        VerticalAlignment="Stretch"
+                                        Width="300"
+                                        Height="100"
                                         Click="OnConfigCardClick">
                                     <Grid ColumnSpacing="12">
                                         <Grid.ColumnDefinitions>

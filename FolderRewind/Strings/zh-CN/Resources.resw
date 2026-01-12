@@ -138,6 +138,33 @@
   <data name="HomePage_NewConfigSummary" xml:space="preserve">
     <value>新建 · 暂无数据</value>
   </data>
+  <data name="HomePage_ConfigTypeHeader" xml:space="preserve">
+    <value>配置类型</value>
+  </data>
+  <data name="HomePage_ConfigTypeDesc" xml:space="preserve">
+    <value>不同类型的配置可由插件提供额外能力（例如 Minecraft 热备份、自动扫描存档等）。</value>
+  </data>
+  <data name="HomePage_PluginBatchCreateHeader" xml:space="preserve">
+    <value>批量创建（插件）</value>
+  </data>
+  <data name="HomePage_PluginBatchCreateOff" xml:space="preserve">
+    <value>关闭</value>
+  </data>
+  <data name="HomePage_PluginBatchCreateOn" xml:space="preserve">
+    <value>开启：扫描并自动生成多个配置</value>
+  </data>
+  <data name="HomePage_PluginBatchCreatePickRootTitle" xml:space="preserve">
+    <value>选择要扫描的目录（例如 .minecraft / versions / saves）</value>
+  </data>
+  <data name="HomePage_PluginBatchCreatePickDestinationTitle" xml:space="preserve">
+    <value>选择备份目标目录（可选）</value>
+  </data>
+  <data name="HomePage_PluginBatchCreateFailedTitle" xml:space="preserve">
+    <value>批量创建失败</value>
+  </data>
+  <data name="HomePage_PluginBatchCreateFailedContent" xml:space="preserve">
+    <value>没有任何插件处理该目录，请检查插件是否启用，或选择正确的 .minecraft/versions/版本名/saves 路径。</value>
+  </data>
   <data name="FolderManager_NeverBackedUp" xml:space="preserve">
     <value>从未备份</value>
   </data>
@@ -303,6 +330,27 @@
   <data name="FolderManager_AddSubFolders.Text" xml:space="preserve">
     <value>批量导入子文件夹</value>
   </data>
+    <data name="FolderManager_PluginDiscover.Text" xml:space="preserve">
+      <value>扫描（插件自动发现）</value>
+    </data>
+    <data name="FolderManager_PluginDiscover_NoResultTitle" xml:space="preserve">
+      <value>未发现任何内容</value>
+    </data>
+    <data name="FolderManager_PluginDiscover_NoResultContent" xml:space="preserve">
+      <value>插件没有从该目录发现可添加的文件夹。你可以尝试选择 .minecraft 或 versions/版本名/saves 等目录。</value>
+    </data>
+    <data name="FolderManager_PluginDiscover_NoNewTitle" xml:space="preserve">
+      <value>没有新项目</value>
+    </data>
+    <data name="FolderManager_PluginDiscover_NoNewContent" xml:space="preserve">
+      <value>发现的文件夹已全部存在于当前配置中，无需重复添加。</value>
+    </data>
+    <data name="FolderManager_PluginDiscover_ConfirmTitle" xml:space="preserve">
+      <value>确认添加</value>
+    </data>
+    <data name="FolderManager_PluginDiscover_ConfirmContent" xml:space="preserve">
+      <value>插件发现了 {0} 个文件夹，是否全部添加到当前配置？</value>
+    </data>
   <data name="FolderManager_BackupAll.Text" xml:space="preserve">
     <value>一键备份所有</value>
   </data>
@@ -395,6 +443,12 @@
   </data>
   <data name="ConfigSettingsDialog_ConfigName.Header" xml:space="preserve">
     <value>配置名称</value>
+  </data>
+  <data name="ConfigSettingsDialog_ConfigType.Text" xml:space="preserve">
+    <value>配置类型</value>
+  </data>
+  <data name="ConfigSettingsDialog_ConfigTypeDesc.Text" xml:space="preserve">
+    <value>切换配置类型会影响插件是否介入备份流程（例如 Minecraft 热备份快照）。</value>
   </data>
   <data name="ConfigSettingsDialog_DestPath.Text" xml:space="preserve">
     <value>备份存储位置 (目标路径)</value>

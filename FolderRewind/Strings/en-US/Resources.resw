@@ -35,6 +35,33 @@
   <data name="HomePage_NewConfigSummary" xml:space="preserve">
     <value>New · No data yet</value>
   </data>
+  <data name="HomePage_ConfigTypeHeader" xml:space="preserve">
+    <value>Config type</value>
+  </data>
+  <data name="HomePage_ConfigTypeDesc" xml:space="preserve">
+    <value>Different config types can be enhanced by plugins (e.g., Minecraft hot backup, auto discovery).</value>
+  </data>
+  <data name="HomePage_PluginBatchCreateHeader" xml:space="preserve">
+    <value>Batch create (plugin)</value>
+  </data>
+  <data name="HomePage_PluginBatchCreateOff" xml:space="preserve">
+    <value>Off</value>
+  </data>
+  <data name="HomePage_PluginBatchCreateOn" xml:space="preserve">
+    <value>On: scan and create multiple configs</value>
+  </data>
+  <data name="HomePage_PluginBatchCreatePickRootTitle" xml:space="preserve">
+    <value>Select a folder to scan (e.g., .minecraft / versions / saves)</value>
+  </data>
+  <data name="HomePage_PluginBatchCreatePickDestinationTitle" xml:space="preserve">
+    <value>Select a backup destination folder (optional)</value>
+  </data>
+  <data name="HomePage_PluginBatchCreateFailedTitle" xml:space="preserve">
+    <value>Batch create failed</value>
+  </data>
+  <data name="HomePage_PluginBatchCreateFailedContent" xml:space="preserve">
+    <value>No plugin handled this folder. Make sure the plugin is enabled, and pick the correct .minecraft/versions/&lt;version&gt;/saves path.</value>
+  </data>
   <data name="FolderManager_NeverBackedUp" xml:space="preserve">
     <value>Never backed up</value>
   </data>
@@ -212,6 +239,27 @@
   <data name="FolderManager_AddSubFolders.Text" xml:space="preserve">
     <value>Import subfolders</value>
   </data>
+    <data name="FolderManager_PluginDiscover.Text" xml:space="preserve">
+      <value>Scan (plugin discovery)</value>
+    </data>
+    <data name="FolderManager_PluginDiscover_NoResultTitle" xml:space="preserve">
+      <value>Nothing found</value>
+    </data>
+    <data name="FolderManager_PluginDiscover_NoResultContent" xml:space="preserve">
+      <value>The plugin didn't discover any folders from this path. Try selecting .minecraft or versions/&lt;version&gt;/saves.</value>
+    </data>
+    <data name="FolderManager_PluginDiscover_NoNewTitle" xml:space="preserve">
+      <value>No new items</value>
+    </data>
+    <data name="FolderManager_PluginDiscover_NoNewContent" xml:space="preserve">
+      <value>All discovered folders already exist in the current config.</value>
+    </data>
+    <data name="FolderManager_PluginDiscover_ConfirmTitle" xml:space="preserve">
+      <value>Confirm add</value>
+    </data>
+    <data name="FolderManager_PluginDiscover_ConfirmContent" xml:space="preserve">
+      <value>The plugin discovered {0} folders. Add them to the current config?</value>
+    </data>
   <data name="FolderManager_BackupAll.Text" xml:space="preserve">
     <value>Backup all</value>
   </data>
@@ -308,6 +356,12 @@
   </data>
   <data name="ConfigSettingsDialog_ConfigName.Header" xml:space="preserve">
     <value>Config name</value>
+  </data>
+  <data name="ConfigSettingsDialog_ConfigType.Text" xml:space="preserve">
+    <value>Config type</value>
+  </data>
+  <data name="ConfigSettingsDialog_ConfigTypeDesc.Text" xml:space="preserve">
+    <value>Changing the config type affects whether plugins can hook into backup/restore (e.g., Minecraft hot backup snapshots).</value>
   </data>
   <data name="ConfigSettingsDialog_DestPath.Text" xml:space="preserve">
     <value>Backup destination</value>
