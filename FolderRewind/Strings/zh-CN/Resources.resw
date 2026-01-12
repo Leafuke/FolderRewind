@@ -557,6 +557,9 @@
   <data name="SettingsPage_OpenPluginStore.Content" xml:space="preserve">
     <value>打开插件商店</value>
   </data>
+  <data name="SettingsPage_ManualInstallPlugin.Content" xml:space="preserve">
+    <value>手动安装插件</value>
+  </data>
   <data name="SettingsPage_OpenPluginFolder.Content" xml:space="preserve">
     <value>打开插件目录</value>
   </data>
@@ -571,6 +574,145 @@
   </data>
   <data name="SettingsPage_PluginUninstall.Content" xml:space="preserve">
     <value>卸载</value>
+  </data>
+
+  <!-- 插件商店页 -->
+  <data name="PluginStorePage_Title.Text" xml:space="preserve">
+    <value>插件商店</value>
+  </data>
+  <data name="PluginStorePage_Desc.Text" xml:space="preserve">
+    <value>从 GitHub Release（latest）下载插件 zip。zip 根目录需包含 manifest.json。</value>
+  </data>
+  <data name="PluginStorePage_RepoBox.Header" xml:space="preserve">
+    <value>GitHub 仓库 (owner/repo)</value>
+  </data>
+  <data name="PluginStorePage_RepoBox.PlaceholderText" xml:space="preserve">
+    <value>例如：YourOrg/FolderRewind.Plugins</value>
+  </data>
+  <data name="PluginStorePage_Load.Content" xml:space="preserve">
+    <value>加载</value>
+  </data>
+  <data name="PluginStorePage_EmptyRepoHint.Text" xml:space="preserve">
+    <value>未配置仓库，无法加载插件列表。</value>
+  </data>
+  <data name="PluginStorePage_Install.Content" xml:space="preserve">
+    <value>安装</value>
+  </data>
+
+  <!-- 通用（代码调用） -->
+  <data name="Common_Ok" xml:space="preserve">
+    <value>确定</value>
+  </data>
+  <data name="Common_Cancel" xml:space="preserve">
+    <value>取消</value>
+  </data>
+  <data name="Common_Close" xml:space="preserve">
+    <value>关闭</value>
+  </data>
+  <data name="Common_Done" xml:space="preserve">
+    <value>完成</value>
+  </data>
+  <data name="Common_Failed" xml:space="preserve">
+    <value>失败</value>
+  </data>
+  <data name="Common_Canceled" xml:space="preserve">
+    <value>已取消</value>
+  </data>
+
+  <!-- 插件（代码调用） -->
+  <data name="Plugins_StoreDialogTitle" xml:space="preserve">
+    <value>插件商店</value>
+  </data>
+  <data name="Plugins_UninstallTitle" xml:space="preserve">
+    <value>卸载插件</value>
+  </data>
+  <data name="Plugins_UninstallConfirm" xml:space="preserve">
+    <value>确定卸载插件：{0} ({1})？\n\n提示：如果插件文件被占用，可能需要关闭应用后再卸载。</value>
+  </data>
+  <data name="Plugins_UninstallButton" xml:space="preserve">
+    <value>卸载</value>
+  </data>
+  <data name="Plugins_SettingsTitle" xml:space="preserve">
+    <value>插件设置</value>
+  </data>
+  <data name="Plugins_NoSettings" xml:space="preserve">
+    <value>该插件未提供可配置项。</value>
+  </data>
+
+  <!-- 插件商店服务（代码调用） -->
+  <data name="PluginStore_InvalidItem" xml:space="preserve">
+    <value>无效的下载项</value>
+  </data>
+  <data name="PluginStore_OnlyZipSupported" xml:space="preserve">
+    <value>当前仅支持 zip 插件包（需要包含 manifest.json）</value>
+  </data>
+  <data name="PluginStore_DownloadInstallFailed" xml:space="preserve">
+    <value>下载/安装失败：{0}</value>
+  </data>
+  <data name="PluginStorePage_StatusDownloading" xml:space="preserve">
+    <value>下载中...</value>
+  </data>
+
+  <!-- 插件服务（代码调用） -->
+  <data name="PluginService_IncompatibleHostVersion" xml:space="preserve">
+    <value>需要 Host 版本 {0}，当前版本 {1}</value>
+  </data>
+  <data name="PluginService_VersionParseFailed" xml:space="preserve">
+    <value>版本解析失败：{0}</value>
+  </data>
+  <data name="PluginService_PackageNotFound" xml:space="preserve">
+    <value>安装包不存在</value>
+  </data>
+  <data name="PluginService_MissingManifest" xml:space="preserve">
+    <value>安装包缺少 manifest.json</value>
+  </data>
+  <data name="PluginService_InvalidManifestNoId" xml:space="preserve">
+    <value>manifest.json 无效（缺少 Id）</value>
+  </data>
+  <data name="PluginService_OverwriteFailed" xml:space="preserve">
+    <value>无法覆盖安装（删除旧版本失败）：{0}</value>
+  </data>
+  <data name="PluginService_ZipSlip" xml:space="preserve">
+    <value>安装包路径非法（ZipSlip）</value>
+  </data>
+  <data name="PluginService_InstallSuccessDisabled" xml:space="preserve">
+    <value>安装成功（可在设置中启用）</value>
+  </data>
+  <data name="PluginService_InstallFailed" xml:space="preserve">
+    <value>安装失败：{0}</value>
+  </data>
+  <data name="PluginService_EmptyPluginId" xml:space="preserve">
+    <value>插件 ID 为空</value>
+  </data>
+  <data name="PluginService_NotInstalled" xml:space="preserve">
+    <value>插件未安装</value>
+  </data>
+  <data name="PluginService_UninstallSuccess" xml:space="preserve">
+    <value>卸载成功</value>
+  </data>
+  <data name="PluginService_UninstallFailed" xml:space="preserve">
+    <value>卸载失败：{0}（如提示文件被占用，可关闭应用后重试）</value>
+  </data>
+  <data name="PluginService_Load_MissingManifest" xml:space="preserve">
+    <value>缺少 manifest.json</value>
+  </data>
+  <data name="PluginService_Load_ManifestParseFailed" xml:space="preserve">
+    <value>manifest.json 解析失败</value>
+  </data>
+  <data name="PluginService_Load_MissingEntry" xml:space="preserve">
+    <value>manifest 缺少 EntryAssembly/EntryType</value>
+  </data>
+  <data name="PluginService_Load_EntryAssemblyMissing" xml:space="preserve">
+    <value>入口程序集不存在</value>
+  </data>
+  <data name="PluginService_Load_EntryTypeMissing" xml:space="preserve">
+    <value>入口类型不存在</value>
+  </data>
+  <data name="PluginService_Load_EntryTypeNotPlugin" xml:space="preserve">
+    <value>入口类型未实现 IFolderRewindPlugin</value>
+  </data>
+  <data name="PluginService_Load_CreateInstanceFailed" xml:space="preserve">
+    <value>创建插件实例失败</value>
   </data>
   <!-- KnotLink 互联 -->
   <data name="SettingsPage_KnotLink.Text" xml:space="preserve">

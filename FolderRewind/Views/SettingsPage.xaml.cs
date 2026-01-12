@@ -3,6 +3,7 @@ using FolderRewind.Services;
 using FolderRewind.Services.Plugins;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
+using Windows.ApplicationModel.Resources;
 using Microsoft.UI.Xaml.Controls.Primitives;
 using Microsoft.UI.Xaml.Media;
 using System;
@@ -254,10 +255,12 @@ namespace FolderRewind.Views
         {
             if (!PluginService.IsPluginSystemEnabled()) return;
 
+            var rl = ResourceLoader.GetForViewIndependentUse();
+
             var dialog = new ContentDialog
             {
-                Title = "插件商店",
-                CloseButtonText = "关闭",
+                Title = rl.GetString("Plugins_StoreDialogTitle"),
+                CloseButtonText = rl.GetString("Common_Close"),
                 XamlRoot = this.XamlRoot,
                 DefaultButton = ContentDialogButton.Close,
                 Content = new Frame()
@@ -269,6 +272,40 @@ namespace FolderRewind.Views
             }
 
             await dialog.ShowAsync();
+        }
+
+        private async void OnManualInstallPluginClick(object sender, RoutedEventArgs e)
+        {
+            if (!PluginService.IsPluginSystemEnabled()) return;
+
+            var rl = ResourceLoader.GetForViewIndependentUse();
+
+            var picker = new FileOpenPicker();
+            picker.ViewMode = PickerViewMode.List;
+            picker.SuggestedStartLocation = PickerLocationId.Downloads;
+            picker.FileTypeFilter.Add(".zip");
+
+            if (App._window != null)
+            {
+                InitializeWithWindow.Initialize(picker, WindowNative.GetWindowHandle(App._window));
+            }
+
+            var file = await picker.PickSingleFileAsync();
+            if (file == null) return;
+
+            var res = await PluginService.InstallFromZipAsync(file.Path);
+
+            var msg = new ContentDialog
+            {
+                Title = res.Success ? rl.GetString("Common_Done") : rl.GetString("Common_Failed"),
+                Content = res.Message,
+                CloseButtonText = rl.GetString("Common_Ok"),
+                XamlRoot = this.XamlRoot
+            };
+            await msg.ShowAsync();
+
+            PluginService.RefreshInstalledList();
+            Bindings.Update();
         }
 
         private void OnOpenPluginFolderClick(object sender, RoutedEventArgs e)
@@ -294,12 +331,14 @@ namespace FolderRewind.Views
         {
             if (sender is not Button btn || btn.Tag is not InstalledPluginInfo plugin) return;
 
+            var rl = ResourceLoader.GetForViewIndependentUse();
+
             var confirm = new ContentDialog
             {
-                Title = "卸载插件",
-                Content = $"确定卸载插件：{plugin.Name} ({plugin.Id})？\n\n提示：如果插件文件被占用，可能需要关闭应用后再卸载。",
-                PrimaryButtonText = "卸载",
-                CloseButtonText = "取消",
+                Title = rl.GetString("Plugins_UninstallTitle"),
+                Content = string.Format(rl.GetString("Plugins_UninstallConfirm"), plugin.Name, plugin.Id),
+                PrimaryButtonText = rl.GetString("Plugins_UninstallButton"),
+                CloseButtonText = rl.GetString("Common_Cancel"),
                 DefaultButton = ContentDialogButton.Close,
                 XamlRoot = this.XamlRoot
             };
@@ -311,9 +350,9 @@ namespace FolderRewind.Views
 
             var msg = new ContentDialog
             {
-                Title = result.Success ? "完成" : "失败",
+                Title = result.Success ? rl.GetString("Common_Done") : rl.GetString("Common_Failed"),
                 Content = result.Message,
-                CloseButtonText = "确定",
+                CloseButtonText = rl.GetString("Common_Ok"),
                 XamlRoot = this.XamlRoot
             };
             await msg.ShowAsync();
@@ -326,14 +365,16 @@ namespace FolderRewind.Views
         {
             if (sender is not Button btn || btn.Tag is not InstalledPluginInfo plugin) return;
 
+            var rl = ResourceLoader.GetForViewIndependentUse();
+
             var defs = PluginService.GetSettingsDefinitions(plugin.Id);
             if (defs == null || defs.Count == 0)
             {
                 var noSettings = new ContentDialog
                 {
-                    Title = "插件设置",
-                    Content = "该插件未提供可配置项。",
-                    CloseButtonText = "确定",
+                    Title = rl.GetString("Plugins_SettingsTitle"),
+                    Content = rl.GetString("Plugins_NoSettings"),
+                    CloseButtonText = rl.GetString("Common_Ok"),
                     XamlRoot = this.XamlRoot
                 };
                 await noSettings.ShowAsync();

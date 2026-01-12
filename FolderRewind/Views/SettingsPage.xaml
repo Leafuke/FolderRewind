@@ -175,6 +175,7 @@
 
                                 <StackPanel Orientation="Horizontal" Spacing="8">
                                     <Button x:Uid="SettingsPage_OpenPluginStore" Click="OnOpenPluginStoreClick" IsEnabled="{x:Bind Settings.Plugins.Enabled, Mode=OneWay}"/>
+                                    <Button x:Uid="SettingsPage_ManualInstallPlugin" Click="OnManualInstallPluginClick" IsEnabled="{x:Bind Settings.Plugins.Enabled, Mode=OneWay}"/>
                                     <Button x:Uid="SettingsPage_OpenPluginFolder" Click="OnOpenPluginFolderClick"/>
                                     <Button x:Uid="SettingsPage_RefreshPlugins" Click="OnRefreshPluginsClick"/>
                                 </StackPanel>

@@ -472,6 +472,9 @@
   <data name="SettingsPage_OpenPluginStore.Content" xml:space="preserve">
     <value>Open plugin store</value>
   </data>
+  <data name="SettingsPage_ManualInstallPlugin.Content" xml:space="preserve">
+    <value>Install plugin from .zip</value>
+  </data>
   <data name="SettingsPage_OpenPluginFolder.Content" xml:space="preserve">
     <value>Open plugin folder</value>
   </data>
@@ -486,6 +489,145 @@
   </data>
   <data name="SettingsPage_PluginUninstall.Content" xml:space="preserve">
     <value>Uninstall</value>
+  </data>
+
+  <!-- PluginStorePage -->
+  <data name="PluginStorePage_Title.Text" xml:space="preserve">
+    <value>Plugin store</value>
+  </data>
+  <data name="PluginStorePage_Desc.Text" xml:space="preserve">
+    <value>Download plugin zip from the latest GitHub Release. The zip root must contain manifest.json.</value>
+  </data>
+  <data name="PluginStorePage_RepoBox.Header" xml:space="preserve">
+    <value>GitHub repo (owner/repo)</value>
+  </data>
+  <data name="PluginStorePage_RepoBox.PlaceholderText" xml:space="preserve">
+    <value>e.g. YourOrg/FolderRewind.Plugins</value>
+  </data>
+  <data name="PluginStorePage_Load.Content" xml:space="preserve">
+    <value>Load</value>
+  </data>
+  <data name="PluginStorePage_EmptyRepoHint.Text" xml:space="preserve">
+    <value>No repository configured. Cannot load plugin assets.</value>
+  </data>
+  <data name="PluginStorePage_Install.Content" xml:space="preserve">
+    <value>Install</value>
+  </data>
+
+  <!-- Common (code-behind) -->
+  <data name="Common_Ok" xml:space="preserve">
+    <value>OK</value>
+  </data>
+  <data name="Common_Cancel" xml:space="preserve">
+    <value>Cancel</value>
+  </data>
+  <data name="Common_Close" xml:space="preserve">
+    <value>Close</value>
+  </data>
+  <data name="Common_Done" xml:space="preserve">
+    <value>Done</value>
+  </data>
+  <data name="Common_Failed" xml:space="preserve">
+    <value>Failed</value>
+  </data>
+  <data name="Common_Canceled" xml:space="preserve">
+    <value>Canceled</value>
+  </data>
+
+  <!-- Plugins (code-behind) -->
+  <data name="Plugins_StoreDialogTitle" xml:space="preserve">
+    <value>Plugin store</value>
+  </data>
+  <data name="Plugins_UninstallTitle" xml:space="preserve">
+    <value>Uninstall plugin</value>
+  </data>
+  <data name="Plugins_UninstallConfirm" xml:space="preserve">
+    <value>Uninstall plugin: {0} ({1})?\n\nTip: If plugin files are in use, you may need to close the app and try again.</value>
+  </data>
+  <data name="Plugins_UninstallButton" xml:space="preserve">
+    <value>Uninstall</value>
+  </data>
+  <data name="Plugins_SettingsTitle" xml:space="preserve">
+    <value>Plugin settings</value>
+  </data>
+  <data name="Plugins_NoSettings" xml:space="preserve">
+    <value>This plugin does not provide configurable settings.</value>
+  </data>
+
+  <!-- PluginStoreService (code-behind) -->
+  <data name="PluginStore_InvalidItem" xml:space="preserve">
+    <value>Invalid download item</value>
+  </data>
+  <data name="PluginStore_OnlyZipSupported" xml:space="preserve">
+    <value>Only .zip plugin packages are supported (must contain manifest.json)</value>
+  </data>
+  <data name="PluginStore_DownloadInstallFailed" xml:space="preserve">
+    <value>Download/install failed: {0}</value>
+  </data>
+  <data name="PluginStorePage_StatusDownloading" xml:space="preserve">
+    <value>Downloading...</value>
+  </data>
+
+  <!-- PluginService (code-behind) -->
+  <data name="PluginService_IncompatibleHostVersion" xml:space="preserve">
+    <value>Requires host version {0}, current version is {1}</value>
+  </data>
+  <data name="PluginService_VersionParseFailed" xml:space="preserve">
+    <value>Version parse failed: {0}</value>
+  </data>
+  <data name="PluginService_PackageNotFound" xml:space="preserve">
+    <value>Plugin package not found</value>
+  </data>
+  <data name="PluginService_MissingManifest" xml:space="preserve">
+    <value>Plugin package is missing manifest.json</value>
+  </data>
+  <data name="PluginService_InvalidManifestNoId" xml:space="preserve">
+    <value>Invalid manifest.json (missing Id)</value>
+  </data>
+  <data name="PluginService_OverwriteFailed" xml:space="preserve">
+    <value>Cannot overwrite (failed to delete old version): {0}</value>
+  </data>
+  <data name="PluginService_ZipSlip" xml:space="preserve">
+    <value>Invalid package path (ZipSlip)</value>
+  </data>
+  <data name="PluginService_InstallSuccessDisabled" xml:space="preserve">
+    <value>Installed successfully (enable it in Settings)</value>
+  </data>
+  <data name="PluginService_InstallFailed" xml:space="preserve">
+    <value>Install failed: {0}</value>
+  </data>
+  <data name="PluginService_EmptyPluginId" xml:space="preserve">
+    <value>Plugin ID is empty</value>
+  </data>
+  <data name="PluginService_NotInstalled" xml:space="preserve">
+    <value>Plugin is not installed</value>
+  </data>
+  <data name="PluginService_UninstallSuccess" xml:space="preserve">
+    <value>Uninstalled successfully</value>
+  </data>
+  <data name="PluginService_UninstallFailed" xml:space="preserve">
+    <value>Uninstall failed: {0} (if files are in use, close the app and try again)</value>
+  </data>
+  <data name="PluginService_Load_MissingManifest" xml:space="preserve">
+    <value>Missing manifest.json</value>
+  </data>
+  <data name="PluginService_Load_ManifestParseFailed" xml:space="preserve">
+    <value>Failed to parse manifest.json</value>
+  </data>
+  <data name="PluginService_Load_MissingEntry" xml:space="preserve">
+    <value>Manifest missing EntryAssembly/EntryType</value>
+  </data>
+  <data name="PluginService_Load_EntryAssemblyMissing" xml:space="preserve">
+    <value>Entry assembly not found</value>
+  </data>
+  <data name="PluginService_Load_EntryTypeMissing" xml:space="preserve">
+    <value>Entry type not found</value>
+  </data>
+  <data name="PluginService_Load_EntryTypeNotPlugin" xml:space="preserve">
+    <value>Entry type does not implement IFolderRewindPlugin</value>
+  </data>
+  <data name="PluginService_Load_CreateInstanceFailed" xml:space="preserve">
+    <value>Failed to create plugin instance</value>
   </data>
   <!-- KnotLink integration -->
   <data name="SettingsPage_KnotLink.Text" xml:space="preserve">
