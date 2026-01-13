@@ -1,7 +1,7 @@
 # FolderRewind
 
 [![中文说明](https://img.shields.io/badge/README-中文-blue)](README_zh.md)
-[![Issues](https://img.shields.io/github/issues/Leafuke/MineBackup?style=flat-square)](https://github.com/Leafuke/MineBackup/issues)
+[![Issues](https://img.shields.io/github/issues/Leafuke/FolderRewind?style=flat-square)](https://github.com/Leafuke/FolderRewind/issues)
 
 **Time travel for your folders.**
 
