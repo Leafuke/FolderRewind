@@ -113,6 +113,16 @@ namespace FolderRewind.Services
         {
             CurrentConfig = new AppConfig();
 
+            try
+            {
+                CurrentConfig.GlobalSettings.SevenZipPath = "7za.exe";
+                CurrentConfig.GlobalSettings.FontFamily = FontService.GetRecommendedDefaultFontFamily();
+            }
+            catch
+            {
+                
+            }
+
             // 示例配置
             var defaultConfig = new BackupConfig
             {
@@ -208,7 +218,12 @@ namespace FolderRewind.Services
 
             if (string.IsNullOrWhiteSpace(settings.FontFamily))
             {
-                settings.FontFamily = "Segoe UI Variable";
+                settings.FontFamily = FontService.GetRecommendedDefaultFontFamily();
+            }
+
+            if (string.IsNullOrWhiteSpace(settings.SevenZipPath))
+            {
+                settings.SevenZipPath = "7za.exe";
             }
 
             if (double.IsNaN(settings.BaseFontSize) || settings.BaseFontSize <= 0)

@@ -1,6 +1,5 @@
 ﻿using FolderRewind.Models;
 using System;
-using System.Collections.Generic;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
@@ -12,9 +11,6 @@ namespace FolderRewind.Services
         private static Timer _timer;
         private static bool _isRunning = false;
         private static readonly SemaphoreSlim _tickLock = new(1, 1);
-
-        // 上次检查时间，防止重复触发
-        private static DateTime _lastCheckTime = DateTime.MinValue;
 
         public static void Start()
         {
@@ -40,10 +36,9 @@ namespace FolderRewind.Services
             foreach (var config in ConfigService.CurrentConfig.BackupConfigs)
             {
                 // 如果开启了“启动时运行”
-                if (config.Automation.RunOnAppStart)
+                if (config.Automation.AutoBackupEnabled && config.Automation.RunOnAppStart)
                 {
-                    await BackupService.BackupConfigAsync(config);
-                    // 可以发个通知：启动备份已完成
+                    await RunAutoBackupAsync(config, now, "Auto backup (app start)");
                 }
             }
         }
@@ -55,29 +50,37 @@ namespace FolderRewind.Services
             try
             {
                 var now = DateTime.Now;
+                var utcNow = DateTime.UtcNow;
 
                 // 遍历所有配置
                 foreach (var config in ConfigService.CurrentConfig.BackupConfigs)
                 {
-                    // 1. 间隔模式 (每隔 X 分钟)
-                    // 这需要记录上次备份时间，我们在 ManagedFolder 里记录了 LastBackupTime (string)
-                    // 但那是给用户看的，最好在 Config 级别或者 Metadata 里存一个准确的 DateTime LastAutoBackupTime
-                    // 为了简化，这里先不实现复杂的间隔逻辑，只实现“每日定时”
+                    if (config?.Automation == null) continue;
+                    if (!config.Automation.AutoBackupEnabled) continue;
 
-                    // 2. 每日定时 (Scheduled Mode)
-                    if (config.Automation.ScheduledMode && config.Automation.AutoBackupEnabled)
+                    // 每日定时
+                    if (config.Automation.ScheduledMode)
                     {
-                        // 检查当前小时是否匹配，且今天还没备份过
-                        // 这里简化逻辑：如果当前时间 > 设定时间，且上次自动备份时间不是今天
-                        if (now.Hour == config.Automation.ScheduledHour && now.Minute < 5) // 5分钟窗口
+                        // 5分钟内触发一次，“今天是否已跑过”
+                        if (now.Hour == config.Automation.ScheduledHour && now.Minute < 5)
                         {
-                            // 检查是否今天已运行 (需要扩展 Config 模型存储 LastRunDate)
-                            if (!IsRunToday(config))
+                            if (!IsRunToday(config, now))
                             {
-                                await BackupService.BackupConfigAsync(config);
-                                MarkRunToday(config);
+                                await RunAutoBackupAsync(config, now, "Auto backup (scheduled)");
                             }
                         }
+
+                        continue;
+                    }
+
+                    // 间隔模式
+                    var intervalMinutes = Math.Clamp(config.Automation.IntervalMinutes, 1, 10080);
+                    var lastUtc = config.Automation.LastAutoBackupUtc;
+                    var due = lastUtc == DateTime.MinValue || (utcNow - lastUtc) >= TimeSpan.FromMinutes(intervalMinutes);
+
+                    if (due)
+                    {
+                        await RunAutoBackupAsync(config, now, $"Auto backup (interval {intervalMinutes} min)");
                     }
                 }
             }
@@ -87,21 +90,51 @@ namespace FolderRewind.Services
             }
         }
 
-        // 简单的内存标记，实际应该存入 Config
-        private static Dictionary<string, DateTime> _lastRunMap = new();
-
-        private static bool IsRunToday(BackupConfig config)
+        private static bool IsRunToday(BackupConfig config, DateTime now)
         {
-            if (_lastRunMap.TryGetValue(config.Id, out var lastRun))
+            try
             {
-                return lastRun.Date == DateTime.Today;
+                var last = config.Automation.LastScheduledRunDateLocal;
+                return last != DateTime.MinValue && last.Date == now.Date;
             }
-            return false;
+            catch
+            {
+                return false;
+            }
         }
 
-        private static void MarkRunToday(BackupConfig config)
+        private static async Task RunAutoBackupAsync(BackupConfig config, DateTime nowLocal, string reason)
         {
-            _lastRunMap[config.Id] = DateTime.Now;
+            try
+            {
+                LogService.Log($"[AutoBackup] {reason}: {config.Name}");
+            }
+            catch
+            {
+            }
+
+            try
+            {
+                await BackupService.BackupConfigAsync(config);
+
+                // 成功后更新时间戳并持久化
+                config.Automation.LastAutoBackupUtc = DateTime.UtcNow;
+                if (config.Automation.ScheduledMode)
+                {
+                    config.Automation.LastScheduledRunDateLocal = nowLocal.Date;
+                }
+                ConfigService.Save();
+            }
+            catch (Exception ex)
+            {
+                try
+                {
+                    LogService.Log($"[AutoBackup] Failed: {config.Name}: {ex.Message}");
+                }
+                catch
+                {
+                }
+            }
         }
     }
 }

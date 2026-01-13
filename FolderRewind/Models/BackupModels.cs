@@ -1,4 +1,5 @@
-﻿using System;
+﻿using FolderRewind.Services;
+using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.ComponentModel;
@@ -53,8 +54,8 @@ namespace FolderRewind.Models
     public class GlobalSettings : ObservableObject
     {
         private string _language = "zh_CN";
-        private int _themeIndex = 1; // 0: Dark, 1: Light, etc. (default now Light)
-        private string _sevenZipPath = "7z.exe"; // 全局 7z 路径
+        private int _themeIndex = 1; // 0: Dark, 1: Light
+        private string _sevenZipPath = "7za.exe"; // 全局 7z 路径（内置 7za.exe）
         private bool _runOnStartup = false;
         private bool _checkForUpdates = true;
         private bool _enableFileLogging = true;
@@ -64,8 +65,8 @@ namespace FolderRewind.Models
         private bool _isNavPaneOpen = true;
         private double _startupWidth = 1200;
         private double _startupHeight = 800;
-        private double _navPaneWidth = 320;
-        private string _fontFamily = "Segoe UI Variable";
+        private double _navPaneWidth = 180;
+        private string _fontFamily = "";
         private double _baseFontSize = 14;
         private string _homeSortMode = "NameAsc";
         private string _lastManagerConfigId;
@@ -144,10 +145,10 @@ namespace FolderRewind.Models
     public class BackupConfig : ObservableObject
     {
         private string _id = Guid.NewGuid().ToString();
-        private string _name = "新配置";
+        private string _name = I18n.Format("Config_DefaultBackupName");
         private string _destinationPath = "";
         private string _iconGlyph = "\uE8B7"; // 默认文件夹图标
-        private string _summaryText = "暂无状态";
+        private string _summaryText = I18n.Format("BackupConfig_DefaultSummary");
         private string _configType = "Default"; // 配置类型，由插件定义，如 "Minecraft Saves"
 
         // 核心路径
@@ -190,8 +191,8 @@ namespace FolderRewind.Models
         private string _path;
         private string _displayName;
         private string _description;
-        private string _statusText = "就绪";
-        private string _lastBackupTime = "从未备份";
+        private string _statusText = I18n.Format("FolderManager_Status");
+        private string _lastBackupTime = I18n.Format("FolderManager_NeverBackedUp");
         private bool _isFavorite;
         private string _coverImagePath; // 对应封面图片路径
 
@@ -264,12 +265,21 @@ namespace FolderRewind.Models
         private bool _scheduledMode = false;
         private int _scheduledHour = 3;
 
+        // 用于去重/防止重复触发：持久化记录上次自动备份时间
+        private DateTime _lastAutoBackupUtc = DateTime.MinValue;
+        private DateTime _lastScheduledRunDateLocal = DateTime.MinValue;
+
         public bool AutoBackupEnabled { get => _autoBackupEnabled; set => SetProperty(ref _autoBackupEnabled, value); }
         public int IntervalMinutes { get => _intervalMinutes; set => SetProperty(ref _intervalMinutes, value); }
         public bool RunOnAppStart { get => _runOnAppStart; set => SetProperty(ref _runOnAppStart, value); }
 
         public bool ScheduledMode { get => _scheduledMode; set => SetProperty(ref _scheduledMode, value); }
         public int ScheduledHour { get => _scheduledHour; set => SetProperty(ref _scheduledHour, value); }
+
+        public DateTime LastAutoBackupUtc { get => _lastAutoBackupUtc; set => SetProperty(ref _lastAutoBackupUtc, value); }
+
+        // 仅用于“每日定时”去重：记录上次成功运行的日期（本地日期）
+        public DateTime LastScheduledRunDateLocal { get => _lastScheduledRunDateLocal; set => SetProperty(ref _lastScheduledRunDateLocal, value); }
     }
 
     /// <summary>
@@ -336,7 +346,9 @@ namespace FolderRewind.Models
         public string DateDisplay => Timestamp.ToString("yyyy-MM-dd");
 
         [JsonIgnore]
-        public string Message => string.IsNullOrEmpty(Comment) ? $"[{BackupType}] 备份" : $"[{BackupType}] {Comment}";
+        public string Message => string.IsNullOrEmpty(Comment)
+            ? I18n.Format("HistoryItem_Message_NoComment", BackupType)
+            : I18n.Format("HistoryItem_Message_WithComment", BackupType, Comment);
 
         [JsonIgnore]
         public string FileSizeDisplay { get; set; } = "-"; // 需动态获取

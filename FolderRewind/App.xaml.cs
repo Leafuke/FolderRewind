@@ -250,20 +250,7 @@ namespace FolderRewind
 
         private static string GetLocalizedWindowTitle()
         {
-            var language = Services.ConfigService.CurrentConfig?.GlobalSettings?.Language;
-
-            if (string.IsNullOrWhiteSpace(language) || string.Equals(language, "system", StringComparison.OrdinalIgnoreCase))
-            {
-                language = ApplicationLanguages.PrimaryLanguageOverride;
-                if (string.IsNullOrWhiteSpace(language))
-                {
-                    language = GlobalizationPreferences.Languages?.FirstOrDefault() ?? string.Empty;
-                }
-            }
-
-            var normalized = language.ToLowerInvariant();
-            if (normalized.StartsWith("zh")) return "存档时光机";
-            return "FolderRewind";
+            return Services.I18n.Format("App_WindowTitle");
         }
 
         private static void ApplyWindowPreferences(Window window)
@@ -283,15 +270,14 @@ namespace FolderRewind
                 {
                     appWindow.Resize(new SizeInt32((int)Math.Round(width), (int)Math.Round(height)));
                 }
-                else
-                {
-                    
-                }
             }
             catch
             {
                 
             }
+
         }
+
     }
 }
+

@@ -163,15 +163,15 @@ namespace FolderRewind.Views
                 // 弹出确认对话框
                 var dialog = new ContentDialog
                 {
-                    Title = "确认还原版本",
+                    Title = I18n.GetString("History_RestoreConfirm_Title"),
                     Content = new TextBlock
                     {
-                        Text = $"时间：{item.TimeDisplay}\n备注：{item.Comment}\n\n[Clean] 模式：先清空目标文件夹，再还原（推荐，防止残留）。\n[Overwrite] 模式：直接解压覆盖（可能保留旧文件）。",
+                        Text = I18n.Format("History_RestoreConfirm_Content", item.TimeDisplay, item.Comment ?? string.Empty),
                         TextWrapping = TextWrapping.Wrap
                     },
-                    PrimaryButtonText = "Clean 还原 (清空目标)",
-                    SecondaryButtonText = "Overwrite 还原 (覆盖)",
-                    CloseButtonText = "取消",
+                    PrimaryButtonText = I18n.GetString("History_RestoreConfirm_Primary"),
+                    SecondaryButtonText = I18n.GetString("History_RestoreConfirm_Secondary"),
+                    CloseButtonText = I18n.GetString("Common_Cancel"),
                     DefaultButton = ContentDialogButton.Primary,
                     XamlRoot = this.XamlRoot // 必须设置 XamlRoot
                 };

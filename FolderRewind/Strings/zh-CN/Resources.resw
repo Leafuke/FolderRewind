@@ -204,6 +204,51 @@
   <data name="SettingsPage_CoreBehavior.Text" xml:space="preserve">
     <value>核心行为</value>
   </data>
+  <data name="SettingsPage_CoreBehaviorSectionDesc.Text" xml:space="preserve">
+    <value>影响应用启动行为与更新检查方式</value>
+  </data>
+  <data name="SettingsPage_PersonalizationSectionDesc.Text" xml:space="preserve">
+    <value>语言、主题、字体与布局等显示设置</value>
+  </data>
+  <data name="SettingsPage_EnvironmentSectionDesc.Text" xml:space="preserve">
+    <value>外部工具与依赖项配置</value>
+  </data>
+  <data name="SettingsPage_LogDiagSectionDesc.Text" xml:space="preserve">
+    <value>日志记录、保留策略与调试输出</value>
+  </data>
+  <data name="SettingsPage_PluginsSectionDesc.Text" xml:space="preserve">
+    <value>插件系统开关、安装与管理</value>
+  </data>
+  <data name="SettingsPage_KnotLinkSectionDesc.Text" xml:space="preserve">
+    <value>与 KnotLink 服务互联及高级参数</value>
+  </data>
+  <data name="SettingsPage_Section_General.Text" xml:space="preserve">
+    <value>常规</value>
+  </data>
+  <data name="SettingsPage_Section_Tools.Text" xml:space="preserve">
+    <value>工具与依赖</value>
+  </data>
+  <data name="SettingsPage_Section_Extensions.Text" xml:space="preserve">
+    <value>扩展</value>
+  </data>
+  <data name="SettingsPage_Section_About.Text" xml:space="preserve">
+    <value>关于</value>
+  </data>
+  <data name="SettingsPage_About.Text" xml:space="preserve">
+    <value>关于 FolderRewind</value>
+  </data>
+  <data name="SettingsPage_AboutDesc.Text" xml:space="preserve">
+    <value>© 2025 Leafuke。GPL 开源许可。</value>
+  </data>
+  <data name="SettingsPage_About_Link_Repository.Content" xml:space="preserve">
+    <value>项目主页</value>
+  </data>
+  <data name="SettingsPage_About_Link_Bilibili.Content" xml:space="preserve">
+    <value>开发者 B 站主页</value>
+  </data>
+  <data name="SettingsPage_About_Link_Privacy.Content" xml:space="preserve">
+    <value>隐私政策</value>
+  </data>
   <data name="SettingsPage_RunOnStartup.Text" xml:space="preserve">
     <value>开机自动启动</value>
   </data>
@@ -250,7 +295,7 @@
     <value>应用程序主题</value>
   </data>
   <data name="SettingsPage_AppThemeDesc.Text" xml:space="preserve">
-    <value>选择要显示的应用外观（需重启生效）</value>
+    <value>选择要显示的应用外观</value>
   </data>
   <data name="SettingsPage_ThemeDark.Content" xml:space="preserve">
     <value>深色</value>
@@ -1111,5 +1156,219 @@
   </data>
   <data name="Config_DefaultBackupName" xml:space="preserve">
     <value>示例配置</value>
+  </data>
+  <data name="FolderManager_Status" xml:space="preserve">
+    <value>就绪</value>
+  </data>
+  <data name="BackupService_Log_ConfigTaskBegin" xml:space="preserve">
+    <value>=== 开始执行配置任务: {0} ===</value>
+  </data>
+  <data name="BackupService_Log_TaskEnd" xml:space="preserve">
+    <value>=== 任务结束 ===</value>
+  </data>
+  <data name="BackupService_Task_Preparing" xml:space="preserve">
+    <value>准备中...</value>
+  </data>
+  <data name="BackupService_Task_Processing" xml:space="preserve">
+    <value>正在处理...</value>
+  </data>
+  <data name="BackupService_Task_Completed" xml:space="preserve">
+    <value>完成</value>
+  </data>
+  <data name="BackupService_Task_NoChanges" xml:space="preserve">
+    <value>无变更</value>
+  </data>
+  <data name="BackupService_Task_Failed" xml:space="preserve">
+    <value>失败</value>
+  </data>
+  <data name="BackupService_Task_Exception" xml:space="preserve">
+    <value>异常</value>
+  </data>
+  <data name="BackupService_Task_PluginProcessing" xml:space="preserve">
+    <value>插件处理中...</value>
+  </data>
+  <data name="BackupService_Folder_SourceNotFound" xml:space="preserve">
+    <value>源不存在</value>
+  </data>
+  <data name="BackupService_Folder_TargetNotSet" xml:space="preserve">
+    <value>未设置目标</value>
+  </data>
+  <data name="BackupService_Folder_BackupInProgress" xml:space="preserve">
+    <value>正在备份...</value>
+  </data>
+  <data name="BackupService_Folder_BackupRunning" xml:space="preserve">
+    <value>备份中...</value>
+  </data>
+  <data name="BackupService_Folder_BackupCompleted" xml:space="preserve">
+    <value>备份完成</value>
+  </data>
+  <data name="BackupService_Folder_BackupFailed" xml:space="preserve">
+    <value>备份失败</value>
+  </data>
+  <data name="BackupService_Folder_PluginBackingUp" xml:space="preserve">
+    <value>插件备份中...</value>
+  </data>
+  <data name="BackupService_Folder_PluginException" xml:space="preserve">
+    <value>插件异常</value>
+  </data>
+  <data name="BackupService_Log_SourceFolderMissing" xml:space="preserve">
+    <value>源文件夹不存在: {0}</value>
+  </data>
+  <data name="BackupService_Log_DestinationNotSet" xml:space="preserve">
+    <value>未设置备份目标路径！</value>
+  </data>
+  <data name="BackupService_Log_ProcessingFolder" xml:space="preserve">
+    <value>处理中: {0}</value>
+  </data>
+  <data name="BackupService_Log_Exception" xml:space="preserve">
+    <value>异常: {0}</value>
+  </data>
+  <data name="BackupService_Log_BackupSucceeded" xml:space="preserve">
+    <value>{0} 备份成功</value>
+  </data>
+  <data name="BackupService_Log_BackupSkippedNoChanges" xml:space="preserve">
+    <value>{0} 无文件变更</value>
+  </data>
+  <data name="BackupService_Log_BackupFailed" xml:space="preserve">
+    <value>{0} 备份未完成</value>
+  </data>
+  <data name="BackupService_Log_PluginTakeover" xml:space="preserve">
+    <value>插件 {0} 接管备份: {1}</value>
+  </data>
+  <data name="BackupService_Log_PluginBackupSucceeded" xml:space="preserve">
+    <value>[插件完成] {0} 备份成功</value>
+  </data>
+  <data name="BackupService_Log_PluginBackupSkippedNoChanges" xml:space="preserve">
+    <value>[插件跳过] {0} 无文件变更</value>
+  </data>
+  <data name="BackupService_Log_PluginBackupFailed" xml:space="preserve">
+    <value>[插件失败] {0} - {1}</value>
+  </data>
+  <data name="BackupService_Log_PluginException" xml:space="preserve">
+    <value>[插件异常] {0} - {1}</value>
+  </data>
+  <data name="BackupService_Log_MetadataCorruptedFallbackFull" xml:space="preserve">
+    <value>元数据损坏，将执行全量备份</value>
+  </data>
+  <data name="BackupService_Log_NoBaselineMetadataFallbackFull" xml:space="preserve">
+    <value>未找到基准元数据，转为全量备份</value>
+  </data>
+  <data name="BackupService_Log_AnalyzingDiff" xml:space="preserve">
+    <value>正在对比文件差异...</value>
+  </data>
+  <data name="BackupService_Log_NoChangesDetected" xml:space="preserve">
+    <value>没有检测到文件变更</value>
+  </data>
+  <data name="BackupService_Log_ChangesDetected" xml:space="preserve">
+    <value>检测到 {0} 个文件变更</value>
+  </data>
+  <data name="BackupService_Log_NoExistingBackupFallbackFull" xml:space="preserve">
+    <value>未找到已有备份，将执行全量备份</value>
+  </data>
+  <data name="BackupService_Log_OverwriteUpdating" xml:space="preserve">
+    <value>覆写: 正在更新: {0}</value>
+  </data>
+  <data name="BackupService_Log_RenamedTo" xml:space="preserve">
+    <value>重命名: 更新为: {0}</value>
+  </data>
+  <data name="BackupService_Log_BackupFileNotFound" xml:space="preserve">
+    <value>备份文件未找到: {0}</value>
+  </data>
+  <data name="BackupService_Log_RestoreChainNotFound" xml:space="preserve">
+    <value>找不到可用于还原的备份链。</value>
+  </data>
+  <data name="BackupService_Log_RestoreBegin" xml:space="preserve">
+    <value>=== 开始还原: {0} ===</value>
+  </data>
+  <data name="BackupService_Log_RestoreTargetBackup" xml:space="preserve">
+    <value> -&gt; 目标备份: {0}</value>
+  </data>
+  <data name="BackupService_Log_RestoreTargetPath" xml:space="preserve">
+    <value> -&gt; 目标路径: {0}</value>
+  </data>
+  <data name="BackupService_Log_RestoreCleaningTarget" xml:space="preserve">
+    <value>正在清空目标目录...</value>
+  </data>
+  <data name="BackupService_Log_RestoreCleanFailedContinueOverwrite" xml:space="preserve">
+    <value>清理目录失败: {0}，尝试继续覆盖...</value>
+  </data>
+  <data name="BackupService_Log_RestoreApplyingArchive" xml:space="preserve">
+    <value>应用 {0}</value>
+  </data>
+  <data name="BackupService_Log_RestoreExtractFailed" xml:space="preserve">
+    <value>7z 解压出错，请检查日志。</value>
+  </data>
+  <data name="BackupService_Log_RestoreCompleted" xml:space="preserve">
+    <value>还原操作完成！</value>
+  </data>
+  <data name="BackupService_Log_NoBaseFullFoundTryIncrementOnly" xml:space="preserve">
+    <value>找不到对应的全量备份，将仅尝试还原所选增量包。</value>
+  </data>
+  <data name="BackupService_Log_SevenZipNotFound" xml:space="preserve">
+    <value>严重错误：找不到 7z 可执行文件，请在设置中指定 7z.exe/7zz.exe。</value>
+  </data>
+  <data name="BackupService_Log_SystemError" xml:space="preserve">
+    <value>系统错误: {0}</value>
+  </data>
+  <data name="App_WindowTitle" xml:space="preserve">
+    <value>存档时光机</value>
+  </data>
+  <data name="History_RestoreConfirm_Title" xml:space="preserve">
+    <value>确认还原版本</value>
+  </data>
+  <data name="History_RestoreConfirm_Content" xml:space="preserve">
+    <value>时间：{0}
+备注：{1}
+
+[Clean] 模式：先清空目标文件夹，再还原（推荐，防止残留）。
+[Overwrite] 模式：直接解压覆盖（可能保留旧文件）。</value>
+  </data>
+  <data name="History_RestoreConfirm_Primary" xml:space="preserve">
+    <value>Clean 还原 (清空目标)</value>
+  </data>
+  <data name="History_RestoreConfirm_Secondary" xml:space="preserve">
+    <value>Overwrite 还原 (覆盖)</value>
+  </data>
+  <data name="SettingsPage_KnotLinkStatus_Disabled" xml:space="preserve">
+    <value>未启用</value>
+  </data>
+  <data name="SettingsPage_KnotLinkStatus_Connected" xml:space="preserve">
+    <value>已连接，命令响应器和信号发送器均正常运行</value>
+  </data>
+  <data name="SettingsPage_KnotLinkStatus_Partial" xml:space="preserve">
+    <value>部分连接 (响应器: {0}, 发送器: {1})</value>
+  </data>
+  <data name="SettingsPage_KnotLinkStatus_InitFailed" xml:space="preserve">
+    <value>已初始化但连接失败，请检查 KnotLink 服务是否运行</value>
+  </data>
+  <data name="SettingsPage_KnotLinkStatus_NotInitialized" xml:space="preserve">
+    <value>服务未初始化，请点击 [重启服务]</value>
+  </data>
+  <data name="Common_Save" xml:space="preserve">
+    <value>保存</value>
+  </data>
+  <data name="Common_Required" xml:space="preserve">
+    <value>必填</value>
+  </data>
+  <data name="Plugins_SettingsDialogTitle" xml:space="preserve">
+    <value>插件设置 - {0}</value>
+  </data>
+  <data name="Plugins_SettingsMissingRequired" xml:space="preserve">
+    <value>请填写必填项：{0}</value>
+  </data>
+  <data name="BackupConfig_DefaultSummary" xml:space="preserve">
+    <value>暂无状态</value>
+  </data>
+  <data name="HistoryItem_Message_NoComment" xml:space="preserve">
+    <value>[{0}] 备份</value>
+  </data>
+  <data name="HistoryItem_Message_WithComment" xml:space="preserve">
+    <value>[{0}] {1}</value>
+  </data>
+  <data name="History_FileMissing" xml:space="preserve">
+    <value>文件丢失</value>
+  </data>
+  <data name="Plugins_NotImplemented" xml:space="preserve">
+    <value>插件未实现此功能</value>
   </data>
 </root>

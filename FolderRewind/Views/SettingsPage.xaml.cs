@@ -16,6 +16,8 @@ using System.Threading.Tasks;
 using Windows.Storage.Pickers;
 using Windows.Graphics;
 using WinRT.Interop;
+using Windows.ApplicationModel.DataTransfer;
+using Windows.Storage;
 
 namespace FolderRewind.Views
 {
@@ -23,13 +25,15 @@ namespace FolderRewind.Views
     {
         public GlobalSettings Settings => ConfigService.CurrentConfig.GlobalSettings;
 
+        public string AppVersion => GetAppVersionString();
+
         public ReadOnlyObservableCollection<InstalledPluginInfo> InstalledPlugins => PluginService.InstalledPlugins;
 
         private bool _isInitializingLanguage;
         private bool _isInitializingFont;
 
         // KnotLink 状态相关属性
-        private string _knotLinkStatusMessage = "未启用";
+        private string _knotLinkStatusMessage = I18n.GetString("SettingsPage_KnotLinkStatus_Disabled");
         private Brush _knotLinkStatusColor;
 
         public string KnotLinkStatusMessage
@@ -53,12 +57,6 @@ namespace FolderRewind.Views
 
         public ObservableCollection<string> FontFamilies { get; } = new()
         {
-            "Segoe UI Variable",
-            "Segoe UI",
-            "Arial",
-            "Calibri",
-            "Consolas",
-            "Sitka Text"
         };
 
         public SettingsPage()
@@ -78,6 +76,8 @@ namespace FolderRewind.Views
             _isInitializingFont = true;
             try
             {
+                LoadFontFamilies();
+
                 if (LanguageCombo != null)
                 {
                     LanguageCombo.SelectedIndex = LanguageToIndex(Settings.Language);
@@ -104,6 +104,117 @@ namespace FolderRewind.Views
             }
         }
 
+        private void LoadFontFamilies()
+        {
+            FontFamilies.Clear();
+
+            IReadOnlyList<string> fonts;
+            try
+            {
+                fonts = FontService.GetInstalledFontFamilies();
+            }
+            catch
+            {
+                fonts = new[] { "Segoe UI Variable", "Segoe UI", "Microsoft YaHei", "Microsoft YaHei UI" };
+            }
+
+            foreach (var f in fonts)
+            {
+                if (!string.IsNullOrWhiteSpace(f)) FontFamilies.Add(f);
+            }
+
+            // 若当前配置字体不存在于系统列表，仍然保留它作为可选项
+            if (!string.IsNullOrWhiteSpace(Settings.FontFamily)
+                && !FontFamilies.Any(f => string.Equals(f, Settings.FontFamily, StringComparison.OrdinalIgnoreCase)))
+            {
+                FontFamilies.Insert(0, Settings.FontFamily);
+            }
+
+            // 若还未设置字体，则按推荐默认值设置一次
+            if (string.IsNullOrWhiteSpace(Settings.FontFamily))
+            {
+                try
+                {
+                    Settings.FontFamily = FontService.GetRecommendedDefaultFontFamily();
+                    ConfigService.Save();
+                }
+                catch
+                {
+                }
+            }
+        }
+
+        #region About
+
+        private static string GetAppVersionString()
+        {
+            try
+            {
+                var v = Windows.ApplicationModel.Package.Current.Id.Version;
+                return $"Version {v.Major}.{v.Minor}.{v.Build}.{v.Revision}";
+            }
+            catch
+            {
+                // Unpackaged / test environment fallback
+                try
+                {
+                    var asm = typeof(SettingsPage).Assembly;
+                    var v = asm.GetName().Version;
+                    return v == null ? "Version (unknown)" : $"Version {v.Major}.{v.Minor}.{v.Build}.{v.Revision}";
+                }
+                catch
+                {
+                    return "Version (unknown)";
+                }
+            }
+        }
+
+        private static async Task<string> TryReadPackagedTextAsync(string relativePath)
+        {
+            try
+            {
+                var uri = new Uri($"ms-appx:///{relativePath.Replace('\\', '/')}");
+                var file = await StorageFile.GetFileFromApplicationUriAsync(uri);
+                return await FileIO.ReadTextAsync(file);
+            }
+            catch
+            {
+                return string.Empty;
+            }
+        }
+
+        private async Task ShowTextDialogAsync(string title, string content)
+        {
+            var tb = new TextBox
+            {
+                Text = content,
+                IsReadOnly = true,
+                TextWrapping = TextWrapping.Wrap,
+                AcceptsReturn = true,
+                MinHeight = 320
+            };
+
+            var scroll = new ScrollViewer
+            {
+                Content = tb,
+                MaxHeight = 560
+            };
+
+            var dialog = new ContentDialog
+            {
+                Title = title,
+                Content = scroll,
+                CloseButtonText = I18n.GetString("Common_Close"),
+                XamlRoot = this.XamlRoot
+            };
+
+            await dialog.ShowAsync();
+        }
+
+        // Removed obsolete about button handlers: copy-version, open-build-diag, privacy, license
+
+        #endregion
+
         #region KnotLink 互联设置
 
         /// <summary>
@@ -113,7 +224,7 @@ namespace FolderRewind.Views
         {
             if (!Settings.EnableKnotLink)
             {
-                KnotLinkStatusMessage = "未启用";
+                KnotLinkStatusMessage = I18n.GetString("SettingsPage_KnotLinkStatus_Disabled");
                 KnotLinkStatusColor = new SolidColorBrush(Microsoft.UI.Colors.Gray);
                 return;
             }
@@ -125,23 +236,26 @@ namespace FolderRewind.Views
 
                 if (responserOk && senderOk)
                 {
-                    KnotLinkStatusMessage = "已连接，命令响应器和信号发送器均正常运行";
+                    KnotLinkStatusMessage = I18n.GetString("SettingsPage_KnotLinkStatus_Connected");
                     KnotLinkStatusColor = new SolidColorBrush(Microsoft.UI.Colors.LimeGreen);
                 }
                 else if (responserOk || senderOk)
                 {
-                    KnotLinkStatusMessage = $"部分连接 (响应器: {(responserOk ? "✓" : "✗")}, 发送器: {(senderOk ? "✓" : "✗")})";
+                    KnotLinkStatusMessage = I18n.Format(
+                        "SettingsPage_KnotLinkStatus_Partial",
+                        responserOk ? "✓" : "✗",
+                        senderOk ? "✓" : "✗");
                     KnotLinkStatusColor = new SolidColorBrush(Microsoft.UI.Colors.Orange);
                 }
                 else
                 {
-                    KnotLinkStatusMessage = "已初始化但连接失败，请检查 KnotLink 服务是否运行";
+                    KnotLinkStatusMessage = I18n.GetString("SettingsPage_KnotLinkStatus_InitFailed");
                     KnotLinkStatusColor = new SolidColorBrush(Microsoft.UI.Colors.OrangeRed);
                 }
             }
             else
             {
-                KnotLinkStatusMessage = "服务未初始化，请点击 [重启服务]";
+                KnotLinkStatusMessage = I18n.GetString("SettingsPage_KnotLinkStatus_NotInitialized");
                 KnotLinkStatusColor = new SolidColorBrush(Microsoft.UI.Colors.Orange);
             }
         }
@@ -234,7 +348,7 @@ namespace FolderRewind.Views
         private void OnKnotLinkResetClick(object sender, RoutedEventArgs e)
         {
             Settings.KnotLinkHost = "127.0.0.1";
-            Settings.KnotLinkAppId = "0x00000030";
+            Settings.KnotLinkAppId = "0x00000020";
             Settings.KnotLinkOpenSocketId = "0x00000010";
             Settings.KnotLinkSignalId = "0x00000020";
             ConfigService.Save();
@@ -432,7 +546,7 @@ namespace FolderRewind.Views
                     case PluginSettingType.String:
                     default:
                     {
-                        var tb = new TextBox { Text = initial, PlaceholderText = def.IsRequired ? "必填" : string.Empty };
+                        var tb = new TextBox { Text = initial, PlaceholderText = def.IsRequired ? I18n.GetString("Common_Required") : string.Empty };
                         panel.Children.Add(tb);
                         getters[key] = () => tb.Text ?? string.Empty;
                         break;
@@ -447,10 +561,10 @@ namespace FolderRewind.Views
 
             var dialog = new ContentDialog
             {
-                Title = $"插件设置 - {plugin.Name}",
+                Title = I18n.Format("Plugins_SettingsDialogTitle", plugin.Name),
                 Content = scroll,
-                PrimaryButtonText = "保存",
-                CloseButtonText = "取消",
+                PrimaryButtonText = I18n.GetString("Common_Save"),
+                CloseButtonText = I18n.GetString("Common_Cancel"),
                 DefaultButton = ContentDialogButton.Primary,
                 XamlRoot = this.XamlRoot
             };
@@ -468,7 +582,7 @@ namespace FolderRewind.Views
                     var v = get();
                     if (string.IsNullOrWhiteSpace(v))
                     {
-                        validation.Text = $"请填写必填项：{def.DisplayName ?? def.Key}";
+                        validation.Text = I18n.Format("Plugins_SettingsMissingRequired", def.DisplayName ?? def.Key);
                         args.Cancel = true;
                         return;
                     }

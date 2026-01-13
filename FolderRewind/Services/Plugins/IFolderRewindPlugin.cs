@@ -138,7 +138,7 @@ namespace FolderRewind.Services.Plugins
             string comment,
             IReadOnlyDictionary<string, string> settingsValues,
             Action<double, string>? progressCallback = null)
-            => Task.FromResult(new PluginBackupResult { Success = false, Message = "插件未实现此功能" });
+            => Task.FromResult(new PluginBackupResult { Success = false, Message = I18n.Format("Plugins_NotImplemented") });
 
         /// <summary>
         /// 执行完整的还原流程（当 WantsToHandleRestore 返回 true 时调用）。
@@ -149,7 +149,7 @@ namespace FolderRewind.Services.Plugins
             string archiveFileName,
             IReadOnlyDictionary<string, string> settingsValues,
             Action<double, string>? progressCallback = null)
-            => Task.FromResult(new PluginRestoreResult { Success = false, Message = "插件未实现此功能" });
+            => Task.FromResult(new PluginRestoreResult { Success = false, Message = I18n.Format("Plugins_NotImplemented") });
 
         #endregion
     }
