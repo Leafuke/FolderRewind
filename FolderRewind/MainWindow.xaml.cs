@@ -20,6 +20,9 @@ namespace FolderRewind
         {
             InitializeComponent();
 
+            // 状态栏图标
+            Activated += MainWindow_Activated;
+
             // WinUI 3 Gallery-like: extend content into title bar and provide a XAML title bar.
             ExtendsContentIntoTitleBar = true;
             if (ShellRoot?.AppTitleBarElement != null)
@@ -38,6 +41,13 @@ namespace FolderRewind
 
             // 窗口关闭时清理 KnotLink 服务
             Closed += MainWindow_Closed;
+        }
+
+        private async void MainWindow_Activated(object sender, WindowActivatedEventArgs args)
+        {
+            // Apply once after the window handle is ready.
+            Activated -= MainWindow_Activated;
+            await WindowIconHelper.TryApplyAsync(this);
         }
 
         private void MainWindow_Closed(object sender, WindowEventArgs args)

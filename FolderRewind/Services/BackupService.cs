@@ -57,14 +57,14 @@ namespace FolderRewind.Services
         public static async Task BackupConfigAsync(BackupConfig config)
         {
             if (config == null) return;
-            Log($"=== 开始执行配置任务: {config.Name} ===");
+            Log(I18n.Format("BackupService_Log_ConfigTaskBegin", config.Name), LogLevel.Info);
 
             foreach (var folder in config.SourceFolders)
             {
                 await BackupFolderAsync(config, folder);
             }
 
-            Log($"=== 任务结束 ===");
+            Log(I18n.Format("BackupService_Log_TaskEnd"), LogLevel.Info);
         }
 
         /// <summary>
@@ -78,7 +78,7 @@ namespace FolderRewind.Services
             var task = new BackupTask
             {
                 FolderName = folder.DisplayName,
-                Status = "准备中...",
+                Status = I18n.Format("BackupService_Task_Preparing"),
                 Progress = 0
             };
 
@@ -112,11 +112,11 @@ namespace FolderRewind.Services
 
             if (!Directory.Exists(sourcePath))
             {
-                Log($"[错误] 源文件夹不存在: {sourcePath}");
+                Log(I18n.Format("BackupService_Log_SourceFolderMissing", sourcePath), LogLevel.Error);
                 await RunOnUIAsync(() =>
                 {
-                    folder.StatusText = "源不存在";
-                    task.Status = "失败";
+                    folder.StatusText = I18n.Format("BackupService_Folder_SourceNotFound");
+                    task.Status = I18n.Format("BackupService_Task_Failed");
                     task.IsCompleted = true;
                 });
                 return;
@@ -124,11 +124,11 @@ namespace FolderRewind.Services
 
             if (string.IsNullOrEmpty(config.DestinationPath))
             {
-                Log("错误：未设置备份目标路径！");
+                Log(I18n.Format("BackupService_Log_DestinationNotSet"), LogLevel.Error);
                 await RunOnUIAsync(() =>
                 {
-                    folder.StatusText = "未设置目标";
-                    task.Status = "失败";
+                    folder.StatusText = I18n.Format("BackupService_Folder_TargetNotSet");
+                    task.Status = I18n.Format("BackupService_Task_Failed");
                     task.IsCompleted = true;
                 });
                 return;
@@ -138,8 +138,8 @@ namespace FolderRewind.Services
             if (!Directory.Exists(backupSubDir)) Directory.CreateDirectory(backupSubDir);
             if (!Directory.Exists(metadataDir)) Directory.CreateDirectory(metadataDir);
 
-            Log($"[处理中] {folder.DisplayName}");
-            await RunOnUIAsync(() => folder.StatusText = "正在备份...");
+            Log(I18n.Format("BackupService_Log_ProcessingFolder", folder.DisplayName), LogLevel.Info);
+            await RunOnUIAsync(() => folder.StatusText = I18n.Format("BackupService_Folder_BackupInProgress"));
 
             bool success = false;
             string generatedFileName = null;
@@ -148,8 +148,8 @@ namespace FolderRewind.Services
 
                 await RunOnUIAsync(() =>
                 {
-                    task.Status = "正在处理...";
-                    folder.StatusText = "备份中...";
+                    task.Status = I18n.Format("BackupService_Task_Processing");
+                    folder.StatusText = I18n.Format("BackupService_Folder_BackupRunning");
                 });
 
                 // 调用核心逻辑，传入 task 以便更新进度
@@ -183,7 +183,7 @@ namespace FolderRewind.Services
             }
             catch (Exception ex)
             {
-                Log($"[异常] {ex.Message}");
+                Log(I18n.Format("BackupService_Log_Exception", ex.Message), LogLevel.Error);
                 success = false;
             }
 
@@ -193,11 +193,15 @@ namespace FolderRewind.Services
 
                 await RunOnUIAsync(() =>
                 {
-                    task.Status = hasNewFile ? "完成" : "无变更";
+                    task.Status = hasNewFile
+                        ? I18n.Format("BackupService_Task_Completed")
+                        : I18n.Format("BackupService_Task_NoChanges");
                     task.Progress = 100;
                     task.IsCompleted = true;
 
-                    folder.StatusText = hasNewFile ? "备份完成" : "无变更";
+                    folder.StatusText = hasNewFile
+                        ? I18n.Format("BackupService_Folder_BackupCompleted")
+                        : I18n.Format("BackupService_Task_NoChanges");
                     if (hasNewFile)
                     {
                         folder.LastBackupTime = DateTime.Now.ToString("yyyy/MM/dd HH:mm");
@@ -214,19 +218,21 @@ namespace FolderRewind.Services
                     PruneOldArchives(backupSubDir, config.Archive.Format, config.Archive.KeepCount, config.Archive.Mode);
                 }
 
-                Log(hasNewFile
-                    ? $"[完成] {folder.DisplayName} 备份成功"
-                    : $"[跳过] {folder.DisplayName} 无文件变更");
+                Log(
+                    hasNewFile
+                        ? I18n.Format("BackupService_Log_BackupSucceeded", folder.DisplayName)
+                        : I18n.Format("BackupService_Log_BackupSkippedNoChanges", folder.DisplayName),
+                    LogLevel.Info);
             }
             else
             {
                 await RunOnUIAsync(() =>
                 {
-                    task.Status = "失败";
+                    task.Status = I18n.Format("BackupService_Task_Failed");
                     task.IsCompleted = true;
-                    folder.StatusText = "备份失败";
+                    folder.StatusText = I18n.Format("BackupService_Folder_BackupFailed");
                 });
-                Log($"[失败] {folder.DisplayName} 备份未完成");
+                Log(I18n.Format("BackupService_Log_BackupFailed", folder.DisplayName), LogLevel.Error);
             }
 
             // 备份后回调（用于清理快照等）
@@ -249,12 +255,12 @@ namespace FolderRewind.Services
             Services.Plugins.IFolderRewindPlugin plugin,
             string comment)
         {
-            Log($"[插件] {plugin.Manifest.Name} 接管备份: {folder.DisplayName}");
+            Log(I18n.Format("BackupService_Log_PluginTakeover", plugin.Manifest.Name, folder.DisplayName), LogLevel.Info);
 
             await RunOnUIAsync(() =>
             {
-                task.Status = "插件处理中...";
-                folder.StatusText = "插件备份中...";
+                task.Status = I18n.Format("BackupService_Task_PluginProcessing");
+                folder.StatusText = I18n.Format("BackupService_Folder_PluginBackingUp");
             });
 
             try
@@ -276,11 +282,15 @@ namespace FolderRewind.Services
 
                     await RunOnUIAsync(() =>
                     {
-                        task.Status = hasNewFile ? "完成" : "无变更";
+                        task.Status = hasNewFile
+                            ? I18n.Format("BackupService_Task_Completed")
+                            : I18n.Format("BackupService_Task_NoChanges");
                         task.Progress = 100;
                         task.IsCompleted = true;
 
-                        folder.StatusText = hasNewFile ? "备份完成" : "无变更";
+                        folder.StatusText = hasNewFile
+                            ? I18n.Format("BackupService_Folder_BackupCompleted")
+                            : I18n.Format("BackupService_Task_NoChanges");
                         if (hasNewFile)
                         {
                             folder.LastBackupTime = DateTime.Now.ToString("yyyy/MM/dd HH:mm");
@@ -293,32 +303,34 @@ namespace FolderRewind.Services
                         HistoryService.AddEntry(config, folder, result.GeneratedFileName!, "Plugin", comment);
                     }
 
-                    Log(hasNewFile
-                        ? $"[插件完成] {folder.DisplayName} 备份成功"
-                        : $"[插件跳过] {folder.DisplayName} 无文件变更");
+                    Log(
+                        hasNewFile
+                            ? I18n.Format("BackupService_Log_PluginBackupSucceeded", folder.DisplayName)
+                            : I18n.Format("BackupService_Log_PluginBackupSkippedNoChanges", folder.DisplayName),
+                        LogLevel.Info);
                 }
                 else
                 {
                     await RunOnUIAsync(() =>
                     {
-                        task.Status = "失败";
+                        task.Status = I18n.Format("BackupService_Task_Failed");
                         task.IsCompleted = true;
-                        folder.StatusText = "备份失败";
+                        folder.StatusText = I18n.Format("BackupService_Folder_BackupFailed");
                     });
 
-                    Log($"[插件失败] {folder.DisplayName} - {result.Message}");
+                    Log(I18n.Format("BackupService_Log_PluginBackupFailed", folder.DisplayName, result.Message ?? string.Empty), LogLevel.Error);
                 }
             }
             catch (Exception ex)
             {
                 await RunOnUIAsync(() =>
                 {
-                    task.Status = "异常";
+                    task.Status = I18n.Format("BackupService_Task_Exception");
                     task.IsCompleted = true;
-                    folder.StatusText = "插件异常";
+                    folder.StatusText = I18n.Format("BackupService_Folder_PluginException");
                 });
 
-                Log($"[插件异常] {folder.DisplayName} - {ex.Message}");
+                Log(I18n.Format("BackupService_Log_PluginException", folder.DisplayName, ex.Message), LogLevel.Error);
             }
         }
 
@@ -406,18 +418,18 @@ namespace FolderRewind.Services
             if (File.Exists(metadataPath))
             {
                 try { oldMeta = JsonSerializer.Deserialize(File.ReadAllText(metadataPath), AppJsonContext.Default.BackupMetadata); }
-                catch { Log("[警告] 元数据损坏，将执行全量备份"); }
+                catch { Log(I18n.Format("BackupService_Log_MetadataCorruptedFallbackFull"), LogLevel.Warning); }
             }
 
             // 如果没有元数据，强制全量
             if (oldMeta == null)
             {
-                Log("[信息] 未找到基准元数据，转为全量备份");
+                Log(I18n.Format("BackupService_Log_NoBaselineMetadataFallbackFull"), LogLevel.Info);
                 return await DoFullBackupAsync(source, destDir, metaDir, baseName, config, comment);
             }
 
             // 2. 扫描并对比文件
-            Log("[分析] 正在对比文件差异...");
+            Log(I18n.Format("BackupService_Log_AnalyzingDiff"), LogLevel.Info);
             var currentStates = ScanDirectory(source);
             var changedFiles = new List<string>();
 
@@ -450,11 +462,11 @@ namespace FolderRewind.Services
 
             if (changedFiles.Count == 0)
             {
-                Log("[跳过] 没有检测到文件变更");
+                Log(I18n.Format("BackupService_Log_NoChangesDetected"), LogLevel.Info);
                 return (true, null);
             }
 
-            Log($"[信息] 检测到 {changedFiles.Count} 个文件变更");
+            Log(I18n.Format("BackupService_Log_ChangesDetected", changedFiles.Count), LogLevel.Info);
 
             // 3. 生成文件列表文件
             string listFile = Path.GetTempFileName();
@@ -494,12 +506,12 @@ namespace FolderRewind.Services
 
             if (files.Count == 0)
             {
-                Log("[信息] 未找到已有备份，将执行全量备份");
+                Log(I18n.Format("BackupService_Log_NoExistingBackupFallbackFull"), LogLevel.Info);
                 return await DoFullBackupAsync(source, destDir, "", baseName, config, comment); // 覆写模式不需要元数据
             }
 
             FileInfo targetFile = files[0];
-            Log($"[覆写] 正在更新: {targetFile.Name}");
+            Log(I18n.Format("BackupService_Log_OverwriteUpdating", targetFile.Name), LogLevel.Info);
 
             // 2. 执行 update 命令 (u)
             // 7z u <archive_name> <file_names>
@@ -565,7 +577,7 @@ namespace FolderRewind.Services
                     try
                     {
                         File.Move(targetFile.FullName, newPath);
-                        Log($"[重命名] 更新为: {newName}");
+                        Log(I18n.Format("BackupService_Log_RenamedTo", newName), LogLevel.Info);
                     }
                     catch { /* 忽略重命名错误 */ resultingFileName = targetFile.Name; }
                 }
@@ -592,7 +604,7 @@ namespace FolderRewind.Services
 
             if (!File.Exists(backupFilePath))
             {
-                Log($"[错误] 备份文件未找到: {backupFilePath}");
+                Log(I18n.Format("BackupService_Log_BackupFileNotFound", backupFilePath), LogLevel.Error);
                 return;
             }
 
@@ -604,18 +616,18 @@ namespace FolderRewind.Services
             var chain = BuildRestoreChain(backupDir, targetFile, historyItem.BackupType);
             if (chain.Count == 0)
             {
-                Log("[失败] 找不到可用于还原的备份链。");
+                Log(I18n.Format("BackupService_Log_RestoreChainNotFound"), LogLevel.Error);
                 return;
             }
 
-            Log($"=== 开始还原: {folder.DisplayName} ===");
-            Log($" -> 目标备份: {historyItem.FileName}");
-            Log($" -> 目标路径: {targetDir}");
+            Log(I18n.Format("BackupService_Log_RestoreBegin", folder.DisplayName), LogLevel.Info);
+            Log(I18n.Format("BackupService_Log_RestoreTargetBackup", historyItem.FileName), LogLevel.Info);
+            Log(I18n.Format("BackupService_Log_RestoreTargetPath", targetDir), LogLevel.Info);
 
             // 1. Clean 模式先清空目标
             if (mode == RestoreMode.Clean)
             {
-                Log("[清理] 正在清空目标目录...");
+                Log(I18n.Format("BackupService_Log_RestoreCleaningTarget"), LogLevel.Info);
                 try
                 {
                     // 简单粗暴清空，生产环境建议做白名单检查 (参考 MineBackup whitelist)
@@ -625,7 +637,7 @@ namespace FolderRewind.Services
                 }
                 catch (Exception ex)
                 {
-                    Log($"[警告] 清理目录失败: {ex.Message}，尝试继续覆盖...");
+                    Log(I18n.Format("BackupService_Log_RestoreCleanFailedContinueOverwrite", ex.Message), LogLevel.Warning);
                 }
             }
 
@@ -637,16 +649,16 @@ namespace FolderRewind.Services
             // 2. 按链顺序依次解压（Full + Smart）
             foreach (var file in chain)
             {
-                Log($"[还原] 应用 {file.Name}");
+                Log(I18n.Format("BackupService_Log_RestoreApplyingArchive", file.Name), LogLevel.Info);
                 bool ok = await RunSevenZipProcessAsync(sevenZipExe, $"x \"{file.FullName}\" -o\"{targetDir}\" -y", file.DirectoryName);
                 if (!ok)
                 {
-                    Log("[失败] 7z 解压出错，请检查日志。");
+                    Log(I18n.Format("BackupService_Log_RestoreExtractFailed"), LogLevel.Error);
                     return;
                 }
             }
 
-            Log("[成功] 还原操作完成！");
+            Log(I18n.Format("BackupService_Log_RestoreCompleted"), LogLevel.Info);
         }
 
         /// <summary>
@@ -766,7 +778,7 @@ namespace FolderRewind.Services
 
             if (baseFull == null)
             {
-                Log("[警告] 找不到对应的全量备份，将仅尝试还原所选增量包。");
+                Log(I18n.Format("BackupService_Log_NoBaseFullFoundTryIncrementOnly"), LogLevel.Warning);
                 chain.Add(targetFile);
                 return chain;
             }
@@ -850,7 +862,7 @@ namespace FolderRewind.Services
                 if (File.Exists(path)) return path;
             }
 
-            Log("严重错误：找不到 7z 可执行文件，请在设置中指定 7z.exe/7zz.exe。");
+            Log(I18n.Format("BackupService_Log_SevenZipNotFound"), LogLevel.Error);
             return null;
         }
 
@@ -888,7 +900,7 @@ namespace FolderRewind.Services
             }
             catch (Exception ex)
             {
-                Log($"[系统错误] {ex.Message}");
+                Log(I18n.Format("BackupService_Log_SystemError", ex.Message), LogLevel.Error);
                 return false;
             }
         }

@@ -1,4 +1,5 @@
-﻿using System;
+﻿using FolderRewind.Services;
+using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.ComponentModel;
@@ -144,10 +145,10 @@ namespace FolderRewind.Models
     public class BackupConfig : ObservableObject
     {
         private string _id = Guid.NewGuid().ToString();
-        private string _name = "新配置";
+        private string _name = I18n.Format("Config_DefaultBackupName");
         private string _destinationPath = "";
         private string _iconGlyph = "\uE8B7"; // 默认文件夹图标
-        private string _summaryText = "暂无状态";
+        private string _summaryText = I18n.Format("BackupConfig_DefaultSummary");
         private string _configType = "Default"; // 配置类型，由插件定义，如 "Minecraft Saves"
 
         // 核心路径
@@ -190,8 +191,8 @@ namespace FolderRewind.Models
         private string _path;
         private string _displayName;
         private string _description;
-        private string _statusText = "就绪";
-        private string _lastBackupTime = "从未备份";
+        private string _statusText = I18n.Format("FolderManager_Status");
+        private string _lastBackupTime = I18n.Format("FolderManager_NeverBackedUp");
         private bool _isFavorite;
         private string _coverImagePath; // 对应封面图片路径
 
@@ -345,7 +346,9 @@ namespace FolderRewind.Models
         public string DateDisplay => Timestamp.ToString("yyyy-MM-dd");
 
         [JsonIgnore]
-        public string Message => string.IsNullOrEmpty(Comment) ? $"[{BackupType}] 备份" : $"[{BackupType}] {Comment}";
+        public string Message => string.IsNullOrEmpty(Comment)
+            ? I18n.Format("HistoryItem_Message_NoComment", BackupType)
+            : I18n.Format("HistoryItem_Message_WithComment", BackupType, Comment);
 
         [JsonIgnore]
         public string FileSizeDisplay { get; set; } = "-"; // 需动态获取

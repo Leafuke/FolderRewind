@@ -33,7 +33,7 @@ namespace FolderRewind.Views
         private bool _isInitializingFont;
 
         // KnotLink 状态相关属性
-        private string _knotLinkStatusMessage = "未启用";
+        private string _knotLinkStatusMessage = I18n.GetString("SettingsPage_KnotLinkStatus_Disabled");
         private Brush _knotLinkStatusColor;
 
         public string KnotLinkStatusMessage
@@ -224,7 +224,7 @@ namespace FolderRewind.Views
         {
             if (!Settings.EnableKnotLink)
             {
-                KnotLinkStatusMessage = "未启用";
+                KnotLinkStatusMessage = I18n.GetString("SettingsPage_KnotLinkStatus_Disabled");
                 KnotLinkStatusColor = new SolidColorBrush(Microsoft.UI.Colors.Gray);
                 return;
             }
@@ -236,23 +236,26 @@ namespace FolderRewind.Views
 
                 if (responserOk && senderOk)
                 {
-                    KnotLinkStatusMessage = "已连接，命令响应器和信号发送器均正常运行";
+                    KnotLinkStatusMessage = I18n.GetString("SettingsPage_KnotLinkStatus_Connected");
                     KnotLinkStatusColor = new SolidColorBrush(Microsoft.UI.Colors.LimeGreen);
                 }
                 else if (responserOk || senderOk)
                 {
-                    KnotLinkStatusMessage = $"部分连接 (响应器: {(responserOk ? "✓" : "✗")}, 发送器: {(senderOk ? "✓" : "✗")})";
+                    KnotLinkStatusMessage = I18n.Format(
+                        "SettingsPage_KnotLinkStatus_Partial",
+                        responserOk ? "✓" : "✗",
+                        senderOk ? "✓" : "✗");
                     KnotLinkStatusColor = new SolidColorBrush(Microsoft.UI.Colors.Orange);
                 }
                 else
                 {
-                    KnotLinkStatusMessage = "已初始化但连接失败，请检查 KnotLink 服务是否运行";
+                    KnotLinkStatusMessage = I18n.GetString("SettingsPage_KnotLinkStatus_InitFailed");
                     KnotLinkStatusColor = new SolidColorBrush(Microsoft.UI.Colors.OrangeRed);
                 }
             }
             else
             {
-                KnotLinkStatusMessage = "服务未初始化，请点击 [重启服务]";
+                KnotLinkStatusMessage = I18n.GetString("SettingsPage_KnotLinkStatus_NotInitialized");
                 KnotLinkStatusColor = new SolidColorBrush(Microsoft.UI.Colors.Orange);
             }
         }
@@ -543,7 +546,7 @@ namespace FolderRewind.Views
                     case PluginSettingType.String:
                     default:
                     {
-                        var tb = new TextBox { Text = initial, PlaceholderText = def.IsRequired ? "必填" : string.Empty };
+                        var tb = new TextBox { Text = initial, PlaceholderText = def.IsRequired ? I18n.GetString("Common_Required") : string.Empty };
                         panel.Children.Add(tb);
                         getters[key] = () => tb.Text ?? string.Empty;
                         break;
@@ -558,10 +561,10 @@ namespace FolderRewind.Views
 
             var dialog = new ContentDialog
             {
-                Title = $"插件设置 - {plugin.Name}",
+                Title = I18n.Format("Plugins_SettingsDialogTitle", plugin.Name),
                 Content = scroll,
-                PrimaryButtonText = "保存",
-                CloseButtonText = "取消",
+                PrimaryButtonText = I18n.GetString("Common_Save"),
+                CloseButtonText = I18n.GetString("Common_Cancel"),
                 DefaultButton = ContentDialogButton.Primary,
                 XamlRoot = this.XamlRoot
             };
@@ -579,7 +582,7 @@ namespace FolderRewind.Views
                     var v = get();
                     if (string.IsNullOrWhiteSpace(v))
                     {
-                        validation.Text = $"请填写必填项：{def.DisplayName ?? def.Key}";
+                        validation.Text = I18n.Format("Plugins_SettingsMissingRequired", def.DisplayName ?? def.Key);
                         args.Cancel = true;
                         return;
                     }

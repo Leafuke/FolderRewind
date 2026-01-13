@@ -1157,4 +1157,218 @@ If you have a listener subscribed to this signal, it should receive a message.</
   <data name="Config_DefaultBackupName" xml:space="preserve">
     <value>Default Config</value>
   </data>
+  <data name="FolderManager_Status" xml:space="preserve">
+    <value>Ready</value>
+  </data>
+  <data name="BackupService_Log_ConfigTaskBegin" xml:space="preserve">
+    <value>=== Starting task: {0} ===</value>
+  </data>
+  <data name="BackupService_Log_TaskEnd" xml:space="preserve">
+    <value>=== Task finished ===</value>
+  </data>
+  <data name="BackupService_Task_Preparing" xml:space="preserve">
+    <value>Preparing...</value>
+  </data>
+  <data name="BackupService_Task_Processing" xml:space="preserve">
+    <value>Processing...</value>
+  </data>
+  <data name="BackupService_Task_Completed" xml:space="preserve">
+    <value>Completed</value>
+  </data>
+  <data name="BackupService_Task_NoChanges" xml:space="preserve">
+    <value>No changes</value>
+  </data>
+  <data name="BackupService_Task_Failed" xml:space="preserve">
+    <value>Failed</value>
+  </data>
+  <data name="BackupService_Task_Exception" xml:space="preserve">
+    <value>Exception</value>
+  </data>
+  <data name="BackupService_Task_PluginProcessing" xml:space="preserve">
+    <value>Processing (plugin)...</value>
+  </data>
+  <data name="BackupService_Folder_SourceNotFound" xml:space="preserve">
+    <value>Source not found</value>
+  </data>
+  <data name="BackupService_Folder_TargetNotSet" xml:space="preserve">
+    <value>Destination not set</value>
+  </data>
+  <data name="BackupService_Folder_BackupInProgress" xml:space="preserve">
+    <value>Backing up...</value>
+  </data>
+  <data name="BackupService_Folder_BackupRunning" xml:space="preserve">
+    <value>Backup in progress...</value>
+  </data>
+  <data name="BackupService_Folder_BackupCompleted" xml:space="preserve">
+    <value>Backup completed</value>
+  </data>
+  <data name="BackupService_Folder_BackupFailed" xml:space="preserve">
+    <value>Backup failed</value>
+  </data>
+  <data name="BackupService_Folder_PluginBackingUp" xml:space="preserve">
+    <value>Backing up (plugin)...</value>
+  </data>
+  <data name="BackupService_Folder_PluginException" xml:space="preserve">
+    <value>Plugin exception</value>
+  </data>
+  <data name="BackupService_Log_SourceFolderMissing" xml:space="preserve">
+    <value>Source folder not found: {0}</value>
+  </data>
+  <data name="BackupService_Log_DestinationNotSet" xml:space="preserve">
+    <value>Backup destination path is not set.</value>
+  </data>
+  <data name="BackupService_Log_ProcessingFolder" xml:space="preserve">
+    <value>Processing: {0}</value>
+  </data>
+  <data name="BackupService_Log_Exception" xml:space="preserve">
+    <value>Exception: {0}</value>
+  </data>
+  <data name="BackupService_Log_BackupSucceeded" xml:space="preserve">
+    <value>{0} backup succeeded.</value>
+  </data>
+  <data name="BackupService_Log_BackupSkippedNoChanges" xml:space="preserve">
+    <value>{0} skipped (no file changes).</value>
+  </data>
+  <data name="BackupService_Log_BackupFailed" xml:space="preserve">
+    <value>{0} backup not completed.</value>
+  </data>
+  <data name="BackupService_Log_PluginTakeover" xml:space="preserve">
+    <value>Plugin {0} took over backup: {1}</value>
+  </data>
+  <data name="BackupService_Log_PluginBackupSucceeded" xml:space="preserve">
+    <value>[Plugin] {0} backup succeeded.</value>
+  </data>
+  <data name="BackupService_Log_PluginBackupSkippedNoChanges" xml:space="preserve">
+    <value>[Plugin] {0} skipped (no file changes).</value>
+  </data>
+  <data name="BackupService_Log_PluginBackupFailed" xml:space="preserve">
+    <value>[Plugin] {0} failed: {1}</value>
+  </data>
+  <data name="BackupService_Log_PluginException" xml:space="preserve">
+    <value>[Plugin] {0} exception: {1}</value>
+  </data>
+  <data name="BackupService_Log_MetadataCorruptedFallbackFull" xml:space="preserve">
+    <value>Metadata is corrupted. Falling back to full backup.</value>
+  </data>
+  <data name="BackupService_Log_NoBaselineMetadataFallbackFull" xml:space="preserve">
+    <value>Baseline metadata not found. Falling back to full backup.</value>
+  </data>
+  <data name="BackupService_Log_AnalyzingDiff" xml:space="preserve">
+    <value>Analyzing file differences...</value>
+  </data>
+  <data name="BackupService_Log_NoChangesDetected" xml:space="preserve">
+    <value>No file changes detected.</value>
+  </data>
+  <data name="BackupService_Log_ChangesDetected" xml:space="preserve">
+    <value>Detected {0} changed files.</value>
+  </data>
+  <data name="BackupService_Log_NoExistingBackupFallbackFull" xml:space="preserve">
+    <value>No existing backup found. Running full backup.</value>
+  </data>
+  <data name="BackupService_Log_OverwriteUpdating" xml:space="preserve">
+    <value>Overwrite: updating {0}</value>
+  </data>
+  <data name="BackupService_Log_RenamedTo" xml:space="preserve">
+    <value>Renamed to: {0}</value>
+  </data>
+  <data name="BackupService_Log_BackupFileNotFound" xml:space="preserve">
+    <value>Backup file not found: {0}</value>
+  </data>
+  <data name="BackupService_Log_RestoreChainNotFound" xml:space="preserve">
+    <value>No restore chain found.</value>
+  </data>
+  <data name="BackupService_Log_RestoreBegin" xml:space="preserve">
+    <value>=== Restoring: {0} ===</value>
+  </data>
+  <data name="BackupService_Log_RestoreTargetBackup" xml:space="preserve">
+    <value> -&gt; Target backup: {0}</value>
+  </data>
+  <data name="BackupService_Log_RestoreTargetPath" xml:space="preserve">
+    <value> -&gt; Target path: {0}</value>
+  </data>
+  <data name="BackupService_Log_RestoreCleaningTarget" xml:space="preserve">
+    <value>Cleaning target directory...</value>
+  </data>
+  <data name="BackupService_Log_RestoreCleanFailedContinueOverwrite" xml:space="preserve">
+    <value>Failed to clean directory: {0}. Trying to continue with overwrite...</value>
+  </data>
+  <data name="BackupService_Log_RestoreApplyingArchive" xml:space="preserve">
+    <value>Applying {0}</value>
+  </data>
+  <data name="BackupService_Log_RestoreExtractFailed" xml:space="preserve">
+    <value>7-Zip extraction failed. Check logs for details.</value>
+  </data>
+  <data name="BackupService_Log_RestoreCompleted" xml:space="preserve">
+    <value>Restore completed.</value>
+  </data>
+  <data name="BackupService_Log_NoBaseFullFoundTryIncrementOnly" xml:space="preserve">
+    <value>No matching full backup found; will try restoring only the selected incremental archive.</value>
+  </data>
+  <data name="BackupService_Log_SevenZipNotFound" xml:space="preserve">
+    <value>Critical: 7-Zip executable not found. Set 7z.exe/7zz.exe in settings.</value>
+  </data>
+  <data name="BackupService_Log_SystemError" xml:space="preserve">
+    <value>System error: {0}</value>
+  </data>
+  <data name="App_WindowTitle" xml:space="preserve">
+    <value>FolderRewind</value>
+  </data>
+  <data name="History_RestoreConfirm_Title" xml:space="preserve">
+    <value>Confirm restore</value>
+  </data>
+  <data name="History_RestoreConfirm_Content" xml:space="preserve">
+    <value>Time: {0}
+Comment: {1}
+
+[Clean] Mode: Clear the target folder first, then restore (recommended).
+[Overwrite] Mode: Extract and overwrite (may keep old files).</value>
+  </data>
+  <data name="History_RestoreConfirm_Primary" xml:space="preserve">
+    <value>Clean restore (clear target)</value>
+  </data>
+  <data name="History_RestoreConfirm_Secondary" xml:space="preserve">
+    <value>Overwrite restore (overwrite)</value>
+  </data>
+  <data name="SettingsPage_KnotLinkStatus_Disabled" xml:space="preserve">
+    <value>Disabled</value>
+  </data>
+  <data name="SettingsPage_KnotLinkStatus_Connected" xml:space="preserve">
+    <value>Connected. Command responder and signal sender are running.</value>
+  </data>
+  <data name="SettingsPage_KnotLinkStatus_Partial" xml:space="preserve">
+    <value>Partially connected (Responder: {0}, Sender: {1})</value>
+  </data>
+  <data name="SettingsPage_KnotLinkStatus_InitFailed" xml:space="preserve">
+    <value>Initialized but connection failed. Check whether the KnotLink service is running.</value>
+  </data>
+  <data name="SettingsPage_KnotLinkStatus_NotInitialized" xml:space="preserve">
+    <value>Service not initialized. Please click [Restart service].</value>
+  </data>
+  <data name="Common_Save" xml:space="preserve">
+    <value>Save</value>
+  </data>
+  <data name="Common_Required" xml:space="preserve">
+    <value>Required</value>
+  </data>
+  <data name="Plugins_SettingsDialogTitle" xml:space="preserve">
+    <value>Plugin settings - {0}</value>
+  </data>
+  <data name="Plugins_SettingsMissingRequired" xml:space="preserve">
+    <value>Please fill the required field: {0}</value>
+  </data>
+  <data name="BackupConfig_DefaultSummary" xml:space="preserve">
+    <value>No status</value>
+  </data>
+  <data name="HistoryItem_Message_NoComment" xml:space="preserve">
+    <value>[{0}] Backup</value>
+  </data>
+  <data name="HistoryItem_Message_WithComment" xml:space="preserve">
+    <value>[{0}] {1}</value>
+  </data>
+  <data name="History_FileMissing" xml:space="preserve">
+    <value>File missing</value>
+  </data>
+  <data name="Plugins_NotImplemented" xml:space="preserve">
+    <value>This plugin has not implemented this feature.</value>
+  </data>
 </root>

@@ -121,7 +121,7 @@ namespace FolderRewind.Services
                 }
                 else
                 {
-                    item.FileSizeDisplay = "文件丢失";
+                    item.FileSizeDisplay = I18n.Format("History_FileMissing");
                 }
                 collection.Add(item);
             }
