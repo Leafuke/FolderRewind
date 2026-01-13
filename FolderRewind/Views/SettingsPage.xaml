@@ -24,12 +24,11 @@
         <TextBlock
             x:Uid="SettingsPage_Title"
             Margin="36,24,36,0"
-            MaxWidth="1064"
             AutomationProperties.HeadingLevel="Level1"
             Style="{ThemeResource TitleTextBlockStyle}" />
 
         <ScrollViewer Grid.Row="1" Padding="36,0,36,36" VerticalScrollBarVisibility="Auto">
-            <StackPanel MaxWidth="1064" Spacing="{StaticResource SettingsCardSpacing}">
+            <StackPanel Spacing="{StaticResource SettingsCardSpacing}">
                 <StackPanel.ChildrenTransitions>
                     <RepositionThemeTransition />
                 </StackPanel.ChildrenTransitions>

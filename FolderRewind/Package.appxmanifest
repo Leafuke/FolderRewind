@@ -8,15 +8,15 @@
   IgnorableNamespaces="uap rescap">
 
   <Identity
-    Name="5fc1991e-c6d8-4cc1-867e-4165d5214481"
-    Publisher="CN=Leafuke"
-    Version="0.1.0.0" />
+    Name="Leafuke.FolderRewind"
+    Publisher="CN=ED2D4126-34BC-411D-8CD7-C15336441263"
+    Version="1.0.0.0" />
 
   <mp:PhoneIdentity PhoneProductId="5fc1991e-c6d8-4cc1-867e-4165d5214481" PhonePublisherId="00000000-0000-0000-0000-000000000000"/>
 
   <Properties>
     <DisplayName>FolderRewind</DisplayName>
-    <PublisherDisplayName>Admin</PublisherDisplayName>
+    <PublisherDisplayName>Leafuke</PublisherDisplayName>
     <Logo>Assets\StoreLogo.png</Logo>
   </Properties>
 
