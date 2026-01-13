@@ -1,5 +1,8 @@
 # FolderRewind
 
+[![中文说明](https://img.shields.io/badge/README-中文-blue)](README_zh.md)
+[![Issues](https://img.shields.io/github/issues/Leafuke/MineBackup?style=flat-square)](https://github.com/Leafuke/MineBackup/issues)
+
 **Time travel for your folders.**
 
 FolderRewind is a modern, powerful, and user-friendly backup manager built with **WinUI 3** and **.NET 8**. It allows you to protect your important data—documents, project files, or game saves—by creating automated, versioned backups with ease.
