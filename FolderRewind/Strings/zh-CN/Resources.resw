@@ -360,6 +360,21 @@
   <data name="HistoryPage_FolderFilter.PlaceholderText" xml:space="preserve">
     <value>请先选择配置</value>
   </data>
+  <data name="HistoryPage_CommentFilter.PlaceholderText" xml:space="preserve">
+    <value>按备注搜索（支持模糊匹配）</value>
+  </data>
+  <data name="HistoryPage_UseStatusColors.Header" xml:space="preserve">
+    <value>状态颜色</value>
+  </data>
+  <data name="HistoryPage_UseStatusColors.OnContent" xml:space="preserve">
+    <value>开</value>
+  </data>
+  <data name="HistoryPage_UseStatusColors.OffContent" xml:space="preserve">
+    <value>关</value>
+  </data>
+  <data name="HistoryPage_ClearMissing.Content" xml:space="preserve">
+    <value>清除失效</value>
+  </data>
   <data name="HistoryPage_RestoreButton.Content" xml:space="preserve">
     <value>恢复</value>
   </data>
@@ -1578,5 +1593,21 @@
   </data>
   <data name="History_DeleteConfirm_DeleteBoth" xml:space="preserve">
     <value>删除记录和备份</value>
+  </data>
+  <data name="History_ClearMissingConfirm_Title" xml:space="preserve">
+    <value>清除失效记录</value>
+  </data>
+  <data name="History_ClearMissingConfirm_Content" xml:space="preserve">
+    <value>将要清除 {0} 条失效记录（记录存在但备份文件已丢失）。此操作不会影响任何现存备份文件。</value>
+  </data>
+  <data name="History_ClearMissingConfirm_Primary" xml:space="preserve">
+    <value>清除</value>
+  </data>
+
+  <data name="SettingsPage_HistoryStatusColors.Text" xml:space="preserve">
+    <value>历史状态颜色</value>
+  </data>
+  <data name="SettingsPage_HistoryStatusColorsDesc.Text" xml:space="preserve">
+    <value>在历史记录页用不同颜色区分正常与失效记录（也可在历史页临时切换）。</value>
   </data>
 </root>

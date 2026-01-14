@@ -1,4 +1,5 @@
 ﻿using FolderRewind.Services;
+using Microsoft.UI.Xaml.Media;
 using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
@@ -81,6 +82,8 @@ namespace FolderRewind.Models
         private string _lastHistoryConfigId;
         private string _lastHistoryFolderPath;
 
+        private bool _useHistoryStatusColors = true;
+
         // 关闭行为
         private CloseBehavior _closeBehavior = CloseBehavior.Ask;
         private bool _rememberCloseBehavior = false;
@@ -120,6 +123,11 @@ namespace FolderRewind.Models
         public string LastManagerFolderPath { get => _lastManagerFolderPath; set => SetProperty(ref _lastManagerFolderPath, value); }
         public string LastHistoryConfigId { get => _lastHistoryConfigId; set => SetProperty(ref _lastHistoryConfigId, value); }
         public string LastHistoryFolderPath { get => _lastHistoryFolderPath; set => SetProperty(ref _lastHistoryFolderPath, value); }
+
+        /// <summary>
+        /// 是否在历史记录页使用彩色节点区分状态
+        /// </summary>
+        public bool UseHistoryStatusColors { get => _useHistoryStatusColors; set => SetProperty(ref _useHistoryStatusColors, value); }
 
         /// <summary>
         /// 点击窗口关闭按钮时的默认行为。
@@ -381,6 +389,26 @@ namespace FolderRewind.Models
 
         [JsonIgnore]
         public string FileSizeDisplay { get; set; } = "-"; // 需动态获取
+
+        private bool _isMissing;
+        /// <summary>
+        /// 运行时状态：备份文件是否缺失
+        /// </summary>
+        [JsonIgnore]
+        public bool IsMissing { get => _isMissing; set => SetProperty(ref _isMissing, value); }
+
+        private Brush? _timelineLineBrush;
+        private Brush? _timelineNodeFillBrush;
+        private Brush? _timelineNodeBorderBrush;
+
+        [JsonIgnore]
+        public Brush? TimelineLineBrush { get => _timelineLineBrush; set => SetProperty(ref _timelineLineBrush, value); }
+
+        [JsonIgnore]
+        public Brush? TimelineNodeFillBrush { get => _timelineNodeFillBrush; set => SetProperty(ref _timelineNodeFillBrush, value); }
+
+        [JsonIgnore]
+        public Brush? TimelineNodeBorderBrush { get => _timelineNodeBorderBrush; set => SetProperty(ref _timelineNodeBorderBrush, value); }
     }
 
     public class BackupTask : ObservableObject

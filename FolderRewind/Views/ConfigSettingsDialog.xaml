@@ -64,7 +64,7 @@
 
                 <StackPanel Spacing="8">
                     <TextBlock x:Uid="ConfigSettingsDialog_Icon"/>
-                    <GridView x:Name="IconGrid" SelectionMode="Single" Height="100" SelectionChanged="OnIconSelectionChanged">
+                    <GridView x:Name="IconGrid" SelectionMode="Single" Height="180" ScrollViewer.VerticalScrollBarVisibility="Auto" SelectionChanged="OnIconSelectionChanged">
                         <GridView.ItemTemplate>
                             <DataTemplate>
                                 <Border Width="40" Height="40" CornerRadius="4" Background="{ThemeResource LayerFillColorDefaultBrush}">

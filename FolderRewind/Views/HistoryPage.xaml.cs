@@ -8,12 +8,17 @@ using System.Collections.ObjectModel;
 using System.ComponentModel;
 using System.Linq;
 using System.IO;
+using Microsoft.UI.Xaml.Media;
+using Microsoft.UI;
+using System.Collections.Generic;
 
 namespace FolderRewind.Views
 {
     public sealed partial class HistoryPage : Page, INotifyPropertyChanged
     {
         public event PropertyChangedEventHandler PropertyChanged;
+
+        private void OnPropertyChanged(string name) => PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(name));
 
         // 历史列表数据源
         public ObservableCollection<HistoryItem> FilteredHistory { get; set; } = new();
@@ -27,8 +32,40 @@ namespace FolderRewind.Views
         public bool IsEmpty
         {
             get => _isEmpty;
-            set { _isEmpty = value; PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(IsEmpty))); }
+            set { _isEmpty = value; OnPropertyChanged(nameof(IsEmpty)); }
         }
+
+        private string _commentFilterText = string.Empty;
+        public string CommentFilterText
+        {
+            get => _commentFilterText;
+            set
+            {
+                _commentFilterText = value ?? string.Empty;
+                ApplyCommentFilter();
+            }
+        }
+
+        public bool UseHistoryStatusColors
+        {
+            get => Settings?.UseHistoryStatusColors ?? true;
+            set
+            {
+                if (Settings != null)
+                {
+                    Settings.UseHistoryStatusColors = value;
+                    ConfigService.Save();
+                }
+
+                UpdateTimelineVisuals(FilteredHistory);
+                OnPropertyChanged(nameof(UseHistoryStatusColors));
+            }
+        }
+
+        private int _missingCount;
+        public bool HasMissing => _missingCount > 0;
+
+        private readonly List<HistoryItem> _currentAllItems = new();
 
         public HistoryPage()
         {
@@ -41,6 +78,18 @@ namespace FolderRewind.Views
             // 2. [关键修复] 显式在代码中设置数据源，防止 XAML 绑定延迟导致 ComboBox 为空
             ConfigFilter.ItemsSource = Configs;
             HistoryList.ItemsSource = FilteredHistory;
+
+            // 初始化 Toggle 状态
+            try
+            {
+                if (UseColorsToggle != null)
+                {
+                    UseColorsToggle.IsOn = UseHistoryStatusColors;
+                }
+            }
+            catch
+            {
+            }
         }
 
         private bool _isNavigating = false;
@@ -141,13 +190,83 @@ namespace FolderRewind.Views
 
         private void RefreshHistory(BackupConfig config, ManagedFolder folder)
         {
+            _currentAllItems.Clear();
             FilteredHistory.Clear();
+
             var items = HistoryService.GetHistoryForFolder(config, folder);
             foreach (var item in items)
             {
+                _currentAllItems.Add(item);
+            }
+
+            ApplyCommentFilter();
+        }
+
+        private void ApplyCommentFilter()
+        {
+            FilteredHistory.Clear();
+
+            IEnumerable<HistoryItem> query = _currentAllItems;
+            var needle = (CommentFilterText ?? string.Empty).Trim();
+
+            if (!string.IsNullOrWhiteSpace(needle))
+            {
+                query = query.Where(i => (i.Comment ?? string.Empty).IndexOf(needle, StringComparison.OrdinalIgnoreCase) >= 0);
+            }
+
+            foreach (var item in query)
+            {
                 FilteredHistory.Add(item);
             }
+
+            _missingCount = _currentAllItems.Count(i => i.IsMissing);
+            OnPropertyChanged(nameof(HasMissing));
+
             IsEmpty = FilteredHistory.Count == 0;
+            UpdateTimelineVisuals(FilteredHistory);
+        }
+
+        private static Brush TryGetThemeBrush(string key, Windows.UI.Color fallback)
+        {
+            try
+            {
+                if (Application.Current?.Resources != null && Application.Current.Resources.TryGetValue(key, out var v) && v is Brush b)
+                {
+                    return b;
+                }
+            }
+            catch
+            {
+            }
+
+            return new SolidColorBrush(fallback);
+        }
+
+        private void UpdateTimelineVisuals(IEnumerable<HistoryItem> items)
+        {
+            var use = UseHistoryStatusColors;
+
+            var offLine = TryGetThemeBrush("SystemControlForegroundBaseLowBrush", Colors.Gray);
+            var offFill = TryGetThemeBrush("SystemControlBackgroundChromeMediumBrush", Colors.Transparent);
+            var offBorder = TryGetThemeBrush("SystemControlForegroundBaseHighBrush", Colors.Gray);
+
+            var ok = new SolidColorBrush(Colors.DodgerBlue);
+            var bad = new SolidColorBrush(Colors.OrangeRed);
+
+            foreach (var item in items)
+            {
+                if (!use)
+                {
+                    item.TimelineLineBrush = offLine;
+                    item.TimelineNodeFillBrush = offFill;
+                    item.TimelineNodeBorderBrush = offBorder;
+                    continue;
+                }
+
+                item.TimelineLineBrush = item.IsMissing ? bad : ok;
+                item.TimelineNodeFillBrush = offFill;
+                item.TimelineNodeBorderBrush = item.IsMissing ? bad : ok;
+            }
         }
 
         // 还原按钮点击逻辑
@@ -227,9 +346,8 @@ namespace FolderRewind.Views
             {
                 try
                 {
-                    string backupFolderName = string.IsNullOrWhiteSpace(item.FolderName) ? folder.DisplayName : item.FolderName;
-                    string backupFilePath = Path.Combine(config.DestinationPath, backupFolderName, item.FileName);
-                    if (File.Exists(backupFilePath))
+                    var backupFilePath = HistoryService.GetBackupFilePath(config, folder, item);
+                    if (!string.IsNullOrWhiteSpace(backupFilePath) && File.Exists(backupFilePath))
                     {
                         File.Delete(backupFilePath);
                     }
@@ -249,6 +367,59 @@ namespace FolderRewind.Views
 
             FilteredHistory.Remove(item);
             IsEmpty = FilteredHistory.Count == 0;
+        }
+
+        private void CommentFilterBox_TextChanged(object sender, TextChangedEventArgs e)
+        {
+            if (sender is TextBox tb)
+            {
+                CommentFilterText = tb.Text;
+            }
+        }
+
+        private void UseColorsToggle_Toggled(object sender, RoutedEventArgs e)
+        {
+            if (sender is ToggleSwitch ts)
+            {
+                UseHistoryStatusColors = ts.IsOn;
+            }
+        }
+
+        private async void OnClearMissingClick(object sender, RoutedEventArgs e)
+        {
+            var config = ConfigFilter.SelectedItem as BackupConfig;
+            var folder = FolderFilter.SelectedItem as ManagedFolder;
+            if (config == null || folder == null) return;
+
+            var missingCount = _currentAllItems.Count(i => i.IsMissing);
+            if (missingCount <= 0) return;
+
+            var dialog = new ContentDialog
+            {
+                Title = I18n.GetString("History_ClearMissingConfirm_Title"),
+                Content = new TextBlock
+                {
+                    Text = I18n.Format("History_ClearMissingConfirm_Content", missingCount),
+                    TextWrapping = TextWrapping.Wrap
+                },
+                PrimaryButtonText = I18n.GetString("History_ClearMissingConfirm_Primary"),
+                CloseButtonText = I18n.GetString("Common_Cancel"),
+                DefaultButton = ContentDialogButton.Primary,
+                XamlRoot = this.XamlRoot
+            };
+
+            var result = await dialog.ShowAsync();
+            if (result != ContentDialogResult.Primary) return;
+
+            try
+            {
+                HistoryService.RemoveMissingEntries(config, folder);
+            }
+            catch
+            {
+            }
+
+            RefreshHistory(config, folder);
         }
 
         private void RestoreLastSelection()

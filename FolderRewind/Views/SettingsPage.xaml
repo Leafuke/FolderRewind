@@ -261,6 +261,18 @@
                                             <ColumnDefinition Width="Auto" />
                                         </Grid.ColumnDefinitions>
                                         <StackPanel>
+                                            <TextBlock x:Uid="SettingsPage_HistoryStatusColors" />
+                                            <TextBlock x:Uid="SettingsPage_HistoryStatusColorsDesc" FontSize="12" Opacity="0.6" TextWrapping="Wrap" />
+                                        </StackPanel>
+                                        <ToggleSwitch Grid.Column="1" IsOn="{x:Bind Settings.UseHistoryStatusColors, Mode=TwoWay}" Toggled="OnHistoryColorsToggled" />
+                                    </Grid>
+
+                                    <Grid>
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="*" />
+                                            <ColumnDefinition Width="Auto" />
+                                        </Grid.ColumnDefinitions>
+                                        <StackPanel>
                                             <TextBlock x:Uid="SettingsPage_NavPaneWidth" />
                                             <TextBlock x:Uid="SettingsPage_NavPaneWidthDesc" FontSize="12" Opacity="0.6" TextWrapping="Wrap" />
                                         </StackPanel>

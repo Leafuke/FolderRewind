@@ -360,6 +360,21 @@
   <data name="HistoryPage_FolderFilter.PlaceholderText" xml:space="preserve">
     <value>Select a configuration first</value>
   </data>
+  <data name="HistoryPage_CommentFilter.PlaceholderText" xml:space="preserve">
+    <value>Search by note/comment</value>
+  </data>
+  <data name="HistoryPage_UseStatusColors.Header" xml:space="preserve">
+    <value>Status colors</value>
+  </data>
+  <data name="HistoryPage_UseStatusColors.OnContent" xml:space="preserve">
+    <value>On</value>
+  </data>
+  <data name="HistoryPage_UseStatusColors.OffContent" xml:space="preserve">
+    <value>Off</value>
+  </data>
+  <data name="HistoryPage_ClearMissing.Content" xml:space="preserve">
+    <value>Clear missing</value>
+  </data>
   <data name="HistoryPage_RestoreButton.Content" xml:space="preserve">
     <value>Restore</value>
   </data>
@@ -1578,5 +1593,21 @@ Comment: {1}
   </data>
   <data name="History_DeleteConfirm_DeleteBoth" xml:space="preserve">
     <value>Delete record and backup</value>
+  </data>
+  <data name="History_ClearMissingConfirm_Title" xml:space="preserve">
+    <value>Clear missing records</value>
+  </data>
+  <data name="History_ClearMissingConfirm_Content" xml:space="preserve">
+    <value>You are about to remove {0} missing records (record exists but backup file is gone). This will not delete any existing backup files.</value>
+  </data>
+  <data name="History_ClearMissingConfirm_Primary" xml:space="preserve">
+    <value>Clear</value>
+  </data>
+
+  <data name="SettingsPage_HistoryStatusColors.Text" xml:space="preserve">
+    <value>History status colors</value>
+  </data>
+  <data name="SettingsPage_HistoryStatusColorsDesc.Text" xml:space="preserve">
+    <value>Use different colors in History to distinguish OK vs missing entries (can also be toggled on the History page).</value>
   </data>
 </root>

@@ -878,6 +878,12 @@ namespace FolderRewind.Views
             ConfigService.Save();
         }
 
+        private void OnHistoryColorsToggled(object sender, RoutedEventArgs e)
+        {
+            // x:Bind TwoWay 已写回 Settings.UseHistoryStatusColors，这里只负责保存
+            ConfigService.Save();
+        }
+
         // 开机自启特殊处理
         private void OnRunOnStartupToggled(object sender, RoutedEventArgs e)
         {
