@@ -8,6 +8,7 @@ namespace FolderRewind.Models
     [JsonSerializable(typeof(BackupMetadata))]
     [JsonSerializable(typeof(FileState))]
     [JsonSerializable(typeof(GlobalSettings))]
+    [JsonSerializable(typeof(HotkeySettings))]
     [JsonSerializable(typeof(ArchiveSettings))]
     [JsonSerializable(typeof(AutomationSettings))]
     [JsonSerializable(typeof(FilterSettings))]

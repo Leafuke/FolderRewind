@@ -33,7 +33,7 @@ namespace FolderRewind.Views
 
         public string ConfigFilePath => ConfigService.ConfigFilePath;
 
-        public string[] IconOptions { get; } = { "\uE8B7", "\uEB9F", "\uE82D", "\uE943", "\uE77B", "\uEA86" };
+
 
         public int FormatSelectedIndex
         {
@@ -60,8 +60,8 @@ namespace FolderRewind.Views
                 ConfigTypesView.Add(Config.ConfigType);
             }
 
-            IconGrid.ItemsSource = IconOptions;
-            IconGrid.SelectedItem = IconOptions.FirstOrDefault(i => i == Config.IconGlyph) ?? IconOptions.First();
+            IconGrid.ItemsSource = IconCatalog.ConfigIconGlyphs;
+            IconGrid.SelectedItem = IconCatalog.ConfigIconGlyphs.FirstOrDefault(i => i == Config.IconGlyph) ?? IconCatalog.ConfigIconGlyphs.First();
         }
 
         public int ModeSelectedIndex

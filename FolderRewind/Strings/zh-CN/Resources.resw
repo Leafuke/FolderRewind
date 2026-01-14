@@ -360,6 +360,21 @@
   <data name="HistoryPage_FolderFilter.PlaceholderText" xml:space="preserve">
     <value>请先选择配置</value>
   </data>
+  <data name="HistoryPage_CommentFilter.PlaceholderText" xml:space="preserve">
+    <value>按备注搜索（支持模糊匹配）</value>
+  </data>
+  <data name="HistoryPage_UseStatusColors.Header" xml:space="preserve">
+    <value>状态颜色</value>
+  </data>
+  <data name="HistoryPage_UseStatusColors.OnContent" xml:space="preserve">
+    <value>开</value>
+  </data>
+  <data name="HistoryPage_UseStatusColors.OffContent" xml:space="preserve">
+    <value>关</value>
+  </data>
+  <data name="HistoryPage_ClearMissing.Content" xml:space="preserve">
+    <value>清除失效</value>
+  </data>
   <data name="HistoryPage_RestoreButton.Content" xml:space="preserve">
     <value>恢复</value>
   </data>
@@ -1370,5 +1385,227 @@
   </data>
   <data name="Plugins_NotImplemented" xml:space="preserve">
     <value>插件未实现此功能</value>
+  </data>
+  <data name="Common_Tip" xml:space="preserve">
+    <value>提示</value>
+  </data>
+  <data name="SettingsPage_Hotkeys.Text" xml:space="preserve">
+    <value>快捷键与热键</value>
+  </data>
+  <data name="SettingsPage_HotkeysDesc.Text" xml:space="preserve">
+    <value>自定义应用内快捷键与全局热键（插件也可提供）。</value>
+  </data>
+  <data name="SettingsPage_Hotkeys_Edit.Content" xml:space="preserve">
+    <value>编辑</value>
+  </data>
+  <data name="SettingsPage_Hotkeys_Reset.Content" xml:space="preserve">
+    <value>恢复默认</value>
+  </data>
+  <data name="Hotkeys_BackupSelected_DisplayName" xml:space="preserve">
+    <value>备份选中文件夹</value>
+  </data>
+  <data name="Hotkeys_BackupSelected_Description" xml:space="preserve">
+    <value>在“管理”页选中一个文件夹后触发备份。</value>
+  </data>
+  <data name="Hotkeys_Scope_Global" xml:space="preserve">
+    <value>热键（全局）</value>
+  </data>
+  <data name="Hotkeys_Scope_Shortcut" xml:space="preserve">
+    <value>快捷键（应用内）</value>
+  </data>
+  <data name="Hotkeys_Owner_Core" xml:space="preserve">
+    <value>来源：内置</value>
+  </data>
+  <data name="Hotkeys_Owner_Plugin" xml:space="preserve">
+    <value>来源：插件 {0}</value>
+  </data>
+  <data name="Hotkeys_Unbound" xml:space="preserve">
+    <value>（未绑定）</value>
+  </data>
+  <data name="Hotkeys_Default" xml:space="preserve">
+    <value>默认：{0}</value>
+  </data>
+  <data name="Hotkeys_CapturePlaceholder" xml:space="preserve">
+    <value>点击此处后按下组合键…</value>
+  </data>
+  <data name="Hotkeys_CaptureHint" xml:space="preserve">
+    <value>请把焦点放到输入框，然后按下你想要的组合键。</value>
+  </data>
+  <data name="Hotkeys_EditDialogTitle" xml:space="preserve">
+    <value>编辑快捷键/热键</value>
+  </data>
+  <data name="Hotkeys_Disable" xml:space="preserve">
+    <value>禁用</value>
+  </data>
+  <data name="Hotkeys_NoCapture" xml:space="preserve">
+    <value>未捕获到有效按键组合。</value>
+  </data>
+  <data name="Hotkeys_ConflictDialog" xml:space="preserve">
+    <value>组合键 {0} 已被“{1}”使用。请更换。</value>
+  </data>
+  <data name="Hotkeys_InvalidGestureSkipped" xml:space="preserve">
+    <value>快捷键配置无效，已跳过：{0} = {1}</value>
+  </data>
+  <data name="Hotkeys_ConflictShortcut" xml:space="preserve">
+    <value>快捷键冲突：{0} 已用于 {1}，跳过 {2}</value>
+  </data>
+  <data name="Hotkeys_ConflictGlobal" xml:space="preserve">
+    <value>热键冲突：{0} 已用于 {1}，跳过 {2}</value>
+  </data>
+  <data name="Hotkeys_RegisterGlobalFailed" xml:space="preserve">
+    <value>注册全局热键失败：{0} = {1} (Win32={2})</value>
+  </data>
+  <data name="Hotkeys_GlobalHookFailed" xml:space="preserve">
+    <value>安装全局热键窗口钩子失败：{0}</value>
+  </data>
+  <data name="Hotkeys_InvokeFailed" xml:space="preserve">
+    <value>快捷键/热键回调失败：{0}</value>
+  </data>
+  <data name="Hotkeys_PluginRegisterFailed" xml:space="preserve">
+    <value>插件热键注册失败：{0} - {1}</value>
+  </data>
+  <data name="MineRewind_Setting_EnableHotBackup_Name" xml:space="preserve">
+    <value>启用热备份</value>
+  </data>
+  <data name="MineRewind_Setting_EnableHotBackup_Desc" xml:space="preserve">
+    <value>备份前使用 xcopy 创建存档快照，避免游戏运行时文件占用导致备份失败。</value>
+  </data>
+  <data name="MineRewind_Setting_SnapshotPath_Name" xml:space="preserve">
+    <value>快照存储路径</value>
+  </data>
+  <data name="MineRewind_Setting_SnapshotPath_Desc" xml:space="preserve">
+    <value>热备份快照的临时存储路径；留空则使用系统临时目录。</value>
+  </data>
+  <data name="MineRewind_Setting_CleanupSnapshot_Name" xml:space="preserve">
+    <value>备份后清理快照</value>
+  </data>
+  <data name="MineRewind_Setting_CleanupSnapshot_Desc" xml:space="preserve">
+    <value>备份完成后自动删除临时快照目录。</value>
+  </data>
+  <data name="MineRewind_Setting_SnapshotDelay_Name" xml:space="preserve">
+    <value>快照延迟（毫秒）</value>
+  </data>
+  <data name="MineRewind_Setting_SnapshotDelay_Desc" xml:space="preserve">
+    <value>创建快照后等待的时间，确保文件系统操作完成。</value>
+  </data>
+  <data name="MineRewind_CreateConfigs_Result" xml:space="preserve">
+    <value>已创建 {0} 个 Minecraft 存档配置</value>
+  </data>
+  <data name="MineRewind_Hotkey_ActiveWorldBackup_Name" xml:space="preserve">
+    <value>热备份正在运行的世界</value>
+  </data>
+  <data name="MineRewind_Hotkey_ActiveWorldBackup_Desc" xml:space="preserve">
+    <value>检测正在运行（文件被占用）的 Minecraft 存档，并触发热备份。</value>
+  </data>
+  <data name="MineRewind_Hotkey_NoActiveWorld" xml:space="preserve">
+    <value>[MineRewind] 未检测到正在运行的世界（未发现被占用的存档）。</value>
+  </data>
+  <data name="MineRewind_Hotkey_Failed" xml:space="preserve">
+    <value>[MineRewind] 热键触发备份失败：{0}</value>
+  </data>
+  <data name="MineRewind_Snapshot_Locked" xml:space="preserve">
+    <value>[MineRewind] 检测到 level.dat 被占用，已启用热备份快照：{0}</value>
+  </data>
+  <data name="MineRewind_Snapshot_Created" xml:space="preserve">
+    <value>[MineRewind] 已创建热备份快照：{0}</value>
+  </data>
+  <data name="MineRewind_Snapshot_CreateFailed" xml:space="preserve">
+    <value>[MineRewind] 创建快照失败：{0}</value>
+  </data>
+  <data name="MineRewind_Snapshot_Cleaned" xml:space="preserve">
+    <value>[MineRewind] 已清理热备份快照：{0}</value>
+  </data>
+  <data name="MineRewind_Snapshot_CleanupFailed" xml:space="preserve">
+    <value>[MineRewind] 清理快照失败：{0}</value>
+  </data>
+  <data name="MineRewind_Snapshot_CleanupOldFailed" xml:space="preserve">
+    <value>[MineRewind] 清理旧快照失败：{0}</value>
+  </data>
+  <data name="MineRewind_Snapshot_VerifyFailed" xml:space="preserve">
+    <value>[MineRewind] 快照创建后验证失败</value>
+  </data>
+  <data name="MineRewind_Snapshot_Exception" xml:space="preserve">
+    <value>[MineRewind] CreateSnapshot 异常：{0}</value>
+  </data>
+  <data name="MineRewind_Xcopy_StartFailed" xml:space="preserve">
+    <value>[MineRewind] 无法启动 xcopy 进程</value>
+  </data>
+  <data name="MineRewind_Xcopy_Timeout" xml:space="preserve">
+    <value>[MineRewind] xcopy 超时</value>
+  </data>
+  <data name="MineRewind_Xcopy_Stderr" xml:space="preserve">
+    <value>[MineRewind] xcopy 标准错误输出：{0}</value>
+  </data>
+  <data name="SettingsPage_CloseBehavior.Text" xml:space="preserve">
+    <value>关闭窗口按钮行为</value>
+  </data>
+  <data name="SettingsPage_CloseBehaviorDesc.Text" xml:space="preserve">
+    <value>控制点击窗口右上角关闭按钮时的动作。</value>
+  </data>
+  <data name="SettingsPage_CloseBehavior_Ask.Content" xml:space="preserve">
+    <value>每次询问</value>
+  </data>
+  <data name="SettingsPage_CloseBehavior_MinimizeToTray.Content" xml:space="preserve">
+    <value>最小化到系统托盘</value>
+  </data>
+  <data name="SettingsPage_CloseBehavior_Exit.Content" xml:space="preserve">
+    <value>直接退出</value>
+  </data>
+  <data name="CloseDialog_Title" xml:space="preserve">
+    <value>关闭应用</value>
+  </data>
+  <data name="CloseDialog_Content" xml:space="preserve">
+    <value>你希望关闭窗口时执行什么操作？</value>
+  </data>
+  <data name="CloseDialog_MinimizeToTray" xml:space="preserve">
+    <value>最小化到托盘</value>
+  </data>
+  <data name="CloseDialog_Exit" xml:space="preserve">
+    <value>直接退出</value>
+  </data>
+  <data name="CloseDialog_Remember" xml:space="preserve">
+    <value>记住我的选择</value>
+  </data>
+  <data name="Tray_Show" xml:space="preserve">
+    <value>显示</value>
+  </data>
+  <data name="Tray_Exit" xml:space="preserve">
+    <value>退出</value>
+  </data>
+  <data name="HistoryPage_DeleteButton.Content" xml:space="preserve">
+    <value>删除</value>
+  </data>
+  <data name="History_DeleteConfirm_Title" xml:space="preserve">
+    <value>删除历史记录</value>
+  </data>
+  <data name="History_DeleteConfirm_Content" xml:space="preserve">
+    <value>将要删除该条历史记录：{0}\n\n你还可以选择是否同时删除本地备份文件。</value>
+  </data>
+  <data name="History_DeleteConfirm_DeleteRecord" xml:space="preserve">
+    <value>仅删除记录</value>
+  </data>
+  <data name="History_DeleteConfirm_DeleteBoth" xml:space="preserve">
+    <value>删除记录和备份</value>
+  </data>
+  <data name="History_ClearMissingConfirm_Title" xml:space="preserve">
+    <value>清除失效记录</value>
+  </data>
+  <data name="History_ClearMissingConfirm_Content" xml:space="preserve">
+    <value>将要清除 {0} 条失效记录（记录存在但备份文件已丢失）。此操作不会影响任何现存备份文件。</value>
+  </data>
+  <data name="History_ClearMissingConfirm_Primary" xml:space="preserve">
+    <value>清除</value>
+  </data>
+  <data name="SettingsPage_HistoryStatusColors.Text" xml:space="preserve">
+    <value>历史状态颜色</value>
+  </data>
+  <data name="SettingsPage_HistoryStatusColorsDesc.Text" xml:space="preserve">
+    <value>在历史记录页用不同颜色区分正常与失效记录（也可在历史页临时切换）。</value>
+  </data>
+  <data name="SettingsPage_CloseBehavior_Remember_Desc.Text" xml:space="preserve">
+    <value>记忆关闭窗口选择</value>
+  </data>
+  <data name="SettingsPage_CloseBehavior_Remember_Header.Text" xml:space="preserve">
+    <value>记住我的选择</value>
   </data>
 </root>

@@ -32,6 +32,12 @@ As the spiritual successor to MineBackup, FolderRewind enhances its versatility 
 	<img src="https://get.microsoft.com/images/en-us%20dark.svg" width="200"/>
 </a>
 
+## ✨ Officially Recognized Plugins
+
+| Name               | Version   | Description                                     | Author          | Download Link                                      |
+|----------------------|------|----------------------------------------|-------------|-------------------------------------------|
+| MineRewind      | 1.0.0 | A backup plugin specifically designed for Minecraft game saves.               | Leafuke     | [Repository](https://github.com/Leafuke/FolderRewind-Plugin-Minecraft)
+
 ## 🛠️ Build from Source
 
 **Requirements:**

@@ -1,4 +1,5 @@
 ﻿using FolderRewind.Services;
+using Microsoft.UI.Xaml.Media;
 using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
@@ -8,6 +9,13 @@ using System.Text.Json.Serialization;
 
 namespace FolderRewind.Models
 {
+    public enum CloseBehavior
+    {
+        Ask = 0,
+        MinimizeToTray = 1,
+        Exit = 2
+    }
+
     // 基础通知类，省去每个类都写一遍 PropertyChanged
     public class ObservableObject : INotifyPropertyChanged
     {
@@ -74,15 +82,24 @@ namespace FolderRewind.Models
         private string _lastHistoryConfigId;
         private string _lastHistoryFolderPath;
 
+        private bool _useHistoryStatusColors = true;
+
+        // 关闭行为
+        private CloseBehavior _closeBehavior = CloseBehavior.Ask;
+        private bool _rememberCloseBehavior = false;
+
         // 插件系统设置（集中管理，避免散落在 GlobalSettings 顶层）
         private PluginHostSettings _plugins = new();
 
         // KnotLink 互联设置
         private bool _enableKnotLink = false;
         private string _knotLinkHost = "127.0.0.1";
-        private string _knotLinkAppId = "0x00000030";
+        private string _knotLinkAppId = "0x00000020";
         private string _knotLinkOpenSocketId = "0x00000010";
         private string _knotLinkSignalId = "0x00000020";
+
+        // 快捷键/热键
+        private HotkeySettings _hotkeys = new();
 
         public string Language { get => _language; set => SetProperty(ref _language, value); }
         public int ThemeIndex { get => _themeIndex; set => SetProperty(ref _themeIndex, value); }
@@ -106,6 +123,21 @@ namespace FolderRewind.Models
         public string LastManagerFolderPath { get => _lastManagerFolderPath; set => SetProperty(ref _lastManagerFolderPath, value); }
         public string LastHistoryConfigId { get => _lastHistoryConfigId; set => SetProperty(ref _lastHistoryConfigId, value); }
         public string LastHistoryFolderPath { get => _lastHistoryFolderPath; set => SetProperty(ref _lastHistoryFolderPath, value); }
+
+        /// <summary>
+        /// 是否在历史记录页使用彩色节点区分状态
+        /// </summary>
+        public bool UseHistoryStatusColors { get => _useHistoryStatusColors; set => SetProperty(ref _useHistoryStatusColors, value); }
+
+        /// <summary>
+        /// 点击窗口关闭按钮时的默认行为。
+        /// </summary>
+        public CloseBehavior CloseBehavior { get => _closeBehavior; set => SetProperty(ref _closeBehavior, value); }
+
+        /// <summary>
+        /// 是否记住关闭按钮行为并不再询问。
+        /// </summary>
+        public bool RememberCloseBehavior { get => _rememberCloseBehavior; set => SetProperty(ref _rememberCloseBehavior, value); }
 
         /// <summary>
         /// 插件系统设置。
@@ -137,6 +169,11 @@ namespace FolderRewind.Models
         /// KnotLink 信号 ID（用于事件广播）
         /// </summary>
         public string KnotLinkSignalId { get => _knotLinkSignalId; set => SetProperty(ref _knotLinkSignalId, value); }
+
+        /// <summary>
+        /// 快捷键/热键绑定（允许用户修改）。
+        /// </summary>
+        public HotkeySettings Hotkeys { get => _hotkeys; set => SetProperty(ref _hotkeys, value ?? new HotkeySettings()); }
     }
 
     /// <summary>
@@ -352,6 +389,26 @@ namespace FolderRewind.Models
 
         [JsonIgnore]
         public string FileSizeDisplay { get; set; } = "-"; // 需动态获取
+
+        private bool _isMissing;
+        /// <summary>
+        /// 运行时状态：备份文件是否缺失
+        /// </summary>
+        [JsonIgnore]
+        public bool IsMissing { get => _isMissing; set => SetProperty(ref _isMissing, value); }
+
+        private Brush? _timelineLineBrush;
+        private Brush? _timelineNodeFillBrush;
+        private Brush? _timelineNodeBorderBrush;
+
+        [JsonIgnore]
+        public Brush? TimelineLineBrush { get => _timelineLineBrush; set => SetProperty(ref _timelineLineBrush, value); }
+
+        [JsonIgnore]
+        public Brush? TimelineNodeFillBrush { get => _timelineNodeFillBrush; set => SetProperty(ref _timelineNodeFillBrush, value); }
+
+        [JsonIgnore]
+        public Brush? TimelineNodeBorderBrush { get => _timelineNodeBorderBrush; set => SetProperty(ref _timelineNodeBorderBrush, value); }
     }
 
     public class BackupTask : ObservableObject

@@ -1,24 +1,13 @@
 ﻿using FolderRewind;
 using FolderRewind.Services;
 using FolderRewind.Services.Plugins;
+using H.NotifyIcon;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Controls.Primitives;
-using Microsoft.UI.Xaml.Data;
 using Microsoft.UI.Xaml.Input;
-using Microsoft.UI.Xaml.Media;
-using Microsoft.UI.Xaml.Navigation;
-using Microsoft.UI.Xaml.Shapes;
 using System;
-using System.Collections.Generic;
-using System.IO;
-using System.Linq;
-using System.Runtime.InteropServices.WindowsRuntime;
 using System.Threading.Tasks;
-using Windows.ApplicationModel;
-using Windows.ApplicationModel.Activation;
-using Windows.Foundation;
-using Windows.Foundation.Collections;
 using Windows.Globalization;
 using Windows.Graphics;
 using Windows.System.UserProfile;
@@ -38,6 +27,9 @@ namespace FolderRewind
 
         // 暴露 ShellPage 以便子页面控制导航
         public static Views.ShellPage Shell { get; set; }
+
+        private TaskbarIcon? _trayIcon;
+        internal static bool ForceExitRequested { get; private set; }
 
         /// <summary>
         /// Initializes the singleton application object.  This is the first line of authored code
@@ -90,6 +82,8 @@ namespace FolderRewind
             // 尽量提前挂载未处理异常处理器，避免初始化阶段直接崩溃而无日志
             this.UnhandledException += App_UnhandledException;
 
+            ForceExitRequested = false;
+
             try
             {
                 LogService.Log(I18n.GetString("App_Log_OnLaunchedBegin"));
@@ -116,7 +110,11 @@ namespace FolderRewind
 
                 _window = new MainWindow();
 
+                _window.Closed += OnMainWindowClosed;
+
                 ApplyWindowPreferences(_window);
+
+                InitializeTrayIcon();
 
                 Services.AutomationService.Start();
 
@@ -276,6 +274,107 @@ namespace FolderRewind
                 
             }
 
+        }
+
+        private void InitializeTrayIcon()
+        {
+            if (_trayIcon != null) return;
+
+            AttachTrayCommandHandlers();
+
+            try
+            {
+                _trayIcon = Resources["TrayIcon"] as TaskbarIcon;
+                _trayIcon?.ForceCreate();
+            }
+            catch (Exception ex)
+            {
+                LogService.Log(I18n.Format("Tray_InitFailed", ex.Message));
+            }
+        }
+
+        private void AttachTrayCommandHandlers()
+        {
+            if (Resources["ShowHideWindowCommand"] is XamlUICommand showHide)
+            {
+                showHide.ExecuteRequested -= OnShowHideWindowCommandExecuteRequested;
+                showHide.ExecuteRequested += OnShowHideWindowCommandExecuteRequested;
+            }
+
+            if (Resources["QuitCommand"] is XamlUICommand quit)
+            {
+                quit.ExecuteRequested -= OnQuitCommandExecuteRequested;
+                quit.ExecuteRequested += OnQuitCommandExecuteRequested;
+            }
+        }
+
+        private void OnShowHideWindowCommandExecuteRequested(XamlUICommand sender, ExecuteRequestedEventArgs args)
+        {
+            ToggleWindowVisibility();
+        }
+
+        private void ToggleWindowVisibility()
+        {
+            if (_window?.AppWindow == null) return;
+
+            try
+            {
+                var appWindow = _window.AppWindow;
+                if (appWindow.IsVisible)
+                {
+                    appWindow.Hide();
+                }
+                else
+                {
+                    appWindow.Show();
+                    _window.Activate();
+                }
+            }
+            catch (Exception ex)
+            {
+                LogService.Log(I18n.Format("Tray_ToggleFailed", ex.Message));
+            }
+        }
+
+        private void OnQuitCommandExecuteRequested(XamlUICommand sender, ExecuteRequestedEventArgs args)
+        {
+            ForceExitRequested = true;
+
+            CleanupTrayIcon();
+
+            try
+            {
+                _window?.Close();
+            }
+            catch
+            {
+            }
+
+            try
+            {
+                Exit();
+            }
+            catch
+            {
+            }
+        }
+
+        private void OnMainWindowClosed(object sender, WindowEventArgs args)
+        {
+            CleanupTrayIcon();
+        }
+
+        private void CleanupTrayIcon()
+        {
+            try
+            {
+                _trayIcon?.Dispose();
+            }
+            catch
+            {
+            }
+
+            _trayIcon = null;
         }
 
     }

@@ -74,6 +74,8 @@ namespace FolderRewind.Services
         {
             if (config == null || folder == null) return;
 
+            int configIndex = GetConfigIndex(config);
+
             // 1. 创建任务对象并确保在 UI 线程添加到集合
             var task = new BackupTask
             {
@@ -100,6 +102,15 @@ namespace FolderRewind.Services
                 if (!string.IsNullOrWhiteSpace(pluginOverride))
                 {
                     sourcePath = pluginOverride;
+
+                    // 与 MineBackup 保持一致
+                    try
+                    {
+                        KnotLinkService.BroadcastEvent("event=pre_hot_backup;");
+                    }
+                    catch
+                    {
+                    }
                 }
             }
             catch
@@ -119,6 +130,14 @@ namespace FolderRewind.Services
                     task.Status = I18n.Format("BackupService_Task_Failed");
                     task.IsCompleted = true;
                 });
+
+                try
+                {
+                    KnotLinkService.BroadcastEvent($"event=backup_failed;config={configIndex};world={folder.DisplayName};error=command_failed");
+                }
+                catch
+                {
+                }
                 return;
             }
 
@@ -131,6 +150,14 @@ namespace FolderRewind.Services
                     task.Status = I18n.Format("BackupService_Task_Failed");
                     task.IsCompleted = true;
                 });
+
+                try
+                {
+                    KnotLinkService.BroadcastEvent($"event=backup_failed;config={configIndex};world={folder.DisplayName};error=command_failed");
+                }
+                catch
+                {
+                }
                 return;
             }
 
@@ -140,6 +167,15 @@ namespace FolderRewind.Services
 
             Log(I18n.Format("BackupService_Log_ProcessingFolder", folder.DisplayName), LogLevel.Info);
             await RunOnUIAsync(() => folder.StatusText = I18n.Format("BackupService_Folder_BackupInProgress"));
+
+            // 与 MineBackup 保持一致：备份开始事件
+            try
+            {
+                KnotLinkService.BroadcastEvent($"event=backup_started;config={configIndex};world={folder.DisplayName}");
+            }
+            catch
+            {
+            }
 
             bool success = false;
             string generatedFileName = null;
@@ -216,6 +252,15 @@ namespace FolderRewind.Services
                     HistoryService.AddEntry(config, folder, generatedFileName, typeStr, comment);
 
                     PruneOldArchives(backupSubDir, config.Archive.Format, config.Archive.KeepCount, config.Archive.Mode);
+
+                    // 与 MineBackup 保持一致：备份成功事件
+                    try
+                    {
+                        KnotLinkService.BroadcastEvent($"event=backup_success;config={configIndex};world={folder.DisplayName};file={generatedFileName}");
+                    }
+                    catch
+                    {
+                    }
                 }
 
                 Log(
@@ -233,6 +278,14 @@ namespace FolderRewind.Services
                     folder.StatusText = I18n.Format("BackupService_Folder_BackupFailed");
                 });
                 Log(I18n.Format("BackupService_Log_BackupFailed", folder.DisplayName), LogLevel.Error);
+
+                try
+                {
+                    KnotLinkService.BroadcastEvent($"event=backup_failed;config={configIndex};world={folder.DisplayName};error=command_failed");
+                }
+                catch
+                {
+                }
             }
 
             // 备份后回调（用于清理快照等）
@@ -599,12 +652,21 @@ namespace FolderRewind.Services
 
         public static async Task RestoreBackupAsync(BackupConfig config, ManagedFolder folder, HistoryItem historyItem, RestoreMode mode)
         {
+            int configIndex = GetConfigIndex(config);
             string backupFilePath = Path.Combine(config.DestinationPath, folder.DisplayName, historyItem.FileName);
             string targetDir = folder.Path; // 还原回源目录
 
             if (!File.Exists(backupFilePath))
             {
                 Log(I18n.Format("BackupService_Log_BackupFileNotFound", backupFilePath), LogLevel.Error);
+
+                try
+                {
+                    KnotLinkService.BroadcastEvent("event=restore_finished;status=failure;reason=no_backup_found");
+                }
+                catch
+                {
+                }
                 return;
             }
 
@@ -623,6 +685,14 @@ namespace FolderRewind.Services
             Log(I18n.Format("BackupService_Log_RestoreBegin", folder.DisplayName), LogLevel.Info);
             Log(I18n.Format("BackupService_Log_RestoreTargetBackup", historyItem.FileName), LogLevel.Info);
             Log(I18n.Format("BackupService_Log_RestoreTargetPath", targetDir), LogLevel.Info);
+
+            try
+            {
+                KnotLinkService.BroadcastEvent($"event=restore_started;config={configIndex};world={folder.DisplayName}");
+            }
+            catch
+            {
+            }
 
             // 1. Clean 模式先清空目标
             if (mode == RestoreMode.Clean)
@@ -654,11 +724,49 @@ namespace FolderRewind.Services
                 if (!ok)
                 {
                     Log(I18n.Format("BackupService_Log_RestoreExtractFailed"), LogLevel.Error);
+
+                    try
+                    {
+                        KnotLinkService.BroadcastEvent("event=restore_finished;status=failure;reason=command_failed");
+                    }
+                    catch
+                    {
+                    }
                     return;
                 }
             }
 
             Log(I18n.Format("BackupService_Log_RestoreCompleted"), LogLevel.Info);
+
+            try
+            {
+                KnotLinkService.BroadcastEvent($"event=restore_success;config={configIndex};world={folder.DisplayName};backup={historyItem.FileName}");
+            }
+            catch
+            {
+            }
+        }
+
+        private static int GetConfigIndex(BackupConfig config)
+        {
+            try
+            {
+                var configs = ConfigService.CurrentConfig?.BackupConfigs;
+                if (configs == null) return -1;
+
+                for (int i = 0; i < configs.Count; i++)
+                {
+                    if (configs[i]?.Id == config.Id)
+                    {
+                        return i;
+                    }
+                }
+            }
+            catch
+            {
+            }
+
+            return -1;
         }
 
         /// <summary>
@@ -681,11 +789,11 @@ namespace FolderRewind.Services
         // --- 辅助：元数据处理 ---
         private static Dictionary<string, FileState> ScanDirectory(string path)
         {
-            var result = new Dictionary<string, FileState>();
+            var result = new Dictionary<string, FileState>(StringComparer.OrdinalIgnoreCase);
             var dirInfo = new DirectoryInfo(path);
 
-            // 获取所有文件，使用相对路径作为 Key
-            foreach (var file in dirInfo.GetFiles("*", SearchOption.AllDirectories))
+            // 获取所有文件，使用相对路径作为 Key，采用流式枚举避免一次性加载大目录列表。
+            foreach (var file in dirInfo.EnumerateFiles("*", SearchOption.AllDirectories))
             {
                 string relPath = Path.GetRelativePath(path, file.FullName);
                 result[relPath] = new FileState

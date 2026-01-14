@@ -1,5 +1,6 @@
 using FolderRewind.Models;
 using FolderRewind.Services;
+using FolderRewind.Services.Hotkeys;
 using FolderRewind.Services.Plugins;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
@@ -13,6 +14,8 @@ using System.ComponentModel;
 using System.Linq;
 using System.Runtime.CompilerServices;
 using System.Threading.Tasks;
+using Microsoft.UI.Input;
+using Windows.System;
 using Windows.Storage.Pickers;
 using Windows.Graphics;
 using WinRT.Interop;
@@ -24,6 +27,25 @@ namespace FolderRewind.Views
     public sealed partial class SettingsPage : Page, INotifyPropertyChanged
     {
         public GlobalSettings Settings => ConfigService.CurrentConfig.GlobalSettings;
+
+        public int CloseBehaviorSelectedIndex
+        {
+            get => (int)Settings.CloseBehavior;
+            set
+            {
+                if (value < 0 || value > 2) value = 0;
+                Settings.CloseBehavior = (CloseBehavior)value;
+
+                // 选择“每次询问”时不再记住
+                if (Settings.CloseBehavior == CloseBehavior.Ask)
+                {
+                    Settings.RememberCloseBehavior = false;
+                }
+
+                ConfigService.Save();
+                OnPropertyChanged();
+            }
+        }
 
         public string AppVersion => GetAppVersionString();
 
@@ -58,6 +80,8 @@ namespace FolderRewind.Views
         public ObservableCollection<string> FontFamilies { get; } = new()
         {
         };
+
+        public ObservableCollection<object> HotkeyBindingsView { get; } = new();
 
         public SettingsPage()
         {
@@ -96,12 +120,209 @@ namespace FolderRewind.Views
 
                 // 初始化 KnotLink 状态显示
                 UpdateKnotLinkStatus();
+
+                // 快捷键/热键列表
+                try
+                {
+                    HotkeyManager.DefinitionsChanged -= HotkeyManager_DefinitionsChanged;
+                    HotkeyManager.DefinitionsChanged += HotkeyManager_DefinitionsChanged;
+                }
+                catch
+                {
+                }
+
+                RefreshHotkeyBindingsView();
             }
             finally
             {
                 _isInitializingLanguage = false;
                 _isInitializingFont = false;
             }
+        }
+
+        private void OnCloseBehaviorSelectionChanged(object sender, SelectionChangedEventArgs e)
+        {
+            // x:Bind TwoWay 已在 setter 保存，这里只做兜底刷新
+            Bindings.Update();
+        }
+
+        private void OnRememberCloseBehaviorToggled(object sender, RoutedEventArgs e)
+        {
+            // 如果用户打开“记住”，但当前是 Ask，则默认切到“最小化到托盘”更符合预期
+            if (Settings.RememberCloseBehavior && Settings.CloseBehavior == CloseBehavior.Ask)
+            {
+                Settings.CloseBehavior = CloseBehavior.MinimizeToTray;
+                OnPropertyChanged(nameof(CloseBehaviorSelectedIndex));
+            }
+
+            ConfigService.Save();
+            Bindings.Update();
+        }
+
+        private void HotkeyManager_DefinitionsChanged(object? sender, EventArgs e)
+        {
+            _ = DispatcherQueue.TryEnqueue(RefreshHotkeyBindingsView);
+        }
+
+        private void RefreshHotkeyBindingsView()
+        {
+            HotkeyBindingsView.Clear();
+
+            var defs = HotkeyManager.GetDefinitionsSnapshot();
+            var overrides = Settings?.Hotkeys?.Bindings ?? new Dictionary<string, string>();
+
+            foreach (var def in defs)
+            {
+                var effective = HotkeyManager.GetEffectiveGestureString(def.Id);
+                var hasOverride = overrides.ContainsKey(def.Id);
+
+                var scopeText = def.Scope == HotkeyScope.GlobalHotkey
+                    ? I18n.GetString("Hotkeys_Scope_Global")
+                    : I18n.GetString("Hotkeys_Scope_Shortcut");
+
+                var ownerText = string.IsNullOrWhiteSpace(def.OwnerPluginId)
+                    ? I18n.GetString("Hotkeys_Owner_Core")
+                    : I18n.Format("Hotkeys_Owner_Plugin", def.OwnerPluginName ?? def.OwnerPluginId);
+
+                HotkeyBindingsView.Add(new HotkeyBindingItem
+                {
+                    Id = def.Id,
+                    DisplayName = def.DisplayName,
+                    Description = def.Description,
+                    ScopeText = scopeText,
+                    OwnerText = ownerText,
+                    CurrentGesture = string.IsNullOrWhiteSpace(effective) ? I18n.GetString("Hotkeys_Unbound") : effective,
+                    DefaultGesture = I18n.Format("Hotkeys_Default", string.IsNullOrWhiteSpace(def.DefaultGesture) ? I18n.GetString("Hotkeys_Unbound") : def.DefaultGesture),
+                    IsOverridden = hasOverride,
+                });
+            }
+        }
+
+        private HotkeyDefinition? FindHotkeyDefinition(string id)
+        {
+            return HotkeyManager.GetDefinitionsSnapshot().FirstOrDefault(d => string.Equals(d.Id, id, StringComparison.OrdinalIgnoreCase));
+        }
+
+        private async void OnEditHotkeyClick(object sender, RoutedEventArgs e)
+        {
+            if (sender is not Button btn) return;
+            var hotkeyId = btn.Tag as string;
+            if (string.IsNullOrWhiteSpace(hotkeyId)) return;
+
+            var def = FindHotkeyDefinition(hotkeyId);
+            if (def == null) return;
+
+            var captureBox = new TextBox
+            {
+                IsReadOnly = true,
+                PlaceholderText = I18n.GetString("Hotkeys_CapturePlaceholder"),
+                Text = HotkeyManager.GetEffectiveGestureString(hotkeyId),
+                MinWidth = 260,
+            };
+
+            HotkeyGesture? captured = null;
+
+            captureBox.KeyDown += (_, args) =>
+            {
+                try
+                {
+                    var key = args.Key;
+                    if (key == VirtualKey.Control || key == VirtualKey.Shift || key == VirtualKey.Menu || key == VirtualKey.LeftWindows || key == VirtualKey.RightWindows)
+                    {
+                        args.Handled = true;
+                        return;
+                    }
+
+                    var mods = HotkeyModifiers.None;
+                    if ((InputKeyboardSource.GetKeyStateForCurrentThread(VirtualKey.Control) & Windows.UI.Core.CoreVirtualKeyStates.Down) != 0) mods |= HotkeyModifiers.Ctrl;
+                    if ((InputKeyboardSource.GetKeyStateForCurrentThread(VirtualKey.Menu) & Windows.UI.Core.CoreVirtualKeyStates.Down) != 0) mods |= HotkeyModifiers.Alt;
+                    if ((InputKeyboardSource.GetKeyStateForCurrentThread(VirtualKey.Shift) & Windows.UI.Core.CoreVirtualKeyStates.Down) != 0) mods |= HotkeyModifiers.Shift;
+                    if ((InputKeyboardSource.GetKeyStateForCurrentThread(VirtualKey.LeftWindows) & Windows.UI.Core.CoreVirtualKeyStates.Down) != 0
+                        || (InputKeyboardSource.GetKeyStateForCurrentThread(VirtualKey.RightWindows) & Windows.UI.Core.CoreVirtualKeyStates.Down) != 0)
+                        mods |= HotkeyModifiers.Win;
+
+                    captured = new HotkeyGesture(mods, key);
+                    captureBox.Text = captured.Value.ToString();
+                    args.Handled = true;
+                }
+                catch
+                {
+                }
+            };
+
+            var panel = new StackPanel { Spacing = 8 };
+            panel.Children.Add(new TextBlock { Text = def.DisplayName, FontWeight = Microsoft.UI.Text.FontWeights.SemiBold });
+            if (!string.IsNullOrWhiteSpace(def.Description))
+                panel.Children.Add(new TextBlock { Text = def.Description, Opacity = 0.7, TextWrapping = TextWrapping.Wrap });
+            panel.Children.Add(new TextBlock { Text = I18n.GetString("Hotkeys_CaptureHint"), Opacity = 0.7, TextWrapping = TextWrapping.Wrap });
+            panel.Children.Add(captureBox);
+
+            var dialog = new ContentDialog
+            {
+                Title = I18n.GetString("Hotkeys_EditDialogTitle"),
+                Content = panel,
+                PrimaryButtonText = I18n.GetString("Common_Save"),
+                SecondaryButtonText = I18n.GetString("Hotkeys_Disable"),
+                CloseButtonText = I18n.GetString("Common_Cancel"),
+                XamlRoot = this.XamlRoot,
+                DefaultButton = ContentDialogButton.Primary,
+            };
+
+            var result = await dialog.ShowAsync();
+            if (result == ContentDialogResult.Primary)
+            {
+                if (captured == null)
+                {
+                    await ShowSimpleMessageAsync(I18n.GetString("Hotkeys_NoCapture"));
+                    return;
+                }
+
+                // 冲突检测：同一 scope 不允许重复
+                var candidate = captured.Value.ToString();
+                var defs = HotkeyManager.GetDefinitionsSnapshot();
+                foreach (var other in defs)
+                {
+                    if (string.Equals(other.Id, def.Id, StringComparison.OrdinalIgnoreCase)) continue;
+                    if (other.Scope != def.Scope) continue;
+
+                    var otherGesture = HotkeyManager.GetEffectiveGestureString(other.Id);
+                    if (string.Equals(otherGesture, candidate, StringComparison.OrdinalIgnoreCase))
+                    {
+                        await ShowSimpleMessageAsync(I18n.Format("Hotkeys_ConflictDialog", candidate, other.DisplayName));
+                        return;
+                    }
+                }
+
+                HotkeyManager.SetGestureOverride(hotkeyId, candidate);
+                RefreshHotkeyBindingsView();
+            }
+            else if (result == ContentDialogResult.Secondary)
+            {
+                HotkeyManager.SetGestureOverride(hotkeyId, string.Empty);
+                RefreshHotkeyBindingsView();
+            }
+        }
+
+        private void OnResetHotkeyClick(object sender, RoutedEventArgs e)
+        {
+            if (sender is not Button btn) return;
+            var hotkeyId = btn.Tag as string;
+            if (string.IsNullOrWhiteSpace(hotkeyId)) return;
+
+            HotkeyManager.ResetGestureOverride(hotkeyId);
+            RefreshHotkeyBindingsView();
+        }
+
+        private async Task ShowSimpleMessageAsync(string message)
+        {
+            var dialog = new ContentDialog
+            {
+                Title = I18n.GetString("Common_Tip"),
+                Content = new TextBlock { Text = message, TextWrapping = TextWrapping.Wrap },
+                CloseButtonText = I18n.GetString("Common_Close"),
+                XamlRoot = this.XamlRoot,
+            };
+            await dialog.ShowAsync();
         }
 
         private void LoadFontFamilies()
@@ -654,6 +875,12 @@ namespace FolderRewind.Views
                 Settings.CheckForUpdates = ts.IsOn;
             }
 
+            ConfigService.Save();
+        }
+
+        private void OnHistoryColorsToggled(object sender, RoutedEventArgs e)
+        {
+            // x:Bind TwoWay 已写回 Settings.UseHistoryStatusColors，这里只负责保存
             ConfigService.Save();
         }
 

@@ -108,15 +108,17 @@ namespace FolderRewind.Services
             }
 
             var collection = new ObservableCollection<HistoryItem>();
-            string baseDir = Path.Combine(config.DestinationPath, folder.DisplayName);
-
             foreach (var item in targetList)
             {
                 // 尝试获取文件大小，如果文件还在的话
-                string fullPath = Path.Combine(baseDir, item.FileName);
-                if (File.Exists(fullPath))
+                var fullPath = GetBackupFilePath(config, folder, item);
+                var exists = !string.IsNullOrWhiteSpace(fullPath) && File.Exists(fullPath);
+
+                item.IsMissing = !exists;
+
+                if (exists)
                 {
-                    long size = new FileInfo(fullPath).Length;
+                    long size = new FileInfo(fullPath!).Length;
                     item.FileSizeDisplay = $"{size / 1024.0 / 1024.0:F2} MB";
                 }
                 else
@@ -126,6 +128,58 @@ namespace FolderRewind.Services
                 collection.Add(item);
             }
             return collection;
+        }
+
+        /// <summary>
+        /// 计算某条历史记录对应的备份文件路径。
+        /// 优先使用 HistoryItem.FolderName（避免重命名源文件夹时路径拼接错误）。
+        /// </summary>
+        public static string? GetBackupFilePath(BackupConfig config, ManagedFolder folder, HistoryItem item)
+        {
+            if (config == null || folder == null || item == null) return null;
+            if (string.IsNullOrWhiteSpace(config.DestinationPath)) return null;
+            if (string.IsNullOrWhiteSpace(item.FileName)) return null;
+
+            string backupFolderName = string.IsNullOrWhiteSpace(item.FolderName)
+                ? folder.DisplayName
+                : item.FolderName;
+
+            if (string.IsNullOrWhiteSpace(backupFolderName))
+            {
+                backupFolderName = folder.DisplayName;
+            }
+
+            return Path.Combine(config.DestinationPath, backupFolderName, item.FileName);
+        }
+
+        public static int RemoveMissingEntries(BackupConfig config, ManagedFolder folder)
+        {
+            Initialize();
+
+            List<HistoryItem> toRemove;
+            lock (_historyLock)
+            {
+                toRemove = _allHistory
+                    .Where(x => x.ConfigId == config.Id && x.FolderPath == folder.Path)
+                    .Where(x =>
+                    {
+                        var p = GetBackupFilePath(config, folder, x);
+                        return string.IsNullOrWhiteSpace(p) || !File.Exists(p);
+                    })
+                    .ToList();
+
+                foreach (var item in toRemove)
+                {
+                    _allHistory.Remove(item);
+                }
+            }
+
+            if (toRemove.Count > 0)
+            {
+                ScheduleSave();
+            }
+
+            return toRemove.Count;
         }
 
         public static void RemoveEntry(HistoryItem item)

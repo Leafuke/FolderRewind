@@ -284,9 +284,8 @@ namespace FolderRewind.Views
             RefreshBatchToggleState();
 
             // 图标选择器
-            var iconGrid = new GridView { SelectionMode = ListViewSelectionMode.Single, Height = 100 };
-            string[] icons = { "\uE8B7", "\uEB9F", "\uE82D", "\uE943", "\uE77B", "\uEA86" };
-            foreach (var icon in icons) iconGrid.Items.Add(icon);
+            var iconGrid = new GridView { SelectionMode = ListViewSelectionMode.Single, Height = 180 };
+            foreach (var icon in IconCatalog.ConfigIconGlyphs) iconGrid.Items.Add(icon);
             iconGrid.SelectedIndex = 0;
 
             iconGrid.ItemTemplate = (DataTemplate)Microsoft.UI.Xaml.Markup.XamlReader.Load(
@@ -359,7 +358,7 @@ namespace FolderRewind.Views
 
                 if (string.IsNullOrWhiteSpace(nameBox.Text)) return;
 
-                var selectedIcon = iconGrid.SelectedItem as string ?? "\uE8B7";
+                var selectedIcon = iconGrid.SelectedItem as string ?? IconCatalog.DefaultConfigIconGlyph;
                 var newConfig = new BackupConfig
                 {
                     Name = nameBox.Text,

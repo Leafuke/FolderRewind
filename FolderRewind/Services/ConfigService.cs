@@ -93,6 +93,13 @@ namespace FolderRewind.Services
             if (CurrentConfig.GlobalSettings.Plugins == null)
                 CurrentConfig.GlobalSettings.Plugins = new PluginHostSettings();
 
+            // 兼容旧版配置：Hotkeys 节点可能为 null
+            if (CurrentConfig.GlobalSettings.Hotkeys == null)
+                CurrentConfig.GlobalSettings.Hotkeys = new HotkeySettings();
+
+            if (CurrentConfig.GlobalSettings.Hotkeys.Bindings == null)
+                CurrentConfig.GlobalSettings.Hotkeys.Bindings = new System.Collections.Generic.Dictionary<string, string>();
+
             // 兼容旧版配置：字典可能反序列化为 null
             if (CurrentConfig.GlobalSettings.Plugins.PluginEnabled == null)
                 CurrentConfig.GlobalSettings.Plugins.PluginEnabled = new System.Collections.Generic.Dictionary<string, bool>();

@@ -204,6 +204,22 @@ namespace FolderRewind.Services
             }
         }
 
+        /// <summary>
+        /// 主动向 KnotLink OpenSocket 发起查询（用于插件/热键触发的联动）。
+        /// </summary>
+        public static Task<string> QueryAsync(string question, int timeoutMs = 5000)
+        {
+            var settings = ConfigService.CurrentConfig?.GlobalSettings;
+            if (settings == null) return Task.FromResult("ERROR:Config not loaded.");
+            if (!_isEnabled) return Task.FromResult("ERROR:KnotLink disabled.");
+
+            var host = string.IsNullOrWhiteSpace(settings.KnotLinkHost) ? "127.0.0.1" : settings.KnotLinkHost;
+            var appId = string.IsNullOrWhiteSpace(settings.KnotLinkAppId) ? DefaultAppId : settings.KnotLinkAppId;
+            var openSocketId = string.IsNullOrWhiteSpace(settings.KnotLinkOpenSocketId) ? DefaultOpenSocketId : settings.KnotLinkOpenSocketId;
+
+            return FolderRewind.Services.KnotLink.OpenSocketQuerier.QueryAsync(appId, openSocketId, question, host, 6376, timeoutMs);
+        }
+
         #endregion
 
         #region 命令处理
@@ -488,20 +504,16 @@ namespace FolderRewind.Services
                 return $"ERROR:Folder not found: {folderArg}";
             }
 
-            // 广播备份开始事件
-            BroadcastEvent($"event=backup_started;config={config.Id};folder={folder.DisplayName}");
-
             // 在后台线程执行备份
             _ = Task.Run(async () =>
             {
                 try
                 {
                     await BackupService.BackupFolderAsync(config, folder, comment);
-                    BroadcastEvent($"event=backup_completed;config={config.Id};folder={folder.DisplayName}");
                 }
                 catch (Exception ex)
                 {
-                    BroadcastEvent($"event=backup_failed;config={config.Id};folder={folder.DisplayName};error={ex.Message}");
+                    BroadcastEvent($"event=backup_failed;config={config.Id};world={folder.DisplayName};error={ex.Message}");
                 }
             });
 
@@ -536,20 +548,16 @@ namespace FolderRewind.Services
                 return $"ERROR:Folder not found: {folderArg}";
             }
 
-            // 广播还原开始事件
-            BroadcastEvent($"event=restore_started;config={config.Id};folder={folder.DisplayName}");
-
             // 在后台线程执行还原
             _ = Task.Run(async () =>
             {
                 try
                 {
                     await BackupService.RestoreBackupAsync(config, folder, backupFile);
-                    BroadcastEvent($"event=restore_completed;config={config.Id};folder={folder.DisplayName}");
                 }
                 catch (Exception ex)
                 {
-                    BroadcastEvent($"event=restore_failed;config={config.Id};folder={folder.DisplayName};error={ex.Message}");
+                    BroadcastEvent($"event=restore_failed;config={config.Id};world={folder.DisplayName};error={ex.Message}");
                 }
             });
 

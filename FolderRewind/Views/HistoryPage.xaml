@@ -17,8 +17,11 @@
         <!-- 筛选区 -->
         <Grid Grid.Row="1" Margin="0,0,0,24" ColumnSpacing="16">
             <Grid.ColumnDefinitions>
-                <ColumnDefinition Width="200"/>
-                <ColumnDefinition Width="200"/>
+                <ColumnDefinition Width="220"/>
+                <ColumnDefinition Width="220"/>
+                <ColumnDefinition Width="220"/>
+                <ColumnDefinition Width="*"/>
+                <ColumnDefinition Width="Auto"/>
             </Grid.ColumnDefinitions>
 
             <!-- 移除了 ItemsSource绑定，改为代码设置 -->
@@ -31,6 +34,29 @@
                       HorizontalAlignment="Stretch"
                       DisplayMemberPath="DisplayName"
                       SelectionChanged="FolderFilter_SelectionChanged"/>
+            
+            <Grid Grid.Column="2">
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="1*"/>
+                    <RowDefinition Height="1*"/>
+                </Grid.RowDefinitions>
+                <TextBox x:Name="CommentFilterBox"
+                         Grid.Row="1"
+                         Margin="0,0,0,4"
+                         x:Uid="HistoryPage_CommentFilter"
+                         TextChanged="CommentFilterBox_TextChanged"/>
+            </Grid>
+
+            <StackPanel Grid.Column="4" Orientation="Horizontal" Spacing="12" VerticalAlignment="Bottom">
+                <ToggleSwitch x:Name="UseColorsToggle"
+                              x:Uid="HistoryPage_UseStatusColors"
+                              IsOn="{x:Bind UseHistoryStatusColors, Mode=TwoWay}"
+                              Toggled="UseColorsToggle_Toggled" />
+                <Button x:Name="ClearMissingButton"
+                        x:Uid="HistoryPage_ClearMissing"
+                        IsEnabled="{x:Bind HasMissing, Mode=OneWay}"
+                        Click="OnClearMissingClick" />
+            </StackPanel>
         </Grid>
 
         <!-- 历史列表 -->
@@ -49,8 +75,12 @@
                             <TextBlock Text="{x:Bind DateDisplay}" FontSize="12" Foreground="Gray" HorizontalAlignment="Right"/>
                         </StackPanel>
                         <Grid Grid.Column="1">
-                            <Rectangle Width="2" Fill="{ThemeResource SystemControlForegroundBaseLowBrush}" VerticalAlignment="Stretch" HorizontalAlignment="Center"/>
-                            <Border Width="14" Height="14" CornerRadius="7" Background="{ThemeResource SystemControlBackgroundChromeMediumBrush}" BorderBrush="{ThemeResource SystemControlForegroundBaseHighBrush}" BorderThickness="2" VerticalAlignment="Center" HorizontalAlignment="Center"/>
+                            <Rectangle Width="2" Fill="{x:Bind TimelineLineBrush}" VerticalAlignment="Stretch" HorizontalAlignment="Center"/>
+                            <Border Width="14" Height="14" CornerRadius="7"
+                                    Background="{x:Bind TimelineNodeFillBrush}"
+                                    BorderBrush="{x:Bind TimelineNodeBorderBrush}"
+                                    BorderThickness="2"
+                                    VerticalAlignment="Center" HorizontalAlignment="Center"/>
                         </Grid>
                         <Border Grid.Column="2" Background="{ThemeResource CardBackgroundFillColorDefaultBrush}" CornerRadius="4" Padding="12" Margin="0,4">
                             <Grid>
@@ -60,9 +90,13 @@
                                 </Grid.ColumnDefinitions>
                                 <StackPanel>
                                     <TextBlock Text="{x:Bind Message}" FontWeight="SemiBold"/>
+                                    <TextBlock Text="{x:Bind FileSizeDisplay}" FontSize="11" Opacity="0.6"/>
                                     <!--TextBlock Text="{x:Bind CommitId}" FontSize="11" Opacity="0.5" FontFamily="Consolas"/-->
                                 </StackPanel>
-                                <Button Grid.Column="1" x:Uid="HistoryPage_RestoreButton" FontSize="12" Click="OnRestoreClick"/>
+                                <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
+                                    <Button x:Uid="HistoryPage_RestoreButton" FontSize="12" Click="OnRestoreClick"/>
+                                    <Button x:Uid="HistoryPage_DeleteButton" FontSize="12" Click="OnDeleteClick"/>
+                                </StackPanel>
                             </Grid>
                         </Border>
                     </Grid>
