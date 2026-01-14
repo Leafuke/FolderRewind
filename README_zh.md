@@ -23,6 +23,12 @@ FolderRewind 是一款基于 **WinUI 3** 和 **.NET 8** 构建的现代化、高
   - 界面简洁直观，操作流畅。
 - **🌍 多语言支持**: 原生支持 **简体中文** 与 **English**。
 
+## 🔗 下载与安装
+
+<a href="https://apps.microsoft.com/detail/9nwsdgxdqws4?referrer=appbadge&mode=direct">
+	<img src="https://get.microsoft.com/images/en-us%20dark.svg" width="200"/>
+</a>
+
 
 ## 🛠️ 源码构建
 

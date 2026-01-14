@@ -23,6 +23,12 @@ As the spiritual successor to MineBackup, FolderRewind enhances its versatility 
   - Responsive and intuitive UI.
 - **🌍 Localization**: Full support for **English** and **Simplified Chinese (简体中文)**.
 
+## 🔗 Download & Install
+
+<a href="https://apps.microsoft.com/detail/9nwsdgxdqws4?referrer=appbadge&mode=direct">
+	<img src="https://get.microsoft.com/images/en-us%20dark.svg" width="200"/>
+</a>
+
 ## 🛠️ Build from Source
 
 **Requirements:**
