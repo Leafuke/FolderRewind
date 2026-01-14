@@ -7,6 +7,7 @@ using System;
 using System.Collections.ObjectModel;
 using System.ComponentModel;
 using System.Linq;
+using System.IO;
 
 namespace FolderRewind.Views
 {
@@ -187,6 +188,67 @@ namespace FolderRewind.Views
                     await BackupService.RestoreBackupAsync(config, folder, item, BackupService.RestoreMode.Overwrite);
                 }
             }
+        }
+
+        private async void OnDeleteClick(object sender, RoutedEventArgs e)
+        {
+            if (sender is not Button btn || btn.DataContext is not HistoryItem item)
+            {
+                return;
+            }
+
+            var config = ConfigFilter.SelectedItem as BackupConfig;
+            var folder = FolderFilter.SelectedItem as ManagedFolder;
+            if (config == null || folder == null) return;
+
+            var dialog = new ContentDialog
+            {
+                Title = I18n.GetString("History_DeleteConfirm_Title"),
+                Content = new TextBlock
+                {
+                    Text = I18n.Format("History_DeleteConfirm_Content", item.FileName),
+                    TextWrapping = TextWrapping.Wrap
+                },
+                PrimaryButtonText = I18n.GetString("History_DeleteConfirm_DeleteRecord"),
+                SecondaryButtonText = I18n.GetString("History_DeleteConfirm_DeleteBoth"),
+                CloseButtonText = I18n.GetString("Common_Cancel"),
+                DefaultButton = ContentDialogButton.Primary,
+                XamlRoot = this.XamlRoot
+            };
+
+            var result = await dialog.ShowAsync();
+            if (result == ContentDialogResult.None)
+            {
+                return;
+            }
+
+            bool deleteFile = result == ContentDialogResult.Secondary;
+            if (deleteFile)
+            {
+                try
+                {
+                    string backupFolderName = string.IsNullOrWhiteSpace(item.FolderName) ? folder.DisplayName : item.FolderName;
+                    string backupFilePath = Path.Combine(config.DestinationPath, backupFolderName, item.FileName);
+                    if (File.Exists(backupFilePath))
+                    {
+                        File.Delete(backupFilePath);
+                    }
+                }
+                catch
+                {
+                }
+            }
+
+            try
+            {
+                HistoryService.RemoveEntry(item);
+            }
+            catch
+            {
+            }
+
+            FilteredHistory.Remove(item);
+            IsEmpty = FilteredHistory.Count == 0;
         }
 
         private void RestoreLastSelection()
