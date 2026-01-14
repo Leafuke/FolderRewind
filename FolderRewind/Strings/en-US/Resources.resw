@@ -1536,7 +1536,6 @@ Comment: {1}
   <data name="MineRewind_Xcopy_Stderr" xml:space="preserve">
     <value>[MineRewind] xcopy stderr: {0}</value>
   </data>
-
   <data name="SettingsPage_CloseBehavior.Text" xml:space="preserve">
     <value>Close Button Behavior</value>
   </data>
@@ -1552,10 +1551,6 @@ Comment: {1}
   <data name="SettingsPage_CloseBehavior_Exit.Content" xml:space="preserve">
     <value>Exit</value>
   </data>
-  <data name="SettingsPage_CloseBehavior_Remember.Header" xml:space="preserve">
-    <value>Remember my choice</value>
-  </data>
-
   <data name="CloseDialog_Title" xml:space="preserve">
     <value>Close App</value>
   </data>
@@ -1571,14 +1566,12 @@ Comment: {1}
   <data name="CloseDialog_Remember" xml:space="preserve">
     <value>Remember my choice</value>
   </data>
-
   <data name="Tray_Show" xml:space="preserve">
     <value>Show</value>
   </data>
   <data name="Tray_Exit" xml:space="preserve">
     <value>Exit</value>
   </data>
-
   <data name="HistoryPage_DeleteButton.Content" xml:space="preserve">
     <value>Delete</value>
   </data>
@@ -1603,11 +1596,16 @@ Comment: {1}
   <data name="History_ClearMissingConfirm_Primary" xml:space="preserve">
     <value>Clear</value>
   </data>
-
   <data name="SettingsPage_HistoryStatusColors.Text" xml:space="preserve">
     <value>History status colors</value>
   </data>
   <data name="SettingsPage_HistoryStatusColorsDesc.Text" xml:space="preserve">
     <value>Use different colors in History to distinguish OK vs missing entries (can also be toggled on the History page).</value>
+  </data>
+  <data name="SettingsPage_CloseBehavior_Remember_Desc.Text" xml:space="preserve">
+    <value>Remember close window choice</value>
+  </data>
+  <data name="SettingsPage_CloseBehavior_Remember_Header.Text" xml:space="preserve">
+    <value>Remember my choice</value>
   </data>
 </root>

@@ -90,23 +90,33 @@
                                             <ColumnDefinition Width="*" />
                                             <ColumnDefinition Width="Auto" />
                                         </Grid.ColumnDefinitions>
-                                        <StackPanel Spacing="2">
+                                        <StackPanel>
                                             <TextBlock x:Uid="SettingsPage_CloseBehavior" />
                                             <TextBlock x:Uid="SettingsPage_CloseBehaviorDesc" FontSize="12" Opacity="0.6" TextWrapping="Wrap" />
                                         </StackPanel>
-                                        <StackPanel Grid.Column="1" Spacing="8" HorizontalAlignment="Right">
-                                            <ComboBox Width="180"
-                                                      SelectedIndex="{x:Bind CloseBehaviorSelectedIndex, Mode=TwoWay}"
-                                                      SelectionChanged="OnCloseBehaviorSelectionChanged">
-                                                <ComboBoxItem x:Uid="SettingsPage_CloseBehavior_Ask" />
-                                                <ComboBoxItem x:Uid="SettingsPage_CloseBehavior_MinimizeToTray" />
-                                                <ComboBoxItem x:Uid="SettingsPage_CloseBehavior_Exit" />
-                                            </ComboBox>
-                                            <ToggleSwitch x:Uid="SettingsPage_CloseBehavior_Remember"
-                                                          IsOn="{x:Bind Settings.RememberCloseBehavior, Mode=TwoWay}"
-                                                          Toggled="OnRememberCloseBehaviorToggled" />
-                                        </StackPanel>
+                                        <ComboBox Width="180"
+                                                  Grid.Column="1"
+                                                  SelectedIndex="{x:Bind CloseBehaviorSelectedIndex, Mode=TwoWay}"
+                                                  SelectionChanged="OnCloseBehaviorSelectionChanged">
+                                            <ComboBoxItem x:Uid="SettingsPage_CloseBehavior_Ask" />
+                                            <ComboBoxItem x:Uid="SettingsPage_CloseBehavior_MinimizeToTray" />
+                                            <ComboBoxItem x:Uid="SettingsPage_CloseBehavior_Exit" />
+                                        </ComboBox>
                                     </Grid>
+
+
+                                    <Grid>
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="*" />
+                                            <ColumnDefinition Width="Auto" />
+                                        </Grid.ColumnDefinitions>
+                                        <StackPanel>
+                                            <TextBlock x:Uid="SettingsPage_CloseBehavior_Remember_Header" />
+                                            <TextBlock x:Uid="SettingsPage_CloseBehavior_Remember_Desc" FontSize="12" Opacity="0.6" TextWrapping="Wrap" />
+                                        </StackPanel>
+                                        <ToggleSwitch Grid.Column="1" IsOn="{x:Bind Settings.RememberCloseBehavior, Mode=TwoWay}" Toggled="OnRememberCloseBehaviorToggled" />
+                                    </Grid>
+                                    
                                 </StackPanel>
                             </Expander>
                         </Border>

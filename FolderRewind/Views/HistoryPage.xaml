@@ -19,6 +19,7 @@
             <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="220"/>
                 <ColumnDefinition Width="220"/>
+                <ColumnDefinition Width="220"/>
                 <ColumnDefinition Width="*"/>
                 <ColumnDefinition Width="Auto"/>
             </Grid.ColumnDefinitions>
@@ -33,13 +34,20 @@
                       HorizontalAlignment="Stretch"
                       DisplayMemberPath="DisplayName"
                       SelectionChanged="FolderFilter_SelectionChanged"/>
+            
+            <Grid Grid.Column="2">
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="1*"/>
+                    <RowDefinition Height="1*"/>
+                </Grid.RowDefinitions>
+                <TextBox x:Name="CommentFilterBox"
+                         Grid.Row="1"
+                         Margin="0,0,0,4"
+                         x:Uid="HistoryPage_CommentFilter"
+                         TextChanged="CommentFilterBox_TextChanged"/>
+            </Grid>
 
-            <TextBox x:Name="CommentFilterBox"
-                     Grid.Column="2"
-                     x:Uid="HistoryPage_CommentFilter"
-                     TextChanged="CommentFilterBox_TextChanged" />
-
-            <StackPanel Grid.Column="3" Orientation="Horizontal" Spacing="12" VerticalAlignment="Bottom">
+            <StackPanel Grid.Column="4" Orientation="Horizontal" Spacing="12" VerticalAlignment="Bottom">
                 <ToggleSwitch x:Name="UseColorsToggle"
                               x:Uid="HistoryPage_UseStatusColors"
                               IsOn="{x:Bind UseHistoryStatusColors, Mode=TwoWay}"
