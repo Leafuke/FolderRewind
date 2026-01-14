@@ -7,6 +7,7 @@ using Microsoft.UI;
 using Microsoft.UI.Windowing;
 using Windows.Foundation;
 using Windows.UI;
+using System;
 
 // To learn more about WinUI, the WinUI project structure,
 // and more about our project templates, see: http://aka.ms/winui-project-info.
@@ -56,9 +57,6 @@ namespace FolderRewind
             catch
             {
             }
-
-            // 系统托盘退出
-            TrayService.ExitRequested = RequestExitFromTray;
         }
 
         private async void MainWindow_Activated(object sender, WindowActivatedEventArgs args)
@@ -88,18 +86,15 @@ namespace FolderRewind
             {
                 // 忽略关闭时的异常
             }
-
-            try
-            {
-                TrayService.Dispose();
-            }
-            catch
-            {
-            }
         }
 
         private void AppWindow_Closing(AppWindow sender, AppWindowClosingEventArgs args)
         {
+            if (App.ForceExitRequested)
+            {
+                return;
+            }
+
             if (_allowCloseOnce)
             {
                 _allowCloseOnce = false;
@@ -118,7 +113,7 @@ namespace FolderRewind
                 if (settings.CloseBehavior == Models.CloseBehavior.MinimizeToTray)
                 {
                     args.Cancel = true;
-                    TrayService.HideToTray(this);
+                    HideToTray();
                     return;
                 }
 
@@ -204,7 +199,7 @@ namespace FolderRewind
                                         ConfigService.Save();
                                     }
 
-                                    TrayService.HideToTray(this);
+                                    HideToTray();
                                 }
                                 else if (result == ContentDialogResult.Secondary)
                                 {
@@ -236,12 +231,11 @@ namespace FolderRewind
             });
         }
 
-        private void RequestExitFromTray()
+        private void HideToTray()
         {
             try
             {
-                _allowCloseOnce = true;
-                Close();
+                AppWindow?.Hide();
             }
             catch
             {

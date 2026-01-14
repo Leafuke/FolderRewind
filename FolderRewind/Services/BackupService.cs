@@ -789,11 +789,11 @@ namespace FolderRewind.Services
         // --- 辅助：元数据处理 ---
         private static Dictionary<string, FileState> ScanDirectory(string path)
         {
-            var result = new Dictionary<string, FileState>();
+            var result = new Dictionary<string, FileState>(StringComparer.OrdinalIgnoreCase);
             var dirInfo = new DirectoryInfo(path);
 
-            // 获取所有文件，使用相对路径作为 Key
-            foreach (var file in dirInfo.GetFiles("*", SearchOption.AllDirectories))
+            // 获取所有文件，使用相对路径作为 Key，采用流式枚举避免一次性加载大目录列表。
+            foreach (var file in dirInfo.EnumerateFiles("*", SearchOption.AllDirectories))
             {
                 string relPath = Path.GetRelativePath(path, file.FullName);
                 result[relPath] = new FileState
