@@ -1521,4 +1521,62 @@
   <data name="MineRewind_Xcopy_Stderr" xml:space="preserve">
     <value>[MineRewind] xcopy 标准错误输出：{0}</value>
   </data>
+
+  <data name="SettingsPage_CloseBehavior.Text" xml:space="preserve">
+    <value>关闭窗口按钮行为</value>
+  </data>
+  <data name="SettingsPage_CloseBehaviorDesc.Text" xml:space="preserve">
+    <value>控制点击窗口右上角关闭按钮时的动作。</value>
+  </data>
+  <data name="SettingsPage_CloseBehavior_Ask.Content" xml:space="preserve">
+    <value>每次询问</value>
+  </data>
+  <data name="SettingsPage_CloseBehavior_MinimizeToTray.Content" xml:space="preserve">
+    <value>最小化到系统托盘</value>
+  </data>
+  <data name="SettingsPage_CloseBehavior_Exit.Content" xml:space="preserve">
+    <value>直接退出</value>
+  </data>
+  <data name="SettingsPage_CloseBehavior_Remember.Header" xml:space="preserve">
+    <value>记住我的选择</value>
+  </data>
+
+  <data name="CloseDialog_Title" xml:space="preserve">
+    <value>关闭应用</value>
+  </data>
+  <data name="CloseDialog_Content" xml:space="preserve">
+    <value>你希望关闭窗口时执行什么操作？</value>
+  </data>
+  <data name="CloseDialog_MinimizeToTray" xml:space="preserve">
+    <value>最小化到托盘</value>
+  </data>
+  <data name="CloseDialog_Exit" xml:space="preserve">
+    <value>直接退出</value>
+  </data>
+  <data name="CloseDialog_Remember" xml:space="preserve">
+    <value>记住我的选择</value>
+  </data>
+
+  <data name="Tray_Show" xml:space="preserve">
+    <value>显示</value>
+  </data>
+  <data name="Tray_Exit" xml:space="preserve">
+    <value>退出</value>
+  </data>
+
+  <data name="HistoryPage_DeleteButton.Content" xml:space="preserve">
+    <value>删除</value>
+  </data>
+  <data name="History_DeleteConfirm_Title" xml:space="preserve">
+    <value>删除历史记录</value>
+  </data>
+  <data name="History_DeleteConfirm_Content" xml:space="preserve">
+    <value>将要删除该条历史记录：{0}\n\n你还可以选择是否同时删除本地备份文件。</value>
+  </data>
+  <data name="History_DeleteConfirm_DeleteRecord" xml:space="preserve">
+    <value>仅删除记录</value>
+  </data>
+  <data name="History_DeleteConfirm_DeleteBoth" xml:space="preserve">
+    <value>删除记录和备份</value>
+  </data>
 </root>

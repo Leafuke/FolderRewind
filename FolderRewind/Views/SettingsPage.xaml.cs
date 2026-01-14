@@ -28,6 +28,25 @@ namespace FolderRewind.Views
     {
         public GlobalSettings Settings => ConfigService.CurrentConfig.GlobalSettings;
 
+        public int CloseBehaviorSelectedIndex
+        {
+            get => (int)Settings.CloseBehavior;
+            set
+            {
+                if (value < 0 || value > 2) value = 0;
+                Settings.CloseBehavior = (CloseBehavior)value;
+
+                // 选择“每次询问”时不再记住
+                if (Settings.CloseBehavior == CloseBehavior.Ask)
+                {
+                    Settings.RememberCloseBehavior = false;
+                }
+
+                ConfigService.Save();
+                OnPropertyChanged();
+            }
+        }
+
         public string AppVersion => GetAppVersionString();
 
         public ReadOnlyObservableCollection<InstalledPluginInfo> InstalledPlugins => PluginService.InstalledPlugins;
@@ -119,6 +138,25 @@ namespace FolderRewind.Views
                 _isInitializingLanguage = false;
                 _isInitializingFont = false;
             }
+        }
+
+        private void OnCloseBehaviorSelectionChanged(object sender, SelectionChangedEventArgs e)
+        {
+            // x:Bind TwoWay 已在 setter 保存，这里只做兜底刷新
+            Bindings.Update();
+        }
+
+        private void OnRememberCloseBehaviorToggled(object sender, RoutedEventArgs e)
+        {
+            // 如果用户打开“记住”，但当前是 Ask，则默认切到“最小化到托盘”更符合预期
+            if (Settings.RememberCloseBehavior && Settings.CloseBehavior == CloseBehavior.Ask)
+            {
+                Settings.CloseBehavior = CloseBehavior.MinimizeToTray;
+                OnPropertyChanged(nameof(CloseBehaviorSelectedIndex));
+            }
+
+            ConfigService.Save();
+            Bindings.Update();
         }
 
         private void HotkeyManager_DefinitionsChanged(object? sender, EventArgs e)

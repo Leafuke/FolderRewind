@@ -8,6 +8,13 @@ using System.Text.Json.Serialization;
 
 namespace FolderRewind.Models
 {
+    public enum CloseBehavior
+    {
+        Ask = 0,
+        MinimizeToTray = 1,
+        Exit = 2
+    }
+
     // 基础通知类，省去每个类都写一遍 PropertyChanged
     public class ObservableObject : INotifyPropertyChanged
     {
@@ -74,6 +81,10 @@ namespace FolderRewind.Models
         private string _lastHistoryConfigId;
         private string _lastHistoryFolderPath;
 
+        // 关闭行为
+        private CloseBehavior _closeBehavior = CloseBehavior.Ask;
+        private bool _rememberCloseBehavior = false;
+
         // 插件系统设置（集中管理，避免散落在 GlobalSettings 顶层）
         private PluginHostSettings _plugins = new();
 
@@ -109,6 +120,16 @@ namespace FolderRewind.Models
         public string LastManagerFolderPath { get => _lastManagerFolderPath; set => SetProperty(ref _lastManagerFolderPath, value); }
         public string LastHistoryConfigId { get => _lastHistoryConfigId; set => SetProperty(ref _lastHistoryConfigId, value); }
         public string LastHistoryFolderPath { get => _lastHistoryFolderPath; set => SetProperty(ref _lastHistoryFolderPath, value); }
+
+        /// <summary>
+        /// 点击窗口关闭按钮时的默认行为。
+        /// </summary>
+        public CloseBehavior CloseBehavior { get => _closeBehavior; set => SetProperty(ref _closeBehavior, value); }
+
+        /// <summary>
+        /// 是否记住关闭按钮行为并不再询问。
+        /// </summary>
+        public bool RememberCloseBehavior { get => _rememberCloseBehavior; set => SetProperty(ref _rememberCloseBehavior, value); }
 
         /// <summary>
         /// 插件系统设置。

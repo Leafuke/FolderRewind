@@ -1521,4 +1521,62 @@ Comment: {1}
   <data name="MineRewind_Xcopy_Stderr" xml:space="preserve">
     <value>[MineRewind] xcopy stderr: {0}</value>
   </data>
+
+  <data name="SettingsPage_CloseBehavior.Text" xml:space="preserve">
+    <value>Close Button Behavior</value>
+  </data>
+  <data name="SettingsPage_CloseBehaviorDesc.Text" xml:space="preserve">
+    <value>Choose what happens when you click the window close button.</value>
+  </data>
+  <data name="SettingsPage_CloseBehavior_Ask.Content" xml:space="preserve">
+    <value>Ask every time</value>
+  </data>
+  <data name="SettingsPage_CloseBehavior_MinimizeToTray.Content" xml:space="preserve">
+    <value>Minimize to tray</value>
+  </data>
+  <data name="SettingsPage_CloseBehavior_Exit.Content" xml:space="preserve">
+    <value>Exit</value>
+  </data>
+  <data name="SettingsPage_CloseBehavior_Remember.Header" xml:space="preserve">
+    <value>Remember my choice</value>
+  </data>
+
+  <data name="CloseDialog_Title" xml:space="preserve">
+    <value>Close App</value>
+  </data>
+  <data name="CloseDialog_Content" xml:space="preserve">
+    <value>What do you want to do when closing the window?</value>
+  </data>
+  <data name="CloseDialog_MinimizeToTray" xml:space="preserve">
+    <value>Minimize to tray</value>
+  </data>
+  <data name="CloseDialog_Exit" xml:space="preserve">
+    <value>Exit</value>
+  </data>
+  <data name="CloseDialog_Remember" xml:space="preserve">
+    <value>Remember my choice</value>
+  </data>
+
+  <data name="Tray_Show" xml:space="preserve">
+    <value>Show</value>
+  </data>
+  <data name="Tray_Exit" xml:space="preserve">
+    <value>Exit</value>
+  </data>
+
+  <data name="HistoryPage_DeleteButton.Content" xml:space="preserve">
+    <value>Delete</value>
+  </data>
+  <data name="History_DeleteConfirm_Title" xml:space="preserve">
+    <value>Delete History</value>
+  </data>
+  <data name="History_DeleteConfirm_Content" xml:space="preserve">
+    <value>You are about to delete this history entry: {0}\n\nYou can also choose whether to delete the local backup file.</value>
+  </data>
+  <data name="History_DeleteConfirm_DeleteRecord" xml:space="preserve">
+    <value>Delete record only</value>
+  </data>
+  <data name="History_DeleteConfirm_DeleteBoth" xml:space="preserve">
+    <value>Delete record and backup</value>
+  </data>
 </root>
