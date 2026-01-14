@@ -80,9 +80,12 @@ namespace FolderRewind.Models
         // KnotLink 互联设置
         private bool _enableKnotLink = false;
         private string _knotLinkHost = "127.0.0.1";
-        private string _knotLinkAppId = "0x00000030";
+        private string _knotLinkAppId = "0x00000020";
         private string _knotLinkOpenSocketId = "0x00000010";
         private string _knotLinkSignalId = "0x00000020";
+
+        // 快捷键/热键
+        private HotkeySettings _hotkeys = new();
 
         public string Language { get => _language; set => SetProperty(ref _language, value); }
         public int ThemeIndex { get => _themeIndex; set => SetProperty(ref _themeIndex, value); }
@@ -137,6 +140,11 @@ namespace FolderRewind.Models
         /// KnotLink 信号 ID（用于事件广播）
         /// </summary>
         public string KnotLinkSignalId { get => _knotLinkSignalId; set => SetProperty(ref _knotLinkSignalId, value); }
+
+        /// <summary>
+        /// 快捷键/热键绑定（允许用户修改）。
+        /// </summary>
+        public HotkeySettings Hotkeys { get => _hotkeys; set => SetProperty(ref _hotkeys, value ?? new HotkeySettings()); }
     }
 
     /// <summary>

@@ -204,6 +204,22 @@ namespace FolderRewind.Services
             }
         }
 
+        /// <summary>
+        /// 主动向 KnotLink OpenSocket 发起查询（用于插件/热键触发的联动）。
+        /// </summary>
+        public static Task<string> QueryAsync(string question, int timeoutMs = 5000)
+        {
+            var settings = ConfigService.CurrentConfig?.GlobalSettings;
+            if (settings == null) return Task.FromResult("ERROR:Config not loaded.");
+            if (!_isEnabled) return Task.FromResult("ERROR:KnotLink disabled.");
+
+            var host = string.IsNullOrWhiteSpace(settings.KnotLinkHost) ? "127.0.0.1" : settings.KnotLinkHost;
+            var appId = string.IsNullOrWhiteSpace(settings.KnotLinkAppId) ? DefaultAppId : settings.KnotLinkAppId;
+            var openSocketId = string.IsNullOrWhiteSpace(settings.KnotLinkOpenSocketId) ? DefaultOpenSocketId : settings.KnotLinkOpenSocketId;
+
+            return FolderRewind.Services.KnotLink.OpenSocketQuerier.QueryAsync(appId, openSocketId, question, host, 6376, timeoutMs);
+        }
+
         #endregion
 
         #region 命令处理

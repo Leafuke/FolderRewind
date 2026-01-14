@@ -1371,4 +1371,154 @@ Comment: {1}
   <data name="Plugins_NotImplemented" xml:space="preserve">
     <value>This plugin has not implemented this feature.</value>
   </data>
+  <data name="Common_Tip" xml:space="preserve">
+    <value>Tip</value>
+  </data>
+  <data name="SettingsPage_Hotkeys.Text" xml:space="preserve">
+    <value>Shortcuts &amp; Hotkeys</value>
+  </data>
+  <data name="SettingsPage_HotkeysDesc.Text" xml:space="preserve">
+    <value>Customize in-app shortcuts and global hotkeys (plugins can also provide bindings).</value>
+  </data>
+  <data name="SettingsPage_Hotkeys_Edit.Content" xml:space="preserve">
+    <value>Edit</value>
+  </data>
+  <data name="SettingsPage_Hotkeys_Reset.Content" xml:space="preserve">
+    <value>Reset</value>
+  </data>
+  <data name="Hotkeys_BackupSelected_DisplayName" xml:space="preserve">
+    <value>Backup selected folder</value>
+  </data>
+  <data name="Hotkeys_BackupSelected_Description" xml:space="preserve">
+    <value>Back up the selected folder in the Manager page.</value>
+  </data>
+  <data name="Hotkeys_Scope_Global" xml:space="preserve">
+    <value>Global hotkey</value>
+  </data>
+  <data name="Hotkeys_Scope_Shortcut" xml:space="preserve">
+    <value>In-app shortcut</value>
+  </data>
+  <data name="Hotkeys_Owner_Core" xml:space="preserve">
+    <value>Source: built-in</value>
+  </data>
+  <data name="Hotkeys_Owner_Plugin" xml:space="preserve">
+    <value>Source: plugin {0}</value>
+  </data>
+  <data name="Hotkeys_Unbound" xml:space="preserve">
+    <value>(unbound)</value>
+  </data>
+  <data name="Hotkeys_Default" xml:space="preserve">
+    <value>Default: {0}</value>
+  </data>
+  <data name="Hotkeys_CapturePlaceholder" xml:space="preserve">
+    <value>Click here and press a key combination…</value>
+  </data>
+  <data name="Hotkeys_CaptureHint" xml:space="preserve">
+    <value>Focus the box and press the desired key combination.</value>
+  </data>
+  <data name="Hotkeys_EditDialogTitle" xml:space="preserve">
+    <value>Edit shortcut/hotkey</value>
+  </data>
+  <data name="Hotkeys_Disable" xml:space="preserve">
+    <value>Disable</value>
+  </data>
+  <data name="Hotkeys_NoCapture" xml:space="preserve">
+    <value>No valid key combination captured.</value>
+  </data>
+  <data name="Hotkeys_ConflictDialog" xml:space="preserve">
+    <value>The key combo {0} is already used by "{1}". Please choose another one.</value>
+  </data>
+  <data name="Hotkeys_InvalidGestureSkipped" xml:space="preserve">
+    <value>Invalid hotkey binding skipped: {0} = {1}</value>
+  </data>
+  <data name="Hotkeys_ConflictShortcut" xml:space="preserve">
+    <value>Shortcut conflict: {0} is used by {1}; skipping {2}</value>
+  </data>
+  <data name="Hotkeys_ConflictGlobal" xml:space="preserve">
+    <value>Global hotkey conflict: {0} is used by {1}; skipping {2}</value>
+  </data>
+  <data name="Hotkeys_RegisterGlobalFailed" xml:space="preserve">
+    <value>Failed to register global hotkey: {0} = {1} (Win32={2})</value>
+  </data>
+  <data name="Hotkeys_GlobalHookFailed" xml:space="preserve">
+    <value>Failed to install global hotkey window hook: {0}</value>
+  </data>
+  <data name="Hotkeys_InvokeFailed" xml:space="preserve">
+    <value>Hotkey callback failed: {0}</value>
+  </data>
+  <data name="Hotkeys_PluginRegisterFailed" xml:space="preserve">
+    <value>Plugin hotkey registration failed: {0} - {1}</value>
+  </data>
+  <data name="MineRewind_Setting_EnableHotBackup_Name" xml:space="preserve">
+    <value>Enable hot backup</value>
+  </data>
+  <data name="MineRewind_Setting_EnableHotBackup_Desc" xml:space="preserve">
+    <value>Create a snapshot via xcopy before backup to avoid file locks while the game is running.</value>
+  </data>
+  <data name="MineRewind_Setting_SnapshotPath_Name" xml:space="preserve">
+    <value>Snapshot storage path</value>
+  </data>
+  <data name="MineRewind_Setting_SnapshotPath_Desc" xml:space="preserve">
+    <value>Temporary snapshot path. Leave empty to use the system temp folder.</value>
+  </data>
+  <data name="MineRewind_Setting_CleanupSnapshot_Name" xml:space="preserve">
+    <value>Clean up snapshot after backup</value>
+  </data>
+  <data name="MineRewind_Setting_CleanupSnapshot_Desc" xml:space="preserve">
+    <value>Automatically delete the temporary snapshot folder after backup.</value>
+  </data>
+  <data name="MineRewind_Setting_SnapshotDelay_Name" xml:space="preserve">
+    <value>Snapshot delay (ms)</value>
+  </data>
+  <data name="MineRewind_Setting_SnapshotDelay_Desc" xml:space="preserve">
+    <value>Wait time after creating snapshot to ensure file system operations complete.</value>
+  </data>
+  <data name="MineRewind_CreateConfigs_Result" xml:space="preserve">
+    <value>Created {0} Minecraft saves configs</value>
+  </data>
+  <data name="MineRewind_Hotkey_ActiveWorldBackup_Name" xml:space="preserve">
+    <value>Hot backup the active world</value>
+  </data>
+  <data name="MineRewind_Hotkey_ActiveWorldBackup_Desc" xml:space="preserve">
+    <value>Detect the running Minecraft world (locked files) and trigger a hot backup.</value>
+  </data>
+  <data name="MineRewind_Hotkey_NoActiveWorld" xml:space="preserve">
+    <value>[MineRewind] No active world detected (no locked save found).</value>
+  </data>
+  <data name="MineRewind_Hotkey_Failed" xml:space="preserve">
+    <value>[MineRewind] Hotkey-triggered backup failed: {0}</value>
+  </data>
+  <data name="MineRewind_Snapshot_Locked" xml:space="preserve">
+    <value>[MineRewind] Detected level.dat is locked; hot-backup snapshot enabled: {0}</value>
+  </data>
+  <data name="MineRewind_Snapshot_Created" xml:space="preserve">
+    <value>[MineRewind] Hot-backup snapshot created: {0}</value>
+  </data>
+  <data name="MineRewind_Snapshot_CreateFailed" xml:space="preserve">
+    <value>[MineRewind] Failed to create snapshot: {0}</value>
+  </data>
+  <data name="MineRewind_Snapshot_Cleaned" xml:space="preserve">
+    <value>[MineRewind] Hot-backup snapshot cleaned up: {0}</value>
+  </data>
+  <data name="MineRewind_Snapshot_CleanupFailed" xml:space="preserve">
+    <value>[MineRewind] Failed to cleanup snapshot: {0}</value>
+  </data>
+  <data name="MineRewind_Snapshot_CleanupOldFailed" xml:space="preserve">
+    <value>[MineRewind] Failed to cleanup old snapshot: {0}</value>
+  </data>
+  <data name="MineRewind_Snapshot_VerifyFailed" xml:space="preserve">
+    <value>[MineRewind] Snapshot verification failed after creation</value>
+  </data>
+  <data name="MineRewind_Snapshot_Exception" xml:space="preserve">
+    <value>[MineRewind] CreateSnapshot exception: {0}</value>
+  </data>
+  <data name="MineRewind_Xcopy_StartFailed" xml:space="preserve">
+    <value>[MineRewind] Unable to start xcopy process</value>
+  </data>
+  <data name="MineRewind_Xcopy_Timeout" xml:space="preserve">
+    <value>[MineRewind] xcopy timed out</value>
+  </data>
+  <data name="MineRewind_Xcopy_Stderr" xml:space="preserve">
+    <value>[MineRewind] xcopy stderr: {0}</value>
+  </data>
 </root>

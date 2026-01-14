@@ -1,5 +1,6 @@
 using FolderRewind.Models;
 using FolderRewind.Services;
+using FolderRewind.Services.Hotkeys;
 using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
@@ -107,7 +108,27 @@ namespace FolderRewind.Services.Plugins
                 // 根据总开关/启用状态加载
                 TryLoadEnabledPlugins();
 
+                // 注册已启用插件的热键定义（窗口就绪后 HotkeyManager 会自动应用）
+                TryRegisterPluginHotkeysForEnabled();
+
                 _initialized = true;
+            }
+        }
+
+        private static void TryRegisterPluginHotkeysForEnabled()
+        {
+            if (!IsPluginSystemEnabled()) return;
+
+            lock (_lock)
+            {
+                foreach (var kv in _loaded)
+                {
+                    var loaded = kv.Value;
+                    if (loaded?.Instance == null) continue;
+                    if (!GetPluginEnabled(loaded.Manifest.Id)) continue;
+
+                    HotkeyManager.RegisterPluginHotkeys(loaded.Manifest, loaded.Instance);
+                }
             }
         }
 
@@ -147,6 +168,9 @@ namespace FolderRewind.Services.Plugins
         {
             RefreshInstalledList();
             TryLoadEnabledPlugins();
+            TryRegisterPluginHotkeysForEnabled();
+
+            try { HotkeyManager.ApplyBindingsToUiAndNative(); } catch { }
         }
 
         public static bool IsPluginSystemEnabled()
@@ -190,6 +214,19 @@ namespace FolderRewind.Services.Plugins
             if (enabled && IsPluginSystemEnabled())
             {
                 TryLoadPlugin(pluginId);
+            }
+
+            // 热键：插件启停后刷新绑定
+            try
+            {
+                if (enabled && _loaded.TryGetValue(pluginId, out var loaded) && loaded != null)
+                {
+                    HotkeyManager.RegisterPluginHotkeys(loaded.Manifest, loaded.Instance);
+                }
+                HotkeyManager.ApplyBindingsToUiAndNative();
+            }
+            catch
+            {
             }
 
             // 同步 UI 信息

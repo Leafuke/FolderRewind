@@ -1,5 +1,6 @@
 using FolderRewind.Models;
 using FolderRewind.Services;
+using FolderRewind.Services.Hotkeys;
 using FolderRewind.Services.Plugins;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
@@ -183,6 +184,15 @@ namespace FolderRewind.Views
         {
             base.OnNavigatedTo(e);
 
+            try
+            {
+                HotkeyManager.Invoked -= HotkeyManager_Invoked;
+                HotkeyManager.Invoked += HotkeyManager_Invoked;
+            }
+            catch
+            {
+            }
+
             // 进入页面时刷新一次视图集合，避免安装包环境下首次绑定异常
             RefreshConfigsView();
 
@@ -235,6 +245,60 @@ namespace FolderRewind.Views
             RefreshCurrentFoldersView();
 
             TryApplyPendingSelection();
+        }
+
+        protected override void OnNavigatedFrom(NavigationEventArgs e)
+        {
+            base.OnNavigatedFrom(e);
+
+            try
+            {
+                HotkeyManager.Invoked -= HotkeyManager_Invoked;
+            }
+            catch
+            {
+            }
+        }
+
+        private async void HotkeyManager_Invoked(object? sender, HotkeyInvokedEventArgs e)
+        {
+            if (e == null) return;
+            if (e.HotkeyId != HotkeyManager.Action_BackupSelectedFolder) return;
+
+            try
+            {
+                if (FolderList?.SelectedItem is not ManagedFolder folder) return;
+                if (CurrentConfig == null) return;
+
+                // [快捷键]
+                var baseComment = string.Empty;
+                try { baseComment = CommentBox?.Text ?? string.Empty; } catch { }
+
+                var comment = string.IsNullOrWhiteSpace(baseComment)
+                    ? "[快捷键]"
+                    : (baseComment.Contains("[快捷键]", StringComparison.OrdinalIgnoreCase)
+                        ? baseComment
+                        : $"{baseComment} [快捷键]");
+
+                // 防止重复触发
+                _ = DispatcherQueue.TryEnqueue(async () =>
+                {
+                    try
+                    {
+                        if (BackupSelectedButton != null && !BackupSelectedButton.IsEnabled) return;
+                        if (BackupSelectedButton != null) BackupSelectedButton.IsEnabled = false;
+
+                        await BackupService.BackupFolderAsync(CurrentConfig, folder, comment);
+                    }
+                    finally
+                    {
+                        if (BackupSelectedButton != null) BackupSelectedButton.IsEnabled = true;
+                    }
+                });
+            }
+            catch
+            {
+            }
         }
 
         private void ApplyManagerNavigation(ManagerNavigationParameter param)

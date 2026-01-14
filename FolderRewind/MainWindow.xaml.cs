@@ -1,5 +1,6 @@
 using Microsoft.UI.Xaml;
 using FolderRewind.Services;
+using FolderRewind.Services.Hotkeys;
 using Microsoft.UI;
 using Microsoft.UI.Windowing;
 using Windows.UI;
@@ -47,6 +48,15 @@ namespace FolderRewind
         {
             // Apply once after the window handle is ready.
             Activated -= MainWindow_Activated;
+
+            try
+            {
+                HotkeyManager.Initialize(this, ShellRoot);
+            }
+            catch
+            {
+            }
+
             await WindowIconHelper.TryApplyAsync(this);
         }
 
