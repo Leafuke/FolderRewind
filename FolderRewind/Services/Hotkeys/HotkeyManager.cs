@@ -47,6 +47,14 @@ namespace FolderRewind.Services.Hotkeys
                 _window = window;
                 _root = rootElement;
 
+                try
+                {
+                    _root.KeyboardAcceleratorPlacementMode = KeyboardAcceleratorPlacementMode.Hidden;
+                }
+                catch
+                {
+                }
+
                 _native ??= new NativeHotkeyService(window);
                 _native.Hook();
 
@@ -177,7 +185,7 @@ namespace FolderRewind.Services.Hotkeys
 
                 _native?.ClearAll();
 
-                // ³åÍ»ÌáÐÑ
+                // ï¿½ï¿½Í»ï¿½ï¿½ï¿½ï¿½
                 var usedShortcut = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
                 var usedGlobal = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
 

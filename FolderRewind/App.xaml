@@ -13,6 +13,10 @@
                 <ResourceDictionary Source="ms-appx:///Styles/TrayResources.xaml" />
             </ResourceDictionary.MergedDictionaries>
 
+            <Style TargetType="FrameworkElement">
+                <Setter Property="KeyboardAcceleratorPlacementMode" Value="Hidden" />
+            </Style>
+
             <!-- 注册全局转换器 -->
             <converters:BoolToVisibilityConverter x:Key="BoolToVisConverter"/>
             <converters:BoolToVisibilityInvertConverter x:Key="BoolToVisInvertConverter"/>
