@@ -43,6 +43,16 @@ namespace FolderRewind.Models
         /// Key: PluginId -> (SettingKey -> stringValue)
         /// </summary>
         public Dictionary<string, Dictionary<string, string>> PluginSettings { get; set; } = new();
+
+        private bool _autoCheckUpdates = true;
+        /// <summary>
+        /// 是否自动检查插件更新
+        /// </summary>
+        public bool AutoCheckUpdates
+        {
+            get => _autoCheckUpdates;
+            set => SetProperty(ref _autoCheckUpdates, value);
+        }
     }
 
     /// <summary>
@@ -85,6 +95,11 @@ namespace FolderRewind.Models
         /// 备注/主页等（可选）。
         /// </summary>
         public string? Homepage { get; set; }
+
+        /// <summary>
+        /// GitHub 仓库地址（可选），格式为 "owner/repo"，用于检查更新。
+        /// </summary>
+        public string? Repository { get; set; }
     }
 
     public enum PluginSettingType
@@ -131,6 +146,49 @@ namespace FolderRewind.Models
         {
             get => _isEnabled;
             set => SetProperty(ref _isEnabled, value);
+        }
+
+        /// <summary>
+        /// 插件 GitHub 仓库（格式 owner/repo）
+        /// </summary>
+        public string? Repository { get; set; }
+
+        /// <summary>
+        /// 主页链接
+        /// </summary>
+        public string? Homepage { get; set; }
+
+        private bool _hasUpdate;
+        /// <summary>
+        /// 是否有可用更新
+        /// </summary>
+        [JsonIgnore]
+        public bool HasUpdate
+        {
+            get => _hasUpdate;
+            set => SetProperty(ref _hasUpdate, value);
+        }
+
+        private string? _latestVersion;
+        /// <summary>
+        /// 最新版本号
+        /// </summary>
+        [JsonIgnore]
+        public string? LatestVersion
+        {
+            get => _latestVersion;
+            set => SetProperty(ref _latestVersion, value);
+        }
+
+        private string? _updateDownloadUrl;
+        /// <summary>
+        /// 更新下载地址
+        /// </summary>
+        [JsonIgnore]
+        public string? UpdateDownloadUrl
+        {
+            get => _updateDownloadUrl;
+            set => SetProperty(ref _updateDownloadUrl, value);
         }
     }
 }

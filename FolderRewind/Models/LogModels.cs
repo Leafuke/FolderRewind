@@ -22,7 +22,6 @@ namespace FolderRewind.Models
     public class LogOptions
     {
         public bool EnableFileLogging { get; set; } = true;
-        public bool EnableDebugLogs { get; set; } = false;
         public int MaxEntries { get; set; } = 4000;
         public int MaxFileSizeKb { get; set; } = 1024 * 5;
         public int RetentionDays { get; set; } = 7;

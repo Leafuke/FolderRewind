@@ -39,12 +39,8 @@
 
                 <!-- 核心行为-->
                 <Grid>
-                    <Grid Background="{ThemeResource CardBackgroundFillColorDefaultBrush}" Translation="0,0,8">
-                        <Grid.Shadow>
-                            <ThemeShadow />
-                        </Grid.Shadow>
-
-                        <Border BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}" BorderThickness="1" CornerRadius="8" Background="{ThemeResource CardBackgroundFillColorDefaultBrush}">
+                    <Grid>
+                        <Border BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}" BorderThickness="1" CornerRadius="8">
                             <Expander IsExpanded="False" HorizontalAlignment="Stretch" HorizontalContentAlignment="Stretch">
                                 <Expander.Header>
                                     <Grid Padding="16" ColumnSpacing="12">
@@ -71,18 +67,6 @@
                                             <TextBlock x:Uid="SettingsPage_RunOnStartupDesc" FontSize="12" Opacity="0.6" TextWrapping="Wrap" />
                                         </StackPanel>
                                         <ToggleSwitch Grid.Column="1" IsOn="{x:Bind Settings.RunOnStartup, Mode=TwoWay}" Toggled="OnRunOnStartupToggled" />
-                                    </Grid>
-
-                                    <Grid>
-                                        <Grid.ColumnDefinitions>
-                                            <ColumnDefinition Width="*" />
-                                            <ColumnDefinition Width="Auto" />
-                                        </Grid.ColumnDefinitions>
-                                        <StackPanel>
-                                            <TextBlock x:Uid="SettingsPage_CheckUpdates" />
-                                            <TextBlock x:Uid="SettingsPage_CheckUpdatesDesc" FontSize="12" Opacity="0.6" TextWrapping="Wrap" />
-                                        </StackPanel>
-                                        <ToggleSwitch Grid.Column="1" IsOn="{x:Bind Settings.CheckForUpdates, Mode=TwoWay}" Toggled="OnSettingChanged" />
                                     </Grid>
 
                                     <Grid>
@@ -125,12 +109,8 @@
 
                 <!-- 热键-->
                 <Grid>
-                    <Grid Background="{ThemeResource CardBackgroundFillColorDefaultBrush}" Translation="0,0,8">
-                        <Grid.Shadow>
-                            <ThemeShadow />
-                        </Grid.Shadow>
-
-                        <Border BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}" BorderThickness="1" CornerRadius="8" Background="{ThemeResource CardBackgroundFillColorDefaultBrush}">
+                    <Grid>
+                        <Border BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}" BorderThickness="1" CornerRadius="8">
                             <Expander IsExpanded="False" HorizontalAlignment="Stretch" HorizontalContentAlignment="Stretch">
                                 <Expander.Header>
                                     <Grid Padding="16" ColumnSpacing="12">
@@ -188,12 +168,8 @@
 
                 <!-- 外观与布局 (Expander) -->
                 <Grid>
-                    <Grid Background="{ThemeResource CardBackgroundFillColorDefaultBrush}" Translation="0,0,8">
-                        <Grid.Shadow>
-                            <ThemeShadow />
-                        </Grid.Shadow>
-
-                        <Border BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}" BorderThickness="1" CornerRadius="8" Background="{ThemeResource CardBackgroundFillColorDefaultBrush}">
+                    <Grid>
+                        <Border BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}" BorderThickness="1" CornerRadius="8">
                             <Expander IsExpanded="False" HorizontalAlignment="Stretch" HorizontalContentAlignment="Stretch">
                                 <Expander.Header>
                                     <Grid Padding="16" ColumnSpacing="12">
@@ -331,12 +307,8 @@
 
                 <!-- 运行环境 (7-Zip) -->
                 <Grid>
-                    <Grid Background="{ThemeResource CardBackgroundFillColorDefaultBrush}" Translation="0,0,8">
-                        <Grid.Shadow>
-                            <ThemeShadow />
-                        </Grid.Shadow>
-
-                        <Border BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}" BorderThickness="1" CornerRadius="8" Background="{ThemeResource CardBackgroundFillColorDefaultBrush}">
+                    <Grid>
+                        <Border BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}" BorderThickness="1" CornerRadius="8">
                             <Expander IsExpanded="False" HorizontalAlignment="Stretch" HorizontalContentAlignment="Stretch">
                                 <Expander.Header>
                                     <Grid Padding="16" ColumnSpacing="12">
@@ -375,12 +347,8 @@
 
                 <!-- 日志与诊断 -->
                 <Grid>
-                    <Grid Background="{ThemeResource CardBackgroundFillColorDefaultBrush}" Translation="0,0,8">
-                        <Grid.Shadow>
-                            <ThemeShadow />
-                        </Grid.Shadow>
-
-                        <Border BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}" BorderThickness="1" CornerRadius="8" Background="{ThemeResource CardBackgroundFillColorDefaultBrush}">
+                    <Grid>
+                        <Border BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}" BorderThickness="1" CornerRadius="8">
                             <Expander IsExpanded="False" HorizontalAlignment="Stretch" HorizontalContentAlignment="Stretch">
                                 <Expander.Header>
                                     <Grid Padding="16" ColumnSpacing="12">
@@ -433,18 +401,6 @@
                                         <NumberBox x:Name="LogRetentionBox" Grid.Column="1" Width="180" Minimum="1" Maximum="60" Value="{x:Bind Settings.LogRetentionDays, Mode=TwoWay}" ValueChanged="OnRetentionChanged" />
                                     </Grid>
 
-                                    <Grid>
-                                        <Grid.ColumnDefinitions>
-                                            <ColumnDefinition Width="*" />
-                                            <ColumnDefinition Width="Auto" />
-                                        </Grid.ColumnDefinitions>
-                                        <StackPanel Spacing="2">
-                                            <TextBlock x:Uid="SettingsPage_DebugLog" />
-                                            <TextBlock x:Uid="SettingsPage_DebugLogDesc" FontSize="12" Opacity="0.6" TextWrapping="Wrap" />
-                                        </StackPanel>
-                                        <ToggleSwitch Grid.Column="1" IsOn="{x:Bind Settings.EnableDebugLogs, Mode=TwoWay}" Toggled="OnLoggingChanged" />
-                                    </Grid>
-
                                     <Button x:Uid="SettingsPage_OpenLogCenter" HorizontalAlignment="Left" Click="OnOpenLogCenterClick" />
                                 </StackPanel>
                             </Expander>
@@ -457,12 +413,8 @@
 
                 <!-- 插件 -->
                 <Grid>
-                    <Grid Background="{ThemeResource CardBackgroundFillColorDefaultBrush}" Translation="0,0,8">
-                        <Grid.Shadow>
-                            <ThemeShadow />
-                        </Grid.Shadow>
-
-                        <Border BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}" BorderThickness="1" CornerRadius="8" Background="{ThemeResource CardBackgroundFillColorDefaultBrush}">
+                    <Grid>
+                        <Border BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}" BorderThickness="1" CornerRadius="8">
                             <Expander IsExpanded="False" HorizontalAlignment="Stretch" HorizontalContentAlignment="Stretch">
                                 <Expander.Header>
                                     <Grid Padding="16" ColumnSpacing="12">
@@ -491,11 +443,24 @@
                                         <ToggleSwitch x:Name="PluginsMasterSwitch" Grid.Column="1" IsOn="{x:Bind Settings.Plugins.Enabled, Mode=TwoWay}" Toggled="OnPluginsEnabledToggled" />
                                     </Grid>
 
+                                    <Grid>
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="*" />
+                                            <ColumnDefinition Width="Auto" />
+                                        </Grid.ColumnDefinitions>
+                                        <StackPanel Spacing="2">
+                                            <TextBlock x:Uid="SettingsPage_PluginsAutoCheckUpdates" />
+                                            <TextBlock x:Uid="SettingsPage_PluginsAutoCheckUpdatesDesc" FontSize="12" Opacity="0.6" TextWrapping="Wrap" />
+                                        </StackPanel>
+                                        <ToggleSwitch Grid.Column="1" IsOn="{x:Bind Settings.Plugins.AutoCheckUpdates, Mode=TwoWay}" Toggled="OnPluginsAutoCheckUpdatesToggled" />
+                                    </Grid>
+
                                     <StackPanel Orientation="Horizontal" Spacing="8">
                                         <Button x:Uid="SettingsPage_OpenPluginStore" Click="OnOpenPluginStoreClick" IsEnabled="{x:Bind Settings.Plugins.Enabled, Mode=OneWay}" />
                                         <Button x:Uid="SettingsPage_ManualInstallPlugin" Click="OnManualInstallPluginClick" IsEnabled="{x:Bind Settings.Plugins.Enabled, Mode=OneWay}" />
                                         <Button x:Uid="SettingsPage_OpenPluginFolder" Click="OnOpenPluginFolderClick" />
                                         <Button x:Uid="SettingsPage_RefreshPlugins" Click="OnRefreshPluginsClick" />
+                                        <Button x:Uid="SettingsPage_CheckPluginUpdates" Click="OnCheckPluginUpdatesClick" IsEnabled="{x:Bind Settings.Plugins.Enabled, Mode=OneWay}" />
                                     </StackPanel>
 
                                     <TextBlock x:Uid="SettingsPage_InstalledPlugins" FontWeight="SemiBold" />
@@ -511,7 +476,17 @@
                                                     </Grid.ColumnDefinitions>
 
                                                     <StackPanel Spacing="2">
-                                                        <TextBlock Text="{x:Bind Name}" FontWeight="SemiBold" />
+                                                        <StackPanel Orientation="Horizontal" Spacing="8">
+                                                            <TextBlock Text="{x:Bind Name}" FontWeight="SemiBold" />
+                                                            <Border Background="{ThemeResource SystemFillColorSuccessBrush}" 
+                                                                    CornerRadius="4" 
+                                                                    Padding="6,2"
+                                                                    Visibility="{x:Bind HasUpdate, Converter={StaticResource BoolToVisConverter}, Mode=OneWay}">
+                                                                <TextBlock Text="{x:Bind LatestVersion, Mode=OneWay}" 
+                                                                           FontSize="11" 
+                                                                           Foreground="White"/>
+                                                            </Border>
+                                                        </StackPanel>
                                                         <TextBlock Text="{x:Bind Description}" Opacity="0.7" TextWrapping="Wrap" />
                                                         <StackPanel Orientation="Horizontal" Spacing="12">
                                                             <TextBlock Text="{x:Bind Version}" Opacity="0.7" />
@@ -526,6 +501,15 @@
                                                     </StackPanel>
 
                                                     <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
+                                                        <Button x:Uid="SettingsPage_PluginUpdate" 
+                                                                Click="OnPluginUpdateClick" 
+                                                                Tag="{x:Bind}"
+                                                                Visibility="{x:Bind HasUpdate, Converter={StaticResource BoolToVisConverter}, Mode=OneWay}">
+                                                            <StackPanel Orientation="Horizontal" Spacing="4">
+                                                                <FontIcon Glyph="&#xE896;" FontSize="14"/>
+                                                                <TextBlock x:Uid="SettingsPage_PluginUpdateText"/>
+                                                            </StackPanel>
+                                                        </Button>
                                                         <ToggleSwitch IsOn="{x:Bind IsEnabled, Mode=TwoWay}" Margin="20,0,0,0" Toggled="OnPluginEnabledToggled" />
                                                         <Button x:Uid="SettingsPage_PluginSettings" Click="OnPluginSettingsClick" Tag="{x:Bind}" />
                                                         <Button x:Uid="SettingsPage_PluginUninstall" Click="OnPluginUninstallClick" Tag="{x:Bind}" />
@@ -542,12 +526,8 @@
 
                 <!-- KnotLink 互联 -->
                 <Grid>
-                    <Grid Background="{ThemeResource CardBackgroundFillColorDefaultBrush}" Translation="0,0,8">
-                        <Grid.Shadow>
-                            <ThemeShadow />
-                        </Grid.Shadow>
-
-                        <Border BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}" BorderThickness="1" CornerRadius="8" Background="{ThemeResource CardBackgroundFillColorDefaultBrush}">
+                    <Grid>
+                        <Border BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}" BorderThickness="1" CornerRadius="8">
                             <Expander IsExpanded="False" HorizontalAlignment="Stretch" HorizontalContentAlignment="Stretch">
                                 <Expander.Header>
                                     <Grid Padding="16" ColumnSpacing="12">
@@ -683,12 +663,8 @@
                 <TextBlock x:Uid="SettingsPage_Section_About" Style="{StaticResource SettingsSectionHeaderTextBlockStyle}" />
 
                 <Grid>
-                    <Grid Background="{ThemeResource CardBackgroundFillColorDefaultBrush}" Translation="0,0,8">
-                        <Grid.Shadow>
-                            <ThemeShadow />
-                        </Grid.Shadow>
-
-                        <Border BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}" BorderThickness="1" CornerRadius="8" Background="{ThemeResource CardBackgroundFillColorDefaultBrush}">
+                    <Grid>
+                        <Border BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}" BorderThickness="1" CornerRadius="8">
                             <Expander IsExpanded="False" HorizontalAlignment="Stretch" HorizontalContentAlignment="Stretch">
                                 <Expander.Header>
                                     <Grid Padding="16" ColumnSpacing="12">

@@ -9,6 +9,8 @@ using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.Collections.Specialized;
 using System.ComponentModel;
+using System.Globalization;
+using System.IO;
 using System.Linq;
 using Windows.ApplicationModel.Resources;
 using Windows.Storage;
@@ -96,18 +98,86 @@ namespace FolderRewind.Views
             if (Configs == null) yield break;
 
             var mode = Settings?.HomeSortMode ?? "NameAsc";
-            IEnumerable<BackupConfig> query = Configs;
+            var list = Configs.ToList();
 
-            query = mode switch
+            IEnumerable<BackupConfig> query = mode switch
             {
-                "NameDesc" => query.OrderByDescending(c => c.Name),
-                _ => query.OrderBy(c => c.Name)
+                "NameDesc" => list.OrderByDescending(c => c.Name),
+                "LastBackupDesc" => list
+                    .OrderByDescending(c => GetConfigLastBackupLocalTimeOrMin(c))
+                    .ThenBy(c => c.Name),
+                "LastModifiedDesc" => list
+                    .OrderByDescending(c => GetConfigLastSourceModifiedUtcOrMin(c))
+                    .ThenBy(c => c.Name),
+                _ => list.OrderBy(c => c.Name)
             };
 
             foreach (var cfg in query)
             {
                 yield return cfg;
             }
+        }
+
+        private static DateTime GetConfigLastBackupLocalTimeOrMin(BackupConfig config)
+        {
+            if (config?.SourceFolders == null) return DateTime.MinValue;
+
+            DateTime? max = null;
+            foreach (var folder in config.SourceFolders)
+            {
+                var t = TryParseBackupLocalTime(folder?.LastBackupTime);
+                if (t.HasValue && (!max.HasValue || t.Value > max.Value))
+                {
+                    max = t;
+                }
+            }
+
+            return max ?? DateTime.MinValue;
+        }
+
+        private static DateTime GetConfigLastSourceModifiedUtcOrMin(BackupConfig config)
+        {
+            if (config?.SourceFolders == null) return DateTime.MinValue;
+
+            DateTime? maxUtc = null;
+            foreach (var folder in config.SourceFolders)
+            {
+                var path = folder?.Path;
+                if (string.IsNullOrWhiteSpace(path)) continue;
+
+                try
+                {
+                    var t = Directory.GetLastWriteTimeUtc(path);
+                    if (t == DateTime.MinValue || t == DateTime.MaxValue) continue;
+                    if (!maxUtc.HasValue || t > maxUtc.Value)
+                    {
+                        maxUtc = t;
+                    }
+                }
+                catch
+                {
+
+                }
+            }
+
+            return maxUtc ?? DateTime.MinValue;
+        }
+
+        private static DateTime? TryParseBackupLocalTime(string value)
+        {
+            if (string.IsNullOrWhiteSpace(value)) return null;
+
+            if (DateTime.TryParseExact(value, "yyyy/MM/dd HH:mm", CultureInfo.InvariantCulture, DateTimeStyles.None, out var exact))
+            {
+                return exact;
+            }
+
+            if (DateTime.TryParse(value, CultureInfo.CurrentCulture, DateTimeStyles.AssumeLocal, out var parsed))
+            {
+                return parsed;
+            }
+
+            return null;
         }
 
         private void RefreshFavorites()
@@ -311,6 +381,7 @@ namespace FolderRewind.Views
                 DefaultButton = ContentDialogButton.Primary,
                 XamlRoot = this.XamlRoot
             };
+            ThemeService.ApplyThemeToDialog(dialog);
 
             if (await dialog.ShowAsync() == ContentDialogResult.Primary)
             {
@@ -334,6 +405,7 @@ namespace FolderRewind.Views
                             CloseButtonText = resourceLoader.GetString("Common_Ok"),
                             XamlRoot = this.XamlRoot
                         };
+                        ThemeService.ApplyThemeToDialog(failed);
                         await failed.ShowAsync();
                         return;
                     }
@@ -391,5 +463,107 @@ namespace FolderRewind.Views
 
             return await picker.PickSingleFolderAsync();
         }
+
+        #region Context Menu Handlers
+
+        // 右键点击配置卡片
+        private void OnConfigCardRightTapped(object sender, Microsoft.UI.Xaml.Input.RightTappedRoutedEventArgs e)
+        {
+
+        }
+
+        // 备份配置中的所有文件夹
+        private async void OnBackupAllFoldersClick(object sender, RoutedEventArgs e)
+        {
+            if (sender is MenuFlyoutItem item && item.DataContext is BackupConfig config)
+            {
+                if (config.SourceFolders == null || config.SourceFolders.Count == 0)
+                {
+                    var resourceLoader = ResourceLoader.GetForViewIndependentUse();
+                    var dialog = new ContentDialog
+                    {
+                        Title = resourceLoader.GetString("HomePage_ContextMenu_NoFolders_Title"),
+                        Content = resourceLoader.GetString("HomePage_ContextMenu_NoFolders_Content"),
+                        CloseButtonText = resourceLoader.GetString("Common_Ok"),
+                        XamlRoot = this.XamlRoot
+                    };
+                    ThemeService.ApplyThemeToDialog(dialog);
+                    await dialog.ShowAsync();
+                    return;
+                }
+
+                foreach (var folder in config.SourceFolders)
+                {
+                    await BackupService.BackupFolderAsync(config, folder, "HomePage Batch Backup");
+                }
+            }
+        }
+
+        // 打开目标文件夹
+        private void OnOpenDestinationClick(object sender, RoutedEventArgs e)
+        {
+            if (sender is MenuFlyoutItem item && item.DataContext is BackupConfig config)
+            {
+                if (!string.IsNullOrWhiteSpace(config.DestinationPath))
+                {
+                    try
+                    {
+                        if (!Directory.Exists(config.DestinationPath))
+                        {
+                            Directory.CreateDirectory(config.DestinationPath);
+                        }
+
+                        System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo
+                        {
+                            FileName = config.DestinationPath,
+                            UseShellExecute = true,
+                            Verb = "open"
+                        });
+                    }
+                    catch (Exception ex)
+                    {
+                        LogService.LogError($"Failed to open destination: {ex.Message}");
+                    }
+                }
+            }
+        }
+
+        // 编辑配置（跳转到管理页）
+        private void OnEditConfigClick(object sender, RoutedEventArgs e)
+        {
+            if (sender is MenuFlyoutItem item && item.DataContext is BackupConfig config)
+            {
+                App.Shell.NavigateTo("Manager", ManagerNavigationParameter.ForConfig(config.Id));
+            }
+        }
+
+        // 删除配置
+        private async void OnDeleteConfigClick(object sender, RoutedEventArgs e)
+        {
+            if (sender is MenuFlyoutItem item && item.DataContext is BackupConfig config)
+            {
+                var resourceLoader = ResourceLoader.GetForViewIndependentUse();
+
+                var dialog = new ContentDialog
+                {
+                    Title = resourceLoader.GetString("HomePage_ContextMenu_DeleteConfirm_Title"),
+                    Content = string.Format(resourceLoader.GetString("HomePage_ContextMenu_DeleteConfirm_Content"), config.Name),
+                    PrimaryButtonText = resourceLoader.GetString("HomePage_ContextMenu_DeleteConfirm_Delete"),
+                    CloseButtonText = resourceLoader.GetString("HomePage_CancelButton"),
+                    DefaultButton = ContentDialogButton.Close,
+                    XamlRoot = this.XamlRoot
+                };
+
+                if (await dialog.ShowAsync() == ContentDialogResult.Primary)
+                {
+                    ConfigService.CurrentConfig.BackupConfigs.Remove(config);
+                    ConfigService.Save();
+                    RefreshConfigsView();
+                    RefreshFavorites();
+                }
+            }
+        }
+
+        #endregion
     }
 }

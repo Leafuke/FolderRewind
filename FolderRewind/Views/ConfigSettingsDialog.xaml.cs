@@ -47,6 +47,9 @@ namespace FolderRewind.Views
             this.Config = config;
             this.XamlRoot = App._window.Content.XamlRoot;
 
+            // 应用当前主题到对话框
+            ThemeService.ApplyThemeToDialog(this);
+
             PluginService.Initialize();
             ConfigTypesView.Clear();
             foreach (var t in PluginService.GetAllSupportedConfigTypes())

@@ -47,6 +47,14 @@ namespace FolderRewind.Services.Hotkeys
                 _window = window;
                 _root = rootElement;
 
+                try
+                {
+                    _root.KeyboardAcceleratorPlacementMode = KeyboardAcceleratorPlacementMode.Hidden;
+                }
+                catch
+                {
+                }
+
                 _native ??= new NativeHotkeyService(window);
                 _native.Hook();
 
@@ -88,6 +96,36 @@ namespace FolderRewind.Services.Hotkeys
                     if (string.IsNullOrWhiteSpace(def.Id)) continue;
 
                     _definitions[def.Id] = def;
+                    changed = true;
+                }
+            }
+
+            if (changed)
+            {
+                DefinitionsChanged?.Invoke(null, EventArgs.Empty);
+                ApplyBindingsToUiAndNative();
+            }
+        }
+
+        /// <summary>
+        /// 注销指定插件的所有热键定义和处理器
+        /// </summary>
+        public static void UnregisterPluginHotkeys(string pluginId)
+        {
+            if (string.IsNullOrWhiteSpace(pluginId)) return;
+
+            bool changed = false;
+            lock (_lock)
+            {
+                var toRemove = _definitions.Values
+                    .Where(d => string.Equals(d.OwnerPluginId, pluginId, StringComparison.OrdinalIgnoreCase))
+                    .Select(d => d.Id)
+                    .ToList();
+
+                foreach (var id in toRemove)
+                {
+                    _definitions.Remove(id);
+                    _handlers.Remove(id);
                     changed = true;
                 }
             }
@@ -177,7 +215,7 @@ namespace FolderRewind.Services.Hotkeys
 
                 _native?.ClearAll();
 
-                // ��ͻ����
+                // ��ͻ����
                 var usedShortcut = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
                 var usedGlobal = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
 

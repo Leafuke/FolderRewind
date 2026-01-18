@@ -4,13 +4,15 @@
   xmlns="http://schemas.microsoft.com/appx/manifest/foundation/windows10"
   xmlns:mp="http://schemas.microsoft.com/appx/2014/phone/manifest"
   xmlns:uap="http://schemas.microsoft.com/appx/manifest/uap/windows10"
+  xmlns:uap5="http://schemas.microsoft.com/appx/manifest/uap/windows10/5"
+  xmlns:desktop="http://schemas.microsoft.com/appx/manifest/desktop/windows10"
   xmlns:rescap="http://schemas.microsoft.com/appx/manifest/foundation/windows10/restrictedcapabilities"
-  IgnorableNamespaces="uap rescap">
+  IgnorableNamespaces="uap uap5 desktop rescap">
 
   <Identity
     Name="Leafuke.FolderRewind"
     Publisher="CN=ED2D4126-34BC-411D-8CD7-C15336441263"
-    Version="1.0.0.0" />
+    Version="1.1.0.0" />
 
   <mp:PhoneIdentity PhoneProductId="5fc1991e-c6d8-4cc1-867e-4165d5214481" PhonePublisherId="00000000-0000-0000-0000-000000000000"/>
 
@@ -42,6 +44,11 @@
         <uap:DefaultTile Wide310x150Logo="Assets\Wide310x150Logo.png" />
         <uap:SplashScreen Image="Assets\SplashScreen.png" />
       </uap:VisualElements>
+      <Extensions>
+        <desktop:Extension Category="windows.startupTask" Executable="$targetnametoken$.exe" EntryPoint="Windows.FullTrustApplication">
+          <desktop:StartupTask TaskId="FolderRewindStartupTask" Enabled="false" DisplayName="FolderRewind" />
+        </desktop:Extension>
+      </Extensions>
     </Application>
   </Applications>
 

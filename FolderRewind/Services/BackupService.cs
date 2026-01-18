@@ -52,6 +52,172 @@ namespace FolderRewind.Services
         }
 
         /// <summary>
+        /// 检查文件是否在黑名单中（参考 MineBackup 的 is_blacklisted 实现）
+        /// </summary>
+        /// <param name="fileToCheck">要检查的文件路径</param>
+        /// <param name="backupSourceRoot">备份源根目录</param>
+        /// <param name="originalSourceRoot">原始源目录（热备份时可能不同）</param>
+        /// <param name="blacklist">黑名单规则列表</param>
+        /// <param name="useRegex">是否启用正则表达式</param>
+        /// <returns>如果文件被黑名单匹配则返回 true</returns>
+        public static bool IsBlacklisted(
+            string fileToCheck,
+            string backupSourceRoot,
+            string originalSourceRoot,
+            IEnumerable<string>? blacklist,
+            bool useRegex = false)
+        {
+            if (string.IsNullOrWhiteSpace(fileToCheck) || blacklist == null) return false;
+
+            var rules = blacklist.Where(r => !string.IsNullOrWhiteSpace(r)).ToList();
+            if (rules.Count == 0) return false;
+
+            // 转为小写用于不区分大小写的匹配
+            var filePathLower = fileToCheck.ToLowerInvariant();
+
+            // 获取相对路径
+            string relativePathLower = string.Empty;
+            try
+            {
+                var relativePath = Path.GetRelativePath(backupSourceRoot, fileToCheck);
+                if (!relativePath.StartsWith(".."))
+                {
+                    relativePathLower = relativePath.ToLowerInvariant();
+                }
+            }
+            catch { }
+
+            foreach (var ruleOrig in rules)
+            {
+                var rule = ruleOrig.Trim();
+                var ruleLower = rule.ToLowerInvariant();
+
+                // 检查是否为正则表达式规则
+                if (ruleLower.StartsWith("regex:"))
+                {
+                    if (!useRegex) continue; // 如果未启用正则，跳过正则规则
+
+                    try
+                    {
+                        var pattern = rule.Substring(6); // 使用原始大小写
+                        var regex = new Regex(pattern, RegexOptions.IgnoreCase | RegexOptions.Compiled);
+
+                        // 正则同时匹配绝对路径和相对路径
+                        if (regex.IsMatch(fileToCheck) ||
+                            (!string.IsNullOrEmpty(relativePathLower) && regex.IsMatch(relativePathLower)))
+                        {
+                            return true;
+                        }
+                    }
+                    catch (ArgumentException)
+                    {
+                        // 无效的正则表达式，跳过
+                        Log(I18n.Format("BackupService_Log_InvalidRegex", rule), LogLevel.Warning);
+                    }
+                }
+                else
+                {
+                    // 普通字符串规则
+
+                    // 1. 直接匹配文件名
+                    var fileName = Path.GetFileName(fileToCheck);
+                    if (!string.IsNullOrEmpty(fileName) &&
+                        fileName.Equals(rule, StringComparison.OrdinalIgnoreCase))
+                    {
+                        return true;
+                    }
+
+                    // 2. 检查路径是否包含规则字符串
+                    if (filePathLower.Contains(ruleLower))
+                    {
+                        return true;
+                    }
+
+                    // 3. 检查相对路径匹配
+                    if (!string.IsNullOrEmpty(relativePathLower) && relativePathLower.Contains(ruleLower))
+                    {
+                        return true;
+                    }
+
+                    // 4. 支持通配符匹配 (*, ?)
+                    if (rule.Contains('*') || rule.Contains('?'))
+                    {
+                        try
+                        {
+                            // 将通配符转换为正则表达式
+                            var wildcardPattern = "^" + Regex.Escape(rule)
+                                .Replace("\\*", ".*")
+                                .Replace("\\?", ".") + "$";
+                            var wildcardRegex = new Regex(wildcardPattern, RegexOptions.IgnoreCase);
+
+                            // 匹配文件名
+                            if (!string.IsNullOrEmpty(fileName) && wildcardRegex.IsMatch(fileName))
+                            {
+                                return true;
+                            }
+
+                            // 匹配相对路径
+                            if (!string.IsNullOrEmpty(relativePathLower) && wildcardRegex.IsMatch(relativePathLower))
+                            {
+                                return true;
+                            }
+                        }
+                        catch { }
+                    }
+
+                    // 5. 处理热备份时的路径映射（参考 MineBackup）
+                    if (Path.IsPathRooted(rule))
+                    {
+                        try
+                        {
+                            // 检查规则是否在原始源路径下
+                            var ruleFullPath = Path.GetFullPath(rule);
+                            var originalFullPath = Path.GetFullPath(originalSourceRoot);
+
+                            if (ruleFullPath.StartsWith(originalFullPath, StringComparison.OrdinalIgnoreCase))
+                            {
+                                // 计算规则相对于原始源的相对路径
+                                var ruleRelative = Path.GetRelativePath(originalSourceRoot, ruleFullPath);
+
+                                // 重映射到当前备份源
+                                var remappedPath = Path.Combine(backupSourceRoot, ruleRelative);
+                                var remappedPathLower = remappedPath.ToLowerInvariant();
+
+                                // 检查文件是否在重映射的黑名单路径下
+                                if (filePathLower.StartsWith(remappedPathLower, StringComparison.OrdinalIgnoreCase))
+                                {
+                                    return true;
+                                }
+                            }
+                        }
+                        catch { }
+                    }
+                }
+            }
+
+            return false;
+        }
+
+        /// <summary>
+        /// 过滤文件列表，移除黑名单中的文件
+        /// </summary>
+        public static List<string> FilterBlacklist(
+            IEnumerable<string> files,
+            string backupSourceRoot,
+            string originalSourceRoot,
+            FilterSettings? filters)
+        {
+            if (filters?.Blacklist == null || filters.Blacklist.Count == 0)
+            {
+                return files.ToList();
+            }
+
+            return files.Where(f => !IsBlacklisted(
+                f, backupSourceRoot, originalSourceRoot,
+                filters.Blacklist, filters.UseRegex)).ToList();
+        }
+
+        /// <summary>
         /// 备份配置下的所有文件夹
         /// </summary>
         public static async Task BackupConfigAsync(BackupConfig config)
@@ -448,13 +614,13 @@ namespace FolderRewind.Services
             string fileName = GenerateFileName(baseName, config.Archive.Format, "Full", comment);
             string destFile = Path.Combine(destDir, fileName);
 
-            // 1. 直接压缩
-            bool result = await Run7zCommandAsync("a", source, destFile, config.Archive);
+            // 1. 直接压缩（带黑名单过滤）
+            bool result = await Run7zCommandAsync("a", source, destFile, config.Archive, null, config.Filters);
 
             // 2. 如果成功，生成新的元数据（为后续可能的增量备份做基准）
             if (result)
             {
-                await UpdateMetadataAsync(source, metaDir, fileName, fileName); // 基准是自己
+                await UpdateMetadataAsync(source, metaDir, fileName, fileName, null, config.Filters); // 基准是自己
                 return (true, fileName);
             }
             return (false, null);
@@ -481,9 +647,9 @@ namespace FolderRewind.Services
                 return await DoFullBackupAsync(source, destDir, metaDir, baseName, config, comment);
             }
 
-            // 2. 扫描并对比文件
+            // 2. 扫描并对比文件（带黑名单过滤）
             Log(I18n.Format("BackupService_Log_AnalyzingDiff"), LogLevel.Info);
-            var currentStates = ScanDirectory(source);
+            var currentStates = ScanDirectory(source, config.Filters);
             var changedFiles = new List<string>();
 
             foreach (var kvp in currentStates)
@@ -530,14 +696,14 @@ namespace FolderRewind.Services
 
             // 4. 执行压缩 (使用 @listfile)
             // 注意：7z 需要工作目录在 source 下，才能正确识别相对路径列表
-            bool result = await Run7zCommandAsync("a", source, destFile, config.Archive, listFile);
+            bool result = await Run7zCommandAsync("a", source, destFile, config.Archive, listFile, config.Filters);
 
             // 5. 更新元数据
             if (result)
             {
                 File.Delete(listFile);
                 // 更新元数据：基准文件保持不变（指向最初的Full），LastBackup指向自己
-                await UpdateMetadataAsync(source, metaDir, fileName, oldMeta.BasedOnFullBackup, currentStates);
+                await UpdateMetadataAsync(source, metaDir, fileName, oldMeta.BasedOnFullBackup, currentStates, config.Filters);
                 return (true, fileName);
             }
             else
@@ -566,10 +732,10 @@ namespace FolderRewind.Services
             FileInfo targetFile = files[0];
             Log(I18n.Format("BackupService_Log_OverwriteUpdating", targetFile.Name), LogLevel.Info);
 
-            // 2. 执行 update 命令 (u)
+            // 2. 执行 update 命令 (u)（带黑名单过滤）
             // 7z u <archive_name> <file_names>
             // u 指令会更新已存在的文件并添加新文件
-            bool result = await Run7zCommandAsync("u", source, targetFile.FullName, config.Archive);
+            bool result = await Run7zCommandAsync("u", source, targetFile.FullName, config.Archive, null, config.Filters);
 
             string resultingFileName = null;
 
@@ -694,26 +860,69 @@ namespace FolderRewind.Services
             {
             }
 
+            // 先确保目标目录存在，再执行清空操作
+            if (!Directory.Exists(targetDir))
+            {
+                try
+                {
+                    Directory.CreateDirectory(targetDir);
+                }
+                catch (Exception ex)
+                {
+                    Log(I18n.Format("BackupService_Log_RestoreCreateTargetDirFailed", ex.Message), LogLevel.Error);
+                    try
+                    {
+                        KnotLinkService.BroadcastEvent("event=restore_finished;status=failure;reason=create_dir_failed");
+                    }
+                    catch { }
+                    return;
+                }
+            }
+
             // 1. Clean 模式先清空目标
             if (mode == RestoreMode.Clean)
             {
                 Log(I18n.Format("BackupService_Log_RestoreCleaningTarget"), LogLevel.Info);
                 try
                 {
-                    // 简单粗暴清空，生产环境建议做白名单检查 (参考 MineBackup whitelist)
                     DirectoryInfo di = new DirectoryInfo(targetDir);
-                    foreach (FileInfo file in di.GetFiles()) file.Delete();
-                    foreach (DirectoryInfo dir in di.GetDirectories()) dir.Delete(true);
+                    foreach (FileInfo file in di.EnumerateFiles("*", SearchOption.AllDirectories))
+                    {
+                        try
+                        {
+                            // 移除只读属性
+                            if ((file.Attributes & FileAttributes.ReadOnly) == FileAttributes.ReadOnly)
+                            {
+                                file.Attributes &= ~FileAttributes.ReadOnly;
+                            }
+                            file.Delete();
+                        }
+                        catch (Exception fileEx)
+                        {
+                            Log(I18n.Format("BackupService_Log_RestoreDeleteFileFailed", file.Name, fileEx.Message), LogLevel.Warning);
+                        }
+                    }
+                    // 从最深层开始删除目录
+                    foreach (DirectoryInfo dir in di.EnumerateDirectories("*", SearchOption.AllDirectories).OrderByDescending(d => d.FullName.Length))
+                    {
+                        try
+                        {
+                            if ((dir.Attributes & FileAttributes.ReadOnly) == FileAttributes.ReadOnly)
+                            {
+                                dir.Attributes &= ~FileAttributes.ReadOnly;
+                            }
+                            dir.Delete(false);
+                        }
+                        catch
+                        {
+
+                        }
+                    }
                 }
                 catch (Exception ex)
                 {
                     Log(I18n.Format("BackupService_Log_RestoreCleanFailedContinueOverwrite", ex.Message), LogLevel.Warning);
                 }
-            }
-
-            if (!Directory.Exists(targetDir))
-            {
-                Directory.CreateDirectory(targetDir);
             }
 
             // 2. 按链顺序依次解压（Full + Smart）
@@ -775,11 +984,20 @@ namespace FolderRewind.Services
         public static async Task RestoreBackupAsync(BackupConfig config, ManagedFolder folder, string backupFileName)
         {
             // 构造一个临时的 HistoryItem
+            string backupType = "Full";
+            if (backupFileName.Contains("[Smart]", StringComparison.OrdinalIgnoreCase))
+            {
+                backupType = "Incremental";
+            }
+            else if (backupFileName.Contains("[Overwrite]", StringComparison.OrdinalIgnoreCase))
+            {
+                backupType = "Overwrite";
+            }
+
             var historyItem = new HistoryItem
             {
                 FileName = backupFileName,
-                // 根据文件名推测备份类型
-                BackupType = backupFileName.Contains("_smart_") ? "Smart" : "Full"
+                BackupType = backupType
             };
 
             await RestoreBackupAsync(config, folder, historyItem, RestoreMode.Overwrite);
@@ -787,14 +1005,34 @@ namespace FolderRewind.Services
 
 
         // --- 辅助：元数据处理 ---
-        private static Dictionary<string, FileState> ScanDirectory(string path)
+        private static Dictionary<string, FileState> ScanDirectory(string path, FilterSettings? filters = null, string? originalSourcePath = null)
         {
-            var result = new Dictionary<string, FileState>(StringComparer.OrdinalIgnoreCase);
+            // 预估容量以减少字典扩容开销
+            var result = new Dictionary<string, FileState>(1024, StringComparer.OrdinalIgnoreCase);
             var dirInfo = new DirectoryInfo(path);
 
-            // 获取所有文件，使用相对路径作为 Key，采用流式枚举避免一次性加载大目录列表。
-            foreach (var file in dirInfo.EnumerateFiles("*", SearchOption.AllDirectories))
+            // 使用 EnumerationOptions 跳过无法访问的文件，避免异常导致的性能损失
+            var enumOptions = new EnumerationOptions
             {
+                RecurseSubdirectories = true,
+                IgnoreInaccessible = true,
+                AttributesToSkip = FileAttributes.System // 跳过系统文件
+            };
+
+            var originalRoot = originalSourcePath ?? path;
+
+            // 获取所有文件，使用相对路径作为 Key，采用流式枚举避免一次性加载大目录列表。
+            foreach (var file in dirInfo.EnumerateFiles("*", enumOptions))
+            {
+                // 检查黑名单
+                if (filters?.Blacklist != null && filters.Blacklist.Count > 0)
+                {
+                    if (IsBlacklisted(file.FullName, path, originalRoot, filters.Blacklist, filters.UseRegex))
+                    {
+                        continue;
+                    }
+                }
+
                 string relPath = Path.GetRelativePath(path, file.FullName);
                 result[relPath] = new FileState
                 {
@@ -808,9 +1046,9 @@ namespace FolderRewind.Services
             return result;
         }
 
-        private static async Task UpdateMetadataAsync(string sourceDir, string metaDir, string currentBackupFile, string baseBackupFile, Dictionary<string, FileState> states = null)
+        private static async Task UpdateMetadataAsync(string sourceDir, string metaDir, string currentBackupFile, string baseBackupFile, Dictionary<string, FileState>? states = null, FilterSettings? filters = null)
         {
-            if (states == null) states = ScanDirectory(sourceDir);
+            if (states == null) states = ScanDirectory(sourceDir, filters);
 
             var meta = new BackupMetadata
             {
@@ -825,7 +1063,7 @@ namespace FolderRewind.Services
         }
 
         // --- 核心：7z 进程调用 ---
-        private static async Task<bool> Run7zCommandAsync(string commandMode, string sourceDir, string archivePath, ArchiveSettings settings, string listFile = null)
+        private static async Task<bool> Run7zCommandAsync(string commandMode, string sourceDir, string archivePath, ArchiveSettings settings, string? listFile = null, FilterSettings? filters = null)
         {
             string sevenZipExe = ResolveSevenZipExecutable();
             if (string.IsNullOrEmpty(sevenZipExe)) return false;
@@ -854,8 +1092,47 @@ namespace FolderRewind.Services
                 sb.Append($" -p\"{settings.Password}\" -mhe=on");
             }
             sb.Append(" -bsp1"); // 开启进度输出到 stderr/stdout
-            // 排除 (稍后实现)
-            // sb.Append(" -xr!*.tmp");
+
+            // 添加黑名单排除规则
+            if (filters?.Blacklist != null && filters.Blacklist.Count > 0)
+            {
+                foreach (var rule in filters.Blacklist.Where(r => !string.IsNullOrWhiteSpace(r)))
+                {
+                    var trimmedRule = rule.Trim();
+                    
+                    // 跳过正则表达式规则（7z 不直接支持）
+                    if (trimmedRule.StartsWith("regex:", StringComparison.OrdinalIgnoreCase))
+                    {
+                        continue;
+                    }
+
+                    // 7z 排除语法: -xr!pattern
+                    // -x 排除, r 递归, ! 后跟模式
+                    if (trimmedRule.Contains('*') || trimmedRule.Contains('?'))
+                    {
+                        // 通配符规则
+                        sb.Append($" -xr!\"{trimmedRule}\"");
+                    }
+                    else if (Path.IsPathRooted(trimmedRule))
+                    {
+                        // 绝对路径规则 - 转换为相对路径
+                        try
+                        {
+                            var relative = Path.GetRelativePath(sourceDir, trimmedRule);
+                            if (!relative.StartsWith(".."))
+                            {
+                                sb.Append($" -xr!\"{relative}\"");
+                            }
+                        }
+                        catch { }
+                    }
+                    else
+                    {
+                        // 普通名称/相对路径规则
+                        sb.Append($" -xr!\"{trimmedRule}\"");
+                    }
+                }
+            }
 
             string args = sb.ToString();
             string safeArgs = string.IsNullOrWhiteSpace(settings.Password) ? args : args.Replace(settings.Password, "***");
@@ -869,7 +1146,9 @@ namespace FolderRewind.Services
             if (!backupDir.Exists) return chain;
 
             bool isIncremental =
-                (!string.IsNullOrWhiteSpace(backupType) && backupType.Equals("Incremental", StringComparison.OrdinalIgnoreCase)) ||
+                (!string.IsNullOrWhiteSpace(backupType) && 
+                    (backupType.Equals("Incremental", StringComparison.OrdinalIgnoreCase) ||
+                     backupType.Equals("Smart", StringComparison.OrdinalIgnoreCase))) ||
                 targetFile.Name.Contains("[Smart]", StringComparison.OrdinalIgnoreCase);
 
             if (!isIncremental)
@@ -878,8 +1157,15 @@ namespace FolderRewind.Services
                 return chain;
             }
 
+            var enumOptions = new EnumerationOptions
+            {
+                IgnoreInaccessible = true,
+                MatchCasing = MatchCasing.CaseInsensitive
+            };
+
+            // 查找最近的全量备份基准
             var baseFull = backupDir
-                .EnumerateFiles("*", SearchOption.TopDirectoryOnly)
+                .EnumerateFiles("*", enumOptions)
                 .Where(f => f.Name.Contains("[Full]", StringComparison.OrdinalIgnoreCase) && f.LastWriteTime <= targetFile.LastWriteTime)
                 .OrderByDescending(f => f.LastWriteTime)
                 .FirstOrDefault();
@@ -894,11 +1180,12 @@ namespace FolderRewind.Services
             chain.Add(baseFull);
 
             var increments = backupDir
-                .EnumerateFiles("*", SearchOption.TopDirectoryOnly)
+                .EnumerateFiles("*", enumOptions)
                 .Where(f => f.Name.Contains("[Smart]", StringComparison.OrdinalIgnoreCase)
                             && f.LastWriteTime >= baseFull.LastWriteTime
                             && f.LastWriteTime <= targetFile.LastWriteTime)
-                .OrderBy(f => f.LastWriteTime);
+                .OrderBy(f => f.LastWriteTime)
+                .ThenBy(f => f.Name); // 二级排序确保稳定性
 
             var added = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
             added.Add(baseFull.FullName);
@@ -915,6 +1202,8 @@ namespace FolderRewind.Services
             {
                 chain.Add(targetFile);
             }
+
+            Log(I18n.Format("BackupService_Log_RestoreChainBuilt", chain.Count), LogLevel.Debug);
 
             return chain;
         }

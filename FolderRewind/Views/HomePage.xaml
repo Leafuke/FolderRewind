@@ -4,6 +4,7 @@
     xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
     xmlns:models="using:FolderRewind.Models"
+    xmlns:services="using:FolderRewind.Services"
     xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
     xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
     mc:Ignorable="d">
@@ -75,9 +76,9 @@
                                         <FontIcon Glyph="&#xE8B7;" FontSize="24" Foreground="{ThemeResource SystemControlForegroundAccentBrush}" VerticalAlignment="Center"/>
                                         
                                         <StackPanel Grid.Column="1" VerticalAlignment="Center" Spacing="2">
-                                            <TextBlock Text="{x:Bind DisplayName}" Style="{ThemeResource BodyStrongTextBlockStyle}" TextTrimming="CharacterEllipsis" TextAlignment="Left"/>
-                                            <TextBlock Text="{x:Bind FullPath}" Style="{ThemeResource CaptionTextBlockStyle}" Opacity="0.6" TextTrimming="CharacterEllipsis" TextAlignment="Left"/>
-                                            <TextBlock Text="{x:Bind LastBackupTime}" Style="{ThemeResource CaptionTextBlockStyle}" Opacity="0.6" TextTrimming="CharacterEllipsis" TextAlignment="Left"/>
+                                            <TextBlock Text="{x:Bind DisplayName}" Style="{ThemeResource BodyStrongTextBlockStyle}" TextTrimming="CharacterEllipsis" TextWrapping="NoWrap" MaxLines="1" TextAlignment="Left" services:AutoToolTipService.IsEnabled="True"/>
+                                            <TextBlock Text="{x:Bind FullPath}" Style="{ThemeResource CaptionTextBlockStyle}" Opacity="0.6" TextTrimming="CharacterEllipsis" TextWrapping="NoWrap" MaxLines="1" TextAlignment="Left" services:AutoToolTipService.IsEnabled="True"/>
+                                            <TextBlock Text="{x:Bind LastBackupTime}" Style="{ThemeResource CaptionTextBlockStyle}" Opacity="0.6" TextTrimming="CharacterEllipsis" TextWrapping="NoWrap" MaxLines="1" TextAlignment="Left" services:AutoToolTipService.IsEnabled="True"/>
                                         </StackPanel>
 
                                         <Button Grid.Column="2" Padding="6" Background="Transparent" BorderThickness="0" 
@@ -114,6 +115,8 @@
                         <ComboBox x:Name="SortCombo" MinWidth="160" SelectionChanged="OnSortModeChanged">
                             <ComboBoxItem Tag="NameAsc" x:Uid="HomePage_Sort_NameAsc"/>
                             <ComboBoxItem Tag="NameDesc" x:Uid="HomePage_Sort_NameDesc"/>
+                            <ComboBoxItem Tag="LastBackupDesc" x:Uid="HomePage_Sort_LastBackup"/>
+                            <ComboBoxItem Tag="LastModifiedDesc" x:Uid="HomePage_Sort_LastModified"/>
                         </ComboBox>
                     </StackPanel>
 
@@ -171,7 +174,34 @@
                                         VerticalAlignment="Stretch"
                                         Width="300"
                                         Height="100"
-                                        Click="OnConfigCardClick">
+                                        Click="OnConfigCardClick"
+                                        RightTapped="OnConfigCardRightTapped">
+                                    <Button.ContextFlyout>
+                                        <MenuFlyout>
+                                            <MenuFlyoutItem x:Uid="HomePage_ContextMenu_BackupAll" Click="OnBackupAllFoldersClick">
+                                                <MenuFlyoutItem.Icon>
+                                                    <FontIcon Glyph="&#xE896;"/>
+                                                </MenuFlyoutItem.Icon>
+                                            </MenuFlyoutItem>
+                                            <MenuFlyoutItem x:Uid="HomePage_ContextMenu_OpenDestination" Click="OnOpenDestinationClick">
+                                                <MenuFlyoutItem.Icon>
+                                                    <FontIcon Glyph="&#xE8DA;"/>
+                                                </MenuFlyoutItem.Icon>
+                                            </MenuFlyoutItem>
+                                            <MenuFlyoutSeparator/>
+                                            <MenuFlyoutItem x:Uid="HomePage_ContextMenu_EditConfig" Click="OnEditConfigClick">
+                                                <MenuFlyoutItem.Icon>
+                                                    <FontIcon Glyph="&#xE70F;"/>
+                                                </MenuFlyoutItem.Icon>
+                                            </MenuFlyoutItem>
+                                            <MenuFlyoutSeparator/>
+                                            <MenuFlyoutItem x:Uid="HomePage_ContextMenu_DeleteConfig" Click="OnDeleteConfigClick">
+                                                <MenuFlyoutItem.Icon>
+                                                    <FontIcon Glyph="&#xE74D;" Foreground="{ThemeResource SystemFillColorCriticalBrush}"/>
+                                                </MenuFlyoutItem.Icon>
+                                            </MenuFlyoutItem>
+                                        </MenuFlyout>
+                                    </Button.ContextFlyout>
                                     <Grid ColumnSpacing="12">
                                         <Grid.ColumnDefinitions>
                                             <ColumnDefinition Width="Auto"/>
@@ -184,8 +214,8 @@
                                         </Border>
                                         
                                         <StackPanel Grid.Column="1" VerticalAlignment="Center" Spacing="2">
-                                            <TextBlock Text="{x:Bind Name}" Style="{ThemeResource BodyStrongTextBlockStyle}" TextTrimming="CharacterEllipsis" TextAlignment="Left"/>
-                                            <TextBlock Text="{x:Bind DestinationPath}" Style="{ThemeResource CaptionTextBlockStyle}" Opacity="0.6" TextTrimming="CharacterEllipsis" TextAlignment="Left"/>
+                                            <TextBlock Text="{x:Bind Name}" Style="{ThemeResource BodyStrongTextBlockStyle}" TextTrimming="CharacterEllipsis" TextWrapping="NoWrap" MaxLines="1" TextAlignment="Left" services:AutoToolTipService.IsEnabled="True"/>
+                                            <TextBlock Text="{x:Bind DestinationPath}" Style="{ThemeResource CaptionTextBlockStyle}" Opacity="0.6" TextTrimming="CharacterEllipsis" TextWrapping="NoWrap" MaxLines="1" TextAlignment="Left" services:AutoToolTipService.IsEnabled="True"/>
                                             
                                             <StackPanel Orientation="Horizontal" Spacing="12" Margin="0,4,0,0">
                                                  <StackPanel Orientation="Horizontal" Spacing="4" Opacity="0.7">
