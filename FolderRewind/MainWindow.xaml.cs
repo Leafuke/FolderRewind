@@ -20,6 +20,8 @@ namespace FolderRewind
     public sealed partial class MainWindow : Window
     {
         private const double TitleBarHorizontalPadding = 12;
+        private const int WindowMinWidth = 840;
+        private const int WindowMinHeight = 580;
 
         private bool _allowCloseOnce;
         private bool _closeDialogShowing;
@@ -64,6 +66,8 @@ namespace FolderRewind
             // Apply once after the window handle is ready.
             Activated -= MainWindow_Activated;
 
+            ApplyMinimumWindowSize();
+
             try
             {
                 HotkeyManager.Initialize(this, ShellRoot);
@@ -73,6 +77,22 @@ namespace FolderRewind
             }
 
             await WindowIconHelper.TryApplyAsync(this);
+        }
+
+        private void ApplyMinimumWindowSize()
+        {
+            try
+            {
+                if (AppWindow?.Presenter is OverlappedPresenter presenter)
+                {
+                    var scale = ShellRoot?.XamlRoot?.RasterizationScale ?? 1d;
+                    presenter.PreferredMinimumWidth = Convert.ToInt32(WindowMinWidth * scale);
+                    presenter.PreferredMinimumHeight = Convert.ToInt32(WindowMinHeight * scale);
+                }
+            }
+            catch
+            {
+            }
         }
 
         private void MainWindow_Closed(object sender, WindowEventArgs args)

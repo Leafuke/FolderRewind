@@ -39,12 +39,8 @@
 
                 <!-- 核心行为-->
                 <Grid>
-                    <Grid Background="{ThemeResource CardBackgroundFillColorDefaultBrush}" Translation="0,0,8">
-                        <Grid.Shadow>
-                            <ThemeShadow />
-                        </Grid.Shadow>
-
-                        <Border BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}" BorderThickness="1" CornerRadius="8" Background="{ThemeResource CardBackgroundFillColorDefaultBrush}">
+                    <Grid>
+                        <Border BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}" BorderThickness="1" CornerRadius="8">
                             <Expander IsExpanded="False" HorizontalAlignment="Stretch" HorizontalContentAlignment="Stretch">
                                 <Expander.Header>
                                     <Grid Padding="16" ColumnSpacing="12">
@@ -125,12 +121,8 @@
 
                 <!-- 热键-->
                 <Grid>
-                    <Grid Background="{ThemeResource CardBackgroundFillColorDefaultBrush}" Translation="0,0,8">
-                        <Grid.Shadow>
-                            <ThemeShadow />
-                        </Grid.Shadow>
-
-                        <Border BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}" BorderThickness="1" CornerRadius="8" Background="{ThemeResource CardBackgroundFillColorDefaultBrush}">
+                    <Grid>
+                        <Border BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}" BorderThickness="1" CornerRadius="8">
                             <Expander IsExpanded="False" HorizontalAlignment="Stretch" HorizontalContentAlignment="Stretch">
                                 <Expander.Header>
                                     <Grid Padding="16" ColumnSpacing="12">
@@ -188,12 +180,8 @@
 
                 <!-- 外观与布局 (Expander) -->
                 <Grid>
-                    <Grid Background="{ThemeResource CardBackgroundFillColorDefaultBrush}" Translation="0,0,8">
-                        <Grid.Shadow>
-                            <ThemeShadow />
-                        </Grid.Shadow>
-
-                        <Border BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}" BorderThickness="1" CornerRadius="8" Background="{ThemeResource CardBackgroundFillColorDefaultBrush}">
+                    <Grid>
+                        <Border BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}" BorderThickness="1" CornerRadius="8">
                             <Expander IsExpanded="False" HorizontalAlignment="Stretch" HorizontalContentAlignment="Stretch">
                                 <Expander.Header>
                                     <Grid Padding="16" ColumnSpacing="12">
@@ -331,12 +319,8 @@
 
                 <!-- 运行环境 (7-Zip) -->
                 <Grid>
-                    <Grid Background="{ThemeResource CardBackgroundFillColorDefaultBrush}" Translation="0,0,8">
-                        <Grid.Shadow>
-                            <ThemeShadow />
-                        </Grid.Shadow>
-
-                        <Border BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}" BorderThickness="1" CornerRadius="8" Background="{ThemeResource CardBackgroundFillColorDefaultBrush}">
+                    <Grid>
+                        <Border BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}" BorderThickness="1" CornerRadius="8">
                             <Expander IsExpanded="False" HorizontalAlignment="Stretch" HorizontalContentAlignment="Stretch">
                                 <Expander.Header>
                                     <Grid Padding="16" ColumnSpacing="12">
@@ -375,12 +359,8 @@
 
                 <!-- 日志与诊断 -->
                 <Grid>
-                    <Grid Background="{ThemeResource CardBackgroundFillColorDefaultBrush}" Translation="0,0,8">
-                        <Grid.Shadow>
-                            <ThemeShadow />
-                        </Grid.Shadow>
-
-                        <Border BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}" BorderThickness="1" CornerRadius="8" Background="{ThemeResource CardBackgroundFillColorDefaultBrush}">
+                    <Grid>
+                        <Border BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}" BorderThickness="1" CornerRadius="8">
                             <Expander IsExpanded="False" HorizontalAlignment="Stretch" HorizontalContentAlignment="Stretch">
                                 <Expander.Header>
                                     <Grid Padding="16" ColumnSpacing="12">
@@ -457,12 +437,8 @@
 
                 <!-- 插件 -->
                 <Grid>
-                    <Grid Background="{ThemeResource CardBackgroundFillColorDefaultBrush}" Translation="0,0,8">
-                        <Grid.Shadow>
-                            <ThemeShadow />
-                        </Grid.Shadow>
-
-                        <Border BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}" BorderThickness="1" CornerRadius="8" Background="{ThemeResource CardBackgroundFillColorDefaultBrush}">
+                    <Grid>
+                        <Border BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}" BorderThickness="1" CornerRadius="8">
                             <Expander IsExpanded="False" HorizontalAlignment="Stretch" HorizontalContentAlignment="Stretch">
                                 <Expander.Header>
                                     <Grid Padding="16" ColumnSpacing="12">
@@ -542,12 +518,8 @@
 
                 <!-- KnotLink 互联 -->
                 <Grid>
-                    <Grid Background="{ThemeResource CardBackgroundFillColorDefaultBrush}" Translation="0,0,8">
-                        <Grid.Shadow>
-                            <ThemeShadow />
-                        </Grid.Shadow>
-
-                        <Border BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}" BorderThickness="1" CornerRadius="8" Background="{ThemeResource CardBackgroundFillColorDefaultBrush}">
+                    <Grid>
+                        <Border BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}" BorderThickness="1" CornerRadius="8">
                             <Expander IsExpanded="False" HorizontalAlignment="Stretch" HorizontalContentAlignment="Stretch">
                                 <Expander.Header>
                                     <Grid Padding="16" ColumnSpacing="12">
@@ -683,12 +655,8 @@
                 <TextBlock x:Uid="SettingsPage_Section_About" Style="{StaticResource SettingsSectionHeaderTextBlockStyle}" />
 
                 <Grid>
-                    <Grid Background="{ThemeResource CardBackgroundFillColorDefaultBrush}" Translation="0,0,8">
-                        <Grid.Shadow>
-                            <ThemeShadow />
-                        </Grid.Shadow>
-
-                        <Border BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}" BorderThickness="1" CornerRadius="8" Background="{ThemeResource CardBackgroundFillColorDefaultBrush}">
+                    <Grid>
+                        <Border BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}" BorderThickness="1" CornerRadius="8">
                             <Expander IsExpanded="False" HorizontalAlignment="Stretch" HorizontalContentAlignment="Stretch">
                                 <Expander.Header>
                                     <Grid Padding="16" ColumnSpacing="12">
