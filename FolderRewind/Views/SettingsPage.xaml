@@ -443,11 +443,24 @@
                                         <ToggleSwitch x:Name="PluginsMasterSwitch" Grid.Column="1" IsOn="{x:Bind Settings.Plugins.Enabled, Mode=TwoWay}" Toggled="OnPluginsEnabledToggled" />
                                     </Grid>
 
+                                    <Grid>
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="*" />
+                                            <ColumnDefinition Width="Auto" />
+                                        </Grid.ColumnDefinitions>
+                                        <StackPanel Spacing="2">
+                                            <TextBlock x:Uid="SettingsPage_PluginsAutoCheckUpdates" />
+                                            <TextBlock x:Uid="SettingsPage_PluginsAutoCheckUpdatesDesc" FontSize="12" Opacity="0.6" TextWrapping="Wrap" />
+                                        </StackPanel>
+                                        <ToggleSwitch Grid.Column="1" IsOn="{x:Bind Settings.Plugins.AutoCheckUpdates, Mode=TwoWay}" Toggled="OnPluginsAutoCheckUpdatesToggled" />
+                                    </Grid>
+
                                     <StackPanel Orientation="Horizontal" Spacing="8">
                                         <Button x:Uid="SettingsPage_OpenPluginStore" Click="OnOpenPluginStoreClick" IsEnabled="{x:Bind Settings.Plugins.Enabled, Mode=OneWay}" />
                                         <Button x:Uid="SettingsPage_ManualInstallPlugin" Click="OnManualInstallPluginClick" IsEnabled="{x:Bind Settings.Plugins.Enabled, Mode=OneWay}" />
                                         <Button x:Uid="SettingsPage_OpenPluginFolder" Click="OnOpenPluginFolderClick" />
                                         <Button x:Uid="SettingsPage_RefreshPlugins" Click="OnRefreshPluginsClick" />
+                                        <Button x:Uid="SettingsPage_CheckPluginUpdates" Click="OnCheckPluginUpdatesClick" IsEnabled="{x:Bind Settings.Plugins.Enabled, Mode=OneWay}" />
                                     </StackPanel>
 
                                     <TextBlock x:Uid="SettingsPage_InstalledPlugins" FontWeight="SemiBold" />
@@ -463,7 +476,17 @@
                                                     </Grid.ColumnDefinitions>
 
                                                     <StackPanel Spacing="2">
-                                                        <TextBlock Text="{x:Bind Name}" FontWeight="SemiBold" />
+                                                        <StackPanel Orientation="Horizontal" Spacing="8">
+                                                            <TextBlock Text="{x:Bind Name}" FontWeight="SemiBold" />
+                                                            <Border Background="{ThemeResource SystemFillColorSuccessBrush}" 
+                                                                    CornerRadius="4" 
+                                                                    Padding="6,2"
+                                                                    Visibility="{x:Bind HasUpdate, Converter={StaticResource BoolToVisConverter}, Mode=OneWay}">
+                                                                <TextBlock Text="{x:Bind LatestVersion, Mode=OneWay}" 
+                                                                           FontSize="11" 
+                                                                           Foreground="White"/>
+                                                            </Border>
+                                                        </StackPanel>
                                                         <TextBlock Text="{x:Bind Description}" Opacity="0.7" TextWrapping="Wrap" />
                                                         <StackPanel Orientation="Horizontal" Spacing="12">
                                                             <TextBlock Text="{x:Bind Version}" Opacity="0.7" />
@@ -478,6 +501,15 @@
                                                     </StackPanel>
 
                                                     <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
+                                                        <Button x:Uid="SettingsPage_PluginUpdate" 
+                                                                Click="OnPluginUpdateClick" 
+                                                                Tag="{x:Bind}"
+                                                                Visibility="{x:Bind HasUpdate, Converter={StaticResource BoolToVisConverter}, Mode=OneWay}">
+                                                            <StackPanel Orientation="Horizontal" Spacing="4">
+                                                                <FontIcon Glyph="&#xE896;" FontSize="14"/>
+                                                                <TextBlock x:Uid="SettingsPage_PluginUpdateText"/>
+                                                            </StackPanel>
+                                                        </Button>
                                                         <ToggleSwitch IsOn="{x:Bind IsEnabled, Mode=TwoWay}" Margin="20,0,0,0" Toggled="OnPluginEnabledToggled" />
                                                         <Button x:Uid="SettingsPage_PluginSettings" Click="OnPluginSettingsClick" Tag="{x:Bind}" />
                                                         <Button x:Uid="SettingsPage_PluginUninstall" Click="OnPluginUninstallClick" Tag="{x:Bind}" />

@@ -8,6 +8,7 @@ using System.Diagnostics;
 using System.IO;
 using System.IO.Compression;
 using System.Linq;
+using System.Net.Http;
 using System.Reflection;
 using System.Text.Json;
 using System.Threading;
@@ -96,6 +97,9 @@ namespace FolderRewind.Services.Plugins
                 try
                 {
                     Directory.CreateDirectory(PluginRootDirectory);
+
+                    // 清理上次未能删除的插件
+                    CleanPendingDeletions();
                 }
                 catch (Exception ex)
                 {
@@ -112,6 +116,17 @@ namespace FolderRewind.Services.Plugins
                 TryRegisterPluginHotkeysForEnabled();
 
                 _initialized = true;
+
+                // 异步检查更新（不阻塞初始化）
+                _ = Task.Run(async () =>
+                {
+                    try
+                    {
+                        await Task.Delay(3000); // 延迟检查，避免启动时网络请求过多
+                        await CheckAllPluginUpdatesAsync();
+                    }
+                    catch { }
+                });
             }
         }
 
@@ -669,9 +684,27 @@ namespace FolderRewind.Services.Plugins
                 var dir = Path.Combine(PluginRootDirectory, SanitizeFolderName(pluginId));
                 if (!Directory.Exists(dir)) return (false, _rl.GetString("PluginService_NotInstalled"));
 
-                // 注意：已加载的程序集无法真正卸载（本设计不做热卸载）。
-                // 这里仍允许删除文件，但某些情况下可能失败（文件被占用）。
-                Directory.Delete(dir, recursive: true);
+                // 尝试卸载已加载的插件
+                bool unloadSuccess = TryUnloadPlugin(pluginId);
+                if (!unloadSuccess)
+                {
+                    // 插件仍被占用，标记为待删除，下次启动时清理
+                    MarkPluginForDeletion(pluginId);
+                    return (true, _rl.GetString("PluginService_UninstallPendingRestart"));
+                }
+
+                // 尝试删除目录
+                try
+                {
+                    Directory.Delete(dir, recursive: true);
+                }
+                catch (Exception deleteEx)
+                {
+                    // 文件被占用，标记为待删除
+                    LogService.LogWarning(I18n.Format("PluginService_DeleteFailed", pluginId, deleteEx.Message), "PluginService");
+                    MarkPluginForDeletion(pluginId);
+                    return (true, _rl.GetString("PluginService_UninstallPendingRestart"));
+                }
 
                 RefreshInstalledList();
 
@@ -689,6 +722,298 @@ namespace FolderRewind.Services.Plugins
             {
                 LogService.LogError(I18n.Format("PluginService_UninstallFailed_Log", pluginId, ex.Message), "PluginService", ex);
                 return (false, string.Format(_rl.GetString("PluginService_UninstallFailed"), ex.Message));
+            }
+        }
+
+        /// <summary>
+        /// 尝试卸载插件的 AssemblyLoadContext
+        /// </summary>
+        private static bool TryUnloadPlugin(string pluginId)
+        {
+            lock (_lock)
+            {
+                if (!_loaded.TryGetValue(pluginId, out var loaded)) return true;
+
+                try
+                {
+                    // 取消热键注册
+                    try
+                    {
+                        HotkeyManager.UnregisterPluginHotkeys(pluginId);
+                    }
+                    catch { }
+
+                    // 尝试调用插件的 Dispose
+                    try
+                    {
+                        if (loaded.Instance is IDisposable disposable)
+                        {
+                            disposable.Dispose();
+                        }
+                    }
+                    catch { }
+
+                    // 获取弱引用以检查卸载是否成功
+                    var weakRef = new WeakReference(loaded.LoadContext);
+
+                    // 从已加载列表移除
+                    _loaded.Remove(pluginId);
+
+                    // 卸载 AssemblyLoadContext
+                    loaded.LoadContext.Unload();
+
+                    // 强制 GC 回收
+                    for (int i = 0; i < 10 && weakRef.IsAlive; i++)
+                    {
+                        GC.Collect();
+                        GC.WaitForPendingFinalizers();
+                    }
+
+                    return !weakRef.IsAlive;
+                }
+                catch (Exception ex)
+                {
+                    LogService.LogError(I18n.Format("PluginService_UnloadFailed", pluginId, ex.Message), "PluginService", ex);
+                    return false;
+                }
+            }
+        }
+
+        /// <summary>
+        /// 标记插件为待删除状态（下次启动时清理）
+        /// </summary>
+        private static void MarkPluginForDeletion(string pluginId)
+        {
+            try
+            {
+                var pendingFile = Path.Combine(PluginRootDirectory, ".pending_delete");
+                var lines = File.Exists(pendingFile)
+                    ? File.ReadAllLines(pendingFile).ToList()
+                    : new List<string>();
+
+                if (!lines.Contains(pluginId, StringComparer.OrdinalIgnoreCase))
+                {
+                    lines.Add(pluginId);
+                    File.WriteAllLines(pendingFile, lines);
+                }
+            }
+            catch { }
+        }
+
+        /// <summary>
+        /// 清理待删除的插件（在初始化时调用）
+        /// </summary>
+        private static void CleanPendingDeletions()
+        {
+            try
+            {
+                var pendingFile = Path.Combine(PluginRootDirectory, ".pending_delete");
+                if (!File.Exists(pendingFile)) return;
+
+                var lines = File.ReadAllLines(pendingFile).Where(l => !string.IsNullOrWhiteSpace(l)).ToList();
+                var remaining = new List<string>();
+
+                foreach (var pluginId in lines)
+                {
+                    var dir = Path.Combine(PluginRootDirectory, SanitizeFolderName(pluginId));
+                    if (Directory.Exists(dir))
+                    {
+                        try
+                        {
+                            Directory.Delete(dir, recursive: true);
+                            LogService.LogInfo(I18n.Format("PluginService_PendingDeleteSuccess", pluginId), "PluginService");
+                        }
+                        catch
+                        {
+                            remaining.Add(pluginId);
+                        }
+                    }
+                }
+
+                if (remaining.Count > 0)
+                {
+                    File.WriteAllLines(pendingFile, remaining);
+                }
+                else
+                {
+                    File.Delete(pendingFile);
+                }
+            }
+            catch { }
+        }
+
+        /// <summary>
+        /// 检查所有已安装插件的更新
+        /// </summary>
+        public static async Task CheckAllPluginUpdatesAsync(CancellationToken ct = default)
+        {
+            var settings = ConfigService.CurrentConfig?.GlobalSettings?.Plugins;
+            if (settings == null || !settings.AutoCheckUpdates) return;
+
+            foreach (var plugin in _installed.ToList())
+            {
+                if (ct.IsCancellationRequested) break;
+                await CheckPluginUpdateAsync(plugin, ct);
+            }
+        }
+
+        /// <summary>
+        /// 检查单个插件的更新
+        /// </summary>
+        public static async Task CheckPluginUpdateAsync(InstalledPluginInfo plugin, CancellationToken ct = default)
+        {
+            if (plugin == null || string.IsNullOrWhiteSpace(plugin.Repository)) return;
+
+            try
+            {
+                var (hasUpdate, latestVersion, downloadUrl) = await CheckGitHubReleaseAsync(plugin.Repository, plugin.Version, ct);
+                plugin.HasUpdate = hasUpdate;
+                plugin.LatestVersion = latestVersion;
+                plugin.UpdateDownloadUrl = downloadUrl;
+            }
+            catch (Exception ex)
+            {
+                LogService.LogWarning(I18n.Format("PluginService_CheckUpdateFailed", plugin.Id, ex.Message), "PluginService");
+            }
+        }
+
+        /// <summary>
+        /// 检查 GitHub Release 获取最新版本
+        /// </summary>
+        private static async Task<(bool HasUpdate, string? LatestVersion, string? DownloadUrl)> CheckGitHubReleaseAsync(
+            string repository, string currentVersion, CancellationToken ct)
+        {
+            if (string.IsNullOrWhiteSpace(repository)) return (false, null, null);
+
+            // 格式: owner/repo
+            var parts = repository.Split('/');
+            if (parts.Length != 2) return (false, null, null);
+
+            var url = $"https://api.github.com/repos/{parts[0]}/{parts[1]}/releases/latest";
+
+            using var client = new HttpClient();
+            client.DefaultRequestHeaders.Add("User-Agent", "FolderRewind-Plugin-Updater");
+            client.DefaultRequestHeaders.Add("Accept", "application/vnd.github.v3+json");
+            client.Timeout = TimeSpan.FromSeconds(15);
+
+            var response = await client.GetAsync(url, ct);
+            if (!response.IsSuccessStatusCode) return (false, null, null);
+
+            var json = await response.Content.ReadAsStringAsync(ct);
+            using var doc = JsonDocument.Parse(json);
+            var root = doc.RootElement;
+
+            if (!root.TryGetProperty("tag_name", out var tagElement)) return (false, null, null);
+
+            var tagName = tagElement.GetString();
+            if (string.IsNullOrWhiteSpace(tagName)) return (false, null, null);
+
+            // 清理版本号（移除 v 前缀）
+            var latestVersion = tagName.TrimStart('v', 'V');
+            var current = currentVersion?.TrimStart('v', 'V') ?? "0.0.0";
+
+            // 比较版本
+            bool hasUpdate = false;
+            try
+            {
+                var latestVer = Version.Parse(latestVersion);
+                var currentVer = Version.Parse(current);
+                hasUpdate = latestVer > currentVer;
+            }
+            catch
+            {
+                // 版本格式不标准，使用字符串比较
+                hasUpdate = !string.Equals(latestVersion, current, StringComparison.OrdinalIgnoreCase);
+            }
+
+            // 获取下载链接（优先找 .zip 文件）
+            string? downloadUrl = null;
+            if (root.TryGetProperty("assets", out var assets) && assets.ValueKind == JsonValueKind.Array)
+            {
+                foreach (var asset in assets.EnumerateArray())
+                {
+                    if (asset.TryGetProperty("browser_download_url", out var urlElement))
+                    {
+                        var assetUrl = urlElement.GetString();
+                        if (!string.IsNullOrWhiteSpace(assetUrl) && assetUrl.EndsWith(".zip", StringComparison.OrdinalIgnoreCase))
+                        {
+                            downloadUrl = assetUrl;
+                            break;
+                        }
+                    }
+                }
+            }
+
+            // 如果没有 .zip 资源，使用 zipball_url
+            if (string.IsNullOrWhiteSpace(downloadUrl) && root.TryGetProperty("zipball_url", out var zipballElement))
+            {
+                downloadUrl = zipballElement.GetString();
+            }
+
+            return (hasUpdate, latestVersion, downloadUrl);
+        }
+
+        /// <summary>
+        /// 从 URL 更新插件
+        /// </summary>
+        public static async Task<(bool Success, string Message)> UpdatePluginFromUrlAsync(
+            InstalledPluginInfo plugin, CancellationToken ct = default)
+        {
+            if (plugin == null || string.IsNullOrWhiteSpace(plugin.UpdateDownloadUrl))
+            {
+                return (false, _rl.GetString("PluginService_NoUpdateUrl"));
+            }
+
+            try
+            {
+                // 下载文件
+                using var client = new HttpClient();
+                client.DefaultRequestHeaders.Add("User-Agent", "FolderRewind-Plugin-Updater");
+                client.Timeout = TimeSpan.FromMinutes(5);
+
+                var response = await client.GetAsync(plugin.UpdateDownloadUrl, ct);
+                if (!response.IsSuccessStatusCode)
+                {
+                    return (false, string.Format(_rl.GetString("PluginService_DownloadFailed"), response.StatusCode));
+                }
+
+                // 保存到临时文件
+                var tempFile = Path.Combine(Path.GetTempPath(), $"FolderRewind_Plugin_{plugin.Id}_{Guid.NewGuid():N}.zip");
+                await using (var fs = File.Create(tempFile))
+                {
+                    await response.Content.CopyToAsync(fs, ct);
+                }
+
+                // 先卸载旧版本
+                TryUnloadPlugin(plugin.Id);
+
+                // 安装新版本
+                var result = await InstallFromZipAsync(tempFile, ct);
+
+                // 清理临时文件
+                try { File.Delete(tempFile); } catch { }
+
+                if (result.Success)
+                {
+                    // 重新启用插件
+                    var settings = ConfigService.CurrentConfig?.GlobalSettings?.Plugins;
+                    if (settings != null && settings.PluginEnabled.TryGetValue(plugin.Id, out var wasEnabled) && wasEnabled)
+                    {
+                        TryLoadPlugin(plugin.Id);
+                    }
+
+                    // 清除更新标记
+                    plugin.HasUpdate = false;
+                    plugin.LatestVersion = null;
+                    plugin.UpdateDownloadUrl = null;
+                }
+
+                return result;
+            }
+            catch (Exception ex)
+            {
+                LogService.LogError(I18n.Format("PluginService_UpdateFailed", plugin.Id, ex.Message), "PluginService", ex);
+                return (false, string.Format(_rl.GetString("PluginService_UpdateFailed"), ex.Message));
             }
         }
 
@@ -850,7 +1175,9 @@ namespace FolderRewind.Services.Plugins
                     Author = manifest.Author ?? string.Empty,
                     Description = manifest.Description ?? string.Empty,
                     InstallPath = pluginDir,
-                    IsEnabled = enabled
+                    IsEnabled = enabled,
+                    Repository = manifest.Repository,
+                    Homepage = manifest.Homepage
                 };
             }
             catch (Exception ex)

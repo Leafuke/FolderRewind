@@ -369,14 +369,14 @@
   <data name="HomePage_Sort_NameAsc.Content" xml:space="preserve">
     <value>Name (A–Z)</value>
   </data>
-  <data name="HomePage_Sort_LastBackup.Content" xml:space="preserve">
-    <value>Last backup time (new→old)</value>
-  </data>
-  <data name="HomePage_Sort_LastModified.Content" xml:space="preserve">
-    <value>Last modified (new→old)</value>
-  </data>
   <data name="HomePage_Sort_NameDesc.Content" xml:space="preserve">
     <value>Name (Z–A)</value>
+  </data>
+  <data name="HomePage_Sort_LastBackup.Content" xml:space="preserve">
+    <value>Last backup time</value>
+  </data>
+  <data name="HomePage_Sort_LastModified.Content" xml:space="preserve">
+    <value>Last modified</value>
   </data>
   <data name="HomePage_Sort_FolderCount.Content" xml:space="preserve">
     <value>Folder count</value>
@@ -759,6 +759,30 @@
   <data name="SettingsPage_PluginUninstall.Content" xml:space="preserve">
     <value>Uninstall</value>
   </data>
+  <data name="SettingsPage_CheckPluginUpdates.Content" xml:space="preserve">
+    <value>Check for updates</value>
+  </data>
+  <data name="SettingsPage_PluginsAutoCheckUpdates.Text" xml:space="preserve">
+    <value>Auto-check for updates</value>
+  </data>
+  <data name="SettingsPage_PluginsAutoCheckUpdatesDesc.Text" xml:space="preserve">
+    <value>Automatically check for plugin updates when the app starts</value>
+  </data>
+  <data name="SettingsPage_PluginUpdate.Content" xml:space="preserve">
+    <value>Update</value>
+  </data>
+  <data name="SettingsPage_PluginUpdateText.Text" xml:space="preserve">
+    <value>Version available: {0}</value>
+  </data>
+  <data name="Plugins_UpdateTitle" xml:space="preserve">
+    <value>Update plugin</value>
+  </data>
+  <data name="Plugins_UpdateConfirm" xml:space="preserve">
+    <value>Update plugin {0} from {1} to {2}?</value>
+  </data>
+  <data name="Plugins_UpdateButton" xml:space="preserve">
+    <value>Update</value>
+  </data>
   <data name="PluginStorePage_Title.Text" xml:space="preserve">
     <value>Plugin store</value>
   </data>
@@ -926,6 +950,24 @@
   </data>
   <data name="PluginService_UninstallFailed" xml:space="preserve">
     <value>Uninstall failed: {0} (if files are in use, close the app and try again)</value>
+  </data>
+  <data name="PluginService_UninstallPendingRestart" xml:space="preserve">
+    <value>Plugin will be fully uninstalled after restarting the app</value>
+  </data>
+  <data name="PluginService_UpdatesAvailable" xml:space="preserve">
+    <value>Updates available. See the plugin list for details.</value>
+  </data>
+  <data name="PluginService_NoUpdatesAvailable" xml:space="preserve">
+    <value>All plugins are up to date.</value>
+  </data>
+  <data name="PluginService_NoUpdateUrl" xml:space="preserve">
+    <value>No update download URL available</value>
+  </data>
+  <data name="PluginService_UpdateFailed" xml:space="preserve">
+    <value>Update failed: {0}</value>
+  </data>
+  <data name="PluginService_DownloadFailed" xml:space="preserve">
+    <value>Download failed: {0}</value>
   </data>
   <data name="PluginService_Load_MissingManifest" xml:space="preserve">
     <value>Missing manifest.json</value>

@@ -1,4 +1,5 @@
 using Microsoft.UI.Xaml;
+using Microsoft.UI.Xaml.Controls;
 
 namespace FolderRewind.Services
 {
@@ -23,6 +24,24 @@ namespace FolderRewind.Services
             {
                 root.RequestedTheme = GetCurrentTheme();
             }
+        }
+
+        /// <summary>
+        /// 为 ContentDialog 应用当前主题
+        /// </summary>
+        public static void ApplyThemeToDialog(ContentDialog? dialog)
+        {
+            if (dialog == null) return;
+            dialog.RequestedTheme = GetCurrentTheme();
+        }
+
+        /// <summary>
+        /// 为 FrameworkElement 应用当前主题
+        /// </summary>
+        public static void ApplyThemeToElement(FrameworkElement? element)
+        {
+            if (element == null) return;
+            element.RequestedTheme = GetCurrentTheme();
         }
 
         public static void NotifyThemeChanged()

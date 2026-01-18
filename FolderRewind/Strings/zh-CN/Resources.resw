@@ -373,10 +373,10 @@
     <value>名称（Z→A）</value>
   </data>
   <data name="HomePage_Sort_LastBackup.Content" xml:space="preserve">
-    <value>最后备份时间（新→旧）</value>
+    <value>最后备份时间</value>
   </data>
   <data name="HomePage_Sort_LastModified.Content" xml:space="preserve">
-    <value>最后修改时间（新→旧）</value>
+    <value>最后修改时间</value>
   </data>
   <data name="HomePage_Sort_FolderCount.Content" xml:space="preserve">
     <value>源文件夹数量</value>
@@ -759,6 +759,30 @@
   <data name="SettingsPage_PluginUninstall.Content" xml:space="preserve">
     <value>卸载</value>
   </data>
+  <data name="SettingsPage_CheckPluginUpdates.Content" xml:space="preserve">
+    <value>检查更新</value>
+  </data>
+  <data name="SettingsPage_PluginsAutoCheckUpdates.Text" xml:space="preserve">
+    <value>自动检查插件更新</value>
+  </data>
+  <data name="SettingsPage_PluginsAutoCheckUpdatesDesc.Text" xml:space="preserve">
+    <value>启动时自动检查已安装插件的更新</value>
+  </data>
+  <data name="SettingsPage_PluginUpdate.Content" xml:space="preserve">
+    <value>更新</value>
+  </data>
+  <data name="SettingsPage_PluginUpdateText.Text" xml:space="preserve">
+    <value>新版本可用：{0}</value>
+  </data>
+  <data name="Plugins_UpdateTitle" xml:space="preserve">
+    <value>插件更新</value>
+  </data>
+  <data name="Plugins_UpdateConfirm" xml:space="preserve">
+    <value>确定要更新 {0} 从 {1} 到 {2} 吗？</value>
+  </data>
+  <data name="Plugins_UpdateButton" xml:space="preserve">
+    <value>更新</value>
+  </data>
   <data name="PluginStorePage_Title.Text" xml:space="preserve">
     <value>插件商店</value>
   </data>
@@ -926,6 +950,24 @@
   </data>
   <data name="PluginService_UninstallFailed" xml:space="preserve">
     <value>卸载失败：{0}（如提示文件被占用，可关闭应用后重试）</value>
+  </data>
+  <data name="PluginService_UninstallPendingRestart" xml:space="preserve">
+    <value>插件将在下次启动应用时完全卸载</value>
+  </data>
+  <data name="PluginService_UpdatesAvailable" xml:space="preserve">
+    <value>发现可用更新，请在插件列表中查看详情</value>
+  </data>
+  <data name="PluginService_NoUpdatesAvailable" xml:space="preserve">
+    <value>所有插件均为最新版本</value>
+  </data>
+  <data name="PluginService_NoUpdateUrl" xml:space="preserve">
+    <value>无可用的更新下载链接</value>
+  </data>
+  <data name="PluginService_UpdateFailed" xml:space="preserve">
+    <value>更新失败：{0}</value>
+  </data>
+  <data name="PluginService_DownloadFailed" xml:space="preserve">
+    <value>下载失败：{0}</value>
   </data>
   <data name="PluginService_Load_MissingManifest" xml:space="preserve">
     <value>缺少 manifest.json</value>

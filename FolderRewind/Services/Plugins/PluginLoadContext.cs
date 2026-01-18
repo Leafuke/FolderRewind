@@ -16,7 +16,11 @@ namespace FolderRewind.Services.Plugins
     {
         private readonly string _pluginDir;
 
-        public PluginLoadContext(string pluginDir) : base(isCollectible: false)
+        /// <summary>
+        /// 创建一个可卸载的插件加载上下文
+        /// isCollectible: true 允许通过 Unload() 方法卸载程序集
+        /// </summary>
+        public PluginLoadContext(string pluginDir) : base(isCollectible: true)
         {
             _pluginDir = pluginDir;
         }

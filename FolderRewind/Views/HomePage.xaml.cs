@@ -381,6 +381,7 @@ namespace FolderRewind.Views
                 DefaultButton = ContentDialogButton.Primary,
                 XamlRoot = this.XamlRoot
             };
+            ThemeService.ApplyThemeToDialog(dialog);
 
             if (await dialog.ShowAsync() == ContentDialogResult.Primary)
             {
@@ -404,6 +405,7 @@ namespace FolderRewind.Views
                             CloseButtonText = resourceLoader.GetString("Common_Ok"),
                             XamlRoot = this.XamlRoot
                         };
+                        ThemeService.ApplyThemeToDialog(failed);
                         await failed.ShowAsync();
                         return;
                     }
@@ -485,6 +487,7 @@ namespace FolderRewind.Views
                         CloseButtonText = resourceLoader.GetString("Common_Ok"),
                         XamlRoot = this.XamlRoot
                     };
+                    ThemeService.ApplyThemeToDialog(dialog);
                     await dialog.ShowAsync();
                     return;
                 }

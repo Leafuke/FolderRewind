@@ -267,6 +267,7 @@ namespace FolderRewind.Views
                 XamlRoot = this.XamlRoot,
                 DefaultButton = ContentDialogButton.Primary,
             };
+            ThemeService.ApplyThemeToDialog(dialog);
 
             var result = await dialog.ShowAsync();
             if (result == ContentDialogResult.Primary)
@@ -322,6 +323,7 @@ namespace FolderRewind.Views
                 CloseButtonText = I18n.GetString("Common_Close"),
                 XamlRoot = this.XamlRoot,
             };
+            ThemeService.ApplyThemeToDialog(dialog);
             await dialog.ShowAsync();
         }
 
@@ -428,7 +430,7 @@ namespace FolderRewind.Views
                 CloseButtonText = I18n.GetString("Common_Close"),
                 XamlRoot = this.XamlRoot
             };
-
+            ThemeService.ApplyThemeToDialog(dialog);
             await dialog.ShowAsync();
         }
 
@@ -529,6 +531,7 @@ namespace FolderRewind.Views
                 CloseButtonText = I18n.GetString("Common_Ok"),
                 XamlRoot = this.XamlRoot
             };
+            ThemeService.ApplyThemeToDialog(dialog);
             await dialog.ShowAsync();
         }
 
@@ -546,6 +549,7 @@ namespace FolderRewind.Views
                     CloseButtonText = I18n.GetString("Common_Ok"),
                     XamlRoot = this.XamlRoot
                 };
+                ThemeService.ApplyThemeToDialog(errorDialog);
                 await errorDialog.ShowAsync();
                 return;
             }
@@ -560,6 +564,7 @@ namespace FolderRewind.Views
                 CloseButtonText = I18n.GetString("Common_Ok"),
                 XamlRoot = this.XamlRoot
             };
+            ThemeService.ApplyThemeToDialog(dialog);
             await dialog.ShowAsync();
         }
 
@@ -639,6 +644,7 @@ namespace FolderRewind.Views
                 CloseButtonText = rl.GetString("Common_Ok"),
                 XamlRoot = this.XamlRoot
             };
+            ThemeService.ApplyThemeToDialog(msg);
             await msg.ShowAsync();
 
             PluginService.RefreshInstalledList();
@@ -680,6 +686,9 @@ namespace FolderRewind.Views
                 XamlRoot = this.XamlRoot
             };
 
+            // 应用主题
+            ThemeService.ApplyThemeToDialog(confirm);
+
             var res = await confirm.ShowAsync();
             if (res != ContentDialogResult.Primary) return;
 
@@ -692,10 +701,110 @@ namespace FolderRewind.Views
                 CloseButtonText = rl.GetString("Common_Ok"),
                 XamlRoot = this.XamlRoot
             };
+            ThemeService.ApplyThemeToDialog(msg);
             await msg.ShowAsync();
 
             PluginService.RefreshInstalledList();
             Bindings.Update();
+        }
+
+        private void OnPluginsAutoCheckUpdatesToggled(object sender, RoutedEventArgs e)
+        {
+            ConfigService.Save();
+        }
+
+        private async void OnCheckPluginUpdatesClick(object sender, RoutedEventArgs e)
+        {
+            var rl = ResourceLoader.GetForViewIndependentUse();
+
+            try
+            {
+                await PluginService.CheckAllPluginUpdatesAsync();
+                Bindings.Update();
+
+                var hasUpdates = InstalledPlugins.Any(p => p.HasUpdate);
+                var msg = new ContentDialog
+                {
+                    Title = rl.GetString("Common_Done"),
+                    Content = hasUpdates
+                        ? rl.GetString("PluginService_UpdatesAvailable")
+                        : rl.GetString("PluginService_NoUpdatesAvailable"),
+                    CloseButtonText = rl.GetString("Common_Ok"),
+                    XamlRoot = this.XamlRoot
+                };
+                ThemeService.ApplyThemeToDialog(msg);
+                await msg.ShowAsync();
+            }
+            catch (Exception ex)
+            {
+                var msg = new ContentDialog
+                {
+                    Title = rl.GetString("Common_Failed"),
+                    Content = ex.Message,
+                    CloseButtonText = rl.GetString("Common_Ok"),
+                    XamlRoot = this.XamlRoot
+                };
+                ThemeService.ApplyThemeToDialog(msg);
+                await msg.ShowAsync();
+            }
+        }
+
+        private async void OnPluginUpdateClick(object sender, RoutedEventArgs e)
+        {
+            if (sender is not Button btn || btn.Tag is not InstalledPluginInfo plugin) return;
+
+            var rl = ResourceLoader.GetForViewIndependentUse();
+
+            if (string.IsNullOrWhiteSpace(plugin.UpdateDownloadUrl))
+            {
+                var noUrl = new ContentDialog
+                {
+                    Title = rl.GetString("Common_Failed"),
+                    Content = rl.GetString("PluginService_NoUpdateUrl"),
+                    CloseButtonText = rl.GetString("Common_Ok"),
+                    XamlRoot = this.XamlRoot
+                };
+                ThemeService.ApplyThemeToDialog(noUrl);
+                await noUrl.ShowAsync();
+                return;
+            }
+
+            var confirm = new ContentDialog
+            {
+                Title = rl.GetString("Plugins_UpdateTitle"),
+                Content = string.Format(rl.GetString("Plugins_UpdateConfirm"), plugin.Name, plugin.Version, plugin.LatestVersion),
+                PrimaryButtonText = rl.GetString("Plugins_UpdateButton"),
+                CloseButtonText = rl.GetString("Common_Cancel"),
+                DefaultButton = ContentDialogButton.Primary,
+                XamlRoot = this.XamlRoot
+            };
+            ThemeService.ApplyThemeToDialog(confirm);
+
+            var res = await confirm.ShowAsync();
+            if (res != ContentDialogResult.Primary) return;
+
+            btn.IsEnabled = false;
+            try
+            {
+                var result = await PluginService.UpdatePluginFromUrlAsync(plugin);
+
+                var msg = new ContentDialog
+                {
+                    Title = result.Success ? rl.GetString("Common_Done") : rl.GetString("Common_Failed"),
+                    Content = result.Message,
+                    CloseButtonText = rl.GetString("Common_Ok"),
+                    XamlRoot = this.XamlRoot
+                };
+                ThemeService.ApplyThemeToDialog(msg);
+                await msg.ShowAsync();
+
+                PluginService.RefreshInstalledList();
+                Bindings.Update();
+            }
+            finally
+            {
+                btn.IsEnabled = true;
+            }
         }
 
         private async void OnPluginSettingsClick(object sender, RoutedEventArgs e)
@@ -714,6 +823,7 @@ namespace FolderRewind.Views
                     CloseButtonText = rl.GetString("Common_Ok"),
                     XamlRoot = this.XamlRoot
                 };
+                ThemeService.ApplyThemeToDialog(noSettings);
                 await noSettings.ShowAsync();
                 return;
             }
@@ -789,6 +899,7 @@ namespace FolderRewind.Views
                 DefaultButton = ContentDialogButton.Primary,
                 XamlRoot = this.XamlRoot
             };
+            ThemeService.ApplyThemeToDialog(dialog);
 
             dialog.Closing += (_, args) =>
             {
@@ -902,6 +1013,7 @@ namespace FolderRewind.Views
                             CloseButtonText = I18n.GetString("Common_Ok"),
                             XamlRoot = this.XamlRoot
                         };
+                        ThemeService.ApplyThemeToDialog(dialog);
                         await dialog.ShowAsync();
                     }
                 }

@@ -107,6 +107,36 @@ namespace FolderRewind.Services.Hotkeys
             }
         }
 
+        /// <summary>
+        /// 注销指定插件的所有热键定义和处理器
+        /// </summary>
+        public static void UnregisterPluginHotkeys(string pluginId)
+        {
+            if (string.IsNullOrWhiteSpace(pluginId)) return;
+
+            bool changed = false;
+            lock (_lock)
+            {
+                var toRemove = _definitions.Values
+                    .Where(d => string.Equals(d.OwnerPluginId, pluginId, StringComparison.OrdinalIgnoreCase))
+                    .Select(d => d.Id)
+                    .ToList();
+
+                foreach (var id in toRemove)
+                {
+                    _definitions.Remove(id);
+                    _handlers.Remove(id);
+                    changed = true;
+                }
+            }
+
+            if (changed)
+            {
+                DefinitionsChanged?.Invoke(null, EventArgs.Empty);
+                ApplyBindingsToUiAndNative();
+            }
+        }
+
         public static void RegisterHandler(string hotkeyId, Func<HotkeyTrigger, Task> handler)
         {
             if (string.IsNullOrWhiteSpace(hotkeyId) || handler == null) return;
