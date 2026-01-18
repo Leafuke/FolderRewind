@@ -115,6 +115,8 @@
                         <ComboBox x:Name="SortCombo" MinWidth="160" SelectionChanged="OnSortModeChanged">
                             <ComboBoxItem Tag="NameAsc" x:Uid="HomePage_Sort_NameAsc"/>
                             <ComboBoxItem Tag="NameDesc" x:Uid="HomePage_Sort_NameDesc"/>
+                            <ComboBoxItem Tag="LastBackupDesc" x:Uid="HomePage_Sort_LastBackup"/>
+                            <ComboBoxItem Tag="LastModifiedDesc" x:Uid="HomePage_Sort_LastModified"/>
                         </ComboBox>
                     </StackPanel>
 

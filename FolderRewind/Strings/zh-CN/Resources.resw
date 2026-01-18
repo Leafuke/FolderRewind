@@ -339,6 +339,12 @@
   <data name="HomePage_Sort_NameDesc.Content" xml:space="preserve">
     <value>名称（Z→A）</value>
   </data>
+  <data name="HomePage_Sort_LastBackup.Content" xml:space="preserve">
+    <value>最后备份时间（新→旧）</value>
+  </data>
+  <data name="HomePage_Sort_LastModified.Content" xml:space="preserve">
+    <value>最后修改时间（新→旧）</value>
+  </data>
   <data name="HomePage_Sort_FolderCount.Content" xml:space="preserve">
     <value>源文件夹数量</value>
   </data>

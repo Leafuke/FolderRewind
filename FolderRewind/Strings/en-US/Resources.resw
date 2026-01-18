@@ -336,6 +336,12 @@
   <data name="HomePage_Sort_NameAsc.Content" xml:space="preserve">
     <value>Name (A–Z)</value>
   </data>
+  <data name="HomePage_Sort_LastBackup.Content" xml:space="preserve">
+    <value>Last backup time (new→old)</value>
+  </data>
+  <data name="HomePage_Sort_LastModified.Content" xml:space="preserve">
+    <value>Last modified (new→old)</value>
+  </data>
   <data name="HomePage_Sort_NameDesc.Content" xml:space="preserve">
     <value>Name (Z–A)</value>
   </data>

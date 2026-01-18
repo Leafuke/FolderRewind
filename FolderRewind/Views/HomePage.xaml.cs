@@ -9,6 +9,8 @@ using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.Collections.Specialized;
 using System.ComponentModel;
+using System.Globalization;
+using System.IO;
 using System.Linq;
 using Windows.ApplicationModel.Resources;
 using Windows.Storage;
@@ -96,18 +98,86 @@ namespace FolderRewind.Views
             if (Configs == null) yield break;
 
             var mode = Settings?.HomeSortMode ?? "NameAsc";
-            IEnumerable<BackupConfig> query = Configs;
+            var list = Configs.ToList();
 
-            query = mode switch
+            IEnumerable<BackupConfig> query = mode switch
             {
-                "NameDesc" => query.OrderByDescending(c => c.Name),
-                _ => query.OrderBy(c => c.Name)
+                "NameDesc" => list.OrderByDescending(c => c.Name),
+                "LastBackupDesc" => list
+                    .OrderByDescending(c => GetConfigLastBackupLocalTimeOrMin(c))
+                    .ThenBy(c => c.Name),
+                "LastModifiedDesc" => list
+                    .OrderByDescending(c => GetConfigLastSourceModifiedUtcOrMin(c))
+                    .ThenBy(c => c.Name),
+                _ => list.OrderBy(c => c.Name)
             };
 
             foreach (var cfg in query)
             {
                 yield return cfg;
             }
+        }
+
+        private static DateTime GetConfigLastBackupLocalTimeOrMin(BackupConfig config)
+        {
+            if (config?.SourceFolders == null) return DateTime.MinValue;
+
+            DateTime? max = null;
+            foreach (var folder in config.SourceFolders)
+            {
+                var t = TryParseBackupLocalTime(folder?.LastBackupTime);
+                if (t.HasValue && (!max.HasValue || t.Value > max.Value))
+                {
+                    max = t;
+                }
+            }
+
+            return max ?? DateTime.MinValue;
+        }
+
+        private static DateTime GetConfigLastSourceModifiedUtcOrMin(BackupConfig config)
+        {
+            if (config?.SourceFolders == null) return DateTime.MinValue;
+
+            DateTime? maxUtc = null;
+            foreach (var folder in config.SourceFolders)
+            {
+                var path = folder?.Path;
+                if (string.IsNullOrWhiteSpace(path)) continue;
+
+                try
+                {
+                    var t = Directory.GetLastWriteTimeUtc(path);
+                    if (t == DateTime.MinValue || t == DateTime.MaxValue) continue;
+                    if (!maxUtc.HasValue || t > maxUtc.Value)
+                    {
+                        maxUtc = t;
+                    }
+                }
+                catch
+                {
+
+                }
+            }
+
+            return maxUtc ?? DateTime.MinValue;
+        }
+
+        private static DateTime? TryParseBackupLocalTime(string value)
+        {
+            if (string.IsNullOrWhiteSpace(value)) return null;
+
+            if (DateTime.TryParseExact(value, "yyyy/MM/dd HH:mm", CultureInfo.InvariantCulture, DateTimeStyles.None, out var exact))
+            {
+                return exact;
+            }
+
+            if (DateTime.TryParse(value, CultureInfo.CurrentCulture, DateTimeStyles.AssumeLocal, out var parsed))
+            {
+                return parsed;
+            }
+
+            return null;
         }
 
         private void RefreshFavorites()
