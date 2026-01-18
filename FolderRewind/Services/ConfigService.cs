@@ -280,7 +280,6 @@ namespace FolderRewind.Services
             var options = new LogOptions
             {
                 EnableFileLogging = settings.EnableFileLogging,
-                EnableDebugLogs = settings.EnableDebugLogs,
                 MaxEntries = 4000,
                 MaxFileSizeKb = Math.Max(512, settings.MaxLogFileSizeMb * 1024),
                 RetentionDays = Math.Max(1, settings.LogRetentionDays)

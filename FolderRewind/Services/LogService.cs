@@ -3,18 +3,20 @@ using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
+using System.Linq;
 using Windows.Storage;
 
 namespace FolderRewind.Services
 {
     /// <summary>
-    /// Centralized logging with in-memory buffer, file persistence, and live stream events.
+    /// Centralized logging with in-memory buffer, file persistence (per-day files), and live stream events.
     /// </summary>
     public static class LogService
     {
         private static readonly object _lock = new();
         private static readonly List<LogEntry> _buffer = new();
         private static LogOptions _options = new();
+        private static string _currentLogDate = string.Empty;
 
         public static event Action<LogEntry>? EntryPublished;
 
@@ -35,12 +37,14 @@ namespace FolderRewind.Services
                 _options = Normalize(options);
                 TrimBufferIfNeeded();
             }
+
+            // Apply retention policy when options change
+            TrimOldLogFiles();
         }
 
         public static void Log(string message, LogLevel level = LogLevel.Info, string? source = null, Exception? exception = null)
         {
             if (string.IsNullOrWhiteSpace(message) && exception == null) return;
-            if (level == LogLevel.Debug && !_options.EnableDebugLogs) return;
 
             var entry = new LogEntry
             {
@@ -72,7 +76,6 @@ namespace FolderRewind.Services
         public static void LogInfo(string message, string? source = null) => Log(message, LogLevel.Info, source);
         public static void LogWarning(string message, string? source = null) => Log(message, LogLevel.Warning, source);
         public static void LogError(string message, string? source = null, Exception? exception = null) => Log(message, LogLevel.Error, source, exception);
-        public static void LogDebug(string message, string? source = null) => Log(message, LogLevel.Debug, source);
 
         public static void MarkSessionStart()
         {
@@ -102,7 +105,7 @@ namespace FolderRewind.Services
         {
             try
             {
-                var folder = Path.GetDirectoryName(GetLogFilePath());
+                var folder = GetLogDirectory();
                 if (string.IsNullOrWhiteSpace(folder)) return;
 
                 if (!Directory.Exists(folder)) Directory.CreateDirectory(folder);
@@ -120,23 +123,43 @@ namespace FolderRewind.Services
             }
         }
 
+        public static string GetLogDirectory()
+        {
+            return Path.Combine(GetWritableAppDataDir(), "FolderRewind", "logs");
+        }
+
         public static string GetLogFilePath()
         {
-            return Path.Combine(GetWritableAppDataDir(), "FolderRewind", "logs", "app.log");
+            var today = DateTime.Now.ToString("yyyy-MM-dd");
+            return Path.Combine(GetLogDirectory(), $"app-{today}.log");
+        }
+
+        public static string GetLogFilePath(DateTime date)
+        {
+            var dateStr = date.ToString("yyyy-MM-dd");
+            return Path.Combine(GetLogDirectory(), $"app-{dateStr}.log");
         }
 
         private static void TryAppendToFile(LogEntry entry)
         {
             if (!_options.EnableFileLogging) return;
-            if (entry.Level == LogLevel.Debug && !_options.EnableDebugLogs) return;
 
             try
             {
-                RotateIfNeeded();
-
+                var today = DateTime.Now.ToString("yyyy-MM-dd");
                 var filePath = GetLogFilePath();
-                var dir = Path.GetDirectoryName(filePath);
-                if (!string.IsNullOrWhiteSpace(dir) && !Directory.Exists(dir)) Directory.CreateDirectory(dir);
+                var dir = GetLogDirectory();
+
+                if (!string.IsNullOrWhiteSpace(dir) && !Directory.Exists(dir))
+                    Directory.CreateDirectory(dir);
+
+                if (_currentLogDate != today)
+                {
+                    _currentLogDate = today;
+                    TrimOldLogFiles();
+                }
+
+                RotateIfNeeded(filePath);
 
                 File.AppendAllText(filePath, FormatLine(entry) + Environment.NewLine);
             }
@@ -146,26 +169,22 @@ namespace FolderRewind.Services
             }
         }
 
-        private static void RotateIfNeeded()
+        private static void RotateIfNeeded(string filePath)
         {
-            var filePath = GetLogFilePath();
-            var dir = Path.GetDirectoryName(filePath);
-            if (string.IsNullOrWhiteSpace(dir)) return;
-
             try
             {
-                if (!Directory.Exists(dir)) Directory.CreateDirectory(dir);
-
                 var info = new FileInfo(filePath);
                 if (!info.Exists) return;
 
                 var limitBytes = Math.Max(1024, _options.MaxFileSizeKb) * 1024L;
                 if (info.Length <= limitBytes) return;
 
-                var archivePath = Path.Combine(dir, $"app-{DateTime.Now:yyyyMMdd-HHmmss}.log");
-                File.Move(filePath, archivePath, true);
+                var dir = Path.GetDirectoryName(filePath);
+                if (string.IsNullOrWhiteSpace(dir)) return;
 
-                TrimOldArchives(dir);
+                var baseName = Path.GetFileNameWithoutExtension(filePath);
+                var archivePath = Path.Combine(dir, $"{baseName}-{DateTime.Now:HHmmss}.log");
+                File.Move(filePath, archivePath, true);
             }
             catch
             {
@@ -173,16 +192,36 @@ namespace FolderRewind.Services
             }
         }
 
-        private static void TrimOldArchives(string dir)
+        private static void TrimOldLogFiles()
         {
             try
             {
-                var threshold = DateTime.Now.AddDays(-Math.Max(1, _options.RetentionDays));
+                var dir = GetLogDirectory();
+                if (!Directory.Exists(dir)) return;
+
+                var threshold = DateTime.Now.Date.AddDays(-Math.Max(1, _options.RetentionDays));
+
                 foreach (var file in Directory.EnumerateFiles(dir, "app-*.log"))
                 {
                     try
                     {
                         var info = new FileInfo(file);
+                        
+                        var fileName = Path.GetFileNameWithoutExtension(file);
+                        if (fileName.StartsWith("app-") && fileName.Length >= 14)
+                        {
+                            var dateStr = fileName.Substring(4, 10); // Extract yyyy-MM-dd
+                            if (DateTime.TryParseExact(dateStr, "yyyy-MM-dd", null, System.Globalization.DateTimeStyles.None, out var fileDate))
+                            {
+                                if (fileDate < threshold)
+                                {
+                                    info.Delete();
+                                    continue;
+                                }
+                            }
+                        }
+
+                        // Fallback: use file's last write time
                         if (info.LastWriteTime < threshold)
                         {
                             info.Delete();
@@ -221,7 +260,6 @@ namespace FolderRewind.Services
             return new LogOptions
             {
                 EnableFileLogging = options.EnableFileLogging,
-                EnableDebugLogs = options.EnableDebugLogs,
                 MaxEntries = Math.Max(500, options.MaxEntries),
                 MaxFileSizeKb = Math.Clamp(options.MaxFileSizeKb, 512, 1024 * 50),
                 RetentionDays = Math.Clamp(options.RetentionDays, 1, 60)

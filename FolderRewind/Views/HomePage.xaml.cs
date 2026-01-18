@@ -461,5 +461,106 @@ namespace FolderRewind.Views
 
             return await picker.PickSingleFolderAsync();
         }
+
+        #region Context Menu Handlers
+
+        // 右键点击配置卡片
+        private void OnConfigCardRightTapped(object sender, Microsoft.UI.Xaml.Input.RightTappedRoutedEventArgs e)
+        {
+
+        }
+
+        // 备份配置中的所有文件夹
+        private async void OnBackupAllFoldersClick(object sender, RoutedEventArgs e)
+        {
+            if (sender is MenuFlyoutItem item && item.DataContext is BackupConfig config)
+            {
+                if (config.SourceFolders == null || config.SourceFolders.Count == 0)
+                {
+                    var resourceLoader = ResourceLoader.GetForViewIndependentUse();
+                    var dialog = new ContentDialog
+                    {
+                        Title = resourceLoader.GetString("HomePage_ContextMenu_NoFolders_Title"),
+                        Content = resourceLoader.GetString("HomePage_ContextMenu_NoFolders_Content"),
+                        CloseButtonText = resourceLoader.GetString("Common_Ok"),
+                        XamlRoot = this.XamlRoot
+                    };
+                    await dialog.ShowAsync();
+                    return;
+                }
+
+                foreach (var folder in config.SourceFolders)
+                {
+                    await BackupService.BackupFolderAsync(config, folder, "HomePage Batch Backup");
+                }
+            }
+        }
+
+        // 打开目标文件夹
+        private void OnOpenDestinationClick(object sender, RoutedEventArgs e)
+        {
+            if (sender is MenuFlyoutItem item && item.DataContext is BackupConfig config)
+            {
+                if (!string.IsNullOrWhiteSpace(config.DestinationPath))
+                {
+                    try
+                    {
+                        if (!Directory.Exists(config.DestinationPath))
+                        {
+                            Directory.CreateDirectory(config.DestinationPath);
+                        }
+
+                        System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo
+                        {
+                            FileName = config.DestinationPath,
+                            UseShellExecute = true,
+                            Verb = "open"
+                        });
+                    }
+                    catch (Exception ex)
+                    {
+                        LogService.LogError($"Failed to open destination: {ex.Message}");
+                    }
+                }
+            }
+        }
+
+        // 编辑配置（跳转到管理页）
+        private void OnEditConfigClick(object sender, RoutedEventArgs e)
+        {
+            if (sender is MenuFlyoutItem item && item.DataContext is BackupConfig config)
+            {
+                App.Shell.NavigateTo("Manager", ManagerNavigationParameter.ForConfig(config.Id));
+            }
+        }
+
+        // 删除配置
+        private async void OnDeleteConfigClick(object sender, RoutedEventArgs e)
+        {
+            if (sender is MenuFlyoutItem item && item.DataContext is BackupConfig config)
+            {
+                var resourceLoader = ResourceLoader.GetForViewIndependentUse();
+
+                var dialog = new ContentDialog
+                {
+                    Title = resourceLoader.GetString("HomePage_ContextMenu_DeleteConfirm_Title"),
+                    Content = string.Format(resourceLoader.GetString("HomePage_ContextMenu_DeleteConfirm_Content"), config.Name),
+                    PrimaryButtonText = resourceLoader.GetString("HomePage_ContextMenu_DeleteConfirm_Delete"),
+                    CloseButtonText = resourceLoader.GetString("HomePage_CancelButton"),
+                    DefaultButton = ContentDialogButton.Close,
+                    XamlRoot = this.XamlRoot
+                };
+
+                if (await dialog.ShowAsync() == ContentDialogResult.Primary)
+                {
+                    ConfigService.CurrentConfig.BackupConfigs.Remove(config);
+                    ConfigService.Save();
+                    RefreshConfigsView();
+                    RefreshFavorites();
+                }
+            }
+        }
+
+        #endregion
     }
 }

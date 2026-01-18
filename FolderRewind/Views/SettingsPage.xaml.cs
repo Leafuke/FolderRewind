@@ -869,12 +869,6 @@ namespace FolderRewind.Views
         // 通用的设置变更处理 (用于不需要特殊逻辑的开关)
         private void OnSettingChanged(object sender, RoutedEventArgs e)
         {
-            if (sender is ToggleSwitch ts)
-            {
-                // 确保在保存前将实际开关值写回设置对象
-                Settings.CheckForUpdates = ts.IsOn;
-            }
-
             ConfigService.Save();
         }
 
@@ -884,19 +878,32 @@ namespace FolderRewind.Views
             ConfigService.Save();
         }
 
-        // 开机自启特殊处理
-        private void OnRunOnStartupToggled(object sender, RoutedEventArgs e)
+        // 开机自启特殊处理（MSIX StartupTask API）
+        private async void OnRunOnStartupToggled(object sender, RoutedEventArgs e)
         {
             if (sender is ToggleSwitch ts)
             {
                 var desired = ts.IsOn;
-                var success = StartupService.SetStartup(desired);
+                var success = await StartupService.SetStartupAsync(desired);
 
                 Settings.RunOnStartup = success && desired;
 
                 if (!success && desired)
                 {
                     ts.IsOn = false;
+                    
+                    var state = await StartupService.GetStartupStateAsync();
+                    if (state == Windows.ApplicationModel.StartupTaskState.DisabledByUser)
+                    {
+                        var dialog = new ContentDialog
+                        {
+                            Title = I18n.GetString("Startup_DisabledByUser_Title"),
+                            Content = I18n.GetString("Startup_DisabledByUser_Content"),
+                            CloseButtonText = I18n.GetString("Common_Ok"),
+                            XamlRoot = this.XamlRoot
+                        };
+                        await dialog.ShowAsync();
+                    }
                 }
 
                 ConfigService.Save();
@@ -974,7 +981,6 @@ namespace FolderRewind.Views
             var options = new LogOptions
             {
                 EnableFileLogging = Settings.EnableFileLogging,
-                EnableDebugLogs = Settings.EnableDebugLogs,
                 MaxEntries = 4000,
                 MaxFileSizeKb = Math.Max(512, Settings.MaxLogFileSizeMb * 1024),
                 RetentionDays = Math.Max(1, Settings.LogRetentionDays)

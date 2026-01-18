@@ -174,7 +174,34 @@
                                         VerticalAlignment="Stretch"
                                         Width="300"
                                         Height="100"
-                                        Click="OnConfigCardClick">
+                                        Click="OnConfigCardClick"
+                                        RightTapped="OnConfigCardRightTapped">
+                                    <Button.ContextFlyout>
+                                        <MenuFlyout>
+                                            <MenuFlyoutItem x:Uid="HomePage_ContextMenu_BackupAll" Click="OnBackupAllFoldersClick">
+                                                <MenuFlyoutItem.Icon>
+                                                    <FontIcon Glyph="&#xE896;"/>
+                                                </MenuFlyoutItem.Icon>
+                                            </MenuFlyoutItem>
+                                            <MenuFlyoutItem x:Uid="HomePage_ContextMenu_OpenDestination" Click="OnOpenDestinationClick">
+                                                <MenuFlyoutItem.Icon>
+                                                    <FontIcon Glyph="&#xE8DA;"/>
+                                                </MenuFlyoutItem.Icon>
+                                            </MenuFlyoutItem>
+                                            <MenuFlyoutSeparator/>
+                                            <MenuFlyoutItem x:Uid="HomePage_ContextMenu_EditConfig" Click="OnEditConfigClick">
+                                                <MenuFlyoutItem.Icon>
+                                                    <FontIcon Glyph="&#xE70F;"/>
+                                                </MenuFlyoutItem.Icon>
+                                            </MenuFlyoutItem>
+                                            <MenuFlyoutSeparator/>
+                                            <MenuFlyoutItem x:Uid="HomePage_ContextMenu_DeleteConfig" Click="OnDeleteConfigClick">
+                                                <MenuFlyoutItem.Icon>
+                                                    <FontIcon Glyph="&#xE74D;" Foreground="{ThemeResource SystemFillColorCriticalBrush}"/>
+                                                </MenuFlyoutItem.Icon>
+                                            </MenuFlyoutItem>
+                                        </MenuFlyout>
+                                    </Button.ContextFlyout>
                                     <Grid ColumnSpacing="12">
                                         <Grid.ColumnDefinitions>
                                             <ColumnDefinition Width="Auto"/>

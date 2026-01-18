@@ -75,18 +75,6 @@
                                             <ColumnDefinition Width="Auto" />
                                         </Grid.ColumnDefinitions>
                                         <StackPanel>
-                                            <TextBlock x:Uid="SettingsPage_CheckUpdates" />
-                                            <TextBlock x:Uid="SettingsPage_CheckUpdatesDesc" FontSize="12" Opacity="0.6" TextWrapping="Wrap" />
-                                        </StackPanel>
-                                        <ToggleSwitch Grid.Column="1" IsOn="{x:Bind Settings.CheckForUpdates, Mode=TwoWay}" Toggled="OnSettingChanged" />
-                                    </Grid>
-
-                                    <Grid>
-                                        <Grid.ColumnDefinitions>
-                                            <ColumnDefinition Width="*" />
-                                            <ColumnDefinition Width="Auto" />
-                                        </Grid.ColumnDefinitions>
-                                        <StackPanel>
                                             <TextBlock x:Uid="SettingsPage_CloseBehavior" />
                                             <TextBlock x:Uid="SettingsPage_CloseBehaviorDesc" FontSize="12" Opacity="0.6" TextWrapping="Wrap" />
                                         </StackPanel>
@@ -411,18 +399,6 @@
                                             <TextBlock x:Uid="SettingsPage_LogRetentionDesc" FontSize="12" Opacity="0.6" TextWrapping="Wrap" />
                                         </StackPanel>
                                         <NumberBox x:Name="LogRetentionBox" Grid.Column="1" Width="180" Minimum="1" Maximum="60" Value="{x:Bind Settings.LogRetentionDays, Mode=TwoWay}" ValueChanged="OnRetentionChanged" />
-                                    </Grid>
-
-                                    <Grid>
-                                        <Grid.ColumnDefinitions>
-                                            <ColumnDefinition Width="*" />
-                                            <ColumnDefinition Width="Auto" />
-                                        </Grid.ColumnDefinitions>
-                                        <StackPanel Spacing="2">
-                                            <TextBlock x:Uid="SettingsPage_DebugLog" />
-                                            <TextBlock x:Uid="SettingsPage_DebugLogDesc" FontSize="12" Opacity="0.6" TextWrapping="Wrap" />
-                                        </StackPanel>
-                                        <ToggleSwitch Grid.Column="1" IsOn="{x:Bind Settings.EnableDebugLogs, Mode=TwoWay}" Toggled="OnLoggingChanged" />
                                     </Grid>
 
                                     <Button x:Uid="SettingsPage_OpenLogCenter" HorizontalAlignment="Left" Click="OnOpenLogCenterClick" />

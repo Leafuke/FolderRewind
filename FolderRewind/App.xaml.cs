@@ -117,14 +117,14 @@ namespace FolderRewind
                 var startupSettings = Services.ConfigService.CurrentConfig?.GlobalSettings;
                 if (startupSettings != null)
                 {
-                    _ = Task.Run(() =>
+                    _ = Task.Run(async () =>
                     {
                         try
                         {
-                            var startupApplied = Services.StartupService.SetStartup(startupSettings.RunOnStartup);
-                            if (!startupApplied && startupSettings.RunOnStartup)
+                            var isEnabled = await Services.StartupService.IsStartupEnabledAsync();
+                            if (startupSettings.RunOnStartup != isEnabled)
                             {
-                                startupSettings.RunOnStartup = false;
+                                startupSettings.RunOnStartup = isEnabled;
                                 Services.ConfigService.Save();
                             }
                         }

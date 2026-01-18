@@ -138,6 +138,39 @@
   <data name="HomePage_NewConfigSummary" xml:space="preserve">
     <value>New · No data yet</value>
   </data>
+  <data name="HomePage_ContextMenu_BackupAll.Text" xml:space="preserve">
+    <value>Backup all folders</value>
+  </data>
+  <data name="HomePage_ContextMenu_OpenDestination.Text" xml:space="preserve">
+    <value>Open destination folder</value>
+  </data>
+  <data name="HomePage_ContextMenu_EditConfig.Text" xml:space="preserve">
+    <value>Edit configuration</value>
+  </data>
+  <data name="HomePage_ContextMenu_DuplicateConfig.Text" xml:space="preserve">
+    <value>Duplicate configuration</value>
+  </data>
+  <data name="HomePage_ContextMenu_DeleteConfig.Text" xml:space="preserve">
+    <value>Delete configuration</value>
+  </data>
+  <data name="HomePage_ContextMenu_NoFolders_Title" xml:space="preserve">
+    <value>No folders</value>
+  </data>
+  <data name="HomePage_ContextMenu_NoFolders_Content" xml:space="preserve">
+    <value>This configuration has no folders to backup.</value>
+  </data>
+  <data name="HomePage_ContextMenu_CopySuffix" xml:space="preserve">
+    <value>Copy</value>
+  </data>
+  <data name="HomePage_ContextMenu_DeleteConfirm_Title" xml:space="preserve">
+    <value>Confirm deletion</value>
+  </data>
+  <data name="HomePage_ContextMenu_DeleteConfirm_Content" xml:space="preserve">
+    <value>Are you sure you want to delete "{0}"? This action cannot be undone.</value>
+  </data>
+  <data name="HomePage_ContextMenu_DeleteConfirm_Delete" xml:space="preserve">
+    <value>Delete</value>
+  </data>
   <data name="HomePage_ConfigTypeHeader" xml:space="preserve">
     <value>Config type</value>
   </data>
@@ -986,6 +1019,18 @@
   </data>
   <data name="Startup_SetFailed" xml:space="preserve">
     <value>[Startup] Failed to set startup: {0}</value>
+  </data>
+  <data name="Startup_DisabledByUser" xml:space="preserve">
+    <value>[Startup] Startup is disabled by user in Task Manager</value>
+  </data>
+  <data name="Startup_DisabledByPolicy" xml:space="preserve">
+    <value>[Startup] Startup is disabled by group policy</value>
+  </data>
+  <data name="Startup_DisabledByUser_Title" xml:space="preserve">
+    <value>Cannot Enable Startup</value>
+  </data>
+  <data name="Startup_DisabledByUser_Content" xml:space="preserve">
+    <value>Startup has been disabled in Task Manager. Please enable FolderRewind manually in the "Startup apps" tab of Task Manager.</value>
   </data>
   <data name="Config_ParseNull_Reset" xml:space="preserve">
     <value>[Config] Config parsed as null; resetting to default.</value>
