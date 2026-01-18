@@ -694,26 +694,69 @@ namespace FolderRewind.Services
             {
             }
 
+            // 先确保目标目录存在，再执行清空操作
+            if (!Directory.Exists(targetDir))
+            {
+                try
+                {
+                    Directory.CreateDirectory(targetDir);
+                }
+                catch (Exception ex)
+                {
+                    Log(I18n.Format("BackupService_Log_RestoreCreateTargetDirFailed", ex.Message), LogLevel.Error);
+                    try
+                    {
+                        KnotLinkService.BroadcastEvent("event=restore_finished;status=failure;reason=create_dir_failed");
+                    }
+                    catch { }
+                    return;
+                }
+            }
+
             // 1. Clean 模式先清空目标
             if (mode == RestoreMode.Clean)
             {
                 Log(I18n.Format("BackupService_Log_RestoreCleaningTarget"), LogLevel.Info);
                 try
                 {
-                    // 简单粗暴清空，生产环境建议做白名单检查 (参考 MineBackup whitelist)
                     DirectoryInfo di = new DirectoryInfo(targetDir);
-                    foreach (FileInfo file in di.GetFiles()) file.Delete();
-                    foreach (DirectoryInfo dir in di.GetDirectories()) dir.Delete(true);
+                    foreach (FileInfo file in di.EnumerateFiles("*", SearchOption.AllDirectories))
+                    {
+                        try
+                        {
+                            // 移除只读属性
+                            if ((file.Attributes & FileAttributes.ReadOnly) == FileAttributes.ReadOnly)
+                            {
+                                file.Attributes &= ~FileAttributes.ReadOnly;
+                            }
+                            file.Delete();
+                        }
+                        catch (Exception fileEx)
+                        {
+                            Log(I18n.Format("BackupService_Log_RestoreDeleteFileFailed", file.Name, fileEx.Message), LogLevel.Warning);
+                        }
+                    }
+                    // 从最深层开始删除目录
+                    foreach (DirectoryInfo dir in di.EnumerateDirectories("*", SearchOption.AllDirectories).OrderByDescending(d => d.FullName.Length))
+                    {
+                        try
+                        {
+                            if ((dir.Attributes & FileAttributes.ReadOnly) == FileAttributes.ReadOnly)
+                            {
+                                dir.Attributes &= ~FileAttributes.ReadOnly;
+                            }
+                            dir.Delete(false);
+                        }
+                        catch
+                        {
+
+                        }
+                    }
                 }
                 catch (Exception ex)
                 {
                     Log(I18n.Format("BackupService_Log_RestoreCleanFailedContinueOverwrite", ex.Message), LogLevel.Warning);
                 }
-            }
-
-            if (!Directory.Exists(targetDir))
-            {
-                Directory.CreateDirectory(targetDir);
             }
 
             // 2. 按链顺序依次解压（Full + Smart）
@@ -775,11 +818,20 @@ namespace FolderRewind.Services
         public static async Task RestoreBackupAsync(BackupConfig config, ManagedFolder folder, string backupFileName)
         {
             // 构造一个临时的 HistoryItem
+            string backupType = "Full";
+            if (backupFileName.Contains("[Smart]", StringComparison.OrdinalIgnoreCase))
+            {
+                backupType = "Incremental";
+            }
+            else if (backupFileName.Contains("[Overwrite]", StringComparison.OrdinalIgnoreCase))
+            {
+                backupType = "Overwrite";
+            }
+
             var historyItem = new HistoryItem
             {
                 FileName = backupFileName,
-                // 根据文件名推测备份类型
-                BackupType = backupFileName.Contains("_smart_") ? "Smart" : "Full"
+                BackupType = backupType
             };
 
             await RestoreBackupAsync(config, folder, historyItem, RestoreMode.Overwrite);
@@ -789,11 +841,20 @@ namespace FolderRewind.Services
         // --- 辅助：元数据处理 ---
         private static Dictionary<string, FileState> ScanDirectory(string path)
         {
-            var result = new Dictionary<string, FileState>(StringComparer.OrdinalIgnoreCase);
+            // 预估容量以减少字典扩容开销
+            var result = new Dictionary<string, FileState>(1024, StringComparer.OrdinalIgnoreCase);
             var dirInfo = new DirectoryInfo(path);
 
+            // 使用 EnumerationOptions 跳过无法访问的文件，避免异常导致的性能损失
+            var enumOptions = new EnumerationOptions
+            {
+                RecurseSubdirectories = true,
+                IgnoreInaccessible = true,
+                AttributesToSkip = FileAttributes.System // 跳过系统文件
+            };
+
             // 获取所有文件，使用相对路径作为 Key，采用流式枚举避免一次性加载大目录列表。
-            foreach (var file in dirInfo.EnumerateFiles("*", SearchOption.AllDirectories))
+            foreach (var file in dirInfo.EnumerateFiles("*", enumOptions))
             {
                 string relPath = Path.GetRelativePath(path, file.FullName);
                 result[relPath] = new FileState
@@ -869,7 +930,9 @@ namespace FolderRewind.Services
             if (!backupDir.Exists) return chain;
 
             bool isIncremental =
-                (!string.IsNullOrWhiteSpace(backupType) && backupType.Equals("Incremental", StringComparison.OrdinalIgnoreCase)) ||
+                (!string.IsNullOrWhiteSpace(backupType) && 
+                    (backupType.Equals("Incremental", StringComparison.OrdinalIgnoreCase) ||
+                     backupType.Equals("Smart", StringComparison.OrdinalIgnoreCase))) ||
                 targetFile.Name.Contains("[Smart]", StringComparison.OrdinalIgnoreCase);
 
             if (!isIncremental)
@@ -878,8 +941,15 @@ namespace FolderRewind.Services
                 return chain;
             }
 
+            var enumOptions = new EnumerationOptions
+            {
+                IgnoreInaccessible = true,
+                MatchCasing = MatchCasing.CaseInsensitive
+            };
+
+            // 查找最近的全量备份基准
             var baseFull = backupDir
-                .EnumerateFiles("*", SearchOption.TopDirectoryOnly)
+                .EnumerateFiles("*", enumOptions)
                 .Where(f => f.Name.Contains("[Full]", StringComparison.OrdinalIgnoreCase) && f.LastWriteTime <= targetFile.LastWriteTime)
                 .OrderByDescending(f => f.LastWriteTime)
                 .FirstOrDefault();
@@ -894,11 +964,12 @@ namespace FolderRewind.Services
             chain.Add(baseFull);
 
             var increments = backupDir
-                .EnumerateFiles("*", SearchOption.TopDirectoryOnly)
+                .EnumerateFiles("*", enumOptions)
                 .Where(f => f.Name.Contains("[Smart]", StringComparison.OrdinalIgnoreCase)
                             && f.LastWriteTime >= baseFull.LastWriteTime
                             && f.LastWriteTime <= targetFile.LastWriteTime)
-                .OrderBy(f => f.LastWriteTime);
+                .OrderBy(f => f.LastWriteTime)
+                .ThenBy(f => f.Name); // 二级排序确保稳定性
 
             var added = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
             added.Add(baseFull.FullName);
@@ -915,6 +986,8 @@ namespace FolderRewind.Services
             {
                 chain.Add(targetFile);
             }
+
+            Log(I18n.Format("BackupService_Log_RestoreChainBuilt", chain.Count), LogLevel.Debug);
 
             return chain;
         }

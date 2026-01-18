@@ -86,37 +86,55 @@ namespace FolderRewind
 
             try
             {
-                LogService.Log(I18n.GetString("App_Log_OnLaunchedBegin"));
-
                 Services.ConfigService.Initialize();
+                
+                LogService.Log(I18n.GetString("App_Log_OnLaunchedBegin"));
                 LogService.MarkSessionStart();
-
-                // 插件系统初始化：尽量早，但不影响主窗口创建。
-                // 这里使用同步扫描+按启用状态加载（异常会写入 LogService）。
-                PluginService.Initialize();
-
-                var startupSettings = Services.ConfigService.CurrentConfig?.GlobalSettings;
-                if (startupSettings != null)
-                {
-                    var startupApplied = Services.StartupService.SetStartup(startupSettings.RunOnStartup);
-                    if (!startupApplied && startupSettings.RunOnStartup)
-                    {
-                        startupSettings.RunOnStartup = false;
-                        Services.ConfigService.Save();
-                    }
-                }
 
                 ApplyLanguageOverride(Services.ConfigService.CurrentConfig.GlobalSettings.Language);
 
                 _window = new MainWindow();
-
                 _window.Closed += OnMainWindowClosed;
-
                 ApplyWindowPreferences(_window);
+                Services.ThemeService.ApplyThemeToWindow(_window);
+                Services.TypographyService.ApplyTypography(Services.ConfigService.CurrentConfig?.GlobalSettings);
+                UpdateWindowTitle();
+                _window.Activate();
 
-                InitializeTrayIcon();
+                // 插件初始化包含热键注册，必须在UI线程执行，所以用DispatcherQueue而非Task.Run
+                _window.DispatcherQueue.TryEnqueue(Microsoft.UI.Dispatching.DispatcherQueuePriority.Low, () =>
+                {
+                    try
+                    {
+                        PluginService.Initialize();
+                    }
+                    catch (Exception pluginEx)
+                    {
+                        LogService.Log(I18n.Format("App_Log_PluginInitException", pluginEx.Message));
+                    }
+                });
 
-                Services.AutomationService.Start();
+                var startupSettings = Services.ConfigService.CurrentConfig?.GlobalSettings;
+                if (startupSettings != null)
+                {
+                    _ = Task.Run(() =>
+                    {
+                        try
+                        {
+                            var startupApplied = Services.StartupService.SetStartup(startupSettings.RunOnStartup);
+                            if (!startupApplied && startupSettings.RunOnStartup)
+                            {
+                                startupSettings.RunOnStartup = false;
+                                Services.ConfigService.Save();
+                            }
+                        }
+                        catch { }
+                    });
+                }
+
+                _window.DispatcherQueue.TryEnqueue(Microsoft.UI.Dispatching.DispatcherQueuePriority.Low, InitializeTrayIcon);
+
+                _window.DispatcherQueue.TryEnqueue(Microsoft.UI.Dispatching.DispatcherQueuePriority.Low, Services.AutomationService.Start);
 
                 // 初始化 KnotLink 互联服务（根据用户设置决定是否启用）
                 Task.Run(() =>
@@ -130,13 +148,6 @@ namespace FolderRewind
                         LogService.Log(I18n.Format("App_Log_KnotLinkInitException", knotEx.Message));
                     }
                 });
-
-                Services.ThemeService.ApplyThemeToWindow(_window);
-                Services.TypographyService.ApplyTypography(Services.ConfigService.CurrentConfig?.GlobalSettings);
-
-                UpdateWindowTitle();
-
-                _window.Activate();
 
                 LogService.Log(I18n.GetString("App_Log_OnLaunchedEnd"));
             }
