@@ -8,6 +8,7 @@
     <Grid>
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
             <RowDefinition Height="*" />
         </Grid.RowDefinitions>
 
@@ -32,8 +33,16 @@
             </Grid>
         </Border>
 
+        <!-- 全局 InfoBar 通知区域 -->
+        <InfoBar x:Name="GlobalInfoBar"
+                 Grid.Row="1"
+                 IsOpen="False"
+                 IsClosable="True"
+                 Margin="12,0,12,8"
+                 Closed="GlobalInfoBar_Closed" />
+
         <NavigationView x:Name="NavView"
-                        Grid.Row="1"
+                        Grid.Row="2"
                         x:Uid="ShellPage_Header"
                         PaneDisplayMode="Left"
                         IsSettingsVisible="True" 

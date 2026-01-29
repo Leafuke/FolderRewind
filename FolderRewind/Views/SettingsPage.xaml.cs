@@ -159,6 +159,17 @@ namespace FolderRewind.Views
             Bindings.Update();
         }
 
+        private void OnNotificationsToggled(object sender, RoutedEventArgs e)
+        {
+            ConfigService.Save();
+
+            // 如果关闭通知，清除 Badge
+            if (!Settings.EnableNotifications)
+            {
+                NotificationService.ClearBadge();
+            }
+        }
+
         private void HotkeyManager_DefinitionsChanged(object? sender, EventArgs e)
         {
             _ = DispatcherQueue.TryEnqueue(RefreshHotkeyBindingsView);

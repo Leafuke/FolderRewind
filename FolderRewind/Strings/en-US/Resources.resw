@@ -1701,4 +1701,75 @@ Comment: {1}
   <data name="SettingsPage_CloseBehavior_Remember_Header.Text" xml:space="preserve">
     <value>Remember my choice</value>
   </data>
+  <data name="HistoryPage_ViewButton.ToolTipService.ToolTip" xml:space="preserve">
+    <value>View in Explorer</value>
+  </data>
+  <data name="HistoryPage_EditCommentButton.ToolTipService.ToolTip" xml:space="preserve">
+    <value>Edit comment</value>
+  </data>
+  <data name="HistoryPage_DeleteButton.Content" xml:space="preserve">
+    <value>Delete</value>
+  </data>
+  <data name="History_ViewFile_PathEmpty" xml:space="preserve">
+    <value>Cannot retrieve backup file path</value>
+  </data>
+  <data name="History_ViewFile_NotFound" xml:space="preserve">
+    <value>Backup file not found: {0}</value>
+  </data>
+  <data name="History_ViewFile_Failed" xml:space="preserve">
+    <value>Failed to open file: {0}</value>
+  </data>
+  <data name="History_EditComment_Title" xml:space="preserve">
+    <value>Edit Comment</value>
+  </data>
+  <data name="History_EditComment_Placeholder" xml:space="preserve">
+    <value>Enter backup comment (optional)</value>
+  </data>
+  <data name="History_EditComment_Success" xml:space="preserve">
+    <value>Comment updated</value>
+  </data>
+  <!-- Notification settings -->
+  <data name="SettingsPage_EnableNotifications.Text" xml:space="preserve">
+    <value>Enable notifications</value>
+  </data>
+  <data name="SettingsPage_EnableNotificationsDesc.Text" xml:space="preserve">
+    <value>When enabled, show in-app notifications, system toasts and badges (if available)</value>
+  </data>
+  <!-- Notification service strings -->
+  <data name="Notification_Success_Title" xml:space="preserve">
+    <value>Success</value>
+  </data>
+  <data name="Notification_Warning_Title" xml:space="preserve">
+    <value>Warning</value>
+  </data>
+  <data name="Notification_Error_Title" xml:space="preserve">
+    <value>Error</value>
+  </data>
+  <data name="Notification_Info_Title" xml:space="preserve">
+    <value>Info</value>
+  </data>
+  <data name="Notification_Action_View" xml:space="preserve">
+    <value>View</value>
+  </data>
+  <data name="Notification_BackupCompleted_Title" xml:space="preserve">
+    <value>Backup Complete</value>
+  </data>
+  <data name="Notification_BackupCompleted_Success" xml:space="preserve">
+    <value>Folder "{0}" backed up successfully</value>
+  </data>
+  <data name="Notification_BackupCompleted_Failed" xml:space="preserve">
+    <value>Folder "{0}" backup failed: {1}</value>
+  </data>
+  <data name="Notification_BackupFailed_Title" xml:space="preserve">
+    <value>Backup Failed</value>
+  </data>
+  <data name="Notification_RestoreCompleted_Title" xml:space="preserve">
+    <value>Restore Complete</value>
+  </data>
+  <data name="Notification_RestoreCompleted_Success" xml:space="preserve">
+    <value>Folder "{0}" restored successfully</value>
+  </data>
+  <data name="Notification_RestoreCompleted_Failed" xml:space="preserve">
+    <value>Folder "{0}" restore failed: {1}</value>
+  </data>
 </root>

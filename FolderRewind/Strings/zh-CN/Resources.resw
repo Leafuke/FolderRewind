@@ -1701,4 +1701,76 @@
   <data name="SettingsPage_CloseBehavior_Remember_Header.Text" xml:space="preserve">
     <value>记住我的选择</value>
   </data>
+  <!-- 历史记录页新增按钮 -->
+  <data name="HistoryPage_ViewButton.ToolTipService.ToolTip" xml:space="preserve">
+    <value>在资源管理器中查看</value>
+  </data>
+  <data name="HistoryPage_EditCommentButton.ToolTipService.ToolTip" xml:space="preserve">
+    <value>修改注释</value>
+  </data>
+  <data name="HistoryPage_DeleteButton.Content" xml:space="preserve">
+    <value>删除</value>
+  </data>
+  <data name="History_ViewFile_PathEmpty" xml:space="preserve">
+    <value>无法获取备份文件路径</value>
+  </data>
+  <data name="History_ViewFile_NotFound" xml:space="preserve">
+    <value>备份文件不存在：{0}</value>
+  </data>
+  <data name="History_ViewFile_Failed" xml:space="preserve">
+    <value>打开文件失败：{0}</value>
+  </data>
+  <data name="History_EditComment_Title" xml:space="preserve">
+    <value>修改注释</value>
+  </data>
+  <data name="History_EditComment_Placeholder" xml:space="preserve">
+    <value>输入备份注释（可留空）</value>
+  </data>
+  <data name="History_EditComment_Success" xml:space="preserve">
+    <value>注释已更新</value>
+  </data>
+  <!-- 通知设置 -->
+  <data name="SettingsPage_EnableNotifications.Text" xml:space="preserve">
+    <value>启用通知提醒</value>
+  </data>
+  <data name="SettingsPage_EnableNotificationsDesc.Text" xml:space="preserve">
+    <value>启用后将显示应用内通知、系统 Toast 和角标（如有）</value>
+  </data>
+  <!-- 通知服务字符串 -->
+  <data name="Notification_Success_Title" xml:space="preserve">
+    <value>成功</value>
+  </data>
+  <data name="Notification_Warning_Title" xml:space="preserve">
+    <value>警告</value>
+  </data>
+  <data name="Notification_Error_Title" xml:space="preserve">
+    <value>错误</value>
+  </data>
+  <data name="Notification_Info_Title" xml:space="preserve">
+    <value>提示</value>
+  </data>
+  <data name="Notification_Action_View" xml:space="preserve">
+    <value>查看</value>
+  </data>
+  <data name="Notification_BackupCompleted_Title" xml:space="preserve">
+    <value>备份完成</value>
+  </data>
+  <data name="Notification_BackupCompleted_Success" xml:space="preserve">
+    <value>文件夹 "{0}" 已成功备份</value>
+  </data>
+  <data name="Notification_BackupCompleted_Failed" xml:space="preserve">
+    <value>文件夹 "{0}" 备份失败：{1}</value>
+  </data>
+  <data name="Notification_BackupFailed_Title" xml:space="preserve">
+    <value>备份失败</value>
+  </data>
+  <data name="Notification_RestoreCompleted_Title" xml:space="preserve">
+    <value>恢复完成</value>
+  </data>
+  <data name="Notification_RestoreCompleted_Success" xml:space="preserve">
+    <value>文件夹 "{0}" 已成功恢复</value>
+  </data>
+  <data name="Notification_RestoreCompleted_Failed" xml:space="preserve">
+    <value>文件夹 "{0}" 恢复失败：{1}</value>
+  </data>
 </root>

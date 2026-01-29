@@ -100,6 +100,18 @@
                                         </StackPanel>
                                         <ToggleSwitch Grid.Column="1" IsOn="{x:Bind Settings.RememberCloseBehavior, Mode=TwoWay}" Toggled="OnRememberCloseBehaviorToggled" />
                                     </Grid>
+
+                                    <Grid>
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="*" />
+                                            <ColumnDefinition Width="Auto" />
+                                        </Grid.ColumnDefinitions>
+                                        <StackPanel>
+                                            <TextBlock x:Uid="SettingsPage_EnableNotifications" />
+                                            <TextBlock x:Uid="SettingsPage_EnableNotificationsDesc" FontSize="12" Opacity="0.6" TextWrapping="Wrap" />
+                                        </StackPanel>
+                                        <ToggleSwitch Grid.Column="1" IsOn="{x:Bind Settings.EnableNotifications, Mode=TwoWay}" Toggled="OnNotificationsToggled" />
+                                    </Grid>
                                     
                                 </StackPanel>
                             </Expander>

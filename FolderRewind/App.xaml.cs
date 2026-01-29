@@ -25,6 +25,11 @@ namespace FolderRewind
 
         public static Window _window { get; set; }
 
+        /// <summary>
+        /// 获取主窗口实例（用于 NotificationService 等服务判断窗口状态）
+        /// </summary>
+        public static MainWindow? MainWindow => _window as MainWindow;
+
         // 暴露 ShellPage 以便子页面控制导航
         public static Views.ShellPage Shell { get; set; }
 

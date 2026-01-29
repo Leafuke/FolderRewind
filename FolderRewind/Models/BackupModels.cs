@@ -20,7 +20,7 @@ namespace FolderRewind.Models
     public class ObservableObject : INotifyPropertyChanged
     {
         public event PropertyChangedEventHandler PropertyChanged;
-        protected void OnPropertyChanged([CallerMemberName] string propertyName = null)
+        public void OnPropertyChanged([CallerMemberName] string propertyName = null)
         {
             PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(propertyName));
         }
@@ -99,6 +99,9 @@ namespace FolderRewind.Models
         // 快捷键/热键
         private HotkeySettings _hotkeys = new();
 
+        // 通知设置
+        private bool _enableNotifications = true;
+
         public string Language { get => _language; set => SetProperty(ref _language, value); }
         public int ThemeIndex { get => _themeIndex; set => SetProperty(ref _themeIndex, value); }
         public string SevenZipPath { get => _sevenZipPath; set => SetProperty(ref _sevenZipPath, value); }
@@ -170,6 +173,11 @@ namespace FolderRewind.Models
         /// 快捷键/热键绑定（允许用户修改）。
         /// </summary>
         public HotkeySettings Hotkeys { get => _hotkeys; set => SetProperty(ref _hotkeys, value ?? new HotkeySettings()); }
+
+        /// <summary>
+        /// 是否启用应用内/系统通知（全局开关）。
+        /// </summary>
+        public bool EnableNotifications { get => _enableNotifications; set => SetProperty(ref _enableNotifications, value); }
     }
 
     /// <summary>

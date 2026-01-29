@@ -452,6 +452,9 @@ namespace FolderRewind.Services
                 catch
                 {
                 }
+
+                // 发送失败通知
+                NotificationService.NotifyBackupCompleted(folder.DisplayName, false, I18n.GetString("BackupService_Task_Failed"));
             }
 
             // 备份后回调（用于清理快照等）
@@ -941,6 +944,9 @@ namespace FolderRewind.Services
                     catch
                     {
                     }
+
+                    // 发送恢复失败通知
+                    NotificationService.NotifyRestoreCompleted(folder.DisplayName, false, I18n.GetString("BackupService_Log_RestoreExtractFailed"));
                     return;
                 }
             }
