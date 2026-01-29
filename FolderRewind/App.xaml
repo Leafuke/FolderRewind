@@ -25,8 +25,34 @@
             <converters:CountToStringConverter x:Key="CountToStringConverter"/>
             <converters:StringNullOrEmptyToVisibilityConverter x:Key="StringNullOrEmptyToVisConverter"/>
 
-            <!-- 定义一些常用的颜色或样式 -->
-            <SolidColorBrush x:Key="CardBackgroundBrush" Color="#05FFFFFF" />
+            <!-- ==================== 全局共享样式 ==================== -->
+            
+            <!-- 页面标题样式 -->
+            <Style x:Key="PageTitleStyle" TargetType="TextBlock" BasedOn="{StaticResource TitleTextBlockStyle}">
+                <Setter Property="Margin" Value="0,24,0,24"/>
+                <Setter Property="AutomationProperties.HeadingLevel" Value="Level1"/>
+            </Style>
+            
+            <!-- 节标题样式 -->
+            <Style x:Key="SectionHeaderStyle" TargetType="TextBlock" BasedOn="{StaticResource SubtitleTextBlockStyle}">
+                <Setter Property="Margin" Value="0,32,0,12"/>
+                <Setter Property="AutomationProperties.HeadingLevel" Value="Level2"/>
+            </Style>
+            
+            <!-- 描述文字样式 -->
+            <Style x:Key="DescriptionTextStyle" TargetType="TextBlock" BasedOn="{StaticResource CaptionTextBlockStyle}">
+                <Setter Property="Foreground" Value="{ThemeResource TextFillColorSecondaryBrush}"/>
+                <Setter Property="TextWrapping" Value="Wrap"/>
+            </Style>
+            
+            <!-- 标准卡片边框样式 -->
+            <Style x:Key="StandardCardStyle" TargetType="Border">
+                <Setter Property="Background" Value="{ThemeResource CardBackgroundFillColorDefaultBrush}"/>
+                <Setter Property="BorderBrush" Value="{ThemeResource CardStrokeColorDefaultBrush}"/>
+                <Setter Property="BorderThickness" Value="1"/>
+                <Setter Property="CornerRadius" Value="{StaticResource OverlayCornerRadius}"/>
+                <Setter Property="Padding" Value="16"/>
+            </Style>
         </ResourceDictionary>
     </Application.Resources>
 </Application>

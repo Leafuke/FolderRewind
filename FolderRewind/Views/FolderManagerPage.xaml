@@ -34,7 +34,7 @@
 
                 <!-- 左侧：配置切换 -->
                 <StackPanel Orientation="Horizontal" Spacing="12" VerticalAlignment="Center">
-                    <FontIcon Glyph="&#xE713;" FontSize="16" Opacity="0.5"/>
+                    <FontIcon Glyph="&#xE713;" FontSize="16" Foreground="{ThemeResource TextFillColorSecondaryBrush}"/>
                     <TextBlock x:Uid="FolderManager_CurrentConfig" VerticalAlignment="Center" Foreground="{ThemeResource TextFillColorSecondaryBrush}"/>
                     <ComboBox x:Name="ConfigSelector" Width="220" 
                               ItemsSource="{x:Bind ConfigsView, Mode=OneWay}"
@@ -86,9 +86,9 @@
 
                 <StackPanel Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
                     <FontIcon Glyph="&#xE8B7;" FontSize="16" Foreground="{ThemeResource AccentFillColorDefaultBrush}"/>
-                    <TextBlock x:Uid="FolderManager_SelectedAction" VerticalAlignment="Center" FontWeight="SemiBold"/>
+                    <TextBlock x:Uid="FolderManager_SelectedAction" VerticalAlignment="Center" Style="{ThemeResource BodyStrongTextBlockStyle}"/>
                     <TextBlock Text="{x:Bind SelectedFolderDisplayName, Mode=OneWay}" 
-                               VerticalAlignment="Center" Opacity="0.8"/>
+                               VerticalAlignment="Center" Foreground="{ThemeResource TextFillColorSecondaryBrush}"/>
                 </StackPanel>
 
                 <!-- 中间：注释输入框 (关键新增) -->
@@ -97,7 +97,7 @@
                         <ColumnDefinition Width="Auto"/>
                         <ColumnDefinition Width="*"/>
                     </Grid.ColumnDefinitions>
-                    <TextBlock x:Uid="FolderManager_BackupComment" VerticalAlignment="Center" Margin="0,0,8,0" Opacity="0.6"/>
+                    <TextBlock x:Uid="FolderManager_BackupComment" VerticalAlignment="Center" Margin="0,0,8,0" Foreground="{ThemeResource TextFillColorSecondaryBrush}"/>
                     <TextBox x:Name="CommentBox" Grid.Column="1" x:Uid="FolderManager_CommentPlaceholder" IsEnabled="{x:Bind BackupSelectedButton.IsEnabled, Mode=OneWay}"/>
                 </Grid>
 
@@ -174,8 +174,8 @@
 
                         <!-- 3. 状态与时间 -->
                         <StackPanel Grid.Column="2" VerticalAlignment="Center">
-                            <TextBlock Text="{x:Bind StatusText}" Foreground="Green" FontWeight="SemiBold"/>
-                            <TextBlock Text="{x:Bind LastBackupTime}" FontSize="12" Opacity="0.6"/>
+                            <TextBlock Text="{x:Bind StatusText}" Foreground="{ThemeResource SystemFillColorSuccessBrush}" Style="{ThemeResource BodyStrongTextBlockStyle}"/>
+                            <TextBlock Text="{x:Bind LastBackupTime}" Style="{ThemeResource CaptionTextBlockStyle}" Foreground="{ThemeResource TextFillColorSecondaryBrush}"/>
                         </StackPanel>
 
                         <!-- 4. 操作菜单 -->
@@ -186,7 +186,7 @@
                                     <MenuFlyoutItem x:Uid="FolderManager_OpenFolder" Icon="Folder" Click="OnOpenFolderClick"/>
                                     <MenuFlyoutItem x:Uid="FolderManager_Rescan" Icon="Refresh"/>
                                     <MenuFlyoutSeparator/>
-                                    <MenuFlyoutItem x:Uid="FolderManager_RemoveFolder" Icon="Delete" Foreground="Red" Click="OnRemoveFolderClick"/>
+                                    <MenuFlyoutItem x:Uid="FolderManager_RemoveFolder" Icon="Delete" Foreground="{ThemeResource SystemFillColorCriticalBrush}" Click="OnRemoveFolderClick"/>
                                 </MenuFlyout>
                             </Button.Flyout>
                         </Button>

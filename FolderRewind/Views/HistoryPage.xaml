@@ -10,14 +10,14 @@
         <converters:StringNullOrEmptyToVisibilityConverter x:Key="StringNullOrEmptyToVisConverter"/>
     </Page.Resources>
 
-    <Grid Padding="24">
+    <Grid Padding="36">
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto"/>
             <RowDefinition Height="Auto"/>
             <RowDefinition Height="*"/>
         </Grid.RowDefinitions>
 
-        <TextBlock x:Uid="HistoryPage_Title" Style="{ThemeResource TitleTextBlockStyle}" Margin="0,0,0,24"/>
+        <TextBlock x:Uid="HistoryPage_Title" Style="{ThemeResource TitleTextBlockStyle}" Margin="0,0,0,24" AutomationProperties.HeadingLevel="Level1"/>
 
         <!-- 筛选区 -->
         <Grid Grid.Row="1" Margin="0,0,0,24" ColumnSpacing="16">
@@ -76,8 +76,8 @@
                             <ColumnDefinition Width="*"/>
                         </Grid.ColumnDefinitions>
                         <StackPanel VerticalAlignment="Center" HorizontalAlignment="Right" Margin="0,0,16,0">
-                            <TextBlock Text="{x:Bind TimeDisplay}" FontWeight="Bold" HorizontalAlignment="Right"/>
-                            <TextBlock Text="{x:Bind DateDisplay}" FontSize="12" Foreground="Gray" HorizontalAlignment="Right"/>
+                            <TextBlock Text="{x:Bind TimeDisplay}" Style="{ThemeResource BodyStrongTextBlockStyle}" HorizontalAlignment="Right"/>
+                            <TextBlock Text="{x:Bind DateDisplay}" Style="{ThemeResource CaptionTextBlockStyle}" Foreground="{ThemeResource TextFillColorSecondaryBrush}" HorizontalAlignment="Right"/>
                         </StackPanel>
                         <Grid Grid.Column="1">
                             <Rectangle Width="2" Fill="{x:Bind TimelineLineBrush}" VerticalAlignment="Stretch" HorizontalAlignment="Center"/>
@@ -87,25 +87,25 @@
                                     BorderThickness="2"
                                     VerticalAlignment="Center" HorizontalAlignment="Center"/>
                         </Grid>
-                        <Border Grid.Column="2" Background="{ThemeResource CardBackgroundFillColorDefaultBrush}" CornerRadius="4" Padding="12" Margin="0,4">
+                        <Border Grid.Column="2" Background="{ThemeResource CardBackgroundFillColorDefaultBrush}" CornerRadius="{StaticResource ControlCornerRadius}" Padding="12" Margin="0,4">
                             <Grid>
                                 <Grid.ColumnDefinitions>
                                     <ColumnDefinition Width="*"/>
                                     <ColumnDefinition Width="Auto"/>
                                 </Grid.ColumnDefinitions>
                                 <StackPanel>
-                                    <TextBlock Text="{x:Bind Message, Mode=OneWay}" FontWeight="SemiBold"/>
-                                    <TextBlock Text="{x:Bind FileSizeDisplay}" FontSize="11" Opacity="0.6"/>
+                                    <TextBlock Text="{x:Bind Message, Mode=OneWay}" Style="{ThemeResource BodyStrongTextBlockStyle}"/>
+                                    <TextBlock Text="{x:Bind FileSizeDisplay}" Style="{ThemeResource CaptionTextBlockStyle}" Foreground="{ThemeResource TextFillColorSecondaryBrush}"/>
                                 </StackPanel>
                                 <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="4" VerticalAlignment="Center">
-                                    <Button x:Uid="HistoryPage_ViewButton" FontSize="12" Click="OnViewClick" ToolTipService.ToolTip="{x:Bind FileName}">
+                                    <Button x:Uid="HistoryPage_ViewButton" Click="OnViewClick" ToolTipService.ToolTip="{x:Bind FileName}">
                                         <FontIcon Glyph="&#xE8A7;" FontSize="14"/>
                                     </Button>
-                                    <Button x:Uid="HistoryPage_EditCommentButton" FontSize="12" Click="OnEditCommentClick">
+                                    <Button x:Uid="HistoryPage_EditCommentButton" Click="OnEditCommentClick">
                                         <FontIcon Glyph="&#xE70F;" FontSize="14"/>
                                     </Button>
-                                    <Button x:Uid="HistoryPage_RestoreButton" FontSize="12" Click="OnRestoreClick"/>
-                                    <Button x:Uid="HistoryPage_DeleteButton" FontSize="12" Click="OnDeleteClick"/>
+                                    <Button x:Uid="HistoryPage_RestoreButton" Click="OnRestoreClick"/>
+                                    <Button x:Uid="HistoryPage_DeleteButton" Click="OnDeleteClick"/>
                                 </StackPanel>
                             </Grid>
                         </Border>
@@ -117,8 +117,8 @@
         <!-- 空状态提示 -->
         <StackPanel Grid.Row="2" VerticalAlignment="Center" HorizontalAlignment="Center" 
                     Visibility="{x:Bind IsEmpty, Mode=OneWay, Converter={StaticResource BoolToVisConverter}}">
-            <FontIcon Glyph="&#xE7BA;" FontSize="48" Opacity="0.3"/>
-            <TextBlock x:Uid="HistoryPage_EmptyState" Margin="0,16,0,0" Opacity="0.5"/>
+            <FontIcon Glyph="&#xE7BA;" FontSize="48" Foreground="{ThemeResource TextFillColorSecondaryBrush}"/>
+            <TextBlock x:Uid="HistoryPage_EmptyState" Margin="0,16,0,0" Foreground="{ThemeResource TextFillColorSecondaryBrush}"/>
         </StackPanel>
     </Grid>
 </Page>

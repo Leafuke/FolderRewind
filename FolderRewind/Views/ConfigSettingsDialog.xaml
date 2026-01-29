@@ -21,7 +21,7 @@
                     <ComboBox ItemsSource="{x:Bind ConfigTypesView, Mode=OneWay}"
                              SelectedItem="{x:Bind SelectedConfigType, Mode=TwoWay}"
                              HorizontalAlignment="Stretch" />
-                    <TextBlock x:Uid="ConfigSettingsDialog_ConfigTypeDesc" FontSize="12" Opacity="0.6" TextWrapping="Wrap"/>
+                    <TextBlock x:Uid="ConfigSettingsDialog_ConfigTypeDesc" Style="{StaticResource CaptionTextBlockStyle}" Foreground="{ThemeResource TextFillColorSecondaryBrush}" TextWrapping="Wrap"/>
                 </StackPanel>
 
                 <StackPanel Spacing="8">
@@ -40,7 +40,7 @@
                             <FontIcon Glyph="&#xE8A7;"/>
                         </Button>
                     </Grid>
-                    <TextBlock x:Uid="ConfigSettingsDialog_DestPathDesc" FontSize="12" Opacity="0.6"/>
+                    <TextBlock x:Uid="ConfigSettingsDialog_DestPathDesc" Style="{StaticResource CaptionTextBlockStyle}" Foreground="{ThemeResource TextFillColorSecondaryBrush}"/>
                 </StackPanel>
 
                 <StackPanel Spacing="8">
@@ -59,7 +59,7 @@
                             <FontIcon Glyph="&#xE8A7;"/>
                         </Button>
                     </Grid>
-                    <TextBlock x:Uid="ConfigSettingsDialog_ConfigFilePathDesc" FontSize="12" Opacity="0.6"/>
+                    <TextBlock x:Uid="ConfigSettingsDialog_ConfigFilePathDesc" Style="{StaticResource CaptionTextBlockStyle}" Foreground="{ThemeResource TextFillColorSecondaryBrush}"/>
                 </StackPanel>
 
                 <StackPanel Spacing="8">
@@ -106,7 +106,7 @@
                 <StackPanel Spacing="4">
                     <TextBlock x:Uid="ConfigSettingsDialog_ArchivePassword"/>
                     <TextBox x:Uid="ConfigSettingsDialog_ArchivePasswordPlaceholder" Text="{x:Bind Config.Archive.Password, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" InputScope="Password"/>
-                    <TextBlock x:Uid="ConfigSettingsDialog_ArchivePasswordDesc" FontSize="12" Opacity="0.6"/>
+                    <TextBlock x:Uid="ConfigSettingsDialog_ArchivePasswordDesc" Style="{StaticResource CaptionTextBlockStyle}" Foreground="{ThemeResource TextFillColorSecondaryBrush}"/>
                 </StackPanel>
             </StackPanel>
         </PivotItem>

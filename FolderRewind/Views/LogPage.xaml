@@ -17,12 +17,12 @@
     </Page.Resources>
 
     <Grid RowDefinitions="Auto,Auto,*,Auto">
-        <StackPanel Grid.Row="0" Padding="24,16,24,8" Spacing="4">
-            <TextBlock x:Uid="LogPage_Title" Style="{ThemeResource TitleTextBlockStyle}" />
-            <TextBlock x:Uid="LogPage_Subtitle" Opacity="0.7" />
+        <StackPanel Grid.Row="0" Padding="36,24,36,8" Spacing="4">
+            <TextBlock x:Uid="LogPage_Title" Style="{ThemeResource TitleTextBlockStyle}" AutomationProperties.HeadingLevel="Level1" />
+            <TextBlock x:Uid="LogPage_Subtitle" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
         </StackPanel>
 
-        <Grid Grid.Row="1" Padding="24,0" ColumnSpacing="12" RowSpacing="8">
+        <Grid Grid.Row="1" Padding="36,0" ColumnSpacing="12" RowSpacing="8">
             <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="*" />
                 <ColumnDefinition Width="Auto" />
@@ -43,12 +43,12 @@
                 <TextBox x:Name="SearchBox" x:Uid="LogPage_SearchBox" Width="200" Height="33" TextChanged="OnKeywordChanged" />
 
                 <StackPanel Orientation="Horizontal" Spacing="4" VerticalAlignment="Center">
-                    <TextBlock x:Uid="LogPage_LiveRefresh" VerticalAlignment="Center" FontSize="14" Opacity="0.8"/>
+                    <TextBlock x:Uid="LogPage_LiveRefresh" VerticalAlignment="Center" Style="{ThemeResource BodyTextBlockStyle}" Foreground="{ThemeResource TextFillColorSecondaryBrush}"/>
                     <ToggleSwitch x:Name="LiveToggle" IsOn="True" Toggled="OnLiveToggled" OnContent="" OffContent="" VerticalAlignment="Center" Margin="4,0,0,0"/>
                 </StackPanel>
 
                 <StackPanel Orientation="Horizontal" Spacing="4" VerticalAlignment="Center">
-                    <TextBlock x:Uid="LogPage_AutoScroll" VerticalAlignment="Center" FontSize="14" Opacity="0.8"/>
+                    <TextBlock x:Uid="LogPage_AutoScroll" VerticalAlignment="Center" Style="{ThemeResource BodyTextBlockStyle}" Foreground="{ThemeResource TextFillColorSecondaryBrush}"/>
                     <ToggleSwitch x:Name="AutoScrollToggle" IsOn="True" OnContent="" OffContent="" VerticalAlignment="Center" Margin="4,0,0,0"/>
                 </StackPanel>
             </StackPanel>
@@ -60,7 +60,7 @@
             </StackPanel>
         </Grid>
 
-        <Grid Grid.Row="2" Padding="24,8,24,0">
+        <Grid Grid.Row="2" Padding="36,8,36,0">
             <ListView x:Name="LogList"
                       ItemsSource="{x:Bind FilteredEntries, Mode=OneWay}"
                       SelectionMode="Extended"
@@ -85,25 +85,25 @@
                         <Border Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
                                 BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
                                 BorderThickness="1"
-                                CornerRadius="10"
+                                CornerRadius="{StaticResource OverlayCornerRadius}"
                                 Padding="{StaticResource LogCardPadding}">
                             <Grid RowDefinitions="Auto,Auto,Auto" ColumnDefinitions="Auto,*" ColumnSpacing="12" RowSpacing="6">
                                 <StackPanel Orientation="Horizontal" Spacing="8" Grid.ColumnSpan="2">
                                     <Rectangle Width="8" Height="24" RadiusX="4" RadiusY="4"
                                                Fill="{Binding Level, Converter={StaticResource LogLevelBrushConverter}}" />
-                                    <TextBlock Text="{Binding Timestamp}" FontFamily="Consolas" Opacity="0.7" />
+                                    <TextBlock Text="{Binding Timestamp}" FontFamily="Consolas" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
                                     <Border CornerRadius="6" Padding="8,2"
                                             Background="{Binding Level, Converter={StaticResource LogLevelBrushConverter}, ConverterParameter=background}"
                                             BorderBrush="{Binding Level, Converter={StaticResource LogLevelBrushConverter}}"
                                             BorderThickness="1">
-                                        <TextBlock Text="{Binding Level, Converter={StaticResource LogLevelStringConverter}}" FontWeight="SemiBold" />
+                                        <TextBlock Text="{Binding Level, Converter={StaticResource LogLevelStringConverter}}" Style="{ThemeResource BodyStrongTextBlockStyle}" />
                                     </Border>
                                     <TextBlock Text="{x:Bind Source}" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
                                 </StackPanel>
 
-                                <TextBlock Grid.Row="1" Grid.ColumnSpan="2" Text="{x:Bind Message}" TextWrapping="WrapWholeWords" FontSize="14" />
+                                <TextBlock Grid.Row="1" Grid.ColumnSpan="2" Text="{x:Bind Message}" TextWrapping="WrapWholeWords" Style="{ThemeResource BodyTextBlockStyle}" />
                                 <TextBlock Grid.Row="2" Grid.ColumnSpan="2" Text="{x:Bind Exception}" TextWrapping="WrapWholeWords"
-                                   Foreground="{ThemeResource TextFillColorSecondaryBrush}" Opacity="0.85"
+                                   Foreground="{ThemeResource TextFillColorSecondaryBrush}"
                                    Visibility="{Binding Exception, Converter={StaticResource BoolToVisInvertConverter}}" />
                             </Grid>
                         </Border>
@@ -112,8 +112,8 @@
             </ListView>
         </Grid>
 
-        <Grid Grid.Row="3" Padding="24,8,24,16" ColumnDefinitions="*,Auto" VerticalAlignment="Center">
-            <TextBlock x:Uid="LogPage_BottomHint" Opacity="0.6" />
+        <Grid Grid.Row="3" Padding="36,8,36,16" ColumnDefinitions="*,Auto" VerticalAlignment="Center">
+            <TextBlock x:Uid="LogPage_BottomHint" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
             <Button Grid.Column="1" x:Uid="LogPage_OpenCurrentLogFile" Click="OnOpenFileClick" />
         </Grid>
     </Grid>

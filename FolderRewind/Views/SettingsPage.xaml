@@ -12,7 +12,12 @@
     <Page.Resources>
         <x:Double x:Key="SettingsCardSpacing">8</x:Double>
         <Style x:Key="SettingsSectionHeaderTextBlockStyle" TargetType="TextBlock" BasedOn="{StaticResource BodyStrongTextBlockStyle}">
-            <Setter Property="Margin" Value="1,18,0,8" />
+            <Setter Property="Margin" Value="1,30,0,6" />
+        </Style>
+        <!-- 设置项描述文字样式 -->
+        <Style x:Key="SettingsDescriptionStyle" TargetType="TextBlock" BasedOn="{StaticResource CaptionTextBlockStyle}">
+            <Setter Property="Foreground" Value="{ThemeResource TextFillColorSecondaryBrush}" />
+            <Setter Property="TextWrapping" Value="Wrap" />
         </Style>
     </Page.Resources>
 
@@ -51,7 +56,7 @@
                                         <FontIcon Glyph="&#xE713;" FontSize="18" VerticalAlignment="Center" />
                                         <StackPanel Grid.Column="1" Spacing="2">
                                             <TextBlock x:Uid="SettingsPage_CoreBehavior" Style="{ThemeResource BodyStrongTextBlockStyle}" />
-                                            <TextBlock x:Uid="SettingsPage_CoreBehaviorSectionDesc" FontSize="12" Opacity="0.7" TextWrapping="Wrap" />
+                                            <TextBlock x:Uid="SettingsPage_CoreBehaviorSectionDesc" Style="{StaticResource SettingsDescriptionStyle}" />
                                         </StackPanel>
                                     </Grid>
                                 </Expander.Header>
@@ -64,7 +69,7 @@
                                         </Grid.ColumnDefinitions>
                                         <StackPanel>
                                             <TextBlock x:Uid="SettingsPage_RunOnStartup" />
-                                            <TextBlock x:Uid="SettingsPage_RunOnStartupDesc" FontSize="12" Opacity="0.6" TextWrapping="Wrap" />
+                                            <TextBlock x:Uid="SettingsPage_RunOnStartupDesc" Style="{StaticResource SettingsDescriptionStyle}" />
                                         </StackPanel>
                                         <ToggleSwitch Grid.Column="1" IsOn="{x:Bind Settings.RunOnStartup, Mode=TwoWay}" Toggled="OnRunOnStartupToggled" />
                                     </Grid>
@@ -76,7 +81,7 @@
                                         </Grid.ColumnDefinitions>
                                         <StackPanel>
                                             <TextBlock x:Uid="SettingsPage_CloseBehavior" />
-                                            <TextBlock x:Uid="SettingsPage_CloseBehaviorDesc" FontSize="12" Opacity="0.6" TextWrapping="Wrap" />
+                                            <TextBlock x:Uid="SettingsPage_CloseBehaviorDesc" Style="{StaticResource SettingsDescriptionStyle}" />
                                         </StackPanel>
                                         <ComboBox Width="180"
                                                   Grid.Column="1"
@@ -96,7 +101,7 @@
                                         </Grid.ColumnDefinitions>
                                         <StackPanel>
                                             <TextBlock x:Uid="SettingsPage_CloseBehavior_Remember_Header" />
-                                            <TextBlock x:Uid="SettingsPage_CloseBehavior_Remember_Desc" FontSize="12" Opacity="0.6" TextWrapping="Wrap" />
+                                            <TextBlock x:Uid="SettingsPage_CloseBehavior_Remember_Desc" Style="{StaticResource SettingsDescriptionStyle}" />
                                         </StackPanel>
                                         <ToggleSwitch Grid.Column="1" IsOn="{x:Bind Settings.RememberCloseBehavior, Mode=TwoWay}" Toggled="OnRememberCloseBehaviorToggled" />
                                     </Grid>
@@ -108,7 +113,7 @@
                                         </Grid.ColumnDefinitions>
                                         <StackPanel>
                                             <TextBlock x:Uid="SettingsPage_EnableNotifications" />
-                                            <TextBlock x:Uid="SettingsPage_EnableNotificationsDesc" FontSize="12" Opacity="0.6" TextWrapping="Wrap" />
+                                            <TextBlock x:Uid="SettingsPage_EnableNotificationsDesc" Style="{StaticResource SettingsDescriptionStyle}" />
                                         </StackPanel>
                                         <ToggleSwitch Grid.Column="1" IsOn="{x:Bind Settings.EnableNotifications, Mode=TwoWay}" Toggled="OnNotificationsToggled" />
                                     </Grid>
@@ -133,7 +138,7 @@
                                         <FontIcon Glyph="&#xE765;" FontSize="18" VerticalAlignment="Center" />
                                         <StackPanel Grid.Column="1" Spacing="2">
                                             <TextBlock x:Uid="SettingsPage_Hotkeys" Style="{ThemeResource BodyStrongTextBlockStyle}" />
-                                            <TextBlock x:Uid="SettingsPage_HotkeysDesc" FontSize="12" Opacity="0.7" TextWrapping="Wrap" />
+                                            <TextBlock x:Uid="SettingsPage_HotkeysDesc" Style="{StaticResource SettingsDescriptionStyle}" />
                                         </StackPanel>
                                     </Grid>
                                 </Expander.Header>
@@ -154,14 +159,14 @@
 
                                                     <StackPanel Spacing="2">
                                                         <TextBlock Text="{x:Bind DisplayName}" Style="{ThemeResource BodyStrongTextBlockStyle}" />
-                                                        <TextBlock Text="{x:Bind Description}" FontSize="12" Opacity="0.7" TextWrapping="Wrap" />
-                                                        <TextBlock Text="{x:Bind OwnerText}" FontSize="12" Opacity="0.6" />
+                                                        <TextBlock Text="{x:Bind Description}" Style="{StaticResource SettingsDescriptionStyle}" />
+                                                        <TextBlock Text="{x:Bind OwnerText}" Style="{StaticResource CaptionTextBlockStyle}" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
                                                     </StackPanel>
 
                                                     <StackPanel Grid.Column="1" Spacing="2" HorizontalAlignment="Left">
-                                                        <TextBlock Text="{x:Bind ScopeText}" FontSize="12" Opacity="0.7" />
+                                                        <TextBlock Text="{x:Bind ScopeText}" Style="{StaticResource CaptionTextBlockStyle}" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
                                                         <TextBlock Text="{x:Bind CurrentGesture}" Style="{ThemeResource SubtitleTextBlockStyle}" />
-                                                        <TextBlock Text="{x:Bind DefaultGesture}" FontSize="12" Opacity="0.6" />
+                                                        <TextBlock Text="{x:Bind DefaultGesture}" Style="{StaticResource CaptionTextBlockStyle}" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
                                                     </StackPanel>
 
                                                     <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
@@ -192,7 +197,7 @@
                                         <FontIcon Glyph="&#xE771;" FontSize="18" VerticalAlignment="Center" />
                                         <StackPanel Grid.Column="1" Spacing="2">
                                             <TextBlock x:Uid="SettingsPage_Personalization" Style="{ThemeResource BodyStrongTextBlockStyle}" />
-                                            <TextBlock x:Uid="SettingsPage_PersonalizationSectionDesc" FontSize="12" Opacity="0.7" TextWrapping="Wrap" />
+                                            <TextBlock x:Uid="SettingsPage_PersonalizationSectionDesc" Style="{StaticResource SettingsDescriptionStyle}" />
                                         </StackPanel>
                                     </Grid>
                                 </Expander.Header>
@@ -205,7 +210,7 @@
                                         </Grid.ColumnDefinitions>
                                         <StackPanel>
                                             <TextBlock x:Uid="SettingsPage_Language" />
-                                            <TextBlock x:Uid="SettingsPage_LanguageDesc" FontSize="12" Opacity="0.6" TextWrapping="Wrap" />
+                                            <TextBlock x:Uid="SettingsPage_LanguageDesc" Style="{StaticResource SettingsDescriptionStyle}" />
                                         </StackPanel>
                                         <ComboBox x:Name="LanguageCombo" Grid.Column="1" Width="180" SelectionChanged="OnLanguageChanged">
                                             <ComboBoxItem x:Uid="SettingsPage_LanguageSystem" />
@@ -221,7 +226,7 @@
                                         </Grid.ColumnDefinitions>
                                         <StackPanel>
                                             <TextBlock x:Uid="SettingsPage_AppTheme" />
-                                            <TextBlock x:Uid="SettingsPage_AppThemeDesc" FontSize="12" Opacity="0.6" TextWrapping="Wrap" />
+                                            <TextBlock x:Uid="SettingsPage_AppThemeDesc" Style="{StaticResource SettingsDescriptionStyle}" />
                                         </StackPanel>
                                         <ComboBox Grid.Column="1" SelectedIndex="{x:Bind Settings.ThemeIndex, Mode=TwoWay}" Width="180" SelectionChanged="OnThemeChanged">
                                             <ComboBoxItem x:Uid="SettingsPage_ThemeDark" />
@@ -236,7 +241,7 @@
                                         </Grid.ColumnDefinitions>
                                         <StackPanel>
                                             <TextBlock x:Uid="SettingsPage_FontFamily" />
-                                            <TextBlock x:Uid="SettingsPage_FontFamilyDesc" FontSize="12" Opacity="0.6" TextWrapping="Wrap" />
+                                            <TextBlock x:Uid="SettingsPage_FontFamilyDesc" Style="{StaticResource SettingsDescriptionStyle}" />
                                         </StackPanel>
                                         <ComboBox x:Name="FontFamilyCombo" Grid.Column="1" Width="180" ItemsSource="{x:Bind FontFamilies}" SelectionChanged="OnFontFamilyChanged" />
                                     </Grid>
@@ -248,7 +253,7 @@
                                         </Grid.ColumnDefinitions>
                                         <StackPanel>
                                             <TextBlock x:Uid="SettingsPage_FontSize" />
-                                            <TextBlock x:Uid="SettingsPage_FontSizeDesc" FontSize="12" Opacity="0.6" TextWrapping="Wrap" />
+                                            <TextBlock x:Uid="SettingsPage_FontSizeDesc" Style="{StaticResource SettingsDescriptionStyle}" />
                                         </StackPanel>
                                         <NumberBox x:Name="FontSizeBox" Grid.Column="1" Width="180" Minimum="12" Maximum="20" SmallChange="0.5" LargeChange="1" Value="{x:Bind Settings.BaseFontSize, Mode=TwoWay}" ValueChanged="OnFontSizeChanged" />
                                     </Grid>
@@ -260,7 +265,7 @@
                                         </Grid.ColumnDefinitions>
                                         <StackPanel>
                                             <TextBlock x:Uid="SettingsPage_HistoryStatusColors" />
-                                            <TextBlock x:Uid="SettingsPage_HistoryStatusColorsDesc" FontSize="12" Opacity="0.6" TextWrapping="Wrap" />
+                                            <TextBlock x:Uid="SettingsPage_HistoryStatusColorsDesc" Style="{StaticResource SettingsDescriptionStyle}" />
                                         </StackPanel>
                                         <ToggleSwitch Grid.Column="1" IsOn="{x:Bind Settings.UseHistoryStatusColors, Mode=TwoWay}" Toggled="OnHistoryColorsToggled" />
                                     </Grid>
@@ -272,7 +277,7 @@
                                         </Grid.ColumnDefinitions>
                                         <StackPanel>
                                             <TextBlock x:Uid="SettingsPage_NavPaneWidth" />
-                                            <TextBlock x:Uid="SettingsPage_NavPaneWidthDesc" FontSize="12" Opacity="0.6" TextWrapping="Wrap" />
+                                            <TextBlock x:Uid="SettingsPage_NavPaneWidthDesc" Style="{StaticResource SettingsDescriptionStyle}" />
                                         </StackPanel>
                                         <NumberBox Grid.Column="1" Width="180" Minimum="100" Maximum="600" Value="{x:Bind Settings.NavPaneWidth, Mode=TwoWay}" SpinButtonPlacementMode="Inline" SmallChange="10" LargeChange="50" />
                                     </Grid>
@@ -284,7 +289,7 @@
                                         </Grid.ColumnDefinitions>
                                         <StackPanel Spacing="6">
                                             <TextBlock x:Uid="SettingsPage_StartupSize" />
-                                            <TextBlock x:Uid="SettingsPage_StartupSizeDesc" FontSize="12" Opacity="0.6" TextWrapping="Wrap" />
+                                            <TextBlock x:Uid="SettingsPage_StartupSizeDesc" Style="{StaticResource SettingsDescriptionStyle}" />
                                             <StackPanel Orientation="Horizontal" Spacing="12">
                                                 <NumberBox x:Name="StartupWidthBox"
                                                            Width="100"
@@ -294,7 +299,7 @@
                                                            LargeChange="100"
                                                            Value="{x:Bind Settings.StartupWidth, Mode=TwoWay}"
                                                            ValueChanged="OnStartupSizeChanged" />
-                                                <TextBlock Text="×" VerticalAlignment="Center" Opacity="0.5" />
+                                                <TextBlock Text="×" VerticalAlignment="Center" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
                                                 <NumberBox x:Name="StartupHeightBox"
                                                            Width="100"
                                                            Minimum="480"
@@ -303,7 +308,7 @@
                                                            LargeChange="100"
                                                            Value="{x:Bind Settings.StartupHeight, Mode=TwoWay}"
                                                            ValueChanged="OnStartupSizeChanged" />
-                                                <TextBlock Text="px" VerticalAlignment="Center" Opacity="0.6" />
+                                                <TextBlock Text="px" VerticalAlignment="Center" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
                                             </StackPanel>
                                         </StackPanel>
                                         <Button x:Uid="SettingsPage_ApplySize" Grid.Column="1" VerticalAlignment="Center" Click="OnApplyStartupSizeClick" />
@@ -331,7 +336,7 @@
                                         <FontIcon Glyph="&#xE7B8;" FontSize="18" VerticalAlignment="Center" />
                                         <StackPanel Grid.Column="1" Spacing="2">
                                             <TextBlock x:Uid="SettingsPage_Environment" Style="{ThemeResource BodyStrongTextBlockStyle}" />
-                                            <TextBlock x:Uid="SettingsPage_EnvironmentSectionDesc" FontSize="12" Opacity="0.7" TextWrapping="Wrap" />
+                                            <TextBlock x:Uid="SettingsPage_EnvironmentSectionDesc" Style="{StaticResource SettingsDescriptionStyle}" />
                                         </StackPanel>
                                     </Grid>
                                 </Expander.Header>
@@ -344,7 +349,7 @@
                                         </Grid.ColumnDefinitions>
                                         <StackPanel Spacing="2" VerticalAlignment="Center">
                                             <TextBlock x:Uid="SettingsPage_7zPath" />
-                                            <TextBlock x:Uid="SettingsPage_7zPathDesc" FontSize="12" Opacity="0.6" TextWrapping="Wrap" />
+                                            <TextBlock x:Uid="SettingsPage_7zPathDesc" Style="{StaticResource SettingsDescriptionStyle}" />
                                         </StackPanel>
                                         <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
                                             <TextBox Text="{x:Bind Settings.SevenZipPath, Mode=TwoWay}" Width="280" IsReadOnly="True" VerticalAlignment="Center" />
@@ -371,7 +376,7 @@
                                         <FontIcon Glyph="&#xE9D9;" FontSize="18" VerticalAlignment="Center" />
                                         <StackPanel Grid.Column="1" Spacing="2">
                                             <TextBlock x:Uid="SettingsPage_LogDiag" Style="{ThemeResource BodyStrongTextBlockStyle}" />
-                                            <TextBlock x:Uid="SettingsPage_LogDiagSectionDesc" FontSize="12" Opacity="0.7" TextWrapping="Wrap" />
+                                            <TextBlock x:Uid="SettingsPage_LogDiagSectionDesc" Style="{StaticResource SettingsDescriptionStyle}" />
                                         </StackPanel>
                                     </Grid>
                                 </Expander.Header>
@@ -384,7 +389,7 @@
                                         </Grid.ColumnDefinitions>
                                         <StackPanel Spacing="2">
                                             <TextBlock x:Uid="SettingsPage_LogEnabled" />
-                                            <TextBlock x:Uid="SettingsPage_LogEnabledDesc" FontSize="12" Opacity="0.6" TextWrapping="Wrap" />
+                                            <TextBlock x:Uid="SettingsPage_LogEnabledDesc" Style="{StaticResource SettingsDescriptionStyle}" />
                                         </StackPanel>
                                         <ToggleSwitch Grid.Column="1" IsOn="{x:Bind Settings.EnableFileLogging, Mode=TwoWay}" Toggled="OnLoggingChanged" />
                                     </Grid>
@@ -396,7 +401,7 @@
                                         </Grid.ColumnDefinitions>
                                         <StackPanel Spacing="2">
                                             <TextBlock x:Uid="SettingsPage_MaxLogSize" />
-                                            <TextBlock x:Uid="SettingsPage_MaxLogSizeDesc" FontSize="12" Opacity="0.6" TextWrapping="Wrap" />
+                                            <TextBlock x:Uid="SettingsPage_MaxLogSizeDesc" Style="{StaticResource SettingsDescriptionStyle}" />
                                         </StackPanel>
                                         <NumberBox x:Name="MaxLogSizeBox" Grid.Column="1" Width="180" Minimum="1" Maximum="50" Value="{x:Bind Settings.MaxLogFileSizeMb, Mode=TwoWay}" ValueChanged="OnLogSizeChanged" />
                                     </Grid>
@@ -408,7 +413,7 @@
                                         </Grid.ColumnDefinitions>
                                         <StackPanel Spacing="2">
                                             <TextBlock x:Uid="SettingsPage_LogRetention" />
-                                            <TextBlock x:Uid="SettingsPage_LogRetentionDesc" FontSize="12" Opacity="0.6" TextWrapping="Wrap" />
+                                            <TextBlock x:Uid="SettingsPage_LogRetentionDesc" Style="{StaticResource SettingsDescriptionStyle}" />
                                         </StackPanel>
                                         <NumberBox x:Name="LogRetentionBox" Grid.Column="1" Width="180" Minimum="1" Maximum="60" Value="{x:Bind Settings.LogRetentionDays, Mode=TwoWay}" ValueChanged="OnRetentionChanged" />
                                     </Grid>
@@ -437,7 +442,7 @@
                                         <FontIcon Glyph="&#xE943;" FontSize="18" VerticalAlignment="Center" />
                                         <StackPanel Grid.Column="1" Spacing="2">
                                             <TextBlock x:Uid="SettingsPage_Plugins" Style="{ThemeResource BodyStrongTextBlockStyle}" />
-                                            <TextBlock x:Uid="SettingsPage_PluginsSectionDesc" FontSize="12" Opacity="0.7" TextWrapping="Wrap" />
+                                            <TextBlock x:Uid="SettingsPage_PluginsSectionDesc" Style="{StaticResource SettingsDescriptionStyle}" />
                                         </StackPanel>
                                     </Grid>
                                 </Expander.Header>
@@ -450,7 +455,7 @@
                                         </Grid.ColumnDefinitions>
                                         <StackPanel Spacing="2">
                                             <TextBlock x:Uid="SettingsPage_PluginsEnabled" />
-                                            <TextBlock x:Uid="SettingsPage_PluginsEnabledDesc" FontSize="12" Opacity="0.6" TextWrapping="Wrap" />
+                                            <TextBlock x:Uid="SettingsPage_PluginsEnabledDesc" Style="{StaticResource SettingsDescriptionStyle}" />
                                         </StackPanel>
                                         <ToggleSwitch x:Name="PluginsMasterSwitch" Grid.Column="1" IsOn="{x:Bind Settings.Plugins.Enabled, Mode=TwoWay}" Toggled="OnPluginsEnabledToggled" />
                                     </Grid>
@@ -462,7 +467,7 @@
                                         </Grid.ColumnDefinitions>
                                         <StackPanel Spacing="2">
                                             <TextBlock x:Uid="SettingsPage_PluginsAutoCheckUpdates" />
-                                            <TextBlock x:Uid="SettingsPage_PluginsAutoCheckUpdatesDesc" FontSize="12" Opacity="0.6" TextWrapping="Wrap" />
+                                            <TextBlock x:Uid="SettingsPage_PluginsAutoCheckUpdatesDesc" Style="{StaticResource SettingsDescriptionStyle}" />
                                         </StackPanel>
                                         <ToggleSwitch Grid.Column="1" IsOn="{x:Bind Settings.Plugins.AutoCheckUpdates, Mode=TwoWay}" Toggled="OnPluginsAutoCheckUpdatesToggled" />
                                     </Grid>
@@ -499,15 +504,14 @@
                                                                            Foreground="White"/>
                                                             </Border>
                                                         </StackPanel>
-                                                        <TextBlock Text="{x:Bind Description}" Opacity="0.7" TextWrapping="Wrap" />
+                                                        <TextBlock Text="{x:Bind Description}" Style="{StaticResource SettingsDescriptionStyle}" />
                                                         <StackPanel Orientation="Horizontal" Spacing="12">
-                                                            <TextBlock Text="{x:Bind Version}" Opacity="0.7" />
-                                                            <TextBlock Text="{x:Bind Author}" Opacity="0.7" />
-                                                            <TextBlock Text="{x:Bind Id}" Opacity="0.7" />
+                                                            <TextBlock Text="{x:Bind Version}" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                                                            <TextBlock Text="{x:Bind Author}" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                                                            <TextBlock Text="{x:Bind Id}" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
                                                         </StackPanel>
                                                         <TextBlock Text="{x:Bind LoadError}"
                                                                    Foreground="{ThemeResource SystemFillColorCriticalBrush}"
-                                                                   Opacity="0.9"
                                                                    TextWrapping="Wrap"
                                                                    Visibility="{Binding LoadError, Converter={StaticResource StringNullOrEmptyToVisConverter}}" />
                                                     </StackPanel>
@@ -550,7 +554,7 @@
                                         <FontIcon Glyph="&#xE968;" FontSize="18" VerticalAlignment="Center" />
                                         <StackPanel Grid.Column="1" Spacing="2">
                                             <TextBlock x:Uid="SettingsPage_KnotLink" Style="{ThemeResource BodyStrongTextBlockStyle}" />
-                                            <TextBlock x:Uid="SettingsPage_KnotLinkSectionDesc" FontSize="12" Opacity="0.7" TextWrapping="Wrap" />
+                                            <TextBlock x:Uid="SettingsPage_KnotLinkSectionDesc" Style="{StaticResource SettingsDescriptionStyle}" />
                                         </StackPanel>
                                     </Grid>
                                 </Expander.Header>
@@ -563,7 +567,7 @@
                                         </Grid.ColumnDefinitions>
                                         <StackPanel Spacing="2">
                                             <TextBlock x:Uid="SettingsPage_KnotLinkEnabled" />
-                                            <TextBlock x:Uid="SettingsPage_KnotLinkEnabledDesc" FontSize="12" Opacity="0.6" TextWrapping="Wrap" />
+                                            <TextBlock x:Uid="SettingsPage_KnotLinkEnabledDesc" Style="{StaticResource SettingsDescriptionStyle}" />
                                         </StackPanel>
                                         <ToggleSwitch x:Name="KnotLinkSwitch" Grid.Column="1" IsOn="{x:Bind Settings.EnableKnotLink, Mode=TwoWay}" Toggled="OnKnotLinkToggled" />
                                     </Grid>
@@ -577,7 +581,7 @@
                                         <FontIcon Glyph="&#xE774;" FontSize="16" Foreground="{x:Bind KnotLinkStatusColor, Mode=OneWay}" VerticalAlignment="Center" Margin="0,0,8,0" />
                                         <StackPanel Grid.Column="1" Spacing="2">
                                             <TextBlock x:Uid="SettingsPage_KnotLinkStatus" />
-                                            <TextBlock x:Name="KnotLinkStatusText" Text="{x:Bind KnotLinkStatusMessage, Mode=OneWay}" FontSize="12" Opacity="0.7" TextWrapping="Wrap" />
+                                            <TextBlock x:Name="KnotLinkStatusText" Text="{x:Bind KnotLinkStatusMessage, Mode=OneWay}" Style="{StaticResource SettingsDescriptionStyle}" />
                                         </StackPanel>
                                     </Grid>
 
@@ -591,7 +595,7 @@
                                                 </Grid.ColumnDefinitions>
                                                 <StackPanel Spacing="2">
                                                     <TextBlock x:Uid="SettingsPage_KnotLinkHost" />
-                                                    <TextBlock x:Uid="SettingsPage_KnotLinkHostDesc" FontSize="12" Opacity="0.6" TextWrapping="Wrap" />
+                                                    <TextBlock x:Uid="SettingsPage_KnotLinkHostDesc" Style="{StaticResource SettingsDescriptionStyle}" />
                                                 </StackPanel>
                                                 <TextBox Grid.Column="1" Text="{x:Bind Settings.KnotLinkHost, Mode=TwoWay}" Width="180" TextChanged="OnKnotLinkSettingChanged" />
                                             </Grid>
@@ -603,7 +607,7 @@
                                                 </Grid.ColumnDefinitions>
                                                 <StackPanel Spacing="2">
                                                     <TextBlock x:Uid="SettingsPage_KnotLinkAppId" />
-                                                    <TextBlock x:Uid="SettingsPage_KnotLinkAppIdDesc" FontSize="12" Opacity="0.6" TextWrapping="Wrap" />
+                                                    <TextBlock x:Uid="SettingsPage_KnotLinkAppIdDesc" Style="{StaticResource SettingsDescriptionStyle}" />
                                                 </StackPanel>
                                                 <TextBox Grid.Column="1" Text="{x:Bind Settings.KnotLinkAppId, Mode=TwoWay}" Width="180" TextChanged="OnKnotLinkSettingChanged" />
                                             </Grid>
@@ -615,7 +619,7 @@
                                                 </Grid.ColumnDefinitions>
                                                 <StackPanel Spacing="2">
                                                     <TextBlock x:Uid="SettingsPage_KnotLinkOpenSocketId" />
-                                                    <TextBlock x:Uid="SettingsPage_KnotLinkOpenSocketIdDesc" FontSize="12" Opacity="0.6" TextWrapping="Wrap" />
+                                                    <TextBlock x:Uid="SettingsPage_KnotLinkOpenSocketIdDesc" Style="{StaticResource SettingsDescriptionStyle}" />
                                                 </StackPanel>
                                                 <TextBox Grid.Column="1" Text="{x:Bind Settings.KnotLinkOpenSocketId, Mode=TwoWay}" Width="180" TextChanged="OnKnotLinkSettingChanged" />
                                             </Grid>
@@ -627,7 +631,7 @@
                                                 </Grid.ColumnDefinitions>
                                                 <StackPanel Spacing="2">
                                                     <TextBlock x:Uid="SettingsPage_KnotLinkSignalId" />
-                                                    <TextBlock x:Uid="SettingsPage_KnotLinkSignalIdDesc" FontSize="12" Opacity="0.6" TextWrapping="Wrap" />
+                                                    <TextBlock x:Uid="SettingsPage_KnotLinkSignalIdDesc" Style="{StaticResource SettingsDescriptionStyle}" />
                                                 </StackPanel>
                                                 <TextBox Grid.Column="1" Text="{x:Bind Settings.KnotLinkSignalId, Mode=TwoWay}" Width="180" TextChanged="OnKnotLinkSettingChanged" />
                                             </Grid>
@@ -645,7 +649,7 @@
                                     <!-- 命令参考 -->
                                     <Expander x:Uid="SettingsPage_KnotLinkCommands" IsExpanded="False" HorizontalAlignment="Stretch" HorizontalContentAlignment="Stretch">
                                         <StackPanel Spacing="8">
-                                            <TextBlock x:Uid="SettingsPage_KnotLinkCommandsDesc" TextWrapping="Wrap" Opacity="0.8" />
+                                            <TextBlock x:Uid="SettingsPage_KnotLinkCommandsDesc" TextWrapping="Wrap" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
                                             <RichTextBlock FontFamily="Consolas" FontSize="12" IsTextSelectionEnabled="True">
                                                 <Paragraph>
                                                     <Run Text="LIST_CONFIGS" FontWeight="SemiBold" /><LineBreak />
@@ -687,9 +691,9 @@
                                         <BitmapIcon ShowAsMonochrome="False" UriSource="ms-appx:///Assets/StoreLogo.png" Width="20" Height="20" VerticalAlignment="Center" />
                                         <StackPanel Grid.Column="1" Spacing="2">
                                             <TextBlock x:Uid="SettingsPage_About" Style="{ThemeResource BodyStrongTextBlockStyle}" />
-                                            <TextBlock x:Uid="SettingsPage_AboutDesc" FontSize="12" Opacity="0.7" TextWrapping="Wrap" />
+                                            <TextBlock x:Uid="SettingsPage_AboutDesc" Style="{StaticResource SettingsDescriptionStyle}" />
                                         </StackPanel>
-                                        <TextBlock Grid.Column="1" HorizontalAlignment="Right" VerticalAlignment="Center" Text="{x:Bind AppVersion, Mode=OneWay}" Opacity="0.75" IsTextSelectionEnabled="True" />
+                                        <TextBlock Grid.Column="1" HorizontalAlignment="Right" VerticalAlignment="Center" Text="{x:Bind AppVersion, Mode=OneWay}" Foreground="{ThemeResource TextFillColorSecondaryBrush}" IsTextSelectionEnabled="True" />
                                     </Grid>
                                 </Expander.Header>
 
