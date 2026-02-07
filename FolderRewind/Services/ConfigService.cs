@@ -85,6 +85,12 @@ namespace FolderRewind.Services
                     config.Automation = new AutomationSettings();
                 if (config.Filters == null)
                     config.Filters = new FilterSettings();
+
+                // 兼容旧版配置--还原白名单可能为 null
+                if (config.Filters.RestoreWhitelist == null)
+                    config.Filters.RestoreWhitelist = new System.Collections.ObjectModel.ObservableCollection<string>();
+                else if (config.Filters.RestoreWhitelist.GetType() != typeof(System.Collections.ObjectModel.ObservableCollection<string>))
+                    config.Filters.RestoreWhitelist = new System.Collections.ObjectModel.ObservableCollection<string>(config.Filters.RestoreWhitelist);
             }
             if (CurrentConfig.GlobalSettings == null)
                 CurrentConfig.GlobalSettings = new GlobalSettings();

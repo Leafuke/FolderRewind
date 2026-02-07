@@ -41,6 +41,24 @@ namespace FolderRewind.Views
             set => Config.Archive.Format = value == 1 ? "zip" : "7z";
         }
 
+        /// <summary>
+        /// 压缩算法选择索引
+        /// </summary>
+        private static readonly string[] CompressionMethods = { "LZMA2", "Deflate", "BZip2", "zstd" };
+        public int MethodSelectedIndex
+        {
+            get
+            {
+                var idx = Array.IndexOf(CompressionMethods, Config.Archive.Method);
+                return idx >= 0 ? idx : 0; // 默认 LZMA2
+            }
+            set
+            {
+                if (value >= 0 && value < CompressionMethods.Length)
+                    Config.Archive.Method = CompressionMethods[value];
+            }
+        }
+
         public ConfigSettingsDialog(BackupConfig config)
         {
             this.InitializeComponent();
@@ -221,6 +239,24 @@ namespace FolderRewind.Views
             if (sender is Button btn && btn.DataContext is string item)
             {
                 Config.Filters.Blacklist.Remove(item);
+            }
+        }
+
+        // --- 还原白名单 ---
+        private void OnAddRestoreWhitelistClick(object sender, RoutedEventArgs e)
+        {
+            if (!string.IsNullOrWhiteSpace(RestoreWhitelistBox.Text))
+            {
+                Config.Filters.RestoreWhitelist.Add(RestoreWhitelistBox.Text.Trim());
+                RestoreWhitelistBox.Text = "";
+            }
+        }
+
+        private void OnRemoveRestoreWhitelistClick(object sender, RoutedEventArgs e)
+        {
+            if (sender is Button btn && btn.DataContext is string item)
+            {
+                Config.Filters.RestoreWhitelist.Remove(item);
             }
         }
 

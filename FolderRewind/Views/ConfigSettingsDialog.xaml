@@ -10,9 +10,10 @@
     SecondaryButtonClick="OnDeleteClick"
     Style="{StaticResource DefaultContentDialogStyle}">
 
-    <Pivot Height="450" Width="500">
+    <Pivot Height="480" Width="520">
         <!-- 1. 常规设置 -->
         <PivotItem x:Uid="ConfigSettingsDialog_General">
+            <ScrollViewer VerticalScrollBarVisibility="Auto" Padding="0,0,12,0">
             <StackPanel Spacing="20" Padding="0,12">
                 <TextBox x:Uid="ConfigSettingsDialog_ConfigName" Text="{x:Bind Config.Name, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"/>
 
@@ -75,10 +76,12 @@
                     </GridView>
                 </StackPanel>
             </StackPanel>
+            </ScrollViewer>
         </PivotItem>
 
         <!-- 2. 压缩策略 -->
         <PivotItem x:Uid="ConfigSettingsDialog_Compression">
+            <ScrollViewer VerticalScrollBarVisibility="Auto" Padding="0,0,12,0">
             <StackPanel Spacing="20" Padding="0,12">
                 <ComboBox x:Uid="ConfigSettingsDialog_BackupMode" SelectedIndex="{x:Bind ModeSelectedIndex, Mode=TwoWay}" HorizontalAlignment="Stretch">
                     <ComboBoxItem x:Uid="ConfigSettingsDialog_ModeFull"/>
@@ -95,20 +98,40 @@
                         <ComboBoxItem x:Uid="ConfigSettingsDialog_Format7z"/>
                         <ComboBoxItem x:Uid="ConfigSettingsDialog_FormatZip"/>
                     </ComboBox>
-                    <StackPanel Grid.Column="1" Spacing="4" Margin="8,0,0,0">
-                        <TextBlock x:Uid="ConfigSettingsDialog_CompressionLevel"/>
-                        <Slider Minimum="0" Maximum="9" Value="{x:Bind Config.Archive.CompressionLevel, Mode=TwoWay}"/>
-                    </StackPanel>
+                    <ComboBox x:Uid="ConfigSettingsDialog_Method" Grid.Column="1" SelectedIndex="{x:Bind MethodSelectedIndex, Mode=TwoWay}" HorizontalAlignment="Stretch" Margin="8,0,0,0">
+                        <ComboBoxItem Content="LZMA2"/>
+                        <ComboBoxItem Content="Deflate"/>
+                        <ComboBoxItem Content="BZip2"/>
+                        <ComboBoxItem Content="zstd"/>
+                    </ComboBox>
                 </Grid>
 
+                <StackPanel Spacing="4">
+                    <TextBlock x:Uid="ConfigSettingsDialog_CompressionLevel"/>
+                    <Slider Minimum="0" Maximum="9" Value="{x:Bind Config.Archive.CompressionLevel, Mode=TwoWay}"/>
+                </StackPanel>
+
                 <NumberBox x:Uid="ConfigSettingsDialog_KeepCount" Value="{x:Bind Config.Archive.KeepCount, Mode=TwoWay}" Minimum="0" SpinButtonPlacementMode="Inline"/>
+
+                <ToggleSwitch x:Uid="ConfigSettingsDialog_SkipIfUnchanged" IsOn="{x:Bind Config.Archive.SkipIfUnchanged, Mode=TwoWay}"/>
+
+                <StackPanel Spacing="4">
+                    <TextBlock x:Uid="ConfigSettingsDialog_CpuThreads"/>
+                    <StackPanel Orientation="Horizontal" Spacing="8">
+                        <NumberBox Value="{x:Bind Config.Archive.CpuThreads, Mode=TwoWay}" Minimum="0" Maximum="128" SpinButtonPlacementMode="Inline" Width="160"/>
+                        <TextBlock x:Uid="ConfigSettingsDialog_CpuThreadsDesc" VerticalAlignment="Center" Style="{StaticResource CaptionTextBlockStyle}" Foreground="{ThemeResource TextFillColorSecondaryBrush}"/>
+                    </StackPanel>
+                </StackPanel>
 
                 <StackPanel Spacing="4">
                     <TextBlock x:Uid="ConfigSettingsDialog_ArchivePassword"/>
                     <TextBox x:Uid="ConfigSettingsDialog_ArchivePasswordPlaceholder" Text="{x:Bind Config.Archive.Password, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" InputScope="Password"/>
                     <TextBlock x:Uid="ConfigSettingsDialog_ArchivePasswordDesc" Style="{StaticResource CaptionTextBlockStyle}" Foreground="{ThemeResource TextFillColorSecondaryBrush}"/>
                 </StackPanel>
+
+                <ToggleSwitch x:Uid="ConfigSettingsDialog_BackupBeforeRestore" IsOn="{x:Bind Config.Archive.BackupBeforeRestore, Mode=TwoWay}"/>
             </StackPanel>
+            </ScrollViewer>
         </PivotItem>
 
         <!-- 3. 自动化 -->
@@ -134,11 +157,12 @@
             </StackPanel>
         </PivotItem>
 
-        <!-- 4. 过滤器 (黑名单) -->
+        <!-- 4. 过滤器 (黑名单 + 还原白名单) -->
         <PivotItem x:Uid="ConfigSettingsDialog_Filter">
+            <ScrollViewer VerticalScrollBarVisibility="Auto" Padding="0,0,12,0">
             <StackPanel Spacing="12" Padding="0,12">
                 <TextBlock x:Uid="ConfigSettingsDialog_Blacklist" FontWeight="SemiBold"/>
-                <ListView Height="200" ItemsSource="{x:Bind Config.Filters.Blacklist}" BorderThickness="1" BorderBrush="{ThemeResource SurfaceStrokeColorDefaultBrush}">
+                <ListView Height="160" ItemsSource="{x:Bind Config.Filters.Blacklist}" BorderThickness="1" BorderBrush="{ThemeResource SurfaceStrokeColorDefaultBrush}">
                     <ListView.ItemTemplate>
                         <DataTemplate>
                             <Grid>
@@ -161,7 +185,34 @@
                     <TextBox x:Name="BlacklistBox" x:Uid="ConfigSettingsDialog_BlacklistPlaceholder"/>
                     <Button Grid.Column="1" x:Uid="ConfigSettingsDialog_AddBlacklist" Margin="8,0,0,0" Click="OnAddBlacklistClick"/>
                 </Grid>
+
+                <!-- 还原白名单：Clean 还原时不会清除的文件/文件夹 -->
+                <TextBlock x:Uid="ConfigSettingsDialog_RestoreWhitelist" FontWeight="SemiBold" Margin="0,12,0,0"/>
+                <TextBlock x:Uid="ConfigSettingsDialog_RestoreWhitelistDesc" Style="{StaticResource CaptionTextBlockStyle}" Foreground="{ThemeResource TextFillColorSecondaryBrush}" TextWrapping="Wrap"/>
+                <ListView Height="120" ItemsSource="{x:Bind Config.Filters.RestoreWhitelist}" BorderThickness="1" BorderBrush="{ThemeResource SurfaceStrokeColorDefaultBrush}">
+                    <ListView.ItemTemplate>
+                        <DataTemplate>
+                            <Grid>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*"/>
+                                    <ColumnDefinition Width="Auto"/>
+                                </Grid.ColumnDefinitions>
+                                <TextBlock Text="{Binding}" VerticalAlignment="Center"/>
+                                <Button Grid.Column="1" Content="&#xE711;" FontFamily="Segoe MDL2 Assets" Click="OnRemoveRestoreWhitelistClick"/>
+                            </Grid>
+                        </DataTemplate>
+                    </ListView.ItemTemplate>
+                </ListView>
+                <Grid>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="Auto"/>
+                    </Grid.ColumnDefinitions>
+                    <TextBox x:Name="RestoreWhitelistBox" x:Uid="ConfigSettingsDialog_RestoreWhitelistPlaceholder"/>
+                    <Button Grid.Column="1" x:Uid="ConfigSettingsDialog_AddRestoreWhitelist" Margin="8,0,0,0" Click="OnAddRestoreWhitelistClick"/>
+                </Grid>
             </StackPanel>
+            </ScrollViewer>
         </PivotItem>
     </Pivot>
 </ContentDialog>

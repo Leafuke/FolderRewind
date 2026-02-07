@@ -651,6 +651,33 @@
   <data name="ConfigSettingsDialog_ArchivePasswordDesc.Text" xml:space="preserve">
     <value>仅应用于新创建的压缩包，请妥善保存此密码。</value>
   </data>
+  <data name="ConfigSettingsDialog_Method.Header" xml:space="preserve">
+    <value>压缩算法</value>
+  </data>
+  <data name="ConfigSettingsDialog_SkipIfUnchanged.Header" xml:space="preserve">
+    <value>无变更时跳过备份</value>
+  </data>
+  <data name="ConfigSettingsDialog_SkipIfUnchanged.OnContent" xml:space="preserve">
+    <value>已开启</value>
+  </data>
+  <data name="ConfigSettingsDialog_SkipIfUnchanged.OffContent" xml:space="preserve">
+    <value>已关闭</value>
+  </data>
+  <data name="ConfigSettingsDialog_CpuThreads.Text" xml:space="preserve">
+    <value>CPU 线程数</value>
+  </data>
+  <data name="ConfigSettingsDialog_CpuThreadsDesc.Text" xml:space="preserve">
+    <value>0 = 自动</value>
+  </data>
+  <data name="ConfigSettingsDialog_BackupBeforeRestore.Header" xml:space="preserve">
+    <value>还原前自动备份</value>
+  </data>
+  <data name="ConfigSettingsDialog_BackupBeforeRestore.OnContent" xml:space="preserve">
+    <value>已开启</value>
+  </data>
+  <data name="ConfigSettingsDialog_BackupBeforeRestore.OffContent" xml:space="preserve">
+    <value>已关闭</value>
+  </data>
   <data name="ConfigSettingsDialog_Automation.Header" xml:space="preserve">
     <value>自动化</value>
   </data>
@@ -689,6 +716,18 @@
   </data>
   <data name="ConfigSettingsDialog_UseRegex.Content" xml:space="preserve">
     <value>将黑名单项作为正则表达式</value>
+  </data>
+  <data name="ConfigSettingsDialog_RestoreWhitelist.Text" xml:space="preserve">
+    <value>还原白名单</value>
+  </data>
+  <data name="ConfigSettingsDialog_RestoreWhitelistDesc.Text" xml:space="preserve">
+    <value>Clean 还原时不会清除的文件/文件夹，保护特定数据不被删除。</value>
+  </data>
+  <data name="ConfigSettingsDialog_RestoreWhitelistPlaceholder.PlaceholderText" xml:space="preserve">
+    <value>输入文件名或通配符...</value>
+  </data>
+  <data name="ConfigSettingsDialog_AddRestoreWhitelist.Content" xml:space="preserve">
+    <value>添加</value>
   </data>
   <data name="LogWindow.Title" xml:space="preserve">
     <value>FolderRewind 控制台日志</value>
@@ -1417,6 +1456,36 @@
   </data>
   <data name="BackupService_Log_SystemError" xml:space="preserve">
     <value>系统错误: {0}</value>
+  </data>
+  <data name="BackupService_Log_BackupBeforeRestore" xml:space="preserve">
+    <value>还原前自动备份: {0}</value>
+  </data>
+  <data name="BackupService_Log_BackupBeforeRestoreCompleted" xml:space="preserve">
+    <value>还原前备份完成</value>
+  </data>
+  <data name="BackupService_Log_BackupBeforeRestoreFailed" xml:space="preserve">
+    <value>还原前备份失败: {0}，继续还原...</value>
+  </data>
+  <data name="BackupService_Log_RestoreWhitelistSkip" xml:space="preserve">
+    <value>还原白名单跳过: {0}</value>
+  </data>
+  <data name="BackupService_Log_RestoreDeleteFileFailed" xml:space="preserve">
+    <value>删除文件失败: {0} - {1}</value>
+  </data>
+  <data name="BackupService_Log_PruneSkipImportantFull" xml:space="preserve">
+    <value>重要备份 ({0}) 已达保留限额 ({1})，跳过清理</value>
+  </data>
+  <data name="BackupService_Log_PrunedOldBackup" xml:space="preserve">
+    <value>已清理旧备份: {0}</value>
+  </data>
+  <data name="BackupService_Log_PruneDeleteFailed" xml:space="preserve">
+    <value>清理备份失败: {0} - {1}</value>
+  </data>
+  <data name="BackupService_Log_PruneException" xml:space="preserve">
+    <value>备份清理异常: {0}</value>
+  </data>
+  <data name="BackupService_Log_RestoreChainBuilt" xml:space="preserve">
+    <value>还原链已构建，包含 {0} 个包</value>
   </data>
   <data name="App_WindowTitle" xml:space="preserve">
     <value>存档时光机</value>
