@@ -257,11 +257,11 @@
                                        Style="{ThemeResource CaptionTextBlockStyle}" 
                                        Foreground="{ThemeResource TextFillColorSecondaryBrush}"/>
 
-                            <!-- 描述（非斜体） -->
+                            <!-- 描述 -->
                             <TextBox Text="{x:Bind Description, Mode=TwoWay}" 
                                      x:Uid="FolderManager_AddDescription"
                                      BorderThickness="0" Background="Transparent" 
-                                     Padding="0" Margin="-8,0,0,0"
+                                     Padding="0" Margin="0,8,0,0"
                                      Foreground="{ThemeResource TextFillColorSecondaryBrush}"/>
 
                             <!-- 状态与时间 -->

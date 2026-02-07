@@ -19,6 +19,14 @@ namespace FolderRewind.Views
         private readonly ObservableCollection<LogEntry> _allEntries = new();
         public ObservableCollection<LogEntry> FilteredEntries { get; } = new();
 
+        // 该页面启用了 NavigationCacheMode=Required。
+        // 仅在构造函数里订阅事件 + 在 Unloaded 里退订，会导致：
+        // 1) 页面被缓存后再次返回不会重新执行构造函数；
+        // 2) 但离开页面时可能触发 Unloaded，从而退订事件；
+        // 最终表现为“日志仍在写入，但日志页列表不再更新”。
+        // 因此这里改为在 OnNavigatedTo/OnNavigatedFrom 进行订阅管理。
+        private bool _isSubscribed;
+
         private bool _isLive = true;
         private string _keyword = string.Empty;
         private LogLevel? _filterLevel;
@@ -26,18 +34,43 @@ namespace FolderRewind.Views
         public LogPage()
         {
             this.InitializeComponent();
-            LoadSnapshot();
+        }
+
+        protected override void OnNavigatedTo(Microsoft.UI.Xaml.Navigation.NavigationEventArgs e)
+        {
+            base.OnNavigatedTo(e);
+
+            EnsureSubscribed();
+
+            // 每次进入页面都同步一次快照：
+            // - 避免离开页面期间产生的日志丢失
+            // - 也避免缓存页面导致的“只初始化一次”问题
+            ReloadSnapshot();
+        }
+
+        protected override void OnNavigatedFrom(Microsoft.UI.Xaml.Navigation.NavigationEventArgs e)
+        {
+            base.OnNavigatedFrom(e);
+            Unsubscribe();
+        }
+
+        private void EnsureSubscribed()
+        {
+            if (_isSubscribed) return;
             LogService.EntryPublished += OnEntryPublished;
-            this.Unloaded += OnUnloaded;
+            _isSubscribed = true;
         }
 
-        private void OnUnloaded(object sender, RoutedEventArgs e)
+        private void Unsubscribe()
         {
+            if (!_isSubscribed) return;
             LogService.EntryPublished -= OnEntryPublished;
+            _isSubscribed = false;
         }
 
-        private void LoadSnapshot()
+        private void ReloadSnapshot()
         {
+            _allEntries.Clear();
             foreach (var entry in LogService.GetEntriesSnapshot())
             {
                 _allEntries.Add(entry);
