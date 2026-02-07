@@ -2,9 +2,9 @@ using FolderRewind.Models;
 using FolderRewind.Services;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Media.Animation;
+using Microsoft.UI.Xaml.Navigation;
 using System;
 using System.Linq;
-using Microsoft.UI.Xaml.Navigation;
 using Microsoft.UI.Dispatching;
 
 namespace FolderRewind.Views
@@ -131,7 +131,7 @@ namespace FolderRewind.Views
                 }
 
                 // 1. 执行跳转
-                ContentFrame.Navigate(pageType, parameter, new SlideNavigationTransitionInfo());
+                ContentFrame.Navigate(pageType, parameter, new SuppressNavigationTransitionInfo());
 
                 // 2. 同步左侧导航栏的选中状态 (解决你提到的不同步问题)
                 UpdateNavSelection(pageTag);
@@ -202,7 +202,7 @@ namespace FolderRewind.Views
         {
             if (ContentFrame.CanGoBack)
             {
-                ContentFrame.GoBack(new SlideNavigationTransitionInfo { Effect = SlideNavigationTransitionEffect.FromLeft });
+                ContentFrame.GoBack(new SuppressNavigationTransitionInfo());
             }
         }
 

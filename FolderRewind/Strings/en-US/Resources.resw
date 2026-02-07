@@ -1772,4 +1772,10 @@ Comment: {1}
   <data name="Notification_RestoreCompleted_Failed" xml:space="preserve">
     <value>Folder "{0}" restore failed: {1}</value>
   </data>
+  <data name="Common_ToggleOn" xml:space="preserve">
+    <value>On</value>
+  </data>
+  <data name="Common_ToggleOff" xml:space="preserve">
+    <value>Off</value>
+  </data>
 </root>

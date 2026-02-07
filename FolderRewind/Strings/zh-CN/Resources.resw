@@ -1773,4 +1773,10 @@
   <data name="Notification_RestoreCompleted_Failed" xml:space="preserve">
     <value>文件夹 "{0}" 恢复失败：{1}</value>
   </data>
+  <data name="Common_ToggleOn" xml:space="preserve">
+    <value>开</value>
+  </data>
+  <data name="Common_ToggleOff" xml:space="preserve">
+    <value>关</value>
+  </data>
 </root>

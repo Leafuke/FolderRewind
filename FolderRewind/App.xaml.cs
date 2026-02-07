@@ -102,9 +102,13 @@ namespace FolderRewind
                 _window.Closed += OnMainWindowClosed;
                 ApplyWindowPreferences(_window);
                 Services.ThemeService.ApplyThemeToWindow(_window);
-                Services.TypographyService.ApplyTypography(Services.ConfigService.CurrentConfig?.GlobalSettings);
                 UpdateWindowTitle();
                 _window.Activate();
+
+                _window.DispatcherQueue.TryEnqueue(Microsoft.UI.Dispatching.DispatcherQueuePriority.Low, () =>
+                {
+                    Services.TypographyService.ApplyTypography(Services.ConfigService.CurrentConfig?.GlobalSettings);
+                });
 
                 // 插件初始化包含热键注册，必须在UI线程执行，所以用DispatcherQueue而非Task.Run
                 _window.DispatcherQueue.TryEnqueue(Microsoft.UI.Dispatching.DispatcherQueuePriority.Low, () =>

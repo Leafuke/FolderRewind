@@ -87,7 +87,7 @@
                 </NavigationViewItem>
             </NavigationView.MenuItems>
 
-            <Frame x:Name="ContentFrame" />
+            <Frame x:Name="ContentFrame" CacheSize="10" />
         </NavigationView>
     </Grid>
 </Page>

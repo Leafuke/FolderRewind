@@ -7,7 +7,8 @@
     xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
     xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
     xmlns:models="using:FolderRewind.Models"
-    mc:Ignorable="d">
+    mc:Ignorable="d"
+    NavigationCacheMode="Required">
 
     <Page.Resources>
         <x:Double x:Key="SettingsCardSpacing">8</x:Double>
@@ -71,7 +72,7 @@
                                             <TextBlock x:Uid="SettingsPage_RunOnStartup" />
                                             <TextBlock x:Uid="SettingsPage_RunOnStartupDesc" Style="{StaticResource SettingsDescriptionStyle}" />
                                         </StackPanel>
-                                        <ToggleSwitch Grid.Column="1" IsOn="{x:Bind Settings.RunOnStartup, Mode=TwoWay}" Toggled="OnRunOnStartupToggled" />
+                                        <ToggleSwitch Grid.Column="1" OnContent="{x:Bind ToggleOnText}" OffContent="{x:Bind ToggleOffText}" IsOn="{x:Bind Settings.RunOnStartup, Mode=TwoWay}" Toggled="OnRunOnStartupToggled" />
                                     </Grid>
 
                                     <Grid>
@@ -103,7 +104,7 @@
                                             <TextBlock x:Uid="SettingsPage_CloseBehavior_Remember_Header" />
                                             <TextBlock x:Uid="SettingsPage_CloseBehavior_Remember_Desc" Style="{StaticResource SettingsDescriptionStyle}" />
                                         </StackPanel>
-                                        <ToggleSwitch Grid.Column="1" IsOn="{x:Bind Settings.RememberCloseBehavior, Mode=TwoWay}" Toggled="OnRememberCloseBehaviorToggled" />
+                                        <ToggleSwitch Grid.Column="1" OnContent="{x:Bind ToggleOnText}" OffContent="{x:Bind ToggleOffText}" IsOn="{x:Bind Settings.RememberCloseBehavior, Mode=TwoWay}" Toggled="OnRememberCloseBehaviorToggled" />
                                     </Grid>
 
                                     <Grid>
@@ -115,7 +116,7 @@
                                             <TextBlock x:Uid="SettingsPage_EnableNotifications" />
                                             <TextBlock x:Uid="SettingsPage_EnableNotificationsDesc" Style="{StaticResource SettingsDescriptionStyle}" />
                                         </StackPanel>
-                                        <ToggleSwitch Grid.Column="1" IsOn="{x:Bind Settings.EnableNotifications, Mode=TwoWay}" Toggled="OnNotificationsToggled" />
+                                        <ToggleSwitch Grid.Column="1" OnContent="{x:Bind ToggleOnText}" OffContent="{x:Bind ToggleOffText}" IsOn="{x:Bind Settings.EnableNotifications, Mode=TwoWay}" Toggled="OnNotificationsToggled" />
                                     </Grid>
                                     
                                 </StackPanel>
@@ -267,7 +268,7 @@
                                             <TextBlock x:Uid="SettingsPage_HistoryStatusColors" />
                                             <TextBlock x:Uid="SettingsPage_HistoryStatusColorsDesc" Style="{StaticResource SettingsDescriptionStyle}" />
                                         </StackPanel>
-                                        <ToggleSwitch Grid.Column="1" IsOn="{x:Bind Settings.UseHistoryStatusColors, Mode=TwoWay}" Toggled="OnHistoryColorsToggled" />
+                                        <ToggleSwitch Grid.Column="1" OnContent="{x:Bind ToggleOnText}" OffContent="{x:Bind ToggleOffText}" IsOn="{x:Bind Settings.UseHistoryStatusColors, Mode=TwoWay}" Toggled="OnHistoryColorsToggled" />
                                     </Grid>
 
                                     <Grid>
@@ -391,7 +392,7 @@
                                             <TextBlock x:Uid="SettingsPage_LogEnabled" />
                                             <TextBlock x:Uid="SettingsPage_LogEnabledDesc" Style="{StaticResource SettingsDescriptionStyle}" />
                                         </StackPanel>
-                                        <ToggleSwitch Grid.Column="1" IsOn="{x:Bind Settings.EnableFileLogging, Mode=TwoWay}" Toggled="OnLoggingChanged" />
+                                        <ToggleSwitch Grid.Column="1" OnContent="{x:Bind ToggleOnText}" OffContent="{x:Bind ToggleOffText}" IsOn="{x:Bind Settings.EnableFileLogging, Mode=TwoWay}" Toggled="OnLoggingChanged" />
                                     </Grid>
 
                                     <Grid>
@@ -457,7 +458,7 @@
                                             <TextBlock x:Uid="SettingsPage_PluginsEnabled" />
                                             <TextBlock x:Uid="SettingsPage_PluginsEnabledDesc" Style="{StaticResource SettingsDescriptionStyle}" />
                                         </StackPanel>
-                                        <ToggleSwitch x:Name="PluginsMasterSwitch" Grid.Column="1" IsOn="{x:Bind Settings.Plugins.Enabled, Mode=TwoWay}" Toggled="OnPluginsEnabledToggled" />
+                                        <ToggleSwitch x:Name="PluginsMasterSwitch" Grid.Column="1" OnContent="{x:Bind ToggleOnText}" OffContent="{x:Bind ToggleOffText}" IsOn="{x:Bind Settings.Plugins.Enabled, Mode=TwoWay}" Toggled="OnPluginsEnabledToggled" />
                                     </Grid>
 
                                     <Grid>
@@ -469,7 +470,7 @@
                                             <TextBlock x:Uid="SettingsPage_PluginsAutoCheckUpdates" />
                                             <TextBlock x:Uid="SettingsPage_PluginsAutoCheckUpdatesDesc" Style="{StaticResource SettingsDescriptionStyle}" />
                                         </StackPanel>
-                                        <ToggleSwitch Grid.Column="1" IsOn="{x:Bind Settings.Plugins.AutoCheckUpdates, Mode=TwoWay}" Toggled="OnPluginsAutoCheckUpdatesToggled" />
+                                        <ToggleSwitch Grid.Column="1" OnContent="{x:Bind ToggleOnText}" OffContent="{x:Bind ToggleOffText}" IsOn="{x:Bind Settings.Plugins.AutoCheckUpdates, Mode=TwoWay}" Toggled="OnPluginsAutoCheckUpdatesToggled" />
                                     </Grid>
 
                                     <StackPanel Orientation="Horizontal" Spacing="8">
@@ -569,7 +570,7 @@
                                             <TextBlock x:Uid="SettingsPage_KnotLinkEnabled" />
                                             <TextBlock x:Uid="SettingsPage_KnotLinkEnabledDesc" Style="{StaticResource SettingsDescriptionStyle}" />
                                         </StackPanel>
-                                        <ToggleSwitch x:Name="KnotLinkSwitch" Grid.Column="1" IsOn="{x:Bind Settings.EnableKnotLink, Mode=TwoWay}" Toggled="OnKnotLinkToggled" />
+                                        <ToggleSwitch x:Name="KnotLinkSwitch" Grid.Column="1" OnContent="{x:Bind ToggleOnText}" OffContent="{x:Bind ToggleOffText}" IsOn="{x:Bind Settings.EnableKnotLink, Mode=TwoWay}" Toggled="OnKnotLinkToggled" />
                                     </Grid>
 
                                     <!-- 状态显示 -->
