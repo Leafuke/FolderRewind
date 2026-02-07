@@ -7,7 +7,8 @@
     xmlns:converters="using:FolderRewind.Converters"
     xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
     xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
-    mc:Ignorable="d">
+    mc:Ignorable="d"
+    NavigationCacheMode="Enabled">
 
     <Page.Resources>
         <converters:BoolToStarIconConverter x:Key="BoolToStarIconConverter"/>
@@ -22,10 +23,12 @@
         </Grid.RowDefinitions>
 
         <!-- 顶部操作栏 -->
-        <StackPanel Background="{ThemeResource LayerFillColorAltBrush}" BorderBrush="{ThemeResource SurfaceStrokeColorDefaultBrush}" BorderThickness="0,0,0,1">
+        <StackPanel Background="{ThemeResource LayerFillColorAltBrush}" 
+                    BorderBrush="{ThemeResource SurfaceStrokeColorDefaultBrush}" 
+                    BorderThickness="0,0,0,1" Spacing="0">
 
             <!-- 第一行：配置选择与全局操作 -->
-            <Grid Padding="24,12">
+            <Grid Padding="24,16,24,12">
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="Auto"/>
                     <ColumnDefinition Width="*"/>
@@ -34,7 +37,7 @@
 
                 <!-- 左侧：配置切换 -->
                 <StackPanel Orientation="Horizontal" Spacing="12" VerticalAlignment="Center">
-                    <FontIcon Glyph="&#xE713;" FontSize="16" Opacity="0.5"/>
+                    <FontIcon Glyph="&#xE713;" FontSize="16" Foreground="{ThemeResource TextFillColorSecondaryBrush}"/>
                     <TextBlock x:Uid="FolderManager_CurrentConfig" VerticalAlignment="Center" Foreground="{ThemeResource TextFillColorSecondaryBrush}"/>
                     <ComboBox x:Name="ConfigSelector" Width="220" 
                               ItemsSource="{x:Bind ConfigsView, Mode=OneWay}"
@@ -76,8 +79,8 @@
             <!-- 分割线 -->
             <MenuFlyoutSeparator Margin="24,0"/>
 
-            <!-- 第二行：选中项操作与注释 (Action Bar) -->
-            <Grid Padding="24,12" Background="{ThemeResource LayerFillColorDefaultBrush}">
+            <!-- 第二行：选中项操作与注释 -->
+            <Grid Padding="24,10,24,12" Background="{ThemeResource LayerFillColorDefaultBrush}">
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="Auto"/>
                     <ColumnDefinition Width="*"/>
@@ -86,18 +89,18 @@
 
                 <StackPanel Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
                     <FontIcon Glyph="&#xE8B7;" FontSize="16" Foreground="{ThemeResource AccentFillColorDefaultBrush}"/>
-                    <TextBlock x:Uid="FolderManager_SelectedAction" VerticalAlignment="Center" FontWeight="SemiBold"/>
+                    <TextBlock x:Uid="FolderManager_SelectedAction" VerticalAlignment="Center" Style="{ThemeResource BodyStrongTextBlockStyle}"/>
                     <TextBlock Text="{x:Bind SelectedFolderDisplayName, Mode=OneWay}" 
-                               VerticalAlignment="Center" Opacity="0.8"/>
+                               VerticalAlignment="Center" Foreground="{ThemeResource TextFillColorSecondaryBrush}"/>
                 </StackPanel>
 
-                <!-- 中间：注释输入框 (关键新增) -->
+                <!-- 中间：备份注释输入框 -->
                 <Grid Grid.Column="1" Margin="24,0" MaxWidth="400" HorizontalAlignment="Left">
                     <Grid.ColumnDefinitions>
                         <ColumnDefinition Width="Auto"/>
                         <ColumnDefinition Width="*"/>
                     </Grid.ColumnDefinitions>
-                    <TextBlock x:Uid="FolderManager_BackupComment" VerticalAlignment="Center" Margin="0,0,8,0" Opacity="0.6"/>
+                    <TextBlock x:Uid="FolderManager_BackupComment" VerticalAlignment="Center" Margin="0,0,8,0" Foreground="{ThemeResource TextFillColorSecondaryBrush}"/>
                     <TextBox x:Name="CommentBox" Grid.Column="1" x:Uid="FolderManager_CommentPlaceholder" IsEnabled="{x:Bind BackupSelectedButton.IsEnabled, Mode=OneWay}"/>
                 </Grid>
 
@@ -120,39 +123,127 @@
             </Grid>
         </StackPanel>
 
-        <!-- 文件夹大列表 -->
-        <ListView x:Name="FolderList" Grid.Row="1" Padding="12" 
+        <!-- 文件夹列表 -->
+        <ListView x:Name="FolderList" Grid.Row="1" Padding="16,8,16,16" 
                   ItemsSource="{x:Bind CurrentFoldersView, Mode=OneWay}"
                   SelectionMode="Single" 
                   SelectionChanged="FolderList_SelectionChanged">
 
+            <!-- 自定义选中样式：仅显示左侧强调色条，不显示整行灰色背景 -->
+            <ListView.ItemContainerStyle>
+                <Style TargetType="ListViewItem">
+                    <Setter Property="HorizontalContentAlignment" Value="Stretch"/>
+                    <Setter Property="Margin" Value="0,4"/>
+                    <Setter Property="Padding" Value="0"/>
+                    <Setter Property="Template">
+                        <Setter.Value>
+                            <ControlTemplate TargetType="ListViewItem">
+                                <Grid x:Name="Root" Background="Transparent" CornerRadius="8">
+                                    <!-- 左侧选中指示条 -->
+                                    <Border x:Name="SelectionIndicator"
+                                            Width="3"
+                                            HorizontalAlignment="Left"
+                                            VerticalAlignment="Center"
+                                            Height="28"
+                                            CornerRadius="1.5"
+                                            Background="{ThemeResource AccentFillColorDefaultBrush}"
+                                            Opacity="0"
+                                            Margin="4,0"/>
+
+                                    <ContentPresenter x:Name="ContentPresenter"
+                                                      Content="{TemplateBinding Content}"
+                                                      ContentTemplate="{TemplateBinding ContentTemplate}"
+                                                      ContentTransitions="{TemplateBinding ContentTransitions}"
+                                                      HorizontalAlignment="Stretch"
+                                                      VerticalAlignment="Stretch"
+                                                      Margin="4,0,0,0"/>
+
+                                    <VisualStateManager.VisualStateGroups>
+                                        <VisualStateGroup x:Name="CommonStates">
+                                            <VisualState x:Name="Normal"/>
+                                            <VisualState x:Name="PointerOver">
+                                                <Storyboard>
+                                                    <ObjectAnimationUsingKeyFrames Storyboard.TargetName="Root" Storyboard.TargetProperty="Background">
+                                                        <DiscreteObjectKeyFrame KeyTime="0" Value="{ThemeResource SubtleFillColorSecondaryBrush}"/>
+                                                    </ObjectAnimationUsingKeyFrames>
+                                                </Storyboard>
+                                            </VisualState>
+                                            <VisualState x:Name="Pressed">
+                                                <Storyboard>
+                                                    <ObjectAnimationUsingKeyFrames Storyboard.TargetName="Root" Storyboard.TargetProperty="Background">
+                                                        <DiscreteObjectKeyFrame KeyTime="0" Value="{ThemeResource SubtleFillColorTertiaryBrush}"/>
+                                                    </ObjectAnimationUsingKeyFrames>
+                                                </Storyboard>
+                                            </VisualState>
+                                            <VisualState x:Name="Selected">
+                                                <Storyboard>
+                                                    <DoubleAnimation Storyboard.TargetName="SelectionIndicator"
+                                                                     Storyboard.TargetProperty="Opacity"
+                                                                     To="1" Duration="0:0:0.2">
+                                                        <DoubleAnimation.EasingFunction>
+                                                            <CubicEase EasingMode="EaseOut"/>
+                                                        </DoubleAnimation.EasingFunction>
+                                                    </DoubleAnimation>
+                                                </Storyboard>
+                                            </VisualState>
+                                            <VisualState x:Name="PointerOverSelected">
+                                                <Storyboard>
+                                                    <DoubleAnimation Storyboard.TargetName="SelectionIndicator"
+                                                                     Storyboard.TargetProperty="Opacity"
+                                                                     To="1" Duration="0:0:0.15"/>
+                                                    <ObjectAnimationUsingKeyFrames Storyboard.TargetName="Root" Storyboard.TargetProperty="Background">
+                                                        <DiscreteObjectKeyFrame KeyTime="0" Value="{ThemeResource SubtleFillColorSecondaryBrush}"/>
+                                                    </ObjectAnimationUsingKeyFrames>
+                                                </Storyboard>
+                                            </VisualState>
+                                            <VisualState x:Name="PressedSelected">
+                                                <Storyboard>
+                                                    <DoubleAnimation Storyboard.TargetName="SelectionIndicator"
+                                                                     Storyboard.TargetProperty="Opacity"
+                                                                     To="1" Duration="0:0:0.15"/>
+                                                    <ObjectAnimationUsingKeyFrames Storyboard.TargetName="Root" Storyboard.TargetProperty="Background">
+                                                        <DiscreteObjectKeyFrame KeyTime="0" Value="{ThemeResource SubtleFillColorTertiaryBrush}"/>
+                                                    </ObjectAnimationUsingKeyFrames>
+                                                </Storyboard>
+                                            </VisualState>
+                                        </VisualStateGroup>
+                                    </VisualStateManager.VisualStateGroups>
+                                </Grid>
+                            </ControlTemplate>
+                        </Setter.Value>
+                    </Setter>
+                </Style>
+            </ListView.ItemContainerStyle>
+
             <ListView.ItemTemplate>
                 <DataTemplate x:DataType="models:ManagedFolder">
-                    <Grid Margin="0,8" Padding="12" Background="{ThemeResource LayerFillColorDefaultBrush}" CornerRadius="8">
+                    <!-- 文件夹卡片：优化后的布局 -->
+                    <Grid Margin="8,6" Padding="14,12" 
+                          Background="{ThemeResource CardBackgroundFillColorDefaultBrush}" 
+                          BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
+                          BorderThickness="1"
+                          CornerRadius="8">
                         <Grid.ColumnDefinitions>
                             <ColumnDefinition Width="Auto"/>
                             <ColumnDefinition Width="*"/>
-                            <ColumnDefinition Width="200"/>
-                            <ColumnDefinition Width="Auto"/>
                             <ColumnDefinition Width="Auto"/>
                         </Grid.ColumnDefinitions>
 
-                        <!-- 1. 图片区域 -->
+                        <!-- 1. 封面图片区域 -->
                         <Button Padding="0" CornerRadius="8" Width="72" Height="72" BorderThickness="0" Background="Transparent" 
                                 Click="onChangeIconClick" x:Uid="FolderManager_ChangeCover">
                             <Grid>
-                                <!-- 默认图标 (当图片为空时显示) -->
+                                <!-- 默认图标（无图片时显示） -->
                                 <Border Background="{ThemeResource SystemControlPageBackgroundChromeLowBrush}" CornerRadius="8">
                                     <FontIcon Glyph="&#xE8B9;" FontSize="32" Foreground="{ThemeResource TextFillColorTertiaryBrush}"/>
                                 </Border>
-
-                                <!-- 真实图片 (覆盖在上面) -->
+                                <!-- 封面图片 -->
                                 <Image Source="{x:Bind CoverImagePath, Mode=OneWay, Converter={StaticResource StringToBitmapConverter}}" Stretch="UniformToFill"/>
                             </Grid>
                         </Button>
 
                         <!-- 2. 信息区域 -->
-                        <StackPanel Grid.Column="1" Margin="16,0" VerticalAlignment="Center" Spacing="4">
+                        <StackPanel Grid.Column="1" Margin="16,0,12,0" VerticalAlignment="Center" Spacing="3">
                             <StackPanel Orientation="Horizontal" Spacing="8">
                                 <TextBlock Text="{x:Bind DisplayName}" Style="{ThemeResource SubtitleTextBlockStyle}"/>
                                 <Button x:Uid="FolderManager_FavoriteToggle" Background="Transparent" BorderThickness="0" Padding="4" Click="OnFavoriteToggleClick">
@@ -161,32 +252,46 @@
                                 </Button>
                             </StackPanel>
 
-                            <!-- 路径 (绑定到 Model 的 FullPath) -->
-                            <TextBlock Text="{x:Bind FullPath}" Style="{ThemeResource CaptionTextBlockStyle}" Foreground="{ThemeResource TextFillColorSecondaryBrush}"/>
+                            <!-- 路径 -->
+                            <TextBlock Text="{x:Bind FullPath}" 
+                                       Style="{ThemeResource CaptionTextBlockStyle}" 
+                                       Foreground="{ThemeResource TextFillColorSecondaryBrush}"/>
 
-                            <!-- 描述 -->
+                            <!-- 描述（非斜体） -->
                             <TextBox Text="{x:Bind Description, Mode=TwoWay}" 
                                      x:Uid="FolderManager_AddDescription"
                                      BorderThickness="0" Background="Transparent" 
                                      Padding="0" Margin="-8,0,0,0"
-                                     FontStyle="Italic" Foreground="{ThemeResource TextFillColorSecondaryBrush}"/>
+                                     Foreground="{ThemeResource TextFillColorSecondaryBrush}"/>
+
+                            <!-- 状态与时间 -->
+                            <StackPanel Orientation="Horizontal" Spacing="16" Margin="0,2,0,0">
+                                <StackPanel Orientation="Horizontal" Spacing="4">
+                                    <FontIcon Glyph="&#xE73E;" FontSize="12" 
+                                              Foreground="{ThemeResource SystemFillColorSuccessBrush}"/>
+                                    <TextBlock Text="{x:Bind StatusText}" 
+                                               Style="{ThemeResource CaptionTextBlockStyle}" 
+                                               Foreground="{ThemeResource SystemFillColorSuccessBrush}"/>
+                                </StackPanel>
+                                <StackPanel Orientation="Horizontal" Spacing="4">
+                                    <FontIcon Glyph="&#xE823;" FontSize="11" 
+                                              Foreground="{ThemeResource TextFillColorTertiaryBrush}"/>
+                                    <TextBlock Text="{x:Bind LastBackupTime}" 
+                                               Style="{ThemeResource CaptionTextBlockStyle}" 
+                                               Foreground="{ThemeResource TextFillColorTertiaryBrush}"/>
+                                </StackPanel>
+                            </StackPanel>
                         </StackPanel>
 
-                        <!-- 3. 状态与时间 -->
-                        <StackPanel Grid.Column="2" VerticalAlignment="Center">
-                            <TextBlock Text="{x:Bind StatusText}" Foreground="Green" FontWeight="SemiBold"/>
-                            <TextBlock Text="{x:Bind LastBackupTime}" FontSize="12" Opacity="0.6"/>
-                        </StackPanel>
-
-                        <!-- 4. 操作菜单 -->
-                        <Button Grid.Column="3" Background="Transparent" BorderThickness="0" Padding="8">
+                        <!-- 3. 操作菜单 -->
+                        <Button Grid.Column="2" Background="Transparent" BorderThickness="0" Padding="8" VerticalAlignment="Center">
                             <FontIcon Glyph="&#xE712;"/>
                             <Button.Flyout>
                                 <MenuFlyout>
                                     <MenuFlyoutItem x:Uid="FolderManager_OpenFolder" Icon="Folder" Click="OnOpenFolderClick"/>
                                     <MenuFlyoutItem x:Uid="FolderManager_Rescan" Icon="Refresh"/>
                                     <MenuFlyoutSeparator/>
-                                    <MenuFlyoutItem x:Uid="FolderManager_RemoveFolder" Icon="Delete" Foreground="Red" Click="OnRemoveFolderClick"/>
+                                    <MenuFlyoutItem x:Uid="FolderManager_RemoveFolder" Icon="Delete" Foreground="{ThemeResource SystemFillColorCriticalBrush}" Click="OnRemoveFolderClick"/>
                                 </MenuFlyout>
                             </Button.Flyout>
                         </Button>

@@ -118,7 +118,7 @@
 
                         <!-- 状态 -->
                         <StackPanel Grid.Column="2" VerticalAlignment="Center">
-                            <TextBlock Text="{x:Bind StatusText}" Foreground="Green"/>
+                            <TextBlock Text="{x:Bind StatusText}" Foreground="{ThemeResource SystemFillColorSuccessBrush}"/>
                             <!--TextBlock Text="{x:Bind LastBackupTime}" FontSize="12" Opacity="0.6"/-->
                         </StackPanel>
 
@@ -132,7 +132,7 @@
                                             <SymbolIcon Symbol="Upload"/>
                                         </MenuFlyoutItem.Icon>
                                     </MenuFlyoutItem>
-                                    <MenuFlyoutItem x:Uid="ConfigurationPage_Remove" Foreground="Red">
+                                    <MenuFlyoutItem x:Uid="ConfigurationPage_Remove" Foreground="{ThemeResource SystemFillColorCriticalBrush}">
                                         <MenuFlyoutItem.Icon>
                                             <SymbolIcon Symbol="Delete"/>
                                         </MenuFlyoutItem.Icon>
@@ -149,7 +149,7 @@
         <Grid Grid.Row="3" Background="{ThemeResource SolidBackgroundFillColorBaseBrush}" BorderBrush="{ThemeResource SurfaceStrokeColorDefaultBrush}" BorderThickness="0,1,0,0" Padding="16">
             <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Spacing="12">
                 <Button x:Uid="ConfigurationPage_BatchBackup"/>
-                <Button x:Uid="ConfigurationPage_BatchDelete" Foreground="Red"/>
+                <Button x:Uid="ConfigurationPage_BatchDelete" Foreground="{ThemeResource SystemFillColorCriticalBrush}"/>
             </StackPanel>
         </Grid>
     </Grid>

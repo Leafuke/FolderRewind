@@ -11,6 +11,7 @@ using System.IO;
 using Microsoft.UI.Xaml.Media;
 using Microsoft.UI;
 using System.Collections.Generic;
+using System.Diagnostics;
 
 namespace FolderRewind.Views
 {
@@ -266,6 +267,98 @@ namespace FolderRewind.Views
                 item.TimelineLineBrush = item.IsMissing ? bad : ok;
                 item.TimelineNodeFillBrush = offFill;
                 item.TimelineNodeBorderBrush = item.IsMissing ? bad : ok;
+            }
+        }
+
+        /// <summary>
+        /// 查看备份文件按钮点击 - 在资源管理器中打开文件
+        /// </summary>
+        private void OnViewClick(object sender, RoutedEventArgs e)
+        {
+            if (sender is not Button btn || btn.DataContext is not HistoryItem item)
+            {
+                return;
+            }
+
+            var config = ConfigFilter.SelectedItem as BackupConfig;
+            var folder = FolderFilter.SelectedItem as ManagedFolder;
+            if (config == null || folder == null) return;
+
+            var filePath = HistoryService.GetBackupFilePath(config, folder, item);
+            if (string.IsNullOrWhiteSpace(filePath))
+            {
+                NotificationService.ShowWarning(I18n.GetString("History_ViewFile_PathEmpty"));
+                return;
+            }
+
+            if (!File.Exists(filePath))
+            {
+                NotificationService.ShowWarning(I18n.Format("History_ViewFile_NotFound", Path.GetFileName(filePath)));
+                return;
+            }
+
+            try
+            {
+                // 使用资源管理器打开并选中文件
+                Process.Start(new ProcessStartInfo
+                {
+                    FileName = "explorer.exe",
+                    Arguments = $"/select,\"{filePath}\"",
+                    UseShellExecute = true
+                });
+            }
+            catch (Exception ex)
+            {
+                NotificationService.ShowError(I18n.Format("History_ViewFile_Failed", ex.Message));
+            }
+        }
+
+        /// <summary>
+        /// 修改注释按钮点击
+        /// </summary>
+        private async void OnEditCommentClick(object sender, RoutedEventArgs e)
+        {
+            if (sender is not Button btn || btn.DataContext is not HistoryItem item)
+            {
+                return;
+            }
+
+            var inputBox = new TextBox
+            {
+                Text = item.Comment ?? string.Empty,
+                PlaceholderText = I18n.GetString("History_EditComment_Placeholder"),
+                AcceptsReturn = false,
+                TextWrapping = TextWrapping.Wrap,
+                MinWidth = 300
+            };
+
+            var dialog = new ContentDialog
+            {
+                Title = I18n.GetString("History_EditComment_Title"),
+                Content = inputBox,
+                PrimaryButtonText = I18n.GetString("Common_Ok"),
+                CloseButtonText = I18n.GetString("Common_Cancel"),
+                DefaultButton = ContentDialogButton.Primary,
+                XamlRoot = this.XamlRoot
+            };
+
+            var result = await dialog.ShowAsync();
+            if (result != ContentDialogResult.Primary) return;
+
+            var newComment = inputBox.Text?.Trim() ?? string.Empty;
+            
+            // 更新历史记录
+            HistoryService.UpdateComment(item, newComment);
+            
+            // 触发 Message 属性更新（因为 Message 依赖 Comment）
+            item.OnPropertyChanged(nameof(item.Message));
+            
+            // 刷新当前列表以确保UI更新
+            var config = ConfigFilter.SelectedItem as BackupConfig;
+            var folder = FolderFilter.SelectedItem as ManagedFolder;
+            if (config != null && folder != null)
+            {
+                RefreshHistory(config, folder);
             }
         }
 

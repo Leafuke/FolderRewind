@@ -200,6 +200,34 @@ namespace FolderRewind.Services
             }
         }
 
+        /// <summary>
+        /// 更新历史记录的注释
+        /// </summary>
+        public static void UpdateComment(HistoryItem item, string newComment)
+        {
+            if (item == null) return;
+
+            lock (_historyLock)
+            {
+                // 查找并更新内存中的记录
+                var target = _allHistory.FirstOrDefault(x => 
+                    x.ConfigId == item.ConfigId && 
+                    x.FolderPath == item.FolderPath && 
+                    x.FileName == item.FileName &&
+                    x.Timestamp == item.Timestamp);
+
+                if (target != null)
+                {
+                    target.Comment = newComment;
+                }
+                
+                // 同时更新传入的item（可能是UI绑定的对象）
+                item.Comment = newComment;
+            }
+
+            ScheduleSave();
+        }
+
         private static void ScheduleSave()
         {
             // 取消前一次保存，合并写盘

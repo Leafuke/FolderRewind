@@ -651,6 +651,33 @@
   <data name="ConfigSettingsDialog_ArchivePasswordDesc.Text" xml:space="preserve">
     <value>Applied to newly created archives. Keep this password safe.</value>
   </data>
+  <data name="ConfigSettingsDialog_Method.Header" xml:space="preserve">
+    <value>Compression algorithm</value>
+  </data>
+  <data name="ConfigSettingsDialog_SkipIfUnchanged.Header" xml:space="preserve">
+    <value>Skip backup when unchanged</value>
+  </data>
+  <data name="ConfigSettingsDialog_SkipIfUnchanged.OnContent" xml:space="preserve">
+    <value>On</value>
+  </data>
+  <data name="ConfigSettingsDialog_SkipIfUnchanged.OffContent" xml:space="preserve">
+    <value>Off</value>
+  </data>
+  <data name="ConfigSettingsDialog_CpuThreads.Text" xml:space="preserve">
+    <value>CPU threads</value>
+  </data>
+  <data name="ConfigSettingsDialog_CpuThreadsDesc.Text" xml:space="preserve">
+    <value>0 = automatic</value>
+  </data>
+  <data name="ConfigSettingsDialog_BackupBeforeRestore.Header" xml:space="preserve">
+    <value>Backup before restore</value>
+  </data>
+  <data name="ConfigSettingsDialog_BackupBeforeRestore.OnContent" xml:space="preserve">
+    <value>On</value>
+  </data>
+  <data name="ConfigSettingsDialog_BackupBeforeRestore.OffContent" xml:space="preserve">
+    <value>Off</value>
+  </data>
   <data name="ConfigSettingsDialog_Automation.Header" xml:space="preserve">
     <value>Automation</value>
   </data>
@@ -689,6 +716,18 @@
   </data>
   <data name="ConfigSettingsDialog_UseRegex.Content" xml:space="preserve">
     <value>Treat blacklist entries as regex</value>
+  </data>
+  <data name="ConfigSettingsDialog_RestoreWhitelist.Text" xml:space="preserve">
+    <value>Restore whitelist</value>
+  </data>
+  <data name="ConfigSettingsDialog_RestoreWhitelistDesc.Text" xml:space="preserve">
+    <value>Files/folders not removed during Clean restore, protecting specific data from deletion.</value>
+  </data>
+  <data name="ConfigSettingsDialog_RestoreWhitelistPlaceholder.PlaceholderText" xml:space="preserve">
+    <value>Enter filename or wildcard...</value>
+  </data>
+  <data name="ConfigSettingsDialog_AddRestoreWhitelist.Content" xml:space="preserve">
+    <value>Add</value>
   </data>
   <data name="LogWindow.Title" xml:space="preserve">
     <value>FolderRewind console log</value>
@@ -1418,6 +1457,36 @@ If you have a listener subscribed to this signal, it should receive a message.</
   <data name="BackupService_Log_SystemError" xml:space="preserve">
     <value>System error: {0}</value>
   </data>
+  <data name="BackupService_Log_BackupBeforeRestore" xml:space="preserve">
+    <value>Backup before restore: {0}</value>
+  </data>
+  <data name="BackupService_Log_BackupBeforeRestoreCompleted" xml:space="preserve">
+    <value>Pre-restore backup completed</value>
+  </data>
+  <data name="BackupService_Log_BackupBeforeRestoreFailed" xml:space="preserve">
+    <value>Pre-restore backup failed: {0}, continuing restore...</value>
+  </data>
+  <data name="BackupService_Log_RestoreWhitelistSkip" xml:space="preserve">
+    <value>Restore whitelist skip: {0}</value>
+  </data>
+  <data name="BackupService_Log_RestoreDeleteFileFailed" xml:space="preserve">
+    <value>Failed to delete: {0} - {1}</value>
+  </data>
+  <data name="BackupService_Log_PruneSkipImportantFull" xml:space="preserve">
+    <value>Important backups ({0}) reached limit ({1}), skipping prune</value>
+  </data>
+  <data name="BackupService_Log_PrunedOldBackup" xml:space="preserve">
+    <value>Pruned old backup: {0}</value>
+  </data>
+  <data name="BackupService_Log_PruneDeleteFailed" xml:space="preserve">
+    <value>Failed to prune: {0} - {1}</value>
+  </data>
+  <data name="BackupService_Log_PruneException" xml:space="preserve">
+    <value>Prune exception: {0}</value>
+  </data>
+  <data name="BackupService_Log_RestoreChainBuilt" xml:space="preserve">
+    <value>Restore chain built with {0} archives</value>
+  </data>
   <data name="App_WindowTitle" xml:space="preserve">
     <value>FolderRewind</value>
   </data>
@@ -1700,5 +1769,82 @@ Comment: {1}
   </data>
   <data name="SettingsPage_CloseBehavior_Remember_Header.Text" xml:space="preserve">
     <value>Remember my choice</value>
+  </data>
+  <data name="HistoryPage_ViewButton.ToolTipService.ToolTip" xml:space="preserve">
+    <value>View in Explorer</value>
+  </data>
+  <data name="HistoryPage_EditCommentButton.ToolTipService.ToolTip" xml:space="preserve">
+    <value>Edit comment</value>
+  </data>
+  <data name="HistoryPage_DeleteButton.Content" xml:space="preserve">
+    <value>Delete</value>
+  </data>
+  <data name="History_ViewFile_PathEmpty" xml:space="preserve">
+    <value>Cannot retrieve backup file path</value>
+  </data>
+  <data name="History_ViewFile_NotFound" xml:space="preserve">
+    <value>Backup file not found: {0}</value>
+  </data>
+  <data name="History_ViewFile_Failed" xml:space="preserve">
+    <value>Failed to open file: {0}</value>
+  </data>
+  <data name="History_EditComment_Title" xml:space="preserve">
+    <value>Edit Comment</value>
+  </data>
+  <data name="History_EditComment_Placeholder" xml:space="preserve">
+    <value>Enter backup comment (optional)</value>
+  </data>
+  <data name="History_EditComment_Success" xml:space="preserve">
+    <value>Comment updated</value>
+  </data>
+  <!-- Notification settings -->
+  <data name="SettingsPage_EnableNotifications.Text" xml:space="preserve">
+    <value>Enable notifications</value>
+  </data>
+  <data name="SettingsPage_EnableNotificationsDesc.Text" xml:space="preserve">
+    <value>When enabled, show in-app notifications, system toasts and badges (if available)</value>
+  </data>
+  <!-- Notification service strings -->
+  <data name="Notification_Success_Title" xml:space="preserve">
+    <value>Success</value>
+  </data>
+  <data name="Notification_Warning_Title" xml:space="preserve">
+    <value>Warning</value>
+  </data>
+  <data name="Notification_Error_Title" xml:space="preserve">
+    <value>Error</value>
+  </data>
+  <data name="Notification_Info_Title" xml:space="preserve">
+    <value>Info</value>
+  </data>
+  <data name="Notification_Action_View" xml:space="preserve">
+    <value>View</value>
+  </data>
+  <data name="Notification_BackupCompleted_Title" xml:space="preserve">
+    <value>Backup Complete</value>
+  </data>
+  <data name="Notification_BackupCompleted_Success" xml:space="preserve">
+    <value>Folder "{0}" backed up successfully</value>
+  </data>
+  <data name="Notification_BackupCompleted_Failed" xml:space="preserve">
+    <value>Folder "{0}" backup failed: {1}</value>
+  </data>
+  <data name="Notification_BackupFailed_Title" xml:space="preserve">
+    <value>Backup Failed</value>
+  </data>
+  <data name="Notification_RestoreCompleted_Title" xml:space="preserve">
+    <value>Restore Complete</value>
+  </data>
+  <data name="Notification_RestoreCompleted_Success" xml:space="preserve">
+    <value>Folder "{0}" restored successfully</value>
+  </data>
+  <data name="Notification_RestoreCompleted_Failed" xml:space="preserve">
+    <value>Folder "{0}" restore failed: {1}</value>
+  </data>
+  <data name="Common_ToggleOn" xml:space="preserve">
+    <value>On</value>
+  </data>
+  <data name="Common_ToggleOff" xml:space="preserve">
+    <value>Off</value>
   </data>
 </root>

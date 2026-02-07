@@ -452,6 +452,9 @@ namespace FolderRewind.Services
                 catch
                 {
                 }
+
+                // 发送失败通知
+                NotificationService.NotifyBackupCompleted(folder.DisplayName, false, I18n.GetString("BackupService_Task_Failed"));
             }
 
             // 备份后回调（用于清理快照等）
@@ -611,6 +614,54 @@ namespace FolderRewind.Services
         // 返回 (Success, FileName)
         private static async Task<(bool Success, string FileName)> DoFullBackupAsync(string source, string destDir, string metaDir, string baseName, BackupConfig config, string comment = "")
         {
+            if (config.Archive.SkipIfUnchanged && !string.IsNullOrEmpty(metaDir))
+            {
+                string metadataPath = Path.Combine(metaDir, "metadata.json");
+                if (File.Exists(metadataPath))
+                {
+                    try
+                    {
+                        var oldMeta = JsonSerializer.Deserialize(File.ReadAllText(metadataPath), AppJsonContext.Default.BackupMetadata);
+                        if (oldMeta != null)
+                        {
+                            var currentStates = ScanDirectory(source, config.Filters);
+                            bool hasChanges = false;
+
+                            // 比较文件数量是否一致
+                            if (currentStates.Count != oldMeta.FileStates.Count)
+                            {
+                                hasChanges = true;
+                            }
+                            else
+                            {
+                                // 逐文件比较大小和修改时间
+                                foreach (var kvp in currentStates)
+                                {
+                                    if (!oldMeta.FileStates.TryGetValue(kvp.Key, out var oldState) ||
+                                        kvp.Value.Size != oldState.Size ||
+                                        kvp.Value.LastWriteTimeUtc != oldState.LastWriteTimeUtc)
+                                    {
+                                        hasChanges = true;
+                                        break;
+                                    }
+                                }
+                            }
+
+                            if (!hasChanges)
+                            {
+                                Log(I18n.Format("BackupService_Log_NoChangesDetected"), LogLevel.Info);
+                                return (true, null); // 无变更，跳过备份
+                            }
+                        }
+                    }
+                    catch
+                    {
+                        // 元数据读取失败时继续执行全量备份
+                        Log(I18n.Format("BackupService_Log_MetadataCorruptedFallbackFull"), LogLevel.Warning);
+                    }
+                }
+            }
+
             string fileName = GenerateFileName(baseName, config.Archive.Format, "Full", comment);
             string destFile = Path.Combine(destDir, fileName);
 
@@ -836,6 +887,21 @@ namespace FolderRewind.Services
                 return;
             }
 
+            if (config.Archive.BackupBeforeRestore)
+            {
+                Log(I18n.Format("BackupService_Log_BackupBeforeRestore", folder.DisplayName), LogLevel.Info);
+                try
+                {
+                    await BackupFolderAsync(config, folder, "BeforeRestore");
+                    Log(I18n.Format("BackupService_Log_BackupBeforeRestoreCompleted"), LogLevel.Info);
+                }
+                catch (Exception ex)
+                {
+                    Log(I18n.Format("BackupService_Log_BackupBeforeRestoreFailed", ex.Message), LogLevel.Warning);
+                    // 即使备份失败也继续还原，仅记录警告
+                }
+            }
+
             string sevenZipExe = ResolveSevenZipExecutable();
             if (string.IsNullOrEmpty(sevenZipExe)) return;
             
@@ -883,39 +949,43 @@ namespace FolderRewind.Services
             if (mode == RestoreMode.Clean)
             {
                 Log(I18n.Format("BackupService_Log_RestoreCleaningTarget"), LogLevel.Info);
+
+                // 收集还原白名单
+                var restoreWhitelist = config.Filters?.RestoreWhitelist;
+                bool hasWhitelist = restoreWhitelist != null && restoreWhitelist.Count > 0;
+
                 try
                 {
                     DirectoryInfo di = new DirectoryInfo(targetDir);
-                    foreach (FileInfo file in di.EnumerateFiles("*", SearchOption.AllDirectories))
-                    {
-                        try
-                        {
-                            // 移除只读属性
-                            if ((file.Attributes & FileAttributes.ReadOnly) == FileAttributes.ReadOnly)
-                            {
-                                file.Attributes &= ~FileAttributes.ReadOnly;
-                            }
-                            file.Delete();
-                        }
-                        catch (Exception fileEx)
-                        {
-                            Log(I18n.Format("BackupService_Log_RestoreDeleteFileFailed", file.Name, fileEx.Message), LogLevel.Warning);
-                        }
-                    }
-                    // 从最深层开始删除目录
-                    foreach (DirectoryInfo dir in di.EnumerateDirectories("*", SearchOption.AllDirectories).OrderByDescending(d => d.FullName.Length))
-                    {
-                        try
-                        {
-                            if ((dir.Attributes & FileAttributes.ReadOnly) == FileAttributes.ReadOnly)
-                            {
-                                dir.Attributes &= ~FileAttributes.ReadOnly;
-                            }
-                            dir.Delete(false);
-                        }
-                        catch
-                        {
 
+                    foreach (var entry in di.EnumerateFileSystemInfos("*", SearchOption.TopDirectoryOnly))
+                    {
+                        // 检查是否在还原白名单中
+                        if (hasWhitelist && IsInRestoreWhitelist(entry.FullName, targetDir, restoreWhitelist))
+                        {
+                            Log(I18n.Format("BackupService_Log_RestoreWhitelistSkip", entry.Name), LogLevel.Info);
+                            continue;
+                        }
+
+                        try
+                        {
+                            if (entry is DirectoryInfo dirEntry)
+                            {
+                                // 递归删除目录
+                                dirEntry.Delete(true);
+                            }
+                            else if (entry is FileInfo fileEntry)
+                            {
+                                if ((fileEntry.Attributes & FileAttributes.ReadOnly) == FileAttributes.ReadOnly)
+                                {
+                                    fileEntry.Attributes &= ~FileAttributes.ReadOnly;
+                                }
+                                fileEntry.Delete();
+                            }
+                        }
+                        catch (Exception entryEx)
+                        {
+                            Log(I18n.Format("BackupService_Log_RestoreDeleteFileFailed", entry.Name, entryEx.Message), LogLevel.Warning);
                         }
                     }
                 }
@@ -941,6 +1011,9 @@ namespace FolderRewind.Services
                     catch
                     {
                     }
+
+                    // 发送恢复失败通知
+                    NotificationService.NotifyRestoreCompleted(folder.DisplayName, false, I18n.GetString("BackupService_Log_RestoreExtractFailed"));
                     return;
                 }
             }
@@ -954,6 +1027,74 @@ namespace FolderRewind.Services
             catch
             {
             }
+        }
+
+        /// <summary>
+        /// 检查文件/文件夹是否在还原白名单中（参考 MineBackup is_blacklisted 思路，复用名称匹配）
+        /// 支持精确文件名匹配和路径包含匹配
+        /// </summary>
+        private static bool IsInRestoreWhitelist(string entryPath, string rootDir, IEnumerable<string> whitelist)
+        {
+            if (whitelist == null) return false;
+
+            var entryName = Path.GetFileName(entryPath);
+            var entryPathLower = entryPath.ToLowerInvariant();
+
+            string relativePathLower = string.Empty;
+            try
+            {
+                var relativePath = Path.GetRelativePath(rootDir, entryPath);
+                if (!relativePath.StartsWith(".."))
+                {
+                    relativePathLower = relativePath.ToLowerInvariant();
+                }
+            }
+            catch { }
+
+            foreach (var ruleOrig in whitelist)
+            {
+                if (string.IsNullOrWhiteSpace(ruleOrig)) continue;
+                var rule = ruleOrig.Trim();
+
+                // 精确文件名匹配
+                if (!string.IsNullOrEmpty(entryName) &&
+                    entryName.Equals(rule, StringComparison.OrdinalIgnoreCase))
+                {
+                    return true;
+                }
+
+                // 路径包含匹配
+                var ruleLower = rule.ToLowerInvariant();
+                if (entryPathLower.Contains(ruleLower))
+                {
+                    return true;
+                }
+
+                if (!string.IsNullOrEmpty(relativePathLower) && relativePathLower.Contains(ruleLower))
+                {
+                    return true;
+                }
+
+                // 通配符匹配
+                if (rule.Contains('*') || rule.Contains('?'))
+                {
+                    try
+                    {
+                        var wildcardPattern = "^" + Regex.Escape(rule)
+                            .Replace("\\*", ".*")
+                            .Replace("\\?", ".") + "$";
+                        var wildcardRegex = new Regex(wildcardPattern, RegexOptions.IgnoreCase);
+
+                        if (!string.IsNullOrEmpty(entryName) && wildcardRegex.IsMatch(entryName))
+                        {
+                            return true;
+                        }
+                    }
+                    catch { }
+                }
+            }
+
+            return false;
         }
 
         private static int GetConfigIndex(BackupConfig config)
@@ -1087,6 +1228,16 @@ namespace FolderRewind.Services
             }
 
             sb.Append($" -mx={settings.CompressionLevel} -m0={settings.Method} -ssw");
+
+            if (settings.CpuThreads > 0)
+            {
+                sb.Append($" -mmt{settings.CpuThreads}");
+            }
+            else
+            {
+                sb.Append(" -mmt"); // 默认自动线程数
+            }
+
             if (!string.IsNullOrWhiteSpace(settings.Password))
             {
                 sb.Append($" -p\"{settings.Password}\" -mhe=on");

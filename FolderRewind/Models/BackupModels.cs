@@ -20,7 +20,7 @@ namespace FolderRewind.Models
     public class ObservableObject : INotifyPropertyChanged
     {
         public event PropertyChangedEventHandler PropertyChanged;
-        protected void OnPropertyChanged([CallerMemberName] string propertyName = null)
+        public void OnPropertyChanged([CallerMemberName] string propertyName = null)
         {
             PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(propertyName));
         }
@@ -99,6 +99,9 @@ namespace FolderRewind.Models
         // 快捷键/热键
         private HotkeySettings _hotkeys = new();
 
+        // 通知设置
+        private bool _enableNotifications = true;
+
         public string Language { get => _language; set => SetProperty(ref _language, value); }
         public int ThemeIndex { get => _themeIndex; set => SetProperty(ref _themeIndex, value); }
         public string SevenZipPath { get => _sevenZipPath; set => SetProperty(ref _sevenZipPath, value); }
@@ -170,6 +173,11 @@ namespace FolderRewind.Models
         /// 快捷键/热键绑定（允许用户修改）。
         /// </summary>
         public HotkeySettings Hotkeys { get => _hotkeys; set => SetProperty(ref _hotkeys, value ?? new HotkeySettings()); }
+
+        /// <summary>
+        /// 是否启用应用内/系统通知（全局开关）。
+        /// </summary>
+        public bool EnableNotifications { get => _enableNotifications; set => SetProperty(ref _enableNotifications, value); }
     }
 
     /// <summary>
@@ -270,19 +278,33 @@ namespace FolderRewind.Models
         private int _compressionLevel = 5;
         private string _method = "LZMA2";
         private int _keepCount = 0;
-
-        // 修改点：将 bool SmartBackup 改为 BackupMode 枚举
         private BackupMode _mode = BackupMode.Full;
         private string _password = "";
+        private bool _skipIfUnchanged = true;      // 无变更时跳过备份
+        private int _cpuThreads = 0;               // CPU 线程数, 0 = 自动
+        private bool _backupBeforeRestore = false;  // 还原前先执行一次备份
 
         public string Format { get => _format; set => SetProperty(ref _format, value); }
         public int CompressionLevel { get => _compressionLevel; set => SetProperty(ref _compressionLevel, value); }
         public string Method { get => _method; set => SetProperty(ref _method, value); }
         public int KeepCount { get => _keepCount; set => SetProperty(ref _keepCount, value); }
-
         public BackupMode Mode { get => _mode; set => SetProperty(ref _mode, value); }
-
         public string Password { get => _password; set => SetProperty(ref _password, value); }
+
+        /// <summary>
+        /// 无变更时跳过备份，即使是全量模式也会先检测文件变化
+        /// </summary>
+        public bool SkipIfUnchanged { get => _skipIfUnchanged; set => SetProperty(ref _skipIfUnchanged, value); }
+
+        /// <summary>
+        /// CPU 线程数，0 表示自动（由 7z 决定），传递给 7z 的 -mmt 参数
+        /// </summary>
+        public int CpuThreads { get => _cpuThreads; set => SetProperty(ref _cpuThreads, value); }
+
+        /// <summary>
+        /// 还原前先自动执行一次备份，防止误操作丢失当前数据
+        /// </summary>
+        public bool BackupBeforeRestore { get => _backupBeforeRestore; set => SetProperty(ref _backupBeforeRestore, value); }
     }
 
     /// <summary>
@@ -328,6 +350,16 @@ namespace FolderRewind.Models
             set => SetProperty(ref _blacklist, value ?? new ObservableCollection<string>());
         }
         public bool UseRegex { get; set; } = false;
+
+        /// <summary>
+        /// 还原白名单：Clean 还原时不会清除的文件/文件夹
+        /// </summary>
+        private ObservableCollection<string> _restoreWhitelist = new();
+        public ObservableCollection<string> RestoreWhitelist
+        {
+            get => _restoreWhitelist;
+            set => SetProperty(ref _restoreWhitelist, value ?? new ObservableCollection<string>());
+        }
     }
 
     // 可以在这里添加 BackupTask 用于运行时 UI 显示 (BackupTasksPage 使用)

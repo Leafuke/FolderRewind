@@ -651,6 +651,33 @@
   <data name="ConfigSettingsDialog_ArchivePasswordDesc.Text" xml:space="preserve">
     <value>仅应用于新创建的压缩包，请妥善保存此密码。</value>
   </data>
+  <data name="ConfigSettingsDialog_Method.Header" xml:space="preserve">
+    <value>压缩算法</value>
+  </data>
+  <data name="ConfigSettingsDialog_SkipIfUnchanged.Header" xml:space="preserve">
+    <value>无变更时跳过备份</value>
+  </data>
+  <data name="ConfigSettingsDialog_SkipIfUnchanged.OnContent" xml:space="preserve">
+    <value>已开启</value>
+  </data>
+  <data name="ConfigSettingsDialog_SkipIfUnchanged.OffContent" xml:space="preserve">
+    <value>已关闭</value>
+  </data>
+  <data name="ConfigSettingsDialog_CpuThreads.Text" xml:space="preserve">
+    <value>CPU 线程数</value>
+  </data>
+  <data name="ConfigSettingsDialog_CpuThreadsDesc.Text" xml:space="preserve">
+    <value>0 = 自动</value>
+  </data>
+  <data name="ConfigSettingsDialog_BackupBeforeRestore.Header" xml:space="preserve">
+    <value>还原前自动备份</value>
+  </data>
+  <data name="ConfigSettingsDialog_BackupBeforeRestore.OnContent" xml:space="preserve">
+    <value>已开启</value>
+  </data>
+  <data name="ConfigSettingsDialog_BackupBeforeRestore.OffContent" xml:space="preserve">
+    <value>已关闭</value>
+  </data>
   <data name="ConfigSettingsDialog_Automation.Header" xml:space="preserve">
     <value>自动化</value>
   </data>
@@ -689,6 +716,18 @@
   </data>
   <data name="ConfigSettingsDialog_UseRegex.Content" xml:space="preserve">
     <value>将黑名单项作为正则表达式</value>
+  </data>
+  <data name="ConfigSettingsDialog_RestoreWhitelist.Text" xml:space="preserve">
+    <value>还原白名单</value>
+  </data>
+  <data name="ConfigSettingsDialog_RestoreWhitelistDesc.Text" xml:space="preserve">
+    <value>Clean 还原时不会清除的文件/文件夹，保护特定数据不被删除。</value>
+  </data>
+  <data name="ConfigSettingsDialog_RestoreWhitelistPlaceholder.PlaceholderText" xml:space="preserve">
+    <value>输入文件名或通配符...</value>
+  </data>
+  <data name="ConfigSettingsDialog_AddRestoreWhitelist.Content" xml:space="preserve">
+    <value>添加</value>
   </data>
   <data name="LogWindow.Title" xml:space="preserve">
     <value>FolderRewind 控制台日志</value>
@@ -1418,6 +1457,36 @@
   <data name="BackupService_Log_SystemError" xml:space="preserve">
     <value>系统错误: {0}</value>
   </data>
+  <data name="BackupService_Log_BackupBeforeRestore" xml:space="preserve">
+    <value>还原前自动备份: {0}</value>
+  </data>
+  <data name="BackupService_Log_BackupBeforeRestoreCompleted" xml:space="preserve">
+    <value>还原前备份完成</value>
+  </data>
+  <data name="BackupService_Log_BackupBeforeRestoreFailed" xml:space="preserve">
+    <value>还原前备份失败: {0}，继续还原...</value>
+  </data>
+  <data name="BackupService_Log_RestoreWhitelistSkip" xml:space="preserve">
+    <value>还原白名单跳过: {0}</value>
+  </data>
+  <data name="BackupService_Log_RestoreDeleteFileFailed" xml:space="preserve">
+    <value>删除文件失败: {0} - {1}</value>
+  </data>
+  <data name="BackupService_Log_PruneSkipImportantFull" xml:space="preserve">
+    <value>重要备份 ({0}) 已达保留限额 ({1})，跳过清理</value>
+  </data>
+  <data name="BackupService_Log_PrunedOldBackup" xml:space="preserve">
+    <value>已清理旧备份: {0}</value>
+  </data>
+  <data name="BackupService_Log_PruneDeleteFailed" xml:space="preserve">
+    <value>清理备份失败: {0} - {1}</value>
+  </data>
+  <data name="BackupService_Log_PruneException" xml:space="preserve">
+    <value>备份清理异常: {0}</value>
+  </data>
+  <data name="BackupService_Log_RestoreChainBuilt" xml:space="preserve">
+    <value>还原链已构建，包含 {0} 个包</value>
+  </data>
   <data name="App_WindowTitle" xml:space="preserve">
     <value>存档时光机</value>
   </data>
@@ -1700,5 +1769,83 @@
   </data>
   <data name="SettingsPage_CloseBehavior_Remember_Header.Text" xml:space="preserve">
     <value>记住我的选择</value>
+  </data>
+  <!-- 历史记录页新增按钮 -->
+  <data name="HistoryPage_ViewButton.ToolTipService.ToolTip" xml:space="preserve">
+    <value>在资源管理器中查看</value>
+  </data>
+  <data name="HistoryPage_EditCommentButton.ToolTipService.ToolTip" xml:space="preserve">
+    <value>修改注释</value>
+  </data>
+  <data name="HistoryPage_DeleteButton.Content" xml:space="preserve">
+    <value>删除</value>
+  </data>
+  <data name="History_ViewFile_PathEmpty" xml:space="preserve">
+    <value>无法获取备份文件路径</value>
+  </data>
+  <data name="History_ViewFile_NotFound" xml:space="preserve">
+    <value>备份文件不存在：{0}</value>
+  </data>
+  <data name="History_ViewFile_Failed" xml:space="preserve">
+    <value>打开文件失败：{0}</value>
+  </data>
+  <data name="History_EditComment_Title" xml:space="preserve">
+    <value>修改注释</value>
+  </data>
+  <data name="History_EditComment_Placeholder" xml:space="preserve">
+    <value>输入备份注释（可留空）</value>
+  </data>
+  <data name="History_EditComment_Success" xml:space="preserve">
+    <value>注释已更新</value>
+  </data>
+  <!-- 通知设置 -->
+  <data name="SettingsPage_EnableNotifications.Text" xml:space="preserve">
+    <value>启用通知提醒</value>
+  </data>
+  <data name="SettingsPage_EnableNotificationsDesc.Text" xml:space="preserve">
+    <value>启用后将显示应用内通知、系统 Toast 和角标（如有）</value>
+  </data>
+  <!-- 通知服务字符串 -->
+  <data name="Notification_Success_Title" xml:space="preserve">
+    <value>成功</value>
+  </data>
+  <data name="Notification_Warning_Title" xml:space="preserve">
+    <value>警告</value>
+  </data>
+  <data name="Notification_Error_Title" xml:space="preserve">
+    <value>错误</value>
+  </data>
+  <data name="Notification_Info_Title" xml:space="preserve">
+    <value>提示</value>
+  </data>
+  <data name="Notification_Action_View" xml:space="preserve">
+    <value>查看</value>
+  </data>
+  <data name="Notification_BackupCompleted_Title" xml:space="preserve">
+    <value>备份完成</value>
+  </data>
+  <data name="Notification_BackupCompleted_Success" xml:space="preserve">
+    <value>文件夹 "{0}" 已成功备份</value>
+  </data>
+  <data name="Notification_BackupCompleted_Failed" xml:space="preserve">
+    <value>文件夹 "{0}" 备份失败：{1}</value>
+  </data>
+  <data name="Notification_BackupFailed_Title" xml:space="preserve">
+    <value>备份失败</value>
+  </data>
+  <data name="Notification_RestoreCompleted_Title" xml:space="preserve">
+    <value>恢复完成</value>
+  </data>
+  <data name="Notification_RestoreCompleted_Success" xml:space="preserve">
+    <value>文件夹 "{0}" 已成功恢复</value>
+  </data>
+  <data name="Notification_RestoreCompleted_Failed" xml:space="preserve">
+    <value>文件夹 "{0}" 恢复失败：{1}</value>
+  </data>
+  <data name="Common_ToggleOn" xml:space="preserve">
+    <value>开</value>
+  </data>
+  <data name="Common_ToggleOff" xml:space="preserve">
+    <value>关</value>
   </data>
 </root>

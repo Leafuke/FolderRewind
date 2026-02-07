@@ -53,6 +53,11 @@ namespace FolderRewind.Views
 
         private bool _isInitializingLanguage;
         private bool _isInitializingFont;
+        private bool _pluginsRefreshed;
+
+        // Toggle text for localized On/Off labels
+        public string ToggleOnText { get; } = I18n.GetString("Common_ToggleOn");
+        public string ToggleOffText { get; } = I18n.GetString("Common_ToggleOff");
 
         // KnotLink 状态相关属性
         private string _knotLinkStatusMessage = I18n.GetString("SettingsPage_KnotLinkStatus_Disabled");
@@ -86,15 +91,6 @@ namespace FolderRewind.Views
         public SettingsPage()
         {
             this.InitializeComponent();
-
-            // Settings 页面打开时刷新一次插件列表，保证 UI 显示最新安装情况。
-            try
-            {
-                PluginService.RefreshAndLoadEnabled();
-            }
-            catch
-            {
-            }
 
             _isInitializingLanguage = true;
             _isInitializingFont = true;
@@ -140,6 +136,27 @@ namespace FolderRewind.Views
             }
         }
 
+        protected override void OnNavigatedTo(Microsoft.UI.Xaml.Navigation.NavigationEventArgs e)
+        {
+            base.OnNavigatedTo(e);
+
+            // 延迟刷新插件列表：仅在首次进入或需要时执行，避免构造函数阻塞
+            if (!_pluginsRefreshed)
+            {
+                _pluginsRefreshed = true;
+                try
+                {
+                    PluginService.RefreshAndLoadEnabled();
+                }
+                catch
+                {
+                }
+            }
+
+            // 每次进入时更新 KnotLink 状态
+            UpdateKnotLinkStatus();
+        }
+
         private void OnCloseBehaviorSelectionChanged(object sender, SelectionChangedEventArgs e)
         {
             // x:Bind TwoWay 已在 setter 保存，这里只做兜底刷新
@@ -157,6 +174,17 @@ namespace FolderRewind.Views
 
             ConfigService.Save();
             Bindings.Update();
+        }
+
+        private void OnNotificationsToggled(object sender, RoutedEventArgs e)
+        {
+            ConfigService.Save();
+
+            // 如果关闭通知，清除 Badge
+            if (!Settings.EnableNotifications)
+            {
+                NotificationService.ClearBadge();
+            }
         }
 
         private void HotkeyManager_DefinitionsChanged(object? sender, EventArgs e)

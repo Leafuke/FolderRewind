@@ -2,15 +2,17 @@ using FolderRewind.Models;
 using FolderRewind.Services;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Media.Animation;
+using Microsoft.UI.Xaml.Navigation;
 using System;
 using System.Linq;
-using Microsoft.UI.Xaml.Navigation;
+using Microsoft.UI.Dispatching;
 
 namespace FolderRewind.Views
 {
     public sealed partial class ShellPage : Page
     {
         private bool _isSyncingSelection;
+        private DispatcherQueueTimer? _infoBarTimer;
 
         public Border AppTitleBarElement => AppTitleBar;
 
@@ -23,6 +25,62 @@ namespace FolderRewind.Views
             App.Shell = this;
 
             ContentFrame.Navigated += ContentFrame_Navigated;
+
+            // 订阅通知服务的 InfoBar 请求
+            NotificationService.InfoBarRequested += OnInfoBarRequested;
+        }
+
+        /// <summary>
+        /// 处理 InfoBar 请求
+        /// </summary>
+        private void OnInfoBarRequested(string title, string message, NotificationSeverity severity, int autoCloseMs, Action? action)
+        {
+            DispatcherQueue.TryEnqueue(() =>
+            {
+                GlobalInfoBar.Title = title;
+                GlobalInfoBar.Message = message;
+                GlobalInfoBar.Severity = severity switch
+                {
+                    NotificationSeverity.Success => InfoBarSeverity.Success,
+                    NotificationSeverity.Warning => InfoBarSeverity.Warning,
+                    NotificationSeverity.Error => InfoBarSeverity.Error,
+                    _ => InfoBarSeverity.Informational
+                };
+
+                // 如果有操作回调，添加操作按钮
+                if (action != null)
+                {
+                    var actionButton = new Button { Content = I18n.GetString("Notification_Action_View") };
+                    actionButton.Click += (s, e) => action?.Invoke();
+                    GlobalInfoBar.ActionButton = actionButton;
+                }
+                else
+                {
+                    GlobalInfoBar.ActionButton = null;
+                }
+
+                GlobalInfoBar.IsOpen = true;
+
+                // 自动关闭
+                if (autoCloseMs > 0)
+                {
+                    _infoBarTimer?.Stop();
+                    _infoBarTimer = DispatcherQueue.CreateTimer();
+                    _infoBarTimer.Interval = TimeSpan.FromMilliseconds(autoCloseMs);
+                    _infoBarTimer.IsRepeating = false;
+                    _infoBarTimer.Tick += (s, e) =>
+                    {
+                        GlobalInfoBar.IsOpen = false;
+                        _infoBarTimer?.Stop();
+                    };
+                    _infoBarTimer.Start();
+                }
+            });
+        }
+
+        private void GlobalInfoBar_Closed(InfoBar sender, InfoBarClosedEventArgs args)
+        {
+            _infoBarTimer?.Stop();
         }
 
         private void NavView_Loaded(object sender, Microsoft.UI.Xaml.RoutedEventArgs e)
@@ -73,7 +131,7 @@ namespace FolderRewind.Views
                 }
 
                 // 1. 执行跳转
-                ContentFrame.Navigate(pageType, parameter, new SlideNavigationTransitionInfo());
+                ContentFrame.Navigate(pageType, parameter, new SuppressNavigationTransitionInfo());
 
                 // 2. 同步左侧导航栏的选中状态 (解决你提到的不同步问题)
                 UpdateNavSelection(pageTag);
@@ -144,7 +202,7 @@ namespace FolderRewind.Views
         {
             if (ContentFrame.CanGoBack)
             {
-                ContentFrame.GoBack(new SlideNavigationTransitionInfo { Effect = SlideNavigationTransitionEffect.FromLeft });
+                ContentFrame.GoBack(new SuppressNavigationTransitionInfo());
             }
         }
 

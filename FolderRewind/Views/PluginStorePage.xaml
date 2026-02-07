@@ -8,10 +8,10 @@
     xmlns:plugins="using:FolderRewind.Services.Plugins"
     mc:Ignorable="d">
 
-    <ScrollViewer Padding="16">
+    <ScrollViewer Padding="36">
         <StackPanel Spacing="12">
-            <TextBlock x:Uid="PluginStorePage_Title" Style="{ThemeResource TitleTextBlockStyle}"/>
-            <TextBlock x:Uid="PluginStorePage_Desc" Opacity="0.7" TextWrapping="Wrap"/>
+            <TextBlock x:Uid="PluginStorePage_Title" Style="{ThemeResource TitleTextBlockStyle}" AutomationProperties.HeadingLevel="Level1"/>
+            <TextBlock x:Uid="PluginStorePage_Desc" Foreground="{ThemeResource TextFillColorSecondaryBrush}" TextWrapping="Wrap"/>
 
             <Grid ColumnSpacing="8">
                 <Grid.ColumnDefinitions>
@@ -24,7 +24,7 @@
 
             <ProgressRing IsActive="{x:Bind IsLoading, Mode=OneWay}" Visibility="{x:Bind IsLoading, Mode=OneWay, Converter={StaticResource BoolToVisConverter}}" Width="28" Height="28"/>
 
-            <TextBlock x:Uid="PluginStorePage_EmptyRepoHint" Opacity="0.7" Visibility="{x:Bind EmptyRepoHintVisibility, Mode=OneWay}"/>
+            <TextBlock x:Uid="PluginStorePage_EmptyRepoHint" Foreground="{ThemeResource TextFillColorSecondaryBrush}" Visibility="{x:Bind EmptyRepoHintVisibility, Mode=OneWay}"/>
 
             <ListView ItemsSource="{x:Bind Assets, Mode=OneWay}">
                 <ListView.ItemTemplate>
@@ -36,10 +36,10 @@
                             </Grid.ColumnDefinitions>
 
                             <StackPanel Spacing="4">
-                                <TextBlock Text="{x:Bind Name}" FontWeight="SemiBold" TextWrapping="Wrap"/>
+                                <TextBlock Text="{x:Bind Name}" Style="{ThemeResource BodyStrongTextBlockStyle}" TextWrapping="Wrap"/>
                                 <StackPanel Orientation="Horizontal" Spacing="12">
-                                    <TextBlock Text="{x:Bind SizeDisplay}" Opacity="0.7"/>
-                                    <TextBlock Text="{x:Bind Status}" Opacity="0.7"/>
+                                    <TextBlock Text="{x:Bind SizeDisplay}" Foreground="{ThemeResource TextFillColorSecondaryBrush}"/>
+                                    <TextBlock Text="{x:Bind Status}" Foreground="{ThemeResource TextFillColorSecondaryBrush}"/>
                                 </StackPanel>
                             </StackPanel>
 
