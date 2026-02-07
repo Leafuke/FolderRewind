@@ -44,9 +44,7 @@
                 <TextBlock x:Uid="SettingsPage_Section_General" Style="{StaticResource SettingsSectionHeaderTextBlockStyle}" />
 
                 <!-- 核心行为-->
-                <Grid>
-                    <Grid>
-                        <Border BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}" BorderThickness="1" CornerRadius="8">
+                <Border BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}" BorderThickness="1" CornerRadius="8">
                             <Expander IsExpanded="False" HorizontalAlignment="Stretch" HorizontalContentAlignment="Stretch">
                                 <Expander.Header>
                                     <Grid Padding="16" ColumnSpacing="12">
@@ -72,7 +70,7 @@
                                             <TextBlock x:Uid="SettingsPage_RunOnStartup" />
                                             <TextBlock x:Uid="SettingsPage_RunOnStartupDesc" Style="{StaticResource SettingsDescriptionStyle}" />
                                         </StackPanel>
-                                        <ToggleSwitch Grid.Column="1" OnContent="{x:Bind ToggleOnText}" OffContent="{x:Bind ToggleOffText}" IsOn="{x:Bind Settings.RunOnStartup, Mode=TwoWay}" Toggled="OnRunOnStartupToggled" />
+                                        <ToggleSwitch Grid.Column="1" IsOn="{x:Bind Settings.RunOnStartup, Mode=TwoWay}" Toggled="OnRunOnStartupToggled" />
                                     </Grid>
 
                                     <Grid>
@@ -104,7 +102,7 @@
                                             <TextBlock x:Uid="SettingsPage_CloseBehavior_Remember_Header" />
                                             <TextBlock x:Uid="SettingsPage_CloseBehavior_Remember_Desc" Style="{StaticResource SettingsDescriptionStyle}" />
                                         </StackPanel>
-                                        <ToggleSwitch Grid.Column="1" OnContent="{x:Bind ToggleOnText}" OffContent="{x:Bind ToggleOffText}" IsOn="{x:Bind Settings.RememberCloseBehavior, Mode=TwoWay}" Toggled="OnRememberCloseBehaviorToggled" />
+                                        <ToggleSwitch Grid.Column="1" IsOn="{x:Bind Settings.RememberCloseBehavior, Mode=TwoWay}" Toggled="OnRememberCloseBehaviorToggled" />
                                     </Grid>
 
                                     <Grid>
@@ -116,19 +114,15 @@
                                             <TextBlock x:Uid="SettingsPage_EnableNotifications" />
                                             <TextBlock x:Uid="SettingsPage_EnableNotificationsDesc" Style="{StaticResource SettingsDescriptionStyle}" />
                                         </StackPanel>
-                                        <ToggleSwitch Grid.Column="1" OnContent="{x:Bind ToggleOnText}" OffContent="{x:Bind ToggleOffText}" IsOn="{x:Bind Settings.EnableNotifications, Mode=TwoWay}" Toggled="OnNotificationsToggled" />
+                                        <ToggleSwitch Grid.Column="1" IsOn="{x:Bind Settings.EnableNotifications, Mode=TwoWay}" Toggled="OnNotificationsToggled" />
                                     </Grid>
                                     
                                 </StackPanel>
                             </Expander>
-                        </Border>
-                    </Grid>
-                </Grid>
+                </Border>
 
                 <!-- 热键-->
-                <Grid>
-                    <Grid>
-                        <Border BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}" BorderThickness="1" CornerRadius="8">
+                <Border BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}" BorderThickness="1" CornerRadius="8">
                             <Expander IsExpanded="False" HorizontalAlignment="Stretch" HorizontalContentAlignment="Stretch">
                                 <Expander.Header>
                                     <Grid Padding="16" ColumnSpacing="12">
@@ -180,14 +174,10 @@
                                     </ListView>
                                 </StackPanel>
                             </Expander>
-                        </Border>
-                    </Grid>
-                </Grid>
+                </Border>
 
                 <!-- 外观与布局 (Expander) -->
-                <Grid>
-                    <Grid>
-                        <Border BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}" BorderThickness="1" CornerRadius="8">
+                <Border BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}" BorderThickness="1" CornerRadius="8">
                             <Expander IsExpanded="False" HorizontalAlignment="Stretch" HorizontalContentAlignment="Stretch">
                                 <Expander.Header>
                                     <Grid Padding="16" ColumnSpacing="12">
@@ -268,7 +258,7 @@
                                             <TextBlock x:Uid="SettingsPage_HistoryStatusColors" />
                                             <TextBlock x:Uid="SettingsPage_HistoryStatusColorsDesc" Style="{StaticResource SettingsDescriptionStyle}" />
                                         </StackPanel>
-                                        <ToggleSwitch Grid.Column="1" OnContent="{x:Bind ToggleOnText}" OffContent="{x:Bind ToggleOffText}" IsOn="{x:Bind Settings.UseHistoryStatusColors, Mode=TwoWay}" Toggled="OnHistoryColorsToggled" />
+                                        <ToggleSwitch Grid.Column="1" IsOn="{x:Bind Settings.UseHistoryStatusColors, Mode=TwoWay}" Toggled="OnHistoryColorsToggled" />
                                     </Grid>
 
                                     <Grid>
@@ -316,17 +306,13 @@
                                     </Grid>
                                 </StackPanel>
                             </Expander>
-                        </Border>
-                    </Grid>
-                </Grid>
+                </Border>
 
                 <!-- 工具与依赖 -->
                 <TextBlock x:Uid="SettingsPage_Section_Tools" Style="{StaticResource SettingsSectionHeaderTextBlockStyle}" />
 
                 <!-- 运行环境 (7-Zip) -->
-                <Grid>
-                    <Grid>
-                        <Border BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}" BorderThickness="1" CornerRadius="8">
+                <Border BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}" BorderThickness="1" CornerRadius="8">
                             <Expander IsExpanded="False" HorizontalAlignment="Stretch" HorizontalContentAlignment="Stretch">
                                 <Expander.Header>
                                     <Grid Padding="16" ColumnSpacing="12">
@@ -359,14 +345,10 @@
                                     </Grid>
                                 </StackPanel>
                             </Expander>
-                        </Border>
-                    </Grid>
-                </Grid>
+                </Border>
 
                 <!-- 日志与诊断 -->
-                <Grid>
-                    <Grid>
-                        <Border BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}" BorderThickness="1" CornerRadius="8">
+                <Border BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}" BorderThickness="1" CornerRadius="8">
                             <Expander IsExpanded="False" HorizontalAlignment="Stretch" HorizontalContentAlignment="Stretch">
                                 <Expander.Header>
                                     <Grid Padding="16" ColumnSpacing="12">
@@ -392,7 +374,7 @@
                                             <TextBlock x:Uid="SettingsPage_LogEnabled" />
                                             <TextBlock x:Uid="SettingsPage_LogEnabledDesc" Style="{StaticResource SettingsDescriptionStyle}" />
                                         </StackPanel>
-                                        <ToggleSwitch Grid.Column="1" OnContent="{x:Bind ToggleOnText}" OffContent="{x:Bind ToggleOffText}" IsOn="{x:Bind Settings.EnableFileLogging, Mode=TwoWay}" Toggled="OnLoggingChanged" />
+                                        <ToggleSwitch Grid.Column="1" IsOn="{x:Bind Settings.EnableFileLogging, Mode=TwoWay}" Toggled="OnLoggingChanged" />
                                     </Grid>
 
                                     <Grid>
@@ -422,17 +404,13 @@
                                     <Button x:Uid="SettingsPage_OpenLogCenter" HorizontalAlignment="Left" Click="OnOpenLogCenterClick" />
                                 </StackPanel>
                             </Expander>
-                        </Border>
-                    </Grid>
-                </Grid>
+                </Border>
 
                 <!-- 扩展 -->
                 <TextBlock x:Uid="SettingsPage_Section_Extensions" Style="{StaticResource SettingsSectionHeaderTextBlockStyle}" />
 
                 <!-- 插件 -->
-                <Grid>
-                    <Grid>
-                        <Border BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}" BorderThickness="1" CornerRadius="8">
+                <Border BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}" BorderThickness="1" CornerRadius="8">
                             <Expander IsExpanded="False" HorizontalAlignment="Stretch" HorizontalContentAlignment="Stretch">
                                 <Expander.Header>
                                     <Grid Padding="16" ColumnSpacing="12">
@@ -458,7 +436,7 @@
                                             <TextBlock x:Uid="SettingsPage_PluginsEnabled" />
                                             <TextBlock x:Uid="SettingsPage_PluginsEnabledDesc" Style="{StaticResource SettingsDescriptionStyle}" />
                                         </StackPanel>
-                                        <ToggleSwitch x:Name="PluginsMasterSwitch" Grid.Column="1" OnContent="{x:Bind ToggleOnText}" OffContent="{x:Bind ToggleOffText}" IsOn="{x:Bind Settings.Plugins.Enabled, Mode=TwoWay}" Toggled="OnPluginsEnabledToggled" />
+                                        <ToggleSwitch x:Name="PluginsMasterSwitch" Grid.Column="1" IsOn="{x:Bind Settings.Plugins.Enabled, Mode=TwoWay}" Toggled="OnPluginsEnabledToggled" />
                                     </Grid>
 
                                     <Grid>
@@ -470,7 +448,7 @@
                                             <TextBlock x:Uid="SettingsPage_PluginsAutoCheckUpdates" />
                                             <TextBlock x:Uid="SettingsPage_PluginsAutoCheckUpdatesDesc" Style="{StaticResource SettingsDescriptionStyle}" />
                                         </StackPanel>
-                                        <ToggleSwitch Grid.Column="1" OnContent="{x:Bind ToggleOnText}" OffContent="{x:Bind ToggleOffText}" IsOn="{x:Bind Settings.Plugins.AutoCheckUpdates, Mode=TwoWay}" Toggled="OnPluginsAutoCheckUpdatesToggled" />
+                                        <ToggleSwitch Grid.Column="1" IsOn="{x:Bind Settings.Plugins.AutoCheckUpdates, Mode=TwoWay}" Toggled="OnPluginsAutoCheckUpdatesToggled" />
                                     </Grid>
 
                                     <StackPanel Orientation="Horizontal" Spacing="8">
@@ -537,14 +515,10 @@
                                     </ListView>
                                 </StackPanel>
                             </Expander>
-                        </Border>
-                    </Grid>
-                </Grid>
+                </Border>
 
                 <!-- KnotLink 互联 -->
-                <Grid>
-                    <Grid>
-                        <Border BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}" BorderThickness="1" CornerRadius="8">
+                <Border BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}" BorderThickness="1" CornerRadius="8">
                             <Expander IsExpanded="False" HorizontalAlignment="Stretch" HorizontalContentAlignment="Stretch">
                                 <Expander.Header>
                                     <Grid Padding="16" ColumnSpacing="12">
@@ -570,7 +544,7 @@
                                             <TextBlock x:Uid="SettingsPage_KnotLinkEnabled" />
                                             <TextBlock x:Uid="SettingsPage_KnotLinkEnabledDesc" Style="{StaticResource SettingsDescriptionStyle}" />
                                         </StackPanel>
-                                        <ToggleSwitch x:Name="KnotLinkSwitch" Grid.Column="1" OnContent="{x:Bind ToggleOnText}" OffContent="{x:Bind ToggleOffText}" IsOn="{x:Bind Settings.EnableKnotLink, Mode=TwoWay}" Toggled="OnKnotLinkToggled" />
+                                        <ToggleSwitch x:Name="KnotLinkSwitch" Grid.Column="1" IsOn="{x:Bind Settings.EnableKnotLink, Mode=TwoWay}" Toggled="OnKnotLinkToggled" />
                                     </Grid>
 
                                     <!-- 状态显示 -->
@@ -672,24 +646,20 @@
                                     </Expander>
                                 </StackPanel>
                             </Expander>
-                        </Border>
-                    </Grid>
-                </Grid>
+                </Border>
 
                 <!-- 关于 -->
                 <TextBlock x:Uid="SettingsPage_Section_About" Style="{StaticResource SettingsSectionHeaderTextBlockStyle}" />
 
-                <Grid>
-                    <Grid>
-                        <Border BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}" BorderThickness="1" CornerRadius="8">
-                            <Expander IsExpanded="False" HorizontalAlignment="Stretch" HorizontalContentAlignment="Stretch">
-                                <Expander.Header>
-                                    <Grid Padding="16" ColumnSpacing="12">
-                                        <Grid.ColumnDefinitions>
-                                            <ColumnDefinition Width="Auto" />
-                                            <ColumnDefinition Width="*" />
-                                        </Grid.ColumnDefinitions>
-                                        <BitmapIcon ShowAsMonochrome="False" UriSource="ms-appx:///Assets/StoreLogo.png" Width="20" Height="20" VerticalAlignment="Center" />
+                <Border BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}" BorderThickness="1" CornerRadius="8">
+                    <Expander IsExpanded="False" HorizontalAlignment="Stretch" HorizontalContentAlignment="Stretch">
+                        <Expander.Header>
+                            <Grid Padding="16" ColumnSpacing="12">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="Auto" />
+                                    <ColumnDefinition Width="*" />
+                                </Grid.ColumnDefinitions>
+                                <BitmapIcon ShowAsMonochrome="False" UriSource="ms-appx:///Assets/StoreLogo.png" Width="20" Height="20" VerticalAlignment="Center" />
                                         <StackPanel Grid.Column="1" Spacing="2">
                                             <TextBlock x:Uid="SettingsPage_About" Style="{ThemeResource BodyStrongTextBlockStyle}" />
                                             <TextBlock x:Uid="SettingsPage_AboutDesc" Style="{StaticResource SettingsDescriptionStyle}" />
@@ -706,9 +676,7 @@
                                     </StackPanel>
                                 </StackPanel>
                             </Expander>
-                        </Border>
-                    </Grid>
-                </Grid>
+                </Border>
             </StackPanel>
         </ScrollViewer>
     </Grid>

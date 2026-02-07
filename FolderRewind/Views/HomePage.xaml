@@ -10,7 +10,7 @@
     mc:Ignorable="d"
     NavigationCacheMode="Required">
 
-    <ScrollViewer Padding="36">
+    <ScrollViewer Padding="36,24,36,36">
         <StackPanel Spacing="0">
 
             <!-- 第一部分：收藏的文件夹 -->
@@ -41,12 +41,13 @@
                     </GridView.ItemContainerStyle>
                     <GridView.ItemsPanel>
                         <ItemsPanelTemplate>
-                            <ItemsWrapGrid ItemWidth="320" ItemHeight="120" Orientation="Horizontal"/>
+                            <ItemsWrapGrid ItemWidth="340" ItemHeight="130" Orientation="Horizontal"/>
                         </ItemsPanelTemplate>
                     </GridView.ItemsPanel>
                     <GridView.ItemTemplate>
                         <DataTemplate x:DataType="models:ManagedFolder">
-                            <Border Width="300" Height="100" Margin="0,0,12,12"
+                            <!-- 收藏文件夹卡片：带左侧强调色条 -->
+                            <Border Width="320" Height="115" Margin="0,0,12,12"
                                     Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
                                     BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
                                     BorderThickness="1"
@@ -59,33 +60,67 @@
                                 <Button Background="Transparent"
                                         BorderThickness="0"
                                         CornerRadius="{StaticResource OverlayCornerRadius}"
-                                        Padding="12"
+                                        Padding="0"
                                         HorizontalContentAlignment="Stretch"
                                         VerticalContentAlignment="Stretch"
                                         HorizontalAlignment="Stretch"
                                         VerticalAlignment="Stretch"
-                                        Width="300"
-                                        Height="100"
+                                        Width="320"
+                                        Height="115"
                                         Click="OnFavoriteCardClick">
-                                    <Grid ColumnSpacing="12">
-                                        <Grid.ColumnDefinitions>
-                                            <ColumnDefinition Width="Auto"/>
-                                            <ColumnDefinition Width="*"/>
-                                            <ColumnDefinition Width="Auto"/>
-                                        </Grid.ColumnDefinitions>
-                                        
-                                        <FontIcon Glyph="&#xE8B7;" FontSize="24" Foreground="{ThemeResource SystemControlForegroundAccentBrush}" VerticalAlignment="Center"/>
-                                        
-                                        <StackPanel Grid.Column="1" VerticalAlignment="Center" Spacing="2">
-                                            <TextBlock Text="{x:Bind DisplayName}" Style="{ThemeResource BodyStrongTextBlockStyle}" TextTrimming="CharacterEllipsis" TextWrapping="NoWrap" MaxLines="1" TextAlignment="Left" services:AutoToolTipService.IsEnabled="True"/>
-                                            <TextBlock Text="{x:Bind FullPath}" Style="{ThemeResource CaptionTextBlockStyle}" Foreground="{ThemeResource TextFillColorSecondaryBrush}" TextTrimming="CharacterEllipsis" TextWrapping="NoWrap" MaxLines="1" TextAlignment="Left" services:AutoToolTipService.IsEnabled="True"/>
-                                            <TextBlock Text="{x:Bind LastBackupTime}" Style="{ThemeResource CaptionTextBlockStyle}" Foreground="{ThemeResource TextFillColorSecondaryBrush}" TextTrimming="CharacterEllipsis" TextWrapping="NoWrap" MaxLines="1" TextAlignment="Left" services:AutoToolTipService.IsEnabled="True"/>
-                                        </StackPanel>
+                                    <Grid>
+                                        <!-- 左侧强调色条 -->
+                                        <Rectangle Width="3" HorizontalAlignment="Left" 
+                                                   RadiusX="1.5" RadiusY="1.5"
+                                                   Fill="{ThemeResource AccentFillColorDefaultBrush}"
+                                                   Margin="4,14"/>
 
-                                        <Button Grid.Column="2" Padding="6" Background="Transparent" BorderThickness="0" 
-                                                Click="OnQuickBackupClick" x:Uid="HomePage_QuickBackupButton" VerticalAlignment="Center">
-                                            <FontIcon Glyph="&#xE896;" FontSize="16"/>
-                                        </Button>
+                                        <!-- 主内容区域 -->
+                                        <Grid Margin="16,12,12,12" ColumnSpacing="12">
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="Auto"/>
+                                                <ColumnDefinition Width="*"/>
+                                                <ColumnDefinition Width="Auto"/>
+                                            </Grid.ColumnDefinitions>
+
+                                            <!-- 圆形图标容器 -->
+                                            <Border Width="40" Height="40" CornerRadius="20"
+                                                    Background="{ThemeResource LayerFillColorAltBrush}"
+                                                    VerticalAlignment="Center">
+                                                <FontIcon Glyph="&#xE8B7;" FontSize="18" 
+                                                          Foreground="{ThemeResource SystemControlForegroundAccentBrush}" 
+                                                          HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                                            </Border>
+
+                                            <StackPanel Grid.Column="1" VerticalAlignment="Center" Spacing="2">
+                                                <TextBlock Text="{x:Bind DisplayName}" 
+                                                           Style="{ThemeResource BodyStrongTextBlockStyle}" 
+                                                           TextTrimming="CharacterEllipsis" TextWrapping="NoWrap" 
+                                                           MaxLines="1" TextAlignment="Left" 
+                                                           services:AutoToolTipService.IsEnabled="True"/>
+                                                <TextBlock Text="{x:Bind FullPath}" 
+                                                           Style="{ThemeResource CaptionTextBlockStyle}" 
+                                                           Foreground="{ThemeResource TextFillColorSecondaryBrush}" 
+                                                           TextTrimming="CharacterEllipsis" TextWrapping="NoWrap" 
+                                                           MaxLines="1" TextAlignment="Left" 
+                                                           services:AutoToolTipService.IsEnabled="True"/>
+                                                <!-- 备份时间，附带图标标识 -->
+                                                <StackPanel Orientation="Horizontal" Spacing="4" Margin="0,2,0,0">
+                                                    <FontIcon Glyph="&#xE823;" FontSize="11" 
+                                                              Foreground="{ThemeResource TextFillColorTertiaryBrush}"/>
+                                                    <TextBlock Text="{x:Bind LastBackupTime}" 
+                                                               Style="{ThemeResource CaptionTextBlockStyle}" 
+                                                               Foreground="{ThemeResource TextFillColorTertiaryBrush}" 
+                                                               TextTrimming="CharacterEllipsis" TextWrapping="NoWrap" MaxLines="1"/>
+                                                </StackPanel>
+                                            </StackPanel>
+
+                                            <!-- 快速备份按钮 -->
+                                            <Button Grid.Column="2" Padding="8" Background="Transparent" BorderThickness="0" 
+                                                    Click="OnQuickBackupClick" x:Uid="HomePage_QuickBackupButton" VerticalAlignment="Center">
+                                                <FontIcon Glyph="&#xE896;" FontSize="16"/>
+                                            </Button>
+                                        </Grid>
                                     </Grid>
                                 </Button>
                             </Border>
@@ -99,7 +134,7 @@
             </StackPanel>
 
             <!-- 第二部分：配置概览 -->
-            <StackPanel Spacing="12">
+            <StackPanel Spacing="12" Margin="0,28,0,0">
                 <Grid ColumnSpacing="12">
                     <Grid.ColumnDefinitions>
                         <ColumnDefinition Width="*"/>
@@ -150,12 +185,13 @@
                     </GridView.ItemContainerStyle>
                     <GridView.ItemsPanel>
                         <ItemsPanelTemplate>
-                            <ItemsWrapGrid ItemWidth="320" ItemHeight="120" Orientation="Horizontal"/>
+                            <ItemsWrapGrid ItemWidth="340" ItemHeight="130" Orientation="Horizontal"/>
                         </ItemsPanelTemplate>
                     </GridView.ItemsPanel>
                     <GridView.ItemTemplate>
                         <DataTemplate x:DataType="models:BackupConfig">
-                            <Border Width="300" Height="100" Margin="0,0,12,12"
+                            <!-- 配置卡片：带左侧强调色条和圆形图标 -->
+                            <Border Width="320" Height="115" Margin="0,0,12,12"
                                     Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
                                     BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
                                     BorderThickness="1"
@@ -168,13 +204,13 @@
                                 <Button Background="Transparent"
                                         BorderThickness="0"
                                         CornerRadius="{StaticResource OverlayCornerRadius}"
-                                        Padding="12"
+                                        Padding="0"
                                         HorizontalContentAlignment="Stretch"
                                         VerticalContentAlignment="Stretch"
                                         HorizontalAlignment="Stretch"
                                         VerticalAlignment="Stretch"
-                                        Width="300"
-                                        Height="100"
+                                        Width="320"
+                                        Height="115"
                                         Click="OnConfigCardClick"
                                         RightTapped="OnConfigCardRightTapped">
                                     <Button.ContextFlyout>
@@ -203,34 +239,68 @@
                                             </MenuFlyoutItem>
                                         </MenuFlyout>
                                     </Button.ContextFlyout>
-                                    <Grid ColumnSpacing="12">
-                                        <Grid.ColumnDefinitions>
-                                            <ColumnDefinition Width="Auto"/>
-                                            <ColumnDefinition Width="*"/>
-                                            <ColumnDefinition Width="Auto"/>
-                                        </Grid.ColumnDefinitions>
+                                    <Grid>
+                                        <!-- 左侧强调色条 -->
+                                        <Rectangle Width="3" HorizontalAlignment="Left" 
+                                                   RadiusX="1.5" RadiusY="1.5"
+                                                   Fill="{ThemeResource AccentFillColorDefaultBrush}"
+                                                   Margin="4,14"/>
+
+                                        <!-- 主内容区域 -->
+                                        <Grid Margin="16,10,12,10" ColumnSpacing="12">
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="Auto"/>
+                                                <ColumnDefinition Width="*"/>
+                                                <ColumnDefinition Width="Auto"/>
+                                            </Grid.ColumnDefinitions>
                                         
-                                        <Border Width="40" Height="40" CornerRadius="20" Background="{ThemeResource LayerFillColorAltBrush}" VerticalAlignment="Center">
-                                            <FontIcon Glyph="{x:Bind IconGlyph}" FontSize="20" Foreground="{ThemeResource SystemControlForegroundAccentBrush}" HorizontalAlignment="Center" VerticalAlignment="Center"/>
-                                        </Border>
+                                            <!-- 圆形配置图标 -->
+                                            <Border Width="40" Height="40" CornerRadius="20" 
+                                                    Background="{ThemeResource LayerFillColorAltBrush}" 
+                                                    VerticalAlignment="Center">
+                                                <FontIcon Glyph="{x:Bind IconGlyph}" FontSize="20" 
+                                                          Foreground="{ThemeResource SystemControlForegroundAccentBrush}" 
+                                                          HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                                            </Border>
                                         
-                                        <StackPanel Grid.Column="1" VerticalAlignment="Center" Spacing="2">
-                                            <TextBlock Text="{x:Bind Name}" Style="{ThemeResource BodyStrongTextBlockStyle}" TextTrimming="CharacterEllipsis" TextWrapping="NoWrap" MaxLines="1" TextAlignment="Left" services:AutoToolTipService.IsEnabled="True"/>
-                                            <TextBlock Text="{x:Bind DestinationPath}" Style="{ThemeResource CaptionTextBlockStyle}" Foreground="{ThemeResource TextFillColorSecondaryBrush}" TextTrimming="CharacterEllipsis" TextWrapping="NoWrap" MaxLines="1" TextAlignment="Left" services:AutoToolTipService.IsEnabled="True"/>
+                                            <StackPanel Grid.Column="1" VerticalAlignment="Center" Spacing="2">
+                                                <TextBlock Text="{x:Bind Name}" 
+                                                           Style="{ThemeResource BodyStrongTextBlockStyle}" 
+                                                           TextTrimming="CharacterEllipsis" TextWrapping="NoWrap" 
+                                                           MaxLines="1" TextAlignment="Left" 
+                                                           services:AutoToolTipService.IsEnabled="True"/>
+                                                <TextBlock Text="{x:Bind DestinationPath}" 
+                                                           Style="{ThemeResource CaptionTextBlockStyle}" 
+                                                           Foreground="{ThemeResource TextFillColorSecondaryBrush}" 
+                                                           TextTrimming="CharacterEllipsis" TextWrapping="NoWrap" 
+                                                           MaxLines="1" TextAlignment="Left" 
+                                                           services:AutoToolTipService.IsEnabled="True"/>
                                             
-                                            <StackPanel Orientation="Horizontal" Spacing="12" Margin="0,4,0,0">
-                                                 <StackPanel Orientation="Horizontal" Spacing="4">
-                                                    <FontIcon Glyph="&#xE8B7;" FontSize="12" Foreground="{ThemeResource TextFillColorSecondaryBrush}"/>
-                                                    <TextBlock Text="{x:Bind SourceFolders.Count, TargetNullValue=0}" Style="{ThemeResource CaptionTextBlockStyle}" Foreground="{ThemeResource TextFillColorSecondaryBrush}"/>
-                                                </StackPanel>
-                                                <StackPanel Orientation="Horizontal" Spacing="4" Visibility="{x:Bind Automation.AutoBackupEnabled, Converter={StaticResource BoolToVisConverter}}">
-                                                    <FontIcon Glyph="&#xE823;" FontSize="12" Foreground="{ThemeResource TextFillColorSecondaryBrush}"/>
-                                                    <TextBlock x:Uid="HomePage_Config_Auto" Style="{ThemeResource CaptionTextBlockStyle}" Foreground="{ThemeResource TextFillColorSecondaryBrush}"/>
+                                                <!-- 信息标签行 -->
+                                                <StackPanel Orientation="Horizontal" Spacing="12" Margin="0,4,0,0">
+                                                    <StackPanel Orientation="Horizontal" Spacing="4">
+                                                        <FontIcon Glyph="&#xE8B7;" FontSize="11" 
+                                                                  Foreground="{ThemeResource TextFillColorTertiaryBrush}"/>
+                                                        <TextBlock Text="{x:Bind SourceFolders.Count, TargetNullValue=0}" 
+                                                                   Style="{ThemeResource CaptionTextBlockStyle}" 
+                                                                   Foreground="{ThemeResource TextFillColorTertiaryBrush}"/>
+                                                    </StackPanel>
+                                                    <StackPanel Orientation="Horizontal" Spacing="4" 
+                                                                Visibility="{x:Bind Automation.AutoBackupEnabled, Converter={StaticResource BoolToVisConverter}}">
+                                                        <FontIcon Glyph="&#xE823;" FontSize="11" 
+                                                                  Foreground="{ThemeResource TextFillColorTertiaryBrush}"/>
+                                                        <TextBlock x:Uid="HomePage_Config_Auto" 
+                                                                   Style="{ThemeResource CaptionTextBlockStyle}" 
+                                                                   Foreground="{ThemeResource TextFillColorTertiaryBrush}"/>
+                                                    </StackPanel>
                                                 </StackPanel>
                                             </StackPanel>
-                                        </StackPanel>
 
-                                        <FontIcon Grid.Column="2" Glyph="&#xE76C;" FontSize="14" Foreground="{ThemeResource TextFillColorSecondaryBrush}" VerticalAlignment="Center"/>
+                                            <!-- 进入箭头 -->
+                                            <FontIcon Grid.Column="2" Glyph="&#xE76C;" FontSize="14" 
+                                                      Foreground="{ThemeResource TextFillColorTertiaryBrush}" 
+                                                      VerticalAlignment="Center"/>
+                                        </Grid>
                                     </Grid>
                                 </Button>
                             </Border>
