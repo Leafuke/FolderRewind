@@ -228,6 +228,51 @@ namespace FolderRewind.Services
             ScheduleSave();
         }
 
+        /// <summary>
+        /// 根据 configId 和文件夹名获取历史记录列表（用于安全删除等内部逻辑，
+        /// 不创建 ObservableCollection，直接返回快照列表）
+        /// </summary>
+        public static List<HistoryItem> GetEntriesForFolder(string configId, string folderName)
+        {
+            Initialize();
+            lock (_historyLock)
+            {
+                return _allHistory
+                    .Where(x => x.ConfigId == configId
+                        && string.Equals(x.FolderName, folderName, StringComparison.OrdinalIgnoreCase))
+                    .ToList();
+            }
+        }
+
+        /// <summary>
+        /// 重命名历史记录中指定备份文件的条目（用于安全删除中 Smart→Full 升级）
+        /// </summary>
+        public static void RenameEntry(string oldFileName, string newFileName, string newBackupType = null)
+        {
+            Initialize();
+            bool modified = false;
+            lock (_historyLock)
+            {
+                foreach (var item in _allHistory)
+                {
+                    if (string.Equals(item.FileName, oldFileName, StringComparison.OrdinalIgnoreCase))
+                    {
+                        item.FileName = newFileName;
+                        if (!string.IsNullOrEmpty(newBackupType))
+                        {
+                            item.BackupType = newBackupType;
+                        }
+                        modified = true;
+                        break;
+                    }
+                }
+            }
+            if (modified)
+            {
+                ScheduleSave();
+            }
+        }
+
         private static void ScheduleSave()
         {
             // 取消前一次保存，合并写盘

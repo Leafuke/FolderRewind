@@ -102,6 +102,13 @@ namespace FolderRewind.Models
         // 通知设置
         private bool _enableNotifications = true;
 
+        // 警告设置
+        private int _fileSizeWarningThresholdKB = 5; // 备份文件小于此值(KB)时触发警告
+
+        // 公告系统
+        private bool _enableNotices = true;
+        private string _noticeLastSeenVersion = "";
+
         public string Language { get => _language; set => SetProperty(ref _language, value); }
         public int ThemeIndex { get => _themeIndex; set => SetProperty(ref _themeIndex, value); }
         public string SevenZipPath { get => _sevenZipPath; set => SetProperty(ref _sevenZipPath, value); }
@@ -178,6 +185,22 @@ namespace FolderRewind.Models
         /// 是否启用应用内/系统通知（全局开关）。
         /// </summary>
         public bool EnableNotifications { get => _enableNotifications; set => SetProperty(ref _enableNotifications, value); }
+
+        /// <summary>
+        /// 备份文件大小警告阈值(KB)。备份生成的文件小于此大小时触发 AppNotification 警告。
+        /// 参考 MineBackup 的文件大小检查逻辑。默认 5KB。
+        /// </summary>
+        public int FileSizeWarningThresholdKB { get => _fileSizeWarningThresholdKB; set => SetProperty(ref _fileSizeWarningThresholdKB, value); }
+
+        /// <summary>
+        /// 是否接收公告通知。
+        /// </summary>
+        public bool EnableNotices { get => _enableNotices; set => SetProperty(ref _enableNotices, value); }
+
+        /// <summary>
+        /// 上次已读的公告版本标识（Last-Modified 或内容 hash），用于检测是否有新公告。
+        /// </summary>
+        public string NoticeLastSeenVersion { get => _noticeLastSeenVersion; set => SetProperty(ref _noticeLastSeenVersion, value); }
     }
 
     /// <summary>
@@ -283,6 +306,8 @@ namespace FolderRewind.Models
         private bool _skipIfUnchanged = true;      // 无变更时跳过备份
         private int _cpuThreads = 0;               // CPU 线程数, 0 = 自动
         private bool _backupBeforeRestore = false;  // 还原前先执行一次备份
+        private int _maxSmartBackupsPerFull = 0;    // 智能备份链长度限制，0 = 不限制
+        private bool _safeDeleteEnabled = true;     // 安全删除：删除增量备份时自动合并内容到下一个备份
 
         public string Format { get => _format; set => SetProperty(ref _format, value); }
         public int CompressionLevel { get => _compressionLevel; set => SetProperty(ref _compressionLevel, value); }
@@ -305,6 +330,21 @@ namespace FolderRewind.Models
         /// 还原前先自动执行一次备份，防止误操作丢失当前数据
         /// </summary>
         public bool BackupBeforeRestore { get => _backupBeforeRestore; set => SetProperty(ref _backupBeforeRestore, value); }
+
+        /// <summary>
+        /// 智能备份链长度限制：当连续增量备份达到此数量时，强制执行一次全量备份以截断链条。
+        /// 0 表示不限制（增量链可以无限延长）。
+        /// 参考 MineBackup 的 maxSmartBackupsPerFull 逻辑。
+        /// </summary>
+        public int MaxSmartBackupsPerFull { get => _maxSmartBackupsPerFull; set => SetProperty(ref _maxSmartBackupsPerFull, value); }
+
+        /// <summary>
+        /// 安全删除模式：在自动清理旧备份或手动删除时，
+        /// 如果被删文件是增量链的一部分，会先将其内容合并到下一个备份中，再执行删除。
+        /// 这样可以避免增量链断裂导致还原失败。
+        /// 参考 MineBackup 的 DoSafeDeleteBackup 逻辑。
+        /// </summary>
+        public bool SafeDeleteEnabled { get => _safeDeleteEnabled; set => SetProperty(ref _safeDeleteEnabled, value); }
     }
 
     /// <summary>

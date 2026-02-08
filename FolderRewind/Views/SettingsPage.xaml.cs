@@ -187,6 +187,18 @@ namespace FolderRewind.Views
             }
         }
 
+        private void OnFileSizeWarningThresholdChanged(NumberBox sender, NumberBoxValueChangedEventArgs e)
+        {
+            if (double.IsNaN(e.NewValue)) return;
+            Settings.FileSizeWarningThresholdKB = (int)Math.Clamp(e.NewValue, 0, 10240);
+            ConfigService.Save();
+        }
+
+        private void OnNoticesToggled(object sender, RoutedEventArgs e)
+        {
+            ConfigService.Save();
+        }
+
         private void HotkeyManager_DefinitionsChanged(object? sender, EventArgs e)
         {
             _ = DispatcherQueue.TryEnqueue(RefreshHotkeyBindingsView);
@@ -1207,8 +1219,9 @@ namespace FolderRewind.Views
             {
                 
             }
-
-            
         }
+        private void OnJoinGroupButtonClick(object sender, RoutedEventArgs e)
+        => FlyoutBase.ShowAttachedFlyout(sender as FrameworkElement);
+
     }
 }

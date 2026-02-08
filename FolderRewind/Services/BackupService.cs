@@ -269,14 +269,8 @@ namespace FolderRewind.Services
                 {
                     sourcePath = pluginOverride;
 
-                    // 与 MineBackup 保持一致
-                    try
-                    {
-                        KnotLinkService.BroadcastEvent("event=pre_hot_backup;");
-                    }
-                    catch
-                    {
-                    }
+                    // 原本打算在插件里发送，但是实测太不稳定了，干脆在这里统一发送。
+                    KnotLinkService.BroadcastEvent("event=pre_hot_backup;");
                 }
             }
             catch
@@ -417,7 +411,28 @@ namespace FolderRewind.Services
                     string typeStr = config.Archive.Mode.ToString();
                     HistoryService.AddEntry(config, folder, generatedFileName, typeStr, comment);
 
-                    PruneOldArchives(backupSubDir, config.Archive.Format, config.Archive.KeepCount, config.Archive.Mode);
+                    PruneOldArchives(backupSubDir, config.Archive.Format, config.Archive.KeepCount, config.Archive.Mode, config.Archive.SafeDeleteEnabled);
+
+                    // 备份完成后检查文件大小，过小时发出警告
+                    try
+                    {
+                        var archiveFile = Path.Combine(backupSubDir, generatedFileName);
+                        if (File.Exists(archiveFile))
+                        {
+                            var fileSizeKB = new FileInfo(archiveFile).Length / 1024.0;
+                            var thresholdKB = ConfigService.CurrentConfig?.GlobalSettings?.FileSizeWarningThresholdKB ?? 5;
+                            if (thresholdKB > 0 && fileSizeKB < thresholdKB)
+                            {
+                                Log(I18n.Format("BackupService_Log_FileSizeTooSmall", folder.DisplayName, fileSizeKB.ToString("F1"), thresholdKB.ToString()), LogLevel.Warning);
+                                NotificationService.ShowWarning(
+                                    I18n.Format("BackupService_Warning_FileSizeTooSmall", folder.DisplayName, fileSizeKB.ToString("F1"), thresholdKB.ToString()));
+                                KnotLinkService.BroadcastEvent($"event=backup_warning;type=file_too_small;config={configIndex};world={folder.DisplayName};size_kb={fileSizeKB:F1}");
+                            }
+                        }
+                    }
+                    catch
+                    {
+                    }
 
                     // 与 MineBackup 保持一致：备份成功事件
                     try
@@ -583,10 +598,10 @@ namespace FolderRewind.Services
             return sb.ToString();
         }
 
-        private static void PruneOldArchives(string destDir, string format, int keepCount, BackupMode mode)
+        private static void PruneOldArchives(string destDir, string format, int keepCount, BackupMode mode, bool safeDeleteEnabled = true)
         {
             if (keepCount <= 0) return;
-            if (mode == BackupMode.Incremental) return; // 保留增量链，避免破坏恢复
+            if (mode == BackupMode.Incremental && !safeDeleteEnabled) return; // 不启用安全删除时，增量模式跳过自动清理以保护链
             try
             {
                 var di = new DirectoryInfo(destDir);
@@ -598,15 +613,231 @@ namespace FolderRewind.Services
 
                 if (files.Count <= keepCount) return;
 
-                foreach (var file in files.Skip(keepCount))
+                // 检查历史记录中标记为重要的文件，避免删除
+                var importantFiles = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+                try
                 {
-                    try { file.Delete(); }
-                    catch { /* ignore single delete failure */ }
+                    var folderName = di.Name;
+                    var allConfigs = ConfigService.CurrentConfig?.BackupConfigs;
+                    if (allConfigs != null)
+                    {
+                        foreach (var config in allConfigs)
+                        {
+                            var historyEntries = HistoryService.GetEntriesForFolder(config.Id, folderName);
+                            if (historyEntries != null)
+                            {
+                                foreach (var entry in historyEntries)
+                                {
+                                    if (entry.IsImportant)
+                                    {
+                                        importantFiles.Add(entry.FileName);
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+                catch
+                {
+                    // 历史记录读取失败不影响清理流程
+                }
+
+                // 收集可删除的文件（排除标记为重要的）
+                var deletableFiles = files.Where(f => !importantFiles.Contains(f.Name)).ToList();
+
+                // 计算需要删除的数量
+                int totalToKeep = keepCount;
+                int importantCount = files.Count - deletableFiles.Count;
+                // 如果重要文件已占满配额，则不删除
+                if (importantCount >= totalToKeep)
+                {
+                    Log(I18n.Format("BackupService_Log_PruneSkipAllImportant"), LogLevel.Info);
+                    return;
+                }
+
+                int toDeleteCount = files.Count - totalToKeep;
+                // 从最旧的可删除文件开始删除
+                var filesToDelete = deletableFiles
+                    .OrderBy(f => f.LastWriteTimeUtc) // 最旧的排前面
+                    .Take(toDeleteCount)
+                    .ToList();
+
+                foreach (var file in filesToDelete)
+                {
+                    try
+                    {
+                        if (safeDeleteEnabled && file.Name.Contains("[Smart]", StringComparison.OrdinalIgnoreCase))
+                        {
+                            // 安全删除：增量备份需要合并到下一个备份再删除
+                            SafeDeleteArchive(file, di, format);
+                        }
+                        else
+                        {
+                            file.Delete();
+                            Log(I18n.Format("BackupService_Log_PrunedOldBackup", file.Name), LogLevel.Info);
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        Log(I18n.Format("BackupService_Log_PruneDeleteFailed", file.Name, ex.Message), LogLevel.Warning);
+                    }
                 }
             }
             catch
             {
                 
+            }
+        }
+
+        /// <summary>
+        /// 安全删除备份文件（参考 MineBackup DoSafeDeleteBackup 逻辑）。
+        /// 当删除的是增量链中的一个节点时，先将其内容合并到下一个备份中，
+        /// 如果被删除的是 Full 备份，则将下一个 Smart 备份升级为 Full。
+        /// 这样可以保证增量链不断裂，任何备份仍然可以正确还原。
+        /// </summary>
+        private static void SafeDeleteArchive(FileInfo fileToDelete, DirectoryInfo backupDir, string format)
+        {
+            Log(I18n.Format("BackupService_Log_SafeDeleteStart", fileToDelete.Name), LogLevel.Info);
+
+            // 找到时间上紧邻的下一个备份文件
+            var allFiles = backupDir.GetFiles($"*.{format}")
+                .OrderBy(f => f.LastWriteTimeUtc)
+                .ToList();
+
+            FileInfo nextFile = null;
+            for (int i = 0; i < allFiles.Count; i++)
+            {
+                if (string.Equals(allFiles[i].FullName, fileToDelete.FullName, StringComparison.OrdinalIgnoreCase))
+                {
+                    if (i + 1 < allFiles.Count)
+                    {
+                        nextFile = allFiles[i + 1];
+                    }
+                    break;
+                }
+            }
+
+            // 如果没有下一个文件（链尾），或下一个是 Full 备份，直接删除即可
+            if (nextFile == null || nextFile.Name.Contains("[Full]", StringComparison.OrdinalIgnoreCase))
+            {
+                Log(I18n.Format("BackupService_Log_SafeDeleteEndOfChain"), LogLevel.Info);
+                fileToDelete.Delete();
+                Log(I18n.Format("BackupService_Log_PrunedOldBackup", fileToDelete.Name), LogLevel.Info);
+                return;
+            }
+
+            // 需要将 fileToDelete 的内容合并到 nextFile 中
+            string sevenZipExe = ResolveSevenZipExecutable();
+            if (string.IsNullOrEmpty(sevenZipExe))
+            {
+                Log(I18n.Format("BackupService_Log_SafeDeleteNo7z"), LogLevel.Warning);
+                // 无法安全删除，回退为直接删除
+                fileToDelete.Delete();
+                return;
+            }
+
+            // 创建临时目录用于解压
+            string tempDir = Path.Combine(Path.GetTempPath(), "FolderRewind_SafeDelete_" + Guid.NewGuid().ToString("N")[..8]);
+
+            try
+            {
+                Directory.CreateDirectory(tempDir);
+
+                // 步骤1: 解压被删除文件的内容到临时目录
+                Log(I18n.Format("BackupService_Log_SafeDeleteStep1"), LogLevel.Info);
+                string extractArgs = $"x \"{fileToDelete.FullName}\" -o\"{tempDir}\" -y";
+                var extractResult = RunSevenZipProcessSync(sevenZipExe, extractArgs);
+                if (!extractResult)
+                {
+                    Log(I18n.Format("BackupService_Log_SafeDeleteExtractFailed"), LogLevel.Error);
+                    return; // 解压失败则不删除，保护数据安全
+                }
+
+                // 步骤2: 将解压的内容合并到下一个备份文件中
+                // 记录原始修改时间（保持时间排序不变）
+                Log(I18n.Format("BackupService_Log_SafeDeleteStep2"), LogLevel.Info);
+                var originalModTime = nextFile.LastWriteTimeUtc;
+                string mergeArgs = $"a \"{nextFile.FullName}\" .\\*";
+                var mergeResult = RunSevenZipProcessSync(sevenZipExe, mergeArgs, tempDir);
+                if (!mergeResult)
+                {
+                    // 合并失败时恢复时间戳
+                    try { File.SetLastWriteTimeUtc(nextFile.FullName, originalModTime); } catch { }
+                    Log(I18n.Format("BackupService_Log_SafeDeleteMergeFailed"), LogLevel.Error);
+                    return; // 合并失败则不删除
+                }
+                // 恢复原始修改时间以维持排序
+                try { File.SetLastWriteTimeUtc(nextFile.FullName, originalModTime); } catch { }
+
+                // 步骤3: 如果被删除的是 Full 备份，将下一个 Smart 备份重命名为 Full
+                if (fileToDelete.Name.Contains("[Full]", StringComparison.OrdinalIgnoreCase)
+                    && nextFile.Name.Contains("[Smart]", StringComparison.OrdinalIgnoreCase))
+                {
+                    Log(I18n.Format("BackupService_Log_SafeDeletePromote"), LogLevel.Info);
+                    string newName = nextFile.Name.Replace("[Smart]", "[Full]");
+                    string newPath = Path.Combine(backupDir.FullName, newName);
+                    try
+                    {
+                        File.Move(nextFile.FullName, newPath);
+                        // 更新历史记录中的文件名和类型
+                        HistoryService.RenameEntry(nextFile.Name, newName, "Full");
+                        Log(I18n.Format("BackupService_Log_SafeDeleteRenamed", newName), LogLevel.Info);
+                    }
+                    catch (Exception ex)
+                    {
+                        Log(I18n.Format("BackupService_Log_SafeDeleteRenameFailed", ex.Message), LogLevel.Warning);
+                    }
+                }
+
+                // 步骤4: 删除原始文件
+                Log(I18n.Format("BackupService_Log_SafeDeleteStep4"), LogLevel.Info);
+                fileToDelete.Delete();
+                Log(I18n.Format("BackupService_Log_SafeDeleteSuccess", fileToDelete.Name), LogLevel.Info);
+            }
+            catch (Exception ex)
+            {
+                Log(I18n.Format("BackupService_Log_SafeDeleteFatalError", ex.Message), LogLevel.Error);
+            }
+            finally
+            {
+                // 清理临时目录
+                try
+                {
+                    if (Directory.Exists(tempDir))
+                        Directory.Delete(tempDir, true);
+                }
+                catch { }
+            }
+        }
+
+        /// <summary>
+        /// 同步方式运行 7z 进程（用于安全删除等非异步场景）
+        /// </summary>
+        private static bool RunSevenZipProcessSync(string sevenZipExe, string arguments, string workingDirectory = null)
+        {
+            try
+            {
+                var pInfo = new ProcessStartInfo
+                {
+                    FileName = sevenZipExe,
+                    Arguments = arguments,
+                    UseShellExecute = false,
+                    RedirectStandardOutput = true,
+                    RedirectStandardError = true,
+                    CreateNoWindow = true
+                };
+
+                if (!string.IsNullOrWhiteSpace(workingDirectory))
+                    pInfo.WorkingDirectory = workingDirectory;
+
+                using var p = Process.Start(pInfo);
+                p?.WaitForExit(120_000); // 最长等待 2 分钟
+                return p?.ExitCode == 0;
+            }
+            catch (Exception ex)
+            {
+                Log(I18n.Format("BackupService_Log_SystemError", ex.Message), LogLevel.Error);
+                return false;
             }
         }
 
@@ -696,6 +927,57 @@ namespace FolderRewind.Services
             {
                 Log(I18n.Format("BackupService_Log_NoBaselineMetadataFallbackFull"), LogLevel.Info);
                 return await DoFullBackupAsync(source, destDir, metaDir, baseName, config, comment);
+            }
+
+            // 2. 智能备份链长度检查（参考 MineBackup maxSmartBackupsPerFull 逻辑）
+            // 当连续的增量备份数量达到上限时，强制执行全量备份以截断链条
+            int maxChain = config.Archive.MaxSmartBackupsPerFull;
+            if (maxChain > 0)
+            {
+                bool forceFullDueToChainLimit = false;
+                try
+                {
+                    var dirInfo = new DirectoryInfo(destDir);
+                    if (dirInfo.Exists)
+                    {
+                        // 获取所有备份文件，按时间降序排列
+                        var allBackups = dirInfo.GetFiles($"*.{config.Archive.Format}")
+                            .OrderByDescending(f => f.LastWriteTimeUtc)
+                            .ToList();
+
+                        // 从最新备份往回计数，统计最近一次 Full 备份之后的 Smart 备份数量
+                        int smartCount = 0;
+                        bool fullFound = false;
+                        foreach (var bkFile in allBackups)
+                        {
+                            if (bkFile.Name.Contains("[Full]", StringComparison.OrdinalIgnoreCase))
+                            {
+                                fullFound = true;
+                                break;
+                            }
+                            if (bkFile.Name.Contains("[Smart]", StringComparison.OrdinalIgnoreCase))
+                            {
+                                smartCount++;
+                            }
+                        }
+
+                        // 只有找到了 Full 基准且 Smart 数量已达上限时才强制全量
+                        if (fullFound && smartCount >= maxChain)
+                        {
+                            forceFullDueToChainLimit = true;
+                            Log(I18n.Format("BackupService_Log_SmartChainLimitReached", maxChain), LogLevel.Info);
+                        }
+                    }
+                }
+                catch (Exception ex)
+                {
+                    Log(I18n.Format("BackupService_Log_SmartChainCheckFailed", ex.Message), LogLevel.Warning);
+                }
+
+                if (forceFullDueToChainLimit)
+                {
+                    return await DoFullBackupAsync(source, destDir, metaDir, baseName, config, comment);
+                }
             }
 
             // 2. 扫描并对比文件（带黑名单过滤）
@@ -808,7 +1090,6 @@ namespace FolderRewind.Services
                 int timeStart = -1;
                 int timeEnd = -1;
                 // 通mon pattern: [Type][Time]Name.ext  -> time is between second '[' and following ']'
-                int idx = 0;
                 // 找第二个 '['
                 int nth = 0;
                 for (int i = 0; i < oldName.Length; i++)
@@ -832,8 +1113,6 @@ namespace FolderRewind.Services
                 {
                     // 如果格式不对，就重新构造名字，保留类型前缀与后缀
                     string extension = Path.GetExtension(oldName);
-                    string prefix = "[Overwrite]";
-                    string nameWithoutExt = Path.GetFileNameWithoutExtension(oldName);
                     // 去掉已存在的方括号信息尽量简化构造
                     string simpleBase = baseName;
                     newName = GenerateFileName(simpleBase, config.Archive.Format, "Overwrite", comment);

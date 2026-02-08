@@ -94,6 +94,69 @@ namespace FolderRewind.Views
             }
 
             NavigateTo("Home");
+
+            // 启动后台公告检查（参考 MineBackup 的 notice_thread 逻辑）
+            _ = CheckAndShowNoticeAsync();
+        }
+
+        /// <summary>
+        /// 后台检查公告，有新公告时弹出 ContentDialog。
+        /// </summary>
+        private async System.Threading.Tasks.Task CheckAndShowNoticeAsync()
+        {
+            try
+            {
+                await NoticeService.CheckForNoticesAsync();
+
+                if (!NoticeService.NewNoticeAvailable) return;
+
+                // 在 UI 线程显示对话框
+                DispatcherQueue.TryEnqueue(async () =>
+                {
+                    try
+                    {
+                        var dialog = new ContentDialog
+                        {
+                            Title = I18n.GetString("Notice_DialogTitle"),
+                            PrimaryButtonText = I18n.GetString("Notice_DismissButton"),
+                            SecondaryButtonText = I18n.GetString("Notice_RemindLaterButton"),
+                            DefaultButton = ContentDialogButton.Primary,
+                            XamlRoot = this.XamlRoot,
+                            Content = new ScrollViewer
+                            {
+                                MaxHeight = 400,
+                                Content = new TextBlock
+                                {
+                                    Text = NoticeService.NoticeContent,
+                                    TextWrapping = Microsoft.UI.Xaml.TextWrapping.Wrap,
+                                    IsTextSelectionEnabled = true
+                                }
+                            }
+                        };
+
+                        var result = await dialog.ShowAsync();
+
+                        if (result == ContentDialogResult.Primary)
+                        {
+                            // "确认并不再提示"
+                            NoticeService.MarkAsRead();
+                        }
+                        else
+                        {
+                            // "稍后提醒"
+                            NoticeService.SnoozeThisSession();
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        System.Diagnostics.Debug.WriteLine($"[NoticeDialog] {ex.Message}");
+                    }
+                });
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"[NoticeCheck] {ex.Message}");
+            }
         }
 
         private void NavView_SelectionChanged(NavigationView sender, NavigationViewSelectionChangedEventArgs args)
