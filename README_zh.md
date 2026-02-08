@@ -32,7 +32,7 @@ FolderRewind 是一款基于 **WinUI 3** 和 **.NET 8** 构建的现代化、高
 
 | 插件名称               | 版本   | 描述                                     | 作者          | 下载链接                                      |
 |----------------------|------|----------------------------------------|-------------|-------------------------------------------|
-| MineRewind      | 1.0.0 | 专为 Minecraft 游戏存档设计的备份插件。               | Leafuke     | [仓库](https://github.com/Leafuke/FolderRewind-Plugin-Minecraft)
+| MineRewind      | 1.2.0 | 专为 Minecraft 游戏存档设计的备份插件。               | Leafuke     | [仓库](https://github.com/Leafuke/FolderRewind-Plugin-Minecraft)
 
 ## 🛠️ 源码构建
 
@@ -41,31 +41,27 @@ FolderRewind 是一款基于 **WinUI 3** 和 **.NET 8** 构建的现代化、高
 - .NET 8 SDK
 - "Windows App SDK C# Templates" 工作负载
 
-**构建步骤:**
-1. 克隆仓库:
-   ```bash
-   git clone https://github.com/Leafuke/FolderRewind.git
-   ```
-2. 在 Visual Studio 中打开 `FolderRewind.slnx`。
-3. 还原 NuGet 包。
-4. 构建解决方案 (建议目标平台选择 `x64`)。
-
 ## 🤝 参与贡献
-我们非常欢迎任何形式的贡献！如果您有好的想法，请提交 Pull Request。
+我们非常欢迎任何形式的贡献！如果您有好的想法，欢迎提交 Pull Request 或者 Issue！
 
-1. Fork 本项目
-2. 创建您的特性分支 (`git checkout -b feature/AmazingFeature`)
-3. 提交您的修改 (`git commit -m 'Add some AmazingFeature'`)
-4. 推送到分支 (`git push origin feature/AmazingFeature`)
-5. 提交 Pull Request
+如果你希望为 FolderRewind 开发插件以适配更多场景，可以参考 [插件开发文档](./docs/PluginDevelopmentGuide.md)。
 
-## 📄 开源协议
-本项目采用 **GPL 许可证**。详情请参阅 `LICENSE.txt` 文件。
+
+## 🔍 交流讨论
+
+有兴趣一起交流的话，可以加 QQ 群。
+
+<img src="./assets/qq_group_light.jpg" width="240px" />
 
 ## 💖 致谢
-- **WinUI 3**: 提供美观的 UI 框架。
-- **7-Zip**: 提供核心压缩技术支持。
-- **[KnotLink](https://github.com/hxh230802/KnotLink)**: 提供本地互联服务，基本继承MineBackup的联动功能。感谢@hxh230802。
+
+- [Windows App SDK](https://github.com/microsoft/windowsappsdk)
+- [WinUI](https://github.com/microsoft/microsoft-ui-xaml)
+- [KnotLink](https://github.com/hxh230802/KnotLink)
+- [7-Zip](https://www.7-zip.org/)
+- [MineBackup - 前作](https://github.com/Leafuke/MineBackup)
+- [Bili.Copilot - 代码参考](https://github.com/Richasy/Bili.Copilot)
+- 以及其他在开发过程中提供过助力的小伙伴
 
 ---
 *为您的数字世界留一份后悔药。*
