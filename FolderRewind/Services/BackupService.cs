@@ -269,14 +269,8 @@ namespace FolderRewind.Services
                 {
                     sourcePath = pluginOverride;
 
-                    // 与 MineBackup 保持一致
-                    try
-                    {
-                        KnotLinkService.BroadcastEvent("event=pre_hot_backup;");
-                    }
-                    catch
-                    {
-                    }
+                    // 原本打算在插件里发送，但是实测太不稳定了，干脆在这里统一发送。
+                    KnotLinkService.BroadcastEvent("event=pre_hot_backup;");
                 }
             }
             catch
