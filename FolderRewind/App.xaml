@@ -53,6 +53,9 @@
                 <Setter Property="CornerRadius" Value="{StaticResource OverlayCornerRadius}"/>
                 <Setter Property="Padding" Value="16"/>
             </Style>
+
+            <BitmapImage x:Key="QQGroup" UriSource="ms-appx:///Assets/qq_group_light.jpg" />
+            
         </ResourceDictionary>
     </Application.Resources>
 </Application>

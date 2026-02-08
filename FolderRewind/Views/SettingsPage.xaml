@@ -673,6 +673,21 @@
                                 <HyperlinkButton x:Uid="SettingsPage_About_Link_Repository" NavigateUri="https://github.com/Leafuke/FolderRewind" />
                                 <HyperlinkButton x:Uid="SettingsPage_About_Link_Bilibili" NavigateUri="https://space.bilibili.com/545429962" />
                                 <HyperlinkButton x:Uid="SettingsPage_About_Link_Privacy" NavigateUri="https://github.com/Leafuke/FolderRewind/blob/dev/PRIVACY.md" />
+                                <HyperlinkButton x:Uid="SettingsPage_About_Link_QQ_GROUP" Click="OnJoinGroupButtonClick">
+                                    <FlyoutBase.AttachedFlyout>
+                                        <Flyout>
+                                            <Flyout.FlyoutPresenterStyle>
+                                                <Style BasedOn="{StaticResource DefaultFlyoutPresenterStyle}" TargetType="FlyoutPresenter">
+                                                    <Setter Property="Padding" Value="0" />
+                                                </Style>
+                                            </Flyout.FlyoutPresenterStyle>
+                                            <Image
+                                                MaxWidth="240"
+                                                Source="{ThemeResource QQGroup}"
+                                                Stretch="Uniform" />
+                                        </Flyout>
+                                    </FlyoutBase.AttachedFlyout>
+                                </HyperlinkButton>
                             </StackPanel>
                         </StackPanel>
                     </Expander>

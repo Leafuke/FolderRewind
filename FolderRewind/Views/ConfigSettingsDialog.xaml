@@ -79,16 +79,18 @@
             </ScrollViewer>
         </PivotItem>
 
-        <!-- 2. 压缩策略 -->
-        <PivotItem x:Uid="ConfigSettingsDialog_Compression">
+        <!-- 2. 备份策略 -->
+        <PivotItem x:Uid="ConfigSettingsDialog_BackupStrategy">
             <ScrollViewer VerticalScrollBarVisibility="Auto" Padding="0,0,12,0">
             <StackPanel Spacing="20" Padding="0,12">
+                <!-- 备份模式 -->
                 <ComboBox x:Uid="ConfigSettingsDialog_BackupMode" SelectedIndex="{x:Bind ModeSelectedIndex, Mode=TwoWay}" HorizontalAlignment="Stretch">
                     <ComboBoxItem x:Uid="ConfigSettingsDialog_ModeFull"/>
                     <ComboBoxItem x:Uid="ConfigSettingsDialog_ModeIncremental"/>
                     <ComboBoxItem x:Uid="ConfigSettingsDialog_ModeOverwrite"/>
                 </ComboBox>
 
+                <!-- 压缩格式 + 算法 -->
                 <Grid>
                     <Grid.ColumnDefinitions>
                         <ColumnDefinition Width="*"/>
@@ -106,15 +108,28 @@
                     </ComboBox>
                 </Grid>
 
+                <!-- 压缩等级 -->
                 <StackPanel Spacing="4">
                     <TextBlock x:Uid="ConfigSettingsDialog_CompressionLevel"/>
                     <Slider Minimum="0" Maximum="9" Value="{x:Bind Config.Archive.CompressionLevel, Mode=TwoWay}"/>
                 </StackPanel>
 
+                <!-- 保留备份数量 -->
                 <NumberBox x:Uid="ConfigSettingsDialog_KeepCount" Value="{x:Bind Config.Archive.KeepCount, Mode=TwoWay}" Minimum="0" SpinButtonPlacementMode="Inline"/>
 
+                <!-- 智能备份链长度（仅增量模式有效） -->
+                <StackPanel Spacing="4">
+                    <NumberBox x:Uid="ConfigSettingsDialog_MaxSmartChain" Value="{x:Bind Config.Archive.MaxSmartBackupsPerFull, Mode=TwoWay}" Minimum="0" Maximum="100" SpinButtonPlacementMode="Inline"/>
+                    <TextBlock x:Uid="ConfigSettingsDialog_MaxSmartChainDesc" Style="{StaticResource CaptionTextBlockStyle}" Foreground="{ThemeResource TextFillColorSecondaryBrush}" TextWrapping="Wrap"/>
+                </StackPanel>
+
+                <!-- 安全删除 -->
+                <ToggleSwitch x:Uid="ConfigSettingsDialog_SafeDelete" IsOn="{x:Bind Config.Archive.SafeDeleteEnabled, Mode=TwoWay}"/>
+
+                <!-- 无变更跳过 -->
                 <ToggleSwitch x:Uid="ConfigSettingsDialog_SkipIfUnchanged" IsOn="{x:Bind Config.Archive.SkipIfUnchanged, Mode=TwoWay}"/>
 
+                <!-- CPU 线程数 -->
                 <StackPanel Spacing="4">
                     <TextBlock x:Uid="ConfigSettingsDialog_CpuThreads"/>
                     <StackPanel Orientation="Horizontal" Spacing="8">
@@ -123,18 +138,55 @@
                     </StackPanel>
                 </StackPanel>
 
+                <!-- 压缩包密码 -->
                 <StackPanel Spacing="4">
                     <TextBlock x:Uid="ConfigSettingsDialog_ArchivePassword"/>
                     <TextBox x:Uid="ConfigSettingsDialog_ArchivePasswordPlaceholder" Text="{x:Bind Config.Archive.Password, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" InputScope="Password"/>
                     <TextBlock x:Uid="ConfigSettingsDialog_ArchivePasswordDesc" Style="{StaticResource CaptionTextBlockStyle}" Foreground="{ThemeResource TextFillColorSecondaryBrush}"/>
                 </StackPanel>
-
-                <ToggleSwitch x:Uid="ConfigSettingsDialog_BackupBeforeRestore" IsOn="{x:Bind Config.Archive.BackupBeforeRestore, Mode=TwoWay}"/>
             </StackPanel>
             </ScrollViewer>
         </PivotItem>
 
-        <!-- 3. 自动化 -->
+        <!-- 3. 还原策略 -->
+        <PivotItem x:Uid="ConfigSettingsDialog_RestoreStrategy">
+            <ScrollViewer VerticalScrollBarVisibility="Auto" Padding="0,0,12,0">
+            <StackPanel Spacing="20" Padding="0,12">
+                <!-- 还原前自动备份 -->
+                <ToggleSwitch x:Uid="ConfigSettingsDialog_BackupBeforeRestore" IsOn="{x:Bind Config.Archive.BackupBeforeRestore, Mode=TwoWay}"/>
+
+                <!-- 还原白名单 -->
+                <StackPanel Spacing="8">
+                    <TextBlock x:Uid="ConfigSettingsDialog_RestoreWhitelist" FontWeight="SemiBold"/>
+                    <TextBlock x:Uid="ConfigSettingsDialog_RestoreWhitelistDesc" Style="{StaticResource CaptionTextBlockStyle}" Foreground="{ThemeResource TextFillColorSecondaryBrush}" TextWrapping="Wrap"/>
+                    <ListView Height="160" ItemsSource="{x:Bind Config.Filters.RestoreWhitelist}" BorderThickness="1" BorderBrush="{ThemeResource SurfaceStrokeColorDefaultBrush}">
+                        <ListView.ItemTemplate>
+                            <DataTemplate>
+                                <Grid>
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*"/>
+                                        <ColumnDefinition Width="Auto"/>
+                                    </Grid.ColumnDefinitions>
+                                    <TextBlock Text="{Binding}" VerticalAlignment="Center"/>
+                                    <Button Grid.Column="1" Content="&#xE711;" FontFamily="Segoe MDL2 Assets" Click="OnRemoveRestoreWhitelistClick"/>
+                                </Grid>
+                            </DataTemplate>
+                        </ListView.ItemTemplate>
+                    </ListView>
+                    <Grid>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*"/>
+                            <ColumnDefinition Width="Auto"/>
+                        </Grid.ColumnDefinitions>
+                        <TextBox x:Name="RestoreWhitelistBox" x:Uid="ConfigSettingsDialog_RestoreWhitelistPlaceholder"/>
+                        <Button Grid.Column="1" x:Uid="ConfigSettingsDialog_AddRestoreWhitelist" Margin="8,0,0,0" Click="OnAddRestoreWhitelistClick"/>
+                    </Grid>
+                </StackPanel>
+            </StackPanel>
+            </ScrollViewer>
+        </PivotItem>
+
+        <!-- 4. 自动化 -->
         <PivotItem x:Uid="ConfigSettingsDialog_Automation">
             <StackPanel Spacing="20" Padding="0,12">
                 <ToggleSwitch x:Uid="ConfigSettingsDialog_AutoBackup" IsOn="{x:Bind Config.Automation.AutoBackupEnabled, Mode=TwoWay}"/>
@@ -157,12 +209,12 @@
             </StackPanel>
         </PivotItem>
 
-        <!-- 4. 过滤器 (黑名单 + 还原白名单) -->
+        <!-- 5. 过滤器 (黑名单) -->
         <PivotItem x:Uid="ConfigSettingsDialog_Filter">
             <ScrollViewer VerticalScrollBarVisibility="Auto" Padding="0,0,12,0">
             <StackPanel Spacing="12" Padding="0,12">
                 <TextBlock x:Uid="ConfigSettingsDialog_Blacklist" FontWeight="SemiBold"/>
-                <ListView Height="160" ItemsSource="{x:Bind Config.Filters.Blacklist}" BorderThickness="1" BorderBrush="{ThemeResource SurfaceStrokeColorDefaultBrush}">
+                <ListView Height="200" ItemsSource="{x:Bind Config.Filters.Blacklist}" BorderThickness="1" BorderBrush="{ThemeResource SurfaceStrokeColorDefaultBrush}">
                     <ListView.ItemTemplate>
                         <DataTemplate>
                             <Grid>
@@ -184,32 +236,6 @@
                     </Grid.ColumnDefinitions>
                     <TextBox x:Name="BlacklistBox" x:Uid="ConfigSettingsDialog_BlacklistPlaceholder"/>
                     <Button Grid.Column="1" x:Uid="ConfigSettingsDialog_AddBlacklist" Margin="8,0,0,0" Click="OnAddBlacklistClick"/>
-                </Grid>
-
-                <!-- 还原白名单：Clean 还原时不会清除的文件/文件夹 -->
-                <TextBlock x:Uid="ConfigSettingsDialog_RestoreWhitelist" FontWeight="SemiBold" Margin="0,12,0,0"/>
-                <TextBlock x:Uid="ConfigSettingsDialog_RestoreWhitelistDesc" Style="{StaticResource CaptionTextBlockStyle}" Foreground="{ThemeResource TextFillColorSecondaryBrush}" TextWrapping="Wrap"/>
-                <ListView Height="120" ItemsSource="{x:Bind Config.Filters.RestoreWhitelist}" BorderThickness="1" BorderBrush="{ThemeResource SurfaceStrokeColorDefaultBrush}">
-                    <ListView.ItemTemplate>
-                        <DataTemplate>
-                            <Grid>
-                                <Grid.ColumnDefinitions>
-                                    <ColumnDefinition Width="*"/>
-                                    <ColumnDefinition Width="Auto"/>
-                                </Grid.ColumnDefinitions>
-                                <TextBlock Text="{Binding}" VerticalAlignment="Center"/>
-                                <Button Grid.Column="1" Content="&#xE711;" FontFamily="Segoe MDL2 Assets" Click="OnRemoveRestoreWhitelistClick"/>
-                            </Grid>
-                        </DataTemplate>
-                    </ListView.ItemTemplate>
-                </ListView>
-                <Grid>
-                    <Grid.ColumnDefinitions>
-                        <ColumnDefinition Width="*"/>
-                        <ColumnDefinition Width="Auto"/>
-                    </Grid.ColumnDefinitions>
-                    <TextBox x:Name="RestoreWhitelistBox" x:Uid="ConfigSettingsDialog_RestoreWhitelistPlaceholder"/>
-                    <Button Grid.Column="1" x:Uid="ConfigSettingsDialog_AddRestoreWhitelist" Margin="8,0,0,0" Click="OnAddRestoreWhitelistClick"/>
                 </Grid>
             </StackPanel>
             </ScrollViewer>

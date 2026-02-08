@@ -1207,8 +1207,9 @@ namespace FolderRewind.Views
             {
                 
             }
-
-            
         }
+        private void OnJoinGroupButtonClick(object sender, RoutedEventArgs e)
+        => FlyoutBase.ShowAttachedFlyout(sender as FrameworkElement);
+
     }
 }
