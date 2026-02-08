@@ -11,8 +11,8 @@
 
   <Identity
     Name="Leafuke.FolderRewind"
-    Publisher="CN=Leafuke"
-    Version="1.2.1.0" />
+    Publisher="CN=ED2D4126-34BC-411D-8CD7-C15336441263"
+    Version="1.3.0.0" />
 
   <mp:PhoneIdentity PhoneProductId="5fc1991e-c6d8-4cc1-867e-4165d5214481" PhonePublisherId="00000000-0000-0000-0000-000000000000"/>
 
