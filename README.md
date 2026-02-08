@@ -36,7 +36,7 @@ As the spiritual successor to MineBackup, FolderRewind enhances its versatility 
 
 | Name               | Version   | Description                                     | Author          | Download Link                                      |
 |----------------------|------|----------------------------------------|-------------|-------------------------------------------|
-| MineRewind      | 1.0.0 | A backup plugin specifically designed for Minecraft game saves.               | Leafuke     | [Repository](https://github.com/Leafuke/FolderRewind-Plugin-Minecraft)
+| MineRewind      | 1.2.0 | A backup plugin specifically designed for Minecraft game saves.               | Leafuke     | [Repository](https://github.com/Leafuke/FolderRewind-Plugin-Minecraft)
 
 ## 🛠️ Build from Source
 
@@ -45,31 +45,27 @@ As the spiritual successor to MineBackup, FolderRewind enhances its versatility 
 - .NET 8 SDK
 - "Windows App SDK C# Templates" workload
 
-**Steps:**
-1. Clone the repository:
-   ```bash
-   git clone https://github.com/Leafuke/FolderRewind.git
-   ```
-2. Open `FolderRewind.slnx` in Visual Studio.
-3. Restore NuGet packages.
-4. Build the solution (Target `x64` for best compatibility).
-
 ## 🤝 Contributing
 Contributions are welcome! Please feel free to submit a Pull Request.
 
-1. Fork the Project
-2. Create your Feature Branch (`git checkout -b feature/AmazingFeature`)
-3. Commit your Changes (`git commit -m 'Add some AmazingFeature'`)
-4. Push to the Branch (`git push origin feature/AmazingFeature`)
-5. Open a Pull Request
+If you want to develop plugins for FolderRewind to support more scenarios, you can refer to the [Plugin Development Guide](./docs/PluginDevelopmentGuide.md).
 
-## 📄 License
-Distributed under the **GPL License**. See `LICENSE.txt` for more information.
+
+## 🔍 Discussion
+
+If you are interested in discussing, you can join the QQ group.
+
+<img src="./assets/qq_group_light.jpg" width="240px" />
 
 ## 💖 Acknowledgments
-- **WinUI 3** for the beautiful UI framework.
-- **7-Zip** for the compression technology.
-- **[KnotLink](https://github.com/hxh230802/KnotLink)**: Offers local interconnection services, essentially inheriting the collaborative features of MineBackup. Thanks to @hxh230802 .
+
+- [Windows App SDK](https://github.com/microsoft/windowsappsdk)
+- [WinUI](https://github.com/microsoft/microsoft-ui-xaml)
+- [KnotLink](https://github.com/hxh230802/KnotLink)
+- [7-Zip](https://www.7-zip.org/)
+- [MineBackup - Spiritual Predecessor](https://github.com/Leafuke/MineBackup)
+- [Bili.Copilot - Reference](https://github.com/Richasy/Bili.Copilot)
+- And all the other friends who provided help during development.
 
 ---
 *Back up your world, one folder at a time.*
