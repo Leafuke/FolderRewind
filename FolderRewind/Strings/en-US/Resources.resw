@@ -1914,4 +1914,40 @@ Comment: {1}
   <data name="SettingsPage_About_Link_QQ_GROUP.Content" xml:space="preserve">
     <value>Join QQ Group</value>
   </data>
+  <data name="SettingsPage_Warnings.Text" xml:space="preserve">
+    <value>Warnings</value>
+  </data>
+  <data name="SettingsPage_WarningsDesc.Text" xml:space="preserve">
+    <value>Configure warning rules during backup</value>
+  </data>
+  <data name="SettingsPage_FileSizeWarningThreshold.Text" xml:space="preserve">
+    <value>File size warning threshold</value>
+  </data>
+  <data name="SettingsPage_FileSizeWarningThresholdDesc.Text" xml:space="preserve">
+    <value>Trigger a warning when a backup file is smaller than this size. Set to 0 to disable</value>
+  </data>
+  <data name="BackupService_Log_FileSizeTooSmall" xml:space="preserve">
+    <value>Warning: Backup file for "{0}" is only {1} KB, below threshold {2} KB</value>
+  </data>
+  <data name="BackupService_Warning_FileSizeTooSmall" xml:space="preserve">
+    <value>Backup file for "{0}" is only {1} KB, below threshold {2} KB. Please verify backup integrity</value>
+  </data>
+  <data name="SettingsPage_EnableNotices.Text" xml:space="preserve">
+    <value>Receive announcements</value>
+  </data>
+  <data name="SettingsPage_EnableNoticesDesc.Text" xml:space="preserve">
+    <value>When enabled, check and display developer announcements on startup</value>
+  </data>
+  <data name="Notice_DialogTitle" xml:space="preserve">
+    <value>Announcement</value>
+  </data>
+  <data name="Notice_DismissButton" xml:space="preserve">
+    <value>Got it, don't show again</value>
+  </data>
+  <data name="Notice_RemindLaterButton" xml:space="preserve">
+    <value>Remind me later</value>
+  </data>
+  <data name="Notice_FetchFailed" xml:space="preserve">
+    <value>Failed to fetch announcement: {0}</value>
+  </data>
 </root>

@@ -102,6 +102,13 @@ namespace FolderRewind.Models
         // 通知设置
         private bool _enableNotifications = true;
 
+        // 警告设置
+        private int _fileSizeWarningThresholdKB = 5; // 备份文件小于此值(KB)时触发警告
+
+        // 公告系统
+        private bool _enableNotices = true;
+        private string _noticeLastSeenVersion = "";
+
         public string Language { get => _language; set => SetProperty(ref _language, value); }
         public int ThemeIndex { get => _themeIndex; set => SetProperty(ref _themeIndex, value); }
         public string SevenZipPath { get => _sevenZipPath; set => SetProperty(ref _sevenZipPath, value); }
@@ -178,6 +185,22 @@ namespace FolderRewind.Models
         /// 是否启用应用内/系统通知（全局开关）。
         /// </summary>
         public bool EnableNotifications { get => _enableNotifications; set => SetProperty(ref _enableNotifications, value); }
+
+        /// <summary>
+        /// 备份文件大小警告阈值(KB)。备份生成的文件小于此大小时触发 AppNotification 警告。
+        /// 参考 MineBackup 的文件大小检查逻辑。默认 5KB。
+        /// </summary>
+        public int FileSizeWarningThresholdKB { get => _fileSizeWarningThresholdKB; set => SetProperty(ref _fileSizeWarningThresholdKB, value); }
+
+        /// <summary>
+        /// 是否接收公告通知。
+        /// </summary>
+        public bool EnableNotices { get => _enableNotices; set => SetProperty(ref _enableNotices, value); }
+
+        /// <summary>
+        /// 上次已读的公告版本标识（Last-Modified 或内容 hash），用于检测是否有新公告。
+        /// </summary>
+        public string NoticeLastSeenVersion { get => _noticeLastSeenVersion; set => SetProperty(ref _noticeLastSeenVersion, value); }
     }
 
     /// <summary>

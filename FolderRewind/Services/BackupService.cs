@@ -413,6 +413,27 @@ namespace FolderRewind.Services
 
                     PruneOldArchives(backupSubDir, config.Archive.Format, config.Archive.KeepCount, config.Archive.Mode, config.Archive.SafeDeleteEnabled);
 
+                    // 备份完成后检查文件大小，过小时发出警告
+                    try
+                    {
+                        var archiveFile = Path.Combine(backupSubDir, generatedFileName);
+                        if (File.Exists(archiveFile))
+                        {
+                            var fileSizeKB = new FileInfo(archiveFile).Length / 1024.0;
+                            var thresholdKB = ConfigService.CurrentConfig?.GlobalSettings?.FileSizeWarningThresholdKB ?? 5;
+                            if (thresholdKB > 0 && fileSizeKB < thresholdKB)
+                            {
+                                Log(I18n.Format("BackupService_Log_FileSizeTooSmall", folder.DisplayName, fileSizeKB.ToString("F1"), thresholdKB.ToString()), LogLevel.Warning);
+                                NotificationService.ShowWarning(
+                                    I18n.Format("BackupService_Warning_FileSizeTooSmall", folder.DisplayName, fileSizeKB.ToString("F1"), thresholdKB.ToString()));
+                                KnotLinkService.BroadcastEvent($"event=backup_warning;type=file_too_small;config={configIndex};world={folder.DisplayName};size_kb={fileSizeKB:F1}");
+                            }
+                        }
+                    }
+                    catch
+                    {
+                    }
+
                     // 与 MineBackup 保持一致：备份成功事件
                     try
                     {

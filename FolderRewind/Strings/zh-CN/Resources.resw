@@ -1914,4 +1914,40 @@
   <data name="SettingsPage_About_Link_QQ_GROUP.Content" xml:space="preserve">
     <value>加入 QQ 群</value>
   </data>
+  <data name="SettingsPage_Warnings.Text" xml:space="preserve">
+    <value>警告</value>
+  </data>
+  <data name="SettingsPage_WarningsDesc.Text" xml:space="preserve">
+    <value>配置备份过程中的警告规则</value>
+  </data>
+  <data name="SettingsPage_FileSizeWarningThreshold.Text" xml:space="preserve">
+    <value>文件大小警告阈值</value>
+  </data>
+  <data name="SettingsPage_FileSizeWarningThresholdDesc.Text" xml:space="preserve">
+    <value>备份文件小于此大小时触发警告通知，设为 0 则禁用</value>
+  </data>
+  <data name="BackupService_Log_FileSizeTooSmall" xml:space="preserve">
+    <value>警告：文件夹 "{0}" 的备份文件仅 {1} KB，小于阈值 {2} KB</value>
+  </data>
+  <data name="BackupService_Warning_FileSizeTooSmall" xml:space="preserve">
+    <value>文件夹 "{0}" 的备份文件仅 {1} KB，小于警告阈值 {2} KB，请检查备份是否完整</value>
+  </data>
+  <data name="SettingsPage_EnableNotices.Text" xml:space="preserve">
+    <value>接收公告通知</value>
+  </data>
+  <data name="SettingsPage_EnableNoticesDesc.Text" xml:space="preserve">
+    <value>启用后将在启动时检查并显示开发者公告</value>
+  </data>
+  <data name="Notice_DialogTitle" xml:space="preserve">
+    <value>公告</value>
+  </data>
+  <data name="Notice_DismissButton" xml:space="preserve">
+    <value>知道了，不再提示</value>
+  </data>
+  <data name="Notice_RemindLaterButton" xml:space="preserve">
+    <value>稍后提醒</value>
+  </data>
+  <data name="Notice_FetchFailed" xml:space="preserve">
+    <value>公告获取失败：{0}</value>
+  </data>
 </root>
