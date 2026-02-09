@@ -121,6 +121,16 @@ namespace FolderRewind
                     {
                         LogService.Log(I18n.Format("App_Log_PluginInitException", pluginEx.Message));
                     }
+
+                    // 注册 Mini 窗口全局热键处理器
+                    try
+                    {
+                        Services.MiniWindowService.RegisterHotkey();
+                    }
+                    catch (Exception miniEx)
+                    {
+                        LogService.Log(I18n.Format("MiniWindow_Log_HotkeyRegisterFailed", miniEx.Message));
+                    }
                 });
 
                 var startupSettings = Services.ConfigService.CurrentConfig?.GlobalSettings;
@@ -360,6 +370,9 @@ namespace FolderRewind
         {
             ForceExitRequested = true;
 
+            // 关闭所有 Mini 窗口并释放 FileSystemWatcher
+            try { Services.MiniWindowService.CloseAll(); } catch { }
+
             CleanupTrayIcon();
 
             try
@@ -381,6 +394,8 @@ namespace FolderRewind
 
         private void OnMainWindowClosed(object sender, WindowEventArgs args)
         {
+            // 主窗口关闭时清理 Mini 窗口
+            try { Services.MiniWindowService.CloseAll(); } catch { }
             CleanupTrayIcon();
         }
 

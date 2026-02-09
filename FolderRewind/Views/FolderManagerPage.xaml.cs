@@ -2,6 +2,7 @@ using FolderRewind.Models;
 using FolderRewind.Services;
 using FolderRewind.Services.Hotkeys;
 using FolderRewind.Services.Plugins;
+using FolderRewind.Views;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Navigation;
@@ -461,6 +462,15 @@ namespace FolderRewind.Views
             {
                 // 使用 Explorer 打开文件夹
                 System.Diagnostics.Process.Start("explorer.exe", folder.Path);
+            }
+        }
+
+        // 打开 Mini 悬浮窗
+        private void OnOpenMiniWindowClick(object sender, RoutedEventArgs e)
+        {
+            if (sender is MenuFlyoutItem item && item.DataContext is ManagedFolder folder && CurrentConfig != null)
+            {
+                MiniWindowService.Open(CurrentConfig, folder);
             }
         }
 

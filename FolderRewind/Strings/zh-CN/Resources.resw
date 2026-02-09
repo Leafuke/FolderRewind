@@ -1950,4 +1950,88 @@
   <data name="Notice_FetchFailed" xml:space="preserve">
     <value>公告获取失败：{0}</value>
   </data>
+  <data name="FolderManager_MiniWindow.Text" xml:space="preserve">
+    <value>Mini 窗口</value>
+  </data>
+  <data name="MiniWindow_CommentPlaceholder" xml:space="preserve">
+    <value>输入备注后回车备份...</value>
+  </data>
+  <data name="MiniWindow_Title_DefaultFolder" xml:space="preserve">
+    <value>文件夹</value>
+  </data>
+  <data name="MiniWindow_Menu_OpenFolder" xml:space="preserve">
+    <value>打开文件夹</value>
+  </data>
+  <data name="MiniWindow_Menu_Backup" xml:space="preserve">
+    <value>立即备份</value>
+  </data>
+  <data name="MiniWindow_Menu_Close" xml:space="preserve">
+    <value>关闭</value>
+  </data>
+  <data name="MiniWindow_Menu_ExpandLeft" xml:space="preserve">
+    <value>向左展开</value>
+  </data>
+  <data name="MiniWindow_Menu_ExpandRight" xml:space="preserve">
+    <value>向右展开</value>
+  </data>
+  <data name="MiniWindow_Tip_Normal" xml:space="preserve">
+    <value>无变更</value>
+  </data>
+  <data name="MiniWindow_Tip_Changed" xml:space="preserve">
+    <value>检测到变更</value>
+  </data>
+  <data name="MiniWindow_Tip_BackingUp" xml:space="preserve">
+    <value>备份中...</value>
+  </data>
+  <data name="MiniWindow_Tip_Done" xml:space="preserve">
+    <value>备份完成</value>
+  </data>
+  <data name="MiniWindow_Tip_Failed" xml:space="preserve">
+    <value>备份失败</value>
+  </data>
+  <data name="MiniWindow_Tip_LastBackup" xml:space="preserve">
+    <value>上次备份</value>
+  </data>
+  <data name="MiniWindow_Tip_Status" xml:space="preserve">
+    <value>状态</value>
+  </data>
+  <data name="MiniWindow_Tip_Format" xml:space="preserve">
+    <value>{0}&#10;{1}&#10;上次备份：{2}&#10;状态：{3}</value>
+  </data>
+  <data name="MiniWindow_BackupComment_Suffix" xml:space="preserve">
+    <value>[Mini]</value>
+  </data>
+  <data name="MiniWindow_BackupComment_Hotkey" xml:space="preserve">
+    <value>[热键]</value>
+  </data>
+  <data name="MiniWindow_Log_Opened" xml:space="preserve">
+    <value>Mini 窗口已打开：{0}</value>
+  </data>
+  <data name="MiniWindow_Log_OpenFailed" xml:space="preserve">
+    <value>Mini 窗口打开失败：{0}</value>
+  </data>
+  <data name="MiniWindow_Log_BackupFailed" xml:space="preserve">
+    <value>Mini 窗口备份失败：{0}</value>
+  </data>
+  <data name="MiniWindow_Log_NoActiveWindow" xml:space="preserve">
+    <value>热键触发时没有活跃的 Mini 窗口</value>
+  </data>
+  <data name="MiniWindow_Log_HotkeyBackupFailed" xml:space="preserve">
+    <value>Mini 热键备份失败：{0}</value>
+  </data>
+  <data name="MiniWindow_Log_HotkeyRegisterFailed" xml:space="preserve">
+    <value>Mini 热键注册失败：{0}</value>
+  </data>
+  <data name="MiniWindow_Log_WatcherError" xml:space="preserve">
+    <value>文件夹监视器错误 [{0}]：{1}</value>
+  </data>
+  <data name="MiniWindow_Log_WatcherStartFailed" xml:space="preserve">
+    <value>文件夹监视器启动失败 [{0}]：{1}</value>
+  </data>
+  <data name="Hotkeys_MiniBackup_DisplayName" xml:space="preserve">
+    <value>Mini 备份</value>
+  </data>
+  <data name="Hotkeys_MiniBackup_Description" xml:space="preserve">
+    <value>对最近获得焦点的 Mini 窗口执行备份（全局热键）</value>
+  </data>
 </root>

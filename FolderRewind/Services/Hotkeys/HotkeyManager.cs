@@ -25,6 +25,7 @@ namespace FolderRewind.Services.Hotkeys
     public static class HotkeyManager
     {
         public const string Action_BackupSelectedFolder = "core.backup.selected";
+        public const string Action_MiniBackup = "core.mini.backup";
 
         private static readonly object _lock = new();
 
@@ -78,6 +79,14 @@ namespace FolderRewind.Services.Hotkeys
                         Description = I18n.GetString("Hotkeys_BackupSelected_Description"),
                         DefaultGesture = "Ctrl+S",
                         Scope = HotkeyScope.Shortcut,
+                    },
+                    new HotkeyDefinition
+                    {
+                        Id = Action_MiniBackup,
+                        DisplayName = I18n.GetString("Hotkeys_MiniBackup_DisplayName"),
+                        Description = I18n.GetString("Hotkeys_MiniBackup_Description"),
+                        DefaultGesture = "Ctrl+Alt+A",
+                        Scope = HotkeyScope.GlobalHotkey,
                     },
                 });
             }
