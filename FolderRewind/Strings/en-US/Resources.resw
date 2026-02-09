@@ -1950,4 +1950,87 @@ Comment: {1}
   <data name="Notice_FetchFailed" xml:space="preserve">
     <value>Failed to fetch announcement: {0}</value>
   </data>
+
+  <!-- ========== Mini Window ========== -->
+  <data name="FolderManager_MiniWindow.Text" xml:space="preserve">
+    <value>Mini Window</value>
+  </data>
+  <data name="MiniWindow_CommentPlaceholder" xml:space="preserve">
+    <value>Comment, then Enter to backup...</value>
+  </data>
+  <data name="MiniWindow_Title_DefaultFolder" xml:space="preserve">
+    <value>Folder</value>
+  </data>
+  <data name="MiniWindow_Menu_OpenFolder" xml:space="preserve">
+    <value>Open Folder</value>
+  </data>
+  <data name="MiniWindow_Menu_Backup" xml:space="preserve">
+    <value>Backup Now</value>
+  </data>
+  <data name="MiniWindow_Menu_Close" xml:space="preserve">
+    <value>Close</value>
+  </data>
+  <data name="MiniWindow_Menu_ExpandLeft" xml:space="preserve">
+    <value>Expand Left</value>
+  </data>
+  <data name="MiniWindow_Menu_ExpandRight" xml:space="preserve">
+    <value>Expand Right</value>
+  </data>
+  <data name="MiniWindow_Tip_Normal" xml:space="preserve">
+    <value>No changes</value>
+  </data>
+  <data name="MiniWindow_Tip_Changed" xml:space="preserve">
+    <value>Changes detected</value>
+  </data>
+  <data name="MiniWindow_Tip_BackingUp" xml:space="preserve">
+    <value>Backing up...</value>
+  </data>
+  <data name="MiniWindow_Tip_Done" xml:space="preserve">
+    <value>Backup completed</value>
+  </data>
+  <data name="MiniWindow_Tip_Failed" xml:space="preserve">
+    <value>Backup failed</value>
+  </data>
+  <data name="MiniWindow_Tip_LastBackup" xml:space="preserve">
+    <value>Last backup</value>
+  </data>
+  <data name="MiniWindow_Tip_Status" xml:space="preserve">
+    <value>Status</value>
+  </data>
+  <data name="MiniWindow_Tip_Format" xml:space="preserve">
+    <value>{0}&#10;{1}&#10;Last backup: {2}&#10;Status: {3}</value>
+  </data>
+  <data name="MiniWindow_BackupComment_Hotkey" xml:space="preserve">
+    <value>[Hotkey]</value>
+  </data>
+  <data name="MiniWindow_Log_Opened" xml:space="preserve">
+    <value>Mini window opened: {0}</value>
+  </data>
+  <data name="MiniWindow_Log_OpenFailed" xml:space="preserve">
+    <value>Failed to open Mini window: {0}</value>
+  </data>
+  <data name="MiniWindow_Log_BackupFailed" xml:space="preserve">
+    <value>Mini window backup failed: {0}</value>
+  </data>
+  <data name="MiniWindow_Log_NoActiveWindow" xml:space="preserve">
+    <value>No active Mini window for hotkey</value>
+  </data>
+  <data name="MiniWindow_Log_HotkeyBackupFailed" xml:space="preserve">
+    <value>Mini hotkey backup failed: {0}</value>
+  </data>
+  <data name="MiniWindow_Log_HotkeyRegisterFailed" xml:space="preserve">
+    <value>Failed to register Mini hotkey: {0}</value>
+  </data>
+  <data name="MiniWindow_Log_WatcherError" xml:space="preserve">
+    <value>Folder watcher error [{0}]: {1}</value>
+  </data>
+  <data name="MiniWindow_Log_WatcherStartFailed" xml:space="preserve">
+    <value>Failed to start folder watcher [{0}]: {1}</value>
+  </data>
+  <data name="Hotkeys_MiniBackup_DisplayName" xml:space="preserve">
+    <value>Mini Backup</value>
+  </data>
+  <data name="Hotkeys_MiniBackup_Description" xml:space="preserve">
+    <value>Trigger backup on the last focused Mini window (global hotkey)</value>
+  </data>
 </root>
