@@ -11,8 +11,8 @@
 </div>
 <p align="center">
 <a href="#Introduction">Introduction</a> &nbsp;&bull;&nbsp;
-<a href="#Key Features">Key Features</a> &nbsp;&bull;&nbsp;
-<a href="#Download & Install">Download & Install</a> &nbsp;&bull;&nbsp;
+<a href="#Features">Features</a> &nbsp;&bull;&nbsp;
+<a href="#Download">Download & Install</a> &nbsp;&bull;&nbsp;
 <a href="#Usage">Usage</a> &nbsp;&bull;&nbsp;
 <a href="#Officially Recognized Plugins">Plugins</a> &nbsp;&bull;&nbsp;
 <a href="#Development">Development</a> &nbsp;&bull;&nbsp;
@@ -26,7 +26,7 @@ FolderRewind is a modern, powerful, and user-friendly backup manager built with 
 
 As the spiritual successor to MineBackup, FolderRewind enhances its versatility while retaining extensibility for users with diverse needs. Featuring a powerful built-in plugin system, it allows plugin developers to optimize for specific scenarios such as **Minecraft game saves**, making it an ideal choice for gamers and advanced users.
 
-## Key Features
+## Features
 
 - **🛡️ Reliable Backups**: Uses the **7-Zip** engine for high-performance compression and encryption.
 - **🤖 Automation**: Set it and forget it. Support for:
@@ -42,7 +42,7 @@ As the spiritual successor to MineBackup, FolderRewind enhances its versatility 
   - Light & Dark theme support.
   - Responsive and intuitive UI.
 
-## Download & Install
+## Download
 
 ### Download from Microsoft Store (Recommended)：
 
@@ -87,7 +87,7 @@ As you delve deeper into using the software, you’ll discover ways to simplify 
 |----------------------|------|----------------------------------------|-------------|-------------------------------------------|
 | MineRewind      | 1.2.0 | A backup plugin specifically designed for Minecraft game saves.               | Leafuke     | [Repository](https://github.com/Leafuke/FolderRewind-Plugin-Minecraft)
 
-## 🛠️ Build from Source
+## Development
 
 **Requirements:**
 - Visual Studio 2026
