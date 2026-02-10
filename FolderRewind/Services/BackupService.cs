@@ -220,25 +220,30 @@ namespace FolderRewind.Services
         /// <summary>
         /// 备份配置下的所有文件夹
         /// </summary>
-        public static async Task BackupConfigAsync(BackupConfig config)
+        /// <returns>true 表示至少有一个文件夹产生了新的备份文件；false 表示所有文件夹均未检测到变更。</returns>
+        public static async Task<bool> BackupConfigAsync(BackupConfig config)
         {
-            if (config == null) return;
+            if (config == null) return false;
             Log(I18n.Format("BackupService_Log_ConfigTaskBegin", config.Name), LogLevel.Info);
 
+            bool anyChanges = false;
             foreach (var folder in config.SourceFolders)
             {
-                await BackupFolderAsync(config, folder);
+                var hadChanges = await BackupFolderAsync(config, folder);
+                if (hadChanges) anyChanges = true;
             }
 
             Log(I18n.Format("BackupService_Log_TaskEnd"), LogLevel.Info);
+            return anyChanges;
         }
 
         /// <summary>
         /// 备份单个文件夹
         /// </summary>
-        public static async Task BackupFolderAsync(BackupConfig config, ManagedFolder folder, string comment = "")
+        /// <returns>true 表示产生了新的备份文件；false 表示未检测到变更或备份失败。</returns>
+        public static async Task<bool> BackupFolderAsync(BackupConfig config, ManagedFolder folder, string comment = "")
         {
-            if (config == null || folder == null) return;
+            if (config == null || folder == null) return false;
 
             int configIndex = GetConfigIndex(config);
 
@@ -257,7 +262,7 @@ namespace FolderRewind.Services
             if (shouldHandle && handlerPlugin != null)
             {
                 await HandlePluginBackupAsync(config, folder, task, handlerPlugin, comment);
-                return;
+                return false;
             }
 
             // 允许插件在备份前创建快照并替换源路径（例如 Minecraft 热备份：先复制到 snapshot 再备份）。
@@ -298,7 +303,7 @@ namespace FolderRewind.Services
                 catch
                 {
                 }
-                return;
+                return false;
             }
 
             if (string.IsNullOrEmpty(config.DestinationPath))
@@ -318,7 +323,7 @@ namespace FolderRewind.Services
                 catch
                 {
                 }
-                return;
+                return false;
             }
 
             // 创建必要的目录
@@ -480,6 +485,8 @@ namespace FolderRewind.Services
             catch
             {
             }
+
+            return success && !string.IsNullOrWhiteSpace(generatedFileName);
         }
 
         /// <summary>

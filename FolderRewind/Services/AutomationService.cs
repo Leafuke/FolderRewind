@@ -115,7 +115,7 @@ namespace FolderRewind.Services
 
             try
             {
-                await BackupService.BackupConfigAsync(config);
+                bool hadChanges = await BackupService.BackupConfigAsync(config);
 
                 // 成功后更新时间戳并持久化
                 config.Automation.LastAutoBackupUtc = DateTime.UtcNow;
@@ -123,6 +123,32 @@ namespace FolderRewind.Services
                 {
                     config.Automation.LastScheduledRunDateLocal = nowLocal.Date;
                 }
+
+                // 连续无变更自动停止逻辑
+                if (config.Automation.StopAfterNoChangeEnabled)
+                {
+                    if (!hadChanges)
+                    {
+                        config.Automation.ConsecutiveNoChangeCount++;
+                        if (config.Automation.ConsecutiveNoChangeCount >= config.Automation.StopAfterNoChangeCount)
+                        {
+                            config.Automation.AutoBackupEnabled = false;
+                            LogService.Log($"[AutoBackup] Auto backup disabled for '{config.Name}': no changes detected {config.Automation.ConsecutiveNoChangeCount} consecutive times.");
+                            try
+                            {
+                                NotificationService.ShowInfo(
+                                    I18n.Format("AutoBackup_StoppedNoChanges", config.Name, config.Automation.ConsecutiveNoChangeCount.ToString()));
+                            }
+                            catch { }
+                            config.Automation.ConsecutiveNoChangeCount = 0;
+                        }
+                    }
+                    else
+                    {
+                        config.Automation.ConsecutiveNoChangeCount = 0;
+                    }
+                }
+
                 ConfigService.Save();
             }
             catch (Exception ex)

@@ -2034,4 +2034,124 @@
   <data name="Hotkeys_MiniBackup_Description" xml:space="preserve">
     <value>对最近获得焦点的 Mini 窗口执行备份（全局热键）</value>
   </data>
+  <data name="ConfigSettingsDialog_StopAfterNoChange.Header" xml:space="preserve">
+    <value>重复未发现变更后停止自动任务</value>
+  </data>
+  <data name="ConfigSettingsDialog_StopAfterNoChange.OnContent" xml:space="preserve">
+    <value>已开启</value>
+  </data>
+  <data name="ConfigSettingsDialog_StopAfterNoChange.OffContent" xml:space="preserve">
+    <value>已关闭</value>
+  </data>
+  <data name="ConfigSettingsDialog_StopAfterNoChangePrefix.Text" xml:space="preserve">
+    <value>连续</value>
+  </data>
+  <data name="ConfigSettingsDialog_StopAfterNoChangeSuffix.Text" xml:space="preserve">
+    <value>次未发现变更后自动停止</value>
+  </data>
+  <data name="AutoBackup_StoppedNoChanges" xml:space="preserve">
+    <value>“{0}” 的自动备份已停止：连续 {1} 次未检测到变更。</value>
+  </data>
+  <data name="SettingsPage_DataMigration.Text" xml:space="preserve">
+    <value>数据迁移</value>
+  </data>
+  <data name="SettingsPage_DataMigrationDesc.Text" xml:space="preserve">
+    <value>导入或导出配置和历史记录，方便迁移</value>
+  </data>
+  <data name="SettingsPage_ConfigData.Text" xml:space="preserve">
+    <value>配置数据</value>
+  </data>
+  <data name="SettingsPage_ConfigDataDesc.Text" xml:space="preserve">
+    <value>导出当前配置或导入之前导出的配置文件。导入将替换所有当前设置。</value>
+  </data>
+  <data name="SettingsPage_ExportConfig.Content" xml:space="preserve">
+    <value>导出配置</value>
+  </data>
+  <data name="SettingsPage_ImportConfig.Content" xml:space="preserve">
+    <value>导入配置</value>
+  </data>
+  <data name="SettingsPage_HistoryData.Text" xml:space="preserve">
+    <value>历史记录</value>
+  </data>
+  <data name="SettingsPage_HistoryDataDesc.Text" xml:space="preserve">
+    <value>导出或导入备份历史记录。导入时可选择合并或替换现有记录。</value>
+  </data>
+  <data name="SettingsPage_ExportHistory.Content" xml:space="preserve">
+    <value>导出历史记录</value>
+  </data>
+  <data name="SettingsPage_ImportHistory.Content" xml:space="preserve">
+    <value>导入历史记录</value>
+  </data>
+  <data name="Settings_ExportConfigSuccess" xml:space="preserve">
+    <value>配置导出成功。</value>
+  </data>
+  <data name="Settings_ExportConfigFailed" xml:space="preserve">
+    <value>配置导出失败。</value>
+  </data>
+  <data name="Settings_ImportConfigConfirmTitle" xml:space="preserve">
+    <value>导入配置</value>
+  </data>
+  <data name="Settings_ImportConfigConfirmContent" xml:space="preserve">
+    <value>导入将替换所有当前设置和备份配置。系统会自动创建当前配置的备份。是否继续？</value>
+  </data>
+  <data name="Common_Confirm" xml:space="preserve">
+    <value>确认</value>
+  </data>
+  <data name="Settings_ImportConfigSuccess" xml:space="preserve">
+    <value>配置导入成功。部分设置可能需要重启应用才能生效。</value>
+  </data>
+  <data name="Settings_ImportConfigFailed" xml:space="preserve">
+    <value>配置导入失败，文件可能无效。</value>
+  </data>
+  <data name="Settings_ExportHistorySuccess" xml:space="preserve">
+    <value>历史记录导出成功。</value>
+  </data>
+  <data name="Settings_ExportHistoryFailed" xml:space="preserve">
+    <value>历史记录导出失败。</value>
+  </data>
+  <data name="Settings_ImportHistoryConfirmTitle" xml:space="preserve">
+    <value>导入历史记录</value>
+  </data>
+  <data name="Settings_ImportHistoryConfirmContent" xml:space="preserve">
+    <value>选择导入方式：合并会将不重复的记录添加到现有历史中；替换会覆盖所有现有记录。</value>
+  </data>
+  <data name="Settings_ImportHistoryMerge" xml:space="preserve">
+    <value>合并</value>
+  </data>
+  <data name="Settings_ImportHistoryReplace" xml:space="preserve">
+    <value>替换</value>
+  </data>
+  <data name="Settings_ImportHistorySuccess" xml:space="preserve">
+    <value>成功导入 {0} 条历史记录。</value>
+  </data>
+  <data name="Settings_ImportHistoryFailed" xml:space="preserve">
+    <value>历史记录导入失败，文件可能无效。</value>
+  </data>
+  <data name="Config_ExportSuccess" xml:space="preserve">
+    <value>配置已导出到：{0}</value>
+  </data>
+  <data name="Config_ExportFailed" xml:space="preserve">
+    <value>配置导出失败：{0}</value>
+  </data>
+  <data name="Config_ImportSuccess" xml:space="preserve">
+    <value>配置已从 {0} 导入</value>
+  </data>
+  <data name="Config_ImportFailed" xml:space="preserve">
+    <value>配置导入失败：{0}</value>
+  </data>
+  <data name="Config_ImportFailed_Null" xml:space="preserve">
+    <value>配置导入失败：解析结果为空。</value>
+  </data>
+  <data name="History_ExportSuccess" xml:space="preserve">
+    <value>历史记录已导出到：{0}</value>
+  </data>
+  <data name="History_ExportFailed" xml:space="preserve">
+    <value>历史记录导出失败：{0}</value>
+  </data>
+  <data name="History_ImportSuccess" xml:space="preserve">
+    <value>已导入 {0} 条历史记录。</value>
+  </data>
+  <data name="History_ImportFailed" xml:space="preserve">
+    <value>历史记录导入失败：{0}</value>
+  </data>
 </root>

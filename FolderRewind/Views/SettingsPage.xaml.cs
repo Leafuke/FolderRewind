@@ -1223,5 +1223,138 @@ namespace FolderRewind.Views
         private void OnJoinGroupButtonClick(object sender, RoutedEventArgs e)
         => FlyoutBase.ShowAttachedFlyout(sender as FrameworkElement);
 
+        // ========== 数据迁移 ==========
+
+        private async void OnExportConfigClick(object sender, RoutedEventArgs e)
+        {
+            var picker = new FileSavePicker();
+            picker.SuggestedStartLocation = PickerLocationId.DocumentsLibrary;
+            picker.FileTypeChoices.Add("JSON", new List<string> { ".json" });
+            picker.SuggestedFileName = "FolderRewind_config";
+
+            if (App._window != null)
+                InitializeWithWindow.Initialize(picker, WindowNative.GetWindowHandle(App._window));
+
+            var file = await picker.PickSaveFileAsync();
+            if (file == null) return;
+
+            bool ok = ConfigService.ExportConfig(file.Path);
+            if (ok)
+                ShowInfoBar(I18n.GetString("Settings_ExportConfigSuccess"), Microsoft.UI.Xaml.Controls.InfoBarSeverity.Success);
+            else
+                ShowInfoBar(I18n.GetString("Settings_ExportConfigFailed"), Microsoft.UI.Xaml.Controls.InfoBarSeverity.Error);
+        }
+
+        private async void OnImportConfigClick(object sender, RoutedEventArgs e)
+        {
+            var confirm = new ContentDialog
+            {
+                Title = I18n.GetString("Settings_ImportConfigConfirmTitle"),
+                Content = new TextBlock { Text = I18n.GetString("Settings_ImportConfigConfirmContent"), TextWrapping = TextWrapping.Wrap },
+                PrimaryButtonText = I18n.GetString("Common_Confirm"),
+                CloseButtonText = I18n.GetString("Common_Cancel"),
+                DefaultButton = ContentDialogButton.Close,
+                XamlRoot = this.XamlRoot
+            };
+            ThemeService.ApplyThemeToDialog(confirm);
+
+            var result = await confirm.ShowAsync();
+            if (result != ContentDialogResult.Primary) return;
+
+            var picker = new FileOpenPicker();
+            picker.SuggestedStartLocation = PickerLocationId.DocumentsLibrary;
+            picker.FileTypeFilter.Add(".json");
+
+            if (App._window != null)
+                InitializeWithWindow.Initialize(picker, WindowNative.GetWindowHandle(App._window));
+
+            var file = await picker.PickSingleFileAsync();
+            if (file == null) return;
+
+            bool ok = ConfigService.ImportConfig(file.Path);
+            if (ok)
+            {
+                ShowInfoBar(I18n.GetString("Settings_ImportConfigSuccess"), Microsoft.UI.Xaml.Controls.InfoBarSeverity.Success);
+                // 重新加载页面数据
+                OnPropertyChanged(nameof(Settings));
+            }
+            else
+            {
+                ShowInfoBar(I18n.GetString("Settings_ImportConfigFailed"), Microsoft.UI.Xaml.Controls.InfoBarSeverity.Error);
+            }
+        }
+
+        private async void OnExportHistoryClick(object sender, RoutedEventArgs e)
+        {
+            var picker = new FileSavePicker();
+            picker.SuggestedStartLocation = PickerLocationId.DocumentsLibrary;
+            picker.FileTypeChoices.Add("JSON", new List<string> { ".json" });
+            picker.SuggestedFileName = "FolderRewind_history";
+
+            if (App._window != null)
+                InitializeWithWindow.Initialize(picker, WindowNative.GetWindowHandle(App._window));
+
+            var file = await picker.PickSaveFileAsync();
+            if (file == null) return;
+
+            bool ok = HistoryService.ExportHistory(file.Path);
+            if (ok)
+                ShowInfoBar(I18n.GetString("Settings_ExportHistorySuccess"), Microsoft.UI.Xaml.Controls.InfoBarSeverity.Success);
+            else
+                ShowInfoBar(I18n.GetString("Settings_ExportHistoryFailed"), Microsoft.UI.Xaml.Controls.InfoBarSeverity.Error);
+        }
+
+        private async void OnImportHistoryClick(object sender, RoutedEventArgs e)
+        {
+            var confirm = new ContentDialog
+            {
+                Title = I18n.GetString("Settings_ImportHistoryConfirmTitle"),
+                Content = new TextBlock { Text = I18n.GetString("Settings_ImportHistoryConfirmContent"), TextWrapping = TextWrapping.Wrap },
+                PrimaryButtonText = I18n.GetString("Settings_ImportHistoryMerge"),
+                SecondaryButtonText = I18n.GetString("Settings_ImportHistoryReplace"),
+                CloseButtonText = I18n.GetString("Common_Cancel"),
+                DefaultButton = ContentDialogButton.Primary,
+                XamlRoot = this.XamlRoot
+            };
+            ThemeService.ApplyThemeToDialog(confirm);
+
+            var result = await confirm.ShowAsync();
+            if (result == ContentDialogResult.None) return;
+
+            bool merge = (result == ContentDialogResult.Primary);
+
+            var picker = new FileOpenPicker();
+            picker.SuggestedStartLocation = PickerLocationId.DocumentsLibrary;
+            picker.FileTypeFilter.Add(".json");
+
+            if (App._window != null)
+                InitializeWithWindow.Initialize(picker, WindowNative.GetWindowHandle(App._window));
+
+            var file = await picker.PickSingleFileAsync();
+            if (file == null) return;
+
+            var (ok, count) = HistoryService.ImportHistory(file.Path, merge);
+            if (ok)
+                ShowInfoBar(I18n.Format("Settings_ImportHistorySuccess", count.ToString()), Microsoft.UI.Xaml.Controls.InfoBarSeverity.Success);
+            else
+                ShowInfoBar(I18n.GetString("Settings_ImportHistoryFailed"), Microsoft.UI.Xaml.Controls.InfoBarSeverity.Error);
+        }
+
+        private async void ShowInfoBar(string message, Microsoft.UI.Xaml.Controls.InfoBarSeverity severity)
+        {
+            try
+            {
+                var dialog = new ContentDialog
+                {
+                    Content = message,
+                    CloseButtonText = I18n.GetString("Common_Ok"),
+                    XamlRoot = this.XamlRoot
+                };
+                ThemeService.ApplyThemeToDialog(dialog);
+                await dialog.ShowAsync();
+            }
+            catch { }
+        }
+
     }
 }

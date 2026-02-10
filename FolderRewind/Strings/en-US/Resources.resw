@@ -2034,4 +2034,124 @@ Status: {3}</value>
   <data name="Hotkeys_MiniBackup_Description" xml:space="preserve">
     <value>Trigger backup on the last focused Mini window (global hotkey)</value>
   </data>
+  <data name="ConfigSettingsDialog_StopAfterNoChange.Header" xml:space="preserve">
+    <value>Stop auto task after repeated no changes</value>
+  </data>
+  <data name="ConfigSettingsDialog_StopAfterNoChange.OnContent" xml:space="preserve">
+    <value>On</value>
+  </data>
+  <data name="ConfigSettingsDialog_StopAfterNoChange.OffContent" xml:space="preserve">
+    <value>Off</value>
+  </data>
+  <data name="ConfigSettingsDialog_StopAfterNoChangePrefix.Text" xml:space="preserve">
+    <value>Stop after</value>
+  </data>
+  <data name="ConfigSettingsDialog_StopAfterNoChangeSuffix.Text" xml:space="preserve">
+    <value>consecutive times with no changes</value>
+  </data>
+  <data name="AutoBackup_StoppedNoChanges" xml:space="preserve">
+    <value>Auto backup for "{0}" has been disabled: no changes detected {1} consecutive times.</value>
+  </data>
+  <data name="SettingsPage_DataMigration.Text" xml:space="preserve">
+    <value>Data Migration</value>
+  </data>
+  <data name="SettingsPage_DataMigrationDesc.Text" xml:space="preserve">
+    <value>Import or export configuration and history for migration</value>
+  </data>
+  <data name="SettingsPage_ConfigData.Text" xml:space="preserve">
+    <value>Configuration</value>
+  </data>
+  <data name="SettingsPage_ConfigDataDesc.Text" xml:space="preserve">
+    <value>Export the current configuration or import a previously exported configuration file. Importing will replace all current settings.</value>
+  </data>
+  <data name="SettingsPage_ExportConfig.Content" xml:space="preserve">
+    <value>Export Configuration</value>
+  </data>
+  <data name="SettingsPage_ImportConfig.Content" xml:space="preserve">
+    <value>Import Configuration</value>
+  </data>
+  <data name="SettingsPage_HistoryData.Text" xml:space="preserve">
+    <value>History Records</value>
+  </data>
+  <data name="SettingsPage_HistoryDataDesc.Text" xml:space="preserve">
+    <value>Export or import backup history records. When importing, you can choose to merge or replace existing records.</value>
+  </data>
+  <data name="SettingsPage_ExportHistory.Content" xml:space="preserve">
+    <value>Export History</value>
+  </data>
+  <data name="SettingsPage_ImportHistory.Content" xml:space="preserve">
+    <value>Import History</value>
+  </data>
+  <data name="Settings_ExportConfigSuccess" xml:space="preserve">
+    <value>Configuration exported successfully.</value>
+  </data>
+  <data name="Settings_ExportConfigFailed" xml:space="preserve">
+    <value>Failed to export configuration.</value>
+  </data>
+  <data name="Settings_ImportConfigConfirmTitle" xml:space="preserve">
+    <value>Import Configuration</value>
+  </data>
+  <data name="Settings_ImportConfigConfirmContent" xml:space="preserve">
+    <value>Importing will replace all current settings and backup configurations. A backup of the current config will be created automatically. Continue?</value>
+  </data>
+  <data name="Common_Confirm" xml:space="preserve">
+    <value>Confirm</value>
+  </data>
+  <data name="Settings_ImportConfigSuccess" xml:space="preserve">
+    <value>Configuration imported successfully. Some settings may require a restart to take effect.</value>
+  </data>
+  <data name="Settings_ImportConfigFailed" xml:space="preserve">
+    <value>Failed to import configuration. The file may be invalid.</value>
+  </data>
+  <data name="Settings_ExportHistorySuccess" xml:space="preserve">
+    <value>History records exported successfully.</value>
+  </data>
+  <data name="Settings_ExportHistoryFailed" xml:space="preserve">
+    <value>Failed to export history records.</value>
+  </data>
+  <data name="Settings_ImportHistoryConfirmTitle" xml:space="preserve">
+    <value>Import History</value>
+  </data>
+  <data name="Settings_ImportHistoryConfirmContent" xml:space="preserve">
+    <value>Choose how to import: Merge will add non-duplicate records to the existing history. Replace will overwrite all existing records.</value>
+  </data>
+  <data name="Settings_ImportHistoryMerge" xml:space="preserve">
+    <value>Merge</value>
+  </data>
+  <data name="Settings_ImportHistoryReplace" xml:space="preserve">
+    <value>Replace</value>
+  </data>
+  <data name="Settings_ImportHistorySuccess" xml:space="preserve">
+    <value>{0} history records imported successfully.</value>
+  </data>
+  <data name="Settings_ImportHistoryFailed" xml:space="preserve">
+    <value>Failed to import history records. The file may be invalid.</value>
+  </data>
+  <data name="Config_ExportSuccess" xml:space="preserve">
+    <value>Configuration exported to: {0}</value>
+  </data>
+  <data name="Config_ExportFailed" xml:space="preserve">
+    <value>Failed to export configuration: {0}</value>
+  </data>
+  <data name="Config_ImportSuccess" xml:space="preserve">
+    <value>Configuration imported from: {0}</value>
+  </data>
+  <data name="Config_ImportFailed" xml:space="preserve">
+    <value>Failed to import configuration: {0}</value>
+  </data>
+  <data name="Config_ImportFailed_Null" xml:space="preserve">
+    <value>Failed to import configuration: parsed result is null.</value>
+  </data>
+  <data name="History_ExportSuccess" xml:space="preserve">
+    <value>History exported to: {0}</value>
+  </data>
+  <data name="History_ExportFailed" xml:space="preserve">
+    <value>Failed to export history: {0}</value>
+  </data>
+  <data name="History_ImportSuccess" xml:space="preserve">
+    <value>{0} history records imported.</value>
+  </data>
+  <data name="History_ImportFailed" xml:space="preserve">
+    <value>Failed to import history: {0}</value>
+  </data>
 </root>

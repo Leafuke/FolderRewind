@@ -195,7 +195,7 @@
                     <CheckBox x:Uid="ConfigSettingsDialog_RunOnAppStart" IsChecked="{x:Bind Config.Automation.RunOnAppStart, Mode=TwoWay}"/>
                     <StackPanel Orientation="Horizontal" Spacing="8">
                         <TextBlock x:Uid="ConfigSettingsDialog_IntervalMinutes" VerticalAlignment="Center"/>
-                        <NumberBox Value="{x:Bind Config.Automation.IntervalMinutes, Mode=TwoWay}" Minimum="1" Maximum="10080" SpinButtonPlacementMode="Inline" Width="140"/>
+                        <NumberBox Value="{x:Bind Config.Automation.IntervalMinutes, Mode=TwoWay}" MinWidth="300" Minimum="1" Maximum="10080" SpinButtonPlacementMode="Inline" Width="140"/>
                         <TextBlock x:Uid="ConfigSettingsDialog_IntervalMinutesSuffix" VerticalAlignment="Center"/>
                     </StackPanel>
                     <CheckBox x:Uid="ConfigSettingsDialog_ScheduledMode" IsChecked="{x:Bind Config.Automation.ScheduledMode, Mode=TwoWay}"/>
@@ -204,6 +204,14 @@
                         <TextBlock x:Uid="ConfigSettingsDialog_ScheduledTime" VerticalAlignment="Center"/>
                         <NumberBox Value="{x:Bind Config.Automation.ScheduledHour, Mode=TwoWay}" Minimum="0" Maximum="23" SpinButtonPlacementMode="Inline"/>
                         <TextBlock x:Uid="ConfigSettingsDialog_ScheduledTimeSuffix" VerticalAlignment="Center"/>
+                    </StackPanel>
+
+                    <!-- 连续无变更自动停止 -->
+                    <ToggleSwitch x:Uid="ConfigSettingsDialog_StopAfterNoChange" IsOn="{x:Bind Config.Automation.StopAfterNoChangeEnabled, Mode=TwoWay}"/>
+                    <StackPanel Orientation="Horizontal" Spacing="8" Visibility="{x:Bind Config.Automation.StopAfterNoChangeEnabled, Mode=OneWay, Converter={StaticResource BoolToVisConverter}}">
+                        <TextBlock x:Uid="ConfigSettingsDialog_StopAfterNoChangePrefix" VerticalAlignment="Center"/>
+                        <NumberBox Value="{x:Bind Config.Automation.StopAfterNoChangeCount, Mode=TwoWay}" Minimum="1" Maximum="100" SpinButtonPlacementMode="Inline" Width="120"/>
+                        <TextBlock x:Uid="ConfigSettingsDialog_StopAfterNoChangeSuffix" VerticalAlignment="Center"/>
                     </StackPanel>
                 </StackPanel>
             </StackPanel>
