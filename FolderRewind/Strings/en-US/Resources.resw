@@ -1950,8 +1950,6 @@ Comment: {1}
   <data name="Notice_FetchFailed" xml:space="preserve">
     <value>Failed to fetch announcement: {0}</value>
   </data>
-
-  <!-- ========== Mini Window ========== -->
   <data name="FolderManager_MiniWindow.Text" xml:space="preserve">
     <value>Mini Window</value>
   </data>
@@ -1998,7 +1996,10 @@ Comment: {1}
     <value>Status</value>
   </data>
   <data name="MiniWindow_Tip_Format" xml:space="preserve">
-    <value>{0}&#10;{1}&#10;Last backup: {2}&#10;Status: {3}</value>
+    <value>{0}
+{1}
+Last backup: {2}
+Status: {3}</value>
   </data>
   <data name="MiniWindow_BackupComment_Hotkey" xml:space="preserve">
     <value>[Hotkey]</value>

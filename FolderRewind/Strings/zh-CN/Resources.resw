@@ -1996,10 +1996,10 @@
     <value>状态</value>
   </data>
   <data name="MiniWindow_Tip_Format" xml:space="preserve">
-    <value>{0}&#10;{1}&#10;上次备份：{2}&#10;状态：{3}</value>
-  </data>
-  <data name="MiniWindow_BackupComment_Suffix" xml:space="preserve">
-    <value>[Mini]</value>
+    <value>{0}
+{1}
+上次备份：{2}
+状态：{3}</value>
   </data>
   <data name="MiniWindow_BackupComment_Hotkey" xml:space="preserve">
     <value>[热键]</value>

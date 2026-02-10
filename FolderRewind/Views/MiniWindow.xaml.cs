@@ -465,13 +465,13 @@ namespace FolderRewind.Views
                 {
                     // 左展开收起：方块在窗口右端，需将窗口右移到方块位置
                     int extraPixels = (int)(ExpandedExtraWidth * scale);
-                    SetWindowPos(hwnd, IntPtr.Zero, pos.X + extraPixels, pos.Y, size + 7, size,
+                    SetWindowPos(hwnd, IntPtr.Zero, pos.X + extraPixels, pos.Y, size + 8, size,
                         SWP_NOACTIVATE | SWP_NOZORDER | SWP_NOOWNERZORDER);
                 }
                 else
                 {
                     // 右展开收起：方块在窗口左端，直接 resize
-                    SetWindowPos(hwnd, IntPtr.Zero, pos.X, pos.Y, size + 7, size,
+                    SetWindowPos(hwnd, IntPtr.Zero, pos.X, pos.Y, size + 8, size,
                         SWP_NOACTIVATE | SWP_NOZORDER | SWP_NOOWNERZORDER);
                 }
             }
