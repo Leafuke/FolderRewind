@@ -136,7 +136,7 @@ namespace FolderRewind.Services
                             LogService.Log($"[AutoBackup] Auto backup disabled for '{config.Name}': no changes detected {config.Automation.ConsecutiveNoChangeCount} consecutive times.");
                             try
                             {
-                                NotificationService.ShowInfo(
+                                NotificationService.ShowImportant(
                                     I18n.Format("AutoBackup_StoppedNoChanges", config.Name, config.Automation.ConsecutiveNoChangeCount.ToString()));
                             }
                             catch { }

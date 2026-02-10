@@ -101,6 +101,7 @@ namespace FolderRewind.Models
 
         // 通知设置
         private bool _enableNotifications = true;
+        private int _toastNotificationLevel = 2; // 0=Off, 1=ErrorOnly, 2=ImportantAndAbove, 3=All
 
         // 警告设置
         private int _fileSizeWarningThresholdKB = 5; // 备份文件小于此值(KB)时触发警告
@@ -185,6 +186,12 @@ namespace FolderRewind.Models
         /// 是否启用应用内/系统通知（全局开关）。
         /// </summary>
         public bool EnableNotifications { get => _enableNotifications; set => SetProperty(ref _enableNotifications, value); }
+
+        /// <summary>
+        /// 系统 Toast 通知等级阈值。控制何时发送系统级弹窗通知。
+        /// 0=关闭, 1=仅错误, 2=重要及以上(默认), 3=全部
+        /// </summary>
+        public int ToastNotificationLevel { get => _toastNotificationLevel; set => SetProperty(ref _toastNotificationLevel, value); }
 
         /// <summary>
         /// 备份文件大小警告阈值(KB)。备份生成的文件小于此大小时触发 AppNotification 警告。

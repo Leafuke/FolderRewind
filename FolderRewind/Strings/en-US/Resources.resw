@@ -2154,4 +2154,25 @@ Status: {3}</value>
   <data name="History_ImportFailed" xml:space="preserve">
     <value>Failed to import history: {0}</value>
   </data>
+  <data name="SettingsPage_ToastNotificationLevel.Text" xml:space="preserve">
+    <value>System notification level</value>
+  </data>
+  <data name="SettingsPage_ToastNotificationLevelDesc.Text" xml:space="preserve">
+    <value>Controls when system pop-up notifications (Toast) are sent; in-app notifications are not affected</value>
+  </data>
+  <data name="SettingsPage_ToastLevel_Off.Content" xml:space="preserve">
+    <value>Off</value>
+  </data>
+  <data name="SettingsPage_ToastLevel_ErrorOnly.Content" xml:space="preserve">
+    <value>Errors only</value>
+  </data>
+  <data name="SettingsPage_ToastLevel_ImportantAndAbove.Content" xml:space="preserve">
+    <value>Important and above</value>
+  </data>
+  <data name="SettingsPage_ToastLevel_All.Content" xml:space="preserve">
+    <value>All</value>
+  </data>
+  <data name="Notification_Important_Title" xml:space="preserve">
+    <value>Important</value>
+  </data>
 </root>

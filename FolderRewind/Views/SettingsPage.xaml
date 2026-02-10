@@ -117,6 +117,25 @@
                                 <ToggleSwitch Grid.Column="1" IsOn="{x:Bind Settings.EnableNotifications, Mode=TwoWay}" Toggled="OnNotificationsToggled" />
                             </Grid>
 
+                            <Grid Visibility="{x:Bind Settings.EnableNotifications, Mode=OneWay}">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*" />
+                                    <ColumnDefinition Width="Auto" />
+                                </Grid.ColumnDefinitions>
+                                <StackPanel>
+                                    <TextBlock x:Uid="SettingsPage_ToastNotificationLevel" />
+                                    <TextBlock x:Uid="SettingsPage_ToastNotificationLevelDesc" Style="{StaticResource SettingsDescriptionStyle}" />
+                                </StackPanel>
+                                <ComboBox Grid.Column="1" Width="180"
+                                          SelectedIndex="{x:Bind Settings.ToastNotificationLevel, Mode=TwoWay}"
+                                          SelectionChanged="OnToastLevelChanged">
+                                    <ComboBoxItem x:Uid="SettingsPage_ToastLevel_Off" />
+                                    <ComboBoxItem x:Uid="SettingsPage_ToastLevel_ErrorOnly" />
+                                    <ComboBoxItem x:Uid="SettingsPage_ToastLevel_ImportantAndAbove" />
+                                    <ComboBoxItem x:Uid="SettingsPage_ToastLevel_All" />
+                                </ComboBox>
+                            </Grid>
+
                             <Grid>
                                 <Grid.ColumnDefinitions>
                                     <ColumnDefinition Width="*" />

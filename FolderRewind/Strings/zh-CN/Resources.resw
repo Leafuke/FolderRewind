@@ -2154,4 +2154,25 @@
   <data name="History_ImportFailed" xml:space="preserve">
     <value>历史记录导入失败：{0}</value>
   </data>
+  <data name="SettingsPage_ToastNotificationLevel.Text" xml:space="preserve">
+    <value>系统通知等级</value>
+  </data>
+  <data name="SettingsPage_ToastNotificationLevelDesc.Text" xml:space="preserve">
+    <value>控制何时发送系统弹窗通知（Toast），应用内通知不受影响</value>
+  </data>
+  <data name="SettingsPage_ToastLevel_Off.Content" xml:space="preserve">
+    <value>关闭</value>
+  </data>
+  <data name="SettingsPage_ToastLevel_ErrorOnly.Content" xml:space="preserve">
+    <value>仅错误</value>
+  </data>
+  <data name="SettingsPage_ToastLevel_ImportantAndAbove.Content" xml:space="preserve">
+    <value>重要及以上</value>
+  </data>
+  <data name="SettingsPage_ToastLevel_All.Content" xml:space="preserve">
+    <value>全部</value>
+  </data>
+  <data name="Notification_Important_Title" xml:space="preserve">
+    <value>重要通知</value>
+  </data>
 </root>

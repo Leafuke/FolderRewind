@@ -318,6 +318,9 @@ namespace FolderRewind.Services
             {
                 settings.HomeSortMode = "NameAsc";
             }
+
+            // Toast notification level: clamp to valid range (0-3)
+            settings.ToastNotificationLevel = Math.Clamp(settings.ToastNotificationLevel, 0, 3);
         }
 
         private static string GetWritableAppDataDir()

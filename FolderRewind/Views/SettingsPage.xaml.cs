@@ -187,6 +187,11 @@ namespace FolderRewind.Views
             }
         }
 
+        private void OnToastLevelChanged(object sender, SelectionChangedEventArgs e)
+        {
+            ConfigService.Save();
+        }
+
         private void OnFileSizeWarningThresholdChanged(NumberBox sender, NumberBoxValueChangedEventArgs e)
         {
             if (double.IsNaN(e.NewValue)) return;
