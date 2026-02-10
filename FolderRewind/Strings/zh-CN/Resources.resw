@@ -132,9 +132,6 @@
   <data name="HomePage_CreateButton" xml:space="preserve">
     <value>创建</value>
   </data>
-  <data name="HomePage_CancelButton" xml:space="preserve">
-    <value>取消</value>
-  </data>
   <data name="HomePage_NewConfigSummary" xml:space="preserve">
     <value>新建 · 暂无数据</value>
   </data>
@@ -147,9 +144,6 @@
   <data name="HomePage_ContextMenu_EditConfig.Text" xml:space="preserve">
     <value>编辑配置</value>
   </data>
-  <data name="HomePage_ContextMenu_DuplicateConfig.Text" xml:space="preserve">
-    <value>复制配置</value>
-  </data>
   <data name="HomePage_ContextMenu_DeleteConfig.Text" xml:space="preserve">
     <value>删除配置</value>
   </data>
@@ -158,9 +152,6 @@
   </data>
   <data name="HomePage_ContextMenu_NoFolders_Content" xml:space="preserve">
     <value>该配置中没有需要备份的文件夹。</value>
-  </data>
-  <data name="HomePage_ContextMenu_CopySuffix" xml:space="preserve">
-    <value>副本</value>
   </data>
   <data name="HomePage_ContextMenu_DeleteConfirm_Title" xml:space="preserve">
     <value>确认删除</value>
@@ -238,7 +229,7 @@
     <value>核心行为</value>
   </data>
   <data name="SettingsPage_CoreBehaviorSectionDesc.Text" xml:space="preserve">
-    <value>影响应用启动行为与更新检查方式</value>
+    <value>影响应用启动行为与窗口关闭方式</value>
   </data>
   <data name="SettingsPage_PersonalizationSectionDesc.Text" xml:space="preserve">
     <value>语言、主题、字体与布局等显示设置</value>
@@ -287,12 +278,6 @@
   </data>
   <data name="SettingsPage_RunOnStartupDesc.Text" xml:space="preserve">
     <value>登录 Windows 时自动运行 FolderRewind</value>
-  </data>
-  <data name="SettingsPage_CheckUpdates.Text" xml:space="preserve">
-    <value>自动检查更新</value>
-  </data>
-  <data name="SettingsPage_CheckUpdatesDesc.Text" xml:space="preserve">
-    <value>启动时检查新版本</value>
   </data>
   <data name="SettingsPage_Environment.Text" xml:space="preserve">
     <value>运行环境</value>
@@ -378,12 +363,6 @@
   <data name="HomePage_Sort_LastModified.Content" xml:space="preserve">
     <value>最后修改时间</value>
   </data>
-  <data name="HomePage_Sort_FolderCount.Content" xml:space="preserve">
-    <value>源文件夹数量</value>
-  </data>
-  <data name="HomePage_Sort_Destination.Content" xml:space="preserve">
-    <value>目标路径</value>
-  </data>
   <data name="HomePage_Config_Auto.Text" xml:space="preserve">
     <value>自动</value>
   </data>
@@ -425,9 +404,6 @@
   </data>
   <data name="FolderManager_ConfigSettingsButton.ToolTipService.ToolTip" xml:space="preserve">
     <value>配置设置</value>
-  </data>
-  <data name="FolderManager_ViewLogButton.ToolTipService.ToolTip" xml:space="preserve">
-    <value>查看日志</value>
   </data>
   <data name="FolderManager_AddFolder.Text" xml:space="preserve">
     <value>添加文件夹</value>
@@ -611,9 +587,6 @@
   </data>
   <data name="ConfigSettingsDialog_Icon.Text" xml:space="preserve">
     <value>界面图标</value>
-  </data>
-  <data name="ConfigSettingsDialog_Compression.Header" xml:space="preserve">
-    <value>备份策略</value>
   </data>
   <data name="ConfigSettingsDialog_BackupMode.Header" xml:space="preserve">
     <value>备份模式</value>
@@ -804,15 +777,6 @@
   <data name="BackupService_Log_SafeDeleteFatalError" xml:space="preserve">
     <value>[安全删除] 发生严重错误：{0}</value>
   </data>
-  <data name="LogWindow.Title" xml:space="preserve">
-    <value>FolderRewind 控制台日志</value>
-  </data>
-  <data name="LogWindow_ClearLog.Content" xml:space="preserve">
-    <value>清空日志</value>
-  </data>
-  <data name="LogWindow_AutoScroll.Content" xml:space="preserve">
-    <value>自动滚动</value>
-  </data>
   <data name="SettingsPage_LogDiag.Text" xml:space="preserve">
     <value>日志与诊断</value>
   </data>
@@ -833,12 +797,6 @@
   </data>
   <data name="SettingsPage_LogRetentionDesc.Text" xml:space="preserve">
     <value>到期后自动清理历史日志</value>
-  </data>
-  <data name="SettingsPage_DebugLog.Text" xml:space="preserve">
-    <value>包含调试日志</value>
-  </data>
-  <data name="SettingsPage_DebugLogDesc.Text" xml:space="preserve">
-    <value>用于更细粒度的诊断</value>
   </data>
   <data name="SettingsPage_OpenLogCenter.Content" xml:space="preserve">
     <value>打开日志中心</value>
@@ -1547,12 +1505,6 @@
   <data name="BackupService_Log_RestoreDeleteFileFailed" xml:space="preserve">
     <value>删除文件失败: {0} - {1}</value>
   </data>
-  <data name="BackupService_Log_PruneSkipImportantFull" xml:space="preserve">
-    <value>重要备份 ({0}) 已达保留限额 ({1})，跳过清理</value>
-  </data>
-  <data name="BackupService_Log_PruneException" xml:space="preserve">
-    <value>备份清理异常: {0}</value>
-  </data>
   <data name="BackupService_Log_RestoreChainBuilt" xml:space="preserve">
     <value>还原链已构建，包含 {0} 个包</value>
   </data>
@@ -1860,9 +1812,6 @@
   <data name="History_EditComment_Placeholder" xml:space="preserve">
     <value>输入备份注释（可留空）</value>
   </data>
-  <data name="History_EditComment_Success" xml:space="preserve">
-    <value>注释已更新</value>
-  </data>
   <data name="SettingsPage_EnableNotifications.Text" xml:space="preserve">
     <value>启用通知提醒</value>
   </data>
@@ -1914,11 +1863,11 @@
   <data name="SettingsPage_About_Link_QQ_GROUP.Content" xml:space="preserve">
     <value>加入 QQ 群</value>
   </data>
-  <data name="SettingsPage_Warnings.Text" xml:space="preserve">
-    <value>警告</value>
+  <data name="SettingsPage_Notifications.Text" xml:space="preserve">
+    <value>通知</value>
   </data>
-  <data name="SettingsPage_WarningsDesc.Text" xml:space="preserve">
-    <value>配置备份过程中的警告规则</value>
+  <data name="SettingsPage_NotificationsDesc.Text" xml:space="preserve">
+    <value>配置应用内通知、系统弹窗与警告规则</value>
   </data>
   <data name="SettingsPage_FileSizeWarningThreshold.Text" xml:space="preserve">
     <value>文件大小警告阈值</value>
@@ -1956,9 +1905,6 @@
   <data name="MiniWindow_CommentPlaceholder" xml:space="preserve">
     <value>输入备注后回车备份...</value>
   </data>
-  <data name="MiniWindow_Title_DefaultFolder" xml:space="preserve">
-    <value>文件夹</value>
-  </data>
   <data name="MiniWindow_Menu_OpenFolder" xml:space="preserve">
     <value>打开文件夹</value>
   </data>
@@ -1989,17 +1935,11 @@
   <data name="MiniWindow_Tip_Failed" xml:space="preserve">
     <value>备份失败</value>
   </data>
-  <data name="MiniWindow_Tip_LastBackup" xml:space="preserve">
-    <value>上次备份</value>
-  </data>
-  <data name="MiniWindow_Tip_Status" xml:space="preserve">
-    <value>状态</value>
-  </data>
   <data name="MiniWindow_Tip_Format" xml:space="preserve">
-    <value>{0}&#10;{1}&#10;上次备份：{2}&#10;状态：{3}</value>
-  </data>
-  <data name="MiniWindow_BackupComment_Suffix" xml:space="preserve">
-    <value>[Mini]</value>
+    <value>{0}
+{1}
+上次备份：{2}
+状态：{3}</value>
   </data>
   <data name="MiniWindow_BackupComment_Hotkey" xml:space="preserve">
     <value>[热键]</value>
@@ -2033,5 +1973,146 @@
   </data>
   <data name="Hotkeys_MiniBackup_Description" xml:space="preserve">
     <value>对最近获得焦点的 Mini 窗口执行备份（全局热键）</value>
+  </data>
+  <data name="ConfigSettingsDialog_StopAfterNoChange.Header" xml:space="preserve">
+    <value>重复未发现变更后停止自动任务</value>
+  </data>
+  <data name="ConfigSettingsDialog_StopAfterNoChange.OnContent" xml:space="preserve">
+    <value>已开启</value>
+  </data>
+  <data name="ConfigSettingsDialog_StopAfterNoChange.OffContent" xml:space="preserve">
+    <value>已关闭</value>
+  </data>
+  <data name="ConfigSettingsDialog_StopAfterNoChangePrefix.Text" xml:space="preserve">
+    <value>连续</value>
+  </data>
+  <data name="ConfigSettingsDialog_StopAfterNoChangeSuffix.Text" xml:space="preserve">
+    <value>次未发现变更后自动停止</value>
+  </data>
+  <data name="AutoBackup_StoppedNoChanges" xml:space="preserve">
+    <value>“{0}” 的自动备份已停止：连续 {1} 次未检测到变更。</value>
+  </data>
+  <data name="SettingsPage_DataMigration.Text" xml:space="preserve">
+    <value>数据迁移</value>
+  </data>
+  <data name="SettingsPage_DataMigrationDesc.Text" xml:space="preserve">
+    <value>导入或导出配置和历史记录，方便迁移</value>
+  </data>
+  <data name="SettingsPage_ConfigData.Text" xml:space="preserve">
+    <value>配置数据</value>
+  </data>
+  <data name="SettingsPage_ConfigDataDesc.Text" xml:space="preserve">
+    <value>导出当前配置或导入之前导出的配置文件。导入将替换所有当前设置。</value>
+  </data>
+  <data name="SettingsPage_ExportConfig.Content" xml:space="preserve">
+    <value>导出配置</value>
+  </data>
+  <data name="SettingsPage_ImportConfig.Content" xml:space="preserve">
+    <value>导入配置</value>
+  </data>
+  <data name="SettingsPage_HistoryData.Text" xml:space="preserve">
+    <value>历史记录</value>
+  </data>
+  <data name="SettingsPage_HistoryDataDesc.Text" xml:space="preserve">
+    <value>导出或导入备份历史记录。导入时可选择合并或替换现有记录。</value>
+  </data>
+  <data name="SettingsPage_ExportHistory.Content" xml:space="preserve">
+    <value>导出历史记录</value>
+  </data>
+  <data name="SettingsPage_ImportHistory.Content" xml:space="preserve">
+    <value>导入历史记录</value>
+  </data>
+  <data name="Settings_ExportConfigSuccess" xml:space="preserve">
+    <value>配置导出成功。</value>
+  </data>
+  <data name="Settings_ExportConfigFailed" xml:space="preserve">
+    <value>配置导出失败。</value>
+  </data>
+  <data name="Settings_ImportConfigConfirmTitle" xml:space="preserve">
+    <value>导入配置</value>
+  </data>
+  <data name="Settings_ImportConfigConfirmContent" xml:space="preserve">
+    <value>导入将替换所有当前设置和备份配置。系统会自动创建当前配置的备份。是否继续？</value>
+  </data>
+  <data name="Common_Confirm" xml:space="preserve">
+    <value>确认</value>
+  </data>
+  <data name="Settings_ImportConfigSuccess" xml:space="preserve">
+    <value>配置导入成功。部分设置可能需要重启应用才能生效。</value>
+  </data>
+  <data name="Settings_ImportConfigFailed" xml:space="preserve">
+    <value>配置导入失败，文件可能无效。</value>
+  </data>
+  <data name="Settings_ExportHistorySuccess" xml:space="preserve">
+    <value>历史记录导出成功。</value>
+  </data>
+  <data name="Settings_ExportHistoryFailed" xml:space="preserve">
+    <value>历史记录导出失败。</value>
+  </data>
+  <data name="Settings_ImportHistoryConfirmTitle" xml:space="preserve">
+    <value>导入历史记录</value>
+  </data>
+  <data name="Settings_ImportHistoryConfirmContent" xml:space="preserve">
+    <value>选择导入方式：合并会将不重复的记录添加到现有历史中；替换会覆盖所有现有记录。</value>
+  </data>
+  <data name="Settings_ImportHistoryMerge" xml:space="preserve">
+    <value>合并</value>
+  </data>
+  <data name="Settings_ImportHistoryReplace" xml:space="preserve">
+    <value>替换</value>
+  </data>
+  <data name="Settings_ImportHistorySuccess" xml:space="preserve">
+    <value>成功导入 {0} 条历史记录。</value>
+  </data>
+  <data name="Settings_ImportHistoryFailed" xml:space="preserve">
+    <value>历史记录导入失败，文件可能无效。</value>
+  </data>
+  <data name="Config_ExportSuccess" xml:space="preserve">
+    <value>配置已导出到：{0}</value>
+  </data>
+  <data name="Config_ExportFailed" xml:space="preserve">
+    <value>配置导出失败：{0}</value>
+  </data>
+  <data name="Config_ImportSuccess" xml:space="preserve">
+    <value>配置已从 {0} 导入</value>
+  </data>
+  <data name="Config_ImportFailed" xml:space="preserve">
+    <value>配置导入失败：{0}</value>
+  </data>
+  <data name="Config_ImportFailed_Null" xml:space="preserve">
+    <value>配置导入失败：解析结果为空。</value>
+  </data>
+  <data name="History_ExportSuccess" xml:space="preserve">
+    <value>历史记录已导出到：{0}</value>
+  </data>
+  <data name="History_ExportFailed" xml:space="preserve">
+    <value>历史记录导出失败：{0}</value>
+  </data>
+  <data name="History_ImportSuccess" xml:space="preserve">
+    <value>已导入 {0} 条历史记录。</value>
+  </data>
+  <data name="History_ImportFailed" xml:space="preserve">
+    <value>历史记录导入失败：{0}</value>
+  </data>
+  <data name="SettingsPage_ToastNotificationLevel.Text" xml:space="preserve">
+    <value>系统通知等级</value>
+  </data>
+  <data name="SettingsPage_ToastNotificationLevelDesc.Text" xml:space="preserve">
+    <value>控制何时发送系统弹窗通知（Toast），应用内通知不受影响</value>
+  </data>
+  <data name="SettingsPage_ToastLevel_Off.Content" xml:space="preserve">
+    <value>关闭</value>
+  </data>
+  <data name="SettingsPage_ToastLevel_ErrorOnly.Content" xml:space="preserve">
+    <value>仅错误</value>
+  </data>
+  <data name="SettingsPage_ToastLevel_ImportantAndAbove.Content" xml:space="preserve">
+    <value>重要及以上</value>
+  </data>
+  <data name="SettingsPage_ToastLevel_All.Content" xml:space="preserve">
+    <value>全部</value>
+  </data>
+  <data name="Notification_Important_Title" xml:space="preserve">
+    <value>重要通知</value>
   </data>
 </root>

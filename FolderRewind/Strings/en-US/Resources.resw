@@ -132,9 +132,6 @@
   <data name="HomePage_CreateButton" xml:space="preserve">
     <value>Create</value>
   </data>
-  <data name="HomePage_CancelButton" xml:space="preserve">
-    <value>Cancel</value>
-  </data>
   <data name="HomePage_NewConfigSummary" xml:space="preserve">
     <value>New · No data yet</value>
   </data>
@@ -147,9 +144,6 @@
   <data name="HomePage_ContextMenu_EditConfig.Text" xml:space="preserve">
     <value>Edit configuration</value>
   </data>
-  <data name="HomePage_ContextMenu_DuplicateConfig.Text" xml:space="preserve">
-    <value>Duplicate configuration</value>
-  </data>
   <data name="HomePage_ContextMenu_DeleteConfig.Text" xml:space="preserve">
     <value>Delete configuration</value>
   </data>
@@ -158,9 +152,6 @@
   </data>
   <data name="HomePage_ContextMenu_NoFolders_Content" xml:space="preserve">
     <value>This configuration has no folders to backup.</value>
-  </data>
-  <data name="HomePage_ContextMenu_CopySuffix" xml:space="preserve">
-    <value>Copy</value>
   </data>
   <data name="HomePage_ContextMenu_DeleteConfirm_Title" xml:space="preserve">
     <value>Confirm deletion</value>
@@ -238,7 +229,7 @@
     <value>Core behavior</value>
   </data>
   <data name="SettingsPage_CoreBehaviorSectionDesc.Text" xml:space="preserve">
-    <value>Startup behavior and update checks</value>
+    <value>Startup behavior and close window behavior</value>
   </data>
   <data name="SettingsPage_PersonalizationSectionDesc.Text" xml:space="preserve">
     <value>Language, theme, fonts, and layout</value>
@@ -287,12 +278,6 @@
   </data>
   <data name="SettingsPage_RunOnStartupDesc.Text" xml:space="preserve">
     <value>Run FolderRewind when you sign in to Windows</value>
-  </data>
-  <data name="SettingsPage_CheckUpdates.Text" xml:space="preserve">
-    <value>Check for updates</value>
-  </data>
-  <data name="SettingsPage_CheckUpdatesDesc.Text" xml:space="preserve">
-    <value>Check for new versions on startup</value>
   </data>
   <data name="SettingsPage_Environment.Text" xml:space="preserve">
     <value>Environment</value>
@@ -378,12 +363,6 @@
   <data name="HomePage_Sort_LastModified.Content" xml:space="preserve">
     <value>Last modified</value>
   </data>
-  <data name="HomePage_Sort_FolderCount.Content" xml:space="preserve">
-    <value>Folder count</value>
-  </data>
-  <data name="HomePage_Sort_Destination.Content" xml:space="preserve">
-    <value>Destination path</value>
-  </data>
   <data name="HomePage_Config_Auto.Text" xml:space="preserve">
     <value>Auto</value>
   </data>
@@ -425,9 +404,6 @@
   </data>
   <data name="FolderManager_ConfigSettingsButton.ToolTipService.ToolTip" xml:space="preserve">
     <value>Config settings</value>
-  </data>
-  <data name="FolderManager_ViewLogButton.ToolTipService.ToolTip" xml:space="preserve">
-    <value>View log</value>
   </data>
   <data name="FolderManager_AddFolder.Text" xml:space="preserve">
     <value>Add folder</value>
@@ -611,9 +587,6 @@
   </data>
   <data name="ConfigSettingsDialog_Icon.Text" xml:space="preserve">
     <value>UI icon</value>
-  </data>
-  <data name="ConfigSettingsDialog_Compression.Header" xml:space="preserve">
-    <value>Compression</value>
   </data>
   <data name="ConfigSettingsDialog_BackupMode.Header" xml:space="preserve">
     <value>Backup mode</value>
@@ -804,15 +777,6 @@
   <data name="BackupService_Log_SafeDeleteFatalError" xml:space="preserve">
     <value>[Safe Delete] Fatal error: {0}</value>
   </data>
-  <data name="LogWindow.Title" xml:space="preserve">
-    <value>FolderRewind console log</value>
-  </data>
-  <data name="LogWindow_ClearLog.Content" xml:space="preserve">
-    <value>Clear</value>
-  </data>
-  <data name="LogWindow_AutoScroll.Content" xml:space="preserve">
-    <value>Auto-scroll</value>
-  </data>
   <data name="SettingsPage_LogDiag.Text" xml:space="preserve">
     <value>Logs &amp; Diagnostics</value>
   </data>
@@ -833,12 +797,6 @@
   </data>
   <data name="SettingsPage_LogRetentionDesc.Text" xml:space="preserve">
     <value>Automatically clean up old logs</value>
-  </data>
-  <data name="SettingsPage_DebugLog.Text" xml:space="preserve">
-    <value>Include debug logs</value>
-  </data>
-  <data name="SettingsPage_DebugLogDesc.Text" xml:space="preserve">
-    <value>For more detailed diagnostics</value>
   </data>
   <data name="SettingsPage_OpenLogCenter.Content" xml:space="preserve">
     <value>Open log center</value>
@@ -1547,12 +1505,6 @@ If you have a listener subscribed to this signal, it should receive a message.</
   <data name="BackupService_Log_RestoreDeleteFileFailed" xml:space="preserve">
     <value>Failed to delete: {0} - {1}</value>
   </data>
-  <data name="BackupService_Log_PruneSkipImportantFull" xml:space="preserve">
-    <value>Important backups ({0}) reached limit ({1}), skipping prune</value>
-  </data>
-  <data name="BackupService_Log_PruneException" xml:space="preserve">
-    <value>Prune exception: {0}</value>
-  </data>
   <data name="BackupService_Log_RestoreChainBuilt" xml:space="preserve">
     <value>Restore chain built with {0} archives</value>
   </data>
@@ -1860,9 +1812,6 @@ Comment: {1}
   <data name="History_EditComment_Placeholder" xml:space="preserve">
     <value>Enter backup comment (optional)</value>
   </data>
-  <data name="History_EditComment_Success" xml:space="preserve">
-    <value>Comment updated</value>
-  </data>
   <data name="SettingsPage_EnableNotifications.Text" xml:space="preserve">
     <value>Enable notifications</value>
   </data>
@@ -1914,11 +1863,11 @@ Comment: {1}
   <data name="SettingsPage_About_Link_QQ_GROUP.Content" xml:space="preserve">
     <value>Join QQ Group</value>
   </data>
-  <data name="SettingsPage_Warnings.Text" xml:space="preserve">
-    <value>Warnings</value>
+  <data name="SettingsPage_Notifications.Text" xml:space="preserve">
+    <value>Notifications</value>
   </data>
-  <data name="SettingsPage_WarningsDesc.Text" xml:space="preserve">
-    <value>Configure warning rules during backup</value>
+  <data name="SettingsPage_NotificationsDesc.Text" xml:space="preserve">
+    <value>Configure in-app notifications, system toasts, and warning rules</value>
   </data>
   <data name="SettingsPage_FileSizeWarningThreshold.Text" xml:space="preserve">
     <value>File size warning threshold</value>
@@ -1950,16 +1899,11 @@ Comment: {1}
   <data name="Notice_FetchFailed" xml:space="preserve">
     <value>Failed to fetch announcement: {0}</value>
   </data>
-
-  <!-- ========== Mini Window ========== -->
   <data name="FolderManager_MiniWindow.Text" xml:space="preserve">
     <value>Mini Window</value>
   </data>
   <data name="MiniWindow_CommentPlaceholder" xml:space="preserve">
     <value>Comment, then Enter to backup...</value>
-  </data>
-  <data name="MiniWindow_Title_DefaultFolder" xml:space="preserve">
-    <value>Folder</value>
   </data>
   <data name="MiniWindow_Menu_OpenFolder" xml:space="preserve">
     <value>Open Folder</value>
@@ -1991,14 +1935,11 @@ Comment: {1}
   <data name="MiniWindow_Tip_Failed" xml:space="preserve">
     <value>Backup failed</value>
   </data>
-  <data name="MiniWindow_Tip_LastBackup" xml:space="preserve">
-    <value>Last backup</value>
-  </data>
-  <data name="MiniWindow_Tip_Status" xml:space="preserve">
-    <value>Status</value>
-  </data>
   <data name="MiniWindow_Tip_Format" xml:space="preserve">
-    <value>{0}&#10;{1}&#10;Last backup: {2}&#10;Status: {3}</value>
+    <value>{0}
+{1}
+Last backup: {2}
+Status: {3}</value>
   </data>
   <data name="MiniWindow_BackupComment_Hotkey" xml:space="preserve">
     <value>[Hotkey]</value>
@@ -2032,5 +1973,146 @@ Comment: {1}
   </data>
   <data name="Hotkeys_MiniBackup_Description" xml:space="preserve">
     <value>Trigger backup on the last focused Mini window (global hotkey)</value>
+  </data>
+  <data name="ConfigSettingsDialog_StopAfterNoChange.Header" xml:space="preserve">
+    <value>Stop auto task after repeated no changes</value>
+  </data>
+  <data name="ConfigSettingsDialog_StopAfterNoChange.OnContent" xml:space="preserve">
+    <value>On</value>
+  </data>
+  <data name="ConfigSettingsDialog_StopAfterNoChange.OffContent" xml:space="preserve">
+    <value>Off</value>
+  </data>
+  <data name="ConfigSettingsDialog_StopAfterNoChangePrefix.Text" xml:space="preserve">
+    <value>Stop after</value>
+  </data>
+  <data name="ConfigSettingsDialog_StopAfterNoChangeSuffix.Text" xml:space="preserve">
+    <value>consecutive times with no changes</value>
+  </data>
+  <data name="AutoBackup_StoppedNoChanges" xml:space="preserve">
+    <value>Auto backup for "{0}" has been disabled: no changes detected {1} consecutive times.</value>
+  </data>
+  <data name="SettingsPage_DataMigration.Text" xml:space="preserve">
+    <value>Data Migration</value>
+  </data>
+  <data name="SettingsPage_DataMigrationDesc.Text" xml:space="preserve">
+    <value>Import or export configuration and history for migration</value>
+  </data>
+  <data name="SettingsPage_ConfigData.Text" xml:space="preserve">
+    <value>Configuration</value>
+  </data>
+  <data name="SettingsPage_ConfigDataDesc.Text" xml:space="preserve">
+    <value>Export the current configuration or import a previously exported configuration file. Importing will replace all current settings.</value>
+  </data>
+  <data name="SettingsPage_ExportConfig.Content" xml:space="preserve">
+    <value>Export Configuration</value>
+  </data>
+  <data name="SettingsPage_ImportConfig.Content" xml:space="preserve">
+    <value>Import Configuration</value>
+  </data>
+  <data name="SettingsPage_HistoryData.Text" xml:space="preserve">
+    <value>History Records</value>
+  </data>
+  <data name="SettingsPage_HistoryDataDesc.Text" xml:space="preserve">
+    <value>Export or import backup history records. When importing, you can choose to merge or replace existing records.</value>
+  </data>
+  <data name="SettingsPage_ExportHistory.Content" xml:space="preserve">
+    <value>Export History</value>
+  </data>
+  <data name="SettingsPage_ImportHistory.Content" xml:space="preserve">
+    <value>Import History</value>
+  </data>
+  <data name="Settings_ExportConfigSuccess" xml:space="preserve">
+    <value>Configuration exported successfully.</value>
+  </data>
+  <data name="Settings_ExportConfigFailed" xml:space="preserve">
+    <value>Failed to export configuration.</value>
+  </data>
+  <data name="Settings_ImportConfigConfirmTitle" xml:space="preserve">
+    <value>Import Configuration</value>
+  </data>
+  <data name="Settings_ImportConfigConfirmContent" xml:space="preserve">
+    <value>Importing will replace all current settings and backup configurations. A backup of the current config will be created automatically. Continue?</value>
+  </data>
+  <data name="Common_Confirm" xml:space="preserve">
+    <value>Confirm</value>
+  </data>
+  <data name="Settings_ImportConfigSuccess" xml:space="preserve">
+    <value>Configuration imported successfully. Some settings may require a restart to take effect.</value>
+  </data>
+  <data name="Settings_ImportConfigFailed" xml:space="preserve">
+    <value>Failed to import configuration. The file may be invalid.</value>
+  </data>
+  <data name="Settings_ExportHistorySuccess" xml:space="preserve">
+    <value>History records exported successfully.</value>
+  </data>
+  <data name="Settings_ExportHistoryFailed" xml:space="preserve">
+    <value>Failed to export history records.</value>
+  </data>
+  <data name="Settings_ImportHistoryConfirmTitle" xml:space="preserve">
+    <value>Import History</value>
+  </data>
+  <data name="Settings_ImportHistoryConfirmContent" xml:space="preserve">
+    <value>Choose how to import: Merge will add non-duplicate records to the existing history. Replace will overwrite all existing records.</value>
+  </data>
+  <data name="Settings_ImportHistoryMerge" xml:space="preserve">
+    <value>Merge</value>
+  </data>
+  <data name="Settings_ImportHistoryReplace" xml:space="preserve">
+    <value>Replace</value>
+  </data>
+  <data name="Settings_ImportHistorySuccess" xml:space="preserve">
+    <value>{0} history records imported successfully.</value>
+  </data>
+  <data name="Settings_ImportHistoryFailed" xml:space="preserve">
+    <value>Failed to import history records. The file may be invalid.</value>
+  </data>
+  <data name="Config_ExportSuccess" xml:space="preserve">
+    <value>Configuration exported to: {0}</value>
+  </data>
+  <data name="Config_ExportFailed" xml:space="preserve">
+    <value>Failed to export configuration: {0}</value>
+  </data>
+  <data name="Config_ImportSuccess" xml:space="preserve">
+    <value>Configuration imported from: {0}</value>
+  </data>
+  <data name="Config_ImportFailed" xml:space="preserve">
+    <value>Failed to import configuration: {0}</value>
+  </data>
+  <data name="Config_ImportFailed_Null" xml:space="preserve">
+    <value>Failed to import configuration: parsed result is null.</value>
+  </data>
+  <data name="History_ExportSuccess" xml:space="preserve">
+    <value>History exported to: {0}</value>
+  </data>
+  <data name="History_ExportFailed" xml:space="preserve">
+    <value>Failed to export history: {0}</value>
+  </data>
+  <data name="History_ImportSuccess" xml:space="preserve">
+    <value>{0} history records imported.</value>
+  </data>
+  <data name="History_ImportFailed" xml:space="preserve">
+    <value>Failed to import history: {0}</value>
+  </data>
+  <data name="SettingsPage_ToastNotificationLevel.Text" xml:space="preserve">
+    <value>System notification level</value>
+  </data>
+  <data name="SettingsPage_ToastNotificationLevelDesc.Text" xml:space="preserve">
+    <value>Controls when system pop-up notifications (Toast) are sent; in-app notifications are not affected</value>
+  </data>
+  <data name="SettingsPage_ToastLevel_Off.Content" xml:space="preserve">
+    <value>Off</value>
+  </data>
+  <data name="SettingsPage_ToastLevel_ErrorOnly.Content" xml:space="preserve">
+    <value>Errors only</value>
+  </data>
+  <data name="SettingsPage_ToastLevel_ImportantAndAbove.Content" xml:space="preserve">
+    <value>Important and above</value>
+  </data>
+  <data name="SettingsPage_ToastLevel_All.Content" xml:space="preserve">
+    <value>All</value>
+  </data>
+  <data name="Notification_Important_Title" xml:space="preserve">
+    <value>Important</value>
   </data>
 </root>

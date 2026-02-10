@@ -101,6 +101,7 @@ namespace FolderRewind.Models
 
         // 通知设置
         private bool _enableNotifications = true;
+        private int _toastNotificationLevel = 2; // 0=Off, 1=ErrorOnly, 2=ImportantAndAbove, 3=All
 
         // 警告设置
         private int _fileSizeWarningThresholdKB = 5; // 备份文件小于此值(KB)时触发警告
@@ -185,6 +186,12 @@ namespace FolderRewind.Models
         /// 是否启用应用内/系统通知（全局开关）。
         /// </summary>
         public bool EnableNotifications { get => _enableNotifications; set => SetProperty(ref _enableNotifications, value); }
+
+        /// <summary>
+        /// 系统 Toast 通知等级阈值。控制何时发送系统级弹窗通知。
+        /// 0=关闭, 1=仅错误, 2=重要及以上(默认), 3=全部
+        /// </summary>
+        public int ToastNotificationLevel { get => _toastNotificationLevel; set => SetProperty(ref _toastNotificationLevel, value); }
 
         /// <summary>
         /// 备份文件大小警告阈值(KB)。备份生成的文件小于此大小时触发 AppNotification 警告。
@@ -364,6 +371,11 @@ namespace FolderRewind.Models
         private DateTime _lastAutoBackupUtc = DateTime.MinValue;
         private DateTime _lastScheduledRunDateLocal = DateTime.MinValue;
 
+        // 连续无变更自动停止
+        private bool _stopAfterNoChangeEnabled = false;
+        private int _stopAfterNoChangeCount = 3;
+        private int _consecutiveNoChangeCount = 0;
+
         public bool AutoBackupEnabled { get => _autoBackupEnabled; set => SetProperty(ref _autoBackupEnabled, value); }
         public int IntervalMinutes { get => _intervalMinutes; set => SetProperty(ref _intervalMinutes, value); }
         public bool RunOnAppStart { get => _runOnAppStart; set => SetProperty(ref _runOnAppStart, value); }
@@ -375,6 +387,21 @@ namespace FolderRewind.Models
 
         // 仅用于“每日定时”去重：记录上次成功运行的日期（本地日期）
         public DateTime LastScheduledRunDateLocal { get => _lastScheduledRunDateLocal; set => SetProperty(ref _lastScheduledRunDateLocal, value); }
+
+        /// <summary>
+        /// 是否启用“连续无变更自动停止”功能。
+        /// </summary>
+        public bool StopAfterNoChangeEnabled { get => _stopAfterNoChangeEnabled; set => SetProperty(ref _stopAfterNoChangeEnabled, value); }
+
+        /// <summary>
+        /// 连续多少次未发现更改后自动停止自动备份任务。
+        /// </summary>
+        public int StopAfterNoChangeCount { get => _stopAfterNoChangeCount; set => SetProperty(ref _stopAfterNoChangeCount, value); }
+
+        /// <summary>
+        /// 当前连续未发现变更的次数（持久化，用于跨重启计数）。
+        /// </summary>
+        public int ConsecutiveNoChangeCount { get => _consecutiveNoChangeCount; set => SetProperty(ref _consecutiveNoChangeCount, value); }
     }
 
     /// <summary>

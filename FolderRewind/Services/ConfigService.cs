@@ -219,6 +219,61 @@ namespace FolderRewind.Services
             }
         }
 
+        /// <summary>
+        /// 导出当前配置到指定路径
+        /// </summary>
+        public static bool ExportConfig(string destPath)
+        {
+            try
+            {
+                if (CurrentConfig == null) return false;
+                string json = JsonSerializer.Serialize(CurrentConfig, AppJsonContext.Default.AppConfig);
+                File.WriteAllText(destPath, json);
+                LogService.Log(I18n.Format("Config_ExportSuccess", destPath));
+                return true;
+            }
+            catch (Exception ex)
+            {
+                LogService.Log(I18n.Format("Config_ExportFailed", ex.Message));
+                return false;
+            }
+        }
+
+        /// <summary>
+        /// 从指定路径导入配置（替换当前配置）
+        /// </summary>
+        public static bool ImportConfig(string sourcePath)
+        {
+            try
+            {
+                if (!File.Exists(sourcePath)) return false;
+                string json = File.ReadAllText(sourcePath);
+                var imported = JsonSerializer.Deserialize(json, AppJsonContext.Default.AppConfig);
+                if (imported == null)
+                {
+                    LogService.Log(I18n.GetString("Config_ImportFailed_Null"));
+                    return false;
+                }
+
+                // 备份当前配置
+                string backupPath = ConfigPath + ".bak";
+                try { File.Copy(ConfigPath, backupPath, true); } catch { }
+
+                // 写入新配置并重新加载
+                File.WriteAllText(ConfigPath, json);
+                _initialized = false;
+                Initialize();
+
+                LogService.Log(I18n.Format("Config_ImportSuccess", sourcePath));
+                return true;
+            }
+            catch (Exception ex)
+            {
+                LogService.Log(I18n.Format("Config_ImportFailed", ex.Message));
+                return false;
+            }
+        }
+
         private static void NormalizeGlobalSettings(GlobalSettings settings)
         {
             if (settings == null) return;
@@ -263,6 +318,9 @@ namespace FolderRewind.Services
             {
                 settings.HomeSortMode = "NameAsc";
             }
+
+            // Toast notification level: clamp to valid range (0-3)
+            settings.ToastNotificationLevel = Math.Clamp(settings.ToastNotificationLevel, 0, 3);
         }
 
         private static string GetWritableAppDataDir()

@@ -273,6 +273,92 @@ namespace FolderRewind.Services
             }
         }
 
+        /// <summary>
+        /// 导出历史记录到指定路径
+        /// </summary>
+        public static bool ExportHistory(string destPath)
+        {
+            Initialize();
+            try
+            {
+                List<HistoryItem> snapshot;
+                lock (_historyLock)
+                {
+                    snapshot = _allHistory.ToList();
+                }
+                string json = JsonSerializer.Serialize(snapshot, AppJsonContext.Default.ListHistoryItem);
+                File.WriteAllText(destPath, json);
+                LogService.Log(I18n.Format("History_ExportSuccess", destPath));
+                return true;
+            }
+            catch (Exception ex)
+            {
+                LogService.Log(I18n.Format("History_ExportFailed", ex.Message));
+                return false;
+            }
+        }
+
+        /// <summary>
+        /// 从指定路径导入历史记录（合并或替换）
+        /// </summary>
+        public static (bool Success, int Count) ImportHistory(string sourcePath, bool merge = true)
+        {
+            Initialize();
+            try
+            {
+                if (!File.Exists(sourcePath)) return (false, 0);
+                string json = File.ReadAllText(sourcePath);
+                var imported = JsonSerializer.Deserialize(json, AppJsonContext.Default.ListHistoryItem);
+                if (imported == null) return (false, 0);
+
+                int count = 0;
+                lock (_historyLock)
+                {
+                    if (merge)
+                    {
+                        // 合并模式：仅添加不存在的条目（按 ConfigId+FolderPath+FileName+Timestamp 去重）
+                        foreach (var item in imported)
+                        {
+                            bool exists = _allHistory.Any(x =>
+                                x.ConfigId == item.ConfigId &&
+                                x.FolderPath == item.FolderPath &&
+                                x.FileName == item.FileName &&
+                                x.Timestamp == item.Timestamp);
+                            if (!exists)
+                            {
+                                _allHistory.Add(item);
+                                count++;
+                            }
+                        }
+                    }
+                    else
+                    {
+                        // 替换模式
+                        // 先备份
+                        try
+                        {
+                            string backupPath = HistoryPath + ".bak";
+                            if (File.Exists(HistoryPath)) File.Copy(HistoryPath, backupPath, true);
+                        }
+                        catch { }
+
+                        _allHistory.Clear();
+                        _allHistory.AddRange(imported);
+                        count = imported.Count;
+                    }
+                }
+
+                ScheduleSave();
+                LogService.Log(I18n.Format("History_ImportSuccess", count.ToString()));
+                return (true, count);
+            }
+            catch (Exception ex)
+            {
+                LogService.Log(I18n.Format("History_ImportFailed", ex.Message));
+                return (false, 0);
+            }
+        }
+
         private static void ScheduleSave()
         {
             // 取消前一次保存，合并写盘
