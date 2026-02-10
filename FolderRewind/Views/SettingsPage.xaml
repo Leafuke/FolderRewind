@@ -105,6 +105,28 @@
                                 <ToggleSwitch Grid.Column="1" IsOn="{x:Bind Settings.RememberCloseBehavior, Mode=TwoWay}" Toggled="OnRememberCloseBehaviorToggled" />
                             </Grid>
 
+                        </StackPanel>
+                    </Expander>
+                </Border>
+
+                <!-- 通知 -->
+                <Border BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}" BorderThickness="1" CornerRadius="8">
+                    <Expander IsExpanded="False" HorizontalAlignment="Stretch" HorizontalContentAlignment="Stretch">
+                        <Expander.Header>
+                            <Grid Padding="16" ColumnSpacing="12">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="Auto" />
+                                    <ColumnDefinition Width="*" />
+                                </Grid.ColumnDefinitions>
+                                <FontIcon Glyph="&#xE7BA;" FontSize="18" VerticalAlignment="Center" />
+                                <StackPanel Grid.Column="1" Spacing="2">
+                                    <TextBlock x:Uid="SettingsPage_Notifications" Style="{ThemeResource BodyStrongTextBlockStyle}" />
+                                    <TextBlock x:Uid="SettingsPage_NotificationsDesc" Style="{StaticResource SettingsDescriptionStyle}" />
+                                </StackPanel>
+                            </Grid>
+                        </Expander.Header>
+
+                        <StackPanel Padding="16" Spacing="16">
                             <Grid>
                                 <Grid.ColumnDefinitions>
                                     <ColumnDefinition Width="*" />
@@ -148,28 +170,6 @@
                                 <ToggleSwitch Grid.Column="1" IsOn="{x:Bind Settings.EnableNotices, Mode=TwoWay}" Toggled="OnNoticesToggled" />
                             </Grid>
 
-                        </StackPanel>
-                    </Expander>
-                </Border>
-
-                <!-- 警告 -->
-                <Border BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}" BorderThickness="1" CornerRadius="8">
-                    <Expander IsExpanded="False" HorizontalAlignment="Stretch" HorizontalContentAlignment="Stretch">
-                        <Expander.Header>
-                            <Grid Padding="16" ColumnSpacing="12">
-                                <Grid.ColumnDefinitions>
-                                    <ColumnDefinition Width="Auto" />
-                                    <ColumnDefinition Width="*" />
-                                </Grid.ColumnDefinitions>
-                                <FontIcon Glyph="&#xE7BA;" FontSize="18" VerticalAlignment="Center" />
-                                <StackPanel Grid.Column="1" Spacing="2">
-                                    <TextBlock x:Uid="SettingsPage_Warnings" Style="{ThemeResource BodyStrongTextBlockStyle}" />
-                                    <TextBlock x:Uid="SettingsPage_WarningsDesc" Style="{StaticResource SettingsDescriptionStyle}" />
-                                </StackPanel>
-                            </Grid>
-                        </Expander.Header>
-
-                        <StackPanel Padding="16" Spacing="16">
                             <Grid>
                                 <Grid.ColumnDefinitions>
                                     <ColumnDefinition Width="*" />

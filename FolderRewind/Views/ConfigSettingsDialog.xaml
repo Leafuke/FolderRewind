@@ -202,7 +202,7 @@
 
                     <StackPanel Orientation="Horizontal" Spacing="8" Visibility="{x:Bind Config.Automation.ScheduledMode, Mode=OneWay, Converter={StaticResource BoolToVisConverter}}">
                         <TextBlock x:Uid="ConfigSettingsDialog_ScheduledTime" VerticalAlignment="Center"/>
-                        <NumberBox Value="{x:Bind Config.Automation.ScheduledHour, Mode=TwoWay}" Minimum="0" Maximum="23" SpinButtonPlacementMode="Inline"/>
+                        <NumberBox Value="{x:Bind Config.Automation.ScheduledHour, Mode=TwoWay}" MinWidth="300" Minimum="0" Maximum="23" SpinButtonPlacementMode="Inline"/>
                         <TextBlock x:Uid="ConfigSettingsDialog_ScheduledTimeSuffix" VerticalAlignment="Center"/>
                     </StackPanel>
 
@@ -210,7 +210,7 @@
                     <ToggleSwitch x:Uid="ConfigSettingsDialog_StopAfterNoChange" IsOn="{x:Bind Config.Automation.StopAfterNoChangeEnabled, Mode=TwoWay}"/>
                     <StackPanel Orientation="Horizontal" Spacing="8" Visibility="{x:Bind Config.Automation.StopAfterNoChangeEnabled, Mode=OneWay, Converter={StaticResource BoolToVisConverter}}">
                         <TextBlock x:Uid="ConfigSettingsDialog_StopAfterNoChangePrefix" VerticalAlignment="Center"/>
-                        <NumberBox Value="{x:Bind Config.Automation.StopAfterNoChangeCount, Mode=TwoWay}" Minimum="1" Maximum="100" SpinButtonPlacementMode="Inline" Width="120"/>
+                        <NumberBox Value="{x:Bind Config.Automation.StopAfterNoChangeCount, Mode=TwoWay}" MinWidth="300" Minimum="1" Maximum="100" SpinButtonPlacementMode="Inline" Width="120"/>
                         <TextBlock x:Uid="ConfigSettingsDialog_StopAfterNoChangeSuffix" VerticalAlignment="Center"/>
                     </StackPanel>
                 </StackPanel>

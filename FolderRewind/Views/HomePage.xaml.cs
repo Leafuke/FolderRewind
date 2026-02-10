@@ -377,7 +377,7 @@ namespace FolderRewind.Views
                 Title = resourceLoader.GetString("HomePage_NewConfigDialogTitle"),
                 Content = stack,
                 PrimaryButtonText = resourceLoader.GetString("HomePage_CreateButton"),
-                CloseButtonText = resourceLoader.GetString("HomePage_CancelButton"),
+                CloseButtonText = resourceLoader.GetString("Common_Cancel"),
                 DefaultButton = ContentDialogButton.Primary,
                 XamlRoot = this.XamlRoot
             };
@@ -549,7 +549,7 @@ namespace FolderRewind.Views
                     Title = resourceLoader.GetString("HomePage_ContextMenu_DeleteConfirm_Title"),
                     Content = string.Format(resourceLoader.GetString("HomePage_ContextMenu_DeleteConfirm_Content"), config.Name),
                     PrimaryButtonText = resourceLoader.GetString("HomePage_ContextMenu_DeleteConfirm_Delete"),
-                    CloseButtonText = resourceLoader.GetString("HomePage_CancelButton"),
+                    CloseButtonText = resourceLoader.GetString("Common_Cancel"),
                     DefaultButton = ContentDialogButton.Close,
                     XamlRoot = this.XamlRoot
                 };
