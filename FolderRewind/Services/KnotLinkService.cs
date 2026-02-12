@@ -1,5 +1,6 @@
 using FolderRewind.Models;
 using FolderRewind.Services.KnotLink;
+using FolderRewind.Services.Plugins;
 using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
@@ -205,6 +206,50 @@ namespace FolderRewind.Services
         }
 
         /// <summary>
+        /// 广播事件（可 await）。
+        /// </summary>
+        public static async Task BroadcastEventAsync(string eventData)
+        {
+            if (_signalSender == null || !_isEnabled) return;
+
+            try
+            {
+                await _signalSender.EmitAsync(eventData).ConfigureAwait(false);
+            }
+            catch (Exception ex)
+            {
+                LogService.Log(I18n.Format("KnotLink_BroadcastFailed", ex.Message));
+            }
+        }
+
+        /// <summary>
+        /// 订阅指定信号频道。
+        /// </summary>
+        public static IDisposable? SubscribeSignal(string signalId, Func<string, Task> onSignal)
+        {
+            if (!_isEnabled) return null;
+            if (string.IsNullOrWhiteSpace(signalId)) return null;
+
+            var settings = ConfigService.CurrentConfig?.GlobalSettings;
+            if (settings == null) return null;
+
+            var host = string.IsNullOrWhiteSpace(settings.KnotLinkHost) ? "127.0.0.1" : settings.KnotLinkHost;
+            var appId = string.IsNullOrWhiteSpace(settings.KnotLinkAppId) ? DefaultAppId : settings.KnotLinkAppId;
+
+            try
+            {
+                var sub = new SignalSubscriber(appId, signalId, host);
+                sub.OnSignalAsync = onSignal;
+                return sub;
+            }
+            catch (Exception ex)
+            {
+                LogService.Log(I18n.Format("KnotLink_BroadcastFailed", ex.Message));
+                return null;
+            }
+        }
+
+        /// <summary>
         /// 主动向 KnotLink OpenSocket 发起查询（用于插件/热键触发的联动）。
         /// </summary>
         public static Task<string> QueryAsync(string question, int timeoutMs = 5000)
@@ -256,7 +301,7 @@ namespace FolderRewind.Services
                     "GET_STATUS" => await HandleGetStatus(),
                     "PING" => HandlePing(),
                     "SEND" => HandleSend(args),
-                    _ => $"ERROR:Unknown command '{command}'."
+                    _ => await HandleUnknownCommandViaPluginsAsync(command, args, commandStr)
                 };
             }
             catch (Exception ex)
@@ -265,6 +310,24 @@ namespace FolderRewind.Services
                 BroadcastEvent($"event=command_error;command={command};error={ex.Message}");
                 return errorMsg;
             }
+        }
+
+        private static async Task<string> HandleUnknownCommandViaPluginsAsync(string command, string args, string rawCommand)
+        {
+            try
+            {
+                var (handled, response) = await PluginService.TryHandleKnotLinkCommandAsync(command, args, rawCommand).ConfigureAwait(false);
+                if (handled)
+                {
+                    return string.IsNullOrWhiteSpace(response) ? "OK:" : response;
+                }
+            }
+            catch
+            {
+                // ignore and fallback to unknown
+            }
+
+            return $"ERROR:Unknown command '{command}'.";
         }
 
         #region 命令处理器实现

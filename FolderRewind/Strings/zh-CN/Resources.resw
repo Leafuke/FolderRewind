@@ -1041,6 +1041,9 @@
   <data name="PluginService_DownloadFailed" xml:space="preserve">
     <value>下载失败：{0}</value>
   </data>
+  <data name="PluginService_KnotLinkCommandFailed" xml:space="preserve">
+    <value>[Plugin] KnotLink 指令处理失败：插件={0} 指令={1} 错误={2}</value>
+  </data>
   <data name="PluginService_Load_MissingManifest" xml:space="preserve">
     <value>缺少 manifest.json</value>
   </data>
@@ -1109,6 +1112,9 @@
   </data>
   <data name="SettingsPage_KnotLinkTest.Content" xml:space="preserve">
     <value>测试连接</value>
+  </data>
+  <data name="SettingsPage_KnotLinkSendCustom.Content" xml:space="preserve">
+    <value>发送自定义信息</value>
   </data>
   <data name="SettingsPage_KnotLinkCommands.Header" xml:space="preserve">
     <value>支持的命令</value>
@@ -1300,6 +1306,18 @@
     <value>测试事件已广播。
 
 如果您有监听器订阅了此信号，应该能收到消息。</value>
+  </data>
+  <data name="SettingsPage_KnotLinkSendCustom_Title" xml:space="preserve">
+    <value>发送自定义信息</value>
+  </data>
+  <data name="SettingsPage_KnotLinkSendCustom_Placeholder" xml:space="preserve">
+    <value>请输入 event_data（将通过 OpenSocket 发送：SEND &lt;event_data&gt;）</value>
+  </data>
+  <data name="SettingsPage_KnotLinkSendCustom_Empty" xml:space="preserve">
+    <value>内容不能为空</value>
+  </data>
+  <data name="SettingsPage_KnotLinkSendCustom_ResultTitle" xml:space="preserve">
+    <value>远端响应</value>
   </data>
   <data name="App_Log_AppDomainUnhandledException" xml:space="preserve">
     <value>[AppDomain UnhandledException] {0}
@@ -1685,6 +1703,9 @@
   </data>
   <data name="MineRewind_Hotkey_Failed" xml:space="preserve">
     <value>[MineRewind] 热键触发备份失败：{0}</value>
+  </data>
+  <data name="MineRewind_KnotLink_BackupCurrent_Failed" xml:space="preserve">
+    <value>[MineRewind] KnotLink BACKUP_CURRENT 失败：{0}</value>
   </data>
   <data name="MineRewind_Snapshot_Locked" xml:space="preserve">
     <value>[MineRewind] 检测到 level.dat 被占用，已启用热备份快照：{0}</value>

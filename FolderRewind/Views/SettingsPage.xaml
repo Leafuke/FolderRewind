@@ -730,6 +730,7 @@
                             <StackPanel Orientation="Horizontal" Spacing="8">
                                 <Button x:Uid="SettingsPage_KnotLinkRestart" Click="OnKnotLinkRestartClick" IsEnabled="{x:Bind Settings.EnableKnotLink, Mode=OneWay}" />
                                 <Button x:Uid="SettingsPage_KnotLinkTest" Click="OnKnotLinkTestClick" IsEnabled="{x:Bind Settings.EnableKnotLink, Mode=OneWay}" />
+                                <Button x:Uid="SettingsPage_KnotLinkSendCustom" Click="OnKnotLinkSendCustomClick" IsEnabled="{x:Bind Settings.EnableKnotLink, Mode=OneWay}" />
                             </StackPanel>
 
                             <!-- 命令参考 -->

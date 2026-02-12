@@ -1041,6 +1041,9 @@
   <data name="PluginService_DownloadFailed" xml:space="preserve">
     <value>Download failed: {0}</value>
   </data>
+  <data name="PluginService_KnotLinkCommandFailed" xml:space="preserve">
+    <value>[Plugin] KnotLink command handler failed: plugin={0} command={1} error={2}</value>
+  </data>
   <data name="PluginService_Load_MissingManifest" xml:space="preserve">
     <value>Missing manifest.json</value>
   </data>
@@ -1109,6 +1112,9 @@
   </data>
   <data name="SettingsPage_KnotLinkTest.Content" xml:space="preserve">
     <value>Test connection</value>
+  </data>
+  <data name="SettingsPage_KnotLinkSendCustom.Content" xml:space="preserve">
+    <value>Send custom message</value>
   </data>
   <data name="SettingsPage_KnotLinkCommands.Header" xml:space="preserve">
     <value>Supported commands</value>
@@ -1300,6 +1306,18 @@
     <value>Test event broadcast.
 
 If you have a listener subscribed to this signal, it should receive a message.</value>
+  </data>
+  <data name="SettingsPage_KnotLinkSendCustom_Title" xml:space="preserve">
+    <value>Send custom message</value>
+  </data>
+  <data name="SettingsPage_KnotLinkSendCustom_Placeholder" xml:space="preserve">
+    <value>Enter event_data (will send via OpenSocket: SEND &lt;event_data&gt;)</value>
+  </data>
+  <data name="SettingsPage_KnotLinkSendCustom_Empty" xml:space="preserve">
+    <value>Message cannot be empty</value>
+  </data>
+  <data name="SettingsPage_KnotLinkSendCustom_ResultTitle" xml:space="preserve">
+    <value>Remote response</value>
   </data>
   <data name="App_Log_AppDomainUnhandledException" xml:space="preserve">
     <value>[AppDomain UnhandledException] {0}
@@ -1685,6 +1703,9 @@ Comment: {1}
   </data>
   <data name="MineRewind_Hotkey_Failed" xml:space="preserve">
     <value>[MineRewind] Hotkey-triggered backup failed: {0}</value>
+  </data>
+  <data name="MineRewind_KnotLink_BackupCurrent_Failed" xml:space="preserve">
+    <value>[MineRewind] KnotLink BACKUP_CURRENT failed: {0}</value>
   </data>
   <data name="MineRewind_Snapshot_Locked" xml:space="preserve">
     <value>[MineRewind] Detected level.dat is locked; hot-backup snapshot enabled: {0}</value>
