@@ -1015,6 +1015,70 @@ event=<事件名>;[key1=value1;][key2=value2;]...
 - `event` 字段为必须项
 - 值中含特殊字符时使用 `Uri.EscapeDataString()` 编码
 
+### 10.8 扩展 KnotLink 指令（插件定义新互联事件）
+
+FolderRewind 作为 KnotLink 的 OpenSocket **响应器**时，会接收远端发送的指令字符串（例如 `BACKUP 0 myWorld`）。
+
+内置指令（`LIST_CONFIGS` / `BACKUP` / `SEND` 等）由 Host 自己处理；如果收到**未知指令**，Host 会按顺序询问所有“已启用且已加载”的插件：是否愿意处理该指令。
+
+插件侧通过实现可选接口 `IFolderRewindKnotLinkCommandHandler` 来扩展指令集：
+
+```csharp
+using FolderRewind.Services.Plugins;
+
+public class MyPlugin : IFolderRewindPlugin, IFolderRewindKnotLinkCommandHandler
+{
+    public IReadOnlyList<PluginKnotLinkCommandDefinition> GetKnotLinkCommandDefinitions()
+        => new[]
+        {
+            new PluginKnotLinkCommandDefinition
+            {
+                Command = "HELLO",
+                Description = "Example command"
+            }
+        };
+
+    public Task<string?> TryHandleKnotLinkCommandAsync(
+        string command,
+        string args,
+        string rawCommand,
+        IReadOnlyDictionary<string, string> settingsValues,
+        PluginHostContext hostContext)
+    {
+        if (!string.Equals(command, "HELLO", StringComparison.OrdinalIgnoreCase))
+            return Task.FromResult<string?>(null); // 不处理
+
+        hostContext.BroadcastEvent("event=plugin_hello;plugin=myplugin");
+        return Task.FromResult<string?>("OK:Hello from plugin");
+    }
+}
+```
+
+**返回值约定**：
+
+- 返回 `null`：插件不处理该指令（Host 会继续询问下一个插件，或最终返回 Unknown command）。
+- 返回字符串：表示“已处理”，该字符串会作为 OpenSocket 响应返回给远端。
+  - 推荐以 `OK:` 或 `ERROR:` 开头，保持与内置指令一致。
+
+**性能注意**：OpenSocket 是“请求/响应”模式。不要在 `TryHandleKnotLinkCommandAsync` 里做长时间阻塞操作（例如完整备份）。
+推荐启动后台任务（`Task.Run`）并立即返回 `OK:`。
+
+#### 示例：MineRewind 处理 `BACKUP_CURRENT`
+
+MineRewind 插件实现了 `BACKUP_CURRENT` 指令：收到后检测“当前正在运行（文件被占用）”的 Minecraft 存档，并触发一次热备份（复用热键备份逻辑）。
+
+远端调用示例：
+
+```
+BACKUP_CURRENT
+```
+
+典型返回：
+
+```
+OK:Backup started for 'MyWorld'
+```
+
 ---
 
 ## 11. 宿主服务 API 参考

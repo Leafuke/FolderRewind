@@ -614,6 +614,90 @@ namespace FolderRewind.Views
         }
 
         /// <summary>
+        /// 发送自定义信息（通过 OpenSocket 发送 SEND 指令）
+        /// </summary>
+        private async void OnKnotLinkSendCustomClick(object sender, RoutedEventArgs e)
+        {
+            if (!KnotLinkService.IsInitialized)
+            {
+                var errorDialog = new ContentDialog
+                {
+                    Title = I18n.GetString("SettingsPage_KnotLinkSendCustom_Title"),
+                    Content = I18n.GetString("SettingsPage_KnotLinkTest_NotInitialized"),
+                    CloseButtonText = I18n.GetString("Common_Ok"),
+                    XamlRoot = this.XamlRoot
+                };
+                ThemeService.ApplyThemeToDialog(errorDialog);
+                await errorDialog.ShowAsync();
+                return;
+            }
+
+            var inputBox = new TextBox
+            {
+                PlaceholderText = I18n.GetString("SettingsPage_KnotLinkSendCustom_Placeholder"),
+                TextWrapping = TextWrapping.Wrap,
+                AcceptsReturn = true,
+                MinWidth = 360
+            };
+
+            var dialog = new ContentDialog
+            {
+                Title = I18n.GetString("SettingsPage_KnotLinkSendCustom_Title"),
+                Content = inputBox,
+                PrimaryButtonText = I18n.GetString("Common_Confirm"),
+                CloseButtonText = I18n.GetString("Common_Cancel"),
+                DefaultButton = ContentDialogButton.Primary,
+                XamlRoot = this.XamlRoot
+            };
+            ThemeService.ApplyThemeToDialog(dialog);
+
+            var result = await dialog.ShowAsync();
+            if (result != ContentDialogResult.Primary) return;
+
+            var message = inputBox.Text?.Trim() ?? string.Empty;
+            if (string.IsNullOrWhiteSpace(message))
+            {
+                var emptyDialog = new ContentDialog
+                {
+                    Title = I18n.GetString("SettingsPage_KnotLinkSendCustom_Title"),
+                    Content = I18n.GetString("SettingsPage_KnotLinkSendCustom_Empty"),
+                    CloseButtonText = I18n.GetString("Common_Ok"),
+                    XamlRoot = this.XamlRoot
+                };
+                ThemeService.ApplyThemeToDialog(emptyDialog);
+                await emptyDialog.ShowAsync();
+                return;
+            }
+
+            try
+            {
+                var response = await KnotLinkService.QueryAsync($"SEND {message}", 5000);
+
+                var respDialog = new ContentDialog
+                {
+                    Title = I18n.GetString("SettingsPage_KnotLinkSendCustom_ResultTitle"),
+                    Content = response,
+                    CloseButtonText = I18n.GetString("Common_Ok"),
+                    XamlRoot = this.XamlRoot
+                };
+                ThemeService.ApplyThemeToDialog(respDialog);
+                await respDialog.ShowAsync();
+            }
+            catch (Exception ex)
+            {
+                var respDialog = new ContentDialog
+                {
+                    Title = I18n.GetString("Common_Failed"),
+                    Content = ex.Message,
+                    CloseButtonText = I18n.GetString("Common_Ok"),
+                    XamlRoot = this.XamlRoot
+                };
+                ThemeService.ApplyThemeToDialog(respDialog);
+                await respDialog.ShowAsync();
+            }
+        }
+
+        /// <summary>
         /// 重置 KnotLink 设置为默认值
         /// </summary>
         private void OnKnotLinkResetClick(object sender, RoutedEventArgs e)

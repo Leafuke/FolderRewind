@@ -188,6 +188,47 @@ namespace FolderRewind.Services.Plugins
             try { HotkeyManager.ApplyBindingsToUiAndNative(); } catch { }
         }
 
+        /// <summary>
+        /// KnotLink：尝试让已启用插件处理一条“非内置”的远程指令。
+        /// 返回 (Handled=false, _) 表示没有插件处理该指令。
+        /// </summary>
+        public static async Task<(bool Handled, string Response)> TryHandleKnotLinkCommandAsync(
+            string command,
+            string args,
+            string rawCommand)
+        {
+            if (!IsPluginSystemEnabled()) return (false, string.Empty);
+            if (string.IsNullOrWhiteSpace(command)) return (false, string.Empty);
+
+            foreach (var plugin in GetEnabledLoadedPluginsSnapshot())
+            {
+                if (plugin is not IFolderRewindKnotLinkCommandHandler handler) continue;
+
+                try
+                {
+                    var settings = GetPluginSettings(plugin.Manifest.Id);
+                    var ctx = PluginHostContext.CreateForCurrentApp(plugin.Manifest.Id, plugin.Manifest.Name);
+                    var resp = await handler.TryHandleKnotLinkCommandAsync(
+                        command,
+                        args,
+                        rawCommand,
+                        settings,
+                        ctx).ConfigureAwait(false);
+
+                    if (!string.IsNullOrWhiteSpace(resp))
+                    {
+                        return (true, resp);
+                    }
+                }
+                catch (Exception ex)
+                {
+                    LogService.LogError(I18n.Format("PluginService_KnotLinkCommandFailed", plugin.Manifest.Id, command, ex.Message), "PluginService", ex);
+                }
+            }
+
+            return (false, string.Empty);
+        }
+
         public static bool IsPluginSystemEnabled()
         {
             var settings = ConfigService.CurrentConfig?.GlobalSettings?.Plugins;
