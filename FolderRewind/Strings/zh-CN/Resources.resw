@@ -2136,4 +2136,7 @@
   <data name="Notification_Important_Title" xml:space="preserve">
     <value>重要通知</value>
   </data>
+  <data name="SettingsPage_About_Link_KnotLink.Content" xml:space="preserve">
+    <value>KnotLink 项目主页</value>
+  </data>
 </root>

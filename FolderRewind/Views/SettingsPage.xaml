@@ -800,6 +800,7 @@
                                         </Flyout>
                                     </FlyoutBase.AttachedFlyout>
                                 </HyperlinkButton>
+                                <HyperlinkButton x:Uid="SettingsPage_About_Link_KnotLink" NavigateUri="https://github.com/hxh230802/KnotLink" />
                             </StackPanel>
                         </StackPanel>
                     </Expander>
