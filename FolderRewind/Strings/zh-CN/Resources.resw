@@ -1,4 +1,4 @@
-<?xml version="1.0" encoding="utf-8"?>
+﻿<?xml version="1.0" encoding="utf-8"?>
 <root>
   <!-- 
     Microsoft ResX Schema 
@@ -667,7 +667,7 @@
     <value>分钟</value>
   </data>
   <data name="ConfigSettingsDialog_ScheduledMode.Content" xml:space="preserve">
-    <value>每日定时运行</value>
+    <value>计划备份模式</value>
   </data>
   <data name="ConfigSettingsDialog_ScheduledTime.Text" xml:space="preserve">
     <value>执行时间:</value>
@@ -2138,5 +2138,26 @@
   </data>
   <data name="SettingsPage_About_Link_KnotLink.Content" xml:space="preserve">
     <value>KnotLink 项目主页</value>
+  </data>
+  <data name="Schedule_Every" xml:space="preserve">
+    <value>每一</value>
+  </data>
+  <data name="Schedule_Header" xml:space="preserve">
+    <value>计划备份任务</value>
+  </data>
+  <data name="Schedule_Description" xml:space="preserve">
+    <value>配置定时备份计划。选择"每一"表示通配（如"每一"月意味着每月执行）。当"日"为"每一"时，"月"将被忽略。</value>
+  </data>
+  <data name="Schedule_Add" xml:space="preserve">
+    <value>添加计划</value>
+  </data>
+  <data name="Schedule_Month" xml:space="preserve">
+    <value>月</value>
+  </data>
+  <data name="Schedule_Day" xml:space="preserve">
+    <value>日</value>
+  </data>
+  <data name="Schedule_NextRun" xml:space="preserve">
+    <value>下次执行: {0}</value>
   </data>
 </root>

@@ -11,6 +11,7 @@ namespace FolderRewind.Models
     [JsonSerializable(typeof(HotkeySettings))]
     [JsonSerializable(typeof(ArchiveSettings))]
     [JsonSerializable(typeof(AutomationSettings))]
+    [JsonSerializable(typeof(ScheduleEntry))]
     [JsonSerializable(typeof(FilterSettings))]
     [JsonSerializable(typeof(ManagedFolder))]
     [JsonSerializable(typeof(HistoryItem))]

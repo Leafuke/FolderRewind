@@ -4,6 +4,8 @@ using FolderRewind.Services.Plugins;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using System;
+using System.Collections.Generic;
+using System.ComponentModel;
 using System.Diagnostics;
 using System.IO;
 using System.Linq;
@@ -83,6 +85,243 @@ namespace FolderRewind.Views
 
             IconGrid.ItemsSource = IconCatalog.ConfigIconGlyphs;
             IconGrid.SelectedItem = IconCatalog.ConfigIconGlyphs.FirstOrDefault(i => i == Config.IconGlyph) ?? IconCatalog.ConfigIconGlyphs.First();
+
+            InitializeScheduleUI();
+        }
+
+        private readonly List<string> _monthOptions = new();
+        private readonly List<string> _dayOptions = new();
+
+        private void InitializeScheduleUI()
+        {
+            // Build month options: [Every, 1, 2, ... 12]
+            _monthOptions.Clear();
+            _monthOptions.Add(I18n.GetString("Schedule_Every"));
+            for (int i = 1; i <= 12; i++) _monthOptions.Add(i.ToString());
+
+            // Build day options: [Every, 1, 2, ... 31]
+            _dayOptions.Clear();
+            _dayOptions.Add(I18n.GetString("Schedule_Every"));
+            for (int i = 1; i <= 31; i++) _dayOptions.Add(i.ToString());
+
+            // Set header texts
+            ScheduleEntriesHeader.Text = I18n.GetString("Schedule_Header");
+            ScheduleEntriesDesc.Text = I18n.GetString("Schedule_Description");
+            AddScheduleText.Text = I18n.GetString("Schedule_Add");
+
+            // Build existing entries
+            RebuildScheduleEntriesUI();
+        }
+
+        private void RebuildScheduleEntriesUI()
+        {
+            ScheduleEntriesPanel.Children.Clear();
+            if (Config.Automation.ScheduleEntries == null) return;
+
+            for (int idx = 0; idx < Config.Automation.ScheduleEntries.Count; idx++)
+            {
+                var entry = Config.Automation.ScheduleEntries[idx];
+                ScheduleEntriesPanel.Children.Add(BuildScheduleEntryRow(entry, idx));
+            }
+        }
+
+        private UIElement BuildScheduleEntryRow(ScheduleEntry entry, int index)
+        {
+            var root = new StackPanel { Spacing = 4 };
+
+            // Row 1: Month Day Hour Minute + Delete button
+            var row = new Grid { ColumnSpacing = 6 };
+            row.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Auto) });
+            row.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Auto) });
+            row.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Auto) });
+            row.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Auto) });
+            row.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Auto) });
+            row.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+            row.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Auto) });
+
+            // Month ComboBox
+            var monthLabel = new TextBlock
+            {
+                Text = I18n.GetString("Schedule_Month"),
+                VerticalAlignment = VerticalAlignment.Center,
+                Style = (Style)Application.Current.Resources["CaptionTextBlockStyle"]
+            };
+            Grid.SetColumn(monthLabel, 0);
+            row.Children.Add(monthLabel);
+
+            var monthBox = new ComboBox
+            {
+                ItemsSource = _monthOptions,
+                SelectedIndex = Math.Clamp(entry.MonthSelection, 0, 12),
+                MinWidth = 72,
+                Tag = entry
+            };
+            monthBox.SelectionChanged += OnMonthSelectionChanged;
+            // Disable month when day is "every"
+            monthBox.IsEnabled = entry.DaySelection != 0;
+            Grid.SetColumn(monthBox, 1);
+            row.Children.Add(monthBox);
+
+            // Day ComboBox
+            var dayLabel = new TextBlock
+            {
+                Text = I18n.GetString("Schedule_Day"),
+                VerticalAlignment = VerticalAlignment.Center,
+                Margin = new Thickness(4, 0, 0, 0),
+                Style = (Style)Application.Current.Resources["CaptionTextBlockStyle"]
+            };
+            Grid.SetColumn(dayLabel, 2);
+            row.Children.Add(dayLabel);
+
+            var dayBox = new ComboBox
+            {
+                ItemsSource = _dayOptions,
+                SelectedIndex = Math.Clamp(entry.DaySelection, 0, 31),
+                MinWidth = 72,
+                Tag = entry
+            };
+            dayBox.SelectionChanged += OnDaySelectionChanged;
+            Grid.SetColumn(dayBox, 3);
+            row.Children.Add(dayBox);
+
+            // Hour:Minute
+            var timePanel = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 4, Margin = new Thickness(4, 0, 0, 0) };
+            var hourBox = new NumberBox
+            {
+                Value = entry.Hour,
+                Minimum = 0,
+                Maximum = 23,
+                SpinButtonPlacementMode = NumberBoxSpinButtonPlacementMode.Compact,
+                MinWidth = 70,
+                Tag = entry
+            };
+            hourBox.ValueChanged += OnHourValueChanged;
+            var colonText = new TextBlock { Text = ":", VerticalAlignment = VerticalAlignment.Center, FontWeight = Microsoft.UI.Text.FontWeights.SemiBold };
+            var minuteBox = new NumberBox
+            {
+                Value = entry.Minute,
+                Minimum = 0,
+                Maximum = 59,
+                SpinButtonPlacementMode = NumberBoxSpinButtonPlacementMode.Compact,
+                MinWidth = 70,
+                Tag = entry
+            };
+            minuteBox.ValueChanged += OnMinuteValueChanged;
+            timePanel.Children.Add(hourBox);
+            timePanel.Children.Add(colonText);
+            timePanel.Children.Add(minuteBox);
+            Grid.SetColumn(timePanel, 4);
+            row.Children.Add(timePanel);
+
+            // Delete button
+            var deleteBtn = new Button
+            {
+                Content = new FontIcon { Glyph = "\uE711", FontSize = 12 },
+                Tag = entry,
+                Padding = new Thickness(6),
+                VerticalAlignment = VerticalAlignment.Center
+            };
+            deleteBtn.Click += OnRemoveScheduleEntryClick;
+            Grid.SetColumn(deleteBtn, 6);
+            row.Children.Add(deleteBtn);
+
+            root.Children.Add(row);
+
+            // Row 2: Next run display
+            var nextRunText = new TextBlock
+            {
+                Style = (Style)Application.Current.Resources["CaptionTextBlockStyle"],
+                Foreground = (Microsoft.UI.Xaml.Media.Brush)Application.Current.Resources["TextFillColorSecondaryBrush"],
+                Margin = new Thickness(2, 0, 0, 0)
+            };
+            UpdateNextRunText(nextRunText, entry);
+            nextRunText.Tag = entry;
+
+            // Listen for entry property changes to update next run
+            entry.PropertyChanged += (s, e) =>
+            {
+                if (e.PropertyName == nameof(ScheduleEntry.NextRunDisplay))
+                {
+                    DispatcherQueue.TryEnqueue(() => UpdateNextRunText(nextRunText, entry));
+                }
+            };
+
+            root.Children.Add(nextRunText);
+
+            // Separator
+            root.Children.Add(new Border
+            {
+                Height = 1,
+                Background = (Microsoft.UI.Xaml.Media.Brush)Application.Current.Resources["DividerStrokeColorDefaultBrush"],
+                Margin = new Thickness(0, 2, 0, 0)
+            });
+
+            return root;
+        }
+
+        private void UpdateNextRunText(TextBlock textBlock, ScheduleEntry entry)
+        {
+            textBlock.Text = I18n.Format("Schedule_NextRun", entry.NextRunDisplay);
+        }
+
+        private void OnMonthSelectionChanged(object sender, SelectionChangedEventArgs e)
+        {
+            if (sender is ComboBox box && box.Tag is ScheduleEntry entry)
+            {
+                entry.MonthSelection = box.SelectedIndex;
+                // Rebuild to update month enable state
+                RebuildScheduleEntriesUI();
+            }
+        }
+
+        private void OnDaySelectionChanged(object sender, SelectionChangedEventArgs e)
+        {
+            if (sender is ComboBox box && box.Tag is ScheduleEntry entry)
+            {
+                entry.DaySelection = box.SelectedIndex;
+                // Rebuild to update month enable state
+                RebuildScheduleEntriesUI();
+            }
+        }
+
+        private void OnHourValueChanged(NumberBox sender, NumberBoxValueChangedEventArgs args)
+        {
+            if (sender.Tag is ScheduleEntry entry && !double.IsNaN(args.NewValue))
+            {
+                entry.Hour = (int)args.NewValue;
+            }
+        }
+
+        private void OnMinuteValueChanged(NumberBox sender, NumberBoxValueChangedEventArgs args)
+        {
+            if (sender.Tag is ScheduleEntry entry && !double.IsNaN(args.NewValue))
+            {
+                entry.Minute = (int)args.NewValue;
+            }
+        }
+
+        private void OnAddScheduleEntryClick(object sender, RoutedEventArgs e)
+        {
+            if (Config.Automation.ScheduleEntries == null)
+                Config.Automation.ScheduleEntries = new ObservableCollection<ScheduleEntry>();
+
+            Config.Automation.ScheduleEntries.Add(new ScheduleEntry
+            {
+                MonthSelection = 0,
+                DaySelection = 0,
+                Hour = 8,
+                Minute = 0
+            });
+            RebuildScheduleEntriesUI();
+        }
+
+        private void OnRemoveScheduleEntryClick(object sender, RoutedEventArgs e)
+        {
+            if (sender is Button btn && btn.Tag is ScheduleEntry entry)
+            {
+                Config.Automation.ScheduleEntries?.Remove(entry);
+                RebuildScheduleEntriesUI();
+            }
         }
 
         public int ModeSelectedIndex

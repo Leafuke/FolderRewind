@@ -83,6 +83,14 @@ namespace FolderRewind.Services
                     config.Archive = new ArchiveSettings();
                 if (config.Automation == null)
                     config.Automation = new AutomationSettings();
+
+                // Migrate and fix ScheduleEntries
+                if (config.Automation.ScheduleEntries == null)
+                    config.Automation.ScheduleEntries = new System.Collections.ObjectModel.ObservableCollection<ScheduleEntry>();
+                else if (config.Automation.ScheduleEntries.GetType() != typeof(System.Collections.ObjectModel.ObservableCollection<ScheduleEntry>))
+                    config.Automation.ScheduleEntries = new System.Collections.ObjectModel.ObservableCollection<ScheduleEntry>(config.Automation.ScheduleEntries);
+                config.Automation.MigrateFromLegacy();
+
                 if (config.Filters == null)
                     config.Filters = new FilterSettings();
 

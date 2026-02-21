@@ -355,19 +355,95 @@ namespace FolderRewind.Models
     }
 
     /// <summary>
-    /// 自动化设置 (定时、触发器)
+    /// Schedule entry: supports Month/Day/Hour/Minute granularity.
+    /// MonthSelection: 0 = every month (wildcard), 1-12 = specific month.
+    /// DaySelection:   0 = every day (wildcard), 1-31 = specific day.
+    /// When DaySelection=0, MonthSelection is ignored (runs daily).
     /// </summary>
+    public class ScheduleEntry : ObservableObject
+    {
+        private int _monthSelection = 0;
+        private int _daySelection = 0;
+        private int _hour = 8;
+        private int _minute = 0;
+        private DateTime _lastTriggeredUtc = DateTime.MinValue;
+
+        public int MonthSelection { get => _monthSelection; set { if (SetProperty(ref _monthSelection, value)) OnPropertyChanged(nameof(NextRunDisplay)); } }
+        public int DaySelection { get => _daySelection; set { if (SetProperty(ref _daySelection, value)) OnPropertyChanged(nameof(NextRunDisplay)); } }
+        public int Hour { get => _hour; set { if (SetProperty(ref _hour, value)) OnPropertyChanged(nameof(NextRunDisplay)); } }
+        public int Minute { get => _minute; set { if (SetProperty(ref _minute, value)) OnPropertyChanged(nameof(NextRunDisplay)); } }
+        public DateTime LastTriggeredUtc { get => _lastTriggeredUtc; set => SetProperty(ref _lastTriggeredUtc, value); }
+
+        [JsonIgnore]
+        public string NextRunDisplay
+        {
+            get
+            {
+                var next = CalculateNextRun(DateTime.Now);
+                return next.HasValue ? next.Value.ToString("yyyy-MM-dd HH:mm") : "-";
+            }
+        }
+
+        public DateTime? CalculateNextRun(DateTime now)
+        {
+            try
+            {
+                if (DaySelection == 0)
+                {
+                    var today = now.Date.AddHours(Hour).AddMinutes(Minute);
+                    return today > now ? today : today.AddDays(1);
+                }
+                else if (MonthSelection == 0)
+                {
+                    int day = DaySelection;
+                    var candidate = TryBuildDate(now.Year, now.Month, day, Hour, Minute);
+                    if (candidate.HasValue && candidate.Value > now) return candidate;
+                    for (int i = 1; i <= 12; i++)
+                    {
+                        var nextMonth = now.AddMonths(i);
+                        candidate = TryBuildDate(nextMonth.Year, nextMonth.Month, day, Hour, Minute);
+                        if (candidate.HasValue) return candidate;
+                    }
+                    return null;
+                }
+                else
+                {
+                    var candidate = TryBuildDate(now.Year, MonthSelection, DaySelection, Hour, Minute);
+                    if (candidate.HasValue && candidate.Value > now) return candidate;
+                    candidate = TryBuildDate(now.Year + 1, MonthSelection, DaySelection, Hour, Minute);
+                    return candidate;
+                }
+            }
+            catch { return null; }
+        }
+
+        public bool ShouldTriggerNow(DateTime now)
+        {
+            if (now.Hour != Hour || now.Minute != Minute) return false;
+            if (DaySelection == 0) return true;
+            if (now.Day != DaySelection) return false;
+            if (MonthSelection == 0) return true;
+            return now.Month == MonthSelection;
+        }
+
+        private static DateTime? TryBuildDate(int year, int month, int day, int hour, int minute)
+        {
+            if (month < 1 || month > 12) return null;
+            int maxDay = DateTime.DaysInMonth(year, month);
+            int actualDay = Math.Min(day, maxDay);
+            if (actualDay < 1) return null;
+            return new DateTime(year, month, actualDay, hour, minute, 0);
+        }
+    }
+
     public class AutomationSettings : ObservableObject
     {
         private bool _autoBackupEnabled = false;
-        private int _intervalMinutes = 60; // 间隔模式
+        private int _intervalMinutes = 60;
         private bool _runOnAppStart = false;
-
-        // 计划任务模式 (简单 cron 或 指定时间点，这里简化为每日几点)
         private bool _scheduledMode = false;
         private int _scheduledHour = 3;
-
-        // 用于去重/防止重复触发：持久化记录上次自动备份时间
+        private ObservableCollection<ScheduleEntry> _scheduleEntries = new();
         private DateTime _lastAutoBackupUtc = DateTime.MinValue;
         private DateTime _lastScheduledRunDateLocal = DateTime.MinValue;
 
@@ -379,13 +455,16 @@ namespace FolderRewind.Models
         public bool AutoBackupEnabled { get => _autoBackupEnabled; set => SetProperty(ref _autoBackupEnabled, value); }
         public int IntervalMinutes { get => _intervalMinutes; set => SetProperty(ref _intervalMinutes, value); }
         public bool RunOnAppStart { get => _runOnAppStart; set => SetProperty(ref _runOnAppStart, value); }
-
         public bool ScheduledMode { get => _scheduledMode; set => SetProperty(ref _scheduledMode, value); }
         public int ScheduledHour { get => _scheduledHour; set => SetProperty(ref _scheduledHour, value); }
 
-        public DateTime LastAutoBackupUtc { get => _lastAutoBackupUtc; set => SetProperty(ref _lastAutoBackupUtc, value); }
+        public ObservableCollection<ScheduleEntry> ScheduleEntries
+        {
+            get => _scheduleEntries;
+            set => SetProperty(ref _scheduleEntries, value ?? new ObservableCollection<ScheduleEntry>());
+        }
 
-        // 仅用于“每日定时”去重：记录上次成功运行的日期（本地日期）
+        public DateTime LastAutoBackupUtc { get => _lastAutoBackupUtc; set => SetProperty(ref _lastAutoBackupUtc, value); }
         public DateTime LastScheduledRunDateLocal { get => _lastScheduledRunDateLocal; set => SetProperty(ref _lastScheduledRunDateLocal, value); }
 
         /// <summary>
@@ -397,11 +476,21 @@ namespace FolderRewind.Models
         /// 连续多少次未发现更改后自动停止自动备份任务。
         /// </summary>
         public int StopAfterNoChangeCount { get => _stopAfterNoChangeCount; set => SetProperty(ref _stopAfterNoChangeCount, value); }
-
-        /// <summary>
-        /// 当前连续未发现变更的次数（持久化，用于跨重启计数）。
-        /// </summary>
         public int ConsecutiveNoChangeCount { get => _consecutiveNoChangeCount; set => SetProperty(ref _consecutiveNoChangeCount, value); }
+
+        public void MigrateFromLegacy()
+        {
+            if (ScheduledMode && ScheduleEntries.Count == 0 && ScheduledHour >= 0 && ScheduledHour <= 23)
+            {
+                ScheduleEntries.Add(new ScheduleEntry
+                {
+                    MonthSelection = 0,
+                    DaySelection = 0,
+                    Hour = ScheduledHour,
+                    Minute = 0
+                });
+            }
+        }
     }
 
     /// <summary>
