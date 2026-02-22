@@ -1177,6 +1177,17 @@ namespace FolderRewind.Services.Plugins
                     var settings = GetPluginSettings(manifest.Id);
                     instance.Initialize(settings);
 
+                    // 注入宿主上下文，供插件主动使用 KnotLink 等能力
+                    try
+                    {
+                        var hostCtx = PluginHostContext.CreateForCurrentApp(manifest.Id, manifest.Name ?? string.Empty);
+                        instance.SetHostContext(hostCtx);
+                    }
+                    catch (Exception ctxEx)
+                    {
+                        LogService.LogWarning($"Plugin {manifest.Id}: SetHostContext failed: {ctxEx.Message}", "PluginService");
+                    }
+
                     _loaded[manifest.Id] = new LoadedPlugin(manifest, instance, alc);
                     installed.LoadError = null;
 
