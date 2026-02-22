@@ -12,7 +12,7 @@ namespace FolderRewind.Services
 {
     public static class HistoryService
     {
-        private static string HistoryFileName = "history.json";
+        private const string HistoryFileName = "history.json";
         // 与 config.json 同目录（适配打包 / 非打包路径）
         private static string HistoryPath => Path.Combine(ConfigService.ConfigDirectory, HistoryFileName);
 
@@ -244,9 +244,34 @@ namespace FolderRewind.Services
         }
 
         /// <summary>
+        /// 从历史记录中查询某个备份文件的类型。优先用于避免依赖文件名约定推断类型。
+        /// </summary>
+        public static string? GetBackupTypeForFile(string configId, string folderName, string fileName)
+        {
+            if (string.IsNullOrWhiteSpace(configId)
+                || string.IsNullOrWhiteSpace(folderName)
+                || string.IsNullOrWhiteSpace(fileName))
+            {
+                return null;
+            }
+
+            Initialize();
+            lock (_historyLock)
+            {
+                return _allHistory
+                    .Where(x => x.ConfigId == configId
+                        && string.Equals(x.FolderName, folderName, StringComparison.OrdinalIgnoreCase)
+                        && string.Equals(x.FileName, fileName, StringComparison.OrdinalIgnoreCase))
+                    .OrderByDescending(x => x.Timestamp)
+                    .Select(x => x.BackupType)
+                    .FirstOrDefault(x => !string.IsNullOrWhiteSpace(x));
+            }
+        }
+
+        /// <summary>
         /// 重命名历史记录中指定备份文件的条目（用于安全删除中 Smart→Full 升级）
         /// </summary>
-        public static void RenameEntry(string oldFileName, string newFileName, string newBackupType = null)
+        public static void RenameEntry(string oldFileName, string newFileName, string? newBackupType = null)
         {
             Initialize();
             bool modified = false;

@@ -430,7 +430,7 @@ namespace FolderRewind.Services
                     string typeStr = config.Archive.Mode.ToString();
                     HistoryService.AddEntry(config, folder, generatedFileName, typeStr, comment);
 
-                    _ = Task.Run(() => PruneOldArchives(backupSubDir, config.Archive.Format, config.Archive.KeepCount, config.Archive.Mode, config.Archive.SafeDeleteEnabled));
+                    _ = Task.Run(() => PruneOldArchives(backupSubDir, config.Archive.Format, config.Archive.KeepCount, config.Archive.Mode, config.Archive.SafeDeleteEnabled, config, folder.DisplayName));
 
                     // 备份完成后检查文件大小，过小时发出警告
                     try
@@ -629,7 +629,7 @@ namespace FolderRewind.Services
             return sb.ToString();
         }
 
-        private static void PruneOldArchives(string destDir, string format, int keepCount, BackupMode mode, bool safeDeleteEnabled = true)
+        private static void PruneOldArchives(string destDir, string format, int keepCount, BackupMode mode, bool safeDeleteEnabled = true, BackupConfig? config = null, string? folderName = null)
         {
             if (keepCount <= 0) return;
             if (mode == BackupMode.Incremental && !safeDeleteEnabled) return; // 不启用安全删除时，增量模式跳过自动清理以保护链
@@ -648,13 +648,13 @@ namespace FolderRewind.Services
                 var importantFiles = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
                 try
                 {
-                    var folderName = di.Name;
+                    var targetFolderName = di.Name;
                     var allConfigs = ConfigService.CurrentConfig?.BackupConfigs;
                     if (allConfigs != null)
                     {
-                        foreach (var config in allConfigs)
+                        foreach (var cfg in allConfigs)
                         {
-                            var historyEntries = HistoryService.GetEntriesForFolder(config.Id, folderName);
+                            var historyEntries = HistoryService.GetEntriesForFolder(cfg.Id, targetFolderName);
                             if (historyEntries != null)
                             {
                                 foreach (var entry in historyEntries)
@@ -697,10 +697,10 @@ namespace FolderRewind.Services
                 {
                     try
                     {
-                        if (safeDeleteEnabled && file.Name.Contains("[Smart]", StringComparison.OrdinalIgnoreCase))
+                        if (safeDeleteEnabled && IsIncrementalBackupFile(file, config, folderName))
                         {
                             // 安全删除：增量备份需要合并到下一个备份再删除
-                            SafeDeleteArchive(file, di, format);
+                            SafeDeleteArchive(file, di, format, config, folderName);
                         }
                         else
                         {
@@ -726,7 +726,7 @@ namespace FolderRewind.Services
         /// 如果被删除的是 Full 备份，则将下一个 Smart 备份升级为 Full。
         /// 这样可以保证增量链不断裂，任何备份仍然可以正确还原。
         /// </summary>
-        private static void SafeDeleteArchive(FileInfo fileToDelete, DirectoryInfo backupDir, string format)
+        private static void SafeDeleteArchive(FileInfo fileToDelete, DirectoryInfo backupDir, string format, BackupConfig? config = null, string? folderName = null)
         {
             Log(I18n.Format("BackupService_Log_SafeDeleteStart", fileToDelete.Name), LogLevel.Info);
 
@@ -749,7 +749,7 @@ namespace FolderRewind.Services
             }
 
             // 如果没有下一个文件（链尾），或下一个是 Full 备份，直接删除即可
-            if (nextFile == null || nextFile.Name.Contains("[Full]", StringComparison.OrdinalIgnoreCase))
+            if (nextFile == null || IsFullBackupFile(nextFile, config, folderName))
             {
                 Log(I18n.Format("BackupService_Log_SafeDeleteEndOfChain"), LogLevel.Info);
                 fileToDelete.Delete();
@@ -801,15 +801,21 @@ namespace FolderRewind.Services
                 try { File.SetLastWriteTimeUtc(nextFile.FullName, originalModTime); } catch { }
 
                 // 步骤3: 如果被删除的是 Full 备份，将下一个 Smart 备份重命名为 Full
-                if (fileToDelete.Name.Contains("[Full]", StringComparison.OrdinalIgnoreCase)
-                    && nextFile.Name.Contains("[Smart]", StringComparison.OrdinalIgnoreCase))
+                if (IsFullBackupFile(fileToDelete, config, folderName)
+                    && IsIncrementalBackupFile(nextFile, config, folderName))
                 {
                     Log(I18n.Format("BackupService_Log_SafeDeletePromote"), LogLevel.Info);
-                    string newName = nextFile.Name.Replace("[Smart]", "[Full]");
+                    string newName = nextFile.Name.Contains("[Smart]", StringComparison.OrdinalIgnoreCase)
+                        ? nextFile.Name.Replace("[Smart]", "[Full]", StringComparison.OrdinalIgnoreCase)
+                        : nextFile.Name;
                     string newPath = Path.Combine(backupDir.FullName, newName);
                     try
                     {
-                        File.Move(nextFile.FullName, newPath);
+                        if (!string.Equals(nextFile.FullName, newPath, StringComparison.OrdinalIgnoreCase))
+                        {
+                            File.Move(nextFile.FullName, newPath);
+                        }
+
                         // 更新历史记录中的文件名和类型
                         HistoryService.RenameEntry(nextFile.Name, newName, "Full");
                         Log(I18n.Format("BackupService_Log_SafeDeleteRenamed", newName), LogLevel.Info);
@@ -1031,12 +1037,12 @@ namespace FolderRewind.Services
                         bool fullFound = false;
                         foreach (var bkFile in allBackups)
                         {
-                            if (bkFile.Name.Contains("[Full]", StringComparison.OrdinalIgnoreCase))
+                            if (IsFullBackupFile(bkFile, config, baseName))
                             {
                                 fullFound = true;
                                 break;
                             }
-                            if (bkFile.Name.Contains("[Smart]", StringComparison.OrdinalIgnoreCase))
+                            if (IsIncrementalBackupFile(bkFile, config, baseName))
                             {
                                 smartCount++;
                             }
@@ -1314,7 +1320,7 @@ namespace FolderRewind.Services
 
             var backupDir = new DirectoryInfo(Path.GetDirectoryName(backupFilePath)!);
             var targetFile = new FileInfo(backupFilePath);
-            var chain = BuildRestoreChain(backupDir, targetFile, historyItem.BackupType);
+            var chain = BuildRestoreChain(backupDir, targetFile, historyItem.BackupType, config, folder.DisplayName);
             if (chain.Count == 0)
             {
                 Log(I18n.Format("BackupService_Log_RestoreChainNotFound"), LogLevel.Error);
@@ -1577,15 +1583,8 @@ namespace FolderRewind.Services
         public static async Task RestoreBackupAsync(BackupConfig config, ManagedFolder folder, string backupFileName)
         {
             // 构造一个临时的 HistoryItem
-            string backupType = "Full";
-            if (backupFileName.Contains("[Smart]", StringComparison.OrdinalIgnoreCase))
-            {
-                backupType = "Incremental";
-            }
-            else if (backupFileName.Contains("[Overwrite]", StringComparison.OrdinalIgnoreCase))
-            {
-                backupType = "Overwrite";
-            }
+            string backupType = HistoryService.GetBackupTypeForFile(config.Id, folder.DisplayName, backupFileName)
+                ?? InferBackupTypeFromFileName(backupFileName);
 
             var historyItem = new HistoryItem
             {
@@ -1896,16 +1895,72 @@ namespace FolderRewind.Services
             }
         }
 
-        private static List<FileInfo> BuildRestoreChain(DirectoryInfo backupDir, FileInfo targetFile, string backupType)
+        private static string InferBackupTypeFromFileName(string backupFileName)
+        {
+            if (string.IsNullOrWhiteSpace(backupFileName))
+            {
+                return "Full";
+            }
+
+            if (backupFileName.Contains("[Smart]", StringComparison.OrdinalIgnoreCase))
+            {
+                return "Incremental";
+            }
+
+            if (backupFileName.Contains("[Overwrite]", StringComparison.OrdinalIgnoreCase))
+            {
+                return "Overwrite";
+            }
+
+            return "Full";
+        }
+
+        private static string ResolveBackupType(FileInfo file, BackupConfig? config = null, string? folderName = null)
+        {
+            if (file == null)
+            {
+                return "Full";
+            }
+
+            if (config != null && !string.IsNullOrWhiteSpace(folderName))
+            {
+                var historyType = HistoryService.GetBackupTypeForFile(config.Id, folderName, file.Name);
+                if (!string.IsNullOrWhiteSpace(historyType))
+                {
+                    return historyType;
+                }
+            }
+
+            return InferBackupTypeFromFileName(file.Name);
+        }
+
+        private static bool IsIncrementalBackupType(string? backupType)
+        {
+            return !string.IsNullOrWhiteSpace(backupType)
+                && (backupType.Equals("Incremental", StringComparison.OrdinalIgnoreCase)
+                    || backupType.Equals("Smart", StringComparison.OrdinalIgnoreCase));
+        }
+
+        private static bool IsFullBackupFile(FileInfo file, BackupConfig? config = null, string? folderName = null)
+        {
+            var backupType = ResolveBackupType(file, config, folderName);
+            return backupType.Equals("Full", StringComparison.OrdinalIgnoreCase);
+        }
+
+        private static bool IsIncrementalBackupFile(FileInfo file, BackupConfig? config = null, string? folderName = null)
+        {
+            var backupType = ResolveBackupType(file, config, folderName);
+            return IsIncrementalBackupType(backupType);
+        }
+
+        private static List<FileInfo> BuildRestoreChain(DirectoryInfo backupDir, FileInfo targetFile, string backupType, BackupConfig? config = null, string? folderName = null)
         {
             var chain = new List<FileInfo>();
             if (!backupDir.Exists) return chain;
 
             bool isIncremental =
-                (!string.IsNullOrWhiteSpace(backupType) &&
-                    (backupType.Equals("Incremental", StringComparison.OrdinalIgnoreCase) ||
-                     backupType.Equals("Smart", StringComparison.OrdinalIgnoreCase))) ||
-                targetFile.Name.Contains("[Smart]", StringComparison.OrdinalIgnoreCase);
+                IsIncrementalBackupType(backupType) ||
+                IsIncrementalBackupFile(targetFile, config, folderName);
 
             if (!isIncremental)
             {
@@ -1922,7 +1977,7 @@ namespace FolderRewind.Services
             // 查找最近的全量备份基准
             var baseFull = backupDir
                 .EnumerateFiles("*", enumOptions)
-                .Where(f => f.Name.Contains("[Full]", StringComparison.OrdinalIgnoreCase) && f.LastWriteTime <= targetFile.LastWriteTime)
+                .Where(f => IsFullBackupFile(f, config, folderName) && f.LastWriteTime <= targetFile.LastWriteTime)
                 .OrderByDescending(f => f.LastWriteTime)
                 .FirstOrDefault();
 
@@ -1937,7 +1992,7 @@ namespace FolderRewind.Services
 
             var increments = backupDir
                 .EnumerateFiles("*", enumOptions)
-                .Where(f => f.Name.Contains("[Smart]", StringComparison.OrdinalIgnoreCase)
+                .Where(f => IsIncrementalBackupFile(f, config, folderName)
                             && f.LastWriteTime >= baseFull.LastWriteTime
                             && f.LastWriteTime <= targetFile.LastWriteTime)
                 .OrderBy(f => f.LastWriteTime)

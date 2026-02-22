@@ -33,11 +33,15 @@ namespace FolderRewind.Services
             }
 
             // 系统级字体
-            ReadFontsKey(Registry.LocalMachine.OpenSubKey(@"SOFTWARE\Microsoft\Windows NT\CurrentVersion\Fonts"));
-            ReadFontsKey(Registry.LocalMachine.OpenSubKey(@"SOFTWARE\WOW6432Node\Microsoft\Windows NT\CurrentVersion\Fonts"));
+            using var machineFontsKey = Registry.LocalMachine.OpenSubKey(@"SOFTWARE\Microsoft\Windows NT\CurrentVersion\Fonts");
+            ReadFontsKey(machineFontsKey);
+
+            using var wowFontsKey = Registry.LocalMachine.OpenSubKey(@"SOFTWARE\WOW6432Node\Microsoft\Windows NT\CurrentVersion\Fonts");
+            ReadFontsKey(wowFontsKey);
 
             // 用户级字体（Windows 10+）
-            ReadFontsKey(Registry.CurrentUser.OpenSubKey(@"SOFTWARE\Microsoft\Windows NT\CurrentVersion\Fonts"));
+            using var userFontsKey = Registry.CurrentUser.OpenSubKey(@"SOFTWARE\Microsoft\Windows NT\CurrentVersion\Fonts");
+            ReadFontsKey(userFontsKey);
 
             // 兜底
             set.Add("Segoe UI Variable");

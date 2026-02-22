@@ -24,7 +24,7 @@ namespace FolderRewind.Views
         public event PropertyChangedEventHandler PropertyChanged;
 
         // 全局配置列表，用于 ComboBox
-        public ObservableCollection<BackupConfig> Configs => ConfigService.CurrentConfig.BackupConfigs;
+        public ObservableCollection<BackupConfig> Configs => ConfigService.CurrentConfig?.BackupConfigs ?? new ObservableCollection<BackupConfig>();
 
         // 绑定视图（避免 MSIX + Trim 下 WinRT 对自定义泛型集合投影异常）
         public ObservableCollection<object> ConfigsView { get; } = new();
@@ -644,7 +644,7 @@ namespace FolderRewind.Views
         }
 
         // 3. 更换图标逻辑
-        private async void onChangeIconClick(object sender, RoutedEventArgs e)
+        private async void OnChangeIconClick(object sender, RoutedEventArgs e)
         {
             if (sender is Button btn && btn.DataContext is ManagedFolder folder)
             {

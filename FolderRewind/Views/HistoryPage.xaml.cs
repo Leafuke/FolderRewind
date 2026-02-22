@@ -72,8 +72,7 @@ namespace FolderRewind.Views
         {
             this.InitializeComponent();
 
-            // 1. 确保数据服务已初始化
-            ConfigService.Initialize();
+            // 1. 确保历史服务已初始化
             HistoryService.Initialize();
 
             // 2. [关键修复] 显式在代码中设置数据源，防止 XAML 绑定延迟导致 ComboBox 为空

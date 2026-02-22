@@ -9,7 +9,7 @@ namespace FolderRewind.Services
 {
     public static class ConfigService
     {
-        private static string ConfigFileName = "config.json";
+        private const string ConfigFileName = "config.json";
         //  LocalAppData  AppContext.BaseDirectory
         private static string ConfigPath => Path.Combine(GetWritableAppDataDir(), "FolderRewind", ConfigFileName);
 
