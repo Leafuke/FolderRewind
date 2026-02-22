@@ -14,6 +14,7 @@ using System.Linq;
 using Windows.ApplicationModel.Resources;
 using Windows.Storage;
 using Windows.Storage.Pickers;
+using Windows.System;
 using WinRT.Interop;
 
 namespace FolderRewind.Views
@@ -178,6 +179,8 @@ namespace FolderRewind.Views
         }
 
         private string? _pendingFolderPath;
+        private bool _minecraftPluginHintShown;
+        private const string MineRewindDownloadUrl = "https://github.com/Leafuke/FolderRewind-Plugin-Minecraft/releases";
 
         protected override void OnNavigatedTo(NavigationEventArgs e)
         {
@@ -413,22 +416,7 @@ namespace FolderRewind.Views
             var folder = await picker.PickSingleFolderAsync();
             if (folder != null)
             {
-                // 查重
-                if (CurrentConfig.SourceFolders.Any(f => f.Path.Equals(folder.Path, StringComparison.OrdinalIgnoreCase)))
-                    return;
-
-                var resourceLoader = ResourceLoader.GetForViewIndependentUse();
-                var newFolder = new ManagedFolder
-                {
-                    Path = folder.Path,
-                    DisplayName = folder.Name,
-                    Description = "",
-                    IsFavorite = false,
-                    LastBackupTime = resourceLoader.GetString("FolderManager_NeverBackedUp")
-                };
-
-                CurrentConfig.SourceFolders.Add(newFolder);
-                ConfigService.Save(); // 实时保存
+                AddFolderLogic(folder);
             }
         }
 
@@ -606,6 +594,53 @@ namespace FolderRewind.Views
 
             CurrentConfig.SourceFolders.Add(newFolder);
             ConfigService.Save();
+
+            if (ShouldSuggestMineRewind(path, name))
+            {
+                _ = ShowMineRewindSuggestionAsync();
+            }
+        }
+
+        private bool ShouldSuggestMineRewind(string path, string? name)
+        {
+            if (_minecraftPluginHintShown) return false;
+            if (string.IsNullOrWhiteSpace(path)) return false;
+
+            var folderName = string.IsNullOrWhiteSpace(name) ? Path.GetFileName(path) : name;
+            var isMinecraftRoot = string.Equals(folderName, ".minecraft", StringComparison.OrdinalIgnoreCase);
+            var hasLevelDat = File.Exists(Path.Combine(path, "level.dat"));
+
+            return isMinecraftRoot || hasLevelDat;
+        }
+
+        private async System.Threading.Tasks.Task ShowMineRewindSuggestionAsync()
+        {
+            if (_minecraftPluginHintShown) return;
+            _minecraftPluginHintShown = true;
+
+            var rl = ResourceLoader.GetForViewIndependentUse();
+            var dialog = new ContentDialog
+            {
+                Title = rl.GetString("FolderManager_MineRewindHint_Title"),
+                Content = rl.GetString("FolderManager_MineRewindHint_Content"),
+                PrimaryButtonText = rl.GetString("FolderManager_MineRewindHint_OpenDownload"),
+                CloseButtonText = rl.GetString("Common_Cancel"),
+                DefaultButton = ContentDialogButton.Primary,
+                XamlRoot = this.XamlRoot
+            };
+            ThemeService.ApplyThemeToDialog(dialog);
+
+            var result = await dialog.ShowAsync();
+            if (result == ContentDialogResult.Primary)
+            {
+                try
+                {
+                    await Launcher.LaunchUriAsync(new Uri(MineRewindDownloadUrl));
+                }
+                catch
+                {
+                }
+            }
         }
 
         // 3. 更换图标逻辑

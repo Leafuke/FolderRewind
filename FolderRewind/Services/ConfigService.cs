@@ -21,6 +21,17 @@ namespace FolderRewind.Services
 
         public static string ConfigDirectory => Path.GetDirectoryName(ConfigPath)!;
 
+        public static string GetRecommendedDefaultBackupRootPath()
+        {
+            return Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments), "FolderRewind-Backup");
+        }
+
+        public static string BuildDefaultDestinationPath(string? configName)
+        {
+            var safeName = MakeSafeFolderName(configName);
+            return Path.Combine(CurrentConfig?.GlobalSettings?.DefaultBackupRootPath ?? GetRecommendedDefaultBackupRootPath(), safeName);
+        }
+
         /// <summary>
         /// 初始化配置服务，加载或创建默认配置
         /// </summary>
@@ -143,6 +154,7 @@ namespace FolderRewind.Services
             {
                 CurrentConfig.GlobalSettings.SevenZipPath = "7za.exe";
                 CurrentConfig.GlobalSettings.FontFamily = FontService.GetRecommendedDefaultFontFamily();
+                CurrentConfig.GlobalSettings.DefaultBackupRootPath = GetRecommendedDefaultBackupRootPath();
             }
             catch
             {
@@ -153,7 +165,7 @@ namespace FolderRewind.Services
             var defaultConfig = new BackupConfig
             {
                 Name = I18n.Format("Config_DefaultBackupName"),
-                DestinationPath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments), "MyBackups"),
+                DestinationPath = BuildDefaultDestinationPath(I18n.Format("Config_DefaultBackupName")),
                 SummaryText = ""
             };
             // 默认 7z 压缩
@@ -307,6 +319,11 @@ namespace FolderRewind.Services
                 settings.SevenZipPath = "7za.exe";
             }
 
+            if (string.IsNullOrWhiteSpace(settings.DefaultBackupRootPath))
+            {
+                settings.DefaultBackupRootPath = GetRecommendedDefaultBackupRootPath();
+            }
+
             if (double.IsNaN(settings.BaseFontSize) || settings.BaseFontSize <= 0)
             {
                 settings.BaseFontSize = 14;
@@ -334,6 +351,18 @@ namespace FolderRewind.Services
 
             // Toast notification level: clamp to valid range (0-3)
             settings.ToastNotificationLevel = Math.Clamp(settings.ToastNotificationLevel, 0, 3);
+        }
+
+        private static string MakeSafeFolderName(string? name)
+        {
+            var fallback = "Backup";
+            var raw = string.IsNullOrWhiteSpace(name) ? fallback : name.Trim();
+            foreach (var c in Path.GetInvalidFileNameChars())
+            {
+                raw = raw.Replace(c, '_');
+            }
+
+            return string.IsNullOrWhiteSpace(raw) ? fallback : raw;
         }
 
         private static string GetWritableAppDataDir()

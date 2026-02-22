@@ -413,6 +413,21 @@
                                     <Button x:Uid="SettingsPage_BrowseButton" Click="OnBrowse7zClick" VerticalAlignment="Center" />
                                 </StackPanel>
                             </Grid>
+
+                            <Grid>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*" />
+                                    <ColumnDefinition Width="Auto" />
+                                </Grid.ColumnDefinitions>
+                                <StackPanel Spacing="2" VerticalAlignment="Center">
+                                    <TextBlock x:Uid="SettingsPage_DefaultBackupRootPath" />
+                                    <TextBlock x:Uid="SettingsPage_DefaultBackupRootPathDesc" Style="{StaticResource SettingsDescriptionStyle}" />
+                                </StackPanel>
+                                <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
+                                    <TextBox Text="{x:Bind Settings.DefaultBackupRootPath, Mode=TwoWay}" Width="280" IsReadOnly="True" VerticalAlignment="Center" />
+                                    <Button x:Uid="SettingsPage_BrowseButton" Click="OnBrowseDefaultBackupRootClick" VerticalAlignment="Center" />
+                                </StackPanel>
+                            </Grid>
                         </StackPanel>
                     </Expander>
                 </Border>

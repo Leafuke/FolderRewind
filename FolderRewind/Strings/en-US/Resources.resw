@@ -2199,4 +2199,19 @@ Status: {3}</value>
   <data name="BackupService_Task_RestoreFailed" xml:space="preserve">
     <value>Restore failed</value>
   </data>
+  <data name="SettingsPage_DefaultBackupRootPath.Text" xml:space="preserve">
+    <value>Default backup storage path</value>
+  </data>
+  <data name="SettingsPage_DefaultBackupRootPathDesc.Text" xml:space="preserve">
+    <value>New configs automatically use "default path\config name" as destination (still editable per config).</value>
+  </data>
+  <data name="FolderManager_MineRewindHint_Title" xml:space="preserve">
+    <value>Minecraft folder detected</value>
+  </data>
+  <data name="FolderManager_MineRewindHint_Content" xml:space="preserve">
+    <value>You may be adding a Minecraft save folder (.minecraft or level.dat detected). For a better backup workflow, consider installing the MineRewind plugin.</value>
+  </data>
+  <data name="FolderManager_MineRewindHint_OpenDownload" xml:space="preserve">
+    <value>Download MineRewind</value>
+  </data>
 </root>

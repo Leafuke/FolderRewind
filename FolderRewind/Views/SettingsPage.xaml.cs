@@ -1171,6 +1171,25 @@ namespace FolderRewind.Views
             }
         }
 
+        private async void OnBrowseDefaultBackupRootClick(object sender, RoutedEventArgs e)
+        {
+            var picker = new FolderPicker();
+            picker.SuggestedStartLocation = PickerLocationId.DocumentsLibrary;
+            picker.FileTypeFilter.Add("*");
+
+            if (App._window != null)
+            {
+                InitializeWithWindow.Initialize(picker, WindowNative.GetWindowHandle(App._window));
+            }
+
+            var folder = await picker.PickSingleFolderAsync();
+            if (folder != null)
+            {
+                Settings.DefaultBackupRootPath = folder.Path;
+                ConfigService.Save();
+            }
+        }
+
         // 主题切换
         private void OnThemeChanged(object sender, SelectionChangedEventArgs e)
         {

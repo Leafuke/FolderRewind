@@ -418,7 +418,9 @@ namespace FolderRewind.Views
                     {
                         // 兜底：确保 ConfigType
                         if (string.IsNullOrWhiteSpace(c.ConfigType)) c.ConfigType = selectedType;
-                        if (!string.IsNullOrWhiteSpace(destPath)) c.DestinationPath = destPath;
+                        c.DestinationPath = !string.IsNullOrWhiteSpace(destPath)
+                            ? Path.Combine(destPath, c.Name ?? string.Empty)
+                            : ConfigService.BuildDefaultDestinationPath(c.Name);
                         c.SummaryText = resourceLoader.GetString("HomePage_NewConfigSummary");
                         ConfigService.CurrentConfig.BackupConfigs.Add(c);
                     }
@@ -436,6 +438,7 @@ namespace FolderRewind.Views
                     Name = nameBox.Text,
                     IconGlyph = selectedIcon,
                     ConfigType = selectedType,
+                    DestinationPath = ConfigService.BuildDefaultDestinationPath(nameBox.Text),
                     SummaryText = resourceLoader.GetString("HomePage_NewConfigSummary")
                 };
 

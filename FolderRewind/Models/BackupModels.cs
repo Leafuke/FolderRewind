@@ -64,6 +64,7 @@ namespace FolderRewind.Models
         private string _language = "zh_CN";
         private int _themeIndex = 1; // 0: Dark, 1: Light
         private string _sevenZipPath = "7za.exe"; // 全局 7z 路径（内置 7za.exe）
+        private string _defaultBackupRootPath = "";
         private bool _runOnStartup = false;
         private bool _enableFileLogging = true;
         private int _logRetentionDays = 7;
@@ -113,6 +114,7 @@ namespace FolderRewind.Models
         public string Language { get => _language; set => SetProperty(ref _language, value); }
         public int ThemeIndex { get => _themeIndex; set => SetProperty(ref _themeIndex, value); }
         public string SevenZipPath { get => _sevenZipPath; set => SetProperty(ref _sevenZipPath, value); }
+        public string DefaultBackupRootPath { get => _defaultBackupRootPath; set => SetProperty(ref _defaultBackupRootPath, value); }
         public bool RunOnStartup { get => _runOnStartup; set => SetProperty(ref _runOnStartup, value); }
         public bool EnableFileLogging { get => _enableFileLogging; set => SetProperty(ref _enableFileLogging, value); }
         public int LogRetentionDays { get => _logRetentionDays; set => SetProperty(ref _logRetentionDays, value); }

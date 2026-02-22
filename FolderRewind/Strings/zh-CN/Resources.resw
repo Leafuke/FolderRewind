@@ -2199,4 +2199,19 @@
   <data name="BackupService_Task_RestoreFailed" xml:space="preserve">
     <value>还原失败</value>
   </data>
+  <data name="SettingsPage_DefaultBackupRootPath.Text" xml:space="preserve">
+    <value>默认备份文件存放路径</value>
+  </data>
+  <data name="SettingsPage_DefaultBackupRootPathDesc.Text" xml:space="preserve">
+    <value>新建配置会自动使用“默认路径\配置名称”作为备份存储路径（可单独修改）</value>
+  </data>
+  <data name="FolderManager_MineRewindHint_Title" xml:space="preserve">
+    <value>检测到 Minecraft 目录</value>
+  </data>
+  <data name="FolderManager_MineRewindHint_Content" xml:space="preserve">
+    <value>你可能在添加 Minecraft 存档目录（检测到 .minecraft 或 level.dat）。如果你想要更好的存档备份体验，建议安装 MineRewind 插件。</value>
+  </data>
+  <data name="FolderManager_MineRewindHint_OpenDownload" xml:space="preserve">
+    <value>下载 MineRewind</value>
+  </data>
 </root>
