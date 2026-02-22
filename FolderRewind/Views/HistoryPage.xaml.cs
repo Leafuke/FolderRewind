@@ -372,6 +372,13 @@ namespace FolderRewind.Views
 
                 if (config == null || folder == null) return;
 
+                // 如果是加密配置，先要求输入密码
+                if (config.IsEncrypted)
+                {
+                    bool passwordVerified = await PromptAndVerifyPasswordAsync(config);
+                    if (!passwordVerified) return;
+                }
+
                 // 弹出确认对话框
                 var dialog = new ContentDialog
                 {
@@ -399,6 +406,59 @@ namespace FolderRewind.Views
                     await BackupService.RestoreBackupAsync(config, folder, item, BackupService.RestoreMode.Overwrite);
                 }
             }
+        }
+
+        /// <summary>
+        /// 弹出密码验证对话框，验证用户输入的密码是否正确。
+        /// </summary>
+        private async System.Threading.Tasks.Task<bool> PromptAndVerifyPasswordAsync(BackupConfig config)
+        {
+            var passwordBox = new PasswordBox
+            {
+                PlaceholderText = I18n.GetString("Encryption_EnterPasswordPlaceholder")
+            };
+
+            var dialog = new ContentDialog
+            {
+                Title = I18n.GetString("Encryption_RestorePasswordTitle"),
+                Content = new StackPanel
+                {
+                    Spacing = 8,
+                    Children =
+                    {
+                        new TextBlock
+                        {
+                            Text = I18n.GetString("Encryption_RestorePasswordDesc"),
+                            TextWrapping = TextWrapping.Wrap
+                        },
+                        passwordBox
+                    }
+                },
+                PrimaryButtonText = I18n.GetString("Common_Ok"),
+                CloseButtonText = I18n.GetString("Common_Cancel"),
+                DefaultButton = ContentDialogButton.Primary,
+                XamlRoot = this.XamlRoot
+            };
+            ThemeService.ApplyThemeToDialog(dialog);
+
+            var result = await dialog.ShowAsync();
+            if (result != ContentDialogResult.Primary) return false;
+
+            if (!EncryptionService.VerifyPassword(config.Id, passwordBox.Password))
+            {
+                var failDialog = new ContentDialog
+                {
+                    Title = I18n.GetString("Encryption_WrongPasswordTitle"),
+                    Content = I18n.GetString("Encryption_WrongPasswordDesc"),
+                    CloseButtonText = I18n.GetString("Common_Ok"),
+                    XamlRoot = this.XamlRoot
+                };
+                ThemeService.ApplyThemeToDialog(failDialog);
+                await failDialog.ShowAsync();
+                return false;
+            }
+
+            return true;
         }
 
         private async void OnDeleteClick(object sender, RoutedEventArgs e)

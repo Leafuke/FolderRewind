@@ -2214,4 +2214,40 @@
   <data name="FolderManager_MineRewindHint_OpenDownload" xml:space="preserve">
     <value>下载 MineRewind</value>
   </data>
+  <data name="Encryption_SetPasswordTitle" xml:space="preserve">
+    <value>设置加密密码</value>
+  </data>
+  <data name="Encryption_SetPasswordDesc" xml:space="preserve">
+    <value>为此加密配置设置密码。所有备份将使用此密码进行加密。</value>
+  </data>
+  <data name="Encryption_SetPasswordPlaceholder" xml:space="preserve">
+    <value>输入密码</value>
+  </data>
+  <data name="Encryption_ConfirmPasswordPlaceholder" xml:space="preserve">
+    <value>确认密码</value>
+  </data>
+  <data name="Encryption_PasswordWarning" xml:space="preserve">
+    <value>⚠ 密码一旦设置无法更改。如果丢失密码，加密的备份将无法还原，请妥善保管。</value>
+  </data>
+  <data name="Encryption_PasswordEmpty" xml:space="preserve">
+    <value>密码不能为空。</value>
+  </data>
+  <data name="Encryption_PasswordMismatch" xml:space="preserve">
+    <value>两次输入的密码不一致。</value>
+  </data>
+  <data name="Encryption_RestorePasswordTitle" xml:space="preserve">
+    <value>需要密码</value>
+  </data>
+  <data name="Encryption_RestorePasswordDesc" xml:space="preserve">
+    <value>这是一个加密配置。请输入密码以进行还原。</value>
+  </data>
+  <data name="Encryption_EnterPasswordPlaceholder" xml:space="preserve">
+    <value>输入密码</value>
+  </data>
+  <data name="Encryption_WrongPasswordTitle" xml:space="preserve">
+    <value>密码错误</value>
+  </data>
+  <data name="Encryption_WrongPasswordDesc" xml:space="preserve">
+    <value>输入的密码不正确，请重试。</value>
+  </data>
 </root>

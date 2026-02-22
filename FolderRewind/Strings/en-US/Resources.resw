@@ -2214,4 +2214,40 @@ Status: {3}</value>
   <data name="FolderManager_MineRewindHint_OpenDownload" xml:space="preserve">
     <value>Download MineRewind</value>
   </data>
+  <data name="Encryption_SetPasswordTitle" xml:space="preserve">
+    <value>Set Encryption Password</value>
+  </data>
+  <data name="Encryption_SetPasswordDesc" xml:space="preserve">
+    <value>Set a password for this encrypted configuration. All backups will be encrypted with this password.</value>
+  </data>
+  <data name="Encryption_SetPasswordPlaceholder" xml:space="preserve">
+    <value>Enter password</value>
+  </data>
+  <data name="Encryption_ConfirmPasswordPlaceholder" xml:space="preserve">
+    <value>Confirm password</value>
+  </data>
+  <data name="Encryption_PasswordWarning" xml:space="preserve">
+    <value>⚠ Once set, the password cannot be changed. If lost, encrypted backups cannot be restored. Please keep it safe.</value>
+  </data>
+  <data name="Encryption_PasswordEmpty" xml:space="preserve">
+    <value>Password cannot be empty.</value>
+  </data>
+  <data name="Encryption_PasswordMismatch" xml:space="preserve">
+    <value>Passwords do not match.</value>
+  </data>
+  <data name="Encryption_RestorePasswordTitle" xml:space="preserve">
+    <value>Password Required</value>
+  </data>
+  <data name="Encryption_RestorePasswordDesc" xml:space="preserve">
+    <value>This is an encrypted configuration. Please enter the password to restore.</value>
+  </data>
+  <data name="Encryption_EnterPasswordPlaceholder" xml:space="preserve">
+    <value>Enter password</value>
+  </data>
+  <data name="Encryption_WrongPasswordTitle" xml:space="preserve">
+    <value>Incorrect Password</value>
+  </data>
+  <data name="Encryption_WrongPasswordDesc" xml:space="preserve">
+    <value>The password you entered is incorrect. Please try again.</value>
+  </data>
 </root>

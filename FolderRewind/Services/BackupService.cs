@@ -774,9 +774,14 @@ namespace FolderRewind.Services
             {
                 Directory.CreateDirectory(tempDir);
 
+                // 获取加密密码（安全删除也需要解压密码）
+                string safeDeletePassword = config != null ? ResolvePassword(config) : null;
+
                 // 步骤1: 解压被删除文件的内容到临时目录
                 Log(I18n.Format("BackupService_Log_SafeDeleteStep1"), LogLevel.Info);
                 string extractArgs = $"x \"{fileToDelete.FullName}\" -o\"{tempDir}\" -y";
+                if (!string.IsNullOrWhiteSpace(safeDeletePassword))
+                    extractArgs += $" -p\"{safeDeletePassword}\"";
                 var extractResult = RunSevenZipProcessSync(sevenZipExe, extractArgs);
                 if (!extractResult)
                 {
@@ -789,6 +794,8 @@ namespace FolderRewind.Services
                 Log(I18n.Format("BackupService_Log_SafeDeleteStep2"), LogLevel.Info);
                 var originalModTime = nextFile.LastWriteTimeUtc;
                 string mergeArgs = $"a \"{nextFile.FullName}\" .\\*";
+                if (!string.IsNullOrWhiteSpace(safeDeletePassword))
+                    mergeArgs += $" -p\"{safeDeletePassword}\" -mhe=on";
                 var mergeResult = RunSevenZipProcessSync(sevenZipExe, mergeArgs, tempDir);
                 if (!mergeResult)
                 {
@@ -950,14 +957,17 @@ namespace FolderRewind.Services
             string fileName = GenerateFileName(baseName, config.Archive.Format, "Full", comment);
             string destFile = Path.Combine(destDir, fileName);
 
+            // 获取加密密码
+            string password = ResolvePassword(config);
+
             // 1. 直接压缩（带黑名单过滤 + 自定义文件类型排除）
             var fileTypeExclusions = config.Archive.FileTypeHandlingEnabled ? (IReadOnlyList<FileTypeRule>)config.Archive.FileTypeRules : null;
-            bool result = await Run7zCommandAsync("a", source, destFile, config.Archive, null, config.Filters, fileTypeExclusions, taskToUpdate);
+            bool result = await Run7zCommandAsync("a", source, destFile, config.Archive, password, null, config.Filters, fileTypeExclusions, taskToUpdate);
 
             // 2. 自定义文件类型追加压缩（不同压缩等级）
             if (result && config.Archive.FileTypeHandlingEnabled)
             {
-                bool ruleResult = await RunFileTypeRulePassesAsync(source, destFile, config.Archive, null, config.Filters);
+                bool ruleResult = await RunFileTypeRulePassesAsync(source, destFile, config.Archive, null, config.Filters, password);
                 if (!ruleResult)
                 {
                     Log(I18n.Format("BackupService_Log_FileTypeRulePassFailed"), LogLevel.Warning);
@@ -1133,12 +1143,13 @@ namespace FolderRewind.Services
             // 4. 执行压缩 (使用 @listfile)
             // 注意：7z 需要工作目录在 source 下，才能正确识别相对路径列表
             var fileTypeExclusions = hasFileTypeRules ? (IReadOnlyList<FileTypeRule>)config.Archive.FileTypeRules : null;
-            bool result = await Run7zCommandAsync("a", source, destFile, config.Archive, listFile, config.Filters, fileTypeExclusions, taskToUpdate);
+            string password = ResolvePassword(config);
+            bool result = await Run7zCommandAsync("a", source, destFile, config.Archive, password, listFile, config.Filters, fileTypeExclusions, taskToUpdate);
 
             // 4.5 自定义文件类型追加压缩（增量模式下传递变更文件列表用于筛选）
             if (result && hasFileTypeRules)
             {
-                bool ruleResult = await RunFileTypeRulePassesAsync(source, destFile, config.Archive, changedFiles, config.Filters);
+                bool ruleResult = await RunFileTypeRulePassesAsync(source, destFile, config.Archive, changedFiles, config.Filters, password);
                 if (!ruleResult)
                 {
                     Log(I18n.Format("BackupService_Log_FileTypeRulePassFailed"), LogLevel.Warning);
@@ -1183,12 +1194,13 @@ namespace FolderRewind.Services
             // 7z u <archive_name> <file_names>
             // u 指令会更新已存在的文件并添加新文件
             var fileTypeExclusions = config.Archive.FileTypeHandlingEnabled ? (IReadOnlyList<FileTypeRule>)config.Archive.FileTypeRules : null;
-            bool result = await Run7zCommandAsync("u", source, targetFile.FullName, config.Archive, null, config.Filters, fileTypeExclusions, taskToUpdate);
+            string password = ResolvePassword(config);
+            bool result = await Run7zCommandAsync("u", source, targetFile.FullName, config.Archive, password, null, config.Filters, fileTypeExclusions, taskToUpdate);
 
             // 2.5 自定义文件类型追加压缩
             if (result && config.Archive.FileTypeHandlingEnabled)
             {
-                bool ruleResult = await RunFileTypeRulePassesAsync(source, targetFile.FullName, config.Archive, null, config.Filters);
+                bool ruleResult = await RunFileTypeRulePassesAsync(source, targetFile.FullName, config.Archive, null, config.Filters, password);
                 if (!ruleResult)
                 {
                     Log(I18n.Format("BackupService_Log_FileTypeRulePassFailed"), LogLevel.Warning);
@@ -1417,6 +1429,8 @@ namespace FolderRewind.Services
             }
 
             // 2. 按链顺序依次解压（Full + Smart），带进度跟踪
+            // 获取加密密码（如果是加密配置）
+            string restorePassword = ResolvePassword(config);
             bool restoreFailed = false;
             for (int i = 0; i < chain.Count; i++)
             {
@@ -1432,9 +1446,15 @@ namespace FolderRewind.Services
                 }
 
                 Log(I18n.Format("BackupService_Log_RestoreApplyingArchive", file.Name), LogLevel.Info);
+                string extractArgs = $"x \"{file.FullName}\" -o\"{targetDir}\" -y -bsp1";
+                if (!string.IsNullOrWhiteSpace(restorePassword))
+                {
+                    extractArgs = $"x \"{file.FullName}\" -o\"{targetDir}\" -y -bsp1 -p\"{restorePassword}\"";
+                }
+                string safeExtractArgs = string.IsNullOrWhiteSpace(restorePassword) ? extractArgs : extractArgs.Replace(restorePassword, "***");
                 bool ok = await RunSevenZipProcessAsync(
-                    sevenZipExe, $"x \"{file.FullName}\" -o\"{targetDir}\" -y -bsp1",
-                    file.DirectoryName, taskToUpdate: restoreTask,
+                    sevenZipExe, extractArgs,
+                    file.DirectoryName, safeExtractArgs, restoreTask,
                     progressBase: segmentBase, progressRange: segmentRange);
                 if (!ok)
                 {
@@ -1654,8 +1674,17 @@ namespace FolderRewind.Services
             await File.WriteAllTextAsync(Path.Combine(metaDir, "metadata.json"), json);
         }
 
+        /// <summary>
+        /// 获取配置的加密密码（从 EncryptionService 安全存储中检索）。
+        /// </summary>
+        private static string ResolvePassword(BackupConfig config)
+        {
+            if (config == null || !config.IsEncrypted) return null;
+            return EncryptionService.RetrievePassword(config.Id);
+        }
+
         // --- 核心：7z 进程调用 ---
-        private static async Task<bool> Run7zCommandAsync(string commandMode, string sourceDir, string archivePath, ArchiveSettings settings, string? listFile = null, FilterSettings? filters = null, IReadOnlyList<FileTypeRule>? fileTypeExclusions = null, BackupTask? taskToUpdate = null)
+        private static async Task<bool> Run7zCommandAsync(string commandMode, string sourceDir, string archivePath, ArchiveSettings settings, string? password = null, string? listFile = null, FilterSettings? filters = null, IReadOnlyList<FileTypeRule>? fileTypeExclusions = null, BackupTask? taskToUpdate = null)
         {
             string sevenZipExe = ResolveSevenZipExecutable();
             if (string.IsNullOrEmpty(sevenZipExe)) return false;
@@ -1689,9 +1718,9 @@ namespace FolderRewind.Services
                 sb.Append(" -mmt"); // 默认自动线程数
             }
 
-            if (!string.IsNullOrWhiteSpace(settings.Password))
+            if (!string.IsNullOrWhiteSpace(password))
             {
-                sb.Append($" -p\"{settings.Password}\" -mhe=on");
+                sb.Append($" -p\"{password}\" -mhe=on");
             }
             sb.Append(" -bsp1"); // 开启进度输出到 stderr/stdout
 
@@ -1747,7 +1776,7 @@ namespace FolderRewind.Services
             }
 
             string args = sb.ToString();
-            string safeArgs = string.IsNullOrWhiteSpace(settings.Password) ? args : args.Replace(settings.Password, "***");
+            string safeArgs = string.IsNullOrWhiteSpace(password) ? args : args.Replace(password, "***");
 
             return await RunSevenZipProcessAsync(sevenZipExe, args, sourceDir, safeArgs, taskToUpdate);
         }
@@ -1761,13 +1790,15 @@ namespace FolderRewind.Services
         /// <param name="settings">归档设置</param>
         /// <param name="changedFileList">增量备份时的变更文件列表（相对路径），为 null 表示全量</param>
         /// <param name="filters">黑名单过滤设置</param>
+        /// <param name="password">加密密码（可选）</param>
         /// <returns>所有追加操作是否全部成功</returns>
         private static async Task<bool> RunFileTypeRulePassesAsync(
             string sourceDir,
             string archivePath,
             ArchiveSettings settings,
             IReadOnlyList<string>? changedFileList = null,
-            FilterSettings? filters = null)
+            FilterSettings? filters = null,
+            string? password = null)
         {
             if (!settings.FileTypeHandlingEnabled || settings.FileTypeRules == null || settings.FileTypeRules.Count == 0)
                 return true;
@@ -1823,11 +1854,11 @@ namespace FolderRewind.Services
                         sb.Append($"a -t{settings.Format} \"{archivePath}\" @\"{tmpList}\"");
                         sb.Append($" -mx={level} -m0={settings.Method} -ms=off -ssw");
                         if (settings.CpuThreads > 0) sb.Append($" -mmt{settings.CpuThreads}"); else sb.Append(" -mmt");
-                        if (!string.IsNullOrWhiteSpace(settings.Password)) sb.Append($" -p\"{settings.Password}\" -mhe=on");
+                        if (!string.IsNullOrWhiteSpace(password)) sb.Append($" -p\"{password}\" -mhe=on");
                         sb.Append(" -bsp1");
 
                         string args = sb.ToString();
-                        string safeArgs = string.IsNullOrWhiteSpace(settings.Password) ? args : args.Replace(settings.Password, "***");
+                        string safeArgs = string.IsNullOrWhiteSpace(password) ? args : args.Replace(password, "***");
 
                         bool ok = await RunSevenZipProcessAsync(sevenZipExe, args, sourceDir, safeArgs);
                         if (!ok) allSuccess = false;
@@ -1843,7 +1874,7 @@ namespace FolderRewind.Services
                         }
                         sb.Append($" -mx={level} -m0={settings.Method} -ms=off -ssw");
                         if (settings.CpuThreads > 0) sb.Append($" -mmt{settings.CpuThreads}"); else sb.Append(" -mmt");
-                        if (!string.IsNullOrWhiteSpace(settings.Password)) sb.Append($" -p\"{settings.Password}\" -mhe=on");
+                        if (!string.IsNullOrWhiteSpace(password)) sb.Append($" -p\"{password}\" -mhe=on");
                         sb.Append(" -bsp1");
 
                         // 添加黑名单排除（同主压缩一致）
@@ -1858,7 +1889,7 @@ namespace FolderRewind.Services
                         }
 
                         string args = sb.ToString();
-                        string safeArgs = string.IsNullOrWhiteSpace(settings.Password) ? args : args.Replace(settings.Password, "***");
+                        string safeArgs = string.IsNullOrWhiteSpace(password) ? args : args.Replace(password, "***");
 
                         bool ok = await RunSevenZipProcessAsync(sevenZipExe, args, sourceDir, safeArgs);
                         if (!ok) allSuccess = false;

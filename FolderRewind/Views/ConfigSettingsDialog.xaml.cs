@@ -24,11 +24,19 @@ namespace FolderRewind.Views
 
         public string SelectedConfigType
         {
-            get => Config?.ConfigType ?? "Default";
+            get
+            {
+                if (Config == null) return "Default";
+                // 加密配置在 UI 中显示为 "Encrypted" 类型
+                if (Config.IsEncrypted) return "Encrypted";
+                return Config.ConfigType ?? "Default";
+            }
             set
             {
                 if (Config == null) return;
-                Config.ConfigType = string.IsNullOrWhiteSpace(value) ? "Default" : value;
+                bool isEncrypted = string.Equals(value, "Encrypted", StringComparison.OrdinalIgnoreCase);
+                Config.IsEncrypted = isEncrypted;
+                Config.ConfigType = isEncrypted ? "Default" : (string.IsNullOrWhiteSpace(value) ? "Default" : value);
             }
         }
 
@@ -124,6 +132,18 @@ namespace FolderRewind.Views
             foreach (var t in PluginService.GetAllSupportedConfigTypes())
             {
                 ConfigTypesView.Add(t);
+            }
+
+            // 确保 "Encrypted" 作为内置类型出现
+            if (!ConfigTypesView.OfType<string>().Any(t => string.Equals(t, "Encrypted", StringComparison.OrdinalIgnoreCase)))
+            {
+                int defaultIdx = -1;
+                for (int i = 0; i < ConfigTypesView.Count; i++)
+                {
+                    if (ConfigTypesView[i] is string s && string.Equals(s, "Default", StringComparison.OrdinalIgnoreCase))
+                    { defaultIdx = i; break; }
+                }
+                ConfigTypesView.Insert(defaultIdx >= 0 ? defaultIdx + 1 : 1, "Encrypted");
             }
 
             // 如果当前类型不在列表里，也允许展示出来（避免旧配置类型丢失）
@@ -478,6 +498,12 @@ namespace FolderRewind.Views
             var fallback = current.BackupConfigs.FirstOrDefault(c => !string.Equals(c.Id, toRemove.Id, StringComparison.OrdinalIgnoreCase));
 
             current.BackupConfigs.Remove(toRemove);
+
+            // 清除加密配置的存储密码
+            if (toRemove.IsEncrypted)
+            {
+                EncryptionService.RemovePassword(toRemove.Id);
+            }
 
             if (settings != null)
             {

@@ -138,13 +138,6 @@
                     </StackPanel>
                 </StackPanel>
 
-                <!-- 压缩包密码 -->
-                <StackPanel Spacing="4">
-                    <TextBlock x:Uid="ConfigSettingsDialog_ArchivePassword"/>
-                    <TextBox x:Uid="ConfigSettingsDialog_ArchivePasswordPlaceholder" Text="{x:Bind Config.Archive.Password, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" InputScope="Password"/>
-                    <TextBlock x:Uid="ConfigSettingsDialog_ArchivePasswordDesc" Style="{StaticResource CaptionTextBlockStyle}" Foreground="{ThemeResource TextFillColorSecondaryBrush}"/>
-                </StackPanel>
-
                 <!-- 自定义文件类型处理 -->
                 <StackPanel Spacing="8">
                     <ToggleSwitch x:Uid="ConfigSettingsDialog_FileTypeHandling" IsOn="{x:Bind Config.Archive.FileTypeHandlingEnabled, Mode=TwoWay}"/>

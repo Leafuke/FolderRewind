@@ -223,6 +223,7 @@ namespace FolderRewind.Models
         private string _iconGlyph = "\uE8B7"; // 默认文件夹图标
         private string _summaryText = I18n.Format("BackupConfig_DefaultSummary");
         private string _configType = "Default"; // 配置类型，由插件定义，如 "Minecraft Saves"
+        private bool _isEncrypted = false; // 是否为加密配置
 
         // 核心路径
         public string Id { get => _id; set => SetProperty(ref _id, value); }
@@ -234,6 +235,18 @@ namespace FolderRewind.Models
         /// 插件可以定义自己的配置类型，如 "Minecraft Saves"。
         /// </summary>
         public string ConfigType { get => _configType; set => SetProperty(ref _configType, value ?? "Default"); }
+
+        /// <summary>
+        /// 是否为加密配置。加密配置的备份将使用 7-Zip 加密，密码通过 EncryptionService 安全存储。
+        /// 密码一旦设置无法更改。
+        /// </summary>
+        public bool IsEncrypted { get => _isEncrypted; set => SetProperty(ref _isEncrypted, value); }
+
+        /// <summary>
+        /// 是否为 Minecraft Saves 配置类型（用于 UI 卡片徽标显示）。
+        /// </summary>
+        [JsonIgnore]
+        public bool IsMinecraftConfig => string.Equals(_configType, "Minecraft Saves", StringComparison.OrdinalIgnoreCase);
 
         // UI 显示用
         public string IconGlyph { get => _iconGlyph; set => SetProperty(ref _iconGlyph, value); }
@@ -331,7 +344,6 @@ namespace FolderRewind.Models
         private string _method = "LZMA2";
         private int _keepCount = 0;
         private BackupMode _mode = BackupMode.Full;
-        private string _password = "";
         private bool _skipIfUnchanged = true;      // 无变更时跳过备份
         private int _cpuThreads = 0;               // CPU 线程数, 0 = 自动
         private bool _backupBeforeRestore = false;  // 还原前先执行一次备份
@@ -347,7 +359,6 @@ namespace FolderRewind.Models
         public string Method { get => _method; set => SetProperty(ref _method, value); }
         public int KeepCount { get => _keepCount; set => SetProperty(ref _keepCount, value); }
         public BackupMode Mode { get => _mode; set => SetProperty(ref _mode, value); }
-        public string Password { get => _password; set => SetProperty(ref _password, value); }
 
         /// <summary>
         /// 无变更时跳过备份，即使是全量模式也会先检测文件变化

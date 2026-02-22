@@ -1,8 +1,10 @@
 using FolderRewind.Models;
 using FolderRewind.Services;
 using FolderRewind.Services.Plugins;
+using Microsoft.UI;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
+using Microsoft.UI.Xaml.Media;
 using Microsoft.UI.Xaml.Navigation;
 using System;
 using System.Collections.Generic;
@@ -311,8 +313,14 @@ namespace FolderRewind.Views
                 PlaceholderText = resourceLoader.GetString("HomePage_ConfigNamePlaceholder")
             };
 
-            // 配置类型（含插件扩展类型）
-            var configTypes = PluginService.GetAllSupportedConfigTypes();
+            // 配置类型（含插件扩展类型 + 内置加密类型）
+            var configTypes = PluginService.GetAllSupportedConfigTypes().ToList();
+            // 确保 "Encrypted" 作为内置类型出现在 "Default" 之后
+            if (!configTypes.Contains("Encrypted", StringComparer.OrdinalIgnoreCase))
+            {
+                int defaultIdx = configTypes.FindIndex(t => string.Equals(t, "Default", StringComparison.OrdinalIgnoreCase));
+                configTypes.Insert(defaultIdx >= 0 ? defaultIdx + 1 : 1, "Encrypted");
+            }
             var typeCombo = new ComboBox
             {
                 Header = resourceLoader.GetString("HomePage_ConfigTypeHeader"),
@@ -432,19 +440,113 @@ namespace FolderRewind.Views
 
                 if (string.IsNullOrWhiteSpace(nameBox.Text)) return;
 
+                bool isEncrypted = string.Equals(selectedType, "Encrypted", StringComparison.OrdinalIgnoreCase);
+
+                // 如果是加密类型，弹出密码设置对话框
+                string encryptionPassword = null;
+                if (isEncrypted)
+                {
+                    encryptionPassword = await PromptSetPasswordAsync();
+                    if (encryptionPassword == null) return; // 用户取消
+                }
+
                 var selectedIcon = iconGrid.SelectedItem as string ?? IconCatalog.DefaultConfigIconGlyph;
                 var newConfig = new BackupConfig
                 {
                     Name = nameBox.Text,
                     IconGlyph = selectedIcon,
-                    ConfigType = selectedType,
+                    ConfigType = isEncrypted ? "Default" : selectedType, // 加密配置的底层类型仍为 Default
+                    IsEncrypted = isEncrypted,
                     DestinationPath = ConfigService.BuildDefaultDestinationPath(nameBox.Text),
                     SummaryText = resourceLoader.GetString("HomePage_NewConfigSummary")
                 };
 
                 ConfigService.CurrentConfig.BackupConfigs.Add(newConfig);
                 ConfigService.Save();
+
+                // 存储加密密码（在配置保存后，因为需要 config.Id）
+                if (isEncrypted && !string.IsNullOrEmpty(encryptionPassword))
+                {
+                    EncryptionService.StorePassword(newConfig.Id, encryptionPassword);
+                }
+
                 App.Shell.NavigateTo("Manager", ManagerNavigationParameter.ForConfig(newConfig.Id));
+            }
+        }
+
+        /// <summary>
+        /// 弹出设置加密密码的对话框，包含"密码一旦设置无法更改"的警告提示。
+        /// </summary>
+        private async System.Threading.Tasks.Task<string> PromptSetPasswordAsync()
+        {
+            var resourceLoader = ResourceLoader.GetForViewIndependentUse();
+
+            var passwordBox = new PasswordBox
+            {
+                PlaceholderText = resourceLoader.GetString("Encryption_SetPasswordPlaceholder")
+            };
+            var confirmBox = new PasswordBox
+            {
+                PlaceholderText = resourceLoader.GetString("Encryption_ConfirmPasswordPlaceholder")
+            };
+            var warningText = new TextBlock
+            {
+                Text = resourceLoader.GetString("Encryption_PasswordWarning"),
+                TextWrapping = TextWrapping.Wrap,
+                Foreground = new SolidColorBrush(Microsoft.UI.Colors.OrangeRed),
+                FontSize = 12,
+                Margin = new Thickness(0, 4, 0, 0)
+            };
+            var errorText = new TextBlock
+            {
+                Text = "",
+                Foreground = new SolidColorBrush(Microsoft.UI.Colors.Red),
+                FontSize = 12,
+                Visibility = Visibility.Collapsed
+            };
+
+            var stack = new StackPanel { Spacing = 12 };
+            stack.Children.Add(new TextBlock
+            {
+                Text = resourceLoader.GetString("Encryption_SetPasswordDesc"),
+                TextWrapping = TextWrapping.Wrap
+            });
+            stack.Children.Add(passwordBox);
+            stack.Children.Add(confirmBox);
+            stack.Children.Add(warningText);
+            stack.Children.Add(errorText);
+
+            var dialog = new ContentDialog
+            {
+                Title = resourceLoader.GetString("Encryption_SetPasswordTitle"),
+                Content = stack,
+                PrimaryButtonText = resourceLoader.GetString("Common_Ok"),
+                CloseButtonText = resourceLoader.GetString("Common_Cancel"),
+                DefaultButton = ContentDialogButton.Primary,
+                XamlRoot = this.XamlRoot
+            };
+            ThemeService.ApplyThemeToDialog(dialog);
+
+            while (true)
+            {
+                var result = await dialog.ShowAsync();
+                if (result != ContentDialogResult.Primary) return null;
+
+                if (string.IsNullOrEmpty(passwordBox.Password))
+                {
+                    errorText.Text = resourceLoader.GetString("Encryption_PasswordEmpty");
+                    errorText.Visibility = Visibility.Visible;
+                    continue;
+                }
+
+                if (passwordBox.Password != confirmBox.Password)
+                {
+                    errorText.Text = resourceLoader.GetString("Encryption_PasswordMismatch");
+                    errorText.Visibility = Visibility.Visible;
+                    continue;
+                }
+
+                return passwordBox.Password;
             }
         }
 
@@ -559,6 +661,12 @@ namespace FolderRewind.Views
 
                 if (await dialog.ShowAsync() == ContentDialogResult.Primary)
                 {
+                    // 清除加密配置的存储密码
+                    if (config.IsEncrypted)
+                    {
+                        EncryptionService.RemovePassword(config.Id);
+                    }
+
                     ConfigService.CurrentConfig.BackupConfigs.Remove(config);
                     ConfigService.Save();
                     RefreshConfigsView();

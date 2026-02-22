@@ -301,6 +301,20 @@
                                                       Foreground="{ThemeResource TextFillColorTertiaryBrush}" 
                                                       VerticalAlignment="Center"/>
                                         </Grid>
+
+                                        <!-- 右下角配置类型标识图标 -->
+                                        <!-- 加密配置：锁图标 -->
+                                        <FontIcon Glyph="&#xE72E;" FontSize="12"
+                                                  Foreground="{ThemeResource TextFillColorTertiaryBrush}"
+                                                  HorizontalAlignment="Right" VerticalAlignment="Bottom"
+                                                  Margin="0,0,8,6"
+                                                  Visibility="{x:Bind IsEncrypted, Converter={StaticResource BoolToVisConverter}}"/>
+                                        <!-- Minecraft Saves 配置：游戏手柄图标 -->
+                                        <FontIcon Glyph="&#xE7FC;" FontSize="12"
+                                                  Foreground="{ThemeResource TextFillColorTertiaryBrush}"
+                                                  HorizontalAlignment="Right" VerticalAlignment="Bottom"
+                                                  Margin="0,0,8,6"
+                                                  Visibility="{x:Bind IsMinecraftConfig, Converter={StaticResource BoolToVisConverter}}"/>
                                     </Grid>
                                 </Button>
                             </Border>
