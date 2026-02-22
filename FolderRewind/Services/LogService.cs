@@ -3,6 +3,8 @@ using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
+using System.Threading.Channels;
+using System.Threading.Tasks;
 using Windows.Storage;
 
 namespace FolderRewind.Services
@@ -16,6 +18,20 @@ namespace FolderRewind.Services
         private static readonly List<LogEntry> _buffer = new();
         private static LogOptions _options = new();
         private static string _currentLogDate = string.Empty;
+        private static readonly Channel<LogEntry> _logChannel = Channel.CreateUnbounded<LogEntry>();
+
+        static LogService()
+        {
+            _ = Task.Run(ProcessLogQueueAsync);
+        }
+
+        private static async Task ProcessLogQueueAsync()
+        {
+            await foreach (var entry in _logChannel.Reader.ReadAllAsync())
+            {
+                TryAppendToFile(entry);
+            }
+        }
 
         public static event Action<LogEntry>? EntryPublished;
 
@@ -60,7 +76,7 @@ namespace FolderRewind.Services
                 TrimBufferIfNeeded();
             }
 
-            TryAppendToFile(entry);
+            _logChannel.Writer.TryWrite(entry);
 
             try
             {

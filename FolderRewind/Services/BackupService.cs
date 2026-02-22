@@ -85,6 +85,9 @@ namespace FolderRewind.Services
             }
             catch { }
 
+            // 缓存编译好的正则表达式
+            var regexCache = new Dictionary<string, Regex>();
+
             foreach (var ruleOrig in rules)
             {
                 var rule = ruleOrig.Trim();
@@ -98,7 +101,11 @@ namespace FolderRewind.Services
                     try
                     {
                         var pattern = rule.Substring(6); // 使用原始大小写
-                        var regex = new Regex(pattern, RegexOptions.IgnoreCase | RegexOptions.Compiled);
+                        if (!regexCache.TryGetValue(pattern, out var regex))
+                        {
+                            regex = new Regex(pattern, RegexOptions.IgnoreCase | RegexOptions.Compiled);
+                            regexCache[pattern] = regex;
+                        }
 
                         // 正则同时匹配绝对路径和相对路径
                         if (regex.IsMatch(fileToCheck) ||
@@ -1191,35 +1198,14 @@ namespace FolderRewind.Services
                 string oldName = targetFile.Name;
                 string newTimeStr = DateTime.Now.ToString("yyyy-MM-dd_HH-mm-ss");
 
-                // 简单的正则或字符串替换：查找第二个方括号内时间并替换
+                // 使用正则表达式精确匹配时间戳部分
                 string newName = oldName;
-                int firstBracket = oldName.IndexOf('[');
-                int secondBracket = oldName.IndexOf(']', firstBracket + 1);
-                int thirdBracket = oldName.IndexOf('[', secondBracket + 1);
-                int fourthBracket = thirdBracket >= 0 ? oldName.IndexOf(']', thirdBracket + 1) : -1;
+                var timeRegex = new Regex(@"\[\d{4}-\d{2}-\d{2}_\d{2}-\d{2}-\d{2}\]");
+                var match = timeRegex.Match(oldName);
 
-                // 尝试找到时间段（第二个方括号里的内容）
-                int timeStart = -1;
-                int timeEnd = -1;
-                // 通mon pattern: [Type][Time]Name.ext  -> time is between second '[' and following ']'
-                // 找第二个 '['
-                int nth = 0;
-                for (int i = 0; i < oldName.Length; i++)
+                if (match.Success)
                 {
-                    if (oldName[i] == '[') nth++;
-                    if (nth == 2) { timeStart = i + 1; break; }
-                }
-                if (timeStart != -1)
-                {
-                    for (int i = timeStart; i < oldName.Length; i++)
-                    {
-                        if (oldName[i] == ']') { timeEnd = i; break; }
-                    }
-                }
-
-                if (timeStart != -1 && timeEnd != -1)
-                {
-                    newName = oldName.Substring(0, timeStart) + newTimeStr + oldName.Substring(timeEnd);
+                    newName = oldName.Substring(0, match.Index) + $"[{newTimeStr}]" + oldName.Substring(match.Index + match.Length);
                 }
                 else
                 {
