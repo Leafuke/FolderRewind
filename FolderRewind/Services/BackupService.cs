@@ -861,34 +861,51 @@ namespace FolderRewind.Services
                         var oldMeta = JsonSerializer.Deserialize(File.ReadAllText(metadataPath), AppJsonContext.Default.BackupMetadata);
                         if (oldMeta != null)
                         {
-                            var currentStates = ScanDirectory(source, config.Filters);
-                            bool hasChanges = false;
-
-                            // 比较文件数量是否一致
-                            if (currentStates.Count != oldMeta.FileStates.Count)
+                            // 校验元数据引用的备份文件是否仍然存在
+                            // 如果用户删除了最近的备份文件，应强制执行完整备份
+                            bool referencedBackupExists = true;
+                            if (!string.IsNullOrEmpty(oldMeta.LastBackupFileName))
                             {
-                                hasChanges = true;
-                            }
-                            else
-                            {
-                                // 逐文件比较大小和修改时间
-                                foreach (var kvp in currentStates)
+                                string referencedBackupPath = Path.Combine(destDir, oldMeta.LastBackupFileName);
+                                if (!File.Exists(referencedBackupPath))
                                 {
-                                    if (!oldMeta.FileStates.TryGetValue(kvp.Key, out var oldState) ||
-                                        kvp.Value.Size != oldState.Size ||
-                                        kvp.Value.LastWriteTimeUtc != oldState.LastWriteTimeUtc)
-                                    {
-                                        hasChanges = true;
-                                        break;
-                                    }
+                                    referencedBackupExists = false;
+                                    Log(I18n.Format("BackupService_Log_ReferencedBackupMissing", oldMeta.LastBackupFileName), LogLevel.Warning);
                                 }
                             }
 
-                            if (!hasChanges)
+                            if (referencedBackupExists)
                             {
-                                Log(I18n.Format("BackupService_Log_NoChangesDetected"), LogLevel.Info);
-                                return (true, null); // 无变更，跳过备份
+                                var currentStates = ScanDirectory(source, config.Filters);
+                                bool hasChanges = false;
+
+                                // 比较文件数量是否一致
+                                if (currentStates.Count != oldMeta.FileStates.Count)
+                                {
+                                    hasChanges = true;
+                                }
+                                else
+                                {
+                                    // 逐文件比较大小和修改时间
+                                    foreach (var kvp in currentStates)
+                                    {
+                                        if (!oldMeta.FileStates.TryGetValue(kvp.Key, out var oldState) ||
+                                            kvp.Value.Size != oldState.Size ||
+                                            kvp.Value.LastWriteTimeUtc != oldState.LastWriteTimeUtc)
+                                        {
+                                            hasChanges = true;
+                                            break;
+                                        }
+                                    }
+                                }
+
+                                if (!hasChanges)
+                                {
+                                    Log(I18n.Format("BackupService_Log_NoChangesDetected"), LogLevel.Info);
+                                    return (true, null); // 无变更，跳过备份
+                                }
                             }
+                            // 如果 referencedBackupExists == false，跳过比较，直接进入全量备份
                         }
                     }
                     catch
@@ -945,6 +962,27 @@ namespace FolderRewind.Services
             {
                 Log(I18n.Format("BackupService_Log_NoBaselineMetadataFallbackFull"), LogLevel.Info);
                 return await DoFullBackupAsync(source, destDir, metaDir, baseName, config, comment);
+            }
+
+            // 校验元数据引用的备份文件是否仍然存在
+            // 如果用户删除了最近的备份文件，增量链已断裂，应强制全量备份
+            if (!string.IsNullOrEmpty(oldMeta.LastBackupFileName))
+            {
+                string referencedBackupPath = Path.Combine(destDir, oldMeta.LastBackupFileName);
+                if (!File.Exists(referencedBackupPath))
+                {
+                    Log(I18n.Format("BackupService_Log_ReferencedBackupMissing", oldMeta.LastBackupFileName), LogLevel.Warning);
+                    return await DoFullBackupAsync(source, destDir, metaDir, baseName, config, comment);
+                }
+            }
+            if (!string.IsNullOrEmpty(oldMeta.BasedOnFullBackup) && oldMeta.BasedOnFullBackup != oldMeta.LastBackupFileName)
+            {
+                string baseBackupPath = Path.Combine(destDir, oldMeta.BasedOnFullBackup);
+                if (!File.Exists(baseBackupPath))
+                {
+                    Log(I18n.Format("BackupService_Log_ReferencedBackupMissing", oldMeta.BasedOnFullBackup), LogLevel.Warning);
+                    return await DoFullBackupAsync(source, destDir, metaDir, baseName, config, comment);
+                }
             }
 
             // 2. 智能备份链长度检查（参考 MineBackup maxSmartBackupsPerFull 逻辑）

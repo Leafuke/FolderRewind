@@ -1457,6 +1457,9 @@
   <data name="BackupService_Log_NoChangesDetected" xml:space="preserve">
     <value>没有检测到文件变更</value>
   </data>
+  <data name="BackupService_Log_ReferencedBackupMissing" xml:space="preserve">
+    <value>元数据引用的备份文件不存在: {0}，将强制执行全量备份</value>
+  </data>
   <data name="BackupService_Log_ChangesDetected" xml:space="preserve">
     <value>检测到 {0} 个文件变更</value>
   </data>

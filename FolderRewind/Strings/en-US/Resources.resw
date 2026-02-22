@@ -1457,6 +1457,9 @@ If you have a listener subscribed to this signal, it should receive a message.</
   <data name="BackupService_Log_NoChangesDetected" xml:space="preserve">
     <value>No file changes detected.</value>
   </data>
+  <data name="BackupService_Log_ReferencedBackupMissing" xml:space="preserve">
+    <value>Referenced backup file is missing: {0}. Forcing full backup.</value>
+  </data>
   <data name="BackupService_Log_ChangesDetected" xml:space="preserve">
     <value>Detected {0} changed files.</value>
   </data>

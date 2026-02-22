@@ -46,6 +46,32 @@ namespace FolderRewind.Views
         /// 压缩算法选择索引
         /// </summary>
         private static readonly string[] CompressionMethods = { "LZMA2", "Deflate", "BZip2", "zstd" };
+
+        /// <summary>
+        /// 根据当前压缩算法返回压缩等级的最小值
+        /// </summary>
+        public int CompressionLevelMin => GetCompressionLevelRange(Config?.Archive?.Method).Min;
+
+        /// <summary>
+        /// 根据当前压缩算法返回压缩等级的最大值
+        /// </summary>
+        public int CompressionLevelMax => GetCompressionLevelRange(Config?.Archive?.Method).Max;
+
+        /// <summary>
+        /// 获取各压缩算法的有效压缩等级范围
+        /// </summary>
+        private static (int Min, int Max) GetCompressionLevelRange(string method)
+        {
+            return method switch
+            {
+                "zstd" => (1, 22),
+                "BZip2" => (1, 9),
+                "LZMA2" => (0, 9),
+                "Deflate" => (0, 9),
+                _ => (0, 9),
+            };
+        }
+
         public int MethodSelectedIndex
         {
             get
@@ -56,8 +82,32 @@ namespace FolderRewind.Views
             set
             {
                 if (value >= 0 && value < CompressionMethods.Length)
+                {
                     Config.Archive.Method = CompressionMethods[value];
+                    UpdateCompressionLevelSliderRange();
+                }
             }
+        }
+
+        /// <summary>
+        /// 当压缩算法变更时，更新压缩等级滑块的有效范围，并将当前值限制在新范围内
+        /// </summary>
+        private void UpdateCompressionLevelSliderRange()
+        {
+            if (CompressionLevelSlider == null) return;
+            var (min, max) = GetCompressionLevelRange(Config?.Archive?.Method);
+            CompressionLevelSlider.Minimum = min;
+            CompressionLevelSlider.Maximum = max;
+            // 将当前值限制在新的有效范围内
+            if (Config?.Archive != null)
+            {
+                Config.Archive.CompressionLevel = Math.Clamp(Config.Archive.CompressionLevel, min, max);
+            }
+        }
+
+        private void OnMethodSelectionChanged(object sender, SelectionChangedEventArgs e)
+        {
+            UpdateCompressionLevelSliderRange();
         }
 
         public ConfigSettingsDialog(BackupConfig config)

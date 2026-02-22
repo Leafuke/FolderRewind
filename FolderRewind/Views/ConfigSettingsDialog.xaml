@@ -100,7 +100,7 @@
                         <ComboBoxItem x:Uid="ConfigSettingsDialog_Format7z"/>
                         <ComboBoxItem x:Uid="ConfigSettingsDialog_FormatZip"/>
                     </ComboBox>
-                    <ComboBox x:Uid="ConfigSettingsDialog_Method" Grid.Column="1" SelectedIndex="{x:Bind MethodSelectedIndex, Mode=TwoWay}" HorizontalAlignment="Stretch" Margin="8,0,0,0">
+                    <ComboBox x:Uid="ConfigSettingsDialog_Method" Grid.Column="1" SelectedIndex="{x:Bind MethodSelectedIndex, Mode=TwoWay}" HorizontalAlignment="Stretch" Margin="8,0,0,0" SelectionChanged="OnMethodSelectionChanged">
                         <ComboBoxItem Content="LZMA2"/>
                         <ComboBoxItem Content="Deflate"/>
                         <ComboBoxItem Content="BZip2"/>
@@ -111,7 +111,7 @@
                 <!-- 压缩等级 -->
                 <StackPanel Spacing="4">
                     <TextBlock x:Uid="ConfigSettingsDialog_CompressionLevel"/>
-                    <Slider Minimum="0" Maximum="9" Value="{x:Bind Config.Archive.CompressionLevel, Mode=TwoWay}"/>
+                    <Slider x:Name="CompressionLevelSlider" Minimum="{x:Bind CompressionLevelMin}" Maximum="{x:Bind CompressionLevelMax}" Value="{x:Bind Config.Archive.CompressionLevel, Mode=TwoWay}"/>
                 </StackPanel>
 
                 <!-- 保留备份数量 -->
