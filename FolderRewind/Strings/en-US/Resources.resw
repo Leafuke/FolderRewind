@@ -2187,4 +2187,16 @@ Status: {3}</value>
   <data name="BackupService_Log_FileTypeRulePassFailed" xml:space="preserve">
     <value>[File Type Rules] Some append passes failed, main backup not affected</value>
   </data>
+  <data name="BackupService_Task_Restoring" xml:space="preserve">
+    <value>Restoring...</value>
+  </data>
+  <data name="BackupService_Task_Restoring_N" xml:space="preserve">
+    <value>Restoring ({0}/{1})...</value>
+  </data>
+  <data name="BackupService_Task_RestoreCompleted" xml:space="preserve">
+    <value>Restore completed</value>
+  </data>
+  <data name="BackupService_Task_RestoreFailed" xml:space="preserve">
+    <value>Restore failed</value>
+  </data>
 </root>

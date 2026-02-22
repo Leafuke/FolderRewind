@@ -2187,4 +2187,16 @@
   <data name="BackupService_Log_FileTypeRulePassFailed" xml:space="preserve">
     <value>[自定义文件类型] 部分追加压缩失败，主备份不受影响</value>
   </data>
+  <data name="BackupService_Task_Restoring" xml:space="preserve">
+    <value>正在还原...</value>
+  </data>
+  <data name="BackupService_Task_Restoring_N" xml:space="preserve">
+    <value>正在还原 ({0}/{1})...</value>
+  </data>
+  <data name="BackupService_Task_RestoreCompleted" xml:space="preserve">
+    <value>还原完成</value>
+  </data>
+  <data name="BackupService_Task_RestoreFailed" xml:space="preserve">
+    <value>还原失败</value>
+  </data>
 </root>

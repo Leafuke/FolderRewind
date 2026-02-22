@@ -642,14 +642,60 @@ namespace FolderRewind.Models
         private string _speed;
         private bool _isCompleted;
         private string _log; // 实时日志片段
+        private string _errorMessage;
+        private bool _isIndeterminate = true;
+        private bool _isSuccess;
+        private string _iconGlyph = "\uE8B7"; // Segoe MDL2 SaveLocal（备份图标）
 
         public string FolderName { get => _folderName; set => SetProperty(ref _folderName, value); }
-        public double Progress { get => _progress; set => SetProperty(ref _progress, value); }
+        public double Progress
+        {
+            get => _progress;
+            set
+            {
+                if (SetProperty(ref _progress, value))
+                    OnPropertyChanged(nameof(ProgressText));
+            }
+        }
         public string Status { get => _status; set => SetProperty(ref _status, value); }
         public string Speed { get => _speed; set => SetProperty(ref _speed, value); }
         public bool IsCompleted { get => _isCompleted; set => SetProperty(ref _isCompleted, value); }
 
         // 这里的 Log 用于给 TaskPage 显示详细信息
         public string Log { get => _log; set => SetProperty(ref _log, value); }
+
+        /// <summary>
+        /// 失败原因（仅在任务失败时有值），通常来自 7z 的 stderr 输出
+        /// </summary>
+        public string ErrorMessage { get => _errorMessage; set => SetProperty(ref _errorMessage, value); }
+
+        /// <summary>
+        /// 进度条是否为不确定模式（尚未收到 7z 进度数据时为 true）
+        /// </summary>
+        public bool IsIndeterminate
+        {
+            get => _isIndeterminate;
+            set
+            {
+                if (SetProperty(ref _isIndeterminate, value))
+                    OnPropertyChanged(nameof(ProgressText));
+            }
+        }
+
+        /// <summary>
+        /// 任务是否成功完成
+        /// </summary>
+        public bool IsSuccess { get => _isSuccess; set => SetProperty(ref _isSuccess, value); }
+
+        /// <summary>
+        /// 任务图标（备份/还原使用不同图标）
+        /// </summary>
+        public string IconGlyph { get => _iconGlyph; set => SetProperty(ref _iconGlyph, value); }
+
+        /// <summary>
+        /// 格式化的进度文本（如 "42%"），不确定模式时为空
+        /// </summary>
+        [JsonIgnore]
+        public string ProgressText => IsIndeterminate ? "" : $"{Progress:F0}%";
     }
 }
