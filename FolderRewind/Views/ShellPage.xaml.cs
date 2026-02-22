@@ -1,11 +1,11 @@
 using FolderRewind.Models;
 using FolderRewind.Services;
+using Microsoft.UI.Dispatching;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Media.Animation;
 using Microsoft.UI.Xaml.Navigation;
 using System;
 using System.Linq;
-using Microsoft.UI.Dispatching;
 
 namespace FolderRewind.Views
 {

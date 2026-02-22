@@ -2,7 +2,6 @@ using FolderRewind.Models;
 using FolderRewind.Services;
 using FolderRewind.Services.Hotkeys;
 using FolderRewind.Services.Plugins;
-using FolderRewind.Views;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Navigation;
@@ -12,7 +11,6 @@ using System.Collections.Specialized;
 using System.ComponentModel;
 using System.IO;
 using System.Linq;
-using System.Threading.Tasks;
 using Windows.ApplicationModel.Resources;
 using Windows.Storage;
 using Windows.Storage.Pickers;
@@ -70,7 +68,7 @@ namespace FolderRewind.Views
                 }
                 catch
                 {
-                    
+
                 }
 
                 return I18n.GetString("FolderManager_NotSelected");
@@ -96,7 +94,7 @@ namespace FolderRewind.Views
             }
             catch
             {
-                
+
             }
         }
 
@@ -147,7 +145,7 @@ namespace FolderRewind.Views
             }
             catch
             {
-                
+
             }
         }
 
@@ -160,7 +158,7 @@ namespace FolderRewind.Views
             }
             catch
             {
-                
+
             }
         }
 

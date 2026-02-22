@@ -3,7 +3,6 @@ using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
-using System.Linq;
 using Windows.Storage;
 
 namespace FolderRewind.Services
@@ -69,7 +68,7 @@ namespace FolderRewind.Services
             }
             catch
             {
-                
+
             }
         }
 
@@ -97,7 +96,7 @@ namespace FolderRewind.Services
             }
             catch
             {
-                
+
             }
         }
 
@@ -119,7 +118,7 @@ namespace FolderRewind.Services
             }
             catch
             {
-                
+
             }
         }
 
@@ -165,7 +164,7 @@ namespace FolderRewind.Services
             }
             catch
             {
-                
+
             }
         }
 
@@ -188,7 +187,7 @@ namespace FolderRewind.Services
             }
             catch
             {
-               
+
             }
         }
 
@@ -206,7 +205,7 @@ namespace FolderRewind.Services
                     try
                     {
                         var info = new FileInfo(file);
-                        
+
                         var fileName = Path.GetFileNameWithoutExtension(file);
                         if (fileName.StartsWith("app-") && fileName.Length >= 14)
                         {
@@ -229,13 +228,13 @@ namespace FolderRewind.Services
                     }
                     catch
                     {
-                        
+
                     }
                 }
             }
             catch
             {
-                
+
             }
         }
 

@@ -28,7 +28,7 @@ namespace FolderRewind.Services
                 }
                 catch
                 {
-                    
+
                 }
             }
 

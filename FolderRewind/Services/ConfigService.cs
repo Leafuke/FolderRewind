@@ -3,7 +3,6 @@ using System;
 using System.Diagnostics;
 using System.IO;
 using System.Text.Json;
-using System.Threading.Tasks;
 using Windows.Storage;
 
 namespace FolderRewind.Services
@@ -141,7 +140,7 @@ namespace FolderRewind.Services
             }
             catch
             {
-                
+
             }
 
             // 示例配置

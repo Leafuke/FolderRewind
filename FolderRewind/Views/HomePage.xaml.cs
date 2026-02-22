@@ -75,7 +75,7 @@ namespace FolderRewind.Views
             }
             catch
             {
-                
+
             }
         }
 

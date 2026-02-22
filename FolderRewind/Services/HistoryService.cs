@@ -210,9 +210,9 @@ namespace FolderRewind.Services
             lock (_historyLock)
             {
                 // 查找并更新内存中的记录
-                var target = _allHistory.FirstOrDefault(x => 
-                    x.ConfigId == item.ConfigId && 
-                    x.FolderPath == item.FolderPath && 
+                var target = _allHistory.FirstOrDefault(x =>
+                    x.ConfigId == item.ConfigId &&
+                    x.FolderPath == item.FolderPath &&
                     x.FileName == item.FileName &&
                     x.Timestamp == item.Timestamp);
 
@@ -220,7 +220,7 @@ namespace FolderRewind.Services
                 {
                     target.Comment = newComment;
                 }
-                
+
                 // 同时更新传入的item（可能是UI绑定的对象）
                 item.Comment = newComment;
             }

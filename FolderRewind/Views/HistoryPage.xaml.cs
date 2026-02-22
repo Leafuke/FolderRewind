@@ -1,17 +1,17 @@
 using FolderRewind.Models;
 using FolderRewind.Services;
+using Microsoft.UI;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
+using Microsoft.UI.Xaml.Media;
 using Microsoft.UI.Xaml.Navigation;
 using System;
+using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.ComponentModel;
-using System.Linq;
-using System.IO;
-using Microsoft.UI.Xaml.Media;
-using Microsoft.UI;
-using System.Collections.Generic;
 using System.Diagnostics;
+using System.IO;
+using System.Linq;
 
 namespace FolderRewind.Views
 {
@@ -346,13 +346,13 @@ namespace FolderRewind.Views
             if (result != ContentDialogResult.Primary) return;
 
             var newComment = inputBox.Text?.Trim() ?? string.Empty;
-            
+
             // 更新历史记录
             HistoryService.UpdateComment(item, newComment);
-            
+
             // 触发 Message 属性更新（因为 Message 依赖 Comment）
             item.OnPropertyChanged(nameof(item.Message));
-            
+
             // 刷新当前列表以确保UI更新
             var config = ConfigFilter.SelectedItem as BackupConfig;
             var folder = FolderFilter.SelectedItem as ManagedFolder;

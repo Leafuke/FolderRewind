@@ -1,13 +1,12 @@
-using Microsoft.UI.Xaml;
-using Microsoft.UI.Xaml.Controls;
 using FolderRewind.Services;
-using FolderRewind.Models;
 using FolderRewind.Services.Hotkeys;
 using Microsoft.UI;
 using Microsoft.UI.Windowing;
+using Microsoft.UI.Xaml;
+using Microsoft.UI.Xaml.Controls;
+using System;
 using Windows.Foundation;
 using Windows.UI;
-using System;
 
 // To learn more about WinUI, the WinUI project structure,
 // and more about our project templates, see: http://aka.ms/winui-project-info.
@@ -41,7 +40,7 @@ namespace FolderRewind
             }
 
             ThemeService.ThemeChanged += ThemeService_ThemeChanged;
-            
+
             // Apply initial theme
             var currentTheme = ThemeService.GetCurrentTheme();
             ThemeService.ApplyThemeToWindow(this);

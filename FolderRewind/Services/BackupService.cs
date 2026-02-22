@@ -6,7 +6,6 @@ using System.Collections.ObjectModel;
 using System.Diagnostics;
 using System.IO;
 using System.Linq;
-using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
 using System.Text.RegularExpressions;
@@ -359,27 +358,27 @@ namespace FolderRewind.Services
                 switch (config.Archive.Mode)
                 {
                     case BackupMode.Incremental:
-                    {
-                        var res = await DoSmartBackupAsync(sourcePath, backupSubDir, metadataDir, folder.DisplayName, config, comment);
-                        success = res.Success;
-                        generatedFileName = res.FileName;
-                        break;
-                    }
+                        {
+                            var res = await DoSmartBackupAsync(sourcePath, backupSubDir, metadataDir, folder.DisplayName, config, comment);
+                            success = res.Success;
+                            generatedFileName = res.FileName;
+                            break;
+                        }
                     case BackupMode.Overwrite:
-                    {
-                        var res = await DoOverwriteBackupAsync(sourcePath, backupSubDir, folder.DisplayName, config, comment);
-                        success = res.Success;
-                        generatedFileName = res.FileName;
-                        break;
-                    }
+                        {
+                            var res = await DoOverwriteBackupAsync(sourcePath, backupSubDir, folder.DisplayName, config, comment);
+                            success = res.Success;
+                            generatedFileName = res.FileName;
+                            break;
+                        }
                     case BackupMode.Full:
                     default:
-                    {
-                        var res = await DoFullBackupAsync(sourcePath, backupSubDir, metadataDir, folder.DisplayName, config, comment);
-                        success = res.Success;
-                        generatedFileName = res.FileName;
-                        break;
-                    }
+                        {
+                            var res = await DoFullBackupAsync(sourcePath, backupSubDir, metadataDir, folder.DisplayName, config, comment);
+                            success = res.Success;
+                            generatedFileName = res.FileName;
+                            break;
+                        }
                 }
             }
             catch (Exception ex)
@@ -692,7 +691,7 @@ namespace FolderRewind.Services
             }
             catch
             {
-                
+
             }
         }
 
@@ -1190,7 +1189,7 @@ namespace FolderRewind.Services
 
             string sevenZipExe = ResolveSevenZipExecutable();
             if (string.IsNullOrEmpty(sevenZipExe)) return;
-            
+
             var backupDir = new DirectoryInfo(Path.GetDirectoryName(backupFilePath)!);
             var targetFile = new FileInfo(backupFilePath);
             var chain = BuildRestoreChain(backupDir, targetFile, historyItem.BackupType);
@@ -1536,7 +1535,7 @@ namespace FolderRewind.Services
                 foreach (var rule in filters.Blacklist.Where(r => !string.IsNullOrWhiteSpace(r)))
                 {
                     var trimmedRule = rule.Trim();
-                    
+
                     // 跳过正则表达式规则（7z 不直接支持）
                     if (trimmedRule.StartsWith("regex:", StringComparison.OrdinalIgnoreCase))
                     {
@@ -1583,7 +1582,7 @@ namespace FolderRewind.Services
             if (!backupDir.Exists) return chain;
 
             bool isIncremental =
-                (!string.IsNullOrWhiteSpace(backupType) && 
+                (!string.IsNullOrWhiteSpace(backupType) &&
                     (backupType.Equals("Incremental", StringComparison.OrdinalIgnoreCase) ||
                      backupType.Equals("Smart", StringComparison.OrdinalIgnoreCase))) ||
                 targetFile.Name.Contains("[Smart]", StringComparison.OrdinalIgnoreCase);

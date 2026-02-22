@@ -2,9 +2,9 @@ using FolderRewind.Models;
 using FolderRewind.Services;
 using FolderRewind.Services.Hotkeys;
 using FolderRewind.Services.Plugins;
+using Microsoft.UI.Input;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
-using Windows.ApplicationModel.Resources;
 using Microsoft.UI.Xaml.Controls.Primitives;
 using Microsoft.UI.Xaml.Media;
 using System;
@@ -14,13 +14,12 @@ using System.ComponentModel;
 using System.Linq;
 using System.Runtime.CompilerServices;
 using System.Threading.Tasks;
-using Microsoft.UI.Input;
-using Windows.System;
-using Windows.Storage.Pickers;
+using Windows.ApplicationModel.Resources;
 using Windows.Graphics;
-using WinRT.Interop;
-using Windows.ApplicationModel.DataTransfer;
 using Windows.Storage;
+using Windows.Storage.Pickers;
+using Windows.System;
+using WinRT.Interop;
 
 namespace FolderRewind.Views
 {
@@ -988,29 +987,29 @@ namespace FolderRewind.Views
                 switch (def.Type)
                 {
                     case PluginSettingType.Boolean:
-                    {
-                        var toggle = new ToggleSwitch { IsOn = string.Equals(initial, "true", StringComparison.OrdinalIgnoreCase) };
-                        panel.Children.Add(toggle);
-                        getters[key] = () => toggle.IsOn ? "true" : "false";
-                        break;
-                    }
+                        {
+                            var toggle = new ToggleSwitch { IsOn = string.Equals(initial, "true", StringComparison.OrdinalIgnoreCase) };
+                            panel.Children.Add(toggle);
+                            getters[key] = () => toggle.IsOn ? "true" : "false";
+                            break;
+                        }
                     case PluginSettingType.Integer:
-                    {
-                        int.TryParse(initial, out var intVal);
-                        var nb = new NumberBox { Value = intVal, Minimum = int.MinValue, Maximum = int.MaxValue, SpinButtonPlacementMode = NumberBoxSpinButtonPlacementMode.Compact };
-                        panel.Children.Add(nb);
-                        getters[key] = () => ((int)Math.Round(nb.Value)).ToString();
-                        break;
-                    }
+                        {
+                            int.TryParse(initial, out var intVal);
+                            var nb = new NumberBox { Value = intVal, Minimum = int.MinValue, Maximum = int.MaxValue, SpinButtonPlacementMode = NumberBoxSpinButtonPlacementMode.Compact };
+                            panel.Children.Add(nb);
+                            getters[key] = () => ((int)Math.Round(nb.Value)).ToString();
+                            break;
+                        }
                     case PluginSettingType.Path:
                     case PluginSettingType.String:
                     default:
-                    {
-                        var tb = new TextBox { Text = initial, PlaceholderText = def.IsRequired ? I18n.GetString("Common_Required") : string.Empty };
-                        panel.Children.Add(tb);
-                        getters[key] = () => tb.Text ?? string.Empty;
-                        break;
-                    }
+                        {
+                            var tb = new TextBox { Text = initial, PlaceholderText = def.IsRequired ? I18n.GetString("Common_Required") : string.Empty };
+                            panel.Children.Add(tb);
+                            getters[key] = () => tb.Text ?? string.Empty;
+                            break;
+                        }
                 }
 
                 // WinUI3 没有通用 Separator 控件（不同于 WPF），这里用留白分隔即可。
@@ -1131,7 +1130,7 @@ namespace FolderRewind.Views
                 if (!success && desired)
                 {
                     ts.IsOn = false;
-                    
+
                     var state = await StartupService.GetStartupStateAsync();
                     if (state == Windows.ApplicationModel.StartupTaskState.DisabledByUser)
                     {
@@ -1306,7 +1305,7 @@ namespace FolderRewind.Views
             }
             catch
             {
-                
+
             }
         }
         private void OnJoinGroupButtonClick(object sender, RoutedEventArgs e)

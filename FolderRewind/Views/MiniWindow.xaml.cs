@@ -1,6 +1,5 @@
 ﻿using FolderRewind.Models;
 using FolderRewind.Services;
-using Microsoft.UI;
 using Microsoft.UI.Windowing;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
@@ -118,7 +117,7 @@ namespace FolderRewind.Views
                 overlapped.IsMinimizable = false;
                 overlapped.SetBorderAndTitleBar(false, false);
 
-                
+
             }
 
             // 设置初始尺寸
@@ -146,7 +145,7 @@ namespace FolderRewind.Views
             catch { }
 
             // 取消窗口阴影 - 暂时做不到……
-            
+
 
             // 从任务栏隐藏（WS_EX_TOOLWINDOW）
             try

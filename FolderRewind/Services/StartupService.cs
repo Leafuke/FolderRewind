@@ -30,11 +30,11 @@ namespace FolderRewind.Services
             try
             {
                 var startupTask = await StartupTask.GetAsync(StartupTaskId);
-                
+
                 if (enable)
                 {
                     var state = await startupTask.RequestEnableAsync();
-                    
+
                     switch (state)
                     {
                         case StartupTaskState.Enabled:
@@ -80,7 +80,7 @@ namespace FolderRewind.Services
             try
             {
                 var startupTask = await StartupTask.GetAsync(StartupTaskId);
-                return startupTask.State == StartupTaskState.Enabled || 
+                return startupTask.State == StartupTaskState.Enabled ||
                        startupTask.State == StartupTaskState.EnabledByPolicy;
             }
             catch

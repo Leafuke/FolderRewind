@@ -1,16 +1,13 @@
-﻿using FolderRewind;
-using FolderRewind.Services;
+﻿using FolderRewind.Services;
 using FolderRewind.Services.Plugins;
 using H.NotifyIcon;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
-using Microsoft.UI.Xaml.Controls.Primitives;
 using Microsoft.UI.Xaml.Input;
 using System;
 using System.Threading.Tasks;
 using Windows.Globalization;
 using Windows.Graphics;
-using Windows.System.UserProfile;
 
 // To learn more about WinUI, the WinUI project structure,
 // and more about our project templates, see: http://aka.ms/winui-project-info.
@@ -74,7 +71,7 @@ namespace FolderRewind
             }
             catch
             {
-                
+
             }
         }
 
@@ -92,7 +89,7 @@ namespace FolderRewind
             try
             {
                 Services.ConfigService.Initialize();
-                
+
                 LogService.Log(I18n.GetString("App_Log_OnLaunchedBegin"));
                 LogService.MarkSessionStart();
 
@@ -181,7 +178,7 @@ namespace FolderRewind
                 }
                 catch
                 {
-                    
+
                 }
 
                 // 最小错误窗口
@@ -263,7 +260,7 @@ namespace FolderRewind
             }
             catch
             {
-                
+
             }
 
             try
@@ -272,7 +269,7 @@ namespace FolderRewind
             }
             catch
             {
-                
+
             }
         }
 
@@ -301,7 +298,7 @@ namespace FolderRewind
             }
             catch
             {
-                
+
             }
 
         }
