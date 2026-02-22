@@ -9,6 +9,8 @@ namespace FolderRewind.Services
 {
     public static class ConfigService
     {
+        #region 常量与状态
+
         private const string ConfigFileName = "config.json";
         //  LocalAppData  AppContext.BaseDirectory
         private static string ConfigPath => Path.Combine(GetWritableAppDataDir(), "FolderRewind", ConfigFileName);
@@ -21,6 +23,10 @@ namespace FolderRewind.Services
 
         public static string ConfigDirectory => Path.GetDirectoryName(ConfigPath)!;
 
+        #endregion
+
+        #region 路径与默认值
+
         public static string GetRecommendedDefaultBackupRootPath()
         {
             return Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments), "FolderRewind-Backup");
@@ -31,6 +37,10 @@ namespace FolderRewind.Services
             var safeName = MakeSafeFolderName(configName);
             return Path.Combine(CurrentConfig?.GlobalSettings?.DefaultBackupRootPath ?? GetRecommendedDefaultBackupRootPath(), safeName);
         }
+
+        #endregion
+
+        #region 初始化与迁移
 
         /// <summary>
         /// 初始化配置服务，加载或创建默认配置
@@ -176,6 +186,10 @@ namespace FolderRewind.Services
             Save();
         }
 
+        #endregion
+
+        #region 持久化与重载
+
         public static void Save()
         {
             if (CurrentConfig == null)
@@ -209,6 +223,10 @@ namespace FolderRewind.Services
             Initialize();
             return _initialized && CurrentConfig != null;
         }
+
+        #endregion
+
+        #region 配置文件访问
 
         public static void OpenConfigFolder()
         {
@@ -245,6 +263,10 @@ namespace FolderRewind.Services
                 LogService.Log(I18n.Format("Config_OpenConfigFileFailed", ex.Message));
             }
         }
+
+        #endregion
+
+        #region 导入导出
 
         /// <summary>
         /// 导出当前配置到指定路径
@@ -300,6 +322,10 @@ namespace FolderRewind.Services
                 return false;
             }
         }
+
+        #endregion
+
+        #region 规范化与内部工具
 
         private static void NormalizeGlobalSettings(GlobalSettings settings)
         {
@@ -395,5 +421,7 @@ namespace FolderRewind.Services
 
             LogService.ApplyOptions(options);
         }
+
+        #endregion
     }
 }

@@ -20,6 +20,8 @@ namespace FolderRewind
     public partial class App : Application
     {
 
+        #region 全局状态与共享入口
+
         public static Window _window { get; set; }
 
         /// <summary>
@@ -32,6 +34,10 @@ namespace FolderRewind
 
         private TaskbarIcon? _trayIcon;
         internal static bool ForceExitRequested { get; private set; }
+
+        #endregion
+
+        #region 构造与全局异常捕获
 
         /// <summary>
         /// Initializes the singleton application object.  This is the first line of authored code
@@ -74,6 +80,10 @@ namespace FolderRewind
 
             }
         }
+
+        #endregion
+
+        #region 应用生命周期
 
         /// <summary>
         /// Invoked when the application is launched.
@@ -216,6 +226,10 @@ namespace FolderRewind
             e.Handled = true; // 防止直接崩溃
         }
 
+        #endregion
+
+        #region 语言与窗口标题
+
         private static void ApplyLanguageOverride(string? languageSetting)
         {
             var normalized = NormalizeLanguage(languageSetting);
@@ -278,6 +292,10 @@ namespace FolderRewind
             return Services.I18n.Format("App_WindowTitle");
         }
 
+        #endregion
+
+        #region 主窗口偏好应用
+
         private static void ApplyWindowPreferences(Window window)
         {
             if (window == null) return;
@@ -302,6 +320,10 @@ namespace FolderRewind
             }
 
         }
+
+        #endregion
+
+        #region 托盘图标与命令
 
         private void InitializeTrayIcon()
         {
@@ -408,6 +430,8 @@ namespace FolderRewind
 
             _trayIcon = null;
         }
+
+        #endregion
 
     }
 }
