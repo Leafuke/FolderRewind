@@ -2160,4 +2160,28 @@ Status: {3}</value>
   <data name="Schedule_NextRun" xml:space="preserve">
     <value>Next run: {0}</value>
   </data>
+  <data name="ConfigSettingsDialog_FileTypeHandling.Header" xml:space="preserve">
+    <value>Custom File Type Handling</value>
+  </data>
+  <data name="ConfigSettingsDialog_FileTypeHandling.OnContent" xml:space="preserve">
+    <value>Enabled</value>
+  </data>
+  <data name="ConfigSettingsDialog_FileTypeHandling.OffContent" xml:space="preserve">
+    <value>Disabled</value>
+  </data>
+  <data name="ConfigSettingsDialog_FileTypeHandlingDesc.Text" xml:space="preserve">
+    <value>When enabled, you can set different compression levels for different file types. For example, use store-only for video/audio files to save time. This feature disables solid compression (-ms=off).</value>
+  </data>
+  <data name="ConfigSettingsDialog_FileTypePatternPlaceholder.PlaceholderText" xml:space="preserve">
+    <value>Enter wildcard pattern, e.g. *.mp4</value>
+  </data>
+  <data name="ConfigSettingsDialog_AddFileTypeRule.Content" xml:space="preserve">
+    <value>Add</value>
+  </data>
+  <data name="BackupService_Log_FileTypeRulePass" xml:space="preserve">
+    <value>[File Type Rules] Appending with mx={0}, patterns: {1}</value>
+  </data>
+  <data name="BackupService_Log_FileTypeRulePassFailed" xml:space="preserve">
+    <value>[File Type Rules] Some append passes failed, main backup not affected</value>
+  </data>
 </root>

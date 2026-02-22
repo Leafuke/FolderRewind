@@ -2160,4 +2160,28 @@
   <data name="Schedule_NextRun" xml:space="preserve">
     <value>下次执行: {0}</value>
   </data>
+  <data name="ConfigSettingsDialog_FileTypeHandling.Header" xml:space="preserve">
+    <value>自定义文件类型处理</value>
+  </data>
+  <data name="ConfigSettingsDialog_FileTypeHandling.OnContent" xml:space="preserve">
+    <value>已开启</value>
+  </data>
+  <data name="ConfigSettingsDialog_FileTypeHandling.OffContent" xml:space="preserve">
+    <value>已关闭</value>
+  </data>
+  <data name="ConfigSettingsDialog_FileTypeHandlingDesc.Text" xml:space="preserve">
+    <value>启用后可为不同类型的文件设置不同的压缩等级，例如对视频/音频等已压缩文件使用仅存储模式以节省时间。开启此功能会自动关闭固实压缩 (-ms=off)。</value>
+  </data>
+  <data name="ConfigSettingsDialog_FileTypePatternPlaceholder.PlaceholderText" xml:space="preserve">
+    <value>输入通配符模式，如 *.mp4</value>
+  </data>
+  <data name="ConfigSettingsDialog_AddFileTypeRule.Content" xml:space="preserve">
+    <value>添加</value>
+  </data>
+  <data name="BackupService_Log_FileTypeRulePass" xml:space="preserve">
+    <value>[自定义文件类型] 追加压缩 mx={0}，匹配模式: {1}</value>
+  </data>
+  <data name="BackupService_Log_FileTypeRulePassFailed" xml:space="preserve">
+    <value>[自定义文件类型] 部分追加压缩失败，主备份不受影响</value>
+  </data>
 </root>

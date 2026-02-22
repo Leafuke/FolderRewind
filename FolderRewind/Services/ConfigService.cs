@@ -98,6 +98,12 @@ namespace FolderRewind.Services
                     config.Filters.RestoreWhitelist = new System.Collections.ObjectModel.ObservableCollection<string>();
                 else if (config.Filters.RestoreWhitelist.GetType() != typeof(System.Collections.ObjectModel.ObservableCollection<string>))
                     config.Filters.RestoreWhitelist = new System.Collections.ObjectModel.ObservableCollection<string>(config.Filters.RestoreWhitelist);
+
+                // 兼容旧版配置：自定义文件类型处理规则可能为 null
+                if (config.Archive.FileTypeRules == null)
+                    config.Archive.FileTypeRules = new System.Collections.ObjectModel.ObservableCollection<FileTypeRule>();
+                else if (config.Archive.FileTypeRules.GetType() != typeof(System.Collections.ObjectModel.ObservableCollection<FileTypeRule>))
+                    config.Archive.FileTypeRules = new System.Collections.ObjectModel.ObservableCollection<FileTypeRule>(config.Archive.FileTypeRules);
             }
             if (CurrentConfig.GlobalSettings == null)
                 CurrentConfig.GlobalSettings = new GlobalSettings();

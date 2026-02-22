@@ -902,10 +902,22 @@ namespace FolderRewind.Services
             string fileName = GenerateFileName(baseName, config.Archive.Format, "Full", comment);
             string destFile = Path.Combine(destDir, fileName);
 
-            // 1. 直接压缩（带黑名单过滤）
-            bool result = await Run7zCommandAsync("a", source, destFile, config.Archive, null, config.Filters);
+            // 1. 直接压缩（带黑名单过滤 + 自定义文件类型排除）
+            var fileTypeExclusions = config.Archive.FileTypeHandlingEnabled ? (IReadOnlyList<FileTypeRule>)config.Archive.FileTypeRules : null;
+            bool result = await Run7zCommandAsync("a", source, destFile, config.Archive, null, config.Filters, fileTypeExclusions);
 
-            // 2. 如果成功，生成新的元数据（为后续可能的增量备份做基准）
+            // 2. 自定义文件类型追加压缩（不同压缩等级）
+            if (result && config.Archive.FileTypeHandlingEnabled)
+            {
+                bool ruleResult = await RunFileTypeRulePassesAsync(source, destFile, config.Archive, null, config.Filters);
+                if (!ruleResult)
+                {
+                    Log(I18n.Format("BackupService_Log_FileTypeRulePassFailed"), LogLevel.Warning);
+                    // 规则追加失败不影响主备份结果，仅记录警告
+                }
+            }
+
+            // 3. 如果成功，生成新的元数据（为后续可能的增量备份做基准）
             if (result)
             {
                 await UpdateMetadataAsync(source, metaDir, fileName, fileName, null, config.Filters); // 基准是自己
@@ -1027,15 +1039,42 @@ namespace FolderRewind.Services
             Log(I18n.Format("BackupService_Log_ChangesDetected", changedFiles.Count), LogLevel.Info);
 
             // 3. 生成文件列表文件
+            // 当启用自定义文件类型处理时，需要将变更文件列表拆分：
+            // - 主列表：不匹配任何 FileTypeRule 的文件（使用主压缩等级）
+            // - 规则匹配文件：稍后用独立压缩等级追加
+            bool hasFileTypeRules = config.Archive.FileTypeHandlingEnabled
+                && config.Archive.FileTypeRules != null
+                && config.Archive.FileTypeRules.Count > 0;
+
+            List<string> mainFiles = changedFiles;
+            if (hasFileTypeRules)
+            {
+                mainFiles = changedFiles.Where(f =>
+                    !config.Archive.FileTypeRules.Any(rule =>
+                        !string.IsNullOrWhiteSpace(rule.Pattern) && MatchWildcard(f, rule.Pattern.Trim())))
+                    .ToList();
+            }
+
             string listFile = Path.GetTempFileName();
-            File.WriteAllLines(listFile, changedFiles);
+            File.WriteAllLines(listFile, mainFiles);
 
             string fileName = GenerateFileName(baseName, config.Archive.Format, "Smart", comment);
             string destFile = Path.Combine(destDir, fileName);
 
             // 4. 执行压缩 (使用 @listfile)
             // 注意：7z 需要工作目录在 source 下，才能正确识别相对路径列表
-            bool result = await Run7zCommandAsync("a", source, destFile, config.Archive, listFile, config.Filters);
+            var fileTypeExclusions = hasFileTypeRules ? (IReadOnlyList<FileTypeRule>)config.Archive.FileTypeRules : null;
+            bool result = await Run7zCommandAsync("a", source, destFile, config.Archive, listFile, config.Filters, fileTypeExclusions);
+
+            // 4.5 自定义文件类型追加压缩（增量模式下传递变更文件列表用于筛选）
+            if (result && hasFileTypeRules)
+            {
+                bool ruleResult = await RunFileTypeRulePassesAsync(source, destFile, config.Archive, changedFiles, config.Filters);
+                if (!ruleResult)
+                {
+                    Log(I18n.Format("BackupService_Log_FileTypeRulePassFailed"), LogLevel.Warning);
+                }
+            }
 
             // 5. 更新元数据
             if (result)
@@ -1071,10 +1110,21 @@ namespace FolderRewind.Services
             FileInfo targetFile = files[0];
             Log(I18n.Format("BackupService_Log_OverwriteUpdating", targetFile.Name), LogLevel.Info);
 
-            // 2. 执行 update 命令 (u)（带黑名单过滤）
+            // 2. 执行 update 命令 (u)（带黑名单过滤 + 自定义文件类型排除）
             // 7z u <archive_name> <file_names>
             // u 指令会更新已存在的文件并添加新文件
-            bool result = await Run7zCommandAsync("u", source, targetFile.FullName, config.Archive, null, config.Filters);
+            var fileTypeExclusions = config.Archive.FileTypeHandlingEnabled ? (IReadOnlyList<FileTypeRule>)config.Archive.FileTypeRules : null;
+            bool result = await Run7zCommandAsync("u", source, targetFile.FullName, config.Archive, null, config.Filters, fileTypeExclusions);
+
+            // 2.5 自定义文件类型追加压缩
+            if (result && config.Archive.FileTypeHandlingEnabled)
+            {
+                bool ruleResult = await RunFileTypeRulePassesAsync(source, targetFile.FullName, config.Archive, null, config.Filters);
+                if (!ruleResult)
+                {
+                    Log(I18n.Format("BackupService_Log_FileTypeRulePassFailed"), LogLevel.Warning);
+                }
+            }
 
             string resultingFileName = null;
 
@@ -1489,7 +1539,7 @@ namespace FolderRewind.Services
         }
 
         // --- 核心：7z 进程调用 ---
-        private static async Task<bool> Run7zCommandAsync(string commandMode, string sourceDir, string archivePath, ArchiveSettings settings, string? listFile = null, FilterSettings? filters = null)
+        private static async Task<bool> Run7zCommandAsync(string commandMode, string sourceDir, string archivePath, ArchiveSettings settings, string? listFile = null, FilterSettings? filters = null, IReadOnlyList<FileTypeRule>? fileTypeExclusions = null)
         {
             string sevenZipExe = ResolveSevenZipExecutable();
             if (string.IsNullOrEmpty(sevenZipExe)) return false;
@@ -1528,6 +1578,16 @@ namespace FolderRewind.Services
                 sb.Append($" -p\"{settings.Password}\" -mhe=on");
             }
             sb.Append(" -bsp1"); // 开启进度输出到 stderr/stdout
+
+            // 自定义文件类型处理：关闭固实压缩，排除待特殊处理的文件模式
+            if (fileTypeExclusions != null && fileTypeExclusions.Count > 0)
+            {
+                sb.Append(" -ms=off");
+                foreach (var rule in fileTypeExclusions.Where(r => !string.IsNullOrWhiteSpace(r.Pattern)))
+                {
+                    sb.Append($" -xr!\"{rule.Pattern.Trim()}\"");
+                }
+            }
 
             // 添加黑名单排除规则
             if (filters?.Blacklist != null && filters.Blacklist.Count > 0)
@@ -1574,6 +1634,149 @@ namespace FolderRewind.Services
             string safeArgs = string.IsNullOrWhiteSpace(settings.Password) ? args : args.Replace(settings.Password, "***");
 
             return await RunSevenZipProcessAsync(sevenZipExe, args, sourceDir, safeArgs);
+        }
+
+        /// <summary>
+        /// 自定义文件类型处理：主压缩完成后，对匹配各规则的文件执行追加压缩（不同压缩等级）。
+        /// 按压缩等级分组，每组生成一次 7z 追加命令，减少进程调用次数。
+        /// </summary>
+        /// <param name="sourceDir">源文件目录</param>
+        /// <param name="archivePath">已创建的压缩包路径</param>
+        /// <param name="settings">归档设置</param>
+        /// <param name="changedFileList">增量备份时的变更文件列表（相对路径），为 null 表示全量</param>
+        /// <param name="filters">黑名单过滤设置</param>
+        /// <returns>所有追加操作是否全部成功</returns>
+        private static async Task<bool> RunFileTypeRulePassesAsync(
+            string sourceDir,
+            string archivePath,
+            ArchiveSettings settings,
+            IReadOnlyList<string>? changedFileList = null,
+            FilterSettings? filters = null)
+        {
+            if (!settings.FileTypeHandlingEnabled || settings.FileTypeRules == null || settings.FileTypeRules.Count == 0)
+                return true;
+
+            string sevenZipExe = ResolveSevenZipExecutable();
+            if (string.IsNullOrEmpty(sevenZipExe)) return false;
+
+            var activeRules = settings.FileTypeRules
+                .Where(r => !string.IsNullOrWhiteSpace(r.Pattern))
+                .ToList();
+            if (activeRules.Count == 0) return true;
+
+            // 按压缩等级分组（相同等级的模式合并处理）
+            var levelGroups = activeRules
+                .GroupBy(r => r.CompressionLevel)
+                .ToList();
+
+            bool allSuccess = true;
+            var tempFiles = new List<string>();
+
+            try
+            {
+                foreach (var group in levelGroups)
+                {
+                    int level = group.Key;
+                    var patterns = group.Select(r => r.Pattern.Trim()).ToList();
+
+                    Log(I18n.Format("BackupService_Log_FileTypeRulePass", level, string.Join(", ", patterns)), LogLevel.Info);
+
+                    if (changedFileList != null)
+                    {
+                        // 增量模式：从变更文件列表中筛选匹配的文件
+                        var matchedFiles = new List<string>();
+                        foreach (var relPath in changedFileList)
+                        {
+                            foreach (var pattern in patterns)
+                            {
+                                if (MatchWildcard(relPath, pattern))
+                                {
+                                    matchedFiles.Add(relPath);
+                                    break;
+                                }
+                            }
+                        }
+
+                        if (matchedFiles.Count == 0) continue;
+
+                        string tmpList = Path.GetTempFileName();
+                        tempFiles.Add(tmpList);
+                        File.WriteAllLines(tmpList, matchedFiles);
+
+                        var sb = new StringBuilder();
+                        sb.Append($"a -t{settings.Format} \"{archivePath}\" @\"{tmpList}\"");
+                        sb.Append($" -mx={level} -m0={settings.Method} -ms=off -ssw");
+                        if (settings.CpuThreads > 0) sb.Append($" -mmt{settings.CpuThreads}"); else sb.Append(" -mmt");
+                        if (!string.IsNullOrWhiteSpace(settings.Password)) sb.Append($" -p\"{settings.Password}\" -mhe=on");
+                        sb.Append(" -bsp1");
+
+                        string args = sb.ToString();
+                        string safeArgs = string.IsNullOrWhiteSpace(settings.Password) ? args : args.Replace(settings.Password, "***");
+
+                        bool ok = await RunSevenZipProcessAsync(sevenZipExe, args, sourceDir, safeArgs);
+                        if (!ok) allSuccess = false;
+                    }
+                    else
+                    {
+                        // 全量/覆写模式：使用 -ir! 包含匹配模式
+                        var sb = new StringBuilder();
+                        sb.Append($"a -t{settings.Format} \"{archivePath}\"");
+                        foreach (var pattern in patterns)
+                        {
+                            sb.Append($" -ir!\"{pattern}\"");
+                        }
+                        sb.Append($" -mx={level} -m0={settings.Method} -ms=off -ssw");
+                        if (settings.CpuThreads > 0) sb.Append($" -mmt{settings.CpuThreads}"); else sb.Append(" -mmt");
+                        if (!string.IsNullOrWhiteSpace(settings.Password)) sb.Append($" -p\"{settings.Password}\" -mhe=on");
+                        sb.Append(" -bsp1");
+
+                        // 添加黑名单排除（同主压缩一致）
+                        if (filters?.Blacklist != null)
+                        {
+                            foreach (var rule in filters.Blacklist.Where(r => !string.IsNullOrWhiteSpace(r)))
+                            {
+                                var trimmedRule = rule.Trim();
+                                if (trimmedRule.StartsWith("regex:", StringComparison.OrdinalIgnoreCase)) continue;
+                                sb.Append($" -xr!\"{trimmedRule}\"");
+                            }
+                        }
+
+                        string args = sb.ToString();
+                        string safeArgs = string.IsNullOrWhiteSpace(settings.Password) ? args : args.Replace(settings.Password, "***");
+
+                        bool ok = await RunSevenZipProcessAsync(sevenZipExe, args, sourceDir, safeArgs);
+                        if (!ok) allSuccess = false;
+                    }
+                }
+            }
+            finally
+            {
+                foreach (var tmp in tempFiles) { try { File.Delete(tmp); } catch { } }
+            }
+
+            return allSuccess;
+        }
+
+        /// <summary>
+        /// 简单通配符匹配（支持 * 和 ?），不区分大小写。
+        /// 用于在增量文件列表中筛选匹配 FileTypeRule 模式的文件。
+        /// </summary>
+        private static bool MatchWildcard(string filePath, string pattern)
+        {
+            try
+            {
+                // 仅拿文件名部分做匹配（如 *.mp4 应匹配 sub/dir/video.mp4）
+                string fileName = Path.GetFileName(filePath);
+                string wildcardPattern = "^" + Regex.Escape(pattern)
+                    .Replace("\\*", ".*")
+                    .Replace("\\?", ".") + "$";
+                return Regex.IsMatch(fileName, wildcardPattern, RegexOptions.IgnoreCase)
+                    || Regex.IsMatch(filePath, wildcardPattern, RegexOptions.IgnoreCase);
+            }
+            catch
+            {
+                return false;
+            }
         }
 
         private static List<FileInfo> BuildRestoreChain(DirectoryInfo backupDir, FileInfo targetFile, string backupType)

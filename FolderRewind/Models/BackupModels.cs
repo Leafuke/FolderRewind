@@ -300,6 +300,26 @@ namespace FolderRewind.Models
     }
 
     /// <summary>
+    /// 自定义文件类型处理规则：针对匹配指定通配符/后缀的文件使用独立的压缩等级。
+    /// 例如 *.mp4 -> 压缩等级 1（仅存储），避免对已压缩媒体文件进行二次压缩浪费时间。
+    /// </summary>
+    public class FileTypeRule : ObservableObject
+    {
+        private string _pattern = "";
+        private int _compressionLevel = 1;
+
+        /// <summary>
+        /// 文件匹配模式，支持通配符（如 *.mp4、*.zip）。
+        /// </summary>
+        public string Pattern { get => _pattern; set => SetProperty(ref _pattern, value); }
+
+        /// <summary>
+        /// 该类型文件使用的压缩等级 (0-9)。0=仅存储，9=最高压缩。
+        /// </summary>
+        public int CompressionLevel { get => _compressionLevel; set => SetProperty(ref _compressionLevel, value); }
+    }
+
+    /// <summary>
     /// 压缩与归档设置
     /// </summary>
     public class ArchiveSettings : ObservableObject
@@ -315,6 +335,10 @@ namespace FolderRewind.Models
         private bool _backupBeforeRestore = false;  // 还原前先执行一次备份
         private int _maxSmartBackupsPerFull = 0;    // 智能备份链长度限制，0 = 不限制
         private bool _safeDeleteEnabled = true;     // 安全删除：删除增量备份时自动合并内容到下一个备份
+
+        // 自定义文件类型处理
+        private bool _fileTypeHandlingEnabled = false;
+        private ObservableCollection<FileTypeRule> _fileTypeRules = new();
 
         public string Format { get => _format; set => SetProperty(ref _format, value); }
         public int CompressionLevel { get => _compressionLevel; set => SetProperty(ref _compressionLevel, value); }
@@ -352,6 +376,21 @@ namespace FolderRewind.Models
         /// 参考 MineBackup 的 DoSafeDeleteBackup 逻辑。
         /// </summary>
         public bool SafeDeleteEnabled { get => _safeDeleteEnabled; set => SetProperty(ref _safeDeleteEnabled, value); }
+
+        /// <summary>
+        /// 是否启用自定义文件类型处理。启用后将关闭固实压缩 (-ms=off)，
+        /// 按规则对不同类型文件使用不同压缩等级。
+        /// </summary>
+        public bool FileTypeHandlingEnabled { get => _fileTypeHandlingEnabled; set => SetProperty(ref _fileTypeHandlingEnabled, value); }
+
+        /// <summary>
+        /// 自定义文件类型处理规则列表。每条规则包含一个通配符模式和对应的压缩等级。
+        /// </summary>
+        public ObservableCollection<FileTypeRule> FileTypeRules
+        {
+            get => _fileTypeRules;
+            set => SetProperty(ref _fileTypeRules, value ?? new ObservableCollection<FileTypeRule>());
+        }
     }
 
     /// <summary>

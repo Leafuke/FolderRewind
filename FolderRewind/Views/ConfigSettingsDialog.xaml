@@ -144,6 +144,44 @@
                     <TextBox x:Uid="ConfigSettingsDialog_ArchivePasswordPlaceholder" Text="{x:Bind Config.Archive.Password, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" InputScope="Password"/>
                     <TextBlock x:Uid="ConfigSettingsDialog_ArchivePasswordDesc" Style="{StaticResource CaptionTextBlockStyle}" Foreground="{ThemeResource TextFillColorSecondaryBrush}"/>
                 </StackPanel>
+
+                <!-- 自定义文件类型处理 -->
+                <StackPanel Spacing="8">
+                    <ToggleSwitch x:Uid="ConfigSettingsDialog_FileTypeHandling" IsOn="{x:Bind Config.Archive.FileTypeHandlingEnabled, Mode=TwoWay}"/>
+                    <TextBlock x:Uid="ConfigSettingsDialog_FileTypeHandlingDesc" Style="{StaticResource CaptionTextBlockStyle}" Foreground="{ThemeResource TextFillColorSecondaryBrush}" TextWrapping="Wrap"/>
+
+                    <StackPanel Visibility="{x:Bind Config.Archive.FileTypeHandlingEnabled, Mode=OneWay, Converter={StaticResource BoolToVisConverter}}" Spacing="8">
+                        <ListView x:Name="FileTypeRulesList" Height="160" ItemsSource="{x:Bind Config.Archive.FileTypeRules}" BorderThickness="1" BorderBrush="{ThemeResource SurfaceStrokeColorDefaultBrush}">
+                            <ListView.ItemTemplate>
+                                <DataTemplate x:DataType="models:FileTypeRule">
+                                    <Grid ColumnSpacing="8">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="*"/>
+                                            <ColumnDefinition Width="Auto"/>
+                                            <ColumnDefinition Width="Auto"/>
+                                        </Grid.ColumnDefinitions>
+                                        <TextBlock Text="{x:Bind Pattern, Mode=OneWay}" VerticalAlignment="Center"/>
+                                        <TextBlock Grid.Column="1" VerticalAlignment="Center" Opacity="0.6">
+                                            <Run Text="mx="/>
+                                            <Run Text="{x:Bind CompressionLevel, Mode=OneWay}"/>
+                                        </TextBlock>
+                                        <Button Grid.Column="2" Content="&#xE711;" FontFamily="Segoe MDL2 Assets" Click="OnRemoveFileTypeRuleClick"/>
+                                    </Grid>
+                                </DataTemplate>
+                            </ListView.ItemTemplate>
+                        </ListView>
+                        <Grid ColumnSpacing="8">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="Auto"/>
+                                <ColumnDefinition Width="Auto"/>
+                            </Grid.ColumnDefinitions>
+                            <TextBox x:Name="FileTypePatternBox" x:Uid="ConfigSettingsDialog_FileTypePatternPlaceholder"/>
+                            <NumberBox x:Name="FileTypeLevelBox" Grid.Column="1" Value="1" Minimum="0" Maximum="9" SpinButtonPlacementMode="Inline" Width="130"/>
+                            <Button Grid.Column="2" x:Uid="ConfigSettingsDialog_AddFileTypeRule" Click="OnAddFileTypeRuleClick"/>
+                        </Grid>
+                    </StackPanel>
+                </StackPanel>
             </StackPanel>
             </ScrollViewer>
         </PivotItem>

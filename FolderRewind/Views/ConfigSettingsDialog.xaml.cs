@@ -506,5 +506,32 @@ namespace FolderRewind.Views
                 ConfigService.Save();
             }
         }
+
+        // --- 自定义文件类型处理规则 ---
+        private void OnAddFileTypeRuleClick(object sender, RoutedEventArgs e)
+        {
+            if (!string.IsNullOrWhiteSpace(FileTypePatternBox.Text))
+            {
+                var level = (int)FileTypeLevelBox.Value;
+                if (double.IsNaN(FileTypeLevelBox.Value)) level = 1;
+                level = Math.Clamp(level, 0, 9);
+
+                Config.Archive.FileTypeRules.Add(new FileTypeRule
+                {
+                    Pattern = FileTypePatternBox.Text.Trim(),
+                    CompressionLevel = level
+                });
+                FileTypePatternBox.Text = "";
+                FileTypeLevelBox.Value = 1;
+            }
+        }
+
+        private void OnRemoveFileTypeRuleClick(object sender, RoutedEventArgs e)
+        {
+            if (sender is Button btn && btn.DataContext is FileTypeRule rule)
+            {
+                Config.Archive.FileTypeRules.Remove(rule);
+            }
+        }
     }
 }
