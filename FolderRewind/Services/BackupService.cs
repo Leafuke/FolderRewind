@@ -43,8 +43,7 @@ namespace FolderRewind.Services
                 }
             }))
             {
-                action();
-                tcs.TrySetResult(null);
+                tcs.TrySetException(new InvalidOperationException("Failed to enqueue UI action."));
             }
 
             return tcs.Task;
@@ -424,7 +423,7 @@ namespace FolderRewind.Services
                     string typeStr = config.Archive.Mode.ToString();
                     HistoryService.AddEntry(config, folder, generatedFileName, typeStr, comment);
 
-                    PruneOldArchives(backupSubDir, config.Archive.Format, config.Archive.KeepCount, config.Archive.Mode, config.Archive.SafeDeleteEnabled);
+                    _ = Task.Run(() => PruneOldArchives(backupSubDir, config.Archive.Format, config.Archive.KeepCount, config.Archive.Mode, config.Archive.SafeDeleteEnabled));
 
                     // 备份完成后检查文件大小，过小时发出警告
                     try

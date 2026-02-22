@@ -59,9 +59,8 @@ namespace FolderRewind.Services
 
         public static void Save()
         {
-            // 保持兼容：同步触发保存，但内部仍走异步防抖
+            // 保持兼容：触发后台保存即可，不要阻塞等待
             ScheduleSave();
-            _pendingSave?.GetAwaiter().GetResult();
         }
 
         /// <summary>

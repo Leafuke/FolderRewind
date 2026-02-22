@@ -27,14 +27,14 @@ namespace FolderRewind.Services
             _isRunning = false;
         }
 
-        private static async void CheckStartupBackups()
+        private static void CheckStartupBackups()
         {
             var now = DateTime.Now;
             foreach (var config in ConfigService.CurrentConfig.BackupConfigs)
             {
                 if (config.Automation.AutoBackupEnabled && config.Automation.RunOnAppStart)
                 {
-                    await RunAutoBackupAsync(config, now, "Auto backup (app start)");
+                    _ = Task.Run(() => RunAutoBackupAsync(config, now, "Auto backup (app start)"));
                 }
             }
         }
@@ -67,7 +67,7 @@ namespace FolderRewind.Services
                                         continue;
 
                                     string desc = FormatScheduleDescription(entry);
-                                    await RunAutoBackupAsync(config, now, $"Scheduled backup ({desc})");
+                                    _ = Task.Run(() => RunAutoBackupAsync(config, now, $"Scheduled backup ({desc})"));
                                     entry.LastTriggeredUtc = utcNow;
                                     break; // one backup per config per tick
                                 }
@@ -80,7 +80,7 @@ namespace FolderRewind.Services
                             {
                                 if (!IsRunToday(config, now))
                                 {
-                                    await RunAutoBackupAsync(config, now, "Auto backup (scheduled legacy)");
+                                    _ = Task.Run(() => RunAutoBackupAsync(config, now, "Auto backup (scheduled legacy)"));
                                 }
                             }
                         }
@@ -94,7 +94,7 @@ namespace FolderRewind.Services
 
                     if (due)
                     {
-                        await RunAutoBackupAsync(config, now, $"Auto backup (interval {intervalMinutes} min)");
+                        _ = Task.Run(() => RunAutoBackupAsync(config, now, $"Auto backup (interval {intervalMinutes} min)"));
                     }
                 }
             }

@@ -192,7 +192,9 @@ namespace FolderRewind.Services
                     Directory.CreateDirectory(configDir!);
                 }
                 string jsonString = JsonSerializer.Serialize(CurrentConfig, AppJsonContext.Default.AppConfig);
-                File.WriteAllText(ConfigPath, jsonString);
+                string tempPath = ConfigPath + ".tmp";
+                File.WriteAllText(tempPath, jsonString);
+                File.Move(tempPath, ConfigPath, overwrite: true);
             }
             catch (Exception ex)
             {
