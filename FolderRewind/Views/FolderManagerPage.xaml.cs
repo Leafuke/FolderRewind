@@ -441,6 +441,20 @@ namespace FolderRewind.Views
             }
         }
 
+        // 置顶文件夹
+        private void OnPinToTopClick(object sender, RoutedEventArgs e)
+        {
+            if (sender is MenuFlyoutItem item && item.DataContext is ManagedFolder folder && CurrentConfig?.SourceFolders != null)
+            {
+                var index = CurrentConfig.SourceFolders.IndexOf(folder);
+                if (index > 0)
+                {
+                    CurrentConfig.SourceFolders.Move(index, 0);
+                    ConfigService.Save();
+                }
+            }
+        }
+
         // 打开文件夹
         private void OnOpenFolderClick(object sender, RoutedEventArgs e)
         {

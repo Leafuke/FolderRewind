@@ -111,6 +111,9 @@ namespace FolderRewind.Models
         private bool _enableNotices = true;
         private string _noticeLastSeenVersion = "";
 
+        // 首次启动引导
+        private bool _hasShownFirstLaunchGuide = false;
+
         public string Language { get => _language; set => SetProperty(ref _language, value); }
         public int ThemeIndex { get => _themeIndex; set => SetProperty(ref _themeIndex, value); }
         public string SevenZipPath { get => _sevenZipPath; set => SetProperty(ref _sevenZipPath, value); }
@@ -210,6 +213,11 @@ namespace FolderRewind.Models
         /// 上次已读的公告版本标识（Last-Modified 或内容 hash），用于检测是否有新公告。
         /// </summary>
         public string NoticeLastSeenVersion { get => _noticeLastSeenVersion; set => SetProperty(ref _noticeLastSeenVersion, value); }
+
+        /// <summary>
+        /// 是否已经展示过首次启动引导。
+        /// </summary>
+        public bool HasShownFirstLaunchGuide { get => _hasShownFirstLaunchGuide; set => SetProperty(ref _hasShownFirstLaunchGuide, value); }
     }
 
     /// <summary>

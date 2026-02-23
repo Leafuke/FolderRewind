@@ -2250,4 +2250,19 @@
   <data name="Encryption_WrongPasswordDesc" xml:space="preserve">
     <value>输入的密码不正确，请重试。</value>
   </data>
+  <data name="FolderManager_PinToTop.Text" xml:space="preserve">
+    <value>置顶该文件夹</value>
+  </data>
+  <data name="FirstLaunch_Title" xml:space="preserve">
+    <value>欢迎使用 FolderRewind！</value>
+  </data>
+  <data name="FirstLaunch_Content" xml:space="preserve">
+    <value>如果你不确定如何使用，可以观看 Bilibili 上的简要介绍视频。</value>
+  </data>
+  <data name="FirstLaunch_OpenVideo" xml:space="preserve">
+    <value>观看视频</value>
+  </data>
+  <data name="FirstLaunch_Skip" xml:space="preserve">
+    <value>跳过</value>
+  </data>
 </root>

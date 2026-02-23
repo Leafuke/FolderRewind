@@ -296,6 +296,11 @@
                                         </MenuFlyoutItem.Icon>
                                     </MenuFlyoutItem>
                                     <MenuFlyoutSeparator/>
+                                    <MenuFlyoutItem x:Uid="FolderManager_PinToTop" Click="OnPinToTopClick">
+                                        <MenuFlyoutItem.Icon>
+                                            <FontIcon Glyph="&#xE718;"/>
+                                        </MenuFlyoutItem.Icon>
+                                    </MenuFlyoutItem>
                                     <MenuFlyoutItem x:Uid="FolderManager_RemoveFolder" Icon="Delete" Foreground="{ThemeResource SystemFillColorCriticalBrush}" Click="OnRemoveFolderClick"/>
                                 </MenuFlyout>
                             </Button.Flyout>
