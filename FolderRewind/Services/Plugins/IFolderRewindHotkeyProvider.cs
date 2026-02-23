@@ -1,5 +1,3 @@
-using FolderRewind.Models;
-using FolderRewind.Services.Hotkeys;
 using System.Collections.Generic;
 using System.Threading.Tasks;
 

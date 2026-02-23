@@ -1,16 +1,13 @@
-﻿using FolderRewind;
-using FolderRewind.Services;
+﻿using FolderRewind.Services;
 using FolderRewind.Services.Plugins;
 using H.NotifyIcon;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
-using Microsoft.UI.Xaml.Controls.Primitives;
 using Microsoft.UI.Xaml.Input;
 using System;
 using System.Threading.Tasks;
 using Windows.Globalization;
 using Windows.Graphics;
-using Windows.System.UserProfile;
 
 // To learn more about WinUI, the WinUI project structure,
 // and more about our project templates, see: http://aka.ms/winui-project-info.
@@ -22,6 +19,8 @@ namespace FolderRewind
     /// </summary>
     public partial class App : Application
     {
+
+        #region 全局状态与共享入口
 
         public static Window _window { get; set; }
 
@@ -35,6 +34,10 @@ namespace FolderRewind
 
         private TaskbarIcon? _trayIcon;
         internal static bool ForceExitRequested { get; private set; }
+
+        #endregion
+
+        #region 构造与全局异常捕获
 
         /// <summary>
         /// Initializes the singleton application object.  This is the first line of authored code
@@ -74,9 +77,13 @@ namespace FolderRewind
             }
             catch
             {
-                
+
             }
         }
+
+        #endregion
+
+        #region 应用生命周期
 
         /// <summary>
         /// Invoked when the application is launched.
@@ -92,7 +99,7 @@ namespace FolderRewind
             try
             {
                 Services.ConfigService.Initialize();
-                
+
                 LogService.Log(I18n.GetString("App_Log_OnLaunchedBegin"));
                 LogService.MarkSessionStart();
 
@@ -181,7 +188,7 @@ namespace FolderRewind
                 }
                 catch
                 {
-                    
+
                 }
 
                 // 最小错误窗口
@@ -218,6 +225,10 @@ namespace FolderRewind
                 e.Exception.StackTrace ?? string.Empty));
             e.Handled = true; // 防止直接崩溃
         }
+
+        #endregion
+
+        #region 语言与窗口标题
 
         private static void ApplyLanguageOverride(string? languageSetting)
         {
@@ -263,7 +274,7 @@ namespace FolderRewind
             }
             catch
             {
-                
+
             }
 
             try
@@ -272,7 +283,7 @@ namespace FolderRewind
             }
             catch
             {
-                
+
             }
         }
 
@@ -280,6 +291,10 @@ namespace FolderRewind
         {
             return Services.I18n.Format("App_WindowTitle");
         }
+
+        #endregion
+
+        #region 主窗口偏好应用
 
         private static void ApplyWindowPreferences(Window window)
         {
@@ -301,10 +316,14 @@ namespace FolderRewind
             }
             catch
             {
-                
+
             }
 
         }
+
+        #endregion
+
+        #region 托盘图标与命令
 
         private void InitializeTrayIcon()
         {
@@ -411,6 +430,8 @@ namespace FolderRewind
 
             _trayIcon = null;
         }
+
+        #endregion
 
     }
 }

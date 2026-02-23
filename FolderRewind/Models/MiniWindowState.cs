@@ -1,5 +1,3 @@
-using System;
-
 namespace FolderRewind.Models
 {
     /// <summary>

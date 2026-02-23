@@ -3,14 +3,15 @@ using System;
 using System.Diagnostics;
 using System.IO;
 using System.Text.Json;
-using System.Threading.Tasks;
 using Windows.Storage;
 
 namespace FolderRewind.Services
 {
     public static class ConfigService
     {
-        private static string ConfigFileName = "config.json";
+        #region 常量与状态
+
+        private const string ConfigFileName = "config.json";
         //  LocalAppData  AppContext.BaseDirectory
         private static string ConfigPath => Path.Combine(GetWritableAppDataDir(), "FolderRewind", ConfigFileName);
 
@@ -21,6 +22,25 @@ namespace FolderRewind.Services
         public static string ConfigFilePath => ConfigPath;
 
         public static string ConfigDirectory => Path.GetDirectoryName(ConfigPath)!;
+
+        #endregion
+
+        #region 路径与默认值
+
+        public static string GetRecommendedDefaultBackupRootPath()
+        {
+            return Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments), "FolderRewind-Backup");
+        }
+
+        public static string BuildDefaultDestinationPath(string? configName)
+        {
+            var safeName = MakeSafeFolderName(configName);
+            return Path.Combine(CurrentConfig?.GlobalSettings?.DefaultBackupRootPath ?? GetRecommendedDefaultBackupRootPath(), safeName);
+        }
+
+        #endregion
+
+        #region 初始化与迁移
 
         /// <summary>
         /// 初始化配置服务，加载或创建默认配置
@@ -83,6 +103,14 @@ namespace FolderRewind.Services
                     config.Archive = new ArchiveSettings();
                 if (config.Automation == null)
                     config.Automation = new AutomationSettings();
+
+                // Migrate and fix ScheduleEntries
+                if (config.Automation.ScheduleEntries == null)
+                    config.Automation.ScheduleEntries = new System.Collections.ObjectModel.ObservableCollection<ScheduleEntry>();
+                else if (config.Automation.ScheduleEntries.GetType() != typeof(System.Collections.ObjectModel.ObservableCollection<ScheduleEntry>))
+                    config.Automation.ScheduleEntries = new System.Collections.ObjectModel.ObservableCollection<ScheduleEntry>(config.Automation.ScheduleEntries);
+                config.Automation.MigrateFromLegacy();
+
                 if (config.Filters == null)
                     config.Filters = new FilterSettings();
 
@@ -91,6 +119,12 @@ namespace FolderRewind.Services
                     config.Filters.RestoreWhitelist = new System.Collections.ObjectModel.ObservableCollection<string>();
                 else if (config.Filters.RestoreWhitelist.GetType() != typeof(System.Collections.ObjectModel.ObservableCollection<string>))
                     config.Filters.RestoreWhitelist = new System.Collections.ObjectModel.ObservableCollection<string>(config.Filters.RestoreWhitelist);
+
+                // 兼容旧版配置：自定义文件类型处理规则可能为 null
+                if (config.Archive.FileTypeRules == null)
+                    config.Archive.FileTypeRules = new System.Collections.ObjectModel.ObservableCollection<FileTypeRule>();
+                else if (config.Archive.FileTypeRules.GetType() != typeof(System.Collections.ObjectModel.ObservableCollection<FileTypeRule>))
+                    config.Archive.FileTypeRules = new System.Collections.ObjectModel.ObservableCollection<FileTypeRule>(config.Archive.FileTypeRules);
             }
             if (CurrentConfig.GlobalSettings == null)
                 CurrentConfig.GlobalSettings = new GlobalSettings();
@@ -130,17 +164,18 @@ namespace FolderRewind.Services
             {
                 CurrentConfig.GlobalSettings.SevenZipPath = "7za.exe";
                 CurrentConfig.GlobalSettings.FontFamily = FontService.GetRecommendedDefaultFontFamily();
+                CurrentConfig.GlobalSettings.DefaultBackupRootPath = GetRecommendedDefaultBackupRootPath();
             }
             catch
             {
-                
+
             }
 
             // 示例配置
             var defaultConfig = new BackupConfig
             {
                 Name = I18n.Format("Config_DefaultBackupName"),
-                DestinationPath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments), "MyBackups"),
+                DestinationPath = BuildDefaultDestinationPath(I18n.Format("Config_DefaultBackupName")),
                 SummaryText = ""
             };
             // 默认 7z 压缩
@@ -150,6 +185,10 @@ namespace FolderRewind.Services
             CurrentConfig.BackupConfigs.Add(defaultConfig);
             Save();
         }
+
+        #endregion
+
+        #region 持久化与重载
 
         public static void Save()
         {
@@ -167,7 +206,9 @@ namespace FolderRewind.Services
                     Directory.CreateDirectory(configDir!);
                 }
                 string jsonString = JsonSerializer.Serialize(CurrentConfig, AppJsonContext.Default.AppConfig);
-                File.WriteAllText(ConfigPath, jsonString);
+                string tempPath = ConfigPath + ".tmp";
+                File.WriteAllText(tempPath, jsonString);
+                File.Move(tempPath, ConfigPath, overwrite: true);
             }
             catch (Exception ex)
             {
@@ -182,6 +223,10 @@ namespace FolderRewind.Services
             Initialize();
             return _initialized && CurrentConfig != null;
         }
+
+        #endregion
+
+        #region 配置文件访问
 
         public static void OpenConfigFolder()
         {
@@ -218,6 +263,10 @@ namespace FolderRewind.Services
                 LogService.Log(I18n.Format("Config_OpenConfigFileFailed", ex.Message));
             }
         }
+
+        #endregion
+
+        #region 导入导出
 
         /// <summary>
         /// 导出当前配置到指定路径
@@ -274,6 +323,10 @@ namespace FolderRewind.Services
             }
         }
 
+        #endregion
+
+        #region 规范化与内部工具
+
         private static void NormalizeGlobalSettings(GlobalSettings settings)
         {
             if (settings == null) return;
@@ -292,6 +345,11 @@ namespace FolderRewind.Services
             if (string.IsNullOrWhiteSpace(settings.SevenZipPath))
             {
                 settings.SevenZipPath = "7za.exe";
+            }
+
+            if (string.IsNullOrWhiteSpace(settings.DefaultBackupRootPath))
+            {
+                settings.DefaultBackupRootPath = GetRecommendedDefaultBackupRootPath();
             }
 
             if (double.IsNaN(settings.BaseFontSize) || settings.BaseFontSize <= 0)
@@ -323,6 +381,18 @@ namespace FolderRewind.Services
             settings.ToastNotificationLevel = Math.Clamp(settings.ToastNotificationLevel, 0, 3);
         }
 
+        private static string MakeSafeFolderName(string? name)
+        {
+            var fallback = "Backup";
+            var raw = string.IsNullOrWhiteSpace(name) ? fallback : name.Trim();
+            foreach (var c in Path.GetInvalidFileNameChars())
+            {
+                raw = raw.Replace(c, '_');
+            }
+
+            return string.IsNullOrWhiteSpace(raw) ? fallback : raw;
+        }
+
         private static string GetWritableAppDataDir()
         {
             // Packaged (MSIX) 下：LocalState
@@ -351,5 +421,7 @@ namespace FolderRewind.Services
 
             LogService.ApplyOptions(options);
         }
+
+        #endregion
     }
 }

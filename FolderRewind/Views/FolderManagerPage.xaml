@@ -231,7 +231,7 @@
 
                         <!-- 1. 封面图片区域 -->
                         <Button Padding="0" CornerRadius="8" Width="72" Height="72" BorderThickness="0" Background="Transparent" 
-                                Click="onChangeIconClick" x:Uid="FolderManager_ChangeCover">
+                            Click="OnChangeIconClick" x:Uid="FolderManager_ChangeCover">
                             <Grid>
                                 <!-- 默认图标（无图片时显示） -->
                                 <Border Background="{ThemeResource SystemControlPageBackgroundChromeLowBrush}" CornerRadius="8">
@@ -296,6 +296,11 @@
                                         </MenuFlyoutItem.Icon>
                                     </MenuFlyoutItem>
                                     <MenuFlyoutSeparator/>
+                                    <MenuFlyoutItem x:Uid="FolderManager_PinToTop" Click="OnPinToTopClick">
+                                        <MenuFlyoutItem.Icon>
+                                            <FontIcon Glyph="&#xE718;"/>
+                                        </MenuFlyoutItem.Icon>
+                                    </MenuFlyoutItem>
                                     <MenuFlyoutItem x:Uid="FolderManager_RemoveFolder" Icon="Delete" Foreground="{ThemeResource SystemFillColorCriticalBrush}" Click="OnRemoveFolderClick"/>
                                 </MenuFlyout>
                             </Button.Flyout>

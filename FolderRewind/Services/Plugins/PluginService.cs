@@ -1,5 +1,4 @@
 using FolderRewind.Models;
-using FolderRewind.Services;
 using FolderRewind.Services.Hotkeys;
 using System;
 using System.Collections.Generic;
@@ -9,7 +8,6 @@ using System.IO;
 using System.IO.Compression;
 using System.Linq;
 using System.Net.Http;
-using System.Reflection;
 using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
@@ -1178,6 +1176,17 @@ namespace FolderRewind.Services.Plugins
                     // 初始化插件（仅在启用时）
                     var settings = GetPluginSettings(manifest.Id);
                     instance.Initialize(settings);
+
+                    // 注入宿主上下文，供插件主动使用 KnotLink 等能力
+                    try
+                    {
+                        var hostCtx = PluginHostContext.CreateForCurrentApp(manifest.Id, manifest.Name ?? string.Empty);
+                        instance.SetHostContext(hostCtx);
+                    }
+                    catch (Exception ctxEx)
+                    {
+                        LogService.LogWarning($"Plugin {manifest.Id}: SetHostContext failed: {ctxEx.Message}", "PluginService");
+                    }
 
                     _loaded[manifest.Id] = new LoadedPlugin(manifest, instance, alc);
                     installed.LoadError = null;

@@ -1,17 +1,17 @@
 using FolderRewind.Models;
 using FolderRewind.Services;
+using Microsoft.UI;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
+using Microsoft.UI.Xaml.Media;
 using Microsoft.UI.Xaml.Navigation;
 using System;
+using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.ComponentModel;
-using System.Linq;
-using System.IO;
-using Microsoft.UI.Xaml.Media;
-using Microsoft.UI;
-using System.Collections.Generic;
 using System.Diagnostics;
+using System.IO;
+using System.Linq;
 
 namespace FolderRewind.Views
 {
@@ -72,8 +72,7 @@ namespace FolderRewind.Views
         {
             this.InitializeComponent();
 
-            // 1. 确保数据服务已初始化
-            ConfigService.Initialize();
+            // 1. 确保历史服务已初始化
             HistoryService.Initialize();
 
             // 2. [关键修复] 显式在代码中设置数据源，防止 XAML 绑定延迟导致 ComboBox 为空
@@ -346,13 +345,13 @@ namespace FolderRewind.Views
             if (result != ContentDialogResult.Primary) return;
 
             var newComment = inputBox.Text?.Trim() ?? string.Empty;
-            
+
             // 更新历史记录
             HistoryService.UpdateComment(item, newComment);
-            
+
             // 触发 Message 属性更新（因为 Message 依赖 Comment）
             item.OnPropertyChanged(nameof(item.Message));
-            
+
             // 刷新当前列表以确保UI更新
             var config = ConfigFilter.SelectedItem as BackupConfig;
             var folder = FolderFilter.SelectedItem as ManagedFolder;
@@ -372,6 +371,13 @@ namespace FolderRewind.Views
                 var folder = FolderFilter.SelectedItem as ManagedFolder;
 
                 if (config == null || folder == null) return;
+
+                // 如果是加密配置，先要求输入密码
+                if (config.IsEncrypted)
+                {
+                    bool passwordVerified = await PromptAndVerifyPasswordAsync(config);
+                    if (!passwordVerified) return;
+                }
 
                 // 弹出确认对话框
                 var dialog = new ContentDialog
@@ -400,6 +406,59 @@ namespace FolderRewind.Views
                     await BackupService.RestoreBackupAsync(config, folder, item, BackupService.RestoreMode.Overwrite);
                 }
             }
+        }
+
+        /// <summary>
+        /// 弹出密码验证对话框，验证用户输入的密码是否正确。
+        /// </summary>
+        private async System.Threading.Tasks.Task<bool> PromptAndVerifyPasswordAsync(BackupConfig config)
+        {
+            var passwordBox = new PasswordBox
+            {
+                PlaceholderText = I18n.GetString("Encryption_EnterPasswordPlaceholder")
+            };
+
+            var dialog = new ContentDialog
+            {
+                Title = I18n.GetString("Encryption_RestorePasswordTitle"),
+                Content = new StackPanel
+                {
+                    Spacing = 8,
+                    Children =
+                    {
+                        new TextBlock
+                        {
+                            Text = I18n.GetString("Encryption_RestorePasswordDesc"),
+                            TextWrapping = TextWrapping.Wrap
+                        },
+                        passwordBox
+                    }
+                },
+                PrimaryButtonText = I18n.GetString("Common_Ok"),
+                CloseButtonText = I18n.GetString("Common_Cancel"),
+                DefaultButton = ContentDialogButton.Primary,
+                XamlRoot = this.XamlRoot
+            };
+            ThemeService.ApplyThemeToDialog(dialog);
+
+            var result = await dialog.ShowAsync();
+            if (result != ContentDialogResult.Primary) return false;
+
+            if (!EncryptionService.VerifyPassword(config.Id, passwordBox.Password))
+            {
+                var failDialog = new ContentDialog
+                {
+                    Title = I18n.GetString("Encryption_WrongPasswordTitle"),
+                    Content = I18n.GetString("Encryption_WrongPasswordDesc"),
+                    CloseButtonText = I18n.GetString("Common_Ok"),
+                    XamlRoot = this.XamlRoot
+                };
+                ThemeService.ApplyThemeToDialog(failDialog);
+                await failDialog.ShowAsync();
+                return false;
+            }
+
+            return true;
         }
 
         private async void OnDeleteClick(object sender, RoutedEventArgs e)

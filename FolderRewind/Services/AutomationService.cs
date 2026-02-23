@@ -1,6 +1,5 @@
 ﻿using FolderRewind.Models;
 using System;
-using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 
@@ -16,11 +15,9 @@ namespace FolderRewind.Services
         {
             if (_isRunning) return;
 
-            // 每 60 秒检查一次
             _timer = new Timer(OnTick, null, TimeSpan.Zero, TimeSpan.FromSeconds(60));
             _isRunning = true;
 
-            // 检查是否有“启动时备份”的任务
             CheckStartupBackups();
         }
 
@@ -30,15 +27,14 @@ namespace FolderRewind.Services
             _isRunning = false;
         }
 
-        private static async void CheckStartupBackups()
+        private static void CheckStartupBackups()
         {
             var now = DateTime.Now;
             foreach (var config in ConfigService.CurrentConfig.BackupConfigs)
             {
-                // 如果开启了“启动时运行”
                 if (config.Automation.AutoBackupEnabled && config.Automation.RunOnAppStart)
                 {
-                    await RunAutoBackupAsync(config, now, "Auto backup (app start)");
+                    _ = Task.Run(() => RunAutoBackupAsync(config, now, "Auto backup (app start)"));
                 }
             }
         }
@@ -52,24 +48,42 @@ namespace FolderRewind.Services
                 var now = DateTime.Now;
                 var utcNow = DateTime.UtcNow;
 
-                // 遍历所有配置
                 foreach (var config in ConfigService.CurrentConfig.BackupConfigs)
                 {
                     if (config?.Automation == null) continue;
                     if (!config.Automation.AutoBackupEnabled) continue;
 
-                    // 每日定时
                     if (config.Automation.ScheduledMode)
                     {
-                        // 5分钟内触发一次，“今天是否已跑过”
-                        if (now.Hour == config.Automation.ScheduledHour && now.Minute < 5)
+                        if (config.Automation.ScheduleEntries != null && config.Automation.ScheduleEntries.Count > 0)
                         {
-                            if (!IsRunToday(config, now))
+                            foreach (var entry in config.Automation.ScheduleEntries)
                             {
-                                await RunAutoBackupAsync(config, now, "Auto backup (scheduled)");
+                                if (entry.ShouldTriggerNow(now))
+                                {
+                                    // Dedup: skip if triggered within last 2 minutes
+                                    if (entry.LastTriggeredUtc != DateTime.MinValue &&
+                                        (utcNow - entry.LastTriggeredUtc) < TimeSpan.FromMinutes(2))
+                                        continue;
+
+                                    string desc = FormatScheduleDescription(entry);
+                                    _ = Task.Run(() => RunAutoBackupAsync(config, now, $"Scheduled backup ({desc})"));
+                                    entry.LastTriggeredUtc = utcNow;
+                                    break; // one backup per config per tick
+                                }
                             }
                         }
-
+                        else
+                        {
+                            // Legacy fallback: old ScheduledHour only
+                            if (now.Hour == config.Automation.ScheduledHour && now.Minute < 5)
+                            {
+                                if (!IsRunToday(config, now))
+                                {
+                                    _ = Task.Run(() => RunAutoBackupAsync(config, now, "Auto backup (scheduled legacy)"));
+                                }
+                            }
+                        }
                         continue;
                     }
 
@@ -80,7 +94,7 @@ namespace FolderRewind.Services
 
                     if (due)
                     {
-                        await RunAutoBackupAsync(config, now, $"Auto backup (interval {intervalMinutes} min)");
+                        _ = Task.Run(() => RunAutoBackupAsync(config, now, $"Auto backup (interval {intervalMinutes} min)"));
                     }
                 }
             }
@@ -88,6 +102,13 @@ namespace FolderRewind.Services
             {
                 _tickLock.Release();
             }
+        }
+
+        private static string FormatScheduleDescription(ScheduleEntry entry)
+        {
+            string month = entry.MonthSelection == 0 ? "*" : entry.MonthSelection.ToString();
+            string day = entry.DaySelection == 0 ? "*" : entry.DaySelection.ToString();
+            return $"{month}/{day} {entry.Hour:D2}:{entry.Minute:D2}";
         }
 
         private static bool IsRunToday(BackupConfig config, DateTime now)

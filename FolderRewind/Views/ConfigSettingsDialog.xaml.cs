@@ -4,10 +4,11 @@ using FolderRewind.Services.Plugins;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using System;
+using System.Collections.Generic;
+using System.Collections.ObjectModel;
 using System.Diagnostics;
 using System.IO;
 using System.Linq;
-using System.Collections.ObjectModel;
 using System.Threading.Tasks;
 using Windows.Storage.Pickers;
 using WinRT.Interop;
@@ -23,11 +24,19 @@ namespace FolderRewind.Views
 
         public string SelectedConfigType
         {
-            get => Config?.ConfigType ?? "Default";
+            get
+            {
+                if (Config == null) return "Default";
+                // 加密配置在 UI 中显示为 "Encrypted" 类型
+                if (Config.IsEncrypted) return "Encrypted";
+                return Config.ConfigType ?? "Default";
+            }
             set
             {
                 if (Config == null) return;
-                Config.ConfigType = string.IsNullOrWhiteSpace(value) ? "Default" : value;
+                bool isEncrypted = string.Equals(value, "Encrypted", StringComparison.OrdinalIgnoreCase);
+                Config.IsEncrypted = isEncrypted;
+                Config.ConfigType = isEncrypted ? "Default" : (string.IsNullOrWhiteSpace(value) ? "Default" : value);
             }
         }
 
@@ -45,6 +54,32 @@ namespace FolderRewind.Views
         /// 压缩算法选择索引
         /// </summary>
         private static readonly string[] CompressionMethods = { "LZMA2", "Deflate", "BZip2", "zstd" };
+
+        /// <summary>
+        /// 根据当前压缩算法返回压缩等级的最小值
+        /// </summary>
+        public int CompressionLevelMin => GetCompressionLevelRange(Config?.Archive?.Method).Min;
+
+        /// <summary>
+        /// 根据当前压缩算法返回压缩等级的最大值
+        /// </summary>
+        public int CompressionLevelMax => GetCompressionLevelRange(Config?.Archive?.Method).Max;
+
+        /// <summary>
+        /// 获取各压缩算法的有效压缩等级范围
+        /// </summary>
+        private static (int Min, int Max) GetCompressionLevelRange(string method)
+        {
+            return method switch
+            {
+                "zstd" => (1, 22),
+                "BZip2" => (1, 9),
+                "LZMA2" => (0, 9),
+                "Deflate" => (0, 9),
+                _ => (0, 9),
+            };
+        }
+
         public int MethodSelectedIndex
         {
             get
@@ -55,8 +90,32 @@ namespace FolderRewind.Views
             set
             {
                 if (value >= 0 && value < CompressionMethods.Length)
+                {
                     Config.Archive.Method = CompressionMethods[value];
+                    UpdateCompressionLevelSliderRange();
+                }
             }
+        }
+
+        /// <summary>
+        /// 当压缩算法变更时，更新压缩等级滑块的有效范围，并将当前值限制在新范围内
+        /// </summary>
+        private void UpdateCompressionLevelSliderRange()
+        {
+            if (CompressionLevelSlider == null) return;
+            var (min, max) = GetCompressionLevelRange(Config?.Archive?.Method);
+            CompressionLevelSlider.Minimum = min;
+            CompressionLevelSlider.Maximum = max;
+            // 将当前值限制在新的有效范围内
+            if (Config?.Archive != null)
+            {
+                Config.Archive.CompressionLevel = Math.Clamp(Config.Archive.CompressionLevel, min, max);
+            }
+        }
+
+        private void OnMethodSelectionChanged(object sender, SelectionChangedEventArgs e)
+        {
+            UpdateCompressionLevelSliderRange();
         }
 
         public ConfigSettingsDialog(BackupConfig config)
@@ -75,6 +134,18 @@ namespace FolderRewind.Views
                 ConfigTypesView.Add(t);
             }
 
+            // 确保 "Encrypted" 作为内置类型出现
+            if (!ConfigTypesView.OfType<string>().Any(t => string.Equals(t, "Encrypted", StringComparison.OrdinalIgnoreCase)))
+            {
+                int defaultIdx = -1;
+                for (int i = 0; i < ConfigTypesView.Count; i++)
+                {
+                    if (ConfigTypesView[i] is string s && string.Equals(s, "Default", StringComparison.OrdinalIgnoreCase))
+                    { defaultIdx = i; break; }
+                }
+                ConfigTypesView.Insert(defaultIdx >= 0 ? defaultIdx + 1 : 1, "Encrypted");
+            }
+
             // 如果当前类型不在列表里，也允许展示出来（避免旧配置类型丢失）
             if (!ConfigTypesView.OfType<string>().Any(t => string.Equals(t, Config.ConfigType, StringComparison.OrdinalIgnoreCase)))
             {
@@ -83,6 +154,243 @@ namespace FolderRewind.Views
 
             IconGrid.ItemsSource = IconCatalog.ConfigIconGlyphs;
             IconGrid.SelectedItem = IconCatalog.ConfigIconGlyphs.FirstOrDefault(i => i == Config.IconGlyph) ?? IconCatalog.ConfigIconGlyphs.First();
+
+            InitializeScheduleUI();
+        }
+
+        private readonly List<string> _monthOptions = new();
+        private readonly List<string> _dayOptions = new();
+
+        private void InitializeScheduleUI()
+        {
+            // Build month options: [Every, 1, 2, ... 12]
+            _monthOptions.Clear();
+            _monthOptions.Add(I18n.GetString("Schedule_Every"));
+            for (int i = 1; i <= 12; i++) _monthOptions.Add(i.ToString());
+
+            // Build day options: [Every, 1, 2, ... 31]
+            _dayOptions.Clear();
+            _dayOptions.Add(I18n.GetString("Schedule_Every"));
+            for (int i = 1; i <= 31; i++) _dayOptions.Add(i.ToString());
+
+            // Set header texts
+            ScheduleEntriesHeader.Text = I18n.GetString("Schedule_Header");
+            ScheduleEntriesDesc.Text = I18n.GetString("Schedule_Description");
+            AddScheduleText.Text = I18n.GetString("Schedule_Add");
+
+            // Build existing entries
+            RebuildScheduleEntriesUI();
+        }
+
+        private void RebuildScheduleEntriesUI()
+        {
+            ScheduleEntriesPanel.Children.Clear();
+            if (Config.Automation.ScheduleEntries == null) return;
+
+            for (int idx = 0; idx < Config.Automation.ScheduleEntries.Count; idx++)
+            {
+                var entry = Config.Automation.ScheduleEntries[idx];
+                ScheduleEntriesPanel.Children.Add(BuildScheduleEntryRow(entry, idx));
+            }
+        }
+
+        private UIElement BuildScheduleEntryRow(ScheduleEntry entry, int index)
+        {
+            var root = new StackPanel { Spacing = 4 };
+
+            // Row 1: Month Day Hour Minute + Delete button
+            var row = new Grid { ColumnSpacing = 6 };
+            row.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Auto) });
+            row.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Auto) });
+            row.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Auto) });
+            row.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Auto) });
+            row.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Auto) });
+            row.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+            row.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Auto) });
+
+            // Month ComboBox
+            var monthLabel = new TextBlock
+            {
+                Text = I18n.GetString("Schedule_Month"),
+                VerticalAlignment = VerticalAlignment.Center,
+                Style = (Style)Application.Current.Resources["CaptionTextBlockStyle"]
+            };
+            Grid.SetColumn(monthLabel, 0);
+            row.Children.Add(monthLabel);
+
+            var monthBox = new ComboBox
+            {
+                ItemsSource = _monthOptions,
+                SelectedIndex = Math.Clamp(entry.MonthSelection, 0, 12),
+                MinWidth = 72,
+                Tag = entry
+            };
+            monthBox.SelectionChanged += OnMonthSelectionChanged;
+            // Disable month when day is "every"
+            monthBox.IsEnabled = entry.DaySelection != 0;
+            Grid.SetColumn(monthBox, 1);
+            row.Children.Add(monthBox);
+
+            // Day ComboBox
+            var dayLabel = new TextBlock
+            {
+                Text = I18n.GetString("Schedule_Day"),
+                VerticalAlignment = VerticalAlignment.Center,
+                Margin = new Thickness(4, 0, 0, 0),
+                Style = (Style)Application.Current.Resources["CaptionTextBlockStyle"]
+            };
+            Grid.SetColumn(dayLabel, 2);
+            row.Children.Add(dayLabel);
+
+            var dayBox = new ComboBox
+            {
+                ItemsSource = _dayOptions,
+                SelectedIndex = Math.Clamp(entry.DaySelection, 0, 31),
+                MinWidth = 72,
+                Tag = entry
+            };
+            dayBox.SelectionChanged += OnDaySelectionChanged;
+            Grid.SetColumn(dayBox, 3);
+            row.Children.Add(dayBox);
+
+            // Hour:Minute
+            var timePanel = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 4, Margin = new Thickness(4, 0, 0, 0) };
+            var hourBox = new NumberBox
+            {
+                Value = entry.Hour,
+                Minimum = 0,
+                Maximum = 23,
+                SpinButtonPlacementMode = NumberBoxSpinButtonPlacementMode.Compact,
+                MinWidth = 70,
+                Tag = entry
+            };
+            hourBox.ValueChanged += OnHourValueChanged;
+            var colonText = new TextBlock { Text = ":", VerticalAlignment = VerticalAlignment.Center, FontWeight = Microsoft.UI.Text.FontWeights.SemiBold };
+            var minuteBox = new NumberBox
+            {
+                Value = entry.Minute,
+                Minimum = 0,
+                Maximum = 59,
+                SpinButtonPlacementMode = NumberBoxSpinButtonPlacementMode.Compact,
+                MinWidth = 70,
+                Tag = entry
+            };
+            minuteBox.ValueChanged += OnMinuteValueChanged;
+            timePanel.Children.Add(hourBox);
+            timePanel.Children.Add(colonText);
+            timePanel.Children.Add(minuteBox);
+            Grid.SetColumn(timePanel, 4);
+            row.Children.Add(timePanel);
+
+            // Delete button
+            var deleteBtn = new Button
+            {
+                Content = new FontIcon { Glyph = "\uE711", FontSize = 12 },
+                Tag = entry,
+                Padding = new Thickness(6),
+                VerticalAlignment = VerticalAlignment.Center
+            };
+            deleteBtn.Click += OnRemoveScheduleEntryClick;
+            Grid.SetColumn(deleteBtn, 6);
+            row.Children.Add(deleteBtn);
+
+            root.Children.Add(row);
+
+            // Row 2: Next run display
+            var nextRunText = new TextBlock
+            {
+                Style = (Style)Application.Current.Resources["CaptionTextBlockStyle"],
+                Foreground = (Microsoft.UI.Xaml.Media.Brush)Application.Current.Resources["TextFillColorSecondaryBrush"],
+                Margin = new Thickness(2, 0, 0, 0)
+            };
+            UpdateNextRunText(nextRunText, entry);
+            nextRunText.Tag = entry;
+
+            // Listen for entry property changes to update next run
+            entry.PropertyChanged += (s, e) =>
+            {
+                if (e.PropertyName == nameof(ScheduleEntry.NextRunDisplay))
+                {
+                    DispatcherQueue.TryEnqueue(() => UpdateNextRunText(nextRunText, entry));
+                }
+            };
+
+            root.Children.Add(nextRunText);
+
+            // Separator
+            root.Children.Add(new Border
+            {
+                Height = 1,
+                Background = (Microsoft.UI.Xaml.Media.Brush)Application.Current.Resources["DividerStrokeColorDefaultBrush"],
+                Margin = new Thickness(0, 2, 0, 0)
+            });
+
+            return root;
+        }
+
+        private void UpdateNextRunText(TextBlock textBlock, ScheduleEntry entry)
+        {
+            textBlock.Text = I18n.Format("Schedule_NextRun", entry.NextRunDisplay);
+        }
+
+        private void OnMonthSelectionChanged(object sender, SelectionChangedEventArgs e)
+        {
+            if (sender is ComboBox box && box.Tag is ScheduleEntry entry)
+            {
+                entry.MonthSelection = box.SelectedIndex;
+                // Rebuild to update month enable state
+                RebuildScheduleEntriesUI();
+            }
+        }
+
+        private void OnDaySelectionChanged(object sender, SelectionChangedEventArgs e)
+        {
+            if (sender is ComboBox box && box.Tag is ScheduleEntry entry)
+            {
+                entry.DaySelection = box.SelectedIndex;
+                // Rebuild to update month enable state
+                RebuildScheduleEntriesUI();
+            }
+        }
+
+        private void OnHourValueChanged(NumberBox sender, NumberBoxValueChangedEventArgs args)
+        {
+            if (sender.Tag is ScheduleEntry entry && !double.IsNaN(args.NewValue))
+            {
+                entry.Hour = (int)args.NewValue;
+            }
+        }
+
+        private void OnMinuteValueChanged(NumberBox sender, NumberBoxValueChangedEventArgs args)
+        {
+            if (sender.Tag is ScheduleEntry entry && !double.IsNaN(args.NewValue))
+            {
+                entry.Minute = (int)args.NewValue;
+            }
+        }
+
+        private void OnAddScheduleEntryClick(object sender, RoutedEventArgs e)
+        {
+            if (Config.Automation.ScheduleEntries == null)
+                Config.Automation.ScheduleEntries = new ObservableCollection<ScheduleEntry>();
+
+            Config.Automation.ScheduleEntries.Add(new ScheduleEntry
+            {
+                MonthSelection = 0,
+                DaySelection = 0,
+                Hour = 8,
+                Minute = 0
+            });
+            RebuildScheduleEntriesUI();
+        }
+
+        private void OnRemoveScheduleEntryClick(object sender, RoutedEventArgs e)
+        {
+            if (sender is Button btn && btn.Tag is ScheduleEntry entry)
+            {
+                Config.Automation.ScheduleEntries?.Remove(entry);
+                RebuildScheduleEntriesUI();
+            }
         }
 
         public int ModeSelectedIndex
@@ -191,6 +499,12 @@ namespace FolderRewind.Views
 
             current.BackupConfigs.Remove(toRemove);
 
+            // 清除加密配置的存储密码
+            if (toRemove.IsEncrypted)
+            {
+                EncryptionService.RemovePassword(toRemove.Id);
+            }
+
             if (settings != null)
             {
                 if (settings.LastManagerConfigId == Config.Id)
@@ -266,6 +580,33 @@ namespace FolderRewind.Views
             {
                 Config.IconGlyph = glyph;
                 ConfigService.Save();
+            }
+        }
+
+        // --- 自定义文件类型处理规则 ---
+        private void OnAddFileTypeRuleClick(object sender, RoutedEventArgs e)
+        {
+            if (!string.IsNullOrWhiteSpace(FileTypePatternBox.Text))
+            {
+                var level = (int)FileTypeLevelBox.Value;
+                if (double.IsNaN(FileTypeLevelBox.Value)) level = 1;
+                level = Math.Clamp(level, 0, 9);
+
+                Config.Archive.FileTypeRules.Add(new FileTypeRule
+                {
+                    Pattern = FileTypePatternBox.Text.Trim(),
+                    CompressionLevel = level
+                });
+                FileTypePatternBox.Text = "";
+                FileTypeLevelBox.Value = 1;
+            }
+        }
+
+        private void OnRemoveFileTypeRuleClick(object sender, RoutedEventArgs e)
+        {
+            if (sender is Button btn && btn.DataContext is FileTypeRule rule)
+            {
+                Config.Archive.FileTypeRules.Remove(rule);
             }
         }
     }

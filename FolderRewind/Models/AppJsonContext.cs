@@ -1,5 +1,5 @@
-using System.Text.Json.Serialization;
 using System.Collections.Generic;
+using System.Text.Json.Serialization;
 
 namespace FolderRewind.Models
 {
@@ -11,7 +11,9 @@ namespace FolderRewind.Models
     [JsonSerializable(typeof(HotkeySettings))]
     [JsonSerializable(typeof(ArchiveSettings))]
     [JsonSerializable(typeof(AutomationSettings))]
+    [JsonSerializable(typeof(ScheduleEntry))]
     [JsonSerializable(typeof(FilterSettings))]
+    [JsonSerializable(typeof(FileTypeRule))]
     [JsonSerializable(typeof(ManagedFolder))]
     [JsonSerializable(typeof(HistoryItem))]
     [JsonSerializable(typeof(List<HistoryItem>))]

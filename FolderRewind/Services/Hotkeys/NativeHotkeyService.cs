@@ -1,9 +1,7 @@
-using FolderRewind.Services;
 using Microsoft.UI.Xaml;
 using System;
 using System.Collections.Generic;
 using System.Runtime.InteropServices;
-using Windows.System;
 using WinRT.Interop;
 
 namespace FolderRewind.Services.Hotkeys

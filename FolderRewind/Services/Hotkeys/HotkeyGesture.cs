@@ -1,4 +1,3 @@
-using Microsoft.UI.Xaml.Input;
 using System;
 using Windows.System;
 

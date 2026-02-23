@@ -1,6 +1,5 @@
 ﻿using FolderRewind.Models;
 using FolderRewind.Services;
-using Microsoft.UI;
 using Microsoft.UI.Windowing;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
@@ -19,7 +18,7 @@ namespace FolderRewind.Views
     {
         private readonly MiniWindowContext _context;
         private MiniWindowVisualState _visualState = MiniWindowVisualState.Normal;
-        private DispatcherTimer _watchTimer;
+        private DispatcherTimer? _watchTimer;
         private bool _isExpanded = false;
         private bool _isDragging = false;
         private bool _isPointerCaptured = false;
@@ -43,11 +42,39 @@ namespace FolderRewind.Views
         [DllImport("user32.dll", SetLastError = true)]
         private static extern bool SetWindowPos(IntPtr hWnd, IntPtr hWndInsertAfter, int X, int Y, int cx, int cy, uint uFlags);
 
+        [DllImport("comctl32.dll", SetLastError = true)]
+        private static extern bool SetWindowSubclass(IntPtr hWnd, SUBCLASSPROC pfnSubclass, uint uIdSubclass, IntPtr dwRefData);
+
+        [DllImport("comctl32.dll", SetLastError = true)]
+        private static extern IntPtr DefSubclassProc(IntPtr hWnd, uint uMsg, IntPtr wParam, IntPtr lParam);
+
+        [DllImport("comctl32.dll", SetLastError = true)]
+        private static extern bool RemoveWindowSubclass(IntPtr hWnd, SUBCLASSPROC pfnSubclass, uint uIdSubclass);
+
+        private delegate IntPtr SUBCLASSPROC(IntPtr hWnd, uint uMsg, IntPtr wParam, IntPtr lParam, IntPtr uIdSubclass, IntPtr dwRefData);
+
         [StructLayout(LayoutKind.Sequential)]
         private struct POINT { public int X; public int Y; }
 
+        [StructLayout(LayoutKind.Sequential)]
+        private struct MINMAXINFO
+        {
+            public POINT ptReserved;
+            public POINT ptMaxSize;
+            public POINT ptMaxPosition;
+            public POINT ptMinTrackSize;
+            public POINT ptMaxTrackSize;
+        }
+
+        private SUBCLASSPROC? _subclassDelegate;
+        private const uint WM_GETMINMAXINFO = 0x0024;
+        private const uint WM_NCHITTEST = 0x0084;
+        private const uint WM_DESTROY = 0x0002;
+
         private const int DWMWA_WINDOW_CORNER_PREFERENCE = 33;
         private const int DWMWA_BORDER_COLOR = 34;
+        private const int DWMWA_NCRENDERING_POLICY = 2;
+        private const int DWMNCRP_DISABLED = 2;
         private const int DWMWCP_ROUND = 2;
         private const int GWL_EXSTYLE = -20;
         private const int WS_EX_TOOLWINDOW = 0x00000080;
@@ -55,10 +82,12 @@ namespace FolderRewind.Views
         private const uint SWP_NOACTIVATE = 0x0010;
         private const uint SWP_NOZORDER = 0x0004;
         private const uint SWP_NOOWNERZORDER = 0x0200;
+        private const uint SWP_NOMOVE = 0x0002;
+        private const uint SWP_NOSIZE = 0x0001;
 
         // 尺寸常量
 
-        private const int SquareSize = 48;
+        private const int SquareSize = 47;
         private const int PanelColumnWidth = 220;
         private const int GapWidth = 4;
         private const int ExpandedExtraWidth = PanelColumnWidth + GapWidth;
@@ -84,32 +113,20 @@ namespace FolderRewind.Views
         /// </summary>
         private void ConfigureWindow()
         {
-            ExtendsContentIntoTitleBar = true;
+            ExtendsContentIntoTitleBar = false;
+
+            // Mini 窗口不使用系统 Backdrop（如 Mica/Acrylic），避免顶部出现半透明材质层
+            try
+            {
+                SystemBackdrop = null;
+                SetTitleBar(null);
+            }
+            catch { }
 
             var appWindow = this.AppWindow;
             if (appWindow == null) return;
 
-            // CompactOverlay更符合“观测器/触发器”的迷你悬浮窗定位：默认置顶、占用空间小。
-            try
-            {
-                var presenter = CompactOverlayPresenter.Create();
-                presenter.InitialSize = CompactOverlaySize.Small;
-                appWindow.SetPresenter(presenter);
-            }
-            catch
-            {
-                // 某些系统/运行时条件下可能不支持 CompactOverlay，回退到普通悬浮置顶。
-                if (appWindow.Presenter is OverlappedPresenter fallback)
-                {
-                    fallback.IsAlwaysOnTop = true;
-                    fallback.IsResizable = false;
-                    fallback.IsMaximizable = false;
-                    fallback.IsMinimizable = false;
-                    fallback.SetBorderAndTitleBar(false, false);
-                }
-            }
-
-            // 尽可能移除窗口边框/标题栏（CompactOverlay 下通常无边框；Overlapped 回退时显式关闭）
+            // 使用 OverlappedPresenter 以允许更小的尺寸并自定义外观
             if (appWindow.Presenter is OverlappedPresenter overlapped)
             {
                 overlapped.IsAlwaysOnTop = true;
@@ -117,17 +134,18 @@ namespace FolderRewind.Views
                 overlapped.IsMaximizable = false;
                 overlapped.IsMinimizable = false;
                 overlapped.SetBorderAndTitleBar(false, false);
-
-                
             }
+
+            // 挂载子类化以处理 WM_GETMINMAXINFO，允许窗口尺寸小于系统默认最小值
+            var hwnd = WindowNative.GetWindowHandle(this);
+            _subclassDelegate = new SUBCLASSPROC(WindowSubclassProc);
+            SetWindowSubclass(hwnd, _subclassDelegate, 1, IntPtr.Zero);
 
             // 设置初始尺寸
             ResizeToCollapsed();
             CollapseToSquare(false);
 
             appWindow.Title = $"Mini - {_context.Folder?.DisplayName ?? "Folder"}";
-
-            var hwnd = WindowNative.GetWindowHandle(this);
 
             // Win11 圆角
             try
@@ -145,8 +163,14 @@ namespace FolderRewind.Views
             }
             catch { }
 
-            // 取消窗口阴影 - 暂时做不到……
-            
+            // 取消窗口阴影
+            try
+            {
+                int policy = DWMNCRP_DISABLED;
+                DwmSetWindowAttribute(hwnd, DWMWA_NCRENDERING_POLICY, ref policy, sizeof(int));
+            }
+            catch { }
+
 
             // 从任务栏隐藏（WS_EX_TOOLWINDOW）
             try
@@ -168,12 +192,17 @@ namespace FolderRewind.Views
             // 折叠标题栏
             try
             {
-                appWindow.TitleBar.ExtendsContentIntoTitleBar = true;
+                appWindow.TitleBar.ExtendsContentIntoTitleBar = false;
                 appWindow.TitleBar.PreferredHeightOption = TitleBarHeightOption.Collapsed;
 
-                // 避免出现标题栏按钮残留底色（尤其是部分 presenter/系统组合下）
+                // 保持标题栏相关背景全透明，避免系统残留绘制
+                appWindow.TitleBar.BackgroundColor = Microsoft.UI.Colors.Transparent;
+                appWindow.TitleBar.InactiveBackgroundColor = Microsoft.UI.Colors.Transparent;
+
                 appWindow.TitleBar.ButtonBackgroundColor = Microsoft.UI.Colors.Transparent;
                 appWindow.TitleBar.ButtonInactiveBackgroundColor = Microsoft.UI.Colors.Transparent;
+                appWindow.TitleBar.ButtonHoverBackgroundColor = Microsoft.UI.Colors.Transparent;
+                appWindow.TitleBar.ButtonPressedBackgroundColor = Microsoft.UI.Colors.Transparent;
             }
             catch { }
 
@@ -187,6 +216,23 @@ namespace FolderRewind.Views
                     control.Background = transparent;
             }
             catch { }
+        }
+
+        private IntPtr WindowSubclassProc(IntPtr hWnd, uint uMsg, IntPtr wParam, IntPtr lParam, IntPtr uIdSubclass, IntPtr dwRefData)
+        {
+            if (uMsg == WM_GETMINMAXINFO)
+            {
+                var mmi = Marshal.PtrToStructure<MINMAXINFO>(lParam);
+                mmi.ptMinTrackSize.X = 10; // 允许极小宽度
+                mmi.ptMinTrackSize.Y = 10; // 允许极小高度
+                Marshal.StructureToPtr(mmi, lParam, false);
+                return IntPtr.Zero;
+            }
+            else if (uMsg == WM_DESTROY && _subclassDelegate != null)
+            {
+                RemoveWindowSubclass(hWnd, _subclassDelegate, (uint)uIdSubclass);
+            }
+            return DefSubclassProc(hWnd, uMsg, wParam, lParam);
         }
 
         private void SetupUI()
@@ -206,7 +252,7 @@ namespace FolderRewind.Views
             RightInputPanel.TranslationTransition = new Vector3Transition { Duration = TimeSpan.FromMilliseconds(250) };
 
             // 丝带环 hover 缩放
-            RibbonBorder.CenterPoint = new Vector3((SquareSize - 8) / 2f, (SquareSize - 8) / 2f, 0);
+            RibbonBorder.CenterPoint = new Vector3((SquareSize - 16) / 2f, (SquareSize - 16) / 2f, 0);
             RibbonBorder.ScaleTransition = new Vector3Transition { Duration = TimeSpan.FromMilliseconds(150) };
         }
 
@@ -265,7 +311,7 @@ namespace FolderRewind.Views
             _watchTimer.Start();
         }
 
-        private void WatchTimer_Tick(object sender, object e)
+        private void WatchTimer_Tick(object? sender, object e)
         {
             if (_visualState == MiniWindowVisualState.BackingUp) return;
 
@@ -414,7 +460,10 @@ namespace FolderRewind.Views
             {
                 var scale = GetScaleFactor();
                 int size = (int)(SquareSize * scale);
-                AppWindow?.Resize(new SizeInt32(size, size));
+                var hwnd = WindowNative.GetWindowHandle(this);
+                var pos = AppWindow.Position;
+                SetWindowPos(hwnd, IntPtr.Zero, pos.X, pos.Y, size, size,
+                    SWP_NOACTIVATE | SWP_NOZORDER | SWP_NOOWNERZORDER | SWP_NOMOVE);
             }
             catch { }
         }
@@ -443,7 +492,7 @@ namespace FolderRewind.Views
                 {
                     // 向右展开: 仅 resize
                     SetWindowPos(hwnd, IntPtr.Zero, pos.X, pos.Y, totalWidth, height,
-                        SWP_NOACTIVATE | SWP_NOZORDER | SWP_NOOWNERZORDER);
+                        SWP_NOACTIVATE | SWP_NOZORDER | SWP_NOOWNERZORDER | SWP_NOMOVE);
                 }
             }
             catch { }
@@ -465,14 +514,14 @@ namespace FolderRewind.Views
                 {
                     // 左展开收起：方块在窗口右端，需将窗口右移到方块位置
                     int extraPixels = (int)(ExpandedExtraWidth * scale);
-                    SetWindowPos(hwnd, IntPtr.Zero, pos.X + extraPixels, pos.Y, size + 8, size,
+                    SetWindowPos(hwnd, IntPtr.Zero, pos.X + extraPixels, pos.Y, size, size,
                         SWP_NOACTIVATE | SWP_NOZORDER | SWP_NOOWNERZORDER);
                 }
                 else
                 {
                     // 右展开收起：方块在窗口左端，直接 resize
-                    SetWindowPos(hwnd, IntPtr.Zero, pos.X, pos.Y, size + 8, size,
-                        SWP_NOACTIVATE | SWP_NOZORDER | SWP_NOOWNERZORDER);
+                    SetWindowPos(hwnd, IntPtr.Zero, pos.X, pos.Y, size, size,
+                        SWP_NOACTIVATE | SWP_NOZORDER | SWP_NOOWNERZORDER | SWP_NOMOVE);
                 }
             }
             catch { }
@@ -607,7 +656,10 @@ namespace FolderRewind.Views
             {
                 int newX = _windowStartPos.X + deltaX;
                 int newY = _windowStartPos.Y + deltaY;
-                AppWindow.Move(new PointInt32(newX, newY));
+                
+                var hwnd = WindowNative.GetWindowHandle(this);
+                SetWindowPos(hwnd, IntPtr.Zero, newX, newY, 0, 0,
+                    SWP_NOACTIVATE | SWP_NOZORDER | SWP_NOOWNERZORDER | SWP_NOSIZE);
             }
         }
 

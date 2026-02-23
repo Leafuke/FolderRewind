@@ -1,4 +1,4 @@
-<?xml version="1.0" encoding="utf-8"?>
+﻿<?xml version="1.0" encoding="utf-8"?>
 <root>
   <!-- 
     Microsoft ResX Schema 
@@ -266,9 +266,6 @@
   </data>
   <data name="SettingsPage_About_Link_Repository.Content" xml:space="preserve">
     <value>Project (GitHub)</value>
-  </data>
-  <data name="SettingsPage_About_Link_Bilibili.Content" xml:space="preserve">
-    <value>Developer Bilibili</value>
   </data>
   <data name="SettingsPage_About_Link_Privacy.Content" xml:space="preserve">
     <value>Privacy Policy</value>
@@ -667,7 +664,7 @@
     <value>minutes</value>
   </data>
   <data name="ConfigSettingsDialog_ScheduledMode.Content" xml:space="preserve">
-    <value>Run daily on schedule</value>
+    <value>Scheduled backup</value>
   </data>
   <data name="ConfigSettingsDialog_ScheduledTime.Text" xml:space="preserve">
     <value>Time:</value>
@@ -1457,6 +1454,9 @@ If you have a listener subscribed to this signal, it should receive a message.</
   <data name="BackupService_Log_NoChangesDetected" xml:space="preserve">
     <value>No file changes detected.</value>
   </data>
+  <data name="BackupService_Log_ReferencedBackupMissing" xml:space="preserve">
+    <value>Referenced backup file is missing: {0}. Forcing full backup.</value>
+  </data>
   <data name="BackupService_Log_ChangesDetected" xml:space="preserve">
     <value>Detected {0} changed files.</value>
   </data>
@@ -2138,5 +2138,137 @@ Status: {3}</value>
   </data>
   <data name="SettingsPage_About_Link_KnotLink.Content" xml:space="preserve">
     <value>About KnotLink (GitHub)</value>
+  </data>
+  <data name="Schedule_Every" xml:space="preserve">
+    <value>Every</value>
+  </data>
+  <data name="Schedule_Header" xml:space="preserve">
+    <value>Scheduled Backup Tasks</value>
+  </data>
+  <data name="Schedule_Description" xml:space="preserve">
+    <value>Configure scheduled backup plans. Select "Every" for wildcard (e.g. "Every" month means run monthly). When Day is "Every", Month is ignored.</value>
+  </data>
+  <data name="Schedule_Add" xml:space="preserve">
+    <value>Add Schedule</value>
+  </data>
+  <data name="Schedule_Month" xml:space="preserve">
+    <value>M</value>
+  </data>
+  <data name="Schedule_Day" xml:space="preserve">
+    <value>D</value>
+  </data>
+  <data name="Schedule_NextRun" xml:space="preserve">
+    <value>Next run: {0}</value>
+  </data>
+  <data name="ConfigSettingsDialog_FileTypeHandling.Header" xml:space="preserve">
+    <value>Custom File Type Handling</value>
+  </data>
+  <data name="ConfigSettingsDialog_FileTypeHandling.OnContent" xml:space="preserve">
+    <value>Enabled</value>
+  </data>
+  <data name="ConfigSettingsDialog_FileTypeHandling.OffContent" xml:space="preserve">
+    <value>Disabled</value>
+  </data>
+  <data name="ConfigSettingsDialog_FileTypeHandlingDesc.Text" xml:space="preserve">
+    <value>When enabled, you can set different compression levels for different file types. For example, use store-only for video/audio files to save time. This feature disables solid compression (-ms=off).</value>
+  </data>
+  <data name="ConfigSettingsDialog_FileTypePatternPlaceholder.PlaceholderText" xml:space="preserve">
+    <value>Enter wildcard pattern, e.g. *.mp4</value>
+  </data>
+  <data name="ConfigSettingsDialog_AddFileTypeRule.Content" xml:space="preserve">
+    <value>Add</value>
+  </data>
+  <data name="BackupService_Log_FileTypeRulePass" xml:space="preserve">
+    <value>[File Type Rules] Appending with mx={0}, patterns: {1}</value>
+  </data>
+  <data name="BackupService_Log_FileTypeRulePassFailed" xml:space="preserve">
+    <value>[File Type Rules] Some append passes failed, main backup not affected</value>
+  </data>
+  <data name="BackupService_Task_Restoring" xml:space="preserve">
+    <value>Restoring...</value>
+  </data>
+  <data name="BackupService_Task_Restoring_N" xml:space="preserve">
+    <value>Restoring ({0}/{1})...</value>
+  </data>
+  <data name="BackupService_Task_RestoreCompleted" xml:space="preserve">
+    <value>Restore completed</value>
+  </data>
+  <data name="BackupService_Task_RestoreFailed" xml:space="preserve">
+    <value>Restore failed</value>
+  </data>
+  <data name="SettingsPage_DefaultBackupRootPath.Text" xml:space="preserve">
+    <value>Default backup storage path</value>
+  </data>
+  <data name="SettingsPage_DefaultBackupRootPathDesc.Text" xml:space="preserve">
+    <value>New configs automatically use "default path\config name" as destination (still editable per config).</value>
+  </data>
+  <data name="FolderManager_MineRewindHint_Title" xml:space="preserve">
+    <value>Minecraft folder detected</value>
+  </data>
+  <data name="FolderManager_MineRewindHint_Content" xml:space="preserve">
+    <value>You may be adding a Minecraft save folder (.minecraft or level.dat detected). For a better backup workflow, consider installing the MineRewind plugin.</value>
+  </data>
+  <data name="FolderManager_MineRewindHint_OpenDownload" xml:space="preserve">
+    <value>Download MineRewind</value>
+  </data>
+  <data name="Encryption_SetPasswordTitle" xml:space="preserve">
+    <value>Set Encryption Password</value>
+  </data>
+  <data name="Encryption_SetPasswordDesc" xml:space="preserve">
+    <value>Set a password for this encrypted configuration. All backups will be encrypted with this password.</value>
+  </data>
+  <data name="Encryption_SetPasswordPlaceholder" xml:space="preserve">
+    <value>Enter password</value>
+  </data>
+  <data name="Encryption_ConfirmPasswordPlaceholder" xml:space="preserve">
+    <value>Confirm password</value>
+  </data>
+  <data name="Encryption_PasswordWarning" xml:space="preserve">
+    <value>⚠ Once set, the password cannot be changed. If lost, encrypted backups cannot be restored. Please keep it safe.</value>
+  </data>
+  <data name="Encryption_PasswordEmpty" xml:space="preserve">
+    <value>Password cannot be empty.</value>
+  </data>
+  <data name="Encryption_PasswordMismatch" xml:space="preserve">
+    <value>Passwords do not match.</value>
+  </data>
+  <data name="Encryption_RestorePasswordTitle" xml:space="preserve">
+    <value>Password Required</value>
+  </data>
+  <data name="Encryption_RestorePasswordDesc" xml:space="preserve">
+    <value>This is an encrypted configuration. Please enter the password to restore.</value>
+  </data>
+  <data name="Encryption_EnterPasswordPlaceholder" xml:space="preserve">
+    <value>Enter password</value>
+  </data>
+  <data name="Encryption_WrongPasswordTitle" xml:space="preserve">
+    <value>Incorrect Password</value>
+  </data>
+  <data name="Encryption_WrongPasswordDesc" xml:space="preserve">
+    <value>The password you entered is incorrect. Please try again.</value>
+  </data>
+  <data name="FolderManager_PinToTop.Text" xml:space="preserve">
+    <value>Pin to top</value>
+  </data>
+  <data name="FirstLaunch_Title" xml:space="preserve">
+    <value>Welcome to FolderRewind!</value>
+  </data>
+  <data name="FirstLaunch_Content" xml:space="preserve">
+    <value>If you're not sure how to use FolderRewind, check out our brief introduction video on Bilibili.</value>
+  </data>
+  <data name="FirstLaunch_OpenVideo" xml:space="preserve">
+    <value>Watch Video</value>
+  </data>
+  <data name="FirstLaunch_Skip" xml:space="preserve">
+    <value>Skip</value>
+  </data>
+  <data name="SettingsPage_About_Link_Bilibili.Content" xml:space="preserve">
+    <value>Bilibili Page</value>
+  </data>
+  <data name="SettingsPage_About_Link_Guide.Content" xml:space="preserve">
+    <value>Video Guide</value>
+  </data>
+  <data name="SettingsPage_About_Link_Feedback.Content" xml:space="preserve">
+    <value>Send Feedback</value>
   </data>
 </root>

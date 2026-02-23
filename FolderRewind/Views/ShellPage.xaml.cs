@@ -1,11 +1,11 @@
 using FolderRewind.Models;
 using FolderRewind.Services;
+using Microsoft.UI.Dispatching;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Media.Animation;
 using Microsoft.UI.Xaml.Navigation;
 using System;
 using System.Linq;
-using Microsoft.UI.Dispatching;
 
 namespace FolderRewind.Views
 {
@@ -95,8 +95,47 @@ namespace FolderRewind.Views
 
             NavigateTo("Home");
 
+            // 首次启动引导
+            _ = ShowFirstLaunchGuideAsync();
+
             // 启动后台公告检查（参考 MineBackup 的 notice_thread 逻辑）
             _ = CheckAndShowNoticeAsync();
+        }
+
+        /// <summary>
+        /// 首次启动引导：提示用户查看 Bilibili 介绍视频
+        /// </summary>
+        private async System.Threading.Tasks.Task ShowFirstLaunchGuideAsync()
+        {
+            try
+            {
+                var settings = ConfigService.CurrentConfig?.GlobalSettings;
+                if (settings == null || settings.HasShownFirstLaunchGuide) return;
+
+                settings.HasShownFirstLaunchGuide = true;
+                ConfigService.Save();
+
+                var dialog = new ContentDialog
+                {
+                    Title = I18n.GetString("FirstLaunch_Title"),
+                    Content = I18n.GetString("FirstLaunch_Content"),
+                    PrimaryButtonText = I18n.GetString("FirstLaunch_OpenVideo"),
+                    CloseButtonText = I18n.GetString("FirstLaunch_Skip"),
+                    DefaultButton = ContentDialogButton.Primary,
+                    XamlRoot = this.XamlRoot
+                };
+                ThemeService.ApplyThemeToDialog(dialog);
+
+                var result = await dialog.ShowAsync();
+                if (result == ContentDialogResult.Primary)
+                {
+                    await Windows.System.Launcher.LaunchUriAsync(new Uri("https://www.bilibili.com/video/BV1zbcjzhE1y"));
+                }
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"[FirstLaunchGuide] {ex.Message}");
+            }
         }
 
         /// <summary>

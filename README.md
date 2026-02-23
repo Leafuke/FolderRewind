@@ -22,7 +22,7 @@
 
 ## Introduction
 
-FolderRewind is a modern, powerful, and user-friendly backup manager built with **WinUI 3** and **.NET 8**. It allows you to protect your important data—documents, project files, or game saves—by creating automated, versioned backups with ease.
+FolderRewind is a modern, powerful, and user-friendly backup manager built with **WinUI 3** and **.NET 10**. It allows you to protect your important data—documents, project files, or game saves—by creating automated, versioned backups with ease.
 
 As the spiritual successor to MineBackup, FolderRewind enhances its versatility while retaining extensibility for users with diverse needs. Featuring a powerful built-in plugin system, it allows plugin developers to optimize for specific scenarios such as **Minecraft game saves**, making it an ideal choice for gamers and advanced users.
 
@@ -91,7 +91,7 @@ As you delve deeper into using the software, you’ll discover ways to simplify 
 
 **Requirements:**
 - Visual Studio 2026
-- .NET 8 SDK
+- .NET 10 SDK
 - "Windows App SDK C# Templates" workload
 
 ### Plugin Development

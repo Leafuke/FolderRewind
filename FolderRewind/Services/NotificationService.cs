@@ -1,8 +1,4 @@
-using FolderRewind.Models;
-using Microsoft.UI.Dispatching;
-using Microsoft.UI.Xaml.Controls;
 using System;
-using System.Threading.Tasks;
 
 namespace FolderRewind.Services
 {

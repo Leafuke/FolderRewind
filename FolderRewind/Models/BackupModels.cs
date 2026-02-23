@@ -64,6 +64,7 @@ namespace FolderRewind.Models
         private string _language = "zh_CN";
         private int _themeIndex = 1; // 0: Dark, 1: Light
         private string _sevenZipPath = "7za.exe"; // 全局 7z 路径（内置 7za.exe）
+        private string _defaultBackupRootPath = "";
         private bool _runOnStartup = false;
         private bool _enableFileLogging = true;
         private int _logRetentionDays = 7;
@@ -110,9 +111,13 @@ namespace FolderRewind.Models
         private bool _enableNotices = true;
         private string _noticeLastSeenVersion = "";
 
+        // 首次启动引导
+        private bool _hasShownFirstLaunchGuide = false;
+
         public string Language { get => _language; set => SetProperty(ref _language, value); }
         public int ThemeIndex { get => _themeIndex; set => SetProperty(ref _themeIndex, value); }
         public string SevenZipPath { get => _sevenZipPath; set => SetProperty(ref _sevenZipPath, value); }
+        public string DefaultBackupRootPath { get => _defaultBackupRootPath; set => SetProperty(ref _defaultBackupRootPath, value); }
         public bool RunOnStartup { get => _runOnStartup; set => SetProperty(ref _runOnStartup, value); }
         public bool EnableFileLogging { get => _enableFileLogging; set => SetProperty(ref _enableFileLogging, value); }
         public int LogRetentionDays { get => _logRetentionDays; set => SetProperty(ref _logRetentionDays, value); }
@@ -208,6 +213,11 @@ namespace FolderRewind.Models
         /// 上次已读的公告版本标识（Last-Modified 或内容 hash），用于检测是否有新公告。
         /// </summary>
         public string NoticeLastSeenVersion { get => _noticeLastSeenVersion; set => SetProperty(ref _noticeLastSeenVersion, value); }
+
+        /// <summary>
+        /// 是否已经展示过首次启动引导。
+        /// </summary>
+        public bool HasShownFirstLaunchGuide { get => _hasShownFirstLaunchGuide; set => SetProperty(ref _hasShownFirstLaunchGuide, value); }
     }
 
     /// <summary>
@@ -221,6 +231,7 @@ namespace FolderRewind.Models
         private string _iconGlyph = "\uE8B7"; // 默认文件夹图标
         private string _summaryText = I18n.Format("BackupConfig_DefaultSummary");
         private string _configType = "Default"; // 配置类型，由插件定义，如 "Minecraft Saves"
+        private bool _isEncrypted = false; // 是否为加密配置
 
         // 核心路径
         public string Id { get => _id; set => SetProperty(ref _id, value); }
@@ -232,6 +243,18 @@ namespace FolderRewind.Models
         /// 插件可以定义自己的配置类型，如 "Minecraft Saves"。
         /// </summary>
         public string ConfigType { get => _configType; set => SetProperty(ref _configType, value ?? "Default"); }
+
+        /// <summary>
+        /// 是否为加密配置。加密配置的备份将使用 7-Zip 加密，密码通过 EncryptionService 安全存储。
+        /// 密码一旦设置无法更改。
+        /// </summary>
+        public bool IsEncrypted { get => _isEncrypted; set => SetProperty(ref _isEncrypted, value); }
+
+        /// <summary>
+        /// 是否为 Minecraft Saves 配置类型（用于 UI 卡片徽标显示）。
+        /// </summary>
+        [JsonIgnore]
+        public bool IsMinecraftConfig => string.Equals(_configType, "Minecraft Saves", StringComparison.OrdinalIgnoreCase);
 
         // UI 显示用
         public string IconGlyph { get => _iconGlyph; set => SetProperty(ref _iconGlyph, value); }
@@ -300,6 +323,26 @@ namespace FolderRewind.Models
     }
 
     /// <summary>
+    /// 自定义文件类型处理规则：针对匹配指定通配符/后缀的文件使用独立的压缩等级。
+    /// 例如 *.mp4 -> 压缩等级 1（仅存储），避免对已压缩媒体文件进行二次压缩浪费时间。
+    /// </summary>
+    public class FileTypeRule : ObservableObject
+    {
+        private string _pattern = "";
+        private int _compressionLevel = 1;
+
+        /// <summary>
+        /// 文件匹配模式，支持通配符（如 *.mp4、*.zip）。
+        /// </summary>
+        public string Pattern { get => _pattern; set => SetProperty(ref _pattern, value); }
+
+        /// <summary>
+        /// 该类型文件使用的压缩等级 (0-9)。0=仅存储，9=最高压缩。
+        /// </summary>
+        public int CompressionLevel { get => _compressionLevel; set => SetProperty(ref _compressionLevel, value); }
+    }
+
+    /// <summary>
     /// 压缩与归档设置
     /// </summary>
     public class ArchiveSettings : ObservableObject
@@ -309,19 +352,21 @@ namespace FolderRewind.Models
         private string _method = "LZMA2";
         private int _keepCount = 0;
         private BackupMode _mode = BackupMode.Full;
-        private string _password = "";
         private bool _skipIfUnchanged = true;      // 无变更时跳过备份
         private int _cpuThreads = 0;               // CPU 线程数, 0 = 自动
         private bool _backupBeforeRestore = false;  // 还原前先执行一次备份
         private int _maxSmartBackupsPerFull = 0;    // 智能备份链长度限制，0 = 不限制
         private bool _safeDeleteEnabled = true;     // 安全删除：删除增量备份时自动合并内容到下一个备份
 
+        // 自定义文件类型处理
+        private bool _fileTypeHandlingEnabled = false;
+        private ObservableCollection<FileTypeRule> _fileTypeRules = new();
+
         public string Format { get => _format; set => SetProperty(ref _format, value); }
         public int CompressionLevel { get => _compressionLevel; set => SetProperty(ref _compressionLevel, value); }
         public string Method { get => _method; set => SetProperty(ref _method, value); }
         public int KeepCount { get => _keepCount; set => SetProperty(ref _keepCount, value); }
         public BackupMode Mode { get => _mode; set => SetProperty(ref _mode, value); }
-        public string Password { get => _password; set => SetProperty(ref _password, value); }
 
         /// <summary>
         /// 无变更时跳过备份，即使是全量模式也会先检测文件变化
@@ -352,22 +397,113 @@ namespace FolderRewind.Models
         /// 参考 MineBackup 的 DoSafeDeleteBackup 逻辑。
         /// </summary>
         public bool SafeDeleteEnabled { get => _safeDeleteEnabled; set => SetProperty(ref _safeDeleteEnabled, value); }
+
+        /// <summary>
+        /// 是否启用自定义文件类型处理。启用后将关闭固实压缩 (-ms=off)，
+        /// 按规则对不同类型文件使用不同压缩等级。
+        /// </summary>
+        public bool FileTypeHandlingEnabled { get => _fileTypeHandlingEnabled; set => SetProperty(ref _fileTypeHandlingEnabled, value); }
+
+        /// <summary>
+        /// 自定义文件类型处理规则列表。每条规则包含一个通配符模式和对应的压缩等级。
+        /// </summary>
+        public ObservableCollection<FileTypeRule> FileTypeRules
+        {
+            get => _fileTypeRules;
+            set => SetProperty(ref _fileTypeRules, value ?? new ObservableCollection<FileTypeRule>());
+        }
     }
 
     /// <summary>
-    /// 自动化设置 (定时、触发器)
+    /// Schedule entry: supports Month/Day/Hour/Minute granularity.
+    /// MonthSelection: 0 = every month (wildcard), 1-12 = specific month.
+    /// DaySelection:   0 = every day (wildcard), 1-31 = specific day.
+    /// When DaySelection=0, MonthSelection is ignored (runs daily).
     /// </summary>
+    public class ScheduleEntry : ObservableObject
+    {
+        private int _monthSelection = 0;
+        private int _daySelection = 0;
+        private int _hour = 8;
+        private int _minute = 0;
+        private DateTime _lastTriggeredUtc = DateTime.MinValue;
+
+        public int MonthSelection { get => _monthSelection; set { if (SetProperty(ref _monthSelection, value)) OnPropertyChanged(nameof(NextRunDisplay)); } }
+        public int DaySelection { get => _daySelection; set { if (SetProperty(ref _daySelection, value)) OnPropertyChanged(nameof(NextRunDisplay)); } }
+        public int Hour { get => _hour; set { if (SetProperty(ref _hour, value)) OnPropertyChanged(nameof(NextRunDisplay)); } }
+        public int Minute { get => _minute; set { if (SetProperty(ref _minute, value)) OnPropertyChanged(nameof(NextRunDisplay)); } }
+        public DateTime LastTriggeredUtc { get => _lastTriggeredUtc; set => SetProperty(ref _lastTriggeredUtc, value); }
+
+        [JsonIgnore]
+        public string NextRunDisplay
+        {
+            get
+            {
+                var next = CalculateNextRun(DateTime.Now);
+                return next.HasValue ? next.Value.ToString("yyyy-MM-dd HH:mm") : "-";
+            }
+        }
+
+        public DateTime? CalculateNextRun(DateTime now)
+        {
+            try
+            {
+                if (DaySelection == 0)
+                {
+                    var today = now.Date.AddHours(Hour).AddMinutes(Minute);
+                    return today > now ? today : today.AddDays(1);
+                }
+                else if (MonthSelection == 0)
+                {
+                    int day = DaySelection;
+                    var candidate = TryBuildDate(now.Year, now.Month, day, Hour, Minute);
+                    if (candidate.HasValue && candidate.Value > now) return candidate;
+                    for (int i = 1; i <= 12; i++)
+                    {
+                        var nextMonth = now.AddMonths(i);
+                        candidate = TryBuildDate(nextMonth.Year, nextMonth.Month, day, Hour, Minute);
+                        if (candidate.HasValue) return candidate;
+                    }
+                    return null;
+                }
+                else
+                {
+                    var candidate = TryBuildDate(now.Year, MonthSelection, DaySelection, Hour, Minute);
+                    if (candidate.HasValue && candidate.Value > now) return candidate;
+                    candidate = TryBuildDate(now.Year + 1, MonthSelection, DaySelection, Hour, Minute);
+                    return candidate;
+                }
+            }
+            catch { return null; }
+        }
+
+        public bool ShouldTriggerNow(DateTime now)
+        {
+            if (now.Hour != Hour || now.Minute != Minute) return false;
+            if (DaySelection == 0) return true;
+            if (now.Day != DaySelection) return false;
+            if (MonthSelection == 0) return true;
+            return now.Month == MonthSelection;
+        }
+
+        private static DateTime? TryBuildDate(int year, int month, int day, int hour, int minute)
+        {
+            if (month < 1 || month > 12) return null;
+            int maxDay = DateTime.DaysInMonth(year, month);
+            int actualDay = Math.Min(day, maxDay);
+            if (actualDay < 1) return null;
+            return new DateTime(year, month, actualDay, hour, minute, 0);
+        }
+    }
+
     public class AutomationSettings : ObservableObject
     {
         private bool _autoBackupEnabled = false;
-        private int _intervalMinutes = 60; // 间隔模式
+        private int _intervalMinutes = 60;
         private bool _runOnAppStart = false;
-
-        // 计划任务模式 (简单 cron 或 指定时间点，这里简化为每日几点)
         private bool _scheduledMode = false;
         private int _scheduledHour = 3;
-
-        // 用于去重/防止重复触发：持久化记录上次自动备份时间
+        private ObservableCollection<ScheduleEntry> _scheduleEntries = new();
         private DateTime _lastAutoBackupUtc = DateTime.MinValue;
         private DateTime _lastScheduledRunDateLocal = DateTime.MinValue;
 
@@ -379,13 +515,16 @@ namespace FolderRewind.Models
         public bool AutoBackupEnabled { get => _autoBackupEnabled; set => SetProperty(ref _autoBackupEnabled, value); }
         public int IntervalMinutes { get => _intervalMinutes; set => SetProperty(ref _intervalMinutes, value); }
         public bool RunOnAppStart { get => _runOnAppStart; set => SetProperty(ref _runOnAppStart, value); }
-
         public bool ScheduledMode { get => _scheduledMode; set => SetProperty(ref _scheduledMode, value); }
         public int ScheduledHour { get => _scheduledHour; set => SetProperty(ref _scheduledHour, value); }
 
-        public DateTime LastAutoBackupUtc { get => _lastAutoBackupUtc; set => SetProperty(ref _lastAutoBackupUtc, value); }
+        public ObservableCollection<ScheduleEntry> ScheduleEntries
+        {
+            get => _scheduleEntries;
+            set => SetProperty(ref _scheduleEntries, value ?? new ObservableCollection<ScheduleEntry>());
+        }
 
-        // 仅用于“每日定时”去重：记录上次成功运行的日期（本地日期）
+        public DateTime LastAutoBackupUtc { get => _lastAutoBackupUtc; set => SetProperty(ref _lastAutoBackupUtc, value); }
         public DateTime LastScheduledRunDateLocal { get => _lastScheduledRunDateLocal; set => SetProperty(ref _lastScheduledRunDateLocal, value); }
 
         /// <summary>
@@ -397,11 +536,21 @@ namespace FolderRewind.Models
         /// 连续多少次未发现更改后自动停止自动备份任务。
         /// </summary>
         public int StopAfterNoChangeCount { get => _stopAfterNoChangeCount; set => SetProperty(ref _stopAfterNoChangeCount, value); }
-
-        /// <summary>
-        /// 当前连续未发现变更的次数（持久化，用于跨重启计数）。
-        /// </summary>
         public int ConsecutiveNoChangeCount { get => _consecutiveNoChangeCount; set => SetProperty(ref _consecutiveNoChangeCount, value); }
+
+        public void MigrateFromLegacy()
+        {
+            if (ScheduledMode && ScheduleEntries.Count == 0 && ScheduledHour >= 0 && ScheduledHour <= 23)
+            {
+                ScheduleEntries.Add(new ScheduleEntry
+                {
+                    MonthSelection = 0,
+                    DaySelection = 0,
+                    Hour = ScheduledHour,
+                    Minute = 0
+                });
+            }
+        }
     }
 
     /// <summary>
@@ -514,14 +663,60 @@ namespace FolderRewind.Models
         private string _speed;
         private bool _isCompleted;
         private string _log; // 实时日志片段
+        private string _errorMessage;
+        private bool _isIndeterminate = true;
+        private bool _isSuccess;
+        private string _iconGlyph = "\uE8B7"; // Segoe MDL2 SaveLocal（备份图标）
 
         public string FolderName { get => _folderName; set => SetProperty(ref _folderName, value); }
-        public double Progress { get => _progress; set => SetProperty(ref _progress, value); }
+        public double Progress
+        {
+            get => _progress;
+            set
+            {
+                if (SetProperty(ref _progress, value))
+                    OnPropertyChanged(nameof(ProgressText));
+            }
+        }
         public string Status { get => _status; set => SetProperty(ref _status, value); }
         public string Speed { get => _speed; set => SetProperty(ref _speed, value); }
         public bool IsCompleted { get => _isCompleted; set => SetProperty(ref _isCompleted, value); }
 
         // 这里的 Log 用于给 TaskPage 显示详细信息
         public string Log { get => _log; set => SetProperty(ref _log, value); }
+
+        /// <summary>
+        /// 失败原因（仅在任务失败时有值），通常来自 7z 的 stderr 输出
+        /// </summary>
+        public string ErrorMessage { get => _errorMessage; set => SetProperty(ref _errorMessage, value); }
+
+        /// <summary>
+        /// 进度条是否为不确定模式（尚未收到 7z 进度数据时为 true）
+        /// </summary>
+        public bool IsIndeterminate
+        {
+            get => _isIndeterminate;
+            set
+            {
+                if (SetProperty(ref _isIndeterminate, value))
+                    OnPropertyChanged(nameof(ProgressText));
+            }
+        }
+
+        /// <summary>
+        /// 任务是否成功完成
+        /// </summary>
+        public bool IsSuccess { get => _isSuccess; set => SetProperty(ref _isSuccess, value); }
+
+        /// <summary>
+        /// 任务图标（备份/还原使用不同图标）
+        /// </summary>
+        public string IconGlyph { get => _iconGlyph; set => SetProperty(ref _iconGlyph, value); }
+
+        /// <summary>
+        /// 格式化的进度文本（如 "42%"），不确定模式时为空
+        /// </summary>
+        [JsonIgnore]
+        public string ProgressText => IsIndeterminate ? "" : $"{Progress:F0}%";
     }
 }

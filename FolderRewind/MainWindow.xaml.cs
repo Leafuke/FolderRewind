@@ -1,13 +1,12 @@
-using Microsoft.UI.Xaml;
-using Microsoft.UI.Xaml.Controls;
 using FolderRewind.Services;
-using FolderRewind.Models;
 using FolderRewind.Services.Hotkeys;
 using Microsoft.UI;
 using Microsoft.UI.Windowing;
+using Microsoft.UI.Xaml;
+using Microsoft.UI.Xaml.Controls;
+using System;
 using Windows.Foundation;
 using Windows.UI;
-using System;
 
 // To learn more about WinUI, the WinUI project structure,
 // and more about our project templates, see: http://aka.ms/winui-project-info.
@@ -19,12 +18,18 @@ namespace FolderRewind
     /// </summary>
     public sealed partial class MainWindow : Window
     {
+        #region 常量与状态
+
         private const double TitleBarHorizontalPadding = 12;
         private const int WindowMinWidth = 840;
         private const int WindowMinHeight = 580;
 
         private bool _allowCloseOnce;
         private bool _closeDialogShowing;
+
+        #endregion
+
+        #region 构造与初始化
 
         public MainWindow()
         {
@@ -41,7 +46,7 @@ namespace FolderRewind
             }
 
             ThemeService.ThemeChanged += ThemeService_ThemeChanged;
-            
+
             // Apply initial theme
             var currentTheme = ThemeService.GetCurrentTheme();
             ThemeService.ApplyThemeToWindow(this);
@@ -60,6 +65,10 @@ namespace FolderRewind
             {
             }
         }
+
+        #endregion
+
+        #region 窗口激活与最小尺寸
 
         private async void MainWindow_Activated(object sender, WindowActivatedEventArgs args)
         {
@@ -95,6 +104,10 @@ namespace FolderRewind
             }
         }
 
+        #endregion
+
+        #region 关闭行为控制
+
         private void MainWindow_Closed(object sender, WindowEventArgs args)
         {
             // 关闭 KnotLink 服务，释放网络资源
@@ -107,6 +120,10 @@ namespace FolderRewind
                 // 忽略关闭时的异常
             }
         }
+
+        #endregion
+
+        #region 主题与标题栏
 
         private void AppWindow_Closing(AppWindow sender, AppWindowClosingEventArgs args)
         {
@@ -342,5 +359,7 @@ namespace FolderRewind
                 titleBar.ButtonPressedForegroundColor = foreground;
             }
         }
+
+        #endregion
     }
 }

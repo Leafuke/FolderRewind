@@ -37,8 +37,10 @@
                             <Grid.RowDefinitions>
                                 <RowDefinition Height="Auto"/>
                                 <RowDefinition Height="Auto"/>
+                                <RowDefinition Height="Auto"/>
                             </Grid.RowDefinitions>
 
+                            <!-- Row 0: 标题行 - 图标、名称、状态、进度百分比 -->
                             <Grid>
                                 <Grid.ColumnDefinitions>
                                     <ColumnDefinition Width="*"/>
@@ -46,19 +48,37 @@
                                 </Grid.ColumnDefinitions>
 
                                 <StackPanel Orientation="Horizontal" Spacing="12" VerticalAlignment="Center">
-                                    <FontIcon Glyph="&#xE8B7;" FontSize="16" Foreground="{ThemeResource SystemControlForegroundAccentBrush}"/>
+                                    <FontIcon Glyph="{x:Bind IconGlyph}" FontSize="16" Foreground="{ThemeResource SystemControlForegroundAccentBrush}"/>
                                     <TextBlock Text="{x:Bind FolderName}" Style="{ThemeResource BodyStrongTextBlockStyle}"/>
                                     <TextBlock Text="-" Foreground="{ThemeResource TextFillColorSecondaryBrush}"/>
-                                    <TextBlock Text="{x:Bind Status}" Foreground="{ThemeResource SystemControlForegroundAccentBrush}"/>
+                                    <TextBlock Text="{x:Bind Status, Mode=OneWay}" Foreground="{ThemeResource SystemControlForegroundAccentBrush}"/>
                                 </StackPanel>
 
-                                <!-- 只有未完成时显示取消按钮 -->
-                                <Button Grid.Column="1" Padding="6" CornerRadius="16" Visibility="{x:Bind IsCompleted, Converter={StaticResource BoolToVisInvertConverter}}" Background="Transparent" BorderThickness="0">
-                                    <FontIcon Glyph="&#xE711;" FontSize="12"/>
-                                </Button>
+                                <!-- 进度百分比文字，仅在运行中且有确定进度时显示 -->
+                                <TextBlock Grid.Column="1" 
+                                           Text="{x:Bind ProgressText, Mode=OneWay}" 
+                                           Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                                           VerticalAlignment="Center"
+                                           Visibility="{x:Bind IsCompleted, Mode=OneWay, Converter={StaticResource BoolToVisInvertConverter}}"/>
                             </Grid>
 
-                            <ProgressBar Grid.Row="1" Value="{x:Bind Progress, Mode=OneWay}" Maximum="100" Margin="0,12,0,0" Height="4" CornerRadius="2"/>
+                            <!-- Row 1: 进度条 - 支持不确定模式（脉冲动画）和确定模式（实际百分比） -->
+                            <ProgressBar Grid.Row="1" 
+                                         IsIndeterminate="{x:Bind IsIndeterminate, Mode=OneWay}"
+                                         Value="{x:Bind Progress, Mode=OneWay}" 
+                                         Maximum="100" 
+                                         Margin="0,12,0,0" Height="4" CornerRadius="2"/>
+
+                            <!-- Row 2: 失败原因 - 仅在有错误信息时显示 -->
+                            <TextBlock Grid.Row="2" 
+                                       Text="{x:Bind ErrorMessage, Mode=OneWay}"
+                                       Foreground="{ThemeResource SystemFillColorCriticalBrush}"
+                                       TextWrapping="Wrap"
+                                       FontSize="12"
+                                       Margin="0,8,0,0"
+                                       MaxLines="3"
+                                       TextTrimming="CharacterEllipsis"
+                                       Visibility="{x:Bind ErrorMessage, Mode=OneWay, Converter={StaticResource StringNullOrEmptyToVisConverter}}"/>
                         </Grid>
                     </Grid>
                 </DataTemplate>

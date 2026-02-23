@@ -71,6 +71,12 @@ namespace FolderRewind.Services.Plugins
         /// </summary>
         void Initialize(IReadOnlyDictionary<string, string> settingsValues);
 
+        /// <summary>
+        /// 由 Host 调用：在插件加载后注入宿主上下文。
+        /// 插件可缓存此对象，用于主动发起 KnotLink 广播/查询等操作。
+        /// </summary>
+        void SetHostContext(PluginHostContext hostContext) { }
+
         #region 备份钩子
 
         /// <summary>
