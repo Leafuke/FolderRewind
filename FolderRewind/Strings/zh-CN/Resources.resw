@@ -267,9 +267,6 @@
   <data name="SettingsPage_About_Link_Repository.Content" xml:space="preserve">
     <value>项目主页</value>
   </data>
-  <data name="SettingsPage_About_Link_Bilibili.Content" xml:space="preserve">
-    <value>开发者 B 站主页</value>
-  </data>
   <data name="SettingsPage_About_Link_Privacy.Content" xml:space="preserve">
     <value>隐私政策</value>
   </data>
@@ -2264,5 +2261,14 @@
   </data>
   <data name="FirstLaunch_Skip" xml:space="preserve">
     <value>跳过</value>
+  </data>
+  <data name="SettingsPage_About_Link_Bilibili.Content" xml:space="preserve">
+    <value>开发者 B 站主页</value>
+  </data>
+  <data name="SettingsPage_About_Link_Guide.Content" xml:space="preserve">
+    <value>视频教程</value>
+  </data>
+  <data name="SettingsPage_About_Link_Feedback.Content" xml:space="preserve">
+    <value>发送反馈</value>
   </data>
 </root>

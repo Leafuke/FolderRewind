@@ -49,7 +49,7 @@
 
         <!-- Mini 正方形主体 -->
         <Grid x:Name="MiniSquare" Grid.Column="1"
-              Width="39" Height="39"
+              Width="41" Height="41"
               PointerEntered="MiniSquare_PointerEntered"
               PointerExited="MiniSquare_PointerExited"
               Tapped="MiniSquare_Tapped"

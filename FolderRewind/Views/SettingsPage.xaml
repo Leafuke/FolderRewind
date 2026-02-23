@@ -787,39 +787,45 @@
                                     <ColumnDefinition Width="*" />
                                 </Grid.ColumnDefinitions>
                                 <BitmapIcon ShowAsMonochrome="False" UriSource="ms-appx:///Assets/StoreLogo.png" Width="20" Height="20" VerticalAlignment="Center" />
-                                        <StackPanel Grid.Column="1" Spacing="2">
-                                            <TextBlock x:Uid="SettingsPage_About" Style="{ThemeResource BodyStrongTextBlockStyle}" />
-                                            <TextBlock x:Uid="SettingsPage_AboutDesc" Style="{StaticResource SettingsDescriptionStyle}" />
-                                        </StackPanel>
-                                        <TextBlock Grid.Column="1" HorizontalAlignment="Right" VerticalAlignment="Center" Text="{x:Bind AppVersion, Mode=OneWay}" Foreground="{ThemeResource TextFillColorSecondaryBrush}" IsTextSelectionEnabled="True" />
-                                    </Grid>
-                         </Expander.Header>
+                                <StackPanel Grid.Column="1" Spacing="2">
+                                    <TextBlock x:Uid="SettingsPage_About" Style="{ThemeResource BodyStrongTextBlockStyle}" />
+                                    <TextBlock x:Uid="SettingsPage_AboutDesc" Style="{StaticResource SettingsDescriptionStyle}" />
+                                </StackPanel>
+                                <TextBlock Grid.Column="1" HorizontalAlignment="Right" VerticalAlignment="Center" Text="{x:Bind AppVersion, Mode=OneWay}" Foreground="{ThemeResource TextFillColorSecondaryBrush}" IsTextSelectionEnabled="True" />
+                            </Grid>
+                        </Expander.Header>
 
                         <StackPanel Padding="16" Spacing="16">
                             <StackPanel Orientation="Horizontal" Spacing="8">
                                 <HyperlinkButton x:Uid="SettingsPage_About_Link_Repository" NavigateUri="https://github.com/Leafuke/FolderRewind" />
                                 <HyperlinkButton x:Uid="SettingsPage_About_Link_Bilibili" NavigateUri="https://space.bilibili.com/545429962" />
                                 <HyperlinkButton x:Uid="SettingsPage_About_Link_Privacy" NavigateUri="https://github.com/Leafuke/FolderRewind/blob/dev/PRIVACY.md" />
-                                <HyperlinkButton x:Uid="SettingsPage_About_Link_QQ_GROUP" Click="OnJoinGroupButtonClick">
-                                    <FlyoutBase.AttachedFlyout>
-                                        <Flyout>
-                                            <Flyout.FlyoutPresenterStyle>
-                                                <Style BasedOn="{StaticResource DefaultFlyoutPresenterStyle}" TargetType="FlyoutPresenter">
-                                                    <Setter Property="Padding" Value="0" />
-                                                </Style>
-                                            </Flyout.FlyoutPresenterStyle>
-                                            <Image
-                                                MaxWidth="240"
-                                                Source="{ThemeResource QQGroup}"
-                                                Stretch="Uniform" />
-                                        </Flyout>
-                                    </FlyoutBase.AttachedFlyout>
-                                </HyperlinkButton>
                                 <HyperlinkButton x:Uid="SettingsPage_About_Link_KnotLink" NavigateUri="https://github.com/hxh230802/KnotLink" />
                             </StackPanel>
                         </StackPanel>
                     </Expander>
                 </Border>
+                <StackPanel Margin="0,12,0,0" Orientation="Horizontal" Spacing="4">
+                    <HyperlinkButton x:Uid="SettingsPage_About_Link_QQ_GROUP" Padding="8,4" Click="OnJoinGroupButtonClick">
+                        <FlyoutBase.AttachedFlyout>
+                            <Flyout>
+                                <Flyout.FlyoutPresenterStyle>
+                                    <Style BasedOn="{StaticResource DefaultFlyoutPresenterStyle}" TargetType="FlyoutPresenter">
+                                        <Setter Property="Padding" Value="0" />
+                                    </Style>
+                                </Flyout.FlyoutPresenterStyle>
+                                <Image
+                    MaxWidth="240"
+                    Source="{ThemeResource QQGroup}"
+                    Stretch="Uniform" />
+                            </Flyout>
+                        </FlyoutBase.AttachedFlyout>
+                    </HyperlinkButton>
+                    <StackPanel Width="1" Height="16" Background="{ThemeResource ControlStrokeColorDefaultBrush}" />
+                    <HyperlinkButton x:Uid="SettingsPage_About_Link_Feedback" Padding="8,4" NavigateUri="https://github.com/Leafuke/FolderRewind/issues" />
+                    <StackPanel Width="1" Height="16" Background="{ThemeResource ControlStrokeColorDefaultBrush}" />
+                    <HyperlinkButton x:Uid="SettingsPage_About_Link_Guide" NavigateUri="https://www.bilibili.com/video/BV1zbcjzhE1y" />
+                </StackPanel>
             </StackPanel>
         </ScrollViewer>
     </Grid>
