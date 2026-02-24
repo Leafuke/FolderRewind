@@ -8,7 +8,7 @@
     xmlns:plugins="using:FolderRewind.Services.Plugins"
     mc:Ignorable="d">
 
-    <ScrollViewer Padding="36">
+    <ScrollViewer Padding="28">
         <StackPanel Spacing="12">
             <TextBlock x:Uid="PluginStorePage_Title" Style="{ThemeResource TitleTextBlockStyle}" AutomationProperties.HeadingLevel="Level1"/>
             <TextBlock x:Uid="PluginStorePage_Desc" Foreground="{ThemeResource TextFillColorSecondaryBrush}" TextWrapping="Wrap"/>
@@ -24,7 +24,13 @@
 
             <ProgressRing IsActive="{x:Bind IsLoading, Mode=OneWay}" Visibility="{x:Bind IsLoading, Mode=OneWay, Converter={StaticResource BoolToVisConverter}}" Width="28" Height="28"/>
 
+            <TextBlock Text="{x:Bind ReleaseSummary, Mode=OneWay}" Visibility="{x:Bind ReleaseSummaryVisibility, Mode=OneWay}" Foreground="{ThemeResource TextFillColorSecondaryBrush}"/>
+
+            <TextBlock Text="{x:Bind StatusMessage, Mode=OneWay}" Visibility="{x:Bind StatusVisibility, Mode=OneWay}" Foreground="{ThemeResource TextFillColorSecondaryBrush}" TextWrapping="Wrap"/>
+
             <TextBlock x:Uid="PluginStorePage_EmptyRepoHint" Foreground="{ThemeResource TextFillColorSecondaryBrush}" Visibility="{x:Bind EmptyRepoHintVisibility, Mode=OneWay}"/>
+
+            <TextBlock x:Uid="PluginStorePage_NoAssets" Foreground="{ThemeResource TextFillColorSecondaryBrush}" Visibility="{x:Bind EmptyListVisibility, Mode=OneWay}"/>
 
             <ListView ItemsSource="{x:Bind Assets, Mode=OneWay}">
                 <ListView.ItemTemplate>
@@ -39,11 +45,21 @@
                                 <TextBlock Text="{x:Bind Name}" Style="{ThemeResource BodyStrongTextBlockStyle}" TextWrapping="Wrap"/>
                                 <StackPanel Orientation="Horizontal" Spacing="12">
                                     <TextBlock Text="{x:Bind SizeDisplay}" Foreground="{ThemeResource TextFillColorSecondaryBrush}"/>
-                                    <TextBlock Text="{x:Bind Status}" Foreground="{ThemeResource TextFillColorSecondaryBrush}"/>
                                 </StackPanel>
+                                <TextBlock Text="{x:Bind Status}" Foreground="{ThemeResource TextFillColorSecondaryBrush}" TextWrapping="Wrap"/>
                             </StackPanel>
 
-                            <Button x:Uid="PluginStorePage_Install" Grid.Column="1" Click="OnInstallClick" Tag="{x:Bind}" IsEnabled="{x:Bind CanInstall, Mode=OneWay}"/>
+                            <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
+                                <TextBlock x:Uid="PluginStorePage_InstalledBadge"
+                                           Visibility="{x:Bind IsInstalled, Converter={StaticResource BoolToVisConverter}, Mode=OneWay}"
+                                           Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                                           VerticalAlignment="Center"/>
+                                <ProgressRing Width="20"
+                                              Height="20"
+                                              IsActive="{x:Bind IsBusy, Mode=OneWay}"
+                                              Visibility="{x:Bind IsBusy, Converter={StaticResource BoolToVisConverter}, Mode=OneWay}"/>
+                                <Button x:Uid="PluginStorePage_Install" Click="OnInstallClick" Tag="{x:Bind}" IsEnabled="{x:Bind CanInstall, Mode=OneWay}"/>
+                            </StackPanel>
                         </Grid>
                     </DataTemplate>
                 </ListView.ItemTemplate>

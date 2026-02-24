@@ -27,6 +27,8 @@ namespace FolderRewind.Services.Plugins
     public static class PluginService
     {
         private const string ManifestFileName = "manifest.json";
+        private const string PendingDeleteFileName = ".pending_delete";
+        private const string PendingUpdateFileName = ".pending_update";
 
         private static readonly ResourceLoader _rl = ResourceLoader.GetForViewIndependentUse();
 
@@ -98,6 +100,9 @@ namespace FolderRewind.Services.Plugins
 
                     // 清理上次未能删除的插件
                     CleanPendingDeletions();
+
+                    // 应用上次未完成的插件更新
+                    ApplyPendingUpdates();
                 }
                 catch (Exception ex)
                 {
@@ -825,7 +830,7 @@ namespace FolderRewind.Services.Plugins
         {
             try
             {
-                var pendingFile = Path.Combine(PluginRootDirectory, ".pending_delete");
+                var pendingFile = Path.Combine(PluginRootDirectory, PendingDeleteFileName);
                 var lines = File.Exists(pendingFile)
                     ? File.ReadAllLines(pendingFile).ToList()
                     : new List<string>();
@@ -846,7 +851,7 @@ namespace FolderRewind.Services.Plugins
         {
             try
             {
-                var pendingFile = Path.Combine(PluginRootDirectory, ".pending_delete");
+                var pendingFile = Path.Combine(PluginRootDirectory, PendingDeleteFileName);
                 if (!File.Exists(pendingFile)) return;
 
                 var lines = File.ReadAllLines(pendingFile).Where(l => !string.IsNullOrWhiteSpace(l)).ToList();
@@ -881,13 +886,123 @@ namespace FolderRewind.Services.Plugins
             catch { }
         }
 
+        private static void QueuePendingUpdate(string pluginId, string packagePath, bool restoreEnabled)
+        {
+            try
+            {
+                Directory.CreateDirectory(PluginRootDirectory);
+
+                var pendingFile = Path.Combine(PluginRootDirectory, PendingUpdateFileName);
+                var lines = File.Exists(pendingFile)
+                    ? File.ReadAllLines(pendingFile)
+                        .Where(l => !string.IsNullOrWhiteSpace(l))
+                        .ToList()
+                    : new List<string>();
+
+                // 同一个插件仅保留最后一次更新包
+                lines.RemoveAll(l =>
+                {
+                    var parts = l.Split('|', 3);
+                    return parts.Length == 3 && string.Equals(parts[0], pluginId, StringComparison.OrdinalIgnoreCase);
+                });
+
+                lines.Add($"{pluginId}|{packagePath}|{(restoreEnabled ? "1" : "0")}");
+                File.WriteAllLines(pendingFile, lines);
+            }
+            catch (Exception ex)
+            {
+                LogService.LogWarning(I18n.Format("PluginService_QueueUpdateFailed_Log", pluginId, ex.Message), "PluginService");
+            }
+        }
+
+        private static void ApplyPendingUpdates()
+        {
+            try
+            {
+                var pendingFile = Path.Combine(PluginRootDirectory, PendingUpdateFileName);
+                if (!File.Exists(pendingFile)) return;
+
+                var lines = File.ReadAllLines(pendingFile)
+                    .Where(l => !string.IsNullOrWhiteSpace(l))
+                    .ToList();
+
+                var remaining = new List<string>();
+                var saveSettings = false;
+                var settings = ConfigService.CurrentConfig?.GlobalSettings?.Plugins;
+
+                foreach (var line in lines)
+                {
+                    var parts = line.Split('|', 3);
+                    if (parts.Length != 3)
+                    {
+                        continue;
+                    }
+
+                    var pluginId = parts[0];
+                    var packagePath = parts[1];
+                    var restoreEnabled = string.Equals(parts[2], "1", StringComparison.OrdinalIgnoreCase);
+
+                    if (string.IsNullOrWhiteSpace(pluginId) || string.IsNullOrWhiteSpace(packagePath) || !File.Exists(packagePath))
+                    {
+                        continue;
+                    }
+
+                    try
+                    {
+                        var result = InstallFromZipAsync(packagePath).GetAwaiter().GetResult();
+                        if (result.Success)
+                        {
+                            if (settings != null)
+                            {
+                                settings.PluginEnabled[pluginId] = restoreEnabled;
+                                saveSettings = true;
+                            }
+
+                            try { File.Delete(packagePath); } catch { }
+
+                            LogService.LogInfo(I18n.Format("PluginService_PendingUpdateApplied_Log", pluginId), "PluginService");
+                        }
+                        else
+                        {
+                            remaining.Add(line);
+                            LogService.LogWarning(I18n.Format("PluginService_PendingUpdateApplyFailed_Log", pluginId, result.Message), "PluginService");
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        remaining.Add(line);
+                        LogService.LogWarning(I18n.Format("PluginService_PendingUpdateApplyFailed_Log", pluginId, ex.Message), "PluginService");
+                    }
+                }
+
+                if (saveSettings)
+                {
+                    ConfigService.Save();
+                }
+
+                if (remaining.Count > 0)
+                {
+                    File.WriteAllLines(pendingFile, remaining);
+                }
+                else
+                {
+                    File.Delete(pendingFile);
+                }
+            }
+            catch (Exception ex)
+            {
+                LogService.LogWarning(I18n.Format("PluginService_ApplyPendingUpdatesFailed_Log", ex.Message), "PluginService");
+            }
+        }
+
         /// <summary>
         /// 检查所有已安装插件的更新
         /// </summary>
-        public static async Task CheckAllPluginUpdatesAsync(CancellationToken ct = default)
+        public static async Task CheckAllPluginUpdatesAsync(CancellationToken ct = default, bool respectAutoCheckSetting = true)
         {
             var settings = ConfigService.CurrentConfig?.GlobalSettings?.Plugins;
-            if (settings == null || !settings.AutoCheckUpdates) return;
+            if (settings == null) return;
+            if (respectAutoCheckSetting && !settings.AutoCheckUpdates) return;
 
             foreach (var plugin in _installed.ToList())
             {
@@ -905,10 +1020,19 @@ namespace FolderRewind.Services.Plugins
 
             try
             {
+                // 每次检查先清空旧状态，避免残留状态导致“误报有更新”
+                plugin.HasUpdate = false;
+                plugin.LatestVersion = null;
+                plugin.UpdateDownloadUrl = null;
+
                 var (hasUpdate, latestVersion, downloadUrl) = await CheckGitHubReleaseAsync(plugin.Repository, plugin.Version, ct);
-                plugin.HasUpdate = hasUpdate;
-                plugin.LatestVersion = latestVersion;
-                plugin.UpdateDownloadUrl = downloadUrl;
+
+                // 没有可下载链接时，不应视为可更新
+                var actionable = hasUpdate && !string.IsNullOrWhiteSpace(downloadUrl);
+
+                plugin.HasUpdate = actionable;
+                plugin.LatestVersion = actionable ? latestVersion : null;
+                plugin.UpdateDownloadUrl = actionable ? downloadUrl : null;
             }
             catch (Exception ex)
             {
@@ -1005,6 +1129,8 @@ namespace FolderRewind.Services.Plugins
 
             try
             {
+                var wasEnabled = GetPluginEnabled(plugin.Id);
+
                 // 下载文件
                 using var client = new HttpClient();
                 client.DefaultRequestHeaders.Add("User-Agent", "FolderRewind-Plugin-Updater");
@@ -1024,10 +1150,22 @@ namespace FolderRewind.Services.Plugins
                 }
 
                 // 先卸载旧版本
-                TryUnloadPlugin(plugin.Id);
+                var unloadSuccess = TryUnloadPlugin(plugin.Id);
+                if (!unloadSuccess)
+                {
+                    QueuePendingUpdate(plugin.Id, tempFile, wasEnabled);
+                    return (true, _rl.GetString("PluginService_UpdatePendingRestart"));
+                }
 
                 // 安装新版本
                 var result = await InstallFromZipAsync(tempFile, ct);
+
+                if (!result.Success)
+                {
+                    // 大概率是文件占用导致覆盖失败，回退为“下次启动应用更新”
+                    QueuePendingUpdate(plugin.Id, tempFile, wasEnabled);
+                    return (true, _rl.GetString("PluginService_UpdatePendingRestart"));
+                }
 
                 // 清理临时文件
                 try { File.Delete(tempFile); } catch { }
@@ -1035,8 +1173,7 @@ namespace FolderRewind.Services.Plugins
                 if (result.Success)
                 {
                     // 重新启用插件
-                    var settings = ConfigService.CurrentConfig?.GlobalSettings?.Plugins;
-                    if (settings != null && settings.PluginEnabled.TryGetValue(plugin.Id, out var wasEnabled) && wasEnabled)
+                    if (wasEnabled)
                     {
                         TryLoadPlugin(plugin.Id);
                     }

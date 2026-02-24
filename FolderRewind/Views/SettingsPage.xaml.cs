@@ -847,10 +847,10 @@ namespace FolderRewind.Views
 
             try
             {
-                await PluginService.CheckAllPluginUpdatesAsync();
+                await PluginService.CheckAllPluginUpdatesAsync(respectAutoCheckSetting: false);
                 Bindings.Update();
 
-                var hasUpdates = InstalledPlugins.Any(p => p.HasUpdate);
+                var hasUpdates = InstalledPlugins.Any(p => p.HasUpdate && !string.IsNullOrWhiteSpace(p.UpdateDownloadUrl));
                 var msg = new ContentDialog
                 {
                     Title = rl.GetString("Common_Done"),

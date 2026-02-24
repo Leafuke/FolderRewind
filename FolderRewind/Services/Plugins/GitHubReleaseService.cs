@@ -22,10 +22,10 @@ namespace FolderRewind.Services.Plugins
             return client;
         }
 
-        public static async Task<IReadOnlyList<GitHubReleaseAsset>> GetLatestReleaseAssetsAsync(string owner, string repo, CancellationToken ct)
+        public static async Task<GitHubLatestReleaseResult> GetLatestReleaseAsync(string owner, string repo, CancellationToken ct)
         {
             if (string.IsNullOrWhiteSpace(owner) || string.IsNullOrWhiteSpace(repo))
-                return Array.Empty<GitHubReleaseAsset>();
+            return new GitHubLatestReleaseResult { ErrorMessage = "invalid-repo" };
 
             var url = $"https://api.github.com/repos/{owner}/{repo}/releases/latest";
 
@@ -38,8 +38,19 @@ namespace FolderRewind.Services.Plugins
                 await using var stream = await resp.Content.ReadAsStreamAsync(ct);
                 using var doc = await JsonDocument.ParseAsync(stream, cancellationToken: ct);
 
-                if (!doc.RootElement.TryGetProperty("assets", out var assetsEl) || assetsEl.ValueKind != JsonValueKind.Array)
-                    return Array.Empty<GitHubReleaseAsset>();
+                var root = doc.RootElement;
+                var result = new GitHubLatestReleaseResult
+                {
+                    ReleaseName = root.TryGetProperty("name", out var releaseNameEl) ? releaseNameEl.GetString() : null,
+                    TagName = root.TryGetProperty("tag_name", out var tagEl) ? tagEl.GetString() : null,
+                    HtmlUrl = root.TryGetProperty("html_url", out var htmlEl) ? htmlEl.GetString() : null,
+                    PublishedAt = root.TryGetProperty("published_at", out var pubEl) && DateTimeOffset.TryParse(pubEl.GetString(), out var dt)
+                        ? dt
+                        : null
+                };
+
+                if (!root.TryGetProperty("assets", out var assetsEl) || assetsEl.ValueKind != JsonValueKind.Array)
+                    return result;
 
                 var list = new List<GitHubReleaseAsset>();
                 foreach (var asset in assetsEl.EnumerateArray())
@@ -47,6 +58,10 @@ namespace FolderRewind.Services.Plugins
                     var name = asset.TryGetProperty("name", out var nameEl) ? nameEl.GetString() : null;
                     var dl = asset.TryGetProperty("browser_download_url", out var dlEl) ? dlEl.GetString() : null;
                     var size = asset.TryGetProperty("size", out var sizeEl) && sizeEl.TryGetInt64(out var s) ? s : 0;
+                    var downloadCount = asset.TryGetProperty("download_count", out var countEl) && countEl.TryGetInt64(out var c) ? c : 0;
+                    var updatedAt = asset.TryGetProperty("updated_at", out var updateEl) && DateTimeOffset.TryParse(updateEl.GetString(), out var updateAtParsed)
+                        ? updateAtParsed
+                        : (DateTimeOffset?)null;
 
                     if (string.IsNullOrWhiteSpace(name) || string.IsNullOrWhiteSpace(dl)) continue;
 
@@ -54,11 +69,14 @@ namespace FolderRewind.Services.Plugins
                     {
                         Name = name!,
                         DownloadUrl = dl!,
-                        SizeBytes = size
+                        SizeBytes = size,
+                        DownloadCount = downloadCount,
+                        UpdatedAt = updatedAt
                     });
                 }
 
-                return list;
+                result.Assets = list;
+                return result;
             }
             catch (OperationCanceledException)
             {
@@ -67,8 +85,18 @@ namespace FolderRewind.Services.Plugins
             catch (Exception ex)
             {
                 LogService.LogError(I18n.Format("PluginStore_GetReleaseFailed_Log", ex.Message), "GitHubReleaseService", ex);
-                return Array.Empty<GitHubReleaseAsset>();
+                return new GitHubLatestReleaseResult { ErrorMessage = ex.Message };
             }
+        }
+
+        public sealed class GitHubLatestReleaseResult
+        {
+            public string? ReleaseName { get; set; }
+            public string? TagName { get; set; }
+            public string? HtmlUrl { get; set; }
+            public DateTimeOffset? PublishedAt { get; set; }
+            public IReadOnlyList<GitHubReleaseAsset> Assets { get; set; } = Array.Empty<GitHubReleaseAsset>();
+            public string? ErrorMessage { get; set; }
         }
 
         public sealed class GitHubReleaseAsset
@@ -76,6 +104,8 @@ namespace FolderRewind.Services.Plugins
             public string Name { get; set; } = string.Empty;
             public string DownloadUrl { get; set; } = string.Empty;
             public long SizeBytes { get; set; }
+            public long DownloadCount { get; set; }
+            public DateTimeOffset? UpdatedAt { get; set; }
         }
 
         public static async Task<byte[]> DownloadAssetAsync(string url, CancellationToken ct)

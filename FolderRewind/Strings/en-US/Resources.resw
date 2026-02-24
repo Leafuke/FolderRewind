@@ -873,6 +873,24 @@
   <data name="PluginStorePage_Install.Content" xml:space="preserve">
     <value>Install</value>
   </data>
+  <data name="PluginStorePage_SearchBox.PlaceholderText" xml:space="preserve">
+    <value>Filter by file name or tag</value>
+  </data>
+  <data name="PluginStorePage_ZipOnly.Header" xml:space="preserve">
+    <value>ZIP only</value>
+  </data>
+  <data name="PluginStorePage_NoAssets.Text" xml:space="preserve">
+    <value>No plugin assets to display (they may be filtered out).</value>
+  </data>
+  <data name="PluginStorePage_InstalledBadge.Text" xml:space="preserve">
+    <value>Installed</value>
+  </data>
+  <data name="PluginStorePage_InvalidRepo" xml:space="preserve">
+    <value>Invalid repository format. Use owner/repo.</value>
+  </data>
+  <data name="PluginStorePage_PluginSystemDisabled" xml:space="preserve">
+    <value>Plugin system is disabled. Enable it in Settings first.</value>
+  </data>
   <data name="LogPage_Title.Text" xml:space="preserve">
     <value>Logs</value>
   </data>
@@ -1035,8 +1053,23 @@
   <data name="PluginService_UpdateFailed" xml:space="preserve">
     <value>Update failed: {0}</value>
   </data>
+  <data name="PluginService_UpdatePendingRestart" xml:space="preserve">
+    <value>Update queued and will be applied automatically on next app start.</value>
+  </data>
   <data name="PluginService_DownloadFailed" xml:space="preserve">
     <value>Download failed: {0}</value>
+  </data>
+  <data name="PluginService_QueueUpdateFailed_Log" xml:space="preserve">
+    <value>[Plugin] Failed to queue update: plugin={0} error={1}</value>
+  </data>
+  <data name="PluginService_PendingUpdateApplied_Log" xml:space="preserve">
+    <value>[Plugin] Deferred update applied: plugin={0}</value>
+  </data>
+  <data name="PluginService_PendingUpdateApplyFailed_Log" xml:space="preserve">
+    <value>[Plugin] Failed to apply deferred update: plugin={0} error={1}</value>
+  </data>
+  <data name="PluginService_ApplyPendingUpdatesFailed_Log" xml:space="preserve">
+    <value>[Plugin] Failed to apply deferred updates: error={0}</value>
   </data>
   <data name="PluginService_KnotLinkCommandFailed" xml:space="preserve">
     <value>[Plugin] KnotLink command handler failed: plugin={0} command={1} error={2}</value>
