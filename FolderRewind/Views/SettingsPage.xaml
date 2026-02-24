@@ -79,6 +79,21 @@
                                     <ColumnDefinition Width="Auto" />
                                 </Grid.ColumnDefinitions>
                                 <StackPanel>
+                                    <TextBlock x:Uid="SettingsPage_SilentStartup" />
+                                    <TextBlock x:Uid="SettingsPage_SilentStartupDesc" Style="{StaticResource SettingsDescriptionStyle}" />
+                                </StackPanel>
+                                <ToggleSwitch Grid.Column="1"
+                                              IsOn="{x:Bind Settings.SilentStartup, Mode=TwoWay}"
+                                              IsEnabled="{x:Bind Settings.RunOnStartup, Mode=OneWay}"
+                                              Toggled="OnSilentStartupToggled" />
+                            </Grid>
+
+                            <Grid>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*" />
+                                    <ColumnDefinition Width="Auto" />
+                                </Grid.ColumnDefinitions>
+                                <StackPanel>
                                     <TextBlock x:Uid="SettingsPage_CloseBehavior" />
                                     <TextBlock x:Uid="SettingsPage_CloseBehaviorDesc" Style="{StaticResource SettingsDescriptionStyle}" />
                                 </StackPanel>
@@ -292,6 +307,7 @@
                                 <ComboBox Grid.Column="1" SelectedIndex="{x:Bind Settings.ThemeIndex, Mode=TwoWay}" Width="180" SelectionChanged="OnThemeChanged">
                                     <ComboBoxItem x:Uid="SettingsPage_ThemeDark" />
                                     <ComboBoxItem x:Uid="SettingsPage_ThemeLight" />
+                                    <ComboBoxItem x:Uid="SettingsPage_ThemeSystem" />
                                 </ComboBox>
                             </Grid>
 

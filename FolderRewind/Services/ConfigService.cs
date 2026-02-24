@@ -331,10 +331,14 @@ namespace FolderRewind.Services
         {
             if (settings == null) return;
 
-            // Theme: default to light when value is unexpected
-            if (settings.ThemeIndex < 0 || settings.ThemeIndex > 1)
+            if (settings.ThemeIndex < 0 || settings.ThemeIndex > 2)
             {
                 settings.ThemeIndex = 1;
+            }
+
+            if (!settings.RunOnStartup)
+            {
+                settings.SilentStartup = false;
             }
 
             if (string.IsNullOrWhiteSpace(settings.FontFamily))

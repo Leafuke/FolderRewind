@@ -14,7 +14,8 @@ namespace FolderRewind.Services
             {
                 0 => ElementTheme.Dark,
                 1 => ElementTheme.Light,
-                _ => ElementTheme.Light
+                2 => ElementTheme.Default,
+                _ => ElementTheme.Default
             };
         }
 

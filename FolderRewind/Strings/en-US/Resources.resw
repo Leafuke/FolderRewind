@@ -276,6 +276,12 @@
   <data name="SettingsPage_RunOnStartupDesc.Text" xml:space="preserve">
     <value>Run FolderRewind when you sign in to Windows</value>
   </data>
+  <data name="SettingsPage_SilentStartup.Text" xml:space="preserve">
+    <value>Silent startup</value>
+  </data>
+  <data name="SettingsPage_SilentStartupDesc.Text" xml:space="preserve">
+    <value>When auto-started at sign-in, hide the main window and show tray icon only</value>
+  </data>
   <data name="SettingsPage_Environment.Text" xml:space="preserve">
     <value>Environment</value>
   </data>
@@ -317,6 +323,9 @@
   </data>
   <data name="SettingsPage_ThemeLight.Content" xml:space="preserve">
     <value>Light</value>
+  </data>
+  <data name="SettingsPage_ThemeSystem.Content" xml:space="preserve">
+    <value>Use system setting</value>
   </data>
   <data name="SettingsPage_FontFamily.Text" xml:space="preserve">
     <value>App font</value>

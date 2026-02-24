@@ -276,6 +276,12 @@
   <data name="SettingsPage_RunOnStartupDesc.Text" xml:space="preserve">
     <value>登录 Windows 时自动运行 FolderRewind</value>
   </data>
+  <data name="SettingsPage_SilentStartup.Text" xml:space="preserve">
+    <value>静默启动</value>
+  </data>
+  <data name="SettingsPage_SilentStartupDesc.Text" xml:space="preserve">
+    <value>仅在开机自启时隐藏主界面，仅显示托盘图标</value>
+  </data>
   <data name="SettingsPage_Environment.Text" xml:space="preserve">
     <value>运行环境</value>
   </data>
@@ -317,6 +323,9 @@
   </data>
   <data name="SettingsPage_ThemeLight.Content" xml:space="preserve">
     <value>浅色</value>
+  </data>
+  <data name="SettingsPage_ThemeSystem.Content" xml:space="preserve">
+    <value>跟随系统</value>
   </data>
   <data name="SettingsPage_FontFamily.Text" xml:space="preserve">
     <value>界面字体</value>

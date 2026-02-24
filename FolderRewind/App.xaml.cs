@@ -1,6 +1,7 @@
 ﻿using FolderRewind.Services;
 using FolderRewind.Services.Plugins;
 using H.NotifyIcon;
+using Microsoft.Windows.AppLifecycle;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Input;
@@ -112,6 +113,19 @@ namespace FolderRewind
                 UpdateWindowTitle();
                 _window.Activate();
 
+                var startupSettings = Services.ConfigService.CurrentConfig?.GlobalSettings;
+                var shouldSilentStart = startupSettings?.RunOnStartup == true
+                    && startupSettings.SilentStartup
+                    && IsStartupTaskLaunch();
+
+                if (shouldSilentStart && _window is MainWindow mainWindow)
+                {
+                    _window.DispatcherQueue.TryEnqueue(Microsoft.UI.Dispatching.DispatcherQueuePriority.High, () =>
+                    {
+                        mainWindow.HideToTray();
+                    });
+                }
+
                 _window.DispatcherQueue.TryEnqueue(Microsoft.UI.Dispatching.DispatcherQueuePriority.Low, () =>
                 {
                     Services.TypographyService.ApplyTypography(Services.ConfigService.CurrentConfig?.GlobalSettings);
@@ -140,7 +154,6 @@ namespace FolderRewind
                     }
                 });
 
-                var startupSettings = Services.ConfigService.CurrentConfig?.GlobalSettings;
                 if (startupSettings != null)
                 {
                     _ = Task.Run(async () =>
@@ -290,6 +303,19 @@ namespace FolderRewind
         private static string GetLocalizedWindowTitle()
         {
             return Services.I18n.Format("App_WindowTitle");
+        }
+
+        private static bool IsStartupTaskLaunch()
+        {
+            try
+            {
+                var activatedArgs = AppInstance.GetCurrent().GetActivatedEventArgs();
+                return activatedArgs?.Kind == ExtendedActivationKind.StartupTask;
+            }
+            catch
+            {
+                return false;
+            }
         }
 
         #endregion
