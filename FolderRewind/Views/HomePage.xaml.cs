@@ -315,11 +315,16 @@ namespace FolderRewind.Views
 
             // 配置类型（含插件扩展类型 + 内置加密类型）
             var configTypes = PluginService.GetAllSupportedConfigTypes().ToList();
+            // 确保 "Default" 始终存在（插件系统未启用时列表可能为空）
+            if (!configTypes.Contains("Default", StringComparer.OrdinalIgnoreCase))
+            {
+                configTypes.Insert(0, "Default");
+            }
             // 确保 "Encrypted" 作为内置类型出现在 "Default" 之后
             if (!configTypes.Contains("Encrypted", StringComparer.OrdinalIgnoreCase))
             {
                 int defaultIdx = configTypes.FindIndex(t => string.Equals(t, "Default", StringComparison.OrdinalIgnoreCase));
-                configTypes.Insert(defaultIdx >= 0 ? defaultIdx + 1 : 1, "Encrypted");
+                configTypes.Insert(defaultIdx >= 0 ? defaultIdx + 1 : configTypes.Count, "Encrypted");
             }
             var typeCombo = new ComboBox
             {
