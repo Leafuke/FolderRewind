@@ -1035,6 +1035,12 @@
   <data name="PluginService_InstallFailed" xml:space="preserve">
     <value>Install failed: {0}</value>
   </data>
+  <data name="PluginService_InstallPendingRestart" xml:space="preserve">
+    <value>Plugin files are in use. Installation is queued and will complete on next app start.</value>
+  </data>
+  <data name="PluginService_QueueInstallPendingFailed" xml:space="preserve">
+    <value>Plugin files are in use and a pending install task could not be created. Please restart app and try again.</value>
+  </data>
   <data name="PluginService_EmptyPluginId" xml:space="preserve">
     <value>Plugin ID is empty</value>
   </data>
@@ -1079,6 +1085,9 @@
   </data>
   <data name="PluginService_ApplyPendingUpdatesFailed_Log" xml:space="preserve">
     <value>[Plugin] Failed to apply deferred updates: error={0}</value>
+  </data>
+  <data name="PluginService_PersistPendingPackageFailed_Log" xml:space="preserve">
+    <value>[Plugin] Failed to copy pending package: plugin={0} error={1}</value>
   </data>
   <data name="PluginService_KnotLinkCommandFailed" xml:space="preserve">
     <value>[Plugin] KnotLink command handler failed: plugin={0} command={1} error={2}</value>

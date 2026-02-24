@@ -1035,6 +1035,12 @@
   <data name="PluginService_InstallFailed" xml:space="preserve">
     <value>安装失败：{0}</value>
   </data>
+  <data name="PluginService_InstallPendingRestart" xml:space="preserve">
+    <value>插件文件当前被占用，已排队在下次启动应用时完成安装。</value>
+  </data>
+  <data name="PluginService_QueueInstallPendingFailed" xml:space="preserve">
+    <value>插件文件被占用，且无法创建待安装任务，请重启应用后重试。</value>
+  </data>
   <data name="PluginService_EmptyPluginId" xml:space="preserve">
     <value>插件 ID 为空</value>
   </data>
@@ -1079,6 +1085,9 @@
   </data>
   <data name="PluginService_ApplyPendingUpdatesFailed_Log" xml:space="preserve">
     <value>[Plugin] 批量应用延迟更新失败：错误={0}</value>
+  </data>
+  <data name="PluginService_PersistPendingPackageFailed_Log" xml:space="preserve">
+    <value>[Plugin] 复制待更新安装包失败：插件={0} 错误={1}</value>
   </data>
   <data name="PluginService_KnotLinkCommandFailed" xml:space="preserve">
     <value>[Plugin] KnotLink 指令处理失败：插件={0} 指令={1} 错误={2}</value>

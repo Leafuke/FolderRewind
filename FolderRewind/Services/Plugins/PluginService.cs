@@ -653,12 +653,41 @@ namespace FolderRewind.Services.Plugins
                 ApplyManifestLocalization(manifest);
 
                 var targetDir = Path.Combine(PluginRootDirectory, SanitizeFolderName(manifest.Id));
+                var wasEnabled = GetPluginEnabled(manifest.Id);
 
                 // 覆盖安装：先删除原目录
                 if (Directory.Exists(targetDir))
                 {
-                    try { Directory.Delete(targetDir, recursive: true); }
-                    catch (Exception ex) { return (false, string.Format(_rl.GetString("PluginService_OverwriteFailed"), ex.Message)); }
+                    var unloadSuccess = TryUnloadPlugin(manifest.Id);
+                    if (!unloadSuccess)
+                    {
+                        var persistedPackage = PersistPendingUpdatePackage(zipFilePath, manifest.Id);
+                        if (string.IsNullOrWhiteSpace(persistedPackage))
+                        {
+                            return (false, _rl.GetString("PluginService_QueueInstallPendingFailed"));
+                        }
+
+                        QueuePendingUpdate(manifest.Id, persistedPackage, wasEnabled);
+                        return (true, _rl.GetString("PluginService_InstallPendingRestart"));
+                    }
+
+                    try
+                    {
+                        Directory.Delete(targetDir, recursive: true);
+                    }
+                    catch (Exception ex)
+                    {
+                        LogService.LogWarning(I18n.Format("PluginService_DeleteFailed", manifest.Id, ex.Message), "PluginService");
+
+                        var persistedPackage = PersistPendingUpdatePackage(zipFilePath, manifest.Id);
+                        if (string.IsNullOrWhiteSpace(persistedPackage))
+                        {
+                            return (false, string.Format(_rl.GetString("PluginService_OverwriteFailed"), ex.Message));
+                        }
+
+                        QueuePendingUpdate(manifest.Id, persistedPackage, wasEnabled);
+                        return (true, _rl.GetString("PluginService_InstallPendingRestart"));
+                    }
                 }
 
                 Directory.CreateDirectory(targetDir);
@@ -716,6 +745,28 @@ namespace FolderRewind.Services.Plugins
             {
                 LogService.LogError(I18n.Format("PluginService_InstallFailed_Log", ex.Message), "PluginService", ex);
                 return (false, string.Format(_rl.GetString("PluginService_InstallFailed"), ex.Message));
+            }
+        }
+
+        private static string? PersistPendingUpdatePackage(string sourceZipPath, string pluginId)
+        {
+            try
+            {
+                if (string.IsNullOrWhiteSpace(sourceZipPath) || !File.Exists(sourceZipPath)) return null;
+
+                var pendingDir = Path.Combine(PluginRootDirectory, "_pending_updates");
+                Directory.CreateDirectory(pendingDir);
+
+                var fileName = $"{SanitizeFolderName(pluginId)}-{Guid.NewGuid():N}.zip";
+                var targetPath = Path.Combine(pendingDir, fileName);
+                File.Copy(sourceZipPath, targetPath, overwrite: false);
+
+                return targetPath;
+            }
+            catch (Exception ex)
+            {
+                LogService.LogWarning(I18n.Format("PluginService_PersistPendingPackageFailed_Log", pluginId, ex.Message), "PluginService");
+                return null;
             }
         }
 
