@@ -52,11 +52,33 @@ namespace FolderRewind.Services
                 return string.IsNullOrWhiteSpace(fallback) ? null : fallback;
             }
 
+            string? GetValue(string tag)
+            {
+                if (string.IsNullOrWhiteSpace(tag)) return null;
+
+                if (localized.TryGetValue(tag, out var exact) && !string.IsNullOrWhiteSpace(exact))
+                {
+                    return exact;
+                }
+
+                foreach (var kv in localized)
+                {
+                    if (string.Equals(NormalizeTag(kv.Key), tag, StringComparison.OrdinalIgnoreCase)
+                        && !string.IsNullOrWhiteSpace(kv.Value))
+                    {
+                        return kv.Value;
+                    }
+                }
+
+                return null;
+            }
+
             foreach (var lang in GetLanguageCandidates())
             {
                 if (string.IsNullOrWhiteSpace(lang)) continue;
 
-                if (localized.TryGetValue(lang, out var exact) && !string.IsNullOrWhiteSpace(exact))
+                var exact = GetValue(lang);
+                if (!string.IsNullOrWhiteSpace(exact))
                 {
                     return exact;
                 }
@@ -66,9 +88,25 @@ namespace FolderRewind.Services
                 if (dash > 0)
                 {
                     var prefix = lang[..dash];
-                    if (localized.TryGetValue(prefix, out var pref) && !string.IsNullOrWhiteSpace(pref))
+                    var pref = GetValue(prefix);
+                    if (!string.IsNullOrWhiteSpace(pref))
                     {
                         return pref;
+                    }
+                }
+
+                // 脚本/地区互通：zh-Hans <-> zh-CN, zh-Hant <-> zh-TW
+                if (lang.StartsWith("zh-", StringComparison.OrdinalIgnoreCase))
+                {
+                    if (lang.Contains("Hans", StringComparison.OrdinalIgnoreCase))
+                    {
+                        var zhCn = GetValue("zh-CN");
+                        if (!string.IsNullOrWhiteSpace(zhCn)) return zhCn;
+                    }
+                    else if (lang.Contains("Hant", StringComparison.OrdinalIgnoreCase))
+                    {
+                        var zhTw = GetValue("zh-TW");
+                        if (!string.IsNullOrWhiteSpace(zhTw)) return zhTw;
                     }
                 }
             }

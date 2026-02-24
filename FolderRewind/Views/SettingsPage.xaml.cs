@@ -847,10 +847,10 @@ namespace FolderRewind.Views
 
             try
             {
-                await PluginService.CheckAllPluginUpdatesAsync();
+                await PluginService.CheckAllPluginUpdatesAsync(respectAutoCheckSetting: false);
                 Bindings.Update();
 
-                var hasUpdates = InstalledPlugins.Any(p => p.HasUpdate);
+                var hasUpdates = InstalledPlugins.Any(p => p.HasUpdate && !string.IsNullOrWhiteSpace(p.UpdateDownloadUrl));
                 var msg = new ContentDialog
                 {
                     Title = rl.GetString("Common_Done"),
@@ -1127,6 +1127,11 @@ namespace FolderRewind.Views
 
                 Settings.RunOnStartup = success && desired;
 
+                if (!Settings.RunOnStartup)
+                {
+                    Settings.SilentStartup = false;
+                }
+
                 if (!success && desired)
                 {
                     ts.IsOn = false;
@@ -1147,7 +1152,19 @@ namespace FolderRewind.Views
                 }
 
                 ConfigService.Save();
+                Bindings.Update();
             }
+        }
+
+        private void OnSilentStartupToggled(object sender, RoutedEventArgs e)
+        {
+            if (!Settings.RunOnStartup)
+            {
+                Settings.SilentStartup = false;
+            }
+
+            ConfigService.Save();
+            Bindings.Update();
         }
 
         // 浏览 7z 路径

@@ -134,6 +134,12 @@ namespace FolderRewind.Views
                 ConfigTypesView.Add(t);
             }
 
+            // 确保 "Default" 始终存在（插件系统未启用时列表可能为空）
+            if (!ConfigTypesView.OfType<string>().Any(t => string.Equals(t, "Default", StringComparison.OrdinalIgnoreCase)))
+            {
+                ConfigTypesView.Insert(0, "Default");
+            }
+
             // 确保 "Encrypted" 作为内置类型出现
             if (!ConfigTypesView.OfType<string>().Any(t => string.Equals(t, "Encrypted", StringComparison.OrdinalIgnoreCase)))
             {
@@ -143,7 +149,7 @@ namespace FolderRewind.Views
                     if (ConfigTypesView[i] is string s && string.Equals(s, "Default", StringComparison.OrdinalIgnoreCase))
                     { defaultIdx = i; break; }
                 }
-                ConfigTypesView.Insert(defaultIdx >= 0 ? defaultIdx + 1 : 1, "Encrypted");
+                ConfigTypesView.Insert(defaultIdx >= 0 ? defaultIdx + 1 : ConfigTypesView.Count, "Encrypted");
             }
 
             // 如果当前类型不在列表里，也允许展示出来（避免旧配置类型丢失）

@@ -268,7 +268,7 @@ namespace FolderRewind
             });
         }
 
-        private void HideToTray()
+        internal void HideToTray()
         {
             try
             {

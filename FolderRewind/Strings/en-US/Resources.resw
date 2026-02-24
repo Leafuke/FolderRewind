@@ -276,6 +276,12 @@
   <data name="SettingsPage_RunOnStartupDesc.Text" xml:space="preserve">
     <value>Run FolderRewind when you sign in to Windows</value>
   </data>
+  <data name="SettingsPage_SilentStartup.Text" xml:space="preserve">
+    <value>Silent startup</value>
+  </data>
+  <data name="SettingsPage_SilentStartupDesc.Text" xml:space="preserve">
+    <value>When auto-started at sign-in, hide the main window and show tray icon only</value>
+  </data>
   <data name="SettingsPage_Environment.Text" xml:space="preserve">
     <value>Environment</value>
   </data>
@@ -317,6 +323,9 @@
   </data>
   <data name="SettingsPage_ThemeLight.Content" xml:space="preserve">
     <value>Light</value>
+  </data>
+  <data name="SettingsPage_ThemeSystem.Content" xml:space="preserve">
+    <value>Use system setting</value>
   </data>
   <data name="SettingsPage_FontFamily.Text" xml:space="preserve">
     <value>App font</value>
@@ -873,6 +882,24 @@
   <data name="PluginStorePage_Install.Content" xml:space="preserve">
     <value>Install</value>
   </data>
+  <data name="PluginStorePage_SearchBox.PlaceholderText" xml:space="preserve">
+    <value>Filter by file name or tag</value>
+  </data>
+  <data name="PluginStorePage_ZipOnly.Header" xml:space="preserve">
+    <value>ZIP only</value>
+  </data>
+  <data name="PluginStorePage_NoAssets.Text" xml:space="preserve">
+    <value>No plugin assets to display (they may be filtered out).</value>
+  </data>
+  <data name="PluginStorePage_InstalledBadge.Text" xml:space="preserve">
+    <value>Installed</value>
+  </data>
+  <data name="PluginStorePage_InvalidRepo" xml:space="preserve">
+    <value>Invalid repository format. Use owner/repo.</value>
+  </data>
+  <data name="PluginStorePage_PluginSystemDisabled" xml:space="preserve">
+    <value>Plugin system is disabled. Enable it in Settings first.</value>
+  </data>
   <data name="LogPage_Title.Text" xml:space="preserve">
     <value>Logs</value>
   </data>
@@ -1008,6 +1035,12 @@
   <data name="PluginService_InstallFailed" xml:space="preserve">
     <value>Install failed: {0}</value>
   </data>
+  <data name="PluginService_InstallPendingRestart" xml:space="preserve">
+    <value>Plugin files are in use. Installation is queued and will complete on next app start.</value>
+  </data>
+  <data name="PluginService_QueueInstallPendingFailed" xml:space="preserve">
+    <value>Plugin files are in use and a pending install task could not be created. Please restart app and try again.</value>
+  </data>
   <data name="PluginService_EmptyPluginId" xml:space="preserve">
     <value>Plugin ID is empty</value>
   </data>
@@ -1035,8 +1068,26 @@
   <data name="PluginService_UpdateFailed" xml:space="preserve">
     <value>Update failed: {0}</value>
   </data>
+  <data name="PluginService_UpdatePendingRestart" xml:space="preserve">
+    <value>Update queued and will be applied automatically on next app start.</value>
+  </data>
   <data name="PluginService_DownloadFailed" xml:space="preserve">
     <value>Download failed: {0}</value>
+  </data>
+  <data name="PluginService_QueueUpdateFailed_Log" xml:space="preserve">
+    <value>[Plugin] Failed to queue update: plugin={0} error={1}</value>
+  </data>
+  <data name="PluginService_PendingUpdateApplied_Log" xml:space="preserve">
+    <value>[Plugin] Deferred update applied: plugin={0}</value>
+  </data>
+  <data name="PluginService_PendingUpdateApplyFailed_Log" xml:space="preserve">
+    <value>[Plugin] Failed to apply deferred update: plugin={0} error={1}</value>
+  </data>
+  <data name="PluginService_ApplyPendingUpdatesFailed_Log" xml:space="preserve">
+    <value>[Plugin] Failed to apply deferred updates: error={0}</value>
+  </data>
+  <data name="PluginService_PersistPendingPackageFailed_Log" xml:space="preserve">
+    <value>[Plugin] Failed to copy pending package: plugin={0} error={1}</value>
   </data>
   <data name="PluginService_KnotLinkCommandFailed" xml:space="preserve">
     <value>[Plugin] KnotLink command handler failed: plugin={0} command={1} error={2}</value>

@@ -16,6 +16,13 @@ namespace FolderRewind.Services.Plugins
     {
         private static readonly ResourceLoader _rl = ResourceLoader.GetForViewIndependentUse();
 
+        public sealed class PluginStoreLoadResult
+        {
+            public IReadOnlyList<PluginStoreAssetItem> Items { get; set; } = Array.Empty<PluginStoreAssetItem>();
+            public string? Summary { get; set; }
+            public string? ErrorMessage { get; set; }
+        }
+
         public static bool TryParseRepo(string repoText, out string owner, out string repo)
         {
             owner = string.Empty;
@@ -30,17 +37,40 @@ namespace FolderRewind.Services.Plugins
             return !(string.IsNullOrWhiteSpace(owner) || string.IsNullOrWhiteSpace(repo));
         }
 
-        public static async Task<IReadOnlyList<PluginStoreAssetItem>> GetLatestAssetsAsync(string owner, string repo, CancellationToken ct)
+        public static async Task<PluginStoreLoadResult> GetLatestAssetsAsync(string owner, string repo, CancellationToken ct)
         {
-            var assets = await GitHubReleaseService.GetLatestReleaseAssetsAsync(owner, repo, ct);
-            return assets
+            var release = await GitHubReleaseService.GetLatestReleaseAsync(owner, repo, ct);
+            if (!string.IsNullOrWhiteSpace(release.ErrorMessage))
+            {
+                return new PluginStoreLoadResult
+                {
+                    ErrorMessage = string.Format(_rl.GetString("PluginStore_DownloadInstallFailed"), release.ErrorMessage)
+                };
+            }
+
+            var items = release.Assets
                 .Select(a => new PluginStoreAssetItem
                 {
                     Name = a.Name,
                     DownloadUrl = a.DownloadUrl,
-                    SizeBytes = a.SizeBytes
+                    SizeBytes = a.SizeBytes,
+                    DownloadCount = a.DownloadCount,
+                    UpdatedAt = a.UpdatedAt,
+                    ReleaseTag = release.TagName
                 })
                 .ToList();
+
+            var summary = string.IsNullOrWhiteSpace(release.ReleaseName)
+                ? release.TagName
+                : string.IsNullOrWhiteSpace(release.TagName)
+                    ? release.ReleaseName
+                    : $"{release.ReleaseName} ({release.TagName})";
+
+            return new PluginStoreLoadResult
+            {
+                Items = items,
+                Summary = summary
+            };
         }
 
         public static async Task<(bool Success, string Message)> DownloadAndInstallAsync(PluginStoreAssetItem asset, CancellationToken ct)

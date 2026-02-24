@@ -276,6 +276,12 @@
   <data name="SettingsPage_RunOnStartupDesc.Text" xml:space="preserve">
     <value>登录 Windows 时自动运行 FolderRewind</value>
   </data>
+  <data name="SettingsPage_SilentStartup.Text" xml:space="preserve">
+    <value>静默启动</value>
+  </data>
+  <data name="SettingsPage_SilentStartupDesc.Text" xml:space="preserve">
+    <value>仅在开机自启时隐藏主界面，仅显示托盘图标</value>
+  </data>
   <data name="SettingsPage_Environment.Text" xml:space="preserve">
     <value>运行环境</value>
   </data>
@@ -317,6 +323,9 @@
   </data>
   <data name="SettingsPage_ThemeLight.Content" xml:space="preserve">
     <value>浅色</value>
+  </data>
+  <data name="SettingsPage_ThemeSystem.Content" xml:space="preserve">
+    <value>跟随系统</value>
   </data>
   <data name="SettingsPage_FontFamily.Text" xml:space="preserve">
     <value>界面字体</value>
@@ -873,6 +882,24 @@
   <data name="PluginStorePage_Install.Content" xml:space="preserve">
     <value>安装</value>
   </data>
+  <data name="PluginStorePage_SearchBox.PlaceholderText" xml:space="preserve">
+    <value>按文件名或标签筛选</value>
+  </data>
+  <data name="PluginStorePage_ZipOnly.Header" xml:space="preserve">
+    <value>仅显示 ZIP</value>
+  </data>
+  <data name="PluginStorePage_NoAssets.Text" xml:space="preserve">
+    <value>当前没有可显示的插件资产（可能被筛选条件过滤）。</value>
+  </data>
+  <data name="PluginStorePage_InstalledBadge.Text" xml:space="preserve">
+    <value>已安装</value>
+  </data>
+  <data name="PluginStorePage_InvalidRepo" xml:space="preserve">
+    <value>仓库格式无效，请使用 owner/repo</value>
+  </data>
+  <data name="PluginStorePage_PluginSystemDisabled" xml:space="preserve">
+    <value>插件系统已关闭，请先在设置页开启后再使用插件商店。</value>
+  </data>
   <data name="LogPage_Title.Text" xml:space="preserve">
     <value>日志</value>
   </data>
@@ -1008,6 +1035,12 @@
   <data name="PluginService_InstallFailed" xml:space="preserve">
     <value>安装失败：{0}</value>
   </data>
+  <data name="PluginService_InstallPendingRestart" xml:space="preserve">
+    <value>插件文件当前被占用，已排队在下次启动应用时完成安装。</value>
+  </data>
+  <data name="PluginService_QueueInstallPendingFailed" xml:space="preserve">
+    <value>插件文件被占用，且无法创建待安装任务，请重启应用后重试。</value>
+  </data>
   <data name="PluginService_EmptyPluginId" xml:space="preserve">
     <value>插件 ID 为空</value>
   </data>
@@ -1035,8 +1068,26 @@
   <data name="PluginService_UpdateFailed" xml:space="preserve">
     <value>更新失败：{0}</value>
   </data>
+  <data name="PluginService_UpdatePendingRestart" xml:space="preserve">
+    <value>更新已排队，将在下次启动应用时自动完成。</value>
+  </data>
   <data name="PluginService_DownloadFailed" xml:space="preserve">
     <value>下载失败：{0}</value>
+  </data>
+  <data name="PluginService_QueueUpdateFailed_Log" xml:space="preserve">
+    <value>[Plugin] 排队更新写入失败：插件={0} 错误={1}</value>
+  </data>
+  <data name="PluginService_PendingUpdateApplied_Log" xml:space="preserve">
+    <value>[Plugin] 延迟更新已应用：插件={0}</value>
+  </data>
+  <data name="PluginService_PendingUpdateApplyFailed_Log" xml:space="preserve">
+    <value>[Plugin] 延迟更新应用失败：插件={0} 错误={1}</value>
+  </data>
+  <data name="PluginService_ApplyPendingUpdatesFailed_Log" xml:space="preserve">
+    <value>[Plugin] 批量应用延迟更新失败：错误={0}</value>
+  </data>
+  <data name="PluginService_PersistPendingPackageFailed_Log" xml:space="preserve">
+    <value>[Plugin] 复制待更新安装包失败：插件={0} 错误={1}</value>
   </data>
   <data name="PluginService_KnotLinkCommandFailed" xml:space="preserve">
     <value>[Plugin] KnotLink 指令处理失败：插件={0} 指令={1} 错误={2}</value>
