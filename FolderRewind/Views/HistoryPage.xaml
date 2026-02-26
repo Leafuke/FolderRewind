@@ -9,6 +9,7 @@
 
     <Page.Resources>
         <converters:StringNullOrEmptyToVisibilityConverter x:Key="StringNullOrEmptyToVisConverter"/>
+        <converters:BoolToStarIconConverter x:Key="BoolToStarConverter"/>
     </Page.Resources>
 
     <Grid Padding="36">
@@ -99,6 +100,11 @@
                                     <TextBlock Text="{x:Bind FileSizeDisplay}" Style="{ThemeResource CaptionTextBlockStyle}" Foreground="{ThemeResource TextFillColorSecondaryBrush}"/>
                                 </StackPanel>
                                 <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="4" VerticalAlignment="Center">
+                                    <Button x:Uid="HistoryPage_ToggleImportantButton" Click="OnToggleImportantClick"
+                                            Background="Transparent" BorderThickness="0">
+                                        <FontIcon Glyph="{x:Bind IsImportant, Mode=OneWay, Converter={StaticResource BoolToStarConverter}}" FontSize="14"
+                                                  Foreground="{ThemeResource SystemControlForegroundAccentBrush}"/>
+                                    </Button>
                                     <Button x:Uid="HistoryPage_ViewButton" Click="OnViewClick" ToolTipService.ToolTip="{x:Bind FileName}">
                                         <FontIcon Glyph="&#xE8A7;" FontSize="14"/>
                                     </Button>

@@ -252,6 +252,8 @@ namespace FolderRewind.Views
 
             var ok = new SolidColorBrush(Colors.DodgerBlue);
             var bad = new SolidColorBrush(Colors.OrangeRed);
+            var warn = new SolidColorBrush(Colors.Gold);
+            var importantFill = new SolidColorBrush(Colors.Gold);
 
             foreach (var item in items)
             {
@@ -263,9 +265,25 @@ namespace FolderRewind.Views
                     continue;
                 }
 
-                item.TimelineLineBrush = item.IsMissing ? bad : ok;
-                item.TimelineNodeFillBrush = offFill;
-                item.TimelineNodeBorderBrush = item.IsMissing ? bad : ok;
+                // 优先级：缺失(OrangeRed) > 文件过小(Gold) > 正常(DodgerBlue)
+                if (item.IsMissing)
+                {
+                    item.TimelineLineBrush = bad;
+                    item.TimelineNodeBorderBrush = bad;
+                }
+                else if (item.IsSmallFile)
+                {
+                    item.TimelineLineBrush = warn;
+                    item.TimelineNodeBorderBrush = warn;
+                }
+                else
+                {
+                    item.TimelineLineBrush = ok;
+                    item.TimelineNodeBorderBrush = ok;
+                }
+
+                // 重要标记的备份使用填充色显示
+                item.TimelineNodeFillBrush = item.IsImportant ? importantFill : offFill;
             }
         }
 
@@ -359,6 +377,22 @@ namespace FolderRewind.Views
             {
                 RefreshHistory(config, folder);
             }
+        }
+
+        /// <summary>
+        /// 切换重要标记按钮点击
+        /// </summary>
+        private void OnToggleImportantClick(object sender, RoutedEventArgs e)
+        {
+            if (sender is not Button btn || btn.DataContext is not HistoryItem item)
+            {
+                return;
+            }
+
+            HistoryService.ToggleImportant(item);
+
+            // 更新时间线视觉效果（重要标记影响节点填充色）
+            UpdateTimelineVisuals(FilteredHistory);
         }
 
         // 还原按钮点击逻辑
@@ -471,6 +505,27 @@ namespace FolderRewind.Views
             var config = ConfigFilter.SelectedItem as BackupConfig;
             var folder = FolderFilter.SelectedItem as ManagedFolder;
             if (config == null || folder == null) return;
+
+            // 如果是重要备份，先额外警告
+            if (item.IsImportant)
+            {
+                var warnDialog = new ContentDialog
+                {
+                    Title = I18n.GetString("History_DeleteImportant_Title"),
+                    Content = new TextBlock
+                    {
+                        Text = I18n.GetString("History_DeleteImportant_Content"),
+                        TextWrapping = TextWrapping.Wrap
+                    },
+                    PrimaryButtonText = I18n.GetString("History_DeleteImportant_Continue"),
+                    CloseButtonText = I18n.GetString("Common_Cancel"),
+                    DefaultButton = ContentDialogButton.Close,
+                    XamlRoot = this.XamlRoot
+                };
+
+                var warnResult = await warnDialog.ShowAsync();
+                if (warnResult != ContentDialogResult.Primary) return;
+            }
 
             var dialog = new ContentDialog
             {

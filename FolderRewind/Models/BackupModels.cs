@@ -643,6 +643,13 @@ namespace FolderRewind.Models
         [JsonIgnore]
         public bool IsMissing { get => _isMissing; set => SetProperty(ref _isMissing, value); }
 
+        private bool _isSmallFile;
+        /// <summary>
+        /// 运行时状态：备份文件大小低于警告阈值
+        /// </summary>
+        [JsonIgnore]
+        public bool IsSmallFile { get => _isSmallFile; set => SetProperty(ref _isSmallFile, value); }
+
         private Brush? _timelineLineBrush;
         private Brush? _timelineNodeFillBrush;
         private Brush? _timelineNodeBorderBrush;

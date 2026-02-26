@@ -298,6 +298,7 @@ namespace FolderRewind.Services
                     "AUTO_BACKUP" => await HandleAutoBackup(args),
                     "STOP_AUTO_BACKUP" => await HandleStopAutoBackup(args),
                     "GET_STATUS" => await HandleGetStatus(),
+                    "MARK_IMPORTANT" => await HandleMarkImportant(args),
                     "PING" => HandlePing(),
                     "SEND" => HandleSend(args),
                     _ => await HandleUnknownCommandViaPluginsAsync(command, args, commandStr)
@@ -822,6 +823,52 @@ namespace FolderRewind.Services
 
             BroadcastEvent(args);
             return "OK:Event sent";
+        }
+
+        /// <summary>
+        /// 标记/取消标记备份为重要
+        /// 对应 MARK_IMPORTANT 命令
+        /// 用法: MARK_IMPORTANT &lt;config_id&gt; &lt;folder_index|folder_name&gt; &lt;backup_file&gt; [true|false]
+        /// 不提供最后一个参数时默认为 true
+        /// </summary>
+        private static Task<string> HandleMarkImportant(string args)
+        {
+            var argParts = args.Split(' ', 4);
+            if (argParts.Length < 3)
+            {
+                return Task.FromResult("ERROR:Invalid arguments. Usage: MARK_IMPORTANT <config_id> <folder_index|folder_name> <backup_file> [true|false]");
+            }
+
+            var configId = argParts[0].Trim();
+            var folderArg = argParts[1].Trim();
+            var backupFile = argParts[2].Trim();
+            bool isImportant = true;
+            if (argParts.Length >= 4 && bool.TryParse(argParts[3].Trim(), out var parsed))
+            {
+                isImportant = parsed;
+            }
+
+            var config = FindConfigById(configId);
+            if (config == null)
+            {
+                return Task.FromResult($"ERROR:Config not found: {configId}");
+            }
+
+            var folder = FindFolderByIndexOrName(config, folderArg);
+            if (folder == null)
+            {
+                return Task.FromResult($"ERROR:Folder not found: {folderArg}");
+            }
+
+            bool success = HistoryService.SetImportant(config.Id, folder.DisplayName, backupFile, isImportant);
+            if (!success)
+            {
+                return Task.FromResult($"ERROR:Backup entry not found: {backupFile}");
+            }
+
+            var action = isImportant ? "marked as important" : "unmarked";
+            BroadcastEvent($"event=mark_important;config={config.Id};folder={folder.DisplayName};file={backupFile};important={isImportant}");
+            return Task.FromResult($"OK:Backup '{backupFile}' {action}");
         }
 
         #endregion

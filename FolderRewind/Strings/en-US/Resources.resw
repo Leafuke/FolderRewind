@@ -2322,4 +2322,19 @@ Status: {3}</value>
   <data name="SettingsPage_About_Link_Feedback.Content" xml:space="preserve">
     <value>Send Feedback</value>
   </data>
+  <data name="HistoryPage_ToggleImportantButton.ToolTipService.ToolTip" xml:space="preserve">
+    <value>Toggle important mark</value>
+  </data>
+  <data name="History_FileSizeSmall" xml:space="preserve">
+    <value>{0} (below threshold)</value>
+  </data>
+  <data name="History_DeleteImportant_Title" xml:space="preserve">
+    <value>Delete important backup</value>
+  </data>
+  <data name="History_DeleteImportant_Content" xml:space="preserve">
+    <value>This backup is marked as important. Important backups are protected from automatic cleanup. Are you sure you want to delete it?</value>
+  </data>
+  <data name="History_DeleteImportant_Continue" xml:space="preserve">
+    <value>Continue</value>
+  </data>
 </root>

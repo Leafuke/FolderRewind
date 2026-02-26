@@ -107,6 +107,7 @@ namespace FolderRewind.Services
             }
 
             var collection = new ObservableCollection<HistoryItem>();
+            var thresholdKB = ConfigService.CurrentConfig?.GlobalSettings?.FileSizeWarningThresholdKB ?? 5;
             foreach (var item in targetList)
             {
                 // 尝试获取文件大小，如果文件还在的话
@@ -114,11 +115,23 @@ namespace FolderRewind.Services
                 var exists = !string.IsNullOrWhiteSpace(fullPath) && File.Exists(fullPath);
 
                 item.IsMissing = !exists;
+                item.IsSmallFile = false;
 
                 if (exists)
                 {
                     long size = new FileInfo(fullPath!).Length;
-                    item.FileSizeDisplay = $"{size / 1024.0 / 1024.0:F2} MB";
+                    string sizeStr = $"{size / 1024.0 / 1024.0:F2} MB";
+
+                    // 检查文件大小是否低于警告阈值
+                    if (thresholdKB > 0 && (size / 1024.0) < thresholdKB)
+                    {
+                        item.IsSmallFile = true;
+                        item.FileSizeDisplay = I18n.Format("History_FileSizeSmall", sizeStr);
+                    }
+                    else
+                    {
+                        item.FileSizeDisplay = sizeStr;
+                    }
                 }
                 else
                 {
@@ -225,6 +238,62 @@ namespace FolderRewind.Services
             }
 
             ScheduleSave();
+        }
+
+        /// <summary>
+        /// 切换历史记录的重要标记
+        /// </summary>
+        public static void ToggleImportant(HistoryItem item)
+        {
+            if (item == null) return;
+
+            lock (_historyLock)
+            {
+                var target = _allHistory.FirstOrDefault(x =>
+                    x.ConfigId == item.ConfigId &&
+                    x.FolderPath == item.FolderPath &&
+                    x.FileName == item.FileName &&
+                    x.Timestamp == item.Timestamp);
+
+                bool newValue = !item.IsImportant;
+                if (target != null)
+                {
+                    target.IsImportant = newValue;
+                }
+                item.IsImportant = newValue;
+            }
+
+            ScheduleSave();
+        }
+
+        /// <summary>
+        /// 通过配置ID、文件夹名和文件名设置重要标记（用于 KnotLink 远程命令）
+        /// </summary>
+        public static bool SetImportant(string configId, string folderName, string fileName, bool isImportant)
+        {
+            Initialize();
+            bool found = false;
+
+            lock (_historyLock)
+            {
+                var target = _allHistory.FirstOrDefault(x =>
+                    x.ConfigId == configId &&
+                    string.Equals(x.FolderName, folderName, StringComparison.OrdinalIgnoreCase) &&
+                    string.Equals(x.FileName, fileName, StringComparison.OrdinalIgnoreCase));
+
+                if (target != null)
+                {
+                    target.IsImportant = isImportant;
+                    found = true;
+                }
+            }
+
+            if (found)
+            {
+                ScheduleSave();
+            }
+
+            return found;
         }
 
         /// <summary>

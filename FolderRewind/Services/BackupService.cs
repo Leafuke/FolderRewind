@@ -427,7 +427,16 @@ namespace FolderRewind.Services
                 {
                     ConfigService.Save();
 
-                    string typeStr = config.Archive.Mode.ToString();
+                    // 增量模式下，根据实际生成的文件名区分 Full 和 Smart
+                    string typeStr;
+                    if (config.Archive.Mode == BackupMode.Incremental && !string.IsNullOrWhiteSpace(generatedFileName))
+                    {
+                        typeStr = generatedFileName.StartsWith("[Full]", StringComparison.OrdinalIgnoreCase) ? "Full" : "Smart";
+                    }
+                    else
+                    {
+                        typeStr = config.Archive.Mode.ToString();
+                    }
                     HistoryService.AddEntry(config, folder, generatedFileName, typeStr, comment);
 
                     _ = Task.Run(() => PruneOldArchives(backupSubDir, config.Archive.Format, config.Archive.KeepCount, config.Archive.Mode, config.Archive.SafeDeleteEnabled, config, folder.DisplayName));
@@ -676,17 +685,11 @@ namespace FolderRewind.Services
                 // 收集可删除的文件（排除标记为重要的）
                 var deletableFiles = files.Where(f => !importantFiles.Contains(f.Name)).ToList();
 
-                // 计算需要删除的数量
-                int totalToKeep = keepCount;
-                int importantCount = files.Count - deletableFiles.Count;
-                // 如果重要文件已占满配额，则不删除
-                if (importantCount >= totalToKeep)
-                {
-                    Log(I18n.Format("BackupService_Log_PruneSkipAllImportant"), LogLevel.Info);
-                    return;
-                }
+                // 重要备份不计入 keepCount 配额
+                // 仅对非重要备份执行数量限制
+                if (deletableFiles.Count <= keepCount) return;
 
-                int toDeleteCount = files.Count - totalToKeep;
+                int toDeleteCount = deletableFiles.Count - keepCount;
                 // 从最旧的可删除文件开始删除
                 var filesToDelete = deletableFiles
                     .OrderBy(f => f.LastWriteTimeUtc) // 最旧的排前面
@@ -1937,7 +1940,7 @@ namespace FolderRewind.Services
 
             if (backupFileName.Contains("[Smart]", StringComparison.OrdinalIgnoreCase))
             {
-                return "Incremental";
+                return "Smart";
             }
 
             if (backupFileName.Contains("[Overwrite]", StringComparison.OrdinalIgnoreCase))
