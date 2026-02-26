@@ -1158,7 +1158,16 @@ namespace FolderRewind.Views
 
         private void OnSilentStartupToggled(object sender, RoutedEventArgs e)
         {
-            if (!Settings.RunOnStartup)
+            if (sender is ToggleSwitch ts)
+            {
+                Settings.SilentStartup = Settings.RunOnStartup && ts.IsOn;
+
+                if (!Settings.RunOnStartup && ts.IsOn)
+                {
+                    ts.IsOn = false;
+                }
+            }
+            else if (!Settings.RunOnStartup)
             {
                 Settings.SilentStartup = false;
             }

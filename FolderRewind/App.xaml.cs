@@ -160,10 +160,10 @@ namespace FolderRewind
                     {
                         try
                         {
-                            var isEnabled = await Services.StartupService.IsStartupEnabledAsync();
-                            if (startupSettings.RunOnStartup != isEnabled)
+                            var probe = await Services.StartupService.TryGetStartupEnabledAsync();
+                            if (probe.success && startupSettings.RunOnStartup != probe.enabled)
                             {
-                                startupSettings.RunOnStartup = isEnabled;
+                                startupSettings.RunOnStartup = probe.enabled;
                                 Services.ConfigService.Save();
                             }
                         }
