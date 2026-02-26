@@ -1791,6 +1791,30 @@
   <data name="MineRewind_Xcopy_Stderr" xml:space="preserve">
     <value>[MineRewind] xcopy 标准错误输出：{0}</value>
   </data>
+  <data name="MineRewind_Hotkey_QuickRestore_Name" xml:space="preserve">
+    <value>快速还原当前存档</value>
+  </data>
+  <data name="MineRewind_Hotkey_QuickRestore_Desc" xml:space="preserve">
+    <value>将当前正在运行的 Minecraft 存档还原到最新备份（需要联动模组支持）</value>
+  </data>
+  <data name="MineRewind_Hotkey_QuickRestore_NoActive" xml:space="preserve">
+    <value>[MineRewind] 快速还原：未检测到活跃存档</value>
+  </data>
+  <data name="MineRewind_Hotkey_QuickRestore_Failed" xml:space="preserve">
+    <value>[MineRewind] 快速还原热键失败：{0}</value>
+  </data>
+  <data name="MineRewind_Setting_PreservePlayerData_Name" xml:space="preserve">
+    <value>还原时保留玩家数据</value>
+  </data>
+  <data name="MineRewind_Setting_PreservePlayerData_Desc" xml:space="preserve">
+    <value>还原存档时保留当前玩家的位置、物品栏、经验等数据（仅单人存档）。</value>
+  </data>
+  <data name="PluginService_BeforeRestoreFailed" xml:space="preserve">
+    <value>插件 {0} 还原前钩子失败：{1}</value>
+  </data>
+  <data name="PluginService_AfterRestoreFailed" xml:space="preserve">
+    <value>插件 {0} 还原后钩子失败：{1}</value>
+  </data>
   <data name="SettingsPage_CloseBehavior.Text" xml:space="preserve">
     <value>关闭窗口按钮行为</value>
   </data>

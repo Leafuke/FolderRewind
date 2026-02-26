@@ -1356,6 +1356,17 @@ namespace FolderRewind.Services
             Log(I18n.Format("BackupService_Log_RestoreTargetBackup", historyItem.FileName), LogLevel.Info);
             Log(I18n.Format("BackupService_Log_RestoreTargetPath", targetDir), LogLevel.Info);
 
+            // 还原前钩子：允许插件提取需要保留的数据
+            List<(string PluginId, Services.Plugins.IFolderRewindPlugin Plugin, object? State)>? pluginRestoreStates = null;
+            try
+            {
+                pluginRestoreStates = Services.Plugins.PluginService.InvokeBeforeRestoreFolder(config, folder, historyItem.FileName);
+            }
+            catch
+            {
+                // 插件异常不影响核心还原流程
+            }
+
             try
             {
                 KnotLinkService.BroadcastEvent($"event=restore_started;config={configIndex};world={folder.DisplayName}");
@@ -1489,6 +1500,16 @@ namespace FolderRewind.Services
 
             if (!restoreFailed)
             {
+                // 还原成功 — 调用还原后钩子（允许插件写回保留数据）
+                try
+                {
+                    Services.Plugins.PluginService.InvokeAfterRestoreFolder(config, folder, true, historyItem.FileName, pluginRestoreStates);
+                }
+                catch
+                {
+                    // 插件异常不影响核心还原流程
+                }
+
                 // 还原成功
                 await RunOnUIAsync(() =>
                 {
@@ -1500,6 +1521,15 @@ namespace FolderRewind.Services
                 });
 
                 Log(I18n.Format("BackupService_Log_RestoreCompleted"), LogLevel.Info);
+            }
+            else
+            {
+                // 还原失败 — 也通知插件
+                try
+                {
+                    Services.Plugins.PluginService.InvokeAfterRestoreFolder(config, folder, false, historyItem.FileName, pluginRestoreStates);
+                }
+                catch { }
             }
 
             try

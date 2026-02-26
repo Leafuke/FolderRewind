@@ -1791,6 +1791,30 @@ Comment: {1}
   <data name="MineRewind_Xcopy_Stderr" xml:space="preserve">
     <value>[MineRewind] xcopy stderr: {0}</value>
   </data>
+  <data name="MineRewind_Hotkey_QuickRestore_Name" xml:space="preserve">
+    <value>Quick restore current save</value>
+  </data>
+  <data name="MineRewind_Hotkey_QuickRestore_Desc" xml:space="preserve">
+    <value>Restore the currently running Minecraft save to the latest backup (requires companion mod)</value>
+  </data>
+  <data name="MineRewind_Hotkey_QuickRestore_NoActive" xml:space="preserve">
+    <value>[MineRewind] Quick restore: no active save detected</value>
+  </data>
+  <data name="MineRewind_Hotkey_QuickRestore_Failed" xml:space="preserve">
+    <value>[MineRewind] Quick restore hotkey failed: {0}</value>
+  </data>
+  <data name="MineRewind_Setting_PreservePlayerData_Name" xml:space="preserve">
+    <value>Preserve player data on restore</value>
+  </data>
+  <data name="MineRewind_Setting_PreservePlayerData_Desc" xml:space="preserve">
+    <value>Keep the current player's position, inventory, XP, etc. when restoring a save (single-player only).</value>
+  </data>
+  <data name="PluginService_BeforeRestoreFailed" xml:space="preserve">
+    <value>Plugin {0} before-restore hook failed: {1}</value>
+  </data>
+  <data name="PluginService_AfterRestoreFailed" xml:space="preserve">
+    <value>Plugin {0} after-restore hook failed: {1}</value>
+  </data>
   <data name="SettingsPage_CloseBehavior.Text" xml:space="preserve">
     <value>Close Button Behavior</value>
   </data>

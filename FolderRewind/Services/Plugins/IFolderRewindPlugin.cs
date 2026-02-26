@@ -92,6 +92,27 @@ namespace FolderRewind.Services.Plugins
 
         #endregion
 
+        #region 还原钩子
+
+        /// <summary>
+        /// 还原前钩子：在宿主执行标准还原流程之前调用。
+        /// 插件可在此提取需要保留的数据（如 Minecraft 玩家位置/物品栏）。
+        /// 返回的 object 将作为 state 传递给 OnAfterRestoreFolder。
+        /// 返回 null 表示插件不需要在还原后做任何处理。
+        /// </summary>
+        object? OnBeforeRestoreFolder(BackupConfig config, ManagedFolder folder, string archiveFileName, IReadOnlyDictionary<string, string> settingsValues)
+            => null;
+
+        /// <summary>
+        /// 还原后钩子：在宿主完成标准还原流程之后调用。
+        /// state 为 OnBeforeRestoreFolder 返回的对象。
+        /// 插件可在此将之前保存的数据写回（如将玩家位置/物品栏写回还原后的 level.dat）。
+        /// </summary>
+        void OnAfterRestoreFolder(BackupConfig config, ManagedFolder folder, bool success, string archiveFileName, object? state, IReadOnlyDictionary<string, string> settingsValues)
+        { }
+
+        #endregion
+
         #region 配置类型与发现
 
         /// <summary>
