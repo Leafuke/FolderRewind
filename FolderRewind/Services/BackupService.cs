@@ -861,6 +861,8 @@ namespace FolderRewind.Services
         {
             try
             {
+                arguments = EnsureSswArgument(arguments);
+
                 var pInfo = new ProcessStartInfo
                 {
                     FileName = sevenZipExe,
@@ -2116,6 +2118,9 @@ namespace FolderRewind.Services
             BackupTask? taskToUpdate = null,
             double progressBase = 0, double progressRange = 100)
         {
+            arguments = EnsureSswArgument(arguments);
+            logArguments = EnsureSswArgument(logArguments ?? arguments);
+
             var pInfo = new ProcessStartInfo
             {
                 FileName = sevenZipExe,
@@ -2131,7 +2136,7 @@ namespace FolderRewind.Services
                 pInfo.WorkingDirectory = workingDirectory;
             }
 
-            Log($"[CMD] {Path.GetFileName(sevenZipExe)} {(logArguments ?? arguments)}", LogLevel.Debug);
+            Log($"[CMD] {Path.GetFileName(sevenZipExe)} {logArguments}", LogLevel.Debug);
 
             string? lastErrorLine = null;
 
@@ -2195,6 +2200,17 @@ namespace FolderRewind.Services
                 }
                 return false;
             }
+        }
+
+        private static string EnsureSswArgument(string arguments)
+        {
+            if (string.IsNullOrWhiteSpace(arguments))
+                return "-ssw";
+
+            if (Regex.IsMatch(arguments, @"(?:^|\s)-ssw(?:\s|$)", RegexOptions.IgnoreCase))
+                return arguments;
+
+            return arguments + " -ssw";
         }
 
         private static void Log(string message)
