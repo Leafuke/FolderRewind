@@ -2361,4 +2361,29 @@ Status: {3}</value>
   <data name="History_DeleteImportant_Continue" xml:space="preserve">
     <value>Continue</value>
   </data>
+  <data name="Update_Dialog_Title" xml:space="preserve">
+    <value>New version available</value>
+  </data>
+  <data name="Update_Dialog_Content" xml:space="preserve">
+    <value>Current version: {0}
+Latest version: {1} ({2})
+
+Release notes:
+{3}</value>
+  </data>
+  <data name="Update_Dialog_OpenRelease" xml:space="preserve">
+    <value>View release</value>
+  </data>
+  <data name="Update_Dialog_Later" xml:space="preserve">
+    <value>Later</value>
+  </data>
+  <data name="Update_Dialog_EmptyNotes" xml:space="preserve">
+    <value>No release notes were provided for this version.</value>
+  </data>
+  <data name="SettingsPage_EnableUpdateReminder" xml:space="preserve">
+    <value>Check update reminder on startup</value>
+  </data>
+  <data name="SettingsPage_EnableUpdateReminderDesc" xml:space="preserve">
+    <value>Check GitHub Releases on startup and show update notes when a newer version exists</value>
+  </data>
 </root>

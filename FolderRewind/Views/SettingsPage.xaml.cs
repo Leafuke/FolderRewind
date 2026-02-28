@@ -203,6 +203,11 @@ namespace FolderRewind.Views
             ConfigService.Save();
         }
 
+        private void OnUpdateReminderToggled(object sender, RoutedEventArgs e)
+        {
+            ConfigService.Save();
+        }
+
         private void HotkeyManager_DefinitionsChanged(object? sender, EventArgs e)
         {
             _ = DispatcherQueue.TryEnqueue(RefreshHotkeyBindingsView);

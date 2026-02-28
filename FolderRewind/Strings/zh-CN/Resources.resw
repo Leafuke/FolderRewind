@@ -2361,4 +2361,29 @@
   <data name="History_DeleteImportant_Continue" xml:space="preserve">
     <value>继续删除</value>
   </data>
+  <data name="Update_Dialog_Title" xml:space="preserve">
+    <value>发现新版本</value>
+  </data>
+  <data name="Update_Dialog_Content" xml:space="preserve">
+    <value>当前版本：{0}
+最新版本：{1}（{2}）
+
+更新内容：
+{3}</value>
+  </data>
+  <data name="Update_Dialog_OpenRelease" xml:space="preserve">
+    <value>查看并下载</value>
+  </data>
+  <data name="Update_Dialog_Later" xml:space="preserve">
+    <value>稍后</value>
+  </data>
+  <data name="Update_Dialog_EmptyNotes" xml:space="preserve">
+    <value>该版本未提供更新说明。</value>
+  </data>
+  <data name="SettingsPage_EnableUpdateReminder" xml:space="preserve">
+    <value>启动时检查更新提醒</value>
+  </data>
+  <data name="SettingsPage_EnableUpdateReminderDesc" xml:space="preserve">
+    <value>启动应用时检查 GitHub Release 新版本并提示更新内容</value>
+  </data>
 </root>

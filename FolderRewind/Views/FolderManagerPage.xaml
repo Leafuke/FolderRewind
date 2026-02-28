@@ -258,10 +258,14 @@
                                        Foreground="{ThemeResource TextFillColorSecondaryBrush}"/>
 
                             <!-- 描述 -->
-                            <TextBox Text="{x:Bind Description, Mode=TwoWay}" 
+                            <TextBox Text="{x:Bind Description, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" 
                                      x:Uid="FolderManager_AddDescription"
                                      BorderThickness="0" Background="Transparent" 
                                      Padding="0" Margin="0,8,0,0"
+                                     MaxWidth="300"
+                                     HorizontalAlignment="Left"
+                                     KeyDown="OnDescriptionEditorKeyDown"
+                                     LostFocus="OnDescriptionEditorLostFocus"
                                      Foreground="{ThemeResource TextFillColorSecondaryBrush}"/>
 
                             <!-- 状态与时间 -->

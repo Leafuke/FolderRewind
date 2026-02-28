@@ -111,6 +111,7 @@ namespace FolderRewind.Models
         // 公告系统
         private bool _enableNotices = true;
         private string _noticeLastSeenVersion = "";
+        private bool _enableUpdateReminder = true;
 
         // 首次启动引导
         private bool _hasShownFirstLaunchGuide = false;
@@ -215,6 +216,11 @@ namespace FolderRewind.Models
         /// 上次已读的公告版本标识（Last-Modified 或内容 hash），用于检测是否有新公告。
         /// </summary>
         public string NoticeLastSeenVersion { get => _noticeLastSeenVersion; set => SetProperty(ref _noticeLastSeenVersion, value); }
+
+        /// <summary>
+        /// 是否在启动时检查 GitHub Release 更新提醒。
+        /// </summary>
+        public bool EnableUpdateReminder { get => _enableUpdateReminder; set => SetProperty(ref _enableUpdateReminder, value); }
 
         /// <summary>
         /// 是否已经展示过首次启动引导。

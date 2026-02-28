@@ -100,6 +100,9 @@ namespace FolderRewind.Views
 
             // 启动后台公告检查（参考 MineBackup 的 notice_thread 逻辑）
             _ = CheckAndShowNoticeAsync();
+
+            // 启动检查应用更新（GitHub Release）
+            _ = CheckAndShowAppUpdateAsync();
         }
 
         /// <summary>
@@ -195,6 +198,65 @@ namespace FolderRewind.Views
             catch (Exception ex)
             {
                 System.Diagnostics.Debug.WriteLine($"[NoticeCheck] {ex.Message}");
+            }
+        }
+
+        private async System.Threading.Tasks.Task CheckAndShowAppUpdateAsync()
+        {
+            try
+            {
+                var update = await AppUpdateService.CheckForUpdateAsync();
+                if (update == null) return;
+
+                DispatcherQueue.TryEnqueue(async () =>
+                {
+                    try
+                    {
+                        var notes = string.IsNullOrWhiteSpace(update.ReleaseNotes)
+                            ? I18n.GetString("Update_Dialog_EmptyNotes")
+                            : update.ReleaseNotes;
+
+                        var content = string.Format(
+                            I18n.GetString("Update_Dialog_Content"),
+                            update.CurrentVersion,
+                            update.LatestTag,
+                            update.LatestVersion,
+                            notes);
+
+                        var dialog = new ContentDialog
+                        {
+                            Title = I18n.GetString("Update_Dialog_Title"),
+                            Content = new ScrollViewer
+                            {
+                                MaxHeight = 420,
+                                Content = new TextBlock
+                                {
+                                    Text = content,
+                                    TextWrapping = Microsoft.UI.Xaml.TextWrapping.Wrap,
+                                    IsTextSelectionEnabled = true
+                                }
+                            },
+                            PrimaryButtonText = I18n.GetString("Update_Dialog_OpenRelease"),
+                            CloseButtonText = I18n.GetString("Update_Dialog_Later"),
+                            DefaultButton = ContentDialogButton.Primary,
+                            XamlRoot = this.XamlRoot
+                        };
+                        ThemeService.ApplyThemeToDialog(dialog);
+
+                        var result = await dialog.ShowAsync();
+                        if (result != ContentDialogResult.Primary) return;
+
+                        await Windows.System.Launcher.LaunchUriAsync(new Uri(update.ReleaseUrl));
+                    }
+                    catch (Exception ex)
+                    {
+                        System.Diagnostics.Debug.WriteLine($"[UpdateDialog] {ex.Message}");
+                    }
+                });
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"[UpdateCheck] {ex.Message}");
             }
         }
 
