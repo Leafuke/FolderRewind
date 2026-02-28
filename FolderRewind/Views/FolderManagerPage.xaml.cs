@@ -4,6 +4,7 @@ using FolderRewind.Services.Hotkeys;
 using FolderRewind.Services.Plugins;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
+using Microsoft.UI.Xaml.Input;
 using Microsoft.UI.Xaml.Navigation;
 using System;
 using System.Collections.ObjectModel;
@@ -471,6 +472,51 @@ namespace FolderRewind.Views
             if (sender is MenuFlyoutItem item && item.DataContext is ManagedFolder folder && CurrentConfig != null)
             {
                 MiniWindowService.Open(CurrentConfig, folder);
+            }
+        }
+
+        private void OnDescriptionEditorKeyDown(object sender, KeyRoutedEventArgs e)
+        {
+            if (e.Key != VirtualKey.Enter) return;
+            if (sender is not TextBox textBox) return;
+
+            e.Handled = true;
+
+            try
+            {
+                textBox.GetBindingExpression(TextBox.TextProperty)?.UpdateSource();
+            }
+            catch
+            {
+            }
+
+            SaveDescriptionIfNeeded(textBox);
+
+            try
+            {
+                FolderList?.Focus(FocusState.Programmatic);
+            }
+            catch
+            {
+            }
+        }
+
+        private void OnDescriptionEditorLostFocus(object sender, RoutedEventArgs e)
+        {
+            if (sender is not TextBox textBox) return;
+            SaveDescriptionIfNeeded(textBox);
+        }
+
+        private static void SaveDescriptionIfNeeded(TextBox textBox)
+        {
+            if (textBox.DataContext is not ManagedFolder) return;
+
+            try
+            {
+                ConfigService.Save();
+            }
+            catch
+            {
             }
         }
 
