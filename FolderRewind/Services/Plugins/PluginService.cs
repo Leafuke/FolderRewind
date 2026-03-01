@@ -408,6 +408,59 @@ namespace FolderRewind.Services.Plugins
             }
         }
 
+        /// <summary>
+        /// 还原前钩子：调用所有已启用插件的 OnBeforeRestoreFolder。
+        /// 返回每个插件的 (pluginId, state) 列表，供 InvokeAfterRestoreFolder 使用。
+        /// </summary>
+        public static List<(string PluginId, IFolderRewindPlugin Plugin, object? State)> InvokeBeforeRestoreFolder(
+            BackupConfig config, ManagedFolder folder, string archiveFileName)
+        {
+            var results = new List<(string, IFolderRewindPlugin, object?)>();
+            if (!IsPluginSystemEnabled()) return results;
+
+            foreach (var plugin in GetEnabledLoadedPluginsSnapshot())
+            {
+                try
+                {
+                    var settings = GetPluginSettings(plugin.Manifest.Id);
+                    var state = plugin.OnBeforeRestoreFolder(config, folder, archiveFileName, settings);
+                    results.Add((plugin.Manifest.Id, plugin, state));
+                }
+                catch (Exception ex)
+                {
+                    LogService.LogError(I18n.Format("PluginService_BeforeRestoreFailed", plugin.Manifest.Id, ex.Message), "PluginService", ex);
+                    results.Add((plugin.Manifest.Id, plugin, null));
+                }
+            }
+
+            return results;
+        }
+
+        /// <summary>
+        /// 还原后钩子：调用所有已启用插件的 OnAfterRestoreFolder。
+        /// pluginStates 为 InvokeBeforeRestoreFolder 的返回值。
+        /// </summary>
+        public static void InvokeAfterRestoreFolder(
+            BackupConfig config, ManagedFolder folder, bool success, string archiveFileName,
+            List<(string PluginId, IFolderRewindPlugin Plugin, object? State)>? pluginStates)
+        {
+            if (!IsPluginSystemEnabled()) return;
+            if (pluginStates == null || pluginStates.Count == 0) return;
+
+            foreach (var (pluginId, plugin, state) in pluginStates)
+            {
+                try
+                {
+                    var settings = GetPluginSettings(pluginId);
+                    plugin.OnAfterRestoreFolder(config, folder, success, archiveFileName, state, settings);
+                }
+                catch (Exception ex)
+                {
+                    LogService.LogError(I18n.Format("PluginService_AfterRestoreFailed", pluginId, ex.Message), "PluginService", ex);
+                }
+            }
+        }
+
         public static IReadOnlyList<ManagedFolder> InvokeDiscoverManagedFolders(string selectedRootPath)
         {
             if (!IsPluginSystemEnabled()) return Array.Empty<ManagedFolder>();

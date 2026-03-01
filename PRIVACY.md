@@ -1,49 +1,54 @@
 # Privacy Policy
 
-FolderRewind is a desktop application for folder backup and management. We store only essential data locally and do not collect telemetry or upload personal data.
+FolderRewind is a desktop backup manager. By default, data is processed locally on your device. The application does not include telemetry SDKs and does not upload personal files to our servers.
 
-What we do NOT collect
+## What we do NOT collect
 
-- No device identifiers, tracking or analytics are collected by the app.
-- No automatic usage telemetry or behavioral analytics are sent to remote servers.
-- We do not sell or share your personal data with third parties.
+- No advertising ID, behavior tracking, or analytics profiling.
+- No automatic upload of your file contents, backup archives, or personal folders.
+- No sale of personal data.
 
-Local data stored (local only)
+## Local data stored
 
-- Configuration: `config.json` under the app LocalState when packaged.
-  This file contains settings, backup configurations, and plugin settings.
+- Configuration (`config.json`): stores app settings, backup configurations, plugin host settings, and notice/update reminder state.
+- Logs (`logs/app.log`): stores local diagnostic entries (timestamp, severity, message, exception stack when available).
+- Plugins (`plugins/`): stores installed plugin packages and extracted plugin files.
+- Backup metadata: saved in user-selected backup locations.
 
-- Logs: `logs/app.log` — timestamps, level, messages and exceptions. Logs may include limited environment info (OS version, app version) for troubleshooting. Logs are stored locally and are not uploaded by default.
-- Plugins: stored under `plugins/` in the app data directory. Plugin packages and extracted files live here (managed by `PluginService`). Plugin-specific settings are saved in `config.json` under `GlobalSettings.Plugins` or in plugin folders.
-- Backup metadata: written to the backup target or metadata directories as part of backup operations; these are stored on user-controlled storage locations.
+## Network usage
 
-Network usage
+FolderRewind only performs limited network requests for features you use:
 
-- Plugin store and downloads: FolderRewind may query GitHub Releases for plugin repositories (for example `https://api.github.com/repos/{owner}/{repo}/releases/latest`) and download release assets. Plugin-related requests use a User-Agent of `FolderRewind/1.0`.
-- Updates: When distributed via the Microsoft Store, application updates are delivered and managed by the Microsoft Store infrastructure. FolderRewind itself does not perform automatic update uploads; the app does not contact arbitrary update servers to push user data.
-- Plugins: plugins run locally and may perform network operations if implemented by the plugin author — such behavior is outside FolderRewind's control. Review plugin sources and permissions before enabling.
+- Notice check: fetches announcement text from this repository's public files.
+- Plugin store/update: queries GitHub Releases metadata and may download plugin assets when you choose to install/update.
+- App update reminder: on startup, FolderRewind may request the latest release metadata from GitHub API (`/repos/Leafuke/FolderRewind/releases/latest`) to compare version tag and display release notes.
+  - The request reads public release metadata (e.g., `tag_name`, `body`, `html_url`) only.
+  - Release notes may contain Chinese/English sections separated by `---`; the app displays the section matching current UI language.
+  - The app does not upload your files, backups, or folder list during this check.
+- Microsoft Store updates: when installed via Store, binary update delivery is handled by Microsoft Store.
 
-Logs and crash information
+## Plugins and third-party behavior
 
-- Logs are used for local troubleshooting. If you choose to share logs (for example when reporting an issue), they may contain file paths or error stacks — please review before sharing and remove sensitive content.
+Plugins run locally but are developed by third parties. A plugin may access user-authorized paths or network endpoints depending on plugin implementation. Review plugin source and trust level before enabling.
 
-Deleting data
+## Logs and data sharing
 
-- To remove all application data, exit FolderRewind and delete the app LocalState folder (example path shown above) or the relevant `%LOCALAPPDATA%` app data directory when unpackaged.
-- Plugins can be uninstalled via the Settings page; you may also delete the `plugins/` folder to remove plugin files.
+Logs remain local unless you manually share them (for example, in an issue report). Before sharing, review and remove sensitive paths/content.
 
-Permissions
+## Data deletion
 
-- File system access: for reading/writing configs, logs, plugins and performing backups.
-- Network access: for plugin downloads and optional UI-initiated actions; updates are handled by Microsoft Store when distributed there.
-- System info: only limited environment info may be recorded for diagnostics and troubleshooting; not used to identify individual users.
+- Uninstall the app and remove app data directory (packaged LocalState or unpackaged `%LOCALAPPDATA%` path).
+- Remove plugin files by uninstalling plugins in Settings or deleting `plugins/`.
+- Remove backup files/metadata from your selected backup target folders.
 
-Third parties
+## Permissions
 
-- Plugins are provided by third parties. FolderRewind restricts plugin storage to the app data directory, but plugins may access user-specified paths. Any network activity performed by plugins is the responsibility of the plugin author.
+- File system: required for backup/restore and local config/log/plugin storage.
+- Network: required for notice fetch, plugin release metadata/assets, and optional startup update reminder.
+- Basic environment info: may be recorded in logs for troubleshooting.
 
-Changes & Contact
+## Changes and contact
 
-- Privacy policy updates will be published in the app or on the project page. For questions, open an Issue on the project's GitHub page.
+This policy may be updated as features evolve. Updates are published in the repository. For questions, open an issue on GitHub.
 
-> Last Updated: 2026-01-12
+> Last Updated: 2026-02-28

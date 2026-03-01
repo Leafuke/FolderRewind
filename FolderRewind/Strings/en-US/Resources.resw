@@ -1791,6 +1791,30 @@ Comment: {1}
   <data name="MineRewind_Xcopy_Stderr" xml:space="preserve">
     <value>[MineRewind] xcopy stderr: {0}</value>
   </data>
+  <data name="MineRewind_Hotkey_QuickRestore_Name" xml:space="preserve">
+    <value>Quick restore current save</value>
+  </data>
+  <data name="MineRewind_Hotkey_QuickRestore_Desc" xml:space="preserve">
+    <value>Restore the currently running Minecraft save to the latest backup (requires companion mod)</value>
+  </data>
+  <data name="MineRewind_Hotkey_QuickRestore_NoActive" xml:space="preserve">
+    <value>[MineRewind] Quick restore: no active save detected</value>
+  </data>
+  <data name="MineRewind_Hotkey_QuickRestore_Failed" xml:space="preserve">
+    <value>[MineRewind] Quick restore hotkey failed: {0}</value>
+  </data>
+  <data name="MineRewind_Setting_PreservePlayerData_Name" xml:space="preserve">
+    <value>Preserve player data on restore</value>
+  </data>
+  <data name="MineRewind_Setting_PreservePlayerData_Desc" xml:space="preserve">
+    <value>Keep the current player's position, inventory, XP, etc. when restoring a save (single-player only).</value>
+  </data>
+  <data name="PluginService_BeforeRestoreFailed" xml:space="preserve">
+    <value>Plugin {0} before-restore hook failed: {1}</value>
+  </data>
+  <data name="PluginService_AfterRestoreFailed" xml:space="preserve">
+    <value>Plugin {0} after-restore hook failed: {1}</value>
+  </data>
   <data name="SettingsPage_CloseBehavior.Text" xml:space="preserve">
     <value>Close Button Behavior</value>
   </data>
@@ -2321,5 +2345,69 @@ Status: {3}</value>
   </data>
   <data name="SettingsPage_About_Link_Feedback.Content" xml:space="preserve">
     <value>Send Feedback</value>
+  </data>
+  <data name="HistoryPage_ToggleImportantButton.ToolTipService.ToolTip" xml:space="preserve">
+    <value>Toggle important mark</value>
+  </data>
+  <data name="History_FileSizeSmall" xml:space="preserve">
+    <value>{0} (below threshold)</value>
+  </data>
+  <data name="History_DeleteImportant_Title" xml:space="preserve">
+    <value>Delete important backup</value>
+  </data>
+  <data name="History_DeleteImportant_Content" xml:space="preserve">
+    <value>This backup is marked as important. Important backups are protected from automatic cleanup. Are you sure you want to delete it?</value>
+  </data>
+  <data name="History_DeleteImportant_Continue" xml:space="preserve">
+    <value>Continue</value>
+  </data>
+  <data name="Update_Dialog_Title" xml:space="preserve">
+    <value>New version available</value>
+  </data>
+  <data name="Update_Dialog_Content" xml:space="preserve">
+    <value>Current version: {0}
+Latest version: {1} ({2})
+
+Release notes:
+{3}</value>
+  </data>
+  <data name="Update_Dialog_OpenRelease" xml:space="preserve">
+    <value>View release</value>
+  </data>
+  <data name="Update_Dialog_Later" xml:space="preserve">
+    <value>Later</value>
+  </data>
+  <data name="Update_Dialog_EmptyNotes" xml:space="preserve">
+    <value>No release notes were provided for this version.</value>
+  </data>
+  <data name="SettingsPage_EnableUpdateReminder" xml:space="preserve">
+    <value>Check update reminder on startup</value>
+  </data>
+  <data name="SettingsPage_EnableUpdateReminderDesc" xml:space="preserve">
+    <value>Check GitHub Releases on startup and show update notes when a newer version exists</value>
+  </data>
+  <data name="HistoryPage_ScanRecover.ToolTipService.ToolTip" xml:space="preserve">
+    <value>Scan a folder for backup archives and rebuild missing history records</value>
+  </data>
+  <data name="HistoryPage_ScanRecoverText.Text" xml:space="preserve">
+    <value>Recover History</value>
+  </data>
+  <data name="History_ScanRecover_SelectFirst" xml:space="preserve">
+    <value>Please select a configuration and folder first</value>
+  </data>
+  <data name="History_ScanRecover_ResultSuccess" xml:space="preserve">
+    <value>Successfully recovered {0} history record(s)</value>
+  </data>
+  <data name="History_ScanRecover_ResultNone" xml:space="preserve">
+    <value>No matching backup files found in the selected folder</value>
+  </data>
+  <data name="History_ScanRecover_Success" xml:space="preserve">
+    <value>Scan recovered {0} history record(s) for folder "{1}"</value>
+  </data>
+  <data name="History_ScanRecover_NoMatch" xml:space="preserve">
+    <value>No matching backup files found for folder "{0}"</value>
+  </data>
+  <data name="History_ScanRecover_Error" xml:space="preserve">
+    <value>Error scanning backup files: {0}</value>
   </data>
 </root>

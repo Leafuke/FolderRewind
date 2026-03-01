@@ -111,6 +111,7 @@ namespace FolderRewind.Models
         // 公告系统
         private bool _enableNotices = true;
         private string _noticeLastSeenVersion = "";
+        private bool _enableUpdateReminder = true;
 
         // 首次启动引导
         private bool _hasShownFirstLaunchGuide = false;
@@ -215,6 +216,11 @@ namespace FolderRewind.Models
         /// 上次已读的公告版本标识（Last-Modified 或内容 hash），用于检测是否有新公告。
         /// </summary>
         public string NoticeLastSeenVersion { get => _noticeLastSeenVersion; set => SetProperty(ref _noticeLastSeenVersion, value); }
+
+        /// <summary>
+        /// 是否在启动时检查 GitHub Release 更新提醒。
+        /// </summary>
+        public bool EnableUpdateReminder { get => _enableUpdateReminder; set => SetProperty(ref _enableUpdateReminder, value); }
 
         /// <summary>
         /// 是否已经展示过首次启动引导。
@@ -642,6 +648,13 @@ namespace FolderRewind.Models
         /// </summary>
         [JsonIgnore]
         public bool IsMissing { get => _isMissing; set => SetProperty(ref _isMissing, value); }
+
+        private bool _isSmallFile;
+        /// <summary>
+        /// 运行时状态：备份文件大小低于警告阈值
+        /// </summary>
+        [JsonIgnore]
+        public bool IsSmallFile { get => _isSmallFile; set => SetProperty(ref _isSmallFile, value); }
 
         private Brush? _timelineLineBrush;
         private Brush? _timelineNodeFillBrush;

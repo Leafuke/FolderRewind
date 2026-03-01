@@ -190,6 +190,18 @@
                                     <ColumnDefinition Width="*" />
                                     <ColumnDefinition Width="Auto" />
                                 </Grid.ColumnDefinitions>
+                                <StackPanel>
+                                    <TextBlock x:Uid="SettingsPage_EnableUpdateReminder" />
+                                    <TextBlock x:Uid="SettingsPage_EnableUpdateReminderDesc" Style="{StaticResource SettingsDescriptionStyle}" />
+                                </StackPanel>
+                                <ToggleSwitch Grid.Column="1" IsOn="{x:Bind Settings.EnableUpdateReminder, Mode=TwoWay}" Toggled="OnUpdateReminderToggled" />
+                            </Grid>
+
+                            <Grid>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*" />
+                                    <ColumnDefinition Width="Auto" />
+                                </Grid.ColumnDefinitions>
                                 <StackPanel Spacing="2">
                                     <TextBlock x:Uid="SettingsPage_FileSizeWarningThreshold" />
                                     <TextBlock x:Uid="SettingsPage_FileSizeWarningThresholdDesc" Style="{StaticResource SettingsDescriptionStyle}" />

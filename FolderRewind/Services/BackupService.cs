@@ -427,7 +427,16 @@ namespace FolderRewind.Services
                 {
                     ConfigService.Save();
 
-                    string typeStr = config.Archive.Mode.ToString();
+                    // 增量模式下，根据实际生成的文件名区分 Full 和 Smart
+                    string typeStr;
+                    if (config.Archive.Mode == BackupMode.Incremental && !string.IsNullOrWhiteSpace(generatedFileName))
+                    {
+                        typeStr = generatedFileName.StartsWith("[Full]", StringComparison.OrdinalIgnoreCase) ? "Full" : "Smart";
+                    }
+                    else
+                    {
+                        typeStr = config.Archive.Mode.ToString();
+                    }
                     HistoryService.AddEntry(config, folder, generatedFileName, typeStr, comment);
 
                     _ = Task.Run(() => PruneOldArchives(backupSubDir, config.Archive.Format, config.Archive.KeepCount, config.Archive.Mode, config.Archive.SafeDeleteEnabled, config, folder.DisplayName));
@@ -676,17 +685,11 @@ namespace FolderRewind.Services
                 // 收集可删除的文件（排除标记为重要的）
                 var deletableFiles = files.Where(f => !importantFiles.Contains(f.Name)).ToList();
 
-                // 计算需要删除的数量
-                int totalToKeep = keepCount;
-                int importantCount = files.Count - deletableFiles.Count;
-                // 如果重要文件已占满配额，则不删除
-                if (importantCount >= totalToKeep)
-                {
-                    Log(I18n.Format("BackupService_Log_PruneSkipAllImportant"), LogLevel.Info);
-                    return;
-                }
+                // 重要备份不计入 keepCount 配额
+                // 仅对非重要备份执行数量限制
+                if (deletableFiles.Count <= keepCount) return;
 
-                int toDeleteCount = files.Count - totalToKeep;
+                int toDeleteCount = deletableFiles.Count - keepCount;
                 // 从最旧的可删除文件开始删除
                 var filesToDelete = deletableFiles
                     .OrderBy(f => f.LastWriteTimeUtc) // 最旧的排前面
@@ -861,6 +864,8 @@ namespace FolderRewind.Services
         {
             try
             {
+                arguments = EnsureSswArgument(arguments);
+
                 var pInfo = new ProcessStartInfo
                 {
                     FileName = sevenZipExe,
@@ -1351,6 +1356,17 @@ namespace FolderRewind.Services
             Log(I18n.Format("BackupService_Log_RestoreTargetBackup", historyItem.FileName), LogLevel.Info);
             Log(I18n.Format("BackupService_Log_RestoreTargetPath", targetDir), LogLevel.Info);
 
+            // 还原前钩子：允许插件提取需要保留的数据
+            List<(string PluginId, Services.Plugins.IFolderRewindPlugin Plugin, object? State)>? pluginRestoreStates = null;
+            try
+            {
+                pluginRestoreStates = Services.Plugins.PluginService.InvokeBeforeRestoreFolder(config, folder, historyItem.FileName);
+            }
+            catch
+            {
+                // 插件异常不影响核心还原流程
+            }
+
             try
             {
                 KnotLinkService.BroadcastEvent($"event=restore_started;config={configIndex};world={folder.DisplayName}");
@@ -1484,6 +1500,16 @@ namespace FolderRewind.Services
 
             if (!restoreFailed)
             {
+                // 还原成功 — 调用还原后钩子（允许插件写回保留数据）
+                try
+                {
+                    Services.Plugins.PluginService.InvokeAfterRestoreFolder(config, folder, true, historyItem.FileName, pluginRestoreStates);
+                }
+                catch
+                {
+                    // 插件异常不影响核心还原流程
+                }
+
                 // 还原成功
                 await RunOnUIAsync(() =>
                 {
@@ -1495,6 +1521,15 @@ namespace FolderRewind.Services
                 });
 
                 Log(I18n.Format("BackupService_Log_RestoreCompleted"), LogLevel.Info);
+            }
+            else
+            {
+                // 还原失败 — 也通知插件
+                try
+                {
+                    Services.Plugins.PluginService.InvokeAfterRestoreFolder(config, folder, false, historyItem.FileName, pluginRestoreStates);
+                }
+                catch { }
             }
 
             try
@@ -1935,7 +1970,7 @@ namespace FolderRewind.Services
 
             if (backupFileName.Contains("[Smart]", StringComparison.OrdinalIgnoreCase))
             {
-                return "Incremental";
+                return "Smart";
             }
 
             if (backupFileName.Contains("[Overwrite]", StringComparison.OrdinalIgnoreCase))
@@ -2116,6 +2151,9 @@ namespace FolderRewind.Services
             BackupTask? taskToUpdate = null,
             double progressBase = 0, double progressRange = 100)
         {
+            arguments = EnsureSswArgument(arguments);
+            logArguments = EnsureSswArgument(logArguments ?? arguments);
+
             var pInfo = new ProcessStartInfo
             {
                 FileName = sevenZipExe,
@@ -2131,7 +2169,7 @@ namespace FolderRewind.Services
                 pInfo.WorkingDirectory = workingDirectory;
             }
 
-            Log($"[CMD] {Path.GetFileName(sevenZipExe)} {(logArguments ?? arguments)}", LogLevel.Debug);
+            Log($"[CMD] {Path.GetFileName(sevenZipExe)} {logArguments}", LogLevel.Debug);
 
             string? lastErrorLine = null;
 
@@ -2195,6 +2233,17 @@ namespace FolderRewind.Services
                 }
                 return false;
             }
+        }
+
+        private static string EnsureSswArgument(string arguments)
+        {
+            if (string.IsNullOrWhiteSpace(arguments))
+                return "-ssw";
+
+            if (Regex.IsMatch(arguments, @"(?:^|\s)-ssw(?:\s|$)", RegexOptions.IgnoreCase))
+                return arguments;
+
+            return arguments + " -ssw";
         }
 
         private static void Log(string message)

@@ -43,6 +43,7 @@ namespace FolderRewind.Services.Plugins
                 {
                     ReleaseName = root.TryGetProperty("name", out var releaseNameEl) ? releaseNameEl.GetString() : null,
                     TagName = root.TryGetProperty("tag_name", out var tagEl) ? tagEl.GetString() : null,
+                    Body = root.TryGetProperty("body", out var bodyEl) ? bodyEl.GetString() : null,
                     HtmlUrl = root.TryGetProperty("html_url", out var htmlEl) ? htmlEl.GetString() : null,
                     PublishedAt = root.TryGetProperty("published_at", out var pubEl) && DateTimeOffset.TryParse(pubEl.GetString(), out var dt)
                         ? dt
@@ -93,6 +94,7 @@ namespace FolderRewind.Services.Plugins
         {
             public string? ReleaseName { get; set; }
             public string? TagName { get; set; }
+            public string? Body { get; set; }
             public string? HtmlUrl { get; set; }
             public DateTimeOffset? PublishedAt { get; set; }
             public IReadOnlyList<GitHubReleaseAsset> Assets { get; set; } = Array.Empty<GitHubReleaseAsset>();

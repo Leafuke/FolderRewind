@@ -77,15 +77,23 @@ namespace FolderRewind.Services
         }
         public static async Task<bool> IsStartupEnabledAsync()
         {
+            var probe = await TryGetStartupEnabledAsync();
+            return probe.success && probe.enabled;
+        }
+
+        public static async Task<(bool success, bool enabled)> TryGetStartupEnabledAsync()
+        {
             try
             {
                 var startupTask = await StartupTask.GetAsync(StartupTaskId);
-                return startupTask.State == StartupTaskState.Enabled ||
-                       startupTask.State == StartupTaskState.EnabledByPolicy;
+                var enabled = startupTask.State == StartupTaskState.Enabled ||
+                              startupTask.State == StartupTaskState.EnabledByPolicy;
+                return (true, enabled);
             }
-            catch
+            catch (Exception ex)
             {
-                return false;
+                Debug.WriteLine($"Startup state probe failed: {ex.Message}");
+                return (false, false);
             }
         }
 
