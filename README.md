@@ -59,25 +59,7 @@ As the spiritual successor to MineBackup, FolderRewind enhances its versatility 
 
 ## Usage
 
-First, you should understand several key concepts:
-
-1. **Configuration**: The main interface of the software can contain many **independent** configuration cards. Each configuration can be considered as an independent **workspace**. Configurations have different **types**. The general configuration type is **Default**, while **plugins** can define new configuration types to adapt to specific scenarios (such as game saves). Each configuration can independently set backup rules, schedules, and retention policies.
-
-2. **Folder**: A folder is the direct object and **smallest unit** that the software operates on. Each **configuration** can include multiple folders, and these folders are said to **belong** to that configuration. By clicking on a configuration card on the main interface, you can enter the specific configuration to back up and manage these folders.
-
-3. **Task**: A task is a backup/restore/script operation performed by the software. You can set independent **automated tasks** (such as interval backups, scheduled backups, etc.) for each configuration. When the conditions are met, the software will automatically perform backup operations for all folders under that configuration.
-
-Generally, the workflow is as follows:
-
-1. **Create a configuration**. You need to select a suitable configuration type (e.g., Default) and name it.
-2. **Add one or more folders to the configuration**. Custom scanning features via plugins are supported.
-3. When a backup is needed, click on the configuration card to enter the configuration details interface, then click the **Backup Now** button. Alternatively, set up automated tasks to let the software perform backups automatically.
-
-As you delve deeper into using the software, you’ll discover ways to simplify the process:
-
-- Use keyboard shortcuts directly for backups.
-- Mark folders as favorites for quick operations on the main interface.
-- Create a **mini floating window** for a specific folder to monitor its status in real time and perform instant backups while working.
+For detailed usage instructions, please refer to the official documentation: https://folderrewind.top
 
 ![Main Interface](assets/screenshot1.png)
 
@@ -85,7 +67,7 @@ As you delve deeper into using the software, you’ll discover ways to simplify 
 
 | Name               | Version   | Description                                     | Author          | Download Link                                      |
 |----------------------|------|----------------------------------------|-------------|-------------------------------------------|
-| MineRewind      | 1.2.0 | A backup plugin specifically designed for Minecraft game saves.               | Leafuke     | [Repository](https://github.com/Leafuke/FolderRewind-Plugin-Minecraft)
+| MineRewind      | 1.4.1 | A backup plugin specifically designed for Minecraft game saves.               | Leafuke     | [Repository](https://github.com/Leafuke/FolderRewind-Plugin-Minecraft)
 
 ## Development
 
@@ -96,7 +78,7 @@ As you delve deeper into using the software, you’ll discover ways to simplify 
 
 ### Plugin Development
 
-If you want to develop plugins for FolderRewind to support more scenarios, you can refer to the [Plugin Development Guide](./docs/PluginDevelopmentGuide.md).
+If you want to develop plugins for FolderRewind to support more scenarios, you can refer to the [Plugin Development Guide](https://folderrewind.top/docs/plugins/overview).
 
 
 ## Discussion
