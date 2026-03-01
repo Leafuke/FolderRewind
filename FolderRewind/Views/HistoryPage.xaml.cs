@@ -629,6 +629,50 @@ namespace FolderRewind.Views
             RefreshHistory(config, folder);
         }
 
+        /// <summary>
+        /// "重建历史" 按钮点击事件：通过扫描备份文件夹恢复丢失的历史记录
+        /// </summary>
+        private async void OnScanRecoverClick(object sender, RoutedEventArgs e)
+        {
+            var config = ConfigFilter.SelectedItem as BackupConfig;
+            var folder = FolderFilter.SelectedItem as ManagedFolder;
+            if (config == null || folder == null)
+            {
+                NotificationService.ShowWarning(I18n.GetString("History_ScanRecover_SelectFirst"));
+                return;
+            }
+
+            // 使用 FolderPicker 让用户选择要扫描的文件夹
+            var picker = new Windows.Storage.Pickers.FolderPicker();
+            picker.SuggestedStartLocation = Windows.Storage.Pickers.PickerLocationId.DocumentsLibrary;
+            picker.FileTypeFilter.Add("*");
+
+            // WinUI 3 需要通过窗口句柄初始化 Picker
+            var hwnd = WinRT.Interop.WindowNative.GetWindowHandle(App.MainWindow);
+            WinRT.Interop.InitializeWithWindow.Initialize(picker, hwnd);
+
+            var selectedFolder = await picker.PickSingleFolderAsync();
+            if (selectedFolder == null) return;
+
+            string scanPath = selectedFolder.Path;
+
+            // 在后台线程执行扫描，避免阻塞 UI
+            int recovered = await System.Threading.Tasks.Task.Run(() =>
+                HistoryService.ScanAndRecoverHistory(scanPath, config, folder));
+
+            if (recovered > 0)
+            {
+                NotificationService.ShowSuccess(
+                    I18n.Format("History_ScanRecover_ResultSuccess", recovered.ToString()));
+                RefreshHistory(config, folder);
+            }
+            else
+            {
+                NotificationService.ShowInfo(
+                    I18n.GetString("History_ScanRecover_ResultNone"));
+            }
+        }
+
         private void RestoreLastSelection()
         {
             if (_isNavigating) return;

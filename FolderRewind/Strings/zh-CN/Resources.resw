@@ -2386,4 +2386,28 @@
   <data name="SettingsPage_EnableUpdateReminderDesc" xml:space="preserve">
     <value>启动应用时检查 GitHub Release 新版本并提示更新内容</value>
   </data>
+  <data name="HistoryPage_ScanRecover.ToolTipService.ToolTip" xml:space="preserve">
+    <value>扫描备份文件夹并重建丢失的历史记录</value>
+  </data>
+  <data name="HistoryPage_ScanRecoverText.Text" xml:space="preserve">
+    <value>重建历史</value>
+  </data>
+  <data name="History_ScanRecover_SelectFirst" xml:space="preserve">
+    <value>请先选择一个配置和文件夹</value>
+  </data>
+  <data name="History_ScanRecover_ResultSuccess" xml:space="preserve">
+    <value>成功恢复了 {0} 条历史记录</value>
+  </data>
+  <data name="History_ScanRecover_ResultNone" xml:space="preserve">
+    <value>在选择的文件夹中未找到匹配的备份文件</value>
+  </data>
+  <data name="History_ScanRecover_Success" xml:space="preserve">
+    <value>扫描恢复了文件夹 "{1}" 的 {0} 条历史记录</value>
+  </data>
+  <data name="History_ScanRecover_NoMatch" xml:space="preserve">
+    <value>未找到文件夹 "{0}" 的匹配备份文件</value>
+  </data>
+  <data name="History_ScanRecover_Error" xml:space="preserve">
+    <value>扫描备份文件时出错：{0}</value>
+  </data>
 </root>

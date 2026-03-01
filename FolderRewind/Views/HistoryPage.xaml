@@ -59,6 +59,14 @@
                               x:Uid="HistoryPage_UseStatusColors"
                               IsOn="{x:Bind UseHistoryStatusColors, Mode=TwoWay}"
                               Toggled="UseColorsToggle_Toggled" />
+                <Button x:Name="ScanRecoverButton"
+                        x:Uid="HistoryPage_ScanRecover"
+                        Click="OnScanRecoverClick">
+                    <StackPanel Orientation="Horizontal" Spacing="6">
+                        <FontIcon Glyph="&#xE71C;" FontSize="14"/>
+                        <TextBlock x:Uid="HistoryPage_ScanRecoverText"/>
+                    </StackPanel>
+                </Button>
                 <Button x:Name="ClearMissingButton"
                         x:Uid="HistoryPage_ClearMissing"
                         IsEnabled="{x:Bind HasMissing, Mode=OneWay}"
