@@ -299,6 +299,20 @@ namespace FolderRewind.Services
         }
 
         /// <summary>
+        /// 获取全局最近一条历史记录（按 Timestamp 降序），用于 MARK_IMPORTANT 无参数时标记最近备份。
+        /// </summary>
+        public static HistoryItem? GetLatestEntry()
+        {
+            Initialize();
+            lock (_historyLock)
+            {
+                return _allHistory
+                    .OrderByDescending(x => x.Timestamp)
+                    .FirstOrDefault();
+            }
+        }
+
+        /// <summary>
         /// 根据 configId 和文件夹名获取历史记录列表（用于安全删除等内部逻辑，
         /// 不创建 ObservableCollection，直接返回快照列表）
         /// </summary>
