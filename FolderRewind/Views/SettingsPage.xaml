@@ -853,6 +853,8 @@
                     <HyperlinkButton x:Uid="SettingsPage_About_Link_Feedback" Padding="8,4" NavigateUri="https://github.com/Leafuke/FolderRewind/issues" />
                     <StackPanel Width="1" Height="16" Background="{ThemeResource ControlStrokeColorDefaultBrush}" />
                     <HyperlinkButton x:Uid="SettingsPage_About_Link_Guide" NavigateUri="https://www.bilibili.com/video/BV1zbcjzhE1y" />
+                    <StackPanel Width="1" Height="16" Background="{ThemeResource ControlStrokeColorDefaultBrush}" />
+                    <HyperlinkButton x:Uid="SettingsPage_About_Link_Document" NavigateUri="https://folderrewind.top" />
                 </StackPanel>
             </StackPanel>
         </ScrollViewer>

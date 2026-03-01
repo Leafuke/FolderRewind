@@ -2410,4 +2410,7 @@
   <data name="History_ScanRecover_Error" xml:space="preserve">
     <value>扫描备份文件时出错：{0}</value>
   </data>
+  <data name="SettingsPage_About_Link_Document.Content" xml:space="preserve">
+    <value>阅读文档</value>
+  </data>
 </root>
