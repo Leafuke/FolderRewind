@@ -65,6 +65,7 @@ namespace FolderRewind.Models
         private int _themeIndex = 1; // 0: Dark, 1: Light, 2: System
         private string _sevenZipPath = "7za.exe"; // 全局 7z 路径（内置 7za.exe）
         private string _defaultBackupRootPath = "";
+        private string _restoreTempRootPath = "";
         private bool _runOnStartup = false;
         private bool _silentStartup = false;
         private bool _enableFileLogging = true;
@@ -120,6 +121,7 @@ namespace FolderRewind.Models
         public int ThemeIndex { get => _themeIndex; set => SetProperty(ref _themeIndex, value); }
         public string SevenZipPath { get => _sevenZipPath; set => SetProperty(ref _sevenZipPath, value); }
         public string DefaultBackupRootPath { get => _defaultBackupRootPath; set => SetProperty(ref _defaultBackupRootPath, value); }
+        public string RestoreTempRootPath { get => _restoreTempRootPath; set => SetProperty(ref _restoreTempRootPath, value); }
         public bool RunOnStartup { get => _runOnStartup; set => SetProperty(ref _runOnStartup, value); }
         public bool SilentStartup { get => _silentStartup; set => SetProperty(ref _silentStartup, value); }
         public bool EnableFileLogging { get => _enableFileLogging; set => SetProperty(ref _enableFileLogging, value); }
@@ -363,6 +365,8 @@ namespace FolderRewind.Models
         private bool _skipIfUnchanged = true;      // 无变更时跳过备份
         private int _cpuThreads = 0;               // CPU 线程数, 0 = 自动
         private bool _backupBeforeRestore = false;  // 还原前先执行一次备份
+        private bool _safeRestoreEnabled = true;     // 安全还原（Clean 模式前做目录快照，失败可回滚）
+        private bool _verifyArchiveBeforeRestore = true; // 还原前完整性校验（7z t）
         private int _maxSmartBackupsPerFull = 0;    // 智能备份链长度限制，0 = 不限制
         private bool _safeDeleteEnabled = true;     // 安全删除：删除增量备份时自动合并内容到下一个备份
 
@@ -390,6 +394,16 @@ namespace FolderRewind.Models
         /// 还原前先自动执行一次备份，防止误操作丢失当前数据
         /// </summary>
         public bool BackupBeforeRestore { get => _backupBeforeRestore; set => SetProperty(ref _backupBeforeRestore, value); }
+
+        /// <summary>
+        /// 安全还原：在 Clean 还原前将目标目录迁移到临时目录快照，若还原失败可自动回滚。
+        /// </summary>
+        public bool SafeRestoreEnabled { get => _safeRestoreEnabled; set => SetProperty(ref _safeRestoreEnabled, value); }
+
+        /// <summary>
+        /// 还原前完整性校验：对还原链中的压缩包执行 7z test。
+        /// </summary>
+        public bool VerifyArchiveBeforeRestore { get => _verifyArchiveBeforeRestore; set => SetProperty(ref _verifyArchiveBeforeRestore, value); }
 
         /// <summary>
         /// 智能备份链长度限制：当连续增量备份达到此数量时，强制执行一次全量备份以截断链条。

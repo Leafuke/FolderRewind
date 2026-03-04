@@ -32,6 +32,11 @@ namespace FolderRewind.Services
             return Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments), "FolderRewind-Backup");
         }
 
+        public static string GetRecommendedRestoreTempRootPath()
+        {
+            return Path.Combine(Path.GetTempPath(), "FolderRewind", "RestoreSnapshots");
+        }
+
         public static string BuildDefaultDestinationPath(string? configName)
         {
             var safeName = MakeSafeFolderName(configName);
@@ -165,6 +170,7 @@ namespace FolderRewind.Services
                 CurrentConfig.GlobalSettings.SevenZipPath = "7za.exe";
                 CurrentConfig.GlobalSettings.FontFamily = FontService.GetRecommendedDefaultFontFamily();
                 CurrentConfig.GlobalSettings.DefaultBackupRootPath = GetRecommendedDefaultBackupRootPath();
+                CurrentConfig.GlobalSettings.RestoreTempRootPath = GetRecommendedRestoreTempRootPath();
             }
             catch
             {
@@ -354,6 +360,11 @@ namespace FolderRewind.Services
             if (string.IsNullOrWhiteSpace(settings.DefaultBackupRootPath))
             {
                 settings.DefaultBackupRootPath = GetRecommendedDefaultBackupRootPath();
+            }
+
+            if (string.IsNullOrWhiteSpace(settings.RestoreTempRootPath))
+            {
+                settings.RestoreTempRootPath = GetRecommendedRestoreTempRootPath();
             }
 
             if (double.IsNaN(settings.BaseFontSize) || settings.BaseFontSize <= 0)

@@ -657,6 +657,24 @@
   <data name="ConfigSettingsDialog_BackupBeforeRestore.OffContent" xml:space="preserve">
     <value>已关闭</value>
   </data>
+  <data name="ConfigSettingsDialog_SafeRestore.Header" xml:space="preserve">
+    <value>安全还原（Clean 模式）</value>
+  </data>
+  <data name="ConfigSettingsDialog_SafeRestore.OnContent" xml:space="preserve">
+    <value>已开启 - 失败时自动回滚目录快照</value>
+  </data>
+  <data name="ConfigSettingsDialog_SafeRestore.OffContent" xml:space="preserve">
+    <value>已关闭 - Clean 失败时可能丢失原文件</value>
+  </data>
+  <data name="ConfigSettingsDialog_VerifyArchiveBeforeRestore.Header" xml:space="preserve">
+    <value>还原前校验备份完整性</value>
+  </data>
+  <data name="ConfigSettingsDialog_VerifyArchiveBeforeRestore.OnContent" xml:space="preserve">
+    <value>已开启 - 先执行 7z test</value>
+  </data>
+  <data name="ConfigSettingsDialog_VerifyArchiveBeforeRestore.OffContent" xml:space="preserve">
+    <value>已关闭 - 直接进入还原流程</value>
+  </data>
   <data name="ConfigSettingsDialog_Automation.Header" xml:space="preserve">
     <value>自动化</value>
   </data>
@@ -1577,6 +1595,36 @@
   <data name="BackupService_Log_RestoreChainBuilt" xml:space="preserve">
     <value>还原链已构建，包含 {0} 个包</value>
   </data>
+  <data name="BackupService_Log_RestoreIntegrityCheckBegin" xml:space="preserve">
+    <value>开始校验还原链完整性，共 {0} 个压缩包</value>
+  </data>
+  <data name="BackupService_Log_RestoreIntegrityArchiveCheckFailed" xml:space="preserve">
+    <value>还原前完整性校验失败：{0}</value>
+  </data>
+  <data name="BackupService_Log_RestoreIntegrityCheckPassed" xml:space="preserve">
+    <value>还原前完整性校验通过</value>
+  </data>
+  <data name="BackupService_Log_RestoreIntegrityCheckFailedStop" xml:space="preserve">
+    <value>还原已终止：备份完整性校验未通过</value>
+  </data>
+  <data name="BackupService_Log_RestoreSnapshotPrepared" xml:space="preserve">
+    <value>已创建安全还原快照：{0}</value>
+  </data>
+  <data name="BackupService_Log_RestoreSnapshotPrepareFailed" xml:space="preserve">
+    <value>创建安全还原快照失败：{0}</value>
+  </data>
+  <data name="BackupService_Log_RestoreSnapshotCleanupFailed" xml:space="preserve">
+    <value>清理还原快照失败：{0}</value>
+  </data>
+  <data name="BackupService_Log_RestoreRollbackBegin" xml:space="preserve">
+    <value>还原失败，开始回滚目录快照：{0}</value>
+  </data>
+  <data name="BackupService_Log_RestoreRollbackSuccess" xml:space="preserve">
+    <value>回滚完成，已恢复还原前目录状态</value>
+  </data>
+  <data name="BackupService_Log_RestoreRollbackFailed" xml:space="preserve">
+    <value>回滚失败：{0}</value>
+  </data>
   <data name="App_WindowTitle" xml:space="preserve">
     <value>存档时光机</value>
   </data>
@@ -2271,11 +2319,20 @@
   <data name="BackupService_Task_RestoreFailed" xml:space="preserve">
     <value>还原失败</value>
   </data>
+  <data name="BackupService_Task_VerifyingRestore_N" xml:space="preserve">
+    <value>校验备份完整性 ({0}/{1})</value>
+  </data>
   <data name="SettingsPage_DefaultBackupRootPath.Text" xml:space="preserve">
     <value>默认备份文件存放路径</value>
   </data>
   <data name="SettingsPage_DefaultBackupRootPathDesc.Text" xml:space="preserve">
     <value>新建配置会自动使用“默认路径\配置名称”作为备份存储路径（可单独修改）</value>
+  </data>
+  <data name="SettingsPage_RestoreTempRootPath.Text" xml:space="preserve">
+    <value>安全还原临时目录</value>
+  </data>
+  <data name="SettingsPage_RestoreTempRootPathDesc.Text" xml:space="preserve">
+    <value>Clean 安全还原快照的存放位置。建议使用空间充足且速度较快的磁盘。</value>
   </data>
   <data name="FolderManager_MineRewindHint_Title" xml:space="preserve">
     <value>检测到 Minecraft 目录</value>

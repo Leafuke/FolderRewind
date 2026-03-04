@@ -456,6 +456,21 @@
                                     <Button x:Uid="SettingsPage_BrowseButton" Click="OnBrowseDefaultBackupRootClick" VerticalAlignment="Center" />
                                 </StackPanel>
                             </Grid>
+
+                            <Grid>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*" />
+                                    <ColumnDefinition Width="Auto" />
+                                </Grid.ColumnDefinitions>
+                                <StackPanel Spacing="2" VerticalAlignment="Center">
+                                    <TextBlock x:Uid="SettingsPage_RestoreTempRootPath" />
+                                    <TextBlock x:Uid="SettingsPage_RestoreTempRootPathDesc" Style="{StaticResource SettingsDescriptionStyle}" />
+                                </StackPanel>
+                                <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
+                                    <TextBox Text="{x:Bind Settings.RestoreTempRootPath, Mode=TwoWay}" Width="280" IsReadOnly="True" VerticalAlignment="Center" />
+                                    <Button x:Uid="SettingsPage_BrowseButton" Click="OnBrowseRestoreTempRootClick" VerticalAlignment="Center" />
+                                </StackPanel>
+                            </Grid>
                         </StackPanel>
                     </Expander>
                 </Border>

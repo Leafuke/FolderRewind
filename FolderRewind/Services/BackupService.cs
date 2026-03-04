@@ -1272,6 +1272,10 @@ namespace FolderRewind.Services
             int configIndex = GetConfigIndex(config);
             string backupFilePath = Path.Combine(config.DestinationPath, folder.DisplayName, historyItem.FileName);
             string targetDir = folder.Path; // 还原回源目录
+            bool safeRestoreEnabled = config?.Archive?.SafeRestoreEnabled ?? true;
+            bool verifyArchiveBeforeRestore = config?.Archive?.VerifyArchiveBeforeRestore ?? true;
+            string? restoreSnapshotDir = null;
+            bool restoreSnapshotPrepared = false;
 
             // 创建还原任务用于在任务列表中显示进度
             var restoreTask = new BackupTask
@@ -1356,6 +1360,43 @@ namespace FolderRewind.Services
             Log(I18n.Format("BackupService_Log_RestoreTargetBackup", historyItem.FileName), LogLevel.Info);
             Log(I18n.Format("BackupService_Log_RestoreTargetPath", targetDir), LogLevel.Info);
 
+            // 获取加密密码（如果是加密配置）
+            string restorePassword = ResolvePassword(config);
+
+            if (verifyArchiveBeforeRestore)
+            {
+                Log(I18n.Format("BackupService_Log_RestoreIntegrityCheckBegin", chain.Count), LogLevel.Info);
+                bool verifyPassed = await ValidateRestoreChainAsync(chain, sevenZipExe, restorePassword, restoreTask);
+                if (!verifyPassed)
+                {
+                    Log(I18n.Format("BackupService_Log_RestoreIntegrityCheckFailedStop"), LogLevel.Error);
+                    await RunOnUIAsync(() =>
+                    {
+                        restoreTask.Status = I18n.Format("BackupService_Task_RestoreFailed");
+                        restoreTask.IsCompleted = true;
+                        restoreTask.IsIndeterminate = false;
+                        restoreTask.IsSuccess = false;
+                        if (string.IsNullOrWhiteSpace(restoreTask.ErrorMessage))
+                        {
+                            restoreTask.ErrorMessage = I18n.Format("BackupService_Log_RestoreIntegrityCheckFailedStop");
+                        }
+                    });
+
+                    try
+                    {
+                        KnotLinkService.BroadcastEvent("event=restore_finished;status=failure;reason=archive_integrity_check_failed");
+                    }
+                    catch
+                    {
+                    }
+
+                    NotificationService.NotifyRestoreCompleted(folder.DisplayName, false, I18n.GetString("BackupService_Log_RestoreIntegrityCheckFailedStop"));
+                    return;
+                }
+
+                Log(I18n.Format("BackupService_Log_RestoreIntegrityCheckPassed"), LogLevel.Info);
+            }
+
             // 还原前钩子：允许插件提取需要保留的数据
             List<(string PluginId, Services.Plugins.IFolderRewindPlugin Plugin, object? State)>? pluginRestoreStates = null;
             try
@@ -1375,27 +1416,60 @@ namespace FolderRewind.Services
             {
             }
 
-            // 先确保目标目录存在，再执行清空操作
-            if (!Directory.Exists(targetDir))
+            // 安全还原：Clean 模式下先创建目录快照，失败可回滚
+            if (mode == RestoreMode.Clean && safeRestoreEnabled)
             {
-                try
+                if (!TryPrepareRestoreSnapshot(targetDir, folder.DisplayName, out restoreSnapshotDir, out var snapshotError))
                 {
-                    Directory.CreateDirectory(targetDir);
-                }
-                catch (Exception ex)
-                {
-                    Log(I18n.Format("BackupService_Log_RestoreCreateTargetDirFailed", ex.Message), LogLevel.Error);
+                    Log(I18n.Format("BackupService_Log_RestoreSnapshotPrepareFailed", snapshotError ?? "Unknown error"), LogLevel.Error);
+                    await RunOnUIAsync(() =>
+                    {
+                        restoreTask.Status = I18n.Format("BackupService_Task_RestoreFailed");
+                        restoreTask.IsCompleted = true;
+                        restoreTask.IsIndeterminate = false;
+                        restoreTask.IsSuccess = false;
+                        restoreTask.ErrorMessage = I18n.Format("BackupService_Log_RestoreSnapshotPrepareFailed", snapshotError ?? "Unknown error");
+                    });
                     try
                     {
-                        KnotLinkService.BroadcastEvent("event=restore_finished;status=failure;reason=create_dir_failed");
+                        KnotLinkService.BroadcastEvent("event=restore_finished;status=failure;reason=snapshot_prepare_failed");
                     }
                     catch { }
+
+                    NotificationService.NotifyRestoreCompleted(folder.DisplayName, false, I18n.Format("BackupService_Log_RestoreSnapshotPrepareFailed", snapshotError ?? "Unknown error"));
                     return;
+                }
+
+                restoreSnapshotPrepared = !string.IsNullOrWhiteSpace(restoreSnapshotDir);
+                if (restoreSnapshotPrepared)
+                {
+                    Log(I18n.Format("BackupService_Log_RestoreSnapshotPrepared", restoreSnapshotDir), LogLevel.Info);
+                }
+            }
+            else
+            {
+                // 非安全快照路径：确保目标目录存在
+                if (!Directory.Exists(targetDir))
+                {
+                    try
+                    {
+                        Directory.CreateDirectory(targetDir);
+                    }
+                    catch (Exception ex)
+                    {
+                        Log(I18n.Format("BackupService_Log_RestoreCreateTargetDirFailed", ex.Message), LogLevel.Error);
+                        try
+                        {
+                            KnotLinkService.BroadcastEvent("event=restore_finished;status=failure;reason=create_dir_failed");
+                        }
+                        catch { }
+                        return;
+                    }
                 }
             }
 
-            // 1. Clean 模式先清空目标
-            if (mode == RestoreMode.Clean)
+            // 1. Clean 模式先清空目标（安全快照时目标目录已是新目录，可跳过）
+            if (mode == RestoreMode.Clean && !restoreSnapshotPrepared)
             {
                 Log(I18n.Format("BackupService_Log_RestoreCleaningTarget"), LogLevel.Info);
 
@@ -1445,8 +1519,6 @@ namespace FolderRewind.Services
             }
 
             // 2. 按链顺序依次解压（Full + Smart），带进度跟踪
-            // 获取加密密码（如果是加密配置）
-            string restorePassword = ResolvePassword(config);
             bool restoreFailed = false;
             for (int i = 0; i < chain.Count; i++)
             {
@@ -1500,6 +1572,24 @@ namespace FolderRewind.Services
 
             if (!restoreFailed)
             {
+                if (restoreSnapshotPrepared && !string.IsNullOrWhiteSpace(restoreSnapshotDir))
+                {
+                    _ = Task.Run(() =>
+                    {
+                        try
+                        {
+                            if (Directory.Exists(restoreSnapshotDir))
+                            {
+                                Directory.Delete(restoreSnapshotDir, true);
+                            }
+                        }
+                        catch (Exception ex)
+                        {
+                            Log(I18n.Format("BackupService_Log_RestoreSnapshotCleanupFailed", ex.Message), LogLevel.Warning);
+                        }
+                    });
+                }
+
                 // 还原成功 — 调用还原后钩子（允许插件写回保留数据）
                 try
                 {
@@ -1524,6 +1614,26 @@ namespace FolderRewind.Services
             }
             else
             {
+                if (restoreSnapshotPrepared && !string.IsNullOrWhiteSpace(restoreSnapshotDir))
+                {
+                    Log(I18n.Format("BackupService_Log_RestoreRollbackBegin", restoreSnapshotDir), LogLevel.Warning);
+                    if (TryRollbackFromRestoreSnapshot(targetDir, restoreSnapshotDir, out var rollbackError))
+                    {
+                        Log(I18n.Format("BackupService_Log_RestoreRollbackSuccess"), LogLevel.Info);
+                    }
+                    else
+                    {
+                        Log(I18n.Format("BackupService_Log_RestoreRollbackFailed", rollbackError ?? "Unknown error"), LogLevel.Error);
+                        await RunOnUIAsync(() =>
+                        {
+                            if (string.IsNullOrWhiteSpace(restoreTask.ErrorMessage))
+                            {
+                                restoreTask.ErrorMessage = I18n.Format("BackupService_Log_RestoreRollbackFailed", rollbackError ?? "Unknown error");
+                            }
+                        });
+                    }
+                }
+
                 // 还原失败 — 也通知插件
                 try
                 {
@@ -1536,6 +1646,153 @@ namespace FolderRewind.Services
             {
                 if (!restoreFailed)
                     KnotLinkService.BroadcastEvent($"event=restore_success;config={configIndex};world={folder.DisplayName};backup={historyItem.FileName}");
+            }
+            catch
+            {
+            }
+        }
+
+        private static async Task<bool> ValidateRestoreChainAsync(List<FileInfo> chain, string sevenZipExe, string? password, BackupTask? restoreTask)
+        {
+            if (chain == null || chain.Count == 0) return false;
+
+            for (int i = 0; i < chain.Count; i++)
+            {
+                var file = chain[i];
+                if (restoreTask != null)
+                {
+                    int fileIndex = i;
+                    await RunOnUIAsync(() => restoreTask.Status = I18n.Format("BackupService_Task_VerifyingRestore_N", fileIndex + 1, chain.Count));
+                }
+
+                string testArgs = $"t \"{file.FullName}\" -bsp1";
+                if (!string.IsNullOrWhiteSpace(password))
+                {
+                    testArgs = $"t \"{file.FullName}\" -bsp1 -p\"{password}\"";
+                }
+
+                string safeTestArgs = string.IsNullOrWhiteSpace(password) ? testArgs : testArgs.Replace(password, "***");
+                bool ok = await RunSevenZipProcessAsync(sevenZipExe, testArgs, file.DirectoryName, safeTestArgs);
+                if (!ok)
+                {
+                    Log(I18n.Format("BackupService_Log_RestoreIntegrityArchiveCheckFailed", file.Name), LogLevel.Error);
+                    return false;
+                }
+            }
+
+            if (restoreTask != null)
+            {
+                await RunOnUIAsync(() => restoreTask.Status = I18n.Format("BackupService_Task_Restoring"));
+            }
+
+            return true;
+        }
+
+        private static bool TryPrepareRestoreSnapshot(string targetDir, string folderDisplayName, out string? snapshotDir, out string? errorMessage)
+        {
+            snapshotDir = null;
+            errorMessage = null;
+
+            try
+            {
+                if (!Directory.Exists(targetDir))
+                {
+                    Directory.CreateDirectory(targetDir);
+                    return true;
+                }
+
+                var tempRoot = ResolveRestoreTempRootPath();
+                if (string.IsNullOrWhiteSpace(tempRoot))
+                {
+                    errorMessage = "Restore temp root is empty.";
+                    return false;
+                }
+
+                Directory.CreateDirectory(tempRoot);
+
+                var safeName = MakeSafePathSegment(folderDisplayName);
+                if (string.IsNullOrWhiteSpace(safeName)) safeName = "RestoreTarget";
+
+                snapshotDir = Path.Combine(tempRoot, $"{safeName}_{DateTime.Now:yyyyMMdd_HHmmss_fff}_{Guid.NewGuid():N}");
+                Directory.Move(targetDir, snapshotDir);
+                Directory.CreateDirectory(targetDir);
+                return true;
+            }
+            catch (Exception ex)
+            {
+                errorMessage = ex.Message;
+                return false;
+            }
+        }
+
+        private static bool TryRollbackFromRestoreSnapshot(string targetDir, string snapshotDir, out string? errorMessage)
+        {
+            errorMessage = null;
+
+            try
+            {
+                if (Directory.Exists(targetDir))
+                {
+                    ClearReadonlyAttributes(targetDir);
+                    Directory.Delete(targetDir, true);
+                }
+
+                if (!Directory.Exists(snapshotDir))
+                {
+                    errorMessage = "Snapshot directory is missing.";
+                    return false;
+                }
+
+                Directory.Move(snapshotDir, targetDir);
+                return true;
+            }
+            catch (Exception ex)
+            {
+                errorMessage = ex.Message;
+                return false;
+            }
+        }
+
+        private static string ResolveRestoreTempRootPath()
+        {
+            var configured = ConfigService.CurrentConfig?.GlobalSettings?.RestoreTempRootPath;
+            if (!string.IsNullOrWhiteSpace(configured))
+            {
+                return configured;
+            }
+
+            return ConfigService.GetRecommendedRestoreTempRootPath();
+        }
+
+        private static string MakeSafePathSegment(string? raw)
+        {
+            var value = string.IsNullOrWhiteSpace(raw) ? "RestoreTarget" : raw.Trim();
+            foreach (var ch in Path.GetInvalidFileNameChars())
+            {
+                value = value.Replace(ch, '_');
+            }
+
+            return value;
+        }
+
+        private static void ClearReadonlyAttributes(string dir)
+        {
+            try
+            {
+                foreach (var file in Directory.EnumerateFiles(dir, "*", SearchOption.AllDirectories))
+                {
+                    try
+                    {
+                        var attrs = File.GetAttributes(file);
+                        if ((attrs & FileAttributes.ReadOnly) == FileAttributes.ReadOnly)
+                        {
+                            File.SetAttributes(file, attrs & ~FileAttributes.ReadOnly);
+                        }
+                    }
+                    catch
+                    {
+                    }
+                }
             }
             catch
             {

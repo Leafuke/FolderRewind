@@ -186,6 +186,12 @@
                 <!-- 还原前自动备份 -->
                 <ToggleSwitch x:Uid="ConfigSettingsDialog_BackupBeforeRestore" IsOn="{x:Bind Config.Archive.BackupBeforeRestore, Mode=TwoWay}"/>
 
+                <!-- 安全还原（Clean 模式） -->
+                <ToggleSwitch x:Uid="ConfigSettingsDialog_SafeRestore" IsOn="{x:Bind Config.Archive.SafeRestoreEnabled, Mode=TwoWay}"/>
+
+                <!-- 还原前完整性校验 -->
+                <ToggleSwitch x:Uid="ConfigSettingsDialog_VerifyArchiveBeforeRestore" IsOn="{x:Bind Config.Archive.VerifyArchiveBeforeRestore, Mode=TwoWay}"/>
+
                 <!-- 还原白名单 -->
                 <StackPanel Spacing="8">
                     <TextBlock x:Uid="ConfigSettingsDialog_RestoreWhitelist" FontWeight="SemiBold"/>

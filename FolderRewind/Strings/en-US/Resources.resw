@@ -657,6 +657,24 @@
   <data name="ConfigSettingsDialog_BackupBeforeRestore.OffContent" xml:space="preserve">
     <value>Off</value>
   </data>
+  <data name="ConfigSettingsDialog_SafeRestore.Header" xml:space="preserve">
+    <value>Safe restore (Clean mode)</value>
+  </data>
+  <data name="ConfigSettingsDialog_SafeRestore.OnContent" xml:space="preserve">
+    <value>On - auto rollback from snapshot on failure</value>
+  </data>
+  <data name="ConfigSettingsDialog_SafeRestore.OffContent" xml:space="preserve">
+    <value>Off - Clean failure may lose original files</value>
+  </data>
+  <data name="ConfigSettingsDialog_VerifyArchiveBeforeRestore.Header" xml:space="preserve">
+    <value>Verify backup integrity before restore</value>
+  </data>
+  <data name="ConfigSettingsDialog_VerifyArchiveBeforeRestore.OnContent" xml:space="preserve">
+    <value>On - run 7z test first</value>
+  </data>
+  <data name="ConfigSettingsDialog_VerifyArchiveBeforeRestore.OffContent" xml:space="preserve">
+    <value>Off - restore directly</value>
+  </data>
   <data name="ConfigSettingsDialog_Automation.Header" xml:space="preserve">
     <value>Automation</value>
   </data>
@@ -1577,6 +1595,36 @@ If you have a listener subscribed to this signal, it should receive a message.</
   <data name="BackupService_Log_RestoreChainBuilt" xml:space="preserve">
     <value>Restore chain built with {0} archives</value>
   </data>
+  <data name="BackupService_Log_RestoreIntegrityCheckBegin" xml:space="preserve">
+    <value>Starting restore integrity check for {0} archive(s)</value>
+  </data>
+  <data name="BackupService_Log_RestoreIntegrityArchiveCheckFailed" xml:space="preserve">
+    <value>Integrity check failed before restore: {0}</value>
+  </data>
+  <data name="BackupService_Log_RestoreIntegrityCheckPassed" xml:space="preserve">
+    <value>Restore integrity check passed</value>
+  </data>
+  <data name="BackupService_Log_RestoreIntegrityCheckFailedStop" xml:space="preserve">
+    <value>Restore aborted: backup integrity check failed</value>
+  </data>
+  <data name="BackupService_Log_RestoreSnapshotPrepared" xml:space="preserve">
+    <value>Safe restore snapshot created: {0}</value>
+  </data>
+  <data name="BackupService_Log_RestoreSnapshotPrepareFailed" xml:space="preserve">
+    <value>Failed to create safe restore snapshot: {0}</value>
+  </data>
+  <data name="BackupService_Log_RestoreSnapshotCleanupFailed" xml:space="preserve">
+    <value>Failed to clean restore snapshot: {0}</value>
+  </data>
+  <data name="BackupService_Log_RestoreRollbackBegin" xml:space="preserve">
+    <value>Restore failed, starting rollback from snapshot: {0}</value>
+  </data>
+  <data name="BackupService_Log_RestoreRollbackSuccess" xml:space="preserve">
+    <value>Rollback completed, pre-restore state recovered</value>
+  </data>
+  <data name="BackupService_Log_RestoreRollbackFailed" xml:space="preserve">
+    <value>Rollback failed: {0}</value>
+  </data>
   <data name="App_WindowTitle" xml:space="preserve">
     <value>FolderRewind</value>
   </data>
@@ -2271,11 +2319,20 @@ Status: {3}</value>
   <data name="BackupService_Task_RestoreFailed" xml:space="preserve">
     <value>Restore failed</value>
   </data>
+  <data name="BackupService_Task_VerifyingRestore_N" xml:space="preserve">
+    <value>Verifying backup integrity ({0}/{1})</value>
+  </data>
   <data name="SettingsPage_DefaultBackupRootPath.Text" xml:space="preserve">
     <value>Default backup storage path</value>
   </data>
   <data name="SettingsPage_DefaultBackupRootPathDesc.Text" xml:space="preserve">
     <value>New configs automatically use "default path\config name" as destination (still editable per config).</value>
+  </data>
+  <data name="SettingsPage_RestoreTempRootPath.Text" xml:space="preserve">
+    <value>Safe restore temp path</value>
+  </data>
+  <data name="SettingsPage_RestoreTempRootPathDesc.Text" xml:space="preserve">
+    <value>Snapshot storage location for Clean safe restore. Use a fast disk with enough free space.</value>
   </data>
   <data name="FolderManager_MineRewindHint_Title" xml:space="preserve">
     <value>Minecraft folder detected</value>
