@@ -283,6 +283,9 @@ namespace FolderRewind.Models
         // 过滤器 (黑名单/白名单)
         public FilterSettings Filters { get; set; } = new();
 
+        // 云上传设置（通过外部工具执行）
+        public CloudSettings Cloud { get; set; } = new();
+
         // 扩展属性 (用于插件，如 Minecraft 插件存储 rcon 端口等)
         public Dictionary<string, string> ExtendedProperties { get; set; } = new();
     }
@@ -335,6 +338,88 @@ namespace FolderRewind.Models
         Full = 0,       // 全量备份：每次生成独立完整包
         Incremental = 1,// 增量(Smart)备份：仅备份变化文件，依赖元数据
         Overwrite = 2   // 覆写备份：使用 7z update 指令更新现有包
+    }
+
+    public enum CloudCommandMode
+    {
+        Rclone = 0,
+        Custom = 1
+    }
+
+    public enum CloudTemplateKind
+    {
+        UploadCurrentArchive = 0,
+        UploadBackupDirectory = 1,
+        Custom = 2
+    }
+
+    public class CloudSettings : ObservableObject
+    {
+        private bool _enabled;
+        private CloudCommandMode _commandMode = CloudCommandMode.Rclone;
+        private CloudTemplateKind _templateKind = CloudTemplateKind.UploadCurrentArchive;
+        private string _executablePath = "rclone.exe";
+        private string _argumentsTemplate = "copyto \"{ArchiveFilePath}\" \"{RemoteBasePath}/{ConfigName}/{FolderName}/{ArchiveFileName}\"";
+        private string _workingDirectory = "";
+        private int _timeoutSeconds = 600;
+        private int _retryCount;
+        private string _remoteBasePath = "remote:FolderRewind";
+        private DateTime _lastRunUtc = DateTime.MinValue;
+        private int _lastExitCode;
+        private string _lastErrorMessage = "";
+
+        public bool Enabled { get => _enabled; set => SetProperty(ref _enabled, value); }
+
+        public CloudCommandMode CommandMode { get => _commandMode; set => SetProperty(ref _commandMode, value); }
+
+        public CloudTemplateKind TemplateKind { get => _templateKind; set => SetProperty(ref _templateKind, value); }
+
+        public string ExecutablePath { get => _executablePath; set => SetProperty(ref _executablePath, value ?? string.Empty); }
+
+        public string ArgumentsTemplate { get => _argumentsTemplate; set => SetProperty(ref _argumentsTemplate, value ?? string.Empty); }
+
+        public string WorkingDirectory { get => _workingDirectory; set => SetProperty(ref _workingDirectory, value ?? string.Empty); }
+
+        public int TimeoutSeconds { get => _timeoutSeconds; set => SetProperty(ref _timeoutSeconds, value); }
+
+        public int RetryCount { get => _retryCount; set => SetProperty(ref _retryCount, value); }
+
+        public string RemoteBasePath { get => _remoteBasePath; set => SetProperty(ref _remoteBasePath, value ?? string.Empty); }
+
+        public DateTime LastRunUtc
+        {
+            get => _lastRunUtc;
+            set
+            {
+                if (SetProperty(ref _lastRunUtc, value))
+                {
+                    OnPropertyChanged(nameof(LastRunDisplay));
+                    OnPropertyChanged(nameof(LastExitCodeDisplay));
+                }
+            }
+        }
+
+        public int LastExitCode
+        {
+            get => _lastExitCode;
+            set
+            {
+                if (SetProperty(ref _lastExitCode, value))
+                {
+                    OnPropertyChanged(nameof(LastExitCodeDisplay));
+                }
+            }
+        }
+
+        public string LastErrorMessage { get => _lastErrorMessage; set => SetProperty(ref _lastErrorMessage, value ?? string.Empty); }
+
+        [JsonIgnore]
+        public string LastRunDisplay => LastRunUtc == DateTime.MinValue
+            ? "-"
+            : LastRunUtc.ToLocalTime().ToString("yyyy-MM-dd HH:mm:ss");
+
+        [JsonIgnore]
+        public string LastExitCodeDisplay => LastRunUtc == DateTime.MinValue ? "-" : LastExitCode.ToString();
     }
 
     /// <summary>

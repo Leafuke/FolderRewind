@@ -472,6 +472,8 @@ namespace FolderRewind.Services
                     catch
                     {
                     }
+
+                    CloudSyncService.QueueUploadAfterBackup(config, folder, completedFileName, comment);
                 }
 
                 Log(
@@ -574,6 +576,7 @@ namespace FolderRewind.Services
                     {
                         ConfigService.Save();
                         HistoryService.AddEntry(config, folder, result.GeneratedFileName!, "Plugin", comment);
+                        CloudSyncService.QueueUploadAfterBackup(config, folder, result.GeneratedFileName, comment);
                     }
 
                     Log(

@@ -262,7 +262,135 @@
             </ScrollViewer>
         </PivotItem>
 
-        <!-- 5. 过滤器 (黑名单) -->
+        <!-- 5. 云上传 -->
+        <PivotItem x:Uid="ConfigSettingsDialog_Cloud">
+            <ScrollViewer VerticalScrollBarVisibility="Auto" Padding="0,0,12,0">
+            <StackPanel Spacing="16" Padding="0,12">
+                <ToggleSwitch x:Uid="ConfigSettingsDialog_CloudEnabled" IsOn="{x:Bind Config.Cloud.Enabled, Mode=TwoWay}" Toggled="OnCloudToggleChanged"/>
+                <TextBlock x:Uid="ConfigSettingsDialog_CloudEnabledDesc" Style="{StaticResource CaptionTextBlockStyle}" Foreground="{ThemeResource TextFillColorSecondaryBrush}" TextWrapping="Wrap"/>
+
+                <StackPanel Visibility="{x:Bind Config.Cloud.Enabled, Mode=OneWay, Converter={StaticResource BoolToVisConverter}}" Spacing="16">
+                    <ComboBox x:Uid="ConfigSettingsDialog_CloudMode" SelectedIndex="{x:Bind CloudModeSelectedIndex, Mode=TwoWay}" SelectionChanged="OnCloudModeSelectionChanged">
+                        <ComboBoxItem x:Uid="ConfigSettingsDialog_CloudModeRclone"/>
+                        <ComboBoxItem x:Uid="ConfigSettingsDialog_CloudModeCustom"/>
+                    </ComboBox>
+
+                    <StackPanel Visibility="{x:Bind IsRcloneMode, Mode=OneWay, Converter={StaticResource BoolToVisConverter}}" Spacing="8">
+                        <TextBlock x:Uid="ConfigSettingsDialog_CloudRemoteBasePath" FontWeight="SemiBold"/>
+                        <TextBox x:Name="CloudRemoteBasePathBox" x:Uid="ConfigSettingsDialog_CloudRemoteBasePathPlaceholder" Text="{x:Bind Config.Cloud.RemoteBasePath, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" TextChanged="OnCloudInputChanged"/>
+                        <TextBlock x:Uid="ConfigSettingsDialog_CloudRemoteBasePathDesc" Style="{StaticResource CaptionTextBlockStyle}" Foreground="{ThemeResource TextFillColorSecondaryBrush}" TextWrapping="Wrap"/>
+
+                        <Grid ColumnSpacing="8">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="Auto"/>
+                            </Grid.ColumnDefinitions>
+                            <ComboBox x:Uid="ConfigSettingsDialog_CloudTemplate" SelectedIndex="{x:Bind CloudTemplateSelectedIndex, Mode=TwoWay}" SelectionChanged="OnCloudTemplateSelectionChanged">
+                                <ComboBoxItem x:Uid="ConfigSettingsDialog_CloudTemplateArchive"/>
+                                <ComboBoxItem x:Uid="ConfigSettingsDialog_CloudTemplateDirectory"/>
+                                <ComboBoxItem x:Uid="ConfigSettingsDialog_CloudTemplateCustom"/>
+                            </ComboBox>
+                            <Button Grid.Column="1" x:Uid="ConfigSettingsDialog_CloudApplyTemplate" Click="OnApplyCloudTemplateClick"/>
+                        </Grid>
+                    </StackPanel>
+
+                    <StackPanel Spacing="8">
+                        <TextBlock x:Uid="ConfigSettingsDialog_CloudExecutable" FontWeight="SemiBold"/>
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="Auto"/>
+                            </Grid.ColumnDefinitions>
+                            <TextBox x:Name="CloudExecutableBox" x:Uid="ConfigSettingsDialog_CloudExecutablePlaceholder" Text="{x:Bind Config.Cloud.ExecutablePath, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" TextChanged="OnCloudInputChanged"/>
+                            <Button Grid.Column="1" Margin="8,0,0,0" Click="OnBrowseCloudExecutableClick" x:Uid="ConfigSettingsDialog_CloudBrowseExecutable">
+                                <FontIcon Glyph="&#xE8A7;"/>
+                            </Button>
+                        </Grid>
+                    </StackPanel>
+
+                    <StackPanel Spacing="8">
+                        <TextBlock x:Uid="ConfigSettingsDialog_CloudArguments" FontWeight="SemiBold"/>
+                        <TextBox x:Name="CloudArgumentsBox" x:Uid="ConfigSettingsDialog_CloudArgumentsPlaceholder" Text="{x:Bind Config.Cloud.ArgumentsTemplate, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" TextChanged="OnCloudInputChanged" TextWrapping="Wrap" AcceptsReturn="True" MinHeight="84"/>
+                        <TextBlock x:Uid="ConfigSettingsDialog_CloudArgumentsDesc" Style="{StaticResource CaptionTextBlockStyle}" Foreground="{ThemeResource TextFillColorSecondaryBrush}" TextWrapping="Wrap"/>
+                    </StackPanel>
+
+                    <StackPanel Spacing="8">
+                        <TextBlock x:Uid="ConfigSettingsDialog_CloudWorkingDirectory" FontWeight="SemiBold"/>
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="Auto"/>
+                            </Grid.ColumnDefinitions>
+                            <TextBox x:Name="CloudWorkingDirectoryBox" x:Uid="ConfigSettingsDialog_CloudWorkingDirectoryPlaceholder" Text="{x:Bind Config.Cloud.WorkingDirectory, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" TextChanged="OnCloudInputChanged"/>
+                            <Button Grid.Column="1" Margin="8,0,0,0" Click="OnBrowseCloudWorkingDirectoryClick" x:Uid="ConfigSettingsDialog_CloudBrowseWorkingDirectory">
+                                <FontIcon Glyph="&#xE8B7;"/>
+                            </Button>
+                        </Grid>
+                    </StackPanel>
+
+                    <Grid ColumnSpacing="12">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*"/>
+                            <ColumnDefinition Width="*"/>
+                        </Grid.ColumnDefinitions>
+
+                        <StackPanel Spacing="8">
+                            <TextBlock x:Uid="ConfigSettingsDialog_CloudTimeout" FontWeight="SemiBold"/>
+                            <StackPanel Orientation="Horizontal" Spacing="8">
+                                <NumberBox x:Name="CloudTimeoutBox" Value="{x:Bind Config.Cloud.TimeoutSeconds, Mode=TwoWay}" Minimum="10" Maximum="86400" SpinButtonPlacementMode="Inline" Width="140" ValueChanged="OnCloudNumberValueChanged"/>
+                                <TextBlock x:Uid="ConfigSettingsDialog_CloudTimeoutSuffix" VerticalAlignment="Center"/>
+                            </StackPanel>
+                        </StackPanel>
+
+                        <StackPanel Grid.Column="1" Spacing="8">
+                            <TextBlock x:Uid="ConfigSettingsDialog_CloudRetryCount" FontWeight="SemiBold"/>
+                            <StackPanel Orientation="Horizontal" Spacing="8">
+                                <NumberBox x:Name="CloudRetryCountBox" Value="{x:Bind Config.Cloud.RetryCount, Mode=TwoWay}" Minimum="0" Maximum="5" SpinButtonPlacementMode="Inline" Width="120" ValueChanged="OnCloudNumberValueChanged"/>
+                                <TextBlock x:Uid="ConfigSettingsDialog_CloudRetryCountSuffix" VerticalAlignment="Center"/>
+                            </StackPanel>
+                        </StackPanel>
+                    </Grid>
+
+                    <StackPanel Spacing="8">
+                        <TextBlock x:Uid="ConfigSettingsDialog_CloudVariables" FontWeight="SemiBold"/>
+                        <TextBlock x:Uid="ConfigSettingsDialog_CloudVariablesDesc" Style="{StaticResource CaptionTextBlockStyle}" Foreground="{ThemeResource TextFillColorSecondaryBrush}" TextWrapping="Wrap"/>
+                        <TextBox Text="{x:Bind CloudVariablesHelpText, Mode=OneWay}" IsReadOnly="True" TextWrapping="Wrap" AcceptsReturn="True" MinHeight="150"/>
+                    </StackPanel>
+
+                    <StackPanel Spacing="8">
+                        <TextBlock x:Uid="ConfigSettingsDialog_CloudPreview" FontWeight="SemiBold"/>
+                        <TextBox Text="{x:Bind CloudPreviewText, Mode=OneWay}" IsReadOnly="True" TextWrapping="Wrap" AcceptsReturn="True" MinHeight="96"/>
+                    </StackPanel>
+
+                    <StackPanel Spacing="8">
+                        <TextBlock x:Uid="ConfigSettingsDialog_CloudLastStatus" FontWeight="SemiBold"/>
+                        <Grid ColumnSpacing="8">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="Auto"/>
+                                <ColumnDefinition Width="*"/>
+                            </Grid.ColumnDefinitions>
+                            <TextBlock x:Uid="ConfigSettingsDialog_CloudLastRunLabel"/>
+                            <TextBlock Grid.Column="1" Text="{x:Bind Config.Cloud.LastRunDisplay, Mode=OneWay}"/>
+                        </Grid>
+                        <Grid ColumnSpacing="8">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="Auto"/>
+                                <ColumnDefinition Width="*"/>
+                            </Grid.ColumnDefinitions>
+                            <TextBlock x:Uid="ConfigSettingsDialog_CloudLastExitCodeLabel"/>
+                            <TextBlock Grid.Column="1" Text="{x:Bind Config.Cloud.LastExitCodeDisplay, Mode=OneWay}"/>
+                        </Grid>
+                        <StackPanel Spacing="4" Visibility="{x:Bind Config.Cloud.LastErrorMessage, Mode=OneWay, Converter={StaticResource StringNullOrEmptyToVisConverter}}">
+                            <TextBlock x:Uid="ConfigSettingsDialog_CloudLastErrorLabel"/>
+                            <TextBlock Text="{x:Bind Config.Cloud.LastErrorMessage, Mode=OneWay}" TextWrapping="Wrap" Foreground="{ThemeResource TextFillColorSecondaryBrush}"/>
+                        </StackPanel>
+                    </StackPanel>
+                </StackPanel>
+            </StackPanel>
+            </ScrollViewer>
+        </PivotItem>
+
+        <!-- 6. 过滤器 (黑名单) -->
         <PivotItem x:Uid="ConfigSettingsDialog_Filter">
             <ScrollViewer VerticalScrollBarVisibility="Auto" Padding="0,0,12,0">
             <StackPanel Spacing="12" Padding="0,12">

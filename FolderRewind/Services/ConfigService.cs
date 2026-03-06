@@ -130,6 +130,11 @@ namespace FolderRewind.Services
                 if (config.Filters == null)
                     config.Filters = new FilterSettings();
 
+                if (config.Cloud == null)
+                    config.Cloud = new CloudSettings();
+                else
+                    NormalizeCloudSettings(config.Cloud);
+
                 // 兼容旧版配置--还原白名单可能为 null
                 if (config.Filters.RestoreWhitelist == null)
                     config.Filters.RestoreWhitelist = new System.Collections.ObjectModel.ObservableCollection<string>();
@@ -201,6 +206,28 @@ namespace FolderRewind.Services
 
             CurrentConfig.BackupConfigs.Add(defaultConfig);
             Save();
+        }
+
+        private static void NormalizeCloudSettings(CloudSettings cloud)
+        {
+            if (string.IsNullOrWhiteSpace(cloud.ExecutablePath))
+                cloud.ExecutablePath = "rclone.exe";
+
+            if (string.IsNullOrWhiteSpace(cloud.RemoteBasePath))
+                cloud.RemoteBasePath = "remote:FolderRewind";
+
+            if (cloud.TimeoutSeconds <= 0)
+                cloud.TimeoutSeconds = 600;
+
+            if (cloud.RetryCount < 0)
+                cloud.RetryCount = 0;
+
+            if (string.IsNullOrWhiteSpace(cloud.ArgumentsTemplate) && cloud.CommandMode == CloudCommandMode.Rclone)
+            {
+                cloud.ArgumentsTemplate = cloud.TemplateKind == CloudTemplateKind.UploadBackupDirectory
+                    ? "copy \"{BackupSubDir}\" \"{RemoteBasePath}/{ConfigName}/{FolderName}\""
+                    : "copyto \"{ArchiveFilePath}\" \"{RemoteBasePath}/{ConfigName}/{FolderName}/{ArchiveFileName}\"";
+            }
         }
 
         #endregion

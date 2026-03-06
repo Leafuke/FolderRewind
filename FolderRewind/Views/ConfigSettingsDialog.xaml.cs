@@ -42,6 +42,52 @@ namespace FolderRewind.Views
 
         public string ConfigFilePath => ConfigService.ConfigFilePath;
 
+        public string CloudVariablesHelpText => CloudSyncService.VariablesHelpText;
+
+        public string CloudPreviewText => CloudSyncService.BuildPreview(Config);
+
+        public bool IsRcloneMode => Config?.Cloud?.CommandMode != CloudCommandMode.Custom;
+
+        public int CloudModeSelectedIndex
+        {
+            get => Config?.Cloud?.CommandMode == CloudCommandMode.Custom ? 1 : 0;
+            set
+            {
+                if (Config?.Cloud == null) return;
+
+                Config.Cloud.CommandMode = value == 1 ? CloudCommandMode.Custom : CloudCommandMode.Rclone;
+                if (Config.Cloud.CommandMode == CloudCommandMode.Rclone)
+                {
+                    if (string.IsNullOrWhiteSpace(Config.Cloud.ExecutablePath))
+                        Config.Cloud.ExecutablePath = "rclone.exe";
+
+                    if (string.IsNullOrWhiteSpace(Config.Cloud.ArgumentsTemplate))
+                        CloudSyncService.ApplyRecommendedTemplate(Config.Cloud);
+                }
+            }
+        }
+
+        public int CloudTemplateSelectedIndex
+        {
+            get => Config?.Cloud?.TemplateKind switch
+            {
+                CloudTemplateKind.UploadBackupDirectory => 1,
+                CloudTemplateKind.Custom => 2,
+                _ => 0
+            };
+            set
+            {
+                if (Config?.Cloud == null) return;
+
+                Config.Cloud.TemplateKind = value switch
+                {
+                    1 => CloudTemplateKind.UploadBackupDirectory,
+                    2 => CloudTemplateKind.Custom,
+                    _ => CloudTemplateKind.UploadCurrentArchive
+                };
+            }
+        }
+
 
 
         public int FormatSelectedIndex
@@ -122,6 +168,7 @@ namespace FolderRewind.Views
         {
             this.InitializeComponent();
             this.Config = config;
+            this.Config.Cloud ??= new CloudSettings();
             this.XamlRoot = App._window.Content.XamlRoot;
 
             // 应用当前主题到对话框
@@ -161,7 +208,18 @@ namespace FolderRewind.Views
             IconGrid.ItemsSource = IconCatalog.ConfigIconGlyphs;
             IconGrid.SelectedItem = IconCatalog.ConfigIconGlyphs.FirstOrDefault(i => i == Config.IconGlyph) ?? IconCatalog.ConfigIconGlyphs.First();
 
+            Config.PropertyChanged += (_, e) =>
+            {
+                if (e.PropertyName == nameof(BackupConfig.Name) || e.PropertyName == nameof(BackupConfig.DestinationPath))
+                {
+                    UpdateCloudBindings();
+                }
+            };
+
+            Config.Cloud.PropertyChanged += (_, _) => UpdateCloudBindings();
+
             InitializeScheduleUI();
+            UpdateCloudBindings();
         }
 
         private readonly List<string> _monthOptions = new();
@@ -449,6 +507,83 @@ namespace FolderRewind.Views
         private void OnOpenConfigFileClick(object sender, RoutedEventArgs e)
         {
             ConfigService.OpenConfigFile();
+        }
+
+        private void OnCloudToggleChanged(object sender, RoutedEventArgs e)
+        {
+            UpdateCloudBindings();
+        }
+
+        private void OnCloudModeSelectionChanged(object sender, SelectionChangedEventArgs e)
+        {
+            UpdateCloudBindings();
+        }
+
+        private void OnCloudTemplateSelectionChanged(object sender, SelectionChangedEventArgs e)
+        {
+            UpdateCloudBindings();
+        }
+
+        private void OnCloudInputChanged(object sender, TextChangedEventArgs e)
+        {
+            UpdateCloudBindings();
+        }
+
+        private void OnCloudNumberValueChanged(NumberBox sender, NumberBoxValueChangedEventArgs args)
+        {
+            UpdateCloudBindings();
+        }
+
+        private void OnApplyCloudTemplateClick(object sender, RoutedEventArgs e)
+        {
+            if (Config?.Cloud == null || Config.Cloud.TemplateKind == CloudTemplateKind.Custom)
+            {
+                UpdateCloudBindings();
+                return;
+            }
+
+            CloudSyncService.ApplyRecommendedTemplate(Config.Cloud);
+            UpdateCloudBindings();
+        }
+
+        private async void OnBrowseCloudExecutableClick(object sender, RoutedEventArgs e)
+        {
+            var picker = new FileOpenPicker();
+            picker.SuggestedStartLocation = PickerLocationId.ComputerFolder;
+            picker.FileTypeFilter.Add(".exe");
+            picker.FileTypeFilter.Add(".cmd");
+            picker.FileTypeFilter.Add(".bat");
+            picker.FileTypeFilter.Add(".ps1");
+
+            if (App._window != null)
+                InitializeWithWindow.Initialize(picker, WindowNative.GetWindowHandle(App._window));
+
+            var file = await picker.PickSingleFileAsync();
+            if (file == null) return;
+
+            Config.Cloud.ExecutablePath = file.Path;
+            UpdateCloudBindings();
+        }
+
+        private async void OnBrowseCloudWorkingDirectoryClick(object sender, RoutedEventArgs e)
+        {
+            var picker = new FolderPicker();
+            picker.SuggestedStartLocation = PickerLocationId.ComputerFolder;
+            picker.FileTypeFilter.Add("*");
+
+            if (App._window != null)
+                InitializeWithWindow.Initialize(picker, WindowNative.GetWindowHandle(App._window));
+
+            var folder = await picker.PickSingleFolderAsync();
+            if (folder == null) return;
+
+            Config.Cloud.WorkingDirectory = folder.Path;
+            UpdateCloudBindings();
+        }
+
+        private void UpdateCloudBindings()
+        {
+            _ = DispatcherQueue.TryEnqueue(() => Bindings.Update());
         }
 
         private void OnSaveClick(ContentDialog sender, ContentDialogButtonClickEventArgs args)

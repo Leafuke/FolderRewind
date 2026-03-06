@@ -14,6 +14,7 @@ namespace FolderRewind.Models
     [JsonSerializable(typeof(ScheduleEntry))]
     [JsonSerializable(typeof(FilterSettings))]
     [JsonSerializable(typeof(FileTypeRule))]
+    [JsonSerializable(typeof(CloudSettings))]
     [JsonSerializable(typeof(ManagedFolder))]
     [JsonSerializable(typeof(HistoryItem))]
     [JsonSerializable(typeof(List<HistoryItem>))]

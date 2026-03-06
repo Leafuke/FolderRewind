@@ -1998,6 +1998,63 @@ Comment: {1}
   <data name="Notification_RestoreCompleted_Failed" xml:space="preserve">
     <value>Folder "{0}" restore failed: {1}</value>
   </data>
+  <data name="CloudSync_Notification_Title" xml:space="preserve">
+    <value>Cloud Upload</value>
+  </data>
+  <data name="CloudSync_Notification_UploadFailed" xml:space="preserve">
+    <value>Cloud upload failed for folder "{0}": {1}</value>
+  </data>
+  <data name="CloudSync_Task_Name" xml:space="preserve">
+    <value>{0} · Cloud Upload</value>
+  </data>
+  <data name="CloudSync_Task_Queued" xml:space="preserve">
+    <value>Queued for upload...</value>
+  </data>
+  <data name="CloudSync_Task_Preparing" xml:space="preserve">
+    <value>Preparing upload...</value>
+  </data>
+  <data name="CloudSync_Task_Running" xml:space="preserve">
+    <value>Uploading...</value>
+  </data>
+  <data name="CloudSync_Task_Retrying" xml:space="preserve">
+    <value>Retrying upload ({0}/{1})...</value>
+  </data>
+  <data name="CloudSync_Task_Completed" xml:space="preserve">
+    <value>Cloud upload completed</value>
+  </data>
+  <data name="CloudSync_Task_Failed" xml:space="preserve">
+    <value>Cloud upload failed</value>
+  </data>
+  <data name="CloudSync_Task_Timeout" xml:space="preserve">
+    <value>Command timed out after {0} seconds</value>
+  </data>
+  <data name="CloudSync_Log_MissingArchive" xml:space="preserve">
+    <value>Backup archive to upload was not found: {0}</value>
+  </data>
+  <data name="CloudSync_Log_WorkingDirectoryMissing" xml:space="preserve">
+    <value>Working directory does not exist: {0}</value>
+  </data>
+  <data name="CloudSync_Log_Queued" xml:space="preserve">
+    <value>Queued cloud upload for folder "{0}": {1}</value>
+  </data>
+  <data name="CloudSync_Log_CommandStart" xml:space="preserve">
+    <value>Starting cloud upload command for folder "{0}": {1}</value>
+  </data>
+  <data name="CloudSync_Log_CommandSucceeded" xml:space="preserve">
+    <value>Cloud upload completed for folder "{0}"</value>
+  </data>
+  <data name="CloudSync_Log_CommandFailed" xml:space="preserve">
+    <value>Cloud upload failed for folder "{0}": {1}</value>
+  </data>
+  <data name="CloudSync_Error_ExecutableEmpty" xml:space="preserve">
+    <value>No executable path is configured</value>
+  </data>
+  <data name="CloudSync_Error_StartFailed" xml:space="preserve">
+    <value>Failed to start cloud upload command</value>
+  </data>
+  <data name="CloudSync_Error_ExitCode" xml:space="preserve">
+    <value>Command failed with exit code: {0}</value>
+  </data>
   <data name="Common_ToggleOn" xml:space="preserve">
     <value>On</value>
   </data>
@@ -2282,6 +2339,114 @@ Status: {3}</value>
   </data>
   <data name="Schedule_NextRun" xml:space="preserve">
     <value>Next run: {0}</value>
+  </data>
+  <data name="ConfigSettingsDialog_Cloud.Header" xml:space="preserve">
+    <value>Cloud</value>
+  </data>
+  <data name="ConfigSettingsDialog_CloudEnabled.Header" xml:space="preserve">
+    <value>Enable post-backup cloud upload</value>
+  </data>
+  <data name="ConfigSettingsDialog_CloudEnabled.OnContent" xml:space="preserve">
+    <value>Enabled</value>
+  </data>
+  <data name="ConfigSettingsDialog_CloudEnabled.OffContent" xml:space="preserve">
+    <value>Disabled</value>
+  </data>
+  <data name="ConfigSettingsDialog_CloudEnabledDesc.Text" xml:space="preserve">
+    <value>FolderRewind only calls a third-party tool after a successful local backup. It does not manage cloud accounts, remote browsing, or cloud restore directly.</value>
+  </data>
+  <data name="ConfigSettingsDialog_CloudMode.Header" xml:space="preserve">
+    <value>Execution mode</value>
+  </data>
+  <data name="ConfigSettingsDialog_CloudModeRclone.Content" xml:space="preserve">
+    <value>rclone simple mode</value>
+  </data>
+  <data name="ConfigSettingsDialog_CloudModeCustom.Content" xml:space="preserve">
+    <value>Advanced custom command</value>
+  </data>
+  <data name="ConfigSettingsDialog_CloudRemoteBasePath.Text" xml:space="preserve">
+    <value>Remote base path</value>
+  </data>
+  <data name="ConfigSettingsDialog_CloudRemoteBasePathPlaceholder.PlaceholderText" xml:space="preserve">
+    <value>For example: remote:FolderRewind</value>
+  </data>
+  <data name="ConfigSettingsDialog_CloudRemoteBasePathDesc.Text" xml:space="preserve">
+    <value>Set up rclone with rclone config first. Enter the remote name and base path here, for example remote:FolderRewind.</value>
+  </data>
+  <data name="ConfigSettingsDialog_CloudTemplate.Header" xml:space="preserve">
+    <value>Template</value>
+  </data>
+  <data name="ConfigSettingsDialog_CloudTemplateArchive.Content" xml:space="preserve">
+    <value>Upload current archive only (recommended)</value>
+  </data>
+  <data name="ConfigSettingsDialog_CloudTemplateDirectory.Content" xml:space="preserve">
+    <value>Upload current backup directory</value>
+  </data>
+  <data name="ConfigSettingsDialog_CloudTemplateCustom.Content" xml:space="preserve">
+    <value>Custom</value>
+  </data>
+  <data name="ConfigSettingsDialog_CloudApplyTemplate.Content" xml:space="preserve">
+    <value>Apply template</value>
+  </data>
+  <data name="ConfigSettingsDialog_CloudExecutable.Text" xml:space="preserve">
+    <value>Executable path</value>
+  </data>
+  <data name="ConfigSettingsDialog_CloudExecutablePlaceholder.PlaceholderText" xml:space="preserve">
+    <value>For example: rclone.exe or a custom tool path</value>
+  </data>
+  <data name="ConfigSettingsDialog_CloudBrowseExecutable.ToolTipService.ToolTip" xml:space="preserve">
+    <value>Browse executable</value>
+  </data>
+  <data name="ConfigSettingsDialog_CloudArguments.Text" xml:space="preserve">
+    <value>Arguments template</value>
+  </data>
+  <data name="ConfigSettingsDialog_CloudArgumentsPlaceholder.PlaceholderText" xml:space="preserve">
+    <value>Enter an arguments template and use the variables below</value>
+  </data>
+  <data name="ConfigSettingsDialog_CloudArgumentsDesc.Text" xml:space="preserve">
+    <value>Prefer uploading the current archive instead of syncing the entire directory. That matches FolderRewind's current history and restore model better.</value>
+  </data>
+  <data name="ConfigSettingsDialog_CloudWorkingDirectory.Text" xml:space="preserve">
+    <value>Working directory (optional)</value>
+  </data>
+  <data name="ConfigSettingsDialog_CloudWorkingDirectoryPlaceholder.PlaceholderText" xml:space="preserve">
+    <value>Leave empty to use the executable default</value>
+  </data>
+  <data name="ConfigSettingsDialog_CloudBrowseWorkingDirectory.ToolTipService.ToolTip" xml:space="preserve">
+    <value>Browse working directory</value>
+  </data>
+  <data name="ConfigSettingsDialog_CloudTimeout.Text" xml:space="preserve">
+    <value>Timeout</value>
+  </data>
+  <data name="ConfigSettingsDialog_CloudTimeoutSuffix.Text" xml:space="preserve">
+    <value>seconds</value>
+  </data>
+  <data name="ConfigSettingsDialog_CloudRetryCount.Text" xml:space="preserve">
+    <value>Retry count</value>
+  </data>
+  <data name="ConfigSettingsDialog_CloudRetryCountSuffix.Text" xml:space="preserve">
+    <value>times</value>
+  </data>
+  <data name="ConfigSettingsDialog_CloudVariables.Text" xml:space="preserve">
+    <value>Available variables</value>
+  </data>
+  <data name="ConfigSettingsDialog_CloudVariablesDesc.Text" xml:space="preserve">
+    <value>These variables are resolved with the current backup context before the command runs. Both rclone mode and custom mode can use them.</value>
+  </data>
+  <data name="ConfigSettingsDialog_CloudPreview.Text" xml:space="preserve">
+    <value>Command preview</value>
+  </data>
+  <data name="ConfigSettingsDialog_CloudLastStatus.Text" xml:space="preserve">
+    <value>Last run status</value>
+  </data>
+  <data name="ConfigSettingsDialog_CloudLastRunLabel.Text" xml:space="preserve">
+    <value>Run time:</value>
+  </data>
+  <data name="ConfigSettingsDialog_CloudLastExitCodeLabel.Text" xml:space="preserve">
+    <value>Exit code:</value>
+  </data>
+  <data name="ConfigSettingsDialog_CloudLastErrorLabel.Text" xml:space="preserve">
+    <value>Error summary</value>
   </data>
   <data name="ConfigSettingsDialog_FileTypeHandling.Header" xml:space="preserve">
     <value>Custom File Type Handling</value>

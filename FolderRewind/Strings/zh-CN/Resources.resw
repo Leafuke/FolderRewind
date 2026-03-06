@@ -1998,6 +1998,63 @@
   <data name="Notification_RestoreCompleted_Failed" xml:space="preserve">
     <value>文件夹 "{0}" 恢复失败：{1}</value>
   </data>
+  <data name="CloudSync_Notification_Title" xml:space="preserve">
+    <value>云上传</value>
+  </data>
+  <data name="CloudSync_Notification_UploadFailed" xml:space="preserve">
+    <value>文件夹 "{0}" 的云上传失败：{1}</value>
+  </data>
+  <data name="CloudSync_Task_Name" xml:space="preserve">
+    <value>{0} · 云上传</value>
+  </data>
+  <data name="CloudSync_Task_Queued" xml:space="preserve">
+    <value>等待上传...</value>
+  </data>
+  <data name="CloudSync_Task_Preparing" xml:space="preserve">
+    <value>准备上传...</value>
+  </data>
+  <data name="CloudSync_Task_Running" xml:space="preserve">
+    <value>正在上传...</value>
+  </data>
+  <data name="CloudSync_Task_Retrying" xml:space="preserve">
+    <value>正在重试上传 ({0}/{1})...</value>
+  </data>
+  <data name="CloudSync_Task_Completed" xml:space="preserve">
+    <value>云上传完成</value>
+  </data>
+  <data name="CloudSync_Task_Failed" xml:space="preserve">
+    <value>云上传失败</value>
+  </data>
+  <data name="CloudSync_Task_Timeout" xml:space="preserve">
+    <value>命令执行超时（{0} 秒）</value>
+  </data>
+  <data name="CloudSync_Log_MissingArchive" xml:space="preserve">
+    <value>未找到待上传的备份文件：{0}</value>
+  </data>
+  <data name="CloudSync_Log_WorkingDirectoryMissing" xml:space="preserve">
+    <value>工作目录不存在：{0}</value>
+  </data>
+  <data name="CloudSync_Log_Queued" xml:space="preserve">
+    <value>已将文件夹 "{0}" 的云上传加入队列：{1}</value>
+  </data>
+  <data name="CloudSync_Log_CommandStart" xml:space="preserve">
+    <value>开始执行文件夹 "{0}" 的云上传命令：{1}</value>
+  </data>
+  <data name="CloudSync_Log_CommandSucceeded" xml:space="preserve">
+    <value>文件夹 "{0}" 的云上传已完成</value>
+  </data>
+  <data name="CloudSync_Log_CommandFailed" xml:space="preserve">
+    <value>文件夹 "{0}" 的云上传失败：{1}</value>
+  </data>
+  <data name="CloudSync_Error_ExecutableEmpty" xml:space="preserve">
+    <value>未设置要执行的程序路径</value>
+  </data>
+  <data name="CloudSync_Error_StartFailed" xml:space="preserve">
+    <value>无法启动云上传命令</value>
+  </data>
+  <data name="CloudSync_Error_ExitCode" xml:space="preserve">
+    <value>命令执行失败，退出码：{0}</value>
+  </data>
   <data name="Common_ToggleOn" xml:space="preserve">
     <value>开</value>
   </data>
@@ -2282,6 +2339,114 @@
   </data>
   <data name="Schedule_NextRun" xml:space="preserve">
     <value>下次执行: {0}</value>
+  </data>
+  <data name="ConfigSettingsDialog_Cloud.Header" xml:space="preserve">
+    <value>云</value>
+  </data>
+  <data name="ConfigSettingsDialog_CloudEnabled.Header" xml:space="preserve">
+    <value>启用备份后云上传</value>
+  </data>
+  <data name="ConfigSettingsDialog_CloudEnabled.OnContent" xml:space="preserve">
+    <value>已开启</value>
+  </data>
+  <data name="ConfigSettingsDialog_CloudEnabled.OffContent" xml:space="preserve">
+    <value>已关闭</value>
+  </data>
+  <data name="ConfigSettingsDialog_CloudEnabledDesc.Text" xml:space="preserve">
+    <value>FolderRewind 只负责在本地备份成功后调用第三方工具执行上传，不直接管理云账号、远端目录浏览或云端还原。</value>
+  </data>
+  <data name="ConfigSettingsDialog_CloudMode.Header" xml:space="preserve">
+    <value>运行方式</value>
+  </data>
+  <data name="ConfigSettingsDialog_CloudModeRclone.Content" xml:space="preserve">
+    <value>rclone 简易模式</value>
+  </data>
+  <data name="ConfigSettingsDialog_CloudModeCustom.Content" xml:space="preserve">
+    <value>高级自定义命令</value>
+  </data>
+  <data name="ConfigSettingsDialog_CloudRemoteBasePath.Text" xml:space="preserve">
+    <value>远端基路径</value>
+  </data>
+  <data name="ConfigSettingsDialog_CloudRemoteBasePathPlaceholder.PlaceholderText" xml:space="preserve">
+    <value>例如 remote:FolderRewind</value>
+  </data>
+  <data name="ConfigSettingsDialog_CloudRemoteBasePathDesc.Text" xml:space="preserve">
+    <value>建议先在系统中完成 rclone config。这里填写 remote 名称与远端基目录，例如 remote:FolderRewind。</value>
+  </data>
+  <data name="ConfigSettingsDialog_CloudTemplate.Header" xml:space="preserve">
+    <value>预设模板</value>
+  </data>
+  <data name="ConfigSettingsDialog_CloudTemplateArchive.Content" xml:space="preserve">
+    <value>上传当前归档文件（推荐）</value>
+  </data>
+  <data name="ConfigSettingsDialog_CloudTemplateDirectory.Content" xml:space="preserve">
+    <value>补传当前备份目录</value>
+  </data>
+  <data name="ConfigSettingsDialog_CloudTemplateCustom.Content" xml:space="preserve">
+    <value>自定义</value>
+  </data>
+  <data name="ConfigSettingsDialog_CloudApplyTemplate.Content" xml:space="preserve">
+    <value>套用模板</value>
+  </data>
+  <data name="ConfigSettingsDialog_CloudExecutable.Text" xml:space="preserve">
+    <value>程序路径</value>
+  </data>
+  <data name="ConfigSettingsDialog_CloudExecutablePlaceholder.PlaceholderText" xml:space="preserve">
+    <value>例如 rclone.exe 或自定义工具路径</value>
+  </data>
+  <data name="ConfigSettingsDialog_CloudBrowseExecutable.ToolTipService.ToolTip" xml:space="preserve">
+    <value>浏览程序</value>
+  </data>
+  <data name="ConfigSettingsDialog_CloudArguments.Text" xml:space="preserve">
+    <value>参数模板</value>
+  </data>
+  <data name="ConfigSettingsDialog_CloudArgumentsPlaceholder.PlaceholderText" xml:space="preserve">
+    <value>输入命令参数模板，可使用下方变量</value>
+  </data>
+  <data name="ConfigSettingsDialog_CloudArgumentsDesc.Text" xml:space="preserve">
+    <value>建议优先上传当前归档文件，而不是直接同步整个目录。这样更符合 FolderRewind 当前的历史记录和还原模型。</value>
+  </data>
+  <data name="ConfigSettingsDialog_CloudWorkingDirectory.Text" xml:space="preserve">
+    <value>工作目录（可选）</value>
+  </data>
+  <data name="ConfigSettingsDialog_CloudWorkingDirectoryPlaceholder.PlaceholderText" xml:space="preserve">
+    <value>留空则使用程序默认工作目录</value>
+  </data>
+  <data name="ConfigSettingsDialog_CloudBrowseWorkingDirectory.ToolTipService.ToolTip" xml:space="preserve">
+    <value>浏览工作目录</value>
+  </data>
+  <data name="ConfigSettingsDialog_CloudTimeout.Text" xml:space="preserve">
+    <value>超时时间</value>
+  </data>
+  <data name="ConfigSettingsDialog_CloudTimeoutSuffix.Text" xml:space="preserve">
+    <value>秒</value>
+  </data>
+  <data name="ConfigSettingsDialog_CloudRetryCount.Text" xml:space="preserve">
+    <value>失败重试次数</value>
+  </data>
+  <data name="ConfigSettingsDialog_CloudRetryCountSuffix.Text" xml:space="preserve">
+    <value>次</value>
+  </data>
+  <data name="ConfigSettingsDialog_CloudVariables.Text" xml:space="preserve">
+    <value>可用变量</value>
+  </data>
+  <data name="ConfigSettingsDialog_CloudVariablesDesc.Text" xml:space="preserve">
+    <value>下面这些变量会在执行前替换成当前备份上下文。高级模式和 rclone 模式都可以使用。</value>
+  </data>
+  <data name="ConfigSettingsDialog_CloudPreview.Text" xml:space="preserve">
+    <value>命令预览</value>
+  </data>
+  <data name="ConfigSettingsDialog_CloudLastStatus.Text" xml:space="preserve">
+    <value>上次执行状态</value>
+  </data>
+  <data name="ConfigSettingsDialog_CloudLastRunLabel.Text" xml:space="preserve">
+    <value>执行时间:</value>
+  </data>
+  <data name="ConfigSettingsDialog_CloudLastExitCodeLabel.Text" xml:space="preserve">
+    <value>退出码:</value>
+  </data>
+  <data name="ConfigSettingsDialog_CloudLastErrorLabel.Text" xml:space="preserve">
+    <value>错误摘要</value>
   </data>
   <data name="ConfigSettingsDialog_FileTypeHandling.Header" xml:space="preserve">
     <value>自定义文件类型处理</value>
