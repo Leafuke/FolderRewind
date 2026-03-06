@@ -41,7 +41,7 @@ namespace FolderRewind.Services
         /// 从本地加密存储中检索指定配置的密码。
         /// </summary>
         /// <returns>解密后的密码，如果不存在或解密失败则返回 null。</returns>
-        public static string RetrievePassword(string configId)
+        public static string? RetrievePassword(string configId)
         {
             if (string.IsNullOrEmpty(configId)) return null;
 
@@ -98,7 +98,7 @@ namespace FolderRewind.Services
                 return false;
 
             var storedPassword = RetrievePassword(configId);
-            if (storedPassword == null) return false;
+            if (string.IsNullOrEmpty(storedPassword)) return false;
 
             // 使用恒定时间比较防止时序攻击
             bool result = CryptographicOperations.FixedTimeEquals(

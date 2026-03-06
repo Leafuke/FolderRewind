@@ -16,7 +16,7 @@ namespace FolderRewind.Views
 
         public Border AppTitleBarElement => AppTitleBar;
 
-        public GlobalSettings Settings => ConfigService.CurrentConfig?.GlobalSettings;
+        public GlobalSettings? Settings => ConfigService.CurrentConfig?.GlobalSettings;
 
         public ShellPage()
         {
@@ -272,9 +272,9 @@ namespace FolderRewind.Views
         }
 
         // 公开方法：允许外部强制跳转，并同步选中项
-        public void NavigateTo(string pageTag, object parameter = null)
+        public void NavigateTo(string pageTag, object? parameter = null)
         {
-            Type pageType = pageTag switch
+            Type? pageType = pageTag switch
             {
                 "Home" => typeof(HomePage),
                 "Manager" => typeof(FolderManagerPage),
@@ -320,7 +320,7 @@ namespace FolderRewind.Views
 
         private void UpdateNavSelection(string pageTag)
         {
-            object targetItem = pageTag == "Settings"
+            object? targetItem = pageTag == "Settings"
                 ? NavView.SettingsItem
                 : NavView.MenuItems.OfType<NavigationViewItem>().FirstOrDefault(i => i.Tag?.ToString() == pageTag);
 
@@ -382,7 +382,7 @@ namespace FolderRewind.Views
             }
         }
 
-        private static string GetPageTagFromType(Type sourcePageType)
+        private static string? GetPageTagFromType(Type sourcePageType)
         {
             if (sourcePageType == typeof(HomePage)) return "Home";
             if (sourcePageType == typeof(FolderManagerPage)) return "Manager";

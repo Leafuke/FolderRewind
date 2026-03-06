@@ -59,8 +59,8 @@ namespace FolderRewind.Services
                 bool isChinese = lang.StartsWith("zh", StringComparison.OrdinalIgnoreCase);
                 string primaryFile = isChinese ? NoticeFileZh : NoticeFileEn;
 
-                string content = null;
-                string version = null;
+                string? content = null;
+                string? version = null;
 
                 // 尝试获取带语言后缀的文件
                 (content, version) = await FetchNoticeAsync(client, NoticeBaseUrl + primaryFile);
@@ -101,7 +101,7 @@ namespace FolderRewind.Services
         /// <summary>
         /// 从指定 URL 获取公告内容和版本标识
         /// </summary>
-        private static async Task<(string Content, string Version)> FetchNoticeAsync(HttpClient client, string url)
+        private static async Task<(string? Content, string? Version)> FetchNoticeAsync(HttpClient client, string url)
         {
             try
             {
@@ -112,7 +112,7 @@ namespace FolderRewind.Services
                 if (string.IsNullOrWhiteSpace(content)) return (null, null);
 
                 // 优先使用 Last-Modified 作为版本标识（参考 MineBackup）
-                string version = null;
+                string? version = null;
                 if (response.Content.Headers.LastModified.HasValue)
                 {
                     version = response.Content.Headers.LastModified.Value.ToString("O");

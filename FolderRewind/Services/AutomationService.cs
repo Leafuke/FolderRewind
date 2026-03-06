@@ -7,7 +7,7 @@ namespace FolderRewind.Services
 {
     public static class AutomationService
     {
-        private static Timer _timer;
+        private static Timer? _timer;
         private static bool _isRunning = false;
         private static readonly SemaphoreSlim _tickLock = new(1, 1);
 
@@ -39,7 +39,7 @@ namespace FolderRewind.Services
             }
         }
 
-        private static async void OnTick(object state)
+        private static async void OnTick(object? state)
         {
             if (!await _tickLock.WaitAsync(0)) return;
 

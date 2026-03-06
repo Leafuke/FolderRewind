@@ -8,7 +8,7 @@ namespace FolderRewind.Views
 {
     public sealed partial class ConfigurationPage : Page
     {
-        public BackupConfig CurrentConfig { get; set; }
+        public BackupConfig? CurrentConfig { get; set; }
 
         public ConfigurationPage()
         {

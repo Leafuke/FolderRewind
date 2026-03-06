@@ -9,7 +9,7 @@ namespace FolderRewind.Views
 {
     public sealed partial class BackupTasksPage : Page, INotifyPropertyChanged
     {
-        public event PropertyChangedEventHandler PropertyChanged;
+        public event PropertyChangedEventHandler? PropertyChanged;
 
         public ObservableCollection<BackupTask> ViewModel => Services.BackupService.ActiveTasks;
 

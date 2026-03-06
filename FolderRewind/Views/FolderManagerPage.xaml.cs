@@ -22,7 +22,7 @@ namespace FolderRewind.Views
 {
     public sealed partial class FolderManagerPage : Page, INotifyPropertyChanged
     {
-        public event PropertyChangedEventHandler PropertyChanged;
+        public event PropertyChangedEventHandler? PropertyChanged;
 
         // 全局配置列表，用于 ComboBox
         public ObservableCollection<BackupConfig> Configs => ConfigService.CurrentConfig?.BackupConfigs ?? new ObservableCollection<BackupConfig>();
@@ -33,10 +33,10 @@ namespace FolderRewind.Views
         // 当前文件夹列表的绑定视图
         public ObservableCollection<object> CurrentFoldersView { get; } = new();
 
-        private GlobalSettings Settings => ConfigService.CurrentConfig?.GlobalSettings;
+        private GlobalSettings? Settings => ConfigService.CurrentConfig?.GlobalSettings;
 
-        private BackupConfig _currentConfig;
-        public BackupConfig CurrentConfig
+        private BackupConfig? _currentConfig;
+        public BackupConfig? CurrentConfig
         {
             get => _currentConfig;
             set
@@ -353,7 +353,7 @@ namespace FolderRewind.Views
                 {
                     if (Settings != null && string.Equals(Settings.LastManagerFolderPath, path, StringComparison.OrdinalIgnoreCase))
                     {
-                        Settings.LastManagerFolderPath = null;
+                        Settings.LastManagerFolderPath = string.Empty;
                         ConfigService.Save();
                     }
                     _pendingFolderPath = null;
@@ -426,6 +426,7 @@ namespace FolderRewind.Views
         {
             if (sender is MenuFlyoutItem item && item.DataContext is ManagedFolder folder)
             {
+                if (CurrentConfig == null) return;
                 CurrentConfig.SourceFolders.Remove(folder);
                 ConfigService.Save();
             }
@@ -629,7 +630,7 @@ namespace FolderRewind.Views
 
         // 通用添加逻辑
         private void AddFolderLogic(StorageFolder folder) => AddFolderLogic(folder.Path, folder.Name);
-        private void AddFolderLogic(string path, string name = null)
+        private void AddFolderLogic(string path, string? name = null)
         {
             if (CurrentConfig == null) return;
             if (string.IsNullOrEmpty(name)) name = Path.GetFileName(path);
@@ -729,7 +730,7 @@ namespace FolderRewind.Views
                         File.Copy(file.Path, destPath, true);
 
                         // 更新模型 (需要触发 PropertyChanged，强制刷新)
-                        folder.CoverImagePath = null; // 先清空触发刷新
+                        folder.CoverImagePath = string.Empty; // 先清空触发刷新
                         folder.CoverImagePath = destPath;
 
                         ConfigService.Save();
@@ -774,7 +775,7 @@ namespace FolderRewind.Views
             {
                 BackupSelectedButton.IsEnabled = false;
                 // 获取注释并清理空白
-                string comment = CommentBox.Text?.Trim();
+                string? comment = CommentBox.Text?.Trim();
 
                 try
                 {
@@ -826,7 +827,7 @@ namespace FolderRewind.Views
 
         // 在 FolderManagerPage 类中添加 PickFolderAsync 方法
 
-        private async System.Threading.Tasks.Task<StorageFolder> PickFolderAsync()
+        private async System.Threading.Tasks.Task<StorageFolder?> PickFolderAsync()
         {
             var picker = new FolderPicker();
             picker.SuggestedStartLocation = PickerLocationId.ComputerFolder;
@@ -840,7 +841,7 @@ namespace FolderRewind.Views
             return await picker.PickSingleFolderAsync();
         }
 
-        private void PersistManagerSelection(string configId, string folderPath)
+        private void PersistManagerSelection(string? configId, string? folderPath)
         {
             var settings = Settings;
             if (settings == null) return;

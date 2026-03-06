@@ -17,7 +17,7 @@ namespace FolderRewind.Services
 
         private static bool _initialized;
 
-        public static AppConfig CurrentConfig { get; private set; }
+        public static AppConfig CurrentConfig { get; private set; } = null!;
 
         public static string ConfigFilePath => ConfigPath;
 
@@ -60,14 +60,18 @@ namespace FolderRewind.Services
                 try
                 {
                     string jsonString = File.ReadAllText(ConfigPath);
-                    CurrentConfig = JsonSerializer.Deserialize(jsonString, AppJsonContext.Default.AppConfig);
+                    var loadedConfig = JsonSerializer.Deserialize(jsonString, AppJsonContext.Default.AppConfig);
 
                     // 反序列化在某些内容下可能返回 null（例如文件内容是字面量 "null"），
                     // 这会导致后续访问 CurrentConfig.* 直接崩溃（打包安装后更容易遇到）。
-                    if (CurrentConfig == null)
+                    if (loadedConfig == null)
                     {
                         LogService.Log(I18n.GetString("Config_ParseNull_Reset"));
                         CreateDefaultConfig();
+                    }
+                    else
+                    {
+                        CurrentConfig = loadedConfig;
                     }
                 }
                 catch (Exception ex)
@@ -90,13 +94,20 @@ namespace FolderRewind.Services
                 CreateDefaultConfig();
             }
 
-            // 修正反序列化后集合为 null 或类型不兼容的情况，防止绑定崩溃
-            if (CurrentConfig.BackupConfigs == null)
-                CurrentConfig.BackupConfigs = new System.Collections.ObjectModel.ObservableCollection<BackupConfig>();
-            else if (CurrentConfig.BackupConfigs.GetType() != typeof(System.Collections.ObjectModel.ObservableCollection<BackupConfig>))
-                CurrentConfig.BackupConfigs = new System.Collections.ObjectModel.ObservableCollection<BackupConfig>(CurrentConfig.BackupConfigs);
+            var currentConfig = CurrentConfig;
+            if (currentConfig == null)
+            {
+                CreateDefaultConfig();
+                currentConfig = CurrentConfig ?? throw new InvalidOperationException("CurrentConfig was not initialized.");
+            }
 
-            foreach (var config in CurrentConfig.BackupConfigs)
+            // 修正反序列化后集合为 null 或类型不兼容的情况，防止绑定崩溃
+            if (currentConfig.BackupConfigs == null)
+                currentConfig.BackupConfigs = new System.Collections.ObjectModel.ObservableCollection<BackupConfig>();
+            else if (currentConfig.BackupConfigs.GetType() != typeof(System.Collections.ObjectModel.ObservableCollection<BackupConfig>))
+                currentConfig.BackupConfigs = new System.Collections.ObjectModel.ObservableCollection<BackupConfig>(currentConfig.BackupConfigs);
+
+            foreach (var config in currentConfig.BackupConfigs)
             {
                 if (config.SourceFolders == null)
                     config.SourceFolders = new System.Collections.ObjectModel.ObservableCollection<ManagedFolder>();
@@ -131,29 +142,29 @@ namespace FolderRewind.Services
                 else if (config.Archive.FileTypeRules.GetType() != typeof(System.Collections.ObjectModel.ObservableCollection<FileTypeRule>))
                     config.Archive.FileTypeRules = new System.Collections.ObjectModel.ObservableCollection<FileTypeRule>(config.Archive.FileTypeRules);
             }
-            if (CurrentConfig.GlobalSettings == null)
-                CurrentConfig.GlobalSettings = new GlobalSettings();
+            if (currentConfig.GlobalSettings == null)
+                currentConfig.GlobalSettings = new GlobalSettings();
 
             // 兼容旧版配置：Plugins 节点可能为 null
-            if (CurrentConfig.GlobalSettings.Plugins == null)
-                CurrentConfig.GlobalSettings.Plugins = new PluginHostSettings();
+            if (currentConfig.GlobalSettings.Plugins == null)
+                currentConfig.GlobalSettings.Plugins = new PluginHostSettings();
 
             // 兼容旧版配置：Hotkeys 节点可能为 null
-            if (CurrentConfig.GlobalSettings.Hotkeys == null)
-                CurrentConfig.GlobalSettings.Hotkeys = new HotkeySettings();
+            if (currentConfig.GlobalSettings.Hotkeys == null)
+                currentConfig.GlobalSettings.Hotkeys = new HotkeySettings();
 
-            if (CurrentConfig.GlobalSettings.Hotkeys.Bindings == null)
-                CurrentConfig.GlobalSettings.Hotkeys.Bindings = new System.Collections.Generic.Dictionary<string, string>();
+            if (currentConfig.GlobalSettings.Hotkeys.Bindings == null)
+                currentConfig.GlobalSettings.Hotkeys.Bindings = new System.Collections.Generic.Dictionary<string, string>();
 
             // 兼容旧版配置：字典可能反序列化为 null
-            if (CurrentConfig.GlobalSettings.Plugins.PluginEnabled == null)
-                CurrentConfig.GlobalSettings.Plugins.PluginEnabled = new System.Collections.Generic.Dictionary<string, bool>();
-            if (CurrentConfig.GlobalSettings.Plugins.PluginSettings == null)
-                CurrentConfig.GlobalSettings.Plugins.PluginSettings = new System.Collections.Generic.Dictionary<string, System.Collections.Generic.Dictionary<string, string>>();
+            if (currentConfig.GlobalSettings.Plugins.PluginEnabled == null)
+                currentConfig.GlobalSettings.Plugins.PluginEnabled = new System.Collections.Generic.Dictionary<string, bool>();
+            if (currentConfig.GlobalSettings.Plugins.PluginSettings == null)
+                currentConfig.GlobalSettings.Plugins.PluginSettings = new System.Collections.Generic.Dictionary<string, System.Collections.Generic.Dictionary<string, string>>();
 
-            NormalizeGlobalSettings(CurrentConfig.GlobalSettings);
+            NormalizeGlobalSettings(currentConfig.GlobalSettings);
 
-            ApplyLogSettings(CurrentConfig.GlobalSettings);
+            ApplyLogSettings(currentConfig.GlobalSettings);
 
             _initialized = true;
 

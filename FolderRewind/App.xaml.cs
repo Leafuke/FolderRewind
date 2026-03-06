@@ -23,7 +23,7 @@ namespace FolderRewind
 
         #region 全局状态与共享入口
 
-        public static Window _window { get; set; }
+        public static Window _window { get; set; } = null!;
 
         /// <summary>
         /// 获取主窗口实例（用于 NotificationService 等服务判断窗口状态）
@@ -31,7 +31,7 @@ namespace FolderRewind
         public static MainWindow? MainWindow => _window as MainWindow;
 
         // 暴露 ShellPage 以便子页面控制导航
-        public static Views.ShellPage Shell { get; set; }
+        public static Views.ShellPage Shell { get; set; } = null!;
 
         private TaskbarIcon? _trayIcon;
         internal static bool ForceExitRequested { get; private set; }
@@ -128,7 +128,11 @@ namespace FolderRewind
 
                 _window.DispatcherQueue.TryEnqueue(Microsoft.UI.Dispatching.DispatcherQueuePriority.Low, () =>
                 {
-                    Services.TypographyService.ApplyTypography(Services.ConfigService.CurrentConfig?.GlobalSettings);
+                    var settings = Services.ConfigService.CurrentConfig?.GlobalSettings;
+                    if (settings != null)
+                    {
+                        Services.TypographyService.ApplyTypography(settings);
+                    }
                 });
 
                 // 插件初始化包含热键注册，必须在UI线程执行，所以用DispatcherQueue而非Task.Run

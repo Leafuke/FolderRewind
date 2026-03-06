@@ -60,7 +60,7 @@ namespace FolderRewind.Views
 
         // KnotLink 状态相关属性
         private string _knotLinkStatusMessage = I18n.GetString("SettingsPage_KnotLinkStatus_Disabled");
-        private Brush _knotLinkStatusColor;
+        private Brush _knotLinkStatusColor = new SolidColorBrush(Microsoft.UI.Colors.Gray);
 
         public string KnotLinkStatusMessage
         {
@@ -1305,11 +1305,11 @@ namespace FolderRewind.Views
 
         private void OnStartupSizeChanged(object sender, NumberBoxValueChangedEventArgs e)
         {
-            if (sender == StartupWidthBox)
+            if (ReferenceEquals(sender, StartupWidthBox))
             {
                 Settings.StartupWidth = ClampWidth(e.NewValue);
             }
-            else if (sender == StartupHeightBox)
+            else if (ReferenceEquals(sender, StartupHeightBox))
             {
                 Settings.StartupHeight = ClampHeight(e.NewValue);
             }

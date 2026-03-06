@@ -68,7 +68,7 @@ namespace FolderRewind.Views
         /// <summary>
         /// 获取各压缩算法的有效压缩等级范围
         /// </summary>
-        private static (int Min, int Max) GetCompressionLevelRange(string method)
+        private static (int Min, int Max) GetCompressionLevelRange(string? method)
         {
             return method switch
             {
@@ -515,14 +515,14 @@ namespace FolderRewind.Views
             {
                 if (settings.LastManagerConfigId == Config.Id)
                 {
-                    settings.LastManagerConfigId = fallback?.Id;
-                    settings.LastManagerFolderPath = null;
+                    settings.LastManagerConfigId = fallback?.Id ?? string.Empty;
+                    settings.LastManagerFolderPath = string.Empty;
                 }
 
                 if (settings.LastHistoryConfigId == Config.Id)
                 {
-                    settings.LastHistoryConfigId = fallback?.Id;
-                    settings.LastHistoryFolderPath = null;
+                    settings.LastHistoryConfigId = fallback?.Id ?? string.Empty;
+                    settings.LastHistoryFolderPath = string.Empty;
                 }
             }
 

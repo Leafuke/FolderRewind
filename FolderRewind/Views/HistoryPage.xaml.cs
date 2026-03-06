@@ -17,7 +17,7 @@ namespace FolderRewind.Views
 {
     public sealed partial class HistoryPage : Page, INotifyPropertyChanged
     {
-        public event PropertyChangedEventHandler PropertyChanged;
+        public event PropertyChangedEventHandler? PropertyChanged;
 
         private void OnPropertyChanged(string name) => PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(name));
 
@@ -27,7 +27,7 @@ namespace FolderRewind.Views
         // 快捷访问配置列表
         public ObservableCollection<BackupConfig> Configs => ConfigService.CurrentConfig?.BackupConfigs ?? new ObservableCollection<BackupConfig>();
 
-        private GlobalSettings Settings => ConfigService.CurrentConfig?.GlobalSettings;
+        private GlobalSettings? Settings => ConfigService.CurrentConfig?.GlobalSettings;
 
         private bool _isEmpty = true;
         public bool IsEmpty
@@ -690,7 +690,7 @@ namespace FolderRewind.Views
                 ConfigFilter.SelectedItem = config;
                 FolderFilter.ItemsSource = config?.SourceFolders;
 
-                ManagedFolder folder = null;
+                ManagedFolder? folder = null;
                 if (config != null && !string.IsNullOrWhiteSpace(settings.LastHistoryFolderPath))
                 {
                     folder = config.SourceFolders.FirstOrDefault(f => f.Path == settings.LastHistoryFolderPath);
