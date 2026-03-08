@@ -606,6 +606,9 @@
   <data name="ConfigSettingsDialog_ModeOverwrite.Content" xml:space="preserve">
     <value>Overwrite (update latest backup)</value>
   </data>
+  <data name="ConfigSettingsDialog_OverwriteWarning" xml:space="preserve">
+    <value>Overwrite mode only updates and adds files. It does not remove stale files that still exist inside the archive after they were deleted from the source folder. If you need an exact point-in-time restore, prefer Full or Smart backups with Clean restore.</value>
+  </data>
   <data name="ConfigSettingsDialog_Format.Header" xml:space="preserve">
     <value>Archive format</value>
   </data>
@@ -661,10 +664,19 @@
     <value>Safe restore (Clean mode)</value>
   </data>
   <data name="ConfigSettingsDialog_SafeRestore.OnContent" xml:space="preserve">
-    <value>On - auto rollback from snapshot on failure</value>
+    <value>On - auto rollback from a same-folder -Temp copy on failure</value>
   </data>
   <data name="ConfigSettingsDialog_SafeRestore.OffContent" xml:space="preserve">
     <value>Off - Clean failure may lose original files</value>
+  </data>
+  <data name="BackupService_RestoreMissingBaseFull_Title" xml:space="preserve">
+    <value>Complete restore base is missing</value>
+  </data>
+  <data name="BackupService_RestoreMissingBaseFull_Content" xml:space="preserve">
+    <value>The target Smart backup "{0}" no longer has a usable base Full archive, so precise Clean restore is unavailable. If you continue, FolderRewind will switch to a compatibility fallback: reverse overwrite restore from the newest backup down to the selected Smart backup. This can roll back many files, but it cannot delete extra stale files. Continue anyway?</value>
+  </data>
+  <data name="BackupService_RestoreMissingBaseFull_Primary" xml:space="preserve">
+    <value>Continue fallback restore</value>
   </data>
   <data name="ConfigSettingsDialog_VerifyArchiveBeforeRestore.Header" xml:space="preserve">
     <value>Verify backup integrity before restore</value>

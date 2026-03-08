@@ -606,6 +606,9 @@
   <data name="ConfigSettingsDialog_ModeOverwrite.Content" xml:space="preserve">
     <value>覆写备份 (更新最近的备份)</value>
   </data>
+  <data name="ConfigSettingsDialog_OverwriteWarning" xml:space="preserve">
+    <value>覆写模式只会更新和添加文件，不会删除归档里已经存在但源目录中已删除的旧文件。若你需要精确回到某个时间点，优先使用全量或智能增量并配合 Clean 还原。</value>
+  </data>
   <data name="ConfigSettingsDialog_Format.Header" xml:space="preserve">
     <value>压缩格式</value>
   </data>
@@ -661,10 +664,19 @@
     <value>安全还原（Clean 模式）</value>
   </data>
   <data name="ConfigSettingsDialog_SafeRestore.OnContent" xml:space="preserve">
-    <value>已开启 - 失败时自动回滚目录快照</value>
+    <value>已开启 - 失败时自动从同目录的 -Temp 副本回滚</value>
   </data>
   <data name="ConfigSettingsDialog_SafeRestore.OffContent" xml:space="preserve">
     <value>已关闭 - Clean 失败时可能丢失原文件</value>
+  </data>
+  <data name="BackupService_RestoreMissingBaseFull_Title" xml:space="preserve">
+    <value>无法找到完整还原基准</value>
+  </data>
+  <data name="BackupService_RestoreMissingBaseFull_Content" xml:space="preserve">
+    <value>未能为目标 Smart 备份“{0}”找到可用的基础 Full，精确 Clean 还原已不可用。若继续，程序将改用兼容性倒序覆盖还原：从当前最新备份一路倒序覆盖到该 Smart 备份。这种方式能尽量回退文件版本，但不会删除多余旧文件。是否继续？</value>
+  </data>
+  <data name="BackupService_RestoreMissingBaseFull_Primary" xml:space="preserve">
+    <value>继续兼容还原</value>
   </data>
   <data name="ConfigSettingsDialog_VerifyArchiveBeforeRestore.Header" xml:space="preserve">
     <value>还原前校验备份完整性</value>

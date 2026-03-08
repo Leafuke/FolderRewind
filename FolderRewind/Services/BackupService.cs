@@ -1,5 +1,6 @@
 ﻿using FolderRewind.Models;
 using Microsoft.UI.Dispatching;
+using Microsoft.UI.Xaml.Controls;
 using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
@@ -17,7 +18,40 @@ namespace FolderRewind.Services
     {
         public static ObservableCollection<BackupTask> ActiveTasks { get; } = new();
 
+        private const string InternalRestoreMarkerDirectoryName = "__FolderRewind_Internal";
+        private const string InternalRestoreMarkerFileName = "__DeletedOnly.marker";
+
         private static DispatcherQueue? UiQueue => App._window?.DispatcherQueue;
+
+        private sealed class BackupChangeSet
+        {
+            public List<string> AddedFiles { get; } = new();
+            public List<string> ModifiedFiles { get; } = new();
+            public List<string> DeletedFiles { get; } = new();
+
+            public bool HasChanges => AddedFiles.Count > 0
+                || ModifiedFiles.Count > 0
+                || DeletedFiles.Count > 0;
+        }
+
+        private sealed class SmartRestoreArchiveGroup
+        {
+            public required FileInfo Archive { get; init; }
+            public required List<string> Files { get; init; }
+        }
+
+        private sealed class SmartRestorePlan
+        {
+            public required List<FileInfo> Chain { get; init; }
+            public required List<SmartRestoreArchiveGroup> ArchiveGroups { get; init; }
+        }
+
+        private enum RestoreChainBuildStatus
+        {
+            Success = 0,
+            MissingBaseFull = 1,
+            NotFound = 2
+        }
 
         private static Task RunOnUIAsync(Action action)
         {
@@ -36,6 +70,34 @@ namespace FolderRewind.Services
                 {
                     action();
                     tcs.SetResult(null);
+                }
+                catch (Exception ex)
+                {
+                    tcs.SetException(ex);
+                }
+            }))
+            {
+                tcs.TrySetException(new InvalidOperationException("Failed to enqueue UI action."));
+            }
+
+            return tcs.Task;
+        }
+
+        private static Task<T> RunOnUIAsync<T>(Func<Task<T>> action)
+        {
+            var queue = UiQueue;
+            if (queue == null || queue.HasThreadAccess)
+            {
+                return action();
+            }
+
+            var tcs = new TaskCompletionSource<T>();
+
+            if (!queue.TryEnqueue(async () =>
+            {
+                try
+                {
+                    tcs.SetResult(await action());
                 }
                 catch (Exception ex)
                 {
@@ -379,7 +441,7 @@ namespace FolderRewind.Services
                         }
                     case BackupMode.Overwrite:
                         {
-                            var res = await DoOverwriteBackupAsync(sourcePath, backupSubDir, folder.DisplayName, config, comment, task);
+                            var res = await DoOverwriteBackupAsync(sourcePath, backupSubDir, metadataDir, folder.DisplayName, config, comment, task);
                             success = res.Success;
                             generatedFileName = res.FileName;
                             break;
@@ -895,72 +957,119 @@ namespace FolderRewind.Services
             }
         }
 
+        private static BackupMetadata? LoadBackupMetadata(string metadataPath)
+        {
+            if (string.IsNullOrWhiteSpace(metadataPath) || !File.Exists(metadataPath))
+            {
+                return null;
+            }
+
+            try
+            {
+                return NormalizeBackupMetadata(JsonSerializer.Deserialize(
+                    File.ReadAllText(metadataPath),
+                    AppJsonContext.Default.BackupMetadata));
+            }
+            catch
+            {
+                return null;
+            }
+        }
+
+        private static BackupMetadata NormalizeBackupMetadata(BackupMetadata? meta)
+        {
+            meta ??= new BackupMetadata();
+            meta.FileStates = meta.FileStates != null
+                ? new Dictionary<string, FileState>(meta.FileStates, StringComparer.OrdinalIgnoreCase)
+                : new Dictionary<string, FileState>(StringComparer.OrdinalIgnoreCase);
+            meta.BackupRecords ??= new List<BackupChangeRecord>();
+
+            foreach (var record in meta.BackupRecords)
+            {
+                record.ArchiveFileName ??= string.Empty;
+                record.BackupType ??= string.Empty;
+                record.BasedOnFullBackup ??= string.Empty;
+                record.PreviousBackupFileName ??= string.Empty;
+                record.AddedFiles ??= new List<string>();
+                record.ModifiedFiles ??= new List<string>();
+                record.DeletedFiles ??= new List<string>();
+                record.FullFileList ??= new List<string>();
+            }
+
+            return meta;
+        }
+
+        private static BackupChangeSet CompareFileStates(
+            IReadOnlyDictionary<string, FileState> currentStates,
+            IReadOnlyDictionary<string, FileState>? previousStates)
+        {
+            var result = new BackupChangeSet();
+            previousStates ??= new Dictionary<string, FileState>(StringComparer.OrdinalIgnoreCase);
+
+            foreach (var kvp in currentStates)
+            {
+                if (!previousStates.TryGetValue(kvp.Key, out var oldState))
+                {
+                    result.AddedFiles.Add(kvp.Key);
+                    continue;
+                }
+
+                if (kvp.Value.Size != oldState.Size
+                    || kvp.Value.LastWriteTimeUtc != oldState.LastWriteTimeUtc)
+                {
+                    result.ModifiedFiles.Add(kvp.Key);
+                }
+            }
+
+            foreach (var kvp in previousStates)
+            {
+                if (!currentStates.ContainsKey(kvp.Key))
+                {
+                    result.DeletedFiles.Add(kvp.Key);
+                }
+            }
+
+            result.AddedFiles.Sort(StringComparer.OrdinalIgnoreCase);
+            result.ModifiedFiles.Sort(StringComparer.OrdinalIgnoreCase);
+            result.DeletedFiles.Sort(StringComparer.OrdinalIgnoreCase);
+            return result;
+        }
+
         // --- 模式 1: 全量备份 ---
         // 返回 (Success, FileName)
         private static async Task<(bool Success, string? FileName)> DoFullBackupAsync(string source, string destDir, string metaDir, string baseName, BackupConfig config, string comment = "", BackupTask? taskToUpdate = null)
         {
-            if (config.Archive.SkipIfUnchanged && !string.IsNullOrEmpty(metaDir))
+            BackupMetadata? oldMeta = null;
+            if (!string.IsNullOrEmpty(metaDir))
             {
                 string metadataPath = Path.Combine(metaDir, "metadata.json");
-                if (File.Exists(metadataPath))
+                oldMeta = LoadBackupMetadata(metadataPath);
+                if (oldMeta == null && File.Exists(metadataPath))
                 {
-                    try
+                    Log(I18n.Format("BackupService_Log_MetadataCorruptedFallbackFull"), LogLevel.Warning);
+                }
+            }
+
+            var currentStates = ScanDirectory(source, config.Filters);
+            var changeSet = CompareFileStates(currentStates, oldMeta?.FileStates);
+
+            if (config.Archive.SkipIfUnchanged && !string.IsNullOrEmpty(metaDir) && oldMeta != null)
+            {
+                bool referencedBackupExists = true;
+                if (!string.IsNullOrEmpty(oldMeta.LastBackupFileName))
+                {
+                    string referencedBackupPath = Path.Combine(destDir, oldMeta.LastBackupFileName);
+                    if (!File.Exists(referencedBackupPath))
                     {
-                        var oldMeta = JsonSerializer.Deserialize(File.ReadAllText(metadataPath), AppJsonContext.Default.BackupMetadata);
-                        if (oldMeta != null)
-                        {
-                            // 校验元数据引用的备份文件是否仍然存在
-                            // 如果用户删除了最近的备份文件，应强制执行完整备份
-                            bool referencedBackupExists = true;
-                            if (!string.IsNullOrEmpty(oldMeta.LastBackupFileName))
-                            {
-                                string referencedBackupPath = Path.Combine(destDir, oldMeta.LastBackupFileName);
-                                if (!File.Exists(referencedBackupPath))
-                                {
-                                    referencedBackupExists = false;
-                                    Log(I18n.Format("BackupService_Log_ReferencedBackupMissing", oldMeta.LastBackupFileName), LogLevel.Warning);
-                                }
-                            }
-
-                            if (referencedBackupExists)
-                            {
-                                var currentStates = ScanDirectory(source, config.Filters);
-                                bool hasChanges = false;
-
-                                // 比较文件数量是否一致
-                                if (currentStates.Count != oldMeta.FileStates.Count)
-                                {
-                                    hasChanges = true;
-                                }
-                                else
-                                {
-                                    // 逐文件比较大小和修改时间
-                                    foreach (var kvp in currentStates)
-                                    {
-                                        if (!oldMeta.FileStates.TryGetValue(kvp.Key, out var oldState) ||
-                                            kvp.Value.Size != oldState.Size ||
-                                            kvp.Value.LastWriteTimeUtc != oldState.LastWriteTimeUtc)
-                                        {
-                                            hasChanges = true;
-                                            break;
-                                        }
-                                    }
-                                }
-
-                                if (!hasChanges)
-                                {
-                                    Log(I18n.Format("BackupService_Log_NoChangesDetected"), LogLevel.Info);
-                                    return (true, null); // 无变更，跳过备份
-                                }
-                            }
-                            // 如果 referencedBackupExists == false，跳过比较，直接进入全量备份
-                        }
+                        referencedBackupExists = false;
+                        Log(I18n.Format("BackupService_Log_ReferencedBackupMissing", oldMeta.LastBackupFileName), LogLevel.Warning);
                     }
-                    catch
-                    {
-                        // 元数据读取失败时继续执行全量备份
-                        Log(I18n.Format("BackupService_Log_MetadataCorruptedFallbackFull"), LogLevel.Warning);
-                    }
+                }
+
+                if (referencedBackupExists && !changeSet.HasChanges)
+                {
+                    Log(I18n.Format("BackupService_Log_NoChangesDetected"), LogLevel.Info);
+                    return (true, null);
                 }
             }
 
@@ -988,7 +1097,7 @@ namespace FolderRewind.Services
             // 3. 如果成功，生成新的元数据（为后续可能的增量备份做基准）
             if (result)
             {
-                await UpdateMetadataAsync(source, metaDir, fileName, fileName, null, config.Filters); // 基准是自己
+                await UpdateMetadataAsync(source, metaDir, fileName, fileName, "Full", oldMeta, currentStates, changeSet, config.Filters);
                 return (true, fileName);
             }
             return (false, null);
@@ -999,13 +1108,11 @@ namespace FolderRewind.Services
         private static async Task<(bool Success, string? FileName)> DoSmartBackupAsync(string source, string destDir, string metaDir, string baseName, BackupConfig config, string comment = "", BackupTask? taskToUpdate = null)
         {
             string metadataPath = Path.Combine(metaDir, "metadata.json");
-            BackupMetadata? oldMeta = null;
+            BackupMetadata? oldMeta = LoadBackupMetadata(metadataPath);
 
-            // 1. 读取旧元数据
-            if (File.Exists(metadataPath))
+            if (oldMeta == null && File.Exists(metadataPath))
             {
-                try { oldMeta = JsonSerializer.Deserialize(File.ReadAllText(metadataPath), AppJsonContext.Default.BackupMetadata); }
-                catch { Log(I18n.Format("BackupService_Log_MetadataCorruptedFallbackFull"), LogLevel.Warning); }
+                Log(I18n.Format("BackupService_Log_MetadataCorruptedFallbackFull"), LogLevel.Warning);
             }
 
             // 如果没有元数据，强制全量
@@ -1090,42 +1197,20 @@ namespace FolderRewind.Services
             // 2. 扫描并对比文件（带黑名单过滤）
             Log(I18n.Format("BackupService_Log_AnalyzingDiff"), LogLevel.Info);
             var currentStates = ScanDirectory(source, config.Filters);
-            var changedFiles = new List<string>();
+            var changeSet = CompareFileStates(currentStates, oldMeta.FileStates);
 
-            foreach (var kvp in currentStates)
-            {
-                string relPath = kvp.Key;
-                FileState curState = kvp.Value;
-
-                if (oldMeta.FileStates.TryGetValue(relPath, out var oldState))
-                {
-                    // 对比 Size 和 Time (快速) 或 Hash (精确)
-                    // 为了性能，先比 Size 和 Time，如果一致则认为没变
-                    // 如果你需要绝对精确，可以强制算 Hash
-                    if (curState.Size != oldState.Size || curState.LastWriteTimeUtc != oldState.LastWriteTimeUtc)
-                    {
-                        changedFiles.Add(relPath);
-                    }
-                    else
-                    {
-                        // 如果想模仿 MineBackup 严格模式，这里可以加 Hash 对比
-                        // changedFiles.Add(relPath); 
-                    }
-                }
-                else
-                {
-                    // 新文件
-                    changedFiles.Add(relPath);
-                }
-            }
-
-            if (changedFiles.Count == 0)
+            if (!changeSet.HasChanges)
             {
                 Log(I18n.Format("BackupService_Log_NoChangesDetected"), LogLevel.Info);
                 return (true, null);
             }
 
-            Log(I18n.Format("BackupService_Log_ChangesDetected", changedFiles.Count), LogLevel.Info);
+            var contentChangedFiles = changeSet.AddedFiles
+                .Concat(changeSet.ModifiedFiles)
+                .Distinct(StringComparer.OrdinalIgnoreCase)
+                .ToList();
+
+            Log(I18n.Format("BackupService_Log_ChangesDetected", contentChangedFiles.Count + changeSet.DeletedFiles.Count), LogLevel.Info);
 
             // 3. 生成文件列表文件
             // 当启用自定义文件类型处理时，需要将变更文件列表拆分：
@@ -1136,17 +1221,21 @@ namespace FolderRewind.Services
                 && fileTypeRules != null
                 && fileTypeRules.Count > 0;
 
-            List<string> mainFiles = changedFiles;
+            List<string> mainFiles = contentChangedFiles;
             if (hasFileTypeRules && fileTypeRules != null)
             {
-                mainFiles = changedFiles.Where(f =>
+                mainFiles = contentChangedFiles.Where(f =>
                     !fileTypeRules.Any(rule =>
                         !string.IsNullOrWhiteSpace(rule.Pattern) && MatchWildcard(f, rule.Pattern.Trim())))
                     .ToList();
             }
 
-            string listFile = Path.GetTempFileName();
-            File.WriteAllLines(listFile, mainFiles);
+            string? listFile = null;
+            if (mainFiles.Count > 0)
+            {
+                listFile = Path.GetTempFileName();
+                File.WriteAllLines(listFile, mainFiles);
+            }
 
             string fileName = GenerateFileName(baseName, config.Archive.Format, "Smart", comment);
             string destFile = Path.Combine(destDir, fileName);
@@ -1155,37 +1244,74 @@ namespace FolderRewind.Services
             // 注意：7z 需要工作目录在 source 下，才能正确识别相对路径列表
             var fileTypeExclusions = hasFileTypeRules && fileTypeRules != null ? (IReadOnlyList<FileTypeRule>)fileTypeRules : null;
             string? password = ResolvePassword(config);
-            bool result = await Run7zCommandAsync("a", source, destFile, config.Archive, password, listFile, config.Filters, fileTypeExclusions, taskToUpdate);
+            bool deletionOnlyChange = contentChangedFiles.Count == 0 && changeSet.DeletedFiles.Count > 0;
+            bool result;
+
+            if (deletionOnlyChange)
+            {
+                result = await CreateDeletionOnlyArchiveAsync(destFile, config.Archive, password, taskToUpdate);
+            }
+            else if (!string.IsNullOrWhiteSpace(listFile))
+            {
+                result = await Run7zCommandAsync("a", source, destFile, config.Archive, password, listFile, config.Filters, fileTypeExclusions, taskToUpdate);
+            }
+            else
+            {
+                // 所有变更文件都被自定义规则接管，主压缩阶段跳过，后续规则追加负责创建归档。
+                result = true;
+            }
 
             // 4.5 自定义文件类型追加压缩（增量模式下传递变更文件列表用于筛选）
-            if (result && hasFileTypeRules)
+            if (result && hasFileTypeRules && contentChangedFiles.Count > 0)
             {
-                bool ruleResult = await RunFileTypeRulePassesAsync(source, destFile, config.Archive, changedFiles, config.Filters, password);
+                bool ruleResult = await RunFileTypeRulePassesAsync(source, destFile, config.Archive, contentChangedFiles, config.Filters, password);
                 if (!ruleResult)
                 {
-                    Log(I18n.Format("BackupService_Log_FileTypeRulePassFailed"), LogLevel.Warning);
+                    if (string.IsNullOrWhiteSpace(listFile))
+                    {
+                        result = false;
+                    }
+                    else
+                    {
+                        Log(I18n.Format("BackupService_Log_FileTypeRulePassFailed"), LogLevel.Warning);
+                    }
                 }
             }
 
             // 5. 更新元数据
             if (result)
             {
-                File.Delete(listFile);
+                try { if (!string.IsNullOrWhiteSpace(listFile)) File.Delete(listFile); } catch { }
+
+                if (!File.Exists(destFile))
+                {
+                    return (false, null);
+                }
+
                 // 更新元数据：基准文件保持不变（指向最初的Full），LastBackup指向自己
-                await UpdateMetadataAsync(source, metaDir, fileName, oldMeta.BasedOnFullBackup, currentStates, config.Filters);
+                await UpdateMetadataAsync(source, metaDir, fileName, oldMeta.BasedOnFullBackup, "Smart", oldMeta, currentStates, changeSet, config.Filters);
                 return (true, fileName);
             }
             else
             {
-                try { File.Delete(listFile); } catch { }
+                try { if (!string.IsNullOrWhiteSpace(listFile)) File.Delete(listFile); } catch { }
                 return (false, null);
             }
         }
 
         // --- 模式 3: 覆写备份 ---
         // 返回 (Success, FileName)
-        private static async Task<(bool Success, string? FileName)> DoOverwriteBackupAsync(string source, string destDir, string baseName, BackupConfig config, string comment = "", BackupTask? taskToUpdate = null)
+        private static async Task<(bool Success, string? FileName)> DoOverwriteBackupAsync(string source, string destDir, string metaDir, string baseName, BackupConfig config, string comment = "", BackupTask? taskToUpdate = null)
         {
+            BackupMetadata? oldMeta = null;
+            if (!string.IsNullOrEmpty(metaDir))
+            {
+                oldMeta = LoadBackupMetadata(Path.Combine(metaDir, "metadata.json"));
+            }
+
+            var currentStates = ScanDirectory(source, config.Filters);
+            var changeSet = CompareFileStates(currentStates, oldMeta?.FileStates);
+
             // 1. 寻找最近的备份文件
             var dirInfo = new DirectoryInfo(destDir);
             var files = dirInfo.GetFiles($"*.{config.Archive.Format}")
@@ -1195,7 +1321,7 @@ namespace FolderRewind.Services
             if (files.Count == 0)
             {
                 Log(I18n.Format("BackupService_Log_NoExistingBackupFallbackFull"), LogLevel.Info);
-                return await DoFullBackupAsync(source, destDir, "", baseName, config, comment, taskToUpdate); // 覆写模式不需要元数据
+                return await DoFullBackupAsync(source, destDir, metaDir, baseName, config, comment, taskToUpdate);
             }
 
             FileInfo targetFile = files[0];
@@ -1261,6 +1387,20 @@ namespace FolderRewind.Services
                 {
                     resultingFileName = oldName;
                 }
+
+                if (!string.IsNullOrWhiteSpace(resultingFileName))
+                {
+                    await UpdateMetadataAsync(
+                        source,
+                        metaDir,
+                        resultingFileName,
+                        resultingFileName,
+                        "Overwrite",
+                        oldMeta,
+                        currentStates,
+                        changeSet,
+                        config.Filters);
+                }
             }
 
             return (result, resultingFileName ?? targetFile.Name);
@@ -1277,43 +1417,62 @@ namespace FolderRewind.Services
         {
             int configIndex = GetConfigIndex(config);
             string backupFilePath = Path.Combine(config.DestinationPath, folder.DisplayName, historyItem.FileName);
-            string targetDir = folder.Path; // 还原回源目录
+            string targetDir = folder.Path;
             var archiveSettings = config.Archive;
             bool safeRestoreEnabled = archiveSettings?.SafeRestoreEnabled ?? true;
             bool verifyArchiveBeforeRestore = archiveSettings?.VerifyArchiveBeforeRestore ?? true;
-            string? restoreSnapshotDir = null;
-            bool restoreSnapshotPrepared = false;
+            bool targetIsIncremental = IsIncrementalBackupType(historyItem.BackupType)
+                || InferBackupTypeFromFileName(historyItem.FileName).Equals("Smart", StringComparison.OrdinalIgnoreCase);
 
-            // 创建还原任务用于在任务列表中显示进度
+            string? safeRestoreTempDir = null;
+            bool safeRestoreWorkspacePrepared = false;
+            bool useCompatibilityReverseRestore = false;
+            bool restoreFailed = false;
+            bool restoreStarted = false;
+            bool effectiveCleanRestore = mode == RestoreMode.Clean;
+            SmartRestorePlan? smartRestorePlan = null;
+            List<FileInfo> restoreChain = new();
+
             var restoreTask = new BackupTask
             {
                 FolderName = folder.DisplayName,
                 Status = I18n.Format("BackupService_Task_Restoring"),
-                IconGlyph = "\uE777", // Sync 图标表示还原
+                IconGlyph = "\uE777",
                 Progress = 0,
                 IsIndeterminate = true
             };
             await RunOnUIAsync(() => ActiveTasks.Insert(0, restoreTask));
 
-            if (!File.Exists(backupFilePath))
+            async Task FailAsync(string message, string reason)
             {
-                Log(I18n.Format("BackupService_Log_BackupFileNotFound", backupFilePath), LogLevel.Error);
                 await RunOnUIAsync(() =>
                 {
                     restoreTask.Status = I18n.Format("BackupService_Task_RestoreFailed");
                     restoreTask.IsCompleted = true;
                     restoreTask.IsIndeterminate = false;
                     restoreTask.IsSuccess = false;
-                    restoreTask.ErrorMessage = I18n.Format("BackupService_Log_BackupFileNotFound", backupFilePath);
+                    restoreTask.ErrorMessage = message;
                 });
 
-                try
+                if (restoreStarted)
                 {
-                    KnotLinkService.BroadcastEvent("event=restore_finished;status=failure;reason=no_backup_found");
+                    try
+                    {
+                        KnotLinkService.BroadcastEvent($"event=restore_finished;status=failure;reason={reason}");
+                    }
+                    catch
+                    {
+                    }
                 }
-                catch
-                {
-                }
+
+                NotificationService.NotifyRestoreCompleted(folder.DisplayName, false, message);
+            }
+
+            if (!File.Exists(backupFilePath))
+            {
+                string message = I18n.Format("BackupService_Log_BackupFileNotFound", backupFilePath);
+                Log(message, LogLevel.Error);
+                await FailAsync(message, "no_backup_found");
                 return;
             }
 
@@ -1328,83 +1487,99 @@ namespace FolderRewind.Services
                 catch (Exception ex)
                 {
                     Log(I18n.Format("BackupService_Log_BackupBeforeRestoreFailed", ex.Message), LogLevel.Warning);
-                    // 即使备份失败也继续还原，仅记录警告
                 }
             }
 
             string? sevenZipExe = ResolveSevenZipExecutable();
             if (string.IsNullOrEmpty(sevenZipExe))
             {
-                await RunOnUIAsync(() =>
-                {
-                    restoreTask.Status = I18n.Format("BackupService_Task_RestoreFailed");
-                    restoreTask.IsCompleted = true;
-                    restoreTask.IsIndeterminate = false;
-                    restoreTask.IsSuccess = false;
-                    restoreTask.ErrorMessage = I18n.Format("BackupService_Log_SevenZipNotFound");
-                });
+                string message = I18n.Format("BackupService_Log_SevenZipNotFound");
+                await FailAsync(message, "seven_zip_not_found");
                 return;
             }
 
             var backupDir = new DirectoryInfo(Path.GetDirectoryName(backupFilePath)!);
             var targetFile = new FileInfo(backupFilePath);
-            var chain = BuildRestoreChain(backupDir, targetFile, historyItem.BackupType, config, folder.DisplayName);
-            if (chain.Count == 0)
+            var chainResult = BuildRestoreChainWithStatus(backupDir, targetFile, historyItem.BackupType, config, folder.DisplayName);
+
+            if (targetIsIncremental && chainResult.Status == RestoreChainBuildStatus.MissingBaseFull)
             {
-                Log(I18n.Format("BackupService_Log_RestoreChainNotFound"), LogLevel.Error);
-                await RunOnUIAsync(() =>
+                bool proceed = await ConfirmMissingBaseFullFallbackAsync(folder.DisplayName, historyItem.FileName);
+                if (!proceed)
                 {
-                    restoreTask.Status = I18n.Format("BackupService_Task_RestoreFailed");
-                    restoreTask.IsCompleted = true;
-                    restoreTask.IsIndeterminate = false;
-                    restoreTask.IsSuccess = false;
-                    restoreTask.ErrorMessage = I18n.Format("BackupService_Log_RestoreChainNotFound");
-                });
-                return;
+                    await RunOnUIAsync(() =>
+                    {
+                        restoreTask.Status = I18n.GetString("Common_Canceled");
+                        restoreTask.IsCompleted = true;
+                        restoreTask.IsIndeterminate = false;
+                        restoreTask.IsSuccess = false;
+                        restoreTask.ErrorMessage = I18n.GetString("Common_Canceled");
+                    });
+                    return;
+                }
+
+                restoreChain = BuildReverseCompatibilityChain(backupDir, targetFile, config, folder.DisplayName);
+                useCompatibilityReverseRestore = true;
+                effectiveCleanRestore = false;
+
+                if (restoreChain.Count == 0)
+                {
+                    string message = I18n.Format("BackupService_Log_RestoreChainNotFound");
+                    Log(message, LogLevel.Error);
+                    await FailAsync(message, "reverse_chain_not_found");
+                    return;
+                }
+            }
+            else
+            {
+                restoreChain = chainResult.Chain;
+                if (restoreChain.Count == 0)
+                {
+                    string message = I18n.Format("BackupService_Log_RestoreChainNotFound");
+                    Log(message, LogLevel.Error);
+                    await FailAsync(message, "restore_chain_not_found");
+                    return;
+                }
+            }
+
+            if (effectiveCleanRestore && targetIsIncremental && !useCompatibilityReverseRestore)
+            {
+                string metadataPath = Path.Combine(config.DestinationPath, "_metadata", folder.DisplayName, "metadata.json");
+                var metadata = LoadBackupMetadata(metadataPath);
+
+                if (metadata != null && TryBuildSmartRestorePlan(restoreChain, metadata, out var plan))
+                {
+                    smartRestorePlan = plan;
+                    Log($"[Restore] Exact Smart Clean restore enabled for {historyItem.FileName}", LogLevel.Info);
+                }
+                else
+                {
+                    Log($"[Restore] Exact Smart Clean restore unavailable for {historyItem.FileName}, falling back to compatibility chain extraction.", LogLevel.Warning);
+                }
             }
 
             Log(I18n.Format("BackupService_Log_RestoreBegin", folder.DisplayName), LogLevel.Info);
             Log(I18n.Format("BackupService_Log_RestoreTargetBackup", historyItem.FileName), LogLevel.Info);
             Log(I18n.Format("BackupService_Log_RestoreTargetPath", targetDir), LogLevel.Info);
 
-            // 获取加密密码（如果是加密配置）
             string? restorePassword = ResolvePassword(config);
+            var archivesToVerify = smartRestorePlan?.Chain ?? restoreChain;
 
             if (verifyArchiveBeforeRestore)
             {
-                Log(I18n.Format("BackupService_Log_RestoreIntegrityCheckBegin", chain.Count), LogLevel.Info);
-                bool verifyPassed = await ValidateRestoreChainAsync(chain, sevenZipExe, restorePassword, restoreTask);
+                Log(I18n.Format("BackupService_Log_RestoreIntegrityCheckBegin", archivesToVerify.Count), LogLevel.Info);
+                bool verifyPassed = await ValidateRestoreChainAsync(archivesToVerify, sevenZipExe, restorePassword, restoreTask);
                 if (!verifyPassed)
                 {
-                    Log(I18n.Format("BackupService_Log_RestoreIntegrityCheckFailedStop"), LogLevel.Error);
-                    await RunOnUIAsync(() =>
-                    {
-                        restoreTask.Status = I18n.Format("BackupService_Task_RestoreFailed");
-                        restoreTask.IsCompleted = true;
-                        restoreTask.IsIndeterminate = false;
-                        restoreTask.IsSuccess = false;
-                        if (string.IsNullOrWhiteSpace(restoreTask.ErrorMessage))
-                        {
-                            restoreTask.ErrorMessage = I18n.Format("BackupService_Log_RestoreIntegrityCheckFailedStop");
-                        }
-                    });
-
-                    try
-                    {
-                        KnotLinkService.BroadcastEvent("event=restore_finished;status=failure;reason=archive_integrity_check_failed");
-                    }
-                    catch
-                    {
-                    }
-
-                    NotificationService.NotifyRestoreCompleted(folder.DisplayName, false, I18n.GetString("BackupService_Log_RestoreIntegrityCheckFailedStop"));
+                    string message = I18n.Format("BackupService_Log_RestoreIntegrityCheckFailedStop");
+                    Log(message, LogLevel.Error);
+                    await FailAsync(message, "archive_integrity_check_failed");
                     return;
                 }
 
                 Log(I18n.Format("BackupService_Log_RestoreIntegrityCheckPassed"), LogLevel.Info);
             }
 
-            // 还原前钩子：允许插件提取需要保留的数据
             List<(string PluginId, Services.Plugins.IFolderRewindPlugin Plugin, object? State)>? pluginRestoreStates = null;
             try
             {
@@ -1412,85 +1587,73 @@ namespace FolderRewind.Services
             }
             catch
             {
-                // 插件异常不影响核心还原流程
             }
 
             try
             {
                 KnotLinkService.BroadcastEvent($"event=restore_started;config={configIndex};world={folder.DisplayName}");
+                restoreStarted = true;
             }
             catch
             {
             }
 
-            // 安全还原：Clean 模式下先创建目录快照，失败可回滚
-            if (mode == RestoreMode.Clean && safeRestoreEnabled)
+            if (effectiveCleanRestore && safeRestoreEnabled)
             {
-                if (!TryPrepareRestoreSnapshot(targetDir, folder.DisplayName, out restoreSnapshotDir, out var snapshotError))
+                if (!TryPrepareSafeRestoreWorkspace(targetDir, out safeRestoreTempDir, out var prepareError))
                 {
-                    Log(I18n.Format("BackupService_Log_RestoreSnapshotPrepareFailed", snapshotError ?? "Unknown error"), LogLevel.Error);
-                    await RunOnUIAsync(() =>
-                    {
-                        restoreTask.Status = I18n.Format("BackupService_Task_RestoreFailed");
-                        restoreTask.IsCompleted = true;
-                        restoreTask.IsIndeterminate = false;
-                        restoreTask.IsSuccess = false;
-                        restoreTask.ErrorMessage = I18n.Format("BackupService_Log_RestoreSnapshotPrepareFailed", snapshotError ?? "Unknown error");
-                    });
+                    string message = I18n.Format("BackupService_Log_RestoreSnapshotPrepareFailed", prepareError ?? "Unknown error");
+                    Log(message, LogLevel.Error);
                     try
                     {
-                        KnotLinkService.BroadcastEvent("event=restore_finished;status=failure;reason=snapshot_prepare_failed");
+                        Services.Plugins.PluginService.InvokeAfterRestoreFolder(config, folder, false, historyItem.FileName, pluginRestoreStates);
                     }
-                    catch { }
-
-                    NotificationService.NotifyRestoreCompleted(folder.DisplayName, false, I18n.Format("BackupService_Log_RestoreSnapshotPrepareFailed", snapshotError ?? "Unknown error"));
+                    catch
+                    {
+                    }
+                    await FailAsync(message, "snapshot_prepare_failed");
                     return;
                 }
 
-                restoreSnapshotPrepared = !string.IsNullOrWhiteSpace(restoreSnapshotDir);
-                if (restoreSnapshotPrepared)
+                safeRestoreWorkspacePrepared = !string.IsNullOrWhiteSpace(safeRestoreTempDir);
+                if (safeRestoreWorkspacePrepared)
                 {
-                    Log(I18n.Format("BackupService_Log_RestoreSnapshotPrepared", restoreSnapshotDir ?? string.Empty), LogLevel.Info);
+                    Log(I18n.Format("BackupService_Log_RestoreSnapshotPrepared", safeRestoreTempDir ?? string.Empty), LogLevel.Info);
                 }
             }
-            else
+            else if (!Directory.Exists(targetDir))
             {
-                // 非安全快照路径：确保目标目录存在
-                if (!Directory.Exists(targetDir))
+                try
                 {
+                    Directory.CreateDirectory(targetDir);
+                }
+                catch (Exception ex)
+                {
+                    string message = I18n.Format("BackupService_Log_RestoreCreateTargetDirFailed", ex.Message);
+                    Log(message, LogLevel.Error);
                     try
                     {
-                        Directory.CreateDirectory(targetDir);
+                        Services.Plugins.PluginService.InvokeAfterRestoreFolder(config, folder, false, historyItem.FileName, pluginRestoreStates);
                     }
-                    catch (Exception ex)
+                    catch
                     {
-                        Log(I18n.Format("BackupService_Log_RestoreCreateTargetDirFailed", ex.Message), LogLevel.Error);
-                        try
-                        {
-                            KnotLinkService.BroadcastEvent("event=restore_finished;status=failure;reason=create_dir_failed");
-                        }
-                        catch { }
-                        return;
                     }
+                    await FailAsync(message, "create_dir_failed");
+                    return;
                 }
             }
 
-            // 1. Clean 模式先清空目标（安全快照时目标目录已是新目录，可跳过）
-            if (mode == RestoreMode.Clean && !restoreSnapshotPrepared)
+            if (effectiveCleanRestore && !safeRestoreWorkspacePrepared)
             {
                 Log(I18n.Format("BackupService_Log_RestoreCleaningTarget"), LogLevel.Info);
-
-                // 收集还原白名单
                 var restoreWhitelist = config.Filters?.RestoreWhitelist;
                 bool hasWhitelist = restoreWhitelist != null && restoreWhitelist.Count > 0;
 
                 try
                 {
                     DirectoryInfo di = new DirectoryInfo(targetDir);
-
                     foreach (var entry in di.EnumerateFileSystemInfos("*", SearchOption.TopDirectoryOnly))
                     {
-                        // 检查是否在还原白名单中
                         if (hasWhitelist && restoreWhitelist != null && IsInRestoreWhitelist(entry.FullName, targetDir, restoreWhitelist))
                         {
                             Log(I18n.Format("BackupService_Log_RestoreWhitelistSkip", entry.Name), LogLevel.Info);
@@ -1501,7 +1664,7 @@ namespace FolderRewind.Services
                         {
                             if (entry is DirectoryInfo dirEntry)
                             {
-                                // 递归删除目录
+                                ClearReadonlyAttributes(dirEntry.FullName);
                                 dirEntry.Delete(true);
                             }
                             else if (entry is FileInfo fileEntry)
@@ -1525,134 +1688,101 @@ namespace FolderRewind.Services
                 }
             }
 
-            // 2. 按链顺序依次解压（Full + Smart），带进度跟踪
-            bool restoreFailed = false;
-            for (int i = 0; i < chain.Count; i++)
+            bool restoreSucceeded;
+            if (smartRestorePlan != null && effectiveCleanRestore)
             {
-                var file = chain[i];
-                double segmentBase = (double)i / chain.Count * 100;
-                double segmentRange = 100.0 / chain.Count;
-
-                // 更新状态：显示当前还原进度 (x/n)
-                int fileIndex = i;
-                if (chain.Count > 1)
-                {
-                    await RunOnUIAsync(() => restoreTask.Status = I18n.Format("BackupService_Task_Restoring_N", fileIndex + 1, chain.Count));
-                }
-
-                Log(I18n.Format("BackupService_Log_RestoreApplyingArchive", file.Name), LogLevel.Info);
-                string extractArgs = $"x \"{file.FullName}\" -o\"{targetDir}\" -y -bsp1";
-                if (!string.IsNullOrWhiteSpace(restorePassword))
-                {
-                    extractArgs = $"x \"{file.FullName}\" -o\"{targetDir}\" -y -bsp1 -p\"{restorePassword}\"";
-                }
-                string safeExtractArgs = string.IsNullOrWhiteSpace(restorePassword) ? extractArgs : extractArgs.Replace(restorePassword, "***");
-                bool ok = await RunSevenZipProcessAsync(
-                    sevenZipExe, extractArgs,
-                    file.DirectoryName, safeExtractArgs, restoreTask,
-                    progressBase: segmentBase, progressRange: segmentRange);
-                if (!ok)
-                {
-                    Log(I18n.Format("BackupService_Log_RestoreExtractFailed"), LogLevel.Error);
-                    await RunOnUIAsync(() =>
-                    {
-                        restoreTask.Status = I18n.Format("BackupService_Task_RestoreFailed");
-                        restoreTask.IsCompleted = true;
-                        restoreTask.IsIndeterminate = false;
-                        restoreTask.IsSuccess = false;
-                    });
-
-                    try
-                    {
-                        KnotLinkService.BroadcastEvent("event=restore_finished;status=failure;reason=command_failed");
-                    }
-                    catch
-                    {
-                    }
-
-                    // 发送恢复失败通知
-                    NotificationService.NotifyRestoreCompleted(folder.DisplayName, false, I18n.GetString("BackupService_Log_RestoreExtractFailed"));
-                    restoreFailed = true;
-                    break;
-                }
-            }
-
-            if (!restoreFailed)
-            {
-                if (restoreSnapshotPrepared && !string.IsNullOrWhiteSpace(restoreSnapshotDir))
-                {
-                    _ = Task.Run(() =>
-                    {
-                        try
-                        {
-                            if (Directory.Exists(restoreSnapshotDir))
-                            {
-                                Directory.Delete(restoreSnapshotDir, true);
-                            }
-                        }
-                        catch (Exception ex)
-                        {
-                            Log(I18n.Format("BackupService_Log_RestoreSnapshotCleanupFailed", ex.Message), LogLevel.Warning);
-                        }
-                    });
-                }
-
-                // 还原成功 — 调用还原后钩子（允许插件写回保留数据）
-                try
-                {
-                    Services.Plugins.PluginService.InvokeAfterRestoreFolder(config, folder, true, historyItem.FileName, pluginRestoreStates);
-                }
-                catch
-                {
-                    // 插件异常不影响核心还原流程
-                }
-
-                // 还原成功
-                await RunOnUIAsync(() =>
-                {
-                    restoreTask.Status = I18n.Format("BackupService_Task_RestoreCompleted");
-                    restoreTask.Progress = 100;
-                    restoreTask.IsCompleted = true;
-                    restoreTask.IsIndeterminate = false;
-                    restoreTask.IsSuccess = true;
-                });
-
-                Log(I18n.Format("BackupService_Log_RestoreCompleted"), LogLevel.Info);
+                restoreSucceeded = await ApplySmartRestorePlanAsync(smartRestorePlan, targetDir, sevenZipExe, restorePassword, restoreTask);
             }
             else
             {
-                if (restoreSnapshotPrepared && !string.IsNullOrWhiteSpace(restoreSnapshotDir))
+                restoreSucceeded = await ApplyRestoreChainAsync(restoreChain, targetDir, sevenZipExe, restorePassword, restoreTask);
+            }
+
+            if (!restoreSucceeded)
+            {
+                restoreFailed = true;
+                string message = string.IsNullOrWhiteSpace(restoreTask.ErrorMessage)
+                    ? I18n.GetString("BackupService_Log_RestoreExtractFailed")
+                    : restoreTask.ErrorMessage!;
+                Log(message, LogLevel.Error);
+            }
+            else
+            {
+                CleanupInternalRestoreMarkers(targetDir);
+
+                if (safeRestoreWorkspacePrepared && !string.IsNullOrWhiteSpace(safeRestoreTempDir))
                 {
-                    Log(I18n.Format("BackupService_Log_RestoreRollbackBegin", restoreSnapshotDir), LogLevel.Warning);
-                    if (TryRollbackFromRestoreSnapshot(targetDir, restoreSnapshotDir, out var rollbackError))
+                    if (!TryCommitSafeRestoreWorkspace(targetDir, safeRestoreTempDir, config.Filters?.RestoreWhitelist, out var commitError))
+                    {
+                        restoreFailed = true;
+                        string message = I18n.Format("BackupService_Log_RestoreRollbackFailed", commitError ?? "Unknown error");
+                        Log(message, LogLevel.Error);
+                        await RunOnUIAsync(() => restoreTask.ErrorMessage = message);
+                    }
+                }
+            }
+
+            if (restoreFailed)
+            {
+                if (safeRestoreWorkspacePrepared && !string.IsNullOrWhiteSpace(safeRestoreTempDir))
+                {
+                    Log(I18n.Format("BackupService_Log_RestoreRollbackBegin", safeRestoreTempDir), LogLevel.Warning);
+                    if (TryRollbackSafeRestoreWorkspace(targetDir, safeRestoreTempDir, out var rollbackError))
                     {
                         Log(I18n.Format("BackupService_Log_RestoreRollbackSuccess"), LogLevel.Info);
                     }
                     else
                     {
-                        Log(I18n.Format("BackupService_Log_RestoreRollbackFailed", rollbackError ?? "Unknown error"), LogLevel.Error);
+                        string message = I18n.Format("BackupService_Log_RestoreRollbackFailed", rollbackError ?? "Unknown error");
+                        Log(message, LogLevel.Error);
                         await RunOnUIAsync(() =>
                         {
                             if (string.IsNullOrWhiteSpace(restoreTask.ErrorMessage))
                             {
-                                restoreTask.ErrorMessage = I18n.Format("BackupService_Log_RestoreRollbackFailed", rollbackError ?? "Unknown error");
+                                restoreTask.ErrorMessage = message;
                             }
                         });
                     }
                 }
 
-                // 还原失败 — 也通知插件
                 try
                 {
                     Services.Plugins.PluginService.InvokeAfterRestoreFolder(config, folder, false, historyItem.FileName, pluginRestoreStates);
                 }
-                catch { }
+                catch
+                {
+                }
+
+                string failureMessage = string.IsNullOrWhiteSpace(restoreTask.ErrorMessage)
+                    ? I18n.GetString("BackupService_Log_RestoreExtractFailed")
+                    : restoreTask.ErrorMessage!;
+                await FailAsync(failureMessage, "command_failed");
+                return;
             }
 
             try
             {
-                if (!restoreFailed)
-                    KnotLinkService.BroadcastEvent($"event=restore_success;config={configIndex};world={folder.DisplayName};backup={historyItem.FileName}");
+                Services.Plugins.PluginService.InvokeAfterRestoreFolder(config, folder, true, historyItem.FileName, pluginRestoreStates);
+            }
+            catch
+            {
+            }
+
+            await RunOnUIAsync(() =>
+            {
+                restoreTask.Status = I18n.Format("BackupService_Task_RestoreCompleted");
+                restoreTask.Progress = 100;
+                restoreTask.IsCompleted = true;
+                restoreTask.IsIndeterminate = false;
+                restoreTask.IsSuccess = true;
+            });
+
+            Log(I18n.Format("BackupService_Log_RestoreCompleted"), LogLevel.Info);
+            NotificationService.NotifyRestoreCompleted(folder.DisplayName, true, I18n.GetString("BackupService_Task_RestoreCompleted"));
+
+            try
+            {
+                KnotLinkService.BroadcastEvent($"event=restore_success;config={configIndex};world={folder.DisplayName};backup={historyItem.FileName}");
             }
             catch
             {
@@ -1695,9 +1825,243 @@ namespace FolderRewind.Services
             return true;
         }
 
-        private static bool TryPrepareRestoreSnapshot(string targetDir, string folderDisplayName, out string? snapshotDir, out string? errorMessage)
+        private static bool TryBuildSmartRestorePlan(IReadOnlyList<FileInfo> chain, BackupMetadata metadata, out SmartRestorePlan? plan)
         {
-            snapshotDir = null;
+            plan = null;
+            if (chain == null || chain.Count == 0)
+            {
+                return false;
+            }
+
+            var normalized = NormalizeBackupMetadata(metadata);
+            var recordMap = normalized.BackupRecords
+                .Where(r => !string.IsNullOrWhiteSpace(r.ArchiveFileName))
+                .GroupBy(r => r.ArchiveFileName, StringComparer.OrdinalIgnoreCase)
+                .ToDictionary(
+                    g => g.Key,
+                    g => g.OrderByDescending(r => r.CreatedAtUtc).First(),
+                    StringComparer.OrdinalIgnoreCase);
+
+            if (!recordMap.TryGetValue(chain[0].Name, out var baseRecord)
+                || baseRecord.FullFileList == null
+                || baseRecord.FullFileList.Count == 0)
+            {
+                return false;
+            }
+
+            var owners = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+            foreach (var file in baseRecord.FullFileList.Where(f => !string.IsNullOrWhiteSpace(f)).Distinct(StringComparer.OrdinalIgnoreCase))
+            {
+                owners[file] = chain[0].Name;
+            }
+
+            for (int i = 1; i < chain.Count; i++)
+            {
+                if (!recordMap.TryGetValue(chain[i].Name, out var record))
+                {
+                    return false;
+                }
+
+                foreach (var deleted in record.DeletedFiles.Where(f => !string.IsNullOrWhiteSpace(f)).Distinct(StringComparer.OrdinalIgnoreCase))
+                {
+                    owners.Remove(deleted);
+                }
+
+                foreach (var added in record.AddedFiles.Where(f => !string.IsNullOrWhiteSpace(f)).Distinct(StringComparer.OrdinalIgnoreCase))
+                {
+                    owners[added] = record.ArchiveFileName;
+                }
+
+                foreach (var modified in record.ModifiedFiles.Where(f => !string.IsNullOrWhiteSpace(f)).Distinct(StringComparer.OrdinalIgnoreCase))
+                {
+                    owners[modified] = record.ArchiveFileName;
+                }
+
+                if (record.FullFileList == null || record.FullFileList.Count == 0)
+                {
+                    return false;
+                }
+
+                var expected = new HashSet<string>(record.FullFileList.Where(f => !string.IsNullOrWhiteSpace(f)), StringComparer.OrdinalIgnoreCase);
+                if (owners.Count != expected.Count || owners.Keys.Any(path => !expected.Contains(path)))
+                {
+                    return false;
+                }
+            }
+
+            var archiveLookup = chain.ToDictionary(f => f.Name, StringComparer.OrdinalIgnoreCase);
+            var archiveIndex = chain
+                .Select((file, index) => new { file.Name, Index = index })
+                .ToDictionary(x => x.Name, x => x.Index, StringComparer.OrdinalIgnoreCase);
+
+            var groups = owners
+                .GroupBy(kvp => kvp.Value, StringComparer.OrdinalIgnoreCase)
+                .Where(g => archiveLookup.ContainsKey(g.Key))
+                .Select(g => new SmartRestoreArchiveGroup
+                {
+                    Archive = archiveLookup[g.Key],
+                    Files = g.Select(x => x.Key).OrderBy(x => x, StringComparer.OrdinalIgnoreCase).ToList()
+                })
+                .OrderBy(g => archiveIndex[g.Archive.Name])
+                .ToList();
+
+            plan = new SmartRestorePlan
+            {
+                Chain = chain.ToList(),
+                ArchiveGroups = groups
+            };
+            return true;
+        }
+
+        private static async Task<bool> ApplyRestoreChainAsync(
+            IReadOnlyList<FileInfo> chain,
+            string targetDir,
+            string sevenZipExe,
+            string? password,
+            BackupTask? restoreTask)
+        {
+            if (chain == null || chain.Count == 0)
+            {
+                return false;
+            }
+
+            for (int i = 0; i < chain.Count; i++)
+            {
+                var file = chain[i];
+                double segmentBase = (double)i / chain.Count * 100;
+                double segmentRange = 100.0 / chain.Count;
+
+                if (restoreTask != null && chain.Count > 1)
+                {
+                    int fileIndex = i;
+                    await RunOnUIAsync(() => restoreTask.Status = I18n.Format("BackupService_Task_Restoring_N", fileIndex + 1, chain.Count));
+                }
+
+                Log(I18n.Format("BackupService_Log_RestoreApplyingArchive", file.Name), LogLevel.Info);
+                string extractArgs = BuildRestoreExtractArguments(file.FullName, targetDir, password);
+                string safeExtractArgs = string.IsNullOrWhiteSpace(password) ? extractArgs : extractArgs.Replace(password, "***");
+                bool ok = await RunSevenZipProcessAsync(
+                    sevenZipExe,
+                    extractArgs,
+                    file.DirectoryName,
+                    safeExtractArgs,
+                    restoreTask,
+                    progressBase: segmentBase,
+                    progressRange: segmentRange);
+
+                if (!ok)
+                {
+                    return false;
+                }
+            }
+
+            return true;
+        }
+
+        private static async Task<bool> ApplySmartRestorePlanAsync(
+            SmartRestorePlan plan,
+            string targetDir,
+            string sevenZipExe,
+            string? password,
+            BackupTask? restoreTask)
+        {
+            var groups = plan.ArchiveGroups.Where(g => g.Files.Count > 0).ToList();
+            if (groups.Count == 0)
+            {
+                if (restoreTask != null)
+                {
+                    await RunOnUIAsync(() =>
+                    {
+                        restoreTask.IsIndeterminate = false;
+                        restoreTask.Progress = 100;
+                    });
+                }
+                return true;
+            }
+
+            for (int i = 0; i < groups.Count; i++)
+            {
+                var group = groups[i];
+                double segmentBase = (double)i / groups.Count * 100;
+                double segmentRange = 100.0 / groups.Count;
+                string listFile = Path.GetTempFileName();
+
+                try
+                {
+                    File.WriteAllLines(listFile, group.Files);
+                    if (restoreTask != null && groups.Count > 1)
+                    {
+                        int fileIndex = i;
+                        await RunOnUIAsync(() => restoreTask.Status = I18n.Format("BackupService_Task_Restoring_N", fileIndex + 1, groups.Count));
+                    }
+
+                    Log(I18n.Format("BackupService_Log_RestoreApplyingArchive", group.Archive.Name), LogLevel.Info);
+                    string extractArgs = BuildRestoreExtractArguments(group.Archive.FullName, targetDir, password, listFile);
+                    string safeExtractArgs = string.IsNullOrWhiteSpace(password) ? extractArgs : extractArgs.Replace(password, "***");
+                    bool ok = await RunSevenZipProcessAsync(
+                        sevenZipExe,
+                        extractArgs,
+                        group.Archive.DirectoryName,
+                        safeExtractArgs,
+                        restoreTask,
+                        progressBase: segmentBase,
+                        progressRange: segmentRange);
+
+                    if (!ok)
+                    {
+                        return false;
+                    }
+                }
+                finally
+                {
+                    try { File.Delete(listFile); } catch { }
+                }
+            }
+
+            return true;
+        }
+
+        private static string BuildRestoreExtractArguments(string archivePath, string targetDir, string? password, string? listFile = null)
+        {
+            var sb = new StringBuilder();
+            sb.Append($"x \"{archivePath}\"");
+            if (!string.IsNullOrWhiteSpace(listFile))
+            {
+                sb.Append($" @\"{listFile}\"");
+            }
+            sb.Append($" -o\"{targetDir}\" -y -bsp1");
+            if (!string.IsNullOrWhiteSpace(password))
+            {
+                sb.Append($" -p\"{password}\"");
+            }
+            return sb.ToString();
+        }
+
+        private static async Task<bool> ConfirmMissingBaseFullFallbackAsync(string folderDisplayName, string backupFileName)
+        {
+            if (App._window?.Content?.XamlRoot == null)
+            {
+                return false;
+            }
+
+            var dialog = new ContentDialog
+            {
+                Title = I18n.GetString("BackupService_RestoreMissingBaseFull_Title"),
+                Content = I18n.Format("BackupService_RestoreMissingBaseFull_Content", backupFileName),
+                PrimaryButtonText = I18n.GetString("BackupService_RestoreMissingBaseFull_Primary"),
+                CloseButtonText = I18n.GetString("Common_Cancel"),
+                DefaultButton = ContentDialogButton.Close,
+                XamlRoot = App._window.Content.XamlRoot
+            };
+            ThemeService.ApplyThemeToDialog(dialog);
+
+            var result = await RunOnUIAsync(async () => await dialog.ShowAsync());
+            return result == ContentDialogResult.Primary;
+        }
+
+        private static bool TryPrepareSafeRestoreWorkspace(string targetDir, out string? tempDir, out string? errorMessage)
+        {
+            tempDir = null;
             errorMessage = null;
 
             try
@@ -1708,20 +2072,8 @@ namespace FolderRewind.Services
                     return true;
                 }
 
-                var tempRoot = ResolveRestoreTempRootPath();
-                if (string.IsNullOrWhiteSpace(tempRoot))
-                {
-                    errorMessage = "Restore temp root is empty.";
-                    return false;
-                }
-
-                Directory.CreateDirectory(tempRoot);
-
-                var safeName = MakeSafePathSegment(folderDisplayName);
-                if (string.IsNullOrWhiteSpace(safeName)) safeName = "RestoreTarget";
-
-                snapshotDir = Path.Combine(tempRoot, $"{safeName}_{DateTime.Now:yyyyMMdd_HHmmss_fff}_{Guid.NewGuid():N}");
-                Directory.Move(targetDir, snapshotDir);
+                tempDir = CreateSafeRestoreTempDirectoryPath(targetDir);
+                Directory.Move(targetDir, tempDir);
                 Directory.CreateDirectory(targetDir);
                 return true;
             }
@@ -1732,7 +2084,31 @@ namespace FolderRewind.Services
             }
         }
 
-        private static bool TryRollbackFromRestoreSnapshot(string targetDir, string snapshotDir, out string? errorMessage)
+        private static bool TryCommitSafeRestoreWorkspace(string targetDir, string tempDir, IEnumerable<string>? whitelist, out string? errorMessage)
+        {
+            errorMessage = null;
+
+            try
+            {
+                CleanupInternalRestoreMarkers(targetDir);
+                CopyRestoreWhitelistEntries(tempDir, targetDir, whitelist);
+
+                if (Directory.Exists(tempDir))
+                {
+                    ClearReadonlyAttributes(tempDir);
+                    Directory.Delete(tempDir, true);
+                }
+
+                return true;
+            }
+            catch (Exception ex)
+            {
+                errorMessage = ex.Message;
+                return false;
+            }
+        }
+
+        private static bool TryRollbackSafeRestoreWorkspace(string targetDir, string tempDir, out string? errorMessage)
         {
             errorMessage = null;
 
@@ -1744,13 +2120,13 @@ namespace FolderRewind.Services
                     Directory.Delete(targetDir, true);
                 }
 
-                if (!Directory.Exists(snapshotDir))
+                if (!Directory.Exists(tempDir))
                 {
                     errorMessage = "Snapshot directory is missing.";
                     return false;
                 }
 
-                Directory.Move(snapshotDir, targetDir);
+                Directory.Move(tempDir, targetDir);
                 return true;
             }
             catch (Exception ex)
@@ -1760,26 +2136,159 @@ namespace FolderRewind.Services
             }
         }
 
-        private static string ResolveRestoreTempRootPath()
+        private static string CreateSafeRestoreTempDirectoryPath(string targetDir)
         {
-            var configured = ConfigService.CurrentConfig?.GlobalSettings?.RestoreTempRootPath;
-            if (!string.IsNullOrWhiteSpace(configured))
+            string normalizedTarget = targetDir.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
+            string? parent = Path.GetDirectoryName(normalizedTarget);
+            if (string.IsNullOrWhiteSpace(parent))
             {
-                return configured;
+                throw new InvalidOperationException("Restore target has no parent directory.");
             }
 
-            return ConfigService.GetRecommendedRestoreTempRootPath();
+            string name = Path.GetFileName(normalizedTarget);
+            string basePath = Path.Combine(parent, name + "-Temp");
+            string candidate = basePath;
+            int suffix = 1;
+
+            while (Directory.Exists(candidate) || File.Exists(candidate))
+            {
+                candidate = basePath + "-" + suffix.ToString();
+                suffix++;
+            }
+
+            return candidate;
         }
 
-        private static string MakeSafePathSegment(string? raw)
+        private static List<FileInfo> BuildReverseCompatibilityChain(DirectoryInfo backupDir, FileInfo targetFile, BackupConfig? config = null, string? folderName = null)
         {
-            var value = string.IsNullOrWhiteSpace(raw) ? "RestoreTarget" : raw.Trim();
-            foreach (var ch in Path.GetInvalidFileNameChars())
+            if (!backupDir.Exists)
             {
-                value = value.Replace(ch, '_');
+                return new List<FileInfo>();
             }
 
-            return value;
+            var enumOptions = new EnumerationOptions
+            {
+                IgnoreInaccessible = true,
+                MatchCasing = MatchCasing.CaseInsensitive
+            };
+
+            var candidates = backupDir
+                .EnumerateFiles("*", enumOptions)
+                .Where(f => string.Equals(f.Extension, targetFile.Extension, StringComparison.OrdinalIgnoreCase))
+                .Where(f => f.LastWriteTimeUtc >= targetFile.LastWriteTimeUtc
+                    || string.Equals(f.FullName, targetFile.FullName, StringComparison.OrdinalIgnoreCase))
+                .OrderByDescending(f => f.LastWriteTimeUtc)
+                .ThenByDescending(f => f.Name)
+                .ToList();
+
+            var chain = new List<FileInfo>();
+            foreach (var candidate in candidates)
+            {
+                chain.Add(candidate);
+                if (string.Equals(candidate.FullName, targetFile.FullName, StringComparison.OrdinalIgnoreCase))
+                {
+                    break;
+                }
+            }
+
+            if (!chain.Any(f => string.Equals(f.FullName, targetFile.FullName, StringComparison.OrdinalIgnoreCase)))
+            {
+                chain.Add(targetFile);
+            }
+
+            return chain
+                .GroupBy(f => f.FullName, StringComparer.OrdinalIgnoreCase)
+                .Select(g => g.First())
+                .ToList();
+        }
+
+        private static void CleanupInternalRestoreMarkers(string targetDir)
+        {
+            try
+            {
+                string internalDir = Path.Combine(targetDir, InternalRestoreMarkerDirectoryName);
+                if (Directory.Exists(internalDir))
+                {
+                    ClearReadonlyAttributes(internalDir);
+                    Directory.Delete(internalDir, true);
+                }
+            }
+            catch
+            {
+            }
+        }
+
+        private static void CopyRestoreWhitelistEntries(string sourceDir, string targetDir, IEnumerable<string>? whitelist)
+        {
+            if (string.IsNullOrWhiteSpace(sourceDir)
+                || string.IsNullOrWhiteSpace(targetDir)
+                || whitelist == null)
+            {
+                return;
+            }
+
+            var rules = whitelist.Where(r => !string.IsNullOrWhiteSpace(r)).ToList();
+            if (rules.Count == 0 || !Directory.Exists(sourceDir))
+            {
+                return;
+            }
+
+            foreach (var dir in Directory.EnumerateDirectories(sourceDir, "*", SearchOption.AllDirectories).OrderBy(d => d.Length))
+            {
+                if (!IsPathOrAncestorInRestoreWhitelist(dir, sourceDir, rules))
+                {
+                    continue;
+                }
+
+                string relPath = Path.GetRelativePath(sourceDir, dir);
+                Directory.CreateDirectory(Path.Combine(targetDir, relPath));
+            }
+
+            foreach (var file in Directory.EnumerateFiles(sourceDir, "*", SearchOption.AllDirectories))
+            {
+                if (!IsPathOrAncestorInRestoreWhitelist(file, sourceDir, rules))
+                {
+                    continue;
+                }
+
+                string relPath = Path.GetRelativePath(sourceDir, file);
+                string destFile = Path.Combine(targetDir, relPath);
+                string? destParent = Path.GetDirectoryName(destFile);
+                if (!string.IsNullOrWhiteSpace(destParent))
+                {
+                    Directory.CreateDirectory(destParent);
+                }
+                File.Copy(file, destFile, true);
+            }
+        }
+
+        private static bool IsPathOrAncestorInRestoreWhitelist(string entryPath, string rootDir, IReadOnlyCollection<string> whitelist)
+        {
+            if (IsInRestoreWhitelist(entryPath, rootDir, whitelist))
+            {
+                return true;
+            }
+
+            string rootFullPath = Path.GetFullPath(rootDir).TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
+            string? current = Directory.Exists(entryPath) ? entryPath : Path.GetDirectoryName(entryPath);
+
+            while (!string.IsNullOrWhiteSpace(current))
+            {
+                string currentFullPath = Path.GetFullPath(current).TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
+                if (string.Equals(currentFullPath, rootFullPath, StringComparison.OrdinalIgnoreCase))
+                {
+                    break;
+                }
+
+                if (IsInRestoreWhitelist(currentFullPath, rootDir, whitelist))
+                {
+                    return true;
+                }
+
+                current = Path.GetDirectoryName(currentFullPath);
+            }
+
+            return false;
         }
 
         private static void ClearReadonlyAttributes(string dir)
@@ -1901,6 +2410,11 @@ namespace FolderRewind.Services
         /// </summary>
         public static async Task RestoreBackupAsync(BackupConfig config, ManagedFolder folder, string backupFileName)
         {
+            await RestoreBackupAsync(config, folder, backupFileName, RestoreMode.Overwrite);
+        }
+
+        public static async Task RestoreBackupAsync(BackupConfig config, ManagedFolder folder, string backupFileName, RestoreMode mode)
+        {
             // 构造一个临时的 HistoryItem
             string backupType = HistoryService.GetBackupTypeForFile(config.Id, folder.DisplayName, backupFileName)
                 ?? InferBackupTypeFromFileName(backupFileName);
@@ -1911,7 +2425,7 @@ namespace FolderRewind.Services
                 BackupType = backupType
             };
 
-            await RestoreBackupAsync(config, folder, historyItem, RestoreMode.Overwrite);
+            await RestoreBackupAsync(config, folder, historyItem, mode);
         }
 
 
@@ -1957,18 +2471,84 @@ namespace FolderRewind.Services
             return result;
         }
 
-        private static async Task UpdateMetadataAsync(string sourceDir, string metaDir, string currentBackupFile, string baseBackupFile, Dictionary<string, FileState>? states = null, FilterSettings? filters = null)
+        private static async Task<bool> CreateDeletionOnlyArchiveAsync(string archivePath, ArchiveSettings settings, string? password, BackupTask? taskToUpdate)
         {
-            if (states == null) states = ScanDirectory(sourceDir, filters);
-
-            var meta = new BackupMetadata
+            string tempDir = Path.Combine(Path.GetTempPath(), "FolderRewind_DeleteOnly_" + Guid.NewGuid().ToString("N"));
+            try
             {
-                LastBackupTime = DateTime.Now,
-                LastBackupFileName = currentBackupFile,
-                BasedOnFullBackup = baseBackupFile,
-                FileStates = states
-            };
+                string internalDir = Path.Combine(tempDir, InternalRestoreMarkerDirectoryName);
+                Directory.CreateDirectory(internalDir);
+                await File.WriteAllTextAsync(
+                    Path.Combine(internalDir, InternalRestoreMarkerFileName),
+                    DateTime.UtcNow.ToString("O"));
 
+                return await Run7zCommandAsync("a", tempDir, archivePath, settings, password, null, null, null, taskToUpdate);
+            }
+            finally
+            {
+                try
+                {
+                    if (Directory.Exists(tempDir))
+                    {
+                        ClearReadonlyAttributes(tempDir);
+                        Directory.Delete(tempDir, true);
+                    }
+                }
+                catch
+                {
+                }
+            }
+        }
+
+        private static async Task UpdateMetadataAsync(
+            string sourceDir,
+            string metaDir,
+            string currentBackupFile,
+            string baseBackupFile,
+            string backupType,
+            BackupMetadata? previousMetadata,
+            Dictionary<string, FileState>? states = null,
+            BackupChangeSet? changeSet = null,
+            FilterSettings? filters = null)
+        {
+            if (string.IsNullOrWhiteSpace(metaDir))
+            {
+                return;
+            }
+
+            states ??= ScanDirectory(sourceDir, filters);
+            previousMetadata = NormalizeBackupMetadata(previousMetadata);
+            changeSet ??= CompareFileStates(states, previousMetadata.FileStates);
+            string previousLastBackupFileName = previousMetadata.LastBackupFileName ?? string.Empty;
+
+            var meta = previousMetadata;
+            meta.Version = "2.0";
+            meta.LastBackupTime = DateTime.Now;
+            meta.LastBackupFileName = currentBackupFile;
+            meta.BasedOnFullBackup = string.IsNullOrWhiteSpace(baseBackupFile) ? currentBackupFile : baseBackupFile;
+            meta.FileStates = new Dictionary<string, FileState>(states, StringComparer.OrdinalIgnoreCase);
+            meta.BackupRecords ??= new List<BackupChangeRecord>();
+            meta.BackupRecords.RemoveAll(r => string.Equals(r.ArchiveFileName, currentBackupFile, StringComparison.OrdinalIgnoreCase));
+
+            meta.BackupRecords.Add(new BackupChangeRecord
+            {
+                ArchiveFileName = currentBackupFile,
+                BackupType = backupType,
+                BasedOnFullBackup = meta.BasedOnFullBackup,
+                PreviousBackupFileName = previousLastBackupFileName,
+                CreatedAtUtc = DateTime.UtcNow,
+                AddedFiles = changeSet.AddedFiles.OrderBy(x => x, StringComparer.OrdinalIgnoreCase).ToList(),
+                ModifiedFiles = changeSet.ModifiedFiles.OrderBy(x => x, StringComparer.OrdinalIgnoreCase).ToList(),
+                DeletedFiles = changeSet.DeletedFiles.OrderBy(x => x, StringComparer.OrdinalIgnoreCase).ToList(),
+                FullFileList = states.Keys.OrderBy(x => x, StringComparer.OrdinalIgnoreCase).ToList()
+            });
+
+            meta.BackupRecords = meta.BackupRecords
+                .OrderBy(r => r.CreatedAtUtc)
+                .ThenBy(r => r.ArchiveFileName, StringComparer.OrdinalIgnoreCase)
+                .ToList();
+
+            Directory.CreateDirectory(metaDir);
             string json = JsonSerializer.Serialize(meta, AppJsonContext.Default.BackupMetadata);
             await File.WriteAllTextAsync(Path.Combine(metaDir, "metadata.json"), json);
         }
@@ -2283,10 +2863,13 @@ namespace FolderRewind.Services
             return IsIncrementalBackupType(backupType);
         }
 
-        private static List<FileInfo> BuildRestoreChain(DirectoryInfo backupDir, FileInfo targetFile, string backupType, BackupConfig? config = null, string? folderName = null)
+        private static (RestoreChainBuildStatus Status, List<FileInfo> Chain) BuildRestoreChainWithStatus(DirectoryInfo backupDir, FileInfo targetFile, string backupType, BackupConfig? config = null, string? folderName = null)
         {
             var chain = new List<FileInfo>();
-            if (!backupDir.Exists) return chain;
+            if (!backupDir.Exists)
+            {
+                return (RestoreChainBuildStatus.NotFound, chain);
+            }
 
             bool isIncremental =
                 IsIncrementalBackupType(backupType) ||
@@ -2295,7 +2878,7 @@ namespace FolderRewind.Services
             if (!isIncremental)
             {
                 chain.Add(targetFile);
-                return chain;
+                return (RestoreChainBuildStatus.Success, chain);
             }
 
             var enumOptions = new EnumerationOptions
@@ -2314,8 +2897,7 @@ namespace FolderRewind.Services
             if (baseFull == null)
             {
                 Log(I18n.Format("BackupService_Log_NoBaseFullFoundTryIncrementOnly"), LogLevel.Warning);
-                chain.Add(targetFile);
-                return chain;
+                return (RestoreChainBuildStatus.MissingBaseFull, chain);
             }
 
             chain.Add(baseFull);
@@ -2346,7 +2928,12 @@ namespace FolderRewind.Services
 
             Log(I18n.Format("BackupService_Log_RestoreChainBuilt", chain.Count), LogLevel.Debug);
 
-            return chain;
+            return (RestoreChainBuildStatus.Success, chain);
+        }
+
+        private static List<FileInfo> BuildRestoreChain(DirectoryInfo backupDir, FileInfo targetFile, string backupType, BackupConfig? config = null, string? folderName = null)
+        {
+            return BuildRestoreChainWithStatus(backupDir, targetFile, backupType, config, folderName).Chain;
         }
 
         private static string? ResolveSevenZipExecutable()

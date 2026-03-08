@@ -90,6 +90,13 @@
                     <ComboBoxItem x:Uid="ConfigSettingsDialog_ModeOverwrite"/>
                 </ComboBox>
 
+                <Border Padding="12" CornerRadius="8" Background="{ThemeResource SystemFillColorCautionBackgroundBrush}"
+                        Visibility="{x:Bind IsOverwriteModeSelected, Mode=OneWay, Converter={StaticResource BoolToVisConverter}}">
+                    <TextBlock Text="{x:Bind OverwriteModeWarningText, Mode=OneWay}"
+                               TextWrapping="Wrap"
+                               Foreground="{ThemeResource TextFillColorPrimaryBrush}"/>
+                </Border>
+
                 <!-- 压缩格式 + 算法 -->
                 <Grid>
                     <Grid.ColumnDefinitions>

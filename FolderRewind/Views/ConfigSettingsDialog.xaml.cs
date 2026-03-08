@@ -460,8 +460,16 @@ namespace FolderRewind.Views
         public int ModeSelectedIndex
         {
             get => (int)Config.Archive.Mode;
-            set => Config.Archive.Mode = (BackupMode)value;
+            set
+            {
+                Config.Archive.Mode = (BackupMode)value;
+                Bindings.Update();
+            }
         }
+
+        public bool IsOverwriteModeSelected => Config?.Archive?.Mode == BackupMode.Overwrite;
+
+        public string OverwriteModeWarningText => I18n.GetString("ConfigSettingsDialog_OverwriteWarning");
 
         private async void OnBrowseClick(object sender, RoutedEventArgs e)
         {
