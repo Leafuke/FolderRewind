@@ -195,8 +195,47 @@
   <data name="FolderManager_NotSelected" xml:space="preserve">
     <value>(未选择)</value>
   </data>
+  <data name="FolderManager_DuplicateDisplayName_Title" xml:space="preserve">
+    <value>当前配置中已存在同名文件夹</value>
+  </data>
+  <data name="FolderManager_DuplicateDisplayName_Content" xml:space="preserve">
+    <value>配置“{1}”中已经存在名为“{0}”的文件夹。为避免不同目录共用同一个备份槽位，不能再添加同名项。</value>
+  </data>
+  <data name="FolderManager_DuplicateDisplayName_BatchContent" xml:space="preserve">
+    <value>以下文件夹没有被添加到配置“{0}”，因为它们会与现有显示名冲突：
+{1}
+
+为避免不同目录共用同一个备份槽位，同一配置中不能存在同名文件夹。</value>
+  </data>
   <data name="ShellPage_Header.Header" xml:space="preserve">
     <value>FolderRewind</value>
+  </data>
+  <data name="ShellPage_FolderConflict_Title" xml:space="preserve">
+    <value>检测到备份槽位冲突风险</value>
+  </data>
+  <data name="ShellPage_FolderConflict_Intro" xml:space="preserve">
+    <value>当前配置中检测到了可能复用同一备份槽位的文件夹名称冲突，请尽快处理。</value>
+  </data>
+  <data name="ShellPage_FolderConflict_IntraConfigSection" xml:space="preserve">
+    <value>以下配置内部已经存在同名文件夹：</value>
+  </data>
+  <data name="ShellPage_FolderConflict_SharedDestinationSection" xml:space="preserve">
+    <value>以下不同配置使用相同的备份存放路径，并且包含同名文件夹：</value>
+  </data>
+  <data name="ShellPage_FolderConflict_ConfigLine" xml:space="preserve">
+    <value>配置: {0}</value>
+  </data>
+  <data name="ShellPage_FolderConflict_PathLine" xml:space="preserve">
+    <value>备份路径: {0}</value>
+  </data>
+  <data name="ShellPage_FolderConflict_ConfigsLine" xml:space="preserve">
+    <value>涉及配置: {0}</value>
+  </data>
+  <data name="ShellPage_FolderConflict_FolderNamesLine" xml:space="preserve">
+    <value>文件夹名称: {0}</value>
+  </data>
+  <data name="ShellPage_FolderConflict_Footer" xml:space="preserve">
+    <value>由于备份、metadata、云同步和还原仍按显示名定位，这些冲突会让不同文件夹共用同一槽位。</value>
   </data>
   <data name="ShellPage_NavHome.Content" xml:space="preserve">
     <value>主页</value>

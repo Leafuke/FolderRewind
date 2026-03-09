@@ -9,6 +9,7 @@ using Microsoft.UI.Xaml.Navigation;
 using System;
 using System.Collections.ObjectModel;
 using System.Collections.Specialized;
+using System.Collections.Generic;
 using System.ComponentModel;
 using System.IO;
 using System.Linq;
@@ -415,9 +416,12 @@ namespace FolderRewind.Views
             }
 
             var folder = await picker.PickSingleFolderAsync();
-            if (folder != null)
+            if (folder == null) return;
+
+            var result = AddFolderLogic(folder);
+            if (result == AddFolderResult.DuplicateDisplayName)
             {
-                AddFolderLogic(folder);
+                await ShowDuplicateDisplayNameBlockedAsync(FolderNameConflictService.ResolveDisplayName(folder.Name, folder.Path));
             }
         }
 
@@ -521,11 +525,151 @@ namespace FolderRewind.Views
             }
         }
 
+        private enum AddFolderResult
+        {
+            Added,
+            DuplicatePath,
+            DuplicateDisplayName,
+            Invalid
+        }
+
+        private ManagedFolder BuildManagedFolderCandidate(string path, string? name = null, ManagedFolder? template = null)
+        {
+            var resourceLoader = ResourceLoader.GetForViewIndependentUse();
+            var displayName = FolderNameConflictService.ResolveDisplayName(name ?? template?.DisplayName, path);
+
+            var folder = new ManagedFolder
+            {
+                Path = path,
+                DisplayName = displayName,
+                Description = template?.Description ?? string.Empty,
+                IsFavorite = template?.IsFavorite ?? false,
+                CoverImagePath = template?.CoverImagePath ?? string.Empty,
+                LastBackupTime = string.IsNullOrWhiteSpace(template?.LastBackupTime)
+                    ? resourceLoader.GetString("FolderManager_NeverBackedUp")
+                    : template!.LastBackupTime
+            };
+
+            if (string.IsNullOrWhiteSpace(folder.CoverImagePath))
+            {
+                string potentialIcon = Path.Combine(path, "icon.png");
+                if (File.Exists(potentialIcon))
+                {
+                    folder.CoverImagePath = potentialIcon;
+                }
+            }
+
+            return folder;
+        }
+
+        private AddFolderResult AddFolderLogic(StorageFolder folder, ISet<string>? knownPaths = null, ISet<string>? knownDisplayNames = null, bool persist = true)
+            => AddFolderLogic(folder.Path, folder.Name, knownPaths, knownDisplayNames, persist);
+
+        private AddFolderResult AddFolderLogic(string path, string? name = null, ISet<string>? knownPaths = null, ISet<string>? knownDisplayNames = null, bool persist = true)
+        {
+            if (CurrentConfig == null || string.IsNullOrWhiteSpace(path))
+            {
+                return AddFolderResult.Invalid;
+            }
+
+            knownPaths ??= new HashSet<string>(
+                CurrentConfig.SourceFolders.Select(f => f.Path ?? string.Empty),
+                StringComparer.OrdinalIgnoreCase);
+            knownDisplayNames ??= new HashSet<string>(
+                CurrentConfig.SourceFolders.Select(FolderNameConflictService.ResolveDisplayName),
+                StringComparer.OrdinalIgnoreCase);
+
+            var displayName = FolderNameConflictService.ResolveDisplayName(name, path);
+
+            if (knownPaths.Contains(path))
+            {
+                return AddFolderResult.DuplicatePath;
+            }
+
+            if (knownDisplayNames.Contains(displayName))
+            {
+                return AddFolderResult.DuplicateDisplayName;
+            }
+
+            var newFolder = BuildManagedFolderCandidate(path, displayName);
+            CurrentConfig.SourceFolders.Add(newFolder);
+
+            knownPaths.Add(path);
+            knownDisplayNames.Add(displayName);
+
+            if (persist)
+            {
+                ConfigService.Save();
+            }
+
+            if (ShouldSuggestMineRewind(path, displayName))
+            {
+                _ = ShowMineRewindSuggestionAsync();
+            }
+
+            return AddFolderResult.Added;
+        }
+
+        private async System.Threading.Tasks.Task ShowDuplicateDisplayNameBlockedAsync(string folderName)
+        {
+            if (string.IsNullOrWhiteSpace(folderName))
+            {
+                return;
+            }
+
+            var dialog = new ContentDialog
+            {
+                Title = I18n.GetString("FolderManager_DuplicateDisplayName_Title"),
+                Content = I18n.Format("FolderManager_DuplicateDisplayName_Content", folderName, CurrentConfig?.Name ?? string.Empty),
+                CloseButtonText = I18n.GetString("Common_Ok"),
+                DefaultButton = ContentDialogButton.Close,
+                XamlRoot = this.XamlRoot
+            };
+            ThemeService.ApplyThemeToDialog(dialog);
+
+            await dialog.ShowAsync();
+        }
+
+        private async System.Threading.Tasks.Task ShowSkippedDuplicateDisplayNamesAsync(IEnumerable<string> folderNames)
+        {
+            var distinctNames = folderNames
+                .Where(name => !string.IsNullOrWhiteSpace(name))
+                .Distinct(StringComparer.OrdinalIgnoreCase)
+                .OrderBy(name => name, StringComparer.CurrentCultureIgnoreCase)
+                .ToList();
+
+            if (distinctNames.Count == 0)
+            {
+                return;
+            }
+
+            var dialog = new ContentDialog
+            {
+                Title = I18n.GetString("FolderManager_DuplicateDisplayName_Title"),
+                Content = I18n.Format(
+                    "FolderManager_DuplicateDisplayName_BatchContent",
+                    CurrentConfig?.Name ?? string.Empty,
+                    string.Join(Environment.NewLine, distinctNames.Select(name => $"- {name}"))),
+                CloseButtonText = I18n.GetString("Common_Ok"),
+                DefaultButton = ContentDialogButton.Close,
+                XamlRoot = this.XamlRoot
+            };
+            ThemeService.ApplyThemeToDialog(dialog);
+
+            await dialog.ShowAsync();
+        }
+
         // 1. 添加单个
         private async void OnAddSingleFolderClick(object sender, RoutedEventArgs e)
         {
             var folder = await PickFolderAsync();
-            if (folder != null) AddFolderLogic(folder);
+            if (folder == null) return;
+
+            var result = AddFolderLogic(folder);
+            if (result == AddFolderResult.DuplicateDisplayName)
+            {
+                await ShowDuplicateDisplayNameBlockedAsync(FolderNameConflictService.ResolveDisplayName(folder.Name, folder.Path));
+            }
         }
 
         // 2. 批量添加子文件夹
@@ -539,10 +683,36 @@ namespace FolderRewind.Views
                 {
                     // 注意：StorageFolder 遍历比较慢，这里用 System.IO 直接遍历路径
                     string[] subDirs = Directory.GetDirectories(rootFolder.Path);
+                    var knownPaths = new HashSet<string>(
+                        CurrentConfig?.SourceFolders.Select(f => f.Path ?? string.Empty) ?? Enumerable.Empty<string>(),
+                        StringComparer.OrdinalIgnoreCase);
+                    var knownDisplayNames = new HashSet<string>(
+                        CurrentConfig?.SourceFolders.Select(FolderNameConflictService.ResolveDisplayName) ?? Enumerable.Empty<string>(),
+                        StringComparer.OrdinalIgnoreCase);
+                    var skippedDuplicateDisplayNames = new List<string>();
+                    bool addedAny = false;
+
                     foreach (var dir in subDirs)
                     {
-                        // 封装成 StorageFolder 接口不太方便，直接传路径给 AddFolderLogic 的重载
-                        AddFolderLogic(dir);
+                        var result = AddFolderLogic(dir, Path.GetFileName(dir), knownPaths, knownDisplayNames, persist: false);
+                        if (result == AddFolderResult.Added)
+                        {
+                            addedAny = true;
+                        }
+                        else if (result == AddFolderResult.DuplicateDisplayName)
+                        {
+                            skippedDuplicateDisplayNames.Add(FolderNameConflictService.ResolveDisplayName(null, dir));
+                        }
+                    }
+
+                    if (addedAny)
+                    {
+                        ConfigService.Save();
+                    }
+
+                    if (skippedDuplicateDisplayNames.Count > 0)
+                    {
+                        await ShowSkippedDuplicateDisplayNamesAsync(skippedDuplicateDisplayNames);
                     }
                 }
                 catch (Exception ex)
@@ -579,13 +749,44 @@ namespace FolderRewind.Views
                 return;
             }
 
-            var toAdd = discovered
-                .Where(f => f != null && !string.IsNullOrWhiteSpace(f.Path))
-                .Where(f => !CurrentConfig.SourceFolders.Any(x => string.Equals(x.Path, f.Path, StringComparison.OrdinalIgnoreCase)))
-                .ToList();
+            var knownPaths = new HashSet<string>(
+                CurrentConfig.SourceFolders.Select(f => f.Path ?? string.Empty),
+                StringComparer.OrdinalIgnoreCase);
+            var knownDisplayNames = new HashSet<string>(
+                CurrentConfig.SourceFolders.Select(FolderNameConflictService.ResolveDisplayName),
+                StringComparer.OrdinalIgnoreCase);
+            var toAdd = new List<ManagedFolder>();
+            var skippedDuplicateDisplayNames = new List<string>();
+
+            foreach (var discoveredFolder in discovered.Where(f => f != null && !string.IsNullOrWhiteSpace(f.Path)))
+            {
+                var candidatePath = discoveredFolder.Path;
+                var candidateName = FolderNameConflictService.ResolveDisplayName(discoveredFolder);
+
+                if (knownPaths.Contains(candidatePath))
+                {
+                    continue;
+                }
+
+                if (knownDisplayNames.Contains(candidateName))
+                {
+                    skippedDuplicateDisplayNames.Add(candidateName);
+                    continue;
+                }
+
+                knownPaths.Add(candidatePath);
+                knownDisplayNames.Add(candidateName);
+                toAdd.Add(BuildManagedFolderCandidate(candidatePath, candidateName, discoveredFolder));
+            }
 
             if (toAdd.Count == 0)
             {
+                if (skippedDuplicateDisplayNames.Count > 0)
+                {
+                    await ShowSkippedDuplicateDisplayNamesAsync(skippedDuplicateDisplayNames);
+                    return;
+                }
+
                 var rl = ResourceLoader.GetForViewIndependentUse();
                 var dialog = new ContentDialog
                 {
@@ -615,50 +816,21 @@ namespace FolderRewind.Views
                 if (res != ContentDialogResult.Primary) return;
             }
 
-            var resourceLoader = ResourceLoader.GetForViewIndependentUse();
             foreach (var f in toAdd)
             {
-                if (string.IsNullOrWhiteSpace(f.LastBackupTime))
-                {
-                    f.LastBackupTime = resourceLoader.GetString("FolderManager_NeverBackedUp");
-                }
                 CurrentConfig.SourceFolders.Add(f);
             }
 
             ConfigService.Save();
-        }
 
-        // 通用添加逻辑
-        private void AddFolderLogic(StorageFolder folder) => AddFolderLogic(folder.Path, folder.Name);
-        private void AddFolderLogic(string path, string? name = null)
-        {
-            if (CurrentConfig == null) return;
-            if (string.IsNullOrEmpty(name)) name = Path.GetFileName(path);
-
-            if (CurrentConfig.SourceFolders.Any(f => f.Path.Equals(path, StringComparison.OrdinalIgnoreCase)))
-                return;
-
-            var resourceLoader = ResourceLoader.GetForViewIndependentUse();
-            var newFolder = new ManagedFolder
-            {
-                Path = path,
-                DisplayName = name,
-                LastBackupTime = resourceLoader.GetString("FolderManager_NeverBackedUp")
-            };
-
-            // 自动检测 icon.png
-            string potentialIcon = Path.Combine(path, "icon.png");
-            if (File.Exists(potentialIcon))
-            {
-                newFolder.CoverImagePath = potentialIcon;
-            }
-
-            CurrentConfig.SourceFolders.Add(newFolder);
-            ConfigService.Save();
-
-            if (ShouldSuggestMineRewind(path, name))
+            if (toAdd.Any(f => ShouldSuggestMineRewind(f.Path, f.DisplayName)))
             {
                 _ = ShowMineRewindSuggestionAsync();
+            }
+
+            if (skippedDuplicateDisplayNames.Count > 0)
+            {
+                await ShowSkippedDuplicateDisplayNamesAsync(skippedDuplicateDisplayNames);
             }
         }
 

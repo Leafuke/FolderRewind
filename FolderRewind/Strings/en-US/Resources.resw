@@ -195,8 +195,47 @@
   <data name="FolderManager_NotSelected" xml:space="preserve">
     <value>(Not selected)</value>
   </data>
+  <data name="FolderManager_DuplicateDisplayName_Title" xml:space="preserve">
+    <value>This configuration already contains that folder name</value>
+  </data>
+  <data name="FolderManager_DuplicateDisplayName_Content" xml:space="preserve">
+    <value>The configuration "{1}" already contains a folder named "{0}". Duplicate folder names are blocked so different directories do not share the same backup slot.</value>
+  </data>
+  <data name="FolderManager_DuplicateDisplayName_BatchContent" xml:space="preserve">
+    <value>The following folders were not added to "{0}" because their display names already exist:
+{1}
+
+Duplicate folder names are blocked within the same configuration so different directories do not share one backup slot.</value>
+  </data>
   <data name="ShellPage_Header.Header" xml:space="preserve">
     <value>FolderRewind</value>
+  </data>
+  <data name="ShellPage_FolderConflict_Title" xml:space="preserve">
+    <value>Backup slot conflict risk detected</value>
+  </data>
+  <data name="ShellPage_FolderConflict_Intro" xml:space="preserve">
+    <value>Folder name collisions were detected that can reuse the same backup slot. Review them before the next backup.</value>
+  </data>
+  <data name="ShellPage_FolderConflict_IntraConfigSection" xml:space="preserve">
+    <value>The following configurations already contain duplicate folder names:</value>
+  </data>
+  <data name="ShellPage_FolderConflict_SharedDestinationSection" xml:space="preserve">
+    <value>The following configurations share the same backup destination and also contain matching folder names:</value>
+  </data>
+  <data name="ShellPage_FolderConflict_ConfigLine" xml:space="preserve">
+    <value>Configuration: {0}</value>
+  </data>
+  <data name="ShellPage_FolderConflict_PathLine" xml:space="preserve">
+    <value>Backup path: {0}</value>
+  </data>
+  <data name="ShellPage_FolderConflict_ConfigsLine" xml:space="preserve">
+    <value>Configurations: {0}</value>
+  </data>
+  <data name="ShellPage_FolderConflict_FolderNamesLine" xml:space="preserve">
+    <value>Folder names: {0}</value>
+  </data>
+  <data name="ShellPage_FolderConflict_Footer" xml:space="preserve">
+    <value>Because backup archives, metadata, cloud sync, and restore lookup still use display names, these conflicts can make different folders share one slot.</value>
   </data>
   <data name="ShellPage_NavHome.Content" xml:space="preserve">
     <value>Home</value>

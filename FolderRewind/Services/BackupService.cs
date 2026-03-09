@@ -362,7 +362,7 @@ namespace FolderRewind.Services
                 {
                     sourcePath = pluginOverride;
 
-                    // 原本打算在插件里发送，但是实测太不稳定了，干脆在这里统一发送。
+                    // 原本打算在插件里发送，但是实测太不稳定了，干脆在这里统一发送。最终还是统一到插件里了
                     // KnotLinkService.BroadcastEvent("event=pre_hot_backup;");
                 }
             }

@@ -5,6 +5,7 @@ using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Media.Animation;
 using Microsoft.UI.Xaml.Navigation;
 using System;
+using System.Collections.Generic;
 using System.Linq;
 
 namespace FolderRewind.Views
@@ -13,6 +14,7 @@ namespace FolderRewind.Views
     {
         private bool _isSyncingSelection;
         private DispatcherQueueTimer? _infoBarTimer;
+        private bool _startupDialogsStarted;
 
         public Border AppTitleBarElement => AppTitleBar;
 
@@ -95,14 +97,55 @@ namespace FolderRewind.Views
 
             NavigateTo("Home");
 
-            // 首次启动引导
-            _ = ShowFirstLaunchGuideAsync();
+            if (!_startupDialogsStarted)
+            {
+                _ = RunStartupDialogsAsync();
+            }
+        }
 
-            // 启动后台公告检查（参考 MineBackup 的 notice_thread 逻辑）
-            _ = CheckAndShowNoticeAsync();
+        private async System.Threading.Tasks.Task RunStartupDialogsAsync()
+        {
+            if (_startupDialogsStarted)
+            {
+                return;
+            }
 
-            // 启动检查应用更新（GitHub Release）
-            _ = CheckAndShowAppUpdateAsync();
+            _startupDialogsStarted = true;
+
+            await ShowFirstLaunchGuideAsync();
+            await ShowBackupSlotConflictWarningAsync();
+            await CheckAndShowNoticeAsync();
+            await CheckAndShowAppUpdateAsync();
+        }
+
+        private async System.Threading.Tasks.Task<ContentDialogResult> ShowDialogAsync(ContentDialog dialog)
+        {
+            if (DispatcherQueue.HasThreadAccess)
+            {
+                dialog.XamlRoot ??= this.XamlRoot;
+                ThemeService.ApplyThemeToDialog(dialog);
+                return await dialog.ShowAsync();
+            }
+
+            var tcs = new System.Threading.Tasks.TaskCompletionSource<ContentDialogResult>();
+            if (!DispatcherQueue.TryEnqueue(async () =>
+            {
+                try
+                {
+                    dialog.XamlRoot ??= this.XamlRoot;
+                    ThemeService.ApplyThemeToDialog(dialog);
+                    tcs.TrySetResult(await dialog.ShowAsync());
+                }
+                catch (Exception ex)
+                {
+                    tcs.TrySetException(ex);
+                }
+            }))
+            {
+                tcs.TrySetException(new InvalidOperationException("Unable to enqueue startup dialog."));
+            }
+
+            return await tcs.Task;
         }
 
         /// <summary>
@@ -127,9 +170,8 @@ namespace FolderRewind.Views
                     DefaultButton = ContentDialogButton.Primary,
                     XamlRoot = this.XamlRoot
                 };
-                ThemeService.ApplyThemeToDialog(dialog);
 
-                var result = await dialog.ShowAsync();
+                var result = await ShowDialogAsync(dialog);
                 if (result == ContentDialogResult.Primary)
                 {
                     await Windows.System.Launcher.LaunchUriAsync(new Uri("https://www.bilibili.com/video/BV1zbcjzhE1y"));
@@ -152,48 +194,34 @@ namespace FolderRewind.Views
 
                 if (!NoticeService.NewNoticeAvailable) return;
 
-                // 在 UI 线程显示对话框
-                DispatcherQueue.TryEnqueue(async () =>
+                var dialog = new ContentDialog
                 {
-                    try
+                    Title = I18n.GetString("Notice_DialogTitle"),
+                    PrimaryButtonText = I18n.GetString("Notice_DismissButton"),
+                    SecondaryButtonText = I18n.GetString("Notice_RemindLaterButton"),
+                    DefaultButton = ContentDialogButton.Primary,
+                    Content = new ScrollViewer
                     {
-                        var dialog = new ContentDialog
+                        MaxHeight = 400,
+                        Content = new TextBlock
                         {
-                            Title = I18n.GetString("Notice_DialogTitle"),
-                            PrimaryButtonText = I18n.GetString("Notice_DismissButton"),
-                            SecondaryButtonText = I18n.GetString("Notice_RemindLaterButton"),
-                            DefaultButton = ContentDialogButton.Primary,
-                            XamlRoot = this.XamlRoot,
-                            Content = new ScrollViewer
-                            {
-                                MaxHeight = 400,
-                                Content = new TextBlock
-                                {
-                                    Text = NoticeService.NoticeContent,
-                                    TextWrapping = Microsoft.UI.Xaml.TextWrapping.Wrap,
-                                    IsTextSelectionEnabled = true
-                                }
-                            }
-                        };
-
-                        var result = await dialog.ShowAsync();
-
-                        if (result == ContentDialogResult.Primary)
-                        {
-                            // "确认并不再提示"
-                            NoticeService.MarkAsRead();
-                        }
-                        else
-                        {
-                            // "稍后提醒"
-                            NoticeService.SnoozeThisSession();
+                            Text = NoticeService.NoticeContent,
+                            TextWrapping = Microsoft.UI.Xaml.TextWrapping.Wrap,
+                            IsTextSelectionEnabled = true
                         }
                     }
-                    catch (Exception ex)
-                    {
-                        System.Diagnostics.Debug.WriteLine($"[NoticeDialog] {ex.Message}");
-                    }
-                });
+                };
+
+                var result = await ShowDialogAsync(dialog);
+
+                if (result == ContentDialogResult.Primary)
+                {
+                    NoticeService.MarkAsRead();
+                }
+                else
+                {
+                    NoticeService.SnoozeThisSession();
+                }
             }
             catch (Exception ex)
             {
@@ -208,55 +236,112 @@ namespace FolderRewind.Views
                 var update = await AppUpdateService.CheckForUpdateAsync();
                 if (update == null) return;
 
-                DispatcherQueue.TryEnqueue(async () =>
+                var notes = string.IsNullOrWhiteSpace(update.ReleaseNotes)
+                    ? I18n.GetString("Update_Dialog_EmptyNotes")
+                    : update.ReleaseNotes;
+
+                var content = string.Format(
+                    I18n.GetString("Update_Dialog_Content"),
+                    update.CurrentVersion,
+                    update.LatestTag,
+                    update.LatestVersion,
+                    notes);
+
+                var dialog = new ContentDialog
                 {
-                    try
+                    Title = I18n.GetString("Update_Dialog_Title"),
+                    Content = new ScrollViewer
                     {
-                        var notes = string.IsNullOrWhiteSpace(update.ReleaseNotes)
-                            ? I18n.GetString("Update_Dialog_EmptyNotes")
-                            : update.ReleaseNotes;
-
-                        var content = string.Format(
-                            I18n.GetString("Update_Dialog_Content"),
-                            update.CurrentVersion,
-                            update.LatestTag,
-                            update.LatestVersion,
-                            notes);
-
-                        var dialog = new ContentDialog
+                        MaxHeight = 420,
+                        Content = new TextBlock
                         {
-                            Title = I18n.GetString("Update_Dialog_Title"),
-                            Content = new ScrollViewer
-                            {
-                                MaxHeight = 420,
-                                Content = new TextBlock
-                                {
-                                    Text = content,
-                                    TextWrapping = Microsoft.UI.Xaml.TextWrapping.Wrap,
-                                    IsTextSelectionEnabled = true
-                                }
-                            },
-                            PrimaryButtonText = I18n.GetString("Update_Dialog_OpenRelease"),
-                            CloseButtonText = I18n.GetString("Update_Dialog_Later"),
-                            DefaultButton = ContentDialogButton.Primary,
-                            XamlRoot = this.XamlRoot
-                        };
-                        ThemeService.ApplyThemeToDialog(dialog);
+                            Text = content,
+                            TextWrapping = Microsoft.UI.Xaml.TextWrapping.Wrap,
+                            IsTextSelectionEnabled = true
+                        }
+                    },
+                    PrimaryButtonText = I18n.GetString("Update_Dialog_OpenRelease"),
+                    CloseButtonText = I18n.GetString("Update_Dialog_Later"),
+                    DefaultButton = ContentDialogButton.Primary
+                };
 
-                        var result = await dialog.ShowAsync();
-                        if (result != ContentDialogResult.Primary) return;
+                var result = await ShowDialogAsync(dialog);
+                if (result != ContentDialogResult.Primary) return;
 
-                        await Windows.System.Launcher.LaunchUriAsync(new Uri(update.ReleaseUrl));
-                    }
-                    catch (Exception ex)
-                    {
-                        System.Diagnostics.Debug.WriteLine($"[UpdateDialog] {ex.Message}");
-                    }
-                });
+                await Windows.System.Launcher.LaunchUriAsync(new Uri(update.ReleaseUrl));
             }
             catch (Exception ex)
             {
                 System.Diagnostics.Debug.WriteLine($"[UpdateCheck] {ex.Message}");
+            }
+        }
+
+        private async System.Threading.Tasks.Task ShowBackupSlotConflictWarningAsync()
+        {
+            try
+            {
+                var appConfig = ConfigService.CurrentConfig;
+                var intraConfigConflicts = FolderNameConflictService.FindIntraConfigConflicts(appConfig);
+                var sharedDestinationConflicts = FolderNameConflictService.FindSharedDestinationConflicts(appConfig);
+
+                if (intraConfigConflicts.Count == 0 && sharedDestinationConflicts.Count == 0)
+                {
+                    return;
+                }
+
+                var lines = new List<string>
+                {
+                    I18n.GetString("ShellPage_FolderConflict_Intro"),
+                    string.Empty
+                };
+
+                if (intraConfigConflicts.Count > 0)
+                {
+                    lines.Add(I18n.GetString("ShellPage_FolderConflict_IntraConfigSection"));
+                    foreach (var conflict in intraConfigConflicts)
+                    {
+                        lines.Add(I18n.Format("ShellPage_FolderConflict_ConfigLine", conflict.ConfigName));
+                        lines.Add(I18n.Format("ShellPage_FolderConflict_FolderNamesLine", string.Join(", ", conflict.FolderDisplayNames)));
+                        lines.Add(string.Empty);
+                    }
+                }
+
+                if (sharedDestinationConflicts.Count > 0)
+                {
+                    lines.Add(I18n.GetString("ShellPage_FolderConflict_SharedDestinationSection"));
+                    foreach (var conflict in sharedDestinationConflicts)
+                    {
+                        lines.Add(I18n.Format("ShellPage_FolderConflict_PathLine", conflict.DestinationPath));
+                        lines.Add(I18n.Format("ShellPage_FolderConflict_ConfigsLine", string.Join(", ", conflict.ConfigNames)));
+                        lines.Add(I18n.Format("ShellPage_FolderConflict_FolderNamesLine", string.Join(", ", conflict.FolderDisplayNames)));
+                        lines.Add(string.Empty);
+                    }
+                }
+
+                lines.Add(I18n.GetString("ShellPage_FolderConflict_Footer"));
+
+                var dialog = new ContentDialog
+                {
+                    Title = I18n.GetString("ShellPage_FolderConflict_Title"),
+                    Content = new ScrollViewer
+                    {
+                        MaxHeight = 420,
+                        Content = new TextBlock
+                        {
+                            Text = string.Join(Environment.NewLine, lines),
+                            TextWrapping = Microsoft.UI.Xaml.TextWrapping.Wrap,
+                            IsTextSelectionEnabled = true
+                        }
+                    },
+                    CloseButtonText = I18n.GetString("Common_Ok"),
+                    DefaultButton = ContentDialogButton.Close
+                };
+
+                await ShowDialogAsync(dialog);
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"[FolderConflictDialog] {ex.Message}");
             }
         }
 
