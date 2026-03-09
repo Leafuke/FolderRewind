@@ -2505,12 +2505,6 @@ Status: {3}</value>
   <data name="SettingsPage_DefaultBackupRootPathDesc.Text" xml:space="preserve">
     <value>New configs automatically use "default path\config name" as destination (still editable per config).</value>
   </data>
-  <data name="SettingsPage_RestoreTempRootPath.Text" xml:space="preserve">
-    <value>Safe restore temp path</value>
-  </data>
-  <data name="SettingsPage_RestoreTempRootPathDesc.Text" xml:space="preserve">
-    <value>Snapshot storage location for Clean safe restore. Use a fast disk with enough free space.</value>
-  </data>
   <data name="FolderManager_MineRewindHint_Title" xml:space="preserve">
     <value>Minecraft folder detected</value>
   </data>

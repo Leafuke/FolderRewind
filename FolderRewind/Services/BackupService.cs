@@ -53,6 +53,26 @@ namespace FolderRewind.Services
             NotFound = 2
         }
 
+        public sealed class DeleteBackupResult
+        {
+            public bool Success { get; init; }
+            public bool ArchiveDeleted { get; init; }
+            public bool HistoryUpdated { get; init; }
+            public string Message { get; init; } = string.Empty;
+        }
+
+        private sealed class DeleteArchiveExecutionResult
+        {
+            public bool Success { get; set; }
+            public bool ArchiveDeleted { get; set; }
+            public bool HistoryUpdated { get; set; }
+            public string DeletedFileName { get; set; } = string.Empty;
+            public string? RenamedFromFileName { get; set; }
+            public string? RenamedToFileName { get; set; }
+            public string? RenamedToBackupType { get; set; }
+            public string Message { get; set; } = string.Empty;
+        }
+
         private static Task RunOnUIAsync(Action action)
         {
             var queue = UiQueue;
@@ -343,7 +363,7 @@ namespace FolderRewind.Services
                     sourcePath = pluginOverride;
 
                     // 原本打算在插件里发送，但是实测太不稳定了，干脆在这里统一发送。
-                    KnotLinkService.BroadcastEvent("event=pre_hot_backup;");
+                    // KnotLinkService.BroadcastEvent("event=pre_hot_backup;");
                 }
             }
             catch
@@ -678,6 +698,59 @@ namespace FolderRewind.Services
             }
         }
 
+        public static async Task<DeleteBackupResult> DeleteBackupAsync(BackupConfig config, ManagedFolder folder, HistoryItem historyItem, bool deleteArchive)
+        {
+            if (config == null || folder == null || historyItem == null)
+            {
+                return new DeleteBackupResult
+                {
+                    Success = false,
+                    Message = "Invalid delete request."
+                };
+            }
+
+            if (!deleteArchive)
+            {
+                HistoryService.RemoveEntry(historyItem);
+                return new DeleteBackupResult
+                {
+                    Success = true,
+                    ArchiveDeleted = false,
+                    HistoryUpdated = true
+                };
+            }
+
+            return await Task.Run(() =>
+            {
+                string backupFolderName = string.IsNullOrWhiteSpace(historyItem.FolderName)
+                    ? folder.DisplayName
+                    : historyItem.FolderName;
+                string format = Path.GetExtension(historyItem.FileName).TrimStart('.');
+                if (string.IsNullOrWhiteSpace(format))
+                {
+                    format = config.Archive.Format;
+                }
+
+                var backupDir = new DirectoryInfo(Path.Combine(config.DestinationPath, backupFolderName));
+                var targetFile = new FileInfo(Path.Combine(backupDir.FullName, historyItem.FileName));
+                var deleteResult = DeleteBackupArchiveInternal(
+                    targetFile,
+                    backupDir,
+                    format,
+                    config,
+                    backupFolderName,
+                    config.Archive.SafeDeleteEnabled);
+
+                return new DeleteBackupResult
+                {
+                    Success = deleteResult.Success,
+                    ArchiveDeleted = deleteResult.ArchiveDeleted,
+                    HistoryUpdated = deleteResult.HistoryUpdated,
+                    Message = deleteResult.Message
+                };
+            });
+        }
+
 
         private static string GenerateFileName(string baseName, string format, string prefix, string comment)
         {
@@ -714,75 +787,70 @@ namespace FolderRewind.Services
                 var di = new DirectoryInfo(destDir);
                 if (!di.Exists) return;
 
-                var files = di.GetFiles($"*.{format}")
-                              .OrderByDescending(f => f.LastWriteTimeUtc)
-                              .ToList();
+                CleanupArchiveTempArtifacts(di, format);
 
-                if (files.Count <= keepCount) return;
-
-                // 检查历史记录中标记为重要的文件，避免删除
-                var importantFiles = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-                try
+                int deleteGuard = 0;
+                while (true)
                 {
-                    var targetFolderName = di.Name;
-                    var allConfigs = ConfigService.CurrentConfig?.BackupConfigs;
-                    if (allConfigs != null)
+                    var files = di.GetFiles($"*.{format}")
+                                  .OrderByDescending(f => f.LastWriteTimeUtc)
+                                  .ToList();
+
+                    if (files.Count <= keepCount) break;
+
+                    // 检查历史记录中标记为重要的文件，避免删除
+                    var importantFiles = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+                    try
                     {
-                        foreach (var cfg in allConfigs)
+                        var targetFolderName = di.Name;
+                        var allConfigs = ConfigService.CurrentConfig?.BackupConfigs;
+                        if (allConfigs != null)
                         {
-                            var historyEntries = HistoryService.GetEntriesForFolder(cfg.Id, targetFolderName);
-                            if (historyEntries != null)
+                            foreach (var cfg in allConfigs)
                             {
-                                foreach (var entry in historyEntries)
+                                var historyEntries = HistoryService.GetEntriesForFolder(cfg.Id, targetFolderName);
+                                if (historyEntries != null)
                                 {
-                                    if (entry.IsImportant)
+                                    foreach (var entry in historyEntries)
                                     {
-                                        importantFiles.Add(entry.FileName);
+                                        if (entry.IsImportant)
+                                        {
+                                            importantFiles.Add(entry.FileName);
+                                        }
                                     }
                                 }
                             }
                         }
                     }
-                }
-                catch
-                {
-                    // 历史记录读取失败不影响清理流程
-                }
-
-                // 收集可删除的文件（排除标记为重要的）
-                var deletableFiles = files.Where(f => !importantFiles.Contains(f.Name)).ToList();
-
-                // 重要备份不计入 keepCount 配额
-                // 仅对非重要备份执行数量限制
-                if (deletableFiles.Count <= keepCount) return;
-
-                int toDeleteCount = deletableFiles.Count - keepCount;
-                // 从最旧的可删除文件开始删除
-                var filesToDelete = deletableFiles
-                    .OrderBy(f => f.LastWriteTimeUtc) // 最旧的排前面
-                    .Take(toDeleteCount)
-                    .ToList();
-
-                foreach (var file in filesToDelete)
-                {
-                    try
+                    catch
                     {
-                        if (safeDeleteEnabled && IsIncrementalBackupFile(file, config, folderName))
-                        {
-                            // 安全删除：增量备份需要合并到下一个备份再删除
-                            SafeDeleteArchive(file, di, format, config, folderName);
-                        }
-                        else
-                        {
-                            file.Delete();
-                            Log(I18n.Format("BackupService_Log_PrunedOldBackup", file.Name), LogLevel.Info);
-                        }
                     }
-                    catch (Exception ex)
+
+                    var deletableFiles = files
+                        .Where(f => !importantFiles.Contains(f.Name))
+                        .OrderBy(f => f.LastWriteTimeUtc)
+                        .ToList();
+
+                    if (deletableFiles.Count <= keepCount) break;
+
+                    var oldestFile = deletableFiles.FirstOrDefault();
+                    if (oldestFile == null) break;
+
+                    var deleteResult = DeleteBackupArchiveInternal(oldestFile, di, format, config, folderName, safeDeleteEnabled);
+                    if (!deleteResult.Success)
                     {
-                        Log(I18n.Format("BackupService_Log_PruneDeleteFailed", file.Name, ex.Message), LogLevel.Warning);
+                        Log(I18n.Format("BackupService_Log_PruneDeleteFailed", oldestFile.Name, deleteResult.Message), LogLevel.Warning);
+                        break;
+                    }
+
+                    deleteGuard++;
+                    if (deleteGuard > Math.Max(files.Count * 2, keepCount + 8))
+                    {
+                        break;
                     }
                 }
+
+                CleanupArchiveTempArtifacts(di, format);
             }
             catch
             {
@@ -790,138 +858,398 @@ namespace FolderRewind.Services
             }
         }
 
-        /// <summary>
-        /// 安全删除备份文件（参考 MineBackup DoSafeDeleteBackup 逻辑）。
-        /// 当删除的是增量链中的一个节点时，先将其内容合并到下一个备份中，
-        /// 如果被删除的是 Full 备份，则将下一个 Smart 备份升级为 Full。
-        /// 这样可以保证增量链不断裂，任何备份仍然可以正确还原。
-        /// </summary>
-        private static void SafeDeleteArchive(FileInfo fileToDelete, DirectoryInfo backupDir, string format, BackupConfig? config = null, string? folderName = null)
+        private static DeleteArchiveExecutionResult DeleteBackupArchiveInternal(
+            FileInfo fileToDelete,
+            DirectoryInfo backupDir,
+            string format,
+            BackupConfig? config = null,
+            string? folderName = null,
+            bool safeDeleteEnabled = true)
         {
-            Log(I18n.Format("BackupService_Log_SafeDeleteStart", fileToDelete.Name), LogLevel.Info);
-
-            // 找到时间上紧邻的下一个备份文件
-            var allFiles = backupDir.GetFiles($"*.{format}")
-                .OrderBy(f => f.LastWriteTimeUtc)
-                .ToList();
-
-            FileInfo? nextFile = null;
-            for (int i = 0; i < allFiles.Count; i++)
+            var result = new DeleteArchiveExecutionResult
             {
-                if (string.Equals(allFiles[i].FullName, fileToDelete.FullName, StringComparison.OrdinalIgnoreCase))
-                {
-                    if (i + 1 < allFiles.Count)
-                    {
-                        nextFile = allFiles[i + 1];
-                    }
-                    break;
-                }
-            }
+                DeletedFileName = fileToDelete.Name
+            };
 
-            // 如果没有下一个文件（链尾），或下一个是 Full 备份，直接删除即可
-            if (nextFile == null || IsFullBackupFile(nextFile, config, folderName))
-            {
-                Log(I18n.Format("BackupService_Log_SafeDeleteEndOfChain"), LogLevel.Info);
-                fileToDelete.Delete();
-                Log(I18n.Format("BackupService_Log_PrunedOldBackup", fileToDelete.Name), LogLevel.Info);
-                return;
-            }
-
-            // 需要将 fileToDelete 的内容合并到 nextFile 中
-            string? sevenZipExe = ResolveSevenZipExecutable();
-            if (string.IsNullOrEmpty(sevenZipExe))
-            {
-                Log(I18n.Format("BackupService_Log_SafeDeleteNo7z"), LogLevel.Warning);
-                // 无法安全删除，回退为直接删除
-                fileToDelete.Delete();
-                return;
-            }
-
-            // 创建临时目录用于解压
-            string tempDir = Path.Combine(Path.GetTempPath(), "FolderRewind_SafeDelete_" + Guid.NewGuid().ToString("N")[..8]);
+            string resolvedFolderName = string.IsNullOrWhiteSpace(folderName) ? backupDir.Name : folderName;
+            string normalizedFormat = string.IsNullOrWhiteSpace(format)
+                ? fileToDelete.Extension.TrimStart('.')
+                : format.TrimStart('.');
 
             try
             {
-                Directory.CreateDirectory(tempDir);
-
-                // 获取加密密码（安全删除也需要解压密码）
-                string? safeDeletePassword = config != null ? ResolvePassword(config) : null;
-
-                // 步骤1: 解压被删除文件的内容到临时目录
-                Log(I18n.Format("BackupService_Log_SafeDeleteStep1"), LogLevel.Info);
-                string extractArgs = $"x \"{fileToDelete.FullName}\" -o\"{tempDir}\" -y";
-                if (!string.IsNullOrWhiteSpace(safeDeletePassword))
-                    extractArgs += $" -p\"{safeDeletePassword}\"";
-                var extractResult = RunSevenZipProcessSync(sevenZipExe, extractArgs);
-                if (!extractResult)
+                if (backupDir.Exists)
                 {
-                    Log(I18n.Format("BackupService_Log_SafeDeleteExtractFailed"), LogLevel.Error);
-                    return; // 解压失败则不删除，保护数据安全
-                }
+                    CleanupArchiveTempArtifacts(backupDir, normalizedFormat);
 
-                // 步骤2: 将解压的内容合并到下一个备份文件中
-                // 记录原始修改时间（保持时间排序不变）
-                Log(I18n.Format("BackupService_Log_SafeDeleteStep2"), LogLevel.Info);
-                var originalModTime = nextFile.LastWriteTimeUtc;
-                string mergeArgs = $"a \"{nextFile.FullName}\" .\\*";
-                if (!string.IsNullOrWhiteSpace(safeDeletePassword))
-                    mergeArgs += $" -p\"{safeDeletePassword}\" -mhe=on";
-                var mergeResult = RunSevenZipProcessSync(sevenZipExe, mergeArgs, tempDir);
-                if (!mergeResult)
-                {
-                    // 合并失败时恢复时间戳
-                    try { File.SetLastWriteTimeUtc(nextFile.FullName, originalModTime); } catch { }
-                    Log(I18n.Format("BackupService_Log_SafeDeleteMergeFailed"), LogLevel.Error);
-                    return; // 合并失败则不删除
-                }
-                // 恢复原始修改时间以维持排序
-                try { File.SetLastWriteTimeUtc(nextFile.FullName, originalModTime); } catch { }
-
-                // 步骤3: 如果被删除的是 Full 备份，将下一个 Smart 备份重命名为 Full
-                if (IsFullBackupFile(fileToDelete, config, folderName)
-                    && IsIncrementalBackupFile(nextFile, config, folderName))
-                {
-                    Log(I18n.Format("BackupService_Log_SafeDeletePromote"), LogLevel.Info);
-                    string newName = nextFile.Name.Contains("[Smart]", StringComparison.OrdinalIgnoreCase)
-                        ? nextFile.Name.Replace("[Smart]", "[Full]", StringComparison.OrdinalIgnoreCase)
-                        : nextFile.Name;
-                    string newPath = Path.Combine(backupDir.FullName, newName);
-                    try
+                    if (fileToDelete.Exists && safeDeleteEnabled && TryGetSafeDeleteSuccessor(fileToDelete, backupDir, normalizedFormat, config, resolvedFolderName, out var nextFile))
                     {
-                        if (!string.Equals(nextFile.FullName, newPath, StringComparison.OrdinalIgnoreCase))
+                        result.Success = TrySafeDeleteArchive(fileToDelete, nextFile!, backupDir, normalizedFormat, config, resolvedFolderName, result);
+                    }
+                    else
+                    {
+                        if (fileToDelete.Exists)
                         {
-                            File.Move(nextFile.FullName, newPath);
+                            try
+                            {
+                                if ((fileToDelete.Attributes & FileAttributes.ReadOnly) == FileAttributes.ReadOnly)
+                                {
+                                    fileToDelete.Attributes &= ~FileAttributes.ReadOnly;
+                                }
+                            }
+                            catch
+                            {
+                            }
+
+                            fileToDelete.Delete();
+                            result.ArchiveDeleted = true;
+                            Log(I18n.Format("BackupService_Log_PrunedOldBackup", fileToDelete.Name), LogLevel.Info);
+                        }
+                        else
+                        {
+                            Log(I18n.Format("BackupService_Log_BackupFileNotFound", fileToDelete.FullName), LogLevel.Warning);
                         }
 
-                        // 更新历史记录中的文件名和类型
-                        HistoryService.RenameEntry(nextFile.Name, newName, "Full");
-                        Log(I18n.Format("BackupService_Log_SafeDeleteRenamed", newName), LogLevel.Info);
+                        result.Success = true;
                     }
-                    catch (Exception ex)
-                    {
-                        Log(I18n.Format("BackupService_Log_SafeDeleteRenameFailed", ex.Message), LogLevel.Warning);
-                    }
+
+                    CleanupArchiveTempArtifacts(backupDir, normalizedFormat);
+                }
+                else
+                {
+                    result.Success = true;
                 }
 
-                // 步骤4: 删除原始文件
-                Log(I18n.Format("BackupService_Log_SafeDeleteStep4"), LogLevel.Info);
-                fileToDelete.Delete();
-                Log(I18n.Format("BackupService_Log_SafeDeleteSuccess", fileToDelete.Name), LogLevel.Info);
+                if (result.Success && config != null)
+                {
+                    if (!string.IsNullOrWhiteSpace(result.RenamedFromFileName)
+                        && !string.IsNullOrWhiteSpace(result.RenamedToFileName))
+                    {
+                        HistoryService.RenameEntriesForFile(
+                            config.Id,
+                            resolvedFolderName,
+                            result.RenamedFromFileName,
+                            result.RenamedToFileName,
+                            result.RenamedToBackupType);
+                    }
+
+                    int removedCount = HistoryService.RemoveEntriesForFile(config.Id, resolvedFolderName, result.DeletedFileName);
+                    result.HistoryUpdated = removedCount > 0 || !string.IsNullOrWhiteSpace(result.RenamedFromFileName);
+
+                    SynchronizeMetadataAfterArchiveDeletion(
+                        config,
+                        resolvedFolderName,
+                        result.DeletedFileName,
+                        result.RenamedFromFileName,
+                        result.RenamedToFileName,
+                        result.RenamedToBackupType);
+                }
             }
             catch (Exception ex)
             {
+                result.Success = false;
+                result.Message = ex.Message;
+                Log(I18n.Format("BackupService_Log_PruneDeleteFailed", fileToDelete.Name, ex.Message), LogLevel.Warning);
+            }
+
+            return result;
+        }
+
+        private static bool TryGetSafeDeleteSuccessor(
+            FileInfo fileToDelete,
+            DirectoryInfo backupDir,
+            string format,
+            BackupConfig? config,
+            string? folderName,
+            out FileInfo? nextFile)
+        {
+            nextFile = null;
+            if (!fileToDelete.Exists || !backupDir.Exists)
+            {
+                return false;
+            }
+
+            bool currentIsChainArchive = IsFullBackupFile(fileToDelete, config, folderName)
+                || IsIncrementalBackupFile(fileToDelete, config, folderName);
+            if (!currentIsChainArchive)
+            {
+                return false;
+            }
+
+            var allFiles = backupDir.GetFiles($"*.{format}")
+                .OrderBy(f => f.LastWriteTimeUtc)
+                .ThenBy(f => f.Name, StringComparer.OrdinalIgnoreCase)
+                .ToList();
+
+            int index = allFiles.FindIndex(f => string.Equals(f.FullName, fileToDelete.FullName, StringComparison.OrdinalIgnoreCase));
+            if (index < 0 || index + 1 >= allFiles.Count)
+            {
+                return false;
+            }
+
+            var candidate = allFiles[index + 1];
+            if (!IsIncrementalBackupFile(candidate, config, folderName))
+            {
+                return false;
+            }
+
+            nextFile = candidate;
+            return true;
+        }
+
+        /// <summary>
+        /// 安全删除备份文件：将当前节点与它的后继 Smart 节点重建成一个新的后继归档，避免直接在原归档旁生成 7z 的 .tmp 临时文件。
+        /// </summary>
+        private static bool TrySafeDeleteArchive(
+            FileInfo fileToDelete,
+            FileInfo nextFile,
+            DirectoryInfo backupDir,
+            string format,
+            BackupConfig? config,
+            string? folderName,
+            DeleteArchiveExecutionResult result)
+        {
+            Log(I18n.Format("BackupService_Log_SafeDeleteStart", fileToDelete.Name), LogLevel.Info);
+
+            string? sevenZipExe = ResolveSevenZipExecutable();
+            if (string.IsNullOrEmpty(sevenZipExe))
+            {
+                result.Message = I18n.GetString("BackupService_Log_SafeDeleteNo7z");
+                Log(result.Message, LogLevel.Warning);
+                return false;
+            }
+
+            string tempDir = Path.Combine(backupDir.FullName, "__FolderRewind_SafeDelete_" + Guid.NewGuid().ToString("N"));
+            string mergeDir = Path.Combine(tempDir, "merged");
+            string stagedNextPath = Path.Combine(tempDir, nextFile.Name + ".original");
+            string? safeDeletePassword = config != null ? ResolvePassword(config) : null;
+            var archiveSettings = CreateArchiveSettingsForSafeDelete(config?.Archive, format);
+
+            try
+            {
+                Directory.CreateDirectory(mergeDir);
+
+                Log(I18n.Format("BackupService_Log_SafeDeleteStep1"), LogLevel.Info);
+                if (!ExtractArchiveToDirectorySync(sevenZipExe, fileToDelete.FullName, mergeDir, safeDeletePassword))
+                {
+                    result.Message = I18n.GetString("BackupService_Log_SafeDeleteExtractFailed");
+                    Log(result.Message, LogLevel.Error);
+                    return false;
+                }
+
+                if (!ExtractArchiveToDirectorySync(sevenZipExe, nextFile.FullName, mergeDir, safeDeletePassword))
+                {
+                    result.Message = I18n.GetString("BackupService_Log_SafeDeleteExtractFailed");
+                    Log(result.Message, LogLevel.Error);
+                    return false;
+                }
+
+                Log(I18n.Format("BackupService_Log_SafeDeleteStep2"), LogLevel.Info);
+                string rebuiltArchivePath = Path.Combine(tempDir, "merged." + archiveSettings.Format);
+                if (!CreateArchiveFromDirectorySync(sevenZipExe, mergeDir, rebuiltArchivePath, archiveSettings, safeDeletePassword))
+                {
+                    result.Message = I18n.GetString("BackupService_Log_SafeDeleteMergeFailed");
+                    Log(result.Message, LogLevel.Error);
+                    return false;
+                }
+
+                bool promoteToFull = IsFullBackupFile(fileToDelete, config, folderName)
+                    && IsIncrementalBackupFile(nextFile, config, folderName);
+                string finalFileName = promoteToFull && nextFile.Name.Contains("[Smart]", StringComparison.OrdinalIgnoreCase)
+                    ? nextFile.Name.Replace("[Smart]", "[Full]", StringComparison.OrdinalIgnoreCase)
+                    : nextFile.Name;
+                string finalPath = Path.Combine(backupDir.FullName, finalFileName);
+                DateTime originalModTime = nextFile.LastWriteTimeUtc;
+
+                File.Move(nextFile.FullName, stagedNextPath);
+                try
+                {
+                    if (File.Exists(finalPath))
+                    {
+                        File.Delete(finalPath);
+                    }
+
+                    File.Move(rebuiltArchivePath, finalPath);
+                    File.SetLastWriteTimeUtc(finalPath, originalModTime);
+
+                    try
+                    {
+                        if ((fileToDelete.Attributes & FileAttributes.ReadOnly) == FileAttributes.ReadOnly)
+                        {
+                            fileToDelete.Attributes &= ~FileAttributes.ReadOnly;
+                        }
+                    }
+                    catch
+                    {
+                    }
+
+                    fileToDelete.Delete();
+                    result.ArchiveDeleted = true;
+
+                    if (File.Exists(stagedNextPath))
+                    {
+                        File.Delete(stagedNextPath);
+                    }
+                }
+                catch (Exception replaceEx)
+                {
+                    try
+                    {
+                        if (File.Exists(finalPath))
+                        {
+                            File.Delete(finalPath);
+                        }
+                    }
+                    catch
+                    {
+                    }
+
+                    try
+                    {
+                        if (File.Exists(stagedNextPath))
+                        {
+                            File.Move(stagedNextPath, nextFile.FullName);
+                        }
+                    }
+                    catch
+                    {
+                    }
+
+                    result.Message = replaceEx.Message;
+                    Log(I18n.Format("BackupService_Log_SafeDeleteFatalError", replaceEx.Message), LogLevel.Error);
+                    return false;
+                }
+
+                if (!string.Equals(finalFileName, nextFile.Name, StringComparison.OrdinalIgnoreCase))
+                {
+                    result.RenamedFromFileName = nextFile.Name;
+                    result.RenamedToFileName = finalFileName;
+                    result.RenamedToBackupType = "Full";
+                    Log(I18n.Format("BackupService_Log_SafeDeleteRenamed", finalFileName), LogLevel.Info);
+                }
+
+                Log(I18n.Format("BackupService_Log_SafeDeleteSuccess", fileToDelete.Name), LogLevel.Info);
+                return true;
+            }
+            catch (Exception ex)
+            {
+                result.Message = ex.Message;
                 Log(I18n.Format("BackupService_Log_SafeDeleteFatalError", ex.Message), LogLevel.Error);
+                return false;
             }
             finally
             {
-                // 清理临时目录
                 try
                 {
                     if (Directory.Exists(tempDir))
+                    {
+                        ClearReadonlyAttributes(tempDir);
                         Directory.Delete(tempDir, true);
+                    }
                 }
-                catch { }
+                catch
+                {
+                }
             }
+        }
+
+        private static bool ExtractArchiveToDirectorySync(string sevenZipExe, string archivePath, string targetDir, string? password)
+        {
+            string extractArgs = $"x \"{archivePath}\" -o\"{targetDir}\" -y -aoa";
+            if (!string.IsNullOrWhiteSpace(password))
+            {
+                extractArgs += $" -p\"{password}\"";
+            }
+            return RunSevenZipProcessSync(sevenZipExe, extractArgs);
+        }
+
+        private static bool CreateArchiveFromDirectorySync(string sevenZipExe, string sourceDir, string archivePath, ArchiveSettings settings, string? password)
+        {
+            var sb = new StringBuilder();
+            sb.Append($"a -t{settings.Format} \"{archivePath}\" .\\*");
+            sb.Append($" -mx={settings.CompressionLevel} -m0={settings.Method} -ssw");
+
+            if (settings.CpuThreads > 0)
+            {
+                sb.Append($" -mmt{settings.CpuThreads}");
+            }
+            else
+            {
+                sb.Append(" -mmt");
+            }
+
+            if (!string.IsNullOrWhiteSpace(password))
+            {
+                sb.Append($" -p\"{password}\" -mhe=on");
+            }
+
+            sb.Append(" -bsp1");
+            return RunSevenZipProcessSync(sevenZipExe, sb.ToString(), sourceDir);
+        }
+
+        private static ArchiveSettings CreateArchiveSettingsForSafeDelete(ArchiveSettings? sourceSettings, string format)
+        {
+            return new ArchiveSettings
+            {
+                Format = string.IsNullOrWhiteSpace(format) ? (sourceSettings?.Format ?? "7z") : format,
+                CompressionLevel = sourceSettings?.CompressionLevel ?? 5,
+                Method = string.IsNullOrWhiteSpace(sourceSettings?.Method) ? "LZMA2" : sourceSettings.Method,
+                CpuThreads = sourceSettings?.CpuThreads ?? 0
+            };
+        }
+
+        private static void CleanupArchiveTempArtifacts(DirectoryInfo backupDir, string format)
+        {
+            if (!backupDir.Exists) return;
+
+            try
+            {
+                foreach (var file in backupDir.GetFiles())
+                {
+                    if (!IsArchiveTempArtifact(file, format))
+                    {
+                        continue;
+                    }
+
+                    try
+                    {
+                        if ((file.Attributes & FileAttributes.ReadOnly) == FileAttributes.ReadOnly)
+                        {
+                            file.Attributes &= ~FileAttributes.ReadOnly;
+                        }
+                        file.Delete();
+                    }
+                    catch
+                    {
+                    }
+                }
+
+                foreach (var dir in backupDir.GetDirectories("__FolderRewind_SafeDelete_*"))
+                {
+                    try
+                    {
+                        ClearReadonlyAttributes(dir.FullName);
+                        dir.Delete(true);
+                    }
+                    catch
+                    {
+                    }
+                }
+            }
+            catch
+            {
+            }
+        }
+
+        private static bool IsArchiveTempArtifact(FileInfo file, string format)
+        {
+            if (file == null || string.IsNullOrWhiteSpace(format))
+            {
+                return false;
+            }
+
+            string pattern = $@"\.{Regex.Escape(format)}\.tmp\d*$";
+            return Regex.IsMatch(file.Name, pattern, RegexOptions.IgnoreCase);
         }
 
         /// <summary>
@@ -2551,6 +2879,227 @@ namespace FolderRewind.Services
             Directory.CreateDirectory(metaDir);
             string json = JsonSerializer.Serialize(meta, AppJsonContext.Default.BackupMetadata);
             await File.WriteAllTextAsync(Path.Combine(metaDir, "metadata.json"), json);
+        }
+
+        private static void SynchronizeMetadataAfterArchiveDeletion(
+            BackupConfig config,
+            string folderName,
+            string deletedFileName,
+            string? renamedOldFileName,
+            string? renamedNewFileName,
+            string? renamedBackupType)
+        {
+            if (config == null
+                || string.IsNullOrWhiteSpace(config.DestinationPath)
+                || string.IsNullOrWhiteSpace(folderName)
+                || string.IsNullOrWhiteSpace(deletedFileName))
+            {
+                return;
+            }
+
+            string metadataPath = Path.Combine(config.DestinationPath, "_metadata", folderName, "metadata.json");
+            var metadata = LoadBackupMetadata(metadataPath);
+            if (metadata == null)
+            {
+                return;
+            }
+
+            bool invalidateMetadata = false;
+            metadata.BackupRecords ??= new List<BackupChangeRecord>();
+            metadata.BackupRecords = metadata.BackupRecords
+                .OrderBy(r => r.CreatedAtUtc)
+                .ThenBy(r => r.ArchiveFileName, StringComparer.OrdinalIgnoreCase)
+                .ToList();
+
+            int deletedIndex = metadata.BackupRecords.FindIndex(r => string.Equals(r.ArchiveFileName, deletedFileName, StringComparison.OrdinalIgnoreCase));
+            BackupChangeRecord? deletedRecord = deletedIndex >= 0 ? metadata.BackupRecords[deletedIndex] : null;
+            BackupChangeRecord? previousRecord = deletedIndex > 0 ? metadata.BackupRecords[deletedIndex - 1] : null;
+
+            BackupChangeRecord? successorRecord = null;
+            if (!string.IsNullOrWhiteSpace(renamedOldFileName))
+            {
+                successorRecord = metadata.BackupRecords.FirstOrDefault(r => string.Equals(r.ArchiveFileName, renamedOldFileName, StringComparison.OrdinalIgnoreCase));
+            }
+            else if (deletedIndex >= 0 && deletedIndex + 1 < metadata.BackupRecords.Count)
+            {
+                successorRecord = metadata.BackupRecords[deletedIndex + 1];
+            }
+
+            if (deletedRecord != null && successorRecord != null)
+            {
+                RebaseSuccessorBackupRecord(previousRecord, deletedRecord, successorRecord, renamedNewFileName, renamedBackupType);
+            }
+
+            if (!string.IsNullOrWhiteSpace(renamedOldFileName) && !string.IsNullOrWhiteSpace(renamedNewFileName))
+            {
+                foreach (var record in metadata.BackupRecords)
+                {
+                    if (string.Equals(record.ArchiveFileName, renamedOldFileName, StringComparison.OrdinalIgnoreCase))
+                    {
+                        record.ArchiveFileName = renamedNewFileName;
+                        if (!string.IsNullOrWhiteSpace(renamedBackupType))
+                        {
+                            record.BackupType = renamedBackupType;
+                        }
+                    }
+
+                    if (string.Equals(record.PreviousBackupFileName, renamedOldFileName, StringComparison.OrdinalIgnoreCase))
+                    {
+                        record.PreviousBackupFileName = renamedNewFileName;
+                    }
+
+                    if (string.Equals(record.BasedOnFullBackup, renamedOldFileName, StringComparison.OrdinalIgnoreCase))
+                    {
+                        record.BasedOnFullBackup = renamedNewFileName;
+                    }
+                }
+
+                if (string.Equals(metadata.LastBackupFileName, renamedOldFileName, StringComparison.OrdinalIgnoreCase))
+                {
+                    metadata.LastBackupFileName = renamedNewFileName;
+                }
+
+                if (string.Equals(metadata.BasedOnFullBackup, renamedOldFileName, StringComparison.OrdinalIgnoreCase))
+                {
+                    metadata.BasedOnFullBackup = renamedNewFileName;
+                }
+            }
+
+            metadata.BackupRecords.RemoveAll(r => string.Equals(r.ArchiveFileName, deletedFileName, StringComparison.OrdinalIgnoreCase));
+
+            foreach (var record in metadata.BackupRecords)
+            {
+                if (string.Equals(record.PreviousBackupFileName, deletedFileName, StringComparison.OrdinalIgnoreCase))
+                {
+                    record.PreviousBackupFileName = previousRecord?.ArchiveFileName ?? string.Empty;
+                }
+
+                if (string.Equals(record.BasedOnFullBackup, deletedFileName, StringComparison.OrdinalIgnoreCase))
+                {
+                    if (!string.IsNullOrWhiteSpace(renamedNewFileName)
+                        && string.Equals(renamedBackupType, "Full", StringComparison.OrdinalIgnoreCase))
+                    {
+                        record.BasedOnFullBackup = renamedNewFileName;
+                    }
+                    else
+                    {
+                        invalidateMetadata = true;
+                    }
+                }
+            }
+
+            if (string.Equals(metadata.LastBackupFileName, deletedFileName, StringComparison.OrdinalIgnoreCase))
+            {
+                invalidateMetadata = true;
+            }
+
+            if (string.Equals(metadata.BasedOnFullBackup, deletedFileName, StringComparison.OrdinalIgnoreCase))
+            {
+                if (!string.IsNullOrWhiteSpace(renamedNewFileName)
+                    && string.Equals(renamedBackupType, "Full", StringComparison.OrdinalIgnoreCase))
+                {
+                    metadata.BasedOnFullBackup = renamedNewFileName;
+                }
+                else
+                {
+                    invalidateMetadata = true;
+                }
+            }
+
+            if (invalidateMetadata)
+            {
+                try
+                {
+                    File.Delete(metadataPath);
+                }
+                catch
+                {
+                }
+                return;
+            }
+
+            metadata.Version = "2.0";
+            string json = JsonSerializer.Serialize(metadata, AppJsonContext.Default.BackupMetadata);
+            File.WriteAllText(metadataPath, json);
+        }
+
+        private static void RebaseSuccessorBackupRecord(
+            BackupChangeRecord? previousRecord,
+            BackupChangeRecord deletedRecord,
+            BackupChangeRecord successorRecord,
+            string? renamedNewFileName,
+            string? renamedBackupType)
+        {
+            successorRecord.ArchiveFileName = string.IsNullOrWhiteSpace(renamedNewFileName)
+                ? successorRecord.ArchiveFileName
+                : renamedNewFileName;
+            successorRecord.BackupType = string.IsNullOrWhiteSpace(renamedBackupType)
+                ? successorRecord.BackupType
+                : renamedBackupType;
+
+            var finalSet = new HashSet<string>(
+                (successorRecord.FullFileList ?? new List<string>()).Where(f => !string.IsNullOrWhiteSpace(f)),
+                StringComparer.OrdinalIgnoreCase);
+
+            if (string.Equals(successorRecord.BackupType, "Full", StringComparison.OrdinalIgnoreCase) || previousRecord == null)
+            {
+                successorRecord.BasedOnFullBackup = successorRecord.ArchiveFileName;
+                successorRecord.PreviousBackupFileName = string.Empty;
+                successorRecord.AddedFiles = finalSet.OrderBy(x => x, StringComparer.OrdinalIgnoreCase).ToList();
+                successorRecord.ModifiedFiles = new List<string>();
+                successorRecord.DeletedFiles = new List<string>();
+                successorRecord.FullFileList = finalSet.OrderBy(x => x, StringComparer.OrdinalIgnoreCase).ToList();
+                return;
+            }
+
+            var previousSet = new HashSet<string>(
+                (previousRecord.FullFileList ?? new List<string>()).Where(f => !string.IsNullOrWhiteSpace(f)),
+                StringComparer.OrdinalIgnoreCase);
+            var ownerMap = previousSet.ToDictionary(path => path, _ => string.Empty, StringComparer.OrdinalIgnoreCase);
+
+            foreach (var deleted in (deletedRecord.DeletedFiles ?? new List<string>()).Where(f => !string.IsNullOrWhiteSpace(f)))
+            {
+                ownerMap.Remove(deleted);
+            }
+            foreach (var added in (deletedRecord.AddedFiles ?? new List<string>()).Where(f => !string.IsNullOrWhiteSpace(f)))
+            {
+                ownerMap[added] = deletedRecord.ArchiveFileName;
+            }
+            foreach (var modified in (deletedRecord.ModifiedFiles ?? new List<string>()).Where(f => !string.IsNullOrWhiteSpace(f)))
+            {
+                ownerMap[modified] = deletedRecord.ArchiveFileName;
+            }
+
+            foreach (var deleted in (successorRecord.DeletedFiles ?? new List<string>()).Where(f => !string.IsNullOrWhiteSpace(f)))
+            {
+                ownerMap.Remove(deleted);
+            }
+            foreach (var added in (successorRecord.AddedFiles ?? new List<string>()).Where(f => !string.IsNullOrWhiteSpace(f)))
+            {
+                ownerMap[added] = successorRecord.ArchiveFileName;
+            }
+            foreach (var modified in (successorRecord.ModifiedFiles ?? new List<string>()).Where(f => !string.IsNullOrWhiteSpace(f)))
+            {
+                ownerMap[modified] = successorRecord.ArchiveFileName;
+            }
+
+            successorRecord.PreviousBackupFileName = previousRecord.ArchiveFileName;
+            successorRecord.BasedOnFullBackup = previousRecord.BasedOnFullBackup;
+            successorRecord.AddedFiles = finalSet
+                .Where(path => !previousSet.Contains(path))
+                .OrderBy(path => path, StringComparer.OrdinalIgnoreCase)
+                .ToList();
+            successorRecord.DeletedFiles = previousSet
+                .Where(path => !finalSet.Contains(path))
+                .OrderBy(path => path, StringComparer.OrdinalIgnoreCase)
+                .ToList();
+            successorRecord.ModifiedFiles = finalSet
+                .Where(path => previousSet.Contains(path)
+                    && ownerMap.TryGetValue(path, out var owner)
+                    && !string.IsNullOrWhiteSpace(owner))
+                .OrderBy(path => path, StringComparer.OrdinalIgnoreCase)
+                .ToList();
+            successorRecord.FullFileList = finalSet.OrderBy(path => path, StringComparer.OrdinalIgnoreCase).ToList();
         }
 
         /// <summary>

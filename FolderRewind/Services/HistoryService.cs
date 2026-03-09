@@ -214,6 +214,33 @@ namespace FolderRewind.Services
             }
         }
 
+        public static int RemoveEntriesForFile(string configId, string folderName, string fileName)
+        {
+            if (string.IsNullOrWhiteSpace(configId)
+                || string.IsNullOrWhiteSpace(folderName)
+                || string.IsNullOrWhiteSpace(fileName))
+            {
+                return 0;
+            }
+
+            Initialize();
+            int removedCount = 0;
+            lock (_historyLock)
+            {
+                removedCount = _allHistory.RemoveAll(x =>
+                    string.Equals(x.ConfigId, configId, StringComparison.OrdinalIgnoreCase)
+                    && string.Equals(x.FolderName, folderName, StringComparison.OrdinalIgnoreCase)
+                    && string.Equals(x.FileName, fileName, StringComparison.OrdinalIgnoreCase));
+            }
+
+            if (removedCount > 0)
+            {
+                ScheduleSave();
+            }
+
+            return removedCount;
+        }
+
         /// <summary>
         /// 更新历史记录的注释
         /// </summary>
@@ -380,6 +407,46 @@ namespace FolderRewind.Services
             {
                 ScheduleSave();
             }
+        }
+
+        public static int RenameEntriesForFile(string configId, string folderName, string oldFileName, string newFileName, string? newBackupType = null)
+        {
+            if (string.IsNullOrWhiteSpace(configId)
+                || string.IsNullOrWhiteSpace(folderName)
+                || string.IsNullOrWhiteSpace(oldFileName)
+                || string.IsNullOrWhiteSpace(newFileName))
+            {
+                return 0;
+            }
+
+            Initialize();
+            int modifiedCount = 0;
+            lock (_historyLock)
+            {
+                foreach (var item in _allHistory)
+                {
+                    if (!string.Equals(item.ConfigId, configId, StringComparison.OrdinalIgnoreCase)
+                        || !string.Equals(item.FolderName, folderName, StringComparison.OrdinalIgnoreCase)
+                        || !string.Equals(item.FileName, oldFileName, StringComparison.OrdinalIgnoreCase))
+                    {
+                        continue;
+                    }
+
+                    item.FileName = newFileName;
+                    if (!string.IsNullOrWhiteSpace(newBackupType))
+                    {
+                        item.BackupType = newBackupType;
+                    }
+                    modifiedCount++;
+                }
+            }
+
+            if (modifiedCount > 0)
+            {
+                ScheduleSave();
+            }
+
+            return modifiedCount;
         }
 
         /// <summary>

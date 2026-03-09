@@ -522,6 +522,7 @@ namespace FolderRewind.Views
                     DefaultButton = ContentDialogButton.Close,
                     XamlRoot = this.XamlRoot
                 };
+                ThemeService.ApplyThemeToDialog(warnDialog);
 
                 var warnResult = await warnDialog.ShowAsync();
                 if (warnResult != ContentDialogResult.Primary) return;
@@ -541,6 +542,7 @@ namespace FolderRewind.Views
                 DefaultButton = ContentDialogButton.Primary,
                 XamlRoot = this.XamlRoot
             };
+            ThemeService.ApplyThemeToDialog(dialog);
 
             var result = await dialog.ShowAsync();
             if (result == ContentDialogResult.None)
@@ -549,31 +551,16 @@ namespace FolderRewind.Views
             }
 
             bool deleteFile = result == ContentDialogResult.Secondary;
-            if (deleteFile)
+            var deleteResult = await BackupService.DeleteBackupAsync(config, folder, item, deleteFile);
+            if (!deleteResult.Success)
             {
-                try
-                {
-                    var backupFilePath = HistoryService.GetBackupFilePath(config, folder, item);
-                    if (!string.IsNullOrWhiteSpace(backupFilePath) && File.Exists(backupFilePath))
-                    {
-                        File.Delete(backupFilePath);
-                    }
-                }
-                catch
-                {
-                }
+                NotificationService.ShowError(string.IsNullOrWhiteSpace(deleteResult.Message)
+                    ? I18n.GetString("BackupService_Task_Failed")
+                    : deleteResult.Message);
+                return;
             }
 
-            try
-            {
-                HistoryService.RemoveEntry(item);
-            }
-            catch
-            {
-            }
-
-            FilteredHistory.Remove(item);
-            IsEmpty = FilteredHistory.Count == 0;
+            RefreshHistory(config, folder);
         }
 
         private void CommentFilterBox_TextChanged(object sender, TextChangedEventArgs e)

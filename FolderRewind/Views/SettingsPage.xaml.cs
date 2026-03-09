@@ -1221,25 +1221,6 @@ namespace FolderRewind.Views
             }
         }
 
-        private async void OnBrowseRestoreTempRootClick(object sender, RoutedEventArgs e)
-        {
-            var picker = new FolderPicker();
-            picker.SuggestedStartLocation = PickerLocationId.ComputerFolder;
-            picker.FileTypeFilter.Add("*");
-
-            if (App._window != null)
-            {
-                InitializeWithWindow.Initialize(picker, WindowNative.GetWindowHandle(App._window));
-            }
-
-            var folder = await picker.PickSingleFolderAsync();
-            if (folder != null)
-            {
-                Settings.RestoreTempRootPath = folder.Path;
-                ConfigService.Save();
-            }
-        }
-
         // 主题切换
         private void OnThemeChanged(object sender, SelectionChangedEventArgs e)
         {

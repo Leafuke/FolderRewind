@@ -2505,12 +2505,6 @@
   <data name="SettingsPage_DefaultBackupRootPathDesc.Text" xml:space="preserve">
     <value>新建配置会自动使用“默认路径\配置名称”作为备份存储路径（可单独修改）</value>
   </data>
-  <data name="SettingsPage_RestoreTempRootPath.Text" xml:space="preserve">
-    <value>安全还原临时目录</value>
-  </data>
-  <data name="SettingsPage_RestoreTempRootPathDesc.Text" xml:space="preserve">
-    <value>Clean 安全还原快照的存放位置。建议使用空间充足且速度较快的磁盘。</value>
-  </data>
   <data name="FolderManager_MineRewindHint_Title" xml:space="preserve">
     <value>检测到 Minecraft 目录</value>
   </data>
