@@ -1,2 +1,3 @@
-FolderRewind Official Website is Now Live!
-https://folderrewind.top
+Urgent Notice:
+ The "Keep Player Data on Restore" feature introduced in MineRewind plugin version 1.5.0 was "accidentally" enabled by default, which has caused some confusion.
+ It is recommended to disable this feature for normal use unless you specifically need it. You can find this option in the plugin settings and turn it off.
