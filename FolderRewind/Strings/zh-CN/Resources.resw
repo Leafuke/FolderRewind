@@ -1559,6 +1559,15 @@
   <data name="BackupService_Log_PluginBackupFailed" xml:space="preserve">
     <value>[插件失败] {0} - {1}</value>
   </data>
+  <data name="BackupService_Log_PluginRestoreTakeover" xml:space="preserve">
+    <value>插件 {0} 接管还原: {1}</value>
+  </data>
+  <data name="BackupService_Log_PluginRestoreSucceeded" xml:space="preserve">
+    <value>[插件完成] {0} 还原成功</value>
+  </data>
+  <data name="BackupService_Log_PluginRestoreFailed" xml:space="preserve">
+    <value>[插件失败] {0} - {1}</value>
+  </data>
   <data name="BackupService_Log_PluginException" xml:space="preserve">
     <value>[插件异常] {0} - {1}</value>
   </data>
@@ -2647,10 +2656,10 @@
   <data name="Update_Dialog_EmptyNotes" xml:space="preserve">
     <value>该版本未提供更新说明。</value>
   </data>
-  <data name="SettingsPage_EnableUpdateReminder" xml:space="preserve">
+  <data name="SettingsPage_EnableUpdateReminder.Text" xml:space="preserve">
     <value>启动时检查更新提醒</value>
   </data>
-  <data name="SettingsPage_EnableUpdateReminderDesc" xml:space="preserve">
+  <data name="SettingsPage_EnableUpdateReminderDesc.Text" xml:space="preserve">
     <value>启动应用时检查 GitHub Release 新版本并提示更新内容</value>
   </data>
   <data name="HistoryPage_ScanRecover.ToolTipService.ToolTip" xml:space="preserve">

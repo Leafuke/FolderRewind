@@ -698,6 +698,138 @@ namespace FolderRewind.Services
             }
         }
 
+        /// <summary>
+        /// 由插件完全接管的还原流程
+        /// </summary>
+        private static async Task HandlePluginRestoreAsync(
+            BackupConfig config,
+            ManagedFolder folder,
+            HistoryItem historyItem,
+            BackupTask task,
+            Services.Plugins.IFolderRewindPlugin plugin,
+            int configIndex)
+        {
+            Log(I18n.Format("BackupService_Log_PluginRestoreTakeover", plugin.Manifest.Name, folder.DisplayName), LogLevel.Info);
+
+            await RunOnUIAsync(() =>
+            {
+                task.Status = I18n.Format("BackupService_Task_PluginProcessing");
+                task.Progress = 0;
+                task.IsIndeterminate = true;
+            });
+
+            bool restoreStarted = false;
+
+            try
+            {
+                try
+                {
+                    KnotLinkService.BroadcastEvent($"event=restore_started;config={configIndex};world={folder.DisplayName}");
+                    restoreStarted = true;
+                }
+                catch
+                {
+                }
+
+                var result = await Services.Plugins.PluginService.InvokePluginRestoreAsync(
+                    plugin,
+                    config,
+                    folder,
+                    historyItem.FileName,
+                    async (progress, status) =>
+                    {
+                        await RunOnUIAsync(() =>
+                        {
+                            task.Progress = progress;
+                            task.Status = string.IsNullOrWhiteSpace(status)
+                                ? I18n.Format("BackupService_Task_PluginProcessing")
+                                : status;
+                            task.IsIndeterminate = false;
+                        });
+                    });
+
+                if (result.Success)
+                {
+                    await RunOnUIAsync(() =>
+                    {
+                        task.Status = I18n.GetString("BackupService_Task_RestoreCompleted");
+                        task.Progress = 100;
+                        task.IsCompleted = true;
+                        task.IsIndeterminate = false;
+                        task.IsSuccess = true;
+                        task.ErrorMessage = string.Empty;
+                    });
+
+                    Log(I18n.Format("BackupService_Log_PluginRestoreSucceeded", folder.DisplayName), LogLevel.Info);
+                    NotificationService.NotifyRestoreCompleted(folder.DisplayName, true, I18n.GetString("BackupService_Task_RestoreCompleted"));
+
+                    try
+                    {
+                        KnotLinkService.BroadcastEvent($"event=restore_success;config={configIndex};world={folder.DisplayName};backup={historyItem.FileName}");
+                    }
+                    catch
+                    {
+                    }
+
+                    return;
+                }
+
+                string failureMessage = string.IsNullOrWhiteSpace(result.Message)
+                    ? I18n.GetString("BackupService_Task_RestoreFailed")
+                    : result.Message!;
+
+                await RunOnUIAsync(() =>
+                {
+                    task.Status = I18n.GetString("BackupService_Task_RestoreFailed");
+                    task.IsCompleted = true;
+                    task.IsIndeterminate = false;
+                    task.IsSuccess = false;
+                    task.ErrorMessage = failureMessage;
+                });
+
+                Log(I18n.Format("BackupService_Log_PluginRestoreFailed", folder.DisplayName, failureMessage), LogLevel.Error);
+
+                if (restoreStarted)
+                {
+                    try
+                    {
+                        KnotLinkService.BroadcastEvent("event=restore_finished;status=failure;reason=plugin_restore_failed");
+                    }
+                    catch
+                    {
+                    }
+                }
+
+                NotificationService.NotifyRestoreCompleted(folder.DisplayName, false, failureMessage);
+            }
+            catch (Exception ex)
+            {
+                await RunOnUIAsync(() =>
+                {
+                    task.Status = I18n.GetString("BackupService_Task_RestoreFailed");
+                    task.IsCompleted = true;
+                    task.IsIndeterminate = false;
+                    task.IsSuccess = false;
+                    task.ErrorMessage = ex.Message;
+                });
+
+                Log(I18n.Format("BackupService_Log_PluginException", folder.DisplayName, ex.Message), LogLevel.Error);
+
+                if (restoreStarted)
+                {
+                    try
+                    {
+                        KnotLinkService.BroadcastEvent("event=restore_finished;status=failure;reason=plugin_restore_exception");
+                    }
+                    catch
+                    {
+                    }
+                }
+
+                NotificationService.NotifyRestoreCompleted(folder.DisplayName, false, ex.Message);
+            }
+        }
+
         public static async Task<DeleteBackupResult> DeleteBackupAsync(BackupConfig config, ManagedFolder folder, HistoryItem historyItem, bool deleteArchive)
         {
             if (config == null || folder == null || historyItem == null)
@@ -1796,14 +1928,6 @@ namespace FolderRewind.Services
                 NotificationService.NotifyRestoreCompleted(folder.DisplayName, false, message);
             }
 
-            if (!File.Exists(backupFilePath))
-            {
-                string message = I18n.Format("BackupService_Log_BackupFileNotFound", backupFilePath);
-                Log(message, LogLevel.Error);
-                await FailAsync(message, "no_backup_found");
-                return;
-            }
-
             if (archiveSettings?.BackupBeforeRestore == true)
             {
                 Log(I18n.Format("BackupService_Log_BackupBeforeRestore", folder.DisplayName), LogLevel.Info);
@@ -1816,6 +1940,21 @@ namespace FolderRewind.Services
                 {
                     Log(I18n.Format("BackupService_Log_BackupBeforeRestoreFailed", ex.Message), LogLevel.Warning);
                 }
+            }
+
+            var (shouldHandleRestore, handlerPlugin) = Services.Plugins.PluginService.CheckPluginWantsToHandleRestore(config);
+            if (shouldHandleRestore && handlerPlugin != null)
+            {
+                await HandlePluginRestoreAsync(config, folder, historyItem, restoreTask, handlerPlugin, configIndex);
+                return;
+            }
+
+            if (!File.Exists(backupFilePath))
+            {
+                string message = I18n.Format("BackupService_Log_BackupFileNotFound", backupFilePath);
+                Log(message, LogLevel.Error);
+                await FailAsync(message, "no_backup_found");
+                return;
             }
 
             string? sevenZipExe = ResolveSevenZipExecutable();

@@ -1559,6 +1559,15 @@ If you have a listener subscribed to this signal, it should receive a message.</
   <data name="BackupService_Log_PluginBackupFailed" xml:space="preserve">
     <value>[Plugin] {0} failed: {1}</value>
   </data>
+  <data name="BackupService_Log_PluginRestoreTakeover" xml:space="preserve">
+    <value>Plugin {0} took over restore: {1}</value>
+  </data>
+  <data name="BackupService_Log_PluginRestoreSucceeded" xml:space="preserve">
+    <value>[Plugin] {0} restore succeeded.</value>
+  </data>
+  <data name="BackupService_Log_PluginRestoreFailed" xml:space="preserve">
+    <value>[Plugin] {0} restore failed: {1}</value>
+  </data>
   <data name="BackupService_Log_PluginException" xml:space="preserve">
     <value>[Plugin] {0} exception: {1}</value>
   </data>
@@ -2647,10 +2656,10 @@ Release notes:
   <data name="Update_Dialog_EmptyNotes" xml:space="preserve">
     <value>No release notes were provided for this version.</value>
   </data>
-  <data name="SettingsPage_EnableUpdateReminder" xml:space="preserve">
+  <data name="SettingsPage_EnableUpdateReminder.Text" xml:space="preserve">
     <value>Check update reminder on startup</value>
   </data>
-  <data name="SettingsPage_EnableUpdateReminderDesc" xml:space="preserve">
+  <data name="SettingsPage_EnableUpdateReminderDesc.Text" xml:space="preserve">
     <value>Check GitHub Releases on startup and show update notes when a newer version exists</value>
   </data>
   <data name="HistoryPage_ScanRecover.ToolTipService.ToolTip" xml:space="preserve">

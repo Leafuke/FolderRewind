@@ -1,5 +1,6 @@
 ﻿using FolderRewind.Models;
 using System;
+using System.IO;
 using System.Threading;
 using System.Threading.Tasks;
 
@@ -151,8 +152,16 @@ namespace FolderRewind.Services
                     if (!hadChanges)
                     {
                         config.Automation.ConsecutiveNoChangeCount++;
+                        // 达到阈值则自动停止，但是检测到level.dat被占用就暂时不停止，这是给MC存档的特殊处理，可能是玩家正在玩游戏但按了暂停，这时候他们应该不希望停止。
                         if (config.Automation.ConsecutiveNoChangeCount >= config.Automation.StopAfterNoChangeCount)
                         {
+                            foreach (var folder in config.SourceFolders)
+                            {
+                                if(FileLockService.IsFileLocked(Path.Combine(folder.FullPath, "level.dat"))) {
+                                    LogService.Log($"[AutoBackup] Detected level.dat is locked, skipping auto backup stop for '{config.Name}'");
+                                    return;
+                                }
+                            }
                             config.Automation.AutoBackupEnabled = false;
                             LogService.Log($"[AutoBackup] Auto backup disabled for '{config.Name}': no changes detected {config.Automation.ConsecutiveNoChangeCount} consecutive times.");
                             try

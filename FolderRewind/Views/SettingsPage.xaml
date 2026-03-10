@@ -680,7 +680,7 @@
                                         <toolkit:SettingsCard.Description>
                                             <TextBlock x:Uid="SettingsPage_KnotLinkHostDesc" Style="{StaticResource SettingsDescriptionStyle}" />
                                         </toolkit:SettingsCard.Description>
-                                        <TextBox Text="{x:Bind Settings.KnotLinkHost, Mode=TwoWay}" Style="{StaticResource SettingsEntryTextBoxStyle}" TextChanged="OnKnotLinkSettingChanged" />
+                                        <TextBox Text="{x:Bind Settings.KnotLinkHost, Mode=TwoWay}" Tag="KnotLinkHost" Style="{StaticResource SettingsEntryTextBoxStyle}" TextChanged="OnKnotLinkSettingChanged" />
                                     </toolkit:SettingsCard>
 
                                     <toolkit:SettingsCard>
@@ -690,7 +690,7 @@
                                         <toolkit:SettingsCard.Description>
                                             <TextBlock x:Uid="SettingsPage_KnotLinkAppIdDesc" Style="{StaticResource SettingsDescriptionStyle}" />
                                         </toolkit:SettingsCard.Description>
-                                        <TextBox Text="{x:Bind Settings.KnotLinkAppId, Mode=TwoWay}" Style="{StaticResource SettingsEntryTextBoxStyle}" TextChanged="OnKnotLinkSettingChanged" />
+                                        <TextBox Text="{x:Bind Settings.KnotLinkAppId, Mode=TwoWay}" Tag="KnotLinkAppId" Style="{StaticResource SettingsEntryTextBoxStyle}" TextChanged="OnKnotLinkSettingChanged" />
                                     </toolkit:SettingsCard>
 
                                     <toolkit:SettingsCard>
@@ -700,7 +700,7 @@
                                         <toolkit:SettingsCard.Description>
                                             <TextBlock x:Uid="SettingsPage_KnotLinkOpenSocketIdDesc" Style="{StaticResource SettingsDescriptionStyle}" />
                                         </toolkit:SettingsCard.Description>
-                                        <TextBox Text="{x:Bind Settings.KnotLinkOpenSocketId, Mode=TwoWay}" Style="{StaticResource SettingsEntryTextBoxStyle}" TextChanged="OnKnotLinkSettingChanged" />
+                                        <TextBox Text="{x:Bind Settings.KnotLinkOpenSocketId, Mode=TwoWay}" Tag="KnotLinkOpenSocketId" Style="{StaticResource SettingsEntryTextBoxStyle}" TextChanged="OnKnotLinkSettingChanged" />
                                     </toolkit:SettingsCard>
 
                                     <toolkit:SettingsCard>
@@ -710,7 +710,7 @@
                                         <toolkit:SettingsCard.Description>
                                             <TextBlock x:Uid="SettingsPage_KnotLinkSignalIdDesc" Style="{StaticResource SettingsDescriptionStyle}" />
                                         </toolkit:SettingsCard.Description>
-                                        <TextBox Text="{x:Bind Settings.KnotLinkSignalId, Mode=TwoWay}" Style="{StaticResource SettingsEntryTextBoxStyle}" TextChanged="OnKnotLinkSettingChanged" />
+                                        <TextBox Text="{x:Bind Settings.KnotLinkSignalId, Mode=TwoWay}" Tag="KnotLinkSignalId" Style="{StaticResource SettingsEntryTextBoxStyle}" TextChanged="OnKnotLinkSettingChanged" />
                                     </toolkit:SettingsCard>
 
                                     <toolkit:SettingsCard ContentAlignment="Vertical" HorizontalContentAlignment="Left">
