@@ -328,7 +328,7 @@ namespace FolderRewind.Services
         /// 备份单个文件夹
         /// </summary>
         /// <returns>true 表示产生了新的备份文件；false 表示未检测到变更或备份失败。</returns>
-        public static async Task<bool> BackupFolderAsync(BackupConfig config, ManagedFolder folder, string? comment = "")
+        public static async Task<bool> BackupFolderAsync(BackupConfig config, ManagedFolder folder, string? comment = "", bool forceFullBackup = false)
         {
             if (config == null || folder == null) return false;
             comment ??= string.Empty;
@@ -449,31 +449,41 @@ namespace FolderRewind.Services
 
                 // 调用核心逻辑，传入 task 以便更新进度
 
-                // 根据模式分发逻辑
-                switch (config.Archive.Mode)
+                // FORCE_FULL 命令可绕过当前配置模式，直接执行一次 Full 备份。
+                if (forceFullBackup)
                 {
-                    case BackupMode.Incremental:
-                        {
-                            var res = await DoSmartBackupAsync(sourcePath, backupSubDir, metadataDir, folder.DisplayName, config, comment, task);
-                            success = res.Success;
-                            generatedFileName = res.FileName;
-                            break;
-                        }
-                    case BackupMode.Overwrite:
-                        {
-                            var res = await DoOverwriteBackupAsync(sourcePath, backupSubDir, metadataDir, folder.DisplayName, config, comment, task);
-                            success = res.Success;
-                            generatedFileName = res.FileName;
-                            break;
-                        }
-                    case BackupMode.Full:
-                    default:
-                        {
-                            var res = await DoFullBackupAsync(sourcePath, backupSubDir, metadataDir, folder.DisplayName, config, comment, task);
-                            success = res.Success;
-                            generatedFileName = res.FileName;
-                            break;
-                        }
+                    var res = await DoFullBackupAsync(sourcePath, backupSubDir, metadataDir, folder.DisplayName, config, comment, task);
+                    success = res.Success;
+                    generatedFileName = res.FileName;
+                }
+                else
+                {
+                    // 根据模式分发逻辑
+                    switch (config.Archive.Mode)
+                    {
+                        case BackupMode.Incremental:
+                            {
+                                var res = await DoSmartBackupAsync(sourcePath, backupSubDir, metadataDir, folder.DisplayName, config, comment, task);
+                                success = res.Success;
+                                generatedFileName = res.FileName;
+                                break;
+                            }
+                        case BackupMode.Overwrite:
+                            {
+                                var res = await DoOverwriteBackupAsync(sourcePath, backupSubDir, metadataDir, folder.DisplayName, config, comment, task);
+                                success = res.Success;
+                                generatedFileName = res.FileName;
+                                break;
+                            }
+                        case BackupMode.Full:
+                        default:
+                            {
+                                var res = await DoFullBackupAsync(sourcePath, backupSubDir, metadataDir, folder.DisplayName, config, comment, task);
+                                success = res.Success;
+                                generatedFileName = res.FileName;
+                                break;
+                            }
+                    }
                 }
             }
             catch (Exception ex)
@@ -513,7 +523,11 @@ namespace FolderRewind.Services
 
                     // 增量模式下，根据实际生成的文件名区分 Full 和 Smart
                     string typeStr;
-                    if (config.Archive.Mode == BackupMode.Incremental)
+                    if (forceFullBackup)
+                    {
+                        typeStr = "Full";
+                    }
+                    else if (config.Archive.Mode == BackupMode.Incremental)
                     {
                         typeStr = completedFileName.StartsWith("[Full]", StringComparison.OrdinalIgnoreCase) ? "Full" : "Smart";
                     }
