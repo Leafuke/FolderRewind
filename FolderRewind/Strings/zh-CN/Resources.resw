@@ -1828,7 +1828,7 @@
     <value>启用热备份</value>
   </data>
   <data name="MineRewind_Setting_EnableHotBackup_Desc" xml:space="preserve">
-    <value>备份前使用 xcopy 创建存档快照，避免游戏运行时文件占用导致备份失败。</value>
+    <value>与联动模组说悄悄话，确保热备份的完美进行~</value>
   </data>
   <data name="MineRewind_Setting_SnapshotPath_Name" xml:space="preserve">
     <value>快照存储路径</value>
