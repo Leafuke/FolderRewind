@@ -1828,7 +1828,7 @@ Comment: {1}
     <value>Enable hot backup</value>
   </data>
   <data name="MineRewind_Setting_EnableHotBackup_Desc" xml:space="preserve">
-    <value>Create a snapshot via xcopy before backup to avoid file locks while the game is running.</value>
+    <value>Conmunicate with MineBackup. Ensure perfect performance.</value>
   </data>
   <data name="MineRewind_Setting_SnapshotPath_Name" xml:space="preserve">
     <value>Snapshot storage path</value>

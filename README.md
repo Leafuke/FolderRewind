@@ -1,101 +1,107 @@
+**中文** | [English](README_en.md)
+
 <p align="center">
 <img src="assets/StoreLogo.png" width="48px"/>
 </p>
 
 <div align="center">
 
-# FolderRewind
+# 存档时光机
 
-[![中文说明](https://img.shields.io/badge/README-中文-blue)](README_zh.md) [![GitHub release (latest by date)](https://img.shields.io/github/v/release/Leafuke/FolderRewind)](https://github.com/Leafuke/FolderRewind/releases) ![GitHub Release Date](https://img.shields.io/github/release-date/Leafuke/FolderRewind) ![GitHub stars](https://img.shields.io/github/stars/Leafuke/FolderRewind?style=flat) ![GitHub forks](https://img.shields.io/github/forks/Leafuke/FolderRewind)
+[![GitHub release (latest by date)](https://img.shields.io/github/v/release/Leafuke/FolderRewind)](https://github.com/Leafuke/FolderRewind/releases) ![GitHub Release Date](https://img.shields.io/github/release-date/Leafuke/FolderRewind) ![GitHub stars](https://img.shields.io/github/stars/Leafuke/FolderRewind?style=flat) ![GitHub forks](https://img.shields.io/github/forks/Leafuke/FolderRewind)
 
 </div>
 <p align="center">
-<a href="#Introduction">Introduction</a> &nbsp;&bull;&nbsp;
-<a href="#Features">Features</a> &nbsp;&bull;&nbsp;
-<a href="#Download">Download & Install</a> &nbsp;&bull;&nbsp;
-<a href="#Usage">Usage</a> &nbsp;&bull;&nbsp;
-<a href="#Officially Recognized Plugins">Plugins</a> &nbsp;&bull;&nbsp;
-<a href="#Development">Development</a> &nbsp;&bull;&nbsp;
-<a href="#Discussion">Discussion</a> &nbsp;&bull;&nbsp;
-<a href="#Acknowledgments">Acknowledgments</a>
+<a href="#简介">简介</a> &nbsp;&bull;&nbsp;
+<a href="#亮点">亮点</a> &nbsp;&bull;&nbsp;
+<a href="#安装">安装</a> &nbsp;&bull;&nbsp;
+<a href="#使用">使用</a> &nbsp;&bull;&nbsp;
+<a href="#受认可的插件">插件</a> &nbsp;&bull;&nbsp;
+<a href="#开发">开发</a> &nbsp;&bull;&nbsp;
+<a href="#交流讨论">交流</a> &nbsp;&bull;&nbsp;
+<a href="#鸣谢">鸣谢</a>
 </p>
 
-## Introduction
 
-FolderRewind is a modern, powerful, and user-friendly backup manager built with **WinUI 3** and **.NET 10**. It allows you to protect your important data—documents, project files, or game saves—by creating automated, versioned backups with ease.
+## 简介
 
-As the spiritual successor to MineBackup, FolderRewind enhances its versatility while retaining extensibility for users with diverse needs. Featuring a powerful built-in plugin system, it allows plugin developers to optimize for specific scenarios such as **Minecraft game saves**, making it an ideal choice for gamers and advanced users.
+FolderRewind 是一款基于 **WinUI 3** 和 **.NET 10** 构建的现代化、高性能备份管理工具。它可以帮助您轻松地为重要数据（文档、工程文件、游戏存档等）创建自动化的版本控制备份。
 
-## Features
+作为 MineBackup 的精神续作，FolderRewind 增强其通用性的同时为不同需求的用户保留扩展性，内置强大的插件系统，插件作者们可以专为 **Minecraft 游戏存档** 等特殊场景优化，是游戏玩家和高级用户的理想选择。
 
-- **🛡️ Reliable Backups**: Uses the **7-Zip** engine for high-performance compression and encryption.
-- **🤖 Automation**: Set it and forget it. Support for:
-  - **Interval-based** backups (e.g., every 30 minutes).
-  - **Scheduled** daily tasks using a 24-hour clock.
-  - **On Startup** events to capture changes as soon as you log in.
-- **🔌 Plugin System**: 
-  - **Auto-Discovery**: Automatically scans and configures backups for known folder structures (e.g., Minecraft saves).
-  - **Hot Backups**: Plugins can intervene to create snapshots before backing up locked files.
-- **⏳ History Timeline**: View a clear timeline of your backups. "Rewind" your folder to any previous state.
-- **🎨 Modern Design**: 
-  - Native **Windows 11** aesthetic with Mica material.
-  - Light & Dark theme support.
-  - Responsive and intuitive UI.
+## 亮点
 
-## Download
+- **🛡️ 可靠备份**: 采用的 **7-Zip** 引擎，提供高效的压缩与加密能力，确保数据安全。
+- **🤖 全自动运行**: 一次配置，自动执行：
+  - **间隔备份**: 支持每隔 X 分钟自动备份。
+  - **计划备份**: 极高自由度定义那些时间将自动执行备份。
+- **🔌 插件扩展**: 
+  - **自动发现**: 智能扫描已知目录结构（如 Minecraft 存档），一键批量创建备份配置。
+  - **热备份支持**: 插件可在文件被占用时（如游戏运行中）介入，通过快照机制确保数据一致性。
+  - **接管功能**: 插件可以重新定义备份与还原模式，实现更加丰富的功能。
+- **⏳ 历史时间轴**: 在一条时间轴上查看任意时刻的备份。随时将文件夹"回溯"到任意历史状态。
+- **🎨 现代设计**: 
+  - 完美适配 Windows 11 的 **Mica** 材质与设计语言。
+  - 支持深色/浅色主题切换。
+  - 界面简洁直观，操作流畅。
 
-### Download from Microsoft Store (Recommended)：
+## 安装
+
+### 商店下载（推荐）：
 
 <a href="https://apps.microsoft.com/detail/9nwsdgxdqws4?referrer=appbadge&mode=direct">
 	<img src="https://get.microsoft.com/images/en-us%20dark.svg" width="200"/>
 </a>
 
-### Side-loading Installation：
+### 侧载安装：
 
-1. Open System Settings, navigate to `System` -> `Developer Options`, and enable `Developer Mode`. Scroll to the bottom of the page, expand the `PowerShell` section, and enable the `Change Execution Policy...` option.
-2. Open the [Release](https://github.com/Leafuke/FolderRewind/releases) page.
-3. Find the application package in the latest version's **Assets**. The naming format is: `FolderRewind_{version}_{platform}.zip`.
-4. After downloading and extracting the package, right-click the `install.ps1` script in the folder and select `Run with PowerShell`.
+1. 打开系统设置，依次选择 `系统` -> `开发者选项`，打开 `开发人员模式`。
+2. 打开 [Release](https://github.com/Leafuke/FolderRewind/releases) 页面
+3. 找到应用包下载。命名格式为：`FolderRewind_{version}_{platform}.7z`
+4. 下载应用包后解压，右键单击文件夹中的 `install.ps1` 脚本，选择 `使用 PowerShell 运行`。
 
-## Usage
+注意：不要同时安装商店版本和侧载版本。
 
-For detailed usage instructions, please refer to the official documentation: https://folderrewind.top
+## 使用
 
-![Main Interface](assets/screenshot1.png)
+建议查看官方网站的详细使用文档：https://folderrewind.top
 
-## Officially Recognized Plugins
+![主界面](assets\screenshot1.png)
 
-| Name               | Version   | Description                                     | Author          | Download Link                                      |
+## 受认可的插件
+
+| 插件名称               | 版本   | 描述                                     | 作者          | 下载链接                                      |
 |----------------------|------|----------------------------------------|-------------|-------------------------------------------|
-| MineRewind      | 1.4.1 | A backup plugin specifically designed for Minecraft game saves.               | Leafuke     | [Repository](https://github.com/Leafuke/FolderRewind-Plugin-Minecraft)
+| MineRewind      | 1.6.0 | 专为 Minecraft 游戏存档设计的备份插件。               | Leafuke     | [仓库](https://github.com/Leafuke/FolderRewind-Plugin-Minecraft)
 
-## Development
+## 开发
 
-**Requirements:**
+**开发环境要求:**
 - Visual Studio 2026
 - .NET 10 SDK
-- "Windows App SDK C# Templates" workload
+- "Windows App SDK C# Templates" 工作负载
 
-### Plugin Development
+### 插件开发
 
-If you want to develop plugins for FolderRewind to support more scenarios, you can refer to the [Plugin Development Guide](https://folderrewind.top/docs/plugins/overview).
+如果你希望为 FolderRewind 开发插件以适配更多场景，可以参考 [插件开发文档](https://folderrewind.top/docs/plugins/overview)。
 
 
-## Discussion
+## 交流讨论
 
-If you are interested in discussing, you can join the QQ group.
+有兴趣一起交流的话，可以加 QQ 群。
 
 <img src="./assets/qq_group_light.jpg" width="240px" />
 
-## Acknowledgments
+## 鸣谢
 
 - [Windows App SDK](https://github.com/microsoft/windowsappsdk)
 - [WinUI](https://github.com/microsoft/microsoft-ui-xaml)
+- [Windows Community Toolkit](https://github.com/CommunityToolkit/Windows)
 - [KnotLink](https://github.com/hxh230802/KnotLink)
 - [7-Zip](https://www.7-zip.org/)
-- [MineBackup - Spiritual Predecessor](https://github.com/Leafuke/MineBackup)
-- [Bili.Copilot - Reference](https://github.com/Richasy/Bili.Copilot)
-- And all the other friends who provided help during development.
+- [MineBackup - 前作](https://github.com/Leafuke/MineBackup)
+- [Bili.Copilot - 代码参考](https://github.com/Richasy/Bili.Copilot)
+- 以及其他在开发过程中提供过助力的小伙伴
 
 ---
-*Back up your world, one folder at a time.*
+*为您的数字世界留一份后悔药。*
