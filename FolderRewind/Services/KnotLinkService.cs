@@ -3,6 +3,7 @@ using FolderRewind.Services.KnotLink;
 using FolderRewind.Services.Plugins;
 using System;
 using System.Collections.Concurrent;
+using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Text;
@@ -548,12 +549,12 @@ namespace FolderRewind.Services
             var argParts = args.Split(' ', 3);
             if (argParts.Length < 2)
             {
-                return "ERROR:Invalid arguments. Usage: BACKUP <config_id> <folder_index|folder_name> [comment]";
+                return "ERROR:Invalid arguments. Usage: BACKUP <config_id> <folder_index|folder_name> [comment] [FORCE_FULL]";
             }
 
             var configId = argParts[0].Trim();
             var folderArg = argParts[1].Trim();
-            var comment = argParts.Length > 2 ? argParts[2].Trim() : string.Empty;
+            var (comment, forceFullBackup) = ParseBackupCommentAndForceFull(argParts.Length > 2 ? argParts[2] : string.Empty, string.Empty);
 
             var config = FindConfigById(configId);
             if (config == null)
@@ -572,7 +573,7 @@ namespace FolderRewind.Services
             {
                 try
                 {
-                    await BackupService.BackupFolderAsync(config, folder, comment);
+                    await BackupService.BackupFolderAsync(config, folder, comment, forceFullBackup);
                 }
                 catch (Exception ex)
                 {
@@ -904,6 +905,33 @@ namespace FolderRewind.Services
             var trimmed = args.Trim();
             return string.Equals(trimmed, "true", StringComparison.OrdinalIgnoreCase)
                 || string.Equals(trimmed, "false", StringComparison.OrdinalIgnoreCase);
+        }
+
+        private static (string Comment, bool ForceFullBackup) ParseBackupCommentAndForceFull(string rawComment, string defaultComment)
+        {
+            if (string.IsNullOrWhiteSpace(rawComment))
+                return (defaultComment, false);
+
+            var parts = rawComment.Split(' ', StringSplitOptions.RemoveEmptyEntries);
+            bool forceFullBackup = false;
+            var commentParts = new List<string>(parts.Length);
+
+            foreach (var part in parts)
+            {
+                if (string.Equals(part, "FORCE_FULL", StringComparison.OrdinalIgnoreCase))
+                {
+                    forceFullBackup = true;
+                    continue;
+                }
+
+                commentParts.Add(part);
+            }
+
+            var comment = string.Join(' ', commentParts).Trim();
+            if (string.IsNullOrWhiteSpace(comment))
+                comment = defaultComment;
+
+            return (comment, forceFullBackup);
         }
 
         #endregion

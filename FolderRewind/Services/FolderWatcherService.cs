@@ -15,7 +15,7 @@ namespace FolderRewind.Services
 
         private sealed class WatcherEntry : IDisposable
         {
-            public FileSystemWatcher Watcher { get; set; }
+            public FileSystemWatcher Watcher { get; set; } = null!;
             public volatile bool HasChanges;
 
             public void Dispose()

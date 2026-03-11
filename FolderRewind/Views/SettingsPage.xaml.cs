@@ -60,7 +60,7 @@ namespace FolderRewind.Views
 
         // KnotLink 状态相关属性
         private string _knotLinkStatusMessage = I18n.GetString("SettingsPage_KnotLinkStatus_Disabled");
-        private Brush _knotLinkStatusColor;
+        private Brush _knotLinkStatusColor = new SolidColorBrush(Microsoft.UI.Colors.Gray);
 
         public string KnotLinkStatusMessage
         {
@@ -158,12 +158,21 @@ namespace FolderRewind.Views
 
         private void OnCloseBehaviorSelectionChanged(object sender, SelectionChangedEventArgs e)
         {
-            // x:Bind TwoWay 已在 setter 保存，这里只做兜底刷新
+            if (sender is ComboBox cb)
+            {
+                CloseBehaviorSelectedIndex = cb.SelectedIndex;
+            }
+
             Bindings.Update();
         }
 
         private void OnRememberCloseBehaviorToggled(object sender, RoutedEventArgs e)
         {
+            if (sender is ToggleSwitch ts)
+            {
+                Settings.RememberCloseBehavior = ts.IsOn;
+            }
+
             // 如果用户打开“记住”，但当前是 Ask，则默认切到“最小化到托盘”更符合预期
             if (Settings.RememberCloseBehavior && Settings.CloseBehavior == CloseBehavior.Ask)
             {
@@ -177,6 +186,11 @@ namespace FolderRewind.Views
 
         private void OnNotificationsToggled(object sender, RoutedEventArgs e)
         {
+            if (sender is ToggleSwitch ts)
+            {
+                Settings.EnableNotifications = ts.IsOn;
+            }
+
             ConfigService.Save();
 
             // 如果关闭通知，清除 Badge
@@ -188,6 +202,11 @@ namespace FolderRewind.Views
 
         private void OnToastLevelChanged(object sender, SelectionChangedEventArgs e)
         {
+            if (sender is ComboBox cb)
+            {
+                Settings.ToastNotificationLevel = Math.Clamp(cb.SelectedIndex, 0, 3);
+            }
+
             ConfigService.Save();
         }
 
@@ -200,11 +219,21 @@ namespace FolderRewind.Views
 
         private void OnNoticesToggled(object sender, RoutedEventArgs e)
         {
+            if (sender is ToggleSwitch ts)
+            {
+                Settings.EnableNotices = ts.IsOn;
+            }
+
             ConfigService.Save();
         }
 
         private void OnUpdateReminderToggled(object sender, RoutedEventArgs e)
         {
+            if (sender is ToggleSwitch ts)
+            {
+                Settings.EnableUpdateReminder = ts.IsOn;
+            }
+
             ConfigService.Save();
         }
 
@@ -537,6 +566,11 @@ namespace FolderRewind.Views
         /// </summary>
         private void OnKnotLinkToggled(object sender, RoutedEventArgs e)
         {
+            if (sender is ToggleSwitch ts)
+            {
+                Settings.EnableKnotLink = ts.IsOn;
+            }
+
             ConfigService.Save();
 
             if (Settings.EnableKnotLink)
@@ -546,6 +580,26 @@ namespace FolderRewind.Views
             }
             else
             {
+                        if (sender is TextBox tb)
+                        {
+                            var value = tb.Text ?? string.Empty;
+                            switch (tb.Tag as string)
+                            {
+                                case "KnotLinkHost":
+                                    Settings.KnotLinkHost = value;
+                                    break;
+                                case "KnotLinkAppId":
+                                    Settings.KnotLinkAppId = value;
+                                    break;
+                                case "KnotLinkOpenSocketId":
+                                    Settings.KnotLinkOpenSocketId = value;
+                                    break;
+                                case "KnotLinkSignalId":
+                                    Settings.KnotLinkSignalId = value;
+                                    break;
+                            }
+                        }
+
                 // 禁用时关闭服务
                 KnotLinkService.Shutdown();
             }
@@ -843,6 +897,11 @@ namespace FolderRewind.Views
 
         private void OnPluginsAutoCheckUpdatesToggled(object sender, RoutedEventArgs e)
         {
+            if (sender is ToggleSwitch ts)
+            {
+                Settings.Plugins.AutoCheckUpdates = ts.IsOn;
+            }
+
             ConfigService.Save();
         }
 
@@ -1118,7 +1177,11 @@ namespace FolderRewind.Views
 
         private void OnHistoryColorsToggled(object sender, RoutedEventArgs e)
         {
-            // x:Bind TwoWay 已写回 Settings.UseHistoryStatusColors，这里只负责保存
+            if (sender is ToggleSwitch ts)
+            {
+                Settings.UseHistoryStatusColors = ts.IsOn;
+            }
+
             ConfigService.Save();
         }
 
@@ -1240,6 +1303,11 @@ namespace FolderRewind.Views
 
         private void OnLoggingChanged(object sender, RoutedEventArgs e)
         {
+            if (sender is ToggleSwitch ts)
+            {
+                Settings.EnableFileLogging = ts.IsOn;
+            }
+
             PushLogOptions();
             ConfigService.Save();
         }
@@ -1286,11 +1354,11 @@ namespace FolderRewind.Views
 
         private void OnStartupSizeChanged(object sender, NumberBoxValueChangedEventArgs e)
         {
-            if (sender == StartupWidthBox)
+            if (ReferenceEquals(sender, StartupWidthBox))
             {
                 Settings.StartupWidth = ClampWidth(e.NewValue);
             }
-            else if (sender == StartupHeightBox)
+            else if (ReferenceEquals(sender, StartupHeightBox))
             {
                 Settings.StartupHeight = ClampHeight(e.NewValue);
             }

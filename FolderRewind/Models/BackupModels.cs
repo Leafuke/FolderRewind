@@ -19,12 +19,12 @@ namespace FolderRewind.Models
     // 基础通知类，省去每个类都写一遍 PropertyChanged
     public class ObservableObject : INotifyPropertyChanged
     {
-        public event PropertyChangedEventHandler PropertyChanged;
-        public void OnPropertyChanged([CallerMemberName] string propertyName = null)
+        public event PropertyChangedEventHandler? PropertyChanged;
+        public void OnPropertyChanged([CallerMemberName] string? propertyName = null)
         {
             PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(propertyName));
         }
-        protected bool SetProperty<T>(ref T field, T value, [CallerMemberName] string propertyName = null)
+        protected bool SetProperty<T>(ref T field, T value, [CallerMemberName] string? propertyName = null)
         {
             if (EqualityComparer<T>.Default.Equals(field, value)) return false;
             field = value;
@@ -77,10 +77,10 @@ namespace FolderRewind.Models
         private string _fontFamily = "";
         private double _baseFontSize = 14;
         private string _homeSortMode = "NameAsc";
-        private string _lastManagerConfigId;
-        private string _lastManagerFolderPath;
-        private string _lastHistoryConfigId;
-        private string _lastHistoryFolderPath;
+        private string _lastManagerConfigId = "";
+        private string _lastManagerFolderPath = "";
+        private string _lastHistoryConfigId = "";
+        private string _lastHistoryFolderPath = "";
 
         private bool _useHistoryStatusColors = true;
 
@@ -134,10 +134,10 @@ namespace FolderRewind.Models
         public string HomeSortMode { get => _homeSortMode; set => SetProperty(ref _homeSortMode, value); }
 
         // 记住上次在“管理/历史”页选择的配置与文件夹，避免每次回到页面都跳到第一项
-        public string LastManagerConfigId { get => _lastManagerConfigId; set => SetProperty(ref _lastManagerConfigId, value); }
-        public string LastManagerFolderPath { get => _lastManagerFolderPath; set => SetProperty(ref _lastManagerFolderPath, value); }
-        public string LastHistoryConfigId { get => _lastHistoryConfigId; set => SetProperty(ref _lastHistoryConfigId, value); }
-        public string LastHistoryFolderPath { get => _lastHistoryFolderPath; set => SetProperty(ref _lastHistoryFolderPath, value); }
+        public string LastManagerConfigId { get => _lastManagerConfigId; set => SetProperty(ref _lastManagerConfigId, value ?? string.Empty); }
+        public string LastManagerFolderPath { get => _lastManagerFolderPath; set => SetProperty(ref _lastManagerFolderPath, value ?? string.Empty); }
+        public string LastHistoryConfigId { get => _lastHistoryConfigId; set => SetProperty(ref _lastHistoryConfigId, value ?? string.Empty); }
+        public string LastHistoryFolderPath { get => _lastHistoryFolderPath; set => SetProperty(ref _lastHistoryFolderPath, value ?? string.Empty); }
 
         /// <summary>
         /// 是否在历史记录页使用彩色节点区分状态
@@ -281,6 +281,9 @@ namespace FolderRewind.Models
         // 过滤器 (黑名单/白名单)
         public FilterSettings Filters { get; set; } = new();
 
+        // 云上传设置（通过外部工具执行）
+        public CloudSettings Cloud { get; set; } = new();
+
         // 扩展属性 (用于插件，如 Minecraft 插件存储 rcon 端口等)
         public Dictionary<string, string> ExtendedProperties { get; set; } = new();
     }
@@ -290,37 +293,42 @@ namespace FolderRewind.Models
     /// </summary>
     public class ManagedFolder : ObservableObject
     {
-        private string _path;
-        private string _displayName;
-        private string _description;
+        private string _path = "";
+        private string _displayName = "";
+        private string _description = "";
         private string _statusText = I18n.Format("FolderManager_Status");
         private string _lastBackupTime = I18n.Format("FolderManager_NeverBackedUp");
         private bool _isFavorite;
-        private string _coverImagePath; // 对应封面图片路径
+        private string _coverImagePath = ""; // 对应封面图片路径
 
         // 核心路径
         public string Path
         {
             get => _path;
-            set { SetProperty(ref _path, value); if (string.IsNullOrEmpty(_displayName)) DisplayName = System.IO.Path.GetFileName(value); }
+            set
+            {
+                var safeValue = value ?? string.Empty;
+                SetProperty(ref _path, safeValue);
+                if (string.IsNullOrEmpty(_displayName)) DisplayName = System.IO.Path.GetFileName(safeValue);
+            }
         }
 
         // 为了兼容你的 XAML {x:Bind FullPath}，我们增加一个只读属性
         [JsonIgnore]
         public string FullPath => Path;
 
-        public string DisplayName { get => _displayName; set => SetProperty(ref _displayName, value); }
+        public string DisplayName { get => _displayName; set => SetProperty(ref _displayName, value ?? string.Empty); }
 
-        public string Description { get => _description; set => SetProperty(ref _description, value); }
+        public string Description { get => _description; set => SetProperty(ref _description, value ?? string.Empty); }
 
         public bool IsFavorite { get => _isFavorite; set => SetProperty(ref _isFavorite, value); }
 
-        public string LastBackupTime { get => _lastBackupTime; set => SetProperty(ref _lastBackupTime, value); }
+        public string LastBackupTime { get => _lastBackupTime; set => SetProperty(ref _lastBackupTime, value ?? string.Empty); }
 
         [JsonIgnore] // 运行时状态，不需要存Json
-        public string StatusText { get => _statusText; set => SetProperty(ref _statusText, value); }
+        public string StatusText { get => _statusText; set => SetProperty(ref _statusText, value ?? string.Empty); }
 
-        public string CoverImagePath { get => _coverImagePath; set => SetProperty(ref _coverImagePath, value); }
+        public string CoverImagePath { get => _coverImagePath; set => SetProperty(ref _coverImagePath, value ?? string.Empty); }
     }
 
     public enum BackupMode
@@ -328,6 +336,88 @@ namespace FolderRewind.Models
         Full = 0,       // 全量备份：每次生成独立完整包
         Incremental = 1,// 增量(Smart)备份：仅备份变化文件，依赖元数据
         Overwrite = 2   // 覆写备份：使用 7z update 指令更新现有包
+    }
+
+    public enum CloudCommandMode
+    {
+        Rclone = 0,
+        Custom = 1
+    }
+
+    public enum CloudTemplateKind
+    {
+        UploadCurrentArchive = 0,
+        UploadBackupDirectory = 1,
+        Custom = 2
+    }
+
+    public class CloudSettings : ObservableObject
+    {
+        private bool _enabled;
+        private CloudCommandMode _commandMode = CloudCommandMode.Rclone;
+        private CloudTemplateKind _templateKind = CloudTemplateKind.UploadCurrentArchive;
+        private string _executablePath = "rclone.exe";
+        private string _argumentsTemplate = "copyto \"{ArchiveFilePath}\" \"{RemoteBasePath}/{ConfigName}/{FolderName}/{ArchiveFileName}\"";
+        private string _workingDirectory = "";
+        private int _timeoutSeconds = 600;
+        private int _retryCount;
+        private string _remoteBasePath = "remote:FolderRewind";
+        private DateTime _lastRunUtc = DateTime.MinValue;
+        private int _lastExitCode;
+        private string _lastErrorMessage = "";
+
+        public bool Enabled { get => _enabled; set => SetProperty(ref _enabled, value); }
+
+        public CloudCommandMode CommandMode { get => _commandMode; set => SetProperty(ref _commandMode, value); }
+
+        public CloudTemplateKind TemplateKind { get => _templateKind; set => SetProperty(ref _templateKind, value); }
+
+        public string ExecutablePath { get => _executablePath; set => SetProperty(ref _executablePath, value ?? string.Empty); }
+
+        public string ArgumentsTemplate { get => _argumentsTemplate; set => SetProperty(ref _argumentsTemplate, value ?? string.Empty); }
+
+        public string WorkingDirectory { get => _workingDirectory; set => SetProperty(ref _workingDirectory, value ?? string.Empty); }
+
+        public int TimeoutSeconds { get => _timeoutSeconds; set => SetProperty(ref _timeoutSeconds, value); }
+
+        public int RetryCount { get => _retryCount; set => SetProperty(ref _retryCount, value); }
+
+        public string RemoteBasePath { get => _remoteBasePath; set => SetProperty(ref _remoteBasePath, value ?? string.Empty); }
+
+        public DateTime LastRunUtc
+        {
+            get => _lastRunUtc;
+            set
+            {
+                if (SetProperty(ref _lastRunUtc, value))
+                {
+                    OnPropertyChanged(nameof(LastRunDisplay));
+                    OnPropertyChanged(nameof(LastExitCodeDisplay));
+                }
+            }
+        }
+
+        public int LastExitCode
+        {
+            get => _lastExitCode;
+            set
+            {
+                if (SetProperty(ref _lastExitCode, value))
+                {
+                    OnPropertyChanged(nameof(LastExitCodeDisplay));
+                }
+            }
+        }
+
+        public string LastErrorMessage { get => _lastErrorMessage; set => SetProperty(ref _lastErrorMessage, value ?? string.Empty); }
+
+        [JsonIgnore]
+        public string LastRunDisplay => LastRunUtc == DateTime.MinValue
+            ? "-"
+            : LastRunUtc.ToLocalTime().ToString("yyyy-MM-dd HH:mm:ss");
+
+        [JsonIgnore]
+        public string LastExitCodeDisplay => LastRunUtc == DateTime.MinValue ? "-" : LastExitCode.ToString();
     }
 
     /// <summary>
@@ -363,7 +453,9 @@ namespace FolderRewind.Models
         private bool _skipIfUnchanged = true;      // 无变更时跳过备份
         private int _cpuThreads = 0;               // CPU 线程数, 0 = 自动
         private bool _backupBeforeRestore = false;  // 还原前先执行一次备份
-        private int _maxSmartBackupsPerFull = 0;    // 智能备份链长度限制，0 = 不限制
+        private bool _safeRestoreEnabled = true;     // 安全还原（Clean 模式前做目录快照，失败可回滚）
+        private bool _verifyArchiveBeforeRestore = true; // 还原前完整性校验（7z t）
+        private int _maxSmartBackupsPerFull = 5;    // 智能备份链长度限制，默认 5
         private bool _safeDeleteEnabled = true;     // 安全删除：删除增量备份时自动合并内容到下一个备份
 
         // 自定义文件类型处理
@@ -390,6 +482,16 @@ namespace FolderRewind.Models
         /// 还原前先自动执行一次备份，防止误操作丢失当前数据
         /// </summary>
         public bool BackupBeforeRestore { get => _backupBeforeRestore; set => SetProperty(ref _backupBeforeRestore, value); }
+
+        /// <summary>
+        /// 安全还原：在 Clean 还原前将目标目录迁移到临时目录快照，若还原失败可自动回滚。
+        /// </summary>
+        public bool SafeRestoreEnabled { get => _safeRestoreEnabled; set => SetProperty(ref _safeRestoreEnabled, value); }
+
+        /// <summary>
+        /// 还原前完整性校验：对还原链中的压缩包执行 7z test。
+        /// </summary>
+        public bool VerifyArchiveBeforeRestore { get => _verifyArchiveBeforeRestore; set => SetProperty(ref _verifyArchiveBeforeRestore, value); }
 
         /// <summary>
         /// 智能备份链长度限制：当连续增量备份达到此数量时，强制执行一次全量备份以截断链条。
@@ -605,18 +707,18 @@ namespace FolderRewind.Models
     public class HistoryItem : ObservableObject
     {
         // 核心字段 (需要保存)
-        public string ConfigId { get; set; }        // 所属配置ID
-        public string FolderPath { get; set; }      // 所属源文件夹路径 (作为唯一标识)
-        public string FolderName { get; set; }      // 文件夹名 (冗余备份，防止源被删后无法识别)
-        public string FileName { get; set; }        // 备份文件名 (如 [Full]...7z)
+        public string ConfigId { get; set; } = "";        // 所属配置ID
+        public string FolderPath { get; set; } = "";      // 所属源文件夹路径 (作为唯一标识)
+        public string FolderName { get; set; } = "";      // 文件夹名 (冗余备份，防止源被删后无法识别)
+        public string FileName { get; set; } = "";        // 备份文件名 (如 [Full]...7z)
         public DateTime Timestamp { get; set; }     // 备份时间
-        public string BackupType { get; set; }      // Full, Smart, Overwrite
+        public string BackupType { get; set; } = "";      // Full, Smart, Overwrite
 
-        private string _comment;
+        private string _comment = "";
         public string Comment
         {
             get => _comment;
-            set => SetProperty(ref _comment, value);
+            set => SetProperty(ref _comment, value ?? string.Empty);
         }
 
         private bool _isImportant;
@@ -672,18 +774,18 @@ namespace FolderRewind.Models
 
     public class BackupTask : ObservableObject
     {
-        private string _folderName;
+        private string _folderName = "";
         private double _progress; // 0 - 100
-        private string _status;
-        private string _speed;
+        private string _status = "";
+        private string _speed = "";
         private bool _isCompleted;
-        private string _log; // 实时日志片段
-        private string _errorMessage;
+        private string _log = ""; // 实时日志片段
+        private string _errorMessage = "";
         private bool _isIndeterminate = true;
         private bool _isSuccess;
         private string _iconGlyph = "\uE8B7"; // Segoe MDL2 SaveLocal（备份图标）
 
-        public string FolderName { get => _folderName; set => SetProperty(ref _folderName, value); }
+        public string FolderName { get => _folderName; set => SetProperty(ref _folderName, value ?? string.Empty); }
         public double Progress
         {
             get => _progress;
@@ -693,17 +795,17 @@ namespace FolderRewind.Models
                     OnPropertyChanged(nameof(ProgressText));
             }
         }
-        public string Status { get => _status; set => SetProperty(ref _status, value); }
-        public string Speed { get => _speed; set => SetProperty(ref _speed, value); }
+        public string Status { get => _status; set => SetProperty(ref _status, value ?? string.Empty); }
+        public string Speed { get => _speed; set => SetProperty(ref _speed, value ?? string.Empty); }
         public bool IsCompleted { get => _isCompleted; set => SetProperty(ref _isCompleted, value); }
 
         // 这里的 Log 用于给 TaskPage 显示详细信息
-        public string Log { get => _log; set => SetProperty(ref _log, value); }
+        public string Log { get => _log; set => SetProperty(ref _log, value ?? string.Empty); }
 
         /// <summary>
         /// 失败原因（仅在任务失败时有值），通常来自 7z 的 stderr 输出
         /// </summary>
-        public string ErrorMessage { get => _errorMessage; set => SetProperty(ref _errorMessage, value); }
+        public string ErrorMessage { get => _errorMessage; set => SetProperty(ref _errorMessage, value ?? string.Empty); }
 
         /// <summary>
         /// 进度条是否为不确定模式（尚未收到 7z 进度数据时为 true）
@@ -726,7 +828,7 @@ namespace FolderRewind.Models
         /// <summary>
         /// 任务图标（备份/还原使用不同图标）
         /// </summary>
-        public string IconGlyph { get => _iconGlyph; set => SetProperty(ref _iconGlyph, value); }
+        public string IconGlyph { get => _iconGlyph; set => SetProperty(ref _iconGlyph, value ?? string.Empty); }
 
         /// <summary>
         /// 格式化的进度文本（如 "42%"），不确定模式时为空

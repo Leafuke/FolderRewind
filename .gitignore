@@ -364,6 +364,7 @@ FodyWeavers.xsd
 
 *.txt
 /.vs
+/.vscode
 /FolderRewind/Assets
 /FolderRewind/obj
 /FolderRewind/Properties

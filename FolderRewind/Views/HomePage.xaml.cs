@@ -23,7 +23,7 @@ namespace FolderRewind.Views
 {
     public sealed partial class HomePage : Page, INotifyPropertyChanged
     {
-        public event PropertyChangedEventHandler PropertyChanged;
+        public event PropertyChangedEventHandler? PropertyChanged;
 
         // 收藏夹列表
         public ObservableCollection<ManagedFolder> FavoriteFolders { get; set; } = new();
@@ -35,9 +35,9 @@ namespace FolderRewind.Views
         public ObservableCollection<object> ConfigsView { get; } = new();
 
         // 配置列表（业务逻辑仍使用强类型）
-        public ObservableCollection<BackupConfig> Configs => ConfigService.CurrentConfig?.BackupConfigs;
+        public ObservableCollection<BackupConfig>? Configs => ConfigService.CurrentConfig?.BackupConfigs;
 
-        public GlobalSettings Settings => ConfigService.CurrentConfig?.GlobalSettings;
+        public GlobalSettings? Settings => ConfigService.CurrentConfig?.GlobalSettings;
 
         private bool _isFavoritesEmpty = true;
         public bool IsFavoritesEmpty
@@ -165,7 +165,7 @@ namespace FolderRewind.Views
             return maxUtc ?? DateTime.MinValue;
         }
 
-        private static DateTime? TryParseBackupLocalTime(string value)
+        private static DateTime? TryParseBackupLocalTime(string? value)
         {
             if (string.IsNullOrWhiteSpace(value)) return null;
 
@@ -294,7 +294,7 @@ namespace FolderRewind.Views
         }
 
         // 辅助方法：查找文件夹所属的配置
-        private BackupConfig FindParentConfig(ManagedFolder folder)
+        private BackupConfig? FindParentConfig(ManagedFolder folder)
         {
             if (Configs == null) return null;
             return Configs.FirstOrDefault(c => c.SourceFolders.Contains(folder));
@@ -448,7 +448,7 @@ namespace FolderRewind.Views
                 bool isEncrypted = string.Equals(selectedType, "Encrypted", StringComparison.OrdinalIgnoreCase);
 
                 // 如果是加密类型，弹出密码设置对话框
-                string encryptionPassword = null;
+                string? encryptionPassword = null;
                 if (isEncrypted)
                 {
                     encryptionPassword = await PromptSetPasswordAsync();
@@ -482,7 +482,7 @@ namespace FolderRewind.Views
         /// <summary>
         /// 弹出设置加密密码的对话框，包含"密码一旦设置无法更改"的警告提示。
         /// </summary>
-        private async System.Threading.Tasks.Task<string> PromptSetPasswordAsync()
+        private async System.Threading.Tasks.Task<string?> PromptSetPasswordAsync()
         {
             var resourceLoader = ResourceLoader.GetForViewIndependentUse();
 

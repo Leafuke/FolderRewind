@@ -23,7 +23,7 @@ namespace FolderRewind
 
         #region 全局状态与共享入口
 
-        public static Window _window { get; set; }
+        public static Window _window { get; set; } = null!;
 
         /// <summary>
         /// 获取主窗口实例（用于 NotificationService 等服务判断窗口状态）
@@ -31,7 +31,7 @@ namespace FolderRewind
         public static MainWindow? MainWindow => _window as MainWindow;
 
         // 暴露 ShellPage 以便子页面控制导航
-        public static Views.ShellPage Shell { get; set; }
+        public static Views.ShellPage Shell { get; set; } = null!;
 
         private TaskbarIcon? _trayIcon;
         internal static bool ForceExitRequested { get; private set; }
@@ -128,7 +128,11 @@ namespace FolderRewind
 
                 _window.DispatcherQueue.TryEnqueue(Microsoft.UI.Dispatching.DispatcherQueuePriority.Low, () =>
                 {
-                    Services.TypographyService.ApplyTypography(Services.ConfigService.CurrentConfig?.GlobalSettings);
+                    var settings = Services.ConfigService.CurrentConfig?.GlobalSettings;
+                    if (settings != null)
+                    {
+                        Services.TypographyService.ApplyTypography(settings);
+                    }
                 });
 
                 // 插件初始化包含热键注册，必须在UI线程执行，所以用DispatcherQueue而非Task.Run
@@ -192,51 +196,22 @@ namespace FolderRewind
             }
             catch (Exception ex)
             {
-                try
-                {
-                    LogService.Log(I18n.Format(
-                        "App_Log_Fatal",
-                        ex.Message,
-                        ex.StackTrace ?? string.Empty));
-                }
-                catch
-                {
-
-                }
-
-                // 最小错误窗口
-                try
-                {
-                    _window = new Window();
-                    _window.Title = I18n.GetString("App_StartupFailedWindowTitle");
-                    _window.Content = new ScrollViewer
-                    {
-                        Padding = new Thickness(24),
-                        Content = new TextBlock
-                        {
-                            Text = I18n.Format("App_StartupFailedWindowContent", ex.Message, ex.StackTrace ?? string.Empty),
-                            TextWrapping = TextWrapping.Wrap
-                        }
-                    };
-                    _window.Activate();
-                }
-                catch
-                {
-                    // 如果连窗口都创建不了，只能放弃（此时至少尝试写过日志）
-                }
+                LogService.Log(I18n.Format(
+                    "App_Log_Fatal",
+                    ex.Message,
+                    ex.StackTrace ?? string.Empty));
             }
         }
 
-        // 调试未处理异常 - 发现是历史记录炸了。。。吗？
         private void App_UnhandledException(object sender, Microsoft.UI.Xaml.UnhandledExceptionEventArgs e)
         {
+            e.Handled = true; // 防止直接崩溃
             System.Diagnostics.Debug.WriteLine($"[App UnhandledException] {e.Exception.Message}\n{e.Exception.StackTrace}");
             // 写入自定义日志文件
             LogService.Log(I18n.Format(
                 "App_Log_UnhandledException",
                 e.Exception.Message,
                 e.Exception.StackTrace ?? string.Empty));
-            e.Handled = true; // 防止直接崩溃
         }
 
         #endregion

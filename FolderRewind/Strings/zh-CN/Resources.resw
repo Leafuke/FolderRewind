@@ -195,8 +195,47 @@
   <data name="FolderManager_NotSelected" xml:space="preserve">
     <value>(未选择)</value>
   </data>
+  <data name="FolderManager_DuplicateDisplayName_Title" xml:space="preserve">
+    <value>当前配置中已存在同名文件夹</value>
+  </data>
+  <data name="FolderManager_DuplicateDisplayName_Content" xml:space="preserve">
+    <value>配置“{1}”中已经存在名为“{0}”的文件夹。为避免不同目录共用同一个备份槽位，不能再添加同名项。</value>
+  </data>
+  <data name="FolderManager_DuplicateDisplayName_BatchContent" xml:space="preserve">
+    <value>以下文件夹没有被添加到配置“{0}”，因为它们会与现有显示名冲突：
+{1}
+
+为避免不同目录共用同一个备份槽位，同一配置中不能存在同名文件夹。</value>
+  </data>
   <data name="ShellPage_Header.Header" xml:space="preserve">
     <value>FolderRewind</value>
+  </data>
+  <data name="ShellPage_FolderConflict_Title" xml:space="preserve">
+    <value>检测到备份槽位冲突风险</value>
+  </data>
+  <data name="ShellPage_FolderConflict_Intro" xml:space="preserve">
+    <value>当前配置中检测到了可能复用同一备份槽位的文件夹名称冲突，请尽快处理。</value>
+  </data>
+  <data name="ShellPage_FolderConflict_IntraConfigSection" xml:space="preserve">
+    <value>以下配置内部已经存在同名文件夹：</value>
+  </data>
+  <data name="ShellPage_FolderConflict_SharedDestinationSection" xml:space="preserve">
+    <value>以下不同配置使用相同的备份存放路径，并且包含同名文件夹：</value>
+  </data>
+  <data name="ShellPage_FolderConflict_ConfigLine" xml:space="preserve">
+    <value>配置: {0}</value>
+  </data>
+  <data name="ShellPage_FolderConflict_PathLine" xml:space="preserve">
+    <value>备份路径: {0}</value>
+  </data>
+  <data name="ShellPage_FolderConflict_ConfigsLine" xml:space="preserve">
+    <value>涉及配置: {0}</value>
+  </data>
+  <data name="ShellPage_FolderConflict_FolderNamesLine" xml:space="preserve">
+    <value>文件夹名称: {0}</value>
+  </data>
+  <data name="ShellPage_FolderConflict_Footer" xml:space="preserve">
+    <value>由于备份、metadata、云同步和还原仍按显示名定位，这些冲突会让不同文件夹共用同一槽位。</value>
   </data>
   <data name="ShellPage_NavHome.Content" xml:space="preserve">
     <value>主页</value>
@@ -606,6 +645,9 @@
   <data name="ConfigSettingsDialog_ModeOverwrite.Content" xml:space="preserve">
     <value>覆写备份 (更新最近的备份)</value>
   </data>
+  <data name="ConfigSettingsDialog_OverwriteWarning" xml:space="preserve">
+    <value>覆写模式只会更新和添加文件，不会删除归档里已经存在但源目录中已删除的旧文件。若你需要精确回到某个时间点，优先使用全量或智能增量并配合 Clean 还原。</value>
+  </data>
   <data name="ConfigSettingsDialog_Format.Header" xml:space="preserve">
     <value>压缩格式</value>
   </data>
@@ -656,6 +698,33 @@
   </data>
   <data name="ConfigSettingsDialog_BackupBeforeRestore.OffContent" xml:space="preserve">
     <value>已关闭</value>
+  </data>
+  <data name="ConfigSettingsDialog_SafeRestore.Header" xml:space="preserve">
+    <value>安全还原（Clean 模式）</value>
+  </data>
+  <data name="ConfigSettingsDialog_SafeRestore.OnContent" xml:space="preserve">
+    <value>已开启 - 失败时自动从同目录的 -Temp 副本回滚</value>
+  </data>
+  <data name="ConfigSettingsDialog_SafeRestore.OffContent" xml:space="preserve">
+    <value>已关闭 - Clean 失败时可能丢失原文件</value>
+  </data>
+  <data name="BackupService_RestoreMissingBaseFull_Title" xml:space="preserve">
+    <value>无法找到完整还原基准</value>
+  </data>
+  <data name="BackupService_RestoreMissingBaseFull_Content" xml:space="preserve">
+    <value>未能为目标 Smart 备份“{0}”找到可用的基础 Full，精确 Clean 还原已不可用。若继续，程序将改用兼容性倒序覆盖还原：从当前最新备份一路倒序覆盖到该 Smart 备份。这种方式能尽量回退文件版本，但不会删除多余旧文件。是否继续？</value>
+  </data>
+  <data name="BackupService_RestoreMissingBaseFull_Primary" xml:space="preserve">
+    <value>继续兼容还原</value>
+  </data>
+  <data name="ConfigSettingsDialog_VerifyArchiveBeforeRestore.Header" xml:space="preserve">
+    <value>还原前校验备份完整性</value>
+  </data>
+  <data name="ConfigSettingsDialog_VerifyArchiveBeforeRestore.OnContent" xml:space="preserve">
+    <value>已开启 - 先执行 7z test</value>
+  </data>
+  <data name="ConfigSettingsDialog_VerifyArchiveBeforeRestore.OffContent" xml:space="preserve">
+    <value>已关闭 - 直接进入还原流程</value>
   </data>
   <data name="ConfigSettingsDialog_Automation.Header" xml:space="preserve">
     <value>自动化</value>
@@ -1490,6 +1559,15 @@
   <data name="BackupService_Log_PluginBackupFailed" xml:space="preserve">
     <value>[插件失败] {0} - {1}</value>
   </data>
+  <data name="BackupService_Log_PluginRestoreTakeover" xml:space="preserve">
+    <value>插件 {0} 接管还原: {1}</value>
+  </data>
+  <data name="BackupService_Log_PluginRestoreSucceeded" xml:space="preserve">
+    <value>[插件完成] {0} 还原成功</value>
+  </data>
+  <data name="BackupService_Log_PluginRestoreFailed" xml:space="preserve">
+    <value>[插件失败] {0} - {1}</value>
+  </data>
   <data name="BackupService_Log_PluginException" xml:space="preserve">
     <value>[插件异常] {0} - {1}</value>
   </data>
@@ -1576,6 +1654,36 @@
   </data>
   <data name="BackupService_Log_RestoreChainBuilt" xml:space="preserve">
     <value>还原链已构建，包含 {0} 个包</value>
+  </data>
+  <data name="BackupService_Log_RestoreIntegrityCheckBegin" xml:space="preserve">
+    <value>开始校验还原链完整性，共 {0} 个压缩包</value>
+  </data>
+  <data name="BackupService_Log_RestoreIntegrityArchiveCheckFailed" xml:space="preserve">
+    <value>还原前完整性校验失败：{0}</value>
+  </data>
+  <data name="BackupService_Log_RestoreIntegrityCheckPassed" xml:space="preserve">
+    <value>还原前完整性校验通过</value>
+  </data>
+  <data name="BackupService_Log_RestoreIntegrityCheckFailedStop" xml:space="preserve">
+    <value>还原已终止：备份完整性校验未通过</value>
+  </data>
+  <data name="BackupService_Log_RestoreSnapshotPrepared" xml:space="preserve">
+    <value>已创建安全还原快照：{0}</value>
+  </data>
+  <data name="BackupService_Log_RestoreSnapshotPrepareFailed" xml:space="preserve">
+    <value>创建安全还原快照失败：{0}</value>
+  </data>
+  <data name="BackupService_Log_RestoreSnapshotCleanupFailed" xml:space="preserve">
+    <value>清理还原快照失败：{0}</value>
+  </data>
+  <data name="BackupService_Log_RestoreRollbackBegin" xml:space="preserve">
+    <value>还原失败，开始回滚目录快照：{0}</value>
+  </data>
+  <data name="BackupService_Log_RestoreRollbackSuccess" xml:space="preserve">
+    <value>回滚完成，已恢复还原前目录状态</value>
+  </data>
+  <data name="BackupService_Log_RestoreRollbackFailed" xml:space="preserve">
+    <value>回滚失败：{0}</value>
   </data>
   <data name="App_WindowTitle" xml:space="preserve">
     <value>存档时光机</value>
@@ -1950,6 +2058,63 @@
   <data name="Notification_RestoreCompleted_Failed" xml:space="preserve">
     <value>文件夹 "{0}" 恢复失败：{1}</value>
   </data>
+  <data name="CloudSync_Notification_Title" xml:space="preserve">
+    <value>云上传</value>
+  </data>
+  <data name="CloudSync_Notification_UploadFailed" xml:space="preserve">
+    <value>文件夹 "{0}" 的云上传失败：{1}</value>
+  </data>
+  <data name="CloudSync_Task_Name" xml:space="preserve">
+    <value>{0} · 云上传</value>
+  </data>
+  <data name="CloudSync_Task_Queued" xml:space="preserve">
+    <value>等待上传...</value>
+  </data>
+  <data name="CloudSync_Task_Preparing" xml:space="preserve">
+    <value>准备上传...</value>
+  </data>
+  <data name="CloudSync_Task_Running" xml:space="preserve">
+    <value>正在上传...</value>
+  </data>
+  <data name="CloudSync_Task_Retrying" xml:space="preserve">
+    <value>正在重试上传 ({0}/{1})...</value>
+  </data>
+  <data name="CloudSync_Task_Completed" xml:space="preserve">
+    <value>云上传完成</value>
+  </data>
+  <data name="CloudSync_Task_Failed" xml:space="preserve">
+    <value>云上传失败</value>
+  </data>
+  <data name="CloudSync_Task_Timeout" xml:space="preserve">
+    <value>命令执行超时（{0} 秒）</value>
+  </data>
+  <data name="CloudSync_Log_MissingArchive" xml:space="preserve">
+    <value>未找到待上传的备份文件：{0}</value>
+  </data>
+  <data name="CloudSync_Log_WorkingDirectoryMissing" xml:space="preserve">
+    <value>工作目录不存在：{0}</value>
+  </data>
+  <data name="CloudSync_Log_Queued" xml:space="preserve">
+    <value>已将文件夹 "{0}" 的云上传加入队列：{1}</value>
+  </data>
+  <data name="CloudSync_Log_CommandStart" xml:space="preserve">
+    <value>开始执行文件夹 "{0}" 的云上传命令：{1}</value>
+  </data>
+  <data name="CloudSync_Log_CommandSucceeded" xml:space="preserve">
+    <value>文件夹 "{0}" 的云上传已完成</value>
+  </data>
+  <data name="CloudSync_Log_CommandFailed" xml:space="preserve">
+    <value>文件夹 "{0}" 的云上传失败：{1}</value>
+  </data>
+  <data name="CloudSync_Error_ExecutableEmpty" xml:space="preserve">
+    <value>未设置要执行的程序路径</value>
+  </data>
+  <data name="CloudSync_Error_StartFailed" xml:space="preserve">
+    <value>无法启动云上传命令</value>
+  </data>
+  <data name="CloudSync_Error_ExitCode" xml:space="preserve">
+    <value>命令执行失败，退出码：{0}</value>
+  </data>
   <data name="Common_ToggleOn" xml:space="preserve">
     <value>开</value>
   </data>
@@ -2235,6 +2400,114 @@
   <data name="Schedule_NextRun" xml:space="preserve">
     <value>下次执行: {0}</value>
   </data>
+  <data name="ConfigSettingsDialog_Cloud.Header" xml:space="preserve">
+    <value>云</value>
+  </data>
+  <data name="ConfigSettingsDialog_CloudEnabled.Header" xml:space="preserve">
+    <value>启用备份后云上传</value>
+  </data>
+  <data name="ConfigSettingsDialog_CloudEnabled.OnContent" xml:space="preserve">
+    <value>已开启</value>
+  </data>
+  <data name="ConfigSettingsDialog_CloudEnabled.OffContent" xml:space="preserve">
+    <value>已关闭</value>
+  </data>
+  <data name="ConfigSettingsDialog_CloudEnabledDesc.Text" xml:space="preserve">
+    <value>FolderRewind 只负责在本地备份成功后调用第三方工具执行上传，不直接管理云账号、远端目录浏览或云端还原。</value>
+  </data>
+  <data name="ConfigSettingsDialog_CloudMode.Header" xml:space="preserve">
+    <value>运行方式</value>
+  </data>
+  <data name="ConfigSettingsDialog_CloudModeRclone.Content" xml:space="preserve">
+    <value>rclone 简易模式</value>
+  </data>
+  <data name="ConfigSettingsDialog_CloudModeCustom.Content" xml:space="preserve">
+    <value>高级自定义命令</value>
+  </data>
+  <data name="ConfigSettingsDialog_CloudRemoteBasePath.Text" xml:space="preserve">
+    <value>远端基路径</value>
+  </data>
+  <data name="ConfigSettingsDialog_CloudRemoteBasePathPlaceholder.PlaceholderText" xml:space="preserve">
+    <value>例如 remote:FolderRewind</value>
+  </data>
+  <data name="ConfigSettingsDialog_CloudRemoteBasePathDesc.Text" xml:space="preserve">
+    <value>建议先在系统中完成 rclone config。这里填写 remote 名称与远端基目录，例如 remote:FolderRewind。</value>
+  </data>
+  <data name="ConfigSettingsDialog_CloudTemplate.Header" xml:space="preserve">
+    <value>预设模板</value>
+  </data>
+  <data name="ConfigSettingsDialog_CloudTemplateArchive.Content" xml:space="preserve">
+    <value>上传当前归档文件（推荐）</value>
+  </data>
+  <data name="ConfigSettingsDialog_CloudTemplateDirectory.Content" xml:space="preserve">
+    <value>补传当前备份目录</value>
+  </data>
+  <data name="ConfigSettingsDialog_CloudTemplateCustom.Content" xml:space="preserve">
+    <value>自定义</value>
+  </data>
+  <data name="ConfigSettingsDialog_CloudApplyTemplate.Content" xml:space="preserve">
+    <value>套用模板</value>
+  </data>
+  <data name="ConfigSettingsDialog_CloudExecutable.Text" xml:space="preserve">
+    <value>程序路径</value>
+  </data>
+  <data name="ConfigSettingsDialog_CloudExecutablePlaceholder.PlaceholderText" xml:space="preserve">
+    <value>例如 rclone.exe 或自定义工具路径</value>
+  </data>
+  <data name="ConfigSettingsDialog_CloudBrowseExecutable.ToolTipService.ToolTip" xml:space="preserve">
+    <value>浏览程序</value>
+  </data>
+  <data name="ConfigSettingsDialog_CloudArguments.Text" xml:space="preserve">
+    <value>参数模板</value>
+  </data>
+  <data name="ConfigSettingsDialog_CloudArgumentsPlaceholder.PlaceholderText" xml:space="preserve">
+    <value>输入命令参数模板，可使用下方变量</value>
+  </data>
+  <data name="ConfigSettingsDialog_CloudArgumentsDesc.Text" xml:space="preserve">
+    <value>建议优先上传当前归档文件，而不是直接同步整个目录。这样更符合 FolderRewind 当前的历史记录和还原模型。</value>
+  </data>
+  <data name="ConfigSettingsDialog_CloudWorkingDirectory.Text" xml:space="preserve">
+    <value>工作目录（可选）</value>
+  </data>
+  <data name="ConfigSettingsDialog_CloudWorkingDirectoryPlaceholder.PlaceholderText" xml:space="preserve">
+    <value>留空则使用程序默认工作目录</value>
+  </data>
+  <data name="ConfigSettingsDialog_CloudBrowseWorkingDirectory.ToolTipService.ToolTip" xml:space="preserve">
+    <value>浏览工作目录</value>
+  </data>
+  <data name="ConfigSettingsDialog_CloudTimeout.Text" xml:space="preserve">
+    <value>超时时间</value>
+  </data>
+  <data name="ConfigSettingsDialog_CloudTimeoutSuffix.Text" xml:space="preserve">
+    <value>秒</value>
+  </data>
+  <data name="ConfigSettingsDialog_CloudRetryCount.Text" xml:space="preserve">
+    <value>失败重试次数</value>
+  </data>
+  <data name="ConfigSettingsDialog_CloudRetryCountSuffix.Text" xml:space="preserve">
+    <value>次</value>
+  </data>
+  <data name="ConfigSettingsDialog_CloudVariables.Text" xml:space="preserve">
+    <value>可用变量</value>
+  </data>
+  <data name="ConfigSettingsDialog_CloudVariablesDesc.Text" xml:space="preserve">
+    <value>下面这些变量会在执行前替换成当前备份上下文。高级模式和 rclone 模式都可以使用。</value>
+  </data>
+  <data name="ConfigSettingsDialog_CloudPreview.Text" xml:space="preserve">
+    <value>命令预览</value>
+  </data>
+  <data name="ConfigSettingsDialog_CloudLastStatus.Text" xml:space="preserve">
+    <value>上次执行状态</value>
+  </data>
+  <data name="ConfigSettingsDialog_CloudLastRunLabel.Text" xml:space="preserve">
+    <value>执行时间:</value>
+  </data>
+  <data name="ConfigSettingsDialog_CloudLastExitCodeLabel.Text" xml:space="preserve">
+    <value>退出码:</value>
+  </data>
+  <data name="ConfigSettingsDialog_CloudLastErrorLabel.Text" xml:space="preserve">
+    <value>错误摘要</value>
+  </data>
   <data name="ConfigSettingsDialog_FileTypeHandling.Header" xml:space="preserve">
     <value>自定义文件类型处理</value>
   </data>
@@ -2270,6 +2543,9 @@
   </data>
   <data name="BackupService_Task_RestoreFailed" xml:space="preserve">
     <value>还原失败</value>
+  </data>
+  <data name="BackupService_Task_VerifyingRestore_N" xml:space="preserve">
+    <value>校验备份完整性 ({0}/{1})</value>
   </data>
   <data name="SettingsPage_DefaultBackupRootPath.Text" xml:space="preserve">
     <value>默认备份文件存放路径</value>
@@ -2380,10 +2656,10 @@
   <data name="Update_Dialog_EmptyNotes" xml:space="preserve">
     <value>该版本未提供更新说明。</value>
   </data>
-  <data name="SettingsPage_EnableUpdateReminder" xml:space="preserve">
+  <data name="SettingsPage_EnableUpdateReminder.Text" xml:space="preserve">
     <value>启动时检查更新提醒</value>
   </data>
-  <data name="SettingsPage_EnableUpdateReminderDesc" xml:space="preserve">
+  <data name="SettingsPage_EnableUpdateReminderDesc.Text" xml:space="preserve">
     <value>启动应用时检查 GitHub Release 新版本并提示更新内容</value>
   </data>
   <data name="HistoryPage_ScanRecover.ToolTipService.ToolTip" xml:space="preserve">

@@ -23,10 +23,10 @@ namespace FolderRewind.Models
     public class MiniWindowContext
     {
         /// <summary>关联的备份配置</summary>
-        public BackupConfig Config { get; set; }
+        public BackupConfig Config { get; set; } = null!;
 
         /// <summary>关联的目标文件夹</summary>
-        public ManagedFolder Folder { get; set; }
+        public ManagedFolder Folder { get; set; } = null!;
 
         /// <summary>输入框展开方向：Left 或 Right</summary>
         public MiniExpandDirection ExpandDirection { get; set; } = MiniExpandDirection.Right;
