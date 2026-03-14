@@ -20,6 +20,7 @@ namespace FolderRewind.Services
 
         private const string InternalRestoreMarkerDirectoryName = "__FolderRewind_Internal";
         private const string InternalRestoreMarkerFileName = "__DeletedOnly.marker";
+        private const string MissingEncryptionPasswordMessage = "Encrypted backup password is missing for this configuration.";
 
         private static DispatcherQueue? UiQueue => App._window?.DispatcherQueue;
 
@@ -349,8 +350,7 @@ namespace FolderRewind.Services
             var (shouldHandle, handlerPlugin) = Services.Plugins.PluginService.CheckPluginWantsToHandleBackup(config);
             if (shouldHandle && handlerPlugin != null)
             {
-                await HandlePluginBackupAsync(config, folder, task, handlerPlugin, comment);
-                return false;
+                return await HandlePluginBackupAsync(config, folder, task, handlerPlugin, comment);
             }
 
             // 允许插件在备份前创建快照并替换源路径（例如 Minecraft 热备份：先复制到 snapshot 再备份）。
@@ -617,7 +617,7 @@ namespace FolderRewind.Services
         /// <summary>
         /// 由插件完全接管的备份流程
         /// </summary>
-        private static async Task HandlePluginBackupAsync(
+        private static async Task<bool> HandlePluginBackupAsync(
             BackupConfig config,
             ManagedFolder folder,
             BackupTask task,
@@ -680,6 +680,8 @@ namespace FolderRewind.Services
                             ? I18n.Format("BackupService_Log_PluginBackupSucceeded", folder.DisplayName)
                             : I18n.Format("BackupService_Log_PluginBackupSkippedNoChanges", folder.DisplayName),
                         LogLevel.Info);
+
+                    return hasNewFile;
                 }
                 else
                 {
@@ -694,6 +696,7 @@ namespace FolderRewind.Services
                     });
 
                     Log(I18n.Format("BackupService_Log_PluginBackupFailed", folder.DisplayName, result.Message ?? string.Empty), LogLevel.Error);
+                    return false;
                 }
             }
             catch (Exception ex)
@@ -709,6 +712,7 @@ namespace FolderRewind.Services
                 });
 
                 Log(I18n.Format("BackupService_Log_PluginException", folder.DisplayName, ex.Message), LogLevel.Error);
+                return false;
             }
         }
 
@@ -868,17 +872,34 @@ namespace FolderRewind.Services
 
             return await Task.Run(() =>
             {
-                string backupFolderName = string.IsNullOrWhiteSpace(historyItem.FolderName)
-                    ? folder.DisplayName
-                    : historyItem.FolderName;
-                string format = Path.GetExtension(historyItem.FileName).TrimStart('.');
+                string? targetFilePath = HistoryService.GetBackupFilePath(config, folder, historyItem);
+                if (string.IsNullOrWhiteSpace(targetFilePath))
+                {
+                    return new DeleteBackupResult
+                    {
+                        Success = false,
+                        Message = "Invalid backup path in history record."
+                    };
+                }
+
+                var targetFile = new FileInfo(targetFilePath);
+                var backupDir = targetFile.Directory;
+                if (backupDir == null)
+                {
+                    return new DeleteBackupResult
+                    {
+                        Success = false,
+                        Message = "Invalid backup directory."
+                    };
+                }
+
+                string backupFolderName = backupDir.Name;
+                string format = targetFile.Extension.TrimStart('.');
                 if (string.IsNullOrWhiteSpace(format))
                 {
                     format = config.Archive.Format;
                 }
 
-                var backupDir = new DirectoryInfo(Path.Combine(config.DestinationPath, backupFolderName));
-                var targetFile = new FileInfo(Path.Combine(backupDir.FullName, historyItem.FileName));
                 var deleteResult = DeleteBackupArchiveInternal(
                     targetFile,
                     backupDir,
@@ -1169,6 +1190,12 @@ namespace FolderRewind.Services
             string mergeDir = Path.Combine(tempDir, "merged");
             string stagedNextPath = Path.Combine(tempDir, nextFile.Name + ".original");
             string? safeDeletePassword = config != null ? ResolvePassword(config) : null;
+            if (config?.IsEncrypted == true && string.IsNullOrWhiteSpace(safeDeletePassword))
+            {
+                result.Message = MissingEncryptionPasswordMessage;
+                Log(result.Message, LogLevel.Error);
+                return false;
+            }
             var archiveSettings = CreateArchiveSettingsForSafeDelete(config?.Archive, format);
 
             try
@@ -1551,7 +1578,10 @@ namespace FolderRewind.Services
             string destFile = Path.Combine(destDir, fileName);
 
             // 获取加密密码
-            string? password = ResolvePassword(config);
+            if (!TryResolveRequiredPassword(config, out var password, taskToUpdate))
+            {
+                return (false, null);
+            }
 
             // 1. 直接压缩（带黑名单过滤 + 自定义文件类型排除）
             var fileTypeExclusions = config.Archive.FileTypeHandlingEnabled ? (IReadOnlyList<FileTypeRule>)config.Archive.FileTypeRules : null;
@@ -1717,7 +1747,10 @@ namespace FolderRewind.Services
             // 4. 执行压缩 (使用 @listfile)
             // 注意：7z 需要工作目录在 source 下，才能正确识别相对路径列表
             var fileTypeExclusions = hasFileTypeRules && fileTypeRules != null ? (IReadOnlyList<FileTypeRule>)fileTypeRules : null;
-            string? password = ResolvePassword(config);
+            if (!TryResolveRequiredPassword(config, out var password, taskToUpdate))
+            {
+                return (false, null);
+            }
             bool deletionOnlyChange = contentChangedFiles.Count == 0 && changeSet.DeletedFiles.Count > 0;
             bool result;
 
@@ -1805,7 +1838,10 @@ namespace FolderRewind.Services
             // 7z u <archive_name> <file_names>
             // u 指令会更新已存在的文件并添加新文件
             var fileTypeExclusions = config.Archive.FileTypeHandlingEnabled ? (IReadOnlyList<FileTypeRule>)config.Archive.FileTypeRules : null;
-            string? password = ResolvePassword(config);
+            if (!TryResolveRequiredPassword(config, out var password, taskToUpdate))
+            {
+                return (false, null);
+            }
             bool result = await Run7zCommandAsync("u", source, targetFile.FullName, config.Archive, password, null, config.Filters, fileTypeExclusions, taskToUpdate);
 
             // 2.5 自定义文件类型追加压缩
@@ -1890,7 +1926,10 @@ namespace FolderRewind.Services
         public static async Task RestoreBackupAsync(BackupConfig config, ManagedFolder folder, HistoryItem historyItem, RestoreMode mode)
         {
             int configIndex = GetConfigIndex(config);
-            string backupFilePath = Path.Combine(config.DestinationPath, folder.DisplayName, historyItem.FileName);
+            string? backupFilePath = HistoryService.GetBackupFilePath(config, folder, historyItem);
+            string resolvedFolderName = string.IsNullOrWhiteSpace(historyItem.FolderName)
+                ? folder.DisplayName
+                : historyItem.FolderName;
             string targetDir = folder.Path;
             var archiveSettings = config.Archive;
             bool safeRestoreEnabled = archiveSettings?.SafeRestoreEnabled ?? true;
@@ -1942,6 +1981,16 @@ namespace FolderRewind.Services
                 NotificationService.NotifyRestoreCompleted(folder.DisplayName, false, message);
             }
 
+            if (string.IsNullOrWhiteSpace(backupFilePath))
+            {
+                string message = "Invalid backup path in history record.";
+                Log(message, LogLevel.Error);
+                await FailAsync(message, "invalid_backup_path");
+                return;
+            }
+
+            string resolvedBackupFilePath = backupFilePath;
+
             if (archiveSettings?.BackupBeforeRestore == true)
             {
                 Log(I18n.Format("BackupService_Log_BackupBeforeRestore", folder.DisplayName), LogLevel.Info);
@@ -1963,9 +2012,9 @@ namespace FolderRewind.Services
                 return;
             }
 
-            if (!File.Exists(backupFilePath))
+            if (!File.Exists(resolvedBackupFilePath))
             {
-                string message = I18n.Format("BackupService_Log_BackupFileNotFound", backupFilePath);
+                string message = I18n.Format("BackupService_Log_BackupFileNotFound", resolvedBackupFilePath);
                 Log(message, LogLevel.Error);
                 await FailAsync(message, "no_backup_found");
                 return;
@@ -1979,9 +2028,9 @@ namespace FolderRewind.Services
                 return;
             }
 
-            var backupDir = new DirectoryInfo(Path.GetDirectoryName(backupFilePath)!);
-            var targetFile = new FileInfo(backupFilePath);
-            var chainResult = BuildRestoreChainWithStatus(backupDir, targetFile, historyItem.BackupType, config, folder.DisplayName);
+            var backupDir = new DirectoryInfo(Path.GetDirectoryName(resolvedBackupFilePath)!);
+            var targetFile = new FileInfo(resolvedBackupFilePath);
+            var chainResult = BuildRestoreChainWithStatus(backupDir, targetFile, historyItem.BackupType, config, resolvedFolderName);
 
             if (targetIsIncremental && chainResult.Status == RestoreChainBuildStatus.MissingBaseFull)
             {
@@ -1999,7 +2048,7 @@ namespace FolderRewind.Services
                     return;
                 }
 
-                restoreChain = BuildReverseCompatibilityChain(backupDir, targetFile, config, folder.DisplayName);
+                restoreChain = BuildReverseCompatibilityChain(backupDir, targetFile, config, resolvedFolderName);
                 useCompatibilityReverseRestore = true;
                 effectiveCleanRestore = false;
 
@@ -2025,7 +2074,7 @@ namespace FolderRewind.Services
 
             if (effectiveCleanRestore && targetIsIncremental && !useCompatibilityReverseRestore)
             {
-                string metadataPath = Path.Combine(config.DestinationPath, "_metadata", folder.DisplayName, "metadata.json");
+                string metadataPath = Path.Combine(config.DestinationPath, "_metadata", resolvedFolderName, "metadata.json");
                 var metadata = LoadBackupMetadata(metadataPath);
 
                 if (metadata != null && TryBuildSmartRestorePlan(restoreChain, metadata, out var plan))
@@ -2043,7 +2092,14 @@ namespace FolderRewind.Services
             Log(I18n.Format("BackupService_Log_RestoreTargetBackup", historyItem.FileName), LogLevel.Info);
             Log(I18n.Format("BackupService_Log_RestoreTargetPath", targetDir), LogLevel.Info);
 
-            string? restorePassword = ResolvePassword(config);
+            if (!TryResolveRequiredPassword(config, out var restorePassword, restoreTask))
+            {
+                string message = string.IsNullOrWhiteSpace(restoreTask.ErrorMessage)
+                    ? MissingEncryptionPasswordMessage
+                    : restoreTask.ErrorMessage!;
+                await FailAsync(message, "encryption_password_missing");
+                return;
+            }
             var archivesToVerify = smartRestorePlan?.Chain ?? restoreChain;
 
             if (verifyArchiveBeforeRestore)
@@ -3262,6 +3318,35 @@ namespace FolderRewind.Services
         {
             if (!config.IsEncrypted) return null;
             return EncryptionService.RetrievePassword(config.Id);
+        }
+
+        private static bool TryResolveRequiredPassword(BackupConfig config, out string? password, BackupTask? taskToUpdate = null)
+        {
+            password = ResolvePassword(config);
+
+            if (!config.IsEncrypted)
+            {
+                return true;
+            }
+
+            if (!string.IsNullOrWhiteSpace(password))
+            {
+                return true;
+            }
+
+            Log(MissingEncryptionPasswordMessage, LogLevel.Error);
+            if (taskToUpdate != null)
+            {
+                UiQueue?.TryEnqueue(() =>
+                {
+                    if (string.IsNullOrWhiteSpace(taskToUpdate.ErrorMessage))
+                    {
+                        taskToUpdate.ErrorMessage = MissingEncryptionPasswordMessage;
+                    }
+                });
+            }
+
+            return false;
         }
 
         // --- 核心：7z 进程调用 ---

@@ -27,16 +27,12 @@ namespace FolderRewind.Views
             get
             {
                 if (Config == null) return "Default";
-                // 加密配置在 UI 中显示为 "Encrypted" 类型
-                if (Config.IsEncrypted) return "Encrypted";
-                return Config.ConfigType ?? "Default";
+                return string.IsNullOrWhiteSpace(Config.ConfigType) ? "Default" : Config.ConfigType;
             }
             set
             {
                 if (Config == null) return;
-                bool isEncrypted = string.Equals(value, "Encrypted", StringComparison.OrdinalIgnoreCase);
-                Config.IsEncrypted = isEncrypted;
-                Config.ConfigType = isEncrypted ? "Default" : (string.IsNullOrWhiteSpace(value) ? "Default" : value);
+                Config.ConfigType = string.IsNullOrWhiteSpace(value) ? "Default" : value;
             }
         }
 
@@ -178,6 +174,10 @@ namespace FolderRewind.Views
             ConfigTypesView.Clear();
             foreach (var t in PluginService.GetAllSupportedConfigTypes())
             {
+                if (string.Equals(t, "Encrypted", StringComparison.OrdinalIgnoreCase))
+                {
+                    continue;
+                }
                 ConfigTypesView.Add(t);
             }
 
@@ -187,16 +187,9 @@ namespace FolderRewind.Views
                 ConfigTypesView.Insert(0, "Default");
             }
 
-            // 确保 "Encrypted" 作为内置类型出现
-            if (!ConfigTypesView.OfType<string>().Any(t => string.Equals(t, "Encrypted", StringComparison.OrdinalIgnoreCase)))
+            if (string.Equals(Config.ConfigType, "Encrypted", StringComparison.OrdinalIgnoreCase))
             {
-                int defaultIdx = -1;
-                for (int i = 0; i < ConfigTypesView.Count; i++)
-                {
-                    if (ConfigTypesView[i] is string s && string.Equals(s, "Default", StringComparison.OrdinalIgnoreCase))
-                    { defaultIdx = i; break; }
-                }
-                ConfigTypesView.Insert(defaultIdx >= 0 ? defaultIdx + 1 : ConfigTypesView.Count, "Encrypted");
+                Config.ConfigType = "Default";
             }
 
             // 如果当前类型不在列表里，也允许展示出来（避免旧配置类型丢失）

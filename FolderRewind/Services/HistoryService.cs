@@ -163,7 +163,116 @@ namespace FolderRewind.Services
                 backupFolderName = folder.DisplayName;
             }
 
-            return Path.Combine(config.DestinationPath, backupFolderName, item.FileName);
+            if (!IsSafeSinglePathSegment(backupFolderName) || !IsSafeSinglePathSegment(item.FileName))
+            {
+                LogService.Log($"[HistoryService] Rejected unsafe history path: folder='{backupFolderName}', file='{item.FileName}'", LogLevel.Warning);
+                return null;
+            }
+
+            try
+            {
+                string destinationRoot = Path.GetFullPath(config.DestinationPath);
+                string backupFolderPath = Path.GetFullPath(Path.Combine(destinationRoot, backupFolderName));
+                if (!IsPathInsideRoot(backupFolderPath, destinationRoot))
+                {
+                    LogService.Log($"[HistoryService] Rejected history folder outside destination root: {backupFolderPath}", LogLevel.Warning);
+                    return null;
+                }
+
+                string backupFilePath = Path.GetFullPath(Path.Combine(backupFolderPath, item.FileName));
+                if (!IsPathInsideRoot(backupFilePath, backupFolderPath))
+                {
+                    LogService.Log($"[HistoryService] Rejected history file outside backup folder: {backupFilePath}", LogLevel.Warning);
+                    return null;
+                }
+
+                return backupFilePath;
+            }
+            catch (Exception ex)
+            {
+                LogService.Log($"[HistoryService] Failed to resolve backup path: {ex.Message}", LogLevel.Warning);
+                return null;
+            }
+        }
+
+        private static bool IsSafeSinglePathSegment(string value)
+        {
+            if (string.IsNullOrWhiteSpace(value))
+            {
+                return false;
+            }
+
+            if (Path.IsPathRooted(value))
+            {
+                return false;
+            }
+
+            if (value.Equals(".", StringComparison.Ordinal) || value.Equals("..", StringComparison.Ordinal))
+            {
+                return false;
+            }
+
+            if (value.IndexOf(Path.DirectorySeparatorChar) >= 0 || value.IndexOf(Path.AltDirectorySeparatorChar) >= 0)
+            {
+                return false;
+            }
+
+            if (value.IndexOf('\0') >= 0)
+            {
+                return false;
+            }
+
+            try
+            {
+                return string.Equals(Path.GetFileName(value), value, StringComparison.Ordinal);
+            }
+            catch
+            {
+                return false;
+            }
+        }
+
+        private static bool IsPathInsideRoot(string candidatePath, string rootPath)
+        {
+            try
+            {
+                string normalizedRoot = Path.GetFullPath(rootPath)
+                    .TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
+                string normalizedCandidate = Path.GetFullPath(candidatePath)
+                    .TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
+
+                if (string.Equals(normalizedCandidate, normalizedRoot, StringComparison.OrdinalIgnoreCase))
+                {
+                    return true;
+                }
+
+                string prefix = normalizedRoot + Path.DirectorySeparatorChar;
+                return normalizedCandidate.StartsWith(prefix, StringComparison.OrdinalIgnoreCase);
+            }
+            catch
+            {
+                return false;
+            }
+        }
+
+        private static bool IsSafeHistoryItem(HistoryItem item)
+        {
+            if (item == null)
+            {
+                return false;
+            }
+
+            if (!IsSafeSinglePathSegment(item.FileName))
+            {
+                return false;
+            }
+
+            if (!string.IsNullOrWhiteSpace(item.FolderName) && !IsSafeSinglePathSegment(item.FolderName))
+            {
+                return false;
+            }
+
+            return true;
         }
 
         public static int RemoveMissingEntries(BackupConfig config, ManagedFolder folder)
@@ -487,13 +596,20 @@ namespace FolderRewind.Services
                 var imported = JsonSerializer.Deserialize(json, AppJsonContext.Default.ListHistoryItem);
                 if (imported == null) return (false, 0);
 
+                var safeImported = imported.Where(IsSafeHistoryItem).ToList();
+                int droppedCount = imported.Count - safeImported.Count;
+                if (safeImported.Count == 0 && imported.Count > 0)
+                {
+                    LogService.Log("[HistoryService] Import skipped: all entries were rejected due to unsafe paths.", LogLevel.Warning);
+                }
+
                 int count = 0;
                 lock (_historyLock)
                 {
                     if (merge)
                     {
                         // 合并模式：仅添加不存在的条目（按 ConfigId+FolderPath+FileName+Timestamp 去重）
-                        foreach (var item in imported)
+                        foreach (var item in safeImported)
                         {
                             bool exists = _allHistory.Any(x =>
                                 x.ConfigId == item.ConfigId &&
@@ -519,12 +635,16 @@ namespace FolderRewind.Services
                         catch { }
 
                         _allHistory.Clear();
-                        _allHistory.AddRange(imported);
-                        count = imported.Count;
+                        _allHistory.AddRange(safeImported);
+                        count = safeImported.Count;
                     }
                 }
 
                 ScheduleSave();
+                if (droppedCount > 0)
+                {
+                    LogService.Log($"[HistoryService] Import dropped {droppedCount} unsafe entries.", LogLevel.Warning);
+                }
                 LogService.Log(I18n.Format("History_ImportSuccess", count.ToString()));
                 return (true, count);
             }
