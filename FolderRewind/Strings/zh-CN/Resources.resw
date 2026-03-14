@@ -855,6 +855,135 @@
   <data name="SettingsPage_LogDiag.Text" xml:space="preserve">
     <value>日志与诊断</value>
   </data>
+  <data name="SettingsPage_CoreValidation.Text" xml:space="preserve">
+    <value>核心功能自动校验</value>
+  </data>
+  <data name="SettingsPage_CoreValidationSectionDesc.Text" xml:space="preserve">
+    <value>自动验证备份与还原核心流程是否能在当前电脑上正常工作</value>
+  </data>
+  <data name="SettingsPage_CoreValidation_Run.Text" xml:space="preserve">
+    <value>执行完整自检</value>
+  </data>
+  <data name="SettingsPage_CoreValidation_RunDesc.Text" xml:space="preserve">
+    <value>自动创建临时配置并验证智能备份、共享锁文件、还原、安全删除与数量限制等关键行为</value>
+  </data>
+  <data name="SettingsPage_CoreValidation_RunButton.Content" xml:space="preserve">
+    <value>立即校验</value>
+  </data>
+  <data name="SettingsPage_CoreValidation_ViewReportButton.Content" xml:space="preserve">
+    <value>查看本次报告</value>
+  </data>
+  <data name="SettingsPage_CoreValidation_State.Text" xml:space="preserve">
+    <value>当前状态</value>
+  </data>
+  <data name="SettingsPage_CoreValidation_StateDesc.Text" xml:space="preserve">
+    <value>展示运行状态、最近执行时间与最近一次摘要</value>
+  </data>
+  <data name="CoreValidation_Status_Idle" xml:space="preserve">
+    <value>尚未开始核心功能自动校验</value>
+  </data>
+  <data name="CoreValidation_Status_Preparing" xml:space="preserve">
+    <value>正在准备核心功能自动校验环境</value>
+  </data>
+  <data name="CoreValidation_Status_Step" xml:space="preserve">
+    <value>正在执行：{0}</value>
+  </data>
+  <data name="CoreValidation_Status_Succeeded" xml:space="preserve">
+    <value>核心功能自动校验已通过</value>
+  </data>
+  <data name="CoreValidation_Status_Failed" xml:space="preserve">
+    <value>核心功能自动校验失败</value>
+  </data>
+  <data name="CoreValidation_LastRun_None" xml:space="preserve">
+    <value>最近执行：尚未执行</value>
+  </data>
+  <data name="CoreValidation_LastRun_Value" xml:space="preserve">
+    <value>最近执行：{0}</value>
+  </data>
+  <data name="CoreValidation_LastSummary_None" xml:space="preserve">
+    <value>最近摘要：暂无</value>
+  </data>
+  <data name="CoreValidation_AlreadyRunning" xml:space="preserve">
+    <value>核心功能自动校验正在进行中，请稍后再试。</value>
+  </data>
+  <data name="CoreValidation_AutoNotificationTitle" xml:space="preserve">
+    <value>核心功能自动校验</value>
+  </data>
+  <data name="CoreValidation_Report_Title" xml:space="preserve">
+    <value>核心功能自动校验报告</value>
+  </data>
+  <data name="CoreValidation_Report_NoData" xml:space="preserve">
+    <value>当前会话还没有可查看的校验报告。</value>
+  </data>
+  <data name="CoreValidation_Report_Result" xml:space="preserve">
+    <value>结果</value>
+  </data>
+  <data name="CoreValidation_Report_Result_Passed" xml:space="preserve">
+    <value>通过</value>
+  </data>
+  <data name="CoreValidation_Report_Result_Failed" xml:space="preserve">
+    <value>失败</value>
+  </data>
+  <data name="CoreValidation_Report_Mode" xml:space="preserve">
+    <value>触发方式</value>
+  </data>
+  <data name="CoreValidation_Report_Mode_Manual" xml:space="preserve">
+    <value>手动</value>
+  </data>
+  <data name="CoreValidation_Report_Mode_Automatic" xml:space="preserve">
+    <value>首次自动执行</value>
+  </data>
+  <data name="CoreValidation_Report_Started" xml:space="preserve">
+    <value>开始时间</value>
+  </data>
+  <data name="CoreValidation_Report_Finished" xml:space="preserve">
+    <value>结束时间</value>
+  </data>
+  <data name="CoreValidation_Report_Duration" xml:space="preserve">
+    <value>耗时</value>
+  </data>
+  <data name="CoreValidation_Report_Summary" xml:space="preserve">
+    <value>摘要</value>
+  </data>
+  <data name="CoreValidation_Summary_Passed" xml:space="preserve">
+    <value>备份与还原核心功能自动校验全部通过。</value>
+  </data>
+  <data name="CoreValidation_Summary_Failed" xml:space="preserve">
+    <value>备份与还原核心功能自动校验失败。</value>
+  </data>
+  <data name="CoreValidation_Step_PrepareWorkspace" xml:space="preserve">
+    <value>准备临时校验环境</value>
+  </data>
+  <data name="CoreValidation_Step_InitialFullBackup" xml:space="preserve">
+    <value>初始全量备份校验</value>
+  </data>
+  <data name="CoreValidation_Step_NoChangeSkip" xml:space="preserve">
+    <value>无变化跳过校验</value>
+  </data>
+  <data name="CoreValidation_Step_SmartIncrementalBackup" xml:space="preserve">
+    <value>智能增量备份校验</value>
+  </data>
+  <data name="CoreValidation_Step_SharedLockBackup" xml:space="preserve">
+    <value>共享锁文件备份校验</value>
+  </data>
+  <data name="CoreValidation_Step_DeletionOnlyBackup" xml:space="preserve">
+    <value>仅删除变更备份校验</value>
+  </data>
+  <data name="CoreValidation_Step_CleanRestore" xml:space="preserve">
+    <value>清洁还原校验</value>
+  </data>
+  <data name="CoreValidation_Step_OverwriteRestore" xml:space="preserve">
+    <value>覆写还原校验</value>
+  </data>
+  <data name="CoreValidation_Step_SafeDelete" xml:space="preserve">
+    <value>安全删除校验</value>
+  </data>
+  <data name="CoreValidation_Step_KeepCountPrune" xml:space="preserve">
+    <value>数量限制与自动清理校验</value>
+  </data>
+  <data name="CoreValidation_Step_FatalError" xml:space="preserve">
+    <value>致命错误</value>
+  </data>
   <data name="SettingsPage_LogEnabled.Text" xml:space="preserve">
     <value>自动记录应用日志</value>
   </data>

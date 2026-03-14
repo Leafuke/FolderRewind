@@ -17,6 +17,8 @@ namespace FolderRewind.Services
 
         private static bool _initialized;
 
+        public static event Action? Saved;
+
         public static AppConfig CurrentConfig { get; private set; } = null!;
 
         public static string ConfigFilePath => ConfigPath;
@@ -247,6 +249,7 @@ namespace FolderRewind.Services
                 string tempPath = ConfigPath + ".tmp";
                 File.WriteAllText(tempPath, jsonString);
                 File.Move(tempPath, ConfigPath, overwrite: true);
+                Saved?.Invoke();
             }
             catch (Exception ex)
             {

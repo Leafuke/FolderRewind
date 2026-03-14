@@ -116,6 +116,12 @@ namespace FolderRewind.Models
         // 首次启动引导
         private bool _hasShownFirstLaunchGuide = false;
 
+        // 核心功能自动校验
+        private bool _hasTriggeredInitialCoreValidation = false;
+        private bool _lastCoreValidationPassed = false;
+        private DateTime _lastCoreValidationUtc = DateTime.MinValue;
+        private string _lastCoreValidationSummary = "";
+
         public string Language { get => _language; set => SetProperty(ref _language, value); }
         public int ThemeIndex { get => _themeIndex; set => SetProperty(ref _themeIndex, value); }
         public string SevenZipPath { get => _sevenZipPath; set => SetProperty(ref _sevenZipPath, value); }
@@ -226,6 +232,26 @@ namespace FolderRewind.Models
         /// 是否已经展示过首次启动引导。
         /// </summary>
         public bool HasShownFirstLaunchGuide { get => _hasShownFirstLaunchGuide; set => SetProperty(ref _hasShownFirstLaunchGuide, value); }
+
+        /// <summary>
+        /// 是否已经执行过首次核心功能自动校验。
+        /// </summary>
+        public bool HasTriggeredInitialCoreValidation { get => _hasTriggeredInitialCoreValidation; set => SetProperty(ref _hasTriggeredInitialCoreValidation, value); }
+
+        /// <summary>
+        /// 最近一次核心功能自动校验是否通过。
+        /// </summary>
+        public bool LastCoreValidationPassed { get => _lastCoreValidationPassed; set => SetProperty(ref _lastCoreValidationPassed, value); }
+
+        /// <summary>
+        /// 最近一次核心功能自动校验执行时间（UTC）。
+        /// </summary>
+        public DateTime LastCoreValidationUtc { get => _lastCoreValidationUtc; set => SetProperty(ref _lastCoreValidationUtc, value); }
+
+        /// <summary>
+        /// 最近一次核心功能自动校验摘要。
+        /// </summary>
+        public string LastCoreValidationSummary { get => _lastCoreValidationSummary; set => SetProperty(ref _lastCoreValidationSummary, value ?? string.Empty); }
     }
 
     /// <summary>

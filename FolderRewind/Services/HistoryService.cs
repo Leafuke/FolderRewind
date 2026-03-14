@@ -350,6 +350,29 @@ namespace FolderRewind.Services
             return removedCount;
         }
 
+        public static int RemoveEntriesForConfig(string configId)
+        {
+            if (string.IsNullOrWhiteSpace(configId))
+            {
+                return 0;
+            }
+
+            Initialize();
+            int removedCount = 0;
+            lock (_historyLock)
+            {
+                removedCount = _allHistory.RemoveAll(x =>
+                    string.Equals(x.ConfigId, configId, StringComparison.OrdinalIgnoreCase));
+            }
+
+            if (removedCount > 0)
+            {
+                ScheduleSave();
+            }
+
+            return removedCount;
+        }
+
         /// <summary>
         /// 更新历史记录的注释
         /// </summary>

@@ -74,6 +74,31 @@ namespace FolderRewind.Views
             set { _knotLinkStatusColor = value; OnPropertyChanged(); }
         }
 
+        public bool IsCoreValidationRunning => CoreFeatureValidationService.IsRunning;
+
+        public bool IsCoreValidationIdle => !CoreFeatureValidationService.IsRunning;
+
+        public bool HasCoreValidationReport => CoreFeatureValidationService.LastReport != null;
+
+        public string CoreValidationStatusText => CoreFeatureValidationService.StatusText;
+
+        public string CoreValidationLastRunText
+        {
+            get
+            {
+                if (Settings.LastCoreValidationUtc == DateTime.MinValue)
+                {
+                    return I18n.GetString("CoreValidation_LastRun_None");
+                }
+
+                return I18n.Format("CoreValidation_LastRun_Value", Settings.LastCoreValidationUtc.ToLocalTime().ToString("yyyy-MM-dd HH:mm:ss"));
+            }
+        }
+
+        public string CoreValidationLastSummaryText => string.IsNullOrWhiteSpace(Settings.LastCoreValidationSummary)
+            ? I18n.GetString("CoreValidation_LastSummary_None")
+            : Settings.LastCoreValidationSummary;
+
         public event PropertyChangedEventHandler? PropertyChanged;
 
         private void OnPropertyChanged([CallerMemberName] string? propertyName = null)
@@ -127,12 +152,37 @@ namespace FolderRewind.Views
                 }
 
                 RefreshHotkeyBindingsView();
+
+                CoreFeatureValidationService.StateChanged -= OnCoreValidationStateChanged;
+                CoreFeatureValidationService.StateChanged += OnCoreValidationStateChanged;
+                Unloaded -= OnSettingsPageUnloaded;
+                Unloaded += OnSettingsPageUnloaded;
             }
             finally
             {
                 _isInitializingLanguage = false;
                 _isInitializingFont = false;
             }
+        }
+
+        private void OnSettingsPageUnloaded(object sender, RoutedEventArgs e)
+        {
+            CoreFeatureValidationService.StateChanged -= OnCoreValidationStateChanged;
+            Unloaded -= OnSettingsPageUnloaded;
+        }
+
+        private void OnCoreValidationStateChanged()
+        {
+            _ = DispatcherQueue.TryEnqueue(() =>
+            {
+                OnPropertyChanged(nameof(IsCoreValidationRunning));
+                OnPropertyChanged(nameof(IsCoreValidationIdle));
+                OnPropertyChanged(nameof(HasCoreValidationReport));
+                OnPropertyChanged(nameof(CoreValidationStatusText));
+                OnPropertyChanged(nameof(CoreValidationLastRunText));
+                OnPropertyChanged(nameof(CoreValidationLastSummaryText));
+                Bindings.Update();
+            });
         }
 
         protected override void OnNavigatedTo(Microsoft.UI.Xaml.Navigation.NavigationEventArgs e)
@@ -403,6 +453,31 @@ namespace FolderRewind.Views
             };
             ThemeService.ApplyThemeToDialog(dialog);
             await dialog.ShowAsync();
+        }
+
+        private async void OnRunCoreValidationClick(object sender, RoutedEventArgs e)
+        {
+            if (CoreFeatureValidationService.IsRunning)
+            {
+                await ShowSimpleMessageAsync(I18n.GetString("CoreValidation_AlreadyRunning"));
+                return;
+            }
+
+            var report = await CoreFeatureValidationService.RunValidationAsync(false);
+            OnCoreValidationStateChanged();
+            await ShowTextDialogAsync(I18n.GetString("CoreValidation_Report_Title"), report.ToDisplayText());
+        }
+
+        private async void OnViewCoreValidationReportClick(object sender, RoutedEventArgs e)
+        {
+            var report = CoreFeatureValidationService.LastReport;
+            if (report == null)
+            {
+                await ShowSimpleMessageAsync(I18n.GetString("CoreValidation_Report_NoData"));
+                return;
+            }
+
+            await ShowTextDialogAsync(I18n.GetString("CoreValidation_Report_Title"), report.ToDisplayText());
         }
 
         private void LoadFontFamilies()

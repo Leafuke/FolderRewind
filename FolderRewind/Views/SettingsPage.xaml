@@ -430,6 +430,56 @@
                     </toolkit:SettingsExpander.Items>
                 </toolkit:SettingsExpander>
 
+                <toolkit:SettingsExpander IsExpanded="False">
+                    <toolkit:SettingsExpander.Header>
+                        <TextBlock x:Uid="SettingsPage_CoreValidation" Style="{StaticResource SettingsHeaderTextStyle}" />
+                    </toolkit:SettingsExpander.Header>
+                    <toolkit:SettingsExpander.Description>
+                        <TextBlock x:Uid="SettingsPage_CoreValidationSectionDesc" Style="{StaticResource SettingsDescriptionStyle}" />
+                    </toolkit:SettingsExpander.Description>
+                    <toolkit:SettingsExpander.HeaderIcon>
+                        <FontIcon Glyph="&#xE9D2;" />
+                    </toolkit:SettingsExpander.HeaderIcon>
+                    <toolkit:SettingsExpander.Items>
+                        <toolkit:SettingsCard>
+                            <toolkit:SettingsCard.Header>
+                                <TextBlock x:Uid="SettingsPage_CoreValidation_Run" Style="{StaticResource SettingsHeaderTextStyle}" />
+                            </toolkit:SettingsCard.Header>
+                            <toolkit:SettingsCard.Description>
+                                <TextBlock x:Uid="SettingsPage_CoreValidation_RunDesc" Style="{StaticResource SettingsDescriptionStyle}" />
+                            </toolkit:SettingsCard.Description>
+                            <StackPanel Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
+                                <Button x:Uid="SettingsPage_CoreValidation_RunButton"
+                                        Style="{StaticResource SettingsActionRowButtonStyle}"
+                                        Click="OnRunCoreValidationClick"
+                                        IsEnabled="{x:Bind IsCoreValidationIdle, Mode=OneWay}" />
+                                <Button x:Uid="SettingsPage_CoreValidation_ViewReportButton"
+                                        Style="{StaticResource SettingsActionRowButtonStyle}"
+                                        Click="OnViewCoreValidationReportClick"
+                                        IsEnabled="{x:Bind HasCoreValidationReport, Mode=OneWay}" />
+                                <ProgressRing Width="20"
+                                              Height="20"
+                                              IsActive="{x:Bind IsCoreValidationRunning, Mode=OneWay}"
+                                              Visibility="{x:Bind IsCoreValidationRunning, Mode=OneWay, Converter={StaticResource BoolToVisConverter}}" />
+                            </StackPanel>
+                        </toolkit:SettingsCard>
+
+                        <toolkit:SettingsCard ContentAlignment="Vertical" HorizontalContentAlignment="Stretch">
+                            <toolkit:SettingsCard.Header>
+                                <TextBlock x:Uid="SettingsPage_CoreValidation_State" Style="{StaticResource SettingsHeaderTextStyle}" />
+                            </toolkit:SettingsCard.Header>
+                            <toolkit:SettingsCard.Description>
+                                <TextBlock x:Uid="SettingsPage_CoreValidation_StateDesc" Style="{StaticResource SettingsDescriptionStyle}" />
+                            </toolkit:SettingsCard.Description>
+                            <StackPanel Spacing="4">
+                                <TextBlock Text="{x:Bind CoreValidationStatusText, Mode=OneWay}" Style="{StaticResource SettingsHeaderTextStyle}" TextWrapping="Wrap" />
+                                <TextBlock Text="{x:Bind CoreValidationLastRunText, Mode=OneWay}" Style="{StaticResource SettingsDescriptionStyle}" />
+                                <TextBlock Text="{x:Bind CoreValidationLastSummaryText, Mode=OneWay}" Style="{StaticResource SettingsDescriptionStyle}" TextWrapping="Wrap" />
+                            </StackPanel>
+                        </toolkit:SettingsCard>
+                    </toolkit:SettingsExpander.Items>
+                </toolkit:SettingsExpander>
+
                 <!-- 日志与诊断 -->
                 <toolkit:SettingsExpander IsExpanded="False">
                     <toolkit:SettingsExpander.Header>

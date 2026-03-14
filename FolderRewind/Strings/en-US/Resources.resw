@@ -855,6 +855,135 @@ Duplicate folder names are blocked within the same configuration so different di
   <data name="SettingsPage_LogDiag.Text" xml:space="preserve">
     <value>Logs &amp; Diagnostics</value>
   </data>
+  <data name="SettingsPage_CoreValidation.Text" xml:space="preserve">
+    <value>Core Feature Validation</value>
+  </data>
+  <data name="SettingsPage_CoreValidationSectionDesc.Text" xml:space="preserve">
+    <value>Automatically verify that backup and restore core flows work on this machine</value>
+  </data>
+  <data name="SettingsPage_CoreValidation_Run.Text" xml:space="preserve">
+    <value>Run full self-check</value>
+  </data>
+  <data name="SettingsPage_CoreValidation_RunDesc.Text" xml:space="preserve">
+    <value>Create a temporary config and validate smart backup, shared-lock files, restore, safe delete, and keep-count pruning</value>
+  </data>
+  <data name="SettingsPage_CoreValidation_RunButton.Content" xml:space="preserve">
+    <value>Run validation</value>
+  </data>
+  <data name="SettingsPage_CoreValidation_ViewReportButton.Content" xml:space="preserve">
+    <value>View current report</value>
+  </data>
+  <data name="SettingsPage_CoreValidation_State.Text" xml:space="preserve">
+    <value>Status</value>
+  </data>
+  <data name="SettingsPage_CoreValidation_StateDesc.Text" xml:space="preserve">
+    <value>Shows current state, latest run time, and the most recent summary</value>
+  </data>
+  <data name="CoreValidation_Status_Idle" xml:space="preserve">
+    <value>Core feature validation has not run yet</value>
+  </data>
+  <data name="CoreValidation_Status_Preparing" xml:space="preserve">
+    <value>Preparing core feature validation workspace</value>
+  </data>
+  <data name="CoreValidation_Status_Step" xml:space="preserve">
+    <value>Running: {0}</value>
+  </data>
+  <data name="CoreValidation_Status_Succeeded" xml:space="preserve">
+    <value>Core feature validation passed</value>
+  </data>
+  <data name="CoreValidation_Status_Failed" xml:space="preserve">
+    <value>Core feature validation failed</value>
+  </data>
+  <data name="CoreValidation_LastRun_None" xml:space="preserve">
+    <value>Last run: never</value>
+  </data>
+  <data name="CoreValidation_LastRun_Value" xml:space="preserve">
+    <value>Last run: {0}</value>
+  </data>
+  <data name="CoreValidation_LastSummary_None" xml:space="preserve">
+    <value>Latest summary: none</value>
+  </data>
+  <data name="CoreValidation_AlreadyRunning" xml:space="preserve">
+    <value>Core feature validation is already running. Please wait for it to finish.</value>
+  </data>
+  <data name="CoreValidation_AutoNotificationTitle" xml:space="preserve">
+    <value>Core Feature Validation</value>
+  </data>
+  <data name="CoreValidation_Report_Title" xml:space="preserve">
+    <value>Core Feature Validation Report</value>
+  </data>
+  <data name="CoreValidation_Report_NoData" xml:space="preserve">
+    <value>No validation report is available in the current session yet.</value>
+  </data>
+  <data name="CoreValidation_Report_Result" xml:space="preserve">
+    <value>Result</value>
+  </data>
+  <data name="CoreValidation_Report_Result_Passed" xml:space="preserve">
+    <value>Passed</value>
+  </data>
+  <data name="CoreValidation_Report_Result_Failed" xml:space="preserve">
+    <value>Failed</value>
+  </data>
+  <data name="CoreValidation_Report_Mode" xml:space="preserve">
+    <value>Trigger</value>
+  </data>
+  <data name="CoreValidation_Report_Mode_Manual" xml:space="preserve">
+    <value>Manual</value>
+  </data>
+  <data name="CoreValidation_Report_Mode_Automatic" xml:space="preserve">
+    <value>Automatic first-run</value>
+  </data>
+  <data name="CoreValidation_Report_Started" xml:space="preserve">
+    <value>Started</value>
+  </data>
+  <data name="CoreValidation_Report_Finished" xml:space="preserve">
+    <value>Finished</value>
+  </data>
+  <data name="CoreValidation_Report_Duration" xml:space="preserve">
+    <value>Duration</value>
+  </data>
+  <data name="CoreValidation_Report_Summary" xml:space="preserve">
+    <value>Summary</value>
+  </data>
+  <data name="CoreValidation_Summary_Passed" xml:space="preserve">
+    <value>All core backup and restore checks passed.</value>
+  </data>
+  <data name="CoreValidation_Summary_Failed" xml:space="preserve">
+    <value>Core backup and restore validation failed.</value>
+  </data>
+  <data name="CoreValidation_Step_PrepareWorkspace" xml:space="preserve">
+    <value>Prepare temporary workspace</value>
+  </data>
+  <data name="CoreValidation_Step_InitialFullBackup" xml:space="preserve">
+    <value>Initial full backup validation</value>
+  </data>
+  <data name="CoreValidation_Step_NoChangeSkip" xml:space="preserve">
+    <value>No-change skip validation</value>
+  </data>
+  <data name="CoreValidation_Step_SmartIncrementalBackup" xml:space="preserve">
+    <value>Smart incremental backup validation</value>
+  </data>
+  <data name="CoreValidation_Step_SharedLockBackup" xml:space="preserve">
+    <value>Shared-lock file backup validation</value>
+  </data>
+  <data name="CoreValidation_Step_DeletionOnlyBackup" xml:space="preserve">
+    <value>Deletion-only backup validation</value>
+  </data>
+  <data name="CoreValidation_Step_CleanRestore" xml:space="preserve">
+    <value>Clean restore validation</value>
+  </data>
+  <data name="CoreValidation_Step_OverwriteRestore" xml:space="preserve">
+    <value>Overwrite restore validation</value>
+  </data>
+  <data name="CoreValidation_Step_SafeDelete" xml:space="preserve">
+    <value>Safe delete validation</value>
+  </data>
+  <data name="CoreValidation_Step_KeepCountPrune" xml:space="preserve">
+    <value>Keep-count prune validation</value>
+  </data>
+  <data name="CoreValidation_Step_FatalError" xml:space="preserve">
+    <value>Fatal error</value>
+  </data>
   <data name="SettingsPage_LogEnabled.Text" xml:space="preserve">
     <value>Enable file logging</value>
   </data>

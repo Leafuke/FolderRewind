@@ -1,4 +1,5 @@
 using System;
+using System.Threading;
 
 namespace FolderRewind.Services
 {
@@ -41,6 +42,21 @@ namespace FolderRewind.Services
     /// </summary>
     public static class NotificationService
     {
+        private sealed class NotificationSuppressionScope : IDisposable
+        {
+            private int _disposed;
+
+            public void Dispose()
+            {
+                if (Interlocked.Exchange(ref _disposed, 1) != 0)
+                {
+                    return;
+                }
+
+                Interlocked.Decrement(ref _suppressionCount);
+            }
+        }
+
         // 应用内 InfoBar 回调（由 ShellPage 订阅）
         public static event Action<string, string, NotificationSeverity, int, Action?>? InfoBarRequested;
 
@@ -49,12 +65,19 @@ namespace FolderRewind.Services
 
         // 当前 Badge 计数
         private static int _badgeCount = 0;
+        private static int _suppressionCount = 0;
 
         /// <summary>
         /// 当前是否启用通知（全局开关）
         /// </summary>
         private static bool IsNotificationEnabled =>
-            ConfigService.CurrentConfig?.GlobalSettings?.EnableNotifications ?? true;
+            _suppressionCount <= 0 && (ConfigService.CurrentConfig?.GlobalSettings?.EnableNotifications ?? true);
+
+        public static IDisposable SuppressNotifications()
+        {
+            Interlocked.Increment(ref _suppressionCount);
+            return new NotificationSuppressionScope();
+        }
 
         /// <summary>
         /// 获取当前 Toast 通知等级设置

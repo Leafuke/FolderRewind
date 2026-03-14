@@ -30,6 +30,20 @@ namespace FolderRewind.Views
 
             // 订阅通知服务的 InfoBar 请求
             NotificationService.InfoBarRequested += OnInfoBarRequested;
+            ConfigService.Saved += OnConfigSaved;
+            Unloaded += ShellPage_Unloaded;
+        }
+
+        private void ShellPage_Unloaded(object sender, Microsoft.UI.Xaml.RoutedEventArgs e)
+        {
+            NotificationService.InfoBarRequested -= OnInfoBarRequested;
+            ConfigService.Saved -= OnConfigSaved;
+            Unloaded -= ShellPage_Unloaded;
+        }
+
+        private void OnConfigSaved()
+        {
+            CoreFeatureValidationService.TryScheduleInitialValidation();
         }
 
         /// <summary>
@@ -116,6 +130,7 @@ namespace FolderRewind.Views
             await ShowBackupSlotConflictWarningAsync();
             await CheckAndShowNoticeAsync();
             await CheckAndShowAppUpdateAsync();
+            CoreFeatureValidationService.TryScheduleInitialValidation();
         }
 
         private async System.Threading.Tasks.Task<ContentDialogResult> ShowDialogAsync(ContentDialog dialog)
