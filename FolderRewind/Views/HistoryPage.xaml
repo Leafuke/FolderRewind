@@ -8,7 +8,6 @@
     NavigationCacheMode="Required">
 
     <Page.Resources>
-        <converters:StringNullOrEmptyToVisibilityConverter x:Key="StringNullOrEmptyToVisConverter"/>
         <converters:BoolToStarIconConverter x:Key="BoolToStarConverter"/>
     </Page.Resources>
 
@@ -69,13 +68,13 @@
                 </Button>
                 <Button x:Name="ClearMissingButton"
                         x:Uid="HistoryPage_ClearMissing"
-                    IsEnabled="{x:Bind ViewModel.HasMissing, Mode=OneWay}"
+                        IsEnabled="{x:Bind ViewModel.HasMissing, Mode=OneWay}"
                         Click="OnClearMissingClick" />
             </StackPanel>
         </Grid>
 
         <!-- 历史列表 -->
-            <ListView x:Name="HistoryList" Grid.Row="2" SelectionMode="None" ItemsSource="{x:Bind ViewModel.FilteredHistory, Mode=OneWay}">
+        <ListView x:Name="HistoryList" Grid.Row="2" SelectionMode="None" ItemsSource="{x:Bind ViewModel.FilteredHistory, Mode=OneWay}">
             <!-- ItemTemplate 保持之前的 Git 节点风格 -->
             <ListView.ItemTemplate>
                 <DataTemplate x:DataType="models:HistoryItem">

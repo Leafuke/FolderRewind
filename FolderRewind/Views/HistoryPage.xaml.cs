@@ -5,8 +5,6 @@ using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Navigation;
 using System;
-using System.Diagnostics;
-using System.IO;
 using System.Threading.Tasks;
 using Windows.Storage.Pickers;
 using WinRT.Interop;
@@ -115,32 +113,17 @@ namespace FolderRewind.Views
                 return;
             }
 
-            var filePath = ViewModel.GetBackupFilePath(item);
-            if (string.IsNullOrWhiteSpace(filePath))
+            if (!TryGetSelectedContext(persistSelection: false, out _, out _))
             {
-                NotificationService.ShowWarning(I18n.GetString("History_ViewFile_PathEmpty"));
                 return;
             }
 
-            if (!File.Exists(filePath))
+            if (!ViewModel.TryRevealBackupFile(item, out var errorMessage))
             {
-                NotificationService.ShowWarning(I18n.Format("History_ViewFile_NotFound", Path.GetFileName(filePath)));
-                return;
-            }
-
-            try
-            {
-                // 使用资源管理器打开并选中文件
-                Process.Start(new ProcessStartInfo
+                if (!string.IsNullOrWhiteSpace(errorMessage))
                 {
-                    FileName = "explorer.exe",
-                    Arguments = $"/select,\"{filePath}\"",
-                    UseShellExecute = true
-                });
-            }
-            catch (Exception ex)
-            {
-                NotificationService.ShowError(I18n.Format("History_ViewFile_Failed", ex.Message));
+                    NotificationService.ShowWarning(errorMessage);
+                }
             }
         }
 
@@ -201,11 +184,10 @@ namespace FolderRewind.Views
             // 获取点击按钮所在的数据行
             if (sender is Button btn && btn.DataContext is HistoryItem item)
             {
-                var config = ConfigFilter.SelectedItem as BackupConfig;
-                var folder = FolderFilter.SelectedItem as ManagedFolder;
-
-                if (config == null || folder == null) return;
-                ViewModel.SetCurrentSelection(config, folder, refreshHistoryIfFolder: false, persistSelection: false);
+                if (!TryGetSelectedContext(persistSelection: false, out var config, out var folder))
+                {
+                    return;
+                }
 
                 // 如果是加密配置，先要求输入密码
                 if (config.IsEncrypted)
@@ -303,10 +285,10 @@ namespace FolderRewind.Views
                 return;
             }
 
-            var config = ConfigFilter.SelectedItem as BackupConfig;
-            var folder = FolderFilter.SelectedItem as ManagedFolder;
-            if (config == null || folder == null) return;
-            ViewModel.SetCurrentSelection(config, folder, refreshHistoryIfFolder: false, persistSelection: false);
+            if (!TryGetSelectedContext(persistSelection: false, out var config, out var folder))
+            {
+                return;
+            }
 
             // 如果是重要备份，先额外警告
             if (item.IsImportant)
@@ -383,10 +365,10 @@ namespace FolderRewind.Views
 
         private async void OnClearMissingClick(object sender, RoutedEventArgs e)
         {
-            var config = ConfigFilter.SelectedItem as BackupConfig;
-            var folder = FolderFilter.SelectedItem as ManagedFolder;
-            if (config == null || folder == null) return;
-            ViewModel.SetCurrentSelection(config, folder, refreshHistoryIfFolder: false, persistSelection: false);
+            if (!TryGetSelectedContext(persistSelection: false, out _, out _))
+            {
+                return;
+            }
 
             var missingCount = ViewModel.GetMissingCount();
             if (missingCount <= 0) return;
@@ -417,23 +399,20 @@ namespace FolderRewind.Views
         /// </summary>
         private async void OnScanRecoverClick(object sender, RoutedEventArgs e)
         {
-            var config = ConfigFilter.SelectedItem as BackupConfig;
-            var folder = FolderFilter.SelectedItem as ManagedFolder;
-            if (config == null || folder == null)
+            if (!TryGetSelectedContext(persistSelection: false, out _, out _))
             {
                 NotificationService.ShowWarning(I18n.GetString("History_ScanRecover_SelectFirst"));
                 return;
             }
-            ViewModel.SetCurrentSelection(config, folder, refreshHistoryIfFolder: false, persistSelection: false);
 
             // 使用 FolderPicker 让用户选择要扫描的文件夹
-            var picker = new Windows.Storage.Pickers.FolderPicker();
-            picker.SuggestedStartLocation = Windows.Storage.Pickers.PickerLocationId.DocumentsLibrary;
+            var picker = new FolderPicker();
+            picker.SuggestedStartLocation = PickerLocationId.DocumentsLibrary;
             picker.FileTypeFilter.Add("*");
 
             // WinUI 3 需要通过窗口句柄初始化 Picker
-            var hwnd = WinRT.Interop.WindowNative.GetWindowHandle(App.MainWindow);
-            WinRT.Interop.InitializeWithWindow.Initialize(picker, hwnd);
+            var hwnd = WindowNative.GetWindowHandle(App.MainWindow);
+            InitializeWithWindow.Initialize(picker, hwnd);
 
             var selectedFolder = await picker.PickSingleFolderAsync();
             if (selectedFolder == null) return;
@@ -482,6 +461,20 @@ namespace FolderRewind.Views
             {
                 _isNavigating = false;
             }
+        }
+
+        private bool TryGetSelectedContext(bool persistSelection, out BackupConfig config, out ManagedFolder folder)
+        {
+            config = ConfigFilter.SelectedItem as BackupConfig ?? null!;
+            folder = FolderFilter.SelectedItem as ManagedFolder ?? null!;
+            if (config == null || folder == null)
+            {
+                return false;
+            }
+
+            // 统一从筛选器同步当前上下文，避免后续按钮操作拿到旧选择。
+            ViewModel.SetCurrentSelection(config, folder, refreshHistoryIfFolder: false, persistSelection: persistSelection);
+            return true;
         }
     }
 }

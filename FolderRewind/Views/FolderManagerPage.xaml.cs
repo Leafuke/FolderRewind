@@ -111,7 +111,7 @@ namespace FolderRewind.Views
                 return;
             }
 
-            if (ViewModel.CurrentConfig == null || ViewModel.SelectedFolder == null)
+            if (!TryGetSelectedContext(out _, out _))
             {
                 return;
             }
@@ -637,7 +637,7 @@ namespace FolderRewind.Views
 
         private async void OnBackupSelectedClick(object sender, RoutedEventArgs e)
         {
-            if (ViewModel.CurrentConfig == null || ViewModel.SelectedFolder == null)
+            if (!TryGetSelectedContext(out _, out _))
             {
                 return;
             }
@@ -658,12 +658,12 @@ namespace FolderRewind.Views
 
         private void OnHistoryClick(object sender, RoutedEventArgs e)
         {
-            if (ViewModel.CurrentConfig == null || ViewModel.SelectedFolder == null)
+            if (!TryGetSelectedContext(out var config, out var folder))
             {
                 return;
             }
 
-            var param = ManagerNavigationParameter.ForFolder(ViewModel.CurrentConfig.Id, ViewModel.SelectedFolder.Path);
+            var param = ManagerNavigationParameter.ForFolder(config.Id, folder.Path);
             App.Shell.NavigateTo("History", param);
         }
 
@@ -697,6 +697,13 @@ namespace FolderRewind.Views
             }
 
             return await picker.PickSingleFolderAsync();
+        }
+
+        private bool TryGetSelectedContext(out BackupConfig config, out ManagedFolder folder)
+        {
+            config = ViewModel.CurrentConfig ?? null!;
+            folder = ViewModel.SelectedFolder ?? null!;
+            return config != null && folder != null;
         }
     }
 }
