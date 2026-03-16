@@ -1,6 +1,7 @@
 using FolderRewind.Models;
 using FolderRewind.Services;
 using FolderRewind.Services.Plugins;
+using FolderRewind.ViewModels;
 using Microsoft.UI;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
@@ -8,10 +9,6 @@ using Microsoft.UI.Xaml.Media;
 using Microsoft.UI.Xaml.Navigation;
 using System;
 using System.Collections.Generic;
-using System.Collections.ObjectModel;
-using System.Collections.Specialized;
-using System.ComponentModel;
-using System.Globalization;
 using System.IO;
 using System.Linq;
 using Windows.ApplicationModel.Resources;
@@ -21,196 +18,30 @@ using WinRT.Interop;
 
 namespace FolderRewind.Views
 {
-    public sealed partial class HomePage : Page, INotifyPropertyChanged
+    public sealed partial class HomePage : Page
     {
-        public event PropertyChangedEventHandler? PropertyChanged;
+        public HomePageViewModel ViewModel { get; } = new();
 
-        // 收藏夹列表
-        public ObservableCollection<ManagedFolder> FavoriteFolders { get; set; } = new();
-
-        // 绑定视图（避免 MSIX + Trim 下 WinRT 对自定义泛型集合投影异常）
-        public ObservableCollection<object> FavoriteFoldersView { get; } = new();
-
-        // 绑定视图（配置卡片）
-        public ObservableCollection<object> ConfigsView { get; } = new();
-
-        // 配置列表（业务逻辑仍使用强类型）
-        public ObservableCollection<BackupConfig>? Configs => ConfigService.CurrentConfig?.BackupConfigs;
-
-        public GlobalSettings? Settings => ConfigService.CurrentConfig?.GlobalSettings;
-
-        private bool _isFavoritesEmpty = true;
-        public bool IsFavoritesEmpty
-        {
-            get => _isFavoritesEmpty;
-            set { _isFavoritesEmpty = value; PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(IsFavoritesEmpty))); }
-        }
+        public GlobalSettings? Settings => ViewModel.Settings;
 
         public HomePage()
         {
             this.InitializeComponent();
 
             this.Loaded += OnLoaded;
-            FavoriteFolders.CollectionChanged += (_, __) => SyncFavoritesView();
-            HookConfigsChanged();
         }
 
         protected override void OnNavigatedTo(NavigationEventArgs e)
         {
             base.OnNavigatedTo(e);
-            // 每次进入首页刷新收藏列表 (因为可能在 Manager 页修改了收藏状态)
-            RefreshFavorites();
-
-            // 进入页面时同步一次配置视图
-            RefreshConfigsView();
+            ViewModel.Activate();
+            ApplySortSelection();
         }
 
-        private void HookConfigsChanged()
+        protected override void OnNavigatedFrom(NavigationEventArgs e)
         {
-            try
-            {
-                if (ConfigService.CurrentConfig?.BackupConfigs != null)
-                {
-                    ConfigService.CurrentConfig.BackupConfigs.CollectionChanged -= OnConfigsChanged;
-                    ConfigService.CurrentConfig.BackupConfigs.CollectionChanged += OnConfigsChanged;
-                }
-            }
-            catch
-            {
-
-            }
-        }
-
-        private void OnConfigsChanged(object? sender, NotifyCollectionChangedEventArgs e)
-        {
-            _ = DispatcherQueue.TryEnqueue(RefreshConfigsView);
-        }
-
-        private void RefreshConfigsView()
-        {
-            ConfigsView.Clear();
-            foreach (var cfg in GetSortedConfigs())
-            {
-                ConfigsView.Add(cfg);
-            }
-        }
-
-        private IEnumerable<BackupConfig> GetSortedConfigs()
-        {
-            if (Configs == null) yield break;
-
-            var mode = Settings?.HomeSortMode ?? "NameAsc";
-            var list = Configs.ToList();
-
-            IEnumerable<BackupConfig> query = mode switch
-            {
-                "NameDesc" => list.OrderByDescending(c => c.Name),
-                "LastBackupDesc" => list
-                    .OrderByDescending(c => GetConfigLastBackupLocalTimeOrMin(c))
-                    .ThenBy(c => c.Name),
-                "LastModifiedDesc" => list
-                    .OrderByDescending(c => GetConfigLastSourceModifiedUtcOrMin(c))
-                    .ThenBy(c => c.Name),
-                _ => list.OrderBy(c => c.Name)
-            };
-
-            foreach (var cfg in query)
-            {
-                yield return cfg;
-            }
-        }
-
-        private static DateTime GetConfigLastBackupLocalTimeOrMin(BackupConfig config)
-        {
-            if (config?.SourceFolders == null) return DateTime.MinValue;
-
-            DateTime? max = null;
-            foreach (var folder in config.SourceFolders)
-            {
-                var t = TryParseBackupLocalTime(folder?.LastBackupTime);
-                if (t.HasValue && (!max.HasValue || t.Value > max.Value))
-                {
-                    max = t;
-                }
-            }
-
-            return max ?? DateTime.MinValue;
-        }
-
-        private static DateTime GetConfigLastSourceModifiedUtcOrMin(BackupConfig config)
-        {
-            if (config?.SourceFolders == null) return DateTime.MinValue;
-
-            DateTime? maxUtc = null;
-            foreach (var folder in config.SourceFolders)
-            {
-                var path = folder?.Path;
-                if (string.IsNullOrWhiteSpace(path)) continue;
-
-                try
-                {
-                    var t = Directory.GetLastWriteTimeUtc(path);
-                    if (t == DateTime.MinValue || t == DateTime.MaxValue) continue;
-                    if (!maxUtc.HasValue || t > maxUtc.Value)
-                    {
-                        maxUtc = t;
-                    }
-                }
-                catch
-                {
-
-                }
-            }
-
-            return maxUtc ?? DateTime.MinValue;
-        }
-
-        private static DateTime? TryParseBackupLocalTime(string? value)
-        {
-            if (string.IsNullOrWhiteSpace(value)) return null;
-
-            if (DateTime.TryParseExact(value, "yyyy/MM/dd HH:mm", CultureInfo.InvariantCulture, DateTimeStyles.None, out var exact))
-            {
-                return exact;
-            }
-
-            if (DateTime.TryParse(value, CultureInfo.CurrentCulture, DateTimeStyles.AssumeLocal, out var parsed))
-            {
-                return parsed;
-            }
-
-            return null;
-        }
-
-        private void RefreshFavorites()
-        {
-            FavoriteFolders.Clear();
-            if (Configs != null)
-            {
-                foreach (var config in Configs)
-                {
-                    foreach (var folder in config.SourceFolders)
-                    {
-                        if (folder.IsFavorite)
-                        {
-                            FavoriteFolders.Add(folder);
-                        }
-                    }
-                }
-            }
-
-            SyncFavoritesView();
-        }
-
-        private void SyncFavoritesView()
-        {
-            FavoriteFoldersView.Clear();
-            foreach (var folder in FavoriteFolders)
-            {
-                FavoriteFoldersView.Add(folder);
-            }
-
-            IsFavoritesEmpty = FavoriteFoldersView.Count == 0;
+            base.OnNavigatedFrom(e);
+            ViewModel.Deactivate();
         }
 
         // 点击收藏项卡片 -> 跳转到管理页并选中该文件夹
@@ -219,7 +50,7 @@ namespace FolderRewind.Views
             if (sender is Button btn && btn.DataContext is ManagedFolder folder)
             {
                 // 需要找到它属于哪个 Config，才能导航
-                var parentConfig = FindParentConfig(folder);
+                var parentConfig = ViewModel.FindParentConfig(folder);
                 if (parentConfig != null)
                 {
                     // 跳转到管理页并自动选中该文件夹
@@ -243,9 +74,7 @@ namespace FolderRewind.Views
 
             if (SortCombo.SelectedItem is ComboBoxItem item && item.Tag is string tag)
             {
-                Settings.HomeSortMode = tag;
-                ConfigService.Save();
-                RefreshConfigsView();
+                ViewModel.SetSortMode(tag);
             }
         }
 
@@ -254,20 +83,15 @@ namespace FolderRewind.Views
         {
             if (sender is Button btn && btn.DataContext is ManagedFolder folder)
             {
-                var parentConfig = FindParentConfig(folder);
-                if (parentConfig != null)
+                // 这里保留按钮防抖，避免用户连续点击触发多次同目录备份。
+                btn.IsEnabled = false;
+                try
                 {
-                    // 禁用按钮防抖
-                    btn.IsEnabled = false;
-                    try
-                    {
-                        // 调用备份服务
-                        await BackupService.BackupFolderAsync(parentConfig, folder, "HomePage Quick Backup");
-                    }
-                    finally
-                    {
-                        btn.IsEnabled = true;
-                    }
+                    await ViewModel.BackupFolderAsync(folder, "HomePage Quick Backup");
+                }
+                finally
+                {
+                    btn.IsEnabled = true;
                 }
             }
         }
@@ -283,7 +107,7 @@ namespace FolderRewind.Views
 
             foreach (var obj in SortCombo.Items)
             {
-                if (obj is ComboBoxItem item && item.Tag is string tag && string.Equals(tag, Settings.HomeSortMode, StringComparison.OrdinalIgnoreCase))
+                if (obj is ComboBoxItem item && item.Tag is string tag && string.Equals(tag, ViewModel.CurrentSortMode, StringComparison.OrdinalIgnoreCase))
                 {
                     SortCombo.SelectedItem = item;
                     return;
@@ -292,14 +116,6 @@ namespace FolderRewind.Views
 
             SortCombo.SelectedIndex = 0;
         }
-
-        // 辅助方法：查找文件夹所属的配置
-        private BackupConfig? FindParentConfig(ManagedFolder folder)
-        {
-            if (Configs == null) return null;
-            return Configs.FirstOrDefault(c => c.SourceFolders.Contains(folder));
-        }
-
         // 添加配置逻辑
         private async void OnAddConfigClick(object sender, RoutedEventArgs e)
         {
@@ -602,10 +418,7 @@ namespace FolderRewind.Views
                     return;
                 }
 
-                foreach (var folder in config.SourceFolders)
-                {
-                    await BackupService.BackupFolderAsync(config, folder, "HomePage Batch Backup");
-                }
+                await ViewModel.BackupAllFoldersAsync(config, "HomePage Batch Backup");
             }
         }
 
@@ -614,27 +427,7 @@ namespace FolderRewind.Views
         {
             if (sender is MenuFlyoutItem item && item.DataContext is BackupConfig config)
             {
-                if (!string.IsNullOrWhiteSpace(config.DestinationPath))
-                {
-                    try
-                    {
-                        if (!Directory.Exists(config.DestinationPath))
-                        {
-                            Directory.CreateDirectory(config.DestinationPath);
-                        }
-
-                        System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo
-                        {
-                            FileName = config.DestinationPath,
-                            UseShellExecute = true,
-                            Verb = "open"
-                        });
-                    }
-                    catch (Exception ex)
-                    {
-                        LogService.LogError($"Failed to open destination: {ex.Message}");
-                    }
-                }
+                ViewModel.TryOpenDestination(config);
             }
         }
 
@@ -666,16 +459,7 @@ namespace FolderRewind.Views
 
                 if (await dialog.ShowAsync() == ContentDialogResult.Primary)
                 {
-                    // 清除加密配置的存储密码
-                    if (config.IsEncrypted)
-                    {
-                        EncryptionService.RemovePassword(config.Id);
-                    }
-
-                    ConfigService.CurrentConfig.BackupConfigs.Remove(config);
-                    ConfigService.Save();
-                    RefreshConfigsView();
-                    RefreshFavorites();
+                    ViewModel.DeleteConfig(config);
                 }
             }
         }

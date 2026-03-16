@@ -21,7 +21,7 @@
                 </StackPanel>
 
                 <!-- 绑定到 Favorites 集合 -->
-                <GridView ItemsSource="{x:Bind FavoriteFoldersView}" 
+                <GridView ItemsSource="{x:Bind ViewModel.FavoriteFoldersView}" 
                           SelectionMode="None" 
                           IsItemClickEnabled="False">
                     <GridView.ItemContainerStyle>
@@ -130,7 +130,7 @@
 
                 <!-- 空状态提示 -->
                 <TextBlock x:Uid="HomePage_NoFavoriteFolders" Margin="0,0,0,15" Foreground="{ThemeResource TextFillColorSecondaryBrush}" FontStyle="Italic"
-                           Visibility="{x:Bind IsFavoritesEmpty, Mode=OneWay, Converter={StaticResource BoolToVisConverter}}"/>
+                           Visibility="{x:Bind ViewModel.IsFavoritesEmpty, Mode=OneWay, Converter={StaticResource BoolToVisConverter}}"/>
             </StackPanel>
 
             <!-- 第二部分：配置概览 -->
@@ -165,7 +165,7 @@
                 </Grid>
 
                 <GridView x:Name="ConfigGridView" 
-                          ItemsSource="{x:Bind ConfigsView, Mode=OneWay}"
+                          ItemsSource="{x:Bind ViewModel.ConfigsView, Mode=OneWay}"
                           SelectionMode="None" 
                           IsItemClickEnabled="False">
                     <GridView.ItemContainerStyle>
