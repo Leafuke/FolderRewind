@@ -2,6 +2,7 @@ using FolderRewind.Models;
 using FolderRewind.Services;
 using FolderRewind.Services.Hotkeys;
 using FolderRewind.Services.Plugins;
+using FolderRewind.ViewModels;
 using Microsoft.UI.Input;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
@@ -25,79 +26,42 @@ namespace FolderRewind.Views
 {
     public sealed partial class SettingsPage : Page, INotifyPropertyChanged
     {
-        public GlobalSettings Settings => ConfigService.CurrentConfig.GlobalSettings;
+        private readonly SettingsPageViewModel _viewModel = new();
+
+        public GlobalSettings Settings => _viewModel.Settings;
 
         public int CloseBehaviorSelectedIndex
         {
-            get => (int)Settings.CloseBehavior;
-            set
-            {
-                if (value < 0 || value > 2) value = 0;
-                Settings.CloseBehavior = (CloseBehavior)value;
-
-                // 选择“每次询问”时不再记住
-                if (Settings.CloseBehavior == CloseBehavior.Ask)
-                {
-                    Settings.RememberCloseBehavior = false;
-                }
-
-                ConfigService.Save();
-                OnPropertyChanged();
-            }
+            get => _viewModel.CloseBehaviorSelectedIndex;
+            set => _viewModel.CloseBehaviorSelectedIndex = value;
         }
 
-        public string AppVersion => GetAppVersionString();
+        public string AppVersion => _viewModel.AppVersion;
 
-        public ReadOnlyObservableCollection<InstalledPluginInfo> InstalledPlugins => PluginService.InstalledPlugins;
+        public ReadOnlyObservableCollection<InstalledPluginInfo> InstalledPlugins => _viewModel.InstalledPlugins;
 
         private bool _isInitializingLanguage;
         private bool _isInitializingFont;
-        private bool _pluginsRefreshed;
 
         // Toggle text for localized On/Off labels
         public string ToggleOnText { get; } = I18n.GetString("Common_ToggleOn");
         public string ToggleOffText { get; } = I18n.GetString("Common_ToggleOff");
 
-        // KnotLink 状态相关属性
-        private string _knotLinkStatusMessage = I18n.GetString("SettingsPage_KnotLinkStatus_Disabled");
-        private Brush _knotLinkStatusColor = new SolidColorBrush(Microsoft.UI.Colors.Gray);
+        public string KnotLinkStatusMessage => _viewModel.KnotLinkStatusMessage;
 
-        public string KnotLinkStatusMessage
-        {
-            get => _knotLinkStatusMessage;
-            set { _knotLinkStatusMessage = value; OnPropertyChanged(); }
-        }
+        public Brush KnotLinkStatusColor => _viewModel.KnotLinkStatusColor;
 
-        public Brush KnotLinkStatusColor
-        {
-            get => _knotLinkStatusColor ??= new SolidColorBrush(Microsoft.UI.Colors.Gray);
-            set { _knotLinkStatusColor = value; OnPropertyChanged(); }
-        }
+        public bool IsCoreValidationRunning => _viewModel.IsCoreValidationRunning;
 
-        public bool IsCoreValidationRunning => CoreFeatureValidationService.IsRunning;
+        public bool IsCoreValidationIdle => _viewModel.IsCoreValidationIdle;
 
-        public bool IsCoreValidationIdle => !CoreFeatureValidationService.IsRunning;
+        public bool HasCoreValidationReport => _viewModel.HasCoreValidationReport;
 
-        public bool HasCoreValidationReport => CoreFeatureValidationService.LastReport != null;
+        public string CoreValidationStatusText => _viewModel.CoreValidationStatusText;
 
-        public string CoreValidationStatusText => CoreFeatureValidationService.StatusText;
+        public string CoreValidationLastRunText => _viewModel.CoreValidationLastRunText;
 
-        public string CoreValidationLastRunText
-        {
-            get
-            {
-                if (Settings.LastCoreValidationUtc == DateTime.MinValue)
-                {
-                    return I18n.GetString("CoreValidation_LastRun_None");
-                }
-
-                return I18n.Format("CoreValidation_LastRun_Value", Settings.LastCoreValidationUtc.ToLocalTime().ToString("yyyy-MM-dd HH:mm:ss"));
-            }
-        }
-
-        public string CoreValidationLastSummaryText => string.IsNullOrWhiteSpace(Settings.LastCoreValidationSummary)
-            ? I18n.GetString("CoreValidation_LastSummary_None")
-            : Settings.LastCoreValidationSummary;
+        public string CoreValidationLastSummaryText => _viewModel.CoreValidationLastSummaryText;
 
         public event PropertyChangedEventHandler? PropertyChanged;
 
@@ -106,25 +70,27 @@ namespace FolderRewind.Views
             PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(propertyName));
         }
 
-        public ObservableCollection<string> FontFamilies { get; } = new()
-        {
-        };
+        public ObservableCollection<string> FontFamilies => _viewModel.FontFamilies;
 
-        public ObservableCollection<object> HotkeyBindingsView { get; } = new();
+        public ObservableCollection<object> HotkeyBindingsView => _viewModel.HotkeyBindingsView;
 
         public SettingsPage()
         {
             this.InitializeComponent();
 
+            _viewModel.PropertyChanged += OnViewModelPropertyChanged;
+            _viewModel.Initialize();
+
+            Unloaded -= OnSettingsPageUnloaded;
+            Unloaded += OnSettingsPageUnloaded;
+
             _isInitializingLanguage = true;
             _isInitializingFont = true;
             try
             {
-                LoadFontFamilies();
-
                 if (LanguageCombo != null)
                 {
-                    LanguageCombo.SelectedIndex = LanguageToIndex(Settings.Language);
+                    LanguageCombo.SelectedIndex = _viewModel.GetLanguageSelectedIndex();
                 }
 
                 if (FontFamilyCombo != null)
@@ -137,26 +103,6 @@ namespace FolderRewind.Views
                 {
                     FontSizeBox.Value = Settings.BaseFontSize;
                 }
-
-                // 初始化 KnotLink 状态显示
-                UpdateKnotLinkStatus();
-
-                // 快捷键/热键列表
-                try
-                {
-                    HotkeyManager.DefinitionsChanged -= HotkeyManager_DefinitionsChanged;
-                    HotkeyManager.DefinitionsChanged += HotkeyManager_DefinitionsChanged;
-                }
-                catch
-                {
-                }
-
-                RefreshHotkeyBindingsView();
-
-                CoreFeatureValidationService.StateChanged -= OnCoreValidationStateChanged;
-                CoreFeatureValidationService.StateChanged += OnCoreValidationStateChanged;
-                Unloaded -= OnSettingsPageUnloaded;
-                Unloaded += OnSettingsPageUnloaded;
             }
             finally
             {
@@ -165,52 +111,41 @@ namespace FolderRewind.Views
             }
         }
 
+        private void OnViewModelPropertyChanged(object? sender, PropertyChangedEventArgs e)
+        {
+            if (string.IsNullOrWhiteSpace(e.PropertyName))
+            {
+                Bindings.Update();
+                return;
+            }
+
+            OnPropertyChanged(e.PropertyName);
+        }
+
         private void OnSettingsPageUnloaded(object sender, RoutedEventArgs e)
         {
-            CoreFeatureValidationService.StateChanged -= OnCoreValidationStateChanged;
+            _viewModel.PropertyChanged -= OnViewModelPropertyChanged;
+            _viewModel.Dispose();
             Unloaded -= OnSettingsPageUnloaded;
         }
 
         private void OnCoreValidationStateChanged()
         {
-            _ = DispatcherQueue.TryEnqueue(() =>
-            {
-                OnPropertyChanged(nameof(IsCoreValidationRunning));
-                OnPropertyChanged(nameof(IsCoreValidationIdle));
-                OnPropertyChanged(nameof(HasCoreValidationReport));
-                OnPropertyChanged(nameof(CoreValidationStatusText));
-                OnPropertyChanged(nameof(CoreValidationLastRunText));
-                OnPropertyChanged(nameof(CoreValidationLastSummaryText));
-                Bindings.Update();
-            });
+            _viewModel.RefreshCoreValidationState();
+            Bindings.Update();
         }
 
         protected override void OnNavigatedTo(Microsoft.UI.Xaml.Navigation.NavigationEventArgs e)
         {
             base.OnNavigatedTo(e);
-
-            // 延迟刷新插件列表：仅在首次进入或需要时执行，避免构造函数阻塞
-            if (!_pluginsRefreshed)
-            {
-                _pluginsRefreshed = true;
-                try
-                {
-                    PluginService.RefreshAndLoadEnabled();
-                }
-                catch
-                {
-                }
-            }
-
-            // 每次进入时更新 KnotLink 状态
-            UpdateKnotLinkStatus();
+            _viewModel.OnNavigatedTo();
         }
 
         private void OnCloseBehaviorSelectionChanged(object sender, SelectionChangedEventArgs e)
         {
             if (sender is ComboBox cb)
             {
-                CloseBehaviorSelectedIndex = cb.SelectedIndex;
+                _viewModel.HandleCloseBehaviorSelectionChanged(cb.SelectedIndex);
             }
 
             Bindings.Update();
@@ -220,17 +155,9 @@ namespace FolderRewind.Views
         {
             if (sender is ToggleSwitch ts)
             {
-                Settings.RememberCloseBehavior = ts.IsOn;
+                _viewModel.HandleRememberCloseBehaviorToggled(ts.IsOn);
             }
 
-            // 如果用户打开“记住”，但当前是 Ask，则默认切到“最小化到托盘”更符合预期
-            if (Settings.RememberCloseBehavior && Settings.CloseBehavior == CloseBehavior.Ask)
-            {
-                Settings.CloseBehavior = CloseBehavior.MinimizeToTray;
-                OnPropertyChanged(nameof(CloseBehaviorSelectedIndex));
-            }
-
-            ConfigService.Save();
             Bindings.Update();
         }
 
@@ -238,15 +165,7 @@ namespace FolderRewind.Views
         {
             if (sender is ToggleSwitch ts)
             {
-                Settings.EnableNotifications = ts.IsOn;
-            }
-
-            ConfigService.Save();
-
-            // 如果关闭通知，清除 Badge
-            if (!Settings.EnableNotifications)
-            {
-                NotificationService.ClearBadge();
+                _viewModel.HandleNotificationsToggled(ts.IsOn);
             }
         }
 
@@ -254,81 +173,44 @@ namespace FolderRewind.Views
         {
             if (sender is ComboBox cb)
             {
-                Settings.ToastNotificationLevel = Math.Clamp(cb.SelectedIndex, 0, 3);
+                _viewModel.HandleToastLevelChanged(cb.SelectedIndex);
             }
-
-            ConfigService.Save();
         }
 
         private void OnFileSizeWarningThresholdChanged(NumberBox sender, NumberBoxValueChangedEventArgs e)
         {
-            if (double.IsNaN(e.NewValue)) return;
-            Settings.FileSizeWarningThresholdKB = (int)Math.Clamp(e.NewValue, 0, 10240);
-            ConfigService.Save();
+            _viewModel.HandleFileSizeWarningThresholdChanged(e.NewValue);
         }
 
         private void OnNoticesToggled(object sender, RoutedEventArgs e)
         {
             if (sender is ToggleSwitch ts)
             {
-                Settings.EnableNotices = ts.IsOn;
+                _viewModel.HandleNoticesToggled(ts.IsOn);
             }
-
-            ConfigService.Save();
         }
 
         private void OnUpdateReminderToggled(object sender, RoutedEventArgs e)
         {
             if (sender is ToggleSwitch ts)
             {
-                Settings.EnableUpdateReminder = ts.IsOn;
+                _viewModel.HandleUpdateReminderToggled(ts.IsOn);
             }
-
-            ConfigService.Save();
         }
 
         private void HotkeyManager_DefinitionsChanged(object? sender, EventArgs e)
         {
-            _ = DispatcherQueue.TryEnqueue(RefreshHotkeyBindingsView);
+            _viewModel.RefreshHotkeyBindingsView();
         }
 
         private void RefreshHotkeyBindingsView()
         {
-            HotkeyBindingsView.Clear();
-
-            var defs = HotkeyManager.GetDefinitionsSnapshot();
-            var overrides = Settings?.Hotkeys?.Bindings ?? new Dictionary<string, string>();
-
-            foreach (var def in defs)
-            {
-                var effective = HotkeyManager.GetEffectiveGestureString(def.Id);
-                var hasOverride = overrides.ContainsKey(def.Id);
-
-                var scopeText = def.Scope == HotkeyScope.GlobalHotkey
-                    ? I18n.GetString("Hotkeys_Scope_Global")
-                    : I18n.GetString("Hotkeys_Scope_Shortcut");
-
-                var ownerText = string.IsNullOrWhiteSpace(def.OwnerPluginId)
-                    ? I18n.GetString("Hotkeys_Owner_Core")
-                    : I18n.Format("Hotkeys_Owner_Plugin", def.OwnerPluginName ?? def.OwnerPluginId);
-
-                HotkeyBindingsView.Add(new HotkeyBindingItem
-                {
-                    Id = def.Id,
-                    DisplayName = def.DisplayName,
-                    Description = def.Description,
-                    ScopeText = scopeText,
-                    OwnerText = ownerText,
-                    CurrentGesture = string.IsNullOrWhiteSpace(effective) ? I18n.GetString("Hotkeys_Unbound") : effective,
-                    DefaultGesture = I18n.Format("Hotkeys_Default", string.IsNullOrWhiteSpace(def.DefaultGesture) ? I18n.GetString("Hotkeys_Unbound") : def.DefaultGesture),
-                    IsOverridden = hasOverride,
-                });
-            }
+            _viewModel.RefreshHotkeyBindingsView();
         }
 
         private HotkeyDefinition? FindHotkeyDefinition(string id)
         {
-            return HotkeyManager.GetDefinitionsSnapshot().FirstOrDefault(d => string.Equals(d.Id, id, StringComparison.OrdinalIgnoreCase));
+            return _viewModel.FindHotkeyDefinition(id);
         }
 
         private async void OnEditHotkeyClick(object sender, RoutedEventArgs e)
@@ -422,13 +304,11 @@ namespace FolderRewind.Views
                     }
                 }
 
-                HotkeyManager.SetGestureOverride(hotkeyId, candidate);
-                RefreshHotkeyBindingsView();
+                _viewModel.SetHotkeyOverride(hotkeyId, candidate);
             }
             else if (result == ContentDialogResult.Secondary)
             {
-                HotkeyManager.SetGestureOverride(hotkeyId, string.Empty);
-                RefreshHotkeyBindingsView();
+                _viewModel.SetHotkeyOverride(hotkeyId, string.Empty);
             }
         }
 
@@ -438,8 +318,7 @@ namespace FolderRewind.Views
             var hotkeyId = btn.Tag as string;
             if (string.IsNullOrWhiteSpace(hotkeyId)) return;
 
-            HotkeyManager.ResetGestureOverride(hotkeyId);
-            RefreshHotkeyBindingsView();
+            _viewModel.ResetHotkeyOverride(hotkeyId);
         }
 
         private async Task ShowSimpleMessageAsync(string message)
@@ -480,84 +359,7 @@ namespace FolderRewind.Views
             await ShowTextDialogAsync(I18n.GetString("CoreValidation_Report_Title"), report.ToDisplayText());
         }
 
-        private void LoadFontFamilies()
-        {
-            FontFamilies.Clear();
-
-            IReadOnlyList<string> fonts;
-            try
-            {
-                fonts = FontService.GetInstalledFontFamilies();
-            }
-            catch
-            {
-                fonts = new[] { "Segoe UI Variable", "Segoe UI", "Microsoft YaHei", "Microsoft YaHei UI" };
-            }
-
-            foreach (var f in fonts)
-            {
-                if (!string.IsNullOrWhiteSpace(f)) FontFamilies.Add(f);
-            }
-
-            // 若当前配置字体不存在于系统列表，仍然保留它作为可选项
-            if (!string.IsNullOrWhiteSpace(Settings.FontFamily)
-                && !FontFamilies.Any(f => string.Equals(f, Settings.FontFamily, StringComparison.OrdinalIgnoreCase)))
-            {
-                FontFamilies.Insert(0, Settings.FontFamily);
-            }
-
-            // 若还未设置字体，则按推荐默认值设置一次
-            if (string.IsNullOrWhiteSpace(Settings.FontFamily))
-            {
-                try
-                {
-                    Settings.FontFamily = FontService.GetRecommendedDefaultFontFamily();
-                    ConfigService.Save();
-                }
-                catch
-                {
-                }
-            }
-        }
-
         #region About
-
-        private static string GetAppVersionString()
-        {
-            try
-            {
-                var v = Windows.ApplicationModel.Package.Current.Id.Version;
-                return $"Version {v.Major}.{v.Minor}.{v.Build}.{v.Revision}";
-            }
-            catch
-            {
-                // Unpackaged / test environment fallback
-                try
-                {
-                    var asm = typeof(SettingsPage).Assembly;
-                    var v = asm.GetName().Version;
-                    return v == null ? "Version (unknown)" : $"Version {v.Major}.{v.Minor}.{v.Build}.{v.Revision}";
-                }
-                catch
-                {
-                    return "Version (unknown)";
-                }
-            }
-        }
-
-        private static async Task<string> TryReadPackagedTextAsync(string relativePath)
-        {
-            try
-            {
-                var uri = new Uri($"ms-appx:///{relativePath.Replace('\\', '/')}");
-                var file = await StorageFile.GetFileFromApplicationUriAsync(uri);
-                return await FileIO.ReadTextAsync(file);
-            }
-            catch
-            {
-                return string.Empty;
-            }
-        }
 
         private async Task ShowTextDialogAsync(string title, string content)
         {
@@ -598,42 +400,7 @@ namespace FolderRewind.Views
         /// </summary>
         private void UpdateKnotLinkStatus()
         {
-            if (!Settings.EnableKnotLink)
-            {
-                KnotLinkStatusMessage = I18n.GetString("SettingsPage_KnotLinkStatus_Disabled");
-                KnotLinkStatusColor = new SolidColorBrush(Microsoft.UI.Colors.Gray);
-                return;
-            }
-
-            if (KnotLinkService.IsInitialized)
-            {
-                var responserOk = KnotLinkService.IsResponserRunning;
-                var senderOk = KnotLinkService.IsSenderRunning;
-
-                if (responserOk && senderOk)
-                {
-                    KnotLinkStatusMessage = I18n.GetString("SettingsPage_KnotLinkStatus_Connected");
-                    KnotLinkStatusColor = new SolidColorBrush(Microsoft.UI.Colors.LimeGreen);
-                }
-                else if (responserOk || senderOk)
-                {
-                    KnotLinkStatusMessage = I18n.Format(
-                        "SettingsPage_KnotLinkStatus_Partial",
-                        responserOk ? "✓" : "✗",
-                        senderOk ? "✓" : "✗");
-                    KnotLinkStatusColor = new SolidColorBrush(Microsoft.UI.Colors.Orange);
-                }
-                else
-                {
-                    KnotLinkStatusMessage = I18n.GetString("SettingsPage_KnotLinkStatus_InitFailed");
-                    KnotLinkStatusColor = new SolidColorBrush(Microsoft.UI.Colors.OrangeRed);
-                }
-            }
-            else
-            {
-                KnotLinkStatusMessage = I18n.GetString("SettingsPage_KnotLinkStatus_NotInitialized");
-                KnotLinkStatusColor = new SolidColorBrush(Microsoft.UI.Colors.Orange);
-            }
+            _viewModel.UpdateKnotLinkStatus();
         }
 
         /// <summary>
@@ -643,43 +410,10 @@ namespace FolderRewind.Views
         {
             if (sender is ToggleSwitch ts)
             {
-                Settings.EnableKnotLink = ts.IsOn;
+                _viewModel.HandleKnotLinkToggled(ts.IsOn);
             }
 
-            ConfigService.Save();
-
-            if (Settings.EnableKnotLink)
-            {
-                // 启用时自动初始化
-                KnotLinkService.Initialize();
-            }
-            else
-            {
-                        if (sender is TextBox tb)
-                        {
-                            var value = tb.Text ?? string.Empty;
-                            switch (tb.Tag as string)
-                            {
-                                case "KnotLinkHost":
-                                    Settings.KnotLinkHost = value;
-                                    break;
-                                case "KnotLinkAppId":
-                                    Settings.KnotLinkAppId = value;
-                                    break;
-                                case "KnotLinkOpenSocketId":
-                                    Settings.KnotLinkOpenSocketId = value;
-                                    break;
-                                case "KnotLinkSignalId":
-                                    Settings.KnotLinkSignalId = value;
-                                    break;
-                            }
-                        }
-
-                // 禁用时关闭服务
-                KnotLinkService.Shutdown();
-            }
-
-            UpdateKnotLinkStatus();
+            Bindings.Update();
         }
 
         /// <summary>
@@ -687,7 +421,7 @@ namespace FolderRewind.Views
         /// </summary>
         private void OnKnotLinkSettingChanged(object sender, TextChangedEventArgs e)
         {
-            ConfigService.Save();
+            _viewModel.HandleKnotLinkSettingChanged();
         }
 
         /// <summary>
@@ -695,15 +429,13 @@ namespace FolderRewind.Views
         /// </summary>
         private async void OnKnotLinkRestartClick(object sender, RoutedEventArgs e)
         {
-            ConfigService.Save();
-            KnotLinkService.Restart();
-            UpdateKnotLinkStatus();
+            var initialized = _viewModel.RestartKnotLinkService();
 
             // 显示提示
             var dialog = new ContentDialog
             {
                 Title = I18n.GetString("SettingsPage_KnotLink_Title"),
-                Content = KnotLinkService.IsInitialized
+                Content = initialized
                     ? I18n.GetString("SettingsPage_KnotLink_RestartSuccess")
                     : I18n.GetString("SettingsPage_KnotLink_RestartFailed"),
                 CloseButtonText = I18n.GetString("Common_Ok"),
@@ -835,11 +567,7 @@ namespace FolderRewind.Views
         /// </summary>
         private void OnKnotLinkResetClick(object sender, RoutedEventArgs e)
         {
-            Settings.KnotLinkHost = "127.0.0.1";
-            Settings.KnotLinkAppId = "0x00000020";
-            Settings.KnotLinkOpenSocketId = "0x00000010";
-            Settings.KnotLinkSignalId = "0x00000020";
-            ConfigService.Save();
+            _viewModel.HandleKnotLinkResetToDefault();
             Bindings.Update();
         }
 
@@ -849,8 +577,7 @@ namespace FolderRewind.Views
         {
             if (sender is ToggleSwitch ts)
             {
-                PluginService.SetPluginSystemEnabled(ts.IsOn);
-                // 配置保存由 PluginService 完成，这里同步 UI
+                _viewModel.HandlePluginsEnabledToggled(ts.IsOn);
                 Bindings.Update();
             }
         }
@@ -929,7 +656,7 @@ namespace FolderRewind.Views
             if (sender is not ToggleSwitch ts) return;
             if (ts.DataContext is not InstalledPluginInfo plugin) return;
 
-            PluginService.SetPluginEnabled(plugin.Id, ts.IsOn);
+            _viewModel.HandlePluginEnabledToggled(plugin.Id, ts.IsOn);
         }
 
         private async void OnPluginUninstallClick(object sender, RoutedEventArgs e)
@@ -974,10 +701,8 @@ namespace FolderRewind.Views
         {
             if (sender is ToggleSwitch ts)
             {
-                Settings.Plugins.AutoCheckUpdates = ts.IsOn;
+                _viewModel.HandlePluginsAutoCheckUpdatesToggled(ts.IsOn);
             }
-
-            ConfigService.Save();
         }
 
         private async void OnCheckPluginUpdatesClick(object sender, RoutedEventArgs e)
@@ -1204,43 +929,13 @@ namespace FolderRewind.Views
             PluginService.TryReinitialize(plugin.Id);
         }
 
-        private static int LanguageToIndex(string? language)
-        {
-            if (string.IsNullOrWhiteSpace(language)) return 0;
-
-            var normalized = language.Trim().Replace('_', '-');
-            if (string.Equals(normalized, "system", StringComparison.OrdinalIgnoreCase)) return 0;
-            if (string.Equals(normalized, "en-US", StringComparison.OrdinalIgnoreCase)) return 1;
-            if (string.Equals(normalized, "en", StringComparison.OrdinalIgnoreCase)) return 1;
-            if (string.Equals(normalized, "zh-CN", StringComparison.OrdinalIgnoreCase)) return 2;
-            if (string.Equals(normalized, "zh", StringComparison.OrdinalIgnoreCase)) return 2;
-
-            // legacy values
-            if (string.Equals(language, "en_US", StringComparison.OrdinalIgnoreCase)) return 1;
-            if (string.Equals(language, "zh_CN", StringComparison.OrdinalIgnoreCase)) return 2;
-
-            return 0;
-        }
-
-        private static string IndexToLanguage(int index)
-        {
-            return index switch
-            {
-                1 => "en-US",
-                2 => "zh-CN",
-                _ => "system",
-            };
-        }
-
         private void OnLanguageChanged(object sender, SelectionChangedEventArgs e)
         {
             if (_isInitializingLanguage) return;
 
             if (sender is ComboBox cb)
             {
-                Settings.Language = IndexToLanguage(cb.SelectedIndex);
-                ConfigService.Save();
-                App.UpdateWindowTitle();
+                _viewModel.HandleLanguageChanged(cb.SelectedIndex);
             }
         }
 
@@ -1254,10 +949,8 @@ namespace FolderRewind.Views
         {
             if (sender is ToggleSwitch ts)
             {
-                Settings.UseHistoryStatusColors = ts.IsOn;
+                _viewModel.HandleHistoryColorsToggled(ts.IsOn);
             }
-
-            ConfigService.Save();
         }
 
         // 开机自启特殊处理（MSIX StartupTask API）
@@ -1266,21 +959,13 @@ namespace FolderRewind.Views
             if (sender is ToggleSwitch ts)
             {
                 var desired = ts.IsOn;
-                var success = await StartupService.SetStartupAsync(desired);
+                var result = await _viewModel.HandleRunOnStartupToggledAsync(desired);
 
-                Settings.RunOnStartup = success && desired;
-
-                if (!Settings.RunOnStartup)
-                {
-                    Settings.SilentStartup = false;
-                }
-
-                if (!success && desired)
+                if (!result.Success && desired)
                 {
                     ts.IsOn = false;
 
-                    var state = await StartupService.GetStartupStateAsync();
-                    if (state == Windows.ApplicationModel.StartupTaskState.DisabledByUser)
+                    if (result.DisabledByUser)
                     {
                         var dialog = new ContentDialog
                         {
@@ -1294,7 +979,6 @@ namespace FolderRewind.Views
                     }
                 }
 
-                ConfigService.Save();
                 Bindings.Update();
             }
         }
@@ -1303,19 +987,13 @@ namespace FolderRewind.Views
         {
             if (sender is ToggleSwitch ts)
             {
-                Settings.SilentStartup = Settings.RunOnStartup && ts.IsOn;
-
-                if (!Settings.RunOnStartup && ts.IsOn)
-                {
-                    ts.IsOn = false;
-                }
+                ts.IsOn = _viewModel.HandleSilentStartupToggled(ts.IsOn);
             }
             else if (!Settings.RunOnStartup)
             {
-                Settings.SilentStartup = false;
+                _viewModel.HandleSilentStartupToggled(false);
             }
 
-            ConfigService.Save();
             Bindings.Update();
         }
 
@@ -1335,8 +1013,7 @@ namespace FolderRewind.Views
             var file = await picker.PickSingleFileAsync();
             if (file != null)
             {
-                Settings.SevenZipPath = file.Path;
-                ConfigService.Save();
+                _viewModel.ApplySevenZipPath(file.Path);
             }
         }
 
@@ -1354,8 +1031,7 @@ namespace FolderRewind.Views
             var folder = await picker.PickSingleFolderAsync();
             if (folder != null)
             {
-                Settings.DefaultBackupRootPath = folder.Path;
-                ConfigService.Save();
+                _viewModel.ApplyDefaultBackupRootPath(folder.Path);
             }
         }
 
@@ -1364,62 +1040,26 @@ namespace FolderRewind.Views
         {
             if (sender is ComboBox cb)
             {
-                // 直接使用控件的 SelectedIndex，保证读取到最新选择
-                var newIndex = cb.SelectedIndex;
-                Settings.ThemeIndex = newIndex;
+                _viewModel.HandleThemeChanged(cb.SelectedIndex);
             }
-
-            // 立即生效（主窗口 + 通知所有子窗口）
-            ThemeService.ApplyThemeToWindow(App._window);
-            ThemeService.NotifyThemeChanged();
-
-            ConfigService.Save();
         }
 
         private void OnLoggingChanged(object sender, RoutedEventArgs e)
         {
             if (sender is ToggleSwitch ts)
             {
-                Settings.EnableFileLogging = ts.IsOn;
+                _viewModel.HandleLoggingChanged(ts.IsOn);
             }
-
-            PushLogOptions();
-            ConfigService.Save();
         }
 
         private void OnLogSizeChanged(object sender, NumberBoxValueChangedEventArgs e)
         {
-            if (sender is NumberBox nb)
-            {
-                Settings.MaxLogFileSizeMb = (int)Math.Clamp(nb.Value, 1, 50);
-            }
-
-            PushLogOptions();
-            ConfigService.Save();
+            _viewModel.HandleLogSizeChanged(e.NewValue);
         }
 
         private void OnRetentionChanged(object sender, NumberBoxValueChangedEventArgs e)
         {
-            if (sender is NumberBox nb)
-            {
-                Settings.LogRetentionDays = (int)Math.Clamp(nb.Value, 1, 60);
-            }
-
-            PushLogOptions();
-            ConfigService.Save();
-        }
-
-        private void PushLogOptions()
-        {
-            var options = new LogOptions
-            {
-                EnableFileLogging = Settings.EnableFileLogging,
-                MaxEntries = 4000,
-                MaxFileSizeKb = Math.Max(512, Settings.MaxLogFileSizeMb * 1024),
-                RetentionDays = Math.Max(1, Settings.LogRetentionDays)
-            };
-
-            LogService.ApplyOptions(options);
+            _viewModel.HandleRetentionChanged(e.NewValue);
         }
 
         private void OnOpenLogCenterClick(object sender, RoutedEventArgs e)
@@ -1431,23 +1071,17 @@ namespace FolderRewind.Views
         {
             if (ReferenceEquals(sender, StartupWidthBox))
             {
-                Settings.StartupWidth = ClampWidth(e.NewValue);
+                _viewModel.HandleStartupSizeChanged(isWidth: true, newValue: e.NewValue);
             }
             else if (ReferenceEquals(sender, StartupHeightBox))
             {
-                Settings.StartupHeight = ClampHeight(e.NewValue);
+                _viewModel.HandleStartupSizeChanged(isWidth: false, newValue: e.NewValue);
             }
-
-            ConfigService.Save();
         }
 
         private void OnApplyStartupSizeClick(object sender, RoutedEventArgs e)
         {
-            Settings.StartupWidth = ClampWidth(Settings.StartupWidth);
-            Settings.StartupHeight = ClampHeight(Settings.StartupHeight);
-
-            ConfigService.Save();
-            ApplyWindowSize(Settings.StartupWidth, Settings.StartupHeight);
+            _viewModel.HandleApplyStartupSize();
         }
 
         private void OnFontFamilyChanged(object sender, SelectionChangedEventArgs e)
@@ -1456,9 +1090,7 @@ namespace FolderRewind.Views
 
             if (sender is ComboBox cb && cb.SelectedItem is string selected)
             {
-                Settings.FontFamily = selected;
-                TypographyService.ApplyTypography(Settings);
-                ConfigService.Save();
+                _viewModel.HandleFontFamilyChanged(selected);
             }
         }
 
@@ -1466,40 +1098,7 @@ namespace FolderRewind.Views
         {
             if (_isInitializingFont) return;
 
-            var newSize = Math.Clamp(e.NewValue, 12, 20);
-            Settings.BaseFontSize = newSize;
-
-            TypographyService.ApplyTypography(Settings);
-            ConfigService.Save();
-        }
-
-        private static double ClampWidth(double value)
-        {
-            if (double.IsNaN(value) || value <= 0) return 1200;
-            return Math.Clamp(value, 640, 3840);
-        }
-
-        private static double ClampHeight(double value)
-        {
-            if (double.IsNaN(value) || value <= 0) return 800;
-            return Math.Clamp(value, 480, 2160);
-        }
-
-        private static void ApplyWindowSize(double width, double height)
-        {
-            if (App._window == null) return;
-
-            var clampedWidth = ClampWidth(width);
-            var clampedHeight = ClampHeight(height);
-
-            try
-            {
-                App._window.AppWindow?.Resize(new SizeInt32((int)Math.Round(clampedWidth), (int)Math.Round(clampedHeight)));
-            }
-            catch
-            {
-
-            }
+            _viewModel.HandleFontSizeChanged(e.NewValue);
         }
         private void OnJoinGroupButtonClick(object sender, RoutedEventArgs e)
         => FlyoutBase.ShowAttachedFlyout(sender as FrameworkElement);
