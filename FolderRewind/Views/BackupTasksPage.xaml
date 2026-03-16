@@ -14,12 +14,12 @@
 
         <StackPanel Spacing="4" Margin="0,0,0,24">
             <TextBlock x:Uid="BackupTasksPage_Title" Style="{ThemeResource TitleTextBlockStyle}" AutomationProperties.HeadingLevel="Level1"/>
-            <TextBlock Text="{x:Bind ViewModel.Count, Mode=OneWay, Converter={StaticResource CountToStringConverter}}" 
+            <TextBlock Text="{x:Bind ViewModel.TaskCount, Mode=OneWay, Converter={StaticResource CountToStringConverter}}" 
                        Foreground="{ThemeResource TextFillColorSecondaryBrush}"/>
         </StackPanel>
 
         <!-- 绑定到 Service 的静态列表 -->
-        <ListView Grid.Row="1" SelectionMode="None" ItemsSource="{x:Bind TasksView, Mode=OneWay}">
+        <ListView Grid.Row="1" SelectionMode="None" ItemsSource="{x:Bind ViewModel.TasksView, Mode=OneWay}">
             <ListView.ItemContainerStyle>
                 <Style TargetType="ListViewItem">
                     <Setter Property="HorizontalContentAlignment" Value="Stretch"/>
@@ -87,7 +87,7 @@
 
         <!-- 空状态提示：当没有任务时显示 -->
         <StackPanel Grid.Row="1" VerticalAlignment="Center" HorizontalAlignment="Center" 
-                    Visibility="{x:Bind IsEmpty, Mode=OneWay, Converter={StaticResource BoolToVisConverter}}">
+                    Visibility="{x:Bind ViewModel.IsEmpty, Mode=OneWay, Converter={StaticResource BoolToVisConverter}}">
             <FontIcon Glyph="&#xE8FB;" FontSize="48" Foreground="{ThemeResource TextFillColorSecondaryBrush}"/>
             <TextBlock x:Uid="BackupTasksPage_EmptyState" Margin="0,16,0,0" Foreground="{ThemeResource TextFillColorSecondaryBrush}"/>
         </StackPanel>
