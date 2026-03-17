@@ -1,6 +1,6 @@
 using FolderRewind.Models;
 
-namespace FolderRewind.Views
+namespace FolderRewind.ViewModels
 {
     public sealed class HotkeyBindingItem : ObservableObject
     {

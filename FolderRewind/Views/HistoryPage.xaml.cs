@@ -78,34 +78,35 @@ namespace FolderRewind.Views
 
         private void ConfigFilter_SelectionChanged(object sender, SelectionChangedEventArgs e)
         {
-            // 如果正在进行代码导航设置，直接跳过，不要干扰我的逻辑
-            if (_isNavigating) return;
+            if (_isNavigating)
+            {
+                return;
+            }
 
             if (ConfigFilter.SelectedItem is BackupConfig config)
             {
                 ViewModel.SetCurrentSelection(config, null, refreshHistoryIfFolder: false, persistSelection: true);
                 FolderFilter.ItemsSource = config.SourceFolders;
 
-                // 用户手动点击时，默认选中第一个
                 if (config.SourceFolders.Count > 0)
+                {
                     FolderFilter.SelectedIndex = 0;
+                }
                 else
+                {
                     FolderFilter.SelectedIndex = -1;
+                }
             }
         }
 
         private void FolderFilter_SelectionChanged(object sender, SelectionChangedEventArgs e)
         {
-            // 确保两个都选中了才刷新
             if (FolderFilter.SelectedItem is ManagedFolder folder && ConfigFilter.SelectedItem is BackupConfig config)
             {
                 ViewModel.SetCurrentSelection(config, folder, refreshHistoryIfFolder: true, persistSelection: true);
             }
         }
 
-        /// <summary>
-        /// 查看备份文件按钮点击 - 在资源管理器中打开文件
-        /// </summary>
         private void OnViewClick(object sender, RoutedEventArgs e)
         {
             if (sender is not Button btn || btn.DataContext is not HistoryItem item)
@@ -127,9 +128,6 @@ namespace FolderRewind.Views
             }
         }
 
-        /// <summary>
-        /// 修改注释按钮点击
-        /// </summary>
         private async void OnEditCommentClick(object sender, RoutedEventArgs e)
         {
             if (sender is not Button btn || btn.DataContext is not HistoryItem item)
@@ -165,9 +163,6 @@ namespace FolderRewind.Views
             ViewModel.RefreshCurrentHistory();
         }
 
-        /// <summary>
-        /// 切换重要标记按钮点击
-        /// </summary>
         private void OnToggleImportantClick(object sender, RoutedEventArgs e)
         {
             if (sender is not Button btn || btn.DataContext is not HistoryItem item)
@@ -178,57 +173,68 @@ namespace FolderRewind.Views
             ViewModel.ToggleImportant(item);
         }
 
-        // 还原按钮点击逻辑
         private async void OnRestoreClick(object sender, RoutedEventArgs e)
         {
-            // 获取点击按钮所在的数据行
-            if (sender is Button btn && btn.DataContext is HistoryItem item)
+            if (sender is not Button btn || btn.DataContext is not HistoryItem item)
             {
-                if (!TryGetSelectedContext(persistSelection: false, out var config, out var folder))
+                return;
+            }
+
+            if (!TryGetSelectedContext(persistSelection: false, out var config, out var folder))
+            {
+                return;
+            }
+
+            if (config.IsEncrypted)
+            {
+                var passwordVerified = await PromptAndVerifyPasswordAsync(config);
+                if (!passwordVerified)
                 {
                     return;
                 }
-
-                // 如果是加密配置，先要求输入密码
-                if (config.IsEncrypted)
-                {
-                    bool passwordVerified = await PromptAndVerifyPasswordAsync(config);
-                    if (!passwordVerified) return;
-                }
-
-                // 弹出确认对话框
-                var dialog = new ContentDialog
-                {
-                    Title = I18n.GetString("History_RestoreConfirm_Title"),
-                    Content = new TextBlock
-                    {
-                        Text = I18n.Format("History_RestoreConfirm_Content", item.TimeDisplay, item.Comment ?? string.Empty),
-                        TextWrapping = TextWrapping.Wrap
-                    },
-                    PrimaryButtonText = I18n.GetString("History_RestoreConfirm_Primary"),
-                    SecondaryButtonText = I18n.GetString("History_RestoreConfirm_Secondary"),
-                    CloseButtonText = I18n.GetString("Common_Cancel"),
-                    DefaultButton = ContentDialogButton.Primary,
-                    XamlRoot = this.XamlRoot // 必须设置 XamlRoot
-                };
-
-                var result = await dialog.ShowAsync();
-
-                if (result == ContentDialogResult.Primary)
-                {
-                    await BackupService.RestoreBackupAsync(config, folder, item, BackupService.RestoreMode.Clean);
-                }
-                else if (result == ContentDialogResult.Secondary)
-                {
-                    await BackupService.RestoreBackupAsync(config, folder, item, BackupService.RestoreMode.Overwrite);
-                }
             }
+
+            var restoreMode = await PromptRestoreModeAsync(item);
+            if (restoreMode == null)
+            {
+                return;
+            }
+
+            await BackupService.RestoreBackupAsync(config, folder, item, restoreMode.Value);
         }
 
-        /// <summary>
-        /// 弹出密码验证对话框，验证用户输入的密码是否正确。
-        /// </summary>
-        private async System.Threading.Tasks.Task<bool> PromptAndVerifyPasswordAsync(BackupConfig config)
+        private async Task<BackupService.RestoreMode?> PromptRestoreModeAsync(HistoryItem item)
+        {
+            var dialog = new ContentDialog
+            {
+                Title = I18n.GetString("History_RestoreConfirm_Title"),
+                Content = new TextBlock
+                {
+                    Text = I18n.Format("History_RestoreConfirm_Content", item.TimeDisplay, item.Comment ?? string.Empty),
+                    TextWrapping = TextWrapping.Wrap
+                },
+                PrimaryButtonText = I18n.GetString("History_RestoreConfirm_Primary"),
+                SecondaryButtonText = I18n.GetString("History_RestoreConfirm_Secondary"),
+                CloseButtonText = I18n.GetString("Common_Cancel"),
+                DefaultButton = ContentDialogButton.Primary,
+                XamlRoot = this.XamlRoot
+            };
+
+            var result = await dialog.ShowAsync();
+            if (result == ContentDialogResult.Primary)
+            {
+                return BackupService.RestoreMode.Clean;
+            }
+
+            if (result == ContentDialogResult.Secondary)
+            {
+                return BackupService.RestoreMode.Overwrite;
+            }
+
+            return null;
+        }
+
+        private async Task<bool> PromptAndVerifyPasswordAsync(BackupConfig config)
         {
             var passwordBox = new PasswordBox
             {
@@ -290,28 +296,52 @@ namespace FolderRewind.Views
                 return;
             }
 
-            // 如果是重要备份，先额外警告
-            if (item.IsImportant)
+            if (item.IsImportant && !await ConfirmDeleteImportantAsync())
             {
-                var warnDialog = new ContentDialog
-                {
-                    Title = I18n.GetString("History_DeleteImportant_Title"),
-                    Content = new TextBlock
-                    {
-                        Text = I18n.GetString("History_DeleteImportant_Content"),
-                        TextWrapping = TextWrapping.Wrap
-                    },
-                    PrimaryButtonText = I18n.GetString("History_DeleteImportant_Continue"),
-                    CloseButtonText = I18n.GetString("Common_Cancel"),
-                    DefaultButton = ContentDialogButton.Close,
-                    XamlRoot = this.XamlRoot
-                };
-                ThemeService.ApplyThemeToDialog(warnDialog);
-
-                var warnResult = await warnDialog.ShowAsync();
-                if (warnResult != ContentDialogResult.Primary) return;
+                return;
             }
 
+            var deleteFile = await PromptDeleteModeAsync(item);
+            if (deleteFile == null)
+            {
+                return;
+            }
+
+            var deleteResult = await BackupService.DeleteBackupAsync(config, folder, item, deleteFile.Value);
+            if (!deleteResult.Success)
+            {
+                NotificationService.ShowError(string.IsNullOrWhiteSpace(deleteResult.Message)
+                    ? I18n.GetString("BackupService_Task_Failed")
+                    : deleteResult.Message);
+                return;
+            }
+
+            ViewModel.RefreshCurrentHistory();
+        }
+
+        private async Task<bool> ConfirmDeleteImportantAsync()
+        {
+            var warnDialog = new ContentDialog
+            {
+                Title = I18n.GetString("History_DeleteImportant_Title"),
+                Content = new TextBlock
+                {
+                    Text = I18n.GetString("History_DeleteImportant_Content"),
+                    TextWrapping = TextWrapping.Wrap
+                },
+                PrimaryButtonText = I18n.GetString("History_DeleteImportant_Continue"),
+                CloseButtonText = I18n.GetString("Common_Cancel"),
+                DefaultButton = ContentDialogButton.Close,
+                XamlRoot = this.XamlRoot
+            };
+            ThemeService.ApplyThemeToDialog(warnDialog);
+
+            var result = await warnDialog.ShowAsync();
+            return result == ContentDialogResult.Primary;
+        }
+
+        private async Task<bool?> PromptDeleteModeAsync(HistoryItem item)
+        {
             var dialog = new ContentDialog
             {
                 Title = I18n.GetString("History_DeleteConfirm_Title"),
@@ -329,22 +359,17 @@ namespace FolderRewind.Views
             ThemeService.ApplyThemeToDialog(dialog);
 
             var result = await dialog.ShowAsync();
-            if (result == ContentDialogResult.None)
+            if (result == ContentDialogResult.Primary)
             {
-                return;
+                return false;
             }
 
-            bool deleteFile = result == ContentDialogResult.Secondary;
-            var deleteResult = await BackupService.DeleteBackupAsync(config, folder, item, deleteFile);
-            if (!deleteResult.Success)
+            if (result == ContentDialogResult.Secondary)
             {
-                NotificationService.ShowError(string.IsNullOrWhiteSpace(deleteResult.Message)
-                    ? I18n.GetString("BackupService_Task_Failed")
-                    : deleteResult.Message);
-                return;
+                return true;
             }
 
-            ViewModel.RefreshCurrentHistory();
+            return null;
         }
 
         private void CommentFilterBox_TextChanged(object sender, TextChangedEventArgs e)
@@ -394,9 +419,6 @@ namespace FolderRewind.Views
             ViewModel.RefreshCurrentHistory();
         }
 
-        /// <summary>
-        /// "重建历史" 按钮点击事件：通过扫描备份文件夹恢复丢失的历史记录
-        /// </summary>
         private async void OnScanRecoverClick(object sender, RoutedEventArgs e)
         {
             if (!TryGetSelectedContext(persistSelection: false, out _, out _))
@@ -405,22 +427,13 @@ namespace FolderRewind.Views
                 return;
             }
 
-            // 使用 FolderPicker 让用户选择要扫描的文件夹
-            var picker = new FolderPicker();
-            picker.SuggestedStartLocation = PickerLocationId.DocumentsLibrary;
-            picker.FileTypeFilter.Add("*");
+            var scanPath = await PickScanRecoverFolderPathAsync();
+            if (string.IsNullOrWhiteSpace(scanPath))
+            {
+                return;
+            }
 
-            // WinUI 3 需要通过窗口句柄初始化 Picker
-            var hwnd = WindowNative.GetWindowHandle(App.MainWindow);
-            InitializeWithWindow.Initialize(picker, hwnd);
-
-            var selectedFolder = await picker.PickSingleFolderAsync();
-            if (selectedFolder == null) return;
-
-            string scanPath = selectedFolder.Path;
-
-            // 在后台线程执行扫描，避免阻塞 UI
-            int recovered = await Task.Run(() => ViewModel.ScanAndRecoverHistory(scanPath));
+            var recovered = await Task.Run(() => ViewModel.ScanAndRecoverHistory(scanPath));
 
             if (recovered > 0)
             {
@@ -433,6 +446,21 @@ namespace FolderRewind.Views
                 NotificationService.ShowInfo(
                     I18n.GetString("History_ScanRecover_ResultNone"));
             }
+        }
+
+        private async Task<string?> PickScanRecoverFolderPathAsync()
+        {
+            var picker = new FolderPicker
+            {
+                SuggestedStartLocation = PickerLocationId.DocumentsLibrary
+            };
+            picker.FileTypeFilter.Add("*");
+
+            var hwnd = WindowNative.GetWindowHandle(App.MainWindow);
+            InitializeWithWindow.Initialize(picker, hwnd);
+
+            var folder = await picker.PickSingleFolderAsync();
+            return folder?.Path;
         }
 
         private void RestoreLastSelection()

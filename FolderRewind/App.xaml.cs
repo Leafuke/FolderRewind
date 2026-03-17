@@ -107,6 +107,7 @@ namespace FolderRewind
                 ApplyLanguageOverride(Services.ConfigService.CurrentConfig.GlobalSettings.Language);
 
                 _window = new MainWindow();
+                UiDispatcherService.Initialize(_window.DispatcherQueue);
                 _window.Closed += OnMainWindowClosed;
                 ApplyWindowPreferences(_window);
                 Services.ThemeService.ApplyThemeToWindow(_window);

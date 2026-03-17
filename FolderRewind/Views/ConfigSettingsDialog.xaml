@@ -52,7 +52,7 @@
                             <ColumnDefinition Width="Auto"/>
                             <ColumnDefinition Width="Auto"/>
                         </Grid.ColumnDefinitions>
-                        <TextBox x:Name="ConfigPathBox" Text="{x:Bind ConfigFilePath, Mode=OneWay}" IsReadOnly="True"/>
+                        <TextBox x:Name="ConfigPathBox" Text="{x:Bind ConfigFilePath, Mode=OneTime}" IsReadOnly="True"/>
                         <Button Grid.Column="1" Margin="8,0,0,0" Click="OnOpenConfigFolderClick" x:Uid="ConfigSettingsDialog_OpenConfigFolder">
                             <FontIcon Glyph="&#xE8B7;"/>
                         </Button>
@@ -91,8 +91,8 @@
                 </ComboBox>
 
                 <Border Padding="12" CornerRadius="8" Background="{ThemeResource SystemFillColorCautionBackgroundBrush}"
-                        Visibility="{x:Bind IsOverwriteModeSelected, Mode=OneWay, Converter={StaticResource BoolToVisConverter}}">
-                    <TextBlock Text="{x:Bind OverwriteModeWarningText, Mode=OneWay}"
+                        Visibility="{x:Bind IsOverwriteModeSelected, Mode=OneTime, Converter={StaticResource BoolToVisConverter}}">
+                    <TextBlock Text="{x:Bind OverwriteModeWarningText, Mode=OneTime}"
                                TextWrapping="Wrap"
                                Foreground="{ThemeResource TextFillColorPrimaryBrush}"/>
                 </Border>
@@ -282,7 +282,7 @@
                         <ComboBoxItem x:Uid="ConfigSettingsDialog_CloudModeCustom"/>
                     </ComboBox>
 
-                    <StackPanel Visibility="{x:Bind IsRcloneMode, Mode=OneWay, Converter={StaticResource BoolToVisConverter}}" Spacing="8">
+                    <StackPanel Visibility="{x:Bind IsRcloneMode, Mode=OneTime, Converter={StaticResource BoolToVisConverter}}" Spacing="8">
                         <TextBlock x:Uid="ConfigSettingsDialog_CloudRemoteBasePath" FontWeight="SemiBold"/>
                         <TextBox x:Name="CloudRemoteBasePathBox" x:Uid="ConfigSettingsDialog_CloudRemoteBasePathPlaceholder" Text="{x:Bind Config.Cloud.RemoteBasePath, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" TextChanged="OnCloudInputChanged"/>
                         <TextBlock x:Uid="ConfigSettingsDialog_CloudRemoteBasePathDesc" Style="{StaticResource CaptionTextBlockStyle}" Foreground="{ThemeResource TextFillColorSecondaryBrush}" TextWrapping="Wrap"/>
@@ -361,12 +361,12 @@
                     <StackPanel Spacing="8">
                         <TextBlock x:Uid="ConfigSettingsDialog_CloudVariables" FontWeight="SemiBold"/>
                         <TextBlock x:Uid="ConfigSettingsDialog_CloudVariablesDesc" Style="{StaticResource CaptionTextBlockStyle}" Foreground="{ThemeResource TextFillColorSecondaryBrush}" TextWrapping="Wrap"/>
-                        <TextBox Text="{x:Bind CloudVariablesHelpText, Mode=OneWay}" IsReadOnly="True" TextWrapping="Wrap" AcceptsReturn="True" MinHeight="150"/>
+                        <TextBox Text="{x:Bind CloudVariablesHelpText, Mode=OneTime}" IsReadOnly="True" TextWrapping="Wrap" AcceptsReturn="True" MinHeight="150"/>
                     </StackPanel>
 
                     <StackPanel Spacing="8">
                         <TextBlock x:Uid="ConfigSettingsDialog_CloudPreview" FontWeight="SemiBold"/>
-                        <TextBox Text="{x:Bind CloudPreviewText, Mode=OneWay}" IsReadOnly="True" TextWrapping="Wrap" AcceptsReturn="True" MinHeight="96"/>
+                        <TextBox Text="{x:Bind CloudPreviewText, Mode=OneTime}" IsReadOnly="True" TextWrapping="Wrap" AcceptsReturn="True" MinHeight="96"/>
                     </StackPanel>
 
                     <StackPanel Spacing="8">

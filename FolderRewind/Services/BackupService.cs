@@ -1,5 +1,4 @@
 ﻿using FolderRewind.Models;
-using Microsoft.UI.Dispatching;
 using Microsoft.UI.Xaml.Controls;
 using System;
 using System.Collections.Generic;
@@ -21,8 +20,6 @@ namespace FolderRewind.Services
         private const string InternalRestoreMarkerDirectoryName = "__FolderRewind_Internal";
         private const string InternalRestoreMarkerFileName = "__DeletedOnly.marker";
         private const string MissingEncryptionPasswordMessage = "Encrypted backup password is missing for this configuration.";
-
-        private static DispatcherQueue? UiQueue => App._window?.DispatcherQueue;
 
         private sealed class BackupChangeSet
         {
@@ -76,60 +73,12 @@ namespace FolderRewind.Services
 
         private static Task RunOnUIAsync(Action action)
         {
-            var queue = UiQueue;
-            if (queue == null || queue.HasThreadAccess)
-            {
-                action();
-                return Task.CompletedTask;
-            }
-
-            var tcs = new TaskCompletionSource<object?>();
-
-            if (!queue.TryEnqueue(() =>
-            {
-                try
-                {
-                    action();
-                    tcs.SetResult(null);
-                }
-                catch (Exception ex)
-                {
-                    tcs.SetException(ex);
-                }
-            }))
-            {
-                tcs.TrySetException(new InvalidOperationException("Failed to enqueue UI action."));
-            }
-
-            return tcs.Task;
+            return UiDispatcherService.RunOnUiAsync(action);
         }
 
         private static Task<T> RunOnUIAsync<T>(Func<Task<T>> action)
         {
-            var queue = UiQueue;
-            if (queue == null || queue.HasThreadAccess)
-            {
-                return action();
-            }
-
-            var tcs = new TaskCompletionSource<T>();
-
-            if (!queue.TryEnqueue(async () =>
-            {
-                try
-                {
-                    tcs.SetResult(await action());
-                }
-                catch (Exception ex)
-                {
-                    tcs.SetException(ex);
-                }
-            }))
-            {
-                tcs.TrySetException(new InvalidOperationException("Failed to enqueue UI action."));
-            }
-
-            return tcs.Task;
+            return UiDispatcherService.RunOnUiAsync(action);
         }
 
         /// <summary>
@@ -3337,7 +3286,7 @@ namespace FolderRewind.Services
             Log(MissingEncryptionPasswordMessage, LogLevel.Error);
             if (taskToUpdate != null)
             {
-                UiQueue?.TryEnqueue(() =>
+                UiDispatcherService.Enqueue(() =>
                 {
                     if (string.IsNullOrWhiteSpace(taskToUpdate.ErrorMessage))
                     {
@@ -3826,7 +3775,7 @@ namespace FolderRewind.Services
                         if (match.Success && int.TryParse(match.Groups[1].Value, out int percent) && percent >= 0 && percent <= 100)
                         {
                             double mapped = progressBase + (double)percent / 100.0 * progressRange;
-                            UiQueue?.TryEnqueue(() =>
+                            UiDispatcherService.Enqueue(() =>
                             {
                                 if (taskToUpdate.IsIndeterminate) taskToUpdate.IsIndeterminate = false;
                                 taskToUpdate.Progress = Math.Min(mapped, 100);
@@ -3849,7 +3798,7 @@ namespace FolderRewind.Services
                 // 7z 返回非零退出码且有 stderr 输出时，将错误信息写入任务
                 if (p.ExitCode != 0 && taskToUpdate != null && !string.IsNullOrWhiteSpace(lastErrorLine))
                 {
-                    UiQueue?.TryEnqueue(() =>
+                    UiDispatcherService.Enqueue(() =>
                     {
                         if (string.IsNullOrEmpty(taskToUpdate.ErrorMessage))
                             taskToUpdate.ErrorMessage = lastErrorLine;
@@ -3863,7 +3812,7 @@ namespace FolderRewind.Services
                 Log(I18n.Format("BackupService_Log_SystemError", ex.Message), LogLevel.Error);
                 if (taskToUpdate != null)
                 {
-                    UiQueue?.TryEnqueue(() =>
+                    UiDispatcherService.Enqueue(() =>
                     {
                         if (string.IsNullOrEmpty(taskToUpdate.ErrorMessage))
                             taskToUpdate.ErrorMessage = ex.Message;

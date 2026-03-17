@@ -2,7 +2,6 @@ using FolderRewind.Models;
 using FolderRewind.Services;
 using FolderRewind.Services.Hotkeys;
 using FolderRewind.Services.Plugins;
-using FolderRewind.Views;
 using Microsoft.UI.Xaml.Media;
 using System;
 using System.Collections.Generic;

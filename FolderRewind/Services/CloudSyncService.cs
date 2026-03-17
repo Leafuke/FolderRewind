@@ -1,5 +1,4 @@
 using FolderRewind.Models;
-using Microsoft.UI.Dispatching;
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
@@ -22,8 +21,6 @@ namespace FolderRewind.Services
         private const int MaxTimeoutSeconds = 86400;
         private const int MaxLogLength = 4096;
         private static readonly SemaphoreSlim UploadSemaphore = new(1, 1);
-
-        private static DispatcherQueue? UiQueue => App._window?.DispatcherQueue;
 
         private sealed class CloudCommandContext
         {
@@ -492,32 +489,7 @@ namespace FolderRewind.Services
 
         private static Task RunOnUIAsync(Action action)
         {
-            var queue = UiQueue;
-            if (queue == null || queue.HasThreadAccess)
-            {
-                action();
-                return Task.CompletedTask;
-            }
-
-            var tcs = new TaskCompletionSource<object?>();
-
-            if (!queue.TryEnqueue(() =>
-            {
-                try
-                {
-                    action();
-                    tcs.SetResult(null);
-                }
-                catch (Exception ex)
-                {
-                    tcs.SetException(ex);
-                }
-            }))
-            {
-                tcs.TrySetException(new InvalidOperationException("Failed to enqueue UI action."));
-            }
-
-            return tcs.Task;
+            return UiDispatcherService.RunOnUiAsync(action);
         }
     }
 }

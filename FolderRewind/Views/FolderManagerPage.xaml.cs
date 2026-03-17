@@ -11,6 +11,7 @@ using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
+using System.Threading.Tasks;
 using Windows.ApplicationModel.Resources;
 using Windows.Storage;
 using Windows.Storage.Pickers;
@@ -221,22 +222,6 @@ namespace FolderRewind.Views
             ViewModel.SetSelectedFolder(FolderList.SelectedItem as ManagedFolder, persistSelection: true);
         }
 
-        private async void OnAddFolderClick(object sender, RoutedEventArgs e)
-        {
-            if (ViewModel.CurrentConfig == null)
-            {
-                return;
-            }
-
-            var folder = await PickFolderAsync();
-            if (folder == null)
-            {
-                return;
-            }
-
-            await AddSingleFolderInternalAsync(folder);
-        }
-
         private void OnRemoveFolderClick(object sender, RoutedEventArgs e)
         {
             if (sender is MenuFlyoutItem item && item.DataContext is ManagedFolder folder)
@@ -329,7 +314,7 @@ namespace FolderRewind.Views
             }
         }
 
-        private async System.Threading.Tasks.Task AddSingleFolderInternalAsync(StorageFolder folder)
+        private async Task AddSingleFolderInternalAsync(StorageFolder folder)
         {
             var result = ViewModel.AddFolder(folder.Path, folder.Name, out var addedFolder);
             if (result == FolderManagerPageViewModel.AddFolderResult.DuplicateDisplayName)
@@ -346,7 +331,7 @@ namespace FolderRewind.Views
             }
         }
 
-        private async System.Threading.Tasks.Task ShowDuplicateDisplayNameBlockedAsync(string folderName)
+        private async Task ShowDuplicateDisplayNameBlockedAsync(string folderName)
         {
             if (string.IsNullOrWhiteSpace(folderName))
             {
@@ -366,7 +351,7 @@ namespace FolderRewind.Views
             await dialog.ShowAsync();
         }
 
-        private async System.Threading.Tasks.Task ShowSkippedDuplicateDisplayNamesAsync(IEnumerable<string> folderNames)
+        private async Task ShowSkippedDuplicateDisplayNamesAsync(IEnumerable<string> folderNames)
         {
             var distinctNames = folderNames
                 .Where(name => !string.IsNullOrWhiteSpace(name))
@@ -450,16 +435,7 @@ namespace FolderRewind.Views
             var discovered = PluginService.InvokeDiscoverManagedFolders(rootFolder.Path);
             if (discovered == null || discovered.Count == 0)
             {
-                var rl = ResourceLoader.GetForViewIndependentUse();
-                var dialog = new ContentDialog
-                {
-                    Title = rl.GetString("FolderManager_PluginDiscover_NoResultTitle"),
-                    Content = rl.GetString("FolderManager_PluginDiscover_NoResultContent"),
-                    CloseButtonText = rl.GetString("Common_Ok"),
-                    DefaultButton = ContentDialogButton.Close,
-                    XamlRoot = this.XamlRoot
-                };
-                await dialog.ShowAsync();
+                await ShowPluginDiscoverNoResultAsync();
                 return;
             }
 
@@ -472,36 +448,14 @@ namespace FolderRewind.Views
                     return;
                 }
 
-                var rl = ResourceLoader.GetForViewIndependentUse();
-                var dialog = new ContentDialog
-                {
-                    Title = rl.GetString("FolderManager_PluginDiscover_NoNewTitle"),
-                    Content = rl.GetString("FolderManager_PluginDiscover_NoNewContent"),
-                    CloseButtonText = rl.GetString("Common_Ok"),
-                    DefaultButton = ContentDialogButton.Close,
-                    XamlRoot = this.XamlRoot
-                };
-                await dialog.ShowAsync();
+                await ShowPluginDiscoverNoNewAsync();
                 return;
             }
 
+            var confirmed = await ConfirmPluginDiscoverImportAsync(candidates.ToAdd.Count);
+            if (!confirmed)
             {
-                var rl = ResourceLoader.GetForViewIndependentUse();
-                var confirm = new ContentDialog
-                {
-                    Title = rl.GetString("FolderManager_PluginDiscover_ConfirmTitle"),
-                    Content = string.Format(rl.GetString("FolderManager_PluginDiscover_ConfirmContent"), candidates.ToAdd.Count),
-                    PrimaryButtonText = rl.GetString("Common_Ok"),
-                    CloseButtonText = rl.GetString("Common_Cancel"),
-                    DefaultButton = ContentDialogButton.Primary,
-                    XamlRoot = this.XamlRoot
-                };
-
-                var res = await confirm.ShowAsync();
-                if (res != ContentDialogResult.Primary)
-                {
-                    return;
-                }
+                return;
             }
 
             ViewModel.AddDiscoveredFolders(candidates.ToAdd);
@@ -517,7 +471,54 @@ namespace FolderRewind.Views
             }
         }
 
-        private async System.Threading.Tasks.Task ShowMineRewindSuggestionAsync()
+        private async Task ShowPluginDiscoverNoResultAsync()
+        {
+            var rl = ResourceLoader.GetForViewIndependentUse();
+            var dialog = new ContentDialog
+            {
+                Title = rl.GetString("FolderManager_PluginDiscover_NoResultTitle"),
+                Content = rl.GetString("FolderManager_PluginDiscover_NoResultContent"),
+                CloseButtonText = rl.GetString("Common_Ok"),
+                DefaultButton = ContentDialogButton.Close,
+                XamlRoot = this.XamlRoot
+            };
+
+            await dialog.ShowAsync();
+        }
+
+        private async Task ShowPluginDiscoverNoNewAsync()
+        {
+            var rl = ResourceLoader.GetForViewIndependentUse();
+            var dialog = new ContentDialog
+            {
+                Title = rl.GetString("FolderManager_PluginDiscover_NoNewTitle"),
+                Content = rl.GetString("FolderManager_PluginDiscover_NoNewContent"),
+                CloseButtonText = rl.GetString("Common_Ok"),
+                DefaultButton = ContentDialogButton.Close,
+                XamlRoot = this.XamlRoot
+            };
+
+            await dialog.ShowAsync();
+        }
+
+        private async Task<bool> ConfirmPluginDiscoverImportAsync(int folderCount)
+        {
+            var rl = ResourceLoader.GetForViewIndependentUse();
+            var confirm = new ContentDialog
+            {
+                Title = rl.GetString("FolderManager_PluginDiscover_ConfirmTitle"),
+                Content = string.Format(rl.GetString("FolderManager_PluginDiscover_ConfirmContent"), folderCount),
+                PrimaryButtonText = rl.GetString("Common_Ok"),
+                CloseButtonText = rl.GetString("Common_Cancel"),
+                DefaultButton = ContentDialogButton.Primary,
+                XamlRoot = this.XamlRoot
+            };
+
+            var result = await confirm.ShowAsync();
+            return result == ContentDialogResult.Primary;
+        }
+
+        private async Task ShowMineRewindSuggestionAsync()
         {
             var rl = ResourceLoader.GetForViewIndependentUse();
             var dialog = new ContentDialog
@@ -645,7 +646,7 @@ namespace FolderRewind.Views
             }
         }
 
-        private async System.Threading.Tasks.Task<StorageFolder?> PickFolderAsync()
+        private async Task<StorageFolder?> PickFolderAsync()
         {
             var picker = new FolderPicker
             {
