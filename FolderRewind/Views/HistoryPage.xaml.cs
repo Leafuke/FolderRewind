@@ -7,7 +7,6 @@ using Microsoft.UI.Xaml.Navigation;
 using System;
 using System.Threading.Tasks;
 using Windows.Storage.Pickers;
-using WinRT.Interop;
 
 namespace FolderRewind.Views
 {
@@ -455,9 +454,7 @@ namespace FolderRewind.Views
                 SuggestedStartLocation = PickerLocationId.DocumentsLibrary
             };
             picker.FileTypeFilter.Add("*");
-
-            var hwnd = WindowNative.GetWindowHandle(App.MainWindow);
-            InitializeWithWindow.Initialize(picker, hwnd);
+            MainWindowService.InitializePicker(picker);
 
             var folder = await picker.PickSingleFolderAsync();
             return folder?.Path;

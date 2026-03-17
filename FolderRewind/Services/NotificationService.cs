@@ -356,19 +356,7 @@ namespace FolderRewind.Services
         /// </summary>
         private static bool IsAppForeground()
         {
-            try
-            {
-                var mainWindow = App.MainWindow;
-                if (mainWindow?.AppWindow != null)
-                {
-                    return mainWindow.AppWindow.IsVisible;
-                }
-                return true;
-            }
-            catch
-            {
-                return true;
-            }
+            return MainWindowService.IsMainWindowVisible();
         }
     }
 }

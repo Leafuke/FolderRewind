@@ -10,7 +10,7 @@ using System.Linq;
 
 namespace FolderRewind.Views
 {
-    public sealed partial class ShellPage : Page
+    public sealed partial class ShellPage : Page, INavigationHost
     {
         private bool _isSyncingSelection;
         private DispatcherQueueTimer? _infoBarTimer;
@@ -23,8 +23,7 @@ namespace FolderRewind.Views
         public ShellPage()
         {
             this.InitializeComponent();
-            // 注册自己，方便全局调用
-            App.Shell = this;
+            NavigationService.Initialize(this);
 
             ContentFrame.Navigated += ContentFrame_Navigated;
 
@@ -36,6 +35,7 @@ namespace FolderRewind.Views
 
         private void ShellPage_Unloaded(object sender, Microsoft.UI.Xaml.RoutedEventArgs e)
         {
+            NavigationService.Clear(this);
             NotificationService.InfoBarRequested -= OnInfoBarRequested;
             ConfigService.Saved -= OnConfigSaved;
             Unloaded -= ShellPage_Unloaded;

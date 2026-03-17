@@ -16,7 +16,6 @@ using Windows.ApplicationModel.Resources;
 using Windows.Storage;
 using Windows.Storage.Pickers;
 using Windows.System;
-using WinRT.Interop;
 
 namespace FolderRewind.Views
 {
@@ -560,11 +559,7 @@ namespace FolderRewind.Views
             picker.FileTypeFilter.Add(".png");
             picker.FileTypeFilter.Add(".jpg");
             picker.FileTypeFilter.Add(".jpeg");
-
-            if (App._window != null)
-            {
-                InitializeWithWindow.Initialize(picker, WindowNative.GetWindowHandle(App._window));
-            }
+            MainWindowService.InitializePicker(picker);
 
             var file = await picker.PickSingleFileAsync();
             if (file == null)
@@ -627,7 +622,7 @@ namespace FolderRewind.Views
             }
 
             var param = ManagerNavigationParameter.ForFolder(config.Id, folder.Path);
-            App.Shell.NavigateTo("History", param);
+            _ = NavigationService.NavigateTo("History", param);
         }
 
         private async void OnConfigSettingsClick(object sender, RoutedEventArgs e)
@@ -653,11 +648,7 @@ namespace FolderRewind.Views
                 SuggestedStartLocation = PickerLocationId.ComputerFolder
             };
             picker.FileTypeFilter.Add("*");
-
-            if (App._window != null)
-            {
-                InitializeWithWindow.Initialize(picker, WindowNative.GetWindowHandle(App._window));
-            }
+            MainWindowService.InitializePicker(picker);
 
             return await picker.PickSingleFolderAsync();
         }

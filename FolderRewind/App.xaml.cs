@@ -23,15 +23,7 @@ namespace FolderRewind
 
         #region 全局状态与共享入口
 
-        public static Window _window { get; set; } = null!;
-
-        /// <summary>
-        /// 获取主窗口实例（用于 NotificationService 等服务判断窗口状态）
-        /// </summary>
-        public static MainWindow? MainWindow => _window as MainWindow;
-
-        // 暴露 ShellPage 以便子页面控制导航
-        public static Views.ShellPage Shell { get; set; } = null!;
+        private static Window _window { get; set; } = null!;
 
         private TaskbarIcon? _trayIcon;
         internal static bool ForceExitRequested { get; private set; }
@@ -107,6 +99,7 @@ namespace FolderRewind
                 ApplyLanguageOverride(Services.ConfigService.CurrentConfig.GlobalSettings.Language);
 
                 _window = new MainWindow();
+                MainWindowService.Initialize(_window);
                 UiDispatcherService.Initialize(_window.DispatcherQueue);
                 _window.Closed += OnMainWindowClosed;
                 ApplyWindowPreferences(_window);

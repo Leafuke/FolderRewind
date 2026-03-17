@@ -497,7 +497,7 @@ namespace FolderRewind.Services
                 report.Summary,
                 NotificationSeverity.Error,
                 0,
-                () => App.Shell?.NavigateTo("Settings"));
+                () => NavigationService.NavigateTo("Settings"));
         }
 
         private static void PersistReport(CoreFeatureValidationReport report, bool automatic)

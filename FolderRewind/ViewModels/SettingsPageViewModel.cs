@@ -9,7 +9,6 @@ using System.Collections.ObjectModel;
 using System.Linq;
 using System.Threading.Tasks;
 using Windows.ApplicationModel;
-using Windows.Graphics;
 
 namespace FolderRewind.ViewModels
 {
@@ -209,7 +208,7 @@ namespace FolderRewind.ViewModels
         {
             Settings.Language = IndexToLanguage(selectedIndex);
             ConfigService.Save();
-            App.UpdateWindowTitle();
+            MainWindowService.UpdateWindowTitle();
         }
 
         public async Task<StartupToggleResult> HandleRunOnStartupToggledAsync(bool desired)
@@ -270,7 +269,7 @@ namespace FolderRewind.ViewModels
         public void HandleThemeChanged(int selectedIndex)
         {
             Settings.ThemeIndex = Math.Clamp(selectedIndex, 0, 2);
-            ThemeService.ApplyThemeToWindow(App._window);
+            MainWindowService.ApplyCurrentTheme();
             ThemeService.NotifyThemeChanged();
             ConfigService.Save();
         }
@@ -622,21 +621,9 @@ namespace FolderRewind.ViewModels
 
         private static void ApplyWindowSize(double width, double height)
         {
-            if (App._window == null)
-            {
-                return;
-            }
-
             var clampedWidth = ClampWidth(width);
             var clampedHeight = ClampHeight(height);
-
-            try
-            {
-                App._window.AppWindow?.Resize(new SizeInt32((int)Math.Round(clampedWidth), (int)Math.Round(clampedHeight)));
-            }
-            catch
-            {
-            }
+            MainWindowService.Resize(clampedWidth, clampedHeight);
         }
 
         private void PushLogOptions()

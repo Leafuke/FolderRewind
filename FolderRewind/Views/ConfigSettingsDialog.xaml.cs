@@ -11,7 +11,6 @@ using System.IO;
 using System.Linq;
 using System.Threading.Tasks;
 using Windows.Storage.Pickers;
-using WinRT.Interop;
 
 namespace FolderRewind.Views
 {
@@ -165,7 +164,7 @@ namespace FolderRewind.Views
             this.InitializeComponent();
             this.Config = config;
             this.Config.Cloud ??= new CloudSettings();
-            this.XamlRoot = App._window.Content.XamlRoot;
+            this.XamlRoot = MainWindowService.GetXamlRoot();
 
             // 应用当前主题到对话框
             ThemeService.ApplyThemeToDialog(this);
@@ -469,11 +468,7 @@ namespace FolderRewind.Views
             var picker = new FolderPicker();
             picker.SuggestedStartLocation = PickerLocationId.ComputerFolder;
             picker.FileTypeFilter.Add("*");
-
-            if (App._window != null)
-            {
-                InitializeWithWindow.Initialize(picker, WindowNative.GetWindowHandle(App._window));
-            }
+            MainWindowService.InitializePicker(picker);
 
             var folder = await picker.PickSingleFolderAsync();
             if (folder != null)
@@ -555,9 +550,7 @@ namespace FolderRewind.Views
             picker.FileTypeFilter.Add(".cmd");
             picker.FileTypeFilter.Add(".bat");
             picker.FileTypeFilter.Add(".ps1");
-
-            if (App._window != null)
-                InitializeWithWindow.Initialize(picker, WindowNative.GetWindowHandle(App._window));
+            MainWindowService.InitializePicker(picker);
 
             var file = await picker.PickSingleFileAsync();
             if (file == null) return;
@@ -571,9 +564,7 @@ namespace FolderRewind.Views
             var picker = new FolderPicker();
             picker.SuggestedStartLocation = PickerLocationId.ComputerFolder;
             picker.FileTypeFilter.Add("*");
-
-            if (App._window != null)
-                InitializeWithWindow.Initialize(picker, WindowNative.GetWindowHandle(App._window));
+            MainWindowService.InitializePicker(picker);
 
             var folder = await picker.PickSingleFolderAsync();
             if (folder == null) return;
@@ -610,7 +601,7 @@ namespace FolderRewind.Views
                 PrimaryButtonText = I18n.GetString("Common_Delete"),
                 CloseButtonText = I18n.GetString("Common_Cancel"),
                 DefaultButton = ContentDialogButton.Close,
-                XamlRoot = App._window?.Content?.XamlRoot ?? this.XamlRoot
+                XamlRoot = MainWindowService.GetXamlRoot() ?? this.XamlRoot
             };
 
             var result = await confirm.ShowAsync();

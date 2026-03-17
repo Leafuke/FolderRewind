@@ -20,7 +20,6 @@ using Windows.Graphics;
 using Windows.Storage;
 using Windows.Storage.Pickers;
 using Windows.System;
-using WinRT.Interop;
 
 namespace FolderRewind.Views
 {
@@ -615,11 +614,7 @@ namespace FolderRewind.Views
             picker.ViewMode = PickerViewMode.List;
             picker.SuggestedStartLocation = PickerLocationId.Downloads;
             picker.FileTypeFilter.Add(".zip");
-
-            if (App._window != null)
-            {
-                InitializeWithWindow.Initialize(picker, WindowNative.GetWindowHandle(App._window));
-            }
+            MainWindowService.InitializePicker(picker);
 
             var file = await picker.PickSingleFileAsync();
             if (file == null) return;
@@ -1004,11 +999,7 @@ namespace FolderRewind.Views
             picker.ViewMode = PickerViewMode.List;
             picker.SuggestedStartLocation = PickerLocationId.ComputerFolder;
             picker.FileTypeFilter.Add(".exe");
-
-            if (App._window != null)
-            {
-                InitializeWithWindow.Initialize(picker, WindowNative.GetWindowHandle(App._window));
-            }
+            MainWindowService.InitializePicker(picker);
 
             var file = await picker.PickSingleFileAsync();
             if (file != null)
@@ -1022,11 +1013,7 @@ namespace FolderRewind.Views
             var picker = new FolderPicker();
             picker.SuggestedStartLocation = PickerLocationId.DocumentsLibrary;
             picker.FileTypeFilter.Add("*");
-
-            if (App._window != null)
-            {
-                InitializeWithWindow.Initialize(picker, WindowNative.GetWindowHandle(App._window));
-            }
+            MainWindowService.InitializePicker(picker);
 
             var folder = await picker.PickSingleFolderAsync();
             if (folder != null)
@@ -1064,7 +1051,7 @@ namespace FolderRewind.Views
 
         private void OnOpenLogCenterClick(object sender, RoutedEventArgs e)
         {
-            App.Shell?.NavigateTo("Logs");
+            _ = NavigationService.NavigateTo("Logs");
         }
 
         private void OnStartupSizeChanged(object sender, NumberBoxValueChangedEventArgs e)
@@ -1111,9 +1098,7 @@ namespace FolderRewind.Views
             picker.SuggestedStartLocation = PickerLocationId.DocumentsLibrary;
             picker.FileTypeChoices.Add("JSON", new List<string> { ".json" });
             picker.SuggestedFileName = "FolderRewind_config";
-
-            if (App._window != null)
-                InitializeWithWindow.Initialize(picker, WindowNative.GetWindowHandle(App._window));
+            MainWindowService.InitializePicker(picker);
 
             var file = await picker.PickSaveFileAsync();
             if (file == null) return;
@@ -1144,9 +1129,7 @@ namespace FolderRewind.Views
             var picker = new FileOpenPicker();
             picker.SuggestedStartLocation = PickerLocationId.DocumentsLibrary;
             picker.FileTypeFilter.Add(".json");
-
-            if (App._window != null)
-                InitializeWithWindow.Initialize(picker, WindowNative.GetWindowHandle(App._window));
+            MainWindowService.InitializePicker(picker);
 
             var file = await picker.PickSingleFileAsync();
             if (file == null) return;
@@ -1170,9 +1153,7 @@ namespace FolderRewind.Views
             picker.SuggestedStartLocation = PickerLocationId.DocumentsLibrary;
             picker.FileTypeChoices.Add("JSON", new List<string> { ".json" });
             picker.SuggestedFileName = "FolderRewind_history";
-
-            if (App._window != null)
-                InitializeWithWindow.Initialize(picker, WindowNative.GetWindowHandle(App._window));
+            MainWindowService.InitializePicker(picker);
 
             var file = await picker.PickSaveFileAsync();
             if (file == null) return;
@@ -1206,9 +1187,7 @@ namespace FolderRewind.Views
             var picker = new FileOpenPicker();
             picker.SuggestedStartLocation = PickerLocationId.DocumentsLibrary;
             picker.FileTypeFilter.Add(".json");
-
-            if (App._window != null)
-                InitializeWithWindow.Initialize(picker, WindowNative.GetWindowHandle(App._window));
+            MainWindowService.InitializePicker(picker);
 
             var file = await picker.PickSingleFileAsync();
             if (file == null) return;

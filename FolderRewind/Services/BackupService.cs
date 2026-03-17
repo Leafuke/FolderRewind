@@ -2525,7 +2525,8 @@ namespace FolderRewind.Services
 
         private static async Task<bool> ConfirmMissingBaseFullFallbackAsync(string folderDisplayName, string backupFileName)
         {
-            if (App._window?.Content?.XamlRoot == null)
+            var xamlRoot = MainWindowService.GetXamlRoot();
+            if (xamlRoot == null)
             {
                 return false;
             }
@@ -2537,7 +2538,7 @@ namespace FolderRewind.Services
                 PrimaryButtonText = I18n.GetString("BackupService_RestoreMissingBaseFull_Primary"),
                 CloseButtonText = I18n.GetString("Common_Cancel"),
                 DefaultButton = ContentDialogButton.Close,
-                XamlRoot = App._window.Content.XamlRoot
+                XamlRoot = xamlRoot
             };
             ThemeService.ApplyThemeToDialog(dialog);
 

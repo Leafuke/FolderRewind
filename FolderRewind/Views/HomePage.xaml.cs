@@ -14,7 +14,6 @@ using System.Linq;
 using Windows.ApplicationModel.Resources;
 using Windows.Storage;
 using Windows.Storage.Pickers;
-using WinRT.Interop;
 
 namespace FolderRewind.Views
 {
@@ -54,7 +53,7 @@ namespace FolderRewind.Views
                 if (parentConfig != null)
                 {
                     // 跳转到管理页并自动选中该文件夹
-                    App.Shell.NavigateTo("Manager", ManagerNavigationParameter.ForFolder(parentConfig.Id, folder.Path));
+                    _ = NavigationService.NavigateTo("Manager", ManagerNavigationParameter.ForFolder(parentConfig.Id, folder.Path));
                 }
             }
         }
@@ -64,7 +63,7 @@ namespace FolderRewind.Views
         {
             if (sender is Button btn && btn.DataContext is BackupConfig config)
             {
-                App.Shell.NavigateTo("Manager", ManagerNavigationParameter.ForConfig(config.Id));
+                _ = NavigationService.NavigateTo("Manager", ManagerNavigationParameter.ForConfig(config.Id));
             }
         }
 
@@ -255,7 +254,7 @@ namespace FolderRewind.Views
                     }
 
                     ConfigService.Save();
-                    App.Shell.NavigateTo("Manager", ManagerNavigationParameter.ForConfig(result.CreatedConfigs[0].Id));
+                    _ = NavigationService.NavigateTo("Manager", ManagerNavigationParameter.ForConfig(result.CreatedConfigs[0].Id));
                     return;
                 }
 
@@ -291,7 +290,7 @@ namespace FolderRewind.Views
                     EncryptionService.StorePassword(newConfig.Id, encryptionPassword);
                 }
 
-                App.Shell.NavigateTo("Manager", ManagerNavigationParameter.ForConfig(newConfig.Id));
+                _ = NavigationService.NavigateTo("Manager", ManagerNavigationParameter.ForConfig(newConfig.Id));
             }
         }
 
@@ -381,11 +380,7 @@ namespace FolderRewind.Views
             {
                 picker.SettingsIdentifier = "FolderRewind.HomePage.Picker";
             }
-
-            if (App._window != null)
-            {
-                InitializeWithWindow.Initialize(picker, WindowNative.GetWindowHandle(App._window));
-            }
+            MainWindowService.InitializePicker(picker);
 
             return await picker.PickSingleFolderAsync();
         }
@@ -436,7 +431,7 @@ namespace FolderRewind.Views
         {
             if (sender is MenuFlyoutItem item && item.DataContext is BackupConfig config)
             {
-                App.Shell.NavigateTo("Manager", ManagerNavigationParameter.ForConfig(config.Id));
+                _ = NavigationService.NavigateTo("Manager", ManagerNavigationParameter.ForConfig(config.Id));
             }
         }
 
