@@ -15,6 +15,7 @@ namespace FolderRewind.ViewModels
 {
     public sealed class PluginStorePageViewModel : ViewModelBase
     {
+        private bool _isActive;
         private CancellationTokenSource? _cts;
         private bool _isLoading;
         private string _statusMessage = string.Empty;
@@ -118,6 +119,28 @@ namespace FolderRewind.ViewModels
         public Visibility EmptyListVisibility => !IsLoading && !string.IsNullOrWhiteSpace(StoreRepo) && Assets.Count == 0
             ? Visibility.Visible
             : Visibility.Collapsed;
+
+        public async Task ActivateAsync()
+        {
+            if (_isActive)
+            {
+                return;
+            }
+
+            _isActive = true;
+            await EnsureInitialLoadAsync();
+        }
+
+        public void Deactivate()
+        {
+            if (!_isActive)
+            {
+                return;
+            }
+
+            _isActive = false;
+            CancelPendingOperations();
+        }
 
         public async Task EnsureInitialLoadAsync()
         {

@@ -51,14 +51,7 @@ namespace FolderRewind.ViewModels
 
         private void OnTasksChanged(object? sender, NotifyCollectionChangedEventArgs e)
         {
-            var queue = App.MainWindow?.DispatcherQueue;
-            if (queue == null || queue.HasThreadAccess)
-            {
-                RefreshTasksView();
-                return;
-            }
-
-            _ = queue.TryEnqueue(RefreshTasksView);
+            EnqueueOnUiThread(RefreshTasksView);
         }
 
         private void RefreshTasksView()

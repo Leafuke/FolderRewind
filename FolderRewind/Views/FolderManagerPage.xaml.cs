@@ -10,7 +10,6 @@ using Microsoft.UI.Xaml.Navigation;
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
-using System.IO;
 using System.Linq;
 using Windows.ApplicationModel.Resources;
 using Windows.Storage;
@@ -23,8 +22,6 @@ namespace FolderRewind.Views
     public sealed partial class FolderManagerPage : Page
     {
         public FolderManagerPageViewModel ViewModel { get; } = new();
-
-        private bool _minecraftPluginHintShown;
 
         private const string MineRewindDownloadUrl = "https://github.com/Leafuke/FolderRewind-Plugin-Minecraft/releases";
 
@@ -116,12 +113,7 @@ namespace FolderRewind.Views
                 return;
             }
 
-            var baseComment = ViewModel.BackupComment;
-            var comment = string.IsNullOrWhiteSpace(baseComment)
-                ? "[快捷键]"
-                : (baseComment.Contains("[快捷键]", StringComparison.OrdinalIgnoreCase)
-                    ? baseComment
-                    : $"{baseComment} [快捷键]");
+            var comment = ViewModel.BuildHotkeyBackupComment();
 
             _ = DispatcherQueue.TryEnqueue(async () =>
             {
@@ -273,15 +265,15 @@ namespace FolderRewind.Views
         {
             if (sender is MenuFlyoutItem item && item.DataContext is ManagedFolder folder)
             {
-                Process.Start("explorer.exe", folder.Path);
+                ViewModel.TryOpenFolder(folder);
             }
         }
 
         private void OnOpenMiniWindowClick(object sender, RoutedEventArgs e)
         {
-            if (sender is MenuFlyoutItem item && item.DataContext is ManagedFolder folder && ViewModel.CurrentConfig != null)
+            if (sender is MenuFlyoutItem item && item.DataContext is ManagedFolder folder)
             {
-                MiniWindowService.Open(ViewModel.CurrentConfig, folder);
+                ViewModel.TryOpenMiniWindow(folder);
             }
         }
 
@@ -323,14 +315,14 @@ namespace FolderRewind.Views
 
         private void SaveDescriptionIfNeeded(TextBox textBox)
         {
-            if (textBox.DataContext is not ManagedFolder)
+            if (textBox.DataContext is not ManagedFolder folder)
             {
                 return;
             }
 
             try
             {
-                ViewModel.SaveConfig();
+                ViewModel.SaveFolderDescription(folder);
             }
             catch
             {
@@ -348,7 +340,7 @@ namespace FolderRewind.Views
 
             if (result == FolderManagerPageViewModel.AddFolderResult.Added &&
                 addedFolder != null &&
-                ShouldSuggestMineRewind(addedFolder.Path, addedFolder.DisplayName))
+                ViewModel.TryMarkNeedMineRewindSuggestion(addedFolder))
             {
                 _ = ShowMineRewindSuggestionAsync();
             }
@@ -429,7 +421,7 @@ namespace FolderRewind.Views
                 return;
             }
 
-            if (result.AddedFolders.Any(f => ShouldSuggestMineRewind(f.Path, f.DisplayName)))
+            if (ViewModel.TryMarkNeedMineRewindSuggestion(result.AddedFolders))
             {
                 _ = ShowMineRewindSuggestionAsync();
             }
@@ -514,7 +506,7 @@ namespace FolderRewind.Views
 
             ViewModel.AddDiscoveredFolders(candidates.ToAdd);
 
-            if (candidates.ToAdd.Any(f => ShouldSuggestMineRewind(f.Path, f.DisplayName)))
+            if (ViewModel.TryMarkNeedMineRewindSuggestion(candidates.ToAdd))
             {
                 _ = ShowMineRewindSuggestionAsync();
             }
@@ -525,29 +517,8 @@ namespace FolderRewind.Views
             }
         }
 
-        private bool ShouldSuggestMineRewind(string path, string? name)
-        {
-            if (_minecraftPluginHintShown || string.IsNullOrWhiteSpace(path))
-            {
-                return false;
-            }
-
-            var folderName = string.IsNullOrWhiteSpace(name) ? Path.GetFileName(path) : name;
-            var isMinecraftRoot = string.Equals(folderName, ".minecraft", StringComparison.OrdinalIgnoreCase);
-            var hasLevelDat = File.Exists(Path.Combine(path, "level.dat"));
-
-            return isMinecraftRoot || hasLevelDat;
-        }
-
         private async System.Threading.Tasks.Task ShowMineRewindSuggestionAsync()
         {
-            if (_minecraftPluginHintShown)
-            {
-                return;
-            }
-
-            _minecraftPluginHintShown = true;
-
             var rl = ResourceLoader.GetForViewIndependentUse();
             var dialog = new ContentDialog
             {
@@ -600,18 +571,9 @@ namespace FolderRewind.Views
                 return;
             }
 
-            try
+            if (!ViewModel.TryReplaceFolderIcon(folder, file.Path, out var errorMessage))
             {
-                var destPath = Path.Combine(folder.Path, "icon.png");
-                File.Copy(file.Path, destPath, overwrite: true);
-
-                folder.CoverImagePath = string.Empty;
-                folder.CoverImagePath = destPath;
-                ViewModel.SaveConfig();
-            }
-            catch (Exception ex)
-            {
-                Debug.WriteLine($"Copy icon failed: {ex.Message}");
+                Debug.WriteLine($"Copy icon failed: {errorMessage}");
             }
         }
 

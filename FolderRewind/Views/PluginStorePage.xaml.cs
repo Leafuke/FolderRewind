@@ -2,7 +2,7 @@ using FolderRewind.Services.Plugins;
 using FolderRewind.ViewModels;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
-using System.Threading.Tasks;
+using Microsoft.UI.Xaml.Navigation;
 
 namespace FolderRewind.Views
 {
@@ -13,18 +13,18 @@ namespace FolderRewind.Views
         public PluginStorePage()
         {
             this.InitializeComponent();
-            this.Loaded += OnPageLoaded;
-            this.Unloaded += OnPageUnloaded;
         }
 
-        private async void OnPageLoaded(object sender, RoutedEventArgs e)
+        protected override async void OnNavigatedTo(NavigationEventArgs e)
         {
-            await ViewModel.EnsureInitialLoadAsync();
+            base.OnNavigatedTo(e);
+            await ViewModel.ActivateAsync();
         }
 
-        private void OnPageUnloaded(object sender, RoutedEventArgs e)
+        protected override void OnNavigatedFrom(NavigationEventArgs e)
         {
-            ViewModel.CancelPendingOperations();
+            base.OnNavigatedFrom(e);
+            ViewModel.Deactivate();
         }
 
         private async void OnInstallClick(object sender, RoutedEventArgs e)

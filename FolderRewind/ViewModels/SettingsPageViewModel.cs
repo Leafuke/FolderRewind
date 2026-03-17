@@ -662,18 +662,6 @@ namespace FolderRewind.ViewModels
         {
             EnqueueOnUiThread(RefreshCoreValidationState);
         }
-
-        private static void EnqueueOnUiThread(Action action)
-        {
-            var queue = App.MainWindow?.DispatcherQueue;
-            if (queue == null || queue.HasThreadAccess)
-            {
-                action();
-                return;
-            }
-
-            _ = queue.TryEnqueue(() => action());
-        }
     }
 
     public sealed class StartupToggleResult

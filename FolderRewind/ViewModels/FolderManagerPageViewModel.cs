@@ -4,6 +4,7 @@ using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.Collections.Specialized;
+using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using System.Threading.Tasks;
@@ -44,6 +45,7 @@ namespace FolderRewind.ViewModels
         private ManagedFolder? _selectedFolder;
         private string _backupComment = string.Empty;
         private string? _pendingFolderPath;
+        private bool _mineRewindHintShown;
 
         public event Action? PendingFolderSelectionRequested;
 
@@ -367,6 +369,122 @@ namespace FolderRewind.ViewModels
             return true;
         }
 
+        public string BuildHotkeyBackupComment()
+        {
+            var baseComment = BackupComment;
+            if (string.IsNullOrWhiteSpace(baseComment))
+            {
+                return "[快捷键]";
+            }
+
+            return baseComment.Contains("[快捷键]", StringComparison.OrdinalIgnoreCase)
+                ? baseComment
+                : $"{baseComment} [快捷键]";
+        }
+
+        public bool TryOpenFolder(ManagedFolder folder)
+        {
+            if (folder == null || string.IsNullOrWhiteSpace(folder.Path))
+            {
+                return false;
+            }
+
+            try
+            {
+                Process.Start("explorer.exe", folder.Path);
+                return true;
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"Open folder failed: {ex.Message}");
+                return false;
+            }
+        }
+
+        public bool TryOpenMiniWindow(ManagedFolder folder)
+        {
+            if (CurrentConfig == null || folder == null)
+            {
+                return false;
+            }
+
+            MiniWindowService.Open(CurrentConfig, folder);
+            return true;
+        }
+
+        public void SaveFolderDescription(ManagedFolder folder)
+        {
+            if (folder == null)
+            {
+                return;
+            }
+
+            ConfigService.Save();
+        }
+
+        public bool TryReplaceFolderIcon(ManagedFolder folder, string sourcePath, out string? errorMessage)
+        {
+            errorMessage = null;
+            if (folder == null || string.IsNullOrWhiteSpace(folder.Path) || string.IsNullOrWhiteSpace(sourcePath))
+            {
+                errorMessage = "Invalid icon source or folder path.";
+                return false;
+            }
+
+            try
+            {
+                var destPath = Path.Combine(folder.Path, "icon.png");
+                File.Copy(sourcePath, destPath, overwrite: true);
+
+                // 先清空再赋值，确保绑定图片强制刷新。
+                folder.CoverImagePath = string.Empty;
+                folder.CoverImagePath = destPath;
+                ConfigService.Save();
+                return true;
+            }
+            catch (Exception ex)
+            {
+                errorMessage = ex.Message;
+                return false;
+            }
+        }
+
+        public bool TryMarkNeedMineRewindSuggestion(ManagedFolder? folder)
+        {
+            if (folder == null)
+            {
+                return false;
+            }
+
+            return TryMarkNeedMineRewindSuggestion(new[] { folder });
+        }
+
+        public bool TryMarkNeedMineRewindSuggestion(IEnumerable<ManagedFolder> folders)
+        {
+            if (_mineRewindHintShown || folders == null)
+            {
+                return false;
+            }
+
+            foreach (var folder in folders)
+            {
+                if (folder == null || string.IsNullOrWhiteSpace(folder.Path))
+                {
+                    continue;
+                }
+
+                if (!IsMinecraftLike(folder.Path, folder.DisplayName))
+                {
+                    continue;
+                }
+
+                _mineRewindHintShown = true;
+                return true;
+            }
+
+            return false;
+        }
+
         public void ToggleFavorite(ManagedFolder folder)
         {
             if (folder == null)
@@ -648,16 +766,20 @@ namespace FolderRewind.ViewModels
             }
         }
 
-        private static void EnqueueOnUiThread(Action action)
+        private static bool IsMinecraftLike(string path, string? displayName)
         {
-            var queue = App.MainWindow?.DispatcherQueue;
-            if (queue == null || queue.HasThreadAccess)
+            if (string.IsNullOrWhiteSpace(path))
             {
-                action();
-                return;
+                return false;
             }
 
-            _ = queue.TryEnqueue(() => action());
+            var folderName = string.IsNullOrWhiteSpace(displayName)
+                ? Path.GetFileName(path)
+                : displayName;
+
+            var isMinecraftRoot = string.Equals(folderName, ".minecraft", StringComparison.OrdinalIgnoreCase);
+            var hasLevelDat = File.Exists(Path.Combine(path, "level.dat"));
+            return isMinecraftRoot || hasLevelDat;
         }
     }
 }

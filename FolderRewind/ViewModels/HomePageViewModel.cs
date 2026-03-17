@@ -346,16 +346,5 @@ namespace FolderRewind.ViewModels
             return null;
         }
 
-        private static void EnqueueOnUiThread(Action action)
-        {
-            var queue = App.MainWindow?.DispatcherQueue;
-            if (queue == null || queue.HasThreadAccess)
-            {
-                action();
-                return;
-            }
-
-            _ = queue.TryEnqueue(() => action());
-        }
     }
 }
