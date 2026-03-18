@@ -735,6 +735,9 @@
   <data name="ConfigSettingsDialog_RunOnAppStart.Content" xml:space="preserve">
     <value>程序启动时运行</value>
   </data>
+  <data name="ConfigSettingsDialog_IntervalMode.Content" xml:space="preserve">
+    <value>间隔备份模式</value>
+  </data>
   <data name="ConfigSettingsDialog_IntervalMinutes.Text" xml:space="preserve">
     <value>周期运行间隔</value>
   </data>

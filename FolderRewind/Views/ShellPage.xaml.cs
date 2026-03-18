@@ -13,6 +13,7 @@ namespace FolderRewind.Views
     public sealed partial class ShellPage : Page, INavigationHost
     {
         private bool _isSyncingSelection;
+        private bool _isSyncingPaneState;
         private DispatcherQueueTimer? _infoBarTimer;
         private bool _startupDialogsStarted;
 
@@ -106,12 +107,10 @@ namespace FolderRewind.Views
         private void NavView_Loaded(object sender, Microsoft.UI.Xaml.RoutedEventArgs e)
         {
             var settings = ConfigService.CurrentConfig?.GlobalSettings;
-            if (settings != null)
-            {
-                NavView.IsPaneOpen = settings.IsNavPaneOpen;
-                // 兜底刷新绑定，确保导航面板状态能及时反映到界面。
-                Bindings.Update();
-            }
+            SyncPaneStateWithDisplayMode(settings);
+
+            // 兜底刷新绑定，确保导航面板状态能及时反映到界面。
+            Bindings.Update();
 
             NavigateTo("Home");
 
@@ -444,16 +443,32 @@ namespace FolderRewind.Views
 
         private void NavView_PaneOpened(NavigationView sender, object args)
         {
-            PersistPaneState(true);
+            if (_isSyncingPaneState)
+            {
+                return;
+            }
+
+            PersistPaneState(true, sender.DisplayMode);
         }
 
         private void NavView_PaneClosed(NavigationView sender, object args)
         {
-            PersistPaneState(false);
+            if (_isSyncingPaneState)
+            {
+                return;
+            }
+
+            PersistPaneState(false, sender.DisplayMode);
         }
 
-        private static void PersistPaneState(bool isOpen)
+        private static void PersistPaneState(bool isOpen, NavigationViewDisplayMode displayMode)
         {
+            // 紧凑/最小模式下的展开是临时面板，不写入持久化状态。
+            if (displayMode != NavigationViewDisplayMode.Expanded)
+            {
+                return;
+            }
+
             var settings = ConfigService.CurrentConfig?.GlobalSettings;
             if (settings == null) return;
 
@@ -461,6 +476,34 @@ namespace FolderRewind.Views
             {
                 settings.IsNavPaneOpen = isOpen;
                 ConfigService.Save();
+            }
+        }
+
+        private void NavView_DisplayModeChanged(NavigationView sender, NavigationViewDisplayModeChangedEventArgs args)
+        {
+            SyncPaneStateWithDisplayMode(ConfigService.CurrentConfig?.GlobalSettings);
+        }
+
+        private void SyncPaneStateWithDisplayMode(GlobalSettings? settings)
+        {
+            var targetIsPaneOpen = NavView.DisplayMode == NavigationViewDisplayMode.Expanded
+                ? (settings?.IsNavPaneOpen ?? true)
+                : false;
+
+            if (NavView.IsPaneOpen == targetIsPaneOpen)
+            {
+                return;
+            }
+
+            try
+            {
+                _isSyncingPaneState = true;
+                // 进入窄宽度时强制折叠，用户点击汉堡按钮时再临时展开。
+                NavView.IsPaneOpen = targetIsPaneOpen;
+            }
+            finally
+            {
+                _isSyncingPaneState = false;
             }
         }
 

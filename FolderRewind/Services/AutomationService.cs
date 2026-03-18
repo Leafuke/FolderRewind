@@ -38,7 +38,7 @@ namespace FolderRewind.Services
             {
                 if (config.Automation.AutoBackupEnabled && config.Automation.RunOnAppStart)
                 {
-                    _ = Task.Run(() => RunAutoBackupAsync(config, now, "Auto backup (app start)"));
+                    _ = Task.Run(() => RunAutoBackupAsync(config, now, "Auto backup (app start)", isScheduledTrigger: false));
                 }
             }
         }
@@ -58,6 +58,8 @@ namespace FolderRewind.Services
                     if (config?.Automation == null) continue;
                     if (!config.Automation.AutoBackupEnabled) continue;
 
+                    bool scheduledTriggered = false;
+
                     if (config.Automation.ScheduledMode)
                     {
                         if (config.Automation.ScheduleEntries != null && config.Automation.ScheduleEntries.Count > 0)
@@ -72,8 +74,9 @@ namespace FolderRewind.Services
                                         continue;
 
                                     string desc = FormatScheduleDescription(entry);
-                                    _ = Task.Run(() => RunAutoBackupAsync(config, now, $"Scheduled backup ({desc})"));
+                                    _ = Task.Run(() => RunAutoBackupAsync(config, now, $"Scheduled backup ({desc})", isScheduledTrigger: true));
                                     entry.LastTriggeredUtc = utcNow;
+                                    scheduledTriggered = true;
                                     break; // one backup per config per tick
                                 }
                             }
@@ -85,10 +88,16 @@ namespace FolderRewind.Services
                             {
                                 if (!IsRunToday(config, now))
                                 {
-                                    _ = Task.Run(() => RunAutoBackupAsync(config, now, "Auto backup (scheduled legacy)"));
+                                    _ = Task.Run(() => RunAutoBackupAsync(config, now, "Auto backup (scheduled legacy)", isScheduledTrigger: true));
+                                    scheduledTriggered = true;
                                 }
                             }
                         }
+                    }
+
+                    // 本轮已经按计划触发过时，跳过间隔触发，避免同一配置在同一轮双重执行。
+                    if (scheduledTriggered || !config.Automation.IntervalMode)
+                    {
                         continue;
                     }
 
@@ -100,7 +109,7 @@ namespace FolderRewind.Services
 
                     if (due)
                     {
-                        _ = Task.Run(() => RunAutoBackupAsync(config, now, $"Auto backup (interval {intervalMinutes} min)"));
+                        _ = Task.Run(() => RunAutoBackupAsync(config, now, $"Auto backup (interval {intervalMinutes} min)", isScheduledTrigger: false));
                     }
                 }
             }
@@ -130,7 +139,7 @@ namespace FolderRewind.Services
             }
         }
 
-        private static async Task RunAutoBackupAsync(BackupConfig config, DateTime nowLocal, string reason)
+        private static async Task RunAutoBackupAsync(BackupConfig config, DateTime nowLocal, string reason, bool isScheduledTrigger)
         {
             try
             {
@@ -146,7 +155,7 @@ namespace FolderRewind.Services
 
                 // 这里记录的是“任务执行时间”，不是“是否产生新归档”。
                 config.Automation.LastAutoBackupUtc = DateTime.UtcNow;
-                if (config.Automation.ScheduledMode)
+                if (isScheduledTrigger)
                 {
                     config.Automation.LastScheduledRunDateLocal = nowLocal.Date;
                 }

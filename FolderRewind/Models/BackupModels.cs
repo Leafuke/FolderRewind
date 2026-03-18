@@ -635,6 +635,7 @@ namespace FolderRewind.Models
     public class AutomationSettings : ObservableObject
     {
         private bool _autoBackupEnabled = false;
+        private bool _intervalMode = true;
         private int _intervalMinutes = 60;
         private bool _runOnAppStart = false;
         private bool _scheduledMode = false;
@@ -649,6 +650,7 @@ namespace FolderRewind.Models
         private int _consecutiveNoChangeCount = 0;
 
         public bool AutoBackupEnabled { get => _autoBackupEnabled; set => SetProperty(ref _autoBackupEnabled, value); }
+        public bool IntervalMode { get => _intervalMode; set => SetProperty(ref _intervalMode, value); }
         public int IntervalMinutes { get => _intervalMinutes; set => SetProperty(ref _intervalMinutes, value); }
         public bool RunOnAppStart { get => _runOnAppStart; set => SetProperty(ref _runOnAppStart, value); }
         public bool ScheduledMode { get => _scheduledMode; set => SetProperty(ref _scheduledMode, value); }

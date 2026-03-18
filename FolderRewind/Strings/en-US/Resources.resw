@@ -735,6 +735,9 @@ Duplicate folder names are blocked within the same configuration so different di
   <data name="ConfigSettingsDialog_RunOnAppStart.Content" xml:space="preserve">
     <value>Run when app starts</value>
   </data>
+  <data name="ConfigSettingsDialog_IntervalMode.Content" xml:space="preserve">
+    <value>Interval backup mode</value>
+  </data>
   <data name="ConfigSettingsDialog_IntervalMinutes.Text" xml:space="preserve">
     <value>Run every</value>
   </data>

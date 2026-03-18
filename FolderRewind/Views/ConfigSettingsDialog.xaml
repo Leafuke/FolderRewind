@@ -238,7 +238,8 @@
 
                 <StackPanel Visibility="{x:Bind Config.Automation.AutoBackupEnabled, Mode=OneWay, Converter={StaticResource BoolToVisConverter}}" Spacing="12">
                     <CheckBox x:Uid="ConfigSettingsDialog_RunOnAppStart" IsChecked="{x:Bind Config.Automation.RunOnAppStart, Mode=TwoWay}"/>
-                    <StackPanel Orientation="Horizontal" Spacing="8">
+                    <CheckBox x:Uid="ConfigSettingsDialog_IntervalMode" IsChecked="{x:Bind Config.Automation.IntervalMode, Mode=TwoWay}"/>
+                    <StackPanel Orientation="Horizontal" Spacing="8" Visibility="{x:Bind Config.Automation.IntervalMode, Mode=OneWay, Converter={StaticResource BoolToVisConverter}}">
                         <TextBlock x:Uid="ConfigSettingsDialog_IntervalMinutes" VerticalAlignment="Center"/>
                         <NumberBox Value="{x:Bind Config.Automation.IntervalMinutes, Mode=TwoWay}" MinWidth="200" Minimum="1" Maximum="10080" Width="140"/>
                         <TextBlock x:Uid="ConfigSettingsDialog_IntervalMinutesSuffix" VerticalAlignment="Center"/>
