@@ -10,6 +10,7 @@ using Microsoft.UI.Xaml.Controls.Primitives;
 using Microsoft.UI.Xaml.Media;
 using System;
 using System.Collections.Generic;
+using System.Collections.Specialized;
 using System.Collections.ObjectModel;
 using System.ComponentModel;
 using System.Linq;
@@ -79,6 +80,8 @@ namespace FolderRewind.Views
 
             _viewModel.PropertyChanged += OnViewModelPropertyChanged;
             _viewModel.Initialize();
+            FontFamilies.CollectionChanged -= OnFontFamiliesCollectionChanged;
+            FontFamilies.CollectionChanged += OnFontFamiliesCollectionChanged;
 
             Unloaded -= OnSettingsPageUnloaded;
             Unloaded += OnSettingsPageUnloaded;
@@ -94,8 +97,7 @@ namespace FolderRewind.Views
 
                 if (FontFamilyCombo != null)
                 {
-                    var current = FontFamilies.FirstOrDefault(f => string.Equals(f, Settings.FontFamily, StringComparison.OrdinalIgnoreCase));
-                    FontFamilyCombo.SelectedItem = current ?? Settings.FontFamily ?? FontFamilies.FirstOrDefault();
+                    SyncFontFamilySelection();
                 }
 
                 if (FontSizeBox != null)
@@ -121,9 +123,51 @@ namespace FolderRewind.Views
             OnPropertyChanged(e.PropertyName);
         }
 
+        private void OnFontFamiliesCollectionChanged(object? sender, NotifyCollectionChangedEventArgs e)
+        {
+            if (FontFamilyCombo == null || _isInitializingFont)
+            {
+                return;
+            }
+
+            _isInitializingFont = true;
+            try
+            {
+                SyncFontFamilySelection();
+            }
+            finally
+            {
+                _isInitializingFont = false;
+            }
+        }
+
+        private void SyncFontFamilySelection()
+        {
+            if (FontFamilyCombo == null)
+            {
+                return;
+            }
+
+            var current = FontFamilies.FirstOrDefault(f => string.Equals(f, Settings.FontFamily, StringComparison.OrdinalIgnoreCase));
+            if (!string.IsNullOrWhiteSpace(current))
+            {
+                FontFamilyCombo.SelectedItem = current;
+                return;
+            }
+
+            if (!string.IsNullOrWhiteSpace(Settings.FontFamily))
+            {
+                FontFamilyCombo.SelectedItem = Settings.FontFamily;
+                return;
+            }
+
+            FontFamilyCombo.SelectedItem = FontFamilies.FirstOrDefault();
+        }
+
         private void OnSettingsPageUnloaded(object sender, RoutedEventArgs e)
         {
             _viewModel.PropertyChanged -= OnViewModelPropertyChanged;
+            FontFamilies.CollectionChanged -= OnFontFamiliesCollectionChanged;
             _viewModel.Dispose();
             Unloaded -= OnSettingsPageUnloaded;
         }
@@ -638,6 +682,12 @@ namespace FolderRewind.Views
         private void OnOpenPluginFolderClick(object sender, RoutedEventArgs e)
         {
             PluginService.OpenPluginFolder();
+        }
+
+        private async void OnPluginsExpanderExpanded(object? sender, object e)
+        {
+            await _viewModel.EnsurePluginsRefreshedAsync();
+            Bindings.Update();
         }
 
         private void OnRefreshPluginsClick(object sender, RoutedEventArgs e)

@@ -16,6 +16,10 @@ namespace FolderRewind.ViewModels
     {
         private bool _initialized;
         private bool _pluginsRefreshed;
+        private bool _pluginsRefreshing;
+        private bool _fontFamiliesLoading;
+        private static readonly object FontCacheLock = new();
+        private static IReadOnlyList<string>? _cachedInstalledFontFamilies;
 
         private string _knotLinkStatusMessage = I18n.GetString("SettingsPage_KnotLinkStatus_Disabled");
         private Brush _knotLinkStatusColor = new SolidColorBrush(Microsoft.UI.Colors.Gray);
@@ -96,7 +100,7 @@ namespace FolderRewind.ViewModels
             // 仅做一次的初始化：加载静态数据并挂事件。
             _initialized = true;
 
-            LoadFontFamilies();
+            EnsureFontFamiliesLoaded();
             RefreshHotkeyBindingsView();
             UpdateKnotLinkStatus();
             RefreshCoreValidationState();
@@ -116,20 +120,33 @@ namespace FolderRewind.ViewModels
 
         public void OnNavigatedTo()
         {
-            if (!_pluginsRefreshed)
+            UpdateKnotLinkStatus();
+        }
+
+        public async Task EnsurePluginsRefreshedAsync()
+        {
+            if (_pluginsRefreshed || _pluginsRefreshing)
             {
-                _pluginsRefreshed = true;
-                try
-                {
-                    // 插件刷新较重，只在首次进入设置页时做一次。
-                    PluginService.RefreshAndLoadEnabled();
-                }
-                catch
-                {
-                }
+                return;
             }
 
-            UpdateKnotLinkStatus();
+            _pluginsRefreshing = true;
+            try
+            {
+                // 先让出当前帧，避免在展开动画开始前同步阻塞 UI。
+                await Task.Yield();
+
+                PluginService.RefreshAndLoadEnabled();
+                _pluginsRefreshed = true;
+                OnPropertyChanged(nameof(InstalledPlugins));
+            }
+            catch
+            {
+            }
+            finally
+            {
+                _pluginsRefreshing = false;
+            }
         }
 
         public void Dispose()
@@ -512,45 +529,138 @@ namespace FolderRewind.ViewModels
             }
         }
 
-        private void LoadFontFamilies()
+        private void EnsureFontFamiliesLoaded()
         {
-            FontFamilies.Clear();
+            // 先同步放入基础字体，保证设置页首帧可交互。
+            ApplyFontFamilies(GetFallbackFontFamilies(), persistWhenEmpty: false);
 
-            IReadOnlyList<string> fonts;
+            if (_fontFamiliesLoading)
+            {
+                return;
+            }
+
+            _fontFamiliesLoading = true;
+            _ = LoadFontFamiliesAsync();
+        }
+
+        private async Task LoadFontFamiliesAsync()
+        {
             try
             {
-                fonts = FontService.GetInstalledFontFamilies();
+                IReadOnlyList<string>? cached;
+                lock (FontCacheLock)
+                {
+                    cached = _cachedInstalledFontFamilies;
+                }
+
+                if (cached == null)
+                {
+                    cached = await Task.Run(() =>
+                    {
+                        try
+                        {
+                            return FontService.GetInstalledFontFamilies();
+                        }
+                        catch
+                        {
+                            return GetFallbackFontFamilies();
+                        }
+                    }).ConfigureAwait(false);
+
+                    lock (FontCacheLock)
+                    {
+                        _cachedInstalledFontFamilies ??= cached;
+                        cached = _cachedInstalledFontFamilies;
+                    }
+                }
+
+                await UiDispatcherService.RunOnUiAsync(() =>
+                {
+                    ApplyFontFamilies(cached ?? GetFallbackFontFamilies(), persistWhenEmpty: true);
+                });
             }
-            catch
+            finally
             {
-                fonts = new[] { "Segoe UI Variable", "Segoe UI", "Microsoft YaHei", "Microsoft YaHei UI" };
+                _fontFamiliesLoading = false;
             }
+        }
+
+        private IReadOnlyList<string> GetFallbackFontFamilies()
+        {
+            return new[] { "Segoe UI Variable", "Segoe UI", "Microsoft YaHei", "Microsoft YaHei UI" };
+        }
+
+        private void ApplyFontFamilies(IReadOnlyList<string> fonts, bool persistWhenEmpty)
+        {
+            var set = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
 
             foreach (var f in fonts)
             {
                 if (!string.IsNullOrWhiteSpace(f))
                 {
-                    FontFamilies.Add(f);
+                    set.Add(f);
                 }
             }
 
-            if (!string.IsNullOrWhiteSpace(Settings.FontFamily)
-                && !FontFamilies.Any(f => string.Equals(f, Settings.FontFamily, StringComparison.OrdinalIgnoreCase)))
+            foreach (var fallback in GetFallbackFontFamilies())
             {
-                FontFamilies.Insert(0, Settings.FontFamily);
+                set.Add(fallback);
             }
 
-            if (string.IsNullOrWhiteSpace(Settings.FontFamily))
+            if (!string.IsNullOrWhiteSpace(Settings.FontFamily))
             {
-                try
+                set.Add(Settings.FontFamily);
+            }
+
+            FontFamilies.Clear();
+            foreach (var family in set.OrderBy(s => s, StringComparer.OrdinalIgnoreCase))
+            {
+                FontFamilies.Add(family);
+            }
+
+            if (!persistWhenEmpty || !string.IsNullOrWhiteSpace(Settings.FontFamily))
+            {
+                return;
+            }
+
+            var preferred = PickPreferredFont(set);
+            if (!string.IsNullOrWhiteSpace(preferred))
+            {
+                Settings.FontFamily = preferred;
+                ConfigService.Save();
+            }
+        }
+
+        private string PickPreferredFont(HashSet<string> availableFonts)
+        {
+            var preferChinese = string.Equals(Settings.Language, "zh-CN", StringComparison.OrdinalIgnoreCase)
+                || string.Equals(Settings.Language, "zh", StringComparison.OrdinalIgnoreCase)
+                || string.Equals(Settings.Language, "zh_CN", StringComparison.OrdinalIgnoreCase);
+
+            if (preferChinese)
+            {
+                if (availableFonts.Contains("Microsoft YaHei UI"))
                 {
-                    Settings.FontFamily = FontService.GetRecommendedDefaultFontFamily();
-                    ConfigService.Save();
+                    return "Microsoft YaHei UI";
                 }
-                catch
+
+                if (availableFonts.Contains("Microsoft YaHei"))
                 {
+                    return "Microsoft YaHei";
                 }
             }
+
+            if (availableFonts.Contains("Segoe UI Variable"))
+            {
+                return "Segoe UI Variable";
+            }
+
+            if (availableFonts.Contains("Segoe UI"))
+            {
+                return "Segoe UI";
+            }
+
+            return availableFonts.FirstOrDefault() ?? "Segoe UI";
         }
 
         private static string GetAppVersionString()

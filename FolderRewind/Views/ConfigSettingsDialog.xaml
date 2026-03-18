@@ -122,11 +122,11 @@
                 </StackPanel>
 
                 <!-- 保留备份数量 -->
-                <NumberBox x:Uid="ConfigSettingsDialog_KeepCount" Value="{x:Bind Config.Archive.KeepCount, Mode=TwoWay}" Minimum="0" SpinButtonPlacementMode="Inline"/>
+                <NumberBox x:Uid="ConfigSettingsDialog_KeepCount" Value="{x:Bind Config.Archive.KeepCount, Mode=TwoWay}" Minimum="0"/>
 
                 <!-- 智能备份链长度（仅增量模式有效） -->
                 <StackPanel Spacing="4">
-                    <NumberBox x:Uid="ConfigSettingsDialog_MaxSmartChain" Value="{x:Bind Config.Archive.MaxSmartBackupsPerFull, Mode=TwoWay}" Minimum="0" Maximum="100" SpinButtonPlacementMode="Inline"/>
+                    <NumberBox x:Uid="ConfigSettingsDialog_MaxSmartChain" Value="{x:Bind Config.Archive.MaxSmartBackupsPerFull, Mode=TwoWay}" Minimum="0" Maximum="100"/>
                     <TextBlock x:Uid="ConfigSettingsDialog_MaxSmartChainDesc" Style="{StaticResource CaptionTextBlockStyle}" Foreground="{ThemeResource TextFillColorSecondaryBrush}" TextWrapping="Wrap"/>
                 </StackPanel>
 
@@ -140,7 +140,7 @@
                 <StackPanel Spacing="4">
                     <TextBlock x:Uid="ConfigSettingsDialog_CpuThreads"/>
                     <StackPanel Orientation="Horizontal" Spacing="8">
-                        <NumberBox Value="{x:Bind Config.Archive.CpuThreads, Mode=TwoWay}" Minimum="0" Maximum="128" SpinButtonPlacementMode="Inline" Width="160"/>
+                        <NumberBox Value="{x:Bind Config.Archive.CpuThreads, Mode=TwoWay}" Minimum="0" Maximum="128" Width="160"/>
                         <TextBlock x:Uid="ConfigSettingsDialog_CpuThreadsDesc" VerticalAlignment="Center" Style="{StaticResource CaptionTextBlockStyle}" Foreground="{ThemeResource TextFillColorSecondaryBrush}"/>
                     </StackPanel>
                 </StackPanel>
@@ -177,7 +177,7 @@
                                 <ColumnDefinition Width="Auto"/>
                             </Grid.ColumnDefinitions>
                             <TextBox x:Name="FileTypePatternBox" x:Uid="ConfigSettingsDialog_FileTypePatternPlaceholder"/>
-                            <NumberBox x:Name="FileTypeLevelBox" Grid.Column="1" Value="1" Minimum="0" Maximum="9" SpinButtonPlacementMode="Inline" Width="130"/>
+                            <NumberBox x:Name="FileTypeLevelBox" Grid.Column="1" Value="1" Minimum="0" Maximum="9" Width="130"/>
                             <Button Grid.Column="2" x:Uid="ConfigSettingsDialog_AddFileTypeRule" Click="OnAddFileTypeRuleClick"/>
                         </Grid>
                     </StackPanel>
@@ -240,7 +240,7 @@
                     <CheckBox x:Uid="ConfigSettingsDialog_RunOnAppStart" IsChecked="{x:Bind Config.Automation.RunOnAppStart, Mode=TwoWay}"/>
                     <StackPanel Orientation="Horizontal" Spacing="8">
                         <TextBlock x:Uid="ConfigSettingsDialog_IntervalMinutes" VerticalAlignment="Center"/>
-                        <NumberBox Value="{x:Bind Config.Automation.IntervalMinutes, Mode=TwoWay}" MinWidth="300" Minimum="1" Maximum="10080" SpinButtonPlacementMode="Inline" Width="140"/>
+                        <NumberBox Value="{x:Bind Config.Automation.IntervalMinutes, Mode=TwoWay}" MinWidth="200" Minimum="1" Maximum="10080" Width="140"/>
                         <TextBlock x:Uid="ConfigSettingsDialog_IntervalMinutesSuffix" VerticalAlignment="Center"/>
                     </StackPanel>
                     <CheckBox x:Uid="ConfigSettingsDialog_ScheduledMode" IsChecked="{x:Bind Config.Automation.ScheduledMode, Mode=TwoWay}"/>
@@ -261,7 +261,7 @@
                     <ToggleSwitch x:Uid="ConfigSettingsDialog_StopAfterNoChange" IsOn="{x:Bind Config.Automation.StopAfterNoChangeEnabled, Mode=TwoWay}"/>
                     <StackPanel Orientation="Horizontal" Spacing="8" Visibility="{x:Bind Config.Automation.StopAfterNoChangeEnabled, Mode=OneWay, Converter={StaticResource BoolToVisConverter}}">
                         <TextBlock x:Uid="ConfigSettingsDialog_StopAfterNoChangePrefix" VerticalAlignment="Center"/>
-                        <NumberBox Value="{x:Bind Config.Automation.StopAfterNoChangeCount, Mode=TwoWay}" MinWidth="300" Minimum="1" Maximum="100" SpinButtonPlacementMode="Inline" Width="120"/>
+                        <NumberBox Value="{x:Bind Config.Automation.StopAfterNoChangeCount, Mode=TwoWay}" MinWidth="200" Minimum="1" Maximum="100" Width="120"/>
                         <TextBlock x:Uid="ConfigSettingsDialog_StopAfterNoChangeSuffix" VerticalAlignment="Center"/>
                     </StackPanel>
                 </StackPanel>
@@ -344,7 +344,7 @@
                         <StackPanel Spacing="8">
                             <TextBlock x:Uid="ConfigSettingsDialog_CloudTimeout" FontWeight="SemiBold"/>
                             <StackPanel Orientation="Horizontal" Spacing="8">
-                                <NumberBox x:Name="CloudTimeoutBox" Value="{x:Bind Config.Cloud.TimeoutSeconds, Mode=TwoWay}" Minimum="10" Maximum="86400" SpinButtonPlacementMode="Inline" Width="140" ValueChanged="OnCloudNumberValueChanged"/>
+                                <NumberBox x:Name="CloudTimeoutBox" Value="{x:Bind Config.Cloud.TimeoutSeconds, Mode=TwoWay}" Minimum="10" Maximum="86400" Width="140" ValueChanged="OnCloudNumberValueChanged"/>
                                 <TextBlock x:Uid="ConfigSettingsDialog_CloudTimeoutSuffix" VerticalAlignment="Center"/>
                             </StackPanel>
                         </StackPanel>
@@ -352,7 +352,7 @@
                         <StackPanel Grid.Column="1" Spacing="8">
                             <TextBlock x:Uid="ConfigSettingsDialog_CloudRetryCount" FontWeight="SemiBold"/>
                             <StackPanel Orientation="Horizontal" Spacing="8">
-                                <NumberBox x:Name="CloudRetryCountBox" Value="{x:Bind Config.Cloud.RetryCount, Mode=TwoWay}" Minimum="0" Maximum="5" SpinButtonPlacementMode="Inline" Width="120" ValueChanged="OnCloudNumberValueChanged"/>
+                                <NumberBox x:Name="CloudRetryCountBox" Value="{x:Bind Config.Cloud.RetryCount, Mode=TwoWay}" Minimum="0" Maximum="5" Width="120" ValueChanged="OnCloudNumberValueChanged"/>
                                 <TextBlock x:Uid="ConfigSettingsDialog_CloudRetryCountSuffix" VerticalAlignment="Center"/>
                             </StackPanel>
                         </StackPanel>
