@@ -35,6 +35,7 @@ namespace FolderRewind.ViewModels
                     Settings.RememberCloseBehavior = false;
                 }
 
+                // 设置页采用“即改即存”，避免离开页面时丢改动。
                 ConfigService.Save();
                 OnPropertyChanged();
             }
@@ -92,6 +93,7 @@ namespace FolderRewind.ViewModels
                 return;
             }
 
+            // 仅做一次的初始化：加载静态数据并挂事件。
             _initialized = true;
 
             LoadFontFamilies();
@@ -119,6 +121,7 @@ namespace FolderRewind.ViewModels
                 _pluginsRefreshed = true;
                 try
                 {
+                    // 插件刷新较重，只在首次进入设置页时做一次。
                     PluginService.RefreshAndLoadEnabled();
                 }
                 catch
@@ -131,6 +134,7 @@ namespace FolderRewind.ViewModels
 
         public void Dispose()
         {
+            // 与 Initialize 成对解绑，避免设置页被缓存后事件重复触发。
             CoreFeatureValidationService.StateChanged -= CoreFeatureValidationService_StateChanged;
             try
             {
@@ -215,6 +219,7 @@ namespace FolderRewind.ViewModels
         {
             var success = await StartupService.SetStartupAsync(desired);
 
+            // 这里以系统真实返回结果为准，不能只信 UI 的期望值。
             Settings.RunOnStartup = success && desired;
             if (!Settings.RunOnStartup)
             {
@@ -422,6 +427,7 @@ namespace FolderRewind.ViewModels
             var defs = HotkeyManager.GetDefinitionsSnapshot();
             var overrides = Settings?.Hotkeys?.Bindings ?? new Dictionary<string, string>();
 
+            // 构建纯展示模型，避免页面直接依赖 HotkeyDefinition 内部结构。
             foreach (var def in defs)
             {
                 var effective = HotkeyManager.GetEffectiveGestureString(def.Id);

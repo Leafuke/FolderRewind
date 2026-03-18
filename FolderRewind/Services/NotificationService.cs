@@ -53,6 +53,7 @@ namespace FolderRewind.Services
                     return;
                 }
 
+                // 与 SuppressNotifications 的计数配对，支持可重入/嵌套抑制。
                 Interlocked.Decrement(ref _suppressionCount);
             }
         }
@@ -75,6 +76,7 @@ namespace FolderRewind.Services
 
         public static IDisposable SuppressNotifications()
         {
+            // 返回作用域对象，调用方用 using 控制抑制窗口期。
             Interlocked.Increment(ref _suppressionCount);
             return new NotificationSuppressionScope();
         }
@@ -95,6 +97,7 @@ namespace FolderRewind.Services
         {
             if (!IsNotificationEnabled) return false;
             var level = GetToastLevel();
+            // 统一在这里做等级判定，避免各调用点散落重复条件。
             return level switch
             {
                 ToastNotificationLevel.Off => false,
@@ -307,7 +310,7 @@ namespace FolderRewind.Services
             else
             {
                 var message = I18n.Format("Notification_BackupCompleted_Failed", folderName, errorMessage ?? "");
-                // ShowError 已内置 Badge 递增 + Toast 发送
+                // ShowError 内部已包含 Badge 递增和 Toast 发送。
                 ShowError(message, I18n.GetString("Notification_BackupFailed_Title"));
             }
         }

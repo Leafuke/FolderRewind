@@ -38,6 +38,7 @@ namespace FolderRewind.ViewModels
 
         public HomePageViewModel()
         {
+            // 收藏源集合变化时统一刷新投影视图，避免页面手动维护两份数据。
             FavoriteFolders.CollectionChanged += (_, __) => SyncFavoritesView();
         }
 
@@ -48,6 +49,7 @@ namespace FolderRewind.ViewModels
                 return;
             }
 
+            // 页面通常被导航缓存，进入页面时再挂订阅比构造函数更稳妥。
             _isActive = true;
             HookConfigsChanged();
             RefreshFavorites();
@@ -61,6 +63,7 @@ namespace FolderRewind.ViewModels
                 return;
             }
 
+            // 对称解绑，避免下次激活后收到重复 CollectionChanged。
             _isActive = false;
             UnhookConfigsChanged();
         }
@@ -183,6 +186,7 @@ namespace FolderRewind.ViewModels
 
             if (config.IsEncrypted)
             {
+                // 删除配置时顺手清理本地密码缓存，避免残留无主密钥。
                 EncryptionService.RemovePassword(config.Id);
             }
 
@@ -196,6 +200,7 @@ namespace FolderRewind.ViewModels
             {
                 if (ConfigService.CurrentConfig?.BackupConfigs != null)
                 {
+                    // 先减后加，保证多次 Activate 不会重复订阅。
                     ConfigService.CurrentConfig.BackupConfigs.CollectionChanged -= OnConfigsChanged;
                     ConfigService.CurrentConfig.BackupConfigs.CollectionChanged += OnConfigsChanged;
                 }
@@ -231,6 +236,7 @@ namespace FolderRewind.ViewModels
 
         private void SyncFavoritesView()
         {
+            // object 投影视图只服务绑定层，业务逻辑始终读写强类型集合。
             FavoriteFoldersView.Clear();
             foreach (var folder in FavoriteFolders)
             {

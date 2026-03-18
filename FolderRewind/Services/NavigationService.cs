@@ -10,6 +10,7 @@ namespace FolderRewind.Services
     public static class NavigationService
     {
         private static readonly object SyncRoot = new();
+        // 当前仅持有一个导航宿主（ShellPage），在宿主切换时允许被新实例覆盖。
         private static INavigationHost? _host;
 
         public static void Initialize(INavigationHost host)
@@ -21,6 +22,7 @@ namespace FolderRewind.Services
 
             lock (SyncRoot)
             {
+                // 以最后一次注册为准，适配窗口重建或页面重载。
                 _host = host;
             }
         }
@@ -34,6 +36,7 @@ namespace FolderRewind.Services
 
             lock (SyncRoot)
             {
+                // 只清自己，避免误清掉后续新注册的宿主。
                 if (ReferenceEquals(_host, host))
                 {
                     _host = null;
@@ -56,6 +59,7 @@ namespace FolderRewind.Services
 
             if (host == null)
             {
+                // 启动早期或宿主卸载期间允许返回 false，调用方自行决定是否兜底。
                 return false;
             }
 

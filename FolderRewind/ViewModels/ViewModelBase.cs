@@ -6,7 +6,7 @@ namespace FolderRewind.ViewModels
 {
     public abstract class ViewModelBase : ObservableObject
     {
-        // 统一的 UI 线程调度入口，避免各页面 ViewModel 重复实现相同逻辑。
+        // ViewModel 层统一走这里切回 UI 线程，避免直接依赖具体页面对象。
         protected static void EnqueueOnUiThread(Action action)
         {
             UiDispatcherService.Enqueue(action);

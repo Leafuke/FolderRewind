@@ -76,6 +76,7 @@ namespace FolderRewind.ViewModels
             _currentConfig = config;
             _currentFolder = folder;
 
+            // 页面初始化阶段可关闭刷新，避免控件尚未就绪时重复拉取历史。
             if (refreshHistoryIfFolder && _currentConfig != null && _currentFolder != null)
             {
                 RefreshHistory(_currentConfig, _currentFolder);
@@ -148,6 +149,7 @@ namespace FolderRewind.ViewModels
 
             if (folder == null && config.SourceFolders.Count > 0)
             {
+                // 历史路径失效时兜底到首项，保证页面总有可展示目标。
                 folder = config.SourceFolders[0];
             }
 
@@ -282,6 +284,7 @@ namespace FolderRewind.ViewModels
                 FilteredHistory.Add(item);
             }
 
+            // 缺失统计基于完整历史，不受当前筛选词影响。
             _missingCount = _currentAllItems.Count(i => i.IsMissing);
             OnPropertyChanged(nameof(HasMissing));
 
@@ -374,6 +377,7 @@ namespace FolderRewind.ViewModels
 
             if (updated)
             {
+                // 仅在值变化时写盘，避免切换列表时产生多余 I/O。
                 ConfigService.Save();
             }
         }

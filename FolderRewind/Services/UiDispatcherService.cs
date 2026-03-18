@@ -12,6 +12,7 @@ namespace FolderRewind.Services
         {
             if (dispatcherQueue != null)
             {
+                // 只在主窗口就绪后注入一次；后续所有 UI 回调都走这个入口。
                 _dispatcherQueue = dispatcherQueue;
             }
         }
@@ -26,6 +27,7 @@ namespace FolderRewind.Services
             var queue = _dispatcherQueue;
             if (queue == null || queue.HasThreadAccess)
             {
+                // 启动早期或当前已在 UI 线程时直接执行，避免不必要的排队。
                 action();
                 return;
             }
@@ -87,6 +89,7 @@ namespace FolderRewind.Services
             {
                 try
                 {
+                    // 异常透传给调用方，避免后台线程静默吞错。
                     tcs.SetResult(await action().ConfigureAwait(false));
                 }
                 catch (Exception ex)

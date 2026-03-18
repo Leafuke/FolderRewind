@@ -17,10 +17,12 @@ namespace FolderRewind.Services
     {
         public static ObservableCollection<BackupTask> ActiveTasks { get; } = new();
 
+        // 还原阶段会用内部标记目录记录“仅删除”动作，完成后必须清理避免污染用户目录。
         private const string InternalRestoreMarkerDirectoryName = "__FolderRewind_Internal";
         private const string InternalRestoreMarkerFileName = "__DeletedOnly.marker";
         private const string MissingEncryptionPasswordMessage = "Encrypted backup password is missing for this configuration.";
 
+        // 变更集是增量备份/删除标记/元数据写入的统一输入。
         private sealed class BackupChangeSet
         {
             public List<string> AddedFiles { get; } = new();
@@ -310,9 +312,6 @@ namespace FolderRewind.Services
                 if (!string.IsNullOrWhiteSpace(pluginOverride))
                 {
                     sourcePath = pluginOverride;
-
-                    // 原本打算在插件里发送，但是实测太不稳定了，干脆在这里统一发送。最终还是统一到插件里了
-                    // KnotLinkService.BroadcastEvent("event=pre_hot_backup;");
                 }
             }
             catch
@@ -398,7 +397,7 @@ namespace FolderRewind.Services
 
                 // 调用核心逻辑，传入 task 以便更新进度
 
-                // FORCE_FULL 命令可绕过当前配置模式，直接执行一次 Full 备份。
+                // FORCE_FULL 指令可绕过当前配置模式，直接执行一次全量备份。
                 if (forceFullBackup)
                 {
                     var res = await DoFullBackupAsync(sourcePath, backupSubDir, metadataDir, folder.DisplayName, config, comment, task);
@@ -560,6 +559,7 @@ namespace FolderRewind.Services
             {
             }
 
+            // 注意：这里返回“是否真的产出新归档”，会影响自动化里的无变更计数策略。
             return success && !string.IsNullOrWhiteSpace(generatedFileName);
         }
 
@@ -1883,6 +1883,7 @@ namespace FolderRewind.Services
             var archiveSettings = config.Archive;
             bool safeRestoreEnabled = archiveSettings?.SafeRestoreEnabled ?? true;
             bool verifyArchiveBeforeRestore = archiveSettings?.VerifyArchiveBeforeRestore ?? true;
+            // 历史数据可能是旧格式，这里同时看 BackupType 和文件名前缀做兼容判断。
             bool targetIsIncremental = IsIncrementalBackupType(historyItem.BackupType)
                 || InferBackupTypeFromFileName(historyItem.FileName).Equals("Smart", StringComparison.OrdinalIgnoreCase);
 
@@ -1983,6 +1984,7 @@ namespace FolderRewind.Services
 
             if (targetIsIncremental && chainResult.Status == RestoreChainBuildStatus.MissingBaseFull)
             {
+                // 老用户历史里可能缺少基准 Full，这里给一次人工确认后回退到兼容链路。
                 bool proceed = await ConfirmMissingBaseFullFallbackAsync(folder.DisplayName, historyItem.FileName);
                 if (!proceed)
                 {
@@ -1999,6 +2001,7 @@ namespace FolderRewind.Services
 
                 restoreChain = BuildReverseCompatibilityChain(backupDir, targetFile, config, resolvedFolderName);
                 useCompatibilityReverseRestore = true;
+                // 兼容链路无法精确执行 Clean 语义，这里强制退化到覆盖式还原。
                 effectiveCleanRestore = false;
 
                 if (restoreChain.Count == 0)
@@ -2026,6 +2029,7 @@ namespace FolderRewind.Services
                 string metadataPath = Path.Combine(config.DestinationPath, "_metadata", resolvedFolderName, "metadata.json");
                 var metadata = LoadBackupMetadata(metadataPath);
 
+                // 元数据完整时启用精确 Smart Clean，可避免“全链解压+覆盖”带来的额外写入。
                 if (metadata != null && TryBuildSmartRestorePlan(restoreChain, metadata, out var plan))
                 {
                     smartRestorePlan = plan;
@@ -2049,6 +2053,7 @@ namespace FolderRewind.Services
                 await FailAsync(message, "encryption_password_missing");
                 return;
             }
+            // 智能还原方案与普通还原方案都共用这一段完整性校验入口。
             var archivesToVerify = smartRestorePlan?.Chain ?? restoreChain;
 
             if (verifyArchiveBeforeRestore)
@@ -2086,6 +2091,7 @@ namespace FolderRewind.Services
 
             if (effectiveCleanRestore && safeRestoreEnabled)
             {
+                // 先把目标目录挪到临时快照，再在空目录还原；失败时可以整体回滚。
                 if (!TryPrepareSafeRestoreWorkspace(targetDir, out safeRestoreTempDir, out var prepareError))
                 {
                     string message = I18n.Format("BackupService_Log_RestoreSnapshotPrepareFailed", prepareError ?? "Unknown error");
@@ -2131,6 +2137,7 @@ namespace FolderRewind.Services
 
             if (effectiveCleanRestore && !safeRestoreWorkspacePrepared)
             {
+                // 未启用安全快照时，只能原地清理后再还原（会保留白名单路径）。
                 Log(I18n.Format("BackupService_Log_RestoreCleaningTarget"), LogLevel.Info);
                 var restoreWhitelist = config.Filters?.RestoreWhitelist;
                 bool hasWhitelist = restoreWhitelist != null && restoreWhitelist.Count > 0;
@@ -2198,6 +2205,7 @@ namespace FolderRewind.Services
 
                 if (safeRestoreWorkspacePrepared && !string.IsNullOrWhiteSpace(safeRestoreTempDir))
                 {
+                    // 还原成功后再提交快照工作区，最后一步才真正删除旧目录。
                     if (!TryCommitSafeRestoreWorkspace(targetDir, safeRestoreTempDir, config.Filters?.RestoreWhitelist, out var commitError))
                     {
                         restoreFailed = true;
@@ -2212,6 +2220,7 @@ namespace FolderRewind.Services
             {
                 if (safeRestoreWorkspacePrepared && !string.IsNullOrWhiteSpace(safeRestoreTempDir))
                 {
+                    // 只要失败就优先尝试整体回滚，尽量回到还原前状态。
                     Log(I18n.Format("BackupService_Log_RestoreRollbackBegin", safeRestoreTempDir), LogLevel.Warning);
                     if (TryRollbackSafeRestoreWorkspace(targetDir, safeRestoreTempDir, out var rollbackError))
                     {
@@ -2279,6 +2288,7 @@ namespace FolderRewind.Services
         {
             if (chain == null || chain.Count == 0) return false;
 
+            // 逐包做完整性检测，提前挡住损坏归档，避免真正解压时把目标目录弄成半成品。
             for (int i = 0; i < chain.Count; i++)
             {
                 var file = chain[i];
@@ -2319,6 +2329,7 @@ namespace FolderRewind.Services
                 return false;
             }
 
+            // 通过“最终文件 -> 最近归档拥有者”的映射，生成最小提取集合。
             var normalized = NormalizeBackupMetadata(metadata);
             var recordMap = normalized.BackupRecords
                 .Where(r => !string.IsNullOrWhiteSpace(r.ArchiveFileName))
@@ -2559,6 +2570,7 @@ namespace FolderRewind.Services
                     return true;
                 }
 
+                // 先搬走旧目录，确保还原在“干净目录”执行，失败可直接回滚。
                 tempDir = CreateSafeRestoreTempDirectoryPath(targetDir);
                 Directory.Move(targetDir, tempDir);
                 Directory.CreateDirectory(targetDir);
@@ -2577,6 +2589,7 @@ namespace FolderRewind.Services
 
             try
             {
+                // 提交阶段要先补回白名单内容，再删除旧快照目录。
                 CleanupInternalRestoreMarkers(targetDir);
                 CopyRestoreWhitelistEntries(tempDir, targetDir, whitelist);
 
@@ -2601,6 +2614,7 @@ namespace FolderRewind.Services
 
             try
             {
+                // 回滚采用目录级替换，避免逐文件恢复造成新旧状态混杂。
                 if (Directory.Exists(targetDir))
                 {
                     ClearReadonlyAttributes(targetDir);
@@ -3647,6 +3661,7 @@ namespace FolderRewind.Services
                 .OrderBy(f => f.LastWriteTime)
                 .ThenBy(f => f.Name); // 二级排序确保稳定性
 
+            // 去重是为了兼容“同名文件被重写/历史重复登记”的旧数据。
             var added = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
             added.Add(baseFull.FullName);
 

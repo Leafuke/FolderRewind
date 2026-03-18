@@ -58,7 +58,9 @@ namespace FolderRewind.Services
 
     public static class CoreFeatureValidationService
     {
+        // 全局串行执行门闩：同一时间只允许一个自检任务运行。
         private static readonly SemaphoreSlim RunGate = new(1, 1);
+        // 自动触发去重标记，避免配置连续保存时排队多个自动自检。
         private static int _autoRunQueued;
 
         public static event Action? StateChanged;
@@ -95,6 +97,7 @@ namespace FolderRewind.Services
                 return;
             }
 
+            // 已有自动任务排队时直接返回。
             if (Interlocked.Exchange(ref _autoRunQueued, 1) != 0)
             {
                 return;
@@ -104,6 +107,7 @@ namespace FolderRewind.Services
             {
                 try
                 {
+                    // 留一点启动缓冲，避免和首屏初始化/插件加载抢资源。
                     await Task.Delay(TimeSpan.FromSeconds(2)).ConfigureAwait(false);
                     if (!ShouldRunInitialValidation() || IsRunning)
                     {

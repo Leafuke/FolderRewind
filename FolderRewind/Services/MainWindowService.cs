@@ -7,12 +7,14 @@ namespace FolderRewind.Services
 {
     public static class MainWindowService
     {
+        // 由 App.OnLaunched 注入主窗口，供非视图层按需访问窗口能力。
         private static Window? _window;
 
         public static void Initialize(Window? window)
         {
             if (window != null)
             {
+                // 启动后可能因窗口重建再次注入，这里允许覆盖旧引用。
                 _window = window;
             }
         }
@@ -85,6 +87,7 @@ namespace FolderRewind.Services
                 return;
             }
 
+            // WinUI 桌面应用中的 Picker 需要显式绑定窗口句柄，否则无法正常弹出。
             InitializeWithWindow.Initialize(picker, WindowNative.GetWindowHandle(window));
         }
     }

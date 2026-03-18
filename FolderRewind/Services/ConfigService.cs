@@ -12,7 +12,7 @@ namespace FolderRewind.Services
         #region 常量与状态
 
         private const string ConfigFileName = "config.json";
-        //  LocalAppData  AppContext.BaseDirectory
+        // 配置目录统一交给 GetWritableAppDataDir 决策，避免在不同发布形态下写到无权限位置。
         private static string ConfigPath => Path.Combine(GetWritableAppDataDir(), "FolderRewind", ConfigFileName);
 
         private static bool _initialized;
@@ -117,7 +117,7 @@ namespace FolderRewind.Services
                 if (config.Automation == null)
                     config.Automation = new AutomationSettings();
 
-                // Migrate and fix ScheduleEntries
+                // 兼容旧版计划任务字段，并统一为可观察集合。
                 if (config.Automation.ScheduleEntries == null)
                     config.Automation.ScheduleEntries = new System.Collections.ObjectModel.ObservableCollection<ScheduleEntry>();
                 else if (config.Automation.ScheduleEntries.GetType() != typeof(System.Collections.ObjectModel.ObservableCollection<ScheduleEntry>))
@@ -245,6 +245,8 @@ namespace FolderRewind.Services
                 {
                     Directory.CreateDirectory(configDir!);
                 }
+
+                // 先写临时文件再原子替换，尽量避免异常中断后留下半截配置。
                 string jsonString = JsonSerializer.Serialize(CurrentConfig, AppJsonContext.Default.AppConfig);
                 string tempPath = ConfigPath + ".tmp";
                 File.WriteAllText(tempPath, jsonString);
@@ -345,7 +347,7 @@ namespace FolderRewind.Services
                     return false;
                 }
 
-                // 备份当前配置
+                // 先备份旧文件，导入后如果用户反悔还能手动找回。
                 string backupPath = ConfigPath + ".bak";
                 try { File.Copy(ConfigPath, backupPath, true); } catch { }
 
@@ -406,7 +408,7 @@ namespace FolderRewind.Services
                 settings.BaseFontSize = Math.Clamp(settings.BaseFontSize, 12, 20);
             }
 
-            // Startup size: clamp to reasonable desktop values
+            // 启动窗口尺寸限制在合理桌面范围内。
             if (double.IsNaN(settings.StartupWidth) || settings.StartupWidth < 640 || settings.StartupWidth > 3840)
             {
                 settings.StartupWidth = 1200;
@@ -422,7 +424,7 @@ namespace FolderRewind.Services
                 settings.HomeSortMode = "NameAsc";
             }
 
-            // Toast notification level: clamp to valid range (0-3)
+            // Toast 等级约束在有效区间（0-3）。
             settings.ToastNotificationLevel = Math.Clamp(settings.ToastNotificationLevel, 0, 3);
         }
 
@@ -440,7 +442,7 @@ namespace FolderRewind.Services
 
         private static string GetWritableAppDataDir()
         {
-            // Packaged (MSIX) 下：LocalState
+            // 打包发布（MSIX）时：优先使用容器 LocalState。
             try
             {
                 var localFolder = ApplicationData.Current.LocalFolder;
@@ -450,7 +452,7 @@ namespace FolderRewind.Services
             {
             }
 
-            // Unpackaged 下：常规 LocalAppData
+            // 非打包运行时：退回常规 LocalAppData。
             return Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData);
         }
 

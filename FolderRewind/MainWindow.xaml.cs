@@ -8,13 +8,10 @@ using System;
 using Windows.Foundation;
 using Windows.UI;
 
-// To learn more about WinUI, the WinUI project structure,
-// and more about our project templates, see: http://aka.ms/winui-project-info.
-
 namespace FolderRewind
 {
     /// <summary>
-    /// An empty window that can be used on its own or navigated to within a Frame.
+    /// 主窗口：承载壳层页面、标题栏和关闭行为控制。
     /// </summary>
     public sealed partial class MainWindow : Window
     {
@@ -35,10 +32,10 @@ namespace FolderRewind
         {
             InitializeComponent();
 
-            // 状态栏图标
+            // 等窗口真正激活后再做依赖句柄的初始化（热键/图标等）。
             Activated += MainWindow_Activated;
 
-            // WinUI 3 Gallery-like: extend content into title bar and provide a XAML title bar.
+            // 用 Shell 的 XAML 区域接管标题栏，后面再动态同步左右 inset。
             ExtendsContentIntoTitleBar = true;
             if (ShellRoot?.AppTitleBarElement != null)
             {
@@ -47,7 +44,7 @@ namespace FolderRewind
 
             ThemeService.ThemeChanged += ThemeService_ThemeChanged;
 
-            // Apply initial theme
+            // 先应用当前主题，再刷标题栏按钮色，避免首次显示时色彩闪一下。
             var currentTheme = ThemeService.GetCurrentTheme();
             ThemeService.ApplyThemeToWindow(this);
 
@@ -72,7 +69,7 @@ namespace FolderRewind
 
         private async void MainWindow_Activated(object sender, WindowActivatedEventArgs args)
         {
-            // Apply once after the window handle is ready.
+            // 这个事件会多次触发，这里只需要第一次（句柄和可视树已就绪）。
             Activated -= MainWindow_Activated;
 
             ApplyMinimumWindowSize();
@@ -127,11 +124,13 @@ namespace FolderRewind
 
         private void AppWindow_Closing(AppWindow sender, AppWindowClosingEventArgs args)
         {
+            // 托盘菜单触发的“退出”会先打标记，直接放行关闭。
             if (App.ForceExitRequested)
             {
                 return;
             }
 
+            // 用户在确认弹窗中点“退出”后会再次触发 Closing，这次应放行。
             if (_allowCloseOnce)
             {
                 _allowCloseOnce = false;
@@ -156,7 +155,7 @@ namespace FolderRewind
 
                 if (settings.CloseBehavior == Models.CloseBehavior.Exit)
                 {
-                    return; // allow close
+                    return; // 放行关闭
                 }
             }
 
@@ -247,6 +246,7 @@ namespace FolderRewind
                                         ConfigService.Save();
                                     }
 
+                                    // 二次 Close 时绕过本方法的拦截分支。
                                     _allowCloseOnce = true;
                                     Close();
                                 }
@@ -295,8 +295,7 @@ namespace FolderRewind
 
             titleBar.ExtendsContentIntoTitleBar = true;
 
-            // AppWindowTitleBar doesn't expose LayoutMetricsChanged in all SDK shapes;
-            // update insets opportunistically when the window size changes.
+            // 某些 SDK 组合下拿不到 LayoutMetricsChanged，这里退一步用 SizeChanged 同步 inset。
             SizeChanged += (_, __) => UpdateTitleBarLayout();
             UpdateTitleBarLayout();
         }
@@ -308,7 +307,7 @@ namespace FolderRewind
                 return;
             }
 
-            // Keep caption buttons from overlapping the XAML title bar content.
+            // 预留系统标题栏按钮区域，避免覆盖自定义标题栏内容。
             if (ShellRoot?.AppTitleBarElement != null)
             {
                 var left = TitleBarHorizontalPadding + AppWindow.TitleBar.LeftInset;
@@ -328,14 +327,14 @@ namespace FolderRewind
             {
                 var titleBar = AppWindow.TitleBar;
 
-                // WinUI 3 Gallery-like: let Mica show through; style caption buttons using theme resources.
+                // 背景保持透明，让 Mica 透出来，只调整前景与按钮态颜色。
                 bool isDark = theme == ElementTheme.Dark;
 
-                // Explicit theme-based colors (reliable on both Win10/Win11). Background stays transparent to blend with Mica.
+                // 显式指定亮/暗主题配色，保证 Win10/Win11 下表现一致。
                 var foreground = isDark ? Colors.White : Colors.Black;
                 var inactiveForeground = isDark ? Color.FromArgb(255, 190, 190, 190) : Color.FromArgb(255, 80, 80, 80);
 
-                // Subtle overlays for hover/pressed that blend with Mica like WinUI.
+                // 悬停/按下采用轻量叠色，避免破坏 Mica 的通透感。
                 var hoverBackground = isDark
                     ? WithAlpha(Colors.White, 26)
                     : WithAlpha(Colors.Black, 18);

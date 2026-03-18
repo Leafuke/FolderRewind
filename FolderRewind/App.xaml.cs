@@ -10,13 +10,10 @@ using System.Threading.Tasks;
 using Windows.Globalization;
 using Windows.Graphics;
 
-// To learn more about WinUI, the WinUI project structure,
-// and more about our project templates, see: http://aka.ms/winui-project-info.
-
 namespace FolderRewind
 {
     /// <summary>
-    /// Provides application-specific behavior to supplement the default Application class.
+    /// 应用入口对象，负责生命周期与全局初始化编排。
     /// </summary>
     public partial class App : Application
     {
@@ -33,8 +30,7 @@ namespace FolderRewind
         #region 构造与全局异常捕获
 
         /// <summary>
-        /// Initializes the singleton application object.  This is the first line of authored code
-        /// executed, and as such is the logical equivalent of main() or WinMain().
+        /// 应用构造函数：尽早建立全局异常日志通道。
         /// </summary>
         public App()
         {
@@ -79,9 +75,9 @@ namespace FolderRewind
         #region 应用生命周期
 
         /// <summary>
-        /// Invoked when the application is launched.
+        /// 应用启动入口。
         /// </summary>
-        /// <param name="args">Details about the launch request and process.</param>
+        /// <param name="args">启动参数。</param>
         protected override void OnLaunched(Microsoft.UI.Xaml.LaunchActivatedEventArgs args)
         {
             // 尽量提前挂载未处理异常处理器，避免初始化阶段直接崩溃而无日志
@@ -91,6 +87,7 @@ namespace FolderRewind
 
             try
             {
+                // 配置必须先于窗口创建：后面的语言/主题/尺寸都依赖它。
                 Services.ConfigService.Initialize();
 
                 LogService.Log(I18n.GetString("App_Log_OnLaunchedBegin"));
@@ -99,14 +96,17 @@ namespace FolderRewind
                 ApplyLanguageOverride(Services.ConfigService.CurrentConfig.GlobalSettings.Language);
 
                 _window = new MainWindow();
+                // 两个服务在启动时只注入一次，后续页面统一从这里取窗口与 UI 调度入口。
                 MainWindowService.Initialize(_window);
                 UiDispatcherService.Initialize(_window.DispatcherQueue);
                 _window.Closed += OnMainWindowClosed;
                 ApplyWindowPreferences(_window);
                 Services.ThemeService.ApplyThemeToWindow(_window);
                 UpdateWindowTitle();
+                // 基础外观先准备好，再激活窗口可以减少首帧闪动感。
                 _window.Activate();
 
+                // 静默启动只在“系统启动任务”场景生效，普通手动启动不隐藏窗口。
                 var startupSettings = Services.ConfigService.CurrentConfig?.GlobalSettings;
                 var shouldSilentStart = startupSettings?.RunOnStartup == true
                     && startupSettings.SilentStartup
@@ -114,6 +114,7 @@ namespace FolderRewind
 
                 if (shouldSilentStart && _window is MainWindow mainWindow)
                 {
+                    // 提高优先级，尽量在用户看到窗口前完成隐藏。
                     _window.DispatcherQueue.TryEnqueue(Microsoft.UI.Dispatching.DispatcherQueuePriority.High, () =>
                     {
                         mainWindow.HideToTray();
@@ -154,6 +155,7 @@ namespace FolderRewind
 
                 if (startupSettings != null)
                 {
+                    // 启动项状态探测走后台，不阻塞首屏渲染；仅在探测到偏差时回写配置。
                     _ = Task.Run(async () =>
                     {
                         try
@@ -169,6 +171,7 @@ namespace FolderRewind
                     });
                 }
 
+                // 托盘与自动化都放到窗口激活后再排队，避免拉长首屏时间。
                 _window.DispatcherQueue.TryEnqueue(Microsoft.UI.Dispatching.DispatcherQueuePriority.Low, InitializeTrayIcon);
 
                 _window.DispatcherQueue.TryEnqueue(Microsoft.UI.Dispatching.DispatcherQueuePriority.Low, Services.AutomationService.Start);
@@ -231,11 +234,11 @@ namespace FolderRewind
             var value = languageSetting.Trim();
             if (string.Equals(value, "system", StringComparison.OrdinalIgnoreCase)) return string.Empty;
 
-            // legacy values
+            // 兼容历史配置中的旧语言值。
             if (string.Equals(value, "zh_CN", StringComparison.OrdinalIgnoreCase)) return "zh-CN";
             if (string.Equals(value, "en_US", StringComparison.OrdinalIgnoreCase)) return "en-US";
 
-            // normalize separator
+            // 统一分隔符写法，避免下划线与连字符混用。
             value = value.Replace('_', '-');
 
             if (string.Equals(value, "zh-CN", StringComparison.OrdinalIgnoreCase)) return "zh-CN";
@@ -298,6 +301,7 @@ namespace FolderRewind
             var settings = Services.ConfigService.CurrentConfig?.GlobalSettings;
             if (settings == null) return;
 
+            // 配置可被手动编辑，这里做一次保护性收敛，避免出现极端尺寸导致窗口异常。
             double width = Math.Clamp(settings.StartupWidth, 640, 3840);
             double height = Math.Clamp(settings.StartupHeight, 480, 2160);
 
@@ -382,6 +386,7 @@ namespace FolderRewind
 
         private void OnQuitCommandExecuteRequested(XamlUICommand sender, ExecuteRequestedEventArgs args)
         {
+            // 标记强制退出，避免被 MainWindow 的“最小化到托盘”拦截逻辑再次兜回去。
             ForceExitRequested = true;
 
             // 关闭所有 Mini 窗口并释放 FileSystemWatcher

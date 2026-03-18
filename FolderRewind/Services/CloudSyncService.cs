@@ -20,6 +20,7 @@ namespace FolderRewind.Services
         private const int MaxRetryCount = 5;
         private const int MaxTimeoutSeconds = 86400;
         private const int MaxLogLength = 4096;
+        // 串行上传：避免多个外部进程同时跑导致带宽争抢、日志混杂和远端限流。
         private static readonly SemaphoreSlim UploadSemaphore = new(1, 1);
 
         private sealed class CloudCommandContext
@@ -98,6 +99,7 @@ namespace FolderRewind.Services
             {
                 try
                 {
+                    // 这里刻意采用后台异步提交，不阻塞主备份流程。
                     await ExecuteUploadAsync(config, folder, settings, context).ConfigureAwait(false);
                 }
                 catch (Exception ex)
@@ -170,6 +172,7 @@ namespace FolderRewind.Services
 
             await RunOnUIAsync(() => BackupService.ActiveTasks.Insert(0, task)).ConfigureAwait(false);
 
+            // 全局串行门闩，确保同一时刻只执行一个上传任务。
             await UploadSemaphore.WaitAsync().ConfigureAwait(false);
 
             try
@@ -204,6 +207,7 @@ namespace FolderRewind.Services
                 int exitCode = -1;
                 string lastError = string.Empty;
 
+                // 第 0 次就是首试，后续才是重试。
                 for (int attempt = 0; attempt <= retryCount; attempt++)
                 {
                     bool isRetry = attempt > 0;
@@ -244,6 +248,7 @@ namespace FolderRewind.Services
             }
             finally
             {
+                // 无论成功失败都必须释放，否则后续上传会被永久卡住。
                 UploadSemaphore.Release();
             }
 
@@ -307,6 +312,7 @@ namespace FolderRewind.Services
                     try
                     {
                         if (!process.HasExited)
+                            // 超时直接杀进程树，避免外部工具残留子进程持续占用资源。
                             process.Kill(entireProcessTree: true);
                     }
                     catch

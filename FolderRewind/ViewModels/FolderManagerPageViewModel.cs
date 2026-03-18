@@ -70,6 +70,7 @@ namespace FolderRewind.ViewModels
                 }
 
                 var old = _currentConfig;
+                // 切配置前先解绑旧集合监听，避免旧配置变更继续污染当前页面。
                 UnhookCurrentFoldersChanged(old);
 
                 _currentConfig = value;
@@ -83,6 +84,7 @@ namespace FolderRewind.ViewModels
                     SetSelectedFolder(null, persistSelection: false);
                 }
 
+                // 这里只持久化配置选择；文件夹选择由显式用户操作触发。
                 PersistManagerSelection(_currentConfig?.Id, null);
             }
         }
@@ -108,6 +110,7 @@ namespace FolderRewind.ViewModels
                 return;
             }
 
+            // 页面走缓存时会重复进入，订阅放在激活阶段更安全。
             _isActive = true;
             HookConfigsChanged();
             RefreshConfigsView();
@@ -120,6 +123,7 @@ namespace FolderRewind.ViewModels
                 return;
             }
 
+            // 与 Activate 成对解绑，防止重复回调与内存滞留。
             _isActive = false;
             UnhookConfigsChanged();
             UnhookCurrentFoldersChanged(_currentConfig);
@@ -138,6 +142,7 @@ namespace FolderRewind.ViewModels
                 return;
             }
 
+            // 优先恢复上次选择，找不到再退回首项。
             var lastConfigId = Settings?.LastManagerConfigId;
             CurrentConfig = Configs.FirstOrDefault(c => !string.IsNullOrWhiteSpace(lastConfigId) && c.Id == lastConfigId)
                 ?? Configs.FirstOrDefault();
@@ -203,6 +208,7 @@ namespace FolderRewind.ViewModels
 
             if (persistSelection && folder != null)
             {
+                // 仅在用户明确选中时持久化，程序内部清空选择不覆盖历史路径。
                 PersistManagerSelection(CurrentConfig?.Id, folder.Path);
             }
         }
@@ -664,6 +670,7 @@ namespace FolderRewind.ViewModels
                 if (CurrentConfig != null && !string.IsNullOrWhiteSpace(Settings?.LastManagerFolderPath))
                 {
                     SetPendingFolderPath(Settings.LastManagerFolderPath);
+                    // 触发一次“延迟选中”，由 View 在列表就绪后完成真正定位。
                     PendingFolderSelectionRequested?.Invoke();
                 }
             });
@@ -708,6 +715,7 @@ namespace FolderRewind.ViewModels
             {
                 RefreshCurrentFoldersView();
 
+                // 当前选中文件夹被删/移出后，立刻清空选择避免悬挂引用。
                 if (_selectedFolder != null && (CurrentConfig == null || !CurrentConfig.SourceFolders.Contains(_selectedFolder)))
                 {
                     SetSelectedFolder(null, persistSelection: false);
@@ -762,6 +770,7 @@ namespace FolderRewind.ViewModels
 
             if (updated)
             {
+                // 只在值变化时落盘，避免列表选择抖动导致高频写配置。
                 ConfigService.Save();
             }
         }

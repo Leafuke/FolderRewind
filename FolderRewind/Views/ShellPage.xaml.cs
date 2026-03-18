@@ -23,6 +23,7 @@ namespace FolderRewind.Views
         public ShellPage()
         {
             this.InitializeComponent();
+            // ShellPage 是当前唯一导航宿主，供 ViewModel/Service 发起跨页跳转。
             NavigationService.Initialize(this);
 
             ContentFrame.Navigated += ContentFrame_Navigated;
@@ -35,6 +36,7 @@ namespace FolderRewind.Views
 
         private void ShellPage_Unloaded(object sender, Microsoft.UI.Xaml.RoutedEventArgs e)
         {
+            // 页面卸载时要撤销宿主与事件订阅，避免下次重建后出现重复回调。
             NavigationService.Clear(this);
             NotificationService.InfoBarRequested -= OnInfoBarRequested;
             ConfigService.Saved -= OnConfigSaved;
@@ -43,6 +45,7 @@ namespace FolderRewind.Views
 
         private void OnConfigSaved()
         {
+            // 配置变更后可能首次满足自检条件，延迟调度由服务内部去重。
             CoreFeatureValidationService.TryScheduleInitialValidation();
         }
 
@@ -80,6 +83,7 @@ namespace FolderRewind.Views
                 // 自动关闭
                 if (autoCloseMs > 0)
                 {
+                    // 新消息进来时重置计时器，避免旧消息的关闭时机误关当前消息。
                     _infoBarTimer?.Stop();
                     _infoBarTimer = DispatcherQueue.CreateTimer();
                     _infoBarTimer.Interval = TimeSpan.FromMilliseconds(autoCloseMs);
@@ -105,7 +109,7 @@ namespace FolderRewind.Views
             if (settings != null)
             {
                 NavView.IsPaneOpen = settings.IsNavPaneOpen;
-                // Ensure binding updates if settings was null initially (though unlikely here)
+                // 兜底刷新绑定，确保导航面板状态能及时反映到界面。
                 Bindings.Update();
             }
 
@@ -113,6 +117,7 @@ namespace FolderRewind.Views
 
             if (!_startupDialogsStarted)
             {
+                // 启动弹窗链只跑一次，避免返回 Shell 时重复打断用户。
                 _ = RunStartupDialogsAsync();
             }
         }
@@ -126,6 +131,7 @@ namespace FolderRewind.Views
 
             _startupDialogsStarted = true;
 
+            // 保持固定顺序：引导/冲突/公告/更新，避免多个弹窗竞争焦点。
             await ShowFirstLaunchGuideAsync();
             await ShowBackupSlotConflictWarningAsync();
             await CheckAndShowNoticeAsync();
@@ -147,6 +153,7 @@ namespace FolderRewind.Views
             {
                 try
                 {
+                    // 统一在 UI 线程补全 XamlRoot 与主题，避免跨线程弹窗异常。
                     dialog.XamlRoot ??= this.XamlRoot;
                     ThemeService.ApplyThemeToDialog(dialog);
                     tcs.TrySetResult(await dialog.ShowAsync());
@@ -389,6 +396,7 @@ namespace FolderRewind.Views
             {
                 if (ContentFrame.SourcePageType == pageType && parameter == null)
                 {
+                    // 同页重复点击时不重建页面，只纠正导航栏选中态和标题。
                     UpdateNavSelection(pageTag);
                     UpdatePageHeader(pageTag);
                     return;
@@ -400,22 +408,15 @@ namespace FolderRewind.Views
                 // 2. 同步左侧导航栏的选中状态 (解决你提到的不同步问题)
                 UpdateNavSelection(pageTag);
 
-                // 3. 更新页面 Header (仅 Home 显示 FolderRewind)
+                // 3. 同步页面标题区状态。
                 UpdatePageHeader(pageTag);
             }
         }
 
         private void UpdatePageHeader(string pageTag)
         {
+            // 当前版本统一不显示页头，保留方法便于后续恢复定制标题策略。
             NavView.Header = null;
-            //if (pageTag == "Home")
-            //{
-            //    NavView.Header = "FolderRewind";
-            //}
-            //else
-            //{
-            //    NavView.Header = null;
-            //}
         }
 
         private void UpdateNavSelection(string pageTag)
@@ -431,6 +432,7 @@ namespace FolderRewind.Views
 
             try
             {
+                // 选中项变更会触发 SelectionChanged，这里用标记避免自激循环。
                 _isSyncingSelection = true;
                 NavView.SelectedItem = targetItem;
             }
