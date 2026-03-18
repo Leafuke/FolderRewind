@@ -2782,17 +2782,117 @@ Release notes:
   <data name="Update_Dialog_OpenRelease" xml:space="preserve">
     <value>View release</value>
   </data>
+  <data name="Update_Dialog_OpenStore" xml:space="preserve">
+    <value>Open Microsoft Store</value>
+  </data>
+  <data name="Update_Dialog_PrepareSideload" xml:space="preserve">
+    <value>Download and prepare install</value>
+  </data>
   <data name="Update_Dialog_Later" xml:space="preserve">
     <value>Later</value>
   </data>
   <data name="Update_Dialog_EmptyNotes" xml:space="preserve">
     <value>No release notes were provided for this version.</value>
   </data>
+  <data name="Update_Dialog_StoreDelayHint" xml:space="preserve">
+    <value>Note: Microsoft Store rollout may lag behind release publication. If the new version is not visible yet, please try again later.</value>
+  </data>
+  <data name="Update_Prepare_Title" xml:space="preserve">
+    <value>Update package preparation</value>
+  </data>
+  <data name="Update_Prepare_Success" xml:space="preserve">
+    <value>The update package is ready (source: {0}). Please right-click and run the following script to continue installation:
+{1}</value>
+  </data>
+  <data name="Update_Prepare_OpenFolder" xml:space="preserve">
+    <value>Open install folder</value>
+  </data>
+  <data name="Update_Prepare_OpenFolderFailed" xml:space="preserve">
+    <value>Failed to open install folder: {0}</value>
+  </data>
+  <data name="Update_Prepare_Failed" xml:space="preserve">
+    <value>Failed to prepare update package: {0}</value>
+  </data>
+  <data name="Update_Prepare_InvalidContext" xml:space="preserve">
+    <value>Invalid update context. Please try again later.</value>
+  </data>
+  <data name="Update_Prepare_MissingAssets" xml:space="preserve">
+    <value>This release does not provide matching .7z or .sha256 assets for your platform.</value>
+  </data>
+  <data name="Update_Prepare_NoDownloadSource" xml:space="preserve">
+    <value>No update download source is available. Please check mirror settings.</value>
+  </data>
+  <data name="Update_Prepare_InvalidShaFile" xml:space="preserve">
+    <value>Unable to parse .sha256 file content.</value>
+  </data>
+  <data name="Update_Prepare_HashMismatch" xml:space="preserve">
+    <value>Checksum failed for source "{0}" (SHA256 mismatch).</value>
+  </data>
+  <data name="Update_Prepare_ExtractStartFailed" xml:space="preserve">
+    <value>Failed to start 7z extraction process.</value>
+  </data>
+  <data name="Update_Prepare_ExtractFailedWithSource" xml:space="preserve">
+    <value>Extraction failed from source "{0}": {1}</value>
+  </data>
+  <data name="Update_Prepare_InstallScriptMissing" xml:space="preserve">
+    <value>Package extracted, but Install.ps1 was not found. Please install manually from the release page.</value>
+  </data>
+  <data name="Update_Prepare_DownloadFailedWithSource" xml:space="preserve">
+    <value>Download failed from source "{0}": {1}</value>
+  </data>
+  <data name="Update_Prepare_FailedGeneric" xml:space="preserve">
+    <value>Failed to prepare update package. Please try again later.</value>
+  </data>
+  <data name="Update_Source_Official" xml:space="preserve">
+    <value>Official GitHub</value>
+  </data>
+  <data name="Update_Source_Mirror1" xml:space="preserve">
+    <value>Mirror 1</value>
+  </data>
+  <data name="Update_Source_Mirror2" xml:space="preserve">
+    <value>Mirror 2</value>
+  </data>
+  <data name="Update_Source_Custom" xml:space="preserve">
+    <value>Custom mirror</value>
+  </data>
   <data name="SettingsPage_EnableUpdateReminder.Text" xml:space="preserve">
     <value>Check update reminder on startup</value>
   </data>
   <data name="SettingsPage_EnableUpdateReminderDesc.Text" xml:space="preserve">
-    <value>Check GitHub Releases on startup and show update notes when a newer version exists</value>
+    <value>Check for updates on startup and provide channel-aware update entry points</value>
+  </data>
+  <data name="SettingsPage_AppUpdateSource.Text" xml:space="preserve">
+    <value>Sideload update source</value>
+  </data>
+  <data name="SettingsPage_AppUpdateSourceDesc.Text" xml:space="preserve">
+    <value>Preferred download source for sideload updates (does not affect Store installs)</value>
+  </data>
+  <data name="SettingsPage_AppUpdateSource_Official.Content" xml:space="preserve">
+    <value>Official GitHub</value>
+  </data>
+  <data name="SettingsPage_AppUpdateSource_Mirror1.Content" xml:space="preserve">
+    <value>Mirror 1</value>
+  </data>
+  <data name="SettingsPage_AppUpdateSource_Mirror2.Content" xml:space="preserve">
+    <value>Mirror 2</value>
+  </data>
+  <data name="SettingsPage_AppUpdateSource_Custom.Content" xml:space="preserve">
+    <value>Custom mirror</value>
+  </data>
+  <data name="SettingsPage_AppUpdateAutoFallback.Text" xml:space="preserve">
+    <value>Auto switch on failure</value>
+  </data>
+  <data name="SettingsPage_AppUpdateAutoFallbackDesc.Text" xml:space="preserve">
+    <value>Automatically retry other sources when the preferred source fails</value>
+  </data>
+  <data name="SettingsPage_AppUpdateCustomMirror.Text" xml:space="preserve">
+    <value>Custom mirror URL</value>
+  </data>
+  <data name="SettingsPage_AppUpdateCustomMirrorDesc.Text" xml:space="preserve">
+    <value>Enter a prefix URL or a template containing {url}</value>
+  </data>
+  <data name="SettingsPage_AppUpdateCustomMirrorInput.PlaceholderText" xml:space="preserve">
+    <value>Example: https://example.com/{url}</value>
   </data>
   <data name="HistoryPage_ScanRecover.ToolTipService.ToolTip" xml:space="preserve">
     <value>Scan a folder for backup archives and rebuild missing history records</value>

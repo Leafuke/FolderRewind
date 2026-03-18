@@ -112,6 +112,9 @@ namespace FolderRewind.Models
         private bool _enableNotices = true;
         private string _noticeLastSeenVersion = "";
         private bool _enableUpdateReminder = true;
+        private int _appUpdatePreferredSource = 0; // 0=Official, 1=Mirror1, 2=Mirror2, 3=Custom
+        private bool _appUpdateAutoFallback = true;
+        private string _appUpdateCustomMirrorUrl = "";
 
         // 首次启动引导
         private bool _hasShownFirstLaunchGuide = false;
@@ -227,6 +230,22 @@ namespace FolderRewind.Models
         /// 是否在启动时检查 GitHub Release 更新提醒。
         /// </summary>
         public bool EnableUpdateReminder { get => _enableUpdateReminder; set => SetProperty(ref _enableUpdateReminder, value); }
+
+        /// <summary>
+        /// 应用更新下载源偏好。
+        /// 0=官方直连, 1=镜像一, 2=镜像二, 3=自定义镜像。
+        /// </summary>
+        public int AppUpdatePreferredSource { get => _appUpdatePreferredSource; set => SetProperty(ref _appUpdatePreferredSource, value); }
+
+        /// <summary>
+        /// 下载失败时是否按预设顺序自动切换备用源。
+        /// </summary>
+        public bool AppUpdateAutoFallback { get => _appUpdateAutoFallback; set => SetProperty(ref _appUpdateAutoFallback, value); }
+
+        /// <summary>
+        /// 自定义镜像地址。可填写前缀或包含 {url} 占位符的模板。
+        /// </summary>
+        public string AppUpdateCustomMirrorUrl { get => _appUpdateCustomMirrorUrl; set => SetProperty(ref _appUpdateCustomMirrorUrl, value ?? string.Empty); }
 
         /// <summary>
         /// 是否已经展示过首次启动引导。

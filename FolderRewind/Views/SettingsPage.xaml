@@ -206,6 +206,46 @@
 
                         <toolkit:SettingsCard>
                             <toolkit:SettingsCard.Header>
+                                <TextBlock x:Uid="SettingsPage_AppUpdateSource" Style="{StaticResource SettingsHeaderTextStyle}" />
+                            </toolkit:SettingsCard.Header>
+                            <toolkit:SettingsCard.Description>
+                                <TextBlock x:Uid="SettingsPage_AppUpdateSourceDesc" Style="{StaticResource SettingsDescriptionStyle}" />
+                            </toolkit:SettingsCard.Description>
+                            <ComboBox Style="{StaticResource SettingsSelectorStyle}"
+                                      SelectedIndex="{x:Bind Settings.AppUpdatePreferredSource, Mode=TwoWay}"
+                                      SelectionChanged="OnAppUpdateSourceSelectionChanged">
+                                <ComboBoxItem x:Uid="SettingsPage_AppUpdateSource_Official" />
+                                <ComboBoxItem x:Uid="SettingsPage_AppUpdateSource_Mirror1" />
+                                <ComboBoxItem x:Uid="SettingsPage_AppUpdateSource_Mirror2" />
+                                <ComboBoxItem x:Uid="SettingsPage_AppUpdateSource_Custom" />
+                            </ComboBox>
+                        </toolkit:SettingsCard>
+
+                        <toolkit:SettingsCard>
+                            <toolkit:SettingsCard.Header>
+                                <TextBlock x:Uid="SettingsPage_AppUpdateAutoFallback" Style="{StaticResource SettingsHeaderTextStyle}" />
+                            </toolkit:SettingsCard.Header>
+                            <toolkit:SettingsCard.Description>
+                                <TextBlock x:Uid="SettingsPage_AppUpdateAutoFallbackDesc" Style="{StaticResource SettingsDescriptionStyle}" />
+                            </toolkit:SettingsCard.Description>
+                            <ToggleSwitch IsOn="{x:Bind Settings.AppUpdateAutoFallback, Mode=TwoWay}" Toggled="OnAppUpdateAutoFallbackToggled" />
+                        </toolkit:SettingsCard>
+
+                        <toolkit:SettingsCard>
+                            <toolkit:SettingsCard.Header>
+                                <TextBlock x:Uid="SettingsPage_AppUpdateCustomMirror" Style="{StaticResource SettingsHeaderTextStyle}" />
+                            </toolkit:SettingsCard.Header>
+                            <toolkit:SettingsCard.Description>
+                                <TextBlock x:Uid="SettingsPage_AppUpdateCustomMirrorDesc" Style="{StaticResource SettingsDescriptionStyle}" />
+                            </toolkit:SettingsCard.Description>
+                            <TextBox x:Uid="SettingsPage_AppUpdateCustomMirrorInput"
+                                     Style="{StaticResource SettingsEntryTextBoxStyle}"
+                                     Text="{x:Bind Settings.AppUpdateCustomMirrorUrl, Mode=TwoWay}"
+                                     TextChanged="OnAppUpdateCustomMirrorTextChanged" />
+                        </toolkit:SettingsCard>
+
+                        <toolkit:SettingsCard>
+                            <toolkit:SettingsCard.Header>
                                 <TextBlock x:Uid="SettingsPage_FileSizeWarningThreshold" Style="{StaticResource SettingsHeaderTextStyle}" />
                             </toolkit:SettingsCard.Header>
                             <toolkit:SettingsCard.Description>

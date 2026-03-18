@@ -220,6 +220,30 @@ namespace FolderRewind.ViewModels
             ConfigService.Save();
         }
 
+        public void HandleAppUpdateSourceChanged(int selectedIndex)
+        {
+            Settings.AppUpdatePreferredSource = Math.Clamp(selectedIndex, 0, 3);
+            ConfigService.Save();
+        }
+
+        public void HandleAppUpdateAutoFallbackToggled(bool isOn)
+        {
+            Settings.AppUpdateAutoFallback = isOn;
+            ConfigService.Save();
+        }
+
+        public void HandleAppUpdateCustomMirrorChanged(string? customUrl)
+        {
+            var normalized = customUrl?.Trim() ?? string.Empty;
+            if (string.Equals(Settings.AppUpdateCustomMirrorUrl, normalized, StringComparison.Ordinal))
+            {
+                return;
+            }
+
+            Settings.AppUpdateCustomMirrorUrl = normalized;
+            ConfigService.Save();
+        }
+
         public int GetLanguageSelectedIndex()
         {
             return LanguageToIndex(Settings.Language);

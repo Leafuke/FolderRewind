@@ -268,6 +268,18 @@ namespace FolderRewind.Views
                     update.LatestVersion,
                     notes);
 
+                if (update.PrimaryAction == UpdatePrimaryAction.OpenStorePage)
+                {
+                    content += Environment.NewLine + Environment.NewLine + I18n.GetString("Update_Dialog_StoreDelayHint");
+                }
+
+                var primaryButtonText = update.PrimaryAction switch
+                {
+                    UpdatePrimaryAction.OpenStorePage => I18n.GetString("Update_Dialog_OpenStore"),
+                    UpdatePrimaryAction.PrepareSideloadPackage => I18n.GetString("Update_Dialog_PrepareSideload"),
+                    _ => I18n.GetString("Update_Dialog_OpenRelease")
+                };
+
                 var dialog = new ContentDialog
                 {
                     Title = I18n.GetString("Update_Dialog_Title"),
@@ -281,7 +293,7 @@ namespace FolderRewind.Views
                             IsTextSelectionEnabled = true
                         }
                     },
-                    PrimaryButtonText = I18n.GetString("Update_Dialog_OpenRelease"),
+                    PrimaryButtonText = primaryButtonText,
                     CloseButtonText = I18n.GetString("Update_Dialog_Later"),
                     DefaultButton = ContentDialogButton.Primary
                 };
@@ -289,7 +301,62 @@ namespace FolderRewind.Views
                 var result = await ShowDialogAsync(dialog);
                 if (result != ContentDialogResult.Primary) return;
 
-                await Windows.System.Launcher.LaunchUriAsync(new Uri(update.ReleaseUrl));
+                if (update.PrimaryAction == UpdatePrimaryAction.PrepareSideloadPackage)
+                {
+                    var prepare = await AppSideloadUpdateService.PrepareUpdateAsync(update);
+                    if (!prepare.Success)
+                    {
+                        var failedDialog = new ContentDialog
+                        {
+                            Title = I18n.GetString("Update_Prepare_Title"),
+                            Content = string.Format(I18n.GetString("Update_Prepare_Failed"), prepare.ErrorMessage),
+                            CloseButtonText = I18n.GetString("Common_Ok"),
+                            DefaultButton = ContentDialogButton.Close
+                        };
+
+                        await ShowDialogAsync(failedDialog);
+                        return;
+                    }
+
+                    var successDialog = new ContentDialog
+                    {
+                        Title = I18n.GetString("Update_Prepare_Title"),
+                        Content = string.Format(
+                            I18n.GetString("Update_Prepare_Success"),
+                            prepare.SourceDisplayName,
+                            prepare.InstallScriptPath),
+                        PrimaryButtonText = I18n.GetString("Update_Prepare_OpenFolder"),
+                        CloseButtonText = I18n.GetString("Common_Ok"),
+                        DefaultButton = ContentDialogButton.Primary
+                    };
+
+                    var prepareResult = await ShowDialogAsync(successDialog);
+                    if (prepareResult == ContentDialogResult.Primary)
+                    {
+                        if (!ShellPathService.TryRevealPathInExplorer(prepare.InstallScriptPath, out var revealError))
+                        {
+                            var revealFailedDialog = new ContentDialog
+                            {
+                                Title = I18n.GetString("Update_Prepare_Title"),
+                                Content = string.Format(
+                                    I18n.GetString("Update_Prepare_OpenFolderFailed"),
+                                    string.IsNullOrWhiteSpace(revealError) ? I18n.GetString("Common_Failed") : revealError),
+                                CloseButtonText = I18n.GetString("Common_Ok"),
+                                DefaultButton = ContentDialogButton.Close
+                            };
+
+                            await ShowDialogAsync(revealFailedDialog);
+                        }
+                    }
+
+                    return;
+                }
+
+                var targetUrl = string.IsNullOrWhiteSpace(update.PrimaryActionUrl)
+                    ? update.ReleaseUrl
+                    : update.PrimaryActionUrl;
+
+                await Windows.System.Launcher.LaunchUriAsync(new Uri(targetUrl));
             }
             catch (Exception ex)
             {

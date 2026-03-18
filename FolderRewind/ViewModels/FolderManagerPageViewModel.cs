@@ -4,7 +4,6 @@ using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.Collections.Specialized;
-using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using System.Threading.Tasks;
@@ -395,16 +394,7 @@ namespace FolderRewind.ViewModels
                 return false;
             }
 
-            try
-            {
-                Process.Start("explorer.exe", folder.Path);
-                return true;
-            }
-            catch (Exception ex)
-            {
-                Debug.WriteLine($"Open folder failed: {ex.Message}");
-                return false;
-            }
+            return ShellPathService.TryOpenPath(folder.Path, out _);
         }
 
         public bool TryOpenMiniWindow(ManagedFolder folder)

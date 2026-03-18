@@ -2782,17 +2782,117 @@
   <data name="Update_Dialog_OpenRelease" xml:space="preserve">
     <value>查看并下载</value>
   </data>
+  <data name="Update_Dialog_OpenStore" xml:space="preserve">
+    <value>前往 Microsoft Store</value>
+  </data>
+  <data name="Update_Dialog_PrepareSideload" xml:space="preserve">
+    <value>下载并准备安装</value>
+  </data>
   <data name="Update_Dialog_Later" xml:space="preserve">
     <value>稍后</value>
   </data>
   <data name="Update_Dialog_EmptyNotes" xml:space="preserve">
     <value>该版本未提供更新说明。</value>
   </data>
+  <data name="Update_Dialog_StoreDelayHint" xml:space="preserve">
+    <value>提示：Microsoft Store 的版本同步可能略有延迟，如未立即看到新版本可稍后重试。</value>
+  </data>
+  <data name="Update_Prepare_Title" xml:space="preserve">
+    <value>更新包准备结果</value>
+  </data>
+  <data name="Update_Prepare_Success" xml:space="preserve">
+    <value>更新包已准备完成（来源：{0}）。请右键运行以下脚本继续安装：
+{1}</value>
+  </data>
+  <data name="Update_Prepare_OpenFolder" xml:space="preserve">
+    <value>打开安装目录</value>
+  </data>
+  <data name="Update_Prepare_OpenFolderFailed" xml:space="preserve">
+    <value>无法打开安装目录：{0}</value>
+  </data>
+  <data name="Update_Prepare_Failed" xml:space="preserve">
+    <value>更新包准备失败：{0}</value>
+  </data>
+  <data name="Update_Prepare_InvalidContext" xml:space="preserve">
+    <value>更新上下文无效，请稍后重试。</value>
+  </data>
+  <data name="Update_Prepare_MissingAssets" xml:space="preserve">
+    <value>当前版本未提供适配你设备的 .7z 或 .sha256 资产，无法自动准备更新。</value>
+  </data>
+  <data name="Update_Prepare_NoDownloadSource" xml:space="preserve">
+    <value>没有可用的更新下载源，请检查镜像配置。</value>
+  </data>
+  <data name="Update_Prepare_InvalidShaFile" xml:space="preserve">
+    <value>无法解析 .sha256 文件内容。</value>
+  </data>
+  <data name="Update_Prepare_HashMismatch" xml:space="preserve">
+    <value>源“{0}”校验失败（SHA256 不匹配）。</value>
+  </data>
+  <data name="Update_Prepare_ExtractStartFailed" xml:space="preserve">
+    <value>无法启动 7z 解压进程。</value>
+  </data>
+  <data name="Update_Prepare_ExtractFailedWithSource" xml:space="preserve">
+    <value>源“{0}”解压失败：{1}</value>
+  </data>
+  <data name="Update_Prepare_InstallScriptMissing" xml:space="preserve">
+    <value>更新包已解压，但未找到 Install.ps1，请改为手动下载并安装。</value>
+  </data>
+  <data name="Update_Prepare_DownloadFailedWithSource" xml:space="preserve">
+    <value>源“{0}”下载失败：{1}</value>
+  </data>
+  <data name="Update_Prepare_FailedGeneric" xml:space="preserve">
+    <value>准备更新包失败，请稍后重试。</value>
+  </data>
+  <data name="Update_Source_Official" xml:space="preserve">
+    <value>官方 GitHub</value>
+  </data>
+  <data name="Update_Source_Mirror1" xml:space="preserve">
+    <value>镜像源 1</value>
+  </data>
+  <data name="Update_Source_Mirror2" xml:space="preserve">
+    <value>镜像源 2</value>
+  </data>
+  <data name="Update_Source_Custom" xml:space="preserve">
+    <value>自定义镜像</value>
+  </data>
   <data name="SettingsPage_EnableUpdateReminder.Text" xml:space="preserve">
     <value>启动时检查更新提醒</value>
   </data>
   <data name="SettingsPage_EnableUpdateReminderDesc.Text" xml:space="preserve">
-    <value>启动应用时检查 GitHub Release 新版本并提示更新内容</value>
+    <value>启动应用时检查新版本，并按安装来源提供对应更新入口</value>
+  </data>
+  <data name="SettingsPage_AppUpdateSource.Text" xml:space="preserve">
+    <value>侧载更新下载源</value>
+  </data>
+  <data name="SettingsPage_AppUpdateSourceDesc.Text" xml:space="preserve">
+    <value>侧载更新时优先使用的下载来源（商店版不受此项影响）</value>
+  </data>
+  <data name="SettingsPage_AppUpdateSource_Official.Content" xml:space="preserve">
+    <value>官方 GitHub</value>
+  </data>
+  <data name="SettingsPage_AppUpdateSource_Mirror1.Content" xml:space="preserve">
+    <value>镜像源 1</value>
+  </data>
+  <data name="SettingsPage_AppUpdateSource_Mirror2.Content" xml:space="preserve">
+    <value>镜像源 2</value>
+  </data>
+  <data name="SettingsPage_AppUpdateSource_Custom.Content" xml:space="preserve">
+    <value>自定义镜像</value>
+  </data>
+  <data name="SettingsPage_AppUpdateAutoFallback.Text" xml:space="preserve">
+    <value>下载失败时自动切换源</value>
+  </data>
+  <data name="SettingsPage_AppUpdateAutoFallbackDesc.Text" xml:space="preserve">
+    <value>首选源失败后自动按顺序重试其他来源</value>
+  </data>
+  <data name="SettingsPage_AppUpdateCustomMirror.Text" xml:space="preserve">
+    <value>自定义镜像地址</value>
+  </data>
+  <data name="SettingsPage_AppUpdateCustomMirrorDesc.Text" xml:space="preserve">
+    <value>可填写前缀，或使用 {url} 占位符拼接完整下载地址</value>
+  </data>
+  <data name="SettingsPage_AppUpdateCustomMirrorInput.PlaceholderText" xml:space="preserve">
+    <value>例如：https://example.com/{url}</value>
   </data>
   <data name="HistoryPage_ScanRecover.ToolTipService.ToolTip" xml:space="preserve">
     <value>扫描备份文件夹并重建丢失的历史记录</value>

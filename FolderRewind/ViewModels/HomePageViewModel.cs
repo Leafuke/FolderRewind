@@ -3,7 +3,6 @@ using FolderRewind.Services;
 using System;
 using System.Collections.ObjectModel;
 using System.Collections.Specialized;
-using System.Diagnostics;
 using System.Globalization;
 using System.IO;
 using System.Linq;
@@ -164,12 +163,10 @@ namespace FolderRewind.ViewModels
                     Directory.CreateDirectory(config.DestinationPath);
                 }
 
-                Process.Start(new ProcessStartInfo
+                if (!ShellPathService.TryOpenPath(config.DestinationPath, out var openError))
                 {
-                    FileName = config.DestinationPath,
-                    UseShellExecute = true,
-                    Verb = "open"
-                });
+                    LogService.LogError($"Failed to open destination: {openError}");
+                }
             }
             catch (Exception ex)
             {

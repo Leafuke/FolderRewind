@@ -241,6 +241,32 @@ namespace FolderRewind.Views
             }
         }
 
+        private void OnAppUpdateSourceSelectionChanged(object sender, SelectionChangedEventArgs e)
+        {
+            if (sender is ComboBox cb)
+            {
+                _viewModel.HandleAppUpdateSourceChanged(cb.SelectedIndex);
+            }
+
+            Bindings.Update();
+        }
+
+        private void OnAppUpdateAutoFallbackToggled(object sender, RoutedEventArgs e)
+        {
+            if (sender is ToggleSwitch ts)
+            {
+                _viewModel.HandleAppUpdateAutoFallbackToggled(ts.IsOn);
+            }
+        }
+
+        private void OnAppUpdateCustomMirrorTextChanged(object sender, TextChangedEventArgs e)
+        {
+            if (sender is TextBox tb)
+            {
+                _viewModel.HandleAppUpdateCustomMirrorChanged(tb.Text);
+            }
+        }
+
         private void HotkeyManager_DefinitionsChanged(object? sender, EventArgs e)
         {
             _viewModel.RefreshHotkeyBindingsView();

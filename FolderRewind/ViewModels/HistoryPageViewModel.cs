@@ -6,7 +6,6 @@ using Microsoft.UI.Xaml.Media;
 using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
-using System.Diagnostics;
 using System.IO;
 using System.Linq;
 
@@ -238,21 +237,13 @@ namespace FolderRewind.ViewModels
                 return false;
             }
 
-            try
+            if (!ShellPathService.TryRevealPathInExplorer(filePath, out var revealError))
             {
-                Process.Start(new ProcessStartInfo
-                {
-                    FileName = "explorer.exe",
-                    Arguments = $"/select,\"{filePath}\"",
-                    UseShellExecute = true
-                });
-                return true;
-            }
-            catch (Exception ex)
-            {
-                errorMessage = I18n.Format("History_ViewFile_Failed", ex.Message);
+                errorMessage = I18n.Format("History_ViewFile_Failed", revealError ?? string.Empty);
                 return false;
             }
+
+            return true;
         }
 
         public void UpdateComment(HistoryItem item, string newComment)

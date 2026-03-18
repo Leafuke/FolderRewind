@@ -6,7 +6,6 @@ using Microsoft.UI.Xaml.Controls;
 using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
-using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using System.Threading.Tasks;
@@ -658,18 +657,9 @@ namespace FolderRewind.Views
 
         private static void OpenPathInShell(string path)
         {
-            try
+            if (!ShellPathService.TryOpenPath(path, out var error))
             {
-                Process.Start(new ProcessStartInfo
-                {
-                    FileName = path,
-                    UseShellExecute = true,
-                    Verb = "open"
-                });
-            }
-            catch (Exception ex)
-            {
-                LogService.Log(I18n.Format("Config_OpenPath_Failed", ex.Message));
+                LogService.Log(I18n.Format("Config_OpenPath_Failed", error ?? string.Empty));
             }
         }
         private void OnAddBlacklistClick(object sender, RoutedEventArgs e)

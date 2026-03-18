@@ -276,12 +276,10 @@ namespace FolderRewind.Services
             try
             {
                 if (!Directory.Exists(ConfigDirectory)) Directory.CreateDirectory(ConfigDirectory);
-                Process.Start(new ProcessStartInfo
+                if (!ShellPathService.TryOpenPath(ConfigDirectory, out var openError))
                 {
-                    FileName = ConfigDirectory,
-                    UseShellExecute = true,
-                    Verb = "open"
-                });
+                    LogService.Log(I18n.Format("Config_OpenConfigDirFailed", openError ?? string.Empty));
+                }
             }
             catch (Exception ex)
             {
@@ -294,12 +292,10 @@ namespace FolderRewind.Services
             try
             {
                 if (!File.Exists(ConfigPath)) Save();
-                Process.Start(new ProcessStartInfo
+                if (!ShellPathService.TryOpenPath(ConfigPath, out var openError))
                 {
-                    FileName = ConfigPath,
-                    UseShellExecute = true,
-                    Verb = "open"
-                });
+                    LogService.Log(I18n.Format("Config_OpenConfigFileFailed", openError ?? string.Empty));
+                }
             }
             catch (Exception ex)
             {
@@ -426,6 +422,10 @@ namespace FolderRewind.Services
 
             // Toast 等级约束在有效区间（0-3）。
             settings.ToastNotificationLevel = Math.Clamp(settings.ToastNotificationLevel, 0, 3);
+
+            // 应用更新源配置约束。
+            settings.AppUpdatePreferredSource = Math.Clamp(settings.AppUpdatePreferredSource, 0, 3);
+            settings.AppUpdateCustomMirrorUrl = settings.AppUpdateCustomMirrorUrl?.Trim() ?? string.Empty;
         }
 
         private static string MakeSafeFolderName(string? name)
