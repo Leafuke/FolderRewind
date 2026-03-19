@@ -2921,4 +2921,304 @@ Release notes:
   <data name="SettingsPage_About_Link_Document.Content" xml:space="preserve">
     <value>Document</value>
   </data>
+  <data name="ConfigSettingsDialog_SaveAsTemplateText.Text" xml:space="preserve">
+    <value>Save as template</value>
+  </data>
+  <data name="ConfigSettingsDialog_SaveAsTemplateDesc.Text" xml:space="preserve">
+    <value>Save this configuration as a reusable template (strategy, filters, and path rules).</value>
+  </data>
+  <data name="HomePage_AddFromTemplate.Text" xml:space="preserve">
+    <value>Create from template</value>
+  </data>
+  <data name="SettingsPage_TemplateData.Text" xml:space="preserve">
+    <value>Template Data</value>
+  </data>
+  <data name="SettingsPage_TemplateDataDesc.Text" xml:space="preserve">
+    <value>Export or import templates for cross-device sharing and quick reuse.</value>
+  </data>
+  <data name="SettingsPage_ExportTemplate.Content" xml:space="preserve">
+    <value>Export Template</value>
+  </data>
+  <data name="SettingsPage_ImportTemplate.Content" xml:space="preserve">
+    <value>Import Template</value>
+  </data>
+  <data name="Settings_Template_Export_NoTemplates" xml:space="preserve">
+    <value>No templates are available to export.</value>
+  </data>
+  <data name="Settings_Template_SelectToExport" xml:space="preserve">
+    <value>Select a template to export</value>
+  </data>
+  <data name="Template_DefaultName" xml:space="preserve">
+    <value>New Template</value>
+  </data>
+  <data name="Template_SaveDialog_Title" xml:space="preserve">
+    <value>Save as template</value>
+  </data>
+  <data name="Template_SaveDialog_Hint" xml:space="preserve">
+    <value>Save the current strategy and path rules as a template for reuse or sharing.</value>
+  </data>
+  <data name="Template_SaveDialog_Name" xml:space="preserve">
+    <value>Template name</value>
+  </data>
+  <data name="Template_SaveDialog_Author" xml:space="preserve">
+    <value>Author (optional)</value>
+  </data>
+  <data name="Template_SaveDialog_AuthorPlaceholder" xml:space="preserve">
+    <value>e.g. your nickname</value>
+  </data>
+  <data name="Template_SaveDialog_Description" xml:space="preserve">
+    <value>Description (optional)</value>
+  </data>
+  <data name="Template_Create_SourceConfigNull" xml:space="preserve">
+    <value>Current configuration is null and cannot be saved as a template.</value>
+  </data>
+  <data name="Template_Create_NameRequired" xml:space="preserve">
+    <value>Template name is required.</value>
+  </data>
+  <data name="Template_Create_ConfigUnavailable" xml:space="preserve">
+    <value>Current configuration is unavailable. Failed to save template.</value>
+  </data>
+  <data name="Template_Create_NoPathRules" xml:space="preserve">
+    <value>Template saved, but no auto-discovery path rule could be inferred.</value>
+  </data>
+  <data name="Template_Create_Success" xml:space="preserve">
+    <value>Template created: {0}</value>
+  </data>
+  <data name="Template_Create_OverwriteSuccess" xml:space="preserve">
+    <value>Existing template overwritten: {0}</value>
+  </data>
+  <data name="Template_Apply_TemplateNull" xml:space="preserve">
+    <value>Template is null and cannot be applied.</value>
+  </data>
+  <data name="Template_Apply_NameRequired" xml:space="preserve">
+    <value>Configuration name is required.</value>
+  </data>
+  <data name="Template_AutoDiscoveredFolderDescription" xml:space="preserve">
+    <value>Auto-discovered from template</value>
+  </data>
+  <data name="Template_Apply_SuccessWithFolders" xml:space="preserve">
+    <value>Configuration created and {0} source folder(s) were auto-discovered.</value>
+  </data>
+  <data name="Template_Apply_SuccessNoFolders" xml:space="preserve">
+    <value>Configuration created, but no source folder was auto-discovered. Please add folders manually.</value>
+  </data>
+  <data name="Template_ConfigTypeUnavailable" xml:space="preserve">
+    <value>Template type "{0}" is unavailable (required plugin missing). Falling back to Default.</value>
+  </data>
+  <data name="Template_Export_TemplateNotFound" xml:space="preserve">
+    <value>Template not found.</value>
+  </data>
+  <data name="Template_Export_PathEmpty" xml:space="preserve">
+    <value>Export path is empty.</value>
+  </data>
+  <data name="Template_Export_Success" xml:space="preserve">
+    <value>Template exported to: {0}</value>
+  </data>
+  <data name="Template_Export_Failed" xml:space="preserve">
+    <value>Failed to export template: {0}</value>
+  </data>
+  <data name="Template_Import_FileNotFound" xml:space="preserve">
+    <value>Template file not found.</value>
+  </data>
+  <data name="Template_Import_ConfigUnavailable" xml:space="preserve">
+    <value>Current configuration is unavailable. Failed to import template.</value>
+  </data>
+  <data name="Template_Import_InvalidFile" xml:space="preserve">
+    <value>Invalid or unsupported template file.</value>
+  </data>
+  <data name="Template_Import_SchemaUnsupported" xml:space="preserve">
+    <value>This template file is from a newer version and cannot be imported yet.</value>
+  </data>
+  <data name="Template_Import_Overwrite" xml:space="preserve">
+    <value>Template overwritten: {0}</value>
+  </data>
+  <data name="Template_Import_Success" xml:space="preserve">
+    <value>Template imported: {0}</value>
+  </data>
+  <data name="Template_Import_KeepBothRenamed" xml:space="preserve">
+    <value>Template imported and renamed to "{1}" (original name: {0}).</value>
+  </data>
+  <data name="Template_Import_ConflictTitle" xml:space="preserve">
+    <value>Template Conflict</value>
+  </data>
+  <data name="Template_Import_ConflictContent" xml:space="preserve">
+    <value>The imported template "{0}" conflicts with the existing template "{1}". Do you want to replace the existing one or keep both?</value>
+  </data>
+  <data name="Template_Import_ConflictReplace" xml:space="preserve">
+    <value>Replace Existing</value>
+  </data>
+  <data name="Template_Import_ConflictKeepBoth" xml:space="preserve">
+    <value>Keep Both</value>
+  </data>
+  <data name="Template_Import_Failed" xml:space="preserve">
+    <value>Failed to import template: {0}</value>
+  </data>
+  <data name="Template_CreateFrom_Home_Title" xml:space="preserve">
+    <value>Create configuration from template</value>
+  </data>
+  <data name="Template_CreateFrom_Home_NoTemplates" xml:space="preserve">
+    <value>No templates yet. Save one from the configuration settings first.</value>
+  </data>
+  <data name="Template_CreateFrom_Home_Template" xml:space="preserve">
+    <value>Select template</value>
+  </data>
+  <data name="Template_CreateFrom_Home_TemplateInfo" xml:space="preserve">
+    <value>Template "{0}" with {1} path rule(s).</value>
+  </data>
+  <data name="Template_CreateFrom_Home_SelectFoldersTitle" xml:space="preserve">
+    <value>Confirm Discovered Source Folders</value>
+  </data>
+  <data name="Template_CreateFrom_Home_SelectFoldersDesc" xml:space="preserve">
+    <value>Template "{0}" discovered {1} candidate source folder(s). Please confirm which ones should be added to the new configuration.</value>
+  </data>
+  <data name="Template_CreateFrom_Home_SelectFoldersHint" xml:space="preserve">
+    <value>No candidates are selected by default. Please verify the suggested paths before continuing.</value>
+  </data>
+  <data name="Template_CreateFrom_Home_FolderCandidateMeta" xml:space="preserve">
+    <value>Rule: {0} | Confidence: {1} | {2}</value>
+  </data>
+  <data name="Template_CreateFrom_Home_FolderCandidateAuto" xml:space="preserve">
+    <value>Auto-selected</value>
+  </data>
+  <data name="Template_CreateFrom_Home_FolderCandidateSuggested" xml:space="preserve">
+    <value>Needs confirmation</value>
+  </data>
+  <data name="Template_CreateFrom_Home_SelectionSummary" xml:space="preserve">
+    <value>Configuration created with {0} / {1} candidate source folder(s) selected.</value>
+  </data>
+  <data name="Template_RequiredPluginsMissing" xml:space="preserve">
+    <value>Required plugins for this template are missing: {0}</value>
+  </data>
+  <data name="SettingsPage_ManageTemplates.Content" xml:space="preserve">
+    <value>Manage Templates</value>
+  </data>
+  <data name="TemplateManagerDialog.Title" xml:space="preserve">
+    <value>Template Manager</value>
+  </data>
+  <data name="TemplateManagerDialog.CloseButtonText" xml:space="preserve">
+    <value>Close</value>
+  </data>
+  <data name="TemplateManagerDialog_ListHeader.Text" xml:space="preserve">
+    <value>Templates</value>
+  </data>
+  <data name="TemplateManagerDialog_Search.PlaceholderText" xml:space="preserve">
+    <value>Search by name, author, or type</value>
+  </data>
+  <data name="TemplateManagerDialog_DetailHeader.Text" xml:space="preserve">
+    <value>Template Details</value>
+  </data>
+  <data name="TemplateManagerDialog_Name.Header" xml:space="preserve">
+    <value>Name</value>
+  </data>
+  <data name="TemplateManagerDialog_Author.Header" xml:space="preserve">
+    <value>Author</value>
+  </data>
+  <data name="TemplateManagerDialog_Description.Header" xml:space="preserve">
+    <value>Description</value>
+  </data>
+  <data name="TemplateManagerDialog_TemplateMeta.Text" xml:space="preserve">
+    <value>Select a template from the left to view details.</value>
+  </data>
+  <data name="TemplateManagerDialog_TemplateMetaFormat" xml:space="preserve">
+    <value>Type: {0} | Updated: {1} | Rules: {2}</value>
+  </data>
+  <data name="TemplateManagerDialog_Save.Content" xml:space="preserve">
+    <value>Save Changes</value>
+  </data>
+  <data name="TemplateManagerDialog_Duplicate.Content" xml:space="preserve">
+    <value>Duplicate</value>
+  </data>
+  <data name="TemplateManagerDialog_Delete.Content" xml:space="preserve">
+    <value>Delete</value>
+  </data>
+  <data name="TemplateManagerDialog_Export.Content" xml:space="preserve">
+    <value>Export</value>
+  </data>
+  <data name="TemplateManagerDialog_DeleteConfirmYes.Content" xml:space="preserve">
+    <value>Delete</value>
+  </data>
+  <data name="TemplateManagerDialog_DeleteConfirmNo.Content" xml:space="preserve">
+    <value>Cancel</value>
+  </data>
+  <data name="TemplateManagerDialog_PreviewHeader.Text" xml:space="preserve">
+    <value>Rule Preview</value>
+  </data>
+  <data name="TemplateManagerDialog_RefreshPreview.Content" xml:space="preserve">
+    <value>Refresh Preview</value>
+  </data>
+  <data name="TemplateManagerDialog_PreviewSummary.Text" xml:space="preserve">
+    <value>Select a template to view rule match results.</value>
+  </data>
+  <data name="TemplateManagerDialog_NoPreview.Text" xml:space="preserve">
+    <value>No preview data.</value>
+  </data>
+  <data name="TemplateManagerDialog_EmptyList.Text" xml:space="preserve">
+    <value>No templates matched.</value>
+  </data>
+  <data name="Template_Manager_SelectFirst" xml:space="preserve">
+    <value>Please select a template first.</value>
+  </data>
+  <data name="Template_Manager_DeleteConfirm" xml:space="preserve">
+    <value>Delete template "{0}"? This action cannot be undone.</value>
+  </data>
+  <data name="Template_Update_NameRequired" xml:space="preserve">
+    <value>Template name is required.</value>
+  </data>
+  <data name="Template_Update_TemplateNotFound" xml:space="preserve">
+    <value>Template to update was not found.</value>
+  </data>
+  <data name="Template_Update_NameConflict" xml:space="preserve">
+    <value>Template name "{0}" already exists. Please choose another name.</value>
+  </data>
+  <data name="Template_Update_Success" xml:space="preserve">
+    <value>Template "{0}" was updated.</value>
+  </data>
+  <data name="Template_Duplicate_TemplateNotFound" xml:space="preserve">
+    <value>Template to duplicate was not found.</value>
+  </data>
+  <data name="Template_Duplicate_Success" xml:space="preserve">
+    <value>Template copy created: {0}</value>
+  </data>
+  <data name="Template_Duplicate_CopySuffix" xml:space="preserve">
+    <value>Copy</value>
+  </data>
+  <data name="Template_Delete_TemplateNotFound" xml:space="preserve">
+    <value>Template to delete was not found.</value>
+  </data>
+  <data name="Template_Delete_Failed" xml:space="preserve">
+    <value>Failed to delete template.</value>
+  </data>
+  <data name="Template_Delete_Success" xml:space="preserve">
+    <value>Template deleted: {0}</value>
+  </data>
+  <data name="Template_Preview_TemplateNotFound" xml:space="preserve">
+    <value>Template for preview was not found.</value>
+  </data>
+  <data name="Template_Preview_NoRules" xml:space="preserve">
+    <value>This template has no path rules to preview.</value>
+  </data>
+  <data name="Template_Preview_UnnamedRule" xml:space="preserve">
+    <value>Unnamed rule</value>
+  </data>
+  <data name="Template_Preview_NoPath" xml:space="preserve">
+    <value>N/A</value>
+  </data>
+  <data name="Template_Preview_StatusMatched" xml:space="preserve">
+    <value>Matched</value>
+  </data>
+  <data name="Template_Preview_StatusNoMatch" xml:space="preserve">
+    <value>No match</value>
+  </data>
+  <data name="Template_Preview_MatchCount" xml:space="preserve">
+    <value>Matched paths: {0}</value>
+  </data>
+  <data name="Template_Preview_MarkerNone" xml:space="preserve">
+    <value>Markers: none</value>
+  </data>
+  <data name="Template_Preview_MarkerSummary" xml:space="preserve">
+    <value>Markers: required {0}, optional {1}</value>
+  </data>
+  <data name="Template_Preview_Summary" xml:space="preserve">
+    <value>{0} of {1} rule(s) matched.</value>
+  </data>
 </root>

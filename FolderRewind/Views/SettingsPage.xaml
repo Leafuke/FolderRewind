@@ -564,6 +564,27 @@
                 <!-- 扩展 -->
                 <TextBlock x:Uid="SettingsPage_Section_Extensions" Style="{StaticResource SettingsSectionHeaderTextBlockStyle}" />
 
+                <toolkit:SettingsExpander IsExpanded="False">
+                    <toolkit:SettingsExpander.Header>
+                        <TextBlock x:Uid="SettingsPage_TemplateData" Style="{StaticResource SettingsHeaderTextStyle}" />
+                    </toolkit:SettingsExpander.Header>
+                    <toolkit:SettingsExpander.Description>
+                        <TextBlock x:Uid="SettingsPage_TemplateDataDesc" Style="{StaticResource SettingsDescriptionStyle}" />
+                    </toolkit:SettingsExpander.Description>
+                    <toolkit:SettingsExpander.HeaderIcon>
+                        <FontIcon Glyph="&#xE8D2;" />
+                    </toolkit:SettingsExpander.HeaderIcon>
+                    <toolkit:SettingsExpander.Items>
+                        <toolkit:SettingsCard>
+                            <StackPanel Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
+                                <Button x:Uid="SettingsPage_ExportTemplate" Style="{StaticResource SettingsActionRowButtonStyle}" Click="OnExportTemplateClick" />
+                                <Button x:Uid="SettingsPage_ImportTemplate" Style="{StaticResource SettingsActionRowButtonStyle}" Click="OnImportTemplateClick" />
+                                <Button x:Uid="SettingsPage_ManageTemplates" Style="{StaticResource SettingsActionRowButtonStyle}" Click="OnManageTemplatesClick" />
+                            </StackPanel>
+                        </toolkit:SettingsCard>
+                    </toolkit:SettingsExpander.Items>
+                </toolkit:SettingsExpander>
+
                 <!-- 数据迁移 -->
                 <toolkit:SettingsExpander IsExpanded="False">
                     <toolkit:SettingsExpander.Header>

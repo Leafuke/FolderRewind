@@ -2921,4 +2921,304 @@
   <data name="SettingsPage_About_Link_Document.Content" xml:space="preserve">
     <value>阅读文档</value>
   </data>
+  <data name="ConfigSettingsDialog_SaveAsTemplateText.Text" xml:space="preserve">
+    <value>保存为模板</value>
+  </data>
+  <data name="ConfigSettingsDialog_SaveAsTemplateDesc.Text" xml:space="preserve">
+    <value>将当前配置保存为可复用模板（含策略、过滤器与路径规则）。</value>
+  </data>
+  <data name="HomePage_AddFromTemplate.Text" xml:space="preserve">
+    <value>从模板创建</value>
+  </data>
+  <data name="SettingsPage_TemplateData.Text" xml:space="preserve">
+    <value>模板数据</value>
+  </data>
+  <data name="SettingsPage_TemplateDataDesc.Text" xml:space="preserve">
+    <value>导出或导入模板配置，用于跨设备共享和快速复用。</value>
+  </data>
+  <data name="SettingsPage_ExportTemplate.Content" xml:space="preserve">
+    <value>导出模板</value>
+  </data>
+  <data name="SettingsPage_ImportTemplate.Content" xml:space="preserve">
+    <value>导入模板</value>
+  </data>
+  <data name="Settings_Template_Export_NoTemplates" xml:space="preserve">
+    <value>当前没有可导出的模板。</value>
+  </data>
+  <data name="Settings_Template_SelectToExport" xml:space="preserve">
+    <value>选择要导出的模板</value>
+  </data>
+  <data name="Template_DefaultName" xml:space="preserve">
+    <value>新模板</value>
+  </data>
+  <data name="Template_SaveDialog_Title" xml:space="preserve">
+    <value>保存为模板</value>
+  </data>
+  <data name="Template_SaveDialog_Hint" xml:space="preserve">
+    <value>将当前配置的策略与路径规则保存为模板，便于复用或分享。</value>
+  </data>
+  <data name="Template_SaveDialog_Name" xml:space="preserve">
+    <value>模板名称</value>
+  </data>
+  <data name="Template_SaveDialog_Author" xml:space="preserve">
+    <value>作者（可选）</value>
+  </data>
+  <data name="Template_SaveDialog_AuthorPlaceholder" xml:space="preserve">
+    <value>例如：你的昵称</value>
+  </data>
+  <data name="Template_SaveDialog_Description" xml:space="preserve">
+    <value>说明（可选）</value>
+  </data>
+  <data name="Template_Create_SourceConfigNull" xml:space="preserve">
+    <value>当前配置为空，无法创建模板。</value>
+  </data>
+  <data name="Template_Create_NameRequired" xml:space="preserve">
+    <value>模板名称不能为空。</value>
+  </data>
+  <data name="Template_Create_ConfigUnavailable" xml:space="preserve">
+    <value>当前配置不可用，无法保存模板。</value>
+  </data>
+  <data name="Template_Create_NoPathRules" xml:space="preserve">
+    <value>模板已保存，但未推断到可自动扫描的路径规则。</value>
+  </data>
+  <data name="Template_Create_Success" xml:space="preserve">
+    <value>已创建模板：{0}</value>
+  </data>
+  <data name="Template_Create_OverwriteSuccess" xml:space="preserve">
+    <value>已覆盖同名模板：{0}</value>
+  </data>
+  <data name="Template_Apply_TemplateNull" xml:space="preserve">
+    <value>模板为空，无法创建配置。</value>
+  </data>
+  <data name="Template_Apply_NameRequired" xml:space="preserve">
+    <value>配置名称不能为空。</value>
+  </data>
+  <data name="Template_AutoDiscoveredFolderDescription" xml:space="preserve">
+    <value>由模板自动识别</value>
+  </data>
+  <data name="Template_Apply_SuccessWithFolders" xml:space="preserve">
+    <value>已根据模板自动加入 {0} 个来源文件夹。</value>
+  </data>
+  <data name="Template_Apply_SuccessNoFolders" xml:space="preserve">
+    <value>配置已创建，但暂未自动识别到来源文件夹，请手动添加。</value>
+  </data>
+  <data name="Template_ConfigTypeUnavailable" xml:space="preserve">
+    <value>模板类型“{0}”对应的插件不可用，已回退为 Default。</value>
+  </data>
+  <data name="Template_Export_TemplateNotFound" xml:space="preserve">
+    <value>未找到要导出的模板。</value>
+  </data>
+  <data name="Template_Export_PathEmpty" xml:space="preserve">
+    <value>导出路径为空。</value>
+  </data>
+  <data name="Template_Export_Success" xml:space="preserve">
+    <value>模板已导出到：{0}</value>
+  </data>
+  <data name="Template_Export_Failed" xml:space="preserve">
+    <value>模板导出失败：{0}</value>
+  </data>
+  <data name="Template_Import_FileNotFound" xml:space="preserve">
+    <value>未找到模板文件。</value>
+  </data>
+  <data name="Template_Import_ConfigUnavailable" xml:space="preserve">
+    <value>当前配置不可用，无法导入模板。</value>
+  </data>
+  <data name="Template_Import_InvalidFile" xml:space="preserve">
+    <value>模板文件无效或格式不受支持。</value>
+  </data>
+  <data name="Template_Import_SchemaUnsupported" xml:space="preserve">
+    <value>模板文件版本过新，当前程序暂不支持导入。</value>
+  </data>
+  <data name="Template_Import_Overwrite" xml:space="preserve">
+    <value>已覆盖同名模板：{0}</value>
+  </data>
+  <data name="Template_Import_Success" xml:space="preserve">
+    <value>已导入模板：{0}</value>
+  </data>
+  <data name="Template_Import_KeepBothRenamed" xml:space="preserve">
+    <value>已导入模板，并重命名为“{1}”（原名：{0}）。</value>
+  </data>
+  <data name="Template_Import_ConflictTitle" xml:space="preserve">
+    <value>模板冲突</value>
+  </data>
+  <data name="Template_Import_ConflictContent" xml:space="preserve">
+    <value>导入的模板“{0}”与现有模板“{1}”发生冲突。你想覆盖现有模板，还是保留两份？</value>
+  </data>
+  <data name="Template_Import_ConflictReplace" xml:space="preserve">
+    <value>覆盖现有模板</value>
+  </data>
+  <data name="Template_Import_ConflictKeepBoth" xml:space="preserve">
+    <value>保留两份</value>
+  </data>
+  <data name="Template_Import_Failed" xml:space="preserve">
+    <value>模板导入失败：{0}</value>
+  </data>
+  <data name="Template_CreateFrom_Home_Title" xml:space="preserve">
+    <value>从模板创建配置</value>
+  </data>
+  <data name="Template_CreateFrom_Home_NoTemplates" xml:space="preserve">
+    <value>当前还没有模板，请先在配置详情中“保存为模板”。</value>
+  </data>
+  <data name="Template_CreateFrom_Home_Template" xml:space="preserve">
+    <value>选择模板</value>
+  </data>
+  <data name="Template_CreateFrom_Home_TemplateInfo" xml:space="preserve">
+    <value>模板“{0}”，包含 {1} 条路径规则。</value>
+  </data>
+  <data name="Template_CreateFrom_Home_SelectFoldersTitle" xml:space="preserve">
+    <value>确认识别到的来源文件夹</value>
+  </data>
+  <data name="Template_CreateFrom_Home_SelectFoldersDesc" xml:space="preserve">
+    <value>模板“{0}”识别到了 {1} 个候选来源文件夹。请确认哪些需要加入新配置。</value>
+  </data>
+  <data name="Template_CreateFrom_Home_SelectFoldersHint" xml:space="preserve">
+    <value>当前没有默认勾选项，建议你先确认候选路径是否正确，再继续创建。</value>
+  </data>
+  <data name="Template_CreateFrom_Home_FolderCandidateMeta" xml:space="preserve">
+    <value>规则：{0} | 置信度：{1} | {2}</value>
+  </data>
+  <data name="Template_CreateFrom_Home_FolderCandidateAuto" xml:space="preserve">
+    <value>默认添加</value>
+  </data>
+  <data name="Template_CreateFrom_Home_FolderCandidateSuggested" xml:space="preserve">
+    <value>建议确认</value>
+  </data>
+  <data name="Template_CreateFrom_Home_SelectionSummary" xml:space="preserve">
+    <value>配置已创建，共选择 {0} / {1} 个候选来源文件夹。</value>
+  </data>
+  <data name="Template_RequiredPluginsMissing" xml:space="preserve">
+    <value>模板依赖的插件未安装：{0}</value>
+  </data>
+  <data name="SettingsPage_ManageTemplates.Content" xml:space="preserve">
+    <value>管理模板</value>
+  </data>
+  <data name="TemplateManagerDialog.Title" xml:space="preserve">
+    <value>模板管理</value>
+  </data>
+  <data name="TemplateManagerDialog.CloseButtonText" xml:space="preserve">
+    <value>关闭</value>
+  </data>
+  <data name="TemplateManagerDialog_ListHeader.Text" xml:space="preserve">
+    <value>模板列表</value>
+  </data>
+  <data name="TemplateManagerDialog_Search.PlaceholderText" xml:space="preserve">
+    <value>按名称、作者或类型搜索</value>
+  </data>
+  <data name="TemplateManagerDialog_DetailHeader.Text" xml:space="preserve">
+    <value>模板详情</value>
+  </data>
+  <data name="TemplateManagerDialog_Name.Header" xml:space="preserve">
+    <value>模板名称</value>
+  </data>
+  <data name="TemplateManagerDialog_Author.Header" xml:space="preserve">
+    <value>作者</value>
+  </data>
+  <data name="TemplateManagerDialog_Description.Header" xml:space="preserve">
+    <value>说明</value>
+  </data>
+  <data name="TemplateManagerDialog_TemplateMeta.Text" xml:space="preserve">
+    <value>请选择左侧模板以查看详情。</value>
+  </data>
+  <data name="TemplateManagerDialog_TemplateMetaFormat" xml:space="preserve">
+    <value>类型：{0} | 更新时间：{1} | 规则数：{2}</value>
+  </data>
+  <data name="TemplateManagerDialog_Save.Content" xml:space="preserve">
+    <value>保存修改</value>
+  </data>
+  <data name="TemplateManagerDialog_Duplicate.Content" xml:space="preserve">
+    <value>复制模板</value>
+  </data>
+  <data name="TemplateManagerDialog_Delete.Content" xml:space="preserve">
+    <value>删除模板</value>
+  </data>
+  <data name="TemplateManagerDialog_Export.Content" xml:space="preserve">
+    <value>导出模板</value>
+  </data>
+  <data name="TemplateManagerDialog_DeleteConfirmYes.Content" xml:space="preserve">
+    <value>确认删除</value>
+  </data>
+  <data name="TemplateManagerDialog_DeleteConfirmNo.Content" xml:space="preserve">
+    <value>取消</value>
+  </data>
+  <data name="TemplateManagerDialog_PreviewHeader.Text" xml:space="preserve">
+    <value>规则预览</value>
+  </data>
+  <data name="TemplateManagerDialog_RefreshPreview.Content" xml:space="preserve">
+    <value>刷新预览</value>
+  </data>
+  <data name="TemplateManagerDialog_PreviewSummary.Text" xml:space="preserve">
+    <value>选择模板后可查看规则命中结果。</value>
+  </data>
+  <data name="TemplateManagerDialog_NoPreview.Text" xml:space="preserve">
+    <value>暂无预览结果。</value>
+  </data>
+  <data name="TemplateManagerDialog_EmptyList.Text" xml:space="preserve">
+    <value>没有匹配的模板。</value>
+  </data>
+  <data name="Template_Manager_SelectFirst" xml:space="preserve">
+    <value>请先选择一个模板。</value>
+  </data>
+  <data name="Template_Manager_DeleteConfirm" xml:space="preserve">
+    <value>确定删除模板“{0}”吗？此操作不可撤销。</value>
+  </data>
+  <data name="Template_Update_NameRequired" xml:space="preserve">
+    <value>模板名称不能为空。</value>
+  </data>
+  <data name="Template_Update_TemplateNotFound" xml:space="preserve">
+    <value>未找到要更新的模板。</value>
+  </data>
+  <data name="Template_Update_NameConflict" xml:space="preserve">
+    <value>模板名“{0}”已存在，请使用其他名称。</value>
+  </data>
+  <data name="Template_Update_Success" xml:space="preserve">
+    <value>模板“{0}”已更新。</value>
+  </data>
+  <data name="Template_Duplicate_TemplateNotFound" xml:space="preserve">
+    <value>未找到要复制的模板。</value>
+  </data>
+  <data name="Template_Duplicate_Success" xml:space="preserve">
+    <value>已创建模板副本：{0}</value>
+  </data>
+  <data name="Template_Duplicate_CopySuffix" xml:space="preserve">
+    <value>副本</value>
+  </data>
+  <data name="Template_Delete_TemplateNotFound" xml:space="preserve">
+    <value>未找到要删除的模板。</value>
+  </data>
+  <data name="Template_Delete_Failed" xml:space="preserve">
+    <value>删除模板失败。</value>
+  </data>
+  <data name="Template_Delete_Success" xml:space="preserve">
+    <value>已删除模板：{0}</value>
+  </data>
+  <data name="Template_Preview_TemplateNotFound" xml:space="preserve">
+    <value>未找到要预览的模板。</value>
+  </data>
+  <data name="Template_Preview_NoRules" xml:space="preserve">
+    <value>该模板没有可预览的路径规则。</value>
+  </data>
+  <data name="Template_Preview_UnnamedRule" xml:space="preserve">
+    <value>未命名规则</value>
+  </data>
+  <data name="Template_Preview_NoPath" xml:space="preserve">
+    <value>无</value>
+  </data>
+  <data name="Template_Preview_StatusMatched" xml:space="preserve">
+    <value>已命中</value>
+  </data>
+  <data name="Template_Preview_StatusNoMatch" xml:space="preserve">
+    <value>未命中</value>
+  </data>
+  <data name="Template_Preview_MatchCount" xml:space="preserve">
+    <value>命中路径数：{0}</value>
+  </data>
+  <data name="Template_Preview_MarkerNone" xml:space="preserve">
+    <value>标记：无</value>
+  </data>
+  <data name="Template_Preview_MarkerSummary" xml:space="preserve">
+    <value>标记：必需 {0}，可选 {1}</value>
+  </data>
+  <data name="Template_Preview_Summary" xml:space="preserve">
+    <value>共 {1} 条规则，命中 {0} 条。</value>
+  </data>
 </root>

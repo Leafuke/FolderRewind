@@ -17,6 +17,16 @@
             <StackPanel Spacing="20" Padding="0,12">
                 <TextBox x:Uid="ConfigSettingsDialog_ConfigName" Text="{x:Bind Config.Name, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"/>
 
+                <StackPanel Spacing="6">
+                    <Button Click="OnSaveAsTemplateClick" HorizontalAlignment="Left">
+                        <StackPanel Orientation="Horizontal" Spacing="6">
+                            <FontIcon Glyph="&#xE7BF;"/>
+                            <TextBlock x:Uid="ConfigSettingsDialog_SaveAsTemplateText"/>
+                        </StackPanel>
+                    </Button>
+                    <TextBlock x:Uid="ConfigSettingsDialog_SaveAsTemplateDesc" Style="{StaticResource CaptionTextBlockStyle}" Foreground="{ThemeResource TextFillColorSecondaryBrush}" TextWrapping="Wrap"/>
+                </StackPanel>
+
                 <StackPanel Spacing="8">
                     <TextBlock x:Uid="ConfigSettingsDialog_ConfigType" FontWeight="SemiBold"/>
                     <ComboBox ItemsSource="{x:Bind ConfigTypesView, Mode=OneWay}"

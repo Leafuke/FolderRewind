@@ -40,6 +40,7 @@ namespace FolderRewind.Models
     {
         private GlobalSettings _globalSettings = new();
         private ObservableCollection<BackupConfig> _backupConfigs = new();
+        private ObservableCollection<ConfigTemplate> _templates = new();
 
         public string Version { get; set; } = "2.0"; // 配置版本号，方便未来迁移
 
@@ -53,6 +54,12 @@ namespace FolderRewind.Models
         {
             get => _backupConfigs;
             set => SetProperty(ref _backupConfigs, value);
+        }
+
+        public ObservableCollection<ConfigTemplate> Templates
+        {
+            get => _templates;
+            set => SetProperty(ref _templates, value);
         }
     }
 

@@ -529,6 +529,79 @@ namespace FolderRewind.Views
             UpdateCloudBindings();
         }
 
+        private async void OnSaveAsTemplateClick(object sender, RoutedEventArgs e)
+        {
+            if (Config == null)
+            {
+                return;
+            }
+
+            // WinUI 同时只允许一个 ContentDialog，先临时隐藏当前设置对话框。
+            this.Hide();
+            await Task.Yield();
+
+            var templateNameBox = new TextBox
+            {
+                Header = I18n.GetString("Template_SaveDialog_Name"),
+                Text = string.IsNullOrWhiteSpace(Config.Name) ? I18n.GetString("Template_DefaultName") : Config.Name
+            };
+            var authorBox = new TextBox
+            {
+                Header = I18n.GetString("Template_SaveDialog_Author"),
+                PlaceholderText = I18n.GetString("Template_SaveDialog_AuthorPlaceholder")
+            };
+            var descriptionBox = new TextBox
+            {
+                Header = I18n.GetString("Template_SaveDialog_Description"),
+                TextWrapping = TextWrapping.Wrap,
+                AcceptsReturn = true,
+                MinHeight = 96,
+                MaxHeight = 200
+            };
+
+            var panel = new StackPanel { Spacing = 10 };
+            panel.Children.Add(new TextBlock
+            {
+                Text = I18n.GetString("Template_SaveDialog_Hint"),
+                TextWrapping = TextWrapping.Wrap
+            });
+            panel.Children.Add(templateNameBox);
+            panel.Children.Add(authorBox);
+            panel.Children.Add(descriptionBox);
+
+            var dialog = new ContentDialog
+            {
+                Title = I18n.GetString("Template_SaveDialog_Title"),
+                Content = panel,
+                PrimaryButtonText = I18n.GetString("Common_Save"),
+                CloseButtonText = I18n.GetString("Common_Cancel"),
+                DefaultButton = ContentDialogButton.Primary,
+                XamlRoot = MainWindowService.GetXamlRoot() ?? this.XamlRoot
+            };
+            ThemeService.ApplyThemeToDialog(dialog);
+
+            var result = await dialog.ShowAsync();
+            if (result == ContentDialogResult.Primary)
+            {
+                var createResult = TemplateService.UpsertTemplateFromConfig(
+                    Config,
+                    templateNameBox.Text,
+                    authorBox.Text,
+                    descriptionBox.Text);
+
+                var tipDialog = new ContentDialog
+                {
+                    Content = createResult.Message,
+                    CloseButtonText = I18n.GetString("Common_Ok"),
+                    XamlRoot = MainWindowService.GetXamlRoot() ?? this.XamlRoot
+                };
+                ThemeService.ApplyThemeToDialog(tipDialog);
+                await tipDialog.ShowAsync();
+            }
+
+            await this.ShowAsync();
+        }
+
         private void OnApplyCloudTemplateClick(object sender, RoutedEventArgs e)
         {
             if (Config?.Cloud == null || Config.Cloud.TemplateKind == CloudTemplateKind.Custom)

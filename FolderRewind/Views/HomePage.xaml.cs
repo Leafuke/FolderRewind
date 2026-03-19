@@ -9,6 +9,7 @@ using Microsoft.UI.Xaml.Media;
 using Microsoft.UI.Xaml.Navigation;
 using System;
 using System.Collections.Generic;
+using System.Globalization;
 using System.IO;
 using System.Linq;
 using Windows.ApplicationModel.Resources;
@@ -115,8 +116,362 @@ namespace FolderRewind.Views
 
             SortCombo.SelectedIndex = 0;
         }
+
+        private async void OnAddConfigFromTemplateClick(object sender, RoutedEventArgs e)
+        {
+            var resourceLoader = ResourceLoader.GetForViewIndependentUse();
+            PluginService.Initialize();
+
+            var templates = TemplateService.GetTemplates()
+                .OrderBy(t => t.Name, StringComparer.CurrentCultureIgnoreCase)
+                .ToList();
+            if (templates.Count == 0)
+            {
+                var emptyDialog = new ContentDialog
+                {
+                    Title = I18n.GetString("Template_CreateFrom_Home_Title"),
+                    Content = I18n.GetString("Template_CreateFrom_Home_NoTemplates"),
+                    CloseButtonText = I18n.GetString("Common_Ok"),
+                    XamlRoot = this.XamlRoot
+                };
+                ThemeService.ApplyThemeToDialog(emptyDialog);
+                await emptyDialog.ShowAsync();
+                return;
+            }
+
+            var configTypes = PluginService.GetAllSupportedConfigTypes().ToList();
+            if (!configTypes.Contains("Default", StringComparer.OrdinalIgnoreCase))
+            {
+                configTypes.Insert(0, "Default");
+            }
+            if (!configTypes.Contains("Encrypted", StringComparer.OrdinalIgnoreCase))
+            {
+                var defaultIndex = configTypes.FindIndex(t => string.Equals(t, "Default", StringComparison.OrdinalIgnoreCase));
+                configTypes.Insert(defaultIndex >= 0 ? defaultIndex + 1 : configTypes.Count, "Encrypted");
+            }
+
+            var templateCombo = new ComboBox
+            {
+                Header = I18n.GetString("Template_CreateFrom_Home_Template"),
+                HorizontalAlignment = HorizontalAlignment.Stretch
+            };
+            foreach (var template in templates)
+            {
+                templateCombo.Items.Add(new ComboBoxItem { Content = template.Name, Tag = template });
+            }
+            templateCombo.SelectedIndex = 0;
+
+            var templateInfoText = new TextBlock
+            {
+                Opacity = 0.75,
+                TextWrapping = TextWrapping.Wrap
+            };
+
+            var warningText = new TextBlock
+            {
+                Foreground = new SolidColorBrush(Colors.OrangeRed),
+                TextWrapping = TextWrapping.Wrap,
+                Visibility = Visibility.Collapsed
+            };
+
+            var nameBox = new TextBox
+            {
+                Header = resourceLoader.GetString("HomePage_ConfigNameHeader"),
+                PlaceholderText = resourceLoader.GetString("HomePage_ConfigNamePlaceholder")
+            };
+
+            var typeCombo = new ComboBox
+            {
+                Header = resourceLoader.GetString("HomePage_ConfigTypeHeader"),
+                HorizontalAlignment = HorizontalAlignment.Stretch
+            };
+            foreach (var type in configTypes)
+            {
+                typeCombo.Items.Add(type);
+            }
+
+            ConfigTemplate? GetSelectedTemplate()
+            {
+                return (templateCombo.SelectedItem as ComboBoxItem)?.Tag as ConfigTemplate;
+            }
+
+            void RefreshSelection()
+            {
+                var selectedTemplate = GetSelectedTemplate();
+                if (selectedTemplate == null)
+                {
+                    return;
+                }
+
+                if (string.IsNullOrWhiteSpace(nameBox.Text))
+                {
+                    nameBox.Text = string.IsNullOrWhiteSpace(selectedTemplate.DefaultConfigName)
+                        ? selectedTemplate.Name
+                        : selectedTemplate.DefaultConfigName;
+                }
+
+                var ruleCount = selectedTemplate.PathRules?.Count ?? 0;
+                templateInfoText.Text = I18n.Format(
+                    "Template_CreateFrom_Home_TemplateInfo",
+                    selectedTemplate.Name,
+                    ruleCount.ToString());
+
+                var typeToSelect = string.IsNullOrWhiteSpace(selectedTemplate.BaseConfigType)
+                    ? "Default"
+                    : selectedTemplate.BaseConfigType;
+
+                if (!configTypes.Contains(typeToSelect, StringComparer.OrdinalIgnoreCase))
+                {
+                    typeToSelect = "Default";
+                }
+
+                typeCombo.SelectedItem = configTypes.FirstOrDefault(t => string.Equals(t, typeToSelect, StringComparison.OrdinalIgnoreCase));
+
+                var warnings = new List<string>();
+                if (!TemplateService.IsConfigTypeAvailable(selectedTemplate.BaseConfigType, out var reason)
+                    && !string.IsNullOrWhiteSpace(reason))
+                {
+                    warnings.Add(reason);
+                }
+
+                var missingPluginIds = TemplateService.GetMissingRequiredPluginIds(selectedTemplate);
+                if (missingPluginIds.Count > 0)
+                {
+                    warnings.Add(I18n.Format("Template_RequiredPluginsMissing", string.Join(", ", missingPluginIds)));
+                }
+
+                warningText.Text = string.Join(Environment.NewLine, warnings);
+                warningText.Visibility = warnings.Count > 0 ? Visibility.Visible : Visibility.Collapsed;
+            }
+
+            templateCombo.SelectionChanged += (_, __) => RefreshSelection();
+            RefreshSelection();
+
+            var panel = new StackPanel { Spacing = 12 };
+            panel.Children.Add(templateCombo);
+            panel.Children.Add(templateInfoText);
+            panel.Children.Add(warningText);
+            panel.Children.Add(nameBox);
+            panel.Children.Add(typeCombo);
+
+            var dialog = new ContentDialog
+            {
+                Title = I18n.GetString("Template_CreateFrom_Home_Title"),
+                Content = panel,
+                PrimaryButtonText = resourceLoader.GetString("HomePage_CreateButton"),
+                CloseButtonText = resourceLoader.GetString("Common_Cancel"),
+                DefaultButton = ContentDialogButton.Primary,
+                XamlRoot = this.XamlRoot
+            };
+            ThemeService.ApplyThemeToDialog(dialog);
+
+            if (await dialog.ShowAsync() != ContentDialogResult.Primary)
+            {
+                return;
+            }
+
+            var selectedTemplateFinal = GetSelectedTemplate();
+            if (selectedTemplateFinal == null)
+            {
+                return;
+            }
+
+            var selectedType = typeCombo.SelectedItem as string;
+            var createResult = TemplateService.CreateConfigFromTemplate(selectedTemplateFinal, nameBox.Text, selectedType);
+            if (!createResult.Success || createResult.Config == null)
+            {
+                var failedDialog = new ContentDialog
+                {
+                    Title = I18n.GetString("Template_CreateFrom_Home_Title"),
+                    Content = createResult.Message,
+                    CloseButtonText = I18n.GetString("Common_Ok"),
+                    XamlRoot = this.XamlRoot
+                };
+                ThemeService.ApplyThemeToDialog(failedDialog);
+                await failedDialog.ShowAsync();
+                return;
+            }
+
+            // 模板命中路径后先给用户做一次确认，避免“猜错路径但已经落库”的尴尬场面。
+            var selectedFolders = await ConfirmTemplateFolderSelectionAsync(
+                selectedTemplateFinal,
+                createResult.FolderCandidates);
+            if (selectedFolders == null)
+            {
+                return;
+            }
+
+            foreach (var folder in selectedFolders)
+            {
+                createResult.Config.SourceFolders.Add(folder);
+            }
+
+            string? encryptionPassword = null;
+            if (createResult.Config.IsEncrypted)
+            {
+                encryptionPassword = await PromptSetPasswordAsync();
+                if (encryptionPassword == null)
+                {
+                    return;
+                }
+            }
+
+            createResult.Config.SummaryText = resourceLoader.GetString("HomePage_NewConfigSummary");
+            ConfigService.CurrentConfig.BackupConfigs.Add(createResult.Config);
+            ConfigService.Save();
+
+            if (createResult.Config.IsEncrypted && !string.IsNullOrEmpty(encryptionPassword))
+            {
+                EncryptionService.StorePassword(createResult.Config.Id, encryptionPassword);
+            }
+
+            var finalMessage = BuildTemplateCreationMessage(createResult, createResult.Config.SourceFolders.Count);
+            if (!string.IsNullOrWhiteSpace(finalMessage))
+            {
+                var infoDialog = new ContentDialog
+                {
+                    Content = finalMessage,
+                    CloseButtonText = I18n.GetString("Common_Ok"),
+                    XamlRoot = this.XamlRoot
+                };
+                ThemeService.ApplyThemeToDialog(infoDialog);
+                await infoDialog.ShowAsync();
+            }
+
+            _ = NavigationService.NavigateTo("Manager", ManagerNavigationParameter.ForConfig(createResult.Config.Id));
+        }
+
+        private async System.Threading.Tasks.Task<List<ManagedFolder>?> ConfirmTemplateFolderSelectionAsync(
+            ConfigTemplate template,
+            IReadOnlyList<TemplateService.TemplateFolderCandidate> candidates)
+        {
+            if (candidates == null || candidates.Count == 0)
+            {
+                return new List<ManagedFolder>();
+            }
+
+            var panel = new StackPanel { Spacing = 10 };
+            panel.Children.Add(new TextBlock
+            {
+                Text = I18n.Format(
+                    "Template_CreateFrom_Home_SelectFoldersDesc",
+                    template.Name,
+                    candidates.Count.ToString(CultureInfo.CurrentCulture)),
+                TextWrapping = TextWrapping.Wrap
+            });
+
+            if (!candidates.Any(c => c.IsSelectedByDefault))
+            {
+                panel.Children.Add(new TextBlock
+                {
+                    Text = I18n.GetString("Template_CreateFrom_Home_SelectFoldersHint"),
+                    TextWrapping = TextWrapping.Wrap,
+                    Foreground = new SolidColorBrush(Colors.OrangeRed),
+                    FontSize = 12
+                });
+            }
+
+            // 这里故意把“自动勾选”和“仅建议”混在同一个确认框里，
+            // 让用户能顺手二次筛一遍，而不是被迫去配置页里返工。
+            var listPanel = new StackPanel { Spacing = 10 };
+            var checkboxEntries = new List<(CheckBox Box, TemplateService.TemplateFolderCandidate Candidate)>();
+            foreach (var candidate in candidates
+                .OrderByDescending(c => c.IsSelectedByDefault)
+                .ThenByDescending(c => c.Confidence)
+                .ThenBy(c => c.DisplayName, StringComparer.CurrentCultureIgnoreCase))
+            {
+                var checkBox = new CheckBox
+                {
+                    Content = string.IsNullOrWhiteSpace(candidate.DisplayName) ? candidate.Path : candidate.DisplayName,
+                    IsChecked = candidate.IsSelectedByDefault
+                };
+
+                var badgeText = candidate.IsSelectedByDefault
+                    ? I18n.GetString("Template_CreateFrom_Home_FolderCandidateAuto")
+                    : I18n.GetString("Template_CreateFrom_Home_FolderCandidateSuggested");
+
+                var itemPanel = new StackPanel { Spacing = 2 };
+                itemPanel.Children.Add(checkBox);
+                itemPanel.Children.Add(new TextBlock
+                {
+                    Text = I18n.Format(
+                        "Template_CreateFrom_Home_FolderCandidateMeta",
+                        candidate.RuleName,
+                        candidate.Confidence.ToString("P0", CultureInfo.CurrentCulture),
+                        badgeText),
+                    TextWrapping = TextWrapping.Wrap,
+                    Foreground = new SolidColorBrush(Colors.Gray),
+                    FontSize = 12,
+                    Margin = new Thickness(28, 0, 0, 0)
+                });
+                itemPanel.Children.Add(new TextBlock
+                {
+                    Text = candidate.Path,
+                    TextWrapping = TextWrapping.Wrap,
+                    Foreground = new SolidColorBrush(Colors.Gray),
+                    FontSize = 12,
+                    Margin = new Thickness(28, 0, 0, 0)
+                });
+
+                listPanel.Children.Add(itemPanel);
+                checkboxEntries.Add((checkBox, candidate));
+            }
+
+            panel.Children.Add(new ScrollViewer
+            {
+                Content = listPanel,
+                MaxHeight = 360
+            });
+
+            var dialog = new ContentDialog
+            {
+                Title = I18n.GetString("Template_CreateFrom_Home_SelectFoldersTitle"),
+                Content = panel,
+                PrimaryButtonText = I18n.GetString("Common_Confirm"),
+                CloseButtonText = I18n.GetString("Common_Cancel"),
+                DefaultButton = ContentDialogButton.Primary,
+                XamlRoot = this.XamlRoot
+            };
+            ThemeService.ApplyThemeToDialog(dialog);
+
+            if (await dialog.ShowAsync() != ContentDialogResult.Primary)
+            {
+                return null;
+            }
+
+            return checkboxEntries
+                .Where(entry => entry.Box.IsChecked == true)
+                .Select(entry => new ManagedFolder
+                {
+                    Path = entry.Candidate.Path,
+                    DisplayName = entry.Candidate.DisplayName,
+                    Description = I18n.GetString("Template_AutoDiscoveredFolderDescription")
+                })
+                .ToList();
+        }
+
+        private static string BuildTemplateCreationMessage(
+            TemplateService.CreateConfigFromTemplateResult createResult,
+            int selectedFolderCount)
+        {
+            if (createResult == null)
+            {
+                return string.Empty;
+            }
+
+            if (createResult.FolderCandidates == null || createResult.FolderCandidates.Count == 0)
+            {
+                return createResult.Message;
+            }
+
+            return I18n.Format(
+                "Template_CreateFrom_Home_SelectionSummary",
+                selectedFolderCount.ToString(CultureInfo.CurrentCulture),
+                createResult.FolderCandidates.Count.ToString(CultureInfo.CurrentCulture));
+        }
+
         // 添加配置逻辑
-        private async void OnAddConfigClick(object sender, RoutedEventArgs e)
+        private async void OnAddConfigClick(SplitButton sender, SplitButtonClickEventArgs args)
         {
             var resourceLoader = ResourceLoader.GetForViewIndependentUse();
             PluginService.Initialize();

@@ -13,6 +13,7 @@ using System.Collections.Generic;
 using System.Collections.Specialized;
 using System.Collections.ObjectModel;
 using System.ComponentModel;
+using System.IO;
 using System.Linq;
 using System.Runtime.CompilerServices;
 using System.Threading.Tasks;
@@ -1223,6 +1224,128 @@ namespace FolderRewind.Views
             }
         }
 
+        private async void OnExportTemplateClick(object sender, RoutedEventArgs e)
+        {
+            var templates = TemplateService.GetTemplates()
+                .OrderBy(t => t.Name, StringComparer.CurrentCultureIgnoreCase)
+                .ToList();
+
+            if (templates.Count == 0)
+            {
+                ShowInfoBar(I18n.GetString("Settings_Template_Export_NoTemplates"), Microsoft.UI.Xaml.Controls.InfoBarSeverity.Warning);
+                return;
+            }
+
+            var templateCombo = new ComboBox
+            {
+                Header = I18n.GetString("Settings_Template_SelectToExport"),
+                HorizontalAlignment = HorizontalAlignment.Stretch
+            };
+            foreach (var template in templates)
+            {
+                templateCombo.Items.Add(new ComboBoxItem { Content = template.Name, Tag = template });
+            }
+            templateCombo.SelectedIndex = 0;
+
+            var chooseDialog = new ContentDialog
+            {
+                Title = I18n.GetString("SettingsPage_ExportTemplate.Content"),
+                Content = templateCombo,
+                PrimaryButtonText = I18n.GetString("Common_Confirm"),
+                CloseButtonText = I18n.GetString("Common_Cancel"),
+                DefaultButton = ContentDialogButton.Primary,
+                XamlRoot = this.XamlRoot
+            };
+            ThemeService.ApplyThemeToDialog(chooseDialog);
+
+            if (await chooseDialog.ShowAsync() != ContentDialogResult.Primary)
+            {
+                return;
+            }
+
+            var selectedTemplate = (templateCombo.SelectedItem as ComboBoxItem)?.Tag as ConfigTemplate;
+            if (selectedTemplate == null)
+            {
+                ShowInfoBar(I18n.GetString("Template_Export_TemplateNotFound"), Microsoft.UI.Xaml.Controls.InfoBarSeverity.Error);
+                return;
+            }
+
+            var picker = new FileSavePicker();
+            picker.SuggestedStartLocation = PickerLocationId.DocumentsLibrary;
+            // 用专用扩展名把“模板分享包”和普通配置导出区分开，后续用户找文件也更直观。
+            picker.FileTypeChoices.Add("FolderRewind Template", new List<string> { TemplateService.ShareFileExtension });
+            picker.SuggestedFileName = $"FolderRewind_template_{SanitizeFileName(selectedTemplate.Name)}";
+            MainWindowService.InitializePicker(picker);
+
+            var file = await picker.PickSaveFileAsync();
+            if (file == null) return;
+
+            var ok = TemplateService.ExportTemplate(selectedTemplate.Id, file.Path, out var message);
+            ShowInfoBar(message, ok ? Microsoft.UI.Xaml.Controls.InfoBarSeverity.Success : Microsoft.UI.Xaml.Controls.InfoBarSeverity.Error);
+        }
+
+        private async void OnImportTemplateClick(object sender, RoutedEventArgs e)
+        {
+            var picker = new FileOpenPicker();
+            picker.SuggestedStartLocation = PickerLocationId.DocumentsLibrary;
+            picker.FileTypeFilter.Add(TemplateService.ShareFileExtension);
+            picker.FileTypeFilter.Add(".json");
+            MainWindowService.InitializePicker(picker);
+
+            var file = await picker.PickSingleFileAsync();
+            if (file == null) return;
+
+            var inspection = TemplateService.InspectImportTemplate(file.Path);
+            if (!inspection.Success)
+            {
+                ShowInfoBar(inspection.Message, Microsoft.UI.Xaml.Controls.InfoBarSeverity.Error);
+                return;
+            }
+
+            // 默认优先保留两份，先保护本地模板，再把“覆盖”作为用户明确选择。
+            var strategy = TemplateService.TemplateImportConflictStrategy.KeepBoth;
+            if (inspection.HasConflict)
+            {
+                var conflictDialog = new ContentDialog
+                {
+                    Title = I18n.GetString("Template_Import_ConflictTitle"),
+                    Content = I18n.Format(
+                        "Template_Import_ConflictContent",
+                        inspection.Template?.Name ?? string.Empty,
+                        inspection.ConflictTemplateName),
+                    PrimaryButtonText = I18n.GetString("Template_Import_ConflictReplace"),
+                    SecondaryButtonText = I18n.GetString("Template_Import_ConflictKeepBoth"),
+                    CloseButtonText = I18n.GetString("Common_Cancel"),
+                    DefaultButton = ContentDialogButton.Primary,
+                    XamlRoot = this.XamlRoot
+                };
+                ThemeService.ApplyThemeToDialog(conflictDialog);
+
+                var conflictResult = await conflictDialog.ShowAsync();
+                if (conflictResult == ContentDialogResult.None)
+                {
+                    return;
+                }
+
+                strategy = conflictResult == ContentDialogResult.Primary
+                    ? TemplateService.TemplateImportConflictStrategy.ReplaceExisting
+                    : TemplateService.TemplateImportConflictStrategy.KeepBoth;
+            }
+
+            var ok = TemplateService.ImportTemplate(file.Path, strategy, out var message);
+            ShowInfoBar(message, ok ? Microsoft.UI.Xaml.Controls.InfoBarSeverity.Success : Microsoft.UI.Xaml.Controls.InfoBarSeverity.Error);
+        }
+
+        private async void OnManageTemplatesClick(object sender, RoutedEventArgs e)
+        {
+            var dialog = new TemplateManagerDialog
+            {
+                XamlRoot = this.XamlRoot
+            };
+            ThemeService.ApplyThemeToDialog(dialog);
+            await dialog.ShowAsync();
+        }
+
         private async void OnExportHistoryClick(object sender, RoutedEventArgs e)
         {
             var picker = new FileSavePicker();
@@ -1273,6 +1396,22 @@ namespace FolderRewind.Views
                 ShowInfoBar(I18n.Format("Settings_ImportHistorySuccess", count.ToString()), Microsoft.UI.Xaml.Controls.InfoBarSeverity.Success);
             else
                 ShowInfoBar(I18n.GetString("Settings_ImportHistoryFailed"), Microsoft.UI.Xaml.Controls.InfoBarSeverity.Error);
+        }
+
+        private static string SanitizeFileName(string? name)
+        {
+            if (string.IsNullOrWhiteSpace(name))
+            {
+                return "template";
+            }
+
+            var sanitized = name;
+            foreach (var c in Path.GetInvalidFileNameChars())
+            {
+                sanitized = sanitized.Replace(c, '_');
+            }
+
+            return string.IsNullOrWhiteSpace(sanitized) ? "template" : sanitized;
         }
 
         private async void ShowInfoBar(string message, Microsoft.UI.Xaml.Controls.InfoBarSeverity severity)

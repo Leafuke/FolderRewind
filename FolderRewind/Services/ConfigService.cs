@@ -104,6 +104,11 @@ namespace FolderRewind.Services
             else if (currentConfig.BackupConfigs.GetType() != typeof(System.Collections.ObjectModel.ObservableCollection<BackupConfig>))
                 currentConfig.BackupConfigs = new System.Collections.ObjectModel.ObservableCollection<BackupConfig>(currentConfig.BackupConfigs);
 
+            if (currentConfig.Templates == null)
+                currentConfig.Templates = new System.Collections.ObjectModel.ObservableCollection<ConfigTemplate>();
+            else if (currentConfig.Templates.GetType() != typeof(System.Collections.ObjectModel.ObservableCollection<ConfigTemplate>))
+                currentConfig.Templates = new System.Collections.ObjectModel.ObservableCollection<ConfigTemplate>(currentConfig.Templates);
+
             foreach (var config in currentConfig.BackupConfigs)
             {
                 if (config.SourceFolders == null)
@@ -143,6 +148,68 @@ namespace FolderRewind.Services
                     config.Archive.FileTypeRules = new System.Collections.ObjectModel.ObservableCollection<FileTypeRule>();
                 else if (config.Archive.FileTypeRules.GetType() != typeof(System.Collections.ObjectModel.ObservableCollection<FileTypeRule>))
                     config.Archive.FileTypeRules = new System.Collections.ObjectModel.ObservableCollection<FileTypeRule>(config.Archive.FileTypeRules);
+            }
+
+            foreach (var template in currentConfig.Templates)
+            {
+                if (string.IsNullOrWhiteSpace(template.Id))
+                    template.Id = Guid.NewGuid().ToString("N");
+
+                if (string.IsNullOrWhiteSpace(template.ShareId))
+                    template.ShareId = Guid.NewGuid().ToString("N");
+
+                if (string.IsNullOrWhiteSpace(template.BaseConfigType))
+                    template.BaseConfigType = "Default";
+
+                if (template.Archive == null)
+                    template.Archive = new ArchiveSettings();
+
+                if (template.Automation == null)
+                    template.Automation = new AutomationSettings();
+                else
+                    template.Automation.MigrateFromLegacy();
+
+                if (template.Filters == null)
+                    template.Filters = new FilterSettings();
+
+                if (template.Filters.RestoreWhitelist == null)
+                    template.Filters.RestoreWhitelist = new System.Collections.ObjectModel.ObservableCollection<string>();
+                else if (template.Filters.RestoreWhitelist.GetType() != typeof(System.Collections.ObjectModel.ObservableCollection<string>))
+                    template.Filters.RestoreWhitelist = new System.Collections.ObjectModel.ObservableCollection<string>(template.Filters.RestoreWhitelist);
+
+                if (template.Cloud == null)
+                    template.Cloud = new CloudSettings();
+                else
+                    NormalizeCloudSettings(template.Cloud);
+
+                if (template.PathRules == null)
+                    template.PathRules = new System.Collections.ObjectModel.ObservableCollection<TemplatePathRule>();
+                else if (template.PathRules.GetType() != typeof(System.Collections.ObjectModel.ObservableCollection<TemplatePathRule>))
+                    template.PathRules = new System.Collections.ObjectModel.ObservableCollection<TemplatePathRule>(template.PathRules);
+
+                if (template.RequiredPluginIds == null)
+                    template.RequiredPluginIds = new System.Collections.ObjectModel.ObservableCollection<string>();
+                else if (template.RequiredPluginIds.GetType() != typeof(System.Collections.ObjectModel.ObservableCollection<string>))
+                    template.RequiredPluginIds = new System.Collections.ObjectModel.ObservableCollection<string>(template.RequiredPluginIds);
+
+                if (template.ExtendedProperties == null)
+                    template.ExtendedProperties = new System.Collections.Generic.Dictionary<string, string>();
+
+                foreach (var rule in template.PathRules)
+                {
+                    if (string.IsNullOrWhiteSpace(rule.Id))
+                        rule.Id = Guid.NewGuid().ToString("N");
+
+                    if (rule.Segments == null)
+                        rule.Segments = new System.Collections.ObjectModel.ObservableCollection<TemplatePathSegment>();
+                    else if (rule.Segments.GetType() != typeof(System.Collections.ObjectModel.ObservableCollection<TemplatePathSegment>))
+                        rule.Segments = new System.Collections.ObjectModel.ObservableCollection<TemplatePathSegment>(rule.Segments);
+
+                    if (rule.Markers == null)
+                        rule.Markers = new System.Collections.ObjectModel.ObservableCollection<TemplatePathMarker>();
+                    else if (rule.Markers.GetType() != typeof(System.Collections.ObjectModel.ObservableCollection<TemplatePathMarker>))
+                        rule.Markers = new System.Collections.ObjectModel.ObservableCollection<TemplatePathMarker>(rule.Markers);
+                }
             }
             if (currentConfig.GlobalSettings == null)
                 currentConfig.GlobalSettings = new GlobalSettings();
