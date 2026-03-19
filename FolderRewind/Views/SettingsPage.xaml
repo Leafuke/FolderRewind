@@ -579,6 +579,9 @@
                             <StackPanel Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
                                 <Button x:Uid="SettingsPage_ExportTemplate" Style="{StaticResource SettingsActionRowButtonStyle}" Click="OnExportTemplateClick" />
                                 <Button x:Uid="SettingsPage_ImportTemplate" Style="{StaticResource SettingsActionRowButtonStyle}" Click="OnImportTemplateClick" />
+                                <Button x:Uid="SettingsPage_BrowseOfficialTemplates" Style="{StaticResource SettingsActionRowButtonStyle}" Click="OnBrowseOfficialTemplatesClick" />
+                                <Button x:Uid="SettingsPage_UseTemplateShareCode" Style="{StaticResource SettingsActionRowButtonStyle}" Click="OnUseTemplateShareCodeClick" />
+                                <Button x:Uid="SettingsPage_PrepareTemplateSubmission" Style="{StaticResource SettingsActionRowButtonStyle}" Click="OnPrepareTemplateSubmissionClick" />
                                 <Button x:Uid="SettingsPage_ManageTemplates" Style="{StaticResource SettingsActionRowButtonStyle}" Click="OnManageTemplatesClick" />
                             </StackPanel>
                         </toolkit:SettingsCard>

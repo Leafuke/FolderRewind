@@ -18,6 +18,7 @@ using System.Linq;
 using System.Runtime.CompilerServices;
 using System.Threading.Tasks;
 using Windows.ApplicationModel.Resources;
+using Windows.ApplicationModel.DataTransfer;
 using Windows.Graphics;
 using Windows.Storage;
 using Windows.Storage.Pickers;
@@ -1344,6 +1345,208 @@ namespace FolderRewind.Views
             };
             ThemeService.ApplyThemeToDialog(dialog);
             await dialog.ShowAsync();
+        }
+
+        private async void OnBrowseOfficialTemplatesClick(object sender, RoutedEventArgs e)
+        {
+            var item = await OfficialTemplateDialogService.PickTemplateAsync(
+                this.XamlRoot,
+                I18n.GetString("OfficialTemplates_BrowseTitle"));
+            if (item == null)
+            {
+                return;
+            }
+
+            await ImportOfficialTemplateAsync(item);
+        }
+
+        private async void OnUseTemplateShareCodeClick(object sender, RoutedEventArgs e)
+        {
+            var item = await OfficialTemplateDialogService.PromptShareCodeAsync(this.XamlRoot);
+            if (item == null)
+            {
+                return;
+            }
+
+            await ImportOfficialTemplateAsync(item);
+        }
+
+        private async void OnPrepareTemplateSubmissionClick(object sender, RoutedEventArgs e)
+        {
+            var templates = TemplateService.GetTemplates()
+                .OrderBy(t => t.Name, StringComparer.CurrentCultureIgnoreCase)
+                .ToList();
+
+            if (templates.Count == 0)
+            {
+                ShowInfoBar(I18n.GetString("Settings_Template_Export_NoTemplates"), Microsoft.UI.Xaml.Controls.InfoBarSeverity.Warning);
+                return;
+            }
+
+            var templateCombo = new ComboBox
+            {
+                Header = I18n.GetString("Template_Submission_SelectTemplate"),
+                HorizontalAlignment = HorizontalAlignment.Stretch
+            };
+            foreach (var template in templates)
+            {
+                templateCombo.Items.Add(new ComboBoxItem { Content = template.Name, Tag = template });
+            }
+
+            templateCombo.SelectedIndex = 0;
+
+            var gameNameBox = new TextBox
+            {
+                Header = I18n.GetString("Template_Submission_GameNameHeader")
+            };
+
+            void RefreshMetadata()
+            {
+                var selectedTemplate = (templateCombo.SelectedItem as ComboBoxItem)?.Tag as ConfigTemplate;
+                if (selectedTemplate == null)
+                {
+                    return;
+                }
+
+                gameNameBox.Text = selectedTemplate.GameName ?? string.Empty;
+            }
+
+            templateCombo.SelectionChanged += (_, __) => RefreshMetadata();
+            RefreshMetadata();
+
+            var panel = new StackPanel { Spacing = 12 };
+            panel.Children.Add(new TextBlock
+            {
+                Text = I18n.GetString("Template_Submission_PrepareHint"),
+                TextWrapping = TextWrapping.Wrap
+            });
+            panel.Children.Add(templateCombo);
+            panel.Children.Add(gameNameBox);
+
+            var chooseDialog = new ContentDialog
+            {
+                Title = I18n.GetString("SettingsPage_PrepareTemplateSubmission.Content"),
+                Content = panel,
+                PrimaryButtonText = I18n.GetString("Common_Confirm"),
+                CloseButtonText = I18n.GetString("Common_Cancel"),
+                DefaultButton = ContentDialogButton.Primary,
+                XamlRoot = this.XamlRoot
+            };
+            ThemeService.ApplyThemeToDialog(chooseDialog);
+
+            if (await chooseDialog.ShowAsync() != ContentDialogResult.Primary)
+            {
+                return;
+            }
+
+            var selected = (templateCombo.SelectedItem as ComboBoxItem)?.Tag as ConfigTemplate;
+            if (selected == null)
+            {
+                return;
+            }
+
+            selected.GameName = gameNameBox.Text?.Trim() ?? string.Empty;
+            selected.SteamAppId = null;
+
+            ConfigService.Save();
+
+            var validation = TemplateService.ValidateTemplateForOfficialSharing(selected);
+            if (!validation.Success)
+            {
+                ShowInfoBar(
+                    validation.Errors.Count > 0 ? string.Join(Environment.NewLine, validation.Errors) : validation.Message,
+                    Microsoft.UI.Xaml.Controls.InfoBarSeverity.Error);
+                return;
+            }
+
+            var picker = new FileSavePicker();
+            picker.SuggestedStartLocation = PickerLocationId.DocumentsLibrary;
+            picker.FileTypeChoices.Add("FolderRewind Template", new List<string> { TemplateService.ShareFileExtension });
+            picker.SuggestedFileName = $"FolderRewind_submission_{SanitizeFileName(selected.Name)}";
+            MainWindowService.InitializePicker(picker);
+
+            var file = await picker.PickSaveFileAsync();
+            if (file == null)
+            {
+                return;
+            }
+
+            var ok = TemplateService.ExportTemplateSubmissionPackage(selected.Id, file.Path, out var summary, out var message);
+            ShowInfoBar(message, ok ? Microsoft.UI.Xaml.Controls.InfoBarSeverity.Success : Microsoft.UI.Xaml.Controls.InfoBarSeverity.Error);
+            if (!ok)
+            {
+                return;
+            }
+
+            var package = new DataPackage();
+            package.SetText(summary);
+            Clipboard.SetContent(package);
+
+            var successDialog = new ContentDialog
+            {
+                Title = I18n.GetString("Template_Submission_SummaryTitle"),
+                Content = new TextBox
+                {
+                    Text = summary,
+                    AcceptsReturn = true,
+                    TextWrapping = TextWrapping.Wrap,
+                    IsReadOnly = true,
+                    MinHeight = 220
+                },
+                CloseButtonText = I18n.GetString("Common_Ok"),
+                XamlRoot = this.XamlRoot
+            };
+            ThemeService.ApplyThemeToDialog(successDialog);
+            await successDialog.ShowAsync();
+        }
+
+        private async Task ImportOfficialTemplateAsync(RemoteTemplateIndexItem item)
+        {
+            var downloadResult = await OfficialTemplateService.DownloadTemplateAsync(item);
+            if (!downloadResult.Success || string.IsNullOrWhiteSpace(downloadResult.LocalPath))
+            {
+                ShowInfoBar(downloadResult.Message, Microsoft.UI.Xaml.Controls.InfoBarSeverity.Error);
+                return;
+            }
+
+            var inspection = TemplateService.InspectImportTemplate(downloadResult.LocalPath);
+            if (!inspection.Success)
+            {
+                ShowInfoBar(inspection.Message, Microsoft.UI.Xaml.Controls.InfoBarSeverity.Error);
+                return;
+            }
+
+            var strategy = TemplateService.TemplateImportConflictStrategy.KeepBoth;
+            if (inspection.HasConflict)
+            {
+                var conflictDialog = new ContentDialog
+                {
+                    Title = I18n.GetString("Template_Import_ConflictTitle"),
+                    Content = I18n.Format(
+                        "Template_Import_ConflictContent",
+                        inspection.Template?.Name ?? string.Empty,
+                        inspection.ConflictTemplateName),
+                    PrimaryButtonText = I18n.GetString("Template_Import_ConflictReplace"),
+                    SecondaryButtonText = I18n.GetString("Template_Import_ConflictKeepBoth"),
+                    CloseButtonText = I18n.GetString("Common_Cancel"),
+                    DefaultButton = ContentDialogButton.Primary,
+                    XamlRoot = this.XamlRoot
+                };
+                ThemeService.ApplyThemeToDialog(conflictDialog);
+
+                var result = await conflictDialog.ShowAsync();
+                if (result == ContentDialogResult.None)
+                {
+                    return;
+                }
+
+                strategy = result == ContentDialogResult.Primary
+                    ? TemplateService.TemplateImportConflictStrategy.ReplaceExisting
+                    : TemplateService.TemplateImportConflictStrategy.KeepBoth;
+            }
+
+            var ok = TemplateService.ImportTemplate(downloadResult.LocalPath, strategy, out var message);
+            ShowInfoBar(message, ok ? Microsoft.UI.Xaml.Controls.InfoBarSeverity.Success : Microsoft.UI.Xaml.Controls.InfoBarSeverity.Error);
         }
 
         private async void OnExportHistoryClick(object sender, RoutedEventArgs e)

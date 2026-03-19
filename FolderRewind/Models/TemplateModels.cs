@@ -91,9 +91,12 @@ namespace FolderRewind.Models
     {
         private string _id = Guid.NewGuid().ToString("N");
         private string _shareId = Guid.NewGuid().ToString("N");
+        private string _shareCode = string.Empty;
         private string _name = string.Empty;
         private string _author = string.Empty;
         private string _description = string.Empty;
+        private string _gameName = string.Empty;
+        private int? _steamAppId;
         private string _version = "1.0";
         private string _baseConfigType = "Default";
         private bool _isEncrypted;
@@ -111,9 +114,13 @@ namespace FolderRewind.Models
 
         public string Id { get => _id; set => SetProperty(ref _id, value ?? string.Empty); }
         public string ShareId { get => _shareId; set => SetProperty(ref _shareId, value ?? string.Empty); }
+        public string TemplateId { get => _shareId; set => SetProperty(ref _shareId, value ?? string.Empty); }
+        public string ShareCode { get => _shareCode; set => SetProperty(ref _shareCode, value ?? string.Empty); }
         public string Name { get => _name; set => SetProperty(ref _name, value ?? string.Empty); }
         public string Author { get => _author; set => SetProperty(ref _author, value ?? string.Empty); }
         public string Description { get => _description; set => SetProperty(ref _description, value ?? string.Empty); }
+        public string GameName { get => _gameName; set => SetProperty(ref _gameName, value ?? string.Empty); }
+        public int? SteamAppId { get => _steamAppId; set => SetProperty(ref _steamAppId, value); }
         public string Version { get => _version; set => SetProperty(ref _version, value ?? "1.0"); }
         public string BaseConfigType { get => _baseConfigType; set => SetProperty(ref _baseConfigType, value ?? "Default"); }
         public bool IsEncrypted { get => _isEncrypted; set => SetProperty(ref _isEncrypted, value); }
@@ -190,5 +197,44 @@ namespace FolderRewind.Models
         public string SchemaVersion { get; set; } = "1.0";
         public DateTime ExportedAtUtc { get; set; } = DateTime.UtcNow;
         public ConfigTemplate Template { get; set; } = new();
+    }
+
+    public class RemoteTemplateIndexItem
+    {
+        public string ShareCode { get; set; } = string.Empty;
+        public string TemplateId { get; set; } = string.Empty;
+        public string Name { get; set; } = string.Empty;
+        public string Author { get; set; } = string.Empty;
+        public string Description { get; set; } = string.Empty;
+        public string GameName { get; set; } = string.Empty;
+        public int? SteamAppId { get; set; }
+        public string Version { get; set; } = string.Empty;
+        public DateTime UpdatedUtc { get; set; }
+        public string BaseConfigType { get; set; } = string.Empty;
+        public ObservableCollection<string> RequiredPluginIds { get; set; } = new();
+        public string FileUrl { get; set; } = string.Empty;
+        public string Sha256 { get; set; } = string.Empty;
+        public bool IsDisabled { get; set; }
+
+        [JsonIgnore]
+        public string DisplayName
+        {
+            get
+            {
+                if (!string.IsNullOrWhiteSpace(GameName) && !string.Equals(GameName, Name, StringComparison.OrdinalIgnoreCase))
+                {
+                    return $"{GameName} - {Name}";
+                }
+
+                return Name;
+            }
+        }
+    }
+
+    public class RemoteTemplateIndexDocument
+    {
+        public string SchemaVersion { get; set; } = "1.0";
+        public DateTime GeneratedAtUtc { get; set; } = DateTime.UtcNow;
+        public ObservableCollection<RemoteTemplateIndexItem> Templates { get; set; } = new();
     }
 }

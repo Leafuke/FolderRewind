@@ -158,6 +158,12 @@ namespace FolderRewind.Services
                 if (string.IsNullOrWhiteSpace(template.ShareId))
                     template.ShareId = Guid.NewGuid().ToString("N");
 
+                if (string.IsNullOrWhiteSpace(template.TemplateId))
+                    template.TemplateId = template.ShareId;
+
+                template.ShareCode = (template.ShareCode ?? string.Empty).Trim().ToUpperInvariant();
+                template.GameName = template.GameName?.Trim() ?? string.Empty;
+
                 if (string.IsNullOrWhiteSpace(template.BaseConfigType))
                     template.BaseConfigType = "Default";
 

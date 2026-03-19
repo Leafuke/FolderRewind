@@ -5,6 +5,7 @@ using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.IO;
 using System.Linq;
+using System.Security.Cryptography;
 using System.Text.Json;
 using System.Text.RegularExpressions;
 
@@ -87,6 +88,14 @@ namespace FolderRewind.Services
             public string ConflictTemplateId { get; init; } = string.Empty;
             public string ConflictTemplateName { get; init; } = string.Empty;
             public bool ConflictMatchedByShareId { get; init; }
+        }
+
+        public sealed class TemplateValidationResult
+        {
+            public bool Success { get; init; }
+            public string Message { get; init; } = string.Empty;
+            public IReadOnlyList<string> Errors { get; init; } = Array.Empty<string>();
+            public IReadOnlyList<string> Warnings { get; init; } = Array.Empty<string>();
         }
 
         public static IReadOnlyList<ConfigTemplate> GetTemplates()
@@ -498,6 +507,152 @@ namespace FolderRewind.Services
                 .Distinct(StringComparer.OrdinalIgnoreCase)
                 .OrderBy(id => id, StringComparer.OrdinalIgnoreCase)
                 .ToList();
+        }
+
+        public static TemplateValidationResult ValidateTemplateForOfficialSharing(ConfigTemplate? template)
+        {
+            if (template == null)
+            {
+                return new TemplateValidationResult
+                {
+                    Success = false,
+                    Message = I18n.GetString("Template_Submission_TemplateNull"),
+                    Errors = new[] { I18n.GetString("Template_Submission_TemplateNull") }
+                };
+            }
+
+            var errors = new List<string>();
+            var warnings = new List<string>();
+
+            if (string.IsNullOrWhiteSpace(template.Name))
+            {
+                errors.Add(I18n.GetString("Template_Submission_NameRequired"));
+            }
+
+            if (string.IsNullOrWhiteSpace(template.Description))
+            {
+                errors.Add(I18n.GetString("Template_Submission_DescriptionRequired"));
+            }
+
+            if (template.PathRules == null || template.PathRules.Count == 0)
+            {
+                errors.Add(I18n.GetString("Template_Submission_PathRulesRequired"));
+            }
+            else
+            {
+                foreach (var issue in ValidatePathRules(template.PathRules))
+                {
+                    errors.Add(issue);
+                }
+            }
+
+            if (!IsConfigTypeAvailable(template.BaseConfigType, out var unavailableReason)
+                && !string.IsNullOrWhiteSpace(unavailableReason))
+            {
+                errors.Add(unavailableReason);
+            }
+
+            var dryRun = CreateConfigFromTemplate(template, template.DefaultConfigName);
+            if (!dryRun.Success)
+            {
+                errors.Add(string.IsNullOrWhiteSpace(dryRun.Message)
+                    ? I18n.GetString("Template_Submission_DryRunFailed")
+                    : dryRun.Message);
+            }
+
+            var missingPlugins = GetMissingRequiredPluginIds(template);
+            if (missingPlugins.Count > 0)
+            {
+                warnings.Add(I18n.Format("Template_RequiredPluginsMissing", string.Join(", ", missingPlugins)));
+            }
+
+            if (string.IsNullOrWhiteSpace(template.GameName))
+            {
+                warnings.Add(I18n.GetString("Template_Submission_GameNameRecommended"));
+            }
+
+            var message = errors.Count > 0
+                ? I18n.Format("Template_Submission_ValidationFailed", errors.Count.ToString())
+                : (warnings.Count > 0
+                    ? I18n.Format("Template_Submission_ValidationWarning", warnings.Count.ToString())
+                    : I18n.GetString("Template_Submission_ValidationPassed"));
+
+            return new TemplateValidationResult
+            {
+                Success = errors.Count == 0,
+                Message = message,
+                Errors = errors,
+                Warnings = warnings
+            };
+        }
+
+        public static bool TryLoadTemplateFromPackage(string sourcePath, out ConfigTemplate? template, out string message)
+        {
+            template = null;
+            var (success, resultMessage, loadedTemplate) = ReadTemplateFromFile(sourcePath);
+            message = resultMessage;
+            if (!success || loadedTemplate == null)
+            {
+                return false;
+            }
+
+            template = loadedTemplate;
+            return true;
+        }
+
+        public static string BuildTemplateSubmissionSummary(ConfigTemplate template)
+        {
+            var lines = new List<string>
+            {
+                I18n.Format("Template_Submission_SummaryName", template.Name),
+                I18n.Format("Template_Submission_SummaryGame", string.IsNullOrWhiteSpace(template.GameName) ? "-" : template.GameName),
+                I18n.Format("Template_Submission_SummaryAuthor", string.IsNullOrWhiteSpace(template.Author) ? I18n.GetString("Template_Submission_AuthorAnonymous") : template.Author),
+                I18n.Format("Template_Submission_SummaryConfigType", template.BaseConfigType),
+                I18n.Format("Template_Submission_SummaryVersion", template.Version),
+                I18n.Format("Template_Submission_SummaryRuleCount", (template.PathRules?.Count ?? 0).ToString())
+            };
+
+            if (template.RequiredPluginIds != null && template.RequiredPluginIds.Count > 0)
+            {
+                lines.Add(I18n.Format("Template_Submission_SummaryPlugins", string.Join(", ", template.RequiredPluginIds)));
+            }
+
+            if (!string.IsNullOrWhiteSpace(template.Description))
+            {
+                lines.Add(string.Empty);
+                lines.Add(I18n.GetString("Template_Submission_SummaryDescription"));
+                lines.Add(template.Description.Trim());
+            }
+
+            return string.Join(Environment.NewLine, lines);
+        }
+
+        public static bool ExportTemplateSubmissionPackage(string templateId, string destPath, out string summary, out string message)
+        {
+            summary = string.Empty;
+            message = string.Empty;
+
+            var template = GetTemplateById(templateId);
+            if (template == null)
+            {
+                message = I18n.GetString("Template_Export_TemplateNotFound");
+                return false;
+            }
+
+            var validation = ValidateTemplateForOfficialSharing(template);
+            if (!validation.Success)
+            {
+                message = validation.Message;
+                return false;
+            }
+
+            if (!ExportTemplate(templateId, destPath, out message))
+            {
+                return false;
+            }
+
+            summary = BuildTemplateSubmissionSummary(template);
+            return true;
         }
 
         public static bool ExportTemplate(string templateId, string destPath, out string message)
@@ -1445,6 +1600,92 @@ namespace FolderRewind.Services
             }
 
             return I18n.Format("Template_Preview_MarkerSummary", required.ToString(), optional.ToString());
+        }
+
+        private static IReadOnlyList<string> ValidatePathRules(IEnumerable<TemplatePathRule>? rules)
+        {
+            var errors = new List<string>();
+            if (rules == null)
+            {
+                return errors;
+            }
+
+            foreach (var rule in rules)
+            {
+                if (rule == null)
+                {
+                    continue;
+                }
+
+                if (rule.Segments == null || rule.Segments.Count == 0)
+                {
+                    errors.Add(I18n.Format("Template_Submission_RuleHasNoSegments", string.IsNullOrWhiteSpace(rule.Name) ? I18n.GetString("Template_Preview_UnnamedRule") : rule.Name));
+                    continue;
+                }
+
+                foreach (var segment in rule.Segments)
+                {
+                    if (segment == null)
+                    {
+                        continue;
+                    }
+
+                    var value = segment?.Value?.Trim() ?? string.Empty;
+                    if (string.IsNullOrWhiteSpace(value))
+                    {
+                        continue;
+                    }
+
+                    if (value.Contains("..", StringComparison.Ordinal)
+                        || value.Contains(':')
+                        || value.Contains('\\')
+                        || value.Contains('/')
+                        || Path.IsPathRooted(value))
+                    {
+                        errors.Add(I18n.Format("Template_Submission_RuleContainsUnsafePath", string.IsNullOrWhiteSpace(rule.Name) ? I18n.GetString("Template_Preview_UnnamedRule") : rule.Name, value));
+                        break;
+                    }
+
+                    if (segment.Type == TemplatePathSegmentType.Static && IsSensitiveDirectoryName(value))
+                    {
+                        errors.Add(I18n.Format("Template_Submission_RuleContainsSensitiveSegment", string.IsNullOrWhiteSpace(rule.Name) ? I18n.GetString("Template_Preview_UnnamedRule") : rule.Name, value));
+                        break;
+                    }
+                }
+
+                IEnumerable<TemplatePathMarker> markers = rule.Markers != null
+                    ? rule.Markers
+                    : Array.Empty<TemplatePathMarker>();
+
+                foreach (var marker in markers)
+                {
+                    var markerValue = marker?.Value?.Trim() ?? string.Empty;
+                    if (string.IsNullOrWhiteSpace(markerValue))
+                    {
+                        continue;
+                    }
+
+                    if (markerValue.Contains("..", StringComparison.Ordinal)
+                        || markerValue.Contains('\\')
+                        || markerValue.Contains('/')
+                        || Path.IsPathRooted(markerValue))
+                    {
+                        errors.Add(I18n.Format("Template_Submission_RuleContainsUnsafeMarker", string.IsNullOrWhiteSpace(rule.Name) ? I18n.GetString("Template_Preview_UnnamedRule") : rule.Name, markerValue));
+                        break;
+                    }
+                }
+            }
+
+            return errors;
+        }
+
+        private static bool IsSensitiveDirectoryName(string value)
+        {
+            return string.Equals(value, "Windows", StringComparison.OrdinalIgnoreCase)
+                || string.Equals(value, "System32", StringComparison.OrdinalIgnoreCase)
+                || string.Equals(value, "Program Files", StringComparison.OrdinalIgnoreCase)
+                || string.Equals(value, "Program Files (x86)", StringComparison.OrdinalIgnoreCase)
+                || string.Equals(value, "Users", StringComparison.OrdinalIgnoreCase);
         }
 
         private static ConfigTemplate CloneTemplate(ConfigTemplate template)

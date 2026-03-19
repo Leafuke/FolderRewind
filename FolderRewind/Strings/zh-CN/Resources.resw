@@ -3221,4 +3221,196 @@
   <data name="Template_Preview_Summary" xml:space="preserve">
     <value>共 {1} 条规则，命中 {0} 条。</value>
   </data>
+  <data name="Template_CreateFrom_Home_TemplateInfo_Extended" xml:space="preserve">
+    <value>{0} · 已推导 {1} 条路径规则&#x0A;游戏：{2}&#x0A;分享码：{3}</value>
+  </data>
+  <data name="HomePage_AddFromOfficialTemplate.Text" xml:space="preserve">
+    <value>从官方模板创建</value>
+  </data>
+  <data name="SettingsPage_BrowseOfficialTemplates.Content" xml:space="preserve">
+    <value>导入官方模板</value>
+  </data>
+  <data name="SettingsPage_UseTemplateShareCode.Content" xml:space="preserve">
+    <value>分享码导入模板</value>
+  </data>
+  <data name="SettingsPage_PrepareTemplateSubmission.Content" xml:space="preserve">
+    <value>准备投稿文件</value>
+  </data>
+  <data name="OfficialTemplates_SourceOfficial" xml:space="preserve">
+    <value>官方源</value>
+  </data>
+  <data name="OfficialTemplates_SourceMirror" xml:space="preserve">
+    <value>备用源</value>
+  </data>
+  <data name="OfficialTemplates_SourceCache" xml:space="preserve">
+    <value>本地缓存</value>
+  </data>
+  <data name="OfficialTemplates_UsingCachedIndex" xml:space="preserve">
+    <value>已回退到本地缓存索引。</value>
+  </data>
+  <data name="OfficialTemplates_FetchIndexFailed" xml:space="preserve">
+    <value>无法获取官方模板索引，请稍后重试。</value>
+  </data>
+  <data name="OfficialTemplates_FetchIndexFailedLog" xml:space="preserve">
+    <value>获取官方模板索引失败：{0} - {1}</value>
+  </data>
+  <data name="OfficialTemplates_TemplateNotFound" xml:space="preserve">
+    <value>未找到对应的官方模板。</value>
+  </data>
+  <data name="OfficialTemplates_TemplateDisabled" xml:space="preserve">
+    <value>该模板已被停用，暂时无法使用。</value>
+  </data>
+  <data name="OfficialTemplates_TemplateUrlMissing" xml:space="preserve">
+    <value>模板下载地址缺失。</value>
+  </data>
+  <data name="OfficialTemplates_HashMismatch" xml:space="preserve">
+    <value>模板文件校验失败，已拒绝导入。</value>
+  </data>
+  <data name="OfficialTemplates_LoadFailed" xml:space="preserve">
+    <value>模板文件解析失败。</value>
+  </data>
+  <data name="OfficialTemplates_DownloadSuccess" xml:space="preserve">
+    <value>已下载官方模板：{0}</value>
+  </data>
+  <data name="OfficialTemplates_DownloadFailed" xml:space="preserve">
+    <value>下载官方模板失败：{0}</value>
+  </data>
+  <data name="OfficialTemplates_BrowseTitle" xml:space="preserve">
+    <value>官方模板库</value>
+  </data>
+  <data name="OfficialTemplates_CreateFromOfficialTitle" xml:space="preserve">
+    <value>从官方模板创建配置</value>
+  </data>
+  <data name="OfficialTemplates_SearchHeader" xml:space="preserve">
+    <value>搜索模板</value>
+  </data>
+  <data name="OfficialTemplates_SearchPlaceholder" xml:space="preserve">
+    <value>输入游戏名、模板名、Steam AppID 或分享码</value>
+  </data>
+  <data name="OfficialTemplates_TemplateHeader" xml:space="preserve">
+    <value>模板列表</value>
+  </data>
+  <data name="OfficialTemplates_SourceLabel" xml:space="preserve">
+    <value>索引来源：{0}</value>
+  </data>
+  <data name="OfficialTemplates_SourceLabelWithHint" xml:space="preserve">
+    <value>索引来源：{0}（{1}）</value>
+  </data>
+  <data name="OfficialTemplates_NoSearchResults" xml:space="preserve">
+    <value>没有匹配的模板。</value>
+  </data>
+  <data name="OfficialTemplates_ShareCodeHeader" xml:space="preserve">
+    <value>分享码</value>
+  </data>
+  <data name="OfficialTemplates_ShareCodePlaceholder" xml:space="preserve">
+    <value>输入 5 位分享码</value>
+  </data>
+  <data name="OfficialTemplates_UseByShareCodeTitle" xml:space="preserve">
+    <value>通过分享码使用模板</value>
+  </data>
+  <data name="OfficialTemplates_InvalidShareCode" xml:space="preserve">
+    <value>分享码格式无效，请输入 5 位大写字母/数字组合。</value>
+  </data>
+  <data name="OfficialTemplates_ShareCodeNotFound" xml:space="preserve">
+    <value>未找到对应的分享码。</value>
+  </data>
+  <data name="OfficialTemplates_DetailName" xml:space="preserve">
+    <value>模板：{0}</value>
+  </data>
+  <data name="OfficialTemplates_DetailGame" xml:space="preserve">
+    <value>游戏：{0}</value>
+  </data>
+  <data name="OfficialTemplates_DetailShareCode" xml:space="preserve">
+    <value>分享码：{0}</value>
+  </data>
+  <data name="OfficialTemplates_DetailSteamAppId" xml:space="preserve">
+    <value>Steam AppID：{0}</value>
+  </data>
+  <data name="OfficialTemplates_DetailAuthor" xml:space="preserve">
+    <value>作者：{0}</value>
+  </data>
+  <data name="OfficialTemplates_DetailVersion" xml:space="preserve">
+    <value>版本：{0}</value>
+  </data>
+  <data name="OfficialTemplates_ShareCodeMissing" xml:space="preserve">
+    <value>未分配</value>
+  </data>
+  <data name="Template_Submission_TemplateNull" xml:space="preserve">
+    <value>模板不存在。</value>
+  </data>
+  <data name="Template_Submission_NameRequired" xml:space="preserve">
+    <value>投稿模板必须填写名称。</value>
+  </data>
+  <data name="Template_Submission_DescriptionRequired" xml:space="preserve">
+    <value>投稿模板必须填写描述。</value>
+  </data>
+  <data name="Template_Submission_PathRulesRequired" xml:space="preserve">
+    <value>投稿模板至少需要一条有效路径规则。</value>
+  </data>
+  <data name="Template_Submission_DryRunFailed" xml:space="preserve">
+    <value>模板基础校验失败，无法正常用于创建配置。</value>
+  </data>
+  <data name="Template_Submission_GameNameRecommended" xml:space="preserve">
+    <value>建议填写游戏名称，方便官方模板库检索。</value>
+  </data>
+  <data name="Template_Submission_ValidationFailed" xml:space="preserve">
+    <value>模板校验未通过，共发现 {0} 个问题。</value>
+  </data>
+  <data name="Template_Submission_ValidationWarning" xml:space="preserve">
+    <value>模板校验通过，但有 {0} 条建议可进一步完善。</value>
+  </data>
+  <data name="Template_Submission_ValidationPassed" xml:space="preserve">
+    <value>模板校验通过，可以导出投稿文件。</value>
+  </data>
+  <data name="Template_Submission_SummaryName" xml:space="preserve">
+    <value>模板名称：{0}</value>
+  </data>
+  <data name="Template_Submission_SummaryGame" xml:space="preserve">
+    <value>游戏名称：{0}</value>
+  </data>
+  <data name="Template_Submission_SummaryAuthor" xml:space="preserve">
+    <value>作者：{0}</value>
+  </data>
+  <data name="Template_Submission_SummaryConfigType" xml:space="preserve">
+    <value>配置类型：{0}</value>
+  </data>
+  <data name="Template_Submission_SummaryVersion" xml:space="preserve">
+    <value>模板版本：{0}</value>
+  </data>
+  <data name="Template_Submission_SummaryRuleCount" xml:space="preserve">
+    <value>路径规则数：{0}</value>
+  </data>
+  <data name="Template_Submission_SummaryPlugins" xml:space="preserve">
+    <value>依赖插件：{0}</value>
+  </data>
+  <data name="Template_Submission_SummaryDescription" xml:space="preserve">
+    <value>模板描述：</value>
+  </data>
+  <data name="Template_Submission_AuthorAnonymous" xml:space="preserve">
+    <value>匿名</value>
+  </data>
+  <data name="Template_Submission_SelectTemplate" xml:space="preserve">
+    <value>选择要投稿的本地模板</value>
+  </data>
+  <data name="Template_Submission_GameNameHeader" xml:space="preserve">
+    <value>游戏名称（可选）</value>
+  </data>
+  <data name="Template_Submission_PrepareHint" xml:space="preserve">
+    <value>将导出一个标准模板包，并自动生成投稿摘要。摘要会复制到剪贴板，方便粘贴到表单中。</value>
+  </data>
+  <data name="Template_Submission_SummaryTitle" xml:space="preserve">
+    <value>投稿摘要</value>
+  </data>
+  <data name="Template_Submission_RuleHasNoSegments" xml:space="preserve">
+    <value>规则“{0}”缺少路径段定义。</value>
+  </data>
+  <data name="Template_Submission_RuleContainsUnsafePath" xml:space="preserve">
+    <value>规则“{0}”包含不安全路径段：{1}</value>
+  </data>
+  <data name="Template_Submission_RuleContainsSensitiveSegment" xml:space="preserve">
+    <value>规则“{0}”包含敏感目录段：{1}</value>
+  </data>
+  <data name="Template_Submission_RuleContainsUnsafeMarker" xml:space="preserve">
+    <value>规则“{0}”包含不安全标记：{1}</value>
+  </data>
 </root>

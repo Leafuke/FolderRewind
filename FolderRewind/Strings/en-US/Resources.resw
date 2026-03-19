@@ -3221,4 +3221,196 @@ Release notes:
   <data name="Template_Preview_Summary" xml:space="preserve">
     <value>{0} of {1} rule(s) matched.</value>
   </data>
+  <data name="Template_CreateFrom_Home_TemplateInfo_Extended" xml:space="preserve">
+    <value>{0} - {1} inferred path rule(s)&#x0A;Game: {2}&#x0A;Share code: {3}</value>
+  </data>
+  <data name="HomePage_AddFromOfficialTemplate.Text" xml:space="preserve">
+    <value>From Official Template</value>
+  </data>
+  <data name="SettingsPage_BrowseOfficialTemplates.Content" xml:space="preserve">
+    <value>Import Official Template</value>
+  </data>
+  <data name="SettingsPage_UseTemplateShareCode.Content" xml:space="preserve">
+    <value>Import by Share Code</value>
+  </data>
+  <data name="SettingsPage_PrepareTemplateSubmission.Content" xml:space="preserve">
+    <value>Prepare Submission</value>
+  </data>
+  <data name="OfficialTemplates_SourceOfficial" xml:space="preserve">
+    <value>Official source</value>
+  </data>
+  <data name="OfficialTemplates_SourceMirror" xml:space="preserve">
+    <value>Fallback mirror</value>
+  </data>
+  <data name="OfficialTemplates_SourceCache" xml:space="preserve">
+    <value>Local cache</value>
+  </data>
+  <data name="OfficialTemplates_UsingCachedIndex" xml:space="preserve">
+    <value>Using the locally cached template index.</value>
+  </data>
+  <data name="OfficialTemplates_FetchIndexFailed" xml:space="preserve">
+    <value>Failed to fetch the official template index. Please try again later.</value>
+  </data>
+  <data name="OfficialTemplates_FetchIndexFailedLog" xml:space="preserve">
+    <value>Failed to fetch official template index: {0} - {1}</value>
+  </data>
+  <data name="OfficialTemplates_TemplateNotFound" xml:space="preserve">
+    <value>The requested official template was not found.</value>
+  </data>
+  <data name="OfficialTemplates_TemplateDisabled" xml:space="preserve">
+    <value>This template has been disabled and cannot be used right now.</value>
+  </data>
+  <data name="OfficialTemplates_TemplateUrlMissing" xml:space="preserve">
+    <value>The template download URL is missing.</value>
+  </data>
+  <data name="OfficialTemplates_HashMismatch" xml:space="preserve">
+    <value>The template file failed integrity verification.</value>
+  </data>
+  <data name="OfficialTemplates_LoadFailed" xml:space="preserve">
+    <value>Failed to parse the downloaded template file.</value>
+  </data>
+  <data name="OfficialTemplates_DownloadSuccess" xml:space="preserve">
+    <value>Downloaded official template: {0}</value>
+  </data>
+  <data name="OfficialTemplates_DownloadFailed" xml:space="preserve">
+    <value>Failed to download official template: {0}</value>
+  </data>
+  <data name="OfficialTemplates_BrowseTitle" xml:space="preserve">
+    <value>Official Template Library</value>
+  </data>
+  <data name="OfficialTemplates_CreateFromOfficialTitle" xml:space="preserve">
+    <value>Create Config from Official Template</value>
+  </data>
+  <data name="OfficialTemplates_SearchHeader" xml:space="preserve">
+    <value>Search templates</value>
+  </data>
+  <data name="OfficialTemplates_SearchPlaceholder" xml:space="preserve">
+    <value>Search by game, template, Steam AppID, or share code</value>
+  </data>
+  <data name="OfficialTemplates_TemplateHeader" xml:space="preserve">
+    <value>Templates</value>
+  </data>
+  <data name="OfficialTemplates_SourceLabel" xml:space="preserve">
+    <value>Index source: {0}</value>
+  </data>
+  <data name="OfficialTemplates_SourceLabelWithHint" xml:space="preserve">
+    <value>Index source: {0} ({1})</value>
+  </data>
+  <data name="OfficialTemplates_NoSearchResults" xml:space="preserve">
+    <value>No matching templates.</value>
+  </data>
+  <data name="OfficialTemplates_ShareCodeHeader" xml:space="preserve">
+    <value>Share code</value>
+  </data>
+  <data name="OfficialTemplates_ShareCodePlaceholder" xml:space="preserve">
+    <value>Enter the 5-character share code</value>
+  </data>
+  <data name="OfficialTemplates_UseByShareCodeTitle" xml:space="preserve">
+    <value>Use Template by Share Code</value>
+  </data>
+  <data name="OfficialTemplates_InvalidShareCode" xml:space="preserve">
+    <value>Invalid share code format. Please enter 5 uppercase letters or digits.</value>
+  </data>
+  <data name="OfficialTemplates_ShareCodeNotFound" xml:space="preserve">
+    <value>No template matched that share code.</value>
+  </data>
+  <data name="OfficialTemplates_DetailName" xml:space="preserve">
+    <value>Template: {0}</value>
+  </data>
+  <data name="OfficialTemplates_DetailGame" xml:space="preserve">
+    <value>Game: {0}</value>
+  </data>
+  <data name="OfficialTemplates_DetailShareCode" xml:space="preserve">
+    <value>Share code: {0}</value>
+  </data>
+  <data name="OfficialTemplates_DetailSteamAppId" xml:space="preserve">
+    <value>Steam AppID: {0}</value>
+  </data>
+  <data name="OfficialTemplates_DetailAuthor" xml:space="preserve">
+    <value>Author: {0}</value>
+  </data>
+  <data name="OfficialTemplates_DetailVersion" xml:space="preserve">
+    <value>Version: {0}</value>
+  </data>
+  <data name="OfficialTemplates_ShareCodeMissing" xml:space="preserve">
+    <value>Unassigned</value>
+  </data>
+  <data name="Template_Submission_TemplateNull" xml:space="preserve">
+    <value>Template not found.</value>
+  </data>
+  <data name="Template_Submission_NameRequired" xml:space="preserve">
+    <value>A submission template must have a name.</value>
+  </data>
+  <data name="Template_Submission_DescriptionRequired" xml:space="preserve">
+    <value>A submission template must include a description.</value>
+  </data>
+  <data name="Template_Submission_PathRulesRequired" xml:space="preserve">
+    <value>A submission template must include at least one valid path rule.</value>
+  </data>
+  <data name="Template_Submission_DryRunFailed" xml:space="preserve">
+    <value>The template failed a basic dry run and cannot be used to create a config.</value>
+  </data>
+  <data name="Template_Submission_GameNameRecommended" xml:space="preserve">
+    <value>Adding a game name is recommended for discoverability.</value>
+  </data>
+  <data name="Template_Submission_ValidationFailed" xml:space="preserve">
+    <value>Template validation failed with {0} issue(s).</value>
+  </data>
+  <data name="Template_Submission_ValidationWarning" xml:space="preserve">
+    <value>Template validation passed with {0} recommendation(s).</value>
+  </data>
+  <data name="Template_Submission_ValidationPassed" xml:space="preserve">
+    <value>Template validation passed. You can export the submission package now.</value>
+  </data>
+  <data name="Template_Submission_SummaryName" xml:space="preserve">
+    <value>Template name: {0}</value>
+  </data>
+  <data name="Template_Submission_SummaryGame" xml:space="preserve">
+    <value>Game name: {0}</value>
+  </data>
+  <data name="Template_Submission_SummaryAuthor" xml:space="preserve">
+    <value>Author: {0}</value>
+  </data>
+  <data name="Template_Submission_SummaryConfigType" xml:space="preserve">
+    <value>Config type: {0}</value>
+  </data>
+  <data name="Template_Submission_SummaryVersion" xml:space="preserve">
+    <value>Template version: {0}</value>
+  </data>
+  <data name="Template_Submission_SummaryRuleCount" xml:space="preserve">
+    <value>Path rules: {0}</value>
+  </data>
+  <data name="Template_Submission_SummaryPlugins" xml:space="preserve">
+    <value>Required plugins: {0}</value>
+  </data>
+  <data name="Template_Submission_SummaryDescription" xml:space="preserve">
+    <value>Description:</value>
+  </data>
+  <data name="Template_Submission_AuthorAnonymous" xml:space="preserve">
+    <value>Anonymous</value>
+  </data>
+  <data name="Template_Submission_SelectTemplate" xml:space="preserve">
+    <value>Select a local template to submit</value>
+  </data>
+  <data name="Template_Submission_GameNameHeader" xml:space="preserve">
+    <value>Game name (optional)</value>
+  </data>
+  <data name="Template_Submission_PrepareHint" xml:space="preserve">
+    <value>This exports a standard template package and copies the submission summary to your clipboard for a form upload.</value>
+  </data>
+  <data name="Template_Submission_SummaryTitle" xml:space="preserve">
+    <value>Submission Summary</value>
+  </data>
+  <data name="Template_Submission_RuleHasNoSegments" xml:space="preserve">
+    <value>Rule "{0}" does not define any path segments.</value>
+  </data>
+  <data name="Template_Submission_RuleContainsUnsafePath" xml:space="preserve">
+    <value>Rule "{0}" contains an unsafe path segment: {1}</value>
+  </data>
+  <data name="Template_Submission_RuleContainsSensitiveSegment" xml:space="preserve">
+    <value>Rule "{0}" contains a sensitive directory segment: {1}</value>
+  </data>
+  <data name="Template_Submission_RuleContainsUnsafeMarker" xml:space="preserve">
+    <value>Rule "{0}" contains an unsafe marker: {1}</value>
+  </data>
 </root>
