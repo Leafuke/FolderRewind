@@ -201,19 +201,46 @@ namespace FolderRewind.Models
 
     public class RemoteTemplateIndexItem
     {
+        [JsonPropertyName("shareCode")]
         public string ShareCode { get; set; } = string.Empty;
+
+        [JsonPropertyName("templateId")]
         public string TemplateId { get; set; } = string.Empty;
+
+        [JsonPropertyName("name")]
         public string Name { get; set; } = string.Empty;
+
+        [JsonPropertyName("author")]
         public string Author { get; set; } = string.Empty;
+
+        [JsonPropertyName("description")]
         public string Description { get; set; } = string.Empty;
+
+        [JsonPropertyName("gameName")]
         public string GameName { get; set; } = string.Empty;
+
+        [JsonPropertyName("steamAppId")]
         public int? SteamAppId { get; set; }
+
+        [JsonPropertyName("version")]
         public string Version { get; set; } = string.Empty;
+
+        [JsonPropertyName("updatedUtc")]
         public DateTime UpdatedUtc { get; set; }
+
+        [JsonPropertyName("baseConfigType")]
         public string BaseConfigType { get; set; } = string.Empty;
+
+        [JsonPropertyName("requiredPluginIds")]
         public ObservableCollection<string> RequiredPluginIds { get; set; } = new();
+
+        [JsonPropertyName("fileUrl")]
         public string FileUrl { get; set; } = string.Empty;
+
+        [JsonPropertyName("sha256")]
         public string Sha256 { get; set; } = string.Empty;
+
+        [JsonPropertyName("isDisabled")]
         public bool IsDisabled { get; set; }
 
         [JsonIgnore]
@@ -233,8 +260,13 @@ namespace FolderRewind.Models
 
     public class RemoteTemplateIndexDocument
     {
+        [JsonPropertyName("schemaVersion")]
         public string SchemaVersion { get; set; } = "1.0";
+
+        [JsonPropertyName("generatedAtUtc")]
         public DateTime GeneratedAtUtc { get; set; } = DateTime.UtcNow;
+
+        [JsonPropertyName("templates")]
         public ObservableCollection<RemoteTemplateIndexItem> Templates { get; set; } = new();
     }
 }

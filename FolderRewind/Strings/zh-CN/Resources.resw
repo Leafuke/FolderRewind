@@ -3057,10 +3057,22 @@
     <value>从模板创建配置</value>
   </data>
   <data name="Template_CreateFrom_Home_NoTemplates" xml:space="preserve">
-    <value>当前还没有模板，请先在配置详情中“保存为模板”。</value>
+    <value>当前还没有本地模板。你可以先搜索官方模板并导入，再继续创建配置。</value>
   </data>
   <data name="Template_CreateFrom_Home_Template" xml:space="preserve">
     <value>选择模板</value>
+  </data>
+  <data name="Template_CreateFrom_Home_LocalTemplatesHint" xml:space="preserve">
+    <value>可直接选择本地模板，或先搜索官方模板并导入后再创建。</value>
+  </data>
+  <data name="Template_CreateFrom_Home_OfficialSearchHeader" xml:space="preserve">
+    <value>搜索官方模板</value>
+  </data>
+  <data name="Template_CreateFrom_Home_OfficialSearchPlaceholder" xml:space="preserve">
+    <value>输入模板名、游戏名、作者或分享码后搜索官方仓库</value>
+  </data>
+  <data name="Template_CreateFrom_Home_SearchOfficial" xml:space="preserve">
+    <value>搜索官方模板</value>
   </data>
   <data name="Template_CreateFrom_Home_TemplateInfo" xml:space="preserve">
     <value>模板“{0}”，包含 {1} 条路径规则。</value>
@@ -3248,6 +3260,9 @@
   <data name="OfficialTemplates_UsingCachedIndex" xml:space="preserve">
     <value>已回退到本地缓存索引。</value>
   </data>
+  <data name="OfficialTemplates_IndexEmpty" xml:space="preserve">
+    <value>官方模板库当前暂无可用模板。</value>
+  </data>
   <data name="OfficialTemplates_FetchIndexFailed" xml:space="preserve">
     <value>无法获取官方模板索引，请稍后重试。</value>
   </data>
@@ -3389,17 +3404,32 @@
   <data name="Template_Submission_AuthorAnonymous" xml:space="preserve">
     <value>匿名</value>
   </data>
-  <data name="Template_Submission_SelectTemplate" xml:space="preserve">
+  <data name="Template_Submission_SelectTemplate.Text" xml:space="preserve">
     <value>选择要投稿的本地模板</value>
   </data>
-  <data name="Template_Submission_GameNameHeader" xml:space="preserve">
+  <data name="Template_Submission_GameNameHeader.Text" xml:space="preserve">
     <value>游戏名称（可选）</value>
   </data>
-  <data name="Template_Submission_PrepareHint" xml:space="preserve">
+  <data name="Template_Submission_PrepareHint.Text" xml:space="preserve">
     <value>将导出一个标准模板包，并自动生成投稿摘要。摘要会复制到剪贴板，方便粘贴到表单中。</value>
   </data>
   <data name="Template_Submission_SummaryTitle" xml:space="preserve">
     <value>投稿摘要</value>
+  </data>
+  <data name="TemplateSubmissionDialog_ExportPackage" xml:space="preserve">
+    <value>导出投稿文件</value>
+  </data>
+  <data name="TemplateSubmissionDialog_SubmitToGitHub" xml:space="preserve">
+    <value>自动提交模板</value>
+  </data>
+  <data name="TemplateSubmissionDialog_PrepareSection.Text" xml:space="preserve">
+    <value>准备投稿文件</value>
+  </data>
+  <data name="TemplateSubmissionDialog_GitHubSection.Text" xml:space="preserve">
+    <value>GitHub 自动提交</value>
+  </data>
+  <data name="TemplateSubmissionDialog_GitHubHint.Text" xml:space="preserve">
+    <value>FolderRewind 使用内置 GitHub OAuth 配置并通过 PKCE 完成桌面端授权。点击“自动提交模板”时，如有需要会自动打开 GitHub 授权。</value>
   </data>
   <data name="Template_Submission_RuleHasNoSegments" xml:space="preserve">
     <value>规则“{0}”缺少路径段定义。</value>
@@ -3412,5 +3442,155 @@
   </data>
   <data name="Template_Submission_RuleContainsUnsafeMarker" xml:space="preserve">
     <value>规则“{0}”包含不安全标记：{1}</value>
+  </data>
+  <data name="SettingsPage_GitHubSubmission" xml:space="preserve">
+    <value>GitHub 自动提交</value>
+  </data>
+  <data name="SettingsPage_GitHubSubmissionDesc" xml:space="preserve">
+    <value>使用内置 GitHub OAuth App 与官方模板仓库配置后，可在软件内授权并全自动提交模板到 GitHub Pull Request。</value>
+  </data>
+  <data name="SettingsPage_GitHubAuthorize.Content" xml:space="preserve">
+    <value>授权 GitHub</value>
+  </data>
+  <data name="SettingsPage_GitHubSignOut.Content" xml:space="preserve">
+    <value>退出 GitHub</value>
+  </data>
+  <data name="SettingsPage_SubmitOfficialTemplate.Content" xml:space="preserve">
+    <value>自动提交模板</value>
+  </data>
+  <data name="GitHubOAuth_ConfigUnavailable" xml:space="preserve">
+    <value>当前无法读取 GitHub OAuth 配置。</value>
+  </data>
+  <data name="GitHubOAuth_NotAuthorized" xml:space="preserve">
+    <value>尚未授权 GitHub。</value>
+  </data>
+  <data name="GitHubOAuth_Authorized" xml:space="preserve">
+    <value>GitHub 已授权。</value>
+  </data>
+  <data name="GitHubOAuth_AuthorizedAs" xml:space="preserve">
+    <value>GitHub 已授权：{0}</value>
+  </data>
+  <data name="GitHubOAuth_LoginTitle" xml:space="preserve">
+    <value>GitHub 授权</value>
+  </data>
+  <data name="GitHubOAuth_LoginHint" xml:space="preserve">
+    <value>请在内置页面中登录 GitHub 并授权 FolderRewind 访问公开仓库。</value>
+  </data>
+  <data name="GitHubOAuth_LoginCanceled" xml:space="preserve">
+    <value>已取消 GitHub 授权。</value>
+  </data>
+  <data name="GitHubOAuth_StateMismatch" xml:space="preserve">
+    <value>GitHub 授权状态校验失败。</value>
+  </data>
+  <data name="GitHubOAuth_ListenerStartFailedWithReason" xml:space="preserve">
+    <value>无法启动本地 OAuth 回调监听：{0}</value>
+  </data>
+  <data name="GitHubOAuth_MissingAuthorizationCode" xml:space="preserve">
+    <value>GitHub 未返回授权码，请重试。</value>
+  </data>
+  <data name="GitHubOAuth_TokenExchangeFailed" xml:space="preserve">
+    <value>GitHub access token 交换失败。</value>
+  </data>
+  <data name="GitHubOAuth_TokenExchangeFailedWithReason" xml:space="preserve">
+    <value>GitHub access token 交换失败：{0}</value>
+  </data>
+  <data name="GitHubOAuth_UserLookupFailed" xml:space="preserve">
+    <value>无法获取 GitHub 当前用户信息。</value>
+  </data>
+  <data name="GitHubOAuth_UserLookupFailedWithReason" xml:space="preserve">
+    <value>获取 GitHub 用户信息失败：{0}</value>
+  </data>
+  <data name="GitHubOAuth_TokenInvalid" xml:space="preserve">
+    <value>当前 GitHub 授权已失效，请重新授权。</value>
+  </data>
+  <data name="GitHubOAuth_LoginSuccess" xml:space="preserve">
+    <value>GitHub 授权成功：{0}</value>
+  </data>
+  <data name="GitHubOAuth_SignedOut" xml:space="preserve">
+    <value>已退出 GitHub 授权。</value>
+  </data>
+  <data name="GitHubSubmit_TemplateNull" xml:space="preserve">
+    <value>未选择要提交的模板。</value>
+  </data>
+  <data name="GitHubSubmit_ConfigUnavailable" xml:space="preserve">
+    <value>当前无法读取提交配置。</value>
+  </data>
+  <data name="GitHubSubmit_RepoLookupFailed" xml:space="preserve">
+    <value>无法访问官方模板仓库，请检查 Owner、仓库名和网络连接。</value>
+  </data>
+  <data name="GitHubSubmit_ForkFailed" xml:space="preserve">
+    <value>自动 Fork 官方模板仓库失败。</value>
+  </data>
+  <data name="GitHubSubmit_BaseBranchLookupFailed" xml:space="preserve">
+    <value>无法获取 Fork 默认分支的最新提交。</value>
+  </data>
+  <data name="GitHubSubmit_BranchCreateFailed" xml:space="preserve">
+    <value>创建提交分支失败。</value>
+  </data>
+  <data name="GitHubSubmit_CommitFailed" xml:space="preserve">
+    <value>写入模板文件到 GitHub 仓库失败。</value>
+  </data>
+  <data name="GitHubSubmit_PullRequestFailed" xml:space="preserve">
+    <value>创建 Pull Request 失败。</value>
+  </data>
+  <data name="GitHubSubmit_PullRequestCreated" xml:space="preserve">
+    <value>Pull Request 已创建：{0}</value>
+  </data>
+  <data name="GitHubSubmit_PullRequestExists" xml:space="preserve">
+    <value>该提交分支已经存在打开中的 Pull Request：{0}</value>
+  </data>
+  <data name="GitHubSubmit_Success" xml:space="preserve">
+    <value>模板已提交，分享码：{0}</value>
+  </data>
+  <data name="GitHubSubmit_FailedWithReason" xml:space="preserve">
+    <value>自动提交失败：{0}</value>
+  </data>
+  <data name="GitHubSubmit_ShareCodeExhausted" xml:space="preserve">
+    <value>分享码生成失败，请稍后重试。</value>
+  </data>
+  <data name="GitHubSubmit_Canceled" xml:space="preserve">
+    <value>已取消自动提交流程。</value>
+  </data>
+  <data name="GitHubSubmit_UnknownFailure" xml:space="preserve">
+    <value>自动提交未返回结果，请查看日志。</value>
+  </data>
+  <data name="GitHubSubmit_ResultTitle" xml:space="preserve">
+    <value>自动提交结果</value>
+  </data>
+  <data name="GitHubSubmit_ResultContent" xml:space="preserve">
+    <value>分享码：{0}&#x0A;Pull Request：{1}</value>
+  </data>
+  <data name="GitHubSubmit_OpenPullRequest" xml:space="preserve">
+    <value>打开 Pull Request</value>
+  </data>
+  <data name="GitHubSubmit_PrepareHint" xml:space="preserve">
+    <value>选择本地模板后，软件会自动导出标准模板包、Fork 官方仓库、创建分支、提交文件并发起 Pull Request。</value>
+  </data>
+  <data name="GitHubSubmit_Progress_Starting" xml:space="preserve">
+    <value>正在准备自动提交…</value>
+  </data>
+  <data name="GitHubSubmit_Progress_LoadRepo" xml:space="preserve">
+    <value>正在读取官方模板仓库信息…</value>
+  </data>
+  <data name="GitHubSubmit_Progress_LoadIndex" xml:space="preserve">
+    <value>正在读取最新模板索引并分配分享码…</value>
+  </data>
+  <data name="GitHubSubmit_Progress_ExportTemplate" xml:space="preserve">
+    <value>正在导出标准模板文件…</value>
+  </data>
+  <data name="GitHubSubmit_Progress_EnsureFork" xml:space="preserve">
+    <value>正在检查或创建你的 Fork…</value>
+  </data>
+  <data name="GitHubSubmit_Progress_SyncFork" xml:space="preserve">
+    <value>正在同步 Fork 默认分支…</value>
+  </data>
+  <data name="GitHubSubmit_Progress_CreateBranch" xml:space="preserve">
+    <value>正在创建提交分支…</value>
+  </data>
+  <data name="GitHubSubmit_Progress_CommitTemplate" xml:space="preserve">
+    <value>正在提交模板文件到你的 Fork…</value>
+  </data>
+  <data name="GitHubSubmit_Progress_CreatePr" xml:space="preserve">
+    <value>正在创建 Pull Request…</value>
   </data>
 </root>

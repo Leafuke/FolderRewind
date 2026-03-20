@@ -44,7 +44,6 @@ namespace FolderRewind.Views
 
         private bool _isInitializingLanguage;
         private bool _isInitializingFont;
-
         // Toggle text for localized On/Off labels
         public string ToggleOnText { get; } = I18n.GetString("Common_ToggleOn");
         public string ToggleOffText { get; } = I18n.GetString("Common_ToggleOff");
@@ -106,6 +105,7 @@ namespace FolderRewind.Views
                 {
                     FontSizeBox.Value = Settings.BaseFontSize;
                 }
+
             }
             finally
             {
@@ -1373,82 +1373,51 @@ namespace FolderRewind.Views
 
         private async void OnPrepareTemplateSubmissionClick(object sender, RoutedEventArgs e)
         {
-            var templates = TemplateService.GetTemplates()
-                .OrderBy(t => t.Name, StringComparer.CurrentCultureIgnoreCase)
-                .ToList();
-
-            if (templates.Count == 0)
+            if (!TemplateService.GetTemplates().Any())
             {
                 ShowInfoBar(I18n.GetString("Settings_Template_Export_NoTemplates"), Microsoft.UI.Xaml.Controls.InfoBarSeverity.Warning);
                 return;
             }
 
-            var templateCombo = new ComboBox
+            var dialog = new TemplateSubmissionDialog
             {
-                Header = I18n.GetString("Template_Submission_SelectTemplate"),
-                HorizontalAlignment = HorizontalAlignment.Stretch
-            };
-            foreach (var template in templates)
-            {
-                templateCombo.Items.Add(new ComboBoxItem { Content = template.Name, Tag = template });
-            }
-
-            templateCombo.SelectedIndex = 0;
-
-            var gameNameBox = new TextBox
-            {
-                Header = I18n.GetString("Template_Submission_GameNameHeader")
-            };
-
-            void RefreshMetadata()
-            {
-                var selectedTemplate = (templateCombo.SelectedItem as ComboBoxItem)?.Tag as ConfigTemplate;
-                if (selectedTemplate == null)
-                {
-                    return;
-                }
-
-                gameNameBox.Text = selectedTemplate.GameName ?? string.Empty;
-            }
-
-            templateCombo.SelectionChanged += (_, __) => RefreshMetadata();
-            RefreshMetadata();
-
-            var panel = new StackPanel { Spacing = 12 };
-            panel.Children.Add(new TextBlock
-            {
-                Text = I18n.GetString("Template_Submission_PrepareHint"),
-                TextWrapping = TextWrapping.Wrap
-            });
-            panel.Children.Add(templateCombo);
-            panel.Children.Add(gameNameBox);
-
-            var chooseDialog = new ContentDialog
-            {
-                Title = I18n.GetString("SettingsPage_PrepareTemplateSubmission.Content"),
-                Content = panel,
-                PrimaryButtonText = I18n.GetString("Common_Confirm"),
-                CloseButtonText = I18n.GetString("Common_Cancel"),
-                DefaultButton = ContentDialogButton.Primary,
                 XamlRoot = this.XamlRoot
             };
-            ThemeService.ApplyThemeToDialog(chooseDialog);
+            ThemeService.ApplyThemeToDialog(dialog);
 
-            if (await chooseDialog.ShowAsync() != ContentDialogResult.Primary)
+            var dialogResult = await dialog.ShowAsync();
+            if (dialogResult == ContentDialogResult.None
+                || dialog.SelectedTemplate == null
+                || dialog.RequestedAction == TemplateSubmissionDialogAction.None)
             {
                 return;
             }
 
-            var selected = (templateCombo.SelectedItem as ComboBoxItem)?.Tag as ConfigTemplate;
-            if (selected == null)
+            switch (dialog.RequestedAction)
             {
-                return;
+                case TemplateSubmissionDialogAction.ExportPackage:
+                    await ExportTemplateSubmissionPackageAsync(dialog.SelectedTemplate, dialog.SelectedGameName);
+                    break;
+                case TemplateSubmissionDialogAction.SubmitToGitHub:
+                    await SubmitOfficialTemplateAsync(dialog.SelectedTemplate, dialog.SelectedGameName);
+                    break;
             }
+        }
 
-            selected.GameName = gameNameBox.Text?.Trim() ?? string.Empty;
-            selected.SteamAppId = null;
+        private static void ApplySubmissionMetadata(ConfigTemplate template, string gameName, bool clearSteamAppId)
+        {
+            template.GameName = gameName?.Trim() ?? string.Empty;
+            if (clearSteamAppId)
+            {
+                template.SteamAppId = null;
+            }
 
             ConfigService.Save();
+        }
+
+        private async Task ExportTemplateSubmissionPackageAsync(ConfigTemplate selected, string gameName)
+        {
+            ApplySubmissionMetadata(selected, gameName, clearSteamAppId: true);
 
             var validation = TemplateService.ValidateTemplateForOfficialSharing(selected);
             if (!validation.Success)
@@ -1500,53 +1469,112 @@ namespace FolderRewind.Views
             await successDialog.ShowAsync();
         }
 
-        private async Task ImportOfficialTemplateAsync(RemoteTemplateIndexItem item)
+        private async Task SubmitOfficialTemplateAsync(ConfigTemplate selected, string gameName)
         {
-            var downloadResult = await OfficialTemplateService.DownloadTemplateAsync(item);
-            if (!downloadResult.Success || string.IsNullOrWhiteSpace(downloadResult.LocalPath))
-            {
-                ShowInfoBar(downloadResult.Message, Microsoft.UI.Xaml.Controls.InfoBarSeverity.Error);
-                return;
-            }
+            ApplySubmissionMetadata(selected, gameName, clearSteamAppId: false);
 
-            var inspection = TemplateService.InspectImportTemplate(downloadResult.LocalPath);
-            if (!inspection.Success)
+            var authState = await GitHubOAuthService.GetAuthenticationStateAsync(true);
+            if (!authState.IsAuthenticated)
             {
-                ShowInfoBar(inspection.Message, Microsoft.UI.Xaml.Controls.InfoBarSeverity.Error);
-                return;
-            }
-
-            var strategy = TemplateService.TemplateImportConflictStrategy.KeepBoth;
-            if (inspection.HasConflict)
-            {
-                var conflictDialog = new ContentDialog
-                {
-                    Title = I18n.GetString("Template_Import_ConflictTitle"),
-                    Content = I18n.Format(
-                        "Template_Import_ConflictContent",
-                        inspection.Template?.Name ?? string.Empty,
-                        inspection.ConflictTemplateName),
-                    PrimaryButtonText = I18n.GetString("Template_Import_ConflictReplace"),
-                    SecondaryButtonText = I18n.GetString("Template_Import_ConflictKeepBoth"),
-                    CloseButtonText = I18n.GetString("Common_Cancel"),
-                    DefaultButton = ContentDialogButton.Primary,
-                    XamlRoot = this.XamlRoot
-                };
-                ThemeService.ApplyThemeToDialog(conflictDialog);
-
-                var result = await conflictDialog.ShowAsync();
-                if (result == ContentDialogResult.None)
+                var authResult = await GitHubOAuthService.SignInAsync(this.XamlRoot);
+                ShowInfoBar(authResult.Message, authResult.Success ? Microsoft.UI.Xaml.Controls.InfoBarSeverity.Success : Microsoft.UI.Xaml.Controls.InfoBarSeverity.Error);
+                if (!authResult.Success)
                 {
                     return;
                 }
-
-                strategy = result == ContentDialogResult.Primary
-                    ? TemplateService.TemplateImportConflictStrategy.ReplaceExisting
-                    : TemplateService.TemplateImportConflictStrategy.KeepBoth;
             }
 
-            var ok = TemplateService.ImportTemplate(downloadResult.LocalPath, strategy, out var message);
-            ShowInfoBar(message, ok ? Microsoft.UI.Xaml.Controls.InfoBarSeverity.Success : Microsoft.UI.Xaml.Controls.InfoBarSeverity.Error);
+            var statusText = new TextBlock
+            {
+                Text = I18n.GetString("GitHubSubmit_Progress_Starting"),
+                TextWrapping = TextWrapping.Wrap
+            };
+
+            var progressDialogContent = new StackPanel { Spacing = 12 };
+            progressDialogContent.Children.Add(new ProgressRing { IsActive = true, Width = 48, Height = 48 });
+            progressDialogContent.Children.Add(statusText);
+
+            var progressDialog = new ContentDialog
+            {
+                Title = I18n.GetString("TemplateSubmissionDialog_SubmitToGitHub"),
+                Content = progressDialogContent,
+                CloseButtonText = I18n.GetString("Common_Cancel"),
+                DefaultButton = ContentDialogButton.Close,
+                XamlRoot = this.XamlRoot
+            };
+            ThemeService.ApplyThemeToDialog(progressDialog);
+
+            using var cts = new System.Threading.CancellationTokenSource();
+            GitHubTemplateSubmissionService.SubmissionResult? submitResult = null;
+            var progress = new Progress<string>(message => statusText.Text = message);
+            var submitTask = Task.Run(async () =>
+            {
+                submitResult = await GitHubTemplateSubmissionService.SubmitTemplateAsync(selected, progress, cts.Token);
+                await UiDispatcherService.RunOnUiAsync(() =>
+                {
+                    try
+                    {
+                        progressDialog.Hide();
+                    }
+                    catch
+                    {
+                    }
+                });
+            });
+
+            var dialogResult = await progressDialog.ShowAsync();
+            if (dialogResult == ContentDialogResult.None && submitResult == null)
+            {
+                cts.Cancel();
+                ShowInfoBar(I18n.GetString("GitHubSubmit_Canceled"), Microsoft.UI.Xaml.Controls.InfoBarSeverity.Warning);
+                return;
+            }
+
+            await submitTask;
+            if (submitResult == null)
+            {
+                ShowInfoBar(I18n.GetString("GitHubSubmit_UnknownFailure"), Microsoft.UI.Xaml.Controls.InfoBarSeverity.Error);
+                return;
+            }
+
+            ShowInfoBar(submitResult.Message, submitResult.Success ? Microsoft.UI.Xaml.Controls.InfoBarSeverity.Success : Microsoft.UI.Xaml.Controls.InfoBarSeverity.Error);
+            if (submitResult.Success && !string.IsNullOrWhiteSpace(submitResult.PullRequestUrl))
+            {
+                var resultDialog = new ContentDialog
+                {
+                    Title = I18n.GetString("GitHubSubmit_ResultTitle"),
+                    Content = new TextBox
+                    {
+                        Text = I18n.Format("GitHubSubmit_ResultContent", submitResult.ShareCode, submitResult.PullRequestUrl),
+                        AcceptsReturn = true,
+                        TextWrapping = TextWrapping.Wrap,
+                        IsReadOnly = true,
+                        MinHeight = 140
+                    },
+                    PrimaryButtonText = I18n.GetString("GitHubSubmit_OpenPullRequest"),
+                    CloseButtonText = I18n.GetString("Common_Ok"),
+                    XamlRoot = this.XamlRoot
+                };
+                ThemeService.ApplyThemeToDialog(resultDialog);
+                var result = await resultDialog.ShowAsync();
+                if (result == ContentDialogResult.Primary)
+                {
+                    _ = Launcher.LaunchUriAsync(new Uri(submitResult.PullRequestUrl));
+                }
+            }
+        }
+
+        private async Task ImportOfficialTemplateAsync(RemoteTemplateIndexItem item)
+        {
+            var importResult = await OfficialTemplateImportService.ImportTemplateAsync(this.XamlRoot, item);
+            if (importResult.Canceled)
+            {
+                return;
+            }
+
+            ShowInfoBar(
+                importResult.Message,
+                importResult.Success ? Microsoft.UI.Xaml.Controls.InfoBarSeverity.Success : Microsoft.UI.Xaml.Controls.InfoBarSeverity.Error);
         }
 
         private async void OnExportHistoryClick(object sender, RoutedEventArgs e)

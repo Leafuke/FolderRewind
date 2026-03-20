@@ -16,8 +16,10 @@ namespace FolderRewind.Services
 {
     internal static class OfficialTemplateService
     {
-        private const string OfficialIndexUrl = "https://raw.githubusercontent.com/Leafuke/folderrewind-official-templates/main/index.json";
-        private const string MirrorIndexUrl = "https://cdn.jsdelivr.net/gh/Leafuke/folderrewind-official-templates@main/index.json";
+        internal const string OfficialRepoOwner = "Leafuke";
+        internal const string OfficialRepoName = "folderrewind-official-templates";
+        internal const string OfficialRepoBranch = "main";
+
         private static readonly HttpClient Http = CreateClient();
         private static readonly Regex ShareCodeRegex = new("^[A-HJ-NP-Z2-9]{5}$", RegexOptions.Compiled | RegexOptions.CultureInvariant);
 
@@ -47,11 +49,8 @@ namespace FolderRewind.Services
 
         public static async Task<FetchIndexResult> GetIndexAsync(bool allowCachedFallback = true, CancellationToken ct = default)
         {
-            var candidates = new[]
-            {
-                (Url: OfficialIndexUrl, DisplayName: I18n.GetString("OfficialTemplates_SourceOfficial")),
-                (Url: MirrorIndexUrl, DisplayName: I18n.GetString("OfficialTemplates_SourceMirror"))
-            };
+            var candidates = BuildIndexCandidates();
+            FetchIndexResult? emptyIndexResult = null;
 
             foreach (var candidate in candidates)
             {
@@ -63,17 +62,25 @@ namespace FolderRewind.Services
 
                     var json = await response.Content.ReadAsStringAsync(ct);
                     var templates = DeserializeIndex(json);
-                    if (templates.Count == 0)
-                    {
-                        continue;
-                    }
 
                     WriteCachedIndex(json);
-                    return new FetchIndexResult
+
+                    if (templates.Count > 0)
+                    {
+                        return new FetchIndexResult
+                        {
+                            Success = true,
+                            Templates = templates,
+                            SourceDisplayName = candidate.DisplayName
+                        };
+                    }
+
+                    emptyIndexResult ??= new FetchIndexResult
                     {
                         Success = true,
                         Templates = templates,
-                        SourceDisplayName = candidate.DisplayName
+                        SourceDisplayName = candidate.DisplayName,
+                        Message = I18n.GetString("OfficialTemplates_IndexEmpty")
                     };
                 }
                 catch (OperationCanceledException)
@@ -86,6 +93,11 @@ namespace FolderRewind.Services
                 }
             }
 
+            if (emptyIndexResult != null)
+            {
+                return emptyIndexResult;
+            }
+
             if (allowCachedFallback && TryReadCachedIndex(out var cachedTemplates))
             {
                 return new FetchIndexResult
@@ -94,7 +106,9 @@ namespace FolderRewind.Services
                     Templates = cachedTemplates,
                     UsedCache = true,
                     SourceDisplayName = I18n.GetString("OfficialTemplates_SourceCache"),
-                    Message = I18n.GetString("OfficialTemplates_UsingCachedIndex")
+                    Message = cachedTemplates.Count == 0
+                        ? I18n.GetString("OfficialTemplates_IndexEmpty")
+                        : I18n.GetString("OfficialTemplates_UsingCachedIndex")
                 };
             }
 
@@ -229,7 +243,7 @@ namespace FolderRewind.Services
             try
             {
                 templates = DeserializeIndex(File.ReadAllText(cachePath));
-                return templates.Count > 0;
+                return true;
             }
             catch
             {
@@ -253,14 +267,22 @@ namespace FolderRewind.Services
                 return Array.Empty<RemoteTemplateIndexItem>();
             }
 
-            var document = JsonSerializer.Deserialize(json, AppJsonContext.Default.RemoteTemplateIndexDocument);
-            if (document?.Templates != null && document.Templates.Count > 0)
+            using var jsonDocument = JsonDocument.Parse(json);
+
+            if (jsonDocument.RootElement.ValueKind == JsonValueKind.Object)
             {
-                return NormalizeIndexItems(document.Templates);
+                var document = JsonSerializer.Deserialize(json, AppJsonContext.Default.RemoteTemplateIndexDocument);
+                return NormalizeIndexItems(document?.Templates ?? new ObservableCollection<RemoteTemplateIndexItem>());
             }
 
-            var list = JsonSerializer.Deserialize(json, AppJsonContext.Default.ListRemoteTemplateIndexItem);
-            return NormalizeIndexItems(list ?? new List<RemoteTemplateIndexItem>());
+            if (jsonDocument.RootElement.ValueKind == JsonValueKind.Array)
+            {
+                // Legacy format compatibility: index root is an array.
+                var list = JsonSerializer.Deserialize(json, AppJsonContext.Default.ListRemoteTemplateIndexItem);
+                return NormalizeIndexItems(list ?? new List<RemoteTemplateIndexItem>());
+            }
+
+            throw new JsonException("Invalid official template index format.");
         }
 
         private static IReadOnlyList<RemoteTemplateIndexItem> NormalizeIndexItems(IEnumerable<RemoteTemplateIndexItem> items)
@@ -283,6 +305,7 @@ namespace FolderRewind.Services
                 item.RequiredPluginIds ??= new ObservableCollection<string>();
                 item.FileUrl = item.FileUrl?.Trim() ?? string.Empty;
                 item.Sha256 = item.Sha256?.Trim().ToUpperInvariant() ?? string.Empty;
+                item.FileUrl = ResolveTemplateUrl(item.FileUrl, item.ShareCode);
                 normalized.Add(item);
             }
 
@@ -291,6 +314,25 @@ namespace FolderRewind.Services
                 .ThenBy(item => item.GameName, StringComparer.CurrentCultureIgnoreCase)
                 .ThenBy(item => item.Name, StringComparer.CurrentCultureIgnoreCase)
                 .ToList();
+        }
+
+        private static IReadOnlyList<(string Url, string DisplayName)> BuildIndexCandidates()
+        {
+            return new[]
+            {
+                ($"https://raw.githubusercontent.com/{OfficialRepoOwner}/{OfficialRepoName}/{OfficialRepoBranch}/index.json", I18n.GetString("OfficialTemplates_SourceOfficial")),
+                ($"https://cdn.jsdelivr.net/gh/{OfficialRepoOwner}/{OfficialRepoName}@{OfficialRepoBranch}/index.json", I18n.GetString("OfficialTemplates_SourceMirror"))
+            };
+        }
+
+        private static string ResolveTemplateUrl(string currentUrl, string shareCode)
+        {
+            if (Uri.TryCreate(currentUrl, UriKind.Absolute, out _))
+            {
+                return currentUrl;
+            }
+
+            return $"https://raw.githubusercontent.com/{OfficialRepoOwner}/{OfficialRepoName}/{OfficialRepoBranch}/templates/{shareCode}.json";
         }
 
         private static string GetOfficialTemplateCacheDirectory()

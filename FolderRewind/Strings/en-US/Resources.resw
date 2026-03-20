@@ -3057,10 +3057,22 @@ Release notes:
     <value>Create configuration from template</value>
   </data>
   <data name="Template_CreateFrom_Home_NoTemplates" xml:space="preserve">
-    <value>No templates yet. Save one from the configuration settings first.</value>
+    <value>No local templates yet. Search the official repository, import one, and then continue creating the configuration.</value>
   </data>
   <data name="Template_CreateFrom_Home_Template" xml:space="preserve">
     <value>Select template</value>
+  </data>
+  <data name="Template_CreateFrom_Home_LocalTemplatesHint" xml:space="preserve">
+    <value>Select a local template directly, or search the official repository, import one, and then continue.</value>
+  </data>
+  <data name="Template_CreateFrom_Home_OfficialSearchHeader" xml:space="preserve">
+    <value>Search Official Templates</value>
+  </data>
+  <data name="Template_CreateFrom_Home_OfficialSearchPlaceholder" xml:space="preserve">
+    <value>Search the official repository by template name, game, author, or share code</value>
+  </data>
+  <data name="Template_CreateFrom_Home_SearchOfficial" xml:space="preserve">
+    <value>Search Official Templates</value>
   </data>
   <data name="Template_CreateFrom_Home_TemplateInfo" xml:space="preserve">
     <value>Template "{0}" with {1} path rule(s).</value>
@@ -3248,6 +3260,9 @@ Release notes:
   <data name="OfficialTemplates_UsingCachedIndex" xml:space="preserve">
     <value>Using the locally cached template index.</value>
   </data>
+  <data name="OfficialTemplates_IndexEmpty" xml:space="preserve">
+    <value>No templates are currently available in the official library.</value>
+  </data>
   <data name="OfficialTemplates_FetchIndexFailed" xml:space="preserve">
     <value>Failed to fetch the official template index. Please try again later.</value>
   </data>
@@ -3389,17 +3404,32 @@ Release notes:
   <data name="Template_Submission_AuthorAnonymous" xml:space="preserve">
     <value>Anonymous</value>
   </data>
-  <data name="Template_Submission_SelectTemplate" xml:space="preserve">
+  <data name="Template_Submission_SelectTemplate.Text" xml:space="preserve">
     <value>Select a local template to submit</value>
   </data>
-  <data name="Template_Submission_GameNameHeader" xml:space="preserve">
+  <data name="Template_Submission_GameNameHeader.Text" xml:space="preserve">
     <value>Game name (optional)</value>
   </data>
-  <data name="Template_Submission_PrepareHint" xml:space="preserve">
+  <data name="Template_Submission_PrepareHint.Text" xml:space="preserve">
     <value>This exports a standard template package and copies the submission summary to your clipboard for a form upload.</value>
   </data>
   <data name="Template_Submission_SummaryTitle" xml:space="preserve">
     <value>Submission Summary</value>
+  </data>
+  <data name="TemplateSubmissionDialog_ExportPackage" xml:space="preserve">
+    <value>Export Submission Package</value>
+  </data>
+  <data name="TemplateSubmissionDialog_SubmitToGitHub" xml:space="preserve">
+    <value>Submit Template Automatically</value>
+  </data>
+  <data name="TemplateSubmissionDialog_PrepareSection.Text" xml:space="preserve">
+    <value>Prepare Submission Package</value>
+  </data>
+  <data name="TemplateSubmissionDialog_GitHubSection.Text" xml:space="preserve">
+    <value>GitHub Automated Submission</value>
+  </data>
+  <data name="TemplateSubmissionDialog_GitHubHint.Text" xml:space="preserve">
+    <value>FolderRewind uses built-in GitHub OAuth settings and PKCE for desktop authorization. GitHub authorization will open automatically when needed.</value>
   </data>
   <data name="Template_Submission_RuleHasNoSegments" xml:space="preserve">
     <value>Rule "{0}" does not define any path segments.</value>
@@ -3412,5 +3442,155 @@ Release notes:
   </data>
   <data name="Template_Submission_RuleContainsUnsafeMarker" xml:space="preserve">
     <value>Rule "{0}" contains an unsafe marker: {1}</value>
+  </data>
+  <data name="SettingsPage_GitHubSubmission" xml:space="preserve">
+    <value>GitHub Automated Submission</value>
+  </data>
+  <data name="SettingsPage_GitHubSubmissionDesc" xml:space="preserve">
+    <value>Use the built-in GitHub OAuth App and official template repository settings to authorize in-app and submit templates as pull requests.</value>
+  </data>
+  <data name="SettingsPage_GitHubAuthorize.Content" xml:space="preserve">
+    <value>Authorize GitHub</value>
+  </data>
+  <data name="SettingsPage_GitHubSignOut.Content" xml:space="preserve">
+    <value>Sign Out GitHub</value>
+  </data>
+  <data name="SettingsPage_SubmitOfficialTemplate.Content" xml:space="preserve">
+    <value>Submit Template Automatically</value>
+  </data>
+  <data name="GitHubOAuth_ConfigUnavailable" xml:space="preserve">
+    <value>GitHub OAuth configuration is unavailable.</value>
+  </data>
+  <data name="GitHubOAuth_NotAuthorized" xml:space="preserve">
+    <value>GitHub is not authorized yet.</value>
+  </data>
+  <data name="GitHubOAuth_Authorized" xml:space="preserve">
+    <value>GitHub is authorized.</value>
+  </data>
+  <data name="GitHubOAuth_AuthorizedAs" xml:space="preserve">
+    <value>GitHub authorized as {0}</value>
+  </data>
+  <data name="GitHubOAuth_LoginTitle" xml:space="preserve">
+    <value>GitHub Authorization</value>
+  </data>
+  <data name="GitHubOAuth_LoginHint" xml:space="preserve">
+    <value>Sign in to GitHub in the embedded page and authorize FolderRewind to access public repositories.</value>
+  </data>
+  <data name="GitHubOAuth_LoginCanceled" xml:space="preserve">
+    <value>GitHub authorization was canceled.</value>
+  </data>
+  <data name="GitHubOAuth_StateMismatch" xml:space="preserve">
+    <value>GitHub authorization state verification failed.</value>
+  </data>
+  <data name="GitHubOAuth_ListenerStartFailedWithReason" xml:space="preserve">
+    <value>Failed to start the local OAuth callback listener: {0}</value>
+  </data>
+  <data name="GitHubOAuth_MissingAuthorizationCode" xml:space="preserve">
+    <value>GitHub did not return an authorization code. Please try again.</value>
+  </data>
+  <data name="GitHubOAuth_TokenExchangeFailed" xml:space="preserve">
+    <value>Failed to exchange the GitHub access token.</value>
+  </data>
+  <data name="GitHubOAuth_TokenExchangeFailedWithReason" xml:space="preserve">
+    <value>Failed to exchange the GitHub access token: {0}</value>
+  </data>
+  <data name="GitHubOAuth_UserLookupFailed" xml:space="preserve">
+    <value>Failed to fetch the current GitHub user.</value>
+  </data>
+  <data name="GitHubOAuth_UserLookupFailedWithReason" xml:space="preserve">
+    <value>Failed to fetch the GitHub user: {0}</value>
+  </data>
+  <data name="GitHubOAuth_TokenInvalid" xml:space="preserve">
+    <value>The current GitHub authorization is invalid. Please sign in again.</value>
+  </data>
+  <data name="GitHubOAuth_LoginSuccess" xml:space="preserve">
+    <value>GitHub authorization succeeded: {0}</value>
+  </data>
+  <data name="GitHubOAuth_SignedOut" xml:space="preserve">
+    <value>Signed out from GitHub authorization.</value>
+  </data>
+  <data name="GitHubSubmit_TemplateNull" xml:space="preserve">
+    <value>No template was selected for submission.</value>
+  </data>
+  <data name="GitHubSubmit_ConfigUnavailable" xml:space="preserve">
+    <value>Submission configuration is unavailable.</value>
+  </data>
+  <data name="GitHubSubmit_RepoLookupFailed" xml:space="preserve">
+    <value>Failed to access the official template repository. Check the owner, repo name, and network.</value>
+  </data>
+  <data name="GitHubSubmit_ForkFailed" xml:space="preserve">
+    <value>Failed to create or load your fork of the official template repository.</value>
+  </data>
+  <data name="GitHubSubmit_BaseBranchLookupFailed" xml:space="preserve">
+    <value>Failed to resolve the latest commit of the fork default branch.</value>
+  </data>
+  <data name="GitHubSubmit_BranchCreateFailed" xml:space="preserve">
+    <value>Failed to create a submission branch.</value>
+  </data>
+  <data name="GitHubSubmit_CommitFailed" xml:space="preserve">
+    <value>Failed to commit the template file to your fork.</value>
+  </data>
+  <data name="GitHubSubmit_PullRequestFailed" xml:space="preserve">
+    <value>Failed to create the pull request.</value>
+  </data>
+  <data name="GitHubSubmit_PullRequestCreated" xml:space="preserve">
+    <value>Pull request created: {0}</value>
+  </data>
+  <data name="GitHubSubmit_PullRequestExists" xml:space="preserve">
+    <value>An open pull request already exists for this branch: {0}</value>
+  </data>
+  <data name="GitHubSubmit_Success" xml:space="preserve">
+    <value>Template submitted successfully. Share code: {0}</value>
+  </data>
+  <data name="GitHubSubmit_FailedWithReason" xml:space="preserve">
+    <value>Automatic submission failed: {0}</value>
+  </data>
+  <data name="GitHubSubmit_ShareCodeExhausted" xml:space="preserve">
+    <value>Failed to generate a unique share code. Please try again later.</value>
+  </data>
+  <data name="GitHubSubmit_Canceled" xml:space="preserve">
+    <value>Automatic submission was canceled.</value>
+  </data>
+  <data name="GitHubSubmit_UnknownFailure" xml:space="preserve">
+    <value>Automatic submission did not return a result. Please check the logs.</value>
+  </data>
+  <data name="GitHubSubmit_ResultTitle" xml:space="preserve">
+    <value>Automatic Submission Result</value>
+  </data>
+  <data name="GitHubSubmit_ResultContent" xml:space="preserve">
+    <value>Share code: {0}&#x0A;Pull request: {1}</value>
+  </data>
+  <data name="GitHubSubmit_OpenPullRequest" xml:space="preserve">
+    <value>Open Pull Request</value>
+  </data>
+  <data name="GitHubSubmit_PrepareHint" xml:space="preserve">
+    <value>The app will export a standard template package, fork the official repository, create a branch, commit the template file, and open a pull request for you.</value>
+  </data>
+  <data name="GitHubSubmit_Progress_Starting" xml:space="preserve">
+    <value>Preparing automatic submission...</value>
+  </data>
+  <data name="GitHubSubmit_Progress_LoadRepo" xml:space="preserve">
+    <value>Loading official repository metadata...</value>
+  </data>
+  <data name="GitHubSubmit_Progress_LoadIndex" xml:space="preserve">
+    <value>Loading the latest index and assigning a share code...</value>
+  </data>
+  <data name="GitHubSubmit_Progress_ExportTemplate" xml:space="preserve">
+    <value>Exporting the template package...</value>
+  </data>
+  <data name="GitHubSubmit_Progress_EnsureFork" xml:space="preserve">
+    <value>Checking or creating your fork...</value>
+  </data>
+  <data name="GitHubSubmit_Progress_SyncFork" xml:space="preserve">
+    <value>Syncing the fork default branch...</value>
+  </data>
+  <data name="GitHubSubmit_Progress_CreateBranch" xml:space="preserve">
+    <value>Creating a submission branch...</value>
+  </data>
+  <data name="GitHubSubmit_Progress_CommitTemplate" xml:space="preserve">
+    <value>Committing the template file to your fork...</value>
+  </data>
+  <data name="GitHubSubmit_Progress_CreatePr" xml:space="preserve">
+    <value>Creating the pull request...</value>
   </data>
 </root>

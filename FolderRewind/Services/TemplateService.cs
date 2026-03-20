@@ -757,12 +757,22 @@ namespace FolderRewind.Services
 
         public static bool ImportTemplate(string sourcePath, out string message)
         {
-            return ImportTemplate(sourcePath, TemplateImportConflictStrategy.KeepBoth, out message);
+            return ImportTemplate(sourcePath, TemplateImportConflictStrategy.KeepBoth, out message, out _);
         }
 
         public static bool ImportTemplate(string sourcePath, TemplateImportConflictStrategy strategy, out string message)
         {
+            return ImportTemplate(sourcePath, strategy, out message, out _);
+        }
+
+        public static bool ImportTemplate(
+            string sourcePath,
+            TemplateImportConflictStrategy strategy,
+            out string message,
+            out ConfigTemplate? importedTemplate)
+        {
             message = string.Empty;
+            importedTemplate = null;
 
             var inspection = InspectImportTemplate(sourcePath);
             if (!inspection.Success || inspection.Template == null)
@@ -794,6 +804,7 @@ namespace FolderRewind.Services
                     // 用户已确认同名模板直接覆盖。
                     template.Id = appConfig.Templates[existingIndex].Id;
                     appConfig.Templates[existingIndex] = template;
+                    importedTemplate = appConfig.Templates[existingIndex];
                     message = I18n.Format("Template_Import_Overwrite", template.Name);
                 }
                 else
@@ -811,6 +822,7 @@ namespace FolderRewind.Services
                     }
 
                     appConfig.Templates.Add(template);
+                    importedTemplate = template;
                     message = !string.Equals(originalName, template.Name, StringComparison.Ordinal)
                         ? I18n.Format("Template_Import_KeepBothRenamed", originalName, template.Name)
                         : I18n.Format("Template_Import_Success", template.Name);

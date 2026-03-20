@@ -160,6 +160,17 @@ namespace FolderRewind.Services
                     return null;
                 }
 
+                if (fetchResult.Templates.Count == 0)
+                {
+                    await ShowMessageAsync(
+                        xamlRoot,
+                        I18n.GetString("OfficialTemplates_UseByShareCodeTitle"),
+                        string.IsNullOrWhiteSpace(fetchResult.Message)
+                            ? I18n.GetString("OfficialTemplates_IndexEmpty")
+                            : fetchResult.Message);
+                    return null;
+                }
+
                 var item = fetchResult.Templates.FirstOrDefault(t => string.Equals(t.ShareCode, shareCode, StringComparison.OrdinalIgnoreCase));
                 if (item == null)
                 {

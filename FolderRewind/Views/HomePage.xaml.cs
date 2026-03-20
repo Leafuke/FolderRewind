@@ -1,4 +1,4 @@
-using FolderRewind.Models;
+﻿using FolderRewind.Models;
 using FolderRewind.Services;
 using FolderRewind.Services.Plugins;
 using FolderRewind.ViewModels;
@@ -12,6 +12,7 @@ using System.Collections.Generic;
 using System.Globalization;
 using System.IO;
 using System.Linq;
+using System.Threading.Tasks;
 using Windows.ApplicationModel.Resources;
 using Windows.Storage;
 using Windows.Storage.Pickers;
@@ -44,22 +45,22 @@ namespace FolderRewind.Views
             ViewModel.Deactivate();
         }
 
-        // 点击收藏项卡片 -> 跳转到管理页并选中该文件夹
+        // 鐐瑰嚮鏀惰棌椤瑰崱鐗?-> 璺宠浆鍒扮鐞嗛〉骞堕€変腑璇ユ枃浠跺す
         private void OnFavoriteCardClick(object sender, RoutedEventArgs e)
         {
             if (sender is Button btn && btn.DataContext is ManagedFolder folder)
             {
-                // 需要找到它属于哪个 Config，才能导航
+                // 闇€瑕佹壘鍒板畠灞炰簬鍝釜 Config锛屾墠鑳藉鑸?
                 var parentConfig = ViewModel.FindParentConfig(folder);
                 if (parentConfig != null)
                 {
-                    // 跳转到管理页并自动选中该文件夹
+                    // 璺宠浆鍒扮鐞嗛〉骞惰嚜鍔ㄩ€変腑璇ユ枃浠跺す
                     _ = NavigationService.NavigateTo("Manager", ManagerNavigationParameter.ForFolder(parentConfig.Id, folder.Path));
                 }
             }
         }
 
-        // 点击配置卡片 -> 跳转到管理页
+        // 鐐瑰嚮閰嶇疆鍗＄墖 -> 璺宠浆鍒扮鐞嗛〉
         private void OnConfigCardClick(object sender, RoutedEventArgs e)
         {
             if (sender is Button btn && btn.DataContext is BackupConfig config)
@@ -78,12 +79,12 @@ namespace FolderRewind.Views
             }
         }
 
-        // 快速备份按钮点击
+        // 蹇€熷浠芥寜閽偣鍑?
         private async void OnQuickBackupClick(object sender, RoutedEventArgs e)
         {
             if (sender is Button btn && btn.DataContext is ManagedFolder folder)
             {
-                // 这里保留按钮防抖，避免用户连续点击触发多次同目录备份。
+                // 杩欓噷淇濈暀鎸夐挳闃叉姈锛岄伩鍏嶇敤鎴疯繛缁偣鍑昏Е鍙戝娆″悓鐩綍澶囦唤銆?
                 btn.IsEnabled = false;
                 try
                 {
@@ -122,23 +123,6 @@ namespace FolderRewind.Views
             var resourceLoader = ResourceLoader.GetForViewIndependentUse();
             PluginService.Initialize();
 
-            var templates = TemplateService.GetTemplates()
-                .OrderBy(t => t.Name, StringComparer.CurrentCultureIgnoreCase)
-                .ToList();
-            if (templates.Count == 0)
-            {
-                var emptyDialog = new ContentDialog
-                {
-                    Title = I18n.GetString("Template_CreateFrom_Home_Title"),
-                    Content = I18n.GetString("Template_CreateFrom_Home_NoTemplates"),
-                    CloseButtonText = I18n.GetString("Common_Ok"),
-                    XamlRoot = this.XamlRoot
-                };
-                ThemeService.ApplyThemeToDialog(emptyDialog);
-                await emptyDialog.ShowAsync();
-                return;
-            }
-
             var configTypes = PluginService.GetAllSupportedConfigTypes().ToList();
             if (!configTypes.Contains("Default", StringComparer.OrdinalIgnoreCase))
             {
@@ -150,7 +134,37 @@ namespace FolderRewind.Views
                 configTypes.Insert(defaultIndex >= 0 ? defaultIndex + 1 : configTypes.Count, "Encrypted");
             }
 
-            var templateCombo = new ComboBox
+            string preferredTemplateId = string.Empty;
+            string draftConfigName = string.Empty;
+            string draftOfficialSearch = string.Empty;
+            string? preferredType = null;
+            string feedbackMessage = string.Empty;
+            InfoBarSeverity feedbackSeverity = InfoBarSeverity.Informational;
+
+            while (true)
+            {
+                var templates = TemplateService.GetTemplates()
+                    .OrderBy(t => t.Name, StringComparer.CurrentCultureIgnoreCase)
+                    .ToList();
+
+                var feedbackBar = new InfoBar
+                {
+                    IsClosable = true,
+                    IsOpen = !string.IsNullOrWhiteSpace(feedbackMessage),
+                    Message = feedbackMessage,
+                    Severity = feedbackSeverity
+                };
+
+                var templateHintText = new TextBlock
+                {
+                    Text = templates.Count == 0
+                        ? I18n.GetString("Template_CreateFrom_Home_NoTemplates")
+                        : I18n.GetString("Template_CreateFrom_Home_LocalTemplatesHint"),
+                    Opacity = 0.75,
+                    TextWrapping = TextWrapping.Wrap
+                };
+
+                var templateCombo = new ComboBox
             {
                 Header = I18n.GetString("Template_CreateFrom_Home_Template"),
                 HorizontalAlignment = HorizontalAlignment.Stretch
@@ -159,28 +173,35 @@ namespace FolderRewind.Views
             {
                 templateCombo.Items.Add(new ComboBoxItem { Content = template.Name, Tag = template });
             }
-            templateCombo.SelectedIndex = 0;
 
-            var templateInfoText = new TextBlock
+                var templateInfoText = new TextBlock
             {
                 Opacity = 0.75,
                 TextWrapping = TextWrapping.Wrap
             };
 
-            var warningText = new TextBlock
+                var warningText = new TextBlock
             {
                 Foreground = new SolidColorBrush(Colors.OrangeRed),
                 TextWrapping = TextWrapping.Wrap,
                 Visibility = Visibility.Collapsed
             };
 
-            var nameBox = new TextBox
+                var officialSearchBox = new TextBox
+                {
+                    Header = I18n.GetString("Template_CreateFrom_Home_OfficialSearchHeader"),
+                    PlaceholderText = I18n.GetString("Template_CreateFrom_Home_OfficialSearchPlaceholder"),
+                    Text = draftOfficialSearch
+                };
+
+                var nameBox = new TextBox
             {
                 Header = resourceLoader.GetString("HomePage_ConfigNameHeader"),
-                PlaceholderText = resourceLoader.GetString("HomePage_ConfigNamePlaceholder")
+                PlaceholderText = resourceLoader.GetString("HomePage_ConfigNamePlaceholder"),
+                Text = draftConfigName
             };
 
-            var typeCombo = new ComboBox
+                var typeCombo = new ComboBox
             {
                 Header = resourceLoader.GetString("HomePage_ConfigTypeHeader"),
                 HorizontalAlignment = HorizontalAlignment.Stretch
@@ -190,94 +211,166 @@ namespace FolderRewind.Views
                 typeCombo.Items.Add(type);
             }
 
-            ConfigTemplate? GetSelectedTemplate()
-            {
-                return (templateCombo.SelectedItem as ComboBoxItem)?.Tag as ConfigTemplate;
-            }
+                if (!string.IsNullOrWhiteSpace(preferredType))
+                {
+                    typeCombo.SelectedItem = configTypes.FirstOrDefault(t => string.Equals(t, preferredType, StringComparison.OrdinalIgnoreCase));
+                }
 
-            void RefreshSelection()
-            {
-                var selectedTemplate = GetSelectedTemplate();
-                if (selectedTemplate == null)
+                ConfigTemplate? GetSelectedTemplate()
+                {
+                    return (templateCombo.SelectedItem as ComboBoxItem)?.Tag as ConfigTemplate;
+                }
+
+                void RefreshSelection()
+                {
+                    var selectedTemplate = GetSelectedTemplate();
+                    if (selectedTemplate == null)
+                    {
+                        templateInfoText.Text = templates.Count == 0
+                            ? I18n.GetString("Template_CreateFrom_Home_NoTemplates")
+                            : string.Empty;
+                        warningText.Text = string.Empty;
+                        warningText.Visibility = Visibility.Collapsed;
+                        return;
+                    }
+
+                    if (string.IsNullOrWhiteSpace(nameBox.Text))
+                    {
+                        nameBox.Text = string.IsNullOrWhiteSpace(selectedTemplate.DefaultConfigName)
+                            ? selectedTemplate.Name
+                            : selectedTemplate.DefaultConfigName;
+                    }
+
+                    var ruleCount = selectedTemplate.PathRules?.Count ?? 0;
+                    templateInfoText.Text = I18n.Format(
+                        "Template_CreateFrom_Home_TemplateInfo",
+                        selectedTemplate.Name,
+                        ruleCount.ToString());
+
+                    var typeToSelect = string.IsNullOrWhiteSpace(selectedTemplate.BaseConfigType)
+                        ? "Default"
+                        : selectedTemplate.BaseConfigType;
+                    if (!configTypes.Contains(typeToSelect, StringComparer.OrdinalIgnoreCase))
+                    {
+                        typeToSelect = "Default";
+                    }
+
+                    typeCombo.SelectedItem = configTypes.FirstOrDefault(t => string.Equals(t, typeToSelect, StringComparison.OrdinalIgnoreCase));
+
+                    var warnings = new List<string>();
+                    if (!TemplateService.IsConfigTypeAvailable(selectedTemplate.BaseConfigType, out var reason)
+                        && !string.IsNullOrWhiteSpace(reason))
+                    {
+                        warnings.Add(reason);
+                    }
+
+                    var missingPluginIds = TemplateService.GetMissingRequiredPluginIds(selectedTemplate);
+                    if (missingPluginIds.Count > 0)
+                    {
+                        warnings.Add(I18n.Format("Template_RequiredPluginsMissing", string.Join(", ", missingPluginIds)));
+                    }
+
+                    warningText.Text = string.Join(Environment.NewLine, warnings);
+                    warningText.Visibility = warnings.Count > 0 ? Visibility.Visible : Visibility.Collapsed;
+                }
+
+                if (templates.Count > 0)
+                {
+                    var preferredItem = templateCombo.Items
+                        .OfType<ComboBoxItem>()
+                        .FirstOrDefault(item => string.Equals((item.Tag as ConfigTemplate)?.Id, preferredTemplateId, StringComparison.OrdinalIgnoreCase));
+                    templateCombo.SelectedItem = preferredItem ?? templateCombo.Items[0];
+                }
+
+                templateCombo.SelectionChanged += (_, __) => RefreshSelection();
+                RefreshSelection();
+
+                var panel = new StackPanel { Spacing = 12 };
+                panel.Children.Add(feedbackBar);
+                panel.Children.Add(templateHintText);
+                panel.Children.Add(templateCombo);
+                panel.Children.Add(templateInfoText);
+                panel.Children.Add(warningText);
+                panel.Children.Add(officialSearchBox);
+                panel.Children.Add(nameBox);
+                panel.Children.Add(typeCombo);
+
+                var dialog = new ContentDialog
+                {
+                    Title = I18n.GetString("Template_CreateFrom_Home_Title"),
+                    Content = panel,
+                    PrimaryButtonText = resourceLoader.GetString("HomePage_CreateButton"),
+                    SecondaryButtonText = I18n.GetString("Template_CreateFrom_Home_SearchOfficial"),
+                    CloseButtonText = resourceLoader.GetString("Common_Cancel"),
+                    DefaultButton = ContentDialogButton.Primary,
+                    XamlRoot = this.XamlRoot
+                };
+                dialog.IsPrimaryButtonEnabled = GetSelectedTemplate() != null;
+                templateCombo.SelectionChanged += (_, __) => dialog.IsPrimaryButtonEnabled = GetSelectedTemplate() != null;
+                ThemeService.ApplyThemeToDialog(dialog);
+
+                var dialogResult = await dialog.ShowAsync();
+                draftConfigName = nameBox.Text;
+                draftOfficialSearch = officialSearchBox.Text?.Trim() ?? string.Empty;
+                preferredType = typeCombo.SelectedItem as string;
+                preferredTemplateId = GetSelectedTemplate()?.Id ?? preferredTemplateId;
+                feedbackMessage = string.Empty;
+
+                if (dialogResult == ContentDialogResult.Secondary)
+                {
+                    var item = await OfficialTemplateDialogService.PickTemplateAsync(
+                        this.XamlRoot,
+                        I18n.GetString("OfficialTemplates_CreateFromOfficialTitle"),
+                        draftOfficialSearch);
+                    if (item == null)
+                    {
+                        continue;
+                    }
+
+                    var importResult = await OfficialTemplateImportService.ImportTemplateAsync(this.XamlRoot, item);
+                    if (importResult.Canceled)
+                    {
+                        continue;
+                    }
+
+                    feedbackMessage = importResult.Message;
+                    feedbackSeverity = importResult.Success ? InfoBarSeverity.Success : InfoBarSeverity.Error;
+
+                    if (importResult.Success && importResult.ImportedTemplate != null)
+                    {
+                        // 官方模板导入成功后，重新回到当前创建流程并自动选中新模板，减少用户重复操作。
+                        preferredTemplateId = importResult.ImportedTemplate.Id;
+                    }
+
+                    continue;
+                }
+
+                if (dialogResult != ContentDialogResult.Primary)
                 {
                     return;
                 }
 
-                if (string.IsNullOrWhiteSpace(nameBox.Text))
+                var selectedTemplateFinal = GetSelectedTemplate();
+                if (selectedTemplateFinal == null)
                 {
-                    nameBox.Text = string.IsNullOrWhiteSpace(selectedTemplate.DefaultConfigName)
-                        ? selectedTemplate.Name
-                        : selectedTemplate.DefaultConfigName;
+                    feedbackMessage = I18n.GetString("Template_Export_TemplateNotFound");
+                    feedbackSeverity = InfoBarSeverity.Warning;
+                    continue;
                 }
 
-                var ruleCount = selectedTemplate.PathRules?.Count ?? 0;
-                templateInfoText.Text = I18n.Format(
-                    "Template_CreateFrom_Home_TemplateInfo",
-                    selectedTemplate.Name,
-                    ruleCount.ToString());
-
-                var typeToSelect = string.IsNullOrWhiteSpace(selectedTemplate.BaseConfigType)
-                    ? "Default"
-                    : selectedTemplate.BaseConfigType;
-
-                if (!configTypes.Contains(typeToSelect, StringComparer.OrdinalIgnoreCase))
-                {
-                    typeToSelect = "Default";
-                }
-
-                typeCombo.SelectedItem = configTypes.FirstOrDefault(t => string.Equals(t, typeToSelect, StringComparison.OrdinalIgnoreCase));
-
-                var warnings = new List<string>();
-                if (!TemplateService.IsConfigTypeAvailable(selectedTemplate.BaseConfigType, out var reason)
-                    && !string.IsNullOrWhiteSpace(reason))
-                {
-                    warnings.Add(reason);
-                }
-
-                var missingPluginIds = TemplateService.GetMissingRequiredPluginIds(selectedTemplate);
-                if (missingPluginIds.Count > 0)
-                {
-                    warnings.Add(I18n.Format("Template_RequiredPluginsMissing", string.Join(", ", missingPluginIds)));
-                }
-
-                warningText.Text = string.Join(Environment.NewLine, warnings);
-                warningText.Visibility = warnings.Count > 0 ? Visibility.Visible : Visibility.Collapsed;
-            }
-
-            templateCombo.SelectionChanged += (_, __) => RefreshSelection();
-            RefreshSelection();
-
-            var panel = new StackPanel { Spacing = 12 };
-            panel.Children.Add(templateCombo);
-            panel.Children.Add(templateInfoText);
-            panel.Children.Add(warningText);
-            panel.Children.Add(nameBox);
-            panel.Children.Add(typeCombo);
-
-            var dialog = new ContentDialog
-            {
-                Title = I18n.GetString("Template_CreateFrom_Home_Title"),
-                Content = panel,
-                PrimaryButtonText = resourceLoader.GetString("HomePage_CreateButton"),
-                CloseButtonText = resourceLoader.GetString("Common_Cancel"),
-                DefaultButton = ContentDialogButton.Primary,
-                XamlRoot = this.XamlRoot
-            };
-            ThemeService.ApplyThemeToDialog(dialog);
-
-            if (await dialog.ShowAsync() != ContentDialogResult.Primary)
-            {
+                await CreateConfigFromTemplateAsync(selectedTemplateFinal, nameBox.Text, typeCombo.SelectedItem as string, resourceLoader);
                 return;
-            }
 
-            var selectedTemplateFinal = GetSelectedTemplate();
-            if (selectedTemplateFinal == null)
-            {
-                return;
             }
+        }
 
-            var selectedType = typeCombo.SelectedItem as string;
-            var createResult = TemplateService.CreateConfigFromTemplate(selectedTemplateFinal, nameBox.Text, selectedType);
+        private async Task CreateConfigFromTemplateAsync(
+            ConfigTemplate selectedTemplate,
+            string configName,
+            string? selectedType,
+            ResourceLoader resourceLoader)
+        {
+            var createResult = TemplateService.CreateConfigFromTemplate(selectedTemplate, configName, selectedType);
             if (!createResult.Success || createResult.Config == null)
             {
                 var failedDialog = new ContentDialog
@@ -292,9 +385,9 @@ namespace FolderRewind.Views
                 return;
             }
 
-            // 模板命中路径后先给用户做一次确认，避免“猜错路径但已经落库”的尴尬场面。
+            // 模板命中路径后先让用户确认一次，避免“猜错路径但已经落库”的尴尬情况。
             var selectedFolders = await ConfirmTemplateFolderSelectionAsync(
-                selectedTemplateFinal,
+                selectedTemplate,
                 createResult.FolderCandidates);
             if (selectedFolders == null)
             {
@@ -371,8 +464,8 @@ namespace FolderRewind.Views
                 });
             }
 
-            // 这里故意把“自动勾选”和“仅建议”混在同一个确认框里，
-            // 让用户能顺手二次筛一遍，而不是被迫去配置页里返工。
+            // 这里故意把“自动勾选”和“仅建议”放在同一个确认框里，
+            // 让用户能顺手二次筛一遍，而不是被迫回到配置页里返工。
             var listPanel = new StackPanel { Spacing = 10 };
             var checkboxEntries = new List<(CheckBox Box, TemplateService.TemplateFolderCandidate Candidate)>();
             foreach (var candidate in candidates
@@ -470,7 +563,7 @@ namespace FolderRewind.Views
                 createResult.FolderCandidates.Count.ToString(CultureInfo.CurrentCulture));
         }
 
-        // 添加配置逻辑
+        // 娣诲姞閰嶇疆閫昏緫
         private async void OnAddConfigClick(SplitButton sender, SplitButtonClickEventArgs args)
         {
             var resourceLoader = ResourceLoader.GetForViewIndependentUse();
@@ -483,14 +576,14 @@ namespace FolderRewind.Views
                 PlaceholderText = resourceLoader.GetString("HomePage_ConfigNamePlaceholder")
             };
 
-            // 配置类型（含插件扩展类型 + 内置加密类型）
+            // 閰嶇疆绫诲瀷锛堝惈鎻掍欢鎵╁睍绫诲瀷 + 鍐呯疆鍔犲瘑绫诲瀷锛?
             var configTypes = PluginService.GetAllSupportedConfigTypes().ToList();
-            // 确保 "Default" 始终存在（插件系统未启用时列表可能为空）
+            // 纭繚 "Default" 濮嬬粓瀛樺湪锛堟彃浠剁郴缁熸湭鍚敤鏃跺垪琛ㄥ彲鑳戒负绌猴級
             if (!configTypes.Contains("Default", StringComparer.OrdinalIgnoreCase))
             {
                 configTypes.Insert(0, "Default");
             }
-            // 确保 "Encrypted" 作为内置类型出现在 "Default" 之后
+            // 纭繚 "Encrypted" 浣滀负鍐呯疆绫诲瀷鍑虹幇鍦?"Default" 涔嬪悗
             if (!configTypes.Contains("Encrypted", StringComparer.OrdinalIgnoreCase))
             {
                 int defaultIdx = configTypes.FindIndex(t => string.Equals(t, "Default", StringComparison.OrdinalIgnoreCase));
@@ -512,7 +605,7 @@ namespace FolderRewind.Views
                 TextWrapping = TextWrapping.Wrap
             };
 
-            // 插件批量创建（用于 Minecraft 扫描 .minecraft/versions/*/saves 等）
+            // 鎻掍欢鎵归噺鍒涘缓锛堢敤浜?Minecraft 鎵弿 .minecraft/versions/*/saves 绛夛級
             var batchCreateToggle = new ToggleSwitch
             {
                 Header = resourceLoader.GetString("HomePage_PluginBatchCreateHeader"),
@@ -528,7 +621,7 @@ namespace FolderRewind.Views
                 batchCreateToggle.IsEnabled = canBatch;
                 if (!canBatch) batchCreateToggle.IsOn = false;
 
-                // 批量创建模式下，名称由插件生成
+                // 鎵归噺鍒涘缓妯″紡涓嬶紝鍚嶇О鐢辨彃浠剁敓鎴?
                 nameBox.IsEnabled = !batchCreateToggle.IsOn;
             }
 
@@ -536,7 +629,7 @@ namespace FolderRewind.Views
             batchCreateToggle.Toggled += (_, __) => RefreshBatchToggleState();
             RefreshBatchToggleState();
 
-            // 图标选择器
+            // 鍥炬爣閫夋嫨鍣?
             var iconGrid = new GridView { SelectionMode = ListViewSelectionMode.Single, Height = 180 };
             foreach (var icon in IconCatalog.ConfigIconGlyphs) iconGrid.Items.Add(icon);
             iconGrid.SelectedIndex = 0;
@@ -593,13 +686,13 @@ namespace FolderRewind.Views
                         return;
                     }
 
-                    // 让用户一次性选择目标目录（可选；不选则稍后在配置设置里填）
+                    // 璁╃敤鎴蜂竴娆℃€ч€夋嫨鐩爣鐩綍锛堝彲閫夛紱涓嶉€夊垯绋嶅悗鍦ㄩ厤缃缃噷濉級
                     var destFolder = await PickFolderAsync(resourceLoader.GetString("HomePage_PluginBatchCreatePickDestinationTitle"));
                     var destPath = destFolder?.Path;
 
                     foreach (var c in result.CreatedConfigs)
                     {
-                        // 兜底：确保 ConfigType
+                        // 鍏滃簳锛氱‘淇?ConfigType
                         if (string.IsNullOrWhiteSpace(c.ConfigType)) c.ConfigType = selectedType;
                         c.DestinationPath = !string.IsNullOrWhiteSpace(destPath)
                             ? Path.Combine(destPath, c.Name ?? string.Empty)
@@ -617,12 +710,12 @@ namespace FolderRewind.Views
 
                 bool isEncrypted = string.Equals(selectedType, "Encrypted", StringComparison.OrdinalIgnoreCase);
 
-                // 如果是加密类型，弹出密码设置对话框
+                // 濡傛灉鏄姞瀵嗙被鍨嬶紝寮瑰嚭瀵嗙爜璁剧疆瀵硅瘽妗?
                 string? encryptionPassword = null;
                 if (isEncrypted)
                 {
                     encryptionPassword = await PromptSetPasswordAsync();
-                    if (encryptionPassword == null) return; // 用户取消
+                    if (encryptionPassword == null) return; // 鐢ㄦ埛鍙栨秷
                 }
 
                 var selectedIcon = iconGrid.SelectedItem as string ?? IconCatalog.DefaultConfigIconGlyph;
@@ -630,7 +723,7 @@ namespace FolderRewind.Views
                 {
                     Name = nameBox.Text,
                     IconGlyph = selectedIcon,
-                    ConfigType = isEncrypted ? "Default" : selectedType, // 加密配置的底层类型仍为 Default
+                    ConfigType = isEncrypted ? "Default" : selectedType, // 鍔犲瘑閰嶇疆鐨勫簳灞傜被鍨嬩粛涓?Default
                     IsEncrypted = isEncrypted,
                     DestinationPath = ConfigService.BuildDefaultDestinationPath(nameBox.Text),
                     SummaryText = resourceLoader.GetString("HomePage_NewConfigSummary")
@@ -639,7 +732,7 @@ namespace FolderRewind.Views
                 ConfigService.CurrentConfig.BackupConfigs.Add(newConfig);
                 ConfigService.Save();
 
-                // 存储加密密码（在配置保存后，因为需要 config.Id）
+                // 瀛樺偍鍔犲瘑瀵嗙爜锛堝湪閰嶇疆淇濆瓨鍚庯紝鍥犱负闇€瑕?config.Id锛?
                 if (isEncrypted && !string.IsNullOrEmpty(encryptionPassword))
                 {
                     EncryptionService.StorePassword(newConfig.Id, encryptionPassword);
@@ -650,7 +743,7 @@ namespace FolderRewind.Views
         }
 
         /// <summary>
-        /// 弹出设置加密密码的对话框，包含"密码一旦设置无法更改"的警告提示。
+        /// 寮瑰嚭璁剧疆鍔犲瘑瀵嗙爜鐨勫璇濇锛屽寘鍚?瀵嗙爜涓€鏃﹁缃棤娉曟洿鏀?鐨勮鍛婃彁绀恒€?
         /// </summary>
         private async System.Threading.Tasks.Task<string?> PromptSetPasswordAsync()
         {
@@ -742,13 +835,13 @@ namespace FolderRewind.Views
 
         #region Context Menu Handlers
 
-        // 右键点击配置卡片
+        // 鍙抽敭鐐瑰嚮閰嶇疆鍗＄墖
         private void OnConfigCardRightTapped(object sender, Microsoft.UI.Xaml.Input.RightTappedRoutedEventArgs e)
         {
 
         }
 
-        // 备份配置中的所有文件夹
+        // 澶囦唤閰嶇疆涓殑鎵€鏈夋枃浠跺す
         private async void OnBackupAllFoldersClick(object sender, RoutedEventArgs e)
         {
             if (sender is MenuFlyoutItem item && item.DataContext is BackupConfig config)
@@ -772,7 +865,7 @@ namespace FolderRewind.Views
             }
         }
 
-        // 打开目标文件夹
+        // 鎵撳紑鐩爣鏂囦欢澶?
         private void OnOpenDestinationClick(object sender, RoutedEventArgs e)
         {
             if (sender is MenuFlyoutItem item && item.DataContext is BackupConfig config)
@@ -781,7 +874,7 @@ namespace FolderRewind.Views
             }
         }
 
-        // 编辑配置（跳转到管理页）
+        // 缂栬緫閰嶇疆锛堣烦杞埌绠＄悊椤碉級
         private void OnEditConfigClick(object sender, RoutedEventArgs e)
         {
             if (sender is MenuFlyoutItem item && item.DataContext is BackupConfig config)
@@ -790,7 +883,7 @@ namespace FolderRewind.Views
             }
         }
 
-        // 删除配置
+        // 鍒犻櫎閰嶇疆
         private async void OnDeleteConfigClick(object sender, RoutedEventArgs e)
         {
             if (sender is MenuFlyoutItem item && item.DataContext is BackupConfig config)
