@@ -55,7 +55,7 @@ As the spiritual successor to MineBackup, FolderRewind enhances its versatility 
 
 1. Open System Settings, navigate to `System` -> `Developer Options`, and enable `Developer Mode`.
 2. Open the [Release](https://github.com/Leafuke/FolderRewind/releases) page.
-3. Find the application package in the latest version's **Assets**. The naming format is: `FolderRewind_{version}_{platform}.zip`.
+3. Find the application package in the latest version's **Assets**. The naming format is: `FolderRewind_{version}_{platform}.7z`.
 4. After downloading and extracting the package, right-click the `install.ps1` script in the folder and select `Run with PowerShell`.
 
 Note: Do not install both the Store version and the side-loaded version at the same time.

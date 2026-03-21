@@ -1,32 +1,12 @@
-using FolderRewind.Models;
+using FolderRewind.ViewModels;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Navigation;
-using System.Collections.ObjectModel;
-using System.Collections.Specialized;
-using System.ComponentModel;
 
 namespace FolderRewind.Views
 {
-    public sealed partial class BackupTasksPage : Page, INotifyPropertyChanged
+    public sealed partial class BackupTasksPage : Page
     {
-        public event PropertyChangedEventHandler? PropertyChanged;
-
-        public ObservableCollection<BackupTask> ViewModel => Services.BackupService.ActiveTasks;
-
-        // 绑定视图（避免 MSIX + Trim 下 WinRT 对自定义泛型集合投影异常）
-        public ObservableCollection<object> TasksView { get; } = new();
-
-        private bool _isEmpty = true;
-        public bool IsEmpty
-        {
-            get => _isEmpty;
-            private set
-            {
-                if (_isEmpty == value) return;
-                _isEmpty = value;
-                PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(IsEmpty)));
-            }
-        }
+        public BackupTasksPageViewModel ViewModel { get; } = new();
 
         public BackupTasksPage()
         {
@@ -42,16 +22,7 @@ namespace FolderRewind.Views
         protected override void OnNavigatedTo(NavigationEventArgs e)
         {
             base.OnNavigatedTo(e);
-
-            if (ViewModel != null)
-            {
-                // 先移除再添加，确保不会重复订阅
-                ViewModel.CollectionChanged -= OnTasksChanged;
-                ViewModel.CollectionChanged += OnTasksChanged;
-            }
-
-            // 每次进入页面时强制刷新视图，保证内容与数据源同步
-            RefreshTasksView();
+            ViewModel.Activate();
         }
 
         /// <summary>
@@ -60,32 +31,7 @@ namespace FolderRewind.Views
         protected override void OnNavigatedFrom(NavigationEventArgs e)
         {
             base.OnNavigatedFrom(e);
-
-            if (ViewModel != null)
-                ViewModel.CollectionChanged -= OnTasksChanged;
-        }
-
-        private void RefreshTasksView()
-        {
-            TasksView.Clear();
-            if (ViewModel == null)
-            {
-                IsEmpty = true;
-                return;
-            }
-            foreach (var task in ViewModel)
-            {
-                TasksView.Add(task);
-            }
-            IsEmpty = ViewModel.Count == 0;
-        }
-
-        private void OnTasksChanged(object? sender, NotifyCollectionChangedEventArgs e)
-        {
-            _ = DispatcherQueue.TryEnqueue(() =>
-            {
-                RefreshTasksView();
-            });
+            ViewModel.Deactivate();
         }
     }
 }

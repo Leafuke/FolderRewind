@@ -40,8 +40,8 @@
                     <FontIcon Glyph="&#xE713;" FontSize="16" Foreground="{ThemeResource TextFillColorSecondaryBrush}"/>
                     <TextBlock x:Uid="FolderManager_CurrentConfig" VerticalAlignment="Center" Foreground="{ThemeResource TextFillColorSecondaryBrush}"/>
                     <ComboBox x:Name="ConfigSelector" Width="220" 
-                              ItemsSource="{x:Bind ConfigsView, Mode=OneWay}"
-                              SelectedItem="{x:Bind CurrentConfig, Mode=TwoWay}"
+                              ItemsSource="{x:Bind ViewModel.ConfigsView, Mode=OneWay}"
+                              SelectedItem="{x:Bind ViewModel.CurrentConfig, Mode=TwoWay}"
                               DisplayMemberPath="Name"
                               SelectionChanged="ConfigSelector_SelectionChanged"/>
                     <!-- 配置设置按钮 -->
@@ -90,7 +90,7 @@
                 <StackPanel Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
                     <FontIcon Glyph="&#xE8B7;" FontSize="16" Foreground="{ThemeResource AccentFillColorDefaultBrush}"/>
                     <TextBlock x:Uid="FolderManager_SelectedAction" VerticalAlignment="Center" Style="{ThemeResource BodyStrongTextBlockStyle}"/>
-                    <TextBlock Text="{x:Bind SelectedFolderDisplayName, Mode=OneWay}" 
+                    <TextBlock Text="{x:Bind ViewModel.SelectedFolderDisplayName, Mode=OneWay}" 
                                VerticalAlignment="Center" Foreground="{ThemeResource TextFillColorSecondaryBrush}"/>
                 </StackPanel>
 
@@ -101,19 +101,21 @@
                         <ColumnDefinition Width="*"/>
                     </Grid.ColumnDefinitions>
                     <TextBlock x:Uid="FolderManager_BackupComment" VerticalAlignment="Center" Margin="0,0,8,0" Foreground="{ThemeResource TextFillColorSecondaryBrush}"/>
-                    <TextBox x:Name="CommentBox" Grid.Column="1" x:Uid="FolderManager_CommentPlaceholder" IsEnabled="{x:Bind BackupSelectedButton.IsEnabled, Mode=OneWay}"/>
+                    <TextBox x:Name="CommentBox" Grid.Column="1" x:Uid="FolderManager_CommentPlaceholder"
+                             Text="{x:Bind ViewModel.BackupComment, Mode=TwoWay}"
+                             IsEnabled="{x:Bind ViewModel.HasSelectedFolder, Mode=OneWay}"/>
                 </Grid>
 
                 <!-- 右侧：针对选中项的按钮 -->
                 <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="8">
-                    <Button x:Name="BackupSelectedButton" IsEnabled="False" Click="OnBackupSelectedClick" Style="{ThemeResource AccentButtonStyle}">
+                    <Button x:Name="BackupSelectedButton" IsEnabled="{x:Bind ViewModel.HasSelectedFolder, Mode=OneWay}" Click="OnBackupSelectedClick" Style="{ThemeResource AccentButtonStyle}">
                         <StackPanel Orientation="Horizontal" Spacing="8">
                             <FontIcon Glyph="&#xE898;"/>
                             <TextBlock x:Uid="FolderManager_BackupSelected"/>
                         </StackPanel>
                     </Button>
 
-                    <Button x:Name="HistoryButton" IsEnabled="False" Click="OnHistoryClick">
+                    <Button x:Name="HistoryButton" IsEnabled="{x:Bind ViewModel.HasSelectedFolder, Mode=OneWay}" Click="OnHistoryClick">
                         <StackPanel Orientation="Horizontal" Spacing="8">
                             <FontIcon Glyph="&#xE81C;"/>
                             <TextBlock x:Uid="FolderManager_History"/>
@@ -125,7 +127,7 @@
 
         <!-- 文件夹列表 -->
         <ListView x:Name="FolderList" Grid.Row="1" Padding="16,8,16,16" 
-                  ItemsSource="{x:Bind CurrentFoldersView, Mode=OneWay}"
+                  ItemsSource="{x:Bind ViewModel.CurrentFoldersView, Mode=OneWay}"
                   SelectionMode="Single" 
                   SelectionChanged="FolderList_SelectionChanged">
 

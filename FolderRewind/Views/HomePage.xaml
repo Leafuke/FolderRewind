@@ -21,7 +21,7 @@
                 </StackPanel>
 
                 <!-- 绑定到 Favorites 集合 -->
-                <GridView ItemsSource="{x:Bind FavoriteFoldersView}" 
+                <GridView ItemsSource="{x:Bind ViewModel.FavoriteFoldersView}" 
                           SelectionMode="None" 
                           IsItemClickEnabled="False">
                     <GridView.ItemContainerStyle>
@@ -130,7 +130,7 @@
 
                 <!-- 空状态提示 -->
                 <TextBlock x:Uid="HomePage_NoFavoriteFolders" Margin="0,0,0,15" Foreground="{ThemeResource TextFillColorSecondaryBrush}" FontStyle="Italic"
-                           Visibility="{x:Bind IsFavoritesEmpty, Mode=OneWay, Converter={StaticResource BoolToVisConverter}}"/>
+                           Visibility="{x:Bind ViewModel.IsFavoritesEmpty, Mode=OneWay, Converter={StaticResource BoolToVisConverter}}"/>
             </StackPanel>
 
             <!-- 第二部分：配置概览 -->
@@ -156,16 +156,27 @@
                         </ComboBox>
                     </StackPanel>
 
-                    <Button Grid.Column="2" HorizontalAlignment="Right" Style="{ThemeResource AccentButtonStyle}" Click="OnAddConfigClick">
-                        <StackPanel Orientation="Horizontal" Spacing="8">
-                            <FontIcon Glyph="&#xE710;"/>
-                            <TextBlock x:Uid="HomePage_NewConfig"/>
-                        </StackPanel>
-                    </Button>
+                    <SplitButton Grid.Column="2" HorizontalAlignment="Right" Click="OnAddConfigClick">
+                        <SplitButton.Content>
+                            <StackPanel Orientation="Horizontal" Spacing="8">
+                                <FontIcon Glyph="&#xE710;"/>
+                                <TextBlock x:Uid="HomePage_NewConfig"/>
+                            </StackPanel>
+                        </SplitButton.Content>
+                        <SplitButton.Flyout>
+                            <MenuFlyout>
+                                <MenuFlyoutItem x:Uid="HomePage_AddFromTemplate" Click="OnAddConfigFromTemplateClick">
+                                    <MenuFlyoutItem.Icon>
+                                        <FontIcon Glyph="&#xE71D;"/>
+                                    </MenuFlyoutItem.Icon>
+                                </MenuFlyoutItem>
+                            </MenuFlyout>
+                        </SplitButton.Flyout>
+                    </SplitButton>
                 </Grid>
 
                 <GridView x:Name="ConfigGridView" 
-                          ItemsSource="{x:Bind ConfigsView, Mode=OneWay}"
+                          ItemsSource="{x:Bind ViewModel.ConfigsView, Mode=OneWay}"
                           SelectionMode="None" 
                           IsItemClickEnabled="False">
                     <GridView.ItemContainerStyle>

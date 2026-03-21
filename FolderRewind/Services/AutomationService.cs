@@ -10,12 +10,14 @@ namespace FolderRewind.Services
     {
         private static Timer? _timer;
         private static bool _isRunning = false;
+        // Tick 可能重叠触发（上次未执行完），用 0 超时锁直接跳过重入。
         private static readonly SemaphoreSlim _tickLock = new(1, 1);
 
         public static void Start()
         {
             if (_isRunning) return;
 
+            // 60 秒轮询一次，实际是否触发由计划/间隔条件决定。
             _timer = new Timer(OnTick, null, TimeSpan.Zero, TimeSpan.FromSeconds(60));
             _isRunning = true;
 
@@ -31,17 +33,19 @@ namespace FolderRewind.Services
         private static void CheckStartupBackups()
         {
             var now = DateTime.Now;
+            // 启动即触发只跑一轮，避免错过“开机后立即备份”的场景。
             foreach (var config in ConfigService.CurrentConfig.BackupConfigs)
             {
                 if (config.Automation.AutoBackupEnabled && config.Automation.RunOnAppStart)
                 {
-                    _ = Task.Run(() => RunAutoBackupAsync(config, now, "Auto backup (app start)"));
+                    _ = Task.Run(() => RunAutoBackupAsync(config, now, "Auto backup (app start)", isScheduledTrigger: false));
                 }
             }
         }
 
         private static async void OnTick(object? state)
         {
+            // 拿不到锁说明上一个 Tick 还在跑，直接跳过本轮。
             if (!await _tickLock.WaitAsync(0)) return;
 
             try
@@ -54,6 +58,8 @@ namespace FolderRewind.Services
                     if (config?.Automation == null) continue;
                     if (!config.Automation.AutoBackupEnabled) continue;
 
+                    bool scheduledTriggered = false;
+
                     if (config.Automation.ScheduledMode)
                     {
                         if (config.Automation.ScheduleEntries != null && config.Automation.ScheduleEntries.Count > 0)
@@ -62,40 +68,48 @@ namespace FolderRewind.Services
                             {
                                 if (entry.ShouldTriggerNow(now))
                                 {
-                                    // Dedup: skip if triggered within last 2 minutes
+                                    // 去重窗口：避免分钟级定时在边界抖动时重复触发。
                                     if (entry.LastTriggeredUtc != DateTime.MinValue &&
                                         (utcNow - entry.LastTriggeredUtc) < TimeSpan.FromMinutes(2))
                                         continue;
 
                                     string desc = FormatScheduleDescription(entry);
-                                    _ = Task.Run(() => RunAutoBackupAsync(config, now, $"Scheduled backup ({desc})"));
+                                    _ = Task.Run(() => RunAutoBackupAsync(config, now, $"Scheduled backup ({desc})", isScheduledTrigger: true));
                                     entry.LastTriggeredUtc = utcNow;
+                                    scheduledTriggered = true;
                                     break; // one backup per config per tick
                                 }
                             }
                         }
                         else
                         {
-                            // Legacy fallback: old ScheduledHour only
+                            // 兼容旧配置：没有 ScheduleEntries 时沿用旧的 ScheduledHour 逻辑。
                             if (now.Hour == config.Automation.ScheduledHour && now.Minute < 5)
                             {
                                 if (!IsRunToday(config, now))
                                 {
-                                    _ = Task.Run(() => RunAutoBackupAsync(config, now, "Auto backup (scheduled legacy)"));
+                                    _ = Task.Run(() => RunAutoBackupAsync(config, now, "Auto backup (scheduled legacy)", isScheduledTrigger: true));
+                                    scheduledTriggered = true;
                                 }
                             }
                         }
+                    }
+
+                    // 本轮已经按计划触发过时，跳过间隔触发，避免同一配置在同一轮双重执行。
+                    if (scheduledTriggered || !config.Automation.IntervalMode)
+                    {
                         continue;
                     }
 
                     // 间隔模式
                     var intervalMinutes = Math.Clamp(config.Automation.IntervalMinutes, 1, 10080);
                     var lastUtc = config.Automation.LastAutoBackupUtc;
+                    // 间隔计算统一用 UTC，避免夏令时/时区切换导致误触发。
                     var due = lastUtc == DateTime.MinValue || (utcNow - lastUtc) >= TimeSpan.FromMinutes(intervalMinutes);
 
                     if (due)
                     {
-                        _ = Task.Run(() => RunAutoBackupAsync(config, now, $"Auto backup (interval {intervalMinutes} min)"));
+                        _ = Task.Run(() => RunAutoBackupAsync(config, now, $"Auto backup (interval {intervalMinutes} min)", isScheduledTrigger: false));
                     }
                 }
             }
@@ -125,7 +139,7 @@ namespace FolderRewind.Services
             }
         }
 
-        private static async Task RunAutoBackupAsync(BackupConfig config, DateTime nowLocal, string reason)
+        private static async Task RunAutoBackupAsync(BackupConfig config, DateTime nowLocal, string reason, bool isScheduledTrigger)
         {
             try
             {
@@ -139,9 +153,9 @@ namespace FolderRewind.Services
             {
                 bool hadChanges = await BackupService.BackupConfigAsync(config);
 
-                // 成功后更新时间戳并持久化
+                // 这里记录的是“任务执行时间”，不是“是否产生新归档”。
                 config.Automation.LastAutoBackupUtc = DateTime.UtcNow;
-                if (config.Automation.ScheduledMode)
+                if (isScheduledTrigger)
                 {
                     config.Automation.LastScheduledRunDateLocal = nowLocal.Date;
                 }

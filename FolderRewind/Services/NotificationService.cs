@@ -1,4 +1,5 @@
 using System;
+using System.Threading;
 
 namespace FolderRewind.Services
 {
@@ -41,6 +42,22 @@ namespace FolderRewind.Services
     /// </summary>
     public static class NotificationService
     {
+        private sealed class NotificationSuppressionScope : IDisposable
+        {
+            private int _disposed;
+
+            public void Dispose()
+            {
+                if (Interlocked.Exchange(ref _disposed, 1) != 0)
+                {
+                    return;
+                }
+
+                // 与 SuppressNotifications 的计数配对，支持可重入/嵌套抑制。
+                Interlocked.Decrement(ref _suppressionCount);
+            }
+        }
+
         // 应用内 InfoBar 回调（由 ShellPage 订阅）
         public static event Action<string, string, NotificationSeverity, int, Action?>? InfoBarRequested;
 
@@ -49,12 +66,20 @@ namespace FolderRewind.Services
 
         // 当前 Badge 计数
         private static int _badgeCount = 0;
+        private static int _suppressionCount = 0;
 
         /// <summary>
         /// 当前是否启用通知（全局开关）
         /// </summary>
         private static bool IsNotificationEnabled =>
-            ConfigService.CurrentConfig?.GlobalSettings?.EnableNotifications ?? true;
+            _suppressionCount <= 0 && (ConfigService.CurrentConfig?.GlobalSettings?.EnableNotifications ?? true);
+
+        public static IDisposable SuppressNotifications()
+        {
+            // 返回作用域对象，调用方用 using 控制抑制窗口期。
+            Interlocked.Increment(ref _suppressionCount);
+            return new NotificationSuppressionScope();
+        }
 
         /// <summary>
         /// 获取当前 Toast 通知等级设置
@@ -72,6 +97,7 @@ namespace FolderRewind.Services
         {
             if (!IsNotificationEnabled) return false;
             var level = GetToastLevel();
+            // 统一在这里做等级判定，避免各调用点散落重复条件。
             return level switch
             {
                 ToastNotificationLevel.Off => false,
@@ -284,7 +310,7 @@ namespace FolderRewind.Services
             else
             {
                 var message = I18n.Format("Notification_BackupCompleted_Failed", folderName, errorMessage ?? "");
-                // ShowError 已内置 Badge 递增 + Toast 发送
+                // ShowError 内部已包含 Badge 递增和 Toast 发送。
                 ShowError(message, I18n.GetString("Notification_BackupFailed_Title"));
             }
         }
@@ -333,19 +359,7 @@ namespace FolderRewind.Services
         /// </summary>
         private static bool IsAppForeground()
         {
-            try
-            {
-                var mainWindow = App.MainWindow;
-                if (mainWindow?.AppWindow != null)
-                {
-                    return mainWindow.AppWindow.IsVisible;
-                }
-                return true;
-            }
-            catch
-            {
-                return true;
-            }
+            return MainWindowService.IsMainWindowVisible();
         }
     }
 }

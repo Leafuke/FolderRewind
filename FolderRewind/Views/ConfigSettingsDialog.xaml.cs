@@ -6,12 +6,10 @@ using Microsoft.UI.Xaml.Controls;
 using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
-using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using System.Threading.Tasks;
 using Windows.Storage.Pickers;
-using WinRT.Interop;
 
 namespace FolderRewind.Views
 {
@@ -27,16 +25,12 @@ namespace FolderRewind.Views
             get
             {
                 if (Config == null) return "Default";
-                // 加密配置在 UI 中显示为 "Encrypted" 类型
-                if (Config.IsEncrypted) return "Encrypted";
-                return Config.ConfigType ?? "Default";
+                return string.IsNullOrWhiteSpace(Config.ConfigType) ? "Default" : Config.ConfigType;
             }
             set
             {
                 if (Config == null) return;
-                bool isEncrypted = string.Equals(value, "Encrypted", StringComparison.OrdinalIgnoreCase);
-                Config.IsEncrypted = isEncrypted;
-                Config.ConfigType = isEncrypted ? "Default" : (string.IsNullOrWhiteSpace(value) ? "Default" : value);
+                Config.ConfigType = string.IsNullOrWhiteSpace(value) ? "Default" : value;
             }
         }
 
@@ -169,7 +163,7 @@ namespace FolderRewind.Views
             this.InitializeComponent();
             this.Config = config;
             this.Config.Cloud ??= new CloudSettings();
-            this.XamlRoot = App._window.Content.XamlRoot;
+            this.XamlRoot = MainWindowService.GetXamlRoot();
 
             // 应用当前主题到对话框
             ThemeService.ApplyThemeToDialog(this);
@@ -178,6 +172,10 @@ namespace FolderRewind.Views
             ConfigTypesView.Clear();
             foreach (var t in PluginService.GetAllSupportedConfigTypes())
             {
+                if (string.Equals(t, "Encrypted", StringComparison.OrdinalIgnoreCase))
+                {
+                    continue;
+                }
                 ConfigTypesView.Add(t);
             }
 
@@ -187,16 +185,9 @@ namespace FolderRewind.Views
                 ConfigTypesView.Insert(0, "Default");
             }
 
-            // 确保 "Encrypted" 作为内置类型出现
-            if (!ConfigTypesView.OfType<string>().Any(t => string.Equals(t, "Encrypted", StringComparison.OrdinalIgnoreCase)))
+            if (string.Equals(Config.ConfigType, "Encrypted", StringComparison.OrdinalIgnoreCase))
             {
-                int defaultIdx = -1;
-                for (int i = 0; i < ConfigTypesView.Count; i++)
-                {
-                    if (ConfigTypesView[i] is string s && string.Equals(s, "Default", StringComparison.OrdinalIgnoreCase))
-                    { defaultIdx = i; break; }
-                }
-                ConfigTypesView.Insert(defaultIdx >= 0 ? defaultIdx + 1 : ConfigTypesView.Count, "Encrypted");
+                Config.ConfigType = "Default";
             }
 
             // 如果当前类型不在列表里，也允许展示出来（避免旧配置类型丢失）
@@ -476,11 +467,7 @@ namespace FolderRewind.Views
             var picker = new FolderPicker();
             picker.SuggestedStartLocation = PickerLocationId.ComputerFolder;
             picker.FileTypeFilter.Add("*");
-
-            if (App._window != null)
-            {
-                InitializeWithWindow.Initialize(picker, WindowNative.GetWindowHandle(App._window));
-            }
+            MainWindowService.InitializePicker(picker);
 
             var folder = await picker.PickSingleFolderAsync();
             if (folder != null)
@@ -542,6 +529,79 @@ namespace FolderRewind.Views
             UpdateCloudBindings();
         }
 
+        private async void OnSaveAsTemplateClick(object sender, RoutedEventArgs e)
+        {
+            if (Config == null)
+            {
+                return;
+            }
+
+            // WinUI 同时只允许一个 ContentDialog，先临时隐藏当前设置对话框。
+            this.Hide();
+            await Task.Yield();
+
+            var templateNameBox = new TextBox
+            {
+                Header = I18n.GetString("Template_SaveDialog_Name"),
+                Text = string.IsNullOrWhiteSpace(Config.Name) ? I18n.GetString("Template_DefaultName") : Config.Name
+            };
+            var authorBox = new TextBox
+            {
+                Header = I18n.GetString("Template_SaveDialog_Author"),
+                PlaceholderText = I18n.GetString("Template_SaveDialog_AuthorPlaceholder")
+            };
+            var descriptionBox = new TextBox
+            {
+                Header = I18n.GetString("Template_SaveDialog_Description"),
+                TextWrapping = TextWrapping.Wrap,
+                AcceptsReturn = true,
+                MinHeight = 96,
+                MaxHeight = 200
+            };
+
+            var panel = new StackPanel { Spacing = 10 };
+            panel.Children.Add(new TextBlock
+            {
+                Text = I18n.GetString("Template_SaveDialog_Hint"),
+                TextWrapping = TextWrapping.Wrap
+            });
+            panel.Children.Add(templateNameBox);
+            panel.Children.Add(authorBox);
+            panel.Children.Add(descriptionBox);
+
+            var dialog = new ContentDialog
+            {
+                Title = I18n.GetString("Template_SaveDialog_Title"),
+                Content = panel,
+                PrimaryButtonText = I18n.GetString("Common_Save"),
+                CloseButtonText = I18n.GetString("Common_Cancel"),
+                DefaultButton = ContentDialogButton.Primary,
+                XamlRoot = MainWindowService.GetXamlRoot() ?? this.XamlRoot
+            };
+            ThemeService.ApplyThemeToDialog(dialog);
+
+            var result = await dialog.ShowAsync();
+            if (result == ContentDialogResult.Primary)
+            {
+                var createResult = TemplateService.UpsertTemplateFromConfig(
+                    Config,
+                    templateNameBox.Text,
+                    authorBox.Text,
+                    descriptionBox.Text);
+
+                var tipDialog = new ContentDialog
+                {
+                    Content = createResult.Message,
+                    CloseButtonText = I18n.GetString("Common_Ok"),
+                    XamlRoot = MainWindowService.GetXamlRoot() ?? this.XamlRoot
+                };
+                ThemeService.ApplyThemeToDialog(tipDialog);
+                await tipDialog.ShowAsync();
+            }
+
+            await this.ShowAsync();
+        }
+
         private void OnApplyCloudTemplateClick(object sender, RoutedEventArgs e)
         {
             if (Config?.Cloud == null || Config.Cloud.TemplateKind == CloudTemplateKind.Custom)
@@ -562,9 +622,7 @@ namespace FolderRewind.Views
             picker.FileTypeFilter.Add(".cmd");
             picker.FileTypeFilter.Add(".bat");
             picker.FileTypeFilter.Add(".ps1");
-
-            if (App._window != null)
-                InitializeWithWindow.Initialize(picker, WindowNative.GetWindowHandle(App._window));
+            MainWindowService.InitializePicker(picker);
 
             var file = await picker.PickSingleFileAsync();
             if (file == null) return;
@@ -578,9 +636,7 @@ namespace FolderRewind.Views
             var picker = new FolderPicker();
             picker.SuggestedStartLocation = PickerLocationId.ComputerFolder;
             picker.FileTypeFilter.Add("*");
-
-            if (App._window != null)
-                InitializeWithWindow.Initialize(picker, WindowNative.GetWindowHandle(App._window));
+            MainWindowService.InitializePicker(picker);
 
             var folder = await picker.PickSingleFolderAsync();
             if (folder == null) return;
@@ -617,7 +673,7 @@ namespace FolderRewind.Views
                 PrimaryButtonText = I18n.GetString("Common_Delete"),
                 CloseButtonText = I18n.GetString("Common_Cancel"),
                 DefaultButton = ContentDialogButton.Close,
-                XamlRoot = App._window?.Content?.XamlRoot ?? this.XamlRoot
+                XamlRoot = MainWindowService.GetXamlRoot() ?? this.XamlRoot
             };
 
             var result = await confirm.ShowAsync();
@@ -674,18 +730,9 @@ namespace FolderRewind.Views
 
         private static void OpenPathInShell(string path)
         {
-            try
+            if (!ShellPathService.TryOpenPath(path, out var error))
             {
-                Process.Start(new ProcessStartInfo
-                {
-                    FileName = path,
-                    UseShellExecute = true,
-                    Verb = "open"
-                });
-            }
-            catch (Exception ex)
-            {
-                LogService.Log(I18n.Format("Config_OpenPath_Failed", ex.Message));
+                LogService.Log(I18n.Format("Config_OpenPath_Failed", error ?? string.Empty));
             }
         }
         private void OnAddBlacklistClick(object sender, RoutedEventArgs e)

@@ -40,6 +40,7 @@ namespace FolderRewind.Models
     {
         private GlobalSettings _globalSettings = new();
         private ObservableCollection<BackupConfig> _backupConfigs = new();
+        private ObservableCollection<ConfigTemplate> _templates = new();
 
         public string Version { get; set; } = "2.0"; // 配置版本号，方便未来迁移
 
@@ -53,6 +54,12 @@ namespace FolderRewind.Models
         {
             get => _backupConfigs;
             set => SetProperty(ref _backupConfigs, value);
+        }
+
+        public ObservableCollection<ConfigTemplate> Templates
+        {
+            get => _templates;
+            set => SetProperty(ref _templates, value);
         }
     }
 
@@ -112,9 +119,20 @@ namespace FolderRewind.Models
         private bool _enableNotices = true;
         private string _noticeLastSeenVersion = "";
         private bool _enableUpdateReminder = true;
+        private int _appUpdatePreferredSource = 1; // 0=Official, 1=Mirror1, 2=Mirror2, 3=Custom
+        private bool _appUpdateAutoFallback = true;
+        private string _appUpdateCustomMirrorUrl = "";
+        private bool _hasMigratedDownloadSourcePreference = false;
+        private string _gitHubOAuthClientId = "";
 
         // 首次启动引导
         private bool _hasShownFirstLaunchGuide = false;
+
+        // 核心功能自动校验
+        private bool _hasTriggeredInitialCoreValidation = false;
+        private bool _lastCoreValidationPassed = false;
+        private DateTime _lastCoreValidationUtc = DateTime.MinValue;
+        private string _lastCoreValidationSummary = "";
 
         public string Language { get => _language; set => SetProperty(ref _language, value); }
         public int ThemeIndex { get => _themeIndex; set => SetProperty(ref _themeIndex, value); }
@@ -223,9 +241,55 @@ namespace FolderRewind.Models
         public bool EnableUpdateReminder { get => _enableUpdateReminder; set => SetProperty(ref _enableUpdateReminder, value); }
 
         /// <summary>
+        /// 应用更新下载源偏好。
+        /// 0=官方直连, 1=镜像一, 2=镜像二, 3=自定义镜像。
+        /// </summary>
+        public int AppUpdatePreferredSource { get => _appUpdatePreferredSource; set => SetProperty(ref _appUpdatePreferredSource, value); }
+
+        /// <summary>
+        /// 下载失败时是否按预设顺序自动切换备用源。
+        /// </summary>
+        public bool AppUpdateAutoFallback { get => _appUpdateAutoFallback; set => SetProperty(ref _appUpdateAutoFallback, value); }
+
+        /// <summary>
+        /// 自定义镜像地址。可填写前缀或包含 {url} 占位符的模板。
+        /// </summary>
+        public string AppUpdateCustomMirrorUrl { get => _appUpdateCustomMirrorUrl; set => SetProperty(ref _appUpdateCustomMirrorUrl, value ?? string.Empty); }
+
+        /// <summary>
+        /// 是否已经完成统一下载源默认值迁移，避免后续重复覆盖用户偏好。
+        /// </summary>
+        public bool HasMigratedDownloadSourcePreference { get => _hasMigratedDownloadSourcePreference; set => SetProperty(ref _hasMigratedDownloadSourcePreference, value); }
+
+        /// <summary>
+        /// GitHub OAuth App 的 Client ID。
+        /// </summary>
+        public string GitHubOAuthClientId { get => _gitHubOAuthClientId; set => SetProperty(ref _gitHubOAuthClientId, value ?? string.Empty); }
+
+        /// <summary>
         /// 是否已经展示过首次启动引导。
         /// </summary>
         public bool HasShownFirstLaunchGuide { get => _hasShownFirstLaunchGuide; set => SetProperty(ref _hasShownFirstLaunchGuide, value); }
+
+        /// <summary>
+        /// 是否已经执行过首次核心功能自动校验。
+        /// </summary>
+        public bool HasTriggeredInitialCoreValidation { get => _hasTriggeredInitialCoreValidation; set => SetProperty(ref _hasTriggeredInitialCoreValidation, value); }
+
+        /// <summary>
+        /// 最近一次核心功能自动校验是否通过。
+        /// </summary>
+        public bool LastCoreValidationPassed { get => _lastCoreValidationPassed; set => SetProperty(ref _lastCoreValidationPassed, value); }
+
+        /// <summary>
+        /// 最近一次核心功能自动校验执行时间（UTC）。
+        /// </summary>
+        public DateTime LastCoreValidationUtc { get => _lastCoreValidationUtc; set => SetProperty(ref _lastCoreValidationUtc, value); }
+
+        /// <summary>
+        /// 最近一次核心功能自动校验摘要。
+        /// </summary>
+        public string LastCoreValidationSummary { get => _lastCoreValidationSummary; set => SetProperty(ref _lastCoreValidationSummary, value ?? string.Empty); }
     }
 
     /// <summary>
@@ -609,6 +673,7 @@ namespace FolderRewind.Models
     public class AutomationSettings : ObservableObject
     {
         private bool _autoBackupEnabled = false;
+        private bool _intervalMode = true;
         private int _intervalMinutes = 60;
         private bool _runOnAppStart = false;
         private bool _scheduledMode = false;
@@ -623,6 +688,7 @@ namespace FolderRewind.Models
         private int _consecutiveNoChangeCount = 0;
 
         public bool AutoBackupEnabled { get => _autoBackupEnabled; set => SetProperty(ref _autoBackupEnabled, value); }
+        public bool IntervalMode { get => _intervalMode; set => SetProperty(ref _intervalMode, value); }
         public int IntervalMinutes { get => _intervalMinutes; set => SetProperty(ref _intervalMinutes, value); }
         public bool RunOnAppStart { get => _runOnAppStart; set => SetProperty(ref _runOnAppStart, value); }
         public bool ScheduledMode { get => _scheduledMode; set => SetProperty(ref _scheduledMode, value); }

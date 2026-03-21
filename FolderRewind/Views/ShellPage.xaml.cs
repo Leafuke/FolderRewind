@@ -10,9 +10,10 @@ using System.Linq;
 
 namespace FolderRewind.Views
 {
-    public sealed partial class ShellPage : Page
+    public sealed partial class ShellPage : Page, INavigationHost
     {
         private bool _isSyncingSelection;
+        private bool _isSyncingPaneState;
         private DispatcherQueueTimer? _infoBarTimer;
         private bool _startupDialogsStarted;
 
@@ -23,13 +24,30 @@ namespace FolderRewind.Views
         public ShellPage()
         {
             this.InitializeComponent();
-            // 注册自己，方便全局调用
-            App.Shell = this;
+            // ShellPage 是当前唯一导航宿主，供 ViewModel/Service 发起跨页跳转。
+            NavigationService.Initialize(this);
 
             ContentFrame.Navigated += ContentFrame_Navigated;
 
             // 订阅通知服务的 InfoBar 请求
             NotificationService.InfoBarRequested += OnInfoBarRequested;
+            ConfigService.Saved += OnConfigSaved;
+            Unloaded += ShellPage_Unloaded;
+        }
+
+        private void ShellPage_Unloaded(object sender, Microsoft.UI.Xaml.RoutedEventArgs e)
+        {
+            // 页面卸载时要撤销宿主与事件订阅，避免下次重建后出现重复回调。
+            NavigationService.Clear(this);
+            NotificationService.InfoBarRequested -= OnInfoBarRequested;
+            ConfigService.Saved -= OnConfigSaved;
+            Unloaded -= ShellPage_Unloaded;
+        }
+
+        private void OnConfigSaved()
+        {
+            // 配置变更后可能首次满足自检条件，延迟调度由服务内部去重。
+            CoreFeatureValidationService.TryScheduleInitialValidation();
         }
 
         /// <summary>
@@ -66,6 +84,7 @@ namespace FolderRewind.Views
                 // 自动关闭
                 if (autoCloseMs > 0)
                 {
+                    // 新消息进来时重置计时器，避免旧消息的关闭时机误关当前消息。
                     _infoBarTimer?.Stop();
                     _infoBarTimer = DispatcherQueue.CreateTimer();
                     _infoBarTimer.Interval = TimeSpan.FromMilliseconds(autoCloseMs);
@@ -88,17 +107,16 @@ namespace FolderRewind.Views
         private void NavView_Loaded(object sender, Microsoft.UI.Xaml.RoutedEventArgs e)
         {
             var settings = ConfigService.CurrentConfig?.GlobalSettings;
-            if (settings != null)
-            {
-                NavView.IsPaneOpen = settings.IsNavPaneOpen;
-                // Ensure binding updates if settings was null initially (though unlikely here)
-                Bindings.Update();
-            }
+            SyncPaneStateWithDisplayMode(settings);
+
+            // 兜底刷新绑定，确保导航面板状态能及时反映到界面。
+            Bindings.Update();
 
             NavigateTo("Home");
 
             if (!_startupDialogsStarted)
             {
+                // 启动弹窗链只跑一次，避免返回 Shell 时重复打断用户。
                 _ = RunStartupDialogsAsync();
             }
         }
@@ -112,10 +130,12 @@ namespace FolderRewind.Views
 
             _startupDialogsStarted = true;
 
+            // 保持固定顺序：引导/冲突/公告/更新，避免多个弹窗竞争焦点。
             await ShowFirstLaunchGuideAsync();
             await ShowBackupSlotConflictWarningAsync();
             await CheckAndShowNoticeAsync();
             await CheckAndShowAppUpdateAsync();
+            CoreFeatureValidationService.TryScheduleInitialValidation();
         }
 
         private async System.Threading.Tasks.Task<ContentDialogResult> ShowDialogAsync(ContentDialog dialog)
@@ -132,6 +152,7 @@ namespace FolderRewind.Views
             {
                 try
                 {
+                    // 统一在 UI 线程补全 XamlRoot 与主题，避免跨线程弹窗异常。
                     dialog.XamlRoot ??= this.XamlRoot;
                     ThemeService.ApplyThemeToDialog(dialog);
                     tcs.TrySetResult(await dialog.ShowAsync());
@@ -247,6 +268,18 @@ namespace FolderRewind.Views
                     update.LatestVersion,
                     notes);
 
+                if (update.PrimaryAction == UpdatePrimaryAction.OpenStorePage)
+                {
+                    content += Environment.NewLine + Environment.NewLine + I18n.GetString("Update_Dialog_StoreDelayHint");
+                }
+
+                var primaryButtonText = update.PrimaryAction switch
+                {
+                    UpdatePrimaryAction.OpenStorePage => I18n.GetString("Update_Dialog_OpenStore"),
+                    UpdatePrimaryAction.PrepareSideloadPackage => I18n.GetString("Update_Dialog_PrepareSideload"),
+                    _ => I18n.GetString("Update_Dialog_OpenRelease")
+                };
+
                 var dialog = new ContentDialog
                 {
                     Title = I18n.GetString("Update_Dialog_Title"),
@@ -260,7 +293,7 @@ namespace FolderRewind.Views
                             IsTextSelectionEnabled = true
                         }
                     },
-                    PrimaryButtonText = I18n.GetString("Update_Dialog_OpenRelease"),
+                    PrimaryButtonText = primaryButtonText,
                     CloseButtonText = I18n.GetString("Update_Dialog_Later"),
                     DefaultButton = ContentDialogButton.Primary
                 };
@@ -268,7 +301,62 @@ namespace FolderRewind.Views
                 var result = await ShowDialogAsync(dialog);
                 if (result != ContentDialogResult.Primary) return;
 
-                await Windows.System.Launcher.LaunchUriAsync(new Uri(update.ReleaseUrl));
+                if (update.PrimaryAction == UpdatePrimaryAction.PrepareSideloadPackage)
+                {
+                    var prepare = await AppSideloadUpdateService.PrepareUpdateAsync(update);
+                    if (!prepare.Success)
+                    {
+                        var failedDialog = new ContentDialog
+                        {
+                            Title = I18n.GetString("Update_Prepare_Title"),
+                            Content = string.Format(I18n.GetString("Update_Prepare_Failed"), prepare.ErrorMessage),
+                            CloseButtonText = I18n.GetString("Common_Ok"),
+                            DefaultButton = ContentDialogButton.Close
+                        };
+
+                        await ShowDialogAsync(failedDialog);
+                        return;
+                    }
+
+                    var successDialog = new ContentDialog
+                    {
+                        Title = I18n.GetString("Update_Prepare_Title"),
+                        Content = string.Format(
+                            I18n.GetString("Update_Prepare_Success"),
+                            prepare.SourceDisplayName,
+                            prepare.InstallScriptPath),
+                        PrimaryButtonText = I18n.GetString("Update_Prepare_OpenFolder"),
+                        CloseButtonText = I18n.GetString("Common_Ok"),
+                        DefaultButton = ContentDialogButton.Primary
+                    };
+
+                    var prepareResult = await ShowDialogAsync(successDialog);
+                    if (prepareResult == ContentDialogResult.Primary)
+                    {
+                        if (!ShellPathService.TryRevealPathInExplorer(prepare.InstallScriptPath, out var revealError))
+                        {
+                            var revealFailedDialog = new ContentDialog
+                            {
+                                Title = I18n.GetString("Update_Prepare_Title"),
+                                Content = string.Format(
+                                    I18n.GetString("Update_Prepare_OpenFolderFailed"),
+                                    string.IsNullOrWhiteSpace(revealError) ? I18n.GetString("Common_Failed") : revealError),
+                                CloseButtonText = I18n.GetString("Common_Ok"),
+                                DefaultButton = ContentDialogButton.Close
+                            };
+
+                            await ShowDialogAsync(revealFailedDialog);
+                        }
+                    }
+
+                    return;
+                }
+
+                var targetUrl = string.IsNullOrWhiteSpace(update.PrimaryActionUrl)
+                    ? update.ReleaseUrl
+                    : update.PrimaryActionUrl;
+
+                await Windows.System.Launcher.LaunchUriAsync(new Uri(targetUrl));
             }
             catch (Exception ex)
             {
@@ -374,6 +462,7 @@ namespace FolderRewind.Views
             {
                 if (ContentFrame.SourcePageType == pageType && parameter == null)
                 {
+                    // 同页重复点击时不重建页面，只纠正导航栏选中态和标题。
                     UpdateNavSelection(pageTag);
                     UpdatePageHeader(pageTag);
                     return;
@@ -385,22 +474,15 @@ namespace FolderRewind.Views
                 // 2. 同步左侧导航栏的选中状态 (解决你提到的不同步问题)
                 UpdateNavSelection(pageTag);
 
-                // 3. 更新页面 Header (仅 Home 显示 FolderRewind)
+                // 3. 同步页面标题区状态。
                 UpdatePageHeader(pageTag);
             }
         }
 
         private void UpdatePageHeader(string pageTag)
         {
+            // 当前版本统一不显示页头，保留方法便于后续恢复定制标题策略。
             NavView.Header = null;
-            //if (pageTag == "Home")
-            //{
-            //    NavView.Header = "FolderRewind";
-            //}
-            //else
-            //{
-            //    NavView.Header = null;
-            //}
         }
 
         private void UpdateNavSelection(string pageTag)
@@ -416,6 +498,7 @@ namespace FolderRewind.Views
 
             try
             {
+                // 选中项变更会触发 SelectionChanged，这里用标记避免自激循环。
                 _isSyncingSelection = true;
                 NavView.SelectedItem = targetItem;
             }
@@ -427,16 +510,32 @@ namespace FolderRewind.Views
 
         private void NavView_PaneOpened(NavigationView sender, object args)
         {
-            PersistPaneState(true);
+            if (_isSyncingPaneState)
+            {
+                return;
+            }
+
+            PersistPaneState(true, sender.DisplayMode);
         }
 
         private void NavView_PaneClosed(NavigationView sender, object args)
         {
-            PersistPaneState(false);
+            if (_isSyncingPaneState)
+            {
+                return;
+            }
+
+            PersistPaneState(false, sender.DisplayMode);
         }
 
-        private static void PersistPaneState(bool isOpen)
+        private static void PersistPaneState(bool isOpen, NavigationViewDisplayMode displayMode)
         {
+            // 紧凑/最小模式下的展开是临时面板，不写入持久化状态。
+            if (displayMode != NavigationViewDisplayMode.Expanded)
+            {
+                return;
+            }
+
             var settings = ConfigService.CurrentConfig?.GlobalSettings;
             if (settings == null) return;
 
@@ -444,6 +543,34 @@ namespace FolderRewind.Views
             {
                 settings.IsNavPaneOpen = isOpen;
                 ConfigService.Save();
+            }
+        }
+
+        private void NavView_DisplayModeChanged(NavigationView sender, NavigationViewDisplayModeChangedEventArgs args)
+        {
+            SyncPaneStateWithDisplayMode(ConfigService.CurrentConfig?.GlobalSettings);
+        }
+
+        private void SyncPaneStateWithDisplayMode(GlobalSettings? settings)
+        {
+            var targetIsPaneOpen = NavView.DisplayMode == NavigationViewDisplayMode.Expanded
+                ? (settings?.IsNavPaneOpen ?? true)
+                : false;
+
+            if (NavView.IsPaneOpen == targetIsPaneOpen)
+            {
+                return;
+            }
+
+            try
+            {
+                _isSyncingPaneState = true;
+                // 进入窄宽度时强制折叠，用户点击汉堡按钮时再临时展开。
+                NavView.IsPaneOpen = targetIsPaneOpen;
+            }
+            finally
+            {
+                _isSyncingPaneState = false;
             }
         }
 

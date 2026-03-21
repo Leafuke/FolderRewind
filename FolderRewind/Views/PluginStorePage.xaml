@@ -18,21 +18,21 @@
                     <ColumnDefinition Width="*"/>
                     <ColumnDefinition Width="Auto"/>
                 </Grid.ColumnDefinitions>
-                <TextBox x:Uid="PluginStorePage_RepoBox" Text="{x:Bind StoreRepo, Mode=TwoWay}"/>
-                <Button x:Uid="PluginStorePage_Load" Grid.Column="1" VerticalAlignment="Bottom" Click="OnLoadClick" IsEnabled="{x:Bind CanLoad, Mode=OneWay}"/>
+                <TextBox x:Uid="PluginStorePage_RepoBox" Text="{x:Bind ViewModel.StoreRepo, Mode=TwoWay}"/>
+                <Button x:Uid="PluginStorePage_Load" Grid.Column="1" VerticalAlignment="Bottom" Command="{x:Bind ViewModel.LoadCommand}" IsEnabled="{x:Bind ViewModel.CanLoad, Mode=OneWay}"/>
             </Grid>
 
-            <ProgressRing IsActive="{x:Bind IsLoading, Mode=OneWay}" Visibility="{x:Bind IsLoading, Mode=OneWay, Converter={StaticResource BoolToVisConverter}}" Width="28" Height="28"/>
+            <ProgressRing IsActive="{x:Bind ViewModel.IsLoading, Mode=OneWay}" Visibility="{x:Bind ViewModel.IsLoading, Mode=OneWay, Converter={StaticResource BoolToVisConverter}}" Width="28" Height="28"/>
 
-            <TextBlock Text="{x:Bind ReleaseSummary, Mode=OneWay}" Visibility="{x:Bind ReleaseSummaryVisibility, Mode=OneWay}" Foreground="{ThemeResource TextFillColorSecondaryBrush}"/>
+            <TextBlock Text="{x:Bind ViewModel.ReleaseSummary, Mode=OneWay}" Visibility="{x:Bind ViewModel.ReleaseSummaryVisibility, Mode=OneWay}" Foreground="{ThemeResource TextFillColorSecondaryBrush}"/>
 
-            <TextBlock Text="{x:Bind StatusMessage, Mode=OneWay}" Visibility="{x:Bind StatusVisibility, Mode=OneWay}" Foreground="{ThemeResource TextFillColorSecondaryBrush}" TextWrapping="Wrap"/>
+            <TextBlock Text="{x:Bind ViewModel.StatusMessage, Mode=OneWay}" Visibility="{x:Bind ViewModel.StatusVisibility, Mode=OneWay}" Foreground="{ThemeResource TextFillColorSecondaryBrush}" TextWrapping="Wrap"/>
 
-            <TextBlock x:Uid="PluginStorePage_EmptyRepoHint" Foreground="{ThemeResource TextFillColorSecondaryBrush}" Visibility="{x:Bind EmptyRepoHintVisibility, Mode=OneWay}"/>
+            <TextBlock x:Uid="PluginStorePage_EmptyRepoHint" Foreground="{ThemeResource TextFillColorSecondaryBrush}" Visibility="{x:Bind ViewModel.EmptyRepoHintVisibility, Mode=OneWay}"/>
 
-            <TextBlock x:Uid="PluginStorePage_NoAssets" Foreground="{ThemeResource TextFillColorSecondaryBrush}" Visibility="{x:Bind EmptyListVisibility, Mode=OneWay}"/>
+            <TextBlock x:Uid="PluginStorePage_NoAssets" Foreground="{ThemeResource TextFillColorSecondaryBrush}" Visibility="{x:Bind ViewModel.EmptyListVisibility, Mode=OneWay}"/>
 
-            <ListView ItemsSource="{x:Bind Assets, Mode=OneWay}">
+            <ListView ItemsSource="{x:Bind ViewModel.Assets, Mode=OneWay}">
                 <ListView.ItemTemplate>
                     <DataTemplate x:DataType="plugins:PluginStoreAssetItem">
                         <Grid Padding="8">

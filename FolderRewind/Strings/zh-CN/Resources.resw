@@ -663,15 +663,6 @@
   <data name="ConfigSettingsDialog_KeepCount.Header" xml:space="preserve">
     <value>保留最近备份数 (0 为无限)</value>
   </data>
-  <data name="ConfigSettingsDialog_ArchivePassword.Text" xml:space="preserve">
-    <value>压缩包密码（可选）</value>
-  </data>
-  <data name="ConfigSettingsDialog_ArchivePasswordPlaceholder.PlaceholderText" xml:space="preserve">
-    <value>不需要请留空</value>
-  </data>
-  <data name="ConfigSettingsDialog_ArchivePasswordDesc.Text" xml:space="preserve">
-    <value>仅应用于新创建的压缩包，请妥善保存此密码。</value>
-  </data>
   <data name="ConfigSettingsDialog_Method.Header" xml:space="preserve">
     <value>压缩算法</value>
   </data>
@@ -735,6 +726,9 @@
   <data name="ConfigSettingsDialog_RunOnAppStart.Content" xml:space="preserve">
     <value>程序启动时运行</value>
   </data>
+  <data name="ConfigSettingsDialog_IntervalMode.Content" xml:space="preserve">
+    <value>间隔备份模式</value>
+  </data>
   <data name="ConfigSettingsDialog_IntervalMinutes.Text" xml:space="preserve">
     <value>周期运行间隔</value>
   </data>
@@ -743,12 +737,6 @@
   </data>
   <data name="ConfigSettingsDialog_ScheduledMode.Content" xml:space="preserve">
     <value>计划备份模式</value>
-  </data>
-  <data name="ConfigSettingsDialog_ScheduledTime.Text" xml:space="preserve">
-    <value>执行时间:</value>
-  </data>
-  <data name="ConfigSettingsDialog_ScheduledTimeSuffix.Text" xml:space="preserve">
-    <value>点 (24小时制)</value>
   </data>
   <data name="ConfigSettingsDialog_Filter.Header" xml:space="preserve">
     <value>过滤</value>
@@ -778,10 +766,10 @@
     <value>添加</value>
   </data>
   <data name="ConfigSettingsDialog_BackupStrategy.Header" xml:space="preserve">
-    <value>备份策略</value>
+    <value>备份</value>
   </data>
   <data name="ConfigSettingsDialog_RestoreStrategy.Header" xml:space="preserve">
-    <value>还原策略</value>
+    <value>还原</value>
   </data>
   <data name="ConfigSettingsDialog_MaxSmartChain.Header" xml:space="preserve">
     <value>智能备份链长度 (0 为不限制)</value>
@@ -804,9 +792,6 @@
   <data name="BackupService_Log_SmartChainCheckFailed" xml:space="preserve">
     <value>智能备份链长度检查失败：{0}</value>
   </data>
-  <data name="BackupService_Log_PruneSkipAllImportant" xml:space="preserve">
-    <value>所有备份均被标记为重要，跳过自动清理</value>
-  </data>
   <data name="BackupService_Log_PrunedOldBackup" xml:space="preserve">
     <value>已清理旧备份：{0}</value>
   </data>
@@ -815,9 +800,6 @@
   </data>
   <data name="BackupService_Log_SafeDeleteStart" xml:space="preserve">
     <value>[安全删除] 开始处理：{0}</value>
-  </data>
-  <data name="BackupService_Log_SafeDeleteEndOfChain" xml:space="preserve">
-    <value>[安全删除] 该备份位于链尾或下一个是全量备份，直接删除</value>
   </data>
   <data name="BackupService_Log_SafeDeleteNo7z" xml:space="preserve">
     <value>[安全删除] 未找到 7z 程序，回退为直接删除</value>
@@ -828,17 +810,8 @@
   <data name="BackupService_Log_SafeDeleteStep2" xml:space="preserve">
     <value>[安全删除] 步骤 2/4：将内容合并到下一个备份</value>
   </data>
-  <data name="BackupService_Log_SafeDeletePromote" xml:space="preserve">
-    <value>[安全删除] 步骤 3/4：被删除的是全量备份，将下一个增量备份升级为全量</value>
-  </data>
-  <data name="BackupService_Log_SafeDeleteStep4" xml:space="preserve">
-    <value>[安全删除] 步骤 4/4：删除原始文件</value>
-  </data>
   <data name="BackupService_Log_SafeDeleteRenamed" xml:space="preserve">
     <value>[安全删除] 已将备份升级并重命名为：{0}</value>
-  </data>
-  <data name="BackupService_Log_SafeDeleteRenameFailed" xml:space="preserve">
-    <value>[安全删除] 重命名失败：{0}</value>
   </data>
   <data name="BackupService_Log_SafeDeleteSuccess" xml:space="preserve">
     <value>[安全删除] 成功删除备份：{0}</value>
@@ -854,6 +827,105 @@
   </data>
   <data name="SettingsPage_LogDiag.Text" xml:space="preserve">
     <value>日志与诊断</value>
+  </data>
+  <data name="SettingsPage_CoreValidation.Text" xml:space="preserve">
+    <value>核心功能自动校验</value>
+  </data>
+  <data name="SettingsPage_CoreValidationSectionDesc.Text" xml:space="preserve">
+    <value>自动验证备份与还原核心流程是否能在当前电脑上正常工作</value>
+  </data>
+  <data name="SettingsPage_CoreValidation_Run.Text" xml:space="preserve">
+    <value>执行完整自检</value>
+  </data>
+  <data name="SettingsPage_CoreValidation_RunDesc.Text" xml:space="preserve">
+    <value>自动创建临时配置并验证智能备份、共享锁文件、还原、安全删除与数量限制等关键行为</value>
+  </data>
+  <data name="SettingsPage_CoreValidation_RunButton.Content" xml:space="preserve">
+    <value>立即校验</value>
+  </data>
+  <data name="SettingsPage_CoreValidation_ViewReportButton.Content" xml:space="preserve">
+    <value>查看本次报告</value>
+  </data>
+  <data name="SettingsPage_CoreValidation_State.Text" xml:space="preserve">
+    <value>当前状态</value>
+  </data>
+  <data name="SettingsPage_CoreValidation_StateDesc.Text" xml:space="preserve">
+    <value>展示运行状态、最近执行时间与最近一次摘要</value>
+  </data>
+  <data name="CoreValidation_Status_Idle" xml:space="preserve">
+    <value>尚未开始核心功能自动校验</value>
+  </data>
+  <data name="CoreValidation_Status_Preparing" xml:space="preserve">
+    <value>正在准备核心功能自动校验环境</value>
+  </data>
+  <data name="CoreValidation_Status_Step" xml:space="preserve">
+    <value>正在执行：{0}</value>
+  </data>
+  <data name="CoreValidation_Status_Succeeded" xml:space="preserve">
+    <value>核心功能自动校验已通过</value>
+  </data>
+  <data name="CoreValidation_Status_Failed" xml:space="preserve">
+    <value>核心功能自动校验失败</value>
+  </data>
+  <data name="CoreValidation_LastRun_None" xml:space="preserve">
+    <value>最近执行：尚未执行</value>
+  </data>
+  <data name="CoreValidation_LastRun_Value" xml:space="preserve">
+    <value>最近执行：{0}</value>
+  </data>
+  <data name="CoreValidation_LastSummary_None" xml:space="preserve">
+    <value>最近摘要：暂无</value>
+  </data>
+  <data name="CoreValidation_AlreadyRunning" xml:space="preserve">
+    <value>核心功能自动校验正在进行中，请稍后再试。</value>
+  </data>
+  <data name="CoreValidation_AutoNotificationTitle" xml:space="preserve">
+    <value>核心功能自动校验</value>
+  </data>
+  <data name="CoreValidation_Report_Title" xml:space="preserve">
+    <value>核心功能自动校验报告</value>
+  </data>
+  <data name="CoreValidation_Report_NoData" xml:space="preserve">
+    <value>当前会话还没有可查看的校验报告。</value>
+  </data>
+  <data name="CoreValidation_Summary_Passed" xml:space="preserve">
+    <value>备份与还原核心功能自动校验全部通过。</value>
+  </data>
+  <data name="CoreValidation_Summary_Failed" xml:space="preserve">
+    <value>备份与还原核心功能自动校验失败。</value>
+  </data>
+  <data name="CoreValidation_Step_PrepareWorkspace" xml:space="preserve">
+    <value>准备临时校验环境</value>
+  </data>
+  <data name="CoreValidation_Step_InitialFullBackup" xml:space="preserve">
+    <value>初始全量备份校验</value>
+  </data>
+  <data name="CoreValidation_Step_NoChangeSkip" xml:space="preserve">
+    <value>无变化跳过校验</value>
+  </data>
+  <data name="CoreValidation_Step_SmartIncrementalBackup" xml:space="preserve">
+    <value>智能增量备份校验</value>
+  </data>
+  <data name="CoreValidation_Step_SharedLockBackup" xml:space="preserve">
+    <value>共享锁文件备份校验</value>
+  </data>
+  <data name="CoreValidation_Step_DeletionOnlyBackup" xml:space="preserve">
+    <value>仅删除变更备份校验</value>
+  </data>
+  <data name="CoreValidation_Step_CleanRestore" xml:space="preserve">
+    <value>清洁还原校验</value>
+  </data>
+  <data name="CoreValidation_Step_OverwriteRestore" xml:space="preserve">
+    <value>覆写还原校验</value>
+  </data>
+  <data name="CoreValidation_Step_SafeDelete" xml:space="preserve">
+    <value>安全删除校验</value>
+  </data>
+  <data name="CoreValidation_Step_KeepCountPrune" xml:space="preserve">
+    <value>数量限制与自动清理校验</value>
+  </data>
+  <data name="CoreValidation_Step_FatalError" xml:space="preserve">
+    <value>致命错误</value>
   </data>
   <data name="SettingsPage_LogEnabled.Text" xml:space="preserve">
     <value>自动记录应用日志</value>
@@ -950,12 +1022,6 @@
   </data>
   <data name="PluginStorePage_Install.Content" xml:space="preserve">
     <value>安装</value>
-  </data>
-  <data name="PluginStorePage_SearchBox.PlaceholderText" xml:space="preserve">
-    <value>按文件名或标签筛选</value>
-  </data>
-  <data name="PluginStorePage_ZipOnly.Header" xml:space="preserve">
-    <value>仅显示 ZIP</value>
   </data>
   <data name="PluginStorePage_NoAssets.Text" xml:space="preserve">
     <value>当前没有可显示的插件资产（可能被筛选条件过滤）。</value>
@@ -1461,14 +1527,6 @@
     <value>[App UnhandledException] {0}
 {1}</value>
   </data>
-  <data name="App_StartupFailedWindowTitle" xml:space="preserve">
-    <value>FolderRewind - 启动失败</value>
-  </data>
-  <data name="App_StartupFailedWindowContent" xml:space="preserve">
-    <value>启动失败：{0}
-
-{1}</value>
-  </data>
   <data name="Config_DefaultBackupName" xml:space="preserve">
     <value>示例配置</value>
   </data>
@@ -1637,6 +1695,18 @@
   <data name="BackupService_Log_SystemError" xml:space="preserve">
     <value>系统错误: {0}</value>
   </data>
+  <data name="BackupService_Log_InvalidStorageFolderName" xml:space="preserve">
+    <value>当前文件夹显示名称无法安全映射到备份目录，请修改后重试。</value>
+  </data>
+  <data name="BackupService_Log_InvalidRestoreStorageFolderName" xml:space="preserve">
+    <value>当前历史记录对应的文件夹名称无法安全映射到元数据目录，无法继续还原。</value>
+  </data>
+  <data name="BackupService_Log_SevenZipStartFailed" xml:space="preserve">
+    <value>无法启动 7z 进程。</value>
+  </data>
+  <data name="BackupService_Log_SevenZipTimeout" xml:space="preserve">
+    <value>7z 进程执行超时（{0} 秒）。</value>
+  </data>
   <data name="BackupService_Log_BackupBeforeRestore" xml:space="preserve">
     <value>还原前自动备份: {0}</value>
   </data>
@@ -1672,9 +1742,6 @@
   </data>
   <data name="BackupService_Log_RestoreSnapshotPrepareFailed" xml:space="preserve">
     <value>创建安全还原快照失败：{0}</value>
-  </data>
-  <data name="BackupService_Log_RestoreSnapshotCleanupFailed" xml:space="preserve">
-    <value>清理还原快照失败：{0}</value>
   </data>
   <data name="BackupService_Log_RestoreRollbackBegin" xml:space="preserve">
     <value>还原失败，开始回滚目录快照：{0}</value>
@@ -1742,9 +1809,6 @@
   </data>
   <data name="History_FileMissing" xml:space="preserve">
     <value>文件丢失</value>
-  </data>
-  <data name="Plugins_NotImplemented" xml:space="preserve">
-    <value>插件未实现此功能</value>
   </data>
   <data name="Common_Tip" xml:space="preserve">
     <value>提示</value>
@@ -1824,99 +1888,6 @@
   <data name="Hotkeys_PluginRegisterFailed" xml:space="preserve">
     <value>插件热键注册失败：{0} - {1}</value>
   </data>
-  <data name="MineRewind_Setting_EnableHotBackup_Name" xml:space="preserve">
-    <value>启用热备份</value>
-  </data>
-  <data name="MineRewind_Setting_EnableHotBackup_Desc" xml:space="preserve">
-    <value>与联动模组说悄悄话，确保热备份的完美进行~</value>
-  </data>
-  <data name="MineRewind_Setting_SnapshotPath_Name" xml:space="preserve">
-    <value>快照存储路径</value>
-  </data>
-  <data name="MineRewind_Setting_SnapshotPath_Desc" xml:space="preserve">
-    <value>热备份快照的临时存储路径；留空则使用系统临时目录。</value>
-  </data>
-  <data name="MineRewind_Setting_CleanupSnapshot_Name" xml:space="preserve">
-    <value>备份后清理快照</value>
-  </data>
-  <data name="MineRewind_Setting_CleanupSnapshot_Desc" xml:space="preserve">
-    <value>备份完成后自动删除临时快照目录。</value>
-  </data>
-  <data name="MineRewind_Setting_SnapshotDelay_Name" xml:space="preserve">
-    <value>快照延迟（毫秒）</value>
-  </data>
-  <data name="MineRewind_Setting_SnapshotDelay_Desc" xml:space="preserve">
-    <value>创建快照后等待的时间，确保文件系统操作完成。</value>
-  </data>
-  <data name="MineRewind_CreateConfigs_Result" xml:space="preserve">
-    <value>已创建 {0} 个 Minecraft 存档配置</value>
-  </data>
-  <data name="MineRewind_Hotkey_ActiveWorldBackup_Name" xml:space="preserve">
-    <value>热备份正在运行的世界</value>
-  </data>
-  <data name="MineRewind_Hotkey_ActiveWorldBackup_Desc" xml:space="preserve">
-    <value>检测正在运行（文件被占用）的 Minecraft 存档，并触发热备份。</value>
-  </data>
-  <data name="MineRewind_Hotkey_NoActiveWorld" xml:space="preserve">
-    <value>[MineRewind] 未检测到正在运行的世界（未发现被占用的存档）。</value>
-  </data>
-  <data name="MineRewind_Hotkey_Failed" xml:space="preserve">
-    <value>[MineRewind] 热键触发备份失败：{0}</value>
-  </data>
-  <data name="MineRewind_KnotLink_BackupCurrent_Failed" xml:space="preserve">
-    <value>[MineRewind] KnotLink BACKUP_CURRENT 失败：{0}</value>
-  </data>
-  <data name="MineRewind_Snapshot_Locked" xml:space="preserve">
-    <value>[MineRewind] 检测到 level.dat 被占用，已启用热备份快照：{0}</value>
-  </data>
-  <data name="MineRewind_Snapshot_Created" xml:space="preserve">
-    <value>[MineRewind] 已创建热备份快照：{0}</value>
-  </data>
-  <data name="MineRewind_Snapshot_CreateFailed" xml:space="preserve">
-    <value>[MineRewind] 创建快照失败：{0}</value>
-  </data>
-  <data name="MineRewind_Snapshot_Cleaned" xml:space="preserve">
-    <value>[MineRewind] 已清理热备份快照：{0}</value>
-  </data>
-  <data name="MineRewind_Snapshot_CleanupFailed" xml:space="preserve">
-    <value>[MineRewind] 清理快照失败：{0}</value>
-  </data>
-  <data name="MineRewind_Snapshot_CleanupOldFailed" xml:space="preserve">
-    <value>[MineRewind] 清理旧快照失败：{0}</value>
-  </data>
-  <data name="MineRewind_Snapshot_VerifyFailed" xml:space="preserve">
-    <value>[MineRewind] 快照创建后验证失败</value>
-  </data>
-  <data name="MineRewind_Snapshot_Exception" xml:space="preserve">
-    <value>[MineRewind] CreateSnapshot 异常：{0}</value>
-  </data>
-  <data name="MineRewind_Xcopy_StartFailed" xml:space="preserve">
-    <value>[MineRewind] 无法启动 xcopy 进程</value>
-  </data>
-  <data name="MineRewind_Xcopy_Timeout" xml:space="preserve">
-    <value>[MineRewind] xcopy 超时</value>
-  </data>
-  <data name="MineRewind_Xcopy_Stderr" xml:space="preserve">
-    <value>[MineRewind] xcopy 标准错误输出：{0}</value>
-  </data>
-  <data name="MineRewind_Hotkey_QuickRestore_Name" xml:space="preserve">
-    <value>快速还原当前存档</value>
-  </data>
-  <data name="MineRewind_Hotkey_QuickRestore_Desc" xml:space="preserve">
-    <value>将当前正在运行的 Minecraft 存档还原到最新备份（需要联动模组支持）</value>
-  </data>
-  <data name="MineRewind_Hotkey_QuickRestore_NoActive" xml:space="preserve">
-    <value>[MineRewind] 快速还原：未检测到活跃存档</value>
-  </data>
-  <data name="MineRewind_Hotkey_QuickRestore_Failed" xml:space="preserve">
-    <value>[MineRewind] 快速还原热键失败：{0}</value>
-  </data>
-  <data name="MineRewind_Setting_PreservePlayerData_Name" xml:space="preserve">
-    <value>还原时保留玩家数据</value>
-  </data>
-  <data name="MineRewind_Setting_PreservePlayerData_Desc" xml:space="preserve">
-    <value>还原存档时保留当前玩家的位置、物品栏、经验等数据（仅单人存档）。</value>
-  </data>
   <data name="PluginService_BeforeRestoreFailed" xml:space="preserve">
     <value>插件 {0} 还原前钩子失败：{1}</value>
   </data>
@@ -1952,12 +1923,6 @@
   </data>
   <data name="CloseDialog_Remember" xml:space="preserve">
     <value>记住我的选择</value>
-  </data>
-  <data name="Tray_Show" xml:space="preserve">
-    <value>显示</value>
-  </data>
-  <data name="Tray_Exit" xml:space="preserve">
-    <value>退出</value>
   </data>
   <data name="HistoryPage_DeleteButton.Content" xml:space="preserve">
     <value>删除</value>
@@ -2222,12 +2187,6 @@
   </data>
   <data name="MiniWindow_Log_HotkeyRegisterFailed" xml:space="preserve">
     <value>Mini 热键注册失败：{0}</value>
-  </data>
-  <data name="MiniWindow_Log_WatcherError" xml:space="preserve">
-    <value>文件夹监视器错误 [{0}]：{1}</value>
-  </data>
-  <data name="MiniWindow_Log_WatcherStartFailed" xml:space="preserve">
-    <value>文件夹监视器启动失败 [{0}]：{1}</value>
   </data>
   <data name="Hotkeys_MiniBackup_DisplayName" xml:space="preserve">
     <value>Mini 备份</value>
@@ -2650,17 +2609,117 @@
   <data name="Update_Dialog_OpenRelease" xml:space="preserve">
     <value>查看并下载</value>
   </data>
+  <data name="Update_Dialog_OpenStore" xml:space="preserve">
+    <value>前往 Microsoft Store</value>
+  </data>
+  <data name="Update_Dialog_PrepareSideload" xml:space="preserve">
+    <value>下载并准备安装</value>
+  </data>
   <data name="Update_Dialog_Later" xml:space="preserve">
     <value>稍后</value>
   </data>
   <data name="Update_Dialog_EmptyNotes" xml:space="preserve">
     <value>该版本未提供更新说明。</value>
   </data>
+  <data name="Update_Dialog_StoreDelayHint" xml:space="preserve">
+    <value>提示：Microsoft Store 的版本同步可能略有延迟，如未立即看到新版本可稍后重试。</value>
+  </data>
+  <data name="Update_Prepare_Title" xml:space="preserve">
+    <value>更新包准备结果</value>
+  </data>
+  <data name="Update_Prepare_Success" xml:space="preserve">
+    <value>更新包已准备完成（来源：{0}）。请右键运行以下脚本继续安装：
+{1}</value>
+  </data>
+  <data name="Update_Prepare_OpenFolder" xml:space="preserve">
+    <value>打开安装目录</value>
+  </data>
+  <data name="Update_Prepare_OpenFolderFailed" xml:space="preserve">
+    <value>无法打开安装目录：{0}</value>
+  </data>
+  <data name="Update_Prepare_Failed" xml:space="preserve">
+    <value>更新包准备失败：{0}</value>
+  </data>
+  <data name="Update_Prepare_InvalidContext" xml:space="preserve">
+    <value>更新上下文无效，请稍后重试。</value>
+  </data>
+  <data name="Update_Prepare_MissingAssets" xml:space="preserve">
+    <value>当前版本未提供适配你设备的 .7z 或 .sha256 资产，无法自动准备更新。</value>
+  </data>
+  <data name="Update_Prepare_NoDownloadSource" xml:space="preserve">
+    <value>没有可用的更新下载源，请检查镜像配置。</value>
+  </data>
+  <data name="Update_Prepare_InvalidShaFile" xml:space="preserve">
+    <value>无法解析 .sha256 文件内容。</value>
+  </data>
+  <data name="Update_Prepare_HashMismatch" xml:space="preserve">
+    <value>源“{0}”校验失败（SHA256 不匹配）。</value>
+  </data>
+  <data name="Update_Prepare_ExtractStartFailed" xml:space="preserve">
+    <value>无法启动 7z 解压进程。</value>
+  </data>
+  <data name="Update_Prepare_ExtractFailedWithSource" xml:space="preserve">
+    <value>源“{0}”解压失败：{1}</value>
+  </data>
+  <data name="Update_Prepare_InstallScriptMissing" xml:space="preserve">
+    <value>更新包已解压，但未找到 Install.ps1，请改为手动下载并安装。</value>
+  </data>
+  <data name="Update_Prepare_DownloadFailedWithSource" xml:space="preserve">
+    <value>源“{0}”下载失败：{1}</value>
+  </data>
+  <data name="Update_Prepare_FailedGeneric" xml:space="preserve">
+    <value>准备更新包失败，请稍后重试。</value>
+  </data>
+  <data name="Update_Source_Official" xml:space="preserve">
+    <value>官方 GitHub</value>
+  </data>
+  <data name="Update_Source_Mirror1" xml:space="preserve">
+    <value>镜像源 1</value>
+  </data>
+  <data name="Update_Source_Mirror2" xml:space="preserve">
+    <value>镜像源 2</value>
+  </data>
+  <data name="Update_Source_Custom" xml:space="preserve">
+    <value>自定义镜像</value>
+  </data>
   <data name="SettingsPage_EnableUpdateReminder.Text" xml:space="preserve">
     <value>启动时检查更新提醒</value>
   </data>
   <data name="SettingsPage_EnableUpdateReminderDesc.Text" xml:space="preserve">
-    <value>启动应用时检查 GitHub Release 新版本并提示更新内容</value>
+    <value>启动应用时检查新版本，并按安装来源提供对应更新入口</value>
+  </data>
+  <data name="SettingsPage_AppUpdateSource.Text" xml:space="preserve">
+    <value>下载源</value>
+  </data>
+  <data name="SettingsPage_AppUpdateSourceDesc.Text" xml:space="preserve">
+    <value>用于应用更新、在线模板列表和模板文件下载的首选来源（商店版更新不受此项影响）</value>
+  </data>
+  <data name="SettingsPage_AppUpdateSource_Official.Content" xml:space="preserve">
+    <value>官方 GitHub</value>
+  </data>
+  <data name="SettingsPage_AppUpdateSource_Mirror1.Content" xml:space="preserve">
+    <value>镜像源 1</value>
+  </data>
+  <data name="SettingsPage_AppUpdateSource_Mirror2.Content" xml:space="preserve">
+    <value>镜像源 2</value>
+  </data>
+  <data name="SettingsPage_AppUpdateSource_Custom.Content" xml:space="preserve">
+    <value>自定义镜像</value>
+  </data>
+  <data name="SettingsPage_AppUpdateAutoFallback.Text" xml:space="preserve">
+    <value>下载失败时自动切换源</value>
+  </data>
+  <data name="SettingsPage_AppUpdateAutoFallbackDesc.Text" xml:space="preserve">
+    <value>首选源失败后自动按顺序重试其他来源</value>
+  </data>
+  <data name="SettingsPage_AppUpdateCustomMirror.Text" xml:space="preserve">
+    <value>自定义镜像地址</value>
+  </data>
+  <data name="SettingsPage_AppUpdateCustomMirrorDesc.Text" xml:space="preserve">
+    <value>可填写前缀，或使用 {url} 占位符拼接完整下载地址</value>
+  </data>
+  <data name="SettingsPage_AppUpdateCustomMirrorInput.PlaceholderText" xml:space="preserve">
+    <value>例如：https://example.com/{url}</value>
   </data>
   <data name="HistoryPage_ScanRecover.ToolTipService.ToolTip" xml:space="preserve">
     <value>扫描备份文件夹并重建丢失的历史记录</value>
@@ -2688,5 +2747,716 @@
   </data>
   <data name="SettingsPage_About_Link_Document.Content" xml:space="preserve">
     <value>阅读文档</value>
+  </data>
+  <data name="ConfigSettingsDialog_SaveAsTemplateText.Text" xml:space="preserve">
+    <value>保存为模板</value>
+  </data>
+  <data name="ConfigSettingsDialog_SaveAsTemplateDesc.Text" xml:space="preserve">
+    <value>将当前配置保存为可复用模板（含策略、过滤器与路径规则）。</value>
+  </data>
+  <data name="HomePage_AddFromTemplate.Text" xml:space="preserve">
+    <value>从模板创建</value>
+  </data>
+  <data name="SettingsPage_TemplateData.Text" xml:space="preserve">
+    <value>模板数据</value>
+  </data>
+  <data name="SettingsPage_TemplateDataDesc.Text" xml:space="preserve">
+    <value>导出或导入模板配置，用于跨设备共享和快速复用。</value>
+  </data>
+  <data name="SettingsPage_ExportTemplate.Content" xml:space="preserve">
+    <value>导出模板</value>
+  </data>
+  <data name="SettingsPage_ImportTemplate.Content" xml:space="preserve">
+    <value>导入模板</value>
+  </data>
+  <data name="Settings_Template_Export_NoTemplates" xml:space="preserve">
+    <value>当前没有可导出的模板。</value>
+  </data>
+  <data name="Settings_Template_SelectToExport" xml:space="preserve">
+    <value>选择要导出的模板</value>
+  </data>
+  <data name="Template_DefaultName" xml:space="preserve">
+    <value>新模板</value>
+  </data>
+  <data name="Template_SaveDialog_Title" xml:space="preserve">
+    <value>保存为模板</value>
+  </data>
+  <data name="Template_SaveDialog_Hint" xml:space="preserve">
+    <value>将当前配置的策略与路径规则保存为模板，便于复用或分享。</value>
+  </data>
+  <data name="Template_SaveDialog_Name" xml:space="preserve">
+    <value>模板名称</value>
+  </data>
+  <data name="Template_SaveDialog_Author" xml:space="preserve">
+    <value>作者（可选）</value>
+  </data>
+  <data name="Template_SaveDialog_AuthorPlaceholder" xml:space="preserve">
+    <value>例如：你的昵称</value>
+  </data>
+  <data name="Template_SaveDialog_Description" xml:space="preserve">
+    <value>说明（可选）</value>
+  </data>
+  <data name="Template_Create_SourceConfigNull" xml:space="preserve">
+    <value>当前配置为空，无法创建模板。</value>
+  </data>
+  <data name="Template_Create_NameRequired" xml:space="preserve">
+    <value>模板名称不能为空。</value>
+  </data>
+  <data name="Template_Create_ConfigUnavailable" xml:space="preserve">
+    <value>当前配置不可用，无法保存模板。</value>
+  </data>
+  <data name="Template_Create_NoPathRules" xml:space="preserve">
+    <value>模板已保存，但未推断到可自动扫描的路径规则。</value>
+  </data>
+  <data name="Template_Create_Success" xml:space="preserve">
+    <value>已创建模板：{0}</value>
+  </data>
+  <data name="Template_Create_OverwriteSuccess" xml:space="preserve">
+    <value>已覆盖同名模板：{0}</value>
+  </data>
+  <data name="Template_Apply_TemplateNull" xml:space="preserve">
+    <value>模板为空，无法创建配置。</value>
+  </data>
+  <data name="Template_Apply_NameRequired" xml:space="preserve">
+    <value>配置名称不能为空。</value>
+  </data>
+  <data name="Template_AutoDiscoveredFolderDescription" xml:space="preserve">
+    <value>由模板自动识别</value>
+  </data>
+  <data name="Template_Apply_SuccessWithFolders" xml:space="preserve">
+    <value>已根据模板自动加入 {0} 个来源文件夹。</value>
+  </data>
+  <data name="Template_Apply_SuccessNoFolders" xml:space="preserve">
+    <value>配置已创建，但暂未自动识别到来源文件夹，请手动添加。</value>
+  </data>
+  <data name="Template_ConfigTypeUnavailable" xml:space="preserve">
+    <value>模板类型“{0}”对应的插件不可用，已回退为 Default。</value>
+  </data>
+  <data name="Template_Export_TemplateNotFound" xml:space="preserve">
+    <value>未找到要导出的模板。</value>
+  </data>
+  <data name="Template_Export_PathEmpty" xml:space="preserve">
+    <value>导出路径为空。</value>
+  </data>
+  <data name="Template_Export_Success" xml:space="preserve">
+    <value>模板已导出到：{0}</value>
+  </data>
+  <data name="Template_Export_Failed" xml:space="preserve">
+    <value>模板导出失败：{0}</value>
+  </data>
+  <data name="Template_Import_FileNotFound" xml:space="preserve">
+    <value>未找到模板文件。</value>
+  </data>
+  <data name="Template_Import_ConfigUnavailable" xml:space="preserve">
+    <value>当前配置不可用，无法导入模板。</value>
+  </data>
+  <data name="Template_Import_InvalidFile" xml:space="preserve">
+    <value>模板文件无效或格式不受支持。</value>
+  </data>
+  <data name="Template_Import_SchemaUnsupported" xml:space="preserve">
+    <value>模板文件版本过新，当前程序暂不支持导入。</value>
+  </data>
+  <data name="Template_Import_Overwrite" xml:space="preserve">
+    <value>已覆盖同名模板：{0}</value>
+  </data>
+  <data name="Template_Import_Success" xml:space="preserve">
+    <value>已导入模板：{0}</value>
+  </data>
+  <data name="Template_Import_KeepBothRenamed" xml:space="preserve">
+    <value>已导入模板，并重命名为“{1}”（原名：{0}）。</value>
+  </data>
+  <data name="Template_Import_ConflictTitle" xml:space="preserve">
+    <value>模板冲突</value>
+  </data>
+  <data name="Template_Import_ConflictContent" xml:space="preserve">
+    <value>导入的模板“{0}”与现有模板“{1}”发生冲突。你想覆盖现有模板，还是保留两份？</value>
+  </data>
+  <data name="Template_Import_ConflictReplace" xml:space="preserve">
+    <value>覆盖现有模板</value>
+  </data>
+  <data name="Template_Import_ConflictKeepBoth" xml:space="preserve">
+    <value>保留两份</value>
+  </data>
+  <data name="Template_Import_Failed" xml:space="preserve">
+    <value>模板导入失败：{0}</value>
+  </data>
+  <data name="Template_CreateFrom_Home_Title" xml:space="preserve">
+    <value>从模板创建配置</value>
+  </data>
+  <data name="Template_CreateFrom_Home_NoTemplates" xml:space="preserve">
+    <value>当前还没有本地模板。你可以先搜索官方模板并导入，再继续创建配置。</value>
+  </data>
+  <data name="Template_CreateFrom_Home_Template" xml:space="preserve">
+    <value>选择模板</value>
+  </data>
+  <data name="Template_CreateFrom_Home_LocalTemplatesHint" xml:space="preserve">
+    <value>可直接选择本地模板，或先搜索官方模板并导入后再创建。</value>
+  </data>
+  <data name="Template_CreateFrom_Home_OfficialSearchHeader" xml:space="preserve">
+    <value>搜索官方模板</value>
+  </data>
+  <data name="Template_CreateFrom_Home_OfficialSearchPlaceholder" xml:space="preserve">
+    <value>输入模板名、游戏名、作者或分享码后搜索官方仓库</value>
+  </data>
+  <data name="Template_CreateFrom_Home_SearchOfficial" xml:space="preserve">
+    <value>搜索官方模板</value>
+  </data>
+  <data name="Template_CreateFrom_Home_TemplateInfo" xml:space="preserve">
+    <value>模板“{0}”，包含 {1} 条路径规则。</value>
+  </data>
+  <data name="Template_CreateFrom_Home_SelectFoldersTitle" xml:space="preserve">
+    <value>确认识别到的来源文件夹</value>
+  </data>
+  <data name="Template_CreateFrom_Home_SelectFoldersDesc" xml:space="preserve">
+    <value>模板“{0}”识别到了 {1} 个候选来源文件夹。请确认哪些需要加入新配置。</value>
+  </data>
+  <data name="Template_CreateFrom_Home_SelectFoldersHint" xml:space="preserve">
+    <value>当前没有默认勾选项，建议你先确认候选路径是否正确，再继续创建。</value>
+  </data>
+  <data name="Template_CreateFrom_Home_FolderCandidateMeta" xml:space="preserve">
+    <value>规则：{0} | 置信度：{1} | {2}</value>
+  </data>
+  <data name="Template_CreateFrom_Home_FolderCandidateAuto" xml:space="preserve">
+    <value>默认添加</value>
+  </data>
+  <data name="Template_CreateFrom_Home_FolderCandidateSuggested" xml:space="preserve">
+    <value>建议确认</value>
+  </data>
+  <data name="Template_CreateFrom_Home_SelectionSummary" xml:space="preserve">
+    <value>配置已创建，共选择 {0} / {1} 个候选来源文件夹。</value>
+  </data>
+  <data name="Template_RequiredPluginsMissing" xml:space="preserve">
+    <value>模板依赖的插件未安装：{0}</value>
+  </data>
+  <data name="SettingsPage_ManageTemplates.Content" xml:space="preserve">
+    <value>管理模板</value>
+  </data>
+  <data name="TemplateManagerDialog.Title" xml:space="preserve">
+    <value>模板管理</value>
+  </data>
+  <data name="TemplateManagerDialog.CloseButtonText" xml:space="preserve">
+    <value>关闭</value>
+  </data>
+  <data name="TemplateManagerDialog_ListHeader.Text" xml:space="preserve">
+    <value>模板列表</value>
+  </data>
+  <data name="TemplateManagerDialog_Search.PlaceholderText" xml:space="preserve">
+    <value>按名称、作者或类型搜索</value>
+  </data>
+  <data name="TemplateManagerDialog_DetailHeader.Text" xml:space="preserve">
+    <value>模板详情</value>
+  </data>
+  <data name="TemplateManagerDialog_Name.Header" xml:space="preserve">
+    <value>模板名称</value>
+  </data>
+  <data name="TemplateManagerDialog_Author.Header" xml:space="preserve">
+    <value>作者</value>
+  </data>
+  <data name="TemplateManagerDialog_Description.Header" xml:space="preserve">
+    <value>说明</value>
+  </data>
+  <data name="TemplateManagerDialog_TemplateMeta.Text" xml:space="preserve">
+    <value>请选择左侧模板以查看详情。</value>
+  </data>
+  <data name="TemplateManagerDialog_TemplateMetaFormat" xml:space="preserve">
+    <value>类型：{0} | 更新时间：{1} | 规则数：{2}</value>
+  </data>
+  <data name="TemplateManagerDialog_Save.Content" xml:space="preserve">
+    <value>保存修改</value>
+  </data>
+  <data name="TemplateManagerDialog_Duplicate.Content" xml:space="preserve">
+    <value>复制模板</value>
+  </data>
+  <data name="TemplateManagerDialog_Delete.Content" xml:space="preserve">
+    <value>删除模板</value>
+  </data>
+  <data name="TemplateManagerDialog_Export.Content" xml:space="preserve">
+    <value>导出模板</value>
+  </data>
+  <data name="TemplateManagerDialog_DeleteConfirmYes.Content" xml:space="preserve">
+    <value>确认删除</value>
+  </data>
+  <data name="TemplateManagerDialog_DeleteConfirmNo.Content" xml:space="preserve">
+    <value>取消</value>
+  </data>
+  <data name="TemplateManagerDialog_PreviewHeader.Text" xml:space="preserve">
+    <value>规则预览</value>
+  </data>
+  <data name="TemplateManagerDialog_RefreshPreview.Content" xml:space="preserve">
+    <value>刷新预览</value>
+  </data>
+  <data name="TemplateManagerDialog_PathRulesHeader.Text" xml:space="preserve">
+    <value>路径匹配规则</value>
+  </data>
+  <data name="TemplateManagerDialog_PathRulesHint.Text" xml:space="preserve">
+    <value>支持直接编辑路径表达式，例如 {AppDataRoaming}\.minecraft\saves\{*} 或 {SteamUserData}\{UserIdCandidate}\123456\remote。使用 {*} 表示匹配这一层下的所有子文件夹，适合多存档、多角色或多用户目录。</value>
+  </data>
+  <data name="TemplateManagerDialog_AddRule.Content" xml:space="preserve">
+    <value>添加规则</value>
+  </data>
+  <data name="TemplateManagerDialog_SaveRules.Content" xml:space="preserve">
+    <value>保存规则</value>
+  </data>
+  <data name="TemplateManagerDialog_PathRuleName.Text" xml:space="preserve">
+    <value>规则名称</value>
+  </data>
+  <data name="TemplateManagerDialog_PathRulePath.Text" xml:space="preserve">
+    <value>路径表达式</value>
+  </data>
+  <data name="TemplateManagerDialog_PathRuleAuto.Content" xml:space="preserve">
+    <value>唯一命中时默认勾选</value>
+  </data>
+  <data name="TemplateManagerDialog_PathRuleConfidence.Text" xml:space="preserve">
+    <value>置信度（0-1）</value>
+  </data>
+  <data name="TemplateManagerDialog_RemoveRule.Content" xml:space="preserve">
+    <value>删除规则</value>
+  </data>
+  <data name="TemplateManagerDialog_NoRules.Text" xml:space="preserve">
+    <value>当前模板还没有路径规则，可手动添加。</value>
+  </data>
+  <data name="TemplateManagerDialog_PreviewSummary.Text" xml:space="preserve">
+    <value>选择模板后可查看规则命中结果。</value>
+  </data>
+  <data name="TemplateManagerDialog_NoPreview.Text" xml:space="preserve">
+    <value>暂无预览结果。</value>
+  </data>
+  <data name="TemplateManagerDialog_EmptyList.Text" xml:space="preserve">
+    <value>没有匹配的模板。</value>
+  </data>
+  <data name="Template_Manager_SelectFirst" xml:space="preserve">
+    <value>请先选择一个模板。</value>
+  </data>
+  <data name="Template_Manager_DeleteConfirm" xml:space="preserve">
+    <value>确定删除模板“{0}”吗？此操作不可撤销。</value>
+  </data>
+  <data name="Template_Manager_PathRuleInvalid" xml:space="preserve">
+    <value>路径表达式无效：{0}</value>
+  </data>
+  <data name="Template_Manager_PathRulesUpdated" xml:space="preserve">
+    <value>模板路径规则已更新。</value>
+  </data>
+  <data name="Template_PathRule_CollectionName" xml:space="preserve">
+    <value>{0}（集合匹配）</value>
+  </data>
+  <data name="Template_Update_NameRequired" xml:space="preserve">
+    <value>模板名称不能为空。</value>
+  </data>
+  <data name="Template_Update_TemplateNotFound" xml:space="preserve">
+    <value>未找到要更新的模板。</value>
+  </data>
+  <data name="Template_Update_NameConflict" xml:space="preserve">
+    <value>模板名“{0}”已存在，请使用其他名称。</value>
+  </data>
+  <data name="Template_Update_Success" xml:space="preserve">
+    <value>模板“{0}”已更新。</value>
+  </data>
+  <data name="Template_Duplicate_TemplateNotFound" xml:space="preserve">
+    <value>未找到要复制的模板。</value>
+  </data>
+  <data name="Template_Duplicate_Success" xml:space="preserve">
+    <value>已创建模板副本：{0}</value>
+  </data>
+  <data name="Template_Duplicate_CopySuffix" xml:space="preserve">
+    <value>副本</value>
+  </data>
+  <data name="Template_Delete_TemplateNotFound" xml:space="preserve">
+    <value>未找到要删除的模板。</value>
+  </data>
+  <data name="Template_Delete_Failed" xml:space="preserve">
+    <value>删除模板失败。</value>
+  </data>
+  <data name="Template_Delete_Success" xml:space="preserve">
+    <value>已删除模板：{0}</value>
+  </data>
+  <data name="Template_Preview_TemplateNotFound" xml:space="preserve">
+    <value>未找到要预览的模板。</value>
+  </data>
+  <data name="Template_Preview_NoRules" xml:space="preserve">
+    <value>该模板没有可预览的路径规则。</value>
+  </data>
+  <data name="Template_Preview_UnnamedRule" xml:space="preserve">
+    <value>未命名规则</value>
+  </data>
+  <data name="Template_Preview_NoPath" xml:space="preserve">
+    <value>无</value>
+  </data>
+  <data name="Template_Preview_StatusMatched" xml:space="preserve">
+    <value>已命中</value>
+  </data>
+  <data name="Template_Preview_StatusNoMatch" xml:space="preserve">
+    <value>未命中</value>
+  </data>
+  <data name="Template_Preview_MatchCount" xml:space="preserve">
+    <value>命中路径数：{0}</value>
+  </data>
+  <data name="Template_Preview_MarkerNone" xml:space="preserve">
+    <value>标记：无</value>
+  </data>
+  <data name="Template_Preview_MarkerSummary" xml:space="preserve">
+    <value>标记：必需 {0}，可选 {1}</value>
+  </data>
+  <data name="Template_Preview_Summary" xml:space="preserve">
+    <value>共 {1} 条规则，命中 {0} 条。</value>
+  </data>
+  <data name="SettingsPage_BrowseOfficialTemplates.Content" xml:space="preserve">
+    <value>导入官方模板</value>
+  </data>
+  <data name="SettingsPage_UseTemplateShareCode.Content" xml:space="preserve">
+    <value>分享码导入模板</value>
+  </data>
+  <data name="SettingsPage_PrepareTemplateSubmission.Content" xml:space="preserve">
+    <value>准备投稿文件</value>
+  </data>
+  <data name="OfficialTemplates_SourceOfficial" xml:space="preserve">
+    <value>官方源</value>
+  </data>
+  <data name="OfficialTemplates_SourceMirror" xml:space="preserve">
+    <value>备用源</value>
+  </data>
+  <data name="OfficialTemplates_SourceCache" xml:space="preserve">
+    <value>本地缓存</value>
+  </data>
+  <data name="OfficialTemplates_UsingCachedIndex" xml:space="preserve">
+    <value>已回退到本地缓存索引。</value>
+  </data>
+  <data name="OfficialTemplates_IndexEmpty" xml:space="preserve">
+    <value>官方模板库当前暂无可用模板。</value>
+  </data>
+  <data name="OfficialTemplates_FetchIndexFailed" xml:space="preserve">
+    <value>无法获取官方模板索引，请稍后重试。</value>
+  </data>
+  <data name="OfficialTemplates_FetchIndexFailedLog" xml:space="preserve">
+    <value>获取官方模板索引失败：{0} - {1}</value>
+  </data>
+  <data name="OfficialTemplates_TemplateNotFound" xml:space="preserve">
+    <value>未找到对应的官方模板。</value>
+  </data>
+  <data name="OfficialTemplates_TemplateDisabled" xml:space="preserve">
+    <value>该模板已被停用，暂时无法使用。</value>
+  </data>
+  <data name="OfficialTemplates_TemplateUrlMissing" xml:space="preserve">
+    <value>模板下载地址缺失。</value>
+  </data>
+  <data name="OfficialTemplates_HashMismatch" xml:space="preserve">
+    <value>模板文件校验失败，已拒绝导入。</value>
+  </data>
+  <data name="OfficialTemplates_LoadFailed" xml:space="preserve">
+    <value>模板文件解析失败。</value>
+  </data>
+  <data name="OfficialTemplates_DownloadSuccess" xml:space="preserve">
+    <value>已下载官方模板：{0}</value>
+  </data>
+  <data name="OfficialTemplates_DownloadFailed" xml:space="preserve">
+    <value>下载官方模板失败：{0}</value>
+  </data>
+  <data name="OfficialTemplates_BrowseTitle" xml:space="preserve">
+    <value>官方模板库</value>
+  </data>
+  <data name="OfficialTemplates_CreateFromOfficialTitle" xml:space="preserve">
+    <value>从官方模板创建配置</value>
+  </data>
+  <data name="OfficialTemplates_SearchHeader" xml:space="preserve">
+    <value>搜索模板</value>
+  </data>
+  <data name="OfficialTemplates_SearchPlaceholder" xml:space="preserve">
+    <value>输入游戏名、模板名、Steam AppID 或分享码</value>
+  </data>
+  <data name="OfficialTemplates_TemplateHeader" xml:space="preserve">
+    <value>模板列表</value>
+  </data>
+  <data name="OfficialTemplates_SourceLabel" xml:space="preserve">
+    <value>索引来源：{0}</value>
+  </data>
+  <data name="OfficialTemplates_SourceLabelWithHint" xml:space="preserve">
+    <value>索引来源：{0}（{1}）</value>
+  </data>
+  <data name="OfficialTemplates_NoSearchResults" xml:space="preserve">
+    <value>没有匹配的模板。</value>
+  </data>
+  <data name="OfficialTemplates_ShareCodeHeader" xml:space="preserve">
+    <value>分享码</value>
+  </data>
+  <data name="OfficialTemplates_ShareCodePlaceholder" xml:space="preserve">
+    <value>输入 5 位分享码</value>
+  </data>
+  <data name="OfficialTemplates_UseByShareCodeTitle" xml:space="preserve">
+    <value>通过分享码使用模板</value>
+  </data>
+  <data name="OfficialTemplates_InvalidShareCode" xml:space="preserve">
+    <value>分享码格式无效，请输入 5 位大写字母/数字组合。</value>
+  </data>
+  <data name="OfficialTemplates_ShareCodeNotFound" xml:space="preserve">
+    <value>未找到对应的分享码。</value>
+  </data>
+  <data name="OfficialTemplates_DetailName" xml:space="preserve">
+    <value>模板：{0}</value>
+  </data>
+  <data name="OfficialTemplates_DetailGame" xml:space="preserve">
+    <value>游戏：{0}</value>
+  </data>
+  <data name="OfficialTemplates_DetailShareCode" xml:space="preserve">
+    <value>分享码：{0}</value>
+  </data>
+  <data name="OfficialTemplates_DetailSteamAppId" xml:space="preserve">
+    <value>Steam AppID：{0}</value>
+  </data>
+  <data name="OfficialTemplates_DetailAuthor" xml:space="preserve">
+    <value>作者：{0}</value>
+  </data>
+  <data name="OfficialTemplates_DetailVersion" xml:space="preserve">
+    <value>版本：{0}</value>
+  </data>
+  <data name="Template_Submission_TemplateNull" xml:space="preserve">
+    <value>模板不存在。</value>
+  </data>
+  <data name="Template_Submission_NameRequired" xml:space="preserve">
+    <value>投稿模板必须填写名称。</value>
+  </data>
+  <data name="Template_Submission_DescriptionRequired" xml:space="preserve">
+    <value>投稿模板必须填写描述。</value>
+  </data>
+  <data name="Template_Submission_PathRulesRequired" xml:space="preserve">
+    <value>投稿模板至少需要一条有效路径规则。</value>
+  </data>
+  <data name="Template_Submission_DryRunFailed" xml:space="preserve">
+    <value>模板基础校验失败，无法正常用于创建配置。</value>
+  </data>
+  <data name="Template_Submission_GameNameRecommended" xml:space="preserve">
+    <value>建议填写游戏名称，方便官方模板库检索。</value>
+  </data>
+  <data name="Template_Submission_ValidationFailed" xml:space="preserve">
+    <value>模板校验未通过，共发现 {0} 个问题。</value>
+  </data>
+  <data name="Template_Submission_ValidationWarning" xml:space="preserve">
+    <value>模板校验通过，但有 {0} 条建议可进一步完善。</value>
+  </data>
+  <data name="Template_Submission_ValidationPassed" xml:space="preserve">
+    <value>模板校验通过，可以导出投稿文件。</value>
+  </data>
+  <data name="Template_Submission_SummaryName" xml:space="preserve">
+    <value>模板名称：{0}</value>
+  </data>
+  <data name="Template_Submission_SummaryGame" xml:space="preserve">
+    <value>游戏名称：{0}</value>
+  </data>
+  <data name="Template_Submission_SummaryAuthor" xml:space="preserve">
+    <value>作者：{0}</value>
+  </data>
+  <data name="Template_Submission_SummaryConfigType" xml:space="preserve">
+    <value>配置类型：{0}</value>
+  </data>
+  <data name="Template_Submission_SummaryVersion" xml:space="preserve">
+    <value>模板版本：{0}</value>
+  </data>
+  <data name="Template_Submission_SummaryRuleCount" xml:space="preserve">
+    <value>路径规则数：{0}</value>
+  </data>
+  <data name="Template_Submission_SummaryPlugins" xml:space="preserve">
+    <value>依赖插件：{0}</value>
+  </data>
+  <data name="Template_Submission_SummaryDescription" xml:space="preserve">
+    <value>模板描述：</value>
+  </data>
+  <data name="Template_Submission_AuthorAnonymous" xml:space="preserve">
+    <value>匿名</value>
+  </data>
+  <data name="Template_Submission_SelectTemplate.Text" xml:space="preserve">
+    <value>选择要投稿的本地模板</value>
+  </data>
+  <data name="Template_Submission_GameNameHeader.Text" xml:space="preserve">
+    <value>游戏名称（可选）</value>
+  </data>
+  <data name="Template_Submission_PrepareHint.Text" xml:space="preserve">
+    <value>你可以先导出标准投稿包，也可以直接走 GitHub 自动提交流程。导出时会自动复制投稿摘要，方便粘贴到表单中。</value>
+  </data>
+  <data name="Template_Submission_SummaryTitle" xml:space="preserve">
+    <value>投稿摘要</value>
+  </data>
+  <data name="TemplateSubmissionDialog.Title" xml:space="preserve">
+    <value>投稿模板</value>
+  </data>
+  <data name="TemplateSubmissionDialog_ExportPackage" xml:space="preserve">
+    <value>导出投稿文件</value>
+  </data>
+  <data name="TemplateSubmissionDialog_SubmitToGitHub" xml:space="preserve">
+    <value>自动提交模板</value>
+  </data>
+  <data name="TemplateSubmissionDialog_PrepareSection.Text" xml:space="preserve">
+    <value>准备投稿文件</value>
+  </data>
+  <data name="TemplateSubmissionDialog_GitHubSection.Text" xml:space="preserve">
+    <value>GitHub 自动提交</value>
+  </data>
+  <data name="TemplateSubmissionDialog_GitHubHint.Text" xml:space="preserve">
+    <value>官方 Microsoft Store 发布版会使用内置 GitHub OAuth 配置，并通过默认浏览器 + PKCE 完成桌面端授权。</value>
+  </data>
+  <data name="TemplateSubmissionDialog_GitHubSecurityNotice.Text" xml:space="preserve">
+    <value>GitHub 侧载版和任何第三方构建都不会启用自动投稿功能。无论如何，都不要下载任何第三方来源的 FolderRewind。</value>
+  </data>
+  <data name="TemplateSubmissionDialog_SelectedTemplate.Text" xml:space="preserve">
+    <value>当前模板信息</value>
+  </data>
+  <data name="TemplateSubmissionDialog_GitHubStatus.Text" xml:space="preserve">
+    <value>授权状态</value>
+  </data>
+  <data name="TemplateSubmissionDialog_RefreshAuth.Content" xml:space="preserve">
+    <value>刷新状态</value>
+  </data>
+  <data name="TemplateSubmissionDialog_TemplateMeta.Text" xml:space="preserve">
+    <value>选择模板后会在这里显示作者、配置类型和规则数量。</value>
+  </data>
+  <data name="TemplateSubmissionDialog_TemplateMetaFormat" xml:space="preserve">
+    <value>作者：{0}
+配置类型：{1}
+路径规则：{2}</value>
+  </data>
+  <data name="Template_Submission_RuleHasNoSegments" xml:space="preserve">
+    <value>规则“{0}”缺少路径段定义。</value>
+  </data>
+  <data name="Template_Submission_RuleContainsUnsafePath" xml:space="preserve">
+    <value>规则“{0}”包含不安全路径段：{1}</value>
+  </data>
+  <data name="Template_Submission_RuleContainsSensitiveSegment" xml:space="preserve">
+    <value>规则“{0}”包含敏感目录段：{1}</value>
+  </data>
+  <data name="Template_Submission_RuleContainsUnsafeMarker" xml:space="preserve">
+    <value>规则“{0}”包含不安全标记：{1}</value>
+  </data>
+  <data name="SettingsPage_GitHubSignOut.Content" xml:space="preserve">
+    <value>退出 GitHub</value>
+  </data>
+  <data name="GitHubOAuth_ConfigUnavailable" xml:space="preserve">
+    <value>当前构建未包含 GitHub 自动投稿所需的 OAuth 凭据。该功能仅在官方 Microsoft Store 发布版中提供，GitHub 侧载版和任何第三方构建都不会启用。</value>
+  </data>
+  <data name="GitHubOAuth_NotAuthorized" xml:space="preserve">
+    <value>尚未授权 GitHub。</value>
+  </data>
+  <data name="GitHubOAuth_Authorized" xml:space="preserve">
+    <value>GitHub 已授权。</value>
+  </data>
+  <data name="GitHubOAuth_AuthorizedAs" xml:space="preserve">
+    <value>GitHub 已授权：{0}</value>
+  </data>
+  <data name="GitHubOAuth_LoginTitle" xml:space="preserve">
+    <value>GitHub 授权</value>
+  </data>
+  <data name="GitHubOAuth_LoginHint" xml:space="preserve">
+    <value>默认浏览器已经打开 GitHub 授权页面。请在浏览器中完成登录并授权 FolderRewind 访问公开仓库，然后返回此窗口等待完成。</value>
+  </data>
+  <data name="GitHubOAuth_BrowserOpenFailedWithReason" xml:space="preserve">
+    <value>无法打开默认浏览器启动 GitHub 授权：{0}</value>
+  </data>
+  <data name="GitHubOAuth_LoginCanceled" xml:space="preserve">
+    <value>已取消 GitHub 授权。</value>
+  </data>
+  <data name="GitHubOAuth_StateMismatch" xml:space="preserve">
+    <value>GitHub 授权状态校验失败。</value>
+  </data>
+  <data name="GitHubOAuth_ListenerStartFailedWithReason" xml:space="preserve">
+    <value>无法启动本地 OAuth 回调监听：{0}</value>
+  </data>
+  <data name="GitHubOAuth_MissingAuthorizationCode" xml:space="preserve">
+    <value>GitHub 未返回授权码，请重试。</value>
+  </data>
+  <data name="GitHubOAuth_TokenExchangeFailed" xml:space="preserve">
+    <value>GitHub access token 交换失败。</value>
+  </data>
+  <data name="GitHubOAuth_TokenExchangeFailedWithReason" xml:space="preserve">
+    <value>GitHub access token 交换失败：{0}</value>
+  </data>
+  <data name="GitHubOAuth_UserLookupFailed" xml:space="preserve">
+    <value>无法获取 GitHub 当前用户信息。</value>
+  </data>
+  <data name="GitHubOAuth_UserLookupFailedWithReason" xml:space="preserve">
+    <value>获取 GitHub 用户信息失败：{0}</value>
+  </data>
+  <data name="GitHubOAuth_TokenInvalid" xml:space="preserve">
+    <value>当前 GitHub 授权已失效，请重新授权。</value>
+  </data>
+  <data name="GitHubOAuth_LoginSuccess" xml:space="preserve">
+    <value>GitHub 授权成功：{0}</value>
+  </data>
+  <data name="GitHubOAuth_SignedOut" xml:space="preserve">
+    <value>已退出 GitHub 授权。</value>
+  </data>
+  <data name="GitHubSubmit_TemplateNull" xml:space="preserve">
+    <value>未选择要提交的模板。</value>
+  </data>
+  <data name="GitHubSubmit_RepoLookupFailed" xml:space="preserve">
+    <value>无法访问官方模板仓库，请检查 Owner、仓库名和网络连接。</value>
+  </data>
+  <data name="GitHubSubmit_ForkFailed" xml:space="preserve">
+    <value>自动 Fork 官方模板仓库失败。</value>
+  </data>
+  <data name="GitHubSubmit_BaseBranchLookupFailed" xml:space="preserve">
+    <value>无法获取 Fork 默认分支的最新提交。</value>
+  </data>
+  <data name="GitHubSubmit_BranchCreateFailed" xml:space="preserve">
+    <value>创建提交分支失败。</value>
+  </data>
+  <data name="GitHubSubmit_CommitFailed" xml:space="preserve">
+    <value>写入模板文件到 GitHub 仓库失败。</value>
+  </data>
+  <data name="GitHubSubmit_PullRequestFailed" xml:space="preserve">
+    <value>创建 Pull Request 失败。</value>
+  </data>
+  <data name="GitHubSubmit_PullRequestCreated" xml:space="preserve">
+    <value>Pull Request 已创建：{0}</value>
+  </data>
+  <data name="GitHubSubmit_PullRequestExists" xml:space="preserve">
+    <value>该提交分支已经存在打开中的 Pull Request：{0}</value>
+  </data>
+  <data name="GitHubSubmit_Success" xml:space="preserve">
+    <value>模板已提交，分享码：{0}</value>
+  </data>
+  <data name="GitHubSubmit_FailedWithReason" xml:space="preserve">
+    <value>自动提交失败：{0}</value>
+  </data>
+  <data name="GitHubSubmit_ShareCodeExhausted" xml:space="preserve">
+    <value>分享码生成失败，请稍后重试。</value>
+  </data>
+  <data name="GitHubSubmit_Canceled" xml:space="preserve">
+    <value>已取消自动提交流程。</value>
+  </data>
+  <data name="GitHubSubmit_UnknownFailure" xml:space="preserve">
+    <value>自动提交未返回结果，请查看日志。</value>
+  </data>
+  <data name="GitHubSubmit_ResultTitle" xml:space="preserve">
+    <value>自动提交结果</value>
+  </data>
+  <data name="GitHubSubmit_ResultContent" xml:space="preserve">
+    <value>分享码：{0}
+Pull Request：{1}</value>
+  </data>
+  <data name="GitHubSubmit_OpenPullRequest" xml:space="preserve">
+    <value>打开 Pull Request</value>
+  </data>
+  <data name="GitHubSubmit_Progress_Starting" xml:space="preserve">
+    <value>正在准备自动提交…</value>
+  </data>
+  <data name="GitHubSubmit_Progress_LoadRepo" xml:space="preserve">
+    <value>正在读取官方模板仓库信息…</value>
+  </data>
+  <data name="GitHubSubmit_Progress_LoadIndex" xml:space="preserve">
+    <value>正在读取最新模板索引并分配分享码…</value>
+  </data>
+  <data name="GitHubSubmit_Progress_ExportTemplate" xml:space="preserve">
+    <value>正在导出标准模板文件…</value>
+  </data>
+  <data name="GitHubSubmit_Progress_EnsureFork" xml:space="preserve">
+    <value>正在检查或创建你的 Fork…</value>
+  </data>
+  <data name="GitHubSubmit_Progress_SyncFork" xml:space="preserve">
+    <value>正在同步 Fork 默认分支…</value>
+  </data>
+  <data name="GitHubSubmit_Progress_CreateBranch" xml:space="preserve">
+    <value>正在创建提交分支…</value>
+  </data>
+  <data name="GitHubSubmit_Progress_CommitTemplate" xml:space="preserve">
+    <value>正在提交模板文件到你的 Fork…</value>
+  </data>
+  <data name="GitHubSubmit_Progress_CreatePr" xml:space="preserve">
+    <value>正在创建 Pull Request…</value>
   </data>
 </root>

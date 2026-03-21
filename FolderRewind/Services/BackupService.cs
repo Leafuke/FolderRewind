@@ -1,5 +1,4 @@
 ﻿using FolderRewind.Models;
-using Microsoft.UI.Dispatching;
 using Microsoft.UI.Xaml.Controls;
 using System;
 using System.Collections.Generic;
@@ -18,11 +17,12 @@ namespace FolderRewind.Services
     {
         public static ObservableCollection<BackupTask> ActiveTasks { get; } = new();
 
+        // 还原阶段会用内部标记目录记录“仅删除”动作，完成后必须清理避免污染用户目录。
         private const string InternalRestoreMarkerDirectoryName = "__FolderRewind_Internal";
         private const string InternalRestoreMarkerFileName = "__DeletedOnly.marker";
+        private const string MissingEncryptionPasswordMessage = "Encrypted backup password is missing for this configuration.";
 
-        private static DispatcherQueue? UiQueue => App._window?.DispatcherQueue;
-
+        // 变更集是增量备份/删除标记/元数据写入的统一输入。
         private sealed class BackupChangeSet
         {
             public List<string> AddedFiles { get; } = new();
@@ -75,60 +75,141 @@ namespace FolderRewind.Services
 
         private static Task RunOnUIAsync(Action action)
         {
-            var queue = UiQueue;
-            if (queue == null || queue.HasThreadAccess)
-            {
-                action();
-                return Task.CompletedTask;
-            }
-
-            var tcs = new TaskCompletionSource<object?>();
-
-            if (!queue.TryEnqueue(() =>
-            {
-                try
-                {
-                    action();
-                    tcs.SetResult(null);
-                }
-                catch (Exception ex)
-                {
-                    tcs.SetException(ex);
-                }
-            }))
-            {
-                tcs.TrySetException(new InvalidOperationException("Failed to enqueue UI action."));
-            }
-
-            return tcs.Task;
+            return UiDispatcherService.RunOnUiAsync(action);
         }
 
         private static Task<T> RunOnUIAsync<T>(Func<Task<T>> action)
         {
-            var queue = UiQueue;
-            if (queue == null || queue.HasThreadAccess)
+            return UiDispatcherService.RunOnUiAsync(action);
+        }
+
+        private static bool TryResolveStorageFolderName(string? rawFolderName, string? fallbackPath, out string storageFolderName)
+        {
+            var candidate = (rawFolderName ?? string.Empty).Trim();
+            if (string.IsNullOrWhiteSpace(candidate) && !string.IsNullOrWhiteSpace(fallbackPath))
             {
-                return action();
+                var trimmedPath = fallbackPath.Trim().TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
+                candidate = Path.GetFileName(trimmedPath);
             }
 
-            var tcs = new TaskCompletionSource<T>();
-
-            if (!queue.TryEnqueue(async () =>
+            if (string.IsNullOrWhiteSpace(candidate))
             {
-                try
-                {
-                    tcs.SetResult(await action());
-                }
-                catch (Exception ex)
-                {
-                    tcs.SetException(ex);
-                }
-            }))
-            {
-                tcs.TrySetException(new InvalidOperationException("Failed to enqueue UI action."));
+                storageFolderName = string.Empty;
+                return false;
             }
 
-            return tcs.Task;
+            var invalidChars = Path.GetInvalidFileNameChars();
+            var builder = new StringBuilder(candidate.Length);
+            foreach (var ch in candidate)
+            {
+                if (ch == Path.DirectorySeparatorChar
+                    || ch == Path.AltDirectorySeparatorChar
+                    || ch == '\0'
+                    || invalidChars.Contains(ch))
+                {
+                    builder.Append('_');
+                }
+                else
+                {
+                    builder.Append(ch);
+                }
+            }
+
+            candidate = builder.ToString().Trim().TrimEnd('.');
+            if (string.IsNullOrWhiteSpace(candidate)
+                || string.Equals(candidate, ".", StringComparison.Ordinal)
+                || string.Equals(candidate, "..", StringComparison.Ordinal))
+            {
+                storageFolderName = string.Empty;
+                return false;
+            }
+
+            storageFolderName = candidate;
+            return true;
+        }
+
+        private static bool TryBuildPathWithinRoot(string rootPath, string childName, out string fullPath)
+        {
+            fullPath = string.Empty;
+            if (string.IsNullOrWhiteSpace(rootPath) || string.IsNullOrWhiteSpace(childName))
+            {
+                return false;
+            }
+
+            try
+            {
+                string normalizedRoot = Path.GetFullPath(rootPath)
+                    .TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
+                string candidate = Path.GetFullPath(Path.Combine(normalizedRoot, childName))
+                    .TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
+
+                if (!IsPathInsideRoot(candidate, normalizedRoot))
+                {
+                    return false;
+                }
+
+                fullPath = candidate;
+                return true;
+            }
+            catch
+            {
+                return false;
+            }
+        }
+
+        private static bool IsPathInsideRoot(string candidatePath, string rootPath)
+        {
+            try
+            {
+                string normalizedRoot = Path.GetFullPath(rootPath)
+                    .TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
+                string normalizedCandidate = Path.GetFullPath(candidatePath)
+                    .TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
+
+                if (string.Equals(normalizedCandidate, normalizedRoot, StringComparison.OrdinalIgnoreCase))
+                {
+                    return true;
+                }
+
+                return normalizedCandidate.StartsWith(
+                    normalizedRoot + Path.DirectorySeparatorChar,
+                    StringComparison.OrdinalIgnoreCase);
+            }
+            catch
+            {
+                return false;
+            }
+        }
+
+        private static bool TryResolveBackupStoragePaths(
+            string destinationRoot,
+            string folderDisplayName,
+            string? fallbackPath,
+            out string storageFolderName,
+            out string backupSubDir,
+            out string metadataDir)
+        {
+            storageFolderName = string.Empty;
+            backupSubDir = string.Empty;
+            metadataDir = string.Empty;
+
+            if (!TryResolveStorageFolderName(folderDisplayName, fallbackPath, out storageFolderName))
+            {
+                return false;
+            }
+
+            if (!TryBuildPathWithinRoot(destinationRoot, storageFolderName, out backupSubDir))
+            {
+                return false;
+            }
+
+            string metadataRoot = Path.Combine(destinationRoot, "_metadata");
+            if (!TryBuildPathWithinRoot(metadataRoot, storageFolderName, out metadataDir))
+            {
+                return false;
+            }
+
+            return true;
         }
 
         /// <summary>
@@ -349,8 +430,7 @@ namespace FolderRewind.Services
             var (shouldHandle, handlerPlugin) = Services.Plugins.PluginService.CheckPluginWantsToHandleBackup(config);
             if (shouldHandle && handlerPlugin != null)
             {
-                await HandlePluginBackupAsync(config, folder, task, handlerPlugin, comment);
-                return false;
+                return await HandlePluginBackupAsync(config, folder, task, handlerPlugin, comment);
             }
 
             // 允许插件在备份前创建快照并替换源路径（例如 Minecraft 热备份：先复制到 snapshot 再备份）。
@@ -361,19 +441,12 @@ namespace FolderRewind.Services
                 if (!string.IsNullOrWhiteSpace(pluginOverride))
                 {
                     sourcePath = pluginOverride;
-
-                    // 原本打算在插件里发送，但是实测太不稳定了，干脆在这里统一发送。最终还是统一到插件里了
-                    // KnotLinkService.BroadcastEvent("event=pre_hot_backup;");
                 }
             }
             catch
             {
                 // 插件异常不会影响核心备份流程（具体异常会在 PluginService 内记录）
             }
-            // 按照要求：备份路径 = 用户设置的目标路径 \ 文件夹名
-            string backupSubDir = Path.Combine(config.DestinationPath, folder.DisplayName);
-            string metadataDir = Path.Combine(config.DestinationPath, "_metadata", folder.DisplayName);
-
             if (!Directory.Exists(sourcePath))
             {
                 Log(I18n.Format("BackupService_Log_SourceFolderMissing", sourcePath), LogLevel.Error);
@@ -420,6 +493,36 @@ namespace FolderRewind.Services
                 return false;
             }
 
+            if (!TryResolveBackupStoragePaths(
+                config.DestinationPath,
+                folder.DisplayName,
+                folder.Path,
+                out var storageFolderName,
+                out var backupSubDir,
+                out var metadataDir))
+            {
+                string invalidFolderNameMessage = I18n.GetString("BackupService_Log_InvalidStorageFolderName");
+                Log(invalidFolderNameMessage, LogLevel.Error);
+                await RunOnUIAsync(() =>
+                {
+                    folder.StatusText = I18n.Format("BackupService_Task_Failed");
+                    task.Status = I18n.Format("BackupService_Task_Failed");
+                    task.IsCompleted = true;
+                    task.IsIndeterminate = false;
+                    task.IsSuccess = false;
+                    task.ErrorMessage = invalidFolderNameMessage;
+                });
+
+                try
+                {
+                    KnotLinkService.BroadcastEvent($"event=backup_failed;config={configIndex};world={folder.DisplayName};error=invalid_folder_name");
+                }
+                catch
+                {
+                }
+                return false;
+            }
+
             // 创建必要的目录
             if (!Directory.Exists(backupSubDir)) Directory.CreateDirectory(backupSubDir);
             if (!Directory.Exists(metadataDir)) Directory.CreateDirectory(metadataDir);
@@ -449,7 +552,7 @@ namespace FolderRewind.Services
 
                 // 调用核心逻辑，传入 task 以便更新进度
 
-                // FORCE_FULL 命令可绕过当前配置模式，直接执行一次 Full 备份。
+                // FORCE_FULL 指令可绕过当前配置模式，直接执行一次全量备份。
                 if (forceFullBackup)
                 {
                     var res = await DoFullBackupAsync(sourcePath, backupSubDir, metadataDir, folder.DisplayName, config, comment, task);
@@ -535,7 +638,7 @@ namespace FolderRewind.Services
                     {
                         typeStr = config.Archive.Mode.ToString();
                     }
-                    HistoryService.AddEntry(config, folder, completedFileName, typeStr, comment);
+                    HistoryService.AddEntry(config, folder, completedFileName, typeStr, comment, storageFolderName);
 
                     _ = Task.Run(() => PruneOldArchives(backupSubDir, config.Archive.Format, config.Archive.KeepCount, config.Archive.Mode, config.Archive.SafeDeleteEnabled, config, folder.DisplayName));
 
@@ -611,13 +714,14 @@ namespace FolderRewind.Services
             {
             }
 
+            // 注意：这里返回“是否真的产出新归档”，会影响自动化里的无变更计数策略。
             return success && !string.IsNullOrWhiteSpace(generatedFileName);
         }
 
         /// <summary>
         /// 由插件完全接管的备份流程
         /// </summary>
-        private static async Task HandlePluginBackupAsync(
+        private static async Task<bool> HandlePluginBackupAsync(
             BackupConfig config,
             ManagedFolder folder,
             BackupTask task,
@@ -671,7 +775,12 @@ namespace FolderRewind.Services
                     if (hasNewFile)
                     {
                         ConfigService.Save();
-                        HistoryService.AddEntry(config, folder, result.GeneratedFileName!, "Plugin", comment);
+                        if (!TryResolveStorageFolderName(folder.DisplayName, folder.Path, out var storageFolderName))
+                        {
+                            throw new InvalidOperationException(I18n.GetString("BackupService_Log_InvalidStorageFolderName"));
+                        }
+
+                        HistoryService.AddEntry(config, folder, result.GeneratedFileName!, "Plugin", comment, storageFolderName);
                         CloudSyncService.QueueUploadAfterBackup(config, folder, result.GeneratedFileName, comment);
                     }
 
@@ -680,6 +789,8 @@ namespace FolderRewind.Services
                             ? I18n.Format("BackupService_Log_PluginBackupSucceeded", folder.DisplayName)
                             : I18n.Format("BackupService_Log_PluginBackupSkippedNoChanges", folder.DisplayName),
                         LogLevel.Info);
+
+                    return hasNewFile;
                 }
                 else
                 {
@@ -694,6 +805,7 @@ namespace FolderRewind.Services
                     });
 
                     Log(I18n.Format("BackupService_Log_PluginBackupFailed", folder.DisplayName, result.Message ?? string.Empty), LogLevel.Error);
+                    return false;
                 }
             }
             catch (Exception ex)
@@ -709,6 +821,7 @@ namespace FolderRewind.Services
                 });
 
                 Log(I18n.Format("BackupService_Log_PluginException", folder.DisplayName, ex.Message), LogLevel.Error);
+                return false;
             }
         }
 
@@ -868,17 +981,34 @@ namespace FolderRewind.Services
 
             return await Task.Run(() =>
             {
-                string backupFolderName = string.IsNullOrWhiteSpace(historyItem.FolderName)
-                    ? folder.DisplayName
-                    : historyItem.FolderName;
-                string format = Path.GetExtension(historyItem.FileName).TrimStart('.');
+                string? targetFilePath = HistoryService.GetBackupFilePath(config, folder, historyItem);
+                if (string.IsNullOrWhiteSpace(targetFilePath))
+                {
+                    return new DeleteBackupResult
+                    {
+                        Success = false,
+                        Message = "Invalid backup path in history record."
+                    };
+                }
+
+                var targetFile = new FileInfo(targetFilePath);
+                var backupDir = targetFile.Directory;
+                if (backupDir == null)
+                {
+                    return new DeleteBackupResult
+                    {
+                        Success = false,
+                        Message = "Invalid backup directory."
+                    };
+                }
+
+                string backupFolderName = backupDir.Name;
+                string format = targetFile.Extension.TrimStart('.');
                 if (string.IsNullOrWhiteSpace(format))
                 {
                     format = config.Archive.Format;
                 }
 
-                var backupDir = new DirectoryInfo(Path.Combine(config.DestinationPath, backupFolderName));
-                var targetFile = new FileInfo(Path.Combine(backupDir.FullName, historyItem.FileName));
                 var deleteResult = DeleteBackupArchiveInternal(
                     targetFile,
                     backupDir,
@@ -1169,6 +1299,12 @@ namespace FolderRewind.Services
             string mergeDir = Path.Combine(tempDir, "merged");
             string stagedNextPath = Path.Combine(tempDir, nextFile.Name + ".original");
             string? safeDeletePassword = config != null ? ResolvePassword(config) : null;
+            if (config?.IsEncrypted == true && string.IsNullOrWhiteSpace(safeDeletePassword))
+            {
+                result.Message = MissingEncryptionPasswordMessage;
+                Log(result.Message, LogLevel.Error);
+                return false;
+            }
             var archiveSettings = CreateArchiveSettingsForSafeDelete(config?.Archive, format);
 
             try
@@ -1420,9 +1556,53 @@ namespace FolderRewind.Services
                 if (!string.IsNullOrWhiteSpace(workingDirectory))
                     pInfo.WorkingDirectory = workingDirectory;
 
-                using var p = Process.Start(pInfo);
-                p?.WaitForExit(120_000); // 最长等待 2 分钟
-                return p?.ExitCode == 0;
+                // 修复进程未退出读取 ExitCode 抛出系统错误的神秘问题。
+                using var p = new Process { StartInfo = pInfo };
+                string? lastErrorLine = null;
+
+                p.OutputDataReceived += (s, e) =>
+                {
+                    if (string.IsNullOrWhiteSpace(e.Data)) return;
+                    Log($"[7z] {e.Data}");
+                };
+                p.ErrorDataReceived += (s, e) =>
+                {
+                    if (string.IsNullOrWhiteSpace(e.Data)) return;
+                    lastErrorLine = e.Data;
+                    Log($"[7z Err] {e.Data}", LogLevel.Error);
+                };
+
+                if (!p.Start())
+                {
+                    Log(I18n.Format("BackupService_Log_SystemError", I18n.GetString("BackupService_Log_SevenZipStartFailed")), LogLevel.Error);
+                    return false;
+                }
+
+                p.BeginOutputReadLine();
+                p.BeginErrorReadLine();
+
+                const int timeoutMs =300_000; // 最长等待 5 分钟
+                bool exited = p.WaitForExit(timeoutMs);
+                if (!exited)
+                {
+                    Log(I18n.Format("BackupService_Log_SystemError", I18n.Format("BackupService_Log_SevenZipTimeout", timeoutMs / 1000)), LogLevel.Error);
+                    try
+                    {
+                        p.Kill(entireProcessTree: true);
+                    }
+                    catch
+                    {
+                    }
+                    return false;
+                }
+
+                p.WaitForExit();
+                if (p.ExitCode != 0 && !string.IsNullOrWhiteSpace(lastErrorLine))
+                {
+                    Log($"[7z Exit={p.ExitCode}] {lastErrorLine}", LogLevel.Error);
+                }
+
+                return p.ExitCode == 0;
             }
             catch (Exception ex)
             {
@@ -1551,7 +1731,10 @@ namespace FolderRewind.Services
             string destFile = Path.Combine(destDir, fileName);
 
             // 获取加密密码
-            string? password = ResolvePassword(config);
+            if (!TryResolveRequiredPassword(config, out var password, taskToUpdate))
+            {
+                return (false, null);
+            }
 
             // 1. 直接压缩（带黑名单过滤 + 自定义文件类型排除）
             var fileTypeExclusions = config.Archive.FileTypeHandlingEnabled ? (IReadOnlyList<FileTypeRule>)config.Archive.FileTypeRules : null;
@@ -1717,7 +1900,10 @@ namespace FolderRewind.Services
             // 4. 执行压缩 (使用 @listfile)
             // 注意：7z 需要工作目录在 source 下，才能正确识别相对路径列表
             var fileTypeExclusions = hasFileTypeRules && fileTypeRules != null ? (IReadOnlyList<FileTypeRule>)fileTypeRules : null;
-            string? password = ResolvePassword(config);
+            if (!TryResolveRequiredPassword(config, out var password, taskToUpdate))
+            {
+                return (false, null);
+            }
             bool deletionOnlyChange = contentChangedFiles.Count == 0 && changeSet.DeletedFiles.Count > 0;
             bool result;
 
@@ -1805,7 +1991,10 @@ namespace FolderRewind.Services
             // 7z u <archive_name> <file_names>
             // u 指令会更新已存在的文件并添加新文件
             var fileTypeExclusions = config.Archive.FileTypeHandlingEnabled ? (IReadOnlyList<FileTypeRule>)config.Archive.FileTypeRules : null;
-            string? password = ResolvePassword(config);
+            if (!TryResolveRequiredPassword(config, out var password, taskToUpdate))
+            {
+                return (false, null);
+            }
             bool result = await Run7zCommandAsync("u", source, targetFile.FullName, config.Archive, password, null, config.Filters, fileTypeExclusions, taskToUpdate);
 
             // 2.5 自定义文件类型追加压缩
@@ -1890,11 +2079,15 @@ namespace FolderRewind.Services
         public static async Task RestoreBackupAsync(BackupConfig config, ManagedFolder folder, HistoryItem historyItem, RestoreMode mode)
         {
             int configIndex = GetConfigIndex(config);
-            string backupFilePath = Path.Combine(config.DestinationPath, folder.DisplayName, historyItem.FileName);
+            string? backupFilePath = HistoryService.GetBackupFilePath(config, folder, historyItem);
+            string resolvedFolderName = string.IsNullOrWhiteSpace(historyItem.FolderName)
+                ? folder.DisplayName
+                : historyItem.FolderName;
             string targetDir = folder.Path;
             var archiveSettings = config.Archive;
             bool safeRestoreEnabled = archiveSettings?.SafeRestoreEnabled ?? true;
             bool verifyArchiveBeforeRestore = archiveSettings?.VerifyArchiveBeforeRestore ?? true;
+            // 历史数据可能是旧格式，这里同时看 BackupType 和文件名前缀做兼容判断。
             bool targetIsIncremental = IsIncrementalBackupType(historyItem.BackupType)
                 || InferBackupTypeFromFileName(historyItem.FileName).Equals("Smart", StringComparison.OrdinalIgnoreCase);
 
@@ -1942,6 +2135,16 @@ namespace FolderRewind.Services
                 NotificationService.NotifyRestoreCompleted(folder.DisplayName, false, message);
             }
 
+            if (string.IsNullOrWhiteSpace(backupFilePath))
+            {
+                string message = "Invalid backup path in history record.";
+                Log(message, LogLevel.Error);
+                await FailAsync(message, "invalid_backup_path");
+                return;
+            }
+
+            string resolvedBackupFilePath = backupFilePath;
+
             if (archiveSettings?.BackupBeforeRestore == true)
             {
                 Log(I18n.Format("BackupService_Log_BackupBeforeRestore", folder.DisplayName), LogLevel.Info);
@@ -1963,9 +2166,9 @@ namespace FolderRewind.Services
                 return;
             }
 
-            if (!File.Exists(backupFilePath))
+            if (!File.Exists(resolvedBackupFilePath))
             {
-                string message = I18n.Format("BackupService_Log_BackupFileNotFound", backupFilePath);
+                string message = I18n.Format("BackupService_Log_BackupFileNotFound", resolvedBackupFilePath);
                 Log(message, LogLevel.Error);
                 await FailAsync(message, "no_backup_found");
                 return;
@@ -1979,12 +2182,13 @@ namespace FolderRewind.Services
                 return;
             }
 
-            var backupDir = new DirectoryInfo(Path.GetDirectoryName(backupFilePath)!);
-            var targetFile = new FileInfo(backupFilePath);
-            var chainResult = BuildRestoreChainWithStatus(backupDir, targetFile, historyItem.BackupType, config, folder.DisplayName);
+            var backupDir = new DirectoryInfo(Path.GetDirectoryName(resolvedBackupFilePath)!);
+            var targetFile = new FileInfo(resolvedBackupFilePath);
+            var chainResult = BuildRestoreChainWithStatus(backupDir, targetFile, historyItem.BackupType, config, resolvedFolderName);
 
             if (targetIsIncremental && chainResult.Status == RestoreChainBuildStatus.MissingBaseFull)
             {
+                // 老用户历史里可能缺少基准 Full，这里给一次人工确认后回退到兼容链路。
                 bool proceed = await ConfirmMissingBaseFullFallbackAsync(folder.DisplayName, historyItem.FileName);
                 if (!proceed)
                 {
@@ -1999,8 +2203,9 @@ namespace FolderRewind.Services
                     return;
                 }
 
-                restoreChain = BuildReverseCompatibilityChain(backupDir, targetFile, config, folder.DisplayName);
+                restoreChain = BuildReverseCompatibilityChain(backupDir, targetFile, config, resolvedFolderName);
                 useCompatibilityReverseRestore = true;
+                // 兼容链路无法精确执行 Clean 语义，这里强制退化到覆盖式还原。
                 effectiveCleanRestore = false;
 
                 if (restoreChain.Count == 0)
@@ -2025,9 +2230,24 @@ namespace FolderRewind.Services
 
             if (effectiveCleanRestore && targetIsIncremental && !useCompatibilityReverseRestore)
             {
-                string metadataPath = Path.Combine(config.DestinationPath, "_metadata", folder.DisplayName, "metadata.json");
+                if (!TryResolveBackupStoragePaths(
+                    config.DestinationPath,
+                    resolvedFolderName,
+                    folder.Path,
+                    out _,
+                    out _,
+                    out var metadataDir))
+                {
+                    string message = I18n.GetString("BackupService_Log_InvalidRestoreStorageFolderName");
+                    Log(message, LogLevel.Error);
+                    await FailAsync(message, "invalid_folder_name");
+                    return;
+                }
+
+                string metadataPath = Path.Combine(metadataDir, "metadata.json");
                 var metadata = LoadBackupMetadata(metadataPath);
 
+                // 元数据完整时启用精确 Smart Clean，可避免“全链解压+覆盖”带来的额外写入。
                 if (metadata != null && TryBuildSmartRestorePlan(restoreChain, metadata, out var plan))
                 {
                     smartRestorePlan = plan;
@@ -2043,7 +2263,15 @@ namespace FolderRewind.Services
             Log(I18n.Format("BackupService_Log_RestoreTargetBackup", historyItem.FileName), LogLevel.Info);
             Log(I18n.Format("BackupService_Log_RestoreTargetPath", targetDir), LogLevel.Info);
 
-            string? restorePassword = ResolvePassword(config);
+            if (!TryResolveRequiredPassword(config, out var restorePassword, restoreTask))
+            {
+                string message = string.IsNullOrWhiteSpace(restoreTask.ErrorMessage)
+                    ? MissingEncryptionPasswordMessage
+                    : restoreTask.ErrorMessage!;
+                await FailAsync(message, "encryption_password_missing");
+                return;
+            }
+            // 智能还原方案与普通还原方案都共用这一段完整性校验入口。
             var archivesToVerify = smartRestorePlan?.Chain ?? restoreChain;
 
             if (verifyArchiveBeforeRestore)
@@ -2081,6 +2309,7 @@ namespace FolderRewind.Services
 
             if (effectiveCleanRestore && safeRestoreEnabled)
             {
+                // 先把目标目录挪到临时快照，再在空目录还原；失败时可以整体回滚。
                 if (!TryPrepareSafeRestoreWorkspace(targetDir, out safeRestoreTempDir, out var prepareError))
                 {
                     string message = I18n.Format("BackupService_Log_RestoreSnapshotPrepareFailed", prepareError ?? "Unknown error");
@@ -2126,6 +2355,7 @@ namespace FolderRewind.Services
 
             if (effectiveCleanRestore && !safeRestoreWorkspacePrepared)
             {
+                // 未启用安全快照时，只能原地清理后再还原（会保留白名单路径）。
                 Log(I18n.Format("BackupService_Log_RestoreCleaningTarget"), LogLevel.Info);
                 var restoreWhitelist = config.Filters?.RestoreWhitelist;
                 bool hasWhitelist = restoreWhitelist != null && restoreWhitelist.Count > 0;
@@ -2193,6 +2423,7 @@ namespace FolderRewind.Services
 
                 if (safeRestoreWorkspacePrepared && !string.IsNullOrWhiteSpace(safeRestoreTempDir))
                 {
+                    // 还原成功后再提交快照工作区，最后一步才真正删除旧目录。
                     if (!TryCommitSafeRestoreWorkspace(targetDir, safeRestoreTempDir, config.Filters?.RestoreWhitelist, out var commitError))
                     {
                         restoreFailed = true;
@@ -2207,6 +2438,7 @@ namespace FolderRewind.Services
             {
                 if (safeRestoreWorkspacePrepared && !string.IsNullOrWhiteSpace(safeRestoreTempDir))
                 {
+                    // 只要失败就优先尝试整体回滚，尽量回到还原前状态。
                     Log(I18n.Format("BackupService_Log_RestoreRollbackBegin", safeRestoreTempDir), LogLevel.Warning);
                     if (TryRollbackSafeRestoreWorkspace(targetDir, safeRestoreTempDir, out var rollbackError))
                     {
@@ -2274,6 +2506,7 @@ namespace FolderRewind.Services
         {
             if (chain == null || chain.Count == 0) return false;
 
+            // 逐包做完整性检测，提前挡住损坏归档，避免真正解压时把目标目录弄成半成品。
             for (int i = 0; i < chain.Count; i++)
             {
                 var file = chain[i];
@@ -2314,6 +2547,7 @@ namespace FolderRewind.Services
                 return false;
             }
 
+            // 通过“最终文件 -> 最近归档拥有者”的映射，生成最小提取集合。
             var normalized = NormalizeBackupMetadata(metadata);
             var recordMap = normalized.BackupRecords
                 .Where(r => !string.IsNullOrWhiteSpace(r.ArchiveFileName))
@@ -2520,7 +2754,8 @@ namespace FolderRewind.Services
 
         private static async Task<bool> ConfirmMissingBaseFullFallbackAsync(string folderDisplayName, string backupFileName)
         {
-            if (App._window?.Content?.XamlRoot == null)
+            var xamlRoot = MainWindowService.GetXamlRoot();
+            if (xamlRoot == null)
             {
                 return false;
             }
@@ -2532,7 +2767,7 @@ namespace FolderRewind.Services
                 PrimaryButtonText = I18n.GetString("BackupService_RestoreMissingBaseFull_Primary"),
                 CloseButtonText = I18n.GetString("Common_Cancel"),
                 DefaultButton = ContentDialogButton.Close,
-                XamlRoot = App._window.Content.XamlRoot
+                XamlRoot = xamlRoot
             };
             ThemeService.ApplyThemeToDialog(dialog);
 
@@ -2553,6 +2788,7 @@ namespace FolderRewind.Services
                     return true;
                 }
 
+                // 先搬走旧目录，确保还原在“干净目录”执行，失败可直接回滚。
                 tempDir = CreateSafeRestoreTempDirectoryPath(targetDir);
                 Directory.Move(targetDir, tempDir);
                 Directory.CreateDirectory(targetDir);
@@ -2571,6 +2807,7 @@ namespace FolderRewind.Services
 
             try
             {
+                // 提交阶段要先补回白名单内容，再删除旧快照目录。
                 CleanupInternalRestoreMarkers(targetDir);
                 CopyRestoreWhitelistEntries(tempDir, targetDir, whitelist);
 
@@ -2595,6 +2832,7 @@ namespace FolderRewind.Services
 
             try
             {
+                // 回滚采用目录级替换，避免逐文件恢复造成新旧状态混杂。
                 if (Directory.Exists(targetDir))
                 {
                     ClearReadonlyAttributes(targetDir);
@@ -3050,7 +3288,18 @@ namespace FolderRewind.Services
                 return;
             }
 
-            string metadataPath = Path.Combine(config.DestinationPath, "_metadata", folderName, "metadata.json");
+            if (!TryResolveBackupStoragePaths(
+                config.DestinationPath,
+                folderName,
+                fallbackPath: null,
+                out _,
+                out _,
+                out var metadataDir))
+            {
+                return;
+            }
+
+            string metadataPath = Path.Combine(metadataDir, "metadata.json");
             var metadata = LoadBackupMetadata(metadataPath);
             if (metadata == null)
             {
@@ -3262,6 +3511,35 @@ namespace FolderRewind.Services
         {
             if (!config.IsEncrypted) return null;
             return EncryptionService.RetrievePassword(config.Id);
+        }
+
+        private static bool TryResolveRequiredPassword(BackupConfig config, out string? password, BackupTask? taskToUpdate = null)
+        {
+            password = ResolvePassword(config);
+
+            if (!config.IsEncrypted)
+            {
+                return true;
+            }
+
+            if (!string.IsNullOrWhiteSpace(password))
+            {
+                return true;
+            }
+
+            Log(MissingEncryptionPasswordMessage, LogLevel.Error);
+            if (taskToUpdate != null)
+            {
+                UiDispatcherService.Enqueue(() =>
+                {
+                    if (string.IsNullOrWhiteSpace(taskToUpdate.ErrorMessage))
+                    {
+                        taskToUpdate.ErrorMessage = MissingEncryptionPasswordMessage;
+                    }
+                });
+            }
+
+            return false;
         }
 
         // --- 核心：7z 进程调用 ---
@@ -3612,6 +3890,7 @@ namespace FolderRewind.Services
                 .OrderBy(f => f.LastWriteTime)
                 .ThenBy(f => f.Name); // 二级排序确保稳定性
 
+            // 去重是为了兼容“同名文件被重写/历史重复登记”的旧数据。
             var added = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
             added.Add(baseFull.FullName);
 
@@ -3741,7 +4020,7 @@ namespace FolderRewind.Services
                         if (match.Success && int.TryParse(match.Groups[1].Value, out int percent) && percent >= 0 && percent <= 100)
                         {
                             double mapped = progressBase + (double)percent / 100.0 * progressRange;
-                            UiQueue?.TryEnqueue(() =>
+                            UiDispatcherService.Enqueue(() =>
                             {
                                 if (taskToUpdate.IsIndeterminate) taskToUpdate.IsIndeterminate = false;
                                 taskToUpdate.Progress = Math.Min(mapped, 100);
@@ -3764,7 +4043,7 @@ namespace FolderRewind.Services
                 // 7z 返回非零退出码且有 stderr 输出时，将错误信息写入任务
                 if (p.ExitCode != 0 && taskToUpdate != null && !string.IsNullOrWhiteSpace(lastErrorLine))
                 {
-                    UiQueue?.TryEnqueue(() =>
+                    UiDispatcherService.Enqueue(() =>
                     {
                         if (string.IsNullOrEmpty(taskToUpdate.ErrorMessage))
                             taskToUpdate.ErrorMessage = lastErrorLine;
@@ -3778,7 +4057,7 @@ namespace FolderRewind.Services
                 Log(I18n.Format("BackupService_Log_SystemError", ex.Message), LogLevel.Error);
                 if (taskToUpdate != null)
                 {
-                    UiQueue?.TryEnqueue(() =>
+                    UiDispatcherService.Enqueue(() =>
                     {
                         if (string.IsNullOrEmpty(taskToUpdate.ErrorMessage))
                             taskToUpdate.ErrorMessage = ex.Message;

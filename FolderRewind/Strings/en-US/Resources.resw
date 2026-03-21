@@ -663,15 +663,6 @@ Duplicate folder names are blocked within the same configuration so different di
   <data name="ConfigSettingsDialog_KeepCount.Header" xml:space="preserve">
     <value>Keep recent backups (0 = unlimited)</value>
   </data>
-  <data name="ConfigSettingsDialog_ArchivePassword.Text" xml:space="preserve">
-    <value>Archive password (optional)</value>
-  </data>
-  <data name="ConfigSettingsDialog_ArchivePasswordPlaceholder.PlaceholderText" xml:space="preserve">
-    <value>Leave blank if not needed</value>
-  </data>
-  <data name="ConfigSettingsDialog_ArchivePasswordDesc.Text" xml:space="preserve">
-    <value>Applied to newly created archives. Keep this password safe.</value>
-  </data>
   <data name="ConfigSettingsDialog_Method.Header" xml:space="preserve">
     <value>Compression algorithm</value>
   </data>
@@ -735,6 +726,9 @@ Duplicate folder names are blocked within the same configuration so different di
   <data name="ConfigSettingsDialog_RunOnAppStart.Content" xml:space="preserve">
     <value>Run when app starts</value>
   </data>
+  <data name="ConfigSettingsDialog_IntervalMode.Content" xml:space="preserve">
+    <value>Interval backup mode</value>
+  </data>
   <data name="ConfigSettingsDialog_IntervalMinutes.Text" xml:space="preserve">
     <value>Run every</value>
   </data>
@@ -743,12 +737,6 @@ Duplicate folder names are blocked within the same configuration so different di
   </data>
   <data name="ConfigSettingsDialog_ScheduledMode.Content" xml:space="preserve">
     <value>Scheduled backup</value>
-  </data>
-  <data name="ConfigSettingsDialog_ScheduledTime.Text" xml:space="preserve">
-    <value>Time:</value>
-  </data>
-  <data name="ConfigSettingsDialog_ScheduledTimeSuffix.Text" xml:space="preserve">
-    <value>hour (24-hour clock)</value>
   </data>
   <data name="ConfigSettingsDialog_Filter.Header" xml:space="preserve">
     <value>Filter</value>
@@ -804,9 +792,6 @@ Duplicate folder names are blocked within the same configuration so different di
   <data name="BackupService_Log_SmartChainCheckFailed" xml:space="preserve">
     <value>Smart chain length check failed: {0}</value>
   </data>
-  <data name="BackupService_Log_PruneSkipAllImportant" xml:space="preserve">
-    <value>All backups are marked as important, skipping automatic pruning</value>
-  </data>
   <data name="BackupService_Log_PrunedOldBackup" xml:space="preserve">
     <value>Pruned old backup: {0}</value>
   </data>
@@ -815,9 +800,6 @@ Duplicate folder names are blocked within the same configuration so different di
   </data>
   <data name="BackupService_Log_SafeDeleteStart" xml:space="preserve">
     <value>[Safe Delete] Processing: {0}</value>
-  </data>
-  <data name="BackupService_Log_SafeDeleteEndOfChain" xml:space="preserve">
-    <value>[Safe Delete] Backup is at chain end or next is a full backup, deleting directly</value>
   </data>
   <data name="BackupService_Log_SafeDeleteNo7z" xml:space="preserve">
     <value>[Safe Delete] 7z not found, falling back to direct delete</value>
@@ -828,17 +810,8 @@ Duplicate folder names are blocked within the same configuration so different di
   <data name="BackupService_Log_SafeDeleteStep2" xml:space="preserve">
     <value>[Safe Delete] Step 2/4: Merging content into next backup</value>
   </data>
-  <data name="BackupService_Log_SafeDeletePromote" xml:space="preserve">
-    <value>[Safe Delete] Step 3/4: Promoting next incremental backup to full</value>
-  </data>
-  <data name="BackupService_Log_SafeDeleteStep4" xml:space="preserve">
-    <value>[Safe Delete] Step 4/4: Deleting original file</value>
-  </data>
   <data name="BackupService_Log_SafeDeleteRenamed" xml:space="preserve">
     <value>[Safe Delete] Backup promoted and renamed to: {0}</value>
-  </data>
-  <data name="BackupService_Log_SafeDeleteRenameFailed" xml:space="preserve">
-    <value>[Safe Delete] Rename failed: {0}</value>
   </data>
   <data name="BackupService_Log_SafeDeleteSuccess" xml:space="preserve">
     <value>[Safe Delete] Successfully deleted backup: {0}</value>
@@ -854,6 +827,105 @@ Duplicate folder names are blocked within the same configuration so different di
   </data>
   <data name="SettingsPage_LogDiag.Text" xml:space="preserve">
     <value>Logs &amp; Diagnostics</value>
+  </data>
+  <data name="SettingsPage_CoreValidation.Text" xml:space="preserve">
+    <value>Core Feature Validation</value>
+  </data>
+  <data name="SettingsPage_CoreValidationSectionDesc.Text" xml:space="preserve">
+    <value>Automatically verify that backup and restore core flows work on this machine</value>
+  </data>
+  <data name="SettingsPage_CoreValidation_Run.Text" xml:space="preserve">
+    <value>Run full self-check</value>
+  </data>
+  <data name="SettingsPage_CoreValidation_RunDesc.Text" xml:space="preserve">
+    <value>Create a temporary config and validate smart backup, shared-lock files, restore, safe delete, and keep-count pruning</value>
+  </data>
+  <data name="SettingsPage_CoreValidation_RunButton.Content" xml:space="preserve">
+    <value>Run validation</value>
+  </data>
+  <data name="SettingsPage_CoreValidation_ViewReportButton.Content" xml:space="preserve">
+    <value>View current report</value>
+  </data>
+  <data name="SettingsPage_CoreValidation_State.Text" xml:space="preserve">
+    <value>Status</value>
+  </data>
+  <data name="SettingsPage_CoreValidation_StateDesc.Text" xml:space="preserve">
+    <value>Shows current state, latest run time, and the most recent summary</value>
+  </data>
+  <data name="CoreValidation_Status_Idle" xml:space="preserve">
+    <value>Core feature validation has not run yet</value>
+  </data>
+  <data name="CoreValidation_Status_Preparing" xml:space="preserve">
+    <value>Preparing core feature validation workspace</value>
+  </data>
+  <data name="CoreValidation_Status_Step" xml:space="preserve">
+    <value>Running: {0}</value>
+  </data>
+  <data name="CoreValidation_Status_Succeeded" xml:space="preserve">
+    <value>Core feature validation passed</value>
+  </data>
+  <data name="CoreValidation_Status_Failed" xml:space="preserve">
+    <value>Core feature validation failed</value>
+  </data>
+  <data name="CoreValidation_LastRun_None" xml:space="preserve">
+    <value>Last run: never</value>
+  </data>
+  <data name="CoreValidation_LastRun_Value" xml:space="preserve">
+    <value>Last run: {0}</value>
+  </data>
+  <data name="CoreValidation_LastSummary_None" xml:space="preserve">
+    <value>Latest summary: none</value>
+  </data>
+  <data name="CoreValidation_AlreadyRunning" xml:space="preserve">
+    <value>Core feature validation is already running. Please wait for it to finish.</value>
+  </data>
+  <data name="CoreValidation_AutoNotificationTitle" xml:space="preserve">
+    <value>Core Feature Validation</value>
+  </data>
+  <data name="CoreValidation_Report_Title" xml:space="preserve">
+    <value>Core Feature Validation Report</value>
+  </data>
+  <data name="CoreValidation_Report_NoData" xml:space="preserve">
+    <value>No validation report is available in the current session yet.</value>
+  </data>
+  <data name="CoreValidation_Summary_Passed" xml:space="preserve">
+    <value>All core backup and restore checks passed.</value>
+  </data>
+  <data name="CoreValidation_Summary_Failed" xml:space="preserve">
+    <value>Core backup and restore validation failed.</value>
+  </data>
+  <data name="CoreValidation_Step_PrepareWorkspace" xml:space="preserve">
+    <value>Prepare temporary workspace</value>
+  </data>
+  <data name="CoreValidation_Step_InitialFullBackup" xml:space="preserve">
+    <value>Initial full backup validation</value>
+  </data>
+  <data name="CoreValidation_Step_NoChangeSkip" xml:space="preserve">
+    <value>No-change skip validation</value>
+  </data>
+  <data name="CoreValidation_Step_SmartIncrementalBackup" xml:space="preserve">
+    <value>Smart incremental backup validation</value>
+  </data>
+  <data name="CoreValidation_Step_SharedLockBackup" xml:space="preserve">
+    <value>Shared-lock file backup validation</value>
+  </data>
+  <data name="CoreValidation_Step_DeletionOnlyBackup" xml:space="preserve">
+    <value>Deletion-only backup validation</value>
+  </data>
+  <data name="CoreValidation_Step_CleanRestore" xml:space="preserve">
+    <value>Clean restore validation</value>
+  </data>
+  <data name="CoreValidation_Step_OverwriteRestore" xml:space="preserve">
+    <value>Overwrite restore validation</value>
+  </data>
+  <data name="CoreValidation_Step_SafeDelete" xml:space="preserve">
+    <value>Safe delete validation</value>
+  </data>
+  <data name="CoreValidation_Step_KeepCountPrune" xml:space="preserve">
+    <value>Keep-count prune validation</value>
+  </data>
+  <data name="CoreValidation_Step_FatalError" xml:space="preserve">
+    <value>Fatal error</value>
   </data>
   <data name="SettingsPage_LogEnabled.Text" xml:space="preserve">
     <value>Enable file logging</value>
@@ -950,12 +1022,6 @@ Duplicate folder names are blocked within the same configuration so different di
   </data>
   <data name="PluginStorePage_Install.Content" xml:space="preserve">
     <value>Install</value>
-  </data>
-  <data name="PluginStorePage_SearchBox.PlaceholderText" xml:space="preserve">
-    <value>Filter by file name or tag</value>
-  </data>
-  <data name="PluginStorePage_ZipOnly.Header" xml:space="preserve">
-    <value>ZIP only</value>
   </data>
   <data name="PluginStorePage_NoAssets.Text" xml:space="preserve">
     <value>No plugin assets to display (they may be filtered out).</value>
@@ -1461,14 +1527,6 @@ If you have a listener subscribed to this signal, it should receive a message.</
     <value>[App UnhandledException] {0}
 {1}</value>
   </data>
-  <data name="App_StartupFailedWindowTitle" xml:space="preserve">
-    <value>FolderRewind - Startup failed</value>
-  </data>
-  <data name="App_StartupFailedWindowContent" xml:space="preserve">
-    <value>Startup failed: {0}
-
-{1}</value>
-  </data>
   <data name="Config_DefaultBackupName" xml:space="preserve">
     <value>Default Config</value>
   </data>
@@ -1637,6 +1695,18 @@ If you have a listener subscribed to this signal, it should receive a message.</
   <data name="BackupService_Log_SystemError" xml:space="preserve">
     <value>System error: {0}</value>
   </data>
+  <data name="BackupService_Log_InvalidStorageFolderName" xml:space="preserve">
+    <value>The current folder display name cannot be mapped safely to a backup directory. Rename it and try again.</value>
+  </data>
+  <data name="BackupService_Log_InvalidRestoreStorageFolderName" xml:space="preserve">
+    <value>The folder name stored in this history entry cannot be mapped safely to the metadata directory, so restore cannot continue.</value>
+  </data>
+  <data name="BackupService_Log_SevenZipStartFailed" xml:space="preserve">
+    <value>Failed to start 7z process.</value>
+  </data>
+  <data name="BackupService_Log_SevenZipTimeout" xml:space="preserve">
+    <value>7z process timed out ({0}s).</value>
+  </data>
   <data name="BackupService_Log_BackupBeforeRestore" xml:space="preserve">
     <value>Backup before restore: {0}</value>
   </data>
@@ -1672,9 +1742,6 @@ If you have a listener subscribed to this signal, it should receive a message.</
   </data>
   <data name="BackupService_Log_RestoreSnapshotPrepareFailed" xml:space="preserve">
     <value>Failed to create safe restore snapshot: {0}</value>
-  </data>
-  <data name="BackupService_Log_RestoreSnapshotCleanupFailed" xml:space="preserve">
-    <value>Failed to clean restore snapshot: {0}</value>
   </data>
   <data name="BackupService_Log_RestoreRollbackBegin" xml:space="preserve">
     <value>Restore failed, starting rollback from snapshot: {0}</value>
@@ -1742,9 +1809,6 @@ Comment: {1}
   </data>
   <data name="History_FileMissing" xml:space="preserve">
     <value>File missing</value>
-  </data>
-  <data name="Plugins_NotImplemented" xml:space="preserve">
-    <value>This plugin has not implemented this feature.</value>
   </data>
   <data name="Common_Tip" xml:space="preserve">
     <value>Tip</value>
@@ -1824,99 +1888,6 @@ Comment: {1}
   <data name="Hotkeys_PluginRegisterFailed" xml:space="preserve">
     <value>Plugin hotkey registration failed: {0} - {1}</value>
   </data>
-  <data name="MineRewind_Setting_EnableHotBackup_Name" xml:space="preserve">
-    <value>Enable hot backup</value>
-  </data>
-  <data name="MineRewind_Setting_EnableHotBackup_Desc" xml:space="preserve">
-    <value>Conmunicate with MineBackup. Ensure perfect performance.</value>
-  </data>
-  <data name="MineRewind_Setting_SnapshotPath_Name" xml:space="preserve">
-    <value>Snapshot storage path</value>
-  </data>
-  <data name="MineRewind_Setting_SnapshotPath_Desc" xml:space="preserve">
-    <value>Temporary snapshot path. Leave empty to use the system temp folder.</value>
-  </data>
-  <data name="MineRewind_Setting_CleanupSnapshot_Name" xml:space="preserve">
-    <value>Clean up snapshot after backup</value>
-  </data>
-  <data name="MineRewind_Setting_CleanupSnapshot_Desc" xml:space="preserve">
-    <value>Automatically delete the temporary snapshot folder after backup.</value>
-  </data>
-  <data name="MineRewind_Setting_SnapshotDelay_Name" xml:space="preserve">
-    <value>Snapshot delay (ms)</value>
-  </data>
-  <data name="MineRewind_Setting_SnapshotDelay_Desc" xml:space="preserve">
-    <value>Wait time after creating snapshot to ensure file system operations complete.</value>
-  </data>
-  <data name="MineRewind_CreateConfigs_Result" xml:space="preserve">
-    <value>Created {0} Minecraft saves configs</value>
-  </data>
-  <data name="MineRewind_Hotkey_ActiveWorldBackup_Name" xml:space="preserve">
-    <value>Hot backup the active world</value>
-  </data>
-  <data name="MineRewind_Hotkey_ActiveWorldBackup_Desc" xml:space="preserve">
-    <value>Detect the running Minecraft world (locked files) and trigger a hot backup.</value>
-  </data>
-  <data name="MineRewind_Hotkey_NoActiveWorld" xml:space="preserve">
-    <value>[MineRewind] No active world detected (no locked save found).</value>
-  </data>
-  <data name="MineRewind_Hotkey_Failed" xml:space="preserve">
-    <value>[MineRewind] Hotkey-triggered backup failed: {0}</value>
-  </data>
-  <data name="MineRewind_KnotLink_BackupCurrent_Failed" xml:space="preserve">
-    <value>[MineRewind] KnotLink BACKUP_CURRENT failed: {0}</value>
-  </data>
-  <data name="MineRewind_Snapshot_Locked" xml:space="preserve">
-    <value>[MineRewind] Detected level.dat is locked; hot-backup snapshot enabled: {0}</value>
-  </data>
-  <data name="MineRewind_Snapshot_Created" xml:space="preserve">
-    <value>[MineRewind] Hot-backup snapshot created: {0}</value>
-  </data>
-  <data name="MineRewind_Snapshot_CreateFailed" xml:space="preserve">
-    <value>[MineRewind] Failed to create snapshot: {0}</value>
-  </data>
-  <data name="MineRewind_Snapshot_Cleaned" xml:space="preserve">
-    <value>[MineRewind] Hot-backup snapshot cleaned up: {0}</value>
-  </data>
-  <data name="MineRewind_Snapshot_CleanupFailed" xml:space="preserve">
-    <value>[MineRewind] Failed to cleanup snapshot: {0}</value>
-  </data>
-  <data name="MineRewind_Snapshot_CleanupOldFailed" xml:space="preserve">
-    <value>[MineRewind] Failed to cleanup old snapshot: {0}</value>
-  </data>
-  <data name="MineRewind_Snapshot_VerifyFailed" xml:space="preserve">
-    <value>[MineRewind] Snapshot verification failed after creation</value>
-  </data>
-  <data name="MineRewind_Snapshot_Exception" xml:space="preserve">
-    <value>[MineRewind] CreateSnapshot exception: {0}</value>
-  </data>
-  <data name="MineRewind_Xcopy_StartFailed" xml:space="preserve">
-    <value>[MineRewind] Unable to start xcopy process</value>
-  </data>
-  <data name="MineRewind_Xcopy_Timeout" xml:space="preserve">
-    <value>[MineRewind] xcopy timed out</value>
-  </data>
-  <data name="MineRewind_Xcopy_Stderr" xml:space="preserve">
-    <value>[MineRewind] xcopy stderr: {0}</value>
-  </data>
-  <data name="MineRewind_Hotkey_QuickRestore_Name" xml:space="preserve">
-    <value>Quick restore current save</value>
-  </data>
-  <data name="MineRewind_Hotkey_QuickRestore_Desc" xml:space="preserve">
-    <value>Restore the currently running Minecraft save to the latest backup (requires companion mod)</value>
-  </data>
-  <data name="MineRewind_Hotkey_QuickRestore_NoActive" xml:space="preserve">
-    <value>[MineRewind] Quick restore: no active save detected</value>
-  </data>
-  <data name="MineRewind_Hotkey_QuickRestore_Failed" xml:space="preserve">
-    <value>[MineRewind] Quick restore hotkey failed: {0}</value>
-  </data>
-  <data name="MineRewind_Setting_PreservePlayerData_Name" xml:space="preserve">
-    <value>Preserve player data on restore</value>
-  </data>
-  <data name="MineRewind_Setting_PreservePlayerData_Desc" xml:space="preserve">
-    <value>Keep the current player's position, inventory, XP, etc. when restoring a save (single-player only).</value>
-  </data>
   <data name="PluginService_BeforeRestoreFailed" xml:space="preserve">
     <value>Plugin {0} before-restore hook failed: {1}</value>
   </data>
@@ -1952,12 +1923,6 @@ Comment: {1}
   </data>
   <data name="CloseDialog_Remember" xml:space="preserve">
     <value>Remember my choice</value>
-  </data>
-  <data name="Tray_Show" xml:space="preserve">
-    <value>Show</value>
-  </data>
-  <data name="Tray_Exit" xml:space="preserve">
-    <value>Exit</value>
   </data>
   <data name="HistoryPage_DeleteButton.Content" xml:space="preserve">
     <value>Delete</value>
@@ -2222,12 +2187,6 @@ Status: {3}</value>
   </data>
   <data name="MiniWindow_Log_HotkeyRegisterFailed" xml:space="preserve">
     <value>Failed to register Mini hotkey: {0}</value>
-  </data>
-  <data name="MiniWindow_Log_WatcherError" xml:space="preserve">
-    <value>Folder watcher error [{0}]: {1}</value>
-  </data>
-  <data name="MiniWindow_Log_WatcherStartFailed" xml:space="preserve">
-    <value>Failed to start folder watcher [{0}]: {1}</value>
   </data>
   <data name="Hotkeys_MiniBackup_DisplayName" xml:space="preserve">
     <value>Mini Backup</value>
@@ -2650,17 +2609,117 @@ Release notes:
   <data name="Update_Dialog_OpenRelease" xml:space="preserve">
     <value>View release</value>
   </data>
+  <data name="Update_Dialog_OpenStore" xml:space="preserve">
+    <value>Open Microsoft Store</value>
+  </data>
+  <data name="Update_Dialog_PrepareSideload" xml:space="preserve">
+    <value>Download and prepare install</value>
+  </data>
   <data name="Update_Dialog_Later" xml:space="preserve">
     <value>Later</value>
   </data>
   <data name="Update_Dialog_EmptyNotes" xml:space="preserve">
     <value>No release notes were provided for this version.</value>
   </data>
+  <data name="Update_Dialog_StoreDelayHint" xml:space="preserve">
+    <value>Note: Microsoft Store rollout may lag behind release publication. If the new version is not visible yet, please try again later.</value>
+  </data>
+  <data name="Update_Prepare_Title" xml:space="preserve">
+    <value>Update package preparation</value>
+  </data>
+  <data name="Update_Prepare_Success" xml:space="preserve">
+    <value>The update package is ready (source: {0}). Please right-click and run the following script to continue installation:
+{1}</value>
+  </data>
+  <data name="Update_Prepare_OpenFolder" xml:space="preserve">
+    <value>Open install folder</value>
+  </data>
+  <data name="Update_Prepare_OpenFolderFailed" xml:space="preserve">
+    <value>Failed to open install folder: {0}</value>
+  </data>
+  <data name="Update_Prepare_Failed" xml:space="preserve">
+    <value>Failed to prepare update package: {0}</value>
+  </data>
+  <data name="Update_Prepare_InvalidContext" xml:space="preserve">
+    <value>Invalid update context. Please try again later.</value>
+  </data>
+  <data name="Update_Prepare_MissingAssets" xml:space="preserve">
+    <value>This release does not provide matching .7z or .sha256 assets for your platform.</value>
+  </data>
+  <data name="Update_Prepare_NoDownloadSource" xml:space="preserve">
+    <value>No update download source is available. Please check mirror settings.</value>
+  </data>
+  <data name="Update_Prepare_InvalidShaFile" xml:space="preserve">
+    <value>Unable to parse .sha256 file content.</value>
+  </data>
+  <data name="Update_Prepare_HashMismatch" xml:space="preserve">
+    <value>Checksum failed for source "{0}" (SHA256 mismatch).</value>
+  </data>
+  <data name="Update_Prepare_ExtractStartFailed" xml:space="preserve">
+    <value>Failed to start 7z extraction process.</value>
+  </data>
+  <data name="Update_Prepare_ExtractFailedWithSource" xml:space="preserve">
+    <value>Extraction failed from source "{0}": {1}</value>
+  </data>
+  <data name="Update_Prepare_InstallScriptMissing" xml:space="preserve">
+    <value>Package extracted, but Install.ps1 was not found. Please install manually from the release page.</value>
+  </data>
+  <data name="Update_Prepare_DownloadFailedWithSource" xml:space="preserve">
+    <value>Download failed from source "{0}": {1}</value>
+  </data>
+  <data name="Update_Prepare_FailedGeneric" xml:space="preserve">
+    <value>Failed to prepare update package. Please try again later.</value>
+  </data>
+  <data name="Update_Source_Official" xml:space="preserve">
+    <value>Official GitHub</value>
+  </data>
+  <data name="Update_Source_Mirror1" xml:space="preserve">
+    <value>Mirror 1</value>
+  </data>
+  <data name="Update_Source_Mirror2" xml:space="preserve">
+    <value>Mirror 2</value>
+  </data>
+  <data name="Update_Source_Custom" xml:space="preserve">
+    <value>Custom mirror</value>
+  </data>
   <data name="SettingsPage_EnableUpdateReminder.Text" xml:space="preserve">
     <value>Check update reminder on startup</value>
   </data>
   <data name="SettingsPage_EnableUpdateReminderDesc.Text" xml:space="preserve">
-    <value>Check GitHub Releases on startup and show update notes when a newer version exists</value>
+    <value>Check for updates on startup and provide channel-aware update entry points</value>
+  </data>
+  <data name="SettingsPage_AppUpdateSource.Text" xml:space="preserve">
+    <value>Download source</value>
+  </data>
+  <data name="SettingsPage_AppUpdateSourceDesc.Text" xml:space="preserve">
+    <value>Preferred source for app updates, the online template list, and template file downloads (Store updates are unaffected)</value>
+  </data>
+  <data name="SettingsPage_AppUpdateSource_Official.Content" xml:space="preserve">
+    <value>Official GitHub</value>
+  </data>
+  <data name="SettingsPage_AppUpdateSource_Mirror1.Content" xml:space="preserve">
+    <value>Mirror 1</value>
+  </data>
+  <data name="SettingsPage_AppUpdateSource_Mirror2.Content" xml:space="preserve">
+    <value>Mirror 2</value>
+  </data>
+  <data name="SettingsPage_AppUpdateSource_Custom.Content" xml:space="preserve">
+    <value>Custom mirror</value>
+  </data>
+  <data name="SettingsPage_AppUpdateAutoFallback.Text" xml:space="preserve">
+    <value>Auto switch on failure</value>
+  </data>
+  <data name="SettingsPage_AppUpdateAutoFallbackDesc.Text" xml:space="preserve">
+    <value>Automatically retry other sources when the preferred source fails</value>
+  </data>
+  <data name="SettingsPage_AppUpdateCustomMirror.Text" xml:space="preserve">
+    <value>Custom mirror URL</value>
+  </data>
+  <data name="SettingsPage_AppUpdateCustomMirrorDesc.Text" xml:space="preserve">
+    <value>Enter a prefix URL or a template containing {url}</value>
+  </data>
+  <data name="SettingsPage_AppUpdateCustomMirrorInput.PlaceholderText" xml:space="preserve">
+    <value>Example: https://example.com/{url}</value>
   </data>
   <data name="HistoryPage_ScanRecover.ToolTipService.ToolTip" xml:space="preserve">
     <value>Scan a folder for backup archives and rebuild missing history records</value>
@@ -2688,5 +2747,716 @@ Release notes:
   </data>
   <data name="SettingsPage_About_Link_Document.Content" xml:space="preserve">
     <value>Document</value>
+  </data>
+  <data name="ConfigSettingsDialog_SaveAsTemplateText.Text" xml:space="preserve">
+    <value>Save as template</value>
+  </data>
+  <data name="ConfigSettingsDialog_SaveAsTemplateDesc.Text" xml:space="preserve">
+    <value>Save this configuration as a reusable template (strategy, filters, and path rules).</value>
+  </data>
+  <data name="HomePage_AddFromTemplate.Text" xml:space="preserve">
+    <value>Create from template</value>
+  </data>
+  <data name="SettingsPage_TemplateData.Text" xml:space="preserve">
+    <value>Template Data</value>
+  </data>
+  <data name="SettingsPage_TemplateDataDesc.Text" xml:space="preserve">
+    <value>Export or import templates for cross-device sharing and quick reuse.</value>
+  </data>
+  <data name="SettingsPage_ExportTemplate.Content" xml:space="preserve">
+    <value>Export Template</value>
+  </data>
+  <data name="SettingsPage_ImportTemplate.Content" xml:space="preserve">
+    <value>Import Template</value>
+  </data>
+  <data name="Settings_Template_Export_NoTemplates" xml:space="preserve">
+    <value>No templates are available to export.</value>
+  </data>
+  <data name="Settings_Template_SelectToExport" xml:space="preserve">
+    <value>Select a template to export</value>
+  </data>
+  <data name="Template_DefaultName" xml:space="preserve">
+    <value>New Template</value>
+  </data>
+  <data name="Template_SaveDialog_Title" xml:space="preserve">
+    <value>Save as template</value>
+  </data>
+  <data name="Template_SaveDialog_Hint" xml:space="preserve">
+    <value>Save the current strategy and path rules as a template for reuse or sharing.</value>
+  </data>
+  <data name="Template_SaveDialog_Name" xml:space="preserve">
+    <value>Template name</value>
+  </data>
+  <data name="Template_SaveDialog_Author" xml:space="preserve">
+    <value>Author (optional)</value>
+  </data>
+  <data name="Template_SaveDialog_AuthorPlaceholder" xml:space="preserve">
+    <value>e.g. your nickname</value>
+  </data>
+  <data name="Template_SaveDialog_Description" xml:space="preserve">
+    <value>Description (optional)</value>
+  </data>
+  <data name="Template_Create_SourceConfigNull" xml:space="preserve">
+    <value>Current configuration is null and cannot be saved as a template.</value>
+  </data>
+  <data name="Template_Create_NameRequired" xml:space="preserve">
+    <value>Template name is required.</value>
+  </data>
+  <data name="Template_Create_ConfigUnavailable" xml:space="preserve">
+    <value>Current configuration is unavailable. Failed to save template.</value>
+  </data>
+  <data name="Template_Create_NoPathRules" xml:space="preserve">
+    <value>Template saved, but no auto-discovery path rule could be inferred.</value>
+  </data>
+  <data name="Template_Create_Success" xml:space="preserve">
+    <value>Template created: {0}</value>
+  </data>
+  <data name="Template_Create_OverwriteSuccess" xml:space="preserve">
+    <value>Existing template overwritten: {0}</value>
+  </data>
+  <data name="Template_Apply_TemplateNull" xml:space="preserve">
+    <value>Template is null and cannot be applied.</value>
+  </data>
+  <data name="Template_Apply_NameRequired" xml:space="preserve">
+    <value>Configuration name is required.</value>
+  </data>
+  <data name="Template_AutoDiscoveredFolderDescription" xml:space="preserve">
+    <value>Auto-discovered from template</value>
+  </data>
+  <data name="Template_Apply_SuccessWithFolders" xml:space="preserve">
+    <value>Configuration created and {0} source folder(s) were auto-discovered.</value>
+  </data>
+  <data name="Template_Apply_SuccessNoFolders" xml:space="preserve">
+    <value>Configuration created, but no source folder was auto-discovered. Please add folders manually.</value>
+  </data>
+  <data name="Template_ConfigTypeUnavailable" xml:space="preserve">
+    <value>Template type "{0}" is unavailable (required plugin missing). Falling back to Default.</value>
+  </data>
+  <data name="Template_Export_TemplateNotFound" xml:space="preserve">
+    <value>Template not found.</value>
+  </data>
+  <data name="Template_Export_PathEmpty" xml:space="preserve">
+    <value>Export path is empty.</value>
+  </data>
+  <data name="Template_Export_Success" xml:space="preserve">
+    <value>Template exported to: {0}</value>
+  </data>
+  <data name="Template_Export_Failed" xml:space="preserve">
+    <value>Failed to export template: {0}</value>
+  </data>
+  <data name="Template_Import_FileNotFound" xml:space="preserve">
+    <value>Template file not found.</value>
+  </data>
+  <data name="Template_Import_ConfigUnavailable" xml:space="preserve">
+    <value>Current configuration is unavailable. Failed to import template.</value>
+  </data>
+  <data name="Template_Import_InvalidFile" xml:space="preserve">
+    <value>Invalid or unsupported template file.</value>
+  </data>
+  <data name="Template_Import_SchemaUnsupported" xml:space="preserve">
+    <value>This template file is from a newer version and cannot be imported yet.</value>
+  </data>
+  <data name="Template_Import_Overwrite" xml:space="preserve">
+    <value>Template overwritten: {0}</value>
+  </data>
+  <data name="Template_Import_Success" xml:space="preserve">
+    <value>Template imported: {0}</value>
+  </data>
+  <data name="Template_Import_KeepBothRenamed" xml:space="preserve">
+    <value>Template imported and renamed to "{1}" (original name: {0}).</value>
+  </data>
+  <data name="Template_Import_ConflictTitle" xml:space="preserve">
+    <value>Template Conflict</value>
+  </data>
+  <data name="Template_Import_ConflictContent" xml:space="preserve">
+    <value>The imported template "{0}" conflicts with the existing template "{1}". Do you want to replace the existing one or keep both?</value>
+  </data>
+  <data name="Template_Import_ConflictReplace" xml:space="preserve">
+    <value>Replace Existing</value>
+  </data>
+  <data name="Template_Import_ConflictKeepBoth" xml:space="preserve">
+    <value>Keep Both</value>
+  </data>
+  <data name="Template_Import_Failed" xml:space="preserve">
+    <value>Failed to import template: {0}</value>
+  </data>
+  <data name="Template_CreateFrom_Home_Title" xml:space="preserve">
+    <value>Create configuration from template</value>
+  </data>
+  <data name="Template_CreateFrom_Home_NoTemplates" xml:space="preserve">
+    <value>No local templates yet. Search the official repository, import one, and then continue creating the configuration.</value>
+  </data>
+  <data name="Template_CreateFrom_Home_Template" xml:space="preserve">
+    <value>Select template</value>
+  </data>
+  <data name="Template_CreateFrom_Home_LocalTemplatesHint" xml:space="preserve">
+    <value>Select a local template directly, or search the official repository, import one, and then continue.</value>
+  </data>
+  <data name="Template_CreateFrom_Home_OfficialSearchHeader" xml:space="preserve">
+    <value>Search Official Templates</value>
+  </data>
+  <data name="Template_CreateFrom_Home_OfficialSearchPlaceholder" xml:space="preserve">
+    <value>Search the official repository by template name, game, author, or share code</value>
+  </data>
+  <data name="Template_CreateFrom_Home_SearchOfficial" xml:space="preserve">
+    <value>Search Official Templates</value>
+  </data>
+  <data name="Template_CreateFrom_Home_TemplateInfo" xml:space="preserve">
+    <value>Template "{0}" with {1} path rule(s).</value>
+  </data>
+  <data name="Template_CreateFrom_Home_SelectFoldersTitle" xml:space="preserve">
+    <value>Confirm Discovered Source Folders</value>
+  </data>
+  <data name="Template_CreateFrom_Home_SelectFoldersDesc" xml:space="preserve">
+    <value>Template "{0}" discovered {1} candidate source folder(s). Please confirm which ones should be added to the new configuration.</value>
+  </data>
+  <data name="Template_CreateFrom_Home_SelectFoldersHint" xml:space="preserve">
+    <value>No candidates are selected by default. Please verify the suggested paths before continuing.</value>
+  </data>
+  <data name="Template_CreateFrom_Home_FolderCandidateMeta" xml:space="preserve">
+    <value>Rule: {0} | Confidence: {1} | {2}</value>
+  </data>
+  <data name="Template_CreateFrom_Home_FolderCandidateAuto" xml:space="preserve">
+    <value>Auto-selected</value>
+  </data>
+  <data name="Template_CreateFrom_Home_FolderCandidateSuggested" xml:space="preserve">
+    <value>Needs confirmation</value>
+  </data>
+  <data name="Template_CreateFrom_Home_SelectionSummary" xml:space="preserve">
+    <value>Configuration created with {0} / {1} candidate source folder(s) selected.</value>
+  </data>
+  <data name="Template_RequiredPluginsMissing" xml:space="preserve">
+    <value>Required plugins for this template are missing: {0}</value>
+  </data>
+  <data name="SettingsPage_ManageTemplates.Content" xml:space="preserve">
+    <value>Manage Templates</value>
+  </data>
+  <data name="TemplateManagerDialog.Title" xml:space="preserve">
+    <value>Template Manager</value>
+  </data>
+  <data name="TemplateManagerDialog.CloseButtonText" xml:space="preserve">
+    <value>Close</value>
+  </data>
+  <data name="TemplateManagerDialog_ListHeader.Text" xml:space="preserve">
+    <value>Templates</value>
+  </data>
+  <data name="TemplateManagerDialog_Search.PlaceholderText" xml:space="preserve">
+    <value>Search by name, author, or type</value>
+  </data>
+  <data name="TemplateManagerDialog_DetailHeader.Text" xml:space="preserve">
+    <value>Template Details</value>
+  </data>
+  <data name="TemplateManagerDialog_Name.Header" xml:space="preserve">
+    <value>Name</value>
+  </data>
+  <data name="TemplateManagerDialog_Author.Header" xml:space="preserve">
+    <value>Author</value>
+  </data>
+  <data name="TemplateManagerDialog_Description.Header" xml:space="preserve">
+    <value>Description</value>
+  </data>
+  <data name="TemplateManagerDialog_TemplateMeta.Text" xml:space="preserve">
+    <value>Select a template from the left to view details.</value>
+  </data>
+  <data name="TemplateManagerDialog_TemplateMetaFormat" xml:space="preserve">
+    <value>Type: {0} | Updated: {1} | Rules: {2}</value>
+  </data>
+  <data name="TemplateManagerDialog_Save.Content" xml:space="preserve">
+    <value>Save Changes</value>
+  </data>
+  <data name="TemplateManagerDialog_Duplicate.Content" xml:space="preserve">
+    <value>Duplicate</value>
+  </data>
+  <data name="TemplateManagerDialog_Delete.Content" xml:space="preserve">
+    <value>Delete</value>
+  </data>
+  <data name="TemplateManagerDialog_Export.Content" xml:space="preserve">
+    <value>Export</value>
+  </data>
+  <data name="TemplateManagerDialog_DeleteConfirmYes.Content" xml:space="preserve">
+    <value>Delete</value>
+  </data>
+  <data name="TemplateManagerDialog_DeleteConfirmNo.Content" xml:space="preserve">
+    <value>Cancel</value>
+  </data>
+  <data name="TemplateManagerDialog_PreviewHeader.Text" xml:space="preserve">
+    <value>Rule Preview</value>
+  </data>
+  <data name="TemplateManagerDialog_RefreshPreview.Content" xml:space="preserve">
+    <value>Refresh Preview</value>
+  </data>
+  <data name="TemplateManagerDialog_PathRulesHeader.Text" xml:space="preserve">
+    <value>Path matching rules</value>
+  </data>
+  <data name="TemplateManagerDialog_PathRulesHint.Text" xml:space="preserve">
+    <value>Edit path expressions directly, for example {AppDataRoaming}\.minecraft\saves\{*} or {SteamUserData}\{UserIdCandidate}\123456\remote. Use {*} to match every child folder at that level, which works well for multi-save, multi-profile, or multi-user folders.</value>
+  </data>
+  <data name="TemplateManagerDialog_AddRule.Content" xml:space="preserve">
+    <value>Add Rule</value>
+  </data>
+  <data name="TemplateManagerDialog_SaveRules.Content" xml:space="preserve">
+    <value>Save Rules</value>
+  </data>
+  <data name="TemplateManagerDialog_PathRuleName.Text" xml:space="preserve">
+    <value>Rule name</value>
+  </data>
+  <data name="TemplateManagerDialog_PathRulePath.Text" xml:space="preserve">
+    <value>Path expression</value>
+  </data>
+  <data name="TemplateManagerDialog_PathRuleAuto.Content" xml:space="preserve">
+    <value>Auto-select when uniquely matched</value>
+  </data>
+  <data name="TemplateManagerDialog_PathRuleConfidence.Text" xml:space="preserve">
+    <value>Confidence (0-1)</value>
+  </data>
+  <data name="TemplateManagerDialog_RemoveRule.Content" xml:space="preserve">
+    <value>Remove Rule</value>
+  </data>
+  <data name="TemplateManagerDialog_NoRules.Text" xml:space="preserve">
+    <value>This template has no path rules yet. You can add one manually.</value>
+  </data>
+  <data name="TemplateManagerDialog_PreviewSummary.Text" xml:space="preserve">
+    <value>Select a template to view rule match results.</value>
+  </data>
+  <data name="TemplateManagerDialog_NoPreview.Text" xml:space="preserve">
+    <value>No preview data.</value>
+  </data>
+  <data name="TemplateManagerDialog_EmptyList.Text" xml:space="preserve">
+    <value>No templates matched.</value>
+  </data>
+  <data name="Template_Manager_SelectFirst" xml:space="preserve">
+    <value>Please select a template first.</value>
+  </data>
+  <data name="Template_Manager_DeleteConfirm" xml:space="preserve">
+    <value>Delete template "{0}"? This action cannot be undone.</value>
+  </data>
+  <data name="Template_Manager_PathRuleInvalid" xml:space="preserve">
+    <value>Invalid path expression: {0}</value>
+  </data>
+  <data name="Template_Manager_PathRulesUpdated" xml:space="preserve">
+    <value>Template path rules updated.</value>
+  </data>
+  <data name="Template_PathRule_CollectionName" xml:space="preserve">
+    <value>{0} (collection match)</value>
+  </data>
+  <data name="Template_Update_NameRequired" xml:space="preserve">
+    <value>Template name is required.</value>
+  </data>
+  <data name="Template_Update_TemplateNotFound" xml:space="preserve">
+    <value>Template to update was not found.</value>
+  </data>
+  <data name="Template_Update_NameConflict" xml:space="preserve">
+    <value>Template name "{0}" already exists. Please choose another name.</value>
+  </data>
+  <data name="Template_Update_Success" xml:space="preserve">
+    <value>Template "{0}" was updated.</value>
+  </data>
+  <data name="Template_Duplicate_TemplateNotFound" xml:space="preserve">
+    <value>Template to duplicate was not found.</value>
+  </data>
+  <data name="Template_Duplicate_Success" xml:space="preserve">
+    <value>Template copy created: {0}</value>
+  </data>
+  <data name="Template_Duplicate_CopySuffix" xml:space="preserve">
+    <value>Copy</value>
+  </data>
+  <data name="Template_Delete_TemplateNotFound" xml:space="preserve">
+    <value>Template to delete was not found.</value>
+  </data>
+  <data name="Template_Delete_Failed" xml:space="preserve">
+    <value>Failed to delete template.</value>
+  </data>
+  <data name="Template_Delete_Success" xml:space="preserve">
+    <value>Template deleted: {0}</value>
+  </data>
+  <data name="Template_Preview_TemplateNotFound" xml:space="preserve">
+    <value>Template for preview was not found.</value>
+  </data>
+  <data name="Template_Preview_NoRules" xml:space="preserve">
+    <value>This template has no path rules to preview.</value>
+  </data>
+  <data name="Template_Preview_UnnamedRule" xml:space="preserve">
+    <value>Unnamed rule</value>
+  </data>
+  <data name="Template_Preview_NoPath" xml:space="preserve">
+    <value>N/A</value>
+  </data>
+  <data name="Template_Preview_StatusMatched" xml:space="preserve">
+    <value>Matched</value>
+  </data>
+  <data name="Template_Preview_StatusNoMatch" xml:space="preserve">
+    <value>No match</value>
+  </data>
+  <data name="Template_Preview_MatchCount" xml:space="preserve">
+    <value>Matched paths: {0}</value>
+  </data>
+  <data name="Template_Preview_MarkerNone" xml:space="preserve">
+    <value>Markers: none</value>
+  </data>
+  <data name="Template_Preview_MarkerSummary" xml:space="preserve">
+    <value>Markers: required {0}, optional {1}</value>
+  </data>
+  <data name="Template_Preview_Summary" xml:space="preserve">
+    <value>{0} of {1} rule(s) matched.</value>
+  </data>
+  <data name="SettingsPage_BrowseOfficialTemplates.Content" xml:space="preserve">
+    <value>Import Official Template</value>
+  </data>
+  <data name="SettingsPage_UseTemplateShareCode.Content" xml:space="preserve">
+    <value>Import by Share Code</value>
+  </data>
+  <data name="SettingsPage_PrepareTemplateSubmission.Content" xml:space="preserve">
+    <value>Prepare Submission</value>
+  </data>
+  <data name="OfficialTemplates_SourceOfficial" xml:space="preserve">
+    <value>Official source</value>
+  </data>
+  <data name="OfficialTemplates_SourceMirror" xml:space="preserve">
+    <value>Fallback mirror</value>
+  </data>
+  <data name="OfficialTemplates_SourceCache" xml:space="preserve">
+    <value>Local cache</value>
+  </data>
+  <data name="OfficialTemplates_UsingCachedIndex" xml:space="preserve">
+    <value>Using the locally cached template index.</value>
+  </data>
+  <data name="OfficialTemplates_IndexEmpty" xml:space="preserve">
+    <value>No templates are currently available in the official library.</value>
+  </data>
+  <data name="OfficialTemplates_FetchIndexFailed" xml:space="preserve">
+    <value>Failed to fetch the official template index. Please try again later.</value>
+  </data>
+  <data name="OfficialTemplates_FetchIndexFailedLog" xml:space="preserve">
+    <value>Failed to fetch official template index: {0} - {1}</value>
+  </data>
+  <data name="OfficialTemplates_TemplateNotFound" xml:space="preserve">
+    <value>The requested official template was not found.</value>
+  </data>
+  <data name="OfficialTemplates_TemplateDisabled" xml:space="preserve">
+    <value>This template has been disabled and cannot be used right now.</value>
+  </data>
+  <data name="OfficialTemplates_TemplateUrlMissing" xml:space="preserve">
+    <value>The template download URL is missing.</value>
+  </data>
+  <data name="OfficialTemplates_HashMismatch" xml:space="preserve">
+    <value>The template file failed integrity verification.</value>
+  </data>
+  <data name="OfficialTemplates_LoadFailed" xml:space="preserve">
+    <value>Failed to parse the downloaded template file.</value>
+  </data>
+  <data name="OfficialTemplates_DownloadSuccess" xml:space="preserve">
+    <value>Downloaded official template: {0}</value>
+  </data>
+  <data name="OfficialTemplates_DownloadFailed" xml:space="preserve">
+    <value>Failed to download official template: {0}</value>
+  </data>
+  <data name="OfficialTemplates_BrowseTitle" xml:space="preserve">
+    <value>Official Template Library</value>
+  </data>
+  <data name="OfficialTemplates_CreateFromOfficialTitle" xml:space="preserve">
+    <value>Create Config from Official Template</value>
+  </data>
+  <data name="OfficialTemplates_SearchHeader" xml:space="preserve">
+    <value>Search templates</value>
+  </data>
+  <data name="OfficialTemplates_SearchPlaceholder" xml:space="preserve">
+    <value>Search by game, template, Steam AppID, or share code</value>
+  </data>
+  <data name="OfficialTemplates_TemplateHeader" xml:space="preserve">
+    <value>Templates</value>
+  </data>
+  <data name="OfficialTemplates_SourceLabel" xml:space="preserve">
+    <value>Index source: {0}</value>
+  </data>
+  <data name="OfficialTemplates_SourceLabelWithHint" xml:space="preserve">
+    <value>Index source: {0} ({1})</value>
+  </data>
+  <data name="OfficialTemplates_NoSearchResults" xml:space="preserve">
+    <value>No matching templates.</value>
+  </data>
+  <data name="OfficialTemplates_ShareCodeHeader" xml:space="preserve">
+    <value>Share code</value>
+  </data>
+  <data name="OfficialTemplates_ShareCodePlaceholder" xml:space="preserve">
+    <value>Enter the 5-character share code</value>
+  </data>
+  <data name="OfficialTemplates_UseByShareCodeTitle" xml:space="preserve">
+    <value>Use Template by Share Code</value>
+  </data>
+  <data name="OfficialTemplates_InvalidShareCode" xml:space="preserve">
+    <value>Invalid share code format. Please enter 5 uppercase letters or digits.</value>
+  </data>
+  <data name="OfficialTemplates_ShareCodeNotFound" xml:space="preserve">
+    <value>No template matched that share code.</value>
+  </data>
+  <data name="OfficialTemplates_DetailName" xml:space="preserve">
+    <value>Template: {0}</value>
+  </data>
+  <data name="OfficialTemplates_DetailGame" xml:space="preserve">
+    <value>Game: {0}</value>
+  </data>
+  <data name="OfficialTemplates_DetailShareCode" xml:space="preserve">
+    <value>Share code: {0}</value>
+  </data>
+  <data name="OfficialTemplates_DetailSteamAppId" xml:space="preserve">
+    <value>Steam AppID: {0}</value>
+  </data>
+  <data name="OfficialTemplates_DetailAuthor" xml:space="preserve">
+    <value>Author: {0}</value>
+  </data>
+  <data name="OfficialTemplates_DetailVersion" xml:space="preserve">
+    <value>Version: {0}</value>
+  </data>
+  <data name="Template_Submission_TemplateNull" xml:space="preserve">
+    <value>Template not found.</value>
+  </data>
+  <data name="Template_Submission_NameRequired" xml:space="preserve">
+    <value>A submission template must have a name.</value>
+  </data>
+  <data name="Template_Submission_DescriptionRequired" xml:space="preserve">
+    <value>A submission template must include a description.</value>
+  </data>
+  <data name="Template_Submission_PathRulesRequired" xml:space="preserve">
+    <value>A submission template must include at least one valid path rule.</value>
+  </data>
+  <data name="Template_Submission_DryRunFailed" xml:space="preserve">
+    <value>The template failed a basic dry run and cannot be used to create a config.</value>
+  </data>
+  <data name="Template_Submission_GameNameRecommended" xml:space="preserve">
+    <value>Adding a game name is recommended for discoverability.</value>
+  </data>
+  <data name="Template_Submission_ValidationFailed" xml:space="preserve">
+    <value>Template validation failed with {0} issue(s).</value>
+  </data>
+  <data name="Template_Submission_ValidationWarning" xml:space="preserve">
+    <value>Template validation passed with {0} recommendation(s).</value>
+  </data>
+  <data name="Template_Submission_ValidationPassed" xml:space="preserve">
+    <value>Template validation passed. You can export the submission package now.</value>
+  </data>
+  <data name="Template_Submission_SummaryName" xml:space="preserve">
+    <value>Template name: {0}</value>
+  </data>
+  <data name="Template_Submission_SummaryGame" xml:space="preserve">
+    <value>Game name: {0}</value>
+  </data>
+  <data name="Template_Submission_SummaryAuthor" xml:space="preserve">
+    <value>Author: {0}</value>
+  </data>
+  <data name="Template_Submission_SummaryConfigType" xml:space="preserve">
+    <value>Config type: {0}</value>
+  </data>
+  <data name="Template_Submission_SummaryVersion" xml:space="preserve">
+    <value>Template version: {0}</value>
+  </data>
+  <data name="Template_Submission_SummaryRuleCount" xml:space="preserve">
+    <value>Path rules: {0}</value>
+  </data>
+  <data name="Template_Submission_SummaryPlugins" xml:space="preserve">
+    <value>Required plugins: {0}</value>
+  </data>
+  <data name="Template_Submission_SummaryDescription" xml:space="preserve">
+    <value>Description:</value>
+  </data>
+  <data name="Template_Submission_AuthorAnonymous" xml:space="preserve">
+    <value>Anonymous</value>
+  </data>
+  <data name="Template_Submission_SelectTemplate.Text" xml:space="preserve">
+    <value>Select a local template to submit</value>
+  </data>
+  <data name="Template_Submission_GameNameHeader.Text" xml:space="preserve">
+    <value>Game name (optional)</value>
+  </data>
+  <data name="Template_Submission_PrepareHint.Text" xml:space="preserve">
+    <value>You can export a standard submission package first or submit directly through GitHub. Exporting also copies the submission summary to your clipboard.</value>
+  </data>
+  <data name="Template_Submission_SummaryTitle" xml:space="preserve">
+    <value>Submission Summary</value>
+  </data>
+  <data name="TemplateSubmissionDialog.Title" xml:space="preserve">
+    <value>Submit Template</value>
+  </data>
+  <data name="TemplateSubmissionDialog_ExportPackage" xml:space="preserve">
+    <value>Export Submission Package</value>
+  </data>
+  <data name="TemplateSubmissionDialog_SubmitToGitHub" xml:space="preserve">
+    <value>Submit Template Automatically</value>
+  </data>
+  <data name="TemplateSubmissionDialog_PrepareSection.Text" xml:space="preserve">
+    <value>Prepare Submission Package</value>
+  </data>
+  <data name="TemplateSubmissionDialog_GitHubSection.Text" xml:space="preserve">
+    <value>GitHub Automated Submission</value>
+  </data>
+  <data name="TemplateSubmissionDialog_GitHubHint.Text" xml:space="preserve">
+    <value>The official Microsoft Store release uses built-in GitHub OAuth settings and completes desktop authorization through your default browser plus PKCE.</value>
+  </data>
+  <data name="TemplateSubmissionDialog_GitHubSecurityNotice.Text" xml:space="preserve">
+    <value>GitHub sideload builds and any third-party builds do not enable automated submission. Never download FolderRewind from any third-party source.</value>
+  </data>
+  <data name="TemplateSubmissionDialog_SelectedTemplate.Text" xml:space="preserve">
+    <value>Current template</value>
+  </data>
+  <data name="TemplateSubmissionDialog_GitHubStatus.Text" xml:space="preserve">
+    <value>Authorization status</value>
+  </data>
+  <data name="TemplateSubmissionDialog_RefreshAuth.Content" xml:space="preserve">
+    <value>Refresh status</value>
+  </data>
+  <data name="TemplateSubmissionDialog_TemplateMeta.Text" xml:space="preserve">
+    <value>Author, config type, and rule count will appear here after you select a template.</value>
+  </data>
+  <data name="TemplateSubmissionDialog_TemplateMetaFormat" xml:space="preserve">
+    <value>Author: {0}
+Config type: {1}
+Path rules: {2}</value>
+  </data>
+  <data name="Template_Submission_RuleHasNoSegments" xml:space="preserve">
+    <value>Rule "{0}" does not define any path segments.</value>
+  </data>
+  <data name="Template_Submission_RuleContainsUnsafePath" xml:space="preserve">
+    <value>Rule "{0}" contains an unsafe path segment: {1}</value>
+  </data>
+  <data name="Template_Submission_RuleContainsSensitiveSegment" xml:space="preserve">
+    <value>Rule "{0}" contains a sensitive directory segment: {1}</value>
+  </data>
+  <data name="Template_Submission_RuleContainsUnsafeMarker" xml:space="preserve">
+    <value>Rule "{0}" contains an unsafe marker: {1}</value>
+  </data>
+  <data name="SettingsPage_GitHubSignOut.Content" xml:space="preserve">
+    <value>Sign Out GitHub</value>
+  </data>
+  <data name="GitHubOAuth_ConfigUnavailable" xml:space="preserve">
+    <value>This build does not include the OAuth credential required for GitHub automated submission. The feature is only available in the official Microsoft Store release, and stays disabled in GitHub sideload and third-party builds.</value>
+  </data>
+  <data name="GitHubOAuth_NotAuthorized" xml:space="preserve">
+    <value>GitHub is not authorized yet.</value>
+  </data>
+  <data name="GitHubOAuth_Authorized" xml:space="preserve">
+    <value>GitHub is authorized.</value>
+  </data>
+  <data name="GitHubOAuth_AuthorizedAs" xml:space="preserve">
+    <value>GitHub authorized as {0}</value>
+  </data>
+  <data name="GitHubOAuth_LoginTitle" xml:space="preserve">
+    <value>GitHub Authorization</value>
+  </data>
+  <data name="GitHubOAuth_LoginHint" xml:space="preserve">
+    <value>Your default browser has opened the GitHub authorization page. Finish signing in and authorizing FolderRewind in the browser, then return here and wait for completion.</value>
+  </data>
+  <data name="GitHubOAuth_BrowserOpenFailedWithReason" xml:space="preserve">
+    <value>Failed to open the default browser for GitHub authorization: {0}</value>
+  </data>
+  <data name="GitHubOAuth_LoginCanceled" xml:space="preserve">
+    <value>GitHub authorization was canceled.</value>
+  </data>
+  <data name="GitHubOAuth_StateMismatch" xml:space="preserve">
+    <value>GitHub authorization state verification failed.</value>
+  </data>
+  <data name="GitHubOAuth_ListenerStartFailedWithReason" xml:space="preserve">
+    <value>Failed to start the local OAuth callback listener: {0}</value>
+  </data>
+  <data name="GitHubOAuth_MissingAuthorizationCode" xml:space="preserve">
+    <value>GitHub did not return an authorization code. Please try again.</value>
+  </data>
+  <data name="GitHubOAuth_TokenExchangeFailed" xml:space="preserve">
+    <value>Failed to exchange the GitHub access token.</value>
+  </data>
+  <data name="GitHubOAuth_TokenExchangeFailedWithReason" xml:space="preserve">
+    <value>Failed to exchange the GitHub access token: {0}</value>
+  </data>
+  <data name="GitHubOAuth_UserLookupFailed" xml:space="preserve">
+    <value>Failed to fetch the current GitHub user.</value>
+  </data>
+  <data name="GitHubOAuth_UserLookupFailedWithReason" xml:space="preserve">
+    <value>Failed to fetch the GitHub user: {0}</value>
+  </data>
+  <data name="GitHubOAuth_TokenInvalid" xml:space="preserve">
+    <value>The current GitHub authorization is invalid. Please sign in again.</value>
+  </data>
+  <data name="GitHubOAuth_LoginSuccess" xml:space="preserve">
+    <value>GitHub authorization succeeded: {0}</value>
+  </data>
+  <data name="GitHubOAuth_SignedOut" xml:space="preserve">
+    <value>Signed out from GitHub authorization.</value>
+  </data>
+  <data name="GitHubSubmit_TemplateNull" xml:space="preserve">
+    <value>No template was selected for submission.</value>
+  </data>
+  <data name="GitHubSubmit_RepoLookupFailed" xml:space="preserve">
+    <value>Failed to access the official template repository. Check the owner, repo name, and network.</value>
+  </data>
+  <data name="GitHubSubmit_ForkFailed" xml:space="preserve">
+    <value>Failed to create or load your fork of the official template repository.</value>
+  </data>
+  <data name="GitHubSubmit_BaseBranchLookupFailed" xml:space="preserve">
+    <value>Failed to resolve the latest commit of the fork default branch.</value>
+  </data>
+  <data name="GitHubSubmit_BranchCreateFailed" xml:space="preserve">
+    <value>Failed to create a submission branch.</value>
+  </data>
+  <data name="GitHubSubmit_CommitFailed" xml:space="preserve">
+    <value>Failed to commit the template file to your fork.</value>
+  </data>
+  <data name="GitHubSubmit_PullRequestFailed" xml:space="preserve">
+    <value>Failed to create the pull request.</value>
+  </data>
+  <data name="GitHubSubmit_PullRequestCreated" xml:space="preserve">
+    <value>Pull request created: {0}</value>
+  </data>
+  <data name="GitHubSubmit_PullRequestExists" xml:space="preserve">
+    <value>An open pull request already exists for this branch: {0}</value>
+  </data>
+  <data name="GitHubSubmit_Success" xml:space="preserve">
+    <value>Template submitted successfully. Share code: {0}</value>
+  </data>
+  <data name="GitHubSubmit_FailedWithReason" xml:space="preserve">
+    <value>Automatic submission failed: {0}</value>
+  </data>
+  <data name="GitHubSubmit_ShareCodeExhausted" xml:space="preserve">
+    <value>Failed to generate a unique share code. Please try again later.</value>
+  </data>
+  <data name="GitHubSubmit_Canceled" xml:space="preserve">
+    <value>Automatic submission was canceled.</value>
+  </data>
+  <data name="GitHubSubmit_UnknownFailure" xml:space="preserve">
+    <value>Automatic submission did not return a result. Please check the logs.</value>
+  </data>
+  <data name="GitHubSubmit_ResultTitle" xml:space="preserve">
+    <value>Automatic Submission Result</value>
+  </data>
+  <data name="GitHubSubmit_ResultContent" xml:space="preserve">
+    <value>Share code: {0}
+Pull request: {1}</value>
+  </data>
+  <data name="GitHubSubmit_OpenPullRequest" xml:space="preserve">
+    <value>Open Pull Request</value>
+  </data>
+  <data name="GitHubSubmit_Progress_Starting" xml:space="preserve">
+    <value>Preparing automatic submission...</value>
+  </data>
+  <data name="GitHubSubmit_Progress_LoadRepo" xml:space="preserve">
+    <value>Loading official repository metadata...</value>
+  </data>
+  <data name="GitHubSubmit_Progress_LoadIndex" xml:space="preserve">
+    <value>Loading the latest index and assigning a share code...</value>
+  </data>
+  <data name="GitHubSubmit_Progress_ExportTemplate" xml:space="preserve">
+    <value>Exporting the template package...</value>
+  </data>
+  <data name="GitHubSubmit_Progress_EnsureFork" xml:space="preserve">
+    <value>Checking or creating your fork...</value>
+  </data>
+  <data name="GitHubSubmit_Progress_SyncFork" xml:space="preserve">
+    <value>Syncing the fork default branch...</value>
+  </data>
+  <data name="GitHubSubmit_Progress_CreateBranch" xml:space="preserve">
+    <value>Creating a submission branch...</value>
+  </data>
+  <data name="GitHubSubmit_Progress_CommitTemplate" xml:space="preserve">
+    <value>Committing the template file to your fork...</value>
+  </data>
+  <data name="GitHubSubmit_Progress_CreatePr" xml:space="preserve">
+    <value>Creating the pull request...</value>
   </data>
 </root>

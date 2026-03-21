@@ -8,7 +8,6 @@
     NavigationCacheMode="Required">
 
     <Page.Resources>
-        <converters:StringNullOrEmptyToVisibilityConverter x:Key="StringNullOrEmptyToVisConverter"/>
         <converters:BoolToStarIconConverter x:Key="BoolToStarConverter"/>
     </Page.Resources>
 
@@ -31,8 +30,8 @@
                 <ColumnDefinition Width="Auto"/>
             </Grid.ColumnDefinitions>
 
-            <!-- 移除了 ItemsSource绑定，改为代码设置 -->
             <ComboBox x:Name="ConfigFilter" x:Uid="HistoryPage_ConfigFilter" 
+                      ItemsSource="{x:Bind ViewModel.Configs, Mode=OneWay}"
                       HorizontalAlignment="Stretch"
                       DisplayMemberPath="Name"
                       SelectionChanged="ConfigFilter_SelectionChanged"/>
@@ -57,7 +56,7 @@
             <StackPanel Grid.Column="4" Orientation="Horizontal" Spacing="12" VerticalAlignment="Bottom">
                 <ToggleSwitch x:Name="UseColorsToggle"
                               x:Uid="HistoryPage_UseStatusColors"
-                              IsOn="{x:Bind UseHistoryStatusColors, Mode=TwoWay}"
+                              IsOn="{x:Bind ViewModel.UseHistoryStatusColors, Mode=TwoWay}"
                               Toggled="UseColorsToggle_Toggled" />
                 <Button x:Name="ScanRecoverButton"
                         x:Uid="HistoryPage_ScanRecover"
@@ -69,13 +68,13 @@
                 </Button>
                 <Button x:Name="ClearMissingButton"
                         x:Uid="HistoryPage_ClearMissing"
-                        IsEnabled="{x:Bind HasMissing, Mode=OneWay}"
+                        IsEnabled="{x:Bind ViewModel.HasMissing, Mode=OneWay}"
                         Click="OnClearMissingClick" />
             </StackPanel>
         </Grid>
 
         <!-- 历史列表 -->
-        <ListView x:Name="HistoryList" Grid.Row="2" SelectionMode="None">
+        <ListView x:Name="HistoryList" Grid.Row="2" SelectionMode="None" ItemsSource="{x:Bind ViewModel.FilteredHistory, Mode=OneWay}">
             <!-- ItemTemplate 保持之前的 Git 节点风格 -->
             <ListView.ItemTemplate>
                 <DataTemplate x:DataType="models:HistoryItem">
@@ -131,7 +130,7 @@
 
         <!-- 空状态提示 -->
         <StackPanel Grid.Row="2" VerticalAlignment="Center" HorizontalAlignment="Center" 
-                    Visibility="{x:Bind IsEmpty, Mode=OneWay, Converter={StaticResource BoolToVisConverter}}">
+                    Visibility="{x:Bind ViewModel.IsEmpty, Mode=OneWay, Converter={StaticResource BoolToVisConverter}}">
             <FontIcon Glyph="&#xE7BA;" FontSize="48" Foreground="{ThemeResource TextFillColorSecondaryBrush}"/>
             <TextBlock x:Uid="HistoryPage_EmptyState" Margin="0,16,0,0" Foreground="{ThemeResource TextFillColorSecondaryBrush}"/>
         </StackPanel>

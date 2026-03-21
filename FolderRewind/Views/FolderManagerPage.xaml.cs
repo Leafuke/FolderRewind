@@ -2,191 +2,42 @@ using FolderRewind.Models;
 using FolderRewind.Services;
 using FolderRewind.Services.Hotkeys;
 using FolderRewind.Services.Plugins;
+using FolderRewind.ViewModels;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Input;
 using Microsoft.UI.Xaml.Navigation;
 using System;
-using System.Collections.ObjectModel;
-using System.Collections.Specialized;
 using System.Collections.Generic;
-using System.ComponentModel;
-using System.IO;
+using System.Diagnostics;
 using System.Linq;
+using System.Threading.Tasks;
 using Windows.ApplicationModel.Resources;
 using Windows.Storage;
 using Windows.Storage.Pickers;
 using Windows.System;
-using WinRT.Interop;
 
 namespace FolderRewind.Views
 {
-    public sealed partial class FolderManagerPage : Page, INotifyPropertyChanged
+    public sealed partial class FolderManagerPage : Page
     {
-        public event PropertyChangedEventHandler? PropertyChanged;
+        public FolderManagerPageViewModel ViewModel { get; } = new();
 
-        // 全局配置列表，用于 ComboBox
-        public ObservableCollection<BackupConfig> Configs => ConfigService.CurrentConfig?.BackupConfigs ?? new ObservableCollection<BackupConfig>();
-
-        // 绑定视图（避免 MSIX + Trim 下 WinRT 对自定义泛型集合投影异常）
-        public ObservableCollection<object> ConfigsView { get; } = new();
-
-        // 当前文件夹列表的绑定视图
-        public ObservableCollection<object> CurrentFoldersView { get; } = new();
-
-        private GlobalSettings? Settings => ConfigService.CurrentConfig?.GlobalSettings;
-
-        private BackupConfig? _currentConfig;
-        public BackupConfig? CurrentConfig
-        {
-            get => _currentConfig;
-            set
-            {
-                if (_currentConfig != value)
-                {
-                    UnhookCurrentFoldersChanged(_currentConfig);
-                    _currentConfig = value;
-                    PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(CurrentConfig)));
-
-                    HookCurrentFoldersChanged(_currentConfig);
-
-                    Bindings.Update();
-                    RefreshCurrentFoldersView();
-
-                    PersistManagerSelection(_currentConfig?.Id, null);
-                }
-            }
-        }
-
-        public string SelectedFolderDisplayName
-        {
-            get
-            {
-                try
-                {
-                    if (FolderList?.SelectedItem is ManagedFolder folder && !string.IsNullOrWhiteSpace(folder.DisplayName))
-                    {
-                        return folder.DisplayName;
-                    }
-                }
-                catch
-                {
-
-                }
-
-                return I18n.GetString("FolderManager_NotSelected");
-            }
-        }
+        private const string MineRewindDownloadUrl = "https://github.com/Leafuke/FolderRewind-Plugin-Minecraft/releases";
 
         public FolderManagerPage()
         {
             this.InitializeComponent();
 
-            HookConfigsChanged();
-            RefreshConfigsView();
-
+            ViewModel.PendingFolderSelectionRequested += TryApplyPendingSelection;
             Loaded += (_, __) => TryApplyPendingSelection();
         }
-
-        private void HookConfigsChanged()
-        {
-            try
-            {
-                ConfigService.CurrentConfig.BackupConfigs.CollectionChanged -= OnConfigsChanged;
-                ConfigService.CurrentConfig.BackupConfigs.CollectionChanged += OnConfigsChanged;
-            }
-            catch
-            {
-
-            }
-        }
-
-        private void OnConfigsChanged(object? sender, NotifyCollectionChangedEventArgs e)
-        {
-            _ = DispatcherQueue.TryEnqueue(() =>
-            {
-                RefreshConfigsView();
-
-                // 如果当前选择的配置被删除，自动切换到列表首项
-                if (CurrentConfig != null && !Configs.Contains(CurrentConfig))
-                {
-                    CurrentConfig = Configs.FirstOrDefault();
-                }
-
-                // 如果还没有选中项，尝试恢复上次选择
-                if (CurrentConfig == null && Configs.Count > 0)
-                {
-                    var lastConfigId = Settings?.LastManagerConfigId;
-                    CurrentConfig = Configs.FirstOrDefault(c => !string.IsNullOrWhiteSpace(lastConfigId) && c.Id == lastConfigId)
-                                   ?? Configs.FirstOrDefault();
-                }
-
-                if (CurrentConfig != null && !string.IsNullOrWhiteSpace(Settings?.LastManagerFolderPath))
-                {
-                    _pendingFolderPath = Settings.LastManagerFolderPath;
-                    TryApplyPendingSelection();
-                }
-            });
-        }
-
-        private void RefreshConfigsView()
-        {
-            ConfigsView.Clear();
-            foreach (var cfg in Configs)
-            {
-                ConfigsView.Add(cfg);
-            }
-        }
-
-        private void HookCurrentFoldersChanged(BackupConfig? config)
-        {
-            if (config?.SourceFolders == null) return;
-            try
-            {
-                config.SourceFolders.CollectionChanged -= OnCurrentFoldersChanged;
-                config.SourceFolders.CollectionChanged += OnCurrentFoldersChanged;
-            }
-            catch
-            {
-
-            }
-        }
-
-        private void UnhookCurrentFoldersChanged(BackupConfig? config)
-        {
-            if (config?.SourceFolders == null) return;
-            try
-            {
-                config.SourceFolders.CollectionChanged -= OnCurrentFoldersChanged;
-            }
-            catch
-            {
-
-            }
-        }
-
-        private void OnCurrentFoldersChanged(object? sender, NotifyCollectionChangedEventArgs e)
-        {
-            _ = DispatcherQueue.TryEnqueue(RefreshCurrentFoldersView);
-        }
-
-        private void RefreshCurrentFoldersView()
-        {
-            CurrentFoldersView.Clear();
-            if (CurrentConfig?.SourceFolders == null) return;
-            foreach (var folder in CurrentConfig.SourceFolders)
-            {
-                CurrentFoldersView.Add(folder);
-            }
-        }
-
-        private string? _pendingFolderPath;
-        private bool _minecraftPluginHintShown;
-        private const string MineRewindDownloadUrl = "https://github.com/Leafuke/FolderRewind-Plugin-Minecraft/releases";
 
         protected override void OnNavigatedTo(NavigationEventArgs e)
         {
             base.OnNavigatedTo(e);
+
+            ViewModel.Activate();
 
             try
             {
@@ -197,57 +48,41 @@ namespace FolderRewind.Views
             {
             }
 
-            // 进入页面时刷新一次视图集合，避免安装包环境下首次绑定异常
-            RefreshConfigsView();
+            // 进入页面时刷新一次视图集合，避免安装包环境下首次绑定异常。
+            ViewModel.RefreshConfigsView();
 
-            // 支持：传入复合导航参数（配置 + 文件夹）
             if (e.Parameter is ManagerNavigationParameter managerParam)
             {
                 ApplyManagerNavigation(managerParam);
                 return;
             }
 
-            // 兼容：直接传入 Folder（由其它页面导航）
             if (e.Parameter is ManagedFolder folder)
             {
-                var parent = Configs.FirstOrDefault(c => c.SourceFolders.Any(f =>
-                    f.Path != null && folder.Path != null &&
-                    f.Path.Equals(folder.Path, StringComparison.OrdinalIgnoreCase)));
-
+                var parent = ViewModel.FindConfigByFolderPath(folder.Path);
                 if (parent != null)
                 {
-                    CurrentConfig = parent;
-                    _pendingFolderPath = folder.Path;
+                    ViewModel.CurrentConfig = parent;
+                    ViewModel.SetPendingFolderPath(folder.Path);
                     TryApplyPendingSelection();
+                    return;
                 }
-
-                return;
             }
 
             if (e.Parameter is BackupConfig config)
             {
-                // 修复逻辑：根据 ID 在当前的 Configs 列表中查找对应的实例
-                // 这样能确保 ComboBox 的选中项与 ItemsSource 中的对象完全匹配
-                var match = Configs.FirstOrDefault(c => c.Id == config.Id);
+                var match = ViewModel.FindConfigById(config.Id);
                 if (match != null)
                 {
-                    CurrentConfig = match;
+                    ViewModel.CurrentConfig = match;
                 }
             }
-            // 如果没有参数，且列表不为空，且当前未选中任何项，则默认选中第一个
-            else if (CurrentConfig == null && Configs.Count > 0)
+            else
             {
-                // 优先恢复上次在管理页选择的配置
-                var lastConfigId = Settings?.LastManagerConfigId;
-                var remembered = Configs.FirstOrDefault(c => !string.IsNullOrWhiteSpace(lastConfigId) && c.Id == lastConfigId);
-                CurrentConfig = remembered ?? Configs[0];
-
-                // 如果有记录的文件夹路径，稍后尝试选中
-                _pendingFolderPath = Settings?.LastManagerFolderPath;
+                ViewModel.EnsureCurrentConfigSelectedFromSettings();
             }
 
-            RefreshCurrentFoldersView();
-
+            ViewModel.RefreshCurrentFoldersView();
             TryApplyPendingSelection();
         }
 
@@ -262,47 +97,48 @@ namespace FolderRewind.Views
             catch
             {
             }
+
+            ViewModel.Deactivate();
         }
 
         private async void HotkeyManager_Invoked(object? sender, HotkeyInvokedEventArgs e)
         {
-            if (e == null) return;
-            if (e.HotkeyId != HotkeyManager.Action_BackupSelectedFolder) return;
-
-            try
+            if (e == null || e.HotkeyId != HotkeyManager.Action_BackupSelectedFolder)
             {
-                if (FolderList?.SelectedItem is not ManagedFolder folder) return;
-                if (CurrentConfig == null) return;
+                return;
+            }
 
-                // [快捷键]
-                var baseComment = string.Empty;
-                try { baseComment = CommentBox?.Text ?? string.Empty; } catch { }
+            if (!TryGetSelectedContext(out _, out _))
+            {
+                return;
+            }
 
-                var comment = string.IsNullOrWhiteSpace(baseComment)
-                    ? "[快捷键]"
-                    : (baseComment.Contains("[快捷键]", StringComparison.OrdinalIgnoreCase)
-                        ? baseComment
-                        : $"{baseComment} [快捷键]");
+            var comment = ViewModel.BuildHotkeyBackupComment();
 
-                // 防止重复触发
-                _ = DispatcherQueue.TryEnqueue(async () =>
+            _ = DispatcherQueue.TryEnqueue(async () =>
+            {
+                try
                 {
-                    try
+                    if (BackupSelectedButton != null && !BackupSelectedButton.IsEnabled)
                     {
-                        if (BackupSelectedButton != null && !BackupSelectedButton.IsEnabled) return;
-                        if (BackupSelectedButton != null) BackupSelectedButton.IsEnabled = false;
+                        return;
+                    }
 
-                        await BackupService.BackupFolderAsync(CurrentConfig, folder, comment);
-                    }
-                    finally
+                    if (BackupSelectedButton != null)
                     {
-                        if (BackupSelectedButton != null) BackupSelectedButton.IsEnabled = true;
+                        BackupSelectedButton.IsEnabled = false;
                     }
-                });
-            }
-            catch
-            {
-            }
+
+                    await ViewModel.BackupSelectedFolderAsync(comment);
+                }
+                finally
+                {
+                    if (BackupSelectedButton != null)
+                    {
+                        BackupSelectedButton.IsEnabled = ViewModel.HasSelectedFolder;
+                    }
+                }
+            });
         }
 
         private void ApplyManagerNavigation(ManagerNavigationParameter param)
@@ -311,27 +147,26 @@ namespace FolderRewind.Views
 
             if (!string.IsNullOrWhiteSpace(param.ConfigId))
             {
-                match = Configs.FirstOrDefault(c => c.Id == param.ConfigId);
+                match = ViewModel.FindConfigById(param.ConfigId);
             }
 
             if (match == null && !string.IsNullOrWhiteSpace(param.FolderPath))
             {
-                match = Configs.FirstOrDefault(c => c.SourceFolders.Any(f =>
-                    f.Path != null && f.Path.Equals(param.FolderPath, StringComparison.OrdinalIgnoreCase)));
+                match = ViewModel.FindConfigByFolderPath(param.FolderPath);
             }
 
             if (match != null)
             {
-                CurrentConfig = match;
+                ViewModel.CurrentConfig = match;
             }
-            else if (CurrentConfig == null && Configs.Count > 0)
+            else if (ViewModel.CurrentConfig == null && ViewModel.Configs.Count > 0)
             {
-                CurrentConfig = Configs[0];
+                ViewModel.CurrentConfig = ViewModel.Configs[0];
             }
 
             if (!string.IsNullOrWhiteSpace(param.FolderPath))
             {
-                _pendingFolderPath = param.FolderPath;
+                ViewModel.SetPendingFolderPath(param.FolderPath);
             }
 
             TryApplyPendingSelection();
@@ -339,151 +174,99 @@ namespace FolderRewind.Views
 
         private void TryApplyPendingSelection()
         {
-            if (string.IsNullOrWhiteSpace(_pendingFolderPath)) return;
-            if (CurrentConfig?.SourceFolders == null) return;
-            if (FolderList == null) return;
+            var path = ViewModel.PendingFolderPath;
+            if (string.IsNullOrWhiteSpace(path))
+            {
+                return;
+            }
 
-            var path = _pendingFolderPath;
+            if (ViewModel.CurrentConfig?.SourceFolders == null || FolderList == null)
+            {
+                return;
+            }
 
             _ = DispatcherQueue.TryEnqueue(() =>
             {
-                var target = CurrentConfig.SourceFolders.FirstOrDefault(f =>
-                    f.Path != null && f.Path.Equals(path, StringComparison.OrdinalIgnoreCase));
-
+                var target = ViewModel.FindFolderInCurrentConfig(path);
                 if (target == null)
                 {
-                    if (Settings != null && string.Equals(Settings.LastManagerFolderPath, path, StringComparison.OrdinalIgnoreCase))
-                    {
-                        Settings.LastManagerFolderPath = string.Empty;
-                        ConfigService.Save();
-                    }
-                    _pendingFolderPath = null;
+                    ViewModel.ClearRememberedFolderPathIfMatches(path);
+                    ViewModel.ClearPendingFolderPath();
                     return;
                 }
 
                 FolderList.SelectedItem = target;
                 FolderList.ScrollIntoView(target);
-
-                PersistManagerSelection(CurrentConfig?.Id, target.Path);
-
-                _pendingFolderPath = null;
+                ViewModel.SetSelectedFolder(target, persistSelection: true);
+                ViewModel.ClearPendingFolderPath();
             });
         }
 
-        // --- 交互逻辑 ---
-
         private void ConfigSelector_SelectionChanged(object sender, SelectionChangedEventArgs e)
         {
-            // Binding Mode=TwoWay 应该会自动更新 CurrentConfig，
-            // 但如果需要额外逻辑（如刷新列表），可以在这里写。
-            // 目前因为 ListView 绑定的是 CurrentConfig.SourceFolders，所以会自动刷新。
-
-            if (CurrentConfig != null)
+            if (ConfigSelector.SelectedItem is BackupConfig config)
             {
-                PersistManagerSelection(CurrentConfig.Id, null);
+                ViewModel.CurrentConfig = config;
             }
+            else
+            {
+                ViewModel.CurrentConfig = null;
+            }
+
+            ViewModel.SetSelectedFolder(null, persistSelection: false);
         }
 
         private void FolderList_SelectionChanged(object sender, SelectionChangedEventArgs e)
         {
-            bool hasSelection = FolderList.SelectedItem != null;
-            BackupSelectedButton.IsEnabled = hasSelection;
-            HistoryButton.IsEnabled = hasSelection;
-
-            if (hasSelection && FolderList.SelectedItem is ManagedFolder folder)
-            {
-                PersistManagerSelection(CurrentConfig?.Id, folder.Path);
-            }
-
-            Bindings.Update();
+            ViewModel.SetSelectedFolder(FolderList.SelectedItem as ManagedFolder, persistSelection: true);
         }
 
-        // 添加文件夹 (核心逻辑)
-        private async void OnAddFolderClick(object sender, RoutedEventArgs e)
-        {
-            if (CurrentConfig == null) return;
-
-            var picker = new FolderPicker();
-            picker.SuggestedStartLocation = PickerLocationId.ComputerFolder;
-            picker.FileTypeFilter.Add("*");
-
-            // 获取窗口句柄
-            // 假设你在 App.xaml.cs 中保存了 public static Window Window { get; set; }
-            // 如果没有，请务必添加，否则这里会报错或需要用反射
-            if (App._window != null)
-            {
-                InitializeWithWindow.Initialize(picker, WindowNative.GetWindowHandle(App._window));
-            }
-
-            var folder = await picker.PickSingleFolderAsync();
-            if (folder == null) return;
-
-            var result = AddFolderLogic(folder);
-            if (result == AddFolderResult.DuplicateDisplayName)
-            {
-                await ShowDuplicateDisplayNameBlockedAsync(FolderNameConflictService.ResolveDisplayName(folder.Name, folder.Path));
-            }
-        }
-
-        // 移除文件夹
         private void OnRemoveFolderClick(object sender, RoutedEventArgs e)
         {
             if (sender is MenuFlyoutItem item && item.DataContext is ManagedFolder folder)
             {
-                if (CurrentConfig == null) return;
-                CurrentConfig.SourceFolders.Remove(folder);
-                ConfigService.Save();
+                ViewModel.RemoveFolder(folder);
             }
         }
 
-        // 收藏切换
         private void OnFavoriteToggleClick(object sender, RoutedEventArgs e)
         {
             if (sender is Button btn && btn.DataContext is ManagedFolder folder)
             {
-                folder.IsFavorite = !folder.IsFavorite;
-                ConfigService.Save();
-                // 注意：如果 HomePage 显示了收藏列表，它应该会自动更新，或者需要发个消息通知
+                ViewModel.ToggleFavorite(folder);
             }
         }
 
-        // 置顶文件夹
         private void OnPinToTopClick(object sender, RoutedEventArgs e)
         {
-            if (sender is MenuFlyoutItem item && item.DataContext is ManagedFolder folder && CurrentConfig?.SourceFolders != null)
+            if (sender is MenuFlyoutItem item && item.DataContext is ManagedFolder folder)
             {
-                var index = CurrentConfig.SourceFolders.IndexOf(folder);
-                if (index > 0)
-                {
-                    CurrentConfig.SourceFolders.Move(index, 0);
-                    ConfigService.Save();
-                }
+                ViewModel.PinFolderToTop(folder);
             }
         }
 
-        // 打开文件夹
         private void OnOpenFolderClick(object sender, RoutedEventArgs e)
         {
             if (sender is MenuFlyoutItem item && item.DataContext is ManagedFolder folder)
             {
-                // 使用 Explorer 打开文件夹
-                System.Diagnostics.Process.Start("explorer.exe", folder.Path);
+                ViewModel.TryOpenFolder(folder);
             }
         }
 
-        // 打开 Mini 悬浮窗
         private void OnOpenMiniWindowClick(object sender, RoutedEventArgs e)
         {
-            if (sender is MenuFlyoutItem item && item.DataContext is ManagedFolder folder && CurrentConfig != null)
+            if (sender is MenuFlyoutItem item && item.DataContext is ManagedFolder folder)
             {
-                MiniWindowService.Open(CurrentConfig, folder);
+                ViewModel.TryOpenMiniWindow(folder);
             }
         }
 
         private void OnDescriptionEditorKeyDown(object sender, KeyRoutedEventArgs e)
         {
-            if (e.Key != VirtualKey.Enter) return;
-            if (sender is not TextBox textBox) return;
+            if (e.Key != VirtualKey.Enter || sender is not TextBox textBox)
+            {
+                return;
+            }
 
             e.Handled = true;
 
@@ -508,109 +291,46 @@ namespace FolderRewind.Views
 
         private void OnDescriptionEditorLostFocus(object sender, RoutedEventArgs e)
         {
-            if (sender is not TextBox textBox) return;
-            SaveDescriptionIfNeeded(textBox);
+            if (sender is TextBox textBox)
+            {
+                SaveDescriptionIfNeeded(textBox);
+            }
         }
 
-        private static void SaveDescriptionIfNeeded(TextBox textBox)
+        private void SaveDescriptionIfNeeded(TextBox textBox)
         {
-            if (textBox.DataContext is not ManagedFolder) return;
+            if (textBox.DataContext is not ManagedFolder folder)
+            {
+                return;
+            }
 
             try
             {
-                ConfigService.Save();
+                ViewModel.SaveFolderDescription(folder);
             }
             catch
             {
             }
         }
 
-        private enum AddFolderResult
+        private async Task AddSingleFolderInternalAsync(StorageFolder folder)
         {
-            Added,
-            DuplicatePath,
-            DuplicateDisplayName,
-            Invalid
-        }
-
-        private ManagedFolder BuildManagedFolderCandidate(string path, string? name = null, ManagedFolder? template = null)
-        {
-            var resourceLoader = ResourceLoader.GetForViewIndependentUse();
-            var displayName = FolderNameConflictService.ResolveDisplayName(name ?? template?.DisplayName, path);
-
-            var folder = new ManagedFolder
+            var result = ViewModel.AddFolder(folder.Path, folder.Name, out var addedFolder);
+            if (result == FolderManagerPageViewModel.AddFolderResult.DuplicateDisplayName)
             {
-                Path = path,
-                DisplayName = displayName,
-                Description = template?.Description ?? string.Empty,
-                IsFavorite = template?.IsFavorite ?? false,
-                CoverImagePath = template?.CoverImagePath ?? string.Empty,
-                LastBackupTime = string.IsNullOrWhiteSpace(template?.LastBackupTime)
-                    ? resourceLoader.GetString("FolderManager_NeverBackedUp")
-                    : template!.LastBackupTime
-            };
-
-            if (string.IsNullOrWhiteSpace(folder.CoverImagePath))
-            {
-                string potentialIcon = Path.Combine(path, "icon.png");
-                if (File.Exists(potentialIcon))
-                {
-                    folder.CoverImagePath = potentialIcon;
-                }
+                await ShowDuplicateDisplayNameBlockedAsync(FolderNameConflictService.ResolveDisplayName(folder.Name, folder.Path));
+                return;
             }
 
-            return folder;
-        }
-
-        private AddFolderResult AddFolderLogic(StorageFolder folder, ISet<string>? knownPaths = null, ISet<string>? knownDisplayNames = null, bool persist = true)
-            => AddFolderLogic(folder.Path, folder.Name, knownPaths, knownDisplayNames, persist);
-
-        private AddFolderResult AddFolderLogic(string path, string? name = null, ISet<string>? knownPaths = null, ISet<string>? knownDisplayNames = null, bool persist = true)
-        {
-            if (CurrentConfig == null || string.IsNullOrWhiteSpace(path))
-            {
-                return AddFolderResult.Invalid;
-            }
-
-            knownPaths ??= new HashSet<string>(
-                CurrentConfig.SourceFolders.Select(f => f.Path ?? string.Empty),
-                StringComparer.OrdinalIgnoreCase);
-            knownDisplayNames ??= new HashSet<string>(
-                CurrentConfig.SourceFolders.Select(FolderNameConflictService.ResolveDisplayName),
-                StringComparer.OrdinalIgnoreCase);
-
-            var displayName = FolderNameConflictService.ResolveDisplayName(name, path);
-
-            if (knownPaths.Contains(path))
-            {
-                return AddFolderResult.DuplicatePath;
-            }
-
-            if (knownDisplayNames.Contains(displayName))
-            {
-                return AddFolderResult.DuplicateDisplayName;
-            }
-
-            var newFolder = BuildManagedFolderCandidate(path, displayName);
-            CurrentConfig.SourceFolders.Add(newFolder);
-
-            knownPaths.Add(path);
-            knownDisplayNames.Add(displayName);
-
-            if (persist)
-            {
-                ConfigService.Save();
-            }
-
-            if (ShouldSuggestMineRewind(path, displayName))
+            if (result == FolderManagerPageViewModel.AddFolderResult.Added &&
+                addedFolder != null &&
+                ViewModel.TryMarkNeedMineRewindSuggestion(addedFolder))
             {
                 _ = ShowMineRewindSuggestionAsync();
             }
-
-            return AddFolderResult.Added;
         }
 
-        private async System.Threading.Tasks.Task ShowDuplicateDisplayNameBlockedAsync(string folderName)
+        private async Task ShowDuplicateDisplayNameBlockedAsync(string folderName)
         {
             if (string.IsNullOrWhiteSpace(folderName))
             {
@@ -620,7 +340,7 @@ namespace FolderRewind.Views
             var dialog = new ContentDialog
             {
                 Title = I18n.GetString("FolderManager_DuplicateDisplayName_Title"),
-                Content = I18n.Format("FolderManager_DuplicateDisplayName_Content", folderName, CurrentConfig?.Name ?? string.Empty),
+                Content = I18n.Format("FolderManager_DuplicateDisplayName_Content", folderName, ViewModel.CurrentConfig?.Name ?? string.Empty),
                 CloseButtonText = I18n.GetString("Common_Ok"),
                 DefaultButton = ContentDialogButton.Close,
                 XamlRoot = this.XamlRoot
@@ -630,7 +350,7 @@ namespace FolderRewind.Views
             await dialog.ShowAsync();
         }
 
-        private async System.Threading.Tasks.Task ShowSkippedDuplicateDisplayNamesAsync(IEnumerable<string> folderNames)
+        private async Task ShowSkippedDuplicateDisplayNamesAsync(IEnumerable<string> folderNames)
         {
             var distinctNames = folderNames
                 .Where(name => !string.IsNullOrWhiteSpace(name))
@@ -648,7 +368,7 @@ namespace FolderRewind.Views
                 Title = I18n.GetString("FolderManager_DuplicateDisplayName_Title"),
                 Content = I18n.Format(
                     "FolderManager_DuplicateDisplayName_BatchContent",
-                    CurrentConfig?.Name ?? string.Empty,
+                    ViewModel.CurrentConfig?.Name ?? string.Empty,
                     string.Join(Environment.NewLine, distinctNames.Select(name => $"- {name}"))),
                 CloseButtonText = I18n.GetString("Common_Ok"),
                 DefaultButton = ContentDialogButton.Close,
@@ -659,198 +379,146 @@ namespace FolderRewind.Views
             await dialog.ShowAsync();
         }
 
-        // 1. 添加单个
         private async void OnAddSingleFolderClick(object sender, RoutedEventArgs e)
         {
             var folder = await PickFolderAsync();
-            if (folder == null) return;
-
-            var result = AddFolderLogic(folder);
-            if (result == AddFolderResult.DuplicateDisplayName)
+            if (folder == null)
             {
-                await ShowDuplicateDisplayNameBlockedAsync(FolderNameConflictService.ResolveDisplayName(folder.Name, folder.Path));
+                return;
             }
+
+            await AddSingleFolderInternalAsync(folder);
         }
 
-        // 2. 批量添加子文件夹
         private async void OnAddSubFoldersClick(object sender, RoutedEventArgs e)
         {
             var rootFolder = await PickFolderAsync();
-            if (rootFolder != null)
+            if (rootFolder == null)
             {
-                // 遍历一级子目录
-                try
-                {
-                    // 注意：StorageFolder 遍历比较慢，这里用 System.IO 直接遍历路径
-                    string[] subDirs = Directory.GetDirectories(rootFolder.Path);
-                    var knownPaths = new HashSet<string>(
-                        CurrentConfig?.SourceFolders.Select(f => f.Path ?? string.Empty) ?? Enumerable.Empty<string>(),
-                        StringComparer.OrdinalIgnoreCase);
-                    var knownDisplayNames = new HashSet<string>(
-                        CurrentConfig?.SourceFolders.Select(FolderNameConflictService.ResolveDisplayName) ?? Enumerable.Empty<string>(),
-                        StringComparer.OrdinalIgnoreCase);
-                    var skippedDuplicateDisplayNames = new List<string>();
-                    bool addedAny = false;
-
-                    foreach (var dir in subDirs)
-                    {
-                        var result = AddFolderLogic(dir, Path.GetFileName(dir), knownPaths, knownDisplayNames, persist: false);
-                        if (result == AddFolderResult.Added)
-                        {
-                            addedAny = true;
-                        }
-                        else if (result == AddFolderResult.DuplicateDisplayName)
-                        {
-                            skippedDuplicateDisplayNames.Add(FolderNameConflictService.ResolveDisplayName(null, dir));
-                        }
-                    }
-
-                    if (addedAny)
-                    {
-                        ConfigService.Save();
-                    }
-
-                    if (skippedDuplicateDisplayNames.Count > 0)
-                    {
-                        await ShowSkippedDuplicateDisplayNamesAsync(skippedDuplicateDisplayNames);
-                    }
-                }
-                catch (Exception ex)
-                {
-                    // 权限错误等
-                    System.Diagnostics.Debug.WriteLine(ex.Message);
-                }
-            }
-        }
-
-        // 2.5 插件自动发现（例如 Minecraft：从 .minecraft/versions/*/saves 发现世界）
-        private async void OnPluginDiscoverFoldersClick(object sender, RoutedEventArgs e)
-        {
-            if (CurrentConfig == null) return;
-
-            PluginService.Initialize();
-
-            var rootFolder = await PickFolderAsync();
-            if (rootFolder == null) return;
-
-            var discovered = PluginService.InvokeDiscoverManagedFolders(rootFolder.Path);
-            if (discovered == null || discovered.Count == 0)
-            {
-                var rl = ResourceLoader.GetForViewIndependentUse();
-                var dialog = new ContentDialog
-                {
-                    Title = rl.GetString("FolderManager_PluginDiscover_NoResultTitle"),
-                    Content = rl.GetString("FolderManager_PluginDiscover_NoResultContent"),
-                    CloseButtonText = rl.GetString("Common_Ok"),
-                    DefaultButton = ContentDialogButton.Close,
-                    XamlRoot = this.XamlRoot
-                };
-                await dialog.ShowAsync();
                 return;
             }
 
-            var knownPaths = new HashSet<string>(
-                CurrentConfig.SourceFolders.Select(f => f.Path ?? string.Empty),
-                StringComparer.OrdinalIgnoreCase);
-            var knownDisplayNames = new HashSet<string>(
-                CurrentConfig.SourceFolders.Select(FolderNameConflictService.ResolveDisplayName),
-                StringComparer.OrdinalIgnoreCase);
-            var toAdd = new List<ManagedFolder>();
-            var skippedDuplicateDisplayNames = new List<string>();
-
-            foreach (var discoveredFolder in discovered.Where(f => f != null && !string.IsNullOrWhiteSpace(f.Path)))
+            var result = ViewModel.AddSubFolders(rootFolder.Path);
+            if (!result.Success)
             {
-                var candidatePath = discoveredFolder.Path;
-                var candidateName = FolderNameConflictService.ResolveDisplayName(discoveredFolder);
-
-                if (knownPaths.Contains(candidatePath))
-                {
-                    continue;
-                }
-
-                if (knownDisplayNames.Contains(candidateName))
-                {
-                    skippedDuplicateDisplayNames.Add(candidateName);
-                    continue;
-                }
-
-                knownPaths.Add(candidatePath);
-                knownDisplayNames.Add(candidateName);
-                toAdd.Add(BuildManagedFolderCandidate(candidatePath, candidateName, discoveredFolder));
-            }
-
-            if (toAdd.Count == 0)
-            {
-                if (skippedDuplicateDisplayNames.Count > 0)
-                {
-                    await ShowSkippedDuplicateDisplayNamesAsync(skippedDuplicateDisplayNames);
-                    return;
-                }
-
-                var rl = ResourceLoader.GetForViewIndependentUse();
-                var dialog = new ContentDialog
-                {
-                    Title = rl.GetString("FolderManager_PluginDiscover_NoNewTitle"),
-                    Content = rl.GetString("FolderManager_PluginDiscover_NoNewContent"),
-                    CloseButtonText = rl.GetString("Common_Ok"),
-                    DefaultButton = ContentDialogButton.Close,
-                    XamlRoot = this.XamlRoot
-                };
-                await dialog.ShowAsync();
+                Debug.WriteLine(result.ErrorMessage);
                 return;
             }
 
-            {
-                var rl = ResourceLoader.GetForViewIndependentUse();
-                var confirm = new ContentDialog
-                {
-                    Title = rl.GetString("FolderManager_PluginDiscover_ConfirmTitle"),
-                    Content = string.Format(rl.GetString("FolderManager_PluginDiscover_ConfirmContent"), toAdd.Count),
-                    PrimaryButtonText = rl.GetString("Common_Ok"),
-                    CloseButtonText = rl.GetString("Common_Cancel"),
-                    DefaultButton = ContentDialogButton.Primary,
-                    XamlRoot = this.XamlRoot
-                };
-
-                var res = await confirm.ShowAsync();
-                if (res != ContentDialogResult.Primary) return;
-            }
-
-            foreach (var f in toAdd)
-            {
-                CurrentConfig.SourceFolders.Add(f);
-            }
-
-            ConfigService.Save();
-
-            if (toAdd.Any(f => ShouldSuggestMineRewind(f.Path, f.DisplayName)))
+            if (ViewModel.TryMarkNeedMineRewindSuggestion(result.AddedFolders))
             {
                 _ = ShowMineRewindSuggestionAsync();
             }
 
-            if (skippedDuplicateDisplayNames.Count > 0)
+            if (result.DuplicateDisplayNames.Count > 0)
             {
-                await ShowSkippedDuplicateDisplayNamesAsync(skippedDuplicateDisplayNames);
+                await ShowSkippedDuplicateDisplayNamesAsync(result.DuplicateDisplayNames);
             }
         }
 
-        private bool ShouldSuggestMineRewind(string path, string? name)
+        private async void OnPluginDiscoverFoldersClick(object sender, RoutedEventArgs e)
         {
-            if (_minecraftPluginHintShown) return false;
-            if (string.IsNullOrWhiteSpace(path)) return false;
+            if (ViewModel.CurrentConfig == null)
+            {
+                return;
+            }
 
-            var folderName = string.IsNullOrWhiteSpace(name) ? Path.GetFileName(path) : name;
-            var isMinecraftRoot = string.Equals(folderName, ".minecraft", StringComparison.OrdinalIgnoreCase);
-            var hasLevelDat = File.Exists(Path.Combine(path, "level.dat"));
+            PluginService.Initialize();
 
-            return isMinecraftRoot || hasLevelDat;
+            var rootFolder = await PickFolderAsync();
+            if (rootFolder == null)
+            {
+                return;
+            }
+
+            var discovered = PluginService.InvokeDiscoverManagedFolders(rootFolder.Path);
+            if (discovered == null || discovered.Count == 0)
+            {
+                await ShowPluginDiscoverNoResultAsync();
+                return;
+            }
+
+            var candidates = ViewModel.BuildPluginDiscoverCandidates(discovered);
+            if (candidates.ToAdd.Count == 0)
+            {
+                if (candidates.DuplicateDisplayNames.Count > 0)
+                {
+                    await ShowSkippedDuplicateDisplayNamesAsync(candidates.DuplicateDisplayNames);
+                    return;
+                }
+
+                await ShowPluginDiscoverNoNewAsync();
+                return;
+            }
+
+            var confirmed = await ConfirmPluginDiscoverImportAsync(candidates.ToAdd.Count);
+            if (!confirmed)
+            {
+                return;
+            }
+
+            ViewModel.AddDiscoveredFolders(candidates.ToAdd);
+
+            if (ViewModel.TryMarkNeedMineRewindSuggestion(candidates.ToAdd))
+            {
+                _ = ShowMineRewindSuggestionAsync();
+            }
+
+            if (candidates.DuplicateDisplayNames.Count > 0)
+            {
+                await ShowSkippedDuplicateDisplayNamesAsync(candidates.DuplicateDisplayNames);
+            }
         }
 
-        private async System.Threading.Tasks.Task ShowMineRewindSuggestionAsync()
+        private async Task ShowPluginDiscoverNoResultAsync()
         {
-            if (_minecraftPluginHintShown) return;
-            _minecraftPluginHintShown = true;
+            var rl = ResourceLoader.GetForViewIndependentUse();
+            var dialog = new ContentDialog
+            {
+                Title = rl.GetString("FolderManager_PluginDiscover_NoResultTitle"),
+                Content = rl.GetString("FolderManager_PluginDiscover_NoResultContent"),
+                CloseButtonText = rl.GetString("Common_Ok"),
+                DefaultButton = ContentDialogButton.Close,
+                XamlRoot = this.XamlRoot
+            };
 
+            await dialog.ShowAsync();
+        }
+
+        private async Task ShowPluginDiscoverNoNewAsync()
+        {
+            var rl = ResourceLoader.GetForViewIndependentUse();
+            var dialog = new ContentDialog
+            {
+                Title = rl.GetString("FolderManager_PluginDiscover_NoNewTitle"),
+                Content = rl.GetString("FolderManager_PluginDiscover_NoNewContent"),
+                CloseButtonText = rl.GetString("Common_Ok"),
+                DefaultButton = ContentDialogButton.Close,
+                XamlRoot = this.XamlRoot
+            };
+
+            await dialog.ShowAsync();
+        }
+
+        private async Task<bool> ConfirmPluginDiscoverImportAsync(int folderCount)
+        {
+            var rl = ResourceLoader.GetForViewIndependentUse();
+            var confirm = new ContentDialog
+            {
+                Title = rl.GetString("FolderManager_PluginDiscover_ConfirmTitle"),
+                Content = string.Format(rl.GetString("FolderManager_PluginDiscover_ConfirmContent"), folderCount),
+                PrimaryButtonText = rl.GetString("Common_Ok"),
+                CloseButtonText = rl.GetString("Common_Cancel"),
+                DefaultButton = ContentDialogButton.Primary,
+                XamlRoot = this.XamlRoot
+            };
+
+            var result = await confirm.ShowAsync();
+            return result == ContentDialogResult.Primary;
+        }
+
+        private async Task ShowMineRewindSuggestionAsync()
+        {
             var rl = ResourceLoader.GetForViewIndependentUse();
             var dialog = new ContentDialog
             {
@@ -876,62 +544,48 @@ namespace FolderRewind.Views
             }
         }
 
-        // 3. 更换图标逻辑
         private async void OnChangeIconClick(object sender, RoutedEventArgs e)
         {
-            if (sender is Button btn && btn.DataContext is ManagedFolder folder)
+            if (sender is not Button btn || btn.DataContext is not ManagedFolder folder)
             {
-                var picker = new FileOpenPicker();
-                picker.ViewMode = PickerViewMode.Thumbnail;
-                picker.SuggestedStartLocation = PickerLocationId.PicturesLibrary;
-                picker.FileTypeFilter.Add(".png");
-                picker.FileTypeFilter.Add(".jpg");
-                picker.FileTypeFilter.Add(".jpeg");
+                return;
+            }
 
-                if (App._window != null) InitializeWithWindow.Initialize(picker, WinRT.Interop.WindowNative.GetWindowHandle(App._window));
+            var picker = new FileOpenPicker
+            {
+                ViewMode = PickerViewMode.Thumbnail,
+                SuggestedStartLocation = PickerLocationId.PicturesLibrary
+            };
+            picker.FileTypeFilter.Add(".png");
+            picker.FileTypeFilter.Add(".jpg");
+            picker.FileTypeFilter.Add(".jpeg");
+            MainWindowService.InitializePicker(picker);
 
-                var file = await picker.PickSingleFileAsync();
-                if (file != null)
-                {
-                    try
-                    {
-                        // 目标路径：文件夹下的 icon.png
-                        string destPath = Path.Combine(folder.Path, "icon.png");
+            var file = await picker.PickSingleFileAsync();
+            if (file == null)
+            {
+                return;
+            }
 
-                        // 复制并覆盖
-                        File.Copy(file.Path, destPath, true);
-
-                        // 更新模型 (需要触发 PropertyChanged，强制刷新)
-                        folder.CoverImagePath = string.Empty; // 先清空触发刷新
-                        folder.CoverImagePath = destPath;
-
-                        ConfigService.Save();
-                    }
-                    catch (Exception ex)
-                    {
-                        // 提示用户权限不足等
-                        System.Diagnostics.Debug.WriteLine($"Copy icon failed: {ex.Message}");
-                    }
-                }
+            if (!ViewModel.TryReplaceFolderIcon(folder, file.Path, out var errorMessage))
+            {
+                Debug.WriteLine($"Copy icon failed: {errorMessage}");
             }
         }
 
-        // 下面是备份按钮的占位符，将在 Phase 3 实现
-        // 备份整个配置
         private async void OnBackupConfigClick(object sender, RoutedEventArgs e)
         {
-            if (CurrentConfig == null) return;
+            if (ViewModel.CurrentConfig == null)
+            {
+                return;
+            }
 
-            // 禁用按钮防止重复点击
             BackupConfigButton.IsEnabled = false;
 
             try
             {
-                await BackupService.BackupConfigAsync(CurrentConfig);
-
-                // 这里可以用 ContentDialog 提示完成，或者做一个简单的 Toast
-                // 暂时用 Debug
-                System.Diagnostics.Debug.WriteLine("配置备份完成");
+                await ViewModel.BackupCurrentConfigAsync();
+                Debug.WriteLine("配置备份完成");
             }
             finally
             {
@@ -939,103 +593,71 @@ namespace FolderRewind.Views
             }
         }
 
-        // 备份选中文件夹
         private async void OnBackupSelectedClick(object sender, RoutedEventArgs e)
         {
-            if (CurrentConfig == null) return;
-            if (FolderList.SelectedItem is ManagedFolder folder)
+            if (!TryGetSelectedContext(out _, out _))
             {
-                BackupSelectedButton.IsEnabled = false;
-                // 获取注释并清理空白
-                string? comment = CommentBox.Text?.Trim();
+                return;
+            }
 
-                try
-                {
-                    // 传递 comment
-                    await BackupService.BackupFolderAsync(CurrentConfig, folder, comment);
+            BackupSelectedButton.IsEnabled = false;
+            var comment = ViewModel.BackupComment?.Trim();
 
-                    // 备份成功后清空注释，防止误用
-                    CommentBox.Text = "";
-                }
-                finally
-                {
-                    BackupSelectedButton.IsEnabled = true;
-                }
+            try
+            {
+                await ViewModel.BackupSelectedFolderAsync(comment);
+                ViewModel.BackupComment = string.Empty;
+            }
+            finally
+            {
+                BackupSelectedButton.IsEnabled = ViewModel.HasSelectedFolder;
             }
         }
 
         private void OnHistoryClick(object sender, RoutedEventArgs e)
         {
-            if (CurrentConfig == null) return;
-            if (FolderList.SelectedItem is ManagedFolder folder)
+            if (!TryGetSelectedContext(out var config, out var folder))
             {
-                var param = ManagerNavigationParameter.ForFolder(CurrentConfig.Id, folder.Path);
-                App.Shell.NavigateTo("History", param);
+                return;
             }
+
+            var param = ManagerNavigationParameter.ForFolder(config.Id, folder.Path);
+            _ = NavigationService.NavigateTo("History", param);
         }
 
-        // 打开设置弹窗
         private async void OnConfigSettingsClick(object sender, RoutedEventArgs e)
         {
-            if (CurrentConfig == null) return;
+            if (ViewModel.CurrentConfig == null)
+            {
+                return;
+            }
 
-            var dialog = new ConfigSettingsDialog(CurrentConfig);
+            var dialog = new ConfigSettingsDialog(ViewModel.CurrentConfig);
             var result = await dialog.ShowAsync();
 
             if (result == ContentDialogResult.Primary)
             {
-                // 用户点击了保存，我们将改动写入磁盘
-                ConfigService.Save();
-            }
-            else
-            {
-                // 如果取消了，这里理论上应该回滚改动
-                // 但为了简单，由于是 TwoWay 绑定，建议重新加载 ConfigService 
-                // 或者在 Dialog 里做临时副本。鉴于目前只是开发阶段，先简单 Save 也没大问题，
-                // 只是取消后内存里的值可能还是变了，直到重启。
-                // 严谨的做法是在 Dialog 里 Clone 一个 Config 对象进行编辑。
+                ViewModel.SaveConfig();
             }
         }
 
-        // 在 FolderManagerPage 类中添加 PickFolderAsync 方法
-
-        private async System.Threading.Tasks.Task<StorageFolder?> PickFolderAsync()
+        private async Task<StorageFolder?> PickFolderAsync()
         {
-            var picker = new FolderPicker();
-            picker.SuggestedStartLocation = PickerLocationId.ComputerFolder;
-            picker.FileTypeFilter.Add("*");
-
-            if (App._window != null)
+            var picker = new FolderPicker
             {
-                InitializeWithWindow.Initialize(picker, WindowNative.GetWindowHandle(App._window));
-            }
+                SuggestedStartLocation = PickerLocationId.ComputerFolder
+            };
+            picker.FileTypeFilter.Add("*");
+            MainWindowService.InitializePicker(picker);
 
             return await picker.PickSingleFolderAsync();
         }
 
-        private void PersistManagerSelection(string? configId, string? folderPath)
+        private bool TryGetSelectedContext(out BackupConfig config, out ManagedFolder folder)
         {
-            var settings = Settings;
-            if (settings == null) return;
-
-            bool updated = false;
-
-            if (!string.IsNullOrWhiteSpace(configId) && settings.LastManagerConfigId != configId)
-            {
-                settings.LastManagerConfigId = configId;
-                updated = true;
-            }
-
-            if (!string.IsNullOrWhiteSpace(folderPath) && settings.LastManagerFolderPath != folderPath)
-            {
-                settings.LastManagerFolderPath = folderPath;
-                updated = true;
-            }
-
-            if (updated)
-            {
-                ConfigService.Save();
-            }
+            config = ViewModel.CurrentConfig ?? null!;
+            folder = ViewModel.SelectedFolder ?? null!;
+            return config != null && folder != null;
         }
     }
 }

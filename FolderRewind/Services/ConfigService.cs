@@ -12,10 +12,12 @@ namespace FolderRewind.Services
         #region 常量与状态
 
         private const string ConfigFileName = "config.json";
-        //  LocalAppData  AppContext.BaseDirectory
+        // 配置目录统一交给 GetWritableAppDataDir 决策，避免在不同发布形态下写到无权限位置。
         private static string ConfigPath => Path.Combine(GetWritableAppDataDir(), "FolderRewind", ConfigFileName);
 
         private static bool _initialized;
+
+        public static event Action? Saved;
 
         public static AppConfig CurrentConfig { get; private set; } = null!;
 
@@ -102,6 +104,11 @@ namespace FolderRewind.Services
             else if (currentConfig.BackupConfigs.GetType() != typeof(System.Collections.ObjectModel.ObservableCollection<BackupConfig>))
                 currentConfig.BackupConfigs = new System.Collections.ObjectModel.ObservableCollection<BackupConfig>(currentConfig.BackupConfigs);
 
+            if (currentConfig.Templates == null)
+                currentConfig.Templates = new System.Collections.ObjectModel.ObservableCollection<ConfigTemplate>();
+            else if (currentConfig.Templates.GetType() != typeof(System.Collections.ObjectModel.ObservableCollection<ConfigTemplate>))
+                currentConfig.Templates = new System.Collections.ObjectModel.ObservableCollection<ConfigTemplate>(currentConfig.Templates);
+
             foreach (var config in currentConfig.BackupConfigs)
             {
                 if (config.SourceFolders == null)
@@ -115,7 +122,7 @@ namespace FolderRewind.Services
                 if (config.Automation == null)
                     config.Automation = new AutomationSettings();
 
-                // Migrate and fix ScheduleEntries
+                // 兼容旧版计划任务字段，并统一为可观察集合。
                 if (config.Automation.ScheduleEntries == null)
                     config.Automation.ScheduleEntries = new System.Collections.ObjectModel.ObservableCollection<ScheduleEntry>();
                 else if (config.Automation.ScheduleEntries.GetType() != typeof(System.Collections.ObjectModel.ObservableCollection<ScheduleEntry>))
@@ -141,6 +148,74 @@ namespace FolderRewind.Services
                     config.Archive.FileTypeRules = new System.Collections.ObjectModel.ObservableCollection<FileTypeRule>();
                 else if (config.Archive.FileTypeRules.GetType() != typeof(System.Collections.ObjectModel.ObservableCollection<FileTypeRule>))
                     config.Archive.FileTypeRules = new System.Collections.ObjectModel.ObservableCollection<FileTypeRule>(config.Archive.FileTypeRules);
+            }
+
+            foreach (var template in currentConfig.Templates)
+            {
+                if (string.IsNullOrWhiteSpace(template.Id))
+                    template.Id = Guid.NewGuid().ToString("N");
+
+                if (string.IsNullOrWhiteSpace(template.ShareId))
+                    template.ShareId = Guid.NewGuid().ToString("N");
+
+                if (string.IsNullOrWhiteSpace(template.TemplateId))
+                    template.TemplateId = template.ShareId;
+
+                template.ShareCode = (template.ShareCode ?? string.Empty).Trim().ToUpperInvariant();
+                template.GameName = template.GameName?.Trim() ?? string.Empty;
+
+                if (string.IsNullOrWhiteSpace(template.BaseConfigType))
+                    template.BaseConfigType = "Default";
+
+                if (template.Archive == null)
+                    template.Archive = new ArchiveSettings();
+
+                if (template.Automation == null)
+                    template.Automation = new AutomationSettings();
+                else
+                    template.Automation.MigrateFromLegacy();
+
+                if (template.Filters == null)
+                    template.Filters = new FilterSettings();
+
+                if (template.Filters.RestoreWhitelist == null)
+                    template.Filters.RestoreWhitelist = new System.Collections.ObjectModel.ObservableCollection<string>();
+                else if (template.Filters.RestoreWhitelist.GetType() != typeof(System.Collections.ObjectModel.ObservableCollection<string>))
+                    template.Filters.RestoreWhitelist = new System.Collections.ObjectModel.ObservableCollection<string>(template.Filters.RestoreWhitelist);
+
+                if (template.Cloud == null)
+                    template.Cloud = new CloudSettings();
+                else
+                    NormalizeCloudSettings(template.Cloud);
+
+                if (template.PathRules == null)
+                    template.PathRules = new System.Collections.ObjectModel.ObservableCollection<TemplatePathRule>();
+                else if (template.PathRules.GetType() != typeof(System.Collections.ObjectModel.ObservableCollection<TemplatePathRule>))
+                    template.PathRules = new System.Collections.ObjectModel.ObservableCollection<TemplatePathRule>(template.PathRules);
+
+                if (template.RequiredPluginIds == null)
+                    template.RequiredPluginIds = new System.Collections.ObjectModel.ObservableCollection<string>();
+                else if (template.RequiredPluginIds.GetType() != typeof(System.Collections.ObjectModel.ObservableCollection<string>))
+                    template.RequiredPluginIds = new System.Collections.ObjectModel.ObservableCollection<string>(template.RequiredPluginIds);
+
+                if (template.ExtendedProperties == null)
+                    template.ExtendedProperties = new System.Collections.Generic.Dictionary<string, string>();
+
+                foreach (var rule in template.PathRules)
+                {
+                    if (string.IsNullOrWhiteSpace(rule.Id))
+                        rule.Id = Guid.NewGuid().ToString("N");
+
+                    if (rule.Segments == null)
+                        rule.Segments = new System.Collections.ObjectModel.ObservableCollection<TemplatePathSegment>();
+                    else if (rule.Segments.GetType() != typeof(System.Collections.ObjectModel.ObservableCollection<TemplatePathSegment>))
+                        rule.Segments = new System.Collections.ObjectModel.ObservableCollection<TemplatePathSegment>(rule.Segments);
+
+                    if (rule.Markers == null)
+                        rule.Markers = new System.Collections.ObjectModel.ObservableCollection<TemplatePathMarker>();
+                    else if (rule.Markers.GetType() != typeof(System.Collections.ObjectModel.ObservableCollection<TemplatePathMarker>))
+                        rule.Markers = new System.Collections.ObjectModel.ObservableCollection<TemplatePathMarker>(rule.Markers);
+                }
             }
             if (currentConfig.GlobalSettings == null)
                 currentConfig.GlobalSettings = new GlobalSettings();
@@ -243,10 +318,13 @@ namespace FolderRewind.Services
                 {
                     Directory.CreateDirectory(configDir!);
                 }
+
+                // 先写临时文件再原子替换，尽量避免异常中断后留下半截配置。
                 string jsonString = JsonSerializer.Serialize(CurrentConfig, AppJsonContext.Default.AppConfig);
                 string tempPath = ConfigPath + ".tmp";
                 File.WriteAllText(tempPath, jsonString);
                 File.Move(tempPath, ConfigPath, overwrite: true);
+                Saved?.Invoke();
             }
             catch (Exception ex)
             {
@@ -271,12 +349,10 @@ namespace FolderRewind.Services
             try
             {
                 if (!Directory.Exists(ConfigDirectory)) Directory.CreateDirectory(ConfigDirectory);
-                Process.Start(new ProcessStartInfo
+                if (!ShellPathService.TryOpenPath(ConfigDirectory, out var openError))
                 {
-                    FileName = ConfigDirectory,
-                    UseShellExecute = true,
-                    Verb = "open"
-                });
+                    LogService.Log(I18n.Format("Config_OpenConfigDirFailed", openError ?? string.Empty));
+                }
             }
             catch (Exception ex)
             {
@@ -289,12 +365,10 @@ namespace FolderRewind.Services
             try
             {
                 if (!File.Exists(ConfigPath)) Save();
-                Process.Start(new ProcessStartInfo
+                if (!ShellPathService.TryOpenPath(ConfigPath, out var openError))
                 {
-                    FileName = ConfigPath,
-                    UseShellExecute = true,
-                    Verb = "open"
-                });
+                    LogService.Log(I18n.Format("Config_OpenConfigFileFailed", openError ?? string.Empty));
+                }
             }
             catch (Exception ex)
             {
@@ -342,7 +416,7 @@ namespace FolderRewind.Services
                     return false;
                 }
 
-                // 备份当前配置
+                // 先备份旧文件，导入后如果用户反悔还能手动找回。
                 string backupPath = ConfigPath + ".bak";
                 try { File.Copy(ConfigPath, backupPath, true); } catch { }
 
@@ -403,7 +477,7 @@ namespace FolderRewind.Services
                 settings.BaseFontSize = Math.Clamp(settings.BaseFontSize, 12, 20);
             }
 
-            // Startup size: clamp to reasonable desktop values
+            // 启动窗口尺寸限制在合理桌面范围内。
             if (double.IsNaN(settings.StartupWidth) || settings.StartupWidth < 640 || settings.StartupWidth > 3840)
             {
                 settings.StartupWidth = 1200;
@@ -419,8 +493,22 @@ namespace FolderRewind.Services
                 settings.HomeSortMode = "NameAsc";
             }
 
-            // Toast notification level: clamp to valid range (0-3)
+            // Toast 等级约束在有效区间（0-3）。
             settings.ToastNotificationLevel = Math.Clamp(settings.ToastNotificationLevel, 0, 3);
+
+            // 统一下载源默认值迁移：历史配置里未显式选择时，切到镜像 1 以优化国内访问体验。
+            if (!settings.HasMigratedDownloadSourcePreference)
+            {
+                if (settings.AppUpdatePreferredSource == (int)DownloadSourceOption.Official)
+                {
+                    settings.AppUpdatePreferredSource = (int)DownloadSourceOption.Mirror1;
+                }
+
+                settings.HasMigratedDownloadSourcePreference = true;
+            }
+
+            settings.AppUpdatePreferredSource = Math.Clamp(settings.AppUpdatePreferredSource, 0, 3);
+            settings.AppUpdateCustomMirrorUrl = settings.AppUpdateCustomMirrorUrl?.Trim() ?? string.Empty;
         }
 
         private static string MakeSafeFolderName(string? name)
@@ -437,7 +525,7 @@ namespace FolderRewind.Services
 
         private static string GetWritableAppDataDir()
         {
-            // Packaged (MSIX) 下：LocalState
+            // 打包发布（MSIX）时：优先使用容器 LocalState。
             try
             {
                 var localFolder = ApplicationData.Current.LocalFolder;
@@ -447,7 +535,7 @@ namespace FolderRewind.Services
             {
             }
 
-            // Unpackaged 下：常规 LocalAppData
+            // 非打包运行时：退回常规 LocalAppData。
             return Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData);
         }
 
