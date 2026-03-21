@@ -61,9 +61,8 @@ namespace FolderRewind.Services
                     DefaultButton = ContentDialogButton.Primary,
                     XamlRoot = xamlRoot
                 };
-                ThemeService.ApplyThemeToDialog(conflictDialog);
 
-                var result = await conflictDialog.ShowAsync();
+                var result = await TemplateDialogCoordinatorService.ShowAsync(conflictDialog, xamlRoot);
                 if (result == ContentDialogResult.None)
                 {
                     return new ImportOfficialTemplateResult

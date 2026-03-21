@@ -1373,35 +1373,7 @@ namespace FolderRewind.Views
 
         private async void OnPrepareTemplateSubmissionClick(object sender, RoutedEventArgs e)
         {
-            if (!TemplateService.GetTemplates().Any())
-            {
-                ShowInfoBar(I18n.GetString("Settings_Template_Export_NoTemplates"), Microsoft.UI.Xaml.Controls.InfoBarSeverity.Warning);
-                return;
-            }
-
-            var dialog = new TemplateSubmissionDialog
-            {
-                XamlRoot = this.XamlRoot
-            };
-            ThemeService.ApplyThemeToDialog(dialog);
-
-            var dialogResult = await dialog.ShowAsync();
-            if (dialogResult == ContentDialogResult.None
-                || dialog.SelectedTemplate == null
-                || dialog.RequestedAction == TemplateSubmissionDialogAction.None)
-            {
-                return;
-            }
-
-            switch (dialog.RequestedAction)
-            {
-                case TemplateSubmissionDialogAction.ExportPackage:
-                    await ExportTemplateSubmissionPackageAsync(dialog.SelectedTemplate, dialog.SelectedGameName);
-                    break;
-                case TemplateSubmissionDialogAction.SubmitToGitHub:
-                    await SubmitOfficialTemplateAsync(dialog.SelectedTemplate, dialog.SelectedGameName);
-                    break;
-            }
+            await TemplateSubmissionWorkflowService.RunAsync(this.XamlRoot);
         }
 
         private static void ApplySubmissionMetadata(ConfigTemplate template, string gameName, bool clearSteamAppId)

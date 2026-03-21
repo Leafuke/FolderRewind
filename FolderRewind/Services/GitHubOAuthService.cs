@@ -148,7 +148,7 @@ namespace FolderRewind.Services
             };
         }
 
-        public static async Task<GitHubOAuthResult> SignInAsync(XamlRoot xamlRoot, CancellationToken ct = default)
+        public static async Task<GitHubOAuthResult> SignInAsync(XamlRoot? xamlRoot, CancellationToken ct = default)
         {
             if (!IsConfigured(out var configMessage))
             {
@@ -200,8 +200,8 @@ namespace FolderRewind.Services
             var webView = new WebView2
             {
                 Source = authorizeUri,
-                MinWidth = 720,
-                MinHeight = 520,
+                MinWidth = 860,
+                MinHeight = 620,
                 HorizontalAlignment = HorizontalAlignment.Stretch,
                 VerticalAlignment = VerticalAlignment.Stretch
             };
@@ -213,7 +213,12 @@ namespace FolderRewind.Services
                 Margin = new Thickness(0, 0, 0, 8)
             };
 
-            var panel = new Grid();
+            var panel = new Grid
+            {
+                MinWidth = 880,
+                MinHeight = 700,
+                MaxWidth = 1220
+            };
             panel.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
             panel.RowDefinitions.Add(new RowDefinition { Height = new GridLength(1, GridUnitType.Star) });
             panel.Children.Add(hintText);
@@ -228,26 +233,15 @@ namespace FolderRewind.Services
                 DefaultButton = ContentDialogButton.Close,
                 XamlRoot = xamlRoot
             };
-            ThemeService.ApplyThemeToDialog(dialog);
-
             var hideTask = callbackTask.ContinueWith(async task =>
             {
                 if (task.IsCompletedSuccessfully)
                 {
-                    await UiDispatcherService.RunOnUiAsync(() =>
-                    {
-                        try
-                        {
-                            dialog.Hide();
-                        }
-                        catch
-                        {
-                        }
-                    });
+                    await TemplateDialogCoordinatorService.HideAsync(dialog);
                 }
             }, TaskScheduler.Default).Unwrap();
 
-            var dialogResult = await dialog.ShowAsync();
+            var dialogResult = await TemplateDialogCoordinatorService.ShowAsync(dialog, xamlRoot, ct);
             if (dialogResult == ContentDialogResult.None && !callbackTask.IsCompleted)
             {
                 cts.Cancel();

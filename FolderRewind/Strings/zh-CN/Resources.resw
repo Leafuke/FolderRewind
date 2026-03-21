@@ -2677,10 +2677,10 @@
     <value>启动应用时检查新版本，并按安装来源提供对应更新入口</value>
   </data>
   <data name="SettingsPage_AppUpdateSource.Text" xml:space="preserve">
-    <value>侧载更新下载源</value>
+    <value>下载源</value>
   </data>
   <data name="SettingsPage_AppUpdateSourceDesc.Text" xml:space="preserve">
-    <value>侧载更新时优先使用的下载来源（商店版不受此项影响）</value>
+    <value>用于应用更新、在线模板列表和模板文件下载的首选来源（商店版更新不受此项影响）</value>
   </data>
   <data name="SettingsPage_AppUpdateSource_Official.Content" xml:space="preserve">
     <value>官方 GitHub</value>
@@ -2973,6 +2973,36 @@
   <data name="TemplateManagerDialog_RefreshPreview.Content" xml:space="preserve">
     <value>刷新预览</value>
   </data>
+  <data name="TemplateManagerDialog_PathRulesHeader.Text" xml:space="preserve">
+    <value>路径匹配规则</value>
+  </data>
+  <data name="TemplateManagerDialog_PathRulesHint.Text" xml:space="preserve">
+    <value>支持直接编辑路径表达式，例如 {AppDataRoaming}\.minecraft\saves\{*} 或 {SteamUserData}\{UserIdCandidate}\123456\remote。使用 {*} 表示匹配这一层下的所有子文件夹，适合多存档、多角色或多用户目录。</value>
+  </data>
+  <data name="TemplateManagerDialog_AddRule.Content" xml:space="preserve">
+    <value>添加规则</value>
+  </data>
+  <data name="TemplateManagerDialog_SaveRules.Content" xml:space="preserve">
+    <value>保存规则</value>
+  </data>
+  <data name="TemplateManagerDialog_PathRuleName.Text" xml:space="preserve">
+    <value>规则名称</value>
+  </data>
+  <data name="TemplateManagerDialog_PathRulePath.Text" xml:space="preserve">
+    <value>路径表达式</value>
+  </data>
+  <data name="TemplateManagerDialog_PathRuleAuto.Content" xml:space="preserve">
+    <value>唯一命中时默认勾选</value>
+  </data>
+  <data name="TemplateManagerDialog_PathRuleConfidence.Text" xml:space="preserve">
+    <value>置信度（0-1）</value>
+  </data>
+  <data name="TemplateManagerDialog_RemoveRule.Content" xml:space="preserve">
+    <value>删除规则</value>
+  </data>
+  <data name="TemplateManagerDialog_NoRules.Text" xml:space="preserve">
+    <value>当前模板还没有路径规则，可手动添加。</value>
+  </data>
   <data name="TemplateManagerDialog_PreviewSummary.Text" xml:space="preserve">
     <value>选择模板后可查看规则命中结果。</value>
   </data>
@@ -2987,6 +3017,15 @@
   </data>
   <data name="Template_Manager_DeleteConfirm" xml:space="preserve">
     <value>确定删除模板“{0}”吗？此操作不可撤销。</value>
+  </data>
+  <data name="Template_Manager_PathRuleInvalid" xml:space="preserve">
+    <value>路径表达式无效：{0}</value>
+  </data>
+  <data name="Template_Manager_PathRulesUpdated" xml:space="preserve">
+    <value>模板路径规则已更新。</value>
+  </data>
+  <data name="Template_PathRule_CollectionName" xml:space="preserve">
+    <value>{0}（集合匹配）</value>
   </data>
   <data name="Template_Update_NameRequired" xml:space="preserve">
     <value>模板名称不能为空。</value>
@@ -3217,10 +3256,13 @@
     <value>游戏名称（可选）</value>
   </data>
   <data name="Template_Submission_PrepareHint.Text" xml:space="preserve">
-    <value>将导出一个标准模板包，并自动生成投稿摘要。摘要会复制到剪贴板，方便粘贴到表单中。</value>
+    <value>你可以先导出标准投稿包，也可以直接走 GitHub 自动提交流程。导出时会自动复制投稿摘要，方便粘贴到表单中。</value>
   </data>
   <data name="Template_Submission_SummaryTitle" xml:space="preserve">
     <value>投稿摘要</value>
+  </data>
+  <data name="TemplateSubmissionDialog.Title" xml:space="preserve">
+    <value>投稿模板</value>
   </data>
   <data name="TemplateSubmissionDialog_ExportPackage" xml:space="preserve">
     <value>导出投稿文件</value>
@@ -3236,6 +3278,23 @@
   </data>
   <data name="TemplateSubmissionDialog_GitHubHint.Text" xml:space="preserve">
     <value>FolderRewind 使用内置 GitHub OAuth 配置并通过 PKCE 完成桌面端授权。点击“自动提交模板”时，如有需要会自动打开 GitHub 授权。</value>
+  </data>
+  <data name="TemplateSubmissionDialog_SelectedTemplate.Text" xml:space="preserve">
+    <value>当前模板信息</value>
+  </data>
+  <data name="TemplateSubmissionDialog_GitHubStatus.Text" xml:space="preserve">
+    <value>授权状态</value>
+  </data>
+  <data name="TemplateSubmissionDialog_RefreshAuth.Content" xml:space="preserve">
+    <value>刷新状态</value>
+  </data>
+  <data name="TemplateSubmissionDialog_TemplateMeta.Text" xml:space="preserve">
+    <value>选择模板后会在这里显示作者、配置类型和规则数量。</value>
+  </data>
+  <data name="TemplateSubmissionDialog_TemplateMetaFormat" xml:space="preserve">
+    <value>作者：{0}
+配置类型：{1}
+路径规则：{2}</value>
   </data>
   <data name="Template_Submission_RuleHasNoSegments" xml:space="preserve">
     <value>规则“{0}”缺少路径段定义。</value>

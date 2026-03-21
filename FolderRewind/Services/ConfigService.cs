@@ -496,7 +496,17 @@ namespace FolderRewind.Services
             // Toast 等级约束在有效区间（0-3）。
             settings.ToastNotificationLevel = Math.Clamp(settings.ToastNotificationLevel, 0, 3);
 
-            // 应用更新源配置约束。
+            // 统一下载源默认值迁移：历史配置里未显式选择时，切到镜像 1 以优化国内访问体验。
+            if (!settings.HasMigratedDownloadSourcePreference)
+            {
+                if (settings.AppUpdatePreferredSource == (int)DownloadSourceOption.Official)
+                {
+                    settings.AppUpdatePreferredSource = (int)DownloadSourceOption.Mirror1;
+                }
+
+                settings.HasMigratedDownloadSourcePreference = true;
+            }
+
             settings.AppUpdatePreferredSource = Math.Clamp(settings.AppUpdatePreferredSource, 0, 3);
             settings.AppUpdateCustomMirrorUrl = settings.AppUpdateCustomMirrorUrl?.Trim() ?? string.Empty;
         }

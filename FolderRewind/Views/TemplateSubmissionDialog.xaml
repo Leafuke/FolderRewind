@@ -13,43 +13,76 @@
     </ContentDialog.Resources>
 
     <ScrollViewer VerticalScrollBarVisibility="Auto">
-        <StackPanel MinWidth="520" MaxWidth="760" Spacing="12">
-            <InfoBar x:Name="FeedbackBar" IsOpen="False" IsClosable="True" />
+        <Grid MinWidth="760" MaxWidth="980" MinHeight="420" ColumnSpacing="20">
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto" />
+                <RowDefinition Height="*" />
+            </Grid.RowDefinitions>
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="1.15*" />
+                <ColumnDefinition Width="0.95*" />
+            </Grid.ColumnDefinitions>
 
-            <TextBlock x:Uid="TemplateSubmissionDialog_PrepareSection"
-                       Style="{ThemeResource SubtitleTextBlockStyle}" />
-            <TextBlock x:Uid="Template_Submission_PrepareHint"
-                       Foreground="{ThemeResource TextFillColorSecondaryBrush}"
-                       TextWrapping="Wrap" />
+            <InfoBar x:Name="FeedbackBar"
+                     Grid.Row="0"
+                     Grid.ColumnSpan="2"
+                     IsOpen="False"
+                     IsClosable="True" />
 
-            <TextBlock x:Uid="Template_Submission_SelectTemplate"
-                       Style="{ThemeResource BodyStrongTextBlockStyle}" />
-            <ComboBox x:Name="TemplateComboBox"
-                      HorizontalAlignment="Stretch"
-                      SelectionChanged="OnTemplateSelectionChanged" />
+            <StackPanel Grid.Row="1" Grid.Column="0" Spacing="12">
+                <TextBlock x:Uid="TemplateSubmissionDialog_PrepareSection"
+                           Style="{ThemeResource SubtitleTextBlockStyle}" />
+                <TextBlock x:Uid="Template_Submission_PrepareHint"
+                           Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                           TextWrapping="Wrap" />
 
-            <TextBlock x:Uid="Template_Submission_GameNameHeader"
-                       Style="{ThemeResource BodyStrongTextBlockStyle}" />
-            <TextBox x:Name="GameNameBox" />
+                <TextBlock x:Uid="Template_Submission_SelectTemplate"
+                           Style="{ThemeResource BodyStrongTextBlockStyle}" />
+                <ComboBox x:Name="TemplateComboBox"
+                          HorizontalAlignment="Stretch"
+                          SelectionChanged="OnTemplateSelectionChanged" />
 
-            <Border Height="1"
-                    Margin="0,4,0,4"
-                    Background="{ThemeResource DividerStrokeColorDefaultBrush}" />
+                <Border Padding="12"
+                        CornerRadius="8"
+                        Background="{ThemeResource CardBackgroundFillColorDefaultBrush}">
+                    <StackPanel Spacing="8">
+                        <TextBlock x:Uid="TemplateSubmissionDialog_SelectedTemplate"
+                                   Style="{ThemeResource BodyStrongTextBlockStyle}" />
+                        <TextBlock x:Name="TemplateMetaTextBlock"
+                                   Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                                   TextWrapping="Wrap" />
+                    </StackPanel>
+                </Border>
 
-            <TextBlock x:Uid="TemplateSubmissionDialog_GitHubSection"
-                       Style="{ThemeResource SubtitleTextBlockStyle}" />
-            <TextBlock x:Uid="TemplateSubmissionDialog_GitHubHint"
-                       Foreground="{ThemeResource TextFillColorSecondaryBrush}"
-                       TextWrapping="Wrap" />
-
-            <TextBlock x:Name="GitHubAuthStatusTextBlock"
-                       Style="{ThemeResource BodyStrongTextBlockStyle}"
-                       TextWrapping="Wrap" />
-
-            <StackPanel Orientation="Horizontal" Spacing="8">
-                <Button x:Uid="SettingsPage_GitHubSignOut"
-                        Click="OnGitHubSignOutClick" />
+                <TextBlock x:Uid="Template_Submission_GameNameHeader"
+                           Style="{ThemeResource BodyStrongTextBlockStyle}" />
+                <TextBox x:Name="GameNameBox" />
             </StackPanel>
-        </StackPanel>
+
+            <StackPanel Grid.Row="1" Grid.Column="1" Spacing="12">
+                <TextBlock x:Uid="TemplateSubmissionDialog_GitHubSection"
+                           Style="{ThemeResource SubtitleTextBlockStyle}" />
+                <TextBlock x:Uid="TemplateSubmissionDialog_GitHubHint"
+                           Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                           TextWrapping="Wrap" />
+
+                <Border Padding="12"
+                        CornerRadius="8"
+                        Background="{ThemeResource CardBackgroundFillColorDefaultBrush}">
+                    <StackPanel Spacing="10">
+                        <TextBlock x:Uid="TemplateSubmissionDialog_GitHubStatus"
+                                   Style="{ThemeResource BodyStrongTextBlockStyle}" />
+                        <TextBlock x:Name="GitHubAuthStatusTextBlock"
+                                   TextWrapping="Wrap" />
+                        <StackPanel Orientation="Horizontal" Spacing="8">
+                            <Button x:Uid="TemplateSubmissionDialog_RefreshAuth"
+                                    Click="OnRefreshGitHubStatusClick" />
+                            <Button x:Uid="SettingsPage_GitHubSignOut"
+                                    Click="OnGitHubSignOutClick" />
+                        </StackPanel>
+                    </StackPanel>
+                </Border>
+            </StackPanel>
+        </Grid>
     </ScrollViewer>
 </ContentDialog>

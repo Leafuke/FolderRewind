@@ -14,25 +14,7 @@ namespace FolderRewind.Services
 {
     internal static class AppSideloadUpdateService
     {
-        private const string Mirror1Prefix = "https://gh-proxy.com/";
-        private const string Mirror2Prefix = "https://hk.gh-proxy.org/";
-
-        private enum DownloadSourceOption
-        {
-            Official = 0,
-            Mirror1 = 1,
-            Mirror2 = 2,
-            Custom = 3
-        }
-
         private static readonly HttpClient Http = CreateClient();
-
-        private sealed class DownloadSourceCandidate
-        {
-            public required string DisplayName { get; init; }
-            public required string PackageUrl { get; init; }
-            public required string Sha256Url { get; init; }
-        }
 
         internal sealed class PrepareUpdateResult
         {
@@ -57,7 +39,7 @@ namespace FolderRewind.Services
                 return Fail(I18n.GetString("Update_Prepare_MissingAssets"));
             }
 
-            var sources = BuildDownloadSourceCandidates(update.PackageDownloadUrl, update.PackageSha256Url);
+            var sources = DownloadSourceService.BuildPairCandidates(update.PackageDownloadUrl, update.PackageSha256Url);
             if (sources.Count == 0)
             {
                 return Fail(I18n.GetString("Update_Prepare_NoDownloadSource"));
@@ -87,8 +69,8 @@ namespace FolderRewind.Services
                     TryDeleteDirectory(extractDir);
                     Directory.CreateDirectory(extractDir);
 
-                    await DownloadFileAsync(source.PackageUrl, packagePath, ct);
-                    await DownloadFileAsync(source.Sha256Url, shaPath, ct);
+                    await DownloadFileAsync(source.PrimaryUrl, packagePath, ct);
+                    await DownloadFileAsync(source.SecondaryUrl, shaPath, ct);
 
                     var expected = await ParseExpectedSha256Async(shaPath, ct);
                     var actual = await ComputeFileSha256Async(packagePath, ct);
@@ -156,133 +138,6 @@ namespace FolderRewind.Services
             client.DefaultRequestHeaders.UserAgent.Add(new ProductInfoHeaderValue("FolderRewind", "1.0"));
             client.Timeout = TimeSpan.FromMinutes(5);
             return client;
-        }
-
-        private static IReadOnlyList<DownloadSourceCandidate> BuildDownloadSourceCandidates(string rawPackageUrl, string rawSha256Url)
-        {
-            var settings = ConfigService.CurrentConfig?.GlobalSettings;
-            var preferred = NormalizeSourceOption(settings?.AppUpdatePreferredSource ?? (int)DownloadSourceOption.Official);
-            var autoFallback = settings?.AppUpdateAutoFallback ?? true;
-            var customMirror = settings?.AppUpdateCustomMirrorUrl ?? string.Empty;
-
-            var order = new List<DownloadSourceOption> { preferred };
-            if (autoFallback)
-            {
-                foreach (DownloadSourceOption option in Enum.GetValues(typeof(DownloadSourceOption)))
-                {
-                    if (option != preferred)
-                    {
-                        order.Add(option);
-                    }
-                }
-            }
-
-            var candidates = new List<DownloadSourceCandidate>();
-            var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-
-            foreach (var source in order)
-            {
-                var candidate = TryCreateSourceCandidate(source, rawPackageUrl, rawSha256Url, customMirror);
-                if (candidate == null)
-                {
-                    continue;
-                }
-
-                var dedupeKey = candidate.PackageUrl + "\n" + candidate.Sha256Url;
-                if (!seen.Add(dedupeKey))
-                {
-                    continue;
-                }
-
-                candidates.Add(candidate);
-            }
-
-            return candidates;
-        }
-
-        private static DownloadSourceOption NormalizeSourceOption(int rawValue)
-        {
-            return Enum.IsDefined(typeof(DownloadSourceOption), rawValue)
-                ? (DownloadSourceOption)rawValue
-                : DownloadSourceOption.Official;
-        }
-
-        private static DownloadSourceCandidate? TryCreateSourceCandidate(DownloadSourceOption source, string rawPackageUrl, string rawSha256Url, string customMirror)
-        {
-            return source switch
-            {
-                DownloadSourceOption.Official => new DownloadSourceCandidate
-                {
-                    DisplayName = I18n.GetString("Update_Source_Official"),
-                    PackageUrl = rawPackageUrl,
-                    Sha256Url = rawSha256Url
-                },
-                DownloadSourceOption.Mirror1 => new DownloadSourceCandidate
-                {
-                    DisplayName = I18n.GetString("Update_Source_Mirror1"),
-                    PackageUrl = RewriteByPrefix(Mirror1Prefix, rawPackageUrl),
-                    Sha256Url = RewriteByPrefix(Mirror1Prefix, rawSha256Url)
-                },
-                DownloadSourceOption.Mirror2 => new DownloadSourceCandidate
-                {
-                    DisplayName = I18n.GetString("Update_Source_Mirror2"),
-                    PackageUrl = RewriteByPrefix(Mirror2Prefix, rawPackageUrl),
-                    Sha256Url = RewriteByPrefix(Mirror2Prefix, rawSha256Url)
-                },
-                DownloadSourceOption.Custom => BuildCustomSource(rawPackageUrl, rawSha256Url, customMirror),
-                _ => null
-            };
-        }
-
-        private static DownloadSourceCandidate? BuildCustomSource(string rawPackageUrl, string rawSha256Url, string customMirror)
-        {
-            if (string.IsNullOrWhiteSpace(customMirror))
-            {
-                return null;
-            }
-
-            return new DownloadSourceCandidate
-            {
-                DisplayName = I18n.GetString("Update_Source_Custom"),
-                PackageUrl = RewriteByCustom(customMirror, rawPackageUrl),
-                Sha256Url = RewriteByCustom(customMirror, rawSha256Url)
-            };
-        }
-
-        private static string RewriteByPrefix(string prefix, string rawUrl)
-        {
-            var normalized = prefix?.Trim() ?? string.Empty;
-            if (string.IsNullOrWhiteSpace(normalized))
-            {
-                return rawUrl;
-            }
-
-            if (!normalized.EndsWith("/", StringComparison.Ordinal))
-            {
-                normalized += "/";
-            }
-
-            return normalized + rawUrl;
-        }
-
-        private static string RewriteByCustom(string customMirror, string rawUrl)
-        {
-            var normalized = customMirror.Trim();
-            if (normalized.IndexOf("{url}", StringComparison.OrdinalIgnoreCase) >= 0)
-            {
-                return Regex.Replace(
-                    normalized,
-                    "\\{url\\}",
-                    rawUrl,
-                    RegexOptions.IgnoreCase | RegexOptions.CultureInvariant);
-            }
-
-            if (!normalized.EndsWith("/", StringComparison.Ordinal))
-            {
-                normalized += "/";
-            }
-
-            return normalized + rawUrl;
         }
 
         private static async Task DownloadFileAsync(string url, string destinationPath, CancellationToken ct)

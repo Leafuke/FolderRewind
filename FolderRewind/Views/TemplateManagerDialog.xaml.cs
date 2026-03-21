@@ -14,14 +14,38 @@ using Windows.Storage.Pickers;
 
 namespace FolderRewind.Views
 {
+    public sealed class EditableTemplateRuleItem : ObservableObject
+    {
+        private string _id = Guid.NewGuid().ToString("N");
+        private string _name = string.Empty;
+        private string _displayPath = string.Empty;
+        private string _confidenceText = "0.80";
+        private bool _autoAdd = true;
+
+        public string Id { get => _id; set => SetProperty(ref _id, value ?? string.Empty); }
+        public string Name { get => _name; set => SetProperty(ref _name, value ?? string.Empty); }
+        public string DisplayPath { get => _displayPath; set => SetProperty(ref _displayPath, value ?? string.Empty); }
+        public string ConfidenceText { get => _confidenceText; set => SetProperty(ref _confidenceText, value ?? "0.80"); }
+        public bool AutoAdd { get => _autoAdd; set => SetProperty(ref _autoAdd, value); }
+
+        public double GetConfidence()
+        {
+            return double.TryParse(ConfidenceText, NumberStyles.Float, CultureInfo.InvariantCulture, out var value)
+                ? Math.Clamp(value, 0.0, 1.0)
+                : 0.8;
+        }
+    }
+
     public sealed partial class TemplateManagerDialog : ContentDialog, INotifyPropertyChanged
     {
         public ObservableCollection<ConfigTemplate> TemplatesView { get; } = new();
         public ObservableCollection<TemplateRulePreviewItem> PreviewItems { get; } = new();
+        public ObservableCollection<EditableTemplateRuleItem> EditablePathRules { get; } = new();
 
         public bool HasSelection => GetSelectedTemplate() != null;
         public bool IsPreviewEmpty => PreviewItems.Count == 0;
         public bool IsTemplateListEmpty => TemplatesView.Count == 0;
+        public bool IsRuleListEmpty => EditablePathRules.Count == 0;
 
         private readonly List<ConfigTemplate> _allTemplates = new();
         private string _selectedTemplateId = string.Empty;
@@ -30,10 +54,9 @@ namespace FolderRewind.Views
 
         public TemplateManagerDialog()
         {
-            this.InitializeComponent();
-            this.XamlRoot = MainWindowService.GetXamlRoot();
+            InitializeComponent();
+            XamlRoot = MainWindowService.GetXamlRoot();
             ThemeService.ApplyThemeToDialog(this);
-
             ReloadTemplates();
         }
 
@@ -66,28 +89,10 @@ namespace FolderRewind.Views
                 TemplatesView.Add(template);
             }
 
-            var targetId = preferredTemplateId;
-            if (string.IsNullOrWhiteSpace(targetId) && !string.IsNullOrWhiteSpace(_selectedTemplateId))
-            {
-                targetId = _selectedTemplateId;
-            }
-
-            if (!string.IsNullOrWhiteSpace(targetId))
-            {
-                var target = TemplatesView.FirstOrDefault(t => string.Equals(t.Id, targetId, StringComparison.OrdinalIgnoreCase));
-                if (target != null)
-                {
-                    TemplateListView.SelectedItem = target;
-                }
-                else
-                {
-                    TemplateListView.SelectedItem = TemplatesView.FirstOrDefault();
-                }
-            }
-            else
-            {
-                TemplateListView.SelectedItem = TemplatesView.FirstOrDefault();
-            }
+            var targetId = !string.IsNullOrWhiteSpace(preferredTemplateId) ? preferredTemplateId : _selectedTemplateId;
+            TemplateListView.SelectedItem = !string.IsNullOrWhiteSpace(targetId)
+                ? TemplatesView.FirstOrDefault(t => string.Equals(t.Id, targetId, StringComparison.OrdinalIgnoreCase)) ?? TemplatesView.FirstOrDefault()
+                : TemplatesView.FirstOrDefault();
 
             if (TemplateListView.SelectedItem == null)
             {
@@ -129,7 +134,26 @@ namespace FolderRewind.Views
                 updatedText,
                 ruleCount.ToString(CultureInfo.CurrentCulture));
 
+            ReloadEditableRules(selected);
             RefreshPreview();
+            RaiseStatePropertiesChanged();
+        }
+
+        private void ReloadEditableRules(ConfigTemplate selected)
+        {
+            EditablePathRules.Clear();
+            foreach (var item in TemplateService.BuildRuleEditItems(selected))
+            {
+                EditablePathRules.Add(new EditableTemplateRuleItem
+                {
+                    Id = item.Id,
+                    Name = item.Name,
+                    DisplayPath = item.DisplayPath,
+                    ConfidenceText = item.Confidence.ToString("0.00", CultureInfo.InvariantCulture),
+                    AutoAdd = item.AutoAdd
+                });
+            }
+
             RaiseStatePropertiesChanged();
         }
 
@@ -156,6 +180,60 @@ namespace FolderRewind.Views
             }
 
             ReloadTemplates(selected.Id);
+        }
+
+        private void OnSaveRulesClick(object sender, RoutedEventArgs e)
+        {
+            var selected = GetSelectedTemplate();
+            if (selected == null)
+            {
+                ShowFeedback(I18n.GetString("Template_Manager_SelectFirst"), InfoBarSeverity.Warning);
+                return;
+            }
+
+            var items = EditablePathRules.Select(rule => new TemplateService.TemplateRuleEditItem
+            {
+                Id = rule.Id,
+                Name = rule.Name,
+                DisplayPath = rule.DisplayPath,
+                Confidence = rule.GetConfidence(),
+                AutoAdd = rule.AutoAdd
+            }).ToList();
+
+            var ok = TemplateService.UpdateTemplatePathRules(selected.Id, items, out var message);
+            ShowFeedback(message, ok ? InfoBarSeverity.Success : InfoBarSeverity.Error);
+            if (!ok)
+            {
+                return;
+            }
+
+            ReloadTemplates(selected.Id);
+        }
+
+        private void OnAddRuleClick(object sender, RoutedEventArgs e)
+        {
+            EditablePathRules.Add(new EditableTemplateRuleItem
+            {
+                Name = I18n.GetString("Template_Preview_UnnamedRule"),
+                DisplayPath = "{Documents}",
+                ConfidenceText = "0.80"
+            });
+            RaiseStatePropertiesChanged();
+        }
+
+        private void OnRemoveRuleClick(object sender, RoutedEventArgs e)
+        {
+            if (sender is not Button button || button.Tag is not string id)
+            {
+                return;
+            }
+
+            var item = EditablePathRules.FirstOrDefault(rule => string.Equals(rule.Id, id, StringComparison.OrdinalIgnoreCase));
+            if (item != null)
+            {
+                EditablePathRules.Remove(item);
+                RaiseStatePropertiesChanged();
+            }
         }
 
         private void OnDuplicateTemplateClick(object sender, RoutedEventArgs e)
@@ -209,6 +287,7 @@ namespace FolderRewind.Views
             }
 
             PreviewItems.Clear();
+            EditablePathRules.Clear();
             PreviewSummaryText.Text = I18n.GetString("TemplateManagerDialog_PreviewSummary.Text");
             ReloadTemplates();
         }
@@ -281,9 +360,11 @@ namespace FolderRewind.Views
             TemplateAuthorBox.Text = string.Empty;
             TemplateDescriptionBox.Text = string.Empty;
             TemplateMetaText.Text = I18n.GetString("TemplateManagerDialog_TemplateMeta.Text");
+            EditablePathRules.Clear();
             PreviewItems.Clear();
             PreviewSummaryText.Text = I18n.GetString("TemplateManagerDialog_PreviewSummary.Text");
             HideDeleteConfirm();
+            RaiseStatePropertiesChanged();
         }
 
         private void HideDeleteConfirm()
@@ -296,6 +377,7 @@ namespace FolderRewind.Views
             OnPropertyChanged(nameof(HasSelection));
             OnPropertyChanged(nameof(IsPreviewEmpty));
             OnPropertyChanged(nameof(IsTemplateListEmpty));
+            OnPropertyChanged(nameof(IsRuleListEmpty));
         }
 
         private void OnPropertyChanged([CallerMemberName] string? propertyName = null)

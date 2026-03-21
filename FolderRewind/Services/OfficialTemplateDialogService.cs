@@ -93,11 +93,36 @@ namespace FolderRewind.Services
             templateCombo.SelectionChanged += (_, __) => RefreshDetails();
             RebuildItems();
 
-            var panel = new StackPanel { Spacing = 12 };
-            panel.Children.Add(sourceText);
-            panel.Children.Add(searchBox);
-            panel.Children.Add(templateCombo);
-            panel.Children.Add(detailText);
+            var leftPanel = new StackPanel { Spacing = 12 };
+            leftPanel.Children.Add(sourceText);
+            leftPanel.Children.Add(searchBox);
+            leftPanel.Children.Add(templateCombo);
+
+            var detailPanel = new StackPanel { Spacing = 8 };
+            detailPanel.Children.Add(new TextBlock
+            {
+                Text = I18n.GetString("OfficialTemplates_TemplateHeader"),
+                FontWeight = Microsoft.UI.Text.FontWeights.SemiBold
+            });
+            detailPanel.Children.Add(new ScrollViewer
+            {
+                VerticalScrollBarVisibility = ScrollBarVisibility.Auto,
+                Content = detailText,
+                MinHeight = 260,
+                MaxHeight = 420
+            });
+
+            var panel = new Grid
+            {
+                MinWidth = 760,
+                MaxWidth = 980,
+                ColumnSpacing = 16
+            };
+            panel.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(340) });
+            panel.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+            panel.Children.Add(leftPanel);
+            Grid.SetColumn(detailPanel, 1);
+            panel.Children.Add(detailPanel);
 
             var dialog = new ContentDialog
             {
@@ -108,9 +133,8 @@ namespace FolderRewind.Services
                 DefaultButton = ContentDialogButton.Primary,
                 XamlRoot = xamlRoot
             };
-            ThemeService.ApplyThemeToDialog(dialog);
 
-            if (await dialog.ShowAsync() != ContentDialogResult.Primary)
+            if (await TemplateDialogCoordinatorService.ShowAsync(dialog, xamlRoot) != ContentDialogResult.Primary)
             {
                 return null;
             }
@@ -127,21 +151,29 @@ namespace FolderRewind.Services
                 CharacterCasing = CharacterCasing.Upper,
                 MaxLength = 5
             };
+            var content = new StackPanel
+            {
+                Spacing = 12,
+                MinWidth = 420,
+                Children =
+                {
+                    inputBox
+                }
+            };
 
             while (true)
             {
                 var dialog = new ContentDialog
                 {
                     Title = I18n.GetString("OfficialTemplates_UseByShareCodeTitle"),
-                    Content = inputBox,
+                    Content = content,
                     PrimaryButtonText = I18n.GetString("Common_Confirm"),
                     CloseButtonText = I18n.GetString("Common_Cancel"),
                     DefaultButton = ContentDialogButton.Primary,
                     XamlRoot = xamlRoot
                 };
-                ThemeService.ApplyThemeToDialog(dialog);
 
-                if (await dialog.ShowAsync() != ContentDialogResult.Primary)
+                if (await TemplateDialogCoordinatorService.ShowAsync(dialog, xamlRoot) != ContentDialogResult.Primary)
                 {
                     return null;
                 }
@@ -239,8 +271,7 @@ namespace FolderRewind.Services
                 CloseButtonText = I18n.GetString("Common_Ok"),
                 XamlRoot = xamlRoot
             };
-            ThemeService.ApplyThemeToDialog(dialog);
-            await dialog.ShowAsync();
+            await TemplateDialogCoordinatorService.ShowAsync(dialog, xamlRoot);
         }
     }
 }

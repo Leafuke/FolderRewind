@@ -153,82 +153,87 @@ namespace FolderRewind.Services
             var cachePath = GetTemplateCachePath(item.ShareCode);
             var tempPath = cachePath + ".tmp";
 
-            try
+            string lastError = string.Empty;
+            foreach (var source in DownloadSourceService.BuildCandidates(item.FileUrl))
             {
-                Directory.CreateDirectory(Path.GetDirectoryName(cachePath)!);
-                using var request = new HttpRequestMessage(HttpMethod.Get, item.FileUrl);
-                using var response = await Http.SendAsync(request, HttpCompletionOption.ResponseHeadersRead, ct);
-                response.EnsureSuccessStatusCode();
-
-                await using (var source = await response.Content.ReadAsStreamAsync(ct))
-                await using (var target = new FileStream(tempPath, FileMode.Create, FileAccess.Write, FileShare.None, 81920, true))
+                try
                 {
-                    await source.CopyToAsync(target, ct);
-                }
+                    Directory.CreateDirectory(Path.GetDirectoryName(cachePath)!);
+                    TryDeleteFile(tempPath);
 
-                var actualHash = await ComputeFileSha256Async(tempPath, ct);
-                if (!string.IsNullOrWhiteSpace(item.Sha256)
-                    && !string.Equals(actualHash, item.Sha256.Trim(), StringComparison.OrdinalIgnoreCase))
+                    using var request = new HttpRequestMessage(HttpMethod.Get, source.Url);
+                    using var response = await Http.SendAsync(request, HttpCompletionOption.ResponseHeadersRead, ct);
+                    response.EnsureSuccessStatusCode();
+
+                    await using (var remoteStream = await response.Content.ReadAsStreamAsync(ct))
+                    await using (var target = new FileStream(tempPath, FileMode.Create, FileAccess.Write, FileShare.None, 81920, true))
+                    {
+                        await remoteStream.CopyToAsync(target, ct);
+                    }
+
+                    var actualHash = await ComputeFileSha256Async(tempPath, ct);
+                    if (!string.IsNullOrWhiteSpace(item.Sha256)
+                        && !string.Equals(actualHash, item.Sha256.Trim(), StringComparison.OrdinalIgnoreCase))
+                    {
+                        lastError = I18n.GetString("OfficialTemplates_HashMismatch");
+                        LogService.LogWarning(I18n.Format("OfficialTemplates_FetchIndexFailedLog", source.Url, lastError), nameof(OfficialTemplateService));
+                        continue;
+                    }
+
+                    File.Move(tempPath, cachePath, true);
+
+                    if (!TemplateService.TryLoadTemplateFromPackage(cachePath, out var template, out var message) || template == null)
+                    {
+                        return new DownloadTemplateResult
+                        {
+                            Success = false,
+                            Message = string.IsNullOrWhiteSpace(message) ? I18n.GetString("OfficialTemplates_LoadFailed") : message,
+                            IndexItem = item
+                        };
+                    }
+
+                    var validation = TemplateService.ValidateTemplateForOfficialSharing(template);
+                    if (!validation.Success)
+                    {
+                        return new DownloadTemplateResult
+                        {
+                            Success = false,
+                            Message = validation.Message,
+                            IndexItem = item
+                        };
+                    }
+
+                    template.ShareCode = string.IsNullOrWhiteSpace(template.ShareCode) ? item.ShareCode : template.ShareCode.Trim().ToUpperInvariant();
+                    template.GameName = string.IsNullOrWhiteSpace(template.GameName) ? item.GameName : template.GameName;
+                    template.SteamAppId ??= item.SteamAppId;
+
+                    return new DownloadTemplateResult
+                    {
+                        Success = true,
+                        Message = I18n.Format("OfficialTemplates_DownloadSuccess", item.DisplayName),
+                        LocalPath = cachePath,
+                        Template = template,
+                        IndexItem = item
+                    };
+                }
+                catch (OperationCanceledException)
+                {
+                    throw;
+                }
+                catch (Exception ex)
                 {
                     TryDeleteFile(tempPath);
-                    return new DownloadTemplateResult
-                    {
-                        Success = false,
-                        Message = I18n.GetString("OfficialTemplates_HashMismatch"),
-                        IndexItem = item
-                    };
+                    lastError = I18n.Format("OfficialTemplates_DownloadFailed", ex.Message);
+                    LogService.LogWarning(I18n.Format("OfficialTemplates_FetchIndexFailedLog", source.Url, ex.Message), nameof(OfficialTemplateService));
                 }
-
-                File.Move(tempPath, cachePath, true);
-
-                if (!TemplateService.TryLoadTemplateFromPackage(cachePath, out var template, out var message) || template == null)
-                {
-                    return new DownloadTemplateResult
-                    {
-                        Success = false,
-                        Message = string.IsNullOrWhiteSpace(message) ? I18n.GetString("OfficialTemplates_LoadFailed") : message,
-                        IndexItem = item
-                    };
-                }
-
-                var validation = TemplateService.ValidateTemplateForOfficialSharing(template);
-                if (!validation.Success)
-                {
-                    return new DownloadTemplateResult
-                    {
-                        Success = false,
-                        Message = validation.Message,
-                        IndexItem = item
-                    };
-                }
-
-                template.ShareCode = string.IsNullOrWhiteSpace(template.ShareCode) ? item.ShareCode : template.ShareCode.Trim().ToUpperInvariant();
-                template.GameName = string.IsNullOrWhiteSpace(template.GameName) ? item.GameName : template.GameName;
-                template.SteamAppId ??= item.SteamAppId;
-
-                return new DownloadTemplateResult
-                {
-                    Success = true,
-                    Message = I18n.Format("OfficialTemplates_DownloadSuccess", item.DisplayName),
-                    LocalPath = cachePath,
-                    Template = template,
-                    IndexItem = item
-                };
             }
-            catch (OperationCanceledException)
+
+            return new DownloadTemplateResult
             {
-                throw;
-            }
-            catch (Exception ex)
-            {
-                TryDeleteFile(tempPath);
-                return new DownloadTemplateResult
-                {
-                    Success = false,
-                    Message = I18n.Format("OfficialTemplates_DownloadFailed", ex.Message),
-                    IndexItem = item
-                };
-            }
+                Success = false,
+                Message = string.IsNullOrWhiteSpace(lastError) ? I18n.GetString("OfficialTemplates_FetchIndexFailed") : lastError,
+                IndexItem = item
+            };
         }
 
         public static bool TryReadCachedIndex(out IReadOnlyList<RemoteTemplateIndexItem> templates)
@@ -316,13 +321,10 @@ namespace FolderRewind.Services
                 .ToList();
         }
 
-        private static IReadOnlyList<(string Url, string DisplayName)> BuildIndexCandidates()
+        private static IReadOnlyList<DownloadSourceCandidate> BuildIndexCandidates()
         {
-            return new[]
-            {
-                ($"https://raw.githubusercontent.com/{OfficialRepoOwner}/{OfficialRepoName}/{OfficialRepoBranch}/index.json", I18n.GetString("OfficialTemplates_SourceOfficial")),
-                ($"https://cdn.jsdelivr.net/gh/{OfficialRepoOwner}/{OfficialRepoName}@{OfficialRepoBranch}/index.json", I18n.GetString("OfficialTemplates_SourceMirror"))
-            };
+            var rawIndexUrl = $"https://raw.githubusercontent.com/{OfficialRepoOwner}/{OfficialRepoName}/{OfficialRepoBranch}/index.json";
+            return DownloadSourceService.BuildCandidates(rawIndexUrl);
         }
 
         private static string ResolveTemplateUrl(string currentUrl, string shareCode)

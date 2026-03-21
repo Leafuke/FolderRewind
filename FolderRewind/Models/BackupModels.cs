@@ -119,9 +119,10 @@ namespace FolderRewind.Models
         private bool _enableNotices = true;
         private string _noticeLastSeenVersion = "";
         private bool _enableUpdateReminder = true;
-        private int _appUpdatePreferredSource = 0; // 0=Official, 1=Mirror1, 2=Mirror2, 3=Custom
+        private int _appUpdatePreferredSource = 1; // 0=Official, 1=Mirror1, 2=Mirror2, 3=Custom
         private bool _appUpdateAutoFallback = true;
         private string _appUpdateCustomMirrorUrl = "";
+        private bool _hasMigratedDownloadSourcePreference = false;
         private string _gitHubOAuthClientId = "";
 
         // 首次启动引导
@@ -254,6 +255,11 @@ namespace FolderRewind.Models
         /// 自定义镜像地址。可填写前缀或包含 {url} 占位符的模板。
         /// </summary>
         public string AppUpdateCustomMirrorUrl { get => _appUpdateCustomMirrorUrl; set => SetProperty(ref _appUpdateCustomMirrorUrl, value ?? string.Empty); }
+
+        /// <summary>
+        /// 是否已经完成统一下载源默认值迁移，避免后续重复覆盖用户偏好。
+        /// </summary>
+        public bool HasMigratedDownloadSourcePreference { get => _hasMigratedDownloadSourcePreference; set => SetProperty(ref _hasMigratedDownloadSourcePreference, value); }
 
         /// <summary>
         /// GitHub OAuth App 的 Client ID。

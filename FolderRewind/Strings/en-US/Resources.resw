@@ -2677,10 +2677,10 @@ Release notes:
     <value>Check for updates on startup and provide channel-aware update entry points</value>
   </data>
   <data name="SettingsPage_AppUpdateSource.Text" xml:space="preserve">
-    <value>Sideload update source</value>
+    <value>Download source</value>
   </data>
   <data name="SettingsPage_AppUpdateSourceDesc.Text" xml:space="preserve">
-    <value>Preferred download source for sideload updates (does not affect Store installs)</value>
+    <value>Preferred source for app updates, the online template list, and template file downloads (Store updates are unaffected)</value>
   </data>
   <data name="SettingsPage_AppUpdateSource_Official.Content" xml:space="preserve">
     <value>Official GitHub</value>
@@ -2973,6 +2973,36 @@ Release notes:
   <data name="TemplateManagerDialog_RefreshPreview.Content" xml:space="preserve">
     <value>Refresh Preview</value>
   </data>
+  <data name="TemplateManagerDialog_PathRulesHeader.Text" xml:space="preserve">
+    <value>Path matching rules</value>
+  </data>
+  <data name="TemplateManagerDialog_PathRulesHint.Text" xml:space="preserve">
+    <value>Edit path expressions directly, for example {AppDataRoaming}\.minecraft\saves\{*} or {SteamUserData}\{UserIdCandidate}\123456\remote. Use {*} to match every child folder at that level, which works well for multi-save, multi-profile, or multi-user folders.</value>
+  </data>
+  <data name="TemplateManagerDialog_AddRule.Content" xml:space="preserve">
+    <value>Add Rule</value>
+  </data>
+  <data name="TemplateManagerDialog_SaveRules.Content" xml:space="preserve">
+    <value>Save Rules</value>
+  </data>
+  <data name="TemplateManagerDialog_PathRuleName.Text" xml:space="preserve">
+    <value>Rule name</value>
+  </data>
+  <data name="TemplateManagerDialog_PathRulePath.Text" xml:space="preserve">
+    <value>Path expression</value>
+  </data>
+  <data name="TemplateManagerDialog_PathRuleAuto.Content" xml:space="preserve">
+    <value>Auto-select when uniquely matched</value>
+  </data>
+  <data name="TemplateManagerDialog_PathRuleConfidence.Text" xml:space="preserve">
+    <value>Confidence (0-1)</value>
+  </data>
+  <data name="TemplateManagerDialog_RemoveRule.Content" xml:space="preserve">
+    <value>Remove Rule</value>
+  </data>
+  <data name="TemplateManagerDialog_NoRules.Text" xml:space="preserve">
+    <value>This template has no path rules yet. You can add one manually.</value>
+  </data>
   <data name="TemplateManagerDialog_PreviewSummary.Text" xml:space="preserve">
     <value>Select a template to view rule match results.</value>
   </data>
@@ -2987,6 +3017,15 @@ Release notes:
   </data>
   <data name="Template_Manager_DeleteConfirm" xml:space="preserve">
     <value>Delete template "{0}"? This action cannot be undone.</value>
+  </data>
+  <data name="Template_Manager_PathRuleInvalid" xml:space="preserve">
+    <value>Invalid path expression: {0}</value>
+  </data>
+  <data name="Template_Manager_PathRulesUpdated" xml:space="preserve">
+    <value>Template path rules updated.</value>
+  </data>
+  <data name="Template_PathRule_CollectionName" xml:space="preserve">
+    <value>{0} (collection match)</value>
   </data>
   <data name="Template_Update_NameRequired" xml:space="preserve">
     <value>Template name is required.</value>
@@ -3217,10 +3256,13 @@ Release notes:
     <value>Game name (optional)</value>
   </data>
   <data name="Template_Submission_PrepareHint.Text" xml:space="preserve">
-    <value>This exports a standard template package and copies the submission summary to your clipboard for a form upload.</value>
+    <value>You can export a standard submission package first or submit directly through GitHub. Exporting also copies the submission summary to your clipboard.</value>
   </data>
   <data name="Template_Submission_SummaryTitle" xml:space="preserve">
     <value>Submission Summary</value>
+  </data>
+  <data name="TemplateSubmissionDialog.Title" xml:space="preserve">
+    <value>Submit Template</value>
   </data>
   <data name="TemplateSubmissionDialog_ExportPackage" xml:space="preserve">
     <value>Export Submission Package</value>
@@ -3236,6 +3278,23 @@ Release notes:
   </data>
   <data name="TemplateSubmissionDialog_GitHubHint.Text" xml:space="preserve">
     <value>FolderRewind uses built-in GitHub OAuth settings and PKCE for desktop authorization. GitHub authorization will open automatically when needed.</value>
+  </data>
+  <data name="TemplateSubmissionDialog_SelectedTemplate.Text" xml:space="preserve">
+    <value>Current template</value>
+  </data>
+  <data name="TemplateSubmissionDialog_GitHubStatus.Text" xml:space="preserve">
+    <value>Authorization status</value>
+  </data>
+  <data name="TemplateSubmissionDialog_RefreshAuth.Content" xml:space="preserve">
+    <value>Refresh status</value>
+  </data>
+  <data name="TemplateSubmissionDialog_TemplateMeta.Text" xml:space="preserve">
+    <value>Author, config type, and rule count will appear here after you select a template.</value>
+  </data>
+  <data name="TemplateSubmissionDialog_TemplateMetaFormat" xml:space="preserve">
+    <value>Author: {0}
+Config type: {1}
+Path rules: {2}</value>
   </data>
   <data name="Template_Submission_RuleHasNoSegments" xml:space="preserve">
     <value>Rule "{0}" does not define any path segments.</value>

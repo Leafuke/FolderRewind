@@ -505,6 +505,17 @@ namespace FolderRewind.Views
                     FontSize = 12,
                     Margin = new Thickness(28, 0, 0, 0)
                 });
+                if (!string.IsNullOrWhiteSpace(candidate.MarkerSummary))
+                {
+                    itemPanel.Children.Add(new TextBlock
+                    {
+                        Text = candidate.MarkerSummary,
+                        TextWrapping = TextWrapping.Wrap,
+                        Foreground = new SolidColorBrush(Colors.Gray),
+                        FontSize = 12,
+                        Margin = new Thickness(28, 0, 0, 0)
+                    });
+                }
 
                 listPanel.Children.Add(itemPanel);
                 checkboxEntries.Add((checkBox, candidate));

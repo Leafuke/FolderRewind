@@ -4,6 +4,7 @@ using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using System;
 using System.Collections.Generic;
+using System.Globalization;
 using System.Linq;
 
 namespace FolderRewind.Views
@@ -29,7 +30,6 @@ namespace FolderRewind.Views
         {
             InitializeComponent();
 
-            // Title = GetLocalizedText("TemplateSubmissionDialog_Title", "SettingsPage_PrepareTemplateSubmission.Content");
             PrimaryButtonText = I18n.GetString("TemplateSubmissionDialog_ExportPackage");
             SecondaryButtonText = I18n.GetString("TemplateSubmissionDialog_SubmitToGitHub");
             CloseButtonText = I18n.GetString("Common_Cancel");
@@ -81,10 +81,16 @@ namespace FolderRewind.Views
             if (GetSelectedTemplate() is not ConfigTemplate selected)
             {
                 GameNameBox.Text = string.Empty;
+                TemplateMetaTextBlock.Text = I18n.GetString("TemplateSubmissionDialog_TemplateMeta.Text");
                 return;
             }
 
             GameNameBox.Text = selected.GameName ?? string.Empty;
+            TemplateMetaTextBlock.Text = I18n.Format(
+                "TemplateSubmissionDialog_TemplateMetaFormat",
+                string.IsNullOrWhiteSpace(selected.Author) ? I18n.GetString("Template_Submission_AuthorAnonymous") : selected.Author,
+                string.IsNullOrWhiteSpace(selected.BaseConfigType) ? "Default" : selected.BaseConfigType,
+                (selected.PathRules?.Count ?? 0).ToString(CultureInfo.CurrentCulture));
         }
 
         private async System.Threading.Tasks.Task RefreshGitHubAuthStatusAsync(bool validateToken)
@@ -128,10 +134,14 @@ namespace FolderRewind.Views
 
         private async void OnGitHubSignOutClick(object sender, RoutedEventArgs e)
         {
-            // 这里只退出用户授权 token，内置 OAuth app 配置保持不变。
             GitHubOAuthService.SignOut();
             ShowFeedback(I18n.GetString("GitHubOAuth_SignedOut"), InfoBarSeverity.Success);
             await RefreshGitHubAuthStatusAsync(validateToken: false);
+        }
+
+        private async void OnRefreshGitHubStatusClick(object sender, RoutedEventArgs e)
+        {
+            await RefreshGitHubAuthStatusAsync(validateToken: true);
         }
 
         private void OnPrimaryButtonClick(ContentDialog sender, ContentDialogButtonClickEventArgs args)
