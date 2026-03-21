@@ -474,7 +474,7 @@ namespace FolderRewind.Services
                     candidates.Add(new TemplateFolderCandidate
                     {
                         Path = path,
-                        DisplayName = FolderNameConflictService.ResolveDisplayName(rule.Name, path),
+                        DisplayName = FolderNameConflictService.ResolveDisplayName(null, path),
                         RuleName = string.IsNullOrWhiteSpace(rule.Name) ? I18n.GetString("Template_Preview_UnnamedRule") : rule.Name,
                         MarkerSummary = BuildMarkerSummary(rule.Markers),
                         Confidence = rule.Confidence,

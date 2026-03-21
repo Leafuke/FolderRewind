@@ -159,27 +159,43 @@ namespace FolderRewind.Views
 
         private void OnSaveTemplateClick(object sender, RoutedEventArgs e)
         {
-            var selected = GetSelectedTemplate();
-            if (selected == null)
+            try
             {
-                ShowFeedback(I18n.GetString("Template_Manager_SelectFirst"), InfoBarSeverity.Warning);
-                return;
+                var selected = GetSelectedTemplate();
+                if (selected == null)
+                {
+                    ShowFeedback(I18n.GetString("Template_Manager_SelectFirst"), InfoBarSeverity.Warning);
+                    return;
+                }
+
+                var ok = TemplateService.UpdateTemplateMetadata(
+                    selected.Id,
+                    TemplateNameBox.Text,
+                    TemplateAuthorBox.Text,
+                    TemplateDescriptionBox.Text,
+                    out var message);
+
+                if (!ok)
+                {
+                    ShowFeedback(message, InfoBarSeverity.Error);
+                    return;
+                }
+
+                var rulesSaved = SaveCurrentRules(selected.Id, out var rulesMessage);
+                if (!rulesSaved)
+                {
+                    ShowFeedback(rulesMessage, InfoBarSeverity.Error);
+                    return;
+                }
+
+                ShowFeedback(message, InfoBarSeverity.Success);
+                ReloadTemplates(selected.Id);
             }
-
-            var ok = TemplateService.UpdateTemplateMetadata(
-                selected.Id,
-                TemplateNameBox.Text,
-                TemplateAuthorBox.Text,
-                TemplateDescriptionBox.Text,
-                out var message);
-
-            ShowFeedback(message, ok ? InfoBarSeverity.Success : InfoBarSeverity.Error);
-            if (!ok)
+            catch (Exception ex)
             {
-                return;
+                LogService.Log($"Template manager save failed: {ex.Message}", LogLevel.Error);
+                ShowFeedback(ex.Message, InfoBarSeverity.Error);
             }
-
-            ReloadTemplates(selected.Id);
         }
 
         private void OnSaveRulesClick(object sender, RoutedEventArgs e)
@@ -191,6 +207,18 @@ namespace FolderRewind.Views
                 return;
             }
 
+            var ok = SaveCurrentRules(selected.Id, out var message);
+            ShowFeedback(message, ok ? InfoBarSeverity.Success : InfoBarSeverity.Error);
+            if (!ok)
+            {
+                return;
+            }
+
+            ReloadTemplates(selected.Id);
+        }
+
+        private bool SaveCurrentRules(string templateId, out string message)
+        {
             var items = EditablePathRules.Select(rule => new TemplateService.TemplateRuleEditItem
             {
                 Id = rule.Id,
@@ -200,14 +228,7 @@ namespace FolderRewind.Views
                 AutoAdd = rule.AutoAdd
             }).ToList();
 
-            var ok = TemplateService.UpdateTemplatePathRules(selected.Id, items, out var message);
-            ShowFeedback(message, ok ? InfoBarSeverity.Success : InfoBarSeverity.Error);
-            if (!ok)
-            {
-                return;
-            }
-
-            ReloadTemplates(selected.Id);
+            return TemplateService.UpdateTemplatePathRules(templateId, items, out message);
         }
 
         private void OnAddRuleClick(object sender, RoutedEventArgs e)

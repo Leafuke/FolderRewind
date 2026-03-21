@@ -1695,6 +1695,12 @@
   <data name="BackupService_Log_SystemError" xml:space="preserve">
     <value>系统错误: {0}</value>
   </data>
+  <data name="BackupService_Log_InvalidStorageFolderName" xml:space="preserve">
+    <value>当前文件夹显示名称无法安全映射到备份目录，请修改后重试。</value>
+  </data>
+  <data name="BackupService_Log_InvalidRestoreStorageFolderName" xml:space="preserve">
+    <value>当前历史记录对应的文件夹名称无法安全映射到元数据目录，无法继续还原。</value>
+  </data>
   <data name="BackupService_Log_SevenZipStartFailed" xml:space="preserve">
     <value>无法启动 7z 进程。</value>
   </data>

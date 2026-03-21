@@ -68,7 +68,7 @@ namespace FolderRewind.Services
         /// <summary>
         /// 添加一条新的历史记录
         /// </summary>
-        public static void AddEntry(BackupConfig config, ManagedFolder folder, string fileName, string type, string comment)
+        public static void AddEntry(BackupConfig config, ManagedFolder folder, string fileName, string type, string comment, string? folderNameOverride = null)
         {
             Initialize();
 
@@ -76,7 +76,7 @@ namespace FolderRewind.Services
             {
                 ConfigId = config.Id,
                 FolderPath = folder.Path,
-                FolderName = folder.DisplayName,
+                FolderName = string.IsNullOrWhiteSpace(folderNameOverride) ? folder.DisplayName : folderNameOverride,
                 FileName = fileName,
                 Timestamp = DateTime.Now,
                 BackupType = type,

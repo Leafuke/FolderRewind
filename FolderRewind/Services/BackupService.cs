@@ -83,6 +83,135 @@ namespace FolderRewind.Services
             return UiDispatcherService.RunOnUiAsync(action);
         }
 
+        private static bool TryResolveStorageFolderName(string? rawFolderName, string? fallbackPath, out string storageFolderName)
+        {
+            var candidate = (rawFolderName ?? string.Empty).Trim();
+            if (string.IsNullOrWhiteSpace(candidate) && !string.IsNullOrWhiteSpace(fallbackPath))
+            {
+                var trimmedPath = fallbackPath.Trim().TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
+                candidate = Path.GetFileName(trimmedPath);
+            }
+
+            if (string.IsNullOrWhiteSpace(candidate))
+            {
+                storageFolderName = string.Empty;
+                return false;
+            }
+
+            var invalidChars = Path.GetInvalidFileNameChars();
+            var builder = new StringBuilder(candidate.Length);
+            foreach (var ch in candidate)
+            {
+                if (ch == Path.DirectorySeparatorChar
+                    || ch == Path.AltDirectorySeparatorChar
+                    || ch == '\0'
+                    || invalidChars.Contains(ch))
+                {
+                    builder.Append('_');
+                }
+                else
+                {
+                    builder.Append(ch);
+                }
+            }
+
+            candidate = builder.ToString().Trim().TrimEnd('.');
+            if (string.IsNullOrWhiteSpace(candidate)
+                || string.Equals(candidate, ".", StringComparison.Ordinal)
+                || string.Equals(candidate, "..", StringComparison.Ordinal))
+            {
+                storageFolderName = string.Empty;
+                return false;
+            }
+
+            storageFolderName = candidate;
+            return true;
+        }
+
+        private static bool TryBuildPathWithinRoot(string rootPath, string childName, out string fullPath)
+        {
+            fullPath = string.Empty;
+            if (string.IsNullOrWhiteSpace(rootPath) || string.IsNullOrWhiteSpace(childName))
+            {
+                return false;
+            }
+
+            try
+            {
+                string normalizedRoot = Path.GetFullPath(rootPath)
+                    .TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
+                string candidate = Path.GetFullPath(Path.Combine(normalizedRoot, childName))
+                    .TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
+
+                if (!IsPathInsideRoot(candidate, normalizedRoot))
+                {
+                    return false;
+                }
+
+                fullPath = candidate;
+                return true;
+            }
+            catch
+            {
+                return false;
+            }
+        }
+
+        private static bool IsPathInsideRoot(string candidatePath, string rootPath)
+        {
+            try
+            {
+                string normalizedRoot = Path.GetFullPath(rootPath)
+                    .TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
+                string normalizedCandidate = Path.GetFullPath(candidatePath)
+                    .TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
+
+                if (string.Equals(normalizedCandidate, normalizedRoot, StringComparison.OrdinalIgnoreCase))
+                {
+                    return true;
+                }
+
+                return normalizedCandidate.StartsWith(
+                    normalizedRoot + Path.DirectorySeparatorChar,
+                    StringComparison.OrdinalIgnoreCase);
+            }
+            catch
+            {
+                return false;
+            }
+        }
+
+        private static bool TryResolveBackupStoragePaths(
+            string destinationRoot,
+            string folderDisplayName,
+            string? fallbackPath,
+            out string storageFolderName,
+            out string backupSubDir,
+            out string metadataDir)
+        {
+            storageFolderName = string.Empty;
+            backupSubDir = string.Empty;
+            metadataDir = string.Empty;
+
+            if (!TryResolveStorageFolderName(folderDisplayName, fallbackPath, out storageFolderName))
+            {
+                return false;
+            }
+
+            if (!TryBuildPathWithinRoot(destinationRoot, storageFolderName, out backupSubDir))
+            {
+                return false;
+            }
+
+            string metadataRoot = Path.Combine(destinationRoot, "_metadata");
+            if (!TryBuildPathWithinRoot(metadataRoot, storageFolderName, out metadataDir))
+            {
+                return false;
+            }
+
+            return true;
+        }
+
         /// <summary>
         /// 检查文件是否在黑名单中（参考 MineBackup 的 is_blacklisted 实现）
         /// </summary>
@@ -318,10 +447,6 @@ namespace FolderRewind.Services
             {
                 // 插件异常不会影响核心备份流程（具体异常会在 PluginService 内记录）
             }
-            // 按照要求：备份路径 = 用户设置的目标路径 \ 文件夹名
-            string backupSubDir = Path.Combine(config.DestinationPath, folder.DisplayName);
-            string metadataDir = Path.Combine(config.DestinationPath, "_metadata", folder.DisplayName);
-
             if (!Directory.Exists(sourcePath))
             {
                 Log(I18n.Format("BackupService_Log_SourceFolderMissing", sourcePath), LogLevel.Error);
@@ -361,6 +486,36 @@ namespace FolderRewind.Services
                 try
                 {
                     KnotLinkService.BroadcastEvent($"event=backup_failed;config={configIndex};world={folder.DisplayName};error=command_failed");
+                }
+                catch
+                {
+                }
+                return false;
+            }
+
+            if (!TryResolveBackupStoragePaths(
+                config.DestinationPath,
+                folder.DisplayName,
+                folder.Path,
+                out var storageFolderName,
+                out var backupSubDir,
+                out var metadataDir))
+            {
+                string invalidFolderNameMessage = I18n.GetString("BackupService_Log_InvalidStorageFolderName");
+                Log(invalidFolderNameMessage, LogLevel.Error);
+                await RunOnUIAsync(() =>
+                {
+                    folder.StatusText = I18n.Format("BackupService_Task_Failed");
+                    task.Status = I18n.Format("BackupService_Task_Failed");
+                    task.IsCompleted = true;
+                    task.IsIndeterminate = false;
+                    task.IsSuccess = false;
+                    task.ErrorMessage = invalidFolderNameMessage;
+                });
+
+                try
+                {
+                    KnotLinkService.BroadcastEvent($"event=backup_failed;config={configIndex};world={folder.DisplayName};error=invalid_folder_name");
                 }
                 catch
                 {
@@ -483,7 +638,7 @@ namespace FolderRewind.Services
                     {
                         typeStr = config.Archive.Mode.ToString();
                     }
-                    HistoryService.AddEntry(config, folder, completedFileName, typeStr, comment);
+                    HistoryService.AddEntry(config, folder, completedFileName, typeStr, comment, storageFolderName);
 
                     _ = Task.Run(() => PruneOldArchives(backupSubDir, config.Archive.Format, config.Archive.KeepCount, config.Archive.Mode, config.Archive.SafeDeleteEnabled, config, folder.DisplayName));
 
@@ -620,7 +775,12 @@ namespace FolderRewind.Services
                     if (hasNewFile)
                     {
                         ConfigService.Save();
-                        HistoryService.AddEntry(config, folder, result.GeneratedFileName!, "Plugin", comment);
+                        if (!TryResolveStorageFolderName(folder.DisplayName, folder.Path, out var storageFolderName))
+                        {
+                            throw new InvalidOperationException(I18n.GetString("BackupService_Log_InvalidStorageFolderName"));
+                        }
+
+                        HistoryService.AddEntry(config, folder, result.GeneratedFileName!, "Plugin", comment, storageFolderName);
                         CloudSyncService.QueueUploadAfterBackup(config, folder, result.GeneratedFileName, comment);
                     }
 
@@ -2070,7 +2230,21 @@ namespace FolderRewind.Services
 
             if (effectiveCleanRestore && targetIsIncremental && !useCompatibilityReverseRestore)
             {
-                string metadataPath = Path.Combine(config.DestinationPath, "_metadata", resolvedFolderName, "metadata.json");
+                if (!TryResolveBackupStoragePaths(
+                    config.DestinationPath,
+                    resolvedFolderName,
+                    folder.Path,
+                    out _,
+                    out _,
+                    out var metadataDir))
+                {
+                    string message = I18n.GetString("BackupService_Log_InvalidRestoreStorageFolderName");
+                    Log(message, LogLevel.Error);
+                    await FailAsync(message, "invalid_folder_name");
+                    return;
+                }
+
+                string metadataPath = Path.Combine(metadataDir, "metadata.json");
                 var metadata = LoadBackupMetadata(metadataPath);
 
                 // 元数据完整时启用精确 Smart Clean，可避免“全链解压+覆盖”带来的额外写入。
@@ -3114,7 +3288,18 @@ namespace FolderRewind.Services
                 return;
             }
 
-            string metadataPath = Path.Combine(config.DestinationPath, "_metadata", folderName, "metadata.json");
+            if (!TryResolveBackupStoragePaths(
+                config.DestinationPath,
+                folderName,
+                fallbackPath: null,
+                out _,
+                out _,
+                out var metadataDir))
+            {
+                return;
+            }
+
+            string metadataPath = Path.Combine(metadataDir, "metadata.json");
             var metadata = LoadBackupMetadata(metadataPath);
             if (metadata == null)
             {

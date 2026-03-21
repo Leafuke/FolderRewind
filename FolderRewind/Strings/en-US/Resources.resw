@@ -1695,6 +1695,12 @@ If you have a listener subscribed to this signal, it should receive a message.</
   <data name="BackupService_Log_SystemError" xml:space="preserve">
     <value>System error: {0}</value>
   </data>
+  <data name="BackupService_Log_InvalidStorageFolderName" xml:space="preserve">
+    <value>The current folder display name cannot be mapped safely to a backup directory. Rename it and try again.</value>
+  </data>
+  <data name="BackupService_Log_InvalidRestoreStorageFolderName" xml:space="preserve">
+    <value>The folder name stored in this history entry cannot be mapped safely to the metadata directory, so restore cannot continue.</value>
+  </data>
   <data name="BackupService_Log_SevenZipStartFailed" xml:space="preserve">
     <value>Failed to start 7z process.</value>
   </data>

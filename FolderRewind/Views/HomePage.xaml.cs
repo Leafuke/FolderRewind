@@ -549,9 +549,28 @@ namespace FolderRewind.Views
                 {
                     Path = entry.Candidate.Path,
                     DisplayName = entry.Candidate.DisplayName,
-                    Description = I18n.GetString("Template_AutoDiscoveredFolderDescription")
+                    Description = I18n.GetString("Template_AutoDiscoveredFolderDescription"),
+                    CoverImagePath = ResolveFolderCoverImagePath(entry.Candidate.Path)
                 })
                 .ToList();
+        }
+
+        private static string ResolveFolderCoverImagePath(string? folderPath)
+        {
+            if (string.IsNullOrWhiteSpace(folderPath))
+            {
+                return string.Empty;
+            }
+
+            try
+            {
+                var potentialIcon = Path.Combine(folderPath, "icon.png");
+                return File.Exists(potentialIcon) ? potentialIcon : string.Empty;
+            }
+            catch
+            {
+                return string.Empty;
+            }
         }
 
         private static string BuildTemplateCreationMessage(
