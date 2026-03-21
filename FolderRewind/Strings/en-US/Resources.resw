@@ -663,15 +663,6 @@ Duplicate folder names are blocked within the same configuration so different di
   <data name="ConfigSettingsDialog_KeepCount.Header" xml:space="preserve">
     <value>Keep recent backups (0 = unlimited)</value>
   </data>
-  <data name="ConfigSettingsDialog_ArchivePassword.Text" xml:space="preserve">
-    <value>Archive password (optional)</value>
-  </data>
-  <data name="ConfigSettingsDialog_ArchivePasswordPlaceholder.PlaceholderText" xml:space="preserve">
-    <value>Leave blank if not needed</value>
-  </data>
-  <data name="ConfigSettingsDialog_ArchivePasswordDesc.Text" xml:space="preserve">
-    <value>Applied to newly created archives. Keep this password safe.</value>
-  </data>
   <data name="ConfigSettingsDialog_Method.Header" xml:space="preserve">
     <value>Compression algorithm</value>
   </data>
@@ -747,12 +738,6 @@ Duplicate folder names are blocked within the same configuration so different di
   <data name="ConfigSettingsDialog_ScheduledMode.Content" xml:space="preserve">
     <value>Scheduled backup</value>
   </data>
-  <data name="ConfigSettingsDialog_ScheduledTime.Text" xml:space="preserve">
-    <value>Time:</value>
-  </data>
-  <data name="ConfigSettingsDialog_ScheduledTimeSuffix.Text" xml:space="preserve">
-    <value>hour (24-hour clock)</value>
-  </data>
   <data name="ConfigSettingsDialog_Filter.Header" xml:space="preserve">
     <value>Filter</value>
   </data>
@@ -807,9 +792,6 @@ Duplicate folder names are blocked within the same configuration so different di
   <data name="BackupService_Log_SmartChainCheckFailed" xml:space="preserve">
     <value>Smart chain length check failed: {0}</value>
   </data>
-  <data name="BackupService_Log_PruneSkipAllImportant" xml:space="preserve">
-    <value>All backups are marked as important, skipping automatic pruning</value>
-  </data>
   <data name="BackupService_Log_PrunedOldBackup" xml:space="preserve">
     <value>Pruned old backup: {0}</value>
   </data>
@@ -818,9 +800,6 @@ Duplicate folder names are blocked within the same configuration so different di
   </data>
   <data name="BackupService_Log_SafeDeleteStart" xml:space="preserve">
     <value>[Safe Delete] Processing: {0}</value>
-  </data>
-  <data name="BackupService_Log_SafeDeleteEndOfChain" xml:space="preserve">
-    <value>[Safe Delete] Backup is at chain end or next is a full backup, deleting directly</value>
   </data>
   <data name="BackupService_Log_SafeDeleteNo7z" xml:space="preserve">
     <value>[Safe Delete] 7z not found, falling back to direct delete</value>
@@ -831,17 +810,8 @@ Duplicate folder names are blocked within the same configuration so different di
   <data name="BackupService_Log_SafeDeleteStep2" xml:space="preserve">
     <value>[Safe Delete] Step 2/4: Merging content into next backup</value>
   </data>
-  <data name="BackupService_Log_SafeDeletePromote" xml:space="preserve">
-    <value>[Safe Delete] Step 3/4: Promoting next incremental backup to full</value>
-  </data>
-  <data name="BackupService_Log_SafeDeleteStep4" xml:space="preserve">
-    <value>[Safe Delete] Step 4/4: Deleting original file</value>
-  </data>
   <data name="BackupService_Log_SafeDeleteRenamed" xml:space="preserve">
     <value>[Safe Delete] Backup promoted and renamed to: {0}</value>
-  </data>
-  <data name="BackupService_Log_SafeDeleteRenameFailed" xml:space="preserve">
-    <value>[Safe Delete] Rename failed: {0}</value>
   </data>
   <data name="BackupService_Log_SafeDeleteSuccess" xml:space="preserve">
     <value>[Safe Delete] Successfully deleted backup: {0}</value>
@@ -917,36 +887,6 @@ Duplicate folder names are blocked within the same configuration so different di
   </data>
   <data name="CoreValidation_Report_NoData" xml:space="preserve">
     <value>No validation report is available in the current session yet.</value>
-  </data>
-  <data name="CoreValidation_Report_Result" xml:space="preserve">
-    <value>Result</value>
-  </data>
-  <data name="CoreValidation_Report_Result_Passed" xml:space="preserve">
-    <value>Passed</value>
-  </data>
-  <data name="CoreValidation_Report_Result_Failed" xml:space="preserve">
-    <value>Failed</value>
-  </data>
-  <data name="CoreValidation_Report_Mode" xml:space="preserve">
-    <value>Trigger</value>
-  </data>
-  <data name="CoreValidation_Report_Mode_Manual" xml:space="preserve">
-    <value>Manual</value>
-  </data>
-  <data name="CoreValidation_Report_Mode_Automatic" xml:space="preserve">
-    <value>Automatic first-run</value>
-  </data>
-  <data name="CoreValidation_Report_Started" xml:space="preserve">
-    <value>Started</value>
-  </data>
-  <data name="CoreValidation_Report_Finished" xml:space="preserve">
-    <value>Finished</value>
-  </data>
-  <data name="CoreValidation_Report_Duration" xml:space="preserve">
-    <value>Duration</value>
-  </data>
-  <data name="CoreValidation_Report_Summary" xml:space="preserve">
-    <value>Summary</value>
   </data>
   <data name="CoreValidation_Summary_Passed" xml:space="preserve">
     <value>All core backup and restore checks passed.</value>
@@ -1082,12 +1022,6 @@ Duplicate folder names are blocked within the same configuration so different di
   </data>
   <data name="PluginStorePage_Install.Content" xml:space="preserve">
     <value>Install</value>
-  </data>
-  <data name="PluginStorePage_SearchBox.PlaceholderText" xml:space="preserve">
-    <value>Filter by file name or tag</value>
-  </data>
-  <data name="PluginStorePage_ZipOnly.Header" xml:space="preserve">
-    <value>ZIP only</value>
   </data>
   <data name="PluginStorePage_NoAssets.Text" xml:space="preserve">
     <value>No plugin assets to display (they may be filtered out).</value>
@@ -1593,14 +1527,6 @@ If you have a listener subscribed to this signal, it should receive a message.</
     <value>[App UnhandledException] {0}
 {1}</value>
   </data>
-  <data name="App_StartupFailedWindowTitle" xml:space="preserve">
-    <value>FolderRewind - Startup failed</value>
-  </data>
-  <data name="App_StartupFailedWindowContent" xml:space="preserve">
-    <value>Startup failed: {0}
-
-{1}</value>
-  </data>
   <data name="Config_DefaultBackupName" xml:space="preserve">
     <value>Default Config</value>
   </data>
@@ -1805,9 +1731,6 @@ If you have a listener subscribed to this signal, it should receive a message.</
   <data name="BackupService_Log_RestoreSnapshotPrepareFailed" xml:space="preserve">
     <value>Failed to create safe restore snapshot: {0}</value>
   </data>
-  <data name="BackupService_Log_RestoreSnapshotCleanupFailed" xml:space="preserve">
-    <value>Failed to clean restore snapshot: {0}</value>
-  </data>
   <data name="BackupService_Log_RestoreRollbackBegin" xml:space="preserve">
     <value>Restore failed, starting rollback from snapshot: {0}</value>
   </data>
@@ -1874,9 +1797,6 @@ Comment: {1}
   </data>
   <data name="History_FileMissing" xml:space="preserve">
     <value>File missing</value>
-  </data>
-  <data name="Plugins_NotImplemented" xml:space="preserve">
-    <value>This plugin has not implemented this feature.</value>
   </data>
   <data name="Common_Tip" xml:space="preserve">
     <value>Tip</value>
@@ -1956,99 +1876,6 @@ Comment: {1}
   <data name="Hotkeys_PluginRegisterFailed" xml:space="preserve">
     <value>Plugin hotkey registration failed: {0} - {1}</value>
   </data>
-  <data name="MineRewind_Setting_EnableHotBackup_Name" xml:space="preserve">
-    <value>Enable hot backup</value>
-  </data>
-  <data name="MineRewind_Setting_EnableHotBackup_Desc" xml:space="preserve">
-    <value>Conmunicate with MineBackup. Ensure perfect performance.</value>
-  </data>
-  <data name="MineRewind_Setting_SnapshotPath_Name" xml:space="preserve">
-    <value>Snapshot storage path</value>
-  </data>
-  <data name="MineRewind_Setting_SnapshotPath_Desc" xml:space="preserve">
-    <value>Temporary snapshot path. Leave empty to use the system temp folder.</value>
-  </data>
-  <data name="MineRewind_Setting_CleanupSnapshot_Name" xml:space="preserve">
-    <value>Clean up snapshot after backup</value>
-  </data>
-  <data name="MineRewind_Setting_CleanupSnapshot_Desc" xml:space="preserve">
-    <value>Automatically delete the temporary snapshot folder after backup.</value>
-  </data>
-  <data name="MineRewind_Setting_SnapshotDelay_Name" xml:space="preserve">
-    <value>Snapshot delay (ms)</value>
-  </data>
-  <data name="MineRewind_Setting_SnapshotDelay_Desc" xml:space="preserve">
-    <value>Wait time after creating snapshot to ensure file system operations complete.</value>
-  </data>
-  <data name="MineRewind_CreateConfigs_Result" xml:space="preserve">
-    <value>Created {0} Minecraft saves configs</value>
-  </data>
-  <data name="MineRewind_Hotkey_ActiveWorldBackup_Name" xml:space="preserve">
-    <value>Hot backup the active world</value>
-  </data>
-  <data name="MineRewind_Hotkey_ActiveWorldBackup_Desc" xml:space="preserve">
-    <value>Detect the running Minecraft world (locked files) and trigger a hot backup.</value>
-  </data>
-  <data name="MineRewind_Hotkey_NoActiveWorld" xml:space="preserve">
-    <value>[MineRewind] No active world detected (no locked save found).</value>
-  </data>
-  <data name="MineRewind_Hotkey_Failed" xml:space="preserve">
-    <value>[MineRewind] Hotkey-triggered backup failed: {0}</value>
-  </data>
-  <data name="MineRewind_KnotLink_BackupCurrent_Failed" xml:space="preserve">
-    <value>[MineRewind] KnotLink BACKUP_CURRENT failed: {0}</value>
-  </data>
-  <data name="MineRewind_Snapshot_Locked" xml:space="preserve">
-    <value>[MineRewind] Detected level.dat is locked; hot-backup snapshot enabled: {0}</value>
-  </data>
-  <data name="MineRewind_Snapshot_Created" xml:space="preserve">
-    <value>[MineRewind] Hot-backup snapshot created: {0}</value>
-  </data>
-  <data name="MineRewind_Snapshot_CreateFailed" xml:space="preserve">
-    <value>[MineRewind] Failed to create snapshot: {0}</value>
-  </data>
-  <data name="MineRewind_Snapshot_Cleaned" xml:space="preserve">
-    <value>[MineRewind] Hot-backup snapshot cleaned up: {0}</value>
-  </data>
-  <data name="MineRewind_Snapshot_CleanupFailed" xml:space="preserve">
-    <value>[MineRewind] Failed to cleanup snapshot: {0}</value>
-  </data>
-  <data name="MineRewind_Snapshot_CleanupOldFailed" xml:space="preserve">
-    <value>[MineRewind] Failed to cleanup old snapshot: {0}</value>
-  </data>
-  <data name="MineRewind_Snapshot_VerifyFailed" xml:space="preserve">
-    <value>[MineRewind] Snapshot verification failed after creation</value>
-  </data>
-  <data name="MineRewind_Snapshot_Exception" xml:space="preserve">
-    <value>[MineRewind] CreateSnapshot exception: {0}</value>
-  </data>
-  <data name="MineRewind_Xcopy_StartFailed" xml:space="preserve">
-    <value>[MineRewind] Unable to start xcopy process</value>
-  </data>
-  <data name="MineRewind_Xcopy_Timeout" xml:space="preserve">
-    <value>[MineRewind] xcopy timed out</value>
-  </data>
-  <data name="MineRewind_Xcopy_Stderr" xml:space="preserve">
-    <value>[MineRewind] xcopy stderr: {0}</value>
-  </data>
-  <data name="MineRewind_Hotkey_QuickRestore_Name" xml:space="preserve">
-    <value>Quick restore current save</value>
-  </data>
-  <data name="MineRewind_Hotkey_QuickRestore_Desc" xml:space="preserve">
-    <value>Restore the currently running Minecraft save to the latest backup (requires companion mod)</value>
-  </data>
-  <data name="MineRewind_Hotkey_QuickRestore_NoActive" xml:space="preserve">
-    <value>[MineRewind] Quick restore: no active save detected</value>
-  </data>
-  <data name="MineRewind_Hotkey_QuickRestore_Failed" xml:space="preserve">
-    <value>[MineRewind] Quick restore hotkey failed: {0}</value>
-  </data>
-  <data name="MineRewind_Setting_PreservePlayerData_Name" xml:space="preserve">
-    <value>Preserve player data on restore</value>
-  </data>
-  <data name="MineRewind_Setting_PreservePlayerData_Desc" xml:space="preserve">
-    <value>Keep the current player's position, inventory, XP, etc. when restoring a save (single-player only).</value>
-  </data>
   <data name="PluginService_BeforeRestoreFailed" xml:space="preserve">
     <value>Plugin {0} before-restore hook failed: {1}</value>
   </data>
@@ -2084,12 +1911,6 @@ Comment: {1}
   </data>
   <data name="CloseDialog_Remember" xml:space="preserve">
     <value>Remember my choice</value>
-  </data>
-  <data name="Tray_Show" xml:space="preserve">
-    <value>Show</value>
-  </data>
-  <data name="Tray_Exit" xml:space="preserve">
-    <value>Exit</value>
   </data>
   <data name="HistoryPage_DeleteButton.Content" xml:space="preserve">
     <value>Delete</value>
@@ -2354,12 +2175,6 @@ Status: {3}</value>
   </data>
   <data name="MiniWindow_Log_HotkeyRegisterFailed" xml:space="preserve">
     <value>Failed to register Mini hotkey: {0}</value>
-  </data>
-  <data name="MiniWindow_Log_WatcherError" xml:space="preserve">
-    <value>Folder watcher error [{0}]: {1}</value>
-  </data>
-  <data name="MiniWindow_Log_WatcherStartFailed" xml:space="preserve">
-    <value>Failed to start folder watcher [{0}]: {1}</value>
   </data>
   <data name="Hotkeys_MiniBackup_DisplayName" xml:space="preserve">
     <value>Mini Backup</value>
@@ -3233,12 +3048,6 @@ Release notes:
   <data name="Template_Preview_Summary" xml:space="preserve">
     <value>{0} of {1} rule(s) matched.</value>
   </data>
-  <data name="Template_CreateFrom_Home_TemplateInfo_Extended" xml:space="preserve">
-    <value>{0} - {1} inferred path rule(s)&#x0A;Game: {2}&#x0A;Share code: {3}</value>
-  </data>
-  <data name="HomePage_AddFromOfficialTemplate.Text" xml:space="preserve">
-    <value>From Official Template</value>
-  </data>
   <data name="SettingsPage_BrowseOfficialTemplates.Content" xml:space="preserve">
     <value>Import Official Template</value>
   </data>
@@ -3347,9 +3156,6 @@ Release notes:
   <data name="OfficialTemplates_DetailVersion" xml:space="preserve">
     <value>Version: {0}</value>
   </data>
-  <data name="OfficialTemplates_ShareCodeMissing" xml:space="preserve">
-    <value>Unassigned</value>
-  </data>
   <data name="Template_Submission_TemplateNull" xml:space="preserve">
     <value>Template not found.</value>
   </data>
@@ -3443,20 +3249,8 @@ Release notes:
   <data name="Template_Submission_RuleContainsUnsafeMarker" xml:space="preserve">
     <value>Rule "{0}" contains an unsafe marker: {1}</value>
   </data>
-  <data name="SettingsPage_GitHubSubmission" xml:space="preserve">
-    <value>GitHub Automated Submission</value>
-  </data>
-  <data name="SettingsPage_GitHubSubmissionDesc" xml:space="preserve">
-    <value>Use the built-in GitHub OAuth App and official template repository settings to authorize in-app and submit templates as pull requests.</value>
-  </data>
-  <data name="SettingsPage_GitHubAuthorize.Content" xml:space="preserve">
-    <value>Authorize GitHub</value>
-  </data>
   <data name="SettingsPage_GitHubSignOut.Content" xml:space="preserve">
     <value>Sign Out GitHub</value>
-  </data>
-  <data name="SettingsPage_SubmitOfficialTemplate.Content" xml:space="preserve">
-    <value>Submit Template Automatically</value>
   </data>
   <data name="GitHubOAuth_ConfigUnavailable" xml:space="preserve">
     <value>GitHub OAuth configuration is unavailable.</value>
@@ -3512,9 +3306,6 @@ Release notes:
   <data name="GitHubSubmit_TemplateNull" xml:space="preserve">
     <value>No template was selected for submission.</value>
   </data>
-  <data name="GitHubSubmit_ConfigUnavailable" xml:space="preserve">
-    <value>Submission configuration is unavailable.</value>
-  </data>
   <data name="GitHubSubmit_RepoLookupFailed" xml:space="preserve">
     <value>Failed to access the official template repository. Check the owner, repo name, and network.</value>
   </data>
@@ -3558,13 +3349,11 @@ Release notes:
     <value>Automatic Submission Result</value>
   </data>
   <data name="GitHubSubmit_ResultContent" xml:space="preserve">
-    <value>Share code: {0}&#x0A;Pull request: {1}</value>
+    <value>Share code: {0}
+Pull request: {1}</value>
   </data>
   <data name="GitHubSubmit_OpenPullRequest" xml:space="preserve">
     <value>Open Pull Request</value>
-  </data>
-  <data name="GitHubSubmit_PrepareHint" xml:space="preserve">
-    <value>The app will export a standard template package, fork the official repository, create a branch, commit the template file, and open a pull request for you.</value>
   </data>
   <data name="GitHubSubmit_Progress_Starting" xml:space="preserve">
     <value>Preparing automatic submission...</value>

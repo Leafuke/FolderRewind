@@ -663,15 +663,6 @@
   <data name="ConfigSettingsDialog_KeepCount.Header" xml:space="preserve">
     <value>保留最近备份数 (0 为无限)</value>
   </data>
-  <data name="ConfigSettingsDialog_ArchivePassword.Text" xml:space="preserve">
-    <value>压缩包密码（可选）</value>
-  </data>
-  <data name="ConfigSettingsDialog_ArchivePasswordPlaceholder.PlaceholderText" xml:space="preserve">
-    <value>不需要请留空</value>
-  </data>
-  <data name="ConfigSettingsDialog_ArchivePasswordDesc.Text" xml:space="preserve">
-    <value>仅应用于新创建的压缩包，请妥善保存此密码。</value>
-  </data>
   <data name="ConfigSettingsDialog_Method.Header" xml:space="preserve">
     <value>压缩算法</value>
   </data>
@@ -747,12 +738,6 @@
   <data name="ConfigSettingsDialog_ScheduledMode.Content" xml:space="preserve">
     <value>计划备份模式</value>
   </data>
-  <data name="ConfigSettingsDialog_ScheduledTime.Text" xml:space="preserve">
-    <value>执行时间:</value>
-  </data>
-  <data name="ConfigSettingsDialog_ScheduledTimeSuffix.Text" xml:space="preserve">
-    <value>点 (24小时制)</value>
-  </data>
   <data name="ConfigSettingsDialog_Filter.Header" xml:space="preserve">
     <value>过滤</value>
   </data>
@@ -807,9 +792,6 @@
   <data name="BackupService_Log_SmartChainCheckFailed" xml:space="preserve">
     <value>智能备份链长度检查失败：{0}</value>
   </data>
-  <data name="BackupService_Log_PruneSkipAllImportant" xml:space="preserve">
-    <value>所有备份均被标记为重要，跳过自动清理</value>
-  </data>
   <data name="BackupService_Log_PrunedOldBackup" xml:space="preserve">
     <value>已清理旧备份：{0}</value>
   </data>
@@ -818,9 +800,6 @@
   </data>
   <data name="BackupService_Log_SafeDeleteStart" xml:space="preserve">
     <value>[安全删除] 开始处理：{0}</value>
-  </data>
-  <data name="BackupService_Log_SafeDeleteEndOfChain" xml:space="preserve">
-    <value>[安全删除] 该备份位于链尾或下一个是全量备份，直接删除</value>
   </data>
   <data name="BackupService_Log_SafeDeleteNo7z" xml:space="preserve">
     <value>[安全删除] 未找到 7z 程序，回退为直接删除</value>
@@ -831,17 +810,8 @@
   <data name="BackupService_Log_SafeDeleteStep2" xml:space="preserve">
     <value>[安全删除] 步骤 2/4：将内容合并到下一个备份</value>
   </data>
-  <data name="BackupService_Log_SafeDeletePromote" xml:space="preserve">
-    <value>[安全删除] 步骤 3/4：被删除的是全量备份，将下一个增量备份升级为全量</value>
-  </data>
-  <data name="BackupService_Log_SafeDeleteStep4" xml:space="preserve">
-    <value>[安全删除] 步骤 4/4：删除原始文件</value>
-  </data>
   <data name="BackupService_Log_SafeDeleteRenamed" xml:space="preserve">
     <value>[安全删除] 已将备份升级并重命名为：{0}</value>
-  </data>
-  <data name="BackupService_Log_SafeDeleteRenameFailed" xml:space="preserve">
-    <value>[安全删除] 重命名失败：{0}</value>
   </data>
   <data name="BackupService_Log_SafeDeleteSuccess" xml:space="preserve">
     <value>[安全删除] 成功删除备份：{0}</value>
@@ -917,36 +887,6 @@
   </data>
   <data name="CoreValidation_Report_NoData" xml:space="preserve">
     <value>当前会话还没有可查看的校验报告。</value>
-  </data>
-  <data name="CoreValidation_Report_Result" xml:space="preserve">
-    <value>结果</value>
-  </data>
-  <data name="CoreValidation_Report_Result_Passed" xml:space="preserve">
-    <value>通过</value>
-  </data>
-  <data name="CoreValidation_Report_Result_Failed" xml:space="preserve">
-    <value>失败</value>
-  </data>
-  <data name="CoreValidation_Report_Mode" xml:space="preserve">
-    <value>触发方式</value>
-  </data>
-  <data name="CoreValidation_Report_Mode_Manual" xml:space="preserve">
-    <value>手动</value>
-  </data>
-  <data name="CoreValidation_Report_Mode_Automatic" xml:space="preserve">
-    <value>首次自动执行</value>
-  </data>
-  <data name="CoreValidation_Report_Started" xml:space="preserve">
-    <value>开始时间</value>
-  </data>
-  <data name="CoreValidation_Report_Finished" xml:space="preserve">
-    <value>结束时间</value>
-  </data>
-  <data name="CoreValidation_Report_Duration" xml:space="preserve">
-    <value>耗时</value>
-  </data>
-  <data name="CoreValidation_Report_Summary" xml:space="preserve">
-    <value>摘要</value>
   </data>
   <data name="CoreValidation_Summary_Passed" xml:space="preserve">
     <value>备份与还原核心功能自动校验全部通过。</value>
@@ -1082,12 +1022,6 @@
   </data>
   <data name="PluginStorePage_Install.Content" xml:space="preserve">
     <value>安装</value>
-  </data>
-  <data name="PluginStorePage_SearchBox.PlaceholderText" xml:space="preserve">
-    <value>按文件名或标签筛选</value>
-  </data>
-  <data name="PluginStorePage_ZipOnly.Header" xml:space="preserve">
-    <value>仅显示 ZIP</value>
   </data>
   <data name="PluginStorePage_NoAssets.Text" xml:space="preserve">
     <value>当前没有可显示的插件资产（可能被筛选条件过滤）。</value>
@@ -1593,14 +1527,6 @@
     <value>[App UnhandledException] {0}
 {1}</value>
   </data>
-  <data name="App_StartupFailedWindowTitle" xml:space="preserve">
-    <value>FolderRewind - 启动失败</value>
-  </data>
-  <data name="App_StartupFailedWindowContent" xml:space="preserve">
-    <value>启动失败：{0}
-
-{1}</value>
-  </data>
   <data name="Config_DefaultBackupName" xml:space="preserve">
     <value>示例配置</value>
   </data>
@@ -1805,9 +1731,6 @@
   <data name="BackupService_Log_RestoreSnapshotPrepareFailed" xml:space="preserve">
     <value>创建安全还原快照失败：{0}</value>
   </data>
-  <data name="BackupService_Log_RestoreSnapshotCleanupFailed" xml:space="preserve">
-    <value>清理还原快照失败：{0}</value>
-  </data>
   <data name="BackupService_Log_RestoreRollbackBegin" xml:space="preserve">
     <value>还原失败，开始回滚目录快照：{0}</value>
   </data>
@@ -1874,9 +1797,6 @@
   </data>
   <data name="History_FileMissing" xml:space="preserve">
     <value>文件丢失</value>
-  </data>
-  <data name="Plugins_NotImplemented" xml:space="preserve">
-    <value>插件未实现此功能</value>
   </data>
   <data name="Common_Tip" xml:space="preserve">
     <value>提示</value>
@@ -1956,99 +1876,6 @@
   <data name="Hotkeys_PluginRegisterFailed" xml:space="preserve">
     <value>插件热键注册失败：{0} - {1}</value>
   </data>
-  <data name="MineRewind_Setting_EnableHotBackup_Name" xml:space="preserve">
-    <value>启用热备份</value>
-  </data>
-  <data name="MineRewind_Setting_EnableHotBackup_Desc" xml:space="preserve">
-    <value>与联动模组说悄悄话，确保热备份的完美进行~</value>
-  </data>
-  <data name="MineRewind_Setting_SnapshotPath_Name" xml:space="preserve">
-    <value>快照存储路径</value>
-  </data>
-  <data name="MineRewind_Setting_SnapshotPath_Desc" xml:space="preserve">
-    <value>热备份快照的临时存储路径；留空则使用系统临时目录。</value>
-  </data>
-  <data name="MineRewind_Setting_CleanupSnapshot_Name" xml:space="preserve">
-    <value>备份后清理快照</value>
-  </data>
-  <data name="MineRewind_Setting_CleanupSnapshot_Desc" xml:space="preserve">
-    <value>备份完成后自动删除临时快照目录。</value>
-  </data>
-  <data name="MineRewind_Setting_SnapshotDelay_Name" xml:space="preserve">
-    <value>快照延迟（毫秒）</value>
-  </data>
-  <data name="MineRewind_Setting_SnapshotDelay_Desc" xml:space="preserve">
-    <value>创建快照后等待的时间，确保文件系统操作完成。</value>
-  </data>
-  <data name="MineRewind_CreateConfigs_Result" xml:space="preserve">
-    <value>已创建 {0} 个 Minecraft 存档配置</value>
-  </data>
-  <data name="MineRewind_Hotkey_ActiveWorldBackup_Name" xml:space="preserve">
-    <value>热备份正在运行的世界</value>
-  </data>
-  <data name="MineRewind_Hotkey_ActiveWorldBackup_Desc" xml:space="preserve">
-    <value>检测正在运行（文件被占用）的 Minecraft 存档，并触发热备份。</value>
-  </data>
-  <data name="MineRewind_Hotkey_NoActiveWorld" xml:space="preserve">
-    <value>[MineRewind] 未检测到正在运行的世界（未发现被占用的存档）。</value>
-  </data>
-  <data name="MineRewind_Hotkey_Failed" xml:space="preserve">
-    <value>[MineRewind] 热键触发备份失败：{0}</value>
-  </data>
-  <data name="MineRewind_KnotLink_BackupCurrent_Failed" xml:space="preserve">
-    <value>[MineRewind] KnotLink BACKUP_CURRENT 失败：{0}</value>
-  </data>
-  <data name="MineRewind_Snapshot_Locked" xml:space="preserve">
-    <value>[MineRewind] 检测到 level.dat 被占用，已启用热备份快照：{0}</value>
-  </data>
-  <data name="MineRewind_Snapshot_Created" xml:space="preserve">
-    <value>[MineRewind] 已创建热备份快照：{0}</value>
-  </data>
-  <data name="MineRewind_Snapshot_CreateFailed" xml:space="preserve">
-    <value>[MineRewind] 创建快照失败：{0}</value>
-  </data>
-  <data name="MineRewind_Snapshot_Cleaned" xml:space="preserve">
-    <value>[MineRewind] 已清理热备份快照：{0}</value>
-  </data>
-  <data name="MineRewind_Snapshot_CleanupFailed" xml:space="preserve">
-    <value>[MineRewind] 清理快照失败：{0}</value>
-  </data>
-  <data name="MineRewind_Snapshot_CleanupOldFailed" xml:space="preserve">
-    <value>[MineRewind] 清理旧快照失败：{0}</value>
-  </data>
-  <data name="MineRewind_Snapshot_VerifyFailed" xml:space="preserve">
-    <value>[MineRewind] 快照创建后验证失败</value>
-  </data>
-  <data name="MineRewind_Snapshot_Exception" xml:space="preserve">
-    <value>[MineRewind] CreateSnapshot 异常：{0}</value>
-  </data>
-  <data name="MineRewind_Xcopy_StartFailed" xml:space="preserve">
-    <value>[MineRewind] 无法启动 xcopy 进程</value>
-  </data>
-  <data name="MineRewind_Xcopy_Timeout" xml:space="preserve">
-    <value>[MineRewind] xcopy 超时</value>
-  </data>
-  <data name="MineRewind_Xcopy_Stderr" xml:space="preserve">
-    <value>[MineRewind] xcopy 标准错误输出：{0}</value>
-  </data>
-  <data name="MineRewind_Hotkey_QuickRestore_Name" xml:space="preserve">
-    <value>快速还原当前存档</value>
-  </data>
-  <data name="MineRewind_Hotkey_QuickRestore_Desc" xml:space="preserve">
-    <value>将当前正在运行的 Minecraft 存档还原到最新备份（需要联动模组支持）</value>
-  </data>
-  <data name="MineRewind_Hotkey_QuickRestore_NoActive" xml:space="preserve">
-    <value>[MineRewind] 快速还原：未检测到活跃存档</value>
-  </data>
-  <data name="MineRewind_Hotkey_QuickRestore_Failed" xml:space="preserve">
-    <value>[MineRewind] 快速还原热键失败：{0}</value>
-  </data>
-  <data name="MineRewind_Setting_PreservePlayerData_Name" xml:space="preserve">
-    <value>还原时保留玩家数据</value>
-  </data>
-  <data name="MineRewind_Setting_PreservePlayerData_Desc" xml:space="preserve">
-    <value>还原存档时保留当前玩家的位置、物品栏、经验等数据（仅单人存档）。</value>
-  </data>
   <data name="PluginService_BeforeRestoreFailed" xml:space="preserve">
     <value>插件 {0} 还原前钩子失败：{1}</value>
   </data>
@@ -2084,12 +1911,6 @@
   </data>
   <data name="CloseDialog_Remember" xml:space="preserve">
     <value>记住我的选择</value>
-  </data>
-  <data name="Tray_Show" xml:space="preserve">
-    <value>显示</value>
-  </data>
-  <data name="Tray_Exit" xml:space="preserve">
-    <value>退出</value>
   </data>
   <data name="HistoryPage_DeleteButton.Content" xml:space="preserve">
     <value>删除</value>
@@ -2354,12 +2175,6 @@
   </data>
   <data name="MiniWindow_Log_HotkeyRegisterFailed" xml:space="preserve">
     <value>Mini 热键注册失败：{0}</value>
-  </data>
-  <data name="MiniWindow_Log_WatcherError" xml:space="preserve">
-    <value>文件夹监视器错误 [{0}]：{1}</value>
-  </data>
-  <data name="MiniWindow_Log_WatcherStartFailed" xml:space="preserve">
-    <value>文件夹监视器启动失败 [{0}]：{1}</value>
   </data>
   <data name="Hotkeys_MiniBackup_DisplayName" xml:space="preserve">
     <value>Mini 备份</value>
@@ -3233,12 +3048,6 @@
   <data name="Template_Preview_Summary" xml:space="preserve">
     <value>共 {1} 条规则，命中 {0} 条。</value>
   </data>
-  <data name="Template_CreateFrom_Home_TemplateInfo_Extended" xml:space="preserve">
-    <value>{0} · 已推导 {1} 条路径规则&#x0A;游戏：{2}&#x0A;分享码：{3}</value>
-  </data>
-  <data name="HomePage_AddFromOfficialTemplate.Text" xml:space="preserve">
-    <value>从官方模板创建</value>
-  </data>
   <data name="SettingsPage_BrowseOfficialTemplates.Content" xml:space="preserve">
     <value>导入官方模板</value>
   </data>
@@ -3347,9 +3156,6 @@
   <data name="OfficialTemplates_DetailVersion" xml:space="preserve">
     <value>版本：{0}</value>
   </data>
-  <data name="OfficialTemplates_ShareCodeMissing" xml:space="preserve">
-    <value>未分配</value>
-  </data>
   <data name="Template_Submission_TemplateNull" xml:space="preserve">
     <value>模板不存在。</value>
   </data>
@@ -3443,20 +3249,8 @@
   <data name="Template_Submission_RuleContainsUnsafeMarker" xml:space="preserve">
     <value>规则“{0}”包含不安全标记：{1}</value>
   </data>
-  <data name="SettingsPage_GitHubSubmission" xml:space="preserve">
-    <value>GitHub 自动提交</value>
-  </data>
-  <data name="SettingsPage_GitHubSubmissionDesc" xml:space="preserve">
-    <value>使用内置 GitHub OAuth App 与官方模板仓库配置后，可在软件内授权并全自动提交模板到 GitHub Pull Request。</value>
-  </data>
-  <data name="SettingsPage_GitHubAuthorize.Content" xml:space="preserve">
-    <value>授权 GitHub</value>
-  </data>
   <data name="SettingsPage_GitHubSignOut.Content" xml:space="preserve">
     <value>退出 GitHub</value>
-  </data>
-  <data name="SettingsPage_SubmitOfficialTemplate.Content" xml:space="preserve">
-    <value>自动提交模板</value>
   </data>
   <data name="GitHubOAuth_ConfigUnavailable" xml:space="preserve">
     <value>当前无法读取 GitHub OAuth 配置。</value>
@@ -3512,9 +3306,6 @@
   <data name="GitHubSubmit_TemplateNull" xml:space="preserve">
     <value>未选择要提交的模板。</value>
   </data>
-  <data name="GitHubSubmit_ConfigUnavailable" xml:space="preserve">
-    <value>当前无法读取提交配置。</value>
-  </data>
   <data name="GitHubSubmit_RepoLookupFailed" xml:space="preserve">
     <value>无法访问官方模板仓库，请检查 Owner、仓库名和网络连接。</value>
   </data>
@@ -3558,13 +3349,11 @@
     <value>自动提交结果</value>
   </data>
   <data name="GitHubSubmit_ResultContent" xml:space="preserve">
-    <value>分享码：{0}&#x0A;Pull Request：{1}</value>
+    <value>分享码：{0}
+Pull Request：{1}</value>
   </data>
   <data name="GitHubSubmit_OpenPullRequest" xml:space="preserve">
     <value>打开 Pull Request</value>
-  </data>
-  <data name="GitHubSubmit_PrepareHint" xml:space="preserve">
-    <value>选择本地模板后，软件会自动导出标准模板包、Fork 官方仓库、创建分支、提交文件并发起 Pull Request。</value>
   </data>
   <data name="GitHubSubmit_Progress_Starting" xml:space="preserve">
     <value>正在准备自动提交…</value>
