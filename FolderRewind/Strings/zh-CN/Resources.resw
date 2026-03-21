@@ -766,10 +766,10 @@
     <value>添加</value>
   </data>
   <data name="ConfigSettingsDialog_BackupStrategy.Header" xml:space="preserve">
-    <value>备份策略</value>
+    <value>备份</value>
   </data>
   <data name="ConfigSettingsDialog_RestoreStrategy.Header" xml:space="preserve">
-    <value>还原策略</value>
+    <value>还原</value>
   </data>
   <data name="ConfigSettingsDialog_MaxSmartChain.Header" xml:space="preserve">
     <value>智能备份链长度 (0 为不限制)</value>
@@ -1694,6 +1694,12 @@
   </data>
   <data name="BackupService_Log_SystemError" xml:space="preserve">
     <value>系统错误: {0}</value>
+  </data>
+  <data name="BackupService_Log_SevenZipStartFailed" xml:space="preserve">
+    <value>无法启动 7z 进程。</value>
+  </data>
+  <data name="BackupService_Log_SevenZipTimeout" xml:space="preserve">
+    <value>7z 进程执行超时（{0} 秒）。</value>
   </data>
   <data name="BackupService_Log_BackupBeforeRestore" xml:space="preserve">
     <value>还原前自动备份: {0}</value>
@@ -3277,7 +3283,10 @@
     <value>GitHub 自动提交</value>
   </data>
   <data name="TemplateSubmissionDialog_GitHubHint.Text" xml:space="preserve">
-    <value>FolderRewind 使用内置 GitHub OAuth 配置并通过 PKCE 完成桌面端授权。点击“自动提交模板”时，如有需要会自动打开 GitHub 授权。</value>
+    <value>官方 Microsoft Store 发布版会使用内置 GitHub OAuth 配置，并通过默认浏览器 + PKCE 完成桌面端授权。</value>
+  </data>
+  <data name="TemplateSubmissionDialog_GitHubSecurityNotice.Text" xml:space="preserve">
+    <value>GitHub 侧载版和任何第三方构建都不会启用自动投稿功能。无论如何，都不要下载任何第三方来源的 FolderRewind。</value>
   </data>
   <data name="TemplateSubmissionDialog_SelectedTemplate.Text" xml:space="preserve">
     <value>当前模板信息</value>
@@ -3312,7 +3321,7 @@
     <value>退出 GitHub</value>
   </data>
   <data name="GitHubOAuth_ConfigUnavailable" xml:space="preserve">
-    <value>当前无法读取 GitHub OAuth 配置。</value>
+    <value>当前构建未包含 GitHub 自动投稿所需的 OAuth 凭据。该功能仅在官方 Microsoft Store 发布版中提供，GitHub 侧载版和任何第三方构建都不会启用。</value>
   </data>
   <data name="GitHubOAuth_NotAuthorized" xml:space="preserve">
     <value>尚未授权 GitHub。</value>
@@ -3327,7 +3336,10 @@
     <value>GitHub 授权</value>
   </data>
   <data name="GitHubOAuth_LoginHint" xml:space="preserve">
-    <value>请在内置页面中登录 GitHub 并授权 FolderRewind 访问公开仓库。</value>
+    <value>默认浏览器已经打开 GitHub 授权页面。请在浏览器中完成登录并授权 FolderRewind 访问公开仓库，然后返回此窗口等待完成。</value>
+  </data>
+  <data name="GitHubOAuth_BrowserOpenFailedWithReason" xml:space="preserve">
+    <value>无法打开默认浏览器启动 GitHub 授权：{0}</value>
   </data>
   <data name="GitHubOAuth_LoginCanceled" xml:space="preserve">
     <value>已取消 GitHub 授权。</value>

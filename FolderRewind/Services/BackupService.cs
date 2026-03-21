@@ -1396,9 +1396,53 @@ namespace FolderRewind.Services
                 if (!string.IsNullOrWhiteSpace(workingDirectory))
                     pInfo.WorkingDirectory = workingDirectory;
 
-                using var p = Process.Start(pInfo);
-                p?.WaitForExit(120_000); // 最长等待 2 分钟
-                return p?.ExitCode == 0;
+                // 修复进程未退出读取 ExitCode 抛出系统错误的神秘问题。
+                using var p = new Process { StartInfo = pInfo };
+                string? lastErrorLine = null;
+
+                p.OutputDataReceived += (s, e) =>
+                {
+                    if (string.IsNullOrWhiteSpace(e.Data)) return;
+                    Log($"[7z] {e.Data}");
+                };
+                p.ErrorDataReceived += (s, e) =>
+                {
+                    if (string.IsNullOrWhiteSpace(e.Data)) return;
+                    lastErrorLine = e.Data;
+                    Log($"[7z Err] {e.Data}", LogLevel.Error);
+                };
+
+                if (!p.Start())
+                {
+                    Log(I18n.Format("BackupService_Log_SystemError", I18n.GetString("BackupService_Log_SevenZipStartFailed")), LogLevel.Error);
+                    return false;
+                }
+
+                p.BeginOutputReadLine();
+                p.BeginErrorReadLine();
+
+                const int timeoutMs =300_000; // 最长等待 5 分钟
+                bool exited = p.WaitForExit(timeoutMs);
+                if (!exited)
+                {
+                    Log(I18n.Format("BackupService_Log_SystemError", I18n.Format("BackupService_Log_SevenZipTimeout", timeoutMs / 1000)), LogLevel.Error);
+                    try
+                    {
+                        p.Kill(entireProcessTree: true);
+                    }
+                    catch
+                    {
+                    }
+                    return false;
+                }
+
+                p.WaitForExit();
+                if (p.ExitCode != 0 && !string.IsNullOrWhiteSpace(lastErrorLine))
+                {
+                    Log($"[7z Exit={p.ExitCode}] {lastErrorLine}", LogLevel.Error);
+                }
+
+                return p.ExitCode == 0;
             }
             catch (Exception ex)
             {

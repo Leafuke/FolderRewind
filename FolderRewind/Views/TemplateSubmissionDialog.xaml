@@ -65,6 +65,9 @@
                 <TextBlock x:Uid="TemplateSubmissionDialog_GitHubHint"
                            Foreground="{ThemeResource TextFillColorSecondaryBrush}"
                            TextWrapping="Wrap" />
+                <TextBlock x:Uid="TemplateSubmissionDialog_GitHubSecurityNotice"
+                           Foreground="{ThemeResource SystemFillColorCautionBrush}"
+                           TextWrapping="Wrap" />
 
                 <Border Padding="12"
                         CornerRadius="8"
@@ -75,9 +78,11 @@
                         <TextBlock x:Name="GitHubAuthStatusTextBlock"
                                    TextWrapping="Wrap" />
                         <StackPanel Orientation="Horizontal" Spacing="8">
-                            <Button x:Uid="TemplateSubmissionDialog_RefreshAuth"
+                            <Button x:Name="RefreshGitHubStatusButton"
+                                    x:Uid="TemplateSubmissionDialog_RefreshAuth"
                                     Click="OnRefreshGitHubStatusClick" />
-                            <Button x:Uid="SettingsPage_GitHubSignOut"
+                            <Button x:Name="GitHubSignOutButton"
+                                    x:Uid="SettingsPage_GitHubSignOut"
                                     Click="OnGitHubSignOutClick" />
                         </StackPanel>
                     </StackPanel>

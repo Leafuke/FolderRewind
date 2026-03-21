@@ -90,6 +90,16 @@ namespace FolderRewind
                 // 配置必须先于窗口创建：后面的语言/主题/尺寸都依赖它。
                 Services.ConfigService.Initialize();
 
+                // 清理 Badge~
+                try
+                {
+                    Services.NotificationService.ClearBadge();
+                }
+                catch (Exception badgeEx)
+                {
+                    LogService.Log($"[App] Failed to clear startup badge: {badgeEx.Message}");
+                }
+
                 LogService.Log(I18n.GetString("App_Log_OnLaunchedBegin"));
                 LogService.MarkSessionStart();
 

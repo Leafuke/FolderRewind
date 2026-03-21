@@ -73,7 +73,7 @@ namespace FolderRewind.Views
             }
 
             IsPrimaryButtonEnabled = _templates.Count > 0;
-            IsSecondaryButtonEnabled = _templates.Count > 0;
+            IsSecondaryButtonEnabled = _templates.Count > 0 && GitHubOAuthService.IsConfigured(out _);
         }
 
         private void RefreshSelectedTemplateMetadata()
@@ -97,6 +97,9 @@ namespace FolderRewind.Views
         {
             var state = await GitHubOAuthService.GetAuthenticationStateAsync(validateToken);
             GitHubAuthStatusTextBlock.Text = state.Message;
+            IsSecondaryButtonEnabled = _templates.Count > 0 && state.IsConfigured;
+            RefreshGitHubStatusButton.IsEnabled = state.IsConfigured;
+            GitHubSignOutButton.IsEnabled = state.HasToken;
         }
 
         private void ShowFeedback(string message, InfoBarSeverity severity)

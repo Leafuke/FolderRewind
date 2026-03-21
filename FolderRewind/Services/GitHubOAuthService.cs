@@ -21,9 +21,9 @@ namespace FolderRewind.Services
         private const string GitHubApiBaseUrl = "https://api.github.com";
         private const string OAuthScope = "public_repo";
         private const string BuiltInClientId = "Ov23liwLdVrnGVZmwxFR";
-        // 这里非常非常非常重要呢，我直接把client_secret硬编码了。虽然采用PKCE的方法，但是也没法防“有心人”伪造应用来诱导用户授权。
-        // 如果你看到了这段注释，那么麻烦提醒一下使用该应用的朋友，不要信任任何声称是“FolderRewind”的第三方应用，除了这个官方发布的应用以外。谢谢！
-        private const string BuiltInClientSecret = "e0ea3c79da2ef97986d29114c8f5d16db9be95f3";
+        // 发布 Microsoft Store 版时由维护者临时填入真实 secret。
+        // 公开仓库、GitHub 侧载版和任何第三方构建都不应包含 live secret。定时替换client_secret避免出现意外…希望吧。
+        private const string BuiltInClientSecret = "__SET_GITHUB_OAUTH_CLIENT_SECRET_FOR_STORE_RELEASE__";
         private const string BuiltInRedirectUri = "http://127.0.0.1:45731/callback/";
         private static readonly HttpClient Http = CreateClient();
 
@@ -66,12 +66,18 @@ namespace FolderRewind.Services
 
         public static string GetConfiguredClientSecret()
         {
-            return BuiltInClientSecret;
+            return HasUsableClientSecret() ? BuiltInClientSecret : string.Empty;
         }
 
         public static bool IsConfigured(out string message)
         {
             if (ConfigService.CurrentConfig?.GlobalSettings == null)
+            {
+                message = I18n.GetString("GitHubOAuth_ConfigUnavailable");
+                return false;
+            }
+
+            if (!HasUsableClientSecret())
             {
                 message = I18n.GetString("GitHubOAuth_ConfigUnavailable");
                 return false;
@@ -196,60 +202,51 @@ namespace FolderRewind.Services
             }
 
             var callbackTask = WaitForCallbackAsync(listener, cts.Token);
-
-            var webView = new WebView2
-            {
-                Source = authorizeUri,
-                MinWidth = 860,
-                MinHeight = 620,
-                HorizontalAlignment = HorizontalAlignment.Stretch,
-                VerticalAlignment = VerticalAlignment.Stretch
-            };
-
-            var hintText = new TextBlock
-            {
-                Text = I18n.GetString("GitHubOAuth_LoginHint"),
-                TextWrapping = TextWrapping.Wrap,
-                Margin = new Thickness(0, 0, 0, 8)
-            };
-
-            var panel = new Grid
-            {
-                MinWidth = 880,
-                MinHeight = 700,
-                MaxWidth = 1220
-            };
-            panel.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
-            panel.RowDefinitions.Add(new RowDefinition { Height = new GridLength(1, GridUnitType.Star) });
-            panel.Children.Add(hintText);
-            Grid.SetRow(webView, 1);
-            panel.Children.Add(webView);
-
-            var dialog = new ContentDialog
-            {
-                Title = I18n.GetString("GitHubOAuth_LoginTitle"),
-                Content = panel,
-                CloseButtonText = I18n.GetString("Common_Cancel"),
-                DefaultButton = ContentDialogButton.Close,
-                XamlRoot = xamlRoot
-            };
-            var hideTask = callbackTask.ContinueWith(async task =>
-            {
-                if (task.IsCompletedSuccessfully)
-                {
-                    await TemplateDialogCoordinatorService.HideAsync(dialog);
-                }
-            }, TaskScheduler.Default).Unwrap();
-
-            var dialogResult = await TemplateDialogCoordinatorService.ShowAsync(dialog, xamlRoot, ct);
-            if (dialogResult == ContentDialogResult.None && !callbackTask.IsCompleted)
+            if (!ShellPathService.TryOpenPath(authorizeUri.ToString(), out var openError))
             {
                 cts.Cancel();
                 return new GitHubOAuthResult
                 {
                     Success = false,
-                    Message = I18n.GetString("GitHubOAuth_LoginCanceled")
+                    Message = I18n.Format("GitHubOAuth_BrowserOpenFailedWithReason", openError ?? string.Empty)
                 };
+            }
+
+            Task hideTask = Task.CompletedTask;
+            if (xamlRoot != null)
+            {
+                var dialog = new ContentDialog
+                {
+                    Title = I18n.GetString("GitHubOAuth_LoginTitle"),
+                    Content = new TextBlock
+                    {
+                        Text = I18n.GetString("GitHubOAuth_LoginHint"),
+                        TextWrapping = TextWrapping.Wrap,
+                        MaxWidth = 440
+                    },
+                    CloseButtonText = I18n.GetString("Common_Cancel"),
+                    DefaultButton = ContentDialogButton.Close,
+                    XamlRoot = xamlRoot
+                };
+
+                hideTask = callbackTask.ContinueWith(async task =>
+                {
+                    if (task.IsCompletedSuccessfully)
+                    {
+                        await TemplateDialogCoordinatorService.HideAsync(dialog);
+                    }
+                }, TaskScheduler.Default).Unwrap();
+
+                var dialogResult = await TemplateDialogCoordinatorService.ShowAsync(dialog, xamlRoot, ct);
+                if (dialogResult == ContentDialogResult.None && !callbackTask.IsCompleted)
+                {
+                    cts.Cancel();
+                    return new GitHubOAuthResult
+                    {
+                        Success = false,
+                        Message = I18n.GetString("GitHubOAuth_LoginCanceled")
+                    };
+                }
             }
 
             OAuthCallbackData callback;
@@ -334,6 +331,15 @@ namespace FolderRewind.Services
         public static void SignOut()
         {
             GitHubSecretStoreService.ClearAuthorization();
+        }
+
+        private static bool HasUsableClientSecret()
+        {
+            return !string.IsNullOrWhiteSpace(BuiltInClientSecret)
+                && !string.Equals(
+                    BuiltInClientSecret,
+                    "__SET_GITHUB_OAUTH_CLIENT_SECRET_FOR_STORE_RELEASE__",
+                    StringComparison.Ordinal);
         }
 
         private static HttpClient CreateClient()
