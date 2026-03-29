@@ -2452,7 +2452,7 @@ namespace FolderRewind.Services
                     if (!TryCommitSafeRestoreWorkspace(targetDir, safeRestoreTempDir, config.Filters?.RestoreWhitelist, out var commitError))
                     {
                         restoreFailed = true;
-                        string message = I18n.Format("BackupService_Log_RestoreRollbackFailed", commitError ?? "Unknown error");
+                        string message = I18n.Format("BackupService_Log_RestoreCommitFailed", commitError ?? "Unknown error");
                         Log(message, LogLevel.Error);
                         await RunOnUIAsync(() => restoreTask.ErrorMessage = message);
                     }
@@ -2834,7 +2834,7 @@ namespace FolderRewind.Services
             {
                 // 提交阶段要先补回白名单内容，再删除旧快照目录。
                 CleanupInternalRestoreMarkers(targetDir);
-                CopyRestoreWhitelistEntries(tempDir, targetDir, whitelist);
+                CopyRestoreWhitelistEntries(tempDir, targetDir, whitelist, targetDir);
 
                 if (Directory.Exists(tempDir))
                 {
@@ -2962,7 +2962,7 @@ namespace FolderRewind.Services
             }
         }
 
-        private static void CopyRestoreWhitelistEntries(string sourceDir, string targetDir, IEnumerable<string>? whitelist)
+        private static void CopyRestoreWhitelistEntries(string sourceDir, string targetDir, IEnumerable<string>? whitelist, string? whitelistRootDir = null)
         {
             if (string.IsNullOrWhiteSpace(sourceDir)
                 || string.IsNullOrWhiteSpace(targetDir)
@@ -2977,9 +2977,11 @@ namespace FolderRewind.Services
                 return;
             }
 
+            string effectiveWhitelistRootDir = string.IsNullOrWhiteSpace(whitelistRootDir) ? sourceDir : whitelistRootDir;
+
             foreach (var dir in Directory.EnumerateDirectories(sourceDir, "*", SearchOption.AllDirectories).OrderBy(d => d.Length))
             {
-                if (!IsPathOrAncestorInRestoreWhitelist(dir, sourceDir, rules))
+                if (!IsPathOrAncestorInRestoreWhitelist(dir, sourceDir, effectiveWhitelistRootDir, rules))
                 {
                     continue;
                 }
@@ -2990,7 +2992,7 @@ namespace FolderRewind.Services
 
             foreach (var file in Directory.EnumerateFiles(sourceDir, "*", SearchOption.AllDirectories))
             {
-                if (!IsPathOrAncestorInRestoreWhitelist(file, sourceDir, rules))
+                if (!IsPathOrAncestorInRestoreWhitelist(file, sourceDir, effectiveWhitelistRootDir, rules))
                 {
                     continue;
                 }
@@ -3006,9 +3008,9 @@ namespace FolderRewind.Services
             }
         }
 
-        private static bool IsPathOrAncestorInRestoreWhitelist(string entryPath, string rootDir, IReadOnlyCollection<string> whitelist)
+        private static bool IsPathOrAncestorInRestoreWhitelist(string entryPath, string rootDir, string whitelistRootDir, IReadOnlyCollection<string> whitelist)
         {
-            if (IsInRestoreWhitelist(entryPath, rootDir, whitelist))
+            if (IsInRestoreWhitelist(entryPath, rootDir, whitelist, whitelistRootDir))
             {
                 return true;
             }
@@ -3024,7 +3026,7 @@ namespace FolderRewind.Services
                     break;
                 }
 
-                if (IsInRestoreWhitelist(currentFullPath, rootDir, whitelist))
+                if (IsInRestoreWhitelist(currentFullPath, rootDir, whitelist, whitelistRootDir))
                 {
                     return true;
                 }
@@ -3063,18 +3065,21 @@ namespace FolderRewind.Services
         /// 检查文件/文件夹是否在还原白名单中（参考 MineBackup is_blacklisted 思路，复用名称匹配）
         /// 支持精确文件名匹配和路径包含匹配
         /// </summary>
-        private static bool IsInRestoreWhitelist(string entryPath, string rootDir, IEnumerable<string> whitelist)
+        private static bool IsInRestoreWhitelist(string entryPath, string rootDir, IEnumerable<string> whitelist, string? whitelistRootDir = null)
         {
             if (whitelist == null) return false;
 
-            var entryName = Path.GetFileName(entryPath);
-            var entryPathLower = entryPath.ToLowerInvariant();
+            string comparisonRootDir = string.IsNullOrWhiteSpace(whitelistRootDir) ? rootDir : whitelistRootDir;
+            string comparisonEntryPath = GetRestoreWhitelistComparisonPath(entryPath, rootDir, comparisonRootDir);
+
+            var entryName = Path.GetFileName(comparisonEntryPath);
+            var entryPathLower = comparisonEntryPath.ToLowerInvariant();
 
             string relativePathLower = string.Empty;
             try
             {
-                var relativePath = Path.GetRelativePath(rootDir, entryPath);
-                if (!relativePath.StartsWith(".."))
+                var relativePath = Path.GetRelativePath(comparisonRootDir, comparisonEntryPath);
+                if (!relativePath.StartsWith("..", StringComparison.Ordinal))
                 {
                     relativePathLower = relativePath.ToLowerInvariant();
                 }
@@ -3125,6 +3130,30 @@ namespace FolderRewind.Services
             }
 
             return false;
+        }
+
+        private static string GetRestoreWhitelistComparisonPath(string entryPath, string physicalRootDir, string comparisonRootDir)
+        {
+            string entryFullPath = Path.GetFullPath(entryPath);
+            string physicalRootFullPath = Path.GetFullPath(physicalRootDir)
+                .TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
+
+            string relativePath;
+            try
+            {
+                relativePath = Path.GetRelativePath(physicalRootFullPath, entryFullPath);
+            }
+            catch
+            {
+                return entryFullPath;
+            }
+
+            if (relativePath.StartsWith("..", StringComparison.Ordinal) || Path.IsPathRooted(relativePath))
+            {
+                return entryFullPath;
+            }
+
+            return Path.GetFullPath(Path.Combine(comparisonRootDir, relativePath));
         }
 
         private static int GetConfigIndex(BackupConfig config)

@@ -678,7 +678,7 @@
   <data name="ConfigSettingsDialog_CpuThreads.Text" xml:space="preserve">
     <value>CPU 线程数</value>
   </data>
-  <data name="ConfigSettingsDialog_CpuThreadsDesc.Text" xml:space="preserve">
+  <data name="ConfigSettingsDialog_CpuThreadsDescription" xml:space="preserve">
     <value>0 = 自动，当前设备最高 {0} 线程</value>
   </data>
   <data name="ConfigSettingsDialog_LowPriority.Header" xml:space="preserve">
@@ -772,7 +772,7 @@
     <value>Clean 还原时不会清除的文件/文件夹，保护特定数据不被删除。</value>
   </data>
   <data name="ConfigSettingsDialog_RestoreWhitelistPlaceholder.PlaceholderText" xml:space="preserve">
-    <value>输入文件名或通配符...</value>
+    <value>输入文件名、相对路径、完整路径或通配符...</value>
   </data>
   <data name="ConfigSettingsDialog_AddRestoreWhitelist.Content" xml:space="preserve">
     <value>添加</value>
@@ -1778,6 +1778,9 @@
   </data>
   <data name="BackupService_Log_RestoreRollbackFailed" xml:space="preserve">
     <value>回滚失败：{0}</value>
+  </data>
+  <data name="BackupService_Log_RestoreCommitFailed" xml:space="preserve">
+    <value>提交安全还原结果失败：{0}</value>
   </data>
   <data name="App_WindowTitle" xml:space="preserve">
     <value>存档时光机</value>

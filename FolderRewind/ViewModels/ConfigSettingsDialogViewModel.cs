@@ -42,7 +42,7 @@ namespace FolderRewind.ViewModels
             }
         }
 
-        public string CpuThreadsDescription => I18n.Format("ConfigSettingsDialog_CpuThreadsDesc", _cpuThreadMax);
+        public string CpuThreadsDescription => I18n.Format("ConfigSettingsDialog_CpuThreadsDescription", _cpuThreadMax);
 
         public bool RunCompressionAtLowPriority
         {

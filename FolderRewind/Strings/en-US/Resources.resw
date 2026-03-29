@@ -678,7 +678,7 @@ Duplicate folder names are blocked within the same configuration so different di
   <data name="ConfigSettingsDialog_CpuThreads.Text" xml:space="preserve">
     <value>CPU threads</value>
   </data>
-  <data name="ConfigSettingsDialog_CpuThreadsDesc.Text" xml:space="preserve">
+  <data name="ConfigSettingsDialog_CpuThreadsDescription" xml:space="preserve">
     <value>0 = automatic, current device max {0} threads</value>
   </data>
   <data name="ConfigSettingsDialog_LowPriority.Header" xml:space="preserve">
@@ -772,7 +772,7 @@ Duplicate folder names are blocked within the same configuration so different di
     <value>Files/folders not removed during Clean restore, protecting specific data from deletion.</value>
   </data>
   <data name="ConfigSettingsDialog_RestoreWhitelistPlaceholder.PlaceholderText" xml:space="preserve">
-    <value>Enter filename or wildcard...</value>
+    <value>Enter a filename, relative path, full path, or wildcard...</value>
   </data>
   <data name="ConfigSettingsDialog_AddRestoreWhitelist.Content" xml:space="preserve">
     <value>Add</value>
@@ -1778,6 +1778,9 @@ If you have a listener subscribed to this signal, it should receive a message.</
   </data>
   <data name="BackupService_Log_RestoreRollbackFailed" xml:space="preserve">
     <value>Rollback failed: {0}</value>
+  </data>
+  <data name="BackupService_Log_RestoreCommitFailed" xml:space="preserve">
+    <value>Failed to commit safe restore result: {0}</value>
   </data>
   <data name="App_WindowTitle" xml:space="preserve">
     <value>FolderRewind</value>
