@@ -117,7 +117,7 @@
                         <ComboBoxItem x:Uid="ConfigSettingsDialog_Format7z"/>
                         <ComboBoxItem x:Uid="ConfigSettingsDialog_FormatZip"/>
                     </ComboBox>
-                    <ComboBox x:Uid="ConfigSettingsDialog_Method" Grid.Column="1" SelectedIndex="{x:Bind MethodSelectedIndex, Mode=TwoWay}" HorizontalAlignment="Stretch" Margin="8,0,0,0" SelectionChanged="OnMethodSelectionChanged">
+                    <ComboBox x:Uid="ConfigSettingsDialog_Method" Grid.Column="1" SelectedIndex="{x:Bind MethodSelectedIndex, Mode=TwoWay}" HorizontalAlignment="Stretch" Margin="8,0,0,0">
                         <ComboBoxItem Content="LZMA2"/>
                         <ComboBoxItem Content="Deflate"/>
                         <ComboBoxItem Content="BZip2"/>
@@ -128,7 +128,7 @@
                 <!-- 压缩等级 -->
                 <StackPanel Spacing="4">
                     <TextBlock x:Uid="ConfigSettingsDialog_CompressionLevel"/>
-                    <Slider x:Name="CompressionLevelSlider" Minimum="{x:Bind CompressionLevelMin}" Maximum="{x:Bind CompressionLevelMax}" Value="{x:Bind Config.Archive.CompressionLevel, Mode=TwoWay}"/>
+                    <Slider x:Name="CompressionLevelSlider" Minimum="{x:Bind ViewModel.CompressionLevelMin, Mode=OneWay}" Maximum="{x:Bind ViewModel.CompressionLevelMax, Mode=OneWay}" Value="{x:Bind Config.Archive.CompressionLevel, Mode=TwoWay}"/>
                 </StackPanel>
 
                 <!-- 保留备份数量 -->
@@ -149,10 +149,23 @@
                 <!-- CPU 线程数 -->
                 <StackPanel Spacing="4">
                     <TextBlock x:Uid="ConfigSettingsDialog_CpuThreads"/>
-                    <StackPanel Orientation="Horizontal" Spacing="8">
-                        <NumberBox Value="{x:Bind Config.Archive.CpuThreads, Mode=TwoWay}" Minimum="0" Maximum="128" Width="160"/>
-                        <TextBlock x:Uid="ConfigSettingsDialog_CpuThreadsDesc" VerticalAlignment="Center" Style="{StaticResource CaptionTextBlockStyle}" Foreground="{ThemeResource TextFillColorSecondaryBrush}"/>
-                    </StackPanel>
+                    <Slider Minimum="0"
+                            Maximum="{x:Bind ViewModel.CpuThreadMax, Mode=OneWay}"
+                            StepFrequency="1"
+                            Value="{x:Bind ViewModel.CpuThreadsValue, Mode=TwoWay}"/>
+                    <TextBlock Text="{x:Bind ViewModel.CpuThreadsDescription, Mode=OneWay}"
+                               Style="{StaticResource CaptionTextBlockStyle}"
+                               Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                               TextWrapping="Wrap"/>
+                </StackPanel>
+
+                <!-- 浣庝紭鍏堢骇鍘嬬缉 -->
+                <StackPanel Spacing="4">
+                    <ToggleSwitch x:Uid="ConfigSettingsDialog_LowPriority" IsOn="{x:Bind ViewModel.RunCompressionAtLowPriority, Mode=TwoWay}"/>
+                    <TextBlock x:Uid="ConfigSettingsDialog_LowPriorityDesc"
+                               Style="{StaticResource CaptionTextBlockStyle}"
+                               Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                               TextWrapping="Wrap"/>
                 </StackPanel>
 
                 <!-- 自定义文件类型处理 -->
