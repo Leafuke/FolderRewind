@@ -5,6 +5,7 @@ using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using System.Text;
+using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
 
@@ -278,6 +279,33 @@ namespace FolderRewind.Services
                 if (continueValidation)
                 {
                     continueValidation = await RunStepAsync(
+                        I18n.GetString("CoreValidation_Step_LegacyMetadataMigration"),
+                        async () =>
+                        {
+                            RewriteMetadataAsLegacyOnly(mainConfig!, mainSourceFolder!);
+
+                            var beforeEntries = GetHistoryEntries(mainConfig!.Id, mainSourceFolder!.DisplayName);
+                            bool created = await BackupService.BackupFolderAsync(mainConfig, mainSourceFolder, "CoreValidation Legacy Metadata").ConfigureAwait(false);
+                            if (created)
+                            {
+                                throw new InvalidOperationException("Legacy metadata migration probe unexpectedly created a new archive.");
+                            }
+
+                            var afterEntries = GetHistoryEntries(mainConfig.Id, mainSourceFolder.DisplayName);
+                            if (afterEntries.Count != beforeEntries.Count)
+                            {
+                                throw new InvalidOperationException("Legacy metadata migration probe changed history entries.");
+                            }
+
+                            AssertMetadataStoreMigrated(mainConfig, mainSourceFolder, fullEntry!.FileName);
+                            return "Legacy metadata was migrated lazily and kept skip-if-unchanged behavior.";
+                        },
+                        steps).ConfigureAwait(false);
+                }
+
+                if (continueValidation)
+                {
+                    continueValidation = await RunStepAsync(
                         I18n.GetString("CoreValidation_Step_NoChangeSkip"),
                         async () =>
                         {
@@ -458,7 +486,7 @@ namespace FolderRewind.Services
             {
                 var entry = await BackupExpectNewEntryAsync(pruneConfig, pruneSourceFolder, comment, expectedType).ConfigureAwait(false);
                 string archiveDir = Path.Combine(pruneBackupRoot, pruneSourceFolder.DisplayName);
-                await WaitForArchiveCountAtMostAsync(archiveDir, pruneConfig.Archive.Format, pruneConfig.Archive.KeepCount, TimeSpan.FromSeconds(20)).ConfigureAwait(false);
+                AssertArchiveCountAtMost(archiveDir, pruneConfig.Archive.Format, pruneConfig.Archive.KeepCount);
                 return entry;
             }
 
@@ -719,31 +747,24 @@ namespace FolderRewind.Services
             }
         }
 
-        private static async Task WaitForArchiveCountAtMostAsync(string archiveDir, string format, int keepCount, TimeSpan timeout)
+        private static void AssertArchiveCountAtMost(string archiveDir, string format, int keepCount)
         {
             if (keepCount <= 0)
             {
                 return;
             }
 
-            var deadline = DateTime.UtcNow + timeout;
-            while (DateTime.UtcNow < deadline)
+            int archiveCount = GetArchiveFiles(archiveDir, format).Count;
+            bool hasTempArtifacts = Directory.Exists(archiveDir)
+                && (Directory.EnumerateDirectories(archiveDir, "__FolderRewind_SafeDelete_*", SearchOption.TopDirectoryOnly).Any()
+                    || Directory.EnumerateFiles(archiveDir, $"*.{format}.tmp*", SearchOption.TopDirectoryOnly).Any());
+
+            if (archiveCount <= keepCount && !hasTempArtifacts)
             {
-                int archiveCount = GetArchiveFiles(archiveDir, format).Count;
-                bool hasTempArtifacts = Directory.Exists(archiveDir)
-                    && (Directory.EnumerateDirectories(archiveDir, "__FolderRewind_SafeDelete_*", SearchOption.TopDirectoryOnly).Any()
-                        || Directory.EnumerateFiles(archiveDir, $"*.{format}.tmp*", SearchOption.TopDirectoryOnly).Any());
-
-                if (archiveCount <= keepCount && !hasTempArtifacts)
-                {
-                    return;
-                }
-
-                await Task.Delay(250).ConfigureAwait(false);
+                return;
             }
 
-            int finalCount = GetArchiveFiles(archiveDir, format).Count;
-            throw new InvalidOperationException($"Archive pruning did not settle within {timeout.TotalSeconds:F0}s. Remaining archives: {finalCount}.");
+            throw new InvalidOperationException($"Archive pruning did not settle before backup completion. Remaining archives: {archiveCount}, temp artifacts: {hasTempArtifacts}.");
         }
 
         private static IReadOnlyList<string> GetArchiveFiles(string archiveDir, string format)
@@ -773,6 +794,106 @@ namespace FolderRewind.Services
             }
 
             File.WriteAllText(path, content);
+        }
+
+        private static void RewriteMetadataAsLegacyOnly(BackupConfig config, ManagedFolder folder)
+        {
+            if (!BackupStoragePathService.TryResolveBackupStoragePaths(
+                config.DestinationPath ?? string.Empty,
+                folder.DisplayName,
+                folder.Path,
+                out _,
+                out _,
+                out var metadataDir))
+            {
+                throw new InvalidOperationException("Validation metadata directory could not be resolved.");
+            }
+
+            var loadResult = BackupMetadataStoreService.LoadAsync(metadataDir).GetAwaiter().GetResult();
+            if (loadResult.State == null)
+            {
+                throw new InvalidOperationException("Validation metadata state was not found.");
+            }
+
+            var legacyMetadata = new BackupMetadata
+            {
+                Version = "2.0",
+                LastBackupTime = loadResult.State.LastBackupTime,
+                LastBackupFileName = loadResult.State.LastBackupFileName,
+                BasedOnFullBackup = loadResult.State.BasedOnFullBackup,
+                FileStates = new Dictionary<string, FileState>(loadResult.State.FileStates, StringComparer.OrdinalIgnoreCase),
+                BackupRecords = loadResult.Records.Values
+                    .Select(record => new BackupChangeRecord
+                    {
+                        ArchiveFileName = record.ArchiveFileName,
+                        BackupType = record.BackupType,
+                        BasedOnFullBackup = record.BasedOnFullBackup,
+                        PreviousBackupFileName = record.PreviousBackupFileName,
+                        CreatedAtUtc = record.CreatedAtUtc,
+                        AddedFiles = record.AddedFiles.ToList(),
+                        ModifiedFiles = record.ModifiedFiles.ToList(),
+                        DeletedFiles = record.DeletedFiles.ToList(),
+                        FullFileList = record.FullFileList.ToList()
+                    })
+                    .OrderBy(record => record.CreatedAtUtc)
+                    .ThenBy(record => record.ArchiveFileName, StringComparer.OrdinalIgnoreCase)
+                    .ToList()
+            };
+
+            Directory.CreateDirectory(metadataDir);
+            File.WriteAllText(
+                Path.Combine(metadataDir, "metadata.json"),
+                JsonSerializer.Serialize(legacyMetadata, AppJsonContext.Default.BackupMetadata));
+
+            string statePath = Path.Combine(metadataDir, "state.json");
+            if (File.Exists(statePath))
+            {
+                File.Delete(statePath);
+            }
+
+            string legacyBackupPath = Path.Combine(metadataDir, "metadata.legacy.json");
+            if (File.Exists(legacyBackupPath))
+            {
+                File.Delete(legacyBackupPath);
+            }
+
+            string recordsDir = Path.Combine(metadataDir, "records");
+            if (Directory.Exists(recordsDir))
+            {
+                Directory.Delete(recordsDir, true);
+            }
+        }
+
+        private static void AssertMetadataStoreMigrated(BackupConfig config, ManagedFolder folder, string archiveFileName)
+        {
+            if (!BackupStoragePathService.TryResolveBackupStoragePaths(
+                config.DestinationPath ?? string.Empty,
+                folder.DisplayName,
+                folder.Path,
+                out _,
+                out _,
+                out var metadataDir))
+            {
+                throw new InvalidOperationException("Validation metadata directory could not be resolved.");
+            }
+
+            string statePath = Path.Combine(metadataDir, "state.json");
+            if (!File.Exists(statePath))
+            {
+                throw new InvalidOperationException("Lazy migration did not recreate state.json.");
+            }
+
+            string recordPath = Path.Combine(metadataDir, "records", archiveFileName + ".json");
+            if (!File.Exists(recordPath))
+            {
+                throw new InvalidOperationException("Lazy migration did not recreate the archive record file.");
+            }
+
+            string legacySourcePath = Path.Combine(metadataDir, "metadata.json");
+            if (File.Exists(legacySourcePath))
+            {
+                throw new InvalidOperationException("Lazy migration left the legacy metadata.json in place.");
+            }
         }
 
         private static string NormalizeRelativePath(string relativePath)
