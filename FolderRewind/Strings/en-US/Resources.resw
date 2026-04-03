@@ -1796,10 +1796,10 @@ Comment: {1}
 [Overwrite] Mode: Extract and overwrite (may keep old files).</value>
   </data>
   <data name="History_RestoreConfirm_Primary" xml:space="preserve">
-    <value>Clean restore (clear target)</value>
+    <value>Clean restore</value>
   </data>
   <data name="History_RestoreConfirm_Secondary" xml:space="preserve">
-    <value>Overwrite restore (overwrite)</value>
+    <value>Overwrite restore</value>
   </data>
   <data name="SettingsPage_KnotLinkStatus_Disabled" xml:space="preserve">
     <value>Disabled</value>

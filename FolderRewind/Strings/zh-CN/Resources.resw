@@ -1796,10 +1796,10 @@
 [Overwrite] 模式：直接解压覆盖（可能保留旧文件）。</value>
   </data>
   <data name="History_RestoreConfirm_Primary" xml:space="preserve">
-    <value>Clean 还原 (清空目标)</value>
+    <value>Clean 还原</value>
   </data>
   <data name="History_RestoreConfirm_Secondary" xml:space="preserve">
-    <value>Overwrite 还原 (覆盖)</value>
+    <value>Overwrite 还原</value>
   </data>
   <data name="SettingsPage_KnotLinkStatus_Disabled" xml:space="preserve">
     <value>未启用</value>

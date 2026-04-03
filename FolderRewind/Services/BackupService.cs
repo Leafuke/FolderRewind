@@ -118,6 +118,74 @@ namespace FolderRewind.Services
                 out backupSubDir,
                 out metadataDir);
 
+        private static string NormalizePathForRuleMatching(string path)
+        {
+            if (string.IsNullOrWhiteSpace(path))
+            {
+                return string.Empty;
+            }
+
+            var normalized = path.Trim()
+                .Replace(Path.AltDirectorySeparatorChar, Path.DirectorySeparatorChar)
+                .Replace(Path.DirectorySeparatorChar, '/');
+
+            while (normalized.Contains("//", StringComparison.Ordinal))
+            {
+                normalized = normalized.Replace("//", "/", StringComparison.Ordinal);
+            }
+
+            return normalized.Trim('/');
+        }
+
+        private static bool PathContainsRuleAtBoundary(string path, string normalizedRule)
+        {
+            var normalizedPath = NormalizePathForRuleMatching(path);
+            if (string.IsNullOrEmpty(normalizedPath) || string.IsNullOrEmpty(normalizedRule))
+            {
+                return false;
+            }
+
+            int searchStart = 0;
+            while (searchStart < normalizedPath.Length)
+            {
+                int matchIndex = normalizedPath.IndexOf(normalizedRule, searchStart, StringComparison.OrdinalIgnoreCase);
+                if (matchIndex < 0)
+                {
+                    return false;
+                }
+
+                bool startBoundary = matchIndex == 0 || normalizedPath[matchIndex - 1] == '/';
+                int matchEnd = matchIndex + normalizedRule.Length;
+                bool endBoundary = matchEnd == normalizedPath.Length || normalizedPath[matchEnd] == '/';
+
+                if (startBoundary && endBoundary)
+                {
+                    return true;
+                }
+
+                searchStart = matchIndex + 1;
+            }
+
+            return false;
+        }
+
+        private static bool MatchesPathBoundary(string fullPath, string? relativePath, string rule)
+        {
+            var normalizedRule = NormalizePathForRuleMatching(rule);
+            if (string.IsNullOrEmpty(normalizedRule))
+            {
+                return false;
+            }
+
+            if (PathContainsRuleAtBoundary(fullPath, normalizedRule))
+            {
+                return true;
+            }
+
+            return !string.IsNullOrEmpty(relativePath)
+                && PathContainsRuleAtBoundary(relativePath, normalizedRule);
+        }
+
         /// <summary>
         /// 检查文件是否在黑名单中（参考 MineBackup 的 is_blacklisted 实现）
         /// </summary>
@@ -147,12 +215,15 @@ namespace FolderRewind.Services
             try
             {
                 var relativePath = Path.GetRelativePath(backupSourceRoot, fileToCheck);
-                if (!relativePath.StartsWith(".."))
+                if (!relativePath.StartsWith("..", StringComparison.Ordinal))
                 {
                     relativePathLower = relativePath.ToLowerInvariant();
                 }
             }
-            catch { }
+            catch (Exception ex)
+            {
+                Log($"[Filter][Debug] Failed to build relative path for blacklist matching: {ex.Message}", LogLevel.Debug);
+            }
 
             // 缓存编译好的正则表达式
             var regexCache = new Dictionary<string, Regex>();
@@ -201,19 +272,13 @@ namespace FolderRewind.Services
                         return true;
                     }
 
-                    // 2. 检查路径是否包含规则字符串
-                    if (filePathLower.Contains(ruleLower))
+                    // 2. 路径边界匹配（避免子串误伤，例如 voxy 误匹配 VoxyFab）
+                    if (MatchesPathBoundary(fileToCheck, relativePathLower, rule))
                     {
                         return true;
                     }
 
-                    // 3. 检查相对路径匹配
-                    if (!string.IsNullOrEmpty(relativePathLower) && relativePathLower.Contains(ruleLower))
-                    {
-                        return true;
-                    }
-
-                    // 4. 支持通配符匹配 (*, ?)
+                    // 3. 支持通配符匹配 (*, ?)
                     if (rule.Contains('*') || rule.Contains('?'))
                     {
                         try
@@ -236,10 +301,13 @@ namespace FolderRewind.Services
                                 return true;
                             }
                         }
-                        catch { }
+                        catch (Exception ex)
+                        {
+                            Log($"[Filter][Debug] Invalid wildcard blacklist rule '{rule}': {ex.Message}", LogLevel.Debug);
+                        }
                     }
 
-                    // 5. 处理热备份时的路径映射（参考 MineBackup）
+                    // 4. 处理热备份时的路径映射（参考 MineBackup）
                     if (Path.IsPathRooted(rule))
                     {
                         try
@@ -264,7 +332,10 @@ namespace FolderRewind.Services
                                 }
                             }
                         }
-                        catch { }
+                        catch (Exception ex)
+                        {
+                            Log($"[Filter][Debug] Failed to remap rooted blacklist rule '{rule}': {ex.Message}", LogLevel.Debug);
+                        }
                     }
                 }
             }
@@ -3063,7 +3134,7 @@ namespace FolderRewind.Services
 
         /// <summary>
         /// 检查文件/文件夹是否在还原白名单中（参考 MineBackup is_blacklisted 思路，复用名称匹配）
-        /// 支持精确文件名匹配和路径包含匹配
+        /// 支持精确文件名匹配和路径边界匹配
         /// </summary>
         private static bool IsInRestoreWhitelist(string entryPath, string rootDir, IEnumerable<string> whitelist, string? whitelistRootDir = null)
         {
@@ -3073,7 +3144,6 @@ namespace FolderRewind.Services
             string comparisonEntryPath = GetRestoreWhitelistComparisonPath(entryPath, rootDir, comparisonRootDir);
 
             var entryName = Path.GetFileName(comparisonEntryPath);
-            var entryPathLower = comparisonEntryPath.ToLowerInvariant();
 
             string relativePathLower = string.Empty;
             try
@@ -3084,7 +3154,10 @@ namespace FolderRewind.Services
                     relativePathLower = relativePath.ToLowerInvariant();
                 }
             }
-            catch { }
+            catch (Exception ex)
+            {
+                Log($"[Filter][Debug] Failed to build relative path for restore whitelist matching: {ex.Message}", LogLevel.Debug);
+            }
 
             foreach (var ruleOrig in whitelist)
             {
@@ -3098,14 +3171,8 @@ namespace FolderRewind.Services
                     return true;
                 }
 
-                // 路径包含匹配
-                var ruleLower = rule.ToLowerInvariant();
-                if (entryPathLower.Contains(ruleLower))
-                {
-                    return true;
-                }
-
-                if (!string.IsNullOrEmpty(relativePathLower) && relativePathLower.Contains(ruleLower))
+                // 路径边界匹配（避免子串误伤）
+                if (MatchesPathBoundary(comparisonEntryPath, relativePathLower, rule))
                 {
                     return true;
                 }
@@ -3125,7 +3192,10 @@ namespace FolderRewind.Services
                             return true;
                         }
                     }
-                    catch { }
+                    catch (Exception ex)
+                    {
+                        Log($"[Filter][Debug] Invalid wildcard restore whitelist rule '{rule}': {ex.Message}", LogLevel.Debug);
+                    }
                 }
             }
 
@@ -3143,8 +3213,9 @@ namespace FolderRewind.Services
             {
                 relativePath = Path.GetRelativePath(physicalRootFullPath, entryFullPath);
             }
-            catch
+            catch (Exception ex)
             {
+                Log($"[Filter][Debug] Failed to compute restore whitelist comparison path: {ex.Message}", LogLevel.Debug);
                 return entryFullPath;
             }
 
@@ -3241,6 +3312,23 @@ namespace FolderRewind.Services
                     Hash = ""
                 };
             }
+
+            if (result.Count == 0 && filters?.Blacklist != null && filters.Blacklist.Count > 0)
+            {
+                try
+                {
+                    bool hasAnyFile = dirInfo.EnumerateFiles("*", enumOptions).Any();
+                    if (hasAnyFile)
+                    {
+                        Log($"[Filter][Warning] File state scan returned 0 items while source has files. Source={path}. Check blacklist rules for over-broad matches.", LogLevel.Warning);
+                    }
+                }
+                catch (Exception ex)
+                {
+                    Log($"[Filter][Debug] Failed to probe source directory after filtering: {ex.Message}", LogLevel.Debug);
+                }
+            }
+
             return result;
         }
 
