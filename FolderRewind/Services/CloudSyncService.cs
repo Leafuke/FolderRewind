@@ -111,8 +111,20 @@ namespace FolderRewind.Services
 
         private static CloudCommandContext BuildRuntimeContext(BackupConfig config, ManagedFolder folder, string archiveFileName, string? comment)
         {
-            string backupSubDir = Path.Combine(config.DestinationPath ?? string.Empty, folder.DisplayName ?? string.Empty);
-            string metadataDir = Path.Combine(config.DestinationPath ?? string.Empty, "_metadata", folder.DisplayName ?? string.Empty);
+            string destinationPath = config.DestinationPath ?? string.Empty;
+            string backupSubDir = Path.Combine(destinationPath, folder.DisplayName ?? string.Empty);
+            string metadataDir = Path.Combine(destinationPath, "_metadata", folder.DisplayName ?? string.Empty);
+            if (BackupStoragePathService.TryResolveBackupStoragePaths(
+                destinationPath,
+                folder.DisplayName ?? string.Empty,
+                folder.Path,
+                out _,
+                out var resolvedBackupSubDir,
+                out var resolvedMetadataDir))
+            {
+                backupSubDir = resolvedBackupSubDir;
+                metadataDir = resolvedMetadataDir;
+            }
             string archiveFilePath = Path.Combine(backupSubDir, archiveFileName);
 
             return new CloudCommandContext
@@ -141,6 +153,18 @@ namespace FolderRewind.Services
             string format = string.IsNullOrWhiteSpace(config.Archive?.Format) ? "7z" : config.Archive.Format;
             string archiveFileName = $"[Full][{DateTime.Now:yyyy-MM-dd_HH-mm-ss}]Sample.{format}";
             string backupSubDir = Path.Combine(destinationPath, folderName);
+            string metadataDir = Path.Combine(destinationPath, "_metadata", folderName);
+            if (BackupStoragePathService.TryResolveBackupStoragePaths(
+                destinationPath,
+                folderName,
+                sourcePath,
+                out _,
+                out var resolvedBackupSubDir,
+                out var resolvedMetadataDir))
+            {
+                backupSubDir = resolvedBackupSubDir;
+                metadataDir = resolvedMetadataDir;
+            }
 
             return new CloudCommandContext
             {
@@ -150,7 +174,7 @@ namespace FolderRewind.Services
                 SourcePath = sourcePath,
                 DestinationPath = destinationPath,
                 BackupSubDir = backupSubDir,
-                MetadataDir = Path.Combine(destinationPath, "_metadata", folderName),
+                MetadataDir = metadataDir,
                 ArchiveFileName = archiveFileName,
                 ArchiveFilePath = Path.Combine(backupSubDir, archiveFileName),
                 BackupMode = config.Archive?.Mode.ToString() ?? BackupMode.Full.ToString(),

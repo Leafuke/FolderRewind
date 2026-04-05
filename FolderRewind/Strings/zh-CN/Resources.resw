@@ -678,8 +678,20 @@
   <data name="ConfigSettingsDialog_CpuThreads.Text" xml:space="preserve">
     <value>CPU 线程数</value>
   </data>
-  <data name="ConfigSettingsDialog_CpuThreadsDesc.Text" xml:space="preserve">
-    <value>0 = 自动</value>
+  <data name="ConfigSettingsDialog_CpuThreadsDescription" xml:space="preserve">
+    <value>0 = 自动，当前设备最高 {0} 线程</value>
+  </data>
+  <data name="ConfigSettingsDialog_LowPriority.Header" xml:space="preserve">
+    <value>以低进程优先级运行压缩任务</value>
+  </data>
+  <data name="ConfigSettingsDialog_LowPriority.OnContent" xml:space="preserve">
+    <value>已开启</value>
+  </data>
+  <data name="ConfigSettingsDialog_LowPriority.OffContent" xml:space="preserve">
+    <value>已关闭</value>
+  </data>
+  <data name="ConfigSettingsDialog_LowPriorityDesc.Text" xml:space="preserve">
+    <value>仅影响备份侧 7-Zip 进程，可减少备份期间对游戏和前台应用的抢占。默认关闭。</value>
   </data>
   <data name="ConfigSettingsDialog_BackupBeforeRestore.Header" xml:space="preserve">
     <value>还原前自动备份</value>
@@ -760,7 +772,7 @@
     <value>Clean 还原时不会清除的文件/文件夹，保护特定数据不被删除。</value>
   </data>
   <data name="ConfigSettingsDialog_RestoreWhitelistPlaceholder.PlaceholderText" xml:space="preserve">
-    <value>输入文件名或通配符...</value>
+    <value>输入文件名、相对路径、完整路径或通配符...</value>
   </data>
   <data name="ConfigSettingsDialog_AddRestoreWhitelist.Content" xml:space="preserve">
     <value>添加</value>
@@ -899,6 +911,9 @@
   </data>
   <data name="CoreValidation_Step_InitialFullBackup" xml:space="preserve">
     <value>初始全量备份校验</value>
+  </data>
+  <data name="CoreValidation_Step_LegacyMetadataMigration" xml:space="preserve">
+    <value>旧版 metadata 懒迁移校验</value>
   </data>
   <data name="CoreValidation_Step_NoChangeSkip" xml:space="preserve">
     <value>无变化跳过校验</value>
@@ -1644,6 +1659,18 @@
   <data name="BackupService_Log_ReferencedBackupMissing" xml:space="preserve">
     <value>元数据引用的备份文件不存在: {0}，将强制执行全量备份</value>
   </data>
+  <data name="BackupMetadataStore_Log_LegacyMigrationFailedFallback" xml:space="preserve">
+    <value>旧版元数据迁移失败，将继续使用兼容读取: {0}</value>
+  </data>
+  <data name="BackupMetadataStore_Log_WriteFailed" xml:space="preserve">
+    <value>写入新版备份元数据失败: {0}</value>
+  </data>
+  <data name="BackupMetadataStore_Log_WriteFailedSimple" xml:space="preserve">
+    <value>写入新版备份元数据失败</value>
+  </data>
+  <data name="BackupMetadataStore_Log_RecordMissingFallback" xml:space="preserve">
+    <value>缺少归档 {0} 的元数据记录，将回退到兼容还原链</value>
+  </data>
   <data name="BackupService_Log_ChangesDetected" xml:space="preserve">
     <value>检测到 {0} 个文件变更</value>
   </data>
@@ -1752,6 +1779,9 @@
   <data name="BackupService_Log_RestoreRollbackFailed" xml:space="preserve">
     <value>回滚失败：{0}</value>
   </data>
+  <data name="BackupService_Log_RestoreCommitFailed" xml:space="preserve">
+    <value>提交安全还原结果失败：{0}</value>
+  </data>
   <data name="App_WindowTitle" xml:space="preserve">
     <value>存档时光机</value>
   </data>
@@ -1766,10 +1796,10 @@
 [Overwrite] 模式：直接解压覆盖（可能保留旧文件）。</value>
   </data>
   <data name="History_RestoreConfirm_Primary" xml:space="preserve">
-    <value>Clean 还原 (清空目标)</value>
+    <value>Clean 还原</value>
   </data>
   <data name="History_RestoreConfirm_Secondary" xml:space="preserve">
-    <value>Overwrite 还原 (覆盖)</value>
+    <value>Overwrite 还原</value>
   </data>
   <data name="SettingsPage_KnotLinkStatus_Disabled" xml:space="preserve">
     <value>未启用</value>
@@ -2106,6 +2136,12 @@
   </data>
   <data name="BackupService_Warning_FileSizeTooSmall" xml:space="preserve">
     <value>文件夹 "{0}" 的备份文件仅 {1} KB，小于警告阈值 {2} KB，请检查备份是否完整</value>
+  </data>
+  <data name="BackupService_Log_PostBackupCleanupFailed" xml:space="preserve">
+    <value>警告：文件夹 "{0}" 的备份后清理失败：{1}</value>
+  </data>
+  <data name="BackupService_Warning_PostBackupCleanupFailed" xml:space="preserve">
+    <value>文件夹 "{0}" 的备份已完成，但数量限制清理失败：{1}</value>
   </data>
   <data name="SettingsPage_EnableNotices.Text" xml:space="preserve">
     <value>接收公告通知</value>

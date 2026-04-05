@@ -1,6 +1,7 @@
 using FolderRewind.Models;
 using FolderRewind.Services;
 using FolderRewind.Services.Plugins;
+using FolderRewind.ViewModels;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using System;
@@ -16,6 +17,7 @@ namespace FolderRewind.Views
     public sealed partial class ConfigSettingsDialog : ContentDialog
     {
         public BackupConfig Config { get; private set; }
+        public ConfigSettingsDialogViewModel ViewModel { get; }
 
         // 绑定视图（避免 MSIX + Trim 下 WinRT 对自定义泛型集合投影异常）
         public ObservableCollection<object> ConfigTypesView { get; } = new();
@@ -95,19 +97,6 @@ namespace FolderRewind.Views
         /// </summary>
         private static readonly string[] CompressionMethods = { "LZMA2", "Deflate", "BZip2", "zstd" };
 
-        /// <summary>
-        /// 根据当前压缩算法返回压缩等级的最小值
-        /// </summary>
-        public int CompressionLevelMin => GetCompressionLevelRange(Config?.Archive?.Method).Min;
-
-        /// <summary>
-        /// 根据当前压缩算法返回压缩等级的最大值
-        /// </summary>
-        public int CompressionLevelMax => GetCompressionLevelRange(Config?.Archive?.Method).Max;
-
-        /// <summary>
-        /// 获取各压缩算法的有效压缩等级范围
-        /// </summary>
         private static (int Min, int Max) GetCompressionLevelRange(string? method)
         {
             return method switch
@@ -120,6 +109,15 @@ namespace FolderRewind.Views
             };
         }
 
+        /// <summary>
+        /// 根据当前压缩算法返回压缩等级的最小值
+        /// </summary>
+        /// <summary>
+        /// 根据当前压缩算法返回压缩等级的最大值
+        /// </summary>
+        /// <summary>
+        /// 获取各压缩算法的有效压缩等级范围
+        /// </summary>
         public int MethodSelectedIndex
         {
             get
@@ -132,7 +130,6 @@ namespace FolderRewind.Views
                 if (value >= 0 && value < CompressionMethods.Length)
                 {
                     Config.Archive.Method = CompressionMethods[value];
-                    UpdateCompressionLevelSliderRange();
                 }
             }
         }
@@ -153,16 +150,12 @@ namespace FolderRewind.Views
             }
         }
 
-        private void OnMethodSelectionChanged(object sender, SelectionChangedEventArgs e)
-        {
-            UpdateCompressionLevelSliderRange();
-        }
-
         public ConfigSettingsDialog(BackupConfig config)
         {
             this.InitializeComponent();
             this.Config = config;
             this.Config.Cloud ??= new CloudSettings();
+            this.ViewModel = new ConfigSettingsDialogViewModel(this.Config);
             this.XamlRoot = MainWindowService.GetXamlRoot();
 
             // 应用当前主题到对话框
@@ -211,6 +204,7 @@ namespace FolderRewind.Views
 
             InitializeScheduleUI();
             UpdateCloudBindings();
+            Bindings.Update();
         }
 
         private readonly List<string> _monthOptions = new();

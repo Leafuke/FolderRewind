@@ -678,8 +678,20 @@ Duplicate folder names are blocked within the same configuration so different di
   <data name="ConfigSettingsDialog_CpuThreads.Text" xml:space="preserve">
     <value>CPU threads</value>
   </data>
-  <data name="ConfigSettingsDialog_CpuThreadsDesc.Text" xml:space="preserve">
-    <value>0 = automatic</value>
+  <data name="ConfigSettingsDialog_CpuThreadsDescription" xml:space="preserve">
+    <value>0 = automatic, current device max {0} threads</value>
+  </data>
+  <data name="ConfigSettingsDialog_LowPriority.Header" xml:space="preserve">
+    <value>Run compression tasks at low process priority</value>
+  </data>
+  <data name="ConfigSettingsDialog_LowPriority.OnContent" xml:space="preserve">
+    <value>On</value>
+  </data>
+  <data name="ConfigSettingsDialog_LowPriority.OffContent" xml:space="preserve">
+    <value>Off</value>
+  </data>
+  <data name="ConfigSettingsDialog_LowPriorityDesc.Text" xml:space="preserve">
+    <value>Only affects backup-side 7-Zip processes and can reduce stutter in games and foreground apps during backup. Off by default.</value>
   </data>
   <data name="ConfigSettingsDialog_BackupBeforeRestore.Header" xml:space="preserve">
     <value>Backup before restore</value>
@@ -760,7 +772,7 @@ Duplicate folder names are blocked within the same configuration so different di
     <value>Files/folders not removed during Clean restore, protecting specific data from deletion.</value>
   </data>
   <data name="ConfigSettingsDialog_RestoreWhitelistPlaceholder.PlaceholderText" xml:space="preserve">
-    <value>Enter filename or wildcard...</value>
+    <value>Enter a filename, relative path, full path, or wildcard...</value>
   </data>
   <data name="ConfigSettingsDialog_AddRestoreWhitelist.Content" xml:space="preserve">
     <value>Add</value>
@@ -899,6 +911,9 @@ Duplicate folder names are blocked within the same configuration so different di
   </data>
   <data name="CoreValidation_Step_InitialFullBackup" xml:space="preserve">
     <value>Initial full backup validation</value>
+  </data>
+  <data name="CoreValidation_Step_LegacyMetadataMigration" xml:space="preserve">
+    <value>Legacy metadata lazy migration validation</value>
   </data>
   <data name="CoreValidation_Step_NoChangeSkip" xml:space="preserve">
     <value>No-change skip validation</value>
@@ -1644,6 +1659,18 @@ If you have a listener subscribed to this signal, it should receive a message.</
   <data name="BackupService_Log_ReferencedBackupMissing" xml:space="preserve">
     <value>Referenced backup file is missing: {0}. Forcing full backup.</value>
   </data>
+  <data name="BackupMetadataStore_Log_LegacyMigrationFailedFallback" xml:space="preserve">
+    <value>Legacy metadata migration failed. Continuing with compatibility read: {0}</value>
+  </data>
+  <data name="BackupMetadataStore_Log_WriteFailed" xml:space="preserve">
+    <value>Failed to save the new backup metadata structure: {0}</value>
+  </data>
+  <data name="BackupMetadataStore_Log_WriteFailedSimple" xml:space="preserve">
+    <value>Failed to save the new backup metadata structure.</value>
+  </data>
+  <data name="BackupMetadataStore_Log_RecordMissingFallback" xml:space="preserve">
+    <value>Metadata record for archive {0} is missing. Falling back to compatibility restore.</value>
+  </data>
   <data name="BackupService_Log_ChangesDetected" xml:space="preserve">
     <value>Detected {0} changed files.</value>
   </data>
@@ -1752,6 +1779,9 @@ If you have a listener subscribed to this signal, it should receive a message.</
   <data name="BackupService_Log_RestoreRollbackFailed" xml:space="preserve">
     <value>Rollback failed: {0}</value>
   </data>
+  <data name="BackupService_Log_RestoreCommitFailed" xml:space="preserve">
+    <value>Failed to commit safe restore result: {0}</value>
+  </data>
   <data name="App_WindowTitle" xml:space="preserve">
     <value>FolderRewind</value>
   </data>
@@ -1766,10 +1796,10 @@ Comment: {1}
 [Overwrite] Mode: Extract and overwrite (may keep old files).</value>
   </data>
   <data name="History_RestoreConfirm_Primary" xml:space="preserve">
-    <value>Clean restore (clear target)</value>
+    <value>Clean restore</value>
   </data>
   <data name="History_RestoreConfirm_Secondary" xml:space="preserve">
-    <value>Overwrite restore (overwrite)</value>
+    <value>Overwrite restore</value>
   </data>
   <data name="SettingsPage_KnotLinkStatus_Disabled" xml:space="preserve">
     <value>Disabled</value>
@@ -2106,6 +2136,12 @@ Comment: {1}
   </data>
   <data name="BackupService_Warning_FileSizeTooSmall" xml:space="preserve">
     <value>Backup file for "{0}" is only {1} KB, below threshold {2} KB. Please verify backup integrity</value>
+  </data>
+  <data name="BackupService_Log_PostBackupCleanupFailed" xml:space="preserve">
+    <value>Warning: post-backup cleanup failed for folder "{0}": {1}</value>
+  </data>
+  <data name="BackupService_Warning_PostBackupCleanupFailed" xml:space="preserve">
+    <value>Backup for folder "{0}" completed, but keep-count cleanup failed: {1}</value>
   </data>
   <data name="SettingsPage_EnableNotices.Text" xml:space="preserve">
     <value>Receive announcements</value>

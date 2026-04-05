@@ -7,7 +7,6 @@ using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using System.Text;
-using System.Text.Json;
 using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 
@@ -73,6 +72,18 @@ namespace FolderRewind.Services
             public string Message { get; set; } = string.Empty;
         }
 
+        private sealed class PruneArchivesResult
+        {
+            public bool Success { get; set; } = true;
+            public int DeletedCount { get; set; }
+            public string Message { get; set; } = string.Empty;
+        }
+
+        private static readonly object SevenZipResolutionLock = new();
+        private static string? _cachedSevenZipExecutable;
+        private static string? _cachedSevenZipConfigPath;
+        private static string? _cachedSevenZipPathEnvironment;
+
         private static Task RunOnUIAsync(Action action)
         {
             return UiDispatcherService.RunOnUiAsync(action);
@@ -84,102 +95,13 @@ namespace FolderRewind.Services
         }
 
         private static bool TryResolveStorageFolderName(string? rawFolderName, string? fallbackPath, out string storageFolderName)
-        {
-            var candidate = (rawFolderName ?? string.Empty).Trim();
-            if (string.IsNullOrWhiteSpace(candidate) && !string.IsNullOrWhiteSpace(fallbackPath))
-            {
-                var trimmedPath = fallbackPath.Trim().TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
-                candidate = Path.GetFileName(trimmedPath);
-            }
-
-            if (string.IsNullOrWhiteSpace(candidate))
-            {
-                storageFolderName = string.Empty;
-                return false;
-            }
-
-            var invalidChars = Path.GetInvalidFileNameChars();
-            var builder = new StringBuilder(candidate.Length);
-            foreach (var ch in candidate)
-            {
-                if (ch == Path.DirectorySeparatorChar
-                    || ch == Path.AltDirectorySeparatorChar
-                    || ch == '\0'
-                    || invalidChars.Contains(ch))
-                {
-                    builder.Append('_');
-                }
-                else
-                {
-                    builder.Append(ch);
-                }
-            }
-
-            candidate = builder.ToString().Trim().TrimEnd('.');
-            if (string.IsNullOrWhiteSpace(candidate)
-                || string.Equals(candidate, ".", StringComparison.Ordinal)
-                || string.Equals(candidate, "..", StringComparison.Ordinal))
-            {
-                storageFolderName = string.Empty;
-                return false;
-            }
-
-            storageFolderName = candidate;
-            return true;
-        }
+            => BackupStoragePathService.TryResolveStorageFolderName(rawFolderName, fallbackPath, out storageFolderName);
 
         private static bool TryBuildPathWithinRoot(string rootPath, string childName, out string fullPath)
-        {
-            fullPath = string.Empty;
-            if (string.IsNullOrWhiteSpace(rootPath) || string.IsNullOrWhiteSpace(childName))
-            {
-                return false;
-            }
-
-            try
-            {
-                string normalizedRoot = Path.GetFullPath(rootPath)
-                    .TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
-                string candidate = Path.GetFullPath(Path.Combine(normalizedRoot, childName))
-                    .TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
-
-                if (!IsPathInsideRoot(candidate, normalizedRoot))
-                {
-                    return false;
-                }
-
-                fullPath = candidate;
-                return true;
-            }
-            catch
-            {
-                return false;
-            }
-        }
+            => BackupStoragePathService.TryBuildPathWithinRoot(rootPath, childName, out fullPath);
 
         private static bool IsPathInsideRoot(string candidatePath, string rootPath)
-        {
-            try
-            {
-                string normalizedRoot = Path.GetFullPath(rootPath)
-                    .TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
-                string normalizedCandidate = Path.GetFullPath(candidatePath)
-                    .TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
-
-                if (string.Equals(normalizedCandidate, normalizedRoot, StringComparison.OrdinalIgnoreCase))
-                {
-                    return true;
-                }
-
-                return normalizedCandidate.StartsWith(
-                    normalizedRoot + Path.DirectorySeparatorChar,
-                    StringComparison.OrdinalIgnoreCase);
-            }
-            catch
-            {
-                return false;
-            }
-        }
+            => BackupStoragePathService.IsPathInsideRoot(candidatePath, rootPath);
 
         private static bool TryResolveBackupStoragePaths(
             string destinationRoot,
@@ -188,28 +110,80 @@ namespace FolderRewind.Services
             out string storageFolderName,
             out string backupSubDir,
             out string metadataDir)
+            => BackupStoragePathService.TryResolveBackupStoragePaths(
+                destinationRoot,
+                folderDisplayName,
+                fallbackPath,
+                out storageFolderName,
+                out backupSubDir,
+                out metadataDir);
+
+        private static string NormalizePathForRuleMatching(string path)
         {
-            storageFolderName = string.Empty;
-            backupSubDir = string.Empty;
-            metadataDir = string.Empty;
+            if (string.IsNullOrWhiteSpace(path))
+            {
+                return string.Empty;
+            }
 
-            if (!TryResolveStorageFolderName(folderDisplayName, fallbackPath, out storageFolderName))
+            var normalized = path.Trim()
+                .Replace(Path.AltDirectorySeparatorChar, Path.DirectorySeparatorChar)
+                .Replace(Path.DirectorySeparatorChar, '/');
+
+            while (normalized.Contains("//", StringComparison.Ordinal))
+            {
+                normalized = normalized.Replace("//", "/", StringComparison.Ordinal);
+            }
+
+            return normalized.Trim('/');
+        }
+
+        private static bool PathContainsRuleAtBoundary(string path, string normalizedRule)
+        {
+            var normalizedPath = NormalizePathForRuleMatching(path);
+            if (string.IsNullOrEmpty(normalizedPath) || string.IsNullOrEmpty(normalizedRule))
             {
                 return false;
             }
 
-            if (!TryBuildPathWithinRoot(destinationRoot, storageFolderName, out backupSubDir))
+            int searchStart = 0;
+            while (searchStart < normalizedPath.Length)
+            {
+                int matchIndex = normalizedPath.IndexOf(normalizedRule, searchStart, StringComparison.OrdinalIgnoreCase);
+                if (matchIndex < 0)
+                {
+                    return false;
+                }
+
+                bool startBoundary = matchIndex == 0 || normalizedPath[matchIndex - 1] == '/';
+                int matchEnd = matchIndex + normalizedRule.Length;
+                bool endBoundary = matchEnd == normalizedPath.Length || normalizedPath[matchEnd] == '/';
+
+                if (startBoundary && endBoundary)
+                {
+                    return true;
+                }
+
+                searchStart = matchIndex + 1;
+            }
+
+            return false;
+        }
+
+        private static bool MatchesPathBoundary(string fullPath, string? relativePath, string rule)
+        {
+            var normalizedRule = NormalizePathForRuleMatching(rule);
+            if (string.IsNullOrEmpty(normalizedRule))
             {
                 return false;
             }
 
-            string metadataRoot = Path.Combine(destinationRoot, "_metadata");
-            if (!TryBuildPathWithinRoot(metadataRoot, storageFolderName, out metadataDir))
+            if (PathContainsRuleAtBoundary(fullPath, normalizedRule))
             {
-                return false;
+                return true;
             }
 
-            return true;
+            return !string.IsNullOrEmpty(relativePath)
+                && PathContainsRuleAtBoundary(relativePath, normalizedRule);
         }
 
         /// <summary>
@@ -241,12 +215,15 @@ namespace FolderRewind.Services
             try
             {
                 var relativePath = Path.GetRelativePath(backupSourceRoot, fileToCheck);
-                if (!relativePath.StartsWith(".."))
+                if (!relativePath.StartsWith("..", StringComparison.Ordinal))
                 {
                     relativePathLower = relativePath.ToLowerInvariant();
                 }
             }
-            catch { }
+            catch (Exception ex)
+            {
+                Log($"[Filter][Debug] Failed to build relative path for blacklist matching: {ex.Message}", LogLevel.Debug);
+            }
 
             // 缓存编译好的正则表达式
             var regexCache = new Dictionary<string, Regex>();
@@ -295,19 +272,13 @@ namespace FolderRewind.Services
                         return true;
                     }
 
-                    // 2. 检查路径是否包含规则字符串
-                    if (filePathLower.Contains(ruleLower))
+                    // 2. 路径边界匹配（避免子串误伤，例如 voxy 误匹配 VoxyFab）
+                    if (MatchesPathBoundary(fileToCheck, relativePathLower, rule))
                     {
                         return true;
                     }
 
-                    // 3. 检查相对路径匹配
-                    if (!string.IsNullOrEmpty(relativePathLower) && relativePathLower.Contains(ruleLower))
-                    {
-                        return true;
-                    }
-
-                    // 4. 支持通配符匹配 (*, ?)
+                    // 3. 支持通配符匹配 (*, ?)
                     if (rule.Contains('*') || rule.Contains('?'))
                     {
                         try
@@ -330,10 +301,13 @@ namespace FolderRewind.Services
                                 return true;
                             }
                         }
-                        catch { }
+                        catch (Exception ex)
+                        {
+                            Log($"[Filter][Debug] Invalid wildcard blacklist rule '{rule}': {ex.Message}", LogLevel.Debug);
+                        }
                     }
 
-                    // 5. 处理热备份时的路径映射（参考 MineBackup）
+                    // 4. 处理热备份时的路径映射（参考 MineBackup）
                     if (Path.IsPathRooted(rule))
                     {
                         try
@@ -358,7 +332,10 @@ namespace FolderRewind.Services
                                 }
                             }
                         }
-                        catch { }
+                        catch (Exception ex)
+                        {
+                            Log($"[Filter][Debug] Failed to remap rooted blacklist rule '{rule}': {ex.Message}", LogLevel.Debug);
+                        }
                     }
                 }
             }
@@ -601,25 +578,6 @@ namespace FolderRewind.Services
                 var completedFileName = string.IsNullOrWhiteSpace(generatedFileName) ? null : generatedFileName;
                 bool hasNewFile = completedFileName != null;
 
-                await RunOnUIAsync(() =>
-                {
-                    task.Status = hasNewFile
-                        ? I18n.Format("BackupService_Task_Completed")
-                        : I18n.Format("BackupService_Task_NoChanges");
-                    task.Progress = 100;
-                    task.IsCompleted = true;
-                    task.IsIndeterminate = false;
-                    task.IsSuccess = true;
-
-                    folder.StatusText = hasNewFile
-                        ? I18n.Format("BackupService_Folder_BackupCompleted")
-                        : I18n.Format("BackupService_Task_NoChanges");
-                    if (hasNewFile)
-                    {
-                        folder.LastBackupTime = DateTime.Now.ToString("yyyy/MM/dd HH:mm");
-                    }
-                });
-
                 if (completedFileName != null)
                 {
                     ConfigService.Save();
@@ -640,7 +598,21 @@ namespace FolderRewind.Services
                     }
                     HistoryService.AddEntry(config, folder, completedFileName, typeStr, comment, storageFolderName);
 
-                    _ = Task.Run(() => PruneOldArchives(backupSubDir, config.Archive.Format, config.Archive.KeepCount, config.Archive.Mode, config.Archive.SafeDeleteEnabled, config, folder.DisplayName));
+                    var pruneResult = await Task.Run(() => PruneOldArchives(
+                        backupSubDir,
+                        config.Archive.Format,
+                        config.Archive.KeepCount,
+                        config.Archive.Mode,
+                        config.Archive.SafeDeleteEnabled,
+                        config,
+                        folder.DisplayName)).ConfigureAwait(false);
+
+                    if (!pruneResult.Success)
+                    {
+                        string pruneWarning = I18n.Format("BackupService_Warning_PostBackupCleanupFailed", folder.DisplayName, pruneResult.Message);
+                        Log(I18n.Format("BackupService_Log_PostBackupCleanupFailed", folder.DisplayName, pruneResult.Message), LogLevel.Warning);
+                        NotificationService.ShowWarning(pruneWarning);
+                    }
 
                     // 备份完成后检查文件大小，过小时发出警告
                     try
@@ -674,6 +646,25 @@ namespace FolderRewind.Services
 
                     CloudSyncService.QueueUploadAfterBackup(config, folder, completedFileName, comment);
                 }
+
+                await RunOnUIAsync(() =>
+                {
+                    task.Status = hasNewFile
+                        ? I18n.Format("BackupService_Task_Completed")
+                        : I18n.Format("BackupService_Task_NoChanges");
+                    task.Progress = 100;
+                    task.IsCompleted = true;
+                    task.IsIndeterminate = false;
+                    task.IsSuccess = true;
+
+                    folder.StatusText = hasNewFile
+                        ? I18n.Format("BackupService_Folder_BackupCompleted")
+                        : I18n.Format("BackupService_Task_NoChanges");
+                    if (hasNewFile)
+                    {
+                        folder.LastBackupTime = DateTime.Now.ToString("yyyy/MM/dd HH:mm");
+                    }
+                });
 
                 Log(
                     hasNewFile
@@ -1054,14 +1045,19 @@ namespace FolderRewind.Services
             return sb.ToString();
         }
 
-        private static void PruneOldArchives(string destDir, string format, int keepCount, BackupMode mode, bool safeDeleteEnabled = true, BackupConfig? config = null, string? folderName = null)
+        private static PruneArchivesResult PruneOldArchives(string destDir, string format, int keepCount, BackupMode mode, bool safeDeleteEnabled = true, BackupConfig? config = null, string? folderName = null)
         {
-            if (keepCount <= 0) return;
-            if (mode == BackupMode.Incremental && !safeDeleteEnabled) return; // 不启用安全删除时，增量模式跳过自动清理以保护链
+            var result = new PruneArchivesResult();
+            if (keepCount <= 0) return result;
+            if (mode == BackupMode.Incremental && !safeDeleteEnabled) return result; // 不启用安全删除时，增量模式跳过自动清理以保护链
+
             try
             {
                 var di = new DirectoryInfo(destDir);
-                if (!di.Exists) return;
+                if (!di.Exists) return result;
+
+                string resolvedFolderName = string.IsNullOrWhiteSpace(folderName) ? di.Name : folderName;
+                var importantFiles = GetImportantBackupFiles(config, resolvedFolderName);
 
                 CleanupArchiveTempArtifacts(di, format);
 
@@ -1069,38 +1065,10 @@ namespace FolderRewind.Services
                 while (true)
                 {
                     var files = di.GetFiles($"*.{format}")
-                                  .OrderByDescending(f => f.LastWriteTimeUtc)
-                                  .ToList();
+                        .OrderByDescending(f => f.LastWriteTimeUtc)
+                        .ToList();
 
                     if (files.Count <= keepCount) break;
-
-                    // 检查历史记录中标记为重要的文件，避免删除
-                    var importantFiles = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-                    try
-                    {
-                        var targetFolderName = di.Name;
-                        var allConfigs = ConfigService.CurrentConfig?.BackupConfigs;
-                        if (allConfigs != null)
-                        {
-                            foreach (var cfg in allConfigs)
-                            {
-                                var historyEntries = HistoryService.GetEntriesForFolder(cfg.Id, targetFolderName);
-                                if (historyEntries != null)
-                                {
-                                    foreach (var entry in historyEntries)
-                                    {
-                                        if (entry.IsImportant)
-                                        {
-                                            importantFiles.Add(entry.FileName);
-                                        }
-                                    }
-                                }
-                            }
-                        }
-                    }
-                    catch
-                    {
-                    }
 
                     var deletableFiles = files
                         .Where(f => !importantFiles.Contains(f.Name))
@@ -1112,26 +1080,84 @@ namespace FolderRewind.Services
                     var oldestFile = deletableFiles.FirstOrDefault();
                     if (oldestFile == null) break;
 
-                    var deleteResult = DeleteBackupArchiveInternal(oldestFile, di, format, config, folderName, safeDeleteEnabled);
+                    var deleteResult = DeleteBackupArchiveInternal(oldestFile, di, format, config, resolvedFolderName, safeDeleteEnabled);
                     if (!deleteResult.Success)
                     {
+                        result.Success = false;
+                        result.Message = string.IsNullOrWhiteSpace(deleteResult.Message)
+                            ? oldestFile.Name
+                            : deleteResult.Message;
                         Log(I18n.Format("BackupService_Log_PruneDeleteFailed", oldestFile.Name, deleteResult.Message), LogLevel.Warning);
                         break;
                     }
 
+                    result.DeletedCount++;
+                    importantFiles.Remove(oldestFile.Name);
                     deleteGuard++;
                     if (deleteGuard > Math.Max(files.Count * 2, keepCount + 8))
                     {
+                        result.Success = false;
+                        result.Message = "Delete guard triggered.";
                         break;
                     }
                 }
 
                 CleanupArchiveTempArtifacts(di, format);
             }
+            catch (Exception ex)
+            {
+                result.Success = false;
+                result.Message = ex.Message;
+            }
+
+            return result;
+        }
+
+        private static HashSet<string> GetImportantBackupFiles(BackupConfig? config, string folderName)
+        {
+            var importantFiles = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+            if (string.IsNullOrWhiteSpace(folderName))
+            {
+                return importantFiles;
+            }
+
+            try
+            {
+                if (config != null)
+                {
+                    foreach (var entry in HistoryService.GetEntriesForFolder(config.Id, folderName))
+                    {
+                        if (entry.IsImportant && !string.IsNullOrWhiteSpace(entry.FileName))
+                        {
+                            importantFiles.Add(entry.FileName);
+                        }
+                    }
+
+                    return importantFiles;
+                }
+
+                var allConfigs = ConfigService.CurrentConfig?.BackupConfigs;
+                if (allConfigs == null)
+                {
+                    return importantFiles;
+                }
+
+                foreach (var cfg in allConfigs)
+                {
+                    foreach (var entry in HistoryService.GetEntriesForFolder(cfg.Id, folderName))
+                    {
+                        if (entry.IsImportant && !string.IsNullOrWhiteSpace(entry.FileName))
+                        {
+                            importantFiles.Add(entry.FileName);
+                        }
+                    }
+                }
+            }
             catch
             {
-
             }
+
+            return importantFiles;
         }
 
         private static DeleteArchiveExecutionResult DeleteBackupArchiveInternal(
@@ -1312,14 +1338,14 @@ namespace FolderRewind.Services
                 Directory.CreateDirectory(mergeDir);
 
                 Log(I18n.Format("BackupService_Log_SafeDeleteStep1"), LogLevel.Info);
-                if (!ExtractArchiveToDirectorySync(sevenZipExe, fileToDelete.FullName, mergeDir, safeDeletePassword))
+                if (!ExtractArchiveToDirectorySync(sevenZipExe, fileToDelete.FullName, mergeDir, safeDeletePassword, archiveSettings.RunCompressionAtLowPriority))
                 {
                     result.Message = I18n.GetString("BackupService_Log_SafeDeleteExtractFailed");
                     Log(result.Message, LogLevel.Error);
                     return false;
                 }
 
-                if (!ExtractArchiveToDirectorySync(sevenZipExe, nextFile.FullName, mergeDir, safeDeletePassword))
+                if (!ExtractArchiveToDirectorySync(sevenZipExe, nextFile.FullName, mergeDir, safeDeletePassword, archiveSettings.RunCompressionAtLowPriority))
                 {
                     result.Message = I18n.GetString("BackupService_Log_SafeDeleteExtractFailed");
                     Log(result.Message, LogLevel.Error);
@@ -1435,14 +1461,14 @@ namespace FolderRewind.Services
             }
         }
 
-        private static bool ExtractArchiveToDirectorySync(string sevenZipExe, string archivePath, string targetDir, string? password)
+        private static bool ExtractArchiveToDirectorySync(string sevenZipExe, string archivePath, string targetDir, string? password, bool runAtLowPriority = false)
         {
             string extractArgs = $"x \"{archivePath}\" -o\"{targetDir}\" -y -aoa";
             if (!string.IsNullOrWhiteSpace(password))
             {
                 extractArgs += $" -p\"{password}\"";
             }
-            return RunSevenZipProcessSync(sevenZipExe, extractArgs);
+            return RunSevenZipProcessSync(sevenZipExe, extractArgs, runAtLowPriority: runAtLowPriority);
         }
 
         private static bool CreateArchiveFromDirectorySync(string sevenZipExe, string sourceDir, string archivePath, ArchiveSettings settings, string? password)
@@ -1451,9 +1477,10 @@ namespace FolderRewind.Services
             sb.Append($"a -t{settings.Format} \"{archivePath}\" .\\*");
             sb.Append($" -mx={settings.CompressionLevel} -m0={settings.Method} -ssw");
 
-            if (settings.CpuThreads > 0)
+            int cpuThreads = NormalizeCpuThreadCount(settings.CpuThreads);
+            if (cpuThreads > 0)
             {
-                sb.Append($" -mmt{settings.CpuThreads}");
+                sb.Append($" -mmt{cpuThreads}");
             }
             else
             {
@@ -1466,7 +1493,7 @@ namespace FolderRewind.Services
             }
 
             sb.Append(" -bsp1");
-            return RunSevenZipProcessSync(sevenZipExe, sb.ToString(), sourceDir);
+            return RunSevenZipProcessSync(sevenZipExe, sb.ToString(), sourceDir, settings.RunCompressionAtLowPriority);
         }
 
         private static ArchiveSettings CreateArchiveSettingsForSafeDelete(ArchiveSettings? sourceSettings, string format)
@@ -1476,7 +1503,8 @@ namespace FolderRewind.Services
                 Format = string.IsNullOrWhiteSpace(format) ? (sourceSettings?.Format ?? "7z") : format,
                 CompressionLevel = sourceSettings?.CompressionLevel ?? 5,
                 Method = string.IsNullOrWhiteSpace(sourceSettings?.Method) ? "LZMA2" : sourceSettings.Method,
-                CpuThreads = sourceSettings?.CpuThreads ?? 0
+                CpuThreads = sourceSettings?.CpuThreads ?? 0,
+                RunCompressionAtLowPriority = sourceSettings?.RunCompressionAtLowPriority ?? false
             };
         }
 
@@ -1537,7 +1565,7 @@ namespace FolderRewind.Services
         /// <summary>
         /// 同步方式运行 7z 进程（用于安全删除等非异步场景）
         /// </summary>
-        private static bool RunSevenZipProcessSync(string sevenZipExe, string arguments, string? workingDirectory = null)
+        private static bool RunSevenZipProcessSync(string sevenZipExe, string arguments, string? workingDirectory = null, bool runAtLowPriority = false)
         {
             try
             {
@@ -1578,6 +1606,7 @@ namespace FolderRewind.Services
                     return false;
                 }
 
+                ApplyLowPriorityIfRequested(p, runAtLowPriority);
                 p.BeginOutputReadLine();
                 p.BeginErrorReadLine();
 
@@ -1611,23 +1640,68 @@ namespace FolderRewind.Services
             }
         }
 
+        private static async Task<BackupMetadataStoreService.BackupMetadataLoadResult> LoadBackupMetadataAsync(
+            string metaDir,
+            IEnumerable<string>? archiveFileNames = null)
+        {
+            if (string.IsNullOrWhiteSpace(metaDir))
+            {
+                return new BackupMetadataStoreService.BackupMetadataLoadResult();
+            }
+
+            return await BackupMetadataStoreService.LoadAsync(metaDir, archiveFileNames).ConfigureAwait(false);
+        }
+
         private static BackupMetadata? LoadBackupMetadata(string metadataPath)
         {
-            if (string.IsNullOrWhiteSpace(metadataPath) || !File.Exists(metadataPath))
+            if (string.IsNullOrWhiteSpace(metadataPath))
             {
                 return null;
             }
 
-            try
-            {
-                return NormalizeBackupMetadata(JsonSerializer.Deserialize(
-                    File.ReadAllText(metadataPath),
-                    AppJsonContext.Default.BackupMetadata));
-            }
-            catch
+            string? metaDir = Path.GetDirectoryName(metadataPath);
+            if (string.IsNullOrWhiteSpace(metaDir))
             {
                 return null;
             }
+
+            var loadResult = BackupMetadataStoreService.LoadAsync(metaDir).GetAwaiter().GetResult();
+            return ConvertToAggregateMetadata(loadResult);
+        }
+
+        private static BackupMetadata? ConvertToAggregateMetadata(BackupMetadataStoreService.BackupMetadataLoadResult loadResult)
+        {
+            if (loadResult.State == null)
+            {
+                return null;
+            }
+
+            var metadata = new BackupMetadata
+            {
+                Version = loadResult.State.Version,
+                LastBackupTime = loadResult.State.LastBackupTime,
+                LastBackupFileName = loadResult.State.LastBackupFileName,
+                BasedOnFullBackup = loadResult.State.BasedOnFullBackup,
+                FileStates = new Dictionary<string, FileState>(loadResult.State.FileStates, StringComparer.OrdinalIgnoreCase),
+                BackupRecords = loadResult.Records.Values
+                    .Select(record => new BackupChangeRecord
+                    {
+                        ArchiveFileName = record.ArchiveFileName,
+                        BackupType = record.BackupType,
+                        BasedOnFullBackup = record.BasedOnFullBackup,
+                        PreviousBackupFileName = record.PreviousBackupFileName,
+                        CreatedAtUtc = record.CreatedAtUtc,
+                        AddedFiles = record.AddedFiles.ToList(),
+                        ModifiedFiles = record.ModifiedFiles.ToList(),
+                        DeletedFiles = record.DeletedFiles.ToList(),
+                        FullFileList = record.FullFileList.ToList()
+                    })
+                    .OrderBy(r => r.CreatedAtUtc)
+                    .ThenBy(r => r.ArchiveFileName, StringComparer.OrdinalIgnoreCase)
+                    .ToList()
+            };
+
+            return NormalizeBackupMetadata(metadata);
         }
 
         private static BackupMetadata NormalizeBackupMetadata(BackupMetadata? meta)
@@ -1696,9 +1770,9 @@ namespace FolderRewind.Services
             BackupMetadata? oldMeta = null;
             if (!string.IsNullOrEmpty(metaDir))
             {
-                string metadataPath = Path.Combine(metaDir, "metadata.json");
-                oldMeta = LoadBackupMetadata(metadataPath);
-                if (oldMeta == null && File.Exists(metadataPath))
+                var metadataLoadResult = await LoadBackupMetadataAsync(metaDir).ConfigureAwait(false);
+                oldMeta = ConvertToAggregateMetadata(metadataLoadResult);
+                if (oldMeta == null && metadataLoadResult.StateLoadFailed)
                 {
                     Log(I18n.Format("BackupService_Log_MetadataCorruptedFallbackFull"), LogLevel.Warning);
                 }
@@ -1754,7 +1828,12 @@ namespace FolderRewind.Services
             // 3. 如果成功，生成新的元数据（为后续可能的增量备份做基准）
             if (result)
             {
-                await UpdateMetadataAsync(source, metaDir, fileName, fileName, "Full", oldMeta, currentStates, changeSet, config.Filters);
+                bool metadataSaved = await UpdateMetadataAsync(source, metaDir, fileName, fileName, "Full", oldMeta, currentStates, changeSet, config.Filters);
+                if (!metadataSaved)
+                {
+                    return (false, null);
+                }
+
                 return (true, fileName);
             }
             return (false, null);
@@ -1764,10 +1843,10 @@ namespace FolderRewind.Services
         // 返回 (Success, FileName)
         private static async Task<(bool Success, string? FileName)> DoSmartBackupAsync(string source, string destDir, string metaDir, string baseName, BackupConfig config, string comment = "", BackupTask? taskToUpdate = null)
         {
-            string metadataPath = Path.Combine(metaDir, "metadata.json");
-            BackupMetadata? oldMeta = LoadBackupMetadata(metadataPath);
+            var metadataLoadResult = await LoadBackupMetadataAsync(metaDir).ConfigureAwait(false);
+            BackupMetadata? oldMeta = ConvertToAggregateMetadata(metadataLoadResult);
 
-            if (oldMeta == null && File.Exists(metadataPath))
+            if (oldMeta == null && metadataLoadResult.StateLoadFailed)
             {
                 Log(I18n.Format("BackupService_Log_MetadataCorruptedFallbackFull"), LogLevel.Warning);
             }
@@ -1949,7 +2028,12 @@ namespace FolderRewind.Services
                 }
 
                 // 更新元数据：基准文件保持不变（指向最初的Full），LastBackup指向自己
-                await UpdateMetadataAsync(source, metaDir, fileName, oldMeta.BasedOnFullBackup, "Smart", oldMeta, currentStates, changeSet, config.Filters);
+                bool metadataSaved = await UpdateMetadataAsync(source, metaDir, fileName, oldMeta.BasedOnFullBackup, "Smart", oldMeta, currentStates, changeSet, config.Filters);
+                if (!metadataSaved)
+                {
+                    return (false, null);
+                }
+
                 return (true, fileName);
             }
             else
@@ -1966,7 +2050,12 @@ namespace FolderRewind.Services
             BackupMetadata? oldMeta = null;
             if (!string.IsNullOrEmpty(metaDir))
             {
-                oldMeta = LoadBackupMetadata(Path.Combine(metaDir, "metadata.json"));
+                var metadataLoadResult = await LoadBackupMetadataAsync(metaDir).ConfigureAwait(false);
+                oldMeta = ConvertToAggregateMetadata(metadataLoadResult);
+                if (oldMeta == null && metadataLoadResult.StateLoadFailed)
+                {
+                    Log(I18n.Format("BackupService_Log_MetadataCorruptedFallbackFull"), LogLevel.Warning);
+                }
             }
 
             var currentStates = ScanDirectory(source, config.Filters);
@@ -2053,7 +2142,7 @@ namespace FolderRewind.Services
 
                 if (!string.IsNullOrWhiteSpace(resultingFileName))
                 {
-                    await UpdateMetadataAsync(
+                    bool metadataSaved = await UpdateMetadataAsync(
                         source,
                         metaDir,
                         resultingFileName,
@@ -2063,6 +2152,10 @@ namespace FolderRewind.Services
                         currentStates,
                         changeSet,
                         config.Filters);
+                    if (!metadataSaved)
+                    {
+                        return (false, null);
+                    }
                 }
             }
 
@@ -2244,11 +2337,14 @@ namespace FolderRewind.Services
                     return;
                 }
 
-                string metadataPath = Path.Combine(metadataDir, "metadata.json");
-                var metadata = LoadBackupMetadata(metadataPath);
+                var metadataLoadResult = await LoadBackupMetadataAsync(metadataDir, restoreChain.Select(file => file.Name)).ConfigureAwait(false);
+                var metadata = ConvertToAggregateMetadata(metadataLoadResult);
 
                 // 元数据完整时启用精确 Smart Clean，可避免“全链解压+覆盖”带来的额外写入。
-                if (metadata != null && TryBuildSmartRestorePlan(restoreChain, metadata, out var plan))
+                if (metadata != null
+                    && !metadataLoadResult.RecordLoadFailed
+                    && !metadataLoadResult.HasMissingRequestedRecords
+                    && TryBuildSmartRestorePlan(restoreChain, metadata, out var plan))
                 {
                     smartRestorePlan = plan;
                     Log($"[Restore] Exact Smart Clean restore enabled for {historyItem.FileName}", LogLevel.Info);
@@ -2427,7 +2523,7 @@ namespace FolderRewind.Services
                     if (!TryCommitSafeRestoreWorkspace(targetDir, safeRestoreTempDir, config.Filters?.RestoreWhitelist, out var commitError))
                     {
                         restoreFailed = true;
-                        string message = I18n.Format("BackupService_Log_RestoreRollbackFailed", commitError ?? "Unknown error");
+                        string message = I18n.Format("BackupService_Log_RestoreCommitFailed", commitError ?? "Unknown error");
                         Log(message, LogLevel.Error);
                         await RunOnUIAsync(() => restoreTask.ErrorMessage = message);
                     }
@@ -2809,7 +2905,7 @@ namespace FolderRewind.Services
             {
                 // 提交阶段要先补回白名单内容，再删除旧快照目录。
                 CleanupInternalRestoreMarkers(targetDir);
-                CopyRestoreWhitelistEntries(tempDir, targetDir, whitelist);
+                CopyRestoreWhitelistEntries(tempDir, targetDir, whitelist, targetDir);
 
                 if (Directory.Exists(tempDir))
                 {
@@ -2937,7 +3033,7 @@ namespace FolderRewind.Services
             }
         }
 
-        private static void CopyRestoreWhitelistEntries(string sourceDir, string targetDir, IEnumerable<string>? whitelist)
+        private static void CopyRestoreWhitelistEntries(string sourceDir, string targetDir, IEnumerable<string>? whitelist, string? whitelistRootDir = null)
         {
             if (string.IsNullOrWhiteSpace(sourceDir)
                 || string.IsNullOrWhiteSpace(targetDir)
@@ -2952,9 +3048,11 @@ namespace FolderRewind.Services
                 return;
             }
 
+            string effectiveWhitelistRootDir = string.IsNullOrWhiteSpace(whitelistRootDir) ? sourceDir : whitelistRootDir;
+
             foreach (var dir in Directory.EnumerateDirectories(sourceDir, "*", SearchOption.AllDirectories).OrderBy(d => d.Length))
             {
-                if (!IsPathOrAncestorInRestoreWhitelist(dir, sourceDir, rules))
+                if (!IsPathOrAncestorInRestoreWhitelist(dir, sourceDir, effectiveWhitelistRootDir, rules))
                 {
                     continue;
                 }
@@ -2965,7 +3063,7 @@ namespace FolderRewind.Services
 
             foreach (var file in Directory.EnumerateFiles(sourceDir, "*", SearchOption.AllDirectories))
             {
-                if (!IsPathOrAncestorInRestoreWhitelist(file, sourceDir, rules))
+                if (!IsPathOrAncestorInRestoreWhitelist(file, sourceDir, effectiveWhitelistRootDir, rules))
                 {
                     continue;
                 }
@@ -2981,9 +3079,9 @@ namespace FolderRewind.Services
             }
         }
 
-        private static bool IsPathOrAncestorInRestoreWhitelist(string entryPath, string rootDir, IReadOnlyCollection<string> whitelist)
+        private static bool IsPathOrAncestorInRestoreWhitelist(string entryPath, string rootDir, string whitelistRootDir, IReadOnlyCollection<string> whitelist)
         {
-            if (IsInRestoreWhitelist(entryPath, rootDir, whitelist))
+            if (IsInRestoreWhitelist(entryPath, rootDir, whitelist, whitelistRootDir))
             {
                 return true;
             }
@@ -2999,7 +3097,7 @@ namespace FolderRewind.Services
                     break;
                 }
 
-                if (IsInRestoreWhitelist(currentFullPath, rootDir, whitelist))
+                if (IsInRestoreWhitelist(currentFullPath, rootDir, whitelist, whitelistRootDir))
                 {
                     return true;
                 }
@@ -3036,25 +3134,30 @@ namespace FolderRewind.Services
 
         /// <summary>
         /// 检查文件/文件夹是否在还原白名单中（参考 MineBackup is_blacklisted 思路，复用名称匹配）
-        /// 支持精确文件名匹配和路径包含匹配
+        /// 支持精确文件名匹配和路径边界匹配
         /// </summary>
-        private static bool IsInRestoreWhitelist(string entryPath, string rootDir, IEnumerable<string> whitelist)
+        private static bool IsInRestoreWhitelist(string entryPath, string rootDir, IEnumerable<string> whitelist, string? whitelistRootDir = null)
         {
             if (whitelist == null) return false;
 
-            var entryName = Path.GetFileName(entryPath);
-            var entryPathLower = entryPath.ToLowerInvariant();
+            string comparisonRootDir = string.IsNullOrWhiteSpace(whitelistRootDir) ? rootDir : whitelistRootDir;
+            string comparisonEntryPath = GetRestoreWhitelistComparisonPath(entryPath, rootDir, comparisonRootDir);
+
+            var entryName = Path.GetFileName(comparisonEntryPath);
 
             string relativePathLower = string.Empty;
             try
             {
-                var relativePath = Path.GetRelativePath(rootDir, entryPath);
-                if (!relativePath.StartsWith(".."))
+                var relativePath = Path.GetRelativePath(comparisonRootDir, comparisonEntryPath);
+                if (!relativePath.StartsWith("..", StringComparison.Ordinal))
                 {
                     relativePathLower = relativePath.ToLowerInvariant();
                 }
             }
-            catch { }
+            catch (Exception ex)
+            {
+                Log($"[Filter][Debug] Failed to build relative path for restore whitelist matching: {ex.Message}", LogLevel.Debug);
+            }
 
             foreach (var ruleOrig in whitelist)
             {
@@ -3068,14 +3171,8 @@ namespace FolderRewind.Services
                     return true;
                 }
 
-                // 路径包含匹配
-                var ruleLower = rule.ToLowerInvariant();
-                if (entryPathLower.Contains(ruleLower))
-                {
-                    return true;
-                }
-
-                if (!string.IsNullOrEmpty(relativePathLower) && relativePathLower.Contains(ruleLower))
+                // 路径边界匹配（避免子串误伤）
+                if (MatchesPathBoundary(comparisonEntryPath, relativePathLower, rule))
                 {
                     return true;
                 }
@@ -3095,11 +3192,39 @@ namespace FolderRewind.Services
                             return true;
                         }
                     }
-                    catch { }
+                    catch (Exception ex)
+                    {
+                        Log($"[Filter][Debug] Invalid wildcard restore whitelist rule '{rule}': {ex.Message}", LogLevel.Debug);
+                    }
                 }
             }
 
             return false;
+        }
+
+        private static string GetRestoreWhitelistComparisonPath(string entryPath, string physicalRootDir, string comparisonRootDir)
+        {
+            string entryFullPath = Path.GetFullPath(entryPath);
+            string physicalRootFullPath = Path.GetFullPath(physicalRootDir)
+                .TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
+
+            string relativePath;
+            try
+            {
+                relativePath = Path.GetRelativePath(physicalRootFullPath, entryFullPath);
+            }
+            catch (Exception ex)
+            {
+                Log($"[Filter][Debug] Failed to compute restore whitelist comparison path: {ex.Message}", LogLevel.Debug);
+                return entryFullPath;
+            }
+
+            if (relativePath.StartsWith("..", StringComparison.Ordinal) || Path.IsPathRooted(relativePath))
+            {
+                return entryFullPath;
+            }
+
+            return Path.GetFullPath(Path.Combine(comparisonRootDir, relativePath));
         }
 
         private static int GetConfigIndex(BackupConfig config)
@@ -3187,6 +3312,23 @@ namespace FolderRewind.Services
                     Hash = ""
                 };
             }
+
+            if (result.Count == 0 && filters?.Blacklist != null && filters.Blacklist.Count > 0)
+            {
+                try
+                {
+                    bool hasAnyFile = dirInfo.EnumerateFiles("*", enumOptions).Any();
+                    if (hasAnyFile)
+                    {
+                        Log($"[Filter][Warning] File state scan returned 0 items while source has files. Source={path}. Check blacklist rules for over-broad matches.", LogLevel.Warning);
+                    }
+                }
+                catch (Exception ex)
+                {
+                    Log($"[Filter][Debug] Failed to probe source directory after filtering: {ex.Message}", LogLevel.Debug);
+                }
+            }
+
             return result;
         }
 
@@ -3219,7 +3361,7 @@ namespace FolderRewind.Services
             }
         }
 
-        private static async Task UpdateMetadataAsync(
+        private static async Task<bool> UpdateMetadataAsync(
             string sourceDir,
             string metaDir,
             string currentBackupFile,
@@ -3232,7 +3374,7 @@ namespace FolderRewind.Services
         {
             if (string.IsNullOrWhiteSpace(metaDir))
             {
-                return;
+                return true;
             }
 
             states ??= ScanDirectory(sourceDir, filters);
@@ -3240,36 +3382,35 @@ namespace FolderRewind.Services
             changeSet ??= CompareFileStates(states, previousMetadata.FileStates);
             string previousLastBackupFileName = previousMetadata.LastBackupFileName ?? string.Empty;
 
-            var meta = previousMetadata;
-            meta.Version = "2.0";
-            meta.LastBackupTime = DateTime.Now;
-            meta.LastBackupFileName = currentBackupFile;
-            meta.BasedOnFullBackup = string.IsNullOrWhiteSpace(baseBackupFile) ? currentBackupFile : baseBackupFile;
-            meta.FileStates = new Dictionary<string, FileState>(states, StringComparer.OrdinalIgnoreCase);
-            meta.BackupRecords ??= new List<BackupChangeRecord>();
-            meta.BackupRecords.RemoveAll(r => string.Equals(r.ArchiveFileName, currentBackupFile, StringComparison.OrdinalIgnoreCase));
+            var state = new BackupMetadataState
+            {
+                Version = "3.0",
+                LastBackupTime = DateTime.Now,
+                LastBackupFileName = currentBackupFile,
+                BasedOnFullBackup = string.IsNullOrWhiteSpace(baseBackupFile) ? currentBackupFile : baseBackupFile,
+                FileStates = new Dictionary<string, FileState>(states, StringComparer.OrdinalIgnoreCase)
+            };
 
-            meta.BackupRecords.Add(new BackupChangeRecord
+            var record = new BackupChangeRecord
             {
                 ArchiveFileName = currentBackupFile,
                 BackupType = backupType,
-                BasedOnFullBackup = meta.BasedOnFullBackup,
+                BasedOnFullBackup = state.BasedOnFullBackup,
                 PreviousBackupFileName = previousLastBackupFileName,
                 CreatedAtUtc = DateTime.UtcNow,
                 AddedFiles = changeSet.AddedFiles.OrderBy(x => x, StringComparer.OrdinalIgnoreCase).ToList(),
                 ModifiedFiles = changeSet.ModifiedFiles.OrderBy(x => x, StringComparer.OrdinalIgnoreCase).ToList(),
                 DeletedFiles = changeSet.DeletedFiles.OrderBy(x => x, StringComparer.OrdinalIgnoreCase).ToList(),
                 FullFileList = states.Keys.OrderBy(x => x, StringComparer.OrdinalIgnoreCase).ToList()
-            });
+            };
 
-            meta.BackupRecords = meta.BackupRecords
-                .OrderBy(r => r.CreatedAtUtc)
-                .ThenBy(r => r.ArchiveFileName, StringComparer.OrdinalIgnoreCase)
-                .ToList();
+            bool saved = await BackupMetadataStoreService.SaveAsync(metaDir, state, record).ConfigureAwait(false);
+            if (!saved)
+            {
+                Log(I18n.GetString("BackupMetadataStore_Log_WriteFailedSimple"), LogLevel.Error);
+            }
 
-            Directory.CreateDirectory(metaDir);
-            string json = JsonSerializer.Serialize(meta, AppJsonContext.Default.BackupMetadata);
-            await File.WriteAllTextAsync(Path.Combine(metaDir, "metadata.json"), json);
+            return saved;
         }
 
         private static void SynchronizeMetadataAfterArchiveDeletion(
@@ -3299,130 +3440,15 @@ namespace FolderRewind.Services
                 return;
             }
 
-            string metadataPath = Path.Combine(metadataDir, "metadata.json");
-            var metadata = LoadBackupMetadata(metadataPath);
-            if (metadata == null)
+            if (!BackupMetadataStoreService.SynchronizeAfterArchiveDeletion(
+                metadataDir,
+                deletedFileName,
+                renamedOldFileName,
+                renamedNewFileName,
+                renamedBackupType))
             {
-                return;
+                Log(I18n.GetString("BackupMetadataStore_Log_WriteFailedSimple"), LogLevel.Warning);
             }
-
-            bool invalidateMetadata = false;
-            metadata.BackupRecords ??= new List<BackupChangeRecord>();
-            metadata.BackupRecords = metadata.BackupRecords
-                .OrderBy(r => r.CreatedAtUtc)
-                .ThenBy(r => r.ArchiveFileName, StringComparer.OrdinalIgnoreCase)
-                .ToList();
-
-            int deletedIndex = metadata.BackupRecords.FindIndex(r => string.Equals(r.ArchiveFileName, deletedFileName, StringComparison.OrdinalIgnoreCase));
-            BackupChangeRecord? deletedRecord = deletedIndex >= 0 ? metadata.BackupRecords[deletedIndex] : null;
-            BackupChangeRecord? previousRecord = deletedIndex > 0 ? metadata.BackupRecords[deletedIndex - 1] : null;
-
-            BackupChangeRecord? successorRecord = null;
-            if (!string.IsNullOrWhiteSpace(renamedOldFileName))
-            {
-                successorRecord = metadata.BackupRecords.FirstOrDefault(r => string.Equals(r.ArchiveFileName, renamedOldFileName, StringComparison.OrdinalIgnoreCase));
-            }
-            else if (deletedIndex >= 0 && deletedIndex + 1 < metadata.BackupRecords.Count)
-            {
-                successorRecord = metadata.BackupRecords[deletedIndex + 1];
-            }
-
-            if (deletedRecord != null && successorRecord != null)
-            {
-                RebaseSuccessorBackupRecord(previousRecord, deletedRecord, successorRecord, renamedNewFileName, renamedBackupType);
-            }
-
-            if (!string.IsNullOrWhiteSpace(renamedOldFileName) && !string.IsNullOrWhiteSpace(renamedNewFileName))
-            {
-                foreach (var record in metadata.BackupRecords)
-                {
-                    if (string.Equals(record.ArchiveFileName, renamedOldFileName, StringComparison.OrdinalIgnoreCase))
-                    {
-                        record.ArchiveFileName = renamedNewFileName;
-                        if (!string.IsNullOrWhiteSpace(renamedBackupType))
-                        {
-                            record.BackupType = renamedBackupType;
-                        }
-                    }
-
-                    if (string.Equals(record.PreviousBackupFileName, renamedOldFileName, StringComparison.OrdinalIgnoreCase))
-                    {
-                        record.PreviousBackupFileName = renamedNewFileName;
-                    }
-
-                    if (string.Equals(record.BasedOnFullBackup, renamedOldFileName, StringComparison.OrdinalIgnoreCase))
-                    {
-                        record.BasedOnFullBackup = renamedNewFileName;
-                    }
-                }
-
-                if (string.Equals(metadata.LastBackupFileName, renamedOldFileName, StringComparison.OrdinalIgnoreCase))
-                {
-                    metadata.LastBackupFileName = renamedNewFileName;
-                }
-
-                if (string.Equals(metadata.BasedOnFullBackup, renamedOldFileName, StringComparison.OrdinalIgnoreCase))
-                {
-                    metadata.BasedOnFullBackup = renamedNewFileName;
-                }
-            }
-
-            metadata.BackupRecords.RemoveAll(r => string.Equals(r.ArchiveFileName, deletedFileName, StringComparison.OrdinalIgnoreCase));
-
-            foreach (var record in metadata.BackupRecords)
-            {
-                if (string.Equals(record.PreviousBackupFileName, deletedFileName, StringComparison.OrdinalIgnoreCase))
-                {
-                    record.PreviousBackupFileName = previousRecord?.ArchiveFileName ?? string.Empty;
-                }
-
-                if (string.Equals(record.BasedOnFullBackup, deletedFileName, StringComparison.OrdinalIgnoreCase))
-                {
-                    if (!string.IsNullOrWhiteSpace(renamedNewFileName)
-                        && string.Equals(renamedBackupType, "Full", StringComparison.OrdinalIgnoreCase))
-                    {
-                        record.BasedOnFullBackup = renamedNewFileName;
-                    }
-                    else
-                    {
-                        invalidateMetadata = true;
-                    }
-                }
-            }
-
-            if (string.Equals(metadata.LastBackupFileName, deletedFileName, StringComparison.OrdinalIgnoreCase))
-            {
-                invalidateMetadata = true;
-            }
-
-            if (string.Equals(metadata.BasedOnFullBackup, deletedFileName, StringComparison.OrdinalIgnoreCase))
-            {
-                if (!string.IsNullOrWhiteSpace(renamedNewFileName)
-                    && string.Equals(renamedBackupType, "Full", StringComparison.OrdinalIgnoreCase))
-                {
-                    metadata.BasedOnFullBackup = renamedNewFileName;
-                }
-                else
-                {
-                    invalidateMetadata = true;
-                }
-            }
-
-            if (invalidateMetadata)
-            {
-                try
-                {
-                    File.Delete(metadataPath);
-                }
-                catch
-                {
-                }
-                return;
-            }
-
-            metadata.Version = "2.0";
-            string json = JsonSerializer.Serialize(metadata, AppJsonContext.Default.BackupMetadata);
-            File.WriteAllText(metadataPath, json);
         }
 
         private static void RebaseSuccessorBackupRecord(
@@ -3568,9 +3594,10 @@ namespace FolderRewind.Services
 
             sb.Append($" -mx={settings.CompressionLevel} -m0={settings.Method} -ssw");
 
-            if (settings.CpuThreads > 0)
+            int cpuThreads = NormalizeCpuThreadCount(settings.CpuThreads);
+            if (cpuThreads > 0)
             {
-                sb.Append($" -mmt{settings.CpuThreads}");
+                sb.Append($" -mmt{cpuThreads}");
             }
             else
             {
@@ -3637,7 +3664,7 @@ namespace FolderRewind.Services
             string args = sb.ToString();
             string safeArgs = string.IsNullOrWhiteSpace(password) ? args : args.Replace(password, "***");
 
-            return await RunSevenZipProcessAsync(sevenZipExe, args, sourceDir, safeArgs, taskToUpdate);
+            return await RunSevenZipProcessAsync(sevenZipExe, args, sourceDir, safeArgs, taskToUpdate, runAtLowPriority: settings.RunCompressionAtLowPriority);
         }
 
         /// <summary>
@@ -3712,14 +3739,15 @@ namespace FolderRewind.Services
                         var sb = new StringBuilder();
                         sb.Append($"a -t{settings.Format} \"{archivePath}\" @\"{tmpList}\"");
                         sb.Append($" -mx={level} -m0={settings.Method} -ms=off -ssw");
-                        if (settings.CpuThreads > 0) sb.Append($" -mmt{settings.CpuThreads}"); else sb.Append(" -mmt");
+                        int cpuThreads = NormalizeCpuThreadCount(settings.CpuThreads);
+                        if (cpuThreads > 0) sb.Append($" -mmt{cpuThreads}"); else sb.Append(" -mmt");
                         if (!string.IsNullOrWhiteSpace(password)) sb.Append($" -p\"{password}\" -mhe=on");
                         sb.Append(" -bsp1");
 
                         string args = sb.ToString();
                         string safeArgs = string.IsNullOrWhiteSpace(password) ? args : args.Replace(password, "***");
 
-                        bool ok = await RunSevenZipProcessAsync(sevenZipExe, args, sourceDir, safeArgs);
+                        bool ok = await RunSevenZipProcessAsync(sevenZipExe, args, sourceDir, safeArgs, runAtLowPriority: settings.RunCompressionAtLowPriority);
                         if (!ok) allSuccess = false;
                     }
                     else
@@ -3732,7 +3760,8 @@ namespace FolderRewind.Services
                             sb.Append($" -ir!\"{pattern}\"");
                         }
                         sb.Append($" -mx={level} -m0={settings.Method} -ms=off -ssw");
-                        if (settings.CpuThreads > 0) sb.Append($" -mmt{settings.CpuThreads}"); else sb.Append(" -mmt");
+                        int cpuThreads = NormalizeCpuThreadCount(settings.CpuThreads);
+                        if (cpuThreads > 0) sb.Append($" -mmt{cpuThreads}"); else sb.Append(" -mmt");
                         if (!string.IsNullOrWhiteSpace(password)) sb.Append($" -p\"{password}\" -mhe=on");
                         sb.Append(" -bsp1");
 
@@ -3750,7 +3779,7 @@ namespace FolderRewind.Services
                         string args = sb.ToString();
                         string safeArgs = string.IsNullOrWhiteSpace(password) ? args : args.Replace(password, "***");
 
-                        bool ok = await RunSevenZipProcessAsync(sevenZipExe, args, sourceDir, safeArgs);
+                        bool ok = await RunSevenZipProcessAsync(sevenZipExe, args, sourceDir, safeArgs, runAtLowPriority: settings.RunCompressionAtLowPriority);
                         if (!ok) allSuccess = false;
                     }
                 }
@@ -3917,10 +3946,51 @@ namespace FolderRewind.Services
             return BuildRestoreChainWithStatus(backupDir, targetFile, backupType, config, folderName).Chain;
         }
 
+        private static int NormalizeCpuThreadCount(int cpuThreads)
+        {
+            if (cpuThreads <= 0)
+            {
+                return 0;
+            }
+
+            return Math.Clamp(cpuThreads, 1, Math.Max(Environment.ProcessorCount, 1));
+        }
+
+        private static void ApplyLowPriorityIfRequested(Process process, bool runAtLowPriority)
+        {
+            if (!runAtLowPriority)
+            {
+                return;
+            }
+
+            try
+            {
+                if (!process.HasExited)
+                {
+                    process.PriorityClass = ProcessPriorityClass.BelowNormal;
+                }
+            }
+            catch
+            {
+            }
+        }
+
         private static string? ResolveSevenZipExecutable()
         {
             var candidates = new List<string>();
             var configPath = ConfigService.CurrentConfig.GlobalSettings?.SevenZipPath;
+            string? pathEnv = Environment.GetEnvironmentVariable("PATH");
+
+            lock (SevenZipResolutionLock)
+            {
+                if (string.Equals(_cachedSevenZipConfigPath, configPath, StringComparison.Ordinal)
+                    && string.Equals(_cachedSevenZipPathEnvironment, pathEnv, StringComparison.Ordinal)
+                    && !string.IsNullOrWhiteSpace(_cachedSevenZipExecutable)
+                    && File.Exists(_cachedSevenZipExecutable))
+                {
+                    return _cachedSevenZipExecutable;
+                }
+            }
 
             void AddCandidate(string? path)
             {
@@ -3948,9 +4018,7 @@ namespace FolderRewind.Services
                 var pf86 = Environment.GetFolderPath(Environment.SpecialFolder.ProgramFilesX86);
                 if (!string.IsNullOrWhiteSpace(pf86)) AddCandidate(Path.Combine(pf86, "7-Zip", exe));
             }
-
             // 3) PATH
-            var pathEnv = Environment.GetEnvironmentVariable("PATH");
             if (!string.IsNullOrWhiteSpace(pathEnv))
             {
                 foreach (var dir in pathEnv.Split(Path.PathSeparator, StringSplitOptions.RemoveEmptyEntries))
@@ -3965,7 +4033,26 @@ namespace FolderRewind.Services
 
             foreach (var path in candidates.Distinct(StringComparer.OrdinalIgnoreCase))
             {
-                if (File.Exists(path)) return path;
+                if (!File.Exists(path))
+                {
+                    continue;
+                }
+
+                lock (SevenZipResolutionLock)
+                {
+                    _cachedSevenZipExecutable = path;
+                    _cachedSevenZipConfigPath = configPath;
+                    _cachedSevenZipPathEnvironment = pathEnv;
+                }
+
+                return path;
+            }
+
+            lock (SevenZipResolutionLock)
+            {
+                _cachedSevenZipExecutable = null;
+                _cachedSevenZipConfigPath = configPath;
+                _cachedSevenZipPathEnvironment = pathEnv;
             }
 
             Log(I18n.Format("BackupService_Log_SevenZipNotFound"), LogLevel.Error);
@@ -3981,7 +4068,8 @@ namespace FolderRewind.Services
             string sevenZipExe, string arguments,
             string? workingDirectory = null, string? logArguments = null,
             BackupTask? taskToUpdate = null,
-            double progressBase = 0, double progressRange = 100)
+            double progressBase = 0, double progressRange = 100,
+            bool runAtLowPriority = false)
         {
             arguments = EnsureSswArgument(arguments);
             logArguments = EnsureSswArgument(logArguments ?? arguments);
@@ -4036,6 +4124,7 @@ namespace FolderRewind.Services
                 };
 
                 p.Start();
+                ApplyLowPriorityIfRequested(p, runAtLowPriority);
                 p.BeginOutputReadLine();
                 p.BeginErrorReadLine();
                 await p.WaitForExitAsync();

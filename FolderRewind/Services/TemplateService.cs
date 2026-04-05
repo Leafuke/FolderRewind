@@ -2224,7 +2224,7 @@ namespace FolderRewind.Services
                         continue;
                     }
 
-                    var value = segment?.Value?.Trim() ?? string.Empty;
+                    var value = segment.Value?.Trim() ?? string.Empty;
                     if (string.IsNullOrWhiteSpace(value))
                     {
                         continue;

@@ -21,6 +21,21 @@ namespace FolderRewind.Models
         public List<BackupChangeRecord> BackupRecords { get; set; } = new List<BackupChangeRecord>();
     }
 
+    /// <summary>
+    /// 新版元数据状态文件（state.json），仅保存最新快照状态。
+    /// </summary>
+    public class BackupMetadataState
+    {
+        public string Version { get; set; } = "3.0";
+        public DateTime LastBackupTime { get; set; }
+        public string LastBackupFileName { get; set; } = "";
+        public string BasedOnFullBackup { get; set; } = "";
+
+        // Key: 文件的相对路径
+        // Value: 文件状态 (Hash 或 Size+Time)
+        public Dictionary<string, FileState> FileStates { get; set; } = new Dictionary<string, FileState>();
+    }
+
     public class BackupChangeRecord
     {
         public string ArchiveFileName { get; set; } = "";
