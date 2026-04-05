@@ -51,7 +51,9 @@ namespace FolderRewind.Services
             var detailText = new TextBlock
             {
                 TextWrapping = TextWrapping.Wrap,
-                Opacity = 0.8
+                Opacity = 0.8,
+                Margin = new Thickness(0, 0, 8, 0),
+                IsTextSelectionEnabled = true
             };
 
             List<RemoteTemplateIndexItem> currentItems = new();
@@ -98,7 +100,11 @@ namespace FolderRewind.Services
             leftPanel.Children.Add(searchBox);
             leftPanel.Children.Add(templateCombo);
 
-            var detailPanel = new StackPanel { Spacing = 8 };
+            var detailPanel = new StackPanel
+            {
+                Spacing = 8,
+                HorizontalAlignment = HorizontalAlignment.Stretch
+            };
             detailPanel.Children.Add(new TextBlock
             {
                 Text = I18n.GetString("OfficialTemplates_TemplateHeader"),
@@ -107,6 +113,9 @@ namespace FolderRewind.Services
             detailPanel.Children.Add(new ScrollViewer
             {
                 VerticalScrollBarVisibility = ScrollBarVisibility.Auto,
+                HorizontalScrollMode = ScrollMode.Disabled,
+                HorizontalScrollBarVisibility = ScrollBarVisibility.Disabled,
+                HorizontalAlignment = HorizontalAlignment.Stretch,
                 Content = detailText,
                 MinHeight = 260,
                 MaxHeight = 420
@@ -114,7 +123,7 @@ namespace FolderRewind.Services
 
             var panel = new Grid
             {
-                MinWidth = 760,
+                MinWidth = 500,
                 MaxWidth = 980,
                 ColumnSpacing = 16
             };

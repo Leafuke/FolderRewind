@@ -1227,114 +1227,137 @@ namespace FolderRewind.Views
 
         private async void OnExportTemplateClick(object sender, RoutedEventArgs e)
         {
-            var templates = TemplateService.GetTemplates()
-                .OrderBy(t => t.Name, StringComparer.CurrentCultureIgnoreCase)
-                .ToList();
-
-            if (templates.Count == 0)
+            try
             {
-                ShowInfoBar(I18n.GetString("Settings_Template_Export_NoTemplates"), Microsoft.UI.Xaml.Controls.InfoBarSeverity.Warning);
-                return;
-            }
+                var templates = TemplateService.GetTemplates()
+                    .OrderBy(t => t.Name, StringComparer.CurrentCultureIgnoreCase)
+                    .ToList();
 
-            var templateCombo = new ComboBox
-            {
-                Header = I18n.GetString("Settings_Template_SelectToExport"),
-                HorizontalAlignment = HorizontalAlignment.Stretch
-            };
-            foreach (var template in templates)
-            {
-                templateCombo.Items.Add(new ComboBoxItem { Content = template.Name, Tag = template });
-            }
-            templateCombo.SelectedIndex = 0;
-
-            var chooseDialog = new ContentDialog
-            {
-                Title = I18n.GetString("SettingsPage_ExportTemplate.Content"),
-                Content = templateCombo,
-                PrimaryButtonText = I18n.GetString("Common_Confirm"),
-                CloseButtonText = I18n.GetString("Common_Cancel"),
-                DefaultButton = ContentDialogButton.Primary,
-                XamlRoot = this.XamlRoot
-            };
-            ThemeService.ApplyThemeToDialog(chooseDialog);
-
-            if (await chooseDialog.ShowAsync() != ContentDialogResult.Primary)
-            {
-                return;
-            }
-
-            var selectedTemplate = (templateCombo.SelectedItem as ComboBoxItem)?.Tag as ConfigTemplate;
-            if (selectedTemplate == null)
-            {
-                ShowInfoBar(I18n.GetString("Template_Export_TemplateNotFound"), Microsoft.UI.Xaml.Controls.InfoBarSeverity.Error);
-                return;
-            }
-
-            var picker = new FileSavePicker();
-            picker.SuggestedStartLocation = PickerLocationId.DocumentsLibrary;
-            // 用专用扩展名把“模板分享包”和普通配置导出区分开，后续用户找文件也更直观。
-            picker.FileTypeChoices.Add("FolderRewind Template", new List<string> { TemplateService.ShareFileExtension });
-            picker.SuggestedFileName = $"FolderRewind_template_{SanitizeFileName(selectedTemplate.Name)}";
-            MainWindowService.InitializePicker(picker);
-
-            var file = await picker.PickSaveFileAsync();
-            if (file == null) return;
-
-            var ok = TemplateService.ExportTemplate(selectedTemplate.Id, file.Path, out var message);
-            ShowInfoBar(message, ok ? Microsoft.UI.Xaml.Controls.InfoBarSeverity.Success : Microsoft.UI.Xaml.Controls.InfoBarSeverity.Error);
-        }
-
-        private async void OnImportTemplateClick(object sender, RoutedEventArgs e)
-        {
-            var picker = new FileOpenPicker();
-            picker.SuggestedStartLocation = PickerLocationId.DocumentsLibrary;
-            picker.FileTypeFilter.Add(TemplateService.ShareFileExtension);
-            picker.FileTypeFilter.Add(".json");
-            MainWindowService.InitializePicker(picker);
-
-            var file = await picker.PickSingleFileAsync();
-            if (file == null) return;
-
-            var inspection = TemplateService.InspectImportTemplate(file.Path);
-            if (!inspection.Success)
-            {
-                ShowInfoBar(inspection.Message, Microsoft.UI.Xaml.Controls.InfoBarSeverity.Error);
-                return;
-            }
-
-            // 默认优先保留两份，先保护本地模板，再把“覆盖”作为用户明确选择。
-            var strategy = TemplateService.TemplateImportConflictStrategy.KeepBoth;
-            if (inspection.HasConflict)
-            {
-                var conflictDialog = new ContentDialog
+                if (templates.Count == 0)
                 {
-                    Title = I18n.GetString("Template_Import_ConflictTitle"),
-                    Content = I18n.Format(
-                        "Template_Import_ConflictContent",
-                        inspection.Template?.Name ?? string.Empty,
-                        inspection.ConflictTemplateName),
-                    PrimaryButtonText = I18n.GetString("Template_Import_ConflictReplace"),
-                    SecondaryButtonText = I18n.GetString("Template_Import_ConflictKeepBoth"),
+                    ShowInfoBar(I18n.GetString("Settings_Template_Export_NoTemplates"), Microsoft.UI.Xaml.Controls.InfoBarSeverity.Warning);
+                    return;
+                }
+
+                var templateCombo = new ComboBox
+                {
+                    Header = I18n.GetString("Settings_Template_SelectToExport"),
+                    HorizontalAlignment = HorizontalAlignment.Stretch
+                };
+                foreach (var template in templates)
+                {
+                    templateCombo.Items.Add(new ComboBoxItem { Content = template.Name, Tag = template });
+                }
+                templateCombo.SelectedIndex = 0;
+
+                var chooseDialog = new ContentDialog
+                {
+                    Title = I18n.GetString("Settings_Template_SelectToExport"),
+                    Content = templateCombo,
+                    PrimaryButtonText = I18n.GetString("Common_Confirm"),
                     CloseButtonText = I18n.GetString("Common_Cancel"),
                     DefaultButton = ContentDialogButton.Primary,
                     XamlRoot = this.XamlRoot
                 };
-                ThemeService.ApplyThemeToDialog(conflictDialog);
+                ThemeService.ApplyThemeToDialog(chooseDialog);
 
-                var conflictResult = await conflictDialog.ShowAsync();
-                if (conflictResult == ContentDialogResult.None)
+                if (await chooseDialog.ShowAsync() != ContentDialogResult.Primary)
                 {
                     return;
                 }
 
-                strategy = conflictResult == ContentDialogResult.Primary
-                    ? TemplateService.TemplateImportConflictStrategy.ReplaceExisting
-                    : TemplateService.TemplateImportConflictStrategy.KeepBoth;
-            }
+                var selectedTemplate = (templateCombo.SelectedItem as ComboBoxItem)?.Tag as ConfigTemplate;
+                if (selectedTemplate == null)
+                {
+                    ShowInfoBar(I18n.GetString("Template_Export_TemplateNotFound"), Microsoft.UI.Xaml.Controls.InfoBarSeverity.Error);
+                    return;
+                }
 
-            var ok = TemplateService.ImportTemplate(file.Path, strategy, out var message);
-            ShowInfoBar(message, ok ? Microsoft.UI.Xaml.Controls.InfoBarSeverity.Success : Microsoft.UI.Xaml.Controls.InfoBarSeverity.Error);
+                var picker = new FileSavePicker();
+                picker.SuggestedStartLocation = PickerLocationId.DocumentsLibrary;
+                // 用专用扩展名把“模板分享包”和普通配置导出区分开，后续用户找文件也更直观。
+                picker.FileTypeChoices.Add("FolderRewind Template", new List<string> { TemplateService.ShareFileExtension });
+                picker.SuggestedFileName = $"FolderRewind_template_{SanitizeFileName(selectedTemplate.Name)}";
+                MainWindowService.InitializePicker(picker);
+
+                var file = await picker.PickSaveFileAsync();
+                if (file == null) return;
+
+                var ok = TemplateService.ExportTemplate(selectedTemplate.Id, file.Path, out var message);
+                ShowInfoBar(message, ok ? Microsoft.UI.Xaml.Controls.InfoBarSeverity.Success : Microsoft.UI.Xaml.Controls.InfoBarSeverity.Error);
+            }
+            catch (Exception ex)
+            {
+                LogService.LogError($"[SettingsPage] Export template failed: {ex.Message}", nameof(SettingsPage), ex);
+                ShowInfoBar(I18n.Format("Template_Export_Failed", ex.Message), Microsoft.UI.Xaml.Controls.InfoBarSeverity.Error);
+            }
+        }
+
+        private async void OnImportTemplateClick(object sender, RoutedEventArgs e)
+        {
+            try
+            {
+                var picker = new FileOpenPicker();
+                picker.SuggestedStartLocation = PickerLocationId.DocumentsLibrary;
+                // WinUI FileOpenPicker 的过滤器对复杂后缀（如 .frtemplate.json）兼容性较差，统一使用 .json 后再做结构校验。
+                picker.FileTypeFilter.Add(".json");
+                MainWindowService.InitializePicker(picker);
+
+                var file = await picker.PickSingleFileAsync();
+                if (file == null) return;
+
+                if (string.IsNullOrWhiteSpace(file.Path) || !File.Exists(file.Path))
+                {
+                    ShowInfoBar(I18n.GetString("Template_Import_FileNotFound"), Microsoft.UI.Xaml.Controls.InfoBarSeverity.Error);
+                    LogService.LogWarning($"[SettingsPage] Import template file not found: {file.Path}", nameof(SettingsPage));
+                    return;
+                }
+
+                var inspection = TemplateService.InspectImportTemplate(file.Path);
+                if (!inspection.Success)
+                {
+                    ShowInfoBar(inspection.Message, Microsoft.UI.Xaml.Controls.InfoBarSeverity.Error);
+                    return;
+                }
+
+                // 默认优先保留两份，先保护本地模板，再把“覆盖”作为用户明确选择。
+                var strategy = TemplateService.TemplateImportConflictStrategy.KeepBoth;
+                if (inspection.HasConflict)
+                {
+                    var conflictDialog = new ContentDialog
+                    {
+                        Title = I18n.GetString("Template_Import_ConflictTitle"),
+                        Content = I18n.Format(
+                            "Template_Import_ConflictContent",
+                            inspection.Template?.Name ?? string.Empty,
+                            inspection.ConflictTemplateName),
+                        PrimaryButtonText = I18n.GetString("Template_Import_ConflictReplace"),
+                        SecondaryButtonText = I18n.GetString("Template_Import_ConflictKeepBoth"),
+                        CloseButtonText = I18n.GetString("Common_Cancel"),
+                        DefaultButton = ContentDialogButton.Primary,
+                        XamlRoot = this.XamlRoot
+                    };
+                    ThemeService.ApplyThemeToDialog(conflictDialog);
+
+                    var conflictResult = await conflictDialog.ShowAsync();
+                    if (conflictResult == ContentDialogResult.None)
+                    {
+                        return;
+                    }
+
+                    strategy = conflictResult == ContentDialogResult.Primary
+                        ? TemplateService.TemplateImportConflictStrategy.ReplaceExisting
+                        : TemplateService.TemplateImportConflictStrategy.KeepBoth;
+                }
+
+                var ok = TemplateService.ImportTemplate(file.Path, strategy, out var message);
+                ShowInfoBar(message, ok ? Microsoft.UI.Xaml.Controls.InfoBarSeverity.Success : Microsoft.UI.Xaml.Controls.InfoBarSeverity.Error);
+            }
+            catch (Exception ex)
+            {
+                LogService.LogError($"[SettingsPage] Import template failed: {ex.Message}", nameof(SettingsPage), ex);
+                ShowInfoBar(I18n.Format("Template_Import_Failed", ex.Message), Microsoft.UI.Xaml.Controls.InfoBarSeverity.Error);
+            }
         }
 
         private async void OnManageTemplatesClick(object sender, RoutedEventArgs e)
@@ -1630,7 +1653,10 @@ namespace FolderRewind.Views
                 ThemeService.ApplyThemeToDialog(dialog);
                 await dialog.ShowAsync();
             }
-            catch { }
+            catch (Exception ex)
+            {
+                LogService.LogWarning($"[SettingsPage] ShowInfoBar dialog failed: {ex.Message}", nameof(SettingsPage));
+            }
         }
 
     }

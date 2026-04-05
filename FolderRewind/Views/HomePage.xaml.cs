@@ -309,6 +309,19 @@ namespace FolderRewind.Views
                 templateCombo.SelectionChanged += (_, __) => dialog.IsPrimaryButtonEnabled = GetSelectedTemplate() != null;
                 ThemeService.ApplyThemeToDialog(dialog);
 
+                var triggerOfficialSearchByEnter = false;
+                officialSearchBox.KeyDown += (_, keyArgs) =>
+                {
+                    if (keyArgs.Key != Windows.System.VirtualKey.Enter)
+                    {
+                        return;
+                    }
+
+                    keyArgs.Handled = true;
+                    triggerOfficialSearchByEnter = true;
+                    dialog.Hide();
+                };
+
                 var dialogResult = await dialog.ShowAsync();
                 draftConfigName = nameBox.Text;
                 draftOfficialSearch = officialSearchBox.Text?.Trim() ?? string.Empty;
@@ -316,7 +329,7 @@ namespace FolderRewind.Views
                 preferredTemplateId = GetSelectedTemplate()?.Id ?? preferredTemplateId;
                 feedbackMessage = string.Empty;
 
-                if (dialogResult == ContentDialogResult.Secondary)
+                if (dialogResult == ContentDialogResult.Secondary || triggerOfficialSearchByEnter)
                 {
                     var item = await OfficialTemplateDialogService.PickTemplateAsync(
                         this.XamlRoot,
