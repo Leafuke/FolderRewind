@@ -402,6 +402,13 @@ namespace FolderRewind.Models
         Overwrite = 2   // 覆写备份：使用 7z update 指令更新现有包
     }
 
+    public enum BackupDeleteMode
+    {
+        RecordOnly = 0,
+        LocalArchiveOnly = 1,
+        LocalArchiveAndRecord = 2
+    }
+
     public enum CloudCommandMode
     {
         Rclone = 0,
@@ -801,6 +808,36 @@ namespace FolderRewind.Models
             set => SetProperty(ref _isImportant, value);
         }
 
+        private bool _isCloudArchived;
+        public bool IsCloudArchived
+        {
+            get => _isCloudArchived;
+            set => SetProperty(ref _isCloudArchived, value);
+        }
+
+        public DateTime CloudArchivedAtUtc { get; set; }
+
+        private string _cloudArchiveRemotePath = "";
+        public string CloudArchiveRemotePath
+        {
+            get => _cloudArchiveRemotePath;
+            set => SetProperty(ref _cloudArchiveRemotePath, value ?? string.Empty);
+        }
+
+        private string _cloudMetadataRecordRemotePath = "";
+        public string CloudMetadataRecordRemotePath
+        {
+            get => _cloudMetadataRecordRemotePath;
+            set => SetProperty(ref _cloudMetadataRecordRemotePath, value ?? string.Empty);
+        }
+
+        private string _cloudMetadataStateRemotePath = "";
+        public string CloudMetadataStateRemotePath
+        {
+            get => _cloudMetadataStateRemotePath;
+            set => SetProperty(ref _cloudMetadataStateRemotePath, value ?? string.Empty);
+        }
+
         // --- UI 辅助属性 (不存入 JSON) ---
 
         [JsonIgnore]
@@ -824,12 +861,44 @@ namespace FolderRewind.Models
         [JsonIgnore]
         public bool IsMissing { get => _isMissing; set => SetProperty(ref _isMissing, value); }
 
+        private bool _hasLocalFile;
+        [JsonIgnore]
+        public bool HasLocalFile { get => _hasLocalFile; set => SetProperty(ref _hasLocalFile, value); }
+
+        private bool _hasCloudCopy;
+        [JsonIgnore]
+        public bool HasCloudCopy { get => _hasCloudCopy; set => SetProperty(ref _hasCloudCopy, value); }
+
+        private bool _isCloudOnly;
+        [JsonIgnore]
+        public bool IsCloudOnly { get => _isCloudOnly; set => SetProperty(ref _isCloudOnly, value); }
+
         private bool _isSmallFile;
         /// <summary>
         /// 运行时状态：备份文件大小低于警告阈值
         /// </summary>
         [JsonIgnore]
         public bool IsSmallFile { get => _isSmallFile; set => SetProperty(ref _isSmallFile, value); }
+
+        private string _cloudStatusText = "";
+        [JsonIgnore]
+        public string CloudStatusText { get => _cloudStatusText; set => SetProperty(ref _cloudStatusText, value ?? string.Empty); }
+
+        private string _cloudActionHintText = "";
+        [JsonIgnore]
+        public string CloudActionHintText { get => _cloudActionHintText; set => SetProperty(ref _cloudActionHintText, value ?? string.Empty); }
+
+        private string _downloadFromCloudHintText = "";
+        [JsonIgnore]
+        public string DownloadFromCloudHintText { get => _downloadFromCloudHintText; set => SetProperty(ref _downloadFromCloudHintText, value ?? string.Empty); }
+
+        private bool _canUploadToCloud;
+        [JsonIgnore]
+        public bool CanUploadToCloud { get => _canUploadToCloud; set => SetProperty(ref _canUploadToCloud, value); }
+
+        private bool _canDownloadFromCloud;
+        [JsonIgnore]
+        public bool CanDownloadFromCloud { get => _canDownloadFromCloud; set => SetProperty(ref _canDownloadFromCloud, value); }
 
         private Brush? _timelineLineBrush;
         private Brush? _timelineNodeFillBrush;

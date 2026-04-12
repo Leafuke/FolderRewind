@@ -1961,7 +1961,7 @@
     <value>删除历史记录</value>
   </data>
   <data name="History_DeleteConfirm_Content" xml:space="preserve">
-    <value>将要删除该条历史记录：{0}\n\n你还可以选择是否同时删除本地备份文件。</value>
+    <value>将要处理该条历史记录：{0} \n\n请选择仅删除记录、仅删除本地备份文件，或同时删除本地备份与记录。云端副本不会被移除。</value>
   </data>
   <data name="History_DeleteConfirm_DeleteRecord" xml:space="preserve">
     <value>仅删除记录</value>
@@ -1973,7 +1973,7 @@
     <value>清除失效记录</value>
   </data>
   <data name="History_ClearMissingConfirm_Content" xml:space="preserve">
-    <value>将要清除 {0} 条失效记录（记录存在但备份文件已丢失）。此操作不会影响任何现存备份文件。</value>
+    <value>将要清除 {0} 条不可恢复的失效记录（本地与云端都不存在可用副本）。此操作不会影响任何现存备份文件或云端数据。</value>
   </data>
   <data name="History_ClearMissingConfirm_Primary" xml:space="preserve">
     <value>清除</value>
@@ -3494,5 +3494,95 @@ Pull Request：{1}</value>
   </data>
   <data name="GitHubSubmit_Progress_CreatePr" xml:space="preserve">
     <value>正在创建 Pull Request…</value>
+  </data>
+  <data name="History_FileCloudOnly" xml:space="preserve">
+    <value>仅云端可用</value>
+  </data>
+  <data name="History_CloudStatus_LocalOnly" xml:space="preserve">
+    <value>仅本地</value>
+  </data>
+  <data name="History_CloudStatus_CloudAvailable" xml:space="preserve">
+    <value>云端可用</value>
+  </data>
+  <data name="History_CloudStatus_LocalAndCloud" xml:space="preserve">
+    <value>本地 + 云端</value>
+  </data>
+  <data name="History_CloudStatus_CloudOnly" xml:space="preserve">
+    <value>仅云端</value>
+  </data>
+  <data name="History_CloudUpload_Action" xml:space="preserve">
+    <value>上传到云端</value>
+  </data>
+  <data name="History_CloudUpload_NoLocalFile" xml:space="preserve">
+    <value>本地文件不存在，无法上传。</value>
+  </data>
+  <data name="History_CloudDownload_Action" xml:space="preserve">
+    <value>从云端下载到本地备份库</value>
+  </data>
+  <data name="History_CloudDownload_NoCloudCopy" xml:space="preserve">
+    <value>当前没有可下载的云端副本。</value>
+  </data>
+  <data name="History_CloudAction_NotEnabled" xml:space="preserve">
+    <value>当前配置未启用云存档。</value>
+  </data>
+  <data name="History_CloudAction_CustomModeOnly" xml:space="preserve">
+    <value>当前配置使用自定义云命令，历史页上传/下载仅支持 rclone 模式。</value>
+  </data>
+  <data name="History_DeleteMode_RecordOnly" xml:space="preserve">
+    <value>仅删除历史记录</value>
+  </data>
+  <data name="History_DeleteMode_LocalOnly" xml:space="preserve">
+    <value>仅删除本地备份文件</value>
+  </data>
+  <data name="History_DeleteMode_LocalAndRecord" xml:space="preserve">
+    <value>删除本地备份文件和历史记录</value>
+  </data>
+  <data name="History_Delete_InvalidRequest" xml:space="preserve">
+    <value>删除请求无效。</value>
+  </data>
+  <data name="CloudSync_Task_HistoryUploadName" xml:space="preserve">
+    <value>上传云存档: {0}</value>
+  </data>
+  <data name="CloudSync_Task_HistoryDownloadName" xml:space="preserve">
+    <value>下载云存档: {0}</value>
+  </data>
+  <data name="CloudSync_Task_UploadingArchive" xml:space="preserve">
+    <value>正在上传备份文件…</value>
+  </data>
+  <data name="CloudSync_Task_UploadingMetadata" xml:space="preserve">
+    <value>正在同步 metadata…</value>
+  </data>
+  <data name="CloudSync_Task_DownloadingArchive" xml:space="preserve">
+    <value>正在下载备份文件…</value>
+  </data>
+  <data name="CloudSync_Task_DownloadingMetadata" xml:space="preserve">
+    <value>正在下载 metadata…</value>
+  </data>
+  <data name="CloudSync_Task_DownloadCompleted" xml:space="preserve">
+    <value>下载完成</value>
+  </data>
+  <data name="CloudSync_Notification_NotEnabled" xml:space="preserve">
+    <value>当前配置未启用云存档。</value>
+  </data>
+  <data name="CloudSync_Notification_RcloneOnly" xml:space="preserve">
+    <value>历史页上传/下载仅支持 rclone 模式。</value>
+  </data>
+  <data name="CloudSync_Notification_NoCloudCopy" xml:space="preserve">
+    <value>当前历史记录没有可下载的云端副本。</value>
+  </data>
+  <data name="CloudSync_Notification_HistoryUploadFailed" xml:space="preserve">
+    <value>上传“{0}”失败：{1}</value>
+  </data>
+  <data name="CloudSync_Notification_HistoryUploadSucceeded" xml:space="preserve">
+    <value>已将“{0}”上传到云端。</value>
+  </data>
+  <data name="CloudSync_Notification_HistoryDownloadFailed" xml:space="preserve">
+    <value>下载“{0}”失败：{1}</value>
+  </data>
+  <data name="CloudSync_Notification_HistoryDownloadSucceeded" xml:space="preserve">
+    <value>已将“{0}”下载回本地备份库。</value>
+  </data>
+  <data name="CloudSync_Notification_MetadataPartial" xml:space="preserve">
+    <value>“{0}”的 metadata 未完整同步，归档文件已优先完成处理。</value>
   </data>
 </root>

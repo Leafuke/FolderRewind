@@ -415,7 +415,7 @@ namespace FolderRewind.Services
                         I18n.GetString("CoreValidation_Step_SafeDelete"),
                         async () =>
                         {
-                            var deleteResult = await BackupService.DeleteBackupAsync(mainConfig!, mainSourceFolder!, smartEntryOne!, true).ConfigureAwait(false);
+                            var deleteResult = await BackupService.DeleteBackupAsync(mainConfig!, mainSourceFolder!, smartEntryOne!, BackupDeleteMode.LocalArchiveAndRecord).ConfigureAwait(false);
                             if (!deleteResult.Success)
                             {
                                 throw new InvalidOperationException($"Safe delete failed: {deleteResult.Message}");

@@ -1961,7 +1961,7 @@ Comment: {1}
     <value>Delete History</value>
   </data>
   <data name="History_DeleteConfirm_Content" xml:space="preserve">
-    <value>You are about to delete this history entry: {0}\n\nYou can also choose whether to delete the local backup file.</value>
+    <value>You are about to process this history entry: {0} \n\n Choose whether to remove only the record, only the local backup file, or both. Cloud data will not be deleted.</value>
   </data>
   <data name="History_DeleteConfirm_DeleteRecord" xml:space="preserve">
     <value>Delete record only</value>
@@ -1973,7 +1973,7 @@ Comment: {1}
     <value>Clear missing records</value>
   </data>
   <data name="History_ClearMissingConfirm_Content" xml:space="preserve">
-    <value>You are about to remove {0} missing records (record exists but backup file is gone). This will not delete any existing backup files.</value>
+    <value>You are about to remove {0} unrecoverable records (no local file and no cloud copy). This will not delete any existing backup files or cloud data.</value>
   </data>
   <data name="History_ClearMissingConfirm_Primary" xml:space="preserve">
     <value>Clear</value>
@@ -3494,5 +3494,95 @@ Pull request: {1}</value>
   </data>
   <data name="GitHubSubmit_Progress_CreatePr" xml:space="preserve">
     <value>Creating the pull request...</value>
+  </data>
+  <data name="History_FileCloudOnly" xml:space="preserve">
+    <value>Cloud copy only</value>
+  </data>
+  <data name="History_CloudStatus_LocalOnly" xml:space="preserve">
+    <value>Local only</value>
+  </data>
+  <data name="History_CloudStatus_CloudAvailable" xml:space="preserve">
+    <value>Cloud available</value>
+  </data>
+  <data name="History_CloudStatus_LocalAndCloud" xml:space="preserve">
+    <value>Local + cloud</value>
+  </data>
+  <data name="History_CloudStatus_CloudOnly" xml:space="preserve">
+    <value>Cloud only</value>
+  </data>
+  <data name="History_CloudUpload_Action" xml:space="preserve">
+    <value>Upload to cloud</value>
+  </data>
+  <data name="History_CloudUpload_NoLocalFile" xml:space="preserve">
+    <value>The local archive is missing, so it cannot be uploaded.</value>
+  </data>
+  <data name="History_CloudDownload_Action" xml:space="preserve">
+    <value>Download from cloud to the local backup library</value>
+  </data>
+  <data name="History_CloudDownload_NoCloudCopy" xml:space="preserve">
+    <value>No downloadable cloud copy is available for this entry.</value>
+  </data>
+  <data name="History_CloudAction_NotEnabled" xml:space="preserve">
+    <value>Cloud archive is not enabled for this configuration.</value>
+  </data>
+  <data name="History_CloudAction_CustomModeOnly" xml:space="preserve">
+    <value>This configuration uses a custom cloud command. History page upload/download currently supports rclone mode only.</value>
+  </data>
+  <data name="History_DeleteMode_RecordOnly" xml:space="preserve">
+    <value>Delete record only</value>
+  </data>
+  <data name="History_DeleteMode_LocalOnly" xml:space="preserve">
+    <value>Delete local backup only</value>
+  </data>
+  <data name="History_DeleteMode_LocalAndRecord" xml:space="preserve">
+    <value>Delete local backup and record</value>
+  </data>
+  <data name="History_Delete_InvalidRequest" xml:space="preserve">
+    <value>Invalid delete request.</value>
+  </data>
+  <data name="CloudSync_Task_HistoryUploadName" xml:space="preserve">
+    <value>Upload cloud archive: {0}</value>
+  </data>
+  <data name="CloudSync_Task_HistoryDownloadName" xml:space="preserve">
+    <value>Download cloud archive: {0}</value>
+  </data>
+  <data name="CloudSync_Task_UploadingArchive" xml:space="preserve">
+    <value>Uploading archive...</value>
+  </data>
+  <data name="CloudSync_Task_UploadingMetadata" xml:space="preserve">
+    <value>Syncing metadata...</value>
+  </data>
+  <data name="CloudSync_Task_DownloadingArchive" xml:space="preserve">
+    <value>Downloading archive...</value>
+  </data>
+  <data name="CloudSync_Task_DownloadingMetadata" xml:space="preserve">
+    <value>Downloading metadata...</value>
+  </data>
+  <data name="CloudSync_Task_DownloadCompleted" xml:space="preserve">
+    <value>Download completed</value>
+  </data>
+  <data name="CloudSync_Notification_NotEnabled" xml:space="preserve">
+    <value>Cloud archive is not enabled for this configuration.</value>
+  </data>
+  <data name="CloudSync_Notification_RcloneOnly" xml:space="preserve">
+    <value>History page upload/download currently supports rclone mode only.</value>
+  </data>
+  <data name="CloudSync_Notification_NoCloudCopy" xml:space="preserve">
+    <value>This history entry does not have a downloadable cloud copy.</value>
+  </data>
+  <data name="CloudSync_Notification_HistoryUploadFailed" xml:space="preserve">
+    <value>Failed to upload "{0}": {1}</value>
+  </data>
+  <data name="CloudSync_Notification_HistoryUploadSucceeded" xml:space="preserve">
+    <value>Uploaded "{0}" to the cloud.</value>
+  </data>
+  <data name="CloudSync_Notification_HistoryDownloadFailed" xml:space="preserve">
+    <value>Failed to download "{0}": {1}</value>
+  </data>
+  <data name="CloudSync_Notification_HistoryDownloadSucceeded" xml:space="preserve">
+    <value>Downloaded "{0}" back to the local backup library.</value>
+  </data>
+  <data name="CloudSync_Notification_MetadataPartial" xml:space="preserve">
+    <value>Metadata for "{0}" was only partially synchronized. The archive itself completed first.</value>
   </data>
 </root>

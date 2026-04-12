@@ -98,6 +98,36 @@ namespace FolderRewind.Services
             }
         }
 
+        public static bool TryGetStateFilePath(string metadataDir, out string statePath)
+        {
+            statePath = string.Empty;
+            if (string.IsNullOrWhiteSpace(metadataDir))
+            {
+                return false;
+            }
+
+            try
+            {
+                string normalizedMetadataDir = Path.GetFullPath(metadataDir);
+                return BackupStoragePathService.TryBuildPathWithinRoot(normalizedMetadataDir, StateFileName, out statePath);
+            }
+            catch
+            {
+                return false;
+            }
+        }
+
+        public static bool TryGetRecordFilePath(string metadataDir, string archiveFileName, out string recordPath)
+        {
+            if (string.IsNullOrWhiteSpace(metadataDir))
+            {
+                recordPath = string.Empty;
+                return false;
+            }
+
+            return TryGetRecordPath(metadataDir, archiveFileName, out recordPath);
+        }
+
         public static bool SynchronizeAfterArchiveDeletion(
             string metadataDir,
             string deletedFileName,

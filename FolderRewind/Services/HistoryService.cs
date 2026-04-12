@@ -115,8 +115,13 @@ namespace FolderRewind.Services
                 // 尝试获取文件大小，如果文件还在的话
                 var fullPath = GetBackupFilePath(config, folder, item);
                 var exists = !string.IsNullOrWhiteSpace(fullPath) && File.Exists(fullPath);
+                var hasCloudCopy = item.IsCloudArchived
+                    && !string.IsNullOrWhiteSpace(item.CloudArchiveRemotePath);
 
-                item.IsMissing = !exists;
+                item.HasLocalFile = exists;
+                item.HasCloudCopy = hasCloudCopy;
+                item.IsCloudOnly = !exists && hasCloudCopy;
+                item.IsMissing = !exists && !hasCloudCopy;
                 item.IsSmallFile = false;
 
                 if (exists)
@@ -134,6 +139,10 @@ namespace FolderRewind.Services
                     {
                         item.FileSizeDisplay = sizeStr;
                     }
+                }
+                else if (hasCloudCopy)
+                {
+                    item.FileSizeDisplay = I18n.GetString("History_FileCloudOnly");
                 }
                 else
                 {
@@ -287,7 +296,9 @@ namespace FolderRewind.Services
                     .Where(x =>
                     {
                         var p = GetBackupFilePath(config, folder, x);
-                        return string.IsNullOrWhiteSpace(p) || !File.Exists(p);
+                        bool hasLocalFile = !string.IsNullOrWhiteSpace(p) && File.Exists(p);
+                        bool hasCloudCopy = x.IsCloudArchived && !string.IsNullOrWhiteSpace(x.CloudArchiveRemotePath);
+                        return !hasLocalFile && !hasCloudCopy;
                     })
                     .ToList();
 
@@ -320,6 +331,27 @@ namespace FolderRewind.Services
             if (removed)
             {
                 ScheduleSave();
+            }
+        }
+
+        public static HistoryItem? TryGetEntry(string configId, string folderPath, string fileName)
+        {
+            if (string.IsNullOrWhiteSpace(configId)
+                || string.IsNullOrWhiteSpace(folderPath)
+                || string.IsNullOrWhiteSpace(fileName))
+            {
+                return null;
+            }
+
+            Initialize();
+            lock (_historyLock)
+            {
+                return _allHistory
+                    .Where(x => string.Equals(x.ConfigId, configId, StringComparison.OrdinalIgnoreCase)
+                        && string.Equals(x.FolderPath, folderPath, StringComparison.OrdinalIgnoreCase)
+                        && string.Equals(x.FileName, fileName, StringComparison.OrdinalIgnoreCase))
+                    .OrderByDescending(x => x.Timestamp)
+                    .FirstOrDefault();
             }
         }
 
@@ -581,6 +613,76 @@ namespace FolderRewind.Services
             return modifiedCount;
         }
 
+        public static bool UpdateCloudArchiveState(
+            HistoryItem item,
+            bool isCloudArchived,
+            DateTime? archivedAtUtc,
+            string? archiveRemotePath,
+            string? metadataRecordRemotePath,
+            string? metadataStateRemotePath)
+        {
+            if (item == null)
+            {
+                return false;
+            }
+
+            Initialize();
+            bool updated = false;
+            lock (_historyLock)
+            {
+                var target = _allHistory.FirstOrDefault(x =>
+                    x.ConfigId == item.ConfigId &&
+                    x.FolderPath == item.FolderPath &&
+                    x.FileName == item.FileName &&
+                    x.Timestamp == item.Timestamp);
+
+                if (target == null)
+                {
+                    return false;
+                }
+
+                ApplyCloudState(target, isCloudArchived, archivedAtUtc, archiveRemotePath, metadataRecordRemotePath, metadataStateRemotePath);
+                if (!ReferenceEquals(target, item))
+                {
+                    ApplyCloudState(item, isCloudArchived, archivedAtUtc, archiveRemotePath, metadataRecordRemotePath, metadataStateRemotePath);
+                }
+
+                updated = true;
+            }
+
+            if (updated)
+            {
+                ScheduleSave();
+            }
+
+            return updated;
+        }
+
+        public static bool UpdateCloudArchiveState(
+            string configId,
+            string folderPath,
+            string fileName,
+            bool isCloudArchived,
+            DateTime? archivedAtUtc,
+            string? archiveRemotePath,
+            string? metadataRecordRemotePath,
+            string? metadataStateRemotePath)
+        {
+            var item = TryGetEntry(configId, folderPath, fileName);
+            if (item == null)
+            {
+                return false;
+            }
+
+            return UpdateCloudArchiveState(
+                item,
+                isCloudArchived,
+                archivedAtUtc,
+                archiveRemotePath,
+                metadataRecordRemotePath,
+                metadataStateRemotePath);
+        }
+
         /// <summary>
         /// 导出历史记录到指定路径
         /// </summary>
@@ -791,6 +893,23 @@ namespace FolderRewind.Services
             }
 
             return recoveredCount;
+        }
+
+        private static void ApplyCloudState(
+            HistoryItem item,
+            bool isCloudArchived,
+            DateTime? archivedAtUtc,
+            string? archiveRemotePath,
+            string? metadataRecordRemotePath,
+            string? metadataStateRemotePath)
+        {
+            item.IsCloudArchived = isCloudArchived;
+            item.CloudArchivedAtUtc = isCloudArchived
+                ? (archivedAtUtc ?? DateTime.UtcNow)
+                : DateTime.MinValue;
+            item.CloudArchiveRemotePath = isCloudArchived ? (archiveRemotePath ?? string.Empty) : string.Empty;
+            item.CloudMetadataRecordRemotePath = isCloudArchived ? (metadataRecordRemotePath ?? string.Empty) : string.Empty;
+            item.CloudMetadataStateRemotePath = isCloudArchived ? (metadataStateRemotePath ?? string.Empty) : string.Empty;
         }
 
         private static void ScheduleSave()

@@ -8,6 +8,7 @@ using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.IO;
 using System.Linq;
+using System.Threading.Tasks;
 
 namespace FolderRewind.ViewModels
 {
@@ -34,6 +35,8 @@ namespace FolderRewind.ViewModels
         }
 
         public bool HasMissing => _missingCount > 0;
+
+        public bool CanUseCloudHistoryActions => CloudSyncService.CanUseHistoryCloudActions(_currentConfig);
 
         public string CommentFilterText
         {
@@ -74,6 +77,7 @@ namespace FolderRewind.ViewModels
         {
             _currentConfig = config;
             _currentFolder = folder;
+            OnPropertyChanged(nameof(CanUseCloudHistoryActions));
 
             // 页面初始化阶段可关闭刷新，避免控件尚未就绪时重复拉取历史。
             if (refreshHistoryIfFolder && _currentConfig != null && _currentFolder != null)
@@ -258,8 +262,49 @@ namespace FolderRewind.ViewModels
             UpdateTimelineVisuals(FilteredHistory);
         }
 
+        public async Task<bool> UploadToCloudAsync(HistoryItem item)
+        {
+            if (_currentConfig == null || _currentFolder == null || item == null)
+            {
+                return false;
+            }
+
+            bool success = await CloudSyncService.UploadHistoryItemAsync(_currentConfig, _currentFolder, item).ConfigureAwait(true);
+            RefreshCurrentHistory();
+            return success;
+        }
+
+        public async Task<bool> DownloadFromCloudAsync(HistoryItem item)
+        {
+            if (_currentConfig == null || _currentFolder == null || item == null)
+            {
+                return false;
+            }
+
+            bool success = await CloudSyncService.DownloadHistoryItemAsync(_currentConfig, _currentFolder, item).ConfigureAwait(true);
+            RefreshCurrentHistory();
+            return success;
+        }
+
+        public async Task<BackupService.DeleteBackupResult> DeleteHistoryItemAsync(HistoryItem item, BackupDeleteMode deleteMode)
+        {
+            if (_currentConfig == null || _currentFolder == null || item == null)
+            {
+                return new BackupService.DeleteBackupResult
+                {
+                    Success = false,
+                    Message = I18n.GetString("History_Delete_InvalidRequest")
+                };
+            }
+
+            var result = await BackupService.DeleteBackupAsync(_currentConfig, _currentFolder, item, deleteMode).ConfigureAwait(true);
+            RefreshCurrentHistory();
+            return result;
+        }
+
         private void ApplyCommentFilter()
         {
+            UpdateCloudPresentation(_currentAllItems);
             FilteredHistory.Clear();
 
             IEnumerable<HistoryItem> query = _currentAllItems;
@@ -281,6 +326,7 @@ namespace FolderRewind.ViewModels
 
             IsEmpty = FilteredHistory.Count == 0;
             UpdateTimelineVisuals(FilteredHistory);
+            OnPropertyChanged(nameof(CanUseCloudHistoryActions));
         }
 
         private static Brush TryGetThemeBrush(string key, Windows.UI.Color fallback)
@@ -371,6 +417,53 @@ namespace FolderRewind.ViewModels
                 // 仅在值变化时写盘，避免切换列表时产生多余 I/O。
                 ConfigService.Save();
             }
+        }
+
+        private void UpdateCloudPresentation(IEnumerable<HistoryItem> items)
+        {
+            string availabilityHint = GetCloudAvailabilityHint();
+            bool cloudActionsEnabled = CanUseCloudHistoryActions;
+
+            foreach (var item in items)
+            {
+                item.CloudStatusText = item.IsCloudOnly
+                    ? I18n.GetString("History_CloudStatus_CloudOnly")
+                    : item.HasLocalFile && item.HasCloudCopy
+                        ? I18n.GetString("History_CloudStatus_LocalAndCloud")
+                        : item.HasCloudCopy
+                            ? I18n.GetString("History_CloudStatus_CloudAvailable")
+                            : I18n.GetString("History_CloudStatus_LocalOnly");
+
+                item.CanUploadToCloud = cloudActionsEnabled && item.HasLocalFile;
+                item.CanDownloadFromCloud = cloudActionsEnabled && item.HasCloudCopy;
+
+                item.CloudActionHintText = item.CanUploadToCloud
+                    ? I18n.GetString("History_CloudUpload_Action")
+                    : !string.IsNullOrWhiteSpace(availabilityHint)
+                        ? availabilityHint
+                        : I18n.GetString("History_CloudUpload_NoLocalFile");
+
+                item.DownloadFromCloudHintText = item.CanDownloadFromCloud
+                    ? I18n.GetString("History_CloudDownload_Action")
+                    : !string.IsNullOrWhiteSpace(availabilityHint)
+                        ? availabilityHint
+                        : I18n.GetString("History_CloudDownload_NoCloudCopy");
+            }
+        }
+
+        private string GetCloudAvailabilityHint()
+        {
+            if (_currentConfig?.Cloud?.Enabled != true)
+            {
+                return I18n.GetString("History_CloudAction_NotEnabled");
+            }
+
+            if (_currentConfig.Cloud.CommandMode != CloudCommandMode.Rclone)
+            {
+                return I18n.GetString("History_CloudAction_CustomModeOnly");
+            }
+
+            return string.Empty;
         }
     }
 }

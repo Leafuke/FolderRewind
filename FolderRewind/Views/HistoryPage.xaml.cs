@@ -300,22 +300,20 @@ namespace FolderRewind.Views
                 return;
             }
 
-            var deleteFile = await PromptDeleteModeAsync(item);
-            if (deleteFile == null)
+            var deleteMode = await PromptDeleteModeAsync(item);
+            if (deleteMode == null)
             {
                 return;
             }
 
-            var deleteResult = await BackupService.DeleteBackupAsync(config, folder, item, deleteFile.Value);
+            var deleteResult = await ViewModel.DeleteHistoryItemAsync(item, deleteMode.Value);
             if (!deleteResult.Success)
             {
                 NotificationService.ShowError(string.IsNullOrWhiteSpace(deleteResult.Message)
                     ? I18n.GetString("BackupService_Task_Failed")
-                    : deleteResult.Message);
+                        : deleteResult.Message);
                 return;
             }
-
-            ViewModel.RefreshCurrentHistory();
         }
 
         private async Task<bool> ConfirmDeleteImportantAsync()
@@ -339,18 +337,46 @@ namespace FolderRewind.Views
             return result == ContentDialogResult.Primary;
         }
 
-        private async Task<bool?> PromptDeleteModeAsync(HistoryItem item)
+        private async Task<BackupDeleteMode?> PromptDeleteModeAsync(HistoryItem item)
         {
+            var recordOnlyRadio = new RadioButton
+            {
+                Content = I18n.GetString("History_DeleteMode_RecordOnly"),
+                IsChecked = !item.HasLocalFile
+            };
+
+            var localOnlyRadio = new RadioButton
+            {
+                Content = I18n.GetString("History_DeleteMode_LocalOnly"),
+                IsEnabled = item.HasLocalFile,
+                IsChecked = item.HasLocalFile
+            };
+
+            var localAndRecordRadio = new RadioButton
+            {
+                Content = I18n.GetString("History_DeleteMode_LocalAndRecord"),
+                IsEnabled = item.HasLocalFile
+            };
+
             var dialog = new ContentDialog
             {
                 Title = I18n.GetString("History_DeleteConfirm_Title"),
-                Content = new TextBlock
+                Content = new StackPanel
                 {
-                    Text = I18n.Format("History_DeleteConfirm_Content", item.FileName),
-                    TextWrapping = TextWrapping.Wrap
+                    Spacing = 10,
+                    Children =
+                    {
+                        new TextBlock
+                        {
+                            Text = I18n.Format("History_DeleteConfirm_Content", item.FileName),
+                            TextWrapping = TextWrapping.Wrap
+                        },
+                        recordOnlyRadio,
+                        localOnlyRadio,
+                        localAndRecordRadio
+                    }
                 },
-                PrimaryButtonText = I18n.GetString("History_DeleteConfirm_DeleteRecord"),
-                SecondaryButtonText = I18n.GetString("History_DeleteConfirm_DeleteBoth"),
+                PrimaryButtonText = I18n.GetString("Common_Ok"),
                 CloseButtonText = I18n.GetString("Common_Cancel"),
                 DefaultButton = ContentDialogButton.Primary,
                 XamlRoot = this.XamlRoot
@@ -360,15 +386,50 @@ namespace FolderRewind.Views
             var result = await dialog.ShowAsync();
             if (result == ContentDialogResult.Primary)
             {
-                return false;
-            }
+                if (localOnlyRadio.IsChecked == true)
+                {
+                    return BackupDeleteMode.LocalArchiveOnly;
+                }
 
-            if (result == ContentDialogResult.Secondary)
-            {
-                return true;
+                if (localAndRecordRadio.IsChecked == true)
+                {
+                    return BackupDeleteMode.LocalArchiveAndRecord;
+                }
+
+                return BackupDeleteMode.RecordOnly;
             }
 
             return null;
+        }
+
+        private async void OnUploadToCloudClick(object sender, RoutedEventArgs e)
+        {
+            if (sender is not Button btn || btn.DataContext is not HistoryItem item)
+            {
+                return;
+            }
+
+            if (!TryGetSelectedContext(persistSelection: false, out _, out _))
+            {
+                return;
+            }
+
+            await ViewModel.UploadToCloudAsync(item);
+        }
+
+        private async void OnDownloadFromCloudClick(object sender, RoutedEventArgs e)
+        {
+            if (sender is not Button btn || btn.DataContext is not HistoryItem item)
+            {
+                return;
+            }
+
+            if (!TryGetSelectedContext(persistSelection: false, out _, out _))
+            {
+                return;
+            }
+
+            await ViewModel.DownloadFromCloudAsync(item);
         }
 
         private void CommentFilterBox_TextChanged(object sender, TextChangedEventArgs e)
