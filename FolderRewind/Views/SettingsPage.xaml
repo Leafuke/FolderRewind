@@ -450,6 +450,19 @@
 
                         <toolkit:SettingsCard>
                             <toolkit:SettingsCard.Header>
+                                <TextBlock x:Uid="SettingsPage_RclonePath" Style="{StaticResource SettingsHeaderTextStyle}" />
+                            </toolkit:SettingsCard.Header>
+                            <toolkit:SettingsCard.Description>
+                                <TextBlock x:Uid="SettingsPage_RclonePathDesc" Style="{StaticResource SettingsDescriptionStyle}" />
+                            </toolkit:SettingsCard.Description>
+                            <StackPanel Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
+                                <TextBox Text="{x:Bind Settings.RcloneExecutablePath, Mode=TwoWay}" Style="{StaticResource SettingsPathTextBoxStyle}" />
+                                <Button x:Uid="SettingsPage_BrowseButton" Style="{StaticResource SettingsActionButtonStyle}" Click="OnBrowseRcloneClick" />
+                            </StackPanel>
+                        </toolkit:SettingsCard>
+
+                        <toolkit:SettingsCard>
+                            <toolkit:SettingsCard.Header>
                                 <TextBlock x:Uid="SettingsPage_DefaultBackupRootPath" Style="{StaticResource SettingsHeaderTextStyle}" />
                             </toolkit:SettingsCard.Header>
                             <toolkit:SettingsCard.Description>

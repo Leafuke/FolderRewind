@@ -15,6 +15,7 @@ namespace FolderRewind.ViewModels
     public sealed class HistoryPageViewModel : ViewModelBase
     {
         private readonly List<HistoryItem> _currentAllItems = new();
+        private bool _historyEventsSubscribed;
         private int _missingCount;
         private bool _isEmpty = true;
         private string _commentFilterText = string.Empty;
@@ -71,6 +72,14 @@ namespace FolderRewind.ViewModels
         public void Initialize()
         {
             HistoryService.Initialize();
+
+            if (_historyEventsSubscribed)
+            {
+                return;
+            }
+
+            HistoryService.HistoryChanged += OnHistoryChanged;
+            _historyEventsSubscribed = true;
         }
 
         public void SetCurrentSelection(BackupConfig? config, ManagedFolder? folder, bool refreshHistoryIfFolder, bool persistSelection)
@@ -302,6 +311,14 @@ namespace FolderRewind.ViewModels
             return result;
         }
 
+        private void OnHistoryChanged()
+        {
+            _ = UiDispatcherService.RunOnUiAsync(() =>
+            {
+                RefreshCurrentHistory();
+            });
+        }
+
         private void ApplyCommentFilter()
         {
             UpdateCloudPresentation(_currentAllItems);
@@ -354,6 +371,7 @@ namespace FolderRewind.ViewModels
             var offBorder = TryGetThemeBrush("SystemControlForegroundBaseHighBrush", Colors.Gray);
 
             var ok = new SolidColorBrush(Colors.DodgerBlue);
+            var cloudOnly = new SolidColorBrush(Colors.LightSkyBlue);
             var bad = new SolidColorBrush(Colors.OrangeRed);
             var warn = new SolidColorBrush(Colors.Gold);
             var importantFill = new SolidColorBrush(Colors.Gold);
@@ -373,6 +391,11 @@ namespace FolderRewind.ViewModels
                 {
                     item.TimelineLineBrush = bad;
                     item.TimelineNodeBorderBrush = bad;
+                }
+                else if (item.IsCloudOnly)
+                {
+                    item.TimelineLineBrush = cloudOnly;
+                    item.TimelineNodeBorderBrush = cloudOnly;
                 }
                 else if (item.IsSmallFile)
                 {
@@ -426,13 +449,11 @@ namespace FolderRewind.ViewModels
 
             foreach (var item in items)
             {
-                item.CloudStatusText = item.IsCloudOnly
-                    ? I18n.GetString("History_CloudStatus_CloudOnly")
-                    : item.HasLocalFile && item.HasCloudCopy
-                        ? I18n.GetString("History_CloudStatus_LocalAndCloud")
-                        : item.HasCloudCopy
-                            ? I18n.GetString("History_CloudStatus_CloudAvailable")
-                            : I18n.GetString("History_CloudStatus_LocalOnly");
+                item.CloudStatusText = item.HasCloudCopy
+                    ? item.IsCloudOnly
+                        ? I18n.GetString("History_CloudStatus_CloudOnly")
+                        : I18n.GetString("History_CloudStatus_CloudAvailable")
+                    : string.Empty;
 
                 item.CanUploadToCloud = cloudActionsEnabled && item.HasLocalFile;
                 item.CanDownloadFromCloud = cloudActionsEnabled && item.HasCloudCopy;

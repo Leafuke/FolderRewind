@@ -2054,7 +2054,7 @@ Comment: {1}
     <value>Folder "{0}" restore failed: {1}</value>
   </data>
   <data name="CloudSync_Notification_Title" xml:space="preserve">
-    <value>Cloud Upload</value>
+    <value>Cloud Archive</value>
   </data>
   <data name="CloudSync_Notification_UploadFailed" xml:space="preserve">
     <value>Cloud upload failed for folder "{0}": {1}</value>
@@ -2284,8 +2284,20 @@ Status: {3}</value>
   <data name="Settings_ExportConfigFailed" xml:space="preserve">
     <value>Failed to export configuration.</value>
   </data>
+  <data name="Settings_ExportConfigMode_Title" xml:space="preserve">
+    <value>Export Configuration</value>
+  </data>
+  <data name="Settings_ExportConfigMode_Description" xml:space="preserve">
+    <value>Choose whether to export to a local file or directly to the cloud.</value>
+  </data>
   <data name="Settings_ImportConfigConfirmTitle" xml:space="preserve">
     <value>Import Configuration</value>
+  </data>
+  <data name="Settings_ImportConfigMode_Title" xml:space="preserve">
+    <value>Import Configuration</value>
+  </data>
+  <data name="Settings_ImportConfigMode_Description" xml:space="preserve">
+    <value>Choose whether to import from a local file or directly from the cloud.</value>
   </data>
   <data name="Settings_ImportConfigConfirmContent" xml:space="preserve">
     <value>Importing will replace all current settings and backup configurations. A backup of the current config will be created automatically. Continue?</value>
@@ -2305,8 +2317,20 @@ Status: {3}</value>
   <data name="Settings_ExportHistoryFailed" xml:space="preserve">
     <value>Failed to export history records.</value>
   </data>
+  <data name="Settings_ExportHistoryMode_Title" xml:space="preserve">
+    <value>Export History</value>
+  </data>
+  <data name="Settings_ExportHistoryMode_Description" xml:space="preserve">
+    <value>Choose whether to export to a local file or directly to the cloud.</value>
+  </data>
   <data name="Settings_ImportHistoryConfirmTitle" xml:space="preserve">
     <value>Import History</value>
+  </data>
+  <data name="Settings_ImportHistoryMode_Title" xml:space="preserve">
+    <value>Import History</value>
+  </data>
+  <data name="Settings_ImportHistoryMode_Description" xml:space="preserve">
+    <value>Choose whether to import from a local file or directly from the cloud.</value>
   </data>
   <data name="Settings_ImportHistoryConfirmContent" xml:space="preserve">
     <value>Choose how to import: Merge will add non-duplicate records to the existing history. Replace will overwrite all existing records.</value>
@@ -3502,13 +3526,13 @@ Pull request: {1}</value>
     <value>Local only</value>
   </data>
   <data name="History_CloudStatus_CloudAvailable" xml:space="preserve">
-    <value>Cloud available</value>
+    <value>Archived in the cloud</value>
   </data>
   <data name="History_CloudStatus_LocalAndCloud" xml:space="preserve">
     <value>Local + cloud</value>
   </data>
   <data name="History_CloudStatus_CloudOnly" xml:space="preserve">
-    <value>Cloud only</value>
+    <value>Only the cloud copy remains</value>
   </data>
   <data name="History_CloudUpload_Action" xml:space="preserve">
     <value>Upload to cloud</value>
@@ -3584,5 +3608,122 @@ Pull request: {1}</value>
   </data>
   <data name="CloudSync_Notification_MetadataPartial" xml:space="preserve">
     <value>Metadata for "{0}" was only partially synchronized. The archive itself completed first.</value>
+  </data>
+  <data name="ConfigSettingsDialog_CloudDownloadAllText.Text" xml:space="preserve">
+    <value>Fetch cloud backups for this configuration</value>
+  </data>
+  <data name="ConfigSettingsDialog_CloudDownloadAllDesc.Text" xml:space="preserve">
+    <value>Pull this configuration's archived backups and metadata back into the local backup library, then try to recover the matching history records.</value>
+  </data>
+  <data name="ConfigSettingsDialog_CloudExecutableDesc.Text" xml:space="preserve">
+    <value>This can override the rclone path for the current configuration. If left empty or kept as the default, the global rclone path from Settings will be used first.</value>
+  </data>
+  <data name="SettingsPage_RclonePath.Text" xml:space="preserve">
+    <value>rclone path</value>
+  </data>
+  <data name="SettingsPage_RclonePathDesc.Text" xml:space="preserve">
+    <value>Cloud import and configurations without a dedicated executable path will prefer this global rclone path.</value>
+  </data>
+  <data name="SettingsPage_ImportConfigFromCloud.Content" xml:space="preserve">
+    <value>Import config from cloud</value>
+  </data>
+  <data name="SettingsPage_ImportHistoryFromCloud.Content" xml:space="preserve">
+    <value>Import history from cloud</value>
+  </data>
+  <data name="Settings_ImportConfigFromCloud_Title" xml:space="preserve">
+    <value>Import Configuration From Cloud</value>
+  </data>
+  <data name="Settings_ImportConfigFromCloud_Description" xml:space="preserve">
+    <value>Enter the remote base path and FolderRewind will download its config.json, then reuse the existing configuration import flow.</value>
+  </data>
+  <data name="Settings_ImportHistoryFromCloud_Title" xml:space="preserve">
+    <value>Import History From Cloud</value>
+  </data>
+  <data name="Settings_ImportHistoryFromCloud_Description" xml:space="preserve">
+    <value>Enter the remote base path and FolderRewind will download its history.json, then reuse the existing history import flow.</value>
+  </data>
+  <data name="Settings_ExportConfigToCloud_Title" xml:space="preserve">
+    <value>Export Configuration To Cloud</value>
+  </data>
+  <data name="Settings_ExportConfigToCloud_Description" xml:space="preserve">
+    <value>Enter the remote base path and FolderRewind will export the current configuration as config.json, then upload it to the cloud.</value>
+  </data>
+  <data name="Settings_ExportHistoryToCloud_Title" xml:space="preserve">
+    <value>Export History To Cloud</value>
+  </data>
+  <data name="Settings_ExportHistoryToCloud_Description" xml:space="preserve">
+    <value>Enter the remote base path and FolderRewind will export the current history as history.json, then upload it to the cloud.</value>
+  </data>
+  <data name="Settings_DataTransferMode_Local" xml:space="preserve">
+    <value>Local file</value>
+  </data>
+  <data name="Settings_DataTransferMode_Cloud" xml:space="preserve">
+    <value>Cloud</value>
+  </data>
+  <data name="Settings_CloudRemoteBasePath_Label" xml:space="preserve">
+    <value>Remote base path</value>
+  </data>
+  <data name="Settings_CloudRemoteBasePath_Placeholder" xml:space="preserve">
+    <value>For example: remote:FolderRewind</value>
+  </data>
+  <data name="CloudSync_Task_ConfigurationDownloadName" xml:space="preserve">
+    <value>Fetch cloud backups: {0}</value>
+  </data>
+  <data name="CloudSync_Task_DownloadingFolderArchives" xml:space="preserve">
+    <value>Fetching cloud backups for "{0}"...</value>
+  </data>
+  <data name="CloudSync_Task_ConfigImportName" xml:space="preserve">
+    <value>Import configuration from cloud</value>
+  </data>
+  <data name="CloudSync_Task_HistoryImportName" xml:space="preserve">
+    <value>Import history from cloud</value>
+  </data>
+  <data name="CloudSync_Task_ConfigExportName" xml:space="preserve">
+    <value>Export configuration to cloud</value>
+  </data>
+  <data name="CloudSync_Task_HistoryExportName" xml:space="preserve">
+    <value>Export history to cloud</value>
+  </data>
+  <data name="CloudSync_Notification_ConfigurationNoFolders" xml:space="preserve">
+    <value>This configuration does not have any folders to fetch yet.</value>
+  </data>
+  <data name="CloudSync_Notification_ConfigurationDownloadSucceeded" xml:space="preserve">
+    <value>Fetched cloud backups for "{0}" and recovered {1} history entries.</value>
+  </data>
+  <data name="CloudSync_Notification_ConfigurationDownloadFailed" xml:space="preserve">
+    <value>Unable to fetch cloud backups for the current configuration.</value>
+  </data>
+  <data name="CloudSync_Notification_ConfigurationDownloadFailedWithReason" xml:space="preserve">
+    <value>Failed to fetch cloud backups for "{0}": {1}</value>
+  </data>
+  <data name="CloudSync_Notification_ConfigImportSucceeded" xml:space="preserve">
+    <value>Configuration imported from the cloud.</value>
+  </data>
+  <data name="CloudSync_Notification_ConfigImportFailed" xml:space="preserve">
+    <value>Failed to import configuration from the cloud.</value>
+  </data>
+  <data name="CloudSync_Notification_ConfigExportSucceeded" xml:space="preserve">
+    <value>Configuration exported to cloud.</value>
+  </data>
+  <data name="CloudSync_Notification_ConfigExportFailed" xml:space="preserve">
+    <value>Failed to export configuration to cloud.</value>
+  </data>
+  <data name="CloudSync_Notification_HistoryImportSucceeded" xml:space="preserve">
+    <value>Imported {0} history entries from the cloud.</value>
+  </data>
+  <data name="CloudSync_Notification_HistoryImportFailed" xml:space="preserve">
+    <value>Failed to import history from the cloud.</value>
+  </data>
+  <data name="CloudSync_Notification_HistoryExportSucceeded" xml:space="preserve">
+    <value>History exported to cloud.</value>
+  </data>
+  <data name="CloudSync_Notification_HistoryExportFailed" xml:space="preserve">
+    <value>Failed to export history to cloud.</value>
+  </data>
+  <data name="CloudSync_Notification_ImportFailedWithReason" xml:space="preserve">
+    <value>Cloud import failed: {0}</value>
+  </data>
+  <data name="CloudSync_Notification_ExportFailedWithReason" xml:space="preserve">
+    <value>Cloud export failed: {0}</value>
   </data>
 </root>

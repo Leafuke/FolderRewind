@@ -463,6 +463,8 @@ namespace FolderRewind.Services
                 settings.SevenZipPath = "7za.exe";
             }
 
+            settings.RcloneExecutablePath = settings.RcloneExecutablePath?.Trim() ?? string.Empty;
+
             if (string.IsNullOrWhiteSpace(settings.DefaultBackupRootPath))
             {
                 settings.DefaultBackupRootPath = GetRecommendedDefaultBackupRootPath();

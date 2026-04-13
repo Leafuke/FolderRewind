@@ -28,6 +28,12 @@ namespace FolderRewind.Views
 {
     public sealed partial class SettingsPage : Page, INotifyPropertyChanged
     {
+        private enum DataTransferLocation
+        {
+            Local,
+            Cloud
+        }
+
         private readonly SettingsPageViewModel _viewModel = new();
 
         public GlobalSettings Settings => _viewModel.Settings;
@@ -1086,6 +1092,24 @@ namespace FolderRewind.Views
             }
         }
 
+        private async void OnBrowseRcloneClick(object sender, RoutedEventArgs e)
+        {
+            var picker = new FileOpenPicker();
+            picker.ViewMode = PickerViewMode.List;
+            picker.SuggestedStartLocation = PickerLocationId.ComputerFolder;
+            picker.FileTypeFilter.Add(".exe");
+            picker.FileTypeFilter.Add(".cmd");
+            picker.FileTypeFilter.Add(".bat");
+            picker.FileTypeFilter.Add(".ps1");
+            MainWindowService.InitializePicker(picker);
+
+            var file = await picker.PickSingleFileAsync();
+            if (file != null)
+            {
+                _viewModel.ApplyRclonePath(file.Path);
+            }
+        }
+
         private async void OnBrowseDefaultBackupRootClick(object sender, RoutedEventArgs e)
         {
             var picker = new FolderPicker();
@@ -1172,6 +1196,29 @@ namespace FolderRewind.Views
 
         private async void OnExportConfigClick(object sender, RoutedEventArgs e)
         {
+            var location = await PromptDataTransferLocationAsync(
+                I18n.GetString("Settings_ExportConfigMode_Title"),
+                I18n.GetString("Settings_ExportConfigMode_Description"));
+            if (location == null)
+            {
+                return;
+            }
+
+            if (location == DataTransferLocation.Cloud)
+            {
+                var remoteBasePath = await PromptCloudRemoteBasePathAsync(
+                    I18n.GetString("Settings_ExportConfigToCloud_Title"),
+                    I18n.GetString("Settings_ExportConfigToCloud_Description"));
+                if (string.IsNullOrWhiteSpace(remoteBasePath))
+                {
+                    return;
+                }
+
+                var cloudResult = await CloudSyncService.ExportConfigToCloudAsync(remoteBasePath);
+                ShowInfoBar(cloudResult.Message, cloudResult.Success ? Microsoft.UI.Xaml.Controls.InfoBarSeverity.Success : Microsoft.UI.Xaml.Controls.InfoBarSeverity.Error);
+                return;
+            }
+
             var picker = new FileSavePicker();
             picker.SuggestedStartLocation = PickerLocationId.DocumentsLibrary;
             picker.FileTypeChoices.Add("JSON", new List<string> { ".json" });
@@ -1190,6 +1237,14 @@ namespace FolderRewind.Views
 
         private async void OnImportConfigClick(object sender, RoutedEventArgs e)
         {
+            var location = await PromptDataTransferLocationAsync(
+                I18n.GetString("Settings_ImportConfigMode_Title"),
+                I18n.GetString("Settings_ImportConfigMode_Description"));
+            if (location == null)
+            {
+                return;
+            }
+
             var confirm = new ContentDialog
             {
                 Title = I18n.GetString("Settings_ImportConfigConfirmTitle"),
@@ -1203,6 +1258,25 @@ namespace FolderRewind.Views
 
             var result = await confirm.ShowAsync();
             if (result != ContentDialogResult.Primary) return;
+
+            if (location == DataTransferLocation.Cloud)
+            {
+                var remoteBasePath = await PromptCloudRemoteBasePathAsync(
+                    I18n.GetString("Settings_ImportConfigFromCloud_Title"),
+                    I18n.GetString("Settings_ImportConfigFromCloud_Description"));
+                if (string.IsNullOrWhiteSpace(remoteBasePath))
+                {
+                    return;
+                }
+
+                var cloudResult = await CloudSyncService.ImportConfigFromCloudAsync(remoteBasePath);
+                ShowInfoBar(cloudResult.Message, cloudResult.Success ? Microsoft.UI.Xaml.Controls.InfoBarSeverity.Success : Microsoft.UI.Xaml.Controls.InfoBarSeverity.Error);
+                if (cloudResult.Success)
+                {
+                    OnPropertyChanged(nameof(Settings));
+                }
+                return;
+            }
 
             var picker = new FileOpenPicker();
             picker.SuggestedStartLocation = PickerLocationId.DocumentsLibrary;
@@ -1222,6 +1296,44 @@ namespace FolderRewind.Views
             else
             {
                 ShowInfoBar(I18n.GetString("Settings_ImportConfigFailed"), Microsoft.UI.Xaml.Controls.InfoBarSeverity.Error);
+            }
+        }
+
+        private async void OnImportConfigFromCloudClick(object sender, RoutedEventArgs e)
+        {
+            var remoteBasePath = await PromptCloudRemoteBasePathAsync(
+                I18n.GetString("Settings_ImportConfigFromCloud_Title"),
+                I18n.GetString("Settings_ImportConfigFromCloud_Description"));
+            if (string.IsNullOrWhiteSpace(remoteBasePath))
+            {
+                return;
+            }
+
+            var confirm = new ContentDialog
+            {
+                Title = I18n.GetString("Settings_ImportConfigConfirmTitle"),
+                Content = new TextBlock { Text = I18n.GetString("Settings_ImportConfigConfirmContent"), TextWrapping = TextWrapping.Wrap },
+                PrimaryButtonText = I18n.GetString("Common_Confirm"),
+                CloseButtonText = I18n.GetString("Common_Cancel"),
+                DefaultButton = ContentDialogButton.Close,
+                XamlRoot = this.XamlRoot
+            };
+            ThemeService.ApplyThemeToDialog(confirm);
+
+            if (await confirm.ShowAsync() != ContentDialogResult.Primary)
+            {
+                return;
+            }
+
+            var result = await CloudSyncService.ImportConfigFromCloudAsync(remoteBasePath);
+            if (result.Success)
+            {
+                OnPropertyChanged(nameof(Settings));
+                ShowInfoBar(result.Message, Microsoft.UI.Xaml.Controls.InfoBarSeverity.Success);
+            }
+            else
+            {
+                ShowInfoBar(result.Message, Microsoft.UI.Xaml.Controls.InfoBarSeverity.Error);
             }
         }
 
@@ -1574,6 +1686,29 @@ namespace FolderRewind.Views
 
         private async void OnExportHistoryClick(object sender, RoutedEventArgs e)
         {
+            var location = await PromptDataTransferLocationAsync(
+                I18n.GetString("Settings_ExportHistoryMode_Title"),
+                I18n.GetString("Settings_ExportHistoryMode_Description"));
+            if (location == null)
+            {
+                return;
+            }
+
+            if (location == DataTransferLocation.Cloud)
+            {
+                var remoteBasePath = await PromptCloudRemoteBasePathAsync(
+                    I18n.GetString("Settings_ExportHistoryToCloud_Title"),
+                    I18n.GetString("Settings_ExportHistoryToCloud_Description"));
+                if (string.IsNullOrWhiteSpace(remoteBasePath))
+                {
+                    return;
+                }
+
+                var cloudResult = await CloudSyncService.ExportHistoryToCloudAsync(remoteBasePath);
+                ShowInfoBar(cloudResult.Message, cloudResult.Success ? Microsoft.UI.Xaml.Controls.InfoBarSeverity.Success : Microsoft.UI.Xaml.Controls.InfoBarSeverity.Error);
+                return;
+            }
+
             var picker = new FileSavePicker();
             picker.SuggestedStartLocation = PickerLocationId.DocumentsLibrary;
             picker.FileTypeChoices.Add("JSON", new List<string> { ".json" });
@@ -1592,6 +1727,14 @@ namespace FolderRewind.Views
 
         private async void OnImportHistoryClick(object sender, RoutedEventArgs e)
         {
+            var location = await PromptDataTransferLocationAsync(
+                I18n.GetString("Settings_ImportHistoryMode_Title"),
+                I18n.GetString("Settings_ImportHistoryMode_Description"));
+            if (location == null)
+            {
+                return;
+            }
+
             var confirm = new ContentDialog
             {
                 Title = I18n.GetString("Settings_ImportHistoryConfirmTitle"),
@@ -1609,6 +1752,21 @@ namespace FolderRewind.Views
 
             bool merge = (result == ContentDialogResult.Primary);
 
+            if (location == DataTransferLocation.Cloud)
+            {
+                var remoteBasePath = await PromptCloudRemoteBasePathAsync(
+                    I18n.GetString("Settings_ImportHistoryFromCloud_Title"),
+                    I18n.GetString("Settings_ImportHistoryFromCloud_Description"));
+                if (string.IsNullOrWhiteSpace(remoteBasePath))
+                {
+                    return;
+                }
+
+                var cloudResult = await CloudSyncService.ImportHistoryFromCloudAsync(remoteBasePath, merge);
+                ShowInfoBar(cloudResult.Message, cloudResult.Success ? Microsoft.UI.Xaml.Controls.InfoBarSeverity.Success : Microsoft.UI.Xaml.Controls.InfoBarSeverity.Error);
+                return;
+            }
+
             var picker = new FileOpenPicker();
             picker.SuggestedStartLocation = PickerLocationId.DocumentsLibrary;
             picker.FileTypeFilter.Add(".json");
@@ -1622,6 +1780,128 @@ namespace FolderRewind.Views
                 ShowInfoBar(I18n.Format("Settings_ImportHistorySuccess", count.ToString()), Microsoft.UI.Xaml.Controls.InfoBarSeverity.Success);
             else
                 ShowInfoBar(I18n.GetString("Settings_ImportHistoryFailed"), Microsoft.UI.Xaml.Controls.InfoBarSeverity.Error);
+        }
+
+        private async void OnImportHistoryFromCloudClick(object sender, RoutedEventArgs e)
+        {
+            var confirm = new ContentDialog
+            {
+                Title = I18n.GetString("Settings_ImportHistoryConfirmTitle"),
+                Content = new TextBlock { Text = I18n.GetString("Settings_ImportHistoryConfirmContent"), TextWrapping = TextWrapping.Wrap },
+                PrimaryButtonText = I18n.GetString("Settings_ImportHistoryMerge"),
+                SecondaryButtonText = I18n.GetString("Settings_ImportHistoryReplace"),
+                CloseButtonText = I18n.GetString("Common_Cancel"),
+                DefaultButton = ContentDialogButton.Primary,
+                XamlRoot = this.XamlRoot
+            };
+            ThemeService.ApplyThemeToDialog(confirm);
+
+            var confirmResult = await confirm.ShowAsync();
+            if (confirmResult == ContentDialogResult.None)
+            {
+                return;
+            }
+
+            bool merge = confirmResult == ContentDialogResult.Primary;
+            var remoteBasePath = await PromptCloudRemoteBasePathAsync(
+                I18n.GetString("Settings_ImportHistoryFromCloud_Title"),
+                I18n.GetString("Settings_ImportHistoryFromCloud_Description"));
+            if (string.IsNullOrWhiteSpace(remoteBasePath))
+            {
+                return;
+            }
+
+            var result = await CloudSyncService.ImportHistoryFromCloudAsync(remoteBasePath, merge);
+            if (result.Success)
+            {
+                ShowInfoBar(result.Message, Microsoft.UI.Xaml.Controls.InfoBarSeverity.Success);
+            }
+            else
+            {
+                ShowInfoBar(result.Message, Microsoft.UI.Xaml.Controls.InfoBarSeverity.Error);
+            }
+        }
+
+        private async Task<DataTransferLocation?> PromptDataTransferLocationAsync(string title, string description)
+        {
+            var localRadio = new RadioButton
+            {
+                Content = I18n.GetString("Settings_DataTransferMode_Local"),
+                IsChecked = true
+            };
+
+            var cloudRadio = new RadioButton
+            {
+                Content = I18n.GetString("Settings_DataTransferMode_Cloud")
+            };
+
+            var dialog = new ContentDialog
+            {
+                Title = title,
+                Content = new StackPanel
+                {
+                    Spacing = 10,
+                    Children =
+                    {
+                        new TextBlock
+                        {
+                            Text = description,
+                            TextWrapping = TextWrapping.Wrap
+                        },
+                        localRadio,
+                        cloudRadio
+                    }
+                },
+                PrimaryButtonText = I18n.GetString("Common_Confirm"),
+                CloseButtonText = I18n.GetString("Common_Cancel"),
+                DefaultButton = ContentDialogButton.Primary,
+                XamlRoot = this.XamlRoot
+            };
+            ThemeService.ApplyThemeToDialog(dialog);
+
+            if (await dialog.ShowAsync() != ContentDialogResult.Primary)
+            {
+                return null;
+            }
+
+            return cloudRadio.IsChecked == true ? DataTransferLocation.Cloud : DataTransferLocation.Local;
+        }
+
+        private async Task<string?> PromptCloudRemoteBasePathAsync(string title, string description)
+        {
+            var input = new TextBox
+            {
+                Header = I18n.GetString("Settings_CloudRemoteBasePath_Label"),
+                PlaceholderText = I18n.GetString("Settings_CloudRemoteBasePath_Placeholder"),
+                Text = CloudSyncService.GetSuggestedRemoteBasePath(),
+                TextWrapping = TextWrapping.NoWrap
+            };
+
+            var panel = new StackPanel { Spacing = 10 };
+            panel.Children.Add(new TextBlock
+            {
+                Text = description,
+                TextWrapping = TextWrapping.Wrap
+            });
+            panel.Children.Add(input);
+
+            var dialog = new ContentDialog
+            {
+                Title = title,
+                Content = panel,
+                PrimaryButtonText = I18n.GetString("Common_Confirm"),
+                CloseButtonText = I18n.GetString("Common_Cancel"),
+                DefaultButton = ContentDialogButton.Primary,
+                XamlRoot = this.XamlRoot
+            };
+            ThemeService.ApplyThemeToDialog(dialog);
+
+            if (await dialog.ShowAsync() != ContentDialogResult.Primary)
+            {
+                return null;
+            }
+
+            return input.Text?.Trim();
         }
 
         private static string SanitizeFileName(string? name)

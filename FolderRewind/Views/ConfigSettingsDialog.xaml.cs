@@ -639,6 +639,15 @@ namespace FolderRewind.Views
             UpdateCloudBindings();
         }
 
+        private async void OnDownloadAllCloudBackupsClick(object sender, RoutedEventArgs e)
+        {
+            var result = await CloudSyncService.DownloadConfigurationHistoryAsync(Config);
+            if (result.Success)
+            {
+                UpdateCloudBindings();
+            }
+        }
+
         private void UpdateCloudBindings()
         {
             _ = DispatcherQueue.TryEnqueue(() => Bindings.Update());

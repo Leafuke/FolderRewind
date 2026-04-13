@@ -323,6 +323,19 @@
                             </ComboBox>
                             <Button Grid.Column="1" x:Uid="ConfigSettingsDialog_CloudApplyTemplate" Click="OnApplyCloudTemplateClick"/>
                         </Grid>
+
+                        <StackPanel Spacing="6">
+                            <Button Click="OnDownloadAllCloudBackupsClick" HorizontalAlignment="Left">
+                                <StackPanel Orientation="Horizontal" Spacing="6">
+                                    <FontIcon Glyph="&#xE896;"/>
+                                    <TextBlock x:Uid="ConfigSettingsDialog_CloudDownloadAllText"/>
+                                </StackPanel>
+                            </Button>
+                            <TextBlock x:Uid="ConfigSettingsDialog_CloudDownloadAllDesc"
+                                       Style="{StaticResource CaptionTextBlockStyle}"
+                                       Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                                       TextWrapping="Wrap"/>
+                        </StackPanel>
                     </StackPanel>
 
                     <StackPanel Spacing="8">
@@ -337,6 +350,10 @@
                                 <FontIcon Glyph="&#xE8A7;"/>
                             </Button>
                         </Grid>
+                        <TextBlock x:Uid="ConfigSettingsDialog_CloudExecutableDesc"
+                                   Style="{StaticResource CaptionTextBlockStyle}"
+                                   Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                                   TextWrapping="Wrap"/>
                     </StackPanel>
 
                     <StackPanel Spacing="8">

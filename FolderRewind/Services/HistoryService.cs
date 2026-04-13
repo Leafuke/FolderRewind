@@ -30,6 +30,8 @@ namespace FolderRewind.Services
         private static Task? _pendingSave;
         private static readonly SemaphoreSlim _saveLock = new(1, 1);
 
+        public static event Action? HistoryChanged;
+
         public static void Initialize()
         {
             if (_initialized) return;
@@ -142,7 +144,7 @@ namespace FolderRewind.Services
                 }
                 else if (hasCloudCopy)
                 {
-                    item.FileSizeDisplay = I18n.GetString("History_FileCloudOnly");
+                    item.FileSizeDisplay = string.Empty;
                 }
                 else
                 {
@@ -914,6 +916,8 @@ namespace FolderRewind.Services
 
         private static void ScheduleSave()
         {
+            HistoryChanged?.Invoke();
+
             // 取消前一次保存，合并写盘
             _saveCts?.Cancel();
             _saveCts = new CancellationTokenSource();

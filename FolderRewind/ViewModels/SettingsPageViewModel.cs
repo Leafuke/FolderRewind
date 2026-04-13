@@ -301,6 +301,17 @@ namespace FolderRewind.ViewModels
             ConfigService.Save();
         }
 
+        public void ApplyRclonePath(string path)
+        {
+            if (string.IsNullOrWhiteSpace(path))
+            {
+                return;
+            }
+
+            Settings.RcloneExecutablePath = path;
+            ConfigService.Save();
+        }
+
         public void ApplyDefaultBackupRootPath(string path)
         {
             if (string.IsNullOrWhiteSpace(path))
