@@ -1963,12 +1963,6 @@
   <data name="History_DeleteConfirm_Content" xml:space="preserve">
     <value>将要处理该条历史记录：{0} \n\n请选择仅删除记录、仅删除本地备份文件，或同时删除本地备份与记录。云端副本不会被移除。</value>
   </data>
-  <data name="History_DeleteConfirm_DeleteRecord" xml:space="preserve">
-    <value>仅删除记录</value>
-  </data>
-  <data name="History_DeleteConfirm_DeleteBoth" xml:space="preserve">
-    <value>删除记录和备份</value>
-  </data>
   <data name="History_ClearMissingConfirm_Title" xml:space="preserve">
     <value>清除失效记录</value>
   </data>
@@ -3168,12 +3162,6 @@
   <data name="SettingsPage_PrepareTemplateSubmission.Content" xml:space="preserve">
     <value>准备投稿文件</value>
   </data>
-  <data name="OfficialTemplates_SourceOfficial" xml:space="preserve">
-    <value>官方源</value>
-  </data>
-  <data name="OfficialTemplates_SourceMirror" xml:space="preserve">
-    <value>备用源</value>
-  </data>
   <data name="OfficialTemplates_SourceCache" xml:space="preserve">
     <value>本地缓存</value>
   </data>
@@ -3519,17 +3507,8 @@ Pull Request：{1}</value>
   <data name="GitHubSubmit_Progress_CreatePr" xml:space="preserve">
     <value>正在创建 Pull Request…</value>
   </data>
-  <data name="History_FileCloudOnly" xml:space="preserve">
-    <value>仅云端可用</value>
-  </data>
-  <data name="History_CloudStatus_LocalOnly" xml:space="preserve">
-    <value>仅本地</value>
-  </data>
   <data name="History_CloudStatus_CloudAvailable" xml:space="preserve">
     <value>已在云端保留副本</value>
-  </data>
-  <data name="History_CloudStatus_LocalAndCloud" xml:space="preserve">
-    <value>本地 + 云端</value>
   </data>
   <data name="History_CloudStatus_CloudOnly" xml:space="preserve">
     <value>当前仅保留云端副本</value>
@@ -3623,12 +3602,6 @@ Pull Request：{1}</value>
   </data>
   <data name="SettingsPage_RclonePathDesc.Text" xml:space="preserve">
     <value>云导入与未单独指定程序路径的云配置会优先使用这里的全局 rclone。</value>
-  </data>
-  <data name="SettingsPage_ImportConfigFromCloud.Content" xml:space="preserve">
-    <value>从云导入配置</value>
-  </data>
-  <data name="SettingsPage_ImportHistoryFromCloud.Content" xml:space="preserve">
-    <value>从云导入历史</value>
   </data>
   <data name="Settings_ImportConfigFromCloud_Title" xml:space="preserve">
     <value>从云导入配置</value>

@@ -1963,12 +1963,6 @@ Comment: {1}
   <data name="History_DeleteConfirm_Content" xml:space="preserve">
     <value>You are about to process this history entry: {0} \n\n Choose whether to remove only the record, only the local backup file, or both. Cloud data will not be deleted.</value>
   </data>
-  <data name="History_DeleteConfirm_DeleteRecord" xml:space="preserve">
-    <value>Delete record only</value>
-  </data>
-  <data name="History_DeleteConfirm_DeleteBoth" xml:space="preserve">
-    <value>Delete record and backup</value>
-  </data>
   <data name="History_ClearMissingConfirm_Title" xml:space="preserve">
     <value>Clear missing records</value>
   </data>
@@ -3168,12 +3162,6 @@ Release notes:
   <data name="SettingsPage_PrepareTemplateSubmission.Content" xml:space="preserve">
     <value>Prepare Submission</value>
   </data>
-  <data name="OfficialTemplates_SourceOfficial" xml:space="preserve">
-    <value>Official source</value>
-  </data>
-  <data name="OfficialTemplates_SourceMirror" xml:space="preserve">
-    <value>Fallback mirror</value>
-  </data>
   <data name="OfficialTemplates_SourceCache" xml:space="preserve">
     <value>Local cache</value>
   </data>
@@ -3519,17 +3507,8 @@ Pull request: {1}</value>
   <data name="GitHubSubmit_Progress_CreatePr" xml:space="preserve">
     <value>Creating the pull request...</value>
   </data>
-  <data name="History_FileCloudOnly" xml:space="preserve">
-    <value>Cloud copy only</value>
-  </data>
-  <data name="History_CloudStatus_LocalOnly" xml:space="preserve">
-    <value>Local only</value>
-  </data>
   <data name="History_CloudStatus_CloudAvailable" xml:space="preserve">
     <value>Archived in the cloud</value>
-  </data>
-  <data name="History_CloudStatus_LocalAndCloud" xml:space="preserve">
-    <value>Local + cloud</value>
   </data>
   <data name="History_CloudStatus_CloudOnly" xml:space="preserve">
     <value>Only the cloud copy remains</value>
@@ -3623,12 +3602,6 @@ Pull request: {1}</value>
   </data>
   <data name="SettingsPage_RclonePathDesc.Text" xml:space="preserve">
     <value>Cloud import and configurations without a dedicated executable path will prefer this global rclone path.</value>
-  </data>
-  <data name="SettingsPage_ImportConfigFromCloud.Content" xml:space="preserve">
-    <value>Import config from cloud</value>
-  </data>
-  <data name="SettingsPage_ImportHistoryFromCloud.Content" xml:space="preserve">
-    <value>Import history from cloud</value>
   </data>
   <data name="Settings_ImportConfigFromCloud_Title" xml:space="preserve">
     <value>Import Configuration From Cloud</value>

@@ -15,8 +15,7 @@ namespace FolderRewind.Services
         {
             try
             {
-                var task = Task.Run(async () => await SetStartupAsync(enable)).GetAwaiter().GetResult();
-                return task;
+                return Task.Run(() => SetStartupAsync(enable)).GetAwaiter().GetResult();
             }
             catch (Exception ex)
             {
@@ -67,8 +66,7 @@ namespace FolderRewind.Services
         {
             try
             {
-                var task = Task.Run(async () => await IsStartupEnabledAsync()).GetAwaiter().GetResult();
-                return task;
+                return Task.Run(() => IsStartupEnabledAsync()).GetAwaiter().GetResult();
             }
             catch
             {
