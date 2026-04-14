@@ -312,6 +312,18 @@ namespace FolderRewind.ViewModels
             ConfigService.Save();
         }
 
+        public void ApplyDefaultCloudRemoteBasePath(string path)
+        {
+            var normalized = path?.Trim() ?? string.Empty;
+            if (string.IsNullOrWhiteSpace(normalized))
+            {
+                return;
+            }
+
+            Settings.DefaultCloudRemoteBasePath = normalized;
+            ConfigService.Save();
+        }
+
         public void ApplyDefaultBackupRootPath(string path)
         {
             if (string.IsNullOrWhiteSpace(path))

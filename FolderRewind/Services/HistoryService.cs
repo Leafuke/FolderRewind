@@ -723,6 +723,27 @@ namespace FolderRewind.Services
                 var imported = JsonSerializer.Deserialize(json, AppJsonContext.Default.ListHistoryItem);
                 if (imported == null) return (false, 0);
 
+                var importResult = ImportHistoryItems(imported, merge);
+                return (importResult.Success, importResult.ImportedCount);
+            }
+            catch (Exception ex)
+            {
+                LogService.Log(I18n.Format("History_ImportFailed", ex.Message));
+                return (false, 0);
+            }
+        }
+
+        public static (bool Success, int ImportedCount, int DuplicateCount) ImportHistoryItems(IEnumerable<HistoryItem> items, bool merge = true)
+        {
+            Initialize();
+            try
+            {
+                if (items == null)
+                {
+                    return (false, 0, 0);
+                }
+
+                var imported = items.Where(item => item != null).ToList();
                 var safeImported = imported.Where(IsSafeHistoryItem).ToList();
                 int droppedCount = imported.Count - safeImported.Count;
                 if (safeImported.Count == 0 && imported.Count > 0)
@@ -730,12 +751,12 @@ namespace FolderRewind.Services
                     LogService.Log("[HistoryService] Import skipped: all entries were rejected due to unsafe paths.", LogLevel.Warning);
                 }
 
-                int count = 0;
+                int importedCount = 0;
+                int duplicateCount = 0;
                 lock (_historyLock)
                 {
                     if (merge)
                     {
-                        // 合并模式：仅添加不存在的条目（按 ConfigId+FolderPath+FileName+Timestamp 去重）
                         foreach (var item in safeImported)
                         {
                             bool exists = _allHistory.Any(x =>
@@ -743,27 +764,30 @@ namespace FolderRewind.Services
                                 x.FolderPath == item.FolderPath &&
                                 x.FileName == item.FileName &&
                                 x.Timestamp == item.Timestamp);
-                            if (!exists)
+                            if (exists)
                             {
-                                _allHistory.Add(item);
-                                count++;
+                                duplicateCount++;
+                                continue;
                             }
+
+                            _allHistory.Add(item);
+                            importedCount++;
                         }
                     }
                     else
                     {
-                        // 替换模式
-                        // 先备份
                         try
                         {
                             string backupPath = HistoryPath + ".bak";
                             if (File.Exists(HistoryPath)) File.Copy(HistoryPath, backupPath, true);
                         }
-                        catch { }
+                        catch
+                        {
+                        }
 
                         _allHistory.Clear();
                         _allHistory.AddRange(safeImported);
-                        count = safeImported.Count;
+                        importedCount = safeImported.Count;
                     }
                 }
 
@@ -772,13 +796,14 @@ namespace FolderRewind.Services
                 {
                     LogService.Log($"[HistoryService] Import dropped {droppedCount} unsafe entries.", LogLevel.Warning);
                 }
-                LogService.Log(I18n.Format("History_ImportSuccess", count.ToString()));
-                return (true, count);
+
+                LogService.Log(I18n.Format("History_ImportSuccess", importedCount.ToString()));
+                return (true, importedCount, duplicateCount);
             }
             catch (Exception ex)
             {
                 LogService.Log(I18n.Format("History_ImportFailed", ex.Message));
-                return (false, 0);
+                return (false, 0, 0);
             }
         }
 

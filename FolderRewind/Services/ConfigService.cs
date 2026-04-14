@@ -34,6 +34,14 @@ namespace FolderRewind.Services
             return Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments), "FolderRewind-Backup");
         }
 
+        public static string GetRecommendedDefaultCloudRemoteBasePath()
+        {
+            return CurrentConfig?.GlobalSettings?.DefaultCloudRemoteBasePath?.Trim() is string configured
+                && !string.IsNullOrWhiteSpace(configured)
+                ? configured
+                : "remote:FolderRewind";
+        }
+
         public static string BuildDefaultDestinationPath(string? configName)
         {
             var safeName = MakeSafeFolderName(configName);
@@ -256,6 +264,7 @@ namespace FolderRewind.Services
                 CurrentConfig.GlobalSettings.SevenZipPath = "7za.exe";
                 CurrentConfig.GlobalSettings.FontFamily = FontService.GetRecommendedDefaultFontFamily();
                 CurrentConfig.GlobalSettings.DefaultBackupRootPath = GetRecommendedDefaultBackupRootPath();
+                CurrentConfig.GlobalSettings.DefaultCloudRemoteBasePath = "remote:FolderRewind";
             }
             catch
             {
@@ -272,6 +281,7 @@ namespace FolderRewind.Services
             // 默认 7z 压缩
             defaultConfig.Archive.Format = "7z";
             defaultConfig.Archive.CompressionLevel = 5;
+            defaultConfig.Cloud.RemoteBasePath = GetRecommendedDefaultCloudRemoteBasePath();
 
             CurrentConfig.BackupConfigs.Add(defaultConfig);
             Save();
@@ -283,7 +293,7 @@ namespace FolderRewind.Services
                 cloud.ExecutablePath = "rclone.exe";
 
             if (string.IsNullOrWhiteSpace(cloud.RemoteBasePath))
-                cloud.RemoteBasePath = "remote:FolderRewind";
+                cloud.RemoteBasePath = GetRecommendedDefaultCloudRemoteBasePath();
 
             if (cloud.TimeoutSeconds <= 0)
                 cloud.TimeoutSeconds = 600;
@@ -464,6 +474,9 @@ namespace FolderRewind.Services
             }
 
             settings.RcloneExecutablePath = settings.RcloneExecutablePath?.Trim() ?? string.Empty;
+            settings.DefaultCloudRemoteBasePath = string.IsNullOrWhiteSpace(settings.DefaultCloudRemoteBasePath)
+                ? "remote:FolderRewind"
+                : settings.DefaultCloudRemoteBasePath.Trim();
 
             if (string.IsNullOrWhiteSpace(settings.DefaultBackupRootPath))
             {

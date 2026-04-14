@@ -463,6 +463,18 @@
 
                         <toolkit:SettingsCard>
                             <toolkit:SettingsCard.Header>
+                                <TextBlock x:Uid="SettingsPage_DefaultCloudRemoteBasePath" Style="{StaticResource SettingsHeaderTextStyle}" />
+                            </toolkit:SettingsCard.Header>
+                            <toolkit:SettingsCard.Description>
+                                <TextBlock x:Uid="SettingsPage_DefaultCloudRemoteBasePathDesc" Style="{StaticResource SettingsDescriptionStyle}" />
+                            </toolkit:SettingsCard.Description>
+                            <TextBox Text="{x:Bind Settings.DefaultCloudRemoteBasePath, Mode=TwoWay}"
+                                     Style="{StaticResource SettingsPathTextBoxStyle}"
+                                     TextChanged="OnDefaultCloudRemoteBasePathChanged" />
+                        </toolkit:SettingsCard>
+
+                        <toolkit:SettingsCard>
+                            <toolkit:SettingsCard.Header>
                                 <TextBlock x:Uid="SettingsPage_DefaultBackupRootPath" Style="{StaticResource SettingsHeaderTextStyle}" />
                             </toolkit:SettingsCard.Header>
                             <toolkit:SettingsCard.Description>

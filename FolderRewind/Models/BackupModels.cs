@@ -72,6 +72,7 @@ namespace FolderRewind.Models
         private int _themeIndex = 1; // 0: Dark, 1: Light, 2: System
         private string _sevenZipPath = "7za.exe"; // 全局 7z 路径（内置 7za.exe）
         private string _rcloneExecutablePath = "";
+        private string _defaultCloudRemoteBasePath = "remote:FolderRewind";
         private string _defaultBackupRootPath = "";
         private bool _runOnStartup = false;
         private bool _silentStartup = false;
@@ -139,6 +140,7 @@ namespace FolderRewind.Models
         public int ThemeIndex { get => _themeIndex; set => SetProperty(ref _themeIndex, value); }
         public string SevenZipPath { get => _sevenZipPath; set => SetProperty(ref _sevenZipPath, value); }
         public string RcloneExecutablePath { get => _rcloneExecutablePath; set => SetProperty(ref _rcloneExecutablePath, value ?? string.Empty); }
+        public string DefaultCloudRemoteBasePath { get => _defaultCloudRemoteBasePath; set => SetProperty(ref _defaultCloudRemoteBasePath, value ?? string.Empty); }
         public string DefaultBackupRootPath { get => _defaultBackupRootPath; set => SetProperty(ref _defaultBackupRootPath, value); }
         public bool RunOnStartup { get => _runOnStartup; set => SetProperty(ref _runOnStartup, value); }
         public bool SilentStartup { get => _silentStartup; set => SetProperty(ref _silentStartup, value); }
@@ -435,6 +437,7 @@ namespace FolderRewind.Models
         private int _timeoutSeconds = 600;
         private int _retryCount;
         private string _remoteBasePath = "remote:FolderRewind";
+        private bool _syncHistoryAfterUpload;
         private DateTime _lastRunUtc = DateTime.MinValue;
         private int _lastExitCode;
         private string _lastErrorMessage = "";
@@ -456,6 +459,8 @@ namespace FolderRewind.Models
         public int RetryCount { get => _retryCount; set => SetProperty(ref _retryCount, value); }
 
         public string RemoteBasePath { get => _remoteBasePath; set => SetProperty(ref _remoteBasePath, value ?? string.Empty); }
+
+        public bool SyncHistoryAfterUpload { get => _syncHistoryAfterUpload; set => SetProperty(ref _syncHistoryAfterUpload, value); }
 
         public DateTime LastRunUtc
         {

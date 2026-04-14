@@ -1109,6 +1109,14 @@ namespace FolderRewind.Views
             }
         }
 
+        private void OnDefaultCloudRemoteBasePathChanged(object sender, TextChangedEventArgs e)
+        {
+            if (sender is TextBox tb)
+            {
+                _viewModel.ApplyDefaultCloudRemoteBasePath(tb.Text);
+            }
+        }
+
         private async void OnBrowseDefaultBackupRootClick(object sender, RoutedEventArgs e)
         {
             var picker = new FolderPicker();
@@ -1712,7 +1720,7 @@ namespace FolderRewind.Views
             {
                 Header = I18n.GetString("Settings_CloudRemoteBasePath_Label"),
                 PlaceholderText = I18n.GetString("Settings_CloudRemoteBasePath_Placeholder"),
-                Text = CloudSyncService.GetSuggestedRemoteBasePath(),
+                Text = ConfigService.GetRecommendedDefaultCloudRemoteBasePath(),
                 TextWrapping = TextWrapping.NoWrap
             };
 

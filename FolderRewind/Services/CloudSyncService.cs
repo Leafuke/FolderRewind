@@ -5,6 +5,7 @@ using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using System.Text;
+using System.Text.Json;
 using System.Text.RegularExpressions;
 using System.Threading;
 using System.Threading.Tasks;
@@ -110,12 +111,28 @@ namespace FolderRewind.Services
 
         public static bool CanUseHistoryCloudActions(BackupConfig? config)
         {
-            return config?.Cloud?.Enabled == true
+            return CanUseManualCloudActions(config);
+        }
+
+        public static bool CanUseManualCloudActions(BackupConfig? config)
+        {
+            return config?.Cloud != null
                 && config.Cloud.CommandMode == CloudCommandMode.Rclone;
+        }
+
+        public static string GetEffectiveExecutablePath(BackupConfig? config)
+        {
+            return ResolveRcloneExecutable(config?.Cloud);
         }
 
         public static string GetSuggestedRemoteBasePath()
         {
+            string globalDefault = ConfigService.CurrentConfig?.GlobalSettings?.DefaultCloudRemoteBasePath?.Trim() ?? string.Empty;
+            if (!string.IsNullOrWhiteSpace(globalDefault))
+            {
+                return globalDefault;
+            }
+
             var configured = ConfigService.CurrentConfig?.BackupConfigs?
                 .Select(cfg => cfg?.Cloud?.RemoteBasePath?.Trim())
                 .FirstOrDefault(path => !string.IsNullOrWhiteSpace(path));
@@ -133,14 +150,7 @@ namespace FolderRewind.Services
             }
 
             var settings = config.Cloud;
-            if (settings?.Enabled != true)
-            {
-                string message = I18n.GetString("CloudSync_Notification_NotEnabled");
-                NotificationService.ShowWarning(message, I18n.GetString("CloudSync_Notification_Title"));
-                return (false, 0, message);
-            }
-
-            if (settings.CommandMode != CloudCommandMode.Rclone)
+            if (!CanUseManualCloudActions(config))
             {
                 string message = I18n.GetString("CloudSync_Notification_RcloneOnly");
                 NotificationService.ShowWarning(message, I18n.GetString("CloudSync_Notification_Title"));
@@ -300,6 +310,77 @@ namespace FolderRewind.Services
             }
         }
 
+        public static async Task<ConfigCloudHistoryAnalysisResult> AnalyzeConfigurationHistoryAsync(BackupConfig? config)
+        {
+            return await AnalyzeConfigurationHistoryCoreAsync(config).ConfigureAwait(false);
+        }
+
+        public static async Task<ConfigCloudSyncResult> SyncConfigurationFromCloudAsync(BackupConfig? config, ConfigCloudSyncMode mode)
+        {
+            var analysis = await AnalyzeConfigurationHistoryCoreAsync(config).ConfigureAwait(false);
+            if (!analysis.Success)
+            {
+                NotificationService.ShowError(analysis.Message, I18n.GetString("CloudSync_Notification_Title"));
+                return new ConfigCloudSyncResult
+                {
+                    Success = false,
+                    Message = analysis.Message,
+                    Analysis = analysis
+                };
+            }
+
+            var importResult = HistoryService.ImportHistoryItems(analysis.MappedItems, merge: true);
+            if (!importResult.Success)
+            {
+                string importFailedMessage = I18n.GetString("CloudSync_ConfigSync_HistoryImportFailed");
+                NotificationService.ShowError(importFailedMessage, I18n.GetString("CloudSync_Notification_Title"));
+                return new ConfigCloudSyncResult
+                {
+                    Success = false,
+                    Message = importFailedMessage,
+                    Analysis = analysis
+                };
+            }
+
+            int recoveredBackupCount = 0;
+            bool success = true;
+            string message;
+
+            if (mode == ConfigCloudSyncMode.HistoryAndBackups)
+            {
+                var downloadResult = await DownloadConfigurationHistoryAsync(config).ConfigureAwait(false);
+                recoveredBackupCount = downloadResult.RecoveredCount;
+                success = downloadResult.Success;
+                message = success
+                    ? I18n.Format("CloudSync_ConfigSync_HistoryAndBackupsSucceeded", importResult.ImportedCount, importResult.DuplicateCount, recoveredBackupCount)
+                    : I18n.Format("CloudSync_ConfigSync_HistoryImportedBackupsFailed", importResult.ImportedCount, downloadResult.Message);
+            }
+            else
+            {
+                success = true;
+                message = I18n.Format("CloudSync_ConfigSync_HistoryOnlySucceeded", importResult.ImportedCount, importResult.DuplicateCount);
+            }
+
+            if (success)
+            {
+                NotificationService.ShowSuccess(message, I18n.GetString("CloudSync_Notification_Title"));
+            }
+            else
+            {
+                NotificationService.ShowWarning(message, I18n.GetString("CloudSync_Notification_Title"));
+            }
+
+            return new ConfigCloudSyncResult
+            {
+                Success = success,
+                Message = message,
+                ImportedHistoryCount = importResult.ImportedCount,
+                DuplicateHistoryCount = importResult.DuplicateCount,
+                RecoveredBackupCount = recoveredBackupCount,
+                Analysis = analysis
+            };
+        }
+
         public static async Task<(bool Success, string Message)> ImportConfigFromCloudAsync(string remoteBasePath)
         {
             string remoteConfigPath = AppendRemotePath(remoteBasePath, "config.json");
@@ -438,6 +519,227 @@ namespace FolderRewind.Services
             };
         }
 
+        private static async Task<ConfigCloudHistoryAnalysisResult> AnalyzeConfigurationHistoryCoreAsync(BackupConfig? config)
+        {
+            if (config == null)
+            {
+                return new ConfigCloudHistoryAnalysisResult
+                {
+                    Success = false,
+                    Message = I18n.GetString("CloudSync_Notification_ConfigurationDownloadFailed")
+                };
+            }
+
+            if (!CanUseManualCloudActions(config))
+            {
+                return new ConfigCloudHistoryAnalysisResult
+                {
+                    Success = false,
+                    Message = I18n.GetString("CloudSync_Notification_RcloneOnly")
+                };
+            }
+
+            if (config.SourceFolders == null || config.SourceFolders.Count == 0)
+            {
+                return new ConfigCloudHistoryAnalysisResult
+                {
+                    Success = false,
+                    Message = I18n.GetString("CloudSync_Notification_ConfigurationNoFolders")
+                };
+            }
+
+            var remoteHistoryResult = await DownloadRemoteHistoryItemsAsync(config).ConfigureAwait(false);
+            if (!remoteHistoryResult.Success)
+            {
+                return new ConfigCloudHistoryAnalysisResult
+                {
+                    Success = false,
+                    Message = remoteHistoryResult.Message
+                };
+            }
+
+            var remoteItems = remoteHistoryResult.Items;
+            string remoteConfigRoot = AppendRemotePath(config.Cloud?.RemoteBasePath ?? string.Empty, config.Name ?? string.Empty);
+            var exactMatches = remoteItems
+                .Where(item => string.Equals(item.ConfigId, config.Id, StringComparison.OrdinalIgnoreCase))
+                .ToList();
+            var matchedItems = exactMatches.Count > 0
+                ? exactMatches
+                : remoteItems.Where(item => HistoryItemMatchesRemoteConfigRoot(item, remoteConfigRoot)).ToList();
+
+            var mappedItems = new List<HistoryItem>();
+            int unmappedEntries = 0;
+            int ambiguousEntries = 0;
+
+            foreach (var remoteItem in matchedItems)
+            {
+                var mappedFolder = ResolveMappedFolder(config, remoteItem, out bool isAmbiguous);
+                if (mappedFolder == null)
+                {
+                    if (isAmbiguous)
+                    {
+                        ambiguousEntries++;
+                    }
+                    else
+                    {
+                        unmappedEntries++;
+                    }
+
+                    continue;
+                }
+
+                mappedItems.Add(CloneMappedHistoryItem(config, mappedFolder, remoteItem));
+            }
+
+            string message = mappedItems.Count > 0
+                ? I18n.Format("CloudSync_ConfigSync_AnalysisSummary", matchedItems.Count, mappedItems.Count, unmappedEntries, ambiguousEntries)
+                : I18n.Format("CloudSync_ConfigSync_AnalysisEmpty", matchedItems.Count, unmappedEntries, ambiguousEntries);
+
+            LogService.LogInfo(
+                $"[CloudSyncService] Analyze config history: config={config.Name}, total={remoteItems.Count}, matched={matchedItems.Count}, mapped={mappedItems.Count}, unmapped={unmappedEntries}, ambiguous={ambiguousEntries}",
+                nameof(CloudSyncService));
+
+            return new ConfigCloudHistoryAnalysisResult
+            {
+                Success = true,
+                Message = message,
+                TotalRemoteEntries = remoteItems.Count,
+                MatchedEntries = matchedItems.Count,
+                ImportableEntries = mappedItems.Count,
+                UnmappedEntries = unmappedEntries,
+                AmbiguousEntries = ambiguousEntries,
+                MappedItems = mappedItems
+            };
+        }
+
+        private static async Task<(bool Success, string Message, List<HistoryItem> Items)> DownloadRemoteHistoryItemsAsync(BackupConfig config)
+        {
+            string remoteHistoryPath = AppendRemotePath(config.Cloud?.RemoteBasePath ?? string.Empty, "history.json");
+            if (string.IsNullOrWhiteSpace(remoteHistoryPath))
+            {
+                return (false, I18n.GetString("CloudSync_Notification_HistoryImportFailed"), new List<HistoryItem>());
+            }
+
+            if (!TryResolveSharedRcloneRuntime(config.Cloud, out var executablePath, out var workingDirectory, out var errorMessage))
+            {
+                return (false, errorMessage, new List<HistoryItem>());
+            }
+
+            string tempFilePath = Path.Combine(Path.GetTempPath(), $"FolderRewind_cloud_history_analysis_{Guid.NewGuid():N}.json");
+            Directory.CreateDirectory(Path.GetDirectoryName(tempFilePath) ?? Path.GetTempPath());
+
+            await CommandSemaphore.WaitAsync().ConfigureAwait(false);
+            try
+            {
+                var command = CreateDirectCommand(executablePath, workingDirectory, BuildRcloneCopyToArguments(remoteHistoryPath, tempFilePath));
+                var result = await RunSilentCommandAsync(command, Math.Clamp(config.Cloud?.TimeoutSeconds ?? 600, 10, MaxTimeoutSeconds)).ConfigureAwait(false);
+                if (!result.Success || !File.Exists(tempFilePath))
+                {
+                    string message = string.IsNullOrWhiteSpace(result.ErrorMessage)
+                        ? I18n.GetString("CloudSync_Notification_HistoryImportFailed")
+                        : I18n.Format("CloudSync_Notification_ImportFailedWithReason", result.ErrorMessage);
+                    LogService.LogWarning(I18n.Format("CloudSync_Log_CommandFailed", config.Name ?? string.Empty, message), nameof(CloudSyncService));
+                    return (false, message, new List<HistoryItem>());
+                }
+
+                string json = await File.ReadAllTextAsync(tempFilePath).ConfigureAwait(false);
+                var items = JsonSerializer.Deserialize(json, AppJsonContext.Default.ListHistoryItem) ?? new List<HistoryItem>();
+                return (true, string.Empty, items);
+            }
+            catch (Exception ex)
+            {
+                LogService.LogError($"[CloudSyncService] Failed to analyze remote history: {ex.Message}", nameof(CloudSyncService), ex);
+                return (false, I18n.Format("CloudSync_Notification_ImportFailedWithReason", ex.Message), new List<HistoryItem>());
+            }
+            finally
+            {
+                CommandSemaphore.Release();
+                TryDeleteTempFile(tempFilePath);
+            }
+        }
+
+        private static bool HistoryItemMatchesRemoteConfigRoot(HistoryItem item, string remoteConfigRoot)
+        {
+            if (item == null || string.IsNullOrWhiteSpace(remoteConfigRoot))
+            {
+                return false;
+            }
+
+            return HasRemotePrefix(item.CloudArchiveRemotePath, remoteConfigRoot)
+                || HasRemotePrefix(item.CloudMetadataRecordRemotePath, remoteConfigRoot)
+                || HasRemotePrefix(item.CloudMetadataStateRemotePath, remoteConfigRoot);
+        }
+
+        private static bool HasRemotePrefix(string? value, string remoteConfigRoot)
+        {
+            if (string.IsNullOrWhiteSpace(value) || string.IsNullOrWhiteSpace(remoteConfigRoot))
+            {
+                return false;
+            }
+
+            string normalizedValue = value.Trim();
+            string normalizedPrefix = remoteConfigRoot.Trim().TrimEnd('/') + "/";
+            return normalizedValue.StartsWith(normalizedPrefix, StringComparison.OrdinalIgnoreCase)
+                || string.Equals(normalizedValue.TrimEnd('/'), remoteConfigRoot.Trim().TrimEnd('/'), StringComparison.OrdinalIgnoreCase);
+        }
+
+        private static ManagedFolder? ResolveMappedFolder(BackupConfig config, HistoryItem remoteItem, out bool isAmbiguous)
+        {
+            isAmbiguous = false;
+
+            if (!string.IsNullOrWhiteSpace(remoteItem.FolderPath))
+            {
+                var exactFolder = config.SourceFolders.FirstOrDefault(folder =>
+                    string.Equals(folder.Path, remoteItem.FolderPath, StringComparison.OrdinalIgnoreCase));
+                if (exactFolder != null)
+                {
+                    return exactFolder;
+                }
+            }
+
+            if (string.IsNullOrWhiteSpace(remoteItem.FolderName))
+            {
+                return null;
+            }
+
+            var displayNameMatches = config.SourceFolders
+                .Where(folder => string.Equals(folder.DisplayName?.Trim(), remoteItem.FolderName.Trim(), StringComparison.OrdinalIgnoreCase))
+                .ToList();
+
+            if (displayNameMatches.Count == 1)
+            {
+                return displayNameMatches[0];
+            }
+
+            if (displayNameMatches.Count > 1)
+            {
+                isAmbiguous = true;
+            }
+
+            return null;
+        }
+
+        private static HistoryItem CloneMappedHistoryItem(BackupConfig config, ManagedFolder folder, HistoryItem remoteItem)
+        {
+            bool hasCloudCopy = remoteItem.IsCloudArchived || !string.IsNullOrWhiteSpace(remoteItem.CloudArchiveRemotePath);
+            return new HistoryItem
+            {
+                ConfigId = config.Id,
+                FolderPath = folder.Path ?? string.Empty,
+                FolderName = folder.DisplayName ?? remoteItem.FolderName ?? string.Empty,
+                FileName = remoteItem.FileName ?? string.Empty,
+                Timestamp = remoteItem.Timestamp,
+                BackupType = remoteItem.BackupType ?? string.Empty,
+                Comment = remoteItem.Comment ?? string.Empty,
+                IsImportant = remoteItem.IsImportant,
+                IsCloudArchived = hasCloudCopy,
+                CloudArchivedAtUtc = remoteItem.CloudArchivedAtUtc,
+                CloudArchiveRemotePath = remoteItem.CloudArchiveRemotePath ?? string.Empty,
+                CloudMetadataRecordRemotePath = remoteItem.CloudMetadataRecordRemotePath ?? string.Empty,
+                CloudMetadataStateRemotePath = remoteItem.CloudMetadataStateRemotePath ?? string.Empty
+            };
+        }
+
         public static async Task<bool> UploadHistoryItemAsync(BackupConfig? config, ManagedFolder? folder, HistoryItem? item)
         {
             if (config == null || folder == null || item == null)
@@ -446,13 +748,7 @@ namespace FolderRewind.Services
             }
 
             var settings = config.Cloud;
-            if (settings?.Enabled != true)
-            {
-                NotificationService.ShowWarning(I18n.GetString("CloudSync_Notification_NotEnabled"), I18n.GetString("CloudSync_Notification_Title"));
-                return false;
-            }
-
-            if (settings.CommandMode != CloudCommandMode.Rclone)
+            if (!CanUseManualCloudActions(config))
             {
                 NotificationService.ShowWarning(I18n.GetString("CloudSync_Notification_RcloneOnly"), I18n.GetString("CloudSync_Notification_Title"));
                 return false;
@@ -601,13 +897,7 @@ namespace FolderRewind.Services
             }
 
             var settings = config.Cloud;
-            if (settings?.Enabled != true)
-            {
-                NotificationService.ShowWarning(I18n.GetString("CloudSync_Notification_NotEnabled"), I18n.GetString("CloudSync_Notification_Title"));
-                return false;
-            }
-
-            if (settings.CommandMode != CloudCommandMode.Rclone)
+            if (!CanUseManualCloudActions(config))
             {
                 NotificationService.ShowWarning(I18n.GetString("CloudSync_Notification_RcloneOnly"), I18n.GetString("CloudSync_Notification_Title"));
                 return false;
@@ -790,6 +1080,15 @@ namespace FolderRewind.Services
                     }
 
                     MarkAutomaticUploadHistoryState(config, folder, settings, context, metadataRecordRemotePath, metadataStateRemotePath);
+                    if (settings.SyncHistoryAfterUpload)
+                    {
+                        var historyUploadWarning = await UploadHistorySnapshotAfterBackupAsync(task, settings).ConfigureAwait(false);
+                        if (!string.IsNullOrWhiteSpace(historyUploadWarning))
+                        {
+                            NotificationService.ShowWarning(historyUploadWarning, I18n.GetString("CloudSync_Notification_Title"));
+                        }
+                    }
+
                     if (!string.IsNullOrWhiteSpace(metadataWarning))
                     {
                         NotificationService.ShowWarning(metadataWarning, I18n.GetString("CloudSync_Notification_Title"));
@@ -834,6 +1133,57 @@ namespace FolderRewind.Services
                 remotePaths.ArchiveRemotePath,
                 metadataRecordRemotePath ?? string.Empty,
                 metadataStateRemotePath ?? string.Empty);
+        }
+
+        private static async Task<string?> UploadHistorySnapshotAfterBackupAsync(BackupTask task, CloudSettings settings)
+        {
+            if (settings.CommandMode != CloudCommandMode.Rclone)
+            {
+                return I18n.GetString("CloudSync_Notification_HistorySyncSkippedLegacyMode");
+            }
+
+            string tempFilePath = Path.Combine(Path.GetTempPath(), $"FolderRewind_history_auto_upload_{Guid.NewGuid():N}.json");
+            try
+            {
+                if (!HistoryService.ExportHistory(tempFilePath) || !File.Exists(tempFilePath))
+                {
+                    return I18n.GetString("CloudSync_Notification_HistorySyncUploadFailed");
+                }
+
+                string remoteHistoryPath = AppendRemotePath(settings.RemoteBasePath ?? string.Empty, "history.json");
+                string executablePath = ResolveRcloneExecutable(settings);
+                string workingDirectory = settings.WorkingDirectory?.Trim() ?? string.Empty;
+                if (!ValidateExecutableAndWorkingDirectory(executablePath, workingDirectory, out var errorMessage))
+                {
+                    return errorMessage;
+                }
+
+                await RunOnUIAsync(() => task.Progress = Math.Max(task.Progress, 90)).ConfigureAwait(false);
+                var command = CreateDirectCommand(executablePath, workingDirectory, BuildRcloneCopyToArguments(tempFilePath, remoteHistoryPath));
+                var result = await ExecuteCommandWithRetryAsync(
+                    task,
+                    settings,
+                    command,
+                    I18n.GetString("CloudSync_Task_UploadingHistorySnapshot"),
+                    "history.json").ConfigureAwait(false);
+
+                if (!result.Success)
+                {
+                    LogService.LogWarning(I18n.Format("CloudSync_Log_CommandFailed", "history.json", result.ErrorMessage), nameof(CloudSyncService));
+                    return I18n.Format("CloudSync_Notification_HistorySyncUploadFailedWithReason", result.ErrorMessage);
+                }
+
+                return null;
+            }
+            catch (Exception ex)
+            {
+                LogService.LogError($"[CloudSyncService] Failed to upload history snapshot automatically: {ex.Message}", nameof(CloudSyncService), ex);
+                return I18n.Format("CloudSync_Notification_HistorySyncUploadFailedWithReason", ex.Message);
+            }
+            finally
+            {
+                TryDeleteTempFile(tempFilePath);
+            }
         }
 
         private static async Task<(bool Success, int Count, string Message)> ImportHistoryFromCloudCoreAsync(

@@ -38,54 +38,6 @@ namespace FolderRewind.Views
 
         public string ConfigFilePath => ConfigService.ConfigFilePath;
 
-        public string CloudVariablesHelpText => CloudSyncService.VariablesHelpText;
-
-        public string CloudPreviewText => CloudSyncService.BuildPreview(Config);
-
-        public bool IsRcloneMode => Config?.Cloud?.CommandMode != CloudCommandMode.Custom;
-
-        public int CloudModeSelectedIndex
-        {
-            get => Config?.Cloud?.CommandMode == CloudCommandMode.Custom ? 1 : 0;
-            set
-            {
-                if (Config?.Cloud == null) return;
-
-                Config.Cloud.CommandMode = value == 1 ? CloudCommandMode.Custom : CloudCommandMode.Rclone;
-                if (Config.Cloud.CommandMode == CloudCommandMode.Rclone)
-                {
-                    if (string.IsNullOrWhiteSpace(Config.Cloud.ExecutablePath))
-                        Config.Cloud.ExecutablePath = "rclone.exe";
-
-                    if (string.IsNullOrWhiteSpace(Config.Cloud.ArgumentsTemplate))
-                        CloudSyncService.ApplyRecommendedTemplate(Config.Cloud);
-                }
-            }
-        }
-
-        public int CloudTemplateSelectedIndex
-        {
-            get => Config?.Cloud?.TemplateKind switch
-            {
-                CloudTemplateKind.UploadBackupDirectory => 1,
-                CloudTemplateKind.Custom => 2,
-                _ => 0
-            };
-            set
-            {
-                if (Config?.Cloud == null) return;
-
-                Config.Cloud.TemplateKind = value switch
-                {
-                    1 => CloudTemplateKind.UploadBackupDirectory,
-                    2 => CloudTemplateKind.Custom,
-                    _ => CloudTemplateKind.UploadCurrentArchive
-                };
-            }
-        }
-
-
-
         public int FormatSelectedIndex
         {
             get => Config.Archive.Format == "zip" ? 1 : 0;
@@ -498,31 +450,6 @@ namespace FolderRewind.Views
             ConfigService.OpenConfigFile();
         }
 
-        private void OnCloudToggleChanged(object sender, RoutedEventArgs e)
-        {
-            UpdateCloudBindings();
-        }
-
-        private void OnCloudModeSelectionChanged(object sender, SelectionChangedEventArgs e)
-        {
-            UpdateCloudBindings();
-        }
-
-        private void OnCloudTemplateSelectionChanged(object sender, SelectionChangedEventArgs e)
-        {
-            UpdateCloudBindings();
-        }
-
-        private void OnCloudInputChanged(object sender, TextChangedEventArgs e)
-        {
-            UpdateCloudBindings();
-        }
-
-        private void OnCloudNumberValueChanged(NumberBox sender, NumberBoxValueChangedEventArgs args)
-        {
-            UpdateCloudBindings();
-        }
-
         private async void OnSaveAsTemplateClick(object sender, RoutedEventArgs e)
         {
             if (Config == null)
@@ -598,13 +525,7 @@ namespace FolderRewind.Views
 
         private void OnApplyCloudTemplateClick(object sender, RoutedEventArgs e)
         {
-            if (Config?.Cloud == null || Config.Cloud.TemplateKind == CloudTemplateKind.Custom)
-            {
-                UpdateCloudBindings();
-                return;
-            }
-
-            CloudSyncService.ApplyRecommendedTemplate(Config.Cloud);
+            ViewModel.ApplyCloudTemplate();
             UpdateCloudBindings();
         }
 
@@ -621,7 +542,7 @@ namespace FolderRewind.Views
             var file = await picker.PickSingleFileAsync();
             if (file == null) return;
 
-            Config.Cloud.ExecutablePath = file.Path;
+            ViewModel.CloudExecutablePathText = file.Path;
             UpdateCloudBindings();
         }
 
@@ -635,21 +556,28 @@ namespace FolderRewind.Views
             var folder = await picker.PickSingleFolderAsync();
             if (folder == null) return;
 
-            Config.Cloud.WorkingDirectory = folder.Path;
+            ViewModel.CloudWorkingDirectoryText = folder.Path;
             UpdateCloudBindings();
         }
 
-        private async void OnDownloadAllCloudBackupsClick(object sender, RoutedEventArgs e)
+        private async void OnOpenCloudSyncClick(object sender, RoutedEventArgs e)
         {
-            var result = await CloudSyncService.DownloadConfigurationHistoryAsync(Config);
-            if (result.Success)
+            this.Hide();
+            await Task.Yield();
+
+            var dialog = new ConfigCloudSyncDialog(Config)
             {
-                UpdateCloudBindings();
-            }
+                XamlRoot = MainWindowService.GetXamlRoot() ?? this.XamlRoot
+            };
+
+            await TemplateDialogCoordinatorService.ShowAsync(dialog, this.XamlRoot);
+            ViewModel.RefreshCloudUi();
+            await this.ShowAsync();
         }
 
         private void UpdateCloudBindings()
         {
+            ViewModel.RefreshCloudUi();
             _ = DispatcherQueue.TryEnqueue(() => Bindings.Update());
         }
 

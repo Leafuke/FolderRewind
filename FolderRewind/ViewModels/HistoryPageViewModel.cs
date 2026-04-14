@@ -37,7 +37,7 @@ namespace FolderRewind.ViewModels
 
         public bool HasMissing => _missingCount > 0;
 
-        public bool CanUseCloudHistoryActions => CloudSyncService.CanUseHistoryCloudActions(_currentConfig);
+        public bool CanUseCloudHistoryActions => CloudSyncService.CanUseManualCloudActions(_currentConfig);
 
         public string CommentFilterText
         {
@@ -474,12 +474,7 @@ namespace FolderRewind.ViewModels
 
         private string GetCloudAvailabilityHint()
         {
-            if (_currentConfig?.Cloud?.Enabled != true)
-            {
-                return I18n.GetString("History_CloudAction_NotEnabled");
-            }
-
-            if (_currentConfig.Cloud.CommandMode != CloudCommandMode.Rclone)
+            if (!CloudSyncService.CanUseManualCloudActions(_currentConfig))
             {
                 return I18n.GetString("History_CloudAction_CustomModeOnly");
             }

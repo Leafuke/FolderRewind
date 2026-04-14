@@ -2425,9 +2425,6 @@
   <data name="ConfigSettingsDialog_CloudEnabled.OffContent" xml:space="preserve">
     <value>已关闭</value>
   </data>
-  <data name="ConfigSettingsDialog_CloudEnabledDesc.Text" xml:space="preserve">
-    <value>FolderRewind 只负责在本地备份成功后调用第三方工具执行上传，不直接管理云账号、远端目录浏览或云端还原。</value>
-  </data>
   <data name="ConfigSettingsDialog_CloudMode.Header" xml:space="preserve">
     <value>运行方式</value>
   </data>
@@ -3594,8 +3591,8 @@ Pull Request：{1}</value>
   <data name="ConfigSettingsDialog_CloudDownloadAllDesc.Text" xml:space="preserve">
     <value>将当前配置在云端保存的备份文件和 metadata 拉回本地备份库，并尝试恢复历史记录。</value>
   </data>
-  <data name="ConfigSettingsDialog_CloudExecutableDesc.Text" xml:space="preserve">
-    <value>这里可填写当前配置专用的 rclone 路径；留空或使用默认值时，会优先回退到软件设置里的全局 rclone 路径。</value>
+  <data name="ConfigSettingsDialog_CloudExecutableDesc" xml:space="preserve">
+    <value>当前生效路径：{0}。这里可填写当前配置专用的程序路径；保留默认值时，会优先回退到软件设置里的全局 rclone 路径。</value>
   </data>
   <data name="SettingsPage_RclonePath.Text" xml:space="preserve">
     <value>rclone 路径</value>
@@ -3698,5 +3695,131 @@ Pull Request：{1}</value>
   </data>
   <data name="CloudSync_Notification_ExportFailedWithReason" xml:space="preserve">
     <value>云端导出失败：{0}</value>
+  </data>
+  <data name="ConfigSettingsDialog_CloudEnvironmentSection.Text" xml:space="preserve">
+    <value>环境配置</value>
+  </data>
+  <data name="ConfigSettingsDialog_CloudSyncSection.Text" xml:space="preserve">
+    <value>云同步</value>
+  </data>
+  <data name="ConfigSettingsDialog_CloudSyncOpenText.Text" xml:space="preserve">
+    <value>从云同步此配置</value>
+  </data>
+  <data name="ConfigSettingsDialog_CloudLegacyModeDesc.Text" xml:space="preserve">
+    <value>此配置保留了旧版“自定义命令”模式。自动上传仍可用，但手动同步与历史页云操作仅支持 rclone 模式。</value>
+  </data>
+  <data name="ConfigSettingsDialog_CloudSyncHint" xml:space="preserve">
+    <value>你可以先分析远端 history.json，再选择只补齐当前配置的历史记录，或继续把云端备份与元数据一起拉回本地。</value>
+  </data>
+  <data name="ConfigSettingsDialog_CloudLegacyModeHint" xml:space="preserve">
+    <value>当前配置使用旧版自定义云命令，手动同步界面不可用；如需该能力，请切换到 rclone 配置。</value>
+  </data>
+  <data name="ConfigCloudSyncDialog.Title" xml:space="preserve">
+    <value>从云同步此配置</value>
+  </data>
+  <data name="ConfigCloudSyncDialog.PrimaryButtonText" xml:space="preserve">
+    <value>开始同步</value>
+  </data>
+  <data name="ConfigCloudSyncDialog.CloseButtonText" xml:space="preserve">
+    <value>取消</value>
+  </data>
+  <data name="ConfigCloudSyncDialog_Description.Text" xml:space="preserve">
+    <value>同步会先分析云端 history.json，再按当前配置的文件夹映射规则决定哪些记录可以安全落到本地。</value>
+  </data>
+  <data name="ConfigCloudSyncDialog_ModeHeader.Text" xml:space="preserve">
+    <value>同步范围</value>
+  </data>
+  <data name="ConfigCloudSyncDialog_Mode_HistoryOnly.Content" xml:space="preserve">
+    <value>仅同步此配置历史记录</value>
+  </data>
+  <data name="ConfigCloudSyncDialog_Mode_HistoryAndBackups.Content" xml:space="preserve">
+    <value>同步历史记录和所有备份到本地</value>
+  </data>
+  <data name="ConfigCloudSyncDialog_RemoteBasePathLabel.Text" xml:space="preserve">
+    <value>远端基路径</value>
+  </data>
+  <data name="ConfigCloudSyncDialog_ExecutableLabel.Text" xml:space="preserve">
+    <value>程序路径</value>
+  </data>
+  <data name="ConfigCloudSyncDialog_AnalysisHeader.Text" xml:space="preserve">
+    <value>远端分析</value>
+  </data>
+  <data name="ConfigCloudSyncDialog_RefreshAnalysis.Content" xml:space="preserve">
+    <value>重新分析</value>
+  </data>
+  <data name="ConfigCloudSyncDialog_Status_Ready" xml:space="preserve">
+    <value>准备就绪，可以先分析远端历史。</value>
+  </data>
+  <data name="ConfigCloudSyncDialog_Status_Analyzing" xml:space="preserve">
+    <value>正在分析云端 history.json…</value>
+  </data>
+  <data name="ConfigCloudSyncDialog_Status_AnalysisReady" xml:space="preserve">
+    <value>分析完成，你可以开始同步。</value>
+  </data>
+  <data name="ConfigCloudSyncDialog_Status_Syncing" xml:space="preserve">
+    <value>正在同步当前配置…</value>
+  </data>
+  <data name="ConfigCloudSyncDialog_Analysis_Pending" xml:space="preserve">
+    <value>尚未获得远端分析结果。</value>
+  </data>
+  <data name="ConfigCloudSyncDialog_Analysis_Matched" xml:space="preserve">
+    <value>匹配到的远端历史：{0}</value>
+  </data>
+  <data name="ConfigCloudSyncDialog_Analysis_Importable" xml:space="preserve">
+    <value>可直接导入的记录：{0}</value>
+  </data>
+  <data name="ConfigCloudSyncDialog_Analysis_Unmapped" xml:space="preserve">
+    <value>未映射到本地文件夹：{0}</value>
+  </data>
+  <data name="ConfigCloudSyncDialog_Analysis_Ambiguous" xml:space="preserve">
+    <value>命中多个本地文件夹而跳过：{0}</value>
+  </data>
+  <data name="CloudSync_ConfigSync_AnalysisSummary" xml:space="preserve">
+    <value>本次分析命中了 {0} 条远端历史，其中 {1} 条可导入，{2} 条未映射，{3} 条因文件夹重名而跳过。</value>
+  </data>
+  <data name="CloudSync_ConfigSync_AnalysisEmpty" xml:space="preserve">
+    <value>本次分析命中了 {0} 条远端历史，但暂时没有可安全导入的记录。未映射：{1}，歧义：{2}。</value>
+  </data>
+  <data name="CloudSync_ConfigSync_HistoryOnlySucceeded" xml:space="preserve">
+    <value>已同步当前配置历史：新增 {0} 条，跳过重复 {1} 条。</value>
+  </data>
+  <data name="CloudSync_ConfigSync_HistoryAndBackupsSucceeded" xml:space="preserve">
+    <value>已同步当前配置历史与云备份：新增历史 {0} 条，跳过重复 {1} 条，并恢复/补齐了 {2} 条本地历史。</value>
+  </data>
+  <data name="CloudSync_ConfigSync_HistoryImportedBackupsFailed" xml:space="preserve">
+    <value>历史记录已导入 {0} 条，但继续拉取云备份失败：{1}</value>
+  </data>
+  <data name="CloudSync_ConfigSync_HistoryImportFailed" xml:space="preserve">
+    <value>当前配置的历史记录导入失败。</value>
+  </data>
+  <data name="ConfigSettingsDialog_CloudSyncHistoryAfterUpload.Header" xml:space="preserve">
+    <value>同时同步历史记录</value>
+  </data>
+  <data name="ConfigSettingsDialog_CloudSyncHistoryAfterUpload.OnContent" xml:space="preserve">
+    <value>开启</value>
+  </data>
+  <data name="ConfigSettingsDialog_CloudSyncHistoryAfterUpload.OffContent" xml:space="preserve">
+    <value>关闭</value>
+  </data>
+  <data name="ConfigSettingsDialog_CloudSyncHistoryAfterUploadDesc.Text" xml:space="preserve">
+    <value>每次自动上传备份成功后，再额外把最新的 history.json 上传到当前远端基路径，方便其他设备按配置同步历史。</value>
+  </data>
+  <data name="SettingsPage_DefaultCloudRemoteBasePath.Text" xml:space="preserve">
+    <value>默认远端基路径</value>
+  </data>
+  <data name="SettingsPage_DefaultCloudRemoteBasePathDesc.Text" xml:space="preserve">
+    <value>用于新建配置时的云端默认路径，也会作为“导出/导入到云端”对话框里的默认远端基路径。</value>
+  </data>
+  <data name="CloudSync_Task_UploadingHistorySnapshot" xml:space="preserve">
+    <value>正在同步 history.json…</value>
+  </data>
+  <data name="CloudSync_Notification_HistorySyncUploadFailed" xml:space="preserve">
+    <value>备份已上传，但同步 history.json 失败。</value>
+  </data>
+  <data name="CloudSync_Notification_HistorySyncUploadFailedWithReason" xml:space="preserve">
+    <value>备份已上传，但同步 history.json 失败：{0}</value>
+  </data>
+  <data name="CloudSync_Notification_HistorySyncSkippedLegacyMode" xml:space="preserve">
+    <value>当前配置使用旧版自定义命令模式，无法自动同步 history.json。</value>
   </data>
 </root>
