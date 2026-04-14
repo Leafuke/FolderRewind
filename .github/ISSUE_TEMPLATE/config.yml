@@ -1,0 +1,11 @@
+blank_issues_enabled: false
+contact_links:
+  - name: 使用文档
+    url: https://folderrewind.top
+    about: 先查看官方使用说明与功能文档。
+  - name: GitHub Releases
+    url: https://github.com/Leafuke/FolderRewind/releases
+    about: 侧载版下载、资产校验与版本历史请优先查看这里。
+  - name: 插件开发文档
+    url: https://folderrewind.top/docs/plugins/overview
+    about: 插件系统、接口和商店相关问题请先查看这里。

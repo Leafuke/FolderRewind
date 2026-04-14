@@ -1,0 +1,37 @@
+name: 文档改进
+description: 报告 README、官网文档、安装说明中的缺漏或错误
+title: "[Docs] "
+labels:
+  - documentation
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: 文档问题
+      description: 具体是哪一段文档有问题？问题是什么？
+      placeholder: 例如：README 的 GitHub 侧载安装说明缺少证书导入提示……
+    validations:
+      required: true
+
+  - type: input
+    id: location
+    attributes:
+      label: 文档位置
+      description: 文件路径、网页链接或章节标题
+      placeholder: README.md / 安装 / 侧载安装
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected
+    attributes:
+      label: 期望内容
+      description: 你认为文档应该如何修改才更清楚？
+    validations:
+      required: true
+
+  - type: textarea
+    id: additional
+    attributes:
+      label: 附加说明
+      description: 可附上截图、重现路径、你阅读时的困惑点等
