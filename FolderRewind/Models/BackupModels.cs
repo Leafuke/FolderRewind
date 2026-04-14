@@ -4,6 +4,7 @@ using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.ComponentModel;
+using System.Linq;
 using System.Runtime.CompilerServices;
 using System.Text.Json.Serialization;
 
@@ -691,6 +692,24 @@ namespace FolderRewind.Models
         }
     }
 
+    /// <summary>
+    /// 自动化作用范围。
+    /// </summary>
+    public enum AutomationScope
+    {
+        AllFolders = 0,
+        SingleFolder = 1
+    }
+
+    /// <summary>
+    /// 自动化条件类型。
+    /// 首版仅支持“文件从占用变为解除占用”。
+    /// </summary>
+    public enum AutomationConditionType
+    {
+        FileUnlocked = 0
+    }
+
     public class AutomationSettings : ObservableObject
     {
         private bool _autoBackupEnabled = false;
@@ -699,6 +718,11 @@ namespace FolderRewind.Models
         private bool _runOnAppStart = false;
         private bool _scheduledMode = false;
         private int _scheduledHour = 3;
+        private AutomationScope _scope = AutomationScope.AllFolders;
+        private string _targetFolderPath = string.Empty;
+        private bool _conditionalModeEnabled = false;
+        private AutomationConditionType _conditionType = AutomationConditionType.FileUnlocked;
+        private string _conditionRelativePath = string.Empty;
         private ObservableCollection<ScheduleEntry> _scheduleEntries = new();
         private DateTime _lastAutoBackupUtc = DateTime.MinValue;
         private DateTime _lastScheduledRunDateLocal = DateTime.MinValue;
@@ -714,6 +738,34 @@ namespace FolderRewind.Models
         public bool RunOnAppStart { get => _runOnAppStart; set => SetProperty(ref _runOnAppStart, value); }
         public bool ScheduledMode { get => _scheduledMode; set => SetProperty(ref _scheduledMode, value); }
         public int ScheduledHour { get => _scheduledHour; set => SetProperty(ref _scheduledHour, value); }
+
+        /// <summary>
+        /// 自动化作用范围：作用于当前配置的全部文件夹，或仅作用于某个单独文件夹。
+        /// </summary>
+        public AutomationScope Scope { get => _scope; set => SetProperty(ref _scope, value); }
+
+        /// <summary>
+        /// 当 Scope=SingleFolder 时记录目标文件夹路径。
+        /// 这里直接保存 ManagedFolder.Path，避免引入额外 ID 结构破坏兼容性。
+        /// </summary>
+        public string TargetFolderPath { get => _targetFolderPath; set => SetProperty(ref _targetFolderPath, value ?? string.Empty); }
+
+        /// <summary>
+        /// 是否启用条件备份模式。
+        /// </summary>
+        public bool ConditionalModeEnabled { get => _conditionalModeEnabled; set => SetProperty(ref _conditionalModeEnabled, value); }
+
+        /// <summary>
+        /// 条件类型。
+        /// 当前仅支持文件从占用状态变为解除占用状态。
+        /// </summary>
+        public AutomationConditionType ConditionType { get => _conditionType; set => SetProperty(ref _conditionType, value); }
+
+        /// <summary>
+        /// 条件文件相对路径。
+        /// 首版统一按源文件夹相对路径解释，例如 level.dat。
+        /// </summary>
+        public string ConditionRelativePath { get => _conditionRelativePath; set => SetProperty(ref _conditionRelativePath, value ?? string.Empty); }
 
         public ObservableCollection<ScheduleEntry> ScheduleEntries
         {
@@ -746,6 +798,47 @@ namespace FolderRewind.Models
                     Hour = ScheduledHour,
                     Minute = 0
                 });
+            }
+
+            Normalize();
+        }
+
+        /// <summary>
+        /// 补齐新增字段默认值，并在需要时校正单文件夹目标。
+        /// </summary>
+        public void Normalize(IEnumerable<ManagedFolder>? sourceFolders = null)
+        {
+            ScheduleEntries ??= new ObservableCollection<ScheduleEntry>();
+            TargetFolderPath ??= string.Empty;
+            ConditionRelativePath ??= string.Empty;
+
+            if (sourceFolders == null)
+            {
+                return;
+            }
+
+            var folders = sourceFolders
+                .Where(folder => folder != null && !string.IsNullOrWhiteSpace(folder.Path))
+                .ToList();
+
+            if (Scope != AutomationScope.SingleFolder)
+            {
+                return;
+            }
+
+            if (folders.Count == 0)
+            {
+                TargetFolderPath = string.Empty;
+                return;
+            }
+
+            bool hasMatchedFolder = folders.Any(folder =>
+                string.Equals(folder.Path, TargetFolderPath, StringComparison.OrdinalIgnoreCase));
+
+            if (!hasMatchedFolder)
+            {
+                // 旧配置没有单文件夹目标，或目标文件夹已被移除时，自动回退到首个可用文件夹。
+                TargetFolderPath = folders[0].Path;
             }
         }
     }

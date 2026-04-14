@@ -750,6 +750,24 @@ Duplicate folder names are blocked within the same configuration so different di
   <data name="ConfigSettingsDialog_ScheduledMode.Content" xml:space="preserve">
     <value>Scheduled backup</value>
   </data>
+  <data name="ConfigSettingsDialog_AutomationScope.Text" xml:space="preserve">
+    <value>Automation scope</value>
+  </data>
+  <data name="ConfigSettingsDialog_AutomationTargetFolder.Text" xml:space="preserve">
+    <value>Target folder</value>
+  </data>
+  <data name="ConfigSettingsDialog_ConditionalMode.Content" xml:space="preserve">
+    <value>Conditional backup mode</value>
+  </data>
+  <data name="ConfigSettingsDialog_ConditionalModeDesc.Text" xml:space="preserve">
+    <value>Checks the specified relative-path file every 10 seconds. When the file changes from locked to unlocked, a backup is triggered, which works well for backing up saves after the game exits.</value>
+  </data>
+  <data name="ConfigSettingsDialog_ConditionRelativePath.Text" xml:space="preserve">
+    <value>Condition file relative path</value>
+  </data>
+  <data name="ConfigSettingsDialog_ConditionRelativePathPlaceholder.PlaceholderText" xml:space="preserve">
+    <value>For example: session.lock</value>
+  </data>
   <data name="ConfigSettingsDialog_Filter.Header" xml:space="preserve">
     <value>Filter</value>
   </data>
@@ -2271,6 +2289,75 @@ Status: {3}</value>
   </data>
   <data name="AutoBackup_StoppedNoChanges" xml:space="preserve">
     <value>Auto backup for "{0}" has been disabled: no changes detected {1} consecutive times.</value>
+  </data>
+  <data name="AutoBackup_Reason_AppStart" xml:space="preserve">
+    <value>Run when app starts</value>
+  </data>
+  <data name="AutoBackup_Reason_Interval" xml:space="preserve">
+    <value>Interval backup (every {0} minutes)</value>
+  </data>
+  <data name="AutoBackup_Reason_Scheduled" xml:space="preserve">
+    <value>Scheduled backup ({0})</value>
+  </data>
+  <data name="AutoBackup_Reason_ScheduledLegacy" xml:space="preserve">
+    <value>Scheduled backup (legacy compatibility)</value>
+  </data>
+  <data name="AutoBackup_Reason_FileUnlocked" xml:space="preserve">
+    <value>Conditional backup ({0} unlocked)</value>
+  </data>
+  <data name="AutoBackup_Log_TriggeredConfig" xml:space="preserve">
+    <value>[AutoBackup] {0}: {1}</value>
+  </data>
+  <data name="AutoBackup_Log_TriggeredFolder" xml:space="preserve">
+    <value>[AutoBackup] {0}: {1} / {2}</value>
+  </data>
+  <data name="AutoBackup_Log_SingleTargetMissing" xml:space="preserve">
+    <value>[AutoBackup] The single-folder automation target for "{0}" no longer exists, so this trigger was skipped.</value>
+  </data>
+  <data name="AutoBackup_Log_ConditionLocked" xml:space="preserve">
+    <value>[AutoBackup] Condition file became locked: {0} / {1} / {2}</value>
+  </data>
+  <data name="AutoBackup_Log_ConditionUnlocked" xml:space="preserve">
+    <value>[AutoBackup] Condition file became unlocked: {0} / {1} / {2}</value>
+  </data>
+  <data name="AutoBackup_Log_StopSkippedBecauseLocked" xml:space="preserve">
+    <value>[AutoBackup] level.dat is still locked under "{0}", so auto backup will not be stopped yet.</value>
+  </data>
+  <data name="AutoBackup_Log_DisabledNoChanges" xml:space="preserve">
+    <value>[AutoBackup] "{0}" was disabled after {1} consecutive runs with no changes.</value>
+  </data>
+  <data name="AutoBackup_Log_Failed" xml:space="preserve">
+    <value>[AutoBackup] "{0}" failed: {1}</value>
+  </data>
+  <data name="AutoBackup_Notification_Failed" xml:space="preserve">
+    <value>Auto backup for "{0}" failed: {1}</value>
+  </data>
+  <data name="ConfigSettingsDialog_AutomationScope_AllFolders" xml:space="preserve">
+    <value>All folders</value>
+  </data>
+  <data name="ConfigSettingsDialog_AutomationScope_SingleFolder" xml:space="preserve">
+    <value>Single folder</value>
+  </data>
+  <data name="ConfigSettingsDialog_AutomationScopeAllDesc" xml:space="preserve">
+    <value>Startup, interval, scheduled, and conditional automation all apply to every folder in this configuration.</value>
+  </data>
+  <data name="ConfigSettingsDialog_AutomationScopeSingleDesc" xml:space="preserve">
+    <value>Startup, interval, scheduled, and conditional automation only apply to the selected folder below.</value>
+  </data>
+  <data name="ConfigSettingsDialog_AutomationTargetFolderDesc" xml:space="preserve">
+    <value>When automation scope is set to a single folder, every automation trigger only processes the folder selected here.</value>
+  </data>
+  <data name="ConfigSettingsDialog_AutomationTargetFolderEmpty" xml:space="preserve">
+    <value>There are no source folders available in this configuration yet.</value>
+  </data>
+  <data name="ConfigSettingsDialog_ConditionRelativePathDesc" xml:space="preserve">
+    <value>Interpreted relative to each source folder. For example, entering session.lock checks the lock state of "source-folder\\session.lock".</value>
+  </data>
+  <data name="ConfigSettingsDialog_ConditionRelativePathWarning" xml:space="preserve">
+    <value>Conditional backup mode will not trigger until a relative path is provided.</value>
+  </data>
+  <data name="ConfigSettingsDialog_ConditionRelativePathAbsoluteWarning" xml:space="preserve">
+    <value>Only relative paths are supported for now. Absolute paths will not trigger conditional backup.</value>
   </data>
   <data name="SettingsPage_DataMigration.Text" xml:space="preserve">
     <value>Data Migration</value>

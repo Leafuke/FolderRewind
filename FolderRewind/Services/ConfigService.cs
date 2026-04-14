@@ -136,6 +136,7 @@ namespace FolderRewind.Services
                 else if (config.Automation.ScheduleEntries.GetType() != typeof(System.Collections.ObjectModel.ObservableCollection<ScheduleEntry>))
                     config.Automation.ScheduleEntries = new System.Collections.ObjectModel.ObservableCollection<ScheduleEntry>(config.Automation.ScheduleEntries);
                 config.Automation.MigrateFromLegacy();
+                config.Automation.Normalize(config.SourceFolders);
 
                 if (config.Filters == null)
                     config.Filters = new FilterSettings();
@@ -182,6 +183,7 @@ namespace FolderRewind.Services
                     template.Automation = new AutomationSettings();
                 else
                     template.Automation.MigrateFromLegacy();
+                template.Automation.Normalize();
 
                 if (template.Filters == null)
                     template.Filters = new FilterSettings();

@@ -750,6 +750,24 @@
   <data name="ConfigSettingsDialog_ScheduledMode.Content" xml:space="preserve">
     <value>计划备份模式</value>
   </data>
+  <data name="ConfigSettingsDialog_AutomationScope.Text" xml:space="preserve">
+    <value>自动化作用范围</value>
+  </data>
+  <data name="ConfigSettingsDialog_AutomationTargetFolder.Text" xml:space="preserve">
+    <value>目标文件夹</value>
+  </data>
+  <data name="ConfigSettingsDialog_ConditionalMode.Content" xml:space="preserve">
+    <value>条件备份模式</value>
+  </data>
+  <data name="ConfigSettingsDialog_ConditionalModeDesc.Text" xml:space="preserve">
+    <value>固定每 10 秒检查一次指定相对路径文件。当文件从“被占用”变为“解除占用”时触发备份，适合在游戏存档退出后自动备份。</value>
+  </data>
+  <data name="ConfigSettingsDialog_ConditionRelativePath.Text" xml:space="preserve">
+    <value>条件文件相对路径</value>
+  </data>
+  <data name="ConfigSettingsDialog_ConditionRelativePathPlaceholder.PlaceholderText" xml:space="preserve">
+    <value>例如：session.lock</value>
+  </data>
   <data name="ConfigSettingsDialog_Filter.Header" xml:space="preserve">
     <value>过滤</value>
   </data>
@@ -2271,6 +2289,75 @@
   </data>
   <data name="AutoBackup_StoppedNoChanges" xml:space="preserve">
     <value>“{0}” 的自动备份已停止：连续 {1} 次未检测到变更。</value>
+  </data>
+  <data name="AutoBackup_Reason_AppStart" xml:space="preserve">
+    <value>程序启动时运行</value>
+  </data>
+  <data name="AutoBackup_Reason_Interval" xml:space="preserve">
+    <value>间隔备份（每 {0} 分钟）</value>
+  </data>
+  <data name="AutoBackup_Reason_Scheduled" xml:space="preserve">
+    <value>计划备份（{0}）</value>
+  </data>
+  <data name="AutoBackup_Reason_ScheduledLegacy" xml:space="preserve">
+    <value>计划备份（旧配置兼容）</value>
+  </data>
+  <data name="AutoBackup_Reason_FileUnlocked" xml:space="preserve">
+    <value>条件备份（{0} 已解除占用）</value>
+  </data>
+  <data name="AutoBackup_Log_TriggeredConfig" xml:space="preserve">
+    <value>[自动备份] {0}：{1}</value>
+  </data>
+  <data name="AutoBackup_Log_TriggeredFolder" xml:space="preserve">
+    <value>[自动备份] {0}：{1} / {2}</value>
+  </data>
+  <data name="AutoBackup_Log_SingleTargetMissing" xml:space="preserve">
+    <value>[自动备份] “{0}” 配置的单文件夹自动化目标已不存在，已跳过本次触发。</value>
+  </data>
+  <data name="AutoBackup_Log_ConditionLocked" xml:space="preserve">
+    <value>[自动备份] 条件文件已进入占用：{0} / {1} / {2}</value>
+  </data>
+  <data name="AutoBackup_Log_ConditionUnlocked" xml:space="preserve">
+    <value>[自动备份] 条件文件已解除占用：{0} / {1} / {2}</value>
+  </data>
+  <data name="AutoBackup_Log_StopSkippedBecauseLocked" xml:space="preserve">
+    <value>[自动备份] 检测到“{0}”下的 level.dat 正被占用，暂不停止自动备份。</value>
+  </data>
+  <data name="AutoBackup_Log_DisabledNoChanges" xml:space="preserve">
+    <value>[自动备份] “{0}”已因连续 {1} 次无变更而停止。</value>
+  </data>
+  <data name="AutoBackup_Log_Failed" xml:space="preserve">
+    <value>[自动备份] “{0}”执行失败：{1}</value>
+  </data>
+  <data name="AutoBackup_Notification_Failed" xml:space="preserve">
+    <value>“{0}” 的自动备份执行失败：{1}</value>
+  </data>
+  <data name="ConfigSettingsDialog_AutomationScope_AllFolders" xml:space="preserve">
+    <value>全部文件夹</value>
+  </data>
+  <data name="ConfigSettingsDialog_AutomationScope_SingleFolder" xml:space="preserve">
+    <value>单独文件夹</value>
+  </data>
+  <data name="ConfigSettingsDialog_AutomationScopeAllDesc" xml:space="preserve">
+    <value>启动、间隔、计划和条件自动化默认作用于当前配置下的全部文件夹。</value>
+  </data>
+  <data name="ConfigSettingsDialog_AutomationScopeSingleDesc" xml:space="preserve">
+    <value>启动、间隔、计划和条件自动化仅作用于下方选中的单个文件夹。</value>
+  </data>
+  <data name="ConfigSettingsDialog_AutomationTargetFolderDesc" xml:space="preserve">
+    <value>当自动化作用范围为单独文件夹时，所有自动化触发器都只会处理这里选择的文件夹。</value>
+  </data>
+  <data name="ConfigSettingsDialog_AutomationTargetFolderEmpty" xml:space="preserve">
+    <value>当前配置下还没有可供选择的源文件夹。</value>
+  </data>
+  <data name="ConfigSettingsDialog_ConditionRelativePathDesc" xml:space="preserve">
+    <value>按源文件夹相对路径解释。例如填写 session.lock 后，会检查“源文件夹\\session.lock”的占用状态变化。</value>
+  </data>
+  <data name="ConfigSettingsDialog_ConditionRelativePathWarning" xml:space="preserve">
+    <value>未填写条件文件相对路径时，条件备份模式不会实际触发。</value>
+  </data>
+  <data name="ConfigSettingsDialog_ConditionRelativePathAbsoluteWarning" xml:space="preserve">
+    <value>当前仅支持相对路径，不支持绝对路径；填写绝对路径时条件备份不会触发。</value>
   </data>
   <data name="SettingsPage_DataMigration.Text" xml:space="preserve">
     <value>数据迁移</value>

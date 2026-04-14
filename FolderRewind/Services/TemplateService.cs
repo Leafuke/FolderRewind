@@ -1957,11 +1957,17 @@ namespace FolderRewind.Services
             var preset = CloneAutomation(source ?? new AutomationSettings());
             preset.AutoBackupEnabled = false;
             preset.RunOnAppStart = false;
+            preset.IntervalMode = false;
             preset.ScheduledMode = false;
+            preset.ConditionalModeEnabled = false;
+            preset.TargetFolderPath = string.Empty;
+            preset.ConditionType = AutomationConditionType.FileUnlocked;
+            preset.ConditionRelativePath = string.Empty;
             preset.LastAutoBackupUtc = DateTime.MinValue;
             preset.LastScheduledRunDateLocal = DateTime.MinValue;
             preset.ConsecutiveNoChangeCount = 0;
             preset.ScheduleEntries = new ObservableCollection<ScheduleEntry>();
+            preset.Normalize();
             return preset;
         }
 
@@ -2299,6 +2305,7 @@ namespace FolderRewind.Services
             var json = JsonSerializer.Serialize(source ?? new AutomationSettings(), AppJsonContext.Default.AutomationSettings);
             var cloned = JsonSerializer.Deserialize(json, AppJsonContext.Default.AutomationSettings) ?? new AutomationSettings();
             cloned.MigrateFromLegacy();
+            cloned.Normalize();
             return cloned;
         }
 

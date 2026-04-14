@@ -369,4 +369,5 @@ FodyWeavers.xsd
 /FolderRewind/obj
 /FolderRewind/Properties
 /Reference
+/docs
 *.exe
