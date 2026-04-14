@@ -262,24 +262,8 @@ namespace FolderRewind
             if (_window == null) return;
 
             var title = GetLocalizedWindowTitle();
-
-            try
-            {
-                _window.Title = title;
-            }
-            catch
-            {
-
-            }
-
-            try
-            {
-                _window.AppWindow.Title = title;
-            }
-            catch
-            {
-
-            }
+            _window.Title = title;
+            _window.AppWindow.Title = title;
         }
 
         private static string GetLocalizedWindowTitle()
@@ -404,21 +388,8 @@ namespace FolderRewind
 
             CleanupTrayIcon();
 
-            try
-            {
-                _window?.Close();
-            }
-            catch
-            {
-            }
-
-            try
-            {
-                Exit();
-            }
-            catch
-            {
-            }
+            _window?.Close();
+            Exit();
         }
 
         private void OnMainWindowClosed(object sender, WindowEventArgs args)
@@ -430,14 +401,7 @@ namespace FolderRewind
 
         private void CleanupTrayIcon()
         {
-            try
-            {
-                _trayIcon?.Dispose();
-            }
-            catch
-            {
-            }
-
+            _trayIcon?.Dispose();
             _trayIcon = null;
         }
 

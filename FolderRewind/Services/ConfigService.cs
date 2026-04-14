@@ -492,17 +492,6 @@ namespace FolderRewind.Services
                 settings.BaseFontSize = Math.Clamp(settings.BaseFontSize, 12, 20);
             }
 
-            // 启动窗口尺寸限制在合理桌面范围内。
-            if (double.IsNaN(settings.StartupWidth) || settings.StartupWidth < 640 || settings.StartupWidth > 3840)
-            {
-                settings.StartupWidth = 1200;
-            }
-
-            if (double.IsNaN(settings.StartupHeight) || settings.StartupHeight < 480 || settings.StartupHeight > 2160)
-            {
-                settings.StartupHeight = 800;
-            }
-
             if (string.IsNullOrWhiteSpace(settings.HomeSortMode))
             {
                 settings.HomeSortMode = "NameAsc";

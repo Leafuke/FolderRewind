@@ -80,8 +80,8 @@ namespace FolderRewind.Models
         private int _logRetentionDays = 7;
         private int _maxLogFileSizeMb = 5;
         private bool _isNavPaneOpen = true;
-        private double _startupWidth = 1200;
-        private double _startupHeight = 800;
+        private double _startupWidth = 1300;
+        private double _startupHeight = 900;
         private double _navPaneWidth = 180;
         private string _fontFamily = "";
         private double _baseFontSize = 14;
