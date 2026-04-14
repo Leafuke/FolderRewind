@@ -737,6 +737,11 @@ namespace FolderRewind.Views
                     {
                         // 鍏滃簳锛氱‘淇?ConfigType
                         if (string.IsNullOrWhiteSpace(c.ConfigType)) c.ConfigType = selectedType;
+                        c.Cloud ??= new CloudSettings();
+                        if (string.IsNullOrWhiteSpace(c.Cloud.RemoteBasePath))
+                        {
+                            c.Cloud.RemoteBasePath = ConfigService.GetRecommendedDefaultCloudRemoteBasePath();
+                        }
                         c.DestinationPath = !string.IsNullOrWhiteSpace(destPath)
                             ? Path.Combine(destPath, c.Name ?? string.Empty)
                             : ConfigService.BuildDefaultDestinationPath(c.Name);
@@ -769,7 +774,11 @@ namespace FolderRewind.Views
                     ConfigType = isEncrypted ? "Default" : selectedType, // 鍔犲瘑閰嶇疆鐨勫簳灞傜被鍨嬩粛涓?Default
                     IsEncrypted = isEncrypted,
                     DestinationPath = ConfigService.BuildDefaultDestinationPath(nameBox.Text),
-                    SummaryText = resourceLoader.GetString("HomePage_NewConfigSummary")
+                    SummaryText = resourceLoader.GetString("HomePage_NewConfigSummary"),
+                    Cloud = new CloudSettings
+                    {
+                        RemoteBasePath = ConfigService.GetRecommendedDefaultCloudRemoteBasePath()
+                    }
                 };
 
                 ConfigService.CurrentConfig.BackupConfigs.Add(newConfig);

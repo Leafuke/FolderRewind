@@ -415,7 +415,7 @@ namespace FolderRewind.Services
                         I18n.GetString("CoreValidation_Step_SafeDelete"),
                         async () =>
                         {
-                            var deleteResult = await BackupService.DeleteBackupAsync(mainConfig!, mainSourceFolder!, smartEntryOne!, true).ConfigureAwait(false);
+                            var deleteResult = await BackupService.DeleteBackupAsync(mainConfig!, mainSourceFolder!, smartEntryOne!, BackupDeleteMode.LocalArchiveAndRecord).ConfigureAwait(false);
                             if (!deleteResult.Success)
                             {
                                 throw new InvalidOperationException($"Safe delete failed: {deleteResult.Message}");
@@ -622,33 +622,51 @@ namespace FolderRewind.Services
 
             var beforeEntries = GetHistoryEntries(config.Id, folder.DisplayName);
             var knownFiles = new HashSet<string>(beforeEntries.Select(item => item.FileName), StringComparer.OrdinalIgnoreCase);
+            var baselineTimestamp = beforeEntries.Count == 0
+                ? DateTime.MinValue
+                : beforeEntries.Max(item => item.Timestamp);
 
             bool created = await BackupService.BackupFolderAsync(config, folder, comment).ConfigureAwait(false);
             if (!created)
             {
+                LogService.Log($"[CoreValidation] Backup '{comment}' did not create archive. beforeEntries={beforeEntries.Count}.", LogLevel.Warning);
                 throw new InvalidOperationException($"Backup '{comment}' did not generate a new archive.");
             }
 
             var afterEntries = GetHistoryEntries(config.Id, folder.DisplayName);
-            var newEntries = afterEntries
+            var newEntriesByTimestamp = afterEntries
+                .Where(item => item.Timestamp > baselineTimestamp)
+                .OrderByDescending(item => item.Timestamp)
+                .ToList();
+
+            var newEntriesByFileName = afterEntries
                 .Where(item => !knownFiles.Contains(item.FileName))
                 .OrderByDescending(item => item.Timestamp)
                 .ToList();
 
-            if (newEntries.Count != 1)
+            if (newEntriesByTimestamp.Count != 1)
             {
-                throw new InvalidOperationException($"Backup '{comment}' produced {newEntries.Count} new history entries instead of exactly 1.");
+                LogService.Log(
+                    $"[CoreValidation] Backup '{comment}' history delta mismatch. before={beforeEntries.Count}, after={afterEntries.Count}, baseline={baselineTimestamp:O}, byTimestamp={newEntriesByTimestamp.Count}, byFileName={newEntriesByFileName.Count}, byTimestampEntries={FormatHistoryEntriesForLog(newEntriesByTimestamp)}, byFileNameEntries={FormatHistoryEntriesForLog(newEntriesByFileName)}",
+                    LogLevel.Warning);
+                throw new InvalidOperationException($"Backup '{comment}' produced {newEntriesByTimestamp.Count} new history entries instead of exactly 1.");
             }
 
-            var newEntry = newEntries[0];
+            var newEntry = newEntriesByTimestamp[0];
             if (!string.Equals(newEntry.BackupType, expectedBackupType, StringComparison.OrdinalIgnoreCase))
             {
+                LogService.Log(
+                    $"[CoreValidation] Backup '{comment}' type mismatch. expected={expectedBackupType}, actual={newEntry.BackupType}, file={newEntry.FileName}, timestamp={newEntry.Timestamp:O}.",
+                    LogLevel.Warning);
                 throw new InvalidOperationException($"Backup '{comment}' expected type '{expectedBackupType}' but received '{newEntry.BackupType}'.");
             }
 
             string? archivePath = HistoryService.GetBackupFilePath(config, folder, newEntry);
             if (string.IsNullOrWhiteSpace(archivePath) || !File.Exists(archivePath))
             {
+                LogService.Log(
+                    $"[CoreValidation] Backup '{comment}' archive missing on disk. file={newEntry.FileName}, resolvedPath={archivePath ?? "<null>"}.",
+                    LogLevel.Warning);
                 throw new InvalidOperationException($"Archive for backup '{comment}' was not found on disk.");
             }
 
@@ -686,6 +704,21 @@ namespace FolderRewind.Services
             return HistoryService.GetEntriesForFolder(configId, folderName)
                 .OrderBy(item => item.Timestamp)
                 .ToList();
+        }
+
+        private static string FormatHistoryEntriesForLog(IReadOnlyList<HistoryItem> entries, int maxItems = 6)
+        {
+            if (entries.Count == 0)
+            {
+                return "[]";
+            }
+
+            var sample = entries
+                .Take(maxItems)
+                .Select(item => $"{item.Timestamp:yyyy-MM-dd HH:mm:ss.fff}|{item.BackupType}|{item.FileName}");
+
+            string suffix = entries.Count > maxItems ? ", ..." : string.Empty;
+            return $"[{string.Join(", ", sample)}{suffix}]";
         }
 
         private static Dictionary<string, string> CaptureSnapshot(string rootDir)

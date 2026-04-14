@@ -40,12 +40,12 @@
             <Setter Property="VerticalAlignment" Value="Center" />
             <Setter Property="SpinButtonPlacementMode" Value="Inline" />
         </Style>
-        <Style x:Key="SettingsPathTextBoxStyle" TargetType="TextBox">
+        <Style x:Key="SettingsPathTextBoxStyle" TargetType="TextBox" BasedOn="{StaticResource DefaultTextBoxStyle}">
             <Setter Property="Width" Value="{StaticResource SettingsPathControlWidth}" />
             <Setter Property="MinWidth" Value="{StaticResource SettingsPathControlWidth}" />
             <Setter Property="HorizontalAlignment" Value="Right" />
             <Setter Property="VerticalAlignment" Value="Center" />
-            <Setter Property="IsReadOnly" Value="True" />
+            <Setter Property="CornerRadius" Value="{ThemeResource ControlCornerRadius}" />
         </Style>
         <Style x:Key="SettingsEntryTextBoxStyle" TargetType="TextBox">
             <Setter Property="Width" Value="{StaticResource SettingsActionControlWidth}" />
@@ -402,14 +402,14 @@
                             <StackPanel Orientation="Horizontal" Spacing="12" VerticalAlignment="Center">
                                 <NumberBox x:Name="StartupWidthBox"
                                            Width="112"
-                                           Minimum="640"
+                                           Minimum="1200"
                                            Maximum="3840"
                                            Value="{x:Bind Settings.StartupWidth, Mode=TwoWay}"
                                            ValueChanged="OnStartupSizeChanged" />
                                 <TextBlock Text="×" VerticalAlignment="Center" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
                                 <NumberBox x:Name="StartupHeightBox"
                                            Width="112"
-                                           Minimum="480"
+                                           Minimum="600"
                                            Maximum="2160"
                                            Value="{x:Bind Settings.StartupHeight, Mode=TwoWay}"
                                            ValueChanged="OnStartupSizeChanged" />
@@ -423,7 +423,7 @@
                 <!-- 工具与依赖 -->
                 <TextBlock x:Uid="SettingsPage_Section_Tools" Style="{StaticResource SettingsSectionHeaderTextBlockStyle}" />
 
-                <!-- 运行环境 (7-Zip) -->
+                <!-- 运行环境 -->
                 <toolkit:SettingsExpander IsExpanded="False">
                     <toolkit:SettingsExpander.Header>
                         <TextBlock x:Uid="SettingsPage_Environment" Style="{StaticResource SettingsHeaderTextStyle}" />
@@ -446,6 +446,31 @@
                                 <TextBox Text="{x:Bind Settings.SevenZipPath, Mode=TwoWay}" Style="{StaticResource SettingsPathTextBoxStyle}" />
                                 <Button x:Uid="SettingsPage_BrowseButton" Style="{StaticResource SettingsActionButtonStyle}" Click="OnBrowse7zClick" />
                             </StackPanel>
+                        </toolkit:SettingsCard>
+
+                        <toolkit:SettingsCard>
+                            <toolkit:SettingsCard.Header>
+                                <TextBlock x:Uid="SettingsPage_RclonePath" Style="{StaticResource SettingsHeaderTextStyle}" />
+                            </toolkit:SettingsCard.Header>
+                            <toolkit:SettingsCard.Description>
+                                <TextBlock x:Uid="SettingsPage_RclonePathDesc" Style="{StaticResource SettingsDescriptionStyle}" />
+                            </toolkit:SettingsCard.Description>
+                            <StackPanel Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
+                                <TextBox Text="{x:Bind Settings.RcloneExecutablePath, Mode=TwoWay}" Style="{StaticResource SettingsPathTextBoxStyle}" />
+                                <Button x:Uid="SettingsPage_BrowseButton" Style="{StaticResource SettingsActionButtonStyle}" Click="OnBrowseRcloneClick" />
+                            </StackPanel>
+                        </toolkit:SettingsCard>
+
+                        <toolkit:SettingsCard>
+                            <toolkit:SettingsCard.Header>
+                                <TextBlock x:Uid="SettingsPage_DefaultCloudRemoteBasePath" Style="{StaticResource SettingsHeaderTextStyle}" />
+                            </toolkit:SettingsCard.Header>
+                            <toolkit:SettingsCard.Description>
+                                <TextBlock x:Uid="SettingsPage_DefaultCloudRemoteBasePathDesc" Style="{StaticResource SettingsDescriptionStyle}" />
+                            </toolkit:SettingsCard.Description>
+                            <TextBox Text="{x:Bind Settings.DefaultCloudRemoteBasePath, Mode=TwoWay}"
+                                     Style="{StaticResource SettingsPathTextBoxStyle}"
+                                     TextChanged="OnDefaultCloudRemoteBasePathChanged" />
                         </toolkit:SettingsCard>
 
                         <toolkit:SettingsCard>

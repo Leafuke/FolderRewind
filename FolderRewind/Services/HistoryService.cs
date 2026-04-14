@@ -30,6 +30,8 @@ namespace FolderRewind.Services
         private static Task? _pendingSave;
         private static readonly SemaphoreSlim _saveLock = new(1, 1);
 
+        public static event Action? HistoryChanged;
+
         public static void Initialize()
         {
             if (_initialized) return;
@@ -115,8 +117,13 @@ namespace FolderRewind.Services
                 // 尝试获取文件大小，如果文件还在的话
                 var fullPath = GetBackupFilePath(config, folder, item);
                 var exists = !string.IsNullOrWhiteSpace(fullPath) && File.Exists(fullPath);
+                var hasCloudCopy = item.IsCloudArchived
+                    && !string.IsNullOrWhiteSpace(item.CloudArchiveRemotePath);
 
-                item.IsMissing = !exists;
+                item.HasLocalFile = exists;
+                item.HasCloudCopy = hasCloudCopy;
+                item.IsCloudOnly = !exists && hasCloudCopy;
+                item.IsMissing = !exists && !hasCloudCopy;
                 item.IsSmallFile = false;
 
                 if (exists)
@@ -134,6 +141,10 @@ namespace FolderRewind.Services
                     {
                         item.FileSizeDisplay = sizeStr;
                     }
+                }
+                else if (hasCloudCopy)
+                {
+                    item.FileSizeDisplay = string.Empty;
                 }
                 else
                 {
@@ -287,7 +298,9 @@ namespace FolderRewind.Services
                     .Where(x =>
                     {
                         var p = GetBackupFilePath(config, folder, x);
-                        return string.IsNullOrWhiteSpace(p) || !File.Exists(p);
+                        bool hasLocalFile = !string.IsNullOrWhiteSpace(p) && File.Exists(p);
+                        bool hasCloudCopy = x.IsCloudArchived && !string.IsNullOrWhiteSpace(x.CloudArchiveRemotePath);
+                        return !hasLocalFile && !hasCloudCopy;
                     })
                     .ToList();
 
@@ -320,6 +333,27 @@ namespace FolderRewind.Services
             if (removed)
             {
                 ScheduleSave();
+            }
+        }
+
+        public static HistoryItem? TryGetEntry(string configId, string folderPath, string fileName)
+        {
+            if (string.IsNullOrWhiteSpace(configId)
+                || string.IsNullOrWhiteSpace(folderPath)
+                || string.IsNullOrWhiteSpace(fileName))
+            {
+                return null;
+            }
+
+            Initialize();
+            lock (_historyLock)
+            {
+                return _allHistory
+                    .Where(x => string.Equals(x.ConfigId, configId, StringComparison.OrdinalIgnoreCase)
+                        && string.Equals(x.FolderPath, folderPath, StringComparison.OrdinalIgnoreCase)
+                        && string.Equals(x.FileName, fileName, StringComparison.OrdinalIgnoreCase))
+                    .OrderByDescending(x => x.Timestamp)
+                    .FirstOrDefault();
             }
         }
 
@@ -581,6 +615,76 @@ namespace FolderRewind.Services
             return modifiedCount;
         }
 
+        public static bool UpdateCloudArchiveState(
+            HistoryItem item,
+            bool isCloudArchived,
+            DateTime? archivedAtUtc,
+            string? archiveRemotePath,
+            string? metadataRecordRemotePath,
+            string? metadataStateRemotePath)
+        {
+            if (item == null)
+            {
+                return false;
+            }
+
+            Initialize();
+            bool updated = false;
+            lock (_historyLock)
+            {
+                var target = _allHistory.FirstOrDefault(x =>
+                    x.ConfigId == item.ConfigId &&
+                    x.FolderPath == item.FolderPath &&
+                    x.FileName == item.FileName &&
+                    x.Timestamp == item.Timestamp);
+
+                if (target == null)
+                {
+                    return false;
+                }
+
+                ApplyCloudState(target, isCloudArchived, archivedAtUtc, archiveRemotePath, metadataRecordRemotePath, metadataStateRemotePath);
+                if (!ReferenceEquals(target, item))
+                {
+                    ApplyCloudState(item, isCloudArchived, archivedAtUtc, archiveRemotePath, metadataRecordRemotePath, metadataStateRemotePath);
+                }
+
+                updated = true;
+            }
+
+            if (updated)
+            {
+                ScheduleSave();
+            }
+
+            return updated;
+        }
+
+        public static bool UpdateCloudArchiveState(
+            string configId,
+            string folderPath,
+            string fileName,
+            bool isCloudArchived,
+            DateTime? archivedAtUtc,
+            string? archiveRemotePath,
+            string? metadataRecordRemotePath,
+            string? metadataStateRemotePath)
+        {
+            var item = TryGetEntry(configId, folderPath, fileName);
+            if (item == null)
+            {
+                return false;
+            }
+
+            return UpdateCloudArchiveState(
+                item,
+                isCloudArchived,
+                archivedAtUtc,
+                archiveRemotePath,
+                metadataRecordRemotePath,
+                metadataStateRemotePath);
+        }
+
         /// <summary>
         /// 导出历史记录到指定路径
         /// </summary>
@@ -619,6 +723,27 @@ namespace FolderRewind.Services
                 var imported = JsonSerializer.Deserialize(json, AppJsonContext.Default.ListHistoryItem);
                 if (imported == null) return (false, 0);
 
+                var importResult = ImportHistoryItems(imported, merge);
+                return (importResult.Success, importResult.ImportedCount);
+            }
+            catch (Exception ex)
+            {
+                LogService.Log(I18n.Format("History_ImportFailed", ex.Message));
+                return (false, 0);
+            }
+        }
+
+        public static (bool Success, int ImportedCount, int DuplicateCount) ImportHistoryItems(IEnumerable<HistoryItem> items, bool merge = true)
+        {
+            Initialize();
+            try
+            {
+                if (items == null)
+                {
+                    return (false, 0, 0);
+                }
+
+                var imported = items.Where(item => item != null).ToList();
                 var safeImported = imported.Where(IsSafeHistoryItem).ToList();
                 int droppedCount = imported.Count - safeImported.Count;
                 if (safeImported.Count == 0 && imported.Count > 0)
@@ -626,12 +751,12 @@ namespace FolderRewind.Services
                     LogService.Log("[HistoryService] Import skipped: all entries were rejected due to unsafe paths.", LogLevel.Warning);
                 }
 
-                int count = 0;
+                int importedCount = 0;
+                int duplicateCount = 0;
                 lock (_historyLock)
                 {
                     if (merge)
                     {
-                        // 合并模式：仅添加不存在的条目（按 ConfigId+FolderPath+FileName+Timestamp 去重）
                         foreach (var item in safeImported)
                         {
                             bool exists = _allHistory.Any(x =>
@@ -639,27 +764,30 @@ namespace FolderRewind.Services
                                 x.FolderPath == item.FolderPath &&
                                 x.FileName == item.FileName &&
                                 x.Timestamp == item.Timestamp);
-                            if (!exists)
+                            if (exists)
                             {
-                                _allHistory.Add(item);
-                                count++;
+                                duplicateCount++;
+                                continue;
                             }
+
+                            _allHistory.Add(item);
+                            importedCount++;
                         }
                     }
                     else
                     {
-                        // 替换模式
-                        // 先备份
                         try
                         {
                             string backupPath = HistoryPath + ".bak";
                             if (File.Exists(HistoryPath)) File.Copy(HistoryPath, backupPath, true);
                         }
-                        catch { }
+                        catch
+                        {
+                        }
 
                         _allHistory.Clear();
                         _allHistory.AddRange(safeImported);
-                        count = safeImported.Count;
+                        importedCount = safeImported.Count;
                     }
                 }
 
@@ -668,13 +796,14 @@ namespace FolderRewind.Services
                 {
                     LogService.Log($"[HistoryService] Import dropped {droppedCount} unsafe entries.", LogLevel.Warning);
                 }
-                LogService.Log(I18n.Format("History_ImportSuccess", count.ToString()));
-                return (true, count);
+
+                LogService.Log(I18n.Format("History_ImportSuccess", importedCount.ToString()));
+                return (true, importedCount, duplicateCount);
             }
             catch (Exception ex)
             {
                 LogService.Log(I18n.Format("History_ImportFailed", ex.Message));
-                return (false, 0);
+                return (false, 0, 0);
             }
         }
 
@@ -793,8 +922,27 @@ namespace FolderRewind.Services
             return recoveredCount;
         }
 
+        private static void ApplyCloudState(
+            HistoryItem item,
+            bool isCloudArchived,
+            DateTime? archivedAtUtc,
+            string? archiveRemotePath,
+            string? metadataRecordRemotePath,
+            string? metadataStateRemotePath)
+        {
+            item.IsCloudArchived = isCloudArchived;
+            item.CloudArchivedAtUtc = isCloudArchived
+                ? (archivedAtUtc ?? DateTime.UtcNow)
+                : DateTime.MinValue;
+            item.CloudArchiveRemotePath = isCloudArchived ? (archiveRemotePath ?? string.Empty) : string.Empty;
+            item.CloudMetadataRecordRemotePath = isCloudArchived ? (metadataRecordRemotePath ?? string.Empty) : string.Empty;
+            item.CloudMetadataStateRemotePath = isCloudArchived ? (metadataStateRemotePath ?? string.Empty) : string.Empty;
+        }
+
         private static void ScheduleSave()
         {
+            HistoryChanged?.Invoke();
+
             // 取消前一次保存，合并写盘
             _saveCts?.Cancel();
             _saveCts = new CancellationTokenSource();

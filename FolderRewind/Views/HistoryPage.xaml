@@ -5,6 +5,7 @@
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
     xmlns:models="using:FolderRewind.Models"
     xmlns:converters="using:FolderRewind.Converters"
+    x:Name="RootPage"
     NavigationCacheMode="Required">
 
     <Page.Resources>
@@ -104,7 +105,15 @@
                                 </Grid.ColumnDefinitions>
                                 <StackPanel>
                                     <TextBlock Text="{x:Bind Message, Mode=OneWay}" Style="{ThemeResource BodyStrongTextBlockStyle}"/>
-                                    <TextBlock Text="{x:Bind FileSizeDisplay}" Style="{ThemeResource CaptionTextBlockStyle}" Foreground="{ThemeResource TextFillColorSecondaryBrush}"/>
+                                    <StackPanel Orientation="Horizontal" Spacing="6">
+                                        <TextBlock Text="{x:Bind FileSizeDisplay}" Style="{ThemeResource CaptionTextBlockStyle}" Foreground="{ThemeResource TextFillColorSecondaryBrush}"/>
+                                        <FontIcon Glyph="&#xE753;"
+                                                  FontSize="12"
+                                                  Foreground="{ThemeResource TextFillColorTertiaryBrush}"
+                                                  VerticalAlignment="Center"
+                                                  Visibility="{x:Bind HasCloudCopy, Mode=OneWay, Converter={StaticResource BoolToVisConverter}}"
+                                                  ToolTipService.ToolTip="{x:Bind CloudStatusText, Mode=OneWay}"/>
+                                    </StackPanel>
                                 </StackPanel>
                                 <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="4" VerticalAlignment="Center">
                                     <Button x:Uid="HistoryPage_ToggleImportantButton" Click="OnToggleImportantClick"
@@ -117,6 +126,18 @@
                                     </Button>
                                     <Button x:Uid="HistoryPage_EditCommentButton" Click="OnEditCommentClick">
                                         <FontIcon Glyph="&#xE70F;" FontSize="14"/>
+                                    </Button>
+                                    <Button x:Uid="HistoryPage_UploadCloudButton"
+                                            Click="OnUploadToCloudClick"
+                                            IsEnabled="{x:Bind CanUploadToCloud, Mode=OneWay}"
+                                            ToolTipService.ToolTip="{x:Bind CloudActionHintText, Mode=OneWay}">
+                                        <FontIcon Glyph="&#xE898;" FontSize="14"/>
+                                    </Button>
+                                    <Button x:Uid="HistoryPage_DownloadCloudButton"
+                                            Click="OnDownloadFromCloudClick"
+                                            IsEnabled="{x:Bind CanDownloadFromCloud, Mode=OneWay}"
+                                            ToolTipService.ToolTip="{x:Bind DownloadFromCloudHintText, Mode=OneWay}">
+                                        <FontIcon Glyph="&#xE896;" FontSize="14"/>
                                     </Button>
                                     <Button x:Uid="HistoryPage_RestoreButton" Click="OnRestoreClick"/>
                                     <Button x:Uid="HistoryPage_DeleteButton" Click="OnDeleteClick"/>

@@ -41,6 +41,14 @@ namespace FolderRewind.Views
             NavigationService.Clear(this);
             NotificationService.InfoBarRequested -= OnInfoBarRequested;
             ConfigService.Saved -= OnConfigSaved;
+
+            if (_infoBarTimer != null)
+            {
+                _infoBarTimer.Stop();
+                _infoBarTimer.Tick -= InfoBarTimer_Tick;
+                _infoBarTimer = null;
+            }
+
             Unloaded -= ShellPage_Unloaded;
         }
 
@@ -81,22 +89,35 @@ namespace FolderRewind.Views
 
                 GlobalInfoBar.IsOpen = true;
 
+                // 新消息到达时先停掉旧计时器，避免旧自动关闭任务误伤当前消息。
+                _infoBarTimer?.Stop();
+
                 // 自动关闭
                 if (autoCloseMs > 0)
                 {
-                    // 新消息进来时重置计时器，避免旧消息的关闭时机误关当前消息。
-                    _infoBarTimer?.Stop();
-                    _infoBarTimer = DispatcherQueue.CreateTimer();
-                    _infoBarTimer.Interval = TimeSpan.FromMilliseconds(autoCloseMs);
-                    _infoBarTimer.IsRepeating = false;
-                    _infoBarTimer.Tick += (s, e) =>
-                    {
-                        GlobalInfoBar.IsOpen = false;
-                        _infoBarTimer?.Stop();
-                    };
+                    EnsureInfoBarTimer();
+                    _infoBarTimer!.Interval = TimeSpan.FromMilliseconds(autoCloseMs);
                     _infoBarTimer.Start();
                 }
             });
+        }
+
+        private void EnsureInfoBarTimer()
+        {
+            if (_infoBarTimer != null)
+            {
+                return;
+            }
+
+            _infoBarTimer = DispatcherQueue.CreateTimer();
+            _infoBarTimer.IsRepeating = false;
+            _infoBarTimer.Tick += InfoBarTimer_Tick;
+        }
+
+        private void InfoBarTimer_Tick(DispatcherQueueTimer sender, object args)
+        {
+            GlobalInfoBar.IsOpen = false;
+            sender.Stop();
         }
 
         private void GlobalInfoBar_Closed(InfoBar sender, InfoBarClosedEventArgs args)

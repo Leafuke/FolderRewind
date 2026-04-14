@@ -750,6 +750,24 @@ Duplicate folder names are blocked within the same configuration so different di
   <data name="ConfigSettingsDialog_ScheduledMode.Content" xml:space="preserve">
     <value>Scheduled backup</value>
   </data>
+  <data name="ConfigSettingsDialog_AutomationScope.Text" xml:space="preserve">
+    <value>Automation scope</value>
+  </data>
+  <data name="ConfigSettingsDialog_AutomationTargetFolder.Text" xml:space="preserve">
+    <value>Target folder</value>
+  </data>
+  <data name="ConfigSettingsDialog_ConditionalMode.Content" xml:space="preserve">
+    <value>Conditional backup mode</value>
+  </data>
+  <data name="ConfigSettingsDialog_ConditionalModeDesc.Text" xml:space="preserve">
+    <value>Checks the specified relative-path file every 10 seconds. When the file changes from locked to unlocked, a backup is triggered, which works well for backing up saves after the game exits.</value>
+  </data>
+  <data name="ConfigSettingsDialog_ConditionRelativePath.Text" xml:space="preserve">
+    <value>Condition file relative path</value>
+  </data>
+  <data name="ConfigSettingsDialog_ConditionRelativePathPlaceholder.PlaceholderText" xml:space="preserve">
+    <value>For example: session.lock</value>
+  </data>
   <data name="ConfigSettingsDialog_Filter.Header" xml:space="preserve">
     <value>Filter</value>
   </data>
@@ -899,6 +917,36 @@ Duplicate folder names are blocked within the same configuration so different di
   </data>
   <data name="CoreValidation_Report_NoData" xml:space="preserve">
     <value>No validation report is available in the current session yet.</value>
+  </data>
+  <data name="CoreValidation_Report_Result" xml:space="preserve">
+    <value>Result</value>
+  </data>
+  <data name="CoreValidation_Report_Result_Passed" xml:space="preserve">
+    <value>Passed</value>
+  </data>
+  <data name="CoreValidation_Report_Result_Failed" xml:space="preserve">
+    <value>Failed</value>
+  </data>
+  <data name="CoreValidation_Report_Mode" xml:space="preserve">
+    <value>Mode</value>
+  </data>
+  <data name="CoreValidation_Report_Mode_Automatic" xml:space="preserve">
+    <value>Automatic</value>
+  </data>
+  <data name="CoreValidation_Report_Mode_Manual" xml:space="preserve">
+    <value>Manual</value>
+  </data>
+  <data name="CoreValidation_Report_Started" xml:space="preserve">
+    <value>Started</value>
+  </data>
+  <data name="CoreValidation_Report_Finished" xml:space="preserve">
+    <value>Finished</value>
+  </data>
+  <data name="CoreValidation_Report_Duration" xml:space="preserve">
+    <value>Duration</value>
+  </data>
+  <data name="CoreValidation_Report_Summary" xml:space="preserve">
+    <value>Summary</value>
   </data>
   <data name="CoreValidation_Summary_Passed" xml:space="preserve">
     <value>All core backup and restore checks passed.</value>
@@ -1961,19 +2009,13 @@ Comment: {1}
     <value>Delete History</value>
   </data>
   <data name="History_DeleteConfirm_Content" xml:space="preserve">
-    <value>You are about to delete this history entry: {0}\n\nYou can also choose whether to delete the local backup file.</value>
-  </data>
-  <data name="History_DeleteConfirm_DeleteRecord" xml:space="preserve">
-    <value>Delete record only</value>
-  </data>
-  <data name="History_DeleteConfirm_DeleteBoth" xml:space="preserve">
-    <value>Delete record and backup</value>
+    <value>You are about to process this history entry: {0} \n\n Choose whether to remove only the record, only the local backup file, or both. Cloud data will not be deleted.</value>
   </data>
   <data name="History_ClearMissingConfirm_Title" xml:space="preserve">
     <value>Clear missing records</value>
   </data>
   <data name="History_ClearMissingConfirm_Content" xml:space="preserve">
-    <value>You are about to remove {0} missing records (record exists but backup file is gone). This will not delete any existing backup files.</value>
+    <value>You are about to remove {0} unrecoverable records (no local file and no cloud copy). This will not delete any existing backup files or cloud data.</value>
   </data>
   <data name="History_ClearMissingConfirm_Primary" xml:space="preserve">
     <value>Clear</value>
@@ -2054,7 +2096,7 @@ Comment: {1}
     <value>Folder "{0}" restore failed: {1}</value>
   </data>
   <data name="CloudSync_Notification_Title" xml:space="preserve">
-    <value>Cloud Upload</value>
+    <value>Cloud Archive</value>
   </data>
   <data name="CloudSync_Notification_UploadFailed" xml:space="preserve">
     <value>Cloud upload failed for folder "{0}": {1}</value>
@@ -2248,6 +2290,75 @@ Status: {3}</value>
   <data name="AutoBackup_StoppedNoChanges" xml:space="preserve">
     <value>Auto backup for "{0}" has been disabled: no changes detected {1} consecutive times.</value>
   </data>
+  <data name="AutoBackup_Reason_AppStart" xml:space="preserve">
+    <value>Run when app starts</value>
+  </data>
+  <data name="AutoBackup_Reason_Interval" xml:space="preserve">
+    <value>Interval backup (every {0} minutes)</value>
+  </data>
+  <data name="AutoBackup_Reason_Scheduled" xml:space="preserve">
+    <value>Scheduled backup ({0})</value>
+  </data>
+  <data name="AutoBackup_Reason_ScheduledLegacy" xml:space="preserve">
+    <value>Scheduled backup (legacy compatibility)</value>
+  </data>
+  <data name="AutoBackup_Reason_FileUnlocked" xml:space="preserve">
+    <value>Conditional backup ({0} unlocked)</value>
+  </data>
+  <data name="AutoBackup_Log_TriggeredConfig" xml:space="preserve">
+    <value>[AutoBackup] {0}: {1}</value>
+  </data>
+  <data name="AutoBackup_Log_TriggeredFolder" xml:space="preserve">
+    <value>[AutoBackup] {0}: {1} / {2}</value>
+  </data>
+  <data name="AutoBackup_Log_SingleTargetMissing" xml:space="preserve">
+    <value>[AutoBackup] The single-folder automation target for "{0}" no longer exists, so this trigger was skipped.</value>
+  </data>
+  <data name="AutoBackup_Log_ConditionLocked" xml:space="preserve">
+    <value>[AutoBackup] Condition file became locked: {0} / {1} / {2}</value>
+  </data>
+  <data name="AutoBackup_Log_ConditionUnlocked" xml:space="preserve">
+    <value>[AutoBackup] Condition file became unlocked: {0} / {1} / {2}</value>
+  </data>
+  <data name="AutoBackup_Log_StopSkippedBecauseLocked" xml:space="preserve">
+    <value>[AutoBackup] level.dat is still locked under "{0}", so auto backup will not be stopped yet.</value>
+  </data>
+  <data name="AutoBackup_Log_DisabledNoChanges" xml:space="preserve">
+    <value>[AutoBackup] "{0}" was disabled after {1} consecutive runs with no changes.</value>
+  </data>
+  <data name="AutoBackup_Log_Failed" xml:space="preserve">
+    <value>[AutoBackup] "{0}" failed: {1}</value>
+  </data>
+  <data name="AutoBackup_Notification_Failed" xml:space="preserve">
+    <value>Auto backup for "{0}" failed: {1}</value>
+  </data>
+  <data name="ConfigSettingsDialog_AutomationScope_AllFolders" xml:space="preserve">
+    <value>All folders</value>
+  </data>
+  <data name="ConfigSettingsDialog_AutomationScope_SingleFolder" xml:space="preserve">
+    <value>Single folder</value>
+  </data>
+  <data name="ConfigSettingsDialog_AutomationScopeAllDesc" xml:space="preserve">
+    <value>Startup, interval, scheduled, and conditional automation all apply to every folder in this configuration.</value>
+  </data>
+  <data name="ConfigSettingsDialog_AutomationScopeSingleDesc" xml:space="preserve">
+    <value>Startup, interval, scheduled, and conditional automation only apply to the selected folder below.</value>
+  </data>
+  <data name="ConfigSettingsDialog_AutomationTargetFolderDesc" xml:space="preserve">
+    <value>When automation scope is set to a single folder, every automation trigger only processes the folder selected here.</value>
+  </data>
+  <data name="ConfigSettingsDialog_AutomationTargetFolderEmpty" xml:space="preserve">
+    <value>There are no source folders available in this configuration yet.</value>
+  </data>
+  <data name="ConfigSettingsDialog_ConditionRelativePathDesc" xml:space="preserve">
+    <value>Interpreted relative to each source folder. For example, entering session.lock checks the lock state of "source-folder\\session.lock".</value>
+  </data>
+  <data name="ConfigSettingsDialog_ConditionRelativePathWarning" xml:space="preserve">
+    <value>Conditional backup mode will not trigger until a relative path is provided.</value>
+  </data>
+  <data name="ConfigSettingsDialog_ConditionRelativePathAbsoluteWarning" xml:space="preserve">
+    <value>Only relative paths are supported for now. Absolute paths will not trigger conditional backup.</value>
+  </data>
   <data name="SettingsPage_DataMigration.Text" xml:space="preserve">
     <value>Data Migration</value>
   </data>
@@ -2284,8 +2395,20 @@ Status: {3}</value>
   <data name="Settings_ExportConfigFailed" xml:space="preserve">
     <value>Failed to export configuration.</value>
   </data>
+  <data name="Settings_ExportConfigMode_Title" xml:space="preserve">
+    <value>Export Configuration</value>
+  </data>
+  <data name="Settings_ExportConfigMode_Description" xml:space="preserve">
+    <value>Choose whether to export to a local file or directly to the cloud.</value>
+  </data>
   <data name="Settings_ImportConfigConfirmTitle" xml:space="preserve">
     <value>Import Configuration</value>
+  </data>
+  <data name="Settings_ImportConfigMode_Title" xml:space="preserve">
+    <value>Import Configuration</value>
+  </data>
+  <data name="Settings_ImportConfigMode_Description" xml:space="preserve">
+    <value>Choose whether to import from a local file or directly from the cloud.</value>
   </data>
   <data name="Settings_ImportConfigConfirmContent" xml:space="preserve">
     <value>Importing will replace all current settings and backup configurations. A backup of the current config will be created automatically. Continue?</value>
@@ -2305,8 +2428,20 @@ Status: {3}</value>
   <data name="Settings_ExportHistoryFailed" xml:space="preserve">
     <value>Failed to export history records.</value>
   </data>
+  <data name="Settings_ExportHistoryMode_Title" xml:space="preserve">
+    <value>Export History</value>
+  </data>
+  <data name="Settings_ExportHistoryMode_Description" xml:space="preserve">
+    <value>Choose whether to export to a local file or directly to the cloud.</value>
+  </data>
   <data name="Settings_ImportHistoryConfirmTitle" xml:space="preserve">
     <value>Import History</value>
+  </data>
+  <data name="Settings_ImportHistoryMode_Title" xml:space="preserve">
+    <value>Import History</value>
+  </data>
+  <data name="Settings_ImportHistoryMode_Description" xml:space="preserve">
+    <value>Choose whether to import from a local file or directly from the cloud.</value>
   </data>
   <data name="Settings_ImportHistoryConfirmContent" xml:space="preserve">
     <value>Choose how to import: Merge will add non-duplicate records to the existing history. Replace will overwrite all existing records.</value>
@@ -2406,9 +2541,6 @@ Status: {3}</value>
   </data>
   <data name="ConfigSettingsDialog_CloudEnabled.OffContent" xml:space="preserve">
     <value>Disabled</value>
-  </data>
-  <data name="ConfigSettingsDialog_CloudEnabledDesc.Text" xml:space="preserve">
-    <value>FolderRewind only calls a third-party tool after a successful local backup. It does not manage cloud accounts, remote browsing, or cloud restore directly.</value>
   </data>
   <data name="ConfigSettingsDialog_CloudMode.Header" xml:space="preserve">
     <value>Execution mode</value>
@@ -3144,12 +3276,6 @@ Release notes:
   <data name="SettingsPage_PrepareTemplateSubmission.Content" xml:space="preserve">
     <value>Prepare Submission</value>
   </data>
-  <data name="OfficialTemplates_SourceOfficial" xml:space="preserve">
-    <value>Official source</value>
-  </data>
-  <data name="OfficialTemplates_SourceMirror" xml:space="preserve">
-    <value>Fallback mirror</value>
-  </data>
   <data name="OfficialTemplates_SourceCache" xml:space="preserve">
     <value>Local cache</value>
   </data>
@@ -3494,5 +3620,323 @@ Pull request: {1}</value>
   </data>
   <data name="GitHubSubmit_Progress_CreatePr" xml:space="preserve">
     <value>Creating the pull request...</value>
+  </data>
+  <data name="History_CloudStatus_CloudAvailable" xml:space="preserve">
+    <value>Archived in the cloud</value>
+  </data>
+  <data name="History_CloudStatus_CloudOnly" xml:space="preserve">
+    <value>Only the cloud copy remains</value>
+  </data>
+  <data name="History_CloudUpload_Action" xml:space="preserve">
+    <value>Upload to cloud</value>
+  </data>
+  <data name="History_CloudUpload_NoLocalFile" xml:space="preserve">
+    <value>The local archive is missing, so it cannot be uploaded.</value>
+  </data>
+  <data name="History_CloudDownload_Action" xml:space="preserve">
+    <value>Download from cloud to the local backup library</value>
+  </data>
+  <data name="History_CloudDownload_NoCloudCopy" xml:space="preserve">
+    <value>No downloadable cloud copy is available for this entry.</value>
+  </data>
+  <data name="History_CloudAction_NotEnabled" xml:space="preserve">
+    <value>Cloud archive is not enabled for this configuration.</value>
+  </data>
+  <data name="History_CloudAction_CustomModeOnly" xml:space="preserve">
+    <value>This configuration uses a custom cloud command. History page upload/download currently supports rclone mode only.</value>
+  </data>
+  <data name="History_DeleteMode_RecordOnly" xml:space="preserve">
+    <value>Delete record only</value>
+  </data>
+  <data name="History_DeleteMode_LocalOnly" xml:space="preserve">
+    <value>Delete local backup only</value>
+  </data>
+  <data name="History_DeleteMode_LocalAndRecord" xml:space="preserve">
+    <value>Delete local backup and record</value>
+  </data>
+  <data name="History_Delete_InvalidRequest" xml:space="preserve">
+    <value>Invalid delete request.</value>
+  </data>
+  <data name="CloudSync_Task_HistoryUploadName" xml:space="preserve">
+    <value>Upload cloud archive: {0}</value>
+  </data>
+  <data name="CloudSync_Task_HistoryDownloadName" xml:space="preserve">
+    <value>Download cloud archive: {0}</value>
+  </data>
+  <data name="CloudSync_Task_UploadingArchive" xml:space="preserve">
+    <value>Uploading archive...</value>
+  </data>
+  <data name="CloudSync_Task_UploadingMetadata" xml:space="preserve">
+    <value>Syncing metadata...</value>
+  </data>
+  <data name="CloudSync_Task_DownloadingArchive" xml:space="preserve">
+    <value>Downloading archive...</value>
+  </data>
+  <data name="CloudSync_Task_DownloadingMetadata" xml:space="preserve">
+    <value>Downloading metadata...</value>
+  </data>
+  <data name="CloudSync_Task_DownloadCompleted" xml:space="preserve">
+    <value>Download completed</value>
+  </data>
+  <data name="CloudSync_Notification_NotEnabled" xml:space="preserve">
+    <value>Cloud archive is not enabled for this configuration.</value>
+  </data>
+  <data name="CloudSync_Notification_RcloneOnly" xml:space="preserve">
+    <value>History page upload/download currently supports rclone mode only.</value>
+  </data>
+  <data name="CloudSync_Notification_NoCloudCopy" xml:space="preserve">
+    <value>This history entry does not have a downloadable cloud copy.</value>
+  </data>
+  <data name="CloudSync_Notification_HistoryUploadFailed" xml:space="preserve">
+    <value>Failed to upload "{0}": {1}</value>
+  </data>
+  <data name="CloudSync_Notification_HistoryUploadSucceeded" xml:space="preserve">
+    <value>Uploaded "{0}" to the cloud.</value>
+  </data>
+  <data name="CloudSync_Notification_HistoryDownloadFailed" xml:space="preserve">
+    <value>Failed to download "{0}": {1}</value>
+  </data>
+  <data name="CloudSync_Notification_HistoryDownloadSucceeded" xml:space="preserve">
+    <value>Downloaded "{0}" back to the local backup library.</value>
+  </data>
+  <data name="CloudSync_Notification_MetadataPartial" xml:space="preserve">
+    <value>Metadata for "{0}" was only partially synchronized. The archive itself completed first.</value>
+  </data>
+  <data name="ConfigSettingsDialog_CloudDownloadAllText.Text" xml:space="preserve">
+    <value>Fetch cloud backups for this configuration</value>
+  </data>
+  <data name="ConfigSettingsDialog_CloudDownloadAllDesc.Text" xml:space="preserve">
+    <value>Pull this configuration's archived backups and metadata back into the local backup library, then try to recover the matching history records.</value>
+  </data>
+  <data name="ConfigSettingsDialog_CloudExecutableDesc" xml:space="preserve">
+    <value>Effective path: {0}. This overrides the executable for the current configuration. If you keep the default, the global rclone path from Settings is used first.</value>
+  </data>
+  <data name="SettingsPage_RclonePath.Text" xml:space="preserve">
+    <value>rclone path</value>
+  </data>
+  <data name="SettingsPage_RclonePathDesc.Text" xml:space="preserve">
+    <value>Cloud import and configurations without a dedicated executable path will prefer this global rclone path.</value>
+  </data>
+  <data name="Settings_ImportConfigFromCloud_Title" xml:space="preserve">
+    <value>Import Configuration From Cloud</value>
+  </data>
+  <data name="Settings_ImportConfigFromCloud_Description" xml:space="preserve">
+    <value>Enter the remote base path and FolderRewind will download its config.json, then reuse the existing configuration import flow.</value>
+  </data>
+  <data name="Settings_ImportHistoryFromCloud_Title" xml:space="preserve">
+    <value>Import History From Cloud</value>
+  </data>
+  <data name="Settings_ImportHistoryFromCloud_Description" xml:space="preserve">
+    <value>Enter the remote base path and FolderRewind will download its history.json, then reuse the existing history import flow.</value>
+  </data>
+  <data name="Settings_ExportConfigToCloud_Title" xml:space="preserve">
+    <value>Export Configuration To Cloud</value>
+  </data>
+  <data name="Settings_ExportConfigToCloud_Description" xml:space="preserve">
+    <value>Enter the remote base path and FolderRewind will export the current configuration as config.json, then upload it to the cloud.</value>
+  </data>
+  <data name="Settings_ExportHistoryToCloud_Title" xml:space="preserve">
+    <value>Export History To Cloud</value>
+  </data>
+  <data name="Settings_ExportHistoryToCloud_Description" xml:space="preserve">
+    <value>Enter the remote base path and FolderRewind will export the current history as history.json, then upload it to the cloud.</value>
+  </data>
+  <data name="Settings_DataTransferMode_Local" xml:space="preserve">
+    <value>Local file</value>
+  </data>
+  <data name="Settings_DataTransferMode_Cloud" xml:space="preserve">
+    <value>Cloud</value>
+  </data>
+  <data name="Settings_CloudRemoteBasePath_Label" xml:space="preserve">
+    <value>Remote base path</value>
+  </data>
+  <data name="Settings_CloudRemoteBasePath_Placeholder" xml:space="preserve">
+    <value>For example: remote:FolderRewind</value>
+  </data>
+  <data name="CloudSync_Task_ConfigurationDownloadName" xml:space="preserve">
+    <value>Fetch cloud backups: {0}</value>
+  </data>
+  <data name="CloudSync_Task_DownloadingFolderArchives" xml:space="preserve">
+    <value>Fetching cloud backups for "{0}"...</value>
+  </data>
+  <data name="CloudSync_Task_ConfigImportName" xml:space="preserve">
+    <value>Import configuration from cloud</value>
+  </data>
+  <data name="CloudSync_Task_HistoryImportName" xml:space="preserve">
+    <value>Import history from cloud</value>
+  </data>
+  <data name="CloudSync_Task_ConfigExportName" xml:space="preserve">
+    <value>Export configuration to cloud</value>
+  </data>
+  <data name="CloudSync_Task_HistoryExportName" xml:space="preserve">
+    <value>Export history to cloud</value>
+  </data>
+  <data name="CloudSync_Notification_ConfigurationNoFolders" xml:space="preserve">
+    <value>This configuration does not have any folders to fetch yet.</value>
+  </data>
+  <data name="CloudSync_Notification_ConfigurationDownloadSucceeded" xml:space="preserve">
+    <value>Fetched cloud backups for "{0}" and recovered {1} history entries.</value>
+  </data>
+  <data name="CloudSync_Notification_ConfigurationDownloadFailed" xml:space="preserve">
+    <value>Unable to fetch cloud backups for the current configuration.</value>
+  </data>
+  <data name="CloudSync_Notification_ConfigurationDownloadFailedWithReason" xml:space="preserve">
+    <value>Failed to fetch cloud backups for "{0}": {1}</value>
+  </data>
+  <data name="CloudSync_Notification_ConfigImportSucceeded" xml:space="preserve">
+    <value>Configuration imported from the cloud.</value>
+  </data>
+  <data name="CloudSync_Notification_ConfigImportFailed" xml:space="preserve">
+    <value>Failed to import configuration from the cloud.</value>
+  </data>
+  <data name="CloudSync_Notification_ConfigExportSucceeded" xml:space="preserve">
+    <value>Configuration exported to cloud.</value>
+  </data>
+  <data name="CloudSync_Notification_ConfigExportFailed" xml:space="preserve">
+    <value>Failed to export configuration to cloud.</value>
+  </data>
+  <data name="CloudSync_Notification_HistoryImportSucceeded" xml:space="preserve">
+    <value>Imported {0} history entries from the cloud.</value>
+  </data>
+  <data name="CloudSync_Notification_HistoryImportFailed" xml:space="preserve">
+    <value>Failed to import history from the cloud.</value>
+  </data>
+  <data name="CloudSync_Notification_HistoryExportSucceeded" xml:space="preserve">
+    <value>History exported to cloud.</value>
+  </data>
+  <data name="CloudSync_Notification_HistoryExportFailed" xml:space="preserve">
+    <value>Failed to export history to cloud.</value>
+  </data>
+  <data name="CloudSync_Notification_ImportFailedWithReason" xml:space="preserve">
+    <value>Cloud import failed: {0}</value>
+  </data>
+  <data name="CloudSync_Notification_ExportFailedWithReason" xml:space="preserve">
+    <value>Cloud export failed: {0}</value>
+  </data>
+  <data name="ConfigSettingsDialog_CloudEnvironmentSection.Text" xml:space="preserve">
+    <value>Environment</value>
+  </data>
+  <data name="ConfigSettingsDialog_CloudSyncSection.Text" xml:space="preserve">
+    <value>Cloud sync</value>
+  </data>
+  <data name="ConfigSettingsDialog_CloudSyncOpenText.Text" xml:space="preserve">
+    <value>Sync this configuration from cloud</value>
+  </data>
+  <data name="ConfigSettingsDialog_CloudLegacyModeDesc.Text" xml:space="preserve">
+    <value>This configuration still uses the legacy custom command mode. Auto upload remains available, but manual sync and history cloud actions only support rclone mode.</value>
+  </data>
+  <data name="ConfigSettingsDialog_CloudSyncHint" xml:space="preserve">
+    <value>Analyze the remote history.json first, then either import only this configuration's history or also pull remote backups and metadata back to local storage.</value>
+  </data>
+  <data name="ConfigSettingsDialog_CloudLegacyModeHint" xml:space="preserve">
+    <value>This configuration uses the legacy custom cloud command. Manual sync is unavailable until it is moved to an rclone-based setup.</value>
+  </data>
+  <data name="ConfigCloudSyncDialog.Title" xml:space="preserve">
+    <value>Sync this configuration from cloud</value>
+  </data>
+  <data name="ConfigCloudSyncDialog.PrimaryButtonText" xml:space="preserve">
+    <value>Start sync</value>
+  </data>
+  <data name="ConfigCloudSyncDialog.CloseButtonText" xml:space="preserve">
+    <value>Cancel</value>
+  </data>
+  <data name="ConfigCloudSyncDialog_Description.Text" xml:space="preserve">
+    <value>The dialog analyzes the remote history.json first, then applies this configuration's folder mapping rules before importing anything locally.</value>
+  </data>
+  <data name="ConfigCloudSyncDialog_ModeHeader.Text" xml:space="preserve">
+    <value>Sync scope</value>
+  </data>
+  <data name="ConfigCloudSyncDialog_Mode_HistoryOnly.Content" xml:space="preserve">
+    <value>Only sync this configuration's history</value>
+  </data>
+  <data name="ConfigCloudSyncDialog_Mode_HistoryAndBackups.Content" xml:space="preserve">
+    <value>Sync history and download all backups</value>
+  </data>
+  <data name="ConfigCloudSyncDialog_RemoteBasePathLabel.Text" xml:space="preserve">
+    <value>Remote base path</value>
+  </data>
+  <data name="ConfigCloudSyncDialog_ExecutableLabel.Text" xml:space="preserve">
+    <value>Executable</value>
+  </data>
+  <data name="ConfigCloudSyncDialog_AnalysisHeader.Text" xml:space="preserve">
+    <value>Remote analysis</value>
+  </data>
+  <data name="ConfigCloudSyncDialog_RefreshAnalysis.Content" xml:space="preserve">
+    <value>Refresh analysis</value>
+  </data>
+  <data name="ConfigCloudSyncDialog_Status_Ready" xml:space="preserve">
+    <value>Ready. You can analyze the remote history first.</value>
+  </data>
+  <data name="ConfigCloudSyncDialog_Status_Analyzing" xml:space="preserve">
+    <value>Analyzing remote history.json...</value>
+  </data>
+  <data name="ConfigCloudSyncDialog_Status_AnalysisReady" xml:space="preserve">
+    <value>Analysis complete. You can start syncing now.</value>
+  </data>
+  <data name="ConfigCloudSyncDialog_Status_Syncing" xml:space="preserve">
+    <value>Syncing the current configuration...</value>
+  </data>
+  <data name="ConfigCloudSyncDialog_Analysis_Pending" xml:space="preserve">
+    <value>No remote analysis result yet.</value>
+  </data>
+  <data name="ConfigCloudSyncDialog_Analysis_Matched" xml:space="preserve">
+    <value>Matched remote history entries: {0}</value>
+  </data>
+  <data name="ConfigCloudSyncDialog_Analysis_Importable" xml:space="preserve">
+    <value>Entries ready to import: {0}</value>
+  </data>
+  <data name="ConfigCloudSyncDialog_Analysis_Unmapped" xml:space="preserve">
+    <value>Skipped because no local folder matched: {0}</value>
+  </data>
+  <data name="ConfigCloudSyncDialog_Analysis_Ambiguous" xml:space="preserve">
+    <value>Skipped because multiple local folders matched: {0}</value>
+  </data>
+  <data name="CloudSync_ConfigSync_AnalysisSummary" xml:space="preserve">
+    <value>The analysis matched {0} remote history entries. {1} can be imported, {2} were unmapped, and {3} were skipped because of ambiguous folder names.</value>
+  </data>
+  <data name="CloudSync_ConfigSync_AnalysisEmpty" xml:space="preserve">
+    <value>The analysis matched {0} remote history entries, but none can be safely imported yet. Unmapped: {1}, ambiguous: {2}.</value>
+  </data>
+  <data name="CloudSync_ConfigSync_HistoryOnlySucceeded" xml:space="preserve">
+    <value>History sync completed. Imported {0} entries and skipped {1} duplicates.</value>
+  </data>
+  <data name="CloudSync_ConfigSync_HistoryAndBackupsSucceeded" xml:space="preserve">
+    <value>History and backup sync completed. Imported {0} history entries, skipped {1} duplicates, and recovered or refreshed {2} local history entries.</value>
+  </data>
+  <data name="CloudSync_ConfigSync_HistoryImportedBackupsFailed" xml:space="preserve">
+    <value>Imported {0} history entries, but downloading the cloud backups failed: {1}</value>
+  </data>
+  <data name="CloudSync_ConfigSync_HistoryImportFailed" xml:space="preserve">
+    <value>Failed to import history for the current configuration.</value>
+  </data>
+  <data name="ConfigSettingsDialog_CloudSyncHistoryAfterUpload.Header" xml:space="preserve">
+    <value>Also sync history</value>
+  </data>
+  <data name="ConfigSettingsDialog_CloudSyncHistoryAfterUpload.OnContent" xml:space="preserve">
+    <value>On</value>
+  </data>
+  <data name="ConfigSettingsDialog_CloudSyncHistoryAfterUpload.OffContent" xml:space="preserve">
+    <value>Off</value>
+  </data>
+  <data name="ConfigSettingsDialog_CloudSyncHistoryAfterUploadDesc.Text" xml:space="preserve">
+    <value>After each successful automatic backup upload, also upload the latest history.json to the current remote base path so other devices can sync this configuration's history.</value>
+  </data>
+  <data name="SettingsPage_DefaultCloudRemoteBasePath.Text" xml:space="preserve">
+    <value>Default remote base path</value>
+  </data>
+  <data name="SettingsPage_DefaultCloudRemoteBasePathDesc.Text" xml:space="preserve">
+    <value>Used as the default cloud path for newly created configurations and as the default remote base path in the cloud import/export dialogs.</value>
+  </data>
+  <data name="CloudSync_Task_UploadingHistorySnapshot" xml:space="preserve">
+    <value>Uploading history.json...</value>
+  </data>
+  <data name="CloudSync_Notification_HistorySyncUploadFailed" xml:space="preserve">
+    <value>The backup was uploaded, but syncing history.json failed.</value>
+  </data>
+  <data name="CloudSync_Notification_HistorySyncUploadFailedWithReason" xml:space="preserve">
+    <value>The backup was uploaded, but syncing history.json failed: {0}</value>
+  </data>
+  <data name="CloudSync_Notification_HistorySyncSkippedLegacyMode" xml:space="preserve">
+    <value>This configuration still uses the legacy custom command mode, so history.json cannot be synced automatically.</value>
   </data>
 </root>

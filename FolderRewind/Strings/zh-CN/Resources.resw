@@ -750,6 +750,24 @@
   <data name="ConfigSettingsDialog_ScheduledMode.Content" xml:space="preserve">
     <value>计划备份模式</value>
   </data>
+  <data name="ConfigSettingsDialog_AutomationScope.Text" xml:space="preserve">
+    <value>自动化作用范围</value>
+  </data>
+  <data name="ConfigSettingsDialog_AutomationTargetFolder.Text" xml:space="preserve">
+    <value>目标文件夹</value>
+  </data>
+  <data name="ConfigSettingsDialog_ConditionalMode.Content" xml:space="preserve">
+    <value>条件备份模式</value>
+  </data>
+  <data name="ConfigSettingsDialog_ConditionalModeDesc.Text" xml:space="preserve">
+    <value>固定每 10 秒检查一次指定相对路径文件。当文件从“被占用”变为“解除占用”时触发备份，适合在游戏存档退出后自动备份。</value>
+  </data>
+  <data name="ConfigSettingsDialog_ConditionRelativePath.Text" xml:space="preserve">
+    <value>条件文件相对路径</value>
+  </data>
+  <data name="ConfigSettingsDialog_ConditionRelativePathPlaceholder.PlaceholderText" xml:space="preserve">
+    <value>例如：session.lock</value>
+  </data>
   <data name="ConfigSettingsDialog_Filter.Header" xml:space="preserve">
     <value>过滤</value>
   </data>
@@ -899,6 +917,36 @@
   </data>
   <data name="CoreValidation_Report_NoData" xml:space="preserve">
     <value>当前会话还没有可查看的校验报告。</value>
+  </data>
+  <data name="CoreValidation_Report_Result" xml:space="preserve">
+    <value>结果</value>
+  </data>
+  <data name="CoreValidation_Report_Result_Passed" xml:space="preserve">
+    <value>通过</value>
+  </data>
+  <data name="CoreValidation_Report_Result_Failed" xml:space="preserve">
+    <value>失败</value>
+  </data>
+  <data name="CoreValidation_Report_Mode" xml:space="preserve">
+    <value>执行方式</value>
+  </data>
+  <data name="CoreValidation_Report_Mode_Automatic" xml:space="preserve">
+    <value>自动</value>
+  </data>
+  <data name="CoreValidation_Report_Mode_Manual" xml:space="preserve">
+    <value>手动</value>
+  </data>
+  <data name="CoreValidation_Report_Started" xml:space="preserve">
+    <value>开始时间</value>
+  </data>
+  <data name="CoreValidation_Report_Finished" xml:space="preserve">
+    <value>结束时间</value>
+  </data>
+  <data name="CoreValidation_Report_Duration" xml:space="preserve">
+    <value>耗时</value>
+  </data>
+  <data name="CoreValidation_Report_Summary" xml:space="preserve">
+    <value>摘要</value>
   </data>
   <data name="CoreValidation_Summary_Passed" xml:space="preserve">
     <value>备份与还原核心功能自动校验全部通过。</value>
@@ -1961,19 +2009,13 @@
     <value>删除历史记录</value>
   </data>
   <data name="History_DeleteConfirm_Content" xml:space="preserve">
-    <value>将要删除该条历史记录：{0}\n\n你还可以选择是否同时删除本地备份文件。</value>
-  </data>
-  <data name="History_DeleteConfirm_DeleteRecord" xml:space="preserve">
-    <value>仅删除记录</value>
-  </data>
-  <data name="History_DeleteConfirm_DeleteBoth" xml:space="preserve">
-    <value>删除记录和备份</value>
+    <value>将要处理该条历史记录：{0} \n\n请选择仅删除记录、仅删除本地备份文件，或同时删除本地备份与记录。云端副本不会被移除。</value>
   </data>
   <data name="History_ClearMissingConfirm_Title" xml:space="preserve">
     <value>清除失效记录</value>
   </data>
   <data name="History_ClearMissingConfirm_Content" xml:space="preserve">
-    <value>将要清除 {0} 条失效记录（记录存在但备份文件已丢失）。此操作不会影响任何现存备份文件。</value>
+    <value>将要清除 {0} 条不可恢复的失效记录（本地与云端都不存在可用副本）。此操作不会影响任何现存备份文件或云端数据。</value>
   </data>
   <data name="History_ClearMissingConfirm_Primary" xml:space="preserve">
     <value>清除</value>
@@ -2054,7 +2096,7 @@
     <value>文件夹 "{0}" 恢复失败：{1}</value>
   </data>
   <data name="CloudSync_Notification_Title" xml:space="preserve">
-    <value>云上传</value>
+    <value>云存档</value>
   </data>
   <data name="CloudSync_Notification_UploadFailed" xml:space="preserve">
     <value>文件夹 "{0}" 的云上传失败：{1}</value>
@@ -2248,6 +2290,75 @@
   <data name="AutoBackup_StoppedNoChanges" xml:space="preserve">
     <value>“{0}” 的自动备份已停止：连续 {1} 次未检测到变更。</value>
   </data>
+  <data name="AutoBackup_Reason_AppStart" xml:space="preserve">
+    <value>程序启动时运行</value>
+  </data>
+  <data name="AutoBackup_Reason_Interval" xml:space="preserve">
+    <value>间隔备份（每 {0} 分钟）</value>
+  </data>
+  <data name="AutoBackup_Reason_Scheduled" xml:space="preserve">
+    <value>计划备份（{0}）</value>
+  </data>
+  <data name="AutoBackup_Reason_ScheduledLegacy" xml:space="preserve">
+    <value>计划备份（旧配置兼容）</value>
+  </data>
+  <data name="AutoBackup_Reason_FileUnlocked" xml:space="preserve">
+    <value>条件备份（{0} 已解除占用）</value>
+  </data>
+  <data name="AutoBackup_Log_TriggeredConfig" xml:space="preserve">
+    <value>[自动备份] {0}：{1}</value>
+  </data>
+  <data name="AutoBackup_Log_TriggeredFolder" xml:space="preserve">
+    <value>[自动备份] {0}：{1} / {2}</value>
+  </data>
+  <data name="AutoBackup_Log_SingleTargetMissing" xml:space="preserve">
+    <value>[自动备份] “{0}” 配置的单文件夹自动化目标已不存在，已跳过本次触发。</value>
+  </data>
+  <data name="AutoBackup_Log_ConditionLocked" xml:space="preserve">
+    <value>[自动备份] 条件文件已进入占用：{0} / {1} / {2}</value>
+  </data>
+  <data name="AutoBackup_Log_ConditionUnlocked" xml:space="preserve">
+    <value>[自动备份] 条件文件已解除占用：{0} / {1} / {2}</value>
+  </data>
+  <data name="AutoBackup_Log_StopSkippedBecauseLocked" xml:space="preserve">
+    <value>[自动备份] 检测到“{0}”下的 level.dat 正被占用，暂不停止自动备份。</value>
+  </data>
+  <data name="AutoBackup_Log_DisabledNoChanges" xml:space="preserve">
+    <value>[自动备份] “{0}”已因连续 {1} 次无变更而停止。</value>
+  </data>
+  <data name="AutoBackup_Log_Failed" xml:space="preserve">
+    <value>[自动备份] “{0}”执行失败：{1}</value>
+  </data>
+  <data name="AutoBackup_Notification_Failed" xml:space="preserve">
+    <value>“{0}” 的自动备份执行失败：{1}</value>
+  </data>
+  <data name="ConfigSettingsDialog_AutomationScope_AllFolders" xml:space="preserve">
+    <value>全部文件夹</value>
+  </data>
+  <data name="ConfigSettingsDialog_AutomationScope_SingleFolder" xml:space="preserve">
+    <value>单独文件夹</value>
+  </data>
+  <data name="ConfigSettingsDialog_AutomationScopeAllDesc" xml:space="preserve">
+    <value>启动、间隔、计划和条件自动化默认作用于当前配置下的全部文件夹。</value>
+  </data>
+  <data name="ConfigSettingsDialog_AutomationScopeSingleDesc" xml:space="preserve">
+    <value>启动、间隔、计划和条件自动化仅作用于下方选中的单个文件夹。</value>
+  </data>
+  <data name="ConfigSettingsDialog_AutomationTargetFolderDesc" xml:space="preserve">
+    <value>当自动化作用范围为单独文件夹时，所有自动化触发器都只会处理这里选择的文件夹。</value>
+  </data>
+  <data name="ConfigSettingsDialog_AutomationTargetFolderEmpty" xml:space="preserve">
+    <value>当前配置下还没有可供选择的源文件夹。</value>
+  </data>
+  <data name="ConfigSettingsDialog_ConditionRelativePathDesc" xml:space="preserve">
+    <value>按源文件夹相对路径解释。例如填写 session.lock 后，会检查“源文件夹\\session.lock”的占用状态变化。</value>
+  </data>
+  <data name="ConfigSettingsDialog_ConditionRelativePathWarning" xml:space="preserve">
+    <value>未填写条件文件相对路径时，条件备份模式不会实际触发。</value>
+  </data>
+  <data name="ConfigSettingsDialog_ConditionRelativePathAbsoluteWarning" xml:space="preserve">
+    <value>当前仅支持相对路径，不支持绝对路径；填写绝对路径时条件备份不会触发。</value>
+  </data>
   <data name="SettingsPage_DataMigration.Text" xml:space="preserve">
     <value>数据迁移</value>
   </data>
@@ -2284,8 +2395,20 @@
   <data name="Settings_ExportConfigFailed" xml:space="preserve">
     <value>配置导出失败。</value>
   </data>
+  <data name="Settings_ExportConfigMode_Title" xml:space="preserve">
+    <value>导出配置</value>
+  </data>
+  <data name="Settings_ExportConfigMode_Description" xml:space="preserve">
+    <value>选择要导出到本地文件，还是直接导出到云端。</value>
+  </data>
   <data name="Settings_ImportConfigConfirmTitle" xml:space="preserve">
     <value>导入配置</value>
+  </data>
+  <data name="Settings_ImportConfigMode_Title" xml:space="preserve">
+    <value>导入配置</value>
+  </data>
+  <data name="Settings_ImportConfigMode_Description" xml:space="preserve">
+    <value>选择从本地文件导入，还是直接从云端导入配置。</value>
   </data>
   <data name="Settings_ImportConfigConfirmContent" xml:space="preserve">
     <value>导入将替换所有当前设置和备份配置。系统会自动创建当前配置的备份。是否继续？</value>
@@ -2305,8 +2428,20 @@
   <data name="Settings_ExportHistoryFailed" xml:space="preserve">
     <value>历史记录导出失败。</value>
   </data>
+  <data name="Settings_ExportHistoryMode_Title" xml:space="preserve">
+    <value>导出历史记录</value>
+  </data>
+  <data name="Settings_ExportHistoryMode_Description" xml:space="preserve">
+    <value>选择要导出到本地文件，还是直接导出到云端。</value>
+  </data>
   <data name="Settings_ImportHistoryConfirmTitle" xml:space="preserve">
     <value>导入历史记录</value>
+  </data>
+  <data name="Settings_ImportHistoryMode_Title" xml:space="preserve">
+    <value>导入历史记录</value>
+  </data>
+  <data name="Settings_ImportHistoryMode_Description" xml:space="preserve">
+    <value>选择从本地文件导入，还是直接从云端导入历史记录。</value>
   </data>
   <data name="Settings_ImportHistoryConfirmContent" xml:space="preserve">
     <value>选择导入方式：合并会将不重复的记录添加到现有历史中；替换会覆盖所有现有记录。</value>
@@ -2406,9 +2541,6 @@
   </data>
   <data name="ConfigSettingsDialog_CloudEnabled.OffContent" xml:space="preserve">
     <value>已关闭</value>
-  </data>
-  <data name="ConfigSettingsDialog_CloudEnabledDesc.Text" xml:space="preserve">
-    <value>FolderRewind 只负责在本地备份成功后调用第三方工具执行上传，不直接管理云账号、远端目录浏览或云端还原。</value>
   </data>
   <data name="ConfigSettingsDialog_CloudMode.Header" xml:space="preserve">
     <value>运行方式</value>
@@ -3144,12 +3276,6 @@
   <data name="SettingsPage_PrepareTemplateSubmission.Content" xml:space="preserve">
     <value>准备投稿文件</value>
   </data>
-  <data name="OfficialTemplates_SourceOfficial" xml:space="preserve">
-    <value>官方源</value>
-  </data>
-  <data name="OfficialTemplates_SourceMirror" xml:space="preserve">
-    <value>备用源</value>
-  </data>
   <data name="OfficialTemplates_SourceCache" xml:space="preserve">
     <value>本地缓存</value>
   </data>
@@ -3494,5 +3620,323 @@ Pull Request：{1}</value>
   </data>
   <data name="GitHubSubmit_Progress_CreatePr" xml:space="preserve">
     <value>正在创建 Pull Request…</value>
+  </data>
+  <data name="History_CloudStatus_CloudAvailable" xml:space="preserve">
+    <value>已在云端保留副本</value>
+  </data>
+  <data name="History_CloudStatus_CloudOnly" xml:space="preserve">
+    <value>当前仅保留云端副本</value>
+  </data>
+  <data name="History_CloudUpload_Action" xml:space="preserve">
+    <value>上传到云端</value>
+  </data>
+  <data name="History_CloudUpload_NoLocalFile" xml:space="preserve">
+    <value>本地文件不存在，无法上传。</value>
+  </data>
+  <data name="History_CloudDownload_Action" xml:space="preserve">
+    <value>从云端下载到本地备份库</value>
+  </data>
+  <data name="History_CloudDownload_NoCloudCopy" xml:space="preserve">
+    <value>当前没有可下载的云端副本。</value>
+  </data>
+  <data name="History_CloudAction_NotEnabled" xml:space="preserve">
+    <value>当前配置未启用云存档。</value>
+  </data>
+  <data name="History_CloudAction_CustomModeOnly" xml:space="preserve">
+    <value>当前配置使用自定义云命令，历史页上传/下载仅支持 rclone 模式。</value>
+  </data>
+  <data name="History_DeleteMode_RecordOnly" xml:space="preserve">
+    <value>仅删除历史记录</value>
+  </data>
+  <data name="History_DeleteMode_LocalOnly" xml:space="preserve">
+    <value>仅删除本地备份文件</value>
+  </data>
+  <data name="History_DeleteMode_LocalAndRecord" xml:space="preserve">
+    <value>删除本地备份文件和历史记录</value>
+  </data>
+  <data name="History_Delete_InvalidRequest" xml:space="preserve">
+    <value>删除请求无效。</value>
+  </data>
+  <data name="CloudSync_Task_HistoryUploadName" xml:space="preserve">
+    <value>上传云存档: {0}</value>
+  </data>
+  <data name="CloudSync_Task_HistoryDownloadName" xml:space="preserve">
+    <value>下载云存档: {0}</value>
+  </data>
+  <data name="CloudSync_Task_UploadingArchive" xml:space="preserve">
+    <value>正在上传备份文件…</value>
+  </data>
+  <data name="CloudSync_Task_UploadingMetadata" xml:space="preserve">
+    <value>正在同步 metadata…</value>
+  </data>
+  <data name="CloudSync_Task_DownloadingArchive" xml:space="preserve">
+    <value>正在下载备份文件…</value>
+  </data>
+  <data name="CloudSync_Task_DownloadingMetadata" xml:space="preserve">
+    <value>正在下载 metadata…</value>
+  </data>
+  <data name="CloudSync_Task_DownloadCompleted" xml:space="preserve">
+    <value>下载完成</value>
+  </data>
+  <data name="CloudSync_Notification_NotEnabled" xml:space="preserve">
+    <value>当前配置未启用云存档。</value>
+  </data>
+  <data name="CloudSync_Notification_RcloneOnly" xml:space="preserve">
+    <value>历史页上传/下载仅支持 rclone 模式。</value>
+  </data>
+  <data name="CloudSync_Notification_NoCloudCopy" xml:space="preserve">
+    <value>当前历史记录没有可下载的云端副本。</value>
+  </data>
+  <data name="CloudSync_Notification_HistoryUploadFailed" xml:space="preserve">
+    <value>上传“{0}”失败：{1}</value>
+  </data>
+  <data name="CloudSync_Notification_HistoryUploadSucceeded" xml:space="preserve">
+    <value>已将“{0}”上传到云端。</value>
+  </data>
+  <data name="CloudSync_Notification_HistoryDownloadFailed" xml:space="preserve">
+    <value>下载“{0}”失败：{1}</value>
+  </data>
+  <data name="CloudSync_Notification_HistoryDownloadSucceeded" xml:space="preserve">
+    <value>已将“{0}”下载回本地备份库。</value>
+  </data>
+  <data name="CloudSync_Notification_MetadataPartial" xml:space="preserve">
+    <value>“{0}”的 metadata 未完整同步，归档文件已优先完成处理。</value>
+  </data>
+  <data name="ConfigSettingsDialog_CloudDownloadAllText.Text" xml:space="preserve">
+    <value>从云获取此配置的备份</value>
+  </data>
+  <data name="ConfigSettingsDialog_CloudDownloadAllDesc.Text" xml:space="preserve">
+    <value>将当前配置在云端保存的备份文件和 metadata 拉回本地备份库，并尝试恢复历史记录。</value>
+  </data>
+  <data name="ConfigSettingsDialog_CloudExecutableDesc" xml:space="preserve">
+    <value>当前生效路径：{0}。这里可填写当前配置专用的程序路径；保留默认值时，会优先回退到软件设置里的全局 rclone 路径。</value>
+  </data>
+  <data name="SettingsPage_RclonePath.Text" xml:space="preserve">
+    <value>rclone 路径</value>
+  </data>
+  <data name="SettingsPage_RclonePathDesc.Text" xml:space="preserve">
+    <value>云导入与未单独指定程序路径的云配置会优先使用这里的全局 rclone。</value>
+  </data>
+  <data name="Settings_ImportConfigFromCloud_Title" xml:space="preserve">
+    <value>从云导入配置</value>
+  </data>
+  <data name="Settings_ImportConfigFromCloud_Description" xml:space="preserve">
+    <value>填写远端基路径后，程序会尝试下载其中的 config.json，并复用现有配置导入流程。</value>
+  </data>
+  <data name="Settings_ImportHistoryFromCloud_Title" xml:space="preserve">
+    <value>从云导入历史</value>
+  </data>
+  <data name="Settings_ImportHistoryFromCloud_Description" xml:space="preserve">
+    <value>填写远端基路径后，程序会尝试下载其中的 history.json，并复用现有历史导入流程。</value>
+  </data>
+  <data name="Settings_ExportConfigToCloud_Title" xml:space="preserve">
+    <value>导出配置到云端</value>
+  </data>
+  <data name="Settings_ExportConfigToCloud_Description" xml:space="preserve">
+    <value>填写远端基路径后，程序会将当前配置导出为 config.json 并上传到云端。</value>
+  </data>
+  <data name="Settings_ExportHistoryToCloud_Title" xml:space="preserve">
+    <value>导出历史记录到云端</value>
+  </data>
+  <data name="Settings_ExportHistoryToCloud_Description" xml:space="preserve">
+    <value>填写远端基路径后，程序会将当前历史记录导出为 history.json 并上传到云端。</value>
+  </data>
+  <data name="Settings_DataTransferMode_Local" xml:space="preserve">
+    <value>本地文件</value>
+  </data>
+  <data name="Settings_DataTransferMode_Cloud" xml:space="preserve">
+    <value>云端</value>
+  </data>
+  <data name="Settings_CloudRemoteBasePath_Label" xml:space="preserve">
+    <value>远端基路径</value>
+  </data>
+  <data name="Settings_CloudRemoteBasePath_Placeholder" xml:space="preserve">
+    <value>例如 remote:FolderRewind</value>
+  </data>
+  <data name="CloudSync_Task_ConfigurationDownloadName" xml:space="preserve">
+    <value>拉取配置云备份: {0}</value>
+  </data>
+  <data name="CloudSync_Task_DownloadingFolderArchives" xml:space="preserve">
+    <value>正在拉取“{0}”的云端备份…</value>
+  </data>
+  <data name="CloudSync_Task_ConfigImportName" xml:space="preserve">
+    <value>从云导入配置</value>
+  </data>
+  <data name="CloudSync_Task_HistoryImportName" xml:space="preserve">
+    <value>从云导入历史</value>
+  </data>
+  <data name="CloudSync_Task_ConfigExportName" xml:space="preserve">
+    <value>导出配置到云端</value>
+  </data>
+  <data name="CloudSync_Task_HistoryExportName" xml:space="preserve">
+    <value>导出历史记录到云端</value>
+  </data>
+  <data name="CloudSync_Notification_ConfigurationNoFolders" xml:space="preserve">
+    <value>当前配置还没有可拉取的源文件夹。</value>
+  </data>
+  <data name="CloudSync_Notification_ConfigurationDownloadSucceeded" xml:space="preserve">
+    <value>已从云端拉回“{0}”的备份，并恢复了 {1} 条历史记录。</value>
+  </data>
+  <data name="CloudSync_Notification_ConfigurationDownloadFailed" xml:space="preserve">
+    <value>未能从云端拉取当前配置的备份。</value>
+  </data>
+  <data name="CloudSync_Notification_ConfigurationDownloadFailedWithReason" xml:space="preserve">
+    <value>拉取“{0}”的云端备份失败：{1}</value>
+  </data>
+  <data name="CloudSync_Notification_ConfigImportSucceeded" xml:space="preserve">
+    <value>已从云端导入配置。</value>
+  </data>
+  <data name="CloudSync_Notification_ConfigImportFailed" xml:space="preserve">
+    <value>从云端导入配置失败。</value>
+  </data>
+  <data name="CloudSync_Notification_ConfigExportSucceeded" xml:space="preserve">
+    <value>已将配置导出到云端。</value>
+  </data>
+  <data name="CloudSync_Notification_ConfigExportFailed" xml:space="preserve">
+    <value>导出配置到云端失败。</value>
+  </data>
+  <data name="CloudSync_Notification_HistoryImportSucceeded" xml:space="preserve">
+    <value>已从云端导入 {0} 条历史记录。</value>
+  </data>
+  <data name="CloudSync_Notification_HistoryImportFailed" xml:space="preserve">
+    <value>从云端导入历史记录失败。</value>
+  </data>
+  <data name="CloudSync_Notification_HistoryExportSucceeded" xml:space="preserve">
+    <value>已将历史记录导出到云端。</value>
+  </data>
+  <data name="CloudSync_Notification_HistoryExportFailed" xml:space="preserve">
+    <value>导出历史记录到云端失败。</value>
+  </data>
+  <data name="CloudSync_Notification_ImportFailedWithReason" xml:space="preserve">
+    <value>云端导入失败：{0}</value>
+  </data>
+  <data name="CloudSync_Notification_ExportFailedWithReason" xml:space="preserve">
+    <value>云端导出失败：{0}</value>
+  </data>
+  <data name="ConfigSettingsDialog_CloudEnvironmentSection.Text" xml:space="preserve">
+    <value>环境配置</value>
+  </data>
+  <data name="ConfigSettingsDialog_CloudSyncSection.Text" xml:space="preserve">
+    <value>云同步</value>
+  </data>
+  <data name="ConfigSettingsDialog_CloudSyncOpenText.Text" xml:space="preserve">
+    <value>从云同步此配置</value>
+  </data>
+  <data name="ConfigSettingsDialog_CloudLegacyModeDesc.Text" xml:space="preserve">
+    <value>此配置保留了旧版“自定义命令”模式。自动上传仍可用，但手动同步与历史页云操作仅支持 rclone 模式。</value>
+  </data>
+  <data name="ConfigSettingsDialog_CloudSyncHint" xml:space="preserve">
+    <value>你可以先分析远端 history.json，再选择只补齐当前配置的历史记录，或继续把云端备份与元数据一起拉回本地。</value>
+  </data>
+  <data name="ConfigSettingsDialog_CloudLegacyModeHint" xml:space="preserve">
+    <value>当前配置使用旧版自定义云命令，手动同步界面不可用；如需该能力，请切换到 rclone 配置。</value>
+  </data>
+  <data name="ConfigCloudSyncDialog.Title" xml:space="preserve">
+    <value>从云同步此配置</value>
+  </data>
+  <data name="ConfigCloudSyncDialog.PrimaryButtonText" xml:space="preserve">
+    <value>开始同步</value>
+  </data>
+  <data name="ConfigCloudSyncDialog.CloseButtonText" xml:space="preserve">
+    <value>取消</value>
+  </data>
+  <data name="ConfigCloudSyncDialog_Description.Text" xml:space="preserve">
+    <value>同步会先分析云端 history.json，再按当前配置的文件夹映射规则决定哪些记录可以安全落到本地。</value>
+  </data>
+  <data name="ConfigCloudSyncDialog_ModeHeader.Text" xml:space="preserve">
+    <value>同步范围</value>
+  </data>
+  <data name="ConfigCloudSyncDialog_Mode_HistoryOnly.Content" xml:space="preserve">
+    <value>仅同步此配置历史记录</value>
+  </data>
+  <data name="ConfigCloudSyncDialog_Mode_HistoryAndBackups.Content" xml:space="preserve">
+    <value>同步历史记录和所有备份到本地</value>
+  </data>
+  <data name="ConfigCloudSyncDialog_RemoteBasePathLabel.Text" xml:space="preserve">
+    <value>远端基路径</value>
+  </data>
+  <data name="ConfigCloudSyncDialog_ExecutableLabel.Text" xml:space="preserve">
+    <value>程序路径</value>
+  </data>
+  <data name="ConfigCloudSyncDialog_AnalysisHeader.Text" xml:space="preserve">
+    <value>远端分析</value>
+  </data>
+  <data name="ConfigCloudSyncDialog_RefreshAnalysis.Content" xml:space="preserve">
+    <value>重新分析</value>
+  </data>
+  <data name="ConfigCloudSyncDialog_Status_Ready" xml:space="preserve">
+    <value>准备就绪，可以先分析远端历史。</value>
+  </data>
+  <data name="ConfigCloudSyncDialog_Status_Analyzing" xml:space="preserve">
+    <value>正在分析云端 history.json…</value>
+  </data>
+  <data name="ConfigCloudSyncDialog_Status_AnalysisReady" xml:space="preserve">
+    <value>分析完成，你可以开始同步。</value>
+  </data>
+  <data name="ConfigCloudSyncDialog_Status_Syncing" xml:space="preserve">
+    <value>正在同步当前配置…</value>
+  </data>
+  <data name="ConfigCloudSyncDialog_Analysis_Pending" xml:space="preserve">
+    <value>尚未获得远端分析结果。</value>
+  </data>
+  <data name="ConfigCloudSyncDialog_Analysis_Matched" xml:space="preserve">
+    <value>匹配到的远端历史：{0}</value>
+  </data>
+  <data name="ConfigCloudSyncDialog_Analysis_Importable" xml:space="preserve">
+    <value>可直接导入的记录：{0}</value>
+  </data>
+  <data name="ConfigCloudSyncDialog_Analysis_Unmapped" xml:space="preserve">
+    <value>未映射到本地文件夹：{0}</value>
+  </data>
+  <data name="ConfigCloudSyncDialog_Analysis_Ambiguous" xml:space="preserve">
+    <value>命中多个本地文件夹而跳过：{0}</value>
+  </data>
+  <data name="CloudSync_ConfigSync_AnalysisSummary" xml:space="preserve">
+    <value>本次分析命中了 {0} 条远端历史，其中 {1} 条可导入，{2} 条未映射，{3} 条因文件夹重名而跳过。</value>
+  </data>
+  <data name="CloudSync_ConfigSync_AnalysisEmpty" xml:space="preserve">
+    <value>本次分析命中了 {0} 条远端历史，但暂时没有可安全导入的记录。未映射：{1}，歧义：{2}。</value>
+  </data>
+  <data name="CloudSync_ConfigSync_HistoryOnlySucceeded" xml:space="preserve">
+    <value>已同步当前配置历史：新增 {0} 条，跳过重复 {1} 条。</value>
+  </data>
+  <data name="CloudSync_ConfigSync_HistoryAndBackupsSucceeded" xml:space="preserve">
+    <value>已同步当前配置历史与云备份：新增历史 {0} 条，跳过重复 {1} 条，并恢复/补齐了 {2} 条本地历史。</value>
+  </data>
+  <data name="CloudSync_ConfigSync_HistoryImportedBackupsFailed" xml:space="preserve">
+    <value>历史记录已导入 {0} 条，但继续拉取云备份失败：{1}</value>
+  </data>
+  <data name="CloudSync_ConfigSync_HistoryImportFailed" xml:space="preserve">
+    <value>当前配置的历史记录导入失败。</value>
+  </data>
+  <data name="ConfigSettingsDialog_CloudSyncHistoryAfterUpload.Header" xml:space="preserve">
+    <value>同时同步历史记录</value>
+  </data>
+  <data name="ConfigSettingsDialog_CloudSyncHistoryAfterUpload.OnContent" xml:space="preserve">
+    <value>开启</value>
+  </data>
+  <data name="ConfigSettingsDialog_CloudSyncHistoryAfterUpload.OffContent" xml:space="preserve">
+    <value>关闭</value>
+  </data>
+  <data name="ConfigSettingsDialog_CloudSyncHistoryAfterUploadDesc.Text" xml:space="preserve">
+    <value>每次自动上传备份成功后，再额外把最新的 history.json 上传到当前远端基路径，方便其他设备按配置同步历史。</value>
+  </data>
+  <data name="SettingsPage_DefaultCloudRemoteBasePath.Text" xml:space="preserve">
+    <value>默认远端基路径</value>
+  </data>
+  <data name="SettingsPage_DefaultCloudRemoteBasePathDesc.Text" xml:space="preserve">
+    <value>用于新建配置时的云端默认路径，也会作为“导出/导入到云端”对话框里的默认远端基路径。</value>
+  </data>
+  <data name="CloudSync_Task_UploadingHistorySnapshot" xml:space="preserve">
+    <value>正在同步 history.json…</value>
+  </data>
+  <data name="CloudSync_Notification_HistorySyncUploadFailed" xml:space="preserve">
+    <value>备份已上传，但同步 history.json 失败。</value>
+  </data>
+  <data name="CloudSync_Notification_HistorySyncUploadFailedWithReason" xml:space="preserve">
+    <value>备份已上传，但同步 history.json 失败：{0}</value>
+  </data>
+  <data name="CloudSync_Notification_HistorySyncSkippedLegacyMode" xml:space="preserve">
+    <value>当前配置使用旧版自定义命令模式，无法自动同步 history.json。</value>
   </data>
 </root>

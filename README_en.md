@@ -68,9 +68,9 @@ For detailed usage instructions, please refer to the official documentation: htt
 
 ## Officially Recognized Plugins
 
-| Name               | Version   | Description                                     | Author          | Download Link                                      |
-|----------------------|------|----------------------------------------|-------------|-------------------------------------------|
-| MineRewind      | 1.6.0 | A backup plugin specifically designed for Minecraft game saves.               | Leafuke     | [Repository](https://github.com/Leafuke/FolderRewind-Plugin-Minecraft)
+| Name               | Description                                     | Author          | Download Link                                      |
+|----------------------|----------------------------------------|-------------|-------------------------------------------|
+| MineRewind      | A backup plugin specifically designed for Minecraft game saves.               | Leafuke     | [Repository](https://github.com/Leafuke/FolderRewind-Plugin-Minecraft)
 
 ## Development
 
@@ -97,6 +97,7 @@ If you are interested in discussing, you can join the QQ group.
 - [Windows Community Toolkit](https://github.com/CommunityToolkit/Windows)
 - [KnotLink](https://github.com/hxh230802/KnotLink)
 - [7-Zip](https://www.7-zip.org/)
+- [7-Zip-zstd](https://github.com/mcmilk/7-Zip-zstd)
 - [MineBackup - Spiritual Predecessor](https://github.com/Leafuke/MineBackup)
 - [Bili.Copilot - Reference](https://github.com/Richasy/Bili.Copilot)
 - And all the other friends who provided help during development.

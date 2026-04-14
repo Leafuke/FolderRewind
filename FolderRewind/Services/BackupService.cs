@@ -948,18 +948,18 @@ namespace FolderRewind.Services
             }
         }
 
-        public static async Task<DeleteBackupResult> DeleteBackupAsync(BackupConfig config, ManagedFolder folder, HistoryItem historyItem, bool deleteArchive)
+        public static async Task<DeleteBackupResult> DeleteBackupAsync(BackupConfig config, ManagedFolder folder, HistoryItem historyItem, BackupDeleteMode deleteMode)
         {
             if (config == null || folder == null || historyItem == null)
             {
                 return new DeleteBackupResult
                 {
                     Success = false,
-                    Message = "Invalid delete request."
+                    Message = I18n.GetString("History_Delete_InvalidRequest")
                 };
             }
 
-            if (!deleteArchive)
+            if (deleteMode == BackupDeleteMode.RecordOnly)
             {
                 HistoryService.RemoveEntry(historyItem);
                 return new DeleteBackupResult
@@ -1006,7 +1006,8 @@ namespace FolderRewind.Services
                     format,
                     config,
                     backupFolderName,
-                    config.Archive.SafeDeleteEnabled);
+                    config.Archive.SafeDeleteEnabled,
+                    deleteMode == BackupDeleteMode.LocalArchiveAndRecord);
 
                 return new DeleteBackupResult
                 {
@@ -1166,7 +1167,8 @@ namespace FolderRewind.Services
             string format,
             BackupConfig? config = null,
             string? folderName = null,
-            bool safeDeleteEnabled = true)
+            bool safeDeleteEnabled = true,
+            bool removeHistoryEntry = true)
         {
             var result = new DeleteArchiveExecutionResult
             {
@@ -1235,7 +1237,12 @@ namespace FolderRewind.Services
                             result.RenamedToBackupType);
                     }
 
-                    int removedCount = HistoryService.RemoveEntriesForFile(config.Id, resolvedFolderName, result.DeletedFileName);
+                    int removedCount = 0;
+                    if (removeHistoryEntry)
+                    {
+                        removedCount = HistoryService.RemoveEntriesForFile(config.Id, resolvedFolderName, result.DeletedFileName);
+                    }
+
                     result.HistoryUpdated = removedCount > 0 || !string.IsNullOrWhiteSpace(result.RenamedFromFileName);
 
                     SynchronizeMetadataAfterArchiveDeletion(

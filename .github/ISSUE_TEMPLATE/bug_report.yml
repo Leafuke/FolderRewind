@@ -1,0 +1,120 @@
+name: Bug 报告
+description: 报告程序错误、安装问题或回归行为
+title: "[Bug] "
+labels:
+  - bug
+body:
+  - type: markdown
+    attributes:
+      value: |
+        请尽量填写完整信息，这有助于更快定位问题。
+
+  - type: dropdown
+    id: package_source
+    attributes:
+      label: 安装来源
+      description: 你安装的是哪个来源的 FolderRewind？
+      options:
+        - GitHub 侧载版
+        - Microsoft Store 版
+        - 自行编译
+        - 其他来源
+    validations:
+      required: true
+
+  - type: input
+    id: app_version
+    attributes:
+      label: 应用版本
+      description: 例如 1.6.1.0
+      placeholder: 1.6.1.0
+    validations:
+      required: true
+
+  - type: dropdown
+    id: architecture
+    attributes:
+      label: 系统架构
+      options:
+        - x64
+        - ARM64
+        - x86
+        - 不确定
+    validations:
+      required: true
+
+  - type: dropdown
+    id: windows_version
+    attributes:
+      label: Windows 版本
+      options:
+        - Windows 11 24H2 / Server 2025（26100 及以上）
+        - Windows 11 23H2（22631）
+        - Windows 11 22H2（22621）
+        - Windows 11 21H2（22000）
+        - Windows 10 22H2（19045）
+        - Windows 10 21H2（19044）
+        - 其他
+    validations:
+      required: true
+
+  - type: dropdown
+    id: problem_type
+    attributes:
+      label: 问题类型
+      options:
+        - 启动或闪退
+        - 备份或还原
+        - 插件相关
+        - GitHub 侧载安装
+        - 界面显示
+        - 性能或卡顿
+        - 其他
+    validations:
+      required: true
+
+  - type: textarea
+    id: steps
+    attributes:
+      label: 复现步骤
+      description: 请按顺序描述如何触发该问题
+      placeholder: |
+        1. 打开应用
+        2. 进入……
+        3. 点击……
+        4. 出现……
+    validations:
+      required: true
+
+  - type: textarea
+    id: actual_behavior
+    attributes:
+      label: 实际结果
+      description: 实际发生了什么？
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected_behavior
+    attributes:
+      label: 预期结果
+      description: 你原本希望发生什么？
+    validations:
+      required: true
+
+  - type: textarea
+    id: logs
+    attributes:
+      label: 日志或报错信息
+      description: 如有日志、异常堆栈、截图或录屏，请附上
+      placeholder: 可将关键日志片段直接粘贴到这里，或说明附件内容
+
+  - type: checkboxes
+    id: checks
+    attributes:
+      label: 提交前确认
+      options:
+        - label: 我已确认问题能稳定复现，或已尽量提供清晰的触发条件
+          required: true
+        - label: 我已检查是否存在相同或相近的 Issue
+          required: true

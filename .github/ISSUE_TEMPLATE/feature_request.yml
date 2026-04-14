@@ -1,0 +1,60 @@
+name: 功能请求
+description: 提交新功能、优化建议或产品改进想法
+title: "[Feature] "
+labels:
+  - enhancement
+body:
+  - type: markdown
+    attributes:
+      value: |
+        欢迎描述你的使用场景。场景越具体，越容易判断设计价值和优先级。
+
+  - type: textarea
+    id: scenario
+    attributes:
+      label: 使用场景
+      description: 你在什么情况下需要这个功能？
+      placeholder: 例如：我需要在多台电脑之间同步同一个配置，并保留独立历史版本……
+    validations:
+      required: true
+
+  - type: textarea
+    id: problem
+    attributes:
+      label: 当前问题
+      description: 目前的产品行为让你遇到了什么困难？
+    validations:
+      required: true
+
+  - type: textarea
+    id: proposal
+    attributes:
+      label: 期望方案
+      description: 你理想中的交互、行为或结果是什么？
+    validations:
+      required: true
+
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: 可接受替代方案
+      description: 如果理想方案暂时无法实现，你能接受哪些折中做法？
+
+  - type: dropdown
+    id: scope
+    attributes:
+      label: 影响范围
+      options:
+        - 主应用功能
+        - 备份/还原流程
+        - 插件系统
+        - 文档或引导
+        - 不确定
+    validations:
+      required: true
+
+  - type: textarea
+    id: additional
+    attributes:
+      label: 附加信息
+      description: 可补充草图、参考链接、竞品方案等

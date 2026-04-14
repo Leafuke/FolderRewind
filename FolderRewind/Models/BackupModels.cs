@@ -4,6 +4,7 @@ using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.ComponentModel;
+using System.Linq;
 using System.Runtime.CompilerServices;
 using System.Text.Json.Serialization;
 
@@ -71,6 +72,8 @@ namespace FolderRewind.Models
         private string _language = "zh_CN";
         private int _themeIndex = 1; // 0: Dark, 1: Light, 2: System
         private string _sevenZipPath = "7za.exe"; // 全局 7z 路径（内置 7za.exe）
+        private string _rcloneExecutablePath = "";
+        private string _defaultCloudRemoteBasePath = "remote:FolderRewind";
         private string _defaultBackupRootPath = "";
         private bool _runOnStartup = false;
         private bool _silentStartup = false;
@@ -78,8 +81,8 @@ namespace FolderRewind.Models
         private int _logRetentionDays = 7;
         private int _maxLogFileSizeMb = 5;
         private bool _isNavPaneOpen = true;
-        private double _startupWidth = 1200;
-        private double _startupHeight = 800;
+        private double _startupWidth = 1300;
+        private double _startupHeight = 900;
         private double _navPaneWidth = 180;
         private string _fontFamily = "";
         private double _baseFontSize = 14;
@@ -137,6 +140,8 @@ namespace FolderRewind.Models
         public string Language { get => _language; set => SetProperty(ref _language, value); }
         public int ThemeIndex { get => _themeIndex; set => SetProperty(ref _themeIndex, value); }
         public string SevenZipPath { get => _sevenZipPath; set => SetProperty(ref _sevenZipPath, value); }
+        public string RcloneExecutablePath { get => _rcloneExecutablePath; set => SetProperty(ref _rcloneExecutablePath, value ?? string.Empty); }
+        public string DefaultCloudRemoteBasePath { get => _defaultCloudRemoteBasePath; set => SetProperty(ref _defaultCloudRemoteBasePath, value ?? string.Empty); }
         public string DefaultBackupRootPath { get => _defaultBackupRootPath; set => SetProperty(ref _defaultBackupRootPath, value); }
         public bool RunOnStartup { get => _runOnStartup; set => SetProperty(ref _runOnStartup, value); }
         public bool SilentStartup { get => _silentStartup; set => SetProperty(ref _silentStartup, value); }
@@ -402,6 +407,13 @@ namespace FolderRewind.Models
         Overwrite = 2   // 覆写备份：使用 7z update 指令更新现有包
     }
 
+    public enum BackupDeleteMode
+    {
+        RecordOnly = 0,
+        LocalArchiveOnly = 1,
+        LocalArchiveAndRecord = 2
+    }
+
     public enum CloudCommandMode
     {
         Rclone = 0,
@@ -426,6 +438,7 @@ namespace FolderRewind.Models
         private int _timeoutSeconds = 600;
         private int _retryCount;
         private string _remoteBasePath = "remote:FolderRewind";
+        private bool _syncHistoryAfterUpload;
         private DateTime _lastRunUtc = DateTime.MinValue;
         private int _lastExitCode;
         private string _lastErrorMessage = "";
@@ -447,6 +460,8 @@ namespace FolderRewind.Models
         public int RetryCount { get => _retryCount; set => SetProperty(ref _retryCount, value); }
 
         public string RemoteBasePath { get => _remoteBasePath; set => SetProperty(ref _remoteBasePath, value ?? string.Empty); }
+
+        public bool SyncHistoryAfterUpload { get => _syncHistoryAfterUpload; set => SetProperty(ref _syncHistoryAfterUpload, value); }
 
         public DateTime LastRunUtc
         {
@@ -677,6 +692,24 @@ namespace FolderRewind.Models
         }
     }
 
+    /// <summary>
+    /// 自动化作用范围。
+    /// </summary>
+    public enum AutomationScope
+    {
+        AllFolders = 0,
+        SingleFolder = 1
+    }
+
+    /// <summary>
+    /// 自动化条件类型。
+    /// 首版仅支持“文件从占用变为解除占用”。
+    /// </summary>
+    public enum AutomationConditionType
+    {
+        FileUnlocked = 0
+    }
+
     public class AutomationSettings : ObservableObject
     {
         private bool _autoBackupEnabled = false;
@@ -685,6 +718,11 @@ namespace FolderRewind.Models
         private bool _runOnAppStart = false;
         private bool _scheduledMode = false;
         private int _scheduledHour = 3;
+        private AutomationScope _scope = AutomationScope.AllFolders;
+        private string _targetFolderPath = string.Empty;
+        private bool _conditionalModeEnabled = false;
+        private AutomationConditionType _conditionType = AutomationConditionType.FileUnlocked;
+        private string _conditionRelativePath = string.Empty;
         private ObservableCollection<ScheduleEntry> _scheduleEntries = new();
         private DateTime _lastAutoBackupUtc = DateTime.MinValue;
         private DateTime _lastScheduledRunDateLocal = DateTime.MinValue;
@@ -700,6 +738,34 @@ namespace FolderRewind.Models
         public bool RunOnAppStart { get => _runOnAppStart; set => SetProperty(ref _runOnAppStart, value); }
         public bool ScheduledMode { get => _scheduledMode; set => SetProperty(ref _scheduledMode, value); }
         public int ScheduledHour { get => _scheduledHour; set => SetProperty(ref _scheduledHour, value); }
+
+        /// <summary>
+        /// 自动化作用范围：作用于当前配置的全部文件夹，或仅作用于某个单独文件夹。
+        /// </summary>
+        public AutomationScope Scope { get => _scope; set => SetProperty(ref _scope, value); }
+
+        /// <summary>
+        /// 当 Scope=SingleFolder 时记录目标文件夹路径。
+        /// 这里直接保存 ManagedFolder.Path，避免引入额外 ID 结构破坏兼容性。
+        /// </summary>
+        public string TargetFolderPath { get => _targetFolderPath; set => SetProperty(ref _targetFolderPath, value ?? string.Empty); }
+
+        /// <summary>
+        /// 是否启用条件备份模式。
+        /// </summary>
+        public bool ConditionalModeEnabled { get => _conditionalModeEnabled; set => SetProperty(ref _conditionalModeEnabled, value); }
+
+        /// <summary>
+        /// 条件类型。
+        /// 当前仅支持文件从占用状态变为解除占用状态。
+        /// </summary>
+        public AutomationConditionType ConditionType { get => _conditionType; set => SetProperty(ref _conditionType, value); }
+
+        /// <summary>
+        /// 条件文件相对路径。
+        /// 首版统一按源文件夹相对路径解释，例如 level.dat。
+        /// </summary>
+        public string ConditionRelativePath { get => _conditionRelativePath; set => SetProperty(ref _conditionRelativePath, value ?? string.Empty); }
 
         public ObservableCollection<ScheduleEntry> ScheduleEntries
         {
@@ -732,6 +798,47 @@ namespace FolderRewind.Models
                     Hour = ScheduledHour,
                     Minute = 0
                 });
+            }
+
+            Normalize();
+        }
+
+        /// <summary>
+        /// 补齐新增字段默认值，并在需要时校正单文件夹目标。
+        /// </summary>
+        public void Normalize(IEnumerable<ManagedFolder>? sourceFolders = null)
+        {
+            ScheduleEntries ??= new ObservableCollection<ScheduleEntry>();
+            TargetFolderPath ??= string.Empty;
+            ConditionRelativePath ??= string.Empty;
+
+            if (sourceFolders == null)
+            {
+                return;
+            }
+
+            var folders = sourceFolders
+                .Where(folder => folder != null && !string.IsNullOrWhiteSpace(folder.Path))
+                .ToList();
+
+            if (Scope != AutomationScope.SingleFolder)
+            {
+                return;
+            }
+
+            if (folders.Count == 0)
+            {
+                TargetFolderPath = string.Empty;
+                return;
+            }
+
+            bool hasMatchedFolder = folders.Any(folder =>
+                string.Equals(folder.Path, TargetFolderPath, StringComparison.OrdinalIgnoreCase));
+
+            if (!hasMatchedFolder)
+            {
+                // 旧配置没有单文件夹目标，或目标文件夹已被移除时，自动回退到首个可用文件夹。
+                TargetFolderPath = folders[0].Path;
             }
         }
     }
@@ -801,6 +908,36 @@ namespace FolderRewind.Models
             set => SetProperty(ref _isImportant, value);
         }
 
+        private bool _isCloudArchived;
+        public bool IsCloudArchived
+        {
+            get => _isCloudArchived;
+            set => SetProperty(ref _isCloudArchived, value);
+        }
+
+        public DateTime CloudArchivedAtUtc { get; set; }
+
+        private string _cloudArchiveRemotePath = "";
+        public string CloudArchiveRemotePath
+        {
+            get => _cloudArchiveRemotePath;
+            set => SetProperty(ref _cloudArchiveRemotePath, value ?? string.Empty);
+        }
+
+        private string _cloudMetadataRecordRemotePath = "";
+        public string CloudMetadataRecordRemotePath
+        {
+            get => _cloudMetadataRecordRemotePath;
+            set => SetProperty(ref _cloudMetadataRecordRemotePath, value ?? string.Empty);
+        }
+
+        private string _cloudMetadataStateRemotePath = "";
+        public string CloudMetadataStateRemotePath
+        {
+            get => _cloudMetadataStateRemotePath;
+            set => SetProperty(ref _cloudMetadataStateRemotePath, value ?? string.Empty);
+        }
+
         // --- UI 辅助属性 (不存入 JSON) ---
 
         [JsonIgnore]
@@ -824,12 +961,44 @@ namespace FolderRewind.Models
         [JsonIgnore]
         public bool IsMissing { get => _isMissing; set => SetProperty(ref _isMissing, value); }
 
+        private bool _hasLocalFile;
+        [JsonIgnore]
+        public bool HasLocalFile { get => _hasLocalFile; set => SetProperty(ref _hasLocalFile, value); }
+
+        private bool _hasCloudCopy;
+        [JsonIgnore]
+        public bool HasCloudCopy { get => _hasCloudCopy; set => SetProperty(ref _hasCloudCopy, value); }
+
+        private bool _isCloudOnly;
+        [JsonIgnore]
+        public bool IsCloudOnly { get => _isCloudOnly; set => SetProperty(ref _isCloudOnly, value); }
+
         private bool _isSmallFile;
         /// <summary>
         /// 运行时状态：备份文件大小低于警告阈值
         /// </summary>
         [JsonIgnore]
         public bool IsSmallFile { get => _isSmallFile; set => SetProperty(ref _isSmallFile, value); }
+
+        private string _cloudStatusText = "";
+        [JsonIgnore]
+        public string CloudStatusText { get => _cloudStatusText; set => SetProperty(ref _cloudStatusText, value ?? string.Empty); }
+
+        private string _cloudActionHintText = "";
+        [JsonIgnore]
+        public string CloudActionHintText { get => _cloudActionHintText; set => SetProperty(ref _cloudActionHintText, value ?? string.Empty); }
+
+        private string _downloadFromCloudHintText = "";
+        [JsonIgnore]
+        public string DownloadFromCloudHintText { get => _downloadFromCloudHintText; set => SetProperty(ref _downloadFromCloudHintText, value ?? string.Empty); }
+
+        private bool _canUploadToCloud;
+        [JsonIgnore]
+        public bool CanUploadToCloud { get => _canUploadToCloud; set => SetProperty(ref _canUploadToCloud, value); }
+
+        private bool _canDownloadFromCloud;
+        [JsonIgnore]
+        public bool CanDownloadFromCloud { get => _canDownloadFromCloud; set => SetProperty(ref _canDownloadFromCloud, value); }
 
         private Brush? _timelineLineBrush;
         private Brush? _timelineNodeFillBrush;

@@ -18,7 +18,7 @@ namespace FolderRewind
         #region 常量与状态
 
         private const double TitleBarHorizontalPadding = 12;
-        private const int WindowMinWidth = 1000;
+        private const int WindowMinWidth = 1200;
         private const int WindowMinHeight = 600;
 
         private bool _allowCloseOnce;
