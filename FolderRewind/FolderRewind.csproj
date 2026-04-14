@@ -87,15 +87,35 @@
     <PublishTrimmed Condition="'$(Configuration)' == 'Debug'">False</PublishTrimmed>
     <PublishTrimmed Condition="'$(Configuration)' != 'Debug'">False</PublishTrimmed>
     <GenerateAppInstallerFile>False</GenerateAppInstallerFile>
-    <AppxPackageSigningEnabled>False</AppxPackageSigningEnabled>
-    <PackageCertificateThumbprint>F232CFF3EC52AB817F4827E579432F52D06440F0</PackageCertificateThumbprint>
+    <AppxPackageSigningEnabled>True</AppxPackageSigningEnabled>
     <AppxPackageSigningTimestampDigestAlgorithm>SHA256</AppxPackageSigningTimestampDigestAlgorithm>
     <AppxAutoIncrementPackageRevision>False</AppxAutoIncrementPackageRevision>
     <GenerateTestArtifacts>True</GenerateTestArtifacts>
-    <AppxBundle>Auto</AppxBundle>
+    <AppxBundle>Never</AppxBundle>
     <AppxFilterOutUnusedLanguagesResourceFileMaps>false</AppxFilterOutUnusedLanguagesResourceFileMaps>
     <HoursBetweenUpdateChecks>0</HoursBetweenUpdateChecks>
     <AppxBundlePlatforms>x64|arm64</AppxBundlePlatforms>
     <AppxSymbolPackageEnabled>False</AppxSymbolPackageEnabled>
+  </PropertyGroup>
+
+  <PropertyGroup>
+    <!--
+      默认不在普通 build 时生成 MSIX，避免开发期每次编译都触发打包。
+      GitHub Actions 会显式覆盖这些属性来产出 GitHub 侧载版。
+    -->
+    <GenerateAppxPackageOnBuild Condition="'$(GenerateAppxPackageOnBuild)'==''">False</GenerateAppxPackageOnBuild>
+    <AppxPackageDir Condition="'$(AppxPackageDir)'==''">$(MSBuildProjectDirectory)\AppPackages\</AppxPackageDir>
+
+    <!--
+      本地开发默认继续使用 VS 维护的临时证书指纹；CI 则改为传入正式侧载证书文件。
+      这样可以避免 GitHub Actions 中写死 Thumbprint 与自有 PFX 冲突。
+    -->
+    <PackageCertificateThumbprint Condition="'$(PackageCertificateThumbprint)'=='' and '$(PackageCertificateKeyFile)'==''">F232CFF3EC52AB817F4827E579432F52D06440F0</PackageCertificateThumbprint>
+
+    <!--
+      侧载发布时优先使用外部注入的 PFX 与密码，证书文件和密码均不入库。
+      GitHub Actions 通过环境变量 SIDELOAD_CERT_PASSWORD 提供密码，再由这里接入 MSBuild。
+    -->
+    <PackageCertificatePassword Condition="'$(PackageCertificatePassword)'=='' and '$(SIDELOAD_CERT_PASSWORD)'!=''">$(SIDELOAD_CERT_PASSWORD)</PackageCertificatePassword>
   </PropertyGroup>
 </Project>
