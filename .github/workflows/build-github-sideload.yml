@@ -35,6 +35,40 @@ jobs:
         with:
           dotnet-version: 10.0.x
 
+      - name: Install 7-Zip-zstd And Stage 7za
+        shell: pwsh
+        run: |
+          $release = Invoke-RestMethod -Uri 'https://api.github.com/repos/mcmilk/7-Zip-zstd/releases/latest'
+          $asset = $release.assets |
+            Where-Object { $_.name -match '^7z.*-zstd-x64\.exe$' -and $_.name -notmatch '-ndm\.exe$' } |
+            Select-Object -First 1
+
+          if ($null -eq $asset) {
+            throw 'Could not find a Windows x64 7-Zip-zstd installer asset in the latest GitHub release.'
+          }
+
+          $installerPath = Join-Path $env:RUNNER_TEMP $asset.name
+          $installDirectory = Join-Path $env:RUNNER_TEMP '7zip-zstd'
+
+          if (Test-Path -LiteralPath $installDirectory) {
+            Remove-Item -LiteralPath $installDirectory -Recurse -Force
+          }
+
+          Invoke-WebRequest -Uri $asset.browser_download_url -OutFile $installerPath
+
+          # NSIS silent install. /D must be the final argument.
+          $process = Start-Process -FilePath $installerPath -ArgumentList @('/S', "/D=$installDirectory") -Wait -PassThru
+          if ($process.ExitCode -ne 0) {
+            throw "7-Zip-zstd installer failed with exit code $($process.ExitCode)."
+          }
+
+          $sevenZip = Get-ChildItem -Path $installDirectory -Filter '7za.exe' -Recurse | Select-Object -First 1
+          if ($null -eq $sevenZip) {
+            throw "7za.exe was not found in the installed 7-Zip-zstd directory: $installDirectory"
+          }
+
+          Copy-Item -LiteralPath $sevenZip.FullName -Destination "$env:GITHUB_WORKSPACE\7za.exe" -Force
+
       - name: Validate Version Input
         shell: pwsh
         run: |

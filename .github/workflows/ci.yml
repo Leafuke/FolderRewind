@@ -1,8 +1,11 @@
 name: CI
 
+# 这是一个废弃的CI，并不能真正构建。
+
 on:
-  push:
-  pull_request:
+  workflow_dispatch:
+
+  # pull_request:
 
 permissions:
   contents: read

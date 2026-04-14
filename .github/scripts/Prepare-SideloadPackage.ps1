@@ -87,6 +87,29 @@ foreach ($directoryName in $requiredDirectoryNames) {
     Copy-Item -LiteralPath $sourcePath -Destination (Join-Path $stageDirectory $directoryName) -Recurse -Force
 }
 
+$dependenciesDirectory = Join-Path $stageDirectory "Dependencies"
+$normalizedTargetPlatform = $normalizedPlatform.ToLowerInvariant()
+
+if (Test-Path -LiteralPath $dependenciesDirectory) {
+    # Keep only the current target architecture to avoid shipping unrelated runtime packages.
+    $dependencyPlatformDirectories = Get-ChildItem -Path $dependenciesDirectory -Directory
+    foreach ($dependencyPlatformDirectory in $dependencyPlatformDirectories) {
+        if ($dependencyPlatformDirectory.Name.ToLowerInvariant() -ne $normalizedTargetPlatform) {
+            Remove-Item -LiteralPath $dependencyPlatformDirectory.FullName -Recurse -Force
+        }
+    }
+
+    $remainingDependencyPlatforms = @(Get-ChildItem -Path $dependenciesDirectory -Directory)
+    if ($remainingDependencyPlatforms.Length -eq 0) {
+        throw "Dependencies cleanup removed all platform directories. Target platform: $normalizedTargetPlatform"
+    }
+
+    if ($remainingDependencyPlatforms.Length -gt 1 -or $remainingDependencyPlatforms[0].Name.ToLowerInvariant() -ne $normalizedTargetPlatform) {
+        $platformNames = ($remainingDependencyPlatforms | Select-Object -ExpandProperty Name) -join ", "
+        throw "Dependencies cleanup failed. Remaining platform directories: $platformNames"
+    }
+}
+
 Push-Location $stageDirectory
 try {
     # Keep only the complete sideload install set at the archive root:
