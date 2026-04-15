@@ -179,6 +179,7 @@ namespace FolderRewind.ViewModels
                     return false;
                 }
 
+                // 先存元数据再存规则，失败时反馈会更接近用户刚改动的那一块。
                 var rulesSaved = SaveRulesInternal(SelectedTemplate.Id, out var rulesMessage);
                 if (!rulesSaved)
                 {
@@ -380,6 +381,7 @@ namespace FolderRewind.ViewModels
                 ? preferredTemplateId
                 : _selectedTemplateId;
 
+            // 刷新列表时尽量保持原选中项，避免用户编辑中被“跳选中”。
             SelectedTemplate = !string.IsNullOrWhiteSpace(targetId)
                 ? TemplatesView.FirstOrDefault(t => string.Equals(t.Id, targetId, StringComparison.OrdinalIgnoreCase)) ?? TemplatesView.FirstOrDefault()
                 : TemplatesView.FirstOrDefault();
@@ -443,6 +445,7 @@ namespace FolderRewind.ViewModels
 
         private bool SaveRulesInternal(string templateId, out string message)
         {
+            // EditablePathRules 是 UI 编辑态；提交前统一映射成服务层的 DTO。
             var items = EditablePathRules.Select(rule => new TemplateService.TemplateRuleEditItem
             {
                 Id = rule.Id,

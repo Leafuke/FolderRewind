@@ -52,6 +52,7 @@ namespace FolderRewind.Services
             var candidates = BuildIndexCandidates();
             FetchIndexResult? emptyIndexResult = null;
 
+            // 多源顺序尝试：主源失败不立刻报错，尽量用可用镜像提升成功率。
             foreach (var candidate in candidates)
             {
                 try
@@ -98,6 +99,7 @@ namespace FolderRewind.Services
                 return emptyIndexResult;
             }
 
+            // 网络全部失败时再回退本地缓存，保证离线场景也能继续选模板。
             if (allowCachedFallback && TryReadCachedIndex(out var cachedTemplates))
             {
                 return new FetchIndexResult
@@ -154,6 +156,7 @@ namespace FolderRewind.Services
             var tempPath = cachePath + ".tmp";
 
             string lastError = string.Empty;
+            // 模板包下载也走多源候选，和索引策略保持一致。
             foreach (var source in DownloadSourceService.BuildCandidates(item.FileUrl))
             {
                 try
@@ -172,6 +175,7 @@ namespace FolderRewind.Services
                     }
 
                     var actualHash = await ComputeFileSha256Async(tempPath, ct);
+                    // 官方索引提供哈希时强校验，防止镜像被污染或下载半截文件。
                     if (!string.IsNullOrWhiteSpace(item.Sha256)
                         && !string.Equals(actualHash, item.Sha256.Trim(), StringComparison.OrdinalIgnoreCase))
                     {
@@ -192,6 +196,7 @@ namespace FolderRewind.Services
                         };
                     }
 
+                    // 二次校验：不仅文件能读，还要满足官方共享规则。
                     var validation = TemplateService.ValidateTemplateForOfficialSharing(template);
                     if (!validation.Success)
                     {
@@ -282,7 +287,7 @@ namespace FolderRewind.Services
 
             if (jsonDocument.RootElement.ValueKind == JsonValueKind.Array)
             {
-                // Legacy format compatibility: index root is an array.
+                // 兼容历史格式：早期 index.json 根节点直接是数组。
                 var list = JsonSerializer.Deserialize(json, AppJsonContext.Default.ListRemoteTemplateIndexItem);
                 return NormalizeIndexItems(list ?? new List<RemoteTemplateIndexItem>());
             }
@@ -300,6 +305,7 @@ namespace FolderRewind.Services
                     continue;
                 }
 
+                // 统一清洗字段，后续 UI/导入逻辑就不用到处写 null 与 Trim 防守。
                 item.ShareCode = item.ShareCode.Trim().ToUpperInvariant();
                 item.TemplateId = item.TemplateId?.Trim() ?? string.Empty;
                 item.Name = item.Name?.Trim() ?? string.Empty;

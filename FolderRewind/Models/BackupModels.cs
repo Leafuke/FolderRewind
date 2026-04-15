@@ -427,6 +427,10 @@ namespace FolderRewind.Models
         Custom = 2
     }
 
+    /// <summary>
+    /// 云执行配置（策略层）。
+    /// 这里负责保存“怎么跑命令”，具体执行与重试由 CloudSyncService 统一处理。
+    /// </summary>
     public class CloudSettings : ObservableObject
     {
         private bool _enabled;
@@ -437,6 +441,7 @@ namespace FolderRewind.Models
         private string _workingDirectory = "";
         private int _timeoutSeconds = 600;
         private int _retryCount;
+        // 推荐写法：remoteName:path，例如 remote:FolderRewind
         private string _remoteBasePath = "remote:FolderRewind";
         private bool _syncHistoryAfterUpload;
         private DateTime _lastRunUtc = DateTime.MinValue;
@@ -909,6 +914,9 @@ namespace FolderRewind.Models
         }
 
         private bool _isCloudArchived;
+        /// <summary>
+        /// 是否确认存在云端副本。实际可下载性仍需结合远端路径字段判断。
+        /// </summary>
         public bool IsCloudArchived
         {
             get => _isCloudArchived;
@@ -918,6 +926,9 @@ namespace FolderRewind.Models
         public DateTime CloudArchivedAtUtc { get; set; }
 
         private string _cloudArchiveRemotePath = "";
+        /// <summary>
+        /// 归档文件在云端的完整路径。
+        /// </summary>
         public string CloudArchiveRemotePath
         {
             get => _cloudArchiveRemotePath;
@@ -925,6 +936,9 @@ namespace FolderRewind.Models
         }
 
         private string _cloudMetadataRecordRemotePath = "";
+        /// <summary>
+        /// 云端 records/{archive}.json 路径，用于增量链路定位。
+        /// </summary>
         public string CloudMetadataRecordRemotePath
         {
             get => _cloudMetadataRecordRemotePath;
@@ -932,6 +946,9 @@ namespace FolderRewind.Models
         }
 
         private string _cloudMetadataStateRemotePath = "";
+        /// <summary>
+        /// 云端 state.json 路径，用于恢复元数据状态。
+        /// </summary>
         public string CloudMetadataStateRemotePath
         {
             get => _cloudMetadataStateRemotePath;

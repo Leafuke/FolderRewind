@@ -291,6 +291,7 @@ namespace FolderRewind.Services
 
         private static void NormalizeCloudSettings(CloudSettings cloud)
         {
+            // 兼容旧版本配置：云字段新增后统一在这里补默认值，避免升级后运行时失败。
             if (string.IsNullOrWhiteSpace(cloud.ExecutablePath))
                 cloud.ExecutablePath = "rclone.exe";
 

@@ -48,6 +48,7 @@ namespace FolderRewind.Services
             var strategy = TemplateService.TemplateImportConflictStrategy.KeepBoth;
             if (inspection.HasConflict)
             {
+                // 冲突选择只负责“策略”，实际导入仍交给 TemplateService 统一处理。
                 var conflictDialog = new ContentDialog
                 {
                     Title = I18n.GetString("Template_Import_ConflictTitle"),

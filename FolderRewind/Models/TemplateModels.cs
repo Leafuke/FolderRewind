@@ -70,6 +70,7 @@ namespace FolderRewind.Models
         public bool AutoAdd { get => _autoAdd; set => SetProperty(ref _autoAdd, value); }
 
         [JsonIgnore]
+        // DisplayPath 是给 UI 编辑和导出展示用的“可读语法”，真正执行以 Segments 为准。
         public string DisplayPath => string.Join("\\", Segments.Select(FormatSegment));
 
         private static string FormatSegment(TemplatePathSegment segment)
@@ -116,6 +117,7 @@ namespace FolderRewind.Models
 
         public string Id { get => _id; set => SetProperty(ref _id, value ?? string.Empty); }
         public string ShareId { get => _shareId; set => SetProperty(ref _shareId, value ?? string.Empty); }
+        // TemplateId 保留为 ShareId 的兼容别名，避免旧数据字段名切换后失联。
         public string TemplateId { get => _shareId; set => SetProperty(ref _shareId, value ?? string.Empty); }
         public string ShareCode { get => _shareCode; set => SetProperty(ref _shareCode, value ?? string.Empty); }
         public string Name { get => _name; set => SetProperty(ref _name, value ?? string.Empty); }
