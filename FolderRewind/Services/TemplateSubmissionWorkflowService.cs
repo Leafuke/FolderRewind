@@ -72,6 +72,13 @@ namespace FolderRewind.Services
                 return;
             }
 
+            if (validation.Warnings.Count > 0)
+            {
+                var warningMessage = string.Join(Environment.NewLine, validation.Warnings);
+                LogService.LogWarning(warningMessage, nameof(TemplateSubmissionWorkflowService));
+                NotificationService.ShowWarning(warningMessage);
+            }
+
             var picker = new FileSavePicker();
             picker.SuggestedStartLocation = PickerLocationId.DocumentsLibrary;
             picker.FileTypeChoices.Add("FolderRewind Template", new List<string> { TemplateService.ShareFileExtension });

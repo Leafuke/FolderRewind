@@ -3085,10 +3085,10 @@ Release notes:
     <value>Rule: {0} | Confidence: {1} | {2}</value>
   </data>
   <data name="Template_CreateFrom_Home_FolderCandidateAuto" xml:space="preserve">
-    <value>Auto-selected</value>
+    <value>Selected by default</value>
   </data>
   <data name="Template_CreateFrom_Home_FolderCandidateSuggested" xml:space="preserve">
-    <value>Needs confirmation</value>
+    <value>Needs manual review</value>
   </data>
   <data name="Template_CreateFrom_Home_SelectionSummary" xml:space="preserve">
     <value>Configuration created with {0} / {1} candidate source folder(s) selected.</value>
@@ -3157,7 +3157,7 @@ Release notes:
     <value>Path matching rules</value>
   </data>
   <data name="TemplateManagerDialog_PathRulesHint.Text" xml:space="preserve">
-    <value>Edit path expressions directly, for example {AppDataRoaming}\.minecraft\saves\{*} or {SteamUserData}\{UserIdCandidate}\123456\remote. Use {*} to match every child folder at that level, which works well for multi-save, multi-profile, or multi-user folders.</value>
+    <value>Edit path expressions directly, for example {AppDataRoaming}\.minecraft\versions\{*}\saves\{*}, {SteamUserData}\{UserIdCandidate}\123456\remote, or {Process:xxx.exe}\.minecraft\versions\{*}\saves\{*}. {*} can appear in the middle or at the end of a path and expands every child folder at that level before continuing. {Process:xxx.exe} resolves the install directory of a currently running process, then continues matching from there.</value>
   </data>
   <data name="TemplateManagerDialog_AddRule.Content" xml:space="preserve">
     <value>Add Rule</value>
@@ -3172,7 +3172,7 @@ Release notes:
     <value>Path expression</value>
   </data>
   <data name="TemplateManagerDialog_PathRuleAuto.Content" xml:space="preserve">
-    <value>Auto-select when uniquely matched</value>
+    <value>Auto-select at 80% or above</value>
   </data>
   <data name="TemplateManagerDialog_PathRuleConfidence.Text" xml:space="preserve">
     <value>Confidence (0-1)</value>
@@ -3938,5 +3938,11 @@ Pull request: {1}</value>
   </data>
   <data name="CloudSync_Notification_HistorySyncSkippedLegacyMode" xml:space="preserve">
     <value>This configuration still uses the legacy custom command mode, so history.json cannot be synced automatically.</value>
+  </data>
+  <data name="ProcessPathService_Log_QueryFailed" xml:space="preserve">
+    <value>Failed to query the running process "{0}": {1}</value>
+  </data>
+  <data name="ProcessPathService_Log_InspectPartialFailed" xml:space="preserve">
+    <value>Skipped {1} "{0}" process instance(s) because their paths could not be read in time or due to permissions.</value>
   </data>
 </root>
