@@ -290,6 +290,7 @@ namespace FolderRewind.Services
                 {
                     "LIST_CONFIGS" => await HandleListConfigs(),
                     "LIST_FOLDERS" => await HandleListFolders(args),
+                    "LIST_WORLDS" => await HandleListFolders(args), // 兼容 MineBackup 的旧命令
                     "LIST_BACKUPS" => await HandleListBackups(args),
                     "GET_CONFIG" => await HandleGetConfig(args),
                     "SET_CONFIG" => await HandleSetConfig(args),

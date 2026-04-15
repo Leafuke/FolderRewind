@@ -7,7 +7,6 @@
     <ApplicationManifest>app.manifest</ApplicationManifest>
     <Platforms>x86;x64;ARM64</Platforms>
     <RuntimeIdentifiers>win-x86;win-x64;win-arm64</RuntimeIdentifiers>
-    <PublishProfile>win-$(Platform).pubxml</PublishProfile>
     <UseWinUI>true</UseWinUI>
     <WinUISDKReferences>false</WinUISDKReferences>
     <EnableMsixTooling>true</EnableMsixTooling>
@@ -34,6 +33,14 @@
   <PropertyGroup Condition="'$(Platform)'=='ARM64'">
     <PlatformTarget>ARM64</PlatformTarget>
     <RuntimeIdentifier>win-arm64</RuntimeIdentifier>
+  </PropertyGroup>
+
+  <!--
+    CI 工作区通常不包含本地 VS 生成的 PublishProfiles 文件。
+    仅当对应 pubxml 存在时才注入 PublishProfile，避免 NETSDK1198。
+  -->
+  <PropertyGroup Condition="'$(PublishProfile)'=='' and Exists('$(MSBuildProjectDirectory)\Properties\PublishProfiles\win-$(Platform).pubxml')">
+    <PublishProfile>win-$(Platform).pubxml</PublishProfile>
   </PropertyGroup>
 
   <ItemGroup>

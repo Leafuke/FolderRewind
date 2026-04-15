@@ -62,6 +62,11 @@ namespace FolderRewind.Services
                 };
             }
 
+            if (validation.Warnings.Count > 0)
+            {
+                LogService.LogWarning(string.Join(Environment.NewLine, validation.Warnings), nameof(GitHubTemplateSubmissionService));
+            }
+
             if (!GitHubOAuthService.IsConfigured(out var configMessage))
             {
                 return new SubmissionResult

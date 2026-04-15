@@ -10,7 +10,8 @@ namespace FolderRewind.Models
     {
         Static = 0,
         Placeholder = 1,
-        EnumerateDirectory = 2
+        EnumerateDirectory = 2,
+        ProcessDirectory = 3
     }
 
     public enum TemplatePathMarkerType
@@ -45,7 +46,7 @@ namespace FolderRewind.Models
         private string _name = string.Empty;
         private ObservableCollection<TemplatePathSegment> _segments = new();
         private ObservableCollection<TemplatePathMarker> _markers = new();
-        private double _confidence = 0.5;
+        private double _confidence = 0.8;
         private bool _autoAdd = true;
 
         public string Id { get => _id; set => SetProperty(ref _id, value ?? string.Empty); }
@@ -81,6 +82,7 @@ namespace FolderRewind.Models
             return segment.Type switch
             {
                 TemplatePathSegmentType.Placeholder => "{" + segment.Value + "}",
+                TemplatePathSegmentType.ProcessDirectory => "{Process:" + segment.Value + "}",
                 TemplatePathSegmentType.EnumerateDirectory => "{" + (string.IsNullOrWhiteSpace(segment.Value) ? "*" : segment.Value) + "}",
                 _ => segment.Value
             };

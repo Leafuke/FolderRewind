@@ -3,8 +3,8 @@
     x:Class="FolderRewind.Views.TemplateManagerDialog"
     xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-    xmlns:local="using:FolderRewind.Views"
     xmlns:models="using:FolderRewind.Models"
+    xmlns:viewModels="using:FolderRewind.ViewModels"
     x:Uid="TemplateManagerDialog"
     CloseButtonText="Close"
     DefaultButton="Close"
@@ -25,13 +25,13 @@
             <TextBlock x:Uid="TemplateManagerDialog_ListHeader" Style="{ThemeResource SubtitleTextBlockStyle}" />
             <TextBox x:Name="SearchBox"
                      x:Uid="TemplateManagerDialog_Search"
-                     TextChanged="OnSearchTextChanged" />
+                     Text="{x:Bind ViewModel.SearchText, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
 
             <ListView x:Name="TemplateListView"
                       Height="600"
                       SelectionMode="Single"
-                      ItemsSource="{x:Bind TemplatesView, Mode=OneWay}"
-                      SelectionChanged="OnTemplateSelectionChanged">
+                      ItemsSource="{x:Bind ViewModel.TemplatesView, Mode=OneWay}"
+                      SelectedItem="{x:Bind ViewModel.SelectedTemplate, Mode=TwoWay}">
                 <ListView.ItemTemplate>
                     <DataTemplate x:DataType="models:ConfigTemplate">
                         <StackPanel Spacing="2" Padding="0,6,0,6">
@@ -45,52 +45,58 @@
 
             <TextBlock x:Uid="TemplateManagerDialog_EmptyList"
                        Foreground="{ThemeResource TextFillColorSecondaryBrush}"
-                       Visibility="{x:Bind IsTemplateListEmpty, Mode=OneWay, Converter={StaticResource BoolToVisConverter}}" />
+                       Visibility="{x:Bind ViewModel.IsTemplateListEmpty, Mode=OneWay, Converter={StaticResource BoolToVisConverter}}" />
         </StackPanel>
 
         <ScrollViewer Grid.Column="1" VerticalScrollBarVisibility="Auto" Padding="0,0,8,16">
             <StackPanel Spacing="12">
                 <TextBlock x:Uid="TemplateManagerDialog_DetailHeader" Style="{ThemeResource SubtitleTextBlockStyle}" />
 
-                <InfoBar x:Name="FeedbackBar" IsOpen="False" IsClosable="True" />
+                <InfoBar IsOpen="{x:Bind ViewModel.IsFeedbackOpen, Mode=TwoWay}"
+                         IsClosable="True"
+                         Message="{x:Bind ViewModel.FeedbackMessage, Mode=OneWay}"
+                         Severity="{x:Bind ViewModel.FeedbackSeverity, Mode=OneWay}" />
 
-                <TextBox x:Name="TemplateNameBox" x:Uid="TemplateManagerDialog_Name" IsEnabled="{x:Bind HasSelection, Mode=OneWay}" />
-                <TextBox x:Name="TemplateAuthorBox" x:Uid="TemplateManagerDialog_Author" IsEnabled="{x:Bind HasSelection, Mode=OneWay}" />
-                <TextBox x:Name="TemplateDescriptionBox"
-                         x:Uid="TemplateManagerDialog_Description"
+                <TextBox x:Uid="TemplateManagerDialog_Name"
+                         IsEnabled="{x:Bind ViewModel.HasSelection, Mode=OneWay}"
+                         Text="{x:Bind ViewModel.TemplateName, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
+                <TextBox x:Uid="TemplateManagerDialog_Author"
+                         IsEnabled="{x:Bind ViewModel.HasSelection, Mode=OneWay}"
+                         Text="{x:Bind ViewModel.TemplateAuthor, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
+                <TextBox x:Uid="TemplateManagerDialog_Description"
                          AcceptsReturn="True"
                          MinHeight="84"
                          TextWrapping="Wrap"
-                         IsEnabled="{x:Bind HasSelection, Mode=OneWay}" />
+                         IsEnabled="{x:Bind ViewModel.HasSelection, Mode=OneWay}"
+                         Text="{x:Bind ViewModel.TemplateDescription, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
 
-                <TextBlock x:Name="TemplateMetaText"
-                           x:Uid="TemplateManagerDialog_TemplateMeta"
+                <TextBlock x:Uid="TemplateManagerDialog_TemplateMeta"
                            Style="{ThemeResource CaptionTextBlockStyle}"
                            Foreground="{ThemeResource TextFillColorSecondaryBrush}"
-                           TextWrapping="Wrap" />
+                           TextWrapping="Wrap"
+                           Text="{x:Bind ViewModel.TemplateMetaText, Mode=OneWay}" />
 
                 <StackPanel Orientation="Horizontal" Spacing="8">
                     <Button x:Uid="TemplateManagerDialog_Save"
                             Click="OnSaveTemplateClick"
-                            IsEnabled="{x:Bind HasSelection, Mode=OneWay}" />
+                            IsEnabled="{x:Bind ViewModel.HasSelection, Mode=OneWay}" />
                     <Button x:Uid="TemplateManagerDialog_Duplicate"
                             Click="OnDuplicateTemplateClick"
-                            IsEnabled="{x:Bind HasSelection, Mode=OneWay}" />
+                            IsEnabled="{x:Bind ViewModel.HasSelection, Mode=OneWay}" />
                     <Button x:Uid="TemplateManagerDialog_Delete"
                             Click="OnDeleteTemplateClick"
-                            IsEnabled="{x:Bind HasSelection, Mode=OneWay}" />
+                            IsEnabled="{x:Bind ViewModel.HasSelection, Mode=OneWay}" />
                     <Button x:Uid="TemplateManagerDialog_Export"
                             Click="OnExportTemplateClick"
-                            IsEnabled="{x:Bind HasSelection, Mode=OneWay}" />
+                            IsEnabled="{x:Bind ViewModel.HasSelection, Mode=OneWay}" />
                 </StackPanel>
 
-                <Border x:Name="DeleteConfirmPanel"
-                        CornerRadius="8"
+                <Border CornerRadius="8"
                         Padding="10"
                         Background="{ThemeResource SystemFillColorCautionBackgroundBrush}"
-                        Visibility="Collapsed">
+                        Visibility="{x:Bind ViewModel.IsDeleteConfirmVisible, Mode=OneWay, Converter={StaticResource BoolToVisConverter}}">
                     <StackPanel Spacing="10">
-                        <TextBlock x:Name="DeleteConfirmText" TextWrapping="Wrap" />
+                        <TextBlock Text="{x:Bind ViewModel.DeleteConfirmText, Mode=OneWay}" TextWrapping="Wrap" />
                         <StackPanel Orientation="Horizontal" Spacing="8">
                             <Button x:Uid="TemplateManagerDialog_DeleteConfirmYes" Click="OnConfirmDeleteTemplateClick" />
                             <Button x:Uid="TemplateManagerDialog_DeleteConfirmNo" Click="OnCancelDeleteTemplateClick" />
@@ -111,10 +117,10 @@
                             <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="8">
                                 <Button x:Uid="TemplateManagerDialog_AddRule"
                                         Click="OnAddRuleClick"
-                                        IsEnabled="{x:Bind HasSelection, Mode=OneWay}" />
+                                        IsEnabled="{x:Bind ViewModel.HasSelection, Mode=OneWay}" />
                                 <Button x:Uid="TemplateManagerDialog_SaveRules"
                                         Click="OnSaveRulesClick"
-                                        IsEnabled="{x:Bind HasSelection, Mode=OneWay}" />
+                                        IsEnabled="{x:Bind ViewModel.HasSelection, Mode=OneWay}" />
                             </StackPanel>
                         </Grid>
 
@@ -122,9 +128,9 @@
                                    Foreground="{ThemeResource TextFillColorSecondaryBrush}"
                                    TextWrapping="Wrap" />
 
-                        <ItemsControl ItemsSource="{x:Bind EditablePathRules, Mode=OneWay}">
+                        <ItemsControl ItemsSource="{x:Bind ViewModel.EditablePathRules, Mode=OneWay}">
                             <ItemsControl.ItemTemplate>
-                                <DataTemplate x:DataType="local:EditableTemplateRuleItem">
+                                <DataTemplate x:DataType="viewModels:EditableTemplateRuleItem">
                                     <Border Margin="0,0,0,10"
                                             Padding="10"
                                             CornerRadius="8"
@@ -138,7 +144,7 @@
                                                 </Grid.ColumnDefinitions>
                                                 <StackPanel Spacing="4">
                                                     <TextBlock x:Uid="TemplateManagerDialog_PathRuleName" />
-                                                    <TextBox Text="{x:Bind Name, Mode=TwoWay}" />
+                                                    <TextBox Text="{x:Bind Name, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
                                                 </StackPanel>
                                                 <Button Grid.Column="1"
                                                         x:Uid="TemplateManagerDialog_RemoveRule"
@@ -148,7 +154,7 @@
 
                                             <StackPanel Spacing="4">
                                                 <TextBlock x:Uid="TemplateManagerDialog_PathRulePath" />
-                                                <TextBox Text="{x:Bind DisplayPath, Mode=TwoWay}" />
+                                                <TextBox Text="{x:Bind DisplayPath, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
                                             </StackPanel>
 
                                             <Grid ColumnSpacing="12">
@@ -161,7 +167,7 @@
                                                           IsChecked="{x:Bind AutoAdd, Mode=TwoWay}" />
                                                 <StackPanel Grid.Column="1" Spacing="4">
                                                     <TextBlock x:Uid="TemplateManagerDialog_PathRuleConfidence" />
-                                                    <TextBox Text="{x:Bind ConfidenceText, Mode=TwoWay}" />
+                                                    <TextBox Text="{x:Bind ConfidenceText, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
                                                 </StackPanel>
                                             </Grid>
 
@@ -173,7 +179,7 @@
 
                         <TextBlock x:Uid="TemplateManagerDialog_NoRules"
                                    Foreground="{ThemeResource TextFillColorSecondaryBrush}"
-                                   Visibility="{x:Bind IsRuleListEmpty, Mode=OneWay, Converter={StaticResource BoolToVisConverter}}" />
+                                   Visibility="{x:Bind ViewModel.IsRuleListEmpty, Mode=OneWay, Converter={StaticResource BoolToVisConverter}}" />
                     </StackPanel>
                 </Border>
 
@@ -186,17 +192,17 @@
                     <Button Grid.Column="1"
                             x:Uid="TemplateManagerDialog_RefreshPreview"
                             Click="OnRefreshPreviewClick"
-                            IsEnabled="{x:Bind HasSelection, Mode=OneWay}" />
+                            IsEnabled="{x:Bind ViewModel.HasSelection, Mode=OneWay}" />
                 </Grid>
 
-                <TextBlock x:Name="PreviewSummaryText"
-                           x:Uid="TemplateManagerDialog_PreviewSummary"
+                <TextBlock x:Uid="TemplateManagerDialog_PreviewSummary"
                            Style="{ThemeResource CaptionTextBlockStyle}"
                            Foreground="{ThemeResource TextFillColorSecondaryBrush}"
-                           TextWrapping="Wrap" />
+                           TextWrapping="Wrap"
+                           Text="{x:Bind ViewModel.PreviewSummaryText, Mode=OneWay}" />
 
-                <ItemsControl ItemsSource="{x:Bind PreviewItems, Mode=OneWay}"
-                              IsEnabled="{x:Bind HasSelection, Mode=OneWay}">
+                <ItemsControl ItemsSource="{x:Bind ViewModel.PreviewItems, Mode=OneWay}"
+                              IsEnabled="{x:Bind ViewModel.HasSelection, Mode=OneWay}">
                     <ItemsControl.ItemTemplate>
                         <DataTemplate x:DataType="models:TemplateRulePreviewItem">
                             <Border Margin="0,0,0,10"
@@ -221,7 +227,7 @@
 
                 <TextBlock x:Uid="TemplateManagerDialog_NoPreview"
                            Foreground="{ThemeResource TextFillColorSecondaryBrush}"
-                           Visibility="{x:Bind IsPreviewEmpty, Mode=OneWay, Converter={StaticResource BoolToVisConverter}}" />
+                           Visibility="{x:Bind ViewModel.IsPreviewEmpty, Mode=OneWay, Converter={StaticResource BoolToVisConverter}}" />
             </StackPanel>
         </ScrollViewer>
     </Grid>

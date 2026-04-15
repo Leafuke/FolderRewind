@@ -3085,10 +3085,10 @@
     <value>规则：{0} | 置信度：{1} | {2}</value>
   </data>
   <data name="Template_CreateFrom_Home_FolderCandidateAuto" xml:space="preserve">
-    <value>默认添加</value>
+    <value>默认勾选</value>
   </data>
   <data name="Template_CreateFrom_Home_FolderCandidateSuggested" xml:space="preserve">
-    <value>建议确认</value>
+    <value>需手动确认</value>
   </data>
   <data name="Template_CreateFrom_Home_SelectionSummary" xml:space="preserve">
     <value>配置已创建，共选择 {0} / {1} 个候选来源文件夹。</value>
@@ -3157,7 +3157,7 @@
     <value>路径匹配规则</value>
   </data>
   <data name="TemplateManagerDialog_PathRulesHint.Text" xml:space="preserve">
-    <value>支持直接编辑路径表达式，例如 {AppDataRoaming}\.minecraft\saves\{*} 或 {SteamUserData}\{UserIdCandidate}\123456\remote。使用 {*} 表示匹配这一层下的所有子文件夹，适合多存档、多角色或多用户目录。</value>
+    <value>支持直接编辑路径表达式，例如 {AppDataRoaming}\.minecraft\versions\{*}\saves\{*}、{SteamUserData}\{UserIdCandidate}\123456\remote，或 {Process:Plain Craft Launcher 2.exe}\.minecraft\versions\{*}\saves\{*}。{*} 可写在路径中间或末尾，表示展开这一层下的全部子文件夹后继续匹配；{Process:xxx.exe} 会先定位当前运行中进程的程序目录，再继续向下拼接。</value>
   </data>
   <data name="TemplateManagerDialog_AddRule.Content" xml:space="preserve">
     <value>添加规则</value>
@@ -3172,7 +3172,7 @@
     <value>路径表达式</value>
   </data>
   <data name="TemplateManagerDialog_PathRuleAuto.Content" xml:space="preserve">
-    <value>唯一命中时默认勾选</value>
+    <value>达到 80% 时默认勾选</value>
   </data>
   <data name="TemplateManagerDialog_PathRuleConfidence.Text" xml:space="preserve">
     <value>置信度（0-1）</value>
@@ -3938,5 +3938,11 @@ Pull Request：{1}</value>
   </data>
   <data name="CloudSync_Notification_HistorySyncSkippedLegacyMode" xml:space="preserve">
     <value>当前配置使用旧版自定义命令模式，无法自动同步 history.json。</value>
+  </data>
+  <data name="ProcessPathService_Log_QueryFailed" xml:space="preserve">
+    <value>查询运行中的进程“{0}”失败：{1}</value>
+  </data>
+  <data name="ProcessPathService_Log_InspectPartialFailed" xml:space="preserve">
+    <value>有 {1} 个“{0}”进程实例因权限或退出时机无法读取路径，已跳过。</value>
   </data>
 </root>

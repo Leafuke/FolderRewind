@@ -18,6 +18,7 @@ namespace FolderRewind.Services
         private const int ScanDepthLimit = 6;
         private const int ScanDirectoryLimit = 5000;
         private const int MarkerSearchDepth = 1;
+        private const double AutoSelectConfidenceThreshold = 0.8;
         public const string ShareFileExtension = ".frtemplate.json";
 
         private static readonly string[] KnownMarkerDirectories =
@@ -463,7 +464,7 @@ namespace FolderRewind.Services
             {
                 // 规则按置信度从高到低展开，尽量让更像“标准存档路径”的结果排在前面。
                 var resolvedPaths = ResolveRulePaths(rule).ToList();
-                var canAutoSelect = rule.AutoAdd && resolvedPaths.Count == 1 && HasStrongMarkers(rule.Markers);
+                var canAutoSelect = rule.AutoAdd && rule.Confidence >= AutoSelectConfidenceThreshold;
                 foreach (var path in resolvedPaths)
                 {
                     if (!folderPaths.Add(path))
@@ -481,21 +482,6 @@ namespace FolderRewind.Services
                         IsSelectedByDefault = canAutoSelect
                     });
                 }
-            }
-
-            if (candidates.Count != 1)
-            {
-                candidates = candidates
-                    .Select(candidate => new TemplateFolderCandidate
-                    {
-                        Path = candidate.Path,
-                        DisplayName = candidate.DisplayName,
-                        RuleName = candidate.RuleName,
-                        MarkerSummary = candidate.MarkerSummary,
-                        Confidence = candidate.Confidence,
-                        IsSelectedByDefault = false
-                    })
-                    .ToList();
             }
 
             var selectedByDefaultCount = candidates.Count(c => c.IsSelectedByDefault);
@@ -927,12 +913,12 @@ namespace FolderRewind.Services
 
         private static IEnumerable<TemplatePathRule> BuildRules(ManagedFolder folder, string currentUserName, string userProfileName)
         {
-            if (!TryGetSegmentsWithRootPlaceholder(folder.Path, out var segments, out var confidence))
+            if (!TryGetSegmentsWithRootPlaceholder(folder.Path, out var segments, out _))
             {
                 yield break;
             }
 
-            var hasDynamicSegment = false;
+            const double defaultConfidence = 0.8;
             for (int i = 0; i < segments.Count; i++)
             {
                 var segment = segments[i];
@@ -946,7 +932,6 @@ namespace FolderRewind.Services
                 {
                     segment.Type = TemplatePathSegmentType.Placeholder;
                     segment.Value = "UserName";
-                    confidence += 0.08;
                     continue;
                 }
 
@@ -954,17 +939,8 @@ namespace FolderRewind.Services
                 {
                     segment.Type = TemplatePathSegmentType.EnumerateDirectory;
                     segment.Value = "UserIdCandidate";
-                    hasDynamicSegment = true;
-                    confidence += 0.1;
                 }
             }
-
-            if (hasDynamicSegment)
-            {
-                confidence += 0.05;
-            }
-
-            confidence = Math.Clamp(confidence, 0.35, 0.95);
             var markers = BuildMarkers(folder.Path);
 
             var wildcardSegments = BuildSiblingWildcardSegments(folder.Path);
@@ -975,7 +951,7 @@ namespace FolderRewind.Services
                     Name = BuildCollectionRuleName(FolderNameConflictService.ResolveDisplayName(folder)),
                     Segments = wildcardSegments,
                     Markers = markers,
-                    Confidence = Math.Clamp(confidence + 0.08, 0.55, 0.97),
+                    Confidence = defaultConfidence,
                     AutoAdd = true
                 };
             }
@@ -985,8 +961,8 @@ namespace FolderRewind.Services
                 Name = FolderNameConflictService.ResolveDisplayName(folder),
                 Segments = segments,
                 Markers = markers,
-                Confidence = confidence,
-                AutoAdd = confidence >= 0.85
+                Confidence = defaultConfidence,
+                AutoAdd = true
             };
 
             var relaxedSegments = CloneSegments(segments);
@@ -1014,7 +990,7 @@ namespace FolderRewind.Services
                     Name = FolderNameConflictService.ResolveDisplayName(folder),
                     Segments = relaxedSegments,
                     Markers = markers,
-                    Confidence = Math.Clamp(confidence - 0.12, 0.35, 0.9),
+                    Confidence = defaultConfidence,
                     AutoAdd = false
                 };
             }
@@ -1306,31 +1282,6 @@ namespace FolderRewind.Services
                 || extension.Equals(".sqlite", StringComparison.OrdinalIgnoreCase);
         }
 
-        private static bool HasStrongMarkers(IEnumerable<TemplatePathMarker>? markers)
-        {
-            if (markers == null)
-            {
-                return false;
-            }
-
-            var score = 0;
-            foreach (var marker in markers)
-            {
-                if (marker == null || string.IsNullOrWhiteSpace(marker.Value))
-                {
-                    continue;
-                }
-
-                score += marker.Type == TemplatePathMarkerType.RequiredDirectory || marker.Type == TemplatePathMarkerType.RequiredFile ? 2 : 1;
-                if (score >= 2)
-                {
-                    return true;
-                }
-            }
-
-            return false;
-        }
-
         private static IReadOnlyList<string> ResolveRulePaths(TemplatePathRule rule)
         {
             if (rule == null || rule.Segments == null || rule.Segments.Count == 0)
@@ -1364,6 +1315,26 @@ namespace FolderRewind.Services
                             foreach (var placeholder in placeholders)
                             {
                                 var combined = CombinePathSegment(basePath, placeholder);
+                                if (Directory.Exists(combined))
+                                {
+                                    next.Add(combined);
+                                }
+                            }
+                        }
+                        break;
+
+                    case TemplatePathSegmentType.ProcessDirectory:
+                        var processDirectories = ProcessPathService.GetRunningProcessDirectories(segment.Value);
+                        if (processDirectories.Count == 0)
+                        {
+                            return Array.Empty<string>();
+                        }
+
+                        foreach (var basePath in current)
+                        {
+                            foreach (var processDirectory in processDirectories)
+                            {
+                                var combined = CombinePathSegment(basePath, processDirectory);
                                 if (Directory.Exists(combined))
                                 {
                                     next.Add(combined);
@@ -1532,16 +1503,15 @@ namespace FolderRewind.Services
                 });
             }
 
-            template.PathRules = rules;
-            template.UpdatedUtc = DateTime.UtcNow;
-
-            var validationErrors = ValidatePathRules(template.PathRules);
+            var validationErrors = ValidatePathRules(rules);
             if (validationErrors.Count > 0)
             {
                 message = string.Join(Environment.NewLine, validationErrors);
                 return false;
             }
 
+            template.PathRules = rules;
+            template.UpdatedUtc = DateTime.UtcNow;
             ConfigService.Save();
             message = I18n.GetString("Template_Manager_PathRulesUpdated");
             return true;
@@ -1554,20 +1524,58 @@ namespace FolderRewind.Services
                 return Array.Empty<string>();
             }
 
-            return token.Trim() switch
+            var normalizedToken = token.Trim();
+            if (string.Equals(normalizedToken, "UserProfile", StringComparison.OrdinalIgnoreCase))
             {
-                "UserProfile" => SinglePath(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile)),
-                "Documents" => SinglePath(Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments)),
-                "DocumentsMyGames" => SinglePath(Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments), "My Games")),
-                "SavedGames" => SinglePath(Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), "Saved Games")),
-                "AppDataRoaming" => SinglePath(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData)),
-                "AppDataLocal" => SinglePath(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData)),
-                "AppDataLocalLow" => SinglePath(Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), "AppData", "LocalLow")),
-                "ProgramData" => SinglePath(Environment.GetFolderPath(Environment.SpecialFolder.CommonApplicationData)),
-                "SteamUserData" => GetSteamUserDataRoots().ToList(),
-                "UserName" => SinglePath(Environment.UserName),
-                _ => Array.Empty<string>()
-            };
+                return SinglePath(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile));
+            }
+
+            if (string.Equals(normalizedToken, "Documents", StringComparison.OrdinalIgnoreCase))
+            {
+                return SinglePath(Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments));
+            }
+
+            if (string.Equals(normalizedToken, "DocumentsMyGames", StringComparison.OrdinalIgnoreCase))
+            {
+                return SinglePath(Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments), "My Games"));
+            }
+
+            if (string.Equals(normalizedToken, "SavedGames", StringComparison.OrdinalIgnoreCase))
+            {
+                return SinglePath(Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), "Saved Games"));
+            }
+
+            if (string.Equals(normalizedToken, "AppDataRoaming", StringComparison.OrdinalIgnoreCase))
+            {
+                return SinglePath(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData));
+            }
+
+            if (string.Equals(normalizedToken, "AppDataLocal", StringComparison.OrdinalIgnoreCase))
+            {
+                return SinglePath(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData));
+            }
+
+            if (string.Equals(normalizedToken, "AppDataLocalLow", StringComparison.OrdinalIgnoreCase))
+            {
+                return SinglePath(Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), "AppData", "LocalLow"));
+            }
+
+            if (string.Equals(normalizedToken, "ProgramData", StringComparison.OrdinalIgnoreCase))
+            {
+                return SinglePath(Environment.GetFolderPath(Environment.SpecialFolder.CommonApplicationData));
+            }
+
+            if (string.Equals(normalizedToken, "SteamUserData", StringComparison.OrdinalIgnoreCase))
+            {
+                return GetSteamUserDataRoots().ToList();
+            }
+
+            if (string.Equals(normalizedToken, "UserName", StringComparison.OrdinalIgnoreCase))
+            {
+                return SinglePath(Environment.UserName);
+            }
+
+            return Array.Empty<string>();
         }
 
         private static IReadOnlyList<string> SinglePath(string path)
@@ -1717,13 +1725,30 @@ namespace FolderRewind.Services
                 if (part.StartsWith("{", StringComparison.Ordinal) && part.EndsWith("}", StringComparison.Ordinal) && part.Length > 2)
                 {
                     var token = part[1..^1].Trim();
-                    var segmentType = IsKnownPlaceholderToken(token)
-                        ? TemplatePathSegmentType.Placeholder
-                        : TemplatePathSegmentType.EnumerateDirectory;
+                    TemplatePathSegmentType segmentType;
+                    string segmentValue;
+                    if (TryParseProcessToken(token, out var processName))
+                    {
+                        segmentType = TemplatePathSegmentType.ProcessDirectory;
+                        segmentValue = processName;
+                    }
+                    else
+                    {
+                        if (token.Contains(':'))
+                        {
+                            return false;
+                        }
+
+                        segmentType = IsKnownPlaceholderToken(token)
+                            ? TemplatePathSegmentType.Placeholder
+                            : TemplatePathSegmentType.EnumerateDirectory;
+                        segmentValue = token;
+                    }
+
                     segments.Add(new TemplatePathSegment
                     {
                         Type = segmentType,
-                        Value = token
+                        Value = segmentValue
                     });
                     continue;
                 }
@@ -1755,6 +1780,39 @@ namespace FolderRewind.Services
                 || string.Equals(token, "ProgramData", StringComparison.OrdinalIgnoreCase)
                 || string.Equals(token, "SteamUserData", StringComparison.OrdinalIgnoreCase)
                 || string.Equals(token, "UserName", StringComparison.OrdinalIgnoreCase);
+        }
+
+        private static bool TryParseProcessToken(string token, out string processName)
+        {
+            processName = string.Empty;
+            if (string.IsNullOrWhiteSpace(token)
+                || !token.StartsWith("Process:", StringComparison.OrdinalIgnoreCase))
+            {
+                return false;
+            }
+
+            var rawProcessName = token["Process:".Length..].Trim();
+            if (string.IsNullOrWhiteSpace(rawProcessName)
+                || rawProcessName.Contains("..", StringComparison.Ordinal)
+                || rawProcessName.Contains('\\')
+                || rawProcessName.Contains('/')
+                || rawProcessName.Contains(':'))
+            {
+                return false;
+            }
+
+            processName = Path.GetFileName(rawProcessName);
+            if (string.IsNullOrWhiteSpace(processName))
+            {
+                return false;
+            }
+
+            if (!processName.EndsWith(".exe", StringComparison.OrdinalIgnoreCase))
+            {
+                processName += ".exe";
+            }
+
+            return true;
         }
 
         private static bool ExistsInDirectoryTree(string rootPath, string name, bool isDirectory, int maxDepth)
@@ -2222,70 +2280,9 @@ namespace FolderRewind.Services
                     errors.Add(I18n.Format("Template_Submission_RuleHasNoSegments", string.IsNullOrWhiteSpace(rule.Name) ? I18n.GetString("Template_Preview_UnnamedRule") : rule.Name));
                     continue;
                 }
-
-                foreach (var segment in rule.Segments)
-                {
-                    if (segment == null)
-                    {
-                        continue;
-                    }
-
-                    var value = segment.Value?.Trim() ?? string.Empty;
-                    if (string.IsNullOrWhiteSpace(value))
-                    {
-                        continue;
-                    }
-
-                    if (value.Contains("..", StringComparison.Ordinal)
-                        || value.Contains(':')
-                        || value.Contains('\\')
-                        || value.Contains('/')
-                        || Path.IsPathRooted(value))
-                    {
-                        errors.Add(I18n.Format("Template_Submission_RuleContainsUnsafePath", string.IsNullOrWhiteSpace(rule.Name) ? I18n.GetString("Template_Preview_UnnamedRule") : rule.Name, value));
-                        break;
-                    }
-
-                    if (segment.Type == TemplatePathSegmentType.Static && IsSensitiveDirectoryName(value))
-                    {
-                        errors.Add(I18n.Format("Template_Submission_RuleContainsSensitiveSegment", string.IsNullOrWhiteSpace(rule.Name) ? I18n.GetString("Template_Preview_UnnamedRule") : rule.Name, value));
-                        break;
-                    }
-                }
-
-                IEnumerable<TemplatePathMarker> markers = rule.Markers != null
-                    ? rule.Markers
-                    : Array.Empty<TemplatePathMarker>();
-
-                foreach (var marker in markers)
-                {
-                    var markerValue = marker?.Value?.Trim() ?? string.Empty;
-                    if (string.IsNullOrWhiteSpace(markerValue))
-                    {
-                        continue;
-                    }
-
-                    if (markerValue.Contains("..", StringComparison.Ordinal)
-                        || markerValue.Contains('\\')
-                        || markerValue.Contains('/')
-                        || Path.IsPathRooted(markerValue))
-                    {
-                        errors.Add(I18n.Format("Template_Submission_RuleContainsUnsafeMarker", string.IsNullOrWhiteSpace(rule.Name) ? I18n.GetString("Template_Preview_UnnamedRule") : rule.Name, markerValue));
-                        break;
-                    }
-                }
             }
 
             return errors;
-        }
-
-        private static bool IsSensitiveDirectoryName(string value)
-        {
-            return string.Equals(value, "Windows", StringComparison.OrdinalIgnoreCase)
-                || string.Equals(value, "System32", StringComparison.OrdinalIgnoreCase)
-                || string.Equals(value, "Program Files", StringComparison.OrdinalIgnoreCase)
-                || string.Equals(value, "Program Files (x86)", StringComparison.OrdinalIgnoreCase)
-                || string.Equals(value, "Users", StringComparison.OrdinalIgnoreCase);
         }
 
         private static ConfigTemplate CloneTemplate(ConfigTemplate template)

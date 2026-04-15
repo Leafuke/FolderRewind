@@ -1,0 +1,120 @@
+name: Bug Report
+description: Report app bugs, installation issues, or regressions
+title: "[Bug] "
+labels:
+  - bug
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Please provide as much detail as possible. Complete information helps us locate the issue faster.
+
+  - type: dropdown
+    id: package_source
+    attributes:
+      label: Installation source
+      description: Which source did you use to install FolderRewind?
+      options:
+        - GitHub sideload package
+        - Microsoft Store
+        - Self-built from source
+        - Other
+    validations:
+      required: true
+
+  - type: input
+    id: app_version
+    attributes:
+      label: App version
+      description: For example: 1.6.1.0
+      placeholder: 1.6.1.0
+    validations:
+      required: true
+
+  - type: dropdown
+    id: architecture
+    attributes:
+      label: System architecture
+      options:
+        - x64
+        - ARM64
+        - x86
+        - Not sure
+    validations:
+      required: true
+
+  - type: dropdown
+    id: windows_version
+    attributes:
+      label: Windows version
+      options:
+        - Windows 11 24H2 / Server 2025 (Build 26100 or later)
+        - Windows 11 23H2 (22631)
+        - Windows 11 22H2 (22621)
+        - Windows 11 21H2 (22000)
+        - Windows 10 22H2 (19045)
+        - Windows 10 21H2 (19044)
+        - Other
+    validations:
+      required: true
+
+  - type: dropdown
+    id: problem_type
+    attributes:
+      label: Issue category
+      options:
+        - Startup or crash
+        - Backup or restore
+        - Plugin related
+        - GitHub sideload installation
+        - UI display
+        - Performance or lag
+        - Other
+    validations:
+      required: true
+
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      description: Describe how to trigger this issue in order
+      placeholder: |
+        1. Open the app
+        2. Go to ...
+        3. Click ...
+        4. Observe ...
+    validations:
+      required: true
+
+  - type: textarea
+    id: actual_behavior
+    attributes:
+      label: Actual result
+      description: What actually happened?
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected_behavior
+    attributes:
+      label: Expected result
+      description: What did you expect to happen?
+    validations:
+      required: true
+
+  - type: textarea
+    id: logs
+    attributes:
+      label: Logs or error details
+      description: If available, attach logs, exception stack traces, screenshots, or screen recordings
+      placeholder: You can paste key log snippets here or describe any attachments
+
+  - type: checkboxes
+    id: checks
+    attributes:
+      label: Confirmation before submit
+      options:
+        - label: I have confirmed the issue is reproducible, or I have provided the clearest trigger conditions I can.
+          required: true
+        - label: I have checked for existing issues that are the same or similar.
+          required: true

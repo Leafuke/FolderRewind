@@ -101,7 +101,8 @@ jobs:
           .\.github\scripts\Decode-SideloadCertificate.ps1 `
             -Base64Certificate $env:SIDELOAD_CERT_BASE64 `
             -OutputDirectory "$env:RUNNER_TEMP\folderrewind-cert" `
-            -OutputName "folderrewind-sideload.pfx"
+            -OutputName "folderrewind-sideload.pfx" `
+            -CertificatePassword $env:SIDELOAD_CERT_PASSWORD
 
       - name: Build MSIX Package
         shell: pwsh
@@ -111,8 +112,11 @@ jobs:
             -p:Platform=${{ matrix.platform }} `
             -p:UapAppxPackageBuildMode=SideloadOnly `
             -p:GenerateAppxPackageOnBuild=true `
+            -p:AppxSymbolPackageEnabled=false `
+            -p:GenerateAppxSymbolPackage=false `
             -p:AppxPackageDir="$env:GITHUB_WORKSPACE\artifacts\appx\${{ matrix.platform }}\" `
             -p:PackageCertificateKeyFile="${{ steps.certificate.outputs.certificate_path }}" `
+            -p:PackageCertificatePassword="$env:SIDELOAD_CERT_PASSWORD" `
             -p:PackageCertificateThumbprint= `
             /warnaserror
 
