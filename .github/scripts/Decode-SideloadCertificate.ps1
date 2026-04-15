@@ -10,7 +10,10 @@ param(
     [string]$OutputName = "sideload-signing.pfx",
 
     [Parameter(Mandatory = $false)]
-    [string]$CertificatePassword
+    [string]$CertificatePassword,
+
+    [Parameter(Mandatory = $false)]
+    [string]$ExpectedPublisher
 )
 
 Set-StrictMode -Version Latest
@@ -25,6 +28,7 @@ New-Item -ItemType Directory -Path $OutputDirectory -Force | Out-Null
 $certificatePath = Join-Path $OutputDirectory $OutputName
 $normalizedBase64 = ($Base64Certificate -replace "\s", "")
 [System.IO.File]::WriteAllBytes($certificatePath, [Convert]::FromBase64String($normalizedBase64))
+$certificate = $null
 
 if (-not [string]::IsNullOrWhiteSpace($CertificatePassword)) {
     try {
@@ -44,6 +48,15 @@ if (-not [string]::IsNullOrWhiteSpace($CertificatePassword)) {
 
     if ($certificate.NotAfter -lt [DateTime]::UtcNow) {
         throw "The sideload certificate is expired (NotAfter: $($certificate.NotAfter.ToString('u')))."
+    }
+
+    if (-not [string]::IsNullOrWhiteSpace($ExpectedPublisher)) {
+        $actualPublisher = $certificate.Subject.Trim()
+        $normalizedExpectedPublisher = $ExpectedPublisher.Trim()
+
+        if (-not [string]::Equals($actualPublisher, $normalizedExpectedPublisher, [System.StringComparison]::OrdinalIgnoreCase)) {
+            throw "The sideload certificate subject '$actualPublisher' does not match Package.appxmanifest Publisher '$normalizedExpectedPublisher'."
+        }
     }
 
     $codeSigningOid = "1.3.6.1.5.5.7.3.3"
@@ -73,6 +86,10 @@ if (-not [string]::IsNullOrWhiteSpace($CertificatePassword)) {
 # Expose the temporary certificate path only to the current workflow run.
 if ($env:GITHUB_OUTPUT) {
     "certificate_path=$certificatePath" >> $env:GITHUB_OUTPUT
+
+    if ($null -ne $certificate) {
+        "certificate_thumbprint=$($certificate.Thumbprint)" >> $env:GITHUB_OUTPUT
+    }
 }
 
 Write-Host "Temporary certificate restored."

@@ -98,10 +98,20 @@ jobs:
         env:
           SIDELOAD_CERT_BASE64: ${{ secrets.SIDELOAD_CERT_BASE64 }}
         run: |
+          [xml]$manifest = Get-Content 'FolderRewind/Package.appxmanifest'
+
           .\.github\scripts\Decode-SideloadCertificate.ps1 `
             -Base64Certificate $env:SIDELOAD_CERT_BASE64 `
             -OutputDirectory "$env:RUNNER_TEMP\folderrewind-cert" `
             -OutputName "folderrewind-sideload.pfx" `
+            -CertificatePassword $env:SIDELOAD_CERT_PASSWORD `
+            -ExpectedPublisher $manifest.Package.Identity.Publisher
+
+      - name: Import Sideload Certificate
+        shell: pwsh
+        run: |
+          .\.github\scripts\Import-SideloadCertificate.ps1 `
+            -CertificatePath "${{ steps.certificate.outputs.certificate_path }}" `
             -CertificatePassword $env:SIDELOAD_CERT_PASSWORD
 
       - name: Build MSIX Package
@@ -112,12 +122,13 @@ jobs:
             -p:Platform=${{ matrix.platform }} `
             -p:UapAppxPackageBuildMode=SideloadOnly `
             -p:GenerateAppxPackageOnBuild=true `
+            -p:GenerateTestArtifacts=false `
             -p:AppxSymbolPackageEnabled=false `
             -p:GenerateAppxSymbolPackage=false `
             -p:AppxPackageDir="$env:GITHUB_WORKSPACE\artifacts\appx\${{ matrix.platform }}\" `
-            -p:PackageCertificateKeyFile="${{ steps.certificate.outputs.certificate_path }}" `
-            -p:PackageCertificatePassword="$env:SIDELOAD_CERT_PASSWORD" `
-            -p:PackageCertificateThumbprint= `
+            -p:PackageCertificateKeyFile= `
+            -p:PackageCertificatePassword= `
+            -p:PackageCertificateThumbprint=${{ steps.certificate.outputs.certificate_thumbprint }} `
             /warnaserror
 
       - name: Prepare Release Assets
@@ -141,7 +152,9 @@ jobs:
         if: always()
         shell: pwsh
         run: |
-          .\.github\scripts\Remove-SideloadCertificate.ps1 -CertificatePath "${{ steps.certificate.outputs.certificate_path }}"
+          .\.github\scripts\Remove-SideloadCertificate.ps1 `
+            -CertificatePath "${{ steps.certificate.outputs.certificate_path }}" `
+            -Thumbprint "${{ steps.certificate.outputs.certificate_thumbprint }}"
 
   publish-release:
     name: Publish GitHub Release Assets
