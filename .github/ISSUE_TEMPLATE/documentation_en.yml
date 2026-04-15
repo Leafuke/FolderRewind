@@ -1,0 +1,37 @@
+name: Documentation Improvement
+description: Report missing or incorrect information in the README, website docs, or installation guide
+title: "[Docs] "
+labels:
+  - documentation
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: Documentation issue
+      description: Which section is incorrect or missing, and what is the issue?
+      placeholder: For example: The GitHub sideloading steps in README are missing certificate import instructions...
+    validations:
+      required: true
+
+  - type: input
+    id: location
+    attributes:
+      label: Documentation location
+      description: File path, webpage link, or section title
+      placeholder: README.md / Installation / Sideloading
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected
+    attributes:
+      label: Suggested content
+      description: How should the docs be changed to make this clearer?
+    validations:
+      required: true
+
+  - type: textarea
+    id: additional
+    attributes:
+      label: Additional notes
+      description: You can attach screenshots, reproduction steps, or points of confusion while reading

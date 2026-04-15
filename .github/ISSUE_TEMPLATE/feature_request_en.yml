@@ -1,0 +1,60 @@
+name: Feature Request
+description: Suggest new features, improvements, or product ideas
+title: "[Feature] "
+labels:
+  - enhancement
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Please describe your use case. The more concrete the scenario, the easier it is to evaluate value and priority.
+
+  - type: textarea
+    id: scenario
+    attributes:
+      label: Use case
+      description: In what situation do you need this feature?
+      placeholder: For example: I need to sync the same configuration across multiple PCs while keeping independent history versions...
+    validations:
+      required: true
+
+  - type: textarea
+    id: problem
+    attributes:
+      label: Current pain point
+      description: What problem does the current behavior cause?
+    validations:
+      required: true
+
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposed solution
+      description: What interaction, behavior, or outcome would be ideal?
+    validations:
+      required: true
+
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Acceptable alternatives
+      description: If the ideal solution is not feasible right now, what compromises would work for you?
+
+  - type: dropdown
+    id: scope
+    attributes:
+      label: Affected area
+      options:
+        - Main app functionality
+        - Backup/restore workflow
+        - Plugin system
+        - Documentation or onboarding
+        - Not sure
+    validations:
+      required: true
+
+  - type: textarea
+    id: additional
+    attributes:
+      label: Additional context
+      description: You can include mockups, reference links, or similar-product examples
