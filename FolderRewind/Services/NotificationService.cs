@@ -1,3 +1,7 @@
+using FolderRewind.Models;
+using System.Collections.Generic;
+using System.Collections.Specialized;
+using System.ComponentModel;
 using System;
 using System.Threading;
 
@@ -64,9 +68,16 @@ namespace FolderRewind.Services
         // Badge 计数变更事件
         public static event Action<int>? BadgeCountChanged;
 
+        // 运行中任务数量变更事件
+        public static event Action<int>? RunningTaskCountChanged;
+
         // 当前 Badge 计数
         private static int _badgeCount = 0;
+        private static int _runningTaskCount = 0;
         private static int _suppressionCount = 0;
+        private static bool _taskBadgeTrackingInitialized;
+        private static readonly object TaskTrackingLock = new();
+        private static readonly HashSet<BackupTask> TrackedTasks = new();
 
         /// <summary>
         /// 当前是否启用通知（全局开关）
@@ -79,6 +90,26 @@ namespace FolderRewind.Services
             // 返回作用域对象，调用方用 using 控制抑制窗口期。
             Interlocked.Increment(ref _suppressionCount);
             return new NotificationSuppressionScope();
+        }
+
+        public static void InitializeTaskBadgeTracking()
+        {
+            lock (TaskTrackingLock)
+            {
+                if (_taskBadgeTrackingInitialized)
+                {
+                    return;
+                }
+
+                _taskBadgeTrackingInitialized = true;
+                BackupService.ActiveTasks.CollectionChanged += OnActiveTasksCollectionChanged;
+                foreach (var task in BackupService.ActiveTasks)
+                {
+                    TrackTask(task);
+                }
+            }
+
+            RefreshRunningTaskBadgeState();
         }
 
         /// <summary>
@@ -241,16 +272,33 @@ namespace FolderRewind.Services
         /// <param name="count">计数值，0 清除 Badge</param>
         public static void SetBadgeCount(int count)
         {
-            if (!IsNotificationEnabled && count > 0) return;
-
             _badgeCount = Math.Max(0, count);
+            ApplyBadgeVisualState();
+            BadgeCountChanged?.Invoke(_badgeCount);
+        }
 
+        public static void RefreshBadgeVisualState()
+        {
+            ApplyBadgeVisualState();
+        }
+
+        private static void ApplyBadgeVisualState()
+        {
             try
             {
                 // 只有在打包模式下才支持 Badge
                 if (IsAppPackaged())
                 {
-                    if (_badgeCount > 0)
+                    if (!IsNotificationEnabled)
+                    {
+                        Microsoft.Windows.BadgeNotifications.BadgeNotificationManager.Current.ClearBadge();
+                    }
+                    else if (_runningTaskCount > 0)
+                    {
+                        Microsoft.Windows.BadgeNotifications.BadgeNotificationManager.Current.SetBadgeAsGlyph(
+                            Microsoft.Windows.BadgeNotifications.BadgeNotificationGlyph.Activity);
+                    }
+                    else if (_badgeCount > 0)
                     {
                         Microsoft.Windows.BadgeNotifications.BadgeNotificationManager.Current.SetBadgeAsCount((uint)_badgeCount);
                     }
@@ -259,8 +307,6 @@ namespace FolderRewind.Services
                         Microsoft.Windows.BadgeNotifications.BadgeNotificationManager.Current.ClearBadge();
                     }
                 }
-
-                BadgeCountChanged?.Invoke(_badgeCount);
             }
             catch (Exception ex)
             {
@@ -288,6 +334,8 @@ namespace FolderRewind.Services
         /// 获取当前 Badge 计数
         /// </summary>
         public static int GetBadgeCount() => _badgeCount;
+
+        public static int GetRunningTaskCount() => _runningTaskCount;
 
         /// <summary>
         /// 备份完成通知（根据结果自动选择 InfoBar / Toast / Badge）
@@ -360,6 +408,104 @@ namespace FolderRewind.Services
         private static bool IsAppForeground()
         {
             return MainWindowService.IsMainWindowVisible();
+        }
+
+        private static void OnActiveTasksCollectionChanged(object? sender, NotifyCollectionChangedEventArgs e)
+        {
+            lock (TaskTrackingLock)
+            {
+                if (e.Action == NotifyCollectionChangedAction.Reset)
+                {
+                    foreach (var task in TrackedTasks)
+                    {
+                        task.PropertyChanged -= OnTrackedTaskPropertyChanged;
+                    }
+
+                    TrackedTasks.Clear();
+                    foreach (var task in BackupService.ActiveTasks)
+                    {
+                        TrackTask(task);
+                    }
+                }
+                else
+                {
+                    if (e.OldItems != null)
+                    {
+                        foreach (var task in e.OldItems)
+                        {
+                            if (task is BackupTask removedTask)
+                            {
+                                UntrackTask(removedTask);
+                            }
+                        }
+                    }
+
+                    if (e.NewItems != null)
+                    {
+                        foreach (var task in e.NewItems)
+                        {
+                            if (task is BackupTask newTask)
+                            {
+                                TrackTask(newTask);
+                            }
+                        }
+                    }
+                }
+            }
+
+            RefreshRunningTaskBadgeState();
+        }
+
+        private static void TrackTask(BackupTask task)
+        {
+            if (!TrackedTasks.Add(task))
+            {
+                return;
+            }
+
+            task.PropertyChanged += OnTrackedTaskPropertyChanged;
+        }
+
+        private static void UntrackTask(BackupTask task)
+        {
+            if (!TrackedTasks.Remove(task))
+            {
+                return;
+            }
+
+            task.PropertyChanged -= OnTrackedTaskPropertyChanged;
+        }
+
+        private static void OnTrackedTaskPropertyChanged(object? sender, PropertyChangedEventArgs e)
+        {
+            if (!string.IsNullOrWhiteSpace(e.PropertyName) && e.PropertyName != nameof(BackupTask.IsCompleted))
+            {
+                return;
+            }
+
+            RefreshRunningTaskBadgeState();
+        }
+
+        private static void RefreshRunningTaskBadgeState()
+        {
+            int nextRunningTaskCount = 0;
+            foreach (var task in BackupService.ActiveTasks)
+            {
+                if (!task.IsCompleted)
+                {
+                    nextRunningTaskCount++;
+                }
+            }
+
+            if (_runningTaskCount == nextRunningTaskCount)
+            {
+                ApplyBadgeVisualState();
+                return;
+            }
+
+            _runningTaskCount = nextRunningTaskCount;
+            ApplyBadgeVisualState();
+            RunningTaskCountChanged?.Invoke(_runningTaskCount);
         }
     }
 }

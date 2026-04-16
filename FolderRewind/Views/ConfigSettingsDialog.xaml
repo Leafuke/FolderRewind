@@ -10,10 +10,51 @@
     SecondaryButtonClick="OnDeleteClick"
     Style="{StaticResource DefaultContentDialogStyle}">
 
-    <Pivot Height="480" Width="520">
+    <Grid Height="520" Width="520" RowSpacing="1">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/>
+        </Grid.RowDefinitions>
+
+        <SelectorBar x:Name="ConfigSelectorBar"
+                     SelectionChanged="OnSettingsSelectorBarSelectionChanged">
+            <SelectorBarItem x:Uid="ConfigSettingsDialog_TabGeneral" IsSelected="True" FontSize="15" FontWeight="SemiBold">
+                <SelectorBarItem.Icon>
+                    <SymbolIcon Symbol="Setting"/>
+                </SelectorBarItem.Icon>
+            </SelectorBarItem>
+            <SelectorBarItem x:Uid="ConfigSettingsDialog_TabBackup" FontSize="15" FontWeight="SemiBold">
+                <SelectorBarItem.Icon>
+                    <SymbolIcon Symbol="Upload"/>
+                </SelectorBarItem.Icon>
+            </SelectorBarItem>
+            <SelectorBarItem x:Uid="ConfigSettingsDialog_TabRestore" FontSize="15" FontWeight="SemiBold">
+                <SelectorBarItem.Icon>
+                    <SymbolIcon Symbol="Download"/>
+                </SelectorBarItem.Icon>
+            </SelectorBarItem>
+            <SelectorBarItem x:Uid="ConfigSettingsDialog_TabAutomation" FontSize="15" FontWeight="SemiBold">
+                <SelectorBarItem.Icon>
+                    <SymbolIcon Symbol="Clock"/>
+                </SelectorBarItem.Icon>
+            </SelectorBarItem>
+            <SelectorBarItem x:Uid="ConfigSettingsDialog_TabCloud" FontSize="15" FontWeight="SemiBold">
+                <SelectorBarItem.Icon>
+                    <SymbolIcon Symbol="World"/>
+                </SelectorBarItem.Icon>
+            </SelectorBarItem>
+            <SelectorBarItem x:Uid="ConfigSettingsDialog_TabFilter" FontSize="15" FontWeight="SemiBold">
+                <SelectorBarItem.Icon>
+                    <SymbolIcon Symbol="Filter"/>
+                </SelectorBarItem.Icon>
+            </SelectorBarItem>
+        </SelectorBar>
+
         <!-- 1. 常规设置 -->
-        <PivotItem x:Uid="ConfigSettingsDialog_General">
-            <ScrollViewer VerticalScrollBarVisibility="Auto" Padding="0,0,12,0">
+        <ScrollViewer Grid.Row="1"
+                      VerticalScrollBarVisibility="Auto"
+                      Padding="0,0,12,0"
+                      Visibility="{x:Bind ViewModel.IsGeneralPageVisible, Mode=OneWay, Converter={StaticResource BoolToVisConverter}}">
             <StackPanel Spacing="20" Padding="0,12">
                 <TextBox x:Uid="ConfigSettingsDialog_ConfigName" Text="{x:Bind Config.Name, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"/>
 
@@ -86,12 +127,13 @@
                     </GridView>
                 </StackPanel>
             </StackPanel>
-            </ScrollViewer>
-        </PivotItem>
+        </ScrollViewer>
 
         <!-- 2. 备份策略 -->
-        <PivotItem x:Uid="ConfigSettingsDialog_BackupStrategy">
-            <ScrollViewer VerticalScrollBarVisibility="Auto" Padding="0,0,12,0">
+        <ScrollViewer Grid.Row="1"
+                      VerticalScrollBarVisibility="Auto"
+                      Padding="0,0,12,0"
+                      Visibility="{x:Bind ViewModel.IsBackupStrategyPageVisible, Mode=OneWay, Converter={StaticResource BoolToVisConverter}}">
             <StackPanel Spacing="20" Padding="0,12">
                 <!-- 备份模式 -->
                 <ComboBox x:Uid="ConfigSettingsDialog_BackupMode" SelectedIndex="{x:Bind ModeSelectedIndex, Mode=TwoWay}" HorizontalAlignment="Stretch">
@@ -206,12 +248,13 @@
                     </StackPanel>
                 </StackPanel>
             </StackPanel>
-            </ScrollViewer>
-        </PivotItem>
+        </ScrollViewer>
 
         <!-- 3. 还原策略 -->
-        <PivotItem x:Uid="ConfigSettingsDialog_RestoreStrategy">
-            <ScrollViewer VerticalScrollBarVisibility="Auto" Padding="0,0,12,0">
+        <ScrollViewer Grid.Row="1"
+                      VerticalScrollBarVisibility="Auto"
+                      Padding="0,0,12,0"
+                      Visibility="{x:Bind ViewModel.IsRestoreStrategyPageVisible, Mode=OneWay, Converter={StaticResource BoolToVisConverter}}">
             <StackPanel Spacing="20" Padding="0,12">
                 <!-- 还原前自动备份 -->
                 <ToggleSwitch x:Uid="ConfigSettingsDialog_BackupBeforeRestore" IsOn="{x:Bind Config.Archive.BackupBeforeRestore, Mode=TwoWay}"/>
@@ -250,12 +293,13 @@
                     </Grid>
                 </StackPanel>
             </StackPanel>
-            </ScrollViewer>
-        </PivotItem>
+        </ScrollViewer>
 
         <!-- 4. 自动化 -->
-        <PivotItem x:Uid="ConfigSettingsDialog_Automation">
-            <ScrollViewer VerticalScrollBarVisibility="Auto" Padding="0,0,12,0">
+        <ScrollViewer Grid.Row="1"
+                      VerticalScrollBarVisibility="Auto"
+                      Padding="0,0,12,0"
+                      Visibility="{x:Bind ViewModel.IsAutomationPageVisible, Mode=OneWay, Converter={StaticResource BoolToVisConverter}}">
             <StackPanel Spacing="20" Padding="0,12">
                 <ToggleSwitch x:Uid="ConfigSettingsDialog_AutoBackup" IsOn="{x:Bind Config.Automation.AutoBackupEnabled, Mode=TwoWay}"/>
 
@@ -331,12 +375,13 @@
                     </StackPanel>
                 </StackPanel>
             </StackPanel>
-            </ScrollViewer>
-        </PivotItem>
+        </ScrollViewer>
 
         <!-- 5. 云上传 -->
-        <PivotItem x:Uid="ConfigSettingsDialog_Cloud">
-            <ScrollViewer VerticalScrollBarVisibility="Auto" Padding="0,0,12,0">
+        <ScrollViewer Grid.Row="1"
+                      VerticalScrollBarVisibility="Auto"
+                      Padding="0,0,12,0"
+                      Visibility="{x:Bind ViewModel.IsCloudPageVisible, Mode=OneWay, Converter={StaticResource BoolToVisConverter}}">
             <StackPanel Spacing="20" Padding="0,12">
                 <StackPanel Spacing="8">
                     <TextBlock x:Uid="ConfigSettingsDialog_CloudEnvironmentSection" Style="{ThemeResource SubtitleTextBlockStyle}"/>
@@ -393,6 +438,18 @@
                                Style="{StaticResource CaptionTextBlockStyle}"
                                Foreground="{ThemeResource TextFillColorSecondaryBrush}"
                                TextWrapping="Wrap"/>
+                    <StackPanel Orientation="Horizontal" Spacing="8">
+                        <FontIcon Glyph="&#xE946;" VerticalAlignment="Center" Foreground="{ThemeResource TextFillColorSecondaryBrush}"/>
+                        <TextBlock x:Uid="ConfigSettingsDialog_CloudGuideTip"
+                                   VerticalAlignment="Center"
+                                   Style="{StaticResource CaptionTextBlockStyle}"
+                                   Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                                   TextWrapping="Wrap"/>
+                        <HyperlinkButton x:Uid="ConfigSettingsDialog_CloudGuideOpen"
+                                         VerticalAlignment="Center"
+                                         Padding="0"
+                                         Click="OnOpenCloudGuideClick"/>
+                    </StackPanel>
                     <Button Click="OnOpenCloudSyncClick"
                             HorizontalAlignment="Left"
                             IsEnabled="{x:Bind ViewModel.CanUseManualCloudActions, Mode=OneWay}">
@@ -517,12 +574,13 @@
                     </StackPanel>
                 </StackPanel>
             </StackPanel>
-            </ScrollViewer>
-        </PivotItem>
+        </ScrollViewer>
 
         <!-- 6. 过滤器 (黑名单) -->
-        <PivotItem x:Uid="ConfigSettingsDialog_Filter">
-            <ScrollViewer VerticalScrollBarVisibility="Auto" Padding="0,0,12,0">
+        <ScrollViewer Grid.Row="1"
+                      VerticalScrollBarVisibility="Auto"
+                      Padding="0,0,12,0"
+                      Visibility="{x:Bind ViewModel.IsFilterPageVisible, Mode=OneWay, Converter={StaticResource BoolToVisConverter}}">
             <StackPanel Spacing="12" Padding="0,12">
                 <TextBlock x:Uid="ConfigSettingsDialog_Blacklist" FontWeight="SemiBold"/>
                 <ListView Height="200" ItemsSource="{x:Bind Config.Filters.Blacklist}" BorderThickness="1" BorderBrush="{ThemeResource SurfaceStrokeColorDefaultBrush}">
@@ -549,8 +607,7 @@
                     <Button Grid.Column="1" x:Uid="ConfigSettingsDialog_AddBlacklist" Margin="8,0,0,0" Click="OnAddBlacklistClick"/>
                 </Grid>
             </StackPanel>
-            </ScrollViewer>
-        </PivotItem>
-    </Pivot>
+        </ScrollViewer>
+    </Grid>
 </ContentDialog>
 

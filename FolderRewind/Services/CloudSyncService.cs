@@ -14,6 +14,8 @@ namespace FolderRewind.Services
 {
     public static class CloudSyncService
     {
+        // 云同步与云存档的编排入口。
+        // 这里主要负责命令组织、任务状态和错误反馈，具体历史/配置读写复用已有 Service。
         private const string DefaultRcloneExecutable = "rclone.exe";
         private const string DefaultWindowsPowerShellExecutable = "powershell.exe";
         private const string DefaultCommandShellExecutable = "cmd.exe";
@@ -22,6 +24,7 @@ namespace FolderRewind.Services
         private const int MaxRetryCount = 5;
         private const int MaxTimeoutSeconds = 86400;
         private const int MaxLogLength = 4096;
+        // 故意串行执行云命令，避免并发 rclone 时任务状态、日志和元数据写入互相打架。
         private static readonly SemaphoreSlim CommandSemaphore = new(1, 1);
 
         private sealed class CloudCommandContext
@@ -189,6 +192,7 @@ namespace FolderRewind.Services
                     task.Progress = 0;
                 }).ConfigureAwait(false);
 
+                // 逐目录拉取时先下载归档，再补拉元数据：即使元数据失败，至少也能恢复出可用备份包。
                 for (int index = 0; index < config.SourceFolders.Count; index++)
                 {
                     var folder = config.SourceFolders[index];
@@ -560,6 +564,7 @@ namespace FolderRewind.Services
 
             var remoteItems = remoteHistoryResult.Items;
             string remoteConfigRoot = AppendRemotePath(config.Cloud?.RemoteBasePath ?? string.Empty, config.Name ?? string.Empty);
+            // 优先按 ConfigId 精确匹配；旧历史可能没有 ConfigId，再退化到远端路径前缀匹配。
             var exactMatches = remoteItems
                 .Where(item => string.Equals(item.ConfigId, config.Id, StringComparison.OrdinalIgnoreCase))
                 .ToList();
@@ -702,6 +707,7 @@ namespace FolderRewind.Services
                 return null;
             }
 
+            // 显示名可能重复，只有唯一命中才自动映射，避免把历史导入到错误目录。
             var displayNameMatches = config.SourceFolders
                 .Where(folder => string.Equals(folder.DisplayName?.Trim(), remoteItem.FolderName.Trim(), StringComparison.OrdinalIgnoreCase))
                 .ToList();
@@ -1496,6 +1502,7 @@ namespace FolderRewind.Services
             out string workingDirectory,
             out string errorMessage)
         {
+            // 运行时优先级：全局设置 -> 已配置任务中可复用值 -> 当前回退设置。
             executablePath = ConfigService.CurrentConfig?.GlobalSettings?.RcloneExecutablePath?.Trim() ?? string.Empty;
             workingDirectory = string.Empty;
 
@@ -1959,6 +1966,7 @@ namespace FolderRewind.Services
             }
 
             var defaultRemotePaths = BuildDefaultRemotePaths(config.Name ?? string.Empty, folderName, item.FileName, config.Cloud?.RemoteBasePath);
+            // 历史项若已有远端路径则优先复用，避免远端目录结构调整后被“默认路径”覆盖。
             paths = new HistoryCloudPaths
             {
                 FolderName = folderName,
@@ -1993,6 +2001,7 @@ namespace FolderRewind.Services
 
         private static string AppendRemotePath(string root, params string[] segments)
         {
+            // 远端路径统一使用 '/'，不要混入本地路径分隔符。
             string result = root?.Trim().TrimEnd('/') ?? string.Empty;
             foreach (var rawSegment in segments)
             {

@@ -46,6 +46,7 @@ namespace FolderRewind.Services
 
         private static void ApplySubmissionMetadata(ConfigTemplate template, string gameName, bool clearSteamAppId)
         {
+            // 元数据先落地，后面的导出/提交都基于这份一致状态运行。
             template.GameName = gameName?.Trim() ?? string.Empty;
             if (clearSteamAppId)
             {
@@ -173,6 +174,7 @@ namespace FolderRewind.Services
             var completedByWorkflow = false;
             var progress = new Progress<string>(message => statusText.Text = message);
 
+            // 提交任务在后台跑，弹窗只负责展示进度和接收用户取消。
             var submitTask = Task.Run(async () =>
             {
                 try
@@ -195,6 +197,7 @@ namespace FolderRewind.Services
             var canceledByUser = progressResult == ContentDialogResult.None && !completedByWorkflow;
             if (canceledByUser)
             {
+                // 用户点取消后立刻传播取消令牌，避免后台请求继续占用资源。
                 cts.Cancel();
             }
 

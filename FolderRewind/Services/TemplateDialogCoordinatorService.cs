@@ -8,6 +8,7 @@ namespace FolderRewind.Services
 {
     internal static class TemplateDialogCoordinatorService
     {
+        // WinUI ContentDialog 不能并发 Show；统一串行化能避免随机抛错和焦点抢占。
         private static readonly SemaphoreSlim DialogGate = new(1, 1);
 
         public static async Task<ContentDialogResult> ShowAsync(ContentDialog dialog, XamlRoot? fallbackXamlRoot = null, CancellationToken ct = default)
@@ -22,6 +23,7 @@ namespace FolderRewind.Services
             {
                 return await UiDispatcherService.RunOnUiAsync(async () =>
                 {
+                    // 弹窗一定要在 UI 线程、且绑定到当前窗口的 XamlRoot。
                     dialog.XamlRoot ??= fallbackXamlRoot ?? MainWindowService.GetXamlRoot();
                     ThemeService.ApplyThemeToDialog(dialog);
                     return await dialog.ShowAsync();

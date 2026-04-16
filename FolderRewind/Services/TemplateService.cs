@@ -15,6 +15,7 @@ namespace FolderRewind.Services
     {
         private const string ShareMagic = "FolderRewindTemplate";
         private const string ShareSchemaVersion = "1.0";
+        // 规则预览会扫目录，给个上限避免某些磁盘结构把 UI 卡死。
         private const int ScanDepthLimit = 6;
         private const int ScanDirectoryLimit = 5000;
         private const int MarkerSearchDepth = 1;
@@ -585,6 +586,7 @@ namespace FolderRewind.Services
                 errors.Add(unavailableReason);
             }
 
+            // 提交前做一次“干跑”，尽早发现规则在当前机器上无法解析的问题。
             var dryRun = CreateConfigFromTemplate(template, template.DefaultConfigName);
             if (!dryRun.Success)
             {
@@ -899,6 +901,7 @@ namespace FolderRewind.Services
                         continue;
                     }
 
+                    // 去重按 DisplayPath 做，避免同一路径被不同推断分支重复塞入。
                     if (rules.Any(existing => string.Equals(existing.DisplayPath, rule.DisplayPath, StringComparison.OrdinalIgnoreCase)))
                     {
                         continue;
@@ -946,6 +949,7 @@ namespace FolderRewind.Services
             var wildcardSegments = BuildSiblingWildcardSegments(folder.Path);
             if (wildcardSegments != null)
             {
+                // “集合规则”用于匹配同层级多个存档目录（比如多个世界/角色）。
                 yield return new TemplatePathRule
                 {
                     Name = BuildCollectionRuleName(FolderNameConflictService.ResolveDisplayName(folder)),
@@ -985,6 +989,7 @@ namespace FolderRewind.Services
 
             if (relaxedChanged)
             {
+                // 放一个低置信度兜底规则，留给用户手动勾选，不抢默认选择。
                 yield return new TemplatePathRule
                 {
                     Name = FolderNameConflictService.ResolveDisplayName(folder),
@@ -1290,6 +1295,7 @@ namespace FolderRewind.Services
             }
 
             var current = new List<string> { string.Empty };
+            // 规则允许枚举目录，必须限流，避免在超大目录树里无限扩散。
             var scannedDirectories = 0;
 
             foreach (var segment in rule.Segments)
@@ -1720,6 +1726,7 @@ namespace FolderRewind.Services
                 return false;
             }
 
+            // DisplayPath 语法只允许三类：静态目录、{占位符}、{Process:xxx.exe}。
             foreach (var part in parts)
             {
                 if (part.StartsWith("{", StringComparison.Ordinal) && part.EndsWith("}", StringComparison.Ordinal) && part.Length > 2)
@@ -1952,6 +1959,7 @@ namespace FolderRewind.Services
             var json = File.ReadAllText(sourcePath);
             ConfigTemplate? template = null;
 
+            // 新格式优先走 Envelope，方便后续扩展 Schema 与导出元数据。
             var envelope = JsonSerializer.Deserialize(json, AppJsonContext.Default.TemplateShareEnvelope);
             if (envelope != null && string.Equals(envelope.Magic, ShareMagic, StringComparison.OrdinalIgnoreCase))
             {
@@ -1963,6 +1971,7 @@ namespace FolderRewind.Services
                 template = envelope.Template;
             }
 
+            // 兜底兼容早期“直接序列化 ConfigTemplate”历史文件。
             template ??= JsonSerializer.Deserialize(json, AppJsonContext.Default.ConfigTemplate);
             if (template == null)
             {
@@ -2115,6 +2124,7 @@ namespace FolderRewind.Services
             template.Cloud = CreateTemplateCloudPreset();
             template.ExtendedProperties = FilterTemplateExtendedProperties(template.ExtendedProperties);
 
+            // 逐段清洗路径片段，只保留文件名，避免把本机绝对路径带出去。
             foreach (var rule in template.PathRules)
             {
                 foreach (var segment in rule.Segments)
@@ -2153,6 +2163,7 @@ namespace FolderRewind.Services
                 template.ShareId = Guid.NewGuid().ToString("N");
             }
 
+            // 导入后统一落到当前版本的安全默认值，避免旧模板把运行态字段带进来。
             template.Name = template.Name?.Trim() ?? string.Empty;
             if (string.IsNullOrWhiteSpace(template.Name))
             {

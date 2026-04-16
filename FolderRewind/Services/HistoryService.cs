@@ -117,6 +117,7 @@ namespace FolderRewind.Services
                 // 尝试获取文件大小，如果文件还在的话
                 var fullPath = GetBackupFilePath(config, folder, item);
                 var exists = !string.IsNullOrWhiteSpace(fullPath) && File.Exists(fullPath);
+                // 云可用性要同时看“已归档标记 + 远端路径”，避免旧数据误显示为可下载。
                 var hasCloudCopy = item.IsCloudArchived
                     && !string.IsNullOrWhiteSpace(item.CloudArchiveRemotePath);
 
@@ -632,6 +633,7 @@ namespace FolderRewind.Services
             bool updated = false;
             lock (_historyLock)
             {
+                // 以“配置 + 文件夹 + 文件名 + 时间戳”定位唯一历史项，避免同名包被误更新。
                 var target = _allHistory.FirstOrDefault(x =>
                     x.ConfigId == item.ConfigId &&
                     x.FolderPath == item.FolderPath &&
@@ -930,6 +932,7 @@ namespace FolderRewind.Services
             string? metadataRecordRemotePath,
             string? metadataStateRemotePath)
         {
+            // 取消云归档时要同步清空远端路径，避免 UI 继续把条目标记为“可云下载”。
             item.IsCloudArchived = isCloudArchived;
             item.CloudArchivedAtUtc = isCloudArchived
                 ? (archivedAtUtc ?? DateTime.UtcNow)

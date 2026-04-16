@@ -5,6 +5,7 @@ using System.Threading.Tasks;
 
 namespace FolderRewind.ViewModels
 {
+    // 这个 VM 只负责对话框状态编排：分析、同步、按钮可用性，不承载具体云逻辑。
     public sealed class ConfigCloudSyncDialogViewModel : ViewModelBase
     {
         private readonly BackupConfig _config;
@@ -102,6 +103,7 @@ namespace FolderRewind.ViewModels
                 return;
             }
 
+            // 首次打开时自动分析一次，避免用户直接同步却看不到导入影响范围。
             await RefreshAnalysisAsync().ConfigureAwait(true);
         }
 
@@ -139,6 +141,7 @@ namespace FolderRewind.ViewModels
             {
                 StatusMessage = I18n.GetString("ConfigCloudSyncDialog_Status_Syncing");
                 var result = await CloudSyncService.SyncConfigurationFromCloudAsync(_config, SelectedMode).ConfigureAwait(true);
+                // 同步后回填最新分析结果，确保统计卡片与真实导入状态一致。
                 StatusMessage = result.Message;
                 AnalysisResult = result.Analysis;
                 return result.Success;
