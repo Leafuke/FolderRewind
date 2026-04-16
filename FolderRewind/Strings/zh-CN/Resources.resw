@@ -594,6 +594,9 @@
   <data name="ConfigSettingsDialog_General.Header" xml:space="preserve">
     <value>常规</value>
   </data>
+  <data name="ConfigSettingsDialog_General.Text" xml:space="preserve">
+    <value>常规</value>
+  </data>
   <data name="ConfigSettingsDialog_ConfigName.Header" xml:space="preserve">
     <value>配置名称</value>
   </data>
@@ -732,6 +735,9 @@
   <data name="ConfigSettingsDialog_Automation.Header" xml:space="preserve">
     <value>自动化</value>
   </data>
+  <data name="ConfigSettingsDialog_Automation.Text" xml:space="preserve">
+    <value>自动化</value>
+  </data>
   <data name="ConfigSettingsDialog_AutoBackup.Header" xml:space="preserve">
     <value>启用自动备份</value>
   </data>
@@ -771,6 +777,9 @@
   <data name="ConfigSettingsDialog_Filter.Header" xml:space="preserve">
     <value>过滤</value>
   </data>
+  <data name="ConfigSettingsDialog_Filter.Text" xml:space="preserve">
+    <value>过滤</value>
+  </data>
   <data name="ConfigSettingsDialog_Blacklist.Text" xml:space="preserve">
     <value>黑名单 (排除的文件/文件夹)</value>
   </data>
@@ -798,7 +807,13 @@
   <data name="ConfigSettingsDialog_BackupStrategy.Header" xml:space="preserve">
     <value>备份</value>
   </data>
+  <data name="ConfigSettingsDialog_BackupStrategy.Text" xml:space="preserve">
+    <value>备份</value>
+  </data>
   <data name="ConfigSettingsDialog_RestoreStrategy.Header" xml:space="preserve">
+    <value>还原</value>
+  </data>
+  <data name="ConfigSettingsDialog_RestoreStrategy.Text" xml:space="preserve">
     <value>还原</value>
   </data>
   <data name="ConfigSettingsDialog_MaxSmartChain.Header" xml:space="preserve">
@@ -2532,6 +2547,36 @@
   </data>
   <data name="ConfigSettingsDialog_Cloud.Header" xml:space="preserve">
     <value>云</value>
+  </data>
+  <data name="ConfigSettingsDialog_Cloud.Text" xml:space="preserve">
+    <value>云</value>
+  </data>
+  <data name="ConfigSettingsDialog_CloudGuideTip.Text" xml:space="preserve">
+    <value>首次使用云同步？可先查看官网引导。</value>
+  </data>
+  <data name="ConfigSettingsDialog_CloudGuideOpen.Content" xml:space="preserve">
+    <value>打开官网</value>
+  </data>
+  <data name="ConfigSettingsDialog_CloudGuideOpenFailed" xml:space="preserve">
+    <value>打开官网失败：{0}</value>
+  </data>
+  <data name="ConfigSettingsDialog_TabGeneral.Text" xml:space="preserve">
+    <value>常规</value>
+  </data>
+  <data name="ConfigSettingsDialog_TabBackup.Text" xml:space="preserve">
+    <value>备份</value>
+  </data>
+  <data name="ConfigSettingsDialog_TabRestore.Text" xml:space="preserve">
+    <value>还原</value>
+  </data>
+  <data name="ConfigSettingsDialog_TabAutomation.Text" xml:space="preserve">
+    <value>自动化</value>
+  </data>
+  <data name="ConfigSettingsDialog_TabCloud.Text" xml:space="preserve">
+    <value>云</value>
+  </data>
+  <data name="ConfigSettingsDialog_TabFilter.Text" xml:space="preserve">
+    <value>过滤</value>
   </data>
   <data name="ConfigSettingsDialog_CloudEnabled.Header" xml:space="preserve">
     <value>启用备份后云上传</value>

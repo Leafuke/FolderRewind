@@ -575,6 +575,27 @@ namespace FolderRewind.Views
             await this.ShowAsync();
         }
 
+        private void OnSettingsSelectorBarSelectionChanged(SelectorBar sender, SelectorBarSelectionChangedEventArgs args)
+        {
+            if (sender.SelectedItem is not SelectorBarItem selectedItem)
+            {
+                return;
+            }
+
+            int selectedIndex = sender.Items.IndexOf(selectedItem);
+            if (selectedIndex < 0)
+            {
+                return;
+            }
+
+            ViewModel.SelectedPageIndex = selectedIndex;
+        }
+
+        private void OnOpenCloudGuideClick(object sender, RoutedEventArgs e)
+        {
+            ViewModel.OpenCloudGuideWebsite();
+        }
+
         private void UpdateCloudBindings()
         {
             ViewModel.RefreshCloudUi();

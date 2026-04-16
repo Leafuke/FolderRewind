@@ -70,10 +70,13 @@
                     </NavigationViewItem.Icon>
                 </NavigationViewItem>
 
-                <NavigationViewItem x:Uid="ShellPage_NavTasks" Tag="Tasks">
+                <NavigationViewItem x:Name="TasksNavItem" x:Uid="ShellPage_NavTasks" Tag="Tasks">
                     <NavigationViewItem.Icon>
                         <SymbolIcon Symbol="Copy"/>
                     </NavigationViewItem.Icon>
+                    <NavigationViewItem.InfoBadge>
+                        <InfoBadge x:Name="TasksRunningInfoBadge" Visibility="Collapsed"/>
+                    </NavigationViewItem.InfoBadge>
                 </NavigationViewItem>
 
                 <NavigationViewItem x:Uid="ShellPage_NavHistory" Tag="History">

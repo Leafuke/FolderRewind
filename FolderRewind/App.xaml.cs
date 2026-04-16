@@ -94,6 +94,7 @@ namespace FolderRewind
                 try
                 {
                     Services.NotificationService.ClearBadge();
+                    Services.NotificationService.InitializeTaskBadgeTracking();
                 }
                 catch (Exception badgeEx)
                 {

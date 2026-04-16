@@ -31,8 +31,11 @@ namespace FolderRewind.Views
 
             // 订阅通知服务的 InfoBar 请求
             NotificationService.InfoBarRequested += OnInfoBarRequested;
+            NotificationService.RunningTaskCountChanged += OnRunningTaskCountChanged;
             ConfigService.Saved += OnConfigSaved;
             Unloaded += ShellPage_Unloaded;
+
+            UpdateTasksRunningBadge(NotificationService.GetRunningTaskCount());
         }
 
         private void ShellPage_Unloaded(object sender, Microsoft.UI.Xaml.RoutedEventArgs e)
@@ -40,6 +43,7 @@ namespace FolderRewind.Views
             // 页面卸载时要撤销宿主与事件订阅，避免下次重建后出现重复回调。
             NavigationService.Clear(this);
             NotificationService.InfoBarRequested -= OnInfoBarRequested;
+            NotificationService.RunningTaskCountChanged -= OnRunningTaskCountChanged;
             ConfigService.Saved -= OnConfigSaved;
 
             if (_infoBarTimer != null)
@@ -100,6 +104,19 @@ namespace FolderRewind.Views
                     _infoBarTimer.Start();
                 }
             });
+        }
+
+        private void OnRunningTaskCountChanged(int runningTaskCount)
+        {
+            DispatcherQueue.TryEnqueue(() => UpdateTasksRunningBadge(runningTaskCount));
+        }
+
+        private void UpdateTasksRunningBadge(int runningTaskCount)
+        {
+            TasksRunningInfoBadge.Value = Math.Max(0, runningTaskCount);
+            TasksRunningInfoBadge.Visibility = runningTaskCount > 0
+                ? Microsoft.UI.Xaml.Visibility.Visible
+                : Microsoft.UI.Xaml.Visibility.Collapsed;
         }
 
         private void EnsureInfoBarTimer()

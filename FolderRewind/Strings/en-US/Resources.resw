@@ -594,6 +594,9 @@ Duplicate folder names are blocked within the same configuration so different di
   <data name="ConfigSettingsDialog_General.Header" xml:space="preserve">
     <value>General</value>
   </data>
+  <data name="ConfigSettingsDialog_General.Text" xml:space="preserve">
+    <value>General</value>
+  </data>
   <data name="ConfigSettingsDialog_ConfigName.Header" xml:space="preserve">
     <value>Config name</value>
   </data>
@@ -732,6 +735,9 @@ Duplicate folder names are blocked within the same configuration so different di
   <data name="ConfigSettingsDialog_Automation.Header" xml:space="preserve">
     <value>Automation</value>
   </data>
+  <data name="ConfigSettingsDialog_Automation.Text" xml:space="preserve">
+    <value>Automation</value>
+  </data>
   <data name="ConfigSettingsDialog_AutoBackup.Header" xml:space="preserve">
     <value>Enable auto backup</value>
   </data>
@@ -771,6 +777,9 @@ Duplicate folder names are blocked within the same configuration so different di
   <data name="ConfigSettingsDialog_Filter.Header" xml:space="preserve">
     <value>Filter</value>
   </data>
+  <data name="ConfigSettingsDialog_Filter.Text" xml:space="preserve">
+    <value>Filter</value>
+  </data>
   <data name="ConfigSettingsDialog_Blacklist.Text" xml:space="preserve">
     <value>Blacklist (excluded files/folders)</value>
   </data>
@@ -798,7 +807,13 @@ Duplicate folder names are blocked within the same configuration so different di
   <data name="ConfigSettingsDialog_BackupStrategy.Header" xml:space="preserve">
     <value>Backup</value>
   </data>
+  <data name="ConfigSettingsDialog_BackupStrategy.Text" xml:space="preserve">
+    <value>Backup</value>
+  </data>
   <data name="ConfigSettingsDialog_RestoreStrategy.Header" xml:space="preserve">
+    <value>Restore</value>
+  </data>
+  <data name="ConfigSettingsDialog_RestoreStrategy.Text" xml:space="preserve">
     <value>Restore</value>
   </data>
   <data name="ConfigSettingsDialog_MaxSmartChain.Header" xml:space="preserve">
@@ -2532,6 +2547,36 @@ Status: {3}</value>
   </data>
   <data name="ConfigSettingsDialog_Cloud.Header" xml:space="preserve">
     <value>Cloud</value>
+  </data>
+  <data name="ConfigSettingsDialog_Cloud.Text" xml:space="preserve">
+    <value>Cloud</value>
+  </data>
+  <data name="ConfigSettingsDialog_CloudGuideTip.Text" xml:space="preserve">
+    <value>New to cloud sync? Start with the official guide.</value>
+  </data>
+  <data name="ConfigSettingsDialog_CloudGuideOpen.Content" xml:space="preserve">
+    <value>Open Website</value>
+  </data>
+  <data name="ConfigSettingsDialog_CloudGuideOpenFailed" xml:space="preserve">
+    <value>Failed to open website: {0}</value>
+  </data>
+  <data name="ConfigSettingsDialog_TabGeneral.Text" xml:space="preserve">
+    <value>General</value>
+  </data>
+  <data name="ConfigSettingsDialog_TabBackup.Text" xml:space="preserve">
+    <value>Backup</value>
+  </data>
+  <data name="ConfigSettingsDialog_TabRestore.Text" xml:space="preserve">
+    <value>Restore</value>
+  </data>
+  <data name="ConfigSettingsDialog_TabAutomation.Text" xml:space="preserve">
+    <value>Automation</value>
+  </data>
+  <data name="ConfigSettingsDialog_TabCloud.Text" xml:space="preserve">
+    <value>Cloud</value>
+  </data>
+  <data name="ConfigSettingsDialog_TabFilter.Text" xml:space="preserve">
+    <value>Filter</value>
   </data>
   <data name="ConfigSettingsDialog_CloudEnabled.Header" xml:space="preserve">
     <value>Enable post-backup cloud upload</value>

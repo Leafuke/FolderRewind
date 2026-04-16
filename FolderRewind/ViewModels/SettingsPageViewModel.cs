@@ -188,7 +188,10 @@ namespace FolderRewind.ViewModels
             if (!isOn)
             {
                 NotificationService.ClearBadge();
+                return;
             }
+
+            NotificationService.RefreshBadgeVisualState();
         }
 
         public void HandleToastLevelChanged(int selectedIndex)

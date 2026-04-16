@@ -18,6 +18,11 @@ namespace FolderRewind.ViewModels
         private readonly CloudSettings _cloud;
         private readonly int _cpuThreadMax;
         private readonly ObservableCollection<AutomationFolderOption> _automationFolderOptions = new();
+        private int _selectedPageIndex;
+
+        private const int MinPageIndex = 0;
+        private const int MaxPageIndex = 5;
+        private const string CloudGuideUrl = "https://folderrewind.top/";
 
         public ConfigSettingsDialogViewModel(BackupConfig config)
         {
@@ -41,6 +46,33 @@ namespace FolderRewind.ViewModels
         }
 
         public BackupConfig Config => _config;
+
+        public int SelectedPageIndex
+        {
+            get => _selectedPageIndex;
+            set
+            {
+                int normalized = Math.Clamp(value, MinPageIndex, MaxPageIndex);
+                if (!SetProperty(ref _selectedPageIndex, normalized))
+                {
+                    return;
+                }
+
+                RaisePageVisibilityProperties();
+            }
+        }
+
+        public bool IsGeneralPageVisible => SelectedPageIndex == 0;
+
+        public bool IsBackupStrategyPageVisible => SelectedPageIndex == 1;
+
+        public bool IsRestoreStrategyPageVisible => SelectedPageIndex == 2;
+
+        public bool IsAutomationPageVisible => SelectedPageIndex == 3;
+
+        public bool IsCloudPageVisible => SelectedPageIndex == 4;
+
+        public bool IsFilterPageVisible => SelectedPageIndex == 5;
 
         public double CompressionLevelMin => GetCompressionLevelRange(_archive.Method).Min;
 
@@ -382,6 +414,22 @@ namespace FolderRewind.ViewModels
             ? I18n.GetString("ConfigSettingsDialog_CloudSyncHint")
             : I18n.GetString("ConfigSettingsDialog_CloudLegacyModeHint");
 
+        public void OpenCloudGuideWebsite()
+        {
+            if (ShellPathService.TryOpenPath(CloudGuideUrl, out var errorMessage))
+            {
+                return;
+            }
+
+            string errorDetail = string.IsNullOrWhiteSpace(errorMessage)
+                ? I18n.GetString("Common_Failed")
+                : errorMessage;
+            string message = I18n.Format("ConfigSettingsDialog_CloudGuideOpenFailed", errorDetail);
+
+            LogService.LogError(message, nameof(ConfigSettingsDialogViewModel));
+            NotificationService.ShowError(message, I18n.GetString("CloudSync_Notification_Title"));
+        }
+
         public void ApplyCloudTemplate()
         {
             if (_cloud.TemplateKind == CloudTemplateKind.Custom || IsLegacyCustomCommandMode)
@@ -542,6 +590,17 @@ namespace FolderRewind.ViewModels
             OnPropertyChanged(nameof(CpuThreadsValue));
             OnPropertyChanged(nameof(CpuThreadsDescription));
             OnPropertyChanged(nameof(RunCompressionAtLowPriority));
+        }
+
+        private void RaisePageVisibilityProperties()
+        {
+            OnPropertyChanged(nameof(SelectedPageIndex));
+            OnPropertyChanged(nameof(IsGeneralPageVisible));
+            OnPropertyChanged(nameof(IsBackupStrategyPageVisible));
+            OnPropertyChanged(nameof(IsRestoreStrategyPageVisible));
+            OnPropertyChanged(nameof(IsAutomationPageVisible));
+            OnPropertyChanged(nameof(IsCloudPageVisible));
+            OnPropertyChanged(nameof(IsFilterPageVisible));
         }
 
         private void RaiseAutomationUiProperties()
