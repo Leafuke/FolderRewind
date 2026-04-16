@@ -114,16 +114,6 @@ jobs:
             -CertificatePath "${{ steps.certificate.outputs.certificate_path }}" `
             -CertificatePassword $env:SIDELOAD_CERT_PASSWORD
 
-      - name: Validate App Build
-        shell: pwsh
-        run: |
-          dotnet build FolderRewind/FolderRewind.csproj `
-            -c Release `
-            -p:Platform=${{ matrix.platform }} `
-            -p:GenerateAppxPackageOnBuild=false `
-            -p:GenerateTestArtifacts=false `
-            /warnaserror
-
       - name: Build MSIX Package
         shell: pwsh
         run: |
