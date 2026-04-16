@@ -114,6 +114,16 @@ jobs:
             -CertificatePath "${{ steps.certificate.outputs.certificate_path }}" `
             -CertificatePassword $env:SIDELOAD_CERT_PASSWORD
 
+      - name: Validate App Build
+        shell: pwsh
+        run: |
+          dotnet build FolderRewind/FolderRewind.csproj `
+            -c Release `
+            -p:Platform=${{ matrix.platform }} `
+            -p:GenerateAppxPackageOnBuild=false `
+            -p:GenerateTestArtifacts=false `
+            /warnaserror
+
       - name: Build MSIX Package
         shell: pwsh
         run: |
@@ -125,11 +135,12 @@ jobs:
             -p:GenerateTestArtifacts=false `
             -p:AppxSymbolPackageEnabled=false `
             -p:GenerateAppxSymbolPackage=false `
+            -p:DebugSymbols=false `
+            -p:DebugType=None `
             -p:AppxPackageDir="$env:GITHUB_WORKSPACE\artifacts\appx\${{ matrix.platform }}\" `
             -p:PackageCertificateKeyFile= `
             -p:PackageCertificatePassword= `
-            -p:PackageCertificateThumbprint=${{ steps.certificate.outputs.certificate_thumbprint }} `
-            /warnaserror
+            -p:PackageCertificateThumbprint=${{ steps.certificate.outputs.certificate_thumbprint }}
 
       - name: Prepare Release Assets
         shell: pwsh
