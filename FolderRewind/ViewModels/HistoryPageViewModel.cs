@@ -39,6 +39,8 @@ namespace FolderRewind.ViewModels
 
         public bool CanUseCloudHistoryActions => CloudSyncService.CanUseManualCloudActions(_currentConfig);
 
+        public bool CanOpenConfigCloudSync => _currentConfig != null && CloudSyncService.CanUseManualCloudActions(_currentConfig);
+
         public string CommentFilterText
         {
             get => _commentFilterText;
@@ -87,6 +89,7 @@ namespace FolderRewind.ViewModels
             _currentConfig = config;
             _currentFolder = folder;
             OnPropertyChanged(nameof(CanUseCloudHistoryActions));
+            OnPropertyChanged(nameof(CanOpenConfigCloudSync));
 
             // 页面初始化阶段可关闭刷新，避免控件尚未就绪时重复拉取历史。
             if (refreshHistoryIfFolder && _currentConfig != null && _currentFolder != null)
@@ -344,6 +347,7 @@ namespace FolderRewind.ViewModels
             IsEmpty = FilteredHistory.Count == 0;
             UpdateTimelineVisuals(FilteredHistory);
             OnPropertyChanged(nameof(CanUseCloudHistoryActions));
+            OnPropertyChanged(nameof(CanOpenConfigCloudSync));
         }
 
         private static Brush TryGetThemeBrush(string key, Windows.UI.Color fallback)

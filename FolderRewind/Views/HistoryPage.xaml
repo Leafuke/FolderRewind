@@ -71,6 +71,9 @@
                         x:Uid="HistoryPage_ClearMissing"
                         IsEnabled="{x:Bind ViewModel.HasMissing, Mode=OneWay}"
                         Click="OnClearMissingClick" />
+                <Button x:Uid="HistoryPage_OpenCloudSync"
+                        IsEnabled="{x:Bind ViewModel.CanOpenConfigCloudSync, Mode=OneWay}"
+                        Click="OnOpenCloudSyncClick" />
             </StackPanel>
         </Grid>
 

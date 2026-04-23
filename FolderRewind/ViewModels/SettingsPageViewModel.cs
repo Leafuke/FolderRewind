@@ -211,6 +211,12 @@ namespace FolderRewind.ViewModels
             ConfigService.Save();
         }
 
+        public void HandleAutoDownloadMissingCloudBackupsBeforeRestoreToggled(bool isOn)
+        {
+            Settings.AutoDownloadMissingCloudBackupsBeforeRestore = isOn;
+            ConfigService.Save();
+        }
+
         public void HandleNoticesToggled(bool isOn)
         {
             Settings.EnableNotices = isOn;

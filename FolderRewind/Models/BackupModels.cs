@@ -75,6 +75,8 @@ namespace FolderRewind.Models
         private string _rcloneExecutablePath = "";
         private string _defaultCloudRemoteBasePath = "remote:FolderRewind";
         private string _defaultBackupRootPath = "";
+        private bool _autoDownloadMissingCloudBackupsBeforeRestore = true;
+        private bool _hasMigratedAutoDownloadMissingCloudBackupsBeforeRestore;
         private bool _runOnStartup = false;
         private bool _silentStartup = false;
         private bool _enableFileLogging = true;
@@ -143,6 +145,8 @@ namespace FolderRewind.Models
         public string RcloneExecutablePath { get => _rcloneExecutablePath; set => SetProperty(ref _rcloneExecutablePath, value ?? string.Empty); }
         public string DefaultCloudRemoteBasePath { get => _defaultCloudRemoteBasePath; set => SetProperty(ref _defaultCloudRemoteBasePath, value ?? string.Empty); }
         public string DefaultBackupRootPath { get => _defaultBackupRootPath; set => SetProperty(ref _defaultBackupRootPath, value); }
+        public bool AutoDownloadMissingCloudBackupsBeforeRestore { get => _autoDownloadMissingCloudBackupsBeforeRestore; set => SetProperty(ref _autoDownloadMissingCloudBackupsBeforeRestore, value); }
+        public bool HasMigratedAutoDownloadMissingCloudBackupsBeforeRestore { get => _hasMigratedAutoDownloadMissingCloudBackupsBeforeRestore; set => SetProperty(ref _hasMigratedAutoDownloadMissingCloudBackupsBeforeRestore, value); }
         public bool RunOnStartup { get => _runOnStartup; set => SetProperty(ref _runOnStartup, value); }
         public bool SilentStartup { get => _silentStartup; set => SetProperty(ref _silentStartup, value); }
         public bool EnableFileLogging { get => _enableFileLogging; set => SetProperty(ref _enableFileLogging, value); }

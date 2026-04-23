@@ -232,6 +232,14 @@ namespace FolderRewind.Views
             _viewModel.HandleFileSizeWarningThresholdChanged(e.NewValue);
         }
 
+        private void OnAutoDownloadMissingCloudBackupsBeforeRestoreToggled(object sender, RoutedEventArgs e)
+        {
+            if (sender is ToggleSwitch ts)
+            {
+                _viewModel.HandleAutoDownloadMissingCloudBackupsBeforeRestoreToggled(ts.IsOn);
+            }
+        }
+
         private void OnNoticesToggled(object sender, RoutedEventArgs e)
         {
             if (sender is ToggleSwitch ts)

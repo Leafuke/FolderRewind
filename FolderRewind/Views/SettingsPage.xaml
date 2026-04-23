@@ -475,6 +475,17 @@
 
                         <toolkit:SettingsCard>
                             <toolkit:SettingsCard.Header>
+                                <TextBlock x:Uid="SettingsPage_AutoDownloadMissingCloudBackupsBeforeRestore" Style="{StaticResource SettingsHeaderTextStyle}" />
+                            </toolkit:SettingsCard.Header>
+                            <toolkit:SettingsCard.Description>
+                                <TextBlock x:Uid="SettingsPage_AutoDownloadMissingCloudBackupsBeforeRestoreDesc" Style="{StaticResource SettingsDescriptionStyle}" />
+                            </toolkit:SettingsCard.Description>
+                            <ToggleSwitch IsOn="{x:Bind Settings.AutoDownloadMissingCloudBackupsBeforeRestore, Mode=TwoWay}"
+                                          Toggled="OnAutoDownloadMissingCloudBackupsBeforeRestoreToggled" />
+                        </toolkit:SettingsCard>
+
+                        <toolkit:SettingsCard>
+                            <toolkit:SettingsCard.Header>
                                 <TextBlock x:Uid="SettingsPage_DefaultBackupRootPath" Style="{StaticResource SettingsHeaderTextStyle}" />
                             </toolkit:SettingsCard.Header>
                             <toolkit:SettingsCard.Description>

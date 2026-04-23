@@ -480,6 +480,11 @@ namespace FolderRewind.Services
             settings.DefaultCloudRemoteBasePath = string.IsNullOrWhiteSpace(settings.DefaultCloudRemoteBasePath)
                 ? "remote:FolderRewind"
                 : settings.DefaultCloudRemoteBasePath.Trim();
+            if (!settings.HasMigratedAutoDownloadMissingCloudBackupsBeforeRestore)
+            {
+                settings.AutoDownloadMissingCloudBackupsBeforeRestore = true;
+                settings.HasMigratedAutoDownloadMissingCloudBackupsBeforeRestore = true;
+            }
 
             if (string.IsNullOrWhiteSpace(settings.DefaultBackupRootPath))
             {

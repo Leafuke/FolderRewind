@@ -33,6 +33,7 @@ namespace FolderRewind.ViewModels
                 {
                     OnPropertyChanged(nameof(CanExecuteSync));
                     OnPropertyChanged(nameof(CanRefreshAnalysis));
+                    OnPropertyChanged(nameof(CanUploadHistory));
                 }
             }
         }
@@ -40,6 +41,8 @@ namespace FolderRewind.ViewModels
         public bool CanRefreshAnalysis => !IsBusy;
 
         public bool CanExecuteSync => !IsBusy && CloudSyncService.CanUseManualCloudActions(_config);
+
+        public bool CanUploadHistory => !IsBusy && CloudSyncService.CanUseManualCloudActions(_config);
 
         public ConfigCloudSyncMode SelectedMode
         {
@@ -144,6 +147,33 @@ namespace FolderRewind.ViewModels
                 // 同步后回填最新分析结果，确保统计卡片与真实导入状态一致。
                 StatusMessage = result.Message;
                 AnalysisResult = result.Analysis;
+                return result.Success;
+            }
+            finally
+            {
+                IsBusy = false;
+            }
+        }
+
+        public async Task<bool> UploadHistoryAsync()
+        {
+            if (IsBusy)
+            {
+                return false;
+            }
+
+            IsBusy = true;
+            try
+            {
+                StatusMessage = I18n.GetString("ConfigCloudSyncDialog_Status_Uploading");
+                var result = await CloudSyncService.UploadConfigurationHistoryAsync(_config).ConfigureAwait(true);
+                StatusMessage = result.Message;
+
+                if (result.Success)
+                {
+                    AnalysisResult = await CloudSyncService.AnalyzeConfigurationHistoryAsync(_config).ConfigureAwait(true);
+                }
+
                 return result.Success;
             }
             finally

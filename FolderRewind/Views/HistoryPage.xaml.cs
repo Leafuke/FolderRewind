@@ -432,6 +432,23 @@ namespace FolderRewind.Views
             await ViewModel.DownloadFromCloudAsync(item);
         }
 
+        private async void OnOpenCloudSyncClick(object sender, RoutedEventArgs e)
+        {
+            if (!TryGetSelectedContext(persistSelection: false, out var config, out _))
+            {
+                NotificationService.ShowWarning(I18n.GetString("History_ScanRecover_SelectFirst"));
+                return;
+            }
+
+            var dialog = new ConfigCloudSyncDialog(config)
+            {
+                XamlRoot = MainWindowService.GetXamlRoot() ?? this.XamlRoot
+            };
+
+            await TemplateDialogCoordinatorService.ShowAsync(dialog, this.XamlRoot);
+            ViewModel.RefreshCurrentHistory();
+        }
+
         private void CommentFilterBox_TextChanged(object sender, TextChangedEventArgs e)
         {
             if (sender is TextBox tb)

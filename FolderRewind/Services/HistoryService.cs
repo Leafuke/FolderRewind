@@ -408,6 +408,23 @@ namespace FolderRewind.Services
             return removedCount;
         }
 
+        public static List<HistoryItem> GetEntriesForConfig(string configId)
+        {
+            if (string.IsNullOrWhiteSpace(configId))
+            {
+                return new List<HistoryItem>();
+            }
+
+            Initialize();
+            lock (_historyLock)
+            {
+                return _allHistory
+                    .Where(x => string.Equals(x.ConfigId, configId, StringComparison.OrdinalIgnoreCase))
+                    .OrderBy(x => x.Timestamp)
+                    .ToList();
+            }
+        }
+
         /// <summary>
         /// 更新历史记录的注释
         /// </summary>

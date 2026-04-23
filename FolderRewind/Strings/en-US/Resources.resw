@@ -591,12 +591,6 @@ Duplicate folder names are blocked within the same configuration so different di
   <data name="Config_OpenPath_Failed" xml:space="preserve">
     <value>Failed to open path: {0}</value>
   </data>
-  <data name="ConfigSettingsDialog_General.Header" xml:space="preserve">
-    <value>General</value>
-  </data>
-  <data name="ConfigSettingsDialog_General.Text" xml:space="preserve">
-    <value>General</value>
-  </data>
   <data name="ConfigSettingsDialog_ConfigName.Header" xml:space="preserve">
     <value>Config name</value>
   </data>
@@ -732,12 +726,6 @@ Duplicate folder names are blocked within the same configuration so different di
   <data name="ConfigSettingsDialog_VerifyArchiveBeforeRestore.OffContent" xml:space="preserve">
     <value>Off - restore directly</value>
   </data>
-  <data name="ConfigSettingsDialog_Automation.Header" xml:space="preserve">
-    <value>Automation</value>
-  </data>
-  <data name="ConfigSettingsDialog_Automation.Text" xml:space="preserve">
-    <value>Automation</value>
-  </data>
   <data name="ConfigSettingsDialog_AutoBackup.Header" xml:space="preserve">
     <value>Enable auto backup</value>
   </data>
@@ -774,12 +762,6 @@ Duplicate folder names are blocked within the same configuration so different di
   <data name="ConfigSettingsDialog_ConditionRelativePathPlaceholder.PlaceholderText" xml:space="preserve">
     <value>For example: session.lock</value>
   </data>
-  <data name="ConfigSettingsDialog_Filter.Header" xml:space="preserve">
-    <value>Filter</value>
-  </data>
-  <data name="ConfigSettingsDialog_Filter.Text" xml:space="preserve">
-    <value>Filter</value>
-  </data>
   <data name="ConfigSettingsDialog_Blacklist.Text" xml:space="preserve">
     <value>Blacklist (excluded files/folders)</value>
   </data>
@@ -803,18 +785,6 @@ Duplicate folder names are blocked within the same configuration so different di
   </data>
   <data name="ConfigSettingsDialog_AddRestoreWhitelist.Content" xml:space="preserve">
     <value>Add</value>
-  </data>
-  <data name="ConfigSettingsDialog_BackupStrategy.Header" xml:space="preserve">
-    <value>Backup</value>
-  </data>
-  <data name="ConfigSettingsDialog_BackupStrategy.Text" xml:space="preserve">
-    <value>Backup</value>
-  </data>
-  <data name="ConfigSettingsDialog_RestoreStrategy.Header" xml:space="preserve">
-    <value>Restore</value>
-  </data>
-  <data name="ConfigSettingsDialog_RestoreStrategy.Text" xml:space="preserve">
-    <value>Restore</value>
   </data>
   <data name="ConfigSettingsDialog_MaxSmartChain.Header" xml:space="preserve">
     <value>Smart backup chain length (0 = unlimited)</value>
@@ -3820,7 +3790,7 @@ Pull request: {1}</value>
     <value>This configuration does not have any folders to fetch yet.</value>
   </data>
   <data name="CloudSync_Notification_ConfigurationDownloadSucceeded" xml:space="preserve">
-    <value>Fetched cloud backups for "{0}" and recovered {1} history entries.</value>
+    <value>Fetched {1} cloud backup package(s) for "{0}".</value>
   </data>
   <data name="CloudSync_Notification_ConfigurationDownloadFailed" xml:space="preserve">
     <value>Unable to fetch cloud backups for the current configuration.</value>
@@ -3921,6 +3891,9 @@ Pull request: {1}</value>
   <data name="ConfigCloudSyncDialog_Status_Syncing" xml:space="preserve">
     <value>Syncing the current configuration...</value>
   </data>
+  <data name="ConfigCloudSyncDialog_Status_Uploading" xml:space="preserve">
+    <value>Uploading the current configuration history...</value>
+  </data>
   <data name="ConfigCloudSyncDialog_Analysis_Pending" xml:space="preserve">
     <value>No remote analysis result yet.</value>
   </data>
@@ -3946,7 +3919,7 @@ Pull request: {1}</value>
     <value>History sync completed. Imported {0} entries and skipped {1} duplicates.</value>
   </data>
   <data name="CloudSync_ConfigSync_HistoryAndBackupsSucceeded" xml:space="preserve">
-    <value>History and backup sync completed. Imported {0} history entries, skipped {1} duplicates, and recovered or refreshed {2} local history entries.</value>
+    <value>History and backup sync completed. Imported {0} history entries, skipped {1} duplicates, and downloaded {2} backup package(s).</value>
   </data>
   <data name="CloudSync_ConfigSync_HistoryImportedBackupsFailed" xml:space="preserve">
     <value>Imported {0} history entries, but downloading the cloud backups failed: {1}</value>
@@ -3964,7 +3937,7 @@ Pull request: {1}</value>
     <value>Off</value>
   </data>
   <data name="ConfigSettingsDialog_CloudSyncHistoryAfterUploadDesc.Text" xml:space="preserve">
-    <value>After each successful automatic backup upload, also upload the latest history.json to the current remote base path so other devices can sync this configuration's history.</value>
+    <value>After each successful automatic backup upload, also merge-upload this configuration's latest history plus its active-history manifest so other devices can sync without re-importing backups that were deleted locally.</value>
   </data>
   <data name="SettingsPage_DefaultCloudRemoteBasePath.Text" xml:space="preserve">
     <value>Default remote base path</value>
@@ -3983,6 +3956,66 @@ Pull request: {1}</value>
   </data>
   <data name="CloudSync_Notification_HistorySyncSkippedLegacyMode" xml:space="preserve">
     <value>This configuration still uses the legacy custom command mode, so history.json cannot be synced automatically.</value>
+  </data>
+  <data name="SettingsPage_AutoDownloadMissingCloudBackupsBeforeRestore.Text" xml:space="preserve">
+    <value>Automatically download missing cloud backup chain before restore</value>
+  </data>
+  <data name="SettingsPage_AutoDownloadMissingCloudBackupsBeforeRestoreDesc.Text" xml:space="preserve">
+    <value>If the selected restore target or its required incremental chain is missing locally, try to fetch only the required cloud backups before restoring.</value>
+  </data>
+  <data name="HistoryPage_OpenCloudSync.Content" xml:space="preserve">
+    <value>Cloud sync</value>
+  </data>
+  <data name="ConfigCloudSyncDialog_UploadHeader.Text" xml:space="preserve">
+    <value>Sync current configuration to cloud</value>
+  </data>
+  <data name="ConfigCloudSyncDialog_UploadDescription.Text" xml:space="preserve">
+    <value>Upload this configuration's current history and active-history manifest so other devices can sync without bringing back cloud backups that were already deleted locally.</value>
+  </data>
+  <data name="ConfigCloudSyncDialog_UploadHistory.Content" xml:space="preserve">
+    <value>Upload current config history</value>
+  </data>
+  <data name="ConfigCloudSyncDialog_DownloadSync.Content" xml:space="preserve">
+    <value>Sync from cloud</value>
+  </data>
+  <data name="CloudSync_Notification_ConfigurationHistoryUploadFailed" xml:space="preserve">
+    <value>Failed to upload history for the current configuration.</value>
+  </data>
+  <data name="CloudSync_Task_ConfigurationHistoryUploadName" xml:space="preserve">
+    <value>Upload configuration history: {0}</value>
+  </data>
+  <data name="CloudSync_Task_UploadingConfigurationHistory" xml:space="preserve">
+    <value>Uploading configuration history...</value>
+  </data>
+  <data name="CloudSync_Task_UploadingActiveHistoryManifest" xml:space="preserve">
+    <value>Uploading active-history manifest...</value>
+  </data>
+  <data name="CloudSync_Notification_ActiveHistoryManifestUploadFailedWithReason" xml:space="preserve">
+    <value>History was uploaded, but active-history manifest upload failed: {0}</value>
+  </data>
+  <data name="CloudSync_Notification_ConfigurationHistoryUploadFailedWithReason" xml:space="preserve">
+    <value>Failed to upload configuration history for "{0}": {1}</value>
+  </data>
+  <data name="CloudSync_Notification_ConfigurationHistoryUploadSucceeded" xml:space="preserve">
+    <value>Uploaded the current history for "{0}" to cloud. Total entries: {1}.</value>
+  </data>
+  <data name="CloudSync_Notification_RestoreChainUnavailable" xml:space="preserve">
+    <value>The required cloud restore chain could not be resolved.</value>
+  </data>
+  <data name="CloudSync_Notification_RestoreChainAlreadyAvailable" xml:space="preserve">
+    <value>The required restore chain is already available locally.</value>
+  </data>
+  <data name="CloudSync_Task_RestoreChainDownloadName" xml:space="preserve">
+    <value>Download restore chain: {0}</value>
+  </data>
+  <data name="CloudSync_Notification_RestoreChainDownloadSucceeded" xml:space="preserve">
+    <value>Downloaded {0} missing backup package(s) required to restore "{1}".</value>
+  </data>
+  <data name="CloudSync_Task_DownloadingConfigurationHistory" xml:space="preserve">
+    <value>Downloading configuration history...</value>
+  </data>
+  <data name="CloudSync_Task_DownloadingHistoryItem" xml:space="preserve">
+    <value>Downloading {0} ({1}/{2})...</value>
   </data>
   <data name="ProcessPathService_Log_QueryFailed" xml:space="preserve">
     <value>Failed to query the running process "{0}": {1}</value>

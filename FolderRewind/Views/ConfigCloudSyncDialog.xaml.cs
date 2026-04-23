@@ -30,14 +30,18 @@ namespace FolderRewind.Views
             await ViewModel.RefreshAnalysisAsync();
         }
 
-        private async void OnPrimaryButtonClick(ContentDialog sender, ContentDialogButtonClickEventArgs args)
+        private async void OnDownloadSyncClick(object sender, RoutedEventArgs e)
         {
-            args.Cancel = true;
             bool shouldClose = await ViewModel.ExecuteSyncAsync().ConfigureAwait(true);
             if (shouldClose)
             {
                 Hide();
             }
+        }
+
+        private async void OnUploadHistoryClick(object sender, RoutedEventArgs e)
+        {
+            await ViewModel.UploadHistoryAsync().ConfigureAwait(true);
         }
     }
 }

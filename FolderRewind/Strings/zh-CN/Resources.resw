@@ -591,12 +591,6 @@
   <data name="Config_OpenPath_Failed" xml:space="preserve">
     <value>打开路径失败：{0}</value>
   </data>
-  <data name="ConfigSettingsDialog_General.Header" xml:space="preserve">
-    <value>常规</value>
-  </data>
-  <data name="ConfigSettingsDialog_General.Text" xml:space="preserve">
-    <value>常规</value>
-  </data>
   <data name="ConfigSettingsDialog_ConfigName.Header" xml:space="preserve">
     <value>配置名称</value>
   </data>
@@ -732,12 +726,6 @@
   <data name="ConfigSettingsDialog_VerifyArchiveBeforeRestore.OffContent" xml:space="preserve">
     <value>已关闭 - 直接进入还原流程</value>
   </data>
-  <data name="ConfigSettingsDialog_Automation.Header" xml:space="preserve">
-    <value>自动化</value>
-  </data>
-  <data name="ConfigSettingsDialog_Automation.Text" xml:space="preserve">
-    <value>自动化</value>
-  </data>
   <data name="ConfigSettingsDialog_AutoBackup.Header" xml:space="preserve">
     <value>启用自动备份</value>
   </data>
@@ -774,12 +762,6 @@
   <data name="ConfigSettingsDialog_ConditionRelativePathPlaceholder.PlaceholderText" xml:space="preserve">
     <value>例如：session.lock</value>
   </data>
-  <data name="ConfigSettingsDialog_Filter.Header" xml:space="preserve">
-    <value>过滤</value>
-  </data>
-  <data name="ConfigSettingsDialog_Filter.Text" xml:space="preserve">
-    <value>过滤</value>
-  </data>
   <data name="ConfigSettingsDialog_Blacklist.Text" xml:space="preserve">
     <value>黑名单 (排除的文件/文件夹)</value>
   </data>
@@ -803,18 +785,6 @@
   </data>
   <data name="ConfigSettingsDialog_AddRestoreWhitelist.Content" xml:space="preserve">
     <value>添加</value>
-  </data>
-  <data name="ConfigSettingsDialog_BackupStrategy.Header" xml:space="preserve">
-    <value>备份</value>
-  </data>
-  <data name="ConfigSettingsDialog_BackupStrategy.Text" xml:space="preserve">
-    <value>备份</value>
-  </data>
-  <data name="ConfigSettingsDialog_RestoreStrategy.Header" xml:space="preserve">
-    <value>还原</value>
-  </data>
-  <data name="ConfigSettingsDialog_RestoreStrategy.Text" xml:space="preserve">
-    <value>还原</value>
   </data>
   <data name="ConfigSettingsDialog_MaxSmartChain.Header" xml:space="preserve">
     <value>智能备份链长度 (0 为不限制)</value>
@@ -3820,7 +3790,7 @@ Pull Request：{1}</value>
     <value>当前配置还没有可拉取的源文件夹。</value>
   </data>
   <data name="CloudSync_Notification_ConfigurationDownloadSucceeded" xml:space="preserve">
-    <value>已从云端拉回“{0}”的备份，并恢复了 {1} 条历史记录。</value>
+    <value>已为“{0}”拉回 {1} 个云端备份包。</value>
   </data>
   <data name="CloudSync_Notification_ConfigurationDownloadFailed" xml:space="preserve">
     <value>未能从云端拉取当前配置的备份。</value>
@@ -3921,6 +3891,9 @@ Pull Request：{1}</value>
   <data name="ConfigCloudSyncDialog_Status_Syncing" xml:space="preserve">
     <value>正在同步当前配置…</value>
   </data>
+  <data name="ConfigCloudSyncDialog_Status_Uploading" xml:space="preserve">
+    <value>正在上传当前配置的历史记录…</value>
+  </data>
   <data name="ConfigCloudSyncDialog_Analysis_Pending" xml:space="preserve">
     <value>尚未获得远端分析结果。</value>
   </data>
@@ -3946,7 +3919,7 @@ Pull Request：{1}</value>
     <value>已同步当前配置历史：新增 {0} 条，跳过重复 {1} 条。</value>
   </data>
   <data name="CloudSync_ConfigSync_HistoryAndBackupsSucceeded" xml:space="preserve">
-    <value>已同步当前配置历史与云备份：新增历史 {0} 条，跳过重复 {1} 条，并恢复/补齐了 {2} 条本地历史。</value>
+    <value>已同步当前配置历史与云备份：新增历史 {0} 条，跳过重复 {1} 条，并下载了 {2} 个备份包。</value>
   </data>
   <data name="CloudSync_ConfigSync_HistoryImportedBackupsFailed" xml:space="preserve">
     <value>历史记录已导入 {0} 条，但继续拉取云备份失败：{1}</value>
@@ -3964,7 +3937,7 @@ Pull Request：{1}</value>
     <value>关闭</value>
   </data>
   <data name="ConfigSettingsDialog_CloudSyncHistoryAfterUploadDesc.Text" xml:space="preserve">
-    <value>每次自动上传备份成功后，再额外把最新的 history.json 上传到当前远端基路径，方便其他设备按配置同步历史。</value>
+    <value>每次自动上传备份成功后，再额外合并上传当前配置的最新历史以及 active-history 清单，方便其他设备同步时避开那些已经在本地删除的旧云备份。</value>
   </data>
   <data name="SettingsPage_DefaultCloudRemoteBasePath.Text" xml:space="preserve">
     <value>默认远端基路径</value>
@@ -3983,6 +3956,66 @@ Pull Request：{1}</value>
   </data>
   <data name="CloudSync_Notification_HistorySyncSkippedLegacyMode" xml:space="preserve">
     <value>当前配置使用旧版自定义命令模式，无法自动同步 history.json。</value>
+  </data>
+  <data name="SettingsPage_AutoDownloadMissingCloudBackupsBeforeRestore.Text" xml:space="preserve">
+    <value>还原前自动下载缺失的云备份链</value>
+  </data>
+  <data name="SettingsPage_AutoDownloadMissingCloudBackupsBeforeRestoreDesc.Text" xml:space="preserve">
+    <value>如果选中的还原目标或其所需的增量链在本地不完整，先只补齐本次还原真正需要的云备份，再继续还原。</value>
+  </data>
+  <data name="HistoryPage_OpenCloudSync.Content" xml:space="preserve">
+    <value>云同步</value>
+  </data>
+  <data name="ConfigCloudSyncDialog_UploadHeader.Text" xml:space="preserve">
+    <value>同步当前配置到云端</value>
+  </data>
+  <data name="ConfigCloudSyncDialog_UploadDescription.Text" xml:space="preserve">
+    <value>上传当前配置的最新历史记录和 active-history 清单，让其他设备同步时不会把那些已在本地删除的旧云备份重新拉回来。</value>
+  </data>
+  <data name="ConfigCloudSyncDialog_UploadHistory.Content" xml:space="preserve">
+    <value>上传当前配置历史</value>
+  </data>
+  <data name="ConfigCloudSyncDialog_DownloadSync.Content" xml:space="preserve">
+    <value>从云同步</value>
+  </data>
+  <data name="CloudSync_Notification_ConfigurationHistoryUploadFailed" xml:space="preserve">
+    <value>上传当前配置的历史记录失败。</value>
+  </data>
+  <data name="CloudSync_Task_ConfigurationHistoryUploadName" xml:space="preserve">
+    <value>上传配置历史：{0}</value>
+  </data>
+  <data name="CloudSync_Task_UploadingConfigurationHistory" xml:space="preserve">
+    <value>正在上传配置历史…</value>
+  </data>
+  <data name="CloudSync_Task_UploadingActiveHistoryManifest" xml:space="preserve">
+    <value>正在上传 active-history 清单…</value>
+  </data>
+  <data name="CloudSync_Notification_ActiveHistoryManifestUploadFailedWithReason" xml:space="preserve">
+    <value>历史记录已上传，但 active-history 清单上传失败：{0}</value>
+  </data>
+  <data name="CloudSync_Notification_ConfigurationHistoryUploadFailedWithReason" xml:space="preserve">
+    <value>上传“{0}”的配置历史失败：{1}</value>
+  </data>
+  <data name="CloudSync_Notification_ConfigurationHistoryUploadSucceeded" xml:space="preserve">
+    <value>已将“{0}”当前历史上传到云端，共 {1} 条。</value>
+  </data>
+  <data name="CloudSync_Notification_RestoreChainUnavailable" xml:space="preserve">
+    <value>未能解析出本次还原所需的云端备份链。</value>
+  </data>
+  <data name="CloudSync_Notification_RestoreChainAlreadyAvailable" xml:space="preserve">
+    <value>本次还原所需的备份链已在本地齐全。</value>
+  </data>
+  <data name="CloudSync_Task_RestoreChainDownloadName" xml:space="preserve">
+    <value>下载还原链：{0}</value>
+  </data>
+  <data name="CloudSync_Notification_RestoreChainDownloadSucceeded" xml:space="preserve">
+    <value>已下载还原“{1}”所需的 {0} 个缺失备份包。</value>
+  </data>
+  <data name="CloudSync_Task_DownloadingConfigurationHistory" xml:space="preserve">
+    <value>正在下载配置历史…</value>
+  </data>
+  <data name="CloudSync_Task_DownloadingHistoryItem" xml:space="preserve">
+    <value>正在下载 {0}（{1}/{2}）…</value>
   </data>
   <data name="ProcessPathService_Log_QueryFailed" xml:space="preserve">
     <value>查询运行中的进程“{0}”失败：{1}</value>
