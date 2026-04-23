@@ -2872,10 +2872,10 @@ Release notes:
     <value>Check for updates on startup and provide channel-aware update entry points</value>
   </data>
   <data name="SettingsPage_AppUpdateSource.Text" xml:space="preserve">
-    <value>Download source</value>
+    <value>Unified download source</value>
   </data>
   <data name="SettingsPage_AppUpdateSourceDesc.Text" xml:space="preserve">
-    <value>Preferred source for app updates, the online template list, and template file downloads (Store updates are unaffected)</value>
+    <value>Preferred source for app updates, the plugin store, the online template list, and template downloads (Store app updates are unaffected)</value>
   </data>
   <data name="SettingsPage_AppUpdateSource_Official.Content" xml:space="preserve">
     <value>Official GitHub</value>
@@ -2893,13 +2893,13 @@ Release notes:
     <value>Auto switch on failure</value>
   </data>
   <data name="SettingsPage_AppUpdateAutoFallbackDesc.Text" xml:space="preserve">
-    <value>Automatically retry other sources when the preferred source fails</value>
+    <value>Automatically retry other mirror sources when the preferred source fails</value>
   </data>
   <data name="SettingsPage_AppUpdateCustomMirror.Text" xml:space="preserve">
     <value>Custom mirror URL</value>
   </data>
   <data name="SettingsPage_AppUpdateCustomMirrorDesc.Text" xml:space="preserve">
-    <value>Enter a prefix URL or a template containing {url}</value>
+    <value>Enter a prefix URL or a template containing {url} for GitHub/API downloads</value>
   </data>
   <data name="SettingsPage_AppUpdateCustomMirrorInput.PlaceholderText" xml:space="preserve">
     <value>Example: https://example.com/{url}</value>
@@ -3171,6 +3171,9 @@ Release notes:
   <data name="TemplateManagerDialog_PathRulesHeader.Text" xml:space="preserve">
     <value>Path matching rules</value>
   </data>
+  <data name="TemplateManagerDialog_PathRulesGuideHeader.Text" xml:space="preserve">
+    <value>Supported variables and syntax</value>
+  </data>
   <data name="TemplateManagerDialog_PathRulesHint.Text" xml:space="preserve">
     <value>Edit path expressions directly, for example {AppDataRoaming}\.minecraft\versions\{*}\saves\{*}, {SteamUserData}\{UserIdCandidate}\123456\remote, or {Process:xxx.exe}\.minecraft\versions\{*}\saves\{*}. {*} can appear in the middle or at the end of a path and expands every child folder at that level before continuing. {Process:xxx.exe} resolves the install directory of a currently running process, then continues matching from there.</value>
   </data>
@@ -3186,8 +3189,17 @@ Release notes:
   <data name="TemplateManagerDialog_PathRulePath.Text" xml:space="preserve">
     <value>Path expression</value>
   </data>
+  <data name="TemplateManagerDialog_PathRuleFileMatch.Text" xml:space="preserve">
+    <value>Marker (file match list)</value>
+  </data>
+  <data name="TemplateManagerDialog_PathRuleFileMatchDesc.Text" xml:space="preserve">
+    <value>Separate file names with ;. A rule matches only when the path matches and every listed file exists.</value>
+  </data>
+  <data name="TemplateManagerDialog_PathRuleFileMatchInput.PlaceholderText" xml:space="preserve">
+    <value>For example: level.dat;session.lock</value>
+  </data>
   <data name="TemplateManagerDialog_PathRuleAuto.Content" xml:space="preserve">
-    <value>Auto-select at 80% or above</value>
+    <value>Selected by default</value>
   </data>
   <data name="TemplateManagerDialog_PathRuleConfidence.Text" xml:space="preserve">
     <value>Confidence (0-1)</value>
@@ -3215,6 +3227,9 @@ Release notes:
   </data>
   <data name="Template_Manager_PathRuleInvalid" xml:space="preserve">
     <value>Invalid path expression: {0}</value>
+  </data>
+  <data name="Template_Manager_PathRuleFileMatchInvalid" xml:space="preserve">
+    <value>Invalid file match entry: {0}</value>
   </data>
   <data name="Template_Manager_PathRulesUpdated" xml:space="preserve">
     <value>Template path rules updated.</value>
@@ -3278,6 +3293,51 @@ Release notes:
   </data>
   <data name="Template_Preview_MarkerSummary" xml:space="preserve">
     <value>Markers: required {0}, optional {1}</value>
+  </data>
+  <data name="Template_SyntaxHelp_Variables_Title" xml:space="preserve">
+    <value>Common variables</value>
+  </data>
+  <data name="Template_SyntaxHelp_Variables_Description" xml:space="preserve">
+    <value>You can use these variables as path roots: {UserProfile}, {Documents}, {DocumentsMyGames}, {SavedGames}, {AppDataRoaming}, {AppDataLocal}, {AppDataLocalLow}, {ProgramData}, {SteamUserData}, and {UserName}.</value>
+  </data>
+  <data name="Template_SyntaxHelp_Variables_Example" xml:space="preserve">
+    <value>Example: {AppDataRoaming}\GameName\Saves</value>
+  </data>
+  <data name="Template_SyntaxHelp_Wildcard_Title" xml:space="preserve">
+    <value>{*} wildcard folders</value>
+  </data>
+  <data name="Template_SyntaxHelp_Wildcard_Description" xml:space="preserve">
+    <value>{*} expands every child folder at the current level. You can place it in the middle of a path or chain it multiple times. When it is the first segment, it traverses every ready drive.</value>
+  </data>
+  <data name="Template_SyntaxHelp_Wildcard_Example" xml:space="preserve">
+    <value>Example: {*}\{*}\.minecraft\versions\{*}\saves\{*}</value>
+  </data>
+  <data name="Template_SyntaxHelp_Process_Title" xml:space="preserve">
+    <value>Process directory</value>
+  </data>
+  <data name="Template_SyntaxHelp_Process_Description" xml:space="preserve">
+    <value>{Process:xxx.exe} resolves the install directory of a currently running process before continuing the match. It works well for launchers and portable games.</value>
+  </data>
+  <data name="Template_SyntaxHelp_Process_Example" xml:space="preserve">
+    <value>Example: {Process:Plain Craft Launcher 2.exe}\.minecraft\versions\{*}\saves\{*}</value>
+  </data>
+  <data name="Template_SyntaxHelp_Root_Title" xml:space="preserve">
+    <value>Explicit drive roots</value>
+  </data>
+  <data name="Template_SyntaxHelp_Root_Description" xml:space="preserve">
+    <value>You can now start expressions directly from a drive root such as C:\..., and you can mix explicit drives with wildcard folders.</value>
+  </data>
+  <data name="Template_SyntaxHelp_Root_Example" xml:space="preserve">
+    <value>Example: C:\{*}\.minecraft\versions\{*}\saves\{*}</value>
+  </data>
+  <data name="Template_SyntaxHelp_FileMatch_Title" xml:space="preserve">
+    <value>File match list</value>
+  </data>
+  <data name="Template_SyntaxHelp_FileMatch_Description" xml:space="preserve">
+    <value>When you provide a ; separated list of file names, the rule only matches if the directory matches and every listed file exists.</value>
+  </data>
+  <data name="Template_SyntaxHelp_FileMatch_Example" xml:space="preserve">
+    <value>Example: level.dat;session.lock</value>
   </data>
   <data name="Template_Preview_Summary" xml:space="preserve">
     <value>{0} of {1} rule(s) matched.</value>

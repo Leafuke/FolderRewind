@@ -2872,10 +2872,10 @@
     <value>启动应用时检查新版本，并按安装来源提供对应更新入口</value>
   </data>
   <data name="SettingsPage_AppUpdateSource.Text" xml:space="preserve">
-    <value>下载源</value>
+    <value>统一下载源</value>
   </data>
   <data name="SettingsPage_AppUpdateSourceDesc.Text" xml:space="preserve">
-    <value>用于应用更新、在线模板列表和模板文件下载的首选来源（商店版更新不受此项影响）</value>
+    <value>用于应用更新、插件商店、在线模板列表和模板文件下载的首选来源（商店版应用更新不受此项影响）</value>
   </data>
   <data name="SettingsPage_AppUpdateSource_Official.Content" xml:space="preserve">
     <value>官方 GitHub</value>
@@ -2893,13 +2893,13 @@
     <value>下载失败时自动切换源</value>
   </data>
   <data name="SettingsPage_AppUpdateAutoFallbackDesc.Text" xml:space="preserve">
-    <value>首选源失败后自动按顺序重试其他来源</value>
+    <value>首选源失败后自动按顺序重试其他镜像来源</value>
   </data>
   <data name="SettingsPage_AppUpdateCustomMirror.Text" xml:space="preserve">
     <value>自定义镜像地址</value>
   </data>
   <data name="SettingsPage_AppUpdateCustomMirrorDesc.Text" xml:space="preserve">
-    <value>可填写前缀，或使用 {url} 占位符拼接完整下载地址</value>
+    <value>可填写前缀，或使用 {url} 占位符拼接完整 GitHub/API 下载地址</value>
   </data>
   <data name="SettingsPage_AppUpdateCustomMirrorInput.PlaceholderText" xml:space="preserve">
     <value>例如：https://example.com/{url}</value>
@@ -3171,6 +3171,9 @@
   <data name="TemplateManagerDialog_PathRulesHeader.Text" xml:space="preserve">
     <value>路径匹配规则</value>
   </data>
+  <data name="TemplateManagerDialog_PathRulesGuideHeader.Text" xml:space="preserve">
+    <value>支持的变量与语法</value>
+  </data>
   <data name="TemplateManagerDialog_PathRulesHint.Text" xml:space="preserve">
     <value>支持直接编辑路径表达式，例如 {AppDataRoaming}\.minecraft\versions\{*}\saves\{*}、{SteamUserData}\{UserIdCandidate}\123456\remote，或 {Process:Plain Craft Launcher 2.exe}\.minecraft\versions\{*}\saves\{*}。{*} 可写在路径中间或末尾，表示展开这一层下的全部子文件夹后继续匹配；{Process:xxx.exe} 会先定位当前运行中进程的程序目录，再继续向下拼接。</value>
   </data>
@@ -3186,8 +3189,17 @@
   <data name="TemplateManagerDialog_PathRulePath.Text" xml:space="preserve">
     <value>路径表达式</value>
   </data>
+  <data name="TemplateManagerDialog_PathRuleFileMatch.Text" xml:space="preserve">
+    <value>标记（文件匹配列表）</value>
+  </data>
+  <data name="TemplateManagerDialog_PathRuleFileMatchDesc.Text" xml:space="preserve">
+    <value>多个文件名用 ; 分隔。只有路径命中且这些文件全部存在时，这条规则才算匹配成功。</value>
+  </data>
+  <data name="TemplateManagerDialog_PathRuleFileMatchInput.PlaceholderText" xml:space="preserve">
+    <value>例如：level.dat;session.lock</value>
+  </data>
   <data name="TemplateManagerDialog_PathRuleAuto.Content" xml:space="preserve">
-    <value>达到 80% 时默认勾选</value>
+    <value>默认勾选</value>
   </data>
   <data name="TemplateManagerDialog_PathRuleConfidence.Text" xml:space="preserve">
     <value>置信度（0-1）</value>
@@ -3215,6 +3227,9 @@
   </data>
   <data name="Template_Manager_PathRuleInvalid" xml:space="preserve">
     <value>路径表达式无效：{0}</value>
+  </data>
+  <data name="Template_Manager_PathRuleFileMatchInvalid" xml:space="preserve">
+    <value>文件匹配项无效：{0}</value>
   </data>
   <data name="Template_Manager_PathRulesUpdated" xml:space="preserve">
     <value>模板路径规则已更新。</value>
@@ -3278,6 +3293,51 @@
   </data>
   <data name="Template_Preview_MarkerSummary" xml:space="preserve">
     <value>标记：必需 {0}，可选 {1}</value>
+  </data>
+  <data name="Template_SyntaxHelp_Variables_Title" xml:space="preserve">
+    <value>常用变量</value>
+  </data>
+  <data name="Template_SyntaxHelp_Variables_Description" xml:space="preserve">
+    <value>可直接使用这些变量作为路径起点：{UserProfile}、{Documents}、{DocumentsMyGames}、{SavedGames}、{AppDataRoaming}、{AppDataLocal}、{AppDataLocalLow}、{ProgramData}、{SteamUserData}、{UserName}。</value>
+  </data>
+  <data name="Template_SyntaxHelp_Variables_Example" xml:space="preserve">
+    <value>示例：{AppDataRoaming}\GameName\Saves</value>
+  </data>
+  <data name="Template_SyntaxHelp_Wildcard_Title" xml:space="preserve">
+    <value>{*} 通配目录</value>
+  </data>
+  <data name="Template_SyntaxHelp_Wildcard_Description" xml:space="preserve">
+    <value>{*} 会展开当前层级下的所有子文件夹。它既可以写在路径中间，也可以连续使用；如果放在最前面，会先遍历所有已就绪的盘符。</value>
+  </data>
+  <data name="Template_SyntaxHelp_Wildcard_Example" xml:space="preserve">
+    <value>示例：{*}\{*}\.minecraft\versions\{*}\saves\{*}</value>
+  </data>
+  <data name="Template_SyntaxHelp_Process_Title" xml:space="preserve">
+    <value>进程目录</value>
+  </data>
+  <data name="Template_SyntaxHelp_Process_Description" xml:space="preserve">
+    <value>{Process:xxx.exe} 会先定位当前正在运行进程的程序目录，再继续向下匹配，适合启动器或便携版游戏。</value>
+  </data>
+  <data name="Template_SyntaxHelp_Process_Example" xml:space="preserve">
+    <value>示例：{Process:Plain Craft Launcher 2.exe}\.minecraft\versions\{*}\saves\{*}</value>
+  </data>
+  <data name="Template_SyntaxHelp_Root_Title" xml:space="preserve">
+    <value>显式盘符路径</value>
+  </data>
+  <data name="Template_SyntaxHelp_Root_Description" xml:space="preserve">
+    <value>现在可以直接从盘符根目录开始写表达式，例如 C:\...；也可以把盘符和通配目录混用。</value>
+  </data>
+  <data name="Template_SyntaxHelp_Root_Example" xml:space="preserve">
+    <value>示例：C:\{*}\.minecraft\versions\{*}\saves\{*}</value>
+  </data>
+  <data name="Template_SyntaxHelp_FileMatch_Title" xml:space="preserve">
+    <value>文件匹配列表</value>
+  </data>
+  <data name="Template_SyntaxHelp_FileMatch_Description" xml:space="preserve">
+    <value>为规则填写一个用 ; 分隔的文件名列表后，只有当目录命中且列表中的所有文件都存在时，这条规则才会被视为命中。</value>
+  </data>
+  <data name="Template_SyntaxHelp_FileMatch_Example" xml:space="preserve">
+    <value>示例：level.dat;session.lock</value>
   </data>
   <data name="Template_Preview_Summary" xml:space="preserve">
     <value>共 {1} 条规则，命中 {0} 条。</value>

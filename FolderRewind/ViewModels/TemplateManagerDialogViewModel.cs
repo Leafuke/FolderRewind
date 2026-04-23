@@ -14,12 +14,14 @@ namespace FolderRewind.ViewModels
         private string _id = Guid.NewGuid().ToString("N");
         private string _name = string.Empty;
         private string _displayPath = string.Empty;
+        private string _fileMatchList = string.Empty;
         private string _confidenceText = "0.80";
         private bool _autoAdd = true;
 
         public string Id { get => _id; set => SetProperty(ref _id, value ?? string.Empty); }
         public string Name { get => _name; set => SetProperty(ref _name, value ?? string.Empty); }
         public string DisplayPath { get => _displayPath; set => SetProperty(ref _displayPath, value ?? string.Empty); }
+        public string FileMatchList { get => _fileMatchList; set => SetProperty(ref _fileMatchList, value ?? string.Empty); }
         public string ConfidenceText { get => _confidenceText; set => SetProperty(ref _confidenceText, value ?? "0.80"); }
         public bool AutoAdd { get => _autoAdd; set => SetProperty(ref _autoAdd, value); }
 
@@ -52,6 +54,7 @@ namespace FolderRewind.ViewModels
         public ObservableCollection<ConfigTemplate> TemplatesView { get; } = new();
         public ObservableCollection<TemplateRulePreviewItem> PreviewItems { get; } = new();
         public ObservableCollection<EditableTemplateRuleItem> EditablePathRules { get; } = new();
+        public ObservableCollection<TemplateRuleSyntaxHelpItem> SyntaxHelpItems { get; } = new();
 
         public string SearchText
         {
@@ -144,6 +147,11 @@ namespace FolderRewind.ViewModels
 
         public TemplateManagerDialogViewModel()
         {
+            foreach (var item in TemplateService.GetRuleSyntaxHelpItems())
+            {
+                SyntaxHelpItems.Add(item);
+            }
+
             ReloadTemplates();
         }
 
@@ -223,6 +231,7 @@ namespace FolderRewind.ViewModels
             {
                 Name = I18n.GetString("Template_Preview_UnnamedRule"),
                 DisplayPath = "{Documents}",
+                FileMatchList = string.Empty,
                 ConfidenceText = "0.80",
                 AutoAdd = true
             });
@@ -435,6 +444,7 @@ namespace FolderRewind.ViewModels
                     Id = item.Id,
                     Name = item.Name,
                     DisplayPath = item.DisplayPath,
+                    FileMatchList = item.FileMatchList,
                     ConfidenceText = item.Confidence.ToString("0.00", CultureInfo.InvariantCulture),
                     AutoAdd = item.AutoAdd
                 });
@@ -451,6 +461,7 @@ namespace FolderRewind.ViewModels
                 Id = rule.Id,
                 Name = rule.Name,
                 DisplayPath = rule.DisplayPath,
+                FileMatchList = rule.FileMatchList,
                 Confidence = rule.GetConfidence(),
                 AutoAdd = rule.AutoAdd
             }).ToList();

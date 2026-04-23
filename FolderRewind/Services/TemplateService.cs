@@ -19,7 +19,6 @@ namespace FolderRewind.Services
         private const int ScanDepthLimit = 6;
         private const int ScanDirectoryLimit = 5000;
         private const int MarkerSearchDepth = 1;
-        private const double AutoSelectConfidenceThreshold = 0.8;
         public const string ShareFileExtension = ".frtemplate.json";
 
         private static readonly string[] KnownMarkerDirectories =
@@ -53,6 +52,7 @@ namespace FolderRewind.Services
 
         private static readonly Regex LongDigitsRegex = new("^[0-9]{8,20}$", RegexOptions.Compiled);
         private static readonly Regex LongHexRegex = new("^[0-9a-fA-F]{16,32}$", RegexOptions.Compiled);
+        private static readonly Regex DriveRootRegex = new("^[A-Za-z]:$", RegexOptions.Compiled);
 
         public sealed class CreateConfigFromTemplateResult
         {
@@ -110,6 +110,7 @@ namespace FolderRewind.Services
             public string Id { get; init; } = string.Empty;
             public string Name { get; init; } = string.Empty;
             public string DisplayPath { get; init; } = string.Empty;
+            public string FileMatchList { get; init; } = string.Empty;
             public double Confidence { get; init; }
             public bool AutoAdd { get; init; }
         }
@@ -131,9 +132,52 @@ namespace FolderRewind.Services
                 Id = rule.Id,
                 Name = rule.Name,
                 DisplayPath = rule.DisplayPath,
+                FileMatchList = string.Join(";",
+                    (rule.Markers ?? new ObservableCollection<TemplatePathMarker>())
+                        .Where(marker => marker?.Type == TemplatePathMarkerType.RequiredFile)
+                        .Select(marker => Path.GetFileName(marker?.Value ?? string.Empty))
+                        .Where(value => !string.IsNullOrWhiteSpace(value))
+                        .Distinct(StringComparer.OrdinalIgnoreCase)),
                 Confidence = rule.Confidence,
                 AutoAdd = rule.AutoAdd
             }).ToList();
+        }
+
+        public static IReadOnlyList<TemplateRuleSyntaxHelpItem> GetRuleSyntaxHelpItems()
+        {
+            return new[]
+            {
+                new TemplateRuleSyntaxHelpItem
+                {
+                    Title = I18n.GetString("Template_SyntaxHelp_Variables_Title"),
+                    Description = I18n.GetString("Template_SyntaxHelp_Variables_Description"),
+                    Example = I18n.GetString("Template_SyntaxHelp_Variables_Example")
+                },
+                new TemplateRuleSyntaxHelpItem
+                {
+                    Title = I18n.GetString("Template_SyntaxHelp_Wildcard_Title"),
+                    Description = I18n.GetString("Template_SyntaxHelp_Wildcard_Description"),
+                    Example = I18n.GetString("Template_SyntaxHelp_Wildcard_Example")
+                },
+                new TemplateRuleSyntaxHelpItem
+                {
+                    Title = I18n.GetString("Template_SyntaxHelp_Process_Title"),
+                    Description = I18n.GetString("Template_SyntaxHelp_Process_Description"),
+                    Example = I18n.GetString("Template_SyntaxHelp_Process_Example")
+                },
+                new TemplateRuleSyntaxHelpItem
+                {
+                    Title = I18n.GetString("Template_SyntaxHelp_Root_Title"),
+                    Description = I18n.GetString("Template_SyntaxHelp_Root_Description"),
+                    Example = I18n.GetString("Template_SyntaxHelp_Root_Example")
+                },
+                new TemplateRuleSyntaxHelpItem
+                {
+                    Title = I18n.GetString("Template_SyntaxHelp_FileMatch_Title"),
+                    Description = I18n.GetString("Template_SyntaxHelp_FileMatch_Description"),
+                    Example = I18n.GetString("Template_SyntaxHelp_FileMatch_Example")
+                }
+            };
         }
 
         public static ConfigTemplate? GetTemplateById(string? templateId)
@@ -465,7 +509,6 @@ namespace FolderRewind.Services
             {
                 // 规则按置信度从高到低展开，尽量让更像“标准存档路径”的结果排在前面。
                 var resolvedPaths = ResolveRulePaths(rule).ToList();
-                var canAutoSelect = rule.AutoAdd && rule.Confidence >= AutoSelectConfidenceThreshold;
                 foreach (var path in resolvedPaths)
                 {
                     if (!folderPaths.Add(path))
@@ -480,7 +523,7 @@ namespace FolderRewind.Services
                         RuleName = string.IsNullOrWhiteSpace(rule.Name) ? I18n.GetString("Template_Preview_UnnamedRule") : rule.Name,
                         MarkerSummary = BuildMarkerSummary(rule.Markers),
                         Confidence = rule.Confidence,
-                        IsSelectedByDefault = canAutoSelect
+                        IsSelectedByDefault = rule.AutoAdd
                     });
                 }
             }
@@ -1298,8 +1341,9 @@ namespace FolderRewind.Services
             // 规则允许枚举目录，必须限流，避免在超大目录树里无限扩散。
             var scannedDirectories = 0;
 
-            foreach (var segment in rule.Segments)
+            for (int i = 0; i < rule.Segments.Count; i++)
             {
+                var segment = rule.Segments[i];
                 if (segment == null)
                 {
                     continue;
@@ -1309,6 +1353,10 @@ namespace FolderRewind.Services
 
                 switch (segment.Type)
                 {
+                    case TemplatePathSegmentType.RootPath:
+                        next.AddRange(ResolveRootPath(segment.Value));
+                        break;
+
                     case TemplatePathSegmentType.Placeholder:
                         var placeholders = ResolvePlaceholderPaths(segment.Value);
                         if (placeholders.Count == 0)
@@ -1352,6 +1400,16 @@ namespace FolderRewind.Services
                     case TemplatePathSegmentType.EnumerateDirectory:
                         foreach (var basePath in current)
                         {
+                            if (string.IsNullOrWhiteSpace(basePath))
+                            {
+                                foreach (var root in GetReadyDriveRoots())
+                                {
+                                    next.Add(root);
+                                }
+
+                                continue;
+                            }
+
                             if (!Directory.Exists(basePath))
                             {
                                 continue;
@@ -1491,19 +1549,27 @@ namespace FolderRewind.Services
                 
                 var existingRule = template.PathRules?
                     .FirstOrDefault(rule => string.Equals(rule.Id, item.Id, StringComparison.OrdinalIgnoreCase));
+                if (!TryBuildRuleMarkers(item.FileMatchList, out var requiredFileMarkers, out var invalidFileMatch))
+                {
+                    message = I18n.Format("Template_Manager_PathRuleFileMatchInvalid", invalidFileMatch ?? string.Empty);
+                    return false;
+                }
+
+                var mergedMarkers = new ObservableCollection<TemplatePathMarker>(
+                    (existingRule?.Markers?.AsEnumerable() ?? Array.Empty<TemplatePathMarker>())
+                        .Where(marker => marker != null && marker.Type != TemplatePathMarkerType.RequiredFile)
+                        .Select(CloneMarker));
+                foreach (var marker in requiredFileMarkers)
+                {
+                    mergedMarkers.Add(marker);
+                }
 
                 rules.Add(new TemplatePathRule
                 {
                     Id = string.IsNullOrWhiteSpace(item.Id) ? Guid.NewGuid().ToString("N") : item.Id,
                     Name = item.Name?.Trim() ?? string.Empty,
                     Segments = segments,
-                    Markers = existingRule?.Markers != null
-                        ? new ObservableCollection<TemplatePathMarker>(existingRule.Markers.Select(marker => new TemplatePathMarker
-                        {
-                            Type = marker.Type,
-                            Value = marker.Value
-                        }))
-                        : new ObservableCollection<TemplatePathMarker>(),
+                    Markers = mergedMarkers,
                     Confidence = Math.Clamp(item.Confidence, 0.0, 1.0),
                     AutoAdd = item.AutoAdd
                 });
@@ -1520,6 +1586,44 @@ namespace FolderRewind.Services
             template.UpdatedUtc = DateTime.UtcNow;
             ConfigService.Save();
             message = I18n.GetString("Template_Manager_PathRulesUpdated");
+            return true;
+        }
+
+        private static bool TryBuildRuleMarkers(
+            string? fileMatchList,
+            out ObservableCollection<TemplatePathMarker> markers,
+            out string? invalidFileMatch)
+        {
+            markers = new ObservableCollection<TemplatePathMarker>();
+            invalidFileMatch = null;
+
+            var added = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+            foreach (var rawPart in (fileMatchList ?? string.Empty).Split(';', StringSplitOptions.TrimEntries))
+            {
+                var value = rawPart?.Trim() ?? string.Empty;
+                if (string.IsNullOrWhiteSpace(value))
+                {
+                    continue;
+                }
+
+                if (!IsValidFileMatchToken(value))
+                {
+                    invalidFileMatch = value;
+                    return false;
+                }
+
+                if (!added.Add(value))
+                {
+                    continue;
+                }
+
+                markers.Add(new TemplatePathMarker
+                {
+                    Type = TemplatePathMarkerType.RequiredFile,
+                    Value = value
+                });
+            }
+
             return true;
         }
 
@@ -1611,6 +1715,42 @@ namespace FolderRewind.Services
             return Path.Combine(basePath, segment);
         }
 
+        private static IReadOnlyList<string> ResolveRootPath(string? value)
+        {
+            if (string.IsNullOrWhiteSpace(value))
+            {
+                return Array.Empty<string>();
+            }
+
+            var normalized = value.Trim();
+            if (!DriveRootRegex.IsMatch(normalized))
+            {
+                return Array.Empty<string>();
+            }
+
+            var root = normalized.ToUpperInvariant() + Path.DirectorySeparatorChar;
+            return Directory.Exists(root)
+                ? new[] { root }
+                : Array.Empty<string>();
+        }
+
+        private static IReadOnlyList<string> GetReadyDriveRoots()
+        {
+            try
+            {
+                return DriveInfo.GetDrives()
+                    .Where(drive => drive.IsReady)
+                    .Select(drive => drive.RootDirectory.FullName)
+                    .Where(path => !string.IsNullOrWhiteSpace(path))
+                    .Distinct(StringComparer.OrdinalIgnoreCase)
+                    .ToList();
+            }
+            catch
+            {
+                return Array.Empty<string>();
+            }
+        }
+
         private static int GetRelativeDepth(string parent, string child)
         {
             try
@@ -1677,6 +1817,15 @@ namespace FolderRewind.Services
             return clone;
         }
 
+        private static TemplatePathMarker CloneMarker(TemplatePathMarker marker)
+        {
+            return new TemplatePathMarker
+            {
+                Type = marker.Type,
+                Value = marker.Value
+            };
+        }
+
         private static bool IsSensitiveSegment(string value, string userName, string userProfileName)
         {
             if (string.IsNullOrWhiteSpace(value))
@@ -1727,8 +1876,19 @@ namespace FolderRewind.Services
             }
 
             // DisplayPath 语法只允许三类：静态目录、{占位符}、{Process:xxx.exe}。
-            foreach (var part in parts)
+            for (int index = 0; index < parts.Count; index++)
             {
+                var part = parts[index];
+                if (index == 0 && TryParseDriveRoot(part, out var driveRoot))
+                {
+                    segments.Add(new TemplatePathSegment
+                    {
+                        Type = TemplatePathSegmentType.RootPath,
+                        Value = driveRoot
+                    });
+                    continue;
+                }
+
                 if (part.StartsWith("{", StringComparison.Ordinal) && part.EndsWith("}", StringComparison.Ordinal) && part.Length > 2)
                 {
                     var token = part[1..^1].Trim();
@@ -1773,6 +1933,24 @@ namespace FolderRewind.Services
             }
 
             return segments.Count > 0;
+        }
+
+        private static bool TryParseDriveRoot(string? part, out string driveRoot)
+        {
+            driveRoot = string.Empty;
+            if (string.IsNullOrWhiteSpace(part))
+            {
+                return false;
+            }
+
+            var normalized = part.Trim();
+            if (!DriveRootRegex.IsMatch(normalized))
+            {
+                return false;
+            }
+
+            driveRoot = normalized.ToUpperInvariant();
+            return true;
         }
 
         private static bool IsKnownPlaceholderToken(string token)
@@ -1820,6 +1998,27 @@ namespace FolderRewind.Services
             }
 
             return true;
+        }
+
+        private static bool IsValidFileMatchToken(string value)
+        {
+            if (string.IsNullOrWhiteSpace(value))
+            {
+                return false;
+            }
+
+            var normalized = value.Trim();
+            if (!string.Equals(Path.GetFileName(normalized), normalized, StringComparison.Ordinal))
+            {
+                return false;
+            }
+
+            if (normalized.IndexOfAny(Path.GetInvalidFileNameChars()) >= 0)
+            {
+                return false;
+            }
+
+            return normalized.IndexOfAny(new[] { '*', '?', '\\', '/' }) < 0;
         }
 
         private static bool ExistsInDirectoryTree(string rootPath, string name, bool isDirectory, int maxDepth)

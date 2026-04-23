@@ -192,6 +192,7 @@ namespace FolderRewind.ViewModels
                 if (!string.IsNullOrWhiteSpace(result.ErrorMessage))
                 {
                     StatusMessage = result.ErrorMessage;
+                    NotificationService.ShowError(result.ErrorMessage, I18n.GetString("PluginStorePage_Title.Text"));
                     return;
                 }
 
@@ -252,6 +253,11 @@ namespace FolderRewind.ViewModels
                 {
                     PluginService.RefreshInstalledList();
                     item.IsInstalled = true;
+                    NotificationService.ShowSuccess(res.Message, I18n.GetString("PluginStorePage_Title.Text"));
+                }
+                else
+                {
+                    NotificationService.ShowError(res.Message, I18n.GetString("PluginStorePage_Title.Text"));
                 }
             }
             catch (OperationCanceledException)
@@ -261,6 +267,7 @@ namespace FolderRewind.ViewModels
             catch (Exception ex)
             {
                 item.Status = ex.Message;
+                NotificationService.ShowError(ex.Message, I18n.GetString("PluginStorePage_Title.Text"));
             }
             finally
             {

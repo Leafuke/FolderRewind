@@ -11,7 +11,8 @@ namespace FolderRewind.Models
         Static = 0,
         Placeholder = 1,
         EnumerateDirectory = 2,
-        ProcessDirectory = 3
+        ProcessDirectory = 3,
+        RootPath = 4
     }
 
     public enum TemplatePathMarkerType
@@ -85,6 +86,7 @@ namespace FolderRewind.Models
                 TemplatePathSegmentType.Placeholder => "{" + segment.Value + "}",
                 TemplatePathSegmentType.ProcessDirectory => "{Process:" + segment.Value + "}",
                 TemplatePathSegmentType.EnumerateDirectory => "{" + (string.IsNullOrWhiteSpace(segment.Value) ? "*" : segment.Value) + "}",
+                TemplatePathSegmentType.RootPath => segment.Value,
                 _ => segment.Value
             };
         }
@@ -193,6 +195,17 @@ namespace FolderRewind.Models
         public string MatchSummary { get => _matchSummary; set => SetProperty(ref _matchSummary, value ?? string.Empty); }
         public string SamplePath { get => _samplePath; set => SetProperty(ref _samplePath, value ?? string.Empty); }
         public string MarkerSummary { get => _markerSummary; set => SetProperty(ref _markerSummary, value ?? string.Empty); }
+    }
+
+    public class TemplateRuleSyntaxHelpItem : ObservableObject
+    {
+        private string _title = string.Empty;
+        private string _description = string.Empty;
+        private string _example = string.Empty;
+
+        public string Title { get => _title; set => SetProperty(ref _title, value ?? string.Empty); }
+        public string Description { get => _description; set => SetProperty(ref _description, value ?? string.Empty); }
+        public string Example { get => _example; set => SetProperty(ref _example, value ?? string.Empty); }
     }
 
     public class TemplateShareEnvelope
