@@ -74,7 +74,7 @@
             AutomationProperties.HeadingLevel="Level1"
             Style="{ThemeResource TitleTextBlockStyle}" />
 
-        <ScrollViewer Grid.Row="1" Padding="36,0,36,36" VerticalScrollBarVisibility="Auto">
+        <ScrollViewer x:Name="SettingsScrollViewer" Grid.Row="1" Padding="36,0,36,36" VerticalScrollBarVisibility="Auto">
             <StackPanel HorizontalAlignment="Stretch" Spacing="{StaticResource SettingsCardSpacing}">
                 <StackPanel.ChildrenTransitions>
                     <RepositionThemeTransition IsStaggeringEnabled="False" />
@@ -133,15 +133,6 @@
                             </ComboBox>
                         </toolkit:SettingsCard>
 
-                        <toolkit:SettingsCard>
-                            <toolkit:SettingsCard.Header>
-                                <TextBlock x:Uid="SettingsPage_CloseBehavior_Remember_Header" Style="{StaticResource SettingsHeaderTextStyle}" />
-                            </toolkit:SettingsCard.Header>
-                            <toolkit:SettingsCard.Description>
-                                <TextBlock x:Uid="SettingsPage_CloseBehavior_Remember_Desc" Style="{StaticResource SettingsDescriptionStyle}" />
-                            </toolkit:SettingsCard.Description>
-                            <ToggleSwitch IsOn="{x:Bind Settings.RememberCloseBehavior, Mode=TwoWay}" Toggled="OnRememberCloseBehaviorToggled" />
-                        </toolkit:SettingsCard>
                     </toolkit:SettingsExpander.Items>
                 </toolkit:SettingsExpander>
 
@@ -695,6 +686,44 @@
                                 <TextBlock x:Uid="SettingsPage_PluginsAutoCheckUpdatesDesc" Style="{StaticResource SettingsDescriptionStyle}" />
                             </toolkit:SettingsCard.Description>
                             <ToggleSwitch IsOn="{x:Bind Settings.Plugins.AutoCheckUpdates, Mode=TwoWay}" Toggled="OnPluginsAutoCheckUpdatesToggled" />
+                        </toolkit:SettingsCard>
+
+                        <toolkit:SettingsCard x:Name="MinecraftPresetCard" ContentAlignment="Vertical" HorizontalContentAlignment="Stretch">
+                            <toolkit:SettingsCard.Header>
+                                <TextBlock x:Uid="SettingsPage_MinecraftPreset" Style="{StaticResource SettingsHeaderTextStyle}" />
+                            </toolkit:SettingsCard.Header>
+                            <toolkit:SettingsCard.Description>
+                                <TextBlock x:Uid="SettingsPage_MinecraftPresetDesc" Style="{StaticResource SettingsDescriptionStyle}" />
+                            </toolkit:SettingsCard.Description>
+                            <Grid ColumnSpacing="12" RowSpacing="8">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*" />
+                                    <ColumnDefinition Width="Auto" />
+                                </Grid.ColumnDefinitions>
+                                <Grid.RowDefinitions>
+                                    <RowDefinition Height="Auto" />
+                                    <RowDefinition Height="Auto" />
+                                </Grid.RowDefinitions>
+
+                                <StackPanel Spacing="4">
+                                    <TextBlock x:Uid="SettingsPage_MinecraftPresetSteps" Style="{StaticResource SettingsDescriptionStyle}" />
+                                    <TextBlock x:Uid="SettingsPage_MinecraftPresetModReminder" Style="{StaticResource SettingsDescriptionStyle}" />
+                                    <TextBlock Text="{x:Bind MinecraftPresetStatusText, Mode=OneWay}"
+                                               Style="{StaticResource SettingsDescriptionStyle}"
+                                               Visibility="{x:Bind MinecraftPresetStatusText, Mode=OneWay, Converter={StaticResource StringNullOrEmptyToVisConverter}}" />
+                                </StackPanel>
+
+                                <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
+                                    <ProgressRing Width="20"
+                                                  Height="20"
+                                                  IsActive="{x:Bind IsMinecraftPresetInstallRunning, Mode=OneWay}"
+                                                  Visibility="{x:Bind IsMinecraftPresetInstallRunning, Mode=OneWay, Converter={StaticResource BoolToVisConverter}}" />
+                                    <Button x:Uid="SettingsPage_MinecraftPresetInstall"
+                                            Style="{StaticResource SettingsActionButtonStyle}"
+                                            Command="{x:Bind InstallMinecraftPresetCommand}"
+                                            IsEnabled="{x:Bind IsMinecraftPresetInstallIdle, Mode=OneWay}" />
+                                </StackPanel>
+                            </Grid>
                         </toolkit:SettingsCard>
 
                         <toolkit:SettingsCard ContentAlignment="Vertical" HorizontalContentAlignment="Stretch">

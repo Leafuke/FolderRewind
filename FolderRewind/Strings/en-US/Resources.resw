@@ -1035,6 +1035,21 @@ Duplicate folder names are blocked within the same configuration so different di
   <data name="SettingsPage_PluginsAutoCheckUpdatesDesc.Text" xml:space="preserve">
     <value>Automatically check for plugin updates when the app starts</value>
   </data>
+  <data name="SettingsPage_MinecraftPreset.Text" xml:space="preserve">
+    <value>Minecraft starter preset</value>
+  </data>
+  <data name="SettingsPage_MinecraftPresetDesc.Text" xml:space="preserve">
+    <value>Automatically install and enable MineRewind, turn on KnotLink, and launch the KnotLink server installer for Minecraft players.</value>
+  </data>
+  <data name="SettingsPage_MinecraftPresetSteps.Text" xml:space="preserve">
+    <value>This downloads the MineRewind plugin, enables the plugin system, turns on KnotLink, and runs the KnotLink server installer.</value>
+  </data>
+  <data name="SettingsPage_MinecraftPresetModReminder.Text" xml:space="preserve">
+    <value>After this, install MineBackup-Mod for Minecraft to use in-game commands with FolderRewind.</value>
+  </data>
+  <data name="SettingsPage_MinecraftPresetInstall.Content" xml:space="preserve">
+    <value>Install preset</value>
+  </data>
   <data name="SettingsPage_PluginUpdate.Content" xml:space="preserve">
     <value>Update</value>
   </data>
@@ -2011,12 +2026,6 @@ Comment: {1}
   <data name="SettingsPage_HistoryStatusColorsDesc.Text" xml:space="preserve">
     <value>Use different colors in History to distinguish OK vs missing entries (can also be toggled on the History page).</value>
   </data>
-  <data name="SettingsPage_CloseBehavior_Remember_Desc.Text" xml:space="preserve">
-    <value>Remember close window choice</value>
-  </data>
-  <data name="SettingsPage_CloseBehavior_Remember_Header.Text" xml:space="preserve">
-    <value>Remember my choice</value>
-  </data>
   <data name="HistoryPage_ViewButton.ToolTipService.ToolTip" xml:space="preserve">
     <value>View in Explorer</value>
   </data>
@@ -2699,10 +2708,55 @@ Status: {3}</value>
     <value>Minecraft folder detected</value>
   </data>
   <data name="FolderManager_MineRewindHint_Content" xml:space="preserve">
-    <value>You may be adding a Minecraft save folder (.minecraft or level.dat detected). For a better backup workflow, consider installing the MineRewind plugin.</value>
+    <value>You may be adding a Minecraft save folder (.minecraft or level.dat detected). Use the Minecraft starter preset to install MineRewind, enable KnotLink, and launch the KnotLink server installer.</value>
   </data>
   <data name="FolderManager_MineRewindHint_OpenDownload" xml:space="preserve">
-    <value>Download MineRewind</value>
+    <value>Open starter preset</value>
+  </data>
+  <data name="FolderManager_MineRewindHint_SettingsFallback" xml:space="preserve">
+    <value>Open Settings and use the Minecraft starter preset in the plugins section.</value>
+  </data>
+  <data name="MinecraftOnboarding_Title" xml:space="preserve">
+    <value>Minecraft starter preset</value>
+  </data>
+  <data name="MinecraftOnboarding_Status_Start" xml:space="preserve">
+    <value>Preparing the Minecraft starter preset...</value>
+  </data>
+  <data name="MinecraftOnboarding_Status_EnablePluginSystem" xml:space="preserve">
+    <value>Enabling the plugin system...</value>
+  </data>
+  <data name="MinecraftOnboarding_Status_DownloadMineRewind" xml:space="preserve">
+    <value>Downloading and installing MineRewind...</value>
+  </data>
+  <data name="MinecraftOnboarding_Status_EnableMineRewind" xml:space="preserve">
+    <value>Enabling the MineRewind plugin...</value>
+  </data>
+  <data name="MinecraftOnboarding_Status_EnableKnotLink" xml:space="preserve">
+    <value>Turning on KnotLink...</value>
+  </data>
+  <data name="MinecraftOnboarding_Status_DownloadKnotLink" xml:space="preserve">
+    <value>Downloading the KnotLink server installer...</value>
+  </data>
+  <data name="MinecraftOnboarding_Status_RunKnotLinkInstaller" xml:space="preserve">
+    <value>Launching the KnotLink server installer...</value>
+  </data>
+  <data name="MinecraftOnboarding_Success" xml:space="preserve">
+    <value>The Minecraft starter preset is complete. Install MineBackup-Mod for Minecraft next to use in-game commands with FolderRewind.</value>
+  </data>
+  <data name="MinecraftOnboarding_Failed" xml:space="preserve">
+    <value>Failed to install the Minecraft starter preset: {0}</value>
+  </data>
+  <data name="MinecraftOnboarding_KnotLinkInstallerMissing" xml:space="preserve">
+    <value>The KnotLink server installer was not found.</value>
+  </data>
+  <data name="MinecraftOnboarding_MineRewindFailed_Log" xml:space="preserve">
+    <value>[MinecraftOnboarding] MineRewind install failed: {0}</value>
+  </data>
+  <data name="MinecraftOnboarding_Canceled_Log" xml:space="preserve">
+    <value>[MinecraftOnboarding] The user canceled or the task was canceled.</value>
+  </data>
+  <data name="MinecraftOnboarding_KnotLinkInstallerStarted_Log" xml:space="preserve">
+    <value>[MinecraftOnboarding] Started the KnotLink server installer: {0}</value>
   </data>
   <data name="Encryption_SetPasswordTitle" xml:space="preserve">
     <value>Set Encryption Password</value>

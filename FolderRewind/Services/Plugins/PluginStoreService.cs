@@ -109,5 +109,29 @@ namespace FolderRewind.Services.Plugins
                 return (false, string.Format(_rl.GetString("PluginStore_DownloadInstallFailed"), ex.Message));
             }
         }
+
+        public static async Task<(bool Success, string Message)> DownloadAndInstallLatestZipAsync(
+            string owner,
+            string repo,
+            Func<PluginStoreAssetItem, bool>? assetPredicate = null,
+            CancellationToken ct = default)
+        {
+            var release = await GetLatestAssetsAsync(owner, repo, ct);
+            if (!string.IsNullOrWhiteSpace(release.ErrorMessage))
+            {
+                return (false, release.ErrorMessage);
+            }
+
+            var zipAsset = release.Items
+                .Where(item => item.Name.EndsWith(".zip", StringComparison.OrdinalIgnoreCase))
+                .FirstOrDefault(item => assetPredicate?.Invoke(item) ?? true);
+
+            if (zipAsset == null)
+            {
+                return (false, _rl.GetString("PluginStore_OnlyZipSupported"));
+            }
+
+            return await DownloadAndInstallAsync(zipAsset, ct);
+        }
     }
 }

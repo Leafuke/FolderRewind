@@ -124,7 +124,7 @@ namespace FolderRewind.Models
         private bool _enableNotices = true;
         private string _noticeLastSeenVersion = "";
         private bool _enableUpdateReminder = true;
-        private int _appUpdatePreferredSource = 1; // 0=Official, 1=Mirror1, 2=Mirror2, 3=Custom
+        private int _appUpdatePreferredSource = 0; // 0=Official, 1=Mirror1, 2=Mirror2, 3=Custom
         private bool _appUpdateAutoFallback = true;
         private string _appUpdateCustomMirrorUrl = "";
         private bool _hasMigratedDownloadSourcePreference = false;

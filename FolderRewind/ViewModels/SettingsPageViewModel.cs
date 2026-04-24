@@ -1,3 +1,4 @@
+using CommunityToolkit.Mvvm.Input;
 using FolderRewind.Models;
 using FolderRewind.Services;
 using FolderRewind.Services.Hotkeys;
@@ -18,6 +19,8 @@ namespace FolderRewind.ViewModels
         private bool _pluginsRefreshed;
         private bool _pluginsRefreshing;
         private bool _fontFamiliesLoading;
+        private bool _isMinecraftPresetInstallRunning;
+        private string _minecraftPresetStatusText = string.Empty;
         private static readonly object FontCacheLock = new();
         private static IReadOnlyList<string>? _cachedInstalledFontFamilies;
 
@@ -52,6 +55,31 @@ namespace FolderRewind.ViewModels
         public ObservableCollection<string> FontFamilies { get; } = new();
 
         public ObservableCollection<object> HotkeyBindingsView { get; } = new();
+
+        public IAsyncRelayCommand InstallMinecraftPresetCommand { get; }
+
+        public bool IsMinecraftPresetInstallRunning
+        {
+            get => _isMinecraftPresetInstallRunning;
+            private set
+            {
+                if (!SetProperty(ref _isMinecraftPresetInstallRunning, value))
+                {
+                    return;
+                }
+
+                OnPropertyChanged(nameof(IsMinecraftPresetInstallIdle));
+                InstallMinecraftPresetCommand.NotifyCanExecuteChanged();
+            }
+        }
+
+        public bool IsMinecraftPresetInstallIdle => !IsMinecraftPresetInstallRunning;
+
+        public string MinecraftPresetStatusText
+        {
+            get => _minecraftPresetStatusText;
+            private set => SetProperty(ref _minecraftPresetStatusText, value ?? string.Empty);
+        }
 
         public string KnotLinkStatusMessage
         {
@@ -89,6 +117,13 @@ namespace FolderRewind.ViewModels
         public string CoreValidationLastSummaryText => string.IsNullOrWhiteSpace(Settings.LastCoreValidationSummary)
             ? I18n.GetString("CoreValidation_LastSummary_None")
             : Settings.LastCoreValidationSummary;
+
+        public SettingsPageViewModel()
+        {
+            InstallMinecraftPresetCommand = new AsyncRelayCommand(
+                async () => { await InstallMinecraftPresetAsync(); },
+                () => IsMinecraftPresetInstallIdle);
+        }
 
         public void Initialize()
         {
@@ -441,6 +476,41 @@ namespace FolderRewind.ViewModels
             }
 
             PluginService.SetPluginEnabled(pluginId, isOn);
+        }
+
+        public async Task<MinecraftOnboardingResult> InstallMinecraftPresetAsync()
+        {
+            if (IsMinecraftPresetInstallRunning)
+            {
+                return new MinecraftOnboardingResult
+                {
+                    Success = false,
+                    Message = MinecraftPresetStatusText
+                };
+            }
+
+            IsMinecraftPresetInstallRunning = true;
+            MinecraftPresetStatusText = I18n.GetString("MinecraftOnboarding_Status_Start");
+
+            try
+            {
+                var progress = new Progress<string>(status =>
+                {
+                    MinecraftPresetStatusText = status;
+                });
+
+                var result = await MinecraftOnboardingService.InstallPresetAsync(progress);
+                MinecraftPresetStatusText = result.Message;
+
+                OnPropertyChanged(nameof(Settings));
+                OnPropertyChanged(nameof(InstalledPlugins));
+                UpdateKnotLinkStatus();
+                return result;
+            }
+            finally
+            {
+                IsMinecraftPresetInstallRunning = false;
+            }
         }
 
         public void HandleKnotLinkToggled(bool isOn)
