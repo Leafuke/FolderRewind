@@ -591,12 +591,6 @@
   <data name="Config_OpenPath_Failed" xml:space="preserve">
     <value>打开路径失败：{0}</value>
   </data>
-  <data name="ConfigSettingsDialog_General.Header" xml:space="preserve">
-    <value>常规</value>
-  </data>
-  <data name="ConfigSettingsDialog_General.Text" xml:space="preserve">
-    <value>常规</value>
-  </data>
   <data name="ConfigSettingsDialog_ConfigName.Header" xml:space="preserve">
     <value>配置名称</value>
   </data>
@@ -732,12 +726,6 @@
   <data name="ConfigSettingsDialog_VerifyArchiveBeforeRestore.OffContent" xml:space="preserve">
     <value>已关闭 - 直接进入还原流程</value>
   </data>
-  <data name="ConfigSettingsDialog_Automation.Header" xml:space="preserve">
-    <value>自动化</value>
-  </data>
-  <data name="ConfigSettingsDialog_Automation.Text" xml:space="preserve">
-    <value>自动化</value>
-  </data>
   <data name="ConfigSettingsDialog_AutoBackup.Header" xml:space="preserve">
     <value>启用自动备份</value>
   </data>
@@ -774,12 +762,6 @@
   <data name="ConfigSettingsDialog_ConditionRelativePathPlaceholder.PlaceholderText" xml:space="preserve">
     <value>例如：session.lock</value>
   </data>
-  <data name="ConfigSettingsDialog_Filter.Header" xml:space="preserve">
-    <value>过滤</value>
-  </data>
-  <data name="ConfigSettingsDialog_Filter.Text" xml:space="preserve">
-    <value>过滤</value>
-  </data>
   <data name="ConfigSettingsDialog_Blacklist.Text" xml:space="preserve">
     <value>黑名单 (排除的文件/文件夹)</value>
   </data>
@@ -803,18 +785,6 @@
   </data>
   <data name="ConfigSettingsDialog_AddRestoreWhitelist.Content" xml:space="preserve">
     <value>添加</value>
-  </data>
-  <data name="ConfigSettingsDialog_BackupStrategy.Header" xml:space="preserve">
-    <value>备份</value>
-  </data>
-  <data name="ConfigSettingsDialog_BackupStrategy.Text" xml:space="preserve">
-    <value>备份</value>
-  </data>
-  <data name="ConfigSettingsDialog_RestoreStrategy.Header" xml:space="preserve">
-    <value>还原</value>
-  </data>
-  <data name="ConfigSettingsDialog_RestoreStrategy.Text" xml:space="preserve">
-    <value>还原</value>
   </data>
   <data name="ConfigSettingsDialog_MaxSmartChain.Header" xml:space="preserve">
     <value>智能备份链长度 (0 为不限制)</value>
@@ -1064,6 +1034,21 @@
   </data>
   <data name="SettingsPage_PluginsAutoCheckUpdatesDesc.Text" xml:space="preserve">
     <value>启动时自动检查已安装插件的更新</value>
+  </data>
+  <data name="SettingsPage_MinecraftPreset.Text" xml:space="preserve">
+    <value>Minecraft 入门预设</value>
+  </data>
+  <data name="SettingsPage_MinecraftPresetDesc.Text" xml:space="preserve">
+    <value>为 Minecraft 玩家自动安装并启用 MineRewind，开启 KnotLink，并启动 KnotLink 服务端安装器。</value>
+  </data>
+  <data name="SettingsPage_MinecraftPresetSteps.Text" xml:space="preserve">
+    <value>将下载 MineRewind 插件、启用插件系统、开启 KnotLink，并自动运行 KnotLink 服务端安装器。</value>
+  </data>
+  <data name="SettingsPage_MinecraftPresetModReminder.Text" xml:space="preserve">
+    <value>完成后还需要为 Minecraft 安装 MineBackup-Mod，才能在游戏内用指令调用存档时光机。</value>
+  </data>
+  <data name="SettingsPage_MinecraftPresetInstall.Content" xml:space="preserve">
+    <value>一键安装</value>
   </data>
   <data name="SettingsPage_PluginUpdate.Content" xml:space="preserve">
     <value>更新</value>
@@ -2041,12 +2026,6 @@
   <data name="SettingsPage_HistoryStatusColorsDesc.Text" xml:space="preserve">
     <value>在历史记录页用不同颜色区分正常与失效记录（也可在历史页临时切换）。</value>
   </data>
-  <data name="SettingsPage_CloseBehavior_Remember_Desc.Text" xml:space="preserve">
-    <value>记忆关闭窗口选择</value>
-  </data>
-  <data name="SettingsPage_CloseBehavior_Remember_Header.Text" xml:space="preserve">
-    <value>记住我的选择</value>
-  </data>
   <data name="HistoryPage_ViewButton.ToolTipService.ToolTip" xml:space="preserve">
     <value>在资源管理器中查看</value>
   </data>
@@ -2729,10 +2708,55 @@
     <value>检测到 Minecraft 目录</value>
   </data>
   <data name="FolderManager_MineRewindHint_Content" xml:space="preserve">
-    <value>你可能在添加 Minecraft 存档目录（检测到 .minecraft 或 level.dat）。如果你想要更好的存档备份体验，建议安装 MineRewind 插件。</value>
+    <value>你可能在添加 Minecraft 存档目录（检测到 .minecraft 或 level.dat）。可以使用 Minecraft 入门预设自动安装 MineRewind、启用 KnotLink，并启动 KnotLink 服务端安装器。</value>
   </data>
   <data name="FolderManager_MineRewindHint_OpenDownload" xml:space="preserve">
-    <value>下载 MineRewind</value>
+    <value>打开入门预设</value>
+  </data>
+  <data name="FolderManager_MineRewindHint_SettingsFallback" xml:space="preserve">
+    <value>请打开设置页，在插件区域使用 Minecraft 入门预设。</value>
+  </data>
+  <data name="MinecraftOnboarding_Title" xml:space="preserve">
+    <value>Minecraft 入门预设</value>
+  </data>
+  <data name="MinecraftOnboarding_Status_Start" xml:space="preserve">
+    <value>正在准备 Minecraft 入门预设...</value>
+  </data>
+  <data name="MinecraftOnboarding_Status_EnablePluginSystem" xml:space="preserve">
+    <value>正在启用插件系统...</value>
+  </data>
+  <data name="MinecraftOnboarding_Status_DownloadMineRewind" xml:space="preserve">
+    <value>正在下载并安装 MineRewind...</value>
+  </data>
+  <data name="MinecraftOnboarding_Status_EnableMineRewind" xml:space="preserve">
+    <value>正在启用 MineRewind 插件...</value>
+  </data>
+  <data name="MinecraftOnboarding_Status_EnableKnotLink" xml:space="preserve">
+    <value>正在开启 KnotLink...</value>
+  </data>
+  <data name="MinecraftOnboarding_Status_DownloadKnotLink" xml:space="preserve">
+    <value>正在下载 KnotLink 服务端安装器...</value>
+  </data>
+  <data name="MinecraftOnboarding_Status_RunKnotLinkInstaller" xml:space="preserve">
+    <value>正在启动 KnotLink 服务端安装器...</value>
+  </data>
+  <data name="MinecraftOnboarding_Success" xml:space="preserve">
+    <value>Minecraft 入门预设已完成。请继续为 Minecraft 安装 MineBackup-Mod，即可在游戏内通过指令调用存档时光机。</value>
+  </data>
+  <data name="MinecraftOnboarding_Failed" xml:space="preserve">
+    <value>Minecraft 入门预设安装失败：{0}</value>
+  </data>
+  <data name="MinecraftOnboarding_KnotLinkInstallerMissing" xml:space="preserve">
+    <value>KnotLink 服务端安装器不存在。</value>
+  </data>
+  <data name="MinecraftOnboarding_MineRewindFailed_Log" xml:space="preserve">
+    <value>[MinecraftOnboarding] MineRewind 安装失败：{0}</value>
+  </data>
+  <data name="MinecraftOnboarding_Canceled_Log" xml:space="preserve">
+    <value>[MinecraftOnboarding] 用户取消或任务被取消。</value>
+  </data>
+  <data name="MinecraftOnboarding_KnotLinkInstallerStarted_Log" xml:space="preserve">
+    <value>[MinecraftOnboarding] 已启动 KnotLink 服务端安装器：{0}</value>
   </data>
   <data name="Encryption_SetPasswordTitle" xml:space="preserve">
     <value>设置加密密码</value>
@@ -2902,10 +2926,10 @@
     <value>启动应用时检查新版本，并按安装来源提供对应更新入口</value>
   </data>
   <data name="SettingsPage_AppUpdateSource.Text" xml:space="preserve">
-    <value>下载源</value>
+    <value>统一下载源</value>
   </data>
   <data name="SettingsPage_AppUpdateSourceDesc.Text" xml:space="preserve">
-    <value>用于应用更新、在线模板列表和模板文件下载的首选来源（商店版更新不受此项影响）</value>
+    <value>用于应用更新、插件商店、在线模板列表和模板文件下载的首选来源（商店版应用更新不受此项影响）</value>
   </data>
   <data name="SettingsPage_AppUpdateSource_Official.Content" xml:space="preserve">
     <value>官方 GitHub</value>
@@ -2923,13 +2947,13 @@
     <value>下载失败时自动切换源</value>
   </data>
   <data name="SettingsPage_AppUpdateAutoFallbackDesc.Text" xml:space="preserve">
-    <value>首选源失败后自动按顺序重试其他来源</value>
+    <value>首选源失败后自动按顺序重试其他镜像来源</value>
   </data>
   <data name="SettingsPage_AppUpdateCustomMirror.Text" xml:space="preserve">
     <value>自定义镜像地址</value>
   </data>
   <data name="SettingsPage_AppUpdateCustomMirrorDesc.Text" xml:space="preserve">
-    <value>可填写前缀，或使用 {url} 占位符拼接完整下载地址</value>
+    <value>可填写前缀，或使用 {url} 占位符拼接完整 GitHub/API 下载地址</value>
   </data>
   <data name="SettingsPage_AppUpdateCustomMirrorInput.PlaceholderText" xml:space="preserve">
     <value>例如：https://example.com/{url}</value>
@@ -3201,6 +3225,9 @@
   <data name="TemplateManagerDialog_PathRulesHeader.Text" xml:space="preserve">
     <value>路径匹配规则</value>
   </data>
+  <data name="TemplateManagerDialog_PathRulesGuideHeader.Text" xml:space="preserve">
+    <value>支持的变量与语法</value>
+  </data>
   <data name="TemplateManagerDialog_PathRulesHint.Text" xml:space="preserve">
     <value>支持直接编辑路径表达式，例如 {AppDataRoaming}\.minecraft\versions\{*}\saves\{*}、{SteamUserData}\{UserIdCandidate}\123456\remote，或 {Process:Plain Craft Launcher 2.exe}\.minecraft\versions\{*}\saves\{*}。{*} 可写在路径中间或末尾，表示展开这一层下的全部子文件夹后继续匹配；{Process:xxx.exe} 会先定位当前运行中进程的程序目录，再继续向下拼接。</value>
   </data>
@@ -3216,8 +3243,17 @@
   <data name="TemplateManagerDialog_PathRulePath.Text" xml:space="preserve">
     <value>路径表达式</value>
   </data>
+  <data name="TemplateManagerDialog_PathRuleFileMatch.Text" xml:space="preserve">
+    <value>标记（文件匹配列表）</value>
+  </data>
+  <data name="TemplateManagerDialog_PathRuleFileMatchDesc.Text" xml:space="preserve">
+    <value>多个文件名用 ; 分隔。只有路径命中且这些文件全部存在时，这条规则才算匹配成功。</value>
+  </data>
+  <data name="TemplateManagerDialog_PathRuleFileMatchInput.PlaceholderText" xml:space="preserve">
+    <value>例如：level.dat;session.lock</value>
+  </data>
   <data name="TemplateManagerDialog_PathRuleAuto.Content" xml:space="preserve">
-    <value>达到 80% 时默认勾选</value>
+    <value>默认勾选</value>
   </data>
   <data name="TemplateManagerDialog_PathRuleConfidence.Text" xml:space="preserve">
     <value>置信度（0-1）</value>
@@ -3245,6 +3281,9 @@
   </data>
   <data name="Template_Manager_PathRuleInvalid" xml:space="preserve">
     <value>路径表达式无效：{0}</value>
+  </data>
+  <data name="Template_Manager_PathRuleFileMatchInvalid" xml:space="preserve">
+    <value>文件匹配项无效：{0}</value>
   </data>
   <data name="Template_Manager_PathRulesUpdated" xml:space="preserve">
     <value>模板路径规则已更新。</value>
@@ -3308,6 +3347,51 @@
   </data>
   <data name="Template_Preview_MarkerSummary" xml:space="preserve">
     <value>标记：必需 {0}，可选 {1}</value>
+  </data>
+  <data name="Template_SyntaxHelp_Variables_Title" xml:space="preserve">
+    <value>常用变量</value>
+  </data>
+  <data name="Template_SyntaxHelp_Variables_Description" xml:space="preserve">
+    <value>可直接使用这些变量作为路径起点：{UserProfile}、{Documents}、{DocumentsMyGames}、{SavedGames}、{AppDataRoaming}、{AppDataLocal}、{AppDataLocalLow}、{ProgramData}、{SteamUserData}、{UserName}。</value>
+  </data>
+  <data name="Template_SyntaxHelp_Variables_Example" xml:space="preserve">
+    <value>示例：{AppDataRoaming}\GameName\Saves</value>
+  </data>
+  <data name="Template_SyntaxHelp_Wildcard_Title" xml:space="preserve">
+    <value>{*} 通配目录</value>
+  </data>
+  <data name="Template_SyntaxHelp_Wildcard_Description" xml:space="preserve">
+    <value>{*} 会展开当前层级下的所有子文件夹。它既可以写在路径中间，也可以连续使用；如果放在最前面，会先遍历所有已就绪的盘符。</value>
+  </data>
+  <data name="Template_SyntaxHelp_Wildcard_Example" xml:space="preserve">
+    <value>示例：{*}\{*}\.minecraft\versions\{*}\saves\{*}</value>
+  </data>
+  <data name="Template_SyntaxHelp_Process_Title" xml:space="preserve">
+    <value>进程目录</value>
+  </data>
+  <data name="Template_SyntaxHelp_Process_Description" xml:space="preserve">
+    <value>{Process:xxx.exe} 会先定位当前正在运行进程的程序目录，再继续向下匹配，适合启动器或便携版游戏。</value>
+  </data>
+  <data name="Template_SyntaxHelp_Process_Example" xml:space="preserve">
+    <value>示例：{Process:Plain Craft Launcher 2.exe}\.minecraft\versions\{*}\saves\{*}</value>
+  </data>
+  <data name="Template_SyntaxHelp_Root_Title" xml:space="preserve">
+    <value>显式盘符路径</value>
+  </data>
+  <data name="Template_SyntaxHelp_Root_Description" xml:space="preserve">
+    <value>现在可以直接从盘符根目录开始写表达式，例如 C:\...；也可以把盘符和通配目录混用。</value>
+  </data>
+  <data name="Template_SyntaxHelp_Root_Example" xml:space="preserve">
+    <value>示例：C:\{*}\.minecraft\versions\{*}\saves\{*}</value>
+  </data>
+  <data name="Template_SyntaxHelp_FileMatch_Title" xml:space="preserve">
+    <value>文件匹配列表</value>
+  </data>
+  <data name="Template_SyntaxHelp_FileMatch_Description" xml:space="preserve">
+    <value>为规则填写一个用 ; 分隔的文件名列表后，只有当目录命中且列表中的所有文件都存在时，这条规则才会被视为命中。</value>
+  </data>
+  <data name="Template_SyntaxHelp_FileMatch_Example" xml:space="preserve">
+    <value>示例：level.dat;session.lock</value>
   </data>
   <data name="Template_Preview_Summary" xml:space="preserve">
     <value>共 {1} 条规则，命中 {0} 条。</value>
@@ -3820,7 +3904,7 @@ Pull Request：{1}</value>
     <value>当前配置还没有可拉取的源文件夹。</value>
   </data>
   <data name="CloudSync_Notification_ConfigurationDownloadSucceeded" xml:space="preserve">
-    <value>已从云端拉回“{0}”的备份，并恢复了 {1} 条历史记录。</value>
+    <value>已为“{0}”拉回 {1} 个云端备份包。</value>
   </data>
   <data name="CloudSync_Notification_ConfigurationDownloadFailed" xml:space="preserve">
     <value>未能从云端拉取当前配置的备份。</value>
@@ -3921,6 +4005,9 @@ Pull Request：{1}</value>
   <data name="ConfigCloudSyncDialog_Status_Syncing" xml:space="preserve">
     <value>正在同步当前配置…</value>
   </data>
+  <data name="ConfigCloudSyncDialog_Status_Uploading" xml:space="preserve">
+    <value>正在上传当前配置的历史记录…</value>
+  </data>
   <data name="ConfigCloudSyncDialog_Analysis_Pending" xml:space="preserve">
     <value>尚未获得远端分析结果。</value>
   </data>
@@ -3946,7 +4033,7 @@ Pull Request：{1}</value>
     <value>已同步当前配置历史：新增 {0} 条，跳过重复 {1} 条。</value>
   </data>
   <data name="CloudSync_ConfigSync_HistoryAndBackupsSucceeded" xml:space="preserve">
-    <value>已同步当前配置历史与云备份：新增历史 {0} 条，跳过重复 {1} 条，并恢复/补齐了 {2} 条本地历史。</value>
+    <value>已同步当前配置历史与云备份：新增历史 {0} 条，跳过重复 {1} 条，并下载了 {2} 个备份包。</value>
   </data>
   <data name="CloudSync_ConfigSync_HistoryImportedBackupsFailed" xml:space="preserve">
     <value>历史记录已导入 {0} 条，但继续拉取云备份失败：{1}</value>
@@ -3964,7 +4051,7 @@ Pull Request：{1}</value>
     <value>关闭</value>
   </data>
   <data name="ConfigSettingsDialog_CloudSyncHistoryAfterUploadDesc.Text" xml:space="preserve">
-    <value>每次自动上传备份成功后，再额外把最新的 history.json 上传到当前远端基路径，方便其他设备按配置同步历史。</value>
+    <value>每次自动上传备份成功后，再额外合并上传当前配置的最新历史以及 active-history 清单，方便其他设备同步时避开那些已经在本地删除的旧云备份。</value>
   </data>
   <data name="SettingsPage_DefaultCloudRemoteBasePath.Text" xml:space="preserve">
     <value>默认远端基路径</value>
@@ -3983,6 +4070,66 @@ Pull Request：{1}</value>
   </data>
   <data name="CloudSync_Notification_HistorySyncSkippedLegacyMode" xml:space="preserve">
     <value>当前配置使用旧版自定义命令模式，无法自动同步 history.json。</value>
+  </data>
+  <data name="SettingsPage_AutoDownloadMissingCloudBackupsBeforeRestore.Text" xml:space="preserve">
+    <value>还原前自动下载缺失的云备份链</value>
+  </data>
+  <data name="SettingsPage_AutoDownloadMissingCloudBackupsBeforeRestoreDesc.Text" xml:space="preserve">
+    <value>如果选中的还原目标或其所需的增量链在本地不完整，先只补齐本次还原真正需要的云备份，再继续还原。</value>
+  </data>
+  <data name="HistoryPage_OpenCloudSync.Content" xml:space="preserve">
+    <value>云同步</value>
+  </data>
+  <data name="ConfigCloudSyncDialog_UploadHeader.Text" xml:space="preserve">
+    <value>同步当前配置到云端</value>
+  </data>
+  <data name="ConfigCloudSyncDialog_UploadDescription.Text" xml:space="preserve">
+    <value>上传当前配置的最新历史记录和 active-history 清单，让其他设备同步时不会把那些已在本地删除的旧云备份重新拉回来。</value>
+  </data>
+  <data name="ConfigCloudSyncDialog_UploadHistory.Content" xml:space="preserve">
+    <value>上传当前配置历史</value>
+  </data>
+  <data name="ConfigCloudSyncDialog_DownloadSync.Content" xml:space="preserve">
+    <value>从云同步</value>
+  </data>
+  <data name="CloudSync_Notification_ConfigurationHistoryUploadFailed" xml:space="preserve">
+    <value>上传当前配置的历史记录失败。</value>
+  </data>
+  <data name="CloudSync_Task_ConfigurationHistoryUploadName" xml:space="preserve">
+    <value>上传配置历史：{0}</value>
+  </data>
+  <data name="CloudSync_Task_UploadingConfigurationHistory" xml:space="preserve">
+    <value>正在上传配置历史…</value>
+  </data>
+  <data name="CloudSync_Task_UploadingActiveHistoryManifest" xml:space="preserve">
+    <value>正在上传 active-history 清单…</value>
+  </data>
+  <data name="CloudSync_Notification_ActiveHistoryManifestUploadFailedWithReason" xml:space="preserve">
+    <value>历史记录已上传，但 active-history 清单上传失败：{0}</value>
+  </data>
+  <data name="CloudSync_Notification_ConfigurationHistoryUploadFailedWithReason" xml:space="preserve">
+    <value>上传“{0}”的配置历史失败：{1}</value>
+  </data>
+  <data name="CloudSync_Notification_ConfigurationHistoryUploadSucceeded" xml:space="preserve">
+    <value>已将“{0}”当前历史上传到云端，共 {1} 条。</value>
+  </data>
+  <data name="CloudSync_Notification_RestoreChainUnavailable" xml:space="preserve">
+    <value>未能解析出本次还原所需的云端备份链。</value>
+  </data>
+  <data name="CloudSync_Notification_RestoreChainAlreadyAvailable" xml:space="preserve">
+    <value>本次还原所需的备份链已在本地齐全。</value>
+  </data>
+  <data name="CloudSync_Task_RestoreChainDownloadName" xml:space="preserve">
+    <value>下载还原链：{0}</value>
+  </data>
+  <data name="CloudSync_Notification_RestoreChainDownloadSucceeded" xml:space="preserve">
+    <value>已下载还原“{1}”所需的 {0} 个缺失备份包。</value>
+  </data>
+  <data name="CloudSync_Task_DownloadingConfigurationHistory" xml:space="preserve">
+    <value>正在下载配置历史…</value>
+  </data>
+  <data name="CloudSync_Task_DownloadingHistoryItem" xml:space="preserve">
+    <value>正在下载 {0}（{1}/{2}）…</value>
   </data>
   <data name="ProcessPathService_Log_QueryFailed" xml:space="preserve">
     <value>查询运行中的进程“{0}”失败：{1}</value>

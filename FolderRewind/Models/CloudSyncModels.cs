@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using System;
 
 namespace FolderRewind.Models
 {
@@ -50,5 +51,45 @@ namespace FolderRewind.Models
         public int RecoveredBackupCount { get; set; }
 
         public ConfigCloudHistoryAnalysisResult Analysis { get; set; } = new();
+    }
+
+    /// <summary>
+    /// 配置级历史上传结果。
+    /// </summary>
+    public sealed class ConfigCloudHistoryUploadResult
+    {
+        public bool Success { get; set; }
+
+        public string Message { get; set; } = string.Empty;
+
+        public int UploadedEntryCount { get; set; }
+
+        public int ReplacedRemoteEntryCount { get; set; }
+    }
+
+    /// <summary>
+    /// 当前配置在云端仍视为有效的历史清单。
+    /// 只用于过滤导入/下载范围，不会删除归档本体。
+    /// </summary>
+    public sealed class CloudActiveHistoryManifest
+    {
+        public string ConfigId { get; set; } = string.Empty;
+
+        public string ConfigName { get; set; } = string.Empty;
+
+        public DateTime UpdatedAtUtc { get; set; } = DateTime.UtcNow;
+
+        public List<CloudActiveHistoryEntry> Entries { get; set; } = [];
+    }
+
+    public sealed class CloudActiveHistoryEntry
+    {
+        public string FolderPath { get; set; } = string.Empty;
+
+        public string FolderName { get; set; } = string.Empty;
+
+        public string FileName { get; set; } = string.Empty;
+
+        public DateTime Timestamp { get; set; }
     }
 }

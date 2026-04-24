@@ -124,9 +124,25 @@
                             </StackPanel>
                         </Grid>
 
-                        <TextBlock x:Uid="TemplateManagerDialog_PathRulesHint"
-                                   Foreground="{ThemeResource TextFillColorSecondaryBrush}"
-                                   TextWrapping="Wrap" />
+                        <TextBlock x:Uid="TemplateManagerDialog_PathRulesGuideHeader"
+                                   Style="{ThemeResource BodyStrongTextBlockStyle}" />
+
+                        <ItemsControl ItemsSource="{x:Bind ViewModel.SyntaxHelpItems, Mode=OneWay}">
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate x:DataType="models:TemplateRuleSyntaxHelpItem">
+                                    <Border Margin="0,0,0,8"
+                                            Padding="10"
+                                            CornerRadius="8"
+                                            Background="{ThemeResource LayerFillColorDefaultBrush}">
+                                        <StackPanel Spacing="4">
+                                            <TextBlock Text="{x:Bind Title}" Style="{ThemeResource BodyStrongTextBlockStyle}" TextWrapping="Wrap" />
+                                            <TextBlock Text="{x:Bind Description}" Foreground="{ThemeResource TextFillColorSecondaryBrush}" TextWrapping="Wrap" />
+                                            <TextBlock Text="{x:Bind Example}" Foreground="{ThemeResource TextFillColorTertiaryBrush}" TextWrapping="Wrap" />
+                                        </StackPanel>
+                                    </Border>
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
 
                         <ItemsControl ItemsSource="{x:Bind ViewModel.EditablePathRules, Mode=OneWay}">
                             <ItemsControl.ItemTemplate>
@@ -155,6 +171,16 @@
                                             <StackPanel Spacing="4">
                                                 <TextBlock x:Uid="TemplateManagerDialog_PathRulePath" />
                                                 <TextBox Text="{x:Bind DisplayPath, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
+                                            </StackPanel>
+
+                                            <StackPanel Spacing="4">
+                                                <TextBlock x:Uid="TemplateManagerDialog_PathRuleFileMatch" />
+                                                <TextBlock x:Uid="TemplateManagerDialog_PathRuleFileMatchDesc"
+                                                           Style="{ThemeResource CaptionTextBlockStyle}"
+                                                           Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                                                           TextWrapping="Wrap" />
+                                                <TextBox x:Uid="TemplateManagerDialog_PathRuleFileMatchInput"
+                                                         Text="{x:Bind FileMatchList, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
                                             </StackPanel>
 
                                             <Grid ColumnSpacing="12">

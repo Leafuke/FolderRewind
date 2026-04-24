@@ -9,6 +9,8 @@ namespace FolderRewind.Services
 
     public static class NavigationService
     {
+        public const string SettingsMinecraftPresetTarget = "Settings.MinecraftPreset";
+
         private static readonly object SyncRoot = new();
         // 当前仅持有一个导航宿主（ShellPage），在宿主切换时允许被新实例覆盖。
         private static INavigationHost? _host;

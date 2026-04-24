@@ -7,7 +7,6 @@ using System.Diagnostics;
 using System.IO;
 using System.IO.Compression;
 using System.Linq;
-using System.Net.Http;
 using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
@@ -1153,26 +1152,16 @@ namespace FolderRewind.Services.Plugins
             if (string.IsNullOrWhiteSpace(repository)) return (false, null, null);
 
             // 格式: owner/repo
-            var parts = repository.Split('/');
+            var parts = repository.Split('/', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
             if (parts.Length != 2) return (false, null, null);
 
-            var url = $"https://api.github.com/repos/{parts[0]}/{parts[1]}/releases/latest";
+            var release = await GitHubReleaseService.GetLatestReleaseAsync(parts[0], parts[1], ct);
+            if (!string.IsNullOrWhiteSpace(release.ErrorMessage) || string.IsNullOrWhiteSpace(release.TagName))
+            {
+                return (false, null, null);
+            }
 
-            using var client = new HttpClient();
-            client.DefaultRequestHeaders.Add("User-Agent", "FolderRewind-Plugin-Updater");
-            client.DefaultRequestHeaders.Add("Accept", "application/vnd.github.v3+json");
-            client.Timeout = TimeSpan.FromSeconds(15);
-
-            var response = await client.GetAsync(url, ct);
-            if (!response.IsSuccessStatusCode) return (false, null, null);
-
-            var json = await response.Content.ReadAsStringAsync(ct);
-            using var doc = JsonDocument.Parse(json);
-            var root = doc.RootElement;
-
-            if (!root.TryGetProperty("tag_name", out var tagElement)) return (false, null, null);
-
-            var tagName = tagElement.GetString();
+            var tagName = release.TagName;
             if (string.IsNullOrWhiteSpace(tagName)) return (false, null, null);
 
             // 清理版本号（移除 v 前缀）
@@ -1193,28 +1182,13 @@ namespace FolderRewind.Services.Plugins
                 hasUpdate = !string.Equals(latestVersion, current, StringComparison.OrdinalIgnoreCase);
             }
 
-            // 获取下载链接（优先找 .zip 文件）
-            string? downloadUrl = null;
-            if (root.TryGetProperty("assets", out var assets) && assets.ValueKind == JsonValueKind.Array)
-            {
-                foreach (var asset in assets.EnumerateArray())
-                {
-                    if (asset.TryGetProperty("browser_download_url", out var urlElement))
-                    {
-                        var assetUrl = urlElement.GetString();
-                        if (!string.IsNullOrWhiteSpace(assetUrl) && assetUrl.EndsWith(".zip", StringComparison.OrdinalIgnoreCase))
-                        {
-                            downloadUrl = assetUrl;
-                            break;
-                        }
-                    }
-                }
-            }
+            var downloadUrl = release.Assets
+                .FirstOrDefault(asset => asset.Name.EndsWith(".zip", StringComparison.OrdinalIgnoreCase))
+                ?.DownloadUrl;
 
-            // 如果没有 .zip 资源，使用 zipball_url
-            if (string.IsNullOrWhiteSpace(downloadUrl) && root.TryGetProperty("zipball_url", out var zipballElement))
+            if (string.IsNullOrWhiteSpace(downloadUrl))
             {
-                downloadUrl = zipballElement.GetString();
+                downloadUrl = release.ZipballUrl;
             }
 
             return (hasUpdate, latestVersion, downloadUrl);
@@ -1235,22 +1209,12 @@ namespace FolderRewind.Services.Plugins
             {
                 var wasEnabled = GetPluginEnabled(plugin.Id);
 
-                // 下载文件
-                using var client = new HttpClient();
-                client.DefaultRequestHeaders.Add("User-Agent", "FolderRewind-Plugin-Updater");
-                client.Timeout = TimeSpan.FromMinutes(5);
-
-                var response = await client.GetAsync(plugin.UpdateDownloadUrl, ct);
-                if (!response.IsSuccessStatusCode)
-                {
-                    return (false, string.Format(_rl.GetString("PluginService_DownloadFailed"), response.StatusCode));
-                }
-
                 // 保存到临时文件
                 var tempFile = Path.Combine(Path.GetTempPath(), $"FolderRewind_Plugin_{plugin.Id}_{Guid.NewGuid():N}.zip");
+                var bytes = await GitHubReleaseService.DownloadAssetAsync(plugin.UpdateDownloadUrl, ct);
                 await using (var fs = File.Create(tempFile))
                 {
-                    await response.Content.CopyToAsync(fs, ct);
+                    await fs.WriteAsync(bytes, ct);
                 }
 
                 // 先卸载旧版本

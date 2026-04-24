@@ -613,6 +613,10 @@ namespace FolderRewind.Services
                         Log(I18n.Format("BackupService_Log_PostBackupCleanupFailed", folder.DisplayName, pruneResult.Message), LogLevel.Warning);
                         NotificationService.ShowWarning(pruneWarning);
                     }
+                    else if (pruneResult.DeletedCount > 0)
+                    {
+                        CloudSyncService.QueueConfigurationHistorySyncAfterLocalChange(config, "automatic archive pruning");
+                    }
 
                     // 备份完成后检查文件大小，过小时发出警告
                     try
@@ -962,6 +966,7 @@ namespace FolderRewind.Services
             if (deleteMode == BackupDeleteMode.RecordOnly)
             {
                 HistoryService.RemoveEntry(historyItem);
+                CloudSyncService.QueueConfigurationHistorySyncAfterLocalChange(config, "record deletion");
                 return new DeleteBackupResult
                 {
                     Success = true,
@@ -970,7 +975,7 @@ namespace FolderRewind.Services
                 };
             }
 
-            return await Task.Run(() =>
+            var deleteOperationResult = await Task.Run(() =>
             {
                 string? targetFilePath = HistoryService.GetBackupFilePath(config, folder, historyItem);
                 if (string.IsNullOrWhiteSpace(targetFilePath))
@@ -1017,6 +1022,13 @@ namespace FolderRewind.Services
                     Message = deleteResult.Message
                 };
             });
+
+            if (deleteOperationResult.Success && (deleteOperationResult.HistoryUpdated || deleteOperationResult.ArchiveDeleted))
+            {
+                CloudSyncService.QueueConfigurationHistorySyncAfterLocalChange(config, "manual backup deletion");
+            }
+
+            return deleteOperationResult;
         }
 
 
@@ -2244,6 +2256,26 @@ namespace FolderRewind.Services
             }
 
             string resolvedBackupFilePath = backupFilePath;
+
+            bool shouldAttemptCloudRestoreCompletion =
+                ConfigService.CurrentConfig?.GlobalSettings?.AutoDownloadMissingCloudBackupsBeforeRestore == true
+                && CloudSyncService.CanUseManualCloudActions(config)
+                && (!File.Exists(resolvedBackupFilePath) || targetIsIncremental);
+
+            if (shouldAttemptCloudRestoreCompletion)
+            {
+                var cloudRestoreResult = await CloudSyncService.EnsureRestoreChainAvailableAsync(config, folder, historyItem);
+                if (!cloudRestoreResult.Success)
+                {
+                    Log($"[Restore] Cloud restore-chain completion skipped or failed: {cloudRestoreResult.Message}", LogLevel.Warning);
+                }
+
+                backupFilePath = HistoryService.GetBackupFilePath(config, folder, historyItem);
+                if (!string.IsNullOrWhiteSpace(backupFilePath))
+                {
+                    resolvedBackupFilePath = backupFilePath;
+                }
+            }
 
             if (archiveSettings?.BackupBeforeRestore == true)
             {

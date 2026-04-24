@@ -23,8 +23,6 @@ namespace FolderRewind.Views
     {
         public FolderManagerPageViewModel ViewModel { get; } = new();
 
-        private const string MineRewindDownloadUrl = "https://github.com/Leafuke/FolderRewind-Plugin-Minecraft/releases";
-
         public FolderManagerPage()
         {
             this.InitializeComponent();
@@ -534,12 +532,11 @@ namespace FolderRewind.Views
             var result = await dialog.ShowAsync();
             if (result == ContentDialogResult.Primary)
             {
-                try
+                if (!NavigationService.NavigateTo("Settings", NavigationService.SettingsMinecraftPresetTarget))
                 {
-                    await Launcher.LaunchUriAsync(new Uri(MineRewindDownloadUrl));
-                }
-                catch
-                {
+                    NotificationService.ShowInfo(
+                        I18n.GetString("FolderManager_MineRewindHint_SettingsFallback"),
+                        I18n.GetString("FolderManager_MineRewindHint_Title"));
                 }
             }
         }

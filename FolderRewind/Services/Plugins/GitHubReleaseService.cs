@@ -25,69 +25,89 @@ namespace FolderRewind.Services.Plugins
         public static async Task<GitHubLatestReleaseResult> GetLatestReleaseAsync(string owner, string repo, CancellationToken ct)
         {
             if (string.IsNullOrWhiteSpace(owner) || string.IsNullOrWhiteSpace(repo))
-            return new GitHubLatestReleaseResult { ErrorMessage = "invalid-repo" };
+                return new GitHubLatestReleaseResult { ErrorMessage = "invalid-repo" };
 
-            var url = $"https://api.github.com/repos/{owner}/{repo}/releases/latest";
+            var rawUrl = $"https://api.github.com/repos/{owner}/{repo}/releases/latest";
+            string? lastError = null;
 
-            try
+            foreach (var candidate in DownloadSourceService.BuildCandidates(rawUrl))
             {
-                using var req = new HttpRequestMessage(HttpMethod.Get, url);
-                using var resp = await Http.SendAsync(req, HttpCompletionOption.ResponseHeadersRead, ct);
-                resp.EnsureSuccessStatusCode();
-
-                await using var stream = await resp.Content.ReadAsStreamAsync(ct);
-                using var doc = await JsonDocument.ParseAsync(stream, cancellationToken: ct);
-
-                var root = doc.RootElement;
-                var result = new GitHubLatestReleaseResult
+                try
                 {
-                    ReleaseName = root.TryGetProperty("name", out var releaseNameEl) ? releaseNameEl.GetString() : null,
-                    TagName = root.TryGetProperty("tag_name", out var tagEl) ? tagEl.GetString() : null,
-                    Body = root.TryGetProperty("body", out var bodyEl) ? bodyEl.GetString() : null,
-                    HtmlUrl = root.TryGetProperty("html_url", out var htmlEl) ? htmlEl.GetString() : null,
-                    PublishedAt = root.TryGetProperty("published_at", out var pubEl) && DateTimeOffset.TryParse(pubEl.GetString(), out var dt)
-                        ? dt
-                        : null
-                };
+                    using var req = new HttpRequestMessage(HttpMethod.Get, candidate.Url);
+                    using var resp = await Http.SendAsync(req, HttpCompletionOption.ResponseHeadersRead, ct);
+                    resp.EnsureSuccessStatusCode();
 
-                if (!root.TryGetProperty("assets", out var assetsEl) || assetsEl.ValueKind != JsonValueKind.Array)
-                    return result;
+                    await using var stream = await resp.Content.ReadAsStreamAsync(ct);
+                    using var doc = await JsonDocument.ParseAsync(stream, cancellationToken: ct);
 
-                var list = new List<GitHubReleaseAsset>();
-                foreach (var asset in assetsEl.EnumerateArray())
-                {
-                    var name = asset.TryGetProperty("name", out var nameEl) ? nameEl.GetString() : null;
-                    var dl = asset.TryGetProperty("browser_download_url", out var dlEl) ? dlEl.GetString() : null;
-                    var size = asset.TryGetProperty("size", out var sizeEl) && sizeEl.TryGetInt64(out var s) ? s : 0;
-                    var downloadCount = asset.TryGetProperty("download_count", out var countEl) && countEl.TryGetInt64(out var c) ? c : 0;
-                    var updatedAt = asset.TryGetProperty("updated_at", out var updateEl) && DateTimeOffset.TryParse(updateEl.GetString(), out var updateAtParsed)
-                        ? updateAtParsed
-                        : (DateTimeOffset?)null;
-
-                    if (string.IsNullOrWhiteSpace(name) || string.IsNullOrWhiteSpace(dl)) continue;
-
-                    list.Add(new GitHubReleaseAsset
+                    var root = doc.RootElement;
+                    var result = new GitHubLatestReleaseResult
                     {
-                        Name = name!,
-                        DownloadUrl = dl!,
-                        SizeBytes = size,
-                        DownloadCount = downloadCount,
-                        UpdatedAt = updatedAt
-                    });
-                }
+                        ReleaseName = root.TryGetProperty("name", out var releaseNameEl) ? releaseNameEl.GetString() : null,
+                        TagName = root.TryGetProperty("tag_name", out var tagEl) ? tagEl.GetString() : null,
+                        Body = root.TryGetProperty("body", out var bodyEl) ? bodyEl.GetString() : null,
+                        HtmlUrl = root.TryGetProperty("html_url", out var htmlEl) ? htmlEl.GetString() : null,
+                        ZipballUrl = root.TryGetProperty("zipball_url", out var zipballEl) ? zipballEl.GetString() : null,
+                        PublishedAt = root.TryGetProperty("published_at", out var pubEl) && DateTimeOffset.TryParse(pubEl.GetString(), out var dt)
+                            ? dt
+                            : null,
+                        SourceDisplayName = candidate.DisplayName
+                    };
 
-                result.Assets = list;
-                return result;
+                    if (!root.TryGetProperty("assets", out var assetsEl) || assetsEl.ValueKind != JsonValueKind.Array)
+                    {
+                        return result;
+                    }
+
+                    var list = new List<GitHubReleaseAsset>();
+                    foreach (var asset in assetsEl.EnumerateArray())
+                    {
+                        var name = asset.TryGetProperty("name", out var nameEl) ? nameEl.GetString() : null;
+                        var dl = asset.TryGetProperty("browser_download_url", out var dlEl) ? dlEl.GetString() : null;
+                        var size = asset.TryGetProperty("size", out var sizeEl) && sizeEl.TryGetInt64(out var s) ? s : 0;
+                        var downloadCount = asset.TryGetProperty("download_count", out var countEl) && countEl.TryGetInt64(out var c) ? c : 0;
+                        var updatedAt = asset.TryGetProperty("updated_at", out var updateEl) && DateTimeOffset.TryParse(updateEl.GetString(), out var updateAtParsed)
+                            ? updateAtParsed
+                            : (DateTimeOffset?)null;
+
+                        if (string.IsNullOrWhiteSpace(name) || string.IsNullOrWhiteSpace(dl))
+                        {
+                            continue;
+                        }
+
+                        list.Add(new GitHubReleaseAsset
+                        {
+                            Name = name!,
+                            DownloadUrl = dl!,
+                            SizeBytes = size,
+                            DownloadCount = downloadCount,
+                            UpdatedAt = updatedAt
+                        });
+                    }
+
+                    result.Assets = list;
+                    return result;
+                }
+                catch (OperationCanceledException)
+                {
+                    throw;
+                }
+                catch (Exception ex)
+                {
+                    lastError = ex.Message;
+                    LogService.LogWarning(
+                        $"GitHub release fetch failed from {candidate.DisplayName}: {candidate.Url} - {ex.Message}",
+                        nameof(GitHubReleaseService));
+                }
             }
-            catch (OperationCanceledException)
+
+            if (!string.IsNullOrWhiteSpace(lastError))
             {
-                throw;
+                LogService.LogError(I18n.Format("PluginStore_GetReleaseFailed_Log", lastError), "GitHubReleaseService");
             }
-            catch (Exception ex)
-            {
-                LogService.LogError(I18n.Format("PluginStore_GetReleaseFailed_Log", ex.Message), "GitHubReleaseService", ex);
-                return new GitHubLatestReleaseResult { ErrorMessage = ex.Message };
-            }
+
+            return new GitHubLatestReleaseResult { ErrorMessage = lastError ?? "release-fetch-failed" };
         }
 
         public sealed class GitHubLatestReleaseResult
@@ -96,9 +116,11 @@ namespace FolderRewind.Services.Plugins
             public string? TagName { get; set; }
             public string? Body { get; set; }
             public string? HtmlUrl { get; set; }
+            public string? ZipballUrl { get; set; }
             public DateTimeOffset? PublishedAt { get; set; }
             public IReadOnlyList<GitHubReleaseAsset> Assets { get; set; } = Array.Empty<GitHubReleaseAsset>();
             public string? ErrorMessage { get; set; }
+            public string? SourceDisplayName { get; set; }
         }
 
         public sealed class GitHubReleaseAsset
@@ -112,10 +134,36 @@ namespace FolderRewind.Services.Plugins
 
         public static async Task<byte[]> DownloadAssetAsync(string url, CancellationToken ct)
         {
-            using var req = new HttpRequestMessage(HttpMethod.Get, url);
-            using var resp = await Http.SendAsync(req, HttpCompletionOption.ResponseHeadersRead, ct);
-            resp.EnsureSuccessStatusCode();
-            return await resp.Content.ReadAsByteArrayAsync(ct);
+            Exception? lastError = null;
+
+            foreach (var candidate in DownloadSourceService.BuildCandidates(url))
+            {
+                try
+                {
+                    using var req = new HttpRequestMessage(HttpMethod.Get, candidate.Url);
+                    using var resp = await Http.SendAsync(req, HttpCompletionOption.ResponseHeadersRead, ct);
+                    resp.EnsureSuccessStatusCode();
+                    return await resp.Content.ReadAsByteArrayAsync(ct);
+                }
+                catch (OperationCanceledException)
+                {
+                    throw;
+                }
+                catch (Exception ex)
+                {
+                    lastError = ex;
+                    LogService.LogWarning(
+                        $"GitHub asset download failed from {candidate.DisplayName}: {candidate.Url} - {ex.Message}",
+                        nameof(GitHubReleaseService));
+                }
+            }
+
+            if (lastError != null)
+            {
+                throw lastError;
+            }
+
+            throw new InvalidOperationException("No download source available.");
         }
     }
 }

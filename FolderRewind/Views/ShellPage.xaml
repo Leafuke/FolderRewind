@@ -14,7 +14,7 @@
 
         <Border x:Name="AppTitleBar"
                 Grid.Row="0"
-                Height="48"
+                Height="44"
                 Background="Transparent"
             Padding="12,0,12,0"
             KeyboardAcceleratorPlacementMode="Hidden">

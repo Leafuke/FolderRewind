@@ -1,3 +1,4 @@
+using CommunityToolkit.Mvvm.Input;
 using FolderRewind.Models;
 using FolderRewind.Services;
 using FolderRewind.Services.Hotkeys;
@@ -46,6 +47,14 @@ namespace FolderRewind.Views
         public string AppVersion => _viewModel.AppVersion;
 
         public ReadOnlyObservableCollection<InstalledPluginInfo> InstalledPlugins => _viewModel.InstalledPlugins;
+
+        public IAsyncRelayCommand InstallMinecraftPresetCommand => _viewModel.InstallMinecraftPresetCommand;
+
+        public bool IsMinecraftPresetInstallRunning => _viewModel.IsMinecraftPresetInstallRunning;
+
+        public bool IsMinecraftPresetInstallIdle => _viewModel.IsMinecraftPresetInstallIdle;
+
+        public string MinecraftPresetStatusText => _viewModel.MinecraftPresetStatusText;
 
         private bool _isInitializingLanguage;
         private bool _isInitializingFont;
@@ -189,6 +198,15 @@ namespace FolderRewind.Views
         {
             base.OnNavigatedTo(e);
             _viewModel.OnNavigatedTo();
+
+            if (e.Parameter is string target
+                && string.Equals(target, NavigationService.SettingsMinecraftPresetTarget, StringComparison.OrdinalIgnoreCase))
+            {
+                _ = DispatcherQueue.TryEnqueue(() =>
+                {
+                    MinecraftPresetCard?.StartBringIntoView();
+                });
+            }
         }
 
         private void OnCloseBehaviorSelectionChanged(object sender, SelectionChangedEventArgs e)
@@ -196,16 +214,6 @@ namespace FolderRewind.Views
             if (sender is ComboBox cb)
             {
                 _viewModel.HandleCloseBehaviorSelectionChanged(cb.SelectedIndex);
-            }
-
-            Bindings.Update();
-        }
-
-        private void OnRememberCloseBehaviorToggled(object sender, RoutedEventArgs e)
-        {
-            if (sender is ToggleSwitch ts)
-            {
-                _viewModel.HandleRememberCloseBehaviorToggled(ts.IsOn);
             }
 
             Bindings.Update();
@@ -230,6 +238,14 @@ namespace FolderRewind.Views
         private void OnFileSizeWarningThresholdChanged(NumberBox sender, NumberBoxValueChangedEventArgs e)
         {
             _viewModel.HandleFileSizeWarningThresholdChanged(e.NewValue);
+        }
+
+        private void OnAutoDownloadMissingCloudBackupsBeforeRestoreToggled(object sender, RoutedEventArgs e)
+        {
+            if (sender is ToggleSwitch ts)
+            {
+                _viewModel.HandleAutoDownloadMissingCloudBackupsBeforeRestoreToggled(ts.IsOn);
+            }
         }
 
         private void OnNoticesToggled(object sender, RoutedEventArgs e)

@@ -591,12 +591,6 @@ Duplicate folder names are blocked within the same configuration so different di
   <data name="Config_OpenPath_Failed" xml:space="preserve">
     <value>Failed to open path: {0}</value>
   </data>
-  <data name="ConfigSettingsDialog_General.Header" xml:space="preserve">
-    <value>General</value>
-  </data>
-  <data name="ConfigSettingsDialog_General.Text" xml:space="preserve">
-    <value>General</value>
-  </data>
   <data name="ConfigSettingsDialog_ConfigName.Header" xml:space="preserve">
     <value>Config name</value>
   </data>
@@ -732,12 +726,6 @@ Duplicate folder names are blocked within the same configuration so different di
   <data name="ConfigSettingsDialog_VerifyArchiveBeforeRestore.OffContent" xml:space="preserve">
     <value>Off - restore directly</value>
   </data>
-  <data name="ConfigSettingsDialog_Automation.Header" xml:space="preserve">
-    <value>Automation</value>
-  </data>
-  <data name="ConfigSettingsDialog_Automation.Text" xml:space="preserve">
-    <value>Automation</value>
-  </data>
   <data name="ConfigSettingsDialog_AutoBackup.Header" xml:space="preserve">
     <value>Enable auto backup</value>
   </data>
@@ -774,12 +762,6 @@ Duplicate folder names are blocked within the same configuration so different di
   <data name="ConfigSettingsDialog_ConditionRelativePathPlaceholder.PlaceholderText" xml:space="preserve">
     <value>For example: session.lock</value>
   </data>
-  <data name="ConfigSettingsDialog_Filter.Header" xml:space="preserve">
-    <value>Filter</value>
-  </data>
-  <data name="ConfigSettingsDialog_Filter.Text" xml:space="preserve">
-    <value>Filter</value>
-  </data>
   <data name="ConfigSettingsDialog_Blacklist.Text" xml:space="preserve">
     <value>Blacklist (excluded files/folders)</value>
   </data>
@@ -803,18 +785,6 @@ Duplicate folder names are blocked within the same configuration so different di
   </data>
   <data name="ConfigSettingsDialog_AddRestoreWhitelist.Content" xml:space="preserve">
     <value>Add</value>
-  </data>
-  <data name="ConfigSettingsDialog_BackupStrategy.Header" xml:space="preserve">
-    <value>Backup</value>
-  </data>
-  <data name="ConfigSettingsDialog_BackupStrategy.Text" xml:space="preserve">
-    <value>Backup</value>
-  </data>
-  <data name="ConfigSettingsDialog_RestoreStrategy.Header" xml:space="preserve">
-    <value>Restore</value>
-  </data>
-  <data name="ConfigSettingsDialog_RestoreStrategy.Text" xml:space="preserve">
-    <value>Restore</value>
   </data>
   <data name="ConfigSettingsDialog_MaxSmartChain.Header" xml:space="preserve">
     <value>Smart backup chain length (0 = unlimited)</value>
@@ -1064,6 +1034,21 @@ Duplicate folder names are blocked within the same configuration so different di
   </data>
   <data name="SettingsPage_PluginsAutoCheckUpdatesDesc.Text" xml:space="preserve">
     <value>Automatically check for plugin updates when the app starts</value>
+  </data>
+  <data name="SettingsPage_MinecraftPreset.Text" xml:space="preserve">
+    <value>Minecraft starter preset</value>
+  </data>
+  <data name="SettingsPage_MinecraftPresetDesc.Text" xml:space="preserve">
+    <value>Automatically install and enable MineRewind, turn on KnotLink, and launch the KnotLink server installer for Minecraft players.</value>
+  </data>
+  <data name="SettingsPage_MinecraftPresetSteps.Text" xml:space="preserve">
+    <value>This downloads the MineRewind plugin, enables the plugin system, turns on KnotLink, and runs the KnotLink server installer.</value>
+  </data>
+  <data name="SettingsPage_MinecraftPresetModReminder.Text" xml:space="preserve">
+    <value>After this, install MineBackup-Mod for Minecraft to use in-game commands with FolderRewind.</value>
+  </data>
+  <data name="SettingsPage_MinecraftPresetInstall.Content" xml:space="preserve">
+    <value>Install preset</value>
   </data>
   <data name="SettingsPage_PluginUpdate.Content" xml:space="preserve">
     <value>Update</value>
@@ -2041,12 +2026,6 @@ Comment: {1}
   <data name="SettingsPage_HistoryStatusColorsDesc.Text" xml:space="preserve">
     <value>Use different colors in History to distinguish OK vs missing entries (can also be toggled on the History page).</value>
   </data>
-  <data name="SettingsPage_CloseBehavior_Remember_Desc.Text" xml:space="preserve">
-    <value>Remember close window choice</value>
-  </data>
-  <data name="SettingsPage_CloseBehavior_Remember_Header.Text" xml:space="preserve">
-    <value>Remember my choice</value>
-  </data>
   <data name="HistoryPage_ViewButton.ToolTipService.ToolTip" xml:space="preserve">
     <value>View in Explorer</value>
   </data>
@@ -2729,10 +2708,55 @@ Status: {3}</value>
     <value>Minecraft folder detected</value>
   </data>
   <data name="FolderManager_MineRewindHint_Content" xml:space="preserve">
-    <value>You may be adding a Minecraft save folder (.minecraft or level.dat detected). For a better backup workflow, consider installing the MineRewind plugin.</value>
+    <value>You may be adding a Minecraft save folder (.minecraft or level.dat detected). Use the Minecraft starter preset to install MineRewind, enable KnotLink, and launch the KnotLink server installer.</value>
   </data>
   <data name="FolderManager_MineRewindHint_OpenDownload" xml:space="preserve">
-    <value>Download MineRewind</value>
+    <value>Open starter preset</value>
+  </data>
+  <data name="FolderManager_MineRewindHint_SettingsFallback" xml:space="preserve">
+    <value>Open Settings and use the Minecraft starter preset in the plugins section.</value>
+  </data>
+  <data name="MinecraftOnboarding_Title" xml:space="preserve">
+    <value>Minecraft starter preset</value>
+  </data>
+  <data name="MinecraftOnboarding_Status_Start" xml:space="preserve">
+    <value>Preparing the Minecraft starter preset...</value>
+  </data>
+  <data name="MinecraftOnboarding_Status_EnablePluginSystem" xml:space="preserve">
+    <value>Enabling the plugin system...</value>
+  </data>
+  <data name="MinecraftOnboarding_Status_DownloadMineRewind" xml:space="preserve">
+    <value>Downloading and installing MineRewind...</value>
+  </data>
+  <data name="MinecraftOnboarding_Status_EnableMineRewind" xml:space="preserve">
+    <value>Enabling the MineRewind plugin...</value>
+  </data>
+  <data name="MinecraftOnboarding_Status_EnableKnotLink" xml:space="preserve">
+    <value>Turning on KnotLink...</value>
+  </data>
+  <data name="MinecraftOnboarding_Status_DownloadKnotLink" xml:space="preserve">
+    <value>Downloading the KnotLink server installer...</value>
+  </data>
+  <data name="MinecraftOnboarding_Status_RunKnotLinkInstaller" xml:space="preserve">
+    <value>Launching the KnotLink server installer...</value>
+  </data>
+  <data name="MinecraftOnboarding_Success" xml:space="preserve">
+    <value>The Minecraft starter preset is complete. Install MineBackup-Mod for Minecraft next to use in-game commands with FolderRewind.</value>
+  </data>
+  <data name="MinecraftOnboarding_Failed" xml:space="preserve">
+    <value>Failed to install the Minecraft starter preset: {0}</value>
+  </data>
+  <data name="MinecraftOnboarding_KnotLinkInstallerMissing" xml:space="preserve">
+    <value>The KnotLink server installer was not found.</value>
+  </data>
+  <data name="MinecraftOnboarding_MineRewindFailed_Log" xml:space="preserve">
+    <value>[MinecraftOnboarding] MineRewind install failed: {0}</value>
+  </data>
+  <data name="MinecraftOnboarding_Canceled_Log" xml:space="preserve">
+    <value>[MinecraftOnboarding] The user canceled or the task was canceled.</value>
+  </data>
+  <data name="MinecraftOnboarding_KnotLinkInstallerStarted_Log" xml:space="preserve">
+    <value>[MinecraftOnboarding] Started the KnotLink server installer: {0}</value>
   </data>
   <data name="Encryption_SetPasswordTitle" xml:space="preserve">
     <value>Set Encryption Password</value>
@@ -2902,10 +2926,10 @@ Release notes:
     <value>Check for updates on startup and provide channel-aware update entry points</value>
   </data>
   <data name="SettingsPage_AppUpdateSource.Text" xml:space="preserve">
-    <value>Download source</value>
+    <value>Unified download source</value>
   </data>
   <data name="SettingsPage_AppUpdateSourceDesc.Text" xml:space="preserve">
-    <value>Preferred source for app updates, the online template list, and template file downloads (Store updates are unaffected)</value>
+    <value>Preferred source for app updates, the plugin store, the online template list, and template downloads (Store app updates are unaffected)</value>
   </data>
   <data name="SettingsPage_AppUpdateSource_Official.Content" xml:space="preserve">
     <value>Official GitHub</value>
@@ -2923,13 +2947,13 @@ Release notes:
     <value>Auto switch on failure</value>
   </data>
   <data name="SettingsPage_AppUpdateAutoFallbackDesc.Text" xml:space="preserve">
-    <value>Automatically retry other sources when the preferred source fails</value>
+    <value>Automatically retry other mirror sources when the preferred source fails</value>
   </data>
   <data name="SettingsPage_AppUpdateCustomMirror.Text" xml:space="preserve">
     <value>Custom mirror URL</value>
   </data>
   <data name="SettingsPage_AppUpdateCustomMirrorDesc.Text" xml:space="preserve">
-    <value>Enter a prefix URL or a template containing {url}</value>
+    <value>Enter a prefix URL or a template containing {url} for GitHub/API downloads</value>
   </data>
   <data name="SettingsPage_AppUpdateCustomMirrorInput.PlaceholderText" xml:space="preserve">
     <value>Example: https://example.com/{url}</value>
@@ -3201,6 +3225,9 @@ Release notes:
   <data name="TemplateManagerDialog_PathRulesHeader.Text" xml:space="preserve">
     <value>Path matching rules</value>
   </data>
+  <data name="TemplateManagerDialog_PathRulesGuideHeader.Text" xml:space="preserve">
+    <value>Supported variables and syntax</value>
+  </data>
   <data name="TemplateManagerDialog_PathRulesHint.Text" xml:space="preserve">
     <value>Edit path expressions directly, for example {AppDataRoaming}\.minecraft\versions\{*}\saves\{*}, {SteamUserData}\{UserIdCandidate}\123456\remote, or {Process:xxx.exe}\.minecraft\versions\{*}\saves\{*}. {*} can appear in the middle or at the end of a path and expands every child folder at that level before continuing. {Process:xxx.exe} resolves the install directory of a currently running process, then continues matching from there.</value>
   </data>
@@ -3216,8 +3243,17 @@ Release notes:
   <data name="TemplateManagerDialog_PathRulePath.Text" xml:space="preserve">
     <value>Path expression</value>
   </data>
+  <data name="TemplateManagerDialog_PathRuleFileMatch.Text" xml:space="preserve">
+    <value>Marker (file match list)</value>
+  </data>
+  <data name="TemplateManagerDialog_PathRuleFileMatchDesc.Text" xml:space="preserve">
+    <value>Separate file names with ;. A rule matches only when the path matches and every listed file exists.</value>
+  </data>
+  <data name="TemplateManagerDialog_PathRuleFileMatchInput.PlaceholderText" xml:space="preserve">
+    <value>For example: level.dat;session.lock</value>
+  </data>
   <data name="TemplateManagerDialog_PathRuleAuto.Content" xml:space="preserve">
-    <value>Auto-select at 80% or above</value>
+    <value>Selected by default</value>
   </data>
   <data name="TemplateManagerDialog_PathRuleConfidence.Text" xml:space="preserve">
     <value>Confidence (0-1)</value>
@@ -3245,6 +3281,9 @@ Release notes:
   </data>
   <data name="Template_Manager_PathRuleInvalid" xml:space="preserve">
     <value>Invalid path expression: {0}</value>
+  </data>
+  <data name="Template_Manager_PathRuleFileMatchInvalid" xml:space="preserve">
+    <value>Invalid file match entry: {0}</value>
   </data>
   <data name="Template_Manager_PathRulesUpdated" xml:space="preserve">
     <value>Template path rules updated.</value>
@@ -3308,6 +3347,51 @@ Release notes:
   </data>
   <data name="Template_Preview_MarkerSummary" xml:space="preserve">
     <value>Markers: required {0}, optional {1}</value>
+  </data>
+  <data name="Template_SyntaxHelp_Variables_Title" xml:space="preserve">
+    <value>Common variables</value>
+  </data>
+  <data name="Template_SyntaxHelp_Variables_Description" xml:space="preserve">
+    <value>You can use these variables as path roots: {UserProfile}, {Documents}, {DocumentsMyGames}, {SavedGames}, {AppDataRoaming}, {AppDataLocal}, {AppDataLocalLow}, {ProgramData}, {SteamUserData}, and {UserName}.</value>
+  </data>
+  <data name="Template_SyntaxHelp_Variables_Example" xml:space="preserve">
+    <value>Example: {AppDataRoaming}\GameName\Saves</value>
+  </data>
+  <data name="Template_SyntaxHelp_Wildcard_Title" xml:space="preserve">
+    <value>{*} wildcard folders</value>
+  </data>
+  <data name="Template_SyntaxHelp_Wildcard_Description" xml:space="preserve">
+    <value>{*} expands every child folder at the current level. You can place it in the middle of a path or chain it multiple times. When it is the first segment, it traverses every ready drive.</value>
+  </data>
+  <data name="Template_SyntaxHelp_Wildcard_Example" xml:space="preserve">
+    <value>Example: {*}\{*}\.minecraft\versions\{*}\saves\{*}</value>
+  </data>
+  <data name="Template_SyntaxHelp_Process_Title" xml:space="preserve">
+    <value>Process directory</value>
+  </data>
+  <data name="Template_SyntaxHelp_Process_Description" xml:space="preserve">
+    <value>{Process:xxx.exe} resolves the install directory of a currently running process before continuing the match. It works well for launchers and portable games.</value>
+  </data>
+  <data name="Template_SyntaxHelp_Process_Example" xml:space="preserve">
+    <value>Example: {Process:Plain Craft Launcher 2.exe}\.minecraft\versions\{*}\saves\{*}</value>
+  </data>
+  <data name="Template_SyntaxHelp_Root_Title" xml:space="preserve">
+    <value>Explicit drive roots</value>
+  </data>
+  <data name="Template_SyntaxHelp_Root_Description" xml:space="preserve">
+    <value>You can now start expressions directly from a drive root such as C:\..., and you can mix explicit drives with wildcard folders.</value>
+  </data>
+  <data name="Template_SyntaxHelp_Root_Example" xml:space="preserve">
+    <value>Example: C:\{*}\.minecraft\versions\{*}\saves\{*}</value>
+  </data>
+  <data name="Template_SyntaxHelp_FileMatch_Title" xml:space="preserve">
+    <value>File match list</value>
+  </data>
+  <data name="Template_SyntaxHelp_FileMatch_Description" xml:space="preserve">
+    <value>When you provide a ; separated list of file names, the rule only matches if the directory matches and every listed file exists.</value>
+  </data>
+  <data name="Template_SyntaxHelp_FileMatch_Example" xml:space="preserve">
+    <value>Example: level.dat;session.lock</value>
   </data>
   <data name="Template_Preview_Summary" xml:space="preserve">
     <value>{0} of {1} rule(s) matched.</value>
@@ -3820,7 +3904,7 @@ Pull request: {1}</value>
     <value>This configuration does not have any folders to fetch yet.</value>
   </data>
   <data name="CloudSync_Notification_ConfigurationDownloadSucceeded" xml:space="preserve">
-    <value>Fetched cloud backups for "{0}" and recovered {1} history entries.</value>
+    <value>Fetched {1} cloud backup package(s) for "{0}".</value>
   </data>
   <data name="CloudSync_Notification_ConfigurationDownloadFailed" xml:space="preserve">
     <value>Unable to fetch cloud backups for the current configuration.</value>
@@ -3921,6 +4005,9 @@ Pull request: {1}</value>
   <data name="ConfigCloudSyncDialog_Status_Syncing" xml:space="preserve">
     <value>Syncing the current configuration...</value>
   </data>
+  <data name="ConfigCloudSyncDialog_Status_Uploading" xml:space="preserve">
+    <value>Uploading the current configuration history...</value>
+  </data>
   <data name="ConfigCloudSyncDialog_Analysis_Pending" xml:space="preserve">
     <value>No remote analysis result yet.</value>
   </data>
@@ -3946,7 +4033,7 @@ Pull request: {1}</value>
     <value>History sync completed. Imported {0} entries and skipped {1} duplicates.</value>
   </data>
   <data name="CloudSync_ConfigSync_HistoryAndBackupsSucceeded" xml:space="preserve">
-    <value>History and backup sync completed. Imported {0} history entries, skipped {1} duplicates, and recovered or refreshed {2} local history entries.</value>
+    <value>History and backup sync completed. Imported {0} history entries, skipped {1} duplicates, and downloaded {2} backup package(s).</value>
   </data>
   <data name="CloudSync_ConfigSync_HistoryImportedBackupsFailed" xml:space="preserve">
     <value>Imported {0} history entries, but downloading the cloud backups failed: {1}</value>
@@ -3964,7 +4051,7 @@ Pull request: {1}</value>
     <value>Off</value>
   </data>
   <data name="ConfigSettingsDialog_CloudSyncHistoryAfterUploadDesc.Text" xml:space="preserve">
-    <value>After each successful automatic backup upload, also upload the latest history.json to the current remote base path so other devices can sync this configuration's history.</value>
+    <value>After each successful automatic backup upload, also merge-upload this configuration's latest history plus its active-history manifest so other devices can sync without re-importing backups that were deleted locally.</value>
   </data>
   <data name="SettingsPage_DefaultCloudRemoteBasePath.Text" xml:space="preserve">
     <value>Default remote base path</value>
@@ -3983,6 +4070,66 @@ Pull request: {1}</value>
   </data>
   <data name="CloudSync_Notification_HistorySyncSkippedLegacyMode" xml:space="preserve">
     <value>This configuration still uses the legacy custom command mode, so history.json cannot be synced automatically.</value>
+  </data>
+  <data name="SettingsPage_AutoDownloadMissingCloudBackupsBeforeRestore.Text" xml:space="preserve">
+    <value>Automatically download missing cloud backup chain before restore</value>
+  </data>
+  <data name="SettingsPage_AutoDownloadMissingCloudBackupsBeforeRestoreDesc.Text" xml:space="preserve">
+    <value>If the selected restore target or its required incremental chain is missing locally, try to fetch only the required cloud backups before restoring.</value>
+  </data>
+  <data name="HistoryPage_OpenCloudSync.Content" xml:space="preserve">
+    <value>Cloud sync</value>
+  </data>
+  <data name="ConfigCloudSyncDialog_UploadHeader.Text" xml:space="preserve">
+    <value>Sync current configuration to cloud</value>
+  </data>
+  <data name="ConfigCloudSyncDialog_UploadDescription.Text" xml:space="preserve">
+    <value>Upload this configuration's current history and active-history manifest so other devices can sync without bringing back cloud backups that were already deleted locally.</value>
+  </data>
+  <data name="ConfigCloudSyncDialog_UploadHistory.Content" xml:space="preserve">
+    <value>Upload current config history</value>
+  </data>
+  <data name="ConfigCloudSyncDialog_DownloadSync.Content" xml:space="preserve">
+    <value>Sync from cloud</value>
+  </data>
+  <data name="CloudSync_Notification_ConfigurationHistoryUploadFailed" xml:space="preserve">
+    <value>Failed to upload history for the current configuration.</value>
+  </data>
+  <data name="CloudSync_Task_ConfigurationHistoryUploadName" xml:space="preserve">
+    <value>Upload configuration history: {0}</value>
+  </data>
+  <data name="CloudSync_Task_UploadingConfigurationHistory" xml:space="preserve">
+    <value>Uploading configuration history...</value>
+  </data>
+  <data name="CloudSync_Task_UploadingActiveHistoryManifest" xml:space="preserve">
+    <value>Uploading active-history manifest...</value>
+  </data>
+  <data name="CloudSync_Notification_ActiveHistoryManifestUploadFailedWithReason" xml:space="preserve">
+    <value>History was uploaded, but active-history manifest upload failed: {0}</value>
+  </data>
+  <data name="CloudSync_Notification_ConfigurationHistoryUploadFailedWithReason" xml:space="preserve">
+    <value>Failed to upload configuration history for "{0}": {1}</value>
+  </data>
+  <data name="CloudSync_Notification_ConfigurationHistoryUploadSucceeded" xml:space="preserve">
+    <value>Uploaded the current history for "{0}" to cloud. Total entries: {1}.</value>
+  </data>
+  <data name="CloudSync_Notification_RestoreChainUnavailable" xml:space="preserve">
+    <value>The required cloud restore chain could not be resolved.</value>
+  </data>
+  <data name="CloudSync_Notification_RestoreChainAlreadyAvailable" xml:space="preserve">
+    <value>The required restore chain is already available locally.</value>
+  </data>
+  <data name="CloudSync_Task_RestoreChainDownloadName" xml:space="preserve">
+    <value>Download restore chain: {0}</value>
+  </data>
+  <data name="CloudSync_Notification_RestoreChainDownloadSucceeded" xml:space="preserve">
+    <value>Downloaded {0} missing backup package(s) required to restore "{1}".</value>
+  </data>
+  <data name="CloudSync_Task_DownloadingConfigurationHistory" xml:space="preserve">
+    <value>Downloading configuration history...</value>
+  </data>
+  <data name="CloudSync_Task_DownloadingHistoryItem" xml:space="preserve">
+    <value>Downloading {0} ({1}/{2})...</value>
   </data>
   <data name="ProcessPathService_Log_QueryFailed" xml:space="preserve">
     <value>Failed to query the running process "{0}": {1}</value>
