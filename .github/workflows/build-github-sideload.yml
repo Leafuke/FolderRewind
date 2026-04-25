@@ -4,9 +4,9 @@ on:
   workflow_dispatch:
     inputs:
       package_version:
-        description: Package version from Package.appxmanifest, for example 1.6.1.0
+        description: Package version from Package.appxmanifest
         required: true
-        default: 1.6.1.0
+        default: 1.7.1.0
         type: string
 
 permissions:
@@ -121,6 +121,7 @@ jobs:
             -c Release `
             -p:Platform=${{ matrix.platform }} `
             -p:UapAppxPackageBuildMode=SideloadOnly `
+            -p:AppxBundle=Never `
             -p:GenerateAppxPackageOnBuild=true `
             -p:GenerateTestArtifacts=false `
             -p:AppxSymbolPackageEnabled=false `
