@@ -4,9 +4,11 @@ using FolderRewind.Services.Plugins;
 using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
+using System.Collections.ObjectModel;
 using System.IO;
 using System.Linq;
 using System.Text;
+using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
 
@@ -277,15 +279,41 @@ namespace FolderRewind.Services
         {
             if (string.IsNullOrWhiteSpace(commandStr))
             {
-                return "ERROR:Empty command.";
+                return "ERROR:" + I18n.GetString("KnotLink_Parse_EmptyCommand");
             }
 
-            var parts = commandStr.Trim().Split(' ', 2);
-            var command = parts[0].ToUpperInvariant();
-            var args = parts.Length > 1 ? parts[1] : string.Empty;
+            KnotLinkCommandRequest request;
+            try
+            {
+                request = KnotLinkCommandParser.Parse(commandStr);
+            }
+            catch (KnotLinkCommandParseException ex)
+            {
+                LogService.LogError(I18n.Format("KnotLink_CommandParseFailed_Log", ex.Message), "KnotLink", ex);
+                NotificationService.ShowError(I18n.Format("KnotLink_CommandFailed_Notification", ex.Message));
+                return $"ERROR:{ex.Message}";
+            }
+
+            var command = request.Command;
+            var args = request.LegacyArgs;
 
             try
             {
+                if (request.IsParameterized)
+                {
+                    var (pluginHandled, pluginResponse) = await PluginService.TryHandleParameterizedKnotLinkCommandAsync(request).ConfigureAwait(false);
+                    if (pluginHandled)
+                    {
+                        return string.IsNullOrWhiteSpace(pluginResponse) ? "OK:" : pluginResponse;
+                    }
+
+                    var parameterizedResponse = await HandleParameterizedCommandAsync(request).ConfigureAwait(false);
+                    if (parameterizedResponse != null)
+                    {
+                        return parameterizedResponse;
+                    }
+                }
+
                 return command switch
                 {
                     "LIST_CONFIGS" => await HandleListConfigs(),
@@ -308,10 +336,29 @@ namespace FolderRewind.Services
             }
             catch (Exception ex)
             {
+                LogService.LogError(I18n.Format("KnotLink_CommandExecutionFailed_Log", command, ex.Message), "KnotLink", ex);
+                NotificationService.ShowError(I18n.Format("KnotLink_CommandFailed_Notification", ex.Message));
                 var errorMsg = $"ERROR:{ex.Message}";
                 BroadcastEvent($"event=command_error;command={command};error={ex.Message}");
                 return errorMsg;
             }
+        }
+
+        private static async Task<string?> HandleParameterizedCommandAsync(KnotLinkCommandRequest request)
+        {
+            return request.Command switch
+            {
+                "LIST_FOLDERS" or "LIST_WORLDS" => await HandleListFolders(request),
+                "LIST_BACKUPS" => await HandleListBackups(request),
+                "GET_CONFIG" => await HandleGetConfig(request),
+                "BACKUP" => await HandleBackup(request),
+                "RESTORE" => await HandleRestore(request),
+                "BACKUP_ALL" => await HandleBackupAll(request),
+                "AUTO_BACKUP" => await HandleAutoBackup(request),
+                "STOP_AUTO_BACKUP" => await HandleStopAutoBackup(request),
+                "MARK_IMPORTANT" => await HandleMarkImportant(request),
+                _ => null
+            };
         }
 
         private static async Task<string> HandleUnknownCommandViaPluginsAsync(string command, string args, string rawCommand)
@@ -827,6 +874,293 @@ namespace FolderRewind.Services
             return "OK:Event sent";
         }
 
+        private static Task<string> HandleListFolders(KnotLinkCommandRequest request)
+        {
+            if (!TryResolveConfig(request, out var config, out var error))
+            {
+                return Task.FromResult(error);
+            }
+
+            return HandleListFolders(config!.Id);
+        }
+
+        private static Task<string> HandleListBackups(KnotLinkCommandRequest request)
+        {
+            if (!TryResolveConfig(request, out var config, out var error))
+            {
+                return Task.FromResult(error);
+            }
+
+            if (!TryResolveFolder(request, config!, out var folder, out error))
+            {
+                return Task.FromResult(error);
+            }
+
+            return HandleListBackups($"{config!.Id} {folder!.DisplayName}");
+        }
+
+        private static Task<string> HandleGetConfig(KnotLinkCommandRequest request)
+        {
+            if (!TryResolveConfig(request, out var config, out var error))
+            {
+                return Task.FromResult(error);
+            }
+
+            return HandleGetConfig(config!.Id);
+        }
+
+        private static Task<string> HandleBackup(KnotLinkCommandRequest request)
+        {
+            if (!TryResolveConfig(request, out var config, out var error))
+            {
+                return Task.FromResult(error);
+            }
+
+            if (!TryResolveFolder(request, config!, out var folder, out error))
+            {
+                return Task.FromResult(error);
+            }
+
+            if (!TryGetBoolOption(request, "force_full", false, out var forceFullBackup, out error))
+            {
+                return Task.FromResult(error);
+            }
+
+            var comment = request.GetStringOrDefault("comment");
+            var backupBlacklist = request.GetList("backup_blacklist");
+            var effectiveConfig = CreateConfigWithOneShotFilters(config!, backupBlacklist, Array.Empty<string>());
+            var effectiveFolder = ResolveEquivalentFolder(effectiveConfig, folder!);
+
+            // 新版参数可以按次叠加过滤器，但真正的备份流程仍交给 BackupService，避免复制压缩/历史/云同步逻辑。
+            _ = Task.Run(async () =>
+            {
+                try
+                {
+                    await BackupService.BackupFolderAsync(effectiveConfig, effectiveFolder, comment, forceFullBackup);
+                }
+                catch (Exception ex)
+                {
+                    LogService.LogError(I18n.Format("KnotLink_CommandExecutionFailed_Log", request.Command, ex.Message), "KnotLink", ex);
+                    NotificationService.ShowError(I18n.Format("KnotLink_CommandFailed_Notification", ex.Message));
+                    BroadcastEvent($"event=backup_failed;config={config!.Id};world={folder!.DisplayName};error={ex.Message}");
+                }
+            });
+
+            return Task.FromResult($"OK:Backup started for folder '{folder!.DisplayName}'");
+        }
+
+        private static Task<string> HandleRestore(KnotLinkCommandRequest request)
+        {
+            if (!TryResolveConfig(request, out var config, out var error))
+            {
+                return Task.FromResult(error);
+            }
+
+            if (!TryResolveFolder(request, config!, out var folder, out error))
+            {
+                return Task.FromResult(error);
+            }
+
+            var backupFile = GetFirstOption(request, "file", "backup_file", "archive");
+            if (string.IsNullOrWhiteSpace(backupFile))
+            {
+                return Task.FromResult("ERROR:" + I18n.GetString("KnotLink_Error_MissingBackupFile"));
+            }
+
+            if (!TryResolveRestoreMode(request, out var mode, out error))
+            {
+                return Task.FromResult(error);
+            }
+
+            var restoreWhitelist = request.GetList("restore_whitelist");
+            var effectiveConfig = CreateConfigWithOneShotFilters(config!, Array.Empty<string>(), restoreWhitelist);
+            var effectiveFolder = ResolveEquivalentFolder(effectiveConfig, folder!);
+
+            _ = Task.Run(async () =>
+            {
+                try
+                {
+                    await BackupService.RestoreBackupAsync(effectiveConfig, effectiveFolder, backupFile!, mode);
+                }
+                catch (Exception ex)
+                {
+                    LogService.LogError(I18n.Format("KnotLink_CommandExecutionFailed_Log", request.Command, ex.Message), "KnotLink", ex);
+                    NotificationService.ShowError(I18n.Format("KnotLink_CommandFailed_Notification", ex.Message));
+                    BroadcastEvent($"event=restore_failed;config={config!.Id};world={folder!.DisplayName};error={ex.Message}");
+                }
+            });
+
+            return Task.FromResult($"OK:Restore started for folder '{folder!.DisplayName}'");
+        }
+
+        private static Task<string> HandleBackupAll(KnotLinkCommandRequest request)
+        {
+            if (!TryResolveConfig(request, out var config, out var error))
+            {
+                return Task.FromResult(error);
+            }
+
+            if (!TryGetBoolOption(request, "force_full", false, out var forceFullBackup, out error))
+            {
+                return Task.FromResult(error);
+            }
+
+            var comment = request.GetStringOrDefault("comment");
+            var backupBlacklist = request.GetList("backup_blacklist");
+            var effectiveConfig = CreateConfigWithOneShotFilters(config!, backupBlacklist, Array.Empty<string>());
+
+            BroadcastEvent($"event=backup_all_started;config={config!.Id}");
+
+            _ = Task.Run(async () =>
+            {
+                try
+                {
+                    if (forceFullBackup || !string.IsNullOrWhiteSpace(comment))
+                    {
+                        foreach (var folder in effectiveConfig.SourceFolders)
+                        {
+                            await BackupService.BackupFolderAsync(effectiveConfig, folder, comment, forceFullBackup);
+                        }
+                    }
+                    else
+                    {
+                        await BackupService.BackupConfigAsync(effectiveConfig);
+                    }
+
+                    BroadcastEvent($"event=backup_all_completed;config={config.Id}");
+                }
+                catch (Exception ex)
+                {
+                    LogService.LogError(I18n.Format("KnotLink_CommandExecutionFailed_Log", request.Command, ex.Message), "KnotLink", ex);
+                    NotificationService.ShowError(I18n.Format("KnotLink_CommandFailed_Notification", ex.Message));
+                    BroadcastEvent($"event=backup_all_failed;config={config.Id};error={ex.Message}");
+                }
+            });
+
+            return Task.FromResult($"OK:Backup all started for config '{config.Name}'");
+        }
+
+        private static Task<string> HandleAutoBackup(KnotLinkCommandRequest request)
+        {
+            if (!TryResolveConfig(request, out var config, out var error))
+            {
+                return Task.FromResult(error);
+            }
+
+            if (!TryResolveFolder(request, config!, out var folder, out error))
+            {
+                return Task.FromResult(error);
+            }
+
+            var intervalText = GetFirstOption(request, "interval_minutes", "minutes", "interval");
+            if (!int.TryParse(intervalText, out var intervalMinutes) || intervalMinutes < 1)
+            {
+                return Task.FromResult("ERROR:" + I18n.GetString("KnotLink_Error_InvalidInterval"));
+            }
+
+            var taskKey = (config!.Id, folder!.Path);
+            if (_activeAutoBackups.ContainsKey(taskKey))
+            {
+                return Task.FromResult("ERROR:An auto-backup task is already running for this folder.");
+            }
+
+            var cts = new CancellationTokenSource();
+            _activeAutoBackups[taskKey] = cts;
+
+            // 自动备份是持续任务，过滤器仍使用已保存配置，避免一次远程请求长期改变后台行为。
+            _ = Task.Run(async () =>
+            {
+                LogService.Log(I18n.Format("KnotLink_AutoBackupStarted", folder.DisplayName, intervalMinutes));
+
+                while (!cts.Token.IsCancellationRequested)
+                {
+                    try
+                    {
+                        await Task.Delay(TimeSpan.FromMinutes(intervalMinutes), cts.Token);
+                        if (cts.Token.IsCancellationRequested) break;
+
+                        LogService.Log(I18n.Format("KnotLink_AutoBackupExecute", folder.DisplayName));
+                        await BackupService.BackupFolderAsync(config, folder, "Auto backup via KnotLink");
+                        BroadcastEvent($"event=auto_backup_executed;config={config.Id};folder={folder.DisplayName}");
+                    }
+                    catch (OperationCanceledException)
+                    {
+                        break;
+                    }
+                    catch (Exception ex)
+                    {
+                        LogService.Log(I18n.Format("KnotLink_AutoBackupFailed", ex.Message));
+                        NotificationService.ShowError(I18n.Format("KnotLink_CommandFailed_Notification", ex.Message));
+                        BroadcastEvent($"event=auto_backup_error;config={config.Id};folder={folder.DisplayName};error={ex.Message}");
+                    }
+                }
+
+                _activeAutoBackups.TryRemove(taskKey, out _);
+                LogService.Log(I18n.Format("KnotLink_AutoBackupStopped", folder.DisplayName));
+            });
+
+            BroadcastEvent($"event=auto_backup_started;config={config.Id};folder={folder.DisplayName};interval={intervalMinutes}");
+            return Task.FromResult($"OK:Auto-backup started for folder '{folder.DisplayName}' with interval of {intervalMinutes} minutes.");
+        }
+
+        private static Task<string> HandleStopAutoBackup(KnotLinkCommandRequest request)
+        {
+            if (!TryResolveConfig(request, out var config, out var error))
+            {
+                return Task.FromResult(error);
+            }
+
+            if (!TryResolveFolder(request, config!, out var folder, out error))
+            {
+                return Task.FromResult(error);
+            }
+
+            return HandleStopAutoBackup($"{config!.Id} {folder!.DisplayName}");
+        }
+
+        private static Task<string> HandleMarkImportant(KnotLinkCommandRequest request)
+        {
+            if (!TryGetBoolOption(request, "important", true, out var isImportant, out var error))
+            {
+                return Task.FromResult(error);
+            }
+
+            var backupFile = GetFirstOption(request, "file", "backup_file", "archive");
+            var hasTarget = !string.IsNullOrWhiteSpace(GetConfigOption(request))
+                || !string.IsNullOrWhiteSpace(GetFolderOption(request))
+                || !string.IsNullOrWhiteSpace(backupFile);
+
+            if (!hasTarget)
+            {
+                return HandleMarkImportant(isImportant.ToString().ToLowerInvariant());
+            }
+
+            if (!TryResolveConfig(request, out var config, out error))
+            {
+                return Task.FromResult(error);
+            }
+
+            if (!TryResolveFolder(request, config!, out var folder, out error))
+            {
+                return Task.FromResult(error);
+            }
+
+            if (string.IsNullOrWhiteSpace(backupFile))
+            {
+                return Task.FromResult("ERROR:" + I18n.GetString("KnotLink_Error_MissingBackupFile"));
+            }
+
+            bool success = HistoryService.SetImportant(config!.Id, folder!.DisplayName, backupFile!, isImportant);
+            if (!success)
+            {
+                return Task.FromResult($"ERROR:Backup entry not found: {backupFile}");
+            }
+
+            var action = isImportant ? "marked as important" : "unmarked";
+            BroadcastEvent($"event=mark_important;config={config.Id};folder={folder.DisplayName};file={backupFile};important={isImportant}");
+            return Task.FromResult($"OK:Backup '{backupFile}' {action}");
+        }
+
         /// <summary>
         /// 标记/取消标记备份为重要
         /// 对应 MARK_IMPORTANT 命令
@@ -940,6 +1274,169 @@ namespace FolderRewind.Services
         #endregion
 
         #region 辅助方法
+
+        private static string? GetFirstOption(KnotLinkCommandRequest request, params string[] keys)
+        {
+            foreach (var key in keys)
+            {
+                var value = request.GetString(key);
+                if (!string.IsNullOrWhiteSpace(value))
+                {
+                    return value;
+                }
+            }
+
+            return null;
+        }
+
+        private static string? GetConfigOption(KnotLinkCommandRequest request)
+            => GetFirstOption(request, "config_id", "config", "id");
+
+        private static string? GetFolderOption(KnotLinkCommandRequest request)
+            => GetFirstOption(request, "name", "folder", "folder_name", "world");
+
+        private static bool TryResolveConfig(KnotLinkCommandRequest request, out BackupConfig? config, out string error)
+        {
+            config = null;
+            error = string.Empty;
+
+            var configId = GetConfigOption(request);
+            if (string.IsNullOrWhiteSpace(configId))
+            {
+                error = "ERROR:" + I18n.GetString("KnotLink_Error_MissingConfigId");
+                return false;
+            }
+
+            config = FindConfigById(configId);
+            if (config == null)
+            {
+                error = $"ERROR:Config not found: {configId}";
+                return false;
+            }
+
+            return true;
+        }
+
+        private static bool TryResolveFolder(KnotLinkCommandRequest request, BackupConfig config, out ManagedFolder? folder, out string error)
+        {
+            folder = null;
+            error = string.Empty;
+
+            var folderArg = GetFolderOption(request);
+            if (string.IsNullOrWhiteSpace(folderArg))
+            {
+                error = "ERROR:" + I18n.GetString("KnotLink_Error_MissingFolderName");
+                return false;
+            }
+
+            folder = FindFolderByIndexOrName(config, folderArg);
+            if (folder == null)
+            {
+                error = $"ERROR:Folder not found: {folderArg}";
+                return false;
+            }
+
+            return true;
+        }
+
+        private static bool TryGetBoolOption(KnotLinkCommandRequest request, string key, bool defaultValue, out bool value, out string error)
+        {
+            error = string.Empty;
+            value = defaultValue;
+
+            if (!request.HasOption(key))
+            {
+                return true;
+            }
+
+            var parsed = request.GetBool(key);
+            if (parsed == null)
+            {
+                error = $"ERROR:{I18n.Format("KnotLink_Error_InvalidBool", key, request.GetString(key) ?? string.Empty)}";
+                return false;
+            }
+
+            value = parsed.Value;
+            return true;
+        }
+
+        private static bool TryResolveRestoreMode(KnotLinkCommandRequest request, out BackupService.RestoreMode mode, out string error)
+        {
+            mode = BackupService.RestoreMode.Overwrite;
+            error = string.Empty;
+
+            var modeText = request.GetString("mode");
+            if (string.IsNullOrWhiteSpace(modeText))
+            {
+                return true;
+            }
+
+            if (string.Equals(modeText, "clean", StringComparison.OrdinalIgnoreCase))
+            {
+                mode = BackupService.RestoreMode.Clean;
+                return true;
+            }
+
+            if (string.Equals(modeText, "overwrite", StringComparison.OrdinalIgnoreCase))
+            {
+                mode = BackupService.RestoreMode.Overwrite;
+                return true;
+            }
+
+            error = $"ERROR:{I18n.Format("KnotLink_Error_InvalidRestoreMode", modeText)}";
+            return false;
+        }
+
+        private static BackupConfig CreateConfigWithOneShotFilters(
+            BackupConfig source,
+            IReadOnlyList<string> backupBlacklist,
+            IReadOnlyList<string> restoreWhitelist)
+        {
+            var needsClone = (backupBlacklist?.Count ?? 0) > 0 || (restoreWhitelist?.Count ?? 0) > 0;
+            if (!needsClone)
+            {
+                return source;
+            }
+
+            var json = JsonSerializer.Serialize(source, AppJsonContext.Default.BackupConfig);
+            var clone = JsonSerializer.Deserialize(json, AppJsonContext.Default.BackupConfig)
+                ?? throw new InvalidOperationException(I18n.GetString("KnotLink_Error_ConfigCloneFailed"));
+
+            clone.Filters ??= new FilterSettings();
+            clone.Filters.Blacklist ??= new ObservableCollection<string>();
+            clone.Filters.RestoreWhitelist ??= new ObservableCollection<string>();
+
+            if (backupBlacklist != null)
+            {
+                foreach (var rule in backupBlacklist.Where(rule => !string.IsNullOrWhiteSpace(rule)))
+                {
+                    clone.Filters.Blacklist.Add(rule.Trim());
+                }
+            }
+
+            if (restoreWhitelist != null)
+            {
+                foreach (var rule in restoreWhitelist.Where(rule => !string.IsNullOrWhiteSpace(rule)))
+                {
+                    clone.Filters.RestoreWhitelist.Add(rule.Trim());
+                }
+            }
+
+            return clone;
+        }
+
+        private static ManagedFolder ResolveEquivalentFolder(BackupConfig effectiveConfig, ManagedFolder originalFolder)
+        {
+            if (effectiveConfig.SourceFolders.Count == 0)
+            {
+                return originalFolder;
+            }
+
+            return effectiveConfig.SourceFolders.FirstOrDefault(folder =>
+                    string.Equals(folder.Path, originalFolder.Path, StringComparison.OrdinalIgnoreCase)
+                    || string.Equals(folder.DisplayName, originalFolder.DisplayName, StringComparison.OrdinalIgnoreCase))
+                ?? originalFolder;
+        }
 
         /// <summary>
         /// 根据 ID 查找配置

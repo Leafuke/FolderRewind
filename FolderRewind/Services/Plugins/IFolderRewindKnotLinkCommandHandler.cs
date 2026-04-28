@@ -1,5 +1,6 @@
 using System.Collections.Generic;
 using System.Threading.Tasks;
+using FolderRewind.Services.KnotLink;
 
 namespace FolderRewind.Services.Plugins
 {
@@ -40,6 +41,38 @@ namespace FolderRewind.Services.Plugins
             string command,
             string args,
             string rawCommand,
+            IReadOnlyDictionary<string, string> settingsValues,
+            PluginHostContext hostContext);
+    }
+
+    public sealed class PluginParameterizedKnotLinkCommandResult
+    {
+        /// <summary>
+        /// 插件是否已经处理该指令。
+        /// </summary>
+        public bool Handled { get; set; }
+
+        /// <summary>
+        /// 返回给 KnotLink 调用方的响应文本。为空时 Host 会补成 OK:。
+        /// </summary>
+        public string? Response { get; set; }
+
+        public static PluginParameterizedKnotLinkCommandResult NotHandled { get; } = new()
+        {
+            Handled = false,
+            Response = null
+        };
+    }
+
+    /// <summary>
+    /// 可选接口：允许插件参与新版参数化 KnotLink 指令。
+    ///
+    /// 旧 IFolderRewindKnotLinkCommandHandler 保持不变，避免旧插件因为 Host 升级而必须重编译。
+    /// </summary>
+    public interface IFolderRewindParameterizedKnotLinkCommandHandler
+    {
+        Task<PluginParameterizedKnotLinkCommandResult?> TryHandleParameterizedKnotLinkCommandAsync(
+            KnotLinkCommandRequest request,
             IReadOnlyDictionary<string, string> settingsValues,
             PluginHostContext hostContext);
     }

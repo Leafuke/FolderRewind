@@ -1,5 +1,6 @@
 using FolderRewind.Models;
 using FolderRewind.Services.Hotkeys;
+using FolderRewind.Services.KnotLink;
 using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
@@ -225,6 +226,42 @@ namespace FolderRewind.Services.Plugins
                 catch (Exception ex)
                 {
                     LogService.LogError(I18n.Format("PluginService_KnotLinkCommandFailed", plugin.Manifest.Id, command, ex.Message), "PluginService", ex);
+                }
+            }
+
+            return (false, string.Empty);
+        }
+
+        /// <summary>
+        /// KnotLink：新版参数化指令优先给插件一次处理机会。
+        /// 这样 MineRewind 可以把 BACKUP -current_save=true 映射成热备份，而不被内置 BACKUP 提前拦截。
+        /// </summary>
+        public static async Task<(bool Handled, string Response)> TryHandleParameterizedKnotLinkCommandAsync(KnotLinkCommandRequest request)
+        {
+            if (!IsPluginSystemEnabled()) return (false, string.Empty);
+            if (request == null || string.IsNullOrWhiteSpace(request.Command)) return (false, string.Empty);
+
+            foreach (var plugin in GetEnabledLoadedPluginsSnapshot())
+            {
+                if (plugin is not IFolderRewindParameterizedKnotLinkCommandHandler handler) continue;
+
+                try
+                {
+                    var settings = GetPluginSettings(plugin.Manifest.Id);
+                    var ctx = PluginHostContext.CreateForCurrentApp(plugin.Manifest.Id, plugin.Manifest.Name);
+                    var result = await handler.TryHandleParameterizedKnotLinkCommandAsync(
+                        request,
+                        settings,
+                        ctx).ConfigureAwait(false);
+
+                    if (result?.Handled == true)
+                    {
+                        return (true, string.IsNullOrWhiteSpace(result.Response) ? "OK:" : result.Response!);
+                    }
+                }
+                catch (Exception ex)
+                {
+                    LogService.LogError(I18n.Format("PluginService_KnotLinkCommandFailed", plugin.Manifest.Id, request.Command, ex.Message), "PluginService", ex);
                 }
             }
 
