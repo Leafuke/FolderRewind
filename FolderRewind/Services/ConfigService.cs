@@ -521,6 +521,13 @@ namespace FolderRewind.Services
 
             settings.AppUpdatePreferredSource = Math.Clamp(settings.AppUpdatePreferredSource, 0, 3);
             settings.AppUpdateCustomMirrorUrl = settings.AppUpdateCustomMirrorUrl?.Trim() ?? string.Empty;
+
+            settings.SponsorAccentColorIndex = Math.Clamp(settings.SponsorAccentColorIndex, 0, ThemeService.SponsorAccentPresetCount - 1);
+            settings.SponsorBackdropIndex = Math.Clamp(settings.SponsorBackdropIndex, 0, 1);
+            settings.SponsorTitleText = settings.SponsorTitleText?.Trim() ?? string.Empty;
+            settings.SponsorTitleIconGlyph = string.IsNullOrWhiteSpace(settings.SponsorTitleIconGlyph)
+                ? IconCatalog.DefaultConfigIconGlyph
+                : settings.SponsorTitleIconGlyph;
         }
 
         private static string MakeSafeFolderName(string? name)

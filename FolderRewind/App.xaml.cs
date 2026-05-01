@@ -113,9 +113,15 @@ namespace FolderRewind
                 _window.Closed += OnMainWindowClosed;
                 ApplyWindowPreferences(_window);
                 Services.ThemeService.ApplyThemeToWindow(_window);
+                Services.ThemeService.ApplyPersonalizationToWindow(_window);
                 UpdateWindowTitle();
                 // 基础外观先准备好，再激活窗口可以减少首帧闪动感。
                 _window.Activate();
+
+                _window.DispatcherQueue.TryEnqueue(Microsoft.UI.Dispatching.DispatcherQueuePriority.Low, async () =>
+                {
+                    await Services.SponsorService.RefreshLicenseAsync(false);
+                });
 
                 // 静默启动只在“系统启动任务”场景生效，普通手动启动不隐藏窗口。
                 var startupSettings = Services.ConfigService.CurrentConfig?.GlobalSettings;
@@ -269,6 +275,12 @@ namespace FolderRewind
 
         private static string GetLocalizedWindowTitle()
         {
+            var settings = Services.ConfigService.CurrentConfig?.GlobalSettings;
+            if (Services.SponsorService.IsUnlocked && !string.IsNullOrWhiteSpace(settings?.SponsorTitleText))
+            {
+                return settings.SponsorTitleText.Trim();
+            }
+
             return Services.I18n.Format("App_WindowTitle");
         }
 

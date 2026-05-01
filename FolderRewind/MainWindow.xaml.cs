@@ -47,6 +47,7 @@ namespace FolderRewind
             // 先应用当前主题，再刷标题栏按钮色，避免首次显示时色彩闪一下。
             var currentTheme = ThemeService.GetCurrentTheme();
             ThemeService.ApplyThemeToWindow(this);
+            ThemeService.ApplyPersonalizationToWindow(this);
 
             InitializeIntegratedTitleBar();
             UpdateTitleBar(currentTheme);
@@ -282,6 +283,7 @@ namespace FolderRewind
         private void ThemeService_ThemeChanged(ElementTheme theme)
         {
             ThemeService.ApplyThemeToWindow(this);
+            ThemeService.ApplyPersonalizationToWindow(this);
             UpdateTitleBar(theme);
         }
 

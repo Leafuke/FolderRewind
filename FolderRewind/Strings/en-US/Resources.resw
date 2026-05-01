@@ -378,6 +378,159 @@ Duplicate folder names are blocked within the same configuration so different di
   <data name="SettingsPage_FontSizeDesc.Text" xml:space="preserve">
     <value>12–20 pt, affects text-heavy areas</value>
   </data>
+  <data name="SettingsPage_Sponsor.Text" xml:space="preserve">
+    <value>Sponsor edition</value>
+  </data>
+  <data name="SettingsPage_SponsorDesc.Text" xml:space="preserve">
+    <value>Unlock a few cosmetic perks</value>
+  </data>
+  <data name="SettingsPage_SponsorPurchase.Content" xml:space="preserve">
+    <value>Support FolderRewind development!</value>
+  </data>
+  <data name="SettingsPage_SponsorRestore.Content" xml:space="preserve">
+    <value>Restore purchase</value>
+  </data>
+  <data name="SettingsPage_SponsorRefresh.Content" xml:space="preserve">
+    <value>Refresh status</value>
+  </data>
+  <data name="SettingsPage_SponsorLocked.Text" xml:space="preserve">
+    <value>Sponsor perks are locked</value>
+  </data>
+  <data name="SettingsPage_SponsorAccent.Text" xml:space="preserve">
+    <value>Theme color</value>
+  </data>
+  <data name="SettingsPage_SponsorAccentDesc.Text" xml:space="preserve">
+    <value>Choose a gentle built-in accent color, or keep the system setting</value>
+  </data>
+  <data name="SettingsPage_SponsorBackdrop.Text" xml:space="preserve">
+    <value>Window material</value>
+  </data>
+  <data name="SettingsPage_SponsorBackdropDesc.Text" xml:space="preserve">
+    <value>Switch between WinUI Mica and Acrylic backgrounds</value>
+  </data>
+  <data name="SettingsPage_SponsorTitleText.Text" xml:space="preserve">
+    <value>Title bar text</value>
+  </data>
+  <data name="SettingsPage_SponsorTitleTextDesc.Text" xml:space="preserve">
+    <value>Leave empty to show the default name, FolderRewind</value>
+  </data>
+  <data name="SettingsPage_SponsorTitleIcon.Text" xml:space="preserve">
+    <value>Title bar icon</value>
+  </data>
+  <data name="SettingsPage_SponsorTitleIconDesc.Text" xml:space="preserve">
+    <value>Pick a WinUI built-in glyph for the title bar</value>
+  </data>
+  <data name="SettingsPage_SponsorBadge.Text" xml:space="preserve">
+    <value>Supporter badge</value>
+  </data>
+  <data name="SettingsPage_SponsorBadgeDesc.Text" xml:space="preserve">
+    <value>Show a small supporter mark in the title bar</value>
+  </data>
+  <data name="Sponsor_Title" xml:space="preserve">
+    <value>Sponsor edition</value>
+  </data>
+  <data name="Sponsor_Status_Unknown" xml:space="preserve">
+    <value>Sponsor status has not been checked yet</value>
+  </data>
+  <data name="Sponsor_Status_Unlocked" xml:space="preserve">
+    <value>Sponsor edition is unlocked. Thank you for supporting FolderRewind.</value>
+  </data>
+  <data name="Sponsor_Status_Locked" xml:space="preserve">
+    <value>The sponsor add-on is not purchased yet. After redeeming a promo code, use Restore purchase.</value>
+  </data>
+  <data name="Sponsor_Status_RefreshFailed" xml:space="preserve">
+    <value>Failed to refresh sponsor status: {0}</value>
+  </data>
+  <data name="Sponsor_Purchase_Succeeded" xml:space="preserve">
+    <value>Purchase completed. Sponsor edition is unlocked.</value>
+  </data>
+  <data name="Sponsor_Purchase_AlreadyPurchased" xml:space="preserve">
+    <value>You already own sponsor edition. Status has been restored.</value>
+  </data>
+  <data name="Sponsor_Purchase_NetworkError" xml:space="preserve">
+    <value>Purchase failed because the network is unavailable. Please try again later.</value>
+  </data>
+  <data name="Sponsor_Purchase_ServerError" xml:space="preserve">
+    <value>Purchase failed because Microsoft Store is temporarily unavailable.</value>
+  </data>
+  <data name="Sponsor_Purchase_NotPurchased" xml:space="preserve">
+    <value>Purchase was not completed.</value>
+  </data>
+  <data name="Sponsor_Purchase_Failed" xml:space="preserve">
+    <value>Failed to start purchase flow: {0}</value>
+  </data>
+  <data name="Sponsor_Accent_System" xml:space="preserve">
+    <value>System default</value>
+  </data>
+  <data name="Sponsor_Accent_Blue" xml:space="preserve">
+    <value>Blue</value>
+  </data>
+  <data name="Sponsor_Accent_Teal" xml:space="preserve">
+    <value>Teal</value>
+  </data>
+  <data name="Sponsor_Accent_Green" xml:space="preserve">
+    <value>Green</value>
+  </data>
+  <data name="Sponsor_Accent_Pink" xml:space="preserve">
+    <value>Pink</value>
+  </data>
+  <data name="Sponsor_Accent_Orange" xml:space="preserve">
+    <value>Orange</value>
+  </data>
+  <data name="Sponsor_Accent_Purple" xml:space="preserve">
+    <value>Purple</value>
+  </data>
+  <data name="Sponsor_Backdrop_Mica" xml:space="preserve">
+    <value>Mica</value>
+  </data>
+  <data name="Sponsor_Backdrop_Acrylic" xml:space="preserve">
+    <value>Acrylic</value>
+  </data>
+  <data name="Sponsor_Log_RefreshFailed" xml:space="preserve">
+    <value>[Sponsor] Failed to refresh add-on license: {0}</value>
+  </data>
+  <data name="Sponsor_Log_PurchaseFailed" xml:space="preserve">
+    <value>[Sponsor] Failed to purchase add-on: {0}</value>
+  </data>
+  <data name="Sponsor_Log_PurchaseStatus" xml:space="preserve">
+    <value>[Sponsor] Purchase did not succeed. Status: {0}; extended error: {1}</value>
+  </data>
+  <data name="Sponsor_Log_StoreContextWindowInitFailed" xml:space="preserve">
+    <value>[Sponsor] Failed to bind StoreContext to the main window: {0}</value>
+  </data>
+  <data name="Sponsor_Log_BackdropApplyFailed" xml:space="preserve">
+    <value>[Sponsor] Failed to apply window material: {0}</value>
+  </data>
+  <data name="Sponsor_OpenWindowFailed" xml:space="preserve">
+    <value>Failed to open sponsor window: {0}</value>
+  </data>
+  <data name="Sponsor_OpenLinkFailed" xml:space="preserve">
+    <value>Could not open the link. Please try again later.</value>
+  </data>
+  <data name="Sponsor_OpenLinkFailedWithReason" xml:space="preserve">
+    <value>Failed to open link: {0}</value>
+  </data>
+  <data name="Sponsor_Log_OpenWindowFailed" xml:space="preserve">
+    <value>[Sponsor] Failed to open sponsor window: {0}</value>
+  </data>
+  <data name="Sponsor_Log_OpenContributorGuideFailed" xml:space="preserve">
+    <value>[Sponsor] Failed to open contributor guide: {0}</value>
+  </data>
+  <data name="Sponsor_Log_OpenSponsorPolicyFailed" xml:space="preserve">
+    <value>[Sponsor] Failed to open sponsor edition policy: {0}</value>
+  </data>
+  <data name="SponsorWindow_Title.Text" xml:space="preserve">
+    <value>Sponsor FolderRewind</value>
+  </data>
+  <data name="SponsorWindow_ContributorText.Text" xml:space="preserve">
+    <value>Become a FolderRewind contributor</value>
+  </data>
+  <data name="SponsorWindow_PurchaseText.Text" xml:space="preserve">
+    <value>Buy FolderRewind Sponsor Edition</value>
+  </data>
+  <data name="SponsorWindow_PolicyText.Text" xml:space="preserve">
+    <value>Sponsor Edition policy</value>
+  </data>
   <data name="HomePage_FavoriteFolders.Text" xml:space="preserve">
     <value>Favorite folders</value>
   </data>
@@ -1368,6 +1521,25 @@ Duplicate folder names are blocked within the same configuration so different di
   <data name="SettingsPage_KnotLinkCommandsDesc.Text" xml:space="preserve">
     <value>The following commands can be called via KnotLink:</value>
   </data>
+  <data name="SettingsPage_KnotLinkCommandsBody.Text" xml:space="preserve">
+    <value>New parameterized commands (recommended):
+LIST_CONFIGS
+LIST_FOLDERS -config_id=ID
+LIST_BACKUPS -config_id=ID -name="folder name"
+BACKUP -config_id=ID -name="folder name" -comment="note" -force_full=true -backup_blacklist=cache;logs
+RESTORE -config_id=ID -name="folder name" -file=backup.7z -mode=clean -restore_whitelist=options.txt;playerdata
+BACKUP_ALL -config_id=ID -comment="note" -force_full=true
+AUTO_BACKUP -config_id=ID -name="folder name" -interval_minutes=10
+STOP_AUTO_BACKUP -config_id=ID -name="folder name"
+MARK_IMPORTANT -config_id=ID -name="folder name" -file=backup.7z -important=true
+
+MineRewind parameterized extensions:
+BACKUP -current_save=true -comment=QuickSave
+LIST_BACKUPS -current_save=true
+RESTORE -current_save=true -file=backup.7z -preserve_player_data=true
+
+Legacy positional commands remain compatible: BACKUP &lt;config_id&gt; &lt;folder&gt; [comment], BACKUP_CURRENT, LIST_BACKUPS_CURRENT, and more.</value>
+  </data>
   <data name="SettingsPage_NavPaneWidth.Text" xml:space="preserve">
     <value>Navigation pane width</value>
   </data>
@@ -1508,6 +1680,54 @@ Duplicate folder names are blocked within the same configuration so different di
   </data>
   <data name="KnotLink_CommandResponse" xml:space="preserve">
     <value>[KnotLink] Response: {0}</value>
+  </data>
+  <data name="KnotLink_Parse_EmptyCommand" xml:space="preserve">
+    <value>Empty command.</value>
+  </data>
+  <data name="KnotLink_Parse_ExpectedOption" xml:space="preserve">
+    <value>Parameterized commands only accept -key=value. Unexpected character: {0}</value>
+  </data>
+  <data name="KnotLink_Parse_InvalidOption" xml:space="preserve">
+    <value>Invalid option: {0}. Use -key=value.</value>
+  </data>
+  <data name="KnotLink_Parse_EmptyOptionName" xml:space="preserve">
+    <value>Option name cannot be empty.</value>
+  </data>
+  <data name="KnotLink_Parse_DuplicateOption" xml:space="preserve">
+    <value>Duplicate option: {0}</value>
+  </data>
+  <data name="KnotLink_Parse_UnclosedQuote" xml:space="preserve">
+    <value>Unclosed quote.</value>
+  </data>
+  <data name="KnotLink_CommandParseFailed_Log" xml:space="preserve">
+    <value>[KnotLink] Command parse failed: {0}</value>
+  </data>
+  <data name="KnotLink_CommandExecutionFailed_Log" xml:space="preserve">
+    <value>[KnotLink] Command execution failed: {0}, error: {1}</value>
+  </data>
+  <data name="KnotLink_CommandFailed_Notification" xml:space="preserve">
+    <value>KnotLink command failed: {0}</value>
+  </data>
+  <data name="KnotLink_Error_MissingConfigId" xml:space="preserve">
+    <value>Missing config_id option. Example: -config_id=ID</value>
+  </data>
+  <data name="KnotLink_Error_MissingFolderName" xml:space="preserve">
+    <value>Missing name option. Example: -name=folder name</value>
+  </data>
+  <data name="KnotLink_Error_MissingBackupFile" xml:space="preserve">
+    <value>Missing file option. Example: -file=backup.7z</value>
+  </data>
+  <data name="KnotLink_Error_InvalidBool" xml:space="preserve">
+    <value>Invalid boolean value for {0}: {1}</value>
+  </data>
+  <data name="KnotLink_Error_InvalidRestoreMode" xml:space="preserve">
+    <value>Invalid restore mode: {0}. Use clean or overwrite.</value>
+  </data>
+  <data name="KnotLink_Error_InvalidInterval" xml:space="preserve">
+    <value>interval_minutes must be an integer greater than or equal to 1.</value>
+  </data>
+  <data name="KnotLink_Error_ConfigCloneFailed" xml:space="preserve">
+    <value>Unable to create a temporary configuration for this command.</value>
   </data>
   <data name="KnotLink_ResponderInitSuccess" xml:space="preserve">
     <value>[KnotLink] Command responder initialized successfully</value>

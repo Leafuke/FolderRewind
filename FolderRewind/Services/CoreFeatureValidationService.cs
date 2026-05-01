@@ -383,9 +383,15 @@ namespace FolderRewind.Services
                         I18n.GetString("CoreValidation_Step_CleanRestore"),
                         async () =>
                         {
+                            string readonlyDir = Path.Combine(mainRestoreDir, "readonly-stale");
+                            Directory.CreateDirectory(readonlyDir);
+                            WriteTextFile(Path.Combine(readonlyDir, "stale.txt"), "readonly-stale");
+                            File.SetAttributes(Path.Combine(readonlyDir, "stale.txt"), File.GetAttributes(Path.Combine(readonlyDir, "stale.txt")) | FileAttributes.ReadOnly);
+                            File.SetAttributes(readonlyDir, File.GetAttributes(readonlyDir) | FileAttributes.ReadOnly);
+
                             await BackupService.RestoreBackupAsync(mainConfig!, mainRestoreFolder!, deletionOnlyEntry!, BackupService.RestoreMode.Clean).ConfigureAwait(false);
                             AssertSnapshotEquals(mainRestoreDir, snapshotDeletionOnly!, "Clean restore latest snapshot");
-                            return "Latest Smart restore matched the expected file set.";
+                            return "Latest Smart restore matched the expected file set after replacing readonly stale content.";
                         },
                         steps).ConfigureAwait(false);
                 }

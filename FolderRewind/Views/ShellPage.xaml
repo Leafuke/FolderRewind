@@ -22,14 +22,22 @@
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="Auto" />
                     <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="Auto" />
                 </Grid.ColumnDefinitions>
 
-                <FontIcon Glyph="&#xE8B7;" FontSize="16" Opacity="0.9" />
+                <FontIcon Glyph="{x:Bind ViewModel.TitleIconGlyph, Mode=OneWay}" FontSize="16" Opacity="0.9" />
                 <TextBlock Grid.Column="1"
-                           x:Uid="ShellPage_TitleBarAppName"
+                           Text="{x:Bind ViewModel.TitleText, Mode=OneWay}"
                            Style="{ThemeResource BodyStrongTextBlockStyle}"
                            VerticalAlignment="Center"
                            TextTrimming="CharacterEllipsis" />
+                <FontIcon Grid.Column="2"
+                          Glyph="&#xE734;"
+                          FontSize="12"
+                          Margin="0,0,0,0"
+                          VerticalAlignment="Center"
+                          Foreground="{ThemeResource AccentFillColorDefaultBrush}"
+                          Visibility="{x:Bind ViewModel.IsSponsorBadgeVisible, Mode=OneWay, Converter={StaticResource BoolToVisConverter}}" />
             </Grid>
         </Border>
 

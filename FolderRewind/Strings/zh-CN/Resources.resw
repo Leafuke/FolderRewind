@@ -378,6 +378,159 @@
   <data name="SettingsPage_FontSizeDesc.Text" xml:space="preserve">
     <value>12–20 号，影响文字区块</value>
   </data>
+  <data name="SettingsPage_Sponsor.Text" xml:space="preserve">
+    <value>赞助者版本</value>
+  </data>
+  <data name="SettingsPage_SponsorDesc.Text" xml:space="preserve">
+    <value>解锁一点点外观设置项~</value>
+  </data>
+  <data name="SettingsPage_SponsorPurchase.Content" xml:space="preserve">
+    <value>支持存档时光机开发！</value>
+  </data>
+  <data name="SettingsPage_SponsorRestore.Content" xml:space="preserve">
+    <value>恢复购买</value>
+  </data>
+  <data name="SettingsPage_SponsorRefresh.Content" xml:space="preserve">
+    <value>刷新状态</value>
+  </data>
+  <data name="SettingsPage_SponsorLocked.Text" xml:space="preserve">
+    <value>尚未解锁</value>
+  </data>
+  <data name="SettingsPage_SponsorAccent.Text" xml:space="preserve">
+    <value>主题颜色</value>
+  </data>
+  <data name="SettingsPage_SponsorAccentDesc.Text" xml:space="preserve">
+    <value>选择一个温和的内置强调色，或继续跟随系统设置</value>
+  </data>
+  <data name="SettingsPage_SponsorBackdrop.Text" xml:space="preserve">
+    <value>窗口材质</value>
+  </data>
+  <data name="SettingsPage_SponsorBackdropDesc.Text" xml:space="preserve">
+    <value>在 WinUI 的 Mica 与 Acrylic 背景之间切换</value>
+  </data>
+  <data name="SettingsPage_SponsorTitleText.Text" xml:space="preserve">
+    <value>标题栏文字</value>
+  </data>
+  <data name="SettingsPage_SponsorTitleTextDesc.Text" xml:space="preserve">
+    <value>留空时显示默认名称</value>
+  </data>
+  <data name="SettingsPage_SponsorTitleIcon.Text" xml:space="preserve">
+    <value>标题栏图标</value>
+  </data>
+  <data name="SettingsPage_SponsorTitleIconDesc.Text" xml:space="preserve">
+    <value>自定义标题栏图标</value>
+  </data>
+  <data name="SettingsPage_SponsorBadge.Text" xml:space="preserve">
+    <value>支持者徽标</value>
+  </data>
+  <data name="SettingsPage_SponsorBadgeDesc.Text" xml:space="preserve">
+    <value>在标题栏显示一个小小的支持者标记</value>
+  </data>
+  <data name="Sponsor_Title" xml:space="preserve">
+    <value>赞助者版本</value>
+  </data>
+  <data name="Sponsor_Status_Unknown" xml:space="preserve">
+    <value>尚未检查赞助状态</value>
+  </data>
+  <data name="Sponsor_Status_Unlocked" xml:space="preserve">
+    <value>已解锁赞助者版本，感谢你的支持。</value>
+  </data>
+  <data name="Sponsor_Status_Locked" xml:space="preserve">
+    <value>尚未购买赞助加载项；兑换促销码后可点击恢复购买。</value>
+  </data>
+  <data name="Sponsor_Status_RefreshFailed" xml:space="preserve">
+    <value>刷新赞助状态失败：{0}</value>
+  </data>
+  <data name="Sponsor_Purchase_Succeeded" xml:space="preserve">
+    <value>购买成功，赞助者版本已解锁。</value>
+  </data>
+  <data name="Sponsor_Purchase_AlreadyPurchased" xml:space="preserve">
+    <value>你已经拥有赞助者版本，状态已恢复。</value>
+  </data>
+  <data name="Sponsor_Purchase_NetworkError" xml:space="preserve">
+    <value>购买失败：网络连接异常，请稍后重试。</value>
+  </data>
+  <data name="Sponsor_Purchase_ServerError" xml:space="preserve">
+    <value>购买失败：Microsoft Store 服务暂时不可用。</value>
+  </data>
+  <data name="Sponsor_Purchase_NotPurchased" xml:space="preserve">
+    <value>购买未完成。</value>
+  </data>
+  <data name="Sponsor_Purchase_Failed" xml:space="preserve">
+    <value>购买流程启动失败：{0}</value>
+  </data>
+  <data name="Sponsor_Accent_System" xml:space="preserve">
+    <value>跟随系统</value>
+  </data>
+  <data name="Sponsor_Accent_Blue" xml:space="preserve">
+    <value>蓝色</value>
+  </data>
+  <data name="Sponsor_Accent_Teal" xml:space="preserve">
+    <value>青色</value>
+  </data>
+  <data name="Sponsor_Accent_Green" xml:space="preserve">
+    <value>绿色</value>
+  </data>
+  <data name="Sponsor_Accent_Pink" xml:space="preserve">
+    <value>粉色</value>
+  </data>
+  <data name="Sponsor_Accent_Orange" xml:space="preserve">
+    <value>橙色</value>
+  </data>
+  <data name="Sponsor_Accent_Purple" xml:space="preserve">
+    <value>紫色</value>
+  </data>
+  <data name="Sponsor_Backdrop_Mica" xml:space="preserve">
+    <value>Mica</value>
+  </data>
+  <data name="Sponsor_Backdrop_Acrylic" xml:space="preserve">
+    <value>Acrylic</value>
+  </data>
+  <data name="Sponsor_Log_RefreshFailed" xml:space="preserve">
+    <value>[Sponsor] 刷新加载项授权失败：{0}</value>
+  </data>
+  <data name="Sponsor_Log_PurchaseFailed" xml:space="preserve">
+    <value>[Sponsor] 购买加载项失败：{0}</value>
+  </data>
+  <data name="Sponsor_Log_PurchaseStatus" xml:space="preserve">
+    <value>[Sponsor] 购买未成功，状态：{0}，扩展错误：{1}</value>
+  </data>
+  <data name="Sponsor_Log_StoreContextWindowInitFailed" xml:space="preserve">
+    <value>[Sponsor] 绑定 StoreContext 主窗口失败：{0}</value>
+  </data>
+  <data name="Sponsor_Log_BackdropApplyFailed" xml:space="preserve">
+    <value>[Sponsor] 应用窗口材质失败：{0}</value>
+  </data>
+  <data name="Sponsor_OpenWindowFailed" xml:space="preserve">
+    <value>打开赞助窗口失败：{0}</value>
+  </data>
+  <data name="Sponsor_OpenLinkFailed" xml:space="preserve">
+    <value>无法打开链接，请稍后重试。</value>
+  </data>
+  <data name="Sponsor_OpenLinkFailedWithReason" xml:space="preserve">
+    <value>打开链接失败：{0}</value>
+  </data>
+  <data name="Sponsor_Log_OpenWindowFailed" xml:space="preserve">
+    <value>[Sponsor] 打开赞助窗口失败：{0}</value>
+  </data>
+  <data name="Sponsor_Log_OpenContributorGuideFailed" xml:space="preserve">
+    <value>[Sponsor] 打开贡献指南失败：{0}</value>
+  </data>
+  <data name="Sponsor_Log_OpenSponsorPolicyFailed" xml:space="preserve">
+    <value>[Sponsor] 打开赞助者版策略失败：{0}</value>
+  </data>
+  <data name="SponsorWindow_Title.Text" xml:space="preserve">
+    <value>赞助 FolderRewind</value>
+  </data>
+  <data name="SponsorWindow_ContributorText.Text" xml:space="preserve">
+    <value>成为 FolderRewind 贡献者</value>
+  </data>
+  <data name="SponsorWindow_PurchaseText.Text" xml:space="preserve">
+    <value>购买 FolderRewind 赞助者版</value>
+  </data>
+  <data name="SponsorWindow_PolicyText.Text" xml:space="preserve">
+    <value>赞助者版策略</value>
+  </data>
   <data name="HomePage_FavoriteFolders.Text" xml:space="preserve">
     <value>收藏的文件夹</value>
   </data>
@@ -1368,6 +1521,25 @@
   <data name="SettingsPage_KnotLinkCommandsDesc.Text" xml:space="preserve">
     <value>以下命令可通过 KnotLink 远程调用：</value>
   </data>
+  <data name="SettingsPage_KnotLinkCommandsBody.Text" xml:space="preserve">
+    <value>新版参数化指令（推荐）：
+LIST_CONFIGS
+LIST_FOLDERS -config_id=ID
+LIST_BACKUPS -config_id=ID -name="文件夹名称"
+BACKUP -config_id=ID -name="文件夹名称" -comment="注释" -force_full=true -backup_blacklist=cache;logs
+RESTORE -config_id=ID -name="文件夹名称" -file=backup.7z -mode=clean -restore_whitelist=options.txt;playerdata
+BACKUP_ALL -config_id=ID -comment="注释" -force_full=true
+AUTO_BACKUP -config_id=ID -name="文件夹名称" -interval_minutes=10
+STOP_AUTO_BACKUP -config_id=ID -name="文件夹名称"
+MARK_IMPORTANT -config_id=ID -name="文件夹名称" -file=backup.7z -important=true
+
+MineRewind 参数化扩展：
+BACKUP -current_save=true -comment=QuickSave
+LIST_BACKUPS -current_save=true
+RESTORE -current_save=true -file=backup.7z -preserve_player_data=true
+
+旧版位置参数指令仍兼容：BACKUP &lt;config_id&gt; &lt;folder&gt; [comment]、BACKUP_CURRENT、LIST_BACKUPS_CURRENT 等。</value>
+  </data>
   <data name="SettingsPage_NavPaneWidth.Text" xml:space="preserve">
     <value>导航栏宽度</value>
   </data>
@@ -1508,6 +1680,54 @@
   </data>
   <data name="KnotLink_CommandResponse" xml:space="preserve">
     <value>[KnotLink] 响应: {0}</value>
+  </data>
+  <data name="KnotLink_Parse_EmptyCommand" xml:space="preserve">
+    <value>空指令。</value>
+  </data>
+  <data name="KnotLink_Parse_ExpectedOption" xml:space="preserve">
+    <value>参数化指令只接受 -key=value，当前位置不是参数：{0}</value>
+  </data>
+  <data name="KnotLink_Parse_InvalidOption" xml:space="preserve">
+    <value>无效参数：{0}。请使用 -key=value。</value>
+  </data>
+  <data name="KnotLink_Parse_EmptyOptionName" xml:space="preserve">
+    <value>参数名不能为空。</value>
+  </data>
+  <data name="KnotLink_Parse_DuplicateOption" xml:space="preserve">
+    <value>重复参数：{0}</value>
+  </data>
+  <data name="KnotLink_Parse_UnclosedQuote" xml:space="preserve">
+    <value>引号未闭合。</value>
+  </data>
+  <data name="KnotLink_CommandParseFailed_Log" xml:space="preserve">
+    <value>[KnotLink] 指令解析失败：{0}</value>
+  </data>
+  <data name="KnotLink_CommandExecutionFailed_Log" xml:space="preserve">
+    <value>[KnotLink] 指令执行失败：{0}，错误：{1}</value>
+  </data>
+  <data name="KnotLink_CommandFailed_Notification" xml:space="preserve">
+    <value>KnotLink 指令处理失败：{0}</value>
+  </data>
+  <data name="KnotLink_Error_MissingConfigId" xml:space="preserve">
+    <value>缺少 config_id 参数。示例：-config_id=ID</value>
+  </data>
+  <data name="KnotLink_Error_MissingFolderName" xml:space="preserve">
+    <value>缺少 name 参数。示例：-name=文件夹名称</value>
+  </data>
+  <data name="KnotLink_Error_MissingBackupFile" xml:space="preserve">
+    <value>缺少 file 参数。示例：-file=backup.7z</value>
+  </data>
+  <data name="KnotLink_Error_InvalidBool" xml:space="preserve">
+    <value>布尔参数 {0} 的值无效：{1}</value>
+  </data>
+  <data name="KnotLink_Error_InvalidRestoreMode" xml:space="preserve">
+    <value>无效还原模式：{0}。可用值：clean 或 overwrite。</value>
+  </data>
+  <data name="KnotLink_Error_InvalidInterval" xml:space="preserve">
+    <value>interval_minutes 必须是大于等于 1 的整数。</value>
+  </data>
+  <data name="KnotLink_Error_ConfigCloneFailed" xml:space="preserve">
+    <value>无法创建本次指令使用的临时配置。</value>
   </data>
   <data name="KnotLink_ResponderInitSuccess" xml:space="preserve">
     <value>[KnotLink] 命令响应器初始化成功</value>

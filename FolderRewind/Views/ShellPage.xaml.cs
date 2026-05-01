@@ -1,5 +1,6 @@
 using FolderRewind.Models;
 using FolderRewind.Services;
+using FolderRewind.ViewModels;
 using Microsoft.UI.Dispatching;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Media.Animation;
@@ -16,6 +17,8 @@ namespace FolderRewind.Views
         private bool _isSyncingPaneState;
         private DispatcherQueueTimer? _infoBarTimer;
         private bool _startupDialogsStarted;
+
+        public ShellPageViewModel ViewModel { get; } = new();
 
         public Border AppTitleBarElement => AppTitleBar;
 
@@ -45,6 +48,7 @@ namespace FolderRewind.Views
             NotificationService.InfoBarRequested -= OnInfoBarRequested;
             NotificationService.RunningTaskCountChanged -= OnRunningTaskCountChanged;
             ConfigService.Saved -= OnConfigSaved;
+            ViewModel.Dispose();
 
             if (_infoBarTimer != null)
             {

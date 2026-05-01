@@ -1,5 +1,5 @@
 <p align="center">
-<img src="assets/StoreLogo.png" width="48px"/>
+<img src="FolderRewind/Assets/StoreLogo.png" width="48px"/>
 </p>
 
 <div align="center">
@@ -56,28 +56,26 @@ As the spiritual successor to MineBackup, FolderRewind enhances its versatility 
 1. Open System Settings, navigate to `System` -> `Developer Options`, and enable `Developer Mode`.
 2. Open the [Release](https://github.com/Leafuke/FolderRewind/releases) page.
 3. Find the application package in the latest version's **Assets**. The naming format is: `FolderRewind_{version}_{platform}.7z`.
-4. After downloading and extracting the package, right-click the `install.ps1` script in the folder and select `Run with PowerShell`.
+4. After downloading and extracting the package, use PowerShell to run the `install.ps1` script file. If you encounter permission issues, you can first run the command `Set-ExecutionPolicy -ExecutionPolicy Bypass -Scope Process` and then execute the script.
 
 Note: Do not install both the Store version and the side-loaded version at the same time.
 
 ## Usage
 
-For detailed usage instructions, please refer to the official documentation: https://folderrewind.top
-
-![Main Interface](assets/screenshot1.png)
+For detailed usage instructions, please refer to the official documentation: https://folderrewind.top/en/
 
 ## Officially Recognized Plugins
 
 | Name               | Description                                     | Author          | Download Link                                      |
 |----------------------|----------------------------------------|-------------|-------------------------------------------|
-| MineRewind      | A backup plugin specifically designed for Minecraft game saves.               | Leafuke     | [Repository](https://github.com/Leafuke/FolderRewind-Plugin-Minecraft)
+| MineRewind      | A backup plugin specifically designed for Minecraft game saves.               | Leafuke     | [Repository](https://github.com/Leafuke/FolderRewind-Plugin-Minecraft/Releases)
 
 ## Development
 
 **Requirements:**
 - Visual Studio 2026
 - .NET 10 SDK
-- "Windows App SDK C# Templates" workload
+- `.NET Desktop Development`、`WinUI Application Development` workloads
 
 ### Plugin Development
 
@@ -88,7 +86,7 @@ If you want to develop plugins for FolderRewind to support more scenarios, you c
 
 If you are interested in discussing, you can join the QQ group.
 
-<img src="./assets/qq_group_light.jpg" width="240px" />
+<img src="./FolderRewind/Assets/qq_group_light.jpg" width="240px" />
 
 ## Acknowledgments
 

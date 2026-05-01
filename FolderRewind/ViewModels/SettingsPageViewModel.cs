@@ -20,6 +20,7 @@ namespace FolderRewind.ViewModels
         private bool _pluginsRefreshing;
         private bool _fontFamiliesLoading;
         private bool _isMinecraftPresetInstallRunning;
+        private bool _isSponsorOperationRunning;
         private string _minecraftPresetStatusText = string.Empty;
         private static readonly object FontCacheLock = new();
         private static IReadOnlyList<string>? _cachedInstalledFontFamilies;
@@ -54,9 +55,23 @@ namespace FolderRewind.ViewModels
 
         public ObservableCollection<string> FontFamilies { get; } = new();
 
+        public ObservableCollection<string> SponsorAccentPresets { get; } = new();
+
+        public ObservableCollection<string> SponsorBackdropPresets { get; } = new();
+
+        public ObservableCollection<string> SponsorTitleIconGlyphs { get; } = new();
+
         public ObservableCollection<object> HotkeyBindingsView { get; } = new();
 
         public IAsyncRelayCommand InstallMinecraftPresetCommand { get; }
+
+        public IAsyncRelayCommand PurchaseSponsorCommand { get; }
+
+        public IRelayCommand OpenSponsorWindowCommand { get; }
+
+        public IAsyncRelayCommand RestoreSponsorCommand { get; }
+
+        public IAsyncRelayCommand RefreshSponsorCommand { get; }
 
         public bool IsMinecraftPresetInstallRunning
         {
@@ -80,6 +95,31 @@ namespace FolderRewind.ViewModels
             get => _minecraftPresetStatusText;
             private set => SetProperty(ref _minecraftPresetStatusText, value ?? string.Empty);
         }
+
+        public bool IsSponsorUnlocked => SponsorService.IsUnlocked;
+
+        public bool IsSponsorLocked => !SponsorService.IsUnlocked;
+
+        public bool IsSponsorOperationRunning
+        {
+            get => _isSponsorOperationRunning;
+            private set
+            {
+                if (!SetProperty(ref _isSponsorOperationRunning, value))
+                {
+                    return;
+                }
+
+                OnPropertyChanged(nameof(IsSponsorOperationIdle));
+                PurchaseSponsorCommand.NotifyCanExecuteChanged();
+                RestoreSponsorCommand.NotifyCanExecuteChanged();
+                RefreshSponsorCommand.NotifyCanExecuteChanged();
+            }
+        }
+
+        public bool IsSponsorOperationIdle => !IsSponsorOperationRunning;
+
+        public string SponsorStatusText => SponsorService.StatusMessage;
 
         public string KnotLinkStatusMessage
         {
@@ -123,6 +163,22 @@ namespace FolderRewind.ViewModels
             InstallMinecraftPresetCommand = new AsyncRelayCommand(
                 async () => { await InstallMinecraftPresetAsync(); },
                 () => IsMinecraftPresetInstallIdle);
+
+            PurchaseSponsorCommand = new AsyncRelayCommand(
+                async () => { await RunSponsorOperationAsync(SponsorService.PurchaseAsync); },
+                () => IsSponsorOperationIdle);
+
+            OpenSponsorWindowCommand = new RelayCommand(MainWindowService.OpenSponsorWindow);
+
+            RestoreSponsorCommand = new AsyncRelayCommand(
+                async () => { await RunSponsorOperationAsync(SponsorService.RestoreAsync); },
+                () => IsSponsorOperationIdle);
+
+            RefreshSponsorCommand = new AsyncRelayCommand(
+                async () => { await RunSponsorOperationAsync(() => SponsorService.RefreshLicenseAsync(true)); },
+                () => IsSponsorOperationIdle);
+
+            RefreshSponsorOptionLists();
         }
 
         public void Initialize()
@@ -139,6 +195,7 @@ namespace FolderRewind.ViewModels
             RefreshHotkeyBindingsView();
             UpdateKnotLinkStatus();
             RefreshCoreValidationState();
+            RefreshSponsorState();
 
             try
             {
@@ -151,6 +208,9 @@ namespace FolderRewind.ViewModels
 
             CoreFeatureValidationService.StateChanged -= CoreFeatureValidationService_StateChanged;
             CoreFeatureValidationService.StateChanged += CoreFeatureValidationService_StateChanged;
+
+            SponsorService.StateChanged -= SponsorService_StateChanged;
+            SponsorService.StateChanged += SponsorService_StateChanged;
         }
 
         public void OnNavigatedTo()
@@ -188,6 +248,7 @@ namespace FolderRewind.ViewModels
         {
             // 与 Initialize 成对解绑，避免设置页被缓存后事件重复触发。
             CoreFeatureValidationService.StateChanged -= CoreFeatureValidationService_StateChanged;
+            SponsorService.StateChanged -= SponsorService_StateChanged;
             try
             {
                 HotkeyManager.DefinitionsChanged -= HotkeyManager_DefinitionsChanged;
@@ -387,6 +448,66 @@ namespace FolderRewind.ViewModels
             ConfigService.Save();
         }
 
+        public void HandleSponsorAccentChanged(int selectedIndex)
+        {
+            if (!SponsorService.IsUnlocked)
+            {
+                return;
+            }
+
+            Settings.SponsorAccentColorIndex = Math.Clamp(selectedIndex, 0, ThemeService.SponsorAccentPresetCount - 1);
+            ConfigService.Save();
+            MainWindowService.ApplySponsorVisuals();
+        }
+
+        public void HandleSponsorBackdropChanged(int selectedIndex)
+        {
+            if (!SponsorService.IsUnlocked)
+            {
+                return;
+            }
+
+            Settings.SponsorBackdropIndex = Math.Clamp(selectedIndex, 0, 1);
+            ConfigService.Save();
+            MainWindowService.ApplySponsorVisuals();
+        }
+
+        public void HandleSponsorTitleTextChanged(string? titleText)
+        {
+            if (!SponsorService.IsUnlocked)
+            {
+                return;
+            }
+
+            Settings.SponsorTitleText = titleText?.Trim() ?? string.Empty;
+            ConfigService.Save();
+            MainWindowService.ApplySponsorVisuals();
+        }
+
+        public void HandleSponsorTitleIconChanged(string? glyph)
+        {
+            if (!SponsorService.IsUnlocked || string.IsNullOrWhiteSpace(glyph))
+            {
+                return;
+            }
+
+            Settings.SponsorTitleIconGlyph = glyph;
+            ConfigService.Save();
+            MainWindowService.ApplySponsorVisuals();
+        }
+
+        public void HandleShowSponsorBadgeToggled(bool isOn)
+        {
+            if (!SponsorService.IsUnlocked)
+            {
+                return;
+            }
+
+            Settings.ShowSponsorBadge = isOn;
+            ConfigService.Save();
+            MainWindowService.ApplySponsorVisuals();
+        }
+
         public void HandleLoggingChanged(bool isOn)
         {
             Settings.EnableFileLogging = isOn;
@@ -561,6 +682,14 @@ namespace FolderRewind.ViewModels
             OnPropertyChanged(nameof(CoreValidationStatusText));
             OnPropertyChanged(nameof(CoreValidationLastRunText));
             OnPropertyChanged(nameof(CoreValidationLastSummaryText));
+        }
+
+        public void RefreshSponsorState()
+        {
+            OnPropertyChanged(nameof(IsSponsorUnlocked));
+            OnPropertyChanged(nameof(IsSponsorLocked));
+            OnPropertyChanged(nameof(SponsorStatusText));
+            OnPropertyChanged(nameof(Settings));
         }
 
         public void RefreshHotkeyBindingsView()
@@ -868,6 +997,49 @@ namespace FolderRewind.ViewModels
             MainWindowService.Resize(clampedWidth, clampedHeight);
         }
 
+        private void RefreshSponsorOptionLists()
+        {
+            SponsorAccentPresets.Clear();
+            for (var i = 0; i < ThemeService.SponsorAccentPresetCount; i++)
+            {
+                SponsorAccentPresets.Add(ThemeService.GetAccentPresetName(i));
+            }
+
+            SponsorBackdropPresets.Clear();
+            SponsorBackdropPresets.Add(ThemeService.GetBackdropName(0));
+            SponsorBackdropPresets.Add(ThemeService.GetBackdropName(1));
+
+            SponsorTitleIconGlyphs.Clear();
+            foreach (var glyph in IconCatalog.TitleIconGlyphs)
+            {
+                SponsorTitleIconGlyphs.Add(glyph);
+            }
+        }
+
+        private async Task RunSponsorOperationAsync(Func<Task<SponsorOperationResult>> operation)
+        {
+            if (IsSponsorOperationRunning)
+            {
+                return;
+            }
+
+            IsSponsorOperationRunning = true;
+            try
+            {
+                var result = await operation();
+                if (!result.Success && !string.IsNullOrWhiteSpace(result.Message))
+                {
+                    LogService.LogWarning(result.Message, nameof(SettingsPageViewModel));
+                }
+
+                RefreshSponsorState();
+            }
+            finally
+            {
+                IsSponsorOperationRunning = false;
+            }
+        }
+
         private void PushLogOptions()
         {
             var options = new LogOptions
@@ -889,6 +1061,11 @@ namespace FolderRewind.ViewModels
         private void CoreFeatureValidationService_StateChanged()
         {
             EnqueueOnUiThread(RefreshCoreValidationState);
+        }
+
+        private void SponsorService_StateChanged()
+        {
+            EnqueueOnUiThread(RefreshSponsorState);
         }
     }
 

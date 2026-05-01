@@ -87,6 +87,28 @@ namespace FolderRewind.Views
 
         public ObservableCollection<string> FontFamilies => _viewModel.FontFamilies;
 
+        public ObservableCollection<string> SponsorAccentPresets => _viewModel.SponsorAccentPresets;
+
+        public ObservableCollection<string> SponsorBackdropPresets => _viewModel.SponsorBackdropPresets;
+
+        public ObservableCollection<string> SponsorTitleIconGlyphs => _viewModel.SponsorTitleIconGlyphs;
+
+        public bool IsSponsorUnlocked => _viewModel.IsSponsorUnlocked;
+
+        public bool IsSponsorLocked => _viewModel.IsSponsorLocked;
+
+        public bool IsSponsorOperationIdle => _viewModel.IsSponsorOperationIdle;
+
+        public string SponsorStatusText => _viewModel.SponsorStatusText;
+
+        public IAsyncRelayCommand PurchaseSponsorCommand => _viewModel.PurchaseSponsorCommand;
+
+        public IRelayCommand OpenSponsorWindowCommand => _viewModel.OpenSponsorWindowCommand;
+
+        public IAsyncRelayCommand RestoreSponsorCommand => _viewModel.RestoreSponsorCommand;
+
+        public IAsyncRelayCommand RefreshSponsorCommand => _viewModel.RefreshSponsorCommand;
+
         public ObservableCollection<object> HotkeyBindingsView => _viewModel.HotkeyBindingsView;
 
         public SettingsPage()
@@ -1212,6 +1234,47 @@ namespace FolderRewind.Views
 
             _viewModel.HandleFontSizeChanged(e.NewValue);
         }
+
+        private void OnSponsorAccentChanged(object sender, SelectionChangedEventArgs e)
+        {
+            if (sender is ComboBox cb)
+            {
+                _viewModel.HandleSponsorAccentChanged(cb.SelectedIndex);
+            }
+        }
+
+        private void OnSponsorBackdropChanged(object sender, SelectionChangedEventArgs e)
+        {
+            if (sender is ComboBox cb)
+            {
+                _viewModel.HandleSponsorBackdropChanged(cb.SelectedIndex);
+            }
+        }
+
+        private void OnSponsorTitleTextChanged(object sender, TextChangedEventArgs e)
+        {
+            if (sender is TextBox tb)
+            {
+                _viewModel.HandleSponsorTitleTextChanged(tb.Text);
+            }
+        }
+
+        private void OnSponsorTitleIconChanged(object sender, SelectionChangedEventArgs e)
+        {
+            if (sender is ComboBox cb && cb.SelectedItem is string glyph)
+            {
+                _viewModel.HandleSponsorTitleIconChanged(glyph);
+            }
+        }
+
+        private void OnShowSponsorBadgeToggled(object sender, RoutedEventArgs e)
+        {
+            if (sender is ToggleSwitch ts)
+            {
+                _viewModel.HandleShowSponsorBadgeToggled(ts.IsOn);
+            }
+        }
+
         private void OnJoinGroupButtonClick(object sender, RoutedEventArgs e)
         => FlyoutBase.ShowAttachedFlyout(sender as FrameworkElement);
 
