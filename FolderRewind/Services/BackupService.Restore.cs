@@ -985,23 +985,37 @@ namespace FolderRewind.Services
         {
             try
             {
+                ClearReadonlyAttribute(dir);
+
                 foreach (var file in Directory.EnumerateFiles(dir, "*", SearchOption.AllDirectories))
                 {
-                    try
-                    {
-                        var attrs = File.GetAttributes(file);
-                        if ((attrs & FileAttributes.ReadOnly) == FileAttributes.ReadOnly)
-                        {
-                            File.SetAttributes(file, attrs & ~FileAttributes.ReadOnly);
-                        }
-                    }
-                    catch
-                    {
-                    }
+                    ClearReadonlyAttribute(file);
+                }
+
+                foreach (var childDir in Directory.EnumerateDirectories(dir, "*", SearchOption.AllDirectories).OrderByDescending(path => path.Length))
+                {
+                    ClearReadonlyAttribute(childDir);
                 }
             }
-            catch
+            catch (Exception ex)
             {
+                Log($"[Restore][Debug] Failed to enumerate paths while clearing readonly attributes: {ex.Message}", LogLevel.Debug);
+            }
+        }
+
+        private static void ClearReadonlyAttribute(string path)
+        {
+            try
+            {
+                var attrs = File.GetAttributes(path);
+                if ((attrs & FileAttributes.ReadOnly) == FileAttributes.ReadOnly)
+                {
+                    File.SetAttributes(path, attrs & ~FileAttributes.ReadOnly);
+                }
+            }
+            catch (Exception ex)
+            {
+                Log($"[Restore][Debug] Failed to clear readonly attribute: {path} - {ex.Message}", LogLevel.Debug);
             }
         }
 
