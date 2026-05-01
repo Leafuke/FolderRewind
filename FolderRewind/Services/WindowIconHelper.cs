@@ -16,15 +16,8 @@ namespace FolderRewind.Services
         private const int ICON_SMALL = 0;
         private const int ICON_BIG = 1;
 
-        private static bool _applied;
-        private static IntPtr _hIconSmall = IntPtr.Zero;
-        private static IntPtr _hIconBig = IntPtr.Zero;
-
         public static async Task TryApplyAsync(Window window)
         {
-            if (_applied) return;
-            _applied = true;
-
             try
             {
                 var hwnd = WindowNative.GetWindowHandle(window);
@@ -39,20 +32,20 @@ namespace FolderRewind.Services
 
                 if (!File.Exists(assetPath)) return;
 
-                _hIconSmall = await LoadHiconFromPngAsync(assetPath, 32);
-                _hIconBig = await LoadHiconFromPngAsync(assetPath, 256);
+                var hIconSmall = await LoadHiconFromPngAsync(assetPath, 32);
+                var hIconBig = await LoadHiconFromPngAsync(assetPath, 256);
 
-                if (_hIconSmall != IntPtr.Zero)
+                if (hIconSmall != IntPtr.Zero)
                 {
-                    SendMessage(hwnd, WM_SETICON, (IntPtr)ICON_SMALL, _hIconSmall);
+                    SendMessage(hwnd, WM_SETICON, (IntPtr)ICON_SMALL, hIconSmall);
                 }
 
-                if (_hIconBig != IntPtr.Zero)
+                if (hIconBig != IntPtr.Zero)
                 {
-                    SendMessage(hwnd, WM_SETICON, (IntPtr)ICON_BIG, _hIconBig);
+                    SendMessage(hwnd, WM_SETICON, (IntPtr)ICON_BIG, hIconBig);
                 }
 
-                window.Closed += (_, __) => Cleanup();
+                window.Closed += (_, __) => Cleanup(hIconSmall, hIconBig);
             }
             catch
             {
@@ -60,18 +53,16 @@ namespace FolderRewind.Services
             }
         }
 
-        private static void Cleanup()
+        private static void Cleanup(IntPtr hIconSmall, IntPtr hIconBig)
         {
-            if (_hIconSmall != IntPtr.Zero)
+            if (hIconSmall != IntPtr.Zero)
             {
-                DestroyIcon(_hIconSmall);
-                _hIconSmall = IntPtr.Zero;
+                DestroyIcon(hIconSmall);
             }
 
-            if (_hIconBig != IntPtr.Zero)
+            if (hIconBig != IntPtr.Zero)
             {
-                DestroyIcon(_hIconBig);
-                _hIconBig = IntPtr.Zero;
+                DestroyIcon(hIconBig);
             }
         }
 

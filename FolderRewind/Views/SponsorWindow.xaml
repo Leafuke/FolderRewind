@@ -1,0 +1,68 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Window
+    x:Class="FolderRewind.Views.SponsorWindow"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+    xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    mc:Ignorable="d">
+
+    <Grid x:Name="RootGrid"
+          Padding="28,0,28,28"
+          Background="Transparent">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="36" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+        </Grid.RowDefinitions>
+
+        <!-- 透明拖拽区交给系统标题栏接管；右上角关闭按钮仍使用系统按钮。 -->
+        <Border x:Name="TitleBarDragRegion"
+                Background="Transparent" />
+
+        <TextBlock Grid.Row="1"
+                   x:Uid="SponsorWindow_Title"
+                   Margin="36,0,36,22"
+                   HorizontalAlignment="Center"
+                   TextAlignment="Center"
+                   Style="{ThemeResource TitleTextBlockStyle}" />
+
+        <StackPanel Grid.Row="2"
+                    Spacing="4"
+                    HorizontalAlignment="Stretch"
+                    VerticalAlignment="Center">
+            <Button x:Uid="SponsorWindow_Contributor"
+                    Height="60"
+                    HorizontalAlignment="Stretch"
+                    Command="{x:Bind ViewModel.OpenContributorGuideCommand}"
+                    IsEnabled="{x:Bind ViewModel.IsIdle, Mode=OneWay}">
+                <StackPanel Orientation="Horizontal" Spacing="12" >
+                    <FontIcon Glyph="&#xE71B;" FontSize="20"/>
+                    <TextBlock x:Uid="SponsorWindow_ContributorText" VerticalAlignment="Center" />
+                </StackPanel>
+            </Button>
+
+            <Button x:Uid="SponsorWindow_Purchase"
+                    Height="60"
+                    HorizontalAlignment="Stretch"
+                    Command="{x:Bind ViewModel.PurchaseSponsorCommand}"
+                    IsEnabled="{x:Bind ViewModel.IsIdle, Mode=OneWay}">
+                <StackPanel Orientation="Horizontal" Spacing="12" HorizontalAlignment="Left">
+                    <FontIcon Glyph="&#xE719;" FontSize="20" />
+                    <TextBlock x:Uid="SponsorWindow_PurchaseText" VerticalAlignment="Center" />
+                </StackPanel>
+            </Button>
+
+            <Button x:Uid="SponsorWindow_Policy"
+                    Height="60"
+                    HorizontalAlignment="Stretch"
+                    Command="{x:Bind ViewModel.OpenSponsorPolicyCommand}"
+                    IsEnabled="{x:Bind ViewModel.IsIdle, Mode=OneWay}">
+                <StackPanel Orientation="Horizontal" Spacing="12" HorizontalAlignment="Left">
+                    <FontIcon Glyph="&#xE897;" FontSize="20" />
+                    <TextBlock x:Uid="SponsorWindow_PolicyText" VerticalAlignment="Center" />
+                </StackPanel>
+            </Button>
+        </StackPanel>
+    </Grid>
+</Window>

@@ -303,6 +303,114 @@
                             </ComboBox>
                         </toolkit:SettingsCard>
 
+                        <toolkit:SettingsCard ContentAlignment="Vertical" HorizontalContentAlignment="Stretch">
+                            <toolkit:SettingsCard.Header>
+                                <TextBlock x:Uid="SettingsPage_Sponsor" Style="{StaticResource SettingsHeaderTextStyle}" />
+                            </toolkit:SettingsCard.Header>
+                            <toolkit:SettingsCard.Description>
+                                <TextBlock x:Uid="SettingsPage_SponsorDesc" Style="{StaticResource SettingsDescriptionStyle}" />
+                            </toolkit:SettingsCard.Description>
+                            <Grid RowSpacing="10">
+                                <Grid.RowDefinitions>
+                                    <RowDefinition Height="Auto" />
+                                    <RowDefinition Height="Auto" />
+                                </Grid.RowDefinitions>
+                                <TextBlock Text="{x:Bind SponsorStatusText, Mode=OneWay}"
+                                           Style="{StaticResource SettingsDescriptionStyle}" />
+                                <StackPanel Grid.Row="1" Orientation="Horizontal" Spacing="8">
+                                    <Button x:Uid="SettingsPage_SponsorPurchase"
+                                            Style="{StaticResource SettingsActionRowButtonStyle}"
+                                            Command="{x:Bind OpenSponsorWindowCommand}"
+                                            IsEnabled="{x:Bind IsSponsorOperationIdle, Mode=OneWay}" />
+                                    <Button x:Uid="SettingsPage_SponsorRestore"
+                                            Style="{StaticResource SettingsActionRowButtonStyle}"
+                                            Command="{x:Bind RestoreSponsorCommand}"
+                                            IsEnabled="{x:Bind IsSponsorOperationIdle, Mode=OneWay}" />
+                                    <Button x:Uid="SettingsPage_SponsorRefresh"
+                                            Style="{StaticResource SettingsActionRowButtonStyle}"
+                                            Command="{x:Bind RefreshSponsorCommand}"
+                                            IsEnabled="{x:Bind IsSponsorOperationIdle, Mode=OneWay}" />
+                                </StackPanel>
+                            </Grid>
+                        </toolkit:SettingsCard>
+
+                        <toolkit:SettingsCard Visibility="{x:Bind IsSponsorLocked, Mode=OneWay, Converter={StaticResource BoolToVisConverter}}">
+                            <toolkit:SettingsCard.Header>
+                                <TextBlock x:Uid="SettingsPage_SponsorLocked" Style="{StaticResource SettingsHeaderTextStyle}" />
+                            </toolkit:SettingsCard.Header>
+                            <toolkit:SettingsCard.Description>
+                                <TextBlock x:Uid="SettingsPage_SponsorLockedDesc" Style="{StaticResource SettingsDescriptionStyle}" />
+                            </toolkit:SettingsCard.Description>
+                            <FontIcon Glyph="&#xE72E;" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                        </toolkit:SettingsCard>
+
+                        <toolkit:SettingsCard IsEnabled="{x:Bind IsSponsorUnlocked, Mode=OneWay}">
+                            <toolkit:SettingsCard.Header>
+                                <TextBlock x:Uid="SettingsPage_SponsorAccent" Style="{StaticResource SettingsHeaderTextStyle}" />
+                            </toolkit:SettingsCard.Header>
+                            <toolkit:SettingsCard.Description>
+                                <TextBlock x:Uid="SettingsPage_SponsorAccentDesc" Style="{StaticResource SettingsDescriptionStyle}" />
+                            </toolkit:SettingsCard.Description>
+                            <ComboBox Style="{StaticResource SettingsSelectorStyle}"
+                                      ItemsSource="{x:Bind SponsorAccentPresets}"
+                                      SelectedIndex="{x:Bind Settings.SponsorAccentColorIndex, Mode=TwoWay}"
+                                      SelectionChanged="OnSponsorAccentChanged" />
+                        </toolkit:SettingsCard>
+
+                        <toolkit:SettingsCard IsEnabled="{x:Bind IsSponsorUnlocked, Mode=OneWay}">
+                            <toolkit:SettingsCard.Header>
+                                <TextBlock x:Uid="SettingsPage_SponsorBackdrop" Style="{StaticResource SettingsHeaderTextStyle}" />
+                            </toolkit:SettingsCard.Header>
+                            <toolkit:SettingsCard.Description>
+                                <TextBlock x:Uid="SettingsPage_SponsorBackdropDesc" Style="{StaticResource SettingsDescriptionStyle}" />
+                            </toolkit:SettingsCard.Description>
+                            <ComboBox Style="{StaticResource SettingsSelectorStyle}"
+                                      ItemsSource="{x:Bind SponsorBackdropPresets}"
+                                      SelectedIndex="{x:Bind Settings.SponsorBackdropIndex, Mode=TwoWay}"
+                                      SelectionChanged="OnSponsorBackdropChanged" />
+                        </toolkit:SettingsCard>
+
+                        <toolkit:SettingsCard IsEnabled="{x:Bind IsSponsorUnlocked, Mode=OneWay}">
+                            <toolkit:SettingsCard.Header>
+                                <TextBlock x:Uid="SettingsPage_SponsorTitleText" Style="{StaticResource SettingsHeaderTextStyle}" />
+                            </toolkit:SettingsCard.Header>
+                            <toolkit:SettingsCard.Description>
+                                <TextBlock x:Uid="SettingsPage_SponsorTitleTextDesc" Style="{StaticResource SettingsDescriptionStyle}" />
+                            </toolkit:SettingsCard.Description>
+                            <TextBox Style="{StaticResource SettingsPathTextBoxStyle}"
+                                     Text="{x:Bind Settings.SponsorTitleText, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                                     TextChanged="OnSponsorTitleTextChanged" />
+                        </toolkit:SettingsCard>
+
+                        <toolkit:SettingsCard IsEnabled="{x:Bind IsSponsorUnlocked, Mode=OneWay}">
+                            <toolkit:SettingsCard.Header>
+                                <TextBlock x:Uid="SettingsPage_SponsorTitleIcon" Style="{StaticResource SettingsHeaderTextStyle}" />
+                            </toolkit:SettingsCard.Header>
+                            <toolkit:SettingsCard.Description>
+                                <TextBlock x:Uid="SettingsPage_SponsorTitleIconDesc" Style="{StaticResource SettingsDescriptionStyle}" />
+                            </toolkit:SettingsCard.Description>
+                            <ComboBox Style="{StaticResource SettingsSelectorStyle}"
+                                      ItemsSource="{x:Bind SponsorTitleIconGlyphs}"
+                                      SelectedItem="{x:Bind Settings.SponsorTitleIconGlyph, Mode=TwoWay}"
+                                      SelectionChanged="OnSponsorTitleIconChanged">
+                                <ComboBox.ItemTemplate>
+                                    <DataTemplate>
+                                        <FontIcon Glyph="{Binding}" FontSize="18" />
+                                    </DataTemplate>
+                                </ComboBox.ItemTemplate>
+                            </ComboBox>
+                        </toolkit:SettingsCard>
+
+                        <toolkit:SettingsCard IsEnabled="{x:Bind IsSponsorUnlocked, Mode=OneWay}">
+                            <toolkit:SettingsCard.Header>
+                                <TextBlock x:Uid="SettingsPage_SponsorBadge" Style="{StaticResource SettingsHeaderTextStyle}" />
+                            </toolkit:SettingsCard.Header>
+                            <toolkit:SettingsCard.Description>
+                                <TextBlock x:Uid="SettingsPage_SponsorBadgeDesc" Style="{StaticResource SettingsDescriptionStyle}" />
+                            </toolkit:SettingsCard.Description>
+                            <ToggleSwitch IsOn="{x:Bind Settings.ShowSponsorBadge, Mode=TwoWay}" Toggled="OnShowSponsorBadgeToggled" />
+                        </toolkit:SettingsCard>
+
                         <toolkit:SettingsCard>
                             <toolkit:SettingsCard.Header>
                                 <TextBlock x:Uid="SettingsPage_FontFamily" Style="{StaticResource SettingsHeaderTextStyle}" />

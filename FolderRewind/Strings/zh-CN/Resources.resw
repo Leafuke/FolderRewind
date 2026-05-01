@@ -378,6 +378,159 @@
   <data name="SettingsPage_FontSizeDesc.Text" xml:space="preserve">
     <value>12–20 号，影响文字区块</value>
   </data>
+  <data name="SettingsPage_Sponsor.Text" xml:space="preserve">
+    <value>赞助者版本</value>
+  </data>
+  <data name="SettingsPage_SponsorDesc.Text" xml:space="preserve">
+    <value>解锁一点点外观设置项~</value>
+  </data>
+  <data name="SettingsPage_SponsorPurchase.Content" xml:space="preserve">
+    <value>支持存档时光机开发！</value>
+  </data>
+  <data name="SettingsPage_SponsorRestore.Content" xml:space="preserve">
+    <value>恢复购买</value>
+  </data>
+  <data name="SettingsPage_SponsorRefresh.Content" xml:space="preserve">
+    <value>刷新状态</value>
+  </data>
+  <data name="SettingsPage_SponsorLocked.Text" xml:space="preserve">
+    <value>尚未解锁</value>
+  </data>
+  <data name="SettingsPage_SponsorAccent.Text" xml:space="preserve">
+    <value>主题颜色</value>
+  </data>
+  <data name="SettingsPage_SponsorAccentDesc.Text" xml:space="preserve">
+    <value>选择一个温和的内置强调色，或继续跟随系统设置</value>
+  </data>
+  <data name="SettingsPage_SponsorBackdrop.Text" xml:space="preserve">
+    <value>窗口材质</value>
+  </data>
+  <data name="SettingsPage_SponsorBackdropDesc.Text" xml:space="preserve">
+    <value>在 WinUI 的 Mica 与 Acrylic 背景之间切换</value>
+  </data>
+  <data name="SettingsPage_SponsorTitleText.Text" xml:space="preserve">
+    <value>标题栏文字</value>
+  </data>
+  <data name="SettingsPage_SponsorTitleTextDesc.Text" xml:space="preserve">
+    <value>留空时显示默认名称</value>
+  </data>
+  <data name="SettingsPage_SponsorTitleIcon.Text" xml:space="preserve">
+    <value>标题栏图标</value>
+  </data>
+  <data name="SettingsPage_SponsorTitleIconDesc.Text" xml:space="preserve">
+    <value>自定义标题栏图标</value>
+  </data>
+  <data name="SettingsPage_SponsorBadge.Text" xml:space="preserve">
+    <value>支持者徽标</value>
+  </data>
+  <data name="SettingsPage_SponsorBadgeDesc.Text" xml:space="preserve">
+    <value>在标题栏显示一个小小的支持者标记</value>
+  </data>
+  <data name="Sponsor_Title" xml:space="preserve">
+    <value>赞助者版本</value>
+  </data>
+  <data name="Sponsor_Status_Unknown" xml:space="preserve">
+    <value>尚未检查赞助状态</value>
+  </data>
+  <data name="Sponsor_Status_Unlocked" xml:space="preserve">
+    <value>已解锁赞助者版本，感谢你的支持。</value>
+  </data>
+  <data name="Sponsor_Status_Locked" xml:space="preserve">
+    <value>尚未购买赞助加载项；兑换促销码后可点击恢复购买。</value>
+  </data>
+  <data name="Sponsor_Status_RefreshFailed" xml:space="preserve">
+    <value>刷新赞助状态失败：{0}</value>
+  </data>
+  <data name="Sponsor_Purchase_Succeeded" xml:space="preserve">
+    <value>购买成功，赞助者版本已解锁。</value>
+  </data>
+  <data name="Sponsor_Purchase_AlreadyPurchased" xml:space="preserve">
+    <value>你已经拥有赞助者版本，状态已恢复。</value>
+  </data>
+  <data name="Sponsor_Purchase_NetworkError" xml:space="preserve">
+    <value>购买失败：网络连接异常，请稍后重试。</value>
+  </data>
+  <data name="Sponsor_Purchase_ServerError" xml:space="preserve">
+    <value>购买失败：Microsoft Store 服务暂时不可用。</value>
+  </data>
+  <data name="Sponsor_Purchase_NotPurchased" xml:space="preserve">
+    <value>购买未完成。</value>
+  </data>
+  <data name="Sponsor_Purchase_Failed" xml:space="preserve">
+    <value>购买流程启动失败：{0}</value>
+  </data>
+  <data name="Sponsor_Accent_System" xml:space="preserve">
+    <value>跟随系统</value>
+  </data>
+  <data name="Sponsor_Accent_Blue" xml:space="preserve">
+    <value>蓝色</value>
+  </data>
+  <data name="Sponsor_Accent_Teal" xml:space="preserve">
+    <value>青色</value>
+  </data>
+  <data name="Sponsor_Accent_Green" xml:space="preserve">
+    <value>绿色</value>
+  </data>
+  <data name="Sponsor_Accent_Pink" xml:space="preserve">
+    <value>粉色</value>
+  </data>
+  <data name="Sponsor_Accent_Orange" xml:space="preserve">
+    <value>橙色</value>
+  </data>
+  <data name="Sponsor_Accent_Purple" xml:space="preserve">
+    <value>紫色</value>
+  </data>
+  <data name="Sponsor_Backdrop_Mica" xml:space="preserve">
+    <value>Mica</value>
+  </data>
+  <data name="Sponsor_Backdrop_Acrylic" xml:space="preserve">
+    <value>Acrylic</value>
+  </data>
+  <data name="Sponsor_Log_RefreshFailed" xml:space="preserve">
+    <value>[Sponsor] 刷新加载项授权失败：{0}</value>
+  </data>
+  <data name="Sponsor_Log_PurchaseFailed" xml:space="preserve">
+    <value>[Sponsor] 购买加载项失败：{0}</value>
+  </data>
+  <data name="Sponsor_Log_PurchaseStatus" xml:space="preserve">
+    <value>[Sponsor] 购买未成功，状态：{0}，扩展错误：{1}</value>
+  </data>
+  <data name="Sponsor_Log_StoreContextWindowInitFailed" xml:space="preserve">
+    <value>[Sponsor] 绑定 StoreContext 主窗口失败：{0}</value>
+  </data>
+  <data name="Sponsor_Log_BackdropApplyFailed" xml:space="preserve">
+    <value>[Sponsor] 应用窗口材质失败：{0}</value>
+  </data>
+  <data name="Sponsor_OpenWindowFailed" xml:space="preserve">
+    <value>打开赞助窗口失败：{0}</value>
+  </data>
+  <data name="Sponsor_OpenLinkFailed" xml:space="preserve">
+    <value>无法打开链接，请稍后重试。</value>
+  </data>
+  <data name="Sponsor_OpenLinkFailedWithReason" xml:space="preserve">
+    <value>打开链接失败：{0}</value>
+  </data>
+  <data name="Sponsor_Log_OpenWindowFailed" xml:space="preserve">
+    <value>[Sponsor] 打开赞助窗口失败：{0}</value>
+  </data>
+  <data name="Sponsor_Log_OpenContributorGuideFailed" xml:space="preserve">
+    <value>[Sponsor] 打开贡献指南失败：{0}</value>
+  </data>
+  <data name="Sponsor_Log_OpenSponsorPolicyFailed" xml:space="preserve">
+    <value>[Sponsor] 打开赞助者版策略失败：{0}</value>
+  </data>
+  <data name="SponsorWindow_Title.Text" xml:space="preserve">
+    <value>赞助 FolderRewind</value>
+  </data>
+  <data name="SponsorWindow_ContributorText.Text" xml:space="preserve">
+    <value>成为 FolderRewind 贡献者</value>
+  </data>
+  <data name="SponsorWindow_PurchaseText.Text" xml:space="preserve">
+    <value>购买 FolderRewind 赞助者版</value>
+  </data>
+  <data name="SponsorWindow_PolicyText.Text" xml:space="preserve">
+    <value>赞助者版策略</value>
+  </data>
   <data name="HomePage_FavoriteFolders.Text" xml:space="preserve">
     <value>收藏的文件夹</value>
   </data>

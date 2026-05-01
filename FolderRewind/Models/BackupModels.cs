@@ -93,6 +93,11 @@ namespace FolderRewind.Models
         private string _lastManagerFolderPath = "";
         private string _lastHistoryConfigId = "";
         private string _lastHistoryFolderPath = "";
+        private int _sponsorAccentColorIndex = 0;
+        private int _sponsorBackdropIndex = 0;
+        private string _sponsorTitleText = "";
+        private string _sponsorTitleIconGlyph = IconCatalog.DefaultConfigIconGlyph;
+        private bool _showSponsorBadge = true;
 
         private bool _useHistoryStatusColors = true;
 
@@ -165,6 +170,31 @@ namespace FolderRewind.Models
         public string LastManagerFolderPath { get => _lastManagerFolderPath; set => SetProperty(ref _lastManagerFolderPath, value ?? string.Empty); }
         public string LastHistoryConfigId { get => _lastHistoryConfigId; set => SetProperty(ref _lastHistoryConfigId, value ?? string.Empty); }
         public string LastHistoryFolderPath { get => _lastHistoryFolderPath; set => SetProperty(ref _lastHistoryFolderPath, value ?? string.Empty); }
+
+        /// <summary>
+        /// 赞助版主题色预设。0 表示继续跟随系统 Accent，避免免费版被新字段影响。
+        /// </summary>
+        public int SponsorAccentColorIndex { get => _sponsorAccentColorIndex; set => SetProperty(ref _sponsorAccentColorIndex, value); }
+
+        /// <summary>
+        /// 赞助版窗口材质：0=Mica，1=Acrylic。
+        /// </summary>
+        public int SponsorBackdropIndex { get => _sponsorBackdropIndex; set => SetProperty(ref _sponsorBackdropIndex, value); }
+
+        /// <summary>
+        /// 赞助版自定义标题栏文字。留空时使用默认应用名。
+        /// </summary>
+        public string SponsorTitleText { get => _sponsorTitleText; set => SetProperty(ref _sponsorTitleText, value ?? string.Empty); }
+
+        /// <summary>
+        /// 赞助版自定义标题栏图标，保存 Segoe MDL2 glyph，避免引入外部图标文件兼容风险。
+        /// </summary>
+        public string SponsorTitleIconGlyph { get => _sponsorTitleIconGlyph; set => SetProperty(ref _sponsorTitleIconGlyph, value ?? IconCatalog.DefaultConfigIconGlyph); }
+
+        /// <summary>
+        /// 是否在标题栏显示支持者小徽标。
+        /// </summary>
+        public bool ShowSponsorBadge { get => _showSponsorBadge; set => SetProperty(ref _showSponsorBadge, value); }
 
         /// <summary>
         /// 是否在历史记录页使用彩色节点区分状态

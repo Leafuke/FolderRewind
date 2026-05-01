@@ -59,6 +59,9 @@ namespace FolderRewind.Services
             "\uE8D4", // Package
         });
 
+        // 标题栏自定义图标复用配置图标池，避免同一批 WinUI glyph 在多处重复维护。
+        public static IReadOnlyList<string> TitleIconGlyphs => ConfigIconGlyphs;
+
         public const string DefaultConfigIconGlyph = "\uE8B7";
     }
 }
