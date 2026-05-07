@@ -72,8 +72,6 @@ namespace FolderRewind.ViewModels
 
         public ObservableCollection<CloudOnboardingProviderOption> CloudPresetOptions { get; } = new();
 
-        public ObservableCollection<OptimizationSuggestionItem> WindowsAppSdkOptimizationSuggestions { get; } = new();
-
         public IAsyncRelayCommand InstallMinecraftPresetCommand { get; }
 
         public IAsyncRelayCommand StartCloudPresetCommand { get; }
@@ -256,7 +254,6 @@ namespace FolderRewind.ViewModels
 
             RefreshCloudPresetOptions();
             RefreshSponsorOptionLists();
-            RefreshWindowsAppSdkOptimizationSuggestions();
         }
 
         public void Initialize()
@@ -1258,23 +1255,6 @@ namespace FolderRewind.ViewModels
             }
 
             SelectedCloudPresetOption = CloudPresetOptions.FirstOrDefault();
-        }
-
-        private void RefreshWindowsAppSdkOptimizationSuggestions()
-        {
-            WindowsAppSdkOptimizationSuggestions.Clear();
-
-            // 这里沉淀的是“可执行优化路线”，不写入配置，避免把调研内容变成用户数据负担。
-            for (var i = 1; i <= 6; i++)
-            {
-                WindowsAppSdkOptimizationSuggestions.Add(new OptimizationSuggestionItem
-                {
-                    Title = I18n.GetString($"WindowsAppSdkOptimization_Item{i}_Title"),
-                    Description = I18n.GetString($"WindowsAppSdkOptimization_Item{i}_Description"),
-                    Source = I18n.GetString($"WindowsAppSdkOptimization_Item{i}_Source"),
-                    Priority = I18n.GetString($"WindowsAppSdkOptimization_Item{i}_Priority")
-                });
-            }
         }
 
         private async Task RunSponsorOperationAsync(Func<Task<SponsorOperationResult>> operation)
