@@ -97,7 +97,16 @@ namespace FolderRewind.Models
         private int _sponsorBackdropIndex = 0;
         private string _sponsorTitleText = "";
         private string _sponsorTitleIconGlyph = IconCatalog.DefaultConfigIconGlyph;
-        private bool _showSponsorBadge = true;
+        private bool _sponsorBackgroundEnabled = false;
+        private string _sponsorBackgroundImagePath = "";
+        private int _sponsorBackgroundStretchIndex = 0;
+        private double _sponsorBackgroundImageOpacity = 0.28;
+        private double _sponsorBackgroundOverlayOpacity = 0.62;
+        private int _sponsorCompletionSoundIndex = 0;
+        private int _completionSoundIndex = 0;
+        private string _completionSoundCustomPath = "";
+        private bool _sponsorEntitlementCached = false;
+        private DateTime _sponsorEntitlementLastVerifiedUtc = DateTime.MinValue;
 
         private bool _useHistoryStatusColors = true;
 
@@ -192,9 +201,54 @@ namespace FolderRewind.Models
         public string SponsorTitleIconGlyph { get => _sponsorTitleIconGlyph; set => SetProperty(ref _sponsorTitleIconGlyph, value ?? IconCatalog.DefaultConfigIconGlyph); }
 
         /// <summary>
-        /// 是否在标题栏显示支持者小徽标。
+        /// 赞助版背景图片总开关。未解锁赞助版时运行时会忽略它，避免旧配置影响免费版体验。
         /// </summary>
-        public bool ShowSponsorBadge { get => _showSponsorBadge; set => SetProperty(ref _showSponsorBadge, value); }
+        public bool SponsorBackgroundEnabled { get => _sponsorBackgroundEnabled; set => SetProperty(ref _sponsorBackgroundEnabled, value); }
+
+        /// <summary>
+        /// 复制到应用配置目录后的背景图片路径，不保存用户原始文件位置。
+        /// </summary>
+        public string SponsorBackgroundImagePath { get => _sponsorBackgroundImagePath; set => SetProperty(ref _sponsorBackgroundImagePath, value ?? string.Empty); }
+
+        /// <summary>
+        /// 背景图片显示方式：0=UniformToFill，1=Uniform，2=Fill。
+        /// </summary>
+        public int SponsorBackgroundStretchIndex { get => _sponsorBackgroundStretchIndex; set => SetProperty(ref _sponsorBackgroundStretchIndex, value); }
+
+        /// <summary>
+        /// 背景图片本体透明度，控制图片存在感。
+        /// </summary>
+        public double SponsorBackgroundImageOpacity { get => _sponsorBackgroundImageOpacity; set => SetProperty(ref _sponsorBackgroundImageOpacity, value); }
+
+        /// <summary>
+        /// 背景遮罩透明度，用于保证文字和卡片仍然清楚。
+        /// </summary>
+        public double SponsorBackgroundOverlayOpacity { get => _sponsorBackgroundOverlayOpacity; set => SetProperty(ref _sponsorBackgroundOverlayOpacity, value); }
+
+        /// <summary>
+        /// 旧版赞助者完成音效设置，保留用于配置迁移。
+        /// </summary>
+        public int SponsorCompletionSoundIndex { get => _sponsorCompletionSoundIndex; set => SetProperty(ref _sponsorCompletionSoundIndex, value); }
+
+        /// <summary>
+        /// 备份/还原完成后的音效。0=无，1=默认音效；赞助者可用自定义文件替换默认音效。
+        /// </summary>
+        public int CompletionSoundIndex { get => _completionSoundIndex; set => SetProperty(ref _completionSoundIndex, value); }
+
+        /// <summary>
+        /// 复制到应用配置目录后的自定义完成音效路径。只有赞助者版本会使用它。
+        /// </summary>
+        public string CompletionSoundCustomPath { get => _completionSoundCustomPath; set => SetProperty(ref _completionSoundCustomPath, value ?? string.Empty); }
+
+        /// <summary>
+        /// 本机最后一次确认过的赞助授权。它只用于启动首帧恢复外观，后台 Store 刷新会继续校正。
+        /// </summary>
+        public bool SponsorEntitlementCached { get => _sponsorEntitlementCached; set => SetProperty(ref _sponsorEntitlementCached, value); }
+
+        /// <summary>
+        /// 最近一次从 Microsoft Store 确认授权的 UTC 时间，用于诊断“为什么本机记得我是赞助者”。
+        /// </summary>
+        public DateTime SponsorEntitlementLastVerifiedUtc { get => _sponsorEntitlementLastVerifiedUtc; set => SetProperty(ref _sponsorEntitlementLastVerifiedUtc, value); }
 
         /// <summary>
         /// 是否在历史记录页使用彩色节点区分状态

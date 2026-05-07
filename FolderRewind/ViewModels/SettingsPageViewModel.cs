@@ -61,6 +61,10 @@ namespace FolderRewind.ViewModels
 
         public ObservableCollection<string> SponsorTitleIconGlyphs { get; } = new();
 
+        public ObservableCollection<string> SponsorBackgroundStretchModes { get; } = new();
+
+        public ObservableCollection<string> CompletionSoundPresets { get; } = new();
+
         public ObservableCollection<object> HotkeyBindingsView { get; } = new();
 
         public IAsyncRelayCommand InstallMinecraftPresetCommand { get; }
@@ -72,6 +76,12 @@ namespace FolderRewind.ViewModels
         public IAsyncRelayCommand RestoreSponsorCommand { get; }
 
         public IAsyncRelayCommand RefreshSponsorCommand { get; }
+
+        public IRelayCommand ClearSponsorBackgroundCommand { get; }
+
+        public IRelayCommand PreviewCompletionSoundCommand { get; }
+
+        public IRelayCommand ClearCustomCompletionSoundCommand { get; }
 
         public bool IsMinecraftPresetInstallRunning
         {
@@ -120,6 +130,18 @@ namespace FolderRewind.ViewModels
         public bool IsSponsorOperationIdle => !IsSponsorOperationRunning;
 
         public string SponsorStatusText => SponsorService.StatusMessage;
+
+        public double SponsorBackgroundImageOpacityPercent
+        {
+            get => Math.Clamp(Settings.SponsorBackgroundImageOpacity, 0, 1) * 100d;
+            set => HandleSponsorBackgroundImageOpacityChanged(value);
+        }
+
+        public double SponsorBackgroundOverlayOpacityPercent
+        {
+            get => Math.Clamp(Settings.SponsorBackgroundOverlayOpacity, 0, 1) * 100d;
+            set => HandleSponsorBackgroundOverlayOpacityChanged(value);
+        }
 
         public string KnotLinkStatusMessage
         {
@@ -178,6 +200,10 @@ namespace FolderRewind.ViewModels
                 async () => { await RunSponsorOperationAsync(() => SponsorService.RefreshLicenseAsync(true)); },
                 () => IsSponsorOperationIdle);
 
+            ClearSponsorBackgroundCommand = new RelayCommand(ClearSponsorBackground, () => SponsorService.IsUnlocked);
+            PreviewCompletionSoundCommand = new RelayCommand(PreviewCompletionSound);
+            ClearCustomCompletionSoundCommand = new RelayCommand(ClearCustomCompletionSound, () => SponsorService.IsUnlocked);
+
             RefreshSponsorOptionLists();
         }
 
@@ -211,6 +237,8 @@ namespace FolderRewind.ViewModels
 
             SponsorService.StateChanged -= SponsorService_StateChanged;
             SponsorService.StateChanged += SponsorService_StateChanged;
+            SponsorService.StatusChanged -= SponsorService_StateChanged;
+            SponsorService.StatusChanged += SponsorService_StateChanged;
         }
 
         public void OnNavigatedTo()
@@ -249,6 +277,7 @@ namespace FolderRewind.ViewModels
             // 与 Initialize 成对解绑，避免设置页被缓存后事件重复触发。
             CoreFeatureValidationService.StateChanged -= CoreFeatureValidationService_StateChanged;
             SponsorService.StateChanged -= SponsorService_StateChanged;
+            SponsorService.StatusChanged -= SponsorService_StateChanged;
             try
             {
                 HotkeyManager.DefinitionsChanged -= HotkeyManager_DefinitionsChanged;
@@ -496,16 +525,107 @@ namespace FolderRewind.ViewModels
             MainWindowService.ApplySponsorVisuals();
         }
 
-        public void HandleShowSponsorBadgeToggled(bool isOn)
+        public async Task ApplySponsorBackgroundImageAsync(string path)
         {
             if (!SponsorService.IsUnlocked)
             {
                 return;
             }
 
-            Settings.ShowSponsorBadge = isOn;
+            if (await SponsorPersonalizationService.ApplyBackgroundImageAsync(path))
+            {
+                OnPropertyChanged(nameof(Settings));
+            }
+        }
+
+        public void ClearSponsorBackground()
+        {
+            if (SponsorPersonalizationService.ClearBackgroundImage())
+            {
+                OnPropertyChanged(nameof(Settings));
+            }
+        }
+
+        public void HandleSponsorBackgroundEnabledToggled(bool isOn)
+        {
+            if (!SponsorService.IsUnlocked)
+            {
+                return;
+            }
+
+            Settings.SponsorBackgroundEnabled = isOn;
             ConfigService.Save();
             MainWindowService.ApplySponsorVisuals();
+        }
+
+        public void HandleSponsorBackgroundStretchChanged(int selectedIndex)
+        {
+            if (!SponsorService.IsUnlocked)
+            {
+                return;
+            }
+
+            Settings.SponsorBackgroundStretchIndex = Math.Clamp(selectedIndex, 0, 2);
+            ConfigService.Save();
+            MainWindowService.ApplySponsorVisuals();
+        }
+
+        public void HandleSponsorBackgroundImageOpacityChanged(double newValue)
+        {
+            if (!SponsorService.IsUnlocked || double.IsNaN(newValue))
+            {
+                return;
+            }
+
+            Settings.SponsorBackgroundImageOpacity = Math.Clamp(newValue / 100d, 0, 1);
+            ConfigService.Save();
+            MainWindowService.ApplySponsorVisuals();
+            OnPropertyChanged(nameof(SponsorBackgroundImageOpacityPercent));
+        }
+
+        public void HandleSponsorBackgroundOverlayOpacityChanged(double newValue)
+        {
+            if (!SponsorService.IsUnlocked || double.IsNaN(newValue))
+            {
+                return;
+            }
+
+            Settings.SponsorBackgroundOverlayOpacity = Math.Clamp(newValue / 100d, 0, 1);
+            ConfigService.Save();
+            MainWindowService.ApplySponsorVisuals();
+            OnPropertyChanged(nameof(SponsorBackgroundOverlayOpacityPercent));
+        }
+
+        public void HandleCompletionSoundChanged(int selectedIndex)
+        {
+            Settings.CompletionSoundIndex = Math.Clamp(selectedIndex, 0, CompletionSoundService.PresetCount - 1);
+            ConfigService.Save();
+        }
+
+        public void PreviewCompletionSound()
+        {
+            CompletionSoundService.PreviewConfiguredSound();
+        }
+
+        public async Task ApplyCustomCompletionSoundAsync(string path)
+        {
+            if (!SponsorService.IsUnlocked)
+            {
+                return;
+            }
+
+            if (await CompletionSoundService.ApplyCustomSoundAsync(path))
+            {
+                OnPropertyChanged(nameof(Settings));
+            }
+        }
+
+        public void ClearCustomCompletionSound()
+        {
+            if (CompletionSoundService.ClearCustomSound())
+            {
+                OnPropertyChanged(nameof(Settings));
+            }
         }
 
         public void HandleLoggingChanged(bool isOn)
@@ -690,6 +810,10 @@ namespace FolderRewind.ViewModels
             OnPropertyChanged(nameof(IsSponsorLocked));
             OnPropertyChanged(nameof(SponsorStatusText));
             OnPropertyChanged(nameof(Settings));
+            OnPropertyChanged(nameof(SponsorBackgroundImageOpacityPercent));
+            OnPropertyChanged(nameof(SponsorBackgroundOverlayOpacityPercent));
+            ClearSponsorBackgroundCommand.NotifyCanExecuteChanged();
+            ClearCustomCompletionSoundCommand.NotifyCanExecuteChanged();
         }
 
         public void RefreshHotkeyBindingsView()
@@ -1013,6 +1137,17 @@ namespace FolderRewind.ViewModels
             foreach (var glyph in IconCatalog.TitleIconGlyphs)
             {
                 SponsorTitleIconGlyphs.Add(glyph);
+            }
+
+            SponsorBackgroundStretchModes.Clear();
+            SponsorBackgroundStretchModes.Add(I18n.GetString("Sponsor_BackgroundStretch_UniformToFill"));
+            SponsorBackgroundStretchModes.Add(I18n.GetString("Sponsor_BackgroundStretch_Uniform"));
+            SponsorBackgroundStretchModes.Add(I18n.GetString("Sponsor_BackgroundStretch_Fill"));
+
+            CompletionSoundPresets.Clear();
+            for (var i = 0; i < CompletionSoundService.PresetCount; i++)
+            {
+                CompletionSoundPresets.Add(CompletionSoundService.GetPresetName(i));
             }
         }
 

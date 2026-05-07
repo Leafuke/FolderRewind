@@ -12,6 +12,16 @@
             <RowDefinition Height="*" />
         </Grid.RowDefinitions>
 
+        <Image Grid.RowSpan="3"
+               Source="{x:Bind ViewModel.SponsorBackgroundImageSource, Mode=OneWay}"
+               Stretch="{x:Bind ViewModel.SponsorBackgroundStretch, Mode=OneWay}"
+               Opacity="{x:Bind ViewModel.SponsorBackgroundOpacity, Mode=OneWay}"
+               Visibility="{x:Bind ViewModel.IsSponsorBackgroundVisible, Mode=OneWay, Converter={StaticResource BoolToVisConverter}}" />
+        <Border Grid.RowSpan="3"
+                Background="{x:Bind ViewModel.SponsorBackgroundOverlayBrush, Mode=OneWay}"
+                Opacity="{x:Bind ViewModel.SponsorBackgroundOverlayOpacity, Mode=OneWay}"
+                Visibility="{x:Bind ViewModel.IsSponsorBackgroundVisible, Mode=OneWay, Converter={StaticResource BoolToVisConverter}}" />
+
         <Border x:Name="AppTitleBar"
                 Grid.Row="0"
                 Height="44"
@@ -22,7 +32,6 @@
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="Auto" />
                     <ColumnDefinition Width="*" />
-                    <ColumnDefinition Width="Auto" />
                 </Grid.ColumnDefinitions>
 
                 <FontIcon Glyph="{x:Bind ViewModel.TitleIconGlyph, Mode=OneWay}" FontSize="16" Opacity="0.9" />
@@ -31,13 +40,6 @@
                            Style="{ThemeResource BodyStrongTextBlockStyle}"
                            VerticalAlignment="Center"
                            TextTrimming="CharacterEllipsis" />
-                <FontIcon Grid.Column="2"
-                          Glyph="&#xE734;"
-                          FontSize="12"
-                          Margin="0,0,0,0"
-                          VerticalAlignment="Center"
-                          Foreground="{ThemeResource AccentFillColorDefaultBrush}"
-                          Visibility="{x:Bind ViewModel.IsSponsorBadgeVisible, Mode=OneWay, Converter={StaticResource BoolToVisConverter}}" />
             </Grid>
         </Border>
 
@@ -51,6 +53,7 @@
 
         <NavigationView x:Name="NavView"
                         Grid.Row="2"
+                        Background="Transparent"
                         x:Uid="ShellPage_Header"
                         PaneDisplayMode="Auto"
                         ExpandedModeThresholdWidth="1120"

@@ -15,16 +15,25 @@ namespace FolderRewind.Services
         public string Message { get; init; } = string.Empty;
     }
 
+    internal sealed class SponsorLicenseProbeResult
+    {
+        public bool IsUnlocked { get; init; }
+
+        public bool HadProbeError { get; init; }
+    }
+
     public static class SponsorService
     {
         private const string ServiceName = nameof(SponsorService);
 
+        // 发布前请替换为 Microsoft Partner Center 中“持久型加载项”的真实 Store ID。
         public const string SponsorAddOnStoreId = "9NZ03GJSWHK1";
 
         private static bool _isUnlocked;
         private static string _statusMessage = I18n.GetString("Sponsor_Status_Unknown");
 
         public static event Action? StateChanged;
+        public static event Action? StatusChanged;
         public static bool IsUnlocked
         {
             get => _isUnlocked;
@@ -37,6 +46,7 @@ namespace FolderRewind.Services
 
                 _isUnlocked = value;
                 StateChanged?.Invoke();
+                StatusChanged?.Invoke();
             }
         }
 
@@ -52,26 +62,47 @@ namespace FolderRewind.Services
                 }
 
                 _statusMessage = next;
-                StateChanged?.Invoke();
+                StatusChanged?.Invoke();
             }
         }
 
-        public static async Task<SponsorOperationResult> RefreshLicenseAsync(bool showNotification = false)
+        public static void InitializeFromCache()
+        {
+            var settings = ConfigService.CurrentConfig?.GlobalSettings;
+            if (settings?.SponsorEntitlementCached == true)
+            {
+                // 启动首帧优先相信本机最近确认过的状态，避免 Store 请求完成前外观闪回免费版。
+                ApplyState(true, I18n.GetString("Sponsor_Status_UnlockedCached"));
+                return;
+            }
+
+            ApplyState(false, I18n.GetString("Sponsor_Status_Unknown"));
+        }
+
+        public static async Task<SponsorOperationResult> RefreshLicenseAsync(bool showNotification = false, bool allowDowngrade = true)
         {
 
             try
             {
                 var context = GetStoreContext();
-                var license = await context.GetAppLicenseAsync();
-                var unlocked = license?.AddOnLicenses != null
-                    && license.AddOnLicenses.Any(pair =>
-                        pair.Value?.IsActive == true
-                        && (string.Equals(pair.Key, SponsorAddOnStoreId, StringComparison.OrdinalIgnoreCase)
-                            || string.Equals(pair.Value.SkuStoreId, SponsorAddOnStoreId, StringComparison.OrdinalIgnoreCase)));
+                var probe = await HasSponsorLicenseAsync(context);
+                var wasUnlocked = IsUnlocked;
+                var hasCachedUnlock = ConfigService.CurrentConfig?.GlobalSettings?.SponsorEntitlementCached == true;
+                var unlocked = probe.IsUnlocked
+                    || (hasCachedUnlock && (probe.HadProbeError || !allowDowngrade));
 
                 var message = unlocked
-                    ? I18n.GetString("Sponsor_Status_Unlocked")
+                    ? (probe.IsUnlocked ? I18n.GetString("Sponsor_Status_Unlocked") : I18n.GetString("Sponsor_Status_UnlockedCached"))
                     : I18n.GetString("Sponsor_Status_Locked");
+
+                if (probe.IsUnlocked)
+                {
+                    PersistEntitlementCache(true);
+                }
+                else if (allowDowngrade && !probe.HadProbeError)
+                {
+                    PersistEntitlementCache(false);
+                }
 
                 ApplyState(unlocked, message);
                 if (showNotification)
@@ -86,20 +117,30 @@ namespace FolderRewind.Services
                     }
                 }
 
-                MainWindowService.ApplySponsorVisuals();
+                if (wasUnlocked != unlocked)
+                {
+                    MainWindowService.ApplySponsorVisuals();
+                }
+
                 return CreateResult(true, message);
             }
             catch (Exception ex)
             {
                 var message = I18n.Format("Sponsor_Status_RefreshFailed", ex.Message);
-                ApplyState(false, message);
+                var wasUnlocked = IsUnlocked;
+                var keepCachedUnlock = ConfigService.CurrentConfig?.GlobalSettings?.SponsorEntitlementCached == true;
+                ApplyState(keepCachedUnlock, keepCachedUnlock ? I18n.GetString("Sponsor_Status_UnlockedCached") : message);
                 LogService.LogError(I18n.Format("Sponsor_Log_RefreshFailed", ex.Message), ServiceName, ex);
                 if (showNotification)
                 {
                     NotificationService.ShowError(message, I18n.GetString("Sponsor_Title"));
                 }
 
-                MainWindowService.ApplySponsorVisuals();
+                if (wasUnlocked != IsUnlocked)
+                {
+                    MainWindowService.ApplySponsorVisuals();
+                }
+
                 return CreateResult(false, message);
             }
         }
@@ -110,6 +151,22 @@ namespace FolderRewind.Services
             try
             {
                 var context = GetStoreContext();
+                var existingLicense = await HasSponsorLicenseAsync(context);
+                if (existingLicense.IsUnlocked)
+                {
+                    var alreadyOwnedMessage = I18n.GetString("Sponsor_Purchase_AlreadyPurchased");
+                    PersistEntitlementCache(true);
+                    ApplyState(true, I18n.GetString("Sponsor_Status_Unlocked"));
+                    NotificationService.ShowSuccess(alreadyOwnedMessage, I18n.GetString("Sponsor_Title"));
+                    MainWindowService.ApplySponsorVisuals();
+                    return new SponsorOperationResult
+                    {
+                        Success = true,
+                        IsUnlocked = true,
+                        Message = alreadyOwnedMessage
+                    };
+                }
+
                 var purchase = await context.RequestPurchaseAsync(SponsorAddOnStoreId);
                 var message = purchase.Status switch
                 {
@@ -124,7 +181,7 @@ namespace FolderRewind.Services
                 if (purchase.Status == StorePurchaseStatus.Succeeded
                     || purchase.Status == StorePurchaseStatus.AlreadyPurchased)
                 {
-                    var refresh = await RefreshLicenseAsync(false);
+                    var refresh = await RefreshLicenseAsync(false, allowDowngrade: false);
                     if (refresh.IsUnlocked)
                     {
                         NotificationService.ShowSuccess(message, I18n.GetString("Sponsor_Title"));
@@ -157,9 +214,99 @@ namespace FolderRewind.Services
             }
         }
 
+        private static async Task<SponsorLicenseProbeResult> HasSponsorLicenseAsync(StoreContext context)
+        {
+            var licenseUnlocked = false;
+            var hadProbeError = false;
+            try
+            {
+                var license = await context.GetAppLicenseAsync();
+                if (license?.AddOnLicenses != null)
+                {
+                    foreach (var pair in license.AddOnLicenses)
+                    {
+                        var addOn = pair.Value;
+                        if (addOn?.IsActive == true
+                            && (IsSponsorId(pair.Key) || IsSponsorId(addOn.SkuStoreId)))
+                        {
+                            licenseUnlocked = true;
+                        }
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                hadProbeError = true;
+                LogService.LogWarning(I18n.Format("Sponsor_Log_AppLicenseProbeFailed", ex.Message), ServiceName);
+            }
+
+            if (licenseUnlocked)
+            {
+                return new SponsorLicenseProbeResult { IsUnlocked = true, HadProbeError = hadProbeError };
+            }
+
+            try
+            {
+                // 促销码兑换后，有些 Store 环境在用户 Collection 中先体现 Durable 归属。
+                var collection = await context.GetUserCollectionAsync(new[] { "Durable" });
+                if (collection?.Products != null)
+                {
+                    foreach (var pair in collection.Products)
+                    {
+                        var product = pair.Value;
+                        if (product != null
+                            && (IsSponsorId(pair.Key)
+                                || IsSponsorId(product.StoreId)
+                                || IsSponsorId(product.InAppOfferToken)
+                                || (product.Skus?.Any(sku => IsSponsorId(sku.StoreId)) == true)))
+                        {
+                            return new SponsorLicenseProbeResult { IsUnlocked = true, HadProbeError = hadProbeError };
+                        }
+                    }
+                }
+
+                if (collection?.ExtendedError != null)
+                {
+                    hadProbeError = true;
+                    LogService.LogWarning(I18n.Format("Sponsor_Log_UserCollectionProbeFailed", collection.ExtendedError.Message), ServiceName);
+                }
+            }
+            catch (Exception ex)
+            {
+                hadProbeError = true;
+                LogService.LogWarning(I18n.Format("Sponsor_Log_UserCollectionProbeFailed", ex.Message), ServiceName);
+            }
+
+            return new SponsorLicenseProbeResult { IsUnlocked = false, HadProbeError = hadProbeError };
+        }
+
+        private static bool IsSponsorId(string? value)
+        {
+            return !string.IsNullOrWhiteSpace(value)
+                && string.Equals(value.Trim(), SponsorAddOnStoreId, StringComparison.OrdinalIgnoreCase);
+        }
+
         public static Task<SponsorOperationResult> RestoreAsync()
         {
             return RefreshLicenseAsync(showNotification: true);
+        }
+
+        private static void PersistEntitlementCache(bool unlocked)
+        {
+            var settings = ConfigService.CurrentConfig?.GlobalSettings;
+            if (settings == null)
+            {
+                return;
+            }
+
+            if (settings.SponsorEntitlementCached == unlocked)
+            {
+                return;
+            }
+
+            settings.SponsorEntitlementCached = unlocked;
+            settings.SponsorEntitlementLastVerifiedUtc = unlocked ? DateTime.UtcNow : DateTime.MinValue;
+            ConfigService.Save();
         }
 
         public static Task OpenContributorGuideAsync()

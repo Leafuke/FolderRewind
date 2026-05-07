@@ -396,6 +396,9 @@ Duplicate folder names are blocked within the same configuration so different di
   <data name="SettingsPage_SponsorLocked.Text" xml:space="preserve">
     <value>Sponsor perks are locked</value>
   </data>
+  <data name="SettingsPage_SponsorLockedDesc.Text" xml:space="preserve">
+    <value>Purchase or restore Sponsor Edition to use these appearance perks.</value>
+  </data>
   <data name="SettingsPage_SponsorAccent.Text" xml:space="preserve">
     <value>Theme color</value>
   </data>
@@ -420,11 +423,65 @@ Duplicate folder names are blocked within the same configuration so different di
   <data name="SettingsPage_SponsorTitleIconDesc.Text" xml:space="preserve">
     <value>Pick a WinUI built-in glyph for the title bar</value>
   </data>
-  <data name="SettingsPage_SponsorBadge.Text" xml:space="preserve">
-    <value>Supporter badge</value>
+  <data name="SettingsPage_SponsorBackground.Text" xml:space="preserve">
+    <value>Background image</value>
   </data>
-  <data name="SettingsPage_SponsorBadgeDesc.Text" xml:space="preserve">
-    <value>Show a small supporter mark in the title bar</value>
+  <data name="SettingsPage_SponsorBackgroundDesc.Text" xml:space="preserve">
+    <value>Choose an image for the app background. The file is copied into app settings.</value>
+  </data>
+  <data name="SettingsPage_SponsorBackgroundChoose.Content" xml:space="preserve">
+    <value>Choose image</value>
+  </data>
+  <data name="SettingsPage_SponsorBackgroundClear.Content" xml:space="preserve">
+    <value>Clear background</value>
+  </data>
+  <data name="SettingsPage_SponsorBackgroundEnabled.Text" xml:space="preserve">
+    <value>Enable background image</value>
+  </data>
+  <data name="SettingsPage_SponsorBackgroundEnabledDesc.Text" xml:space="preserve">
+    <value>Turning this off keeps the selected image for later.</value>
+  </data>
+  <data name="SettingsPage_SponsorBackgroundStretch.Text" xml:space="preserve">
+    <value>Background fit</value>
+  </data>
+  <data name="SettingsPage_SponsorBackgroundStretchDesc.Text" xml:space="preserve">
+    <value>Choose whether the image fills, fits, or stretches across the window.</value>
+  </data>
+  <data name="SettingsPage_SponsorBackgroundImageOpacity.Text" xml:space="preserve">
+    <value>Image opacity</value>
+  </data>
+  <data name="SettingsPage_SponsorBackgroundImageOpacityDesc.Text" xml:space="preserve">
+    <value>Lower the image presence so app content stays clear.</value>
+  </data>
+  <data name="SettingsPage_SponsorBackgroundOverlayOpacity.Text" xml:space="preserve">
+    <value>Background overlay</value>
+  </data>
+  <data name="SettingsPage_SponsorBackgroundOverlayOpacityDesc.Text" xml:space="preserve">
+    <value>Increase the overlay to improve text and card readability.</value>
+  </data>
+  <data name="SettingsPage_CompletionSound.Text" xml:space="preserve">
+    <value>Completion sound</value>
+  </data>
+  <data name="SettingsPage_CompletionSoundDesc.Text" xml:space="preserve">
+    <value>Play a system sound when backup or restore finishes.</value>
+  </data>
+  <data name="SettingsPage_CompletionSoundPreview.Content" xml:space="preserve">
+    <value>Preview</value>
+  </data>
+  <data name="SettingsPage_CustomCompletionSound.Text" xml:space="preserve">
+    <value>Custom completion sound</value>
+  </data>
+  <data name="SettingsPage_CustomCompletionSoundDesc.Text" xml:space="preserve">
+    <value>Sponsors can choose an audio file to replace the default sound.</value>
+  </data>
+  <data name="SettingsPage_CustomCompletionSoundChoose.Content" xml:space="preserve">
+    <value>Custom sound</value>
+  </data>
+  <data name="SettingsPage_CustomCompletionSoundClear.Content" xml:space="preserve">
+    <value>Clear custom</value>
+  </data>
+  <data name="SettingsPage_About_Link_Sponsors.Content" xml:space="preserve">
+    <value>Sponsors</value>
   </data>
   <data name="Sponsor_Title" xml:space="preserve">
     <value>Sponsor edition</value>
@@ -434,6 +491,9 @@ Duplicate folder names are blocked within the same configuration so different di
   </data>
   <data name="Sponsor_Status_Unlocked" xml:space="preserve">
     <value>Sponsor edition is unlocked. Thank you for supporting FolderRewind.</value>
+  </data>
+  <data name="Sponsor_Status_UnlockedCached" xml:space="preserve">
+    <value>Using the sponsor status saved on this device. License refresh will continue in the background.</value>
   </data>
   <data name="Sponsor_Status_Locked" xml:space="preserve">
     <value>The sponsor add-on is not purchased yet. After redeeming a promo code, use Restore purchase.</value>
@@ -486,6 +546,69 @@ Duplicate folder names are blocked within the same configuration so different di
   <data name="Sponsor_Backdrop_Acrylic" xml:space="preserve">
     <value>Acrylic</value>
   </data>
+  <data name="Sponsor_BackgroundStretch_UniformToFill" xml:space="preserve">
+    <value>Fill window</value>
+  </data>
+  <data name="Sponsor_BackgroundStretch_Uniform" xml:space="preserve">
+    <value>Fit image</value>
+  </data>
+  <data name="Sponsor_BackgroundStretch_Fill" xml:space="preserve">
+    <value>Stretch</value>
+  </data>
+  <data name="CompletionSound_None" xml:space="preserve">
+    <value>None</value>
+  </data>
+  <data name="CompletionSound_Default" xml:space="preserve">
+    <value>Default beep</value>
+  </data>
+  <data name="CompletionSound_CustomLocked" xml:space="preserve">
+    <value>Custom completion sounds are a Sponsor Edition perk.</value>
+  </data>
+  <data name="CompletionSound_FileMissing" xml:space="preserve">
+    <value>The selected audio file could not be found.</value>
+  </data>
+  <data name="CompletionSound_UnsupportedFormat" xml:space="preserve">
+    <value>This audio format is not supported yet. Choose WAV, MP3, M4A, AAC, WMA, or FLAC.</value>
+  </data>
+  <data name="CompletionSound_CustomApplied" xml:space="preserve">
+    <value>Custom completion sound applied.</value>
+  </data>
+  <data name="CompletionSound_CustomCleared" xml:space="preserve">
+    <value>Custom completion sound cleared. The default sound will be used.</value>
+  </data>
+  <data name="CompletionSound_CustomApplyFailed" xml:space="preserve">
+    <value>Failed to apply custom sound: {0}</value>
+  </data>
+  <data name="CompletionSound_CustomClearFailed" xml:space="preserve">
+    <value>Failed to clear custom sound: {0}</value>
+  </data>
+  <data name="CompletionSound_CustomPickerFailed" xml:space="preserve">
+    <value>Failed to open the audio picker: {0}</value>
+  </data>
+  <data name="Sponsor_BackgroundLocked" xml:space="preserve">
+    <value>Please unlock Sponsor Edition first.</value>
+  </data>
+  <data name="Sponsor_BackgroundFileMissing" xml:space="preserve">
+    <value>The selected background image could not be found.</value>
+  </data>
+  <data name="Sponsor_BackgroundUnsupportedFormat" xml:space="preserve">
+    <value>This image format is not supported yet. Choose PNG, JPG, BMP, GIF, or WebP.</value>
+  </data>
+  <data name="Sponsor_BackgroundApplied" xml:space="preserve">
+    <value>Background image applied.</value>
+  </data>
+  <data name="Sponsor_BackgroundCleared" xml:space="preserve">
+    <value>Background image cleared.</value>
+  </data>
+  <data name="Sponsor_BackgroundApplyFailed" xml:space="preserve">
+    <value>Failed to apply background image: {0}</value>
+  </data>
+  <data name="Sponsor_BackgroundClearFailed" xml:space="preserve">
+    <value>Failed to clear background image: {0}</value>
+  </data>
+  <data name="Sponsor_BackgroundPickerFailed" xml:space="preserve">
+    <value>Failed to open the image picker: {0}</value>
+  </data>
   <data name="Sponsor_Log_RefreshFailed" xml:space="preserve">
     <value>[Sponsor] Failed to refresh add-on license: {0}</value>
   </data>
@@ -518,6 +641,36 @@ Duplicate folder names are blocked within the same configuration so different di
   </data>
   <data name="Sponsor_Log_OpenSponsorPolicyFailed" xml:space="preserve">
     <value>[Sponsor] Failed to open sponsor edition policy: {0}</value>
+  </data>
+  <data name="Sponsor_Log_AppLicenseProbeFailed" xml:space="preserve">
+    <value>[Sponsor] Failed to read AppLicense: {0}</value>
+  </data>
+  <data name="Sponsor_Log_UserCollectionProbeFailed" xml:space="preserve">
+    <value>[Sponsor] Failed to read user Durable collection: {0}</value>
+  </data>
+  <data name="Sponsor_Log_BackgroundApplyFailed" xml:space="preserve">
+    <value>[Sponsor] Failed to apply background image: {0}</value>
+  </data>
+  <data name="Sponsor_Log_BackgroundClearFailed" xml:space="preserve">
+    <value>[Sponsor] Failed to clear background image: {0}</value>
+  </data>
+  <data name="Sponsor_Log_BackgroundPickerFailed" xml:space="preserve">
+    <value>[Sponsor] Background image picker failed: {0}</value>
+  </data>
+  <data name="Sponsor_Log_BackgroundLoadFailed" xml:space="preserve">
+    <value>[Sponsor] Failed to load background image: {0}</value>
+  </data>
+  <data name="CompletionSound_Log_PlayFailed" xml:space="preserve">
+    <value>[CompletionSound] Failed to play completion sound: {0}</value>
+  </data>
+  <data name="CompletionSound_Log_CustomApplyFailed" xml:space="preserve">
+    <value>[CompletionSound] Failed to apply custom sound: {0}</value>
+  </data>
+  <data name="CompletionSound_Log_CustomClearFailed" xml:space="preserve">
+    <value>[CompletionSound] Failed to clear custom sound: {0}</value>
+  </data>
+  <data name="CompletionSound_Log_CustomPickerFailed" xml:space="preserve">
+    <value>[CompletionSound] Audio picker failed: {0}</value>
   </data>
   <data name="SponsorWindow_Title.Text" xml:space="preserve">
     <value>Sponsor FolderRewind</value>

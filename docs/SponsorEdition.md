@@ -12,7 +12,8 @@ Sponsor Edition unlocks appearance-only options:
 - Switching the main window material between Mica and Acrylic.
 - Custom title bar text.
 - Custom title bar glyph from the built-in WinUI icon set.
-- Optional supporter badge in the title bar.
+- Custom app background image with fit, opacity, and overlay controls.
+- Custom audio file for the backup and restore completion sound.
 
 These perks are intentionally lightweight. Core backup, restore, history, automation, plugin, and template features remain available in the free version.
 
@@ -30,6 +31,10 @@ Sponsor Edition relies on Microsoft Store licensing. A purchased add-on is expec
 ## Open Source Expectations
 
 FolderRewind remains open source. Because the client code is public, Sponsor Edition is not intended as a hard DRM boundary. The goal is to provide a clear, convenient way for users to support development without reducing the free version.
+
+## Privacy Notes
+
+FolderRewind checks Microsoft Store licensing locally and does not intentionally write detailed add-on identifiers, Store collection entries, order details, Microsoft account data, or promo-code information to application logs.
 
 ## Refunds and Support
 

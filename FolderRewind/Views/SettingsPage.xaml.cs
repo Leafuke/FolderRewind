@@ -93,6 +93,10 @@ namespace FolderRewind.Views
 
         public ObservableCollection<string> SponsorTitleIconGlyphs => _viewModel.SponsorTitleIconGlyphs;
 
+        public ObservableCollection<string> SponsorBackgroundStretchModes => _viewModel.SponsorBackgroundStretchModes;
+
+        public ObservableCollection<string> CompletionSoundPresets => _viewModel.CompletionSoundPresets;
+
         public bool IsSponsorUnlocked => _viewModel.IsSponsorUnlocked;
 
         public bool IsSponsorLocked => _viewModel.IsSponsorLocked;
@@ -101,6 +105,18 @@ namespace FolderRewind.Views
 
         public string SponsorStatusText => _viewModel.SponsorStatusText;
 
+        public double SponsorBackgroundImageOpacityPercent
+        {
+            get => _viewModel.SponsorBackgroundImageOpacityPercent;
+            set => _viewModel.SponsorBackgroundImageOpacityPercent = value;
+        }
+
+        public double SponsorBackgroundOverlayOpacityPercent
+        {
+            get => _viewModel.SponsorBackgroundOverlayOpacityPercent;
+            set => _viewModel.SponsorBackgroundOverlayOpacityPercent = value;
+        }
+
         public IAsyncRelayCommand PurchaseSponsorCommand => _viewModel.PurchaseSponsorCommand;
 
         public IRelayCommand OpenSponsorWindowCommand => _viewModel.OpenSponsorWindowCommand;
@@ -108,6 +124,12 @@ namespace FolderRewind.Views
         public IAsyncRelayCommand RestoreSponsorCommand => _viewModel.RestoreSponsorCommand;
 
         public IAsyncRelayCommand RefreshSponsorCommand => _viewModel.RefreshSponsorCommand;
+
+        public IRelayCommand ClearSponsorBackgroundCommand => _viewModel.ClearSponsorBackgroundCommand;
+
+        public IRelayCommand PreviewCompletionSoundCommand => _viewModel.PreviewCompletionSoundCommand;
+
+        public IRelayCommand ClearCustomCompletionSoundCommand => _viewModel.ClearCustomCompletionSoundCommand;
 
         public ObservableCollection<object> HotkeyBindingsView => _viewModel.HotkeyBindingsView;
 
@@ -1267,11 +1289,97 @@ namespace FolderRewind.Views
             }
         }
 
-        private void OnShowSponsorBadgeToggled(object sender, RoutedEventArgs e)
+        private async void OnChooseSponsorBackgroundClick(object sender, RoutedEventArgs e)
+        {
+            try
+            {
+                var picker = new FileOpenPicker();
+                picker.SuggestedStartLocation = PickerLocationId.PicturesLibrary;
+                picker.FileTypeFilter.Add(".png");
+                picker.FileTypeFilter.Add(".jpg");
+                picker.FileTypeFilter.Add(".jpeg");
+                picker.FileTypeFilter.Add(".bmp");
+                picker.FileTypeFilter.Add(".gif");
+                picker.FileTypeFilter.Add(".webp");
+                MainWindowService.InitializePicker(picker);
+
+                var file = await picker.PickSingleFileAsync();
+                if (file == null || string.IsNullOrWhiteSpace(file.Path))
+                {
+                    return;
+                }
+
+                await _viewModel.ApplySponsorBackgroundImageAsync(file.Path);
+                Bindings.Update();
+            }
+            catch (Exception ex)
+            {
+                LogService.LogError(I18n.Format("Sponsor_Log_BackgroundPickerFailed", ex.Message), nameof(SettingsPage), ex);
+                NotificationService.ShowError(I18n.Format("Sponsor_BackgroundPickerFailed", ex.Message), I18n.GetString("Sponsor_Title"));
+            }
+        }
+
+        private void OnSponsorBackgroundEnabledToggled(object sender, RoutedEventArgs e)
         {
             if (sender is ToggleSwitch ts)
             {
-                _viewModel.HandleShowSponsorBadgeToggled(ts.IsOn);
+                _viewModel.HandleSponsorBackgroundEnabledToggled(ts.IsOn);
+            }
+        }
+
+        private void OnSponsorBackgroundStretchChanged(object sender, SelectionChangedEventArgs e)
+        {
+            if (sender is ComboBox cb)
+            {
+                _viewModel.HandleSponsorBackgroundStretchChanged(cb.SelectedIndex);
+            }
+        }
+
+        private void OnSponsorBackgroundImageOpacityChanged(NumberBox sender, NumberBoxValueChangedEventArgs e)
+        {
+            _viewModel.HandleSponsorBackgroundImageOpacityChanged(e.NewValue);
+        }
+
+        private void OnSponsorBackgroundOverlayOpacityChanged(NumberBox sender, NumberBoxValueChangedEventArgs e)
+        {
+            _viewModel.HandleSponsorBackgroundOverlayOpacityChanged(e.NewValue);
+        }
+
+        private void OnCompletionSoundChanged(object sender, SelectionChangedEventArgs e)
+        {
+            if (sender is ComboBox cb)
+            {
+                _viewModel.HandleCompletionSoundChanged(cb.SelectedIndex);
+            }
+        }
+
+        private async void OnChooseCustomCompletionSoundClick(object sender, RoutedEventArgs e)
+        {
+            try
+            {
+                var picker = new FileOpenPicker();
+                picker.SuggestedStartLocation = PickerLocationId.MusicLibrary;
+                picker.FileTypeFilter.Add(".wav");
+                picker.FileTypeFilter.Add(".mp3");
+                picker.FileTypeFilter.Add(".m4a");
+                picker.FileTypeFilter.Add(".aac");
+                picker.FileTypeFilter.Add(".wma");
+                picker.FileTypeFilter.Add(".flac");
+                MainWindowService.InitializePicker(picker);
+
+                var file = await picker.PickSingleFileAsync();
+                if (file == null || string.IsNullOrWhiteSpace(file.Path))
+                {
+                    return;
+                }
+
+                await _viewModel.ApplyCustomCompletionSoundAsync(file.Path);
+                Bindings.Update();
+            }
+            catch (Exception ex)
+            {
+                LogService.LogError(I18n.Format("CompletionSound_Log_CustomPickerFailed", ex.Message), nameof(SettingsPage), ex);
+                NotificationService.ShowError(I18n.Format("CompletionSound_CustomPickerFailed", ex.Message), I18n.GetString("Sponsor_Title"));
             }
         }
 

@@ -105,6 +105,7 @@ namespace FolderRewind
                 LogService.MarkSessionStart();
 
                 ApplyLanguageOverride(Services.ConfigService.CurrentConfig.GlobalSettings.Language);
+                Services.SponsorService.InitializeFromCache();
 
                 _window = new MainWindow();
                 // 两个服务在启动时只注入一次，后续页面统一从这里取窗口与 UI 调度入口。
@@ -120,7 +121,7 @@ namespace FolderRewind
 
                 _window.DispatcherQueue.TryEnqueue(Microsoft.UI.Dispatching.DispatcherQueuePriority.Low, async () =>
                 {
-                    await Services.SponsorService.RefreshLicenseAsync(false);
+                    await Services.SponsorService.RefreshLicenseAsync(false, allowDowngrade: false);
                 });
 
                 // 静默启动只在“系统启动任务”场景生效，普通手动启动不隐藏窗口。
@@ -407,6 +408,7 @@ namespace FolderRewind
 
         private void OnMainWindowClosed(object sender, WindowEventArgs args)
         {
+            try { Services.MainWindowService.CloseSponsorWindow(); } catch { }
             // 主窗口关闭时清理 Mini 窗口
             try { Services.MiniWindowService.CloseAll(); } catch { }
             CleanupTrayIcon();

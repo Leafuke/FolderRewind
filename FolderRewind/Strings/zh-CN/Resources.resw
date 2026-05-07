@@ -396,6 +396,9 @@
   <data name="SettingsPage_SponsorLocked.Text" xml:space="preserve">
     <value>尚未解锁</value>
   </data>
+  <data name="SettingsPage_SponsorLockedDesc.Text" xml:space="preserve">
+    <value>购买或恢复赞助者版本后即可使用这些外观小福利。</value>
+  </data>
   <data name="SettingsPage_SponsorAccent.Text" xml:space="preserve">
     <value>主题颜色</value>
   </data>
@@ -420,11 +423,65 @@
   <data name="SettingsPage_SponsorTitleIconDesc.Text" xml:space="preserve">
     <value>自定义标题栏图标</value>
   </data>
-  <data name="SettingsPage_SponsorBadge.Text" xml:space="preserve">
-    <value>支持者徽标</value>
+  <data name="SettingsPage_SponsorBackground.Text" xml:space="preserve">
+    <value>背景图片</value>
   </data>
-  <data name="SettingsPage_SponsorBadgeDesc.Text" xml:space="preserve">
-    <value>在标题栏显示一个小小的支持者标记</value>
+  <data name="SettingsPage_SponsorBackgroundDesc.Text" xml:space="preserve">
+    <value>选择一张图片作为软件背景，文件会复制到应用配置目录</value>
+  </data>
+  <data name="SettingsPage_SponsorBackgroundChoose.Content" xml:space="preserve">
+    <value>选择图片</value>
+  </data>
+  <data name="SettingsPage_SponsorBackgroundClear.Content" xml:space="preserve">
+    <value>清除背景</value>
+  </data>
+  <data name="SettingsPage_SponsorBackgroundEnabled.Text" xml:space="preserve">
+    <value>启用背景图片</value>
+  </data>
+  <data name="SettingsPage_SponsorBackgroundEnabledDesc.Text" xml:space="preserve">
+    <value>临时关闭时会保留已选择的图片</value>
+  </data>
+  <data name="SettingsPage_SponsorBackgroundStretch.Text" xml:space="preserve">
+    <value>背景显示方式</value>
+  </data>
+  <data name="SettingsPage_SponsorBackgroundStretchDesc.Text" xml:space="preserve">
+    <value>根据图片比例选择填充、完整显示或拉伸</value>
+  </data>
+  <data name="SettingsPage_SponsorBackgroundImageOpacity.Text" xml:space="preserve">
+    <value>图片透明度</value>
+  </data>
+  <data name="SettingsPage_SponsorBackgroundImageOpacityDesc.Text" xml:space="preserve">
+    <value>降低图片存在感，让界面内容更清楚</value>
+  </data>
+  <data name="SettingsPage_SponsorBackgroundOverlayOpacity.Text" xml:space="preserve">
+    <value>背景遮罩强度</value>
+  </data>
+  <data name="SettingsPage_SponsorBackgroundOverlayOpacityDesc.Text" xml:space="preserve">
+    <value>增加遮罩可以改善文字和卡片可读性</value>
+  </data>
+  <data name="SettingsPage_CompletionSound.Text" xml:space="preserve">
+    <value>完成音效</value>
+  </data>
+  <data name="SettingsPage_CompletionSoundDesc.Text" xml:space="preserve">
+    <value>备份或还原完成时播放一个系统音效</value>
+  </data>
+  <data name="SettingsPage_CompletionSoundPreview.Content" xml:space="preserve">
+    <value>试听</value>
+  </data>
+  <data name="SettingsPage_CustomCompletionSound.Text" xml:space="preserve">
+    <value>自定义完成音效</value>
+  </data>
+  <data name="SettingsPage_CustomCompletionSoundDesc.Text" xml:space="preserve">
+    <value>赞助者可以选择一个音频文件来替换默认音效</value>
+  </data>
+  <data name="SettingsPage_CustomCompletionSoundChoose.Content" xml:space="preserve">
+    <value>自定义音效</value>
+  </data>
+  <data name="SettingsPage_CustomCompletionSoundClear.Content" xml:space="preserve">
+    <value>清除自定义</value>
+  </data>
+  <data name="SettingsPage_About_Link_Sponsors.Content" xml:space="preserve">
+    <value>赞助者名单</value>
   </data>
   <data name="Sponsor_Title" xml:space="preserve">
     <value>赞助者版本</value>
@@ -434,6 +491,9 @@
   </data>
   <data name="Sponsor_Status_Unlocked" xml:space="preserve">
     <value>已解锁赞助者版本，感谢你的支持。</value>
+  </data>
+  <data name="Sponsor_Status_UnlockedCached" xml:space="preserve">
+    <value>已使用本机保存的赞助者状态，后台会继续刷新授权。</value>
   </data>
   <data name="Sponsor_Status_Locked" xml:space="preserve">
     <value>尚未购买赞助加载项；兑换促销码后可点击恢复购买。</value>
@@ -486,6 +546,69 @@
   <data name="Sponsor_Backdrop_Acrylic" xml:space="preserve">
     <value>Acrylic</value>
   </data>
+  <data name="Sponsor_BackgroundStretch_UniformToFill" xml:space="preserve">
+    <value>填满窗口</value>
+  </data>
+  <data name="Sponsor_BackgroundStretch_Uniform" xml:space="preserve">
+    <value>完整显示</value>
+  </data>
+  <data name="Sponsor_BackgroundStretch_Fill" xml:space="preserve">
+    <value>拉伸填充</value>
+  </data>
+  <data name="CompletionSound_None" xml:space="preserve">
+    <value>无</value>
+  </data>
+  <data name="CompletionSound_Default" xml:space="preserve">
+    <value>默认提示</value>
+  </data>
+  <data name="CompletionSound_CustomLocked" xml:space="preserve">
+    <value>自定义完成音效是赞助者版本的小福利。</value>
+  </data>
+  <data name="CompletionSound_FileMissing" xml:space="preserve">
+    <value>找不到选择的音频文件。</value>
+  </data>
+  <data name="CompletionSound_UnsupportedFormat" xml:space="preserve">
+    <value>暂不支持这种音频格式，请选择 WAV、MP3、M4A、AAC、WMA 或 FLAC。</value>
+  </data>
+  <data name="CompletionSound_CustomApplied" xml:space="preserve">
+    <value>自定义完成音效已应用。</value>
+  </data>
+  <data name="CompletionSound_CustomCleared" xml:space="preserve">
+    <value>自定义完成音效已清除，将使用默认音效。</value>
+  </data>
+  <data name="CompletionSound_CustomApplyFailed" xml:space="preserve">
+    <value>应用自定义音效失败：{0}</value>
+  </data>
+  <data name="CompletionSound_CustomClearFailed" xml:space="preserve">
+    <value>清除自定义音效失败：{0}</value>
+  </data>
+  <data name="CompletionSound_CustomPickerFailed" xml:space="preserve">
+    <value>打开音频选择器失败：{0}</value>
+  </data>
+  <data name="Sponsor_BackgroundLocked" xml:space="preserve">
+    <value>请先解锁赞助者版本。</value>
+  </data>
+  <data name="Sponsor_BackgroundFileMissing" xml:space="preserve">
+    <value>找不到选择的背景图片。</value>
+  </data>
+  <data name="Sponsor_BackgroundUnsupportedFormat" xml:space="preserve">
+    <value>暂不支持这种图片格式，请选择 PNG、JPG、BMP、GIF 或 WebP。</value>
+  </data>
+  <data name="Sponsor_BackgroundApplied" xml:space="preserve">
+    <value>背景图片已应用。</value>
+  </data>
+  <data name="Sponsor_BackgroundCleared" xml:space="preserve">
+    <value>背景图片已清除。</value>
+  </data>
+  <data name="Sponsor_BackgroundApplyFailed" xml:space="preserve">
+    <value>应用背景图片失败：{0}</value>
+  </data>
+  <data name="Sponsor_BackgroundClearFailed" xml:space="preserve">
+    <value>清除背景图片失败：{0}</value>
+  </data>
+  <data name="Sponsor_BackgroundPickerFailed" xml:space="preserve">
+    <value>打开图片选择器失败：{0}</value>
+  </data>
   <data name="Sponsor_Log_RefreshFailed" xml:space="preserve">
     <value>[Sponsor] 刷新加载项授权失败：{0}</value>
   </data>
@@ -518,6 +641,36 @@
   </data>
   <data name="Sponsor_Log_OpenSponsorPolicyFailed" xml:space="preserve">
     <value>[Sponsor] 打开赞助者版策略失败：{0}</value>
+  </data>
+  <data name="Sponsor_Log_AppLicenseProbeFailed" xml:space="preserve">
+    <value>[Sponsor] 读取 AppLicense 失败：{0}</value>
+  </data>
+  <data name="Sponsor_Log_UserCollectionProbeFailed" xml:space="preserve">
+    <value>[Sponsor] 读取用户 Durable Collection 失败：{0}</value>
+  </data>
+  <data name="Sponsor_Log_BackgroundApplyFailed" xml:space="preserve">
+    <value>[Sponsor] 应用背景图片失败：{0}</value>
+  </data>
+  <data name="Sponsor_Log_BackgroundClearFailed" xml:space="preserve">
+    <value>[Sponsor] 清除背景图片失败：{0}</value>
+  </data>
+  <data name="Sponsor_Log_BackgroundPickerFailed" xml:space="preserve">
+    <value>[Sponsor] 背景图片选择器失败：{0}</value>
+  </data>
+  <data name="Sponsor_Log_BackgroundLoadFailed" xml:space="preserve">
+    <value>[Sponsor] 加载背景图片失败：{0}</value>
+  </data>
+  <data name="CompletionSound_Log_PlayFailed" xml:space="preserve">
+    <value>[CompletionSound] 播放完成音效失败：{0}</value>
+  </data>
+  <data name="CompletionSound_Log_CustomApplyFailed" xml:space="preserve">
+    <value>[CompletionSound] 应用自定义音效失败：{0}</value>
+  </data>
+  <data name="CompletionSound_Log_CustomClearFailed" xml:space="preserve">
+    <value>[CompletionSound] 清除自定义音效失败：{0}</value>
+  </data>
+  <data name="CompletionSound_Log_CustomPickerFailed" xml:space="preserve">
+    <value>[CompletionSound] 音频选择器失败：{0}</value>
   </data>
   <data name="SponsorWindow_Title.Text" xml:space="preserve">
     <value>赞助 FolderRewind</value>

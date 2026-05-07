@@ -344,6 +344,8 @@ namespace FolderRewind.Services
         {
             if (!IsNotificationEnabled) return;
 
+            CompletionSoundService.PlayConfiguredCompletionSound(success);
+
             if (success)
             {
                 var message = I18n.Format("Notification_BackupCompleted_Success", folderName);
@@ -369,6 +371,8 @@ namespace FolderRewind.Services
         public static void NotifyRestoreCompleted(string folderName, bool success, string? errorMessage = null)
         {
             if (!IsNotificationEnabled) return;
+
+            CompletionSoundService.PlayConfiguredCompletionSound(success);
 
             if (success)
             {

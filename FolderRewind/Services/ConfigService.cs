@@ -528,6 +528,33 @@ namespace FolderRewind.Services
             settings.SponsorTitleIconGlyph = string.IsNullOrWhiteSpace(settings.SponsorTitleIconGlyph)
                 ? IconCatalog.DefaultConfigIconGlyph
                 : settings.SponsorTitleIconGlyph;
+            settings.SponsorBackgroundImagePath = settings.SponsorBackgroundImagePath?.Trim() ?? string.Empty;
+            settings.SponsorBackgroundStretchIndex = Math.Clamp(settings.SponsorBackgroundStretchIndex, 0, 2);
+            settings.SponsorBackgroundImageOpacity = ClampUnit(settings.SponsorBackgroundImageOpacity, 0.28);
+            settings.SponsorBackgroundOverlayOpacity = ClampUnit(settings.SponsorBackgroundOverlayOpacity, 0.62);
+            settings.SponsorCompletionSoundIndex = Math.Clamp(settings.SponsorCompletionSoundIndex, 0, CompletionSoundService.PresetCount - 1);
+            if (settings.CompletionSoundIndex == 0 && settings.SponsorCompletionSoundIndex > 0)
+            {
+                // 旧版把完成音效放在赞助者设置下；升级后迁移为通用“默认音效”。
+                settings.CompletionSoundIndex = 1;
+            }
+
+            settings.CompletionSoundIndex = Math.Clamp(settings.CompletionSoundIndex, 0, CompletionSoundService.PresetCount - 1);
+            settings.CompletionSoundCustomPath = settings.CompletionSoundCustomPath?.Trim() ?? string.Empty;
+            if (!settings.SponsorEntitlementCached)
+            {
+                settings.SponsorEntitlementLastVerifiedUtc = DateTime.MinValue;
+            }
+        }
+
+        private static double ClampUnit(double value, double fallback)
+        {
+            if (double.IsNaN(value) || double.IsInfinity(value))
+            {
+                return fallback;
+            }
+
+            return Math.Clamp(value, 0, 1);
         }
 
         private static string MakeSafeFolderName(string? name)

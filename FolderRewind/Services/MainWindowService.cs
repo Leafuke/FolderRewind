@@ -103,6 +103,24 @@ namespace FolderRewind.Services
             });
         }
 
+        public static void CloseSponsorWindow()
+        {
+            UiDispatcherService.Enqueue(() =>
+            {
+                try
+                {
+                    _sponsorWindow?.Close();
+                }
+                catch
+                {
+                }
+                finally
+                {
+                    _sponsorWindow = null;
+                }
+            });
+        }
+
         public static XamlRoot? GetXamlRoot()
         {
             return GetMainWindow()?.Content?.XamlRoot;
