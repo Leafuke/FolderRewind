@@ -288,6 +288,9 @@ Duplicate folder names are blocked within the same configuration so different di
   <data name="SettingsPage_Section_General.Text" xml:space="preserve">
     <value>General</value>
   </data>
+  <data name="SettingsPage_Section_Presets.Text" xml:space="preserve">
+    <value>Presets</value>
+  </data>
   <data name="SettingsPage_Section_Tools.Text" xml:space="preserve">
     <value>Tools</value>
   </data>
@@ -1341,6 +1344,12 @@ Duplicate folder names are blocked within the same configuration so different di
   <data name="SettingsPage_PluginsAutoCheckUpdatesDesc.Text" xml:space="preserve">
     <value>Automatically check for plugin updates when the app starts</value>
   </data>
+  <data name="SettingsPage_Presets.Text" xml:space="preserve">
+    <value>Starter presets</value>
+  </data>
+  <data name="SettingsPage_PresetsDesc.Text" xml:space="preserve">
+    <value>Common first-run setups live here so users can configure less and start sooner.</value>
+  </data>
   <data name="SettingsPage_MinecraftPreset.Text" xml:space="preserve">
     <value>Minecraft starter preset</value>
   </data>
@@ -1355,6 +1364,18 @@ Duplicate folder names are blocked within the same configuration so different di
   </data>
   <data name="SettingsPage_MinecraftPresetInstall.Content" xml:space="preserve">
     <value>Install preset</value>
+  </data>
+  <data name="SettingsPage_CloudPreset.Text" xml:space="preserve">
+    <value>Cloud backup starter preset</value>
+  </data>
+  <data name="SettingsPage_CloudPresetDesc.Text" xml:space="preserve">
+    <value>Prepare rclone automatically. Services such as Baidu Netdisk and Aliyun Drive also get OpenList and a guided setup path.</value>
+  </data>
+  <data name="SettingsPage_CloudPresetSteps.Text" xml:space="preserve">
+    <value>Choose a cloud service, then start setup. FolderRewind will download required tools, save the global rclone path, and open the cloud archive guide.</value>
+  </data>
+  <data name="SettingsPage_CloudPresetStart.Content" xml:space="preserve">
+    <value>Start setup</value>
   </data>
   <data name="SettingsPage_PluginUpdate.Content" xml:space="preserve">
     <value>Update</value>
@@ -3087,7 +3108,7 @@ Status: {3}</value>
     <value>Open starter preset</value>
   </data>
   <data name="FolderManager_MineRewindHint_SettingsFallback" xml:space="preserve">
-    <value>Open Settings and use the Minecraft starter preset in the plugins section.</value>
+    <value>Open Settings and use the Minecraft starter preset in the presets section.</value>
   </data>
   <data name="MinecraftOnboarding_Title" xml:space="preserve">
     <value>Minecraft starter preset</value>
@@ -3130,6 +3151,105 @@ Status: {3}</value>
   </data>
   <data name="MinecraftOnboarding_KnotLinkInstallerStarted_Log" xml:space="preserve">
     <value>[MinecraftOnboarding] Started the KnotLink server installer: {0}</value>
+  </data>
+  <data name="CloudOnboarding_Title" xml:space="preserve">
+    <value>Cloud backup starter preset</value>
+  </data>
+  <data name="CloudOnboarding_Provider_WebDav" xml:space="preserve">
+    <value>WebDAV</value>
+  </data>
+  <data name="CloudOnboarding_Provider_WebDavDesc" xml:space="preserve">
+    <value>For cloud drives or NAS systems with WebDAV support. rclone can configure this directly.</value>
+  </data>
+  <data name="CloudOnboarding_Provider_OneDrive" xml:space="preserve">
+    <value>OneDrive</value>
+  </data>
+  <data name="CloudOnboarding_Provider_OneDriveDesc" xml:space="preserve">
+    <value>For Microsoft personal or work accounts. rclone can configure this directly.</value>
+  </data>
+  <data name="CloudOnboarding_Provider_S3" xml:space="preserve">
+    <value>S3-compatible storage</value>
+  </data>
+  <data name="CloudOnboarding_Provider_S3Desc" xml:space="preserve">
+    <value>For AWS S3, Cloudflare R2, MinIO, and other S3-compatible object storage services.</value>
+  </data>
+  <data name="CloudOnboarding_Provider_Baidu" xml:space="preserve">
+    <value>Baidu Netdisk</value>
+  </data>
+  <data name="CloudOnboarding_Provider_BaiduDesc" xml:space="preserve">
+    <value>rclone does not support it directly, so this preset also prepares OpenList and bridges through WebDAV.</value>
+  </data>
+  <data name="CloudOnboarding_Provider_Aliyun" xml:space="preserve">
+    <value>Aliyun Drive</value>
+  </data>
+  <data name="CloudOnboarding_Provider_AliyunDesc" xml:space="preserve">
+    <value>This preset also prepares OpenList and bridges it to rclone through WebDAV.</value>
+  </data>
+  <data name="CloudOnboarding_Provider_OpenList" xml:space="preserve">
+    <value>OpenList WebDAV</value>
+  </data>
+  <data name="CloudOnboarding_Provider_OpenListDesc" xml:space="preserve">
+    <value>For other cloud services that should be mounted in OpenList before rclone uses them.</value>
+  </data>
+  <data name="CloudOnboarding_ConfirmTitle" xml:space="preserve">
+    <value>Confirm cloud backup preset</value>
+  </data>
+  <data name="CloudOnboarding_ConfirmContent" xml:space="preserve">
+    <value>FolderRewind will prepare cloud backup for “{0}”. {1} It will download rclone from GitHub Releases, download OpenList when needed, save the global rclone path, and open the setup guide.</value>
+  </data>
+  <data name="CloudOnboarding_ConfirmPrimary" xml:space="preserve">
+    <value>Download and start</value>
+  </data>
+  <data name="CloudOnboarding_NoProvider" xml:space="preserve">
+    <value>Choose a cloud service first.</value>
+  </data>
+  <data name="CloudOnboarding_Status_Start" xml:space="preserve">
+    <value>Preparing the cloud backup starter preset...</value>
+  </data>
+  <data name="CloudOnboarding_Status_DownloadRclone" xml:space="preserve">
+    <value>Fetching and installing the latest rclone...</value>
+  </data>
+  <data name="CloudOnboarding_Status_DownloadOpenList" xml:space="preserve">
+    <value>Fetching and installing the latest OpenList...</value>
+  </data>
+  <data name="CloudOnboarding_Status_SaveSettings" xml:space="preserve">
+    <value>Saving cloud backup tool paths...</value>
+  </data>
+  <data name="CloudOnboarding_Success_RcloneOnly" xml:space="preserve">
+    <value>The {0} cloud backup preset is ready. rclone path: {1}. Suggested remote base path: {2}. Run rclone config in the opened command prompt to finish account authorization.</value>
+  </data>
+  <data name="CloudOnboarding_Success_WithOpenList" xml:space="preserve">
+    <value>The {0} cloud backup preset is ready. rclone path: {1}. OpenList path: {2}. Suggested remote base path: {3}. Run openlist server first, configure the drive, then connect OpenList from rclone config through WebDAV.</value>
+  </data>
+  <data name="CloudOnboarding_Failed" xml:space="preserve">
+    <value>Cloud backup starter preset failed: {0}</value>
+  </data>
+  <data name="CloudOnboarding_AssetMissing" xml:space="preserve">
+    <value>No {0} Release asset matched the current Windows architecture.</value>
+  </data>
+  <data name="CloudOnboarding_ExecutableMissing" xml:space="preserve">
+    <value>Could not find {0} after extraction.</value>
+  </data>
+  <data name="CloudOnboarding_Log_Success" xml:space="preserve">
+    <value>[CloudOnboarding] Preset completed: provider={0}, rclone={1}, openlist={2}</value>
+  </data>
+  <data name="CloudOnboarding_Log_ReuseTool" xml:space="preserve">
+    <value>[CloudOnboarding] Reusing installed tool: {0}, {1}</value>
+  </data>
+  <data name="CloudOnboarding_Log_ToolInstalled" xml:space="preserve">
+    <value>[CloudOnboarding] Tool installed: {0}, {1}, {2}</value>
+  </data>
+  <data name="CloudOnboarding_Log_OpenCommandPromptFailed" xml:space="preserve">
+    <value>[CloudOnboarding] Failed to open command prompt: {0}</value>
+  </data>
+  <data name="CloudOnboarding_Log_OpenOpenListFolderFailed" xml:space="preserve">
+    <value>[CloudOnboarding] Failed to open the OpenList folder: {0}</value>
+  </data>
+  <data name="CloudOnboarding_Log_OpenGuideFailed" xml:space="preserve">
+    <value>[CloudOnboarding] Failed to open the cloud archive guide: {0}</value>
+  </data>
+  <data name="CloudOnboarding_Canceled_Log" xml:space="preserve">
+    <value>[CloudOnboarding] The user canceled or the task was canceled.</value>
   </data>
   <data name="Encryption_SetPasswordTitle" xml:space="preserve">
     <value>Set Encryption Password</value>

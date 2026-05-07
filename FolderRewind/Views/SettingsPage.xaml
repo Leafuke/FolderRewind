@@ -80,6 +80,102 @@
                     <RepositionThemeTransition IsStaggeringEnabled="False" />
                 </StackPanel.ChildrenTransitions>
 
+                <!-- 预设 -->
+                <TextBlock x:Uid="SettingsPage_Section_Presets" Style="{StaticResource SettingsSectionHeaderTextBlockStyle}" />
+
+                <toolkit:SettingsExpander IsExpanded="False">
+                    <toolkit:SettingsExpander.Header>
+                        <TextBlock x:Uid="SettingsPage_Presets" Style="{StaticResource SettingsHeaderTextStyle}" />
+                    </toolkit:SettingsExpander.Header>
+                    <toolkit:SettingsExpander.Description>
+                        <TextBlock x:Uid="SettingsPage_PresetsDesc" Style="{StaticResource SettingsDescriptionStyle}" />
+                    </toolkit:SettingsExpander.Description>
+                    <toolkit:SettingsExpander.HeaderIcon>
+                        <FontIcon Glyph="&#xE8B7;" />
+                    </toolkit:SettingsExpander.HeaderIcon>
+                    <toolkit:SettingsExpander.Items>
+                        <toolkit:SettingsCard x:Name="MinecraftPresetCard" ContentAlignment="Vertical" HorizontalContentAlignment="Stretch">
+                            <toolkit:SettingsCard.Header>
+                                <TextBlock x:Uid="SettingsPage_MinecraftPreset" Style="{StaticResource SettingsHeaderTextStyle}" />
+                            </toolkit:SettingsCard.Header>
+                            <toolkit:SettingsCard.Description>
+                                <TextBlock x:Uid="SettingsPage_MinecraftPresetDesc" Style="{StaticResource SettingsDescriptionStyle}" />
+                            </toolkit:SettingsCard.Description>
+                            <Grid ColumnSpacing="12" RowSpacing="8">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*" />
+                                    <ColumnDefinition Width="Auto" />
+                                </Grid.ColumnDefinitions>
+                                <Grid.RowDefinitions>
+                                    <RowDefinition Height="Auto" />
+                                    <RowDefinition Height="Auto" />
+                                </Grid.RowDefinitions>
+
+                                <StackPanel Spacing="4">
+                                    <TextBlock x:Uid="SettingsPage_MinecraftPresetSteps" Style="{StaticResource SettingsDescriptionStyle}" />
+                                    <TextBlock x:Uid="SettingsPage_MinecraftPresetModReminder" Style="{StaticResource SettingsDescriptionStyle}" />
+                                    <TextBlock Text="{x:Bind MinecraftPresetStatusText, Mode=OneWay}"
+                                               Style="{StaticResource SettingsDescriptionStyle}"
+                                               Visibility="{x:Bind MinecraftPresetStatusText, Mode=OneWay, Converter={StaticResource StringNullOrEmptyToVisConverter}}" />
+                                </StackPanel>
+
+                                <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
+                                    <ProgressRing Width="20"
+                                                  Height="20"
+                                                  IsActive="{x:Bind IsMinecraftPresetInstallRunning, Mode=OneWay}"
+                                                  Visibility="{x:Bind IsMinecraftPresetInstallRunning, Mode=OneWay, Converter={StaticResource BoolToVisConverter}}" />
+                                    <Button x:Uid="SettingsPage_MinecraftPresetInstall"
+                                            Style="{StaticResource SettingsActionButtonStyle}"
+                                            Command="{x:Bind InstallMinecraftPresetCommand}"
+                                            IsEnabled="{x:Bind IsMinecraftPresetInstallIdle, Mode=OneWay}" />
+                                </StackPanel>
+                            </Grid>
+                        </toolkit:SettingsCard>
+
+                        <toolkit:SettingsCard x:Name="CloudPresetCard" ContentAlignment="Vertical" HorizontalContentAlignment="Stretch">
+                            <toolkit:SettingsCard.Header>
+                                <TextBlock x:Uid="SettingsPage_CloudPreset" Style="{StaticResource SettingsHeaderTextStyle}" />
+                            </toolkit:SettingsCard.Header>
+                            <toolkit:SettingsCard.Description>
+                                <TextBlock x:Uid="SettingsPage_CloudPresetDesc" Style="{StaticResource SettingsDescriptionStyle}" />
+                            </toolkit:SettingsCard.Description>
+                            <Grid ColumnSpacing="12" RowSpacing="8">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*" />
+                                    <ColumnDefinition Width="Auto" />
+                                </Grid.ColumnDefinitions>
+                                <Grid.RowDefinitions>
+                                    <RowDefinition Height="Auto" />
+                                    <RowDefinition Height="Auto" />
+                                </Grid.RowDefinitions>
+
+                                <StackPanel Spacing="6">
+                                    <TextBlock x:Uid="SettingsPage_CloudPresetSteps" Style="{StaticResource SettingsDescriptionStyle}" />
+                                    <ComboBox Width="260"
+                                              HorizontalAlignment="Left"
+                                              ItemsSource="{x:Bind CloudPresetOptions, Mode=OneWay}"
+                                              SelectedItem="{x:Bind SelectedCloudPresetOption, Mode=TwoWay}"
+                                              DisplayMemberPath="DisplayName" />
+                                    <TextBlock Text="{x:Bind CloudPresetStatusText, Mode=OneWay}"
+                                               Style="{StaticResource SettingsDescriptionStyle}"
+                                               Visibility="{x:Bind CloudPresetStatusText, Mode=OneWay, Converter={StaticResource StringNullOrEmptyToVisConverter}}" />
+                                </StackPanel>
+
+                                <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
+                                    <ProgressRing Width="20"
+                                                  Height="20"
+                                                  IsActive="{x:Bind IsCloudPresetRunning, Mode=OneWay}"
+                                                  Visibility="{x:Bind IsCloudPresetRunning, Mode=OneWay, Converter={StaticResource BoolToVisConverter}}" />
+                                    <Button x:Uid="SettingsPage_CloudPresetStart"
+                                            Style="{StaticResource SettingsActionButtonStyle}"
+                                            Click="OnStartCloudPresetClick"
+                                            IsEnabled="{x:Bind IsCloudPresetIdle, Mode=OneWay}" />
+                                </StackPanel>
+                            </Grid>
+                        </toolkit:SettingsCard>
+                    </toolkit:SettingsExpander.Items>
+                </toolkit:SettingsExpander>
+
                 <!-- 常规 -->
                 <TextBlock x:Uid="SettingsPage_Section_General" Style="{StaticResource SettingsSectionHeaderTextBlockStyle}" />
 
@@ -897,44 +993,6 @@
                                 <TextBlock x:Uid="SettingsPage_PluginsAutoCheckUpdatesDesc" Style="{StaticResource SettingsDescriptionStyle}" />
                             </toolkit:SettingsCard.Description>
                             <ToggleSwitch IsOn="{x:Bind Settings.Plugins.AutoCheckUpdates, Mode=TwoWay}" Toggled="OnPluginsAutoCheckUpdatesToggled" />
-                        </toolkit:SettingsCard>
-
-                        <toolkit:SettingsCard x:Name="MinecraftPresetCard" ContentAlignment="Vertical" HorizontalContentAlignment="Stretch">
-                            <toolkit:SettingsCard.Header>
-                                <TextBlock x:Uid="SettingsPage_MinecraftPreset" Style="{StaticResource SettingsHeaderTextStyle}" />
-                            </toolkit:SettingsCard.Header>
-                            <toolkit:SettingsCard.Description>
-                                <TextBlock x:Uid="SettingsPage_MinecraftPresetDesc" Style="{StaticResource SettingsDescriptionStyle}" />
-                            </toolkit:SettingsCard.Description>
-                            <Grid ColumnSpacing="12" RowSpacing="8">
-                                <Grid.ColumnDefinitions>
-                                    <ColumnDefinition Width="*" />
-                                    <ColumnDefinition Width="Auto" />
-                                </Grid.ColumnDefinitions>
-                                <Grid.RowDefinitions>
-                                    <RowDefinition Height="Auto" />
-                                    <RowDefinition Height="Auto" />
-                                </Grid.RowDefinitions>
-
-                                <StackPanel Spacing="4">
-                                    <TextBlock x:Uid="SettingsPage_MinecraftPresetSteps" Style="{StaticResource SettingsDescriptionStyle}" />
-                                    <TextBlock x:Uid="SettingsPage_MinecraftPresetModReminder" Style="{StaticResource SettingsDescriptionStyle}" />
-                                    <TextBlock Text="{x:Bind MinecraftPresetStatusText, Mode=OneWay}"
-                                               Style="{StaticResource SettingsDescriptionStyle}"
-                                               Visibility="{x:Bind MinecraftPresetStatusText, Mode=OneWay, Converter={StaticResource StringNullOrEmptyToVisConverter}}" />
-                                </StackPanel>
-
-                                <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
-                                    <ProgressRing Width="20"
-                                                  Height="20"
-                                                  IsActive="{x:Bind IsMinecraftPresetInstallRunning, Mode=OneWay}"
-                                                  Visibility="{x:Bind IsMinecraftPresetInstallRunning, Mode=OneWay, Converter={StaticResource BoolToVisConverter}}" />
-                                    <Button x:Uid="SettingsPage_MinecraftPresetInstall"
-                                            Style="{StaticResource SettingsActionButtonStyle}"
-                                            Command="{x:Bind InstallMinecraftPresetCommand}"
-                                            IsEnabled="{x:Bind IsMinecraftPresetInstallIdle, Mode=OneWay}" />
-                                </StackPanel>
-                            </Grid>
                         </toolkit:SettingsCard>
 
                         <toolkit:SettingsCard ContentAlignment="Vertical" HorizontalContentAlignment="Stretch">

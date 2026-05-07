@@ -20,8 +20,11 @@ namespace FolderRewind.ViewModels
         private bool _pluginsRefreshing;
         private bool _fontFamiliesLoading;
         private bool _isMinecraftPresetInstallRunning;
+        private bool _isCloudPresetRunning;
         private bool _isSponsorOperationRunning;
         private string _minecraftPresetStatusText = string.Empty;
+        private string _cloudPresetStatusText = string.Empty;
+        private CloudOnboardingProviderOption? _selectedCloudPresetOption;
         private static readonly object FontCacheLock = new();
         private static IReadOnlyList<string>? _cachedInstalledFontFamilies;
 
@@ -67,7 +70,11 @@ namespace FolderRewind.ViewModels
 
         public ObservableCollection<object> HotkeyBindingsView { get; } = new();
 
+        public ObservableCollection<CloudOnboardingProviderOption> CloudPresetOptions { get; } = new();
+
         public IAsyncRelayCommand InstallMinecraftPresetCommand { get; }
+
+        public IAsyncRelayCommand StartCloudPresetCommand { get; }
 
         public IAsyncRelayCommand PurchaseSponsorCommand { get; }
 
@@ -104,6 +111,43 @@ namespace FolderRewind.ViewModels
         {
             get => _minecraftPresetStatusText;
             private set => SetProperty(ref _minecraftPresetStatusText, value ?? string.Empty);
+        }
+
+        public bool IsCloudPresetRunning
+        {
+            get => _isCloudPresetRunning;
+            private set
+            {
+                if (!SetProperty(ref _isCloudPresetRunning, value))
+                {
+                    return;
+                }
+
+                OnPropertyChanged(nameof(IsCloudPresetIdle));
+                StartCloudPresetCommand.NotifyCanExecuteChanged();
+            }
+        }
+
+        public bool IsCloudPresetIdle => !IsCloudPresetRunning;
+
+        public string CloudPresetStatusText
+        {
+            get => _cloudPresetStatusText;
+            private set => SetProperty(ref _cloudPresetStatusText, value ?? string.Empty);
+        }
+
+        public CloudOnboardingProviderOption? SelectedCloudPresetOption
+        {
+            get => _selectedCloudPresetOption;
+            set
+            {
+                if (!SetProperty(ref _selectedCloudPresetOption, value))
+                {
+                    return;
+                }
+
+                StartCloudPresetCommand.NotifyCanExecuteChanged();
+            }
         }
 
         public bool IsSponsorUnlocked => SponsorService.IsUnlocked;
@@ -186,6 +230,10 @@ namespace FolderRewind.ViewModels
                 async () => { await InstallMinecraftPresetAsync(); },
                 () => IsMinecraftPresetInstallIdle);
 
+            StartCloudPresetCommand = new AsyncRelayCommand(
+                async () => { await StartCloudPresetAsync(); },
+                () => IsCloudPresetIdle && SelectedCloudPresetOption != null);
+
             PurchaseSponsorCommand = new AsyncRelayCommand(
                 async () => { await RunSponsorOperationAsync(SponsorService.PurchaseAsync); },
                 () => IsSponsorOperationIdle);
@@ -204,6 +252,7 @@ namespace FolderRewind.ViewModels
             PreviewCompletionSoundCommand = new RelayCommand(PreviewCompletionSound);
             ClearCustomCompletionSoundCommand = new RelayCommand(ClearCustomCompletionSound, () => SponsorService.IsUnlocked);
 
+            RefreshCloudPresetOptions();
             RefreshSponsorOptionLists();
         }
 
@@ -754,6 +803,52 @@ namespace FolderRewind.ViewModels
             }
         }
 
+        public async Task<CloudOnboardingResult> StartCloudPresetAsync()
+        {
+            if (IsCloudPresetRunning)
+            {
+                return new CloudOnboardingResult
+                {
+                    Success = false,
+                    Message = CloudPresetStatusText
+                };
+            }
+
+            var provider = SelectedCloudPresetOption;
+            if (provider == null)
+            {
+                var message = I18n.GetString("CloudOnboarding_NoProvider");
+                CloudPresetStatusText = message;
+                NotificationService.ShowWarning(message, I18n.GetString("CloudOnboarding_Title"));
+                return new CloudOnboardingResult
+                {
+                    Success = false,
+                    Message = message
+                };
+            }
+
+            IsCloudPresetRunning = true;
+            CloudPresetStatusText = I18n.GetString("CloudOnboarding_Status_Start");
+
+            try
+            {
+                var progress = new Progress<string>(status =>
+                {
+                    CloudPresetStatusText = status;
+                });
+
+                var result = await CloudOnboardingService.InstallPresetAsync(provider, progress);
+                CloudPresetStatusText = result.Message;
+
+                OnPropertyChanged(nameof(Settings));
+                return result;
+            }
+            finally
+            {
+                IsCloudPresetRunning = false;
+            }
+        }
+
         public void HandleKnotLinkToggled(bool isOn)
         {
             Settings.EnableKnotLink = isOn;
@@ -1149,6 +1244,17 @@ namespace FolderRewind.ViewModels
             {
                 CompletionSoundPresets.Add(CompletionSoundService.GetPresetName(i));
             }
+        }
+
+        private void RefreshCloudPresetOptions()
+        {
+            CloudPresetOptions.Clear();
+            foreach (var option in CloudOnboardingService.GetProviderOptions())
+            {
+                CloudPresetOptions.Add(option);
+            }
+
+            SelectedCloudPresetOption = CloudPresetOptions.FirstOrDefault();
         }
 
         private async Task RunSponsorOperationAsync(Func<Task<SponsorOperationResult>> operation)

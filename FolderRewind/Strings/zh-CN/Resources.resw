@@ -288,6 +288,9 @@
   <data name="SettingsPage_Section_General.Text" xml:space="preserve">
     <value>常规</value>
   </data>
+  <data name="SettingsPage_Section_Presets.Text" xml:space="preserve">
+    <value>预设</value>
+  </data>
   <data name="SettingsPage_Section_Tools.Text" xml:space="preserve">
     <value>工具与依赖</value>
   </data>
@@ -1341,6 +1344,12 @@
   <data name="SettingsPage_PluginsAutoCheckUpdatesDesc.Text" xml:space="preserve">
     <value>启动时自动检查已安装插件的更新</value>
   </data>
+  <data name="SettingsPage_Presets.Text" xml:space="preserve">
+    <value>入门预设</value>
+  </data>
+  <data name="SettingsPage_PresetsDesc.Text" xml:space="preserve">
+    <value>把常见场景的第一步集中在这里，少翻设置，少踩坑。</value>
+  </data>
   <data name="SettingsPage_MinecraftPreset.Text" xml:space="preserve">
     <value>Minecraft 入门预设</value>
   </data>
@@ -1355,6 +1364,18 @@
   </data>
   <data name="SettingsPage_MinecraftPresetInstall.Content" xml:space="preserve">
     <value>一键安装</value>
+  </data>
+  <data name="SettingsPage_CloudPreset.Text" xml:space="preserve">
+    <value>云备份入门预设</value>
+  </data>
+  <data name="SettingsPage_CloudPresetDesc.Text" xml:space="preserve">
+    <value>自动准备 rclone；百度网盘、阿里云盘等服务会额外准备 OpenList，并打开配置引导。</value>
+  </data>
+  <data name="SettingsPage_CloudPresetSteps.Text" xml:space="preserve">
+    <value>选择云服务后开始配置。存档时光机会下载必要工具、写入全局 rclone 路径，并打开云存档文档。</value>
+  </data>
+  <data name="SettingsPage_CloudPresetStart.Content" xml:space="preserve">
+    <value>开始配置</value>
   </data>
   <data name="SettingsPage_PluginUpdate.Content" xml:space="preserve">
     <value>更新</value>
@@ -3087,7 +3108,7 @@ RESTORE -current_save=true -file=backup.7z -preserve_player_data=true
     <value>打开入门预设</value>
   </data>
   <data name="FolderManager_MineRewindHint_SettingsFallback" xml:space="preserve">
-    <value>请打开设置页，在插件区域使用 Minecraft 入门预设。</value>
+    <value>请打开设置页，在预设栏目使用 Minecraft 入门预设。</value>
   </data>
   <data name="MinecraftOnboarding_Title" xml:space="preserve">
     <value>Minecraft 入门预设</value>
@@ -3130,6 +3151,105 @@ RESTORE -current_save=true -file=backup.7z -preserve_player_data=true
   </data>
   <data name="MinecraftOnboarding_KnotLinkInstallerStarted_Log" xml:space="preserve">
     <value>[MinecraftOnboarding] 已启动 KnotLink 服务端安装器：{0}</value>
+  </data>
+  <data name="CloudOnboarding_Title" xml:space="preserve">
+    <value>云备份入门预设</value>
+  </data>
+  <data name="CloudOnboarding_Provider_WebDav" xml:space="preserve">
+    <value>WebDAV</value>
+  </data>
+  <data name="CloudOnboarding_Provider_WebDavDesc" xml:space="preserve">
+    <value>适合支持 WebDAV 的网盘或 NAS，rclone 可直接配置。</value>
+  </data>
+  <data name="CloudOnboarding_Provider_OneDrive" xml:space="preserve">
+    <value>OneDrive</value>
+  </data>
+  <data name="CloudOnboarding_Provider_OneDriveDesc" xml:space="preserve">
+    <value>适合 Microsoft 个人或工作账号，rclone 可直接配置。</value>
+  </data>
+  <data name="CloudOnboarding_Provider_S3" xml:space="preserve">
+    <value>S3 兼容存储</value>
+  </data>
+  <data name="CloudOnboarding_Provider_S3Desc" xml:space="preserve">
+    <value>适合 AWS S3、Cloudflare R2、MinIO 等 S3 兼容对象存储。</value>
+  </data>
+  <data name="CloudOnboarding_Provider_Baidu" xml:space="preserve">
+    <value>百度网盘</value>
+  </data>
+  <data name="CloudOnboarding_Provider_BaiduDesc" xml:space="preserve">
+    <value>rclone 不直接支持，预设会同时准备 OpenList，再通过 WebDAV 桥接。</value>
+  </data>
+  <data name="CloudOnboarding_Provider_Aliyun" xml:space="preserve">
+    <value>阿里云盘</value>
+  </data>
+  <data name="CloudOnboarding_Provider_AliyunDesc" xml:space="preserve">
+    <value>预设会同时准备 OpenList，再通过 WebDAV 桥接到 rclone。</value>
+  </data>
+  <data name="CloudOnboarding_Provider_OpenList" xml:space="preserve">
+    <value>OpenList WebDAV</value>
+  </data>
+  <data name="CloudOnboarding_Provider_OpenListDesc" xml:space="preserve">
+    <value>适合其它需要先挂载到 OpenList，再交给 rclone 的云服务。</value>
+  </data>
+  <data name="CloudOnboarding_ConfirmTitle" xml:space="preserve">
+    <value>确认开始云备份预设</value>
+  </data>
+  <data name="CloudOnboarding_ConfirmContent" xml:space="preserve">
+    <value>将为“{0}”准备云备份环境。{1} 过程中会从 GitHub Releases 下载 rclone，必要时下载 OpenList，完成后写入全局 rclone 路径并打开配置引导。</value>
+  </data>
+  <data name="CloudOnboarding_ConfirmPrimary" xml:space="preserve">
+    <value>下载并开始</value>
+  </data>
+  <data name="CloudOnboarding_NoProvider" xml:space="preserve">
+    <value>请先选择一个云服务。</value>
+  </data>
+  <data name="CloudOnboarding_Status_Start" xml:space="preserve">
+    <value>正在准备云备份入门预设...</value>
+  </data>
+  <data name="CloudOnboarding_Status_DownloadRclone" xml:space="preserve">
+    <value>正在获取并安装最新 rclone...</value>
+  </data>
+  <data name="CloudOnboarding_Status_DownloadOpenList" xml:space="preserve">
+    <value>正在获取并安装最新 OpenList...</value>
+  </data>
+  <data name="CloudOnboarding_Status_SaveSettings" xml:space="preserve">
+    <value>正在保存云备份工具路径...</value>
+  </data>
+  <data name="CloudOnboarding_Success_RcloneOnly" xml:space="preserve">
+    <value>{0} 云备份预设已准备好。rclone 路径：{1}。建议远端基路径：{2}。请在打开的命令行中运行 rclone config 完成账号授权。</value>
+  </data>
+  <data name="CloudOnboarding_Success_WithOpenList" xml:space="preserve">
+    <value>{0} 云备份预设已准备好。rclone 路径：{1}。OpenList 路径：{2}。建议远端基路径：{3}。请先运行 openlist server 配好网盘，再在 rclone config 中用 WebDAV 连接 OpenList。</value>
+  </data>
+  <data name="CloudOnboarding_Failed" xml:space="preserve">
+    <value>云备份入门预设失败：{0}</value>
+  </data>
+  <data name="CloudOnboarding_AssetMissing" xml:space="preserve">
+    <value>没有找到适合当前 Windows 架构的 {0} Release 资产。</value>
+  </data>
+  <data name="CloudOnboarding_ExecutableMissing" xml:space="preserve">
+    <value>解压后没有找到 {0}。</value>
+  </data>
+  <data name="CloudOnboarding_Log_Success" xml:space="preserve">
+    <value>[CloudOnboarding] 预设完成：provider={0}, rclone={1}, openlist={2}</value>
+  </data>
+  <data name="CloudOnboarding_Log_ReuseTool" xml:space="preserve">
+    <value>[CloudOnboarding] 复用已安装工具：{0}, {1}</value>
+  </data>
+  <data name="CloudOnboarding_Log_ToolInstalled" xml:space="preserve">
+    <value>[CloudOnboarding] 工具已安装：{0}, {1}, {2}</value>
+  </data>
+  <data name="CloudOnboarding_Log_OpenCommandPromptFailed" xml:space="preserve">
+    <value>[CloudOnboarding] 打开命令行失败：{0}</value>
+  </data>
+  <data name="CloudOnboarding_Log_OpenOpenListFolderFailed" xml:space="preserve">
+    <value>[CloudOnboarding] 打开 OpenList 文件夹失败：{0}</value>
+  </data>
+  <data name="CloudOnboarding_Log_OpenGuideFailed" xml:space="preserve">
+    <value>[CloudOnboarding] 打开云存档文档失败：{0}</value>
+  </data>
+  <data name="CloudOnboarding_Canceled_Log" xml:space="preserve">
+    <value>[CloudOnboarding] 用户取消或任务被取消。</value>
   </data>
   <data name="Encryption_SetPasswordTitle" xml:space="preserve">
     <value>设置加密密码</value>

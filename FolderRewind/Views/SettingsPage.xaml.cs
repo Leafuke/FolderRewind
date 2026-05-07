@@ -50,11 +50,27 @@ namespace FolderRewind.Views
 
         public IAsyncRelayCommand InstallMinecraftPresetCommand => _viewModel.InstallMinecraftPresetCommand;
 
+        public IAsyncRelayCommand StartCloudPresetCommand => _viewModel.StartCloudPresetCommand;
+
         public bool IsMinecraftPresetInstallRunning => _viewModel.IsMinecraftPresetInstallRunning;
 
         public bool IsMinecraftPresetInstallIdle => _viewModel.IsMinecraftPresetInstallIdle;
 
         public string MinecraftPresetStatusText => _viewModel.MinecraftPresetStatusText;
+
+        public ObservableCollection<CloudOnboardingProviderOption> CloudPresetOptions => _viewModel.CloudPresetOptions;
+
+        public CloudOnboardingProviderOption? SelectedCloudPresetOption
+        {
+            get => _viewModel.SelectedCloudPresetOption;
+            set => _viewModel.SelectedCloudPresetOption = value;
+        }
+
+        public bool IsCloudPresetRunning => _viewModel.IsCloudPresetRunning;
+
+        public bool IsCloudPresetIdle => _viewModel.IsCloudPresetIdle;
+
+        public string CloudPresetStatusText => _viewModel.CloudPresetStatusText;
 
         private bool _isInitializingLanguage;
         private bool _isInitializingFont;
@@ -251,6 +267,42 @@ namespace FolderRewind.Views
                     MinecraftPresetCard?.StartBringIntoView();
                 });
             }
+        }
+
+        private async void OnStartCloudPresetClick(object sender, RoutedEventArgs e)
+        {
+            var provider = SelectedCloudPresetOption;
+            if (provider == null)
+            {
+                await ShowSimpleMessageAsync(I18n.GetString("CloudOnboarding_NoProvider"));
+                return;
+            }
+
+            var dialog = new ContentDialog
+            {
+                Title = I18n.GetString("CloudOnboarding_ConfirmTitle"),
+                Content = new TextBlock
+                {
+                    Text = I18n.Format(
+                        "CloudOnboarding_ConfirmContent",
+                        provider.DisplayName,
+                        provider.Description),
+                    TextWrapping = TextWrapping.Wrap
+                },
+                PrimaryButtonText = I18n.GetString("CloudOnboarding_ConfirmPrimary"),
+                CloseButtonText = I18n.GetString("Common_Cancel"),
+                DefaultButton = ContentDialogButton.Primary,
+                XamlRoot = this.XamlRoot
+            };
+
+            var result = await TemplateDialogCoordinatorService.ShowAsync(dialog, this.XamlRoot);
+            if (result != ContentDialogResult.Primary)
+            {
+                return;
+            }
+
+            await _viewModel.StartCloudPresetAsync();
+            Bindings.Update();
         }
 
         private void OnCloseBehaviorSelectionChanged(object sender, SelectionChangedEventArgs e)
