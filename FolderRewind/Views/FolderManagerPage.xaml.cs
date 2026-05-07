@@ -10,12 +10,12 @@ using Microsoft.UI.Xaml.Navigation;
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
+using System.IO;
 using System.Linq;
 using System.Threading.Tasks;
 using Windows.ApplicationModel.Resources;
-using Windows.Storage;
-using Windows.Storage.Pickers;
 using Windows.System;
+using PickerViewMode = Microsoft.Windows.Storage.Pickers.PickerViewMode;
 
 namespace FolderRewind.Views
 {
@@ -311,12 +311,13 @@ namespace FolderRewind.Views
             }
         }
 
-        private async Task AddSingleFolderInternalAsync(StorageFolder folder)
+        private async Task AddSingleFolderInternalAsync(string folderPath)
         {
-            var result = ViewModel.AddFolder(folder.Path, folder.Name, out var addedFolder);
+            var folderName = GetFolderDisplayName(folderPath);
+            var result = ViewModel.AddFolder(folderPath, folderName, out var addedFolder);
             if (result == FolderManagerPageViewModel.AddFolderResult.DuplicateDisplayName)
             {
-                await ShowDuplicateDisplayNameBlockedAsync(FolderNameConflictService.ResolveDisplayName(folder.Name, folder.Path));
+                await ShowDuplicateDisplayNameBlockedAsync(FolderNameConflictService.ResolveDisplayName(folderName, folderPath));
                 return;
             }
 
@@ -379,27 +380,34 @@ namespace FolderRewind.Views
 
         private async void OnAddSingleFolderClick(object sender, RoutedEventArgs e)
         {
-            var folder = await PickFolderAsync();
-            if (folder == null)
+            var folderPath = await PickFolderPathAsync(
+                I18n.GetString("FolderManager_AddSingleFolderPickerTitle"),
+                "FolderRewind.FolderManager.AddSingle");
+            if (string.IsNullOrWhiteSpace(folderPath))
             {
                 return;
             }
 
-            await AddSingleFolderInternalAsync(folder);
+            await AddSingleFolderInternalAsync(folderPath);
         }
 
         private async void OnAddSubFoldersClick(object sender, RoutedEventArgs e)
         {
-            var rootFolder = await PickFolderAsync();
-            if (rootFolder == null)
+            var rootFolderPath = await PickFolderPathAsync(
+                I18n.GetString("FolderManager_AddSubFoldersPickerTitle"),
+                "FolderRewind.FolderManager.AddSubFolders");
+            if (string.IsNullOrWhiteSpace(rootFolderPath))
             {
                 return;
             }
 
-            var result = ViewModel.AddSubFolders(rootFolder.Path);
+            var result = ViewModel.AddSubFolders(rootFolderPath);
             if (!result.Success)
             {
-                Debug.WriteLine(result.ErrorMessage);
+                LogService.LogWarning(result.ErrorMessage ?? I18n.GetString("FolderManager_AddSubFoldersFailed"), nameof(FolderManagerPage));
+                NotificationService.ShowWarning(
+                    result.ErrorMessage ?? I18n.GetString("FolderManager_AddSubFoldersFailed"),
+                    I18n.GetString("FolderManager_AddFolder_Title"));
                 return;
             }
 
@@ -423,13 +431,15 @@ namespace FolderRewind.Views
 
             PluginService.Initialize();
 
-            var rootFolder = await PickFolderAsync();
-            if (rootFolder == null)
+            var rootFolderPath = await PickFolderPathAsync(
+                I18n.GetString("FolderManager_PluginDiscoverPickerTitle"),
+                "FolderRewind.FolderManager.PluginDiscover");
+            if (string.IsNullOrWhiteSpace(rootFolderPath))
             {
                 return;
             }
 
-            var discovered = PluginService.InvokeDiscoverManagedFolders(rootFolder.Path);
+            var discovered = PluginService.InvokeDiscoverManagedFolders(rootFolderPath);
             if (discovered == null || discovered.Count == 0)
             {
                 await ShowPluginDiscoverNoResultAsync();
@@ -548,25 +558,25 @@ namespace FolderRewind.Views
                 return;
             }
 
-            var picker = new FileOpenPicker
-            {
-                ViewMode = PickerViewMode.Thumbnail,
-                SuggestedStartLocation = PickerLocationId.PicturesLibrary
-            };
-            picker.FileTypeFilter.Add(".png");
-            picker.FileTypeFilter.Add(".jpg");
-            picker.FileTypeFilter.Add(".jpeg");
-            MainWindowService.InitializePicker(picker);
-
-            var file = await picker.PickSingleFileAsync();
-            if (file == null)
+            // 封面图片只需要文件路径，使用现代 Picker 可以少一层 StorageFile 依赖。
+            var filePath = await MainWindowService.PickFilePathAsync(
+                I18n.GetString("FolderManager_ChangeCoverPickerTitle"),
+                "FolderRewind.FolderManager.ChangeCover",
+                new[] { ".png", ".jpg", ".jpeg" },
+                MainWindowService.SuggestedPickerLocation.PicturesLibrary,
+                viewMode: PickerViewMode.Thumbnail);
+            if (string.IsNullOrWhiteSpace(filePath))
             {
                 return;
             }
 
-            if (!ViewModel.TryReplaceFolderIcon(folder, file.Path, out var errorMessage))
+            if (!ViewModel.TryReplaceFolderIcon(folder, filePath, out var errorMessage))
             {
-                Debug.WriteLine($"Copy icon failed: {errorMessage}");
+                var message = string.IsNullOrWhiteSpace(errorMessage)
+                    ? I18n.GetString("FolderManager_ChangeCoverFailed")
+                    : errorMessage;
+                LogService.LogWarning(I18n.Format("FolderManager_Log_ChangeCoverFailed", message), nameof(FolderManagerPage));
+                NotificationService.ShowError(message, I18n.GetString("FolderManager_ChangeCover_Title"));
             }
         }
 
@@ -638,17 +648,33 @@ namespace FolderRewind.Views
             }
         }
 
-        private async Task<StorageFolder?> PickFolderAsync()
+        private static Task<string?> PickFolderPathAsync(string title, string settingsIdentifier)
         {
-            var picker = new FolderPicker
-            {
-                SuggestedStartLocation = PickerLocationId.ComputerFolder
-            };
-            picker.FileTypeFilter.Add("*");
-            MainWindowService.InitializePicker(picker);
-
-            return await picker.PickSingleFolderAsync();
+            return MainWindowService.PickFolderPathAsync(
+                title,
+                settingsIdentifier,
+                MainWindowService.SuggestedPickerLocation.ComputerFolder);
         }
+
+        private static string GetFolderDisplayName(string folderPath)
+        {
+            if (string.IsNullOrWhiteSpace(folderPath))
+            {
+                return string.Empty;
+            }
+
+            try
+            {
+                var trimmed = folderPath.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
+                var name = Path.GetFileName(trimmed);
+                return string.IsNullOrWhiteSpace(name) ? folderPath : name;
+            }
+            catch
+            {
+                return folderPath;
+            }
+        }
+
 
         private bool TryGetSelectedContext(out BackupConfig config, out ManagedFolder folder)
         {

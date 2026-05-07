@@ -14,8 +14,6 @@ using System.IO;
 using System.Linq;
 using System.Threading.Tasks;
 using Windows.ApplicationModel.Resources;
-using Windows.Storage;
-using Windows.Storage.Pickers;
 
 namespace FolderRewind.Views
 {
@@ -45,22 +43,18 @@ namespace FolderRewind.Views
             ViewModel.Deactivate();
         }
 
-        // 鐐瑰嚮鏀惰棌椤瑰崱鐗?-> 璺宠浆鍒扮鐞嗛〉骞堕€変腑璇ユ枃浠跺す
         private void OnFavoriteCardClick(object sender, RoutedEventArgs e)
         {
             if (sender is Button btn && btn.DataContext is ManagedFolder folder)
             {
-                // 闇€瑕佹壘鍒板畠灞炰簬鍝釜 Config锛屾墠鑳藉鑸?
                 var parentConfig = ViewModel.FindParentConfig(folder);
                 if (parentConfig != null)
                 {
-                    // 璺宠浆鍒扮鐞嗛〉骞惰嚜鍔ㄩ€変腑璇ユ枃浠跺す
                     _ = NavigationService.NavigateTo("Manager", ManagerNavigationParameter.ForFolder(parentConfig.Id, folder.Path));
                 }
             }
         }
 
-        // 鐐瑰嚮閰嶇疆鍗＄墖 -> 璺宠浆鍒扮鐞嗛〉
         private void OnConfigCardClick(object sender, RoutedEventArgs e)
         {
             if (sender is Button btn && btn.DataContext is BackupConfig config)
@@ -79,12 +73,10 @@ namespace FolderRewind.Views
             }
         }
 
-        // 蹇€熷浠芥寜閽偣鍑?
         private async void OnQuickBackupClick(object sender, RoutedEventArgs e)
         {
             if (sender is Button btn && btn.DataContext is ManagedFolder folder)
             {
-                // 杩欓噷淇濈暀鎸夐挳闃叉姈锛岄伩鍏嶇敤鎴疯繛缁偣鍑昏Е鍙戝娆″悓鐩綍澶囦唤銆?
                 btn.IsEnabled = false;
                 try
                 {
@@ -606,7 +598,6 @@ namespace FolderRewind.Views
                 createResult.FolderCandidates.Count.ToString(CultureInfo.CurrentCulture));
         }
 
-        // 娣诲姞閰嶇疆閫昏緫
         private async void OnAddConfigClick(SplitButton sender, SplitButtonClickEventArgs args)
         {
             var resourceLoader = ResourceLoader.GetForViewIndependentUse();
@@ -619,14 +610,11 @@ namespace FolderRewind.Views
                 PlaceholderText = resourceLoader.GetString("HomePage_ConfigNamePlaceholder")
             };
 
-            // 閰嶇疆绫诲瀷锛堝惈鎻掍欢鎵╁睍绫诲瀷 + 鍐呯疆鍔犲瘑绫诲瀷锛?
             var configTypes = PluginService.GetAllSupportedConfigTypes().ToList();
-            // 纭繚 "Default" 濮嬬粓瀛樺湪锛堟彃浠剁郴缁熸湭鍚敤鏃跺垪琛ㄥ彲鑳戒负绌猴級
             if (!configTypes.Contains("Default", StringComparer.OrdinalIgnoreCase))
             {
                 configTypes.Insert(0, "Default");
             }
-            // 纭繚 "Encrypted" 浣滀负鍐呯疆绫诲瀷鍑虹幇鍦?"Default" 涔嬪悗
             if (!configTypes.Contains("Encrypted", StringComparer.OrdinalIgnoreCase))
             {
                 int defaultIdx = configTypes.FindIndex(t => string.Equals(t, "Default", StringComparison.OrdinalIgnoreCase));
@@ -648,7 +636,6 @@ namespace FolderRewind.Views
                 TextWrapping = TextWrapping.Wrap
             };
 
-            // 鎻掍欢鎵归噺鍒涘缓锛堢敤浜?Minecraft 鎵弿 .minecraft/versions/*/saves 绛夛級
             var batchCreateToggle = new ToggleSwitch
             {
                 Header = resourceLoader.GetString("HomePage_PluginBatchCreateHeader"),
@@ -664,7 +651,6 @@ namespace FolderRewind.Views
                 batchCreateToggle.IsEnabled = canBatch;
                 if (!canBatch) batchCreateToggle.IsOn = false;
 
-                // 鎵归噺鍒涘缓妯″紡涓嬶紝鍚嶇О鐢辨彃浠剁敓鎴?
                 nameBox.IsEnabled = !batchCreateToggle.IsOn;
             }
 
@@ -672,7 +658,7 @@ namespace FolderRewind.Views
             batchCreateToggle.Toggled += (_, __) => RefreshBatchToggleState();
             RefreshBatchToggleState();
 
-            // 鍥炬爣閫夋嫨鍣?
+            // 
             var iconGrid = new GridView { SelectionMode = ListViewSelectionMode.Single, Height = 180 };
             foreach (var icon in IconCatalog.ConfigIconGlyphs) iconGrid.Items.Add(icon);
             iconGrid.SelectedIndex = 0;
@@ -709,10 +695,13 @@ namespace FolderRewind.Views
 
                 if (batchCreateToggle.IsOn)
                 {
-                    var rootFolder = await PickFolderAsync(resourceLoader.GetString("HomePage_PluginBatchCreatePickRootTitle"));
-                    if (rootFolder == null) return;
+                    // Picker 统一走 MainWindowService，窗口绑定、标题和记忆目录都集中维护。
+                    var rootFolderPath = await PickFolderPathAsync(
+                        resourceLoader.GetString("HomePage_PluginBatchCreatePickRootTitle"),
+                        "FolderRewind.HomePage.PluginBatch.Root");
+                    if (string.IsNullOrWhiteSpace(rootFolderPath)) return;
 
-                    var result = PluginService.InvokeCreateConfigs(rootFolder.Path, selectedType);
+                    var result = PluginService.InvokeCreateConfigs(rootFolderPath, selectedType);
                     if (!result.Handled || result.CreatedConfigs == null || result.CreatedConfigs.Count == 0)
                     {
                         var failed = new ContentDialog
@@ -729,13 +718,13 @@ namespace FolderRewind.Views
                         return;
                     }
 
-                    // 璁╃敤鎴蜂竴娆℃€ч€夋嫨鐩爣鐩綍锛堝彲閫夛紱涓嶉€夊垯绋嶅悗鍦ㄩ厤缃缃噷濉級
-                    var destFolder = await PickFolderAsync(resourceLoader.GetString("HomePage_PluginBatchCreatePickDestinationTitle"));
-                    var destPath = destFolder?.Path;
+                    // 选择目标文件夹
+                    var destPath = await PickFolderPathAsync(
+                        resourceLoader.GetString("HomePage_PluginBatchCreatePickDestinationTitle"),
+                        "FolderRewind.HomePage.PluginBatch.Destination");
 
                     foreach (var c in result.CreatedConfigs)
                     {
-                        // 鍏滃簳锛氱‘淇?ConfigType
                         if (string.IsNullOrWhiteSpace(c.ConfigType)) c.ConfigType = selectedType;
                         c.Cloud ??= new CloudSettings();
                         if (string.IsNullOrWhiteSpace(c.Cloud.RemoteBasePath))
@@ -758,7 +747,6 @@ namespace FolderRewind.Views
 
                 bool isEncrypted = string.Equals(selectedType, "Encrypted", StringComparison.OrdinalIgnoreCase);
 
-                // 濡傛灉鏄姞瀵嗙被鍨嬶紝寮瑰嚭瀵嗙爜璁剧疆瀵硅瘽妗?
                 string? encryptionPassword = null;
                 if (isEncrypted)
                 {
@@ -784,7 +772,6 @@ namespace FolderRewind.Views
                 ConfigService.CurrentConfig.BackupConfigs.Add(newConfig);
                 ConfigService.Save();
 
-                // 瀛樺偍鍔犲瘑瀵嗙爜锛堝湪閰嶇疆淇濆瓨鍚庯紝鍥犱负闇€瑕?config.Id锛?
                 if (isEncrypted && !string.IsNullOrEmpty(encryptionPassword))
                 {
                     EncryptionService.StorePassword(newConfig.Id, encryptionPassword);
@@ -795,7 +782,7 @@ namespace FolderRewind.Views
         }
 
         /// <summary>
-        /// 寮瑰嚭璁剧疆鍔犲瘑瀵嗙爜鐨勫璇濇锛屽寘鍚?瀵嗙爜涓€鏃﹁缃棤娉曟洿鏀?鐨勮鍛婃彁绀恒€?
+        /// 弹出设置密码的对话框，返回用户输入的密码。如果用户取消，则返回 null。
         /// </summary>
         private async System.Threading.Tasks.Task<string?> PromptSetPasswordAsync()
         {
@@ -870,30 +857,21 @@ namespace FolderRewind.Views
             }
         }
 
-        private async System.Threading.Tasks.Task<StorageFolder?> PickFolderAsync(string title)
+        private static Task<string?> PickFolderPathAsync(string title, string settingsIdentifier)
         {
-            var picker = new FolderPicker();
-            picker.SuggestedStartLocation = PickerLocationId.ComputerFolder;
-            picker.FileTypeFilter.Add("*");
-
-            if (!string.IsNullOrWhiteSpace(title))
-            {
-                picker.SettingsIdentifier = "FolderRewind.HomePage.Picker";
-            }
-            MainWindowService.InitializePicker(picker);
-
-            return await picker.PickSingleFolderAsync();
+            return MainWindowService.PickFolderPathAsync(
+                title,
+                settingsIdentifier,
+                MainWindowService.SuggestedPickerLocation.ComputerFolder);
         }
 
         #region Context Menu Handlers
 
-        // 鍙抽敭鐐瑰嚮閰嶇疆鍗＄墖
         private void OnConfigCardRightTapped(object sender, Microsoft.UI.Xaml.Input.RightTappedRoutedEventArgs e)
         {
 
         }
 
-        // 澶囦唤閰嶇疆涓殑鎵€鏈夋枃浠跺す
         private async void OnBackupAllFoldersClick(object sender, RoutedEventArgs e)
         {
             if (sender is MenuFlyoutItem item && item.DataContext is BackupConfig config)
@@ -917,7 +895,7 @@ namespace FolderRewind.Views
             }
         }
 
-        // 鎵撳紑鐩爣鏂囦欢澶?
+        // 
         private void OnOpenDestinationClick(object sender, RoutedEventArgs e)
         {
             if (sender is MenuFlyoutItem item && item.DataContext is BackupConfig config)
@@ -926,7 +904,7 @@ namespace FolderRewind.Views
             }
         }
 
-        // 缂栬緫閰嶇疆锛堣烦杞埌绠＄悊椤碉級
+        // 
         private void OnEditConfigClick(object sender, RoutedEventArgs e)
         {
             if (sender is MenuFlyoutItem item && item.DataContext is BackupConfig config)
@@ -935,7 +913,6 @@ namespace FolderRewind.Views
             }
         }
 
-        // 鍒犻櫎閰嶇疆
         private async void OnDeleteConfigClick(object sender, RoutedEventArgs e)
         {
             if (sender is MenuFlyoutItem item && item.DataContext is BackupConfig config)

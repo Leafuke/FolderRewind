@@ -4630,4 +4630,43 @@ Pull request: {1}</value>
   <data name="ProcessPathService_Log_InspectPartialFailed" xml:space="preserve">
     <value>Skipped {1} "{0}" process instance(s) because their paths could not be read in time or due to permissions.</value>
   </data>
+  <data name="Picker_MainWindowUnavailable" xml:space="preserve">
+    <value>The main window is not ready, so the picker cannot be opened.</value>
+  </data>
+  <data name="Picker_OpenFailed" xml:space="preserve">
+    <value>Could not open the picker.</value>
+  </data>
+  <data name="Picker_OpenFailedWithReason" xml:space="preserve">
+    <value>Could not open the picker: {0}</value>
+  </data>
+  <data name="Picker_Log_OpenFailed" xml:space="preserve">
+    <value>Failed to open the modern picker: {0}</value>
+  </data>
+  <data name="FolderManager_AddFolder_Title" xml:space="preserve">
+    <value>Add folder</value>
+  </data>
+  <data name="FolderManager_AddSingleFolderPickerTitle" xml:space="preserve">
+    <value>Choose a folder to back up</value>
+  </data>
+  <data name="FolderManager_AddSubFoldersPickerTitle" xml:space="preserve">
+    <value>Choose the root folder to scan for subfolders</value>
+  </data>
+  <data name="FolderManager_PluginDiscoverPickerTitle" xml:space="preserve">
+    <value>Choose the root folder for plugin discovery</value>
+  </data>
+  <data name="FolderManager_AddSubFoldersFailed" xml:space="preserve">
+    <value>Failed to add subfolders.</value>
+  </data>
+  <data name="FolderManager_ChangeCoverPickerTitle" xml:space="preserve">
+    <value>Choose a folder cover image</value>
+  </data>
+  <data name="FolderManager_ChangeCover_Title" xml:space="preserve">
+    <value>Change cover</value>
+  </data>
+  <data name="FolderManager_ChangeCoverFailed" xml:space="preserve">
+    <value>Failed to change the folder cover.</value>
+  </data>
+  <data name="FolderManager_Log_ChangeCoverFailed" xml:space="preserve">
+    <value>Failed to change the folder cover: {0}</value>
+  </data>
 </root>

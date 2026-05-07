@@ -1,6 +1,10 @@
+using Microsoft.UI;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Windowing;
+using Microsoft.Windows.Storage.Pickers;
 using System;
+using System.Collections.Generic;
+using System.Threading.Tasks;
 using Windows.Graphics;
 using WinRT.Interop;
 
@@ -8,6 +12,17 @@ namespace FolderRewind.Services
 {
     public static class MainWindowService
     {
+        public enum SuggestedPickerLocation
+        {
+            Unspecified,
+            ComputerFolder,
+            DocumentsLibrary,
+            Downloads,
+            PicturesLibrary,
+            VideosLibrary,
+            MusicLibrary
+        }
+
         // 由 App.OnLaunched 注入主窗口，供非视图层按需访问窗口能力。
         private static Window? _window;
         private static Views.SponsorWindow? _sponsorWindow;
@@ -184,6 +199,101 @@ namespace FolderRewind.Services
             InitializeWithWindow.Initialize(picker, WindowNative.GetWindowHandle(window));
         }
 
+        public static Task<string?> PickFolderPathAsync(
+            string title,
+            string settingsIdentifier,
+            SuggestedPickerLocation suggestedStartLocation = SuggestedPickerLocation.ComputerFolder,
+            string? suggestedStartFolder = null)
+        {
+            return RunModernPickerAsync(async windowId =>
+            {
+                var picker = new FolderPicker(windowId)
+                {
+                    Title = title ?? string.Empty,
+                    SettingsIdentifier = settingsIdentifier ?? string.Empty,
+                    SuggestedStartLocation = MapPickerLocation(suggestedStartLocation)
+                };
+
+                if (!string.IsNullOrWhiteSpace(suggestedStartFolder))
+                {
+                    picker.SuggestedStartFolder = suggestedStartFolder;
+                }
+
+                // Windows App SDK 2.0 的现代 Picker 直接返回路径结果，调用方不再需要依赖 StorageFolder。
+                var result = await picker.PickSingleFolderAsync();
+                return result?.Path;
+            });
+        }
+
+        public static Task<string?> PickFilePathAsync(
+            string title,
+            string settingsIdentifier,
+            IReadOnlyList<string> fileTypeFilters,
+            SuggestedPickerLocation suggestedStartLocation = SuggestedPickerLocation.DocumentsLibrary,
+            string? suggestedStartFolder = null,
+            PickerViewMode viewMode = PickerViewMode.List)
+        {
+            return RunModernPickerAsync(async windowId =>
+            {
+                var picker = new FileOpenPicker(windowId)
+                {
+                    Title = title ?? string.Empty,
+                    SettingsIdentifier = settingsIdentifier ?? string.Empty,
+                    SuggestedStartLocation = MapPickerLocation(suggestedStartLocation),
+                    ViewMode = viewMode
+                };
+
+                if (!string.IsNullOrWhiteSpace(suggestedStartFolder))
+                {
+                    picker.SuggestedStartFolder = suggestedStartFolder;
+                }
+
+                foreach (var filter in fileTypeFilters)
+                {
+                    if (!string.IsNullOrWhiteSpace(filter))
+                    {
+                        picker.FileTypeFilter.Add(filter);
+                    }
+                }
+
+                var result = await picker.PickSingleFileAsync();
+                return result?.Path;
+            });
+        }
+
+        public static Task<string?> PickSaveFilePathAsync(
+            string title,
+            string settingsIdentifier,
+            IReadOnlyDictionary<string, IReadOnlyList<string>> fileTypeChoices,
+            string suggestedFileName,
+            SuggestedPickerLocation suggestedStartLocation = SuggestedPickerLocation.DocumentsLibrary,
+            string? suggestedStartFolder = null)
+        {
+            return RunModernPickerAsync(async windowId =>
+            {
+                var picker = new FileSavePicker(windowId)
+                {
+                    Title = title ?? string.Empty,
+                    SettingsIdentifier = settingsIdentifier ?? string.Empty,
+                    SuggestedStartLocation = MapPickerLocation(suggestedStartLocation),
+                    SuggestedFileName = suggestedFileName ?? string.Empty
+                };
+
+                if (!string.IsNullOrWhiteSpace(suggestedStartFolder))
+                {
+                    picker.SuggestedStartFolder = suggestedStartFolder;
+                }
+
+                foreach (var choice in fileTypeChoices)
+                {
+                    picker.FileTypeChoices.Add(choice.Key, new List<string>(choice.Value));
+                }
+
+                var result = await picker.PickSaveFileAsync();
+                return result?.Path;
+            });
+        }
+
         /// <summary>
         /// 赞助窗口
         /// </summary>
@@ -215,6 +325,52 @@ namespace FolderRewind.Services
                 var y = owner.Position.Y + Math.Max(0, (owner.Size.Height - height) / 2);
                 appWindow.Move(new PointInt32(x, y));
             }
+        }
+
+        private static async Task<string?> RunModernPickerAsync(Func<WindowId, Task<string?>> pickerAction)
+        {
+            if (pickerAction == null)
+            {
+                return null;
+            }
+
+            var window = GetMainWindow();
+            if (window == null)
+            {
+                LogService.LogWarning(I18n.GetString("Picker_MainWindowUnavailable"), nameof(MainWindowService));
+                NotificationService.ShowError(I18n.GetString("Picker_OpenFailed"));
+                return null;
+            }
+
+            try
+            {
+                return await UiDispatcherService.RunOnUiAsync(async () =>
+                {
+                    var hwnd = WindowNative.GetWindowHandle(window);
+                    var windowId = Microsoft.UI.Win32Interop.GetWindowIdFromWindow(hwnd);
+                    return await pickerAction(windowId);
+                });
+            }
+            catch (Exception ex)
+            {
+                LogService.LogError(I18n.Format("Picker_Log_OpenFailed", ex.Message), nameof(MainWindowService), ex);
+                NotificationService.ShowError(I18n.Format("Picker_OpenFailedWithReason", ex.Message));
+                return null;
+            }
+        }
+
+        private static PickerLocationId MapPickerLocation(SuggestedPickerLocation location)
+        {
+            return location switch
+            {
+                SuggestedPickerLocation.ComputerFolder => PickerLocationId.ComputerFolder,
+                SuggestedPickerLocation.DocumentsLibrary => PickerLocationId.DocumentsLibrary,
+                SuggestedPickerLocation.Downloads => PickerLocationId.Downloads,
+                SuggestedPickerLocation.PicturesLibrary => PickerLocationId.PicturesLibrary,
+                SuggestedPickerLocation.VideosLibrary => PickerLocationId.VideosLibrary,
+                SuggestedPickerLocation.MusicLibrary => PickerLocationId.MusicLibrary,
+                _ => PickerLocationId.Unspecified
+            };
         }
     }
 }

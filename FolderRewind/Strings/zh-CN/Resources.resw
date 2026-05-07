@@ -4630,4 +4630,43 @@ Pull Request：{1}</value>
   <data name="ProcessPathService_Log_InspectPartialFailed" xml:space="preserve">
     <value>有 {1} 个“{0}”进程实例因权限或退出时机无法读取路径，已跳过。</value>
   </data>
+  <data name="Picker_MainWindowUnavailable" xml:space="preserve">
+    <value>主窗口尚未就绪，无法打开文件选择器。</value>
+  </data>
+  <data name="Picker_OpenFailed" xml:space="preserve">
+    <value>无法打开文件选择器。</value>
+  </data>
+  <data name="Picker_OpenFailedWithReason" xml:space="preserve">
+    <value>无法打开文件选择器：{0}</value>
+  </data>
+  <data name="Picker_Log_OpenFailed" xml:space="preserve">
+    <value>打开现代 Picker 失败：{0}</value>
+  </data>
+  <data name="FolderManager_AddFolder_Title" xml:space="preserve">
+    <value>添加文件夹</value>
+  </data>
+  <data name="FolderManager_AddSingleFolderPickerTitle" xml:space="preserve">
+    <value>选择要加入备份的文件夹</value>
+  </data>
+  <data name="FolderManager_AddSubFoldersPickerTitle" xml:space="preserve">
+    <value>选择要扫描子文件夹的根目录</value>
+  </data>
+  <data name="FolderManager_PluginDiscoverPickerTitle" xml:space="preserve">
+    <value>选择插件要扫描的根目录</value>
+  </data>
+  <data name="FolderManager_AddSubFoldersFailed" xml:space="preserve">
+    <value>添加子文件夹失败。</value>
+  </data>
+  <data name="FolderManager_ChangeCoverPickerTitle" xml:space="preserve">
+    <value>选择文件夹封面图片</value>
+  </data>
+  <data name="FolderManager_ChangeCover_Title" xml:space="preserve">
+    <value>更换封面</value>
+  </data>
+  <data name="FolderManager_ChangeCoverFailed" xml:space="preserve">
+    <value>更换文件夹封面失败。</value>
+  </data>
+  <data name="FolderManager_Log_ChangeCoverFailed" xml:space="preserve">
+    <value>更换文件夹封面失败：{0}</value>
+  </data>
 </root>
