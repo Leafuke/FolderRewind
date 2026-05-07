@@ -379,5 +379,6 @@ FodyWeavers.xsd
 /FolderRewind/Properties
 /Reference
 /docs/*
-!SponsorEdition.md
+!/docs/SponsorEdition.md
+!/docs/SPONSORS.md
 *.exe
