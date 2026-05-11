@@ -1,5 +1,6 @@
 using FolderRewind.Models;
 using FolderRewind.Services;
+using FolderRewind.Services.Plugins;
 using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
@@ -18,6 +19,7 @@ namespace FolderRewind.ViewModels
         private readonly CloudSettings _cloud;
         private readonly int _cpuThreadMax;
         private readonly ObservableCollection<AutomationFolderOption> _automationFolderOptions = new();
+        private List<BackupScopeOption> _backupScopeOptions = new();
         private int _selectedPageIndex;
 
         private const int MinPageIndex = 0;
@@ -30,6 +32,7 @@ namespace FolderRewind.ViewModels
             _archive = _config.Archive ??= new ArchiveSettings();
             _automation = _config.Automation ??= new AutomationSettings();
             _cloud = _config.Cloud ??= new CloudSettings();
+            _config.BackupScope ??= new BackupScopeSettings();
             _cpuThreadMax = Math.Max(Environment.ProcessorCount, 1);
 
             _archive.PropertyChanged += OnArchivePropertyChanged;
@@ -41,6 +44,7 @@ namespace FolderRewind.ViewModels
             AttachSourceFolderHandlers(_config.SourceFolders);
 
             NormalizeArchiveSettings();
+            RefreshBackupScopeOptions();
             RefreshAutomationFolderOptions();
             RaiseCloudUiProperties();
         }
@@ -74,6 +78,88 @@ namespace FolderRewind.ViewModels
 
         public bool IsFilterPageVisible => SelectedPageIndex == 5;
 
+        public int BackupFilterModeSelectedIndex
+        {
+            get => _config.Filters?.BackupFilterMode == BackupFilterMode.Whitelist ? 1 : 0;
+            set
+            {
+                _config.Filters ??= new FilterSettings();
+                var mode = value == 1 ? BackupFilterMode.Whitelist : BackupFilterMode.Blacklist;
+                if (_config.Filters.BackupFilterMode == mode)
+                {
+                    return;
+                }
+
+                _config.Filters.BackupFilterMode = mode;
+                RaiseFilterUiProperties();
+            }
+        }
+
+        public bool IsBackupBlacklistMode => _config.Filters?.BackupFilterMode != BackupFilterMode.Whitelist;
+
+        public bool IsBackupWhitelistMode => _config.Filters?.BackupFilterMode == BackupFilterMode.Whitelist;
+
+        public string BackupWhitelistCleanWarningText => I18n.GetString("ConfigSettingsDialog_BackupWhitelistCleanWarning");
+
+        public IReadOnlyList<BackupScopeOption> BackupScopeOptions => _backupScopeOptions;
+
+        public int BackupScopeSelectedIndex
+        {
+            get
+            {
+                if (_backupScopeOptions.Count == 0)
+                {
+                    // 设置页初始化时会先清空再重建选项；空集合只能对应“未选择”。
+                    return -1;
+                }
+
+                var scopeId = _config.BackupScope?.PluginScopeId ?? string.Empty;
+                var index = _backupScopeOptions
+                    .Select((option, i) => (option, i))
+                    .FirstOrDefault(pair => string.Equals(pair.option.Id, scopeId, StringComparison.OrdinalIgnoreCase)).i;
+                return index >= 0 ? index : 0;
+            }
+            set
+            {
+                SelectBackupScopeByIndex(value);
+            }
+        }
+
+        public bool SelectBackupScopeByIndex(int value)
+        {
+            if (_backupScopeOptions.Count == 0)
+            {
+                // ComboBox 初始化 ItemsSource 时会出现 -1；空集合阶段不能反向污染配置。
+                return false;
+            }
+
+            if (value < 0 || value >= _backupScopeOptions.Count)
+            {
+                return false;
+            }
+
+            _config.BackupScope ??= new BackupScopeSettings();
+            var option = _backupScopeOptions[value];
+            if (string.Equals(_config.BackupScope.PluginScopeId, option.Id, StringComparison.OrdinalIgnoreCase))
+            {
+                return false;
+            }
+
+            _config.BackupScope.PluginScopeId = option.Id;
+            EnsureScopeParameterDefaults(option);
+            RaiseBackupScopeUiProperties();
+            return true;
+        }
+
+        public bool HasPluginBackupScopeOptions => _backupScopeOptions.Count > 1;
+
+        public bool IsPluginBackupScopeSelected => SelectedBackupScopeOption?.Definition != null;
+
+        public string BackupScopeDescription => SelectedBackupScopeOption?.Description ?? string.Empty;
+
+        public IReadOnlyList<PluginSettingDefinition> SelectedBackupScopeParameters =>
+            SelectedBackupScopeOption?.Definition?.Parameters ?? Array.Empty<PluginSettingDefinition>();
+
         public double CompressionLevelMin => GetCompressionLevelRange(_archive.Method).Min;
 
         public double CompressionLevelMax => GetCompressionLevelRange(_archive.Method).Max;
@@ -81,6 +167,68 @@ namespace FolderRewind.ViewModels
         public double CpuThreadMax => _cpuThreadMax;
 
         public ObservableCollection<AutomationFolderOption> AutomationFolderOptions => _automationFolderOptions;
+
+        public string GetBackupScopeParameterValue(string key)
+        {
+            if (string.IsNullOrWhiteSpace(key))
+            {
+                return string.Empty;
+            }
+
+            _config.BackupScope ??= new BackupScopeSettings();
+            _config.BackupScope.Parameters ??= new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+            return _config.BackupScope.Parameters.TryGetValue(key, out var value) ? value : string.Empty;
+        }
+
+        public void SetBackupScopeParameterValue(string key, string value)
+        {
+            if (string.IsNullOrWhiteSpace(key))
+            {
+                return;
+            }
+
+            _config.BackupScope ??= new BackupScopeSettings();
+            _config.BackupScope.Parameters ??= new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+            _config.BackupScope.Parameters[key] = value ?? string.Empty;
+        }
+
+        public void RefreshBackupScopeOptions()
+        {
+            var options = new List<BackupScopeOption>
+            {
+                new(
+                string.Empty,
+                I18n.GetString("ConfigSettingsDialog_BackupScopeFull"),
+                I18n.GetString("ConfigSettingsDialog_BackupScopeFullDesc"),
+                null)
+            };
+
+            foreach (var definition in PluginService.GetBackupScopeDefinitions(_config))
+            {
+                options.Add(new BackupScopeOption(
+                    definition.Id,
+                    string.IsNullOrWhiteSpace(definition.DisplayName) ? definition.Id : definition.DisplayName,
+                    definition.Description ?? string.Empty,
+                    definition));
+            }
+
+            var selectedScopeId = _config.BackupScope?.PluginScopeId ?? string.Empty;
+            if (!string.IsNullOrWhiteSpace(selectedScopeId)
+                && !options.Any(option => string.Equals(option.Id, selectedScopeId, StringComparison.OrdinalIgnoreCase)))
+            {
+                options.Add(new BackupScopeOption(
+                    selectedScopeId,
+                    selectedScopeId,
+                    I18n.GetString("ConfigSettingsDialog_BackupScopeMissingDesc"),
+                    null));
+            }
+
+            // 这里使用整表替换而不是 ObservableCollection.Clear/Add。
+            // WinUI ComboBox 在初始化绑定时会响应 ItemsSource 变化；集合变更重入会导致 ObjectModel.InvalidOperationException。
+            _backupScopeOptions = options;
+            EnsureScopeParameterDefaults(SelectedBackupScopeOption);
+            RaiseBackupScopeUiProperties();
+        }
 
         public int AutomationScopeSelectedIndex
         {
@@ -603,6 +751,59 @@ namespace FolderRewind.ViewModels
             OnPropertyChanged(nameof(IsFilterPageVisible));
         }
 
+        private void RaiseFilterUiProperties()
+        {
+            OnPropertyChanged(nameof(BackupFilterModeSelectedIndex));
+            OnPropertyChanged(nameof(IsBackupBlacklistMode));
+            OnPropertyChanged(nameof(IsBackupWhitelistMode));
+            OnPropertyChanged(nameof(BackupWhitelistCleanWarningText));
+        }
+
+        private BackupScopeOption? SelectedBackupScopeOption
+        {
+            get
+            {
+                var scopeId = _config.BackupScope?.PluginScopeId ?? string.Empty;
+                return _backupScopeOptions.FirstOrDefault(option =>
+                           string.Equals(option.Id, scopeId, StringComparison.OrdinalIgnoreCase))
+                       ?? _backupScopeOptions.FirstOrDefault();
+            }
+        }
+
+        private void EnsureScopeParameterDefaults(BackupScopeOption? option)
+        {
+            if (option?.Definition?.Parameters == null)
+            {
+                return;
+            }
+
+            _config.BackupScope ??= new BackupScopeSettings();
+            _config.BackupScope.Parameters ??= new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+
+            foreach (var parameter in option.Definition.Parameters)
+            {
+                if (string.IsNullOrWhiteSpace(parameter.Key))
+                {
+                    continue;
+                }
+
+                if (!_config.BackupScope.Parameters.ContainsKey(parameter.Key))
+                {
+                    _config.BackupScope.Parameters[parameter.Key] = parameter.DefaultValue ?? string.Empty;
+                }
+            }
+        }
+
+        private void RaiseBackupScopeUiProperties()
+        {
+            OnPropertyChanged(nameof(BackupScopeOptions));
+            OnPropertyChanged(nameof(BackupScopeSelectedIndex));
+            OnPropertyChanged(nameof(HasPluginBackupScopeOptions));
+            OnPropertyChanged(nameof(IsPluginBackupScopeSelected));
+            OnPropertyChanged(nameof(BackupScopeDescription));
+            OnPropertyChanged(nameof(SelectedBackupScopeParameters));
+        }
+
         private void RaiseAutomationUiProperties()
         {
             OnPropertyChanged(nameof(AutomationFolderOptions));
@@ -734,5 +935,24 @@ namespace FolderRewind.ViewModels
         public string Path { get; init; } = string.Empty;
 
         public string DisplayName { get; init; } = string.Empty;
+    }
+
+    public sealed class BackupScopeOption
+    {
+        public BackupScopeOption(string id, string displayName, string description, PluginBackupScopeDefinition? definition)
+        {
+            Id = id ?? string.Empty;
+            DisplayName = displayName ?? string.Empty;
+            Description = description ?? string.Empty;
+            Definition = definition;
+        }
+
+        public string Id { get; }
+
+        public string DisplayName { get; }
+
+        public string Description { get; }
+
+        public PluginBackupScopeDefinition? Definition { get; }
     }
 }

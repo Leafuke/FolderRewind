@@ -626,6 +626,26 @@ namespace FolderRewind.Services
             string? sevenZipExe = ResolveSevenZipExecutable();
             if (string.IsNullOrEmpty(sevenZipExe)) return false;
 
+            string? generatedWhitelistListFile = null;
+
+            try
+            {
+                // 白名单无法可靠翻译成 7z 的排除参数，统一转为相对路径 listfile，
+                // 让压缩包内容、差异扫描和元数据看到的是同一批文件。
+                if (string.IsNullOrWhiteSpace(listFile) && HasBackupWhitelist(filters))
+                {
+                    var includedFiles = EnumerateBackupRelativeFiles(sourceDir, filters);
+                    if (includedFiles.Count == 0)
+                    {
+                        Log("[Filter][Warning] Backup whitelist matched no files; archive command skipped.", LogLevel.Warning);
+                        return false;
+                    }
+
+                    generatedWhitelistListFile = Path.GetTempFileName();
+                    File.WriteAllLines(generatedWhitelistListFile, includedFiles);
+                    listFile = generatedWhitelistListFile;
+                }
+
             // 构建参数
             // -mx: 压缩等级
             // -ssw: 即使打开也压缩
@@ -672,8 +692,10 @@ namespace FolderRewind.Services
                 }
             }
 
-            // 添加黑名单排除规则
-            if (filters?.Blacklist != null && filters.Blacklist.Count > 0)
+            // 添加黑名单排除规则。白名单模式下不叠加黑名单，避免旧规则误伤明确纳入的文件。
+            if (filters?.BackupFilterMode != BackupFilterMode.Whitelist
+                && filters?.Blacklist != null
+                && filters.Blacklist.Count > 0)
             {
                 foreach (var rule in filters.Blacklist.Where(r => !string.IsNullOrWhiteSpace(r)))
                 {
@@ -717,6 +739,20 @@ namespace FolderRewind.Services
             string safeArgs = string.IsNullOrWhiteSpace(password) ? args : args.Replace(password, "***");
 
             return await RunSevenZipProcessAsync(sevenZipExe, args, sourceDir, safeArgs, taskToUpdate, runAtLowPriority: settings.RunCompressionAtLowPriority);
+            }
+            finally
+            {
+                try
+                {
+                    if (!string.IsNullOrWhiteSpace(generatedWhitelistListFile))
+                    {
+                        File.Delete(generatedWhitelistListFile);
+                    }
+                }
+                catch
+                {
+                }
+            }
         }
 
         /// <summary>
@@ -804,21 +840,47 @@ namespace FolderRewind.Services
                     }
                     else
                     {
-                        // 全量/覆写模式：使用 -ir! 包含匹配模式
+                        // 全量/覆写模式：白名单下仍使用 listfile，避免 -ir! 把白名单外同类型文件追加进归档。
+                        List<string>? matchedWhitelistFiles = null;
+                        if (HasBackupWhitelist(filters))
+                        {
+                            matchedWhitelistFiles = EnumerateBackupRelativeFiles(sourceDir, filters)
+                                .Where(relPath => patterns.Any(pattern => MatchWildcard(relPath, pattern)))
+                                .ToList();
+
+                            if (matchedWhitelistFiles.Count == 0)
+                            {
+                                continue;
+                            }
+                        }
+
                         var sb = new StringBuilder();
                         sb.Append($"a -t{settings.Format} \"{archivePath}\"");
-                        foreach (var pattern in patterns)
+
+                        if (matchedWhitelistFiles != null)
                         {
-                            sb.Append($" -ir!\"{pattern}\"");
+                            string tmpList = Path.GetTempFileName();
+                            tempFiles.Add(tmpList);
+                            File.WriteAllLines(tmpList, matchedWhitelistFiles);
+                            sb.Append($" @\"{tmpList}\"");
                         }
+                        else
+                        {
+                            // 全量/覆写模式：使用 -ir! 包含匹配模式
+                            foreach (var pattern in patterns)
+                            {
+                                sb.Append($" -ir!\"{pattern}\"");
+                            }
+                        }
+
                         sb.Append($" -mx={level} -m0={settings.Method} -ms=off -ssw");
                         int cpuThreads = NormalizeCpuThreadCount(settings.CpuThreads);
                         if (cpuThreads > 0) sb.Append($" -mmt{cpuThreads}"); else sb.Append(" -mmt");
                         if (!string.IsNullOrWhiteSpace(password)) sb.Append($" -p\"{password}\" -mhe=on");
                         sb.Append(" -bsp1");
 
-                        // 添加黑名单排除（同主压缩一致）
-                        if (filters?.Blacklist != null)
+                        // 添加黑名单排除（同主压缩一致）。白名单模式已用 listfile 精确限制。
+                        if (filters?.BackupFilterMode != BackupFilterMode.Whitelist && filters?.Blacklist != null)
                         {
                             foreach (var rule in filters.Blacklist.Where(r => !string.IsNullOrWhiteSpace(r)))
                             {

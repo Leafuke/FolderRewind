@@ -141,6 +141,19 @@ namespace FolderRewind.Services
                 if (config.Filters == null)
                     config.Filters = new FilterSettings();
 
+                NormalizeBackupScope(config.BackupScope ??= new BackupScopeSettings());
+
+                if (config.Filters.Blacklist == null)
+                    config.Filters.Blacklist = new System.Collections.ObjectModel.ObservableCollection<string>();
+                else if (config.Filters.Blacklist.GetType() != typeof(System.Collections.ObjectModel.ObservableCollection<string>))
+                    config.Filters.Blacklist = new System.Collections.ObjectModel.ObservableCollection<string>(config.Filters.Blacklist);
+
+                // 兼容旧版配置--备份白名单是新增字段，默认保持黑名单模式。
+                if (config.Filters.BackupWhitelist == null)
+                    config.Filters.BackupWhitelist = new System.Collections.ObjectModel.ObservableCollection<string>();
+                else if (config.Filters.BackupWhitelist.GetType() != typeof(System.Collections.ObjectModel.ObservableCollection<string>))
+                    config.Filters.BackupWhitelist = new System.Collections.ObjectModel.ObservableCollection<string>(config.Filters.BackupWhitelist);
+
                 if (config.Cloud == null)
                     config.Cloud = new CloudSettings();
                 else
@@ -187,6 +200,18 @@ namespace FolderRewind.Services
 
                 if (template.Filters == null)
                     template.Filters = new FilterSettings();
+
+                NormalizeBackupScope(template.BackupScope ??= new BackupScopeSettings());
+
+                if (template.Filters.Blacklist == null)
+                    template.Filters.Blacklist = new System.Collections.ObjectModel.ObservableCollection<string>();
+                else if (template.Filters.Blacklist.GetType() != typeof(System.Collections.ObjectModel.ObservableCollection<string>))
+                    template.Filters.Blacklist = new System.Collections.ObjectModel.ObservableCollection<string>(template.Filters.Blacklist);
+
+                if (template.Filters.BackupWhitelist == null)
+                    template.Filters.BackupWhitelist = new System.Collections.ObjectModel.ObservableCollection<string>();
+                else if (template.Filters.BackupWhitelist.GetType() != typeof(System.Collections.ObjectModel.ObservableCollection<string>))
+                    template.Filters.BackupWhitelist = new System.Collections.ObjectModel.ObservableCollection<string>(template.Filters.BackupWhitelist);
 
                 if (template.Filters.RestoreWhitelist == null)
                     template.Filters.RestoreWhitelist = new System.Collections.ObjectModel.ObservableCollection<string>();
@@ -310,6 +335,15 @@ namespace FolderRewind.Services
                     ? "copy \"{BackupSubDir}\" \"{RemoteBasePath}/{ConfigName}/{FolderName}\""
                     : "copyto \"{ArchiveFilePath}\" \"{RemoteBasePath}/{ConfigName}/{FolderName}/{ArchiveFileName}\"";
             }
+        }
+
+        private static void NormalizeBackupScope(BackupScopeSettings scope)
+        {
+            // 插件范围是新增配置级扩展点；旧配置没有该节点时保持完整范围。
+            scope.PluginScopeId = scope.PluginScopeId?.Trim() ?? string.Empty;
+            scope.Parameters = scope.Parameters == null
+                ? new System.Collections.Generic.Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
+                : new System.Collections.Generic.Dictionary<string, string>(scope.Parameters, StringComparer.OrdinalIgnoreCase);
         }
 
         #endregion

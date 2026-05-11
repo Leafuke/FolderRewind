@@ -1,4 +1,5 @@
 using FolderRewind.Models;
+using FolderRewind.Services;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Navigation;
@@ -33,9 +34,19 @@ namespace FolderRewind.Views
         {
             if (CurrentConfig == null) return;
 
-            var dialog = new ConfigSettingsDialog(CurrentConfig);
-            dialog.XamlRoot = this.XamlRoot;
-            await dialog.ShowAsync();
+            try
+            {
+                var dialog = new ConfigSettingsDialog(CurrentConfig);
+                dialog.XamlRoot = this.XamlRoot;
+                await dialog.ShowAsync();
+            }
+            catch (Exception ex)
+            {
+                LogService.LogError(I18n.Format("ConfigSettingsDialog_OpenFailed_Log", ex.Message), nameof(ConfigurationPage), ex);
+                NotificationService.ShowError(
+                    I18n.Format("ConfigSettingsDialog_OpenFailed", ex.Message),
+                    I18n.GetString("ConfigSettingsDialog_OpenFailed_Title"));
+            }
         }
     }
 }

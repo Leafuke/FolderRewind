@@ -137,6 +137,8 @@ namespace FolderRewind.Services
                 return await HandlePluginBackupAsync(config, folder, task, handlerPlugin, comment);
             }
 
+            config = Services.Plugins.PluginService.CreateConfigWithBackupFilterContributions(config, folder);
+
             // 允许插件在备份前创建快照并替换源路径（例如 Minecraft 热备份：先复制到 snapshot 再备份）。
             string sourcePath = folder.Path;
             try
@@ -323,7 +325,14 @@ namespace FolderRewind.Services
                     {
                         typeStr = config.Archive.Mode.ToString();
                     }
-                    HistoryService.AddEntry(config, folder, completedFileName, typeStr, comment, storageFolderName);
+                    HistoryService.AddEntry(
+                        config,
+                        folder,
+                        completedFileName,
+                        typeStr,
+                        comment,
+                        storageFolderName,
+                        IsPartialBackupFilter(config.Filters));
 
                     var pruneResult = await Task.Run(() => PruneOldArchives(
                         backupSubDir,
@@ -502,7 +511,14 @@ namespace FolderRewind.Services
                             throw new InvalidOperationException(I18n.GetString("BackupService_Log_InvalidStorageFolderName"));
                         }
 
-                        HistoryService.AddEntry(config, folder, result.GeneratedFileName!, "Plugin", comment, storageFolderName);
+                        HistoryService.AddEntry(
+                            config,
+                            folder,
+                            result.GeneratedFileName!,
+                            "Plugin",
+                            comment,
+                            storageFolderName,
+                            IsPartialBackupFilter(config.Filters));
                         CloudSyncService.QueueUploadAfterBackup(config, folder, result.GeneratedFileName, comment);
                     }
 

@@ -928,7 +928,16 @@ namespace FolderRewind.Services
 
             var comment = request.GetStringOrDefault("comment");
             var backupBlacklist = request.GetList("backup_blacklist");
-            var effectiveConfig = CreateConfigWithOneShotFilters(config!, backupBlacklist, Array.Empty<string>());
+            var backupWhitelist = GetBackupWhitelistOptions(request);
+            var backupScopeId = GetFirstOption(request, "backup_scope", "scope");
+            var backupScopeParameters = GetScopeParameters(request);
+            var effectiveConfig = CreateConfigWithOneShotFilters(
+                config!,
+                backupBlacklist,
+                backupWhitelist,
+                Array.Empty<string>(),
+                backupScopeId,
+                backupScopeParameters);
             var effectiveFolder = ResolveEquivalentFolder(effectiveConfig, folder!);
 
             // 新版参数可以按次叠加过滤器，但真正的备份流程仍交给 BackupService，避免复制压缩/历史/云同步逻辑。
@@ -972,8 +981,15 @@ namespace FolderRewind.Services
                 return Task.FromResult(error);
             }
 
+            if (mode == BackupService.RestoreMode.Clean
+                && IsPartialBackup(config!, folder!, backupFile!)
+                && !request.GetBoolOrDefault("confirm_partial_clean"))
+            {
+                return Task.FromResult("ERROR:" + I18n.GetString("KnotLink_Error_PartialCleanRequiresConfirm"));
+            }
+
             var restoreWhitelist = request.GetList("restore_whitelist");
-            var effectiveConfig = CreateConfigWithOneShotFilters(config!, Array.Empty<string>(), restoreWhitelist);
+            var effectiveConfig = CreateConfigWithOneShotFilters(config!, Array.Empty<string>(), Array.Empty<string>(), restoreWhitelist);
             var effectiveFolder = ResolveEquivalentFolder(effectiveConfig, folder!);
 
             _ = Task.Run(async () =>
@@ -1007,7 +1023,16 @@ namespace FolderRewind.Services
 
             var comment = request.GetStringOrDefault("comment");
             var backupBlacklist = request.GetList("backup_blacklist");
-            var effectiveConfig = CreateConfigWithOneShotFilters(config!, backupBlacklist, Array.Empty<string>());
+            var backupWhitelist = GetBackupWhitelistOptions(request);
+            var backupScopeId = GetFirstOption(request, "backup_scope", "scope");
+            var backupScopeParameters = GetScopeParameters(request);
+            var effectiveConfig = CreateConfigWithOneShotFilters(
+                config!,
+                backupBlacklist,
+                backupWhitelist,
+                Array.Empty<string>(),
+                backupScopeId,
+                backupScopeParameters);
 
             BroadcastEvent($"event=backup_all_started;config={config!.Id}");
 
@@ -1390,9 +1415,16 @@ namespace FolderRewind.Services
         private static BackupConfig CreateConfigWithOneShotFilters(
             BackupConfig source,
             IReadOnlyList<string> backupBlacklist,
-            IReadOnlyList<string> restoreWhitelist)
+            IReadOnlyList<string> backupWhitelist,
+            IReadOnlyList<string> restoreWhitelist,
+            string? backupScopeId = null,
+            IReadOnlyDictionary<string, string>? backupScopeParameters = null)
         {
-            var needsClone = (backupBlacklist?.Count ?? 0) > 0 || (restoreWhitelist?.Count ?? 0) > 0;
+            var needsClone = (backupBlacklist?.Count ?? 0) > 0
+                || (backupWhitelist?.Count ?? 0) > 0
+                || (restoreWhitelist?.Count ?? 0) > 0
+                || !string.IsNullOrWhiteSpace(backupScopeId)
+                || (backupScopeParameters?.Count ?? 0) > 0;
             if (!needsClone)
             {
                 return source;
@@ -1404,7 +1436,9 @@ namespace FolderRewind.Services
 
             clone.Filters ??= new FilterSettings();
             clone.Filters.Blacklist ??= new ObservableCollection<string>();
+            clone.Filters.BackupWhitelist ??= new ObservableCollection<string>();
             clone.Filters.RestoreWhitelist ??= new ObservableCollection<string>();
+            clone.BackupScope ??= new BackupScopeSettings();
 
             if (backupBlacklist != null)
             {
@@ -1414,15 +1448,106 @@ namespace FolderRewind.Services
                 }
             }
 
+            if (backupWhitelist != null && backupWhitelist.Count > 0)
+            {
+                clone.Filters.BackupFilterMode = BackupFilterMode.Whitelist;
+                foreach (var rule in backupWhitelist.Where(rule => !string.IsNullOrWhiteSpace(rule)))
+                {
+                    AddDistinctRule(clone.Filters.BackupWhitelist, rule);
+                }
+            }
+
             if (restoreWhitelist != null)
             {
                 foreach (var rule in restoreWhitelist.Where(rule => !string.IsNullOrWhiteSpace(rule)))
                 {
-                    clone.Filters.RestoreWhitelist.Add(rule.Trim());
+                    AddDistinctRule(clone.Filters.RestoreWhitelist, rule);
+                }
+            }
+
+            if (!string.IsNullOrWhiteSpace(backupScopeId))
+            {
+                clone.BackupScope.PluginScopeId = IsFullScopeAlias(backupScopeId)
+                    ? string.Empty
+                    : backupScopeId.Trim();
+            }
+
+            if (backupScopeParameters != null && backupScopeParameters.Count > 0)
+            {
+                clone.BackupScope.Parameters ??= new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+                foreach (var pair in backupScopeParameters)
+                {
+                    if (string.IsNullOrWhiteSpace(pair.Key))
+                    {
+                        continue;
+                    }
+
+                    clone.BackupScope.Parameters[pair.Key] = pair.Value ?? string.Empty;
                 }
             }
 
             return clone;
+        }
+
+        private static IReadOnlyDictionary<string, string> GetScopeParameters(KnotLinkCommandRequest request)
+        {
+            const string prefix = "scope.";
+            return request.Options
+                .Where(pair => pair.Key.StartsWith(prefix, StringComparison.OrdinalIgnoreCase)
+                               && pair.Key.Length > prefix.Length)
+                .ToDictionary(
+                    pair => pair.Key[prefix.Length..],
+                    pair => pair.Value ?? string.Empty,
+                    StringComparer.OrdinalIgnoreCase);
+        }
+
+        private static bool IsFullScopeAlias(string value)
+        {
+            return string.Equals(value, "full", StringComparison.OrdinalIgnoreCase)
+                || string.Equals(value, "all", StringComparison.OrdinalIgnoreCase)
+                || string.Equals(value, "default", StringComparison.OrdinalIgnoreCase)
+                || string.Equals(value, "none", StringComparison.OrdinalIgnoreCase);
+        }
+
+        private static IReadOnlyList<string> GetBackupWhitelistOptions(KnotLinkCommandRequest request)
+        {
+            var underscored = request.GetList("backup_whitelist");
+            var compact = request.GetList("backupwhitelist");
+            if (underscored.Count == 0)
+            {
+                return compact;
+            }
+
+            if (compact.Count == 0)
+            {
+                return underscored;
+            }
+
+            return underscored.Concat(compact)
+                .Where(item => !string.IsNullOrWhiteSpace(item))
+                .Distinct(StringComparer.OrdinalIgnoreCase)
+                .ToList();
+        }
+
+        private static bool IsPartialBackup(BackupConfig config, ManagedFolder folder, string backupFile)
+        {
+            return HistoryService.TryGetEntry(config.Id, folder.Path, backupFile)?.IsPartialBackup == true;
+        }
+
+        private static void AddDistinctRule(ObservableCollection<string> rules, string rule)
+        {
+            var trimmed = rule.Trim();
+            if (string.IsNullOrWhiteSpace(trimmed))
+            {
+                return;
+            }
+
+            if (rules.Any(existing => string.Equals(existing?.Trim(), trimmed, StringComparison.OrdinalIgnoreCase)))
+            {
+                return;
+            }
+
+            rules.Add(trimmed);
         }
 
         private static ManagedFolder ResolveEquivalentFolder(BackupConfig effectiveConfig, ManagedFolder originalFolder)

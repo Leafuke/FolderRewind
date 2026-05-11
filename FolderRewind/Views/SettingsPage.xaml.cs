@@ -1064,6 +1064,21 @@ namespace FolderRewind.Views
                             getters[key] = () => tb.Text ?? string.Empty;
                             break;
                         }
+                    case PluginSettingType.MultilineString:
+                        {
+                            var tb = new TextBox
+                            {
+                                Text = initial,
+                                PlaceholderText = def.IsRequired ? I18n.GetString("Common_Required") : string.Empty,
+                                TextWrapping = TextWrapping.Wrap,
+                                AcceptsReturn = true,
+                                MinHeight = 120,
+                                MaxHeight = 260
+                            };
+                            panel.Children.Add(tb);
+                            getters[key] = () => tb.Text ?? string.Empty;
+                            break;
+                        }
                 }
 
                 // WinUI3 没有通用 Separator 控件（不同于 WPF），这里用留白分隔即可。

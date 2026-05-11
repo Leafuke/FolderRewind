@@ -438,11 +438,47 @@ namespace FolderRewind.Models
         // 过滤器 (黑名单/白名单)
         public FilterSettings Filters { get; set; } = new();
 
+        // 备份范围。默认完整范围；插件可以按配置提供“Minecraft 指定区域”等范围策略。
+        public BackupScopeSettings BackupScope { get; set; } = new();
+
         // 云上传设置（通过外部工具执行）
         public CloudSettings Cloud { get; set; } = new();
 
         // 扩展属性 (用于插件，如 Minecraft 插件存储 rcon 端口等)
         public Dictionary<string, string> ExtendedProperties { get; set; } = new();
+    }
+
+    /// <summary>
+    /// 配置级备份范围设置。
+    /// 这里不保存插件全局设置，而是保存“这个配置”选用了哪个插件范围和对应参数。
+    /// </summary>
+    public class BackupScopeSettings : ObservableObject
+    {
+        private string _pluginScopeId = string.Empty;
+        private Dictionary<string, string> _parameters = new(StringComparer.OrdinalIgnoreCase);
+
+        /// <summary>
+        /// 插件范围 ID。为空表示完整范围，沿用普通备份行为。
+        /// </summary>
+        public string PluginScopeId
+        {
+            get => _pluginScopeId;
+            set => SetProperty(ref _pluginScopeId, value?.Trim() ?? string.Empty);
+        }
+
+        /// <summary>
+        /// 插件范围参数。Key 由插件声明，Host 只负责保存和传递。
+        /// </summary>
+        public Dictionary<string, string> Parameters
+        {
+            get => _parameters;
+            set => SetProperty(ref _parameters, value == null
+                ? new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
+                : new Dictionary<string, string>(value, StringComparer.OrdinalIgnoreCase));
+        }
+
+        [JsonIgnore]
+        public bool IsPluginScopeEnabled => !string.IsNullOrWhiteSpace(PluginScopeId);
     }
 
     /// <summary>
@@ -937,17 +973,47 @@ namespace FolderRewind.Models
     }
 
     /// <summary>
+    /// 备份过滤模式。
+    /// </summary>
+    public enum BackupFilterMode
+    {
+        Blacklist = 0,
+        Whitelist = 1
+    }
+
+    /// <summary>
     /// 过滤器设置
     /// </summary>
     public class FilterSettings : ObservableObject
     {
+        private BackupFilterMode _backupFilterMode = BackupFilterMode.Blacklist;
         // 这里的黑名单是相对于 Config 的，应用于所有 SourceFolder
         private ObservableCollection<string> _blacklist = new();
+        private ObservableCollection<string> _backupWhitelist = new();
         public ObservableCollection<string> Blacklist
         {
             get => _blacklist;
             set => SetProperty(ref _blacklist, value ?? new ObservableCollection<string>());
         }
+
+        /// <summary>
+        /// 备份过滤模式。默认黑名单，保证旧配置继续按“排除规则”工作。
+        /// </summary>
+        public BackupFilterMode BackupFilterMode
+        {
+            get => _backupFilterMode;
+            set => SetProperty(ref _backupFilterMode, value);
+        }
+
+        /// <summary>
+        /// 备份白名单：启用白名单模式时，仅备份匹配这些规则的文件。
+        /// </summary>
+        public ObservableCollection<string> BackupWhitelist
+        {
+            get => _backupWhitelist;
+            set => SetProperty(ref _backupWhitelist, value ?? new ObservableCollection<string>());
+        }
+
         public bool UseRegex { get; set; } = false;
 
         /// <summary>
@@ -986,6 +1052,11 @@ namespace FolderRewind.Models
         public string FileName { get; set; } = "";        // 备份文件名 (如 [Full]...7z)
         public DateTime Timestamp { get; set; }     // 备份时间
         public string BackupType { get; set; } = "";      // Full, Smart, Overwrite
+
+        /// <summary>
+        /// 是否为部分备份。白名单/插件区域备份会标记它，Clean 还原时需要额外提醒。
+        /// </summary>
+        public bool IsPartialBackup { get; set; }
 
         private string _comment = "";
         public string Comment

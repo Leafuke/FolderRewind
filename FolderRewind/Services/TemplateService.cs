@@ -407,6 +407,7 @@ namespace FolderRewind.Services
             // 模板要复用“策略”，不要顺手把用户本机的自动任务状态也打包进去。
             template.Automation = CreateTemplateAutomationPreset(sourceConfig.Automation);
             template.Filters = CloneFilters(sourceConfig.Filters);
+            template.BackupScope = CloneBackupScope(sourceConfig.BackupScope);
             // 云同步这类配置很容易带出本地路径和远端地址，分享时宁可保守一点。
             template.Cloud = CreateTemplateCloudPreset();
             // 扩展字段先走白名单，后面如果插件要分享更多内容，再做显式声明机制。
@@ -492,6 +493,7 @@ namespace FolderRewind.Services
                 Archive = CloneArchive(template.Archive),
                 Automation = CloneAutomation(template.Automation),
                 Filters = CloneFilters(template.Filters),
+                BackupScope = CloneBackupScope(template.BackupScope),
                 Cloud = CloneCloud(template.Cloud),
                 ExtendedProperties = template.ExtendedProperties == null
                     ? new Dictionary<string, string>()
@@ -2377,6 +2379,7 @@ namespace FolderRewind.Services
             template.Archive ??= new ArchiveSettings();
             template.Automation ??= new AutomationSettings();
             template.Filters ??= new FilterSettings();
+            template.BackupScope ??= new BackupScopeSettings();
             template.Automation = CreateTemplateAutomationPreset(template.Automation);
             template.Cloud = CreateTemplateCloudPreset();
             template.PathRules ??= new ObservableCollection<TemplatePathRule>();
@@ -2520,7 +2523,16 @@ namespace FolderRewind.Services
         {
             var json = JsonSerializer.Serialize(source ?? new FilterSettings(), AppJsonContext.Default.FilterSettings);
             var cloned = JsonSerializer.Deserialize(json, AppJsonContext.Default.FilterSettings) ?? new FilterSettings();
+            cloned.BackupWhitelist ??= new ObservableCollection<string>();
             cloned.RestoreWhitelist ??= new ObservableCollection<string>();
+            return cloned;
+        }
+
+        private static BackupScopeSettings CloneBackupScope(BackupScopeSettings source)
+        {
+            var json = JsonSerializer.Serialize(source ?? new BackupScopeSettings(), AppJsonContext.Default.BackupScopeSettings);
+            var cloned = JsonSerializer.Deserialize(json, AppJsonContext.Default.BackupScopeSettings) ?? new BackupScopeSettings();
+            cloned.Parameters ??= new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
             return cloned;
         }
 

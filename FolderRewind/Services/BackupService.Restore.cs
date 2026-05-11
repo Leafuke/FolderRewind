@@ -1127,11 +1127,16 @@ namespace FolderRewind.Services
             // 构造一个临时的 HistoryItem
             string backupType = HistoryService.GetBackupTypeForFile(config.Id, folder.DisplayName, backupFileName)
                 ?? InferBackupTypeFromFileName(backupFileName);
+            var existingEntry = HistoryService.TryGetEntry(config.Id, folder.Path, backupFileName);
 
             var historyItem = new HistoryItem
             {
+                ConfigId = config.Id,
+                FolderPath = folder.Path,
+                FolderName = folder.DisplayName,
                 FileName = backupFileName,
-                BackupType = backupType
+                BackupType = backupType,
+                IsPartialBackup = existingEntry?.IsPartialBackup ?? false
             };
 
             await RestoreBackupAsync(config, folder, historyItem, mode);

@@ -1700,8 +1700,9 @@ Duplicate folder names are blocked within the same configuration so different di
 LIST_CONFIGS
 LIST_FOLDERS -config_id=ID
 LIST_BACKUPS -config_id=ID -name="folder name"
-BACKUP -config_id=ID -name="folder name" -comment="note" -force_full=true -backup_blacklist=cache;logs
-RESTORE -config_id=ID -name="folder name" -file=backup.7z -mode=clean -restore_whitelist=options.txt;playerdata
+BACKUP -config_id=ID -name="folder name" -comment="note" -force_full=true -backup_blacklist=cache;logs -backupwhitelist=level.dat;region/r.0.0.mca
+BACKUP -config_id=ID -name="folder name" -backup_scope=MineRewind.SelectedRegions -scope.dimensions=overworld;nether -scope.areas="0,0,511,511"
+RESTORE -config_id=ID -name="folder name" -file=backup.7z -mode=clean -restore_whitelist=options.txt;playerdata -confirm_partial_clean=true
 BACKUP_ALL -config_id=ID -comment="note" -force_full=true
 AUTO_BACKUP -config_id=ID -name="folder name" -interval_minutes=10
 STOP_AUTO_BACKUP -config_id=ID -name="folder name"
@@ -4668,5 +4669,62 @@ Pull request: {1}</value>
   </data>
   <data name="FolderManager_Log_ChangeCoverFailed" xml:space="preserve">
     <value>Failed to change the folder cover: {0}</value>
+  </data>
+  <data name="ConfigSettingsDialog_BackupFilterMode.Header" xml:space="preserve">
+    <value>Backup filter mode</value>
+  </data>
+  <data name="ConfigSettingsDialog_BackupFilterModeBlacklist.Content" xml:space="preserve">
+    <value>Blacklist mode</value>
+  </data>
+  <data name="ConfigSettingsDialog_BackupFilterModeWhitelist.Content" xml:space="preserve">
+    <value>Whitelist mode</value>
+  </data>
+  <data name="ConfigSettingsDialog_BackupWhitelist.Text" xml:space="preserve">
+    <value>Whitelist (only these files/folders)</value>
+  </data>
+  <data name="ConfigSettingsDialog_BackupWhitelistPlaceholder.PlaceholderText" xml:space="preserve">
+    <value>Enter a filename, relative path, full path, or wildcard...</value>
+  </data>
+  <data name="ConfigSettingsDialog_AddBackupWhitelist.Content" xml:space="preserve">
+    <value>Add</value>
+  </data>
+  <data name="ConfigSettingsDialog_BackupWhitelistCleanWarning" xml:space="preserve">
+    <value>Whitelist backups contain only part of the folder. Clean restore may remove files that were not included in the backup; prefer overwrite restore, or add data that must survive cleanup to the restore whitelist.</value>
+  </data>
+  <data name="ConfigSettingsDialog_BackupScope.Header" xml:space="preserve">
+    <value>Backup scope</value>
+  </data>
+  <data name="ConfigSettingsDialog_BackupScopeFull" xml:space="preserve">
+    <value>Full scope</value>
+  </data>
+  <data name="ConfigSettingsDialog_BackupScopeFullDesc" xml:space="preserve">
+    <value>Back up all files in the folder that pass the filter settings.</value>
+  </data>
+  <data name="ConfigSettingsDialog_BackupScopeMissingDesc" xml:space="preserve">
+    <value>This backup scope is provided by a plugin, but the plugin is disabled or no longer available.</value>
+  </data>
+  <data name="ConfigSettingsDialog_BackupScopePartialWarning.Text" xml:space="preserve">
+    <value>Plugin backup scopes usually back up only part of the folder. Clean restore of a partial backup can delete files that were not backed up.</value>
+  </data>
+  <data name="ConfigSettingsDialog_OpenFailed_Title" xml:space="preserve">
+    <value>Failed to open config settings</value>
+  </data>
+  <data name="ConfigSettingsDialog_OpenFailed" xml:space="preserve">
+    <value>Failed to open the config settings window: {0}</value>
+  </data>
+  <data name="ConfigSettingsDialog_OpenFailed_Log" xml:space="preserve">
+    <value>Failed to open the config settings window: {0}</value>
+  </data>
+  <data name="History_PartialCleanConfirm_Title" xml:space="preserve">
+    <value>This is a partial backup</value>
+  </data>
+  <data name="History_PartialCleanConfirm_Content" xml:space="preserve">
+    <value>This backup was created by whitelist or region backup and contains only some files. Continuing with Clean restore may delete other files in the target folder that are not present in the archive. Continue?</value>
+  </data>
+  <data name="History_PartialCleanConfirm_Primary" xml:space="preserve">
+    <value>Confirm Clean restore</value>
+  </data>
+  <data name="KnotLink_Error_PartialCleanRequiresConfirm" xml:space="preserve">
+    <value>The target archive is a partial backup. Add -confirm_partial_clean=true if you really want Clean restore.</value>
   </data>
 </root>

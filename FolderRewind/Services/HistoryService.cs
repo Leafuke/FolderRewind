@@ -70,7 +70,7 @@ namespace FolderRewind.Services
         /// <summary>
         /// 添加一条新的历史记录
         /// </summary>
-        public static void AddEntry(BackupConfig config, ManagedFolder folder, string fileName, string type, string comment, string? folderNameOverride = null)
+        public static void AddEntry(BackupConfig config, ManagedFolder folder, string fileName, string type, string comment, string? folderNameOverride = null, bool isPartialBackup = false)
         {
             Initialize();
 
@@ -83,6 +83,7 @@ namespace FolderRewind.Services
                 Timestamp = DateTime.Now,
                 BackupType = type,
                 Comment = comment,
+                IsPartialBackup = isPartialBackup,
                 IsImportant = false
             };
 

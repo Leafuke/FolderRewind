@@ -10,6 +10,7 @@ using System.Collections.ObjectModel;
 using System.IO;
 using System.Linq;
 using System.Threading.Tasks;
+using Windows.System;
 using Windows.Storage.Pickers;
 
 namespace FolderRewind.Views
@@ -18,6 +19,7 @@ namespace FolderRewind.Views
     {
         public BackupConfig Config { get; private set; }
         public ConfigSettingsDialogViewModel ViewModel { get; }
+        private bool _isDialogReady;
 
         // 绑定视图（避免 MSIX + Trim 下 WinRT 对自定义泛型集合投影异常）
         public ObservableCollection<object> ConfigTypesView { get; } = new();
@@ -32,7 +34,24 @@ namespace FolderRewind.Views
             set
             {
                 if (Config == null) return;
-                Config.ConfigType = string.IsNullOrWhiteSpace(value) ? "Default" : value;
+                if (string.IsNullOrWhiteSpace(value))
+                {
+                    // ComboBox 初始化 ItemsSource/SelectedItem 时可能短暂回写 null；这不是用户选择。
+                    return;
+                }
+
+                if (string.Equals(Config.ConfigType, value, StringComparison.OrdinalIgnoreCase))
+                {
+                    return;
+                }
+
+                Config.ConfigType = value;
+                ViewModel?.RefreshBackupScopeOptions();
+                if (_isDialogReady)
+                {
+                    RebuildBackupScopeParameterPanel();
+                    Bindings.Update();
+                }
             }
         }
 
@@ -107,13 +126,14 @@ namespace FolderRewind.Views
             this.InitializeComponent();
             this.Config = config;
             this.Config.Cloud ??= new CloudSettings();
+            this.Config.BackupScope ??= new BackupScopeSettings();
+            PluginService.Initialize();
             this.ViewModel = new ConfigSettingsDialogViewModel(this.Config);
             this.XamlRoot = MainWindowService.GetXamlRoot();
 
             // 应用当前主题到对话框
             ThemeService.ApplyThemeToDialog(this);
 
-            PluginService.Initialize();
             ConfigTypesView.Clear();
             foreach (var t in PluginService.GetAllSupportedConfigTypes())
             {
@@ -155,8 +175,10 @@ namespace FolderRewind.Views
             Config.Cloud.PropertyChanged += (_, _) => UpdateCloudBindings();
 
             InitializeScheduleUI();
+            RebuildBackupScopeParameterPanel();
             UpdateCloudBindings();
             Bindings.Update();
+            _isDialogReady = true;
         }
 
         private readonly List<string> _monthOptions = new();
@@ -407,6 +429,209 @@ namespace FolderRewind.Views
         public bool IsOverwriteModeSelected => Config?.Archive?.Mode == BackupMode.Overwrite;
 
         public string OverwriteModeWarningText => I18n.GetString("ConfigSettingsDialog_OverwriteWarning");
+
+        private void OnBackupScopeSelectionChanged(object sender, SelectionChangedEventArgs e)
+        {
+            if (!_isDialogReady)
+            {
+                return;
+            }
+
+            if (sender is ComboBox box)
+            {
+                ViewModel.SelectBackupScopeByIndex(box.SelectedIndex);
+            }
+
+            RebuildBackupScopeParameterPanel();
+        }
+
+        private void RebuildBackupScopeParameterPanel()
+        {
+            if (BackupScopeParametersPanel == null)
+            {
+                return;
+            }
+
+            BackupScopeParametersPanel.Children.Clear();
+
+            foreach (var definition in ViewModel.SelectedBackupScopeParameters)
+            {
+                if (string.IsNullOrWhiteSpace(definition.Key))
+                {
+                    continue;
+                }
+
+                var container = new StackPanel { Spacing = 4 };
+
+                switch (definition.Type)
+                {
+                    case PluginSettingType.Boolean:
+                    {
+                        var checkbox = new CheckBox
+                        {
+                            Content = definition.DisplayName,
+                            IsChecked = ParseBool(ViewModel.GetBackupScopeParameterValue(definition.Key), definition.DefaultValue),
+                            Tag = definition.Key
+                        };
+                        checkbox.Checked += OnBackupScopeBooleanChanged;
+                        checkbox.Unchecked += OnBackupScopeBooleanChanged;
+                        container.Children.Add(checkbox);
+                        break;
+                    }
+                    case PluginSettingType.Integer:
+                    {
+                        container.Children.Add(BuildScopeParameterLabel(definition.DisplayName));
+                        var box = new NumberBox
+                        {
+                            Value = double.TryParse(ViewModel.GetBackupScopeParameterValue(definition.Key), out var value) ? value : 0,
+                            Tag = definition.Key
+                        };
+                        box.ValueChanged += OnBackupScopeNumberChanged;
+                        container.Children.Add(box);
+                        break;
+                    }
+                    case PluginSettingType.MultilineString:
+                    {
+                        container.Children.Add(BuildScopeParameterLabel(definition.DisplayName));
+                        var initialText = NormalizeMultilineForEditor(ViewModel.GetBackupScopeParameterValue(definition.Key));
+                        var box = new TextBox
+                        {
+                            Text = initialText,
+                            AcceptsReturn = true,
+                            TextWrapping = TextWrapping.NoWrap,
+                            Height = 140,
+                            MinHeight = 120,
+                            MaxHeight = 260,
+                            HorizontalAlignment = HorizontalAlignment.Stretch,
+                            FontFamily = new Microsoft.UI.Xaml.Media.FontFamily("Consolas"),
+                            Tag = definition.Key
+                        };
+                        ScrollViewer.SetVerticalScrollBarVisibility(box, ScrollBarVisibility.Auto);
+                        ScrollViewer.SetHorizontalScrollBarVisibility(box, ScrollBarVisibility.Auto);
+                        box.Loaded += (_, _) =>
+                        {
+                            // 动态生成的 TextBox 在模板加载前写入多行文本时，偶尔只按首行完成可视布局。
+                            // Loaded 后再同步一次，保证 \n/\r\n 都能以多行形式稳定回显。
+                            var loadedText = NormalizeMultilineForEditor(ViewModel.GetBackupScopeParameterValue(definition.Key));
+                            if (!string.Equals(box.Text, loadedText, StringComparison.Ordinal))
+                            {
+                                box.Text = loadedText;
+                            }
+                        };
+                        box.KeyDown += OnBackupScopeMultilineTextBoxKeyDown;
+                        box.TextChanged += OnBackupScopeTextChanged;
+                        container.Children.Add(box);
+                        break;
+                    }
+                    default:
+                    {
+                        container.Children.Add(BuildScopeParameterLabel(definition.DisplayName));
+                        var box = new TextBox
+                        {
+                            Text = ViewModel.GetBackupScopeParameterValue(definition.Key),
+                            Tag = definition.Key
+                        };
+                        box.TextChanged += OnBackupScopeTextChanged;
+                        container.Children.Add(box);
+                        break;
+                    }
+                }
+
+                if (!string.IsNullOrWhiteSpace(definition.Description))
+                {
+                    container.Children.Add(new TextBlock
+                    {
+                        Text = definition.Description,
+                        TextWrapping = TextWrapping.Wrap,
+                        Style = (Style)Application.Current.Resources["CaptionTextBlockStyle"],
+                        Foreground = (Microsoft.UI.Xaml.Media.Brush)Application.Current.Resources["TextFillColorSecondaryBrush"]
+                    });
+                }
+
+                BackupScopeParametersPanel.Children.Add(container);
+            }
+        }
+
+        private static TextBlock BuildScopeParameterLabel(string text)
+        {
+            return new TextBlock
+            {
+                Text = text,
+                FontWeight = Microsoft.UI.Text.FontWeights.SemiBold
+            };
+        }
+
+        private void OnBackupScopeTextChanged(object sender, TextChangedEventArgs e)
+        {
+            if (sender is TextBox box && box.Tag is string key)
+            {
+                var value = box.AcceptsReturn
+                    ? NormalizeMultilineForStorage(box.Text)
+                    : box.Text;
+                ViewModel.SetBackupScopeParameterValue(key, value);
+            }
+        }
+
+        private void OnBackupScopeMultilineTextBoxKeyDown(object sender, Microsoft.UI.Xaml.Input.KeyRoutedEventArgs e)
+        {
+            if (sender is not TextBox box || e.Key != VirtualKey.Enter)
+            {
+                return;
+            }
+
+            // ContentDialog 有默认按钮时，Enter 容易被当作“保存”。多行参数框里 Enter 应该稳定插入新行。
+            var text = box.Text ?? string.Empty;
+            var start = Math.Clamp(box.SelectionStart, 0, text.Length);
+            var length = Math.Clamp(box.SelectionLength, 0, text.Length - start);
+            var newText = text.Remove(start, length).Insert(start, Environment.NewLine);
+            box.Text = newText;
+            box.SelectionStart = start + Environment.NewLine.Length;
+            e.Handled = true;
+        }
+
+        private static string NormalizeMultilineForEditor(string value)
+        {
+            return NormalizeLineEndings(value, Environment.NewLine);
+        }
+
+        private static string NormalizeMultilineForStorage(string value)
+        {
+            // 配置文件里用 \n 作为稳定格式；读取时仍兼容 WinUI 产生的裸 \r。
+            return NormalizeLineEndings(value, "\n");
+        }
+
+        private static string NormalizeLineEndings(string? value, string newline)
+        {
+            return (value ?? string.Empty)
+                .Replace("\r\n", "\n", StringComparison.Ordinal)
+                .Replace("\r", "\n", StringComparison.Ordinal)
+                .Replace("\n", newline, StringComparison.Ordinal);
+        }
+
+        private void OnBackupScopeBooleanChanged(object sender, RoutedEventArgs e)
+        {
+            if (sender is CheckBox box && box.Tag is string key)
+            {
+                ViewModel.SetBackupScopeParameterValue(key, box.IsChecked == true ? "true" : "false");
+            }
+        }
+
+        private void OnBackupScopeNumberChanged(NumberBox sender, NumberBoxValueChangedEventArgs args)
+        {
+            if (sender.Tag is string key)
+            {
+                ViewModel.SetBackupScopeParameterValue(key, double.IsNaN(args.NewValue) ? string.Empty : ((int)args.NewValue).ToString());
+            }
+        }
+
+        private static bool ParseBool(string value, string? defaultValue)
+        {
+            var text = string.IsNullOrWhiteSpace(value) ? defaultValue : value;
+            return string.Equals(text, "true", StringComparison.OrdinalIgnoreCase)
+                || string.Equals(text, "1", StringComparison.OrdinalIgnoreCase)
+                || string.Equals(text, "yes", StringComparison.OrdinalIgnoreCase)
+                || string.Equals(text, "on", StringComparison.OrdinalIgnoreCase);
+        }
 
         private async void OnBrowseClick(object sender, RoutedEventArgs e)
         {
@@ -691,6 +916,8 @@ namespace FolderRewind.Views
         {
             if (!string.IsNullOrWhiteSpace(BlacklistBox.Text))
             {
+                Config.Filters ??= new FilterSettings();
+                Config.Filters.Blacklist ??= new ObservableCollection<string>();
                 Config.Filters.Blacklist.Add(BlacklistBox.Text.Trim());
                 BlacklistBox.Text = "";
             }
@@ -704,11 +931,32 @@ namespace FolderRewind.Views
             }
         }
 
+        private void OnAddBackupWhitelistClick(object sender, RoutedEventArgs e)
+        {
+            if (!string.IsNullOrWhiteSpace(BackupWhitelistBox.Text))
+            {
+                Config.Filters ??= new FilterSettings();
+                Config.Filters.BackupWhitelist ??= new ObservableCollection<string>();
+                Config.Filters.BackupWhitelist.Add(BackupWhitelistBox.Text.Trim());
+                BackupWhitelistBox.Text = "";
+            }
+        }
+
+        private void OnRemoveBackupWhitelistClick(object sender, RoutedEventArgs e)
+        {
+            if (sender is Button btn && btn.DataContext is string item)
+            {
+                Config.Filters.BackupWhitelist.Remove(item);
+            }
+        }
+
         // --- 还原白名单 ---
         private void OnAddRestoreWhitelistClick(object sender, RoutedEventArgs e)
         {
             if (!string.IsNullOrWhiteSpace(RestoreWhitelistBox.Text))
             {
+                Config.Filters ??= new FilterSettings();
+                Config.Filters.RestoreWhitelist ??= new ObservableCollection<string>();
                 Config.Filters.RestoreWhitelist.Add(RestoreWhitelistBox.Text.Trim());
                 RestoreWhitelistBox.Text = "";
             }

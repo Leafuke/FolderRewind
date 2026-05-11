@@ -106,7 +106,8 @@ namespace FolderRewind.Models
         String = 0,
         Boolean = 1,
         Integer = 2,
-        Path = 3
+        Path = 3,
+        MultilineString = 4
     }
 
     /// <summary>

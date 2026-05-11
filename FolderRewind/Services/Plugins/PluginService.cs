@@ -400,6 +400,151 @@ namespace FolderRewind.Services.Plugins
             return Array.Empty<PluginSettingDefinition>();
         }
 
+        public static IReadOnlyList<PluginBackupScopeDefinition> GetBackupScopeDefinitions(BackupConfig config)
+        {
+            if (config == null || !IsPluginSystemEnabled())
+            {
+                return Array.Empty<PluginBackupScopeDefinition>();
+            }
+
+            var result = new List<PluginBackupScopeDefinition>();
+            foreach (var plugin in GetEnabledLoadedPluginsSnapshot())
+            {
+                if (plugin is not IFolderRewindBackupScopeProvider provider)
+                {
+                    continue;
+                }
+
+                try
+                {
+                    var settings = GetPluginSettings(plugin.Manifest.Id);
+                    var definitions = provider.GetBackupScopeDefinitions(config, settings);
+                    if (definitions == null)
+                    {
+                        continue;
+                    }
+
+                    foreach (var definition in definitions.Where(d => d != null && !string.IsNullOrWhiteSpace(d.Id)))
+                    {
+                        result.Add(definition);
+                    }
+                }
+                catch (Exception ex)
+                {
+                    LogService.LogError(I18n.Format("PluginService_GetSettingsDefinitionsFailed", plugin.Manifest.Id, ex.Message), "PluginService", ex);
+                }
+            }
+
+            return result;
+        }
+
+        public static BackupConfig CreateConfigWithBackupFilterContributions(BackupConfig config, ManagedFolder folder)
+        {
+            if (!IsPluginSystemEnabled()) return config;
+
+            var scope = config.BackupScope;
+            if (scope == null || string.IsNullOrWhiteSpace(scope.PluginScopeId))
+            {
+                return config;
+            }
+
+            BackupConfig? clone = null;
+            var scopeContext = new PluginBackupScopeContext
+            {
+                ScopeId = scope.PluginScopeId,
+                Parameters = scope.Parameters == null
+                    ? new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
+                    : new Dictionary<string, string>(scope.Parameters, StringComparer.OrdinalIgnoreCase)
+            };
+
+            foreach (var plugin in GetEnabledLoadedPluginsSnapshot())
+            {
+                if (plugin is not IFolderRewindBackupScopeProvider provider)
+                {
+                    continue;
+                }
+
+                try
+                {
+                    var settings = GetPluginSettings(plugin.Manifest.Id);
+                    var contribution = provider.GetBackupFilterContribution(config, folder, scopeContext, settings);
+                    if (contribution == null)
+                    {
+                        continue;
+                    }
+
+                    bool hasWhitelist = contribution.BackupWhitelist?.Any(rule => !string.IsNullOrWhiteSpace(rule)) == true;
+                    bool hasBlacklist = contribution.BackupBlacklist?.Any(rule => !string.IsNullOrWhiteSpace(rule)) == true;
+                    if (!contribution.UseWhitelistMode && !hasWhitelist && !hasBlacklist)
+                    {
+                        continue;
+                    }
+
+                    clone ??= CloneBackupConfigForRuntimeFilters(config);
+                    clone.Filters ??= new FilterSettings();
+                    clone.Filters.Blacklist ??= new ObservableCollection<string>();
+                    clone.Filters.BackupWhitelist ??= new ObservableCollection<string>();
+
+                    if (contribution.UseWhitelistMode || hasWhitelist)
+                    {
+                        // 插件贡献白名单时使用一次性运行时配置，既能复用核心备份流程，也不会把自动计算结果写回用户配置。
+                        clone.Filters.BackupFilterMode = BackupFilterMode.Whitelist;
+                    }
+
+                    if (hasWhitelist)
+                    {
+                        foreach (var rule in contribution.BackupWhitelist!.Where(rule => !string.IsNullOrWhiteSpace(rule)))
+                        {
+                            AddDistinctRule(clone.Filters.BackupWhitelist, rule);
+                        }
+                    }
+
+                    if (hasBlacklist && clone.Filters.BackupFilterMode != BackupFilterMode.Whitelist)
+                    {
+                        foreach (var rule in contribution.BackupBlacklist!.Where(rule => !string.IsNullOrWhiteSpace(rule)))
+                        {
+                            AddDistinctRule(clone.Filters.Blacklist, rule);
+                        }
+                    }
+                }
+                catch (Exception ex)
+                {
+                    LogService.LogError(I18n.Format("PluginService_BeforeBackupFailed", plugin.Manifest.Id, ex.Message), "PluginService", ex);
+                }
+            }
+
+            return clone ?? config;
+        }
+
+        private static BackupConfig CloneBackupConfigForRuntimeFilters(BackupConfig source)
+        {
+            var json = JsonSerializer.Serialize(source, AppJsonContext.Default.BackupConfig);
+            var clone = JsonSerializer.Deserialize(json, AppJsonContext.Default.BackupConfig)
+                ?? throw new InvalidOperationException("Failed to clone backup config for plugin filters.");
+
+            clone.Filters ??= new FilterSettings();
+            clone.Filters.Blacklist ??= new ObservableCollection<string>();
+            clone.Filters.BackupWhitelist ??= new ObservableCollection<string>();
+            clone.Filters.RestoreWhitelist ??= new ObservableCollection<string>();
+            return clone;
+        }
+
+        private static void AddDistinctRule(ObservableCollection<string> rules, string rule)
+        {
+            var trimmed = rule.Trim();
+            if (string.IsNullOrWhiteSpace(trimmed))
+            {
+                return;
+            }
+
+            if (rules.Any(existing => string.Equals(existing?.Trim(), trimmed, StringComparison.OrdinalIgnoreCase)))
+            {
+                return;
+            }
+
+            rules.Add(trimmed);
+        }
+
         public static string? InvokeBeforeBackupFolder(BackupConfig config, ManagedFolder folder)
         {
             if (!IsPluginSystemEnabled()) return null;
