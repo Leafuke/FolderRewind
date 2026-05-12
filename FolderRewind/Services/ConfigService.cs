@@ -1,9 +1,12 @@
 ﻿using FolderRewind.Models;
+using Microsoft.UI.Windowing;
 using System;
 using System.Diagnostics;
 using System.IO;
+using System.Runtime.InteropServices;
 using System.Text.Json;
 using Windows.Storage;
+using Windows.Graphics;
 
 namespace FolderRewind.Services
 {
@@ -12,6 +15,9 @@ namespace FolderRewind.Services
         #region 常量与状态
 
         private const string ConfigFileName = "config.json";
+        private const double DefaultStartupWidth = 1300d;
+        private const double DefaultStartupHeight = 900d;
+        private const double StartupWorkAreaRatio = 0.9d;
         // 配置目录统一交给 GetWritableAppDataDir 决策，避免在不同发布形态下写到无权限位置。
         private static string ConfigPath => Path.Combine(GetWritableAppDataDir(), "FolderRewind", ConfigFileName);
 
@@ -24,6 +30,9 @@ namespace FolderRewind.Services
         public static string ConfigFilePath => ConfigPath;
 
         public static string ConfigDirectory => Path.GetDirectoryName(ConfigPath)!;
+
+        [DllImport("user32.dll")]
+        private static extern uint GetDpiForSystem();
 
         #endregion
 
@@ -292,6 +301,9 @@ namespace FolderRewind.Services
                 CurrentConfig.GlobalSettings.FontFamily = FontService.GetRecommendedDefaultFontFamily();
                 CurrentConfig.GlobalSettings.DefaultBackupRootPath = GetRecommendedDefaultBackupRootPath();
                 CurrentConfig.GlobalSettings.DefaultCloudRemoteBasePath = "remote:FolderRewind";
+                var (startupWidth, startupHeight) = GetRecommendedStartupWindowSize();
+                CurrentConfig.GlobalSettings.StartupWidth = startupWidth;
+                CurrentConfig.GlobalSettings.StartupHeight = startupHeight;
             }
             catch
             {
@@ -312,6 +324,47 @@ namespace FolderRewind.Services
 
             CurrentConfig.BackupConfigs.Add(defaultConfig);
             Save();
+        }
+
+        private static (double Width, double Height) GetRecommendedStartupWindowSize()
+        {
+            var scale = GetSystemDpiScale();
+            var width = DefaultStartupWidth * scale;
+            var height = DefaultStartupHeight * scale;
+
+            try
+            {
+                var workArea = DisplayArea.Primary.WorkArea;
+                if (workArea.Width > 0)
+                {
+                    width = Math.Min(width, workArea.Width * StartupWorkAreaRatio);
+                }
+
+                if (workArea.Height > 0)
+                {
+                    height = Math.Min(height, workArea.Height * StartupWorkAreaRatio);
+                }
+            }
+            catch
+            {
+            }
+
+            return (
+                Math.Clamp(width, 640, 3840),
+                Math.Clamp(height, 480, 2160));
+        }
+
+        private static double GetSystemDpiScale()
+        {
+            try
+            {
+                var dpi = GetDpiForSystem();
+                return dpi > 0 ? Math.Max(1d, dpi / 96d) : 1d;
+            }
+            catch
+            {
+                return 1d;
+            }
         }
 
         private static void NormalizeCloudSettings(CloudSettings cloud)

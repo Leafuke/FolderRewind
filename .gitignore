@@ -365,6 +365,7 @@ FodyWeavers.xsd
 *.txt
 /.vs
 /.vscode
+/.claude
 /FolderRewind/Assets/*
 !/FolderRewind/Assets/LockScreenLogo.scale-200.png
 !/FolderRewind/Assets/SplashScreen.scale-200.png
