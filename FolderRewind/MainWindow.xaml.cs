@@ -18,7 +18,7 @@ namespace FolderRewind
         #region 常量与状态
 
         private const double TitleBarHorizontalPadding = 12;
-        private const int WindowMinWidth = 1200;
+        private const int WindowMinWidth = 1000;
         private const int WindowMinHeight = 600;
 
         private bool _allowCloseOnce;
@@ -334,7 +334,7 @@ namespace FolderRewind
 
                 // 显式指定亮/暗主题配色，保证 Win10/Win11 下表现一致。
                 var foreground = isDark ? Colors.White : Colors.Black;
-                var inactiveForeground = isDark ? Color.FromArgb(255, 190, 190, 190) : Color.FromArgb(255, 80, 80, 80);
+                var inactiveForeground = (Color)Application.Current.Resources["TextFillColorSecondary"];
 
                 // 悬停/按下采用轻量叠色，避免破坏 Mica 的通透感。
                 var hoverBackground = isDark

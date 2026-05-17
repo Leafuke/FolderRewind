@@ -60,6 +60,7 @@
         <Style x:Key="SettingsActionRowButtonStyle" TargetType="Button" BasedOn="{StaticResource SettingsActionButtonStyle}">
             <Setter Property="Margin" Value="0" />
         </Style>
+        <BitmapImage x:Key="QQGroup" UriSource="ms-appx:///Assets/qq_group_light.jpg" />
     </Page.Resources>
 
     <Grid>
@@ -1225,7 +1226,7 @@
                                     </Style>
                                 </Flyout.FlyoutPresenterStyle>
                                 <Image MaxWidth="240"
-                                        Source="{ThemeResource QQGroup}"
+                                        Source="{StaticResource QQGroup}"
                                         Stretch="Uniform" />
                             </Flyout>
                         </FlyoutBase.AttachedFlyout>

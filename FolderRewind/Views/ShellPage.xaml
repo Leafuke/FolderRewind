@@ -28,7 +28,7 @@
                 Background="Transparent"
             Padding="12,0,12,0"
             KeyboardAcceleratorPlacementMode="Hidden">
-            <Grid ColumnSpacing="10" VerticalAlignment="Center">
+            <Grid ColumnSpacing="12" VerticalAlignment="Center">
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="Auto" />
                     <ColumnDefinition Width="*" />
@@ -37,7 +37,7 @@
                 <FontIcon Glyph="{x:Bind ViewModel.TitleIconGlyph, Mode=OneWay}" FontSize="16" Opacity="0.9" />
                 <TextBlock Grid.Column="1"
                            Text="{x:Bind ViewModel.TitleText, Mode=OneWay}"
-                           Style="{ThemeResource BodyStrongTextBlockStyle}"
+                           Style="{StaticResource BodyStrongTextBlockStyle}"
                            VerticalAlignment="Center"
                            TextTrimming="CharacterEllipsis" />
             </Grid>
@@ -69,19 +69,22 @@
                 KeyboardAcceleratorPlacementMode="Hidden">
 
             <NavigationView.MenuItems>
-                <NavigationViewItem x:Uid="ShellPage_NavHome" Tag="Home">
+                <NavigationViewItem x:Uid="ShellPage_NavHome" Tag="Home"
+                                    AutomationProperties.AutomationId="NavHome">
                     <NavigationViewItem.Icon>
                         <SymbolIcon Symbol="Home"/>
                     </NavigationViewItem.Icon>
                 </NavigationViewItem>
 
-                <NavigationViewItem x:Uid="ShellPage_NavManager" Tag="Manager">
+                <NavigationViewItem x:Uid="ShellPage_NavManager" Tag="Manager"
+                                    AutomationProperties.AutomationId="NavManager">
                     <NavigationViewItem.Icon>
                         <SymbolIcon Symbol="Manage"/>
                     </NavigationViewItem.Icon>
                 </NavigationViewItem>
 
-                <NavigationViewItem x:Name="TasksNavItem" x:Uid="ShellPage_NavTasks" Tag="Tasks">
+                <NavigationViewItem x:Name="TasksNavItem" x:Uid="ShellPage_NavTasks" Tag="Tasks"
+                                    AutomationProperties.AutomationId="NavTasks">
                     <NavigationViewItem.Icon>
                         <SymbolIcon Symbol="Copy"/>
                     </NavigationViewItem.Icon>
@@ -90,13 +93,15 @@
                     </NavigationViewItem.InfoBadge>
                 </NavigationViewItem>
 
-                <NavigationViewItem x:Uid="ShellPage_NavHistory" Tag="History">
+                <NavigationViewItem x:Uid="ShellPage_NavHistory" Tag="History"
+                                    AutomationProperties.AutomationId="NavHistory">
                     <NavigationViewItem.Icon>
                         <SymbolIcon Symbol="Clock"/>
                     </NavigationViewItem.Icon>
                 </NavigationViewItem>
 
-                <NavigationViewItem x:Uid="ShellPage_NavLogs" Tag="Logs">
+                <NavigationViewItem x:Uid="ShellPage_NavLogs" Tag="Logs"
+                                    AutomationProperties.AutomationId="NavLogs">
                     <NavigationViewItem.Icon>
                         <SymbolIcon Symbol="Library"/>
                     </NavigationViewItem.Icon>

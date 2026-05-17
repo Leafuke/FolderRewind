@@ -4727,4 +4727,13 @@ Pull Request：{1}</value>
   <data name="KnotLink_Error_PartialCleanRequiresConfirm" xml:space="preserve">
     <value>目标备份是部分备份。若确实要 Clean 还原，请追加 -confirm_partial_clean=true。</value>
   </data>
+  <data name="Tray_ToolTip" xml:space="preserve">
+    <value>存档时光机</value>
+  </data>
+  <data name="Tray_ShowHide" xml:space="preserve">
+    <value>显示 / 隐藏</value>
+  </data>
+  <data name="Tray_Exit" xml:space="preserve">
+    <value>退出</value>
+  </data>
 </root>

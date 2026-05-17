@@ -342,6 +342,25 @@ namespace FolderRewind
             {
                 _trayIcon = Resources["TrayIcon"] as TaskbarIcon;
                 _trayIcon?.ForceCreate();
+
+                if (_trayIcon != null)
+                {
+                    _trayIcon.ToolTipText = I18n.GetString("Tray_ToolTip");
+
+                    if (_trayIcon.ContextFlyout is MenuFlyout flyout)
+                    {
+                        var items = flyout.Items;
+                        if (items.Count >= 1 && items[0] is MenuFlyoutItem showHideItem)
+                        {
+                            showHideItem.Text = I18n.GetString("Tray_ShowHide");
+                        }
+
+                        if (items.Count >= 3 && items[2] is MenuFlyoutItem exitItem)
+                        {
+                            exitItem.Text = I18n.GetString("Tray_Exit");
+                        }
+                    }
+                }
             }
             catch (Exception ex)
             {

@@ -4727,4 +4727,13 @@ Pull request: {1}</value>
   <data name="KnotLink_Error_PartialCleanRequiresConfirm" xml:space="preserve">
     <value>The target archive is a partial backup. Add -confirm_partial_clean=true if you really want Clean restore.</value>
   </data>
+  <data name="Tray_ToolTip" xml:space="preserve">
+    <value>FolderRewind</value>
+  </data>
+  <data name="Tray_ShowHide" xml:space="preserve">
+    <value>Show / Hide</value>
+  </data>
+  <data name="Tray_Exit" xml:space="preserve">
+    <value>Exit</value>
+  </data>
 </root>
