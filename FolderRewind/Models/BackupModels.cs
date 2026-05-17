@@ -1,4 +1,5 @@
 ﻿using FolderRewind.Services;
+using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Media;
 using System;
 using System.Collections.Generic;
@@ -1215,7 +1216,15 @@ namespace FolderRewind.Models
         }
         public string Status { get => _status; set => SetProperty(ref _status, value ?? string.Empty); }
         public string Speed { get => _speed; set => SetProperty(ref _speed, value ?? string.Empty); }
-        public bool IsCompleted { get => _isCompleted; set => SetProperty(ref _isCompleted, value); }
+        public bool IsCompleted
+        {
+            get => _isCompleted;
+            set
+            {
+                SetProperty(ref _isCompleted, value);
+                OnPropertyChanged(nameof(StatusBrush));
+            }
+        }
 
         // 这里的 Log 用于给 TaskPage 显示详细信息
         public string Log { get => _log; set => SetProperty(ref _log, value ?? string.Empty); }
@@ -1223,7 +1232,15 @@ namespace FolderRewind.Models
         /// <summary>
         /// 失败原因（仅在任务失败时有值），通常来自 7z 的 stderr 输出
         /// </summary>
-        public string ErrorMessage { get => _errorMessage; set => SetProperty(ref _errorMessage, value ?? string.Empty); }
+        public string ErrorMessage
+        {
+            get => _errorMessage;
+            set
+            {
+                SetProperty(ref _errorMessage, value ?? string.Empty);
+                OnPropertyChanged(nameof(StatusBrush));
+            }
+        }
 
         /// <summary>
         /// 进度条是否为不确定模式（尚未收到 7z 进度数据时为 true）
@@ -1241,7 +1258,15 @@ namespace FolderRewind.Models
         /// <summary>
         /// 任务是否成功完成
         /// </summary>
-        public bool IsSuccess { get => _isSuccess; set => SetProperty(ref _isSuccess, value); }
+        public bool IsSuccess
+        {
+            get => _isSuccess;
+            set
+            {
+                SetProperty(ref _isSuccess, value);
+                OnPropertyChanged(nameof(StatusBrush));
+            }
+        }
 
         /// <summary>
         /// 任务图标（备份/还原使用不同图标）
@@ -1253,5 +1278,22 @@ namespace FolderRewind.Models
         /// </summary>
         [JsonIgnore]
         public string ProgressText => IsIndeterminate ? "" : $"{Progress:F0}%";
+
+        /// <summary>
+        /// 返回与任务状态对应的颜色画刷。
+        /// 失败: 严重色/红色; 成功: 成功色/绿色; 运行中: 强调色。
+        /// </summary>
+        [JsonIgnore]
+        public SolidColorBrush? StatusBrush
+        {
+            get
+            {
+                if (IsCompleted && !IsSuccess && !string.IsNullOrEmpty(ErrorMessage))
+                    return (SolidColorBrush?)Application.Current.Resources["SystemFillColorCriticalBrush"];
+                if (IsCompleted && IsSuccess)
+                    return (SolidColorBrush?)Application.Current.Resources["SystemFillColorSuccessBrush"];
+                return (SolidColorBrush?)Application.Current.Resources["AccentFillColorDefaultBrush"];
+            }
+        }
     }
 }

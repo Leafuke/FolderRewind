@@ -825,48 +825,6 @@ Duplicate folder names are blocked within the same configuration so different di
   <data name="FolderManager_RemoveFolder.Text" xml:space="preserve">
     <value>Remove from config</value>
   </data>
-  <data name="ConfigurationPage_BackToOverview.Text" xml:space="preserve">
-    <value>Back to overview</value>
-  </data>
-  <data name="ConfigurationPage_AddFolder.Text" xml:space="preserve">
-    <value>Add folder</value>
-  </data>
-  <data name="ConfigurationPage_AddSingleFolder.Text" xml:space="preserve">
-    <value>Pick a folder</value>
-  </data>
-  <data name="ConfigurationPage_BatchImport.Text" xml:space="preserve">
-    <value>Batch import</value>
-  </data>
-  <data name="ConfigurationPage_BackupAll.Text" xml:space="preserve">
-    <value>Backup all</value>
-  </data>
-  <data name="ConfigurationPage_ConfigSettings.Text" xml:space="preserve">
-    <value>Config settings</value>
-  </data>
-  <data name="ConfigurationPage_HeaderIcon.Text" xml:space="preserve">
-    <value>Icon</value>
-  </data>
-  <data name="ConfigurationPage_HeaderNamePath.Text" xml:space="preserve">
-    <value>Name / Path</value>
-  </data>
-  <data name="ConfigurationPage_HeaderStatus.Text" xml:space="preserve">
-    <value>Status</value>
-  </data>
-  <data name="ConfigurationPage_HeaderActions.Text" xml:space="preserve">
-    <value>Actions</value>
-  </data>
-  <data name="ConfigurationPage_BackupNow.Text" xml:space="preserve">
-    <value>Backup now</value>
-  </data>
-  <data name="ConfigurationPage_Remove.Text" xml:space="preserve">
-    <value>Remove</value>
-  </data>
-  <data name="ConfigurationPage_BatchBackup.Content" xml:space="preserve">
-    <value>Batch backup</value>
-  </data>
-  <data name="ConfigurationPage_BatchDelete.Content" xml:space="preserve">
-    <value>Batch delete</value>
-  </data>
   <data name="ConfigSettingsDialog.Title" xml:space="preserve">
     <value>Configuration settings</value>
   </data>
