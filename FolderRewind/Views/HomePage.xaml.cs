@@ -867,11 +867,6 @@ namespace FolderRewind.Views
 
         #region Context Menu Handlers
 
-        private void OnConfigCardRightTapped(object sender, Microsoft.UI.Xaml.Input.RightTappedRoutedEventArgs e)
-        {
-
-        }
-
         private async void OnBackupAllFoldersClick(object sender, RoutedEventArgs e)
         {
             if (sender is MenuFlyoutItem item && item.DataContext is BackupConfig config)
