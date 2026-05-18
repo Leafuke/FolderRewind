@@ -18,8 +18,6 @@ namespace FolderRewind
         #region 常量与状态
 
         private const double TitleBarHorizontalPadding = 12;
-        private const int WindowMinWidth = 1000;
-        private const int WindowMinHeight = 600;
 
         private bool _allowCloseOnce;
         private bool _closeDialogShowing;
@@ -93,8 +91,8 @@ namespace FolderRewind
                 if (AppWindow?.Presenter is OverlappedPresenter presenter)
                 {
                     var scale = ShellRoot?.XamlRoot?.RasterizationScale ?? 1d;
-                    presenter.PreferredMinimumWidth = Convert.ToInt32(WindowMinWidth * scale);
-                    presenter.PreferredMinimumHeight = Convert.ToInt32(WindowMinHeight * scale);
+                    presenter.PreferredMinimumWidth = Convert.ToInt32(AppConstants.WindowMinWidth * scale);
+                    presenter.PreferredMinimumHeight = Convert.ToInt32(AppConstants.WindowMinHeight * scale);
                 }
             }
             catch

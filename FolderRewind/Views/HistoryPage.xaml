@@ -8,10 +8,6 @@
     x:Name="RootPage"
     NavigationCacheMode="Required">
 
-    <Page.Resources>
-        <converters:BoolToStarIconConverter x:Key="BoolToStarConverter"/>
-    </Page.Resources>
-
     <Grid Padding="36">
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto"/>
@@ -19,7 +15,7 @@
             <RowDefinition Height="*"/>
         </Grid.RowDefinitions>
 
-        <TextBlock x:Uid="HistoryPage_Title" Style="{ThemeResource TitleTextBlockStyle}" Margin="0,0,0,24" AutomationProperties.HeadingLevel="Level1"/>
+        <TextBlock x:Uid="HistoryPage_Title" Style="{StaticResource TitleTextBlockStyle}" Margin="0,0,0,24" AutomationProperties.HeadingLevel="Level1"/>
 
         <!-- 筛选区 -->
         <Grid Grid.Row="1" Margin="0,0,0,24" ColumnSpacing="16">
@@ -47,18 +43,17 @@
                     <RowDefinition Height="1*"/>
                     <RowDefinition Height="1*"/>
                 </Grid.RowDefinitions>
-                <TextBox x:Name="CommentFilterBox"
+            <TextBox x:Name="CommentFilterBox"
                          Grid.Row="1"
-                         Margin="0,0,0,4"
-                         x:Uid="HistoryPage_CommentFilter"
-                         TextChanged="CommentFilterBox_TextChanged"/>
+                     Margin="0,0,0,4"
+                     x:Uid="HistoryPage_CommentFilter"
+                     TextChanged="CommentFilterBox_TextChanged"/>
             </Grid>
 
             <StackPanel Grid.Column="4" Orientation="Horizontal" Spacing="12" VerticalAlignment="Bottom">
                 <ToggleSwitch x:Name="UseColorsToggle"
                               x:Uid="HistoryPage_UseStatusColors"
-                              IsOn="{x:Bind ViewModel.UseHistoryStatusColors, Mode=TwoWay}"
-                              Toggled="UseColorsToggle_Toggled" />
+                              IsOn="{x:Bind ViewModel.UseHistoryStatusColors, Mode=TwoWay}" />
                 <Button x:Name="ScanRecoverButton"
                         x:Uid="HistoryPage_ScanRecover"
                         Click="OnScanRecoverClick">
@@ -89,12 +84,12 @@
                             <ColumnDefinition Width="*"/>
                         </Grid.ColumnDefinitions>
                         <StackPanel VerticalAlignment="Center" HorizontalAlignment="Right" Margin="0,0,16,0">
-                            <TextBlock Text="{x:Bind TimeDisplay}" Style="{ThemeResource BodyStrongTextBlockStyle}" HorizontalAlignment="Right"/>
-                            <TextBlock Text="{x:Bind DateDisplay}" Style="{ThemeResource CaptionTextBlockStyle}" Foreground="{ThemeResource TextFillColorSecondaryBrush}" HorizontalAlignment="Right"/>
+                            <TextBlock Text="{x:Bind TimeDisplay}" Style="{StaticResource BodyStrongTextBlockStyle}" HorizontalAlignment="Right"/>
+                            <TextBlock Text="{x:Bind DateDisplay}" Style="{StaticResource CaptionTextBlockStyle}" Foreground="{ThemeResource TextFillColorSecondaryBrush}" HorizontalAlignment="Right"/>
                         </StackPanel>
                         <Grid Grid.Column="1">
                             <Rectangle Width="2" Fill="{x:Bind TimelineLineBrush}" VerticalAlignment="Stretch" HorizontalAlignment="Center"/>
-                            <Border Width="14" Height="14" CornerRadius="7"
+                            <Border Width="16" Height="16" CornerRadius="8"
                                     Background="{x:Bind TimelineNodeFillBrush}"
                                     BorderBrush="{x:Bind TimelineNodeBorderBrush}"
                                     BorderThickness="2"
@@ -107,9 +102,9 @@
                                     <ColumnDefinition Width="Auto"/>
                                 </Grid.ColumnDefinitions>
                                 <StackPanel>
-                                    <TextBlock Text="{x:Bind Message, Mode=OneWay}" Style="{ThemeResource BodyStrongTextBlockStyle}"/>
+                                    <TextBlock Text="{x:Bind Message, Mode=OneWay}" Style="{StaticResource BodyStrongTextBlockStyle}"/>
                                     <StackPanel Orientation="Horizontal" Spacing="6">
-                                        <TextBlock Text="{x:Bind FileSizeDisplay}" Style="{ThemeResource CaptionTextBlockStyle}" Foreground="{ThemeResource TextFillColorSecondaryBrush}"/>
+                                        <TextBlock Text="{x:Bind FileSizeDisplay}" Style="{StaticResource CaptionTextBlockStyle}" Foreground="{ThemeResource TextFillColorSecondaryBrush}"/>
                                         <FontIcon Glyph="&#xE753;"
                                                   FontSize="12"
                                                   Foreground="{ThemeResource TextFillColorTertiaryBrush}"
@@ -121,7 +116,7 @@
                                 <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="4" VerticalAlignment="Center">
                                     <Button x:Uid="HistoryPage_ToggleImportantButton" Click="OnToggleImportantClick"
                                             Background="Transparent" BorderThickness="0">
-                                        <FontIcon Glyph="{x:Bind IsImportant, Mode=OneWay, Converter={StaticResource BoolToStarConverter}}" FontSize="14"
+                                        <FontIcon Glyph="{x:Bind IsImportant, Mode=OneWay, Converter={StaticResource BoolToStarIconConverter}}" FontSize="14"
                                                   Foreground="{ThemeResource SystemControlForegroundAccentBrush}"/>
                                     </Button>
                                     <Button x:Uid="HistoryPage_ViewButton" Click="OnViewClick" ToolTipService.ToolTip="{x:Bind FileName}">

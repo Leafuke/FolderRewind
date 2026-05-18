@@ -481,14 +481,6 @@ namespace FolderRewind.Views
             }
         }
 
-        private void UseColorsToggle_Toggled(object sender, RoutedEventArgs e)
-        {
-            if (sender is ToggleSwitch ts)
-            {
-                ViewModel.UseHistoryStatusColors = ts.IsOn;
-            }
-        }
-
         private async void OnClearMissingClick(object sender, RoutedEventArgs e)
         {
             if (!TryGetSelectedContext(persistSelection: false, out _, out _))

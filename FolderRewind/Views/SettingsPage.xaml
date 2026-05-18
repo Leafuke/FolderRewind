@@ -12,12 +12,16 @@
     NavigationCacheMode="Required">
 
     <Page.Resources>
-        <x:Double x:Key="SettingsCardSpacing">6</x:Double>
+        <x:Double x:Key="SettingsCardSpacing">8</x:Double>
         <x:Double x:Key="SettingsActionControlWidth">180</x:Double>
         <x:Double x:Key="SettingsNumericControlWidth">180</x:Double>
         <x:Double x:Key="SettingsPathControlWidth">320</x:Double>
+        <x:Double x:Key="StartupWidthMin">1200</x:Double>
+        <x:Double x:Key="StartupWidthMax">3840</x:Double>
+        <x:Double x:Key="StartupHeightMin">600</x:Double>
+        <x:Double x:Key="StartupHeightMax">2160</x:Double>
         <Style x:Key="SettingsSectionHeaderTextBlockStyle" TargetType="TextBlock" BasedOn="{StaticResource BodyStrongTextBlockStyle}">
-            <Setter Property="Margin" Value="1,30,0,6" />
+            <Setter Property="Margin" Value="0,32,0,8" />
         </Style>
         <Style x:Key="SettingsHeaderTextStyle" TargetType="TextBlock" BasedOn="{StaticResource BodyStrongTextBlockStyle}">
             <Setter Property="TextWrapping" Value="Wrap" />
@@ -31,7 +35,7 @@
             <Setter Property="MinWidth" Value="{StaticResource SettingsActionControlWidth}" />
             <Setter Property="HorizontalAlignment" Value="Right" />
             <Setter Property="VerticalAlignment" Value="Center" />
-            <Setter Property="CornerRadius" Value="{ThemeResource ControlCornerRadius}" />
+            <Setter Property="CornerRadius" Value="{StaticResource ControlCornerRadius}" />
         </Style>
         <Style x:Key="SettingsNumberBoxStyle" TargetType="NumberBox">
             <Setter Property="Width" Value="{StaticResource SettingsNumericControlWidth}" />
@@ -45,7 +49,7 @@
             <Setter Property="MinWidth" Value="{StaticResource SettingsPathControlWidth}" />
             <Setter Property="HorizontalAlignment" Value="Right" />
             <Setter Property="VerticalAlignment" Value="Center" />
-            <Setter Property="CornerRadius" Value="{ThemeResource ControlCornerRadius}" />
+            <Setter Property="CornerRadius" Value="{StaticResource ControlCornerRadius}" />
         </Style>
         <Style x:Key="SettingsEntryTextBoxStyle" TargetType="TextBox">
             <Setter Property="Width" Value="{StaticResource SettingsActionControlWidth}" />
@@ -73,7 +77,7 @@
             x:Uid="SettingsPage_Title"
             Margin="36,24,36,0"
             AutomationProperties.HeadingLevel="Level1"
-            Style="{ThemeResource TitleTextBlockStyle}" />
+            Style="{StaticResource TitleTextBlockStyle}" />
 
         <ScrollViewer x:Name="SettingsScrollViewer" Grid.Row="1" Padding="36,0,36,36" VerticalScrollBarVisibility="Auto">
             <StackPanel HorizontalAlignment="Stretch" Spacing="{StaticResource SettingsCardSpacing}">
@@ -252,7 +256,7 @@
                             <toolkit:SettingsCard.Description>
                                 <TextBlock x:Uid="SettingsPage_EnableNotificationsDesc" Style="{StaticResource SettingsDescriptionStyle}" />
                             </toolkit:SettingsCard.Description>
-                            <ToggleSwitch IsOn="{x:Bind Settings.EnableNotifications, Mode=TwoWay}" Toggled="OnNotificationsToggled" />
+                            <ToggleSwitch IsOn="{x:Bind Settings.EnableNotifications, Mode=OneWay}" Toggled="OnNotificationsToggled" />
                         </toolkit:SettingsCard>
 
                         <toolkit:SettingsCard Visibility="{x:Bind Settings.EnableNotifications, Mode=OneWay, Converter={StaticResource BoolToVisConverter}}">
@@ -263,7 +267,7 @@
                                 <TextBlock x:Uid="SettingsPage_ToastNotificationLevelDesc" Style="{StaticResource SettingsDescriptionStyle}" />
                             </toolkit:SettingsCard.Description>
                             <ComboBox Style="{StaticResource SettingsSelectorStyle}"
-                                      SelectedIndex="{x:Bind Settings.ToastNotificationLevel, Mode=TwoWay}"
+                                      SelectedIndex="{x:Bind Settings.ToastNotificationLevel, Mode=OneWay}"
                                       SelectionChanged="OnToastLevelChanged">
                                 <ComboBoxItem x:Uid="SettingsPage_ToastLevel_Off" />
                                 <ComboBoxItem x:Uid="SettingsPage_ToastLevel_ErrorOnly" />
@@ -279,7 +283,7 @@
                             <toolkit:SettingsCard.Description>
                                 <TextBlock x:Uid="SettingsPage_EnableNoticesDesc" Style="{StaticResource SettingsDescriptionStyle}" />
                             </toolkit:SettingsCard.Description>
-                            <ToggleSwitch IsOn="{x:Bind Settings.EnableNotices, Mode=TwoWay}" Toggled="OnNoticesToggled" />
+                            <ToggleSwitch IsOn="{x:Bind Settings.EnableNotices, Mode=OneWay}" Toggled="OnNoticesToggled" />
                         </toolkit:SettingsCard>
 
                         <toolkit:SettingsCard>
@@ -289,7 +293,7 @@
                             <toolkit:SettingsCard.Description>
                                 <TextBlock x:Uid="SettingsPage_EnableUpdateReminderDesc" Style="{StaticResource SettingsDescriptionStyle}" />
                             </toolkit:SettingsCard.Description>
-                            <ToggleSwitch IsOn="{x:Bind Settings.EnableUpdateReminder, Mode=TwoWay}" Toggled="OnUpdateReminderToggled" />
+                            <ToggleSwitch IsOn="{x:Bind Settings.EnableUpdateReminder, Mode=OneWay}" Toggled="OnUpdateReminderToggled" />
                         </toolkit:SettingsCard>
 
                         <toolkit:SettingsCard>
@@ -305,7 +309,7 @@
                                            Maximum="10240"
                                            SmallChange="1"
                                            LargeChange="10"
-                                           Value="{x:Bind Settings.FileSizeWarningThresholdKB, Mode=TwoWay}"
+                                           Value="{x:Bind Settings.FileSizeWarningThresholdKB, Mode=OneWay}"
                                            ValueChanged="OnFileSizeWarningThresholdChanged" />
                                 <TextBlock Text="KB" VerticalAlignment="Center" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
                             </StackPanel>
@@ -329,7 +333,7 @@
                             <ItemsControl ItemsSource="{x:Bind HotkeyBindingsView, Mode=OneWay}">
                                 <ItemsControl.ItemTemplate>
                                     <DataTemplate x:DataType="viewModels:HotkeyBindingItem">
-                                        <Grid Padding="8,10" ColumnSpacing="16">
+                                        <Grid Padding="8,12" ColumnSpacing="16">
                                             <Grid.ColumnDefinitions>
                                                 <ColumnDefinition Width="*" />
                                                 <ColumnDefinition Width="240" />
@@ -344,7 +348,7 @@
 
                                             <StackPanel Grid.Column="1" Spacing="2" HorizontalAlignment="Left" VerticalAlignment="Center">
                                                 <TextBlock Text="{x:Bind ScopeText}" Style="{StaticResource CaptionTextBlockStyle}" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
-                                                <TextBlock Text="{x:Bind CurrentGesture}" Style="{ThemeResource SubtitleTextBlockStyle}" />
+                                                <TextBlock Text="{x:Bind CurrentGesture}" Style="{StaticResource SubtitleTextBlockStyle}" />
                                                 <TextBlock Text="{x:Bind DefaultGesture}" Style="{StaticResource CaptionTextBlockStyle}" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
                                             </StackPanel>
 
@@ -475,7 +479,7 @@
                                 <TextBlock x:Uid="SettingsPage_SponsorTitleTextDesc" Style="{StaticResource SettingsDescriptionStyle}" />
                             </toolkit:SettingsCard.Description>
                             <TextBox Width="180"
-                                     Text="{x:Bind Settings.SponsorTitleText, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                                     Text="{x:Bind Settings.SponsorTitleText, Mode=OneWay}"
                                      TextChanged="OnSponsorTitleTextChanged" />
                         </toolkit:SettingsCard>
 
@@ -491,8 +495,8 @@
                                       SelectedItem="{x:Bind Settings.SponsorTitleIconGlyph, Mode=TwoWay}"
                                       SelectionChanged="OnSponsorTitleIconChanged">
                                 <ComboBox.ItemTemplate>
-                                    <DataTemplate>
-                                        <FontIcon Glyph="{Binding}" FontSize="18" />
+                                    <DataTemplate x:DataType="x:String">
+                                        <FontIcon Glyph="{x:Bind}" FontSize="18" />
                                     </DataTemplate>
                                 </ComboBox.ItemTemplate>
                             </ComboBox>
@@ -522,7 +526,7 @@
                             <toolkit:SettingsCard.Description>
                                 <TextBlock x:Uid="SettingsPage_SponsorBackgroundEnabledDesc" Style="{StaticResource SettingsDescriptionStyle}" />
                             </toolkit:SettingsCard.Description>
-                            <ToggleSwitch IsOn="{x:Bind Settings.SponsorBackgroundEnabled, Mode=TwoWay}" Toggled="OnSponsorBackgroundEnabledToggled" />
+                            <ToggleSwitch IsOn="{x:Bind Settings.SponsorBackgroundEnabled, Mode=OneWay}" Toggled="OnSponsorBackgroundEnabledToggled" />
                         </toolkit:SettingsCard>
 
                         <toolkit:SettingsCard IsEnabled="{x:Bind IsSponsorUnlocked, Mode=OneWay}">
@@ -586,7 +590,7 @@
                             <StackPanel Orientation="Horizontal" Spacing="8">
                                 <ComboBox Style="{StaticResource SettingsSelectorStyle}"
                                           ItemsSource="{x:Bind CompletionSoundPresets}"
-                                          SelectedIndex="{x:Bind Settings.CompletionSoundIndex, Mode=TwoWay}"
+                                          SelectedIndex="{x:Bind Settings.CompletionSoundIndex, Mode=OneWay}"
                                           SelectionChanged="OnCompletionSoundChanged" />
                                 <Button x:Uid="SettingsPage_CompletionSoundPreview"
                                         Style="{StaticResource SettingsActionRowButtonStyle}"
@@ -638,7 +642,7 @@
                             <toolkit:SettingsCard.Description>
                                 <TextBlock x:Uid="SettingsPage_HistoryStatusColorsDesc" Style="{StaticResource SettingsDescriptionStyle}" />
                             </toolkit:SettingsCard.Description>
-                            <ToggleSwitch IsOn="{x:Bind Settings.UseHistoryStatusColors, Mode=TwoWay}" Toggled="OnHistoryColorsToggled" />
+                            <ToggleSwitch IsOn="{x:Bind Settings.UseHistoryStatusColors, Mode=OneWay}" Toggled="OnHistoryColorsToggled" />
                         </toolkit:SettingsCard>
 
                         <toolkit:SettingsCard>
@@ -661,15 +665,15 @@
                             <StackPanel Orientation="Horizontal" Spacing="12" VerticalAlignment="Center">
                                 <NumberBox x:Name="StartupWidthBox"
                                            Width="112"
-                                           Minimum="1200"
-                                           Maximum="3840"
+                                           Minimum="{StaticResource StartupWidthMin}"
+                                           Maximum="{StaticResource StartupWidthMax}"
                                            Value="{x:Bind Settings.StartupWidth, Mode=TwoWay}"
                                            ValueChanged="OnStartupSizeChanged" />
                                 <TextBlock Text="×" VerticalAlignment="Center" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
                                 <NumberBox x:Name="StartupHeightBox"
                                            Width="112"
-                                           Minimum="600"
-                                           Maximum="2160"
+                                           Minimum="{StaticResource StartupHeightMin}"
+                                           Maximum="{StaticResource StartupHeightMax}"
                                            Value="{x:Bind Settings.StartupHeight, Mode=TwoWay}"
                                            ValueChanged="OnStartupSizeChanged" />
                                 <TextBlock Text="px" VerticalAlignment="Center" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
@@ -741,7 +745,7 @@
                             <toolkit:SettingsCard.Description>
                                 <TextBlock x:Uid="SettingsPage_DefaultCloudRemoteBasePathDesc" Style="{StaticResource SettingsDescriptionStyle}" />
                             </toolkit:SettingsCard.Description>
-                            <TextBox Text="{x:Bind Settings.DefaultCloudRemoteBasePath, Mode=TwoWay}"
+                            <TextBox Text="{x:Bind Settings.DefaultCloudRemoteBasePath, Mode=OneWay}"
                                      Style="{StaticResource SettingsPathTextBoxStyle}"
                                      TextChanged="OnDefaultCloudRemoteBasePathChanged" />
                         </toolkit:SettingsCard>
@@ -753,7 +757,7 @@
                             <toolkit:SettingsCard.Description>
                                 <TextBlock x:Uid="SettingsPage_AutoDownloadMissingCloudBackupsBeforeRestoreDesc" Style="{StaticResource SettingsDescriptionStyle}" />
                             </toolkit:SettingsCard.Description>
-                            <ToggleSwitch IsOn="{x:Bind Settings.AutoDownloadMissingCloudBackupsBeforeRestore, Mode=TwoWay}"
+                            <ToggleSwitch IsOn="{x:Bind Settings.AutoDownloadMissingCloudBackupsBeforeRestore, Mode=OneWay}"
                                           Toggled="OnAutoDownloadMissingCloudBackupsBeforeRestoreToggled" />
                         </toolkit:SettingsCard>
 
@@ -781,7 +785,7 @@
                             <toolkit:SettingsCard.Description>
                                 <TextBlock x:Uid="SettingsPage_AppUpdateAutoFallbackDesc" Style="{StaticResource SettingsDescriptionStyle}" />
                             </toolkit:SettingsCard.Description>
-                            <ToggleSwitch IsOn="{x:Bind Settings.AppUpdateAutoFallback, Mode=TwoWay}" Toggled="OnAppUpdateAutoFallbackToggled" />
+                            <ToggleSwitch IsOn="{x:Bind Settings.AppUpdateAutoFallback, Mode=OneWay}" Toggled="OnAppUpdateAutoFallbackToggled" />
                         </toolkit:SettingsCard>
 
                         <toolkit:SettingsCard>
@@ -793,7 +797,7 @@
                             </toolkit:SettingsCard.Description>
                             <TextBox x:Uid="SettingsPage_AppUpdateCustomMirrorInput"
                                      Style="{StaticResource SettingsEntryTextBoxStyle}"
-                                     Text="{x:Bind Settings.AppUpdateCustomMirrorUrl, Mode=TwoWay}"
+                                     Text="{x:Bind Settings.AppUpdateCustomMirrorUrl, Mode=OneWay}"
                                      TextChanged="OnAppUpdateCustomMirrorTextChanged" />
                         </toolkit:SettingsCard>
                     </toolkit:SettingsExpander.Items>
@@ -993,7 +997,7 @@
                             <toolkit:SettingsCard.Description>
                                 <TextBlock x:Uid="SettingsPage_PluginsAutoCheckUpdatesDesc" Style="{StaticResource SettingsDescriptionStyle}" />
                             </toolkit:SettingsCard.Description>
-                            <ToggleSwitch IsOn="{x:Bind Settings.Plugins.AutoCheckUpdates, Mode=TwoWay}" Toggled="OnPluginsAutoCheckUpdatesToggled" />
+                            <ToggleSwitch IsOn="{x:Bind Settings.Plugins.AutoCheckUpdates, Mode=OneWay}" Toggled="OnPluginsAutoCheckUpdatesToggled" />
                         </toolkit:SettingsCard>
 
                         <toolkit:SettingsCard ContentAlignment="Vertical" HorizontalContentAlignment="Stretch">
@@ -1024,7 +1028,7 @@
                                           IsEnabled="{x:Bind Settings.Plugins.Enabled, Mode=OneWay}">
                                 <ItemsControl.ItemTemplate>
                                     <DataTemplate x:DataType="models:InstalledPluginInfo">
-                                        <Grid Padding="8,10" ColumnSpacing="16">
+                                        <Grid Padding="8,12" ColumnSpacing="16">
                                             <Grid.ColumnDefinitions>
                                                 <ColumnDefinition Width="*" />
                                                 <ColumnDefinition Width="Auto" />
@@ -1035,11 +1039,11 @@
                                                     <TextBlock Text="{x:Bind Name}" Style="{StaticResource SettingsHeaderTextStyle}" />
                                                     <Border Background="{ThemeResource SystemFillColorSuccessBrush}"
                                                             CornerRadius="4"
-                                                            Padding="6,2"
+                                                            Padding="8,4"
                                                             Visibility="{x:Bind HasUpdate, Converter={StaticResource BoolToVisConverter}, Mode=OneWay}">
                                                         <TextBlock Text="{x:Bind LatestVersion, Mode=OneWay}"
-                                                                   FontSize="11"
-                                                                   Foreground="White" />
+                                                                   Style="{StaticResource CaptionTextBlockStyle}"
+                                                                   Foreground="{ThemeResource TextOnAccentFillColorPrimaryBrush}" />
                                                     </Border>
                                                 </StackPanel>
                                                 <TextBlock Text="{x:Bind Description}" Style="{StaticResource SettingsDescriptionStyle}" />
@@ -1051,7 +1055,7 @@
                                                 <TextBlock Text="{x:Bind LoadError}"
                                                            Foreground="{ThemeResource SystemFillColorCriticalBrush}"
                                                            TextWrapping="Wrap"
-                                                           Visibility="{Binding LoadError, Converter={StaticResource StringNullOrEmptyToVisConverter}}" />
+                                                           Visibility="{x:Bind LoadError, Converter={StaticResource StringNullOrEmptyToVisConverter}, Mode=OneWay}" />
                                             </StackPanel>
 
                                             <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
@@ -1180,7 +1184,7 @@
                                     <toolkit:SettingsCard ContentAlignment="Vertical" HorizontalContentAlignment="Stretch">
                                         <TextBlock x:Uid="SettingsPage_KnotLinkCommandsBody"
                                                    FontFamily="Consolas"
-                                                   FontSize="12"
+                                                   Style="{StaticResource CaptionTextBlockStyle}"
                                                    IsTextSelectionEnabled="True"
                                                    TextWrapping="Wrap" />
                                     </toolkit:SettingsCard>
