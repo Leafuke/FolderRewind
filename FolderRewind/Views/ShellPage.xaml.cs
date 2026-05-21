@@ -15,6 +15,7 @@ namespace FolderRewind.Views
     {
         private bool _isSyncingSelection;
         private bool _isSyncingPaneState;
+        private bool _navViewInitialized;
         private DispatcherQueueTimer? _infoBarTimer;
         private bool _startupDialogsStarted;
 
@@ -148,19 +149,26 @@ namespace FolderRewind.Views
 
         private void NavView_Loaded(object sender, Microsoft.UI.Xaml.RoutedEventArgs e)
         {
-            var settings = ConfigService.CurrentConfig?.GlobalSettings;
-            SyncPaneStateWithDisplayMode(settings);
-
-            // 兜底刷新绑定，确保导航面板状态能及时反映到界面。
-            Bindings.Update();
-
-            NavigateTo("Home");
-
-            if (!_startupDialogsStarted)
+            // 延迟恢复面板状态到下一帧，确保 NavigationView 完成初始视觉状态初始化后再设置 IsPaneOpen。
+            // 在 Loaded 事件中直接设置 IsPaneOpen 会导致 NavigationViewItem 在面板展开动画期间
+            // 测量到错误的宽度（文本被截断、图标右侧被裁剪），因为此时条目尚未经历完整的布局测量周期。
+            DispatcherQueue.TryEnqueue(() =>
             {
-                // 启动弹窗链只跑一次，避免返回 Shell 时重复打断用户。
-                _ = RunStartupDialogsAsync();
-            }
+                _navViewInitialized = true;
+                var settings = ConfigService.CurrentConfig?.GlobalSettings;
+                SyncPaneStateWithDisplayMode(settings);
+
+                // 兜底刷新绑定，确保导航面板状态能及时反映到界面。
+                Bindings.Update();
+
+                NavigateTo("Home");
+
+                if (!_startupDialogsStarted)
+                {
+                    // 启动弹窗链只跑一次，避免返回 Shell 时重复打断用户。
+                    _ = RunStartupDialogsAsync();
+                }
+            });
         }
 
         private async System.Threading.Tasks.Task RunStartupDialogsAsync()
@@ -590,6 +598,13 @@ namespace FolderRewind.Views
 
         private void NavView_DisplayModeChanged(NavigationView sender, NavigationViewDisplayModeChangedEventArgs args)
         {
+            // 初始化完成前忽略显示模式变更：窗口启动调整大小期间可能触发 DisplayMode 从 Compact 跳到 Expanded，
+            // 若此时直接设置 IsPaneOpen 会重现 NavView_Loaded 中已修复的测量时序问题。
+            if (!_navViewInitialized)
+            {
+                return;
+            }
+
             SyncPaneStateWithDisplayMode(ConfigService.CurrentConfig?.GlobalSettings);
         }
 
