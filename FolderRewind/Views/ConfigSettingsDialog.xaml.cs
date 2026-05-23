@@ -17,6 +17,34 @@ namespace FolderRewind.Views
 {
     public sealed partial class ConfigSettingsDialog : ContentDialog
     {
+        private static ConfigSettingsDialog? _instance;
+
+        public static ConfigSettingsDialog Instance
+        {
+            get
+            {
+                if (_instance == null)
+                {
+                    _instance = new ConfigSettingsDialog(new BackupConfig
+                    {
+                        Name = string.Empty,
+                        Cloud = new CloudSettings(),
+                        BackupScope = new BackupScopeSettings(),
+                        Archive = new ArchiveSettings
+                        {
+                            CompressionLevel = 5,
+                            Format = "7z",
+                            Method = "LZMA2",
+                            KeepCount = 5,
+                            Mode = BackupMode.Full
+                        },
+                        Automation = new AutomationSettings()
+                    });
+                }
+                return _instance;
+            }
+        }
+
         public BackupConfig Config { get; private set; }
         public ConfigSettingsDialogViewModel ViewModel { get; }
         private bool _isDialogReady;
@@ -169,15 +197,8 @@ namespace FolderRewind.Views
             IconGrid.ItemsSource = IconCatalog.ConfigIconGlyphs;
             IconGrid.SelectedItem = IconCatalog.ConfigIconGlyphs.FirstOrDefault(i => i == Config.IconGlyph) ?? IconCatalog.ConfigIconGlyphs.First();
 
-            Config.PropertyChanged += (_, e) =>
-            {
-                if (e.PropertyName == nameof(BackupConfig.Name) || e.PropertyName == nameof(BackupConfig.DestinationPath))
-                {
-                    UpdateCloudBindings();
-                }
-            };
-
-            Config.Cloud.PropertyChanged += (_, _) => UpdateCloudBindings();
+            Config.PropertyChanged += OnDialogConfigPropertyChanged;
+            Config.Cloud.PropertyChanged += OnDialogCloudPropertyChanged;
 
             InitializeScheduleUI();
             RebuildBackupScopeParameterPanel();
@@ -884,6 +905,71 @@ namespace FolderRewind.Views
             "Filter" => "FilterTabScrollViewer",
             _ => null
         };
+
+        public void Rebind(BackupConfig config)
+        {
+            // Unbind old config event handlers
+            if (_isDialogReady)
+            {
+                ViewModel.Unbind();
+                Config.PropertyChanged -= OnDialogConfigPropertyChanged;
+                Config.Cloud.PropertyChanged -= OnDialogCloudPropertyChanged;
+            }
+
+            // Reset config
+            Config = config;
+            Config.Cloud ??= new CloudSettings();
+            Config.BackupScope ??= new BackupScopeSettings();
+
+            // Update ViewModel
+            ViewModel.Rebind(config);
+
+            // Reset tab state
+            _tabLoaded.Clear();
+            _currentTabContent = null;
+
+            // Reset ConfigTypesView
+            ConfigTypesView.Clear();
+            foreach (var t in PluginService.GetAllSupportedConfigTypes())
+            {
+                if (!string.Equals(t, "Encrypted", StringComparison.OrdinalIgnoreCase))
+                    ConfigTypesView.Add(t);
+            }
+            if (!ConfigTypesView.OfType<string>().Any(t => string.Equals(t, "Default", StringComparison.OrdinalIgnoreCase)))
+                ConfigTypesView.Insert(0, "Default");
+            if (!ConfigTypesView.OfType<string>().Any(t => string.Equals(t, Config.ConfigType, StringComparison.OrdinalIgnoreCase)))
+                ConfigTypesView.Add(Config.ConfigType);
+
+            // Reset icon grid
+            IconGrid.ItemsSource = IconCatalog.ConfigIconGlyphs;
+            IconGrid.SelectedItem = IconCatalog.ConfigIconGlyphs.FirstOrDefault(i => i == Config.IconGlyph) ?? IconCatalog.ConfigIconGlyphs.First();
+
+            // Re-register config events
+            Config.PropertyChanged += OnDialogConfigPropertyChanged;
+            Config.Cloud.PropertyChanged += OnDialogCloudPropertyChanged;
+
+            // Reset to first tab (General)
+            if (ConfigSelectorBar.Items.FirstOrDefault() is SelectorBarItem firstItem)
+            {
+                ConfigSelectorBar.SelectedItem = firstItem;
+            }
+
+            UpdateCloudBindings();
+            Bindings.Update();
+        }
+
+        private void OnDialogConfigPropertyChanged(object? sender, System.ComponentModel.PropertyChangedEventArgs e)
+        {
+            if (e.PropertyName == nameof(BackupConfig.Name) || e.PropertyName == nameof(BackupConfig.DestinationPath))
+            {
+                UpdateCloudBindings();
+            }
+        }
+
+        private void OnDialogCloudPropertyChanged(object? sender, System.ComponentModel.PropertyChangedEventArgs e)
+        {
+            UpdateCloudBindings();
+        }
 
         private void OnOpenCloudGuideClick(object sender, RoutedEventArgs e)
         {

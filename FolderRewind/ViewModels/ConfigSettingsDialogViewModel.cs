@@ -13,10 +13,10 @@ namespace FolderRewind.ViewModels
 {
     public sealed class ConfigSettingsDialogViewModel : ViewModelBase
     {
-        private readonly BackupConfig _config;
-        private readonly ArchiveSettings _archive;
-        private readonly AutomationSettings _automation;
-        private readonly CloudSettings _cloud;
+        private BackupConfig _config;
+        private ArchiveSettings _archive;
+        private AutomationSettings _automation;
+        private CloudSettings _cloud;
         private readonly int _cpuThreadMax;
         private readonly ObservableCollection<AutomationFolderOption> _automationFolderOptions = new();
         private List<BackupScopeOption> _backupScopeOptions = new();
@@ -42,6 +42,52 @@ namespace FolderRewind.ViewModels
             _config.SourceFolders.CollectionChanged += OnSourceFoldersCollectionChanged;
 
             AttachSourceFolderHandlers(_config.SourceFolders);
+
+            NormalizeArchiveSettings();
+            RefreshBackupScopeOptions();
+            RefreshAutomationFolderOptions();
+            RaiseCloudUiProperties();
+        }
+
+        public void Unbind()
+        {
+            if (_config == null)
+            {
+                return;
+            }
+
+            _archive.PropertyChanged -= OnArchivePropertyChanged;
+            _automation.PropertyChanged -= OnAutomationPropertyChanged;
+            _config.PropertyChanged -= OnConfigPropertyChanged;
+            _cloud.PropertyChanged -= OnCloudPropertyChanged;
+            _config.SourceFolders.CollectionChanged -= OnSourceFoldersCollectionChanged;
+
+            foreach (var folder in _config.SourceFolders)
+            {
+                if (folder != null)
+                {
+                    folder.PropertyChanged -= OnSourceFolderPropertyChanged;
+                }
+            }
+        }
+
+        public void Rebind(BackupConfig config)
+        {
+            _config = config ?? throw new ArgumentNullException(nameof(config));
+            _archive = _config.Archive ??= new ArchiveSettings();
+            _automation = _config.Automation ??= new AutomationSettings();
+            _cloud = _config.Cloud ??= new CloudSettings();
+            _config.BackupScope ??= new BackupScopeSettings();
+
+            _archive.PropertyChanged += OnArchivePropertyChanged;
+            _automation.PropertyChanged += OnAutomationPropertyChanged;
+            _config.PropertyChanged += OnConfigPropertyChanged;
+            _cloud.PropertyChanged += OnCloudPropertyChanged;
+            _config.SourceFolders.CollectionChanged += OnSourceFoldersCollectionChanged;
+
+            AttachSourceFolderHandlers(_config.SourceFolders);
+
+            _selectedPageIndex = 0;
 
             NormalizeArchiveSettings();
             RefreshBackupScopeOptions();

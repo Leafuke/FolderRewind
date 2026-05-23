@@ -639,7 +639,9 @@ namespace FolderRewind.Views
                 return;
             }
 
-            var dialog = new ConfigSettingsDialog(ViewModel.CurrentConfig);
+            var dialog = ConfigSettingsDialog.Instance;
+            dialog.Rebind(ViewModel.CurrentConfig);
+            dialog.XamlRoot = this.XamlRoot;
             var result = await dialog.ShowAsync();
 
             if (result == ContentDialogResult.Primary)
