@@ -31,6 +31,8 @@ namespace FolderRewind.ViewModels
         private string _knotLinkStatusMessage = I18n.GetString("SettingsPage_KnotLinkStatus_Disabled");
         private Brush _knotLinkStatusColor = new SolidColorBrush(Microsoft.UI.Colors.Gray);
 
+        private bool _isDirty;
+
         public GlobalSettings Settings => ConfigService.CurrentConfig.GlobalSettings;
 
         public int CloseBehaviorSelectedIndex
@@ -46,8 +48,8 @@ namespace FolderRewind.ViewModels
                     Settings.RememberCloseBehavior = false;
                 }
 
-                // 设置页采用“即改即存”，避免离开页面时丢改动。
-                ConfigService.Save();
+                // 标记为脏，离开页面时统一保存。
+                _isDirty = true;
                 OnPropertyChanged();
             }
         }
@@ -295,6 +297,15 @@ namespace FolderRewind.ViewModels
             UpdateKnotLinkStatus();
         }
 
+        public void SaveIfDirty()
+        {
+            if (_isDirty)
+            {
+                ConfigService.Save();
+                _isDirty = false;
+            }
+        }
+
         public async Task EnsurePluginsRefreshedAsync()
         {
             if (_pluginsRefreshed || _pluginsRefreshing)
@@ -351,13 +362,13 @@ namespace FolderRewind.ViewModels
                 OnPropertyChanged(nameof(CloseBehaviorSelectedIndex));
             }
 
-            ConfigService.Save();
+            _isDirty = true;
         }
 
         public void HandleNotificationsToggled(bool isOn)
         {
             Settings.EnableNotifications = isOn;
-            ConfigService.Save();
+            _isDirty = true;
 
             if (!isOn)
             {
@@ -371,7 +382,7 @@ namespace FolderRewind.ViewModels
         public void HandleToastLevelChanged(int selectedIndex)
         {
             Settings.ToastNotificationLevel = Math.Clamp(selectedIndex, 0, 3);
-            ConfigService.Save();
+            _isDirty = true;
         }
 
         public void HandleFileSizeWarningThresholdChanged(double newValue)
@@ -382,37 +393,37 @@ namespace FolderRewind.ViewModels
             }
 
             Settings.FileSizeWarningThresholdKB = (int)Math.Clamp(newValue, 0, 10240);
-            ConfigService.Save();
+            _isDirty = true;
         }
 
         public void HandleAutoDownloadMissingCloudBackupsBeforeRestoreToggled(bool isOn)
         {
             Settings.AutoDownloadMissingCloudBackupsBeforeRestore = isOn;
-            ConfigService.Save();
+            _isDirty = true;
         }
 
         public void HandleNoticesToggled(bool isOn)
         {
             Settings.EnableNotices = isOn;
-            ConfigService.Save();
+            _isDirty = true;
         }
 
         public void HandleUpdateReminderToggled(bool isOn)
         {
             Settings.EnableUpdateReminder = isOn;
-            ConfigService.Save();
+            _isDirty = true;
         }
 
         public void HandleAppUpdateSourceChanged(int selectedIndex)
         {
             Settings.AppUpdatePreferredSource = Math.Clamp(selectedIndex, 0, 3);
-            ConfigService.Save();
+            _isDirty = true;
         }
 
         public void HandleAppUpdateAutoFallbackToggled(bool isOn)
         {
             Settings.AppUpdateAutoFallback = isOn;
-            ConfigService.Save();
+            _isDirty = true;
         }
 
         public void HandleAppUpdateCustomMirrorChanged(string? customUrl)
@@ -424,7 +435,7 @@ namespace FolderRewind.ViewModels
             }
 
             Settings.AppUpdateCustomMirrorUrl = normalized;
-            ConfigService.Save();
+            _isDirty = true;
         }
 
         public int GetLanguageSelectedIndex()
@@ -435,7 +446,7 @@ namespace FolderRewind.ViewModels
         public void HandleLanguageChanged(int selectedIndex)
         {
             Settings.Language = IndexToLanguage(selectedIndex);
-            ConfigService.Save();
+            _isDirty = true;
             MainWindowService.UpdateWindowTitle();
         }
 
@@ -450,7 +461,7 @@ namespace FolderRewind.ViewModels
                 Settings.SilentStartup = false;
             }
 
-            ConfigService.Save();
+            _isDirty = true;
 
             StartupTaskState state = StartupTaskState.Disabled;
             if (!success && desired)
@@ -469,7 +480,7 @@ namespace FolderRewind.ViewModels
         public bool HandleSilentStartupToggled(bool requested)
         {
             Settings.SilentStartup = Settings.RunOnStartup && requested;
-            ConfigService.Save();
+            _isDirty = true;
             return Settings.SilentStartup;
         }
 
@@ -481,7 +492,7 @@ namespace FolderRewind.ViewModels
             }
 
             Settings.SevenZipPath = path;
-            ConfigService.Save();
+            _isDirty = true;
         }
 
         public void ApplyRclonePath(string path)
@@ -492,7 +503,7 @@ namespace FolderRewind.ViewModels
             }
 
             Settings.RcloneExecutablePath = path;
-            ConfigService.Save();
+            _isDirty = true;
         }
 
         public void ApplyDefaultCloudRemoteBasePath(string path)
@@ -504,7 +515,7 @@ namespace FolderRewind.ViewModels
             }
 
             Settings.DefaultCloudRemoteBasePath = normalized;
-            ConfigService.Save();
+            _isDirty = true;
         }
 
         public void ApplyDefaultBackupRootPath(string path)
@@ -515,7 +526,7 @@ namespace FolderRewind.ViewModels
             }
 
             Settings.DefaultBackupRootPath = path;
-            ConfigService.Save();
+            _isDirty = true;
         }
 
         public void HandleThemeChanged(int selectedIndex)
@@ -523,7 +534,7 @@ namespace FolderRewind.ViewModels
             Settings.ThemeIndex = Math.Clamp(selectedIndex, 0, 2);
             MainWindowService.ApplyCurrentTheme();
             ThemeService.NotifyThemeChanged();
-            ConfigService.Save();
+            _isDirty = true;
         }
 
         public void HandleSponsorAccentChanged(int selectedIndex)
@@ -534,7 +545,7 @@ namespace FolderRewind.ViewModels
             }
 
             Settings.SponsorAccentColorIndex = Math.Clamp(selectedIndex, 0, ThemeService.SponsorAccentPresetCount - 1);
-            ConfigService.Save();
+            _isDirty = true;
             MainWindowService.ApplySponsorVisuals();
         }
 
@@ -546,7 +557,7 @@ namespace FolderRewind.ViewModels
             }
 
             Settings.SponsorBackdropIndex = Math.Clamp(selectedIndex, 0, 1);
-            ConfigService.Save();
+            _isDirty = true;
             MainWindowService.ApplySponsorVisuals();
         }
 
@@ -558,7 +569,7 @@ namespace FolderRewind.ViewModels
             }
 
             Settings.SponsorTitleText = titleText?.Trim() ?? string.Empty;
-            ConfigService.Save();
+            _isDirty = true;
             MainWindowService.ApplySponsorVisuals();
         }
 
@@ -570,7 +581,7 @@ namespace FolderRewind.ViewModels
             }
 
             Settings.SponsorTitleIconGlyph = glyph;
-            ConfigService.Save();
+            _isDirty = true;
             MainWindowService.ApplySponsorVisuals();
         }
 
@@ -603,7 +614,7 @@ namespace FolderRewind.ViewModels
             }
 
             Settings.SponsorBackgroundEnabled = isOn;
-            ConfigService.Save();
+            _isDirty = true;
             MainWindowService.ApplySponsorVisuals();
         }
 
@@ -615,7 +626,7 @@ namespace FolderRewind.ViewModels
             }
 
             Settings.SponsorBackgroundStretchIndex = Math.Clamp(selectedIndex, 0, 2);
-            ConfigService.Save();
+            _isDirty = true;
             MainWindowService.ApplySponsorVisuals();
         }
 
@@ -627,7 +638,7 @@ namespace FolderRewind.ViewModels
             }
 
             Settings.SponsorBackgroundImageOpacity = Math.Clamp(newValue / 100d, 0, 1);
-            ConfigService.Save();
+            _isDirty = true;
             MainWindowService.ApplySponsorVisuals();
             OnPropertyChanged(nameof(SponsorBackgroundImageOpacityPercent));
         }
@@ -640,7 +651,7 @@ namespace FolderRewind.ViewModels
             }
 
             Settings.SponsorBackgroundOverlayOpacity = Math.Clamp(newValue / 100d, 0, 1);
-            ConfigService.Save();
+            _isDirty = true;
             MainWindowService.ApplySponsorVisuals();
             OnPropertyChanged(nameof(SponsorBackgroundOverlayOpacityPercent));
         }
@@ -648,7 +659,7 @@ namespace FolderRewind.ViewModels
         public void HandleCompletionSoundChanged(int selectedIndex)
         {
             Settings.CompletionSoundIndex = Math.Clamp(selectedIndex, 0, CompletionSoundService.PresetCount - 1);
-            ConfigService.Save();
+            _isDirty = true;
         }
 
         public void PreviewCompletionSound()
@@ -681,27 +692,27 @@ namespace FolderRewind.ViewModels
         {
             Settings.EnableFileLogging = isOn;
             PushLogOptions();
-            ConfigService.Save();
+            _isDirty = true;
         }
 
         public void HandleLogSizeChanged(double newValue)
         {
             Settings.MaxLogFileSizeMb = (int)Math.Clamp(newValue, 1, 50);
             PushLogOptions();
-            ConfigService.Save();
+            _isDirty = true;
         }
 
         public void HandleRetentionChanged(double newValue)
         {
             Settings.LogRetentionDays = (int)Math.Clamp(newValue, 1, 60);
             PushLogOptions();
-            ConfigService.Save();
+            _isDirty = true;
         }
 
         public void HandleHistoryColorsToggled(bool isOn)
         {
             Settings.UseHistoryStatusColors = isOn;
-            ConfigService.Save();
+            _isDirty = true;
         }
 
         public void HandleStartupSizeChanged(bool isWidth, double newValue)
@@ -715,7 +726,7 @@ namespace FolderRewind.ViewModels
                 Settings.StartupHeight = ClampHeight(newValue);
             }
 
-            ConfigService.Save();
+            _isDirty = true;
         }
 
         public void HandleApplyStartupSize()
@@ -723,7 +734,7 @@ namespace FolderRewind.ViewModels
             Settings.StartupWidth = ClampWidth(Settings.StartupWidth);
             Settings.StartupHeight = ClampHeight(Settings.StartupHeight);
 
-            ConfigService.Save();
+            _isDirty = true;
             ApplyWindowSize(Settings.StartupWidth, Settings.StartupHeight);
         }
 
@@ -736,14 +747,14 @@ namespace FolderRewind.ViewModels
 
             Settings.FontFamily = selectedFontFamily;
             TypographyService.ApplyTypography(Settings);
-            ConfigService.Save();
+            _isDirty = true;
         }
 
         public void HandleFontSizeChanged(double newSize)
         {
             Settings.BaseFontSize = Math.Clamp(newSize, 12, 20);
             TypographyService.ApplyTypography(Settings);
-            ConfigService.Save();
+            _isDirty = true;
         }
 
         public void HandlePluginsEnabledToggled(bool isOn)
@@ -755,7 +766,7 @@ namespace FolderRewind.ViewModels
         public void HandlePluginsAutoCheckUpdatesToggled(bool isOn)
         {
             Settings.Plugins.AutoCheckUpdates = isOn;
-            ConfigService.Save();
+            _isDirty = true;
         }
 
         public void HandlePluginEnabledToggled(string pluginId, bool isOn)
@@ -852,7 +863,7 @@ namespace FolderRewind.ViewModels
         public void HandleKnotLinkToggled(bool isOn)
         {
             Settings.EnableKnotLink = isOn;
-            ConfigService.Save();
+            _isDirty = true;
 
             if (isOn)
             {
@@ -868,7 +879,7 @@ namespace FolderRewind.ViewModels
 
         public void HandleKnotLinkSettingChanged()
         {
-            ConfigService.Save();
+            _isDirty = true;
         }
 
         public bool RestartKnotLinkService()
@@ -885,7 +896,7 @@ namespace FolderRewind.ViewModels
             Settings.KnotLinkAppId = "0x00000020";
             Settings.KnotLinkOpenSocketId = "0x00000010";
             Settings.KnotLinkSignalId = "0x00000020";
-            ConfigService.Save();
+            _isDirty = true;
             UpdateKnotLinkStatus();
         }
 

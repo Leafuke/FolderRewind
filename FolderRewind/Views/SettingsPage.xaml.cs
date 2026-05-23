@@ -296,6 +296,8 @@ namespace FolderRewind.Views
 
         private void OnSettingsPageUnloaded(object sender, RoutedEventArgs e)
         {
+            _viewModel.SaveIfDirty();
+
             foreach (var (expander, token) in _expanderCallbackTokens)
             {
                 try
