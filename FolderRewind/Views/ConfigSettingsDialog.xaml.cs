@@ -20,6 +20,8 @@ namespace FolderRewind.Views
         public BackupConfig Config { get; private set; }
         public ConfigSettingsDialogViewModel ViewModel { get; }
         private bool _isDialogReady;
+        private Microsoft.UI.Xaml.UIElement? _currentTabContent;
+        private readonly Dictionary<string, bool> _tabLoaded = new();
 
         // 绑定视图（避免 MSIX + Trim 下 WinRT 对自定义泛型集合投影异常）
         public ObservableCollection<object> ConfigTypesView { get; } = new();
@@ -124,6 +126,10 @@ namespace FolderRewind.Views
         public ConfigSettingsDialog(BackupConfig config)
         {
             this.InitializeComponent();
+
+            // Force-load the initially selected tab (General) since x:Load="False" defers its creation
+            LoadTabContent("General");
+
             this.Config = config;
             this.Config.Cloud ??= new CloudSettings();
             this.Config.BackupScope ??= new BackupScopeSettings();
@@ -196,10 +202,13 @@ namespace FolderRewind.Views
             _dayOptions.Add(I18n.GetString("Schedule_Every"));
             for (int i = 1; i <= 31; i++) _dayOptions.Add(i.ToString());
 
-            // Set header texts
-            ScheduleEntriesHeader.Text = I18n.GetString("Schedule_Header");
-            ScheduleEntriesDesc.Text = I18n.GetString("Schedule_Description");
-            AddScheduleText.Text = I18n.GetString("Schedule_Add");
+            // Set header texts (guard against x:Load deferred elements)
+            if (ScheduleEntriesHeader != null)
+                ScheduleEntriesHeader.Text = I18n.GetString("Schedule_Header");
+            if (ScheduleEntriesDesc != null)
+                ScheduleEntriesDesc.Text = I18n.GetString("Schedule_Description");
+            if (AddScheduleText != null)
+                AddScheduleText.Text = I18n.GetString("Schedule_Add");
 
             // Build existing entries
             RebuildScheduleEntriesUI();
@@ -207,6 +216,7 @@ namespace FolderRewind.Views
 
         private void RebuildScheduleEntriesUI()
         {
+            if (ScheduleEntriesPanel == null) return;
             ScheduleEntriesPanel.Children.Clear();
             if (Config.Automation.ScheduleEntries == null) return;
 
@@ -802,19 +812,79 @@ namespace FolderRewind.Views
 
         private void OnSettingsSelectorBarSelectionChanged(SelectorBar sender, SelectorBarSelectionChangedEventArgs args)
         {
-            if (sender.SelectedItem is not SelectorBarItem selectedItem)
+            if (sender.SelectedItem?.Tag is not string tag) return;
+
+            var tabName = GetTabNameFromTag(tag);
+            if (tabName == null) return;
+
+            // Hide current tab
+            if (_currentTabContent != null)
             {
-                return;
+                _currentTabContent.Visibility = Microsoft.UI.Xaml.Visibility.Collapsed;
             }
 
-            int selectedIndex = sender.Items.IndexOf(selectedItem);
-            if (selectedIndex < 0)
+            // Load or find the target tab (FindName triggers x:Load on first call)
+            if (!_tabLoaded.ContainsKey(tabName))
             {
-                return;
+                var element = FindName(tabName) as Microsoft.UI.Xaml.UIElement;
+                if (element != null)
+                {
+                    _tabLoaded[tabName] = true;
+                }
             }
 
-            ViewModel.SelectedPageIndex = selectedIndex;
+            var tabContent = FindName(tabName) as Microsoft.UI.Xaml.UIElement;
+            if (tabContent != null)
+            {
+                tabContent.Visibility = Microsoft.UI.Xaml.Visibility.Visible;
+                _currentTabContent = tabContent;
+            }
+
+            // Update ViewModel state
+            var selectedIndex = sender.Items.IndexOf(sender.SelectedItem);
+            if (selectedIndex >= 0)
+            {
+                ViewModel.SelectedPageIndex = selectedIndex;
+            }
+
+            // Initialize tab-specific deferred content
+            switch (tag)
+            {
+                case "Backup":
+                    RebuildBackupScopeParameterPanel();
+                    break;
+                case "Automation":
+                    RebuildScheduleEntriesUI();
+                    break;
+            }
+
+            UpdateCloudBindings();
         }
+
+        private void LoadTabContent(string tag)
+        {
+            var tabName = GetTabNameFromTag(tag);
+            if (tabName == null) return;
+
+            var element = FindName(tabName) as Microsoft.UI.Xaml.UIElement;
+            if (element != null)
+            {
+                element.Visibility = Microsoft.UI.Xaml.Visibility.Visible;
+                _currentTabContent = element;
+                _tabLoaded[tabName] = true;
+            }
+        }
+
+        private static string? GetTabNameFromTag(string tag) => tag switch
+        {
+            "General" => "GeneralTabScrollViewer",
+            "Backup" => "BackupTabScrollViewer",
+            "Restore" => "RestoreTabScrollViewer",
+            "Automation" => "AutomationTabScrollViewer",
+            "Cloud" => "CloudTabScrollViewer",
+            "Filter" => "FilterTabScrollViewer",
+            _ => null
+        };
 
         private void OnOpenCloudGuideClick(object sender, RoutedEventArgs e)
         {

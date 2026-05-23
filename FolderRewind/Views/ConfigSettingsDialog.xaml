@@ -18,32 +18,32 @@
 
         <SelectorBar x:Name="ConfigSelectorBar"
                      SelectionChanged="OnSettingsSelectorBarSelectionChanged">
-            <SelectorBarItem x:Uid="ConfigSettingsDialog_TabGeneral" IsSelected="True" FontSize="15" FontWeight="SemiBold">
+            <SelectorBarItem x:Uid="ConfigSettingsDialog_TabGeneral" Tag="General" IsSelected="True" FontSize="15" FontWeight="SemiBold">
                 <SelectorBarItem.Icon>
                     <SymbolIcon Symbol="Setting"/>
                 </SelectorBarItem.Icon>
             </SelectorBarItem>
-            <SelectorBarItem x:Uid="ConfigSettingsDialog_TabBackup" FontSize="15" FontWeight="SemiBold">
+            <SelectorBarItem x:Uid="ConfigSettingsDialog_TabBackup" Tag="Backup" FontSize="15" FontWeight="SemiBold">
                 <SelectorBarItem.Icon>
                     <SymbolIcon Symbol="Upload"/>
                 </SelectorBarItem.Icon>
             </SelectorBarItem>
-            <SelectorBarItem x:Uid="ConfigSettingsDialog_TabRestore" FontSize="15" FontWeight="SemiBold">
+            <SelectorBarItem x:Uid="ConfigSettingsDialog_TabRestore" Tag="Restore" FontSize="15" FontWeight="SemiBold">
                 <SelectorBarItem.Icon>
                     <SymbolIcon Symbol="Download"/>
                 </SelectorBarItem.Icon>
             </SelectorBarItem>
-            <SelectorBarItem x:Uid="ConfigSettingsDialog_TabAutomation" FontSize="15" FontWeight="SemiBold">
+            <SelectorBarItem x:Uid="ConfigSettingsDialog_TabAutomation" Tag="Automation" FontSize="15" FontWeight="SemiBold">
                 <SelectorBarItem.Icon>
                     <SymbolIcon Symbol="Clock"/>
                 </SelectorBarItem.Icon>
             </SelectorBarItem>
-            <SelectorBarItem x:Uid="ConfigSettingsDialog_TabCloud" FontSize="15" FontWeight="SemiBold">
+            <SelectorBarItem x:Uid="ConfigSettingsDialog_TabCloud" Tag="Cloud" FontSize="15" FontWeight="SemiBold">
                 <SelectorBarItem.Icon>
                     <SymbolIcon Symbol="World"/>
                 </SelectorBarItem.Icon>
             </SelectorBarItem>
-            <SelectorBarItem x:Uid="ConfigSettingsDialog_TabFilter" FontSize="15" FontWeight="SemiBold">
+            <SelectorBarItem x:Uid="ConfigSettingsDialog_TabFilter" Tag="Filter" FontSize="15" FontWeight="SemiBold">
                 <SelectorBarItem.Icon>
                     <SymbolIcon Symbol="Filter"/>
                 </SelectorBarItem.Icon>
@@ -51,10 +51,11 @@
         </SelectorBar>
 
         <!-- 1. 常规设置 -->
-        <ScrollViewer Grid.Row="1"
+        <ScrollViewer x:Name="GeneralTabScrollViewer"
+                      x:Load="False"
+                      Grid.Row="1"
                       VerticalScrollBarVisibility="Auto"
-                      Padding="0,0,12,0"
-                      Visibility="{x:Bind ViewModel.IsGeneralPageVisible, Mode=OneWay, Converter={StaticResource BoolToVisConverter}}">
+                      Padding="0,0,12,0">
             <StackPanel Spacing="20" Padding="0,12">
                 <TextBox x:Uid="ConfigSettingsDialog_ConfigName" Text="{x:Bind Config.Name, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"/>
 
@@ -130,10 +131,11 @@
         </ScrollViewer>
 
         <!-- 2. 备份策略 -->
-        <ScrollViewer Grid.Row="1"
+        <ScrollViewer x:Name="BackupTabScrollViewer"
+                      x:Load="False"
+                      Grid.Row="1"
                       VerticalScrollBarVisibility="Auto"
-                      Padding="0,0,12,0"
-                      Visibility="{x:Bind ViewModel.IsBackupStrategyPageVisible, Mode=OneWay, Converter={StaticResource BoolToVisConverter}}">
+                      Padding="0,0,12,0">
             <StackPanel Spacing="20" Padding="0,12">
                 <!-- 备份模式 -->
                 <ComboBox x:Uid="ConfigSettingsDialog_BackupMode" SelectedIndex="{x:Bind ModeSelectedIndex, Mode=TwoWay}" HorizontalAlignment="Stretch">
@@ -275,10 +277,11 @@
         </ScrollViewer>
 
         <!-- 3. 还原策略 -->
-        <ScrollViewer Grid.Row="1"
+        <ScrollViewer x:Name="RestoreTabScrollViewer"
+                      x:Load="False"
+                      Grid.Row="1"
                       VerticalScrollBarVisibility="Auto"
-                      Padding="0,0,12,0"
-                      Visibility="{x:Bind ViewModel.IsRestoreStrategyPageVisible, Mode=OneWay, Converter={StaticResource BoolToVisConverter}}">
+                      Padding="0,0,12,0">
             <StackPanel Spacing="20" Padding="0,12">
                 <!-- 还原前自动备份 -->
                 <ToggleSwitch x:Uid="ConfigSettingsDialog_BackupBeforeRestore" IsOn="{x:Bind Config.Archive.BackupBeforeRestore, Mode=TwoWay}"/>
@@ -320,10 +323,11 @@
         </ScrollViewer>
 
         <!-- 4. 自动化 -->
-        <ScrollViewer Grid.Row="1"
+        <ScrollViewer x:Name="AutomationTabScrollViewer"
+                      x:Load="False"
+                      Grid.Row="1"
                       VerticalScrollBarVisibility="Auto"
-                      Padding="0,0,12,0"
-                      Visibility="{x:Bind ViewModel.IsAutomationPageVisible, Mode=OneWay, Converter={StaticResource BoolToVisConverter}}">
+                      Padding="0,0,12,0">
             <StackPanel Spacing="20" Padding="0,12">
                 <ToggleSwitch x:Uid="ConfigSettingsDialog_AutoBackup" IsOn="{x:Bind Config.Automation.AutoBackupEnabled, Mode=TwoWay}"/>
 
@@ -402,10 +406,11 @@
         </ScrollViewer>
 
         <!-- 5. 云上传 -->
-        <ScrollViewer Grid.Row="1"
+        <ScrollViewer x:Name="CloudTabScrollViewer"
+                      x:Load="False"
+                      Grid.Row="1"
                       VerticalScrollBarVisibility="Auto"
-                      Padding="0,0,12,0"
-                      Visibility="{x:Bind ViewModel.IsCloudPageVisible, Mode=OneWay, Converter={StaticResource BoolToVisConverter}}">
+                      Padding="0,0,12,0">
             <StackPanel Spacing="20" Padding="0,12">
                 <StackPanel Spacing="8">
                     <TextBlock x:Uid="ConfigSettingsDialog_CloudEnvironmentSection" Style="{ThemeResource SubtitleTextBlockStyle}"/>
@@ -601,10 +606,11 @@
         </ScrollViewer>
 
         <!-- 6. 过滤器 -->
-        <ScrollViewer Grid.Row="1"
+        <ScrollViewer x:Name="FilterTabScrollViewer"
+                      x:Load="False"
+                      Grid.Row="1"
                       VerticalScrollBarVisibility="Auto"
-                      Padding="0,0,12,0"
-                      Visibility="{x:Bind ViewModel.IsFilterPageVisible, Mode=OneWay, Converter={StaticResource BoolToVisConverter}}">
+                      Padding="0,0,12,0">
             <StackPanel Spacing="12" Padding="0,12">
                 <ComboBox x:Uid="ConfigSettingsDialog_BackupFilterMode"
                           SelectedIndex="{x:Bind ViewModel.BackupFilterModeSelectedIndex, Mode=TwoWay}"
