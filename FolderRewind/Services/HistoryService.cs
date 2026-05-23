@@ -718,8 +718,8 @@ namespace FolderRewind.Services
                 {
                     snapshot = _allHistory.ToList();
                 }
-                string json = JsonSerializer.Serialize(snapshot, AppJsonContext.Default.ListHistoryItem);
-                File.WriteAllText(destPath, json);
+                using var stream = new FileStream(destPath, FileMode.Create, FileAccess.Write, FileShare.None);
+                JsonSerializer.Serialize(stream, snapshot, AppJsonContext.Default.ListHistoryItem);
                 LogService.Log(I18n.Format("History_ExportSuccess", destPath));
                 return true;
             }
@@ -1001,8 +1001,9 @@ namespace FolderRewind.Services
                     snapshot = _allHistory.ToList();
                 }
 
-                string json = JsonSerializer.Serialize(snapshot, AppJsonContext.Default.ListHistoryItem);
-                await File.WriteAllTextAsync(HistoryPath, json, ct);
+                // 流式序列化直接写入文件，避免在堆上分配完整 JSON 字符串。
+                using var stream = new FileStream(HistoryPath, FileMode.Create, FileAccess.Write, FileShare.None);
+                JsonSerializer.Serialize(stream, snapshot, AppJsonContext.Default.ListHistoryItem);
             }
             catch (Exception ex)
             {
