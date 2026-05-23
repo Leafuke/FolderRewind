@@ -186,6 +186,57 @@ namespace FolderRewind.Views
                 _isInitializingLanguage = false;
                 _isInitializingFont = false;
             }
+
+            Loaded += (_, _) =>
+            {
+                InitializeExpanderLazyLoading();
+            };
+        }
+
+        // SettingsExpander lazy loading
+        private readonly HashSet<CommunityToolkit.WinUI.Controls.SettingsExpander> _expanderContentCreated = new();
+        private bool _expanderLazyLoadInitialized;
+
+        private void InitializeExpanderLazyLoading()
+        {
+            if (_expanderLazyLoadInitialized) return;
+            _expanderLazyLoadInitialized = true;
+
+            var expanders = FindAllSettingsExpanders(SettingsScrollViewer);
+            foreach (var expander in expanders)
+            {
+                expander.RegisterPropertyChangedCallback(
+                    CommunityToolkit.WinUI.Controls.SettingsExpander.IsExpandedProperty,
+                    OnExpanderIsExpandedChanged);
+            }
+        }
+
+        private static List<CommunityToolkit.WinUI.Controls.SettingsExpander> FindAllSettingsExpanders(
+            Microsoft.UI.Xaml.DependencyObject parent)
+        {
+            var result = new List<CommunityToolkit.WinUI.Controls.SettingsExpander>();
+            var count = Microsoft.UI.Xaml.Media.VisualTreeHelper.GetChildrenCount(parent);
+            for (int i = 0; i < count; i++)
+            {
+                var child = Microsoft.UI.Xaml.Media.VisualTreeHelper.GetChild(parent, i);
+                if (child is CommunityToolkit.WinUI.Controls.SettingsExpander expander)
+                {
+                    result.Add(expander);
+                }
+                result.AddRange(FindAllSettingsExpanders(child));
+            }
+            return result;
+        }
+
+        private void OnExpanderIsExpandedChanged(Microsoft.UI.Xaml.DependencyObject sender,
+            Microsoft.UI.Xaml.DependencyProperty dp)
+        {
+            if (sender is not CommunityToolkit.WinUI.Controls.SettingsExpander expander) return;
+            if (!expander.IsExpanded) return;
+            if (_expanderContentCreated.Contains(expander)) return;
+
+            _expanderContentCreated.Add(expander);
+            // Phase 2 will add actual content creation here
         }
 
         private void OnViewModelPropertyChanged(object? sender, PropertyChangedEventArgs e)
