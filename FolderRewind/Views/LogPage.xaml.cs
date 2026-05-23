@@ -16,7 +16,10 @@ namespace FolderRewind.Views
 {
     public sealed partial class LogPage : Page
     {
-        private readonly ObservableCollection<LogEntry> _allEntries = new();
+        // _allEntries is a plain List — never bound to UI.
+        // ObservableCollection would fire CollectionChanged for every Add/Remove/Clear
+        // even though no view listens to it, wasting CPU on event dispatch.
+        private readonly System.Collections.Generic.List<LogEntry> _allEntries = new();
         public ObservableCollection<LogEntry> FilteredEntries { get; } = new();
 
         // 该页面启用了 NavigationCacheMode=Required。
@@ -101,10 +104,10 @@ namespace FolderRewind.Views
             if (_allEntries.Count <= localMax) return;
 
             var remove = _allEntries.Count - localMax;
-            for (int i = 0; i < remove; i++)
-            {
-                _allEntries.RemoveAt(0);
-            }
+            // RemoveRange(0, remove) is O(n) — looped RemoveAt(0) on a List would
+            // shift elements N times, making it O(n^2). On ObservableCollection it
+            // would also fire CollectionChanged for every single removal.
+            _allEntries.RemoveRange(0, remove);
 
             RefreshFiltered();
         }
