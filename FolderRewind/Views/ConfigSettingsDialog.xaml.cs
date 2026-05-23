@@ -133,7 +133,6 @@ namespace FolderRewind.Views
             this.Config = config;
             this.Config.Cloud ??= new CloudSettings();
             this.Config.BackupScope ??= new BackupScopeSettings();
-            PluginService.Initialize();
             this.ViewModel = new ConfigSettingsDialogViewModel(this.Config);
             this.XamlRoot = MainWindowService.GetXamlRoot();
 
