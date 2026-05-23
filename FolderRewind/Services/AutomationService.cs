@@ -14,6 +14,8 @@ namespace FolderRewind.Services
         private static Timer? _scheduleTimer;
         private static Timer? _conditionTimer;
         private static bool _isRunning;
+        private static bool _scheduleTimerEnabled;
+        private static bool _conditionTimerEnabled;
 
         private static readonly SemaphoreSlim _tickLock = new(1, 1);
         private static readonly SemaphoreSlim _conditionTickLock = new(1, 1);
@@ -39,20 +41,20 @@ namespace FolderRewind.Services
                 return;
             }
 
-            _scheduleTimer = new Timer(OnTick, null, TimeSpan.Zero, TimeSpan.FromSeconds(60));
-            _conditionTimer = new Timer(OnConditionTick, null, TimeSpan.FromSeconds(10), TimeSpan.FromSeconds(10));
             _isRunning = true;
+
+            EvaluateTimers();
+            ConfigService.Saved += OnConfigSaved;
 
             CheckStartupBackups();
         }
 
         public static void Stop()
         {
-            _scheduleTimer?.Dispose();
-            _scheduleTimer = null;
+            ConfigService.Saved -= OnConfigSaved;
 
-            _conditionTimer?.Dispose();
-            _conditionTimer = null;
+            StopScheduleTimer();
+            StopConditionTimer();
 
             _conditionStates.Clear();
 
@@ -85,6 +87,72 @@ namespace FolderRewind.Services
                     updateAutomationState: true));
             }
         }
+
+        // ── Timer lifecycle ─────────────────────────────────────────
+
+        private static bool HasConditionalConfigs()
+        {
+            return GetBackupConfigs()
+                .Any(c => c?.Automation?.AutoBackupEnabled == true &&
+                          c.Automation.ConditionalModeEnabled &&
+                          c.Automation.ConditionType == AutomationConditionType.FileUnlocked);
+        }
+
+        private static bool HasScheduledOrIntervalConfigs()
+        {
+            return GetBackupConfigs()
+                .Any(c => c?.Automation?.AutoBackupEnabled == true &&
+                          (c.Automation.ScheduledMode || c.Automation.IntervalMode));
+        }
+
+        private static void EvaluateTimers()
+        {
+            var needConditional = HasConditionalConfigs();
+            var needScheduleOrInterval = HasScheduledOrIntervalConfigs();
+
+            if (needConditional && !_conditionTimerEnabled)
+                StartConditionTimer();
+            else if (!needConditional && _conditionTimerEnabled)
+                StopConditionTimer();
+
+            if (needScheduleOrInterval && !_scheduleTimerEnabled)
+                StartScheduleTimer();
+            else if (!needScheduleOrInterval && _scheduleTimerEnabled)
+                StopScheduleTimer();
+        }
+
+        private static void StartScheduleTimer()
+        {
+            _scheduleTimer = new Timer(OnTick, null, TimeSpan.Zero, TimeSpan.FromSeconds(60));
+            _scheduleTimerEnabled = true;
+        }
+
+        private static void StopScheduleTimer()
+        {
+            _scheduleTimer?.Dispose();
+            _scheduleTimer = null;
+            _scheduleTimerEnabled = false;
+        }
+
+        private static void StartConditionTimer()
+        {
+            _conditionTimer = new Timer(OnConditionTick, null, TimeSpan.FromSeconds(10), TimeSpan.FromSeconds(10));
+            _conditionTimerEnabled = true;
+        }
+
+        private static void StopConditionTimer()
+        {
+            _conditionTimer?.Dispose();
+            _conditionTimer = null;
+            _conditionTimerEnabled = false;
+        }
+
+        private static void OnConfigSaved()
+        {
+            EvaluateTimers();
+        }
+
+        // ── Timer tick handlers ─────────────────────────────────────
 
         private static async void OnTick(object? state)
         {
