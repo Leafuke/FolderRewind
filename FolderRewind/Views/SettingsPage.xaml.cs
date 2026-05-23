@@ -306,6 +306,8 @@ namespace FolderRewind.Views
                 catch { }
             }
             _expanderCallbackTokens.Clear();
+            _expanderLazyLoadInitialized = false;
+            _expanderContentCreated.Clear();
 
             _viewModel.PropertyChanged -= OnViewModelPropertyChanged;
             FontFamilies.CollectionChanged -= OnFontFamiliesCollectionChanged;
