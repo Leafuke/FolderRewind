@@ -2140,11 +2140,15 @@ namespace FolderRewind.Services
                 return new List<string>();
             }
 
-            return result.Output
-                .Split(new[] { "\r\n", "\n" }, StringSplitOptions.RemoveEmptyEntries)
-                .Select(line => line.Trim())
-                .Where(line => !string.IsNullOrWhiteSpace(line))
-                .ToList();
+            var outputSpan = result.Output.AsSpan();
+            var lines = new List<string>();
+            foreach (var line in outputSpan.EnumerateLines())
+            {
+                var trimmed = line.Trim();
+                if (!trimmed.IsEmpty)
+                    lines.Add(trimmed.ToString());
+            }
+            return lines;
         }
 
         private static async Task<(bool Success, int ExitCode, string Output, string ErrorMessage)> RunSilentCommandAsync(ResolvedCommand command, int timeoutSeconds)
@@ -2396,16 +2400,16 @@ namespace FolderRewind.Services
             var source = !string.IsNullOrWhiteSpace(stderr) ? stderr : stdout;
             if (!string.IsNullOrWhiteSpace(source))
             {
-                var lines = source
-                    .Split(new[] { '\r', '\n' }, StringSplitOptions.RemoveEmptyEntries)
-                    .Select(s => s.Trim())
-                    .Where(s => !string.IsNullOrWhiteSpace(s))
-                    .ToArray();
-
-                if (lines.Length > 0)
+                var sourceSpan = source.AsSpan();
+                ReadOnlySpan<char> lastNonEmpty = default;
+                foreach (var line in sourceSpan.EnumerateLines())
                 {
-                    return lines[^1];
+                    var trimmed = line.Trim();
+                    if (!trimmed.IsEmpty)
+                        lastNonEmpty = trimmed;
                 }
+                if (lastNonEmpty.Length > 0)
+                    return lastNonEmpty.ToString();
             }
 
             return I18n.Format("CloudSync_Error_ExitCode", exitCode);
