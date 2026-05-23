@@ -370,7 +370,64 @@
                     <StackPanel Visibility="{x:Bind Config.Automation.ScheduledMode, Mode=OneWay, Converter={StaticResource BoolToVisConverter}}" Spacing="8">
                         <TextBlock x:Name="ScheduleEntriesHeader" FontWeight="SemiBold"/>
                         <TextBlock x:Name="ScheduleEntriesDesc" Style="{StaticResource CaptionTextBlockStyle}" Foreground="{ThemeResource TextFillColorSecondaryBrush}" TextWrapping="Wrap"/>
-                        <StackPanel x:Name="ScheduleEntriesPanel" Spacing="6"/>
+                        <ItemsControl x:Name="ScheduleEntriesControl"
+                                      ItemsSource="{x:Bind Config.Automation.ScheduleEntries, Mode=OneWay}">
+                            <ItemsControl.ItemsPanel>
+                                <ItemsPanelTemplate>
+                                    <StackPanel Spacing="6"/>
+                                </ItemsPanelTemplate>
+                            </ItemsControl.ItemsPanel>
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate x:DataType="models:ScheduleEntry">
+                                    <Grid Margin="0,4" Padding="8"
+                                          BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
+                                          BorderThickness="1" CornerRadius="4">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="Auto"/>
+                                            <ColumnDefinition Width="Auto"/>
+                                            <ColumnDefinition Width="Auto"/>
+                                            <ColumnDefinition Width="Auto"/>
+                                            <ColumnDefinition Width="Auto"/>
+                                            <ColumnDefinition Width="*"/>
+                                            <ColumnDefinition Width="Auto"/>
+                                        </Grid.ColumnDefinitions>
+                                        <TextBlock Grid.Column="0" Text="月:" VerticalAlignment="Center" Margin="4,0"
+                                                   Style="{StaticResource CaptionTextBlockStyle}"/>
+                                        <ComboBox Grid.Column="1" Width="80"
+                                                  SelectedIndex="{x:Bind MonthSelection, Mode=TwoWay}"
+                                                  IsEnabled="{x:Bind IsMonthEnabled, Mode=OneWay}"
+                                                  Loaded="OnScheduleMonthComboLoaded"
+                                                  AutomationProperties.AutomationId="ScheduleMonthCombo"/>
+                                        <TextBlock Grid.Column="2" Text="日:" VerticalAlignment="Center" Margin="8,0,4,0"
+                                                   Style="{StaticResource CaptionTextBlockStyle}"/>
+                                        <ComboBox Grid.Column="3" Width="80"
+                                                  SelectedIndex="{x:Bind DaySelection, Mode=TwoWay}"
+                                                  Loaded="OnScheduleDayComboLoaded"
+                                                  AutomationProperties.AutomationId="ScheduleDayCombo"/>
+                                        <StackPanel Grid.Column="4" Orientation="Horizontal" Margin="8,0" Spacing="4">
+                                            <NumberBox Width="60" Value="{x:Bind Hour, Mode=TwoWay}" Minimum="0" Maximum="23"
+                                                       SpinButtonPlacementMode="Compact"
+                                                       AutomationProperties.AutomationId="ScheduleHourBox"/>
+                                            <TextBlock Text=":" VerticalAlignment="Center" FontWeight="SemiBold"/>
+                                            <NumberBox Width="60" Value="{x:Bind Minute, Mode=TwoWay}" Minimum="0" Maximum="59"
+                                                       SpinButtonPlacementMode="Compact"
+                                                       AutomationProperties.AutomationId="ScheduleMinuteBox"/>
+                                        </StackPanel>
+                                        <TextBlock Grid.Column="5" VerticalAlignment="Center" Margin="8,0"
+                                                   Style="{StaticResource CaptionTextBlockStyle}"
+                                                   Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                                                   Text="{x:Bind NextRunDisplay, Mode=OneWay}"/>
+                                        <Button Grid.Column="6" Margin="4,0"
+                                                Click="OnDeleteScheduleEntryClick"
+                                                Padding="6"
+                                                VerticalAlignment="Center"
+                                                AutomationProperties.AutomationId="DeleteScheduleEntryButton">
+                                            <FontIcon Glyph="&#xE711;" FontSize="12"/>
+                                        </Button>
+                                    </Grid>
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
                         <Button x:Name="AddScheduleButton" Click="OnAddScheduleEntryClick">
                             <StackPanel Orientation="Horizontal" Spacing="6">
                                 <FontIcon Glyph="&#xE710;" FontSize="14"/>

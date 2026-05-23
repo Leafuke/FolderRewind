@@ -755,7 +755,10 @@ namespace FolderRewind.Models
         private DateTime _lastTriggeredUtc = DateTime.MinValue;
 
         public int MonthSelection { get => _monthSelection; set { if (SetProperty(ref _monthSelection, value)) OnPropertyChanged(nameof(NextRunDisplay)); } }
-        public int DaySelection { get => _daySelection; set { if (SetProperty(ref _daySelection, value)) OnPropertyChanged(nameof(NextRunDisplay)); } }
+        public int DaySelection { get => _daySelection; set { if (SetProperty(ref _daySelection, value)) { OnPropertyChanged(nameof(NextRunDisplay)); OnPropertyChanged(nameof(IsMonthEnabled)); } } }
+
+        [JsonIgnore]
+        public bool IsMonthEnabled => DaySelection != 0;
         public int Hour { get => _hour; set { if (SetProperty(ref _hour, value)) OnPropertyChanged(nameof(NextRunDisplay)); } }
         public int Minute { get => _minute; set { if (SetProperty(ref _minute, value)) OnPropertyChanged(nameof(NextRunDisplay)); } }
         public DateTime LastTriggeredUtc { get => _lastTriggeredUtc; set => SetProperty(ref _lastTriggeredUtc, value); }
