@@ -9,61 +9,7 @@
     mc:Ignorable="d"
     NavigationCacheMode="Required">
 
-    <Page.Resources>
-        <x:Double x:Key="SettingsCardSpacing">8</x:Double>
-        <x:Double x:Key="SettingsActionControlWidth">180</x:Double>
-        <x:Double x:Key="SettingsNumericControlWidth">180</x:Double>
-        <x:Double x:Key="SettingsPathControlWidth">320</x:Double>
-        <x:Double x:Key="StartupWidthMin">1200</x:Double>
-        <x:Double x:Key="StartupWidthMax">3840</x:Double>
-        <x:Double x:Key="StartupHeightMin">600</x:Double>
-        <x:Double x:Key="StartupHeightMax">2160</x:Double>
-        <Style x:Key="SettingsSectionHeaderTextBlockStyle" TargetType="TextBlock" BasedOn="{StaticResource BodyStrongTextBlockStyle}">
-            <Setter Property="Margin" Value="0,32,0,8" />
-        </Style>
-        <Style x:Key="SettingsHeaderTextStyle" TargetType="TextBlock" BasedOn="{StaticResource BodyStrongTextBlockStyle}">
-            <Setter Property="TextWrapping" Value="Wrap" />
-        </Style>
-        <Style x:Key="SettingsDescriptionStyle" TargetType="TextBlock" BasedOn="{StaticResource CaptionTextBlockStyle}">
-            <Setter Property="Foreground" Value="{ThemeResource TextFillColorSecondaryBrush}" />
-            <Setter Property="TextWrapping" Value="Wrap" />
-        </Style>
-        <Style x:Key="SettingsSelectorStyle" TargetType="ComboBox" BasedOn="{StaticResource DefaultComboBoxStyle}">
-            <Setter Property="Width" Value="{StaticResource SettingsActionControlWidth}" />
-            <Setter Property="MinWidth" Value="{StaticResource SettingsActionControlWidth}" />
-            <Setter Property="HorizontalAlignment" Value="Right" />
-            <Setter Property="VerticalAlignment" Value="Center" />
-            <Setter Property="CornerRadius" Value="{StaticResource ControlCornerRadius}" />
-        </Style>
-        <Style x:Key="SettingsNumberBoxStyle" TargetType="NumberBox">
-            <Setter Property="Width" Value="{StaticResource SettingsNumericControlWidth}" />
-            <Setter Property="MinWidth" Value="{StaticResource SettingsNumericControlWidth}" />
-            <Setter Property="HorizontalAlignment" Value="Right" />
-            <Setter Property="VerticalAlignment" Value="Center" />
-            <Setter Property="SpinButtonPlacementMode" Value="Inline" />
-        </Style>
-        <Style x:Key="SettingsPathTextBoxStyle" TargetType="TextBox" BasedOn="{StaticResource DefaultTextBoxStyle}">
-            <Setter Property="Width" Value="{StaticResource SettingsPathControlWidth}" />
-            <Setter Property="MinWidth" Value="{StaticResource SettingsPathControlWidth}" />
-            <Setter Property="HorizontalAlignment" Value="Right" />
-            <Setter Property="VerticalAlignment" Value="Center" />
-            <Setter Property="CornerRadius" Value="{StaticResource ControlCornerRadius}" />
-        </Style>
-        <Style x:Key="SettingsEntryTextBoxStyle" TargetType="TextBox">
-            <Setter Property="Width" Value="{StaticResource SettingsActionControlWidth}" />
-            <Setter Property="MinWidth" Value="{StaticResource SettingsActionControlWidth}" />
-            <Setter Property="HorizontalAlignment" Value="Right" />
-            <Setter Property="VerticalAlignment" Value="Center" />
-        </Style>
-        <Style x:Key="SettingsActionButtonStyle" TargetType="Button" BasedOn="{StaticResource DefaultButtonStyle}">
-            <Setter Property="MinWidth" Value="120" />
-            <Setter Property="VerticalAlignment" Value="Center" />
-        </Style>
-        <Style x:Key="SettingsActionRowButtonStyle" TargetType="Button" BasedOn="{StaticResource SettingsActionButtonStyle}">
-            <Setter Property="Margin" Value="0" />
-        </Style>
-        <BitmapImage x:Key="QQGroup" UriSource="ms-appx:///Assets/qq_group_light.jpg" />
-    </Page.Resources>
+    <!-- All shared settings styles moved to Styles/SettingsStyles.xaml, merged in App.xaml -->
 
     <Grid>
         <Grid.RowDefinitions>
