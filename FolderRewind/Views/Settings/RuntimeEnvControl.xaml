@@ -1,0 +1,130 @@
+<UserControl
+    x:Class="FolderRewind.Views.Settings.RuntimeEnvControl"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:toolkit="using:CommunityToolkit.WinUI.Controls"
+    xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+    xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    mc:Ignorable="d">
+
+    <StackPanel Spacing="8">
+        <!-- 工具与依赖 -->
+        <TextBlock x:Uid="SettingsPage_Section_Tools" Style="{StaticResource SettingsSectionHeaderTextBlockStyle}" />
+
+        <!-- 运行环境 -->
+        <toolkit:SettingsExpander IsExpanded="False">
+            <toolkit:SettingsExpander.Header>
+                <TextBlock x:Uid="SettingsPage_Environment" Style="{StaticResource SettingsHeaderTextStyle}" />
+            </toolkit:SettingsExpander.Header>
+            <toolkit:SettingsExpander.Description>
+                <TextBlock x:Uid="SettingsPage_EnvironmentSectionDesc" Style="{StaticResource SettingsDescriptionStyle}" />
+            </toolkit:SettingsExpander.Description>
+            <toolkit:SettingsExpander.HeaderIcon>
+                <FontIcon Glyph="&#xE7B8;" />
+            </toolkit:SettingsExpander.HeaderIcon>
+            <toolkit:SettingsExpander.Items>
+                <toolkit:SettingsCard>
+                    <toolkit:SettingsCard.Header>
+                        <TextBlock x:Uid="SettingsPage_7zPath" Style="{StaticResource SettingsHeaderTextStyle}" />
+                    </toolkit:SettingsCard.Header>
+                    <toolkit:SettingsCard.Description>
+                        <TextBlock x:Uid="SettingsPage_7zPathDesc" Style="{StaticResource SettingsDescriptionStyle}" />
+                    </toolkit:SettingsCard.Description>
+                    <StackPanel Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
+                        <TextBox Text="{x:Bind ViewModel.Settings.SevenZipPath, Mode=TwoWay}" Style="{StaticResource SettingsPathTextBoxStyle}" />
+                        <Button x:Uid="SettingsPage_BrowseButton" Style="{StaticResource SettingsActionButtonStyle}" Click="OnBrowse7zClick" />
+                    </StackPanel>
+                </toolkit:SettingsCard>
+
+                <toolkit:SettingsCard>
+                    <toolkit:SettingsCard.Header>
+                        <TextBlock x:Uid="SettingsPage_DefaultBackupRootPath" Style="{StaticResource SettingsHeaderTextStyle}" />
+                    </toolkit:SettingsCard.Header>
+                    <toolkit:SettingsCard.Description>
+                        <TextBlock x:Uid="SettingsPage_DefaultBackupRootPathDesc" Style="{StaticResource SettingsDescriptionStyle}" />
+                    </toolkit:SettingsCard.Description>
+                    <StackPanel Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
+                        <TextBox Text="{x:Bind ViewModel.Settings.DefaultBackupRootPath, Mode=TwoWay}" Style="{StaticResource SettingsPathTextBoxStyle}" />
+                        <Button x:Uid="SettingsPage_BrowseButton" Style="{StaticResource SettingsActionButtonStyle}" Click="OnBrowseDefaultBackupRootClick" />
+                    </StackPanel>
+                </toolkit:SettingsCard>
+
+                <toolkit:SettingsCard>
+                    <toolkit:SettingsCard.Header>
+                        <TextBlock x:Uid="SettingsPage_RclonePath" Style="{StaticResource SettingsHeaderTextStyle}" />
+                    </toolkit:SettingsCard.Header>
+                    <toolkit:SettingsCard.Description>
+                        <TextBlock x:Uid="SettingsPage_RclonePathDesc" Style="{StaticResource SettingsDescriptionStyle}" />
+                    </toolkit:SettingsCard.Description>
+                    <StackPanel Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
+                        <TextBox Text="{x:Bind ViewModel.Settings.RcloneExecutablePath, Mode=TwoWay}" Style="{StaticResource SettingsPathTextBoxStyle}" />
+                        <Button x:Uid="SettingsPage_BrowseButton" Style="{StaticResource SettingsActionButtonStyle}" Click="OnBrowseRcloneClick" />
+                    </StackPanel>
+                </toolkit:SettingsCard>
+
+                <toolkit:SettingsCard>
+                    <toolkit:SettingsCard.Header>
+                        <TextBlock x:Uid="SettingsPage_DefaultCloudRemoteBasePath" Style="{StaticResource SettingsHeaderTextStyle}" />
+                    </toolkit:SettingsCard.Header>
+                    <toolkit:SettingsCard.Description>
+                        <TextBlock x:Uid="SettingsPage_DefaultCloudRemoteBasePathDesc" Style="{StaticResource SettingsDescriptionStyle}" />
+                    </toolkit:SettingsCard.Description>
+                    <TextBox Text="{x:Bind ViewModel.Settings.DefaultCloudRemoteBasePath, Mode=OneWay}"
+                             Style="{StaticResource SettingsPathTextBoxStyle}"
+                             TextChanged="OnDefaultCloudRemoteBasePathChanged" />
+                </toolkit:SettingsCard>
+
+                <toolkit:SettingsCard>
+                    <toolkit:SettingsCard.Header>
+                        <TextBlock x:Uid="SettingsPage_AutoDownloadMissingCloudBackupsBeforeRestore" Style="{StaticResource SettingsHeaderTextStyle}" />
+                    </toolkit:SettingsCard.Header>
+                    <toolkit:SettingsCard.Description>
+                        <TextBlock x:Uid="SettingsPage_AutoDownloadMissingCloudBackupsBeforeRestoreDesc" Style="{StaticResource SettingsDescriptionStyle}" />
+                    </toolkit:SettingsCard.Description>
+                    <ToggleSwitch IsOn="{x:Bind ViewModel.Settings.AutoDownloadMissingCloudBackupsBeforeRestore, Mode=OneWay}"
+                                  Toggled="OnAutoDownloadMissingCloudBackupsBeforeRestoreToggled" />
+                </toolkit:SettingsCard>
+
+                <toolkit:SettingsCard>
+                    <toolkit:SettingsCard.Header>
+                        <TextBlock x:Uid="SettingsPage_AppUpdateSource" Style="{StaticResource SettingsHeaderTextStyle}" />
+                    </toolkit:SettingsCard.Header>
+                    <toolkit:SettingsCard.Description>
+                        <TextBlock x:Uid="SettingsPage_AppUpdateSourceDesc" Style="{StaticResource SettingsDescriptionStyle}" />
+                    </toolkit:SettingsCard.Description>
+                    <ComboBox Style="{StaticResource SettingsSelectorStyle}"
+                              SelectedIndex="{x:Bind ViewModel.Settings.AppUpdatePreferredSource, Mode=TwoWay}"
+                              SelectionChanged="OnAppUpdateSourceSelectionChanged">
+                        <ComboBoxItem x:Uid="SettingsPage_AppUpdateSource_Official" />
+                        <ComboBoxItem x:Uid="SettingsPage_AppUpdateSource_Mirror1" />
+                        <ComboBoxItem x:Uid="SettingsPage_AppUpdateSource_Mirror2" />
+                        <ComboBoxItem x:Uid="SettingsPage_AppUpdateSource_Custom" />
+                    </ComboBox>
+                </toolkit:SettingsCard>
+
+                <toolkit:SettingsCard>
+                    <toolkit:SettingsCard.Header>
+                        <TextBlock x:Uid="SettingsPage_AppUpdateAutoFallback" Style="{StaticResource SettingsHeaderTextStyle}" />
+                    </toolkit:SettingsCard.Header>
+                    <toolkit:SettingsCard.Description>
+                        <TextBlock x:Uid="SettingsPage_AppUpdateAutoFallbackDesc" Style="{StaticResource SettingsDescriptionStyle}" />
+                    </toolkit:SettingsCard.Description>
+                    <ToggleSwitch IsOn="{x:Bind ViewModel.Settings.AppUpdateAutoFallback, Mode=OneWay}" Toggled="OnAppUpdateAutoFallbackToggled" />
+                </toolkit:SettingsCard>
+
+                <toolkit:SettingsCard>
+                    <toolkit:SettingsCard.Header>
+                        <TextBlock x:Uid="SettingsPage_AppUpdateCustomMirror" Style="{StaticResource SettingsHeaderTextStyle}" />
+                    </toolkit:SettingsCard.Header>
+                    <toolkit:SettingsCard.Description>
+                        <TextBlock x:Uid="SettingsPage_AppUpdateCustomMirrorDesc" Style="{StaticResource SettingsDescriptionStyle}" />
+                    </toolkit:SettingsCard.Description>
+                    <TextBox x:Uid="SettingsPage_AppUpdateCustomMirrorInput"
+                             Style="{StaticResource SettingsEntryTextBoxStyle}"
+                             Text="{x:Bind ViewModel.Settings.AppUpdateCustomMirrorUrl, Mode=OneWay}"
+                             TextChanged="OnAppUpdateCustomMirrorTextChanged" />
+                </toolkit:SettingsCard>
+            </toolkit:SettingsExpander.Items>
+        </toolkit:SettingsExpander>
+    </StackPanel>
+</UserControl>
