@@ -153,6 +153,7 @@ namespace FolderRewind.Models
         private bool _lastCoreValidationPassed = false;
         private DateTime _lastCoreValidationUtc = DateTime.MinValue;
         private string _lastCoreValidationSummary = "";
+        private bool _enablePerformanceTelemetry;
 
         public string Language { get => _language; set => SetProperty(ref _language, value); }
         public int ThemeIndex { get => _themeIndex; set => SetProperty(ref _themeIndex, value); }
@@ -384,6 +385,11 @@ namespace FolderRewind.Models
         /// 最近一次核心功能自动校验摘要。
         /// </summary>
         public string LastCoreValidationSummary { get => _lastCoreValidationSummary; set => SetProperty(ref _lastCoreValidationSummary, value ?? string.Empty); }
+
+        /// <summary>
+        /// 是否启用性能遥测（DEBUG 构建始终启用，RELEASE 构建由用户配置控制）。
+        /// </summary>
+        public bool EnablePerformanceTelemetry { get => _enablePerformanceTelemetry; set => SetProperty(ref _enablePerformanceTelemetry, value); }
     }
 
     /// <summary>

@@ -208,6 +208,13 @@ namespace FolderRewind
                 });
 
                 LogService.Log(I18n.GetString("App_Log_OnLaunchedEnd"));
+
+                // 启动内存遥测（DEBUG: 始终开启；RELEASE: 由用户配置控制）
+                try
+                {
+                    Services.Diagnostics.MemoryTelemetryService.Start();
+                }
+                catch { }
             }
             catch (Exception ex)
             {
