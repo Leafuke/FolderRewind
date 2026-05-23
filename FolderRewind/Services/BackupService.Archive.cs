@@ -1028,6 +1028,20 @@ namespace FolderRewind.Services
         /// </summary>
         private static readonly Regex _progressRegex = new(@"^\s*(\d{1,3})%", RegexOptions.Compiled);
 
+        // 200ms 固定刷新：避免每个 stdout 行都向 UI 线程排队，减轻 DispatcherQueue 压力。
+        private static long _lastProgressUpdateTimestamp;
+        private const long ProgressUpdateIntervalMs = 200;
+
+        private static bool ShouldUpdateProgress()
+        {
+            var now = Stopwatch.GetTimestamp();
+            var elapsedMs = (now - _lastProgressUpdateTimestamp) * 1000.0 / Stopwatch.Frequency;
+            if (elapsedMs < ProgressUpdateIntervalMs && _lastProgressUpdateTimestamp != 0)
+                return false;
+            _lastProgressUpdateTimestamp = now;
+            return true;
+        }
+
         private static async Task<bool> RunSevenZipProcessAsync(
             string sevenZipExe, string arguments,
             string? workingDirectory = null, string? logArguments = null,
@@ -1072,11 +1086,16 @@ namespace FolderRewind.Services
                         if (match.Success && int.TryParse(match.Groups[1].Value, out int percent) && percent >= 0 && percent <= 100)
                         {
                             double mapped = progressBase + (double)percent / 100.0 * progressRange;
-                            UiDispatcherService.Enqueue(() =>
+                            // 每次 stdout 行都计算进度值，但每 200ms 才向 UI 线程排队一次，避免
+                            // 大量 Enqueue 调用造成 DispatcherQueue 积压。
+                            if (ShouldUpdateProgress())
                             {
-                                if (taskToUpdate.IsIndeterminate) taskToUpdate.IsIndeterminate = false;
-                                taskToUpdate.Progress = Math.Min(mapped, 100);
-                            });
+                                UiDispatcherService.Enqueue(() =>
+                                {
+                                    if (taskToUpdate.IsIndeterminate) taskToUpdate.IsIndeterminate = false;
+                                    taskToUpdate.Progress = Math.Min(mapped, 100);
+                                });
+                            }
                         }
                     }
                 };
