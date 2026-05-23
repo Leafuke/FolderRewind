@@ -258,7 +258,7 @@ namespace FolderRewind.ViewModels
             RefreshSponsorOptionLists();
         }
 
-        public void Initialize()
+        public async Task InitializeAsync()
         {
             if (_initialized)
             {
@@ -290,6 +290,8 @@ namespace FolderRewind.ViewModels
             SponsorService.StateChanged += SponsorService_StateChanged;
             SponsorService.StatusChanged -= SponsorService_StateChanged;
             SponsorService.StatusChanged += SponsorService_StateChanged;
+
+            await Task.CompletedTask;
         }
 
         public void OnNavigatedTo()

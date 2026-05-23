@@ -154,7 +154,6 @@ namespace FolderRewind.Views
             this.InitializeComponent();
 
             _viewModel.PropertyChanged += OnViewModelPropertyChanged;
-            _viewModel.Initialize();
             FontFamilies.CollectionChanged -= OnFontFamiliesCollectionChanged;
             FontFamilies.CollectionChanged += OnFontFamiliesCollectionChanged;
 
@@ -187,8 +186,9 @@ namespace FolderRewind.Views
                 _isInitializingFont = false;
             }
 
-            Loaded += (_, _) =>
+            Loaded += async (_, _) =>
             {
+                await _viewModel.InitializeAsync();
                 InitializeExpanderLazyLoading();
             };
         }
