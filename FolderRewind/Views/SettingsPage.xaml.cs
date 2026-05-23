@@ -195,19 +195,22 @@ namespace FolderRewind.Views
 
         // SettingsExpander lazy loading
         private readonly HashSet<CommunityToolkit.WinUI.Controls.SettingsExpander> _expanderContentCreated = new();
+        private readonly Dictionary<CommunityToolkit.WinUI.Controls.SettingsExpander, long> _expanderCallbackTokens = new();
         private bool _expanderLazyLoadInitialized;
 
         private void InitializeExpanderLazyLoading()
         {
             if (_expanderLazyLoadInitialized) return;
+            if (SettingsScrollViewer is null) return;
             _expanderLazyLoadInitialized = true;
 
             var expanders = FindAllSettingsExpanders(SettingsScrollViewer);
             foreach (var expander in expanders)
             {
-                expander.RegisterPropertyChangedCallback(
+                var token = expander.RegisterPropertyChangedCallback(
                     CommunityToolkit.WinUI.Controls.SettingsExpander.IsExpandedProperty,
                     OnExpanderIsExpandedChanged);
+                _expanderCallbackTokens[expander] = token;
             }
         }
 
@@ -293,6 +296,17 @@ namespace FolderRewind.Views
 
         private void OnSettingsPageUnloaded(object sender, RoutedEventArgs e)
         {
+            foreach (var (expander, token) in _expanderCallbackTokens)
+            {
+                try
+                {
+                    expander.UnregisterPropertyChangedCallback(
+                        CommunityToolkit.WinUI.Controls.SettingsExpander.IsExpandedProperty, token);
+                }
+                catch { }
+            }
+            _expanderCallbackTokens.Clear();
+
             _viewModel.PropertyChanged -= OnViewModelPropertyChanged;
             FontFamilies.CollectionChanged -= OnFontFamiliesCollectionChanged;
             _viewModel.Dispose();
