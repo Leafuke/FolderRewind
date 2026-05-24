@@ -383,3 +383,4 @@ FodyWeavers.xsd
 !/docs/SponsorEdition.md
 !/docs/SPONSORS.md
 *.exe
+/.superpowers

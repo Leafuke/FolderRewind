@@ -1468,7 +1468,8 @@
     <value>卸载插件</value>
   </data>
   <data name="Plugins_UninstallConfirm" xml:space="preserve">
-    <value>确定卸载插件：{0} ({1})？\n\n提示：如果插件文件被占用，可能需要关闭应用后再卸载。</value>
+    <value>确定卸载插件：{0} ({1})？
+提示：如果插件文件被占用，可能需要关闭应用后再卸载。</value>
   </data>
   <data name="Plugins_UninstallButton" xml:space="preserve">
     <value>卸载</value>
@@ -2362,7 +2363,8 @@ RESTORE -current_save=true -file=backup.7z -preserve_player_data=true
     <value>删除历史记录</value>
   </data>
   <data name="History_DeleteConfirm_Content" xml:space="preserve">
-    <value>将要处理该条历史记录：{0} \n\n请选择仅删除记录、仅删除本地备份文件，或同时删除本地备份与记录。云端副本不会被移除。</value>
+    <value>将要处理该条历史记录：{0} 
+请选择仅删除记录、仅删除本地备份文件，或同时删除本地备份与记录。云端副本不会被移除。</value>
   </data>
   <data name="History_ClearMissingConfirm_Title" xml:space="preserve">
     <value>清除失效记录</value>
