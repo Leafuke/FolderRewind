@@ -1354,7 +1354,7 @@ Duplicate folder names are blocked within the same configuration so different di
     <value>Plugin store</value>
   </data>
   <data name="PluginStorePage_Desc.Text" xml:space="preserve">
-    <value>Download plugin zip from the latest GitHub Release. The zip root must contain manifest.json.</value>
+    <value>Download plugin packages from the latest GitHub Release. The package root must contain manifest.json.</value>
   </data>
   <data name="PluginStorePage_RepoBox.Header" xml:space="preserve">
     <value>GitHub repo (owner/repo)</value>
@@ -1468,8 +1468,8 @@ Duplicate folder names are blocked within the same configuration so different di
     <value>Uninstall plugin</value>
   </data>
   <data name="Plugins_UninstallConfirm" xml:space="preserve">
-    <value>Uninstall plugin: {0} ({1})?
-Tip: If plugin files are in use, you may need to close the app and try again.</value>
+    <value>Uninstall plugin {0} ({1})?
+If plugin files are in use, you may need to close the app first.</value>
   </data>
   <data name="Plugins_UninstallButton" xml:space="preserve">
     <value>Uninstall</value>
@@ -1819,7 +1819,7 @@ Legacy positional commands remain compatible: BACKUP &lt;config_id&gt; &lt;folde
     <value>Empty command.</value>
   </data>
   <data name="KnotLink_Parse_ExpectedOption" xml:space="preserve">
-    <value>Parameterized commands only accept -key=value. Unexpected character: {0}</value>
+    <value>Parameterized commands only accept -key=value format. Unexpected character: {0}</value>
   </data>
   <data name="KnotLink_Parse_InvalidOption" xml:space="preserve">
     <value>Invalid option: {0}. Use -key=value.</value>
@@ -1911,7 +1911,7 @@ If you have a listener subscribed to this signal, it should receive a message.</
     <value>Send custom message</value>
   </data>
   <data name="SettingsPage_KnotLinkSendCustom_Placeholder" xml:space="preserve">
-    <value>Enter event_data (will send via OpenSocket: SEND &lt;event_data&gt;)</value>
+    <value>Enter content to send</value>
   </data>
   <data name="SettingsPage_KnotLinkSendCustom_Empty" xml:space="preserve">
     <value>Message cannot be empty</value>
@@ -2397,7 +2397,7 @@ Choose whether to remove only the record, only the local backup file, or both. C
     <value>Failed to open file: {0}</value>
   </data>
   <data name="History_EditComment_Title" xml:space="preserve">
-    <value>Edit Comment</value>
+    <value>Edit comment</value>
   </data>
   <data name="History_EditComment_Placeholder" xml:space="preserve">
     <value>Enter backup comment (optional)</value>
@@ -2424,7 +2424,7 @@ Choose whether to remove only the record, only the local backup file, or both. C
     <value>View</value>
   </data>
   <data name="Notification_BackupCompleted_Title" xml:space="preserve">
-    <value>Backup Complete</value>
+    <value>Backup complete</value>
   </data>
   <data name="Notification_BackupCompleted_Success" xml:space="preserve">
     <value>Folder "{0}" backed up successfully</value>
@@ -2433,10 +2433,10 @@ Choose whether to remove only the record, only the local backup file, or both. C
     <value>Folder "{0}" backup failed: {1}</value>
   </data>
   <data name="Notification_BackupFailed_Title" xml:space="preserve">
-    <value>Backup Failed</value>
+    <value>Backup failed</value>
   </data>
   <data name="Notification_RestoreCompleted_Title" xml:space="preserve">
-    <value>Restore Complete</value>
+    <value>Restore complete</value>
   </data>
   <data name="Notification_RestoreCompleted_Success" xml:space="preserve">
     <value>Folder "{0}" restored successfully</value>
@@ -2445,7 +2445,7 @@ Choose whether to remove only the record, only the local backup file, or both. C
     <value>Folder "{0}" restore failed: {1}</value>
   </data>
   <data name="CloudSync_Notification_Title" xml:space="preserve">
-    <value>Cloud Archive</value>
+    <value>Cloud archive</value>
   </data>
   <data name="CloudSync_Notification_UploadFailed" xml:space="preserve">
     <value>Cloud upload failed for folder "{0}": {1}</value>
@@ -2559,19 +2559,19 @@ Choose whether to remove only the record, only the local backup file, or both. C
     <value>Comment, then Enter to backup...</value>
   </data>
   <data name="MiniWindow_Menu_OpenFolder" xml:space="preserve">
-    <value>Open Folder</value>
+    <value>Open folder</value>
   </data>
   <data name="MiniWindow_Menu_Backup" xml:space="preserve">
-    <value>Backup Now</value>
+    <value>Backup now</value>
   </data>
   <data name="MiniWindow_Menu_Close" xml:space="preserve">
     <value>Close</value>
   </data>
   <data name="MiniWindow_Menu_ExpandLeft" xml:space="preserve">
-    <value>Expand Left</value>
+    <value>Expand left</value>
   </data>
   <data name="MiniWindow_Menu_ExpandRight" xml:space="preserve">
-    <value>Expand Right</value>
+    <value>Expand right</value>
   </data>
   <data name="MiniWindow_Tip_Normal" xml:space="preserve">
     <value>No changes</value>
@@ -2616,7 +2616,7 @@ Status: {3}</value>
     <value>Failed to register Mini hotkey: {0}</value>
   </data>
   <data name="Hotkeys_MiniBackup_DisplayName" xml:space="preserve">
-    <value>Mini Backup</value>
+    <value>Mini backup</value>
   </data>
   <data name="Hotkeys_MiniBackup_Description" xml:space="preserve">
     <value>Trigger backup on the last focused Mini window (global hotkey)</value>
@@ -2889,7 +2889,7 @@ Status: {3}</value>
     <value>New to cloud sync? Start with the official guide.</value>
   </data>
   <data name="ConfigSettingsDialog_CloudGuideOpen.Content" xml:space="preserve">
-    <value>Open Website</value>
+    <value>Open website</value>
   </data>
   <data name="ConfigSettingsDialog_CloudGuideOpenFailed" xml:space="preserve">
     <value>Failed to open website: {0}</value>
@@ -2916,10 +2916,10 @@ Status: {3}</value>
     <value>Enable post-backup cloud upload</value>
   </data>
   <data name="ConfigSettingsDialog_CloudEnabled.OnContent" xml:space="preserve">
-    <value>Enabled</value>
+    <value>On</value>
   </data>
   <data name="ConfigSettingsDialog_CloudEnabled.OffContent" xml:space="preserve">
-    <value>Disabled</value>
+    <value>Off</value>
   </data>
   <data name="ConfigSettingsDialog_CloudMode.Header" xml:space="preserve">
     <value>Execution mode</value>
@@ -3015,13 +3015,13 @@ Status: {3}</value>
     <value>Error summary</value>
   </data>
   <data name="ConfigSettingsDialog_FileTypeHandling.Header" xml:space="preserve">
-    <value>Custom File Type Handling</value>
+    <value>Custom file type handling</value>
   </data>
   <data name="ConfigSettingsDialog_FileTypeHandling.OnContent" xml:space="preserve">
-    <value>Enabled</value>
+    <value>On</value>
   </data>
   <data name="ConfigSettingsDialog_FileTypeHandling.OffContent" xml:space="preserve">
-    <value>Disabled</value>
+    <value>Off</value>
   </data>
   <data name="ConfigSettingsDialog_FileTypeHandlingDesc.Text" xml:space="preserve">
     <value>When enabled, you can set different compression levels for different file types. For example, use store-only for video/audio files to save time. This feature disables solid compression (-ms=off).</value>
@@ -3213,7 +3213,7 @@ Status: {3}</value>
     <value>[CloudOnboarding] The user canceled or the task was canceled.</value>
   </data>
   <data name="Encryption_SetPasswordTitle" xml:space="preserve">
-    <value>Set Encryption Password</value>
+    <value>Set encryption password</value>
   </data>
   <data name="Encryption_SetPasswordDesc" xml:space="preserve">
     <value>Set a password for this encrypted configuration. All backups will be encrypted with this password.</value>
@@ -3225,7 +3225,7 @@ Status: {3}</value>
     <value>Confirm password</value>
   </data>
   <data name="Encryption_PasswordWarning" xml:space="preserve">
-    <value>⚠ Once set, the password cannot be changed. If lost, encrypted backups cannot be restored. Please keep it safe.</value>
+    <value>Password cannot be changed once set. Losing it means encrypted backups cannot be restored.</value>
   </data>
   <data name="Encryption_PasswordEmpty" xml:space="preserve">
     <value>Password cannot be empty.</value>
@@ -3234,7 +3234,7 @@ Status: {3}</value>
     <value>Passwords do not match.</value>
   </data>
   <data name="Encryption_RestorePasswordTitle" xml:space="preserve">
-    <value>Password Required</value>
+    <value>Password required</value>
   </data>
   <data name="Encryption_RestorePasswordDesc" xml:space="preserve">
     <value>This is an encrypted configuration. Please enter the password to restore.</value>
@@ -3243,7 +3243,7 @@ Status: {3}</value>
     <value>Enter password</value>
   </data>
   <data name="Encryption_WrongPasswordTitle" xml:space="preserve">
-    <value>Incorrect Password</value>
+    <value>Incorrect password</value>
   </data>
   <data name="Encryption_WrongPasswordDesc" xml:space="preserve">
     <value>The password you entered is incorrect. Please try again.</value>
@@ -3255,10 +3255,10 @@ Status: {3}</value>
     <value>Welcome to FolderRewind!</value>
   </data>
   <data name="FirstLaunch_Content" xml:space="preserve">
-    <value>If you're not sure how to use FolderRewind, check out our brief introduction video on Bilibili.</value>
+    <value>Not sure where to start? Watch a quick introduction video on Bilibili.</value>
   </data>
   <data name="FirstLaunch_OpenVideo" xml:space="preserve">
-    <value>Watch Video</value>
+    <value>Watch video</value>
   </data>
   <data name="FirstLaunch_Skip" xml:space="preserve">
     <value>Skip</value>
@@ -3449,16 +3449,16 @@ Release notes:
     <value>Create from template</value>
   </data>
   <data name="SettingsPage_TemplateData.Text" xml:space="preserve">
-    <value>Template Data</value>
+    <value>Template data</value>
   </data>
   <data name="SettingsPage_TemplateDataDesc.Text" xml:space="preserve">
     <value>Export or import templates for cross-device sharing and quick reuse.</value>
   </data>
   <data name="SettingsPage_ExportTemplate.Content" xml:space="preserve">
-    <value>Export Template</value>
+    <value>Export template</value>
   </data>
   <data name="SettingsPage_ImportTemplate.Content" xml:space="preserve">
-    <value>Import Template</value>
+    <value>Import template</value>
   </data>
   <data name="Settings_Template_Export_NoTemplates" xml:space="preserve">
     <value>No templates are available to export.</value>
@@ -3467,7 +3467,7 @@ Release notes:
     <value>Select a template to export</value>
   </data>
   <data name="Template_DefaultName" xml:space="preserve">
-    <value>New Template</value>
+    <value>New template</value>
   </data>
   <data name="Template_SaveDialog_Title" xml:space="preserve">
     <value>Save as template</value>
@@ -3557,16 +3557,16 @@ Release notes:
     <value>Template imported and renamed to "{1}" (original name: {0}).</value>
   </data>
   <data name="Template_Import_ConflictTitle" xml:space="preserve">
-    <value>Template Conflict</value>
+    <value>Template conflict</value>
   </data>
   <data name="Template_Import_ConflictContent" xml:space="preserve">
     <value>The imported template "{0}" conflicts with the existing template "{1}". Do you want to replace the existing one or keep both?</value>
   </data>
   <data name="Template_Import_ConflictReplace" xml:space="preserve">
-    <value>Replace Existing</value>
+    <value>Replace existing</value>
   </data>
   <data name="Template_Import_ConflictKeepBoth" xml:space="preserve">
-    <value>Keep Both</value>
+    <value>Keep both</value>
   </data>
   <data name="Template_Import_Failed" xml:space="preserve">
     <value>Failed to import template: {0}</value>
@@ -3584,19 +3584,19 @@ Release notes:
     <value>Select a local template directly, or search the official repository, import one, and then continue.</value>
   </data>
   <data name="Template_CreateFrom_Home_OfficialSearchHeader" xml:space="preserve">
-    <value>Search Official Templates</value>
+    <value>Search official templates</value>
   </data>
   <data name="Template_CreateFrom_Home_OfficialSearchPlaceholder" xml:space="preserve">
     <value>Search the official repository by template name, game, author, or share code</value>
   </data>
   <data name="Template_CreateFrom_Home_SearchOfficial" xml:space="preserve">
-    <value>Search Official Templates</value>
+    <value>Search official templates</value>
   </data>
   <data name="Template_CreateFrom_Home_TemplateInfo" xml:space="preserve">
     <value>Template "{0}" with {1} path rule(s).</value>
   </data>
   <data name="Template_CreateFrom_Home_SelectFoldersTitle" xml:space="preserve">
-    <value>Confirm Discovered Source Folders</value>
+    <value>Confirm discovered source folders</value>
   </data>
   <data name="Template_CreateFrom_Home_SelectFoldersDesc" xml:space="preserve">
     <value>Template "{0}" discovered {1} candidate source folder(s). Please confirm which ones should be added to the new configuration.</value>
@@ -3620,10 +3620,10 @@ Release notes:
     <value>Required plugins for this template are missing: {0}</value>
   </data>
   <data name="SettingsPage_ManageTemplates.Content" xml:space="preserve">
-    <value>Manage Templates</value>
+    <value>Manage templates</value>
   </data>
   <data name="TemplateManagerDialog.Title" xml:space="preserve">
-    <value>Template Manager</value>
+    <value>Template manager</value>
   </data>
   <data name="TemplateManagerDialog.CloseButtonText" xml:space="preserve">
     <value>Close</value>
@@ -3635,7 +3635,7 @@ Release notes:
     <value>Search by name, author, or type</value>
   </data>
   <data name="TemplateManagerDialog_DetailHeader.Text" xml:space="preserve">
-    <value>Template Details</value>
+    <value>Template details</value>
   </data>
   <data name="TemplateManagerDialog_Name.Header" xml:space="preserve">
     <value>Name</value>
@@ -3653,7 +3653,7 @@ Release notes:
     <value>Type: {0} | Updated: {1} | Rules: {2}</value>
   </data>
   <data name="TemplateManagerDialog_Save.Content" xml:space="preserve">
-    <value>Save Changes</value>
+    <value>Save changes</value>
   </data>
   <data name="TemplateManagerDialog_Duplicate.Content" xml:space="preserve">
     <value>Duplicate</value>
@@ -3671,10 +3671,10 @@ Release notes:
     <value>Cancel</value>
   </data>
   <data name="TemplateManagerDialog_PreviewHeader.Text" xml:space="preserve">
-    <value>Rule Preview</value>
+    <value>Rule preview</value>
   </data>
   <data name="TemplateManagerDialog_RefreshPreview.Content" xml:space="preserve">
-    <value>Refresh Preview</value>
+    <value>Refresh preview</value>
   </data>
   <data name="TemplateManagerDialog_PathRulesHeader.Text" xml:space="preserve">
     <value>Path matching rules</value>
@@ -3686,10 +3686,10 @@ Release notes:
     <value>Edit path expressions directly, for example {AppDataRoaming}\.minecraft\versions\{*}\saves\{*}, {SteamUserData}\{UserIdCandidate}\123456\remote, or {Process:xxx.exe}\.minecraft\versions\{*}\saves\{*}. {*} can appear in the middle or at the end of a path and expands every child folder at that level before continuing. {Process:xxx.exe} resolves the install directory of a currently running process, then continues matching from there.</value>
   </data>
   <data name="TemplateManagerDialog_AddRule.Content" xml:space="preserve">
-    <value>Add Rule</value>
+    <value>Add rule</value>
   </data>
   <data name="TemplateManagerDialog_SaveRules.Content" xml:space="preserve">
-    <value>Save Rules</value>
+    <value>Save rules</value>
   </data>
   <data name="TemplateManagerDialog_PathRuleName.Text" xml:space="preserve">
     <value>Rule name</value>
@@ -3713,7 +3713,7 @@ Release notes:
     <value>Confidence (0-1)</value>
   </data>
   <data name="TemplateManagerDialog_RemoveRule.Content" xml:space="preserve">
-    <value>Remove Rule</value>
+    <value>Remove rule</value>
   </data>
   <data name="TemplateManagerDialog_NoRules.Text" xml:space="preserve">
     <value>This template has no path rules yet. You can add one manually.</value>
@@ -3851,13 +3851,13 @@ Release notes:
     <value>{0} of {1} rule(s) matched.</value>
   </data>
   <data name="SettingsPage_BrowseOfficialTemplates.Content" xml:space="preserve">
-    <value>Import Official Template</value>
+    <value>Import official template</value>
   </data>
   <data name="SettingsPage_UseTemplateShareCode.Content" xml:space="preserve">
-    <value>Import by Share Code</value>
+    <value>Import by share code</value>
   </data>
   <data name="SettingsPage_PrepareTemplateSubmission.Content" xml:space="preserve">
-    <value>Prepare Submission</value>
+    <value>Prepare submission</value>
   </data>
   <data name="OfficialTemplates_SourceCache" xml:space="preserve">
     <value>Local cache</value>
@@ -3896,10 +3896,10 @@ Release notes:
     <value>Failed to download official template: {0}</value>
   </data>
   <data name="OfficialTemplates_BrowseTitle" xml:space="preserve">
-    <value>Official Template Library</value>
+    <value>Official template library</value>
   </data>
   <data name="OfficialTemplates_CreateFromOfficialTitle" xml:space="preserve">
-    <value>Create Config from Official Template</value>
+    <value>Create config from official template</value>
   </data>
   <data name="OfficialTemplates_SearchHeader" xml:space="preserve">
     <value>Search templates</value>
@@ -3926,7 +3926,7 @@ Release notes:
     <value>Enter the 5-character share code</value>
   </data>
   <data name="OfficialTemplates_UseByShareCodeTitle" xml:space="preserve">
-    <value>Use Template by Share Code</value>
+    <value>Use template by share code</value>
   </data>
   <data name="OfficialTemplates_InvalidShareCode" xml:space="preserve">
     <value>Invalid share code format. Please enter 5 uppercase letters or digits.</value>
@@ -4016,22 +4016,22 @@ Release notes:
     <value>You can export a standard submission package first or submit directly through GitHub. Exporting also copies the submission summary to your clipboard.</value>
   </data>
   <data name="Template_Submission_SummaryTitle" xml:space="preserve">
-    <value>Submission Summary</value>
+    <value>Submission summary</value>
   </data>
   <data name="TemplateSubmissionDialog.Title" xml:space="preserve">
-    <value>Submit Template</value>
+    <value>Submit template</value>
   </data>
   <data name="TemplateSubmissionDialog_ExportPackage" xml:space="preserve">
-    <value>Export Submission Package</value>
+    <value>Export submission package</value>
   </data>
   <data name="TemplateSubmissionDialog_SubmitToGitHub" xml:space="preserve">
-    <value>Submit Template Automatically</value>
+    <value>Submit template automatically</value>
   </data>
   <data name="TemplateSubmissionDialog_PrepareSection.Text" xml:space="preserve">
-    <value>Prepare Submission Package</value>
+    <value>Prepare submission package</value>
   </data>
   <data name="TemplateSubmissionDialog_GitHubSection.Text" xml:space="preserve">
-    <value>GitHub Automated Submission</value>
+    <value>GitHub automated submission</value>
   </data>
   <data name="TemplateSubmissionDialog_GitHubHint.Text" xml:space="preserve">
     <value>The official Microsoft Store release uses built-in GitHub OAuth settings and completes desktop authorization through your default browser plus PKCE.</value>
@@ -4069,7 +4069,7 @@ Path rules: {2}</value>
     <value>Rule "{0}" contains an unsafe marker: {1}</value>
   </data>
   <data name="SettingsPage_GitHubSignOut.Content" xml:space="preserve">
-    <value>Sign Out GitHub</value>
+    <value>Sign out GitHub</value>
   </data>
   <data name="GitHubOAuth_ConfigUnavailable" xml:space="preserve">
     <value>This build does not include the OAuth credential required for GitHub automated submission. The feature is only available in the official Microsoft Store release, and stays disabled in GitHub sideload and third-party builds.</value>
@@ -4084,7 +4084,7 @@ Path rules: {2}</value>
     <value>GitHub authorized as {0}</value>
   </data>
   <data name="GitHubOAuth_LoginTitle" xml:space="preserve">
-    <value>GitHub Authorization</value>
+    <value>GitHub authorization</value>
   </data>
   <data name="GitHubOAuth_LoginHint" xml:space="preserve">
     <value>Your default browser has opened the GitHub authorization page. Finish signing in and authorizing FolderRewind in the browser, then return here and wait for completion.</value>
@@ -4168,14 +4168,14 @@ Path rules: {2}</value>
     <value>Automatic submission did not return a result. Please check the logs.</value>
   </data>
   <data name="GitHubSubmit_ResultTitle" xml:space="preserve">
-    <value>Automatic Submission Result</value>
+    <value>Automatic submission result</value>
   </data>
   <data name="GitHubSubmit_ResultContent" xml:space="preserve">
     <value>Share code: {0}
 Pull request: {1}</value>
   </data>
   <data name="GitHubSubmit_OpenPullRequest" xml:space="preserve">
-    <value>Open Pull Request</value>
+    <value>Open pull request</value>
   </data>
   <data name="GitHubSubmit_Progress_Starting" xml:space="preserve">
     <value>Preparing automatic submission...</value>
@@ -4505,7 +4505,7 @@ Pull request: {1}</value>
     <value>Off</value>
   </data>
   <data name="ConfigSettingsDialog_CloudSyncHistoryAfterUploadDesc.Text" xml:space="preserve">
-    <value>After each successful automatic backup upload, also merge-upload this configuration's latest history plus its active-history manifest so other devices can sync without re-importing backups that were deleted locally.</value>
+    <value>After each successful auto-upload, sync the current configuration's history and active-history manifest. This helps other devices avoid re-downloading old backups that were already deleted locally.</value>
   </data>
   <data name="SettingsPage_DefaultCloudRemoteBasePath.Text" xml:space="preserve">
     <value>Default remote base path</value>
@@ -4679,13 +4679,13 @@ Pull request: {1}</value>
     <value>This is a partial backup</value>
   </data>
   <data name="History_PartialCleanConfirm_Content" xml:space="preserve">
-    <value>This backup was created by whitelist or region backup and contains only some files. Continuing with Clean restore may delete other files in the target folder that are not present in the archive. Continue?</value>
+    <value>This backup was created from an inclusion list or partial scope and contains only some files. Continuing with Clean restore may delete other files in the target folder not included in the backup. Continue?</value>
   </data>
   <data name="History_PartialCleanConfirm_Primary" xml:space="preserve">
     <value>Confirm Clean restore</value>
   </data>
   <data name="KnotLink_Error_PartialCleanRequiresConfirm" xml:space="preserve">
-    <value>The target archive is a partial backup. Add -confirm_partial_clean=true if you really want Clean restore.</value>
+    <value>The target backup is a partial backup. To proceed with Clean restore, add -confirm_partial_clean=true.</value>
   </data>
   <data name="Tray_ToolTip" xml:space="preserve">
     <value>FolderRewind</value>
