@@ -196,10 +196,10 @@
     <value>(Not selected)</value>
   </data>
   <data name="FolderManager_DuplicateDisplayName_Title" xml:space="preserve">
-    <value>This configuration already contains that folder name</value>
+    <value>A folder with this name already exists in the configuration</value>
   </data>
   <data name="FolderManager_DuplicateDisplayName_Content" xml:space="preserve">
-    <value>The configuration "{1}" already contains a folder named "{0}". Duplicate folder names are blocked so different directories do not share the same backup slot.</value>
+    <value>The configuration "{1}" already contains a folder named "{0}". Duplicate names are not allowed to prevent different directories from sharing the same backup slot.</value>
   </data>
   <data name="FolderManager_DuplicateDisplayName_BatchContent" xml:space="preserve">
     <value>The following folders were not added to "{0}" because their display names already exist:
@@ -235,7 +235,7 @@ Duplicate folder names are blocked within the same configuration so different di
     <value>Folder names: {0}</value>
   </data>
   <data name="ShellPage_FolderConflict_Footer" xml:space="preserve">
-    <value>Because backup archives, metadata, cloud sync, and restore lookup still use display names, these conflicts can make different folders share one slot.</value>
+    <value>Since backups, metadata, cloud sync, and restore all use display names, these conflicts can cause different folders to share the same backup slot.</value>
   </data>
   <data name="ShellPage_NavHome.Content" xml:space="preserve">
     <value>Home</value>
@@ -304,7 +304,7 @@ Duplicate folder names are blocked within the same configuration so different di
     <value>About FolderRewind</value>
   </data>
   <data name="SettingsPage_AboutDesc.Text" xml:space="preserve">
-    <value>© 2025 Leafuke. GPL License.</value>
+    <value>© 2025-2026 Leafuke. GPL License.</value>
   </data>
   <data name="SettingsPage_About_Link_Repository.Content" xml:space="preserve">
     <value>Project (GitHub)</value>
@@ -322,7 +322,7 @@ Duplicate folder names are blocked within the same configuration so different di
     <value>Silent startup</value>
   </data>
   <data name="SettingsPage_SilentStartupDesc.Text" xml:space="preserve">
-    <value>When auto-started at sign-in, hide the main window and show tray icon only</value>
+    <value>Hide the main window at sign-in and show only the system tray icon</value>
   </data>
   <data name="SettingsPage_Environment.Text" xml:space="preserve">
     <value>Environment</value>
@@ -331,7 +331,7 @@ Duplicate folder names are blocked within the same configuration so different di
     <value>7-Zip executable path</value>
   </data>
   <data name="SettingsPage_7zPathDesc.Text" xml:space="preserve">
-    <value>Required to run compression</value>
+    <value>Required for backup compression and extraction</value>
   </data>
   <data name="SettingsPage_BrowseButton.Content" xml:space="preserve">
     <value>Browse...</value>
@@ -499,7 +499,7 @@ Duplicate folder names are blocked within the same configuration so different di
     <value>Using the sponsor status saved on this device. License refresh will continue in the background.</value>
   </data>
   <data name="Sponsor_Status_Locked" xml:space="preserve">
-    <value>The sponsor add-on is not purchased yet. After redeeming a promo code, use Restore purchase.</value>
+    <value>Sponsor Edition is not purchased yet. After redeeming a promo code, use Restore purchase.</value>
   </data>
   <data name="Sponsor_Status_RefreshFailed" xml:space="preserve">
     <value>Failed to refresh sponsor status: {0}</value>
@@ -733,7 +733,7 @@ Duplicate folder names are blocked within the same configuration so different di
     <value>Select a configuration first</value>
   </data>
   <data name="HistoryPage_CommentFilter.PlaceholderText" xml:space="preserve">
-    <value>Search by note/comment</value>
+    <value>Search by note</value>
   </data>
   <data name="HistoryPage_UseStatusColors.Header" xml:space="preserve">
     <value>Status colors</value>
@@ -799,7 +799,7 @@ Duplicate folder names are blocked within the same configuration so different di
     <value>Comment:</value>
   </data>
   <data name="FolderManager_CommentPlaceholder.PlaceholderText" xml:space="preserve">
-    <value>e.g. Before update (optional)</value>
+    <value>e.g., Before update (optional)</value>
   </data>
   <data name="FolderManager_BackupSelected.Text" xml:space="preserve">
     <value>Backup this folder</value>
@@ -910,7 +910,7 @@ Duplicate folder names are blocked within the same configuration so different di
     <value>Overwrite (update latest backup)</value>
   </data>
   <data name="ConfigSettingsDialog_OverwriteWarning" xml:space="preserve">
-    <value>Overwrite mode only updates and adds files. It does not remove stale files that still exist inside the archive after they were deleted from the source folder. If you need an exact point-in-time restore, prefer Full or Smart backups with Clean restore.</value>
+    <value>Overwrite mode only updates and adds files — it does not remove files deleted from the source folder. For exact point-in-time restore, use Full or Smart incremental backup with Clean restore.</value>
   </data>
   <data name="ConfigSettingsDialog_Format.Header" xml:space="preserve">
     <value>Archive format</value>
@@ -925,7 +925,7 @@ Duplicate folder names are blocked within the same configuration so different di
     <value>Compression level (0-9)</value>
   </data>
   <data name="ConfigSettingsDialog_KeepCount.Header" xml:space="preserve">
-    <value>Keep recent backups (0 = unlimited)</value>
+    <value>Keep recent backups (0 for unlimited)</value>
   </data>
   <data name="ConfigSettingsDialog_Method.Header" xml:space="preserve">
     <value>Compression algorithm</value>
@@ -943,7 +943,7 @@ Duplicate folder names are blocked within the same configuration so different di
     <value>CPU threads</value>
   </data>
   <data name="ConfigSettingsDialog_CpuThreadsDescription" xml:space="preserve">
-    <value>0 = automatic, current device max {0} threads</value>
+    <value>0 means automatic. Device max: {0} threads.</value>
   </data>
   <data name="ConfigSettingsDialog_LowPriority.Header" xml:space="preserve">
     <value>Run compression tasks at low process priority</value>
@@ -955,7 +955,7 @@ Duplicate folder names are blocked within the same configuration so different di
     <value>Off</value>
   </data>
   <data name="ConfigSettingsDialog_LowPriorityDesc.Text" xml:space="preserve">
-    <value>Only affects backup-side 7-Zip processes and can reduce stutter in games and foreground apps during backup. Off by default.</value>
+    <value>Only affects 7-Zip processes during backup. Reduces performance impact on games and other apps.</value>
   </data>
   <data name="ConfigSettingsDialog_BackupBeforeRestore.Header" xml:space="preserve">
     <value>Backup before restore</value>
@@ -967,19 +967,19 @@ Duplicate folder names are blocked within the same configuration so different di
     <value>Off</value>
   </data>
   <data name="ConfigSettingsDialog_SafeRestore.Header" xml:space="preserve">
-    <value>Safe restore (Clean mode)</value>
+    <value>Safe restore</value>
   </data>
   <data name="ConfigSettingsDialog_SafeRestore.OnContent" xml:space="preserve">
-    <value>On - auto rollback from a same-folder -Temp copy on failure</value>
+    <value>On — auto-rollback from a temporary copy on failure</value>
   </data>
   <data name="ConfigSettingsDialog_SafeRestore.OffContent" xml:space="preserve">
-    <value>Off - Clean failure may lose original files</value>
+    <value>Off — restore failure may lose original files</value>
   </data>
   <data name="BackupService_RestoreMissingBaseFull_Title" xml:space="preserve">
     <value>Complete restore base is missing</value>
   </data>
   <data name="BackupService_RestoreMissingBaseFull_Content" xml:space="preserve">
-    <value>The target Smart backup "{0}" no longer has a usable base Full archive, so precise Clean restore is unavailable. If you continue, FolderRewind will switch to a compatibility fallback: reverse overwrite restore from the newest backup down to the selected Smart backup. This can roll back many files, but it cannot delete extra stale files. Continue anyway?</value>
+    <value>The Smart incremental backup "{0}" no longer has a usable full backup base, so precise Clean restore is unavailable. Continuing will use a compatibility fallback: reverse-overwrite from the newest backup to the target. This rolls back file versions but won't remove stale files. Continue?</value>
   </data>
   <data name="BackupService_RestoreMissingBaseFull_Primary" xml:space="preserve">
     <value>Continue fallback restore</value>
@@ -988,10 +988,10 @@ Duplicate folder names are blocked within the same configuration so different di
     <value>Verify backup integrity before restore</value>
   </data>
   <data name="ConfigSettingsDialog_VerifyArchiveBeforeRestore.OnContent" xml:space="preserve">
-    <value>On - run 7z test first</value>
+    <value>On — verify backup integrity before restoring</value>
   </data>
   <data name="ConfigSettingsDialog_VerifyArchiveBeforeRestore.OffContent" xml:space="preserve">
-    <value>Off - restore directly</value>
+    <value>Off — skip verification</value>
   </data>
   <data name="ConfigSettingsDialog_AutoBackup.Header" xml:space="preserve">
     <value>Enable auto backup</value>
@@ -1030,7 +1030,7 @@ Duplicate folder names are blocked within the same configuration so different di
     <value>For example: session.lock</value>
   </data>
   <data name="ConfigSettingsDialog_Blacklist.Text" xml:space="preserve">
-    <value>Blacklist (excluded files/folders)</value>
+    <value>Exclusion list</value>
   </data>
   <data name="ConfigSettingsDialog_BlacklistPlaceholder.PlaceholderText" xml:space="preserve">
     <value>Enter filename or path...</value>
@@ -1063,10 +1063,10 @@ Duplicate folder names are blocked within the same configuration so different di
     <value>Safe delete</value>
   </data>
   <data name="ConfigSettingsDialog_SafeDelete.OnContent" xml:space="preserve">
-    <value>On - merges incremental chain when pruning</value>
+    <value>On — merges incremental chain when pruning</value>
   </data>
   <data name="ConfigSettingsDialog_SafeDelete.OffContent" xml:space="preserve">
-    <value>Off - direct delete (may break incremental chain)</value>
+    <value>Off — direct delete (may break incremental chain)</value>
   </data>
   <data name="BackupService_Log_SmartChainLimitReached" xml:space="preserve">
     <value>Incremental chain limit reached ({0}), forcing full backup</value>
@@ -1108,10 +1108,10 @@ Duplicate folder names are blocked within the same configuration so different di
     <value>[Safe Delete] Fatal error: {0}</value>
   </data>
   <data name="SettingsPage_LogDiag.Text" xml:space="preserve">
-    <value>Logs &amp; Diagnostics</value>
+    <value>Logs &amp; diagnostics</value>
   </data>
   <data name="SettingsPage_CoreValidation.Text" xml:space="preserve">
-    <value>Core Feature Validation</value>
+    <value>Core feature validation</value>
   </data>
   <data name="SettingsPage_CoreValidationSectionDesc.Text" xml:space="preserve">
     <value>Automatically verify that backup and restore core flows work on this machine</value>
@@ -1162,10 +1162,10 @@ Duplicate folder names are blocked within the same configuration so different di
     <value>Core feature validation is already running. Please wait for it to finish.</value>
   </data>
   <data name="CoreValidation_AutoNotificationTitle" xml:space="preserve">
-    <value>Core Feature Validation</value>
+    <value>Core feature validation</value>
   </data>
   <data name="CoreValidation_Report_Title" xml:space="preserve">
-    <value>Core Feature Validation Report</value>
+    <value>Core feature validation report</value>
   </data>
   <data name="CoreValidation_Report_NoData" xml:space="preserve">
     <value>No validation report is available in the current session yet.</value>
@@ -1270,7 +1270,7 @@ Duplicate folder names are blocked within the same configuration so different di
     <value>Enable plugin system</value>
   </data>
   <data name="SettingsPage_PluginsEnabledDesc.Text" xml:space="preserve">
-    <value>Enable to download and use plugins from the store</value>
+    <value>Download and manage plugins from the plugin store</value>
   </data>
   <data name="SettingsPage_OpenPluginStore.Content" xml:space="preserve">
     <value>Open plugin store</value>
@@ -1306,7 +1306,7 @@ Duplicate folder names are blocked within the same configuration so different di
     <value>Starter presets</value>
   </data>
   <data name="SettingsPage_PresetsDesc.Text" xml:space="preserve">
-    <value>Common first-run setups live here so users can configure less and start sooner.</value>
+    <value>Quick-start configurations for common scenarios, so you can get started faster.</value>
   </data>
   <data name="SettingsPage_MinecraftPreset.Text" xml:space="preserve">
     <value>Minecraft starter preset</value>
@@ -1598,7 +1598,7 @@ Tip: If plugin files are in use, you may need to close the app and try again.</v
     <value>Failed to create plugin instance</value>
   </data>
   <data name="SettingsPage_KnotLink.Text" xml:space="preserve">
-    <value>KnotLink Integration</value>
+    <value>KnotLink integration</value>
   </data>
   <data name="SettingsPage_KnotLinkEnabled.Text" xml:space="preserve">
     <value>Enable integration</value>
@@ -2327,10 +2327,10 @@ Comment: {1}
     <value>Plugin {0} after-restore hook failed: {1}</value>
   </data>
   <data name="SettingsPage_CloseBehavior.Text" xml:space="preserve">
-    <value>Close Button Behavior</value>
+    <value>Close button behavior</value>
   </data>
   <data name="SettingsPage_CloseBehaviorDesc.Text" xml:space="preserve">
-    <value>Choose what happens when you click the window close button.</value>
+    <value>Choose what happens when you click the close button.</value>
   </data>
   <data name="SettingsPage_CloseBehavior_Ask.Content" xml:space="preserve">
     <value>Ask every time</value>
@@ -2342,10 +2342,10 @@ Comment: {1}
     <value>Exit</value>
   </data>
   <data name="CloseDialog_Title" xml:space="preserve">
-    <value>Close App</value>
+    <value>Close app</value>
   </data>
   <data name="CloseDialog_Content" xml:space="preserve">
-    <value>What do you want to do when closing the window?</value>
+    <value>What should happen when you close the window?</value>
   </data>
   <data name="CloseDialog_MinimizeToTray" xml:space="preserve">
     <value>Minimize to tray</value>
@@ -2360,7 +2360,7 @@ Comment: {1}
     <value>Delete</value>
   </data>
   <data name="History_DeleteConfirm_Title" xml:space="preserve">
-    <value>Delete History</value>
+    <value>Delete history</value>
   </data>
   <data name="History_DeleteConfirm_Content" xml:space="preserve">
     <value>You are about to process this history entry: {0} 
@@ -2406,7 +2406,7 @@ Choose whether to remove only the record, only the local backup file, or both. C
     <value>Enable notifications</value>
   </data>
   <data name="SettingsPage_EnableNotificationsDesc.Text" xml:space="preserve">
-    <value>When enabled, show in-app notifications, system toasts and badges (if available)</value>
+    <value>Show in-app notifications and system alerts</value>
   </data>
   <data name="Notification_Success_Title" xml:space="preserve">
     <value>Success</value>
@@ -2520,7 +2520,7 @@ Choose whether to remove only the record, only the local backup file, or both. C
     <value>File size warning threshold</value>
   </data>
   <data name="SettingsPage_FileSizeWarningThresholdDesc.Text" xml:space="preserve">
-    <value>Trigger a warning when a backup file is smaller than this size. Set to 0 to disable</value>
+    <value>Trigger a warning when backup files are smaller than this threshold. Set to 0 to disable.</value>
   </data>
   <data name="BackupService_Log_FileSizeTooSmall" xml:space="preserve">
     <value>Warning: Backup file for "{0}" is only {1} KB, below threshold {2} KB</value>
@@ -2709,10 +2709,10 @@ Status: {3}</value>
     <value>Only relative paths are supported for now. Absolute paths will not trigger conditional backup.</value>
   </data>
   <data name="SettingsPage_DataMigration.Text" xml:space="preserve">
-    <value>Data Migration</value>
+    <value>Data migration</value>
   </data>
   <data name="SettingsPage_DataMigrationDesc.Text" xml:space="preserve">
-    <value>Import or export configuration and history for migration</value>
+    <value>Import or export configurations and history for migration across devices</value>
   </data>
   <data name="SettingsPage_ConfigData.Text" xml:space="preserve">
     <value>Configuration</value>
@@ -3057,7 +3057,7 @@ Status: {3}</value>
     <value>Default backup storage path</value>
   </data>
   <data name="SettingsPage_DefaultBackupRootPathDesc.Text" xml:space="preserve">
-    <value>New configs automatically use "default path\config name" as destination (still editable per config).</value>
+    <value>New configurations use a subdirectory of this path as the backup destination. Can be changed per configuration.</value>
   </data>
   <data name="FolderManager_MineRewindHint_Title" xml:space="preserve">
     <value>Minecraft folder detected</value>
@@ -4640,7 +4640,7 @@ Pull request: {1}</value>
     <value>Whitelist mode</value>
   </data>
   <data name="ConfigSettingsDialog_BackupWhitelist.Text" xml:space="preserve">
-    <value>Whitelist (only these files/folders)</value>
+    <value>Inclusion list (only back up these files/folders)</value>
   </data>
   <data name="ConfigSettingsDialog_BackupWhitelistPlaceholder.PlaceholderText" xml:space="preserve">
     <value>Enter a filename, relative path, full path, or wildcard...</value>
