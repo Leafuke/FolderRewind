@@ -796,7 +796,7 @@
     <value>选中项操作：</value>
   </data>
   <data name="FolderManager_BackupComment.Text" xml:space="preserve">
-    <value>本次备份注释:</value>
+    <value>本次备份注释：</value>
   </data>
   <data name="FolderManager_CommentPlaceholder.PlaceholderText" xml:space="preserve">
     <value>例如：修复了一处问题（选填）</value>
