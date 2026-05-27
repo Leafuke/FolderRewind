@@ -1276,7 +1276,7 @@
     <value>打开插件商店</value>
   </data>
   <data name="SettingsPage_ManualInstallPlugin.Content" xml:space="preserve">
-    <value>手动安装插件</value>
+    <value>从 .zip 安装插件</value>
   </data>
   <data name="SettingsPage_OpenPluginFolder.Content" xml:space="preserve">
     <value>打开插件目录</value>
@@ -1354,7 +1354,7 @@
     <value>插件商店</value>
   </data>
   <data name="PluginStorePage_Desc.Text" xml:space="preserve">
-    <value>从 GitHub Release（latest）下载插件 zip。zip 根目录需包含 manifest.json。</value>
+    <value>从 GitHub Release 下载插件压缩包，压缩包根目录需包含 manifest.json。</value>
   </data>
   <data name="PluginStorePage_RepoBox.Header" xml:space="preserve">
     <value>GitHub 仓库 (owner/repo)</value>
@@ -1468,8 +1468,8 @@
     <value>卸载插件</value>
   </data>
   <data name="Plugins_UninstallConfirm" xml:space="preserve">
-    <value>确定卸载插件：{0} ({1})？
-提示：如果插件文件被占用，可能需要关闭应用后再卸载。</value>
+    <value>确定卸载插件 {0}（{1}）吗？
+如果插件文件被占用，可能需要关闭应用后再卸载。</value>
   </data>
   <data name="Plugins_UninstallButton" xml:space="preserve">
     <value>卸载</value>
@@ -1819,7 +1819,7 @@ RESTORE -current_save=true -file=backup.7z -preserve_player_data=true
     <value>空指令。</value>
   </data>
   <data name="KnotLink_Parse_ExpectedOption" xml:space="preserve">
-    <value>参数化指令只接受 -key=value，当前位置不是参数：{0}</value>
+    <value>参数化指令只接受 -key=value 格式，遇到意外字符：{0}</value>
   </data>
   <data name="KnotLink_Parse_InvalidOption" xml:space="preserve">
     <value>无效参数：{0}。请使用 -key=value。</value>
@@ -1911,7 +1911,7 @@ RESTORE -current_save=true -file=backup.7z -preserve_player_data=true
     <value>发送自定义信息</value>
   </data>
   <data name="SettingsPage_KnotLinkSendCustom_Placeholder" xml:space="preserve">
-    <value>请输入 event_data（将通过 OpenSocket 发送：SEND &lt;event_data&gt;）</value>
+    <value>输入要发送的内容</value>
   </data>
   <data name="SettingsPage_KnotLinkSendCustom_Empty" xml:space="preserve">
     <value>内容不能为空</value>
@@ -3057,7 +3057,7 @@ RESTORE -current_save=true -file=backup.7z -preserve_player_data=true
     <value>默认备份文件存放路径</value>
   </data>
   <data name="SettingsPage_DefaultBackupRootPathDesc.Text" xml:space="preserve">
-    <value>新建配置会自动使用“默认路径\配置名称”作为备份存储路径（可单独修改）</value>
+    <value>新建配置自动使用此路径下的子目录作为备份存储位置，可单独修改</value>
   </data>
   <data name="FolderManager_MineRewindHint_Title" xml:space="preserve">
     <value>检测到 Minecraft 目录</value>
@@ -3225,7 +3225,7 @@ RESTORE -current_save=true -file=backup.7z -preserve_player_data=true
     <value>确认密码</value>
   </data>
   <data name="Encryption_PasswordWarning" xml:space="preserve">
-    <value>⚠ 密码一旦设置无法更改。如果丢失密码，加密的备份将无法还原，请妥善保管。</value>
+    <value>密码一旦设置无法更改。丢失密码将无法还原加密备份，请妥善保管。</value>
   </data>
   <data name="Encryption_PasswordEmpty" xml:space="preserve">
     <value>密码不能为空。</value>
@@ -3255,7 +3255,7 @@ RESTORE -current_save=true -file=backup.7z -preserve_player_data=true
     <value>欢迎使用 FolderRewind！</value>
   </data>
   <data name="FirstLaunch_Content" xml:space="preserve">
-    <value>如果你不确定如何使用，可以观看 Bilibili 上的简要介绍视频。</value>
+    <value>不确定如何开始？可以观看 Bilibili 上的介绍视频快速上手。</value>
   </data>
   <data name="FirstLaunch_OpenVideo" xml:space="preserve">
     <value>观看视频</value>
@@ -3815,7 +3815,7 @@ RESTORE -current_save=true -file=backup.7z -preserve_player_data=true
     <value>{*} 通配目录</value>
   </data>
   <data name="Template_SyntaxHelp_Wildcard_Description" xml:space="preserve">
-    <value>{*} 会展开当前层级下的所有子文件夹。它既可以写在路径中间，也可以连续使用；如果放在最前面，会先遍历所有已就绪的盘符。</value>
+    <value>{*} 展开当前层级下的所有子文件夹，可写在路径中间或连续使用。放在最前面时，会遍历所有可用盘符。</value>
   </data>
   <data name="Template_SyntaxHelp_Wildcard_Example" xml:space="preserve">
     <value>示例：{*}\{*}\.minecraft\versions\{*}\saves\{*}</value>
@@ -4505,7 +4505,7 @@ Pull Request：{1}</value>
     <value>关闭</value>
   </data>
   <data name="ConfigSettingsDialog_CloudSyncHistoryAfterUploadDesc.Text" xml:space="preserve">
-    <value>每次自动上传备份成功后，再额外合并上传当前配置的最新历史以及 active-history 清单，方便其他设备同步时避开那些已经在本地删除的旧云备份。</value>
+    <value>自动上传备份成功后，同步上传当前配置的历史记录和活跃历史清单，便于其他设备识别已删除的旧备份。</value>
   </data>
   <data name="SettingsPage_DefaultCloudRemoteBasePath.Text" xml:space="preserve">
     <value>默认远端基路径</value>
@@ -4679,7 +4679,7 @@ Pull Request：{1}</value>
     <value>这是一个部分备份</value>
   </data>
   <data name="History_PartialCleanConfirm_Content" xml:space="preserve">
-    <value>该备份由白名单或区域备份生成，只包含部分文件。继续安全还原可能删除目标文件夹中未包含在备份里的其他文件。确认继续？</value>
+    <value>该备份由仅备份列表或区域备份生成，只包含部分文件。继续安全还原可能删除目标文件夹中未包含在备份里的其他文件。确认继续？</value>
   </data>
   <data name="History_PartialCleanConfirm_Primary" xml:space="preserve">
     <value>确认安全还原</value>
