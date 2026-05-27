@@ -304,7 +304,7 @@
     <value>关于 FolderRewind</value>
   </data>
   <data name="SettingsPage_AboutDesc.Text" xml:space="preserve">
-    <value>© 2025 Leafuke。GPL 开源许可。</value>
+    <value>© 2025-2026 Leafuke。GPL 开源许可。</value>
   </data>
   <data name="SettingsPage_About_Link_Repository.Content" xml:space="preserve">
     <value>项目主页</value>
@@ -322,7 +322,7 @@
     <value>静默启动</value>
   </data>
   <data name="SettingsPage_SilentStartupDesc.Text" xml:space="preserve">
-    <value>仅在开机自启时隐藏主界面，仅显示托盘图标</value>
+    <value>开机自启时隐藏主界面，仅在系统托盘显示图标</value>
   </data>
   <data name="SettingsPage_Environment.Text" xml:space="preserve">
     <value>运行环境</value>
@@ -331,7 +331,7 @@
     <value>7-Zip 可执行文件路径</value>
   </data>
   <data name="SettingsPage_7zPathDesc.Text" xml:space="preserve">
-    <value>用于执行压缩的核心组件</value>
+    <value>压缩和解压所必需的组件</value>
   </data>
   <data name="SettingsPage_BrowseButton.Content" xml:space="preserve">
     <value>浏览...</value>
@@ -379,7 +379,7 @@
     <value>基础字号</value>
   </data>
   <data name="SettingsPage_FontSizeDesc.Text" xml:space="preserve">
-    <value>12–20 号，影响文字区块</value>
+    <value>12–20 pt，影响大部分界面文字</value>
   </data>
   <data name="SettingsPage_Sponsor.Text" xml:space="preserve">
     <value>赞助者版本</value>
@@ -400,7 +400,7 @@
     <value>尚未解锁</value>
   </data>
   <data name="SettingsPage_SponsorLockedDesc.Text" xml:space="preserve">
-    <value>购买或恢复赞助者版本后即可使用这些外观小福利。</value>
+    <value>购买或恢复赞助者版本后即可使用这些外观功能。</value>
   </data>
   <data name="SettingsPage_SponsorAccent.Text" xml:space="preserve">
     <value>主题颜色</value>
@@ -475,7 +475,7 @@
     <value>自定义完成音效</value>
   </data>
   <data name="SettingsPage_CustomCompletionSoundDesc.Text" xml:space="preserve">
-    <value>赞助者可以选择一个音频文件来替换默认音效</value>
+    <value>赞助者可以自定义备份完成时的提示音效</value>
   </data>
   <data name="SettingsPage_CustomCompletionSoundChoose.Content" xml:space="preserve">
     <value>自定义音效</value>
@@ -499,7 +499,7 @@
     <value>已使用本机保存的赞助者状态，后台会继续刷新授权。</value>
   </data>
   <data name="Sponsor_Status_Locked" xml:space="preserve">
-    <value>尚未购买赞助加载项；兑换促销码后可点击恢复购买。</value>
+    <value>尚未购买赞助者版本；兑换促销码后可点击恢复购买。</value>
   </data>
   <data name="Sponsor_Status_RefreshFailed" xml:space="preserve">
     <value>刷新赞助状态失败：{0}</value>
@@ -565,7 +565,7 @@
     <value>默认提示</value>
   </data>
   <data name="CompletionSound_CustomLocked" xml:space="preserve">
-    <value>自定义完成音效是赞助者版本的小福利。</value>
+    <value>自定义完成音效为赞助者版本专属功能。</value>
   </data>
   <data name="CompletionSound_FileMissing" xml:space="preserve">
     <value>找不到选择的音频文件。</value>
@@ -934,10 +934,10 @@
     <value>无变更时跳过备份</value>
   </data>
   <data name="ConfigSettingsDialog_SkipIfUnchanged.OnContent" xml:space="preserve">
-    <value>已开启</value>
+    <value>开启</value>
   </data>
   <data name="ConfigSettingsDialog_SkipIfUnchanged.OffContent" xml:space="preserve">
-    <value>已关闭</value>
+    <value>关闭</value>
   </data>
   <data name="ConfigSettingsDialog_CpuThreads.Text" xml:space="preserve">
     <value>CPU 线程数</value>
@@ -949,10 +949,10 @@
     <value>以低进程优先级运行压缩任务</value>
   </data>
   <data name="ConfigSettingsDialog_LowPriority.OnContent" xml:space="preserve">
-    <value>已开启</value>
+    <value>开启</value>
   </data>
   <data name="ConfigSettingsDialog_LowPriority.OffContent" xml:space="preserve">
-    <value>已关闭</value>
+    <value>关闭</value>
   </data>
   <data name="ConfigSettingsDialog_LowPriorityDesc.Text" xml:space="preserve">
     <value>仅影响备份侧 7-Zip 进程，可减少备份期间对游戏和前台应用的抢占。默认关闭。</value>
@@ -961,19 +961,19 @@
     <value>还原前自动备份</value>
   </data>
   <data name="ConfigSettingsDialog_BackupBeforeRestore.OnContent" xml:space="preserve">
-    <value>已开启</value>
+    <value>开启</value>
   </data>
   <data name="ConfigSettingsDialog_BackupBeforeRestore.OffContent" xml:space="preserve">
-    <value>已关闭</value>
+    <value>关闭</value>
   </data>
   <data name="ConfigSettingsDialog_SafeRestore.Header" xml:space="preserve">
     <value>安全还原</value>
   </data>
   <data name="ConfigSettingsDialog_SafeRestore.OnContent" xml:space="preserve">
-    <value>已开启 - 失败时自动从同目录的 -Temp 副本回滚</value>
+    <value>开启 - 失败时自动从同目录的 -Temp 副本回滚</value>
   </data>
   <data name="ConfigSettingsDialog_SafeRestore.OffContent" xml:space="preserve">
-    <value>已关闭 - 安全还原失败时可能丢失原文件</value>
+    <value>关闭 - 安全还原失败时可能丢失原文件</value>
   </data>
   <data name="BackupService_RestoreMissingBaseFull_Title" xml:space="preserve">
     <value>无法找到完整还原基准</value>
@@ -988,10 +988,10 @@
     <value>还原前校验备份完整性</value>
   </data>
   <data name="ConfigSettingsDialog_VerifyArchiveBeforeRestore.OnContent" xml:space="preserve">
-    <value>已开启 - 先执行 7z test</value>
+    <value>开启 - 先执行 7z test</value>
   </data>
   <data name="ConfigSettingsDialog_VerifyArchiveBeforeRestore.OffContent" xml:space="preserve">
-    <value>已关闭 - 直接进入还原流程</value>
+    <value>关闭 - 直接进入还原流程</value>
   </data>
   <data name="ConfigSettingsDialog_AutoBackup.Header" xml:space="preserve">
     <value>启用自动备份</value>
@@ -1063,10 +1063,10 @@
     <value>安全删除</value>
   </data>
   <data name="ConfigSettingsDialog_SafeDelete.OnContent" xml:space="preserve">
-    <value>已开启 - 删除旧备份时自动合并增量链</value>
+    <value>开启 - 删除旧备份时自动合并增量链</value>
   </data>
   <data name="ConfigSettingsDialog_SafeDelete.OffContent" xml:space="preserve">
-    <value>已关闭 - 直接删除（可能导致增量链断裂）</value>
+    <value>关闭 - 直接删除（可能导致增量链断裂）</value>
   </data>
   <data name="BackupService_Log_SmartChainLimitReached" xml:space="preserve">
     <value>增量备份链长度已达上限 ({0})，强制执行全量备份</value>
@@ -1270,7 +1270,7 @@
     <value>启用插件系统</value>
   </data>
   <data name="SettingsPage_PluginsEnabledDesc.Text" xml:space="preserve">
-    <value>开启后可在插件商店下载并启用插件</value>
+    <value>启用后可从插件商店下载和管理插件</value>
   </data>
   <data name="SettingsPage_OpenPluginStore.Content" xml:space="preserve">
     <value>打开插件商店</value>
@@ -1306,7 +1306,7 @@
     <value>入门预设</value>
   </data>
   <data name="SettingsPage_PresetsDesc.Text" xml:space="preserve">
-    <value>把常见场景的第一步集中在这里，少翻设置，少踩坑。</value>
+    <value>常见场景的快速入门配置集中在此，帮助你更快上手。</value>
   </data>
   <data name="SettingsPage_MinecraftPreset.Text" xml:space="preserve">
     <value>Minecraft 入门预设</value>
@@ -1604,7 +1604,7 @@
     <value>启用互联功能</value>
   </data>
   <data name="SettingsPage_KnotLinkEnabledDesc.Text" xml:space="preserve">
-    <value>允许其他应用通过 KnotLink 协议远程控制备份任务</value>
+    <value>允许其他应用通过 KnotLink 协议控制备份任务</value>
   </data>
   <data name="SettingsPage_KnotLinkStatus.Text" xml:space="preserve">
     <value>连接状态</value>
@@ -2330,7 +2330,7 @@ RESTORE -current_save=true -file=backup.7z -preserve_player_data=true
     <value>关闭窗口按钮行为</value>
   </data>
   <data name="SettingsPage_CloseBehaviorDesc.Text" xml:space="preserve">
-    <value>控制点击窗口右上角关闭按钮时的动作。</value>
+    <value>设置点击窗口关闭按钮时的行为。</value>
   </data>
   <data name="SettingsPage_CloseBehavior_Ask.Content" xml:space="preserve">
     <value>每次询问</value>
@@ -2345,7 +2345,7 @@ RESTORE -current_save=true -file=backup.7z -preserve_player_data=true
     <value>关闭应用</value>
   </data>
   <data name="CloseDialog_Content" xml:space="preserve">
-    <value>你希望关闭窗口时执行什么操作？</value>
+    <value>关闭窗口时执行什么操作？</value>
   </data>
   <data name="CloseDialog_MinimizeToTray" xml:space="preserve">
     <value>最小化到托盘</value>
@@ -2406,7 +2406,7 @@ RESTORE -current_save=true -file=backup.7z -preserve_player_data=true
     <value>启用通知提醒</value>
   </data>
   <data name="SettingsPage_EnableNotificationsDesc.Text" xml:space="preserve">
-    <value>启用后将显示应用内通知、系统 Toast 和角标（如有）</value>
+    <value>启用后将显示应用内通知和系统弹窗</value>
   </data>
   <data name="Notification_Success_Title" xml:space="preserve">
     <value>成功</value>
@@ -2520,7 +2520,7 @@ RESTORE -current_save=true -file=backup.7z -preserve_player_data=true
     <value>文件大小警告阈值</value>
   </data>
   <data name="SettingsPage_FileSizeWarningThresholdDesc.Text" xml:space="preserve">
-    <value>备份文件小于此大小时触发警告通知，设为 0 则禁用</value>
+    <value>备份文件小于此阈值时触发警告，设为 0 可禁用</value>
   </data>
   <data name="BackupService_Log_FileSizeTooSmall" xml:space="preserve">
     <value>警告：文件夹 "{0}" 的备份文件仅 {1} KB，小于阈值 {2} KB</value>
@@ -2625,10 +2625,10 @@ RESTORE -current_save=true -file=backup.7z -preserve_player_data=true
     <value>重复未发现变更后停止自动任务</value>
   </data>
   <data name="ConfigSettingsDialog_StopAfterNoChange.OnContent" xml:space="preserve">
-    <value>已开启</value>
+    <value>开启</value>
   </data>
   <data name="ConfigSettingsDialog_StopAfterNoChange.OffContent" xml:space="preserve">
-    <value>已关闭</value>
+    <value>关闭</value>
   </data>
   <data name="ConfigSettingsDialog_StopAfterNoChangePrefix.Text" xml:space="preserve">
     <value>连续</value>
@@ -2712,7 +2712,7 @@ RESTORE -current_save=true -file=backup.7z -preserve_player_data=true
     <value>数据迁移</value>
   </data>
   <data name="SettingsPage_DataMigrationDesc.Text" xml:space="preserve">
-    <value>导入或导出配置和历史记录，方便迁移</value>
+    <value>导入或导出配置与历史记录，便于跨设备迁移</value>
   </data>
   <data name="SettingsPage_ConfigData.Text" xml:space="preserve">
     <value>配置数据</value>
@@ -2916,10 +2916,10 @@ RESTORE -current_save=true -file=backup.7z -preserve_player_data=true
     <value>启用备份后云上传</value>
   </data>
   <data name="ConfigSettingsDialog_CloudEnabled.OnContent" xml:space="preserve">
-    <value>已开启</value>
+    <value>开启</value>
   </data>
   <data name="ConfigSettingsDialog_CloudEnabled.OffContent" xml:space="preserve">
-    <value>已关闭</value>
+    <value>关闭</value>
   </data>
   <data name="ConfigSettingsDialog_CloudMode.Header" xml:space="preserve">
     <value>运行方式</value>
@@ -3018,10 +3018,10 @@ RESTORE -current_save=true -file=backup.7z -preserve_player_data=true
     <value>自定义文件类型处理</value>
   </data>
   <data name="ConfigSettingsDialog_FileTypeHandling.OnContent" xml:space="preserve">
-    <value>已开启</value>
+    <value>开启</value>
   </data>
   <data name="ConfigSettingsDialog_FileTypeHandling.OffContent" xml:space="preserve">
-    <value>已关闭</value>
+    <value>关闭</value>
   </data>
   <data name="ConfigSettingsDialog_FileTypeHandlingDesc.Text" xml:space="preserve">
     <value>启用后可为不同类型的文件设置不同的压缩等级，例如对视频/音频等已压缩文件使用仅存储模式以节省时间。开启此功能会自动关闭固实压缩 (-ms=off)。</value>
