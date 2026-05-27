@@ -235,7 +235,7 @@
     <value>文件夹名称: {0}</value>
   </data>
   <data name="ShellPage_FolderConflict_Footer" xml:space="preserve">
-    <value>由于备份、metadata、云同步和还原仍按显示名定位，这些冲突会让不同文件夹共用同一槽位。</value>
+    <value>由于备份、元数据、云同步和还原均按显示名定位，这些冲突会导致不同文件夹共用同一备份槽位。</value>
   </data>
   <data name="ShellPage_NavHome.Content" xml:space="preserve">
     <value>主页</value>
@@ -721,7 +721,7 @@
     <value>自动</value>
   </data>
   <data name="HistoryPage_Title.Text" xml:space="preserve">
-    <value>备份历史与恢复</value>
+    <value>备份历史与还原</value>
   </data>
   <data name="HistoryPage_ConfigFilter.Header" xml:space="preserve">
     <value>所属配置</value>
@@ -733,7 +733,7 @@
     <value>请先选择配置</value>
   </data>
   <data name="HistoryPage_CommentFilter.PlaceholderText" xml:space="preserve">
-    <value>按备注搜索（支持模糊匹配）</value>
+    <value>按备注搜索</value>
   </data>
   <data name="HistoryPage_UseStatusColors.Header" xml:space="preserve">
     <value>状态颜色</value>
@@ -748,13 +748,13 @@
     <value>清除失效</value>
   </data>
   <data name="HistoryPage_RestoreButton.Content" xml:space="preserve">
-    <value>恢复</value>
+    <value>还原</value>
   </data>
   <data name="HistoryPage_EmptyState.Text" xml:space="preserve">
     <value>请选择文件夹以查看历史</value>
   </data>
   <data name="FolderManager_CurrentConfig.Text" xml:space="preserve">
-    <value>当前配置:</value>
+    <value>当前配置：</value>
   </data>
   <data name="FolderManager_ConfigSettingsButton.ToolTipService.ToolTip" xml:space="preserve">
     <value>配置设置</value>
@@ -790,7 +790,7 @@
     <value>插件发现了 {0} 个文件夹，是否全部添加到当前配置？</value>
   </data>
   <data name="FolderManager_BackupAll.Text" xml:space="preserve">
-    <value>一键备份所有</value>
+    <value>备份全部文件夹</value>
   </data>
   <data name="FolderManager_SelectedAction.Text" xml:space="preserve">
     <value>选中项操作：</value>
@@ -799,7 +799,7 @@
     <value>本次备份注释:</value>
   </data>
   <data name="FolderManager_CommentPlaceholder.PlaceholderText" xml:space="preserve">
-    <value>例如: 修复了一处bug (选填)</value>
+    <value>例如：修复了一处问题（选填）</value>
   </data>
   <data name="FolderManager_BackupSelected.Text" xml:space="preserve">
     <value>备份此文件夹</value>
@@ -910,7 +910,7 @@
     <value>覆写备份 (更新最近的备份)</value>
   </data>
   <data name="ConfigSettingsDialog_OverwriteWarning" xml:space="preserve">
-    <value>覆写模式只会更新和添加文件，不会删除归档里已经存在但源目录中已删除的旧文件。若你需要精确回到某个时间点，优先使用全量或智能增量并配合 Clean 还原。</value>
+    <value>覆写模式只会更新和添加文件，不会删除归档里已经存在但源目录中已删除的旧文件。若你需要精确回到某个时间点，优先使用全量或智能增量并配合安全还原。</value>
   </data>
   <data name="ConfigSettingsDialog_Format.Header" xml:space="preserve">
     <value>压缩格式</value>
@@ -967,19 +967,19 @@
     <value>已关闭</value>
   </data>
   <data name="ConfigSettingsDialog_SafeRestore.Header" xml:space="preserve">
-    <value>安全还原（Clean 模式）</value>
+    <value>安全还原</value>
   </data>
   <data name="ConfigSettingsDialog_SafeRestore.OnContent" xml:space="preserve">
     <value>已开启 - 失败时自动从同目录的 -Temp 副本回滚</value>
   </data>
   <data name="ConfigSettingsDialog_SafeRestore.OffContent" xml:space="preserve">
-    <value>已关闭 - Clean 失败时可能丢失原文件</value>
+    <value>已关闭 - 安全还原失败时可能丢失原文件</value>
   </data>
   <data name="BackupService_RestoreMissingBaseFull_Title" xml:space="preserve">
     <value>无法找到完整还原基准</value>
   </data>
   <data name="BackupService_RestoreMissingBaseFull_Content" xml:space="preserve">
-    <value>未能为目标 Smart 备份“{0}”找到可用的基础 Full，精确 Clean 还原已不可用。若继续，程序将改用兼容性倒序覆盖还原：从当前最新备份一路倒序覆盖到该 Smart 备份。这种方式能尽量回退文件版本，但不会删除多余旧文件。是否继续？</value>
+    <value>未能为目标智能增量备份”{0}”找到可用的基础全量备份，精确安全还原已不可用。若继续，程序将改用兼容性倒序覆盖还原：从当前最新备份一路倒序覆盖到该智能增量备份。这种方式能尽量回退文件版本，但不会删除多余旧文件。是否继续？</value>
   </data>
   <data name="BackupService_RestoreMissingBaseFull_Primary" xml:space="preserve">
     <value>继续兼容还原</value>
@@ -1045,7 +1045,7 @@
     <value>还原白名单</value>
   </data>
   <data name="ConfigSettingsDialog_RestoreWhitelistDesc.Text" xml:space="preserve">
-    <value>Clean 还原时不会清除的文件/文件夹，保护特定数据不被删除。</value>
+    <value>安全还原时不会清除的文件/文件夹，保护特定数据不被删除。</value>
   </data>
   <data name="ConfigSettingsDialog_RestoreWhitelistPlaceholder.PlaceholderText" xml:space="preserve">
     <value>输入文件名、相对路径、完整路径或通配符...</value>
@@ -1228,7 +1228,7 @@
     <value>仅删除变更备份校验</value>
   </data>
   <data name="CoreValidation_Step_CleanRestore" xml:space="preserve">
-    <value>清洁还原校验</value>
+    <value>安全还原校验</value>
   </data>
   <data name="CoreValidation_Step_OverwriteRestore" xml:space="preserve">
     <value>覆写还原校验</value>
@@ -2194,14 +2194,14 @@ RESTORE -current_save=true -file=backup.7z -preserve_player_data=true
     <value>时间：{0}
 备注：{1}
 
-[Clean] 模式：先清空目标文件夹，再还原（推荐，防止残留）。
-[Overwrite] 模式：直接解压覆盖（可能保留旧文件）。</value>
+安全还原模式：先清空目标文件夹，再还原（推荐，防止残留）。
+覆写还原模式：直接解压覆盖（可能保留旧文件）。</value>
   </data>
   <data name="History_RestoreConfirm_Primary" xml:space="preserve">
-    <value>Clean 还原</value>
+    <value>安全还原</value>
   </data>
   <data name="History_RestoreConfirm_Secondary" xml:space="preserve">
-    <value>Overwrite 还原</value>
+    <value>覆写还原</value>
   </data>
   <data name="SettingsPage_KnotLinkStatus_Disabled" xml:space="preserve">
     <value>未启用</value>
@@ -2436,13 +2436,13 @@ RESTORE -current_save=true -file=backup.7z -preserve_player_data=true
     <value>备份失败</value>
   </data>
   <data name="Notification_RestoreCompleted_Title" xml:space="preserve">
-    <value>恢复完成</value>
+    <value>还原完成</value>
   </data>
   <data name="Notification_RestoreCompleted_Success" xml:space="preserve">
-    <value>文件夹 "{0}" 已成功恢复</value>
+    <value>文件夹 "{0}" 已成功还原</value>
   </data>
   <data name="Notification_RestoreCompleted_Failed" xml:space="preserve">
-    <value>文件夹 "{0}" 恢复失败：{1}</value>
+    <value>文件夹 "{0}" 还原失败：{1}</value>
   </data>
   <data name="CloudSync_Notification_Title" xml:space="preserve">
     <value>云存档</value>
@@ -4649,7 +4649,7 @@ Pull Request：{1}</value>
     <value>添加</value>
   </data>
   <data name="ConfigSettingsDialog_BackupWhitelistCleanWarning" xml:space="preserve">
-    <value>白名单备份只包含部分文件。用 Clean 模式还原这类备份时，未被备份的文件可能会被清除；建议优先使用覆盖还原，或先把需要保留的数据加入还原白名单。</value>
+    <value>白名单备份只包含部分文件。用安全还原模式还原这类备份时，未被备份的文件可能会被清除；建议优先使用覆盖还原，或先把需要保留的数据加入还原白名单。</value>
   </data>
   <data name="ConfigSettingsDialog_BackupScope.Header" xml:space="preserve">
     <value>备份范围</value>
@@ -4664,7 +4664,7 @@ Pull Request：{1}</value>
     <value>当前备份范围由插件提供，但插件未启用或不再可用。</value>
   </data>
   <data name="ConfigSettingsDialog_BackupScopePartialWarning.Text" xml:space="preserve">
-    <value>插件备份范围通常只会备份部分文件。Clean 还原部分备份会有删除未备份文件的风险。</value>
+    <value>插件备份范围通常只会备份部分文件。安全还原部分备份会有删除未备份文件的风险。</value>
   </data>
   <data name="ConfigSettingsDialog_OpenFailed_Title" xml:space="preserve">
     <value>打开配置设置失败</value>
@@ -4679,13 +4679,13 @@ Pull Request：{1}</value>
     <value>这是一个部分备份</value>
   </data>
   <data name="History_PartialCleanConfirm_Content" xml:space="preserve">
-    <value>该备份由白名单或区域备份生成，只包含部分文件。继续 Clean 还原可能删除目标文件夹中未包含在备份里的其他文件。确认继续？</value>
+    <value>该备份由白名单或区域备份生成，只包含部分文件。继续安全还原可能删除目标文件夹中未包含在备份里的其他文件。确认继续？</value>
   </data>
   <data name="History_PartialCleanConfirm_Primary" xml:space="preserve">
-    <value>确认 Clean 还原</value>
+    <value>确认安全还原</value>
   </data>
   <data name="KnotLink_Error_PartialCleanRequiresConfirm" xml:space="preserve">
-    <value>目标备份是部分备份。若确实要 Clean 还原，请追加 -confirm_partial_clean=true。</value>
+    <value>目标备份是部分备份。若确实要安全还原，请追加 -confirm_partial_clean=true。</value>
   </data>
   <data name="Tray_ToolTip" xml:space="preserve">
     <value>存档时光机</value>
