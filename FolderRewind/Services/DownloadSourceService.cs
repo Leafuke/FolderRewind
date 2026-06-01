@@ -33,7 +33,7 @@ namespace FolderRewind.Services
 
         public static DownloadSourceOption NormalizeSourceOption(int rawValue)
         {
-            return Enum.IsDefined(typeof(DownloadSourceOption), rawValue)
+            return Enum.IsDefined((DownloadSourceOption)rawValue)
                 ? (DownloadSourceOption)rawValue
                 : DownloadSourceOption.Mirror1;
         }
@@ -151,7 +151,7 @@ namespace FolderRewind.Services
                 return order;
             }
 
-            foreach (DownloadSourceOption option in Enum.GetValues(typeof(DownloadSourceOption)))
+            foreach (DownloadSourceOption option in Enum.GetValues<DownloadSourceOption>())
             {
                 if (option != preferred)
                 {

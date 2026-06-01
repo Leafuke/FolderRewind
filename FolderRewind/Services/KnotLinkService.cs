@@ -546,7 +546,7 @@ namespace FolderRewind.Services
             switch (key)
             {
                 case "backup_mode":
-                    if (int.TryParse(value, out var mode) && Enum.IsDefined(typeof(BackupMode), mode))
+                    if (int.TryParse(value, out var mode) && Enum.IsDefined((BackupMode)mode))
                     {
                         config.Archive.Mode = (BackupMode)mode;
                     }
