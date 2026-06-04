@@ -228,6 +228,7 @@ namespace FolderRewind.Services
                     DefaultButton = ContentDialogButton.Close,
                     XamlRoot = xamlRoot
                 };
+                ThemeService.ApplyThemeToDialog(dialog);
 
                 hideTask = callbackTask.ContinueWith(async task =>
                 {

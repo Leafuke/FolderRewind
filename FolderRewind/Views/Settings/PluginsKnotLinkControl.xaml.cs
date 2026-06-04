@@ -57,6 +57,7 @@ namespace FolderRewind.Views.Settings
                 frame.Navigate(typeof(PluginStorePage));
             }
 
+            ThemeService.ApplyThemeToDialog(dialog);
             await dialog.ShowAsync();
         }
 

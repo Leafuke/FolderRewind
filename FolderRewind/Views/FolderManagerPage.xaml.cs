@@ -489,6 +489,7 @@ namespace FolderRewind.Views
                 DefaultButton = ContentDialogButton.Close,
                 XamlRoot = this.XamlRoot
             };
+            ThemeService.ApplyThemeToDialog(dialog);
 
             await dialog.ShowAsync();
         }
@@ -504,6 +505,7 @@ namespace FolderRewind.Views
                 DefaultButton = ContentDialogButton.Close,
                 XamlRoot = this.XamlRoot
             };
+            ThemeService.ApplyThemeToDialog(dialog);
 
             await dialog.ShowAsync();
         }
@@ -520,6 +522,7 @@ namespace FolderRewind.Views
                 DefaultButton = ContentDialogButton.Primary,
                 XamlRoot = this.XamlRoot
             };
+            ThemeService.ApplyThemeToDialog(confirm);
 
             var result = await confirm.ShowAsync();
             return result == ContentDialogResult.Primary;

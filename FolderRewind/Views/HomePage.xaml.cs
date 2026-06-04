@@ -923,6 +923,7 @@ namespace FolderRewind.Views
                     DefaultButton = ContentDialogButton.Close,
                     XamlRoot = this.XamlRoot
                 };
+                ThemeService.ApplyThemeToDialog(dialog);
 
                 if (await dialog.ShowAsync() == ContentDialogResult.Primary)
                 {

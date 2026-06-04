@@ -137,8 +137,12 @@
                                             ToolTipService.ToolTip="{x:Bind DownloadFromCloudHintText, Mode=OneWay}">
                                         <FontIcon Glyph="&#xE896;" FontSize="14"/>
                                     </Button>
-                                    <Button x:Uid="HistoryPage_RestoreButton" Click="OnRestoreClick"/>
-                                    <Button x:Uid="HistoryPage_DeleteButton" Click="OnDeleteClick"/>
+                                    <Button x:Uid="HistoryPage_RestoreButton" Click="OnRestoreClick">
+                                        <FontIcon Glyph="&#xE777;" FontSize="14"/>
+                                    </Button>
+                                    <Button x:Uid="HistoryPage_DeleteButton" Click="OnDeleteClick">
+                                        <FontIcon Glyph="&#xE74D;" FontSize="14"/>
+                                    </Button>
                                 </StackPanel>
                             </Grid>
                         </Border>

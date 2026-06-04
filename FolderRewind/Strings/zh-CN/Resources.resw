@@ -747,7 +747,7 @@
   <data name="HistoryPage_ClearMissing.Content" xml:space="preserve">
     <value>清除失效</value>
   </data>
-  <data name="HistoryPage_RestoreButton.Content" xml:space="preserve">
+  <data name="HistoryPage_RestoreButton.ToolTipService.ToolTip" xml:space="preserve">
     <value>还原</value>
   </data>
   <data name="HistoryPage_EmptyState.Text" xml:space="preserve">
@@ -2356,7 +2356,7 @@ RESTORE -current_save=true -file=backup.7z -preserve_player_data=true
   <data name="CloseDialog_Remember" xml:space="preserve">
     <value>记住我的选择</value>
   </data>
-  <data name="HistoryPage_DeleteButton.Content" xml:space="preserve">
+  <data name="HistoryPage_DeleteButton.ToolTipService.ToolTip" xml:space="preserve">
     <value>删除</value>
   </data>
   <data name="History_DeleteConfirm_Title" xml:space="preserve">

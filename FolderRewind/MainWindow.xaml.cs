@@ -203,6 +203,7 @@ namespace FolderRewind
                         DefaultButton = ContentDialogButton.Primary,
                         XamlRoot = (Content as FrameworkElement)?.XamlRoot
                     };
+                    ThemeService.ApplyThemeToDialog(dialog);
 
                     var op = dialog.ShowAsync();
                     op.Completed = (info, status) =>

@@ -10,6 +10,10 @@
     SecondaryButtonClick="OnDeleteClick"
     Style="{StaticResource DefaultContentDialogStyle}">
 
+    <ContentDialog.Resources>
+        <x:Double x:Key="ContentDialogMinWidth">560</x:Double>
+    </ContentDialog.Resources>
+
     <Grid Height="520" Width="520" RowSpacing="1">
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto"/>
