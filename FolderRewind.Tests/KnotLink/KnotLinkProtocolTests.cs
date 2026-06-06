@@ -24,6 +24,52 @@ public sealed class KnotLinkProtocolTests
     }
 
     [Fact]
+    public void Metadata_empty_has_no_conversation_fields()
+    {
+        var metadata = KnotLinkCommandMetadata.Empty;
+
+        Assert.False(metadata.HasConversation);
+        Assert.False(metadata.HasCompleteConversation);
+        Assert.Empty(metadata.ToConversationFields());
+    }
+
+    [Fact]
+    public void Metadata_returns_only_present_conversation_fields()
+    {
+        var metadata = KnotLinkCommandMetadata.FromRequest(
+            KnotLinkCommandParser.Parse("LIST_BACKUPS -from=minerewind.plugin"));
+
+        var fields = metadata.ToConversationFields();
+
+        Assert.Single(fields);
+        Assert.True(fields.TryGetValue("from", out var from));
+        Assert.Equal("minerewind.plugin", from);
+        Assert.False(fields.ContainsKey("request_id"));
+    }
+
+    [Fact]
+    public void Context_exposes_command_and_conversation_status()
+    {
+        var context = new KnotLinkCommandContext(
+            KnotLinkCommandParser.Parse("BACKUP -from=minerewind.mod -request_id=req-001"));
+
+        Assert.Equal("BACKUP", context.Command);
+        Assert.True(context.HasConversation);
+        Assert.True(context.HasCompleteConversation);
+    }
+
+    [Fact]
+    public void Context_distinguishes_partial_conversation_metadata()
+    {
+        var context = new KnotLinkCommandContext(
+            KnotLinkCommandParser.Parse("LIST_BACKUPS -from=minerewind.plugin"));
+
+        Assert.Equal("LIST_BACKUPS", context.Command);
+        Assert.True(context.HasConversation);
+        Assert.False(context.HasCompleteConversation);
+    }
+
+    [Fact]
     public void Validator_requires_conversation_metadata_for_core_async_parameterized_commands()
     {
         var request = KnotLinkCommandParser.Parse("BACKUP -config_id=main -folder=world1");

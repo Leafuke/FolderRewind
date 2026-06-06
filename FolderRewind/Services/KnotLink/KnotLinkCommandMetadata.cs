@@ -1,3 +1,5 @@
+using System.Collections.Generic;
+
 namespace FolderRewind.Services.KnotLink
 {
     public sealed class KnotLinkCommandMetadata
@@ -32,6 +34,8 @@ namespace FolderRewind.Services.KnotLink
         public bool HasCompleteConversation => !string.IsNullOrWhiteSpace(From)
             && !string.IsNullOrWhiteSpace(RequestId);
 
+        public static KnotLinkCommandMetadata Empty { get; } = new(null, null, null, null, null);
+
         public static KnotLinkCommandMetadata FromRequest(KnotLinkCommandRequest request)
         {
             System.ArgumentNullException.ThrowIfNull(request);
@@ -42,6 +46,22 @@ namespace FolderRewind.Services.KnotLink
                 request.GetString("reply_to"),
                 request.GetString("protocol_version"),
                 request.GetString("flow"));
+        }
+
+        public IReadOnlyDictionary<string, string?> ToConversationFields()
+        {
+            var fields = new Dictionary<string, string?>();
+            if (!string.IsNullOrWhiteSpace(From))
+            {
+                fields["from"] = From;
+            }
+
+            if (!string.IsNullOrWhiteSpace(RequestId))
+            {
+                fields["request_id"] = RequestId;
+            }
+
+            return fields;
         }
     }
 }
