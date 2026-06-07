@@ -236,11 +236,12 @@ namespace FolderRewind.Services.Plugins
         /// KnotLink：新版参数化指令优先给插件一次处理机会。
         /// 这样 MineRewind 可以把 BACKUP -current_save=true 映射成热备份，而不被内置 BACKUP 提前拦截。
         /// </summary>
-        public static async Task<(bool Handled, string Response)> TryHandleParameterizedKnotLinkCommandAsync(KnotLinkCommandRequest request)
+        public static async Task<(bool Handled, string Response)> TryHandleParameterizedKnotLinkCommandAsync(KnotLinkCommandContext context)
         {
             if (!IsPluginSystemEnabled()) return (false, string.Empty);
-            if (request == null || string.IsNullOrWhiteSpace(request.Command)) return (false, string.Empty);
+            if (context == null || string.IsNullOrWhiteSpace(context.Command)) return (false, string.Empty);
 
+            var request = context.Request;
             foreach (var plugin in GetEnabledLoadedPluginsSnapshot())
             {
                 if (plugin is not IFolderRewindParameterizedKnotLinkCommandHandler handler) continue;
@@ -249,6 +250,7 @@ namespace FolderRewind.Services.Plugins
                 {
                     var settings = GetPluginSettings(plugin.Manifest.Id);
                     var ctx = PluginHostContext.CreateForCurrentApp(plugin.Manifest.Id, plugin.Manifest.Name);
+                    using var scope = KnotLinkService.PushCommandContext(context);
                     var result = await handler.TryHandleParameterizedKnotLinkCommandAsync(
                         request,
                         settings,

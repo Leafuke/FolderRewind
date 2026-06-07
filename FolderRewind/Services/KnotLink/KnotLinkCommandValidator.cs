@@ -1,11 +1,12 @@
 using System;
+using System.Collections.Frozen;
 using System.Collections.Generic;
 
 namespace FolderRewind.Services.KnotLink
 {
     public static class KnotLinkCommandValidator
     {
-        private static readonly HashSet<string> CommandsRequiringConversationMetadata = new(StringComparer.OrdinalIgnoreCase)
+        private static readonly FrozenSet<string> CommandsRequiringConversationMetadata = new[]
         {
             "BACKUP",
             "RESTORE",
@@ -13,7 +14,15 @@ namespace FolderRewind.Services.KnotLink
             "AUTO_BACKUP",
             "STOP_AUTO_BACKUP",
             "MARK_IMPORTANT"
-        };
+        }.ToFrozenSet(StringComparer.OrdinalIgnoreCase);
+
+        public static IReadOnlySet<string> RequiredMetadataCommandNames => CommandsRequiringConversationMetadata;
+
+        public static bool RequiresConversationMetadata(string command)
+        {
+            return !string.IsNullOrWhiteSpace(command)
+                && CommandsRequiringConversationMetadata.Contains(command.Trim());
+        }
 
         public static KnotLinkCommandValidationResult Validate(KnotLinkCommandContext context)
         {
@@ -29,7 +38,7 @@ namespace FolderRewind.Services.KnotLink
                 return KnotLinkCommandValidationResult.DeprecatedWorldOption("world");
             }
 
-            if (!CommandsRequiringConversationMetadata.Contains(context.Request.Command))
+            if (!RequiresConversationMetadata(context.Command))
             {
                 return KnotLinkCommandValidationResult.Valid;
             }

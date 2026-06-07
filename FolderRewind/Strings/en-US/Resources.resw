@@ -1655,23 +1655,25 @@ If plugin files are in use, you may need to close the app first.</value>
     <value>The following commands can be called via KnotLink:</value>
   </data>
   <data name="SettingsPage_KnotLinkCommandsBody.Text" xml:space="preserve">
-    <value>New parameterized commands (recommended):
+    <value>New parameterized commands v2 (recommended):
+GET_CAPABILITIES
 LIST_CONFIGS
 LIST_FOLDERS -config_id=ID
-LIST_BACKUPS -config_id=ID -name="folder name"
-BACKUP -config_id=ID -name="folder name" -comment="note" -force_full=true -backup_blacklist=cache;logs -backupwhitelist=level.dat;region/r.0.0.mca
-BACKUP -config_id=ID -name="folder name" -backup_scope=MineRewind.SelectedRegions -scope.dimensions=overworld;nether -scope.areas="0,0,511,511"
-RESTORE -config_id=ID -name="folder name" -file=backup.7z -mode=clean -restore_whitelist=options.txt;playerdata -confirm_partial_clean=true
-BACKUP_ALL -config_id=ID -comment="note" -force_full=true
-AUTO_BACKUP -config_id=ID -name="folder name" -interval_minutes=10
-STOP_AUTO_BACKUP -config_id=ID -name="folder name"
-MARK_IMPORTANT -config_id=ID -name="folder name" -file=backup.7z -important=true
+LIST_BACKUPS -from=example.client -request_id=req-list-001 -config_id=ID -folder="folder name"
+BACKUP -from=example.client -request_id=req-backup-001 -config_id=ID -folder="folder name" -comment="note" -force_full=true -backup_blacklist=cache;logs -backupwhitelist=level.dat;region/r.0.0.mca
+BACKUP -from=example.client -request_id=req-backup-002 -config_id=ID -folder="folder name" -backup_scope=MineRewind.SelectedRegions -scope.dimensions=overworld;nether -scope.areas="0,0,511,511"
+RESTORE -from=example.client -request_id=req-restore-001 -config_id=ID -folder="folder name" -file=backup.7z -mode=clean -restore_whitelist=options.txt;playerdata -confirm_partial_clean=true
+BACKUP_ALL -from=example.client -request_id=req-all-001 -config_id=ID -comment="note" -force_full=true
+AUTO_BACKUP -from=example.client -request_id=req-auto-001 -config_id=ID -folder="folder name" -interval_minutes=10
+STOP_AUTO_BACKUP -from=example.client -request_id=req-stop-001 -config_id=ID -folder="folder name"
+MARK_IMPORTANT -from=example.client -request_id=req-mark-001 -config_id=ID -folder="folder name" -file=backup.7z -important=true
 
 MineRewind parameterized extensions:
-BACKUP -current_save=true -comment=QuickSave
-LIST_BACKUPS -current_save=true
-RESTORE -current_save=true -file=backup.7z -preserve_player_data=true
+BACKUP -from=minerewind.mod -request_id=req-mr-backup-001 -current_save=true -comment=QuickSave
+LIST_BACKUPS -from=minerewind.mod -request_id=req-mr-list-001 -current_save=true
+RESTORE -from=minerewind.mod -request_id=req-mr-restore-001 -current_save=true -file=backup.7z -preserve_player_data=true
 
+Receivers should only handle responses and events whose from/request_id match their own request. The new protocol uses folder and no longer uses world.
 Legacy positional commands remain compatible: BACKUP &lt;config_id&gt; &lt;folder&gt; [comment], BACKUP_CURRENT, LIST_BACKUPS_CURRENT, and more.</value>
   </data>
   <data name="SettingsPage_NavPaneWidth.Text" xml:space="preserve">
@@ -1846,7 +1848,7 @@ Legacy positional commands remain compatible: BACKUP &lt;config_id&gt; &lt;folde
     <value>Missing config_id option. Example: -config_id=ID</value>
   </data>
   <data name="KnotLink_Error_MissingFolderName" xml:space="preserve">
-    <value>Missing name option. Example: -name=folder name</value>
+    <value>Missing folder option. Example: -folder=folder name</value>
   </data>
   <data name="KnotLink_Error_MissingBackupFile" xml:space="preserve">
     <value>Missing file option. Example: -file=backup.7z</value>
@@ -1862,6 +1864,12 @@ Legacy positional commands remain compatible: BACKUP &lt;config_id&gt; &lt;folde
   </data>
   <data name="KnotLink_Error_ConfigCloneFailed" xml:space="preserve">
     <value>Unable to create a temporary configuration for this command.</value>
+  </data>
+  <data name="KnotLink_Error_MissingConversationMetadata" xml:space="preserve">
+    <value>Missing conversation metadata: {0}. Add -from=source and -request_id=requestId to new parameterized commands.</value>
+  </data>
+  <data name="KnotLink_Error_DeprecatedWorldOption" xml:space="preserve">
+    <value>The world option is deprecated. Upgrade the caller protocol and use folder instead.</value>
   </data>
   <data name="KnotLink_ResponderInitSuccess" xml:space="preserve">
     <value>[KnotLink] Command responder initialized successfully</value>

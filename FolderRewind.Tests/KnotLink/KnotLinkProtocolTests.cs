@@ -1,4 +1,7 @@
+using System;
 using System.Collections.Generic;
+using System.Linq;
+using System.Reflection;
 using FolderRewind.Services.KnotLink;
 using Xunit;
 
@@ -83,6 +86,48 @@ public sealed class KnotLinkProtocolTests
     }
 
     [Fact]
+    public void Validator_exposes_required_metadata_commands_as_read_only_source_of_truth()
+    {
+        var expectedCommands = new[]
+        {
+            "BACKUP",
+            "RESTORE",
+            "BACKUP_ALL",
+            "AUTO_BACKUP",
+            "STOP_AUTO_BACKUP",
+            "MARK_IMPORTANT"
+        };
+
+        var property = typeof(KnotLinkCommandValidator).GetProperty(
+            nameof(KnotLinkCommandValidator.RequiredMetadataCommandNames),
+            BindingFlags.Public | BindingFlags.Static);
+        var requiredCommands = KnotLinkCommandValidator.RequiredMetadataCommandNames;
+
+        Assert.NotNull(property);
+        Assert.Equal(typeof(IReadOnlySet<string>), property.PropertyType);
+        Assert.Null(property.GetSetMethod(nonPublic: true));
+        Assert.Equal(
+            expectedCommands.OrderBy(static command => command, StringComparer.Ordinal),
+            requiredCommands.OrderBy(static command => command, StringComparer.Ordinal));
+        Assert.True(requiredCommands.Contains("backup"));
+
+        if (requiredCommands is ISet<string> mutableCommands)
+        {
+            Assert.Throws<NotSupportedException>(() => mutableCommands.Add("__MUTATED__"));
+        }
+
+        Assert.DoesNotContain("__MUTATED__", requiredCommands);
+        foreach (var command in requiredCommands)
+        {
+            var result = KnotLinkCommandValidator.Validate(
+                new KnotLinkCommandContext(KnotLinkCommandParser.Parse($"{command} -config_id=main -folder=world1")));
+
+            Assert.False(result.IsValid);
+            Assert.Equal(KnotLinkCommandValidationError.MissingConversationMetadata, result.Error);
+        }
+    }
+
+    [Fact]
     public void Validator_allows_query_commands_without_conversation_metadata()
     {
         var request = KnotLinkCommandParser.Parse("LIST_BACKUPS -config_id=main -folder=world1");
@@ -92,6 +137,20 @@ public sealed class KnotLinkProtocolTests
 
         Assert.True(result.IsValid);
         Assert.Equal(KnotLinkCommandValidationError.None, result.Error);
+    }
+
+    [Theory]
+    [InlineData("BACKUP", true)]
+    [InlineData("RESTORE", true)]
+    [InlineData("BACKUP_ALL", true)]
+    [InlineData("AUTO_BACKUP", true)]
+    [InlineData("STOP_AUTO_BACKUP", true)]
+    [InlineData("MARK_IMPORTANT", true)]
+    [InlineData("LIST_BACKUPS", false)]
+    [InlineData("GET_CAPABILITIES", false)]
+    public void Validator_reports_which_commands_require_conversation_metadata(string command, bool expected)
+    {
+        Assert.Equal(expected, KnotLinkCommandValidator.RequiresConversationMetadata(command));
     }
 
     [Fact]
@@ -154,5 +213,30 @@ public sealed class KnotLinkProtocolTests
         Assert.Equal(
             "OK:from=minerewind.plugin;request_id=query-1;data=backup%20one.7z%3Bbackup%3Dtwo.7z",
             response);
+    }
+
+    [Fact]
+    public void KnotLinkService_pushes_and_restores_current_command_context()
+    {
+        var first = new KnotLinkCommandContext(
+            KnotLinkCommandParser.Parse("BACKUP -from=a -request_id=1 -current_save=true"));
+        var second = new KnotLinkCommandContext(
+            KnotLinkCommandParser.Parse("BACKUP -from=b -request_id=2 -current_save=true"));
+
+        Assert.Null(FolderRewind.Services.KnotLinkService.CurrentCommandContext);
+
+        using (FolderRewind.Services.KnotLinkService.PushCommandContext(first))
+        {
+            Assert.Equal("1", FolderRewind.Services.KnotLinkService.CurrentCommandContext?.Metadata.RequestId);
+
+            using (FolderRewind.Services.KnotLinkService.PushCommandContext(second))
+            {
+                Assert.Equal("2", FolderRewind.Services.KnotLinkService.CurrentCommandContext?.Metadata.RequestId);
+            }
+
+            Assert.Equal("1", FolderRewind.Services.KnotLinkService.CurrentCommandContext?.Metadata.RequestId);
+        }
+
+        Assert.Null(FolderRewind.Services.KnotLinkService.CurrentCommandContext);
     }
 }

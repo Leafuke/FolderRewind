@@ -1,4 +1,6 @@
+using FolderRewind.Services.KnotLink;
 using System;
+using System.Collections.Generic;
 using System.Threading.Tasks;
 
 namespace FolderRewind.Services.Plugins
@@ -20,6 +22,8 @@ namespace FolderRewind.Services.Plugins
 
         public bool IsKnotLinkResponserReady => Services.KnotLinkService.IsResponserRunning;
 
+        public KnotLinkCommandContext? CurrentKnotLinkCommandContext => Services.KnotLinkService.CurrentCommandContext;
+
         public void BroadcastEvent(string eventData)
         {
             Services.KnotLinkService.BroadcastEvent(eventData);
@@ -28,6 +32,16 @@ namespace FolderRewind.Services.Plugins
         public Task BroadcastEventAsync(string eventData)
         {
             return Services.KnotLinkService.BroadcastEventAsync(eventData);
+        }
+
+        public void BroadcastEvent(KnotLinkCommandContext? context, string eventName, IReadOnlyDictionary<string, string?>? fields = null)
+        {
+            Services.KnotLinkService.BroadcastEvent(context, eventName, fields);
+        }
+
+        public Task BroadcastEventAsync(KnotLinkCommandContext? context, string eventName, IReadOnlyDictionary<string, string?>? fields = null)
+        {
+            return Services.KnotLinkService.BroadcastEventAsync(context, eventName, fields);
         }
 
         public Task<string> QueryKnotLinkAsync(string question, int timeoutMs = 5000)

@@ -1,4 +1,5 @@
 ﻿using FolderRewind.Models;
+using FolderRewind.Services.KnotLink;
 using Microsoft.UI.Xaml.Controls;
 using System;
 using System.Collections.Generic;
@@ -84,6 +85,108 @@ namespace FolderRewind.Services
         private static string? _cachedSevenZipConfigPath;
         private static string? _cachedSevenZipPathEnvironment;
 
+        private static void BroadcastBackupEvent(
+            int configIndex,
+            BackupConfig config,
+            ManagedFolder folder,
+            string eventName,
+            IReadOnlyDictionary<string, string?>? fields = null)
+        {
+            var context = KnotLinkService.CurrentCommandContext;
+            if (context?.Metadata.HasConversation == true)
+            {
+                var merged = new Dictionary<string, string?>(StringComparer.OrdinalIgnoreCase)
+                {
+                    ["config"] = config.Id,
+                    ["folder"] = folder.DisplayName
+                };
+
+                if (fields != null)
+                {
+                    foreach (var pair in fields)
+                    {
+                        merged[pair.Key] = pair.Value;
+                    }
+                }
+
+                KnotLinkService.BroadcastEvent(context, eventName, merged);
+                return;
+            }
+
+            var legacy = new StringBuilder($"event={eventName};config={configIndex};world={folder.DisplayName}");
+            if (fields != null)
+            {
+                foreach (var pair in fields)
+                {
+                    if (pair.Value == null) continue;
+                    legacy.Append(';').Append(pair.Key).Append('=').Append(pair.Value);
+                }
+            }
+
+            KnotLinkService.BroadcastEvent(legacy.ToString());
+        }
+
+        private static void BroadcastBackupLifecycle(string lifecycleEvent, IReadOnlyDictionary<string, string?>? fields = null)
+        {
+            var context = KnotLinkService.CurrentCommandContext;
+            if (context?.Metadata.HasConversation == true
+                && string.Equals(context.Command, "BACKUP", StringComparison.OrdinalIgnoreCase))
+            {
+                KnotLinkService.BroadcastCommandLifecycle(context, lifecycleEvent, fields);
+            }
+        }
+
+        private static void BroadcastRestoreEvent(
+            int configIndex,
+            BackupConfig config,
+            ManagedFolder folder,
+            string eventName,
+            IReadOnlyDictionary<string, string?>? fields = null)
+        {
+            var context = KnotLinkService.CurrentCommandContext;
+            if (context?.Metadata.HasConversation == true)
+            {
+                var merged = new Dictionary<string, string?>(StringComparer.OrdinalIgnoreCase)
+                {
+                    ["config"] = config.Id,
+                    ["folder"] = folder.DisplayName
+                };
+
+                if (fields != null)
+                {
+                    foreach (var pair in fields)
+                    {
+                        merged[pair.Key] = pair.Value;
+                    }
+                }
+
+                KnotLinkService.BroadcastEvent(context, eventName, merged);
+                return;
+            }
+
+            var legacy = new StringBuilder($"event={eventName};config={configIndex};world={folder.DisplayName}");
+            if (fields != null)
+            {
+                foreach (var pair in fields)
+                {
+                    if (pair.Value == null) continue;
+                    legacy.Append(';').Append(pair.Key).Append('=').Append(pair.Value);
+                }
+            }
+
+            KnotLinkService.BroadcastEvent(legacy.ToString());
+        }
+
+        private static void BroadcastRestoreLifecycle(string lifecycleEvent, IReadOnlyDictionary<string, string?>? fields = null)
+        {
+            var context = KnotLinkService.CurrentCommandContext;
+            if (context?.Metadata.HasConversation == true
+                && string.Equals(context.Command, "RESTORE", StringComparison.OrdinalIgnoreCase))
+            {
+                KnotLinkService.BroadcastCommandLifecycle(context, lifecycleEvent, fields);
+            }
+        }
+
 
         // 主备份编排保留在入口文件中；压缩、过滤、元数据和还原细节拆到同名 partial 文件。
 
@@ -166,13 +269,8 @@ namespace FolderRewind.Services
                     task.ErrorMessage = I18n.Format("BackupService_Folder_SourceNotFound");
                 });
 
-                try
-                {
-                    KnotLinkService.BroadcastEvent($"event=backup_failed;config={configIndex};world={folder.DisplayName};error=command_failed");
-                }
-                catch
-                {
-                }
+                BroadcastBackupLifecycle("command_failed", new Dictionary<string, string?> { ["reason"] = "command_failed" });
+                BroadcastBackupEvent(configIndex, config, folder, "backup_failed", new Dictionary<string, string?> { ["error"] = "command_failed" });
                 return false;
             }
 
@@ -189,13 +287,8 @@ namespace FolderRewind.Services
                     task.ErrorMessage = I18n.Format("BackupService_Folder_TargetNotSet");
                 });
 
-                try
-                {
-                    KnotLinkService.BroadcastEvent($"event=backup_failed;config={configIndex};world={folder.DisplayName};error=command_failed");
-                }
-                catch
-                {
-                }
+                BroadcastBackupLifecycle("command_failed", new Dictionary<string, string?> { ["reason"] = "command_failed" });
+                BroadcastBackupEvent(configIndex, config, folder, "backup_failed", new Dictionary<string, string?> { ["error"] = "command_failed" });
                 return false;
             }
 
@@ -219,13 +312,8 @@ namespace FolderRewind.Services
                     task.ErrorMessage = invalidFolderNameMessage;
                 });
 
-                try
-                {
-                    KnotLinkService.BroadcastEvent($"event=backup_failed;config={configIndex};world={folder.DisplayName};error=invalid_folder_name");
-                }
-                catch
-                {
-                }
+                BroadcastBackupLifecycle("command_failed", new Dictionary<string, string?> { ["reason"] = "invalid_folder_name" });
+                BroadcastBackupEvent(configIndex, config, folder, "backup_failed", new Dictionary<string, string?> { ["error"] = "invalid_folder_name" });
                 return false;
             }
 
@@ -237,13 +325,9 @@ namespace FolderRewind.Services
             await RunOnUIAsync(() => folder.StatusText = I18n.Format("BackupService_Folder_BackupInProgress"));
 
             // 与 MineBackup 保持一致：备份开始事件
-            try
-            {
-                KnotLinkService.BroadcastEvent($"event=backup_started;config={configIndex};world={folder.DisplayName}");
-            }
-            catch
-            {
-            }
+            BroadcastBackupLifecycle("command_started");
+            BroadcastBackupLifecycle("command_progress", new Dictionary<string, string?> { ["progress"] = "0" });
+            BroadcastBackupEvent(configIndex, config, folder, "backup_started");
 
             bool success = false;
             string? generatedFileName = null;
@@ -367,7 +451,11 @@ namespace FolderRewind.Services
                                 Log(I18n.Format("BackupService_Log_FileSizeTooSmall", folder.DisplayName, fileSizeKB.ToString("F1"), thresholdKB.ToString()), LogLevel.Warning);
                                 NotificationService.ShowWarning(
                                     I18n.Format("BackupService_Warning_FileSizeTooSmall", folder.DisplayName, fileSizeKB.ToString("F1"), thresholdKB.ToString()));
-                                KnotLinkService.BroadcastEvent($"event=backup_warning;type=file_too_small;config={configIndex};world={folder.DisplayName};size_kb={fileSizeKB:F1}");
+                                BroadcastBackupEvent(configIndex, config, folder, "backup_warning", new Dictionary<string, string?>
+                                {
+                                    ["type"] = "file_too_small",
+                                    ["size_kb"] = fileSizeKB.ToString("F1")
+                                });
                             }
                         }
                     }
@@ -376,13 +464,15 @@ namespace FolderRewind.Services
                     }
 
                     // 与 MineBackup 保持一致：备份成功事件
-                    try
+                    BroadcastBackupEvent(configIndex, config, folder, "backup_success", new Dictionary<string, string?>
                     {
-                        KnotLinkService.BroadcastEvent($"event=backup_success;config={configIndex};world={folder.DisplayName};file={completedFileName}");
-                    }
-                    catch
+                        ["file"] = completedFileName
+                    });
+                    BroadcastBackupLifecycle("command_completed", new Dictionary<string, string?>
                     {
-                    }
+                        ["result"] = "created",
+                        ["file"] = completedFileName
+                    });
 
                     CloudSyncService.QueueUploadAfterBackup(config, folder, completedFileName, comment);
                 }
@@ -406,6 +496,14 @@ namespace FolderRewind.Services
                     }
                 });
 
+                if (!hasNewFile)
+                {
+                    BroadcastBackupLifecycle("command_completed", new Dictionary<string, string?>
+                    {
+                        ["result"] = "no_changes"
+                    });
+                }
+
                 Log(
                     hasNewFile
                         ? I18n.Format("BackupService_Log_BackupSucceeded", folder.DisplayName)
@@ -424,13 +522,8 @@ namespace FolderRewind.Services
                 });
                 Log(I18n.Format("BackupService_Log_BackupFailed", folder.DisplayName), LogLevel.Error);
 
-                try
-                {
-                    KnotLinkService.BroadcastEvent($"event=backup_failed;config={configIndex};world={folder.DisplayName};error=command_failed");
-                }
-                catch
-                {
-                }
+                BroadcastBackupLifecycle("command_failed", new Dictionary<string, string?> { ["reason"] = "command_failed" });
+                BroadcastBackupEvent(configIndex, config, folder, "backup_failed", new Dictionary<string, string?> { ["error"] = "command_failed" });
 
                 // 发送失败通知
                 NotificationService.NotifyBackupCompleted(folder.DisplayName, false, I18n.GetString("BackupService_Task_Failed"));
@@ -460,6 +553,14 @@ namespace FolderRewind.Services
             string comment)
         {
             Log(I18n.Format("BackupService_Log_PluginTakeover", plugin.Manifest.Name, folder.DisplayName), LogLevel.Info);
+            var configIndex = GetConfigIndex(config);
+
+            BroadcastBackupLifecycle("command_started");
+            BroadcastBackupLifecycle("command_progress", new Dictionary<string, string?> { ["progress"] = "0" });
+            if (KnotLinkService.CurrentCommandContext?.Metadata.HasConversation == true)
+            {
+                BroadcastBackupEvent(configIndex, config, folder, "backup_started");
+            }
 
             await RunOnUIAsync(() =>
             {
@@ -528,6 +629,26 @@ namespace FolderRewind.Services
                             : I18n.Format("BackupService_Log_PluginBackupSkippedNoChanges", folder.DisplayName),
                         LogLevel.Info);
 
+                    if (hasNewFile)
+                    {
+                        BroadcastBackupEvent(configIndex, config, folder, "backup_success", new Dictionary<string, string?>
+                        {
+                            ["file"] = result.GeneratedFileName
+                        });
+                        BroadcastBackupLifecycle("command_completed", new Dictionary<string, string?>
+                        {
+                            ["result"] = "created",
+                            ["file"] = result.GeneratedFileName
+                        });
+                    }
+                    else
+                    {
+                        BroadcastBackupLifecycle("command_completed", new Dictionary<string, string?>
+                        {
+                            ["result"] = "no_changes"
+                        });
+                    }
+
                     return hasNewFile;
                 }
                 else
@@ -543,6 +664,11 @@ namespace FolderRewind.Services
                     });
 
                     Log(I18n.Format("BackupService_Log_PluginBackupFailed", folder.DisplayName, result.Message ?? string.Empty), LogLevel.Error);
+                    BroadcastBackupLifecycle("command_failed", new Dictionary<string, string?> { ["reason"] = "plugin_failed" });
+                    BroadcastBackupEvent(configIndex, config, folder, "backup_failed", new Dictionary<string, string?>
+                    {
+                        ["error"] = result.Message ?? "plugin_failed"
+                    });
                     return false;
                 }
             }
@@ -559,6 +685,15 @@ namespace FolderRewind.Services
                 });
 
                 Log(I18n.Format("BackupService_Log_PluginException", folder.DisplayName, ex.Message), LogLevel.Error);
+                BroadcastBackupLifecycle("command_failed", new Dictionary<string, string?>
+                {
+                    ["reason"] = "plugin_exception",
+                    ["error"] = ex.Message
+                });
+                BroadcastBackupEvent(configIndex, config, folder, "backup_failed", new Dictionary<string, string?>
+                {
+                    ["error"] = ex.Message
+                });
                 return false;
             }
         }
@@ -587,14 +722,9 @@ namespace FolderRewind.Services
 
             try
             {
-                try
-                {
-                    KnotLinkService.BroadcastEvent($"event=restore_started;config={configIndex};world={folder.DisplayName}");
-                    restoreStarted = true;
-                }
-                catch
-                {
-                }
+                BroadcastRestoreLifecycle("command_started");
+                BroadcastRestoreEvent(configIndex, config, folder, "restore_started");
+                restoreStarted = true;
 
                 var result = await Services.Plugins.PluginService.InvokePluginRestoreAsync(
                     plugin,
@@ -628,13 +758,14 @@ namespace FolderRewind.Services
                     Log(I18n.Format("BackupService_Log_PluginRestoreSucceeded", folder.DisplayName), LogLevel.Info);
                     NotificationService.NotifyRestoreCompleted(folder.DisplayName, true, I18n.GetString("BackupService_Task_RestoreCompleted"));
 
-                    try
+                    BroadcastRestoreEvent(configIndex, config, folder, "restore_success", new Dictionary<string, string?>
                     {
-                        KnotLinkService.BroadcastEvent($"event=restore_success;config={configIndex};world={folder.DisplayName};backup={historyItem.FileName}");
-                    }
-                    catch
+                        ["backup"] = historyItem.FileName
+                    });
+                    BroadcastRestoreLifecycle("command_completed", new Dictionary<string, string?>
                     {
-                    }
+                        ["backup"] = historyItem.FileName
+                    });
 
                     return;
                 }
@@ -656,13 +787,12 @@ namespace FolderRewind.Services
 
                 if (restoreStarted)
                 {
-                    try
+                    BroadcastRestoreLifecycle("command_failed", new Dictionary<string, string?> { ["reason"] = "plugin_restore_failed" });
+                    BroadcastRestoreEvent(configIndex, config, folder, "restore_finished", new Dictionary<string, string?>
                     {
-                        KnotLinkService.BroadcastEvent("event=restore_finished;status=failure;reason=plugin_restore_failed");
-                    }
-                    catch
-                    {
-                    }
+                        ["status"] = "failure",
+                        ["reason"] = "plugin_restore_failed"
+                    });
                 }
 
                 NotificationService.NotifyRestoreCompleted(folder.DisplayName, false, failureMessage);
@@ -682,13 +812,12 @@ namespace FolderRewind.Services
 
                 if (restoreStarted)
                 {
-                    try
+                    BroadcastRestoreLifecycle("command_failed", new Dictionary<string, string?> { ["reason"] = "plugin_restore_exception" });
+                    BroadcastRestoreEvent(configIndex, config, folder, "restore_finished", new Dictionary<string, string?>
                     {
-                        KnotLinkService.BroadcastEvent("event=restore_finished;status=failure;reason=plugin_restore_exception");
-                    }
-                    catch
-                    {
-                    }
+                        ["status"] = "failure",
+                        ["reason"] = "plugin_restore_exception"
+                    });
                 }
 
                 NotificationService.NotifyRestoreCompleted(folder.DisplayName, false, ex.Message);

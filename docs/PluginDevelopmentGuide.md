@@ -980,40 +980,84 @@ LogService.LogError("错误内容", "MyPlugin", ex);
 
 ### 10.7 KnotLink 事件协议
 
-FolderRewind 与 MineBackup 共享同一套事件协议（保持兼容性）。事件使用**分号分隔的键值对**格式。
+FolderRewind 的 KnotLink 事件使用**分号分隔的键值对**格式：
 
-#### 系统事件（Host 自动发送）
-
-| 事件 | Payload | 触发时机 |
-|------|---------|---------|
-| `app_startup` | `event=app_startup;version=1.2.0` | FolderRewind 启动 |
-| `backup_started` | `event=backup_started;config={id};world={name}` | 备份开始 |
-| `backup_success` | `event=backup_success;config={id};world={name};file={file}` | 备份成功 |
-| `backup_failed` | `event=backup_failed;config={id};world={name};error={msg}` | 备份失败 |
-| `restore_success` | `event=restore_success;config={id};world={name}` | 还原成功 |
-| `restore_failed` | `event=restore_failed;config={id};world={name};error={msg}` | 还原失败 |
-| `config_changed` | `event=config_changed;config={id};key={k};value={v}` | 配置变更 |
-| `auto_backup_started` | `event=auto_backup_started;config={id};folder={name};interval={min}` | 自动备份启动 |
-| `auto_backup_stopped` | `event=auto_backup_stopped;config={id};folder={name}` | 自动备份停止 |
-
-#### 插件事件（由插件发送）
-
-| 事件 | Payload | 说明 |
-|------|---------|------|
-| `pre_hot_backup` | `event=pre_hot_backup;plugin={id};world={name}` | 热备份前通知模组保存世界 |
-| `hotkey_backup_triggered` | `event=hotkey_backup_triggered;plugin={id};...` | 热键触发备份 |
-| 自定义事件 | `event=my_event;key=value` | 插件可发送任意自定义事件 |
-
-#### 事件格式规范
-
-```
-event=<事件名>;[key1=value1;][key2=value2;]...
+```text
+event=<事件名>;key=value;key=value
 ```
 
-- 使用 `;` 分隔键值对
-- 使用 `=` 分隔键和值
-- `event` 字段为必须项
-- 值中含特殊字符时使用 `Uri.EscapeDataString()` 编码
+#### 参数化指令 v2 会话字段
+
+新版参数化指令推荐使用以下会话字段：
+
+| 字段 | 说明 |
+|---|---|
+| `from` | 调用方或流程来源，例如 `minerewind.mod`、`minerewind.plugin` |
+| `request_id` | 单次请求 ID，用于区分同一来源并发请求 |
+
+会产生状态变化或后续异步事件的参数化命令必须包含 `from` 和 `request_id`：
+
+```text
+BACKUP
+RESTORE
+BACKUP_ALL
+AUTO_BACKUP
+STOP_AUTO_BACKUP
+MARK_IMPORTANT
+```
+
+示例：
+
+```text
+BACKUP -from=minerewind.mod -request_id=req-001 -current_save=true -comment=QuickSave
+```
+
+直接响应示例：
+
+```text
+OK:from=minerewind.mod;request_id=req-001;message=Backup%20started%20for%20folder%20%27MyWorld%27
+```
+
+后续事件示例：
+
+```text
+event=backup_success;from=minerewind.mod;request_id=req-001;config=...;folder=MyWorld;file=backup.7z
+```
+
+#### 生命周期事件
+
+异步命令会广播统一生命周期事件：
+
+| 事件 | 触发时机 |
+|---|---|
+| `command_accepted` | 命令通过解析和校验 |
+| `command_started` | 后台任务开始执行 |
+| `command_progress` | 后台任务报告进度 |
+| `command_completed` | 后台任务成功完成 |
+| `command_failed` | 后台任务失败 |
+
+#### 字段规则
+
+- 新版协议统一使用 `folder` 字段。
+- 新版参数化命令不再接受 `world` 参数；调用方应升级到 `folder`。
+- 所有字段值使用 URL 编码；接收端必须 URL 解码后再使用。
+- 接收端必须只处理 `from/request_id` 与自己请求匹配的响应和事件。
+- 对异步或会改变状态的命令，OpenSocket 直接返回表示请求已接收或执行前失败；后续广播表示实际执行状态。
+- 对查询命令（如 `LIST_CONFIGS`、`LIST_FOLDERS`、`LIST_BACKUPS`、`GET_CONFIG`、`GET_STATUS`），直接 `OK:` 响应会返回查询数据。
+
+#### 能力查询
+
+调用方可以先发送：
+
+```text
+GET_CAPABILITIES
+```
+
+典型返回：
+
+```text
+OK:protocol=2;supports=from,request_id,encoded_kv,lifecycle_events,folder_field,plugin_context_broadcast;requires_metadata=BACKUP,RESTORE,BACKUP_ALL,AUTO_BACKUP,STOP_AUTO_BACKUP,MARK_IMPORTANT
+```
 
 ### 10.8 扩展 KnotLink 指令（插件定义新互联事件）
 
