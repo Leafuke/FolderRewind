@@ -759,6 +759,12 @@ namespace FolderRewind.Views
             CloudTabScrollViewer.Visibility = Microsoft.UI.Xaml.Visibility.Collapsed;
             FilterTabScrollViewer.Visibility = Microsoft.UI.Xaml.Visibility.Collapsed;
 
+            // Guard: same as constructor — convert "Encrypted" to "Default"
+            if (string.Equals(Config.ConfigType, "Encrypted", StringComparison.OrdinalIgnoreCase))
+            {
+                Config.ConfigType = "Default";
+            }
+
             // Reset ConfigTypesView
             ConfigTypesView.Clear();
             foreach (var t in PluginService.GetAllSupportedConfigTypes())
@@ -785,6 +791,7 @@ namespace FolderRewind.Views
                 ConfigSelectorBar.SelectedItem = firstItem;
             }
 
+            RebuildBackupScopeParameterPanel();
             UpdateCloudBindings();
             Bindings.Update();
         }
