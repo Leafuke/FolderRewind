@@ -16,13 +16,25 @@ namespace FolderRewind.Services
     {
         // 7-Zip 解析与压缩执行集中在这里，备份、还原、安全删除共用同一套进程封装。
 
-        private static bool ExtractArchiveToDirectorySync(string sevenZipExe, string archivePath, string targetDir, string? password, bool runAtLowPriority = false)
+        private static bool ExtractArchiveToDirectorySync(string sevenZipExe, string archivePath, string targetDir, string? password, int cpuThreads = 0, bool runAtLowPriority = false)
         {
             string extractArgs = $"x \"{archivePath}\" -o\"{targetDir}\" -y -aoa";
             if (!string.IsNullOrWhiteSpace(password))
             {
                 extractArgs += $" -p\"{password}\"";
             }
+
+            // 添加 CPU 线程限制
+            int normalizedThreads = NormalizeCpuThreadCount(cpuThreads);
+            if (normalizedThreads > 0)
+            {
+                extractArgs += $" -mmt{normalizedThreads}";
+            }
+            else
+            {
+                extractArgs += " -mmt";
+            }
+
             return RunSevenZipProcessSync(sevenZipExe, extractArgs, runAtLowPriority: runAtLowPriority);
         }
 

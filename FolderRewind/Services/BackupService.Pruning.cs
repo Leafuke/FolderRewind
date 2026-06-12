@@ -394,14 +394,14 @@ namespace FolderRewind.Services
                 Directory.CreateDirectory(mergeDir);
 
                 Log(I18n.Format("BackupService_Log_SafeDeleteStep1"), LogLevel.Info);
-                if (!ExtractArchiveToDirectorySync(sevenZipExe, fileToDelete.FullName, mergeDir, safeDeletePassword, archiveSettings.RunCompressionAtLowPriority))
+                if (!ExtractArchiveToDirectorySync(sevenZipExe, fileToDelete.FullName, mergeDir, safeDeletePassword, archiveSettings.CpuThreads, archiveSettings.RunCompressionAtLowPriority))
                 {
                     result.Message = I18n.GetString("BackupService_Log_SafeDeleteExtractFailed");
                     Log(result.Message, LogLevel.Error);
                     return false;
                 }
 
-                if (!ExtractArchiveToDirectorySync(sevenZipExe, nextFile.FullName, mergeDir, safeDeletePassword, archiveSettings.RunCompressionAtLowPriority))
+                if (!ExtractArchiveToDirectorySync(sevenZipExe, nextFile.FullName, mergeDir, safeDeletePassword, archiveSettings.CpuThreads, archiveSettings.RunCompressionAtLowPriority))
                 {
                     result.Message = I18n.GetString("BackupService_Log_SafeDeleteExtractFailed");
                     Log(result.Message, LogLevel.Error);
