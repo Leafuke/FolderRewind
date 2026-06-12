@@ -751,6 +751,14 @@ namespace FolderRewind.Views
             _tabLoaded.Clear();
             _currentTabContent = null;
 
+            // 重置所有 tab ScrollViewer 的可见性，防止重影
+            GeneralTabScrollViewer.Visibility = Microsoft.UI.Xaml.Visibility.Collapsed;
+            BackupTabScrollViewer.Visibility = Microsoft.UI.Xaml.Visibility.Collapsed;
+            RestoreTabScrollViewer.Visibility = Microsoft.UI.Xaml.Visibility.Collapsed;
+            AutomationTabScrollViewer.Visibility = Microsoft.UI.Xaml.Visibility.Collapsed;
+            CloudTabScrollViewer.Visibility = Microsoft.UI.Xaml.Visibility.Collapsed;
+            FilterTabScrollViewer.Visibility = Microsoft.UI.Xaml.Visibility.Collapsed;
+
             // Reset ConfigTypesView
             ConfigTypesView.Clear();
             foreach (var t in PluginService.GetAllSupportedConfigTypes())
