@@ -778,10 +778,22 @@ namespace FolderRewind.Views
             Config.PropertyChanged += OnDialogConfigPropertyChanged;
             Config.Cloud.PropertyChanged += OnDialogCloudPropertyChanged;
 
-            // Reset to first tab (General)
-            if (ConfigSelectorBar.Items.FirstOrDefault() is SelectorBarItem firstItem)
+            // 重新打开时 SelectionChanged 可能不会触发，或者控件仍保留关闭前的选中项；
+            // 这里以当前实际选中的页签为准显式恢复内容，避免标签和正文不同步。
+            if (_currentTabContent == null)
             {
-                ConfigSelectorBar.SelectedItem = firstItem;
+                var selectedTag = ConfigSelectorBar.SelectedItem?.Tag as string
+                    ?? (ConfigSelectorBar.Items.FirstOrDefault() as SelectorBarItem)?.Tag as string;
+                if (!string.IsNullOrWhiteSpace(selectedTag))
+                {
+                    LoadTabContent(selectedTag);
+
+                    var selectedIndex = ConfigSelectorBar.Items.IndexOf(ConfigSelectorBar.SelectedItem);
+                    if (selectedIndex >= 0)
+                    {
+                        ViewModel.SelectedPageIndex = selectedIndex;
+                    }
+                }
             }
 
             RebuildBackupScopeParameterPanel();
