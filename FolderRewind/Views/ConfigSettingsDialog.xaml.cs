@@ -11,7 +11,6 @@ using System.IO;
 using System.Linq;
 using System.Threading.Tasks;
 using Windows.System;
-using Windows.Storage.Pickers;
 
 namespace FolderRewind.Views
 {
@@ -489,17 +488,17 @@ namespace FolderRewind.Views
 
         private async void OnBrowseClick(object sender, RoutedEventArgs e)
         {
-            var picker = new FolderPicker();
-            picker.SuggestedStartLocation = PickerLocationId.ComputerFolder;
-            picker.FileTypeFilter.Add("*");
-            MainWindowService.InitializePicker(picker);
-
-            var folder = await picker.PickSingleFolderAsync();
-            if (folder != null)
+            var folderPath = await MainWindowService.PickFolderPathAsync(
+                string.Empty,
+                "FolderRewind.ConfigSettings.Destination",
+                MainWindowService.SuggestedPickerLocation.ComputerFolder);
+            if (string.IsNullOrWhiteSpace(folderPath))
             {
-                Config.DestinationPath = folder.Path;
-                DestPathBox.Text = folder.Path;
+                return;
             }
+
+            Config.DestinationPath = folderPath;
+            DestPathBox.Text = folderPath;
         }
 
         private void OnOpenDestinationClick(object sender, RoutedEventArgs e)
@@ -610,32 +609,26 @@ namespace FolderRewind.Views
 
         private async void OnBrowseCloudExecutableClick(object sender, RoutedEventArgs e)
         {
-            var picker = new FileOpenPicker();
-            picker.SuggestedStartLocation = PickerLocationId.ComputerFolder;
-            picker.FileTypeFilter.Add(".exe");
-            picker.FileTypeFilter.Add(".cmd");
-            picker.FileTypeFilter.Add(".bat");
-            picker.FileTypeFilter.Add(".ps1");
-            MainWindowService.InitializePicker(picker);
+            var filePath = await MainWindowService.PickFilePathAsync(
+                string.Empty,
+                "FolderRewind.ConfigSettings.CloudExecutable",
+                new[] { ".exe", ".cmd", ".bat", ".ps1" },
+                MainWindowService.SuggestedPickerLocation.ComputerFolder);
+            if (string.IsNullOrWhiteSpace(filePath)) return;
 
-            var file = await picker.PickSingleFileAsync();
-            if (file == null) return;
-
-            ViewModel.CloudExecutablePathText = file.Path;
+            ViewModel.CloudExecutablePathText = filePath;
             UpdateCloudBindings();
         }
 
         private async void OnBrowseCloudWorkingDirectoryClick(object sender, RoutedEventArgs e)
         {
-            var picker = new FolderPicker();
-            picker.SuggestedStartLocation = PickerLocationId.ComputerFolder;
-            picker.FileTypeFilter.Add("*");
-            MainWindowService.InitializePicker(picker);
+            var folderPath = await MainWindowService.PickFolderPathAsync(
+                string.Empty,
+                "FolderRewind.ConfigSettings.CloudWorkingDirectory",
+                MainWindowService.SuggestedPickerLocation.ComputerFolder);
+            if (string.IsNullOrWhiteSpace(folderPath)) return;
 
-            var folder = await picker.PickSingleFolderAsync();
-            if (folder == null) return;
-
-            ViewModel.CloudWorkingDirectoryText = folder.Path;
+            ViewModel.CloudWorkingDirectoryText = folderPath;
             UpdateCloudBindings();
         }
 

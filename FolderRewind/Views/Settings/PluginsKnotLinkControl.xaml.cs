@@ -9,7 +9,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 using Windows.ApplicationModel.Resources;
-using Windows.Storage.Pickers;
+using PickerViewMode = Windows.Storage.Pickers.PickerViewMode;
 
 namespace FolderRewind.Views.Settings
 {
@@ -67,16 +67,15 @@ namespace FolderRewind.Views.Settings
 
             var rl = ResourceLoader.GetForViewIndependentUse();
 
-            var picker = new FileOpenPicker();
-            picker.ViewMode = PickerViewMode.List;
-            picker.SuggestedStartLocation = PickerLocationId.Downloads;
-            picker.FileTypeFilter.Add(".zip");
-            MainWindowService.InitializePicker(picker);
+            var filePath = await MainWindowService.PickFilePathAsync(
+                string.Empty,
+                "FolderRewind.Settings.Plugins.ManualInstall",
+                new[] { ".zip" },
+                MainWindowService.SuggestedPickerLocation.Downloads,
+                viewMode: PickerViewMode.List);
+            if (string.IsNullOrWhiteSpace(filePath)) return;
 
-            var file = await picker.PickSingleFileAsync();
-            if (file == null) return;
-
-            var res = await PluginService.InstallFromZipAsync(file.Path);
+            var res = await PluginService.InstallFromZipAsync(filePath);
 
             var msg = new ContentDialog
             {

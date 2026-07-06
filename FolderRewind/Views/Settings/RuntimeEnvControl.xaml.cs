@@ -3,7 +3,7 @@ using FolderRewind.ViewModels;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using System;
-using Windows.Storage.Pickers;
+using PickerViewMode = Windows.Storage.Pickers.PickerViewMode;
 
 namespace FolderRewind.Views.Settings
 {
@@ -24,34 +24,29 @@ namespace FolderRewind.Views.Settings
 
         private async void OnBrowse7zClick(object sender, RoutedEventArgs e)
         {
-            var picker = new FileOpenPicker();
-            picker.ViewMode = PickerViewMode.List;
-            picker.SuggestedStartLocation = PickerLocationId.ComputerFolder;
-            picker.FileTypeFilter.Add(".exe");
-            MainWindowService.InitializePicker(picker);
-
-            var file = await picker.PickSingleFileAsync();
-            if (file != null)
+            var filePath = await MainWindowService.PickFilePathAsync(
+                string.Empty,
+                "FolderRewind.Settings.RuntimeEnv.SevenZip",
+                new[] { ".exe" },
+                MainWindowService.SuggestedPickerLocation.ComputerFolder,
+                viewMode: PickerViewMode.List);
+            if (!string.IsNullOrWhiteSpace(filePath))
             {
-                ViewModel.ApplySevenZipPath(file.Path);
+                ViewModel.ApplySevenZipPath(filePath);
             }
         }
 
         private async void OnBrowseRcloneClick(object sender, RoutedEventArgs e)
         {
-            var picker = new FileOpenPicker();
-            picker.ViewMode = PickerViewMode.List;
-            picker.SuggestedStartLocation = PickerLocationId.ComputerFolder;
-            picker.FileTypeFilter.Add(".exe");
-            picker.FileTypeFilter.Add(".cmd");
-            picker.FileTypeFilter.Add(".bat");
-            picker.FileTypeFilter.Add(".ps1");
-            MainWindowService.InitializePicker(picker);
-
-            var file = await picker.PickSingleFileAsync();
-            if (file != null)
+            var filePath = await MainWindowService.PickFilePathAsync(
+                string.Empty,
+                "FolderRewind.Settings.RuntimeEnv.Rclone",
+                new[] { ".exe", ".cmd", ".bat", ".ps1" },
+                MainWindowService.SuggestedPickerLocation.ComputerFolder,
+                viewMode: PickerViewMode.List);
+            if (!string.IsNullOrWhiteSpace(filePath))
             {
-                ViewModel.ApplyRclonePath(file.Path);
+                ViewModel.ApplyRclonePath(filePath);
             }
         }
 
@@ -65,15 +60,13 @@ namespace FolderRewind.Views.Settings
 
         private async void OnBrowseDefaultBackupRootClick(object sender, RoutedEventArgs e)
         {
-            var picker = new FolderPicker();
-            picker.SuggestedStartLocation = PickerLocationId.DocumentsLibrary;
-            picker.FileTypeFilter.Add("*");
-            MainWindowService.InitializePicker(picker);
-
-            var folder = await picker.PickSingleFolderAsync();
-            if (folder != null)
+            var folderPath = await MainWindowService.PickFolderPathAsync(
+                string.Empty,
+                "FolderRewind.Settings.RuntimeEnv.DefaultBackupRoot",
+                MainWindowService.SuggestedPickerLocation.DocumentsLibrary);
+            if (!string.IsNullOrWhiteSpace(folderPath))
             {
-                ViewModel.ApplyDefaultBackupRootPath(folder.Path);
+                ViewModel.ApplyDefaultBackupRootPath(folderPath);
             }
         }
 

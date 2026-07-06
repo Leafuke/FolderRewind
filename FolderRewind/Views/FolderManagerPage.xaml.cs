@@ -15,7 +15,7 @@ using System.Linq;
 using System.Threading.Tasks;
 using Windows.ApplicationModel.Resources;
 using Windows.System;
-using PickerViewMode = Microsoft.Windows.Storage.Pickers.PickerViewMode;
+using PickerViewMode = Windows.Storage.Pickers.PickerViewMode;
 
 namespace FolderRewind.Views
 {

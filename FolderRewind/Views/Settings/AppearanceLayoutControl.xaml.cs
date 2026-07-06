@@ -5,8 +5,6 @@ using Microsoft.UI.Xaml.Controls;
 using System;
 using System.Collections.Specialized;
 using System.Linq;
-using Windows.Storage;
-using Windows.Storage.Pickers;
 
 namespace FolderRewind.Views.Settings
 {
@@ -157,23 +155,17 @@ namespace FolderRewind.Views.Settings
         {
             try
             {
-                var picker = new FileOpenPicker();
-                picker.SuggestedStartLocation = PickerLocationId.PicturesLibrary;
-                picker.FileTypeFilter.Add(".png");
-                picker.FileTypeFilter.Add(".jpg");
-                picker.FileTypeFilter.Add(".jpeg");
-                picker.FileTypeFilter.Add(".bmp");
-                picker.FileTypeFilter.Add(".gif");
-                picker.FileTypeFilter.Add(".webp");
-                MainWindowService.InitializePicker(picker);
-
-                var file = await picker.PickSingleFileAsync();
-                if (file == null || string.IsNullOrWhiteSpace(file.Path))
+                var filePath = await MainWindowService.PickFilePathAsync(
+                    string.Empty,
+                    "FolderRewind.Settings.Appearance.SponsorBackground",
+                    new[] { ".png", ".jpg", ".jpeg", ".bmp", ".gif", ".webp" },
+                    MainWindowService.SuggestedPickerLocation.PicturesLibrary);
+                if (string.IsNullOrWhiteSpace(filePath))
                 {
                     return;
                 }
 
-                await ViewModel.ApplySponsorBackgroundImageAsync(file.Path);
+                await ViewModel.ApplySponsorBackgroundImageAsync(filePath);
                 Bindings.Update();
             }
             catch (Exception ex)
@@ -221,23 +213,17 @@ namespace FolderRewind.Views.Settings
         {
             try
             {
-                var picker = new FileOpenPicker();
-                picker.SuggestedStartLocation = PickerLocationId.MusicLibrary;
-                picker.FileTypeFilter.Add(".wav");
-                picker.FileTypeFilter.Add(".mp3");
-                picker.FileTypeFilter.Add(".m4a");
-                picker.FileTypeFilter.Add(".aac");
-                picker.FileTypeFilter.Add(".wma");
-                picker.FileTypeFilter.Add(".flac");
-                MainWindowService.InitializePicker(picker);
-
-                var file = await picker.PickSingleFileAsync();
-                if (file == null || string.IsNullOrWhiteSpace(file.Path))
+                var filePath = await MainWindowService.PickFilePathAsync(
+                    string.Empty,
+                    "FolderRewind.Settings.Appearance.CompletionSound",
+                    new[] { ".wav", ".mp3", ".m4a", ".aac", ".wma", ".flac" },
+                    MainWindowService.SuggestedPickerLocation.MusicLibrary);
+                if (string.IsNullOrWhiteSpace(filePath))
                 {
                     return;
                 }
 
-                await ViewModel.ApplyCustomCompletionSoundAsync(file.Path);
+                await ViewModel.ApplyCustomCompletionSoundAsync(filePath);
                 Bindings.Update();
             }
             catch (Exception ex)

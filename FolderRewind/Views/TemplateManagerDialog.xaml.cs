@@ -4,7 +4,7 @@ using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using System;
 using System.Collections.Generic;
-using Windows.Storage.Pickers;
+using System.Collections.ObjectModel;
 
 namespace FolderRewind.Views
 {
@@ -71,19 +71,21 @@ namespace FolderRewind.Views
                 return;
             }
 
-            var picker = new FileSavePicker();
-            picker.SuggestedStartLocation = PickerLocationId.DocumentsLibrary;
-            picker.FileTypeChoices.Add("JSON", new List<string> { ".json" });
-            picker.SuggestedFileName = ViewModel.GetSuggestedExportFileName();
-            MainWindowService.InitializePicker(picker);
-
-            var file = await picker.PickSaveFileAsync();
-            if (file == null)
+            var filePath = await MainWindowService.PickSaveFilePathAsync(
+                string.Empty,
+                "FolderRewind.TemplateManager.ExportTemplate",
+                new Dictionary<string, IReadOnlyList<string>>
+                {
+                    ["JSON"] = new ReadOnlyCollection<string>(new[] { ".json" })
+                },
+                ViewModel.GetSuggestedExportFileName(),
+                MainWindowService.SuggestedPickerLocation.DocumentsLibrary);
+            if (string.IsNullOrWhiteSpace(filePath))
             {
                 return;
             }
 
-            ViewModel.ExportSelectedTemplate(file.Path);
+            ViewModel.ExportSelectedTemplate(filePath);
         }
 
         private void OnRefreshPreviewClick(object sender, RoutedEventArgs e)

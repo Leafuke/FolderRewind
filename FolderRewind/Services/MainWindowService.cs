@@ -1,11 +1,10 @@
-using Microsoft.UI;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Windowing;
-using Microsoft.Windows.Storage.Pickers;
 using System;
 using System.Collections.Generic;
 using System.Threading.Tasks;
 using Windows.Graphics;
+using Windows.Storage.Pickers;
 using WinRT.Interop;
 
 namespace FolderRewind.Services
@@ -182,44 +181,26 @@ namespace FolderRewind.Services
             }
         }
 
-        public static void InitializePicker(object picker)
-        {
-            if (picker == null)
-            {
-                return;
-            }
-
-            var window = GetMainWindow();
-            if (window == null)
-            {
-                return;
-            }
-
-            // WinUI 桌面应用中的 Picker 需要显式绑定窗口句柄，否则无法正常弹出。
-            InitializeWithWindow.Initialize(picker, WindowNative.GetWindowHandle(window));
-        }
-
         public static Task<string?> PickFolderPathAsync(
             string title,
             string settingsIdentifier,
             SuggestedPickerLocation suggestedStartLocation = SuggestedPickerLocation.ComputerFolder,
             string? suggestedStartFolder = null)
         {
-            return RunModernPickerAsync(async windowId =>
+            return RunClassicPickerAsync(async () =>
             {
-                var picker = new FolderPicker(windowId)
+                var picker = new FolderPicker
                 {
-                    Title = title ?? string.Empty,
-                    SettingsIdentifier = settingsIdentifier ?? string.Empty,
-                    SuggestedStartLocation = MapPickerLocation(suggestedStartLocation)
+                    SuggestedStartLocation = MapPickerLocation(suggestedStartLocation),
+                    SettingsIdentifier = settingsIdentifier ?? string.Empty
                 };
+                picker.FileTypeFilter.Add("*");
+                InitializePicker(picker);
 
-                if (!string.IsNullOrWhiteSpace(suggestedStartFolder))
-                {
-                    picker.SuggestedStartFolder = suggestedStartFolder;
-                }
+                // 经典 FolderPicker 不支持 Title / SuggestedStartFolder，这里保留参数仅为兼容统一接口。
+                _ = title;
+                _ = suggestedStartFolder;
 
-                // Windows App SDK 2.0 的现代 Picker 直接返回路径结果，调用方不再需要依赖 StorageFolder。
                 var result = await picker.PickSingleFolderAsync();
                 return result?.Path;
             });
@@ -233,20 +214,14 @@ namespace FolderRewind.Services
             string? suggestedStartFolder = null,
             PickerViewMode viewMode = PickerViewMode.List)
         {
-            return RunModernPickerAsync(async windowId =>
+            return RunClassicPickerAsync(async () =>
             {
-                var picker = new FileOpenPicker(windowId)
+                var picker = new FileOpenPicker
                 {
-                    Title = title ?? string.Empty,
-                    SettingsIdentifier = settingsIdentifier ?? string.Empty,
                     SuggestedStartLocation = MapPickerLocation(suggestedStartLocation),
+                    SettingsIdentifier = settingsIdentifier ?? string.Empty,
                     ViewMode = viewMode
                 };
-
-                if (!string.IsNullOrWhiteSpace(suggestedStartFolder))
-                {
-                    picker.SuggestedStartFolder = suggestedStartFolder;
-                }
 
                 foreach (var filter in fileTypeFilters)
                 {
@@ -255,6 +230,12 @@ namespace FolderRewind.Services
                         picker.FileTypeFilter.Add(filter);
                     }
                 }
+
+                InitializePicker(picker);
+
+                // 经典 FileOpenPicker 不支持 Title / SuggestedStartFolder，这里保留参数仅为兼容统一接口。
+                _ = title;
+                _ = suggestedStartFolder;
 
                 var result = await picker.PickSingleFileAsync();
                 return result?.Path;
@@ -269,25 +250,25 @@ namespace FolderRewind.Services
             SuggestedPickerLocation suggestedStartLocation = SuggestedPickerLocation.DocumentsLibrary,
             string? suggestedStartFolder = null)
         {
-            return RunModernPickerAsync(async windowId =>
+            return RunClassicPickerAsync(async () =>
             {
-                var picker = new FileSavePicker(windowId)
+                var picker = new FileSavePicker
                 {
-                    Title = title ?? string.Empty,
-                    SettingsIdentifier = settingsIdentifier ?? string.Empty,
                     SuggestedStartLocation = MapPickerLocation(suggestedStartLocation),
+                    SettingsIdentifier = settingsIdentifier ?? string.Empty,
                     SuggestedFileName = suggestedFileName ?? string.Empty
                 };
-
-                if (!string.IsNullOrWhiteSpace(suggestedStartFolder))
-                {
-                    picker.SuggestedStartFolder = suggestedStartFolder;
-                }
 
                 foreach (var choice in fileTypeChoices)
                 {
                     picker.FileTypeChoices.Add(choice.Key, new List<string>(choice.Value));
                 }
+
+                InitializePicker(picker);
+
+                // 经典 FileSavePicker 不支持 Title / SuggestedStartFolder，这里保留参数仅为兼容统一接口。
+                _ = title;
+                _ = suggestedStartFolder;
 
                 var result = await picker.PickSaveFileAsync();
                 return result?.Path;
@@ -327,7 +308,24 @@ namespace FolderRewind.Services
             }
         }
 
-        private static async Task<string?> RunModernPickerAsync(Func<WindowId, Task<string?>> pickerAction)
+        private static void InitializePicker(object picker)
+        {
+            if (picker == null)
+            {
+                return;
+            }
+
+            var window = GetMainWindow();
+            if (window == null)
+            {
+                return;
+            }
+
+            // WinUI 桌面应用中的 Picker 需要显式绑定窗口句柄，否则无法正常弹出。
+            InitializeWithWindow.Initialize(picker, WindowNative.GetWindowHandle(window));
+        }
+
+        private static async Task<string?> RunClassicPickerAsync(Func<Task<string?>> pickerAction)
         {
             if (pickerAction == null)
             {
@@ -344,12 +342,7 @@ namespace FolderRewind.Services
 
             try
             {
-                return await UiDispatcherService.RunOnUiAsync(async () =>
-                {
-                    var hwnd = WindowNative.GetWindowHandle(window);
-                    var windowId = Microsoft.UI.Win32Interop.GetWindowIdFromWindow(hwnd);
-                    return await pickerAction(windowId);
-                });
+                return await UiDispatcherService.RunOnUiAsync(pickerAction);
             }
             catch (Exception ex)
             {

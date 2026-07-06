@@ -5,10 +5,10 @@ using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using System;
 using System.Collections.Generic;
+using System.Collections.ObjectModel;
 using System.IO;
 using System.Linq;
 using System.Threading.Tasks;
-using Windows.Storage.Pickers;
 
 namespace FolderRewind.Views.Settings
 {
@@ -57,16 +57,18 @@ namespace FolderRewind.Views.Settings
                 return;
             }
 
-            var picker = new FileSavePicker();
-            picker.SuggestedStartLocation = PickerLocationId.DocumentsLibrary;
-            picker.FileTypeChoices.Add("JSON", new List<string> { ".json" });
-            picker.SuggestedFileName = "FolderRewind_config";
-            MainWindowService.InitializePicker(picker);
+            var filePath = await MainWindowService.PickSaveFilePathAsync(
+                string.Empty,
+                "FolderRewind.Settings.DataManagement.ExportConfig",
+                new Dictionary<string, IReadOnlyList<string>>
+                {
+                    ["JSON"] = new ReadOnlyCollection<string>(new[] { ".json" })
+                },
+                "FolderRewind_config",
+                MainWindowService.SuggestedPickerLocation.DocumentsLibrary);
+            if (string.IsNullOrWhiteSpace(filePath)) return;
 
-            var file = await picker.PickSaveFileAsync();
-            if (file == null) return;
-
-            bool ok = ConfigService.ExportConfig(file.Path);
+            bool ok = ConfigService.ExportConfig(filePath);
             if (ok)
                 ShowInfoBar(I18n.GetString("Settings_ExportConfigSuccess"), InfoBarSeverity.Success);
             else
@@ -112,15 +114,14 @@ namespace FolderRewind.Views.Settings
                 return;
             }
 
-            var picker = new FileOpenPicker();
-            picker.SuggestedStartLocation = PickerLocationId.DocumentsLibrary;
-            picker.FileTypeFilter.Add(".json");
-            MainWindowService.InitializePicker(picker);
+            var filePath = await MainWindowService.PickFilePathAsync(
+                string.Empty,
+                "FolderRewind.Settings.DataManagement.ImportConfig",
+                new[] { ".json" },
+                MainWindowService.SuggestedPickerLocation.DocumentsLibrary);
+            if (string.IsNullOrWhiteSpace(filePath)) return;
 
-            var file = await picker.PickSingleFileAsync();
-            if (file == null) return;
-
-            bool ok = ConfigService.ImportConfig(file.Path);
+            bool ok = ConfigService.ImportConfig(filePath);
             if (ok)
             {
                 ShowInfoBar(I18n.GetString("Settings_ImportConfigSuccess"), InfoBarSeverity.Success);
@@ -179,16 +180,18 @@ namespace FolderRewind.Views.Settings
                     return;
                 }
 
-                var picker = new FileSavePicker();
-                picker.SuggestedStartLocation = PickerLocationId.DocumentsLibrary;
-                picker.FileTypeChoices.Add("FolderRewind Template", new List<string> { TemplateService.ShareFileExtension });
-                picker.SuggestedFileName = $"FolderRewind_template_{SanitizeFileName(selectedTemplate.Name)}";
-                MainWindowService.InitializePicker(picker);
+                var filePath = await MainWindowService.PickSaveFilePathAsync(
+                    string.Empty,
+                    "FolderRewind.Settings.DataManagement.ExportTemplate",
+                    new Dictionary<string, IReadOnlyList<string>>
+                    {
+                        ["FolderRewind Template"] = new ReadOnlyCollection<string>(new[] { TemplateService.ShareFileExtension })
+                    },
+                    $"FolderRewind_template_{SanitizeFileName(selectedTemplate.Name)}",
+                    MainWindowService.SuggestedPickerLocation.DocumentsLibrary);
+                if (string.IsNullOrWhiteSpace(filePath)) return;
 
-                var file = await picker.PickSaveFileAsync();
-                if (file == null) return;
-
-                var ok = TemplateService.ExportTemplate(selectedTemplate.Id, file.Path, out var message);
+                var ok = TemplateService.ExportTemplate(selectedTemplate.Id, filePath, out var message);
                 ShowInfoBar(message, ok ? InfoBarSeverity.Success : InfoBarSeverity.Error);
             }
             catch (Exception ex)
@@ -202,22 +205,21 @@ namespace FolderRewind.Views.Settings
         {
             try
             {
-                var picker = new FileOpenPicker();
-                picker.SuggestedStartLocation = PickerLocationId.DocumentsLibrary;
-                picker.FileTypeFilter.Add(".json");
-                MainWindowService.InitializePicker(picker);
+                var filePath = await MainWindowService.PickFilePathAsync(
+                    string.Empty,
+                    "FolderRewind.Settings.DataManagement.ImportTemplate",
+                    new[] { ".json" },
+                    MainWindowService.SuggestedPickerLocation.DocumentsLibrary);
+                if (string.IsNullOrWhiteSpace(filePath)) return;
 
-                var file = await picker.PickSingleFileAsync();
-                if (file == null) return;
-
-                if (string.IsNullOrWhiteSpace(file.Path) || !File.Exists(file.Path))
+                if (!File.Exists(filePath))
                 {
                     ShowInfoBar(I18n.GetString("Template_Import_FileNotFound"), InfoBarSeverity.Error);
-                    LogService.LogWarning($"[DataManagementControl] Import template file not found: {file.Path}", nameof(DataManagementControl));
+                    LogService.LogWarning($"[DataManagementControl] Import template file not found: {filePath}", nameof(DataManagementControl));
                     return;
                 }
 
-                var inspection = TemplateService.InspectImportTemplate(file.Path);
+                var inspection = TemplateService.InspectImportTemplate(filePath);
                 if (!inspection.Success)
                 {
                     ShowInfoBar(inspection.Message, InfoBarSeverity.Error);
@@ -253,7 +255,7 @@ namespace FolderRewind.Views.Settings
                         : TemplateService.TemplateImportConflictStrategy.KeepBoth;
                 }
 
-                var ok = TemplateService.ImportTemplate(file.Path, strategy, out var message);
+                var ok = TemplateService.ImportTemplate(filePath, strategy, out var message);
                 ShowInfoBar(message, ok ? InfoBarSeverity.Success : InfoBarSeverity.Error);
             }
             catch (Exception ex)
@@ -340,16 +342,18 @@ namespace FolderRewind.Views.Settings
                 return;
             }
 
-            var picker = new FileSavePicker();
-            picker.SuggestedStartLocation = PickerLocationId.DocumentsLibrary;
-            picker.FileTypeChoices.Add("JSON", new List<string> { ".json" });
-            picker.SuggestedFileName = "FolderRewind_history";
-            MainWindowService.InitializePicker(picker);
+            var filePath = await MainWindowService.PickSaveFilePathAsync(
+                string.Empty,
+                "FolderRewind.Settings.DataManagement.ExportHistory",
+                new Dictionary<string, IReadOnlyList<string>>
+                {
+                    ["JSON"] = new ReadOnlyCollection<string>(new[] { ".json" })
+                },
+                "FolderRewind_history",
+                MainWindowService.SuggestedPickerLocation.DocumentsLibrary);
+            if (string.IsNullOrWhiteSpace(filePath)) return;
 
-            var file = await picker.PickSaveFileAsync();
-            if (file == null) return;
-
-            bool ok = HistoryService.ExportHistory(file.Path);
+            bool ok = HistoryService.ExportHistory(filePath);
             if (ok)
                 ShowInfoBar(I18n.GetString("Settings_ExportHistorySuccess"), InfoBarSeverity.Success);
             else
@@ -398,15 +402,14 @@ namespace FolderRewind.Views.Settings
                 return;
             }
 
-            var picker = new FileOpenPicker();
-            picker.SuggestedStartLocation = PickerLocationId.DocumentsLibrary;
-            picker.FileTypeFilter.Add(".json");
-            MainWindowService.InitializePicker(picker);
+            var filePath = await MainWindowService.PickFilePathAsync(
+                string.Empty,
+                "FolderRewind.Settings.DataManagement.ImportHistory",
+                new[] { ".json" },
+                MainWindowService.SuggestedPickerLocation.DocumentsLibrary);
+            if (string.IsNullOrWhiteSpace(filePath)) return;
 
-            var file = await picker.PickSingleFileAsync();
-            if (file == null) return;
-
-            var (ok, count) = HistoryService.ImportHistory(file.Path, merge);
+            var (ok, count) = HistoryService.ImportHistory(filePath, merge);
             if (ok)
                 ShowInfoBar(I18n.Format("Settings_ImportHistorySuccess", count.ToString()), InfoBarSeverity.Success);
             else

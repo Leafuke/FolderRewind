@@ -6,7 +6,6 @@ using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Navigation;
 using System;
 using System.Threading.Tasks;
-using Windows.Storage.Pickers;
 
 namespace FolderRewind.Views
 {
@@ -545,17 +544,12 @@ namespace FolderRewind.Views
             }
         }
 
-        private async Task<string?> PickScanRecoverFolderPathAsync()
+        private Task<string?> PickScanRecoverFolderPathAsync()
         {
-            var picker = new FolderPicker
-            {
-                SuggestedStartLocation = PickerLocationId.DocumentsLibrary
-            };
-            picker.FileTypeFilter.Add("*");
-            MainWindowService.InitializePicker(picker);
-
-            var folder = await picker.PickSingleFolderAsync();
-            return folder?.Path;
+            return MainWindowService.PickFolderPathAsync(
+                string.Empty,
+                "FolderRewind.History.ScanRecover",
+                MainWindowService.SuggestedPickerLocation.DocumentsLibrary);
         }
 
         private void RestoreLastSelection()

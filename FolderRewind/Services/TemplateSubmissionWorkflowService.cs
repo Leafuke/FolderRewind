@@ -4,12 +4,12 @@ using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using System;
 using System.Collections.Generic;
+using System.Collections.ObjectModel;
 using System.IO;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using Windows.ApplicationModel.DataTransfer;
-using Windows.Storage.Pickers;
 using Windows.System;
 
 namespace FolderRewind.Services
@@ -80,19 +80,21 @@ namespace FolderRewind.Services
                 NotificationService.ShowWarning(warningMessage);
             }
 
-            var picker = new FileSavePicker();
-            picker.SuggestedStartLocation = PickerLocationId.DocumentsLibrary;
-            picker.FileTypeChoices.Add("FolderRewind Template", new List<string> { TemplateService.ShareFileExtension });
-            picker.SuggestedFileName = $"FolderRewind_submission_{SanitizeFileName(selected.Name)}";
-            MainWindowService.InitializePicker(picker);
-
-            var file = await picker.PickSaveFileAsync();
-            if (file == null)
+            var filePath = await MainWindowService.PickSaveFilePathAsync(
+                string.Empty,
+                "FolderRewind.TemplateSubmission.ExportPackage",
+                new Dictionary<string, IReadOnlyList<string>>
+                {
+                    ["FolderRewind Template"] = new ReadOnlyCollection<string>(new[] { TemplateService.ShareFileExtension })
+                },
+                $"FolderRewind_submission_{SanitizeFileName(selected.Name)}",
+                MainWindowService.SuggestedPickerLocation.DocumentsLibrary);
+            if (string.IsNullOrWhiteSpace(filePath))
             {
                 return;
             }
 
-            var ok = TemplateService.ExportTemplateSubmissionPackage(selected.Id, file.Path, out var summary, out var message);
+            var ok = TemplateService.ExportTemplateSubmissionPackage(selected.Id, filePath, out var summary, out var message);
             if (!ok)
             {
                 LogService.LogWarning(message, nameof(TemplateSubmissionWorkflowService));
