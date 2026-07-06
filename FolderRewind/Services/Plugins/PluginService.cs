@@ -520,15 +520,9 @@ namespace FolderRewind.Services.Plugins
 
         private static BackupConfig CloneBackupConfigForRuntimeFilters(BackupConfig source)
         {
-            var json = JsonSerializer.Serialize(source, AppJsonContext.Default.BackupConfig);
-            var clone = JsonSerializer.Deserialize(json, AppJsonContext.Default.BackupConfig)
-                ?? throw new InvalidOperationException("Failed to clone backup config for plugin filters.");
-
-            clone.Filters ??= new FilterSettings();
-            clone.Filters.Blacklist ??= new ObservableCollection<string>();
-            clone.Filters.BackupWhitelist ??= new ObservableCollection<string>();
-            clone.Filters.RestoreWhitelist ??= new ObservableCollection<string>();
-            return clone;
+            return BackupConfigCloneService.CloneForRuntimeMutation(
+                source,
+                "Failed to clone backup config for plugin filters.");
         }
 
         private static void AddDistinctRule(ObservableCollection<string> rules, string rule)

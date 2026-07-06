@@ -112,35 +112,19 @@ namespace FolderRewind.ViewModels
 
         public async Task RefreshAnalysisAsync()
         {
-            if (IsBusy)
-            {
-                return;
-            }
-
-            IsBusy = true;
-            try
+            await RunBusyAsync(async () =>
             {
                 StatusMessage = I18n.GetString("ConfigCloudSyncDialog_Status_Analyzing");
                 AnalysisResult = await CloudSyncService.AnalyzeConfigurationHistoryAsync(_config).ConfigureAwait(true);
                 StatusMessage = AnalysisResult.Success
                     ? I18n.GetString("ConfigCloudSyncDialog_Status_AnalysisReady")
                     : AnalysisResult.Message;
-            }
-            finally
-            {
-                IsBusy = false;
-            }
+            }).ConfigureAwait(true);
         }
 
         public async Task<bool> ExecuteSyncAsync()
         {
-            if (IsBusy)
-            {
-                return false;
-            }
-
-            IsBusy = true;
-            try
+            var (entered, success) = await RunBusyAsync(async () =>
             {
                 StatusMessage = I18n.GetString("ConfigCloudSyncDialog_Status_Syncing");
                 var result = await CloudSyncService.SyncConfigurationFromCloudAsync(_config, SelectedMode).ConfigureAwait(true);
@@ -148,22 +132,14 @@ namespace FolderRewind.ViewModels
                 StatusMessage = result.Message;
                 AnalysisResult = result.Analysis;
                 return result.Success;
-            }
-            finally
-            {
-                IsBusy = false;
-            }
+            }, false).ConfigureAwait(true);
+
+            return entered && success;
         }
 
         public async Task<bool> UploadHistoryAsync()
         {
-            if (IsBusy)
-            {
-                return false;
-            }
-
-            IsBusy = true;
-            try
+            var (entered, success) = await RunBusyAsync(async () =>
             {
                 StatusMessage = I18n.GetString("ConfigCloudSyncDialog_Status_Uploading");
                 var result = await CloudSyncService.UploadConfigurationHistoryAsync(_config).ConfigureAwait(true);
@@ -175,11 +151,25 @@ namespace FolderRewind.ViewModels
                 }
 
                 return result.Success;
-            }
-            finally
+            }, false).ConfigureAwait(true);
+
+            return entered && success;
+        }
+
+        protected override bool TryEnterBusy()
+        {
+            if (IsBusy)
             {
-                IsBusy = false;
+                return false;
             }
+
+            IsBusy = true;
+            return true;
+        }
+
+        protected override void ExitBusy()
+        {
+            IsBusy = false;
         }
     }
 }

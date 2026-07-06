@@ -2101,15 +2101,10 @@ namespace FolderRewind.Services
                 return source;
             }
 
-            var json = JsonSerializer.Serialize(source, AppJsonContext.Default.BackupConfig);
-            var clone = JsonSerializer.Deserialize(json, AppJsonContext.Default.BackupConfig)
-                ?? throw new InvalidOperationException(I18n.GetString("KnotLink_Error_ConfigCloneFailed"));
-
-            clone.Filters ??= new FilterSettings();
-            clone.Filters.Blacklist ??= new ObservableCollection<string>();
-            clone.Filters.BackupWhitelist ??= new ObservableCollection<string>();
-            clone.Filters.RestoreWhitelist ??= new ObservableCollection<string>();
-            clone.BackupScope ??= new BackupScopeSettings();
+            var clone = BackupConfigCloneService.CloneForRuntimeMutation(
+                source,
+                I18n.GetString("KnotLink_Error_ConfigCloneFailed"),
+                ensureBackupScope: true);
 
             if (backupBlacklist != null)
             {

@@ -33,7 +33,6 @@ namespace FolderRewind.Views.Settings
             if (sender is ToggleSwitch ts)
             {
                 ViewModel.HandlePluginsEnabledToggled(ts.IsOn);
-                Bindings.Update();
             }
         }
 
@@ -88,7 +87,6 @@ namespace FolderRewind.Views.Settings
             await msg.ShowAsync();
 
             PluginService.RefreshInstalledList();
-            Bindings.Update();
         }
 
         private void OnOpenPluginFolderClick(object sender, RoutedEventArgs e)
@@ -99,13 +97,11 @@ namespace FolderRewind.Views.Settings
         private async void OnPluginsExpanderExpanded(object? sender, object e)
         {
             await ViewModel.EnsurePluginsRefreshedAsync();
-            Bindings.Update();
         }
 
         private void OnRefreshPluginsClick(object sender, RoutedEventArgs e)
         {
             PluginService.RefreshAndLoadEnabled();
-            Bindings.Update();
         }
 
         private void OnPluginEnabledToggled(object sender, RoutedEventArgs e)
@@ -150,7 +146,6 @@ namespace FolderRewind.Views.Settings
             await msg.ShowAsync();
 
             PluginService.RefreshInstalledList();
-            Bindings.Update();
         }
 
         private void OnPluginsAutoCheckUpdatesToggled(object sender, RoutedEventArgs e)
@@ -168,7 +163,6 @@ namespace FolderRewind.Views.Settings
             try
             {
                 await PluginService.CheckAllPluginUpdatesAsync(respectAutoCheckSetting: false);
-                Bindings.Update();
 
                 var hasUpdates = ViewModel.InstalledPlugins.Any(p => p.HasUpdate && !string.IsNullOrWhiteSpace(p.UpdateDownloadUrl));
                 var msg = new ContentDialog
@@ -247,7 +241,6 @@ namespace FolderRewind.Views.Settings
                 await msg.ShowAsync();
 
                 PluginService.RefreshInstalledList();
-                Bindings.Update();
             }
             finally
             {
@@ -403,8 +396,6 @@ namespace FolderRewind.Views.Settings
             {
                 ViewModel.HandleKnotLinkToggled(ts.IsOn);
             }
-
-            Bindings.Update();
         }
 
         private void OnKnotLinkSettingChanged(object sender, TextChangedEventArgs e)
@@ -542,7 +533,6 @@ namespace FolderRewind.Views.Settings
         private void OnKnotLinkResetClick(object sender, RoutedEventArgs e)
         {
             ViewModel.HandleKnotLinkResetToDefault();
-            Bindings.Update();
         }
     }
 }

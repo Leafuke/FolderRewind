@@ -176,7 +176,7 @@ namespace FolderRewind.Services
 
                 RotateIfNeeded(filePath);
 
-                File.AppendAllText(filePath, FormatLine(entry) + Environment.NewLine);
+                File.AppendAllText(filePath, FormatEntry(entry) + Environment.NewLine);
             }
             catch
             {
@@ -254,7 +254,7 @@ namespace FolderRewind.Services
             }
         }
 
-        private static string FormatLine(LogEntry entry)
+        public static string FormatEntry(LogEntry entry)
         {
             var level = entry.Level.ToString().ToUpperInvariant();
             var source = string.IsNullOrWhiteSpace(entry.Source) ? string.Empty : $"[{entry.Source}] ";

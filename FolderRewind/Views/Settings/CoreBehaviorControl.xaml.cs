@@ -50,7 +50,6 @@ namespace FolderRewind.Views.Settings
                     }
                 }
 
-                Bindings.Update();
             }
         }
 
@@ -64,8 +63,6 @@ namespace FolderRewind.Views.Settings
             {
                 ViewModel.HandleSilentStartupToggled(false);
             }
-
-            Bindings.Update();
         }
 
         private void OnCloseBehaviorSelectionChanged(object sender, SelectionChangedEventArgs e)
@@ -74,8 +71,6 @@ namespace FolderRewind.Views.Settings
             {
                 ViewModel.HandleCloseBehaviorSelectionChanged(cb.SelectedIndex);
             }
-
-            Bindings.Update();
         }
 
         private void OnNotificationsToggled(object sender, RoutedEventArgs e)

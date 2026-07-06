@@ -49,7 +49,6 @@ namespace FolderRewind.Views.Settings
         private void OnCoreValidationStateChanged()
         {
             ViewModel.RefreshCoreValidationState();
-            Bindings.Update();
         }
 
         private void OnLoggingChanged(object sender, RoutedEventArgs e)

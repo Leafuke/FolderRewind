@@ -201,18 +201,12 @@ namespace FolderRewind.Views
 
             if (entries.Count == 0) return;
 
-            var text = string.Join(Environment.NewLine, entries.Select(ToTextLine));
+            var text = string.Join(Environment.NewLine, entries.Select(LogService.FormatEntry));
             var package = new DataPackage();
             package.SetText(text);
             Clipboard.SetContent(package);
         }
 
-        private static string ToTextLine(LogEntry entry)
-        {
-            var source = string.IsNullOrWhiteSpace(entry.Source) ? string.Empty : $"[{entry.Source}] ";
-            var exception = string.IsNullOrWhiteSpace(entry.Exception) ? string.Empty : $" | {entry.Exception}";
-            return $"[{entry.Timestamp:yyyy-MM-dd HH:mm:ss.fff}] [{entry.Level}] {source}{entry.Message}{exception}";
-        }
 
         private void OnOpenFolderClick(object sender, RoutedEventArgs e)
         {

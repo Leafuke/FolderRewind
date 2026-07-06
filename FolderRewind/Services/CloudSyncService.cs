@@ -6,6 +6,7 @@ using System.IO;
 using System.Linq;
 using System.Text;
 using System.Text.Json;
+using System.Text.Json.Serialization.Metadata;
 using System.Text.RegularExpressions;
 using System.Threading;
 using System.Threading.Tasks;
@@ -63,6 +64,12 @@ namespace FolderRewind.Services
             public required string MetadataRecordFilePath { get; init; }
             public required string MetadataStateRemotePath { get; init; }
             public required string MetadataRecordRemotePath { get; init; }
+        }
+
+        private static void SerializeToFile<T>(string path, T value, JsonTypeInfo<T> typeInfo)
+        {
+            using var stream = new FileStream(path, FileMode.Create, FileAccess.Write, FileShare.None);
+            JsonSerializer.Serialize(stream, value, typeInfo);
         }
 
         public static string VariablesHelpText => string.Join(Environment.NewLine, new[]
@@ -426,11 +433,8 @@ namespace FolderRewind.Services
                 int removedCount = remoteEntries.RemoveAll(item => BelongsToConfiguration(item, config, remoteConfigRoot));
                 remoteEntries.AddRange(localEntries.Select(CloneHistoryItemForCloudSync));
 
-                string mergedHistoryJson = JsonSerializer.Serialize(remoteEntries, AppJsonContext.Default.ListHistoryItem);
-                await File.WriteAllTextAsync(tempHistoryPath, mergedHistoryJson).ConfigureAwait(false);
-
-                string manifestJson = JsonSerializer.Serialize(manifest, AppJsonContext.Default.CloudActiveHistoryManifest);
-                await File.WriteAllTextAsync(tempManifestPath, manifestJson).ConfigureAwait(false);
+                SerializeToFile(tempHistoryPath, remoteEntries, AppJsonContext.Default.ListHistoryItem);
+                SerializeToFile(tempManifestPath, manifest, AppJsonContext.Default.CloudActiveHistoryManifest);
 
                 await RunOnUIAsync(() => task.Progress = 20).ConfigureAwait(false);
 
