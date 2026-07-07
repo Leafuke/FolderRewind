@@ -4629,6 +4629,24 @@ Pull Request：{1}</value>
   <data name="FolderManager_AddFolder_Title" xml:space="preserve">
     <value>添加文件夹</value>
   </data>
+  <data name="FolderManager_RenameFolder.Text" xml:space="preserve">
+    <value>重命名文件夹</value>
+  </data>
+  <data name="FolderManager_RenameFolder_Title" xml:space="preserve">
+    <value>重命名文件夹</value>
+  </data>
+  <data name="FolderRenameDialog_CurrentPathLabel.Text" xml:space="preserve">
+    <value>当前路径</value>
+  </data>
+  <data name="FolderRenameDialog_NewLeafName.Header" xml:space="preserve">
+    <value>新的文件夹名称</value>
+  </data>
+  <data name="FolderRenameDialog_ImpactSummaryHint" xml:space="preserve">
+    <value>输入新的文件夹名称后，将在这里预览会被更新的引用。</value>
+  </data>
+  <data name="FolderRenameDialog_ImpactSummaryFormat" xml:space="preserve">
+    <value>将更新 {0} 个配置引用和 {1} 条历史记录。</value>
+  </data>
   <data name="FolderManager_AddSingleFolderPickerTitle" xml:space="preserve">
     <value>选择要加入备份的文件夹</value>
   </data>

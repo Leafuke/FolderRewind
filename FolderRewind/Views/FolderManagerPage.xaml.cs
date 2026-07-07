@@ -259,6 +259,48 @@ namespace FolderRewind.Views
             }
         }
 
+        private async void OnRenameFolderClick(object sender, RoutedEventArgs e)
+        {
+            if (sender is not MenuFlyoutItem item || item.DataContext is not ManagedFolder folder)
+            {
+                return;
+            }
+
+            string currentLeaf = Path.GetFileName(folder.Path.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar));
+            var preview = FolderRenameService.PreviewRename(folder, currentLeaf);
+
+            var dialog = new FolderRenameDialog
+            {
+                XamlRoot = XamlRoot
+            };
+            dialog.Initialize(folder, preview);
+
+            if (await dialog.ShowAsync() != ContentDialogResult.Primary)
+            {
+                return;
+            }
+
+            var livePreview = FolderRenameService.PreviewRename(folder, dialog.ViewModel.NewLeafName);
+            if (!livePreview.IsValid)
+            {
+                NotificationService.ShowError(livePreview.Message, I18n.GetString("FolderManager_RenameFolder_Title"));
+                return;
+            }
+
+            var result = await FolderRenameService.RenameAsync(folder, dialog.ViewModel.NewLeafName);
+            if (!result.Success)
+            {
+                NotificationService.ShowError(result.Message, I18n.GetString("FolderManager_RenameFolder_Title"));
+                return;
+            }
+
+            ViewModel.SetPendingFolderPath(result.NewPath);
+            ViewModel.SetSelectedFolder(null, persistSelection: false);
+            ViewModel.RefreshCurrentFoldersView();
+            TryApplyPendingSelection();
+            NotificationService.ShowSuccess(result.Message, I18n.GetString("FolderManager_RenameFolder_Title"));
+        }
+
         private void OnDescriptionEditorKeyDown(object sender, KeyRoutedEventArgs e)
         {
             if (e.Key != VirtualKey.Enter || sender is not TextBox textBox)
