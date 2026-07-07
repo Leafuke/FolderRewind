@@ -69,6 +69,46 @@ public class FolderRenameServiceTests
     }
 
     [Fact]
+    public void PreviewRename_keeps_storage_folder_names_based_on_custom_display_name()
+    {
+        var folder = CreateManagedFolder(@"D:\Games\Saves\WorldOne", "My Favorite World");
+        SetCurrentConfig(CreateAppConfig(Array.Empty<BackupConfig>()));
+        SetHistoryItems(Array.Empty<HistoryItem>());
+
+        var preview = FolderRenameService.PreviewRename(folder, "WorldTwo");
+
+        Assert.True(preview.IsValid);
+        Assert.Equal("My Favorite World", preview.OldStorageFolderName);
+        Assert.Equal("My Favorite World", preview.NewStorageFolderName);
+    }
+
+    [Fact]
+    public void PreviewRename_rejects_drive_root_path()
+    {
+        var folder = CreateManagedFolder(@"D:\", "Drive Root");
+
+        var preview = FolderRenameService.PreviewRename(folder, "RenamedDrive");
+
+        Assert.False(preview.IsValid);
+        Assert.Equal(@"D:\", preview.OldPath);
+        Assert.Equal(string.Empty, preview.OldLeafName);
+        Assert.Equal(string.Empty, preview.NewPath);
+    }
+
+    [Fact]
+    public void PreviewRename_rejects_share_root_path()
+    {
+        var folder = CreateManagedFolder(@"\\server\share\", "Share Root");
+
+        var preview = FolderRenameService.PreviewRename(folder, "RenamedShare");
+
+        Assert.False(preview.IsValid);
+        Assert.Equal(@"\\server\share\", preview.OldPath);
+        Assert.Equal(string.Empty, preview.OldLeafName);
+        Assert.Equal(string.Empty, preview.NewPath);
+    }
+
+    [Fact]
     public void ResolveUpdatedDisplayName_only_changes_default_display_name()
     {
         Assert.Equal(
