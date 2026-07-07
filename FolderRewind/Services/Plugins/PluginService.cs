@@ -440,6 +440,70 @@ namespace FolderRewind.Services.Plugins
             return result;
         }
 
+        public static Task<IReadOnlyList<FolderDetailsSection>> GetFolderDetailsSectionsAsync(
+            BackupConfig config,
+            ManagedFolder folder,
+            CancellationToken cancellationToken)
+        {
+            if (!IsPluginSystemEnabled())
+            {
+                return Task.FromResult<IReadOnlyList<FolderDetailsSection>>(Array.Empty<FolderDetailsSection>());
+            }
+
+            return GetFolderDetailsSectionsFromPluginsAsync(
+                GetEnabledLoadedPluginsSnapshot(),
+                config,
+                folder,
+                cancellationToken);
+        }
+
+        public static async Task<IReadOnlyList<FolderDetailsSection>> GetFolderDetailsSectionsFromPluginsAsync(
+            IEnumerable<IFolderRewindPlugin> plugins,
+            BackupConfig config,
+            ManagedFolder folder,
+            CancellationToken cancellationToken)
+        {
+            var sections = new List<FolderDetailsSection>();
+
+            foreach (var plugin in plugins)
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+
+                if (plugin is not IFolderRewindFolderDetailsProvider provider)
+                {
+                    continue;
+                }
+
+                try
+                {
+                    var settings = GetPluginSettings(plugin.Manifest.Id);
+                    var pluginSections = await provider.GetFolderDetailsSectionsAsync(
+                        config,
+                        folder,
+                        settings,
+                        cancellationToken).ConfigureAwait(false);
+
+                    if (pluginSections != null)
+                    {
+                        sections.AddRange(pluginSections);
+                    }
+                }
+                catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+                {
+                    throw;
+                }
+                catch (Exception ex)
+                {
+                    LogService.LogError(
+                        $"[PluginService] Folder details provider failed: {plugin.Manifest.Id}: {ex.Message}",
+                        nameof(PluginService),
+                        ex);
+                }
+            }
+
+            return sections;
+        }
+
         public static BackupConfig CreateConfigWithBackupFilterContributions(BackupConfig config, ManagedFolder folder)
         {
             if (!IsPluginSystemEnabled()) return config;

@@ -1,6 +1,7 @@
 using FolderRewind.Models;
 using System;
 using System.Collections.Generic;
+using System.Threading;
 using System.Threading.Tasks;
 
 namespace FolderRewind.Services.Plugins
@@ -103,6 +104,19 @@ namespace FolderRewind.Services.Plugins
             ManagedFolder folder,
             PluginBackupScopeContext scope,
             IReadOnlyDictionary<string, string> settingsValues);
+    }
+
+    /// <summary>
+    /// 可选插件接口：为文件夹详情对话框提供只读的键值信息分区。
+    /// Host 负责统一渲染，插件只返回数据。
+    /// </summary>
+    public interface IFolderRewindFolderDetailsProvider
+    {
+        Task<IReadOnlyList<FolderDetailsSection>> GetFolderDetailsSectionsAsync(
+            BackupConfig config,
+            ManagedFolder folder,
+            IReadOnlyDictionary<string, string> settingsValues,
+            CancellationToken cancellationToken);
     }
 
     /// <summary>

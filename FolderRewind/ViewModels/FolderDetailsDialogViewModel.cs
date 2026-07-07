@@ -1,5 +1,6 @@
 using FolderRewind.Models;
 using FolderRewind.Services;
+using FolderRewind.Services.Plugins;
 using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
@@ -17,6 +18,12 @@ public sealed class FolderDetailsDialogViewModel : ViewModelBase
     {
         Sections.Clear();
         foreach (FolderDetailsSection section in FolderDetailsService.BuildBaseSections(config, folder))
+        {
+            Sections.Add(section);
+        }
+
+        var pluginSections = await PluginService.GetFolderDetailsSectionsAsync(config, folder, cancellationToken);
+        foreach (FolderDetailsSection section in pluginSections)
         {
             Sections.Add(section);
         }
