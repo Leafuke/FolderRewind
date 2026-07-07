@@ -4629,6 +4629,42 @@ Pull Request：{1}</value>
   <data name="FolderManager_AddFolder_Title" xml:space="preserve">
     <value>添加文件夹</value>
   </data>
+  <data name="FolderManager_Details.Text" xml:space="preserve">
+    <value>详细信息</value>
+  </data>
+  <data name="FolderDetailsDialog_Section_Basic" xml:space="preserve">
+    <value>基本信息</value>
+  </data>
+  <data name="FolderDetailsDialog_Name" xml:space="preserve">
+    <value>名称</value>
+  </data>
+  <data name="FolderDetailsDialog_Path" xml:space="preserve">
+    <value>路径</value>
+  </data>
+  <data name="FolderDetailsDialog_ConfigType" xml:space="preserve">
+    <value>配置类型</value>
+  </data>
+  <data name="FolderDetailsDialog_LastBackup" xml:space="preserve">
+    <value>上次备份</value>
+  </data>
+  <data name="FolderDetailsDialog_BackupDirectory" xml:space="preserve">
+    <value>备份目录</value>
+  </data>
+  <data name="FolderDetailsDialog_MetadataDirectory" xml:space="preserve">
+    <value>元数据目录</value>
+  </data>
+  <data name="FolderDetailsDialog_Size" xml:space="preserve">
+    <value>大小</value>
+  </data>
+  <data name="FolderDetailsDialog_FileCount" xml:space="preserve">
+    <value>文件数</value>
+  </data>
+  <data name="FolderDetailsDialog_DirectoryCount" xml:space="preserve">
+    <value>子目录数</value>
+  </data>
+  <data name="FolderDetailsDialog_Loading" xml:space="preserve">
+    <value>正在计算...</value>
+  </data>
   <data name="FolderManager_RenameFolder.Text" xml:space="preserve">
     <value>重命名文件夹</value>
   </data>

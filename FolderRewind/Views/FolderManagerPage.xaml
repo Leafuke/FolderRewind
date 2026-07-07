@@ -293,6 +293,7 @@
                             <Button.Flyout>
                                 <MenuFlyout>
                                     <MenuFlyoutItem x:Uid="FolderManager_OpenFolder" Icon="Folder" Click="OnOpenFolderClick"/>
+                                    <MenuFlyoutItem x:Uid="FolderManager_Details" Icon="Info" Click="OnShowFolderDetailsClick"/>
                                     <MenuFlyoutItem x:Uid="FolderManager_RenameFolder" Icon="Rename" Click="OnRenameFolderClick"/>
                                     <MenuFlyoutItem x:Uid="FolderManager_Rescan" Icon="Refresh"/>
                                     <MenuFlyoutItem x:Uid="FolderManager_MiniWindow" Click="OnOpenMiniWindowClick">

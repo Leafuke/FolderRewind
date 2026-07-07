@@ -1,0 +1,44 @@
+<?xml version="1.0" encoding="utf-8"?>
+<ContentDialog
+    x:Class="FolderRewind.Views.FolderDetailsDialog"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:models="using:FolderRewind.Models"
+    Style="{StaticResource DefaultContentDialogStyle}">
+
+    <ContentDialog.Resources>
+        <x:Double x:Key="ContentDialogMinWidth">560</x:Double>
+    </ContentDialog.Resources>
+
+    <ScrollViewer MaxHeight="560">
+        <ItemsRepeater ItemsSource="{x:Bind ViewModel.Sections, Mode=OneWay}">
+            <ItemsRepeater.ItemTemplate>
+                <DataTemplate x:DataType="models:FolderDetailsSection">
+                    <StackPanel Margin="0,0,0,16" Spacing="8">
+                        <TextBlock Text="{x:Bind Title}" Style="{StaticResource SubtitleTextBlockStyle}" />
+                        <ItemsRepeater ItemsSource="{x:Bind Items}">
+                            <ItemsRepeater.ItemTemplate>
+                                <DataTemplate x:DataType="models:FolderDetailsItem">
+                                    <Grid Margin="0,0,0,6" ColumnSpacing="16">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="160" />
+                                            <ColumnDefinition Width="*" />
+                                        </Grid.ColumnDefinitions>
+                                        <TextBlock
+                                            Grid.Column="0"
+                                            Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                                            Text="{x:Bind Label}" />
+                                        <TextBlock
+                                            Grid.Column="1"
+                                            Text="{x:Bind Value, Mode=OneWay}"
+                                            TextWrapping="WrapWholeWords" />
+                                    </Grid>
+                                </DataTemplate>
+                            </ItemsRepeater.ItemTemplate>
+                        </ItemsRepeater>
+                    </StackPanel>
+                </DataTemplate>
+            </ItemsRepeater.ItemTemplate>
+        </ItemsRepeater>
+    </ScrollViewer>
+</ContentDialog>

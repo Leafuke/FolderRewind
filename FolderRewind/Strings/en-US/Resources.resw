@@ -4629,6 +4629,42 @@ Pull request: {1}</value>
   <data name="FolderManager_AddFolder_Title" xml:space="preserve">
     <value>Add folder</value>
   </data>
+  <data name="FolderManager_Details.Text" xml:space="preserve">
+    <value>Details</value>
+  </data>
+  <data name="FolderDetailsDialog_Section_Basic" xml:space="preserve">
+    <value>Basic information</value>
+  </data>
+  <data name="FolderDetailsDialog_Name" xml:space="preserve">
+    <value>Name</value>
+  </data>
+  <data name="FolderDetailsDialog_Path" xml:space="preserve">
+    <value>Path</value>
+  </data>
+  <data name="FolderDetailsDialog_ConfigType" xml:space="preserve">
+    <value>Config type</value>
+  </data>
+  <data name="FolderDetailsDialog_LastBackup" xml:space="preserve">
+    <value>Last backup</value>
+  </data>
+  <data name="FolderDetailsDialog_BackupDirectory" xml:space="preserve">
+    <value>Backup directory</value>
+  </data>
+  <data name="FolderDetailsDialog_MetadataDirectory" xml:space="preserve">
+    <value>Metadata directory</value>
+  </data>
+  <data name="FolderDetailsDialog_Size" xml:space="preserve">
+    <value>Size</value>
+  </data>
+  <data name="FolderDetailsDialog_FileCount" xml:space="preserve">
+    <value>Files</value>
+  </data>
+  <data name="FolderDetailsDialog_DirectoryCount" xml:space="preserve">
+    <value>Subdirectories</value>
+  </data>
+  <data name="FolderDetailsDialog_Loading" xml:space="preserve">
+    <value>Calculating...</value>
+  </data>
   <data name="FolderManager_RenameFolder.Text" xml:space="preserve">
     <value>Rename folder</value>
   </data>

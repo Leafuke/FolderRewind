@@ -259,6 +259,30 @@ namespace FolderRewind.Views
             }
         }
 
+        private async void OnShowFolderDetailsClick(object sender, RoutedEventArgs e)
+        {
+            if (sender is not MenuFlyoutItem item || item.DataContext is not ManagedFolder folder || ViewModel.CurrentConfig == null)
+            {
+                return;
+            }
+
+            var dialog = new FolderDetailsDialog
+            {
+                XamlRoot = XamlRoot
+            };
+
+            Task loadTask = dialog.InitializeAsync(ViewModel.CurrentConfig, folder);
+
+            try
+            {
+                await dialog.ShowAsync();
+                await loadTask;
+            }
+            catch (OperationCanceledException)
+            {
+            }
+        }
+
         private async void OnRenameFolderClick(object sender, RoutedEventArgs e)
         {
             if (sender is not MenuFlyoutItem item || item.DataContext is not ManagedFolder folder)
