@@ -66,10 +66,23 @@ public static class FolderRenameService
             };
         }
 
-        string parent = Path.GetDirectoryName(oldPathWithoutTrailingSeparator) ?? string.Empty;
+        if (!TryResolveRenameablePath(oldPathWithoutTrailingSeparator, out oldLeaf, out string parent))
+        {
+            return new FolderRenamePreview
+            {
+                IsValid = false,
+                Message = "Source path does not contain a renameable folder name.",
+                OldPath = oldPath,
+                OldLeafName = oldLeaf,
+                NewLeafName = normalizedNewLeaf
+            };
+        }
+
         string newPath = Path.Combine(parent, normalizedNewLeaf);
-        BackupStoragePathService.TryResolveStorageFolderName(oldLeaf, oldPath, out string oldStorageFolderName);
-        BackupStoragePathService.TryResolveStorageFolderName(normalizedNewLeaf, newPath, out string newStorageFolderName);
+        string currentDisplayName = folder?.DisplayName ?? string.Empty;
+        string updatedDisplayName = ResolveUpdatedDisplayName(currentDisplayName, oldLeaf, normalizedNewLeaf);
+        BackupStoragePathService.TryResolveStorageFolderName(currentDisplayName, oldPath, out string oldStorageFolderName);
+        BackupStoragePathService.TryResolveStorageFolderName(updatedDisplayName, newPath, out string newStorageFolderName);
         HistoryService.Initialize();
 
         int affectedConfigCount = ConfigService.CurrentConfig?.BackupConfigs?
@@ -132,6 +145,18 @@ public static class FolderRenameService
         }
 
         return WindowsReservedDeviceNames.Contains(reservedCandidate, StringComparer.OrdinalIgnoreCase);
+    }
+
+    private static bool TryResolveRenameablePath(string path, out string oldLeaf, out string parent)
+    {
+        oldLeaf = string.IsNullOrWhiteSpace(path)
+            ? string.Empty
+            : Path.GetFileName(path);
+        parent = Path.GetDirectoryName(path) ?? string.Empty;
+
+        return !string.IsNullOrWhiteSpace(oldLeaf)
+            && !string.IsNullOrWhiteSpace(parent)
+            && !AreSamePath(path, parent);
     }
 
     private static bool AreSamePath(string? left, string? right)
