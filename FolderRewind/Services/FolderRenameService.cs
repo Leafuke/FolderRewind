@@ -1,7 +1,10 @@
 using FolderRewind.Models;
 using System;
+using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using System.Threading;
+using System.Threading.Tasks;
 
 namespace FolderRewind.Services;
 
@@ -122,6 +125,224 @@ public static class FolderRenameService
             ? newStorageFolderName
             : currentHistoryFolderName ?? string.Empty;
 
+    public static Task<FolderRenameResult> RenameAsync(ManagedFolder folder, string newLeafName, CancellationToken cancellationToken = default)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+
+        var preview = PreviewRename(folder, newLeafName);
+        if (!preview.IsValid)
+        {
+            return Task.FromResult(new FolderRenameResult
+            {
+                Success = false,
+                Message = preview.Message,
+                OldPath = preview.OldPath,
+                NewPath = preview.NewPath,
+                AffectedConfigCount = preview.AffectedConfigCount,
+                AffectedHistoryCount = preview.AffectedHistoryCount
+            });
+        }
+
+        string sourcePath = TrimTrailingPathSeparators(preview.OldPath);
+        string destinationPath = TrimTrailingPathSeparators(preview.NewPath);
+        if (!Directory.Exists(sourcePath))
+        {
+            return Task.FromResult(new FolderRenameResult
+            {
+                Success = false,
+                Message = $"Source folder does not exist: {preview.OldPath}",
+                OldPath = preview.OldPath,
+                NewPath = preview.NewPath,
+                AffectedConfigCount = preview.AffectedConfigCount,
+                AffectedHistoryCount = preview.AffectedHistoryCount
+            });
+        }
+
+        var configs = ConfigService.CurrentConfig?.BackupConfigs?
+            .Where(config => config?.SourceFolders?.Any(item => AreSamePath(item?.Path, preview.OldPath)) == true)
+            .ToList() ?? new List<BackupConfig>();
+
+        CloseRenameDependents(preview.OldPath);
+
+        var operations = new List<FolderMoveOperation>
+        {
+            new()
+            {
+                SourcePath = sourcePath,
+                DestinationPath = destinationPath,
+                Description = "source folder"
+            }
+        };
+
+        foreach (var config in configs)
+        {
+            if (TryBuildLocalMoveOperation(config, preview.OldStorageFolderName, preview.NewStorageFolderName, childDirectory: null, out var backupMove))
+            {
+                AddDistinctMoveOperation(operations, backupMove);
+            }
+
+            if (TryBuildLocalMoveOperation(config, preview.OldStorageFolderName, preview.NewStorageFolderName, "_metadata", out var metadataMove))
+            {
+                AddDistinctMoveOperation(operations, metadataMove);
+            }
+        }
+
+        var moveResult = ExecuteMovePlan(operations);
+        if (!moveResult.Success)
+        {
+            return Task.FromResult(new FolderRenameResult
+            {
+                Success = false,
+                Message = moveResult.Message,
+                OldPath = preview.OldPath,
+                NewPath = preview.NewPath,
+                AffectedConfigCount = configs.Count,
+                AffectedHistoryCount = preview.AffectedHistoryCount,
+                LocalBackupDirectoryMigrated = moveResult.LocalBackupDirectoryMigrated,
+                LocalMetadataDirectoryMigrated = moveResult.LocalMetadataDirectoryMigrated
+            });
+        }
+
+        if (folder != null)
+        {
+            folder.Path = preview.NewPath;
+            folder.DisplayName = ResolveUpdatedDisplayName(folder.DisplayName, preview.OldLeafName, preview.NewLeafName);
+        }
+
+        ApplyReferenceUpdates(
+            configs,
+            ConfigService.CurrentConfig?.GlobalSettings ?? new GlobalSettings(),
+            Array.Empty<HistoryItem>(),
+            preview);
+
+        int affectedHistoryCount = HistoryService.UpdateFolderIdentity(
+            preview.OldPath,
+            preview.NewPath,
+            preview.OldStorageFolderName,
+            preview.NewStorageFolderName);
+
+        ConfigService.Save();
+
+        return Task.FromResult(new FolderRenameResult
+        {
+            Success = true,
+            Message = "Folder renamed successfully.",
+            OldPath = preview.OldPath,
+            NewPath = preview.NewPath,
+            AffectedConfigCount = configs.Count,
+            AffectedHistoryCount = affectedHistoryCount,
+            LocalBackupDirectoryMigrated = moveResult.LocalBackupDirectoryMigrated,
+            LocalMetadataDirectoryMigrated = moveResult.LocalMetadataDirectoryMigrated
+        });
+    }
+
+    public static void ApplyReferenceUpdates(IEnumerable<BackupConfig> configs, GlobalSettings settings, IList<HistoryItem> historyItems, FolderRenamePreview preview)
+    {
+        foreach (var config in configs ?? Enumerable.Empty<BackupConfig>())
+        {
+            if (config?.SourceFolders != null)
+            {
+                foreach (var managedFolder in config.SourceFolders.Where(item => item != null && AreSamePath(item.Path, preview.OldPath)))
+                {
+                    managedFolder.Path = preview.NewPath;
+                    managedFolder.DisplayName = ResolveUpdatedDisplayName(managedFolder.DisplayName, preview.OldLeafName, preview.NewLeafName);
+                }
+            }
+
+            if (config?.Automation != null
+                && AreSamePath(config.Automation.TargetFolderPath, preview.OldPath))
+            {
+                config.Automation.TargetFolderPath = preview.NewPath;
+            }
+        }
+
+        if (settings != null)
+        {
+            if (AreSamePath(settings.LastManagerFolderPath, preview.OldPath))
+            {
+                settings.LastManagerFolderPath = preview.NewPath;
+            }
+
+            if (AreSamePath(settings.LastHistoryFolderPath, preview.OldPath))
+            {
+                settings.LastHistoryFolderPath = preview.NewPath;
+            }
+        }
+
+        foreach (var item in historyItems ?? Array.Empty<HistoryItem>())
+        {
+            if (item == null || !AreSamePath(item.FolderPath, preview.OldPath))
+            {
+                continue;
+            }
+
+            item.FolderPath = preview.NewPath;
+            item.FolderName = ResolveUpdatedHistoryFolderName(item.FolderName, preview.OldStorageFolderName, preview.NewStorageFolderName);
+        }
+    }
+
+    public static FolderRenameResult ExecuteMovePlan(IReadOnlyList<FolderMoveOperation> operations)
+    {
+        bool backupDirectoryMoved = false;
+        bool metadataDirectoryMoved = false;
+        var completed = new Stack<FolderMoveOperation>();
+
+        try
+        {
+            foreach (var operation in operations ?? Array.Empty<FolderMoveOperation>())
+            {
+                if (operation == null
+                    || string.IsNullOrWhiteSpace(operation.SourcePath)
+                    || string.IsNullOrWhiteSpace(operation.DestinationPath)
+                    || AreSamePath(operation.SourcePath, operation.DestinationPath)
+                    || !Directory.Exists(operation.SourcePath))
+                {
+                    continue;
+                }
+
+                if (Directory.Exists(operation.DestinationPath))
+                {
+                    throw new IOException($"Destination already exists for {operation.Description}: {operation.DestinationPath}");
+                }
+
+                Directory.Move(operation.SourcePath, operation.DestinationPath);
+                completed.Push(operation);
+                backupDirectoryMoved |= IsBackupOperation(operation);
+                metadataDirectoryMoved |= IsMetadataOperation(operation);
+            }
+
+            return new FolderRenameResult
+            {
+                Success = true,
+                LocalBackupDirectoryMigrated = backupDirectoryMoved,
+                LocalMetadataDirectoryMigrated = metadataDirectoryMoved
+            };
+        }
+        catch (Exception ex)
+        {
+            while (completed.Count > 0)
+            {
+                var operation = completed.Pop();
+                try
+                {
+                    if (Directory.Exists(operation.DestinationPath) && !Directory.Exists(operation.SourcePath))
+                    {
+                        Directory.Move(operation.DestinationPath, operation.SourcePath);
+                    }
+                }
+                catch
+                {
+                }
+            }
+
+            return new FolderRenameResult
+            {
+                Success = false,
+                Message = ex.Message
+            };
+        }
+    }
+
     private static bool IsInvalidWindowsLeafName(string rawLeafName, string normalizedLeafName)
     {
         if (normalizedLeafName.IndexOfAny(Path.GetInvalidFileNameChars()) >= 0
@@ -146,6 +367,115 @@ public static class FolderRenameService
 
         return WindowsReservedDeviceNames.Contains(reservedCandidate, StringComparer.OrdinalIgnoreCase);
     }
+
+    private static void CloseRenameDependents(string oldPath)
+    {
+        foreach (string candidate in GetPathCandidates(oldPath))
+        {
+            if (MiniWindowService.IsOpen(candidate))
+            {
+                MiniWindowService.Close(candidate);
+            }
+
+            FolderWatcherService.StopWatching(candidate);
+        }
+    }
+
+    private static IEnumerable<string> GetPathCandidates(string path)
+    {
+        var candidates = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        foreach (string candidate in new[]
+            {
+                path,
+                TrimTrailingPathSeparators(path),
+                NormalizePathForComparison(path)
+            })
+        {
+            if (!string.IsNullOrWhiteSpace(candidate) && candidates.Add(candidate))
+            {
+                yield return candidate;
+            }
+        }
+    }
+
+    private static void AddDistinctMoveOperation(ICollection<FolderMoveOperation> operations, FolderMoveOperation operation)
+    {
+        if (operations.Any(existing =>
+                AreSamePath(existing.SourcePath, operation.SourcePath)
+                && AreSamePath(existing.DestinationPath, operation.DestinationPath)))
+        {
+            return;
+        }
+
+        operations.Add(operation);
+    }
+
+    private static bool TryBuildLocalMoveOperation(
+        BackupConfig config,
+        string oldStorageFolderName,
+        string newStorageFolderName,
+        string? childDirectory,
+        out FolderMoveOperation operation)
+    {
+        operation = null!;
+
+        if (config == null
+            || string.IsNullOrWhiteSpace(config.DestinationPath)
+            || string.IsNullOrWhiteSpace(oldStorageFolderName)
+            || string.IsNullOrWhiteSpace(newStorageFolderName)
+            || string.Equals(oldStorageFolderName, newStorageFolderName, StringComparison.OrdinalIgnoreCase))
+        {
+            return false;
+        }
+
+        if (!TryResolveMoveRoot(config.DestinationPath, childDirectory, out string rootPath)
+            || !BackupStoragePathService.TryBuildPathWithinRoot(rootPath, oldStorageFolderName, out string sourcePath)
+            || !Directory.Exists(sourcePath)
+            || !BackupStoragePathService.TryBuildPathWithinRoot(rootPath, newStorageFolderName, out string destinationPath)
+            || AreSamePath(sourcePath, destinationPath))
+        {
+            return false;
+        }
+
+        operation = new FolderMoveOperation
+        {
+            SourcePath = sourcePath,
+            DestinationPath = destinationPath,
+            Description = string.IsNullOrWhiteSpace(childDirectory) ? "backup directory" : "metadata directory"
+        };
+        return true;
+    }
+
+    private static bool TryResolveMoveRoot(string destinationPath, string? childDirectory, out string rootPath)
+    {
+        rootPath = string.Empty;
+        if (string.IsNullOrWhiteSpace(destinationPath))
+        {
+            return false;
+        }
+
+        try
+        {
+            if (string.IsNullOrWhiteSpace(childDirectory))
+            {
+                rootPath = Path.GetFullPath(destinationPath);
+                return true;
+            }
+
+            return BackupStoragePathService.TryBuildPathWithinRoot(destinationPath, childDirectory, out rootPath);
+        }
+        catch
+        {
+            return false;
+        }
+    }
+
+    private static bool IsBackupOperation(FolderMoveOperation operation)
+        => operation.Description?.IndexOf("backup", StringComparison.OrdinalIgnoreCase) >= 0
+            && !IsMetadataOperation(operation);
+
+    private static bool IsMetadataOperation(FolderMoveOperation operation)
+        => operation.Description?.IndexOf("metadata", StringComparison.OrdinalIgnoreCase) >= 0;
 
     private static bool TryResolveRenameablePath(string path, out string oldLeaf, out string parent)
     {

@@ -3,6 +3,7 @@ using FolderRewind.Services;
 using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
+using System.IO;
 using System.Reflection;
 using System.Runtime.CompilerServices;
 using Xunit;
@@ -132,6 +133,97 @@ public class FolderRenameServiceTests
             FolderRenameService.ResolveUpdatedHistoryFolderName("custom-archive-name", "WorldOne", "WorldTwo"));
     }
 
+    [Fact]
+    public void ApplyReferenceUpdates_rewrites_paths_history_and_recent_selection()
+    {
+        string oldPath = @"D:\Games\Saves\WorldOne";
+        string newPath = @"D:\Games\Saves\WorldTwo";
+
+        var config = CreateBackupConfig("cfg-a", new[]
+        {
+            CreateManagedFolder(oldPath, "WorldOne")
+        });
+        config.Name = "Primary";
+        config.Automation.Scope = AutomationScope.SingleFolder;
+        config.Automation.TargetFolderPath = oldPath;
+
+        var settings = CreateGlobalSettings();
+        settings.LastManagerFolderPath = oldPath;
+        settings.LastHistoryFolderPath = oldPath;
+
+        var historyItems = new List<HistoryItem>
+        {
+            new()
+            {
+                ConfigId = "cfg-a",
+                FolderPath = oldPath,
+                FolderName = "WorldOne",
+                FileName = "[Full][2026-07-07_12-00-00]WorldOne.7z"
+            }
+        };
+
+        var preview = new FolderRenamePreview
+        {
+            OldPath = oldPath,
+            NewPath = newPath,
+            OldLeafName = "WorldOne",
+            NewLeafName = "WorldTwo",
+            OldStorageFolderName = "WorldOne",
+            NewStorageFolderName = "WorldTwo"
+        };
+
+        FolderRenameService.ApplyReferenceUpdates(new[] { config }, settings, historyItems, preview);
+
+        Assert.Equal(newPath, config.SourceFolders[0].Path);
+        Assert.Equal("WorldTwo", config.SourceFolders[0].DisplayName);
+        Assert.Equal(newPath, config.Automation.TargetFolderPath);
+        Assert.Equal(newPath, settings.LastManagerFolderPath);
+        Assert.Equal(newPath, settings.LastHistoryFolderPath);
+        Assert.Equal(newPath, historyItems[0].FolderPath);
+        Assert.Equal("WorldTwo", historyItems[0].FolderName);
+    }
+
+    [Fact]
+    public void ExecuteMovePlan_rolls_back_source_rename_when_later_move_fails()
+    {
+        string root = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString("N"));
+        string source = Path.Combine(root, "saves", "WorldOne");
+        string renamed = Path.Combine(root, "saves", "WorldTwo");
+        string backup = Path.Combine(root, "backup", "WorldOne");
+        string backupRenamed = Path.Combine(root, "backup", "WorldTwo");
+        string metadata = Path.Combine(root, "backup", "_metadata", "WorldOne");
+        string metadataCollision = Path.Combine(root, "backup", "_metadata", "WorldTwo");
+
+        try
+        {
+            Directory.CreateDirectory(source);
+            Directory.CreateDirectory(backup);
+            Directory.CreateDirectory(metadata);
+            Directory.CreateDirectory(metadataCollision);
+
+            var result = FolderRenameService.ExecuteMovePlan(
+                new[]
+                {
+                    new FolderMoveOperation { SourcePath = source, DestinationPath = renamed, Description = "source" },
+                    new FolderMoveOperation { SourcePath = backup, DestinationPath = backupRenamed, Description = "backup" },
+                    new FolderMoveOperation { SourcePath = metadata, DestinationPath = metadataCollision, Description = "metadata" }
+                });
+
+            Assert.False(result.Success);
+            Assert.True(Directory.Exists(source));
+            Assert.False(Directory.Exists(renamed));
+            Assert.True(Directory.Exists(backup));
+            Assert.False(Directory.Exists(backupRenamed));
+        }
+        finally
+        {
+            if (Directory.Exists(root))
+            {
+                Directory.Delete(root, recursive: true);
+            }
+        }
+    }
+
     private static ManagedFolder CreateManagedFolder(string path, string displayName)
     {
         var folder = (ManagedFolder)RuntimeHelpers.GetUninitializedObject(typeof(ManagedFolder));
@@ -145,6 +237,7 @@ public class FolderRenameServiceTests
         var config = (BackupConfig)RuntimeHelpers.GetUninitializedObject(typeof(BackupConfig));
         config.Id = id;
         config.SourceFolders = new ObservableCollection<ManagedFolder>(sourceFolders);
+        config.Automation = new AutomationSettings();
         return config;
     }
 
@@ -160,6 +253,11 @@ public class FolderRenameServiceTests
         typeof(ConfigService)
             .GetProperty(nameof(ConfigService.CurrentConfig), BindingFlags.Public | BindingFlags.Static)!
             .SetValue(null, appConfig);
+    }
+
+    private static GlobalSettings CreateGlobalSettings()
+    {
+        return (GlobalSettings)RuntimeHelpers.GetUninitializedObject(typeof(GlobalSettings));
     }
 
     private static void SetHistoryItems(IEnumerable<HistoryItem> historyItems)

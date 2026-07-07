@@ -426,6 +426,37 @@ namespace FolderRewind.Services
             }
         }
 
+        public static int UpdateFolderIdentity(string oldPath, string newPath, string oldStorageFolderName, string newStorageFolderName)
+        {
+            if (string.IsNullOrWhiteSpace(oldPath) || string.IsNullOrWhiteSpace(newPath))
+            {
+                return 0;
+            }
+
+            Initialize();
+            int updated = 0;
+
+            lock (_historyLock)
+            {
+                foreach (var item in _allHistory.Where(item => AreSameFolderPath(item.FolderPath, oldPath)))
+                {
+                    item.FolderPath = newPath;
+                    item.FolderName = FolderRenameService.ResolveUpdatedHistoryFolderName(
+                        item.FolderName,
+                        oldStorageFolderName,
+                        newStorageFolderName);
+                    updated++;
+                }
+            }
+
+            if (updated > 0)
+            {
+                ScheduleSave();
+            }
+
+            return updated;
+        }
+
         /// <summary>
         /// 更新历史记录的注释
         /// </summary>
@@ -958,6 +989,41 @@ namespace FolderRewind.Services
             item.CloudArchiveRemotePath = isCloudArchived ? (archiveRemotePath ?? string.Empty) : string.Empty;
             item.CloudMetadataRecordRemotePath = isCloudArchived ? (metadataRecordRemotePath ?? string.Empty) : string.Empty;
             item.CloudMetadataStateRemotePath = isCloudArchived ? (metadataStateRemotePath ?? string.Empty) : string.Empty;
+        }
+
+        private static bool AreSameFolderPath(string? left, string? right)
+        {
+            string normalizedLeft = NormalizeFolderPath(left);
+            string normalizedRight = NormalizeFolderPath(right);
+
+            return !string.IsNullOrWhiteSpace(normalizedLeft)
+                && !string.IsNullOrWhiteSpace(normalizedRight)
+                && string.Equals(normalizedLeft, normalizedRight, StringComparison.OrdinalIgnoreCase);
+        }
+
+        private static string NormalizeFolderPath(string? path)
+        {
+            string candidate = (path ?? string.Empty).Trim();
+            if (string.IsNullOrWhiteSpace(candidate))
+            {
+                return string.Empty;
+            }
+
+            string root = Path.GetPathRoot(candidate) ?? string.Empty;
+            while (candidate.Length > root.Length
+                && (candidate.EndsWith(Path.DirectorySeparatorChar) || candidate.EndsWith(Path.AltDirectorySeparatorChar)))
+            {
+                candidate = candidate[..^1];
+            }
+
+            try
+            {
+                return Path.GetFullPath(candidate);
+            }
+            catch
+            {
+                return candidate;
+            }
         }
 
         private static void ScheduleSave()
