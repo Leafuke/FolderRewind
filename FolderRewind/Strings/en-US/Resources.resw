@@ -3278,10 +3278,10 @@ Status: {3}</value>
     <value>Welcome to FolderRewind!</value>
   </data>
   <data name="FirstLaunch_Content" xml:space="preserve">
-    <value>Not sure where to start? Watch a quick introduction video on Bilibili.</value>
+    <value>Not sure where to start? Read the English documentation on the official website.</value>
   </data>
   <data name="FirstLaunch_OpenVideo" xml:space="preserve">
-    <value>Watch video</value>
+    <value>Read docs</value>
   </data>
   <data name="FirstLaunch_Skip" xml:space="preserve">
     <value>Skip</value>
@@ -3460,7 +3460,7 @@ Release notes:
     <value>Error scanning backup files: {0}</value>
   </data>
   <data name="SettingsPage_About_Link_Document.Content" xml:space="preserve">
-    <value>Document</value>
+    <value>Documentation</value>
   </data>
   <data name="ConfigSettingsDialog_SaveAsTemplateText.Text" xml:space="preserve">
     <value>Save as template</value>

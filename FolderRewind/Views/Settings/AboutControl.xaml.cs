@@ -1,7 +1,9 @@
+using FolderRewind.Services;
 using FolderRewind.ViewModels;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Controls.Primitives;
+using System;
 
 namespace FolderRewind.Views.Settings
 {
@@ -17,6 +19,7 @@ namespace FolderRewind.Views.Settings
         public void SetViewModel(SettingsPageViewModel viewModel)
         {
             ViewModel = viewModel;
+            DocumentLink.NavigateUri = new Uri(OfficialLinksService.GetOfficialWebsiteUrl());
             Bindings.Update();
         }
 

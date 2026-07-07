@@ -229,7 +229,7 @@ namespace FolderRewind.Views
         }
 
         /// <summary>
-        /// 首次启动引导：提示用户查看 Bilibili 介绍视频
+        /// 首次启动引导：中文界面提示视频，其他语言提示官网文档。
         /// </summary>
         private async System.Threading.Tasks.Task ShowFirstLaunchGuideAsync()
         {
@@ -254,7 +254,7 @@ namespace FolderRewind.Views
                 var result = await ShowDialogAsync(dialog);
                 if (result == ContentDialogResult.Primary)
                 {
-                    await Windows.System.Launcher.LaunchUriAsync(new Uri("https://www.bilibili.com/video/BV1zbcjzhE1y"));
+                    await Windows.System.Launcher.LaunchUriAsync(new Uri(OfficialLinksService.GetFirstLaunchGuideUrl()));
                 }
             }
             catch (Exception ex)

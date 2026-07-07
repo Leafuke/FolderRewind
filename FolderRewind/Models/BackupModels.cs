@@ -70,7 +70,7 @@ namespace FolderRewind.Models
     /// </summary>
     public class GlobalSettings : ObservableObject
     {
-        private string _language = "zh_CN";
+        private string _language = "system";
         private int _themeIndex = 1; // 0: Dark, 1: Light, 2: System
         private string _sevenZipPath = "7za.exe"; // 全局 7z 路径（内置 7za.exe）
         private string _rcloneExecutablePath = "";

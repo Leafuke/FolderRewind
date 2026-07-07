@@ -17,7 +17,6 @@ namespace FolderRewind.Services
         private const string RcloneRepo = "rclone";
         private const string OpenListOwner = "OpenListTeam";
         private const string OpenListRepo = "OpenList";
-        private const string CloudGuideUrl = "https://folderrewind.top/docs/guides/cloud-archive";
 
         public static IReadOnlyList<CloudOnboardingProviderOption> GetProviderOptions()
         {
@@ -247,7 +246,7 @@ namespace FolderRewind.Services
                 }
             }
 
-            if (!ShellPathService.TryOpenPath(CloudGuideUrl, out var guideError))
+            if (!ShellPathService.TryOpenPath(OfficialLinksService.GetCloudGuideUrl(), out var guideError))
             {
                 LogService.LogWarning(I18n.Format("CloudOnboarding_Log_OpenGuideFailed", guideError ?? string.Empty), nameof(CloudOnboardingService));
             }

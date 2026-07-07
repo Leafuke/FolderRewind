@@ -24,7 +24,6 @@ namespace FolderRewind.ViewModels
 
         private const int MinPageIndex = 0;
         private const int MaxPageIndex = 5;
-        private const string CloudGuideUrl = "https://folderrewind.top/";
 
         public ConfigSettingsDialogViewModel(BackupConfig config)
         {
@@ -610,7 +609,7 @@ namespace FolderRewind.ViewModels
 
         public void OpenCloudGuideWebsite()
         {
-            if (ShellPathService.TryOpenPath(CloudGuideUrl, out var errorMessage))
+            if (ShellPathService.TryOpenPath(OfficialLinksService.GetOfficialWebsiteUrl(), out var errorMessage))
             {
                 return;
             }
