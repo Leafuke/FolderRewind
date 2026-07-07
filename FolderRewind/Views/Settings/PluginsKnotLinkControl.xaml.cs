@@ -395,12 +395,16 @@ namespace FolderRewind.Views.Settings
             if (sender is ToggleSwitch ts)
             {
                 ViewModel.HandleKnotLinkToggled(ts.IsOn);
+                ViewModel.RefreshKnotLinkServerInfo();
             }
         }
 
-        private void OnKnotLinkSettingChanged(object sender, TextChangedEventArgs e)
+        private void OnKnotLinkAutoStartToggled(object sender, RoutedEventArgs e)
         {
-            ViewModel.HandleKnotLinkSettingChanged();
+            if (sender is ToggleSwitch ts)
+            {
+                ViewModel.HandleKnotLinkAutoStartToggled(ts.IsOn);
+            }
         }
 
         private async void OnKnotLinkRestartClick(object sender, RoutedEventArgs e)
@@ -530,9 +534,76 @@ namespace FolderRewind.Views.Settings
             }
         }
 
-        private void OnKnotLinkResetClick(object sender, RoutedEventArgs e)
+        private async void OnKnotLinkStartServerClick(object sender, RoutedEventArgs e)
         {
-            ViewModel.HandleKnotLinkResetToDefault();
+            var started = ViewModel.StartKnotLinkServer();
+            var dialog = new ContentDialog
+            {
+                Title = I18n.GetString("SettingsPage_KnotLink_Title"),
+                Content = started
+                    ? I18n.GetString("SettingsPage_KnotLinkServer_StartSuccess")
+                    : I18n.GetString("SettingsPage_KnotLinkServer_StartFailed"),
+                CloseButtonText = I18n.GetString("Common_Ok"),
+                XamlRoot = this.XamlRoot
+            };
+            ThemeService.ApplyThemeToDialog(dialog);
+            await dialog.ShowAsync();
+        }
+
+        private async void OnKnotLinkCheckServerUpdateClick(object sender, RoutedEventArgs e)
+        {
+            try
+            {
+                var info = await ViewModel.CheckKnotLinkServerUpdateAsync();
+                var dialog = new ContentDialog
+                {
+                    Title = I18n.GetString("SettingsPage_KnotLinkCheckUpdate"),
+                    Content = info?.HasUpdate == true
+                        ? I18n.Format("SettingsPage_KnotLinkUpdateAvailable", info.LatestVersion)
+                        : I18n.GetString("SettingsPage_KnotLinkUpToDate"),
+                    CloseButtonText = I18n.GetString("Common_Ok"),
+                    XamlRoot = this.XamlRoot
+                };
+                ThemeService.ApplyThemeToDialog(dialog);
+                await dialog.ShowAsync();
+            }
+            catch (Exception ex)
+            {
+                var dialog = new ContentDialog
+                {
+                    Title = I18n.GetString("SettingsPage_KnotLinkCheckUpdate"),
+                    Content = I18n.Format("SettingsPage_KnotLinkUpdateServerError", ex.Message),
+                    CloseButtonText = I18n.GetString("Common_Ok"),
+                    XamlRoot = this.XamlRoot
+                };
+                ThemeService.ApplyThemeToDialog(dialog);
+                await dialog.ShowAsync();
+            }
+        }
+
+        private async void OnKnotLinkUpdateServerClick(object sender, RoutedEventArgs e)
+        {
+            if (sender is Button btn) btn.IsEnabled = false;
+            try
+            {
+                await ViewModel.DownloadAndRunKnotLinkInstallerAsync();
+            }
+            catch (Exception ex)
+            {
+                var dialog = new ContentDialog
+                {
+                    Title = I18n.GetString("Common_Failed"),
+                    Content = ex.Message,
+                    CloseButtonText = I18n.GetString("Common_Ok"),
+                    XamlRoot = this.XamlRoot
+                };
+                ThemeService.ApplyThemeToDialog(dialog);
+                await dialog.ShowAsync();
+            }
+            finally
+            {
+                if (sender is Button btn2) btn2.IsEnabled = true;
+            }
         }
     }
 }

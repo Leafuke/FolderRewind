@@ -283,7 +283,7 @@
     <value>插件系统开关、安装与管理</value>
   </data>
   <data name="SettingsPage_KnotLinkSectionDesc.Text" xml:space="preserve">
-    <value>与 KnotLink 服务互联及高级参数</value>
+    <value>与 KnotLink 服务互联及服务端管理</value>
   </data>
   <data name="SettingsPage_Section_General.Text" xml:space="preserve">
     <value>常规</value>
@@ -1609,36 +1609,6 @@
   <data name="SettingsPage_KnotLinkStatus.Text" xml:space="preserve">
     <value>连接状态</value>
   </data>
-  <data name="SettingsPage_KnotLinkAdvanced.Header" xml:space="preserve">
-    <value>高级设置</value>
-  </data>
-  <data name="SettingsPage_KnotLinkHost.Text" xml:space="preserve">
-    <value>服务器地址</value>
-  </data>
-  <data name="SettingsPage_KnotLinkHostDesc.Text" xml:space="preserve">
-    <value>KnotLink 服务运行的主机地址</value>
-  </data>
-  <data name="SettingsPage_KnotLinkAppId.Text" xml:space="preserve">
-    <value>应用标识符 (AppId)</value>
-  </data>
-  <data name="SettingsPage_KnotLinkAppIdDesc.Text" xml:space="preserve">
-    <value>用于标识本应用，通常无需修改</value>
-  </data>
-  <data name="SettingsPage_KnotLinkOpenSocketId.Text" xml:space="preserve">
-    <value>命令 Socket ID</value>
-  </data>
-  <data name="SettingsPage_KnotLinkOpenSocketIdDesc.Text" xml:space="preserve">
-    <value>用于接收远程命令的通道标识</value>
-  </data>
-  <data name="SettingsPage_KnotLinkSignalId.Text" xml:space="preserve">
-    <value>信号 ID</value>
-  </data>
-  <data name="SettingsPage_KnotLinkSignalIdDesc.Text" xml:space="preserve">
-    <value>用于广播事件的通道标识</value>
-  </data>
-  <data name="SettingsPage_KnotLinkResetDefault.Content" xml:space="preserve">
-    <value>重置为默认值</value>
-  </data>
   <data name="SettingsPage_KnotLinkRestart.Content" xml:space="preserve">
     <value>重启服务</value>
   </data>
@@ -2225,6 +2195,51 @@ RESTORE -from=minerewind.mod -request_id=req-mr-restore-001 -current_save=true -
   </data>
   <data name="SettingsPage_KnotLinkStatus_NotInitialized" xml:space="preserve">
     <value>服务未初始化，请点击 [重启服务]</value>
+  </data>
+  <data name="SettingsPage_KnotLinkServerVersion.Text" xml:space="preserve">
+    <value>服务端版本</value>
+  </data>
+  <data name="SettingsPage_KnotLinkServerNotInstalled" xml:space="preserve">
+    <value>未检测到 KnotLink 服务端</value>
+  </data>
+  <data name="SettingsPage_KnotLinkStartServer.Content" xml:space="preserve">
+    <value>启动服务端</value>
+  </data>
+  <data name="SettingsPage_KnotLinkCheckServerUpdate.Content" xml:space="preserve">
+    <value>检测更新</value>
+  </data>
+  <data name="SettingsPage_KnotLinkUpdateServer.Content" xml:space="preserve">
+    <value>更新服务端</value>
+  </data>
+  <data name="SettingsPage_KnotLinkCheckUpdate" xml:space="preserve">
+    <value>检测更新</value>
+  </data>
+  <data name="SettingsPage_KnotLinkUpdateAvailable" xml:space="preserve">
+    <value>有新版本可用: {0}</value>
+  </data>
+  <data name="SettingsPage_KnotLinkUpToDate" xml:space="preserve">
+    <value>已是最新版本</value>
+  </data>
+  <data name="SettingsPage_KnotLinkAutoStart.Text" xml:space="preserve">
+    <value>自动启动服务端</value>
+  </data>
+  <data name="SettingsPage_KnotLinkAutoStartDesc.Text" xml:space="preserve">
+    <value>应用启动时自动启动 KnotLink 服务端</value>
+  </data>
+  <data name="SettingsPage_KnotLinkUpdateServerError" xml:space="preserve">
+    <value>更新检测失败: {0}</value>
+  </data>
+  <data name="SettingsPage_KnotLinkServer_StartSuccess" xml:space="preserve">
+    <value>KnotLink 服务端已启动</value>
+  </data>
+  <data name="SettingsPage_KnotLinkServer_StartFailed" xml:space="preserve">
+    <value>启动失败，请确认服务端已安装</value>
+  </data>
+  <data name="SettingsPage_KnotLinkServerNoInstaller" xml:space="preserve">
+    <value>未找到安装包下载地址</value>
+  </data>
+  <data name="SettingsPage_KnotLinkServer_InstallerLaunched" xml:space="preserve">
+    <value>服务端安装程序已启动，请完成安装后重启应用</value>
   </data>
   <data name="Common_Save" xml:space="preserve">
     <value>保存</value>

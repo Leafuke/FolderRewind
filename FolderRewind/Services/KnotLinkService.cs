@@ -118,10 +118,10 @@ namespace FolderRewind.Services
 
                 try
                 {
-                    var host = string.IsNullOrWhiteSpace(settings.KnotLinkHost) ? "127.0.0.1" : settings.KnotLinkHost;
-                    var appId = string.IsNullOrWhiteSpace(settings.KnotLinkAppId) ? DefaultAppId : settings.KnotLinkAppId;
-                    var openSocketId = string.IsNullOrWhiteSpace(settings.KnotLinkOpenSocketId) ? DefaultOpenSocketId : settings.KnotLinkOpenSocketId;
-                    var signalId = string.IsNullOrWhiteSpace(settings.KnotLinkSignalId) ? DefaultSignalId : settings.KnotLinkSignalId;
+                    const string host = "127.0.0.1";
+                    const string appId = DefaultAppId;
+                    const string openSocketId = DefaultOpenSocketId;
+                    const string signalId = DefaultSignalId;
 
                     // 初始化信号发送器（用于广播事件）
                     InitializeSignalSender(appId, signalId, host);

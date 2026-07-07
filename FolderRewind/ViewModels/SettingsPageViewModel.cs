@@ -31,6 +31,15 @@ namespace FolderRewind.ViewModels
         private string _knotLinkStatusMessage = I18n.GetString("SettingsPage_KnotLinkStatus_Disabled");
         private Brush _knotLinkStatusColor = new SolidColorBrush(Microsoft.UI.Colors.Gray);
 
+        private string _knotLinkServerVersionText = I18n.GetString("SettingsPage_KnotLinkServerNotInstalled");
+        private bool _knotLinkServerInstalled;
+        private bool _knotLinkServerRunning;
+        private bool _knotLinkServerHasUpdate;
+        private bool _knotLinkServerUpdateChecking;
+        private string _knotLinkServerLatestVersion = string.Empty;
+        private KnotLinkUpdateInfo? _knotLinkServerUpdateInfo;
+        private Brush _knotLinkServerStatusBrush = new SolidColorBrush(Microsoft.UI.Colors.Gray);
+
         private bool _isDirty;
 
         public GlobalSettings Settings => ConfigService.CurrentConfig.GlobalSettings;
@@ -201,6 +210,46 @@ namespace FolderRewind.ViewModels
             private set => SetProperty(ref _knotLinkStatusColor, value);
         }
 
+        public string KnotLinkServerVersionText
+        {
+            get => _knotLinkServerVersionText;
+            private set => SetProperty(ref _knotLinkServerVersionText, value);
+        }
+
+        public bool KnotLinkServerInstalled
+        {
+            get => _knotLinkServerInstalled;
+            private set => SetProperty(ref _knotLinkServerInstalled, value);
+        }
+
+        public bool KnotLinkServerRunning
+        {
+            get => _knotLinkServerRunning;
+            private set => SetProperty(ref _knotLinkServerRunning, value);
+        }
+
+        public bool KnotLinkServerHasUpdate
+        {
+            get => _knotLinkServerHasUpdate;
+            private set => SetProperty(ref _knotLinkServerHasUpdate, value);
+        }
+
+        public bool KnotLinkServerUpdateChecking
+        {
+            get => _knotLinkServerUpdateChecking;
+            private set => SetProperty(ref _knotLinkServerUpdateChecking, value);
+        }
+
+        public bool KnotLinkServerCanStart => KnotLinkServerInstalled && !KnotLinkServerRunning;
+
+        public bool KnotLinkServerUpdateEnabled => !KnotLinkServerUpdateChecking && KnotLinkServerHasUpdate;
+
+        public Brush KnotLinkServerStatusBrush
+        {
+            get => _knotLinkServerStatusBrush;
+            private set => SetProperty(ref _knotLinkServerStatusBrush, value);
+        }
+
         public bool IsCoreValidationRunning => CoreFeatureValidationService.IsRunning;
 
         public bool IsCoreValidationIdle => !CoreFeatureValidationService.IsRunning;
@@ -271,6 +320,7 @@ namespace FolderRewind.ViewModels
             EnsureFontFamiliesLoaded();
             RefreshHotkeyBindingsView();
             UpdateKnotLinkStatus();
+            RefreshKnotLinkServerInfo();
             RefreshCoreValidationState();
             RefreshSponsorState();
 
@@ -297,6 +347,7 @@ namespace FolderRewind.ViewModels
         public void OnNavigatedTo()
         {
             UpdateKnotLinkStatus();
+            RefreshKnotLinkServerInfo();
         }
 
         public void SaveIfDirty()
@@ -879,8 +930,9 @@ namespace FolderRewind.ViewModels
             UpdateKnotLinkStatus();
         }
 
-        public void HandleKnotLinkSettingChanged()
+        public void HandleKnotLinkAutoStartToggled(bool isOn)
         {
+            Settings.AutoStartKnotLinkServer = isOn;
             _isDirty = true;
         }
 
@@ -892,14 +944,81 @@ namespace FolderRewind.ViewModels
             return KnotLinkService.IsInitialized;
         }
 
-        public void HandleKnotLinkResetToDefault()
+        public void RefreshKnotLinkServerInfo()
         {
-            Settings.KnotLinkHost = "127.0.0.1";
-            Settings.KnotLinkAppId = "0x00000020";
-            Settings.KnotLinkOpenSocketId = "0x00000010";
-            Settings.KnotLinkSignalId = "0x00000020";
-            _isDirty = true;
-            UpdateKnotLinkStatus();
+            KnotLinkServerInstalled = KnotLinkServerManagerService.IsServerInstalled();
+            KnotLinkServerRunning = KnotLinkServerManagerService.IsServerProcessRunning();
+
+            if (KnotLinkServerInstalled)
+            {
+                var version = KnotLinkServerManagerService.GetServerVersion();
+                KnotLinkServerVersionText = version ?? I18n.GetString("SettingsPage_KnotLinkServerNotInstalled");
+            }
+            else
+            {
+                KnotLinkServerVersionText = I18n.GetString("SettingsPage_KnotLinkServerNotInstalled");
+                KnotLinkServerHasUpdate = false;
+                _knotLinkServerUpdateInfo = null;
+            }
+
+            KnotLinkServerStatusBrush = KnotLinkServerRunning
+                ? new SolidColorBrush(Microsoft.UI.Colors.LimeGreen)
+                : KnotLinkServerInstalled
+                    ? new SolidColorBrush(Microsoft.UI.Colors.OrangeRed)
+                    : new SolidColorBrush(Microsoft.UI.Colors.Gray);
+
+            OnPropertyChanged(nameof(KnotLinkServerCanStart));
+            OnPropertyChanged(nameof(KnotLinkServerUpdateEnabled));
+        }
+
+        public async Task<KnotLinkUpdateInfo?> CheckKnotLinkServerUpdateAsync()
+        {
+            KnotLinkServerUpdateChecking = true;
+            try
+            {
+                var info = await KnotLinkServerManagerService.CheckForServerUpdateAsync();
+                _knotLinkServerUpdateInfo = info;
+                KnotLinkServerHasUpdate = info?.HasUpdate ?? false;
+                _knotLinkServerLatestVersion = info?.LatestVersion ?? string.Empty;
+                OnPropertyChanged(nameof(KnotLinkServerUpdateEnabled));
+                return info;
+            }
+            finally
+            {
+                KnotLinkServerUpdateChecking = false;
+            }
+        }
+
+        public bool StartKnotLinkServer()
+        {
+            var result = KnotLinkServerManagerService.TryStartServer();
+            // 等待一小段时间让进程启动，然后刷新状态
+            Task.Delay(500).ContinueWith(_ =>
+            {
+                try
+                {
+                    RefreshKnotLinkServerInfo();
+                }
+                catch { }
+            });
+            return result;
+        }
+
+        public async Task DownloadAndRunKnotLinkInstallerAsync()
+        {
+            if (_knotLinkServerUpdateInfo?.InstallerDownloadUrl == null)
+                throw new InvalidOperationException(I18n.GetString("SettingsPage_KnotLinkServerNoInstaller"));
+
+            var localPath = await KnotLinkServerManagerService.DownloadInstallerAsync(
+                _knotLinkServerUpdateInfo.InstallerDownloadUrl);
+
+            if (localPath == null)
+                throw new InvalidOperationException(I18n.GetString("SettingsPage_KnotLinkServerNoInstaller"));
+
+            KnotLinkServerManagerService.LaunchInstaller(localPath);
+            NotificationService.ShowInfo(
+                I18n.GetString("SettingsPage_KnotLinkServer_InstallerLaunched"),
+                I18n.GetString("SettingsPage_KnotLink_Title"));
         }
 
         public void RefreshCoreValidationState()

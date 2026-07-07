@@ -28,8 +28,8 @@ namespace FolderRewind.Services
 
     internal static class DownloadSourceService
     {
-        private const string Mirror1Prefix = "https://gh-proxy.com/";
-        private const string Mirror2Prefix = "https://hk.gh-proxy.org/";
+        private const string Mirror1Prefix = "https://v4.gh-proxy.org/";
+        private const string Mirror2Prefix = "https://gh-proxy.org/";
 
         public static DownloadSourceOption NormalizeSourceOption(int rawValue)
         {

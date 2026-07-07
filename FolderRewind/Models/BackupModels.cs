@@ -124,6 +124,7 @@ namespace FolderRewind.Models
         private string _knotLinkAppId = "0x00000020";
         private string _knotLinkOpenSocketId = "0x00000010";
         private string _knotLinkSignalId = "0x00000020";
+        private bool _autoStartKnotLinkServer = false;
 
         // 快捷键/热键
         private HotkeySettings _hotkeys = new();
@@ -296,6 +297,11 @@ namespace FolderRewind.Models
         /// KnotLink 信号 ID（用于事件广播）
         /// </summary>
         public string KnotLinkSignalId { get => _knotLinkSignalId; set => SetProperty(ref _knotLinkSignalId, value); }
+
+        /// <summary>
+        /// 应用启动时自动启动 KnotLink 服务端进程
+        /// </summary>
+        public bool AutoStartKnotLinkServer { get => _autoStartKnotLinkServer; set => SetProperty(ref _autoStartKnotLinkServer, value); }
 
         /// <summary>
         /// 快捷键/热键绑定（允许用户修改）。

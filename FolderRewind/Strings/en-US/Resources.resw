@@ -283,7 +283,7 @@ Duplicate folder names are blocked within the same configuration so different di
     <value>Plugin system, installation, and management</value>
   </data>
   <data name="SettingsPage_KnotLinkSectionDesc.Text" xml:space="preserve">
-    <value>KnotLink integration and advanced parameters</value>
+    <value>KnotLink integration and server management</value>
   </data>
   <data name="SettingsPage_Section_General.Text" xml:space="preserve">
     <value>General</value>
@@ -1609,36 +1609,6 @@ If plugin files are in use, you may need to close the app first.</value>
   <data name="SettingsPage_KnotLinkStatus.Text" xml:space="preserve">
     <value>Connection status</value>
   </data>
-  <data name="SettingsPage_KnotLinkAdvanced.Header" xml:space="preserve">
-    <value>Advanced settings</value>
-  </data>
-  <data name="SettingsPage_KnotLinkHost.Text" xml:space="preserve">
-    <value>Server address</value>
-  </data>
-  <data name="SettingsPage_KnotLinkHostDesc.Text" xml:space="preserve">
-    <value>Host address where KnotLink service is running</value>
-  </data>
-  <data name="SettingsPage_KnotLinkAppId.Text" xml:space="preserve">
-    <value>App ID</value>
-  </data>
-  <data name="SettingsPage_KnotLinkAppIdDesc.Text" xml:space="preserve">
-    <value>Identifier for this app, usually no need to change</value>
-  </data>
-  <data name="SettingsPage_KnotLinkOpenSocketId.Text" xml:space="preserve">
-    <value>Command Socket ID</value>
-  </data>
-  <data name="SettingsPage_KnotLinkOpenSocketIdDesc.Text" xml:space="preserve">
-    <value>Channel ID for receiving remote commands</value>
-  </data>
-  <data name="SettingsPage_KnotLinkSignalId.Text" xml:space="preserve">
-    <value>Signal ID</value>
-  </data>
-  <data name="SettingsPage_KnotLinkSignalIdDesc.Text" xml:space="preserve">
-    <value>Channel ID for broadcasting events</value>
-  </data>
-  <data name="SettingsPage_KnotLinkResetDefault.Content" xml:space="preserve">
-    <value>Reset to defaults</value>
-  </data>
   <data name="SettingsPage_KnotLinkRestart.Content" xml:space="preserve">
     <value>Restart service</value>
   </data>
@@ -2225,6 +2195,51 @@ Comment: {1}
   </data>
   <data name="SettingsPage_KnotLinkStatus_NotInitialized" xml:space="preserve">
     <value>Service not initialized. Please click [Restart service].</value>
+  </data>
+  <data name="SettingsPage_KnotLinkServerVersion.Text" xml:space="preserve">
+    <value>Server Version</value>
+  </data>
+  <data name="SettingsPage_KnotLinkServerNotInstalled" xml:space="preserve">
+    <value>KnotLink server not detected</value>
+  </data>
+  <data name="SettingsPage_KnotLinkStartServer.Content" xml:space="preserve">
+    <value>Start Server</value>
+  </data>
+  <data name="SettingsPage_KnotLinkCheckServerUpdate.Content" xml:space="preserve">
+    <value>Check for Updates</value>
+  </data>
+  <data name="SettingsPage_KnotLinkUpdateServer.Content" xml:space="preserve">
+    <value>Update Server</value>
+  </data>
+  <data name="SettingsPage_KnotLinkCheckUpdate" xml:space="preserve">
+    <value>Check for Updates</value>
+  </data>
+  <data name="SettingsPage_KnotLinkUpdateAvailable" xml:space="preserve">
+    <value>Update available: {0}</value>
+  </data>
+  <data name="SettingsPage_KnotLinkUpToDate" xml:space="preserve">
+    <value>Up to date</value>
+  </data>
+  <data name="SettingsPage_KnotLinkAutoStart.Text" xml:space="preserve">
+    <value>Auto-start Server</value>
+  </data>
+  <data name="SettingsPage_KnotLinkAutoStartDesc.Text" xml:space="preserve">
+    <value>Automatically start KnotLink server on app launch</value>
+  </data>
+  <data name="SettingsPage_KnotLinkUpdateServerError" xml:space="preserve">
+    <value>Update check failed: {0}</value>
+  </data>
+  <data name="SettingsPage_KnotLinkServer_StartSuccess" xml:space="preserve">
+    <value>KnotLink server started</value>
+  </data>
+  <data name="SettingsPage_KnotLinkServer_StartFailed" xml:space="preserve">
+    <value>Failed to start. Please ensure the server is installed.</value>
+  </data>
+  <data name="SettingsPage_KnotLinkServerNoInstaller" xml:space="preserve">
+    <value>No installer download URL found</value>
+  </data>
+  <data name="SettingsPage_KnotLinkServer_InstallerLaunched" xml:space="preserve">
+    <value>Server installer launched. Please complete installation and restart the app.</value>
   </data>
   <data name="Common_Save" xml:space="preserve">
     <value>Save</value>

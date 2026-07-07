@@ -158,54 +158,49 @@
                     </Grid>
                 </toolkit:SettingsCard>
 
+                <!-- 服务端版本与状态 -->
                 <toolkit:SettingsCard ContentAlignment="Vertical" HorizontalContentAlignment="Stretch">
-                    <toolkit:SettingsExpander x:Uid="SettingsPage_KnotLinkAdvanced" IsExpanded="False">
-                        <toolkit:SettingsExpander.Items>
-                            <toolkit:SettingsCard>
-                                <toolkit:SettingsCard.Header>
-                                    <TextBlock x:Uid="SettingsPage_KnotLinkHost" Style="{StaticResource SettingsHeaderTextStyle}" />
-                                </toolkit:SettingsCard.Header>
-                                <toolkit:SettingsCard.Description>
-                                    <TextBlock x:Uid="SettingsPage_KnotLinkHostDesc" Style="{StaticResource SettingsDescriptionStyle}" />
-                                </toolkit:SettingsCard.Description>
-                                <TextBox Text="{x:Bind ViewModel.Settings.KnotLinkHost, Mode=TwoWay}" Tag="KnotLinkHost" Style="{StaticResource SettingsEntryTextBoxStyle}" TextChanged="OnKnotLinkSettingChanged" />
-                            </toolkit:SettingsCard>
+                    <Grid ColumnSpacing="8">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="Auto" />
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="Auto" />
+                        </Grid.ColumnDefinitions>
+                        <FontIcon Glyph="&#xE7F8;" FontSize="16"
+                                  Foreground="{x:Bind ViewModel.KnotLinkServerStatusBrush, Mode=OneWay}"
+                                  VerticalAlignment="Center" />
+                        <StackPanel Grid.Column="1" Spacing="2" VerticalAlignment="Center">
+                            <TextBlock x:Uid="SettingsPage_KnotLinkServerVersion" Style="{StaticResource SettingsHeaderTextStyle}" />
+                            <TextBlock Text="{x:Bind ViewModel.KnotLinkServerVersionText, Mode=OneWay}" Style="{StaticResource SettingsDescriptionStyle}" />
+                        </StackPanel>
+                        <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
+                            <Button x:Uid="SettingsPage_KnotLinkStartServer"
+                                    Style="{StaticResource SettingsActionRowButtonStyle}"
+                                    Click="OnKnotLinkStartServerClick"
+                                    Visibility="{x:Bind ViewModel.KnotLinkServerCanStart, Converter={StaticResource BoolToVisConverter}, Mode=OneWay}"
+                                    IsEnabled="{x:Bind ViewModel.Settings.EnableKnotLink, Mode=OneWay}" />
+                            <Button x:Uid="SettingsPage_KnotLinkCheckServerUpdate"
+                                    Style="{StaticResource SettingsActionRowButtonStyle}"
+                                    Click="OnKnotLinkCheckServerUpdateClick"
+                                    Visibility="{x:Bind ViewModel.KnotLinkServerInstalled, Converter={StaticResource BoolToVisConverter}, Mode=OneWay}" />
+                            <Button x:Uid="SettingsPage_KnotLinkUpdateServer"
+                                    Style="{StaticResource SettingsActionRowButtonStyle}"
+                                    Click="OnKnotLinkUpdateServerClick"
+                                    Visibility="{x:Bind ViewModel.KnotLinkServerHasUpdate, Converter={StaticResource BoolToVisConverter}, Mode=OneWay}"
+                                    IsEnabled="{x:Bind ViewModel.KnotLinkServerUpdateEnabled, Mode=OneWay}" />
+                        </StackPanel>
+                    </Grid>
+                </toolkit:SettingsCard>
 
-                            <toolkit:SettingsCard>
-                                <toolkit:SettingsCard.Header>
-                                    <TextBlock x:Uid="SettingsPage_KnotLinkAppId" Style="{StaticResource SettingsHeaderTextStyle}" />
-                                </toolkit:SettingsCard.Header>
-                                <toolkit:SettingsCard.Description>
-                                    <TextBlock x:Uid="SettingsPage_KnotLinkAppIdDesc" Style="{StaticResource SettingsDescriptionStyle}" />
-                                </toolkit:SettingsCard.Description>
-                                <TextBox Text="{x:Bind ViewModel.Settings.KnotLinkAppId, Mode=TwoWay}" Tag="KnotLinkAppId" Style="{StaticResource SettingsEntryTextBoxStyle}" TextChanged="OnKnotLinkSettingChanged" />
-                            </toolkit:SettingsCard>
-
-                            <toolkit:SettingsCard>
-                                <toolkit:SettingsCard.Header>
-                                    <TextBlock x:Uid="SettingsPage_KnotLinkOpenSocketId" Style="{StaticResource SettingsHeaderTextStyle}" />
-                                </toolkit:SettingsCard.Header>
-                                <toolkit:SettingsCard.Description>
-                                    <TextBlock x:Uid="SettingsPage_KnotLinkOpenSocketIdDesc" Style="{StaticResource SettingsDescriptionStyle}" />
-                                </toolkit:SettingsCard.Description>
-                                <TextBox Text="{x:Bind ViewModel.Settings.KnotLinkOpenSocketId, Mode=TwoWay}" Tag="KnotLinkOpenSocketId" Style="{StaticResource SettingsEntryTextBoxStyle}" TextChanged="OnKnotLinkSettingChanged" />
-                            </toolkit:SettingsCard>
-
-                            <toolkit:SettingsCard>
-                                <toolkit:SettingsCard.Header>
-                                    <TextBlock x:Uid="SettingsPage_KnotLinkSignalId" Style="{StaticResource SettingsHeaderTextStyle}" />
-                                </toolkit:SettingsCard.Header>
-                                <toolkit:SettingsCard.Description>
-                                    <TextBlock x:Uid="SettingsPage_KnotLinkSignalIdDesc" Style="{StaticResource SettingsDescriptionStyle}" />
-                                </toolkit:SettingsCard.Description>
-                                <TextBox Text="{x:Bind ViewModel.Settings.KnotLinkSignalId, Mode=TwoWay}" Tag="KnotLinkSignalId" Style="{StaticResource SettingsEntryTextBoxStyle}" TextChanged="OnKnotLinkSettingChanged" />
-                            </toolkit:SettingsCard>
-
-                            <toolkit:SettingsCard ContentAlignment="Vertical" HorizontalContentAlignment="Left">
-                                <Button x:Uid="SettingsPage_KnotLinkResetDefault" Style="{StaticResource SettingsActionButtonStyle}" Click="OnKnotLinkResetClick" />
-                            </toolkit:SettingsCard>
-                        </toolkit:SettingsExpander.Items>
-                    </toolkit:SettingsExpander>
+                <!-- 自动启动服务端 -->
+                <toolkit:SettingsCard>
+                    <toolkit:SettingsCard.Header>
+                        <TextBlock x:Uid="SettingsPage_KnotLinkAutoStart" Style="{StaticResource SettingsHeaderTextStyle}" />
+                    </toolkit:SettingsCard.Header>
+                    <toolkit:SettingsCard.Description>
+                        <TextBlock x:Uid="SettingsPage_KnotLinkAutoStartDesc" Style="{StaticResource SettingsDescriptionStyle}" />
+                    </toolkit:SettingsCard.Description>
+                    <ToggleSwitch IsOn="{x:Bind ViewModel.Settings.AutoStartKnotLinkServer, Mode=TwoWay}" Toggled="OnKnotLinkAutoStartToggled" />
                 </toolkit:SettingsCard>
 
                 <toolkit:SettingsCard ContentAlignment="Vertical" HorizontalContentAlignment="Left">

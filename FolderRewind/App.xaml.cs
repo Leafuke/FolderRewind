@@ -209,6 +209,13 @@ namespace FolderRewind
                     try
                     {
                         KnotLinkService.Initialize();
+
+                        var settings = Services.ConfigService.CurrentConfig?.GlobalSettings;
+                        if (settings is { EnableKnotLink: true, AutoStartKnotLinkServer: true }
+                            && !KnotLinkServerManagerService.IsServerProcessRunning())
+                        {
+                            KnotLinkServerManagerService.TryStartServer();
+                        }
                     }
                     catch (Exception knotEx)
                     {
