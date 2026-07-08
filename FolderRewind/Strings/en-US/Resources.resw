@@ -396,6 +396,12 @@ Duplicate folder names are blocked within the same configuration so different di
   <data name="SettingsPage_SponsorRefresh.Content" xml:space="preserve">
     <value>Refresh status</value>
   </data>
+  <data name="SettingsPage_SponsorPersonalization.Text" xml:space="preserve">
+    <value>Sponsor-Exclusive Personalization</value>
+  </data>
+  <data name="SettingsPage_SponsorPersonalizationDesc.Text" xml:space="preserve">
+    <value>After sponsoring, unlock custom accent colors, backgrounds, title bar, and more</value>
+  </data>
   <data name="SettingsPage_SponsorLocked.Text" xml:space="preserve">
     <value>Sponsor perks are locked</value>
   </data>

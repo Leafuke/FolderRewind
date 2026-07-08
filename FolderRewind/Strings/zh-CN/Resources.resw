@@ -396,6 +396,12 @@
   <data name="SettingsPage_SponsorRefresh.Content" xml:space="preserve">
     <value>刷新状态</value>
   </data>
+  <data name="SettingsPage_SponsorPersonalization.Text" xml:space="preserve">
+    <value>赞助者专属个性化</value>
+  </data>
+  <data name="SettingsPage_SponsorPersonalizationDesc.Text" xml:space="preserve">
+    <value>赞助解锁后，可自定义主题色、背景、标题栏等外观设置</value>
+  </data>
   <data name="SettingsPage_SponsorLocked.Text" xml:space="preserve">
     <value>尚未解锁</value>
   </data>
