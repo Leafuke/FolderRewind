@@ -1,4 +1,5 @@
 ﻿using FolderRewind.Services;
+using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Media;
 using System;
 using System.Collections.Generic;
@@ -69,7 +70,7 @@ namespace FolderRewind.Models
     /// </summary>
     public class GlobalSettings : ObservableObject
     {
-        private string _language = "zh_CN";
+        private string _language = "system";
         private int _themeIndex = 1; // 0: Dark, 1: Light, 2: System
         private string _sevenZipPath = "7za.exe"; // 全局 7z 路径（内置 7za.exe）
         private string _rcloneExecutablePath = "";
@@ -97,7 +98,16 @@ namespace FolderRewind.Models
         private int _sponsorBackdropIndex = 0;
         private string _sponsorTitleText = "";
         private string _sponsorTitleIconGlyph = IconCatalog.DefaultConfigIconGlyph;
-        private bool _showSponsorBadge = true;
+        private bool _sponsorBackgroundEnabled = false;
+        private string _sponsorBackgroundImagePath = "";
+        private int _sponsorBackgroundStretchIndex = 0;
+        private double _sponsorBackgroundImageOpacity = 0.28;
+        private double _sponsorBackgroundOverlayOpacity = 0.62;
+        private int _sponsorCompletionSoundIndex = 0;
+        private int _completionSoundIndex = 0;
+        private string _completionSoundCustomPath = "";
+        private bool _sponsorEntitlementCached = false;
+        private DateTime _sponsorEntitlementLastVerifiedUtc = DateTime.MinValue;
 
         private bool _useHistoryStatusColors = true;
 
@@ -114,6 +124,7 @@ namespace FolderRewind.Models
         private string _knotLinkAppId = "0x00000020";
         private string _knotLinkOpenSocketId = "0x00000010";
         private string _knotLinkSignalId = "0x00000020";
+        private bool _autoStartKnotLinkServer = false;
 
         // 快捷键/热键
         private HotkeySettings _hotkeys = new();
@@ -192,9 +203,54 @@ namespace FolderRewind.Models
         public string SponsorTitleIconGlyph { get => _sponsorTitleIconGlyph; set => SetProperty(ref _sponsorTitleIconGlyph, value ?? IconCatalog.DefaultConfigIconGlyph); }
 
         /// <summary>
-        /// 是否在标题栏显示支持者小徽标。
+        /// 赞助版背景图片总开关。未解锁赞助版时运行时会忽略它，避免旧配置影响免费版体验。
         /// </summary>
-        public bool ShowSponsorBadge { get => _showSponsorBadge; set => SetProperty(ref _showSponsorBadge, value); }
+        public bool SponsorBackgroundEnabled { get => _sponsorBackgroundEnabled; set => SetProperty(ref _sponsorBackgroundEnabled, value); }
+
+        /// <summary>
+        /// 复制到应用配置目录后的背景图片路径，不保存用户原始文件位置。
+        /// </summary>
+        public string SponsorBackgroundImagePath { get => _sponsorBackgroundImagePath; set => SetProperty(ref _sponsorBackgroundImagePath, value ?? string.Empty); }
+
+        /// <summary>
+        /// 背景图片显示方式：0=UniformToFill，1=Uniform，2=Fill。
+        /// </summary>
+        public int SponsorBackgroundStretchIndex { get => _sponsorBackgroundStretchIndex; set => SetProperty(ref _sponsorBackgroundStretchIndex, value); }
+
+        /// <summary>
+        /// 背景图片本体透明度，控制图片存在感。
+        /// </summary>
+        public double SponsorBackgroundImageOpacity { get => _sponsorBackgroundImageOpacity; set => SetProperty(ref _sponsorBackgroundImageOpacity, value); }
+
+        /// <summary>
+        /// 背景遮罩透明度，用于保证文字和卡片仍然清楚。
+        /// </summary>
+        public double SponsorBackgroundOverlayOpacity { get => _sponsorBackgroundOverlayOpacity; set => SetProperty(ref _sponsorBackgroundOverlayOpacity, value); }
+
+        /// <summary>
+        /// 旧版赞助者完成音效设置，保留用于配置迁移。
+        /// </summary>
+        public int SponsorCompletionSoundIndex { get => _sponsorCompletionSoundIndex; set => SetProperty(ref _sponsorCompletionSoundIndex, value); }
+
+        /// <summary>
+        /// 备份/还原完成后的音效。0=无，1=默认音效；赞助者可用自定义文件替换默认音效。
+        /// </summary>
+        public int CompletionSoundIndex { get => _completionSoundIndex; set => SetProperty(ref _completionSoundIndex, value); }
+
+        /// <summary>
+        /// 复制到应用配置目录后的自定义完成音效路径。只有赞助者版本会使用它。
+        /// </summary>
+        public string CompletionSoundCustomPath { get => _completionSoundCustomPath; set => SetProperty(ref _completionSoundCustomPath, value ?? string.Empty); }
+
+        /// <summary>
+        /// 本机最后一次确认过的赞助授权。它只用于启动首帧恢复外观，后台 Store 刷新会继续校正。
+        /// </summary>
+        public bool SponsorEntitlementCached { get => _sponsorEntitlementCached; set => SetProperty(ref _sponsorEntitlementCached, value); }
+
+        /// <summary>
+        /// 最近一次从 Microsoft Store 确认授权的 UTC 时间，用于诊断“为什么本机记得我是赞助者”。
+        /// </summary>
+        public DateTime SponsorEntitlementLastVerifiedUtc { get => _sponsorEntitlementLastVerifiedUtc; set => SetProperty(ref _sponsorEntitlementLastVerifiedUtc, value); }
 
         /// <summary>
         /// 是否在历史记录页使用彩色节点区分状态
@@ -241,6 +297,11 @@ namespace FolderRewind.Models
         /// KnotLink 信号 ID（用于事件广播）
         /// </summary>
         public string KnotLinkSignalId { get => _knotLinkSignalId; set => SetProperty(ref _knotLinkSignalId, value); }
+
+        /// <summary>
+        /// 应用启动时自动启动 KnotLink 服务端进程
+        /// </summary>
+        public bool AutoStartKnotLinkServer { get => _autoStartKnotLinkServer; set => SetProperty(ref _autoStartKnotLinkServer, value); }
 
         /// <summary>
         /// 快捷键/热键绑定（允许用户修改）。
@@ -329,6 +390,7 @@ namespace FolderRewind.Models
         /// 最近一次核心功能自动校验摘要。
         /// </summary>
         public string LastCoreValidationSummary { get => _lastCoreValidationSummary; set => SetProperty(ref _lastCoreValidationSummary, value ?? string.Empty); }
+
     }
 
     /// <summary>
@@ -384,11 +446,47 @@ namespace FolderRewind.Models
         // 过滤器 (黑名单/白名单)
         public FilterSettings Filters { get; set; } = new();
 
+        // 备份范围。默认完整范围；插件可以按配置提供“Minecraft 指定区域”等范围策略。
+        public BackupScopeSettings BackupScope { get; set; } = new();
+
         // 云上传设置（通过外部工具执行）
         public CloudSettings Cloud { get; set; } = new();
 
         // 扩展属性 (用于插件，如 Minecraft 插件存储 rcon 端口等)
         public Dictionary<string, string> ExtendedProperties { get; set; } = new();
+    }
+
+    /// <summary>
+    /// 配置级备份范围设置。
+    /// 这里不保存插件全局设置，而是保存“这个配置”选用了哪个插件范围和对应参数。
+    /// </summary>
+    public class BackupScopeSettings : ObservableObject
+    {
+        private string _pluginScopeId = string.Empty;
+        private Dictionary<string, string> _parameters = new(StringComparer.OrdinalIgnoreCase);
+
+        /// <summary>
+        /// 插件范围 ID。为空表示完整范围，沿用普通备份行为。
+        /// </summary>
+        public string PluginScopeId
+        {
+            get => _pluginScopeId;
+            set => SetProperty(ref _pluginScopeId, value?.Trim() ?? string.Empty);
+        }
+
+        /// <summary>
+        /// 插件范围参数。Key 由插件声明，Host 只负责保存和传递。
+        /// </summary>
+        public Dictionary<string, string> Parameters
+        {
+            get => _parameters;
+            set => SetProperty(ref _parameters, value == null
+                ? new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
+                : new Dictionary<string, string>(value, StringComparer.OrdinalIgnoreCase));
+        }
+
+        [JsonIgnore]
+        public bool IsPluginScopeEnabled => !string.IsNullOrWhiteSpace(PluginScopeId);
     }
 
     /// <summary>
@@ -664,7 +762,10 @@ namespace FolderRewind.Models
         private DateTime _lastTriggeredUtc = DateTime.MinValue;
 
         public int MonthSelection { get => _monthSelection; set { if (SetProperty(ref _monthSelection, value)) OnPropertyChanged(nameof(NextRunDisplay)); } }
-        public int DaySelection { get => _daySelection; set { if (SetProperty(ref _daySelection, value)) OnPropertyChanged(nameof(NextRunDisplay)); } }
+        public int DaySelection { get => _daySelection; set { if (SetProperty(ref _daySelection, value)) { OnPropertyChanged(nameof(NextRunDisplay)); OnPropertyChanged(nameof(IsMonthEnabled)); } } }
+
+        [JsonIgnore]
+        public bool IsMonthEnabled => DaySelection != 0;
         public int Hour { get => _hour; set { if (SetProperty(ref _hour, value)) OnPropertyChanged(nameof(NextRunDisplay)); } }
         public int Minute { get => _minute; set { if (SetProperty(ref _minute, value)) OnPropertyChanged(nameof(NextRunDisplay)); } }
         public DateTime LastTriggeredUtc { get => _lastTriggeredUtc; set => SetProperty(ref _lastTriggeredUtc, value); }
@@ -883,17 +984,47 @@ namespace FolderRewind.Models
     }
 
     /// <summary>
+    /// 备份过滤模式。
+    /// </summary>
+    public enum BackupFilterMode
+    {
+        Blacklist = 0,
+        Whitelist = 1
+    }
+
+    /// <summary>
     /// 过滤器设置
     /// </summary>
     public class FilterSettings : ObservableObject
     {
+        private BackupFilterMode _backupFilterMode = BackupFilterMode.Blacklist;
         // 这里的黑名单是相对于 Config 的，应用于所有 SourceFolder
         private ObservableCollection<string> _blacklist = new();
+        private ObservableCollection<string> _backupWhitelist = new();
         public ObservableCollection<string> Blacklist
         {
             get => _blacklist;
             set => SetProperty(ref _blacklist, value ?? new ObservableCollection<string>());
         }
+
+        /// <summary>
+        /// 备份过滤模式。默认黑名单，保证旧配置继续按“排除规则”工作。
+        /// </summary>
+        public BackupFilterMode BackupFilterMode
+        {
+            get => _backupFilterMode;
+            set => SetProperty(ref _backupFilterMode, value);
+        }
+
+        /// <summary>
+        /// 备份白名单：启用白名单模式时，仅备份匹配这些规则的文件。
+        /// </summary>
+        public ObservableCollection<string> BackupWhitelist
+        {
+            get => _backupWhitelist;
+            set => SetProperty(ref _backupWhitelist, value ?? new ObservableCollection<string>());
+        }
+
         public bool UseRegex { get; set; } = false;
 
         /// <summary>
@@ -932,6 +1063,11 @@ namespace FolderRewind.Models
         public string FileName { get; set; } = "";        // 备份文件名 (如 [Full]...7z)
         public DateTime Timestamp { get; set; }     // 备份时间
         public string BackupType { get; set; } = "";      // Full, Smart, Overwrite
+
+        /// <summary>
+        /// 是否为部分备份。白名单/插件区域备份会标记它，Clean 还原时需要额外提醒。
+        /// </summary>
+        public bool IsPartialBackup { get; set; }
 
         private string _comment = "";
         public string Comment
@@ -1090,7 +1226,15 @@ namespace FolderRewind.Models
         }
         public string Status { get => _status; set => SetProperty(ref _status, value ?? string.Empty); }
         public string Speed { get => _speed; set => SetProperty(ref _speed, value ?? string.Empty); }
-        public bool IsCompleted { get => _isCompleted; set => SetProperty(ref _isCompleted, value); }
+        public bool IsCompleted
+        {
+            get => _isCompleted;
+            set
+            {
+                SetProperty(ref _isCompleted, value);
+                OnPropertyChanged(nameof(StatusBrush));
+            }
+        }
 
         // 这里的 Log 用于给 TaskPage 显示详细信息
         public string Log { get => _log; set => SetProperty(ref _log, value ?? string.Empty); }
@@ -1098,7 +1242,15 @@ namespace FolderRewind.Models
         /// <summary>
         /// 失败原因（仅在任务失败时有值），通常来自 7z 的 stderr 输出
         /// </summary>
-        public string ErrorMessage { get => _errorMessage; set => SetProperty(ref _errorMessage, value ?? string.Empty); }
+        public string ErrorMessage
+        {
+            get => _errorMessage;
+            set
+            {
+                SetProperty(ref _errorMessage, value ?? string.Empty);
+                OnPropertyChanged(nameof(StatusBrush));
+            }
+        }
 
         /// <summary>
         /// 进度条是否为不确定模式（尚未收到 7z 进度数据时为 true）
@@ -1116,7 +1268,15 @@ namespace FolderRewind.Models
         /// <summary>
         /// 任务是否成功完成
         /// </summary>
-        public bool IsSuccess { get => _isSuccess; set => SetProperty(ref _isSuccess, value); }
+        public bool IsSuccess
+        {
+            get => _isSuccess;
+            set
+            {
+                SetProperty(ref _isSuccess, value);
+                OnPropertyChanged(nameof(StatusBrush));
+            }
+        }
 
         /// <summary>
         /// 任务图标（备份/还原使用不同图标）
@@ -1128,5 +1288,22 @@ namespace FolderRewind.Models
         /// </summary>
         [JsonIgnore]
         public string ProgressText => IsIndeterminate ? "" : $"{Progress:F0}%";
+
+        /// <summary>
+        /// 返回与任务状态对应的颜色画刷。
+        /// 失败: 严重色/红色; 成功: 成功色/绿色; 运行中: 强调色。
+        /// </summary>
+        [JsonIgnore]
+        public SolidColorBrush? StatusBrush
+        {
+            get
+            {
+                if (IsCompleted && !IsSuccess && !string.IsNullOrEmpty(ErrorMessage))
+                    return (SolidColorBrush?)Application.Current.Resources["SystemFillColorCriticalBrush"];
+                if (IsCompleted && IsSuccess)
+                    return (SolidColorBrush?)Application.Current.Resources["SystemFillColorSuccessBrush"];
+                return (SolidColorBrush?)Application.Current.Resources["AccentFillColorDefaultBrush"];
+            }
+        }
     }
 }

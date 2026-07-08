@@ -1,6 +1,7 @@
 using FolderRewind.Models;
 using System;
 using System.Collections.Generic;
+using System.Threading;
 using System.Threading.Tasks;
 
 namespace FolderRewind.Services.Plugins
@@ -40,6 +41,82 @@ namespace FolderRewind.Services.Plugins
         public IReadOnlyList<BackupConfig>? CreatedConfigs { get; set; }
         /// <summary>状态消息</summary>
         public string? Message { get; set; }
+    }
+
+    /// <summary>
+    /// 插件按次贡献的备份过滤规则。Host 会克隆配置后应用这些规则，不会污染用户保存的配置。
+    /// </summary>
+    public class PluginBackupFilterContribution
+    {
+        /// <summary>是否切换到备份白名单模式。</summary>
+        public bool UseWhitelistMode { get; set; }
+
+        /// <summary>按次追加的备份白名单规则。</summary>
+        public IReadOnlyList<string>? BackupWhitelist { get; set; }
+
+        /// <summary>按次追加的备份黑名单规则。仅黑名单模式下生效。</summary>
+        public IReadOnlyList<string>? BackupBlacklist { get; set; }
+    }
+
+    /// <summary>
+    /// 插件提供的配置级备份范围定义。
+    /// 例如 MineRewind 可以声明“Minecraft 指定区域”，参数由 Host 动态渲染并保存在 BackupConfig 中。
+    /// </summary>
+    public class PluginBackupScopeDefinition
+    {
+        public string Id { get; set; } = string.Empty;
+        public string DisplayName { get; set; } = string.Empty;
+        public string? Description { get; set; }
+        public IReadOnlyList<PluginSettingDefinition> Parameters { get; set; } = Array.Empty<PluginSettingDefinition>();
+    }
+
+    /// <summary>
+    /// 单次备份时传给插件的已选范围上下文。
+    /// </summary>
+    public class PluginBackupScopeContext
+    {
+        public string ScopeId { get; set; } = string.Empty;
+        public IReadOnlyDictionary<string, string> Parameters { get; set; } = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+    }
+
+    /// <summary>
+    /// 可选插件接口：让插件为单次备份贡献过滤规则。
+    /// </summary>
+    public interface IFolderRewindBackupFilterProvider
+    {
+        PluginBackupFilterContribution? GetBackupFilterContribution(
+            BackupConfig config,
+            ManagedFolder folder,
+            IReadOnlyDictionary<string, string> settingsValues);
+    }
+
+    /// <summary>
+    /// 可选插件接口：按配置声明新的“备份范围/过滤策略”，并在备份时转化为 Host 可执行的过滤规则。
+    /// </summary>
+    public interface IFolderRewindBackupScopeProvider
+    {
+        IReadOnlyList<PluginBackupScopeDefinition> GetBackupScopeDefinitions(
+            BackupConfig config,
+            IReadOnlyDictionary<string, string> settingsValues);
+
+        PluginBackupFilterContribution? GetBackupFilterContribution(
+            BackupConfig config,
+            ManagedFolder folder,
+            PluginBackupScopeContext scope,
+            IReadOnlyDictionary<string, string> settingsValues);
+    }
+
+    /// <summary>
+    /// 可选插件接口：为文件夹详情对话框提供只读的键值信息分区。
+    /// Host 负责统一渲染，插件只返回数据。
+    /// </summary>
+    public interface IFolderRewindFolderDetailsProvider
+    {
+        Task<IReadOnlyList<FolderDetailsSection>> GetFolderDetailsSectionsAsync(
+            BackupConfig config,
+            ManagedFolder folder,
+            IReadOnlyDictionary<string, string> settingsValues,
+            CancellationToken cancellationToken);
     }
 
     /// <summary>

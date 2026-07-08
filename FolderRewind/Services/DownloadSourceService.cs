@@ -28,12 +28,12 @@ namespace FolderRewind.Services
 
     internal static class DownloadSourceService
     {
-        private const string Mirror1Prefix = "https://gh-proxy.com/";
-        private const string Mirror2Prefix = "https://hk.gh-proxy.org/";
+        private const string Mirror1Prefix = "https://v4.gh-proxy.org/";
+        private const string Mirror2Prefix = "https://gh-proxy.org/";
 
         public static DownloadSourceOption NormalizeSourceOption(int rawValue)
         {
-            return Enum.IsDefined(typeof(DownloadSourceOption), rawValue)
+            return Enum.IsDefined((DownloadSourceOption)rawValue)
                 ? (DownloadSourceOption)rawValue
                 : DownloadSourceOption.Mirror1;
         }
@@ -151,7 +151,7 @@ namespace FolderRewind.Services
                 return order;
             }
 
-            foreach (DownloadSourceOption option in Enum.GetValues(typeof(DownloadSourceOption)))
+            foreach (DownloadSourceOption option in Enum.GetValues<DownloadSourceOption>())
             {
                 if (option != preferred)
                 {

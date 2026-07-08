@@ -10,6 +10,10 @@
     SecondaryButtonClick="OnDeleteClick"
     Style="{StaticResource DefaultContentDialogStyle}">
 
+    <ContentDialog.Resources>
+        <x:Double x:Key="ContentDialogMinWidth">560</x:Double>
+    </ContentDialog.Resources>
+
     <Grid Height="520" Width="520" RowSpacing="1">
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto"/>
@@ -18,32 +22,32 @@
 
         <SelectorBar x:Name="ConfigSelectorBar"
                      SelectionChanged="OnSettingsSelectorBarSelectionChanged">
-            <SelectorBarItem x:Uid="ConfigSettingsDialog_TabGeneral" IsSelected="True" FontSize="15" FontWeight="SemiBold">
+            <SelectorBarItem x:Uid="ConfigSettingsDialog_TabGeneral" Tag="General" IsSelected="True" FontSize="15" FontWeight="SemiBold">
                 <SelectorBarItem.Icon>
                     <SymbolIcon Symbol="Setting"/>
                 </SelectorBarItem.Icon>
             </SelectorBarItem>
-            <SelectorBarItem x:Uid="ConfigSettingsDialog_TabBackup" FontSize="15" FontWeight="SemiBold">
+            <SelectorBarItem x:Uid="ConfigSettingsDialog_TabBackup" Tag="Backup" FontSize="15" FontWeight="SemiBold">
                 <SelectorBarItem.Icon>
                     <SymbolIcon Symbol="Upload"/>
                 </SelectorBarItem.Icon>
             </SelectorBarItem>
-            <SelectorBarItem x:Uid="ConfigSettingsDialog_TabRestore" FontSize="15" FontWeight="SemiBold">
+            <SelectorBarItem x:Uid="ConfigSettingsDialog_TabRestore" Tag="Restore" FontSize="15" FontWeight="SemiBold">
                 <SelectorBarItem.Icon>
                     <SymbolIcon Symbol="Download"/>
                 </SelectorBarItem.Icon>
             </SelectorBarItem>
-            <SelectorBarItem x:Uid="ConfigSettingsDialog_TabAutomation" FontSize="15" FontWeight="SemiBold">
+            <SelectorBarItem x:Uid="ConfigSettingsDialog_TabAutomation" Tag="Automation" FontSize="15" FontWeight="SemiBold">
                 <SelectorBarItem.Icon>
                     <SymbolIcon Symbol="Clock"/>
                 </SelectorBarItem.Icon>
             </SelectorBarItem>
-            <SelectorBarItem x:Uid="ConfigSettingsDialog_TabCloud" FontSize="15" FontWeight="SemiBold">
+            <SelectorBarItem x:Uid="ConfigSettingsDialog_TabCloud" Tag="Cloud" FontSize="15" FontWeight="SemiBold">
                 <SelectorBarItem.Icon>
                     <SymbolIcon Symbol="World"/>
                 </SelectorBarItem.Icon>
             </SelectorBarItem>
-            <SelectorBarItem x:Uid="ConfigSettingsDialog_TabFilter" FontSize="15" FontWeight="SemiBold">
+            <SelectorBarItem x:Uid="ConfigSettingsDialog_TabFilter" Tag="Filter" FontSize="15" FontWeight="SemiBold">
                 <SelectorBarItem.Icon>
                     <SymbolIcon Symbol="Filter"/>
                 </SelectorBarItem.Icon>
@@ -51,10 +55,11 @@
         </SelectorBar>
 
         <!-- 1. 常规设置 -->
-        <ScrollViewer Grid.Row="1"
+        <ScrollViewer x:Name="GeneralTabScrollViewer"
+                      x:Load="False"
+                      Grid.Row="1"
                       VerticalScrollBarVisibility="Auto"
-                      Padding="0,0,12,0"
-                      Visibility="{x:Bind ViewModel.IsGeneralPageVisible, Mode=OneWay, Converter={StaticResource BoolToVisConverter}}">
+                      Padding="0,0,12,0">
             <StackPanel Spacing="20" Padding="0,12">
                 <TextBox x:Uid="ConfigSettingsDialog_ConfigName" Text="{x:Bind Config.Name, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"/>
 
@@ -130,10 +135,11 @@
         </ScrollViewer>
 
         <!-- 2. 备份策略 -->
-        <ScrollViewer Grid.Row="1"
+        <ScrollViewer x:Name="BackupTabScrollViewer"
+                      x:Load="False"
+                      Grid.Row="1"
                       VerticalScrollBarVisibility="Auto"
-                      Padding="0,0,12,0"
-                      Visibility="{x:Bind ViewModel.IsBackupStrategyPageVisible, Mode=OneWay, Converter={StaticResource BoolToVisConverter}}">
+                      Padding="0,0,12,0">
             <StackPanel Spacing="20" Padding="0,12">
                 <!-- 备份模式 -->
                 <ComboBox x:Uid="ConfigSettingsDialog_BackupMode" SelectedIndex="{x:Bind ModeSelectedIndex, Mode=TwoWay}" HorizontalAlignment="Stretch">
@@ -148,6 +154,30 @@
                                TextWrapping="Wrap"
                                Foreground="{ThemeResource TextFillColorPrimaryBrush}"/>
                 </Border>
+
+                <!-- 备份范围：完整范围或插件提供的配置级范围策略 -->
+                <StackPanel Spacing="8">
+                    <ComboBox x:Uid="ConfigSettingsDialog_BackupScope"
+                              ItemsSource="{x:Bind ViewModel.BackupScopeOptions, Mode=OneWay}"
+                              DisplayMemberPath="DisplayName"
+                              SelectedIndex="{x:Bind ViewModel.BackupScopeSelectedIndex, Mode=OneWay}"
+                              SelectionChanged="OnBackupScopeSelectionChanged"
+                              HorizontalAlignment="Stretch"/>
+                    <TextBlock Text="{x:Bind ViewModel.BackupScopeDescription, Mode=OneWay}"
+                               Style="{StaticResource CaptionTextBlockStyle}"
+                               Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                               TextWrapping="Wrap"/>
+                    <Border Padding="12"
+                            CornerRadius="8"
+                            Background="{ThemeResource SystemFillColorCautionBackgroundBrush}"
+                            Visibility="{x:Bind ViewModel.IsPluginBackupScopeSelected, Mode=OneWay, Converter={StaticResource BoolToVisConverter}}">
+                        <TextBlock x:Uid="ConfigSettingsDialog_BackupScopePartialWarning"
+                                   TextWrapping="Wrap"
+                                   Foreground="{ThemeResource TextFillColorPrimaryBrush}"/>
+                    </Border>
+                    <StackPanel x:Name="BackupScopeParametersPanel" Spacing="10"
+                                Visibility="{x:Bind ViewModel.IsPluginBackupScopeSelected, Mode=OneWay, Converter={StaticResource BoolToVisConverter}}"/>
+                </StackPanel>
 
                 <!-- 压缩格式 + 算法 -->
                 <Grid>
@@ -251,10 +281,11 @@
         </ScrollViewer>
 
         <!-- 3. 还原策略 -->
-        <ScrollViewer Grid.Row="1"
+        <ScrollViewer x:Name="RestoreTabScrollViewer"
+                      x:Load="False"
+                      Grid.Row="1"
                       VerticalScrollBarVisibility="Auto"
-                      Padding="0,0,12,0"
-                      Visibility="{x:Bind ViewModel.IsRestoreStrategyPageVisible, Mode=OneWay, Converter={StaticResource BoolToVisConverter}}">
+                      Padding="0,0,12,0">
             <StackPanel Spacing="20" Padding="0,12">
                 <!-- 还原前自动备份 -->
                 <ToggleSwitch x:Uid="ConfigSettingsDialog_BackupBeforeRestore" IsOn="{x:Bind Config.Archive.BackupBeforeRestore, Mode=TwoWay}"/>
@@ -296,10 +327,11 @@
         </ScrollViewer>
 
         <!-- 4. 自动化 -->
-        <ScrollViewer Grid.Row="1"
+        <ScrollViewer x:Name="AutomationTabScrollViewer"
+                      x:Load="False"
+                      Grid.Row="1"
                       VerticalScrollBarVisibility="Auto"
-                      Padding="0,0,12,0"
-                      Visibility="{x:Bind ViewModel.IsAutomationPageVisible, Mode=OneWay, Converter={StaticResource BoolToVisConverter}}">
+                      Padding="0,0,12,0">
             <StackPanel Spacing="20" Padding="0,12">
                 <ToggleSwitch x:Uid="ConfigSettingsDialog_AutoBackup" IsOn="{x:Bind Config.Automation.AutoBackupEnabled, Mode=TwoWay}"/>
 
@@ -342,7 +374,64 @@
                     <StackPanel Visibility="{x:Bind Config.Automation.ScheduledMode, Mode=OneWay, Converter={StaticResource BoolToVisConverter}}" Spacing="8">
                         <TextBlock x:Name="ScheduleEntriesHeader" FontWeight="SemiBold"/>
                         <TextBlock x:Name="ScheduleEntriesDesc" Style="{StaticResource CaptionTextBlockStyle}" Foreground="{ThemeResource TextFillColorSecondaryBrush}" TextWrapping="Wrap"/>
-                        <StackPanel x:Name="ScheduleEntriesPanel" Spacing="6"/>
+                        <ItemsControl x:Name="ScheduleEntriesControl"
+                                      ItemsSource="{x:Bind Config.Automation.ScheduleEntries, Mode=OneWay}">
+                            <ItemsControl.ItemsPanel>
+                                <ItemsPanelTemplate>
+                                    <StackPanel Spacing="6"/>
+                                </ItemsPanelTemplate>
+                            </ItemsControl.ItemsPanel>
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate x:DataType="models:ScheduleEntry">
+                                    <Grid Margin="0,4" Padding="8"
+                                          BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
+                                          BorderThickness="1" CornerRadius="4">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="Auto"/>
+                                            <ColumnDefinition Width="Auto"/>
+                                            <ColumnDefinition Width="Auto"/>
+                                            <ColumnDefinition Width="Auto"/>
+                                            <ColumnDefinition Width="Auto"/>
+                                            <ColumnDefinition Width="*"/>
+                                            <ColumnDefinition Width="Auto"/>
+                                        </Grid.ColumnDefinitions>
+                                        <TextBlock Grid.Column="0" Text="月:" VerticalAlignment="Center" Margin="4,0"
+                                                   Style="{StaticResource CaptionTextBlockStyle}"/>
+                                        <ComboBox Grid.Column="1" Width="80"
+                                                  SelectedIndex="{x:Bind MonthSelection, Mode=TwoWay}"
+                                                  IsEnabled="{x:Bind IsMonthEnabled, Mode=OneWay}"
+                                                  Loaded="OnScheduleMonthComboLoaded"
+                                                  AutomationProperties.AutomationId="ScheduleMonthCombo"/>
+                                        <TextBlock Grid.Column="2" Text="日:" VerticalAlignment="Center" Margin="8,0,4,0"
+                                                   Style="{StaticResource CaptionTextBlockStyle}"/>
+                                        <ComboBox Grid.Column="3" Width="80"
+                                                  SelectedIndex="{x:Bind DaySelection, Mode=TwoWay}"
+                                                  Loaded="OnScheduleDayComboLoaded"
+                                                  AutomationProperties.AutomationId="ScheduleDayCombo"/>
+                                        <StackPanel Grid.Column="4" Orientation="Horizontal" Margin="8,0" Spacing="4">
+                                            <NumberBox Width="60" Value="{x:Bind Hour, Mode=TwoWay}" Minimum="0" Maximum="23"
+                                                       SpinButtonPlacementMode="Compact"
+                                                       AutomationProperties.AutomationId="ScheduleHourBox"/>
+                                            <TextBlock Text=":" VerticalAlignment="Center" FontWeight="SemiBold"/>
+                                            <NumberBox Width="60" Value="{x:Bind Minute, Mode=TwoWay}" Minimum="0" Maximum="59"
+                                                       SpinButtonPlacementMode="Compact"
+                                                       AutomationProperties.AutomationId="ScheduleMinuteBox"/>
+                                        </StackPanel>
+                                        <TextBlock Grid.Column="5" VerticalAlignment="Center" Margin="8,0"
+                                                   Style="{StaticResource CaptionTextBlockStyle}"
+                                                   Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                                                   Text="{x:Bind NextRunDisplay, Mode=OneWay}"/>
+                                        <Button Grid.Column="6" Margin="4,0"
+                                                Click="OnDeleteScheduleEntryClick"
+                                                Padding="6"
+                                                VerticalAlignment="Center"
+                                                AutomationProperties.AutomationId="DeleteScheduleEntryButton">
+                                            <FontIcon Glyph="&#xE711;" FontSize="12"/>
+                                        </Button>
+                                    </Grid>
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
                         <Button x:Name="AddScheduleButton" Click="OnAddScheduleEntryClick">
                             <StackPanel Orientation="Horizontal" Spacing="6">
                                 <FontIcon Glyph="&#xE710;" FontSize="14"/>
@@ -378,10 +467,11 @@
         </ScrollViewer>
 
         <!-- 5. 云上传 -->
-        <ScrollViewer Grid.Row="1"
+        <ScrollViewer x:Name="CloudTabScrollViewer"
+                      x:Load="False"
+                      Grid.Row="1"
                       VerticalScrollBarVisibility="Auto"
-                      Padding="0,0,12,0"
-                      Visibility="{x:Bind ViewModel.IsCloudPageVisible, Mode=OneWay, Converter={StaticResource BoolToVisConverter}}">
+                      Padding="0,0,12,0">
             <StackPanel Spacing="20" Padding="0,12">
                 <StackPanel Spacing="8">
                     <TextBlock x:Uid="ConfigSettingsDialog_CloudEnvironmentSection" Style="{ThemeResource SubtitleTextBlockStyle}"/>
@@ -576,36 +666,80 @@
             </StackPanel>
         </ScrollViewer>
 
-        <!-- 6. 过滤器 (黑名单) -->
-        <ScrollViewer Grid.Row="1"
+        <!-- 6. 过滤器 -->
+        <ScrollViewer x:Name="FilterTabScrollViewer"
+                      x:Load="False"
+                      Grid.Row="1"
                       VerticalScrollBarVisibility="Auto"
-                      Padding="0,0,12,0"
-                      Visibility="{x:Bind ViewModel.IsFilterPageVisible, Mode=OneWay, Converter={StaticResource BoolToVisConverter}}">
+                      Padding="0,0,12,0">
             <StackPanel Spacing="12" Padding="0,12">
-                <TextBlock x:Uid="ConfigSettingsDialog_Blacklist" FontWeight="SemiBold"/>
-                <ListView Height="200" ItemsSource="{x:Bind Config.Filters.Blacklist}" BorderThickness="1" BorderBrush="{ThemeResource SurfaceStrokeColorDefaultBrush}">
-                    <ListView.ItemTemplate>
-                        <DataTemplate>
-                            <Grid>
-                                <Grid.ColumnDefinitions>
-                                    <ColumnDefinition Width="*"/>
-                                    <ColumnDefinition Width="Auto"/>
-                                </Grid.ColumnDefinitions>
-                                <TextBlock Text="{Binding}" VerticalAlignment="Center"/>
-                                <Button Grid.Column="1" Content="&#xE711;" FontFamily="Segoe MDL2 Assets" Click="OnRemoveBlacklistClick"/>
-                            </Grid>
-                        </DataTemplate>
-                    </ListView.ItemTemplate>
-                </ListView>
+                <ComboBox x:Uid="ConfigSettingsDialog_BackupFilterMode"
+                          SelectedIndex="{x:Bind ViewModel.BackupFilterModeSelectedIndex, Mode=TwoWay}"
+                          HorizontalAlignment="Stretch">
+                    <ComboBoxItem x:Uid="ConfigSettingsDialog_BackupFilterModeBlacklist"/>
+                    <ComboBoxItem x:Uid="ConfigSettingsDialog_BackupFilterModeWhitelist"/>
+                </ComboBox>
+
                 <CheckBox x:Uid="ConfigSettingsDialog_UseRegex" IsChecked="{x:Bind Config.Filters.UseRegex, Mode=TwoWay}"/>
-                <Grid>
-                    <Grid.ColumnDefinitions>
-                        <ColumnDefinition Width="*"/>
-                        <ColumnDefinition Width="Auto"/>
-                    </Grid.ColumnDefinitions>
-                    <TextBox x:Name="BlacklistBox" x:Uid="ConfigSettingsDialog_BlacklistPlaceholder"/>
-                    <Button Grid.Column="1" x:Uid="ConfigSettingsDialog_AddBlacklist" Margin="8,0,0,0" Click="OnAddBlacklistClick"/>
-                </Grid>
+
+                <StackPanel Spacing="12"
+                            Visibility="{x:Bind ViewModel.IsBackupBlacklistMode, Mode=OneWay, Converter={StaticResource BoolToVisConverter}}">
+                    <TextBlock x:Uid="ConfigSettingsDialog_Blacklist" FontWeight="SemiBold"/>
+                    <ListView Height="180" ItemsSource="{x:Bind Config.Filters.Blacklist}" BorderThickness="1" BorderBrush="{ThemeResource SurfaceStrokeColorDefaultBrush}">
+                        <ListView.ItemTemplate>
+                            <DataTemplate>
+                                <Grid>
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*"/>
+                                        <ColumnDefinition Width="Auto"/>
+                                    </Grid.ColumnDefinitions>
+                                    <TextBlock Text="{Binding}" VerticalAlignment="Center"/>
+                                    <Button Grid.Column="1" Content="&#xE711;" FontFamily="Segoe MDL2 Assets" Click="OnRemoveBlacklistClick"/>
+                                </Grid>
+                            </DataTemplate>
+                        </ListView.ItemTemplate>
+                    </ListView>
+                    <Grid>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*"/>
+                            <ColumnDefinition Width="Auto"/>
+                        </Grid.ColumnDefinitions>
+                        <TextBox x:Name="BlacklistBox" x:Uid="ConfigSettingsDialog_BlacklistPlaceholder"/>
+                        <Button Grid.Column="1" x:Uid="ConfigSettingsDialog_AddBlacklist" Margin="8,0,0,0" Click="OnAddBlacklistClick"/>
+                    </Grid>
+                </StackPanel>
+
+                <StackPanel Spacing="12"
+                            Visibility="{x:Bind ViewModel.IsBackupWhitelistMode, Mode=OneWay, Converter={StaticResource BoolToVisConverter}}">
+                    <TextBlock x:Uid="ConfigSettingsDialog_BackupWhitelist" FontWeight="SemiBold"/>
+                    <Border Padding="12" CornerRadius="8" Background="{ThemeResource SystemFillColorCautionBackgroundBrush}">
+                        <TextBlock Text="{x:Bind ViewModel.BackupWhitelistCleanWarningText, Mode=OneWay}"
+                                   TextWrapping="Wrap"
+                                   Foreground="{ThemeResource TextFillColorPrimaryBrush}"/>
+                    </Border>
+                    <ListView Height="180" ItemsSource="{x:Bind Config.Filters.BackupWhitelist}" BorderThickness="1" BorderBrush="{ThemeResource SurfaceStrokeColorDefaultBrush}">
+                        <ListView.ItemTemplate>
+                            <DataTemplate>
+                                <Grid>
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*"/>
+                                        <ColumnDefinition Width="Auto"/>
+                                    </Grid.ColumnDefinitions>
+                                    <TextBlock Text="{Binding}" VerticalAlignment="Center"/>
+                                    <Button Grid.Column="1" Content="&#xE711;" FontFamily="Segoe MDL2 Assets" Click="OnRemoveBackupWhitelistClick"/>
+                                </Grid>
+                            </DataTemplate>
+                        </ListView.ItemTemplate>
+                    </ListView>
+                    <Grid>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*"/>
+                            <ColumnDefinition Width="Auto"/>
+                        </Grid.ColumnDefinitions>
+                        <TextBox x:Name="BackupWhitelistBox" x:Uid="ConfigSettingsDialog_BackupWhitelistPlaceholder"/>
+                        <Button Grid.Column="1" x:Uid="ConfigSettingsDialog_AddBackupWhitelist" Margin="8,0,0,0" Click="OnAddBackupWhitelistClick"/>
+                    </Grid>
+                </StackPanel>
             </StackPanel>
         </ScrollViewer>
     </Grid>

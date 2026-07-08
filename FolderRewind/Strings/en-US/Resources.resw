@@ -196,10 +196,10 @@
     <value>(Not selected)</value>
   </data>
   <data name="FolderManager_DuplicateDisplayName_Title" xml:space="preserve">
-    <value>This configuration already contains that folder name</value>
+    <value>A folder with this name already exists in the configuration</value>
   </data>
   <data name="FolderManager_DuplicateDisplayName_Content" xml:space="preserve">
-    <value>The configuration "{1}" already contains a folder named "{0}". Duplicate folder names are blocked so different directories do not share the same backup slot.</value>
+    <value>The configuration "{1}" already contains a folder named "{0}". Duplicate names are not allowed to prevent different directories from sharing the same backup slot.</value>
   </data>
   <data name="FolderManager_DuplicateDisplayName_BatchContent" xml:space="preserve">
     <value>The following folders were not added to "{0}" because their display names already exist:
@@ -235,7 +235,7 @@ Duplicate folder names are blocked within the same configuration so different di
     <value>Folder names: {0}</value>
   </data>
   <data name="ShellPage_FolderConflict_Footer" xml:space="preserve">
-    <value>Because backup archives, metadata, cloud sync, and restore lookup still use display names, these conflicts can make different folders share one slot.</value>
+    <value>Since backups, metadata, cloud sync, and restore all use display names, these conflicts can cause different folders to share the same backup slot.</value>
   </data>
   <data name="ShellPage_NavHome.Content" xml:space="preserve">
     <value>Home</value>
@@ -283,10 +283,13 @@ Duplicate folder names are blocked within the same configuration so different di
     <value>Plugin system, installation, and management</value>
   </data>
   <data name="SettingsPage_KnotLinkSectionDesc.Text" xml:space="preserve">
-    <value>KnotLink integration and advanced parameters</value>
+    <value>KnotLink integration and server management</value>
   </data>
   <data name="SettingsPage_Section_General.Text" xml:space="preserve">
     <value>General</value>
+  </data>
+  <data name="SettingsPage_Section_Presets.Text" xml:space="preserve">
+    <value>Presets</value>
   </data>
   <data name="SettingsPage_Section_Tools.Text" xml:space="preserve">
     <value>Tools</value>
@@ -301,7 +304,7 @@ Duplicate folder names are blocked within the same configuration so different di
     <value>About FolderRewind</value>
   </data>
   <data name="SettingsPage_AboutDesc.Text" xml:space="preserve">
-    <value>© 2025 Leafuke. GPL License.</value>
+    <value>© 2025-2026 Leafuke. GPL License.</value>
   </data>
   <data name="SettingsPage_About_Link_Repository.Content" xml:space="preserve">
     <value>Project (GitHub)</value>
@@ -319,7 +322,7 @@ Duplicate folder names are blocked within the same configuration so different di
     <value>Silent startup</value>
   </data>
   <data name="SettingsPage_SilentStartupDesc.Text" xml:space="preserve">
-    <value>When auto-started at sign-in, hide the main window and show tray icon only</value>
+    <value>Hide the main window at sign-in and show only the system tray icon</value>
   </data>
   <data name="SettingsPage_Environment.Text" xml:space="preserve">
     <value>Environment</value>
@@ -328,7 +331,7 @@ Duplicate folder names are blocked within the same configuration so different di
     <value>7-Zip executable path</value>
   </data>
   <data name="SettingsPage_7zPathDesc.Text" xml:space="preserve">
-    <value>Required to run compression</value>
+    <value>Required for backup compression and extraction</value>
   </data>
   <data name="SettingsPage_BrowseButton.Content" xml:space="preserve">
     <value>Browse...</value>
@@ -396,6 +399,9 @@ Duplicate folder names are blocked within the same configuration so different di
   <data name="SettingsPage_SponsorLocked.Text" xml:space="preserve">
     <value>Sponsor perks are locked</value>
   </data>
+  <data name="SettingsPage_SponsorLockedDesc.Text" xml:space="preserve">
+    <value>Purchase or restore Sponsor Edition to use these appearance perks.</value>
+  </data>
   <data name="SettingsPage_SponsorAccent.Text" xml:space="preserve">
     <value>Theme color</value>
   </data>
@@ -420,11 +426,65 @@ Duplicate folder names are blocked within the same configuration so different di
   <data name="SettingsPage_SponsorTitleIconDesc.Text" xml:space="preserve">
     <value>Pick a WinUI built-in glyph for the title bar</value>
   </data>
-  <data name="SettingsPage_SponsorBadge.Text" xml:space="preserve">
-    <value>Supporter badge</value>
+  <data name="SettingsPage_SponsorBackground.Text" xml:space="preserve">
+    <value>Background image</value>
   </data>
-  <data name="SettingsPage_SponsorBadgeDesc.Text" xml:space="preserve">
-    <value>Show a small supporter mark in the title bar</value>
+  <data name="SettingsPage_SponsorBackgroundDesc.Text" xml:space="preserve">
+    <value>Choose an image for the app background. The file is copied into app settings.</value>
+  </data>
+  <data name="SettingsPage_SponsorBackgroundChoose.Content" xml:space="preserve">
+    <value>Choose image</value>
+  </data>
+  <data name="SettingsPage_SponsorBackgroundClear.Content" xml:space="preserve">
+    <value>Clear background</value>
+  </data>
+  <data name="SettingsPage_SponsorBackgroundEnabled.Text" xml:space="preserve">
+    <value>Enable background image</value>
+  </data>
+  <data name="SettingsPage_SponsorBackgroundEnabledDesc.Text" xml:space="preserve">
+    <value>Turning this off keeps the selected image for later.</value>
+  </data>
+  <data name="SettingsPage_SponsorBackgroundStretch.Text" xml:space="preserve">
+    <value>Background fit</value>
+  </data>
+  <data name="SettingsPage_SponsorBackgroundStretchDesc.Text" xml:space="preserve">
+    <value>Choose whether the image fills, fits, or stretches across the window.</value>
+  </data>
+  <data name="SettingsPage_SponsorBackgroundImageOpacity.Text" xml:space="preserve">
+    <value>Image opacity</value>
+  </data>
+  <data name="SettingsPage_SponsorBackgroundImageOpacityDesc.Text" xml:space="preserve">
+    <value>Lower the image presence so app content stays clear.</value>
+  </data>
+  <data name="SettingsPage_SponsorBackgroundOverlayOpacity.Text" xml:space="preserve">
+    <value>Background overlay</value>
+  </data>
+  <data name="SettingsPage_SponsorBackgroundOverlayOpacityDesc.Text" xml:space="preserve">
+    <value>Increase the overlay to improve text and card readability.</value>
+  </data>
+  <data name="SettingsPage_CompletionSound.Text" xml:space="preserve">
+    <value>Completion sound</value>
+  </data>
+  <data name="SettingsPage_CompletionSoundDesc.Text" xml:space="preserve">
+    <value>Play a system sound when backup or restore finishes.</value>
+  </data>
+  <data name="SettingsPage_CompletionSoundPreview.Content" xml:space="preserve">
+    <value>Preview</value>
+  </data>
+  <data name="SettingsPage_CustomCompletionSound.Text" xml:space="preserve">
+    <value>Custom completion sound</value>
+  </data>
+  <data name="SettingsPage_CustomCompletionSoundDesc.Text" xml:space="preserve">
+    <value>Sponsors can choose an audio file to replace the default sound.</value>
+  </data>
+  <data name="SettingsPage_CustomCompletionSoundChoose.Content" xml:space="preserve">
+    <value>Custom sound</value>
+  </data>
+  <data name="SettingsPage_CustomCompletionSoundClear.Content" xml:space="preserve">
+    <value>Clear custom</value>
+  </data>
+  <data name="SettingsPage_About_Link_Sponsors.Content" xml:space="preserve">
+    <value>Sponsors</value>
   </data>
   <data name="Sponsor_Title" xml:space="preserve">
     <value>Sponsor edition</value>
@@ -435,8 +495,11 @@ Duplicate folder names are blocked within the same configuration so different di
   <data name="Sponsor_Status_Unlocked" xml:space="preserve">
     <value>Sponsor edition is unlocked. Thank you for supporting FolderRewind.</value>
   </data>
+  <data name="Sponsor_Status_UnlockedCached" xml:space="preserve">
+    <value>Using the sponsor status saved on this device. License refresh will continue in the background.</value>
+  </data>
   <data name="Sponsor_Status_Locked" xml:space="preserve">
-    <value>The sponsor add-on is not purchased yet. After redeeming a promo code, use Restore purchase.</value>
+    <value>Sponsor Edition is not purchased yet. After redeeming a promo code, use Restore purchase.</value>
   </data>
   <data name="Sponsor_Status_RefreshFailed" xml:space="preserve">
     <value>Failed to refresh sponsor status: {0}</value>
@@ -486,6 +549,69 @@ Duplicate folder names are blocked within the same configuration so different di
   <data name="Sponsor_Backdrop_Acrylic" xml:space="preserve">
     <value>Acrylic</value>
   </data>
+  <data name="Sponsor_BackgroundStretch_UniformToFill" xml:space="preserve">
+    <value>Fill window</value>
+  </data>
+  <data name="Sponsor_BackgroundStretch_Uniform" xml:space="preserve">
+    <value>Fit image</value>
+  </data>
+  <data name="Sponsor_BackgroundStretch_Fill" xml:space="preserve">
+    <value>Stretch</value>
+  </data>
+  <data name="CompletionSound_None" xml:space="preserve">
+    <value>None</value>
+  </data>
+  <data name="CompletionSound_Default" xml:space="preserve">
+    <value>Default beep</value>
+  </data>
+  <data name="CompletionSound_CustomLocked" xml:space="preserve">
+    <value>Custom completion sounds are a Sponsor Edition perk.</value>
+  </data>
+  <data name="CompletionSound_FileMissing" xml:space="preserve">
+    <value>The selected audio file could not be found.</value>
+  </data>
+  <data name="CompletionSound_UnsupportedFormat" xml:space="preserve">
+    <value>This audio format is not supported yet. Choose WAV, MP3, M4A, AAC, WMA, or FLAC.</value>
+  </data>
+  <data name="CompletionSound_CustomApplied" xml:space="preserve">
+    <value>Custom completion sound applied.</value>
+  </data>
+  <data name="CompletionSound_CustomCleared" xml:space="preserve">
+    <value>Custom completion sound cleared. The default sound will be used.</value>
+  </data>
+  <data name="CompletionSound_CustomApplyFailed" xml:space="preserve">
+    <value>Failed to apply custom sound: {0}</value>
+  </data>
+  <data name="CompletionSound_CustomClearFailed" xml:space="preserve">
+    <value>Failed to clear custom sound: {0}</value>
+  </data>
+  <data name="CompletionSound_CustomPickerFailed" xml:space="preserve">
+    <value>Failed to open the audio picker: {0}</value>
+  </data>
+  <data name="Sponsor_BackgroundLocked" xml:space="preserve">
+    <value>Please unlock Sponsor Edition first.</value>
+  </data>
+  <data name="Sponsor_BackgroundFileMissing" xml:space="preserve">
+    <value>The selected background image could not be found.</value>
+  </data>
+  <data name="Sponsor_BackgroundUnsupportedFormat" xml:space="preserve">
+    <value>This image format is not supported yet. Choose PNG, JPG, BMP, GIF, or WebP.</value>
+  </data>
+  <data name="Sponsor_BackgroundApplied" xml:space="preserve">
+    <value>Background image applied.</value>
+  </data>
+  <data name="Sponsor_BackgroundCleared" xml:space="preserve">
+    <value>Background image cleared.</value>
+  </data>
+  <data name="Sponsor_BackgroundApplyFailed" xml:space="preserve">
+    <value>Failed to apply background image: {0}</value>
+  </data>
+  <data name="Sponsor_BackgroundClearFailed" xml:space="preserve">
+    <value>Failed to clear background image: {0}</value>
+  </data>
+  <data name="Sponsor_BackgroundPickerFailed" xml:space="preserve">
+    <value>Failed to open the image picker: {0}</value>
+  </data>
   <data name="Sponsor_Log_RefreshFailed" xml:space="preserve">
     <value>[Sponsor] Failed to refresh add-on license: {0}</value>
   </data>
@@ -518,6 +644,36 @@ Duplicate folder names are blocked within the same configuration so different di
   </data>
   <data name="Sponsor_Log_OpenSponsorPolicyFailed" xml:space="preserve">
     <value>[Sponsor] Failed to open sponsor edition policy: {0}</value>
+  </data>
+  <data name="Sponsor_Log_AppLicenseProbeFailed" xml:space="preserve">
+    <value>[Sponsor] Failed to read AppLicense: {0}</value>
+  </data>
+  <data name="Sponsor_Log_UserCollectionProbeFailed" xml:space="preserve">
+    <value>[Sponsor] Failed to read user Durable collection: {0}</value>
+  </data>
+  <data name="Sponsor_Log_BackgroundApplyFailed" xml:space="preserve">
+    <value>[Sponsor] Failed to apply background image: {0}</value>
+  </data>
+  <data name="Sponsor_Log_BackgroundClearFailed" xml:space="preserve">
+    <value>[Sponsor] Failed to clear background image: {0}</value>
+  </data>
+  <data name="Sponsor_Log_BackgroundPickerFailed" xml:space="preserve">
+    <value>[Sponsor] Background image picker failed: {0}</value>
+  </data>
+  <data name="Sponsor_Log_BackgroundLoadFailed" xml:space="preserve">
+    <value>[Sponsor] Failed to load background image: {0}</value>
+  </data>
+  <data name="CompletionSound_Log_PlayFailed" xml:space="preserve">
+    <value>[CompletionSound] Failed to play completion sound: {0}</value>
+  </data>
+  <data name="CompletionSound_Log_CustomApplyFailed" xml:space="preserve">
+    <value>[CompletionSound] Failed to apply custom sound: {0}</value>
+  </data>
+  <data name="CompletionSound_Log_CustomClearFailed" xml:space="preserve">
+    <value>[CompletionSound] Failed to clear custom sound: {0}</value>
+  </data>
+  <data name="CompletionSound_Log_CustomPickerFailed" xml:space="preserve">
+    <value>[CompletionSound] Audio picker failed: {0}</value>
   </data>
   <data name="SponsorWindow_Title.Text" xml:space="preserve">
     <value>Sponsor FolderRewind</value>
@@ -577,7 +733,7 @@ Duplicate folder names are blocked within the same configuration so different di
     <value>Select a configuration first</value>
   </data>
   <data name="HistoryPage_CommentFilter.PlaceholderText" xml:space="preserve">
-    <value>Search by note/comment</value>
+    <value>Search by note</value>
   </data>
   <data name="HistoryPage_UseStatusColors.Header" xml:space="preserve">
     <value>Status colors</value>
@@ -591,7 +747,7 @@ Duplicate folder names are blocked within the same configuration so different di
   <data name="HistoryPage_ClearMissing.Content" xml:space="preserve">
     <value>Clear missing</value>
   </data>
-  <data name="HistoryPage_RestoreButton.Content" xml:space="preserve">
+  <data name="HistoryPage_RestoreButton.ToolTipService.ToolTip" xml:space="preserve">
     <value>Restore</value>
   </data>
   <data name="HistoryPage_EmptyState.Text" xml:space="preserve">
@@ -643,7 +799,7 @@ Duplicate folder names are blocked within the same configuration so different di
     <value>Comment:</value>
   </data>
   <data name="FolderManager_CommentPlaceholder.PlaceholderText" xml:space="preserve">
-    <value>e.g. Before update (optional)</value>
+    <value>e.g., Before update (optional)</value>
   </data>
   <data name="FolderManager_BackupSelected.Text" xml:space="preserve">
     <value>Backup this folder</value>
@@ -668,48 +824,6 @@ Duplicate folder names are blocked within the same configuration so different di
   </data>
   <data name="FolderManager_RemoveFolder.Text" xml:space="preserve">
     <value>Remove from config</value>
-  </data>
-  <data name="ConfigurationPage_BackToOverview.Text" xml:space="preserve">
-    <value>Back to overview</value>
-  </data>
-  <data name="ConfigurationPage_AddFolder.Text" xml:space="preserve">
-    <value>Add folder</value>
-  </data>
-  <data name="ConfigurationPage_AddSingleFolder.Text" xml:space="preserve">
-    <value>Pick a folder</value>
-  </data>
-  <data name="ConfigurationPage_BatchImport.Text" xml:space="preserve">
-    <value>Batch import</value>
-  </data>
-  <data name="ConfigurationPage_BackupAll.Text" xml:space="preserve">
-    <value>Backup all</value>
-  </data>
-  <data name="ConfigurationPage_ConfigSettings.Text" xml:space="preserve">
-    <value>Config settings</value>
-  </data>
-  <data name="ConfigurationPage_HeaderIcon.Text" xml:space="preserve">
-    <value>Icon</value>
-  </data>
-  <data name="ConfigurationPage_HeaderNamePath.Text" xml:space="preserve">
-    <value>Name / Path</value>
-  </data>
-  <data name="ConfigurationPage_HeaderStatus.Text" xml:space="preserve">
-    <value>Status</value>
-  </data>
-  <data name="ConfigurationPage_HeaderActions.Text" xml:space="preserve">
-    <value>Actions</value>
-  </data>
-  <data name="ConfigurationPage_BackupNow.Text" xml:space="preserve">
-    <value>Backup now</value>
-  </data>
-  <data name="ConfigurationPage_Remove.Text" xml:space="preserve">
-    <value>Remove</value>
-  </data>
-  <data name="ConfigurationPage_BatchBackup.Content" xml:space="preserve">
-    <value>Batch backup</value>
-  </data>
-  <data name="ConfigurationPage_BatchDelete.Content" xml:space="preserve">
-    <value>Batch delete</value>
   </data>
   <data name="ConfigSettingsDialog.Title" xml:space="preserve">
     <value>Configuration settings</value>
@@ -796,7 +910,7 @@ Duplicate folder names are blocked within the same configuration so different di
     <value>Overwrite (update latest backup)</value>
   </data>
   <data name="ConfigSettingsDialog_OverwriteWarning" xml:space="preserve">
-    <value>Overwrite mode only updates and adds files. It does not remove stale files that still exist inside the archive after they were deleted from the source folder. If you need an exact point-in-time restore, prefer Full or Smart backups with Clean restore.</value>
+    <value>Overwrite mode only updates and adds files — it does not remove files deleted from the source folder. For exact point-in-time restore, use Full or Smart incremental backup with Clean restore.</value>
   </data>
   <data name="ConfigSettingsDialog_Format.Header" xml:space="preserve">
     <value>Archive format</value>
@@ -811,7 +925,7 @@ Duplicate folder names are blocked within the same configuration so different di
     <value>Compression level (0-9)</value>
   </data>
   <data name="ConfigSettingsDialog_KeepCount.Header" xml:space="preserve">
-    <value>Keep recent backups (0 = unlimited)</value>
+    <value>Keep recent backups (0 for unlimited)</value>
   </data>
   <data name="ConfigSettingsDialog_Method.Header" xml:space="preserve">
     <value>Compression algorithm</value>
@@ -829,7 +943,7 @@ Duplicate folder names are blocked within the same configuration so different di
     <value>CPU threads</value>
   </data>
   <data name="ConfigSettingsDialog_CpuThreadsDescription" xml:space="preserve">
-    <value>0 = automatic, current device max {0} threads</value>
+    <value>0 means automatic. Device max: {0} threads.</value>
   </data>
   <data name="ConfigSettingsDialog_LowPriority.Header" xml:space="preserve">
     <value>Run compression tasks at low process priority</value>
@@ -841,7 +955,7 @@ Duplicate folder names are blocked within the same configuration so different di
     <value>Off</value>
   </data>
   <data name="ConfigSettingsDialog_LowPriorityDesc.Text" xml:space="preserve">
-    <value>Only affects backup-side 7-Zip processes and can reduce stutter in games and foreground apps during backup. Off by default.</value>
+    <value>Only affects 7-Zip processes during backup. Reduces performance impact on games and other apps.</value>
   </data>
   <data name="ConfigSettingsDialog_BackupBeforeRestore.Header" xml:space="preserve">
     <value>Backup before restore</value>
@@ -853,19 +967,19 @@ Duplicate folder names are blocked within the same configuration so different di
     <value>Off</value>
   </data>
   <data name="ConfigSettingsDialog_SafeRestore.Header" xml:space="preserve">
-    <value>Safe restore (Clean mode)</value>
+    <value>Safe restore</value>
   </data>
   <data name="ConfigSettingsDialog_SafeRestore.OnContent" xml:space="preserve">
-    <value>On - auto rollback from a same-folder -Temp copy on failure</value>
+    <value>On — auto-rollback from a temporary copy on failure</value>
   </data>
   <data name="ConfigSettingsDialog_SafeRestore.OffContent" xml:space="preserve">
-    <value>Off - Clean failure may lose original files</value>
+    <value>Off — restore failure may lose original files</value>
   </data>
   <data name="BackupService_RestoreMissingBaseFull_Title" xml:space="preserve">
     <value>Complete restore base is missing</value>
   </data>
   <data name="BackupService_RestoreMissingBaseFull_Content" xml:space="preserve">
-    <value>The target Smart backup "{0}" no longer has a usable base Full archive, so precise Clean restore is unavailable. If you continue, FolderRewind will switch to a compatibility fallback: reverse overwrite restore from the newest backup down to the selected Smart backup. This can roll back many files, but it cannot delete extra stale files. Continue anyway?</value>
+    <value>The Smart incremental backup "{0}" no longer has a usable full backup base, so precise Clean restore is unavailable. Continuing will use a compatibility fallback: reverse-overwrite from the newest backup to the target. This rolls back file versions but won't remove stale files. Continue?</value>
   </data>
   <data name="BackupService_RestoreMissingBaseFull_Primary" xml:space="preserve">
     <value>Continue fallback restore</value>
@@ -874,10 +988,10 @@ Duplicate folder names are blocked within the same configuration so different di
     <value>Verify backup integrity before restore</value>
   </data>
   <data name="ConfigSettingsDialog_VerifyArchiveBeforeRestore.OnContent" xml:space="preserve">
-    <value>On - run 7z test first</value>
+    <value>On — verify backup integrity before restoring</value>
   </data>
   <data name="ConfigSettingsDialog_VerifyArchiveBeforeRestore.OffContent" xml:space="preserve">
-    <value>Off - restore directly</value>
+    <value>Off — skip verification</value>
   </data>
   <data name="ConfigSettingsDialog_AutoBackup.Header" xml:space="preserve">
     <value>Enable auto backup</value>
@@ -916,7 +1030,7 @@ Duplicate folder names are blocked within the same configuration so different di
     <value>For example: session.lock</value>
   </data>
   <data name="ConfigSettingsDialog_Blacklist.Text" xml:space="preserve">
-    <value>Blacklist (excluded files/folders)</value>
+    <value>Exclusion list</value>
   </data>
   <data name="ConfigSettingsDialog_BlacklistPlaceholder.PlaceholderText" xml:space="preserve">
     <value>Enter filename or path...</value>
@@ -949,10 +1063,10 @@ Duplicate folder names are blocked within the same configuration so different di
     <value>Safe delete</value>
   </data>
   <data name="ConfigSettingsDialog_SafeDelete.OnContent" xml:space="preserve">
-    <value>On - merges incremental chain when pruning</value>
+    <value>On — merges incremental chain when pruning</value>
   </data>
   <data name="ConfigSettingsDialog_SafeDelete.OffContent" xml:space="preserve">
-    <value>Off - direct delete (may break incremental chain)</value>
+    <value>Off — direct delete (may break incremental chain)</value>
   </data>
   <data name="BackupService_Log_SmartChainLimitReached" xml:space="preserve">
     <value>Incremental chain limit reached ({0}), forcing full backup</value>
@@ -994,10 +1108,10 @@ Duplicate folder names are blocked within the same configuration so different di
     <value>[Safe Delete] Fatal error: {0}</value>
   </data>
   <data name="SettingsPage_LogDiag.Text" xml:space="preserve">
-    <value>Logs &amp; Diagnostics</value>
+    <value>Logs &amp; diagnostics</value>
   </data>
   <data name="SettingsPage_CoreValidation.Text" xml:space="preserve">
-    <value>Core Feature Validation</value>
+    <value>Core feature validation</value>
   </data>
   <data name="SettingsPage_CoreValidationSectionDesc.Text" xml:space="preserve">
     <value>Automatically verify that backup and restore core flows work on this machine</value>
@@ -1048,10 +1162,10 @@ Duplicate folder names are blocked within the same configuration so different di
     <value>Core feature validation is already running. Please wait for it to finish.</value>
   </data>
   <data name="CoreValidation_AutoNotificationTitle" xml:space="preserve">
-    <value>Core Feature Validation</value>
+    <value>Core feature validation</value>
   </data>
   <data name="CoreValidation_Report_Title" xml:space="preserve">
-    <value>Core Feature Validation Report</value>
+    <value>Core feature validation report</value>
   </data>
   <data name="CoreValidation_Report_NoData" xml:space="preserve">
     <value>No validation report is available in the current session yet.</value>
@@ -1156,7 +1270,7 @@ Duplicate folder names are blocked within the same configuration so different di
     <value>Enable plugin system</value>
   </data>
   <data name="SettingsPage_PluginsEnabledDesc.Text" xml:space="preserve">
-    <value>Enable to download and use plugins from the store</value>
+    <value>Download and manage plugins from the plugin store</value>
   </data>
   <data name="SettingsPage_OpenPluginStore.Content" xml:space="preserve">
     <value>Open plugin store</value>
@@ -1188,6 +1302,12 @@ Duplicate folder names are blocked within the same configuration so different di
   <data name="SettingsPage_PluginsAutoCheckUpdatesDesc.Text" xml:space="preserve">
     <value>Automatically check for plugin updates when the app starts</value>
   </data>
+  <data name="SettingsPage_Presets.Text" xml:space="preserve">
+    <value>Starter presets</value>
+  </data>
+  <data name="SettingsPage_PresetsDesc.Text" xml:space="preserve">
+    <value>Quick-start configurations for common scenarios, so you can get started faster.</value>
+  </data>
   <data name="SettingsPage_MinecraftPreset.Text" xml:space="preserve">
     <value>Minecraft starter preset</value>
   </data>
@@ -1202,6 +1322,18 @@ Duplicate folder names are blocked within the same configuration so different di
   </data>
   <data name="SettingsPage_MinecraftPresetInstall.Content" xml:space="preserve">
     <value>Install preset</value>
+  </data>
+  <data name="SettingsPage_CloudPreset.Text" xml:space="preserve">
+    <value>Cloud backup starter preset</value>
+  </data>
+  <data name="SettingsPage_CloudPresetDesc.Text" xml:space="preserve">
+    <value>Prepare rclone automatically. Services such as Baidu Netdisk and Aliyun Drive also get OpenList and a guided setup path.</value>
+  </data>
+  <data name="SettingsPage_CloudPresetSteps.Text" xml:space="preserve">
+    <value>Choose a cloud service, then start setup. FolderRewind will download required tools, save the global rclone path, and open the cloud archive guide.</value>
+  </data>
+  <data name="SettingsPage_CloudPresetStart.Content" xml:space="preserve">
+    <value>Start setup</value>
   </data>
   <data name="SettingsPage_PluginUpdate.Content" xml:space="preserve">
     <value>Update</value>
@@ -1222,7 +1354,7 @@ Duplicate folder names are blocked within the same configuration so different di
     <value>Plugin store</value>
   </data>
   <data name="PluginStorePage_Desc.Text" xml:space="preserve">
-    <value>Download plugin zip from the latest GitHub Release. The zip root must contain manifest.json.</value>
+    <value>Download plugin packages from the latest GitHub Release. The package root must contain manifest.json.</value>
   </data>
   <data name="PluginStorePage_RepoBox.Header" xml:space="preserve">
     <value>GitHub repo (owner/repo)</value>
@@ -1336,7 +1468,8 @@ Duplicate folder names are blocked within the same configuration so different di
     <value>Uninstall plugin</value>
   </data>
   <data name="Plugins_UninstallConfirm" xml:space="preserve">
-    <value>Uninstall plugin: {0} ({1})?\n\nTip: If plugin files are in use, you may need to close the app and try again.</value>
+    <value>Uninstall plugin {0} ({1})?
+If plugin files are in use, you may need to close the app first.</value>
   </data>
   <data name="Plugins_UninstallButton" xml:space="preserve">
     <value>Uninstall</value>
@@ -1465,7 +1598,7 @@ Duplicate folder names are blocked within the same configuration so different di
     <value>Failed to create plugin instance</value>
   </data>
   <data name="SettingsPage_KnotLink.Text" xml:space="preserve">
-    <value>KnotLink Integration</value>
+    <value>KnotLink integration</value>
   </data>
   <data name="SettingsPage_KnotLinkEnabled.Text" xml:space="preserve">
     <value>Enable integration</value>
@@ -1475,36 +1608,6 @@ Duplicate folder names are blocked within the same configuration so different di
   </data>
   <data name="SettingsPage_KnotLinkStatus.Text" xml:space="preserve">
     <value>Connection status</value>
-  </data>
-  <data name="SettingsPage_KnotLinkAdvanced.Header" xml:space="preserve">
-    <value>Advanced settings</value>
-  </data>
-  <data name="SettingsPage_KnotLinkHost.Text" xml:space="preserve">
-    <value>Server address</value>
-  </data>
-  <data name="SettingsPage_KnotLinkHostDesc.Text" xml:space="preserve">
-    <value>Host address where KnotLink service is running</value>
-  </data>
-  <data name="SettingsPage_KnotLinkAppId.Text" xml:space="preserve">
-    <value>App ID</value>
-  </data>
-  <data name="SettingsPage_KnotLinkAppIdDesc.Text" xml:space="preserve">
-    <value>Identifier for this app, usually no need to change</value>
-  </data>
-  <data name="SettingsPage_KnotLinkOpenSocketId.Text" xml:space="preserve">
-    <value>Command Socket ID</value>
-  </data>
-  <data name="SettingsPage_KnotLinkOpenSocketIdDesc.Text" xml:space="preserve">
-    <value>Channel ID for receiving remote commands</value>
-  </data>
-  <data name="SettingsPage_KnotLinkSignalId.Text" xml:space="preserve">
-    <value>Signal ID</value>
-  </data>
-  <data name="SettingsPage_KnotLinkSignalIdDesc.Text" xml:space="preserve">
-    <value>Channel ID for broadcasting events</value>
-  </data>
-  <data name="SettingsPage_KnotLinkResetDefault.Content" xml:space="preserve">
-    <value>Reset to defaults</value>
   </data>
   <data name="SettingsPage_KnotLinkRestart.Content" xml:space="preserve">
     <value>Restart service</value>
@@ -1522,22 +1625,25 @@ Duplicate folder names are blocked within the same configuration so different di
     <value>The following commands can be called via KnotLink:</value>
   </data>
   <data name="SettingsPage_KnotLinkCommandsBody.Text" xml:space="preserve">
-    <value>New parameterized commands (recommended):
+    <value>New parameterized commands v2 (recommended):
+GET_CAPABILITIES
 LIST_CONFIGS
 LIST_FOLDERS -config_id=ID
-LIST_BACKUPS -config_id=ID -name="folder name"
-BACKUP -config_id=ID -name="folder name" -comment="note" -force_full=true -backup_blacklist=cache;logs
-RESTORE -config_id=ID -name="folder name" -file=backup.7z -mode=clean -restore_whitelist=options.txt;playerdata
-BACKUP_ALL -config_id=ID -comment="note" -force_full=true
-AUTO_BACKUP -config_id=ID -name="folder name" -interval_minutes=10
-STOP_AUTO_BACKUP -config_id=ID -name="folder name"
-MARK_IMPORTANT -config_id=ID -name="folder name" -file=backup.7z -important=true
+LIST_BACKUPS -from=example.client -request_id=req-list-001 -config_id=ID -folder="folder name"
+BACKUP -from=example.client -request_id=req-backup-001 -config_id=ID -folder="folder name" -comment="note" -force_full=true -backup_blacklist=cache;logs -backupwhitelist=level.dat;region/r.0.0.mca
+BACKUP -from=example.client -request_id=req-backup-002 -config_id=ID -folder="folder name" -backup_scope=MineRewind.SelectedRegions -scope.dimensions=overworld;nether -scope.areas="0,0,511,511"
+RESTORE -from=example.client -request_id=req-restore-001 -config_id=ID -folder="folder name" -file=backup.7z -mode=clean -restore_whitelist=options.txt;playerdata -confirm_partial_clean=true
+BACKUP_ALL -from=example.client -request_id=req-all-001 -config_id=ID -comment="note" -force_full=true
+AUTO_BACKUP -from=example.client -request_id=req-auto-001 -config_id=ID -folder="folder name" -interval_minutes=10
+STOP_AUTO_BACKUP -from=example.client -request_id=req-stop-001 -config_id=ID -folder="folder name"
+MARK_IMPORTANT -from=example.client -request_id=req-mark-001 -config_id=ID -folder="folder name" -file=backup.7z -important=true
 
 MineRewind parameterized extensions:
-BACKUP -current_save=true -comment=QuickSave
-LIST_BACKUPS -current_save=true
-RESTORE -current_save=true -file=backup.7z -preserve_player_data=true
+BACKUP -from=minerewind.mod -request_id=req-mr-backup-001 -current_save=true -comment=QuickSave
+LIST_BACKUPS -from=minerewind.mod -request_id=req-mr-list-001 -current_save=true
+RESTORE -from=minerewind.mod -request_id=req-mr-restore-001 -current_save=true -file=backup.7z -preserve_player_data=true
 
+Receivers should only handle responses and events whose from/request_id match their own request. The new protocol uses folder and no longer uses world.
 Legacy positional commands remain compatible: BACKUP &lt;config_id&gt; &lt;folder&gt; [comment], BACKUP_CURRENT, LIST_BACKUPS_CURRENT, and more.</value>
   </data>
   <data name="SettingsPage_NavPaneWidth.Text" xml:space="preserve">
@@ -1685,7 +1791,7 @@ Legacy positional commands remain compatible: BACKUP &lt;config_id&gt; &lt;folde
     <value>Empty command.</value>
   </data>
   <data name="KnotLink_Parse_ExpectedOption" xml:space="preserve">
-    <value>Parameterized commands only accept -key=value. Unexpected character: {0}</value>
+    <value>Parameterized commands only accept -key=value format. Unexpected character: {0}</value>
   </data>
   <data name="KnotLink_Parse_InvalidOption" xml:space="preserve">
     <value>Invalid option: {0}. Use -key=value.</value>
@@ -1712,7 +1818,7 @@ Legacy positional commands remain compatible: BACKUP &lt;config_id&gt; &lt;folde
     <value>Missing config_id option. Example: -config_id=ID</value>
   </data>
   <data name="KnotLink_Error_MissingFolderName" xml:space="preserve">
-    <value>Missing name option. Example: -name=folder name</value>
+    <value>Missing folder option. Example: -folder=folder name</value>
   </data>
   <data name="KnotLink_Error_MissingBackupFile" xml:space="preserve">
     <value>Missing file option. Example: -file=backup.7z</value>
@@ -1728,6 +1834,12 @@ Legacy positional commands remain compatible: BACKUP &lt;config_id&gt; &lt;folde
   </data>
   <data name="KnotLink_Error_ConfigCloneFailed" xml:space="preserve">
     <value>Unable to create a temporary configuration for this command.</value>
+  </data>
+  <data name="KnotLink_Error_MissingConversationMetadata" xml:space="preserve">
+    <value>Missing conversation metadata: {0}. Add -from=source and -request_id=requestId to new parameterized commands.</value>
+  </data>
+  <data name="KnotLink_Error_DeprecatedWorldOption" xml:space="preserve">
+    <value>The world option is deprecated. Upgrade the caller protocol and use folder instead.</value>
   </data>
   <data name="KnotLink_ResponderInitSuccess" xml:space="preserve">
     <value>[KnotLink] Command responder initialized successfully</value>
@@ -1777,7 +1889,7 @@ If you have a listener subscribed to this signal, it should receive a message.</
     <value>Send custom message</value>
   </data>
   <data name="SettingsPage_KnotLinkSendCustom_Placeholder" xml:space="preserve">
-    <value>Enter event_data (will send via OpenSocket: SEND &lt;event_data&gt;)</value>
+    <value>Enter content to send</value>
   </data>
   <data name="SettingsPage_KnotLinkSendCustom_Empty" xml:space="preserve">
     <value>Message cannot be empty</value>
@@ -2084,6 +2196,51 @@ Comment: {1}
   <data name="SettingsPage_KnotLinkStatus_NotInitialized" xml:space="preserve">
     <value>Service not initialized. Please click [Restart service].</value>
   </data>
+  <data name="SettingsPage_KnotLinkServerVersion.Text" xml:space="preserve">
+    <value>Server Version</value>
+  </data>
+  <data name="SettingsPage_KnotLinkServerNotInstalled" xml:space="preserve">
+    <value>KnotLink server not detected</value>
+  </data>
+  <data name="SettingsPage_KnotLinkStartServer.Content" xml:space="preserve">
+    <value>Start Server</value>
+  </data>
+  <data name="SettingsPage_KnotLinkCheckServerUpdate.Content" xml:space="preserve">
+    <value>Check for Updates</value>
+  </data>
+  <data name="SettingsPage_KnotLinkUpdateServer.Content" xml:space="preserve">
+    <value>Update Server</value>
+  </data>
+  <data name="SettingsPage_KnotLinkCheckUpdate" xml:space="preserve">
+    <value>Check for Updates</value>
+  </data>
+  <data name="SettingsPage_KnotLinkUpdateAvailable" xml:space="preserve">
+    <value>Update available: {0}</value>
+  </data>
+  <data name="SettingsPage_KnotLinkUpToDate" xml:space="preserve">
+    <value>Up to date</value>
+  </data>
+  <data name="SettingsPage_KnotLinkAutoStart.Text" xml:space="preserve">
+    <value>Auto-start Server</value>
+  </data>
+  <data name="SettingsPage_KnotLinkAutoStartDesc.Text" xml:space="preserve">
+    <value>Automatically start KnotLink server on app launch</value>
+  </data>
+  <data name="SettingsPage_KnotLinkUpdateServerError" xml:space="preserve">
+    <value>Update check failed: {0}</value>
+  </data>
+  <data name="SettingsPage_KnotLinkServer_StartSuccess" xml:space="preserve">
+    <value>KnotLink server started</value>
+  </data>
+  <data name="SettingsPage_KnotLinkServer_StartFailed" xml:space="preserve">
+    <value>Failed to start. Please ensure the server is installed.</value>
+  </data>
+  <data name="SettingsPage_KnotLinkServerNoInstaller" xml:space="preserve">
+    <value>No installer download URL found</value>
+  </data>
+  <data name="SettingsPage_KnotLinkServer_InstallerLaunched" xml:space="preserve">
+    <value>Server installer launched. Please complete installation and restart the app.</value>
+  </data>
   <data name="Common_Save" xml:space="preserve">
     <value>Save</value>
   </data>
@@ -2193,10 +2350,10 @@ Comment: {1}
     <value>Plugin {0} after-restore hook failed: {1}</value>
   </data>
   <data name="SettingsPage_CloseBehavior.Text" xml:space="preserve">
-    <value>Close Button Behavior</value>
+    <value>Close button behavior</value>
   </data>
   <data name="SettingsPage_CloseBehaviorDesc.Text" xml:space="preserve">
-    <value>Choose what happens when you click the window close button.</value>
+    <value>Choose what happens when you click the close button.</value>
   </data>
   <data name="SettingsPage_CloseBehavior_Ask.Content" xml:space="preserve">
     <value>Ask every time</value>
@@ -2208,10 +2365,10 @@ Comment: {1}
     <value>Exit</value>
   </data>
   <data name="CloseDialog_Title" xml:space="preserve">
-    <value>Close App</value>
+    <value>Close app</value>
   </data>
   <data name="CloseDialog_Content" xml:space="preserve">
-    <value>What do you want to do when closing the window?</value>
+    <value>What should happen when you close the window?</value>
   </data>
   <data name="CloseDialog_MinimizeToTray" xml:space="preserve">
     <value>Minimize to tray</value>
@@ -2222,14 +2379,15 @@ Comment: {1}
   <data name="CloseDialog_Remember" xml:space="preserve">
     <value>Remember my choice</value>
   </data>
-  <data name="HistoryPage_DeleteButton.Content" xml:space="preserve">
+  <data name="HistoryPage_DeleteButton.ToolTipService.ToolTip" xml:space="preserve">
     <value>Delete</value>
   </data>
   <data name="History_DeleteConfirm_Title" xml:space="preserve">
-    <value>Delete History</value>
+    <value>Delete history</value>
   </data>
   <data name="History_DeleteConfirm_Content" xml:space="preserve">
-    <value>You are about to process this history entry: {0} \n\n Choose whether to remove only the record, only the local backup file, or both. Cloud data will not be deleted.</value>
+    <value>You are about to process this history entry: {0} 
+Choose whether to remove only the record, only the local backup file, or both. Cloud data will not be deleted.</value>
   </data>
   <data name="History_ClearMissingConfirm_Title" xml:space="preserve">
     <value>Clear missing records</value>
@@ -2262,7 +2420,7 @@ Comment: {1}
     <value>Failed to open file: {0}</value>
   </data>
   <data name="History_EditComment_Title" xml:space="preserve">
-    <value>Edit Comment</value>
+    <value>Edit comment</value>
   </data>
   <data name="History_EditComment_Placeholder" xml:space="preserve">
     <value>Enter backup comment (optional)</value>
@@ -2271,7 +2429,7 @@ Comment: {1}
     <value>Enable notifications</value>
   </data>
   <data name="SettingsPage_EnableNotificationsDesc.Text" xml:space="preserve">
-    <value>When enabled, show in-app notifications, system toasts and badges (if available)</value>
+    <value>Show in-app notifications and system alerts</value>
   </data>
   <data name="Notification_Success_Title" xml:space="preserve">
     <value>Success</value>
@@ -2289,7 +2447,7 @@ Comment: {1}
     <value>View</value>
   </data>
   <data name="Notification_BackupCompleted_Title" xml:space="preserve">
-    <value>Backup Complete</value>
+    <value>Backup complete</value>
   </data>
   <data name="Notification_BackupCompleted_Success" xml:space="preserve">
     <value>Folder "{0}" backed up successfully</value>
@@ -2298,10 +2456,10 @@ Comment: {1}
     <value>Folder "{0}" backup failed: {1}</value>
   </data>
   <data name="Notification_BackupFailed_Title" xml:space="preserve">
-    <value>Backup Failed</value>
+    <value>Backup failed</value>
   </data>
   <data name="Notification_RestoreCompleted_Title" xml:space="preserve">
-    <value>Restore Complete</value>
+    <value>Restore complete</value>
   </data>
   <data name="Notification_RestoreCompleted_Success" xml:space="preserve">
     <value>Folder "{0}" restored successfully</value>
@@ -2310,7 +2468,7 @@ Comment: {1}
     <value>Folder "{0}" restore failed: {1}</value>
   </data>
   <data name="CloudSync_Notification_Title" xml:space="preserve">
-    <value>Cloud Archive</value>
+    <value>Cloud archive</value>
   </data>
   <data name="CloudSync_Notification_UploadFailed" xml:space="preserve">
     <value>Cloud upload failed for folder "{0}": {1}</value>
@@ -2385,7 +2543,7 @@ Comment: {1}
     <value>File size warning threshold</value>
   </data>
   <data name="SettingsPage_FileSizeWarningThresholdDesc.Text" xml:space="preserve">
-    <value>Trigger a warning when a backup file is smaller than this size. Set to 0 to disable</value>
+    <value>Trigger a warning when backup files are smaller than this threshold. Set to 0 to disable.</value>
   </data>
   <data name="BackupService_Log_FileSizeTooSmall" xml:space="preserve">
     <value>Warning: Backup file for "{0}" is only {1} KB, below threshold {2} KB</value>
@@ -2424,19 +2582,19 @@ Comment: {1}
     <value>Comment, then Enter to backup...</value>
   </data>
   <data name="MiniWindow_Menu_OpenFolder" xml:space="preserve">
-    <value>Open Folder</value>
+    <value>Open folder</value>
   </data>
   <data name="MiniWindow_Menu_Backup" xml:space="preserve">
-    <value>Backup Now</value>
+    <value>Backup now</value>
   </data>
   <data name="MiniWindow_Menu_Close" xml:space="preserve">
     <value>Close</value>
   </data>
   <data name="MiniWindow_Menu_ExpandLeft" xml:space="preserve">
-    <value>Expand Left</value>
+    <value>Expand left</value>
   </data>
   <data name="MiniWindow_Menu_ExpandRight" xml:space="preserve">
-    <value>Expand Right</value>
+    <value>Expand right</value>
   </data>
   <data name="MiniWindow_Tip_Normal" xml:space="preserve">
     <value>No changes</value>
@@ -2481,7 +2639,7 @@ Status: {3}</value>
     <value>Failed to register Mini hotkey: {0}</value>
   </data>
   <data name="Hotkeys_MiniBackup_DisplayName" xml:space="preserve">
-    <value>Mini Backup</value>
+    <value>Mini backup</value>
   </data>
   <data name="Hotkeys_MiniBackup_Description" xml:space="preserve">
     <value>Trigger backup on the last focused Mini window (global hotkey)</value>
@@ -2574,10 +2732,10 @@ Status: {3}</value>
     <value>Only relative paths are supported for now. Absolute paths will not trigger conditional backup.</value>
   </data>
   <data name="SettingsPage_DataMigration.Text" xml:space="preserve">
-    <value>Data Migration</value>
+    <value>Data migration</value>
   </data>
   <data name="SettingsPage_DataMigrationDesc.Text" xml:space="preserve">
-    <value>Import or export configuration and history for migration</value>
+    <value>Import or export configurations and history for migration across devices</value>
   </data>
   <data name="SettingsPage_ConfigData.Text" xml:space="preserve">
     <value>Configuration</value>
@@ -2754,7 +2912,7 @@ Status: {3}</value>
     <value>New to cloud sync? Start with the official guide.</value>
   </data>
   <data name="ConfigSettingsDialog_CloudGuideOpen.Content" xml:space="preserve">
-    <value>Open Website</value>
+    <value>Open website</value>
   </data>
   <data name="ConfigSettingsDialog_CloudGuideOpenFailed" xml:space="preserve">
     <value>Failed to open website: {0}</value>
@@ -2781,10 +2939,10 @@ Status: {3}</value>
     <value>Enable post-backup cloud upload</value>
   </data>
   <data name="ConfigSettingsDialog_CloudEnabled.OnContent" xml:space="preserve">
-    <value>Enabled</value>
+    <value>On</value>
   </data>
   <data name="ConfigSettingsDialog_CloudEnabled.OffContent" xml:space="preserve">
-    <value>Disabled</value>
+    <value>Off</value>
   </data>
   <data name="ConfigSettingsDialog_CloudMode.Header" xml:space="preserve">
     <value>Execution mode</value>
@@ -2880,13 +3038,13 @@ Status: {3}</value>
     <value>Error summary</value>
   </data>
   <data name="ConfigSettingsDialog_FileTypeHandling.Header" xml:space="preserve">
-    <value>Custom File Type Handling</value>
+    <value>Custom file type handling</value>
   </data>
   <data name="ConfigSettingsDialog_FileTypeHandling.OnContent" xml:space="preserve">
-    <value>Enabled</value>
+    <value>On</value>
   </data>
   <data name="ConfigSettingsDialog_FileTypeHandling.OffContent" xml:space="preserve">
-    <value>Disabled</value>
+    <value>Off</value>
   </data>
   <data name="ConfigSettingsDialog_FileTypeHandlingDesc.Text" xml:space="preserve">
     <value>When enabled, you can set different compression levels for different file types. For example, use store-only for video/audio files to save time. This feature disables solid compression (-ms=off).</value>
@@ -2922,7 +3080,7 @@ Status: {3}</value>
     <value>Default backup storage path</value>
   </data>
   <data name="SettingsPage_DefaultBackupRootPathDesc.Text" xml:space="preserve">
-    <value>New configs automatically use "default path\config name" as destination (still editable per config).</value>
+    <value>New configurations use a subdirectory of this path as the backup destination. Can be changed per configuration.</value>
   </data>
   <data name="FolderManager_MineRewindHint_Title" xml:space="preserve">
     <value>Minecraft folder detected</value>
@@ -2934,7 +3092,7 @@ Status: {3}</value>
     <value>Open starter preset</value>
   </data>
   <data name="FolderManager_MineRewindHint_SettingsFallback" xml:space="preserve">
-    <value>Open Settings and use the Minecraft starter preset in the plugins section.</value>
+    <value>Open Settings and use the Minecraft starter preset in the presets section.</value>
   </data>
   <data name="MinecraftOnboarding_Title" xml:space="preserve">
     <value>Minecraft starter preset</value>
@@ -2978,8 +3136,107 @@ Status: {3}</value>
   <data name="MinecraftOnboarding_KnotLinkInstallerStarted_Log" xml:space="preserve">
     <value>[MinecraftOnboarding] Started the KnotLink server installer: {0}</value>
   </data>
+  <data name="CloudOnboarding_Title" xml:space="preserve">
+    <value>Cloud backup starter preset</value>
+  </data>
+  <data name="CloudOnboarding_Provider_WebDav" xml:space="preserve">
+    <value>WebDAV</value>
+  </data>
+  <data name="CloudOnboarding_Provider_WebDavDesc" xml:space="preserve">
+    <value>For cloud drives or NAS systems with WebDAV support. rclone can configure this directly.</value>
+  </data>
+  <data name="CloudOnboarding_Provider_OneDrive" xml:space="preserve">
+    <value>OneDrive</value>
+  </data>
+  <data name="CloudOnboarding_Provider_OneDriveDesc" xml:space="preserve">
+    <value>For Microsoft personal or work accounts. rclone can configure this directly.</value>
+  </data>
+  <data name="CloudOnboarding_Provider_S3" xml:space="preserve">
+    <value>S3-compatible storage</value>
+  </data>
+  <data name="CloudOnboarding_Provider_S3Desc" xml:space="preserve">
+    <value>For AWS S3, Cloudflare R2, MinIO, and other S3-compatible object storage services.</value>
+  </data>
+  <data name="CloudOnboarding_Provider_Baidu" xml:space="preserve">
+    <value>Baidu Netdisk</value>
+  </data>
+  <data name="CloudOnboarding_Provider_BaiduDesc" xml:space="preserve">
+    <value>rclone does not support it directly, so this preset also prepares OpenList and bridges through WebDAV.</value>
+  </data>
+  <data name="CloudOnboarding_Provider_Aliyun" xml:space="preserve">
+    <value>Aliyun Drive</value>
+  </data>
+  <data name="CloudOnboarding_Provider_AliyunDesc" xml:space="preserve">
+    <value>This preset also prepares OpenList and bridges it to rclone through WebDAV.</value>
+  </data>
+  <data name="CloudOnboarding_Provider_OpenList" xml:space="preserve">
+    <value>OpenList WebDAV</value>
+  </data>
+  <data name="CloudOnboarding_Provider_OpenListDesc" xml:space="preserve">
+    <value>For other cloud services that should be mounted in OpenList before rclone uses them.</value>
+  </data>
+  <data name="CloudOnboarding_ConfirmTitle" xml:space="preserve">
+    <value>Confirm cloud backup preset</value>
+  </data>
+  <data name="CloudOnboarding_ConfirmContent" xml:space="preserve">
+    <value>FolderRewind will prepare cloud backup for “{0}”. {1} It will download rclone from GitHub Releases, download OpenList when needed, save the global rclone path, and open the setup guide.</value>
+  </data>
+  <data name="CloudOnboarding_ConfirmPrimary" xml:space="preserve">
+    <value>Download and start</value>
+  </data>
+  <data name="CloudOnboarding_NoProvider" xml:space="preserve">
+    <value>Choose a cloud service first.</value>
+  </data>
+  <data name="CloudOnboarding_Status_Start" xml:space="preserve">
+    <value>Preparing the cloud backup starter preset...</value>
+  </data>
+  <data name="CloudOnboarding_Status_DownloadRclone" xml:space="preserve">
+    <value>Fetching and installing the latest rclone...</value>
+  </data>
+  <data name="CloudOnboarding_Status_DownloadOpenList" xml:space="preserve">
+    <value>Fetching and installing the latest OpenList...</value>
+  </data>
+  <data name="CloudOnboarding_Status_SaveSettings" xml:space="preserve">
+    <value>Saving cloud backup tool paths...</value>
+  </data>
+  <data name="CloudOnboarding_Success_RcloneOnly" xml:space="preserve">
+    <value>The {0} cloud backup preset is ready. rclone path: {1}. Suggested remote base path: {2}. Run rclone config in the opened command prompt to finish account authorization.</value>
+  </data>
+  <data name="CloudOnboarding_Success_WithOpenList" xml:space="preserve">
+    <value>The {0} cloud backup preset is ready. rclone path: {1}. OpenList path: {2}. Suggested remote base path: {3}. Run openlist server first, configure the drive, then connect OpenList from rclone config through WebDAV.</value>
+  </data>
+  <data name="CloudOnboarding_Failed" xml:space="preserve">
+    <value>Cloud backup starter preset failed: {0}</value>
+  </data>
+  <data name="CloudOnboarding_AssetMissing" xml:space="preserve">
+    <value>No {0} Release asset matched the current Windows architecture.</value>
+  </data>
+  <data name="CloudOnboarding_ExecutableMissing" xml:space="preserve">
+    <value>Could not find {0} after extraction.</value>
+  </data>
+  <data name="CloudOnboarding_Log_Success" xml:space="preserve">
+    <value>[CloudOnboarding] Preset completed: provider={0}, rclone={1}, openlist={2}</value>
+  </data>
+  <data name="CloudOnboarding_Log_ReuseTool" xml:space="preserve">
+    <value>[CloudOnboarding] Reusing installed tool: {0}, {1}</value>
+  </data>
+  <data name="CloudOnboarding_Log_ToolInstalled" xml:space="preserve">
+    <value>[CloudOnboarding] Tool installed: {0}, {1}, {2}</value>
+  </data>
+  <data name="CloudOnboarding_Log_OpenCommandPromptFailed" xml:space="preserve">
+    <value>[CloudOnboarding] Failed to open command prompt: {0}</value>
+  </data>
+  <data name="CloudOnboarding_Log_OpenOpenListFolderFailed" xml:space="preserve">
+    <value>[CloudOnboarding] Failed to open the OpenList folder: {0}</value>
+  </data>
+  <data name="CloudOnboarding_Log_OpenGuideFailed" xml:space="preserve">
+    <value>[CloudOnboarding] Failed to open the cloud archive guide: {0}</value>
+  </data>
+  <data name="CloudOnboarding_Canceled_Log" xml:space="preserve">
+    <value>[CloudOnboarding] The user canceled or the task was canceled.</value>
+  </data>
   <data name="Encryption_SetPasswordTitle" xml:space="preserve">
-    <value>Set Encryption Password</value>
+    <value>Set encryption password</value>
   </data>
   <data name="Encryption_SetPasswordDesc" xml:space="preserve">
     <value>Set a password for this encrypted configuration. All backups will be encrypted with this password.</value>
@@ -2991,7 +3248,7 @@ Status: {3}</value>
     <value>Confirm password</value>
   </data>
   <data name="Encryption_PasswordWarning" xml:space="preserve">
-    <value>⚠ Once set, the password cannot be changed. If lost, encrypted backups cannot be restored. Please keep it safe.</value>
+    <value>Password cannot be changed once set. Losing it means encrypted backups cannot be restored.</value>
   </data>
   <data name="Encryption_PasswordEmpty" xml:space="preserve">
     <value>Password cannot be empty.</value>
@@ -3000,7 +3257,7 @@ Status: {3}</value>
     <value>Passwords do not match.</value>
   </data>
   <data name="Encryption_RestorePasswordTitle" xml:space="preserve">
-    <value>Password Required</value>
+    <value>Password required</value>
   </data>
   <data name="Encryption_RestorePasswordDesc" xml:space="preserve">
     <value>This is an encrypted configuration. Please enter the password to restore.</value>
@@ -3009,7 +3266,7 @@ Status: {3}</value>
     <value>Enter password</value>
   </data>
   <data name="Encryption_WrongPasswordTitle" xml:space="preserve">
-    <value>Incorrect Password</value>
+    <value>Incorrect password</value>
   </data>
   <data name="Encryption_WrongPasswordDesc" xml:space="preserve">
     <value>The password you entered is incorrect. Please try again.</value>
@@ -3021,10 +3278,10 @@ Status: {3}</value>
     <value>Welcome to FolderRewind!</value>
   </data>
   <data name="FirstLaunch_Content" xml:space="preserve">
-    <value>If you're not sure how to use FolderRewind, check out our brief introduction video on Bilibili.</value>
+    <value>Not sure where to start? Read the English documentation on the official website.</value>
   </data>
   <data name="FirstLaunch_OpenVideo" xml:space="preserve">
-    <value>Watch Video</value>
+    <value>Read docs</value>
   </data>
   <data name="FirstLaunch_Skip" xml:space="preserve">
     <value>Skip</value>
@@ -3203,7 +3460,7 @@ Release notes:
     <value>Error scanning backup files: {0}</value>
   </data>
   <data name="SettingsPage_About_Link_Document.Content" xml:space="preserve">
-    <value>Document</value>
+    <value>Documentation</value>
   </data>
   <data name="ConfigSettingsDialog_SaveAsTemplateText.Text" xml:space="preserve">
     <value>Save as template</value>
@@ -3215,16 +3472,16 @@ Release notes:
     <value>Create from template</value>
   </data>
   <data name="SettingsPage_TemplateData.Text" xml:space="preserve">
-    <value>Template Data</value>
+    <value>Template data</value>
   </data>
   <data name="SettingsPage_TemplateDataDesc.Text" xml:space="preserve">
     <value>Export or import templates for cross-device sharing and quick reuse.</value>
   </data>
   <data name="SettingsPage_ExportTemplate.Content" xml:space="preserve">
-    <value>Export Template</value>
+    <value>Export template</value>
   </data>
   <data name="SettingsPage_ImportTemplate.Content" xml:space="preserve">
-    <value>Import Template</value>
+    <value>Import template</value>
   </data>
   <data name="Settings_Template_Export_NoTemplates" xml:space="preserve">
     <value>No templates are available to export.</value>
@@ -3233,7 +3490,7 @@ Release notes:
     <value>Select a template to export</value>
   </data>
   <data name="Template_DefaultName" xml:space="preserve">
-    <value>New Template</value>
+    <value>New template</value>
   </data>
   <data name="Template_SaveDialog_Title" xml:space="preserve">
     <value>Save as template</value>
@@ -3323,16 +3580,16 @@ Release notes:
     <value>Template imported and renamed to "{1}" (original name: {0}).</value>
   </data>
   <data name="Template_Import_ConflictTitle" xml:space="preserve">
-    <value>Template Conflict</value>
+    <value>Template conflict</value>
   </data>
   <data name="Template_Import_ConflictContent" xml:space="preserve">
     <value>The imported template "{0}" conflicts with the existing template "{1}". Do you want to replace the existing one or keep both?</value>
   </data>
   <data name="Template_Import_ConflictReplace" xml:space="preserve">
-    <value>Replace Existing</value>
+    <value>Replace existing</value>
   </data>
   <data name="Template_Import_ConflictKeepBoth" xml:space="preserve">
-    <value>Keep Both</value>
+    <value>Keep both</value>
   </data>
   <data name="Template_Import_Failed" xml:space="preserve">
     <value>Failed to import template: {0}</value>
@@ -3350,19 +3607,19 @@ Release notes:
     <value>Select a local template directly, or search the official repository, import one, and then continue.</value>
   </data>
   <data name="Template_CreateFrom_Home_OfficialSearchHeader" xml:space="preserve">
-    <value>Search Official Templates</value>
+    <value>Search official templates</value>
   </data>
   <data name="Template_CreateFrom_Home_OfficialSearchPlaceholder" xml:space="preserve">
     <value>Search the official repository by template name, game, author, or share code</value>
   </data>
   <data name="Template_CreateFrom_Home_SearchOfficial" xml:space="preserve">
-    <value>Search Official Templates</value>
+    <value>Search official templates</value>
   </data>
   <data name="Template_CreateFrom_Home_TemplateInfo" xml:space="preserve">
     <value>Template "{0}" with {1} path rule(s).</value>
   </data>
   <data name="Template_CreateFrom_Home_SelectFoldersTitle" xml:space="preserve">
-    <value>Confirm Discovered Source Folders</value>
+    <value>Confirm discovered source folders</value>
   </data>
   <data name="Template_CreateFrom_Home_SelectFoldersDesc" xml:space="preserve">
     <value>Template "{0}" discovered {1} candidate source folder(s). Please confirm which ones should be added to the new configuration.</value>
@@ -3386,10 +3643,10 @@ Release notes:
     <value>Required plugins for this template are missing: {0}</value>
   </data>
   <data name="SettingsPage_ManageTemplates.Content" xml:space="preserve">
-    <value>Manage Templates</value>
+    <value>Manage templates</value>
   </data>
   <data name="TemplateManagerDialog.Title" xml:space="preserve">
-    <value>Template Manager</value>
+    <value>Template manager</value>
   </data>
   <data name="TemplateManagerDialog.CloseButtonText" xml:space="preserve">
     <value>Close</value>
@@ -3401,7 +3658,7 @@ Release notes:
     <value>Search by name, author, or type</value>
   </data>
   <data name="TemplateManagerDialog_DetailHeader.Text" xml:space="preserve">
-    <value>Template Details</value>
+    <value>Template details</value>
   </data>
   <data name="TemplateManagerDialog_Name.Header" xml:space="preserve">
     <value>Name</value>
@@ -3419,7 +3676,7 @@ Release notes:
     <value>Type: {0} | Updated: {1} | Rules: {2}</value>
   </data>
   <data name="TemplateManagerDialog_Save.Content" xml:space="preserve">
-    <value>Save Changes</value>
+    <value>Save changes</value>
   </data>
   <data name="TemplateManagerDialog_Duplicate.Content" xml:space="preserve">
     <value>Duplicate</value>
@@ -3437,10 +3694,10 @@ Release notes:
     <value>Cancel</value>
   </data>
   <data name="TemplateManagerDialog_PreviewHeader.Text" xml:space="preserve">
-    <value>Rule Preview</value>
+    <value>Rule preview</value>
   </data>
   <data name="TemplateManagerDialog_RefreshPreview.Content" xml:space="preserve">
-    <value>Refresh Preview</value>
+    <value>Refresh preview</value>
   </data>
   <data name="TemplateManagerDialog_PathRulesHeader.Text" xml:space="preserve">
     <value>Path matching rules</value>
@@ -3452,10 +3709,10 @@ Release notes:
     <value>Edit path expressions directly, for example {AppDataRoaming}\.minecraft\versions\{*}\saves\{*}, {SteamUserData}\{UserIdCandidate}\123456\remote, or {Process:xxx.exe}\.minecraft\versions\{*}\saves\{*}. {*} can appear in the middle or at the end of a path and expands every child folder at that level before continuing. {Process:xxx.exe} resolves the install directory of a currently running process, then continues matching from there.</value>
   </data>
   <data name="TemplateManagerDialog_AddRule.Content" xml:space="preserve">
-    <value>Add Rule</value>
+    <value>Add rule</value>
   </data>
   <data name="TemplateManagerDialog_SaveRules.Content" xml:space="preserve">
-    <value>Save Rules</value>
+    <value>Save rules</value>
   </data>
   <data name="TemplateManagerDialog_PathRuleName.Text" xml:space="preserve">
     <value>Rule name</value>
@@ -3479,7 +3736,7 @@ Release notes:
     <value>Confidence (0-1)</value>
   </data>
   <data name="TemplateManagerDialog_RemoveRule.Content" xml:space="preserve">
-    <value>Remove Rule</value>
+    <value>Remove rule</value>
   </data>
   <data name="TemplateManagerDialog_NoRules.Text" xml:space="preserve">
     <value>This template has no path rules yet. You can add one manually.</value>
@@ -3617,13 +3874,13 @@ Release notes:
     <value>{0} of {1} rule(s) matched.</value>
   </data>
   <data name="SettingsPage_BrowseOfficialTemplates.Content" xml:space="preserve">
-    <value>Import Official Template</value>
+    <value>Import official template</value>
   </data>
   <data name="SettingsPage_UseTemplateShareCode.Content" xml:space="preserve">
-    <value>Import by Share Code</value>
+    <value>Import by share code</value>
   </data>
   <data name="SettingsPage_PrepareTemplateSubmission.Content" xml:space="preserve">
-    <value>Prepare Submission</value>
+    <value>Prepare submission</value>
   </data>
   <data name="OfficialTemplates_SourceCache" xml:space="preserve">
     <value>Local cache</value>
@@ -3662,10 +3919,10 @@ Release notes:
     <value>Failed to download official template: {0}</value>
   </data>
   <data name="OfficialTemplates_BrowseTitle" xml:space="preserve">
-    <value>Official Template Library</value>
+    <value>Official template library</value>
   </data>
   <data name="OfficialTemplates_CreateFromOfficialTitle" xml:space="preserve">
-    <value>Create Config from Official Template</value>
+    <value>Create config from official template</value>
   </data>
   <data name="OfficialTemplates_SearchHeader" xml:space="preserve">
     <value>Search templates</value>
@@ -3692,7 +3949,7 @@ Release notes:
     <value>Enter the 5-character share code</value>
   </data>
   <data name="OfficialTemplates_UseByShareCodeTitle" xml:space="preserve">
-    <value>Use Template by Share Code</value>
+    <value>Use template by share code</value>
   </data>
   <data name="OfficialTemplates_InvalidShareCode" xml:space="preserve">
     <value>Invalid share code format. Please enter 5 uppercase letters or digits.</value>
@@ -3782,22 +4039,22 @@ Release notes:
     <value>You can export a standard submission package first or submit directly through GitHub. Exporting also copies the submission summary to your clipboard.</value>
   </data>
   <data name="Template_Submission_SummaryTitle" xml:space="preserve">
-    <value>Submission Summary</value>
+    <value>Submission summary</value>
   </data>
   <data name="TemplateSubmissionDialog.Title" xml:space="preserve">
-    <value>Submit Template</value>
+    <value>Submit template</value>
   </data>
   <data name="TemplateSubmissionDialog_ExportPackage" xml:space="preserve">
-    <value>Export Submission Package</value>
+    <value>Export submission package</value>
   </data>
   <data name="TemplateSubmissionDialog_SubmitToGitHub" xml:space="preserve">
-    <value>Submit Template Automatically</value>
+    <value>Submit template automatically</value>
   </data>
   <data name="TemplateSubmissionDialog_PrepareSection.Text" xml:space="preserve">
-    <value>Prepare Submission Package</value>
+    <value>Prepare submission package</value>
   </data>
   <data name="TemplateSubmissionDialog_GitHubSection.Text" xml:space="preserve">
-    <value>GitHub Automated Submission</value>
+    <value>GitHub automated submission</value>
   </data>
   <data name="TemplateSubmissionDialog_GitHubHint.Text" xml:space="preserve">
     <value>The official Microsoft Store release uses built-in GitHub OAuth settings and completes desktop authorization through your default browser plus PKCE.</value>
@@ -3835,7 +4092,7 @@ Path rules: {2}</value>
     <value>Rule "{0}" contains an unsafe marker: {1}</value>
   </data>
   <data name="SettingsPage_GitHubSignOut.Content" xml:space="preserve">
-    <value>Sign Out GitHub</value>
+    <value>Sign out GitHub</value>
   </data>
   <data name="GitHubOAuth_ConfigUnavailable" xml:space="preserve">
     <value>This build does not include the OAuth credential required for GitHub automated submission. The feature is only available in the official Microsoft Store release, and stays disabled in GitHub sideload and third-party builds.</value>
@@ -3850,7 +4107,7 @@ Path rules: {2}</value>
     <value>GitHub authorized as {0}</value>
   </data>
   <data name="GitHubOAuth_LoginTitle" xml:space="preserve">
-    <value>GitHub Authorization</value>
+    <value>GitHub authorization</value>
   </data>
   <data name="GitHubOAuth_LoginHint" xml:space="preserve">
     <value>Your default browser has opened the GitHub authorization page. Finish signing in and authorizing FolderRewind in the browser, then return here and wait for completion.</value>
@@ -3934,14 +4191,14 @@ Path rules: {2}</value>
     <value>Automatic submission did not return a result. Please check the logs.</value>
   </data>
   <data name="GitHubSubmit_ResultTitle" xml:space="preserve">
-    <value>Automatic Submission Result</value>
+    <value>Automatic submission result</value>
   </data>
   <data name="GitHubSubmit_ResultContent" xml:space="preserve">
     <value>Share code: {0}
 Pull request: {1}</value>
   </data>
   <data name="GitHubSubmit_OpenPullRequest" xml:space="preserve">
-    <value>Open Pull Request</value>
+    <value>Open pull request</value>
   </data>
   <data name="GitHubSubmit_Progress_Starting" xml:space="preserve">
     <value>Preparing automatic submission...</value>
@@ -4271,7 +4528,7 @@ Pull request: {1}</value>
     <value>Off</value>
   </data>
   <data name="ConfigSettingsDialog_CloudSyncHistoryAfterUploadDesc.Text" xml:space="preserve">
-    <value>After each successful automatic backup upload, also merge-upload this configuration's latest history plus its active-history manifest so other devices can sync without re-importing backups that were deleted locally.</value>
+    <value>After each successful auto-upload, sync the current configuration's history and active-history manifest. This helps other devices avoid re-downloading old backups that were already deleted locally.</value>
   </data>
   <data name="SettingsPage_DefaultCloudRemoteBasePath.Text" xml:space="preserve">
     <value>Default remote base path</value>
@@ -4356,5 +4613,164 @@ Pull request: {1}</value>
   </data>
   <data name="ProcessPathService_Log_InspectPartialFailed" xml:space="preserve">
     <value>Skipped {1} "{0}" process instance(s) because their paths could not be read in time or due to permissions.</value>
+  </data>
+  <data name="Picker_MainWindowUnavailable" xml:space="preserve">
+    <value>The main window is not ready, so the picker cannot be opened.</value>
+  </data>
+  <data name="Picker_OpenFailed" xml:space="preserve">
+    <value>Could not open the picker.</value>
+  </data>
+  <data name="Picker_OpenFailedWithReason" xml:space="preserve">
+    <value>Could not open the picker: {0}</value>
+  </data>
+  <data name="Picker_Log_OpenFailed" xml:space="preserve">
+    <value>Failed to open the modern picker: {0}</value>
+  </data>
+  <data name="FolderManager_AddFolder_Title" xml:space="preserve">
+    <value>Add folder</value>
+  </data>
+  <data name="FolderManager_Details.Text" xml:space="preserve">
+    <value>Details</value>
+  </data>
+  <data name="FolderDetailsDialog_Section_Basic" xml:space="preserve">
+    <value>Basic information</value>
+  </data>
+  <data name="FolderDetailsDialog_Name" xml:space="preserve">
+    <value>Name</value>
+  </data>
+  <data name="FolderDetailsDialog_Path" xml:space="preserve">
+    <value>Path</value>
+  </data>
+  <data name="FolderDetailsDialog_ConfigType" xml:space="preserve">
+    <value>Config type</value>
+  </data>
+  <data name="FolderDetailsDialog_LastBackup" xml:space="preserve">
+    <value>Last backup</value>
+  </data>
+  <data name="FolderDetailsDialog_BackupDirectory" xml:space="preserve">
+    <value>Backup directory</value>
+  </data>
+  <data name="FolderDetailsDialog_MetadataDirectory" xml:space="preserve">
+    <value>Metadata directory</value>
+  </data>
+  <data name="FolderDetailsDialog_Size" xml:space="preserve">
+    <value>Size</value>
+  </data>
+  <data name="FolderDetailsDialog_FileCount" xml:space="preserve">
+    <value>Files</value>
+  </data>
+  <data name="FolderDetailsDialog_DirectoryCount" xml:space="preserve">
+    <value>Subdirectories</value>
+  </data>
+  <data name="FolderDetailsDialog_Loading" xml:space="preserve">
+    <value>Calculating...</value>
+  </data>
+  <data name="FolderManager_RenameFolder.Text" xml:space="preserve">
+    <value>Rename folder</value>
+  </data>
+  <data name="FolderManager_RenameFolder_Title" xml:space="preserve">
+    <value>Rename folder</value>
+  </data>
+  <data name="FolderRenameDialog_CurrentPathLabel.Text" xml:space="preserve">
+    <value>Current path</value>
+  </data>
+  <data name="FolderRenameDialog_NewLeafName.Header" xml:space="preserve">
+    <value>New folder name</value>
+  </data>
+  <data name="FolderRenameDialog_ImpactSummaryHint" xml:space="preserve">
+    <value>Enter a new folder name to preview affected references.</value>
+  </data>
+  <data name="FolderRenameDialog_ImpactSummaryFormat" xml:space="preserve">
+    <value>Updates {0} config reference(s) and {1} history item(s).</value>
+  </data>
+  <data name="FolderManager_AddSingleFolderPickerTitle" xml:space="preserve">
+    <value>Choose a folder to back up</value>
+  </data>
+  <data name="FolderManager_AddSubFoldersPickerTitle" xml:space="preserve">
+    <value>Choose the root folder to scan for subfolders</value>
+  </data>
+  <data name="FolderManager_PluginDiscoverPickerTitle" xml:space="preserve">
+    <value>Choose the root folder for plugin discovery</value>
+  </data>
+  <data name="FolderManager_AddSubFoldersFailed" xml:space="preserve">
+    <value>Failed to add subfolders.</value>
+  </data>
+  <data name="FolderManager_ChangeCoverPickerTitle" xml:space="preserve">
+    <value>Choose a folder cover image</value>
+  </data>
+  <data name="FolderManager_ChangeCover_Title" xml:space="preserve">
+    <value>Change cover</value>
+  </data>
+  <data name="FolderManager_ChangeCoverFailed" xml:space="preserve">
+    <value>Failed to change the folder cover.</value>
+  </data>
+  <data name="FolderManager_Log_ChangeCoverFailed" xml:space="preserve">
+    <value>Failed to change the folder cover: {0}</value>
+  </data>
+  <data name="ConfigSettingsDialog_BackupFilterMode.Header" xml:space="preserve">
+    <value>Backup filter mode</value>
+  </data>
+  <data name="ConfigSettingsDialog_BackupFilterModeBlacklist.Content" xml:space="preserve">
+    <value>Blacklist mode</value>
+  </data>
+  <data name="ConfigSettingsDialog_BackupFilterModeWhitelist.Content" xml:space="preserve">
+    <value>Whitelist mode</value>
+  </data>
+  <data name="ConfigSettingsDialog_BackupWhitelist.Text" xml:space="preserve">
+    <value>Inclusion list (only back up these files/folders)</value>
+  </data>
+  <data name="ConfigSettingsDialog_BackupWhitelistPlaceholder.PlaceholderText" xml:space="preserve">
+    <value>Enter a filename, relative path, full path, or wildcard...</value>
+  </data>
+  <data name="ConfigSettingsDialog_AddBackupWhitelist.Content" xml:space="preserve">
+    <value>Add</value>
+  </data>
+  <data name="ConfigSettingsDialog_BackupWhitelistCleanWarning" xml:space="preserve">
+    <value>Whitelist backups contain only part of the folder. Clean restore may remove files that were not included in the backup; prefer overwrite restore, or add data that must survive cleanup to the restore whitelist.</value>
+  </data>
+  <data name="ConfigSettingsDialog_BackupScope.Header" xml:space="preserve">
+    <value>Backup scope</value>
+  </data>
+  <data name="ConfigSettingsDialog_BackupScopeFull" xml:space="preserve">
+    <value>Full scope</value>
+  </data>
+  <data name="ConfigSettingsDialog_BackupScopeFullDesc" xml:space="preserve">
+    <value>Back up all files in the folder that pass the filter settings.</value>
+  </data>
+  <data name="ConfigSettingsDialog_BackupScopeMissingDesc" xml:space="preserve">
+    <value>This backup scope is provided by a plugin, but the plugin is disabled or no longer available.</value>
+  </data>
+  <data name="ConfigSettingsDialog_BackupScopePartialWarning.Text" xml:space="preserve">
+    <value>Plugin backup scopes usually back up only part of the folder. Clean restore of a partial backup can delete files that were not backed up.</value>
+  </data>
+  <data name="ConfigSettingsDialog_OpenFailed_Title" xml:space="preserve">
+    <value>Failed to open config settings</value>
+  </data>
+  <data name="ConfigSettingsDialog_OpenFailed" xml:space="preserve">
+    <value>Failed to open the config settings window: {0}</value>
+  </data>
+  <data name="ConfigSettingsDialog_OpenFailed_Log" xml:space="preserve">
+    <value>Failed to open the config settings window: {0}</value>
+  </data>
+  <data name="History_PartialCleanConfirm_Title" xml:space="preserve">
+    <value>This is a partial backup</value>
+  </data>
+  <data name="History_PartialCleanConfirm_Content" xml:space="preserve">
+    <value>This backup was created from an inclusion list or partial scope and contains only some files. Continuing with Clean restore may delete other files in the target folder not included in the backup. Continue?</value>
+  </data>
+  <data name="History_PartialCleanConfirm_Primary" xml:space="preserve">
+    <value>Confirm Clean restore</value>
+  </data>
+  <data name="KnotLink_Error_PartialCleanRequiresConfirm" xml:space="preserve">
+    <value>The target backup is a partial backup. To proceed with Clean restore, add -confirm_partial_clean=true.</value>
+  </data>
+  <data name="Tray_ToolTip" xml:space="preserve">
+    <value>FolderRewind</value>
+  </data>
+  <data name="Tray_ShowHide" xml:space="preserve">
+    <value>Show / Hide</value>
+  </data>
+  <data name="Tray_Exit" xml:space="preserve">
+    <value>Exit</value>
   </data>
 </root>

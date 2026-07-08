@@ -76,5 +76,33 @@ namespace FolderRewind.Services
                 return false;
             }
         }
+
+        public static bool TryOpenCommandPromptAt(string directoryPath, out string? errorMessage)
+        {
+            errorMessage = null;
+
+            if (string.IsNullOrWhiteSpace(directoryPath) || !Directory.Exists(directoryPath))
+            {
+                errorMessage = I18n.GetString("Common_Failed");
+                return false;
+            }
+
+            try
+            {
+                // 云预设会把用户带到已解压工具目录，后续只需输入 rclone config / openlist server。
+                Process.Start(new ProcessStartInfo
+                {
+                    FileName = "cmd.exe",
+                    Arguments = $"/K cd /d \"{directoryPath}\"",
+                    UseShellExecute = true
+                });
+                return true;
+            }
+            catch (Exception ex)
+            {
+                errorMessage = ex.Message;
+                return false;
+            }
+        }
     }
 }

@@ -45,6 +45,11 @@ namespace FolderRewind.ViewModels
         private string _backupComment = string.Empty;
         private string? _pendingFolderPath;
         private bool _mineRewindHintShown;
+        // Prevents N redundant RefreshCurrentFoldersView enqueues when
+        // SourceFolders.Add is called in a tight loop (e.g. by AddDiscoveredFolders,
+        // AddSubFolders). Only the first event enqueues; subsequent events in the
+        // same batch skip until the pending refresh runs.
+        private bool _currentFoldersRefreshPending;
 
         public event Action? PendingFolderSelectionRequested;
 
@@ -701,8 +706,20 @@ namespace FolderRewind.ViewModels
 
         private void OnCurrentFoldersChanged(object? sender, NotifyCollectionChangedEventArgs e)
         {
+            // When folder additions happen in a tight loop (AddDiscoveredFolders,
+            // AddSubFolders), each SourceFolders.Add fires CollectionChanged and
+            // would enqueue a separate full RefreshCurrentFoldersView. Skip
+            // redundant enqueues — only the first one is honoured, and the single
+            // pending rebuild will capture all accumulated changes.
+            if (_currentFoldersRefreshPending)
+            {
+                return;
+            }
+
+            _currentFoldersRefreshPending = true;
             EnqueueOnUiThread(() =>
             {
+                _currentFoldersRefreshPending = false;
                 RefreshCurrentFoldersView();
 
                 // 当前选中文件夹被删/移出后，立刻清空选择避免悬挂引用。

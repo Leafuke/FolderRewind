@@ -206,16 +206,6 @@ namespace FolderRewind.Views
             }
             catch { }
 
-            // 确保内容层背景为透明（移除 SystemBackdrop 后，靠控件自身绘制外观）
-            try
-            {
-                var transparent = new SolidColorBrush(Microsoft.UI.Colors.Transparent);
-                if (Content is Panel panel)
-                    panel.Background = transparent;
-                else if (Content is Control control)
-                    control.Background = transparent;
-            }
-            catch { }
         }
 
         private IntPtr WindowSubclassProc(IntPtr hWnd, uint uMsg, IntPtr wParam, IntPtr lParam, IntPtr uIdSubclass, IntPtr dwRefData)

@@ -236,11 +236,12 @@ namespace FolderRewind.Services.Plugins
         /// KnotLink：新版参数化指令优先给插件一次处理机会。
         /// 这样 MineRewind 可以把 BACKUP -current_save=true 映射成热备份，而不被内置 BACKUP 提前拦截。
         /// </summary>
-        public static async Task<(bool Handled, string Response)> TryHandleParameterizedKnotLinkCommandAsync(KnotLinkCommandRequest request)
+        public static async Task<(bool Handled, string Response)> TryHandleParameterizedKnotLinkCommandAsync(KnotLinkCommandContext context)
         {
             if (!IsPluginSystemEnabled()) return (false, string.Empty);
-            if (request == null || string.IsNullOrWhiteSpace(request.Command)) return (false, string.Empty);
+            if (context == null || string.IsNullOrWhiteSpace(context.Command)) return (false, string.Empty);
 
+            var request = context.Request;
             foreach (var plugin in GetEnabledLoadedPluginsSnapshot())
             {
                 if (plugin is not IFolderRewindParameterizedKnotLinkCommandHandler handler) continue;
@@ -249,6 +250,7 @@ namespace FolderRewind.Services.Plugins
                 {
                     var settings = GetPluginSettings(plugin.Manifest.Id);
                     var ctx = PluginHostContext.CreateForCurrentApp(plugin.Manifest.Id, plugin.Manifest.Name);
+                    using var scope = KnotLinkService.PushCommandContext(context);
                     var result = await handler.TryHandleParameterizedKnotLinkCommandAsync(
                         request,
                         settings,
@@ -398,6 +400,209 @@ namespace FolderRewind.Services.Plugins
             }
 
             return Array.Empty<PluginSettingDefinition>();
+        }
+
+        public static IReadOnlyList<PluginBackupScopeDefinition> GetBackupScopeDefinitions(BackupConfig config)
+        {
+            if (config == null || !IsPluginSystemEnabled())
+            {
+                return Array.Empty<PluginBackupScopeDefinition>();
+            }
+
+            var result = new List<PluginBackupScopeDefinition>();
+            foreach (var plugin in GetEnabledLoadedPluginsSnapshot())
+            {
+                if (plugin is not IFolderRewindBackupScopeProvider provider)
+                {
+                    continue;
+                }
+
+                try
+                {
+                    var settings = GetPluginSettings(plugin.Manifest.Id);
+                    var definitions = provider.GetBackupScopeDefinitions(config, settings);
+                    if (definitions == null)
+                    {
+                        continue;
+                    }
+
+                    foreach (var definition in definitions.Where(d => d != null && !string.IsNullOrWhiteSpace(d.Id)))
+                    {
+                        result.Add(definition);
+                    }
+                }
+                catch (Exception ex)
+                {
+                    LogService.LogError(I18n.Format("PluginService_GetSettingsDefinitionsFailed", plugin.Manifest.Id, ex.Message), "PluginService", ex);
+                }
+            }
+
+            return result;
+        }
+
+        public static Task<IReadOnlyList<FolderDetailsSection>> GetFolderDetailsSectionsAsync(
+            BackupConfig config,
+            ManagedFolder folder,
+            CancellationToken cancellationToken)
+        {
+            if (!IsPluginSystemEnabled())
+            {
+                return Task.FromResult<IReadOnlyList<FolderDetailsSection>>(Array.Empty<FolderDetailsSection>());
+            }
+
+            return GetFolderDetailsSectionsFromPluginsAsync(
+                GetEnabledLoadedPluginsSnapshot(),
+                config,
+                folder,
+                cancellationToken);
+        }
+
+        public static async Task<IReadOnlyList<FolderDetailsSection>> GetFolderDetailsSectionsFromPluginsAsync(
+            IEnumerable<IFolderRewindPlugin> plugins,
+            BackupConfig config,
+            ManagedFolder folder,
+            CancellationToken cancellationToken)
+        {
+            var sections = new List<FolderDetailsSection>();
+
+            foreach (var plugin in plugins)
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+
+                if (plugin is not IFolderRewindFolderDetailsProvider provider)
+                {
+                    continue;
+                }
+
+                try
+                {
+                    var settings = GetPluginSettings(plugin.Manifest.Id);
+                    var pluginSections = await provider.GetFolderDetailsSectionsAsync(
+                        config,
+                        folder,
+                        settings,
+                        cancellationToken).ConfigureAwait(false);
+
+                    if (pluginSections != null)
+                    {
+                        sections.AddRange(pluginSections);
+                    }
+                }
+                catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+                {
+                    throw;
+                }
+                catch (Exception ex)
+                {
+                    LogService.LogError(
+                        $"[PluginService] Folder details provider failed: {plugin.Manifest.Id}: {ex.Message}",
+                        nameof(PluginService),
+                        ex);
+                }
+            }
+
+            return sections;
+        }
+
+        public static BackupConfig CreateConfigWithBackupFilterContributions(BackupConfig config, ManagedFolder folder)
+        {
+            if (!IsPluginSystemEnabled()) return config;
+
+            var scope = config.BackupScope;
+            if (scope == null || string.IsNullOrWhiteSpace(scope.PluginScopeId))
+            {
+                return config;
+            }
+
+            BackupConfig? clone = null;
+            var scopeContext = new PluginBackupScopeContext
+            {
+                ScopeId = scope.PluginScopeId,
+                Parameters = scope.Parameters == null
+                    ? new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
+                    : new Dictionary<string, string>(scope.Parameters, StringComparer.OrdinalIgnoreCase)
+            };
+
+            foreach (var plugin in GetEnabledLoadedPluginsSnapshot())
+            {
+                if (plugin is not IFolderRewindBackupScopeProvider provider)
+                {
+                    continue;
+                }
+
+                try
+                {
+                    var settings = GetPluginSettings(plugin.Manifest.Id);
+                    var contribution = provider.GetBackupFilterContribution(config, folder, scopeContext, settings);
+                    if (contribution == null)
+                    {
+                        continue;
+                    }
+
+                    bool hasWhitelist = contribution.BackupWhitelist?.Any(rule => !string.IsNullOrWhiteSpace(rule)) == true;
+                    bool hasBlacklist = contribution.BackupBlacklist?.Any(rule => !string.IsNullOrWhiteSpace(rule)) == true;
+                    if (!contribution.UseWhitelistMode && !hasWhitelist && !hasBlacklist)
+                    {
+                        continue;
+                    }
+
+                    clone ??= CloneBackupConfigForRuntimeFilters(config);
+                    clone.Filters ??= new FilterSettings();
+                    clone.Filters.Blacklist ??= new ObservableCollection<string>();
+                    clone.Filters.BackupWhitelist ??= new ObservableCollection<string>();
+
+                    if (contribution.UseWhitelistMode || hasWhitelist)
+                    {
+                        // 插件贡献白名单时使用一次性运行时配置，既能复用核心备份流程，也不会把自动计算结果写回用户配置。
+                        clone.Filters.BackupFilterMode = BackupFilterMode.Whitelist;
+                    }
+
+                    if (hasWhitelist)
+                    {
+                        foreach (var rule in contribution.BackupWhitelist!.Where(rule => !string.IsNullOrWhiteSpace(rule)))
+                        {
+                            AddDistinctRule(clone.Filters.BackupWhitelist, rule);
+                        }
+                    }
+
+                    if (hasBlacklist && clone.Filters.BackupFilterMode != BackupFilterMode.Whitelist)
+                    {
+                        foreach (var rule in contribution.BackupBlacklist!.Where(rule => !string.IsNullOrWhiteSpace(rule)))
+                        {
+                            AddDistinctRule(clone.Filters.Blacklist, rule);
+                        }
+                    }
+                }
+                catch (Exception ex)
+                {
+                    LogService.LogError(I18n.Format("PluginService_BeforeBackupFailed", plugin.Manifest.Id, ex.Message), "PluginService", ex);
+                }
+            }
+
+            return clone ?? config;
+        }
+
+        private static BackupConfig CloneBackupConfigForRuntimeFilters(BackupConfig source)
+        {
+            return BackupConfigCloneService.CloneForRuntimeMutation(
+                source,
+                "Failed to clone backup config for plugin filters.");
+        }
+
+        private static void AddDistinctRule(ObservableCollection<string> rules, string rule)
+        {
+            var trimmed = rule.Trim();
+            if (string.IsNullOrWhiteSpace(trimmed))
+            {
+                return;
+            }
+
+            if (rules.Any(existing => string.Equals(existing?.Trim(), trimmed, StringComparison.OrdinalIgnoreCase)))
+            {
+                return;
+            }
+
+            rules.Add(trimmed);
         }
 
         public static string? InvokeBeforeBackupFolder(BackupConfig config, ManagedFolder folder)

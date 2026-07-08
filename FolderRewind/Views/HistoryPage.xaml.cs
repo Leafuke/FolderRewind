@@ -6,7 +6,6 @@ using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Navigation;
 using System;
 using System.Threading.Tasks;
-using Windows.Storage.Pickers;
 
 namespace FolderRewind.Views
 {
@@ -152,6 +151,7 @@ namespace FolderRewind.Views
                 DefaultButton = ContentDialogButton.Primary,
                 XamlRoot = this.XamlRoot
             };
+            ThemeService.ApplyThemeToDialog(dialog);
 
             var result = await dialog.ShowAsync();
             if (result != ContentDialogResult.Primary) return;
@@ -218,10 +218,16 @@ namespace FolderRewind.Views
                 DefaultButton = ContentDialogButton.Primary,
                 XamlRoot = this.XamlRoot
             };
+            ThemeService.ApplyThemeToDialog(dialog);
 
             var result = await dialog.ShowAsync();
             if (result == ContentDialogResult.Primary)
             {
+                if (item.IsPartialBackup && !await ConfirmPartialCleanRestoreAsync())
+                {
+                    return null;
+                }
+
                 return BackupService.RestoreMode.Clean;
             }
 
@@ -402,6 +408,26 @@ namespace FolderRewind.Views
             return null;
         }
 
+        private async Task<bool> ConfirmPartialCleanRestoreAsync()
+        {
+            var dialog = new ContentDialog
+            {
+                Title = I18n.GetString("History_PartialCleanConfirm_Title"),
+                Content = new TextBlock
+                {
+                    Text = I18n.GetString("History_PartialCleanConfirm_Content"),
+                    TextWrapping = TextWrapping.Wrap
+                },
+                PrimaryButtonText = I18n.GetString("History_PartialCleanConfirm_Primary"),
+                CloseButtonText = I18n.GetString("Common_Cancel"),
+                DefaultButton = ContentDialogButton.Close,
+                XamlRoot = this.XamlRoot
+            };
+            ThemeService.ApplyThemeToDialog(dialog);
+
+            return await dialog.ShowAsync() == ContentDialogResult.Primary;
+        }
+
         private async void OnUploadToCloudClick(object sender, RoutedEventArgs e)
         {
             if (sender is not Button btn || btn.DataContext is not HistoryItem item)
@@ -457,14 +483,6 @@ namespace FolderRewind.Views
             }
         }
 
-        private void UseColorsToggle_Toggled(object sender, RoutedEventArgs e)
-        {
-            if (sender is ToggleSwitch ts)
-            {
-                ViewModel.UseHistoryStatusColors = ts.IsOn;
-            }
-        }
-
         private async void OnClearMissingClick(object sender, RoutedEventArgs e)
         {
             if (!TryGetSelectedContext(persistSelection: false, out _, out _))
@@ -488,6 +506,7 @@ namespace FolderRewind.Views
                 DefaultButton = ContentDialogButton.Primary,
                 XamlRoot = this.XamlRoot
             };
+            ThemeService.ApplyThemeToDialog(dialog);
 
             var result = await dialog.ShowAsync();
             if (result != ContentDialogResult.Primary) return;
@@ -525,17 +544,12 @@ namespace FolderRewind.Views
             }
         }
 
-        private async Task<string?> PickScanRecoverFolderPathAsync()
+        private Task<string?> PickScanRecoverFolderPathAsync()
         {
-            var picker = new FolderPicker
-            {
-                SuggestedStartLocation = PickerLocationId.DocumentsLibrary
-            };
-            picker.FileTypeFilter.Add("*");
-            MainWindowService.InitializePicker(picker);
-
-            var folder = await picker.PickSingleFolderAsync();
-            return folder?.Path;
+            return MainWindowService.PickFolderPathAsync(
+                string.Empty,
+                "FolderRewind.History.ScanRecover",
+                MainWindowService.SuggestedPickerLocation.DocumentsLibrary);
         }
 
         private void RestoreLastSelection()

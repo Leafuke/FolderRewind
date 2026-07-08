@@ -20,13 +20,27 @@ namespace FolderRewind.ViewModels
         private bool _pluginsRefreshing;
         private bool _fontFamiliesLoading;
         private bool _isMinecraftPresetInstallRunning;
+        private bool _isCloudPresetRunning;
         private bool _isSponsorOperationRunning;
         private string _minecraftPresetStatusText = string.Empty;
+        private string _cloudPresetStatusText = string.Empty;
+        private CloudOnboardingProviderOption? _selectedCloudPresetOption;
         private static readonly object FontCacheLock = new();
         private static IReadOnlyList<string>? _cachedInstalledFontFamilies;
 
         private string _knotLinkStatusMessage = I18n.GetString("SettingsPage_KnotLinkStatus_Disabled");
         private Brush _knotLinkStatusColor = new SolidColorBrush(Microsoft.UI.Colors.Gray);
+
+        private string _knotLinkServerVersionText = I18n.GetString("SettingsPage_KnotLinkServerNotInstalled");
+        private bool _knotLinkServerInstalled;
+        private bool _knotLinkServerRunning;
+        private bool _knotLinkServerHasUpdate;
+        private bool _knotLinkServerUpdateChecking;
+        private string _knotLinkServerLatestVersion = string.Empty;
+        private KnotLinkUpdateInfo? _knotLinkServerUpdateInfo;
+        private Brush _knotLinkServerStatusBrush = new SolidColorBrush(Microsoft.UI.Colors.Gray);
+
+        private bool _isDirty;
 
         public GlobalSettings Settings => ConfigService.CurrentConfig.GlobalSettings;
 
@@ -43,8 +57,8 @@ namespace FolderRewind.ViewModels
                     Settings.RememberCloseBehavior = false;
                 }
 
-                // 设置页采用“即改即存”，避免离开页面时丢改动。
-                ConfigService.Save();
+                // 标记为脏，离开页面时统一保存。
+                _isDirty = true;
                 OnPropertyChanged();
             }
         }
@@ -61,9 +75,17 @@ namespace FolderRewind.ViewModels
 
         public ObservableCollection<string> SponsorTitleIconGlyphs { get; } = new();
 
+        public ObservableCollection<string> SponsorBackgroundStretchModes { get; } = new();
+
+        public ObservableCollection<string> CompletionSoundPresets { get; } = new();
+
         public ObservableCollection<object> HotkeyBindingsView { get; } = new();
 
+        public ObservableCollection<CloudOnboardingProviderOption> CloudPresetOptions { get; } = new();
+
         public IAsyncRelayCommand InstallMinecraftPresetCommand { get; }
+
+        public IAsyncRelayCommand StartCloudPresetCommand { get; }
 
         public IAsyncRelayCommand PurchaseSponsorCommand { get; }
 
@@ -72,6 +94,12 @@ namespace FolderRewind.ViewModels
         public IAsyncRelayCommand RestoreSponsorCommand { get; }
 
         public IAsyncRelayCommand RefreshSponsorCommand { get; }
+
+        public IRelayCommand ClearSponsorBackgroundCommand { get; }
+
+        public IRelayCommand PreviewCompletionSoundCommand { get; }
+
+        public IRelayCommand ClearCustomCompletionSoundCommand { get; }
 
         public bool IsMinecraftPresetInstallRunning
         {
@@ -94,6 +122,43 @@ namespace FolderRewind.ViewModels
         {
             get => _minecraftPresetStatusText;
             private set => SetProperty(ref _minecraftPresetStatusText, value ?? string.Empty);
+        }
+
+        public bool IsCloudPresetRunning
+        {
+            get => _isCloudPresetRunning;
+            private set
+            {
+                if (!SetProperty(ref _isCloudPresetRunning, value))
+                {
+                    return;
+                }
+
+                OnPropertyChanged(nameof(IsCloudPresetIdle));
+                StartCloudPresetCommand.NotifyCanExecuteChanged();
+            }
+        }
+
+        public bool IsCloudPresetIdle => !IsCloudPresetRunning;
+
+        public string CloudPresetStatusText
+        {
+            get => _cloudPresetStatusText;
+            private set => SetProperty(ref _cloudPresetStatusText, value ?? string.Empty);
+        }
+
+        public CloudOnboardingProviderOption? SelectedCloudPresetOption
+        {
+            get => _selectedCloudPresetOption;
+            set
+            {
+                if (!SetProperty(ref _selectedCloudPresetOption, value))
+                {
+                    return;
+                }
+
+                StartCloudPresetCommand.NotifyCanExecuteChanged();
+            }
         }
 
         public bool IsSponsorUnlocked => SponsorService.IsUnlocked;
@@ -121,6 +186,18 @@ namespace FolderRewind.ViewModels
 
         public string SponsorStatusText => SponsorService.StatusMessage;
 
+        public double SponsorBackgroundImageOpacityPercent
+        {
+            get => Math.Clamp(Settings.SponsorBackgroundImageOpacity, 0, 1) * 100d;
+            set => HandleSponsorBackgroundImageOpacityChanged(value);
+        }
+
+        public double SponsorBackgroundOverlayOpacityPercent
+        {
+            get => Math.Clamp(Settings.SponsorBackgroundOverlayOpacity, 0, 1) * 100d;
+            set => HandleSponsorBackgroundOverlayOpacityChanged(value);
+        }
+
         public string KnotLinkStatusMessage
         {
             get => _knotLinkStatusMessage;
@@ -131,6 +208,46 @@ namespace FolderRewind.ViewModels
         {
             get => _knotLinkStatusColor;
             private set => SetProperty(ref _knotLinkStatusColor, value);
+        }
+
+        public string KnotLinkServerVersionText
+        {
+            get => _knotLinkServerVersionText;
+            private set => SetProperty(ref _knotLinkServerVersionText, value);
+        }
+
+        public bool KnotLinkServerInstalled
+        {
+            get => _knotLinkServerInstalled;
+            private set => SetProperty(ref _knotLinkServerInstalled, value);
+        }
+
+        public bool KnotLinkServerRunning
+        {
+            get => _knotLinkServerRunning;
+            private set => SetProperty(ref _knotLinkServerRunning, value);
+        }
+
+        public bool KnotLinkServerHasUpdate
+        {
+            get => _knotLinkServerHasUpdate;
+            private set => SetProperty(ref _knotLinkServerHasUpdate, value);
+        }
+
+        public bool KnotLinkServerUpdateChecking
+        {
+            get => _knotLinkServerUpdateChecking;
+            private set => SetProperty(ref _knotLinkServerUpdateChecking, value);
+        }
+
+        public bool KnotLinkServerCanStart => KnotLinkServerInstalled && !KnotLinkServerRunning;
+
+        public bool KnotLinkServerUpdateEnabled => !KnotLinkServerUpdateChecking && KnotLinkServerHasUpdate;
+
+        public Brush KnotLinkServerStatusBrush
+        {
+            get => _knotLinkServerStatusBrush;
+            private set => SetProperty(ref _knotLinkServerStatusBrush, value);
         }
 
         public bool IsCoreValidationRunning => CoreFeatureValidationService.IsRunning;
@@ -164,6 +281,10 @@ namespace FolderRewind.ViewModels
                 async () => { await InstallMinecraftPresetAsync(); },
                 () => IsMinecraftPresetInstallIdle);
 
+            StartCloudPresetCommand = new AsyncRelayCommand(
+                async () => { await StartCloudPresetAsync(); },
+                () => IsCloudPresetIdle && SelectedCloudPresetOption != null);
+
             PurchaseSponsorCommand = new AsyncRelayCommand(
                 async () => { await RunSponsorOperationAsync(SponsorService.PurchaseAsync); },
                 () => IsSponsorOperationIdle);
@@ -178,10 +299,15 @@ namespace FolderRewind.ViewModels
                 async () => { await RunSponsorOperationAsync(() => SponsorService.RefreshLicenseAsync(true)); },
                 () => IsSponsorOperationIdle);
 
+            ClearSponsorBackgroundCommand = new RelayCommand(ClearSponsorBackground, () => SponsorService.IsUnlocked);
+            PreviewCompletionSoundCommand = new RelayCommand(PreviewCompletionSound);
+            ClearCustomCompletionSoundCommand = new RelayCommand(ClearCustomCompletionSound, () => SponsorService.IsUnlocked);
+
+            RefreshCloudPresetOptions();
             RefreshSponsorOptionLists();
         }
 
-        public void Initialize()
+        public async Task InitializeAsync()
         {
             if (_initialized)
             {
@@ -194,6 +320,7 @@ namespace FolderRewind.ViewModels
             EnsureFontFamiliesLoaded();
             RefreshHotkeyBindingsView();
             UpdateKnotLinkStatus();
+            RefreshKnotLinkServerInfo();
             RefreshCoreValidationState();
             RefreshSponsorState();
 
@@ -211,11 +338,25 @@ namespace FolderRewind.ViewModels
 
             SponsorService.StateChanged -= SponsorService_StateChanged;
             SponsorService.StateChanged += SponsorService_StateChanged;
+            SponsorService.StatusChanged -= SponsorService_StateChanged;
+            SponsorService.StatusChanged += SponsorService_StateChanged;
+
+            await Task.CompletedTask;
         }
 
         public void OnNavigatedTo()
         {
             UpdateKnotLinkStatus();
+            RefreshKnotLinkServerInfo();
+        }
+
+        public void SaveIfDirty()
+        {
+            if (_isDirty)
+            {
+                ConfigService.Save();
+                _isDirty = false;
+            }
         }
 
         public async Task EnsurePluginsRefreshedAsync()
@@ -249,6 +390,7 @@ namespace FolderRewind.ViewModels
             // 与 Initialize 成对解绑，避免设置页被缓存后事件重复触发。
             CoreFeatureValidationService.StateChanged -= CoreFeatureValidationService_StateChanged;
             SponsorService.StateChanged -= SponsorService_StateChanged;
+            SponsorService.StatusChanged -= SponsorService_StateChanged;
             try
             {
                 HotkeyManager.DefinitionsChanged -= HotkeyManager_DefinitionsChanged;
@@ -273,13 +415,13 @@ namespace FolderRewind.ViewModels
                 OnPropertyChanged(nameof(CloseBehaviorSelectedIndex));
             }
 
-            ConfigService.Save();
+            _isDirty = true;
         }
 
         public void HandleNotificationsToggled(bool isOn)
         {
             Settings.EnableNotifications = isOn;
-            ConfigService.Save();
+            _isDirty = true;
 
             if (!isOn)
             {
@@ -293,7 +435,7 @@ namespace FolderRewind.ViewModels
         public void HandleToastLevelChanged(int selectedIndex)
         {
             Settings.ToastNotificationLevel = Math.Clamp(selectedIndex, 0, 3);
-            ConfigService.Save();
+            _isDirty = true;
         }
 
         public void HandleFileSizeWarningThresholdChanged(double newValue)
@@ -304,37 +446,37 @@ namespace FolderRewind.ViewModels
             }
 
             Settings.FileSizeWarningThresholdKB = (int)Math.Clamp(newValue, 0, 10240);
-            ConfigService.Save();
+            _isDirty = true;
         }
 
         public void HandleAutoDownloadMissingCloudBackupsBeforeRestoreToggled(bool isOn)
         {
             Settings.AutoDownloadMissingCloudBackupsBeforeRestore = isOn;
-            ConfigService.Save();
+            _isDirty = true;
         }
 
         public void HandleNoticesToggled(bool isOn)
         {
             Settings.EnableNotices = isOn;
-            ConfigService.Save();
+            _isDirty = true;
         }
 
         public void HandleUpdateReminderToggled(bool isOn)
         {
             Settings.EnableUpdateReminder = isOn;
-            ConfigService.Save();
+            _isDirty = true;
         }
 
         public void HandleAppUpdateSourceChanged(int selectedIndex)
         {
             Settings.AppUpdatePreferredSource = Math.Clamp(selectedIndex, 0, 3);
-            ConfigService.Save();
+            _isDirty = true;
         }
 
         public void HandleAppUpdateAutoFallbackToggled(bool isOn)
         {
             Settings.AppUpdateAutoFallback = isOn;
-            ConfigService.Save();
+            _isDirty = true;
         }
 
         public void HandleAppUpdateCustomMirrorChanged(string? customUrl)
@@ -346,7 +488,7 @@ namespace FolderRewind.ViewModels
             }
 
             Settings.AppUpdateCustomMirrorUrl = normalized;
-            ConfigService.Save();
+            _isDirty = true;
         }
 
         public int GetLanguageSelectedIndex()
@@ -357,7 +499,7 @@ namespace FolderRewind.ViewModels
         public void HandleLanguageChanged(int selectedIndex)
         {
             Settings.Language = IndexToLanguage(selectedIndex);
-            ConfigService.Save();
+            _isDirty = true;
             MainWindowService.UpdateWindowTitle();
         }
 
@@ -372,7 +514,7 @@ namespace FolderRewind.ViewModels
                 Settings.SilentStartup = false;
             }
 
-            ConfigService.Save();
+            _isDirty = true;
 
             StartupTaskState state = StartupTaskState.Disabled;
             if (!success && desired)
@@ -391,7 +533,7 @@ namespace FolderRewind.ViewModels
         public bool HandleSilentStartupToggled(bool requested)
         {
             Settings.SilentStartup = Settings.RunOnStartup && requested;
-            ConfigService.Save();
+            _isDirty = true;
             return Settings.SilentStartup;
         }
 
@@ -403,7 +545,7 @@ namespace FolderRewind.ViewModels
             }
 
             Settings.SevenZipPath = path;
-            ConfigService.Save();
+            _isDirty = true;
         }
 
         public void ApplyRclonePath(string path)
@@ -414,7 +556,7 @@ namespace FolderRewind.ViewModels
             }
 
             Settings.RcloneExecutablePath = path;
-            ConfigService.Save();
+            _isDirty = true;
         }
 
         public void ApplyDefaultCloudRemoteBasePath(string path)
@@ -426,7 +568,7 @@ namespace FolderRewind.ViewModels
             }
 
             Settings.DefaultCloudRemoteBasePath = normalized;
-            ConfigService.Save();
+            _isDirty = true;
         }
 
         public void ApplyDefaultBackupRootPath(string path)
@@ -437,7 +579,7 @@ namespace FolderRewind.ViewModels
             }
 
             Settings.DefaultBackupRootPath = path;
-            ConfigService.Save();
+            _isDirty = true;
         }
 
         public void HandleThemeChanged(int selectedIndex)
@@ -445,7 +587,7 @@ namespace FolderRewind.ViewModels
             Settings.ThemeIndex = Math.Clamp(selectedIndex, 0, 2);
             MainWindowService.ApplyCurrentTheme();
             ThemeService.NotifyThemeChanged();
-            ConfigService.Save();
+            _isDirty = true;
         }
 
         public void HandleSponsorAccentChanged(int selectedIndex)
@@ -456,7 +598,7 @@ namespace FolderRewind.ViewModels
             }
 
             Settings.SponsorAccentColorIndex = Math.Clamp(selectedIndex, 0, ThemeService.SponsorAccentPresetCount - 1);
-            ConfigService.Save();
+            _isDirty = true;
             MainWindowService.ApplySponsorVisuals();
         }
 
@@ -468,7 +610,7 @@ namespace FolderRewind.ViewModels
             }
 
             Settings.SponsorBackdropIndex = Math.Clamp(selectedIndex, 0, 1);
-            ConfigService.Save();
+            _isDirty = true;
             MainWindowService.ApplySponsorVisuals();
         }
 
@@ -480,7 +622,7 @@ namespace FolderRewind.ViewModels
             }
 
             Settings.SponsorTitleText = titleText?.Trim() ?? string.Empty;
-            ConfigService.Save();
+            _isDirty = true;
             MainWindowService.ApplySponsorVisuals();
         }
 
@@ -492,47 +634,138 @@ namespace FolderRewind.ViewModels
             }
 
             Settings.SponsorTitleIconGlyph = glyph;
-            ConfigService.Save();
+            _isDirty = true;
             MainWindowService.ApplySponsorVisuals();
         }
 
-        public void HandleShowSponsorBadgeToggled(bool isOn)
+        public async Task ApplySponsorBackgroundImageAsync(string path)
         {
             if (!SponsorService.IsUnlocked)
             {
                 return;
             }
 
-            Settings.ShowSponsorBadge = isOn;
-            ConfigService.Save();
+            if (await SponsorPersonalizationService.ApplyBackgroundImageAsync(path))
+            {
+                OnPropertyChanged(nameof(Settings));
+            }
+        }
+
+        public void ClearSponsorBackground()
+        {
+            if (SponsorPersonalizationService.ClearBackgroundImage())
+            {
+                OnPropertyChanged(nameof(Settings));
+            }
+        }
+
+        public void HandleSponsorBackgroundEnabledToggled(bool isOn)
+        {
+            if (!SponsorService.IsUnlocked)
+            {
+                return;
+            }
+
+            Settings.SponsorBackgroundEnabled = isOn;
+            _isDirty = true;
             MainWindowService.ApplySponsorVisuals();
+        }
+
+        public void HandleSponsorBackgroundStretchChanged(int selectedIndex)
+        {
+            if (!SponsorService.IsUnlocked)
+            {
+                return;
+            }
+
+            Settings.SponsorBackgroundStretchIndex = Math.Clamp(selectedIndex, 0, 2);
+            _isDirty = true;
+            MainWindowService.ApplySponsorVisuals();
+        }
+
+        public void HandleSponsorBackgroundImageOpacityChanged(double newValue)
+        {
+            if (!SponsorService.IsUnlocked || double.IsNaN(newValue))
+            {
+                return;
+            }
+
+            Settings.SponsorBackgroundImageOpacity = Math.Clamp(newValue / 100d, 0, 1);
+            _isDirty = true;
+            MainWindowService.ApplySponsorVisuals();
+            OnPropertyChanged(nameof(SponsorBackgroundImageOpacityPercent));
+        }
+
+        public void HandleSponsorBackgroundOverlayOpacityChanged(double newValue)
+        {
+            if (!SponsorService.IsUnlocked || double.IsNaN(newValue))
+            {
+                return;
+            }
+
+            Settings.SponsorBackgroundOverlayOpacity = Math.Clamp(newValue / 100d, 0, 1);
+            _isDirty = true;
+            MainWindowService.ApplySponsorVisuals();
+            OnPropertyChanged(nameof(SponsorBackgroundOverlayOpacityPercent));
+        }
+
+        public void HandleCompletionSoundChanged(int selectedIndex)
+        {
+            Settings.CompletionSoundIndex = Math.Clamp(selectedIndex, 0, CompletionSoundService.PresetCount - 1);
+            _isDirty = true;
+        }
+
+        public void PreviewCompletionSound()
+        {
+            CompletionSoundService.PreviewConfiguredSound();
+        }
+
+        public async Task ApplyCustomCompletionSoundAsync(string path)
+        {
+            if (!SponsorService.IsUnlocked)
+            {
+                return;
+            }
+
+            if (await CompletionSoundService.ApplyCustomSoundAsync(path))
+            {
+                OnPropertyChanged(nameof(Settings));
+            }
+        }
+
+        public void ClearCustomCompletionSound()
+        {
+            if (CompletionSoundService.ClearCustomSound())
+            {
+                OnPropertyChanged(nameof(Settings));
+            }
         }
 
         public void HandleLoggingChanged(bool isOn)
         {
             Settings.EnableFileLogging = isOn;
             PushLogOptions();
-            ConfigService.Save();
+            _isDirty = true;
         }
 
         public void HandleLogSizeChanged(double newValue)
         {
             Settings.MaxLogFileSizeMb = (int)Math.Clamp(newValue, 1, 50);
             PushLogOptions();
-            ConfigService.Save();
+            _isDirty = true;
         }
 
         public void HandleRetentionChanged(double newValue)
         {
             Settings.LogRetentionDays = (int)Math.Clamp(newValue, 1, 60);
             PushLogOptions();
-            ConfigService.Save();
+            _isDirty = true;
         }
 
         public void HandleHistoryColorsToggled(bool isOn)
         {
             Settings.UseHistoryStatusColors = isOn;
-            ConfigService.Save();
+            _isDirty = true;
         }
 
         public void HandleStartupSizeChanged(bool isWidth, double newValue)
@@ -546,7 +779,7 @@ namespace FolderRewind.ViewModels
                 Settings.StartupHeight = ClampHeight(newValue);
             }
 
-            ConfigService.Save();
+            _isDirty = true;
         }
 
         public void HandleApplyStartupSize()
@@ -554,7 +787,7 @@ namespace FolderRewind.ViewModels
             Settings.StartupWidth = ClampWidth(Settings.StartupWidth);
             Settings.StartupHeight = ClampHeight(Settings.StartupHeight);
 
-            ConfigService.Save();
+            _isDirty = true;
             ApplyWindowSize(Settings.StartupWidth, Settings.StartupHeight);
         }
 
@@ -567,14 +800,14 @@ namespace FolderRewind.ViewModels
 
             Settings.FontFamily = selectedFontFamily;
             TypographyService.ApplyTypography(Settings);
-            ConfigService.Save();
+            _isDirty = true;
         }
 
         public void HandleFontSizeChanged(double newSize)
         {
             Settings.BaseFontSize = Math.Clamp(newSize, 12, 20);
             TypographyService.ApplyTypography(Settings);
-            ConfigService.Save();
+            _isDirty = true;
         }
 
         public void HandlePluginsEnabledToggled(bool isOn)
@@ -586,7 +819,7 @@ namespace FolderRewind.ViewModels
         public void HandlePluginsAutoCheckUpdatesToggled(bool isOn)
         {
             Settings.Plugins.AutoCheckUpdates = isOn;
-            ConfigService.Save();
+            _isDirty = true;
         }
 
         public void HandlePluginEnabledToggled(string pluginId, bool isOn)
@@ -634,10 +867,56 @@ namespace FolderRewind.ViewModels
             }
         }
 
+        public async Task<CloudOnboardingResult> StartCloudPresetAsync()
+        {
+            if (IsCloudPresetRunning)
+            {
+                return new CloudOnboardingResult
+                {
+                    Success = false,
+                    Message = CloudPresetStatusText
+                };
+            }
+
+            var provider = SelectedCloudPresetOption;
+            if (provider == null)
+            {
+                var message = I18n.GetString("CloudOnboarding_NoProvider");
+                CloudPresetStatusText = message;
+                NotificationService.ShowWarning(message, I18n.GetString("CloudOnboarding_Title"));
+                return new CloudOnboardingResult
+                {
+                    Success = false,
+                    Message = message
+                };
+            }
+
+            IsCloudPresetRunning = true;
+            CloudPresetStatusText = I18n.GetString("CloudOnboarding_Status_Start");
+
+            try
+            {
+                var progress = new Progress<string>(status =>
+                {
+                    CloudPresetStatusText = status;
+                });
+
+                var result = await CloudOnboardingService.InstallPresetAsync(provider, progress);
+                CloudPresetStatusText = result.Message;
+
+                OnPropertyChanged(nameof(Settings));
+                return result;
+            }
+            finally
+            {
+                IsCloudPresetRunning = false;
+            }
+        }
+
         public void HandleKnotLinkToggled(bool isOn)
         {
             Settings.EnableKnotLink = isOn;
-            ConfigService.Save();
+            _isDirty = true;
 
             if (isOn)
             {
@@ -651,9 +930,10 @@ namespace FolderRewind.ViewModels
             UpdateKnotLinkStatus();
         }
 
-        public void HandleKnotLinkSettingChanged()
+        public void HandleKnotLinkAutoStartToggled(bool isOn)
         {
-            ConfigService.Save();
+            Settings.AutoStartKnotLinkServer = isOn;
+            _isDirty = true;
         }
 
         public bool RestartKnotLinkService()
@@ -664,14 +944,81 @@ namespace FolderRewind.ViewModels
             return KnotLinkService.IsInitialized;
         }
 
-        public void HandleKnotLinkResetToDefault()
+        public void RefreshKnotLinkServerInfo()
         {
-            Settings.KnotLinkHost = "127.0.0.1";
-            Settings.KnotLinkAppId = "0x00000020";
-            Settings.KnotLinkOpenSocketId = "0x00000010";
-            Settings.KnotLinkSignalId = "0x00000020";
-            ConfigService.Save();
-            UpdateKnotLinkStatus();
+            KnotLinkServerInstalled = KnotLinkServerManagerService.IsServerInstalled();
+            KnotLinkServerRunning = KnotLinkServerManagerService.IsServerProcessRunning();
+
+            if (KnotLinkServerInstalled)
+            {
+                var version = KnotLinkServerManagerService.GetServerVersion();
+                KnotLinkServerVersionText = version ?? I18n.GetString("SettingsPage_KnotLinkServerNotInstalled");
+            }
+            else
+            {
+                KnotLinkServerVersionText = I18n.GetString("SettingsPage_KnotLinkServerNotInstalled");
+                KnotLinkServerHasUpdate = false;
+                _knotLinkServerUpdateInfo = null;
+            }
+
+            KnotLinkServerStatusBrush = KnotLinkServerRunning
+                ? new SolidColorBrush(Microsoft.UI.Colors.LimeGreen)
+                : KnotLinkServerInstalled
+                    ? new SolidColorBrush(Microsoft.UI.Colors.OrangeRed)
+                    : new SolidColorBrush(Microsoft.UI.Colors.Gray);
+
+            OnPropertyChanged(nameof(KnotLinkServerCanStart));
+            OnPropertyChanged(nameof(KnotLinkServerUpdateEnabled));
+        }
+
+        public async Task<KnotLinkUpdateInfo?> CheckKnotLinkServerUpdateAsync()
+        {
+            KnotLinkServerUpdateChecking = true;
+            try
+            {
+                var info = await KnotLinkServerManagerService.CheckForServerUpdateAsync();
+                _knotLinkServerUpdateInfo = info;
+                KnotLinkServerHasUpdate = info?.HasUpdate ?? false;
+                _knotLinkServerLatestVersion = info?.LatestVersion ?? string.Empty;
+                OnPropertyChanged(nameof(KnotLinkServerUpdateEnabled));
+                return info;
+            }
+            finally
+            {
+                KnotLinkServerUpdateChecking = false;
+            }
+        }
+
+        public bool StartKnotLinkServer()
+        {
+            var result = KnotLinkServerManagerService.TryStartServer();
+            // 等待一小段时间让进程启动，然后刷新状态
+            Task.Delay(500).ContinueWith(_ =>
+            {
+                try
+                {
+                    RefreshKnotLinkServerInfo();
+                }
+                catch { }
+            });
+            return result;
+        }
+
+        public async Task DownloadAndRunKnotLinkInstallerAsync()
+        {
+            if (_knotLinkServerUpdateInfo?.InstallerDownloadUrl == null)
+                throw new InvalidOperationException(I18n.GetString("SettingsPage_KnotLinkServerNoInstaller"));
+
+            var localPath = await KnotLinkServerManagerService.DownloadInstallerAsync(
+                _knotLinkServerUpdateInfo.InstallerDownloadUrl);
+
+            if (localPath == null)
+                throw new InvalidOperationException(I18n.GetString("SettingsPage_KnotLinkServerNoInstaller"));
+
+            KnotLinkServerManagerService.LaunchInstaller(localPath);
+            NotificationService.ShowInfo(
+                I18n.GetString("SettingsPage_KnotLinkServer_InstallerLaunched"),
+                I18n.GetString("SettingsPage_KnotLink_Title"));
         }
 
         public void RefreshCoreValidationState()
@@ -690,6 +1037,10 @@ namespace FolderRewind.ViewModels
             OnPropertyChanged(nameof(IsSponsorLocked));
             OnPropertyChanged(nameof(SponsorStatusText));
             OnPropertyChanged(nameof(Settings));
+            OnPropertyChanged(nameof(SponsorBackgroundImageOpacityPercent));
+            OnPropertyChanged(nameof(SponsorBackgroundOverlayOpacityPercent));
+            ClearSponsorBackgroundCommand.NotifyCanExecuteChanged();
+            ClearCustomCompletionSoundCommand.NotifyCanExecuteChanged();
         }
 
         public void RefreshHotkeyBindingsView()
@@ -1014,6 +1365,28 @@ namespace FolderRewind.ViewModels
             {
                 SponsorTitleIconGlyphs.Add(glyph);
             }
+
+            SponsorBackgroundStretchModes.Clear();
+            SponsorBackgroundStretchModes.Add(I18n.GetString("Sponsor_BackgroundStretch_UniformToFill"));
+            SponsorBackgroundStretchModes.Add(I18n.GetString("Sponsor_BackgroundStretch_Uniform"));
+            SponsorBackgroundStretchModes.Add(I18n.GetString("Sponsor_BackgroundStretch_Fill"));
+
+            CompletionSoundPresets.Clear();
+            for (var i = 0; i < CompletionSoundService.PresetCount; i++)
+            {
+                CompletionSoundPresets.Add(CompletionSoundService.GetPresetName(i));
+            }
+        }
+
+        private void RefreshCloudPresetOptions()
+        {
+            CloudPresetOptions.Clear();
+            foreach (var option in CloudOnboardingService.GetProviderOptions())
+            {
+                CloudPresetOptions.Add(option);
+            }
+
+            SelectedCloudPresetOption = CloudPresetOptions.FirstOrDefault();
         }
 
         private async Task RunSponsorOperationAsync(Func<Task<SponsorOperationResult>> operation)

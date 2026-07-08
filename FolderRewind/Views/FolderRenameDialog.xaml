@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="utf-8"?>
+<ContentDialog
+    x:Class="FolderRewind.Views.FolderRenameDialog"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    Style="{StaticResource DefaultContentDialogStyle}">
+
+    <ContentDialog.Resources>
+        <x:Double x:Key="ContentDialogMinWidth">480</x:Double>
+    </ContentDialog.Resources>
+
+    <StackPanel Spacing="12">
+        <TextBlock x:Uid="FolderRenameDialog_CurrentPathLabel"
+                   Style="{StaticResource CaptionTextBlockStyle}"
+                   Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+        <TextBlock Text="{x:Bind ViewModel.CurrentPath, Mode=OneWay}"
+                   TextWrapping="WrapWholeWords" />
+        <TextBox x:Uid="FolderRenameDialog_NewLeafName"
+                 Text="{x:Bind ViewModel.NewLeafName, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
+        <InfoBar IsClosable="False"
+                 IsOpen="{x:Bind ViewModel.HasImpactSummary, Mode=OneWay}"
+                 Message="{x:Bind ViewModel.ImpactSummary, Mode=OneWay}"
+                 Severity="Informational" />
+    </StackPanel>
+</ContentDialog>

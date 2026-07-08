@@ -13,7 +13,7 @@
         </Grid.RowDefinitions>
 
         <StackPanel Spacing="4" Margin="0,0,0,24">
-            <TextBlock x:Uid="BackupTasksPage_Title" Style="{ThemeResource TitleTextBlockStyle}" AutomationProperties.HeadingLevel="Level1"/>
+            <TextBlock x:Uid="BackupTasksPage_Title" Style="{StaticResource TitleTextBlockStyle}" AutomationProperties.HeadingLevel="Level1"/>
             <TextBlock Text="{x:Bind ViewModel.TaskCount, Mode=OneWay, Converter={StaticResource CountToStringConverter}}" 
                        Foreground="{ThemeResource TextFillColorSecondaryBrush}"/>
         </StackPanel>
@@ -29,8 +29,8 @@
             </ListView.ItemContainerStyle>
             <ListView.ItemTemplate>
                 <DataTemplate x:DataType="models:BackupTask">
-                    <Grid CornerRadius="8" Margin="4">
-                        <Grid Background="{ThemeResource CardBackgroundFillColorDefaultBrush}" CornerRadius="8" Translation="0,0,8" Padding="16">
+                    <Grid CornerRadius="{StaticResource OverlayCornerRadius}" Margin="4">
+                        <Grid Background="{ThemeResource CardBackgroundFillColorDefaultBrush}" CornerRadius="{StaticResource OverlayCornerRadius}" Translation="0,0,8" Padding="16">
                             <Grid.Shadow>
                                 <ThemeShadow />
                             </Grid.Shadow>
@@ -49,9 +49,9 @@
 
                                 <StackPanel Orientation="Horizontal" Spacing="12" VerticalAlignment="Center">
                                     <FontIcon Glyph="{x:Bind IconGlyph}" FontSize="16" Foreground="{ThemeResource SystemControlForegroundAccentBrush}"/>
-                                    <TextBlock Text="{x:Bind FolderName}" Style="{ThemeResource BodyStrongTextBlockStyle}"/>
-                                    <TextBlock Text="-" Foreground="{ThemeResource TextFillColorSecondaryBrush}"/>
-                                    <TextBlock Text="{x:Bind Status, Mode=OneWay}" Foreground="{ThemeResource SystemControlForegroundAccentBrush}"/>
+                                    <TextBlock Text="{x:Bind FolderName}" Style="{StaticResource BodyStrongTextBlockStyle}"/>
+                                    <FontIcon Glyph="&#xE915;" FontSize="8" Foreground="{ThemeResource TextFillColorSecondaryBrush}" VerticalAlignment="Center"/>
+                                    <TextBlock Text="{x:Bind Status, Mode=OneWay}" Foreground="{x:Bind StatusBrush, Mode=OneWay}"/>
                                 </StackPanel>
 
                                 <!-- 进度百分比文字，仅在运行中且有确定进度时显示 -->
@@ -67,14 +67,14 @@
                                          IsIndeterminate="{x:Bind IsIndeterminate, Mode=OneWay}"
                                          Value="{x:Bind Progress, Mode=OneWay}" 
                                          Maximum="100" 
-                                         Margin="0,12,0,0" Height="4" CornerRadius="2"/>
+                                         Margin="0,12,0,0" Height="4" CornerRadius="4"/>
 
                             <!-- Row 2: 失败原因 - 仅在有错误信息时显示 -->
-                            <TextBlock Grid.Row="2" 
+                            <TextBlock Grid.Row="2"
                                        Text="{x:Bind ErrorMessage, Mode=OneWay}"
                                        Foreground="{ThemeResource SystemFillColorCriticalBrush}"
+                                       Style="{StaticResource CaptionTextBlockStyle}"
                                        TextWrapping="Wrap"
-                                       FontSize="12"
                                        Margin="0,8,0,0"
                                        MaxLines="3"
                                        TextTrimming="CharacterEllipsis"

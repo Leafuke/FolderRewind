@@ -85,10 +85,14 @@ namespace FolderRewind
 
             ForceExitRequested = false;
 
+            var startupSw = System.Diagnostics.Stopwatch.StartNew();
+
             try
             {
                 // 配置必须先于窗口创建：后面的语言/主题/尺寸都依赖它。
                 Services.ConfigService.Initialize();
+
+                LogService.Log($"[Startup] Config loaded: {startupSw.ElapsedMilliseconds}ms");
 
                 // 清理 Badge~
                 try
@@ -105,6 +109,8 @@ namespace FolderRewind
                 LogService.MarkSessionStart();
 
                 ApplyLanguageOverride(Services.ConfigService.CurrentConfig.GlobalSettings.Language);
+                LogService.Log($"[Startup] Language applied: {startupSw.ElapsedMilliseconds}ms");
+                Services.SponsorService.InitializeFromCache();
 
                 _window = new MainWindow();
                 // 两个服务在启动时只注入一次，后续页面统一从这里取窗口与 UI 调度入口。
@@ -118,9 +124,11 @@ namespace FolderRewind
                 // 基础外观先准备好，再激活窗口可以减少首帧闪动感。
                 _window.Activate();
 
+                LogService.Log($"[Startup] Window activated: {startupSw.ElapsedMilliseconds}ms");
+
                 _window.DispatcherQueue.TryEnqueue(Microsoft.UI.Dispatching.DispatcherQueuePriority.Low, async () =>
                 {
-                    await Services.SponsorService.RefreshLicenseAsync(false);
+                    await Services.SponsorService.RefreshLicenseAsync(false, allowDowngrade: false);
                 });
 
                 // 静默启动只在“系统启动任务”场景生效，普通手动启动不隐藏窗口。
@@ -193,12 +201,21 @@ namespace FolderRewind
 
                 _window.DispatcherQueue.TryEnqueue(Microsoft.UI.Dispatching.DispatcherQueuePriority.Low, Services.AutomationService.Start);
 
+                LogService.Log($"[Startup] App ready: {startupSw.ElapsedMilliseconds}ms");
+
                 // 初始化 KnotLink 互联服务（根据用户设置决定是否启用）
                 Task.Run(() =>
                 {
                     try
                     {
                         KnotLinkService.Initialize();
+
+                        var settings = Services.ConfigService.CurrentConfig?.GlobalSettings;
+                        if (settings is { EnableKnotLink: true, AutoStartKnotLinkServer: true }
+                            && !KnotLinkServerManagerService.IsServerProcessRunning())
+                        {
+                            KnotLinkServerManagerService.TryStartServer();
+                        }
                     }
                     catch (Exception knotEx)
                     {
@@ -341,6 +358,25 @@ namespace FolderRewind
             {
                 _trayIcon = Resources["TrayIcon"] as TaskbarIcon;
                 _trayIcon?.ForceCreate();
+
+                if (_trayIcon != null)
+                {
+                    _trayIcon.ToolTipText = I18n.GetString("Tray_ToolTip");
+
+                    if (_trayIcon.ContextFlyout is MenuFlyout flyout)
+                    {
+                        var items = flyout.Items;
+                        if (items.Count >= 1 && items[0] is MenuFlyoutItem showHideItem)
+                        {
+                            showHideItem.Text = I18n.GetString("Tray_ShowHide");
+                        }
+
+                        if (items.Count >= 3 && items[2] is MenuFlyoutItem exitItem)
+                        {
+                            exitItem.Text = I18n.GetString("Tray_Exit");
+                        }
+                    }
+                }
             }
             catch (Exception ex)
             {
@@ -407,6 +443,7 @@ namespace FolderRewind
 
         private void OnMainWindowClosed(object sender, WindowEventArgs args)
         {
+            try { Services.MainWindowService.CloseSponsorWindow(); } catch { }
             // 主窗口关闭时清理 Mini 窗口
             try { Services.MiniWindowService.CloseAll(); } catch { }
             CleanupTrayIcon();

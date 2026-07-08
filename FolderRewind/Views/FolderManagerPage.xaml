@@ -11,8 +11,6 @@
     NavigationCacheMode="Enabled">
 
     <Page.Resources>
-        <converters:BoolToStarIconConverter x:Key="BoolToStarIconConverter"/>
-        <converters:BoolToColorConverter x:Key="BoolToColorConverter"/>
         <converters:StringToBitmapConverter x:Key="StringToBitmapConverter"/>
     </Page.Resources>
 
@@ -67,7 +65,7 @@
                             </MenuFlyout>
                         </Button.Flyout>
                     </Button>
-                    <Button x:Name="BackupConfigButton" Style="{ThemeResource AccentButtonStyle}" Click="OnBackupConfigClick">
+                    <Button x:Name="BackupConfigButton" Style="{StaticResource AccentButtonStyle}" Click="OnBackupConfigClick">
                         <StackPanel Orientation="Horizontal" Spacing="8">
                             <FontIcon Glyph="&#xE896;"/>
                             <TextBlock x:Uid="FolderManager_BackupAll"/>
@@ -77,10 +75,10 @@
             </Grid>
 
             <!-- 分割线 -->
-            <MenuFlyoutSeparator Margin="24,0"/>
+            <Border Height="1" Background="{ThemeResource DividerStrokeColorDefaultBrush}" Margin="24,0"/>
 
             <!-- 第二行：选中项操作与注释 -->
-            <Grid Padding="24,10,24,12" Background="{ThemeResource LayerFillColorDefaultBrush}">
+            <Grid Padding="24,8,24,12" Background="{ThemeResource LayerFillColorDefaultBrush}">
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="Auto"/>
                     <ColumnDefinition Width="*"/>
@@ -89,7 +87,7 @@
 
                 <StackPanel Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
                     <FontIcon Glyph="&#xE8B7;" FontSize="16" Foreground="{ThemeResource AccentFillColorDefaultBrush}"/>
-                    <TextBlock x:Uid="FolderManager_SelectedAction" VerticalAlignment="Center" Style="{ThemeResource BodyStrongTextBlockStyle}"/>
+                    <TextBlock x:Uid="FolderManager_SelectedAction" VerticalAlignment="Center" Style="{StaticResource BodyStrongTextBlockStyle}"/>
                     <TextBlock Text="{x:Bind ViewModel.SelectedFolderDisplayName, Mode=OneWay}" 
                                VerticalAlignment="Center" Foreground="{ThemeResource TextFillColorSecondaryBrush}"/>
                 </StackPanel>
@@ -108,7 +106,7 @@
 
                 <!-- 右侧：针对选中项的按钮 -->
                 <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="8">
-                    <Button x:Name="BackupSelectedButton" IsEnabled="{x:Bind ViewModel.HasSelectedFolder, Mode=OneWay}" Click="OnBackupSelectedClick" Style="{ThemeResource AccentButtonStyle}">
+                    <Button x:Name="BackupSelectedButton" IsEnabled="{x:Bind ViewModel.HasSelectedFolder, Mode=OneWay}" Click="OnBackupSelectedClick" Style="{StaticResource AccentButtonStyle}">
                         <StackPanel Orientation="Horizontal" Spacing="8">
                             <FontIcon Glyph="&#xE898;"/>
                             <TextBlock x:Uid="FolderManager_BackupSelected"/>
@@ -140,7 +138,7 @@
                     <Setter Property="Template">
                         <Setter.Value>
                             <ControlTemplate TargetType="ListViewItem">
-                                <Grid x:Name="Root" Background="Transparent" CornerRadius="8">
+                                <Grid x:Name="Root" Background="Transparent" CornerRadius="{StaticResource OverlayCornerRadius}">
                                     <!-- 左侧选中指示条 -->
                                     <Border x:Name="SelectionIndicator"
                                             Width="3"
@@ -220,11 +218,11 @@
             <ListView.ItemTemplate>
                 <DataTemplate x:DataType="models:ManagedFolder">
                     <!-- 文件夹卡片：优化后的布局 -->
-                    <Grid Margin="8,6" Padding="14,12" 
-                          Background="{ThemeResource CardBackgroundFillColorDefaultBrush}" 
+                    <Grid Margin="8,6" Padding="14,12"
+                          Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
                           BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
                           BorderThickness="1"
-                          CornerRadius="8">
+                          CornerRadius="{StaticResource OverlayCornerRadius}">
                         <Grid.ColumnDefinitions>
                             <ColumnDefinition Width="Auto"/>
                             <ColumnDefinition Width="*"/>
@@ -232,11 +230,11 @@
                         </Grid.ColumnDefinitions>
 
                         <!-- 1. 封面图片区域 -->
-                        <Button Padding="0" CornerRadius="8" Width="72" Height="72" BorderThickness="0" Background="Transparent" 
+                        <Button Padding="0" CornerRadius="{StaticResource OverlayCornerRadius}" Width="72" Height="72" BorderThickness="0" Background="Transparent"
                             Click="OnChangeIconClick" x:Uid="FolderManager_ChangeCover">
                             <Grid>
                                 <!-- 默认图标（无图片时显示） -->
-                                <Border Background="{ThemeResource SystemControlPageBackgroundChromeLowBrush}" CornerRadius="8">
+                                <Border Background="{ThemeResource LayerFillColorDefaultBrush}" CornerRadius="{StaticResource OverlayCornerRadius}">
                                     <FontIcon Glyph="&#xE8B9;" FontSize="32" Foreground="{ThemeResource TextFillColorTertiaryBrush}"/>
                                 </Border>
                                 <!-- 封面图片 -->
@@ -247,16 +245,16 @@
                         <!-- 2. 信息区域 -->
                         <StackPanel Grid.Column="1" Margin="16,0,12,0" VerticalAlignment="Center" Spacing="3">
                             <StackPanel Orientation="Horizontal" Spacing="8">
-                                <TextBlock Text="{x:Bind DisplayName}" Style="{ThemeResource SubtitleTextBlockStyle}"/>
+                                <TextBlock Text="{x:Bind DisplayName}" Style="{StaticResource SubtitleTextBlockStyle}"/>
                                 <Button x:Uid="FolderManager_FavoriteToggle" Background="Transparent" BorderThickness="0" Padding="4" Click="OnFavoriteToggleClick">
-                                    <FontIcon Glyph="{Binding IsFavorite, Converter={StaticResource BoolToStarIconConverter}}"
-                                              Foreground="{Binding IsFavorite, Converter={StaticResource BoolToColorConverter}}"/>
+                                    <FontIcon Glyph="{x:Bind IsFavorite, Mode=OneWay, Converter={StaticResource BoolToStarIconConverter}}"
+                                              Foreground="{x:Bind IsFavorite, Mode=OneWay, Converter={StaticResource BoolToColorConverter}}"/>
                                 </Button>
                             </StackPanel>
 
                             <!-- 路径 -->
-                            <TextBlock Text="{x:Bind FullPath}" 
-                                       Style="{ThemeResource CaptionTextBlockStyle}" 
+                            <TextBlock Text="{x:Bind FullPath}"
+                                       Style="{StaticResource CaptionTextBlockStyle}"
                                        Foreground="{ThemeResource TextFillColorSecondaryBrush}"/>
 
                             <!-- 描述 -->
@@ -275,15 +273,15 @@
                                 <StackPanel Orientation="Horizontal" Spacing="4">
                                     <FontIcon Glyph="&#xE73E;" FontSize="12" 
                                               Foreground="{ThemeResource SystemFillColorSuccessBrush}"/>
-                                    <TextBlock Text="{x:Bind StatusText}" 
-                                               Style="{ThemeResource CaptionTextBlockStyle}" 
-                                               Foreground="{ThemeResource SystemFillColorSuccessBrush}"/>
+                                    <TextBlock Text="{x:Bind StatusText}"
+                                               Style="{StaticResource CaptionTextBlockStyle}"
+                                               Foreground="{ThemeResource TextFillColorTertiaryBrush}"/>
                                 </StackPanel>
                                 <StackPanel Orientation="Horizontal" Spacing="4">
                                     <FontIcon Glyph="&#xE823;" FontSize="11" 
                                               Foreground="{ThemeResource TextFillColorTertiaryBrush}"/>
-                                    <TextBlock Text="{x:Bind LastBackupTime}" 
-                                               Style="{ThemeResource CaptionTextBlockStyle}" 
+                                    <TextBlock Text="{x:Bind LastBackupTime}"
+                                               Style="{StaticResource CaptionTextBlockStyle}"
                                                Foreground="{ThemeResource TextFillColorTertiaryBrush}"/>
                                 </StackPanel>
                             </StackPanel>
@@ -295,6 +293,12 @@
                             <Button.Flyout>
                                 <MenuFlyout>
                                     <MenuFlyoutItem x:Uid="FolderManager_OpenFolder" Icon="Folder" Click="OnOpenFolderClick"/>
+                                    <MenuFlyoutItem x:Uid="FolderManager_Details" Click="OnShowFolderDetailsClick">
+                                        <MenuFlyoutItem.Icon>
+                                            <FontIcon Glyph="&#xE946;"/>
+                                        </MenuFlyoutItem.Icon>
+                                    </MenuFlyoutItem>
+                                    <MenuFlyoutItem x:Uid="FolderManager_RenameFolder" Icon="Rename" Click="OnRenameFolderClick"/>
                                     <MenuFlyoutItem x:Uid="FolderManager_Rescan" Icon="Refresh"/>
                                     <MenuFlyoutItem x:Uid="FolderManager_MiniWindow" Click="OnOpenMiniWindowClick">
                                         <MenuFlyoutItem.Icon>

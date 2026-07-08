@@ -235,7 +235,7 @@
     <value>文件夹名称: {0}</value>
   </data>
   <data name="ShellPage_FolderConflict_Footer" xml:space="preserve">
-    <value>由于备份、metadata、云同步和还原仍按显示名定位，这些冲突会让不同文件夹共用同一槽位。</value>
+    <value>由于备份、元数据、云同步和还原均按显示名定位，这些冲突会导致不同文件夹共用同一备份槽位。</value>
   </data>
   <data name="ShellPage_NavHome.Content" xml:space="preserve">
     <value>主页</value>
@@ -283,10 +283,13 @@
     <value>插件系统开关、安装与管理</value>
   </data>
   <data name="SettingsPage_KnotLinkSectionDesc.Text" xml:space="preserve">
-    <value>与 KnotLink 服务互联及高级参数</value>
+    <value>与 KnotLink 服务互联及服务端管理</value>
   </data>
   <data name="SettingsPage_Section_General.Text" xml:space="preserve">
     <value>常规</value>
+  </data>
+  <data name="SettingsPage_Section_Presets.Text" xml:space="preserve">
+    <value>预设</value>
   </data>
   <data name="SettingsPage_Section_Tools.Text" xml:space="preserve">
     <value>工具与依赖</value>
@@ -301,7 +304,7 @@
     <value>关于 FolderRewind</value>
   </data>
   <data name="SettingsPage_AboutDesc.Text" xml:space="preserve">
-    <value>© 2025 Leafuke。GPL 开源许可。</value>
+    <value>© 2025-2026 Leafuke。GPL 开源许可。</value>
   </data>
   <data name="SettingsPage_About_Link_Repository.Content" xml:space="preserve">
     <value>项目主页</value>
@@ -319,7 +322,7 @@
     <value>静默启动</value>
   </data>
   <data name="SettingsPage_SilentStartupDesc.Text" xml:space="preserve">
-    <value>仅在开机自启时隐藏主界面，仅显示托盘图标</value>
+    <value>开机自启时隐藏主界面，仅在系统托盘显示图标</value>
   </data>
   <data name="SettingsPage_Environment.Text" xml:space="preserve">
     <value>运行环境</value>
@@ -328,7 +331,7 @@
     <value>7-Zip 可执行文件路径</value>
   </data>
   <data name="SettingsPage_7zPathDesc.Text" xml:space="preserve">
-    <value>用于执行压缩的核心组件</value>
+    <value>压缩和解压所必需的组件</value>
   </data>
   <data name="SettingsPage_BrowseButton.Content" xml:space="preserve">
     <value>浏览...</value>
@@ -376,7 +379,7 @@
     <value>基础字号</value>
   </data>
   <data name="SettingsPage_FontSizeDesc.Text" xml:space="preserve">
-    <value>12–20 号，影响文字区块</value>
+    <value>12–20 pt，影响大部分界面文字</value>
   </data>
   <data name="SettingsPage_Sponsor.Text" xml:space="preserve">
     <value>赞助者版本</value>
@@ -395,6 +398,9 @@
   </data>
   <data name="SettingsPage_SponsorLocked.Text" xml:space="preserve">
     <value>尚未解锁</value>
+  </data>
+  <data name="SettingsPage_SponsorLockedDesc.Text" xml:space="preserve">
+    <value>购买或恢复赞助者版本后即可使用这些外观功能。</value>
   </data>
   <data name="SettingsPage_SponsorAccent.Text" xml:space="preserve">
     <value>主题颜色</value>
@@ -420,11 +426,65 @@
   <data name="SettingsPage_SponsorTitleIconDesc.Text" xml:space="preserve">
     <value>自定义标题栏图标</value>
   </data>
-  <data name="SettingsPage_SponsorBadge.Text" xml:space="preserve">
-    <value>支持者徽标</value>
+  <data name="SettingsPage_SponsorBackground.Text" xml:space="preserve">
+    <value>背景图片</value>
   </data>
-  <data name="SettingsPage_SponsorBadgeDesc.Text" xml:space="preserve">
-    <value>在标题栏显示一个小小的支持者标记</value>
+  <data name="SettingsPage_SponsorBackgroundDesc.Text" xml:space="preserve">
+    <value>选择一张图片作为软件背景，文件会复制到应用配置目录</value>
+  </data>
+  <data name="SettingsPage_SponsorBackgroundChoose.Content" xml:space="preserve">
+    <value>选择图片</value>
+  </data>
+  <data name="SettingsPage_SponsorBackgroundClear.Content" xml:space="preserve">
+    <value>清除背景</value>
+  </data>
+  <data name="SettingsPage_SponsorBackgroundEnabled.Text" xml:space="preserve">
+    <value>启用背景图片</value>
+  </data>
+  <data name="SettingsPage_SponsorBackgroundEnabledDesc.Text" xml:space="preserve">
+    <value>临时关闭时会保留已选择的图片</value>
+  </data>
+  <data name="SettingsPage_SponsorBackgroundStretch.Text" xml:space="preserve">
+    <value>背景显示方式</value>
+  </data>
+  <data name="SettingsPage_SponsorBackgroundStretchDesc.Text" xml:space="preserve">
+    <value>根据图片比例选择填充、完整显示或拉伸</value>
+  </data>
+  <data name="SettingsPage_SponsorBackgroundImageOpacity.Text" xml:space="preserve">
+    <value>图片透明度</value>
+  </data>
+  <data name="SettingsPage_SponsorBackgroundImageOpacityDesc.Text" xml:space="preserve">
+    <value>降低图片存在感，让界面内容更清楚</value>
+  </data>
+  <data name="SettingsPage_SponsorBackgroundOverlayOpacity.Text" xml:space="preserve">
+    <value>背景遮罩强度</value>
+  </data>
+  <data name="SettingsPage_SponsorBackgroundOverlayOpacityDesc.Text" xml:space="preserve">
+    <value>增加遮罩可以改善文字和卡片可读性</value>
+  </data>
+  <data name="SettingsPage_CompletionSound.Text" xml:space="preserve">
+    <value>完成音效</value>
+  </data>
+  <data name="SettingsPage_CompletionSoundDesc.Text" xml:space="preserve">
+    <value>备份或还原完成时播放一个系统音效</value>
+  </data>
+  <data name="SettingsPage_CompletionSoundPreview.Content" xml:space="preserve">
+    <value>试听</value>
+  </data>
+  <data name="SettingsPage_CustomCompletionSound.Text" xml:space="preserve">
+    <value>自定义完成音效</value>
+  </data>
+  <data name="SettingsPage_CustomCompletionSoundDesc.Text" xml:space="preserve">
+    <value>赞助者可以自定义备份完成时的提示音效</value>
+  </data>
+  <data name="SettingsPage_CustomCompletionSoundChoose.Content" xml:space="preserve">
+    <value>自定义音效</value>
+  </data>
+  <data name="SettingsPage_CustomCompletionSoundClear.Content" xml:space="preserve">
+    <value>清除自定义</value>
+  </data>
+  <data name="SettingsPage_About_Link_Sponsors.Content" xml:space="preserve">
+    <value>赞助者名单</value>
   </data>
   <data name="Sponsor_Title" xml:space="preserve">
     <value>赞助者版本</value>
@@ -435,8 +495,11 @@
   <data name="Sponsor_Status_Unlocked" xml:space="preserve">
     <value>已解锁赞助者版本，感谢你的支持。</value>
   </data>
+  <data name="Sponsor_Status_UnlockedCached" xml:space="preserve">
+    <value>已使用本机保存的赞助者状态，后台会继续刷新授权。</value>
+  </data>
   <data name="Sponsor_Status_Locked" xml:space="preserve">
-    <value>尚未购买赞助加载项；兑换促销码后可点击恢复购买。</value>
+    <value>尚未购买赞助者版本；兑换促销码后可点击恢复购买。</value>
   </data>
   <data name="Sponsor_Status_RefreshFailed" xml:space="preserve">
     <value>刷新赞助状态失败：{0}</value>
@@ -486,6 +549,69 @@
   <data name="Sponsor_Backdrop_Acrylic" xml:space="preserve">
     <value>Acrylic</value>
   </data>
+  <data name="Sponsor_BackgroundStretch_UniformToFill" xml:space="preserve">
+    <value>填满窗口</value>
+  </data>
+  <data name="Sponsor_BackgroundStretch_Uniform" xml:space="preserve">
+    <value>完整显示</value>
+  </data>
+  <data name="Sponsor_BackgroundStretch_Fill" xml:space="preserve">
+    <value>拉伸填充</value>
+  </data>
+  <data name="CompletionSound_None" xml:space="preserve">
+    <value>无</value>
+  </data>
+  <data name="CompletionSound_Default" xml:space="preserve">
+    <value>默认提示</value>
+  </data>
+  <data name="CompletionSound_CustomLocked" xml:space="preserve">
+    <value>自定义完成音效为赞助者版本专属功能。</value>
+  </data>
+  <data name="CompletionSound_FileMissing" xml:space="preserve">
+    <value>找不到选择的音频文件。</value>
+  </data>
+  <data name="CompletionSound_UnsupportedFormat" xml:space="preserve">
+    <value>暂不支持这种音频格式，请选择 WAV、MP3、M4A、AAC、WMA 或 FLAC。</value>
+  </data>
+  <data name="CompletionSound_CustomApplied" xml:space="preserve">
+    <value>自定义完成音效已应用。</value>
+  </data>
+  <data name="CompletionSound_CustomCleared" xml:space="preserve">
+    <value>自定义完成音效已清除，将使用默认音效。</value>
+  </data>
+  <data name="CompletionSound_CustomApplyFailed" xml:space="preserve">
+    <value>应用自定义音效失败：{0}</value>
+  </data>
+  <data name="CompletionSound_CustomClearFailed" xml:space="preserve">
+    <value>清除自定义音效失败：{0}</value>
+  </data>
+  <data name="CompletionSound_CustomPickerFailed" xml:space="preserve">
+    <value>打开音频选择器失败：{0}</value>
+  </data>
+  <data name="Sponsor_BackgroundLocked" xml:space="preserve">
+    <value>请先解锁赞助者版本。</value>
+  </data>
+  <data name="Sponsor_BackgroundFileMissing" xml:space="preserve">
+    <value>找不到选择的背景图片。</value>
+  </data>
+  <data name="Sponsor_BackgroundUnsupportedFormat" xml:space="preserve">
+    <value>暂不支持这种图片格式，请选择 PNG、JPG、BMP、GIF 或 WebP。</value>
+  </data>
+  <data name="Sponsor_BackgroundApplied" xml:space="preserve">
+    <value>背景图片已应用。</value>
+  </data>
+  <data name="Sponsor_BackgroundCleared" xml:space="preserve">
+    <value>背景图片已清除。</value>
+  </data>
+  <data name="Sponsor_BackgroundApplyFailed" xml:space="preserve">
+    <value>应用背景图片失败：{0}</value>
+  </data>
+  <data name="Sponsor_BackgroundClearFailed" xml:space="preserve">
+    <value>清除背景图片失败：{0}</value>
+  </data>
+  <data name="Sponsor_BackgroundPickerFailed" xml:space="preserve">
+    <value>打开图片选择器失败：{0}</value>
+  </data>
   <data name="Sponsor_Log_RefreshFailed" xml:space="preserve">
     <value>[Sponsor] 刷新加载项授权失败：{0}</value>
   </data>
@@ -518,6 +644,36 @@
   </data>
   <data name="Sponsor_Log_OpenSponsorPolicyFailed" xml:space="preserve">
     <value>[Sponsor] 打开赞助者版策略失败：{0}</value>
+  </data>
+  <data name="Sponsor_Log_AppLicenseProbeFailed" xml:space="preserve">
+    <value>[Sponsor] 读取 AppLicense 失败：{0}</value>
+  </data>
+  <data name="Sponsor_Log_UserCollectionProbeFailed" xml:space="preserve">
+    <value>[Sponsor] 读取用户 Durable Collection 失败：{0}</value>
+  </data>
+  <data name="Sponsor_Log_BackgroundApplyFailed" xml:space="preserve">
+    <value>[Sponsor] 应用背景图片失败：{0}</value>
+  </data>
+  <data name="Sponsor_Log_BackgroundClearFailed" xml:space="preserve">
+    <value>[Sponsor] 清除背景图片失败：{0}</value>
+  </data>
+  <data name="Sponsor_Log_BackgroundPickerFailed" xml:space="preserve">
+    <value>[Sponsor] 背景图片选择器失败：{0}</value>
+  </data>
+  <data name="Sponsor_Log_BackgroundLoadFailed" xml:space="preserve">
+    <value>[Sponsor] 加载背景图片失败：{0}</value>
+  </data>
+  <data name="CompletionSound_Log_PlayFailed" xml:space="preserve">
+    <value>[CompletionSound] 播放完成音效失败：{0}</value>
+  </data>
+  <data name="CompletionSound_Log_CustomApplyFailed" xml:space="preserve">
+    <value>[CompletionSound] 应用自定义音效失败：{0}</value>
+  </data>
+  <data name="CompletionSound_Log_CustomClearFailed" xml:space="preserve">
+    <value>[CompletionSound] 清除自定义音效失败：{0}</value>
+  </data>
+  <data name="CompletionSound_Log_CustomPickerFailed" xml:space="preserve">
+    <value>[CompletionSound] 音频选择器失败：{0}</value>
   </data>
   <data name="SponsorWindow_Title.Text" xml:space="preserve">
     <value>赞助 FolderRewind</value>
@@ -565,7 +721,7 @@
     <value>自动</value>
   </data>
   <data name="HistoryPage_Title.Text" xml:space="preserve">
-    <value>备份历史与恢复</value>
+    <value>备份历史与还原</value>
   </data>
   <data name="HistoryPage_ConfigFilter.Header" xml:space="preserve">
     <value>所属配置</value>
@@ -577,7 +733,7 @@
     <value>请先选择配置</value>
   </data>
   <data name="HistoryPage_CommentFilter.PlaceholderText" xml:space="preserve">
-    <value>按备注搜索（支持模糊匹配）</value>
+    <value>按备注搜索</value>
   </data>
   <data name="HistoryPage_UseStatusColors.Header" xml:space="preserve">
     <value>状态颜色</value>
@@ -591,14 +747,14 @@
   <data name="HistoryPage_ClearMissing.Content" xml:space="preserve">
     <value>清除失效</value>
   </data>
-  <data name="HistoryPage_RestoreButton.Content" xml:space="preserve">
-    <value>恢复</value>
+  <data name="HistoryPage_RestoreButton.ToolTipService.ToolTip" xml:space="preserve">
+    <value>还原</value>
   </data>
   <data name="HistoryPage_EmptyState.Text" xml:space="preserve">
     <value>请选择文件夹以查看历史</value>
   </data>
   <data name="FolderManager_CurrentConfig.Text" xml:space="preserve">
-    <value>当前配置:</value>
+    <value>当前配置：</value>
   </data>
   <data name="FolderManager_ConfigSettingsButton.ToolTipService.ToolTip" xml:space="preserve">
     <value>配置设置</value>
@@ -634,16 +790,16 @@
     <value>插件发现了 {0} 个文件夹，是否全部添加到当前配置？</value>
   </data>
   <data name="FolderManager_BackupAll.Text" xml:space="preserve">
-    <value>一键备份所有</value>
+    <value>备份全部文件夹</value>
   </data>
   <data name="FolderManager_SelectedAction.Text" xml:space="preserve">
     <value>选中项操作：</value>
   </data>
   <data name="FolderManager_BackupComment.Text" xml:space="preserve">
-    <value>本次备份注释:</value>
+    <value>本次备份注释：</value>
   </data>
   <data name="FolderManager_CommentPlaceholder.PlaceholderText" xml:space="preserve">
-    <value>例如: 修复了一处bug (选填)</value>
+    <value>例如：修复了一处问题（选填）</value>
   </data>
   <data name="FolderManager_BackupSelected.Text" xml:space="preserve">
     <value>备份此文件夹</value>
@@ -668,48 +824,6 @@
   </data>
   <data name="FolderManager_RemoveFolder.Text" xml:space="preserve">
     <value>从配置中移除</value>
-  </data>
-  <data name="ConfigurationPage_BackToOverview.Text" xml:space="preserve">
-    <value>返回概览</value>
-  </data>
-  <data name="ConfigurationPage_AddFolder.Text" xml:space="preserve">
-    <value>添加文件夹</value>
-  </data>
-  <data name="ConfigurationPage_AddSingleFolder.Text" xml:space="preserve">
-    <value>选择单个文件夹</value>
-  </data>
-  <data name="ConfigurationPage_BatchImport.Text" xml:space="preserve">
-    <value>批量导入</value>
-  </data>
-  <data name="ConfigurationPage_BackupAll.Text" xml:space="preserve">
-    <value>备份全部</value>
-  </data>
-  <data name="ConfigurationPage_ConfigSettings.Text" xml:space="preserve">
-    <value>配置设置</value>
-  </data>
-  <data name="ConfigurationPage_HeaderIcon.Text" xml:space="preserve">
-    <value>图标</value>
-  </data>
-  <data name="ConfigurationPage_HeaderNamePath.Text" xml:space="preserve">
-    <value>名称 / 路径</value>
-  </data>
-  <data name="ConfigurationPage_HeaderStatus.Text" xml:space="preserve">
-    <value>状态</value>
-  </data>
-  <data name="ConfigurationPage_HeaderActions.Text" xml:space="preserve">
-    <value>操作</value>
-  </data>
-  <data name="ConfigurationPage_BackupNow.Text" xml:space="preserve">
-    <value>立即备份</value>
-  </data>
-  <data name="ConfigurationPage_Remove.Text" xml:space="preserve">
-    <value>移除</value>
-  </data>
-  <data name="ConfigurationPage_BatchBackup.Content" xml:space="preserve">
-    <value>批量备份</value>
-  </data>
-  <data name="ConfigurationPage_BatchDelete.Content" xml:space="preserve">
-    <value>批量删除</value>
   </data>
   <data name="ConfigSettingsDialog.Title" xml:space="preserve">
     <value>配置详情设置</value>
@@ -754,7 +868,7 @@
     <value>切换配置类型会影响插件是否介入备份流程（例如 Minecraft 热备份快照）。</value>
   </data>
   <data name="ConfigSettingsDialog_DestPath.Text" xml:space="preserve">
-    <value>备份存储位置 (目标路径)</value>
+    <value>备份存储位置</value>
   </data>
   <data name="ConfigSettingsDialog_DestPathPlaceholder.PlaceholderText" xml:space="preserve">
     <value>例如 D:\Backups</value>
@@ -796,7 +910,7 @@
     <value>覆写备份 (更新最近的备份)</value>
   </data>
   <data name="ConfigSettingsDialog_OverwriteWarning" xml:space="preserve">
-    <value>覆写模式只会更新和添加文件，不会删除归档里已经存在但源目录中已删除的旧文件。若你需要精确回到某个时间点，优先使用全量或智能增量并配合 Clean 还原。</value>
+    <value>覆写模式只会更新和添加文件，不会删除归档中源目录已删除的旧文件。如需精确还原到某个时间点，建议使用全量或智能增量备份配合安全还原。</value>
   </data>
   <data name="ConfigSettingsDialog_Format.Header" xml:space="preserve">
     <value>压缩格式</value>
@@ -808,10 +922,10 @@
     <value>zip (通用)</value>
   </data>
   <data name="ConfigSettingsDialog_CompressionLevel.Text" xml:space="preserve">
-    <value>压缩等级 (0-9)</value>
+    <value>压缩等级（0-9）</value>
   </data>
   <data name="ConfigSettingsDialog_KeepCount.Header" xml:space="preserve">
-    <value>保留最近备份数 (0 为无限)</value>
+    <value>保留最近备份数（0 为不限制）</value>
   </data>
   <data name="ConfigSettingsDialog_Method.Header" xml:space="preserve">
     <value>压缩算法</value>
@@ -820,52 +934,52 @@
     <value>无变更时跳过备份</value>
   </data>
   <data name="ConfigSettingsDialog_SkipIfUnchanged.OnContent" xml:space="preserve">
-    <value>已开启</value>
+    <value>开启</value>
   </data>
   <data name="ConfigSettingsDialog_SkipIfUnchanged.OffContent" xml:space="preserve">
-    <value>已关闭</value>
+    <value>关闭</value>
   </data>
   <data name="ConfigSettingsDialog_CpuThreads.Text" xml:space="preserve">
     <value>CPU 线程数</value>
   </data>
   <data name="ConfigSettingsDialog_CpuThreadsDescription" xml:space="preserve">
-    <value>0 = 自动，当前设备最高 {0} 线程</value>
+    <value>0 表示自动，当前设备最高 {0} 线程</value>
   </data>
   <data name="ConfigSettingsDialog_LowPriority.Header" xml:space="preserve">
     <value>以低进程优先级运行压缩任务</value>
   </data>
   <data name="ConfigSettingsDialog_LowPriority.OnContent" xml:space="preserve">
-    <value>已开启</value>
+    <value>开启</value>
   </data>
   <data name="ConfigSettingsDialog_LowPriority.OffContent" xml:space="preserve">
-    <value>已关闭</value>
+    <value>关闭</value>
   </data>
   <data name="ConfigSettingsDialog_LowPriorityDesc.Text" xml:space="preserve">
-    <value>仅影响备份侧 7-Zip 进程，可减少备份期间对游戏和前台应用的抢占。默认关闭。</value>
+    <value>仅影响备份时的 7-Zip 进程，可减少对游戏和前台应用的性能影响。</value>
   </data>
   <data name="ConfigSettingsDialog_BackupBeforeRestore.Header" xml:space="preserve">
     <value>还原前自动备份</value>
   </data>
   <data name="ConfigSettingsDialog_BackupBeforeRestore.OnContent" xml:space="preserve">
-    <value>已开启</value>
+    <value>开启</value>
   </data>
   <data name="ConfigSettingsDialog_BackupBeforeRestore.OffContent" xml:space="preserve">
-    <value>已关闭</value>
+    <value>关闭</value>
   </data>
   <data name="ConfigSettingsDialog_SafeRestore.Header" xml:space="preserve">
-    <value>安全还原（Clean 模式）</value>
+    <value>安全还原</value>
   </data>
   <data name="ConfigSettingsDialog_SafeRestore.OnContent" xml:space="preserve">
-    <value>已开启 - 失败时自动从同目录的 -Temp 副本回滚</value>
+    <value>开启 — 失败时自动从临时副本回滚</value>
   </data>
   <data name="ConfigSettingsDialog_SafeRestore.OffContent" xml:space="preserve">
-    <value>已关闭 - Clean 失败时可能丢失原文件</value>
+    <value>关闭 — 还原失败时可能丢失原文件</value>
   </data>
   <data name="BackupService_RestoreMissingBaseFull_Title" xml:space="preserve">
     <value>无法找到完整还原基准</value>
   </data>
   <data name="BackupService_RestoreMissingBaseFull_Content" xml:space="preserve">
-    <value>未能为目标 Smart 备份“{0}”找到可用的基础 Full，精确 Clean 还原已不可用。若继续，程序将改用兼容性倒序覆盖还原：从当前最新备份一路倒序覆盖到该 Smart 备份。这种方式能尽量回退文件版本，但不会删除多余旧文件。是否继续？</value>
+    <value>未能找到智能增量备份”{0}”对应的基础全量备份，精确安全还原已不可用。继续将改用兼容模式：从最新备份倒序覆写到目标备份。此方式可回退文件版本，但不会删除多余旧文件。是否继续？</value>
   </data>
   <data name="BackupService_RestoreMissingBaseFull_Primary" xml:space="preserve">
     <value>继续兼容还原</value>
@@ -874,16 +988,16 @@
     <value>还原前校验备份完整性</value>
   </data>
   <data name="ConfigSettingsDialog_VerifyArchiveBeforeRestore.OnContent" xml:space="preserve">
-    <value>已开启 - 先执行 7z test</value>
+    <value>开启 — 还原前先校验备份完整性</value>
   </data>
   <data name="ConfigSettingsDialog_VerifyArchiveBeforeRestore.OffContent" xml:space="preserve">
-    <value>已关闭 - 直接进入还原流程</value>
+    <value>关闭 — 跳过校验直接还原</value>
   </data>
   <data name="ConfigSettingsDialog_AutoBackup.Header" xml:space="preserve">
     <value>启用自动备份</value>
   </data>
   <data name="ConfigSettingsDialog_RunOnAppStart.Content" xml:space="preserve">
-    <value>程序启动时运行</value>
+    <value>应用启动时运行</value>
   </data>
   <data name="ConfigSettingsDialog_IntervalMode.Content" xml:space="preserve">
     <value>间隔备份模式</value>
@@ -916,7 +1030,7 @@
     <value>例如：session.lock</value>
   </data>
   <data name="ConfigSettingsDialog_Blacklist.Text" xml:space="preserve">
-    <value>黑名单 (排除的文件/文件夹)</value>
+    <value>排除列表（不备份的文件/文件夹）</value>
   </data>
   <data name="ConfigSettingsDialog_BlacklistPlaceholder.PlaceholderText" xml:space="preserve">
     <value>输入文件名或路径...</value>
@@ -931,7 +1045,7 @@
     <value>还原白名单</value>
   </data>
   <data name="ConfigSettingsDialog_RestoreWhitelistDesc.Text" xml:space="preserve">
-    <value>Clean 还原时不会清除的文件/文件夹，保护特定数据不被删除。</value>
+    <value>安全还原时不会清除的文件/文件夹，保护特定数据不被删除。</value>
   </data>
   <data name="ConfigSettingsDialog_RestoreWhitelistPlaceholder.PlaceholderText" xml:space="preserve">
     <value>输入文件名、相对路径、完整路径或通配符...</value>
@@ -943,16 +1057,16 @@
     <value>智能备份链长度 (0 为不限制)</value>
   </data>
   <data name="ConfigSettingsDialog_MaxSmartChainDesc.Text" xml:space="preserve">
-    <value>当连续增量备份达到此数量后，会自动执行一次全量备份以截断备份链，提高还原效率。仅在增量模式下有效。</value>
+    <value>连续智能增量备份达到此次数后，将自动执行一次全量备份以截断备份链，提高还原效率。仅在智能增量模式下有效。</value>
   </data>
   <data name="ConfigSettingsDialog_SafeDelete.Header" xml:space="preserve">
     <value>安全删除</value>
   </data>
   <data name="ConfigSettingsDialog_SafeDelete.OnContent" xml:space="preserve">
-    <value>已开启 - 删除旧备份时自动合并增量链</value>
+    <value>开启 — 删除旧备份时自动合并增量链</value>
   </data>
   <data name="ConfigSettingsDialog_SafeDelete.OffContent" xml:space="preserve">
-    <value>已关闭 - 直接删除（可能导致增量链断裂）</value>
+    <value>关闭 — 直接删除（可能导致增量链断裂）</value>
   </data>
   <data name="BackupService_Log_SmartChainLimitReached" xml:space="preserve">
     <value>增量备份链长度已达上限 ({0})，强制执行全量备份</value>
@@ -1099,7 +1213,7 @@
     <value>初始全量备份校验</value>
   </data>
   <data name="CoreValidation_Step_LegacyMetadataMigration" xml:space="preserve">
-    <value>旧版 metadata 懒迁移校验</value>
+    <value>旧版元数据懒迁移校验</value>
   </data>
   <data name="CoreValidation_Step_NoChangeSkip" xml:space="preserve">
     <value>无变化跳过校验</value>
@@ -1114,7 +1228,7 @@
     <value>仅删除变更备份校验</value>
   </data>
   <data name="CoreValidation_Step_CleanRestore" xml:space="preserve">
-    <value>清洁还原校验</value>
+    <value>安全还原校验</value>
   </data>
   <data name="CoreValidation_Step_OverwriteRestore" xml:space="preserve">
     <value>覆写还原校验</value>
@@ -1156,13 +1270,13 @@
     <value>启用插件系统</value>
   </data>
   <data name="SettingsPage_PluginsEnabledDesc.Text" xml:space="preserve">
-    <value>开启后可在插件商店下载并启用插件</value>
+    <value>启用后可从插件商店下载和管理插件</value>
   </data>
   <data name="SettingsPage_OpenPluginStore.Content" xml:space="preserve">
     <value>打开插件商店</value>
   </data>
   <data name="SettingsPage_ManualInstallPlugin.Content" xml:space="preserve">
-    <value>手动安装插件</value>
+    <value>从 .zip 安装插件</value>
   </data>
   <data name="SettingsPage_OpenPluginFolder.Content" xml:space="preserve">
     <value>打开插件目录</value>
@@ -1188,6 +1302,12 @@
   <data name="SettingsPage_PluginsAutoCheckUpdatesDesc.Text" xml:space="preserve">
     <value>启动时自动检查已安装插件的更新</value>
   </data>
+  <data name="SettingsPage_Presets.Text" xml:space="preserve">
+    <value>入门预设</value>
+  </data>
+  <data name="SettingsPage_PresetsDesc.Text" xml:space="preserve">
+    <value>常见场景的快速入门配置集中在此，帮助你更快上手。</value>
+  </data>
   <data name="SettingsPage_MinecraftPreset.Text" xml:space="preserve">
     <value>Minecraft 入门预设</value>
   </data>
@@ -1202,6 +1322,18 @@
   </data>
   <data name="SettingsPage_MinecraftPresetInstall.Content" xml:space="preserve">
     <value>一键安装</value>
+  </data>
+  <data name="SettingsPage_CloudPreset.Text" xml:space="preserve">
+    <value>云备份入门预设</value>
+  </data>
+  <data name="SettingsPage_CloudPresetDesc.Text" xml:space="preserve">
+    <value>自动准备 rclone；百度网盘、阿里云盘等服务会额外准备 OpenList，并打开配置引导。</value>
+  </data>
+  <data name="SettingsPage_CloudPresetSteps.Text" xml:space="preserve">
+    <value>选择云服务后开始配置。存档时光机会下载必要工具、写入全局 rclone 路径，并打开云存档文档。</value>
+  </data>
+  <data name="SettingsPage_CloudPresetStart.Content" xml:space="preserve">
+    <value>开始配置</value>
   </data>
   <data name="SettingsPage_PluginUpdate.Content" xml:space="preserve">
     <value>更新</value>
@@ -1222,7 +1354,7 @@
     <value>插件商店</value>
   </data>
   <data name="PluginStorePage_Desc.Text" xml:space="preserve">
-    <value>从 GitHub Release（latest）下载插件 zip。zip 根目录需包含 manifest.json。</value>
+    <value>从 GitHub Release 下载插件压缩包，压缩包根目录需包含 manifest.json。</value>
   </data>
   <data name="PluginStorePage_RepoBox.Header" xml:space="preserve">
     <value>GitHub 仓库 (owner/repo)</value>
@@ -1336,7 +1468,8 @@
     <value>卸载插件</value>
   </data>
   <data name="Plugins_UninstallConfirm" xml:space="preserve">
-    <value>确定卸载插件：{0} ({1})？\n\n提示：如果插件文件被占用，可能需要关闭应用后再卸载。</value>
+    <value>确定卸载插件 {0}（{1}）吗？
+如果插件文件被占用，可能需要关闭应用后再卸载。</value>
   </data>
   <data name="Plugins_UninstallButton" xml:space="preserve">
     <value>卸载</value>
@@ -1471,40 +1604,10 @@
     <value>启用互联功能</value>
   </data>
   <data name="SettingsPage_KnotLinkEnabledDesc.Text" xml:space="preserve">
-    <value>允许其他应用通过 KnotLink 协议远程控制备份任务</value>
+    <value>允许其他应用通过 KnotLink 协议控制备份任务</value>
   </data>
   <data name="SettingsPage_KnotLinkStatus.Text" xml:space="preserve">
     <value>连接状态</value>
-  </data>
-  <data name="SettingsPage_KnotLinkAdvanced.Header" xml:space="preserve">
-    <value>高级设置</value>
-  </data>
-  <data name="SettingsPage_KnotLinkHost.Text" xml:space="preserve">
-    <value>服务器地址</value>
-  </data>
-  <data name="SettingsPage_KnotLinkHostDesc.Text" xml:space="preserve">
-    <value>KnotLink 服务运行的主机地址</value>
-  </data>
-  <data name="SettingsPage_KnotLinkAppId.Text" xml:space="preserve">
-    <value>应用标识符 (AppId)</value>
-  </data>
-  <data name="SettingsPage_KnotLinkAppIdDesc.Text" xml:space="preserve">
-    <value>用于标识本应用，通常无需修改</value>
-  </data>
-  <data name="SettingsPage_KnotLinkOpenSocketId.Text" xml:space="preserve">
-    <value>命令 Socket ID</value>
-  </data>
-  <data name="SettingsPage_KnotLinkOpenSocketIdDesc.Text" xml:space="preserve">
-    <value>用于接收远程命令的通道标识</value>
-  </data>
-  <data name="SettingsPage_KnotLinkSignalId.Text" xml:space="preserve">
-    <value>信号 ID</value>
-  </data>
-  <data name="SettingsPage_KnotLinkSignalIdDesc.Text" xml:space="preserve">
-    <value>用于广播事件的通道标识</value>
-  </data>
-  <data name="SettingsPage_KnotLinkResetDefault.Content" xml:space="preserve">
-    <value>重置为默认值</value>
   </data>
   <data name="SettingsPage_KnotLinkRestart.Content" xml:space="preserve">
     <value>重启服务</value>
@@ -1522,22 +1625,25 @@
     <value>以下命令可通过 KnotLink 远程调用：</value>
   </data>
   <data name="SettingsPage_KnotLinkCommandsBody.Text" xml:space="preserve">
-    <value>新版参数化指令（推荐）：
+    <value>新版参数化指令 v2（推荐）：
+GET_CAPABILITIES
 LIST_CONFIGS
 LIST_FOLDERS -config_id=ID
-LIST_BACKUPS -config_id=ID -name="文件夹名称"
-BACKUP -config_id=ID -name="文件夹名称" -comment="注释" -force_full=true -backup_blacklist=cache;logs
-RESTORE -config_id=ID -name="文件夹名称" -file=backup.7z -mode=clean -restore_whitelist=options.txt;playerdata
-BACKUP_ALL -config_id=ID -comment="注释" -force_full=true
-AUTO_BACKUP -config_id=ID -name="文件夹名称" -interval_minutes=10
-STOP_AUTO_BACKUP -config_id=ID -name="文件夹名称"
-MARK_IMPORTANT -config_id=ID -name="文件夹名称" -file=backup.7z -important=true
+LIST_BACKUPS -from=example.client -request_id=req-list-001 -config_id=ID -folder="文件夹名称"
+BACKUP -from=example.client -request_id=req-backup-001 -config_id=ID -folder="文件夹名称" -comment="注释" -force_full=true -backup_blacklist=cache;logs -backupwhitelist=level.dat;region/r.0.0.mca
+BACKUP -from=example.client -request_id=req-backup-002 -config_id=ID -folder="文件夹名称" -backup_scope=MineRewind.SelectedRegions -scope.dimensions=overworld;nether -scope.areas="0,0,511,511"
+RESTORE -from=example.client -request_id=req-restore-001 -config_id=ID -folder="文件夹名称" -file=backup.7z -mode=clean -restore_whitelist=options.txt;playerdata -confirm_partial_clean=true
+BACKUP_ALL -from=example.client -request_id=req-all-001 -config_id=ID -comment="注释" -force_full=true
+AUTO_BACKUP -from=example.client -request_id=req-auto-001 -config_id=ID -folder="文件夹名称" -interval_minutes=10
+STOP_AUTO_BACKUP -from=example.client -request_id=req-stop-001 -config_id=ID -folder="文件夹名称"
+MARK_IMPORTANT -from=example.client -request_id=req-mark-001 -config_id=ID -folder="文件夹名称" -file=backup.7z -important=true
 
 MineRewind 参数化扩展：
-BACKUP -current_save=true -comment=QuickSave
-LIST_BACKUPS -current_save=true
-RESTORE -current_save=true -file=backup.7z -preserve_player_data=true
+BACKUP -from=minerewind.mod -request_id=req-mr-backup-001 -current_save=true -comment=QuickSave
+LIST_BACKUPS -from=minerewind.mod -request_id=req-mr-list-001 -current_save=true
+RESTORE -from=minerewind.mod -request_id=req-mr-restore-001 -current_save=true -file=backup.7z -preserve_player_data=true
 
+接收端应只处理 from/request_id 匹配自己请求的响应和事件。新版协议使用 folder 参数，不再使用 world 参数。
 旧版位置参数指令仍兼容：BACKUP &lt;config_id&gt; &lt;folder&gt; [comment]、BACKUP_CURRENT、LIST_BACKUPS_CURRENT 等。</value>
   </data>
   <data name="SettingsPage_NavPaneWidth.Text" xml:space="preserve">
@@ -1685,7 +1791,7 @@ RESTORE -current_save=true -file=backup.7z -preserve_player_data=true
     <value>空指令。</value>
   </data>
   <data name="KnotLink_Parse_ExpectedOption" xml:space="preserve">
-    <value>参数化指令只接受 -key=value，当前位置不是参数：{0}</value>
+    <value>参数化指令只接受 -key=value 格式，遇到意外字符：{0}</value>
   </data>
   <data name="KnotLink_Parse_InvalidOption" xml:space="preserve">
     <value>无效参数：{0}。请使用 -key=value。</value>
@@ -1712,7 +1818,7 @@ RESTORE -current_save=true -file=backup.7z -preserve_player_data=true
     <value>缺少 config_id 参数。示例：-config_id=ID</value>
   </data>
   <data name="KnotLink_Error_MissingFolderName" xml:space="preserve">
-    <value>缺少 name 参数。示例：-name=文件夹名称</value>
+    <value>缺少 folder 参数。示例：-folder=文件夹名称</value>
   </data>
   <data name="KnotLink_Error_MissingBackupFile" xml:space="preserve">
     <value>缺少 file 参数。示例：-file=backup.7z</value>
@@ -1728,6 +1834,12 @@ RESTORE -current_save=true -file=backup.7z -preserve_player_data=true
   </data>
   <data name="KnotLink_Error_ConfigCloneFailed" xml:space="preserve">
     <value>无法创建本次指令使用的临时配置。</value>
+  </data>
+  <data name="KnotLink_Error_MissingConversationMetadata" xml:space="preserve">
+    <value>缺少会话元数据：{0}。请在新版参数化指令中追加 -from=来源 和 -request_id=请求ID。</value>
+  </data>
+  <data name="KnotLink_Error_DeprecatedWorldOption" xml:space="preserve">
+    <value>world 参数已弃用。请升级调用方协议并使用 folder 参数。</value>
   </data>
   <data name="KnotLink_ResponderInitSuccess" xml:space="preserve">
     <value>[KnotLink] 命令响应器初始化成功</value>
@@ -1777,7 +1889,7 @@ RESTORE -current_save=true -file=backup.7z -preserve_player_data=true
     <value>发送自定义信息</value>
   </data>
   <data name="SettingsPage_KnotLinkSendCustom_Placeholder" xml:space="preserve">
-    <value>请输入 event_data（将通过 OpenSocket 发送：SEND &lt;event_data&gt;）</value>
+    <value>输入要发送的内容</value>
   </data>
   <data name="SettingsPage_KnotLinkSendCustom_Empty" xml:space="preserve">
     <value>内容不能为空</value>
@@ -1970,7 +2082,7 @@ RESTORE -current_save=true -file=backup.7z -preserve_player_data=true
     <value>正在清空目标目录...</value>
   </data>
   <data name="BackupService_Log_RestoreCleanFailedContinueOverwrite" xml:space="preserve">
-    <value>清理目录失败: {0}，尝试继续覆盖...</value>
+    <value>清理目录失败：{0}，尝试继续覆写还原...</value>
   </data>
   <data name="BackupService_Log_RestoreApplyingArchive" xml:space="preserve">
     <value>应用 {0}</value>
@@ -2060,14 +2172,14 @@ RESTORE -current_save=true -file=backup.7z -preserve_player_data=true
     <value>时间：{0}
 备注：{1}
 
-[Clean] 模式：先清空目标文件夹，再还原（推荐，防止残留）。
-[Overwrite] 模式：直接解压覆盖（可能保留旧文件）。</value>
+安全还原模式：先清空目标文件夹，再还原（推荐，防止残留）。
+覆写还原模式：直接解压覆盖（可能保留旧文件）。</value>
   </data>
   <data name="History_RestoreConfirm_Primary" xml:space="preserve">
-    <value>Clean 还原</value>
+    <value>安全还原</value>
   </data>
   <data name="History_RestoreConfirm_Secondary" xml:space="preserve">
-    <value>Overwrite 还原</value>
+    <value>覆写还原</value>
   </data>
   <data name="SettingsPage_KnotLinkStatus_Disabled" xml:space="preserve">
     <value>未启用</value>
@@ -2083,6 +2195,51 @@ RESTORE -current_save=true -file=backup.7z -preserve_player_data=true
   </data>
   <data name="SettingsPage_KnotLinkStatus_NotInitialized" xml:space="preserve">
     <value>服务未初始化，请点击 [重启服务]</value>
+  </data>
+  <data name="SettingsPage_KnotLinkServerVersion.Text" xml:space="preserve">
+    <value>服务端版本</value>
+  </data>
+  <data name="SettingsPage_KnotLinkServerNotInstalled" xml:space="preserve">
+    <value>未检测到 KnotLink 服务端</value>
+  </data>
+  <data name="SettingsPage_KnotLinkStartServer.Content" xml:space="preserve">
+    <value>启动服务端</value>
+  </data>
+  <data name="SettingsPage_KnotLinkCheckServerUpdate.Content" xml:space="preserve">
+    <value>检测更新</value>
+  </data>
+  <data name="SettingsPage_KnotLinkUpdateServer.Content" xml:space="preserve">
+    <value>更新服务端</value>
+  </data>
+  <data name="SettingsPage_KnotLinkCheckUpdate" xml:space="preserve">
+    <value>检测更新</value>
+  </data>
+  <data name="SettingsPage_KnotLinkUpdateAvailable" xml:space="preserve">
+    <value>有新版本可用: {0}</value>
+  </data>
+  <data name="SettingsPage_KnotLinkUpToDate" xml:space="preserve">
+    <value>已是最新版本</value>
+  </data>
+  <data name="SettingsPage_KnotLinkAutoStart.Text" xml:space="preserve">
+    <value>自动启动服务端</value>
+  </data>
+  <data name="SettingsPage_KnotLinkAutoStartDesc.Text" xml:space="preserve">
+    <value>应用启动时自动启动 KnotLink 服务端</value>
+  </data>
+  <data name="SettingsPage_KnotLinkUpdateServerError" xml:space="preserve">
+    <value>更新检测失败: {0}</value>
+  </data>
+  <data name="SettingsPage_KnotLinkServer_StartSuccess" xml:space="preserve">
+    <value>KnotLink 服务端已启动</value>
+  </data>
+  <data name="SettingsPage_KnotLinkServer_StartFailed" xml:space="preserve">
+    <value>启动失败，请确认服务端已安装</value>
+  </data>
+  <data name="SettingsPage_KnotLinkServerNoInstaller" xml:space="preserve">
+    <value>未找到安装包下载地址</value>
+  </data>
+  <data name="SettingsPage_KnotLinkServer_InstallerLaunched" xml:space="preserve">
+    <value>服务端安装程序已启动，请完成安装后重启应用</value>
   </data>
   <data name="Common_Save" xml:space="preserve">
     <value>保存</value>
@@ -2196,7 +2353,7 @@ RESTORE -current_save=true -file=backup.7z -preserve_player_data=true
     <value>关闭窗口按钮行为</value>
   </data>
   <data name="SettingsPage_CloseBehaviorDesc.Text" xml:space="preserve">
-    <value>控制点击窗口右上角关闭按钮时的动作。</value>
+    <value>设置点击窗口关闭按钮时的行为。</value>
   </data>
   <data name="SettingsPage_CloseBehavior_Ask.Content" xml:space="preserve">
     <value>每次询问</value>
@@ -2211,7 +2368,7 @@ RESTORE -current_save=true -file=backup.7z -preserve_player_data=true
     <value>关闭应用</value>
   </data>
   <data name="CloseDialog_Content" xml:space="preserve">
-    <value>你希望关闭窗口时执行什么操作？</value>
+    <value>关闭窗口时执行什么操作？</value>
   </data>
   <data name="CloseDialog_MinimizeToTray" xml:space="preserve">
     <value>最小化到托盘</value>
@@ -2222,14 +2379,15 @@ RESTORE -current_save=true -file=backup.7z -preserve_player_data=true
   <data name="CloseDialog_Remember" xml:space="preserve">
     <value>记住我的选择</value>
   </data>
-  <data name="HistoryPage_DeleteButton.Content" xml:space="preserve">
+  <data name="HistoryPage_DeleteButton.ToolTipService.ToolTip" xml:space="preserve">
     <value>删除</value>
   </data>
   <data name="History_DeleteConfirm_Title" xml:space="preserve">
     <value>删除历史记录</value>
   </data>
   <data name="History_DeleteConfirm_Content" xml:space="preserve">
-    <value>将要处理该条历史记录：{0} \n\n请选择仅删除记录、仅删除本地备份文件，或同时删除本地备份与记录。云端副本不会被移除。</value>
+    <value>将要处理该条历史记录：{0} 
+请选择仅删除记录、仅删除本地备份文件，或同时删除本地备份与记录。云端副本不会被移除。</value>
   </data>
   <data name="History_ClearMissingConfirm_Title" xml:space="preserve">
     <value>清除失效记录</value>
@@ -2271,7 +2429,7 @@ RESTORE -current_save=true -file=backup.7z -preserve_player_data=true
     <value>启用通知提醒</value>
   </data>
   <data name="SettingsPage_EnableNotificationsDesc.Text" xml:space="preserve">
-    <value>启用后将显示应用内通知、系统 Toast 和角标（如有）</value>
+    <value>启用后将显示应用内通知和系统弹窗</value>
   </data>
   <data name="Notification_Success_Title" xml:space="preserve">
     <value>成功</value>
@@ -2301,13 +2459,13 @@ RESTORE -current_save=true -file=backup.7z -preserve_player_data=true
     <value>备份失败</value>
   </data>
   <data name="Notification_RestoreCompleted_Title" xml:space="preserve">
-    <value>恢复完成</value>
+    <value>还原完成</value>
   </data>
   <data name="Notification_RestoreCompleted_Success" xml:space="preserve">
-    <value>文件夹 "{0}" 已成功恢复</value>
+    <value>文件夹 "{0}" 已成功还原</value>
   </data>
   <data name="Notification_RestoreCompleted_Failed" xml:space="preserve">
-    <value>文件夹 "{0}" 恢复失败：{1}</value>
+    <value>文件夹 "{0}" 还原失败：{1}</value>
   </data>
   <data name="CloudSync_Notification_Title" xml:space="preserve">
     <value>云存档</value>
@@ -2385,7 +2543,7 @@ RESTORE -current_save=true -file=backup.7z -preserve_player_data=true
     <value>文件大小警告阈值</value>
   </data>
   <data name="SettingsPage_FileSizeWarningThresholdDesc.Text" xml:space="preserve">
-    <value>备份文件小于此大小时触发警告通知，设为 0 则禁用</value>
+    <value>备份文件小于此阈值时触发警告，设为 0 可禁用</value>
   </data>
   <data name="BackupService_Log_FileSizeTooSmall" xml:space="preserve">
     <value>警告：文件夹 "{0}" 的备份文件仅 {1} KB，小于阈值 {2} KB</value>
@@ -2490,10 +2648,10 @@ RESTORE -current_save=true -file=backup.7z -preserve_player_data=true
     <value>重复未发现变更后停止自动任务</value>
   </data>
   <data name="ConfigSettingsDialog_StopAfterNoChange.OnContent" xml:space="preserve">
-    <value>已开启</value>
+    <value>开启</value>
   </data>
   <data name="ConfigSettingsDialog_StopAfterNoChange.OffContent" xml:space="preserve">
-    <value>已关闭</value>
+    <value>关闭</value>
   </data>
   <data name="ConfigSettingsDialog_StopAfterNoChangePrefix.Text" xml:space="preserve">
     <value>连续</value>
@@ -2505,7 +2663,7 @@ RESTORE -current_save=true -file=backup.7z -preserve_player_data=true
     <value>“{0}” 的自动备份已停止：连续 {1} 次未检测到变更。</value>
   </data>
   <data name="AutoBackup_Reason_AppStart" xml:space="preserve">
-    <value>程序启动时运行</value>
+    <value>应用启动时运行</value>
   </data>
   <data name="AutoBackup_Reason_Interval" xml:space="preserve">
     <value>间隔备份（每 {0} 分钟）</value>
@@ -2577,7 +2735,7 @@ RESTORE -current_save=true -file=backup.7z -preserve_player_data=true
     <value>数据迁移</value>
   </data>
   <data name="SettingsPage_DataMigrationDesc.Text" xml:space="preserve">
-    <value>导入或导出配置和历史记录，方便迁移</value>
+    <value>导入或导出配置与历史记录，便于跨设备迁移</value>
   </data>
   <data name="SettingsPage_ConfigData.Text" xml:space="preserve">
     <value>配置数据</value>
@@ -2781,10 +2939,10 @@ RESTORE -current_save=true -file=backup.7z -preserve_player_data=true
     <value>启用备份后云上传</value>
   </data>
   <data name="ConfigSettingsDialog_CloudEnabled.OnContent" xml:space="preserve">
-    <value>已开启</value>
+    <value>开启</value>
   </data>
   <data name="ConfigSettingsDialog_CloudEnabled.OffContent" xml:space="preserve">
-    <value>已关闭</value>
+    <value>关闭</value>
   </data>
   <data name="ConfigSettingsDialog_CloudMode.Header" xml:space="preserve">
     <value>运行方式</value>
@@ -2883,10 +3041,10 @@ RESTORE -current_save=true -file=backup.7z -preserve_player_data=true
     <value>自定义文件类型处理</value>
   </data>
   <data name="ConfigSettingsDialog_FileTypeHandling.OnContent" xml:space="preserve">
-    <value>已开启</value>
+    <value>开启</value>
   </data>
   <data name="ConfigSettingsDialog_FileTypeHandling.OffContent" xml:space="preserve">
-    <value>已关闭</value>
+    <value>关闭</value>
   </data>
   <data name="ConfigSettingsDialog_FileTypeHandlingDesc.Text" xml:space="preserve">
     <value>启用后可为不同类型的文件设置不同的压缩等级，例如对视频/音频等已压缩文件使用仅存储模式以节省时间。开启此功能会自动关闭固实压缩 (-ms=off)。</value>
@@ -2922,7 +3080,7 @@ RESTORE -current_save=true -file=backup.7z -preserve_player_data=true
     <value>默认备份文件存放路径</value>
   </data>
   <data name="SettingsPage_DefaultBackupRootPathDesc.Text" xml:space="preserve">
-    <value>新建配置会自动使用“默认路径\配置名称”作为备份存储路径（可单独修改）</value>
+    <value>新建配置自动使用此路径下的子目录作为备份存储位置，可单独修改</value>
   </data>
   <data name="FolderManager_MineRewindHint_Title" xml:space="preserve">
     <value>检测到 Minecraft 目录</value>
@@ -2934,7 +3092,7 @@ RESTORE -current_save=true -file=backup.7z -preserve_player_data=true
     <value>打开入门预设</value>
   </data>
   <data name="FolderManager_MineRewindHint_SettingsFallback" xml:space="preserve">
-    <value>请打开设置页，在插件区域使用 Minecraft 入门预设。</value>
+    <value>请打开设置页，在预设栏目使用 Minecraft 入门预设。</value>
   </data>
   <data name="MinecraftOnboarding_Title" xml:space="preserve">
     <value>Minecraft 入门预设</value>
@@ -2978,6 +3136,105 @@ RESTORE -current_save=true -file=backup.7z -preserve_player_data=true
   <data name="MinecraftOnboarding_KnotLinkInstallerStarted_Log" xml:space="preserve">
     <value>[MinecraftOnboarding] 已启动 KnotLink 服务端安装器：{0}</value>
   </data>
+  <data name="CloudOnboarding_Title" xml:space="preserve">
+    <value>云备份入门预设</value>
+  </data>
+  <data name="CloudOnboarding_Provider_WebDav" xml:space="preserve">
+    <value>WebDAV</value>
+  </data>
+  <data name="CloudOnboarding_Provider_WebDavDesc" xml:space="preserve">
+    <value>适合支持 WebDAV 的网盘或 NAS，rclone 可直接配置。</value>
+  </data>
+  <data name="CloudOnboarding_Provider_OneDrive" xml:space="preserve">
+    <value>OneDrive</value>
+  </data>
+  <data name="CloudOnboarding_Provider_OneDriveDesc" xml:space="preserve">
+    <value>适合 Microsoft 个人或工作账号，rclone 可直接配置。</value>
+  </data>
+  <data name="CloudOnboarding_Provider_S3" xml:space="preserve">
+    <value>S3 兼容存储</value>
+  </data>
+  <data name="CloudOnboarding_Provider_S3Desc" xml:space="preserve">
+    <value>适合 AWS S3、Cloudflare R2、MinIO 等 S3 兼容对象存储。</value>
+  </data>
+  <data name="CloudOnboarding_Provider_Baidu" xml:space="preserve">
+    <value>百度网盘</value>
+  </data>
+  <data name="CloudOnboarding_Provider_BaiduDesc" xml:space="preserve">
+    <value>rclone 不直接支持，预设会同时准备 OpenList，再通过 WebDAV 桥接。</value>
+  </data>
+  <data name="CloudOnboarding_Provider_Aliyun" xml:space="preserve">
+    <value>阿里云盘</value>
+  </data>
+  <data name="CloudOnboarding_Provider_AliyunDesc" xml:space="preserve">
+    <value>预设会同时准备 OpenList，再通过 WebDAV 桥接到 rclone。</value>
+  </data>
+  <data name="CloudOnboarding_Provider_OpenList" xml:space="preserve">
+    <value>OpenList WebDAV</value>
+  </data>
+  <data name="CloudOnboarding_Provider_OpenListDesc" xml:space="preserve">
+    <value>适合其它需要先挂载到 OpenList，再交给 rclone 的云服务。</value>
+  </data>
+  <data name="CloudOnboarding_ConfirmTitle" xml:space="preserve">
+    <value>确认开始云备份预设</value>
+  </data>
+  <data name="CloudOnboarding_ConfirmContent" xml:space="preserve">
+    <value>将为“{0}”准备云备份环境。{1} 过程中会从 GitHub Releases 下载 rclone，必要时下载 OpenList，完成后写入全局 rclone 路径并打开配置引导。</value>
+  </data>
+  <data name="CloudOnboarding_ConfirmPrimary" xml:space="preserve">
+    <value>下载并开始</value>
+  </data>
+  <data name="CloudOnboarding_NoProvider" xml:space="preserve">
+    <value>请先选择一个云服务。</value>
+  </data>
+  <data name="CloudOnboarding_Status_Start" xml:space="preserve">
+    <value>正在准备云备份入门预设...</value>
+  </data>
+  <data name="CloudOnboarding_Status_DownloadRclone" xml:space="preserve">
+    <value>正在获取并安装最新 rclone...</value>
+  </data>
+  <data name="CloudOnboarding_Status_DownloadOpenList" xml:space="preserve">
+    <value>正在获取并安装最新 OpenList...</value>
+  </data>
+  <data name="CloudOnboarding_Status_SaveSettings" xml:space="preserve">
+    <value>正在保存云备份工具路径...</value>
+  </data>
+  <data name="CloudOnboarding_Success_RcloneOnly" xml:space="preserve">
+    <value>{0} 云备份预设已准备好。rclone 路径：{1}。建议远端基路径：{2}。请在打开的命令行中运行 rclone config 完成账号授权。</value>
+  </data>
+  <data name="CloudOnboarding_Success_WithOpenList" xml:space="preserve">
+    <value>{0} 云备份预设已准备好。rclone 路径：{1}。OpenList 路径：{2}。建议远端基路径：{3}。请先运行 openlist server 配好网盘，再在 rclone config 中用 WebDAV 连接 OpenList。</value>
+  </data>
+  <data name="CloudOnboarding_Failed" xml:space="preserve">
+    <value>云备份入门预设失败：{0}</value>
+  </data>
+  <data name="CloudOnboarding_AssetMissing" xml:space="preserve">
+    <value>没有找到适合当前 Windows 架构的 {0} Release 资产。</value>
+  </data>
+  <data name="CloudOnboarding_ExecutableMissing" xml:space="preserve">
+    <value>解压后没有找到 {0}。</value>
+  </data>
+  <data name="CloudOnboarding_Log_Success" xml:space="preserve">
+    <value>[CloudOnboarding] 预设完成：provider={0}, rclone={1}, openlist={2}</value>
+  </data>
+  <data name="CloudOnboarding_Log_ReuseTool" xml:space="preserve">
+    <value>[CloudOnboarding] 复用已安装工具：{0}, {1}</value>
+  </data>
+  <data name="CloudOnboarding_Log_ToolInstalled" xml:space="preserve">
+    <value>[CloudOnboarding] 工具已安装：{0}, {1}, {2}</value>
+  </data>
+  <data name="CloudOnboarding_Log_OpenCommandPromptFailed" xml:space="preserve">
+    <value>[CloudOnboarding] 打开命令行失败：{0}</value>
+  </data>
+  <data name="CloudOnboarding_Log_OpenOpenListFolderFailed" xml:space="preserve">
+    <value>[CloudOnboarding] 打开 OpenList 文件夹失败：{0}</value>
+  </data>
+  <data name="CloudOnboarding_Log_OpenGuideFailed" xml:space="preserve">
+    <value>[CloudOnboarding] 打开云存档文档失败：{0}</value>
+  </data>
+  <data name="CloudOnboarding_Canceled_Log" xml:space="preserve">
+    <value>[CloudOnboarding] 用户取消或任务被取消。</value>
+  </data>
   <data name="Encryption_SetPasswordTitle" xml:space="preserve">
     <value>设置加密密码</value>
   </data>
@@ -2991,7 +3248,7 @@ RESTORE -current_save=true -file=backup.7z -preserve_player_data=true
     <value>确认密码</value>
   </data>
   <data name="Encryption_PasswordWarning" xml:space="preserve">
-    <value>⚠ 密码一旦设置无法更改。如果丢失密码，加密的备份将无法还原，请妥善保管。</value>
+    <value>密码一旦设置无法更改。丢失密码将无法还原加密备份，请妥善保管。</value>
   </data>
   <data name="Encryption_PasswordEmpty" xml:space="preserve">
     <value>密码不能为空。</value>
@@ -3021,7 +3278,7 @@ RESTORE -current_save=true -file=backup.7z -preserve_player_data=true
     <value>欢迎使用 FolderRewind！</value>
   </data>
   <data name="FirstLaunch_Content" xml:space="preserve">
-    <value>如果你不确定如何使用，可以观看 Bilibili 上的简要介绍视频。</value>
+    <value>不确定如何开始？可以观看 Bilibili 上的介绍视频快速上手。</value>
   </data>
   <data name="FirstLaunch_OpenVideo" xml:space="preserve">
     <value>观看视频</value>
@@ -3581,7 +3838,7 @@ RESTORE -current_save=true -file=backup.7z -preserve_player_data=true
     <value>{*} 通配目录</value>
   </data>
   <data name="Template_SyntaxHelp_Wildcard_Description" xml:space="preserve">
-    <value>{*} 会展开当前层级下的所有子文件夹。它既可以写在路径中间，也可以连续使用；如果放在最前面，会先遍历所有已就绪的盘符。</value>
+    <value>{*} 展开当前层级下的所有子文件夹，可写在路径中间或连续使用。放在最前面时，会遍历所有可用盘符。</value>
   </data>
   <data name="Template_SyntaxHelp_Wildcard_Example" xml:space="preserve">
     <value>示例：{*}\{*}\.minecraft\versions\{*}\saves\{*}</value>
@@ -4016,13 +4273,13 @@ Pull Request：{1}</value>
     <value>正在上传备份文件…</value>
   </data>
   <data name="CloudSync_Task_UploadingMetadata" xml:space="preserve">
-    <value>正在同步 metadata…</value>
+    <value>正在同步元数据…</value>
   </data>
   <data name="CloudSync_Task_DownloadingArchive" xml:space="preserve">
     <value>正在下载备份文件…</value>
   </data>
   <data name="CloudSync_Task_DownloadingMetadata" xml:space="preserve">
-    <value>正在下载 metadata…</value>
+    <value>正在下载元数据…</value>
   </data>
   <data name="CloudSync_Task_DownloadCompleted" xml:space="preserve">
     <value>下载完成</value>
@@ -4049,13 +4306,13 @@ Pull Request：{1}</value>
     <value>已将“{0}”下载回本地备份库。</value>
   </data>
   <data name="CloudSync_Notification_MetadataPartial" xml:space="preserve">
-    <value>“{0}”的 metadata 未完整同步，归档文件已优先完成处理。</value>
+    <value>”{0}”的元数据未完整同步，归档文件已优先完成处理。</value>
   </data>
   <data name="ConfigSettingsDialog_CloudDownloadAllText.Text" xml:space="preserve">
     <value>从云获取此配置的备份</value>
   </data>
   <data name="ConfigSettingsDialog_CloudDownloadAllDesc.Text" xml:space="preserve">
-    <value>将当前配置在云端保存的备份文件和 metadata 拉回本地备份库，并尝试恢复历史记录。</value>
+    <value>将当前配置在云端保存的备份文件和元数据拉回本地备份库，并尝试恢复历史记录。</value>
   </data>
   <data name="ConfigSettingsDialog_CloudExecutableDesc" xml:space="preserve">
     <value>当前生效路径：{0}。这里可填写当前配置专用的程序路径；保留默认值时，会优先回退到软件设置里的全局 rclone 路径。</value>
@@ -4271,7 +4528,7 @@ Pull Request：{1}</value>
     <value>关闭</value>
   </data>
   <data name="ConfigSettingsDialog_CloudSyncHistoryAfterUploadDesc.Text" xml:space="preserve">
-    <value>每次自动上传备份成功后，再额外合并上传当前配置的最新历史以及 active-history 清单，方便其他设备同步时避开那些已经在本地删除的旧云备份。</value>
+    <value>自动上传备份成功后，同步上传当前配置的历史记录和活跃历史清单，便于其他设备识别已删除的旧备份。</value>
   </data>
   <data name="SettingsPage_DefaultCloudRemoteBasePath.Text" xml:space="preserve">
     <value>默认远端基路径</value>
@@ -4356,5 +4613,164 @@ Pull Request：{1}</value>
   </data>
   <data name="ProcessPathService_Log_InspectPartialFailed" xml:space="preserve">
     <value>有 {1} 个“{0}”进程实例因权限或退出时机无法读取路径，已跳过。</value>
+  </data>
+  <data name="Picker_MainWindowUnavailable" xml:space="preserve">
+    <value>主窗口尚未就绪，无法打开文件选择器。</value>
+  </data>
+  <data name="Picker_OpenFailed" xml:space="preserve">
+    <value>无法打开文件选择器。</value>
+  </data>
+  <data name="Picker_OpenFailedWithReason" xml:space="preserve">
+    <value>无法打开文件选择器：{0}</value>
+  </data>
+  <data name="Picker_Log_OpenFailed" xml:space="preserve">
+    <value>打开现代 Picker 失败：{0}</value>
+  </data>
+  <data name="FolderManager_AddFolder_Title" xml:space="preserve">
+    <value>添加文件夹</value>
+  </data>
+  <data name="FolderManager_Details.Text" xml:space="preserve">
+    <value>详细信息</value>
+  </data>
+  <data name="FolderDetailsDialog_Section_Basic" xml:space="preserve">
+    <value>基本信息</value>
+  </data>
+  <data name="FolderDetailsDialog_Name" xml:space="preserve">
+    <value>名称</value>
+  </data>
+  <data name="FolderDetailsDialog_Path" xml:space="preserve">
+    <value>路径</value>
+  </data>
+  <data name="FolderDetailsDialog_ConfigType" xml:space="preserve">
+    <value>配置类型</value>
+  </data>
+  <data name="FolderDetailsDialog_LastBackup" xml:space="preserve">
+    <value>上次备份</value>
+  </data>
+  <data name="FolderDetailsDialog_BackupDirectory" xml:space="preserve">
+    <value>备份目录</value>
+  </data>
+  <data name="FolderDetailsDialog_MetadataDirectory" xml:space="preserve">
+    <value>元数据目录</value>
+  </data>
+  <data name="FolderDetailsDialog_Size" xml:space="preserve">
+    <value>大小</value>
+  </data>
+  <data name="FolderDetailsDialog_FileCount" xml:space="preserve">
+    <value>文件数</value>
+  </data>
+  <data name="FolderDetailsDialog_DirectoryCount" xml:space="preserve">
+    <value>子目录数</value>
+  </data>
+  <data name="FolderDetailsDialog_Loading" xml:space="preserve">
+    <value>正在计算...</value>
+  </data>
+  <data name="FolderManager_RenameFolder.Text" xml:space="preserve">
+    <value>重命名文件夹</value>
+  </data>
+  <data name="FolderManager_RenameFolder_Title" xml:space="preserve">
+    <value>重命名文件夹</value>
+  </data>
+  <data name="FolderRenameDialog_CurrentPathLabel.Text" xml:space="preserve">
+    <value>当前路径</value>
+  </data>
+  <data name="FolderRenameDialog_NewLeafName.Header" xml:space="preserve">
+    <value>新的文件夹名称</value>
+  </data>
+  <data name="FolderRenameDialog_ImpactSummaryHint" xml:space="preserve">
+    <value>输入新的文件夹名称后，将在这里预览会被更新的引用。</value>
+  </data>
+  <data name="FolderRenameDialog_ImpactSummaryFormat" xml:space="preserve">
+    <value>将更新 {0} 个配置引用和 {1} 条历史记录。</value>
+  </data>
+  <data name="FolderManager_AddSingleFolderPickerTitle" xml:space="preserve">
+    <value>选择要加入备份的文件夹</value>
+  </data>
+  <data name="FolderManager_AddSubFoldersPickerTitle" xml:space="preserve">
+    <value>选择要扫描子文件夹的根目录</value>
+  </data>
+  <data name="FolderManager_PluginDiscoverPickerTitle" xml:space="preserve">
+    <value>选择插件要扫描的根目录</value>
+  </data>
+  <data name="FolderManager_AddSubFoldersFailed" xml:space="preserve">
+    <value>添加子文件夹失败。</value>
+  </data>
+  <data name="FolderManager_ChangeCoverPickerTitle" xml:space="preserve">
+    <value>选择文件夹封面图片</value>
+  </data>
+  <data name="FolderManager_ChangeCover_Title" xml:space="preserve">
+    <value>更换封面</value>
+  </data>
+  <data name="FolderManager_ChangeCoverFailed" xml:space="preserve">
+    <value>更换文件夹封面失败。</value>
+  </data>
+  <data name="FolderManager_Log_ChangeCoverFailed" xml:space="preserve">
+    <value>更换文件夹封面失败：{0}</value>
+  </data>
+  <data name="ConfigSettingsDialog_BackupFilterMode.Header" xml:space="preserve">
+    <value>备份过滤模式</value>
+  </data>
+  <data name="ConfigSettingsDialog_BackupFilterModeBlacklist.Content" xml:space="preserve">
+    <value>黑名单模式</value>
+  </data>
+  <data name="ConfigSettingsDialog_BackupFilterModeWhitelist.Content" xml:space="preserve">
+    <value>白名单模式</value>
+  </data>
+  <data name="ConfigSettingsDialog_BackupWhitelist.Text" xml:space="preserve">
+    <value>仅备份列表（只备份指定的文件/文件夹）</value>
+  </data>
+  <data name="ConfigSettingsDialog_BackupWhitelistPlaceholder.PlaceholderText" xml:space="preserve">
+    <value>输入文件名、相对路径、完整路径或通配符...</value>
+  </data>
+  <data name="ConfigSettingsDialog_AddBackupWhitelist.Content" xml:space="preserve">
+    <value>添加</value>
+  </data>
+  <data name="ConfigSettingsDialog_BackupWhitelistCleanWarning" xml:space="preserve">
+    <value>白名单备份只包含部分文件。用安全还原模式还原这类备份时，未被备份的文件可能会被清除；建议优先使用覆写还原，或先把需要保留的数据加入还原白名单。</value>
+  </data>
+  <data name="ConfigSettingsDialog_BackupScope.Header" xml:space="preserve">
+    <value>备份范围</value>
+  </data>
+  <data name="ConfigSettingsDialog_BackupScopeFull" xml:space="preserve">
+    <value>完整范围</value>
+  </data>
+  <data name="ConfigSettingsDialog_BackupScopeFullDesc" xml:space="preserve">
+    <value>备份文件夹中符合过滤设置的所有文件。</value>
+  </data>
+  <data name="ConfigSettingsDialog_BackupScopeMissingDesc" xml:space="preserve">
+    <value>当前备份范围由插件提供，但插件未启用或不再可用。</value>
+  </data>
+  <data name="ConfigSettingsDialog_BackupScopePartialWarning.Text" xml:space="preserve">
+    <value>插件备份范围通常只会备份部分文件。安全还原部分备份会有删除未备份文件的风险。</value>
+  </data>
+  <data name="ConfigSettingsDialog_OpenFailed_Title" xml:space="preserve">
+    <value>打开配置设置失败</value>
+  </data>
+  <data name="ConfigSettingsDialog_OpenFailed" xml:space="preserve">
+    <value>配置设置窗口打开失败：{0}</value>
+  </data>
+  <data name="ConfigSettingsDialog_OpenFailed_Log" xml:space="preserve">
+    <value>配置设置窗口打开失败：{0}</value>
+  </data>
+  <data name="History_PartialCleanConfirm_Title" xml:space="preserve">
+    <value>这是一个部分备份</value>
+  </data>
+  <data name="History_PartialCleanConfirm_Content" xml:space="preserve">
+    <value>该备份由仅备份列表或区域备份生成，只包含部分文件。继续安全还原可能删除目标文件夹中未包含在备份里的其他文件。确认继续？</value>
+  </data>
+  <data name="History_PartialCleanConfirm_Primary" xml:space="preserve">
+    <value>确认安全还原</value>
+  </data>
+  <data name="KnotLink_Error_PartialCleanRequiresConfirm" xml:space="preserve">
+    <value>目标备份是部分备份。若确实要安全还原，请追加 -confirm_partial_clean=true。</value>
+  </data>
+  <data name="Tray_ToolTip" xml:space="preserve">
+    <value>存档时光机</value>
+  </data>
+  <data name="Tray_ShowHide" xml:space="preserve">
+    <value>显示 / 隐藏</value>
+  </data>
+  <data name="Tray_Exit" xml:space="preserve">
+    <value>退出</value>
   </data>
 </root>

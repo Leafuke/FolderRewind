@@ -21,8 +21,7 @@ namespace FolderRewind.Services
         private const string MineRewindPluginId = "com.folderrewind.minerewind";
         private const string MineRewindOwner = "Leafuke";
         private const string MineRewindRepo = "FolderRewind-Plugin-Minecraft";
-        private const string KnotLinkInstallerUrl = "https://github.com/hxh230802/KnotLink/releases/download/v1.0.0/KnotLinkService-1.0.0.0-Installer.exe";
-        private const string KnotLinkInstallerFileName = "KnotLinkService-1.0.0.0-Installer.exe";
+        private const string KnotLinkInstallerFileName = "KnotLinkService-Installer.exe";
 
         public static async Task<MinecraftOnboardingResult> InstallPresetAsync(
             IProgress<string>? progress = null,
@@ -121,8 +120,16 @@ namespace FolderRewind.Services
             var tempDir = Path.Combine(Path.GetTempPath(), "FolderRewind", "MinecraftOnboarding");
             Directory.CreateDirectory(tempDir);
 
-            var installerPath = Path.Combine(tempDir, KnotLinkInstallerFileName);
-            var bytes = await GitHubReleaseService.DownloadAssetAsync(KnotLinkInstallerUrl, ct);
+            // 从 KnotLink-Protocol/KnotLink 获取最新安装包
+            var updateInfo = await KnotLinkServerManagerService.CheckForServerUpdateAsync(ct);
+            var installerUrl = updateInfo?.InstallerDownloadUrl
+                ?? throw new InvalidOperationException(I18n.GetString("SettingsPage_KnotLinkServerNoInstaller"));
+
+            var fileName = Path.GetFileName(new Uri(installerUrl).LocalPath);
+            if (string.IsNullOrWhiteSpace(fileName)) fileName = KnotLinkInstallerFileName;
+
+            var installerPath = Path.Combine(tempDir, fileName);
+            var bytes = await GitHubReleaseService.DownloadAssetAsync(installerUrl, ct);
             await File.WriteAllBytesAsync(installerPath, bytes, ct);
             return installerPath;
         }

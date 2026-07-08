@@ -135,6 +135,13 @@ namespace FolderRewind.Services
             SetResource("AccentFillColorSecondaryBrush", new SolidColorBrush(WithAlpha(color, 0xE6)));
             SetResource("AccentFillColorTertiaryBrush", new SolidColorBrush(WithAlpha(color, 0xCC)));
             SetResource("SystemControlForegroundAccentBrush", new SolidColorBrush(color));
+
+            SetResource("SystemAccentColorLight1Brush", new SolidColorBrush(light1));
+            SetResource("SystemAccentColorLight2Brush", new SolidColorBrush(light2));
+            SetResource("SystemAccentColorLight3Brush", new SolidColorBrush(light3));
+            SetResource("SystemAccentColorDark1Brush", new SolidColorBrush(dark1));
+            SetResource("SystemAccentColorDark2Brush", new SolidColorBrush(dark2));
+            SetResource("SystemAccentColorDark3Brush", new SolidColorBrush(dark3));
         }
 
         private static Color GetAccentColor(int index)
@@ -164,6 +171,12 @@ namespace FolderRewind.Services
             RemoveResource("AccentFillColorSecondaryBrush");
             RemoveResource("AccentFillColorTertiaryBrush");
             RemoveResource("SystemControlForegroundAccentBrush");
+            RemoveResource("SystemAccentColorLight1Brush");
+            RemoveResource("SystemAccentColorLight2Brush");
+            RemoveResource("SystemAccentColorLight3Brush");
+            RemoveResource("SystemAccentColorDark1Brush");
+            RemoveResource("SystemAccentColorDark2Brush");
+            RemoveResource("SystemAccentColorDark3Brush");
         }
 
         private static Color Blend(Color color, Color target, double amount)

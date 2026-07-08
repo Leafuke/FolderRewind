@@ -69,13 +69,12 @@ namespace FolderRewind.Services
 
                 if (restoreStarted)
                 {
-                    try
+                    BroadcastRestoreLifecycle("command_failed", new Dictionary<string, string?> { ["reason"] = reason });
+                    BroadcastRestoreEvent(configIndex, config, folder, "restore_finished", new Dictionary<string, string?>
                     {
-                        KnotLinkService.BroadcastEvent($"event=restore_finished;status=failure;reason={reason}");
-                    }
-                    catch
-                    {
-                    }
+                        ["status"] = "failure",
+                        ["reason"] = reason
+                    });
                 }
 
                 NotificationService.NotifyRestoreCompleted(folder.DisplayName, false, message);
@@ -267,14 +266,9 @@ namespace FolderRewind.Services
             {
             }
 
-            try
-            {
-                KnotLinkService.BroadcastEvent($"event=restore_started;config={configIndex};world={folder.DisplayName}");
-                restoreStarted = true;
-            }
-            catch
-            {
-            }
+            BroadcastRestoreLifecycle("command_started");
+            BroadcastRestoreEvent(configIndex, config, folder, "restore_started");
+            restoreStarted = true;
 
             if (effectiveCleanRestore && safeRestoreEnabled)
             {
@@ -462,13 +456,14 @@ namespace FolderRewind.Services
             Log(I18n.Format("BackupService_Log_RestoreCompleted"), LogLevel.Info);
             NotificationService.NotifyRestoreCompleted(folder.DisplayName, true, I18n.GetString("BackupService_Task_RestoreCompleted"));
 
-            try
+            BroadcastRestoreEvent(configIndex, config, folder, "restore_success", new Dictionary<string, string?>
             {
-                KnotLinkService.BroadcastEvent($"event=restore_success;config={configIndex};world={folder.DisplayName};backup={historyItem.FileName}");
-            }
-            catch
+                ["backup"] = historyItem.FileName
+            });
+            BroadcastRestoreLifecycle("command_completed", new Dictionary<string, string?>
             {
-            }
+                ["backup"] = historyItem.FileName
+            });
         }
 
         private static async Task<bool> ValidateRestoreChainAsync(List<FileInfo> chain, string sevenZipExe, string? password, BackupTask? restoreTask)
@@ -1127,11 +1122,16 @@ namespace FolderRewind.Services
             // 构造一个临时的 HistoryItem
             string backupType = HistoryService.GetBackupTypeForFile(config.Id, folder.DisplayName, backupFileName)
                 ?? InferBackupTypeFromFileName(backupFileName);
+            var existingEntry = HistoryService.TryGetEntry(config.Id, folder.Path, backupFileName);
 
             var historyItem = new HistoryItem
             {
+                ConfigId = config.Id,
+                FolderPath = folder.Path,
+                FolderName = folder.DisplayName,
                 FileName = backupFileName,
-                BackupType = backupType
+                BackupType = backupType,
+                IsPartialBackup = existingEntry?.IsPartialBackup ?? false
             };
 
             await RestoreBackupAsync(config, folder, historyItem, mode);

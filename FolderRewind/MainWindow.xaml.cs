@@ -18,8 +18,6 @@ namespace FolderRewind
         #region 常量与状态
 
         private const double TitleBarHorizontalPadding = 12;
-        private const int WindowMinWidth = 1200;
-        private const int WindowMinHeight = 600;
 
         private bool _allowCloseOnce;
         private bool _closeDialogShowing;
@@ -93,8 +91,8 @@ namespace FolderRewind
                 if (AppWindow?.Presenter is OverlappedPresenter presenter)
                 {
                     var scale = ShellRoot?.XamlRoot?.RasterizationScale ?? 1d;
-                    presenter.PreferredMinimumWidth = Convert.ToInt32(WindowMinWidth * scale);
-                    presenter.PreferredMinimumHeight = Convert.ToInt32(WindowMinHeight * scale);
+                    presenter.PreferredMinimumWidth = Convert.ToInt32(AppConstants.WindowMinWidth * scale);
+                    presenter.PreferredMinimumHeight = Convert.ToInt32(AppConstants.WindowMinHeight * scale);
                 }
             }
             catch
@@ -205,6 +203,7 @@ namespace FolderRewind
                         DefaultButton = ContentDialogButton.Primary,
                         XamlRoot = (Content as FrameworkElement)?.XamlRoot
                     };
+                    ThemeService.ApplyThemeToDialog(dialog);
 
                     var op = dialog.ShowAsync();
                     op.Completed = (info, status) =>
@@ -334,7 +333,7 @@ namespace FolderRewind
 
                 // 显式指定亮/暗主题配色，保证 Win10/Win11 下表现一致。
                 var foreground = isDark ? Colors.White : Colors.Black;
-                var inactiveForeground = isDark ? Color.FromArgb(255, 190, 190, 190) : Color.FromArgb(255, 80, 80, 80);
+                var inactiveForeground = (Color)Application.Current.Resources["TextFillColorSecondary"];
 
                 // 悬停/按下采用轻量叠色，避免破坏 Mica 的通透感。
                 var hoverBackground = isDark

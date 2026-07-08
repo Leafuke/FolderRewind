@@ -9,7 +9,7 @@
     Title="">
 
     <Grid x:Name="RootGrid"
-          Background="Transparent"
+          Background="{ThemeResource ApplicationPageBackgroundThemeBrush}"
           PointerPressed="RootGrid_PointerPressed"
           PointerMoved="RootGrid_PointerMoved"
           PointerReleased="RootGrid_PointerReleased"
@@ -55,12 +55,12 @@
               Tapped="MiniSquare_Tapped"
               RightTapped="MiniSquare_RightTapped">
 
-            <!-- 外层背景 
+            <!-- 外层背景 -->
             <Border x:Name="OuterBorder"
-                    CornerRadius="12"
-                    Background="{ThemeResource AcrylicBackgroundFillColorDefaultBrush}"
+                    CornerRadius="5"
+                    Background="{ThemeResource LayerFillColorDefaultBrush}"
                     BorderBrush="{ThemeResource SurfaceStrokeColorDefaultBrush}"
-                    BorderThickness="1"/>-->
+                    BorderThickness="1"/>
 
             <!-- 色彩丝带（内边距形成环形效果） -->
             <Border x:Name="RibbonBorder"

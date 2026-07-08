@@ -15,6 +15,7 @@ namespace FolderRewind.Views
     {
         private bool _isSyncingSelection;
         private bool _isSyncingPaneState;
+        private bool _navViewInitialized;
         private DispatcherQueueTimer? _infoBarTimer;
         private bool _startupDialogsStarted;
 
@@ -148,19 +149,26 @@ namespace FolderRewind.Views
 
         private void NavView_Loaded(object sender, Microsoft.UI.Xaml.RoutedEventArgs e)
         {
-            var settings = ConfigService.CurrentConfig?.GlobalSettings;
-            SyncPaneStateWithDisplayMode(settings);
-
-            // 兜底刷新绑定，确保导航面板状态能及时反映到界面。
-            Bindings.Update();
-
-            NavigateTo("Home");
-
-            if (!_startupDialogsStarted)
+            // 延迟恢复面板状态到下一帧，确保 NavigationView 完成初始视觉状态初始化后再设置 IsPaneOpen。
+            // 在 Loaded 事件中直接设置 IsPaneOpen 会导致 NavigationViewItem 在面板展开动画期间
+            // 测量到错误的宽度（文本被截断、图标右侧被裁剪），因为此时条目尚未经历完整的布局测量周期。
+            DispatcherQueue.TryEnqueue(() =>
             {
-                // 启动弹窗链只跑一次，避免返回 Shell 时重复打断用户。
-                _ = RunStartupDialogsAsync();
-            }
+                _navViewInitialized = true;
+                var settings = ConfigService.CurrentConfig?.GlobalSettings;
+                SyncPaneStateWithDisplayMode(settings);
+
+                // 兜底刷新绑定，确保导航面板状态能及时反映到界面。
+                Bindings.Update();
+
+                NavigateTo("Home");
+
+                if (!_startupDialogsStarted)
+                {
+                    // 启动弹窗链只跑一次，避免返回 Shell 时重复打断用户。
+                    _ = RunStartupDialogsAsync();
+                }
+            });
         }
 
         private async System.Threading.Tasks.Task RunStartupDialogsAsync()
@@ -172,11 +180,20 @@ namespace FolderRewind.Views
 
             _startupDialogsStarted = true;
 
-            // 保持固定顺序：引导/冲突/公告/更新，避免多个弹窗竞争焦点。
+            // Let the Shell settle before showing any dialogs or notifications.
+            await System.Threading.Tasks.Task.Delay(300);
+
+            // 1. First-launch guide — stays modal (requires explicit user choice).
             await ShowFirstLaunchGuideAsync();
-            await ShowBackupSlotConflictWarningAsync();
-            await CheckAndShowNoticeAsync();
-            await CheckAndShowAppUpdateAsync();
+
+            // 2-4. Fire-and-forget background checks. Results surface as non-blocking
+            // InfoBar notifications instead of modal dialogs. Each InfoBar carries an
+            // action button that opens the full detail dialog on user demand.
+            _ = System.Threading.Tasks.Task.Run(CheckAndNotifyConflictsAsync);
+            _ = System.Threading.Tasks.Task.Run(CheckAndNotifyNoticeAsync);
+            _ = System.Threading.Tasks.Task.Run(CheckAndNotifyUpdateAsync);
+
+            // Core feature validation already carries its own 2-second grace delay.
             CoreFeatureValidationService.TryScheduleInitialValidation();
         }
 
@@ -212,7 +229,7 @@ namespace FolderRewind.Views
         }
 
         /// <summary>
-        /// 首次启动引导：提示用户查看 Bilibili 介绍视频
+        /// 首次启动引导：中文界面提示视频，其他语言提示官网文档。
         /// </summary>
         private async System.Threading.Tasks.Task ShowFirstLaunchGuideAsync()
         {
@@ -237,7 +254,7 @@ namespace FolderRewind.Views
                 var result = await ShowDialogAsync(dialog);
                 if (result == ContentDialogResult.Primary)
                 {
-                    await Windows.System.Launcher.LaunchUriAsync(new Uri("https://www.bilibili.com/video/BV1zbcjzhE1y"));
+                    await Windows.System.Launcher.LaunchUriAsync(new Uri(OfficialLinksService.GetFirstLaunchGuideUrl()));
                 }
             }
             catch (Exception ex)
@@ -247,9 +264,9 @@ namespace FolderRewind.Views
         }
 
         /// <summary>
-        /// 后台检查公告，有新公告时弹出 ContentDialog。
+        /// 后台检查公告，有新公告时通过 InfoBar 通知（非模态），用户可点击查看详情弹窗。
         /// </summary>
-        private async System.Threading.Tasks.Task CheckAndShowNoticeAsync()
+        private async System.Threading.Tasks.Task CheckAndNotifyNoticeAsync()
         {
             try
             {
@@ -257,6 +274,30 @@ namespace FolderRewind.Views
 
                 if (!NoticeService.NewNoticeAvailable) return;
 
+                var preview = NoticeService.NoticeContent.Length > 120
+                    ? NoticeService.NoticeContent[..120] + "..."
+                    : NoticeService.NoticeContent;
+
+                NotificationService.ShowInfoBar(
+                    I18n.GetString("Notice_DialogTitle"),
+                    preview,
+                    NotificationSeverity.Informational,
+                    autoCloseMs: 0,
+                    action: () => _ = ShowNoticeContentDialogAsync());
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"[NoticeCheck] {ex.Message}");
+            }
+        }
+
+        /// <summary>
+        /// 显示公告详情 ContentDialog（由 InfoBar 操作按钮触发，仅在用户主动查看时弹出模态框）。
+        /// </summary>
+        private async System.Threading.Tasks.Task ShowNoticeContentDialogAsync()
+        {
+            try
+            {
                 var dialog = new ContentDialog
                 {
                     Title = I18n.GetString("Notice_DialogTitle"),
@@ -288,17 +329,46 @@ namespace FolderRewind.Views
             }
             catch (Exception ex)
             {
-                System.Diagnostics.Debug.WriteLine($"[NoticeCheck] {ex.Message}");
+                System.Diagnostics.Debug.WriteLine($"[NoticeDialog] {ex.Message}");
             }
         }
 
-        private async System.Threading.Tasks.Task CheckAndShowAppUpdateAsync()
+        /// <summary>
+        /// 后台检查更新，有新版本时通过 InfoBar 通知（非模态），用户可点击查看详情弹窗。
+        /// </summary>
+        private async System.Threading.Tasks.Task CheckAndNotifyUpdateAsync()
         {
             try
             {
                 var update = await AppUpdateService.CheckForUpdateAsync();
                 if (update == null) return;
 
+                var messageLines = new List<string>
+                {
+                    string.Format("v{0} → v{1}", update.CurrentVersion, update.LatestVersion),
+                    update.LatestTag
+                };
+
+                NotificationService.ShowInfoBar(
+                    I18n.GetString("Update_Dialog_Title"),
+                    string.Join(" | ", messageLines),
+                    NotificationSeverity.Informational,
+                    autoCloseMs: 0,
+                    action: () => _ = ShowAppUpdateContentDialogAsync(update));
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"[UpdateCheck] {ex.Message}");
+            }
+        }
+
+        /// <summary>
+        /// 显示更新详情 ContentDialog（由 InfoBar 操作按钮触发，仅在用户主动查看时弹出模态框）。
+        /// </summary>
+        private async System.Threading.Tasks.Task ShowAppUpdateContentDialogAsync(AppUpdateService.UpdateCheckResult update)
+        {
+            try
+            {
                 var notes = string.IsNullOrWhiteSpace(update.ReleaseNotes)
                     ? I18n.GetString("Update_Dialog_EmptyNotes")
                     : update.ReleaseNotes;
@@ -402,11 +472,14 @@ namespace FolderRewind.Views
             }
             catch (Exception ex)
             {
-                System.Diagnostics.Debug.WriteLine($"[UpdateCheck] {ex.Message}");
+                System.Diagnostics.Debug.WriteLine($"[UpdateDialog] {ex.Message}");
             }
         }
 
-        private async System.Threading.Tasks.Task ShowBackupSlotConflictWarningAsync()
+        /// <summary>
+        /// 后台检查备份槽位命名冲突，有冲突时通过 InfoBar 警告（非模态），用户可点击查看详情。
+        /// </summary>
+        private async System.Threading.Tasks.Task CheckAndNotifyConflictsAsync()
         {
             try
             {
@@ -414,10 +487,40 @@ namespace FolderRewind.Views
                 var intraConfigConflicts = FolderNameConflictService.FindIntraConfigConflicts(appConfig);
                 var sharedDestinationConflicts = FolderNameConflictService.FindSharedDestinationConflicts(appConfig);
 
-                if (intraConfigConflicts.Count == 0 && sharedDestinationConflicts.Count == 0)
+                if (intraConfigConflicts.Count == 0 && sharedDestinationConflicts.Count == 0) return;
+
+                var totalConflicts = intraConfigConflicts.Count + sharedDestinationConflicts.Count;
+                var lines = new List<string>
                 {
-                    return;
-                }
+                    I18n.GetString("ShellPage_FolderConflict_Intro"),
+                    string.Format("  {0} folder name conflict(s) across configurations.", totalConflicts)
+                };
+
+                NotificationService.ShowInfoBar(
+                    I18n.GetString("ShellPage_FolderConflict_Title"),
+                    string.Join(Environment.NewLine, lines),
+                    NotificationSeverity.Warning,
+                    autoCloseMs: 0,
+                    action: () => _ = ShowConflictDetailDialogAsync());
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"[ConflictCheck] {ex.Message}");
+            }
+        }
+
+        /// <summary>
+        /// 显示备份槽位冲突详情 ContentDialog（由 InfoBar 操作按钮触发）。
+        /// </summary>
+        private async System.Threading.Tasks.Task ShowConflictDetailDialogAsync()
+        {
+            try
+            {
+                var appConfig = ConfigService.CurrentConfig;
+                var intraConfigConflicts = FolderNameConflictService.FindIntraConfigConflicts(appConfig);
+                var sharedDestinationConflicts = FolderNameConflictService.FindSharedDestinationConflicts(appConfig);
+
+                if (intraConfigConflicts.Count == 0 && sharedDestinationConflicts.Count == 0) return;
 
                 var lines = new List<string>
                 {
@@ -471,7 +574,7 @@ namespace FolderRewind.Views
             }
             catch (Exception ex)
             {
-                System.Diagnostics.Debug.WriteLine($"[FolderConflictDialog] {ex.Message}");
+                System.Diagnostics.Debug.WriteLine($"[ConflictDialog] {ex.Message}");
             }
         }
 
@@ -590,6 +693,13 @@ namespace FolderRewind.Views
 
         private void NavView_DisplayModeChanged(NavigationView sender, NavigationViewDisplayModeChangedEventArgs args)
         {
+            // 初始化完成前忽略显示模式变更：窗口启动调整大小期间可能触发 DisplayMode 从 Compact 跳到 Expanded，
+            // 若此时直接设置 IsPaneOpen 会重现 NavView_Loaded 中已修复的测量时序问题。
+            if (!_navViewInitialized)
+            {
+                return;
+            }
+
             SyncPaneStateWithDisplayMode(ConfigService.CurrentConfig?.GlobalSettings);
         }
 

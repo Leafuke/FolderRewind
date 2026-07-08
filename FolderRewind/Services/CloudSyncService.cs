@@ -6,6 +6,7 @@ using System.IO;
 using System.Linq;
 using System.Text;
 using System.Text.Json;
+using System.Text.Json.Serialization.Metadata;
 using System.Text.RegularExpressions;
 using System.Threading;
 using System.Threading.Tasks;
@@ -63,6 +64,12 @@ namespace FolderRewind.Services
             public required string MetadataRecordFilePath { get; init; }
             public required string MetadataStateRemotePath { get; init; }
             public required string MetadataRecordRemotePath { get; init; }
+        }
+
+        private static void SerializeToFile<T>(string path, T value, JsonTypeInfo<T> typeInfo)
+        {
+            using var stream = new FileStream(path, FileMode.Create, FileAccess.Write, FileShare.None);
+            JsonSerializer.Serialize(stream, value, typeInfo);
         }
 
         public static string VariablesHelpText => string.Join(Environment.NewLine, new[]
@@ -426,11 +433,8 @@ namespace FolderRewind.Services
                 int removedCount = remoteEntries.RemoveAll(item => BelongsToConfiguration(item, config, remoteConfigRoot));
                 remoteEntries.AddRange(localEntries.Select(CloneHistoryItemForCloudSync));
 
-                string mergedHistoryJson = JsonSerializer.Serialize(remoteEntries, AppJsonContext.Default.ListHistoryItem);
-                await File.WriteAllTextAsync(tempHistoryPath, mergedHistoryJson).ConfigureAwait(false);
-
-                string manifestJson = JsonSerializer.Serialize(manifest, AppJsonContext.Default.CloudActiveHistoryManifest);
-                await File.WriteAllTextAsync(tempManifestPath, manifestJson).ConfigureAwait(false);
+                SerializeToFile(tempHistoryPath, remoteEntries, AppJsonContext.Default.ListHistoryItem);
+                SerializeToFile(tempManifestPath, manifest, AppJsonContext.Default.CloudActiveHistoryManifest);
 
                 await RunOnUIAsync(() => task.Progress = 20).ConfigureAwait(false);
 
@@ -2140,11 +2144,15 @@ namespace FolderRewind.Services
                 return new List<string>();
             }
 
-            return result.Output
-                .Split(new[] { "\r\n", "\n" }, StringSplitOptions.RemoveEmptyEntries)
-                .Select(line => line.Trim())
-                .Where(line => !string.IsNullOrWhiteSpace(line))
-                .ToList();
+            var outputSpan = result.Output.AsSpan();
+            var lines = new List<string>();
+            foreach (var line in outputSpan.EnumerateLines())
+            {
+                var trimmed = line.Trim();
+                if (!trimmed.IsEmpty)
+                    lines.Add(trimmed.ToString());
+            }
+            return lines;
         }
 
         private static async Task<(bool Success, int ExitCode, string Output, string ErrorMessage)> RunSilentCommandAsync(ResolvedCommand command, int timeoutSeconds)
@@ -2396,16 +2404,16 @@ namespace FolderRewind.Services
             var source = !string.IsNullOrWhiteSpace(stderr) ? stderr : stdout;
             if (!string.IsNullOrWhiteSpace(source))
             {
-                var lines = source
-                    .Split(new[] { '\r', '\n' }, StringSplitOptions.RemoveEmptyEntries)
-                    .Select(s => s.Trim())
-                    .Where(s => !string.IsNullOrWhiteSpace(s))
-                    .ToArray();
-
-                if (lines.Length > 0)
+                var sourceSpan = source.AsSpan();
+                ReadOnlySpan<char> lastNonEmpty = default;
+                foreach (var line in sourceSpan.EnumerateLines())
                 {
-                    return lines[^1];
+                    var trimmed = line.Trim();
+                    if (!trimmed.IsEmpty)
+                        lastNonEmpty = trimmed;
                 }
+                if (lastNonEmpty.Length > 0)
+                    return lastNonEmpty.ToString();
             }
 
             return I18n.Format("CloudSync_Error_ExitCode", exitCode);

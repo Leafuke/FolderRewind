@@ -376,7 +376,7 @@ namespace FolderRewind.Services
                 request.Content = new StringContent(JsonSerializer.Serialize(new Dictionary<string, string>
                 {
                     ["branch"] = branch
-                }), Encoding.UTF8, "application/json");
+                }, AppJsonContext.Default.DictionaryStringString), Encoding.UTF8, "application/json");
                 using var response = await Http.SendAsync(request, ct);
                 if (response.StatusCode == HttpStatusCode.NoContent
                     || response.StatusCode == HttpStatusCode.Created
@@ -421,7 +421,7 @@ namespace FolderRewind.Services
                 {
                     ["ref"] = $"refs/heads/{candidate}",
                     ["sha"] = baseSha
-                }), Encoding.UTF8, "application/json");
+                }, AppJsonContext.Default.DictionaryStringString), Encoding.UTF8, "application/json");
 
                 using var response = await Http.SendAsync(request, ct);
                 if (response.StatusCode == HttpStatusCode.Created)
@@ -472,7 +472,7 @@ namespace FolderRewind.Services
             CancellationToken ct)
         {
             using var request = CreateGitHubRequest(HttpMethod.Put, $"https://api.github.com/repos/{owner}/{repo}/contents/{path}", token);
-            var body = new Dictionary<string, object?>
+            var body = new Dictionary<string, string>
             {
                 ["message"] = commitMessage,
                 ["content"] = Convert.ToBase64String(Encoding.UTF8.GetBytes(textContent)),
@@ -483,7 +483,7 @@ namespace FolderRewind.Services
                 body["sha"] = existingSha;
             }
 
-            request.Content = new StringContent(JsonSerializer.Serialize(body), Encoding.UTF8, "application/json");
+            request.Content = new StringContent(JsonSerializer.Serialize(body, AppJsonContext.Default.DictionaryStringString), Encoding.UTF8, "application/json");
             using var response = await Http.SendAsync(request, ct);
             return response.IsSuccessStatusCode;
         }
@@ -550,7 +550,7 @@ namespace FolderRewind.Services
                 ["head"] = $"{forkOwner}:{branchName}",
                 ["base"] = baseBranch,
                 ["body"] = body
-            }), Encoding.UTF8, "application/json");
+            }, AppJsonContext.Default.DictionaryStringString), Encoding.UTF8, "application/json");
 
             using var response = await Http.SendAsync(request, ct);
             var payload = await response.Content.ReadAsStringAsync(ct);

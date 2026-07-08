@@ -1,0 +1,109 @@
+<UserControl
+    x:Class="FolderRewind.Views.Settings.DiagnosticsControl"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:toolkit="using:CommunityToolkit.WinUI.Controls"
+    xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+    xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    mc:Ignorable="d">
+
+    <StackPanel Spacing="8">
+        <toolkit:SettingsExpander IsExpanded="False">
+            <toolkit:SettingsExpander.Header>
+                <TextBlock x:Uid="SettingsPage_CoreValidation" Style="{StaticResource SettingsHeaderTextStyle}" />
+            </toolkit:SettingsExpander.Header>
+            <toolkit:SettingsExpander.Description>
+                <TextBlock x:Uid="SettingsPage_CoreValidationSectionDesc" Style="{StaticResource SettingsDescriptionStyle}" />
+            </toolkit:SettingsExpander.Description>
+            <toolkit:SettingsExpander.HeaderIcon>
+                <FontIcon Glyph="&#xE9D2;" />
+            </toolkit:SettingsExpander.HeaderIcon>
+            <toolkit:SettingsExpander.Items>
+                <toolkit:SettingsCard>
+                    <toolkit:SettingsCard.Header>
+                        <TextBlock x:Uid="SettingsPage_CoreValidation_Run" Style="{StaticResource SettingsHeaderTextStyle}" />
+                    </toolkit:SettingsCard.Header>
+                    <toolkit:SettingsCard.Description>
+                        <TextBlock x:Uid="SettingsPage_CoreValidation_RunDesc" Style="{StaticResource SettingsDescriptionStyle}" />
+                    </toolkit:SettingsCard.Description>
+                    <StackPanel Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
+                        <Button x:Uid="SettingsPage_CoreValidation_RunButton"
+                                Style="{StaticResource SettingsActionRowButtonStyle}"
+                                Click="OnRunCoreValidationClick"
+                                IsEnabled="{x:Bind ViewModel.IsCoreValidationIdle, Mode=OneWay}" />
+                        <Button x:Uid="SettingsPage_CoreValidation_ViewReportButton"
+                                Style="{StaticResource SettingsActionRowButtonStyle}"
+                                Click="OnViewCoreValidationReportClick"
+                                IsEnabled="{x:Bind ViewModel.HasCoreValidationReport, Mode=OneWay}" />
+                        <ProgressRing Width="20"
+                                      Height="20"
+                                      IsActive="{x:Bind ViewModel.IsCoreValidationRunning, Mode=OneWay}"
+                                      Visibility="{x:Bind ViewModel.IsCoreValidationRunning, Mode=OneWay, Converter={StaticResource BoolToVisConverter}}" />
+                    </StackPanel>
+                </toolkit:SettingsCard>
+
+                <toolkit:SettingsCard ContentAlignment="Vertical" HorizontalContentAlignment="Stretch">
+                    <toolkit:SettingsCard.Header>
+                        <TextBlock x:Uid="SettingsPage_CoreValidation_State" Style="{StaticResource SettingsHeaderTextStyle}" />
+                    </toolkit:SettingsCard.Header>
+                    <toolkit:SettingsCard.Description>
+                        <TextBlock x:Uid="SettingsPage_CoreValidation_StateDesc" Style="{StaticResource SettingsDescriptionStyle}" />
+                    </toolkit:SettingsCard.Description>
+                    <StackPanel Spacing="4">
+                        <TextBlock Text="{x:Bind ViewModel.CoreValidationStatusText, Mode=OneWay}" Style="{StaticResource SettingsHeaderTextStyle}" TextWrapping="Wrap" />
+                        <TextBlock Text="{x:Bind ViewModel.CoreValidationLastRunText, Mode=OneWay}" Style="{StaticResource SettingsDescriptionStyle}" />
+                        <TextBlock Text="{x:Bind ViewModel.CoreValidationLastSummaryText, Mode=OneWay}" Style="{StaticResource SettingsDescriptionStyle}" TextWrapping="Wrap" />
+                    </StackPanel>
+                </toolkit:SettingsCard>
+            </toolkit:SettingsExpander.Items>
+        </toolkit:SettingsExpander>
+
+        <!-- 日志与诊断 -->
+        <toolkit:SettingsExpander IsExpanded="False">
+            <toolkit:SettingsExpander.Header>
+                <TextBlock x:Uid="SettingsPage_LogDiag" Style="{StaticResource SettingsHeaderTextStyle}" />
+            </toolkit:SettingsExpander.Header>
+            <toolkit:SettingsExpander.Description>
+                <TextBlock x:Uid="SettingsPage_LogDiagSectionDesc" Style="{StaticResource SettingsDescriptionStyle}" />
+            </toolkit:SettingsExpander.Description>
+            <toolkit:SettingsExpander.HeaderIcon>
+                <FontIcon Glyph="&#xE9D9;" />
+            </toolkit:SettingsExpander.HeaderIcon>
+            <toolkit:SettingsExpander.Items>
+                <toolkit:SettingsCard>
+                    <toolkit:SettingsCard.Header>
+                        <TextBlock x:Uid="SettingsPage_LogEnabled" Style="{StaticResource SettingsHeaderTextStyle}" />
+                    </toolkit:SettingsCard.Header>
+                    <toolkit:SettingsCard.Description>
+                        <TextBlock x:Uid="SettingsPage_LogEnabledDesc" Style="{StaticResource SettingsDescriptionStyle}" />
+                    </toolkit:SettingsCard.Description>
+                    <ToggleSwitch IsOn="{x:Bind ViewModel.Settings.EnableFileLogging, Mode=TwoWay}" Toggled="OnLoggingChanged" />
+                </toolkit:SettingsCard>
+
+                <toolkit:SettingsCard>
+                    <toolkit:SettingsCard.Header>
+                        <TextBlock x:Uid="SettingsPage_MaxLogSize" Style="{StaticResource SettingsHeaderTextStyle}" />
+                    </toolkit:SettingsCard.Header>
+                    <toolkit:SettingsCard.Description>
+                        <TextBlock x:Uid="SettingsPage_MaxLogSizeDesc" Style="{StaticResource SettingsDescriptionStyle}" />
+                    </toolkit:SettingsCard.Description>
+                    <NumberBox Style="{StaticResource SettingsNumberBoxStyle}" Minimum="1" Maximum="50" Value="{x:Bind ViewModel.Settings.MaxLogFileSizeMb, Mode=TwoWay}" ValueChanged="OnLogSizeChanged" />
+                </toolkit:SettingsCard>
+
+                <toolkit:SettingsCard>
+                    <toolkit:SettingsCard.Header>
+                        <TextBlock x:Uid="SettingsPage_LogRetention" Style="{StaticResource SettingsHeaderTextStyle}" />
+                    </toolkit:SettingsCard.Header>
+                    <toolkit:SettingsCard.Description>
+                        <TextBlock x:Uid="SettingsPage_LogRetentionDesc" Style="{StaticResource SettingsDescriptionStyle}" />
+                    </toolkit:SettingsCard.Description>
+                    <NumberBox Style="{StaticResource SettingsNumberBoxStyle}" Minimum="1" Maximum="60" Value="{x:Bind ViewModel.Settings.LogRetentionDays, Mode=TwoWay}" ValueChanged="OnRetentionChanged" />
+                </toolkit:SettingsCard>
+
+                <toolkit:SettingsCard ContentAlignment="Vertical" HorizontalContentAlignment="Left">
+                    <Button x:Uid="SettingsPage_OpenLogCenter" Style="{StaticResource SettingsActionButtonStyle}" Click="OnOpenLogCenterClick" />
+                </toolkit:SettingsCard>
+            </toolkit:SettingsExpander.Items>
+        </toolkit:SettingsExpander>
+    </StackPanel>
+</UserControl>

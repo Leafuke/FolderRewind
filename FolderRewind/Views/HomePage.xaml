@@ -17,7 +17,7 @@
             <StackPanel Spacing="12">
                 <StackPanel Orientation="Horizontal" Spacing="8">
                     <FontIcon Glyph="&#xE735;" Foreground="{ThemeResource SystemControlForegroundAccentBrush}"/>
-                    <TextBlock x:Uid="HomePage_FavoriteFolders" Style="{ThemeResource SubtitleTextBlockStyle}"/>
+                    <TextBlock x:Uid="HomePage_FavoriteFolders" Style="{StaticResource SubtitleTextBlockStyle}"/>
                 </StackPanel>
 
                 <!-- 绑定到 Favorites 集合 -->
@@ -93,25 +93,26 @@
                                             </Border>
 
                                             <StackPanel Grid.Column="1" VerticalAlignment="Center" Spacing="2">
-                                                <TextBlock Text="{x:Bind DisplayName}" 
-                                                           Style="{ThemeResource BodyStrongTextBlockStyle}" 
+                                                <TextBlock Text="{x:Bind DisplayName}"
+                                                           Style="{StaticResource BodyStrongTextBlockStyle}"
                                                            TextTrimming="CharacterEllipsis" TextWrapping="NoWrap" 
                                                            MaxLines="1" TextAlignment="Left" 
                                                            services:AutoToolTipService.IsEnabled="True"/>
-                                                <TextBlock Text="{x:Bind FullPath}" 
-                                                           Style="{ThemeResource CaptionTextBlockStyle}" 
-                                                           Foreground="{ThemeResource TextFillColorSecondaryBrush}" 
-                                                           TextTrimming="CharacterEllipsis" TextWrapping="NoWrap" 
-                                                           MaxLines="1" TextAlignment="Left" 
+                                                <TextBlock Text="{x:Bind FullPath}"
+                                                           Style="{StaticResource CaptionTextBlockStyle}"
+                                                           Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                                                           TextTrimming="CharacterEllipsis" TextWrapping="NoWrap"
+                                                           MaxLines="1" TextAlignment="Left"
                                                            services:AutoToolTipService.IsEnabled="True"/>
                                                 <!-- 备份时间，附带图标标识 -->
                                                 <StackPanel Orientation="Horizontal" Spacing="4" Margin="0,2,0,0">
                                                     <FontIcon Glyph="&#xE823;" FontSize="11" 
                                                               Foreground="{ThemeResource TextFillColorTertiaryBrush}"/>
-                                                    <TextBlock Text="{x:Bind LastBackupTime}" 
-                                                               Style="{ThemeResource CaptionTextBlockStyle}" 
-                                                               Foreground="{ThemeResource TextFillColorTertiaryBrush}" 
-                                                               TextTrimming="CharacterEllipsis" TextWrapping="NoWrap" MaxLines="1"/>
+                                                    <TextBlock Text="{x:Bind LastBackupTime}"
+                                                               Style="{StaticResource CaptionTextBlockStyle}"
+                                                               Foreground="{ThemeResource TextFillColorTertiaryBrush}"
+                                                               TextTrimming="CharacterEllipsis" TextWrapping="NoWrap"
+                                                               MaxLines="1" TextAlignment="Left"/>
                                                 </StackPanel>
                                             </StackPanel>
 
@@ -143,7 +144,7 @@
                     </Grid.ColumnDefinitions>
                     <StackPanel Orientation="Horizontal" Spacing="8">
                         <FontIcon Glyph="&#xE71D;" Foreground="{ThemeResource SystemControlForegroundAccentBrush}"/>
-                        <TextBlock x:Uid="HomePage_ConfigOverview" Style="{ThemeResource SubtitleTextBlockStyle}"/>
+                        <TextBlock x:Uid="HomePage_ConfigOverview" Style="{StaticResource SubtitleTextBlockStyle}"/>
                     </StackPanel>
 
                     <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="6" VerticalAlignment="Center">
@@ -207,7 +208,7 @@
                                     BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
                                     BorderThickness="1"
                                     CornerRadius="{StaticResource OverlayCornerRadius}"
-                                    Translation="0,0,16">
+                                    Translation="0,0,32">
                                 <Border.Shadow>
                                     <ThemeShadow />
                                 </Border.Shadow>
@@ -222,8 +223,7 @@
                                         VerticalAlignment="Stretch"
                                         Width="320"
                                         Height="115"
-                                        Click="OnConfigCardClick"
-                                        RightTapped="OnConfigCardRightTapped">
+                                        Click="OnConfigCardClick">
                                     <Button.ContextFlyout>
                                         <MenuFlyout>
                                             <MenuFlyoutItem x:Uid="HomePage_ContextMenu_BackupAll" Click="OnBackupAllFoldersClick">
@@ -258,7 +258,7 @@
                                                    Margin="4,14"/>
 
                                         <!-- 主内容区域 -->
-                                        <Grid Margin="16,10,12,10" ColumnSpacing="12">
+                                        <Grid Margin="16,8,12,8" ColumnSpacing="12">
                                             <Grid.ColumnDefinitions>
                                                 <ColumnDefinition Width="Auto"/>
                                                 <ColumnDefinition Width="*"/>
@@ -275,16 +275,16 @@
                                             </Border>
                                         
                                             <StackPanel Grid.Column="1" VerticalAlignment="Center" Spacing="2">
-                                                <TextBlock Text="{x:Bind Name}" 
-                                                           Style="{ThemeResource BodyStrongTextBlockStyle}" 
+                                                <TextBlock Text="{x:Bind Name}"
+                                                           Style="{StaticResource BodyStrongTextBlockStyle}"
                                                            TextTrimming="CharacterEllipsis" TextWrapping="NoWrap" 
                                                            MaxLines="1" TextAlignment="Left" 
                                                            services:AutoToolTipService.IsEnabled="True"/>
-                                                <TextBlock Text="{x:Bind DestinationPath}" 
-                                                           Style="{ThemeResource CaptionTextBlockStyle}" 
-                                                           Foreground="{ThemeResource TextFillColorSecondaryBrush}" 
-                                                           TextTrimming="CharacterEllipsis" TextWrapping="NoWrap" 
-                                                           MaxLines="1" TextAlignment="Left" 
+                                                <TextBlock Text="{x:Bind DestinationPath}"
+                                                           Style="{StaticResource CaptionTextBlockStyle}"
+                                                           Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                                                           TextTrimming="CharacterEllipsis" TextWrapping="NoWrap"
+                                                           MaxLines="1" TextAlignment="Left"
                                                            services:AutoToolTipService.IsEnabled="True"/>
                                             
                                                 <!-- 信息标签行 -->
@@ -292,16 +292,16 @@
                                                     <StackPanel Orientation="Horizontal" Spacing="4">
                                                         <FontIcon Glyph="&#xE8B7;" FontSize="11" 
                                                                   Foreground="{ThemeResource TextFillColorTertiaryBrush}"/>
-                                                        <TextBlock Text="{x:Bind SourceFolders.Count, TargetNullValue=0}" 
-                                                                   Style="{ThemeResource CaptionTextBlockStyle}" 
+                                                        <TextBlock Text="{x:Bind SourceFolders.Count, TargetNullValue=0}"
+                                                                   Style="{StaticResource CaptionTextBlockStyle}" 
                                                                    Foreground="{ThemeResource TextFillColorTertiaryBrush}"/>
                                                     </StackPanel>
                                                     <StackPanel Orientation="Horizontal" Spacing="4" 
                                                                 Visibility="{x:Bind Automation.AutoBackupEnabled, Converter={StaticResource BoolToVisConverter}}">
                                                         <FontIcon Glyph="&#xE823;" FontSize="11" 
                                                                   Foreground="{ThemeResource TextFillColorTertiaryBrush}"/>
-                                                        <TextBlock x:Uid="HomePage_Config_Auto" 
-                                                                   Style="{ThemeResource CaptionTextBlockStyle}" 
+                                                        <TextBlock x:Uid="HomePage_Config_Auto"
+                                                                   Style="{StaticResource CaptionTextBlockStyle}" 
                                                                    Foreground="{ThemeResource TextFillColorTertiaryBrush}"/>
                                                     </StackPanel>
                                                 </StackPanel>

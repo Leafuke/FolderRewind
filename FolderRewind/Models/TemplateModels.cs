@@ -112,6 +112,7 @@ namespace FolderRewind.Models
         private ArchiveSettings _archive = new();
         private AutomationSettings _automation = new();
         private FilterSettings _filters = new();
+        private BackupScopeSettings _backupScope = new();
         private CloudSettings _cloud = new();
         private Dictionary<string, string> _extendedProperties = new();
         private ObservableCollection<string> _requiredPluginIds = new();
@@ -151,6 +152,12 @@ namespace FolderRewind.Models
         {
             get => _filters;
             set => SetProperty(ref _filters, value ?? new FilterSettings());
+        }
+
+        public BackupScopeSettings BackupScope
+        {
+            get => _backupScope;
+            set => SetProperty(ref _backupScope, value ?? new BackupScopeSettings());
         }
 
         public CloudSettings Cloud

@@ -1,0 +1,78 @@
+<UserControl
+    x:Class="FolderRewind.Views.Settings.DataManagementControl"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:toolkit="using:CommunityToolkit.WinUI.Controls"
+    xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+    xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    mc:Ignorable="d">
+
+    <StackPanel Spacing="8">
+        <!-- 扩展 -->
+        <TextBlock x:Uid="SettingsPage_Section_Extensions" Style="{StaticResource SettingsSectionHeaderTextBlockStyle}" />
+
+        <toolkit:SettingsExpander IsExpanded="False">
+            <toolkit:SettingsExpander.Header>
+                <TextBlock x:Uid="SettingsPage_TemplateData" Style="{StaticResource SettingsHeaderTextStyle}" />
+            </toolkit:SettingsExpander.Header>
+            <toolkit:SettingsExpander.Description>
+                <TextBlock x:Uid="SettingsPage_TemplateDataDesc" Style="{StaticResource SettingsDescriptionStyle}" />
+            </toolkit:SettingsExpander.Description>
+            <toolkit:SettingsExpander.HeaderIcon>
+                <FontIcon Glyph="&#xE8D2;" />
+            </toolkit:SettingsExpander.HeaderIcon>
+            <toolkit:SettingsExpander.Items>
+                <toolkit:SettingsCard>
+                    <StackPanel Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
+                        <Button x:Uid="SettingsPage_ExportTemplate" Style="{StaticResource SettingsActionRowButtonStyle}" Click="OnExportTemplateClick" />
+                        <Button x:Uid="SettingsPage_ImportTemplate" Style="{StaticResource SettingsActionRowButtonStyle}" Click="OnImportTemplateClick" />
+                        <Button x:Uid="SettingsPage_BrowseOfficialTemplates" Style="{StaticResource SettingsActionRowButtonStyle}" Click="OnBrowseOfficialTemplatesClick" />
+                        <Button x:Uid="SettingsPage_UseTemplateShareCode" Style="{StaticResource SettingsActionRowButtonStyle}" Click="OnUseTemplateShareCodeClick" />
+                        <Button x:Uid="SettingsPage_PrepareTemplateSubmission" Style="{StaticResource SettingsActionRowButtonStyle}" Click="OnPrepareTemplateSubmissionClick" />
+                        <Button x:Uid="SettingsPage_ManageTemplates" Style="{StaticResource SettingsActionRowButtonStyle}" Click="OnManageTemplatesClick" />
+                    </StackPanel>
+                </toolkit:SettingsCard>
+            </toolkit:SettingsExpander.Items>
+        </toolkit:SettingsExpander>
+
+        <!-- 数据迁移 -->
+        <toolkit:SettingsExpander IsExpanded="False">
+            <toolkit:SettingsExpander.Header>
+                <TextBlock x:Uid="SettingsPage_DataMigration" Style="{StaticResource SettingsHeaderTextStyle}" />
+            </toolkit:SettingsExpander.Header>
+            <toolkit:SettingsExpander.Description>
+                <TextBlock x:Uid="SettingsPage_DataMigrationDesc" Style="{StaticResource SettingsDescriptionStyle}" />
+            </toolkit:SettingsExpander.Description>
+            <toolkit:SettingsExpander.HeaderIcon>
+                <FontIcon Glyph="&#xE8DE;" />
+            </toolkit:SettingsExpander.HeaderIcon>
+            <toolkit:SettingsExpander.Items>
+                <toolkit:SettingsCard>
+                    <toolkit:SettingsCard.Header>
+                        <TextBlock x:Uid="SettingsPage_ConfigData" Style="{StaticResource SettingsHeaderTextStyle}" />
+                    </toolkit:SettingsCard.Header>
+                    <toolkit:SettingsCard.Description>
+                        <TextBlock x:Uid="SettingsPage_ConfigDataDesc" Style="{StaticResource SettingsDescriptionStyle}" />
+                    </toolkit:SettingsCard.Description>
+                    <StackPanel Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
+                        <Button x:Uid="SettingsPage_ExportConfig" Style="{StaticResource SettingsActionRowButtonStyle}" Click="OnExportConfigClick" />
+                        <Button x:Uid="SettingsPage_ImportConfig" Style="{StaticResource SettingsActionRowButtonStyle}" Click="OnImportConfigClick" />
+                    </StackPanel>
+                </toolkit:SettingsCard>
+
+                <toolkit:SettingsCard>
+                    <toolkit:SettingsCard.Header>
+                        <TextBlock x:Uid="SettingsPage_HistoryData" Style="{StaticResource SettingsHeaderTextStyle}" />
+                    </toolkit:SettingsCard.Header>
+                    <toolkit:SettingsCard.Description>
+                        <TextBlock x:Uid="SettingsPage_HistoryDataDesc" Style="{StaticResource SettingsDescriptionStyle}" />
+                    </toolkit:SettingsCard.Description>
+                    <StackPanel Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
+                        <Button x:Uid="SettingsPage_ExportHistory" Style="{StaticResource SettingsActionRowButtonStyle}" Click="OnExportHistoryClick" />
+                        <Button x:Uid="SettingsPage_ImportHistory" Style="{StaticResource SettingsActionRowButtonStyle}" Click="OnImportHistoryClick" />
+                    </StackPanel>
+                </toolkit:SettingsCard>
+            </toolkit:SettingsExpander.Items>
+        </toolkit:SettingsExpander>
+    </StackPanel>
+</UserControl>

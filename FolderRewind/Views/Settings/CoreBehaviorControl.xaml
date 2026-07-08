@@ -1,0 +1,195 @@
+<UserControl
+    x:Class="FolderRewind.Views.Settings.CoreBehaviorControl"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:toolkit="using:CommunityToolkit.WinUI.Controls"
+    xmlns:viewModels="using:FolderRewind.ViewModels"
+    xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+    xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    mc:Ignorable="d">
+
+    <StackPanel Spacing="8">
+        <!-- 常规 -->
+        <TextBlock x:Uid="SettingsPage_Section_General" Style="{StaticResource SettingsSectionHeaderTextBlockStyle}" />
+
+        <!-- 核心行为-->
+        <toolkit:SettingsExpander IsExpanded="False">
+            <toolkit:SettingsExpander.Header>
+                <TextBlock x:Uid="SettingsPage_CoreBehavior" Style="{StaticResource SettingsHeaderTextStyle}" />
+            </toolkit:SettingsExpander.Header>
+            <toolkit:SettingsExpander.Description>
+                <TextBlock x:Uid="SettingsPage_CoreBehaviorSectionDesc" Style="{StaticResource SettingsDescriptionStyle}" />
+            </toolkit:SettingsExpander.Description>
+            <toolkit:SettingsExpander.HeaderIcon>
+                <FontIcon Glyph="&#xE713;" />
+            </toolkit:SettingsExpander.HeaderIcon>
+            <toolkit:SettingsExpander.Items>
+                <toolkit:SettingsCard>
+                    <toolkit:SettingsCard.Header>
+                        <TextBlock x:Uid="SettingsPage_RunOnStartup" Style="{StaticResource SettingsHeaderTextStyle}" />
+                    </toolkit:SettingsCard.Header>
+                    <toolkit:SettingsCard.Description>
+                        <TextBlock x:Uid="SettingsPage_RunOnStartupDesc" Style="{StaticResource SettingsDescriptionStyle}" />
+                    </toolkit:SettingsCard.Description>
+                    <ToggleSwitch IsOn="{x:Bind ViewModel.Settings.RunOnStartup, Mode=TwoWay}" Toggled="OnRunOnStartupToggled" />
+                </toolkit:SettingsCard>
+
+                <toolkit:SettingsCard>
+                    <toolkit:SettingsCard.Header>
+                        <TextBlock x:Uid="SettingsPage_SilentStartup" Style="{StaticResource SettingsHeaderTextStyle}" />
+                    </toolkit:SettingsCard.Header>
+                    <toolkit:SettingsCard.Description>
+                        <TextBlock x:Uid="SettingsPage_SilentStartupDesc" Style="{StaticResource SettingsDescriptionStyle}" />
+                    </toolkit:SettingsCard.Description>
+                    <ToggleSwitch IsOn="{x:Bind ViewModel.Settings.SilentStartup, Mode=TwoWay}"
+                                  IsEnabled="{x:Bind ViewModel.Settings.RunOnStartup, Mode=OneWay}"
+                                  Toggled="OnSilentStartupToggled" />
+                </toolkit:SettingsCard>
+
+                <toolkit:SettingsCard>
+                    <toolkit:SettingsCard.Header>
+                        <TextBlock x:Uid="SettingsPage_CloseBehavior" Style="{StaticResource SettingsHeaderTextStyle}" />
+                    </toolkit:SettingsCard.Header>
+                    <toolkit:SettingsCard.Description>
+                        <TextBlock x:Uid="SettingsPage_CloseBehaviorDesc" Style="{StaticResource SettingsDescriptionStyle}" />
+                    </toolkit:SettingsCard.Description>
+                    <ComboBox Style="{StaticResource SettingsSelectorStyle}"
+                              SelectedIndex="{x:Bind ViewModel.CloseBehaviorSelectedIndex, Mode=TwoWay}"
+                              SelectionChanged="OnCloseBehaviorSelectionChanged">
+                        <ComboBoxItem x:Uid="SettingsPage_CloseBehavior_Ask" />
+                        <ComboBoxItem x:Uid="SettingsPage_CloseBehavior_MinimizeToTray" />
+                        <ComboBoxItem x:Uid="SettingsPage_CloseBehavior_Exit" />
+                    </ComboBox>
+                </toolkit:SettingsCard>
+
+            </toolkit:SettingsExpander.Items>
+        </toolkit:SettingsExpander>
+
+        <!-- 通知 -->
+        <toolkit:SettingsExpander IsExpanded="False">
+            <toolkit:SettingsExpander.Header>
+                <TextBlock x:Uid="SettingsPage_Notifications" Style="{StaticResource SettingsHeaderTextStyle}" />
+            </toolkit:SettingsExpander.Header>
+            <toolkit:SettingsExpander.Description>
+                <TextBlock x:Uid="SettingsPage_NotificationsDesc" Style="{StaticResource SettingsDescriptionStyle}" />
+            </toolkit:SettingsExpander.Description>
+            <toolkit:SettingsExpander.HeaderIcon>
+                <FontIcon Glyph="&#xE7BA;" />
+            </toolkit:SettingsExpander.HeaderIcon>
+            <toolkit:SettingsExpander.Items>
+                <toolkit:SettingsCard>
+                    <toolkit:SettingsCard.Header>
+                        <TextBlock x:Uid="SettingsPage_EnableNotifications" Style="{StaticResource SettingsHeaderTextStyle}" />
+                    </toolkit:SettingsCard.Header>
+                    <toolkit:SettingsCard.Description>
+                        <TextBlock x:Uid="SettingsPage_EnableNotificationsDesc" Style="{StaticResource SettingsDescriptionStyle}" />
+                    </toolkit:SettingsCard.Description>
+                    <ToggleSwitch IsOn="{x:Bind ViewModel.Settings.EnableNotifications, Mode=OneWay}" Toggled="OnNotificationsToggled" />
+                </toolkit:SettingsCard>
+
+                <toolkit:SettingsCard Visibility="{x:Bind ViewModel.Settings.EnableNotifications, Mode=OneWay, Converter={StaticResource BoolToVisConverter}}">
+                    <toolkit:SettingsCard.Header>
+                        <TextBlock x:Uid="SettingsPage_ToastNotificationLevel" Style="{StaticResource SettingsHeaderTextStyle}" />
+                    </toolkit:SettingsCard.Header>
+                    <toolkit:SettingsCard.Description>
+                        <TextBlock x:Uid="SettingsPage_ToastNotificationLevelDesc" Style="{StaticResource SettingsDescriptionStyle}" />
+                    </toolkit:SettingsCard.Description>
+                    <ComboBox Style="{StaticResource SettingsSelectorStyle}"
+                              SelectedIndex="{x:Bind ViewModel.Settings.ToastNotificationLevel, Mode=OneWay}"
+                              SelectionChanged="OnToastLevelChanged">
+                        <ComboBoxItem x:Uid="SettingsPage_ToastLevel_Off" />
+                        <ComboBoxItem x:Uid="SettingsPage_ToastLevel_ErrorOnly" />
+                        <ComboBoxItem x:Uid="SettingsPage_ToastLevel_ImportantAndAbove" />
+                        <ComboBoxItem x:Uid="SettingsPage_ToastLevel_All" />
+                    </ComboBox>
+                </toolkit:SettingsCard>
+
+                <toolkit:SettingsCard>
+                    <toolkit:SettingsCard.Header>
+                        <TextBlock x:Uid="SettingsPage_EnableNotices" Style="{StaticResource SettingsHeaderTextStyle}" />
+                    </toolkit:SettingsCard.Header>
+                    <toolkit:SettingsCard.Description>
+                        <TextBlock x:Uid="SettingsPage_EnableNoticesDesc" Style="{StaticResource SettingsDescriptionStyle}" />
+                    </toolkit:SettingsCard.Description>
+                    <ToggleSwitch IsOn="{x:Bind ViewModel.Settings.EnableNotices, Mode=OneWay}" Toggled="OnNoticesToggled" />
+                </toolkit:SettingsCard>
+
+                <toolkit:SettingsCard>
+                    <toolkit:SettingsCard.Header>
+                        <TextBlock x:Uid="SettingsPage_EnableUpdateReminder" Style="{StaticResource SettingsHeaderTextStyle}" />
+                    </toolkit:SettingsCard.Header>
+                    <toolkit:SettingsCard.Description>
+                        <TextBlock x:Uid="SettingsPage_EnableUpdateReminderDesc" Style="{StaticResource SettingsDescriptionStyle}" />
+                    </toolkit:SettingsCard.Description>
+                    <ToggleSwitch IsOn="{x:Bind ViewModel.Settings.EnableUpdateReminder, Mode=OneWay}" Toggled="OnUpdateReminderToggled" />
+                </toolkit:SettingsCard>
+
+                <toolkit:SettingsCard>
+                    <toolkit:SettingsCard.Header>
+                        <TextBlock x:Uid="SettingsPage_FileSizeWarningThreshold" Style="{StaticResource SettingsHeaderTextStyle}" />
+                    </toolkit:SettingsCard.Header>
+                    <toolkit:SettingsCard.Description>
+                        <TextBlock x:Uid="SettingsPage_FileSizeWarningThresholdDesc" Style="{StaticResource SettingsDescriptionStyle}" />
+                    </toolkit:SettingsCard.Description>
+                    <StackPanel Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
+                        <NumberBox Style="{StaticResource SettingsNumberBoxStyle}"
+                                   Minimum="0"
+                                   Maximum="10240"
+                                   SmallChange="1"
+                                   LargeChange="10"
+                                   Value="{x:Bind ViewModel.Settings.FileSizeWarningThresholdKB, Mode=OneWay}"
+                                   ValueChanged="OnFileSizeWarningThresholdChanged" />
+                        <TextBlock Text="KB" VerticalAlignment="Center" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                    </StackPanel>
+                </toolkit:SettingsCard>
+            </toolkit:SettingsExpander.Items>
+        </toolkit:SettingsExpander>
+
+        <!-- 热键-->
+        <toolkit:SettingsExpander IsExpanded="False">
+            <toolkit:SettingsExpander.Header>
+                <TextBlock x:Uid="SettingsPage_Hotkeys" Style="{StaticResource SettingsHeaderTextStyle}" />
+            </toolkit:SettingsExpander.Header>
+            <toolkit:SettingsExpander.Description>
+                <TextBlock x:Uid="SettingsPage_HotkeysDesc" Style="{StaticResource SettingsDescriptionStyle}" />
+            </toolkit:SettingsExpander.Description>
+            <toolkit:SettingsExpander.HeaderIcon>
+                <FontIcon Glyph="&#xE765;" />
+            </toolkit:SettingsExpander.HeaderIcon>
+            <toolkit:SettingsExpander.Items>
+                <toolkit:SettingsCard ContentAlignment="Vertical" HorizontalContentAlignment="Stretch">
+                    <ItemsControl ItemsSource="{x:Bind ViewModel.HotkeyBindingsView, Mode=OneWay}">
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate x:DataType="viewModels:HotkeyBindingItem">
+                                <Grid Padding="8,12" ColumnSpacing="16">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*" />
+                                        <ColumnDefinition Width="240" />
+                                        <ColumnDefinition Width="Auto" />
+                                    </Grid.ColumnDefinitions>
+
+                                    <StackPanel Spacing="2">
+                                        <TextBlock Text="{x:Bind DisplayName}" Style="{StaticResource SettingsHeaderTextStyle}" />
+                                        <TextBlock Text="{x:Bind Description}" Style="{StaticResource SettingsDescriptionStyle}" />
+                                        <TextBlock Text="{x:Bind OwnerText}" Style="{StaticResource CaptionTextBlockStyle}" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                                    </StackPanel>
+
+                                    <StackPanel Grid.Column="1" Spacing="2" HorizontalAlignment="Left" VerticalAlignment="Center">
+                                        <TextBlock Text="{x:Bind ScopeText}" Style="{StaticResource CaptionTextBlockStyle}" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                                        <TextBlock Text="{x:Bind CurrentGesture}" Style="{StaticResource SubtitleTextBlockStyle}" />
+                                        <TextBlock Text="{x:Bind DefaultGesture}" Style="{StaticResource CaptionTextBlockStyle}" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                                    </StackPanel>
+
+                                    <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
+                                        <Button x:Uid="SettingsPage_Hotkeys_Edit" Style="{StaticResource SettingsActionRowButtonStyle}" Click="OnEditHotkeyClick" Tag="{x:Bind Id}" />
+                                        <Button x:Uid="SettingsPage_Hotkeys_Reset" Style="{StaticResource SettingsActionRowButtonStyle}" Click="OnResetHotkeyClick" Tag="{x:Bind Id}" />
+                                    </StackPanel>
+                                </Grid>
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+                </toolkit:SettingsCard>
+            </toolkit:SettingsExpander.Items>
+        </toolkit:SettingsExpander>
+    </StackPanel>
+</UserControl>

@@ -10,14 +10,45 @@ using System.Collections.ObjectModel;
 using System.IO;
 using System.Linq;
 using System.Threading.Tasks;
-using Windows.Storage.Pickers;
+using Windows.System;
 
 namespace FolderRewind.Views
 {
     public sealed partial class ConfigSettingsDialog : ContentDialog
     {
+        private static ConfigSettingsDialog? _instance;
+
+        public static ConfigSettingsDialog Instance
+        {
+            get
+            {
+                if (_instance == null)
+                {
+                    _instance = new ConfigSettingsDialog(new BackupConfig
+                    {
+                        Name = string.Empty,
+                        Cloud = new CloudSettings(),
+                        BackupScope = new BackupScopeSettings(),
+                        Archive = new ArchiveSettings
+                        {
+                            CompressionLevel = 5,
+                            Format = "7z",
+                            Method = "LZMA2",
+                            KeepCount = 5,
+                            Mode = BackupMode.Full
+                        },
+                        Automation = new AutomationSettings()
+                    });
+                }
+                return _instance;
+            }
+        }
+
         public BackupConfig Config { get; private set; }
         public ConfigSettingsDialogViewModel ViewModel { get; }
+        private bool _isDialogReady;
+        private Microsoft.UI.Xaml.UIElement? _currentTabContent;
+        private readonly Dictionary<string, bool> _tabLoaded = new();
 
         // 绑定视图（避免 MSIX + Trim 下 WinRT 对自定义泛型集合投影异常）
         public ObservableCollection<object> ConfigTypesView { get; } = new();
@@ -32,7 +63,24 @@ namespace FolderRewind.Views
             set
             {
                 if (Config == null) return;
-                Config.ConfigType = string.IsNullOrWhiteSpace(value) ? "Default" : value;
+                if (string.IsNullOrWhiteSpace(value))
+                {
+                    // ComboBox 初始化 ItemsSource/SelectedItem 时可能短暂回写 null；这不是用户选择。
+                    return;
+                }
+
+                if (string.Equals(Config.ConfigType, value, StringComparison.OrdinalIgnoreCase))
+                {
+                    return;
+                }
+
+                Config.ConfigType = value;
+                ViewModel?.RefreshBackupScopeOptions();
+                if (_isDialogReady)
+                {
+                    RebuildBackupScopeParameterPanel();
+                    Bindings.Update();
+                }
             }
         }
 
@@ -105,15 +153,19 @@ namespace FolderRewind.Views
         public ConfigSettingsDialog(BackupConfig config)
         {
             this.InitializeComponent();
+
+            // Force-load the initially selected tab (General) since x:Load="False" defers its creation
+            LoadTabContent("General");
+
             this.Config = config;
             this.Config.Cloud ??= new CloudSettings();
+            this.Config.BackupScope ??= new BackupScopeSettings();
             this.ViewModel = new ConfigSettingsDialogViewModel(this.Config);
             this.XamlRoot = MainWindowService.GetXamlRoot();
 
             // 应用当前主题到对话框
             ThemeService.ApplyThemeToDialog(this);
 
-            PluginService.Initialize();
             ConfigTypesView.Clear();
             foreach (var t in PluginService.GetAllSupportedConfigTypes())
             {
@@ -144,19 +196,14 @@ namespace FolderRewind.Views
             IconGrid.ItemsSource = IconCatalog.ConfigIconGlyphs;
             IconGrid.SelectedItem = IconCatalog.ConfigIconGlyphs.FirstOrDefault(i => i == Config.IconGlyph) ?? IconCatalog.ConfigIconGlyphs.First();
 
-            Config.PropertyChanged += (_, e) =>
-            {
-                if (e.PropertyName == nameof(BackupConfig.Name) || e.PropertyName == nameof(BackupConfig.DestinationPath))
-                {
-                    UpdateCloudBindings();
-                }
-            };
-
-            Config.Cloud.PropertyChanged += (_, _) => UpdateCloudBindings();
+            Config.PropertyChanged += OnDialogConfigPropertyChanged;
+            Config.Cloud.PropertyChanged += OnDialogCloudPropertyChanged;
 
             InitializeScheduleUI();
+            RebuildBackupScopeParameterPanel();
             UpdateCloudBindings();
             Bindings.Update();
+            _isDialogReady = true;
         }
 
         private readonly List<string> _monthOptions = new();
@@ -174,201 +221,15 @@ namespace FolderRewind.Views
             _dayOptions.Add(I18n.GetString("Schedule_Every"));
             for (int i = 1; i <= 31; i++) _dayOptions.Add(i.ToString());
 
-            // Set header texts
-            ScheduleEntriesHeader.Text = I18n.GetString("Schedule_Header");
-            ScheduleEntriesDesc.Text = I18n.GetString("Schedule_Description");
-            AddScheduleText.Text = I18n.GetString("Schedule_Add");
-
-            // Build existing entries
-            RebuildScheduleEntriesUI();
+            // Set header texts (guard against x:Load deferred elements)
+            if (ScheduleEntriesHeader != null)
+                ScheduleEntriesHeader.Text = I18n.GetString("Schedule_Header");
+            if (ScheduleEntriesDesc != null)
+                ScheduleEntriesDesc.Text = I18n.GetString("Schedule_Description");
+            if (AddScheduleText != null)
+                AddScheduleText.Text = I18n.GetString("Schedule_Add");
         }
 
-        private void RebuildScheduleEntriesUI()
-        {
-            ScheduleEntriesPanel.Children.Clear();
-            if (Config.Automation.ScheduleEntries == null) return;
-
-            for (int idx = 0; idx < Config.Automation.ScheduleEntries.Count; idx++)
-            {
-                var entry = Config.Automation.ScheduleEntries[idx];
-                ScheduleEntriesPanel.Children.Add(BuildScheduleEntryRow(entry, idx));
-            }
-        }
-
-        private UIElement BuildScheduleEntryRow(ScheduleEntry entry, int index)
-        {
-            var root = new StackPanel { Spacing = 4 };
-
-            // Row 1: Month Day Hour Minute + Delete button
-            var row = new Grid { ColumnSpacing = 6 };
-            row.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Auto) });
-            row.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Auto) });
-            row.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Auto) });
-            row.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Auto) });
-            row.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Auto) });
-            row.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
-            row.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Auto) });
-
-            // Month ComboBox
-            var monthLabel = new TextBlock
-            {
-                Text = I18n.GetString("Schedule_Month"),
-                VerticalAlignment = VerticalAlignment.Center,
-                Style = (Style)Application.Current.Resources["CaptionTextBlockStyle"]
-            };
-            Grid.SetColumn(monthLabel, 0);
-            row.Children.Add(monthLabel);
-
-            var monthBox = new ComboBox
-            {
-                ItemsSource = _monthOptions,
-                SelectedIndex = Math.Clamp(entry.MonthSelection, 0, 12),
-                MinWidth = 72,
-                Tag = entry
-            };
-            monthBox.SelectionChanged += OnMonthSelectionChanged;
-            // Disable month when day is "every"
-            monthBox.IsEnabled = entry.DaySelection != 0;
-            Grid.SetColumn(monthBox, 1);
-            row.Children.Add(monthBox);
-
-            // Day ComboBox
-            var dayLabel = new TextBlock
-            {
-                Text = I18n.GetString("Schedule_Day"),
-                VerticalAlignment = VerticalAlignment.Center,
-                Margin = new Thickness(4, 0, 0, 0),
-                Style = (Style)Application.Current.Resources["CaptionTextBlockStyle"]
-            };
-            Grid.SetColumn(dayLabel, 2);
-            row.Children.Add(dayLabel);
-
-            var dayBox = new ComboBox
-            {
-                ItemsSource = _dayOptions,
-                SelectedIndex = Math.Clamp(entry.DaySelection, 0, 31),
-                MinWidth = 72,
-                Tag = entry
-            };
-            dayBox.SelectionChanged += OnDaySelectionChanged;
-            Grid.SetColumn(dayBox, 3);
-            row.Children.Add(dayBox);
-
-            // Hour:Minute
-            var timePanel = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 4, Margin = new Thickness(4, 0, 0, 0) };
-            var hourBox = new NumberBox
-            {
-                Value = entry.Hour,
-                Minimum = 0,
-                Maximum = 23,
-                SpinButtonPlacementMode = NumberBoxSpinButtonPlacementMode.Compact,
-                MinWidth = 70,
-                Tag = entry
-            };
-            hourBox.ValueChanged += OnHourValueChanged;
-            var colonText = new TextBlock { Text = ":", VerticalAlignment = VerticalAlignment.Center, FontWeight = Microsoft.UI.Text.FontWeights.SemiBold };
-            var minuteBox = new NumberBox
-            {
-                Value = entry.Minute,
-                Minimum = 0,
-                Maximum = 59,
-                SpinButtonPlacementMode = NumberBoxSpinButtonPlacementMode.Compact,
-                MinWidth = 70,
-                Tag = entry
-            };
-            minuteBox.ValueChanged += OnMinuteValueChanged;
-            timePanel.Children.Add(hourBox);
-            timePanel.Children.Add(colonText);
-            timePanel.Children.Add(minuteBox);
-            Grid.SetColumn(timePanel, 4);
-            row.Children.Add(timePanel);
-
-            // Delete button
-            var deleteBtn = new Button
-            {
-                Content = new FontIcon { Glyph = "\uE711", FontSize = 12 },
-                Tag = entry,
-                Padding = new Thickness(6),
-                VerticalAlignment = VerticalAlignment.Center
-            };
-            deleteBtn.Click += OnRemoveScheduleEntryClick;
-            Grid.SetColumn(deleteBtn, 6);
-            row.Children.Add(deleteBtn);
-
-            root.Children.Add(row);
-
-            // Row 2: Next run display
-            var nextRunText = new TextBlock
-            {
-                Style = (Style)Application.Current.Resources["CaptionTextBlockStyle"],
-                Foreground = (Microsoft.UI.Xaml.Media.Brush)Application.Current.Resources["TextFillColorSecondaryBrush"],
-                Margin = new Thickness(2, 0, 0, 0)
-            };
-            UpdateNextRunText(nextRunText, entry);
-            nextRunText.Tag = entry;
-
-            // Listen for entry property changes to update next run
-            entry.PropertyChanged += (s, e) =>
-            {
-                if (e.PropertyName == nameof(ScheduleEntry.NextRunDisplay))
-                {
-                    DispatcherQueue.TryEnqueue(() => UpdateNextRunText(nextRunText, entry));
-                }
-            };
-
-            root.Children.Add(nextRunText);
-
-            // Separator
-            root.Children.Add(new Border
-            {
-                Height = 1,
-                Background = (Microsoft.UI.Xaml.Media.Brush)Application.Current.Resources["DividerStrokeColorDefaultBrush"],
-                Margin = new Thickness(0, 2, 0, 0)
-            });
-
-            return root;
-        }
-
-        private void UpdateNextRunText(TextBlock textBlock, ScheduleEntry entry)
-        {
-            textBlock.Text = I18n.Format("Schedule_NextRun", entry.NextRunDisplay);
-        }
-
-        private void OnMonthSelectionChanged(object sender, SelectionChangedEventArgs e)
-        {
-            if (sender is ComboBox box && box.Tag is ScheduleEntry entry)
-            {
-                entry.MonthSelection = box.SelectedIndex;
-                // Rebuild to update month enable state
-                RebuildScheduleEntriesUI();
-            }
-        }
-
-        private void OnDaySelectionChanged(object sender, SelectionChangedEventArgs e)
-        {
-            if (sender is ComboBox box && box.Tag is ScheduleEntry entry)
-            {
-                entry.DaySelection = box.SelectedIndex;
-                // Rebuild to update month enable state
-                RebuildScheduleEntriesUI();
-            }
-        }
-
-        private void OnHourValueChanged(NumberBox sender, NumberBoxValueChangedEventArgs args)
-        {
-            if (sender.Tag is ScheduleEntry entry && !double.IsNaN(args.NewValue))
-            {
-                entry.Hour = (int)args.NewValue;
-            }
-        }
-
-        private void OnMinuteValueChanged(NumberBox sender, NumberBoxValueChangedEventArgs args)
-        {
-            if (sender.Tag is ScheduleEntry entry && !double.IsNaN(args.NewValue))
-            {
-                entry.Minute = (int)args.NewValue;
-            }
-        }
 
         private void OnAddScheduleEntryClick(object sender, RoutedEventArgs e)
         {
@@ -382,15 +243,29 @@ namespace FolderRewind.Views
                 Hour = 8,
                 Minute = 0
             });
-            RebuildScheduleEntriesUI();
         }
 
-        private void OnRemoveScheduleEntryClick(object sender, RoutedEventArgs e)
+        private void OnScheduleMonthComboLoaded(object sender, RoutedEventArgs e)
         {
-            if (sender is Button btn && btn.Tag is ScheduleEntry entry)
+            if (sender is ComboBox cb && cb.ItemsSource == null)
+            {
+                cb.ItemsSource = _monthOptions;
+            }
+        }
+
+        private void OnScheduleDayComboLoaded(object sender, RoutedEventArgs e)
+        {
+            if (sender is ComboBox cb && cb.ItemsSource == null)
+            {
+                cb.ItemsSource = _dayOptions;
+            }
+        }
+
+        private void OnDeleteScheduleEntryClick(object sender, RoutedEventArgs e)
+        {
+            if (sender is Button btn && btn.DataContext is ScheduleEntry entry)
             {
                 Config.Automation.ScheduleEntries?.Remove(entry);
-                RebuildScheduleEntriesUI();
             }
         }
 
@@ -408,19 +283,222 @@ namespace FolderRewind.Views
 
         public string OverwriteModeWarningText => I18n.GetString("ConfigSettingsDialog_OverwriteWarning");
 
+        private void OnBackupScopeSelectionChanged(object sender, SelectionChangedEventArgs e)
+        {
+            if (!_isDialogReady)
+            {
+                return;
+            }
+
+            if (sender is ComboBox box)
+            {
+                ViewModel.SelectBackupScopeByIndex(box.SelectedIndex);
+            }
+
+            RebuildBackupScopeParameterPanel();
+        }
+
+        private void RebuildBackupScopeParameterPanel()
+        {
+            if (BackupScopeParametersPanel == null)
+            {
+                return;
+            }
+
+            BackupScopeParametersPanel.Children.Clear();
+
+            foreach (var definition in ViewModel.SelectedBackupScopeParameters)
+            {
+                if (string.IsNullOrWhiteSpace(definition.Key))
+                {
+                    continue;
+                }
+
+                var container = new StackPanel { Spacing = 4 };
+
+                switch (definition.Type)
+                {
+                    case PluginSettingType.Boolean:
+                    {
+                        var checkbox = new CheckBox
+                        {
+                            Content = definition.DisplayName,
+                            IsChecked = ParseBool(ViewModel.GetBackupScopeParameterValue(definition.Key), definition.DefaultValue),
+                            Tag = definition.Key
+                        };
+                        checkbox.Checked += OnBackupScopeBooleanChanged;
+                        checkbox.Unchecked += OnBackupScopeBooleanChanged;
+                        container.Children.Add(checkbox);
+                        break;
+                    }
+                    case PluginSettingType.Integer:
+                    {
+                        container.Children.Add(BuildScopeParameterLabel(definition.DisplayName));
+                        var box = new NumberBox
+                        {
+                            Value = double.TryParse(ViewModel.GetBackupScopeParameterValue(definition.Key), out var value) ? value : 0,
+                            Tag = definition.Key
+                        };
+                        box.ValueChanged += OnBackupScopeNumberChanged;
+                        container.Children.Add(box);
+                        break;
+                    }
+                    case PluginSettingType.MultilineString:
+                    {
+                        container.Children.Add(BuildScopeParameterLabel(definition.DisplayName));
+                        var initialText = NormalizeMultilineForEditor(ViewModel.GetBackupScopeParameterValue(definition.Key));
+                        var box = new TextBox
+                        {
+                            Text = initialText,
+                            AcceptsReturn = true,
+                            TextWrapping = TextWrapping.NoWrap,
+                            Height = 140,
+                            MinHeight = 120,
+                            MaxHeight = 260,
+                            HorizontalAlignment = HorizontalAlignment.Stretch,
+                            FontFamily = new Microsoft.UI.Xaml.Media.FontFamily("Consolas"),
+                            Tag = definition.Key
+                        };
+                        ScrollViewer.SetVerticalScrollBarVisibility(box, ScrollBarVisibility.Auto);
+                        ScrollViewer.SetHorizontalScrollBarVisibility(box, ScrollBarVisibility.Auto);
+                        box.Loaded += (_, _) =>
+                        {
+                            // 动态生成的 TextBox 在模板加载前写入多行文本时，偶尔只按首行完成可视布局。
+                            // Loaded 后再同步一次，保证 \n/\r\n 都能以多行形式稳定回显。
+                            var loadedText = NormalizeMultilineForEditor(ViewModel.GetBackupScopeParameterValue(definition.Key));
+                            if (!string.Equals(box.Text, loadedText, StringComparison.Ordinal))
+                            {
+                                box.Text = loadedText;
+                            }
+                        };
+                        box.KeyDown += OnBackupScopeMultilineTextBoxKeyDown;
+                        box.TextChanged += OnBackupScopeTextChanged;
+                        container.Children.Add(box);
+                        break;
+                    }
+                    default:
+                    {
+                        container.Children.Add(BuildScopeParameterLabel(definition.DisplayName));
+                        var box = new TextBox
+                        {
+                            Text = ViewModel.GetBackupScopeParameterValue(definition.Key),
+                            Tag = definition.Key
+                        };
+                        box.TextChanged += OnBackupScopeTextChanged;
+                        container.Children.Add(box);
+                        break;
+                    }
+                }
+
+                if (!string.IsNullOrWhiteSpace(definition.Description))
+                {
+                    container.Children.Add(new TextBlock
+                    {
+                        Text = definition.Description,
+                        TextWrapping = TextWrapping.Wrap,
+                        Style = (Style)Application.Current.Resources["CaptionTextBlockStyle"],
+                        Foreground = (Microsoft.UI.Xaml.Media.Brush)Application.Current.Resources["TextFillColorSecondaryBrush"]
+                    });
+                }
+
+                BackupScopeParametersPanel.Children.Add(container);
+            }
+        }
+
+        private static TextBlock BuildScopeParameterLabel(string text)
+        {
+            return new TextBlock
+            {
+                Text = text,
+                FontWeight = Microsoft.UI.Text.FontWeights.SemiBold
+            };
+        }
+
+        private void OnBackupScopeTextChanged(object sender, TextChangedEventArgs e)
+        {
+            if (sender is TextBox box && box.Tag is string key)
+            {
+                var value = box.AcceptsReturn
+                    ? NormalizeMultilineForStorage(box.Text)
+                    : box.Text;
+                ViewModel.SetBackupScopeParameterValue(key, value);
+            }
+        }
+
+        private void OnBackupScopeMultilineTextBoxKeyDown(object sender, Microsoft.UI.Xaml.Input.KeyRoutedEventArgs e)
+        {
+            if (sender is not TextBox box || e.Key != VirtualKey.Enter)
+            {
+                return;
+            }
+
+            // ContentDialog 有默认按钮时，Enter 容易被当作“保存”。多行参数框里 Enter 应该稳定插入新行。
+            var text = box.Text ?? string.Empty;
+            var start = Math.Clamp(box.SelectionStart, 0, text.Length);
+            var length = Math.Clamp(box.SelectionLength, 0, text.Length - start);
+            var newText = text.Remove(start, length).Insert(start, Environment.NewLine);
+            box.Text = newText;
+            box.SelectionStart = start + Environment.NewLine.Length;
+            e.Handled = true;
+        }
+
+        private static string NormalizeMultilineForEditor(string value)
+        {
+            return NormalizeLineEndings(value, Environment.NewLine);
+        }
+
+        private static string NormalizeMultilineForStorage(string value)
+        {
+            // 配置文件里用 \n 作为稳定格式；读取时仍兼容 WinUI 产生的裸 \r。
+            return NormalizeLineEndings(value, "\n");
+        }
+
+        private static string NormalizeLineEndings(string? value, string newline)
+        {
+            return (value ?? string.Empty)
+                .Replace("\r\n", "\n", StringComparison.Ordinal)
+                .Replace("\r", "\n", StringComparison.Ordinal)
+                .Replace("\n", newline, StringComparison.Ordinal);
+        }
+
+        private void OnBackupScopeBooleanChanged(object sender, RoutedEventArgs e)
+        {
+            if (sender is CheckBox box && box.Tag is string key)
+            {
+                ViewModel.SetBackupScopeParameterValue(key, box.IsChecked == true ? "true" : "false");
+            }
+        }
+
+        private void OnBackupScopeNumberChanged(NumberBox sender, NumberBoxValueChangedEventArgs args)
+        {
+            if (sender.Tag is string key)
+            {
+                ViewModel.SetBackupScopeParameterValue(key, double.IsNaN(args.NewValue) ? string.Empty : ((int)args.NewValue).ToString());
+            }
+        }
+
+        private static bool ParseBool(string value, string? defaultValue)
+        {
+            var text = string.IsNullOrWhiteSpace(value) ? defaultValue : value;
+            return string.Equals(text, "true", StringComparison.OrdinalIgnoreCase)
+                || string.Equals(text, "1", StringComparison.OrdinalIgnoreCase)
+                || string.Equals(text, "yes", StringComparison.OrdinalIgnoreCase)
+                || string.Equals(text, "on", StringComparison.OrdinalIgnoreCase);
+        }
+
         private async void OnBrowseClick(object sender, RoutedEventArgs e)
         {
-            var picker = new FolderPicker();
-            picker.SuggestedStartLocation = PickerLocationId.ComputerFolder;
-            picker.FileTypeFilter.Add("*");
-            MainWindowService.InitializePicker(picker);
-
-            var folder = await picker.PickSingleFolderAsync();
-            if (folder != null)
+            var folderPath = await MainWindowService.PickFolderPathAsync(
+                string.Empty,
+                "FolderRewind.ConfigSettings.Destination",
+                MainWindowService.SuggestedPickerLocation.ComputerFolder);
+            if (string.IsNullOrWhiteSpace(folderPath))
             {
-                Config.DestinationPath = folder.Path;
-                DestPathBox.Text = folder.Path;
+                return;
             }
+
+            Config.DestinationPath = folderPath;
+            DestPathBox.Text = folderPath;
         }
 
         private void OnOpenDestinationClick(object sender, RoutedEventArgs e)
@@ -531,32 +609,26 @@ namespace FolderRewind.Views
 
         private async void OnBrowseCloudExecutableClick(object sender, RoutedEventArgs e)
         {
-            var picker = new FileOpenPicker();
-            picker.SuggestedStartLocation = PickerLocationId.ComputerFolder;
-            picker.FileTypeFilter.Add(".exe");
-            picker.FileTypeFilter.Add(".cmd");
-            picker.FileTypeFilter.Add(".bat");
-            picker.FileTypeFilter.Add(".ps1");
-            MainWindowService.InitializePicker(picker);
+            var filePath = await MainWindowService.PickFilePathAsync(
+                string.Empty,
+                "FolderRewind.ConfigSettings.CloudExecutable",
+                new[] { ".exe", ".cmd", ".bat", ".ps1" },
+                MainWindowService.SuggestedPickerLocation.ComputerFolder);
+            if (string.IsNullOrWhiteSpace(filePath)) return;
 
-            var file = await picker.PickSingleFileAsync();
-            if (file == null) return;
-
-            ViewModel.CloudExecutablePathText = file.Path;
+            ViewModel.CloudExecutablePathText = filePath;
             UpdateCloudBindings();
         }
 
         private async void OnBrowseCloudWorkingDirectoryClick(object sender, RoutedEventArgs e)
         {
-            var picker = new FolderPicker();
-            picker.SuggestedStartLocation = PickerLocationId.ComputerFolder;
-            picker.FileTypeFilter.Add("*");
-            MainWindowService.InitializePicker(picker);
+            var folderPath = await MainWindowService.PickFolderPathAsync(
+                string.Empty,
+                "FolderRewind.ConfigSettings.CloudWorkingDirectory",
+                MainWindowService.SuggestedPickerLocation.ComputerFolder);
+            if (string.IsNullOrWhiteSpace(folderPath)) return;
 
-            var folder = await picker.PickSingleFolderAsync();
-            if (folder == null) return;
-
-            ViewModel.CloudWorkingDirectoryText = folder.Path;
+            ViewModel.CloudWorkingDirectoryText = folderPath;
             UpdateCloudBindings();
         }
 
@@ -577,18 +649,169 @@ namespace FolderRewind.Views
 
         private void OnSettingsSelectorBarSelectionChanged(SelectorBar sender, SelectorBarSelectionChangedEventArgs args)
         {
-            if (sender.SelectedItem is not SelectorBarItem selectedItem)
+            if (sender.SelectedItem?.Tag is not string tag) return;
+
+            var tabName = GetTabNameFromTag(tag);
+            if (tabName == null) return;
+
+            // Hide current tab
+            if (_currentTabContent != null)
             {
-                return;
+                _currentTabContent.Visibility = Microsoft.UI.Xaml.Visibility.Collapsed;
             }
 
-            int selectedIndex = sender.Items.IndexOf(selectedItem);
-            if (selectedIndex < 0)
+            // Load or find the target tab (FindName triggers x:Load on first call)
+            if (!_tabLoaded.ContainsKey(tabName))
             {
-                return;
+                var element = FindName(tabName) as Microsoft.UI.Xaml.UIElement;
+                if (element != null)
+                {
+                    _tabLoaded[tabName] = true;
+                }
             }
 
-            ViewModel.SelectedPageIndex = selectedIndex;
+            var tabContent = FindName(tabName) as Microsoft.UI.Xaml.UIElement;
+            if (tabContent != null)
+            {
+                tabContent.Visibility = Microsoft.UI.Xaml.Visibility.Visible;
+                _currentTabContent = tabContent;
+            }
+
+            // Update ViewModel state
+            var selectedIndex = sender.Items.IndexOf(sender.SelectedItem);
+            if (selectedIndex >= 0)
+            {
+                ViewModel.SelectedPageIndex = selectedIndex;
+            }
+
+            // Initialize tab-specific deferred content
+            switch (tag)
+            {
+                case "Backup":
+                    RebuildBackupScopeParameterPanel();
+                    break;
+                case "Automation":
+                    break;
+            }
+
+            UpdateCloudBindings();
+        }
+
+        private void LoadTabContent(string tag)
+        {
+            var tabName = GetTabNameFromTag(tag);
+            if (tabName == null) return;
+
+            var element = FindName(tabName) as Microsoft.UI.Xaml.UIElement;
+            if (element != null)
+            {
+                element.Visibility = Microsoft.UI.Xaml.Visibility.Visible;
+                _currentTabContent = element;
+                _tabLoaded[tabName] = true;
+            }
+        }
+
+        private static string? GetTabNameFromTag(string tag) => tag switch
+        {
+            "General" => "GeneralTabScrollViewer",
+            "Backup" => "BackupTabScrollViewer",
+            "Restore" => "RestoreTabScrollViewer",
+            "Automation" => "AutomationTabScrollViewer",
+            "Cloud" => "CloudTabScrollViewer",
+            "Filter" => "FilterTabScrollViewer",
+            _ => null
+        };
+
+        public void Rebind(BackupConfig config)
+        {
+            // Unbind old config event handlers
+            if (_isDialogReady)
+            {
+                ViewModel.Unbind();
+                Config.PropertyChanged -= OnDialogConfigPropertyChanged;
+                Config.Cloud.PropertyChanged -= OnDialogCloudPropertyChanged;
+            }
+
+            // Reset config
+            Config = config;
+            Config.Cloud ??= new CloudSettings();
+            Config.BackupScope ??= new BackupScopeSettings();
+
+            // Update ViewModel
+            ViewModel.Rebind(config);
+
+            // Reset tab state
+            _tabLoaded.Clear();
+            _currentTabContent = null;
+
+            // 重置所有 tab ScrollViewer 的可见性，防止重影
+            GeneralTabScrollViewer?.Visibility = Microsoft.UI.Xaml.Visibility.Collapsed;
+            BackupTabScrollViewer?.Visibility = Microsoft.UI.Xaml.Visibility.Collapsed;
+            RestoreTabScrollViewer?.Visibility = Microsoft.UI.Xaml.Visibility.Collapsed;
+            AutomationTabScrollViewer?.Visibility = Microsoft.UI.Xaml.Visibility.Collapsed;
+            CloudTabScrollViewer?.Visibility = Microsoft.UI.Xaml.Visibility.Collapsed;
+            FilterTabScrollViewer?.Visibility = Microsoft.UI.Xaml.Visibility.Collapsed;
+
+            // Guard: same as constructor — convert "Encrypted" to "Default"
+            if (string.Equals(Config.ConfigType, "Encrypted", StringComparison.OrdinalIgnoreCase))
+            {
+                Config.ConfigType = "Default";
+            }
+
+            // Reset ConfigTypesView
+            ConfigTypesView.Clear();
+            foreach (var t in PluginService.GetAllSupportedConfigTypes())
+            {
+                if (!string.Equals(t, "Encrypted", StringComparison.OrdinalIgnoreCase))
+                    ConfigTypesView.Add(t);
+            }
+            if (!ConfigTypesView.OfType<string>().Any(t => string.Equals(t, "Default", StringComparison.OrdinalIgnoreCase)))
+                ConfigTypesView.Insert(0, "Default");
+            if (!ConfigTypesView.OfType<string>().Any(t => string.Equals(t, Config.ConfigType, StringComparison.OrdinalIgnoreCase)))
+                ConfigTypesView.Add(Config.ConfigType);
+
+            // Reset icon grid
+            IconGrid.ItemsSource = IconCatalog.ConfigIconGlyphs;
+            IconGrid.SelectedItem = IconCatalog.ConfigIconGlyphs.FirstOrDefault(i => i == Config.IconGlyph) ?? IconCatalog.ConfigIconGlyphs.First();
+
+            // Re-register config events
+            Config.PropertyChanged += OnDialogConfigPropertyChanged;
+            Config.Cloud.PropertyChanged += OnDialogCloudPropertyChanged;
+
+            // 重新打开时 SelectionChanged 可能不会触发，或者控件仍保留关闭前的选中项；
+            // 这里以当前实际选中的页签为准显式恢复内容，避免标签和正文不同步。
+            if (_currentTabContent == null)
+            {
+                var selectedTag = ConfigSelectorBar.SelectedItem?.Tag as string
+                    ?? (ConfigSelectorBar.Items.FirstOrDefault() as SelectorBarItem)?.Tag as string;
+                if (!string.IsNullOrWhiteSpace(selectedTag))
+                {
+                    LoadTabContent(selectedTag);
+
+                    var selectedIndex = ConfigSelectorBar.Items.IndexOf(ConfigSelectorBar.SelectedItem);
+                    if (selectedIndex >= 0)
+                    {
+                        ViewModel.SelectedPageIndex = selectedIndex;
+                    }
+                }
+            }
+
+            RebuildBackupScopeParameterPanel();
+            UpdateCloudBindings();
+            Bindings.Update();
+        }
+
+        private void OnDialogConfigPropertyChanged(object? sender, System.ComponentModel.PropertyChangedEventArgs e)
+        {
+            if (e.PropertyName == nameof(BackupConfig.Name) || e.PropertyName == nameof(BackupConfig.DestinationPath))
+            {
+                UpdateCloudBindings();
+            }
+        }
+
+        private void OnDialogCloudPropertyChanged(object? sender, System.ComponentModel.PropertyChangedEventArgs e)
+        {
+            UpdateCloudBindings();
         }
 
         private void OnOpenCloudGuideClick(object sender, RoutedEventArgs e)
@@ -691,6 +914,8 @@ namespace FolderRewind.Views
         {
             if (!string.IsNullOrWhiteSpace(BlacklistBox.Text))
             {
+                Config.Filters ??= new FilterSettings();
+                Config.Filters.Blacklist ??= new ObservableCollection<string>();
                 Config.Filters.Blacklist.Add(BlacklistBox.Text.Trim());
                 BlacklistBox.Text = "";
             }
@@ -704,11 +929,32 @@ namespace FolderRewind.Views
             }
         }
 
+        private void OnAddBackupWhitelistClick(object sender, RoutedEventArgs e)
+        {
+            if (!string.IsNullOrWhiteSpace(BackupWhitelistBox.Text))
+            {
+                Config.Filters ??= new FilterSettings();
+                Config.Filters.BackupWhitelist ??= new ObservableCollection<string>();
+                Config.Filters.BackupWhitelist.Add(BackupWhitelistBox.Text.Trim());
+                BackupWhitelistBox.Text = "";
+            }
+        }
+
+        private void OnRemoveBackupWhitelistClick(object sender, RoutedEventArgs e)
+        {
+            if (sender is Button btn && btn.DataContext is string item)
+            {
+                Config.Filters.BackupWhitelist.Remove(item);
+            }
+        }
+
         // --- 还原白名单 ---
         private void OnAddRestoreWhitelistClick(object sender, RoutedEventArgs e)
         {
             if (!string.IsNullOrWhiteSpace(RestoreWhitelistBox.Text))
             {
+                Config.Filters ??= new FilterSettings();
+                Config.Filters.RestoreWhitelist ??= new ObservableCollection<string>();
                 Config.Filters.RestoreWhitelist.Add(RestoreWhitelistBox.Text.Trim());
                 RestoreWhitelistBox.Text = "";
             }

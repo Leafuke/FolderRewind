@@ -70,7 +70,7 @@ namespace FolderRewind.Services
         /// <summary>
         /// 添加一条新的历史记录
         /// </summary>
-        public static void AddEntry(BackupConfig config, ManagedFolder folder, string fileName, string type, string comment, string? folderNameOverride = null)
+        public static void AddEntry(BackupConfig config, ManagedFolder folder, string fileName, string type, string comment, string? folderNameOverride = null, bool isPartialBackup = false)
         {
             Initialize();
 
@@ -83,6 +83,7 @@ namespace FolderRewind.Services
                 Timestamp = DateTime.Now,
                 BackupType = type,
                 Comment = comment,
+                IsPartialBackup = isPartialBackup,
                 IsImportant = false
             };
 
@@ -425,6 +426,37 @@ namespace FolderRewind.Services
             }
         }
 
+        public static int UpdateFolderIdentity(string oldPath, string newPath, string oldStorageFolderName, string newStorageFolderName)
+        {
+            if (string.IsNullOrWhiteSpace(oldPath) || string.IsNullOrWhiteSpace(newPath))
+            {
+                return 0;
+            }
+
+            Initialize();
+            int updated = 0;
+
+            lock (_historyLock)
+            {
+                foreach (var item in _allHistory.Where(item => AreSameFolderPath(item.FolderPath, oldPath)))
+                {
+                    item.FolderPath = newPath;
+                    item.FolderName = FolderRenameService.ResolveUpdatedHistoryFolderName(
+                        item.FolderName,
+                        oldStorageFolderName,
+                        newStorageFolderName);
+                    updated++;
+                }
+            }
+
+            if (updated > 0)
+            {
+                ScheduleSave();
+            }
+
+            return updated;
+        }
+
         /// <summary>
         /// 更新历史记录的注释
         /// </summary>
@@ -717,8 +749,8 @@ namespace FolderRewind.Services
                 {
                     snapshot = _allHistory.ToList();
                 }
-                string json = JsonSerializer.Serialize(snapshot, AppJsonContext.Default.ListHistoryItem);
-                File.WriteAllText(destPath, json);
+                using var stream = new FileStream(destPath, FileMode.Create, FileAccess.Write, FileShare.None);
+                JsonSerializer.Serialize(stream, snapshot, AppJsonContext.Default.ListHistoryItem);
                 LogService.Log(I18n.Format("History_ExportSuccess", destPath));
                 return true;
             }
@@ -959,6 +991,41 @@ namespace FolderRewind.Services
             item.CloudMetadataStateRemotePath = isCloudArchived ? (metadataStateRemotePath ?? string.Empty) : string.Empty;
         }
 
+        private static bool AreSameFolderPath(string? left, string? right)
+        {
+            string normalizedLeft = NormalizeFolderPath(left);
+            string normalizedRight = NormalizeFolderPath(right);
+
+            return !string.IsNullOrWhiteSpace(normalizedLeft)
+                && !string.IsNullOrWhiteSpace(normalizedRight)
+                && string.Equals(normalizedLeft, normalizedRight, StringComparison.OrdinalIgnoreCase);
+        }
+
+        private static string NormalizeFolderPath(string? path)
+        {
+            string candidate = (path ?? string.Empty).Trim();
+            if (string.IsNullOrWhiteSpace(candidate))
+            {
+                return string.Empty;
+            }
+
+            string root = Path.GetPathRoot(candidate) ?? string.Empty;
+            while (candidate.Length > root.Length
+                && (candidate.EndsWith(Path.DirectorySeparatorChar) || candidate.EndsWith(Path.AltDirectorySeparatorChar)))
+            {
+                candidate = candidate[..^1];
+            }
+
+            try
+            {
+                return Path.GetFullPath(candidate);
+            }
+            catch
+            {
+                return candidate;
+            }
+        }
+
         private static void ScheduleSave()
         {
             HistoryChanged?.Invoke();
@@ -1000,8 +1067,9 @@ namespace FolderRewind.Services
                     snapshot = _allHistory.ToList();
                 }
 
-                string json = JsonSerializer.Serialize(snapshot, AppJsonContext.Default.ListHistoryItem);
-                await File.WriteAllTextAsync(HistoryPath, json, ct);
+                // 流式序列化直接写入文件，避免在堆上分配完整 JSON 字符串。
+                using var stream = new FileStream(HistoryPath, FileMode.Create, FileAccess.Write, FileShare.None);
+                JsonSerializer.Serialize(stream, snapshot, AppJsonContext.Default.ListHistoryItem);
             }
             catch (Exception ex)
             {

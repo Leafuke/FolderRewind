@@ -16,13 +16,25 @@ namespace FolderRewind.Services
     {
         // 7-Zip 解析与压缩执行集中在这里，备份、还原、安全删除共用同一套进程封装。
 
-        private static bool ExtractArchiveToDirectorySync(string sevenZipExe, string archivePath, string targetDir, string? password, bool runAtLowPriority = false)
+        private static bool ExtractArchiveToDirectorySync(string sevenZipExe, string archivePath, string targetDir, string? password, int cpuThreads = 0, bool runAtLowPriority = false)
         {
             string extractArgs = $"x \"{archivePath}\" -o\"{targetDir}\" -y -aoa";
             if (!string.IsNullOrWhiteSpace(password))
             {
                 extractArgs += $" -p\"{password}\"";
             }
+
+            // 添加 CPU 线程限制
+            int normalizedThreads = NormalizeCpuThreadCount(cpuThreads);
+            if (normalizedThreads > 0)
+            {
+                extractArgs += $" -mmt{normalizedThreads}";
+            }
+            else
+            {
+                extractArgs += " -mmt";
+            }
+
             return RunSevenZipProcessSync(sevenZipExe, extractArgs, runAtLowPriority: runAtLowPriority);
         }
 
@@ -626,6 +638,26 @@ namespace FolderRewind.Services
             string? sevenZipExe = ResolveSevenZipExecutable();
             if (string.IsNullOrEmpty(sevenZipExe)) return false;
 
+            string? generatedWhitelistListFile = null;
+
+            try
+            {
+                // 白名单无法可靠翻译成 7z 的排除参数，统一转为相对路径 listfile，
+                // 让压缩包内容、差异扫描和元数据看到的是同一批文件。
+                if (string.IsNullOrWhiteSpace(listFile) && HasBackupWhitelist(filters))
+                {
+                    var includedFiles = EnumerateBackupRelativeFiles(sourceDir, filters);
+                    if (includedFiles.Count == 0)
+                    {
+                        Log("[Filter][Warning] Backup whitelist matched no files; archive command skipped.", LogLevel.Warning);
+                        return false;
+                    }
+
+                    generatedWhitelistListFile = Path.GetTempFileName();
+                    File.WriteAllLines(generatedWhitelistListFile, includedFiles);
+                    listFile = generatedWhitelistListFile;
+                }
+
             // 构建参数
             // -mx: 压缩等级
             // -ssw: 即使打开也压缩
@@ -672,8 +704,10 @@ namespace FolderRewind.Services
                 }
             }
 
-            // 添加黑名单排除规则
-            if (filters?.Blacklist != null && filters.Blacklist.Count > 0)
+            // 添加黑名单排除规则。白名单模式下不叠加黑名单，避免旧规则误伤明确纳入的文件。
+            if (filters?.BackupFilterMode != BackupFilterMode.Whitelist
+                && filters?.Blacklist != null
+                && filters.Blacklist.Count > 0)
             {
                 foreach (var rule in filters.Blacklist.Where(r => !string.IsNullOrWhiteSpace(r)))
                 {
@@ -717,6 +751,20 @@ namespace FolderRewind.Services
             string safeArgs = string.IsNullOrWhiteSpace(password) ? args : args.Replace(password, "***");
 
             return await RunSevenZipProcessAsync(sevenZipExe, args, sourceDir, safeArgs, taskToUpdate, runAtLowPriority: settings.RunCompressionAtLowPriority);
+            }
+            finally
+            {
+                try
+                {
+                    if (!string.IsNullOrWhiteSpace(generatedWhitelistListFile))
+                    {
+                        File.Delete(generatedWhitelistListFile);
+                    }
+                }
+                catch
+                {
+                }
+            }
         }
 
         /// <summary>
@@ -804,21 +852,47 @@ namespace FolderRewind.Services
                     }
                     else
                     {
-                        // 全量/覆写模式：使用 -ir! 包含匹配模式
+                        // 全量/覆写模式：白名单下仍使用 listfile，避免 -ir! 把白名单外同类型文件追加进归档。
+                        List<string>? matchedWhitelistFiles = null;
+                        if (HasBackupWhitelist(filters))
+                        {
+                            matchedWhitelistFiles = EnumerateBackupRelativeFiles(sourceDir, filters)
+                                .Where(relPath => patterns.Any(pattern => MatchWildcard(relPath, pattern)))
+                                .ToList();
+
+                            if (matchedWhitelistFiles.Count == 0)
+                            {
+                                continue;
+                            }
+                        }
+
                         var sb = new StringBuilder();
                         sb.Append($"a -t{settings.Format} \"{archivePath}\"");
-                        foreach (var pattern in patterns)
+
+                        if (matchedWhitelistFiles != null)
                         {
-                            sb.Append($" -ir!\"{pattern}\"");
+                            string tmpList = Path.GetTempFileName();
+                            tempFiles.Add(tmpList);
+                            File.WriteAllLines(tmpList, matchedWhitelistFiles);
+                            sb.Append($" @\"{tmpList}\"");
                         }
+                        else
+                        {
+                            // 全量/覆写模式：使用 -ir! 包含匹配模式
+                            foreach (var pattern in patterns)
+                            {
+                                sb.Append($" -ir!\"{pattern}\"");
+                            }
+                        }
+
                         sb.Append($" -mx={level} -m0={settings.Method} -ms=off -ssw");
                         int cpuThreads = NormalizeCpuThreadCount(settings.CpuThreads);
                         if (cpuThreads > 0) sb.Append($" -mmt{cpuThreads}"); else sb.Append(" -mmt");
                         if (!string.IsNullOrWhiteSpace(password)) sb.Append($" -p\"{password}\" -mhe=on");
                         sb.Append(" -bsp1");
 
-                        // 添加黑名单排除（同主压缩一致）
-                        if (filters?.Blacklist != null)
+                        // 添加黑名单排除（同主压缩一致）。白名单模式已用 listfile 精确限制。
+                        if (filters?.BackupFilterMode != BackupFilterMode.Whitelist && filters?.Blacklist != null)
                         {
                             foreach (var rule in filters.Blacklist.Where(r => !string.IsNullOrWhiteSpace(r)))
                             {
@@ -966,6 +1040,20 @@ namespace FolderRewind.Services
         /// </summary>
         private static readonly Regex _progressRegex = new(@"^\s*(\d{1,3})%", RegexOptions.Compiled);
 
+        // 200ms 固定刷新：避免每个 stdout 行都向 UI 线程排队，减轻 DispatcherQueue 压力。
+        private static long _lastProgressUpdateTimestamp;
+        private const long ProgressUpdateIntervalMs = 200;
+
+        private static bool ShouldUpdateProgress()
+        {
+            var now = Stopwatch.GetTimestamp();
+            var elapsedMs = (now - _lastProgressUpdateTimestamp) * 1000.0 / Stopwatch.Frequency;
+            if (elapsedMs < ProgressUpdateIntervalMs && _lastProgressUpdateTimestamp != 0)
+                return false;
+            _lastProgressUpdateTimestamp = now;
+            return true;
+        }
+
         private static async Task<bool> RunSevenZipProcessAsync(
             string sevenZipExe, string arguments,
             string? workingDirectory = null, string? logArguments = null,
@@ -1010,11 +1098,16 @@ namespace FolderRewind.Services
                         if (match.Success && int.TryParse(match.Groups[1].Value, out int percent) && percent >= 0 && percent <= 100)
                         {
                             double mapped = progressBase + (double)percent / 100.0 * progressRange;
-                            UiDispatcherService.Enqueue(() =>
+                            // 每次 stdout 行都计算进度值，但每 200ms 才向 UI 线程排队一次，避免
+                            // 大量 Enqueue 调用造成 DispatcherQueue 积压。
+                            if (ShouldUpdateProgress())
                             {
-                                if (taskToUpdate.IsIndeterminate) taskToUpdate.IsIndeterminate = false;
-                                taskToUpdate.Progress = Math.Min(mapped, 100);
-                            });
+                                UiDispatcherService.Enqueue(() =>
+                                {
+                                    if (taskToUpdate.IsIndeterminate) taskToUpdate.IsIndeterminate = false;
+                                    taskToUpdate.Progress = Math.Min(mapped, 100);
+                                });
+                            }
                         }
                     }
                 };
