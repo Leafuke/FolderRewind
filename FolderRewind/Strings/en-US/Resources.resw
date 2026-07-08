@@ -4644,6 +4644,9 @@ Pull request: {1}</value>
   <data name="FolderDetailsDialog_ConfigType" xml:space="preserve">
     <value>Config type</value>
   </data>
+  <data name="FolderDetailsDialog_ModifiedDate" xml:space="preserve">
+    <value>Modified date</value>
+  </data>
   <data name="FolderDetailsDialog_LastBackup" xml:space="preserve">
     <value>Last backup</value>
   </data>

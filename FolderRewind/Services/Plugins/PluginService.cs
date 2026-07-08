@@ -450,8 +450,10 @@ namespace FolderRewind.Services.Plugins
                 return Task.FromResult<IReadOnlyList<FolderDetailsSection>>(Array.Empty<FolderDetailsSection>());
             }
 
+            var snapshot = GetEnabledLoadedPluginsSnapshot();
+
             return GetFolderDetailsSectionsFromPluginsAsync(
-                GetEnabledLoadedPluginsSnapshot(),
+                snapshot,
                 config,
                 folder,
                 cancellationToken);
@@ -471,6 +473,9 @@ namespace FolderRewind.Services.Plugins
 
                 if (plugin is not IFolderRewindFolderDetailsProvider provider)
                 {
+                    LogService.LogInfo(
+                        $"[PluginService] Plugin '{plugin.Manifest.Id}' does NOT implement IFolderRewindFolderDetailsProvider, skipping.",
+                        nameof(PluginService));
                     continue;
                 }
 
@@ -485,7 +490,16 @@ namespace FolderRewind.Services.Plugins
 
                     if (pluginSections != null)
                     {
+                        LogService.LogInfo(
+                            $"[PluginService] Plugin '{plugin.Manifest.Id}' returned {pluginSections.Count} section(s) with {pluginSections.Sum(s => s.Items?.Count ?? 0)} item(s).",
+                            nameof(PluginService));
                         sections.AddRange(pluginSections);
+                    }
+                    else
+                    {
+                        LogService.LogInfo(
+                            $"[PluginService] Plugin '{plugin.Manifest.Id}' returned null sections.",
+                            nameof(PluginService));
                     }
                 }
                 catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
@@ -500,6 +514,10 @@ namespace FolderRewind.Services.Plugins
                         ex);
                 }
             }
+
+            LogService.LogInfo(
+                $"[PluginService] GetFolderDetailsSectionsFromPluginsAsync complete: {plugins.Count()} plugin(s) checked, {sections.Count} section(s) collected.",
+                nameof(PluginService));
 
             return sections;
         }

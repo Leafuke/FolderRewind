@@ -36,7 +36,7 @@ public sealed class FolderDetailsDialogViewModel : ViewModelBase
         try
         {
             var stats = await FolderDetailsService.ComputeStatisticsAsync(folder.Path, cancellationToken);
-            SetItemValue(basicItems, sizeLabel, $"{stats.TotalBytes / 1024.0:F2} KB");
+            SetItemValue(basicItems, sizeLabel, $"{stats.TotalBytes / 1024.0:F2} KB / {stats.TotalBytes / (1024.0 * 1024.0):F2} MB");
             SetItemValue(basicItems, fileCountLabel, stats.FileCount.ToString());
             SetItemValue(basicItems, directoryCountLabel, stats.DirectoryCount.ToString());
         }

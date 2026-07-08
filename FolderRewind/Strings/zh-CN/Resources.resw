@@ -4644,6 +4644,9 @@ Pull Request：{1}</value>
   <data name="FolderDetailsDialog_ConfigType" xml:space="preserve">
     <value>配置类型</value>
   </data>
+  <data name="FolderDetailsDialog_ModifiedDate" xml:space="preserve">
+    <value>修改日期</value>
+  </data>
   <data name="FolderDetailsDialog_LastBackup" xml:space="preserve">
     <value>上次备份</value>
   </data>

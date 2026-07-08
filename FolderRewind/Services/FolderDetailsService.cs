@@ -10,13 +10,15 @@ public static class FolderDetailsService
 {
     public static IReadOnlyList<FolderDetailsSection> BuildBaseSections(BackupConfig config, ManagedFolder folder)
     {
-        BackupStoragePathService.TryResolveBackupStoragePaths(
-            config.DestinationPath ?? string.Empty,
-            folder.DisplayName ?? string.Empty,
-            folder.Path,
-            out _,
-            out string backupSubDir,
-            out string metadataDir);
+        string modifiedDate = string.Empty;
+        try
+        {
+            modifiedDate = Directory.GetLastWriteTime(folder.Path).ToString("yyyy-MM-dd HH:mm:ss");
+        }
+        catch
+        {
+            // 如果无法读取修改日期（如路径不存在），则留空
+        }
 
         return
         [
@@ -27,10 +29,8 @@ public static class FolderDetailsService
                 {
                     new FolderDetailsItem { Label = I18n.GetString("FolderDetailsDialog_Name"), Value = folder.DisplayName ?? string.Empty },
                     new FolderDetailsItem { Label = I18n.GetString("FolderDetailsDialog_Path"), Value = folder.Path ?? string.Empty },
-                    new FolderDetailsItem { Label = I18n.GetString("FolderDetailsDialog_ConfigType"), Value = config.ConfigType ?? string.Empty },
+                    new FolderDetailsItem { Label = I18n.GetString("FolderDetailsDialog_ModifiedDate"), Value = modifiedDate },
                     new FolderDetailsItem { Label = I18n.GetString("FolderDetailsDialog_LastBackup"), Value = folder.LastBackupTime ?? string.Empty },
-                    new FolderDetailsItem { Label = I18n.GetString("FolderDetailsDialog_BackupDirectory"), Value = backupSubDir },
-                    new FolderDetailsItem { Label = I18n.GetString("FolderDetailsDialog_MetadataDirectory"), Value = metadataDir },
                     new FolderDetailsItem { Label = I18n.GetString("FolderDetailsDialog_Size"), Value = I18n.GetString("FolderDetailsDialog_Loading"), IsLoading = true },
                     new FolderDetailsItem { Label = I18n.GetString("FolderDetailsDialog_FileCount"), Value = I18n.GetString("FolderDetailsDialog_Loading"), IsLoading = true },
                     new FolderDetailsItem { Label = I18n.GetString("FolderDetailsDialog_DirectoryCount"), Value = I18n.GetString("FolderDetailsDialog_Loading"), IsLoading = true }
