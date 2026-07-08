@@ -674,6 +674,7 @@ namespace FolderRewind.Models
         private int _maxSmartBackupsPerFull = 5;    // 智能备份链长度限制，默认 5
         private bool _safeDeleteEnabled = true;     // 安全删除：删除增量备份时自动合并内容到下一个备份
         private bool _runCompressionAtLowPriority = false; // 备份侧 7-Zip 进程以较低优先级运行
+        private string _additionalSevenZipArguments = string.Empty;
 
         // 自定义文件类型处理
         private bool _fileTypeHandlingEnabled = false;
@@ -730,6 +731,16 @@ namespace FolderRewind.Models
         /// 仅影响归档创建、追加压缩与自动清理中的安全删除，不影响还原和校验。
         /// </summary>
         public bool RunCompressionAtLowPriority { get => _runCompressionAtLowPriority; set => SetProperty(ref _runCompressionAtLowPriority, value); }
+
+        /// <summary>
+        /// Additional protected 7-Zip switches appended only to backup-side archive creation/update commands.
+        /// FolderRewind validates this value before save and again before process launch.
+        /// </summary>
+        public string AdditionalSevenZipArguments
+        {
+            get => _additionalSevenZipArguments;
+            set => SetProperty(ref _additionalSevenZipArguments, value ?? string.Empty);
+        }
 
         /// <summary>
         /// 是否启用自定义文件类型处理。启用后将关闭固实压缩 (-ms=off)，
