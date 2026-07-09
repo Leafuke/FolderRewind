@@ -963,6 +963,48 @@
   <data name="ConfigSettingsDialog_LowPriorityDesc.Text" xml:space="preserve">
     <value>仅影响备份时的 7-Zip 进程，可减少对游戏和前台应用的性能影响。</value>
   </data>
+  <data name="ConfigSettingsDialog_PerformancePreset.Header" xml:space="preserve">
+    <value>性能影响</value>
+  </data>
+  <data name="ConfigSettingsDialog_PerformancePreset_Auto" xml:space="preserve">
+    <value>自动</value>
+  </data>
+  <data name="ConfigSettingsDialog_PerformancePreset_Light" xml:space="preserve">
+    <value>轻量</value>
+  </data>
+  <data name="ConfigSettingsDialog_PerformancePreset_VeryLight" xml:space="preserve">
+    <value>极轻量</value>
+  </data>
+  <data name="ConfigSettingsDialog_PerformancePreset_Custom" xml:space="preserve">
+    <value>自定义</value>
+  </data>
+  <data name="ConfigSettingsDialog_PerformancePresetDesc" xml:space="preserve">
+    <value>自动会保持当前行为。如果备份时游戏或前台应用明显卡顿，可以切换为轻量或极轻量。</value>
+  </data>
+  <data name="ConfigSettingsDialog_Additional7zArgs.Text" xml:space="preserve">
+    <value>额外 7-Zip 参数</value>
+  </data>
+  <data name="ConfigSettingsDialog_Additional7zArgsPlaceholder.PlaceholderText" xml:space="preserve">
+    <value>-md=64m -ms=off</value>
+  </data>
+  <data name="ConfigSettingsDialog_Additional7zArgsDesc.Text" xml:space="preserve">
+    <value>仅追加到备份压缩命令。会阻止覆盖路径、格式、密码、过滤规则、压缩等级或 CPU 线程数的参数。</value>
+  </data>
+  <data name="ConfigSettingsDialog_Additional7zArgsInvalid" xml:space="preserve">
+    <value>额外 7-Zip 参数无效。</value>
+  </data>
+  <data name="ConfigSettingsDialog_Additional7zArgsSaveErrorTitle" xml:space="preserve">
+    <value>不支持的 7-Zip 参数</value>
+  </data>
+  <data name="ConfigSettingsDialog_Additional7zArgsUnclosedQuote" xml:space="preserve">
+    <value>额外 7-Zip 参数存在未闭合的引号。</value>
+  </data>
+  <data name="ConfigSettingsDialog_Additional7zArgsUnsupported" xml:space="preserve">
+    <value>不支持的 7-Zip 参数：{0}</value>
+  </data>
+  <data name="BackupService_Log_InvalidAdditional7zArgs" xml:space="preserve">
+    <value>额外 7-Zip 参数无效：{0}</value>
+  </data>
   <data name="ConfigSettingsDialog_BackupBeforeRestore.Header" xml:space="preserve">
     <value>还原前自动备份</value>
   </data>

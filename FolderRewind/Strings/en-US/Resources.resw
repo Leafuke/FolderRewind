@@ -963,6 +963,48 @@ Duplicate folder names are blocked within the same configuration so different di
   <data name="ConfigSettingsDialog_LowPriorityDesc.Text" xml:space="preserve">
     <value>Only affects 7-Zip processes during backup. Reduces performance impact on games and other apps.</value>
   </data>
+  <data name="ConfigSettingsDialog_PerformancePreset.Header" xml:space="preserve">
+    <value>Performance impact</value>
+  </data>
+  <data name="ConfigSettingsDialog_PerformancePreset_Auto" xml:space="preserve">
+    <value>Automatic</value>
+  </data>
+  <data name="ConfigSettingsDialog_PerformancePreset_Light" xml:space="preserve">
+    <value>Light</value>
+  </data>
+  <data name="ConfigSettingsDialog_PerformancePreset_VeryLight" xml:space="preserve">
+    <value>Very light</value>
+  </data>
+  <data name="ConfigSettingsDialog_PerformancePreset_Custom" xml:space="preserve">
+    <value>Custom</value>
+  </data>
+  <data name="ConfigSettingsDialog_PerformancePresetDesc" xml:space="preserve">
+    <value>Automatic keeps the current behavior. Use Light or Very light if backups make games or foreground apps feel slow.</value>
+  </data>
+  <data name="ConfigSettingsDialog_Additional7zArgs.Text" xml:space="preserve">
+    <value>Additional 7-Zip arguments</value>
+  </data>
+  <data name="ConfigSettingsDialog_Additional7zArgsPlaceholder.PlaceholderText" xml:space="preserve">
+    <value>-md=64m -ms=off</value>
+  </data>
+  <data name="ConfigSettingsDialog_Additional7zArgsDesc.Text" xml:space="preserve">
+    <value>Appended only to backup compression commands. Arguments that override paths, format, password, filters, compression level, or CPU threads are blocked.</value>
+  </data>
+  <data name="ConfigSettingsDialog_Additional7zArgsInvalid" xml:space="preserve">
+    <value>Additional 7-Zip arguments are invalid.</value>
+  </data>
+  <data name="ConfigSettingsDialog_Additional7zArgsSaveErrorTitle" xml:space="preserve">
+    <value>Unsupported 7-Zip arguments</value>
+  </data>
+  <data name="ConfigSettingsDialog_Additional7zArgsUnclosedQuote" xml:space="preserve">
+    <value>Additional 7-Zip arguments contain an unclosed quote.</value>
+  </data>
+  <data name="ConfigSettingsDialog_Additional7zArgsUnsupported" xml:space="preserve">
+    <value>Unsupported 7-Zip argument: {0}</value>
+  </data>
+  <data name="BackupService_Log_InvalidAdditional7zArgs" xml:space="preserve">
+    <value>Invalid additional 7-Zip arguments: {0}</value>
+  </data>
   <data name="ConfigSettingsDialog_BackupBeforeRestore.Header" xml:space="preserve">
     <value>Backup before restore</value>
   </data>
@@ -2930,10 +2972,10 @@ Status: {3}</value>
     <value>Backup</value>
   </data>
   <data name="ConfigSettingsDialog_TabRestore.Text" xml:space="preserve">
-    <value>Restore</value>
+    <value>Res</value>
   </data>
   <data name="ConfigSettingsDialog_TabAutomation.Text" xml:space="preserve">
-    <value>Automation</value>
+    <value>Auto</value>
   </data>
   <data name="ConfigSettingsDialog_TabCloud.Text" xml:space="preserve">
     <value>Cloud</value>

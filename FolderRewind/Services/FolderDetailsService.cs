@@ -13,7 +13,7 @@ public static class FolderDetailsService
         string modifiedDate = string.Empty;
         try
         {
-            modifiedDate = Directory.GetLastWriteTime(folder.Path).ToString("yyyy-MM-dd HH:mm:ss");
+            modifiedDate = Directory.GetLastWriteTime(folder.Path).ToString("yyyy/MM/dd HH:mm:ss");
         }
         catch
         {

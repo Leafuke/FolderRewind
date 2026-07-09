@@ -21,9 +21,14 @@ namespace FolderRewind.ViewModels
         private readonly ObservableCollection<AutomationFolderOption> _automationFolderOptions = new();
         private List<BackupScopeOption> _backupScopeOptions = new();
         private int _selectedPageIndex;
+        private int _lastAppliedPerformancePresetIndex = 3;
 
         private const int MinPageIndex = 0;
         private const int MaxPageIndex = 5;
+        private const int PerformancePresetAutoIndex = 0;
+        private const int PerformancePresetLightIndex = 1;
+        private const int PerformancePresetVeryLightIndex = 2;
+        private const int PerformancePresetCustomIndex = 3;
 
         public ConfigSettingsDialogViewModel(BackupConfig config)
         {
@@ -386,6 +391,26 @@ namespace FolderRewind.ViewModels
             }
         }
 
+        public IReadOnlyList<string> PerformancePresetOptions { get; } =
+        [
+            I18n.GetString("ConfigSettingsDialog_PerformancePreset_Auto"),
+            I18n.GetString("ConfigSettingsDialog_PerformancePreset_Light"),
+            I18n.GetString("ConfigSettingsDialog_PerformancePreset_VeryLight"),
+            I18n.GetString("ConfigSettingsDialog_PerformancePreset_Custom")
+        ];
+
+        public int LightPerformanceThreadCount => Math.Max(1, _cpuThreadMax / 2);
+
+        public int VeryLightPerformanceThreadCount => Math.Min(2, Math.Max(1, _cpuThreadMax));
+
+        public int PerformancePresetSelectedIndex
+        {
+            get => DerivePerformancePresetIndex();
+            set => ApplyPerformancePreset(value);
+        }
+
+        public string PerformancePresetDescription => I18n.GetString("ConfigSettingsDialog_PerformancePresetDesc");
+
         public double CpuThreadsValue
         {
             get => Math.Clamp(_archive.CpuThreads, 0, _cpuThreadMax);
@@ -405,6 +430,19 @@ namespace FolderRewind.ViewModels
         {
             get => _archive.RunCompressionAtLowPriority;
             set => _archive.RunCompressionAtLowPriority = value;
+        }
+
+        public string AdditionalSevenZipArgumentsText
+        {
+            get => _archive.AdditionalSevenZipArguments;
+            set
+            {
+                var normalized = value ?? string.Empty;
+                if (_archive.AdditionalSevenZipArguments != normalized)
+                {
+                    _archive.AdditionalSevenZipArguments = normalized;
+                }
+            }
         }
 
         public bool AutoUploadEnabled
@@ -640,6 +678,21 @@ namespace FolderRewind.ViewModels
             RaiseCloudUiProperties();
         }
 
+        public bool TryValidateAndNormalizeAdditionalSevenZipArguments(out string errorMessage)
+        {
+            var result = SevenZipAdditionalArguments.Validate(_archive.AdditionalSevenZipArguments);
+            if (!result.IsValid)
+            {
+                errorMessage = result.ErrorMessage ?? I18n.GetString("ConfigSettingsDialog_Additional7zArgsInvalid");
+                return false;
+            }
+
+            _archive.AdditionalSevenZipArguments = result.Arguments;
+            OnPropertyChanged(nameof(AdditionalSevenZipArgumentsText));
+            errorMessage = string.Empty;
+            return true;
+        }
+
         private void OnAutomationPropertyChanged(object? sender, PropertyChangedEventArgs e)
         {
             if (string.IsNullOrWhiteSpace(e.PropertyName))
@@ -683,9 +736,14 @@ namespace FolderRewind.ViewModels
                 case nameof(ArchiveSettings.CpuThreads):
                     NormalizeCpuThreads();
                     OnPropertyChanged(nameof(CpuThreadsValue));
+                    RaisePerformancePresetProperties();
                     break;
                 case nameof(ArchiveSettings.RunCompressionAtLowPriority):
                     OnPropertyChanged(nameof(RunCompressionAtLowPriority));
+                    RaisePerformancePresetProperties();
+                    break;
+                case nameof(ArchiveSettings.AdditionalSevenZipArguments):
+                    OnPropertyChanged(nameof(AdditionalSevenZipArgumentsText));
                     break;
                 case nameof(ArchiveSettings.Mode):
                 case nameof(ArchiveSettings.Format):
@@ -773,6 +831,7 @@ namespace FolderRewind.ViewModels
             NormalizeCompressionLevel();
             NormalizeCpuThreads();
             RaiseArchiveUiProperties();
+            RaisePerformancePresetProperties();
         }
 
         private void RaiseArchiveUiProperties()
@@ -783,6 +842,73 @@ namespace FolderRewind.ViewModels
             OnPropertyChanged(nameof(CpuThreadsValue));
             OnPropertyChanged(nameof(CpuThreadsDescription));
             OnPropertyChanged(nameof(RunCompressionAtLowPriority));
+        }
+
+        private int DerivePerformancePresetIndex()
+        {
+            if (_archive.CpuThreads == 0 && !_archive.RunCompressionAtLowPriority)
+            {
+                return PerformancePresetAutoIndex;
+            }
+
+            if (!_archive.RunCompressionAtLowPriority)
+            {
+                return PerformancePresetCustomIndex;
+            }
+
+            bool matchesLight = _archive.CpuThreads == LightPerformanceThreadCount;
+            bool matchesVeryLight = _archive.CpuThreads == VeryLightPerformanceThreadCount;
+            if (matchesLight && matchesVeryLight)
+            {
+                return _lastAppliedPerformancePresetIndex is PerformancePresetLightIndex or PerformancePresetVeryLightIndex
+                    ? _lastAppliedPerformancePresetIndex
+                    : PerformancePresetLightIndex;
+            }
+
+            if (matchesLight)
+            {
+                return PerformancePresetLightIndex;
+            }
+
+            if (matchesVeryLight)
+            {
+                return PerformancePresetVeryLightIndex;
+            }
+
+            return PerformancePresetCustomIndex;
+        }
+
+        private void ApplyPerformancePreset(int value)
+        {
+            switch (value)
+            {
+                case PerformancePresetAutoIndex:
+                    _lastAppliedPerformancePresetIndex = PerformancePresetAutoIndex;
+                    _archive.CpuThreads = 0;
+                    _archive.RunCompressionAtLowPriority = false;
+                    break;
+                case PerformancePresetLightIndex:
+                    _lastAppliedPerformancePresetIndex = PerformancePresetLightIndex;
+                    _archive.CpuThreads = LightPerformanceThreadCount;
+                    _archive.RunCompressionAtLowPriority = true;
+                    break;
+                case PerformancePresetVeryLightIndex:
+                    _lastAppliedPerformancePresetIndex = PerformancePresetVeryLightIndex;
+                    _archive.CpuThreads = VeryLightPerformanceThreadCount;
+                    _archive.RunCompressionAtLowPriority = true;
+                    break;
+                default:
+                    _lastAppliedPerformancePresetIndex = PerformancePresetCustomIndex;
+                    break;
+            }
+
+            RaisePerformancePresetProperties();
+        }
+
+        private void RaisePerformancePresetProperties()
+        {
+            OnPropertyChanged(nameof(PerformancePresetSelectedIndex));
+            OnPropertyChanged(nameof(PerformancePresetDescription));
         }
 
         private void RaisePageVisibilityProperties()
