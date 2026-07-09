@@ -119,6 +119,18 @@ namespace FolderRewind.Services.Plugins
             CancellationToken cancellationToken);
     }
 
+    public interface IFolderRewindConfigAugmenter
+    {
+        PluginConfigAugmentationResult AugmentConfigs(
+            PluginConfigAugmentationRequest request,
+            IReadOnlyDictionary<string, string> settingsValues);
+
+        bool ShouldAugmentAfterSettingsChange(
+            IReadOnlyDictionary<string, string> previousSettings,
+            IReadOnlyDictionary<string, string> currentSettings)
+            => false;
+    }
+
     /// <summary>
     /// FolderRewind 插件接口 v2。
     /// 

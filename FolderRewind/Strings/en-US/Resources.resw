@@ -4824,4 +4824,10 @@ Pull request: {1}</value>
   <data name="Tray_Exit" xml:space="preserve">
     <value>Exit</value>
   </data>
+  <data name="PluginService_ConfigAugmentationAdded_Title" xml:space="preserve">
+    <value>Plugins</value>
+  </data>
+  <data name="PluginService_ConfigAugmentationAdded_Message" xml:space="preserve">
+    <value>{0} auto-added {1} new folder(s).</value>
+  </data>
 </root>

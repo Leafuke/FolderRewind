@@ -161,6 +161,10 @@ namespace FolderRewind
                     try
                     {
                         PluginService.Initialize();
+                        _ = Task.Run(async () =>
+                        {
+                            await PluginService.RunConfigAugmentationAsync(PluginConfigAugmentationReason.Startup).ConfigureAwait(false);
+                        });
                     }
                     catch (Exception pluginEx)
                     {
