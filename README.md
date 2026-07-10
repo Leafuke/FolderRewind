@@ -41,8 +41,9 @@ FolderRewind 是一款基于 **WinUI 3** 和 **.NET 10** 构建的现代化、�
   - **热备份支持**: 插件可在文件被占用时（如游戏运行中）介入，通过快照机制确保数据一致性。
   - **接管功能**: 插件可以重新定义备份与还原模式，实现更加丰富的功能。
 - **⏳ 历史时间轴**: 在一条时间轴上查看任意时刻的备份。随时将文件夹"回溯"到任意历史状态。
+- **☁️ 云备份**: 支持 WebDAV、FTP、SFTP 等协议的云端备份，轻松将数据同步到 NAS 或云存储。
 - **🎨 现代设计**: 
-  - 完美适配 Windows 11 的 **Mica** 材质与设计语言。
+  - 完美适配 Windows 11 的 **Mica**/**Acrylic** 材质与设计语言。
   - 支持深色/浅色主题切换。
   - 界面简洁直观，操作流畅。
 
@@ -54,14 +55,12 @@ FolderRewind 是一款基于 **WinUI 3** 和 **.NET 10** 构建的现代化、�
 	<img src="https://get.microsoft.com/images/en-us%20dark.svg" width="200"/>
 </a>
 
-### GitHub MSI 安装（无法使用商店时）：
+### MSI 安装（实验性）：
 
 1. 打开 [Release](https://github.com/Leafuke/FolderRewind/releases) 页面。
 2. 下载与设备架构匹配的安装包：`FolderRewind_{version}_x64.msi` 适用于绝大多数 Intel/AMD Windows 设备，`FolderRewind_{version}_arm64.msi` 适用于 Windows on ARM。
 3. 双击运行 MSI。默认仅为当前用户安装到 `%LocalAppData%\Programs\FolderRewind`，可在安装向导中改为其他本地路径，无需开启开发人员模式或导入证书。
 4. MSI 未使用受 Windows 信任的 Authenticode 证书，Windows 可能显示“未知发布者”或 SmartScreen 提示。仅应从本项目官方 Release 下载，并在执行前核对同名 `.sha256` 文件。
-
-MSI 版检测到更新后会打开对应架构的新 MSI 下载链接；请下载并运行它完成升级。MSI 版仅提供免费功能，Microsoft Store 的赞助者版授权仅在商店版本中可用。
 
 ### 高级侧载安装（MSIX）：
 
