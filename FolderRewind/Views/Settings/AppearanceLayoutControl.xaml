@@ -48,182 +48,6 @@
                     </ComboBox>
                 </toolkit:SettingsCard>
 
-                <toolkit:SettingsCard ContentAlignment="Vertical" HorizontalContentAlignment="Stretch">
-                    <toolkit:SettingsCard.Header>
-                        <TextBlock x:Uid="SettingsPage_Sponsor" Style="{StaticResource SettingsHeaderTextStyle}" />
-                    </toolkit:SettingsCard.Header>
-                    <toolkit:SettingsCard.Description>
-                        <TextBlock x:Uid="SettingsPage_SponsorDesc" Style="{StaticResource SettingsDescriptionStyle}" />
-                    </toolkit:SettingsCard.Description>
-                    <Grid RowSpacing="10">
-                        <Grid.RowDefinitions>
-                            <RowDefinition Height="Auto" />
-                            <RowDefinition Height="Auto" />
-                        </Grid.RowDefinitions>
-                        <TextBlock Text="{x:Bind ViewModel.SponsorStatusText, Mode=OneWay}"
-                                   Style="{StaticResource SettingsDescriptionStyle}" />
-                        <StackPanel Grid.Row="1" Orientation="Horizontal" Spacing="8">
-                            <Button x:Uid="SettingsPage_SponsorPurchase"
-                                    Style="{StaticResource SettingsActionRowButtonStyle}"
-                                    Command="{x:Bind ViewModel.OpenSponsorWindowCommand}"
-                                    IsEnabled="{x:Bind ViewModel.IsSponsorOperationIdle, Mode=OneWay}" />
-                            <Button x:Uid="SettingsPage_SponsorRestore"
-                                    Style="{StaticResource SettingsActionRowButtonStyle}"
-                                    Command="{x:Bind ViewModel.RestoreSponsorCommand}"
-                                    IsEnabled="{x:Bind ViewModel.IsSponsorOperationIdle, Mode=OneWay}" />
-                            <Button x:Uid="SettingsPage_SponsorRefresh"
-                                    Style="{StaticResource SettingsActionRowButtonStyle}"
-                                    Command="{x:Bind ViewModel.RefreshSponsorCommand}"
-                                    IsEnabled="{x:Bind ViewModel.IsSponsorOperationIdle, Mode=OneWay}" />
-                        </StackPanel>
-                    </Grid>
-                </toolkit:SettingsCard>
-
-                <toolkit:SettingsCard Visibility="{x:Bind ViewModel.IsSponsorLocked, Mode=OneWay, Converter={StaticResource BoolToVisConverter}}">
-                    <toolkit:SettingsCard.Header>
-                        <TextBlock x:Uid="SettingsPage_SponsorLocked" Style="{StaticResource SettingsHeaderTextStyle}" />
-                    </toolkit:SettingsCard.Header>
-                    <toolkit:SettingsCard.Description>
-                        <TextBlock x:Uid="SettingsPage_SponsorLockedDesc" Style="{StaticResource SettingsDescriptionStyle}" />
-                    </toolkit:SettingsCard.Description>
-                    <FontIcon Glyph="&#xE72E;" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
-                </toolkit:SettingsCard>
-
-                <toolkit:SettingsCard IsEnabled="{x:Bind ViewModel.IsSponsorUnlocked, Mode=OneWay}">
-                    <toolkit:SettingsCard.Header>
-                        <TextBlock x:Uid="SettingsPage_SponsorAccent" Style="{StaticResource SettingsHeaderTextStyle}" />
-                    </toolkit:SettingsCard.Header>
-                    <toolkit:SettingsCard.Description>
-                        <TextBlock x:Uid="SettingsPage_SponsorAccentDesc" Style="{StaticResource SettingsDescriptionStyle}" />
-                    </toolkit:SettingsCard.Description>
-                    <ComboBox Style="{StaticResource SettingsSelectorStyle}"
-                              ItemsSource="{x:Bind ViewModel.SponsorAccentPresets}"
-                              SelectedIndex="{x:Bind ViewModel.Settings.SponsorAccentColorIndex, Mode=TwoWay}"
-                              SelectionChanged="OnSponsorAccentChanged" />
-                </toolkit:SettingsCard>
-
-                <toolkit:SettingsCard IsEnabled="{x:Bind ViewModel.IsSponsorUnlocked, Mode=OneWay}">
-                    <toolkit:SettingsCard.Header>
-                        <TextBlock x:Uid="SettingsPage_SponsorBackdrop" Style="{StaticResource SettingsHeaderTextStyle}" />
-                    </toolkit:SettingsCard.Header>
-                    <toolkit:SettingsCard.Description>
-                        <TextBlock x:Uid="SettingsPage_SponsorBackdropDesc" Style="{StaticResource SettingsDescriptionStyle}" />
-                    </toolkit:SettingsCard.Description>
-                    <ComboBox Style="{StaticResource SettingsSelectorStyle}"
-                              ItemsSource="{x:Bind ViewModel.SponsorBackdropPresets}"
-                              SelectedIndex="{x:Bind ViewModel.Settings.SponsorBackdropIndex, Mode=TwoWay}"
-                              SelectionChanged="OnSponsorBackdropChanged" />
-                </toolkit:SettingsCard>
-
-                <toolkit:SettingsCard IsEnabled="{x:Bind ViewModel.IsSponsorUnlocked, Mode=OneWay}">
-                    <toolkit:SettingsCard.Header>
-                        <TextBlock x:Uid="SettingsPage_SponsorTitleText" Style="{StaticResource SettingsHeaderTextStyle}" />
-                    </toolkit:SettingsCard.Header>
-                    <toolkit:SettingsCard.Description>
-                        <TextBlock x:Uid="SettingsPage_SponsorTitleTextDesc" Style="{StaticResource SettingsDescriptionStyle}" />
-                    </toolkit:SettingsCard.Description>
-                    <TextBox Width="180"
-                             Text="{x:Bind ViewModel.Settings.SponsorTitleText, Mode=OneWay}"
-                             TextChanged="OnSponsorTitleTextChanged" />
-                </toolkit:SettingsCard>
-
-                <toolkit:SettingsCard IsEnabled="{x:Bind ViewModel.IsSponsorUnlocked, Mode=OneWay}">
-                    <toolkit:SettingsCard.Header>
-                        <TextBlock x:Uid="SettingsPage_SponsorTitleIcon" Style="{StaticResource SettingsHeaderTextStyle}" />
-                    </toolkit:SettingsCard.Header>
-                    <toolkit:SettingsCard.Description>
-                        <TextBlock x:Uid="SettingsPage_SponsorTitleIconDesc" Style="{StaticResource SettingsDescriptionStyle}" />
-                    </toolkit:SettingsCard.Description>
-                    <ComboBox Style="{StaticResource SettingsSelectorStyle}"
-                              ItemsSource="{x:Bind ViewModel.SponsorTitleIconGlyphs}"
-                              SelectedItem="{x:Bind ViewModel.Settings.SponsorTitleIconGlyph, Mode=TwoWay}"
-                              SelectionChanged="OnSponsorTitleIconChanged">
-                        <ComboBox.ItemTemplate>
-                            <DataTemplate x:DataType="x:String">
-                                <FontIcon Glyph="{x:Bind}" FontSize="18" />
-                            </DataTemplate>
-                        </ComboBox.ItemTemplate>
-                    </ComboBox>
-                </toolkit:SettingsCard>
-
-                <toolkit:SettingsCard IsEnabled="{x:Bind ViewModel.IsSponsorUnlocked, Mode=OneWay}">
-                    <toolkit:SettingsCard.Header>
-                        <TextBlock x:Uid="SettingsPage_SponsorBackground" Style="{StaticResource SettingsHeaderTextStyle}" />
-                    </toolkit:SettingsCard.Header>
-                    <toolkit:SettingsCard.Description>
-                        <TextBlock x:Uid="SettingsPage_SponsorBackgroundDesc" Style="{StaticResource SettingsDescriptionStyle}" />
-                    </toolkit:SettingsCard.Description>
-                    <StackPanel Orientation="Horizontal" Spacing="8">
-                        <Button x:Uid="SettingsPage_SponsorBackgroundChoose"
-                                Style="{StaticResource SettingsActionRowButtonStyle}"
-                                Click="OnChooseSponsorBackgroundClick" />
-                        <Button x:Uid="SettingsPage_SponsorBackgroundClear"
-                                Style="{StaticResource SettingsActionRowButtonStyle}"
-                                Command="{x:Bind ViewModel.ClearSponsorBackgroundCommand}" />
-                    </StackPanel>
-                </toolkit:SettingsCard>
-
-                <toolkit:SettingsCard IsEnabled="{x:Bind ViewModel.IsSponsorUnlocked, Mode=OneWay}">
-                    <toolkit:SettingsCard.Header>
-                        <TextBlock x:Uid="SettingsPage_SponsorBackgroundEnabled" Style="{StaticResource SettingsHeaderTextStyle}" />
-                    </toolkit:SettingsCard.Header>
-                    <toolkit:SettingsCard.Description>
-                        <TextBlock x:Uid="SettingsPage_SponsorBackgroundEnabledDesc" Style="{StaticResource SettingsDescriptionStyle}" />
-                    </toolkit:SettingsCard.Description>
-                    <ToggleSwitch IsOn="{x:Bind ViewModel.Settings.SponsorBackgroundEnabled, Mode=OneWay}" Toggled="OnSponsorBackgroundEnabledToggled" />
-                </toolkit:SettingsCard>
-
-                <toolkit:SettingsCard IsEnabled="{x:Bind ViewModel.IsSponsorUnlocked, Mode=OneWay}">
-                    <toolkit:SettingsCard.Header>
-                        <TextBlock x:Uid="SettingsPage_SponsorBackgroundStretch" Style="{StaticResource SettingsHeaderTextStyle}" />
-                    </toolkit:SettingsCard.Header>
-                    <toolkit:SettingsCard.Description>
-                        <TextBlock x:Uid="SettingsPage_SponsorBackgroundStretchDesc" Style="{StaticResource SettingsDescriptionStyle}" />
-                    </toolkit:SettingsCard.Description>
-                    <ComboBox Style="{StaticResource SettingsSelectorStyle}"
-                              ItemsSource="{x:Bind ViewModel.SponsorBackgroundStretchModes}"
-                              SelectedIndex="{x:Bind ViewModel.Settings.SponsorBackgroundStretchIndex, Mode=TwoWay}"
-                              SelectionChanged="OnSponsorBackgroundStretchChanged" />
-                </toolkit:SettingsCard>
-
-                <toolkit:SettingsCard IsEnabled="{x:Bind ViewModel.IsSponsorUnlocked, Mode=OneWay}">
-                    <toolkit:SettingsCard.Header>
-                        <TextBlock x:Uid="SettingsPage_SponsorBackgroundImageOpacity" Style="{StaticResource SettingsHeaderTextStyle}" />
-                    </toolkit:SettingsCard.Header>
-                    <toolkit:SettingsCard.Description>
-                        <TextBlock x:Uid="SettingsPage_SponsorBackgroundImageOpacityDesc" Style="{StaticResource SettingsDescriptionStyle}" />
-                    </toolkit:SettingsCard.Description>
-                    <StackPanel Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
-                        <NumberBox Style="{StaticResource SettingsNumberBoxStyle}"
-                                   Minimum="0"
-                                   Maximum="100"
-                                   SmallChange="5"
-                                   LargeChange="10"
-                                   Value="{x:Bind ViewModel.SponsorBackgroundImageOpacityPercent, Mode=OneWay}"
-                                   ValueChanged="OnSponsorBackgroundImageOpacityChanged" />
-                        <TextBlock Text="%" VerticalAlignment="Center" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
-                    </StackPanel>
-                </toolkit:SettingsCard>
-
-                <toolkit:SettingsCard IsEnabled="{x:Bind ViewModel.IsSponsorUnlocked, Mode=OneWay}">
-                    <toolkit:SettingsCard.Header>
-                        <TextBlock x:Uid="SettingsPage_SponsorBackgroundOverlayOpacity" Style="{StaticResource SettingsHeaderTextStyle}" />
-                    </toolkit:SettingsCard.Header>
-                    <toolkit:SettingsCard.Description>
-                        <TextBlock x:Uid="SettingsPage_SponsorBackgroundOverlayOpacityDesc" Style="{StaticResource SettingsDescriptionStyle}" />
-                    </toolkit:SettingsCard.Description>
-                    <StackPanel Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
-                        <NumberBox Style="{StaticResource SettingsNumberBoxStyle}"
-                                   Minimum="0"
-                                   Maximum="100"
-                                   SmallChange="5"
-                                   LargeChange="10"
-                                   Value="{x:Bind ViewModel.SponsorBackgroundOverlayOpacityPercent, Mode=OneWay}"
-                                   ValueChanged="OnSponsorBackgroundOverlayOpacityChanged" />
-                        <TextBlock Text="%" VerticalAlignment="Center" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
-                    </StackPanel>
-                </toolkit:SettingsCard>
-
                 <toolkit:SettingsCard>
                     <toolkit:SettingsCard.Header>
                         <TextBlock x:Uid="SettingsPage_CompletionSound" Style="{StaticResource SettingsHeaderTextStyle}" />
@@ -239,23 +63,6 @@
                         <Button x:Uid="SettingsPage_CompletionSoundPreview"
                                 Style="{StaticResource SettingsActionRowButtonStyle}"
                                 Command="{x:Bind ViewModel.PreviewCompletionSoundCommand}" />
-                    </StackPanel>
-                </toolkit:SettingsCard>
-
-                <toolkit:SettingsCard IsEnabled="{x:Bind ViewModel.IsSponsorUnlocked, Mode=OneWay}">
-                    <toolkit:SettingsCard.Header>
-                        <TextBlock x:Uid="SettingsPage_CustomCompletionSound" Style="{StaticResource SettingsHeaderTextStyle}" />
-                    </toolkit:SettingsCard.Header>
-                    <toolkit:SettingsCard.Description>
-                        <TextBlock x:Uid="SettingsPage_CustomCompletionSoundDesc" Style="{StaticResource SettingsDescriptionStyle}" />
-                    </toolkit:SettingsCard.Description>
-                    <StackPanel Orientation="Horizontal" Spacing="8">
-                        <Button x:Uid="SettingsPage_CustomCompletionSoundChoose"
-                                Style="{StaticResource SettingsActionRowButtonStyle}"
-                                Click="OnChooseCustomCompletionSoundClick" />
-                        <Button x:Uid="SettingsPage_CustomCompletionSoundClear"
-                                Style="{StaticResource SettingsActionRowButtonStyle}"
-                                Command="{x:Bind ViewModel.ClearCustomCompletionSoundCommand}" />
                     </StackPanel>
                 </toolkit:SettingsCard>
 
@@ -324,6 +131,218 @@
                         <Button x:Uid="SettingsPage_ApplySize" Style="{StaticResource SettingsActionRowButtonStyle}" Click="OnApplyStartupSizeClick" />
                     </StackPanel>
                 </toolkit:SettingsCard>
+
+                
+                <toolkit:SettingsCard ContentAlignment="Vertical" HorizontalContentAlignment="Stretch">
+                    <toolkit:SettingsCard.Header>
+                        <TextBlock x:Uid="SettingsPage_Sponsor" Style="{StaticResource SettingsHeaderTextStyle}" />
+                    </toolkit:SettingsCard.Header>
+                    <toolkit:SettingsCard.Description>
+                        <TextBlock x:Uid="SettingsPage_SponsorDesc" Style="{StaticResource SettingsDescriptionStyle}" />
+                    </toolkit:SettingsCard.Description>
+                    <Grid RowSpacing="10">
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="Auto" />
+                        </Grid.RowDefinitions>
+                        <TextBlock Text="{x:Bind ViewModel.SponsorStatusText, Mode=OneWay}"
+                                   Style="{StaticResource SettingsDescriptionStyle}" />
+                        <StackPanel Grid.Row="1" Orientation="Horizontal" Spacing="8">
+                            <Button x:Uid="SettingsPage_SponsorPurchase" 
+                                    Style="{StaticResource SettingsActionRowButtonStyle}"
+                                    Command="{x:Bind ViewModel.OpenSponsorWindowCommand}"
+                                    IsEnabled="{x:Bind ViewModel.IsSponsorOperationIdle, Mode=OneWay}" />
+                            <Button x:Uid="SettingsPage_SponsorRestore"
+                                    Style="{StaticResource SettingsActionRowButtonStyle}"
+                                    Command="{x:Bind ViewModel.RestoreSponsorCommand}"
+                                    IsEnabled="{x:Bind ViewModel.IsSponsorOperationIdle, Mode=OneWay}" />
+                            <Button x:Uid="SettingsPage_SponsorRefresh"
+                                    Style="{StaticResource SettingsActionRowButtonStyle}"
+                                    Command="{x:Bind ViewModel.RefreshSponsorCommand}"
+                                    IsEnabled="{x:Bind ViewModel.IsSponsorOperationIdle, Mode=OneWay}" />
+                        </StackPanel>
+                    </Grid>
+                </toolkit:SettingsCard>
+
+                <toolkit:SettingsCard Visibility="{x:Bind ViewModel.IsSponsorLocked, Mode=OneWay, Converter={StaticResource BoolToVisConverter}}">
+                    <toolkit:SettingsCard.Header>
+                        <TextBlock x:Uid="SettingsPage_SponsorLocked" Style="{StaticResource SettingsHeaderTextStyle}" />
+                    </toolkit:SettingsCard.Header>
+                    <toolkit:SettingsCard.Description>
+                        <TextBlock x:Uid="SettingsPage_SponsorLockedDesc" Style="{StaticResource SettingsDescriptionStyle}" />
+                    </toolkit:SettingsCard.Description>
+                    <FontIcon Glyph="&#xE72E;" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                </toolkit:SettingsCard>
+
+                <!-- 赞助专属个性化 (次级 Expander) -->
+                <toolkit:SettingsCard ContentAlignment="Vertical" HorizontalContentAlignment="Stretch">
+                    <toolkit:SettingsExpander IsExpanded="False"
+                                            IsEnabled="{x:Bind ViewModel.IsSponsorUnlocked, Mode=OneWay}">
+                        <toolkit:SettingsExpander.Header>
+                            <TextBlock x:Uid="SettingsPage_SponsorPersonalization" Style="{StaticResource SettingsHeaderTextStyle}" />
+                        </toolkit:SettingsExpander.Header>
+                        <toolkit:SettingsExpander.Description>
+                            <TextBlock x:Uid="SettingsPage_SponsorPersonalizationDesc" Style="{StaticResource SettingsDescriptionStyle}" />
+                        </toolkit:SettingsExpander.Description>
+                        <toolkit:SettingsExpander.HeaderIcon>
+                            <FontIcon Glyph="&#xE790;" />
+                        </toolkit:SettingsExpander.HeaderIcon>
+                        <toolkit:SettingsExpander.Items>
+                            <toolkit:SettingsCard>
+                                <toolkit:SettingsCard.Header>
+                                    <TextBlock x:Uid="SettingsPage_SponsorAccent" Style="{StaticResource SettingsHeaderTextStyle}" />
+                                </toolkit:SettingsCard.Header>
+                                <toolkit:SettingsCard.Description>
+                                    <TextBlock x:Uid="SettingsPage_SponsorAccentDesc" Style="{StaticResource SettingsDescriptionStyle}" />
+                                </toolkit:SettingsCard.Description>
+                                <ComboBox Style="{StaticResource SettingsSelectorStyle}"
+                                        ItemsSource="{x:Bind ViewModel.SponsorAccentPresets}"
+                                        SelectedIndex="{x:Bind ViewModel.Settings.SponsorAccentColorIndex, Mode=TwoWay}"
+                                        SelectionChanged="OnSponsorAccentChanged" />
+                            </toolkit:SettingsCard>
+
+                            <toolkit:SettingsCard>
+                                <toolkit:SettingsCard.Header>
+                                    <TextBlock x:Uid="SettingsPage_SponsorBackdrop" Style="{StaticResource SettingsHeaderTextStyle}" />
+                                </toolkit:SettingsCard.Header>
+                                <toolkit:SettingsCard.Description>
+                                    <TextBlock x:Uid="SettingsPage_SponsorBackdropDesc" Style="{StaticResource SettingsDescriptionStyle}" />
+                                </toolkit:SettingsCard.Description>
+                                <ComboBox Style="{StaticResource SettingsSelectorStyle}"
+                                        ItemsSource="{x:Bind ViewModel.SponsorBackdropPresets}"
+                                        SelectedIndex="{x:Bind ViewModel.Settings.SponsorBackdropIndex, Mode=TwoWay}"
+                                        SelectionChanged="OnSponsorBackdropChanged" />
+                            </toolkit:SettingsCard>
+
+                            <toolkit:SettingsCard>
+                                <toolkit:SettingsCard.Header>
+                                    <TextBlock x:Uid="SettingsPage_SponsorTitleText" Style="{StaticResource SettingsHeaderTextStyle}" />
+                                </toolkit:SettingsCard.Header>
+                                <toolkit:SettingsCard.Description>
+                                    <TextBlock x:Uid="SettingsPage_SponsorTitleTextDesc" Style="{StaticResource SettingsDescriptionStyle}" />
+                                </toolkit:SettingsCard.Description>
+                                <TextBox Width="180"
+                                        Text="{x:Bind ViewModel.Settings.SponsorTitleText, Mode=OneWay}"
+                                        TextChanged="OnSponsorTitleTextChanged" />
+                            </toolkit:SettingsCard>
+
+                            <toolkit:SettingsCard>
+                                <toolkit:SettingsCard.Header>
+                                    <TextBlock x:Uid="SettingsPage_SponsorTitleIcon" Style="{StaticResource SettingsHeaderTextStyle}" />
+                                </toolkit:SettingsCard.Header>
+                                <toolkit:SettingsCard.Description>
+                                    <TextBlock x:Uid="SettingsPage_SponsorTitleIconDesc" Style="{StaticResource SettingsDescriptionStyle}" />
+                                </toolkit:SettingsCard.Description>
+                                <ComboBox Style="{StaticResource SettingsSelectorStyle}"
+                                        ItemsSource="{x:Bind ViewModel.SponsorTitleIconGlyphs}"
+                                        SelectedItem="{x:Bind ViewModel.Settings.SponsorTitleIconGlyph, Mode=TwoWay}"
+                                        SelectionChanged="OnSponsorTitleIconChanged">
+                                    <ComboBox.ItemTemplate>
+                                        <DataTemplate x:DataType="x:String">
+                                            <FontIcon Glyph="{x:Bind}" FontSize="18" />
+                                        </DataTemplate>
+                                    </ComboBox.ItemTemplate>
+                                </ComboBox>
+                            </toolkit:SettingsCard>
+
+                            <toolkit:SettingsCard>
+                                <toolkit:SettingsCard.Header>
+                                    <TextBlock x:Uid="SettingsPage_SponsorBackground" Style="{StaticResource SettingsHeaderTextStyle}" />
+                                </toolkit:SettingsCard.Header>
+                                <toolkit:SettingsCard.Description>
+                                    <TextBlock x:Uid="SettingsPage_SponsorBackgroundDesc" Style="{StaticResource SettingsDescriptionStyle}" />
+                                </toolkit:SettingsCard.Description>
+                                <StackPanel Orientation="Horizontal" Spacing="8">
+                                    <Button x:Uid="SettingsPage_SponsorBackgroundChoose"
+                                            Style="{StaticResource SettingsActionRowButtonStyle}"
+                                            Click="OnChooseSponsorBackgroundClick" />
+                                    <Button x:Uid="SettingsPage_SponsorBackgroundClear"
+                                            Style="{StaticResource SettingsActionRowButtonStyle}"
+                                            Command="{x:Bind ViewModel.ClearSponsorBackgroundCommand}" />
+                                </StackPanel>
+                            </toolkit:SettingsCard>
+
+                            <toolkit:SettingsCard>
+                                <toolkit:SettingsCard.Header>
+                                    <TextBlock x:Uid="SettingsPage_SponsorBackgroundEnabled" Style="{StaticResource SettingsHeaderTextStyle}" />
+                                </toolkit:SettingsCard.Header>
+                                <toolkit:SettingsCard.Description>
+                                    <TextBlock x:Uid="SettingsPage_SponsorBackgroundEnabledDesc" Style="{StaticResource SettingsDescriptionStyle}" />
+                                </toolkit:SettingsCard.Description>
+                                <ToggleSwitch IsOn="{x:Bind ViewModel.Settings.SponsorBackgroundEnabled, Mode=OneWay}" Toggled="OnSponsorBackgroundEnabledToggled" />
+                            </toolkit:SettingsCard>
+
+                            <toolkit:SettingsCard>
+                                <toolkit:SettingsCard.Header>
+                                    <TextBlock x:Uid="SettingsPage_SponsorBackgroundStretch" Style="{StaticResource SettingsHeaderTextStyle}" />
+                                </toolkit:SettingsCard.Header>
+                                <toolkit:SettingsCard.Description>
+                                    <TextBlock x:Uid="SettingsPage_SponsorBackgroundStretchDesc" Style="{StaticResource SettingsDescriptionStyle}" />
+                                </toolkit:SettingsCard.Description>
+                                <ComboBox Style="{StaticResource SettingsSelectorStyle}"
+                                        ItemsSource="{x:Bind ViewModel.SponsorBackgroundStretchModes}"
+                                        SelectedIndex="{x:Bind ViewModel.Settings.SponsorBackgroundStretchIndex, Mode=TwoWay}"
+                                        SelectionChanged="OnSponsorBackgroundStretchChanged" />
+                            </toolkit:SettingsCard>
+
+                            <toolkit:SettingsCard>
+                                <toolkit:SettingsCard.Header>
+                                    <TextBlock x:Uid="SettingsPage_SponsorBackgroundImageOpacity" Style="{StaticResource SettingsHeaderTextStyle}" />
+                                </toolkit:SettingsCard.Header>
+                                <toolkit:SettingsCard.Description>
+                                    <TextBlock x:Uid="SettingsPage_SponsorBackgroundImageOpacityDesc" Style="{StaticResource SettingsDescriptionStyle}" />
+                                </toolkit:SettingsCard.Description>
+                                <StackPanel Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
+                                    <NumberBox Style="{StaticResource SettingsNumberBoxStyle}"
+                                            Minimum="0"
+                                            Maximum="100"
+                                            SmallChange="5"
+                                            LargeChange="10"
+                                            Value="{x:Bind ViewModel.SponsorBackgroundImageOpacityPercent, Mode=OneWay}"
+                                            ValueChanged="OnSponsorBackgroundImageOpacityChanged" />
+                                    <TextBlock Text="%" VerticalAlignment="Center" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                                </StackPanel>
+                            </toolkit:SettingsCard>
+
+                            <toolkit:SettingsCard>
+                                <toolkit:SettingsCard.Header>
+                                    <TextBlock x:Uid="SettingsPage_SponsorBackgroundOverlayOpacity" Style="{StaticResource SettingsHeaderTextStyle}" />
+                                </toolkit:SettingsCard.Header>
+                                <toolkit:SettingsCard.Description>
+                                    <TextBlock x:Uid="SettingsPage_SponsorBackgroundOverlayOpacityDesc" Style="{StaticResource SettingsDescriptionStyle}" />
+                                </toolkit:SettingsCard.Description>
+                                <StackPanel Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
+                                    <NumberBox Style="{StaticResource SettingsNumberBoxStyle}"
+                                            Minimum="0"
+                                            Maximum="100"
+                                            SmallChange="5"
+                                            LargeChange="10"
+                                            Value="{x:Bind ViewModel.SponsorBackgroundOverlayOpacityPercent, Mode=OneWay}"
+                                            ValueChanged="OnSponsorBackgroundOverlayOpacityChanged" />
+                                    <TextBlock Text="%" VerticalAlignment="Center" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                                </StackPanel>
+                            </toolkit:SettingsCard>
+
+                            <toolkit:SettingsCard>
+                                <toolkit:SettingsCard.Header>
+                                    <TextBlock x:Uid="SettingsPage_CustomCompletionSound" Style="{StaticResource SettingsHeaderTextStyle}" />
+                                </toolkit:SettingsCard.Header>
+                                <toolkit:SettingsCard.Description>
+                                    <TextBlock x:Uid="SettingsPage_CustomCompletionSoundDesc" Style="{StaticResource SettingsDescriptionStyle}" />
+                                </toolkit:SettingsCard.Description>
+                                <StackPanel Orientation="Horizontal" Spacing="8">
+                                    <Button x:Uid="SettingsPage_CustomCompletionSoundChoose"
+                                            Style="{StaticResource SettingsActionRowButtonStyle}"
+                                            Click="OnChooseCustomCompletionSoundClick" />
+                                    <Button x:Uid="SettingsPage_CustomCompletionSoundClear"
+                                            Style="{StaticResource SettingsActionRowButtonStyle}"
+                                            Command="{x:Bind ViewModel.ClearCustomCompletionSoundCommand}" />
+                                </StackPanel>
+                            </toolkit:SettingsCard>
+                        </toolkit:SettingsExpander.Items>
+                    </toolkit:SettingsExpander>
+                </toolkit:SettingsCard>
+
             </toolkit:SettingsExpander.Items>
         </toolkit:SettingsExpander>
     </StackPanel>

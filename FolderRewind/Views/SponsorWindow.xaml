@@ -49,7 +49,7 @@
                     IsEnabled="{x:Bind ViewModel.IsIdle, Mode=OneWay}">
                 <StackPanel Orientation="Horizontal" Spacing="12" HorizontalAlignment="Left">
                     <FontIcon Glyph="&#xE719;" FontSize="20" />
-                    <TextBlock x:Uid="SponsorWindow_PurchaseText" VerticalAlignment="Center" />
+                    <TextBlock Text="{x:Bind ViewModel.PurchaseActionText, Mode=OneWay}" VerticalAlignment="Center" />
                 </StackPanel>
             </Button>
 

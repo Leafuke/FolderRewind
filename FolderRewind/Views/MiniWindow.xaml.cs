@@ -569,7 +569,11 @@ namespace FolderRewind.Views
                     ? "[Mini]"
                     : $"{comment} [Mini]";
 
-                await BackupService.BackupFolderAsync(_context.Config, _context.Folder, backupComment);
+                await BackupService.BackupFolderAsync(
+                    _context.Config,
+                    _context.Folder,
+                    backupComment,
+                    invocationOptions: BackupInvocationOptions.ForManual());
                 FolderWatcherService.ResetChanges(_context.Folder.Path);
 
                 SetVisualState(MiniWindowVisualState.BackupDone);

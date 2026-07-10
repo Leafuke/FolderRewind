@@ -54,14 +54,23 @@ FolderRewind 是一款基于 **WinUI 3** 和 **.NET 10** 构建的现代化、�
 	<img src="https://get.microsoft.com/images/en-us%20dark.svg" width="200"/>
 </a>
 
-### 侧载安装：
+### GitHub MSI 安装（无法使用商店时）：
+
+1. 打开 [Release](https://github.com/Leafuke/FolderRewind/releases) 页面。
+2. 下载与设备架构匹配的安装包：`FolderRewind_{version}_x64.msi` 适用于绝大多数 Intel/AMD Windows 设备，`FolderRewind_{version}_arm64.msi` 适用于 Windows on ARM。
+3. 双击运行 MSI。默认仅为当前用户安装到 `%LocalAppData%\Programs\FolderRewind`，可在安装向导中改为其他本地路径，无需开启开发人员模式或导入证书。
+4. MSI 未使用受 Windows 信任的 Authenticode 证书，Windows 可能显示“未知发布者”或 SmartScreen 提示。仅应从本项目官方 Release 下载，并在执行前核对同名 `.sha256` 文件。
+
+MSI 版检测到更新后会打开对应架构的新 MSI 下载链接；请下载并运行它完成升级。MSI 版仅提供免费功能，Microsoft Store 的赞助者版授权仅在商店版本中可用。
+
+### 高级侧载安装（MSIX）：
 
 1. 打开系统设置，依次选择 `系统` -> `开发者选项`，打开 `开发人员模式`。
 2. 打开 [Release](https://github.com/Leafuke/FolderRewind/releases) 页面
 3. 找到应用包下载。命名格式为：`FolderRewind_{version}_{platform}.7z`
 4. 下载应用包后解压，使用 Powershell 运行 `install.ps1` 脚本文件。如果提示权限不足，可以先输入 `Set-ExecutionPolicy -ExecutionPolicy Bypass -Scope Process` 命令后再次执行。
 
-注意：不要同时安装商店版本和侧载版本。
+注意：不要同时运行 Store、MSI 和 MSIX 侧载版本。MSI 与 MSIX/Store 使用独立的数据目录，不会自动迁移配置或插件。
 
 ## 使用
 

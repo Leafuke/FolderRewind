@@ -526,7 +526,7 @@ namespace FolderRewind.ViewModels
                 return;
             }
 
-            await BackupService.BackupConfigAsync(CurrentConfig);
+            await BackupService.BackupConfigAsync(CurrentConfig, BackupInvocationOptions.ForManual());
         }
 
         public async Task BackupSelectedFolderAsync(string? comment)
@@ -536,7 +536,11 @@ namespace FolderRewind.ViewModels
                 return;
             }
 
-            await BackupService.BackupFolderAsync(CurrentConfig, _selectedFolder, comment);
+            await BackupService.BackupFolderAsync(
+                CurrentConfig,
+                _selectedFolder,
+                comment,
+                invocationOptions: BackupInvocationOptions.ForManual());
         }
 
         private AddFolderResult AddFolderInternal(

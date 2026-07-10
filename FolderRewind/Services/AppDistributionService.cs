@@ -8,7 +8,8 @@ namespace FolderRewind.Services
         Unknown = 0,
         Store = 1,
         Sideload = 2,
-        Developer = 3
+        Developer = 3,
+        Msi = 4
     }
 
     internal static class AppDistributionService
@@ -19,6 +20,11 @@ namespace FolderRewind.Services
 
         public static InstallChannel GetCurrentChannel()
         {
+            if (AppRuntimeInfo.IsMsiDistribution)
+            {
+                return InstallChannel.Msi;
+            }
+
             try
             {
                 var package = Package.Current;

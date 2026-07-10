@@ -19,7 +19,9 @@ namespace FolderRewind.Services
         private const string RegistryUninstallKey =
             @"SOFTWARE\WOW6432Node\Microsoft\Windows\CurrentVersion\Uninstall\KnotLinkService";
         private const string ServerProcessName = "KnotLinkService";
-        private const string GitHubOwner = "KnotLink-Protocol";
+
+        // 在 1.8.0 正式更新之前，先把仓库替换回 hxh230802/KnotLink ， 因为 1.8.0 之后的版本会切换到 KnotLink-Protocol/KnotLink 仓库。
+        private const string GitHubOwner = "hxh230802";
         private const string GitHubRepo = "KnotLink";
 
         /// <summary>

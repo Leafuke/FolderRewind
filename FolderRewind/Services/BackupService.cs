@@ -196,15 +196,18 @@ namespace FolderRewind.Services
         /// 备份配置下的所有文件夹
         /// </summary>
         /// <returns>true 表示至少有一个文件夹产生了新的备份文件；false 表示所有文件夹均未检测到变更。</returns>
-        public static async Task<bool> BackupConfigAsync(BackupConfig config)
+        public static async Task<bool> BackupConfigAsync(
+            BackupConfig config,
+            BackupInvocationOptions? invocationOptions = null)
         {
             if (config == null) return false;
+            invocationOptions ??= BackupInvocationOptions.Default;
             Log(I18n.Format("BackupService_Log_ConfigTaskBegin", config.Name), LogLevel.Info);
 
             bool anyChanges = false;
             foreach (var folder in config.SourceFolders)
             {
-                var hadChanges = await BackupFolderAsync(config, folder);
+                var hadChanges = await BackupFolderAsync(config, folder, invocationOptions: invocationOptions);
                 if (hadChanges) anyChanges = true;
             }
 
@@ -216,10 +219,16 @@ namespace FolderRewind.Services
         /// 备份单个文件夹
         /// </summary>
         /// <returns>true 表示产生了新的备份文件；false 表示未检测到变更或备份失败。</returns>
-        public static async Task<bool> BackupFolderAsync(BackupConfig config, ManagedFolder folder, string? comment = "", bool forceFullBackup = false)
+        public static async Task<bool> BackupFolderAsync(
+            BackupConfig config,
+            ManagedFolder folder,
+            string? comment = "",
+            bool forceFullBackup = false,
+            BackupInvocationOptions? invocationOptions = null)
         {
             if (config == null || folder == null) return false;
             comment ??= string.Empty;
+            invocationOptions ??= BackupInvocationOptions.Default;
 
             int configIndex = GetConfigIndex(config);
 
@@ -246,7 +255,7 @@ namespace FolderRewind.Services
             string sourcePath = folder.Path;
             try
             {
-                var pluginOverride = Services.Plugins.PluginService.InvokeBeforeBackupFolder(config, folder);
+                var pluginOverride = Services.Plugins.PluginService.InvokeBeforeBackupFolder(config, folder, invocationOptions);
                 if (!string.IsNullOrWhiteSpace(pluginOverride))
                 {
                     sourcePath = pluginOverride;

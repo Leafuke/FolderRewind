@@ -254,12 +254,12 @@ namespace FolderRewind.Services
 
             // 1. 直接压缩（带黑名单过滤 + 自定义文件类型排除）
             var fileTypeExclusions = config.Archive.FileTypeHandlingEnabled ? (IReadOnlyList<FileTypeRule>)config.Archive.FileTypeRules : null;
-            bool result = await Run7zCommandAsync("a", source, destFile, config.Archive, password, null, config.Filters, fileTypeExclusions, taskToUpdate);
+            bool result = await Run7zCommandAsync("a", source, destFile, config.Archive, password, null, config.Filters, fileTypeExclusions, taskToUpdate, applyAdditionalArguments: true);
 
             // 2. 自定义文件类型追加压缩（不同压缩等级）
             if (result && config.Archive.FileTypeHandlingEnabled)
             {
-                bool ruleResult = await RunFileTypeRulePassesAsync(source, destFile, config.Archive, null, config.Filters, password);
+                bool ruleResult = await RunFileTypeRulePassesAsync(source, destFile, config.Archive, null, config.Filters, password, taskToUpdate);
                 if (!ruleResult)
                 {
                     Log(I18n.Format("BackupService_Log_FileTypeRulePassFailed"), LogLevel.Warning);
@@ -434,7 +434,7 @@ namespace FolderRewind.Services
             }
             else if (!string.IsNullOrWhiteSpace(listFile))
             {
-                result = await Run7zCommandAsync("a", source, destFile, config.Archive, password, listFile, config.Filters, fileTypeExclusions, taskToUpdate);
+                result = await Run7zCommandAsync("a", source, destFile, config.Archive, password, listFile, config.Filters, fileTypeExclusions, taskToUpdate, applyAdditionalArguments: true);
             }
             else
             {
@@ -445,7 +445,7 @@ namespace FolderRewind.Services
             // 4.5 自定义文件类型追加压缩（增量模式下传递变更文件列表用于筛选）
             if (result && hasFileTypeRules && contentChangedFiles.Count > 0)
             {
-                bool ruleResult = await RunFileTypeRulePassesAsync(source, destFile, config.Archive, contentChangedFiles, config.Filters, password);
+                bool ruleResult = await RunFileTypeRulePassesAsync(source, destFile, config.Archive, contentChangedFiles, config.Filters, password, taskToUpdate);
                 if (!ruleResult)
                 {
                     if (string.IsNullOrWhiteSpace(listFile))
@@ -526,12 +526,12 @@ namespace FolderRewind.Services
             {
                 return (false, null);
             }
-            bool result = await Run7zCommandAsync("u", source, targetFile.FullName, config.Archive, password, null, config.Filters, fileTypeExclusions, taskToUpdate);
+            bool result = await Run7zCommandAsync("u", source, targetFile.FullName, config.Archive, password, null, config.Filters, fileTypeExclusions, taskToUpdate, applyAdditionalArguments: true);
 
             // 2.5 自定义文件类型追加压缩
             if (result && config.Archive.FileTypeHandlingEnabled)
             {
-                bool ruleResult = await RunFileTypeRulePassesAsync(source, targetFile.FullName, config.Archive, null, config.Filters, password);
+                bool ruleResult = await RunFileTypeRulePassesAsync(source, targetFile.FullName, config.Archive, null, config.Filters, password, taskToUpdate);
                 if (!ruleResult)
                 {
                     Log(I18n.Format("BackupService_Log_FileTypeRulePassFailed"), LogLevel.Warning);
@@ -633,7 +633,17 @@ namespace FolderRewind.Services
             }
         }
 
-        private static async Task<bool> Run7zCommandAsync(string commandMode, string sourceDir, string archivePath, ArchiveSettings settings, string? password = null, string? listFile = null, FilterSettings? filters = null, IReadOnlyList<FileTypeRule>? fileTypeExclusions = null, BackupTask? taskToUpdate = null)
+        private static async Task<bool> Run7zCommandAsync(
+            string commandMode,
+            string sourceDir,
+            string archivePath,
+            ArchiveSettings settings,
+            string? password = null,
+            string? listFile = null,
+            FilterSettings? filters = null,
+            IReadOnlyList<FileTypeRule>? fileTypeExclusions = null,
+            BackupTask? taskToUpdate = null,
+            bool applyAdditionalArguments = false)
         {
             string? sevenZipExe = ResolveSevenZipExecutable();
             if (string.IsNullOrEmpty(sevenZipExe)) return false;
@@ -747,6 +757,11 @@ namespace FolderRewind.Services
                 }
             }
 
+            if (applyAdditionalArguments && !AppendAdditionalBackupArguments(sb, settings, taskToUpdate))
+            {
+                return false;
+            }
+
             string args = sb.ToString();
             string safeArgs = string.IsNullOrWhiteSpace(password) ? args : args.Replace(password, "***");
 
@@ -784,7 +799,8 @@ namespace FolderRewind.Services
             ArchiveSettings settings,
             IReadOnlyList<string>? changedFileList = null,
             FilterSettings? filters = null,
-            string? password = null)
+            string? password = null,
+            BackupTask? taskToUpdate = null)
         {
             if (!settings.FileTypeHandlingEnabled || settings.FileTypeRules == null || settings.FileTypeRules.Count == 0)
                 return true;
@@ -844,10 +860,16 @@ namespace FolderRewind.Services
                         if (!string.IsNullOrWhiteSpace(password)) sb.Append($" -p\"{password}\" -mhe=on");
                         sb.Append(" -bsp1");
 
+                        if (!AppendAdditionalBackupArguments(sb, settings, taskToUpdate))
+                        {
+                            allSuccess = false;
+                            continue;
+                        }
+
                         string args = sb.ToString();
                         string safeArgs = string.IsNullOrWhiteSpace(password) ? args : args.Replace(password, "***");
 
-                        bool ok = await RunSevenZipProcessAsync(sevenZipExe, args, sourceDir, safeArgs, runAtLowPriority: settings.RunCompressionAtLowPriority);
+                        bool ok = await RunSevenZipProcessAsync(sevenZipExe, args, sourceDir, safeArgs, taskToUpdate, runAtLowPriority: settings.RunCompressionAtLowPriority);
                         if (!ok) allSuccess = false;
                     }
                     else
@@ -902,10 +924,16 @@ namespace FolderRewind.Services
                             }
                         }
 
+                        if (!AppendAdditionalBackupArguments(sb, settings, taskToUpdate))
+                        {
+                            allSuccess = false;
+                            continue;
+                        }
+
                         string args = sb.ToString();
                         string safeArgs = string.IsNullOrWhiteSpace(password) ? args : args.Replace(password, "***");
 
-                        bool ok = await RunSevenZipProcessAsync(sevenZipExe, args, sourceDir, safeArgs, runAtLowPriority: settings.RunCompressionAtLowPriority);
+                        bool ok = await RunSevenZipProcessAsync(sevenZipExe, args, sourceDir, safeArgs, taskToUpdate, runAtLowPriority: settings.RunCompressionAtLowPriority);
                         if (!ok) allSuccess = false;
                     }
                 }
@@ -930,6 +958,29 @@ namespace FolderRewind.Services
             }
 
             return Math.Clamp(cpuThreads, 1, Math.Max(Environment.ProcessorCount, 1));
+        }
+
+        private static bool AppendAdditionalBackupArguments(StringBuilder builder, ArchiveSettings settings, BackupTask? taskToUpdate)
+        {
+            if (SevenZipAdditionalArguments.AppendValidated(builder, settings.AdditionalSevenZipArguments, out var errorMessage))
+            {
+                return true;
+            }
+
+            var message = I18n.Format("BackupService_Log_InvalidAdditional7zArgs", errorMessage ?? string.Empty);
+            Log(message, LogLevel.Error);
+            if (taskToUpdate != null)
+            {
+                UiDispatcherService.Enqueue(() =>
+                {
+                    if (string.IsNullOrEmpty(taskToUpdate.ErrorMessage))
+                    {
+                        taskToUpdate.ErrorMessage = message;
+                    }
+                });
+            }
+
+            return false;
         }
 
         private static void ApplyLowPriorityIfRequested(Process process, bool runAtLowPriority)

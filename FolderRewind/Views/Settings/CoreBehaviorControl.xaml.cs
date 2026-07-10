@@ -53,6 +53,19 @@ namespace FolderRewind.Views.Settings
             }
         }
 
+        private void OnCreateDesktopShortcutClick(object sender, RoutedEventArgs e)
+        {
+            if (DesktopShortcutService.TryCreateDesktopShortcut(out var errorMessage))
+            {
+                NotificationService.ShowSuccess(I18n.GetString("DesktopShortcut_CreateSucceeded"));
+            }
+            else
+            {
+                NotificationService.ShowError(
+                    I18n.Format("DesktopShortcut_CreateFailed", errorMessage));
+            }
+        }
+
         private void OnSilentStartupToggled(object sender, RoutedEventArgs e)
         {
             if (sender is ToggleSwitch ts)

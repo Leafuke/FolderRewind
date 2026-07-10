@@ -389,6 +389,7 @@ namespace FolderRewind.Views
                 {
                     UpdatePrimaryAction.OpenStorePage => I18n.GetString("Update_Dialog_OpenStore"),
                     UpdatePrimaryAction.PrepareSideloadPackage => I18n.GetString("Update_Dialog_PrepareSideload"),
+                    UpdatePrimaryAction.OpenMsiDownload => I18n.GetString("Update_Dialog_DownloadMsi"),
                     _ => I18n.GetString("Update_Dialog_OpenRelease")
                 };
 

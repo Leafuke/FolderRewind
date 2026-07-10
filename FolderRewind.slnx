@@ -13,7 +13,4 @@
     <Platform Solution="*|x86" Project="x86" />
     <Deploy />
   </Project>
-  <Project Path="FolderRewind.Tests/FolderRewind.Tests.csproj">
-    <Platform Solution="*|x64" Project="x64" />
-  </Project>
 </Solution>

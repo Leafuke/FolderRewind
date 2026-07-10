@@ -34,6 +34,10 @@ namespace FolderRewind.ViewModels
 
         public bool IsIdle => !IsBusy;
 
+        public string PurchaseActionText => AppRuntimeInfo.IsMsiDistribution
+            ? I18n.GetString("SponsorWindow_StoreOnlyAction")
+            : I18n.GetString("SponsorWindow_PurchaseText");
+
         public SponsorWindowViewModel()
         {
             OpenContributorGuideCommand = new AsyncRelayCommand(

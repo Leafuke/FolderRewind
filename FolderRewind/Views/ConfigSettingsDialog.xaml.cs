@@ -825,8 +825,28 @@ namespace FolderRewind.Views
             _ = DispatcherQueue.TryEnqueue(() => Bindings.Update());
         }
 
-        private void OnSaveClick(ContentDialog sender, ContentDialogButtonClickEventArgs args)
+        private async void OnSaveClick(ContentDialog sender, ContentDialogButtonClickEventArgs args)
         {
+            if (!ViewModel.TryValidateAndNormalizeAdditionalSevenZipArguments(out var errorMessage))
+            {
+                args.Cancel = true;
+
+                var dialog = new ContentDialog
+                {
+                    Title = I18n.GetString("ConfigSettingsDialog_Additional7zArgsSaveErrorTitle"),
+                    Content = new TextBlock
+                    {
+                        Text = errorMessage,
+                        TextWrapping = TextWrapping.Wrap
+                    },
+                    CloseButtonText = I18n.GetString("Common_Ok"),
+                    XamlRoot = MainWindowService.GetXamlRoot() ?? this.XamlRoot
+                };
+                ThemeService.ApplyThemeToDialog(dialog);
+                await dialog.ShowAsync();
+                return;
+            }
+
             ConfigService.Save();
         }
 

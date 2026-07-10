@@ -380,14 +380,20 @@ namespace FolderRewind.Views.Settings
             var result = await dialog.ShowAsync();
             if (result != ContentDialogResult.Primary) return;
 
+            var newValues = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
             foreach (var def in defs)
             {
                 if (string.IsNullOrWhiteSpace(def.Key)) continue;
                 if (!getters.TryGetValue(def.Key, out var get)) continue;
-                PluginService.SetPluginSetting(plugin.Id, def.Key, get());
+                newValues[def.Key] = get();
             }
 
+            var saveResult = PluginService.SavePluginSettings(plugin.Id, newValues);
             PluginService.TryReinitialize(plugin.Id);
+            await PluginService.TryRunConfigAugmentationForSettingsChangeAsync(
+                plugin.Id,
+                saveResult.PreviousSettings,
+                saveResult.CurrentSettings);
         }
 
         private void OnKnotLinkToggled(object sender, RoutedEventArgs e)

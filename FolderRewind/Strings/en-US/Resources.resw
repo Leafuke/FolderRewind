@@ -318,6 +318,24 @@ Duplicate folder names are blocked within the same configuration so different di
   <data name="SettingsPage_RunOnStartupDesc.Text" xml:space="preserve">
     <value>Run FolderRewind when you sign in to Windows</value>
   </data>
+  <data name="SettingsPage_CreateDesktopShortcut.Text" xml:space="preserve">
+    <value>Add desktop shortcut</value>
+  </data>
+  <data name="SettingsPage_CreateDesktopShortcutDesc.Text" xml:space="preserve">
+    <value>Create a FolderRewind shortcut on your desktop. An existing shortcut with the same name will be replaced.</value>
+  </data>
+  <data name="SettingsPage_CreateDesktopShortcut_Button.Content" xml:space="preserve">
+    <value>Add</value>
+  </data>
+  <data name="DesktopShortcut_CreateSucceeded" xml:space="preserve">
+    <value>FolderRewind shortcut added to the desktop.</value>
+  </data>
+  <data name="DesktopShortcut_CreateFailed" xml:space="preserve">
+    <value>Could not add the desktop shortcut: {0}</value>
+  </data>
+  <data name="DesktopShortcut_Log_CreateFailed" xml:space="preserve">
+    <value>Failed to create desktop shortcut: {0}</value>
+  </data>
   <data name="SettingsPage_SilentStartup.Text" xml:space="preserve">
     <value>Silent startup</value>
   </data>
@@ -395,6 +413,12 @@ Duplicate folder names are blocked within the same configuration so different di
   </data>
   <data name="SettingsPage_SponsorRefresh.Content" xml:space="preserve">
     <value>Refresh status</value>
+  </data>
+  <data name="SettingsPage_SponsorPersonalization.Text" xml:space="preserve">
+    <value>Sponsor-Exclusive Personalization</value>
+  </data>
+  <data name="SettingsPage_SponsorPersonalizationDesc.Text" xml:space="preserve">
+    <value>After sponsoring, unlock custom accent colors, backgrounds, title bar, and more</value>
   </data>
   <data name="SettingsPage_SponsorLocked.Text" xml:space="preserve">
     <value>Sponsor perks are locked</value>
@@ -956,6 +980,48 @@ Duplicate folder names are blocked within the same configuration so different di
   </data>
   <data name="ConfigSettingsDialog_LowPriorityDesc.Text" xml:space="preserve">
     <value>Only affects 7-Zip processes during backup. Reduces performance impact on games and other apps.</value>
+  </data>
+  <data name="ConfigSettingsDialog_PerformancePreset.Header" xml:space="preserve">
+    <value>Performance impact</value>
+  </data>
+  <data name="ConfigSettingsDialog_PerformancePreset_Auto" xml:space="preserve">
+    <value>Automatic</value>
+  </data>
+  <data name="ConfigSettingsDialog_PerformancePreset_Light" xml:space="preserve">
+    <value>Light</value>
+  </data>
+  <data name="ConfigSettingsDialog_PerformancePreset_VeryLight" xml:space="preserve">
+    <value>Very light</value>
+  </data>
+  <data name="ConfigSettingsDialog_PerformancePreset_Custom" xml:space="preserve">
+    <value>Custom</value>
+  </data>
+  <data name="ConfigSettingsDialog_PerformancePresetDesc" xml:space="preserve">
+    <value>Automatic keeps the current behavior. Use Light or Very light if backups make games or foreground apps feel slow.</value>
+  </data>
+  <data name="ConfigSettingsDialog_Additional7zArgs.Text" xml:space="preserve">
+    <value>Additional 7-Zip arguments</value>
+  </data>
+  <data name="ConfigSettingsDialog_Additional7zArgsPlaceholder.PlaceholderText" xml:space="preserve">
+    <value>-md=64m -ms=off</value>
+  </data>
+  <data name="ConfigSettingsDialog_Additional7zArgsDesc.Text" xml:space="preserve">
+    <value>Appended only to backup compression commands. Arguments that override paths, format, password, filters, compression level, or CPU threads are blocked.</value>
+  </data>
+  <data name="ConfigSettingsDialog_Additional7zArgsInvalid" xml:space="preserve">
+    <value>Additional 7-Zip arguments are invalid.</value>
+  </data>
+  <data name="ConfigSettingsDialog_Additional7zArgsSaveErrorTitle" xml:space="preserve">
+    <value>Unsupported 7-Zip arguments</value>
+  </data>
+  <data name="ConfigSettingsDialog_Additional7zArgsUnclosedQuote" xml:space="preserve">
+    <value>Additional 7-Zip arguments contain an unclosed quote.</value>
+  </data>
+  <data name="ConfigSettingsDialog_Additional7zArgsUnsupported" xml:space="preserve">
+    <value>Unsupported 7-Zip argument: {0}</value>
+  </data>
+  <data name="BackupService_Log_InvalidAdditional7zArgs" xml:space="preserve">
+    <value>Invalid additional 7-Zip arguments: {0}</value>
   </data>
   <data name="ConfigSettingsDialog_BackupBeforeRestore.Header" xml:space="preserve">
     <value>Backup before restore</value>
@@ -2924,10 +2990,10 @@ Status: {3}</value>
     <value>Backup</value>
   </data>
   <data name="ConfigSettingsDialog_TabRestore.Text" xml:space="preserve">
-    <value>Restore</value>
+    <value>Res</value>
   </data>
   <data name="ConfigSettingsDialog_TabAutomation.Text" xml:space="preserve">
-    <value>Automation</value>
+    <value>Auto</value>
   </data>
   <data name="ConfigSettingsDialog_TabCloud.Text" xml:space="preserve">
     <value>Cloud</value>
@@ -4644,6 +4710,9 @@ Pull request: {1}</value>
   <data name="FolderDetailsDialog_ConfigType" xml:space="preserve">
     <value>Config type</value>
   </data>
+  <data name="FolderDetailsDialog_ModifiedDate" xml:space="preserve">
+    <value>Modified date</value>
+  </data>
   <data name="FolderDetailsDialog_LastBackup" xml:space="preserve">
     <value>Last backup</value>
   </data>
@@ -4772,5 +4841,20 @@ Pull request: {1}</value>
   </data>
   <data name="Tray_Exit" xml:space="preserve">
     <value>Exit</value>
+  </data>
+  <data name="PluginService_ConfigAugmentationAdded_Title" xml:space="preserve">
+    <value>Plugins</value>
+  </data>
+  <data name="PluginService_ConfigAugmentationAdded_Message" xml:space="preserve">
+    <value>{0} auto-added {1} new folder(s).</value>
+  </data>
+  <data name="Sponsor_Status_StoreOnly" xml:space="preserve">
+    <value>Sponsor Edition licensing is available only in the Microsoft Store version.</value>
+  </data>
+  <data name="SponsorWindow_StoreOnlyAction" xml:space="preserve">
+    <value>Get it from Microsoft Store</value>
+  </data>
+  <data name="Update_Dialog_DownloadMsi" xml:space="preserve">
+    <value>Download MSI installer</value>
   </data>
 </root>

@@ -867,7 +867,12 @@ namespace FolderRewind.Services
             {
                 try
                 {
-                    await BackupService.BackupFolderAsync(config, folder, comment, forceFullBackup);
+                    await BackupService.BackupFolderAsync(
+                        config,
+                        folder,
+                        comment,
+                        forceFullBackup,
+                        BackupInvocationOptions.ForRemote());
                 }
                 catch (Exception ex)
                 {
@@ -951,7 +956,7 @@ namespace FolderRewind.Services
             {
                 try
                 {
-                    await BackupService.BackupConfigAsync(config);
+                    await BackupService.BackupConfigAsync(config, BackupInvocationOptions.ForRemote());
                     BroadcastEvent($"event=backup_all_completed;config={config.Id}");
                 }
                 catch (Exception ex)
@@ -1017,7 +1022,11 @@ namespace FolderRewind.Services
                         if (cts.Token.IsCancellationRequested) break;
 
                         LogService.Log(I18n.Format("KnotLink_AutoBackupExecute", folder.DisplayName));
-                        await BackupService.BackupFolderAsync(config, folder, "Auto backup via KnotLink");
+                        await BackupService.BackupFolderAsync(
+                            config,
+                            folder,
+                            "Auto backup via KnotLink",
+                            invocationOptions: BackupInvocationOptions.ForAutomatic());
                         BroadcastEvent($"event=auto_backup_executed;config={config.Id};folder={folder.DisplayName}");
                     }
                     catch (OperationCanceledException)
@@ -1252,7 +1261,12 @@ namespace FolderRewind.Services
                 using var scope = PushCommandContext(context);
                 try
                 {
-                    await BackupService.BackupFolderAsync(effectiveConfig, effectiveFolder, comment, forceFullBackup);
+                    await BackupService.BackupFolderAsync(
+                        effectiveConfig,
+                        effectiveFolder,
+                        comment,
+                        forceFullBackup,
+                        BackupInvocationOptions.ForRemote());
                 }
                 catch (Exception ex)
                 {
@@ -1380,13 +1394,20 @@ namespace FolderRewind.Services
                     {
                         foreach (var folder in effectiveConfig.SourceFolders)
                         {
-                            var hasNewBackup = await BackupService.BackupFolderAsync(effectiveConfig, folder, comment, forceFullBackup);
+                            var hasNewBackup = await BackupService.BackupFolderAsync(
+                                effectiveConfig,
+                                folder,
+                                comment,
+                                forceFullBackup,
+                                BackupInvocationOptions.ForRemote());
                             anyNewBackup = anyNewBackup || hasNewBackup;
                         }
                     }
                     else
                     {
-                        anyNewBackup = await BackupService.BackupConfigAsync(effectiveConfig);
+                        anyNewBackup = await BackupService.BackupConfigAsync(
+                            effectiveConfig,
+                            BackupInvocationOptions.ForRemote());
                     }
 
                     var result = anyNewBackup ? "created" : "no_changes";
@@ -1457,7 +1478,11 @@ namespace FolderRewind.Services
                             LogService.Log(I18n.Format("KnotLink_AutoBackupExecute", folder.DisplayName));
                             using (PushCommandContext(context))
                             {
-                                await BackupService.BackupFolderAsync(config, folder, "Auto backup via KnotLink");
+                                await BackupService.BackupFolderAsync(
+                                    config,
+                                    folder,
+                                    "Auto backup via KnotLink",
+                                    invocationOptions: BackupInvocationOptions.ForAutomatic());
                             }
                             BroadcastEvent(context, "auto_backup_executed", new Dictionary<string, string?>
                             {
@@ -1617,7 +1642,12 @@ namespace FolderRewind.Services
             {
                 try
                 {
-                    await BackupService.BackupFolderAsync(effectiveConfig, effectiveFolder, comment, forceFullBackup);
+                    await BackupService.BackupFolderAsync(
+                        effectiveConfig,
+                        effectiveFolder,
+                        comment,
+                        forceFullBackup,
+                        BackupInvocationOptions.ForRemote());
                 }
                 catch (Exception ex)
                 {
@@ -1716,12 +1746,19 @@ namespace FolderRewind.Services
                     {
                         foreach (var folder in effectiveConfig.SourceFolders)
                         {
-                            await BackupService.BackupFolderAsync(effectiveConfig, folder, comment, forceFullBackup);
+                            await BackupService.BackupFolderAsync(
+                                effectiveConfig,
+                                folder,
+                                comment,
+                                forceFullBackup,
+                                BackupInvocationOptions.ForRemote());
                         }
                     }
                     else
                     {
-                        await BackupService.BackupConfigAsync(effectiveConfig);
+                        await BackupService.BackupConfigAsync(
+                            effectiveConfig,
+                            BackupInvocationOptions.ForRemote());
                     }
 
                     BroadcastEvent($"event=backup_all_completed;config={config.Id}");
@@ -1776,7 +1813,11 @@ namespace FolderRewind.Services
                         if (cts.Token.IsCancellationRequested) break;
 
                         LogService.Log(I18n.Format("KnotLink_AutoBackupExecute", folder.DisplayName));
-                        await BackupService.BackupFolderAsync(config, folder, "Auto backup via KnotLink");
+                        await BackupService.BackupFolderAsync(
+                            config,
+                            folder,
+                            "Auto backup via KnotLink",
+                            invocationOptions: BackupInvocationOptions.ForAutomatic());
                         BroadcastEvent($"event=auto_backup_executed;config={config.Id};folder={folder.DisplayName}");
                     }
                     catch (OperationCanceledException)

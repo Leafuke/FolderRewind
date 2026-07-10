@@ -1,4 +1,5 @@
 using FolderRewind.Models;
+using FolderRewind.Services;
 using System;
 using System.Collections.Generic;
 using System.Threading;
@@ -107,6 +108,19 @@ namespace FolderRewind.Services.Plugins
     }
 
     /// <summary>
+    /// 可选插件接口：让插件在备份前读取触发来源和一致性偏好。
+    /// 未实现该接口的插件仍会走 IFolderRewindPlugin.OnBeforeBackupFolder。
+    /// </summary>
+    public interface IFolderRewindBackupPreparationProvider
+    {
+        string? OnBeforeBackupFolder(
+            BackupConfig config,
+            ManagedFolder folder,
+            BackupInvocationOptions invocationOptions,
+            IReadOnlyDictionary<string, string> settingsValues);
+    }
+
+    /// <summary>
     /// 可选插件接口：为文件夹详情对话框提供只读的键值信息分区。
     /// Host 负责统一渲染，插件只返回数据。
     /// </summary>
@@ -117,6 +131,18 @@ namespace FolderRewind.Services.Plugins
             ManagedFolder folder,
             IReadOnlyDictionary<string, string> settingsValues,
             CancellationToken cancellationToken);
+    }
+
+    public interface IFolderRewindConfigAugmenter
+    {
+        PluginConfigAugmentationResult AugmentConfigs(
+            PluginConfigAugmentationRequest request,
+            IReadOnlyDictionary<string, string> settingsValues);
+
+        bool ShouldAugmentAfterSettingsChange(
+            IReadOnlyDictionary<string, string> previousSettings,
+            IReadOnlyDictionary<string, string> currentSettings)
+            => false;
     }
 
     /// <summary>

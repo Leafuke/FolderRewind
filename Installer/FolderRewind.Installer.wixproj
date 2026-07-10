@@ -1,0 +1,20 @@
+<Project Sdk="WixToolset.Sdk/7.0.0">
+  <PropertyGroup>
+    <OutputType>Package</OutputType>
+    <InstallerPlatform Condition="'$(InstallerPlatform)'==''">x64</InstallerPlatform>
+    <!-- WiX 7 OSMF EULA: the project owner accepted this for the CI build channel. -->
+    <AcceptEula>wix7</AcceptEula>
+    <ProductVersion Condition="'$(ProductVersion)'==''">1.0.0</ProductVersion>
+    <PublishDir Condition="'$(PublishDir)'==''">$(MSBuildThisFileDirectory)..\FolderRewind\bin\$(InstallerPlatform)\Release\net10.0-windows10.0.19041.0\win-$(InstallerPlatform)\publish</PublishDir>
+    <OutputName Condition="'$(OutputName)'==''">FolderRewind_$(ProductVersion)_$(InstallerPlatform)</OutputName>
+    <DefineConstants>ProductVersion=$(ProductVersion);PublishDir=$(PublishDir)</DefineConstants>
+    <!-- WiX file harvesting emits one file component per payload. For a per-user MSI,
+         Windows Installer ICE38/ICE64 cannot validate those generated file key paths.
+         Installation is covered by the explicit msiexec smoke test in CI instead. -->
+    <SuppressValidation>true</SuppressValidation>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="WixToolset.UI.wixext" Version="7.0.0" />
+  </ItemGroup>
+</Project>

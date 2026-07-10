@@ -1,4 +1,5 @@
 using FolderRewind.Models;
+using FolderRewind.Services;
 using FolderRewind.Services.Hotkeys;
 using FolderRewind.Services.KnotLink;
 using System;
@@ -37,6 +38,7 @@ namespace FolderRewind.Services.Plugins
 
         private static readonly Dictionary<string, LoadedPlugin> _loaded = new(StringComparer.OrdinalIgnoreCase);
         private static readonly ObservableCollection<InstalledPluginInfo> _installed = new();
+        private static readonly SemaphoreSlim _configAugmentationLock = new(1, 1);
 
         public static ReadOnlyObservableCollection<InstalledPluginInfo> InstalledPlugins { get; } = new(_installed);
 
@@ -344,6 +346,86 @@ namespace FolderRewind.Services.Plugins
             return new Dictionary<string, string>();
         }
 
+        public static PluginSettingsSaveResult SavePluginSettings(string pluginId, IReadOnlyDictionary<string, string> values)
+        {
+            var plugins = ConfigService.CurrentConfig?.GlobalSettings?.Plugins;
+            if (plugins == null)
+            {
+                return new PluginSettingsSaveResult();
+            }
+
+            var previous = new Dictionary<string, string>(GetPluginSettings(pluginId), StringComparer.OrdinalIgnoreCase);
+            var next = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+
+            foreach (var pair in values)
+            {
+                if (string.IsNullOrWhiteSpace(pair.Key))
+                {
+                    continue;
+                }
+
+                next[pair.Key] = pair.Value ?? string.Empty;
+            }
+
+            plugins.PluginSettings[pluginId] = next;
+            ConfigService.Save();
+
+            return new PluginSettingsSaveResult
+            {
+                PreviousSettings = previous,
+                CurrentSettings = new Dictionary<string, string>(next, StringComparer.OrdinalIgnoreCase)
+            };
+        }
+
+        public static async Task TryRunConfigAugmentationForSettingsChangeAsync(
+            string pluginId,
+            IReadOnlyDictionary<string, string> previousSettings,
+            IReadOnlyDictionary<string, string> currentSettings)
+        {
+            if (string.IsNullOrWhiteSpace(pluginId) || !IsPluginSystemEnabled())
+            {
+                return;
+            }
+
+            IFolderRewindConfigAugmenter? augmenter = null;
+
+            lock (_lock)
+            {
+                if (_loaded.TryGetValue(pluginId, out var loaded) && loaded.Instance is IFolderRewindConfigAugmenter typedAugmenter)
+                {
+                    augmenter = typedAugmenter;
+                }
+            }
+
+            if (augmenter == null)
+            {
+                return;
+            }
+
+            bool shouldAugment;
+            try
+            {
+                shouldAugment = augmenter.ShouldAugmentAfterSettingsChange(previousSettings, currentSettings);
+            }
+            catch (Exception ex)
+            {
+                LogService.LogError(
+                    $"[PluginService] Config augmentation settings trigger failed: {pluginId}: {ex.Message}",
+                    "PluginService",
+                    ex);
+                return;
+            }
+
+            if (!shouldAugment)
+            {
+                return;
+            }
+
+            await RunConfigAugmentationAsync(
+                PluginConfigAugmentationReason.SettingsEnabled,
+                new[] { pluginId }).ConfigureAwait(false);
+        }
+
         public static void SetPluginSetting(string pluginId, string key, string value)
         {
             var plugins = ConfigService.CurrentConfig?.GlobalSettings?.Plugins;
@@ -450,8 +532,10 @@ namespace FolderRewind.Services.Plugins
                 return Task.FromResult<IReadOnlyList<FolderDetailsSection>>(Array.Empty<FolderDetailsSection>());
             }
 
+            var snapshot = GetEnabledLoadedPluginsSnapshot();
+
             return GetFolderDetailsSectionsFromPluginsAsync(
-                GetEnabledLoadedPluginsSnapshot(),
+                snapshot,
                 config,
                 folder,
                 cancellationToken);
@@ -471,6 +555,9 @@ namespace FolderRewind.Services.Plugins
 
                 if (plugin is not IFolderRewindFolderDetailsProvider provider)
                 {
+                    LogService.LogInfo(
+                        $"[PluginService] Plugin '{plugin.Manifest.Id}' does NOT implement IFolderRewindFolderDetailsProvider, skipping.",
+                        nameof(PluginService));
                     continue;
                 }
 
@@ -485,7 +572,16 @@ namespace FolderRewind.Services.Plugins
 
                     if (pluginSections != null)
                     {
+                        LogService.LogInfo(
+                            $"[PluginService] Plugin '{plugin.Manifest.Id}' returned {pluginSections.Count} section(s) with {pluginSections.Sum(s => s.Items?.Count ?? 0)} item(s).",
+                            nameof(PluginService));
                         sections.AddRange(pluginSections);
+                    }
+                    else
+                    {
+                        LogService.LogInfo(
+                            $"[PluginService] Plugin '{plugin.Manifest.Id}' returned null sections.",
+                            nameof(PluginService));
                     }
                 }
                 catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
@@ -500,6 +596,10 @@ namespace FolderRewind.Services.Plugins
                         ex);
                 }
             }
+
+            LogService.LogInfo(
+                $"[PluginService] GetFolderDetailsSectionsFromPluginsAsync complete: {plugins.Count()} plugin(s) checked, {sections.Count} section(s) collected.",
+                nameof(PluginService));
 
             return sections;
         }
@@ -605,16 +705,23 @@ namespace FolderRewind.Services.Plugins
             rules.Add(trimmed);
         }
 
-        public static string? InvokeBeforeBackupFolder(BackupConfig config, ManagedFolder folder)
+        public static string? InvokeBeforeBackupFolder(
+            BackupConfig config,
+            ManagedFolder folder,
+            BackupInvocationOptions? invocationOptions = null)
         {
             if (!IsPluginSystemEnabled()) return null;
+
+            invocationOptions ??= BackupInvocationOptions.Default;
 
             foreach (var plugin in GetEnabledLoadedPluginsSnapshot())
             {
                 try
                 {
                     var settings = GetPluginSettings(plugin.Manifest.Id);
-                    var newPath = plugin.OnBeforeBackupFolder(config, folder, settings);
+                    var newPath = plugin is IFolderRewindBackupPreparationProvider preparationProvider
+                        ? preparationProvider.OnBeforeBackupFolder(config, folder, invocationOptions, settings)
+                        : plugin.OnBeforeBackupFolder(config, folder, settings);
                     if (!string.IsNullOrWhiteSpace(newPath))
                     {
                         // 允许多个插件串联修改路径：使用最后一个返回的路径
@@ -758,6 +865,223 @@ namespace FolderRewind.Services.Plugins
             }
 
             return types.ToList();
+        }
+
+        public static async Task<PluginConfigAugmentationRunResult> RunConfigAugmentationAsync(
+            PluginConfigAugmentationReason reason,
+            IEnumerable<string>? pluginIds = null)
+        {
+            if (!IsPluginSystemEnabled())
+            {
+                return new PluginConfigAugmentationRunResult();
+            }
+
+            await _configAugmentationLock.WaitAsync().ConfigureAwait(false);
+            try
+            {
+                var currentConfig = ConfigService.CurrentConfig;
+                var liveConfigs = currentConfig?.BackupConfigs?.ToList() ?? new List<BackupConfig>();
+                if (liveConfigs.Count == 0)
+                {
+                    return new PluginConfigAugmentationRunResult();
+                }
+
+                var configSnapshot = liveConfigs
+                    .Select(CloneConfigForAugmentationSnapshot)
+                    .ToList();
+
+                HashSet<string>? pluginFilter = pluginIds == null
+                    ? null
+                    : new HashSet<string>(pluginIds, StringComparer.OrdinalIgnoreCase);
+
+                var pendingItems = new List<(string PluginId, PluginConfigAugmentationItem Item)>();
+
+                foreach (var plugin in GetEnabledLoadedPluginsSnapshot())
+                {
+                    if (plugin is not IFolderRewindConfigAugmenter augmenter)
+                    {
+                        continue;
+                    }
+
+                    if (pluginFilter != null && !pluginFilter.Contains(plugin.Manifest.Id))
+                    {
+                        continue;
+                    }
+
+                    try
+                    {
+                        var result = augmenter.AugmentConfigs(
+                            new PluginConfigAugmentationRequest
+                            {
+                                Reason = reason,
+                                Configs = configSnapshot
+                            },
+                            GetPluginSettings(plugin.Manifest.Id));
+
+                        if (!result.Handled || result.Items == null || result.Items.Count == 0)
+                        {
+                            continue;
+                        }
+
+                        foreach (var item in result.Items.Where(static entry => entry != null && !string.IsNullOrWhiteSpace(entry.ConfigId)))
+                        {
+                            pendingItems.Add((plugin.Manifest.Id, item));
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        LogService.LogError(
+                            $"[PluginService] Config augmentation failed: {plugin.Manifest.Id}: {ex.Message}",
+                            "PluginService",
+                            ex);
+                    }
+                }
+
+                if (pendingItems.Count == 0)
+                {
+                    return new PluginConfigAugmentationRunResult();
+                }
+
+                var addedByPlugin = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
+                var touchedConfigs = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+
+                await UiDispatcherService.RunOnUiAsync(() =>
+                {
+                    foreach (var (pluginId, item) in pendingItems)
+                    {
+                        var targetConfig = currentConfig?.BackupConfigs?
+                            .FirstOrDefault(config => string.Equals(config.Id, item.ConfigId, StringComparison.OrdinalIgnoreCase));
+                        if (targetConfig == null)
+                        {
+                            continue;
+                        }
+
+                        int addedCount = TryApplyAugmentationItem(targetConfig, item);
+                        if (addedCount <= 0)
+                        {
+                            continue;
+                        }
+
+                        touchedConfigs.Add(targetConfig.Id);
+                        addedByPlugin[pluginId] = addedByPlugin.TryGetValue(pluginId, out var currentAdded)
+                            ? currentAdded + addedCount
+                            : addedCount;
+                    }
+
+                    if (touchedConfigs.Count > 0)
+                    {
+                        ConfigService.Save();
+                        NotifyConfigAugmentationAdded(addedByPlugin);
+                    }
+                }).ConfigureAwait(false);
+
+                return new PluginConfigAugmentationRunResult
+                {
+                    AddedFolderCount = addedByPlugin.Values.Sum(),
+                    UpdatedConfigCount = touchedConfigs.Count,
+                    TouchedPluginIds = addedByPlugin.Keys.ToArray()
+                };
+            }
+            finally
+            {
+                _configAugmentationLock.Release();
+            }
+        }
+
+        private static BackupConfig CloneConfigForAugmentationSnapshot(BackupConfig source)
+        {
+            try
+            {
+                return BackupConfigCloneService.CloneForRuntimeMutation(
+                    source,
+                    "Failed to clone backup config for plugin augmentation snapshot.",
+                    ensureBackupScope: true);
+            }
+            catch (Exception ex)
+            {
+                LogService.LogWarning(
+                    $"[PluginService] Failed to clone config '{source?.Id}'; using a shallow augmentation snapshot: {ex.Message}",
+                    "PluginService");
+
+                var clone = new BackupConfig
+                {
+                    Id = source?.Id ?? string.Empty,
+                    Name = source?.Name ?? string.Empty,
+                    DestinationPath = source?.DestinationPath ?? string.Empty,
+                    ConfigType = source?.ConfigType ?? "Default",
+                    IconGlyph = source?.IconGlyph ?? string.Empty,
+                    IsEncrypted = source?.IsEncrypted == true,
+                    ExtendedProperties = source?.ExtendedProperties == null
+                        ? new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
+                        : new Dictionary<string, string>(source.ExtendedProperties, StringComparer.OrdinalIgnoreCase)
+                };
+
+                foreach (var folder in (source?.SourceFolders as IEnumerable<ManagedFolder>) ?? Array.Empty<ManagedFolder>())
+                {
+                    clone.SourceFolders.Add(CloneAugmentedFolder(folder));
+                }
+
+                return clone;
+            }
+        }
+
+        private static int TryApplyAugmentationItem(BackupConfig config, PluginConfigAugmentationItem item)
+        {
+            if (config.SourceFolders == null)
+            {
+                config.SourceFolders = new ObservableCollection<ManagedFolder>();
+            }
+
+            var knownPaths = new HashSet<string>(
+                config.SourceFolders.Select(folder => folder.Path ?? string.Empty),
+                StringComparer.OrdinalIgnoreCase);
+            var knownDisplayNames = new HashSet<string>(
+                config.SourceFolders.Select(FolderNameConflictService.ResolveDisplayName),
+                StringComparer.OrdinalIgnoreCase);
+
+            int added = 0;
+            foreach (var folder in item.FoldersToAdd.Where(static folder => folder != null && !string.IsNullOrWhiteSpace(folder.Path)))
+            {
+                string candidatePath = folder.Path.Trim();
+                string candidateName = FolderNameConflictService.ResolveDisplayName(folder);
+
+                if (knownPaths.Contains(candidatePath) || knownDisplayNames.Contains(candidateName))
+                {
+                    continue;
+                }
+
+                config.SourceFolders.Add(CloneAugmentedFolder(folder));
+                knownPaths.Add(candidatePath);
+                knownDisplayNames.Add(candidateName);
+                added++;
+            }
+
+            return added;
+        }
+
+        private static ManagedFolder CloneAugmentedFolder(ManagedFolder source)
+        {
+            return new ManagedFolder
+            {
+                Path = source.Path?.Trim() ?? string.Empty,
+                DisplayName = source.DisplayName?.Trim() ?? string.Empty,
+                Description = source.Description?.Trim() ?? string.Empty,
+                CoverImagePath = source.CoverImagePath?.Trim() ?? string.Empty
+            };
+        }
+
+        private static void NotifyConfigAugmentationAdded(IReadOnlyDictionary<string, int> addedByPlugin)
+        {
+            foreach (var pair in addedByPlugin.Where(static entry => entry.Value > 0))
+            {
+                string pluginName = _installed
+                    .FirstOrDefault(item => string.Equals(item.Id, pair.Key, StringComparison.OrdinalIgnoreCase))
+                    ?.Name ?? pair.Key;
+
+                NotificationService.ShowInfo(
+                    I18n.Format("PluginService_ConfigAugmentationAdded_Message", pluginName, pair.Value),
+                    I18n.GetString("PluginService_ConfigAugmentationAdded_Title"));
+            }
         }
 
         /// <summary>

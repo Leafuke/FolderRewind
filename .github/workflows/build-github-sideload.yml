@@ -145,6 +145,87 @@ jobs:
             -SevenZipPath "$env:GITHUB_WORKSPACE\7za.exe" `
             -OutputDirectory "$env:GITHUB_WORKSPACE\artifacts\release\${{ matrix.platform }}"
 
+      - name: Publish Self-Contained MSI Payload
+        shell: pwsh
+        run: |
+          dotnet publish FolderRewind/FolderRewind.csproj `
+            -c Release `
+            -p:Platform=${{ matrix.platform }} `
+            -p:FolderRewindDistributionChannel=Msi `
+            -p:Version=${{ steps.version.outputs.manifest_version }} `
+            -p:AssemblyVersion=${{ steps.version.outputs.manifest_version }} `
+            -p:FileVersion=${{ steps.version.outputs.manifest_version }} `
+            -p:InformationalVersion=${{ steps.version.outputs.manifest_version }} `
+            -p:GenerateAppxPackageOnBuild=false `
+            -o "$env:GITHUB_WORKSPACE\artifacts\msi-publish\${{ matrix.platform }}" `
+            /warnaserror
+
+      - name: Build MSI Release Assets
+        shell: pwsh
+        run: |
+          .\.github\scripts\Prepare-MsiPackage.ps1 `
+            -ProjectPath "$env:GITHUB_WORKSPACE\Installer\FolderRewind.Installer.wixproj" `
+            -PublishDirectory "$env:GITHUB_WORKSPACE\artifacts\msi-publish\${{ matrix.platform }}" `
+            -Version "${{ steps.version.outputs.manifest_version }}" `
+            -Platform "${{ matrix.platform }}" `
+            -OutputDirectory "$env:GITHUB_WORKSPACE\artifacts\release\${{ matrix.platform }}"
+
+      - name: Smoke Test x64 MSI Install And Uninstall
+        if: matrix.platform == 'x64'
+        shell: pwsh
+        run: |
+          $msi = Get-ChildItem "$env:GITHUB_WORKSPACE\artifacts\release\${{ matrix.platform }}" -Filter '*.msi' | Select-Object -First 1
+          if ($null -eq $msi) {
+            throw 'MSI release asset was not found.'
+          }
+
+          $installDirectory = Join-Path $env:RUNNER_TEMP 'FolderRewind-msi-smoke'
+          $install = Start-Process msiexec.exe `
+            -ArgumentList @('/i', $msi.FullName, '/qn', '/norestart', "INSTALLFOLDER=`"$installDirectory`"") `
+            -Wait -PassThru
+          if ($install.ExitCode -ne 0) {
+            throw "MSI install smoke test failed with exit code $($install.ExitCode)."
+          }
+
+          foreach ($requiredPath in @('FolderRewind.exe', '7za.exe', 'Assets\logo.ico')) {
+            if (-not (Test-Path -LiteralPath (Join-Path $installDirectory $requiredPath))) {
+              throw "MSI install is missing required payload: $requiredPath"
+            }
+          }
+
+          # Build a higher-versioned test MSI and install it without INSTALLFOLDER.
+          # Registry search in Package.wxs must retain the first install's custom path.
+          $upgradeDirectory = Join-Path $env:RUNNER_TEMP 'FolderRewind-msi-upgrade'
+          .\.github\scripts\Prepare-MsiPackage.ps1 `
+            -ProjectPath "$env:GITHUB_WORKSPACE\Installer\FolderRewind.Installer.wixproj" `
+            -PublishDirectory "$env:GITHUB_WORKSPACE\artifacts\msi-publish\${{ matrix.platform }}" `
+            -Version '99.99.99.0' `
+            -Platform '${{ matrix.platform }}' `
+            -OutputDirectory $upgradeDirectory
+
+          $upgradeMsi = Get-ChildItem $upgradeDirectory -Filter '*.msi' | Select-Object -First 1
+          if ($null -eq $upgradeMsi) {
+            throw 'MSI upgrade test asset was not found.'
+          }
+
+          $upgrade = Start-Process msiexec.exe -ArgumentList @('/i', $upgradeMsi.FullName, '/qn', '/norestart') -Wait -PassThru
+          if ($upgrade.ExitCode -ne 0) {
+            throw "MSI upgrade smoke test failed with exit code $($upgrade.ExitCode)."
+          }
+
+          if (-not (Test-Path -LiteralPath (Join-Path $installDirectory 'FolderRewind.exe'))) {
+            throw 'MSI upgrade did not retain the original custom install directory.'
+          }
+
+          $uninstall = Start-Process msiexec.exe -ArgumentList @('/x', $upgradeMsi.FullName, '/qn', '/norestart') -Wait -PassThru
+          if ($uninstall.ExitCode -ne 0) {
+            throw "MSI uninstall smoke test failed with exit code $($uninstall.ExitCode)."
+          }
+
+          if (Test-Path -LiteralPath $installDirectory) {
+            throw "MSI uninstall left application files at $installDirectory"
+          }
+
       - name: Upload Intermediate Assets
         uses: actions/upload-artifact@v4
         with:

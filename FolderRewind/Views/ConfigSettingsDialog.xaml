@@ -218,6 +218,17 @@
                 <!-- 无变更跳过 -->
                 <ToggleSwitch x:Uid="ConfigSettingsDialog_SkipIfUnchanged" IsOn="{x:Bind Config.Archive.SkipIfUnchanged, Mode=TwoWay}"/>
 
+                <StackPanel Spacing="4">
+                    <ComboBox x:Uid="ConfigSettingsDialog_PerformancePreset"
+                              ItemsSource="{x:Bind ViewModel.PerformancePresetOptions, Mode=OneWay}"
+                              SelectedIndex="{x:Bind ViewModel.PerformancePresetSelectedIndex, Mode=TwoWay}"
+                              HorizontalAlignment="Stretch"/>
+                    <TextBlock Text="{x:Bind ViewModel.PerformancePresetDescription, Mode=OneWay}"
+                               Style="{StaticResource CaptionTextBlockStyle}"
+                               Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                               TextWrapping="Wrap"/>
+                </StackPanel>
+
                 <!-- CPU 线程数 -->
                 <StackPanel Spacing="4">
                     <TextBlock x:Uid="ConfigSettingsDialog_CpuThreads"/>
@@ -235,6 +246,17 @@
                 <StackPanel Spacing="4">
                     <ToggleSwitch x:Uid="ConfigSettingsDialog_LowPriority" IsOn="{x:Bind ViewModel.RunCompressionAtLowPriority, Mode=TwoWay}"/>
                     <TextBlock x:Uid="ConfigSettingsDialog_LowPriorityDesc"
+                               Style="{StaticResource CaptionTextBlockStyle}"
+                               Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                               TextWrapping="Wrap"/>
+                </StackPanel>
+
+                <StackPanel Spacing="4">
+                    <TextBlock x:Uid="ConfigSettingsDialog_Additional7zArgs"/>
+                    <TextBox x:Uid="ConfigSettingsDialog_Additional7zArgsPlaceholder"
+                             Text="{x:Bind ViewModel.AdditionalSevenZipArgumentsText, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                             HorizontalAlignment="Stretch"/>
+                    <TextBlock x:Uid="ConfigSettingsDialog_Additional7zArgsDesc"
                                Style="{StaticResource CaptionTextBlockStyle}"
                                Foreground="{ThemeResource TextFillColorSecondaryBrush}"
                                TextWrapping="Wrap"/>
