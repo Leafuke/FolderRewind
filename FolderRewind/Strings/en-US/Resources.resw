@@ -318,6 +318,24 @@ Duplicate folder names are blocked within the same configuration so different di
   <data name="SettingsPage_RunOnStartupDesc.Text" xml:space="preserve">
     <value>Run FolderRewind when you sign in to Windows</value>
   </data>
+  <data name="SettingsPage_CreateDesktopShortcut.Text" xml:space="preserve">
+    <value>Add desktop shortcut</value>
+  </data>
+  <data name="SettingsPage_CreateDesktopShortcutDesc.Text" xml:space="preserve">
+    <value>Create a FolderRewind shortcut on your desktop. An existing shortcut with the same name will be replaced.</value>
+  </data>
+  <data name="SettingsPage_CreateDesktopShortcut_Button.Content" xml:space="preserve">
+    <value>Add</value>
+  </data>
+  <data name="DesktopShortcut_CreateSucceeded" xml:space="preserve">
+    <value>FolderRewind shortcut added to the desktop.</value>
+  </data>
+  <data name="DesktopShortcut_CreateFailed" xml:space="preserve">
+    <value>Could not add the desktop shortcut: {0}</value>
+  </data>
+  <data name="DesktopShortcut_Log_CreateFailed" xml:space="preserve">
+    <value>Failed to create desktop shortcut: {0}</value>
+  </data>
   <data name="SettingsPage_SilentStartup.Text" xml:space="preserve">
     <value>Silent startup</value>
   </data>

@@ -318,6 +318,24 @@
   <data name="SettingsPage_RunOnStartupDesc.Text" xml:space="preserve">
     <value>登录 Windows 时自动运行 FolderRewind</value>
   </data>
+  <data name="SettingsPage_CreateDesktopShortcut.Text" xml:space="preserve">
+    <value>添加桌面快捷方式</value>
+  </data>
+  <data name="SettingsPage_CreateDesktopShortcutDesc.Text" xml:space="preserve">
+    <value>在桌面创建 FolderRewind 快捷方式；若已存在同名快捷方式，将直接覆盖</value>
+  </data>
+  <data name="SettingsPage_CreateDesktopShortcut_Button.Content" xml:space="preserve">
+    <value>添加</value>
+  </data>
+  <data name="DesktopShortcut_CreateSucceeded" xml:space="preserve">
+    <value>已在桌面添加 FolderRewind 快捷方式。</value>
+  </data>
+  <data name="DesktopShortcut_CreateFailed" xml:space="preserve">
+    <value>无法添加桌面快捷方式：{0}</value>
+  </data>
+  <data name="DesktopShortcut_Log_CreateFailed" xml:space="preserve">
+    <value>创建桌面快捷方式失败：{0}</value>
+  </data>
   <data name="SettingsPage_SilentStartup.Text" xml:space="preserve">
     <value>静默启动</value>
   </data>

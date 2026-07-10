@@ -36,6 +36,18 @@
 
                 <toolkit:SettingsCard>
                     <toolkit:SettingsCard.Header>
+                        <TextBlock x:Uid="SettingsPage_CreateDesktopShortcut" Style="{StaticResource SettingsHeaderTextStyle}" />
+                    </toolkit:SettingsCard.Header>
+                    <toolkit:SettingsCard.Description>
+                        <TextBlock x:Uid="SettingsPage_CreateDesktopShortcutDesc" Style="{StaticResource SettingsDescriptionStyle}" />
+                    </toolkit:SettingsCard.Description>
+                    <Button x:Uid="SettingsPage_CreateDesktopShortcut_Button"
+                            Style="{StaticResource SettingsActionRowButtonStyle}"
+                            Click="OnCreateDesktopShortcutClick" />
+                </toolkit:SettingsCard>
+
+                <toolkit:SettingsCard>
+                    <toolkit:SettingsCard.Header>
                         <TextBlock x:Uid="SettingsPage_SilentStartup" Style="{StaticResource SettingsHeaderTextStyle}" />
                     </toolkit:SettingsCard.Header>
                     <toolkit:SettingsCard.Description>
