@@ -12,6 +12,22 @@
     <EnableMsixTooling>true</EnableMsixTooling>
     <Nullable>enable</Nullable>
     <TieredPGO>true</TieredPGO>
+    <!-- 普通开发和 Store/侧载构建仍为打包应用；MSI 发布在工作流中显式传入 Msi。 -->
+    <FolderRewindDistributionChannel Condition="'$(FolderRewindDistributionChannel)'==''">Packaged</FolderRewindDistributionChannel>
+  </PropertyGroup>
+
+  <!--
+    MSI 是独立的未打包发行通道。自包含发布避免要求最终用户另行安装
+    .NET 或 Windows App SDK Runtime；EnableMsixTooling 保留以免影响既有 MSIX 流程。
+  -->
+  <PropertyGroup Condition="'$(FolderRewindDistributionChannel)'=='Msi'">
+    <WindowsPackageType>None</WindowsPackageType>
+    <AppxPackage>false</AppxPackage>
+    <GenerateAppxPackageOnBuild>false</GenerateAppxPackageOnBuild>
+    <SelfContained>true</SelfContained>
+    <WindowsAppSDKSelfContained>true</WindowsAppSDKSelfContained>
+    <WindowsAppSdkUndockedRegFreeWinRTInitialize>true</WindowsAppSdkUndockedRegFreeWinRTInitialize>
+    <PublishSingleFile>false</PublishSingleFile>
   </PropertyGroup>
 
   <!-- dotnet CLI 默认 Platform=AnyCPU，但打包 WinUI3 不允许中性架构；这里将 AnyCPU 映射为 x64。 -->
@@ -47,14 +63,23 @@
     <Content Include="Assets\SplashScreen.scale-200.png" />
     <Content Include="Assets\LockScreenLogo.scale-200.png" />
     <Content Include="Assets\Square150x150Logo.scale-200.png" />
-    <Content Include="Assets\Square44x44Logo.scale-200.png" />
+    <Content Include="Assets\Square44x44Logo.scale-200.png">
+      <CopyToPublishDirectory>PreserveNewest</CopyToPublishDirectory>
+    </Content>
     <Content Include="Assets\Square44x44Logo.targetsize-24_altform-unplated.png" />
+    <Content Include="Assets\logo.ico">
+      <CopyToPublishDirectory>PreserveNewest</CopyToPublishDirectory>
+    </Content>
     <Content Include="Assets\StoreLogo.png" />
     <Content Include="Assets\Wide310x150Logo.scale-200.png" />
     <Content Include="..\7za.exe" Link="7za.exe">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
       <CopyToPublishDirectory>PreserveNewest</CopyToPublishDirectory>
     </Content>
+  </ItemGroup>
+
+  <ItemGroup Condition="'$(FolderRewindDistributionChannel)'=='Msi'">
+    <AssemblyMetadata Include="FolderRewindDistributionChannel" Value="Msi" />
   </ItemGroup>
 
   <ItemGroup>
@@ -94,11 +119,11 @@
     <PublishTrimmed Condition="'$(Configuration)' == 'Debug'">False</PublishTrimmed>
     <PublishTrimmed Condition="'$(Configuration)' != 'Debug'">False</PublishTrimmed>
     <GenerateAppInstallerFile>False</GenerateAppInstallerFile>
-    <AppxPackageSigningEnabled>True</AppxPackageSigningEnabled>
+    <AppxPackageSigningEnabled>False</AppxPackageSigningEnabled>
     <AppxPackageSigningTimestampDigestAlgorithm>SHA256</AppxPackageSigningTimestampDigestAlgorithm>
     <AppxAutoIncrementPackageRevision>False</AppxAutoIncrementPackageRevision>
     <GenerateTestArtifacts>False</GenerateTestArtifacts>
-    <AppxBundle>Never</AppxBundle>
+    <AppxBundle>Auto</AppxBundle>
     <AppxFilterOutUnusedLanguagesResourceFileMaps>false</AppxFilterOutUnusedLanguagesResourceFileMaps>
     <HoursBetweenUpdateChecks>0</HoursBetweenUpdateChecks>
     <AppxBundlePlatforms>x64|arm64</AppxBundlePlatforms>

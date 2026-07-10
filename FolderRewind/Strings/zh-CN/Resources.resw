@@ -4848,4 +4848,13 @@ Pull Request：{1}</value>
   <data name="PluginService_ConfigAugmentationAdded_Message" xml:space="preserve">
     <value>{0} 已自动加入 {1} 个新文件夹。</value>
   </data>
+  <data name="Sponsor_Status_StoreOnly" xml:space="preserve">
+    <value>赞助者版授权仅在 Microsoft Store 版本中提供。</value>
+  </data>
+  <data name="SponsorWindow_StoreOnlyAction" xml:space="preserve">
+    <value>在 Microsoft Store 中获取</value>
+  </data>
+  <data name="Update_Dialog_DownloadMsi" xml:space="preserve">
+    <value>下载 MSI 安装包</value>
+  </data>
 </root>

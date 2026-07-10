@@ -68,6 +68,12 @@ namespace FolderRewind.Services
 
         public static void InitializeFromCache()
         {
+            if (AppRuntimeInfo.IsMsiDistribution)
+            {
+                ApplyState(false, I18n.GetString("Sponsor_Status_StoreOnly"));
+                return;
+            }
+
             var settings = ConfigService.CurrentConfig?.GlobalSettings;
             if (settings?.SponsorEntitlementCached == true)
             {
@@ -81,6 +87,17 @@ namespace FolderRewind.Services
 
         public static async Task<SponsorOperationResult> RefreshLicenseAsync(bool showNotification = false, bool allowDowngrade = true)
         {
+            if (AppRuntimeInfo.IsMsiDistribution)
+            {
+                var message = I18n.GetString("Sponsor_Status_StoreOnly");
+                ApplyState(false, message);
+                if (showNotification)
+                {
+                    NotificationService.ShowInfo(message, I18n.GetString("Sponsor_Title"));
+                }
+
+                return CreateResult(false, message);
+            }
 
             try
             {
@@ -147,6 +164,10 @@ namespace FolderRewind.Services
 
         public static async Task<SponsorOperationResult> PurchaseAsync()
         {
+            if (AppRuntimeInfo.IsMsiDistribution)
+            {
+                return await OpenStoreVersionAsync();
+            }
 
             try
             {
@@ -317,6 +338,26 @@ namespace FolderRewind.Services
         public static Task OpenSponsorPolicyAsync()
         {
             return OpenUriAsync("https://github.com/Leafuke/FolderRewind/blob/dev/docs/SponsorEdition.md", "Sponsor_Log_OpenSponsorPolicyFailed");
+        }
+
+        public static async Task<SponsorOperationResult> OpenStoreVersionAsync()
+        {
+            var message = I18n.GetString("Sponsor_Status_StoreOnly");
+            try
+            {
+                var opened = await Launcher.LaunchUriAsync(new Uri(AppDistributionService.MicrosoftStoreProductUrl));
+                if (!opened)
+                {
+                    message = I18n.GetString("Sponsor_OpenLinkFailed");
+                }
+            }
+            catch (Exception ex)
+            {
+                message = I18n.Format("Sponsor_OpenLinkFailedWithReason", ex.Message);
+                LogService.LogError(I18n.Format("Sponsor_Log_OpenLinkFailed", ex.Message), ServiceName, ex);
+            }
+
+            return CreateResult(false, message);
         }
 
         private static StoreContext GetStoreContext()

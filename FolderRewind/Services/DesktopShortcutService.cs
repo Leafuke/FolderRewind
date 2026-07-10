@@ -21,17 +21,6 @@ namespace FolderRewind.Services
 
             try
             {
-                var packageFamilyName = Package.Current.Id.FamilyName;
-                if (string.IsNullOrWhiteSpace(packageFamilyName))
-                {
-                    throw new InvalidOperationException("The package family name is unavailable.");
-                }
-
-                // Package.appxmanifest uses Application Id="App". Combining it with the
-                // package family name creates the app's stable AUMID without relying on
-                // the versioned MSIX installation path.
-                var appUserModelId = $"{packageFamilyName}!App";
-
                 var desktopPath = Environment.GetFolderPath(Environment.SpecialFolder.DesktopDirectory);
                 if (string.IsNullOrWhiteSpace(desktopPath))
                 {
@@ -48,12 +37,37 @@ namespace FolderRewind.Services
                 dynamic scriptShell = shell;
                 shortcut = scriptShell.CreateShortcut(shortcutPath);
                 dynamic link = shortcut;
-                // explorer.exe 位于 Windows 根目录而不是 System32。
-                link.TargetPath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.Windows), "explorer.exe");
-                link.Arguments = $"shell:AppsFolder\\{appUserModelId}";
-                link.WorkingDirectory = desktopPath;
+                if (AppRuntimeInfo.IsPackaged)
+                {
+                    var packageFamilyName = Package.Current.Id.FamilyName;
+                    if (string.IsNullOrWhiteSpace(packageFamilyName))
+                    {
+                        throw new InvalidOperationException("The package family name is unavailable.");
+                    }
+
+                    // Package.appxmanifest uses Application Id="App". Combining it with the
+                    // package family name creates the app's stable AUMID without relying on
+                    // the versioned MSIX installation path.
+                    var appUserModelId = $"{packageFamilyName}!App";
+                    link.TargetPath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.Windows), "explorer.exe");
+                    link.Arguments = $"shell:AppsFolder\\{appUserModelId}";
+                    link.WorkingDirectory = desktopPath;
+                    link.IconLocation = $"{Path.Combine(AppRuntimeInfo.ApplicationBaseDirectory, "Assets", "logo.ico")},0";
+                }
+                else
+                {
+                    var executablePath = AppRuntimeInfo.ExecutablePath;
+                    if (!File.Exists(executablePath))
+                    {
+                        throw new FileNotFoundException("The application executable was not found.", executablePath);
+                    }
+
+                    link.TargetPath = executablePath;
+                    link.Arguments = string.Empty;
+                    link.WorkingDirectory = AppRuntimeInfo.ApplicationBaseDirectory;
+                    link.IconLocation = $"{Path.Combine(AppRuntimeInfo.ApplicationBaseDirectory, "Assets", "logo.ico")},0";
+                }
                 link.Description = "FolderRewind";
-                link.IconLocation = $"{Path.Combine(Package.Current.InstalledLocation.Path, "Assets", "logo.ico")},0";
                 link.Save();
 
                 return true;

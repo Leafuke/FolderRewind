@@ -184,7 +184,14 @@ namespace FolderRewind.Services
 
             if (ShouldShowToast(NotificationImportance.Error))
             {
-                ShowToast(resolvedTitle, message);
+                if (AppRuntimeInfo.IsMsiDistribution)
+                {
+                    App.TryShowTrayNotification(resolvedTitle, message, NotificationSeverity.Error);
+                }
+                else
+                {
+                    ShowToast(resolvedTitle, message);
+                }
             }
         }
 
@@ -206,7 +213,14 @@ namespace FolderRewind.Services
 
             if (ShouldShowToast(NotificationImportance.Important))
             {
-                ShowToast(resolvedTitle, message);
+                if (AppRuntimeInfo.IsMsiDistribution)
+                {
+                    App.TryShowTrayNotification(resolvedTitle, message, NotificationSeverity.Warning);
+                }
+                else
+                {
+                    ShowToast(resolvedTitle, message);
+                }
             }
         }
 
@@ -221,6 +235,12 @@ namespace FolderRewind.Services
         public static void ShowToast(string title, string message)
         {
             if (!IsNotificationEnabled) return;
+
+            if (AppRuntimeInfo.IsMsiDistribution)
+            {
+                App.TryShowTrayNotification(title, message, NotificationSeverity.Informational);
+                return;
+            }
 
             try
             {
@@ -243,6 +263,12 @@ namespace FolderRewind.Services
         public static void ShowToastWithLogo(string title, string message, Uri? logoUri = null)
         {
             if (!IsNotificationEnabled) return;
+
+            if (AppRuntimeInfo.IsMsiDistribution)
+            {
+                App.TryShowTrayNotification(title, message, NotificationSeverity.Informational);
+                return;
+            }
 
             try
             {

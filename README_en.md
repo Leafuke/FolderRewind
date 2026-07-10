@@ -51,14 +51,23 @@ As the spiritual successor to MineBackup, FolderRewind enhances its versatility 
 	<img src="https://get.microsoft.com/images/en-us%20dark.svg" width="200"/>
 </a>
 
-### Side-loading Installation：
+### GitHub MSI installation (when Microsoft Store is unavailable):
+
+1. Open the [Release](https://github.com/Leafuke/FolderRewind/releases) page.
+2. Download the MSI matching your device: `FolderRewind_{version}_x64.msi` for most Intel/AMD Windows PCs, or `FolderRewind_{version}_arm64.msi` for Windows on ARM.
+3. Run the MSI. It installs for the current user in `%LocalAppData%\Programs\FolderRewind` by default; the wizard can select another local path. Developer Mode and certificate import are not required.
+4. The MSI is not Authenticode-signed by a Windows-trusted certificate, so Windows may show an unknown-publisher or SmartScreen prompt. Download only from this project's official Release page and verify the matching `.sha256` file before running it.
+
+When an MSI update is available, the app opens the matching architecture's MSI download link; download and run it to upgrade. The MSI offers the free feature set only—Microsoft Store Sponsor Edition licensing is available in the Store version.
+
+### Advanced side-loading installation (MSIX):
 
 1. Open System Settings, navigate to `System` -> `Developer Options`, and enable `Developer Mode`.
 2. Open the [Release](https://github.com/Leafuke/FolderRewind/releases) page.
 3. Find the application package in the latest version's **Assets**. The naming format is: `FolderRewind_{version}_{platform}.7z`.
 4. After downloading and extracting the package, use PowerShell to run the `install.ps1` script file. If you encounter permission issues, you can first run the command `Set-ExecutionPolicy -ExecutionPolicy Bypass -Scope Process` and then execute the script.
 
-Note: Do not install both the Store version and the side-loaded version at the same time.
+Note: Do not run Store, MSI, and side-loaded MSIX versions at the same time. MSI stores its data separately from MSIX/Store and does not automatically migrate configurations or plugins.
 
 ## Usage
 

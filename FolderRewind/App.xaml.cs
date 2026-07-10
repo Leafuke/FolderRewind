@@ -6,6 +6,7 @@ using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Input;
 using System;
+using System.Linq;
 using System.Threading.Tasks;
 using Windows.Globalization;
 using Windows.Graphics;
@@ -307,6 +308,12 @@ namespace FolderRewind
 
         private static bool IsStartupTaskLaunch()
         {
+            if (Services.AppRuntimeInfo.IsMsiDistribution)
+            {
+                return Environment.GetCommandLineArgs()
+                    .Any(argument => string.Equals(argument, Services.StartupService.ClassicStartupArgument, StringComparison.OrdinalIgnoreCase));
+            }
+
             try
             {
                 var activatedArgs = AppInstance.GetCurrent().GetActivatedEventArgs();
@@ -386,6 +393,33 @@ namespace FolderRewind
             {
                 LogService.Log(I18n.Format("Tray_InitFailed", ex.Message));
             }
+        }
+
+        internal static bool TryShowTrayNotification(string title, string message, NotificationSeverity severity)
+        {
+            if (!Services.AppRuntimeInfo.IsMsiDistribution || Current is not App app || _window?.DispatcherQueue == null)
+            {
+                return false;
+            }
+
+            return _window.DispatcherQueue.TryEnqueue(() =>
+            {
+                try
+                {
+                    var icon = severity switch
+                    {
+                        NotificationSeverity.Error => H.NotifyIcon.Core.NotificationIcon.Error,
+                        NotificationSeverity.Warning => H.NotifyIcon.Core.NotificationIcon.Warning,
+                        _ => H.NotifyIcon.Core.NotificationIcon.Info
+                    };
+
+                    app._trayIcon?.ShowNotification(title, message, icon);
+                }
+                catch (Exception ex)
+                {
+                    LogService.Log(I18n.Format("Tray_InitFailed", ex.Message));
+                }
+            });
         }
 
         private void AttachTrayCommandHandlers()

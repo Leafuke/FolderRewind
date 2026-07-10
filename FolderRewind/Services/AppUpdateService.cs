@@ -16,7 +16,8 @@ namespace FolderRewind.Services
     {
         OpenReleasePage = 0,
         OpenStorePage = 1,
-        PrepareSideloadPackage = 2
+        PrepareSideloadPackage = 2,
+        OpenMsiDownload = 3
     }
 
     internal static class AppUpdateService
@@ -58,6 +59,18 @@ namespace FolderRewind.Services
             {
                 primaryAction = UpdatePrimaryAction.OpenStorePage;
                 primaryActionUrl = AppDistributionService.MicrosoftStoreProductUrl;
+            }
+            else if (channel == InstallChannel.Msi)
+            {
+                var (packageAsset, resolvedArchitectureTag) = SelectMsiPackageAsset(latest.Assets);
+                architectureTag = resolvedArchitectureTag;
+                if (packageAsset != null)
+                {
+                    primaryAction = UpdatePrimaryAction.OpenMsiDownload;
+                    primaryActionUrl = packageAsset.DownloadUrl;
+                    packageAssetName = packageAsset.Name;
+                    packageDownloadUrl = packageAsset.DownloadUrl;
+                }
             }
             else
             {
@@ -129,14 +142,32 @@ namespace FolderRewind.Services
             return (packageAsset, sha256Asset, architectureTag);
         }
 
-        private static GitHubReleaseService.GitHubReleaseAsset? SelectPackageAssetByArchitecture(IReadOnlyList<GitHubReleaseService.GitHubReleaseAsset> packageCandidates, string architectureTag)
+        private static (GitHubReleaseService.GitHubReleaseAsset? PackageAsset, string ArchitectureTag) SelectMsiPackageAsset(IReadOnlyList<GitHubReleaseService.GitHubReleaseAsset> assets)
+        {
+            var architectureTag = GetCurrentArchitectureTag();
+            if (assets == null || assets.Count == 0)
+            {
+                return (null, architectureTag);
+            }
+
+            var packageAsset = SelectPackageAssetByArchitecture(
+                assets.Where(asset => asset.Name.EndsWith(".msi", StringComparison.OrdinalIgnoreCase)).ToList(),
+                architectureTag,
+                ".msi");
+            return (packageAsset, architectureTag);
+        }
+
+        private static GitHubReleaseService.GitHubReleaseAsset? SelectPackageAssetByArchitecture(
+            IReadOnlyList<GitHubReleaseService.GitHubReleaseAsset> packageCandidates,
+            string architectureTag,
+            string extension = ".7z")
         {
             if (packageCandidates == null || packageCandidates.Count == 0)
             {
                 return null;
             }
 
-            var suffix = $"_{architectureTag}.7z";
+            var suffix = $"_{architectureTag}{extension}";
             var exactSuffixMatch = packageCandidates
                 .FirstOrDefault(a => a.Name.EndsWith(suffix, StringComparison.OrdinalIgnoreCase));
             if (exactSuffixMatch != null)
@@ -155,7 +186,7 @@ namespace FolderRewind.Services
             if (string.Equals(architectureTag, "x86", StringComparison.OrdinalIgnoreCase))
             {
                 var x64Fallback = packageCandidates
-                    .FirstOrDefault(a => a.Name.EndsWith("_x64.7z", StringComparison.OrdinalIgnoreCase));
+                    .FirstOrDefault(a => a.Name.EndsWith($"_x64{extension}", StringComparison.OrdinalIgnoreCase));
                 if (x64Fallback != null)
                 {
                     return x64Fallback;
@@ -291,8 +322,7 @@ namespace FolderRewind.Services
             {
                 try
                 {
-                    var v = typeof(AppUpdateService).Assembly.GetName().Version;
-                    return v == null ? null : NormalizeVersion(v);
+                    return AppRuntimeInfo.GetAssemblyVersion();
                 }
                 catch
                 {

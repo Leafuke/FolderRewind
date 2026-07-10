@@ -23,7 +23,7 @@ namespace FolderRewind.Services
                 var hwnd = WindowNative.GetWindowHandle(window);
                 if (hwnd == IntPtr.Zero) return;
 
-                var installedPath = Package.Current.InstalledLocation.Path;
+                var installedPath = AppRuntimeInfo.ApplicationBaseDirectory;
                 var assetPath = Path.Combine(installedPath, "Assets", "Square44x44Logo.scale-200.png");
                 if (!File.Exists(assetPath))
                 {
