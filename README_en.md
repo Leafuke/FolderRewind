@@ -38,6 +38,7 @@ As the spiritual successor to MineBackup, FolderRewind enhances its versatility 
   - **Hot Backups**: Plugins can intervene to create snapshots before backing up locked files.
   - **Plugin Control**: Plugins can redefine backup and restore modes for more advanced functionality.
 - **⏳ History Timeline**: View a clear timeline of your backups. "Rewind" your folder to any previous state.
+- **☁️ Cloud Backups**: Supports WebDAV, FTP, SFTP, and other protocols for cloud storage, making it easy to sync your data to NAS or cloud services.
 - **🎨 Modern Design**: 
   - Native **Windows 11** aesthetic with Mica material.
   - Light & Dark theme support.
@@ -51,14 +52,12 @@ As the spiritual successor to MineBackup, FolderRewind enhances its versatility 
 	<img src="https://get.microsoft.com/images/en-us%20dark.svg" width="200"/>
 </a>
 
-### GitHub MSI installation (when Microsoft Store is unavailable):
+### MSI installation (Exp):
 
 1. Open the [Release](https://github.com/Leafuke/FolderRewind/releases) page.
 2. Download the MSI matching your device: `FolderRewind_{version}_x64.msi` for most Intel/AMD Windows PCs, or `FolderRewind_{version}_arm64.msi` for Windows on ARM.
 3. Run the MSI. It installs for the current user in `%LocalAppData%\Programs\FolderRewind` by default; the wizard can select another local path. Developer Mode and certificate import are not required.
 4. The MSI is not Authenticode-signed by a Windows-trusted certificate, so Windows may show an unknown-publisher or SmartScreen prompt. Download only from this project's official Release page and verify the matching `.sha256` file before running it.
-
-When an MSI update is available, the app opens the matching architecture's MSI download link; download and run it to upgrade. The MSI offers the free feature set only—Microsoft Store Sponsor Edition licensing is available in the Store version.
 
 ### Advanced side-loading installation (MSIX):
 
