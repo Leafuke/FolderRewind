@@ -94,11 +94,11 @@
     <PublishTrimmed Condition="'$(Configuration)' == 'Debug'">False</PublishTrimmed>
     <PublishTrimmed Condition="'$(Configuration)' != 'Debug'">False</PublishTrimmed>
     <GenerateAppInstallerFile>False</GenerateAppInstallerFile>
-    <AppxPackageSigningEnabled>False</AppxPackageSigningEnabled>
+    <AppxPackageSigningEnabled>True</AppxPackageSigningEnabled>
     <AppxPackageSigningTimestampDigestAlgorithm>SHA256</AppxPackageSigningTimestampDigestAlgorithm>
     <AppxAutoIncrementPackageRevision>False</AppxAutoIncrementPackageRevision>
     <GenerateTestArtifacts>False</GenerateTestArtifacts>
-    <AppxBundle>Auto</AppxBundle>
+    <AppxBundle>Never</AppxBundle>
     <AppxFilterOutUnusedLanguagesResourceFileMaps>false</AppxFilterOutUnusedLanguagesResourceFileMaps>
     <HoursBetweenUpdateChecks>0</HoursBetweenUpdateChecks>
     <AppxBundlePlatforms>x64|arm64</AppxBundlePlatforms>
@@ -124,5 +124,6 @@
       GitHub Actions 通过环境变量 SIDELOAD_CERT_PASSWORD 提供密码，再由这里接入 MSBuild。
     -->
     <PackageCertificatePassword Condition="'$(PackageCertificatePassword)'=='' and '$(SIDELOAD_CERT_PASSWORD)'!=''">$(SIDELOAD_CERT_PASSWORD)</PackageCertificatePassword>
+    <PackageCertificateThumbprint>883C19BCC7CF69295C8CC4081629EC13FF18934A</PackageCertificateThumbprint>
   </PropertyGroup>
 </Project>

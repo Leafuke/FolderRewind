@@ -1,4 +1,5 @@
 using FolderRewind.Models;
+using FolderRewind.Services;
 using FolderRewind.Services.Hotkeys;
 using FolderRewind.Services.KnotLink;
 using System;
@@ -704,16 +705,23 @@ namespace FolderRewind.Services.Plugins
             rules.Add(trimmed);
         }
 
-        public static string? InvokeBeforeBackupFolder(BackupConfig config, ManagedFolder folder)
+        public static string? InvokeBeforeBackupFolder(
+            BackupConfig config,
+            ManagedFolder folder,
+            BackupInvocationOptions? invocationOptions = null)
         {
             if (!IsPluginSystemEnabled()) return null;
+
+            invocationOptions ??= BackupInvocationOptions.Default;
 
             foreach (var plugin in GetEnabledLoadedPluginsSnapshot())
             {
                 try
                 {
                     var settings = GetPluginSettings(plugin.Manifest.Id);
-                    var newPath = plugin.OnBeforeBackupFolder(config, folder, settings);
+                    var newPath = plugin is IFolderRewindBackupPreparationProvider preparationProvider
+                        ? preparationProvider.OnBeforeBackupFolder(config, folder, invocationOptions, settings)
+                        : plugin.OnBeforeBackupFolder(config, folder, settings);
                     if (!string.IsNullOrWhiteSpace(newPath))
                     {
                         // 允许多个插件串联修改路径：使用最后一个返回的路径

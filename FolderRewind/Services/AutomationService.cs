@@ -642,8 +642,11 @@ namespace FolderRewind.Services
             try
             {
                 bool hadChanges = targetFolder == null
-                    ? await BackupService.BackupConfigAsync(config)
-                    : await BackupService.BackupFolderAsync(config, targetFolder);
+                    ? await BackupService.BackupConfigAsync(config, BackupInvocationOptions.ForAutomatic())
+                    : await BackupService.BackupFolderAsync(
+                        config,
+                        targetFolder,
+                        invocationOptions: BackupInvocationOptions.ForAutomatic());
 
                 if (updateAutomationState)
                 {

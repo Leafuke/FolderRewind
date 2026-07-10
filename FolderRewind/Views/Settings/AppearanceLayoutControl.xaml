@@ -148,7 +148,7 @@
                         <TextBlock Text="{x:Bind ViewModel.SponsorStatusText, Mode=OneWay}"
                                    Style="{StaticResource SettingsDescriptionStyle}" />
                         <StackPanel Grid.Row="1" Orientation="Horizontal" Spacing="8">
-                            <Button x:Uid="SettingsPage_SponsorPurchase"
+                            <Button x:Uid="SettingsPage_SponsorPurchase" 
                                     Style="{StaticResource SettingsActionRowButtonStyle}"
                                     Command="{x:Bind ViewModel.OpenSponsorWindowCommand}"
                                     IsEnabled="{x:Bind ViewModel.IsSponsorOperationIdle, Mode=OneWay}" />

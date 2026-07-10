@@ -133,7 +133,11 @@ namespace FolderRewind.ViewModels
                 return;
             }
 
-            await BackupService.BackupFolderAsync(parentConfig, folder, comment);
+            await BackupService.BackupFolderAsync(
+                parentConfig,
+                folder,
+                comment,
+                invocationOptions: BackupInvocationOptions.ForManual());
         }
 
         public async Task BackupAllFoldersAsync(BackupConfig config, string comment)
@@ -145,7 +149,11 @@ namespace FolderRewind.ViewModels
 
             foreach (var folder in config.SourceFolders)
             {
-                await BackupService.BackupFolderAsync(config, folder, comment);
+                await BackupService.BackupFolderAsync(
+                    config,
+                    folder,
+                    comment,
+                    invocationOptions: BackupInvocationOptions.ForManual());
             }
         }
 

@@ -1,4 +1,5 @@
 using FolderRewind.Models;
+using FolderRewind.Services;
 using System;
 using System.Collections.Generic;
 using System.Threading;
@@ -103,6 +104,19 @@ namespace FolderRewind.Services.Plugins
             BackupConfig config,
             ManagedFolder folder,
             PluginBackupScopeContext scope,
+            IReadOnlyDictionary<string, string> settingsValues);
+    }
+
+    /// <summary>
+    /// 可选插件接口：让插件在备份前读取触发来源和一致性偏好。
+    /// 未实现该接口的插件仍会走 IFolderRewindPlugin.OnBeforeBackupFolder。
+    /// </summary>
+    public interface IFolderRewindBackupPreparationProvider
+    {
+        string? OnBeforeBackupFolder(
+            BackupConfig config,
+            ManagedFolder folder,
+            BackupInvocationOptions invocationOptions,
             IReadOnlyDictionary<string, string> settingsValues);
     }
 
