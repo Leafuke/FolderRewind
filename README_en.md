@@ -76,7 +76,7 @@ For detailed usage instructions, please refer to the official documentation: htt
 
 | Name               | Description                                     | Author          | Download Link                                      |
 |----------------------|----------------------------------------|-------------|-------------------------------------------|
-| MineRewind      | A backup plugin specifically designed for Minecraft game saves.               | Leafuke     | [Repository](https://github.com/Leafuke/FolderRewind-Plugin-Minecraft/Releases)
+| MineRewind      | A backup plugin specifically designed for Minecraft game saves.               | Leafuke     | [Repository](https://github.com/Leafuke/FolderRewind-Plugin-Minecraft/releases)
 
 ## Development
 

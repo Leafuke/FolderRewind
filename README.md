@@ -79,7 +79,7 @@ FolderRewind 是一款基于 **WinUI 3** 和 **.NET 10** 构建的现代化、�
 
 | 插件名称               | 描述                                     | 作者          | 下载链接                                      |
 |----------------------|----------------------------------------|-------------|-------------------------------------------|
-| MineRewind      | 专为 Minecraft 游戏存档设计的备份插件。               | Leafuke     | [仓库](https://github.com/Leafuke/FolderRewind-Plugin-Minecraft/Releases)
+| MineRewind      | 专为 Minecraft 游戏存档设计的备份插件。               | Leafuke     | [仓库](https://github.com/Leafuke/FolderRewind-Plugin-Minecraft/releases)
 
 ## 开发
 
