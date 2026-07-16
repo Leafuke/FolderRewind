@@ -1,0 +1,31 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <IsPackable>false</IsPackable>
+    <IsTestProject>true</IsTestProject>
+    <Platforms>AnyCPU</Platforms>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.NET.Test.Sdk" Version="18.0.1" />
+    <PackageReference Include="MSTest.TestAdapter" Version="4.0.2" />
+    <PackageReference Include="MSTest.TestFramework" Version="4.0.2" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Compile Include="..\FolderRewind\Services\KnotLink\KnotLinkKeyValueCodec.cs" Link="Source\KnotLinkKeyValueCodec.cs" />
+    <Compile Include="..\FolderRewind\Services\KnotLink\KnotLinkCommandParser.cs" Link="Source\KnotLinkCommandParser.cs" />
+    <Compile Include="..\FolderRewind\Services\KnotLink\KnotLinkCommandRequest.cs" Link="Source\KnotLinkCommandRequest.cs" />
+    <Compile Include="..\FolderRewind\Services\KnotLink\KnotLinkCommandContext.cs" Link="Source\KnotLinkCommandContext.cs" />
+    <Compile Include="..\FolderRewind\Services\KnotLink\KnotLinkCommandMetadata.cs" Link="Source\KnotLinkCommandMetadata.cs" />
+    <Compile Include="..\FolderRewind\Services\KnotLink\KnotLinkCommandValidationResult.cs" Link="Source\KnotLinkCommandValidationResult.cs" />
+    <Compile Include="..\FolderRewind\Services\KnotLink\KnotLinkCommandValidator.cs" Link="Source\KnotLinkCommandValidator.cs" />
+    <Compile Include="..\FolderRewind\Services\KnotLink\KnotLinkProtocolFormatter.cs" Link="Source\KnotLinkProtocolFormatter.cs" />
+    <Compile Include="..\FolderRewind\Services\KnotLink\KnotLinkFuncListModels.cs" Link="Source\KnotLinkFuncListModels.cs" />
+    <Compile Include="..\FolderRewind\Services\KnotLink\KnotLinkFuncListService.cs" Link="Source\KnotLinkFuncListService.cs" />
+    <Compile Include="..\FolderRewind\Services\Plugins\IFolderRewindKnotLinkCapabilityProvider.cs" Link="Source\IFolderRewindKnotLinkCapabilityProvider.cs" />
+    <Compile Include="..\FolderRewind-Plugin-Minecraft\MineRewind\MinecraftSavesPlugin.KnotLinkCapabilities.cs" Link="Source\MinecraftSavesPlugin.KnotLinkCapabilities.cs" />
+  </ItemGroup>
+</Project>

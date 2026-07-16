@@ -197,46 +197,18 @@ namespace FolderRewind.Services.Plugins
         /// KnotLink：尝试让已启用插件处理一条“非内置”的远程指令。
         /// 返回 (Handled=false, _) 表示没有插件处理该指令。
         /// </summary>
+        [Obsolete("KnotLink v1 command dispatch has been removed.")]
         public static async Task<(bool Handled, string Response)> TryHandleKnotLinkCommandAsync(
             string command,
             string args,
             string rawCommand)
         {
-            if (!IsPluginSystemEnabled()) return (false, string.Empty);
-            if (string.IsNullOrWhiteSpace(command)) return (false, string.Empty);
-
-            foreach (var plugin in GetEnabledLoadedPluginsSnapshot())
-            {
-                if (plugin is not IFolderRewindKnotLinkCommandHandler handler) continue;
-
-                try
-                {
-                    var settings = GetPluginSettings(plugin.Manifest.Id);
-                    var ctx = PluginHostContext.CreateForCurrentApp(plugin.Manifest.Id, plugin.Manifest.Name);
-                    var resp = await handler.TryHandleKnotLinkCommandAsync(
-                        command,
-                        args,
-                        rawCommand,
-                        settings,
-                        ctx).ConfigureAwait(false);
-
-                    if (!string.IsNullOrWhiteSpace(resp))
-                    {
-                        return (true, resp);
-                    }
-                }
-                catch (Exception ex)
-                {
-                    LogService.LogError(I18n.Format("PluginService_KnotLinkCommandFailed", plugin.Manifest.Id, command, ex.Message), "PluginService", ex);
-                }
-            }
-
+            await Task.CompletedTask;
             return (false, string.Empty);
         }
 
         /// <summary>
-        /// KnotLink：新版参数化指令优先给插件一次处理机会。
-        /// 这样 MineRewind 可以把 BACKUP -current_save=true 映射成热备份，而不被内置 BACKUP 提前拦截。
+        /// KnotLink v2 commands are offered to plugins before built-in handlers.
         /// </summary>
         public static async Task<(bool Handled, string Response)> TryHandleParameterizedKnotLinkCommandAsync(KnotLinkCommandContext context)
         {
@@ -270,6 +242,32 @@ namespace FolderRewind.Services.Plugins
             }
 
             return (false, string.Empty);
+        }
+
+        internal static IReadOnlyList<(string PluginId, PluginKnotLinkCapabilityContribution Contribution)>
+            GetKnotLinkCapabilityContributions()
+        {
+            var result = new List<(string, PluginKnotLinkCapabilityContribution)>();
+            if (!IsPluginSystemEnabled()) return result;
+
+            foreach (var plugin in GetEnabledLoadedPluginsSnapshot().OrderBy(item => item.Manifest.Id, StringComparer.OrdinalIgnoreCase))
+            {
+                if (plugin is not IFolderRewindKnotLinkCapabilityProvider provider) continue;
+
+                try
+                {
+                    result.Add((plugin.Manifest.Id, provider.GetKnotLinkCapabilities() ?? new PluginKnotLinkCapabilityContribution()));
+                }
+                catch (Exception ex)
+                {
+                    LogService.LogError(
+                        $"Plugin '{plugin.Manifest.Id}' failed to declare KnotLink capabilities: {ex.Message}",
+                        "PluginService",
+                        ex);
+                }
+            }
+
+            return result;
         }
 
         public static bool IsPluginSystemEnabled()

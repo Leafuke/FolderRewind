@@ -93,37 +93,20 @@ namespace FolderRewind.Services
             IReadOnlyDictionary<string, string?>? fields = null)
         {
             var context = KnotLinkService.CurrentCommandContext;
-            if (context?.Metadata.HasConversation == true)
+            var merged = new Dictionary<string, string?>(StringComparer.OrdinalIgnoreCase)
             {
-                var merged = new Dictionary<string, string?>(StringComparer.OrdinalIgnoreCase)
-                {
-                    ["config"] = config.Id,
-                    ["folder"] = folder.DisplayName
-                };
-
-                if (fields != null)
-                {
-                    foreach (var pair in fields)
-                    {
-                        merged[pair.Key] = pair.Value;
-                    }
-                }
-
-                KnotLinkService.BroadcastEvent(context, eventName, merged);
-                return;
-            }
-
-            var legacy = new StringBuilder($"event={eventName};config={configIndex};world={folder.DisplayName}");
+                ["config"] = config.Id,
+                ["folder"] = folder.DisplayName
+            };
             if (fields != null)
             {
                 foreach (var pair in fields)
                 {
-                    if (pair.Value == null) continue;
-                    legacy.Append(';').Append(pair.Key).Append('=').Append(pair.Value);
+                    merged[pair.Key] = pair.Value;
                 }
             }
 
-            KnotLinkService.BroadcastEvent(legacy.ToString());
+            KnotLinkService.BroadcastEvent(context, eventName, merged);
         }
 
         private static void BroadcastBackupLifecycle(string lifecycleEvent, IReadOnlyDictionary<string, string?>? fields = null)
@@ -144,37 +127,20 @@ namespace FolderRewind.Services
             IReadOnlyDictionary<string, string?>? fields = null)
         {
             var context = KnotLinkService.CurrentCommandContext;
-            if (context?.Metadata.HasConversation == true)
+            var merged = new Dictionary<string, string?>(StringComparer.OrdinalIgnoreCase)
             {
-                var merged = new Dictionary<string, string?>(StringComparer.OrdinalIgnoreCase)
-                {
-                    ["config"] = config.Id,
-                    ["folder"] = folder.DisplayName
-                };
-
-                if (fields != null)
-                {
-                    foreach (var pair in fields)
-                    {
-                        merged[pair.Key] = pair.Value;
-                    }
-                }
-
-                KnotLinkService.BroadcastEvent(context, eventName, merged);
-                return;
-            }
-
-            var legacy = new StringBuilder($"event={eventName};config={configIndex};world={folder.DisplayName}");
+                ["config"] = config.Id,
+                ["folder"] = folder.DisplayName
+            };
             if (fields != null)
             {
                 foreach (var pair in fields)
                 {
-                    if (pair.Value == null) continue;
-                    legacy.Append(';').Append(pair.Key).Append('=').Append(pair.Value);
+                    merged[pair.Key] = pair.Value;
                 }
             }
 
-            KnotLinkService.BroadcastEvent(legacy.ToString());
+            KnotLinkService.BroadcastEvent(context, eventName, merged);
         }
 
         private static void BroadcastRestoreLifecycle(string lifecycleEvent, IReadOnlyDictionary<string, string?>? fields = null)

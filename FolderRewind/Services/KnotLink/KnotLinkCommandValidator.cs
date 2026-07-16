@@ -28,16 +28,6 @@ namespace FolderRewind.Services.KnotLink
         {
             ArgumentNullException.ThrowIfNull(context);
 
-            if (!context.IsParameterized)
-            {
-                return KnotLinkCommandValidationResult.Valid;
-            }
-
-            if (context.Request.HasOption("world"))
-            {
-                return KnotLinkCommandValidationResult.DeprecatedWorldOption("world");
-            }
-
             if (!RequiresConversationMetadata(context.Command))
             {
                 return KnotLinkCommandValidationResult.Valid;

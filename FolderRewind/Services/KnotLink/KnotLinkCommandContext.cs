@@ -16,8 +16,6 @@ namespace FolderRewind.Services.KnotLink
 
         public string Command => Request.Command;
 
-        public bool IsParameterized => Request.IsParameterized;
-
         public bool HasConversation => Metadata.HasConversation;
 
         public bool HasCompleteConversation => Metadata.HasCompleteConversation;

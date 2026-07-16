@@ -7,7 +7,7 @@ namespace FolderRewind.Services.Plugins
     public sealed class PluginKnotLinkCommandDefinition
     {
         /// <summary>
-        /// 指令名（不区分大小写），例如："BACKUP_CURRENT"。
+        /// 旧协议指令名（不区分大小写）。
         /// </summary>
         public string Command { get; set; } = string.Empty;
 
@@ -23,6 +23,7 @@ namespace FolderRewind.Services.Plugins
     /// 触发场景：当 FolderRewind 作为 OpenSocket 响应器收到指令时，
     /// 若内置指令未命中，则会依次询问已启用插件是否愿意处理。
     /// </summary>
+    [System.Obsolete("KnotLink v1 command dispatch has been removed. Implement IFolderRewindParameterizedKnotLinkCommandHandler instead.")]
     public interface IFolderRewindKnotLinkCommandHandler
     {
         /// <summary>
@@ -53,7 +54,8 @@ namespace FolderRewind.Services.Plugins
         public bool Handled { get; set; }
 
         /// <summary>
-        /// 返回给 KnotLink 调用方的响应文本。为空时 Host 会补成 OK:。
+        /// 返回给 KnotLink 调用方的响应文本。Host 会将 OK:/ERROR: 插件结果
+        /// 转换为严格 v2 status=ok/status=error 响应；为空时补成功响应。
         /// </summary>
         public string? Response { get; set; }
 
@@ -65,9 +67,9 @@ namespace FolderRewind.Services.Plugins
     }
 
     /// <summary>
-    /// 可选接口：允许插件参与新版参数化 KnotLink 指令。
+    /// 可选接口：允许插件参与严格键值对 KnotLink v2 指令。
     ///
-    /// 旧 IFolderRewindKnotLinkCommandHandler 保持不变，避免旧插件因为 Host 升级而必须重编译。
+    /// 旧接口类型仅为程序集加载兼容而保留，Host 不再向其分发命令。
     /// </summary>
     public interface IFolderRewindParameterizedKnotLinkCommandHandler
     {

@@ -1,0 +1,1043 @@
+{
+  "specVersion": "1.0",
+  "manifestVersion": "1.0.0",
+  "appName": "FolderRewind",
+  "openSocket": {
+    "auto_backup": {
+      "appID": "0x00000020",
+      "openSocketID": "0x00000010",
+      "description": "Start periodic backup for one managed folder.",
+      "args": {
+        "cmd": {
+          "type": "static",
+          "value": "AUTO_BACKUP",
+          "description": "Operation command."
+        },
+        "config_id": {
+          "type": "input",
+          "description": "Backup configuration ID.",
+          "defaultVal": "config-id"
+        },
+        "folder": {
+          "type": "input",
+          "description": "Folder name or index.",
+          "defaultVal": "0"
+        },
+        "from": {
+          "type": "input",
+          "description": "Required caller identifier.",
+          "defaultVal": "example.client"
+        },
+        "interval_minutes": {
+          "type": "input",
+          "description": "Backup interval in minutes.",
+          "defaultVal": "10"
+        },
+        "request_id": {
+          "type": "input",
+          "description": "Required unique request correlation ID.",
+          "defaultVal": "request-001"
+        }
+      },
+      "returns": [
+        [
+          "Operation status.",
+          "status"
+        ],
+        [
+          "Response message.",
+          "message"
+        ]
+      ]
+    },
+    "backup": {
+      "appID": "0x00000020",
+      "openSocketID": "0x00000010",
+      "description": "Start a backup for one managed folder.",
+      "args": {
+        "backup_blacklist": {
+          "type": "input",
+          "description": "Comma-separated one-shot blacklist rules.",
+          "defaultVal": ""
+        },
+        "backup_scope": {
+          "type": "input",
+          "description": "Optional plugin backup scope ID.",
+          "defaultVal": ""
+        },
+        "backup_whitelist": {
+          "type": "input",
+          "description": "Comma-separated one-shot whitelist rules.",
+          "defaultVal": ""
+        },
+        "cmd": {
+          "type": "static",
+          "value": "BACKUP",
+          "description": "Operation command."
+        },
+        "comment": {
+          "type": "input",
+          "description": "Optional backup comment.",
+          "defaultVal": ""
+        },
+        "config_id": {
+          "type": "input",
+          "description": "Backup configuration ID.",
+          "defaultVal": "config-id"
+        },
+        "folder": {
+          "type": "input",
+          "description": "Folder name or index.",
+          "defaultVal": "0"
+        },
+        "force_full": {
+          "type": "optional",
+          "options": [
+            [
+              "True",
+              "true"
+            ],
+            [
+              "False",
+              "false"
+            ]
+          ],
+          "description": "Force a full backup."
+        },
+        "from": {
+          "type": "input",
+          "description": "Required caller identifier.",
+          "defaultVal": "example.client"
+        },
+        "request_id": {
+          "type": "input",
+          "description": "Required unique request correlation ID.",
+          "defaultVal": "request-001"
+        },
+        "scope_areas": {
+          "type": "input",
+          "description": "Example plugin scope parameter.",
+          "defaultVal": ""
+        },
+        "scope_dimensions": {
+          "type": "input",
+          "description": "Example plugin scope parameter.",
+          "defaultVal": ""
+        }
+      },
+      "returns": [
+        [
+          "Operation status.",
+          "status"
+        ],
+        [
+          "Response message.",
+          "message"
+        ]
+      ]
+    },
+    "backup_all": {
+      "appID": "0x00000020",
+      "openSocketID": "0x00000010",
+      "description": "Start backing up every folder in a configuration.",
+      "args": {
+        "backup_blacklist": {
+          "type": "input",
+          "description": "Comma-separated one-shot blacklist rules.",
+          "defaultVal": ""
+        },
+        "backup_scope": {
+          "type": "input",
+          "description": "Optional plugin backup scope ID.",
+          "defaultVal": ""
+        },
+        "backup_whitelist": {
+          "type": "input",
+          "description": "Comma-separated one-shot whitelist rules.",
+          "defaultVal": ""
+        },
+        "cmd": {
+          "type": "static",
+          "value": "BACKUP_ALL",
+          "description": "Operation command."
+        },
+        "comment": {
+          "type": "input",
+          "description": "Optional backup comment.",
+          "defaultVal": ""
+        },
+        "config_id": {
+          "type": "input",
+          "description": "Backup configuration ID.",
+          "defaultVal": "config-id"
+        },
+        "force_full": {
+          "type": "optional",
+          "options": [
+            [
+              "True",
+              "true"
+            ],
+            [
+              "False",
+              "false"
+            ]
+          ],
+          "description": "Force full backups."
+        },
+        "from": {
+          "type": "input",
+          "description": "Required caller identifier.",
+          "defaultVal": "example.client"
+        },
+        "request_id": {
+          "type": "input",
+          "description": "Required unique request correlation ID.",
+          "defaultVal": "request-001"
+        }
+      },
+      "returns": [
+        [
+          "Operation status.",
+          "status"
+        ],
+        [
+          "Response message.",
+          "message"
+        ]
+      ]
+    },
+    "get_capabilities": {
+      "appID": "0x00000020",
+      "openSocketID": "0x00000010",
+      "description": "Get the runtime FolderRewind funcList manifest.",
+      "args": {
+        "cmd": {
+          "type": "static",
+          "value": "GET_CAPABILITIES",
+          "description": "Operation command."
+        }
+      },
+      "returns": [
+        [
+          "Operation status.",
+          "status"
+        ],
+        [
+          "Response content_type.",
+          "content_type"
+        ],
+        [
+          "Response encoding.",
+          "encoding"
+        ],
+        [
+          "Response manifest_version.",
+          "manifest_version"
+        ],
+        [
+          "Response func_list.",
+          "func_list"
+        ]
+      ]
+    },
+    "get_config": {
+      "appID": "0x00000020",
+      "openSocketID": "0x00000010",
+      "description": "Get public settings for a backup configuration.",
+      "args": {
+        "cmd": {
+          "type": "static",
+          "value": "GET_CONFIG",
+          "description": "Operation command."
+        },
+        "config_id": {
+          "type": "input",
+          "description": "Backup configuration ID.",
+          "defaultVal": "config-id"
+        }
+      },
+      "returns": [
+        [
+          "Operation status.",
+          "status"
+        ],
+        [
+          "Response data.",
+          "data"
+        ]
+      ]
+    },
+    "get_status": {
+      "appID": "0x00000020",
+      "openSocketID": "0x00000010",
+      "description": "Get FolderRewind runtime status.",
+      "args": {
+        "cmd": {
+          "type": "static",
+          "value": "GET_STATUS",
+          "description": "Operation command."
+        }
+      },
+      "returns": [
+        [
+          "Operation status.",
+          "status"
+        ],
+        [
+          "Response data.",
+          "data"
+        ]
+      ]
+    },
+    "list_backups": {
+      "appID": "0x00000020",
+      "openSocketID": "0x00000010",
+      "description": "List backup archives for a managed folder.",
+      "args": {
+        "cmd": {
+          "type": "static",
+          "value": "LIST_BACKUPS",
+          "description": "Operation command."
+        },
+        "config_id": {
+          "type": "input",
+          "description": "Backup configuration ID.",
+          "defaultVal": "config-id"
+        },
+        "folder": {
+          "type": "input",
+          "description": "Folder name or index.",
+          "defaultVal": "0"
+        }
+      },
+      "returns": [
+        [
+          "Operation status.",
+          "status"
+        ],
+        [
+          "Response data.",
+          "data"
+        ]
+      ]
+    },
+    "list_configs": {
+      "appID": "0x00000020",
+      "openSocketID": "0x00000010",
+      "description": "List backup configurations.",
+      "args": {
+        "cmd": {
+          "type": "static",
+          "value": "LIST_CONFIGS",
+          "description": "Operation command."
+        }
+      },
+      "returns": [
+        [
+          "Operation status.",
+          "status"
+        ],
+        [
+          "Response data.",
+          "data"
+        ]
+      ]
+    },
+    "list_folders": {
+      "appID": "0x00000020",
+      "openSocketID": "0x00000010",
+      "description": "List managed folders in a backup configuration.",
+      "args": {
+        "cmd": {
+          "type": "static",
+          "value": "LIST_FOLDERS",
+          "description": "Operation command."
+        },
+        "config_id": {
+          "type": "input",
+          "description": "Backup configuration ID.",
+          "defaultVal": "config-id"
+        }
+      },
+      "returns": [
+        [
+          "Operation status.",
+          "status"
+        ],
+        [
+          "Response data.",
+          "data"
+        ]
+      ]
+    },
+    "mark_important": {
+      "appID": "0x00000020",
+      "openSocketID": "0x00000010",
+      "description": "Mark or unmark a backup archive as important.",
+      "args": {
+        "cmd": {
+          "type": "static",
+          "value": "MARK_IMPORTANT",
+          "description": "Operation command."
+        },
+        "config_id": {
+          "type": "input",
+          "description": "Backup configuration ID.",
+          "defaultVal": "config-id"
+        },
+        "file": {
+          "type": "input",
+          "description": "Backup archive file name.",
+          "defaultVal": "backup.7z"
+        },
+        "folder": {
+          "type": "input",
+          "description": "Folder name or index.",
+          "defaultVal": "0"
+        },
+        "from": {
+          "type": "input",
+          "description": "Required caller identifier.",
+          "defaultVal": "example.client"
+        },
+        "important": {
+          "type": "optional",
+          "options": [
+            [
+              "True",
+              "true"
+            ],
+            [
+              "False",
+              "false"
+            ]
+          ],
+          "description": "Whether the archive is important."
+        },
+        "request_id": {
+          "type": "input",
+          "description": "Required unique request correlation ID.",
+          "defaultVal": "request-001"
+        }
+      },
+      "returns": [
+        [
+          "Operation status.",
+          "status"
+        ],
+        [
+          "Response message.",
+          "message"
+        ]
+      ]
+    },
+    "ping": {
+      "appID": "0x00000020",
+      "openSocketID": "0x00000010",
+      "description": "Check whether the FolderRewind KnotLink endpoint is available.",
+      "args": {
+        "cmd": {
+          "type": "static",
+          "value": "PING",
+          "description": "Operation command."
+        }
+      },
+      "returns": [
+        [
+          "Operation status.",
+          "status"
+        ],
+        [
+          "Response message.",
+          "message"
+        ]
+      ]
+    },
+    "restore": {
+      "appID": "0x00000020",
+      "openSocketID": "0x00000010",
+      "description": "Start restoring a managed folder from an archive.",
+      "args": {
+        "cmd": {
+          "type": "static",
+          "value": "RESTORE",
+          "description": "Operation command."
+        },
+        "config_id": {
+          "type": "input",
+          "description": "Backup configuration ID.",
+          "defaultVal": "config-id"
+        },
+        "confirm_partial_clean": {
+          "type": "optional",
+          "options": [
+            [
+              "True",
+              "true"
+            ],
+            [
+              "False",
+              "false"
+            ]
+          ],
+          "description": "Confirm clean restore from a partial backup."
+        },
+        "file": {
+          "type": "input",
+          "description": "Backup archive file name.",
+          "defaultVal": "backup.7z"
+        },
+        "folder": {
+          "type": "input",
+          "description": "Folder name or index.",
+          "defaultVal": "0"
+        },
+        "from": {
+          "type": "input",
+          "description": "Required caller identifier.",
+          "defaultVal": "example.client"
+        },
+        "mode": {
+          "type": "optional",
+          "options": [
+            [
+              "Overwrite",
+              "overwrite"
+            ],
+            [
+              "Clean",
+              "clean"
+            ]
+          ],
+          "description": "Restore mode."
+        },
+        "request_id": {
+          "type": "input",
+          "description": "Required unique request correlation ID.",
+          "defaultVal": "request-001"
+        },
+        "restore_whitelist": {
+          "type": "input",
+          "description": "Comma-separated one-shot restore whitelist rules.",
+          "defaultVal": ""
+        }
+      },
+      "returns": [
+        [
+          "Operation status.",
+          "status"
+        ],
+        [
+          "Response message.",
+          "message"
+        ]
+      ]
+    },
+    "stop_auto_backup": {
+      "appID": "0x00000020",
+      "openSocketID": "0x00000010",
+      "description": "Stop periodic backup for one managed folder.",
+      "args": {
+        "cmd": {
+          "type": "static",
+          "value": "STOP_AUTO_BACKUP",
+          "description": "Operation command."
+        },
+        "config_id": {
+          "type": "input",
+          "description": "Backup configuration ID.",
+          "defaultVal": "config-id"
+        },
+        "folder": {
+          "type": "input",
+          "description": "Folder name or index.",
+          "defaultVal": "0"
+        },
+        "from": {
+          "type": "input",
+          "description": "Required caller identifier.",
+          "defaultVal": "example.client"
+        },
+        "request_id": {
+          "type": "input",
+          "description": "Required unique request correlation ID.",
+          "defaultVal": "request-001"
+        }
+      },
+      "returns": [
+        [
+          "Operation status.",
+          "status"
+        ],
+        [
+          "Response message.",
+          "message"
+        ]
+      ]
+    }
+  },
+  "signal": {
+    "app_startup": {
+      "appID": "0x00000020",
+      "signalID": "0x00000020",
+      "description": "FolderRewind KnotLink endpoint started.",
+      "returns": {
+        "event": {
+          "description": "Signal event name.",
+          "verification": "app_startup"
+        },
+        "version": {
+          "description": "Application version."
+        }
+      }
+    },
+    "auto_backup_error": {
+      "appID": "0x00000020",
+      "signalID": "0x00000020",
+      "description": "Periodic backup event: auto_backup_error.",
+      "returns": {
+        "config": {
+          "description": "Configuration ID."
+        },
+        "event": {
+          "description": "Signal event name.",
+          "verification": "auto_backup_error"
+        },
+        "folder": {
+          "description": "Folder name."
+        }
+      }
+    },
+    "auto_backup_executed": {
+      "appID": "0x00000020",
+      "signalID": "0x00000020",
+      "description": "Periodic backup event: auto_backup_executed.",
+      "returns": {
+        "config": {
+          "description": "Configuration ID."
+        },
+        "event": {
+          "description": "Signal event name.",
+          "verification": "auto_backup_executed"
+        },
+        "folder": {
+          "description": "Folder name."
+        }
+      }
+    },
+    "auto_backup_started": {
+      "appID": "0x00000020",
+      "signalID": "0x00000020",
+      "description": "Periodic backup event: auto_backup_started.",
+      "returns": {
+        "config": {
+          "description": "Configuration ID."
+        },
+        "event": {
+          "description": "Signal event name.",
+          "verification": "auto_backup_started"
+        },
+        "folder": {
+          "description": "Folder name."
+        }
+      }
+    },
+    "auto_backup_stopped": {
+      "appID": "0x00000020",
+      "signalID": "0x00000020",
+      "description": "Periodic backup event: auto_backup_stopped.",
+      "returns": {
+        "config": {
+          "description": "Configuration ID."
+        },
+        "event": {
+          "description": "Signal event name.",
+          "verification": "auto_backup_stopped"
+        },
+        "folder": {
+          "description": "Folder name."
+        }
+      }
+    },
+    "backup_all_completed": {
+      "appID": "0x00000020",
+      "signalID": "0x00000020",
+      "description": "Configuration backup event: backup_all_completed.",
+      "returns": {
+        "config": {
+          "description": "Configuration ID."
+        },
+        "event": {
+          "description": "Signal event name.",
+          "verification": "backup_all_completed"
+        }
+      }
+    },
+    "backup_all_failed": {
+      "appID": "0x00000020",
+      "signalID": "0x00000020",
+      "description": "Configuration backup event: backup_all_failed.",
+      "returns": {
+        "config": {
+          "description": "Configuration ID."
+        },
+        "event": {
+          "description": "Signal event name.",
+          "verification": "backup_all_failed"
+        }
+      }
+    },
+    "backup_all_started": {
+      "appID": "0x00000020",
+      "signalID": "0x00000020",
+      "description": "Configuration backup event: backup_all_started.",
+      "returns": {
+        "config": {
+          "description": "Configuration ID."
+        },
+        "event": {
+          "description": "Signal event name.",
+          "verification": "backup_all_started"
+        }
+      }
+    },
+    "backup_failed": {
+      "appID": "0x00000020",
+      "signalID": "0x00000020",
+      "description": "Backup event: backup_failed.",
+      "returns": {
+        "config": {
+          "description": "Configuration ID."
+        },
+        "event": {
+          "description": "Signal event name.",
+          "verification": "backup_failed"
+        },
+        "folder": {
+          "description": "Folder name."
+        }
+      }
+    },
+    "backup_started": {
+      "appID": "0x00000020",
+      "signalID": "0x00000020",
+      "description": "Backup event: backup_started.",
+      "returns": {
+        "config": {
+          "description": "Configuration ID."
+        },
+        "event": {
+          "description": "Signal event name.",
+          "verification": "backup_started"
+        },
+        "folder": {
+          "description": "Folder name."
+        }
+      }
+    },
+    "backup_success": {
+      "appID": "0x00000020",
+      "signalID": "0x00000020",
+      "description": "Backup event: backup_success.",
+      "returns": {
+        "config": {
+          "description": "Configuration ID."
+        },
+        "event": {
+          "description": "Signal event name.",
+          "verification": "backup_success"
+        },
+        "folder": {
+          "description": "Folder name."
+        }
+      }
+    },
+    "backup_warning": {
+      "appID": "0x00000020",
+      "signalID": "0x00000020",
+      "description": "Backup event: backup_warning.",
+      "returns": {
+        "config": {
+          "description": "Configuration ID."
+        },
+        "event": {
+          "description": "Signal event name.",
+          "verification": "backup_warning"
+        },
+        "folder": {
+          "description": "Folder name."
+        }
+      }
+    },
+    "command_accepted": {
+      "appID": "0x00000020",
+      "signalID": "0x00000020",
+      "description": "Command lifecycle event: command_accepted.",
+      "returns": {
+        "command": {
+          "description": "Command name."
+        },
+        "event": {
+          "description": "Signal event name.",
+          "verification": "command_accepted"
+        },
+        "request_id": {
+          "description": "Request correlation ID."
+        }
+      }
+    },
+    "command_completed": {
+      "appID": "0x00000020",
+      "signalID": "0x00000020",
+      "description": "Command lifecycle event: command_completed.",
+      "returns": {
+        "command": {
+          "description": "Command name."
+        },
+        "event": {
+          "description": "Signal event name.",
+          "verification": "command_completed"
+        },
+        "request_id": {
+          "description": "Request correlation ID."
+        }
+      }
+    },
+    "command_error": {
+      "appID": "0x00000020",
+      "signalID": "0x00000020",
+      "description": "Command lifecycle event: command_error.",
+      "returns": {
+        "command": {
+          "description": "Command name."
+        },
+        "event": {
+          "description": "Signal event name.",
+          "verification": "command_error"
+        },
+        "request_id": {
+          "description": "Request correlation ID."
+        }
+      }
+    },
+    "command_failed": {
+      "appID": "0x00000020",
+      "signalID": "0x00000020",
+      "description": "Command lifecycle event: command_failed.",
+      "returns": {
+        "command": {
+          "description": "Command name."
+        },
+        "event": {
+          "description": "Signal event name.",
+          "verification": "command_failed"
+        },
+        "request_id": {
+          "description": "Request correlation ID."
+        }
+      }
+    },
+    "command_progress": {
+      "appID": "0x00000020",
+      "signalID": "0x00000020",
+      "description": "Command lifecycle event: command_progress.",
+      "returns": {
+        "command": {
+          "description": "Command name."
+        },
+        "event": {
+          "description": "Signal event name.",
+          "verification": "command_progress"
+        },
+        "request_id": {
+          "description": "Request correlation ID."
+        }
+      }
+    },
+    "command_started": {
+      "appID": "0x00000020",
+      "signalID": "0x00000020",
+      "description": "Command lifecycle event: command_started.",
+      "returns": {
+        "command": {
+          "description": "Command name."
+        },
+        "event": {
+          "description": "Signal event name.",
+          "verification": "command_started"
+        },
+        "request_id": {
+          "description": "Request correlation ID."
+        }
+      }
+    },
+    "get_config": {
+      "appID": "0x00000020",
+      "signalID": "0x00000020",
+      "description": "Backup configuration details were queried.",
+      "returns": {
+        "config": {
+          "description": "Configuration ID."
+        },
+        "event": {
+          "description": "Signal event name.",
+          "verification": "get_config"
+        }
+      }
+    },
+    "list_backups": {
+      "appID": "0x00000020",
+      "signalID": "0x00000020",
+      "description": "Backup archive list was queried.",
+      "returns": {
+        "config": {
+          "description": "Configuration ID."
+        },
+        "data": {
+          "description": "Encoded result data."
+        },
+        "event": {
+          "description": "Signal event name.",
+          "verification": "list_backups"
+        },
+        "folder": {
+          "description": "Folder name."
+        }
+      }
+    },
+    "list_configs": {
+      "appID": "0x00000020",
+      "signalID": "0x00000020",
+      "description": "Backup configuration list was queried.",
+      "returns": {
+        "data": {
+          "description": "Encoded result data."
+        },
+        "event": {
+          "description": "Signal event name.",
+          "verification": "list_configs"
+        }
+      }
+    },
+    "list_folders": {
+      "appID": "0x00000020",
+      "signalID": "0x00000020",
+      "description": "Managed folder list was queried.",
+      "returns": {
+        "config": {
+          "description": "Configuration ID."
+        },
+        "data": {
+          "description": "Encoded result data."
+        },
+        "event": {
+          "description": "Signal event name.",
+          "verification": "list_folders"
+        }
+      }
+    },
+    "mark_important": {
+      "appID": "0x00000020",
+      "signalID": "0x00000020",
+      "description": "A backup importance flag changed.",
+      "returns": {
+        "config": {
+          "description": "Configuration ID."
+        },
+        "event": {
+          "description": "Signal event name.",
+          "verification": "mark_important"
+        },
+        "file": {
+          "description": "Backup archive file."
+        },
+        "folder": {
+          "description": "Folder name."
+        },
+        "important": {
+          "description": "New importance value."
+        }
+      }
+    },
+    "restore_failed": {
+      "appID": "0x00000020",
+      "signalID": "0x00000020",
+      "description": "Restore event: restore_failed.",
+      "returns": {
+        "config": {
+          "description": "Configuration ID."
+        },
+        "event": {
+          "description": "Signal event name.",
+          "verification": "restore_failed"
+        },
+        "folder": {
+          "description": "Folder name."
+        }
+      }
+    },
+    "restore_finished": {
+      "appID": "0x00000020",
+      "signalID": "0x00000020",
+      "description": "Restore event: restore_finished.",
+      "returns": {
+        "config": {
+          "description": "Configuration ID."
+        },
+        "event": {
+          "description": "Signal event name.",
+          "verification": "restore_finished"
+        },
+        "folder": {
+          "description": "Folder name."
+        }
+      }
+    },
+    "restore_started": {
+      "appID": "0x00000020",
+      "signalID": "0x00000020",
+      "description": "Restore event: restore_started.",
+      "returns": {
+        "config": {
+          "description": "Configuration ID."
+        },
+        "event": {
+          "description": "Signal event name.",
+          "verification": "restore_started"
+        },
+        "folder": {
+          "description": "Folder name."
+        }
+      }
+    },
+    "restore_success": {
+      "appID": "0x00000020",
+      "signalID": "0x00000020",
+      "description": "Restore event: restore_success.",
+      "returns": {
+        "config": {
+          "description": "Configuration ID."
+        },
+        "event": {
+          "description": "Signal event name.",
+          "verification": "restore_success"
+        },
+        "folder": {
+          "description": "Folder name."
+        }
+      }
+    },
+    "status": {
+      "appID": "0x00000020",
+      "signalID": "0x00000020",
+      "description": "Runtime status was queried.",
+      "returns": {
+        "event": {
+          "description": "Signal event name.",
+          "verification": "status"
+        }
+      }
+    }
+  }
+}

@@ -446,7 +446,10 @@ namespace FolderRewind.Views.Settings
                 return;
             }
 
-            KnotLinkService.BroadcastEvent("event=test;message=Hello from FolderRewind!");
+            KnotLinkService.BroadcastEvent(null, "test", new Dictionary<string, string?>
+            {
+                ["message"] = "Hello from FolderRewind!"
+            });
 
             var dialog = new ContentDialog
             {
