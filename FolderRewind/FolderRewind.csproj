@@ -12,6 +12,15 @@
     <EnableMsixTooling>true</EnableMsixTooling>
     <Nullable>enable</Nullable>
     <TieredPGO>true</TieredPGO>
+    <!--
+      Keep the Windows App SDK version and the 2.3.1 XAML performance opt-ins
+      overridable for the local A/B benchmark. Normal builds use 2.3.1 with
+      all four validated optional changes enabled.
+    -->
+    <FolderRewindWindowsAppSdkVersion Condition="'$(FolderRewindWindowsAppSdkVersion)'==''">2.3.1</FolderRewindWindowsAppSdkVersion>
+    <FolderRewindEnableXaml231Optimizations Condition="'$(FolderRewindEnableXaml231Optimizations)'==''">true</FolderRewindEnableXaml231Optimizations>
+    <FolderRewindXaml231OptionalChanges>DeferContextFlyoutInit,IconNoGridOptimization,DefaultStyleOptimizations,OptimizeApplyStyles</FolderRewindXaml231OptionalChanges>
+    <EnabledXamlOptionalChanges Condition="'$(EnabledXamlOptionalChanges)'=='' and '$(FolderRewindEnableXaml231Optimizations)'=='true' and '$(FolderRewindWindowsAppSdkVersion)'=='2.3.1'">$(FolderRewindXaml231OptionalChanges)</EnabledXamlOptionalChanges>
     <!-- 普通开发和 Store/侧载构建仍为打包应用；MSI 发布在工作流中显式传入 Msi。 -->
     <FolderRewindDistributionChannel Condition="'$(FolderRewindDistributionChannel)'==''">Packaged</FolderRewindDistributionChannel>
   </PropertyGroup>
@@ -122,7 +131,7 @@
   </ItemGroup>
   <ItemGroup>
     <PackageReference Include="Microsoft.Windows.SDK.BuildTools" Version="10.0.28000.2270" />
-    <PackageReference Include="Microsoft.WindowsAppSDK" Version="2.3.1" />
+    <PackageReference Include="Microsoft.WindowsAppSDK" Version="$(FolderRewindWindowsAppSdkVersion)" />
     <!-- The metapackage is required by current WinUI controls, but these optional
          component assets are not used by FolderRewind and should not be deployed. -->
     <PackageReference Include="Microsoft.WindowsAppSDK.AI" Version="2.3.4" ExcludeAssets="all" PrivateAssets="all" />
