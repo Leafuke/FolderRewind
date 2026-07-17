@@ -8,7 +8,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
-using Windows.ApplicationModel.Resources;
+using ResourceLoader = FolderRewind.Services.AppResourceLoader;
 using PickerViewMode = Windows.Storage.Pickers.PickerViewMode;
 
 namespace FolderRewind.Views.Settings

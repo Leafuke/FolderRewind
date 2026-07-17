@@ -8,7 +8,6 @@ using Microsoft.UI.Xaml.Input;
 using System;
 using System.Linq;
 using System.Threading.Tasks;
-using Windows.Globalization;
 using Windows.Graphics;
 
 namespace FolderRewind
@@ -257,13 +256,7 @@ namespace FolderRewind
         private static void ApplyLanguageOverride(string? languageSetting)
         {
             var normalized = NormalizeLanguage(languageSetting);
-            if (string.IsNullOrWhiteSpace(normalized))
-            {
-                ApplicationLanguages.PrimaryLanguageOverride = string.Empty;
-                return;
-            }
-
-            ApplicationLanguages.PrimaryLanguageOverride = normalized;
+            I18n.SetLanguageOverride(normalized);
         }
 
         private static string NormalizeLanguage(string? languageSetting)

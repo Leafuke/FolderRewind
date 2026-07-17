@@ -4,7 +4,7 @@ using System.IO;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
-using Windows.ApplicationModel.Resources;
+using ResourceLoader = FolderRewind.Services.AppResourceLoader;
 
 namespace FolderRewind.Services.Plugins
 {

@@ -29,6 +29,13 @@ if (-not (Test-Path -LiteralPath $PublishDirectory)) {
 
 $requiredFiles = @(
     "FolderRewind.exe",
+    "FolderRewind.dll",
+    "FolderRewind.deps.json",
+    "FolderRewind.runtimeconfig.json",
+    "FolderRewind.pri",
+    "Microsoft.UI.Xaml.dll",
+    "Microsoft.UI.Xaml.Controls.pri",
+    "Microsoft.WindowsAppRuntime.dll",
     "7za.exe",
     "Assets\logo.ico"
 )
@@ -38,6 +45,50 @@ foreach ($requiredFile in $requiredFiles) {
     if (-not (Test-Path -LiteralPath $path)) {
         throw "Required MSI payload file was not found: $path"
     }
+}
+
+$debugSymbols = Get-ChildItem -LiteralPath $PublishDirectory -Filter '*.pdb' -File -Recurse -ErrorAction SilentlyContinue
+if ($debugSymbols)
+{
+    $symbolList = ($debugSymbols.FullName -join [Environment]::NewLine)
+    throw "MSI payload contains development debug symbols that must not be shipped:$([Environment]::NewLine)$symbolList"
+}
+
+# A plain dotnet publish can replace WinUI's dependency-merged PRI with an
+# app-only PRI. That package installs successfully but crashes before creating
+# a window because XamlControlsResources cannot resolve themeresources.xaml.
+$buildToolsRoot = Join-Path ([Environment]::GetFolderPath([Environment+SpecialFolder]::UserProfile)) `
+    '.nuget\packages\microsoft.windows.sdk.buildtools'
+$makePri = Get-ChildItem -LiteralPath $buildToolsRoot -Filter 'makepri.exe' -File -Recurse -ErrorAction SilentlyContinue |
+    Where-Object { $_.FullName -match '[\\/]x64[\\/]makepri\.exe$' } |
+    Sort-Object FullName -Descending |
+    Select-Object -First 1
+
+if ($null -eq $makePri)
+{
+    throw "makepri.exe was not found below $buildToolsRoot. Restore the app project before building the MSI."
+}
+
+$priPath = Join-Path $PublishDirectory 'FolderRewind.pri'
+$priDumpPath = Join-Path ([IO.Path]::GetTempPath()) ("FolderRewind-pri-{0}.xml" -f [Guid]::NewGuid().ToString('N'))
+try
+{
+    & $makePri.FullName dump /if $priPath /of $priDumpPath /o | Out-Null
+    if ($LASTEXITCODE -ne 0)
+    {
+        throw "makepri.exe could not inspect the MSI resource index (exit code $LASTEXITCODE)."
+    }
+
+    $priDump = Get-Content -LiteralPath $priDumpPath -Raw
+    if ($priDump -notmatch '<ResourceMapSubtree name="Microsoft\.UI\.Xaml"' -or
+        $priDump -notmatch '<NamedResource name="themeresources\.xbf"')
+    {
+        throw 'FolderRewind.pri is not dependency-merged; Microsoft.UI.Xaml theme resources are missing.'
+    }
+}
+finally
+{
+    Remove-Item -LiteralPath $priDumpPath -Force -ErrorAction SilentlyContinue
 }
 
 New-Item -ItemType Directory -Path $OutputDirectory -Force | Out-Null

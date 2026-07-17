@@ -1312,15 +1312,10 @@ namespace FolderRewind.Services
         /// </summary>
         private static string GetAppVersion()
         {
-            try
-            {
-                var version = Windows.ApplicationModel.Package.Current.Id.Version;
-                return $"{version.Major}.{version.Minor}.{version.Build}";
-            }
-            catch
-            {
-                return "1.0.0";
-            }
+            var version = AppRuntimeInfo.GetApplicationVersion();
+            return version == null
+                ? "1.0.0"
+                : $"{version.Major}.{version.Minor}.{version.Build}";
         }
 
         #endregion

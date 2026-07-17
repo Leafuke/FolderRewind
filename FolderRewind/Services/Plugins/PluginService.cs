@@ -12,8 +12,7 @@ using System.Linq;
 using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
-using Windows.ApplicationModel.Resources;
-using Windows.Storage;
+using ResourceLoader = FolderRewind.Services.AppResourceLoader;
 
 namespace FolderRewind.Services.Plugins
 {
@@ -49,15 +48,10 @@ namespace FolderRewind.Services.Plugins
         /// </summary>
         public static string GetHostVersion()
         {
-            try
-            {
-                var version = Windows.ApplicationModel.Package.Current.Id.Version;
-                return $"{version.Major}.{version.Minor}.{version.Build}";
-            }
-            catch
-            {
-                return "1.0.0";
-            }
+            var version = AppRuntimeInfo.GetApplicationVersion();
+            return version == null
+                ? "1.0.0"
+                : $"{version.Major}.{version.Minor}.{version.Build}";
         }
 
         /// <summary>
@@ -2056,18 +2050,7 @@ namespace FolderRewind.Services.Plugins
 
         private static string GetWritableAppDataDir()
         {
-            // Packaged (MSIX) 下：LocalState
-            try
-            {
-                var localFolder = ApplicationData.Current.LocalFolder;
-                if (!string.IsNullOrWhiteSpace(localFolder?.Path)) return localFolder.Path;
-            }
-            catch
-            {
-            }
-
-            // Unpackaged 下：常规 LocalAppData
-            return Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData);
+            return AppRuntimeInfo.WritableAppDataBaseDirectory;
         }
 
         private sealed record LoadedPlugin(PluginInstallManifest Manifest, IFolderRewindPlugin Instance, PluginLoadContext LoadContext);

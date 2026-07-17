@@ -5,7 +5,6 @@ using System.Diagnostics;
 using System.IO;
 using System.Runtime.InteropServices;
 using System.Text.Json;
-using Windows.Storage;
 using Windows.Graphics;
 
 namespace FolderRewind.Services
@@ -661,18 +660,7 @@ namespace FolderRewind.Services
 
         private static string GetWritableAppDataDir()
         {
-            // 打包发布（MSIX）时：优先使用容器 LocalState。
-            try
-            {
-                var localFolder = ApplicationData.Current.LocalFolder;
-                if (!string.IsNullOrWhiteSpace(localFolder?.Path)) return localFolder.Path;
-            }
-            catch
-            {
-            }
-
-            // 非打包运行时：退回常规 LocalAppData。
-            return Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData);
+            return AppRuntimeInfo.WritableAppDataBaseDirectory;
         }
 
         private static void ApplyLogSettings(GlobalSettings settings)

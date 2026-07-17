@@ -28,6 +28,8 @@
     <WindowsAppSDKSelfContained>true</WindowsAppSDKSelfContained>
     <WindowsAppSdkUndockedRegFreeWinRTInitialize>true</WindowsAppSdkUndockedRegFreeWinRTInitialize>
     <PublishSingleFile>false</PublishSingleFile>
+    <DebugType>None</DebugType>
+    <DebugSymbols>false</DebugSymbols>
   </PropertyGroup>
 
   <!-- dotnet CLI 默认 Platform=AnyCPU，但打包 WinUI3 不允许中性架构；这里将 AnyCPU 映射为 x64。 -->
@@ -86,6 +88,26 @@
     <AssemblyMetadata Include="FolderRewindDistributionChannel" Value="Msi" />
   </ItemGroup>
 
+  <!--
+    WinUI creates a dependency-merged PRI in TargetDir during Build. The SDK's
+    publish split stage then emits a smaller app-only PRI, which cannot resolve
+    Microsoft.UI.Xaml/Themes/themeresources.xaml in an unpackaged build. Always
+    restore the merged index after Publish so local and CI MSI payloads behave alike.
+  -->
+  <Target Name="UseMergedResourceIndexForMsiPublish"
+          AfterTargets="Publish"
+          Condition="'$(FolderRewindDistributionChannel)'=='Msi'">
+    <PropertyGroup>
+      <_MsiMergedPri>$(TargetDir)$(AssemblyName).pri</_MsiMergedPri>
+      <_MsiPublishedPri>$(PublishDir)$(AssemblyName).pri</_MsiPublishedPri>
+    </PropertyGroup>
+    <Error Condition="!Exists('$(_MsiMergedPri)')"
+           Text="The dependency-merged MSI resource index was not generated: $(_MsiMergedPri)" />
+    <Copy SourceFiles="$(_MsiMergedPri)"
+          DestinationFiles="$(_MsiPublishedPri)"
+          SkipUnchangedFiles="false" />
+  </Target>
+
   <ItemGroup>
     <Manifest Include="$(ApplicationManifest)" />
   </ItemGroup>
@@ -100,7 +122,14 @@
   </ItemGroup>
   <ItemGroup>
     <PackageReference Include="Microsoft.Windows.SDK.BuildTools" Version="10.0.28000.2270" />
-    <PackageReference Include="Microsoft.WindowsAppSDK" Version="2.2.0" />
+    <PackageReference Include="Microsoft.WindowsAppSDK" Version="2.3.1" />
+    <!-- The metapackage is required by current WinUI controls, but these optional
+         component assets are not used by FolderRewind and should not be deployed. -->
+    <PackageReference Include="Microsoft.WindowsAppSDK.AI" Version="2.3.4" ExcludeAssets="all" PrivateAssets="all" />
+    <PackageReference Include="Microsoft.WindowsAppSDK.DWrite" Version="2.1.0" ExcludeAssets="all" PrivateAssets="all" />
+    <PackageReference Include="Microsoft.WindowsAppSDK.ML" Version="2.1.74" ExcludeAssets="all" PrivateAssets="all" />
+    <PackageReference Include="Microsoft.WindowsAppSDK.Widgets" Version="2.0.5" ExcludeAssets="all" PrivateAssets="all" />
+    <PackageReference Include="Microsoft.Windows.AI.MachineLearning" Version="2.1.74" ExcludeAssets="all" PrivateAssets="all" />
     <PackageReference Include="CommunityToolkit.Mvvm" Version="8.4.2" />
     <PackageReference Include="H.NotifyIcon.WinUI" Version="2.4.1" />
     <PackageReference Include="CommunityToolkit.WinUI.Controls.SettingsControls" Version="8.2.251219" />

@@ -5,7 +5,6 @@ using System.Diagnostics;
 using System.IO;
 using System.Threading.Channels;
 using System.Threading.Tasks;
-using Windows.Storage;
 
 namespace FolderRewind.Services
 {
@@ -283,17 +282,7 @@ namespace FolderRewind.Services
 
         private static string GetWritableAppDataDir()
         {
-            try
-            {
-                var localFolder = ApplicationData.Current.LocalFolder;
-                if (!string.IsNullOrWhiteSpace(localFolder?.Path)) return localFolder.Path;
-            }
-            catch
-            {
-                // Unpackaged 下可能抛异常，回退即可
-            }
-
-            return Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData);
+            return AppRuntimeInfo.WritableAppDataBaseDirectory;
         }
     }
 }

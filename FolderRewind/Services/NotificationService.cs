@@ -313,7 +313,7 @@ namespace FolderRewind.Services
             try
             {
                 // 只有在打包模式下才支持 Badge
-                if (IsAppPackaged())
+                if (AppRuntimeInfo.IsPackaged)
                 {
                     if (!IsNotificationEnabled)
                     {
@@ -414,21 +414,6 @@ namespace FolderRewind.Services
             {
                 var message = I18n.Format("Notification_RestoreCompleted_Failed", folderName, errorMessage ?? "");
                 ShowError(message, I18n.GetString("Notification_Error_Title"));
-            }
-        }
-
-        /// <summary>
-        /// 检查应用是否打包运行
-        /// </summary>
-        private static bool IsAppPackaged()
-        {
-            try
-            {
-                return Windows.ApplicationModel.Package.Current != null;
-            }
-            catch
-            {
-                return false;
             }
         }
 

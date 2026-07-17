@@ -1,6 +1,4 @@
 using System;
-using System.Globalization;
-using Windows.Globalization;
 
 namespace FolderRewind.Services
 {
@@ -31,11 +29,7 @@ namespace FolderRewind.Services
         {
             try
             {
-                var language = ApplicationLanguages.PrimaryLanguageOverride;
-                if (string.IsNullOrWhiteSpace(language))
-                {
-                    language = CultureInfo.CurrentUICulture.Name;
-                }
+                var language = I18n.GetCurrentUiLanguage();
 
                 return !string.IsNullOrWhiteSpace(language)
                     && language.StartsWith("zh", StringComparison.OrdinalIgnoreCase);

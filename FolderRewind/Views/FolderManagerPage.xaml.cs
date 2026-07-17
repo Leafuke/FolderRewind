@@ -13,7 +13,7 @@ using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using System.Threading.Tasks;
-using Windows.ApplicationModel.Resources;
+using ResourceLoader = FolderRewind.Services.AppResourceLoader;
 using Windows.System;
 using PickerViewMode = Windows.Storage.Pickers.PickerViewMode;
 

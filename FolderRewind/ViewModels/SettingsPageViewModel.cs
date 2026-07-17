@@ -1271,24 +1271,10 @@ namespace FolderRewind.ViewModels
 
         private static string GetAppVersionString()
         {
-            try
-            {
-                var v = Package.Current.Id.Version;
-                return $"Version {v.Major}.{v.Minor}.{v.Build}.{v.Revision}";
-            }
-            catch
-            {
-                try
-                {
-                    var asm = typeof(SettingsPageViewModel).Assembly;
-                    var v = asm.GetName().Version;
-                    return v == null ? "Version (unknown)" : $"Version {v.Major}.{v.Minor}.{v.Build}.{v.Revision}";
-                }
-                catch
-                {
-                    return "Version (unknown)";
-                }
-            }
+            var version = AppRuntimeInfo.GetApplicationVersion();
+            return version == null
+                ? "Version (unknown)"
+                : $"Version {version.Major}.{version.Minor}.{version.Build}.{version.Revision}";
         }
 
         private static int LanguageToIndex(string? language)

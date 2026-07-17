@@ -3,6 +3,7 @@ using System.IO;
 using System.Linq;
 using System.Reflection;
 using Windows.ApplicationModel;
+using Windows.Storage;
 
 namespace FolderRewind.Services
 {
@@ -22,6 +23,13 @@ namespace FolderRewind.Services
         {
             get
             {
+                // MSI builds are deliberately unpackaged. Avoid probing Package.Current
+                // because that probe raises a first-chance exception without package identity.
+                if (IsMsiDistribution)
+                {
+                    return false;
+                }
+
                 try
                 {
                     return Package.Current != null;
@@ -30,6 +38,33 @@ namespace FolderRewind.Services
                 {
                     return false;
                 }
+            }
+        }
+
+        /// <summary>
+        /// Writable base directory used by config, logs, and plugins. MSIX keeps using
+        /// its container LocalState; MSI and other unpackaged runs use LocalAppData.
+        /// </summary>
+        public static string WritableAppDataBaseDirectory
+        {
+            get
+            {
+                if (IsPackaged)
+                {
+                    try
+                    {
+                        var localStatePath = ApplicationData.Current.LocalFolder.Path;
+                        if (!string.IsNullOrWhiteSpace(localStatePath))
+                        {
+                            return localStatePath;
+                        }
+                    }
+                    catch
+                    {
+                    }
+                }
+
+                return Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData);
             }
         }
 
@@ -80,6 +115,23 @@ namespace FolderRewind.Services
             {
                 return null;
             }
+        }
+
+        public static Version? GetApplicationVersion()
+        {
+            if (IsPackaged)
+            {
+                try
+                {
+                    var version = Package.Current.Id.Version;
+                    return new Version(version.Major, version.Minor, version.Build, version.Revision);
+                }
+                catch
+                {
+                }
+            }
+
+            return GetAssemblyVersion();
         }
 
         private static string? GetAssemblyMetadata(string name)
