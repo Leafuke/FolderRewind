@@ -101,7 +101,7 @@ If you are interested in discussing, you can join the QQ group.
 - [Windows App SDK](https://github.com/microsoft/windowsappsdk)
 - [WinUI](https://github.com/microsoft/microsoft-ui-xaml)
 - [Windows Community Toolkit](https://github.com/CommunityToolkit/Windows)
-- [KnotLink](https://github.com/hxh230802/KnotLink)
+- [KnotLink](https://github.com/KnotLink-Protocol/KnotLink)
 - [7-Zip](https://www.7-zip.org/)
 - [7-Zip-zstd](https://github.com/mcmilk/7-Zip-zstd)
 - [MineBackup - Spiritual Predecessor](https://github.com/Leafuke/MineBackup)

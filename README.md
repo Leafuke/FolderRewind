@@ -104,7 +104,7 @@ FolderRewind 是一款基于 **WinUI 3** 和 **.NET 10** 构建的现代化、�
 - [Windows App SDK](https://github.com/microsoft/windowsappsdk)
 - [WinUI](https://github.com/microsoft/microsoft-ui-xaml)
 - [Windows Community Toolkit](https://github.com/CommunityToolkit/Windows)
-- [KnotLink](https://github.com/hxh230802/KnotLink)
+- [KnotLink](https://github.com/KnotLink-Protocol/KnotLink)
 - [7-Zip](https://www.7-zip.org/)
 - [7-Zip-zstd](https://github.com/mcmilk/7-Zip-zstd)
 - [MineBackup - 前作](https://github.com/Leafuke/MineBackup)
