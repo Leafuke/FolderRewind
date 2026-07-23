@@ -23,6 +23,12 @@ namespace FolderRewind.Services
 
         private const string GitHubOwner = "KnotLink-Protocol";
         private const string GitHubRepo = "KnotLink";
+        private const string GitHubReleasesUrl = "https://github.com/KnotLink-Protocol/KnotLink/releases";
+        private static readonly Version MinimumSupportedServerVersionValue = new(3, 0, 0, 0);
+
+        public static Version MinimumSupportedServerVersion => MinimumSupportedServerVersionValue;
+
+        public static string OfficialReleasesUrl => GitHubReleasesUrl;
 
         /// <summary>
         /// 通过注册表 App Paths 探测 KnotLinkService.exe 的完整路径。
@@ -52,6 +58,29 @@ namespace FolderRewind.Services
         public static bool IsServerInstalled()
         {
             return GetServerVersion() != null || GetServerExecutablePath() != null;
+        }
+
+        /// <summary>
+        /// 读取本机 KnotLink 服务端兼容性。只要检测到安装但版本缺失、无法解析
+        /// 或低于最低支持版本，就要求用户更新。
+        /// </summary>
+        public static KnotLinkServerCompatibilityInfo GetServerCompatibilityInfo()
+        {
+            var currentVersion = GetServerVersion();
+            var isInstalled = !string.IsNullOrWhiteSpace(currentVersion)
+                || GetServerExecutablePath() != null;
+            var parsedVersion = string.IsNullOrWhiteSpace(currentVersion)
+                ? null
+                : TryParseFileVersion(currentVersion);
+
+            return new KnotLinkServerCompatibilityInfo
+            {
+                IsInstalled = isInstalled,
+                CurrentVersion = currentVersion,
+                ParsedVersion = parsedVersion,
+                RequiresUpdate = isInstalled
+                    && (parsedVersion == null || parsedVersion < MinimumSupportedServerVersionValue)
+            };
         }
 
         /// <summary>
@@ -155,10 +184,12 @@ namespace FolderRewind.Services
         /// </summary>
         public static async Task<KnotLinkUpdateInfo?> CheckForServerUpdateAsync(CancellationToken ct = default)
         {
-            var currentVersion = GetServerVersion();
+            var compatibility = GetServerCompatibilityInfo();
+            if (!compatibility.IsInstalled) return null;
+
+            var currentVersion = compatibility.CurrentVersion;
             LogService.LogInfo($"Current KnotLink version: {currentVersion ?? "not found"}",
                 nameof(KnotLinkServerManagerService));
-            if (currentVersion == null) return null;
 
             var release = await GitHubReleaseService.GetLatestReleaseAsync(GitHubOwner, GitHubRepo, ct);
             if (!string.IsNullOrWhiteSpace(release.ErrorMessage) || string.IsNullOrWhiteSpace(release.TagName))
@@ -168,7 +199,8 @@ namespace FolderRewind.Services
             if (latestVersion == null) return null;
 
             var releaseUrl = release.HtmlUrl ?? $"https://github.com/{GitHubOwner}/{GitHubRepo}/releases";
-            var hasUpdate = IsVersionNewer(currentVersion, latestVersion);
+            var hasUpdate = compatibility.ParsedVersion == null
+                || IsVersionNewer(compatibility.ParsedVersion, latestVersion);
 
             // 从 assets 中查找安装包：匹配 KnotLinkService-X.Y.Z.W-Installer.exe
             string? installerUrl = null;
@@ -188,13 +220,56 @@ namespace FolderRewind.Services
 
             return new KnotLinkUpdateInfo
             {
-                CurrentVersion = currentVersion,
+                CurrentVersion = currentVersion ?? string.Empty,
                 LatestVersion = latestVersion,
                 ReleaseUrl = releaseUrl,
                 InstallerDownloadUrl = installerUrl,
                 InstallerAssetName = installerName,
                 HasUpdate = hasUpdate
             };
+        }
+
+        /// <summary>
+        /// 使用与设置页相同的更新链路下载并启动最新兼容安装器。
+        /// 未提供更新信息时会先查询官方最新 Release。
+        /// </summary>
+        public static async Task<KnotLinkUpdateInfo> DownloadAndLaunchLatestInstallerAsync(
+            KnotLinkUpdateInfo? updateInfo = null,
+            CancellationToken ct = default)
+        {
+            updateInfo ??= await CheckForServerUpdateAsync(ct).ConfigureAwait(false);
+            if (updateInfo == null)
+            {
+                throw new InvalidOperationException(
+                    I18n.GetString("KnotLinkCompatibility_UpdateInfoUnavailable"));
+            }
+
+            var latestVersion = TryParseFileVersion(updateInfo.LatestVersion);
+            if (latestVersion == null || latestVersion < MinimumSupportedServerVersionValue)
+            {
+                throw new InvalidOperationException(I18n.Format(
+                    "KnotLinkCompatibility_LatestVersionUnsupported",
+                    updateInfo.LatestVersion,
+                    FormatVersion(MinimumSupportedServerVersionValue)));
+            }
+
+            if (string.IsNullOrWhiteSpace(updateInfo.InstallerDownloadUrl))
+            {
+                throw new InvalidOperationException(
+                    I18n.GetString("SettingsPage_KnotLinkServerNoInstaller"));
+            }
+
+            var localPath = await DownloadInstallerAsync(
+                updateInfo.InstallerDownloadUrl,
+                ct).ConfigureAwait(false);
+            if (localPath == null)
+            {
+                throw new InvalidOperationException(
+                    I18n.GetString("KnotLinkCompatibility_DownloadFailed"));
+            }
+
+            LaunchInstaller(localPath);
+            return updateInfo;
         }
 
         /// <summary>
@@ -241,12 +316,10 @@ namespace FolderRewind.Services
                 nameof(KnotLinkServerManagerService));
         }
 
-        private static bool IsVersionNewer(string currentVersion, string latestVersion)
+        private static bool IsVersionNewer(Version currentVersion, string latestVersion)
         {
-            var cur = TryParseFileVersion(currentVersion);
             var lat = TryParseFileVersion(latestVersion);
-            if (cur == null || lat == null) return false;
-            return lat > cur;
+            return lat != null && lat > currentVersion;
         }
 
         private static string? TryParseTagVersion(string tagName)
@@ -269,6 +342,17 @@ namespace FolderRewind.Services
 
             return new Version(normalized[0], normalized[1], normalized[2], normalized[3]);
         }
+
+        private static string FormatVersion(Version version) =>
+            $"{version.Major}.{version.Minor}";
+    }
+
+    internal sealed class KnotLinkServerCompatibilityInfo
+    {
+        public bool IsInstalled { get; init; }
+        public string? CurrentVersion { get; init; }
+        public Version? ParsedVersion { get; init; }
+        public bool RequiresUpdate { get; init; }
     }
 
     /// <summary>

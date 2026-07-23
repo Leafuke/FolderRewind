@@ -2284,6 +2284,39 @@ Comment: {1}
   <data name="SettingsPage_KnotLinkServer_InstallerLaunched" xml:space="preserve">
     <value>Server installer launched. Please complete installation and restart the app.</value>
   </data>
+  <data name="KnotLinkCompatibility_DialogTitle" xml:space="preserve">
+    <value>KnotLink Server Update Required</value>
+  </data>
+  <data name="KnotLinkCompatibility_DialogContent" xml:space="preserve">
+    <value>The installed KnotLink server version is {0}. FolderRewind 1.8.0 uses the KnotLink v2 parameterized protocol and requires server version {1} or later. Update the server to ensure compatibility.</value>
+  </data>
+  <data name="KnotLinkCompatibility_UnknownVersion" xml:space="preserve">
+    <value>unknown</value>
+  </data>
+  <data name="KnotLinkCompatibility_UpdateNow" xml:space="preserve">
+    <value>Update Now</value>
+  </data>
+  <data name="KnotLinkCompatibility_RemindLater" xml:space="preserve">
+    <value>Remind Me Later</value>
+  </data>
+  <data name="KnotLinkCompatibility_UpdateInfoUnavailable" xml:space="preserve">
+    <value>Unable to retrieve the latest KnotLink server release information.</value>
+  </data>
+  <data name="KnotLinkCompatibility_LatestVersionUnsupported" xml:space="preserve">
+    <value>The latest official version, {0}, is older than FolderRewind's minimum required version, {1}.</value>
+  </data>
+  <data name="KnotLinkCompatibility_DownloadFailed" xml:space="preserve">
+    <value>Failed to download the KnotLink server installer.</value>
+  </data>
+  <data name="KnotLinkCompatibility_UpdateFailedTitle" xml:space="preserve">
+    <value>KnotLink Server Update Failed</value>
+  </data>
+  <data name="KnotLinkCompatibility_UpdateFailedContent" xml:space="preserve">
+    <value>{0} You can open the official KnotLink releases page and download the installer manually.</value>
+  </data>
+  <data name="KnotLinkCompatibility_OpenReleases" xml:space="preserve">
+    <value>Open Official Releases</value>
+  </data>
   <data name="Common_Save" xml:space="preserve">
     <value>Save</value>
   </data>

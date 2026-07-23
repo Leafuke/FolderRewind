@@ -2284,6 +2284,39 @@ cmd=RESTORE;from=minebackup.mod;request_id=req-mr-restore-002;current_save=true;
   <data name="SettingsPage_KnotLinkServer_InstallerLaunched" xml:space="preserve">
     <value>服务端安装程序已启动，请完成安装后重启应用</value>
   </data>
+  <data name="KnotLinkCompatibility_DialogTitle" xml:space="preserve">
+    <value>需要更新 KnotLink 服务端</value>
+  </data>
+  <data name="KnotLinkCompatibility_DialogContent" xml:space="preserve">
+    <value>检测到已安装的 KnotLink 服务端版本为 {0}。FolderRewind 1.8.0 使用 KnotLink v2 参数化协议，要求服务端版本至少为 {1}。请更新服务端以确保兼容。</value>
+  </data>
+  <data name="KnotLinkCompatibility_UnknownVersion" xml:space="preserve">
+    <value>未知</value>
+  </data>
+  <data name="KnotLinkCompatibility_UpdateNow" xml:space="preserve">
+    <value>立即更新</value>
+  </data>
+  <data name="KnotLinkCompatibility_RemindLater" xml:space="preserve">
+    <value>稍后提醒</value>
+  </data>
+  <data name="KnotLinkCompatibility_UpdateInfoUnavailable" xml:space="preserve">
+    <value>无法获取 KnotLink 服务端的最新版本信息。</value>
+  </data>
+  <data name="KnotLinkCompatibility_LatestVersionUnsupported" xml:space="preserve">
+    <value>官方最新版本 {0} 低于 FolderRewind 要求的最低版本 {1}。</value>
+  </data>
+  <data name="KnotLinkCompatibility_DownloadFailed" xml:space="preserve">
+    <value>KnotLink 服务端安装程序下载失败。</value>
+  </data>
+  <data name="KnotLinkCompatibility_UpdateFailedTitle" xml:space="preserve">
+    <value>KnotLink 服务端更新失败</value>
+  </data>
+  <data name="KnotLinkCompatibility_UpdateFailedContent" xml:space="preserve">
+    <value>{0} 你可以打开 KnotLink 官方发布页手动下载安装程序。</value>
+  </data>
+  <data name="KnotLinkCompatibility_OpenReleases" xml:space="preserve">
+    <value>打开官方下载页</value>
+  </data>
   <data name="Common_Save" xml:space="preserve">
     <value>保存</value>
   </data>

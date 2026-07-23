@@ -1017,16 +1017,11 @@ namespace FolderRewind.ViewModels
 
         public async Task DownloadAndRunKnotLinkInstallerAsync()
         {
-            if (_knotLinkServerUpdateInfo?.InstallerDownloadUrl == null)
+            if (_knotLinkServerUpdateInfo == null)
                 throw new InvalidOperationException(I18n.GetString("SettingsPage_KnotLinkServerNoInstaller"));
 
-            var localPath = await KnotLinkServerManagerService.DownloadInstallerAsync(
-                _knotLinkServerUpdateInfo.InstallerDownloadUrl);
-
-            if (localPath == null)
-                throw new InvalidOperationException(I18n.GetString("SettingsPage_KnotLinkServerNoInstaller"));
-
-            KnotLinkServerManagerService.LaunchInstaller(localPath);
+            await KnotLinkServerManagerService.DownloadAndLaunchLatestInstallerAsync(
+                _knotLinkServerUpdateInfo);
             NotificationService.ShowInfo(
                 I18n.GetString("SettingsPage_KnotLinkServer_InstallerLaunched"),
                 I18n.GetString("SettingsPage_KnotLink_Title"));

@@ -186,7 +186,10 @@ namespace FolderRewind.Views
             // 1. First-launch guide — stays modal (requires explicit user choice).
             await ShowFirstLaunchGuideAsync();
 
-            // 2-4. Fire-and-forget background checks. Results surface as non-blocking
+            // 2. KnotLink compatibility — stays modal, but allows the user to defer.
+            await ShowKnotLinkCompatibilityDialogAsync();
+
+            // 3-5. Fire-and-forget background checks. Results surface as non-blocking
             // InfoBar notifications instead of modal dialogs. Each InfoBar carries an
             // action button that opens the full detail dialog on user demand.
             _ = System.Threading.Tasks.Task.Run(CheckAndNotifyConflictsAsync);
@@ -260,6 +263,77 @@ namespace FolderRewind.Views
             catch (Exception ex)
             {
                 System.Diagnostics.Debug.WriteLine($"[FirstLaunchGuide] {ex.Message}");
+            }
+        }
+
+        /// <summary>
+        /// 每次启动检测本机 KnotLink 服务端。低于最低支持版本或版本未知时，
+        /// 强制显示兼容性提醒，但允许用户稍后处理。
+        /// </summary>
+        private async System.Threading.Tasks.Task ShowKnotLinkCompatibilityDialogAsync()
+        {
+            try
+            {
+                var compatibility = KnotLinkServerManagerService.GetServerCompatibilityInfo();
+                if (!compatibility.RequiresUpdate) return;
+
+                var currentVersion = string.IsNullOrWhiteSpace(compatibility.CurrentVersion)
+                    ? I18n.GetString("KnotLinkCompatibility_UnknownVersion")
+                    : compatibility.CurrentVersion;
+                var requiredVersion = $"{KnotLinkServerManagerService.MinimumSupportedServerVersion.Major}." +
+                    $"{KnotLinkServerManagerService.MinimumSupportedServerVersion.Minor}";
+
+                var dialog = new ContentDialog
+                {
+                    Title = I18n.GetString("KnotLinkCompatibility_DialogTitle"),
+                    Content = I18n.Format(
+                        "KnotLinkCompatibility_DialogContent",
+                        currentVersion,
+                        requiredVersion),
+                    PrimaryButtonText = I18n.GetString("KnotLinkCompatibility_UpdateNow"),
+                    CloseButtonText = I18n.GetString("KnotLinkCompatibility_RemindLater"),
+                    DefaultButton = ContentDialogButton.Primary,
+                    XamlRoot = this.XamlRoot
+                };
+
+                var result = await ShowDialogAsync(dialog);
+                if (result != ContentDialogResult.Primary) return;
+
+                try
+                {
+                    await KnotLinkServerManagerService.DownloadAndLaunchLatestInstallerAsync();
+                    NotificationService.ShowInfo(
+                        I18n.GetString("SettingsPage_KnotLinkServer_InstallerLaunched"),
+                        I18n.GetString("SettingsPage_KnotLink_Title"));
+                }
+                catch (Exception ex)
+                {
+                    await ShowKnotLinkUpdateFailureDialogAsync(ex.Message);
+                }
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"[KnotLinkCompatibility] {ex.Message}");
+            }
+        }
+
+        private async System.Threading.Tasks.Task ShowKnotLinkUpdateFailureDialogAsync(string errorMessage)
+        {
+            var dialog = new ContentDialog
+            {
+                Title = I18n.GetString("KnotLinkCompatibility_UpdateFailedTitle"),
+                Content = I18n.Format("KnotLinkCompatibility_UpdateFailedContent", errorMessage),
+                PrimaryButtonText = I18n.GetString("KnotLinkCompatibility_OpenReleases"),
+                CloseButtonText = I18n.GetString("Common_Close"),
+                DefaultButton = ContentDialogButton.Primary,
+                XamlRoot = this.XamlRoot
+            };
+
+            var result = await ShowDialogAsync(dialog);
+            if (result == ContentDialogResult.Primary)
+            {
+                await Windows.System.Launcher.LaunchUriAsync(
+                    new Uri(KnotLinkServerManagerService.OfficialReleasesUrl));
             }
         }
 
