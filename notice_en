@@ -1,10 +1,11 @@
-1.7.4 The temporary fix version is being gradually pushed out.
+FolderRewind 1.8.0 is now officially available.
 
-Note: Some new features originally planned for release in the official version 1.8.0 are present in this version. They have undergone simple testing but have not undergone rigorous long-term certification, and are not recommended for use in formal production.
-The "testing function" with significant uncertainty is as follows:
+Highlights:
 
-1. Select the backup mode for the designated area.
-2. Performance presets.
-3. Folder renaming/refactoring.
+1. Selected-area backups, performance presets, and folder rename/refactoring features are now ready for regular use.
+2. KnotLink has been upgraded to the v2 parameterized command protocol.
+3. MSI sideload installation and the overall app experience have been improved, along with fixes for several known issues.
 
-Be sure to use these features cautiously. They will undergo comprehensive testing before the official release of version 1.8.0, and only then can they be used in production environments.
+Important compatibility notice:
+
+If KnotLink Server is already installed, you must update it to version 3.0 or later. FolderRewind will remind you when it detects an older KnotLink Server or an installation whose version cannot be determined.
