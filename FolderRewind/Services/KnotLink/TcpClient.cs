@@ -50,7 +50,7 @@ namespace FolderRewind.Services.KnotLink
 
         public KlTcpClient(
             TimeSpan? heartbeatInterval = null,
-            KnotLinkFrameFormat frameFormat = KnotLinkFrameFormat.LengthPrefixed)
+            KnotLinkFrameFormat frameFormat = KnotLinkFrameFormat.MagicV2)
         {
             _heartbeatInterval = heartbeatInterval ?? TimeSpan.FromMinutes(3);
             _frameFormat = frameFormat;
