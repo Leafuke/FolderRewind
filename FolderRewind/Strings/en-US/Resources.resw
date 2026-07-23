@@ -1929,13 +1929,13 @@ Keys use letters, digits, and underscores only. Values must be percent-encoded. 
 If you have a listener subscribed to this signal, it should receive a message.</value>
   </data>
   <data name="SettingsPage_KnotLinkSendCustom_Title" xml:space="preserve">
-    <value>Send custom message</value>
+    <value>Send custom command</value>
   </data>
   <data name="SettingsPage_KnotLinkSendCustom_Placeholder" xml:space="preserve">
-    <value>Enter content to send</value>
+    <value>Enter a strict key-value command, for example cmd=PING</value>
   </data>
   <data name="SettingsPage_KnotLinkSendCustom_Empty" xml:space="preserve">
-    <value>Message cannot be empty</value>
+    <value>Command cannot be empty</value>
   </data>
   <data name="SettingsPage_KnotLinkSendCustom_ResultTitle" xml:space="preserve">
     <value>Remote response</value>

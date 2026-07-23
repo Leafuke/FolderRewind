@@ -37,7 +37,7 @@ namespace FolderRewind.Services
         private static SignalSender? _signalSender;
         private static OpenSocketResponser? _commandResponser;
         private static readonly object _initLock = new();
-        private static bool _isInitialized;
+        private static readonly KnotLinkInitializationState _initializationState = new();
         private static bool _isEnabled;
 
         // 自动备份任务管理（对应 MineBackup 的 g_active_auto_backups）
@@ -51,22 +51,22 @@ namespace FolderRewind.Services
         /// <summary>
         /// 服务是否已启用
         /// </summary>
-        public static bool IsEnabled => _isEnabled;
+        public static bool IsEnabled => Volatile.Read(ref _isEnabled);
 
         /// <summary>
         /// 服务是否已初始化
         /// </summary>
-        public static bool IsInitialized => _isInitialized;
+        public static bool IsInitialized => _initializationState.IsInitialized;
 
         /// <summary>
-        /// 命令响应器是否正在运行
+        /// 命令响应器是否已成功初始化
         /// </summary>
-        public static bool IsResponserRunning => _commandResponser != null;
+        public static bool IsResponserRunning => _initializationState.ResponserInitialized;
 
         /// <summary>
-        /// 信号发送器是否正在运行
+        /// 信号发送器是否已成功初始化
         /// </summary>
-        public static bool IsSenderRunning => _signalSender != null;
+        public static bool IsSenderRunning => _initializationState.SenderInitialized;
 
         public static KnotLinkCommandContext? CurrentCommandContext => _currentCommandContext.Value;
 
@@ -117,34 +117,39 @@ namespace FolderRewind.Services
 
             lock (_initLock)
             {
-                if (_isInitialized) return;
+                if (IsInitialized) return;
 
                 try
                 {
-                    const string host = "127.0.0.1";
-                    const string appId = DefaultAppId;
-                    const string openSocketId = DefaultOpenSocketId;
-                    const string signalId = DefaultSignalId;
+                    var host = string.IsNullOrWhiteSpace(settings.KnotLinkHost) ? "127.0.0.1" : settings.KnotLinkHost.Trim();
+                    var appId = string.IsNullOrWhiteSpace(settings.KnotLinkAppId) ? DefaultAppId : settings.KnotLinkAppId.Trim();
+                    var openSocketId = string.IsNullOrWhiteSpace(settings.KnotLinkOpenSocketId) ? DefaultOpenSocketId : settings.KnotLinkOpenSocketId.Trim();
+                    var signalId = string.IsNullOrWhiteSpace(settings.KnotLinkSignalId) ? DefaultSignalId : settings.KnotLinkSignalId.Trim();
 
                     _activeAppId = appId;
                     _activeOpenSocketId = openSocketId;
                     _activeSignalId = signalId;
 
                     // 初始化信号发送器（用于广播事件）
-                    InitializeSignalSender(appId, signalId, host);
+                    var senderInitialized = InitializeSignalSender(appId, signalId, host, logFailure: true);
 
                     // 初始化命令响应器（用于接收远程命令）
-                    InitializeCommandResponser(appId, openSocketId, host);
+                    var responserInitialized = InitializeCommandResponser(appId, openSocketId, host, logFailure: true);
 
-                    _isInitialized = true;
-                    LogService.Log(I18n.Format("KnotLink_InitSuccess", appId, host));
-                    BroadcastEvent(null, "app_startup", new Dictionary<string, string?>
+                    // KnotLink SDK 2.0 does not expose a durable connection-state contract.
+                    // In particular, its transport read loop may end after the server closes a
+                    // role connection, so that low-level state must not redefine whether the
+                    // host service completed initialization.
+                    _initializationState.Record(senderInitialized, responserInitialized);
+                    if (IsInitialized)
                     {
-                        ["version"] = GetAppVersion()
-                    });
+                        LogService.Log(I18n.Format("KnotLink_InitSuccess", appId, host));
+                        BroadcastStartupEvent();
+                    }
                 }
                 catch (Exception ex)
                 {
+                    _initializationState.Reset();
                     LogService.Log(I18n.Format("KnotLink_InitFailed", ex.Message));
                 }
             }
@@ -153,40 +158,75 @@ namespace FolderRewind.Services
         /// <summary>
         /// 初始化信号发送器
         /// </summary>
-        private static void InitializeSignalSender(string appId, string signalId, string host)
+        private static bool InitializeSignalSender(string appId, string signalId, string host, bool logFailure)
         {
             try
             {
+                try { _signalSender?.Dispose(); } catch { }
                 _signalSender = new SignalSender(appId, signalId, host);
+                _signalSender.OnErrorAsync = ex => HandleTransportErrorAsync("SignalSender", ex);
                 LogService.Log(I18n.GetString("KnotLink_SenderInitSuccess"));
+                return true;
             }
             catch (Exception ex)
             {
-                LogService.Log(I18n.Format("KnotLink_SenderInitFailed", ex.Message));
+                _signalSender = null;
+                if (logFailure)
+                {
+                    LogService.Log(I18n.Format("KnotLink_SenderInitFailed", ex.Message));
+                }
+                return false;
             }
         }
 
         /// <summary>
         /// 初始化命令响应器
         /// </summary>
-        private static void InitializeCommandResponser(string appId, string openSocketId, string host)
+        private static bool InitializeCommandResponser(string appId, string openSocketId, string host, bool logFailure)
         {
             try
             {
-                _commandResponser = new OpenSocketResponser(appId, openSocketId, host);
-                _commandResponser.OnQuestionAsync = async question =>
-                {
-                    LogService.Log(I18n.Format("KnotLink_CommandReceived", question));
-                    var response = await ProcessCommandAsync(question);
-                    LogService.Log(I18n.Format("KnotLink_CommandResponse", response));
-                    return response;
-                };
+                try { _commandResponser?.Dispose(); } catch { }
+                _commandResponser = new OpenSocketResponser(
+                    appId,
+                    openSocketId,
+                    host,
+                    onQuestionAsync: HandleQuestionAsync);
+                _commandResponser.OnErrorAsync = ex => HandleTransportErrorAsync("OpenSocketResponser", ex);
                 LogService.Log(I18n.GetString("KnotLink_ResponderInitSuccess"));
+                return true;
             }
             catch (Exception ex)
             {
-                LogService.Log(I18n.Format("KnotLink_ResponderInitFailed", ex.Message));
+                _commandResponser = null;
+                if (logFailure)
+                {
+                    LogService.Log(I18n.Format("KnotLink_ResponderInitFailed", ex.Message));
+                }
+                return false;
             }
+        }
+
+        private static async Task<string> HandleQuestionAsync(string question)
+        {
+            LogService.Log(I18n.Format("KnotLink_CommandReceived", question));
+            var response = await ProcessCommandAsync(question).ConfigureAwait(false);
+            LogService.Log(I18n.Format("KnotLink_CommandResponse", response));
+            return response;
+        }
+
+        private static Task HandleTransportErrorAsync(string component, Exception exception)
+        {
+            LogService.LogWarning($"KnotLink {component} transport error: {exception.Message}", "KnotLink");
+            return Task.CompletedTask;
+        }
+
+        private static void BroadcastStartupEvent()
+        {
+            BroadcastEvent(null, "app_startup", new Dictionary<string, string?>
+            {
+                ["version"] = GetAppVersion()
+            });
         }
 
         /// <summary>
@@ -196,6 +236,8 @@ namespace FolderRewind.Services
         {
             lock (_initLock)
             {
+                _isEnabled = false;
+
                 // 停止所有自动备份任务
                 foreach (var kvp in _activeAutoBackups)
                 {
@@ -209,7 +251,7 @@ namespace FolderRewind.Services
 
                 _signalSender = null;
                 _commandResponser = null;
-                _isInitialized = false;
+                _initializationState.Reset();
 
                 LogService.Log(I18n.GetString("KnotLink_Shutdown"));
             }
@@ -242,7 +284,7 @@ namespace FolderRewind.Services
         /// </summary>
         public static async Task BroadcastEventAsync(string eventData)
         {
-            if (_signalSender == null || !_isEnabled) return;
+            if (_signalSender == null || !IsEnabled) return;
 
             try
             {
@@ -356,7 +398,7 @@ namespace FolderRewind.Services
         /// </summary>
         public static IDisposable? SubscribeSignal(string signalId, Func<string, Task> onSignal)
         {
-            if (!_isEnabled) return null;
+            if (!IsEnabled) return null;
             if (string.IsNullOrWhiteSpace(signalId)) return null;
 
             var settings = ConfigService.CurrentConfig?.GlobalSettings;
@@ -367,8 +409,8 @@ namespace FolderRewind.Services
 
             try
             {
-                var sub = new SignalSubscriber(appId, signalId, host);
-                sub.OnSignalAsync = onSignal;
+                var sub = new SignalSubscriber(appId, signalId, host, onSignalAsync: onSignal);
+                sub.OnErrorAsync = ex => HandleTransportErrorAsync("SignalSubscriber", ex);
                 return sub;
             }
             catch (Exception ex)
@@ -385,13 +427,13 @@ namespace FolderRewind.Services
         {
             var settings = ConfigService.CurrentConfig?.GlobalSettings;
             if (settings == null) return Task.FromResult("ERROR:Config not loaded.");
-            if (!_isEnabled) return Task.FromResult("ERROR:KnotLink disabled.");
+            if (!IsEnabled) return Task.FromResult("ERROR:KnotLink disabled.");
 
             var host = string.IsNullOrWhiteSpace(settings.KnotLinkHost) ? "127.0.0.1" : settings.KnotLinkHost;
             var appId = string.IsNullOrWhiteSpace(settings.KnotLinkAppId) ? DefaultAppId : settings.KnotLinkAppId;
             var openSocketId = string.IsNullOrWhiteSpace(settings.KnotLinkOpenSocketId) ? DefaultOpenSocketId : settings.KnotLinkOpenSocketId;
 
-            return FolderRewind.Services.KnotLink.OpenSocketQuerier.QueryAsync(appId, openSocketId, question, host, 6376, timeoutMs);
+            return OpenSocketQueryAdapter.QueryAsync(appId, openSocketId, question, host, 6376, timeoutMs);
         }
 
         #endregion
@@ -670,11 +712,11 @@ namespace FolderRewind.Services
 
         private static Task<string> HandleGetStatus(KnotLinkCommandContext context)
         {
-            var data = $"enabled={_isEnabled};initialized={_isInitialized};active_auto_backups={_activeAutoBackups.Count};active_tasks={BackupService.ActiveTasks.Count}";
+            var data = $"enabled={IsEnabled};initialized={IsInitialized};active_auto_backups={_activeAutoBackups.Count};active_tasks={BackupService.ActiveTasks.Count}";
             BroadcastEvent(context, "status", new Dictionary<string, string?>
             {
-                ["enabled"] = _isEnabled.ToString(),
-                ["initialized"] = _isInitialized.ToString(),
+                ["enabled"] = IsEnabled.ToString(),
+                ["initialized"] = IsInitialized.ToString(),
                 ["active_auto_backups"] = _activeAutoBackups.Count.ToString(),
                 ["active_tasks"] = BackupService.ActiveTasks.Count.ToString()
             });

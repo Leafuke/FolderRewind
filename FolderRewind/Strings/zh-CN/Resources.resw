@@ -1929,13 +1929,13 @@ cmd=RESTORE;from=minebackup.mod;request_id=req-mr-restore-002;current_save=true;
 如果您有监听器订阅了此信号，应该能收到消息。</value>
   </data>
   <data name="SettingsPage_KnotLinkSendCustom_Title" xml:space="preserve">
-    <value>发送自定义信息</value>
+    <value>发送自定义指令</value>
   </data>
   <data name="SettingsPage_KnotLinkSendCustom_Placeholder" xml:space="preserve">
-    <value>输入要发送的内容</value>
+    <value>输入严格键值对指令，例如 cmd=PING</value>
   </data>
   <data name="SettingsPage_KnotLinkSendCustom_Empty" xml:space="preserve">
-    <value>内容不能为空</value>
+    <value>指令不能为空</value>
   </data>
   <data name="SettingsPage_KnotLinkSendCustom_ResultTitle" xml:space="preserve">
     <value>远端响应</value>

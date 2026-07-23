@@ -3,6 +3,7 @@ using System;
 using System.Diagnostics;
 using System.IO;
 using System.Linq;
+using System.Net.Sockets;
 using System.Text.RegularExpressions;
 using System.Threading;
 using System.Threading.Tasks;
@@ -20,8 +21,7 @@ namespace FolderRewind.Services
             @"SOFTWARE\WOW6432Node\Microsoft\Windows\CurrentVersion\Uninstall\KnotLinkService";
         private const string ServerProcessName = "KnotLinkService";
 
-        // 在 1.8.0 正式更新之前，先把仓库替换回 hxh230802/KnotLink ， 因为 1.8.0 之后的版本会切换到 KnotLink-Protocol/KnotLink 仓库。
-        private const string GitHubOwner = "hxh230802";
+        private const string GitHubOwner = "KnotLink-Protocol";
         private const string GitHubRepo = "KnotLink";
 
         /// <summary>
@@ -93,6 +93,58 @@ namespace FolderRewind.Services
             {
                 LogService.LogWarning($"Failed to start KnotLink server: {ex.Message}",
                     nameof(KnotLinkServerManagerService));
+                return false;
+            }
+        }
+
+        /// <summary>
+        /// 等待 KnotLink 2.x 的发送器和响应器端口可连接。
+        /// </summary>
+        public static async Task<bool> WaitForServerReadyAsync(
+            string host = "127.0.0.1",
+            int timeoutMs = 10000,
+            CancellationToken ct = default)
+        {
+            if (timeoutMs <= 0) throw new ArgumentOutOfRangeException(nameof(timeoutMs));
+
+            using var timeoutCts = CancellationTokenSource.CreateLinkedTokenSource(ct);
+            timeoutCts.CancelAfter(timeoutMs);
+
+            while (!timeoutCts.IsCancellationRequested)
+            {
+                if (await CanConnectAsync(host, 6370, timeoutCts.Token).ConfigureAwait(false)
+                    && await CanConnectAsync(host, 6378, timeoutCts.Token).ConfigureAwait(false))
+                {
+                    return true;
+                }
+
+                try
+                {
+                    await Task.Delay(200, timeoutCts.Token).ConfigureAwait(false);
+                }
+                catch (OperationCanceledException)
+                {
+                    break;
+                }
+            }
+
+            return false;
+        }
+
+        private static async Task<bool> CanConnectAsync(string host, int port, CancellationToken ct)
+        {
+            try
+            {
+                using var client = new TcpClient();
+                await client.ConnectAsync(host, port, ct).ConfigureAwait(false);
+                return true;
+            }
+            catch (OperationCanceledException) when (ct.IsCancellationRequested)
+            {
+                return false;
+            }
+            catch
+            {
                 return false;
             }
         }

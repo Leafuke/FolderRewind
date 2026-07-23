@@ -208,18 +208,24 @@ namespace FolderRewind
                 LogService.Log($"[Startup] App ready: {startupSw.ElapsedMilliseconds}ms");
 
                 // 初始化 KnotLink 互联服务（根据用户设置决定是否启用）
-                Task.Run(() =>
+                Task.Run(async () =>
                 {
                     try
                     {
-                        KnotLinkService.Initialize();
-
                         var settings = Services.ConfigService.CurrentConfig?.GlobalSettings;
                         if (settings is { EnableKnotLink: true, AutoStartKnotLinkServer: true }
                             && !KnotLinkServerManagerService.IsServerProcessRunning())
                         {
-                            KnotLinkServerManagerService.TryStartServer();
+                            if (KnotLinkServerManagerService.TryStartServer())
+                            {
+                                var host = string.IsNullOrWhiteSpace(settings.KnotLinkHost)
+                                    ? "127.0.0.1"
+                                    : settings.KnotLinkHost;
+                                await KnotLinkServerManagerService.WaitForServerReadyAsync(host).ConfigureAwait(false);
+                            }
                         }
+
+                        KnotLinkService.Initialize();
                     }
                     catch (Exception knotEx)
                     {

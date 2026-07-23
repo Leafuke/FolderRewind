@@ -1,3 +1,9 @@
+/*
+ * KnotLink SDK - C#
+ * Copyright (c) 2024-2026 KnotLink Contributors
+ * SPDX-License-Identifier: MIT
+ */
+
 using System;
 using System.Threading.Tasks;
 
@@ -9,6 +15,11 @@ namespace FolderRewind.Services.KnotLink
         private string _appId;
         private string _signalId;
 
+        public Func<Exception, Task>? OnErrorAsync
+        {
+            get => _client.OnErrorAsync;
+            set => _client.OnErrorAsync = value;
+        }
         public SignalSender(string appId, string signalId, string host = "127.0.0.1", int port = 6370)
         {
             _appId = appId;
@@ -26,11 +37,14 @@ namespace FolderRewind.Services.KnotLink
         public Task EmitAsync(string data)
         {
             if (string.IsNullOrEmpty(_appId) || string.IsNullOrEmpty(_signalId))
-            {
                 throw new InvalidOperationException("AppId and SignalId must be set before emitting.");
-            }
 
-            string sKey = _appId + "-" + _signalId + "&*&";
+            return EmitAsync(_appId, _signalId, data);
+        }
+
+        public Task EmitAsync(string appId, string signalId, string data)
+        {
+            string sKey = appId + "-" + signalId + "&*&";
             return _client.SendAsync(sKey + data);
         }
 

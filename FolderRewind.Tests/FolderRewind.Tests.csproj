@@ -15,6 +15,13 @@
   </ItemGroup>
 
   <ItemGroup>
+    <Compile Include="..\FolderRewind\Services\KnotLink\TcpClient.cs" Link="Source\KnotLinkSdk\TcpClient.cs" />
+    <Compile Include="..\FolderRewind\Services\KnotLink\OpenSocketQuerier.cs" Link="Source\KnotLinkSdk\OpenSocketQuerier.cs" />
+    <Compile Include="..\FolderRewind\Services\KnotLink\OpenSocketResponser.cs" Link="Source\KnotLinkSdk\OpenSocketResponser.cs" />
+    <Compile Include="..\FolderRewind\Services\KnotLink\SignalSender.cs" Link="Source\KnotLinkSdk\SignalSender.cs" />
+    <Compile Include="..\FolderRewind\Services\KnotLink\SignalSubscriber.cs" Link="Source\KnotLinkSdk\SignalSubscriber.cs" />
+    <Compile Include="..\FolderRewind\Services\KnotLink\OpenSocketQueryAdapter.cs" Link="Source\KnotLinkSdk\OpenSocketQueryAdapter.cs" />
+    <Compile Include="..\FolderRewind\Services\KnotLink\KnotLinkInitializationState.cs" Link="Source\KnotLinkInitializationState.cs" />
     <Compile Include="..\FolderRewind\Services\KnotLink\KnotLinkKeyValueCodec.cs" Link="Source\KnotLinkKeyValueCodec.cs" />
     <Compile Include="..\FolderRewind\Services\KnotLink\KnotLinkCommandParser.cs" Link="Source\KnotLinkCommandParser.cs" />
     <Compile Include="..\FolderRewind\Services\KnotLink\KnotLinkCommandRequest.cs" Link="Source\KnotLinkCommandRequest.cs" />

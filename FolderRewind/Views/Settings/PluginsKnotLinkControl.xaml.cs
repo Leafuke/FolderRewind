@@ -517,7 +517,7 @@ namespace FolderRewind.Views.Settings
 
             try
             {
-                var response = await KnotLinkService.QueryAsync($"SEND {message}", 5000);
+                var response = await KnotLinkService.QueryAsync(message, 5000);
 
                 var respDialog = new ContentDialog
                 {

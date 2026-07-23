@@ -992,11 +992,22 @@ namespace FolderRewind.ViewModels
         public bool StartKnotLinkServer()
         {
             var result = KnotLinkServerManagerService.TryStartServer();
-            // 等待一小段时间让进程启动，然后刷新状态
-            Task.Delay(500).ContinueWith(_ =>
+            _ = Task.Run(async () =>
             {
                 try
                 {
+                    if (result)
+                    {
+                        var host = string.IsNullOrWhiteSpace(Settings.KnotLinkHost)
+                            ? "127.0.0.1"
+                            : Settings.KnotLinkHost;
+                        await KnotLinkServerManagerService.WaitForServerReadyAsync(host).ConfigureAwait(false);
+                        if (Settings.EnableKnotLink)
+                        {
+                            KnotLinkService.Restart();
+                        }
+                    }
+
                     RefreshKnotLinkServerInfo();
                 }
                 catch { }
