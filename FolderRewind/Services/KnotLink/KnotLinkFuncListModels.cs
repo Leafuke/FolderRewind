@@ -9,7 +9,7 @@ namespace FolderRewind.Services.KnotLink
         public string SpecVersion { get; set; } = "1.0";
 
         [JsonPropertyName("manifestVersion")]
-        public string ManifestVersion { get; set; } = "1.0.0";
+        public string ManifestVersion { get; set; } = "2.0.0";
 
         [JsonPropertyName("appName")]
         public string AppName { get; set; } = "FolderRewind";

@@ -29,6 +29,7 @@
     <Compile Include="..\FolderRewind\Services\KnotLink\KnotLinkCommandMetadata.cs" Link="Source\KnotLinkCommandMetadata.cs" />
     <Compile Include="..\FolderRewind\Services\KnotLink\KnotLinkCommandValidationResult.cs" Link="Source\KnotLinkCommandValidationResult.cs" />
     <Compile Include="..\FolderRewind\Services\KnotLink\KnotLinkCommandValidator.cs" Link="Source\KnotLinkCommandValidator.cs" />
+    <Compile Include="..\FolderRewind\Services\KnotLink\KnotLinkBackupOverrides.cs" Link="Source\KnotLinkBackupOverrides.cs" />
     <Compile Include="..\FolderRewind\Services\KnotLink\KnotLinkProtocolFormatter.cs" Link="Source\KnotLinkProtocolFormatter.cs" />
     <Compile Include="..\FolderRewind\Services\KnotLink\KnotLinkFuncListModels.cs" Link="Source\KnotLinkFuncListModels.cs" />
     <Compile Include="..\FolderRewind\Services\KnotLink\KnotLinkFuncListService.cs" Link="Source\KnotLinkFuncListService.cs" />

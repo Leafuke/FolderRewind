@@ -1,6 +1,6 @@
 {
   "specVersion": "1.0",
-  "manifestVersion": "1.0.0",
+  "manifestVersion": "2.0.0",
   "appName": "FolderRewind",
   "openSocket": {
     "auto_backup": {
@@ -60,6 +60,20 @@
           "description": "Comma-separated one-shot blacklist rules.",
           "defaultVal": ""
         },
+        "backup_mode": {
+          "type": "optional",
+          "options": [
+            [
+              "Full",
+              "full"
+            ],
+            [
+              "Incremental",
+              "incremental"
+            ]
+          ],
+          "description": "Optional one-shot backup mode."
+        },
         "backup_scope": {
           "type": "input",
           "description": "Optional plugin backup scope ID.",
@@ -80,6 +94,33 @@
           "description": "Optional backup comment.",
           "defaultVal": ""
         },
+        "compression_level": {
+          "type": "input",
+          "description": "Optional one-shot compression level.",
+          "defaultVal": ""
+        },
+        "compression_method": {
+          "type": "optional",
+          "options": [
+            [
+              "LZMA2",
+              "LZMA2"
+            ],
+            [
+              "Deflate",
+              "Deflate"
+            ],
+            [
+              "BZip2",
+              "BZip2"
+            ],
+            [
+              "zstd",
+              "zstd"
+            ]
+          ],
+          "description": "Optional one-shot compression method."
+        },
         "config_id": {
           "type": "input",
           "description": "Backup configuration ID.",
@@ -89,20 +130,6 @@
           "type": "input",
           "description": "Folder name or index.",
           "defaultVal": "0"
-        },
-        "force_full": {
-          "type": "optional",
-          "options": [
-            [
-              "True",
-              "true"
-            ],
-            [
-              "False",
-              "false"
-            ]
-          ],
-          "description": "Force a full backup."
         },
         "from": {
           "type": "input",
@@ -170,20 +197,6 @@
           "type": "input",
           "description": "Backup configuration ID.",
           "defaultVal": "config-id"
-        },
-        "force_full": {
-          "type": "optional",
-          "options": [
-            [
-              "True",
-              "true"
-            ],
-            [
-              "False",
-              "false"
-            ]
-          ],
-          "description": "Force full backups."
         },
         "from": {
           "type": "input",

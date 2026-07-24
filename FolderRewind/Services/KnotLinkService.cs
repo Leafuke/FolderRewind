@@ -736,9 +736,14 @@ namespace FolderRewind.Services
                 return Task.FromResult(error);
             }
 
-            if (!TryGetBoolOption(request, "force_full", false, out var forceFullBackup, out error))
+            if (!KnotLinkBackupOverrideResolver.TryResolve(
+                    request,
+                    config!.Archive?.Method ?? "LZMA2",
+                    config.Archive?.CompressionLevel ?? 5,
+                    out var backupOverrides,
+                    out var overrideError))
             {
-                return Task.FromResult(error);
+                return Task.FromResult("ERROR:" + overrideError);
             }
 
             var comment = request.GetStringOrDefault("comment");
@@ -746,13 +751,14 @@ namespace FolderRewind.Services
             var backupWhitelist = GetBackupWhitelistOptions(request);
             var backupScopeId = request.GetString("backup_scope");
             var backupScopeParameters = GetScopeParameters(request);
-            var effectiveConfig = CreateConfigWithOneShotFilters(
+            var effectiveConfig = CreateConfigWithOneShotOverrides(
                 config!,
                 backupBlacklist,
                 backupWhitelist,
                 Array.Empty<string>(),
                 backupScopeId,
-                backupScopeParameters);
+                backupScopeParameters,
+                backupOverrides);
             var effectiveFolder = ResolveEquivalentFolder(effectiveConfig, folder!);
 
             _ = Task.Run(async () =>
@@ -764,7 +770,6 @@ namespace FolderRewind.Services
                         effectiveConfig,
                         effectiveFolder,
                         comment,
-                        forceFullBackup,
                         BackupInvocationOptions.ForRemote());
                 }
                 catch (Exception ex)
@@ -820,7 +825,7 @@ namespace FolderRewind.Services
             }
 
             var restoreWhitelist = request.GetList("restore_whitelist");
-            var effectiveConfig = CreateConfigWithOneShotFilters(config!, Array.Empty<string>(), Array.Empty<string>(), restoreWhitelist);
+            var effectiveConfig = CreateConfigWithOneShotOverrides(config!, Array.Empty<string>(), Array.Empty<string>(), restoreWhitelist);
             var effectiveFolder = ResolveEquivalentFolder(effectiveConfig, folder!);
 
             _ = Task.Run(async () =>
@@ -859,17 +864,12 @@ namespace FolderRewind.Services
                 return Task.FromResult(error);
             }
 
-            if (!TryGetBoolOption(request, "force_full", false, out var forceFullBackup, out error))
-            {
-                return Task.FromResult(error);
-            }
-
             var comment = request.GetStringOrDefault("comment");
             var backupBlacklist = request.GetList("backup_blacklist");
             var backupWhitelist = GetBackupWhitelistOptions(request);
             var backupScopeId = request.GetString("backup_scope");
             var backupScopeParameters = GetScopeParameters(request);
-            var effectiveConfig = CreateConfigWithOneShotFilters(
+            var effectiveConfig = CreateConfigWithOneShotOverrides(
                 config!,
                 backupBlacklist,
                 backupWhitelist,
@@ -889,7 +889,7 @@ namespace FolderRewind.Services
                 {
                     BroadcastCommandLifecycle(context, "command_started");
                     bool anyNewBackup = false;
-                    if (forceFullBackup || !string.IsNullOrWhiteSpace(comment))
+                    if (!string.IsNullOrWhiteSpace(comment))
                     {
                         foreach (var folder in effectiveConfig.SourceFolders)
                         {
@@ -897,7 +897,6 @@ namespace FolderRewind.Services
                                 effectiveConfig,
                                 folder,
                                 comment,
-                                forceFullBackup,
                                 BackupInvocationOptions.ForRemote());
                             anyNewBackup = anyNewBackup || hasNewBackup;
                         }
@@ -1173,19 +1172,21 @@ namespace FolderRewind.Services
             return false;
         }
 
-        private static BackupConfig CreateConfigWithOneShotFilters(
+        private static BackupConfig CreateConfigWithOneShotOverrides(
             BackupConfig source,
             IReadOnlyList<string> backupBlacklist,
             IReadOnlyList<string> backupWhitelist,
             IReadOnlyList<string> restoreWhitelist,
             string? backupScopeId = null,
-            IReadOnlyDictionary<string, string>? backupScopeParameters = null)
+            IReadOnlyDictionary<string, string>? backupScopeParameters = null,
+            KnotLinkBackupOverrides? backupOverrides = null)
         {
             var needsClone = (backupBlacklist?.Count ?? 0) > 0
                 || (backupWhitelist?.Count ?? 0) > 0
                 || (restoreWhitelist?.Count ?? 0) > 0
                 || !string.IsNullOrWhiteSpace(backupScopeId)
-                || (backupScopeParameters?.Count ?? 0) > 0;
+                || (backupScopeParameters?.Count ?? 0) > 0
+                || backupOverrides?.HasOverrides == true;
             if (!needsClone)
             {
                 return source;
@@ -1240,6 +1241,23 @@ namespace FolderRewind.Services
 
                     clone.BackupScope.Parameters[pair.Key] = pair.Value ?? string.Empty;
                 }
+            }
+
+            if (backupOverrides?.BackupMode != null)
+            {
+                clone.Archive.Mode = backupOverrides.BackupMode == "Incremental"
+                    ? BackupMode.Incremental
+                    : BackupMode.Full;
+            }
+
+            if (backupOverrides?.CompressionMethod != null)
+            {
+                clone.Archive.Method = backupOverrides.CompressionMethod;
+            }
+
+            if (backupOverrides?.CompressionLevel is int compressionLevel)
+            {
+                clone.Archive.CompressionLevel = compressionLevel;
             }
 
             return clone;

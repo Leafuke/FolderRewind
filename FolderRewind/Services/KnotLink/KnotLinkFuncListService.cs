@@ -9,7 +9,7 @@ namespace FolderRewind.Services.KnotLink
     public static class KnotLinkFuncListService
     {
         public const string SpecVersion = "1.0";
-        public const string ManifestVersion = "1.0.0";
+        public const string ManifestVersion = "2.0.0";
         public const string DefaultAppId = "0x00000020";
         public const string DefaultOpenSocketId = "0x00000010";
         public const string DefaultSignalId = "0x00000020";
@@ -131,7 +131,14 @@ namespace FolderRewind.Services.KnotLink
                     ("config_id", Input("Backup configuration ID.", "config-id")),
                     ("folder", Input("Folder name or index.", "0")),
                     ("comment", Input("Optional backup comment.", "")),
-                    ("force_full", BooleanOption("Force a full backup.")),
+                    ("backup_mode", Optional("Optional one-shot backup mode.", ("Full", "full"), ("Incremental", "incremental"))),
+                    ("compression_method", Optional(
+                        "Optional one-shot compression method.",
+                        ("LZMA2", "LZMA2"),
+                        ("Deflate", "Deflate"),
+                        ("BZip2", "BZip2"),
+                        ("zstd", "zstd"))),
+                    ("compression_level", Input("Optional one-shot compression level.", "")),
                     ("backup_blacklist", Input("Comma-separated one-shot blacklist rules.", "")),
                     ("backup_whitelist", Input("Comma-separated one-shot whitelist rules.", "")),
                     ("backup_scope", Input("Optional plugin backup scope ID.", "")),
@@ -151,7 +158,6 @@ namespace FolderRewind.Services.KnotLink
                 WithConversation(Args(
                     ("config_id", Input("Backup configuration ID.", "config-id")),
                     ("comment", Input("Optional backup comment.", "")),
-                    ("force_full", BooleanOption("Force full backups.")),
                     ("backup_blacklist", Input("Comma-separated one-shot blacklist rules.", "")),
                     ("backup_whitelist", Input("Comma-separated one-shot whitelist rules.", "")),
                     ("backup_scope", Input("Optional plugin backup scope ID.", "")))), StatusReturns("message"));

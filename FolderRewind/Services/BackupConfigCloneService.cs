@@ -18,6 +18,7 @@ namespace FolderRewind.Services
             var clone = JsonSerializer.Deserialize(json, AppJsonContext.Default.BackupConfig)
                 ?? throw new InvalidOperationException(errorMessage);
 
+            clone.Archive ??= new ArchiveSettings();
             clone.Filters ??= new FilterSettings();
             clone.Filters.Blacklist ??= new ObservableCollection<string>();
             clone.Filters.BackupWhitelist ??= new ObservableCollection<string>();

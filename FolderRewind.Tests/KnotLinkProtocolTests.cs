@@ -77,4 +77,78 @@ public sealed class KnotLinkProtocolTests
         Assert.IsFalse(result.IsValid);
         CollectionAssert.AreEquivalent(new[] { "from", "request_id" }, result.MissingMetadataKeys.ToArray());
     }
+
+    [TestMethod]
+    public void BackupOverrides_NormalizeValidValues()
+    {
+        var request = KnotLinkCommandParser.Parse(
+            "cmd=BACKUP;backup_mode=INCREMENTAL;compression_method=lzma2;compression_level=7");
+
+        var success = KnotLinkBackupOverrideResolver.TryResolve(
+            request,
+            "Deflate",
+            5,
+            out var overrides,
+            out var error);
+
+        Assert.IsTrue(success, error);
+        Assert.AreEqual("Incremental", overrides.BackupMode);
+        Assert.AreEqual("LZMA2", overrides.CompressionMethod);
+        Assert.AreEqual(7, overrides.CompressionLevel);
+    }
+
+    [TestMethod]
+    public void BackupOverrides_AllowIndependentValidOverrides()
+    {
+        var request = KnotLinkCommandParser.Parse("cmd=BACKUP;compression_level=22");
+
+        var success = KnotLinkBackupOverrideResolver.TryResolve(
+            request,
+            "zstd",
+            5,
+            out var overrides,
+            out var error);
+
+        Assert.IsTrue(success, error);
+        Assert.IsNull(overrides.BackupMode);
+        Assert.IsNull(overrides.CompressionMethod);
+        Assert.AreEqual(22, overrides.CompressionLevel);
+    }
+
+    [TestMethod]
+    [DataRow("backup_mode=overwrite", "Invalid backup_mode")]
+    [DataRow("compression_method=copy", "Invalid compression_method")]
+    [DataRow("compression_method=zstd;compression_level=0", "Allowed range: 1-22")]
+    [DataRow("compression_method=LZMA2;compression_level=10", "Allowed range: 0-9")]
+    [DataRow("compression_level=fast", "Expected an integer")]
+    public void BackupOverrides_RejectInvalidValues(string options, string expectedError)
+    {
+        var request = KnotLinkCommandParser.Parse($"cmd=BACKUP;{options}");
+
+        var success = KnotLinkBackupOverrideResolver.TryResolve(
+            request,
+            "LZMA2",
+            5,
+            out _,
+            out var error);
+
+        Assert.IsFalse(success);
+        StringAssert.Contains(error, expectedError);
+    }
+
+    [TestMethod]
+    public void BackupOverrides_RejectMethodOnlyWhenInheritedLevelIsInvalid()
+    {
+        var request = KnotLinkCommandParser.Parse("cmd=BACKUP;compression_method=zstd");
+
+        var success = KnotLinkBackupOverrideResolver.TryResolve(
+            request,
+            "LZMA2",
+            0,
+            out _,
+            out var error);
+
+        Assert.IsFalse(success);
+        StringAssert.Contains(error, "Allowed range: 1-22");
+    }
 }
