@@ -736,11 +736,10 @@ namespace FolderRewind.Services
                 return Task.FromResult(error);
             }
 
-            if (!KnotLinkBackupOverrideResolver.TryResolve(
+            if (!KnotLinkBackupOverrideService.TryCreateEffectiveConfig(
                     request,
-                    config!.Archive?.Method ?? "LZMA2",
-                    config.Archive?.CompressionLevel ?? 5,
-                    out var backupOverrides,
+                    config!,
+                    out var overrideConfig,
                     out var overrideError))
             {
                 return Task.FromResult("ERROR:" + overrideError);
@@ -752,13 +751,12 @@ namespace FolderRewind.Services
             var backupScopeId = request.GetString("backup_scope");
             var backupScopeParameters = GetScopeParameters(request);
             var effectiveConfig = CreateConfigWithOneShotOverrides(
-                config!,
+                overrideConfig,
                 backupBlacklist,
                 backupWhitelist,
                 Array.Empty<string>(),
                 backupScopeId,
-                backupScopeParameters,
-                backupOverrides);
+                backupScopeParameters);
             var effectiveFolder = ResolveEquivalentFolder(effectiveConfig, folder!);
 
             _ = Task.Run(async () =>
@@ -1178,15 +1176,13 @@ namespace FolderRewind.Services
             IReadOnlyList<string> backupWhitelist,
             IReadOnlyList<string> restoreWhitelist,
             string? backupScopeId = null,
-            IReadOnlyDictionary<string, string>? backupScopeParameters = null,
-            KnotLinkBackupOverrides? backupOverrides = null)
+            IReadOnlyDictionary<string, string>? backupScopeParameters = null)
         {
             var needsClone = (backupBlacklist?.Count ?? 0) > 0
                 || (backupWhitelist?.Count ?? 0) > 0
                 || (restoreWhitelist?.Count ?? 0) > 0
                 || !string.IsNullOrWhiteSpace(backupScopeId)
-                || (backupScopeParameters?.Count ?? 0) > 0
-                || backupOverrides?.HasOverrides == true;
+                || (backupScopeParameters?.Count ?? 0) > 0;
             if (!needsClone)
             {
                 return source;
@@ -1241,23 +1237,6 @@ namespace FolderRewind.Services
 
                     clone.BackupScope.Parameters[pair.Key] = pair.Value ?? string.Empty;
                 }
-            }
-
-            if (backupOverrides?.BackupMode != null)
-            {
-                clone.Archive.Mode = backupOverrides.BackupMode == "Incremental"
-                    ? BackupMode.Incremental
-                    : BackupMode.Full;
-            }
-
-            if (backupOverrides?.CompressionMethod != null)
-            {
-                clone.Archive.Method = backupOverrides.CompressionMethod;
-            }
-
-            if (backupOverrides?.CompressionLevel is int compressionLevel)
-            {
-                clone.Archive.CompressionLevel = compressionLevel;
             }
 
             return clone;
