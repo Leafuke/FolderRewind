@@ -37,5 +37,7 @@
     <Compile Include="..\FolderRewind-Plugin-Minecraft\MineRewind\MinecraftSavesPlugin.KnotLinkCapabilities.cs" Link="Source\MinecraftSavesPlugin.KnotLinkCapabilities.cs" />
     <Compile Include="..\FolderRewind\Services\PathRuleMatcher.cs" Link="Source\PathRuleMatcher.cs" />
     <Compile Include="..\FolderRewind\Services\RestoreModePolicy.cs" Link="Source\RestoreModePolicy.cs" />
+    <Compile Include="..\FolderRewind\Models\FolderRenameModels.cs" Link="Source\FolderRenameModels.cs" />
+    <Compile Include="..\FolderRewind\Services\FolderRenameService.cs" Link="Source\FolderRenameService.cs" />
   </ItemGroup>
 </Project>

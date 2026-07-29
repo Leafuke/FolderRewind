@@ -426,9 +426,10 @@ namespace FolderRewind.Services
             }
         }
 
-        public static int UpdateFolderIdentity(string oldPath, string newPath, string oldStorageFolderName, string newStorageFolderName)
+        internal static int UpdateFolderIdentities(
+            IReadOnlyList<FolderRenameReferencePlan> references)
         {
-            if (string.IsNullOrWhiteSpace(oldPath) || string.IsNullOrWhiteSpace(newPath))
+            if (references == null || references.Count == 0)
             {
                 return 0;
             }
@@ -438,13 +439,34 @@ namespace FolderRewind.Services
 
             lock (_historyLock)
             {
-                foreach (var item in _allHistory.Where(item => AreSameFolderPath(item.FolderPath, oldPath)))
+                foreach (var item in _allHistory)
                 {
-                    item.FolderPath = newPath;
-                    item.FolderName = FolderRenameService.ResolveUpdatedHistoryFolderName(
-                        item.FolderName,
-                        oldStorageFolderName,
-                        newStorageFolderName);
+                    var matchingReferences = references
+                        .Where(reference =>
+                            string.Equals(
+                                item.ConfigId,
+                                reference.ConfigId,
+                                StringComparison.OrdinalIgnoreCase)
+                            && AreSameFolderPath(
+                                item.FolderPath,
+                                reference.OldPath))
+                        .ToList();
+                    if (matchingReferences.Count == 0)
+                    {
+                        continue;
+                    }
+
+                    item.FolderPath = matchingReferences[0].NewPath;
+                    var identityReference = matchingReferences.FirstOrDefault(reference =>
+                        string.Equals(
+                            item.FolderName?.Trim(),
+                            reference.OldStorageFolderName,
+                            StringComparison.OrdinalIgnoreCase));
+                    if (identityReference != null)
+                    {
+                        item.FolderName = identityReference.NewStorageFolderName;
+                    }
+
                     updated++;
                 }
             }
