@@ -42,6 +42,7 @@ internal sealed class PathRuleMatcher
         IEnumerable<string>? rules,
         string backupSourceRoot,
         string originalSourceRoot,
+        bool recognizeRegexRules,
         bool enableRegexRules,
         bool matchWildcardAgainstRelativePath)
     {
@@ -68,7 +69,8 @@ internal sealed class PathRuleMatcher
                     $"Filter rule exceeds the maximum length of {MaxRuleLength} characters.");
             }
 
-            if (rule.StartsWith("regex:", StringComparison.OrdinalIgnoreCase))
+            if (recognizeRegexRules
+                && rule.StartsWith("regex:", StringComparison.OrdinalIgnoreCase))
             {
                 if (!enableRegexRules)
                 {
@@ -129,6 +131,7 @@ internal sealed class PathRuleMatcher
             rules,
             backupSourceRoot,
             originalSourceRoot,
+            recognizeRegexRules: true,
             enableRegexRules,
             matchWildcardAgainstRelativePath: true);
 
@@ -139,11 +142,17 @@ internal sealed class PathRuleMatcher
             rules,
             comparisonRoot,
             comparisonRoot,
+            recognizeRegexRules: false,
             enableRegexRules: false,
             matchWildcardAgainstRelativePath: false);
 
     public static void ValidateBackupRules(IEnumerable<string>? rules, bool enableRegexRules)
-        => _ = CreateForBackup(rules, string.Empty, string.Empty, enableRegexRules);
+        // 即使当前关闭正则匹配，保存配置时也必须验证已写入的 regex: 规则。
+        => _ = CreateForBackup(
+            rules,
+            string.Empty,
+            string.Empty,
+            enableRegexRules: true);
 
     public static void ValidateRestoreRules(IEnumerable<string>? rules)
         => _ = CreateForRestore(rules, string.Empty);

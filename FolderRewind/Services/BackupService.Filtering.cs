@@ -6,8 +6,6 @@ using System.Collections.ObjectModel;
 using System.Diagnostics;
 using System.IO;
 using System.Linq;
-using System.Text;
-using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 
 namespace FolderRewind.Services
@@ -15,74 +13,6 @@ namespace FolderRewind.Services
     public static partial class BackupService
     {
         // 过滤规则集中在这里：备份扫描和插件热备份都会复用同一套黑名单语义。
-
-        private static string NormalizePathForRuleMatching(string path)
-        {
-            if (string.IsNullOrWhiteSpace(path))
-            {
-                return string.Empty;
-            }
-
-            var normalized = path.Trim()
-                .Replace(Path.AltDirectorySeparatorChar, Path.DirectorySeparatorChar)
-                .Replace(Path.DirectorySeparatorChar, '/');
-
-            while (normalized.Contains("//", StringComparison.Ordinal))
-            {
-                normalized = normalized.Replace("//", "/", StringComparison.Ordinal);
-            }
-
-            return normalized.Trim('/');
-        }
-
-        private static bool PathContainsRuleAtBoundary(string path, string normalizedRule)
-        {
-            var normalizedPath = NormalizePathForRuleMatching(path);
-            if (string.IsNullOrEmpty(normalizedPath) || string.IsNullOrEmpty(normalizedRule))
-            {
-                return false;
-            }
-
-            int searchStart = 0;
-            while (searchStart < normalizedPath.Length)
-            {
-                int matchIndex = normalizedPath.IndexOf(normalizedRule, searchStart, StringComparison.OrdinalIgnoreCase);
-                if (matchIndex < 0)
-                {
-                    return false;
-                }
-
-                bool startBoundary = matchIndex == 0 || normalizedPath[matchIndex - 1] == '/';
-                int matchEnd = matchIndex + normalizedRule.Length;
-                bool endBoundary = matchEnd == normalizedPath.Length || normalizedPath[matchEnd] == '/';
-
-                if (startBoundary && endBoundary)
-                {
-                    return true;
-                }
-
-                searchStart = matchIndex + 1;
-            }
-
-            return false;
-        }
-
-        private static bool MatchesPathBoundary(string fullPath, string? relativePath, string rule)
-        {
-            var normalizedRule = NormalizePathForRuleMatching(rule);
-            if (string.IsNullOrEmpty(normalizedRule))
-            {
-                return false;
-            }
-
-            if (PathContainsRuleAtBoundary(fullPath, normalizedRule))
-            {
-                return true;
-            }
-
-            return !string.IsNullOrEmpty(relativePath)
-                && PathContainsRuleAtBoundary(relativePath, normalizedRule);
-        }
 
         /// <summary>
         /// 检查文件是否在黑名单中（参考 MineBackup 的 is_blacklisted 实现）
@@ -359,23 +289,6 @@ namespace FolderRewind.Services
             return result;
         }
 
-        private static bool MatchWildcard(string filePath, string pattern)
-        {
-            try
-            {
-                // 仅拿文件名部分做匹配（如 *.mp4 应匹配 sub/dir/video.mp4）
-                string fileName = Path.GetFileName(filePath);
-                string wildcardPattern = "^" + Regex.Escape(pattern)
-                    .Replace("\\*", ".*")
-                    .Replace("\\?", ".") + "$";
-                return Regex.IsMatch(fileName, wildcardPattern, RegexOptions.IgnoreCase)
-                    || Regex.IsMatch(filePath, wildcardPattern, RegexOptions.IgnoreCase);
-            }
-            catch
-            {
-                return false;
-            }
-        }
     }
 }
 

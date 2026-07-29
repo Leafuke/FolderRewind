@@ -100,6 +100,25 @@ public sealed class PathRuleMatcherTests
     }
 
     [TestMethod]
+    public void InvalidDisabledRegexIsStillRejectedByConfigValidation()
+    {
+        Assert.ThrowsExactly<PathRuleValidationException>(() =>
+            PathRuleMatcher.ValidateBackupRules(
+                ["regex:(unclosed"],
+                enableRegexRules: false));
+    }
+
+    [TestMethod]
+    public void RestoreRulesDoNotGainRegexPrefixSemantics()
+    {
+        string root = CreateRoot();
+        var matcher = PathRuleMatcher.CreateForRestore(["regex:literal"], root);
+
+        Assert.IsTrue(matcher.IsMatch(Path.Combine(root, "regex:literal")));
+        Assert.IsFalse(matcher.IsMatch(Path.Combine(root, "literal")));
+    }
+
+    [TestMethod]
     public void ExcessiveRuleCountIsRejected()
     {
         var rules = Enumerable.Range(0, PathRuleMatcher.MaxRuleCount + 1)
