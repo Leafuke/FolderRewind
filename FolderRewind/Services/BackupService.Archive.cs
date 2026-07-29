@@ -402,9 +402,10 @@ namespace FolderRewind.Services
             List<string> mainFiles = contentChangedFiles;
             if (hasFileTypeRules && fileTypeRules != null)
             {
+                var fileTypeMatchers = CompileFileTypeWildcardPatterns(
+                    fileTypeRules.Select(rule => rule.Pattern));
                 mainFiles = contentChangedFiles.Where(f =>
-                    !fileTypeRules.Any(rule =>
-                        !string.IsNullOrWhiteSpace(rule.Pattern) && MatchWildcard(f, rule.Pattern.Trim())))
+                    !MatchesAnyFileTypePattern(f, fileTypeMatchers))
                     .ToList();
             }
 
@@ -827,6 +828,7 @@ namespace FolderRewind.Services
                 {
                     int level = group.Key;
                     var patterns = group.Select(r => r.Pattern.Trim()).ToList();
+                    var patternMatchers = CompileFileTypeWildcardPatterns(patterns);
 
                     Log(I18n.Format("BackupService_Log_FileTypeRulePass", level, string.Join(", ", patterns)), LogLevel.Info);
 
@@ -836,9 +838,9 @@ namespace FolderRewind.Services
                         var matchedFiles = new List<string>();
                         foreach (var relPath in changedFileList)
                         {
-                            foreach (var pattern in patterns)
+                            foreach (var matcher in patternMatchers)
                             {
-                                if (MatchWildcard(relPath, pattern))
+                                if (MatchesFileTypePattern(relPath, matcher))
                                 {
                                     matchedFiles.Add(relPath);
                                     break;
@@ -879,7 +881,7 @@ namespace FolderRewind.Services
                         if (HasBackupWhitelist(filters))
                         {
                             matchedWhitelistFiles = EnumerateBackupRelativeFiles(sourceDir, filters)
-                                .Where(relPath => patterns.Any(pattern => MatchWildcard(relPath, pattern)))
+                                .Where(relPath => MatchesAnyFileTypePattern(relPath, patternMatchers))
                                 .ToList();
 
                             if (matchedWhitelistFiles.Count == 0)
@@ -944,6 +946,32 @@ namespace FolderRewind.Services
             }
 
             return allSuccess;
+        }
+
+        private static IReadOnlyList<Regex> CompileFileTypeWildcardPatterns(
+            IEnumerable<string> patterns)
+            => (patterns ?? Array.Empty<string>())
+                .Where(pattern => !string.IsNullOrWhiteSpace(pattern))
+                .Select(pattern => new Regex(
+                    "^" + Regex.Escape(pattern.Trim())
+                        .Replace("\\*", ".*", StringComparison.Ordinal)
+                        .Replace("\\?", ".", StringComparison.Ordinal) + "$",
+                    RegexOptions.IgnoreCase
+                        | RegexOptions.CultureInvariant
+                        | RegexOptions.Compiled,
+                    PathRuleMatcher.RegexTimeout))
+                .ToArray();
+
+        private static bool MatchesAnyFileTypePattern(
+            string filePath,
+            IReadOnlyList<Regex> matchers)
+            => matchers.Any(matcher => MatchesFileTypePattern(filePath, matcher));
+
+        private static bool MatchesFileTypePattern(string filePath, Regex matcher)
+        {
+            string fileName = Path.GetFileName(filePath);
+            return (!string.IsNullOrEmpty(fileName) && matcher.IsMatch(fileName))
+                || matcher.IsMatch(filePath);
         }
 
         /// <summary>

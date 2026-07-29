@@ -2,14 +2,65 @@ using System;
 using System.Collections.Generic;
 using System.Globalization;
 using System.Linq;
-using Windows.ApplicationModel.Resources;
 using Windows.Globalization;
+using ResourceLoader = FolderRewind.Services.AppResourceLoader;
 
 namespace FolderRewind.Services
 {
     public static class I18n
     {
         private static readonly ResourceLoader _rl = ResourceLoader.GetForViewIndependentUse();
+        private static readonly CultureInfo _startupCulture = CultureInfo.CurrentCulture;
+        private static readonly CultureInfo _startupUiCulture = CultureInfo.CurrentUICulture;
+        private static string _languageOverride = string.Empty;
+
+        public static void SetLanguageOverride(string? language)
+        {
+            _languageOverride = language?.Trim() ?? string.Empty;
+            AppResourceLoader.SetLanguageOverride(_languageOverride);
+
+            if (AppRuntimeInfo.IsPackaged)
+            {
+                ApplicationLanguages.PrimaryLanguageOverride = _languageOverride;
+                return;
+            }
+
+            var culture = string.IsNullOrWhiteSpace(_languageOverride)
+                ? _startupUiCulture
+                : CultureInfo.GetCultureInfo(_languageOverride);
+
+            CultureInfo.CurrentUICulture = culture;
+            CultureInfo.CurrentCulture = string.IsNullOrWhiteSpace(_languageOverride)
+                ? _startupCulture
+                : culture;
+            CultureInfo.DefaultThreadCurrentUICulture = culture;
+            CultureInfo.DefaultThreadCurrentCulture = CultureInfo.CurrentCulture;
+        }
+
+        public static string GetCurrentUiLanguage()
+        {
+            if (!string.IsNullOrWhiteSpace(_languageOverride))
+            {
+                return _languageOverride;
+            }
+
+            if (AppRuntimeInfo.IsPackaged)
+            {
+                try
+                {
+                    var packagedOverride = ApplicationLanguages.PrimaryLanguageOverride;
+                    if (!string.IsNullOrWhiteSpace(packagedOverride))
+                    {
+                        return packagedOverride;
+                    }
+                }
+                catch
+                {
+                }
+            }
+
+            return CultureInfo.CurrentUICulture.Name;
+        }
 
         public static string GetString(string key)
         {
@@ -123,22 +174,24 @@ namespace FolderRewind.Services
             var result = new List<string>();
 
             // App override（设置页会写入 PrimaryLanguageOverride）
-            var primary = ApplicationLanguages.PrimaryLanguageOverride;
+            var primary = GetCurrentUiLanguage();
             if (!string.IsNullOrWhiteSpace(primary))
             {
                 result.Add(NormalizeTag(primary));
             }
 
-            try
+            if (AppRuntimeInfo.IsPackaged)
             {
-                foreach (var l in ApplicationLanguages.Languages)
+                try
                 {
-                    if (!string.IsNullOrWhiteSpace(l)) result.Add(NormalizeTag(l));
+                    foreach (var l in ApplicationLanguages.Languages)
+                    {
+                        if (!string.IsNullOrWhiteSpace(l)) result.Add(NormalizeTag(l));
+                    }
                 }
-            }
-            catch
-            {
-
+                catch
+                {
+                }
             }
 
             try

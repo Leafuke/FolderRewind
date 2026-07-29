@@ -1,7 +1,5 @@
 using FolderRewind.Models;
 using System;
-using System.Collections.ObjectModel;
-using System.Text.Json;
 
 namespace FolderRewind.Services
 {
@@ -10,25 +8,11 @@ namespace FolderRewind.Services
     /// </summary>
     internal static class BackupConfigCloneService
     {
-        public static BackupConfig CloneForRuntimeMutation(BackupConfig source, string errorMessage, bool ensureBackupScope = false)
+        public static BackupConfig CloneForRuntimeMutation(BackupConfig source, string errorMessage)
         {
             if (source == null) throw new ArgumentNullException(nameof(source));
 
-            var json = JsonSerializer.Serialize(source, AppJsonContext.Default.BackupConfig);
-            var clone = JsonSerializer.Deserialize(json, AppJsonContext.Default.BackupConfig)
-                ?? throw new InvalidOperationException(errorMessage);
-
-            clone.Filters ??= new FilterSettings();
-            clone.Filters.Blacklist ??= new ObservableCollection<string>();
-            clone.Filters.BackupWhitelist ??= new ObservableCollection<string>();
-            clone.Filters.RestoreWhitelist ??= new ObservableCollection<string>();
-
-            if (ensureBackupScope)
-            {
-                clone.BackupScope ??= new BackupScopeSettings();
-            }
-
-            return clone;
+            return JsonCloneService.Clone(source, AppJsonContext.Default.BackupConfig, errorMessage);
         }
     }
 }

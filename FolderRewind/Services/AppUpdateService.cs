@@ -8,7 +8,6 @@ using System.Runtime.InteropServices;
 using System.Text.RegularExpressions;
 using System.Threading;
 using System.Threading.Tasks;
-using Windows.Globalization;
 
 namespace FolderRewind.Services
 {
@@ -313,22 +312,7 @@ namespace FolderRewind.Services
 
         private static Version? GetCurrentVersion()
         {
-            try
-            {
-                var v = Windows.ApplicationModel.Package.Current.Id.Version;
-                return new Version(v.Major, v.Minor, v.Build, v.Revision);
-            }
-            catch
-            {
-                try
-                {
-                    return AppRuntimeInfo.GetAssemblyVersion();
-                }
-                catch
-                {
-                    return null;
-                }
-            }
+            return AppRuntimeInfo.GetApplicationVersion();
         }
 
         private static Version? TryParseVersion(string? raw)
@@ -367,11 +351,7 @@ namespace FolderRewind.Services
         {
             try
             {
-                var language = ApplicationLanguages.PrimaryLanguageOverride;
-                if (string.IsNullOrWhiteSpace(language))
-                {
-                    language = CultureInfo.CurrentUICulture.Name;
-                }
+                var language = I18n.GetCurrentUiLanguage();
 
                 return !string.IsNullOrWhiteSpace(language)
                     && language.StartsWith("zh", StringComparison.OrdinalIgnoreCase);

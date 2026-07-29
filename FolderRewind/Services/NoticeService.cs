@@ -9,8 +9,7 @@ namespace FolderRewind.Services
 {
     /// <summary>
     /// 公告服务：从 GitHub 远程拉取公告内容，支持多语言、变更检测、已读记忆。
-    /// 参考 MineBackup 的 CheckForNoticesThread / ExtractLocalizedContent 实现，
-    /// 使用 WinUI3 ContentDialog 替代 ImGui 弹窗。
+    /// 使用独立的中英文公告文件，并通过 WinUI3 ContentDialog 显示详情。
     /// </summary>
     public static class NoticeService
     {
@@ -18,7 +17,6 @@ namespace FolderRewind.Services
         private const string NoticeBaseUrl = "https://raw.githubusercontent.com/Leafuke/FolderRewind/dev/";
         private const string NoticeFileZh = "notice_zh";
         private const string NoticeFileEn = "notice_en";
-        private const string NoticeFileFallback = "notice"; // 回退：无语言后缀
 
         // 检查结果
         private static bool _checkDone;
@@ -54,22 +52,12 @@ namespace FolderRewind.Services
                 client.Timeout = TimeSpan.FromSeconds(10);
                 client.DefaultRequestHeaders.Add("User-Agent", "FolderRewind-NoticeCheck");
 
-                // 1. 根据当前语言选择 URL（参考 MineBackup 的多语言策略）
-                string lang = settings.Language?.Replace("_", "-") ?? "zh-CN";
+                // 根据应用已经生效的 UI 语言选择独立公告文件。
+                string lang = I18n.GetCurrentUiLanguage().Replace("_", "-");
                 bool isChinese = lang.StartsWith("zh", StringComparison.OrdinalIgnoreCase);
                 string primaryFile = isChinese ? NoticeFileZh : NoticeFileEn;
 
-                string? content = null;
-                string? version = null;
-
-                // 尝试获取带语言后缀的文件
-                (content, version) = await FetchNoticeAsync(client, NoticeBaseUrl + primaryFile);
-
-                // 如果失败，回退到无后缀文件（参考 MineBackup 的 fallback 逻辑）
-                if (content == null)
-                {
-                    (content, version) = await FetchNoticeAsync(client, NoticeBaseUrl + NoticeFileFallback);
-                }
+                var (content, version) = await FetchNoticeAsync(client, NoticeBaseUrl + primaryFile);
 
                 if (string.IsNullOrWhiteSpace(content))
                 {
@@ -77,14 +65,10 @@ namespace FolderRewind.Services
                     return;
                 }
 
-                // 2. 如果公告文件使用 --- 分隔中英文（参考 MineBackup 的 ExtractLocalizedContent），
-                //    则根据语言提取对应段落
-                content = ExtractLocalizedContent(content, isChinese);
-
                 _noticeContent = content.Trim();
                 _noticeVersion = version ?? ComputeHash(content);
 
-                // 3. 比较是否有新公告
+                // 比较是否有新公告
                 string lastSeen = settings.NoticeLastSeenVersion ?? "";
                 _newNoticeAvailable = !string.Equals(_noticeVersion, lastSeen, StringComparison.Ordinal);
             }
@@ -125,38 +109,6 @@ namespace FolderRewind.Services
             {
                 return (null, null);
             }
-        }
-
-        /// <summary>
-        /// 解析多语言内容。如果文本中包含 --- 分隔符，中文在前、英文在后。
-        /// 参考 MineBackup 的 ExtractLocalizedContent() 实现。
-        /// </summary>
-        private static string ExtractLocalizedContent(string raw, bool isChinese)
-        {
-            if (string.IsNullOrWhiteSpace(raw)) return raw;
-
-            // 查找 --- 分隔符
-            int separatorIndex = raw.IndexOf("\n---\n", StringComparison.Ordinal);
-            if (separatorIndex < 0)
-            {
-                separatorIndex = raw.IndexOf("\r\n---\r\n", StringComparison.Ordinal);
-            }
-
-            if (separatorIndex < 0)
-            {
-                // 没有分隔符，返回全部内容
-                return raw;
-            }
-
-            // 中文在前，英文在后
-            if (isChinese)
-            {
-                return raw.Substring(0, separatorIndex);
-            }
-
-            int contentStart = raw.IndexOf('\n', separatorIndex + 1);
-            if (contentStart < 0) return raw;
-            return raw.Substring(contentStart + 1);
         }
 
         /// <summary>

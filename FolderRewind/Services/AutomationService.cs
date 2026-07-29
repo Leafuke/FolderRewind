@@ -185,47 +185,30 @@ namespace FolderRewind.Services
 
                     if (automation.ScheduledMode)
                     {
-                        if (automation.ScheduleEntries != null && automation.ScheduleEntries.Count > 0)
+                        foreach (var entry in automation.ScheduleEntries)
                         {
-                            foreach (var entry in automation.ScheduleEntries)
+                            if (!entry.ShouldTriggerNow(now))
                             {
-                                if (!entry.ShouldTriggerNow(now))
-                                {
-                                    continue;
-                                }
-
-                                if (entry.LastTriggeredUtc != DateTime.MinValue &&
-                                    (utcNow - entry.LastTriggeredUtc) < TimeSpan.FromMinutes(2))
-                                {
-                                    continue;
-                                }
-
-                                string desc = FormatScheduleDescription(entry);
-                                _ = Task.Run(() => QueueAutoBackupAsync(
-                                    config,
-                                    now,
-                                    I18n.Format("AutoBackup_Reason_Scheduled", desc),
-                                    isScheduledTrigger: true,
-                                    targetFolder: null,
-                                    updateAutomationState: true));
-                                entry.LastTriggeredUtc = utcNow;
-                                scheduledTriggered = true;
-                                break;
+                                continue;
                             }
-                        }
-                        else if (now.Hour == automation.ScheduledHour && now.Minute < 5)
-                        {
-                            if (!IsRunToday(config, now))
+
+                            if (entry.LastTriggeredUtc != DateTime.MinValue &&
+                                (utcNow - entry.LastTriggeredUtc) < TimeSpan.FromMinutes(2))
                             {
-                                _ = Task.Run(() => QueueAutoBackupAsync(
-                                    config,
-                                    now,
-                                    I18n.GetString("AutoBackup_Reason_ScheduledLegacy"),
-                                    isScheduledTrigger: true,
-                                    targetFolder: null,
-                                    updateAutomationState: true));
-                                scheduledTriggered = true;
+                                continue;
                             }
+
+                            string desc = FormatScheduleDescription(entry);
+                            _ = Task.Run(() => QueueAutoBackupAsync(
+                                config,
+                                now,
+                                I18n.Format("AutoBackup_Reason_Scheduled", desc),
+                                isScheduledTrigger: true,
+                                targetFolder: null,
+                                updateAutomationState: true));
+                            entry.LastTriggeredUtc = utcNow;
+                            scheduledTriggered = true;
+                            break;
                         }
                     }
 
@@ -549,7 +532,7 @@ namespace FolderRewind.Services
 
         private static string? TryBuildConditionFilePath(ManagedFolder folder, string relativePath)
         {
-            if (folder == null || string.IsNullOrWhiteSpace(folder.FullPath) || string.IsNullOrWhiteSpace(relativePath))
+            if (folder == null || string.IsNullOrWhiteSpace(folder.Path) || string.IsNullOrWhiteSpace(relativePath))
             {
                 return null;
             }
@@ -561,7 +544,7 @@ namespace FolderRewind.Services
 
             try
             {
-                string folderRoot = Path.GetFullPath(folder.FullPath);
+                string folderRoot = Path.GetFullPath(folder.Path);
                 string candidatePath = Path.GetFullPath(Path.Combine(folderRoot, relativePath));
                 string normalizedRoot = folderRoot.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar)
                     + Path.DirectorySeparatorChar;
@@ -597,19 +580,6 @@ namespace FolderRewind.Services
             string month = entry.MonthSelection == 0 ? "*" : entry.MonthSelection.ToString();
             string day = entry.DaySelection == 0 ? "*" : entry.DaySelection.ToString();
             return $"{month}/{day} {entry.Hour:D2}:{entry.Minute:D2}";
-        }
-
-        private static bool IsRunToday(BackupConfig config, DateTime now)
-        {
-            try
-            {
-                var last = config.Automation.LastScheduledRunDateLocal;
-                return last != DateTime.MinValue && last.Date == now.Date;
-            }
-            catch
-            {
-                return false;
-            }
         }
 
         private static async Task RunAutoBackupAsync(
@@ -653,7 +623,6 @@ namespace FolderRewind.Services
                     config.Automation.LastAutoBackupUtc = DateTime.UtcNow;
                     if (isScheduledTrigger)
                     {
-                        config.Automation.LastScheduledRunDateLocal = nowLocal.Date;
                     }
 
                     ApplyNoChangeStopPolicy(config, hadChanges);
@@ -694,7 +663,7 @@ namespace FolderRewind.Services
 
             foreach (var folder in config.SourceFolders)
             {
-                if (FileLockService.IsFileLocked(Path.Combine(folder.FullPath, "level.dat")))
+                if (FileLockService.IsFileLocked(Path.Combine(folder.Path, "level.dat")))
                 {
                     LogService.Log(I18n.Format("AutoBackup_Log_StopSkippedBecauseLocked", config.Name));
                     return;
@@ -729,9 +698,9 @@ namespace FolderRewind.Services
                 return folder.DisplayName;
             }
 
-            if (!string.IsNullOrWhiteSpace(folder.FullPath))
+            if (!string.IsNullOrWhiteSpace(folder.Path))
             {
-                return Path.GetFileName(folder.FullPath.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar));
+                return Path.GetFileName(folder.Path.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar));
             }
 
             return string.Empty;

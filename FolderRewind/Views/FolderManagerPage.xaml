@@ -253,7 +253,7 @@
                             </StackPanel>
 
                             <!-- 路径 -->
-                            <TextBlock Text="{x:Bind FullPath}"
+                            <TextBlock Text="{x:Bind Path}"
                                        Style="{StaticResource CaptionTextBlockStyle}"
                                        Foreground="{ThemeResource TextFillColorSecondaryBrush}"/>
 

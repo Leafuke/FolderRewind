@@ -6,8 +6,6 @@ using System.Collections.ObjectModel;
 using System.Diagnostics;
 using System.IO;
 using System.Linq;
-using System.Text;
-using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 
 namespace FolderRewind.Services
@@ -15,74 +13,6 @@ namespace FolderRewind.Services
     public static partial class BackupService
     {
         // 过滤规则集中在这里：备份扫描和插件热备份都会复用同一套黑名单语义。
-
-        private static string NormalizePathForRuleMatching(string path)
-        {
-            if (string.IsNullOrWhiteSpace(path))
-            {
-                return string.Empty;
-            }
-
-            var normalized = path.Trim()
-                .Replace(Path.AltDirectorySeparatorChar, Path.DirectorySeparatorChar)
-                .Replace(Path.DirectorySeparatorChar, '/');
-
-            while (normalized.Contains("//", StringComparison.Ordinal))
-            {
-                normalized = normalized.Replace("//", "/", StringComparison.Ordinal);
-            }
-
-            return normalized.Trim('/');
-        }
-
-        private static bool PathContainsRuleAtBoundary(string path, string normalizedRule)
-        {
-            var normalizedPath = NormalizePathForRuleMatching(path);
-            if (string.IsNullOrEmpty(normalizedPath) || string.IsNullOrEmpty(normalizedRule))
-            {
-                return false;
-            }
-
-            int searchStart = 0;
-            while (searchStart < normalizedPath.Length)
-            {
-                int matchIndex = normalizedPath.IndexOf(normalizedRule, searchStart, StringComparison.OrdinalIgnoreCase);
-                if (matchIndex < 0)
-                {
-                    return false;
-                }
-
-                bool startBoundary = matchIndex == 0 || normalizedPath[matchIndex - 1] == '/';
-                int matchEnd = matchIndex + normalizedRule.Length;
-                bool endBoundary = matchEnd == normalizedPath.Length || normalizedPath[matchEnd] == '/';
-
-                if (startBoundary && endBoundary)
-                {
-                    return true;
-                }
-
-                searchStart = matchIndex + 1;
-            }
-
-            return false;
-        }
-
-        private static bool MatchesPathBoundary(string fullPath, string? relativePath, string rule)
-        {
-            var normalizedRule = NormalizePathForRuleMatching(rule);
-            if (string.IsNullOrEmpty(normalizedRule))
-            {
-                return false;
-            }
-
-            if (PathContainsRuleAtBoundary(fullPath, normalizedRule))
-            {
-                return true;
-            }
-
-            return !string.IsNullOrEmpty(relativePath)
-                && PathContainsRuleAtBoundary(relativePath, normalizedRule);
-        }
 
         /// <summary>
         /// 检查文件是否在黑名单中（参考 MineBackup 的 is_blacklisted 实现）
@@ -100,145 +30,16 @@ namespace FolderRewind.Services
             IEnumerable<string>? blacklist,
             bool useRegex = false)
         {
-            if (string.IsNullOrWhiteSpace(fileToCheck) || blacklist == null) return false;
-
-            var rules = blacklist.Where(r => !string.IsNullOrWhiteSpace(r)).ToList();
-            if (rules.Count == 0) return false;
-
-            // 转为小写用于不区分大小写的匹配
-            var filePathLower = fileToCheck.ToLowerInvariant();
-
-            // 获取相对路径
-            string relativePathLower = string.Empty;
-            try
+            if (string.IsNullOrWhiteSpace(fileToCheck) || blacklist == null)
             {
-                var relativePath = Path.GetRelativePath(backupSourceRoot, fileToCheck);
-                if (!relativePath.StartsWith("..", StringComparison.Ordinal))
-                {
-                    relativePathLower = relativePath.ToLowerInvariant();
-                }
-            }
-            catch (Exception ex)
-            {
-                Log($"[Filter][Debug] Failed to build relative path for blacklist matching: {ex.Message}", LogLevel.Debug);
+                return false;
             }
 
-            // 缓存编译好的正则表达式
-            var regexCache = new Dictionary<string, Regex>();
-
-            foreach (var ruleOrig in rules)
-            {
-                var rule = ruleOrig.Trim();
-                var ruleLower = rule.ToLowerInvariant();
-
-                // 检查是否为正则表达式规则
-                if (ruleLower.StartsWith("regex:"))
-                {
-                    if (!useRegex) continue; // 如果未启用正则，跳过正则规则
-
-                    try
-                    {
-                        var pattern = rule.Substring(6); // 使用原始大小写
-                        if (!regexCache.TryGetValue(pattern, out var regex))
-                        {
-                            regex = new Regex(pattern, RegexOptions.IgnoreCase | RegexOptions.Compiled);
-                            regexCache[pattern] = regex;
-                        }
-
-                        // 正则同时匹配绝对路径和相对路径
-                        if (regex.IsMatch(fileToCheck) ||
-                            (!string.IsNullOrEmpty(relativePathLower) && regex.IsMatch(relativePathLower)))
-                        {
-                            return true;
-                        }
-                    }
-                    catch (ArgumentException)
-                    {
-                        // 无效的正则表达式，跳过
-                        Log(I18n.Format("BackupService_Log_InvalidRegex", rule), LogLevel.Warning);
-                    }
-                }
-                else
-                {
-                    // 普通字符串规则
-
-                    // 1. 直接匹配文件名
-                    var fileName = Path.GetFileName(fileToCheck);
-                    if (!string.IsNullOrEmpty(fileName) &&
-                        fileName.Equals(rule, StringComparison.OrdinalIgnoreCase))
-                    {
-                        return true;
-                    }
-
-                    // 2. 路径边界匹配（避免子串误伤，例如 voxy 误匹配 VoxyFab）
-                    if (MatchesPathBoundary(fileToCheck, relativePathLower, rule))
-                    {
-                        return true;
-                    }
-
-                    // 3. 支持通配符匹配 (*, ?)
-                    if (rule.Contains('*') || rule.Contains('?'))
-                    {
-                        try
-                        {
-                            // 将通配符转换为正则表达式
-                            var wildcardPattern = "^" + Regex.Escape(rule)
-                                .Replace("\\*", ".*")
-                                .Replace("\\?", ".") + "$";
-                            var wildcardRegex = new Regex(wildcardPattern, RegexOptions.IgnoreCase);
-
-                            // 匹配文件名
-                            if (!string.IsNullOrEmpty(fileName) && wildcardRegex.IsMatch(fileName))
-                            {
-                                return true;
-                            }
-
-                            // 匹配相对路径
-                            if (!string.IsNullOrEmpty(relativePathLower) && wildcardRegex.IsMatch(relativePathLower))
-                            {
-                                return true;
-                            }
-                        }
-                        catch (Exception ex)
-                        {
-                            Log($"[Filter][Debug] Invalid wildcard blacklist rule '{rule}': {ex.Message}", LogLevel.Debug);
-                        }
-                    }
-
-                    // 4. 处理热备份时的路径映射（参考 MineBackup）
-                    if (Path.IsPathRooted(rule))
-                    {
-                        try
-                        {
-                            // 检查规则是否在原始源路径下
-                            var ruleFullPath = Path.GetFullPath(rule);
-                            var originalFullPath = Path.GetFullPath(originalSourceRoot);
-
-                            if (ruleFullPath.StartsWith(originalFullPath, StringComparison.OrdinalIgnoreCase))
-                            {
-                                // 计算规则相对于原始源的相对路径
-                                var ruleRelative = Path.GetRelativePath(originalSourceRoot, ruleFullPath);
-
-                                // 重映射到当前备份源
-                                var remappedPath = Path.Combine(backupSourceRoot, ruleRelative);
-                                var remappedPathLower = remappedPath.ToLowerInvariant();
-
-                                // 检查文件是否在重映射的黑名单路径下
-                                if (filePathLower.StartsWith(remappedPathLower, StringComparison.OrdinalIgnoreCase))
-                                {
-                                    return true;
-                                }
-                            }
-                        }
-                        catch (Exception ex)
-                        {
-                            Log($"[Filter][Debug] Failed to remap rooted blacklist rule '{rule}': {ex.Message}", LogLevel.Debug);
-                        }
-                    }
-                }
-            }
-
-            return false;
+            return PathRuleMatcher.CreateForBackup(
+                blacklist,
+                backupSourceRoot,
+                originalSourceRoot,
+                useRegex).IsMatch(fileToCheck);
         }
 
         public static bool HasBackupWhitelist(FilterSettings? filters)
@@ -253,6 +54,53 @@ namespace FolderRewind.Services
             return HasBackupWhitelist(filters);
         }
 
+        public static bool TryValidateFilterRules(FilterSettings? filters, out string errorMessage)
+        {
+            errorMessage = string.Empty;
+            if (filters == null)
+            {
+                return true;
+            }
+
+            try
+            {
+                IEnumerable<string>? backupRules = filters.BackupFilterMode == BackupFilterMode.Whitelist
+                    ? filters.BackupWhitelist
+                    : filters.Blacklist;
+                PathRuleMatcher.ValidateBackupRules(backupRules, filters.UseRegex);
+                PathRuleMatcher.ValidateRestoreRules(filters.RestoreWhitelist);
+                return true;
+            }
+            catch (PathRuleValidationException ex)
+            {
+                errorMessage = ex.Message;
+                return false;
+            }
+        }
+
+        public static bool TryValidateBackupFilterRules(FilterSettings? filters, out string errorMessage)
+        {
+            errorMessage = string.Empty;
+            if (filters == null)
+            {
+                return true;
+            }
+
+            try
+            {
+                IEnumerable<string>? rules = filters.BackupFilterMode == BackupFilterMode.Whitelist
+                    ? filters.BackupWhitelist
+                    : filters.Blacklist;
+                PathRuleMatcher.ValidateBackupRules(rules, filters.UseRegex);
+                return true;
+            }
+            catch (PathRuleValidationException ex)
+            {
+                errorMessage = ex.Message;
+                return false;
+            }
+        }
+
         /// <summary>
         /// 检查文件是否命中备份白名单。白名单只决定“纳入备份”，不会参与 Clean 还原保护。
         /// </summary>
@@ -263,121 +111,16 @@ namespace FolderRewind.Services
             IEnumerable<string>? whitelist,
             bool useRegex = false)
         {
-            if (string.IsNullOrWhiteSpace(fileToCheck) || whitelist == null) return false;
-
-            var rules = whitelist.Where(r => !string.IsNullOrWhiteSpace(r)).ToList();
-            if (rules.Count == 0) return false;
-
-            string relativePathLower = string.Empty;
-            try
+            if (string.IsNullOrWhiteSpace(fileToCheck) || whitelist == null)
             {
-                var relativePath = Path.GetRelativePath(backupSourceRoot, fileToCheck);
-                if (!relativePath.StartsWith("..", StringComparison.Ordinal))
-                {
-                    relativePathLower = relativePath.ToLowerInvariant();
-                }
-            }
-            catch (Exception ex)
-            {
-                Log($"[Filter][Debug] Failed to build relative path for whitelist matching: {ex.Message}", LogLevel.Debug);
+                return false;
             }
 
-            var regexCache = new Dictionary<string, Regex>();
-
-            foreach (var ruleOrig in rules)
-            {
-                var rule = ruleOrig.Trim();
-                var ruleLower = rule.ToLowerInvariant();
-
-                if (ruleLower.StartsWith("regex:"))
-                {
-                    if (!useRegex) continue;
-
-                    try
-                    {
-                        var pattern = rule.Substring(6);
-                        if (!regexCache.TryGetValue(pattern, out var regex))
-                        {
-                            regex = new Regex(pattern, RegexOptions.IgnoreCase | RegexOptions.Compiled);
-                            regexCache[pattern] = regex;
-                        }
-
-                        if (regex.IsMatch(fileToCheck)
-                            || (!string.IsNullOrEmpty(relativePathLower) && regex.IsMatch(relativePathLower)))
-                        {
-                            return true;
-                        }
-                    }
-                    catch (ArgumentException)
-                    {
-                        Log(I18n.Format("BackupService_Log_InvalidRegex", rule), LogLevel.Warning);
-                    }
-
-                    continue;
-                }
-
-                var fileName = Path.GetFileName(fileToCheck);
-                if (!string.IsNullOrEmpty(fileName) &&
-                    fileName.Equals(rule, StringComparison.OrdinalIgnoreCase))
-                {
-                    return true;
-                }
-
-                if (MatchesPathBoundary(fileToCheck, relativePathLower, rule))
-                {
-                    return true;
-                }
-
-                if (rule.Contains('*') || rule.Contains('?'))
-                {
-                    try
-                    {
-                        var wildcardPattern = "^" + Regex.Escape(rule)
-                            .Replace("\\*", ".*")
-                            .Replace("\\?", ".") + "$";
-                        var wildcardRegex = new Regex(wildcardPattern, RegexOptions.IgnoreCase);
-
-                        if (!string.IsNullOrEmpty(fileName) && wildcardRegex.IsMatch(fileName))
-                        {
-                            return true;
-                        }
-
-                        if (!string.IsNullOrEmpty(relativePathLower) && wildcardRegex.IsMatch(relativePathLower))
-                        {
-                            return true;
-                        }
-                    }
-                    catch (Exception ex)
-                    {
-                        Log($"[Filter][Debug] Invalid wildcard whitelist rule '{rule}': {ex.Message}", LogLevel.Debug);
-                    }
-                }
-
-                if (Path.IsPathRooted(rule))
-                {
-                    try
-                    {
-                        var ruleFullPath = Path.GetFullPath(rule);
-                        var originalFullPath = Path.GetFullPath(originalSourceRoot);
-
-                        if (ruleFullPath.StartsWith(originalFullPath, StringComparison.OrdinalIgnoreCase))
-                        {
-                            var ruleRelative = Path.GetRelativePath(originalSourceRoot, ruleFullPath);
-                            var remappedPath = Path.Combine(backupSourceRoot, ruleRelative);
-                            if (fileToCheck.StartsWith(remappedPath, StringComparison.OrdinalIgnoreCase))
-                            {
-                                return true;
-                            }
-                        }
-                    }
-                    catch (Exception ex)
-                    {
-                        Log($"[Filter][Debug] Failed to remap rooted whitelist rule '{rule}': {ex.Message}", LogLevel.Debug);
-                    }
-                }
-            }
-
-            return false;
+            return PathRuleMatcher.CreateForBackup(
+                whitelist,
+                backupSourceRoot,
+                originalSourceRoot,
+                useRegex).IsMatch(fileToCheck);
         }
 
         public static bool ShouldIncludeInBackup(
@@ -409,6 +152,40 @@ namespace FolderRewind.Services
                 filters.UseRegex);
         }
 
+        private static PathRuleMatcher? CreateBackupMatcher(
+            string backupSourceRoot,
+            string originalSourceRoot,
+            FilterSettings? filters)
+        {
+            if (filters == null)
+            {
+                return null;
+            }
+
+            IEnumerable<string>? rules = filters.BackupFilterMode == BackupFilterMode.Whitelist
+                ? filters.BackupWhitelist
+                : filters.Blacklist;
+            return PathRuleMatcher.CreateForBackup(
+                rules,
+                backupSourceRoot,
+                originalSourceRoot,
+                filters.UseRegex);
+        }
+
+        private static bool ShouldIncludeInBackup(
+            string fileToCheck,
+            FilterSettings? filters,
+            PathRuleMatcher? matcher)
+        {
+            if (filters == null || matcher == null)
+            {
+                return true;
+            }
+
+            bool matched = matcher.IsMatch(fileToCheck);
+            return filters.BackupFilterMode == BackupFilterMode.Whitelist ? matched : !matched;
+        }
+
         /// <summary>
         /// 过滤文件列表，按当前备份过滤模式保留实际应进入归档的文件。
         /// </summary>
@@ -423,8 +200,8 @@ namespace FolderRewind.Services
                 return files.ToList();
             }
 
-            return files.Where(f => ShouldIncludeInBackup(
-                f, backupSourceRoot, originalSourceRoot, filters)).ToList();
+            var matcher = CreateBackupMatcher(backupSourceRoot, originalSourceRoot, filters);
+            return files.Where(file => ShouldIncludeInBackup(file, filters, matcher)).ToList();
         }
 
         private static List<string> EnumerateBackupRelativeFiles(string path, FilterSettings? filters = null, string? originalSourcePath = null)
@@ -439,9 +216,10 @@ namespace FolderRewind.Services
             };
 
             var originalRoot = originalSourcePath ?? path;
+            var matcher = CreateBackupMatcher(path, originalRoot, filters);
             foreach (var file in dirInfo.EnumerateFiles("*", enumOptions))
             {
-                if (!ShouldIncludeInBackup(file.FullName, path, originalRoot, filters))
+                if (!ShouldIncludeInBackup(file.FullName, filters, matcher))
                 {
                     continue;
                 }
@@ -468,12 +246,13 @@ namespace FolderRewind.Services
             };
 
             var originalRoot = originalSourcePath ?? path;
+            var matcher = CreateBackupMatcher(path, originalRoot, filters);
 
             // 获取所有文件，使用相对路径作为 Key，采用流式枚举避免一次性加载大目录列表。
             foreach (var file in dirInfo.EnumerateFiles("*", enumOptions))
             {
                 // 统一检查备份过滤模式：黑名单排除，白名单纳入。
-                if (!ShouldIncludeInBackup(file.FullName, path, originalRoot, filters))
+                if (!ShouldIncludeInBackup(file.FullName, filters, matcher))
                 {
                     continue;
                 }
@@ -510,23 +289,6 @@ namespace FolderRewind.Services
             return result;
         }
 
-        private static bool MatchWildcard(string filePath, string pattern)
-        {
-            try
-            {
-                // 仅拿文件名部分做匹配（如 *.mp4 应匹配 sub/dir/video.mp4）
-                string fileName = Path.GetFileName(filePath);
-                string wildcardPattern = "^" + Regex.Escape(pattern)
-                    .Replace("\\*", ".*")
-                    .Replace("\\?", ".") + "$";
-                return Regex.IsMatch(fileName, wildcardPattern, RegexOptions.IgnoreCase)
-                    || Regex.IsMatch(filePath, wildcardPattern, RegexOptions.IgnoreCase);
-            }
-            catch
-            {
-                return false;
-            }
-        }
     }
 }
 

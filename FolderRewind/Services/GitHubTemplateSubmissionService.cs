@@ -258,7 +258,7 @@ namespace FolderRewind.Services
 
         private static string ResolveShareCode(ConfigTemplate template, IReadOnlyList<RemoteTemplateIndexItem> items)
         {
-            var templateId = template.TemplateId;
+            var templateId = template.ShareId;
             var byTemplateId = items.FirstOrDefault(item =>
                 !string.IsNullOrWhiteSpace(item.TemplateId)
                 && string.Equals(item.TemplateId, templateId, StringComparison.OrdinalIgnoreCase));
@@ -499,7 +499,7 @@ namespace FolderRewind.Services
             var builder = new StringBuilder();
             builder.AppendLine("## Template Metadata");
             builder.AppendLine($"- Share code: `{shareCode}`");
-            builder.AppendLine($"- Template ID: `{template.TemplateId}`");
+            builder.AppendLine($"- Template ID: `{template.ShareId}`");
             builder.AppendLine($"- Template name: {template.Name}");
             builder.AppendLine($"- Game name: {(string.IsNullOrWhiteSpace(template.GameName) ? "-" : template.GameName)}");
             builder.AppendLine($"- Author: {(string.IsNullOrWhiteSpace(template.Author) ? "Anonymous" : template.Author)}");

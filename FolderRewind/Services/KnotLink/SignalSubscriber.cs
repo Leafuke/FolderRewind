@@ -1,3 +1,9 @@
+/*
+ * KnotLink SDK - C#
+ * Copyright (c) 2024-2026 KnotLink Contributors
+ * SPDX-License-Identifier: MIT
+ */
+
 using System;
 using System.Threading.Tasks;
 
@@ -12,13 +18,23 @@ namespace FolderRewind.Services.KnotLink
         private readonly int _port;
 
         public Func<string, Task>? OnSignalAsync { get; set; }
-
-        public SignalSubscriber(string appId, string signalId, string host = "127.0.0.1", int port = 6372)
+        public Func<Exception, Task>? OnErrorAsync
+        {
+            get => _client.OnErrorAsync;
+            set => _client.OnErrorAsync = value;
+        }
+        public SignalSubscriber(
+            string appId,
+            string signalId,
+            string host = "127.0.0.1",
+            int port = 6372,
+            Func<string, Task>? onSignalAsync = null)
         {
             _appId = appId;
             _signalId = signalId;
             _host = host;
             _port = port;
+            OnSignalAsync = onSignalAsync;
 
             _client = new KlTcpClient();
             _client.OnDataReceivedAsync = HandleSignalAsync;

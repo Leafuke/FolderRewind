@@ -68,6 +68,12 @@ As the spiritual successor to MineBackup, FolderRewind enhances its versatility 
 
 Note: Do not run Store, MSI, and side-loaded MSIX versions at the same time. MSI stores its data separately from MSIX/Store and does not automatically migrate configurations or plugins.
 
+### Version 1.8 upgrade notes
+
+- Version 1.8 supports direct upgrades from v1.7.4. Users on earlier releases should run v1.7.4 first to complete configuration migration. Existing backups and historical metadata remain restorable.
+- Template import now accepts only the version 1.0 envelope carrying the `FolderRewindTemplate` marker.
+- The KnotLink v1 plugin API has been removed. Plugins must use the parameterized KnotLink v2 API and declare host version 1.8.0 or newer.
+
 ## Usage
 
 For detailed usage instructions, please refer to the official documentation: https://folderrewind.top/en/
@@ -76,7 +82,7 @@ For detailed usage instructions, please refer to the official documentation: htt
 
 | Name               | Description                                     | Author          | Download Link                                      |
 |----------------------|----------------------------------------|-------------|-------------------------------------------|
-| MineRewind      | A backup plugin specifically designed for Minecraft game saves.               | Leafuke     | [Repository](https://github.com/Leafuke/FolderRewind-Plugin-Minecraft/Releases)
+| MineRewind      | A backup plugin specifically designed for Minecraft game saves.               | Leafuke     | [Repository](https://github.com/Leafuke/FolderRewind-Plugin-Minecraft/releases)
 
 ## Development
 
@@ -101,7 +107,7 @@ If you are interested in discussing, you can join the QQ group.
 - [Windows App SDK](https://github.com/microsoft/windowsappsdk)
 - [WinUI](https://github.com/microsoft/microsoft-ui-xaml)
 - [Windows Community Toolkit](https://github.com/CommunityToolkit/Windows)
-- [KnotLink](https://github.com/hxh230802/KnotLink)
+- [KnotLink](https://github.com/KnotLink-Protocol/KnotLink)
 - [7-Zip](https://www.7-zip.org/)
 - [7-Zip-zstd](https://github.com/mcmilk/7-Zip-zstd)
 - [MineBackup - Spiritual Predecessor](https://github.com/Leafuke/MineBackup)

@@ -1,0 +1,3 @@
+[submodule "FolderRewind-Plugin-Minecraft"]
+	path = FolderRewind-Plugin-Minecraft
+	url = https://github.com/Leafuke/FolderRewind-Plugin-Minecraft.git

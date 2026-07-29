@@ -32,7 +32,7 @@ namespace FolderRewind.Services
         /// <summary>
         /// 开始监视指定文件夹。如果已在监视中，则不做处理。
         /// </summary>
-        public static void StartWatching(string folderPath)
+        public static void StartWatching(string folderPath, bool initialHasChanges = false)
         {
             if (string.IsNullOrWhiteSpace(folderPath)) return;
             if (!Directory.Exists(folderPath)) return;
@@ -51,7 +51,11 @@ namespace FolderRewind.Services
                     InternalBufferSize = 32768, // 32KB 缓冲区，减少事件丢失概率
                 };
 
-                var entry = new WatcherEntry { Watcher = watcher, HasChanges = false };
+                var entry = new WatcherEntry
+                {
+                    Watcher = watcher,
+                    HasChanges = initialHasChanges
+                };
 
                 watcher.Changed += (_, __) => entry.HasChanges = true;
                 watcher.Created += (_, __) => entry.HasChanges = true;
@@ -94,6 +98,21 @@ namespace FolderRewind.Services
         {
             if (string.IsNullOrWhiteSpace(folderPath)) return false;
             return _watchers.TryGetValue(folderPath, out var entry) && entry.HasChanges;
+        }
+
+        public static bool IsWatching(string folderPath)
+        {
+            return !string.IsNullOrWhiteSpace(folderPath)
+                && _watchers.ContainsKey(folderPath);
+        }
+
+        public static void MarkChanged(string folderPath)
+        {
+            if (!string.IsNullOrWhiteSpace(folderPath)
+                && _watchers.TryGetValue(folderPath, out var entry))
+            {
+                entry.HasChanges = true;
+            }
         }
 
         /// <summary>

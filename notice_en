@@ -1,10 +1,4 @@
-1.7.4 The temporary fix version is being gradually pushed out.
+FolderRewind 1.8.0 is now officially available.
 
-Note: Some new features originally planned for release in the official version 1.8.0 are present in this version. They have undergone simple testing but have not undergone rigorous long-term certification, and are not recommended for use in formal production.
-The "testing function" with significant uncertainty is as follows:
-
-1. Select the backup mode for the designated area.
-2. Performance presets.
-3. Folder renaming/refactoring.
-
-Be sure to use these features cautiously. They will undergo comprehensive testing before the official release of version 1.8.0, and only then can they be used in production environments.
+If KnotLink Server is already installed, you must update it to version 3.0 or later.
+If you are using MineBackup-Mod, please update it to version 3.0 or later as well.

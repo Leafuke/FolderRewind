@@ -1691,26 +1691,24 @@ If plugin files are in use, you may need to close the app first.</value>
     <value>The following commands can be called via KnotLink:</value>
   </data>
   <data name="SettingsPage_KnotLinkCommandsBody.Text" xml:space="preserve">
-    <value>New parameterized commands v2 (recommended):
-GET_CAPABILITIES
-LIST_CONFIGS
-LIST_FOLDERS -config_id=ID
-LIST_BACKUPS -from=example.client -request_id=req-list-001 -config_id=ID -folder="folder name"
-BACKUP -from=example.client -request_id=req-backup-001 -config_id=ID -folder="folder name" -comment="note" -force_full=true -backup_blacklist=cache;logs -backupwhitelist=level.dat;region/r.0.0.mca
-BACKUP -from=example.client -request_id=req-backup-002 -config_id=ID -folder="folder name" -backup_scope=MineRewind.SelectedRegions -scope.dimensions=overworld;nether -scope.areas="0,0,511,511"
-RESTORE -from=example.client -request_id=req-restore-001 -config_id=ID -folder="folder name" -file=backup.7z -mode=clean -restore_whitelist=options.txt;playerdata -confirm_partial_clean=true
-BACKUP_ALL -from=example.client -request_id=req-all-001 -config_id=ID -comment="note" -force_full=true
-AUTO_BACKUP -from=example.client -request_id=req-auto-001 -config_id=ID -folder="folder name" -interval_minutes=10
-STOP_AUTO_BACKUP -from=example.client -request_id=req-stop-001 -config_id=ID -folder="folder name"
-MARK_IMPORTANT -from=example.client -request_id=req-mark-001 -config_id=ID -folder="folder name" -file=backup.7z -important=true
+    <value>Strict key-value commands v2:
+cmd=get_capabilities
+cmd=PING
+cmd=LIST_CONFIGS
+cmd=LIST_FOLDERS;config_id=ID
+cmd=LIST_BACKUPS;config_id=ID;folder=folder%20name
+cmd=BACKUP;from=example.client;request_id=req-backup-001;config_id=ID;folder=folder%20name;comment=note;backup_mode=full;compression_method=zstd;compression_level=11;backup_blacklist=cache,logs;backup_whitelist=level.dat,region%2Fr.0.0.mca
+cmd=BACKUP;from=example.client;request_id=req-backup-002;config_id=ID;folder=folder%20name;backup_scope=MineRewind.SelectedRegions;scope_dimensions=overworld,nether;scope_areas=0%2C0%2C511%2C511
+cmd=RESTORE;from=example.client;request_id=req-restore-001;config_id=ID;folder=folder%20name;file=backup.7z;mode=clean;restore_whitelist=options.txt,playerdata
+cmd=AUTO_BACKUP;from=example.client;request_id=req-auto-001;config_id=ID;folder=folder%20name;interval_minutes=10
 
-MineRewind parameterized extensions:
-BACKUP -from=minerewind.mod -request_id=req-mr-backup-001 -current_save=true -comment=QuickSave
-LIST_BACKUPS -from=minerewind.mod -request_id=req-mr-list-001 -current_save=true
-RESTORE -from=minerewind.mod -request_id=req-mr-restore-001 -current_save=true -file=backup.7z -preserve_player_data=true
+MineRewind v2 extensions:
+cmd=BACKUP;from=minebackup.mod;request_id=req-mr-backup-001;current_save=true;comment=QuickSave
+cmd=LIST_BACKUPS;current_save=true
+cmd=RESTORE;from=minebackup.mod;request_id=req-mr-restore-001;current_save=true
+cmd=RESTORE;from=minebackup.mod;request_id=req-mr-restore-002;current_save=true;file=backup.7z;preserve_player_data=true
 
-Receivers should only handle responses and events whose from/request_id match their own request. The new protocol uses folder and no longer uses world.
-Legacy positional commands remain compatible: BACKUP &lt;config_id&gt; &lt;folder&gt; [comment], BACKUP_CURRENT, LIST_BACKUPS_CURRENT, and more.</value>
+Keys use letters, digits, and underscores only. Values must be percent-encoded. Lists use comma-separated, individually encoded items. Requests without cmd are rejected.</value>
   </data>
   <data name="SettingsPage_NavPaneWidth.Text" xml:space="preserve">
     <value>Navigation pane width</value>
@@ -1747,12 +1745,6 @@ Legacy positional commands remain compatible: BACKUP &lt;config_id&gt; &lt;folde
   </data>
   <data name="Config_LoadFailed_Reset" xml:space="preserve">
     <value>[Config] Failed to load config; resetting to default: {0}</value>
-  </data>
-  <data name="Config_CurrentConfigNull_ForceDefault" xml:space="preserve">
-    <value>[Config] CurrentConfig is null; created default config.</value>
-  </data>
-  <data name="Config_Save_CurrentConfigNull" xml:space="preserve">
-    <value>[Config] CurrentConfig is null; cannot save.</value>
   </data>
   <data name="Config_SaveFailed" xml:space="preserve">
     <value>[Config] Failed to save config: {0}</value>
@@ -1853,24 +1845,6 @@ Legacy positional commands remain compatible: BACKUP &lt;config_id&gt; &lt;folde
   <data name="KnotLink_CommandResponse" xml:space="preserve">
     <value>[KnotLink] Response: {0}</value>
   </data>
-  <data name="KnotLink_Parse_EmptyCommand" xml:space="preserve">
-    <value>Empty command.</value>
-  </data>
-  <data name="KnotLink_Parse_ExpectedOption" xml:space="preserve">
-    <value>Parameterized commands only accept -key=value format. Unexpected character: {0}</value>
-  </data>
-  <data name="KnotLink_Parse_InvalidOption" xml:space="preserve">
-    <value>Invalid option: {0}. Use -key=value.</value>
-  </data>
-  <data name="KnotLink_Parse_EmptyOptionName" xml:space="preserve">
-    <value>Option name cannot be empty.</value>
-  </data>
-  <data name="KnotLink_Parse_DuplicateOption" xml:space="preserve">
-    <value>Duplicate option: {0}</value>
-  </data>
-  <data name="KnotLink_Parse_UnclosedQuote" xml:space="preserve">
-    <value>Unclosed quote.</value>
-  </data>
   <data name="KnotLink_CommandParseFailed_Log" xml:space="preserve">
     <value>[KnotLink] Command parse failed: {0}</value>
   </data>
@@ -1881,13 +1855,13 @@ Legacy positional commands remain compatible: BACKUP &lt;config_id&gt; &lt;folde
     <value>KnotLink command failed: {0}</value>
   </data>
   <data name="KnotLink_Error_MissingConfigId" xml:space="preserve">
-    <value>Missing config_id option. Example: -config_id=ID</value>
+    <value>Missing config_id field. Example: config_id=ID</value>
   </data>
   <data name="KnotLink_Error_MissingFolderName" xml:space="preserve">
-    <value>Missing folder option. Example: -folder=folder name</value>
+    <value>Missing folder field. Example: folder=folder%20name</value>
   </data>
   <data name="KnotLink_Error_MissingBackupFile" xml:space="preserve">
-    <value>Missing file option. Example: -file=backup.7z</value>
+    <value>Missing file field. Example: file=backup.7z</value>
   </data>
   <data name="KnotLink_Error_InvalidBool" xml:space="preserve">
     <value>Invalid boolean value for {0}: {1}</value>
@@ -1902,10 +1876,7 @@ Legacy positional commands remain compatible: BACKUP &lt;config_id&gt; &lt;folde
     <value>Unable to create a temporary configuration for this command.</value>
   </data>
   <data name="KnotLink_Error_MissingConversationMetadata" xml:space="preserve">
-    <value>Missing conversation metadata: {0}. Add -from=source and -request_id=requestId to new parameterized commands.</value>
-  </data>
-  <data name="KnotLink_Error_DeprecatedWorldOption" xml:space="preserve">
-    <value>The world option is deprecated. Upgrade the caller protocol and use folder instead.</value>
+    <value>Missing conversation metadata: {0}. Add from=source and request_id=requestId.</value>
   </data>
   <data name="KnotLink_ResponderInitSuccess" xml:space="preserve">
     <value>[KnotLink] Command responder initialized successfully</value>
@@ -1952,13 +1923,13 @@ Legacy positional commands remain compatible: BACKUP &lt;config_id&gt; &lt;folde
 If you have a listener subscribed to this signal, it should receive a message.</value>
   </data>
   <data name="SettingsPage_KnotLinkSendCustom_Title" xml:space="preserve">
-    <value>Send custom message</value>
+    <value>Send custom command</value>
   </data>
   <data name="SettingsPage_KnotLinkSendCustom_Placeholder" xml:space="preserve">
-    <value>Enter content to send</value>
+    <value>Enter a strict key-value command, for example cmd=PING</value>
   </data>
   <data name="SettingsPage_KnotLinkSendCustom_Empty" xml:space="preserve">
-    <value>Message cannot be empty</value>
+    <value>Command cannot be empty</value>
   </data>
   <data name="SettingsPage_KnotLinkSendCustom_ResultTitle" xml:space="preserve">
     <value>Remote response</value>
@@ -2306,6 +2277,39 @@ Comment: {1}
   </data>
   <data name="SettingsPage_KnotLinkServer_InstallerLaunched" xml:space="preserve">
     <value>Server installer launched. Please complete installation and restart the app.</value>
+  </data>
+  <data name="KnotLinkCompatibility_DialogTitle" xml:space="preserve">
+    <value>KnotLink Server Update Required</value>
+  </data>
+  <data name="KnotLinkCompatibility_DialogContent" xml:space="preserve">
+    <value>The installed KnotLink server version is {0}. FolderRewind 1.8.0 uses the KnotLink v2 parameterized protocol and requires server version {1} or later. Update the server to ensure compatibility.</value>
+  </data>
+  <data name="KnotLinkCompatibility_UnknownVersion" xml:space="preserve">
+    <value>unknown</value>
+  </data>
+  <data name="KnotLinkCompatibility_UpdateNow" xml:space="preserve">
+    <value>Update Now</value>
+  </data>
+  <data name="KnotLinkCompatibility_RemindLater" xml:space="preserve">
+    <value>Remind Me Later</value>
+  </data>
+  <data name="KnotLinkCompatibility_UpdateInfoUnavailable" xml:space="preserve">
+    <value>Unable to retrieve the latest KnotLink server release information.</value>
+  </data>
+  <data name="KnotLinkCompatibility_LatestVersionUnsupported" xml:space="preserve">
+    <value>The latest official version, {0}, is older than FolderRewind's minimum required version, {1}.</value>
+  </data>
+  <data name="KnotLinkCompatibility_DownloadFailed" xml:space="preserve">
+    <value>Failed to download the KnotLink server installer.</value>
+  </data>
+  <data name="KnotLinkCompatibility_UpdateFailedTitle" xml:space="preserve">
+    <value>KnotLink Server Update Failed</value>
+  </data>
+  <data name="KnotLinkCompatibility_UpdateFailedContent" xml:space="preserve">
+    <value>{0} You can open the official KnotLink releases page and download the installer manually.</value>
+  </data>
+  <data name="KnotLinkCompatibility_OpenReleases" xml:space="preserve">
+    <value>Open Official Releases</value>
   </data>
   <data name="Common_Save" xml:space="preserve">
     <value>Save</value>
@@ -2736,9 +2740,6 @@ Status: {3}</value>
   </data>
   <data name="AutoBackup_Reason_Scheduled" xml:space="preserve">
     <value>Scheduled backup ({0})</value>
-  </data>
-  <data name="AutoBackup_Reason_ScheduledLegacy" xml:space="preserve">
-    <value>Scheduled backup (legacy compatibility)</value>
   </data>
   <data name="AutoBackup_Reason_FileUnlocked" xml:space="preserve">
     <value>Conditional backup ({0} unlocked)</value>
@@ -4821,17 +4822,14 @@ Pull request: {1}</value>
   <data name="ConfigSettingsDialog_OpenFailed_Log" xml:space="preserve">
     <value>Failed to open the config settings window: {0}</value>
   </data>
-  <data name="History_PartialCleanConfirm_Title" xml:space="preserve">
-    <value>This is a partial backup</value>
+  <data name="History_PartialRestore_Title" xml:space="preserve">
+    <value>Restore partial backup</value>
   </data>
-  <data name="History_PartialCleanConfirm_Content" xml:space="preserve">
-    <value>This backup was created from an inclusion list or partial scope and contains only some files. Continuing with Clean restore may delete other files in the target folder not included in the backup. Continue?</value>
+  <data name="History_PartialRestore_Content" xml:space="preserve">
+    <value>This archive contains only selected files. FolderRewind will use Overwrite restore so files outside the backup remain untouched.</value>
   </data>
-  <data name="History_PartialCleanConfirm_Primary" xml:space="preserve">
-    <value>Confirm Clean restore</value>
-  </data>
-  <data name="KnotLink_Error_PartialCleanRequiresConfirm" xml:space="preserve">
-    <value>The target backup is a partial backup. To proceed with Clean restore, add -confirm_partial_clean=true.</value>
+  <data name="History_PartialRestore_Primary" xml:space="preserve">
+    <value>Restore with Overwrite</value>
   </data>
   <data name="Tray_ToolTip" xml:space="preserve">
     <value>FolderRewind</value>
@@ -4856,5 +4854,41 @@ Pull request: {1}</value>
   </data>
   <data name="Update_Dialog_DownloadMsi" xml:space="preserve">
     <value>Download MSI installer</value>
+  </data>
+  <data name="PluginService_BackupScope_ContextIncomplete" xml:space="preserve">
+    <value>The backup scope context is incomplete.</value>
+  </data>
+  <data name="PluginService_BackupScope_SystemDisabled" xml:space="preserve">
+    <value>The selected backup scope requires the plugin system.</value>
+  </data>
+  <data name="PluginService_BackupScope_DuplicateDeclaration" xml:space="preserve">
+    <value>Plugin '{0}' declares backup scope '{1}' more than once.</value>
+  </data>
+  <data name="PluginService_BackupScope_DiscoveryFailed" xml:space="preserve">
+    <value>Plugin '{0}' failed while declaring backup scopes: {1}</value>
+  </data>
+  <data name="PluginService_BackupScope_ProviderMissing" xml:space="preserve">
+    <value>No enabled plugin provides backup scope '{0}'.</value>
+  </data>
+  <data name="PluginService_BackupScope_ProviderAmbiguous" xml:space="preserve">
+    <value>Multiple enabled plugins provide backup scope '{0}'.</value>
+  </data>
+  <data name="PluginService_BackupScope_ResolutionFailed" xml:space="preserve">
+    <value>Plugin '{0}' failed to resolve the backup scope: {1}</value>
+  </data>
+  <data name="PluginService_BackupScope_ResolutionMissing" xml:space="preserve">
+    <value>The backup scope provider returned no resolution.</value>
+  </data>
+  <data name="PluginService_BackupScope_Invalid" xml:space="preserve">
+    <value>The selected backup scope is invalid.</value>
+  </data>
+  <data name="PluginService_BackupScope_ContributionEmpty" xml:space="preserve">
+    <value>The backup scope produced no filter rules.</value>
+  </data>
+  <data name="PluginService_BackupScope_NotApplicable" xml:space="preserve">
+    <value>The selected backup scope does not apply to any source folder.</value>
+  </data>
+  <data name="History_SaveFailed" xml:space="preserve">
+    <value>Failed to save backup history: {0}</value>
   </data>
 </root>

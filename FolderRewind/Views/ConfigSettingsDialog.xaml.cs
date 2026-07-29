@@ -847,6 +847,46 @@ namespace FolderRewind.Views
                 return;
             }
 
+            if (!ViewModel.TryValidateFilters(out errorMessage))
+            {
+                args.Cancel = true;
+
+                var dialog = new ContentDialog
+                {
+                    Title = I18n.GetString("Common_Failed"),
+                    Content = new TextBlock
+                    {
+                        Text = errorMessage,
+                        TextWrapping = TextWrapping.Wrap
+                    },
+                    CloseButtonText = I18n.GetString("Common_Ok"),
+                    XamlRoot = MainWindowService.GetXamlRoot() ?? this.XamlRoot
+                };
+                ThemeService.ApplyThemeToDialog(dialog);
+                await dialog.ShowAsync();
+                return;
+            }
+
+            if (!ViewModel.TryValidateBackupScope(out errorMessage))
+            {
+                args.Cancel = true;
+
+                var dialog = new ContentDialog
+                {
+                    Title = I18n.GetString("Common_Failed"),
+                    Content = new TextBlock
+                    {
+                        Text = errorMessage,
+                        TextWrapping = TextWrapping.Wrap
+                    },
+                    CloseButtonText = I18n.GetString("Common_Ok"),
+                    XamlRoot = MainWindowService.GetXamlRoot() ?? this.XamlRoot
+                };
+                ThemeService.ApplyThemeToDialog(dialog);
+                await dialog.ShowAsync();
+                return;
+            }
+
             ConfigService.Save();
         }
 

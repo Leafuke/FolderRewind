@@ -204,16 +204,25 @@ namespace FolderRewind.Views
 
         private async Task<BackupService.RestoreMode?> PromptRestoreModeAsync(HistoryItem item)
         {
+            bool isPartialBackup = item.IsPartialBackup;
             var dialog = new ContentDialog
             {
-                Title = I18n.GetString("History_RestoreConfirm_Title"),
+                Title = isPartialBackup
+                    ? I18n.GetString("History_PartialRestore_Title")
+                    : I18n.GetString("History_RestoreConfirm_Title"),
                 Content = new TextBlock
                 {
-                    Text = I18n.Format("History_RestoreConfirm_Content", item.TimeDisplay, item.Comment ?? string.Empty),
+                    Text = isPartialBackup
+                        ? I18n.GetString("History_PartialRestore_Content")
+                        : I18n.Format("History_RestoreConfirm_Content", item.TimeDisplay, item.Comment ?? string.Empty),
                     TextWrapping = TextWrapping.Wrap
                 },
-                PrimaryButtonText = I18n.GetString("History_RestoreConfirm_Primary"),
-                SecondaryButtonText = I18n.GetString("History_RestoreConfirm_Secondary"),
+                PrimaryButtonText = isPartialBackup
+                    ? I18n.GetString("History_PartialRestore_Primary")
+                    : I18n.GetString("History_RestoreConfirm_Primary"),
+                SecondaryButtonText = isPartialBackup
+                    ? string.Empty
+                    : I18n.GetString("History_RestoreConfirm_Secondary"),
                 CloseButtonText = I18n.GetString("Common_Cancel"),
                 DefaultButton = ContentDialogButton.Primary,
                 XamlRoot = this.XamlRoot
@@ -223,12 +232,9 @@ namespace FolderRewind.Views
             var result = await dialog.ShowAsync();
             if (result == ContentDialogResult.Primary)
             {
-                if (item.IsPartialBackup && !await ConfirmPartialCleanRestoreAsync())
-                {
-                    return null;
-                }
-
-                return BackupService.RestoreMode.Clean;
+                return isPartialBackup
+                    ? BackupService.RestoreMode.Overwrite
+                    : BackupService.RestoreMode.Clean;
             }
 
             if (result == ContentDialogResult.Secondary)
@@ -406,26 +412,6 @@ namespace FolderRewind.Views
             }
 
             return null;
-        }
-
-        private async Task<bool> ConfirmPartialCleanRestoreAsync()
-        {
-            var dialog = new ContentDialog
-            {
-                Title = I18n.GetString("History_PartialCleanConfirm_Title"),
-                Content = new TextBlock
-                {
-                    Text = I18n.GetString("History_PartialCleanConfirm_Content"),
-                    TextWrapping = TextWrapping.Wrap
-                },
-                PrimaryButtonText = I18n.GetString("History_PartialCleanConfirm_Primary"),
-                CloseButtonText = I18n.GetString("Common_Cancel"),
-                DefaultButton = ContentDialogButton.Close,
-                XamlRoot = this.XamlRoot
-            };
-            ThemeService.ApplyThemeToDialog(dialog);
-
-            return await dialog.ShowAsync() == ContentDialogResult.Primary;
         }
 
         private async void OnUploadToCloudClick(object sender, RoutedEventArgs e)

@@ -1691,26 +1691,24 @@
     <value>以下命令可通过 KnotLink 远程调用：</value>
   </data>
   <data name="SettingsPage_KnotLinkCommandsBody.Text" xml:space="preserve">
-    <value>新版参数化指令 v2（推荐）：
-GET_CAPABILITIES
-LIST_CONFIGS
-LIST_FOLDERS -config_id=ID
-LIST_BACKUPS -from=example.client -request_id=req-list-001 -config_id=ID -folder="文件夹名称"
-BACKUP -from=example.client -request_id=req-backup-001 -config_id=ID -folder="文件夹名称" -comment="注释" -force_full=true -backup_blacklist=cache;logs -backupwhitelist=level.dat;region/r.0.0.mca
-BACKUP -from=example.client -request_id=req-backup-002 -config_id=ID -folder="文件夹名称" -backup_scope=MineRewind.SelectedRegions -scope.dimensions=overworld;nether -scope.areas="0,0,511,511"
-RESTORE -from=example.client -request_id=req-restore-001 -config_id=ID -folder="文件夹名称" -file=backup.7z -mode=clean -restore_whitelist=options.txt;playerdata -confirm_partial_clean=true
-BACKUP_ALL -from=example.client -request_id=req-all-001 -config_id=ID -comment="注释" -force_full=true
-AUTO_BACKUP -from=example.client -request_id=req-auto-001 -config_id=ID -folder="文件夹名称" -interval_minutes=10
-STOP_AUTO_BACKUP -from=example.client -request_id=req-stop-001 -config_id=ID -folder="文件夹名称"
-MARK_IMPORTANT -from=example.client -request_id=req-mark-001 -config_id=ID -folder="文件夹名称" -file=backup.7z -important=true
+    <value>严格键值对指令 v2：
+cmd=get_capabilities
+cmd=PING
+cmd=LIST_CONFIGS
+cmd=LIST_FOLDERS;config_id=ID
+cmd=LIST_BACKUPS;config_id=ID;folder=%E6%96%87%E4%BB%B6%E5%A4%B9%E5%90%8D%E7%A7%B0
+cmd=BACKUP;from=example.client;request_id=req-backup-001;config_id=ID;folder=%E6%96%87%E4%BB%B6%E5%A4%B9;comment=%E6%B3%A8%E9%87%8A;backup_mode=full;compression_method=zstd;compression_level=11;backup_blacklist=cache,logs;backup_whitelist=level.dat,region%2Fr.0.0.mca
+cmd=BACKUP;from=example.client;request_id=req-backup-002;config_id=ID;folder=%E6%96%87%E4%BB%B6%E5%A4%B9;backup_scope=MineRewind.SelectedRegions;scope_dimensions=overworld,nether;scope_areas=0%2C0%2C511%2C511
+cmd=RESTORE;from=example.client;request_id=req-restore-001;config_id=ID;folder=%E6%96%87%E4%BB%B6%E5%A4%B9;file=backup.7z;mode=clean;restore_whitelist=options.txt,playerdata
+cmd=AUTO_BACKUP;from=example.client;request_id=req-auto-001;config_id=ID;folder=%E6%96%87%E4%BB%B6%E5%A4%B9;interval_minutes=10
 
-MineRewind 参数化扩展：
-BACKUP -from=minerewind.mod -request_id=req-mr-backup-001 -current_save=true -comment=QuickSave
-LIST_BACKUPS -from=minerewind.mod -request_id=req-mr-list-001 -current_save=true
-RESTORE -from=minerewind.mod -request_id=req-mr-restore-001 -current_save=true -file=backup.7z -preserve_player_data=true
+MineRewind v2 扩展：
+cmd=BACKUP;from=minebackup.mod;request_id=req-mr-backup-001;current_save=true;comment=QuickSave
+cmd=LIST_BACKUPS;current_save=true
+cmd=RESTORE;from=minebackup.mod;request_id=req-mr-restore-001;current_save=true
+cmd=RESTORE;from=minebackup.mod;request_id=req-mr-restore-002;current_save=true;file=backup.7z;preserve_player_data=true
 
-接收端应只处理 from/request_id 匹配自己请求的响应和事件。新版协议使用 folder 参数，不再使用 world 参数。
-旧版位置参数指令仍兼容：BACKUP &lt;config_id&gt; &lt;folder&gt; [comment]、BACKUP_CURRENT、LIST_BACKUPS_CURRENT 等。</value>
+键名仅使用字母、数字和下划线；值必须 percent-encode；列表使用逗号分隔并逐项编码。未带 cmd 的旧协议请求会被拒绝。</value>
   </data>
   <data name="SettingsPage_NavPaneWidth.Text" xml:space="preserve">
     <value>导航栏宽度</value>
@@ -1747,12 +1745,6 @@ RESTORE -from=minerewind.mod -request_id=req-mr-restore-001 -current_save=true -
   </data>
   <data name="Config_LoadFailed_Reset" xml:space="preserve">
     <value>[Config] 配置加载失败，将重置为默认配置：{0}</value>
-  </data>
-  <data name="Config_CurrentConfigNull_ForceDefault" xml:space="preserve">
-    <value>[Config] CurrentConfig 为空，已强制创建默认配置。</value>
-  </data>
-  <data name="Config_Save_CurrentConfigNull" xml:space="preserve">
-    <value>[Config] CurrentConfig 为空，无法保存。</value>
   </data>
   <data name="Config_SaveFailed" xml:space="preserve">
     <value>[Config] 配置保存失败：{0}</value>
@@ -1853,24 +1845,6 @@ RESTORE -from=minerewind.mod -request_id=req-mr-restore-001 -current_save=true -
   <data name="KnotLink_CommandResponse" xml:space="preserve">
     <value>[KnotLink] 响应: {0}</value>
   </data>
-  <data name="KnotLink_Parse_EmptyCommand" xml:space="preserve">
-    <value>空指令。</value>
-  </data>
-  <data name="KnotLink_Parse_ExpectedOption" xml:space="preserve">
-    <value>参数化指令只接受 -key=value 格式，遇到意外字符：{0}</value>
-  </data>
-  <data name="KnotLink_Parse_InvalidOption" xml:space="preserve">
-    <value>无效参数：{0}。请使用 -key=value。</value>
-  </data>
-  <data name="KnotLink_Parse_EmptyOptionName" xml:space="preserve">
-    <value>参数名不能为空。</value>
-  </data>
-  <data name="KnotLink_Parse_DuplicateOption" xml:space="preserve">
-    <value>重复参数：{0}</value>
-  </data>
-  <data name="KnotLink_Parse_UnclosedQuote" xml:space="preserve">
-    <value>引号未闭合。</value>
-  </data>
   <data name="KnotLink_CommandParseFailed_Log" xml:space="preserve">
     <value>[KnotLink] 指令解析失败：{0}</value>
   </data>
@@ -1881,13 +1855,13 @@ RESTORE -from=minerewind.mod -request_id=req-mr-restore-001 -current_save=true -
     <value>KnotLink 指令处理失败：{0}</value>
   </data>
   <data name="KnotLink_Error_MissingConfigId" xml:space="preserve">
-    <value>缺少 config_id 参数。示例：-config_id=ID</value>
+    <value>缺少 config_id 参数。示例：config_id=ID</value>
   </data>
   <data name="KnotLink_Error_MissingFolderName" xml:space="preserve">
-    <value>缺少 folder 参数。示例：-folder=文件夹名称</value>
+    <value>缺少 folder 参数。示例：folder=%E6%96%87%E4%BB%B6%E5%A4%B9</value>
   </data>
   <data name="KnotLink_Error_MissingBackupFile" xml:space="preserve">
-    <value>缺少 file 参数。示例：-file=backup.7z</value>
+    <value>缺少 file 参数。示例：file=backup.7z</value>
   </data>
   <data name="KnotLink_Error_InvalidBool" xml:space="preserve">
     <value>布尔参数 {0} 的值无效：{1}</value>
@@ -1902,10 +1876,7 @@ RESTORE -from=minerewind.mod -request_id=req-mr-restore-001 -current_save=true -
     <value>无法创建本次指令使用的临时配置。</value>
   </data>
   <data name="KnotLink_Error_MissingConversationMetadata" xml:space="preserve">
-    <value>缺少会话元数据：{0}。请在新版参数化指令中追加 -from=来源 和 -request_id=请求ID。</value>
-  </data>
-  <data name="KnotLink_Error_DeprecatedWorldOption" xml:space="preserve">
-    <value>world 参数已弃用。请升级调用方协议并使用 folder 参数。</value>
+    <value>缺少会话元数据：{0}。请追加 from=来源 和 request_id=请求ID。</value>
   </data>
   <data name="KnotLink_ResponderInitSuccess" xml:space="preserve">
     <value>[KnotLink] 命令响应器初始化成功</value>
@@ -1952,13 +1923,13 @@ RESTORE -from=minerewind.mod -request_id=req-mr-restore-001 -current_save=true -
 如果您有监听器订阅了此信号，应该能收到消息。</value>
   </data>
   <data name="SettingsPage_KnotLinkSendCustom_Title" xml:space="preserve">
-    <value>发送自定义信息</value>
+    <value>发送自定义指令</value>
   </data>
   <data name="SettingsPage_KnotLinkSendCustom_Placeholder" xml:space="preserve">
-    <value>输入要发送的内容</value>
+    <value>输入严格键值对指令，例如 cmd=PING</value>
   </data>
   <data name="SettingsPage_KnotLinkSendCustom_Empty" xml:space="preserve">
-    <value>内容不能为空</value>
+    <value>指令不能为空</value>
   </data>
   <data name="SettingsPage_KnotLinkSendCustom_ResultTitle" xml:space="preserve">
     <value>远端响应</value>
@@ -2306,6 +2277,39 @@ RESTORE -from=minerewind.mod -request_id=req-mr-restore-001 -current_save=true -
   </data>
   <data name="SettingsPage_KnotLinkServer_InstallerLaunched" xml:space="preserve">
     <value>服务端安装程序已启动，请完成安装后重启应用</value>
+  </data>
+  <data name="KnotLinkCompatibility_DialogTitle" xml:space="preserve">
+    <value>需要更新 KnotLink 服务端</value>
+  </data>
+  <data name="KnotLinkCompatibility_DialogContent" xml:space="preserve">
+    <value>检测到已安装的 KnotLink 服务端版本为 {0}。FolderRewind 1.8.0 使用 KnotLink v2 参数化协议，要求服务端版本至少为 {1}。请更新服务端以确保兼容。</value>
+  </data>
+  <data name="KnotLinkCompatibility_UnknownVersion" xml:space="preserve">
+    <value>未知</value>
+  </data>
+  <data name="KnotLinkCompatibility_UpdateNow" xml:space="preserve">
+    <value>立即更新</value>
+  </data>
+  <data name="KnotLinkCompatibility_RemindLater" xml:space="preserve">
+    <value>稍后提醒</value>
+  </data>
+  <data name="KnotLinkCompatibility_UpdateInfoUnavailable" xml:space="preserve">
+    <value>无法获取 KnotLink 服务端的最新版本信息。</value>
+  </data>
+  <data name="KnotLinkCompatibility_LatestVersionUnsupported" xml:space="preserve">
+    <value>官方最新版本 {0} 低于 FolderRewind 要求的最低版本 {1}。</value>
+  </data>
+  <data name="KnotLinkCompatibility_DownloadFailed" xml:space="preserve">
+    <value>KnotLink 服务端安装程序下载失败。</value>
+  </data>
+  <data name="KnotLinkCompatibility_UpdateFailedTitle" xml:space="preserve">
+    <value>KnotLink 服务端更新失败</value>
+  </data>
+  <data name="KnotLinkCompatibility_UpdateFailedContent" xml:space="preserve">
+    <value>{0} 你可以打开 KnotLink 官方发布页手动下载安装程序。</value>
+  </data>
+  <data name="KnotLinkCompatibility_OpenReleases" xml:space="preserve">
+    <value>打开官方下载页</value>
   </data>
   <data name="Common_Save" xml:space="preserve">
     <value>保存</value>
@@ -2736,9 +2740,6 @@ RESTORE -from=minerewind.mod -request_id=req-mr-restore-001 -current_save=true -
   </data>
   <data name="AutoBackup_Reason_Scheduled" xml:space="preserve">
     <value>计划备份（{0}）</value>
-  </data>
-  <data name="AutoBackup_Reason_ScheduledLegacy" xml:space="preserve">
-    <value>计划备份（旧配置兼容）</value>
   </data>
   <data name="AutoBackup_Reason_FileUnlocked" xml:space="preserve">
     <value>条件备份（{0} 已解除占用）</value>
@@ -4821,17 +4822,14 @@ Pull Request：{1}</value>
   <data name="ConfigSettingsDialog_OpenFailed_Log" xml:space="preserve">
     <value>配置设置窗口打开失败：{0}</value>
   </data>
-  <data name="History_PartialCleanConfirm_Title" xml:space="preserve">
-    <value>这是一个部分备份</value>
+  <data name="History_PartialRestore_Title" xml:space="preserve">
+    <value>还原部分备份</value>
   </data>
-  <data name="History_PartialCleanConfirm_Content" xml:space="preserve">
-    <value>该备份由仅备份列表或区域备份生成，只包含部分文件。继续安全还原可能删除目标文件夹中未包含在备份里的其他文件。确认继续？</value>
+  <data name="History_PartialRestore_Content" xml:space="preserve">
+    <value>该归档只包含选中的文件。FolderRewind 将强制使用覆写还原，保留备份范围之外的现有文件。</value>
   </data>
-  <data name="History_PartialCleanConfirm_Primary" xml:space="preserve">
-    <value>确认安全还原</value>
-  </data>
-  <data name="KnotLink_Error_PartialCleanRequiresConfirm" xml:space="preserve">
-    <value>目标备份是部分备份。若确实要安全还原，请追加 -confirm_partial_clean=true。</value>
+  <data name="History_PartialRestore_Primary" xml:space="preserve">
+    <value>使用覆写还原</value>
   </data>
   <data name="Tray_ToolTip" xml:space="preserve">
     <value>存档时光机</value>
@@ -4856,5 +4854,41 @@ Pull Request：{1}</value>
   </data>
   <data name="Update_Dialog_DownloadMsi" xml:space="preserve">
     <value>下载 MSI 安装包</value>
+  </data>
+  <data name="PluginService_BackupScope_ContextIncomplete" xml:space="preserve">
+    <value>备份范围上下文不完整。</value>
+  </data>
+  <data name="PluginService_BackupScope_SystemDisabled" xml:space="preserve">
+    <value>所选备份范围需要启用插件系统。</value>
+  </data>
+  <data name="PluginService_BackupScope_DuplicateDeclaration" xml:space="preserve">
+    <value>插件“{0}”重复声明了备份范围“{1}”。</value>
+  </data>
+  <data name="PluginService_BackupScope_DiscoveryFailed" xml:space="preserve">
+    <value>插件“{0}”声明备份范围时失败：{1}</value>
+  </data>
+  <data name="PluginService_BackupScope_ProviderMissing" xml:space="preserve">
+    <value>没有已启用的插件提供备份范围“{0}”。</value>
+  </data>
+  <data name="PluginService_BackupScope_ProviderAmbiguous" xml:space="preserve">
+    <value>多个已启用的插件同时提供备份范围“{0}”。</value>
+  </data>
+  <data name="PluginService_BackupScope_ResolutionFailed" xml:space="preserve">
+    <value>插件“{0}”解析备份范围时失败：{1}</value>
+  </data>
+  <data name="PluginService_BackupScope_ResolutionMissing" xml:space="preserve">
+    <value>备份范围提供者没有返回解析结果。</value>
+  </data>
+  <data name="PluginService_BackupScope_Invalid" xml:space="preserve">
+    <value>所选备份范围无效。</value>
+  </data>
+  <data name="PluginService_BackupScope_ContributionEmpty" xml:space="preserve">
+    <value>备份范围没有生成任何过滤规则。</value>
+  </data>
+  <data name="PluginService_BackupScope_NotApplicable" xml:space="preserve">
+    <value>所选备份范围不适用于任何源文件夹。</value>
+  </data>
+  <data name="History_SaveFailed" xml:space="preserve">
+    <value>保存备份历史失败：{0}</value>
   </data>
 </root>

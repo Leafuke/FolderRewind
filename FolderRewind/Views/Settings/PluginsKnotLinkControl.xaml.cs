@@ -8,7 +8,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
-using Windows.ApplicationModel.Resources;
+using ResourceLoader = FolderRewind.Services.AppResourceLoader;
 using PickerViewMode = Windows.Storage.Pickers.PickerViewMode;
 
 namespace FolderRewind.Views.Settings
@@ -446,7 +446,10 @@ namespace FolderRewind.Views.Settings
                 return;
             }
 
-            KnotLinkService.BroadcastEvent("event=test;message=Hello from FolderRewind!");
+            KnotLinkService.BroadcastEvent(null, "test", new Dictionary<string, string?>
+            {
+                ["message"] = "Hello from FolderRewind!"
+            });
 
             var dialog = new ContentDialog
             {
@@ -514,7 +517,7 @@ namespace FolderRewind.Views.Settings
 
             try
             {
-                var response = await KnotLinkService.QueryAsync($"SEND {message}", 5000);
+                var response = await KnotLinkService.QueryAsync(message, 5000);
 
                 var respDialog = new ContentDialog
                 {

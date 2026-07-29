@@ -1,3 +1,9 @@
+/*
+ * KnotLink SDK - C#
+ * Copyright (c) 2024-2026 KnotLink Contributors
+ * SPDX-License-Identifier: MIT
+ */
+
 using System;
 using System.Threading.Tasks;
 
@@ -10,16 +16,25 @@ namespace FolderRewind.Services.KnotLink
         private readonly string _openSocketId;
         private readonly string _host;
         private readonly int _port;
-        private bool _registered;
 
         public Func<string, Task<string>>? OnQuestionAsync { get; set; }
-
-        public OpenSocketResponser(string appId, string openSocketId, string host = "127.0.0.1", int port = 6378)
+        public Func<Exception, Task>? OnErrorAsync
+        {
+            get => _client.OnErrorAsync;
+            set => _client.OnErrorAsync = value;
+        }
+        public OpenSocketResponser(
+            string appId,
+            string openSocketId,
+            string host = "127.0.0.1",
+            int port = 6378,
+            Func<string, Task<string>>? onQuestionAsync = null)
         {
             _appId = appId;
             _openSocketId = openSocketId;
             _host = host;
             _port = port;
+            OnQuestionAsync = onQuestionAsync;
             _client = new KlTcpClient();
             _client.OnDataReceivedAsync = HandleDataAsync;
 
@@ -40,12 +55,6 @@ namespace FolderRewind.Services.KnotLink
 
         private async Task HandleDataAsync(string data)
         {
-            if (!_registered && data == _appId + "-" + _openSocketId)
-            {
-                _registered = true;
-                return;
-            }
-
             string[] parts = data.Split(new[] { "&*&" }, 2, StringSplitOptions.None);
             if (parts.Length != 2)
             {
@@ -54,10 +63,11 @@ namespace FolderRewind.Services.KnotLink
 
             string questionId = parts[0];
             string payload = parts[1];
-            string reply = OnQuestionAsync != null
-                ? await OnQuestionAsync(payload).ConfigureAwait(false)
-                : string.Empty;
 
+            if (OnQuestionAsync == null)
+                throw new InvalidOperationException("OnQuestionAsync callback is not set. Call SetRecvFunc or set OnQuestionAsync before receiving data.");
+
+            string reply = await OnQuestionAsync(payload).ConfigureAwait(false);
             string response = questionId + "&*&" + reply;
             await _client.SendAsync(response).ConfigureAwait(false);
         }

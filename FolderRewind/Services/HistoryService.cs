@@ -67,6 +67,24 @@ namespace FolderRewind.Services
             ScheduleSave();
         }
 
+        public static Task<HistorySaveResult> SaveNowAsync(
+            CancellationToken cancellationToken = default)
+            => SaveNowAsync(publishChangedEvent: true, cancellationToken);
+
+        internal static async Task<HistorySaveResult> SaveNowAsync(
+            bool publishChangedEvent,
+            CancellationToken cancellationToken = default)
+        {
+            _saveCts?.Cancel();
+            var result = await PersistAsync(cancellationToken);
+            if (result.Success && publishChangedEvent)
+            {
+                PublishChanged();
+            }
+
+            return result;
+        }
+
         /// <summary>
         /// 添加一条新的历史记录
         /// </summary>
@@ -426,35 +444,66 @@ namespace FolderRewind.Services
             }
         }
 
-        public static int UpdateFolderIdentity(string oldPath, string newPath, string oldStorageFolderName, string newStorageFolderName)
+        internal static HistoryFolderIdentityUpdate UpdateFolderIdentities(
+            IReadOnlyList<FolderRenameReferencePlan> references)
         {
-            if (string.IsNullOrWhiteSpace(oldPath) || string.IsNullOrWhiteSpace(newPath))
+            if (references == null || references.Count == 0)
             {
-                return 0;
+                return new HistoryFolderIdentityUpdate();
             }
 
             Initialize();
             int updated = 0;
+            var snapshots = new List<HistoryFolderIdentitySnapshot>();
 
             lock (_historyLock)
             {
-                foreach (var item in _allHistory.Where(item => AreSameFolderPath(item.FolderPath, oldPath)))
+                foreach (var item in _allHistory)
                 {
+                    if (!FolderRenameService.TryResolveHistoryIdentityUpdate(
+                            item.ConfigId,
+                            item.FolderPath,
+                            item.FolderName,
+                            references,
+                            out string newPath,
+                            out string newFolderName))
+                    {
+                        continue;
+                    }
+
+                    snapshots.Add(new HistoryFolderIdentitySnapshot(
+                        item,
+                        item.FolderPath ?? string.Empty,
+                        item.FolderName ?? string.Empty));
                     item.FolderPath = newPath;
-                    item.FolderName = FolderRenameService.ResolveUpdatedHistoryFolderName(
-                        item.FolderName,
-                        oldStorageFolderName,
-                        newStorageFolderName);
+                    item.FolderName = newFolderName;
                     updated++;
                 }
             }
 
-            if (updated > 0)
+            return new HistoryFolderIdentityUpdate
             {
-                ScheduleSave();
+                UpdatedCount = updated,
+                Snapshots = snapshots
+            };
+        }
+
+        internal static void RestoreFolderIdentities(
+            IReadOnlyList<HistoryFolderIdentitySnapshot> snapshots)
+        {
+            if (snapshots == null || snapshots.Count == 0)
+            {
+                return;
             }
 
-            return updated;
+            lock (_historyLock)
+            {
+                foreach (var snapshot in snapshots)
+                {
+                    snapshot.Item.FolderPath = snapshot.FolderPath;
+                    snapshot.Item.FolderName = snapshot.FolderName;
+                }
+            }
         }
 
         /// <summary>
@@ -1028,7 +1077,7 @@ namespace FolderRewind.Services
 
         private static void ScheduleSave()
         {
-            HistoryChanged?.Invoke();
+            PublishChanged();
 
             // 取消前一次保存，合并写盘
             _saveCts?.Cancel();
@@ -1040,7 +1089,15 @@ namespace FolderRewind.Services
                 try
                 {
                     await Task.Delay(SaveDelay, token);
-                    await PersistAsync(token);
+                    var result = await PersistAsync(token);
+                    if (!result.Success)
+                    {
+                        System.Diagnostics.Debug.WriteLine(
+                            $"History save failed: {result.ErrorMessage}");
+                        LogService.Log(
+                            I18n.Format("History_SaveFailed", result.ErrorMessage),
+                            LogLevel.Error);
+                    }
                 }
                 catch (OperationCanceledException)
                 {
@@ -1049,17 +1106,16 @@ namespace FolderRewind.Services
             }, token);
         }
 
-        private static async Task PersistAsync(CancellationToken ct)
+        internal static void PublishChanged() => HistoryChanged?.Invoke();
+
+        private static async Task<HistorySaveResult> PersistAsync(CancellationToken ct)
         {
             Initialize();
-            await _saveLock.WaitAsync(ct);
+            bool lockTaken = false;
             try
             {
-                var configDir = Path.GetDirectoryName(HistoryPath);
-                if (!Directory.Exists(configDir))
-                {
-                    Directory.CreateDirectory(configDir!);
-                }
+                await _saveLock.WaitAsync(ct);
+                lockTaken = true;
 
                 List<HistoryItem> snapshot;
                 lock (_historyLock)
@@ -1067,17 +1123,33 @@ namespace FolderRewind.Services
                     snapshot = _allHistory.ToList();
                 }
 
-                // 流式序列化直接写入文件，避免在堆上分配完整 JSON 字符串。
-                using var stream = new FileStream(HistoryPath, FileMode.Create, FileAccess.Write, FileShare.None);
-                JsonSerializer.Serialize(stream, snapshot, AppJsonContext.Default.ListHistoryItem);
+                AtomicFileService.Write(
+                    HistoryPath,
+                    stream => JsonSerializer.Serialize(
+                        stream,
+                        snapshot,
+                        AppJsonContext.Default.ListHistoryItem));
+                return new HistorySaveResult { Success = true };
+            }
+            catch (OperationCanceledException)
+            {
+                throw;
             }
             catch (Exception ex)
             {
-                System.Diagnostics.Debug.WriteLine($"History save failed: {ex.Message}");
+                return new HistorySaveResult
+                {
+                    Success = false,
+                    ErrorMessage = ex.Message,
+                    Exception = ex
+                };
             }
             finally
             {
-                _saveLock.Release();
+                if (lockTaken)
+                {
+                    _saveLock.Release();
+                }
             }
         }
     }

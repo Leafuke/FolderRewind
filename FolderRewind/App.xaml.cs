@@ -8,7 +8,6 @@ using Microsoft.UI.Xaml.Input;
 using System;
 using System.Linq;
 using System.Threading.Tasks;
-using Windows.Globalization;
 using Windows.Graphics;
 
 namespace FolderRewind
@@ -209,18 +208,24 @@ namespace FolderRewind
                 LogService.Log($"[Startup] App ready: {startupSw.ElapsedMilliseconds}ms");
 
                 // 初始化 KnotLink 互联服务（根据用户设置决定是否启用）
-                Task.Run(() =>
+                Task.Run(async () =>
                 {
                     try
                     {
-                        KnotLinkService.Initialize();
-
                         var settings = Services.ConfigService.CurrentConfig?.GlobalSettings;
                         if (settings is { EnableKnotLink: true, AutoStartKnotLinkServer: true }
                             && !KnotLinkServerManagerService.IsServerProcessRunning())
                         {
-                            KnotLinkServerManagerService.TryStartServer();
+                            if (KnotLinkServerManagerService.TryStartServer())
+                            {
+                                var host = string.IsNullOrWhiteSpace(settings.KnotLinkHost)
+                                    ? "127.0.0.1"
+                                    : settings.KnotLinkHost;
+                                await KnotLinkServerManagerService.WaitForServerReadyAsync(host).ConfigureAwait(false);
+                            }
                         }
+
+                        KnotLinkService.Initialize();
                     }
                     catch (Exception knotEx)
                     {
@@ -257,13 +262,7 @@ namespace FolderRewind
         private static void ApplyLanguageOverride(string? languageSetting)
         {
             var normalized = NormalizeLanguage(languageSetting);
-            if (string.IsNullOrWhiteSpace(normalized))
-            {
-                ApplicationLanguages.PrimaryLanguageOverride = string.Empty;
-                return;
-            }
-
-            ApplicationLanguages.PrimaryLanguageOverride = normalized;
+            I18n.SetLanguageOverride(normalized);
         }
 
         private static string NormalizeLanguage(string? languageSetting)
@@ -272,13 +271,6 @@ namespace FolderRewind
 
             var value = languageSetting.Trim();
             if (string.Equals(value, "system", StringComparison.OrdinalIgnoreCase)) return string.Empty;
-
-            // 兼容历史配置中的旧语言值。
-            if (string.Equals(value, "zh_CN", StringComparison.OrdinalIgnoreCase)) return "zh-CN";
-            if (string.Equals(value, "en_US", StringComparison.OrdinalIgnoreCase)) return "en-US";
-
-            // 统一分隔符写法，避免下划线与连字符混用。
-            value = value.Replace('_', '-');
 
             if (string.Equals(value, "zh-CN", StringComparison.OrdinalIgnoreCase)) return "zh-CN";
             if (string.Equals(value, "en-US", StringComparison.OrdinalIgnoreCase)) return "en-US";

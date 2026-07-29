@@ -287,7 +287,7 @@ namespace FolderRewind.Views
             MiniTooltip.Content = I18n.Format(
                 "MiniWindow_Tip_Format",
                 folder.DisplayName,
-                folder.FullPath,
+                folder.Path,
                 folder.LastBackupTime,
                 status);
         }

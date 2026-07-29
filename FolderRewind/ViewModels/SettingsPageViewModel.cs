@@ -992,11 +992,22 @@ namespace FolderRewind.ViewModels
         public bool StartKnotLinkServer()
         {
             var result = KnotLinkServerManagerService.TryStartServer();
-            // 等待一小段时间让进程启动，然后刷新状态
-            Task.Delay(500).ContinueWith(_ =>
+            _ = Task.Run(async () =>
             {
                 try
                 {
+                    if (result)
+                    {
+                        var host = string.IsNullOrWhiteSpace(Settings.KnotLinkHost)
+                            ? "127.0.0.1"
+                            : Settings.KnotLinkHost;
+                        await KnotLinkServerManagerService.WaitForServerReadyAsync(host).ConfigureAwait(false);
+                        if (Settings.EnableKnotLink)
+                        {
+                            KnotLinkService.Restart();
+                        }
+                    }
+
                     RefreshKnotLinkServerInfo();
                 }
                 catch { }
@@ -1006,16 +1017,11 @@ namespace FolderRewind.ViewModels
 
         public async Task DownloadAndRunKnotLinkInstallerAsync()
         {
-            if (_knotLinkServerUpdateInfo?.InstallerDownloadUrl == null)
+            if (_knotLinkServerUpdateInfo == null)
                 throw new InvalidOperationException(I18n.GetString("SettingsPage_KnotLinkServerNoInstaller"));
 
-            var localPath = await KnotLinkServerManagerService.DownloadInstallerAsync(
-                _knotLinkServerUpdateInfo.InstallerDownloadUrl);
-
-            if (localPath == null)
-                throw new InvalidOperationException(I18n.GetString("SettingsPage_KnotLinkServerNoInstaller"));
-
-            KnotLinkServerManagerService.LaunchInstaller(localPath);
+            await KnotLinkServerManagerService.DownloadAndLaunchLatestInstallerAsync(
+                _knotLinkServerUpdateInfo);
             NotificationService.ShowInfo(
                 I18n.GetString("SettingsPage_KnotLinkServer_InstallerLaunched"),
                 I18n.GetString("SettingsPage_KnotLink_Title"));
@@ -1240,8 +1246,7 @@ namespace FolderRewind.ViewModels
         private string PickPreferredFont(HashSet<string> availableFonts)
         {
             var preferChinese = string.Equals(Settings.Language, "zh-CN", StringComparison.OrdinalIgnoreCase)
-                || string.Equals(Settings.Language, "zh", StringComparison.OrdinalIgnoreCase)
-                || string.Equals(Settings.Language, "zh_CN", StringComparison.OrdinalIgnoreCase);
+                || string.Equals(Settings.Language, "zh", StringComparison.OrdinalIgnoreCase);
 
             if (preferChinese)
             {
@@ -1271,24 +1276,10 @@ namespace FolderRewind.ViewModels
 
         private static string GetAppVersionString()
         {
-            try
-            {
-                var v = Package.Current.Id.Version;
-                return $"Version {v.Major}.{v.Minor}.{v.Build}.{v.Revision}";
-            }
-            catch
-            {
-                try
-                {
-                    var asm = typeof(SettingsPageViewModel).Assembly;
-                    var v = asm.GetName().Version;
-                    return v == null ? "Version (unknown)" : $"Version {v.Major}.{v.Minor}.{v.Build}.{v.Revision}";
-                }
-                catch
-                {
-                    return "Version (unknown)";
-                }
-            }
+            var version = AppRuntimeInfo.GetApplicationVersion();
+            return version == null
+                ? "Version (unknown)"
+                : $"Version {version.Major}.{version.Minor}.{version.Build}.{version.Revision}";
         }
 
         private static int LanguageToIndex(string? language)
@@ -1298,15 +1289,12 @@ namespace FolderRewind.ViewModels
                 return 0;
             }
 
-            var normalized = language.Trim().Replace('_', '-');
+            var normalized = language.Trim();
             if (string.Equals(normalized, "system", StringComparison.OrdinalIgnoreCase)) return 0;
             if (string.Equals(normalized, "en-US", StringComparison.OrdinalIgnoreCase)) return 1;
             if (string.Equals(normalized, "en", StringComparison.OrdinalIgnoreCase)) return 1;
             if (string.Equals(normalized, "zh-CN", StringComparison.OrdinalIgnoreCase)) return 2;
             if (string.Equals(normalized, "zh", StringComparison.OrdinalIgnoreCase)) return 2;
-
-            if (string.Equals(language, "en_US", StringComparison.OrdinalIgnoreCase)) return 1;
-            if (string.Equals(language, "zh_CN", StringComparison.OrdinalIgnoreCase)) return 2;
 
             return 0;
         }

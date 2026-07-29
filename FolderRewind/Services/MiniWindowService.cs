@@ -49,6 +49,7 @@ namespace FolderRewind.Services
 
             try
             {
+                string windowKey = folder.Path;
                 var context = new MiniWindowContext
                 {
                     Config = config,
@@ -56,12 +57,16 @@ namespace FolderRewind.Services
                 };
 
                 var mini = new Views.MiniWindow(context);
-                _windows[folder.Path] = mini;
+                _windows[windowKey] = mini;
 
                 mini.Closed += (_, __) =>
                 {
-                    _windows.Remove(folder.Path);
-                    FolderWatcherService.StopWatching(folder.Path);
+                    if (_windows.TryGetValue(windowKey, out var tracked)
+                        && ReferenceEquals(tracked, mini))
+                    {
+                        _windows.Remove(windowKey);
+                        FolderWatcherService.StopWatching(windowKey);
+                    }
 
                     if (_lastFocused == mini)
                         _lastFocused = _windows.Values.LastOrDefault();
@@ -97,6 +102,8 @@ namespace FolderRewind.Services
             if (string.IsNullOrWhiteSpace(folderPath)) return;
             if (_windows.TryGetValue(folderPath, out var win))
             {
+                _windows.Remove(folderPath);
+                FolderWatcherService.StopWatching(folderPath);
                 try { win.Close(); } catch { }
             }
         }

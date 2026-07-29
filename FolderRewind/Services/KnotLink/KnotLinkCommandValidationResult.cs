@@ -6,8 +6,7 @@ namespace FolderRewind.Services.KnotLink
     public enum KnotLinkCommandValidationError
     {
         None = 0,
-        MissingConversationMetadata,
-        DeprecatedWorldOption
+        MissingConversationMetadata
     }
 
     public sealed class KnotLinkCommandValidationResult
@@ -15,13 +14,11 @@ namespace FolderRewind.Services.KnotLink
         private KnotLinkCommandValidationResult(
             bool isValid,
             KnotLinkCommandValidationError error,
-            IReadOnlyList<string>? missingMetadataKeys = null,
-            string? deprecatedOption = null)
+            IReadOnlyList<string>? missingMetadataKeys = null)
         {
             IsValid = isValid;
             Error = error;
             MissingMetadataKeys = missingMetadataKeys ?? Array.Empty<string>();
-            DeprecatedOption = deprecatedOption;
         }
 
         public bool IsValid { get; }
@@ -29,8 +26,6 @@ namespace FolderRewind.Services.KnotLink
         public KnotLinkCommandValidationError Error { get; }
 
         public IReadOnlyList<string> MissingMetadataKeys { get; }
-
-        public string? DeprecatedOption { get; }
 
         public static KnotLinkCommandValidationResult Valid { get; } = new(
             true,
@@ -44,12 +39,5 @@ namespace FolderRewind.Services.KnotLink
                 missingMetadataKeys);
         }
 
-        public static KnotLinkCommandValidationResult DeprecatedWorldOption(string deprecatedOption)
-        {
-            return new KnotLinkCommandValidationResult(
-                false,
-                KnotLinkCommandValidationError.DeprecatedWorldOption,
-                deprecatedOption: deprecatedOption);
-        }
     }
 }

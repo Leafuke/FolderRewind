@@ -120,6 +120,7 @@ jobs:
           dotnet build FolderRewind/FolderRewind.csproj `
             -c Release `
             -p:Platform=${{ matrix.platform }} `
+            -p:CETCompat=false `
             -p:UapAppxPackageBuildMode=SideloadOnly `
             -p:AppxBundle=Never `
             -p:AppxPackageSigningEnabled=true `
@@ -152,6 +153,7 @@ jobs:
             -c Release `
             -p:Platform=${{ matrix.platform }} `
             -p:FolderRewindDistributionChannel=Msi `
+            -p:CETCompat=false `
             -p:Version=${{ steps.version.outputs.manifest_version }} `
             -p:AssemblyVersion=${{ steps.version.outputs.manifest_version }} `
             -p:FileVersion=${{ steps.version.outputs.manifest_version }} `
@@ -187,9 +189,50 @@ jobs:
             throw "MSI install smoke test failed with exit code $($install.ExitCode)."
           }
 
-          foreach ($requiredPath in @('FolderRewind.exe', '7za.exe', 'Assets\logo.ico')) {
+          foreach ($requiredPath in @(
+            'FolderRewind.exe',
+            'FolderRewind.dll',
+            'FolderRewind.deps.json',
+            'FolderRewind.runtimeconfig.json',
+            'FolderRewind.pri',
+            'Microsoft.UI.Xaml.dll',
+            'Microsoft.UI.Xaml.Controls.pri',
+            'Microsoft.WindowsAppRuntime.dll',
+            '7za.exe',
+            'Assets\logo.ico'
+          )) {
             if (-not (Test-Path -LiteralPath (Join-Path $installDirectory $requiredPath))) {
               throw "MSI install is missing required payload: $requiredPath"
+            }
+          }
+
+          $installedSymbols = Get-ChildItem -LiteralPath $installDirectory -Filter '*.pdb' -File -Recurse -ErrorAction SilentlyContinue
+          if ($installedSymbols) {
+            throw "MSI installed development debug symbols: $($installedSymbols.FullName -join ', ')"
+          }
+
+          # Installation alone did not catch the original broken PRI regression. Launch
+          # the installed executable and require a real top-level window to appear.
+          $executable = Join-Path $installDirectory 'FolderRewind.exe'
+          $appProcess = Start-Process -FilePath $executable -WorkingDirectory $installDirectory -PassThru
+          try {
+            $launchDeadline = [DateTime]::UtcNow.AddSeconds(30)
+            do {
+              Start-Sleep -Seconds 1
+              $appProcess.Refresh()
+              if ($appProcess.HasExited) {
+                throw "Installed FolderRewind exited before opening a window (exit code $($appProcess.ExitCode))."
+              }
+            } while ($appProcess.MainWindowHandle -eq [IntPtr]::Zero -and [DateTime]::UtcNow -lt $launchDeadline)
+
+            if ($appProcess.MainWindowHandle -eq [IntPtr]::Zero) {
+              throw 'Installed FolderRewind stayed headless and did not open a window within 30 seconds.'
+            }
+          }
+          finally {
+            if (-not $appProcess.HasExited) {
+              Stop-Process -Id $appProcess.Id -Force
+              $appProcess.WaitForExit()
             }
           }
 

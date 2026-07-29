@@ -11,6 +11,8 @@ namespace FolderRewind.Models
     {
         private bool _enabled = false;
         private string _storeRepo = string.Empty;
+        private Dictionary<string, bool> _pluginEnabled = new();
+        private Dictionary<string, Dictionary<string, string>> _pluginSettings = new();
 
         /// <summary>
         /// 插件系统总开关。关闭后：不执行插件逻辑、商店入口禁用。
@@ -35,13 +37,21 @@ namespace FolderRewind.Models
         /// 每个插件的启用状态。
         /// Key: PluginId
         /// </summary>
-        public Dictionary<string, bool> PluginEnabled { get; set; } = new();
+        public Dictionary<string, bool> PluginEnabled
+        {
+            get => _pluginEnabled;
+            set => _pluginEnabled = value ?? new Dictionary<string, bool>();
+        }
 
         /// <summary>
         /// 每个插件的设置值（由插件定义键名，Host 负责保存与回传）。
         /// Key: PluginId -> (SettingKey -> stringValue)
         /// </summary>
-        public Dictionary<string, Dictionary<string, string>> PluginSettings { get; set; } = new();
+        public Dictionary<string, Dictionary<string, string>> PluginSettings
+        {
+            get => _pluginSettings;
+            set => _pluginSettings = value ?? new Dictionary<string, Dictionary<string, string>>();
+        }
 
         private bool _autoCheckUpdates = true;
         /// <summary>

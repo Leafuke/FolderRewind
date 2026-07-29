@@ -93,37 +93,20 @@ namespace FolderRewind.Services
             IReadOnlyDictionary<string, string?>? fields = null)
         {
             var context = KnotLinkService.CurrentCommandContext;
-            if (context?.Metadata.HasConversation == true)
+            var merged = new Dictionary<string, string?>(StringComparer.OrdinalIgnoreCase)
             {
-                var merged = new Dictionary<string, string?>(StringComparer.OrdinalIgnoreCase)
-                {
-                    ["config"] = config.Id,
-                    ["folder"] = folder.DisplayName
-                };
-
-                if (fields != null)
-                {
-                    foreach (var pair in fields)
-                    {
-                        merged[pair.Key] = pair.Value;
-                    }
-                }
-
-                KnotLinkService.BroadcastEvent(context, eventName, merged);
-                return;
-            }
-
-            var legacy = new StringBuilder($"event={eventName};config={configIndex};world={folder.DisplayName}");
+                ["config"] = config.Id,
+                ["folder"] = folder.DisplayName
+            };
             if (fields != null)
             {
                 foreach (var pair in fields)
                 {
-                    if (pair.Value == null) continue;
-                    legacy.Append(';').Append(pair.Key).Append('=').Append(pair.Value);
+                    merged[pair.Key] = pair.Value;
                 }
             }
 
-            KnotLinkService.BroadcastEvent(legacy.ToString());
+            KnotLinkService.BroadcastEvent(context, eventName, merged);
         }
 
         private static void BroadcastBackupLifecycle(string lifecycleEvent, IReadOnlyDictionary<string, string?>? fields = null)
@@ -144,37 +127,20 @@ namespace FolderRewind.Services
             IReadOnlyDictionary<string, string?>? fields = null)
         {
             var context = KnotLinkService.CurrentCommandContext;
-            if (context?.Metadata.HasConversation == true)
+            var merged = new Dictionary<string, string?>(StringComparer.OrdinalIgnoreCase)
             {
-                var merged = new Dictionary<string, string?>(StringComparer.OrdinalIgnoreCase)
-                {
-                    ["config"] = config.Id,
-                    ["folder"] = folder.DisplayName
-                };
-
-                if (fields != null)
-                {
-                    foreach (var pair in fields)
-                    {
-                        merged[pair.Key] = pair.Value;
-                    }
-                }
-
-                KnotLinkService.BroadcastEvent(context, eventName, merged);
-                return;
-            }
-
-            var legacy = new StringBuilder($"event={eventName};config={configIndex};world={folder.DisplayName}");
+                ["config"] = config.Id,
+                ["folder"] = folder.DisplayName
+            };
             if (fields != null)
             {
                 foreach (var pair in fields)
                 {
-                    if (pair.Value == null) continue;
-                    legacy.Append(';').Append(pair.Key).Append('=').Append(pair.Value);
+                    merged[pair.Key] = pair.Value;
                 }
             }
 
-            KnotLinkService.BroadcastEvent(legacy.ToString());
+            KnotLinkService.BroadcastEvent(context, eventName, merged);
         }
 
         private static void BroadcastRestoreLifecycle(string lifecycleEvent, IReadOnlyDictionary<string, string?>? fields = null)
@@ -223,7 +189,6 @@ namespace FolderRewind.Services
             BackupConfig config,
             ManagedFolder folder,
             string? comment = "",
-            bool forceFullBackup = false,
             BackupInvocationOptions? invocationOptions = null)
         {
             if (config == null || folder == null) return false;
@@ -242,14 +207,67 @@ namespace FolderRewind.Services
 
             await RunOnUIAsync(() => ActiveTasks.Insert(0, task));
 
-            // 检查是否有插件希望完全接管备份流程
+            var scopeResolution = Services.Plugins.PluginService.ResolveConfigWithBackupFilterContributions(config, folder);
+            if (!scopeResolution.Success)
+            {
+                string scopeError = string.IsNullOrWhiteSpace(scopeResolution.ErrorMessage)
+                    ? I18n.Format("PluginService_BackupScope_Invalid")
+                    : scopeResolution.ErrorMessage;
+                Log($"[PluginScope] {scopeResolution.ErrorCode}: {scopeError}", LogLevel.Error);
+                await RunOnUIAsync(() =>
+                {
+                    folder.StatusText = I18n.Format("BackupService_Task_Failed");
+                    task.Status = I18n.Format("BackupService_Task_Failed");
+                    task.IsCompleted = true;
+                    task.IsIndeterminate = false;
+                    task.IsSuccess = false;
+                    task.ErrorMessage = scopeError;
+                });
+                BroadcastBackupLifecycle("command_failed", new Dictionary<string, string?>
+                {
+                    ["reason"] = scopeResolution.ErrorCode,
+                    ["error"] = scopeError
+                });
+                BroadcastBackupEvent(configIndex, config, folder, "backup_failed", new Dictionary<string, string?>
+                {
+                    ["error"] = scopeResolution.ErrorCode,
+                    ["message"] = scopeError
+                });
+                return false;
+            }
+
+            config = scopeResolution.EffectiveConfig;
+            if (!TryValidateBackupFilterRules(config.Filters, out string filterValidationError))
+            {
+                Log($"[Filter] Backup filter validation failed: {filterValidationError}", LogLevel.Error);
+                await RunOnUIAsync(() =>
+                {
+                    folder.StatusText = I18n.Format("BackupService_Task_Failed");
+                    task.Status = I18n.Format("BackupService_Task_Failed");
+                    task.IsCompleted = true;
+                    task.IsIndeterminate = false;
+                    task.IsSuccess = false;
+                    task.ErrorMessage = filterValidationError;
+                });
+                BroadcastBackupLifecycle("command_failed", new Dictionary<string, string?>
+                {
+                    ["reason"] = "invalid_filter_rule",
+                    ["error"] = filterValidationError
+                });
+                BroadcastBackupEvent(configIndex, config, folder, "backup_failed", new Dictionary<string, string?>
+                {
+                    ["error"] = "invalid_filter_rule",
+                    ["message"] = filterValidationError
+                });
+                return false;
+            }
+
+            // 插件接管同样只能收到已经解析并验证过的运行配置，不能绕过范围的失败关闭策略。
             var (shouldHandle, handlerPlugin) = Services.Plugins.PluginService.CheckPluginWantsToHandleBackup(config);
             if (shouldHandle && handlerPlugin != null)
             {
                 return await HandlePluginBackupAsync(config, folder, task, handlerPlugin, comment);
             }
-
-            config = Services.Plugins.PluginService.CreateConfigWithBackupFilterContributions(config, folder);
 
             // 允许插件在备份前创建快照并替换源路径（例如 Minecraft 热备份：先复制到 snapshot 再备份）。
             string sourcePath = folder.Path;
@@ -351,41 +369,31 @@ namespace FolderRewind.Services
 
                 // 调用核心逻辑，传入 task 以便更新进度
 
-                // FORCE_FULL 指令可绕过当前配置模式，直接执行一次全量备份。
-                if (forceFullBackup)
+                // 根据模式分发逻辑
+                switch (config.Archive.Mode)
                 {
-                    var res = await DoFullBackupAsync(sourcePath, backupSubDir, metadataDir, folder.DisplayName, config, comment, task);
-                    success = res.Success;
-                    generatedFileName = res.FileName;
-                }
-                else
-                {
-                    // 根据模式分发逻辑
-                    switch (config.Archive.Mode)
-                    {
-                        case BackupMode.Incremental:
-                            {
-                                var res = await DoSmartBackupAsync(sourcePath, backupSubDir, metadataDir, folder.DisplayName, config, comment, task);
-                                success = res.Success;
-                                generatedFileName = res.FileName;
-                                break;
-                            }
-                        case BackupMode.Overwrite:
-                            {
-                                var res = await DoOverwriteBackupAsync(sourcePath, backupSubDir, metadataDir, folder.DisplayName, config, comment, task);
-                                success = res.Success;
-                                generatedFileName = res.FileName;
-                                break;
-                            }
-                        case BackupMode.Full:
-                        default:
-                            {
-                                var res = await DoFullBackupAsync(sourcePath, backupSubDir, metadataDir, folder.DisplayName, config, comment, task);
-                                success = res.Success;
-                                generatedFileName = res.FileName;
-                                break;
-                            }
-                    }
+                    case BackupMode.Incremental:
+                        {
+                            var res = await DoSmartBackupAsync(sourcePath, backupSubDir, metadataDir, folder.DisplayName, config, comment, task);
+                            success = res.Success;
+                            generatedFileName = res.FileName;
+                            break;
+                        }
+                    case BackupMode.Overwrite:
+                        {
+                            var res = await DoOverwriteBackupAsync(sourcePath, backupSubDir, metadataDir, folder.DisplayName, config, comment, task);
+                            success = res.Success;
+                            generatedFileName = res.FileName;
+                            break;
+                        }
+                    case BackupMode.Full:
+                    default:
+                        {
+                            var res = await DoFullBackupAsync(sourcePath, backupSubDir, metadataDir, folder.DisplayName, config, comment, task);
+                            success = res.Success;
+                            generatedFileName = res.FileName;
+                            break;
+                        }
                 }
             }
             catch (Exception ex)
@@ -406,11 +414,7 @@ namespace FolderRewind.Services
 
                     // 增量模式下，根据实际生成的文件名区分 Full 和 Smart
                     string typeStr;
-                    if (forceFullBackup)
-                    {
-                        typeStr = "Full";
-                    }
-                    else if (config.Archive.Mode == BackupMode.Incremental)
+                    if (config.Archive.Mode == BackupMode.Incremental)
                     {
                         typeStr = completedFileName.StartsWith("[Full]", StringComparison.OrdinalIgnoreCase) ? "Full" : "Smart";
                     }

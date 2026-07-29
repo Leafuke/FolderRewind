@@ -18,7 +18,7 @@ namespace FolderRewind.ViewModels
         private AutomationSettings _automation;
         private CloudSettings _cloud;
         private readonly int _cpuThreadMax;
-        private readonly ObservableCollection<AutomationFolderOption> _automationFolderOptions = new();
+        private List<AutomationFolderOption> _automationFolderOptions = new();
         private List<BackupScopeOption> _backupScopeOptions = new();
         private int _selectedPageIndex;
         private int _lastAppliedPerformancePresetIndex = 3;
@@ -216,7 +216,7 @@ namespace FolderRewind.ViewModels
 
         public double CpuThreadMax => _cpuThreadMax;
 
-        public ObservableCollection<AutomationFolderOption> AutomationFolderOptions => _automationFolderOptions;
+        public IReadOnlyList<AutomationFolderOption> AutomationFolderOptions => _automationFolderOptions;
 
         public string GetBackupScopeParameterValue(string key)
         {
@@ -317,6 +317,20 @@ namespace FolderRewind.ViewModels
             set
             {
                 string normalized = value?.Trim() ?? string.Empty;
+                if (_automationFolderOptions.Count > 0)
+                {
+                    var matchingOption = _automationFolderOptions.FirstOrDefault(option =>
+                        string.Equals(option.Path, normalized, StringComparison.OrdinalIgnoreCase));
+                    if (matchingOption == null)
+                    {
+                        // ItemsSource 初始化或替换时，ComboBox 可能短暂回写 null/旧值；
+                        // 只有当前选项表中的真实选择才能修改配置。
+                        return;
+                    }
+
+                    normalized = matchingOption.Path;
+                }
+
                 if (string.Equals(_automation.TargetFolderPath, normalized, StringComparison.Ordinal))
                 {
                     return;
@@ -693,6 +707,18 @@ namespace FolderRewind.ViewModels
             return true;
         }
 
+        public bool TryValidateFilters(out string errorMessage)
+        {
+            return BackupService.TryValidateFilterRules(_config.Filters, out errorMessage);
+        }
+
+        public bool TryValidateBackupScope(out string errorMessage)
+        {
+            var result = PluginService.ValidateBackupScope(_config);
+            errorMessage = result.ErrorMessage;
+            return result.Success;
+        }
+
         private void OnAutomationPropertyChanged(object? sender, PropertyChangedEventArgs e)
         {
             if (string.IsNullOrWhiteSpace(e.PropertyName))
@@ -1042,16 +1068,19 @@ namespace FolderRewind.ViewModels
         {
             _automation.Normalize(_config.SourceFolders);
 
-            _automationFolderOptions.Clear();
+            var options = new List<AutomationFolderOption>();
             foreach (var folder in _config.SourceFolders.Where(folder => folder != null && !string.IsNullOrWhiteSpace(folder.Path)))
             {
-                _automationFolderOptions.Add(new AutomationFolderOption
+                options.Add(new AutomationFolderOption
                 {
                     Path = folder.Path,
                     DisplayName = BuildAutomationFolderDisplayName(folder)
                 });
             }
 
+            // 一次性替换完整选项表，避免 WinUI ComboBox 在 Clear/Add 的中间状态
+            // 将临时选中的首项通过 TwoWay SelectedValue 反向写入自动化配置。
+            _automationFolderOptions = options;
             RaiseAutomationUiProperties();
         }
 

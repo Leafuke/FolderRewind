@@ -1,41 +1,33 @@
 using System;
 using System.Collections.Generic;
-using System.Linq;
 
 namespace FolderRewind.Services.KnotLink
 {
-    /// <summary>
-    /// KnotLink 远程指令的统一请求模型。
-    /// 旧版位置参数仍放在 LegacyArgs；新版 -key=value 参数统一进入 Options。
-    /// </summary>
+    /// <summary>KnotLink strict key-value v2 request.</summary>
     public sealed class KnotLinkCommandRequest
     {
-        public KnotLinkCommandRequest(
+        private readonly IReadOnlyDictionary<string, string> _encodedOptions;
+
+        internal KnotLinkCommandRequest(
             string command,
-            string legacyArgs,
-            string rawCommand,
-            IReadOnlyDictionary<string, string>? options = null)
+            string rawPayload,
+            IReadOnlyDictionary<string, string> options,
+            IReadOnlyDictionary<string, string> encodedOptions)
         {
-            Command = (command ?? string.Empty).Trim().ToUpperInvariant();
-            LegacyArgs = legacyArgs ?? string.Empty;
-            RawCommand = rawCommand ?? string.Empty;
-            Options = options ?? new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+            Command = (command ?? string.Empty).ToUpperInvariant();
+            RawPayload = rawPayload ?? string.Empty;
+            Options = options;
+            _encodedOptions = encodedOptions;
         }
 
         public string Command { get; }
 
-        public string LegacyArgs { get; }
-
-        public string RawCommand { get; }
+        public string RawPayload { get; }
 
         public IReadOnlyDictionary<string, string> Options { get; }
 
-        public bool IsParameterized => Options.Count > 0;
-
-        public bool HasOption(string key)
-        {
-            return !string.IsNullOrWhiteSpace(key) && Options.ContainsKey(NormalizeKey(key));
-        }
+        public bool HasOption(string key) =>
+            !string.IsNullOrWhiteSpace(key) && Options.ContainsKey(NormalizeKey(key));
 
         public string? GetString(string key)
         {
@@ -43,10 +35,7 @@ namespace FolderRewind.Services.KnotLink
             return Options.TryGetValue(NormalizeKey(key), out var value) ? value : null;
         }
 
-        public string GetStringOrDefault(string key, string defaultValue = "")
-        {
-            return GetString(key) ?? defaultValue;
-        }
+        public string GetStringOrDefault(string key, string defaultValue = "") => GetString(key) ?? defaultValue;
 
         public bool? GetBool(string key)
         {
@@ -61,29 +50,16 @@ namespace FolderRewind.Services.KnotLink
             };
         }
 
-        public bool GetBoolOrDefault(string key, bool defaultValue = false)
-        {
-            return GetBool(key) ?? defaultValue;
-        }
+        public bool GetBoolOrDefault(string key, bool defaultValue = false) => GetBool(key) ?? defaultValue;
 
         public IReadOnlyList<string> GetList(string key)
         {
-            var value = GetString(key);
-            if (string.IsNullOrWhiteSpace(value)) return Array.Empty<string>();
-
-            return value
-                .Split(';', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
-                .Where(item => !string.IsNullOrWhiteSpace(item))
-                .ToList();
+            if (string.IsNullOrWhiteSpace(key)) return Array.Empty<string>();
+            return _encodedOptions.TryGetValue(NormalizeKey(key), out var value)
+                ? KnotLinkKeyValueCodec.DecodeList(value)
+                : Array.Empty<string>();
         }
 
-        public static string NormalizeKey(string key)
-        {
-            return (key ?? string.Empty)
-                .Trim()
-                .TrimStart('-')
-                .Replace('-', '_')
-                .ToLowerInvariant();
-        }
+        public static string NormalizeKey(string key) => KnotLinkKeyValueCodec.NormalizeKey(key);
     }
 }

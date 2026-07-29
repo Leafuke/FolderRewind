@@ -29,7 +29,7 @@
                         <HyperlinkButton x:Uid="SettingsPage_About_Link_Sponsors" NavigateUri="https://github.com/Leafuke/FolderRewind/blob/dev/docs/SPONSORS.md" />
                         <HyperlinkButton x:Uid="SettingsPage_About_Link_Bilibili" NavigateUri="https://space.bilibili.com/545429962" />
                         <HyperlinkButton x:Uid="SettingsPage_About_Link_Privacy" NavigateUri="https://github.com/Leafuke/FolderRewind/blob/dev/PRIVACY.md" />
-                        <HyperlinkButton x:Uid="SettingsPage_About_Link_KnotLink" NavigateUri="https://github.com/KnotLink-Protocol/KnotLink" ToolTipService.ToolTip="By KnotLink-Protocol"/>
+                        <HyperlinkButton x:Uid="SettingsPage_About_Link_KnotLink" NavigateUri="https://github.com/KnotLink-Protocol/KnotLinkService" ToolTipService.ToolTip="By KnotLink-Protocol"/>
                     </StackPanel>
                 </toolkit:SettingsCard>
             </toolkit:SettingsExpander.Items>
