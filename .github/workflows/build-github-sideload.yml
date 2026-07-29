@@ -119,11 +119,14 @@ jobs:
         run: |
           # MSIX targets probe for mspdbcmf.exe whenever packaging input contains a PDB,
           # even when symbol-package generation is disabled. Do not emit unused PDBs.
+          # Each matrix job publishes one architecture and needs its complete sideload
+          # layout (MSIX, certificate, scripts, and dependencies), not a shared bundle.
           dotnet build FolderRewind/FolderRewind.csproj `
             -c Release `
             -p:Platform=${{ matrix.platform }} `
             -p:CETCompat=false `
             -p:UapAppxPackageBuildMode=SideloadOnly `
+            -p:AppxBundle=Never `
             -p:GenerateAppxPackageOnBuild=true `
             -p:GenerateTestArtifacts=false `
             -p:AppxSymbolPackageEnabled=false `
@@ -134,6 +137,7 @@ jobs:
             -p:PackageCertificateKeyFile= `
             -p:PackageCertificatePassword= `
             -p:PackageCertificateThumbprint=${{ steps.certificate.outputs.certificate_thumbprint }} `
+            -p:AppxPackageSigningEnabled=true `
             /warnaserror
 
       - name: Prepare Release Assets
