@@ -36,5 +36,6 @@
     <Compile Include="..\FolderRewind\Services\Plugins\IFolderRewindKnotLinkCapabilityProvider.cs" Link="Source\IFolderRewindKnotLinkCapabilityProvider.cs" />
     <Compile Include="..\FolderRewind-Plugin-Minecraft\MineRewind\MinecraftSavesPlugin.KnotLinkCapabilities.cs" Link="Source\MinecraftSavesPlugin.KnotLinkCapabilities.cs" />
     <Compile Include="..\FolderRewind\Services\PathRuleMatcher.cs" Link="Source\PathRuleMatcher.cs" />
+    <Compile Include="..\FolderRewind\Services\RestoreModePolicy.cs" Link="Source\RestoreModePolicy.cs" />
   </ItemGroup>
 </Project>

@@ -482,20 +482,6 @@
           "description": "Backup configuration ID.",
           "defaultVal": "config-id"
         },
-        "confirm_partial_clean": {
-          "type": "optional",
-          "options": [
-            [
-              "True",
-              "true"
-            ],
-            [
-              "False",
-              "false"
-            ]
-          ],
-          "description": "Confirm clean restore from a partial backup."
-        },
         "file": {
           "type": "input",
           "description": "Backup archive file name.",
@@ -523,7 +509,7 @@
               "clean"
             ]
           ],
-          "description": "Restore mode."
+          "description": "Restore mode. Partial backups are always restored in overwrite mode."
         },
         "request_id": {
           "type": "input",

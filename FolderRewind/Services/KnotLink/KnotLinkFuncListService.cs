@@ -150,8 +150,7 @@ namespace FolderRewind.Services.KnotLink
                     ("config_id", Input("Backup configuration ID.", "config-id")),
                     ("folder", Input("Folder name or index.", "0")),
                     ("file", Input("Backup archive file name.", "backup.7z")),
-                    ("mode", Optional("Restore mode.", ("Overwrite", "overwrite"), ("Clean", "clean"))),
-                    ("confirm_partial_clean", BooleanOption("Confirm clean restore from a partial backup.")),
+                    ("mode", Optional("Restore mode. Partial backups are always restored in overwrite mode.", ("Overwrite", "overwrite"), ("Clean", "clean"))),
                     ("restore_whitelist", Input("Comma-separated one-shot restore whitelist rules.", "")))), StatusReturns("message"));
 
             AddFunction(manifest, appId, socketId, "backup_all", "BACKUP_ALL", "Start backing up every folder in a configuration.",

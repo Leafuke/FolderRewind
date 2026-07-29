@@ -1699,7 +1699,7 @@ cmd=LIST_FOLDERS;config_id=ID
 cmd=LIST_BACKUPS;config_id=ID;folder=folder%20name
 cmd=BACKUP;from=example.client;request_id=req-backup-001;config_id=ID;folder=folder%20name;comment=note;backup_mode=full;compression_method=zstd;compression_level=11;backup_blacklist=cache,logs;backup_whitelist=level.dat,region%2Fr.0.0.mca
 cmd=BACKUP;from=example.client;request_id=req-backup-002;config_id=ID;folder=folder%20name;backup_scope=MineRewind.SelectedRegions;scope_dimensions=overworld,nether;scope_areas=0%2C0%2C511%2C511
-cmd=RESTORE;from=example.client;request_id=req-restore-001;config_id=ID;folder=folder%20name;file=backup.7z;mode=clean;restore_whitelist=options.txt,playerdata;confirm_partial_clean=true
+cmd=RESTORE;from=example.client;request_id=req-restore-001;config_id=ID;folder=folder%20name;file=backup.7z;mode=clean;restore_whitelist=options.txt,playerdata
 cmd=AUTO_BACKUP;from=example.client;request_id=req-auto-001;config_id=ID;folder=folder%20name;interval_minutes=10
 
 MineRewind v2 extensions:
@@ -4831,17 +4831,14 @@ Pull request: {1}</value>
   <data name="ConfigSettingsDialog_OpenFailed_Log" xml:space="preserve">
     <value>Failed to open the config settings window: {0}</value>
   </data>
-  <data name="History_PartialCleanConfirm_Title" xml:space="preserve">
-    <value>This is a partial backup</value>
+  <data name="History_PartialRestore_Title" xml:space="preserve">
+    <value>Restore partial backup</value>
   </data>
-  <data name="History_PartialCleanConfirm_Content" xml:space="preserve">
-    <value>This backup was created from an inclusion list or partial scope and contains only some files. Continuing with Clean restore may delete other files in the target folder not included in the backup. Continue?</value>
+  <data name="History_PartialRestore_Content" xml:space="preserve">
+    <value>This archive contains only selected files. FolderRewind will use Overwrite restore so files outside the backup remain untouched.</value>
   </data>
-  <data name="History_PartialCleanConfirm_Primary" xml:space="preserve">
-    <value>Confirm Clean restore</value>
-  </data>
-  <data name="KnotLink_Error_PartialCleanRequiresConfirm" xml:space="preserve">
-    <value>The target backup is a partial backup. To proceed with Clean restore, add -confirm_partial_clean=true.</value>
+  <data name="History_PartialRestore_Primary" xml:space="preserve">
+    <value>Restore with Overwrite</value>
   </data>
   <data name="Tray_ToolTip" xml:space="preserve">
     <value>FolderRewind</value>

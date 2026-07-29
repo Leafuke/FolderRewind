@@ -22,8 +22,24 @@ namespace FolderRewind.Services
             Overwrite = 1   // 直接覆盖 (保留未被覆盖的文件)
         }
 
+        public static RestoreMode ResolveEffectiveRestoreMode(HistoryItem? historyItem, RestoreMode requestedMode)
+            => RestoreModePolicy.UseOverwrite(
+                historyItem?.IsPartialBackup == true,
+                requestedMode == RestoreMode.Clean)
+                ? RestoreMode.Overwrite
+                : RestoreMode.Clean;
+
         public static async Task RestoreBackupAsync(BackupConfig config, ManagedFolder folder, HistoryItem historyItem, RestoreMode mode)
         {
+            RestoreMode requestedMode = mode;
+            RestoreMode effectiveMode = ResolveEffectiveRestoreMode(historyItem, requestedMode);
+            if (effectiveMode != requestedMode)
+            {
+                Log(
+                    $"[Restore] Partial backup '{historyItem.FileName}' requested Clean restore; forcing Overwrite.",
+                    LogLevel.Warning);
+            }
+
             int configIndex = GetConfigIndex(config);
             string? backupFilePath = HistoryService.GetBackupFilePath(config, folder, historyItem);
             string resolvedFolderName = string.IsNullOrWhiteSpace(historyItem.FolderName)
@@ -42,7 +58,7 @@ namespace FolderRewind.Services
             bool useCompatibilityReverseRestore = false;
             bool restoreFailed = false;
             bool restoreStarted = false;
-            bool effectiveCleanRestore = mode == RestoreMode.Clean;
+            bool effectiveCleanRestore = effectiveMode == RestoreMode.Clean;
             PathRuleMatcher? restoreWhitelistMatcher = null;
             SmartRestorePlan? smartRestorePlan = null;
             List<FileInfo> restoreChain = new();
@@ -142,10 +158,16 @@ namespace FolderRewind.Services
             }
 
             var (shouldHandleRestore, handlerPlugin) = Services.Plugins.PluginService.CheckPluginWantsToHandleRestore(config);
-            if (shouldHandleRestore && handlerPlugin != null)
+            if (shouldHandleRestore && handlerPlugin != null && !historyItem.IsPartialBackup)
             {
                 await HandlePluginRestoreAsync(config, folder, historyItem, restoreTask, handlerPlugin, configIndex);
                 return;
+            }
+            if (shouldHandleRestore && handlerPlugin != null && historyItem.IsPartialBackup)
+            {
+                Log(
+                    $"[Restore] Plugin takeover by '{handlerPlugin.Manifest.Id}' was bypassed for a partial backup.",
+                    LogLevel.Warning);
             }
 
             if (!File.Exists(resolvedBackupFilePath))
@@ -189,6 +211,7 @@ namespace FolderRewind.Services
                 useCompatibilityReverseRestore = true;
                 // 兼容链路无法精确执行 Clean 语义，这里强制退化到覆盖式还原。
                 effectiveCleanRestore = false;
+                effectiveMode = RestoreMode.Overwrite;
 
                 if (restoreChain.Count == 0)
                 {
@@ -283,8 +306,13 @@ namespace FolderRewind.Services
             {
             }
 
-            BroadcastRestoreLifecycle("command_started");
-            BroadcastRestoreEvent(configIndex, config, folder, "restore_started");
+            var restoreModeFields = new Dictionary<string, string?>
+            {
+                ["requested_mode"] = requestedMode.ToString().ToLowerInvariant(),
+                ["effective_mode"] = effectiveMode.ToString().ToLowerInvariant()
+            };
+            BroadcastRestoreLifecycle("command_started", restoreModeFields);
+            BroadcastRestoreEvent(configIndex, config, folder, "restore_started", restoreModeFields);
             restoreStarted = true;
 
             if (effectiveCleanRestore && safeRestoreEnabled)

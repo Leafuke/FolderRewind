@@ -815,16 +815,18 @@ namespace FolderRewind.Services
                 return Task.FromResult(error);
             }
 
-            if (mode == BackupService.RestoreMode.Clean
-                && IsPartialBackup(config!, folder!, backupFile!)
-                && !request.GetBoolOrDefault("confirm_partial_clean"))
-            {
-                return Task.FromResult("ERROR:" + I18n.GetString("KnotLink_Error_PartialCleanRequiresConfirm"));
-            }
-
             var restoreWhitelist = request.GetList("restore_whitelist");
             var effectiveConfig = CreateConfigWithOneShotOverrides(config!, Array.Empty<string>(), Array.Empty<string>(), restoreWhitelist);
             var effectiveFolder = ResolveEquivalentFolder(effectiveConfig, folder!);
+            if (!BackupService.TryValidateFilterRules(effectiveConfig.Filters, out string filterError))
+            {
+                return Task.FromResult($"ERROR:invalid_filter_rule:{filterError}");
+            }
+
+            bool isPartialBackup = IsPartialBackup(config!, folder!, backupFile!);
+            var effectiveMode = isPartialBackup
+                ? BackupService.RestoreMode.Overwrite
+                : mode;
 
             _ = Task.Run(async () =>
             {
@@ -851,7 +853,10 @@ namespace FolderRewind.Services
                 }
             });
 
-            return Task.FromResult($"OK:Restore started for folder '{folder!.DisplayName}'");
+            return Task.FromResult(
+                $"OK:Restore started for folder '{folder!.DisplayName}';" +
+                $"requested_mode={mode.ToString().ToLowerInvariant()};" +
+                $"effective_mode={effectiveMode.ToString().ToLowerInvariant()}");
         }
 
         private static Task<string> HandleBackupAll(KnotLinkCommandContext context)

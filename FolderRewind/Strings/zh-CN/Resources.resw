@@ -1699,7 +1699,7 @@ cmd=LIST_FOLDERS;config_id=ID
 cmd=LIST_BACKUPS;config_id=ID;folder=%E6%96%87%E4%BB%B6%E5%A4%B9%E5%90%8D%E7%A7%B0
 cmd=BACKUP;from=example.client;request_id=req-backup-001;config_id=ID;folder=%E6%96%87%E4%BB%B6%E5%A4%B9;comment=%E6%B3%A8%E9%87%8A;backup_mode=full;compression_method=zstd;compression_level=11;backup_blacklist=cache,logs;backup_whitelist=level.dat,region%2Fr.0.0.mca
 cmd=BACKUP;from=example.client;request_id=req-backup-002;config_id=ID;folder=%E6%96%87%E4%BB%B6%E5%A4%B9;backup_scope=MineRewind.SelectedRegions;scope_dimensions=overworld,nether;scope_areas=0%2C0%2C511%2C511
-cmd=RESTORE;from=example.client;request_id=req-restore-001;config_id=ID;folder=%E6%96%87%E4%BB%B6%E5%A4%B9;file=backup.7z;mode=clean;restore_whitelist=options.txt,playerdata;confirm_partial_clean=true
+cmd=RESTORE;from=example.client;request_id=req-restore-001;config_id=ID;folder=%E6%96%87%E4%BB%B6%E5%A4%B9;file=backup.7z;mode=clean;restore_whitelist=options.txt,playerdata
 cmd=AUTO_BACKUP;from=example.client;request_id=req-auto-001;config_id=ID;folder=%E6%96%87%E4%BB%B6%E5%A4%B9;interval_minutes=10
 
 MineRewind v2 扩展：
@@ -4831,17 +4831,14 @@ Pull Request：{1}</value>
   <data name="ConfigSettingsDialog_OpenFailed_Log" xml:space="preserve">
     <value>配置设置窗口打开失败：{0}</value>
   </data>
-  <data name="History_PartialCleanConfirm_Title" xml:space="preserve">
-    <value>这是一个部分备份</value>
+  <data name="History_PartialRestore_Title" xml:space="preserve">
+    <value>还原部分备份</value>
   </data>
-  <data name="History_PartialCleanConfirm_Content" xml:space="preserve">
-    <value>该备份由仅备份列表或区域备份生成，只包含部分文件。继续安全还原可能删除目标文件夹中未包含在备份里的其他文件。确认继续？</value>
+  <data name="History_PartialRestore_Content" xml:space="preserve">
+    <value>该归档只包含选中的文件。FolderRewind 将强制使用覆写还原，保留备份范围之外的现有文件。</value>
   </data>
-  <data name="History_PartialCleanConfirm_Primary" xml:space="preserve">
-    <value>确认安全还原</value>
-  </data>
-  <data name="KnotLink_Error_PartialCleanRequiresConfirm" xml:space="preserve">
-    <value>目标备份是部分备份。若确实要安全还原，请追加 -confirm_partial_clean=true。</value>
+  <data name="History_PartialRestore_Primary" xml:space="preserve">
+    <value>使用覆写还原</value>
   </data>
   <data name="Tray_ToolTip" xml:space="preserve">
     <value>存档时光机</value>
