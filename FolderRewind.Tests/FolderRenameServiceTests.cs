@@ -217,6 +217,58 @@ public sealed class FolderRenameServiceTests
         Assert.AreEqual(initial.AffectedConfigCount, updated.AffectedConfigCount);
     }
 
+    [TestMethod]
+    public void HistoryIdentityUpdateIsIsolatedByConfigAndOldStorageIdentity()
+    {
+        string oldPath = Path.Combine(CreateRoot(), "world");
+        string newPath = Path.Combine(Path.GetDirectoryName(oldPath)!, "renamed");
+        var firstConfig = new BackupConfig { Id = "config-a" };
+        var secondConfig = new BackupConfig { Id = "config-b" };
+        var references = new[]
+        {
+            Reference(
+                firstConfig,
+                oldPath,
+                newPath,
+                oldStorage: "world",
+                newStorage: "renamed"),
+            Reference(
+                secondConfig,
+                oldPath,
+                newPath,
+                oldStorage: "custom",
+                newStorage: "custom")
+        };
+
+        Assert.IsTrue(FolderRenameService.TryResolveHistoryIdentityUpdate(
+            "config-a",
+            oldPath,
+            "world",
+            references,
+            out string firstPath,
+            out string firstName));
+        Assert.AreEqual(newPath, firstPath);
+        Assert.AreEqual("renamed", firstName);
+
+        Assert.IsTrue(FolderRenameService.TryResolveHistoryIdentityUpdate(
+            "config-b",
+            oldPath,
+            "world",
+            references,
+            out string secondPath,
+            out string secondName));
+        Assert.AreEqual(newPath, secondPath);
+        Assert.AreEqual("world", secondName);
+
+        Assert.IsFalse(FolderRenameService.TryResolveHistoryIdentityUpdate(
+            "config-c",
+            oldPath,
+            "world",
+            references,
+            out _,
+            out _));
+    }
+
     private string CreateRoot()
     {
         string root = Path.Combine(
@@ -268,4 +320,30 @@ public sealed class FolderRenameServiceTests
             DestinationPath = destination,
             Kind = kind
         };
+
+    private static FolderRenameReferencePlan Reference(
+        BackupConfig config,
+        string oldPath,
+        string newPath,
+        string oldStorage,
+        string newStorage)
+    {
+        var folder = new ManagedFolder
+        {
+            Path = oldPath,
+            DisplayName = oldStorage
+        };
+        return new FolderRenameReferencePlan
+        {
+            ConfigId = config.Id,
+            OldPath = oldPath,
+            NewPath = newPath,
+            OldDisplayName = oldStorage,
+            NewDisplayName = newStorage,
+            OldStorageFolderName = oldStorage,
+            NewStorageFolderName = newStorage,
+            Config = config,
+            Folder = folder
+        };
+    }
 }

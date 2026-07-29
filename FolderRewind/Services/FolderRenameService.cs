@@ -141,6 +141,41 @@ public static class FolderRenameService
             ? newStorageFolderName
             : currentHistoryFolderName ?? string.Empty;
 
+    internal static bool TryResolveHistoryIdentityUpdate(
+        string configId,
+        string folderPath,
+        string folderName,
+        IReadOnlyList<FolderRenameReferencePlan> references,
+        out string newPath,
+        out string newFolderName)
+    {
+        var matchingReferences = (references ?? Array.Empty<FolderRenameReferencePlan>())
+            .Where(reference =>
+                string.Equals(
+                    configId,
+                    reference.ConfigId,
+                    StringComparison.OrdinalIgnoreCase)
+                && AreSamePath(folderPath, reference.OldPath))
+            .ToList();
+        if (matchingReferences.Count == 0)
+        {
+            newPath = folderPath ?? string.Empty;
+            newFolderName = folderName ?? string.Empty;
+            return false;
+        }
+
+        newPath = matchingReferences[0].NewPath;
+        var identityReference = matchingReferences.FirstOrDefault(reference =>
+            string.Equals(
+                folderName?.Trim(),
+                reference.OldStorageFolderName,
+                StringComparison.OrdinalIgnoreCase));
+        newFolderName = identityReference?.NewStorageFolderName
+            ?? folderName
+            ?? string.Empty;
+        return true;
+    }
+
     public static async Task<FolderRenameResult> RenameAsync(
         ManagedFolder folder,
         string newLeafName,

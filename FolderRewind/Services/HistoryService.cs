@@ -460,17 +460,13 @@ namespace FolderRewind.Services
             {
                 foreach (var item in _allHistory)
                 {
-                    var matchingReferences = references
-                        .Where(reference =>
-                            string.Equals(
-                                item.ConfigId,
-                                reference.ConfigId,
-                                StringComparison.OrdinalIgnoreCase)
-                            && AreSameFolderPath(
-                                item.FolderPath,
-                                reference.OldPath))
-                        .ToList();
-                    if (matchingReferences.Count == 0)
+                    if (!FolderRenameService.TryResolveHistoryIdentityUpdate(
+                            item.ConfigId,
+                            item.FolderPath,
+                            item.FolderName,
+                            references,
+                            out string newPath,
+                            out string newFolderName))
                     {
                         continue;
                     }
@@ -479,17 +475,8 @@ namespace FolderRewind.Services
                         item,
                         item.FolderPath ?? string.Empty,
                         item.FolderName ?? string.Empty));
-                    item.FolderPath = matchingReferences[0].NewPath;
-                    var identityReference = matchingReferences.FirstOrDefault(reference =>
-                        string.Equals(
-                            item.FolderName?.Trim(),
-                            reference.OldStorageFolderName,
-                            StringComparison.OrdinalIgnoreCase));
-                    if (identityReference != null)
-                    {
-                        item.FolderName = identityReference.NewStorageFolderName;
-                    }
-
+                    item.FolderPath = newPath;
+                    item.FolderName = newFolderName;
                     updated++;
                 }
             }
