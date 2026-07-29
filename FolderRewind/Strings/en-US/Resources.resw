@@ -4897,4 +4897,7 @@ Pull request: {1}</value>
   <data name="PluginService_BackupScope_NotApplicable" xml:space="preserve">
     <value>The selected backup scope does not apply to any source folder.</value>
   </data>
+  <data name="History_SaveFailed" xml:space="preserve">
+    <value>Failed to save backup history: {0}</value>
+  </data>
 </root>

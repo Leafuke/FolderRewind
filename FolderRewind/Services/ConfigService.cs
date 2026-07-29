@@ -404,36 +404,52 @@ namespace FolderRewind.Services
 
         public static void Save()
         {
+            var result = SaveWithResult();
+            if (!result.Success)
+            {
+                System.Diagnostics.Debug.WriteLine($"Config save error: {result.ErrorMessage}");
+                LogService.Log(I18n.Format("Config_SaveFailed", result.ErrorMessage));
+            }
+        }
+
+        public static ConfigSaveResult SaveWithResult(bool publishSavedEvent = true)
+        {
             if (CurrentConfig == null)
             {
-                LogService.Log(I18n.GetString("Config_Save_CurrentConfigNull"));
-                return;
+                return new ConfigSaveResult
+                {
+                    Success = false,
+                    ErrorMessage = I18n.GetString("Config_Save_CurrentConfigNull")
+                };
             }
 
             try
             {
-                var configDir = Path.GetDirectoryName(ConfigPath);
-                if (!Directory.Exists(configDir))
+                AtomicFileService.Write(
+                    ConfigPath,
+                    stream => JsonSerializer.Serialize(
+                        stream,
+                        CurrentConfig,
+                        AppJsonContext.Default.AppConfig));
+                if (publishSavedEvent)
                 {
-                    Directory.CreateDirectory(configDir!);
+                    PublishSaved();
                 }
 
-                // 先写临时文件再原子替换，尽量避免异常中断后留下半截配置。
-                // 流式序列化直接写入文件，避免在堆上分配完整 JSON 字符串。
-                string tempPath = ConfigPath + ".tmp";
-                using (var stream = new FileStream(tempPath, FileMode.Create, FileAccess.Write, FileShare.None))
-                {
-                    JsonSerializer.Serialize(stream, CurrentConfig, AppJsonContext.Default.AppConfig);
-                }
-                File.Move(tempPath, ConfigPath, overwrite: true);
-                Saved?.Invoke();
+                return new ConfigSaveResult { Success = true };
             }
             catch (Exception ex)
             {
-                System.Diagnostics.Debug.WriteLine($"Config save error: {ex.Message}");
-                LogService.Log(I18n.Format("Config_SaveFailed", ex.Message));
+                return new ConfigSaveResult
+                {
+                    Success = false,
+                    ErrorMessage = ex.Message,
+                    Exception = ex
+                };
             }
         }
+
+        internal static void PublishSaved() => Saved?.Invoke();
 
         public static bool Reload()
         {

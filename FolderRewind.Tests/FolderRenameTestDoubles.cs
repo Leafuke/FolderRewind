@@ -37,6 +37,7 @@ namespace FolderRewind.Models
     {
         public string ConfigId { get; set; } = string.Empty;
         public string FolderPath { get; set; } = string.Empty;
+        public string FolderName { get; set; } = string.Empty;
     }
 }
 
@@ -47,21 +48,59 @@ namespace FolderRewind.Services
     public static class ConfigService
     {
         public static AppConfig CurrentConfig { get; set; } = new();
+        public static Queue<ConfigSaveResult> SaveResults { get; } = new();
+        public static Action? BeforeSave { get; set; }
+
         public static void Save()
+        {
+        }
+
+        public static ConfigSaveResult SaveWithResult(bool publishSavedEvent = true)
+        {
+            BeforeSave?.Invoke();
+            return SaveResults.Count > 0
+                ? SaveResults.Dequeue()
+                : new ConfigSaveResult { Success = true };
+        }
+
+        internal static void PublishSaved()
         {
         }
     }
 
     public static class HistoryService
     {
+        public static Queue<HistorySaveResult> SaveResults { get; } = new();
+
         public static void Initialize()
         {
         }
 
         public static List<HistoryItem> GetEntriesForConfig(string configId) => [];
 
-        internal static int UpdateFolderIdentities(
-            IReadOnlyList<FolderRenameReferencePlan> references) => 0;
+        internal static HistoryFolderIdentityUpdate UpdateFolderIdentities(
+            IReadOnlyList<FolderRenameReferencePlan> references)
+            => new();
+
+        internal static void RestoreFolderIdentities(
+            IReadOnlyList<HistoryFolderIdentitySnapshot> snapshots)
+        {
+        }
+
+        internal static Task<HistorySaveResult> SaveNowAsync(
+            bool publishChangedEvent,
+            CancellationToken cancellationToken = default)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            return Task.FromResult(
+                SaveResults.Count > 0
+                    ? SaveResults.Dequeue()
+                    : new HistorySaveResult { Success = true });
+        }
+
+        internal static void PublishChanged()
+        {
+        }
     }
 
     public static class BackupStoragePathService

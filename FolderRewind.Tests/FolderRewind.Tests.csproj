@@ -38,6 +38,8 @@
     <Compile Include="..\FolderRewind\Services\PathRuleMatcher.cs" Link="Source\PathRuleMatcher.cs" />
     <Compile Include="..\FolderRewind\Services\RestoreModePolicy.cs" Link="Source\RestoreModePolicy.cs" />
     <Compile Include="..\FolderRewind\Models\FolderRenameModels.cs" Link="Source\FolderRenameModels.cs" />
+    <Compile Include="..\FolderRewind\Models\PersistenceModels.cs" Link="Source\PersistenceModels.cs" />
+    <Compile Include="..\FolderRewind\Services\AtomicFileService.cs" Link="Source\AtomicFileService.cs" />
     <Compile Include="..\FolderRewind\Services\FolderRenameService.cs" Link="Source\FolderRenameService.cs" />
   </ItemGroup>
 </Project>

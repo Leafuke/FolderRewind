@@ -3,6 +3,7 @@ using FolderRewind.Models;
 namespace FolderRewind.Services.Tests;
 
 [TestClass]
+[DoNotParallelize]
 public sealed class FolderRenameServiceTests
 {
     private readonly List<string> _temporaryRoots = [];
@@ -17,6 +18,11 @@ public sealed class FolderRenameServiceTests
                 Directory.Delete(root, recursive: true);
             }
         }
+
+        ConfigService.CurrentConfig = new AppConfig();
+        ConfigService.SaveResults.Clear();
+        ConfigService.BeforeSave = null;
+        HistoryService.SaveResults.Clear();
     }
 
     [TestMethod]
@@ -110,6 +116,87 @@ public sealed class FolderRenameServiceTests
                 "new-storage"));
     }
 
+    [TestMethod]
+    public async Task ConfigSaveFailureRollsBackPathAndInMemoryReference()
+    {
+        var setup = CreateRenameSetup();
+        ConfigService.SaveResults.Enqueue(new ConfigSaveResult
+        {
+            Success = false,
+            ErrorMessage = "injected config failure"
+        });
+        ConfigService.SaveResults.Enqueue(new ConfigSaveResult { Success = true });
+
+        var result = await FolderRenameService.RenameAsync(setup.Folder, "renamed");
+
+        Assert.IsFalse(result.Success);
+        Assert.IsTrue(result.RollbackSucceeded);
+        Assert.IsTrue(Directory.Exists(setup.OldPath));
+        Assert.IsFalse(Directory.Exists(setup.NewPath));
+        Assert.AreEqual(setup.OldPath, setup.Folder.Path);
+        Assert.AreEqual("world", setup.Folder.DisplayName);
+    }
+
+    [TestMethod]
+    public async Task HistorySaveFailureRollsBackBeforeConfigIsPublished()
+    {
+        var setup = CreateRenameSetup();
+        HistoryService.SaveResults.Enqueue(new HistorySaveResult
+        {
+            Success = false,
+            ErrorMessage = "injected history failure"
+        });
+        HistoryService.SaveResults.Enqueue(new HistorySaveResult { Success = true });
+
+        var result = await FolderRenameService.RenameAsync(setup.Folder, "renamed");
+
+        Assert.IsFalse(result.Success);
+        Assert.IsTrue(result.RollbackSucceeded);
+        Assert.IsTrue(Directory.Exists(setup.OldPath));
+        Assert.AreEqual(setup.OldPath, setup.Folder.Path);
+    }
+
+    [TestMethod]
+    public async Task RollbackFailureIsReportedWithoutBeingSwallowed()
+    {
+        var setup = CreateRenameSetup();
+        ConfigService.SaveResults.Enqueue(new ConfigSaveResult
+        {
+            Success = false,
+            ErrorMessage = "injected config failure"
+        });
+        ConfigService.SaveResults.Enqueue(new ConfigSaveResult { Success = true });
+        ConfigService.BeforeSave = () => Directory.CreateDirectory(setup.OldPath);
+
+        var result = await FolderRenameService.RenameAsync(setup.Folder, "renamed");
+
+        Assert.IsFalse(result.Success);
+        Assert.IsFalse(result.RollbackSucceeded, result.Message);
+        Assert.IsTrue(result.RollbackErrors.Any(error => error.Contains("occupied")));
+        Assert.IsTrue(Directory.Exists(setup.NewPath));
+    }
+
+    [TestMethod]
+    public void AtomicFileWriterReplacesExistingFileWithoutLeavingTemporaryFile()
+    {
+        string root = CreateRoot();
+        string destination = Path.Combine(root, "state.json");
+        File.WriteAllText(destination, "old");
+
+        AtomicFileService.Write(destination, stream =>
+        {
+            using var writer = new StreamWriter(
+                stream,
+                System.Text.Encoding.UTF8,
+                bufferSize: 1024,
+                leaveOpen: true);
+            writer.Write("new");
+        });
+
+        Assert.AreEqual("new", File.ReadAllText(destination));
+        Assert.IsEmpty(Directory.GetFiles(root, "*.tmp"));
+    }
+
     private string CreateRoot()
     {
         string root = Path.Combine(
@@ -119,6 +206,29 @@ public sealed class FolderRenameServiceTests
         Directory.CreateDirectory(root);
         _temporaryRoots.Add(root);
         return root;
+    }
+
+    private (ManagedFolder Folder, string OldPath, string NewPath) CreateRenameSetup()
+    {
+        string root = CreateRoot();
+        string oldPath = CreateDirectory(root, "world");
+        string newPath = Path.Combine(root, "renamed");
+        var folder = new ManagedFolder
+        {
+            Path = oldPath,
+            DisplayName = "world"
+        };
+        var config = new BackupConfig
+        {
+            Id = "config-a",
+            DestinationPath = Path.Combine(root, "backups"),
+            SourceFolders = [folder]
+        };
+        ConfigService.CurrentConfig = new AppConfig
+        {
+            BackupConfigs = [config]
+        };
+        return (folder, oldPath, newPath);
     }
 
     private static string CreateDirectory(string root, string name)

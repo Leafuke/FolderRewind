@@ -4897,4 +4897,7 @@ Pull Request：{1}</value>
   <data name="PluginService_BackupScope_NotApplicable" xml:space="preserve">
     <value>所选备份范围不适用于任何源文件夹。</value>
   </data>
+  <data name="History_SaveFailed" xml:space="preserve">
+    <value>保存备份历史失败：{0}</value>
+  </data>
 </root>
