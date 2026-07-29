@@ -146,6 +146,14 @@ jobs:
       - name: Publish Self-Contained MSI Payload
         shell: pwsh
         run: |
+          # Packaged MSIX and unpackaged MSI builds share bin/obj. Clean the
+          # packaged PRI so the MSI publish regenerates a dependency-merged PRI.
+          dotnet clean FolderRewind/FolderRewind.csproj `
+            -c Release `
+            -p:Platform=${{ matrix.platform }} `
+            -p:FolderRewindDistributionChannel=Msi `
+            -p:GenerateAppxPackageOnBuild=false
+
           dotnet publish FolderRewind/FolderRewind.csproj `
             -c Release `
             -p:Platform=${{ matrix.platform }} `
