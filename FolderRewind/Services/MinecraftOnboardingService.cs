@@ -21,7 +21,7 @@ namespace FolderRewind.Services
         private const string MineRewindPluginId = "com.folderrewind.minerewind";
         private const string MineRewindOwner = "Leafuke";
         private const string MineRewindRepo = "FolderRewind-Plugin-Minecraft";
-        private const string KnotLinkInstallerFileName = "KnotLinkService-Installer.exe";
+        private const string KnotLinkInstallerFileName = "KnotLinkService-windows-x86-Installer.exe";
 
         public static async Task<MinecraftOnboardingResult> InstallPresetAsync(
             IProgress<string>? progress = null,
@@ -120,7 +120,7 @@ namespace FolderRewind.Services
             var tempDir = Path.Combine(Path.GetTempPath(), "FolderRewind", "MinecraftOnboarding");
             Directory.CreateDirectory(tempDir);
 
-            // 从 KnotLink-Protocol/KnotLink 获取最新安装包
+            // 从 KnotLink-Protocol/KnotLinkService 获取最新 Windows x86 安装包
             var updateInfo = await KnotLinkServerManagerService.CheckForServerUpdateAsync(ct);
             var installerUrl = updateInfo?.InstallerDownloadUrl
                 ?? throw new InvalidOperationException(I18n.GetString("SettingsPage_KnotLinkServerNoInstaller"));

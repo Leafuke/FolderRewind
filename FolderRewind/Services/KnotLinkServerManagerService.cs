@@ -22,8 +22,9 @@ namespace FolderRewind.Services
         private const string ServerProcessName = "KnotLinkService";
 
         private const string GitHubOwner = "KnotLink-Protocol";
-        private const string GitHubRepo = "KnotLink";
-        private const string GitHubReleasesUrl = "https://github.com/KnotLink-Protocol/KnotLink/releases";
+        private const string GitHubRepo = "KnotLinkService";
+        private const string GitHubReleasesUrl = "https://github.com/KnotLink-Protocol/KnotLinkService/releases";
+        private const string DefaultInstallerFileName = "KnotLinkService-windows-x86-Installer.exe";
         private static readonly Version MinimumSupportedServerVersionValue = new(3, 0, 0, 0);
 
         public static Version MinimumSupportedServerVersion => MinimumSupportedServerVersionValue;
@@ -180,13 +181,11 @@ namespace FolderRewind.Services
 
         /// <summary>
         /// 检测 KnotLink 服务端是否有新版本可用。
-        /// 查询 KnotLink-Protocol/KnotLink 的最新 Release。
+        /// 查询 KnotLink-Protocol/KnotLinkService 的最新 Release。
         /// </summary>
         public static async Task<KnotLinkUpdateInfo?> CheckForServerUpdateAsync(CancellationToken ct = default)
         {
             var compatibility = GetServerCompatibilityInfo();
-            if (!compatibility.IsInstalled) return null;
-
             var currentVersion = compatibility.CurrentVersion;
             LogService.LogInfo($"Current KnotLink version: {currentVersion ?? "not found"}",
                 nameof(KnotLinkServerManagerService));
@@ -199,17 +198,18 @@ namespace FolderRewind.Services
             if (latestVersion == null) return null;
 
             var releaseUrl = release.HtmlUrl ?? $"https://github.com/{GitHubOwner}/{GitHubRepo}/releases";
-            var hasUpdate = compatibility.ParsedVersion == null
+            var hasUpdate = !compatibility.IsInstalled
+                || compatibility.ParsedVersion == null
                 || IsVersionNewer(compatibility.ParsedVersion, latestVersion);
 
-            // 从 assets 中查找安装包：匹配 KnotLinkService-X.Y.Z.W-Installer.exe
+            // 仅匹配新的 Windows x86 安装包命名：
+            // KnotLinkService-X.Y.Z.W-windows-x86-Installer.exe
             string? installerUrl = null;
             string? installerName = null;
             if (release.Assets.Count > 0)
             {
                 var installer = release.Assets.FirstOrDefault(a =>
-                    a.Name.EndsWith("-Installer.exe", StringComparison.OrdinalIgnoreCase) &&
-                    a.Name.StartsWith("KnotLinkService", StringComparison.OrdinalIgnoreCase));
+                    KnotLinkReleaseAssetPolicy.IsWindowsX86Installer(a.Name));
 
                 if (installer != null)
                 {
@@ -283,7 +283,7 @@ namespace FolderRewind.Services
                 Directory.CreateDirectory(tempDir);
 
                 var fileName = Path.GetFileName(new Uri(downloadUrl).LocalPath);
-                if (string.IsNullOrWhiteSpace(fileName)) fileName = "KnotLinkService-Installer.exe";
+                if (string.IsNullOrWhiteSpace(fileName)) fileName = DefaultInstallerFileName;
 
                 var localPath = Path.Combine(tempDir, fileName);
                 var bytes = await GitHubReleaseService.DownloadAssetAsync(downloadUrl, ct);
