@@ -120,6 +120,7 @@ jobs:
           dotnet build FolderRewind/FolderRewind.csproj `
             -c Release `
             -p:Platform=${{ matrix.platform }} `
+            -p:CETCompat=false `
             -p:UapAppxPackageBuildMode=SideloadOnly `
             -p:GenerateAppxPackageOnBuild=true `
             -p:GenerateTestArtifacts=false `
@@ -149,6 +150,7 @@ jobs:
             -c Release `
             -p:Platform=${{ matrix.platform }} `
             -p:FolderRewindDistributionChannel=Msi `
+            -p:CETCompat=false `
             -p:Version=${{ steps.version.outputs.manifest_version }} `
             -p:AssemblyVersion=${{ steps.version.outputs.manifest_version }} `
             -p:FileVersion=${{ steps.version.outputs.manifest_version }} `
