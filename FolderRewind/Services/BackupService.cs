@@ -207,14 +207,36 @@ namespace FolderRewind.Services
 
             await RunOnUIAsync(() => ActiveTasks.Insert(0, task));
 
-            // 检查是否有插件希望完全接管备份流程
-            var (shouldHandle, handlerPlugin) = Services.Plugins.PluginService.CheckPluginWantsToHandleBackup(config);
-            if (shouldHandle && handlerPlugin != null)
+            var scopeResolution = Services.Plugins.PluginService.ResolveConfigWithBackupFilterContributions(config, folder);
+            if (!scopeResolution.Success)
             {
-                return await HandlePluginBackupAsync(config, folder, task, handlerPlugin, comment);
+                string scopeError = string.IsNullOrWhiteSpace(scopeResolution.ErrorMessage)
+                    ? I18n.Format("PluginService_BackupScope_Invalid")
+                    : scopeResolution.ErrorMessage;
+                Log($"[PluginScope] {scopeResolution.ErrorCode}: {scopeError}", LogLevel.Error);
+                await RunOnUIAsync(() =>
+                {
+                    folder.StatusText = I18n.Format("BackupService_Task_Failed");
+                    task.Status = I18n.Format("BackupService_Task_Failed");
+                    task.IsCompleted = true;
+                    task.IsIndeterminate = false;
+                    task.IsSuccess = false;
+                    task.ErrorMessage = scopeError;
+                });
+                BroadcastBackupLifecycle("command_failed", new Dictionary<string, string?>
+                {
+                    ["reason"] = scopeResolution.ErrorCode,
+                    ["error"] = scopeError
+                });
+                BroadcastBackupEvent(configIndex, config, folder, "backup_failed", new Dictionary<string, string?>
+                {
+                    ["error"] = scopeResolution.ErrorCode,
+                    ["message"] = scopeError
+                });
+                return false;
             }
 
-            config = Services.Plugins.PluginService.CreateConfigWithBackupFilterContributions(config, folder);
+            config = scopeResolution.EffectiveConfig;
             if (!TryValidateBackupFilterRules(config.Filters, out string filterValidationError))
             {
                 Log($"[Filter] Backup filter validation failed: {filterValidationError}", LogLevel.Error);
@@ -238,6 +260,13 @@ namespace FolderRewind.Services
                     ["message"] = filterValidationError
                 });
                 return false;
+            }
+
+            // 插件接管同样只能收到已经解析并验证过的运行配置，不能绕过范围的失败关闭策略。
+            var (shouldHandle, handlerPlugin) = Services.Plugins.PluginService.CheckPluginWantsToHandleBackup(config);
+            if (shouldHandle && handlerPlugin != null)
+            {
+                return await HandlePluginBackupAsync(config, folder, task, handlerPlugin, comment);
             }
 
             // 允许插件在备份前创建快照并替换源路径（例如 Minecraft 热备份：先复制到 snapshot 再备份）。

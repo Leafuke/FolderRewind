@@ -712,6 +712,13 @@ namespace FolderRewind.ViewModels
             return BackupService.TryValidateFilterRules(_config.Filters, out errorMessage);
         }
 
+        public bool TryValidateBackupScope(out string errorMessage)
+        {
+            var result = PluginService.ValidateBackupScope(_config);
+            errorMessage = result.ErrorMessage;
+            return result.Success;
+        }
+
         private void OnAutomationPropertyChanged(object? sender, PropertyChangedEventArgs e)
         {
             if (string.IsNullOrWhiteSpace(e.PropertyName))

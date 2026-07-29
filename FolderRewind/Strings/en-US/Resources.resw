@@ -4864,4 +4864,37 @@ Pull request: {1}</value>
   <data name="Update_Dialog_DownloadMsi" xml:space="preserve">
     <value>Download MSI installer</value>
   </data>
+  <data name="PluginService_BackupScope_ContextIncomplete" xml:space="preserve">
+    <value>The backup scope context is incomplete.</value>
+  </data>
+  <data name="PluginService_BackupScope_SystemDisabled" xml:space="preserve">
+    <value>The selected backup scope requires the plugin system.</value>
+  </data>
+  <data name="PluginService_BackupScope_DuplicateDeclaration" xml:space="preserve">
+    <value>Plugin '{0}' declares backup scope '{1}' more than once.</value>
+  </data>
+  <data name="PluginService_BackupScope_DiscoveryFailed" xml:space="preserve">
+    <value>Plugin '{0}' failed while declaring backup scopes: {1}</value>
+  </data>
+  <data name="PluginService_BackupScope_ProviderMissing" xml:space="preserve">
+    <value>No enabled plugin provides backup scope '{0}'.</value>
+  </data>
+  <data name="PluginService_BackupScope_ProviderAmbiguous" xml:space="preserve">
+    <value>Multiple enabled plugins provide backup scope '{0}'.</value>
+  </data>
+  <data name="PluginService_BackupScope_ResolutionFailed" xml:space="preserve">
+    <value>Plugin '{0}' failed to resolve the backup scope: {1}</value>
+  </data>
+  <data name="PluginService_BackupScope_ResolutionMissing" xml:space="preserve">
+    <value>The backup scope provider returned no resolution.</value>
+  </data>
+  <data name="PluginService_BackupScope_Invalid" xml:space="preserve">
+    <value>The selected backup scope is invalid.</value>
+  </data>
+  <data name="PluginService_BackupScope_ContributionEmpty" xml:space="preserve">
+    <value>The backup scope produced no filter rules.</value>
+  </data>
+  <data name="PluginService_BackupScope_NotApplicable" xml:space="preserve">
+    <value>The selected backup scope does not apply to any source folder.</value>
+  </data>
 </root>

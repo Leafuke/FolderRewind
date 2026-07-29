@@ -4864,4 +4864,37 @@ Pull Request：{1}</value>
   <data name="Update_Dialog_DownloadMsi" xml:space="preserve">
     <value>下载 MSI 安装包</value>
   </data>
+  <data name="PluginService_BackupScope_ContextIncomplete" xml:space="preserve">
+    <value>备份范围上下文不完整。</value>
+  </data>
+  <data name="PluginService_BackupScope_SystemDisabled" xml:space="preserve">
+    <value>所选备份范围需要启用插件系统。</value>
+  </data>
+  <data name="PluginService_BackupScope_DuplicateDeclaration" xml:space="preserve">
+    <value>插件“{0}”重复声明了备份范围“{1}”。</value>
+  </data>
+  <data name="PluginService_BackupScope_DiscoveryFailed" xml:space="preserve">
+    <value>插件“{0}”声明备份范围时失败：{1}</value>
+  </data>
+  <data name="PluginService_BackupScope_ProviderMissing" xml:space="preserve">
+    <value>没有已启用的插件提供备份范围“{0}”。</value>
+  </data>
+  <data name="PluginService_BackupScope_ProviderAmbiguous" xml:space="preserve">
+    <value>多个已启用的插件同时提供备份范围“{0}”。</value>
+  </data>
+  <data name="PluginService_BackupScope_ResolutionFailed" xml:space="preserve">
+    <value>插件“{0}”解析备份范围时失败：{1}</value>
+  </data>
+  <data name="PluginService_BackupScope_ResolutionMissing" xml:space="preserve">
+    <value>备份范围提供者没有返回解析结果。</value>
+  </data>
+  <data name="PluginService_BackupScope_Invalid" xml:space="preserve">
+    <value>所选备份范围无效。</value>
+  </data>
+  <data name="PluginService_BackupScope_ContributionEmpty" xml:space="preserve">
+    <value>备份范围没有生成任何过滤规则。</value>
+  </data>
+  <data name="PluginService_BackupScope_NotApplicable" xml:space="preserve">
+    <value>所选备份范围不适用于任何源文件夹。</value>
+  </data>
 </root>

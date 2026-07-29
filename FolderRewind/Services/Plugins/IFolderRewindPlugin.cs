@@ -59,6 +59,65 @@ namespace FolderRewind.Services.Plugins
         public IReadOnlyList<string>? BackupBlacklist { get; set; }
     }
 
+    public enum PluginBackupScopeResolutionStatus
+    {
+        Applied = 0,
+        NotApplicable = 1,
+        Invalid = 2
+    }
+
+    public enum PluginBackupRuleMergeMode
+    {
+        Append = 0,
+        Replace = 1
+    }
+
+    public sealed class PluginBackupScopeResolution
+    {
+        public PluginBackupScopeResolutionStatus Status { get; init; }
+        public PluginBackupFilterContribution? Contribution { get; init; }
+        public PluginBackupRuleMergeMode MergeMode { get; init; } = PluginBackupRuleMergeMode.Append;
+        public string ErrorCode { get; init; } = string.Empty;
+        public string ErrorMessage { get; init; } = string.Empty;
+
+        public static PluginBackupScopeResolution Applied(
+            PluginBackupFilterContribution contribution,
+            PluginBackupRuleMergeMode mergeMode = PluginBackupRuleMergeMode.Append)
+            => new()
+            {
+                Status = PluginBackupScopeResolutionStatus.Applied,
+                Contribution = contribution,
+                MergeMode = mergeMode
+            };
+
+        public static PluginBackupScopeResolution NotApplicable()
+            => new() { Status = PluginBackupScopeResolutionStatus.NotApplicable };
+
+        public static PluginBackupScopeResolution Invalid(string errorCode, string errorMessage)
+            => new()
+            {
+                Status = PluginBackupScopeResolutionStatus.Invalid,
+                ErrorCode = errorCode ?? string.Empty,
+                ErrorMessage = errorMessage ?? string.Empty
+            };
+    }
+
+    public sealed class PluginBackupFilterConfigResolution
+    {
+        public bool Success { get; init; }
+        public BackupConfig EffectiveConfig { get; init; } = null!;
+        public PluginBackupScopeResolutionStatus Status { get; init; }
+        public string ErrorCode { get; init; } = string.Empty;
+        public string ErrorMessage { get; init; } = string.Empty;
+    }
+
+    public sealed class PluginBackupScopeValidationResult
+    {
+        public bool Success { get; init; }
+        public string ErrorCode { get; init; } = string.Empty;
+        public string ErrorMessage { get; init; } = string.Empty;
+    }
+
     /// <summary>
     /// 插件提供的配置级备份范围定义。
     /// 例如 MineRewind 可以声明“Minecraft 指定区域”，参数由 Host 动态渲染并保存在 BackupConfig 中。
@@ -100,7 +159,7 @@ namespace FolderRewind.Services.Plugins
             BackupConfig config,
             IReadOnlyDictionary<string, string> settingsValues);
 
-        PluginBackupFilterContribution? GetBackupFilterContribution(
+        PluginBackupScopeResolution ResolveBackupScope(
             BackupConfig config,
             ManagedFolder folder,
             PluginBackupScopeContext scope,

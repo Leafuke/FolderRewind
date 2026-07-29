@@ -596,17 +596,50 @@ namespace FolderRewind.Services.Plugins
             return sections;
         }
 
-        public static BackupConfig CreateConfigWithBackupFilterContributions(BackupConfig config, ManagedFolder folder)
+        public static PluginBackupFilterConfigResolution ResolveConfigWithBackupFilterContributions(
+            BackupConfig config,
+            ManagedFolder folder)
         {
-            if (!IsPluginSystemEnabled()) return config;
+            static PluginBackupFilterConfigResolution Failed(
+                BackupConfig source,
+                string errorCode,
+                string errorMessage)
+                => new()
+                {
+                    Success = false,
+                    EffectiveConfig = source,
+                    Status = PluginBackupScopeResolutionStatus.Invalid,
+                    ErrorCode = errorCode,
+                    ErrorMessage = errorMessage
+                };
+
+            if (config == null || folder == null)
+            {
+                return Failed(
+                    config!,
+                    "invalid_scope_context",
+                    I18n.Format("PluginService_BackupScope_ContextIncomplete"));
+            }
 
             var scope = config.BackupScope;
             if (scope == null || string.IsNullOrWhiteSpace(scope.PluginScopeId))
             {
-                return config;
+                return new PluginBackupFilterConfigResolution
+                {
+                    Success = true,
+                    EffectiveConfig = config,
+                    Status = PluginBackupScopeResolutionStatus.NotApplicable
+                };
             }
 
-            BackupConfig? clone = null;
+            if (!IsPluginSystemEnabled())
+            {
+                return Failed(
+                    config,
+                    "scope_plugin_system_disabled",
+                    I18n.Format("PluginService_BackupScope_SystemDisabled"));
+            }
+
             var scopeContext = new PluginBackupScopeContext
             {
                 ScopeId = scope.PluginScopeId,
@@ -615,6 +648,7 @@ namespace FolderRewind.Services.Plugins
                     : new Dictionary<string, string>(scope.Parameters, StringComparer.OrdinalIgnoreCase)
             };
 
+            var claimants = new List<(IFolderRewindPlugin Plugin, IFolderRewindBackupScopeProvider Provider)>();
             foreach (var plugin in GetEnabledLoadedPluginsSnapshot())
             {
                 if (plugin is not IFolderRewindBackupScopeProvider provider)
@@ -625,53 +659,212 @@ namespace FolderRewind.Services.Plugins
                 try
                 {
                     var settings = GetPluginSettings(plugin.Manifest.Id);
-                    var contribution = provider.GetBackupFilterContribution(config, folder, scopeContext, settings);
-                    if (contribution == null)
+                    var definitions = provider.GetBackupScopeDefinitions(config, settings)
+                        ?? Array.Empty<PluginBackupScopeDefinition>();
+                    int matchingDefinitionCount = definitions.Count(definition =>
+                        definition != null
+                        && string.Equals(
+                            definition.Id,
+                            scope.PluginScopeId,
+                            StringComparison.OrdinalIgnoreCase));
+                    if (matchingDefinitionCount > 1)
                     {
-                        continue;
+                        return Failed(
+                            config,
+                            "scope_provider_duplicate_declaration",
+                            I18n.Format(
+                                "PluginService_BackupScope_DuplicateDeclaration",
+                                plugin.Manifest.Id,
+                                scope.PluginScopeId));
                     }
 
-                    bool hasWhitelist = contribution.BackupWhitelist?.Any(rule => !string.IsNullOrWhiteSpace(rule)) == true;
-                    bool hasBlacklist = contribution.BackupBlacklist?.Any(rule => !string.IsNullOrWhiteSpace(rule)) == true;
-                    if (!contribution.UseWhitelistMode && !hasWhitelist && !hasBlacklist)
+                    if (matchingDefinitionCount == 1)
                     {
-                        continue;
-                    }
-
-                    clone ??= CloneBackupConfigForRuntimeFilters(config);
-                    clone.Filters ??= new FilterSettings();
-                    clone.Filters.Blacklist ??= new ObservableCollection<string>();
-                    clone.Filters.BackupWhitelist ??= new ObservableCollection<string>();
-
-                    if (contribution.UseWhitelistMode || hasWhitelist)
-                    {
-                        // 插件贡献白名单时使用一次性运行时配置，既能复用核心备份流程，也不会把自动计算结果写回用户配置。
-                        clone.Filters.BackupFilterMode = BackupFilterMode.Whitelist;
-                    }
-
-                    if (hasWhitelist)
-                    {
-                        foreach (var rule in contribution.BackupWhitelist!.Where(rule => !string.IsNullOrWhiteSpace(rule)))
-                        {
-                            AddDistinctRule(clone.Filters.BackupWhitelist, rule);
-                        }
-                    }
-
-                    if (hasBlacklist && clone.Filters.BackupFilterMode != BackupFilterMode.Whitelist)
-                    {
-                        foreach (var rule in contribution.BackupBlacklist!.Where(rule => !string.IsNullOrWhiteSpace(rule)))
-                        {
-                            AddDistinctRule(clone.Filters.Blacklist, rule);
-                        }
+                        claimants.Add((plugin, provider));
                     }
                 }
                 catch (Exception ex)
                 {
-                    LogService.LogError(I18n.Format("PluginService_BeforeBackupFailed", plugin.Manifest.Id, ex.Message), "PluginService", ex);
+                    LogService.LogError(
+                        $"[PluginService] Backup scope discovery failed for '{plugin.Manifest.Id}': {ex.Message}",
+                        nameof(PluginService),
+                        ex);
+                    return Failed(
+                        config,
+                        "scope_provider_exception",
+                        I18n.Format(
+                            "PluginService_BackupScope_DiscoveryFailed",
+                            plugin.Manifest.Id,
+                            ex.Message));
                 }
             }
 
-            return clone ?? config;
+            if (claimants.Count == 0)
+            {
+                return Failed(
+                    config,
+                    "scope_provider_missing",
+                    I18n.Format("PluginService_BackupScope_ProviderMissing", scope.PluginScopeId));
+            }
+
+            if (claimants.Count > 1)
+            {
+                return Failed(
+                    config,
+                    "scope_provider_ambiguous",
+                    I18n.Format("PluginService_BackupScope_ProviderAmbiguous", scope.PluginScopeId));
+            }
+
+            var claimant = claimants[0];
+            PluginBackupScopeResolution resolution;
+            try
+            {
+                var settings = GetPluginSettings(claimant.Plugin.Manifest.Id);
+                resolution = claimant.Provider.ResolveBackupScope(
+                    config,
+                    folder,
+                    scopeContext,
+                    settings);
+            }
+            catch (Exception ex)
+            {
+                LogService.LogError(
+                    $"[PluginService] Backup scope resolution failed for '{claimant.Plugin.Manifest.Id}': {ex.Message}",
+                    nameof(PluginService),
+                    ex);
+                return Failed(
+                    config,
+                    "scope_provider_exception",
+                    I18n.Format(
+                        "PluginService_BackupScope_ResolutionFailed",
+                        claimant.Plugin.Manifest.Id,
+                        ex.Message));
+            }
+
+            if (resolution == null)
+            {
+                return Failed(
+                    config,
+                    "scope_resolution_missing",
+                    I18n.Format("PluginService_BackupScope_ResolutionMissing"));
+            }
+
+            if (resolution.Status == PluginBackupScopeResolutionStatus.Invalid)
+            {
+                return Failed(
+                    config,
+                    string.IsNullOrWhiteSpace(resolution.ErrorCode)
+                        ? "invalid_backup_scope"
+                        : resolution.ErrorCode,
+                    string.IsNullOrWhiteSpace(resolution.ErrorMessage)
+                        ? I18n.Format("PluginService_BackupScope_Invalid")
+                        : resolution.ErrorMessage);
+            }
+
+            if (resolution.Status == PluginBackupScopeResolutionStatus.NotApplicable)
+            {
+                return new PluginBackupFilterConfigResolution
+                {
+                    Success = true,
+                    EffectiveConfig = config,
+                    Status = PluginBackupScopeResolutionStatus.NotApplicable
+                };
+            }
+
+            var contribution = resolution.Contribution;
+            bool hasWhitelist = contribution?.BackupWhitelist?.Any(rule => !string.IsNullOrWhiteSpace(rule)) == true;
+            bool hasBlacklist = contribution?.BackupBlacklist?.Any(rule => !string.IsNullOrWhiteSpace(rule)) == true;
+            if (contribution == null || (!hasWhitelist && !hasBlacklist))
+            {
+                return Failed(
+                    config,
+                    "scope_contribution_empty",
+                    I18n.Format("PluginService_BackupScope_ContributionEmpty"));
+            }
+
+            var clone = CloneBackupConfigForRuntimeFilters(config);
+            clone.Filters ??= new FilterSettings();
+            clone.Filters.Blacklist ??= new ObservableCollection<string>();
+            clone.Filters.BackupWhitelist ??= new ObservableCollection<string>();
+
+            if (contribution.UseWhitelistMode || hasWhitelist)
+            {
+                clone.Filters.BackupFilterMode = BackupFilterMode.Whitelist;
+                if (resolution.MergeMode == PluginBackupRuleMergeMode.Replace)
+                {
+                    clone.Filters.BackupWhitelist.Clear();
+                }
+            }
+            else if (resolution.MergeMode == PluginBackupRuleMergeMode.Replace)
+            {
+                clone.Filters.Blacklist.Clear();
+            }
+
+            if (hasWhitelist)
+            {
+                foreach (var rule in contribution.BackupWhitelist!.Where(rule => !string.IsNullOrWhiteSpace(rule)))
+                {
+                    AddDistinctRule(clone.Filters.BackupWhitelist, rule);
+                }
+            }
+
+            if (hasBlacklist && clone.Filters.BackupFilterMode != BackupFilterMode.Whitelist)
+            {
+                foreach (var rule in contribution.BackupBlacklist!.Where(rule => !string.IsNullOrWhiteSpace(rule)))
+                {
+                    AddDistinctRule(clone.Filters.Blacklist, rule);
+                }
+            }
+
+            return new PluginBackupFilterConfigResolution
+            {
+                Success = true,
+                EffectiveConfig = clone,
+                Status = PluginBackupScopeResolutionStatus.Applied
+            };
+        }
+
+        public static PluginBackupScopeValidationResult ValidateBackupScope(BackupConfig config)
+        {
+            if (config?.BackupScope == null
+                || string.IsNullOrWhiteSpace(config.BackupScope.PluginScopeId))
+            {
+                return new PluginBackupScopeValidationResult { Success = true };
+            }
+
+            int appliedCount = 0;
+            foreach (var folder in config.SourceFolders ?? new ObservableCollection<ManagedFolder>())
+            {
+                if (folder == null)
+                {
+                    continue;
+                }
+
+                var resolution = ResolveConfigWithBackupFilterContributions(config, folder);
+                if (!resolution.Success)
+                {
+                    return new PluginBackupScopeValidationResult
+                    {
+                        Success = false,
+                        ErrorCode = resolution.ErrorCode,
+                        ErrorMessage = resolution.ErrorMessage
+                    };
+                }
+
+                if (resolution.Status == PluginBackupScopeResolutionStatus.Applied)
+                {
+                    appliedCount++;
+                }
+            }
+
+            return appliedCount > 0
+                ? new PluginBackupScopeValidationResult { Success = true }
+                : new PluginBackupScopeValidationResult
+                {
+                    Success = false,
+                    ErrorCode = "scope_not_applicable",
+                    ErrorMessage = I18n.Format("PluginService_BackupScope_NotApplicable")
+                };
         }
 
         private static BackupConfig CloneBackupConfigForRuntimeFilters(BackupConfig source)

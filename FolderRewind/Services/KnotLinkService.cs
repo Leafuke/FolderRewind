@@ -758,6 +758,16 @@ namespace FolderRewind.Services
                 backupScopeId,
                 backupScopeParameters);
             var effectiveFolder = ResolveEquivalentFolder(effectiveConfig, folder!);
+            var scopeValidation = PluginService.ValidateBackupScope(effectiveConfig);
+            if (!scopeValidation.Success)
+            {
+                return Task.FromResult(
+                    $"ERROR:{scopeValidation.ErrorCode}:{scopeValidation.ErrorMessage}");
+            }
+            if (!BackupService.TryValidateBackupFilterRules(effectiveConfig.Filters, out string filterError))
+            {
+                return Task.FromResult($"ERROR:invalid_filter_rule:{filterError}");
+            }
 
             _ = Task.Run(async () =>
             {
@@ -879,6 +889,16 @@ namespace FolderRewind.Services
                 Array.Empty<string>(),
                 backupScopeId,
                 backupScopeParameters);
+            var scopeValidation = PluginService.ValidateBackupScope(effectiveConfig);
+            if (!scopeValidation.Success)
+            {
+                return Task.FromResult(
+                    $"ERROR:{scopeValidation.ErrorCode}:{scopeValidation.ErrorMessage}");
+            }
+            if (!BackupService.TryValidateBackupFilterRules(effectiveConfig.Filters, out string filterError))
+            {
+                return Task.FromResult($"ERROR:invalid_filter_rule:{filterError}");
+            }
 
             BroadcastEvent(context, "backup_all_started", new Dictionary<string, string?>
             {
