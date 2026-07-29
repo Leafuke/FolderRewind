@@ -851,6 +851,18 @@ namespace FolderRewind.Services.Plugins
                     };
                 }
 
+                if (!BackupService.TryValidateBackupFilterRules(
+                        resolution.EffectiveConfig.Filters,
+                        out string filterError))
+                {
+                    return new PluginBackupScopeValidationResult
+                    {
+                        Success = false,
+                        ErrorCode = "invalid_scope_filter_rule",
+                        ErrorMessage = filterError
+                    };
+                }
+
                 if (resolution.Status == PluginBackupScopeResolutionStatus.Applied)
                 {
                     appliedCount++;
