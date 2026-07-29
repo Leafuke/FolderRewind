@@ -117,6 +117,8 @@ jobs:
       - name: Build MSIX Package
         shell: pwsh
         run: |
+          # MSIX targets probe for mspdbcmf.exe whenever packaging input contains a PDB,
+          # even when symbol-package generation is disabled. Do not emit unused PDBs.
           dotnet build FolderRewind/FolderRewind.csproj `
             -c Release `
             -p:Platform=${{ matrix.platform }} `
@@ -126,6 +128,8 @@ jobs:
             -p:GenerateTestArtifacts=false `
             -p:AppxSymbolPackageEnabled=false `
             -p:GenerateAppxSymbolPackage=false `
+            -p:DebugType=None `
+            -p:DebugSymbols=false `
             -p:AppxPackageDir="$env:GITHUB_WORKSPACE\artifacts\appx\${{ matrix.platform }}\" `
             -p:PackageCertificateKeyFile= `
             -p:PackageCertificatePassword= `
