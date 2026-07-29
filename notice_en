@@ -1,11 +1,4 @@
 FolderRewind 1.8.0 is now officially available.
 
-Highlights:
-
-1. Selected-area backups, performance presets, and folder rename/refactoring features are now ready for regular use.
-2. KnotLink has been upgraded to the v2 parameterized command protocol.
-3. MSI sideload installation and the overall app experience have been improved, along with fixes for several known issues.
-
-Important compatibility notice:
-
-If KnotLink Server is already installed, you must update it to version 3.0 or later. FolderRewind will remind you when it detects an older KnotLink Server or an installation whose version cannot be determined.
+If KnotLink Server is already installed, you must update it to version 3.0 or later.
+If you are using MineBackup-Mod, please update it to version 3.0 or later as well.
