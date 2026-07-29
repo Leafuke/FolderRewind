@@ -23,6 +23,7 @@ public sealed class FolderRenameServiceTests
         ConfigService.SaveResults.Clear();
         ConfigService.BeforeSave = null;
         HistoryService.SaveResults.Clear();
+        HistoryService.GetEntriesForConfigCallCount = 0;
     }
 
     [TestMethod]
@@ -195,6 +196,25 @@ public sealed class FolderRenameServiceTests
 
         Assert.AreEqual("new", File.ReadAllText(destination));
         Assert.IsEmpty(Directory.GetFiles(root, "*.tmp"));
+    }
+
+    [TestMethod]
+    public void CachedPreviewRevalidatesWithoutRescanningHistory()
+    {
+        var setup = CreateRenameSetup();
+        var initial = FolderRenameService.PreviewRename(setup.Folder, "world");
+        int callsAfterInitialPreview = HistoryService.GetEntriesForConfigCallCount;
+
+        var updated = FolderRenameService.PreviewRenameWithCachedImpact(
+            setup.Folder,
+            "renamed",
+            initial);
+
+        Assert.IsTrue(updated.IsValid);
+        Assert.AreEqual(
+            callsAfterInitialPreview,
+            HistoryService.GetEntriesForConfigCallCount);
+        Assert.AreEqual(initial.AffectedConfigCount, updated.AffectedConfigCount);
     }
 
     private string CreateRoot()

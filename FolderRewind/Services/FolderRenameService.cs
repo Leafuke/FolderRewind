@@ -20,6 +20,18 @@ public static class FolderRenameService
     ];
 
     public static FolderRenamePreview PreviewRename(ManagedFolder folder, string newLeafName)
+        => BuildRenamePreview(folder, newLeafName, cachedImpact: null);
+
+    internal static FolderRenamePreview PreviewRenameWithCachedImpact(
+        ManagedFolder folder,
+        string newLeafName,
+        FolderRenamePreview cachedImpact)
+        => BuildRenamePreview(folder, newLeafName, cachedImpact);
+
+    private static FolderRenamePreview BuildRenamePreview(
+        ManagedFolder folder,
+        string newLeafName,
+        FolderRenamePreview? cachedImpact)
     {
         string oldPath = folder?.Path?.Trim() ?? string.Empty;
         string oldPathWithoutTrailingSeparator = TrimTrailingPathSeparators(oldPath);
@@ -68,16 +80,26 @@ public static class FolderRenameService
             newPath,
             out string newStorageFolderName);
 
-        HistoryService.Initialize();
-        var affectedConfigs = ConfigService.CurrentConfig?.BackupConfigs?
-            .Where(config => config?.SourceFolders != null)
-            .ToList() ?? [];
-        int affectedReferenceCount = affectedConfigs
-            .SelectMany(config => config.SourceFolders)
-            .Count(item => item != null && AreSamePath(item.Path, oldPath));
-        int affectedHistoryCount = affectedConfigs
-            .SelectMany(config => HistoryService.GetEntriesForConfig(config.Id))
-            .Count(item => AreSamePath(item.FolderPath, oldPath));
+        int affectedReferenceCount;
+        int affectedHistoryCount;
+        if (cachedImpact != null)
+        {
+            affectedReferenceCount = cachedImpact.AffectedConfigCount;
+            affectedHistoryCount = cachedImpact.AffectedHistoryCount;
+        }
+        else
+        {
+            HistoryService.Initialize();
+            var affectedConfigs = ConfigService.CurrentConfig?.BackupConfigs?
+                .Where(config => config?.SourceFolders != null)
+                .ToList() ?? [];
+            affectedReferenceCount = affectedConfigs
+                .SelectMany(config => config.SourceFolders)
+                .Count(item => item != null && AreSamePath(item.Path, oldPath));
+            affectedHistoryCount = affectedConfigs
+                .SelectMany(config => HistoryService.GetEntriesForConfig(config.Id))
+                .Count(item => AreSamePath(item.FolderPath, oldPath));
+        }
         bool changesPath = !AreSamePath(oldPath, newPath);
 
         return new FolderRenamePreview
@@ -322,7 +344,7 @@ public static class FolderRenameService
     public static IReadOnlyList<string> ValidateMovePlan(IReadOnlyList<FolderMoveOperation> operations)
     {
         var conflicts = new List<string>();
-        var normalized = new List<(FolderMoveOperation Operation, string Source, string Destination)>();
+        var normalized = new List<(string Source, string Destination)>();
 
         foreach (var operation in operations ?? Array.Empty<FolderMoveOperation>())
         {
@@ -359,7 +381,7 @@ public static class FolderRenameService
                 conflicts.Add($"Rename move crosses its own directory boundary: {source} -> {destination}");
             }
 
-            normalized.Add((operation, source, destination));
+            normalized.Add((source, destination));
         }
 
         foreach (var sourceGroup in normalized.GroupBy(
@@ -561,14 +583,16 @@ public static class FolderRenameService
             reference.Folder.DisplayName = reference.NewDisplayName;
         }
 
-        foreach (var config in references.Select(reference => reference.Config).Distinct())
+        foreach (var configReferences in references.GroupBy(reference => reference.Config))
         {
-            string oldPath = references.First(reference => ReferenceEquals(reference.Config, config)).OldPath;
-            string newPath = references.First(reference => ReferenceEquals(reference.Config, config)).NewPath;
+            var config = configReferences.Key;
+            var firstReference = configReferences.First();
             if (config.Automation != null
-                && AreSamePath(config.Automation.TargetFolderPath, oldPath))
+                && AreSamePath(
+                    config.Automation.TargetFolderPath,
+                    firstReference.OldPath))
             {
-                config.Automation.TargetFolderPath = newPath;
+                config.Automation.TargetFolderPath = firstReference.NewPath;
             }
         }
     }
@@ -613,11 +637,9 @@ public static class FolderRenameService
             settings?.LastHistoryFolderPath ?? string.Empty);
     }
 
-    private static void RestoreMemorySnapshot(
-        RenameMemorySnapshot snapshot,
-        IReadOnlyList<FolderRenameReferencePlan> references)
+    private static void RestoreMemorySnapshot(RenameMemorySnapshot snapshot)
     {
-        foreach (var reference in references)
+        foreach (var reference in snapshot.References)
         {
             reference.Folder.Path = reference.OldPath;
             reference.Folder.DisplayName = reference.OldDisplayName;
@@ -651,7 +673,7 @@ public static class FolderRenameService
         var rollbackErrors = new List<string>();
         try
         {
-            RestoreMemorySnapshot(memorySnapshot, memorySnapshot.References);
+            RestoreMemorySnapshot(memorySnapshot);
         }
         catch (Exception ex)
         {

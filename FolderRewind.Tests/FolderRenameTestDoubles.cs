@@ -71,12 +71,17 @@ namespace FolderRewind.Services
     public static class HistoryService
     {
         public static Queue<HistorySaveResult> SaveResults { get; } = new();
+        public static int GetEntriesForConfigCallCount { get; set; }
 
         public static void Initialize()
         {
         }
 
-        public static List<HistoryItem> GetEntriesForConfig(string configId) => [];
+        public static List<HistoryItem> GetEntriesForConfig(string configId)
+        {
+            GetEntriesForConfigCallCount++;
+            return [];
+        }
 
         internal static HistoryFolderIdentityUpdate UpdateFolderIdentities(
             IReadOnlyList<FolderRenameReferencePlan> references)
