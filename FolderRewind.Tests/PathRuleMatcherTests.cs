@@ -1,4 +1,5 @@
 using FolderRewind.Services;
+using System.Text.RegularExpressions;
 
 namespace FolderRewind.Tests;
 
@@ -73,6 +74,54 @@ public sealed class PathRuleMatcherTests
 
         var pathMatcher = PathRuleMatcher.CreateForRestore(["nested/*.dat"], root);
         Assert.IsFalse(pathMatcher.IsMatch(Path.Combine(root, "nested", "level.dat")));
+    }
+
+    [TestMethod]
+    public void InvalidEnabledRegexIsRejectedDuringCompilation()
+    {
+        Assert.ThrowsExactly<PathRuleValidationException>(() =>
+            PathRuleMatcher.CreateForBackup(
+                ["regex:(unclosed"],
+                CreateRoot(),
+                CreateRoot(),
+                enableRegexRules: true));
+    }
+
+    [TestMethod]
+    public void DisabledRegexRuleKeepsLegacyIgnoredSemantics()
+    {
+        var matcher = PathRuleMatcher.CreateForBackup(
+            ["regex:(unclosed"],
+            CreateRoot(),
+            CreateRoot(),
+            enableRegexRules: false);
+
+        Assert.IsFalse(matcher.IsMatch(Path.Combine(CreateRoot(), "anything.txt")));
+    }
+
+    [TestMethod]
+    public void ExcessiveRuleCountIsRejected()
+    {
+        var rules = Enumerable.Range(0, PathRuleMatcher.MaxRuleCount + 1)
+            .Select(index => $"rule-{index}");
+
+        Assert.ThrowsExactly<PathRuleValidationException>(() =>
+            PathRuleMatcher.ValidateBackupRules(rules, enableRegexRules: false));
+    }
+
+    [TestMethod]
+    public void CatastrophicRegexTimesOut()
+    {
+        string root = CreateRoot();
+        var matcher = PathRuleMatcher.CreateForBackup(
+            ["regex:^(a+)+$"],
+            root,
+            root,
+            enableRegexRules: true);
+        string adversarialName = new string('a', 20_000) + "!";
+
+        Assert.ThrowsExactly<RegexMatchTimeoutException>(() =>
+            matcher.IsMatch(Path.Combine(root, adversarialName)));
     }
 
     private static string CreateRoot()

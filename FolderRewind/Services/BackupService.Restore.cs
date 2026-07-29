@@ -43,6 +43,7 @@ namespace FolderRewind.Services
             bool restoreFailed = false;
             bool restoreStarted = false;
             bool effectiveCleanRestore = mode == RestoreMode.Clean;
+            PathRuleMatcher? restoreWhitelistMatcher = null;
             SmartRestorePlan? smartRestorePlan = null;
             List<FileInfo> restoreChain = new();
 
@@ -78,6 +79,22 @@ namespace FolderRewind.Services
                 }
 
                 NotificationService.NotifyRestoreCompleted(folder.DisplayName, false, message);
+            }
+
+            if (effectiveCleanRestore && config.Filters?.RestoreWhitelist?.Count > 0)
+            {
+                try
+                {
+                    restoreWhitelistMatcher = PathRuleMatcher.CreateForRestore(
+                        config.Filters.RestoreWhitelist,
+                        targetDir);
+                }
+                catch (PathRuleValidationException ex)
+                {
+                    Log($"[Filter] Restore whitelist validation failed: {ex.Message}", LogLevel.Error);
+                    await FailAsync(ex.Message, "invalid_restore_filter");
+                    return;
+                }
             }
 
             if (string.IsNullOrWhiteSpace(backupFilePath))
@@ -328,7 +345,7 @@ namespace FolderRewind.Services
                     DirectoryInfo di = new DirectoryInfo(targetDir);
                     foreach (var entry in di.EnumerateFileSystemInfos("*", SearchOption.TopDirectoryOnly))
                     {
-                        if (hasWhitelist && restoreWhitelist != null && IsInRestoreWhitelist(entry.FullName, targetDir, restoreWhitelist))
+                        if (hasWhitelist && restoreWhitelistMatcher?.IsMatch(entry.FullName) == true)
                         {
                             Log(I18n.Format("BackupService_Log_RestoreWhitelistSkip", entry.Name), LogLevel.Info);
                             continue;
@@ -387,7 +404,11 @@ namespace FolderRewind.Services
                 if (safeRestoreWorkspacePrepared && !string.IsNullOrWhiteSpace(safeRestoreTempDir))
                 {
                     // 还原成功后再提交快照工作区，最后一步才真正删除旧目录。
-                    if (!TryCommitSafeRestoreWorkspace(targetDir, safeRestoreTempDir, config.Filters?.RestoreWhitelist, out var commitError))
+                    if (!TryCommitSafeRestoreWorkspace(
+                        targetDir,
+                        safeRestoreTempDir,
+                        restoreWhitelistMatcher,
+                        out var commitError))
                     {
                         restoreFailed = true;
                         string message = I18n.Format("BackupService_Log_RestoreCommitFailed", commitError ?? "Unknown error");
@@ -765,7 +786,11 @@ namespace FolderRewind.Services
             }
         }
 
-        private static bool TryCommitSafeRestoreWorkspace(string targetDir, string tempDir, IEnumerable<string>? whitelist, out string? errorMessage)
+        private static bool TryCommitSafeRestoreWorkspace(
+            string targetDir,
+            string tempDir,
+            PathRuleMatcher? whitelistMatcher,
+            out string? errorMessage)
         {
             errorMessage = null;
 
@@ -773,7 +798,7 @@ namespace FolderRewind.Services
             {
                 // 提交阶段要先补回白名单内容，再删除旧快照目录。
                 CleanupInternalRestoreMarkers(targetDir);
-                CopyRestoreWhitelistEntries(tempDir, targetDir, whitelist, targetDir);
+                CopyRestoreWhitelistEntries(tempDir, targetDir, whitelistMatcher, targetDir);
 
                 if (Directory.Exists(tempDir))
                 {
@@ -901,17 +926,20 @@ namespace FolderRewind.Services
             }
         }
 
-        private static void CopyRestoreWhitelistEntries(string sourceDir, string targetDir, IEnumerable<string>? whitelist, string? whitelistRootDir = null)
+        private static void CopyRestoreWhitelistEntries(
+            string sourceDir,
+            string targetDir,
+            PathRuleMatcher? whitelistMatcher,
+            string? whitelistRootDir = null)
         {
             if (string.IsNullOrWhiteSpace(sourceDir)
                 || string.IsNullOrWhiteSpace(targetDir)
-                || whitelist == null)
+                || whitelistMatcher == null)
             {
                 return;
             }
 
-            var rules = whitelist.Where(r => !string.IsNullOrWhiteSpace(r)).ToList();
-            if (rules.Count == 0 || !Directory.Exists(sourceDir))
+            if (!Directory.Exists(sourceDir))
             {
                 return;
             }
@@ -920,7 +948,11 @@ namespace FolderRewind.Services
 
             foreach (var dir in Directory.EnumerateDirectories(sourceDir, "*", SearchOption.AllDirectories).OrderBy(d => d.Length))
             {
-                if (!IsPathOrAncestorInRestoreWhitelist(dir, sourceDir, effectiveWhitelistRootDir, rules))
+                if (!IsPathOrAncestorInRestoreWhitelist(
+                    dir,
+                    sourceDir,
+                    effectiveWhitelistRootDir,
+                    whitelistMatcher))
                 {
                     continue;
                 }
@@ -931,7 +963,11 @@ namespace FolderRewind.Services
 
             foreach (var file in Directory.EnumerateFiles(sourceDir, "*", SearchOption.AllDirectories))
             {
-                if (!IsPathOrAncestorInRestoreWhitelist(file, sourceDir, effectiveWhitelistRootDir, rules))
+                if (!IsPathOrAncestorInRestoreWhitelist(
+                    file,
+                    sourceDir,
+                    effectiveWhitelistRootDir,
+                    whitelistMatcher))
                 {
                     continue;
                 }
@@ -947,9 +983,13 @@ namespace FolderRewind.Services
             }
         }
 
-        private static bool IsPathOrAncestorInRestoreWhitelist(string entryPath, string rootDir, string whitelistRootDir, IReadOnlyCollection<string> whitelist)
+        private static bool IsPathOrAncestorInRestoreWhitelist(
+            string entryPath,
+            string rootDir,
+            string whitelistRootDir,
+            PathRuleMatcher whitelistMatcher)
         {
-            if (IsInRestoreWhitelist(entryPath, rootDir, whitelist, whitelistRootDir))
+            if (IsInRestoreWhitelist(entryPath, rootDir, whitelistRootDir, whitelistMatcher))
             {
                 return true;
             }
@@ -965,7 +1005,7 @@ namespace FolderRewind.Services
                     break;
                 }
 
-                if (IsInRestoreWhitelist(currentFullPath, rootDir, whitelist, whitelistRootDir))
+                if (IsInRestoreWhitelist(currentFullPath, rootDir, whitelistRootDir, whitelistMatcher))
                 {
                     return true;
                 }
@@ -1014,74 +1054,17 @@ namespace FolderRewind.Services
             }
         }
 
-        /// <summary>
-        /// 检查文件/文件夹是否在还原白名单中（参考 MineBackup is_blacklisted 思路，复用名称匹配）
-        /// 支持精确文件名匹配和路径边界匹配
-        /// </summary>
-        private static bool IsInRestoreWhitelist(string entryPath, string rootDir, IEnumerable<string> whitelist, string? whitelistRootDir = null)
+        private static bool IsInRestoreWhitelist(
+            string entryPath,
+            string rootDir,
+            string whitelistRootDir,
+            PathRuleMatcher whitelistMatcher)
         {
-            if (whitelist == null) return false;
-
-            string comparisonRootDir = string.IsNullOrWhiteSpace(whitelistRootDir) ? rootDir : whitelistRootDir;
-            string comparisonEntryPath = GetRestoreWhitelistComparisonPath(entryPath, rootDir, comparisonRootDir);
-
-            var entryName = Path.GetFileName(comparisonEntryPath);
-
-            string relativePathLower = string.Empty;
-            try
-            {
-                var relativePath = Path.GetRelativePath(comparisonRootDir, comparisonEntryPath);
-                if (!relativePath.StartsWith("..", StringComparison.Ordinal))
-                {
-                    relativePathLower = relativePath.ToLowerInvariant();
-                }
-            }
-            catch (Exception ex)
-            {
-                Log($"[Filter][Debug] Failed to build relative path for restore whitelist matching: {ex.Message}", LogLevel.Debug);
-            }
-
-            foreach (var ruleOrig in whitelist)
-            {
-                if (string.IsNullOrWhiteSpace(ruleOrig)) continue;
-                var rule = ruleOrig.Trim();
-
-                // 精确文件名匹配
-                if (!string.IsNullOrEmpty(entryName) &&
-                    entryName.Equals(rule, StringComparison.OrdinalIgnoreCase))
-                {
-                    return true;
-                }
-
-                // 路径边界匹配（避免子串误伤）
-                if (MatchesPathBoundary(comparisonEntryPath, relativePathLower, rule))
-                {
-                    return true;
-                }
-
-                // 通配符匹配
-                if (rule.Contains('*') || rule.Contains('?'))
-                {
-                    try
-                    {
-                        var wildcardPattern = "^" + Regex.Escape(rule)
-                            .Replace("\\*", ".*")
-                            .Replace("\\?", ".") + "$";
-                        var wildcardRegex = new Regex(wildcardPattern, RegexOptions.IgnoreCase);
-
-                        if (!string.IsNullOrEmpty(entryName) && wildcardRegex.IsMatch(entryName))
-                        {
-                            return true;
-                        }
-                    }
-                    catch (Exception ex)
-                    {
-                        Log($"[Filter][Debug] Invalid wildcard restore whitelist rule '{rule}': {ex.Message}", LogLevel.Debug);
-                    }
-                }
-            }
-
-            return false;
+            string comparisonEntryPath = GetRestoreWhitelistComparisonPath(
+                entryPath,
+                rootDir,
+                whitelistRootDir);
+            return whitelistMatcher.IsMatch(comparisonEntryPath);
         }
 
         private static string GetRestoreWhitelistComparisonPath(string entryPath, string physicalRootDir, string comparisonRootDir)

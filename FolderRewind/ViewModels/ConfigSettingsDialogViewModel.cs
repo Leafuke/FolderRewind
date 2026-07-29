@@ -707,6 +707,11 @@ namespace FolderRewind.ViewModels
             return true;
         }
 
+        public bool TryValidateFilters(out string errorMessage)
+        {
+            return BackupService.TryValidateFilterRules(_config.Filters, out errorMessage);
+        }
+
         private void OnAutomationPropertyChanged(object? sender, PropertyChangedEventArgs e)
         {
             if (string.IsNullOrWhiteSpace(e.PropertyName))

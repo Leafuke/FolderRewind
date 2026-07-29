@@ -215,6 +215,30 @@ namespace FolderRewind.Services
             }
 
             config = Services.Plugins.PluginService.CreateConfigWithBackupFilterContributions(config, folder);
+            if (!TryValidateBackupFilterRules(config.Filters, out string filterValidationError))
+            {
+                Log($"[Filter] Backup filter validation failed: {filterValidationError}", LogLevel.Error);
+                await RunOnUIAsync(() =>
+                {
+                    folder.StatusText = I18n.Format("BackupService_Task_Failed");
+                    task.Status = I18n.Format("BackupService_Task_Failed");
+                    task.IsCompleted = true;
+                    task.IsIndeterminate = false;
+                    task.IsSuccess = false;
+                    task.ErrorMessage = filterValidationError;
+                });
+                BroadcastBackupLifecycle("command_failed", new Dictionary<string, string?>
+                {
+                    ["reason"] = "invalid_filter_rule",
+                    ["error"] = filterValidationError
+                });
+                BroadcastBackupEvent(configIndex, config, folder, "backup_failed", new Dictionary<string, string?>
+                {
+                    ["error"] = "invalid_filter_rule",
+                    ["message"] = filterValidationError
+                });
+                return false;
+            }
 
             // 允许插件在备份前创建快照并替换源路径（例如 Minecraft 热备份：先复制到 snapshot 再备份）。
             string sourcePath = folder.Path;
