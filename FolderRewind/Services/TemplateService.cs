@@ -13,8 +13,8 @@ namespace FolderRewind.Services
 {
     public static class TemplateService
     {
-        private const string ShareMagic = "FolderRewindTemplate";
-        private const string ShareSchemaVersion = "1.0";
+        private const string ShareMagic = TemplateFormatPolicy.TemplateMagic;
+        private const string ShareSchemaVersion = TemplateFormatPolicy.SchemaVersion;
         // 规则预览会扫目录，给个上限避免某些磁盘结构把 UI 卡死。
         private const int ScanDepthLimit = 6;
         private const int ScanDirectoryLimit = 5000;
@@ -765,8 +765,12 @@ namespace FolderRewind.Services
                     Template = sanitizedTemplate
                 };
 
-                var json = JsonSerializer.Serialize(envelope, AppJsonContext.Default.TemplateShareEnvelope);
-                File.WriteAllText(destPath, json);
+                AtomicFileService.Write(
+                    destPath,
+                    stream => JsonSerializer.Serialize(
+                        stream,
+                        envelope,
+                        AppJsonContext.Default.TemplateShareEnvelope));
                 message = I18n.Format("Template_Export_Success", destPath);
                 LogService.Log(message);
                 return true;
@@ -873,8 +877,6 @@ namespace FolderRewind.Services
                 // 导入时先克隆一份，后面无论是覆盖还是保留两份，都不要回写 inspection 里的对象。
                 var template = CloneTemplate(inspection.Template);
 
-
-                // 兼容早期直存 ConfigTemplate 的格式。
 
                 var existingIndex = appConfig.Templates
                     .ToList()
@@ -2157,28 +2159,19 @@ namespace FolderRewind.Services
 
         private static (bool Success, string Message, ConfigTemplate? Template) ReadTemplateFromFile(string sourcePath)
         {
-            var json = File.ReadAllText(sourcePath);
-            ConfigTemplate? template = null;
-
-            // 新格式优先走 Envelope，方便后续扩展 Schema 与导出元数据。
-            var envelope = JsonSerializer.Deserialize(json, AppJsonContext.Default.TemplateShareEnvelope);
-            if (envelope != null && string.Equals(envelope.Magic, ShareMagic, StringComparison.OrdinalIgnoreCase))
-            {
-                if (!IsSupportedShareSchemaVersion(envelope.SchemaVersion))
-                {
-                    return (false, I18n.GetString("Template_Import_SchemaUnsupported"), null);
-                }
-
-                template = envelope.Template;
-            }
-
-            // 兜底兼容早期“直接序列化 ConfigTemplate”历史文件。
-            template ??= JsonSerializer.Deserialize(json, AppJsonContext.Default.ConfigTemplate);
-            if (template == null)
+            using var stream = new FileStream(sourcePath, FileMode.Open, FileAccess.Read, FileShare.Read);
+            var envelope = JsonSerializer.Deserialize(stream, AppJsonContext.Default.TemplateShareEnvelope);
+            if (envelope == null || envelope.Template == null)
             {
                 return (false, I18n.GetString("Template_Import_InvalidFile"), null);
             }
 
+            if (!TemplateFormatPolicy.IsCurrentEnvelope(envelope.Magic, envelope.SchemaVersion))
+            {
+                return (false, I18n.GetString("Template_Import_SchemaUnsupported"), null);
+            }
+
+            var template = envelope.Template;
             NormalizeImportedTemplate(template);
             return (true, string.Empty, template);
         }
@@ -2200,26 +2193,6 @@ namespace FolderRewind.Services
                 string.Equals(t.Name, template.Name, StringComparison.OrdinalIgnoreCase));
         }
 
-        private static bool IsSupportedShareSchemaVersion(string? schemaVersion)
-        {
-            if (string.IsNullOrWhiteSpace(schemaVersion))
-            {
-                return true;
-            }
-
-            if (string.Equals(schemaVersion.Trim(), ShareSchemaVersion, StringComparison.OrdinalIgnoreCase))
-            {
-                return true;
-            }
-
-            if (Version.TryParse(schemaVersion, out var parsed) && parsed.Major <= 1)
-            {
-                return true;
-            }
-
-            return false;
-        }
-
         private static AutomationSettings CreateTemplateAutomationPreset(AutomationSettings? source)
         {
             var preset = CloneAutomation(source ?? new AutomationSettings());
@@ -2232,7 +2205,6 @@ namespace FolderRewind.Services
             preset.ConditionType = AutomationConditionType.FileUnlocked;
             preset.ConditionRelativePath = string.Empty;
             preset.LastAutoBackupUtc = DateTime.MinValue;
-            preset.LastScheduledRunDateLocal = DateTime.MinValue;
             preset.ConsecutiveNoChangeCount = 0;
             preset.ScheduleEntries = new ObservableCollection<ScheduleEntry>();
             preset.Normalize();
@@ -2500,46 +2472,34 @@ namespace FolderRewind.Services
 
         private static ConfigTemplate CloneTemplate(ConfigTemplate template)
         {
-            var json = JsonSerializer.Serialize(template, AppJsonContext.Default.ConfigTemplate);
-            return JsonSerializer.Deserialize(json, AppJsonContext.Default.ConfigTemplate) ?? new ConfigTemplate();
+            return JsonCloneService.Clone(template, AppJsonContext.Default.ConfigTemplate);
         }
 
         private static ArchiveSettings CloneArchive(ArchiveSettings source)
         {
-            var json = JsonSerializer.Serialize(source ?? new ArchiveSettings(), AppJsonContext.Default.ArchiveSettings);
-            return JsonSerializer.Deserialize(json, AppJsonContext.Default.ArchiveSettings) ?? new ArchiveSettings();
+            return JsonCloneService.Clone(source ?? new ArchiveSettings(), AppJsonContext.Default.ArchiveSettings);
         }
 
         private static AutomationSettings CloneAutomation(AutomationSettings source)
         {
-            var json = JsonSerializer.Serialize(source ?? new AutomationSettings(), AppJsonContext.Default.AutomationSettings);
-            var cloned = JsonSerializer.Deserialize(json, AppJsonContext.Default.AutomationSettings) ?? new AutomationSettings();
-            cloned.MigrateFromLegacy();
+            var cloned = JsonCloneService.Clone(source ?? new AutomationSettings(), AppJsonContext.Default.AutomationSettings);
             cloned.Normalize();
             return cloned;
         }
 
         private static FilterSettings CloneFilters(FilterSettings source)
         {
-            var json = JsonSerializer.Serialize(source ?? new FilterSettings(), AppJsonContext.Default.FilterSettings);
-            var cloned = JsonSerializer.Deserialize(json, AppJsonContext.Default.FilterSettings) ?? new FilterSettings();
-            cloned.BackupWhitelist ??= new ObservableCollection<string>();
-            cloned.RestoreWhitelist ??= new ObservableCollection<string>();
-            return cloned;
+            return JsonCloneService.Clone(source ?? new FilterSettings(), AppJsonContext.Default.FilterSettings);
         }
 
         private static BackupScopeSettings CloneBackupScope(BackupScopeSettings source)
         {
-            var json = JsonSerializer.Serialize(source ?? new BackupScopeSettings(), AppJsonContext.Default.BackupScopeSettings);
-            var cloned = JsonSerializer.Deserialize(json, AppJsonContext.Default.BackupScopeSettings) ?? new BackupScopeSettings();
-            cloned.Parameters ??= new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
-            return cloned;
+            return JsonCloneService.Clone(source ?? new BackupScopeSettings(), AppJsonContext.Default.BackupScopeSettings);
         }
 
         private static CloudSettings CloneCloud(CloudSettings source)
         {
-            var json = JsonSerializer.Serialize(source ?? new CloudSettings(), AppJsonContext.Default.CloudSettings);
-            return JsonSerializer.Deserialize(json, AppJsonContext.Default.CloudSettings) ?? new CloudSettings();
+            return JsonCloneService.Clone(source ?? new CloudSettings(), AppJsonContext.Default.CloudSettings);
         }
     }
 }

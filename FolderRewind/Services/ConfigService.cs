@@ -24,7 +24,7 @@ namespace FolderRewind.Services
 
         public static event Action? Saved;
 
-        public static AppConfig CurrentConfig { get; private set; } = null!;
+        public static AppConfig CurrentConfig { get; private set; } = new();
 
         public static string ConfigFilePath => ConfigPath;
 
@@ -44,285 +44,150 @@ namespace FolderRewind.Services
 
         public static string GetRecommendedDefaultCloudRemoteBasePath()
         {
-            return CurrentConfig?.GlobalSettings?.DefaultCloudRemoteBasePath?.Trim() is string configured
-                && !string.IsNullOrWhiteSpace(configured)
-                ? configured
-                : "remote:FolderRewind";
+            var configured = CurrentConfig.GlobalSettings.DefaultCloudRemoteBasePath.Trim();
+            return string.IsNullOrWhiteSpace(configured)
+                ? "remote:FolderRewind"
+                : configured;
         }
 
         public static string BuildDefaultDestinationPath(string? configName)
         {
             var safeName = MakeSafeFolderName(configName);
-            return Path.Combine(CurrentConfig?.GlobalSettings?.DefaultBackupRootPath ?? GetRecommendedDefaultBackupRootPath(), safeName);
+            var root = string.IsNullOrWhiteSpace(CurrentConfig.GlobalSettings.DefaultBackupRootPath)
+                ? GetRecommendedDefaultBackupRootPath()
+                : CurrentConfig.GlobalSettings.DefaultBackupRootPath;
+            return Path.Combine(root, safeName);
         }
 
         #endregion
 
-        #region 初始化与迁移
+        #region 初始化与规范化
 
         /// <summary>
         /// 初始化配置服务，加载或创建默认配置
         /// </summary>
         public static void Initialize()
         {
-            // 避免在应用运行中重复初始化导致 CurrentConfig 被替换，进而破坏页面绑定与导航参数引用
-            if (_initialized && CurrentConfig != null) return;
+            if (_initialized) return;
 
-            if (File.Exists(ConfigPath))
-            {
-                try
-                {
-                    string jsonString = File.ReadAllText(ConfigPath);
-                    var loadedConfig = JsonSerializer.Deserialize(jsonString, AppJsonContext.Default.AppConfig);
+            bool createdDefault;
+            var config = LoadConfig(out createdDefault);
+            NormalizeConfig(config);
 
-                    // 反序列化在某些内容下可能返回 null（例如文件内容是字面量 "null"），
-                    // 这会导致后续访问 CurrentConfig.* 直接崩溃（打包安装后更容易遇到）。
-                    if (loadedConfig == null)
-                    {
-                        LogService.Log(I18n.GetString("Config_ParseNull_Reset"));
-                        CreateDefaultConfig();
-                    }
-                    else
-                    {
-                        CurrentConfig = loadedConfig;
-                    }
-                }
-                catch (Exception ex)
-                {
-                    // 这里应该记录日志：配置文件损坏
-                    System.Diagnostics.Debug.WriteLine($"Config load error: {ex.Message}");
-                    LogService.Log(I18n.Format("Config_LoadFailed_Reset", ex.Message));
-                    CreateDefaultConfig();
-                }
-            }
-            else
-            {
-                CreateDefaultConfig();
-            }
-
-            // 兜底：确保无论如何 CurrentConfig 都不为 null
-            if (CurrentConfig == null)
-            {
-                LogService.Log(I18n.GetString("Config_CurrentConfigNull_ForceDefault"));
-                CreateDefaultConfig();
-            }
-
-            var currentConfig = CurrentConfig;
-            if (currentConfig == null)
-            {
-                CreateDefaultConfig();
-                currentConfig = CurrentConfig ?? throw new InvalidOperationException("CurrentConfig was not initialized.");
-            }
-
-            // 修正反序列化后集合为 null 或类型不兼容的情况，防止绑定崩溃
-            if (currentConfig.BackupConfigs == null)
-                currentConfig.BackupConfigs = new System.Collections.ObjectModel.ObservableCollection<BackupConfig>();
-            else if (currentConfig.BackupConfigs.GetType() != typeof(System.Collections.ObjectModel.ObservableCollection<BackupConfig>))
-                currentConfig.BackupConfigs = new System.Collections.ObjectModel.ObservableCollection<BackupConfig>(currentConfig.BackupConfigs);
-
-            if (currentConfig.Templates == null)
-                currentConfig.Templates = new System.Collections.ObjectModel.ObservableCollection<ConfigTemplate>();
-            else if (currentConfig.Templates.GetType() != typeof(System.Collections.ObjectModel.ObservableCollection<ConfigTemplate>))
-                currentConfig.Templates = new System.Collections.ObjectModel.ObservableCollection<ConfigTemplate>(currentConfig.Templates);
-
-            foreach (var config in currentConfig.BackupConfigs)
-            {
-                if (config.SourceFolders == null)
-                    config.SourceFolders = new System.Collections.ObjectModel.ObservableCollection<ManagedFolder>();
-                else if (config.SourceFolders.GetType() != typeof(System.Collections.ObjectModel.ObservableCollection<ManagedFolder>))
-                    config.SourceFolders = new System.Collections.ObjectModel.ObservableCollection<ManagedFolder>(config.SourceFolders);
-                if (config.ExtendedProperties == null)
-                    config.ExtendedProperties = new System.Collections.Generic.Dictionary<string, string>();
-                if (config.Archive == null)
-                    config.Archive = new ArchiveSettings();
-                if (config.Automation == null)
-                    config.Automation = new AutomationSettings();
-
-                // 兼容旧版计划任务字段，并统一为可观察集合。
-                if (config.Automation.ScheduleEntries == null)
-                    config.Automation.ScheduleEntries = new System.Collections.ObjectModel.ObservableCollection<ScheduleEntry>();
-                else if (config.Automation.ScheduleEntries.GetType() != typeof(System.Collections.ObjectModel.ObservableCollection<ScheduleEntry>))
-                    config.Automation.ScheduleEntries = new System.Collections.ObjectModel.ObservableCollection<ScheduleEntry>(config.Automation.ScheduleEntries);
-                config.Automation.MigrateFromLegacy();
-                config.Automation.Normalize(config.SourceFolders);
-
-                if (config.Filters == null)
-                    config.Filters = new FilterSettings();
-
-                NormalizeBackupScope(config.BackupScope ??= new BackupScopeSettings());
-
-                if (config.Filters.Blacklist == null)
-                    config.Filters.Blacklist = new System.Collections.ObjectModel.ObservableCollection<string>();
-                else if (config.Filters.Blacklist.GetType() != typeof(System.Collections.ObjectModel.ObservableCollection<string>))
-                    config.Filters.Blacklist = new System.Collections.ObjectModel.ObservableCollection<string>(config.Filters.Blacklist);
-
-                // 兼容旧版配置--备份白名单是新增字段，默认保持黑名单模式。
-                if (config.Filters.BackupWhitelist == null)
-                    config.Filters.BackupWhitelist = new System.Collections.ObjectModel.ObservableCollection<string>();
-                else if (config.Filters.BackupWhitelist.GetType() != typeof(System.Collections.ObjectModel.ObservableCollection<string>))
-                    config.Filters.BackupWhitelist = new System.Collections.ObjectModel.ObservableCollection<string>(config.Filters.BackupWhitelist);
-
-                if (config.Cloud == null)
-                    config.Cloud = new CloudSettings();
-                else
-                    NormalizeCloudSettings(config.Cloud);
-
-                // 兼容旧版配置--还原白名单可能为 null
-                if (config.Filters.RestoreWhitelist == null)
-                    config.Filters.RestoreWhitelist = new System.Collections.ObjectModel.ObservableCollection<string>();
-                else if (config.Filters.RestoreWhitelist.GetType() != typeof(System.Collections.ObjectModel.ObservableCollection<string>))
-                    config.Filters.RestoreWhitelist = new System.Collections.ObjectModel.ObservableCollection<string>(config.Filters.RestoreWhitelist);
-
-                // 兼容旧版配置：自定义文件类型处理规则可能为 null
-                if (config.Archive.FileTypeRules == null)
-                    config.Archive.FileTypeRules = new System.Collections.ObjectModel.ObservableCollection<FileTypeRule>();
-                else if (config.Archive.FileTypeRules.GetType() != typeof(System.Collections.ObjectModel.ObservableCollection<FileTypeRule>))
-                    config.Archive.FileTypeRules = new System.Collections.ObjectModel.ObservableCollection<FileTypeRule>(config.Archive.FileTypeRules);
-            }
-
-            foreach (var template in currentConfig.Templates)
-            {
-                if (string.IsNullOrWhiteSpace(template.Id))
-                    template.Id = Guid.NewGuid().ToString("N");
-
-                if (string.IsNullOrWhiteSpace(template.ShareId))
-                    template.ShareId = Guid.NewGuid().ToString("N");
-
-                if (string.IsNullOrWhiteSpace(template.TemplateId))
-                    template.TemplateId = template.ShareId;
-
-                template.ShareCode = (template.ShareCode ?? string.Empty).Trim().ToUpperInvariant();
-                template.GameName = template.GameName?.Trim() ?? string.Empty;
-
-                if (string.IsNullOrWhiteSpace(template.BaseConfigType))
-                    template.BaseConfigType = "Default";
-
-                if (template.Archive == null)
-                    template.Archive = new ArchiveSettings();
-
-                if (template.Automation == null)
-                    template.Automation = new AutomationSettings();
-                else
-                    template.Automation.MigrateFromLegacy();
-                template.Automation.Normalize();
-
-                if (template.Filters == null)
-                    template.Filters = new FilterSettings();
-
-                NormalizeBackupScope(template.BackupScope ??= new BackupScopeSettings());
-
-                if (template.Filters.Blacklist == null)
-                    template.Filters.Blacklist = new System.Collections.ObjectModel.ObservableCollection<string>();
-                else if (template.Filters.Blacklist.GetType() != typeof(System.Collections.ObjectModel.ObservableCollection<string>))
-                    template.Filters.Blacklist = new System.Collections.ObjectModel.ObservableCollection<string>(template.Filters.Blacklist);
-
-                if (template.Filters.BackupWhitelist == null)
-                    template.Filters.BackupWhitelist = new System.Collections.ObjectModel.ObservableCollection<string>();
-                else if (template.Filters.BackupWhitelist.GetType() != typeof(System.Collections.ObjectModel.ObservableCollection<string>))
-                    template.Filters.BackupWhitelist = new System.Collections.ObjectModel.ObservableCollection<string>(template.Filters.BackupWhitelist);
-
-                if (template.Filters.RestoreWhitelist == null)
-                    template.Filters.RestoreWhitelist = new System.Collections.ObjectModel.ObservableCollection<string>();
-                else if (template.Filters.RestoreWhitelist.GetType() != typeof(System.Collections.ObjectModel.ObservableCollection<string>))
-                    template.Filters.RestoreWhitelist = new System.Collections.ObjectModel.ObservableCollection<string>(template.Filters.RestoreWhitelist);
-
-                if (template.Cloud == null)
-                    template.Cloud = new CloudSettings();
-                else
-                    NormalizeCloudSettings(template.Cloud);
-
-                if (template.PathRules == null)
-                    template.PathRules = new System.Collections.ObjectModel.ObservableCollection<TemplatePathRule>();
-                else if (template.PathRules.GetType() != typeof(System.Collections.ObjectModel.ObservableCollection<TemplatePathRule>))
-                    template.PathRules = new System.Collections.ObjectModel.ObservableCollection<TemplatePathRule>(template.PathRules);
-
-                if (template.RequiredPluginIds == null)
-                    template.RequiredPluginIds = new System.Collections.ObjectModel.ObservableCollection<string>();
-                else if (template.RequiredPluginIds.GetType() != typeof(System.Collections.ObjectModel.ObservableCollection<string>))
-                    template.RequiredPluginIds = new System.Collections.ObjectModel.ObservableCollection<string>(template.RequiredPluginIds);
-
-                if (template.ExtendedProperties == null)
-                    template.ExtendedProperties = new System.Collections.Generic.Dictionary<string, string>();
-
-                foreach (var rule in template.PathRules)
-                {
-                    if (string.IsNullOrWhiteSpace(rule.Id))
-                        rule.Id = Guid.NewGuid().ToString("N");
-
-                    if (rule.Segments == null)
-                        rule.Segments = new System.Collections.ObjectModel.ObservableCollection<TemplatePathSegment>();
-                    else if (rule.Segments.GetType() != typeof(System.Collections.ObjectModel.ObservableCollection<TemplatePathSegment>))
-                        rule.Segments = new System.Collections.ObjectModel.ObservableCollection<TemplatePathSegment>(rule.Segments);
-
-                    if (rule.Markers == null)
-                        rule.Markers = new System.Collections.ObjectModel.ObservableCollection<TemplatePathMarker>();
-                    else if (rule.Markers.GetType() != typeof(System.Collections.ObjectModel.ObservableCollection<TemplatePathMarker>))
-                        rule.Markers = new System.Collections.ObjectModel.ObservableCollection<TemplatePathMarker>(rule.Markers);
-                }
-            }
-            if (currentConfig.GlobalSettings == null)
-                currentConfig.GlobalSettings = new GlobalSettings();
-
-            // 兼容旧版配置：Plugins 节点可能为 null
-            if (currentConfig.GlobalSettings.Plugins == null)
-                currentConfig.GlobalSettings.Plugins = new PluginHostSettings();
-
-            // 兼容旧版配置：Hotkeys 节点可能为 null
-            if (currentConfig.GlobalSettings.Hotkeys == null)
-                currentConfig.GlobalSettings.Hotkeys = new HotkeySettings();
-
-            if (currentConfig.GlobalSettings.Hotkeys.Bindings == null)
-                currentConfig.GlobalSettings.Hotkeys.Bindings = new System.Collections.Generic.Dictionary<string, string>();
-
-            // 兼容旧版配置：字典可能反序列化为 null
-            if (currentConfig.GlobalSettings.Plugins.PluginEnabled == null)
-                currentConfig.GlobalSettings.Plugins.PluginEnabled = new System.Collections.Generic.Dictionary<string, bool>();
-            if (currentConfig.GlobalSettings.Plugins.PluginSettings == null)
-                currentConfig.GlobalSettings.Plugins.PluginSettings = new System.Collections.Generic.Dictionary<string, System.Collections.Generic.Dictionary<string, string>>();
-
-            NormalizeGlobalSettings(currentConfig.GlobalSettings);
-
-            ApplyLogSettings(currentConfig.GlobalSettings);
-
+            CurrentConfig = config;
+            ApplyLogSettings(config.GlobalSettings);
             _initialized = true;
 
-            // 监听保存 (简单的自动保存策略，也可以改为手动调用 Save)
-            // 这里暂不自动监听，由 ViewModel 在修改关键数据后调用 Save()
+            if (createdDefault)
+            {
+                Save();
+            }
         }
 
-        private static void CreateDefaultConfig()
+        private static AppConfig LoadConfig(out bool createdDefault)
         {
-            CurrentConfig = new AppConfig();
+            createdDefault = false;
+            if (!File.Exists(ConfigPath))
+            {
+                createdDefault = true;
+                return CreateDefaultConfig();
+            }
 
             try
             {
-                CurrentConfig.GlobalSettings.SevenZipPath = "7za.exe";
-                CurrentConfig.GlobalSettings.FontFamily = FontService.GetRecommendedDefaultFontFamily();
-                CurrentConfig.GlobalSettings.DefaultBackupRootPath = GetRecommendedDefaultBackupRootPath();
-                CurrentConfig.GlobalSettings.DefaultCloudRemoteBasePath = "remote:FolderRewind";
-                var (startupWidth, startupHeight) = GetRecommendedStartupWindowSize();
-                CurrentConfig.GlobalSettings.StartupWidth = startupWidth;
-                CurrentConfig.GlobalSettings.StartupHeight = startupHeight;
+                using var stream = new FileStream(ConfigPath, FileMode.Open, FileAccess.Read, FileShare.Read);
+                var loaded = JsonSerializer.Deserialize(stream, AppJsonContext.Default.AppConfig);
+                if (loaded != null)
+                {
+                    return loaded;
+                }
+
+                LogService.Log(I18n.GetString("Config_ParseNull_Reset"));
             }
-            catch
+            catch (Exception ex)
             {
-
+                Debug.WriteLine($"Config load error: {ex.Message}");
+                LogService.Log(I18n.Format("Config_LoadFailed_Reset", ex.Message));
             }
 
-            // 示例配置
+            createdDefault = true;
+            return CreateDefaultConfig();
+        }
+
+        private static AppConfig CreateDefaultConfig()
+        {
+            var config = new AppConfig();
+            var settings = config.GlobalSettings;
+            settings.SevenZipPath = "7za.exe";
+            settings.DefaultBackupRootPath = GetRecommendedDefaultBackupRootPath();
+            settings.DefaultCloudRemoteBasePath = "remote:FolderRewind";
+
+            try
+            {
+                settings.FontFamily = FontService.GetRecommendedDefaultFontFamily();
+                var (startupWidth, startupHeight) = GetRecommendedStartupWindowSize();
+                settings.StartupWidth = startupWidth;
+                settings.StartupHeight = startupHeight;
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"Default config initialization fallback: {ex.Message}");
+                LogService.Log($"Default config initialization fallback: {ex.Message}");
+            }
+
+            var defaultName = I18n.Format("Config_DefaultBackupName");
             var defaultConfig = new BackupConfig
             {
-                Name = I18n.Format("Config_DefaultBackupName"),
-                DestinationPath = BuildDefaultDestinationPath(I18n.Format("Config_DefaultBackupName")),
+                Name = defaultName,
+                DestinationPath = Path.Combine(settings.DefaultBackupRootPath, MakeSafeFolderName(defaultName)),
                 SummaryText = ""
             };
-            // 默认 7z 压缩
             defaultConfig.Archive.Format = "7z";
             defaultConfig.Archive.CompressionLevel = 5;
-            defaultConfig.Cloud.RemoteBasePath = GetRecommendedDefaultCloudRemoteBasePath();
+            defaultConfig.Cloud.RemoteBasePath = settings.DefaultCloudRemoteBasePath;
 
-            CurrentConfig.BackupConfigs.Add(defaultConfig);
-            Save();
+            config.BackupConfigs.Add(defaultConfig);
+            return config;
+        }
+
+        private static void NormalizeConfig(AppConfig config)
+        {
+            NormalizeGlobalSettings(config.GlobalSettings);
+            string defaultRemoteBasePath = config.GlobalSettings.DefaultCloudRemoteBasePath;
+
+            foreach (var backupConfig in config.BackupConfigs)
+            {
+                if (backupConfig == null) continue;
+
+                backupConfig.Automation.Normalize(backupConfig.SourceFolders);
+                NormalizeBackupScope(backupConfig.BackupScope);
+                NormalizeCloudSettings(backupConfig.Cloud, defaultRemoteBasePath);
+            }
+
+            foreach (var template in config.Templates)
+            {
+                if (template == null) continue;
+
+                if (string.IsNullOrWhiteSpace(template.Id))
+                    template.Id = Guid.NewGuid().ToString("N");
+                if (string.IsNullOrWhiteSpace(template.ShareId))
+                    template.ShareId = Guid.NewGuid().ToString("N");
+
+                template.ShareCode = template.ShareCode.Trim().ToUpperInvariant();
+                template.GameName = template.GameName.Trim();
+                if (string.IsNullOrWhiteSpace(template.BaseConfigType))
+                    template.BaseConfigType = "Default";
+
+                template.Automation.Normalize();
+                NormalizeBackupScope(template.BackupScope);
+                NormalizeCloudSettings(template.Cloud, defaultRemoteBasePath);
+
+                foreach (var rule in template.PathRules)
+                {
+                    if (rule != null && string.IsNullOrWhiteSpace(rule.Id))
+                        rule.Id = Guid.NewGuid().ToString("N");
+                }
+            }
         }
 
         private static (double Width, double Height) GetRecommendedStartupWindowSize()
@@ -366,14 +231,13 @@ namespace FolderRewind.Services
             }
         }
 
-        private static void NormalizeCloudSettings(CloudSettings cloud)
+        private static void NormalizeCloudSettings(CloudSettings cloud, string defaultRemoteBasePath)
         {
-            // 兼容旧版本配置：云字段新增后统一在这里补默认值，避免升级后运行时失败。
             if (string.IsNullOrWhiteSpace(cloud.ExecutablePath))
                 cloud.ExecutablePath = "rclone.exe";
 
             if (string.IsNullOrWhiteSpace(cloud.RemoteBasePath))
-                cloud.RemoteBasePath = GetRecommendedDefaultCloudRemoteBasePath();
+                cloud.RemoteBasePath = defaultRemoteBasePath;
 
             if (cloud.TimeoutSeconds <= 0)
                 cloud.TimeoutSeconds = 600;
@@ -391,7 +255,6 @@ namespace FolderRewind.Services
 
         private static void NormalizeBackupScope(BackupScopeSettings scope)
         {
-            // 插件范围是新增配置级扩展点；旧配置没有该节点时保持完整范围。
             scope.PluginScopeId = scope.PluginScopeId?.Trim() ?? string.Empty;
             scope.Parameters = scope.Parameters == null
                 ? new System.Collections.Generic.Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
@@ -414,15 +277,6 @@ namespace FolderRewind.Services
 
         public static ConfigSaveResult SaveWithResult(bool publishSavedEvent = true)
         {
-            if (CurrentConfig == null)
-            {
-                return new ConfigSaveResult
-                {
-                    Success = false,
-                    ErrorMessage = I18n.GetString("Config_Save_CurrentConfigNull")
-                };
-            }
-
             try
             {
                 AtomicFileService.Write(
@@ -455,7 +309,7 @@ namespace FolderRewind.Services
         {
             _initialized = false;
             Initialize();
-            return _initialized && CurrentConfig != null;
+            return _initialized;
         }
 
         #endregion
@@ -505,9 +359,12 @@ namespace FolderRewind.Services
         {
             try
             {
-                if (CurrentConfig == null) return false;
-                using var stream = new FileStream(destPath, FileMode.Create, FileAccess.Write, FileShare.None);
-                JsonSerializer.Serialize(stream, CurrentConfig, AppJsonContext.Default.AppConfig);
+                AtomicFileService.Write(
+                    destPath,
+                    stream => JsonSerializer.Serialize(
+                        stream,
+                        CurrentConfig,
+                        AppJsonContext.Default.AppConfig));
                 LogService.Log(I18n.Format("Config_ExportSuccess", destPath));
                 return true;
             }
@@ -526,8 +383,8 @@ namespace FolderRewind.Services
             try
             {
                 if (!File.Exists(sourcePath)) return false;
-                string json = File.ReadAllText(sourcePath);
-                var imported = JsonSerializer.Deserialize(json, AppJsonContext.Default.AppConfig);
+                using var sourceStream = new FileStream(sourcePath, FileMode.Open, FileAccess.Read, FileShare.Read);
+                var imported = JsonSerializer.Deserialize(sourceStream, AppJsonContext.Default.AppConfig);
                 if (imported == null)
                 {
                     LogService.Log(I18n.GetString("Config_ImportFailed_Null"));
@@ -538,8 +395,13 @@ namespace FolderRewind.Services
                 string backupPath = ConfigPath + ".bak";
                 try { File.Copy(ConfigPath, backupPath, true); } catch { }
 
-                // 写入新配置并重新加载
-                File.WriteAllText(ConfigPath, json);
+                NormalizeConfig(imported);
+                AtomicFileService.Write(
+                    ConfigPath,
+                    stream => JsonSerializer.Serialize(
+                        stream,
+                        imported,
+                        AppJsonContext.Default.AppConfig));
                 _initialized = false;
                 Initialize();
 
@@ -559,8 +421,6 @@ namespace FolderRewind.Services
 
         private static void NormalizeGlobalSettings(GlobalSettings settings)
         {
-            if (settings == null) return;
-
             if (settings.ThemeIndex < 0 || settings.ThemeIndex > 2)
             {
                 settings.ThemeIndex = 1;
@@ -585,12 +445,6 @@ namespace FolderRewind.Services
             settings.DefaultCloudRemoteBasePath = string.IsNullOrWhiteSpace(settings.DefaultCloudRemoteBasePath)
                 ? "remote:FolderRewind"
                 : settings.DefaultCloudRemoteBasePath.Trim();
-            if (!settings.HasMigratedAutoDownloadMissingCloudBackupsBeforeRestore)
-            {
-                settings.AutoDownloadMissingCloudBackupsBeforeRestore = true;
-                settings.HasMigratedAutoDownloadMissingCloudBackupsBeforeRestore = true;
-            }
-
             if (string.IsNullOrWhiteSpace(settings.DefaultBackupRootPath))
             {
                 settings.DefaultBackupRootPath = GetRecommendedDefaultBackupRootPath();
@@ -613,17 +467,6 @@ namespace FolderRewind.Services
             // Toast 等级约束在有效区间（0-3）。
             settings.ToastNotificationLevel = Math.Clamp(settings.ToastNotificationLevel, 0, 3);
 
-            // 统一下载源默认值迁移：历史配置里未显式选择时，切到镜像 1 以优化国内访问体验。
-            if (!settings.HasMigratedDownloadSourcePreference)
-            {
-                if (settings.AppUpdatePreferredSource == (int)DownloadSourceOption.Official)
-                {
-                    settings.AppUpdatePreferredSource = (int)DownloadSourceOption.Mirror1;
-                }
-
-                settings.HasMigratedDownloadSourcePreference = true;
-            }
-
             settings.AppUpdatePreferredSource = Math.Clamp(settings.AppUpdatePreferredSource, 0, 3);
             settings.AppUpdateCustomMirrorUrl = settings.AppUpdateCustomMirrorUrl?.Trim() ?? string.Empty;
 
@@ -637,13 +480,6 @@ namespace FolderRewind.Services
             settings.SponsorBackgroundStretchIndex = Math.Clamp(settings.SponsorBackgroundStretchIndex, 0, 2);
             settings.SponsorBackgroundImageOpacity = ClampUnit(settings.SponsorBackgroundImageOpacity, 0.28);
             settings.SponsorBackgroundOverlayOpacity = ClampUnit(settings.SponsorBackgroundOverlayOpacity, 0.62);
-            settings.SponsorCompletionSoundIndex = Math.Clamp(settings.SponsorCompletionSoundIndex, 0, CompletionSoundService.PresetCount - 1);
-            if (settings.CompletionSoundIndex == 0 && settings.SponsorCompletionSoundIndex > 0)
-            {
-                // 旧版把完成音效放在赞助者设置下；升级后迁移为通用“默认音效”。
-                settings.CompletionSoundIndex = 1;
-            }
-
             settings.CompletionSoundIndex = Math.Clamp(settings.CompletionSoundIndex, 0, CompletionSoundService.PresetCount - 1);
             settings.CompletionSoundCustomPath = settings.CompletionSoundCustomPath?.Trim() ?? string.Empty;
             if (!settings.SponsorEntitlementCached)

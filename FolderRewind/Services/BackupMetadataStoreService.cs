@@ -20,8 +20,6 @@ namespace FolderRewind.Services
             public bool StateLoadFailed { get; init; }
             public bool RecordLoadFailed { get; init; }
             public bool HasMissingRequestedRecords { get; init; }
-            public bool UsedLegacyMigration { get; init; }
-            public bool UsedLegacyFallback { get; init; }
         }
 
         private const string ServiceName = nameof(BackupMetadataStoreService);
@@ -295,15 +293,11 @@ namespace FolderRewind.Services
                 || File.Exists(GetLegacyBackupMetadataPath(metadataDir))
                 || (recordsDirExists && Directory.EnumerateFiles(recordsDir, "*.json", SearchOption.TopDirectoryOnly).Any());
 
-            bool usedLegacyMigration = false;
-            bool usedLegacyFallback = false;
-
             if (legacyExists)
             {
                 bool migrated = await TryMigrateLegacyAsync(metadataDir).ConfigureAwait(false);
                 if (migrated)
                 {
-                    usedLegacyMigration = true;
                     stateExists = File.Exists(statePath);
                     recordsDirExists = Directory.Exists(recordsDir);
                     metadataExists = true;
@@ -313,8 +307,7 @@ namespace FolderRewind.Services
                     var legacyMetadata = await TryLoadLegacyMetadataAsync(legacyPath).ConfigureAwait(false);
                     if (legacyMetadata != null)
                     {
-                        usedLegacyFallback = true;
-                        return CreateLegacyLoadResult(legacyMetadata, archiveFileNames, metadataExists, usedLegacyMigration, usedLegacyFallback);
+                        return CreateLegacyLoadResult(legacyMetadata, archiveFileNames, metadataExists);
                     }
                 }
             }
@@ -333,9 +326,7 @@ namespace FolderRewind.Services
                 return new BackupMetadataLoadResult
                 {
                     MetadataExists = true,
-                    StateLoadFailed = true,
-                    UsedLegacyMigration = usedLegacyMigration,
-                    UsedLegacyFallback = usedLegacyFallback
+                    StateLoadFailed = true
                 };
             }
 
@@ -366,18 +357,14 @@ namespace FolderRewind.Services
                 MetadataExists = true,
                 StateLoadFailed = false,
                 RecordLoadFailed = recordLoadFailed,
-                HasMissingRequestedRecords = hasMissingRequestedRecords,
-                UsedLegacyMigration = usedLegacyMigration,
-                UsedLegacyFallback = usedLegacyFallback
+                HasMissingRequestedRecords = hasMissingRequestedRecords
             };
         }
 
         private static BackupMetadataLoadResult CreateLegacyLoadResult(
             BackupMetadata metadata,
             IEnumerable<string>? archiveFileNames,
-            bool metadataExists,
-            bool usedLegacyMigration,
-            bool usedLegacyFallback)
+            bool metadataExists)
         {
             var normalizedMetadata = NormalizeLegacyMetadata(metadata);
             var state = ConvertToState(normalizedMetadata);
@@ -403,8 +390,6 @@ namespace FolderRewind.Services
                 State = state,
                 Records = records,
                 MetadataExists = metadataExists,
-                UsedLegacyMigration = usedLegacyMigration,
-                UsedLegacyFallback = usedLegacyFallback,
                 HasMissingRequestedRecords = requestedArchiveFileNames != null
                     && requestedArchiveFileNames.Any(name => !records.ContainsKey(name))
             };

@@ -8,6 +8,12 @@ namespace FolderRewind.Models
     /// </summary>
     public class HotkeySettings : ObservableObject
     {
-        public Dictionary<string, string> Bindings { get; set; } = new();
+        private Dictionary<string, string> _bindings = new();
+
+        public Dictionary<string, string> Bindings
+        {
+            get => _bindings;
+            set => _bindings = value ?? new Dictionary<string, string>();
+        }
     }
 }

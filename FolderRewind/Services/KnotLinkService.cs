@@ -1215,8 +1215,7 @@ namespace FolderRewind.Services
 
             var clone = BackupConfigCloneService.CloneForRuntimeMutation(
                 source,
-                I18n.GetString("KnotLink_Error_ConfigCloneFailed"),
-                ensureBackupScope: true);
+                I18n.GetString("KnotLink_Error_ConfigCloneFailed"));
 
             if (backupBlacklist != null)
             {

@@ -71,6 +71,12 @@ FolderRewind 是一款基于 **WinUI 3** 和 **.NET 10** 构建的现代化、�
 
 注意：不要同时运行 Store、MSI 和 MSIX 侧载版本。MSI 与 MSIX/Store 使用独立的数据目录，不会自动迁移配置或插件。
 
+### 1.8 升级说明
+
+- v1.8 支持从 v1.7.4 直接升级；更早版本请先运行 v1.7.4 完成配置迁移。旧备份和历史元数据仍可继续恢复。
+- 模板导入仅支持带 `FolderRewindTemplate` 标识的 1.0 Envelope 格式。
+- KnotLink v1 插件接口已移除；插件需要改用参数化 KnotLink v2 接口，并将最低 Host 版本设为 1.8.0。
+
 ## 使用
 
 建议查看官方网站的详细使用文档：https://folderrewind.top

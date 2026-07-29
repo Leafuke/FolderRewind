@@ -98,7 +98,7 @@
                                                            TextTrimming="CharacterEllipsis" TextWrapping="NoWrap" 
                                                            MaxLines="1" TextAlignment="Left" 
                                                            services:AutoToolTipService.IsEnabled="True"/>
-                                                <TextBlock Text="{x:Bind FullPath}"
+                                                <TextBlock Text="{x:Bind Path}"
                                                            Style="{StaticResource CaptionTextBlockStyle}"
                                                            Foreground="{ThemeResource TextFillColorSecondaryBrush}"
                                                            TextTrimming="CharacterEllipsis" TextWrapping="NoWrap"

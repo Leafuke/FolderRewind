@@ -25,8 +25,6 @@ public sealed class FolderRenameResult
     public string NewPath { get; init; } = string.Empty;
     public int AffectedConfigCount { get; init; }
     public int AffectedHistoryCount { get; init; }
-    public bool LocalBackupDirectoryMigrated { get; init; }
-    public bool LocalMetadataDirectoryMigrated { get; init; }
     public IReadOnlyList<string> Conflicts { get; init; } = Array.Empty<string>();
     public bool RollbackSucceeded { get; init; } = true;
     public IReadOnlyList<string> RollbackErrors { get; init; } = Array.Empty<string>();

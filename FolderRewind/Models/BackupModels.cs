@@ -44,24 +44,22 @@ namespace FolderRewind.Models
         private ObservableCollection<BackupConfig> _backupConfigs = new();
         private ObservableCollection<ConfigTemplate> _templates = new();
 
-        public string Version { get; set; } = "2.0"; // 配置版本号，方便未来迁移
-
         public GlobalSettings GlobalSettings
         {
             get => _globalSettings;
-            set => SetProperty(ref _globalSettings, value);
+            set => SetProperty(ref _globalSettings, value ?? new GlobalSettings());
         }
 
         public ObservableCollection<BackupConfig> BackupConfigs
         {
             get => _backupConfigs;
-            set => SetProperty(ref _backupConfigs, value);
+            set => SetProperty(ref _backupConfigs, value ?? new ObservableCollection<BackupConfig>());
         }
 
         public ObservableCollection<ConfigTemplate> Templates
         {
             get => _templates;
-            set => SetProperty(ref _templates, value);
+            set => SetProperty(ref _templates, value ?? new ObservableCollection<ConfigTemplate>());
         }
     }
 
@@ -77,7 +75,6 @@ namespace FolderRewind.Models
         private string _defaultCloudRemoteBasePath = "remote:FolderRewind";
         private string _defaultBackupRootPath = "";
         private bool _autoDownloadMissingCloudBackupsBeforeRestore = true;
-        private bool _hasMigratedAutoDownloadMissingCloudBackupsBeforeRestore;
         private bool _runOnStartup = false;
         private bool _silentStartup = false;
         private bool _enableFileLogging = true;
@@ -103,7 +100,6 @@ namespace FolderRewind.Models
         private int _sponsorBackgroundStretchIndex = 0;
         private double _sponsorBackgroundImageOpacity = 0.28;
         private double _sponsorBackgroundOverlayOpacity = 0.62;
-        private int _sponsorCompletionSoundIndex = 0;
         private int _completionSoundIndex = 0;
         private string _completionSoundCustomPath = "";
         private bool _sponsorEntitlementCached = false;
@@ -140,10 +136,9 @@ namespace FolderRewind.Models
         private bool _enableNotices = true;
         private string _noticeLastSeenVersion = "";
         private bool _enableUpdateReminder = true;
-        private int _appUpdatePreferredSource = 0; // 0=Official, 1=Mirror1, 2=Mirror2, 3=Custom
+        private int _appUpdatePreferredSource = 1; // 0=Official, 1=Mirror1, 2=Mirror2, 3=Custom
         private bool _appUpdateAutoFallback = true;
         private string _appUpdateCustomMirrorUrl = "";
-        private bool _hasMigratedDownloadSourcePreference = false;
         private string _gitHubOAuthClientId = "";
 
         // 首次启动引导
@@ -162,7 +157,6 @@ namespace FolderRewind.Models
         public string DefaultCloudRemoteBasePath { get => _defaultCloudRemoteBasePath; set => SetProperty(ref _defaultCloudRemoteBasePath, value ?? string.Empty); }
         public string DefaultBackupRootPath { get => _defaultBackupRootPath; set => SetProperty(ref _defaultBackupRootPath, value); }
         public bool AutoDownloadMissingCloudBackupsBeforeRestore { get => _autoDownloadMissingCloudBackupsBeforeRestore; set => SetProperty(ref _autoDownloadMissingCloudBackupsBeforeRestore, value); }
-        public bool HasMigratedAutoDownloadMissingCloudBackupsBeforeRestore { get => _hasMigratedAutoDownloadMissingCloudBackupsBeforeRestore; set => SetProperty(ref _hasMigratedAutoDownloadMissingCloudBackupsBeforeRestore, value); }
         public bool RunOnStartup { get => _runOnStartup; set => SetProperty(ref _runOnStartup, value); }
         public bool SilentStartup { get => _silentStartup; set => SetProperty(ref _silentStartup, value); }
         public bool EnableFileLogging { get => _enableFileLogging; set => SetProperty(ref _enableFileLogging, value); }
@@ -226,11 +220,6 @@ namespace FolderRewind.Models
         /// 背景遮罩透明度，用于保证文字和卡片仍然清楚。
         /// </summary>
         public double SponsorBackgroundOverlayOpacity { get => _sponsorBackgroundOverlayOpacity; set => SetProperty(ref _sponsorBackgroundOverlayOpacity, value); }
-
-        /// <summary>
-        /// 旧版赞助者完成音效设置，保留用于配置迁移。
-        /// </summary>
-        public int SponsorCompletionSoundIndex { get => _sponsorCompletionSoundIndex; set => SetProperty(ref _sponsorCompletionSoundIndex, value); }
 
         /// <summary>
         /// 备份/还原完成后的音效。0=无，1=默认音效；赞助者可用自定义文件替换默认音效。
@@ -355,11 +344,6 @@ namespace FolderRewind.Models
         /// 自定义镜像地址。可填写前缀或包含 {url} 占位符的模板。
         /// </summary>
         public string AppUpdateCustomMirrorUrl { get => _appUpdateCustomMirrorUrl; set => SetProperty(ref _appUpdateCustomMirrorUrl, value ?? string.Empty); }
-
-        /// <summary>
-        /// 是否已经完成统一下载源默认值迁移，避免后续重复覆盖用户偏好。
-        /// </summary>
-        public bool HasMigratedDownloadSourcePreference { get => _hasMigratedDownloadSourcePreference; set => SetProperty(ref _hasMigratedDownloadSourcePreference, value); }
 
         /// <summary>
         /// GitHub OAuth App 的 Client ID。
@@ -513,10 +497,6 @@ namespace FolderRewind.Models
                 if (string.IsNullOrEmpty(_displayName)) DisplayName = System.IO.Path.GetFileName(safeValue);
             }
         }
-
-        // 为了兼容你的 XAML {x:Bind FullPath}，我们增加一个只读属性
-        [JsonIgnore]
-        public string FullPath => Path;
 
         public string DisplayName { get => _displayName; set => SetProperty(ref _displayName, value ?? string.Empty); }
 
@@ -868,7 +848,6 @@ namespace FolderRewind.Models
         private int _intervalMinutes = 60;
         private bool _runOnAppStart = false;
         private bool _scheduledMode = false;
-        private int _scheduledHour = 3;
         private AutomationScope _scope = AutomationScope.AllFolders;
         private string _targetFolderPath = string.Empty;
         private bool _conditionalModeEnabled = false;
@@ -876,7 +855,6 @@ namespace FolderRewind.Models
         private string _conditionRelativePath = string.Empty;
         private ObservableCollection<ScheduleEntry> _scheduleEntries = new();
         private DateTime _lastAutoBackupUtc = DateTime.MinValue;
-        private DateTime _lastScheduledRunDateLocal = DateTime.MinValue;
 
         // 连续无变更自动停止
         private bool _stopAfterNoChangeEnabled = false;
@@ -888,7 +866,6 @@ namespace FolderRewind.Models
         public int IntervalMinutes { get => _intervalMinutes; set => SetProperty(ref _intervalMinutes, value); }
         public bool RunOnAppStart { get => _runOnAppStart; set => SetProperty(ref _runOnAppStart, value); }
         public bool ScheduledMode { get => _scheduledMode; set => SetProperty(ref _scheduledMode, value); }
-        public int ScheduledHour { get => _scheduledHour; set => SetProperty(ref _scheduledHour, value); }
 
         /// <summary>
         /// 自动化作用范围：作用于当前配置的全部文件夹，或仅作用于某个单独文件夹。
@@ -925,7 +902,6 @@ namespace FolderRewind.Models
         }
 
         public DateTime LastAutoBackupUtc { get => _lastAutoBackupUtc; set => SetProperty(ref _lastAutoBackupUtc, value); }
-        public DateTime LastScheduledRunDateLocal { get => _lastScheduledRunDateLocal; set => SetProperty(ref _lastScheduledRunDateLocal, value); }
 
         /// <summary>
         /// 是否启用“连续无变更自动停止”功能。
@@ -937,22 +913,6 @@ namespace FolderRewind.Models
         /// </summary>
         public int StopAfterNoChangeCount { get => _stopAfterNoChangeCount; set => SetProperty(ref _stopAfterNoChangeCount, value); }
         public int ConsecutiveNoChangeCount { get => _consecutiveNoChangeCount; set => SetProperty(ref _consecutiveNoChangeCount, value); }
-
-        public void MigrateFromLegacy()
-        {
-            if (ScheduledMode && ScheduleEntries.Count == 0 && ScheduledHour >= 0 && ScheduledHour <= 23)
-            {
-                ScheduleEntries.Add(new ScheduleEntry
-                {
-                    MonthSelection = 0,
-                    DaySelection = 0,
-                    Hour = ScheduledHour,
-                    Minute = 0
-                });
-            }
-
-            Normalize();
-        }
 
         /// <summary>
         /// 补齐新增字段默认值，并在需要时校正单文件夹目标。
@@ -1048,22 +1008,6 @@ namespace FolderRewind.Models
             set => SetProperty(ref _restoreWhitelist, value ?? new ObservableCollection<string>());
         }
     }
-
-    // 可以在这里添加 BackupTask 用于运行时 UI 显示 (BackupTasksPage 使用)
-    //public class BackupTask : ObservableObject
-    //{
-    //    private string _folderName;
-    //    private double _progress;
-    //    private string _status;
-    //    private string _speed;
-    //    private bool _isPaused;
-
-    //    public string FolderName { get => _folderName; set => SetProperty(ref _folderName, value); }
-    //    public double Progress { get => _progress; set => SetProperty(ref _progress, value); }
-    //    public string Status { get => _status; set => SetProperty(ref _status, value); }
-    //    public string Speed { get => _speed; set => SetProperty(ref _speed, value); }
-    //    public bool IsPaused { get => _isPaused; set => SetProperty(ref _isPaused, value); }
-    //}
 
     public class HistoryItem : ObservableObject
     {

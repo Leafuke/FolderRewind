@@ -272,13 +272,6 @@ namespace FolderRewind
             var value = languageSetting.Trim();
             if (string.Equals(value, "system", StringComparison.OrdinalIgnoreCase)) return string.Empty;
 
-            // 兼容历史配置中的旧语言值。
-            if (string.Equals(value, "zh_CN", StringComparison.OrdinalIgnoreCase)) return "zh-CN";
-            if (string.Equals(value, "en_US", StringComparison.OrdinalIgnoreCase)) return "en-US";
-
-            // 统一分隔符写法，避免下划线与连字符混用。
-            value = value.Replace('_', '-');
-
             if (string.Equals(value, "zh-CN", StringComparison.OrdinalIgnoreCase)) return "zh-CN";
             if (string.Equals(value, "en-US", StringComparison.OrdinalIgnoreCase)) return "en-US";
 

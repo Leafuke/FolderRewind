@@ -1746,12 +1746,6 @@ Keys use letters, digits, and underscores only. Values must be percent-encoded. 
   <data name="Config_LoadFailed_Reset" xml:space="preserve">
     <value>[Config] Failed to load config; resetting to default: {0}</value>
   </data>
-  <data name="Config_CurrentConfigNull_ForceDefault" xml:space="preserve">
-    <value>[Config] CurrentConfig is null; created default config.</value>
-  </data>
-  <data name="Config_Save_CurrentConfigNull" xml:space="preserve">
-    <value>[Config] CurrentConfig is null; cannot save.</value>
-  </data>
   <data name="Config_SaveFailed" xml:space="preserve">
     <value>[Config] Failed to save config: {0}</value>
   </data>
@@ -2746,9 +2740,6 @@ Status: {3}</value>
   </data>
   <data name="AutoBackup_Reason_Scheduled" xml:space="preserve">
     <value>Scheduled backup ({0})</value>
-  </data>
-  <data name="AutoBackup_Reason_ScheduledLegacy" xml:space="preserve">
-    <value>Scheduled backup (legacy compatibility)</value>
   </data>
   <data name="AutoBackup_Reason_FileUnlocked" xml:space="preserve">
     <value>Conditional backup ({0} unlocked)</value>

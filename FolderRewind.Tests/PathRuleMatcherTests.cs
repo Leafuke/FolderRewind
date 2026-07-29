@@ -65,7 +65,7 @@ public sealed class PathRuleMatcherTests
     }
 
     [TestMethod]
-    public void RestoreWildcardKeepsLegacyFileNameOnlySemantics()
+    public void RestoreWildcardUsesFileNameOnlySemantics()
     {
         string root = CreateRoot();
         var matcher = PathRuleMatcher.CreateForRestore(["*.dat"], root);
@@ -88,7 +88,7 @@ public sealed class PathRuleMatcherTests
     }
 
     [TestMethod]
-    public void DisabledRegexRuleKeepsLegacyIgnoredSemantics()
+    public void DisabledRegexRuleIsIgnoredDuringMatching()
     {
         var matcher = PathRuleMatcher.CreateForBackup(
             ["regex:(unclosed"],

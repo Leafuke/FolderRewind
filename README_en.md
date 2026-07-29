@@ -68,6 +68,12 @@ As the spiritual successor to MineBackup, FolderRewind enhances its versatility 
 
 Note: Do not run Store, MSI, and side-loaded MSIX versions at the same time. MSI stores its data separately from MSIX/Store and does not automatically migrate configurations or plugins.
 
+### Version 1.8 upgrade notes
+
+- Version 1.8 supports direct upgrades from v1.7.4. Users on earlier releases should run v1.7.4 first to complete configuration migration. Existing backups and historical metadata remain restorable.
+- Template import now accepts only the version 1.0 envelope carrying the `FolderRewindTemplate` marker.
+- The KnotLink v1 plugin API has been removed. Plugins must use the parameterized KnotLink v2 API and declare host version 1.8.0 or newer.
+
 ## Usage
 
 For detailed usage instructions, please refer to the official documentation: https://folderrewind.top/en/

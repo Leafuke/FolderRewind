@@ -188,20 +188,6 @@ namespace FolderRewind.Services.Plugins
         }
 
         /// <summary>
-        /// KnotLink：尝试让已启用插件处理一条“非内置”的远程指令。
-        /// 返回 (Handled=false, _) 表示没有插件处理该指令。
-        /// </summary>
-        [Obsolete("KnotLink v1 command dispatch has been removed.")]
-        public static async Task<(bool Handled, string Response)> TryHandleKnotLinkCommandAsync(
-            string command,
-            string args,
-            string rawCommand)
-        {
-            await Task.CompletedTask;
-            return (false, string.Empty);
-        }
-
-        /// <summary>
         /// KnotLink v2 commands are offered to plugins before built-in handlers.
         /// </summary>
         public static async Task<(bool Handled, string Response)> TryHandleParameterizedKnotLinkCommandAsync(KnotLinkCommandContext context)
@@ -1191,8 +1177,7 @@ namespace FolderRewind.Services.Plugins
             {
                 return BackupConfigCloneService.CloneForRuntimeMutation(
                     source,
-                    "Failed to clone backup config for plugin augmentation snapshot.",
-                    ensureBackupScope: true);
+                    "Failed to clone backup config for plugin augmentation snapshot.");
             }
             catch (Exception ex)
             {

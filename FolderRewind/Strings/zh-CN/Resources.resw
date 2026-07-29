@@ -1746,12 +1746,6 @@ cmd=RESTORE;from=minebackup.mod;request_id=req-mr-restore-002;current_save=true;
   <data name="Config_LoadFailed_Reset" xml:space="preserve">
     <value>[Config] 配置加载失败，将重置为默认配置：{0}</value>
   </data>
-  <data name="Config_CurrentConfigNull_ForceDefault" xml:space="preserve">
-    <value>[Config] CurrentConfig 为空，已强制创建默认配置。</value>
-  </data>
-  <data name="Config_Save_CurrentConfigNull" xml:space="preserve">
-    <value>[Config] CurrentConfig 为空，无法保存。</value>
-  </data>
   <data name="Config_SaveFailed" xml:space="preserve">
     <value>[Config] 配置保存失败：{0}</value>
   </data>
@@ -2746,9 +2740,6 @@ cmd=RESTORE;from=minebackup.mod;request_id=req-mr-restore-002;current_save=true;
   </data>
   <data name="AutoBackup_Reason_Scheduled" xml:space="preserve">
     <value>计划备份（{0}）</value>
-  </data>
-  <data name="AutoBackup_Reason_ScheduledLegacy" xml:space="preserve">
-    <value>计划备份（旧配置兼容）</value>
   </data>
   <data name="AutoBackup_Reason_FileUnlocked" xml:space="preserve">
     <value>条件备份（{0} 已解除占用）</value>

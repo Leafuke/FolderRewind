@@ -120,8 +120,6 @@ namespace FolderRewind.Models
 
         public string Id { get => _id; set => SetProperty(ref _id, value ?? string.Empty); }
         public string ShareId { get => _shareId; set => SetProperty(ref _shareId, value ?? string.Empty); }
-        // TemplateId 保留为 ShareId 的兼容别名，避免旧数据字段名切换后失联。
-        public string TemplateId { get => _shareId; set => SetProperty(ref _shareId, value ?? string.Empty); }
         public string ShareCode { get => _shareCode; set => SetProperty(ref _shareCode, value ?? string.Empty); }
         public string Name { get => _name; set => SetProperty(ref _name, value ?? string.Empty); }
         public string Author { get => _author; set => SetProperty(ref _author, value ?? string.Empty); }
@@ -217,8 +215,8 @@ namespace FolderRewind.Models
 
     public class TemplateShareEnvelope
     {
-        public string Magic { get; set; } = "FolderRewindTemplate";
-        public string SchemaVersion { get; set; } = "1.0";
+        public string Magic { get; set; } = string.Empty;
+        public string SchemaVersion { get; set; } = string.Empty;
         public DateTime ExportedAtUtc { get; set; } = DateTime.UtcNow;
         public ConfigTemplate Template { get; set; } = new();
     }
@@ -285,12 +283,18 @@ namespace FolderRewind.Models
     public class RemoteTemplateIndexDocument
     {
         [JsonPropertyName("schemaVersion")]
-        public string SchemaVersion { get; set; } = "1.0";
+        public string SchemaVersion { get; set; } = string.Empty;
 
         [JsonPropertyName("generatedAtUtc")]
         public DateTime GeneratedAtUtc { get; set; } = DateTime.UtcNow;
 
         [JsonPropertyName("templates")]
-        public ObservableCollection<RemoteTemplateIndexItem> Templates { get; set; } = new();
+        private ObservableCollection<RemoteTemplateIndexItem> _templates = new();
+
+        public ObservableCollection<RemoteTemplateIndexItem> Templates
+        {
+            get => _templates;
+            set => _templates = value ?? new ObservableCollection<RemoteTemplateIndexItem>();
+        }
     }
 }

@@ -1246,8 +1246,7 @@ namespace FolderRewind.ViewModels
         private string PickPreferredFont(HashSet<string> availableFonts)
         {
             var preferChinese = string.Equals(Settings.Language, "zh-CN", StringComparison.OrdinalIgnoreCase)
-                || string.Equals(Settings.Language, "zh", StringComparison.OrdinalIgnoreCase)
-                || string.Equals(Settings.Language, "zh_CN", StringComparison.OrdinalIgnoreCase);
+                || string.Equals(Settings.Language, "zh", StringComparison.OrdinalIgnoreCase);
 
             if (preferChinese)
             {
@@ -1290,15 +1289,12 @@ namespace FolderRewind.ViewModels
                 return 0;
             }
 
-            var normalized = language.Trim().Replace('_', '-');
+            var normalized = language.Trim();
             if (string.Equals(normalized, "system", StringComparison.OrdinalIgnoreCase)) return 0;
             if (string.Equals(normalized, "en-US", StringComparison.OrdinalIgnoreCase)) return 1;
             if (string.Equals(normalized, "en", StringComparison.OrdinalIgnoreCase)) return 1;
             if (string.Equals(normalized, "zh-CN", StringComparison.OrdinalIgnoreCase)) return 2;
             if (string.Equals(normalized, "zh", StringComparison.OrdinalIgnoreCase)) return 2;
-
-            if (string.Equals(language, "en_US", StringComparison.OrdinalIgnoreCase)) return 1;
-            if (string.Equals(language, "zh_CN", StringComparison.OrdinalIgnoreCase)) return 2;
 
             return 0;
         }

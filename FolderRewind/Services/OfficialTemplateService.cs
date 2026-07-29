@@ -278,21 +278,14 @@ namespace FolderRewind.Services
             }
 
             using var jsonDocument = JsonDocument.Parse(json);
-
-            if (jsonDocument.RootElement.ValueKind == JsonValueKind.Object)
+            if (!TemplateFormatPolicy.IsCurrentOfficialIndex(jsonDocument.RootElement))
             {
-                var document = JsonSerializer.Deserialize(json, AppJsonContext.Default.RemoteTemplateIndexDocument);
-                return NormalizeIndexItems(document?.Templates ?? new ObservableCollection<RemoteTemplateIndexItem>());
+                throw new JsonException("Unsupported official template index schema.");
             }
 
-            if (jsonDocument.RootElement.ValueKind == JsonValueKind.Array)
-            {
-                // 兼容历史格式：早期 index.json 根节点直接是数组。
-                var list = JsonSerializer.Deserialize(json, AppJsonContext.Default.ListRemoteTemplateIndexItem);
-                return NormalizeIndexItems(list ?? new List<RemoteTemplateIndexItem>());
-            }
-
-            throw new JsonException("Invalid official template index format.");
+            var document = JsonSerializer.Deserialize(json, AppJsonContext.Default.RemoteTemplateIndexDocument)
+                ?? throw new JsonException("Invalid official template index.");
+            return NormalizeIndexItems(document.Templates);
         }
 
         private static IReadOnlyList<RemoteTemplateIndexItem> NormalizeIndexItems(IEnumerable<RemoteTemplateIndexItem> items)

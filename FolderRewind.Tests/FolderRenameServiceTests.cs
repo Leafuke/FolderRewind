@@ -45,8 +45,6 @@ public sealed class FolderRenameServiceTests
         ]);
 
         Assert.IsTrue(result.Success);
-        Assert.IsTrue(result.LocalBackupDirectoryMigrated);
-        Assert.IsTrue(result.LocalMetadataDirectoryMigrated);
         Assert.IsTrue(Directory.Exists(sourceNew));
         Assert.IsTrue(Directory.Exists(backupNew));
         Assert.IsTrue(Directory.Exists(metadataNew));

@@ -228,8 +228,6 @@ public static class FolderRenameService
                     NewPath = preview.NewPath,
                     AffectedConfigCount = references.Count,
                     AffectedHistoryCount = preview.AffectedHistoryCount,
-                    LocalBackupDirectoryMigrated = moveExecution.Result.LocalBackupDirectoryMigrated,
-                    LocalMetadataDirectoryMigrated = moveExecution.Result.LocalMetadataDirectoryMigrated,
                     Conflicts = moveExecution.Result.Conflicts,
                     RollbackSucceeded = moveExecution.Result.RollbackSucceeded,
                     RollbackErrors = moveExecution.Result.RollbackErrors
@@ -287,11 +285,7 @@ public static class FolderRenameService
                     OldPath = preview.OldPath,
                     NewPath = preview.NewPath,
                     AffectedConfigCount = references.Count,
-                    AffectedHistoryCount = historyUpdate.UpdatedCount,
-                    LocalBackupDirectoryMigrated =
-                        moveExecution.Result.LocalBackupDirectoryMigrated,
-                    LocalMetadataDirectoryMigrated =
-                        moveExecution.Result.LocalMetadataDirectoryMigrated
+                    AffectedHistoryCount = historyUpdate.UpdatedCount
                 };
             }
             catch (Exception ex)
@@ -335,8 +329,6 @@ public static class FolderRenameService
         IReadOnlyList<FolderMoveOperation> operations,
         CancellationToken cancellationToken)
     {
-        bool backupDirectoryMoved = false;
-        bool metadataDirectoryMoved = false;
         var completed = new List<FolderMoveOperation>();
 
         try
@@ -346,16 +338,12 @@ public static class FolderRenameService
                 cancellationToken.ThrowIfCancellationRequested();
                 Directory.Move(operation.SourcePath, operation.DestinationPath);
                 completed.Add(operation);
-                backupDirectoryMoved |= operation.Kind == FolderMoveOperationKind.BackupDirectory;
-                metadataDirectoryMoved |= operation.Kind == FolderMoveOperationKind.MetadataDirectory;
             }
 
             return new MoveExecutionResult(
                 new FolderRenameResult
                 {
-                    Success = true,
-                    LocalBackupDirectoryMigrated = backupDirectoryMoved,
-                    LocalMetadataDirectoryMigrated = metadataDirectoryMoved
+                    Success = true
                 },
                 completed);
         }
@@ -367,8 +355,6 @@ public static class FolderRenameService
                 {
                     Success = false,
                     Message = ex.Message,
-                    LocalBackupDirectoryMigrated = backupDirectoryMoved,
-                    LocalMetadataDirectoryMigrated = metadataDirectoryMoved,
                     RollbackSucceeded = rollbackErrors.Count == 0,
                     RollbackErrors = rollbackErrors
                 },
@@ -769,8 +755,6 @@ public static class FolderRenameService
             NewPath = preview.NewPath,
             AffectedConfigCount = affectedReferenceCount,
             AffectedHistoryCount = historyUpdate.UpdatedCount,
-            LocalBackupDirectoryMigrated = moveResult.LocalBackupDirectoryMigrated,
-            LocalMetadataDirectoryMigrated = moveResult.LocalMetadataDirectoryMigrated,
             RollbackSucceeded = rollbackErrors.Count == 0,
             RollbackErrors = rollbackErrors
         };
