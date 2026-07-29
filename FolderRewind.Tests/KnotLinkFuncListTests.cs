@@ -20,10 +20,10 @@ public sealed class KnotLinkFuncListTests
         Assert.AreEqual("BACKUP", manifest.OpenSocket["backup"].Args["cmd"].Value);
         CollectionAssert.AreEquivalent(
             new[] { "full", "incremental" },
-            manifest.OpenSocket["backup"].Args["backup_mode"].Options.Select(option => option[1]).ToArray());
+            manifest.OpenSocket["backup"].Args["backup_mode"].Options!.Select(option => option[1]).ToArray());
         CollectionAssert.AreEquivalent(
             new[] { "LZMA2", "Deflate", "BZip2", "zstd" },
-            manifest.OpenSocket["backup"].Args["compression_method"].Options.Select(option => option[1]).ToArray());
+            manifest.OpenSocket["backup"].Args["compression_method"].Options!.Select(option => option[1]).ToArray());
         Assert.IsTrue(manifest.OpenSocket["backup"].Args.ContainsKey("compression_level"));
         Assert.IsFalse(manifest.OpenSocket["backup"].Args.ContainsKey("force_full"));
         Assert.IsFalse(manifest.OpenSocket["backup_all"].Args.ContainsKey("force_full"));
