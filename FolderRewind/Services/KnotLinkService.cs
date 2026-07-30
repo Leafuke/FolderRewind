@@ -284,15 +284,25 @@ namespace FolderRewind.Services
         /// </summary>
         public static async Task BroadcastEventAsync(string eventData)
         {
-            if (_signalSender == null || !IsEnabled) return;
+            await TryBroadcastEventAsync(eventData).ConfigureAwait(false);
+        }
+
+        /// <summary>
+        /// 尝试广播事件，并返回消息是否已成功交给 KnotLink 发送器。
+        /// </summary>
+        public static async Task<bool> TryBroadcastEventAsync(string eventData)
+        {
+            if (_signalSender == null || !IsEnabled) return false;
 
             try
             {
                 await _signalSender.EmitAsync(NormalizeEventData(eventData)).ConfigureAwait(false);
+                return true;
             }
             catch (Exception ex)
             {
                 LogService.Log(I18n.Format("KnotLink_BroadcastFailed", ex.Message));
+                return false;
             }
         }
 
@@ -317,6 +327,19 @@ namespace FolderRewind.Services
             }
 
             return BroadcastEventAsync(FormatBroadcastEventData(context, eventName, fields));
+        }
+
+        public static Task<bool> TryBroadcastEventAsync(
+            KnotLinkCommandContext? context,
+            string eventName,
+            IReadOnlyDictionary<string, string?>? fields = null)
+        {
+            if (string.IsNullOrWhiteSpace(eventName))
+            {
+                return Task.FromResult(false);
+            }
+
+            return TryBroadcastEventAsync(FormatBroadcastEventData(context, eventName, fields));
         }
 
         public static void BroadcastCommandLifecycle(

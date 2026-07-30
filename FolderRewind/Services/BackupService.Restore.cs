@@ -40,6 +40,35 @@ namespace FolderRewind.Services
                     LogLevel.Warning);
             }
 
+            var (interceptorPluginId, interception) =
+                await Services.Plugins.PluginService.TryInterceptRestoreFolderAsync(
+                    config,
+                    folder,
+                    historyItem.FileName);
+            if (interception.Status != Services.Plugins.PluginRestoreInterceptionStatus.Continue)
+            {
+                string message = interception.Message;
+                if (string.IsNullOrWhiteSpace(message))
+                {
+                    message = interception.Status == Services.Plugins.PluginRestoreInterceptionStatus.Handled
+                        ? I18n.Format("PluginService_RestoreIntercepted", interceptorPluginId)
+                        : I18n.Format("PluginService_RestoreBlocked", interceptorPluginId);
+                }
+
+                if (interception.Status == Services.Plugins.PluginRestoreInterceptionStatus.Handled)
+                {
+                    Log($"[Restore] Plugin '{interceptorPluginId}' handed off restore for '{folder.DisplayName}'.", LogLevel.Info);
+                    NotificationService.ShowInfo(message);
+                }
+                else
+                {
+                    Log($"[Restore] Plugin '{interceptorPluginId}' blocked direct restore for '{folder.DisplayName}': {message}", LogLevel.Warning);
+                    NotificationService.ShowError(message);
+                }
+
+                return;
+            }
+
             int configIndex = GetConfigIndex(config);
             string? backupFilePath = HistoryService.GetBackupFilePath(config, folder, historyItem);
             string resolvedFolderName = string.IsNullOrWhiteSpace(historyItem.FolderName)

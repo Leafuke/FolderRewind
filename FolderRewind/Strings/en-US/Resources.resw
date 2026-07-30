@@ -2416,6 +2416,12 @@ Comment: {1}
   <data name="PluginService_BeforeRestoreFailed" xml:space="preserve">
     <value>Plugin {0} before-restore hook failed: {1}</value>
   </data>
+  <data name="PluginService_RestoreIntercepted" xml:space="preserve">
+    <value>Plugin {0} has taken over the restore request.</value>
+  </data>
+  <data name="PluginService_RestoreBlocked" xml:space="preserve">
+    <value>Plugin {0} blocked this direct restore.</value>
+  </data>
   <data name="PluginService_AfterRestoreFailed" xml:space="preserve">
     <value>Plugin {0} after-restore hook failed: {1}</value>
   </data>

@@ -968,6 +968,59 @@ namespace FolderRewind.Services.Plugins
         }
 
         /// <summary>
+        /// 在宿主创建还原任务或产生还原副作用前调用可选拦截器。
+        /// 第一个 Handled/Blocked 结果终止聚合；插件异常仅记录并继续。
+        /// </summary>
+        public static async Task<(string PluginId, PluginRestoreInterceptionResult Result)> TryInterceptRestoreFolderAsync(
+            BackupConfig config,
+            ManagedFolder folder,
+            string archiveFileName,
+            CancellationToken cancellationToken = default)
+        {
+            if (!IsPluginSystemEnabled())
+            {
+                return (string.Empty, PluginRestoreInterceptionResult.Continue());
+            }
+
+            foreach (var plugin in GetEnabledLoadedPluginsSnapshot())
+            {
+                if (plugin is not IFolderRewindRestoreInterceptor interceptor)
+                {
+                    continue;
+                }
+
+                try
+                {
+                    var settings = GetPluginSettings(plugin.Manifest.Id);
+                    var result = await interceptor.TryInterceptRestoreAsync(
+                        config,
+                        folder,
+                        archiveFileName,
+                        settings,
+                        cancellationToken).ConfigureAwait(false)
+                        ?? PluginRestoreInterceptionResult.Continue();
+                    if (result.Status != PluginRestoreInterceptionStatus.Continue)
+                    {
+                        return (plugin.Manifest.Id, result);
+                    }
+                }
+                catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+                {
+                    throw;
+                }
+                catch (Exception ex)
+                {
+                    LogService.LogError(
+                        I18n.Format("PluginService_BeforeRestoreFailed", plugin.Manifest.Id, ex.Message),
+                        "PluginService",
+                        ex);
+                }
+            }
+
+            return (string.Empty, PluginRestoreInterceptionResult.Continue());
+        }
+
+        /// <summary>
         /// 还原后钩子：调用所有已启用插件的 OnAfterRestoreFolder。
         /// pluginStates 为 InvokeBeforeRestoreFolder 的返回值。
         /// </summary>
