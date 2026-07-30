@@ -16,25 +16,61 @@ namespace FolderRewind.Services
 
         public static void SetLanguageOverride(string? language)
         {
-            _languageOverride = language?.Trim() ?? string.Empty;
-            AppResourceLoader.SetLanguageOverride(_languageOverride);
+            var requestedOverride = LanguageSettingPolicy.ToOverride(language);
 
+            try
+            {
+                ApplyPlatformLanguageOverride(requestedOverride);
+                SetEffectiveLanguageOverride(requestedOverride);
+            }
+            catch (Exception ex)
+            {
+                Exception? resetException = null;
+                try
+                {
+                    ApplyPlatformLanguageOverride(string.Empty);
+                }
+                catch (Exception resetEx)
+                {
+                    resetException = resetEx;
+                }
+
+                SetEffectiveLanguageOverride(string.Empty);
+
+                var resetDetail = resetException == null
+                    ? string.Empty
+                    : $" Reset also failed: {resetException.Message}";
+                LogService.LogWarning(
+                    $"[I18n] Failed to apply language override; falling back to system language: {ex.Message}.{resetDetail}",
+                    "I18n");
+            }
+        }
+
+        private static void ApplyPlatformLanguageOverride(string languageOverride)
+        {
             if (AppRuntimeInfo.IsPackaged)
             {
-                ApplicationLanguages.PrimaryLanguageOverride = _languageOverride;
+                ApplicationLanguages.PrimaryLanguageOverride = languageOverride;
                 return;
             }
 
-            var culture = string.IsNullOrWhiteSpace(_languageOverride)
+            var uiCulture = string.IsNullOrWhiteSpace(languageOverride)
                 ? _startupUiCulture
-                : CultureInfo.GetCultureInfo(_languageOverride);
-
-            CultureInfo.CurrentUICulture = culture;
-            CultureInfo.CurrentCulture = string.IsNullOrWhiteSpace(_languageOverride)
+                : CultureInfo.GetCultureInfo(languageOverride);
+            var culture = string.IsNullOrWhiteSpace(languageOverride)
                 ? _startupCulture
-                : culture;
-            CultureInfo.DefaultThreadCurrentUICulture = culture;
-            CultureInfo.DefaultThreadCurrentCulture = CultureInfo.CurrentCulture;
+                : uiCulture;
+
+            CultureInfo.CurrentUICulture = uiCulture;
+            CultureInfo.CurrentCulture = culture;
+            CultureInfo.DefaultThreadCurrentUICulture = uiCulture;
+            CultureInfo.DefaultThreadCurrentCulture = culture;
+        }
+
+        private static void SetEffectiveLanguageOverride(string languageOverride)
+        {
+            _languageOverride = languageOverride;
+            AppResourceLoader.SetLanguageOverride(languageOverride);
         }
 
         public static string GetCurrentUiLanguage()

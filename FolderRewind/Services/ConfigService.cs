@@ -72,15 +72,32 @@ namespace FolderRewind.Services
 
             bool createdDefault;
             var config = LoadConfig(out createdDefault);
+            var originalLanguage = config.GlobalSettings.Language;
             NormalizeConfig(config);
+            var languageNormalized = !string.Equals(
+                originalLanguage,
+                config.GlobalSettings.Language,
+                StringComparison.Ordinal);
 
             CurrentConfig = config;
             ApplyLogSettings(config.GlobalSettings);
             _initialized = true;
 
-            if (createdDefault)
+            if (createdDefault || languageNormalized)
             {
-                Save();
+                var saveResult = SaveWithResult(publishSavedEvent: false);
+                if (!saveResult.Success)
+                {
+                    LogService.LogWarning(
+                        $"[Config] Failed to persist normalized startup configuration: {saveResult.ErrorMessage}",
+                        "ConfigService");
+                }
+                else if (languageNormalized)
+                {
+                    LogService.LogInfo(
+                        $"[Config] Language setting normalized to '{config.GlobalSettings.Language}'.",
+                        "ConfigService");
+                }
             }
         }
 
@@ -421,6 +438,8 @@ namespace FolderRewind.Services
 
         private static void NormalizeGlobalSettings(GlobalSettings settings)
         {
+            settings.Language = LanguageSettingPolicy.Normalize(settings.Language);
+
             if (settings.ThemeIndex < 0 || settings.ThemeIndex > 2)
             {
                 settings.ThemeIndex = 1;

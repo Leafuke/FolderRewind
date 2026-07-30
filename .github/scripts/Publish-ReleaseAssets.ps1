@@ -10,7 +10,9 @@ param(
     [string]$AssetsDirectory,
 
     [Parameter(Mandatory = $true)]
-    [string]$TargetCommit
+    [string]$TargetCommit,
+
+    [string]$ReleaseNotesPath
 )
 
 Set-StrictMode -Version Latest
@@ -29,6 +31,10 @@ if ($assets.Count -eq 0) {
     throw "Assets directory is empty."
 }
 
+if ($ReleaseNotesPath -and -not (Test-Path -LiteralPath $ReleaseNotesPath)) {
+    throw "Release notes file not found: $ReleaseNotesPath"
+}
+
 $releaseExists = $true
 gh release view $Tag | Out-Null
 if ($LASTEXITCODE -ne 0) {
@@ -37,9 +43,20 @@ if ($LASTEXITCODE -ne 0) {
 
 if (-not $releaseExists) {
     # Create the tag and release automatically on the first publish.
-    gh release create $Tag --title $ReleaseName --notes "Automated GitHub sideload build." --target $TargetCommit
+    if ($ReleaseNotesPath) {
+        gh release create $Tag --title $ReleaseName --notes-file $ReleaseNotesPath --target $TargetCommit
+    }
+    else {
+        gh release create $Tag --title $ReleaseName --notes "Automated GitHub sideload build." --target $TargetCommit
+    }
     if ($LASTEXITCODE -ne 0) {
         throw "Failed to create the release."
+    }
+}
+elseif ($ReleaseNotesPath) {
+    gh release edit $Tag --title $ReleaseName --notes-file $ReleaseNotesPath
+    if ($LASTEXITCODE -ne 0) {
+        throw "Failed to update release notes."
     }
 }
 
