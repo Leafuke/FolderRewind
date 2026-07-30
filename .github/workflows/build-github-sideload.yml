@@ -6,7 +6,7 @@ on:
       package_version:
         description: Package version from Package.appxmanifest, for example 1.6.1.0
         required: true
-        default: 1.6.1.0
+        default: 1.8.1.0
         type: string
 
 permissions:
@@ -224,6 +224,13 @@ jobs:
             throw "MSI installed development debug symbols: $($installedSymbols.FullName -join ', ')"
           }
 
+          # Reproduce the 1.8.0 startup regression with a legacy language value.
+          # The application must open and atomically rewrite the setting.
+          $smokeConfigDirectory = Join-Path $env:LOCALAPPDATA 'FolderRewind'
+          $smokeConfigPath = Join-Path $smokeConfigDirectory 'config.json'
+          New-Item -ItemType Directory -Path $smokeConfigDirectory -Force | Out-Null
+          Set-Content -LiteralPath $smokeConfigPath -Encoding utf8 -Value '{"GlobalSettings":{"Language":"zh_CN"}}'
+
           # Installation alone did not catch the original broken PRI regression. Launch
           # the installed executable and require a real top-level window to appear.
           $executable = Join-Path $installDirectory 'FolderRewind.exe'
@@ -246,6 +253,19 @@ jobs:
             if (-not $appProcess.HasExited) {
               Stop-Process -Id $appProcess.Id -Force
               $appProcess.WaitForExit()
+            }
+          }
+
+          $migratedConfig = Get-Content -LiteralPath $smokeConfigPath -Raw | ConvertFrom-Json
+          if ($migratedConfig.GlobalSettings.Language -ne 'zh-CN') {
+            throw "Legacy language setting was not migrated to zh-CN: $($migratedConfig.GlobalSettings.Language)"
+          }
+
+          $smokeLogPath = Join-Path $smokeConfigDirectory "logs\app-$([DateTime]::Now.ToString('yyyy-MM-dd')).log"
+          if (Test-Path -LiteralPath $smokeLogPath) {
+            $smokeLog = Get-Content -LiteralPath $smokeLogPath -Raw
+            if ($smokeLog.Contains('[App Fatal]')) {
+              throw 'Legacy language smoke test logged an App Fatal startup failure.'
             }
           }
 
@@ -333,8 +353,15 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
+          $releaseNotesPath = "$env:GITHUB_WORKSPACE\.github\release-notes\${{ steps.version.outputs.release_tag }}.md"
+          $releaseNotesArguments = @{}
+          if (Test-Path -LiteralPath $releaseNotesPath) {
+            $releaseNotesArguments.ReleaseNotesPath = $releaseNotesPath
+          }
+
           .\.github\scripts\Publish-ReleaseAssets.ps1 `
             -Tag "${{ steps.version.outputs.release_tag }}" `
             -ReleaseName "FolderRewind ${{ steps.version.outputs.manifest_version }}" `
             -TargetCommit "$env:GITHUB_SHA" `
-            -AssetsDirectory "$env:GITHUB_WORKSPACE\artifacts\final"
+            -AssetsDirectory "$env:GITHUB_WORKSPACE\artifacts\final" `
+            @releaseNotesArguments

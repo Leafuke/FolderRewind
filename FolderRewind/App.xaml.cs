@@ -108,7 +108,7 @@ namespace FolderRewind
                 LogService.Log(I18n.GetString("App_Log_OnLaunchedBegin"));
                 LogService.MarkSessionStart();
 
-                ApplyLanguageOverride(Services.ConfigService.CurrentConfig.GlobalSettings.Language);
+                I18n.SetLanguageOverride(Services.ConfigService.CurrentConfig.GlobalSettings.Language);
                 LogService.Log($"[Startup] Language applied: {startupSw.ElapsedMilliseconds}ms");
                 Services.SponsorService.InitializeFromCache();
 
@@ -258,25 +258,6 @@ namespace FolderRewind
         #endregion
 
         #region 语言与窗口标题
-
-        private static void ApplyLanguageOverride(string? languageSetting)
-        {
-            var normalized = NormalizeLanguage(languageSetting);
-            I18n.SetLanguageOverride(normalized);
-        }
-
-        private static string NormalizeLanguage(string? languageSetting)
-        {
-            if (string.IsNullOrWhiteSpace(languageSetting)) return string.Empty;
-
-            var value = languageSetting.Trim();
-            if (string.Equals(value, "system", StringComparison.OrdinalIgnoreCase)) return string.Empty;
-
-            if (string.Equals(value, "zh-CN", StringComparison.OrdinalIgnoreCase)) return "zh-CN";
-            if (string.Equals(value, "en-US", StringComparison.OrdinalIgnoreCase)) return "en-US";
-
-            return value;
-        }
 
         public static void UpdateWindowTitle()
         {

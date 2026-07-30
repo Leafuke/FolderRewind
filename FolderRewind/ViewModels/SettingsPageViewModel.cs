@@ -1245,8 +1245,7 @@ namespace FolderRewind.ViewModels
 
         private string PickPreferredFont(HashSet<string> availableFonts)
         {
-            var preferChinese = string.Equals(Settings.Language, "zh-CN", StringComparison.OrdinalIgnoreCase)
-                || string.Equals(Settings.Language, "zh", StringComparison.OrdinalIgnoreCase);
+            var preferChinese = LanguageSettingPolicy.IsChinese(Settings.Language);
 
             if (preferChinese)
             {
@@ -1284,29 +1283,12 @@ namespace FolderRewind.ViewModels
 
         private static int LanguageToIndex(string? language)
         {
-            if (string.IsNullOrWhiteSpace(language))
-            {
-                return 0;
-            }
-
-            var normalized = language.Trim();
-            if (string.Equals(normalized, "system", StringComparison.OrdinalIgnoreCase)) return 0;
-            if (string.Equals(normalized, "en-US", StringComparison.OrdinalIgnoreCase)) return 1;
-            if (string.Equals(normalized, "en", StringComparison.OrdinalIgnoreCase)) return 1;
-            if (string.Equals(normalized, "zh-CN", StringComparison.OrdinalIgnoreCase)) return 2;
-            if (string.Equals(normalized, "zh", StringComparison.OrdinalIgnoreCase)) return 2;
-
-            return 0;
+            return LanguageSettingPolicy.ToSelectionIndex(language);
         }
 
         private static string IndexToLanguage(int index)
         {
-            return index switch
-            {
-                1 => "en-US",
-                2 => "zh-CN",
-                _ => "system",
-            };
+            return LanguageSettingPolicy.FromSelectionIndex(index);
         }
 
         private static double ClampWidth(double value)
