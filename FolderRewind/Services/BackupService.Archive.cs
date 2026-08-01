@@ -1032,86 +1032,14 @@ namespace FolderRewind.Services
 
         private static string? ResolveSevenZipExecutable()
         {
-            var candidates = new List<string>();
             var configPath = ConfigService.CurrentConfig.GlobalSettings?.SevenZipPath;
-            string? pathEnv = Environment.GetEnvironmentVariable("PATH");
-
-            lock (SevenZipResolutionLock)
+            var executable = SevenZipExecutableLocator.Resolve(configPath);
+            if (string.IsNullOrWhiteSpace(executable))
             {
-                if (string.Equals(_cachedSevenZipConfigPath, configPath, StringComparison.Ordinal)
-                    && string.Equals(_cachedSevenZipPathEnvironment, pathEnv, StringComparison.Ordinal)
-                    && !string.IsNullOrWhiteSpace(_cachedSevenZipExecutable)
-                    && File.Exists(_cachedSevenZipExecutable))
-                {
-                    return _cachedSevenZipExecutable;
-                }
+                Log(I18n.Format("BackupService_Log_SevenZipNotFound"), LogLevel.Error);
             }
 
-            void AddCandidate(string? path)
-            {
-                if (string.IsNullOrWhiteSpace(path)) return;
-                try { candidates.Add(Path.GetFullPath(path)); }
-                catch { candidates.Add(path); }
-            }
-
-            // 1) 用户配置
-            AddCandidate(configPath);
-            if (!string.IsNullOrWhiteSpace(configPath) && !Path.IsPathRooted(configPath))
-            {
-                AddCandidate(Path.Combine(AppContext.BaseDirectory, configPath));
-            }
-
-            // 2) 应用目录和常见安装目录
-            string[] exeNames = { "7z.exe", "7zz.exe", "7za.exe" };
-            foreach (var exe in exeNames)
-            {
-                AddCandidate(Path.Combine(AppContext.BaseDirectory, exe));
-
-                var pf = Environment.GetFolderPath(Environment.SpecialFolder.ProgramFiles);
-                if (!string.IsNullOrWhiteSpace(pf)) AddCandidate(Path.Combine(pf, "7-Zip", exe));
-
-                var pf86 = Environment.GetFolderPath(Environment.SpecialFolder.ProgramFilesX86);
-                if (!string.IsNullOrWhiteSpace(pf86)) AddCandidate(Path.Combine(pf86, "7-Zip", exe));
-            }
-            // 3) PATH
-            if (!string.IsNullOrWhiteSpace(pathEnv))
-            {
-                foreach (var dir in pathEnv.Split(Path.PathSeparator, StringSplitOptions.RemoveEmptyEntries))
-                {
-                    var trimmed = dir.Trim();
-                    foreach (var exe in exeNames)
-                    {
-                        AddCandidate(Path.Combine(trimmed, exe));
-                    }
-                }
-            }
-
-            foreach (var path in candidates.Distinct(StringComparer.OrdinalIgnoreCase))
-            {
-                if (!File.Exists(path))
-                {
-                    continue;
-                }
-
-                lock (SevenZipResolutionLock)
-                {
-                    _cachedSevenZipExecutable = path;
-                    _cachedSevenZipConfigPath = configPath;
-                    _cachedSevenZipPathEnvironment = pathEnv;
-                }
-
-                return path;
-            }
-
-            lock (SevenZipResolutionLock)
-            {
-                _cachedSevenZipExecutable = null;
-                _cachedSevenZipConfigPath = configPath;
-                _cachedSevenZipPathEnvironment = pathEnv;
-            }
-
-            Log(I18n.Format("BackupService_Log_SevenZipNotFound"), LogLevel.Error);
-            return null;
+            return executable;
         }
 
         /// <summary>
