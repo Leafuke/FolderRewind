@@ -1193,32 +1193,34 @@ namespace FolderRewind.Services
 
             bool targetIsIncremental = BackupArchiveTypePolicy.IsIncremental(effectiveTarget.BackupType)
                 || BackupArchiveTypePolicy.InferFromFileName(effectiveTarget.FileName).Equals("Smart", StringComparison.OrdinalIgnoreCase);
-            if (!targetIsIncremental)
-            {
-                return [effectiveTarget];
-            }
+            var plan = BackupChainPlanner.Build(
+                relevantItems,
+                effectiveTarget,
+                targetIsIncremental,
+                new BackupChainPlanOptions<HistoryItem>
+                {
+                    GetTimestamp = item => item.Timestamp,
+                    GetIdentity = item => item.FileName,
+                    IsFull = item =>
+                        string.Equals(item.BackupType, "Full", StringComparison.OrdinalIgnoreCase)
+                        || BackupArchiveTypePolicy.InferFromFileName(item.FileName).Equals("Full", StringComparison.OrdinalIgnoreCase),
+                    IsIncremental = item =>
+                        BackupArchiveTypePolicy.IsIncremental(item.BackupType)
+                        || BackupArchiveTypePolicy.InferFromFileName(item.FileName).Equals("Smart", StringComparison.OrdinalIgnoreCase),
+                    SelectBaseFull = candidates => candidates
+                        .OrderBy(item => item.Timestamp)
+                        .ThenBy(item => item.FileName, StringComparer.OrdinalIgnoreCase)
+                        .LastOrDefault(),
+                    OrderChain = candidates => candidates
+                        .OrderBy(item => item.Timestamp)
+                        .ThenBy(item => item.FileName, StringComparer.OrdinalIgnoreCase),
+                    IdentityComparer = StringComparer.OrdinalIgnoreCase,
+                    IncludeTargetInWindow = true
+                });
 
-            var baseFull = relevantItems
-                .Where(item => item.Timestamp <= effectiveTarget.Timestamp)
-                .Where(item =>
-                    string.Equals(item.BackupType, "Full", StringComparison.OrdinalIgnoreCase)
-                    || BackupArchiveTypePolicy.InferFromFileName(item.FileName).Equals("Full", StringComparison.OrdinalIgnoreCase))
-                .LastOrDefault();
-            if (baseFull == null)
-            {
-                return new List<HistoryItem>();
-            }
-
-            return relevantItems
-                .Where(item => item.Timestamp >= baseFull.Timestamp && item.Timestamp <= effectiveTarget.Timestamp)
-                .Where(item =>
-                    string.Equals(item.FileName, baseFull.FileName, StringComparison.OrdinalIgnoreCase)
-                    || string.Equals(item.FileName, effectiveTarget.FileName, StringComparison.OrdinalIgnoreCase)
-                    || BackupArchiveTypePolicy.IsIncremental(item.BackupType)
-                    || BackupArchiveTypePolicy.InferFromFileName(item.FileName).Equals("Smart", StringComparison.OrdinalIgnoreCase))
-                .OrderBy(item => item.Timestamp)
-                .ThenBy(item => item.FileName, StringComparer.OrdinalIgnoreCase)
-                .ToList();
+            return plan.Status == BackupChainPlanStatus.Success
+                ? plan.Items.ToList()
+                : new List<HistoryItem>();
         }
 
         public static async Task<bool> UploadHistoryItemAsync(BackupConfig? config, ManagedFolder? folder, HistoryItem? item)

@@ -47,21 +47,14 @@ namespace FolderRewind.Services
 
         private static (RestoreChainBuildStatus Status, List<FileInfo> Chain) BuildRestoreChainWithStatus(DirectoryInfo backupDir, FileInfo targetFile, string backupType, BackupConfig? config = null, string? folderName = null)
         {
-            var chain = new List<FileInfo>();
             if (!backupDir.Exists)
             {
-                return (RestoreChainBuildStatus.NotFound, chain);
+                return (RestoreChainBuildStatus.NotFound, new List<FileInfo>());
             }
 
             bool isIncremental =
                 BackupArchiveTypePolicy.IsIncremental(backupType) ||
                 IsIncrementalBackupFile(targetFile, config, folderName);
-
-            if (!isIncremental)
-            {
-                chain.Add(targetFile);
-                return (RestoreChainBuildStatus.Success, chain);
-            }
 
             var enumOptions = new EnumerationOptions
             {
@@ -69,47 +62,42 @@ namespace FolderRewind.Services
                 MatchCasing = MatchCasing.CaseInsensitive
             };
 
-            // 查找最近的全量备份基准
-            var baseFull = backupDir
-                .EnumerateFiles("*", enumOptions)
-                .Where(f => IsFullBackupFile(f, config, folderName) && f.LastWriteTime <= targetFile.LastWriteTime)
-                .OrderByDescending(f => f.LastWriteTime)
-                .FirstOrDefault();
+            // 保持延迟枚举：全量还原无需扫描目录；增量还原则由规划器只枚举一次。
+            var files = backupDir.EnumerateFiles("*", enumOptions);
+            var plan = BackupChainPlanner.Build(
+                files,
+                targetFile,
+                isIncremental,
+                new BackupChainPlanOptions<FileInfo>
+                {
+                    GetTimestamp = file => file.LastWriteTime,
+                    GetIdentity = file => file.FullName,
+                    IsFull = file => IsFullBackupFile(file, config, folderName),
+                    IsIncremental = file => IsIncrementalBackupFile(file, config, folderName),
+                    SelectBaseFull = candidates => candidates
+                        .OrderByDescending(file => file.LastWriteTime)
+                        .FirstOrDefault(),
+                    OrderChain = candidates => candidates
+                        .OrderBy(file => file.LastWriteTime)
+                        .ThenBy(file => file.Name),
+                    IdentityComparer = StringComparer.OrdinalIgnoreCase,
+                    PrependBaseFull = true,
+                    IncludeTargetInWindow = false,
+                    EnsureTargetIncluded = true,
+                    Deduplicate = true
+                });
 
-            if (baseFull == null)
+            if (plan.Status == BackupChainPlanStatus.MissingBaseFull)
             {
                 Log(I18n.Format("BackupService_Log_NoBaseFullFoundTryIncrementOnly"), LogLevel.Warning);
-                return (RestoreChainBuildStatus.MissingBaseFull, chain);
+                return (RestoreChainBuildStatus.MissingBaseFull, new List<FileInfo>());
             }
 
-            chain.Add(baseFull);
-
-            var increments = backupDir
-                .EnumerateFiles("*", enumOptions)
-                .Where(f => IsIncrementalBackupFile(f, config, folderName)
-                            && f.LastWriteTime >= baseFull.LastWriteTime
-                            && f.LastWriteTime <= targetFile.LastWriteTime)
-                .OrderBy(f => f.LastWriteTime)
-                .ThenBy(f => f.Name); // 二级排序确保稳定性
-
-            // 去重是为了兼容“同名文件被重写/历史重复登记”的旧数据。
-            var added = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-            added.Add(baseFull.FullName);
-
-            foreach (var inc in increments)
+            var chain = plan.Items.ToList();
+            if (isIncremental)
             {
-                if (added.Add(inc.FullName))
-                {
-                    chain.Add(inc);
-                }
+                Log(I18n.Format("BackupService_Log_RestoreChainBuilt", chain.Count), LogLevel.Debug);
             }
-
-            if (added.Add(targetFile.FullName))
-            {
-                chain.Add(targetFile);
-            }
-
-            Log(I18n.Format("BackupService_Log_RestoreChainBuilt", chain.Count), LogLevel.Debug);
 
             return (RestoreChainBuildStatus.Success, chain);
         }
