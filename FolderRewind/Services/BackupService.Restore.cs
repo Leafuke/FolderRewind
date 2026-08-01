@@ -79,8 +79,8 @@ namespace FolderRewind.Services
             bool safeRestoreEnabled = archiveSettings?.SafeRestoreEnabled ?? true;
             bool verifyArchiveBeforeRestore = archiveSettings?.VerifyArchiveBeforeRestore ?? true;
             // 历史数据可能是旧格式，这里同时看 BackupType 和文件名前缀做兼容判断。
-            bool targetIsIncremental = IsIncrementalBackupType(historyItem.BackupType)
-                || InferBackupTypeFromFileName(historyItem.FileName).Equals("Smart", StringComparison.OrdinalIgnoreCase);
+            bool targetIsIncremental = BackupArchiveTypePolicy.IsIncremental(historyItem.BackupType)
+                || BackupArchiveTypePolicy.InferFromFileName(historyItem.FileName).Equals("Smart", StringComparison.OrdinalIgnoreCase);
 
             string? safeRestoreTempDir = null;
             bool safeRestoreWorkspacePrepared = false;
@@ -1161,7 +1161,7 @@ namespace FolderRewind.Services
         {
             // 构造一个临时的 HistoryItem
             string backupType = HistoryService.GetBackupTypeForFile(config.Id, folder.DisplayName, backupFileName)
-                ?? InferBackupTypeFromFileName(backupFileName);
+                ?? BackupArchiveTypePolicy.InferFromFileName(backupFileName);
             var existingEntry = HistoryService.TryGetEntry(config.Id, folder.Path, backupFileName);
 
             var historyItem = new HistoryItem
@@ -1177,26 +1177,6 @@ namespace FolderRewind.Services
             await RestoreBackupAsync(config, folder, historyItem, mode);
         }
 
-
-        private static string InferBackupTypeFromFileName(string backupFileName)
-        {
-            if (string.IsNullOrWhiteSpace(backupFileName))
-            {
-                return "Full";
-            }
-
-            if (backupFileName.Contains("[Smart]", StringComparison.OrdinalIgnoreCase))
-            {
-                return "Smart";
-            }
-
-            if (backupFileName.Contains("[Overwrite]", StringComparison.OrdinalIgnoreCase))
-            {
-                return "Overwrite";
-            }
-
-            return "Full";
-        }
 
         private static string ResolveBackupType(FileInfo file, BackupConfig? config = null, string? folderName = null)
         {
@@ -1214,14 +1194,7 @@ namespace FolderRewind.Services
                 }
             }
 
-            return InferBackupTypeFromFileName(file.Name);
-        }
-
-        private static bool IsIncrementalBackupType(string? backupType)
-        {
-            return !string.IsNullOrWhiteSpace(backupType)
-                && (backupType.Equals("Incremental", StringComparison.OrdinalIgnoreCase)
-                    || backupType.Equals("Smart", StringComparison.OrdinalIgnoreCase));
+            return BackupArchiveTypePolicy.InferFromFileName(file.Name);
         }
 
         private static bool IsFullBackupFile(FileInfo file, BackupConfig? config = null, string? folderName = null)
@@ -1233,7 +1206,7 @@ namespace FolderRewind.Services
         private static bool IsIncrementalBackupFile(FileInfo file, BackupConfig? config = null, string? folderName = null)
         {
             var backupType = ResolveBackupType(file, config, folderName);
-            return IsIncrementalBackupType(backupType);
+            return BackupArchiveTypePolicy.IsIncremental(backupType);
         }
 
         private static (RestoreChainBuildStatus Status, List<FileInfo> Chain) BuildRestoreChainWithStatus(DirectoryInfo backupDir, FileInfo targetFile, string backupType, BackupConfig? config = null, string? folderName = null)
@@ -1245,7 +1218,7 @@ namespace FolderRewind.Services
             }
 
             bool isIncremental =
-                IsIncrementalBackupType(backupType) ||
+                BackupArchiveTypePolicy.IsIncremental(backupType) ||
                 IsIncrementalBackupFile(targetFile, config, folderName);
 
             if (!isIncremental)

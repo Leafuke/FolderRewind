@@ -210,9 +210,9 @@ namespace FolderRewind.ViewModels
         public IReadOnlyList<PluginSettingDefinition> SelectedBackupScopeParameters =>
             SelectedBackupScopeOption?.Definition?.Parameters ?? Array.Empty<PluginSettingDefinition>();
 
-        public double CompressionLevelMin => GetCompressionLevelRange(_archive.Method).Min;
+        public double CompressionLevelMin => ArchiveCompressionPolicy.GetLevelRange(_archive.Method).Min;
 
-        public double CompressionLevelMax => GetCompressionLevelRange(_archive.Method).Max;
+        public double CompressionLevelMax => ArchiveCompressionPolicy.GetLevelRange(_archive.Method).Max;
 
         public double CpuThreadMax => _cpuThreadMax;
 
@@ -1047,7 +1047,7 @@ namespace FolderRewind.ViewModels
 
         private void NormalizeCompressionLevel()
         {
-            var (min, max) = GetCompressionLevelRange(_archive.Method);
+            var (min, max) = ArchiveCompressionPolicy.GetLevelRange(_archive.Method);
             int clamped = Math.Clamp(_archive.CompressionLevel, min, max);
             if (_archive.CompressionLevel != clamped)
             {
@@ -1117,17 +1117,6 @@ namespace FolderRewind.ViewModels
             return $"{displayName} ({path})";
         }
 
-        private static (int Min, int Max) GetCompressionLevelRange(string? method)
-        {
-            return method switch
-            {
-                "zstd" => (1, 22),
-                "BZip2" => (1, 9),
-                "LZMA2" => (0, 9),
-                "Deflate" => (0, 9),
-                _ => (0, 9),
-            };
-        }
     }
 
     public sealed class AutomationFolderOption

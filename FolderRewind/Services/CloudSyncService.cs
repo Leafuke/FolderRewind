@@ -1191,8 +1191,8 @@ namespace FolderRewind.Services
                     string.Equals(item.FileName, targetItem.FileName, StringComparison.OrdinalIgnoreCase))
                 ?? targetItem;
 
-            bool targetIsIncremental = IsIncrementalBackupType(effectiveTarget.BackupType)
-                || InferBackupTypeFromFileName(effectiveTarget.FileName).Equals("Smart", StringComparison.OrdinalIgnoreCase);
+            bool targetIsIncremental = BackupArchiveTypePolicy.IsIncremental(effectiveTarget.BackupType)
+                || BackupArchiveTypePolicy.InferFromFileName(effectiveTarget.FileName).Equals("Smart", StringComparison.OrdinalIgnoreCase);
             if (!targetIsIncremental)
             {
                 return [effectiveTarget];
@@ -1202,7 +1202,7 @@ namespace FolderRewind.Services
                 .Where(item => item.Timestamp <= effectiveTarget.Timestamp)
                 .Where(item =>
                     string.Equals(item.BackupType, "Full", StringComparison.OrdinalIgnoreCase)
-                    || InferBackupTypeFromFileName(item.FileName).Equals("Full", StringComparison.OrdinalIgnoreCase))
+                    || BackupArchiveTypePolicy.InferFromFileName(item.FileName).Equals("Full", StringComparison.OrdinalIgnoreCase))
                 .LastOrDefault();
             if (baseFull == null)
             {
@@ -1214,38 +1214,11 @@ namespace FolderRewind.Services
                 .Where(item =>
                     string.Equals(item.FileName, baseFull.FileName, StringComparison.OrdinalIgnoreCase)
                     || string.Equals(item.FileName, effectiveTarget.FileName, StringComparison.OrdinalIgnoreCase)
-                    || IsIncrementalBackupType(item.BackupType)
-                    || InferBackupTypeFromFileName(item.FileName).Equals("Smart", StringComparison.OrdinalIgnoreCase))
+                    || BackupArchiveTypePolicy.IsIncremental(item.BackupType)
+                    || BackupArchiveTypePolicy.InferFromFileName(item.FileName).Equals("Smart", StringComparison.OrdinalIgnoreCase))
                 .OrderBy(item => item.Timestamp)
                 .ThenBy(item => item.FileName, StringComparer.OrdinalIgnoreCase)
                 .ToList();
-        }
-
-        private static bool IsIncrementalBackupType(string? backupType)
-        {
-            return !string.IsNullOrWhiteSpace(backupType)
-                && (backupType.Equals("Incremental", StringComparison.OrdinalIgnoreCase)
-                    || backupType.Equals("Smart", StringComparison.OrdinalIgnoreCase));
-        }
-
-        private static string InferBackupTypeFromFileName(string? backupFileName)
-        {
-            if (string.IsNullOrWhiteSpace(backupFileName))
-            {
-                return "Full";
-            }
-
-            if (backupFileName.Contains("[Smart]", StringComparison.OrdinalIgnoreCase))
-            {
-                return "Smart";
-            }
-
-            if (backupFileName.Contains("[Overwrite]", StringComparison.OrdinalIgnoreCase))
-            {
-                return "Overwrite";
-            }
-
-            return "Full";
         }
 
         public static async Task<bool> UploadHistoryItemAsync(BackupConfig? config, ManagedFolder? folder, HistoryItem? item)

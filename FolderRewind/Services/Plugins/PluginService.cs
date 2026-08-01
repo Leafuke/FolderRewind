@@ -41,7 +41,7 @@ namespace FolderRewind.Services.Plugins
 
         public static ReadOnlyObservableCollection<InstalledPluginInfo> InstalledPlugins { get; } = new(_installed);
 
-        public static string PluginRootDirectory => Path.Combine(GetWritableAppDataDir(), "FolderRewind", "plugins");
+        public static string PluginRootDirectory => Path.Combine(AppRuntimeInfo.WritableAppDataBaseDirectory, "FolderRewind", "plugins");
 
         /// <summary>
         /// 获取当前 Host 版本号
@@ -790,7 +790,7 @@ namespace FolderRewind.Services.Plugins
             {
                 foreach (var rule in contribution.BackupWhitelist!.Where(rule => !string.IsNullOrWhiteSpace(rule)))
                 {
-                    AddDistinctRule(clone.Filters.BackupWhitelist, rule);
+                    BackupFilterRulePolicy.AddDistinct(clone.Filters.BackupWhitelist, rule);
                 }
             }
 
@@ -798,7 +798,7 @@ namespace FolderRewind.Services.Plugins
             {
                 foreach (var rule in contribution.BackupBlacklist!.Where(rule => !string.IsNullOrWhiteSpace(rule)))
                 {
-                    AddDistinctRule(clone.Filters.Blacklist, rule);
+                    BackupFilterRulePolicy.AddDistinct(clone.Filters.Blacklist, rule);
                 }
             }
 
@@ -870,22 +870,6 @@ namespace FolderRewind.Services.Plugins
             return BackupConfigCloneService.CloneForRuntimeMutation(
                 source,
                 "Failed to clone backup config for plugin filters.");
-        }
-
-        private static void AddDistinctRule(ObservableCollection<string> rules, string rule)
-        {
-            var trimmed = rule.Trim();
-            if (string.IsNullOrWhiteSpace(trimmed))
-            {
-                return;
-            }
-
-            if (rules.Any(existing => string.Equals(existing?.Trim(), trimmed, StringComparison.OrdinalIgnoreCase)))
-            {
-                return;
-            }
-
-            rules.Add(trimmed);
         }
 
         public static string? InvokeBeforeBackupFolder(
@@ -2289,11 +2273,6 @@ namespace FolderRewind.Services.Plugins
             }
 
             return name.Trim();
-        }
-
-        private static string GetWritableAppDataDir()
-        {
-            return AppRuntimeInfo.WritableAppDataBaseDirectory;
         }
 
         private sealed record LoadedPlugin(PluginInstallManifest Manifest, IFolderRewindPlugin Instance, PluginLoadContext LoadContext);

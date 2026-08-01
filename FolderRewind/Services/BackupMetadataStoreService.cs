@@ -711,7 +711,7 @@ namespace FolderRewind.Services
         private static bool TryGetRecordPath(string metadataDir, string archiveFileName, out string recordPath)
         {
             recordPath = string.Empty;
-            if (!IsSafeSinglePathSegment(archiveFileName))
+            if (!BackupStoragePathService.IsSafeSinglePathSegment(archiveFileName))
             {
                 return false;
             }
@@ -724,43 +724,6 @@ namespace FolderRewind.Services
         private static string GetRecordsDirectoryPath(string metadataDir) => Path.Combine(metadataDir, RecordsDirectoryName);
         private static string GetLegacyMetadataPath(string metadataDir) => Path.Combine(metadataDir, LegacyMetadataFileName);
         private static string GetLegacyBackupMetadataPath(string metadataDir) => Path.Combine(metadataDir, LegacyBackupMetadataFileName);
-
-        private static bool IsSafeSinglePathSegment(string value)
-        {
-            if (string.IsNullOrWhiteSpace(value))
-            {
-                return false;
-            }
-
-            if (Path.IsPathRooted(value))
-            {
-                return false;
-            }
-
-            if (value.Equals(".", StringComparison.Ordinal) || value.Equals("..", StringComparison.Ordinal))
-            {
-                return false;
-            }
-
-            if (value.IndexOf(Path.DirectorySeparatorChar) >= 0 || value.IndexOf(Path.AltDirectorySeparatorChar) >= 0)
-            {
-                return false;
-            }
-
-            if (value.IndexOf('\0') >= 0)
-            {
-                return false;
-            }
-
-            try
-            {
-                return string.Equals(Path.GetFileName(value), value, StringComparison.Ordinal);
-            }
-            catch
-            {
-                return false;
-            }
-        }
 
         private static void TryDeleteFile(string filePath)
         {

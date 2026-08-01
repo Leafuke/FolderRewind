@@ -194,7 +194,8 @@ namespace FolderRewind.Services
                 backupFolderName = folder.DisplayName;
             }
 
-            if (!IsSafeSinglePathSegment(backupFolderName) || !IsSafeSinglePathSegment(item.FileName))
+            if (!BackupStoragePathService.IsSafeSinglePathSegment(backupFolderName)
+                || !BackupStoragePathService.IsSafeSinglePathSegment(item.FileName))
             {
                 LogService.Log($"[HistoryService] Rejected unsafe history path: folder='{backupFolderName}', file='{item.FileName}'", LogLevel.Warning);
                 return null;
@@ -204,14 +205,14 @@ namespace FolderRewind.Services
             {
                 string destinationRoot = Path.GetFullPath(config.DestinationPath);
                 string backupFolderPath = Path.GetFullPath(Path.Combine(destinationRoot, backupFolderName));
-                if (!IsPathInsideRoot(backupFolderPath, destinationRoot))
+                if (!BackupStoragePathService.IsPathInsideRoot(backupFolderPath, destinationRoot))
                 {
                     LogService.Log($"[HistoryService] Rejected history folder outside destination root: {backupFolderPath}", LogLevel.Warning);
                     return null;
                 }
 
                 string backupFilePath = Path.GetFullPath(Path.Combine(backupFolderPath, item.FileName));
-                if (!IsPathInsideRoot(backupFilePath, backupFolderPath))
+                if (!BackupStoragePathService.IsPathInsideRoot(backupFilePath, backupFolderPath))
                 {
                     LogService.Log($"[HistoryService] Rejected history file outside backup folder: {backupFilePath}", LogLevel.Warning);
                     return null;
@@ -226,66 +227,6 @@ namespace FolderRewind.Services
             }
         }
 
-        private static bool IsSafeSinglePathSegment(string value)
-        {
-            if (string.IsNullOrWhiteSpace(value))
-            {
-                return false;
-            }
-
-            if (Path.IsPathRooted(value))
-            {
-                return false;
-            }
-
-            if (value.Equals(".", StringComparison.Ordinal) || value.Equals("..", StringComparison.Ordinal))
-            {
-                return false;
-            }
-
-            if (value.IndexOf(Path.DirectorySeparatorChar) >= 0 || value.IndexOf(Path.AltDirectorySeparatorChar) >= 0)
-            {
-                return false;
-            }
-
-            if (value.IndexOf('\0') >= 0)
-            {
-                return false;
-            }
-
-            try
-            {
-                return string.Equals(Path.GetFileName(value), value, StringComparison.Ordinal);
-            }
-            catch
-            {
-                return false;
-            }
-        }
-
-        private static bool IsPathInsideRoot(string candidatePath, string rootPath)
-        {
-            try
-            {
-                string normalizedRoot = Path.GetFullPath(rootPath)
-                    .TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
-                string normalizedCandidate = Path.GetFullPath(candidatePath)
-                    .TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
-
-                if (string.Equals(normalizedCandidate, normalizedRoot, StringComparison.OrdinalIgnoreCase))
-                {
-                    return true;
-                }
-
-                string prefix = normalizedRoot + Path.DirectorySeparatorChar;
-                return normalizedCandidate.StartsWith(prefix, StringComparison.OrdinalIgnoreCase);
-            }
-            catch
-            {
-                return false;
-            }
-        }
-
         private static bool IsSafeHistoryItem(HistoryItem item)
         {
             if (item == null)
@@ -293,12 +234,13 @@ namespace FolderRewind.Services
                 return false;
             }
 
-            if (!IsSafeSinglePathSegment(item.FileName))
+            if (!BackupStoragePathService.IsSafeSinglePathSegment(item.FileName))
             {
                 return false;
             }
 
-            if (!string.IsNullOrWhiteSpace(item.FolderName) && !IsSafeSinglePathSegment(item.FolderName))
+            if (!string.IsNullOrWhiteSpace(item.FolderName)
+                && !BackupStoragePathService.IsSafeSinglePathSegment(item.FolderName))
             {
                 return false;
             }

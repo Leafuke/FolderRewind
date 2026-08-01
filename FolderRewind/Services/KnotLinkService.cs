@@ -1253,7 +1253,7 @@ namespace FolderRewind.Services
                 clone.Filters.BackupFilterMode = BackupFilterMode.Whitelist;
                 foreach (var rule in backupWhitelist.Where(rule => !string.IsNullOrWhiteSpace(rule)))
                 {
-                    AddDistinctRule(clone.Filters.BackupWhitelist, rule);
+                    BackupFilterRulePolicy.AddDistinct(clone.Filters.BackupWhitelist, rule);
                 }
             }
 
@@ -1261,7 +1261,7 @@ namespace FolderRewind.Services
             {
                 foreach (var rule in restoreWhitelist.Where(rule => !string.IsNullOrWhiteSpace(rule)))
                 {
-                    AddDistinctRule(clone.Filters.RestoreWhitelist, rule);
+                    BackupFilterRulePolicy.AddDistinct(clone.Filters.RestoreWhitelist, rule);
                 }
             }
 
@@ -1317,22 +1317,6 @@ namespace FolderRewind.Services
         private static bool IsPartialBackup(BackupConfig config, ManagedFolder folder, string backupFile)
         {
             return HistoryService.TryGetEntry(config.Id, folder.Path, backupFile)?.IsPartialBackup == true;
-        }
-
-        private static void AddDistinctRule(ObservableCollection<string> rules, string rule)
-        {
-            var trimmed = rule.Trim();
-            if (string.IsNullOrWhiteSpace(trimmed))
-            {
-                return;
-            }
-
-            if (rules.Any(existing => string.Equals(existing?.Trim(), trimmed, StringComparison.OrdinalIgnoreCase)))
-            {
-                return;
-            }
-
-            rules.Add(trimmed);
         }
 
         private static ManagedFolder ResolveEquivalentFolder(BackupConfig effectiveConfig, ManagedFolder originalFolder)

@@ -97,18 +97,6 @@ namespace FolderRewind.Views
         /// </summary>
         private static readonly string[] CompressionMethods = { "LZMA2", "Deflate", "BZip2", "zstd" };
 
-        private static (int Min, int Max) GetCompressionLevelRange(string? method)
-        {
-            return method switch
-            {
-                "zstd" => (1, 22),
-                "BZip2" => (1, 9),
-                "LZMA2" => (0, 9),
-                "Deflate" => (0, 9),
-                _ => (0, 9),
-            };
-        }
-
         /// <summary>
         /// 根据当前压缩算法返回压缩等级的最小值
         /// </summary>
@@ -140,7 +128,7 @@ namespace FolderRewind.Views
         private void UpdateCompressionLevelSliderRange()
         {
             if (CompressionLevelSlider == null) return;
-            var (min, max) = GetCompressionLevelRange(Config?.Archive?.Method);
+            var (min, max) = ArchiveCompressionPolicy.GetLevelRange(Config?.Archive?.Method);
             CompressionLevelSlider.Minimum = min;
             CompressionLevelSlider.Maximum = max;
             // 将当前值限制在新的有效范围内

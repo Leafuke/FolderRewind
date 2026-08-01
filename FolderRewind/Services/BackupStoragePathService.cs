@@ -105,6 +105,35 @@ namespace FolderRewind.Services
             }
         }
 
+        internal static bool IsSafeSinglePathSegment(string value)
+        {
+            if (string.IsNullOrWhiteSpace(value) || Path.IsPathRooted(value))
+            {
+                return false;
+            }
+
+            if (value.Equals(".", StringComparison.Ordinal) || value.Equals("..", StringComparison.Ordinal))
+            {
+                return false;
+            }
+
+            if (value.IndexOf(Path.DirectorySeparatorChar) >= 0
+                || value.IndexOf(Path.AltDirectorySeparatorChar) >= 0
+                || value.IndexOf('\0') >= 0)
+            {
+                return false;
+            }
+
+            try
+            {
+                return string.Equals(Path.GetFileName(value), value, StringComparison.Ordinal);
+            }
+            catch
+            {
+                return false;
+            }
+        }
+
         public static bool TryResolveBackupStoragePaths(
             string destinationRoot,
             string folderDisplayName,

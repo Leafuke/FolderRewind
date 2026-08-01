@@ -139,7 +139,7 @@ namespace FolderRewind.Services
 
         public static string GetLogDirectory()
         {
-            return Path.Combine(GetWritableAppDataDir(), "FolderRewind", "logs");
+            return Path.Combine(AppRuntimeInfo.WritableAppDataBaseDirectory, "FolderRewind", "logs");
         }
 
         public static string GetLogFilePath()
@@ -280,9 +280,5 @@ namespace FolderRewind.Services
             };
         }
 
-        private static string GetWritableAppDataDir()
-        {
-            return AppRuntimeInfo.WritableAppDataBaseDirectory;
-        }
     }
 }
