@@ -151,118 +151,24 @@ namespace FolderRewind.Services
                     return !loadResult.MetadataExists || !loadResult.StateLoadFailed;
                 }
 
-                var orderedRecords = loadResult.Records.Values
-                    .Select(CloneRecord)
-                    .OrderBy(r => r.CreatedAtUtc)
-                    .ThenBy(r => r.ArchiveFileName, StringComparer.OrdinalIgnoreCase)
-                    .ToList();
+                var deletionResult = BackupMetadataDeletionPolicy.Apply(
+                    state,
+                    loadResult.Records.Values,
+                    deletedFileName,
+                    renamedOldFileName,
+                    renamedNewFileName,
+                    renamedBackupType);
 
-                bool invalidateState = false;
-                int deletedIndex = orderedRecords.FindIndex(r => string.Equals(r.ArchiveFileName, deletedFileName, StringComparison.OrdinalIgnoreCase));
-                BackupChangeRecord? deletedRecord = deletedIndex >= 0 ? orderedRecords[deletedIndex] : null;
-                BackupChangeRecord? previousRecord = deletedIndex > 0 ? orderedRecords[deletedIndex - 1] : null;
-
-                BackupChangeRecord? successorRecord = null;
-                if (!string.IsNullOrWhiteSpace(renamedOldFileName))
-                {
-                    successorRecord = orderedRecords.FirstOrDefault(r => string.Equals(r.ArchiveFileName, renamedOldFileName, StringComparison.OrdinalIgnoreCase));
-                }
-                else if (deletedIndex >= 0 && deletedIndex + 1 < orderedRecords.Count)
-                {
-                    successorRecord = orderedRecords[deletedIndex + 1];
-                }
-
-                if (deletedRecord != null && successorRecord != null)
-                {
-                    RebaseSuccessorBackupRecord(previousRecord, deletedRecord, successorRecord, renamedNewFileName, renamedBackupType);
-                }
-
-                if (!string.IsNullOrWhiteSpace(renamedOldFileName) && !string.IsNullOrWhiteSpace(renamedNewFileName))
-                {
-                    foreach (var current in orderedRecords)
-                    {
-                        if (string.Equals(current.ArchiveFileName, renamedOldFileName, StringComparison.OrdinalIgnoreCase))
-                        {
-                            current.ArchiveFileName = renamedNewFileName;
-                            if (!string.IsNullOrWhiteSpace(renamedBackupType))
-                            {
-                                current.BackupType = renamedBackupType;
-                            }
-                        }
-
-                        if (string.Equals(current.PreviousBackupFileName, renamedOldFileName, StringComparison.OrdinalIgnoreCase))
-                        {
-                            current.PreviousBackupFileName = renamedNewFileName;
-                        }
-
-                        if (string.Equals(current.BasedOnFullBackup, renamedOldFileName, StringComparison.OrdinalIgnoreCase))
-                        {
-                            current.BasedOnFullBackup = renamedNewFileName;
-                        }
-                    }
-
-                    if (string.Equals(state.LastBackupFileName, renamedOldFileName, StringComparison.OrdinalIgnoreCase))
-                    {
-                        state.LastBackupFileName = renamedNewFileName;
-                    }
-
-                    if (string.Equals(state.BasedOnFullBackup, renamedOldFileName, StringComparison.OrdinalIgnoreCase))
-                    {
-                        state.BasedOnFullBackup = renamedNewFileName;
-                    }
-                }
-
-                orderedRecords.RemoveAll(r => string.Equals(r.ArchiveFileName, deletedFileName, StringComparison.OrdinalIgnoreCase));
-
-                foreach (var current in orderedRecords)
-                {
-                    if (string.Equals(current.PreviousBackupFileName, deletedFileName, StringComparison.OrdinalIgnoreCase))
-                    {
-                        current.PreviousBackupFileName = previousRecord?.ArchiveFileName ?? string.Empty;
-                    }
-
-                    if (string.Equals(current.BasedOnFullBackup, deletedFileName, StringComparison.OrdinalIgnoreCase))
-                    {
-                        if (!string.IsNullOrWhiteSpace(renamedNewFileName)
-                            && string.Equals(renamedBackupType, "Full", StringComparison.OrdinalIgnoreCase))
-                        {
-                            current.BasedOnFullBackup = renamedNewFileName;
-                        }
-                        else
-                        {
-                            invalidateState = true;
-                        }
-                    }
-                }
-
-                if (string.Equals(state.LastBackupFileName, deletedFileName, StringComparison.OrdinalIgnoreCase))
-                {
-                    invalidateState = true;
-                }
-
-                if (string.Equals(state.BasedOnFullBackup, deletedFileName, StringComparison.OrdinalIgnoreCase))
-                {
-                    if (!string.IsNullOrWhiteSpace(renamedNewFileName)
-                        && string.Equals(renamedBackupType, "Full", StringComparison.OrdinalIgnoreCase))
-                    {
-                        state.BasedOnFullBackup = renamedNewFileName;
-                    }
-                    else
-                    {
-                        invalidateState = true;
-                    }
-                }
-
-                if (invalidateState)
+                if (deletionResult.InvalidateState)
                 {
                     TryDeleteFile(GetStatePath(metadataDir));
                 }
-                else if (!WriteStateAsync(GetStatePath(metadataDir), state).GetAwaiter().GetResult())
+                else if (!WriteStateAsync(GetStatePath(metadataDir), deletionResult.State).GetAwaiter().GetResult())
                 {
                     return false;
                 }
 
-                if (!PersistRecordSnapshotAsync(metadataDir, orderedRecords).GetAwaiter().GetResult())
+                if (!PersistRecordSnapshotAsync(metadataDir, deletionResult.Records).GetAwaiter().GetResult())
                 {
                     return false;
                 }
@@ -739,83 +645,5 @@ namespace FolderRewind.Services
             }
         }
 
-        private static void RebaseSuccessorBackupRecord(
-            BackupChangeRecord? previousRecord,
-            BackupChangeRecord deletedRecord,
-            BackupChangeRecord successorRecord,
-            string? renamedNewFileName,
-            string? renamedBackupType)
-        {
-            successorRecord.ArchiveFileName = string.IsNullOrWhiteSpace(renamedNewFileName)
-                ? successorRecord.ArchiveFileName
-                : renamedNewFileName;
-            successorRecord.BackupType = string.IsNullOrWhiteSpace(renamedBackupType)
-                ? successorRecord.BackupType
-                : renamedBackupType;
-
-            var finalSet = new HashSet<string>(
-                (successorRecord.FullFileList ?? new List<string>()).Where(f => !string.IsNullOrWhiteSpace(f)),
-                StringComparer.OrdinalIgnoreCase);
-
-            if (string.Equals(successorRecord.BackupType, "Full", StringComparison.OrdinalIgnoreCase) || previousRecord == null)
-            {
-                successorRecord.BasedOnFullBackup = successorRecord.ArchiveFileName;
-                successorRecord.PreviousBackupFileName = string.Empty;
-                successorRecord.AddedFiles = finalSet.OrderBy(x => x, StringComparer.OrdinalIgnoreCase).ToList();
-                successorRecord.ModifiedFiles = new List<string>();
-                successorRecord.DeletedFiles = new List<string>();
-                successorRecord.FullFileList = finalSet.OrderBy(x => x, StringComparer.OrdinalIgnoreCase).ToList();
-                return;
-            }
-
-            var previousSet = new HashSet<string>(
-                (previousRecord.FullFileList ?? new List<string>()).Where(f => !string.IsNullOrWhiteSpace(f)),
-                StringComparer.OrdinalIgnoreCase);
-            var ownerMap = previousSet.ToDictionary(path => path, _ => string.Empty, StringComparer.OrdinalIgnoreCase);
-
-            foreach (var deleted in (deletedRecord.DeletedFiles ?? new List<string>()).Where(f => !string.IsNullOrWhiteSpace(f)))
-            {
-                ownerMap.Remove(deleted);
-            }
-            foreach (var added in (deletedRecord.AddedFiles ?? new List<string>()).Where(f => !string.IsNullOrWhiteSpace(f)))
-            {
-                ownerMap[added] = deletedRecord.ArchiveFileName;
-            }
-            foreach (var modified in (deletedRecord.ModifiedFiles ?? new List<string>()).Where(f => !string.IsNullOrWhiteSpace(f)))
-            {
-                ownerMap[modified] = deletedRecord.ArchiveFileName;
-            }
-
-            foreach (var deleted in (successorRecord.DeletedFiles ?? new List<string>()).Where(f => !string.IsNullOrWhiteSpace(f)))
-            {
-                ownerMap.Remove(deleted);
-            }
-            foreach (var added in (successorRecord.AddedFiles ?? new List<string>()).Where(f => !string.IsNullOrWhiteSpace(f)))
-            {
-                ownerMap[added] = successorRecord.ArchiveFileName;
-            }
-            foreach (var modified in (successorRecord.ModifiedFiles ?? new List<string>()).Where(f => !string.IsNullOrWhiteSpace(f)))
-            {
-                ownerMap[modified] = successorRecord.ArchiveFileName;
-            }
-
-            successorRecord.PreviousBackupFileName = previousRecord.ArchiveFileName;
-            successorRecord.BasedOnFullBackup = previousRecord.BasedOnFullBackup;
-            successorRecord.AddedFiles = finalSet
-                .Where(path => !previousSet.Contains(path))
-                .OrderBy(path => path, StringComparer.OrdinalIgnoreCase)
-                .ToList();
-            successorRecord.DeletedFiles = previousSet
-                .Where(path => !finalSet.Contains(path))
-                .OrderBy(path => path, StringComparer.OrdinalIgnoreCase)
-                .ToList();
-            successorRecord.ModifiedFiles = finalSet
-                .Where(path => previousSet.Contains(path)
-                    && ownerMap.TryGetValue(path, out var owner)
-                    && !string.IsNullOrWhiteSpace(owner))
-                .OrderBy(path => path, StringComparer.OrdinalIgnoreCase)
-                .ToList();
-            successorRecord.FullFileList = finalSet.OrderBy(path => path, StringComparer.OrdinalIgnoreCase).ToList();
-        }
     }
 }

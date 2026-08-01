@@ -39,6 +39,8 @@
     <Compile Include="..\FolderRewind\Services\BackupFilterRulePolicy.cs" Link="Source\BackupFilterRulePolicy.cs" />
     <Compile Include="..\FolderRewind\Services\BackupStoragePathService.cs" Link="Source\BackupStoragePathService.cs" />
     <Compile Include="..\FolderRewind\Services\SevenZipExecutableLocator.cs" Link="Source\SevenZipExecutableLocator.cs" />
+    <Compile Include="..\FolderRewind\Models\BackupMetadata.cs" Link="Source\BackupMetadata.cs" />
+    <Compile Include="..\FolderRewind\Services\BackupMetadataDeletionPolicy.cs" Link="Source\BackupMetadataDeletionPolicy.cs" />
     <Compile Include="..\FolderRewind\Models\FolderRenameModels.cs" Link="Source\FolderRenameModels.cs" />
     <Compile Include="..\FolderRewind\Models\PersistenceModels.cs" Link="Source\PersistenceModels.cs" />
     <Compile Include="..\FolderRewind\Services\AtomicFileService.cs" Link="Source\AtomicFileService.cs" />
