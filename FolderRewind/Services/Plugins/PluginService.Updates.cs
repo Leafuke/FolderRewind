@@ -18,6 +18,11 @@ namespace FolderRewind.Services.Plugins
 {
     public static partial class PluginService
     {
+        /// <summary>
+        /// 检查所有已安装插件的更新
+        /// </summary>
+        /// <param name="ct">取消令牌</param>
+        /// <param name="respectAutoCheckSetting">是否尊重自动检查更新设置</param>
         public static async Task CheckAllPluginUpdatesAsync(CancellationToken ct = default, bool respectAutoCheckSetting = true)
         {
             var settings = ConfigService.CurrentConfig?.GlobalSettings?.Plugins;

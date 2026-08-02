@@ -18,6 +18,13 @@ namespace FolderRewind.Services.Plugins
 {
     public static partial class PluginService
     {
+        /// <summary>
+        /// 从 zip 安装插件（zip 内需包含 manifest.json）。
+        /// 目标目录：plugins/{pluginId}/...
+        /// </summary>
+        /// <param name="zipFilePath">zip 文件路径</param>
+        /// <param name="ct">取消令牌</param>
+        /// <returns>安装结果</returns>
         public static async Task<(bool Success, string Message)> InstallFromZipAsync(string zipFilePath, CancellationToken ct = default)
         {
             if (string.IsNullOrWhiteSpace(zipFilePath) || !File.Exists(zipFilePath))
@@ -440,9 +447,5 @@ namespace FolderRewind.Services.Plugins
                 LogService.LogWarning(I18n.Format("PluginService_ApplyPendingUpdatesFailed_Log", ex.Message), "PluginService");
             }
         }
-
-        /// <summary>
-        /// 检查所有已安装插件的更新
-        /// </summary>
     }
 }

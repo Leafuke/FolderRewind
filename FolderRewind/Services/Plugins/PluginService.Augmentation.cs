@@ -233,9 +233,5 @@ namespace FolderRewind.Services.Plugins
                     I18n.GetString("PluginService_ConfigAugmentationAdded_Title"));
             }
         }
-
-        /// <summary>
-        /// 检查是否有插件希望接管指定配置的备份
-        /// </summary>
     }
 }

@@ -162,17 +162,5 @@ namespace FolderRewind.Services
                 }
             }
         }
-
-        /// <summary>
-        /// 自定义文件类型处理：主压缩完成后，对匹配各规则的文件执行追加压缩（不同压缩等级）。
-        /// 按压缩等级分组，每组生成一次 7z 追加命令，减少进程调用次数。
-        /// </summary>
-        /// <param name="sourceDir">源文件目录</param>
-        /// <param name="archivePath">已创建的压缩包路径</param>
-        /// <param name="settings">归档设置</param>
-        /// <param name="changedFileList">增量备份时的变更文件列表（相对路径），为 null 表示全量</param>
-        /// <param name="filters">黑名单过滤设置</param>
-        /// <param name="password">加密密码（可选）</param>
-        /// <returns>所有追加操作是否全部成功</returns>
     }
 }

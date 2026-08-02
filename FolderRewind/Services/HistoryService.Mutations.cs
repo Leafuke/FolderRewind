@@ -460,9 +460,5 @@ namespace FolderRewind.Services
                 metadataRecordRemotePath,
                 metadataStateRemotePath);
         }
-
-        /// <summary>
-        /// 导出历史记录到指定路径
-        /// </summary>
     }
 }

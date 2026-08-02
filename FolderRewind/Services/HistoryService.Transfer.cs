@@ -14,6 +14,9 @@ namespace FolderRewind.Services
 {
     public static partial class HistoryService
     {
+        /// <summary>
+        /// 导出历史记录到指定路径
+        /// </summary>
         public static bool ExportHistory(string destPath)
         {
             Initialize();

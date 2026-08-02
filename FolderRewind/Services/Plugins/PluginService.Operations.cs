@@ -18,6 +18,11 @@ namespace FolderRewind.Services.Plugins
 {
     public static partial class PluginService
     {
+        /// <summary>
+        /// 检查是否有插件希望接管指定配置的备份
+        /// </summary>
+        /// <param name="config">要检查的备份配置</param>
+        /// <returns>是否需要插件处理以及对应的插件实例</returns>
         public static (bool ShouldHandle, IFolderRewindPlugin? Plugin) CheckPluginWantsToHandleBackup(BackupConfig config)
         {
             if (!IsPluginSystemEnabled()) return (false, null);
@@ -167,10 +172,5 @@ namespace FolderRewind.Services.Plugins
 
             return new PluginCreateConfigResult { Handled = false };
         }
-
-        /// <summary>
-        /// 从 zip 安装插件（zip 内需包含 manifest.json）。
-        /// 目标目录：plugins/{pluginId}/...
-        /// </summary>
     }
 }
