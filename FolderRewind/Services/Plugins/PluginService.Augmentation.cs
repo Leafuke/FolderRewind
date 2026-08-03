@@ -32,11 +32,6 @@ namespace FolderRewind.Services.Plugins
             {
                 var currentConfig = ConfigService.CurrentConfig;
                 var liveConfigs = currentConfig?.BackupConfigs?.ToList() ?? new List<BackupConfig>();
-                if (liveConfigs.Count == 0)
-                {
-                    return new PluginConfigAugmentationRunResult();
-                }
-
                 var configSnapshot = liveConfigs
                     .Select(CloneConfigForAugmentationSnapshot)
                     .ToList();
@@ -46,6 +41,7 @@ namespace FolderRewind.Services.Plugins
                     : new HashSet<string>(pluginIds, StringComparer.OrdinalIgnoreCase);
 
                 var pendingItems = new List<(string PluginId, PluginConfigAugmentationItem Item)>();
+                var pendingConfigs = new List<(string PluginId, BackupConfig Config)>();
 
                 foreach (var plugin in GetEnabledLoadedPluginsSnapshot())
                 {
@@ -69,14 +65,21 @@ namespace FolderRewind.Services.Plugins
                             },
                             GetPluginSettings(plugin.Manifest.Id));
 
-                        if (!result.Handled || result.Items == null || result.Items.Count == 0)
+                        if (!result.Handled)
                         {
                             continue;
                         }
 
-                        foreach (var item in result.Items.Where(static entry => entry != null && !string.IsNullOrWhiteSpace(entry.ConfigId)))
+                        foreach (var item in (result.Items ?? Array.Empty<PluginConfigAugmentationItem>())
+                                     .Where(static entry => entry != null && !string.IsNullOrWhiteSpace(entry.ConfigId)))
                         {
                             pendingItems.Add((plugin.Manifest.Id, item));
+                        }
+
+                        foreach (var config in (result.ConfigsToAdd ?? Array.Empty<BackupConfig>())
+                                     .Where(static entry => entry != null))
+                        {
+                            pendingConfigs.Add((plugin.Manifest.Id, config));
                         }
                     }
                     catch (Exception ex)
@@ -88,12 +91,13 @@ namespace FolderRewind.Services.Plugins
                     }
                 }
 
-                if (pendingItems.Count == 0)
+                if (pendingItems.Count == 0 && pendingConfigs.Count == 0)
                 {
                     return new PluginConfigAugmentationRunResult();
                 }
 
                 var addedByPlugin = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
+                var addedConfigsByPlugin = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
                 var touchedConfigs = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
 
                 await UiDispatcherService.RunOnUiAsync(() =>
@@ -119,18 +123,81 @@ namespace FolderRewind.Services.Plugins
                             : addedCount;
                     }
 
-                    if (touchedConfigs.Count > 0)
+                    var knownSourcePaths = new HashSet<string>(
+                        currentConfig?.BackupConfigs?
+                            .SelectMany(config => config.SourceFolders ?? Enumerable.Empty<ManagedFolder>())
+                            .Select(folder => PluginConfigAdditionPolicy.NormalizePath(folder.Path))
+                            .Where(static path => !string.IsNullOrWhiteSpace(path))
+                        ?? Enumerable.Empty<string>(),
+                        StringComparer.OrdinalIgnoreCase);
+                    var usedNames = new HashSet<string>(
+                        currentConfig?.BackupConfigs?
+                            .Select(config => config.Name?.Trim() ?? string.Empty)
+                            .Where(static name => !string.IsNullOrWhiteSpace(name))
+                        ?? Enumerable.Empty<string>(),
+                        StringComparer.OrdinalIgnoreCase);
+                    var usedDestinationPaths = new HashSet<string>(
+                        currentConfig?.BackupConfigs?
+                            .Select(config => PluginConfigAdditionPolicy.NormalizePath(config.DestinationPath))
+                            .Where(static path => !string.IsNullOrWhiteSpace(path))
+                        ?? Enumerable.Empty<string>(),
+                        StringComparer.OrdinalIgnoreCase);
+
+                    foreach (var (pluginId, candidate) in pendingConfigs)
+                    {
+                        try
+                        {
+                            var prepared = TryPrepareAugmentedConfig(
+                                candidate,
+                                knownSourcePaths,
+                                usedNames,
+                                usedDestinationPaths);
+                            if (prepared == null || currentConfig?.BackupConfigs == null)
+                            {
+                                continue;
+                            }
+
+                            currentConfig.BackupConfigs.Add(prepared);
+                            foreach (var folder in prepared.SourceFolders)
+                            {
+                                string path = PluginConfigAdditionPolicy.NormalizePath(folder.Path);
+                                if (!string.IsNullOrWhiteSpace(path))
+                                {
+                                    knownSourcePaths.Add(path);
+                                }
+                            }
+
+                            usedNames.Add(prepared.Name);
+                            usedDestinationPaths.Add(PluginConfigAdditionPolicy.NormalizePath(prepared.DestinationPath));
+                            addedConfigsByPlugin[pluginId] = addedConfigsByPlugin.TryGetValue(pluginId, out int currentAdded)
+                                ? currentAdded + 1
+                                : 1;
+                        }
+                        catch (Exception ex)
+                        {
+                            LogService.LogError(
+                                $"[PluginService] Failed to apply augmented config from '{pluginId}': {ex.Message}",
+                                "PluginService",
+                                ex);
+                        }
+                    }
+
+                    if (touchedConfigs.Count > 0 || addedConfigsByPlugin.Count > 0)
                     {
                         ConfigService.Save();
-                        NotifyConfigAugmentationAdded(addedByPlugin);
+                        NotifyConfigAugmentationAdded(addedByPlugin, addedConfigsByPlugin);
                     }
                 }).ConfigureAwait(false);
+
+                var touchedPluginIds = new HashSet<string>(addedByPlugin.Keys, StringComparer.OrdinalIgnoreCase);
+                touchedPluginIds.UnionWith(addedConfigsByPlugin.Keys);
 
                 return new PluginConfigAugmentationRunResult
                 {
                     AddedFolderCount = addedByPlugin.Values.Sum(),
+                    AddedConfigCount = addedConfigsByPlugin.Values.Sum(),
                     UpdatedConfigCount = touchedConfigs.Count,
-                    TouchedPluginIds = addedByPlugin.Keys.ToArray()
+                    TouchedPluginIds = touchedPluginIds.ToArray()
                 };
             }
             finally
@@ -220,16 +287,68 @@ namespace FolderRewind.Services.Plugins
             };
         }
 
-        private static void NotifyConfigAugmentationAdded(IReadOnlyDictionary<string, int> addedByPlugin)
+        private static BackupConfig? TryPrepareAugmentedConfig(
+            BackupConfig candidate,
+            ISet<string> knownSourcePaths,
+            ISet<string> usedNames,
+            ISet<string> usedDestinationPaths)
         {
-            foreach (var pair in addedByPlugin.Where(static entry => entry.Value > 0))
+            var sourcePaths = (candidate.SourceFolders ?? Enumerable.Empty<ManagedFolder>())
+                .Where(static folder => folder != null && !string.IsNullOrWhiteSpace(folder.Path))
+                .Select(folder => PluginConfigAdditionPolicy.NormalizePath(folder.Path))
+                .Where(static path => !string.IsNullOrWhiteSpace(path))
+                .ToArray();
+
+            if (sourcePaths.Length == 0
+                || sourcePaths.Distinct(StringComparer.OrdinalIgnoreCase).Count() != sourcePaths.Length
+                || sourcePaths.Any(knownSourcePaths.Contains))
+            {
+                return null;
+            }
+
+            var clone = BackupConfigCloneService.CloneForRuntimeMutation(
+                candidate,
+                "Failed to clone plugin-created backup config.");
+            clone.Id = Guid.NewGuid().ToString();
+            clone.Name = PluginConfigAdditionPolicy.ResolveUniqueName(
+                candidate.Name,
+                usedNames,
+                usedDestinationPaths,
+                ConfigService.BuildDefaultDestinationPath,
+                out string destinationPath);
+            clone.DestinationPath = destinationPath;
+            clone.IsEncrypted = false;
+            clone.Automation = new AutomationSettings();
+            clone.Cloud = new CloudSettings
+            {
+                RemoteBasePath = ConfigService.GetRecommendedDefaultCloudRemoteBasePath()
+            };
+            return clone;
+        }
+
+        private static void NotifyConfigAugmentationAdded(
+            IReadOnlyDictionary<string, int> addedFoldersByPlugin,
+            IReadOnlyDictionary<string, int> addedConfigsByPlugin)
+        {
+            var pluginIds = new HashSet<string>(addedFoldersByPlugin.Keys, StringComparer.OrdinalIgnoreCase);
+            pluginIds.UnionWith(addedConfigsByPlugin.Keys);
+
+            foreach (string pluginId in pluginIds)
             {
                 string pluginName = _installed
-                    .FirstOrDefault(item => string.Equals(item.Id, pair.Key, StringComparison.OrdinalIgnoreCase))
-                    ?.Name ?? pair.Key;
+                    .FirstOrDefault(item => string.Equals(item.Id, pluginId, StringComparison.OrdinalIgnoreCase))
+                    ?.Name ?? pluginId;
+                int folderCount = addedFoldersByPlugin.TryGetValue(pluginId, out int addedFolders) ? addedFolders : 0;
+                int configCount = addedConfigsByPlugin.TryGetValue(pluginId, out int addedConfigs) ? addedConfigs : 0;
+
+                string message = configCount > 0 && folderCount > 0
+                    ? I18n.Format("PluginService_ConfigAugmentationAdded_CombinedMessage", pluginName, configCount, folderCount)
+                    : configCount > 0
+                        ? I18n.Format("PluginService_ConfigAugmentationAdded_ConfigMessage", pluginName, configCount)
+                        : I18n.Format("PluginService_ConfigAugmentationAdded_Message", pluginName, folderCount);
 
                 NotificationService.ShowInfo(
-                    I18n.Format("PluginService_ConfigAugmentationAdded_Message", pluginName, pair.Value),
+                    message,
                     I18n.GetString("PluginService_ConfigAugmentationAdded_Title"));
             }
         }

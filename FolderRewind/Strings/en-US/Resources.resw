@@ -4852,6 +4852,12 @@ Pull request: {1}</value>
   <data name="PluginService_ConfigAugmentationAdded_Message" xml:space="preserve">
     <value>{0} auto-added {1} new folder(s).</value>
   </data>
+  <data name="PluginService_ConfigAugmentationAdded_ConfigMessage" xml:space="preserve">
+    <value>{0} auto-created {1} new config(s).</value>
+  </data>
+  <data name="PluginService_ConfigAugmentationAdded_CombinedMessage" xml:space="preserve">
+    <value>{0} auto-created {1} new config(s) and added {2} new folder(s).</value>
+  </data>
   <data name="Sponsor_Status_StoreOnly" xml:space="preserve">
     <value>Sponsor Edition licensing is available only in the Microsoft Store version.</value>
   </data>

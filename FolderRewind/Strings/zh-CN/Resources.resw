@@ -4852,6 +4852,12 @@ Pull Request：{1}</value>
   <data name="PluginService_ConfigAugmentationAdded_Message" xml:space="preserve">
     <value>{0} 已自动加入 {1} 个新文件夹。</value>
   </data>
+  <data name="PluginService_ConfigAugmentationAdded_ConfigMessage" xml:space="preserve">
+    <value>{0} 已自动创建 {1} 个新配置。</value>
+  </data>
+  <data name="PluginService_ConfigAugmentationAdded_CombinedMessage" xml:space="preserve">
+    <value>{0} 已自动创建 {1} 个新配置，并加入 {2} 个新文件夹。</value>
+  </data>
   <data name="Sponsor_Status_StoreOnly" xml:space="preserve">
     <value>赞助者版授权仅在 Microsoft Store 版本中提供。</value>
   </data>
