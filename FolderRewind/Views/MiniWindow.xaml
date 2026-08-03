@@ -9,7 +9,7 @@
     Title="">
 
     <Grid x:Name="RootGrid"
-          Background="{ThemeResource ApplicationPageBackgroundThemeBrush}"
+          Background="Transparent"
           PointerPressed="RootGrid_PointerPressed"
           PointerMoved="RootGrid_PointerMoved"
           PointerReleased="RootGrid_PointerReleased"
@@ -24,7 +24,7 @@
             <ColumnDefinition x:Name="RightExpandColumn" Width="0"/>
         </Grid.ColumnDefinitions>
 
-        <!-- Mini 正方形主体 -->
+        <!-- Mini 主卡片 -->
         <Grid x:Name="MiniSquare" Grid.Column="1"
               Width="{x:Bind MiniCardSizeDip}" Height="{x:Bind MiniCardSizeDip}"
               PointerEntered="MiniSquare_PointerEntered"
@@ -32,43 +32,53 @@
               Tapped="MiniSquare_Tapped"
               RightTapped="MiniSquare_RightTapped">
 
-            <!-- 外层背景 -->
-            <Border x:Name="OuterBorder"
-                    CornerRadius="5"
-                    Background="{ThemeResource LayerFillColorDefaultBrush}"
+            <SystemBackdropElement CornerRadius="{x:Bind MiniCornerRadius}">
+                <SystemBackdropElement.SystemBackdrop>
+                    <DesktopAcrylicBackdrop/>
+                </SystemBackdropElement.SystemBackdrop>
+            </SystemBackdropElement>
+
+            <Border x:Name="MiniSurfaceBorder"
+                    CornerRadius="{x:Bind MiniCornerRadius}"
+                    Background="Transparent"
                     BorderBrush="{ThemeResource SurfaceStrokeColorDefaultBrush}"
                     BorderThickness="1"/>
 
-            <!-- 色彩丝带（内边距形成环形效果） -->
-            <Border x:Name="RibbonBorder"
-                    CornerRadius="5"
-                    Margin="3"
-                    BorderThickness="2"
-                    BorderBrush="{ThemeResource AccentFillColorDefaultBrush}"
-                    Background="Transparent"/>
+            <Border x:Name="HoverOverlay"
+                    CornerRadius="{x:Bind MiniCornerRadius}"
+                    Background="{ThemeResource SubtleFillColorSecondaryBrush}"
+                    Opacity="0"/>
 
-            <!-- 状态指示区域（仅在备份/完成/失败时显示图标） -->
             <Grid HorizontalAlignment="Center" VerticalAlignment="Center">
-                <!-- 备份中动画指示器 -->
+                <FontIcon x:Name="ActionIcon"
+                          Glyph="&#xE898;"
+                          FontSize="18"
+                          Foreground="{ThemeResource TextFillColorPrimaryBrush}"/>
+
                 <ProgressRing x:Name="BackupProgressRing"
                               IsActive="False"
-                              Width="18" Height="18"
+                              Width="20" Height="20"
                               Visibility="Collapsed"/>
 
-                <!-- 完成图标 -->
                 <FontIcon x:Name="DoneIcon"
                           Glyph="&#xE73E;"
-                          FontSize="14"
+                          FontSize="18"
                           Foreground="{ThemeResource SystemFillColorSuccessBrush}"
                           Visibility="Collapsed"/>
 
-                <!-- 失败图标 -->
                 <FontIcon x:Name="FailIcon"
                           Glyph="&#xEA39;"
-                          FontSize="14"
+                          FontSize="18"
                           Foreground="{ThemeResource SystemFillColorCriticalBrush}"
                           Visibility="Collapsed"/>
             </Grid>
+
+            <Ellipse x:Name="StatusDot"
+                     Width="8" Height="8"
+                     Margin="0,8,8,0"
+                     HorizontalAlignment="Right"
+                     VerticalAlignment="Top"
+                     Fill="{ThemeResource AccentFillColorDefaultBrush}"/>
 
             <!-- 悬停提示 -->
             <ToolTipService.ToolTip>
@@ -106,21 +116,31 @@
 
         <!-- 单一输入面板会根据当前展开方向切换到主卡片左侧或右侧 -->
         <Grid x:Name="CommentPanel" Grid.Column="2"
+              Width="{x:Bind CommentCardWidthDip}"
+              Height="{x:Bind MiniCardSizeDip}"
               Visibility="Collapsed"
               VerticalAlignment="Center">
-            <Grid Background="{ThemeResource AcrylicBackgroundFillColorDefaultBrush}"
-                  BorderBrush="{ThemeResource SurfaceStrokeColorDefaultBrush}"
-                  BorderThickness="1"
-                  CornerRadius="8"
-                  Padding="8,6"
-                  Width="{x:Bind CommentCardWidthDip}">
-                <TextBox x:Name="CommentBox"
-                         PlaceholderText=""
-                         BorderThickness="0"
-                         Background="Transparent"
-                         KeyDown="CommentBox_KeyDown"
-                         LostFocus="CommentBox_LostFocus"/>
-            </Grid>
+            <SystemBackdropElement CornerRadius="{x:Bind MiniCornerRadius}">
+                <SystemBackdropElement.SystemBackdrop>
+                    <DesktopAcrylicBackdrop/>
+                </SystemBackdropElement.SystemBackdrop>
+            </SystemBackdropElement>
+
+            <Border x:Name="CommentSurfaceBorder"
+                    CornerRadius="{x:Bind MiniCornerRadius}"
+                    Background="Transparent"
+                    BorderBrush="{ThemeResource SurfaceStrokeColorDefaultBrush}"
+                    BorderThickness="1"/>
+
+            <TextBox x:Name="CommentBox"
+                     PlaceholderText=""
+                     Padding="12,0"
+                     BorderThickness="0"
+                     CornerRadius="{x:Bind MiniCornerRadius}"
+                     Background="Transparent"
+                     VerticalContentAlignment="Center"
+                     KeyDown="CommentBox_KeyDown"
+                     LostFocus="CommentBox_LostFocus"/>
         </Grid>
     </Grid>
 </Window>

@@ -19,6 +19,7 @@ namespace FolderRewind.Views
     {
         public double MiniCardSizeDip => MiniWindowMetrics.CardSizeDip;
         public double CommentCardWidthDip => MiniWindowMetrics.CommentCardWidthDip;
+        public CornerRadius MiniCornerRadius => new(MiniWindowMetrics.CornerRadiusDip);
 
         private readonly MiniWindowContext _context;
         private MiniWindowVisualState _visualState = MiniWindowVisualState.Normal;
@@ -279,9 +280,12 @@ namespace FolderRewind.Views
             CommentPanel.OpacityTransition = new ScalarTransition { Duration = TimeSpan.FromMilliseconds(160) };
             CommentPanel.TranslationTransition = new Vector3Transition { Duration = TimeSpan.FromMilliseconds(180) };
 
-            // 丝带环 hover 缩放
-            RibbonBorder.CenterPoint = new Vector3(16, 16, 0);
-            RibbonBorder.ScaleTransition = new Vector3Transition { Duration = TimeSpan.FromMilliseconds(150) };
+            MiniSquare.CenterPoint = new Vector3(
+                (float)(MiniWindowMetrics.CardSizeDip / 2d),
+                (float)(MiniWindowMetrics.CardSizeDip / 2d),
+                0);
+            MiniSquare.ScaleTransition = new Vector3Transition { Duration = TimeSpan.FromMilliseconds(90) };
+            HoverOverlay.OpacityTransition = new ScalarTransition { Duration = TimeSpan.FromMilliseconds(120) };
         }
 
         private void ApplyLocalizedStrings()
@@ -363,8 +367,7 @@ namespace FolderRewind.Views
         {
             _visualState = state;
 
-            // 更新丝带颜色
-            var ribbonBrush = state switch
+            var statusBrush = state switch
             {
                 MiniWindowVisualState.Normal => GetThemeBrush("AccentFillColorDefaultBrush", new SolidColorBrush(Microsoft.UI.Colors.CornflowerBlue)),
                 MiniWindowVisualState.Changed => GetThemeBrush("SystemFillColorCautionBrush", GetThemeBrush("AccentFillColorSecondaryBrush", GetThemeBrush("AccentFillColorDefaultBrush", new SolidColorBrush(Microsoft.UI.Colors.Orange)))),
@@ -374,7 +377,11 @@ namespace FolderRewind.Views
                 _ => GetThemeBrush("AccentFillColorDefaultBrush", new SolidColorBrush(Microsoft.UI.Colors.CornflowerBlue)),
             };
 
-            RibbonBorder.BorderBrush = ribbonBrush;
+            StatusDot.Fill = statusBrush;
+
+            var showAction = state is MiniWindowVisualState.Normal or MiniWindowVisualState.Changed;
+            ActionIcon.Visibility = showAction ? Visibility.Visible : Visibility.Collapsed;
+            StatusDot.Visibility = showAction ? Visibility.Visible : Visibility.Collapsed;
 
             // 仅在备份/完成/失败状态显示中心图标
             BackupProgressRing.IsActive = state == MiniWindowVisualState.BackingUp;
@@ -686,6 +693,7 @@ namespace FolderRewind.Views
                 // 使用屏幕坐标而非相对坐标，彻底消除拖拽反馈回弹
                 GetCursorPos(out _dragStartCursorPos);
                 _windowStartPos = AppWindow.Position;
+                MiniSquare.Scale = new Vector3(0.97f, 0.97f, 1f);
             }
         }
 
@@ -724,6 +732,8 @@ namespace FolderRewind.Views
                 _isPointerCaptured = false;
             }
 
+            MiniSquare.Scale = Vector3.One;
+
             if (_isDragging)
             {
                 // 延迟重置，防止 Tapped 误触
@@ -735,16 +745,17 @@ namespace FolderRewind.Views
         {
             _isPointerCaptured = false;
             _isDragging = false;
+            MiniSquare.Scale = Vector3.One;
         }
 
         // 悬停效果
         private void MiniSquare_PointerEntered(object sender, PointerRoutedEventArgs e)
         {
-            RibbonBorder.Scale = new Vector3(1.08f, 1.08f, 1f);
+            HoverOverlay.Opacity = 1;
         }
         private void MiniSquare_PointerExited(object sender, PointerRoutedEventArgs e)
         {
-            RibbonBorder.Scale = Vector3.One;
+            HoverOverlay.Opacity = 0;
         }
 
         // 右键菜单
