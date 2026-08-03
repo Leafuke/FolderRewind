@@ -29,12 +29,6 @@ namespace FolderRewind.Services
         private static bool TryResolveStorageFolderName(string? rawFolderName, string? fallbackPath, out string storageFolderName)
             => BackupStoragePathService.TryResolveStorageFolderName(rawFolderName, fallbackPath, out storageFolderName);
 
-        private static bool TryBuildPathWithinRoot(string rootPath, string childName, out string fullPath)
-            => BackupStoragePathService.TryBuildPathWithinRoot(rootPath, childName, out fullPath);
-
-        private static bool IsPathInsideRoot(string candidatePath, string rootPath)
-            => BackupStoragePathService.IsPathInsideRoot(candidatePath, rootPath);
-
         private static bool TryResolveBackupStoragePaths(
             string destinationRoot,
             string folderDisplayName,

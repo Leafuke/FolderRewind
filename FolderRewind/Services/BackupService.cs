@@ -80,11 +80,6 @@ namespace FolderRewind.Services
             public string Message { get; set; } = string.Empty;
         }
 
-        private static readonly object SevenZipResolutionLock = new();
-        private static string? _cachedSevenZipExecutable;
-        private static string? _cachedSevenZipConfigPath;
-        private static string? _cachedSevenZipPathEnvironment;
-
         private static void BroadcastBackupEvent(
             int configIndex,
             BackupConfig config,

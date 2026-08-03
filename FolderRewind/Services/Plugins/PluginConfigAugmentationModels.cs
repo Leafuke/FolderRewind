@@ -26,6 +26,7 @@ public sealed class PluginConfigAugmentationResult
 {
     public bool Handled { get; init; }
     public IReadOnlyList<PluginConfigAugmentationItem> Items { get; init; } = Array.Empty<PluginConfigAugmentationItem>();
+    public IReadOnlyList<BackupConfig> ConfigsToAdd { get; init; } = Array.Empty<BackupConfig>();
 }
 
 public sealed class PluginSettingsSaveResult
@@ -40,6 +41,7 @@ public sealed class PluginSettingsSaveResult
 public sealed class PluginConfigAugmentationRunResult
 {
     public int AddedFolderCount { get; init; }
+    public int AddedConfigCount { get; init; }
     public int UpdatedConfigCount { get; init; }
     public IReadOnlyList<string> TouchedPluginIds { get; init; } = Array.Empty<string>();
 }

@@ -108,41 +108,6 @@ namespace FolderRewind.Services
         }
     }
 
-    public static class BackupStoragePathService
-    {
-        public static bool TryResolveStorageFolderName(
-            string displayName,
-            string fallbackPath,
-            out string storageFolderName)
-        {
-            storageFolderName = string.IsNullOrWhiteSpace(displayName)
-                ? Path.GetFileName(Path.TrimEndingDirectorySeparator(fallbackPath))
-                : displayName.Trim();
-            return !string.IsNullOrWhiteSpace(storageFolderName);
-        }
-
-        public static bool TryBuildPathWithinRoot(
-            string rootPath,
-            string childName,
-            out string fullPath)
-        {
-            fullPath = Path.GetFullPath(Path.Combine(rootPath, childName));
-            return IsPathInsideRoot(fullPath, rootPath);
-        }
-
-        public static bool IsPathInsideRoot(string candidatePath, string rootPath)
-        {
-            string root = Path.GetFullPath(rootPath)
-                .TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
-            string candidate = Path.GetFullPath(candidatePath)
-                .TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
-            return string.Equals(candidate, root, StringComparison.OrdinalIgnoreCase)
-                || candidate.StartsWith(
-                    root + Path.DirectorySeparatorChar,
-                    StringComparison.OrdinalIgnoreCase);
-        }
-    }
-
     public static class MiniWindowService
     {
         public static bool IsOpen(string path) => false;

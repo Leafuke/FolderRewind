@@ -18,7 +18,7 @@ namespace FolderRewind.Services
         private const double DefaultStartupHeight = 900d;
         private const double StartupWorkAreaRatio = 0.9d;
         // 配置目录统一交给 GetWritableAppDataDir 决策，避免在不同发布形态下写到无权限位置。
-        private static string ConfigPath => Path.Combine(GetWritableAppDataDir(), "FolderRewind", ConfigFileName);
+        private static string ConfigPath => Path.Combine(AppRuntimeInfo.WritableAppDataBaseDirectory, "FolderRewind", ConfigFileName);
 
         private static bool _initialized;
 
@@ -527,11 +527,6 @@ namespace FolderRewind.Services
             }
 
             return string.IsNullOrWhiteSpace(raw) ? fallback : raw;
-        }
-
-        private static string GetWritableAppDataDir()
-        {
-            return AppRuntimeInfo.WritableAppDataBaseDirectory;
         }
 
         private static void ApplyLogSettings(GlobalSettings settings)

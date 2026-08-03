@@ -2416,6 +2416,12 @@ cmd=RESTORE;from=minebackup.mod;request_id=req-mr-restore-002;current_save=true;
   <data name="PluginService_BeforeRestoreFailed" xml:space="preserve">
     <value>插件 {0} 还原前钩子失败：{1}</value>
   </data>
+  <data name="PluginService_RestoreIntercepted" xml:space="preserve">
+    <value>还原请求已由插件 {0} 接管。</value>
+  </data>
+  <data name="PluginService_RestoreBlocked" xml:space="preserve">
+    <value>插件 {0} 已阻止本次直接还原。</value>
+  </data>
   <data name="PluginService_AfterRestoreFailed" xml:space="preserve">
     <value>插件 {0} 还原后钩子失败：{1}</value>
   </data>
@@ -2661,10 +2667,10 @@ cmd=RESTORE;from=minebackup.mod;request_id=req-mr-restore-002;current_save=true;
     <value>关闭</value>
   </data>
   <data name="MiniWindow_Menu_ExpandLeft" xml:space="preserve">
-    <value>向左展开</value>
+    <value>优先向左展开</value>
   </data>
   <data name="MiniWindow_Menu_ExpandRight" xml:space="preserve">
-    <value>向右展开</value>
+    <value>优先向右展开</value>
   </data>
   <data name="MiniWindow_Tip_Normal" xml:space="preserve">
     <value>无变更</value>
@@ -4845,6 +4851,12 @@ Pull Request：{1}</value>
   </data>
   <data name="PluginService_ConfigAugmentationAdded_Message" xml:space="preserve">
     <value>{0} 已自动加入 {1} 个新文件夹。</value>
+  </data>
+  <data name="PluginService_ConfigAugmentationAdded_ConfigMessage" xml:space="preserve">
+    <value>{0} 已自动创建 {1} 个新配置。</value>
+  </data>
+  <data name="PluginService_ConfigAugmentationAdded_CombinedMessage" xml:space="preserve">
+    <value>{0} 已自动创建 {1} 个新配置，并加入 {2} 个新文件夹。</value>
   </data>
   <data name="Sponsor_Status_StoreOnly" xml:space="preserve">
     <value>赞助者版授权仅在 Microsoft Store 版本中提供。</value>

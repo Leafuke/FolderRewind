@@ -31,6 +31,39 @@ namespace FolderRewind.Services.Plugins
         public string? Message { get; set; }
     }
 
+    public enum PluginRestoreInterceptionStatus
+    {
+        Continue = 0,
+        Handled = 1,
+        Blocked = 2
+    }
+
+    /// <summary>
+    /// 插件在宿主开始标准还原前返回的拦截结果。
+    /// </summary>
+    public sealed class PluginRestoreInterceptionResult
+    {
+        public PluginRestoreInterceptionStatus Status { get; init; }
+        public string Message { get; init; } = string.Empty;
+
+        public static PluginRestoreInterceptionResult Continue()
+            => new() { Status = PluginRestoreInterceptionStatus.Continue };
+
+        public static PluginRestoreInterceptionResult Handled(string message)
+            => new()
+            {
+                Status = PluginRestoreInterceptionStatus.Handled,
+                Message = message ?? string.Empty
+            };
+
+        public static PluginRestoreInterceptionResult Blocked(string message)
+            => new()
+            {
+                Status = PluginRestoreInterceptionStatus.Blocked,
+                Message = message ?? string.Empty
+            };
+    }
+
     /// <summary>
     /// 插件创建配置结果
     /// </summary>
@@ -188,6 +221,19 @@ namespace FolderRewind.Services.Plugins
         Task<IReadOnlyList<FolderDetailsSection>> GetFolderDetailsSectionsAsync(
             BackupConfig config,
             ManagedFolder folder,
+            IReadOnlyDictionary<string, string> settingsValues,
+            CancellationToken cancellationToken);
+    }
+
+    /// <summary>
+    /// 可选插件接口：在宿主产生还原任务或执行任何还原副作用前接管或阻止请求。
+    /// </summary>
+    public interface IFolderRewindRestoreInterceptor
+    {
+        Task<PluginRestoreInterceptionResult> TryInterceptRestoreAsync(
+            BackupConfig config,
+            ManagedFolder folder,
+            string archiveFileName,
             IReadOnlyDictionary<string, string> settingsValues,
             CancellationToken cancellationToken);
     }

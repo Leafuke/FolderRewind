@@ -173,7 +173,8 @@ namespace FolderRewind.Services
 
         private static async Task<(bool Success, string ErrorMessage)> ExtractArchiveAsync(string archivePath, string extractDir, CancellationToken ct)
         {
-            var sevenZipExe = ResolveSevenZipExecutable();
+            var sevenZipExe = SevenZipExecutableLocator.Resolve(
+                ConfigService.CurrentConfig?.GlobalSettings?.SevenZipPath);
             if (string.IsNullOrWhiteSpace(sevenZipExe))
             {
                 return (false, I18n.GetString("BackupService_Log_SevenZipNotFound"));
@@ -249,73 +250,6 @@ namespace FolderRewind.Services
                 .ToArray();
 
             return lines.Length == 0 ? string.Empty : lines[^1];
-        }
-
-        private static string? ResolveSevenZipExecutable()
-        {
-            var candidates = new List<string>();
-            var configPath = ConfigService.CurrentConfig?.GlobalSettings?.SevenZipPath;
-
-            void AddCandidate(string? path)
-            {
-                if (string.IsNullOrWhiteSpace(path)) return;
-
-                try
-                {
-                    candidates.Add(Path.GetFullPath(path));
-                }
-                catch
-                {
-                    candidates.Add(path);
-                }
-            }
-
-            AddCandidate(configPath);
-            if (!string.IsNullOrWhiteSpace(configPath) && !Path.IsPathRooted(configPath))
-            {
-                AddCandidate(Path.Combine(AppContext.BaseDirectory, configPath));
-            }
-
-            string[] exeNames = { "7z.exe", "7zz.exe", "7za.exe" };
-            foreach (var exe in exeNames)
-            {
-                AddCandidate(Path.Combine(AppContext.BaseDirectory, exe));
-
-                var pf = Environment.GetFolderPath(Environment.SpecialFolder.ProgramFiles);
-                if (!string.IsNullOrWhiteSpace(pf))
-                {
-                    AddCandidate(Path.Combine(pf, "7-Zip", exe));
-                }
-
-                var pf86 = Environment.GetFolderPath(Environment.SpecialFolder.ProgramFilesX86);
-                if (!string.IsNullOrWhiteSpace(pf86))
-                {
-                    AddCandidate(Path.Combine(pf86, "7-Zip", exe));
-                }
-            }
-
-            var pathEnv = Environment.GetEnvironmentVariable("PATH");
-            if (!string.IsNullOrWhiteSpace(pathEnv))
-            {
-                foreach (var dir in pathEnv.Split(Path.PathSeparator, StringSplitOptions.RemoveEmptyEntries))
-                {
-                    var trimmed = dir.Trim();
-                    foreach (var exe in exeNames)
-                    {
-                        AddCandidate(Path.Combine(trimmed, exe));
-                    }
-                }
-            }
-
-            foreach (var path in candidates.Distinct(StringComparer.OrdinalIgnoreCase))
-            {
-                if (File.Exists(path))
-                {
-                    return path;
-                }
-            }
-
-            return null;
         }
 
         private static void TryDeleteFile(string path)

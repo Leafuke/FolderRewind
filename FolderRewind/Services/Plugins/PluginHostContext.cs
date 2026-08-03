@@ -54,6 +54,16 @@ namespace FolderRewind.Services.Plugins
             return Services.KnotLinkService.BroadcastEventAsync(CurrentKnotLinkCommandContext, eventName, fields);
         }
 
+        public Task<bool> TryBroadcastEventAsync(KnotLinkCommandContext? context, string eventName, IReadOnlyDictionary<string, string?>? fields = null)
+        {
+            return Services.KnotLinkService.TryBroadcastEventAsync(context, eventName, fields);
+        }
+
+        public Task<bool> TryBroadcastEventAsync(string eventName, IReadOnlyDictionary<string, string?>? fields)
+        {
+            return Services.KnotLinkService.TryBroadcastEventAsync(CurrentKnotLinkCommandContext, eventName, fields);
+        }
+
         public Task<string> QueryKnotLinkAsync(string question, int timeoutMs = 5000)
         {
             return Services.KnotLinkService.QueryAsync(question, timeoutMs);

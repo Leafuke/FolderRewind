@@ -54,7 +54,7 @@ namespace FolderRewind.Services.KnotLink
             if (request.HasOption("compression_method"))
             {
                 var requestedMethod = request.GetStringOrDefault("compression_method").Trim();
-                if (!TryNormalizeCompressionMethod(requestedMethod, out compressionMethod))
+                if (!ArchiveCompressionPolicy.TryNormalizeMethod(requestedMethod, out compressionMethod))
                 {
                     error = $"Invalid compression_method '{requestedMethod}'. Allowed values: LZMA2, Deflate, BZip2, zstd.";
                     return false;
@@ -77,14 +77,14 @@ namespace FolderRewind.Services.KnotLink
             if (compressionMethod != null || compressionLevel.HasValue)
             {
                 var effectiveMethod = compressionMethod ?? configuredCompressionMethod?.Trim() ?? string.Empty;
-                if (!TryNormalizeCompressionMethod(effectiveMethod, out var normalizedEffectiveMethod))
+                if (!ArchiveCompressionPolicy.TryNormalizeMethod(effectiveMethod, out var normalizedEffectiveMethod))
                 {
                     error = $"Cannot validate compression_level because the effective compression method '{effectiveMethod}' is unsupported.";
                     return false;
                 }
 
                 var effectiveLevel = compressionLevel ?? configuredCompressionLevel;
-                var (minimum, maximum) = GetCompressionLevelRange(normalizedEffectiveMethod);
+                var (minimum, maximum) = ArchiveCompressionPolicy.GetLevelRange(normalizedEffectiveMethod);
                 if (effectiveLevel < minimum || effectiveLevel > maximum)
                 {
                     error = $"Invalid compression_level '{effectiveLevel}' for {normalizedEffectiveMethod}. Allowed range: {minimum}-{maximum}.";
@@ -101,42 +101,5 @@ namespace FolderRewind.Services.KnotLink
             return true;
         }
 
-        private static bool TryNormalizeCompressionMethod(string value, out string normalized)
-        {
-            if (value.Equals("lzma2", StringComparison.OrdinalIgnoreCase))
-            {
-                normalized = "LZMA2";
-                return true;
-            }
-
-            if (value.Equals("deflate", StringComparison.OrdinalIgnoreCase))
-            {
-                normalized = "Deflate";
-                return true;
-            }
-
-            if (value.Equals("bzip2", StringComparison.OrdinalIgnoreCase))
-            {
-                normalized = "BZip2";
-                return true;
-            }
-
-            if (value.Equals("zstd", StringComparison.OrdinalIgnoreCase))
-            {
-                normalized = "zstd";
-                return true;
-            }
-
-            normalized = string.Empty;
-            return false;
-        }
-
-        private static (int Minimum, int Maximum) GetCompressionLevelRange(string method) =>
-            method switch
-            {
-                "zstd" => (1, 22),
-                "BZip2" => (1, 9),
-                _ => (0, 9)
-            };
     }
 }

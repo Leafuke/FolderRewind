@@ -2416,6 +2416,12 @@ Comment: {1}
   <data name="PluginService_BeforeRestoreFailed" xml:space="preserve">
     <value>Plugin {0} before-restore hook failed: {1}</value>
   </data>
+  <data name="PluginService_RestoreIntercepted" xml:space="preserve">
+    <value>Plugin {0} has taken over the restore request.</value>
+  </data>
+  <data name="PluginService_RestoreBlocked" xml:space="preserve">
+    <value>Plugin {0} blocked this direct restore.</value>
+  </data>
   <data name="PluginService_AfterRestoreFailed" xml:space="preserve">
     <value>Plugin {0} after-restore hook failed: {1}</value>
   </data>
@@ -2661,10 +2667,10 @@ Choose whether to remove only the record, only the local backup file, or both. C
     <value>Close</value>
   </data>
   <data name="MiniWindow_Menu_ExpandLeft" xml:space="preserve">
-    <value>Expand left</value>
+    <value>Prefer expanding left</value>
   </data>
   <data name="MiniWindow_Menu_ExpandRight" xml:space="preserve">
-    <value>Expand right</value>
+    <value>Prefer expanding right</value>
   </data>
   <data name="MiniWindow_Tip_Normal" xml:space="preserve">
     <value>No changes</value>
@@ -4845,6 +4851,12 @@ Pull request: {1}</value>
   </data>
   <data name="PluginService_ConfigAugmentationAdded_Message" xml:space="preserve">
     <value>{0} auto-added {1} new folder(s).</value>
+  </data>
+  <data name="PluginService_ConfigAugmentationAdded_ConfigMessage" xml:space="preserve">
+    <value>{0} auto-created {1} new config(s).</value>
+  </data>
+  <data name="PluginService_ConfigAugmentationAdded_CombinedMessage" xml:space="preserve">
+    <value>{0} auto-created {1} new config(s) and added {2} new folder(s).</value>
   </data>
   <data name="Sponsor_Status_StoreOnly" xml:space="preserve">
     <value>Sponsor Edition licensing is available only in the Microsoft Store version.</value>

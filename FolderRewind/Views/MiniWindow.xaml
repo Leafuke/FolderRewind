@@ -9,7 +9,7 @@
     Title="">
 
     <Grid x:Name="RootGrid"
-          Background="{ThemeResource ApplicationPageBackgroundThemeBrush}"
+          Background="Transparent"
           PointerPressed="RootGrid_PointerPressed"
           PointerMoved="RootGrid_PointerMoved"
           PointerReleased="RootGrid_PointerReleased"
@@ -24,71 +24,45 @@
             <ColumnDefinition x:Name="RightExpandColumn" Width="0"/>
         </Grid.ColumnDefinitions>
 
-        <!-- 左侧输入框展开区域 -->
-        <Grid x:Name="LeftInputPanel" Grid.Column="0"
-              Visibility="Collapsed"
-              VerticalAlignment="Center"
-              Margin="0,0,4,0">
-            <Grid Background="{ThemeResource AcrylicBackgroundFillColorDefaultBrush}"
-                  BorderBrush="{ThemeResource SurfaceStrokeColorDefaultBrush}"
-                  BorderThickness="1"
-                  CornerRadius="8"
-                  Padding="8,6"
-                  MinWidth="180"
-                  MaxWidth="200">
-                <TextBox x:Name="LeftCommentBox"
-                         PlaceholderText=""
-                         BorderThickness="0"
-                         Background="Transparent"
-                         KeyDown="CommentBox_KeyDown"
-                         LostFocus="CommentBox_LostFocus"
-                         MinWidth="160"
-                         MaxWidth="200"/>
-            </Grid>
-        </Grid>
-
-        <!-- Mini 正方形主体 -->
+        <!-- Mini 主卡片 -->
         <Grid x:Name="MiniSquare" Grid.Column="1"
-              Width="41" Height="41"
+              Width="{x:Bind MiniCardSizeDip}" Height="{x:Bind MiniCardSizeDip}"
+              Background="Transparent"
               PointerEntered="MiniSquare_PointerEntered"
               PointerExited="MiniSquare_PointerExited"
               Tapped="MiniSquare_Tapped"
               RightTapped="MiniSquare_RightTapped">
 
-            <!-- 外层背景 -->
-            <Border x:Name="OuterBorder"
-                    CornerRadius="5"
-                    Background="{ThemeResource LayerFillColorDefaultBrush}"
+            <Border x:Name="MiniSurfaceBorder"
+                    CornerRadius="8"
+                    Background="Transparent"
                     BorderBrush="{ThemeResource SurfaceStrokeColorDefaultBrush}"
                     BorderThickness="1"/>
 
-            <!-- 色彩丝带（内边距形成环形效果） -->
+            <!-- 彩色丝带：常态使用主题色，文件变化与备份结果使用对应状态色 -->
             <Border x:Name="RibbonBorder"
-                    CornerRadius="5"
-                    Margin="3"
-                    BorderThickness="2"
+                    Margin="5"
+                    CornerRadius="8"
+                    Background="Transparent"
                     BorderBrush="{ThemeResource AccentFillColorDefaultBrush}"
-                    Background="Transparent"/>
+                    BorderThickness="2"
+                    Opacity="0.92"/>
 
-            <!-- 状态指示区域（仅在备份/完成/失败时显示图标） -->
             <Grid HorizontalAlignment="Center" VerticalAlignment="Center">
-                <!-- 备份中动画指示器 -->
                 <ProgressRing x:Name="BackupProgressRing"
                               IsActive="False"
-                              Width="18" Height="18"
+                              Width="20" Height="20"
                               Visibility="Collapsed"/>
 
-                <!-- 完成图标 -->
                 <FontIcon x:Name="DoneIcon"
                           Glyph="&#xE73E;"
-                          FontSize="14"
+                          FontSize="18"
                           Foreground="{ThemeResource SystemFillColorSuccessBrush}"
                           Visibility="Collapsed"/>
 
-                <!-- 失败图标 -->
                 <FontIcon x:Name="FailIcon"
                           Glyph="&#xEA39;"
-                          FontSize="14"
+                          FontSize="18"
                           Foreground="{ThemeResource SystemFillColorCriticalBrush}"
                           Visibility="Collapsed"/>
             </Grid>
@@ -127,26 +101,33 @@
             </Grid.ContextFlyout>
         </Grid>
 
-        <!-- 右侧输入框展开区域 -->
-        <Grid x:Name="RightInputPanel" Grid.Column="2"
+        <!-- 单一输入面板会根据当前展开方向切换到主卡片左侧或右侧 -->
+        <Grid x:Name="CommentPanel" Grid.Column="2"
+              Width="{x:Bind CommentCardWidthDip}"
+              Height="{x:Bind MiniCardSizeDip}"
               Visibility="Collapsed"
-              VerticalAlignment="Center"
-              Margin="4,0,0,0">
-            <Grid Background="{ThemeResource AcrylicBackgroundFillColorDefaultBrush}"
-                  BorderBrush="{ThemeResource SurfaceStrokeColorDefaultBrush}"
-                  BorderThickness="1"
-                  CornerRadius="8"
-                  Padding="8,6"
-                  MinWidth="180"
-                  MaxWidth="200">
-                <TextBox x:Name="RightCommentBox"
+              VerticalAlignment="Center">
+            <SystemBackdropElement CornerRadius="8">
+                <SystemBackdropElement.SystemBackdrop>
+                    <DesktopAcrylicBackdrop/>
+                </SystemBackdropElement.SystemBackdrop>
+            </SystemBackdropElement>
+
+            <Border x:Name="CommentSurfaceBorder"
+                    CornerRadius="8"
+                    Background="Transparent"
+                    BorderBrush="{ThemeResource SurfaceStrokeColorDefaultBrush}"
+                    BorderThickness="1"/>
+
+            <!-- 将 TextBox 限制在卡片内部，避免默认焦点层占满整扇窗口 -->
+            <Grid Margin="8,6">
+                <TextBox x:Name="CommentBox"
                          PlaceholderText=""
                          BorderThickness="0"
                          Background="Transparent"
+                         VerticalContentAlignment="Center"
                          KeyDown="CommentBox_KeyDown"
-                         LostFocus="CommentBox_LostFocus"
-                         MinWidth="160"
-                         MaxWidth="200"/>
+                         LostFocus="CommentBox_LostFocus"/>
             </Grid>
         </Grid>
     </Grid>
