@@ -6,7 +6,7 @@ on:
       package_version:
         description: Package version from Package.appxmanifest, for example 1.6.1.0
         required: true
-        default: 1.8.1.0
+        default: 1.8.2.0
         type: string
 
 permissions:
