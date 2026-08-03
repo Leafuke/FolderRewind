@@ -16,6 +16,8 @@ namespace FolderRewind.Views
 {
     public sealed partial class MiniWindow : Window
     {
+        public double MiniCardSizeDip => MiniWindowMetrics.CardSizeDip;
+
         private readonly MiniWindowContext _context;
         private MiniWindowVisualState _visualState = MiniWindowVisualState.Normal;
         private DispatcherTimer? _watchTimer;
@@ -39,6 +41,9 @@ namespace FolderRewind.Views
         [DllImport("user32.dll", EntryPoint = "SetWindowLongPtrW")]
         private static extern IntPtr SetWindowLongPtr(IntPtr hWnd, int nIndex, IntPtr dwNewLong);
 
+        [DllImport("user32.dll")]
+        private static extern uint GetDpiForWindow(IntPtr hWnd);
+
         [DllImport("user32.dll", SetLastError = true)]
         private static extern bool SetWindowPos(IntPtr hWnd, IntPtr hWndInsertAfter, int X, int Y, int cx, int cy, uint uFlags);
 
@@ -57,6 +62,15 @@ namespace FolderRewind.Views
         private struct POINT { public int X; public int Y; }
 
         [StructLayout(LayoutKind.Sequential)]
+        private struct RECT
+        {
+            public int Left;
+            public int Top;
+            public int Right;
+            public int Bottom;
+        }
+
+        [StructLayout(LayoutKind.Sequential)]
         private struct MINMAXINFO
         {
             public POINT ptReserved;
@@ -68,6 +82,7 @@ namespace FolderRewind.Views
 
         private SUBCLASSPROC? _subclassDelegate;
         private const uint WM_GETMINMAXINFO = 0x0024;
+        private const uint WM_DPICHANGED = 0x02E0;
         private const uint WM_NCHITTEST = 0x0084;
         private const uint WM_DESTROY = 0x0002;
 
@@ -87,15 +102,14 @@ namespace FolderRewind.Views
 
         // 尺寸常量
 
-        private const int SquareSize = 47;
-        private const int PanelColumnWidth = 220;
-        private const int GapWidth = 4;
-        private const int ExpandedExtraWidth = PanelColumnWidth + GapWidth;
+        private const int PanelColumnWidth = 228;
 
         public MiniWindow(MiniWindowContext context)
         {
             _context = context ?? throw new ArgumentNullException(nameof(context));
             this.InitializeComponent();
+
+            RootGrid.Loaded += RootGrid_Loaded;
 
             ConfigureWindow();
             SetupUI();
@@ -142,7 +156,6 @@ namespace FolderRewind.Views
             SetWindowSubclass(hwnd, _subclassDelegate, 1, IntPtr.Zero);
 
             // 设置初始尺寸
-            ResizeToCollapsed();
             CollapseToSquare(false);
 
             appWindow.Title = $"Mini - {_context.Folder?.DisplayName ?? "Folder"}";
@@ -218,6 +231,11 @@ namespace FolderRewind.Views
                 Marshal.StructureToPtr(mmi, lParam, false);
                 return IntPtr.Zero;
             }
+            else if (uMsg == WM_DPICHANGED)
+            {
+                ApplyDpiChangedBounds(hWnd, wParam, lParam);
+                return IntPtr.Zero;
+            }
             else if (uMsg == WM_DESTROY && _subclassDelegate != null)
             {
                 RemoveWindowSubclass(hWnd, _subclassDelegate, (uint)uIdSubclass);
@@ -228,6 +246,15 @@ namespace FolderRewind.Views
         private void SetupUI()
         {
             UpdateTooltip();
+        }
+
+        private void RootGrid_Loaded(object sender, RoutedEventArgs e)
+        {
+            RootGrid.Loaded -= RootGrid_Loaded;
+            if (_isExpanded)
+                ResizeToExpanded();
+            else
+                CollapseToSquare(false);
         }
 
         /// <summary>
@@ -242,7 +269,7 @@ namespace FolderRewind.Views
             RightInputPanel.TranslationTransition = new Vector3Transition { Duration = TimeSpan.FromMilliseconds(250) };
 
             // 丝带环 hover 缩放
-            RibbonBorder.CenterPoint = new Vector3((SquareSize - 16) / 2f, (SquareSize - 16) / 2f, 0);
+            RibbonBorder.CenterPoint = new Vector3(16, 16, 0);
             RibbonBorder.ScaleTransition = new Vector3Transition { Duration = TimeSpan.FromMilliseconds(150) };
         }
 
@@ -444,28 +471,14 @@ namespace FolderRewind.Views
 
         // 窗口尺寸管理
 
-        private void ResizeToCollapsed()
-        {
-            try
-            {
-                var scale = GetScaleFactor();
-                int size = (int)(SquareSize * scale);
-                var hwnd = WindowNative.GetWindowHandle(this);
-                var pos = AppWindow.Position;
-                SetWindowPos(hwnd, IntPtr.Zero, pos.X, pos.Y, size, size,
-                    SWP_NOACTIVATE | SWP_NOZORDER | SWP_NOOWNERZORDER | SWP_NOMOVE);
-            }
-            catch { }
-        }
-
         private void ResizeToExpanded()
         {
             try
             {
                 var scale = GetScaleFactor();
-                int squarePixels = (int)(SquareSize * scale);
-                int extraPixels = (int)(ExpandedExtraWidth * scale);
-                int totalWidth = squarePixels + extraPixels;
+                int squarePixels = MiniWindowLayoutPolicy.DipToPixels(MiniWindowMetrics.CardSizeDip, scale);
+                int totalWidth = MiniWindowLayoutPolicy.DipToPixels(MiniWindowMetrics.ExpandedWidthDip, scale);
+                int extraPixels = totalWidth - squarePixels;
                 int height = squarePixels;
 
                 var hwnd = WindowNative.GetWindowHandle(this);
@@ -496,14 +509,14 @@ namespace FolderRewind.Views
             try
             {
                 var scale = GetScaleFactor();
-                int size = (int)(SquareSize * scale);
+                int size = MiniWindowLayoutPolicy.DipToPixels(MiniWindowMetrics.CardSizeDip, scale);
                 var hwnd = WindowNative.GetWindowHandle(this);
                 var pos = AppWindow.Position;
 
                 if (wasLeftExpanded)
                 {
                     // 左展开收起：方块在窗口右端，需将窗口右移到方块位置
-                    int extraPixels = (int)(ExpandedExtraWidth * scale);
+                    int extraPixels = MiniWindowLayoutPolicy.DipToPixels(MiniWindowMetrics.ExpandedWidthDip, scale) - size;
                     SetWindowPos(hwnd, IntPtr.Zero, pos.X + extraPixels, pos.Y, size, size,
                         SWP_NOACTIVATE | SWP_NOZORDER | SWP_NOOWNERZORDER);
                 }
@@ -519,8 +532,31 @@ namespace FolderRewind.Views
 
         private double GetScaleFactor()
         {
-            try { return RootGrid?.XamlRoot?.RasterizationScale ?? 1.0; }
+            try
+            {
+                var hwnd = WindowNative.GetWindowHandle(this);
+                var dpi = GetDpiForWindow(hwnd);
+                return dpi > 0 ? dpi / 96d : 1d;
+            }
             catch { return 1.0; }
+        }
+
+        private void ApplyDpiChangedBounds(IntPtr hwnd, IntPtr wParam, IntPtr lParam)
+        {
+            try
+            {
+                var dpi = unchecked((uint)wParam.ToInt64()) & 0xFFFF;
+                var scale = dpi > 0 ? dpi / 96d : GetScaleFactor();
+                var suggested = Marshal.PtrToStructure<RECT>(lParam);
+                var size = MiniWindowLayoutPolicy.DipToPixels(MiniWindowMetrics.CardSizeDip, scale);
+                var width = _isExpanded
+                    ? MiniWindowLayoutPolicy.DipToPixels(MiniWindowMetrics.ExpandedWidthDip, scale)
+                    : size;
+
+                SetWindowPos(hwnd, IntPtr.Zero, suggested.Left, suggested.Top, width, size,
+                    SWP_NOACTIVATE | SWP_NOZORDER | SWP_NOOWNERZORDER);
+            }
+            catch { }
         }
 
         // 输入框事件
