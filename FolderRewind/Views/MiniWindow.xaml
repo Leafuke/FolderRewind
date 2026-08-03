@@ -24,29 +24,6 @@
             <ColumnDefinition x:Name="RightExpandColumn" Width="0"/>
         </Grid.ColumnDefinitions>
 
-        <!-- 左侧输入框展开区域 -->
-        <Grid x:Name="LeftInputPanel" Grid.Column="0"
-              Visibility="Collapsed"
-              VerticalAlignment="Center"
-              Margin="0,0,4,0">
-            <Grid Background="{ThemeResource AcrylicBackgroundFillColorDefaultBrush}"
-                  BorderBrush="{ThemeResource SurfaceStrokeColorDefaultBrush}"
-                  BorderThickness="1"
-                  CornerRadius="8"
-                  Padding="8,6"
-                  MinWidth="180"
-                  MaxWidth="200">
-                <TextBox x:Name="LeftCommentBox"
-                         PlaceholderText=""
-                         BorderThickness="0"
-                         Background="Transparent"
-                         KeyDown="CommentBox_KeyDown"
-                         LostFocus="CommentBox_LostFocus"
-                         MinWidth="160"
-                         MaxWidth="200"/>
-            </Grid>
-        </Grid>
-
         <!-- Mini 正方形主体 -->
         <Grid x:Name="MiniSquare" Grid.Column="1"
               Width="{x:Bind MiniCardSizeDip}" Height="{x:Bind MiniCardSizeDip}"
@@ -127,26 +104,22 @@
             </Grid.ContextFlyout>
         </Grid>
 
-        <!-- 右侧输入框展开区域 -->
-        <Grid x:Name="RightInputPanel" Grid.Column="2"
+        <!-- 单一输入面板会根据当前展开方向切换到主卡片左侧或右侧 -->
+        <Grid x:Name="CommentPanel" Grid.Column="2"
               Visibility="Collapsed"
-              VerticalAlignment="Center"
-              Margin="4,0,0,0">
+              VerticalAlignment="Center">
             <Grid Background="{ThemeResource AcrylicBackgroundFillColorDefaultBrush}"
                   BorderBrush="{ThemeResource SurfaceStrokeColorDefaultBrush}"
                   BorderThickness="1"
                   CornerRadius="8"
                   Padding="8,6"
-                  MinWidth="180"
-                  MaxWidth="200">
-                <TextBox x:Name="RightCommentBox"
+                  Width="{x:Bind CommentCardWidthDip}">
+                <TextBox x:Name="CommentBox"
                          PlaceholderText=""
                          BorderThickness="0"
                          Background="Transparent"
                          KeyDown="CommentBox_KeyDown"
-                         LostFocus="CommentBox_LostFocus"
-                         MinWidth="160"
-                         MaxWidth="200"/>
+                         LostFocus="CommentBox_LostFocus"/>
             </Grid>
         </Grid>
     </Grid>

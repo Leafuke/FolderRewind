@@ -8,6 +8,7 @@ using Microsoft.UI.Xaml.Media;
 using System;
 using System.Numerics;
 using System.Runtime.InteropServices;
+using System.Threading;
 using System.Threading.Tasks;
 using Windows.Graphics;
 using WinRT.Interop;
@@ -17,11 +18,15 @@ namespace FolderRewind.Views
     public sealed partial class MiniWindow : Window
     {
         public double MiniCardSizeDip => MiniWindowMetrics.CardSizeDip;
+        public double CommentCardWidthDip => MiniWindowMetrics.CommentCardWidthDip;
 
         private readonly MiniWindowContext _context;
         private MiniWindowVisualState _visualState = MiniWindowVisualState.Normal;
+        private MiniWindowExpansionState _expansionState = MiniWindowExpansionState.Collapsed;
+        private MiniExpandDirection _activeExpandDirection = MiniExpandDirection.Right;
         private DispatcherTimer? _watchTimer;
-        private bool _isExpanded = false;
+        private CancellationTokenSource? _transitionCts;
+        private Action<ElementTheme>? _themeChangedHandler;
         private bool _isDragging = false;
         private bool _isPointerCaptured = false;
         private POINT _dragStartCursorPos;
@@ -83,7 +88,6 @@ namespace FolderRewind.Views
         private SUBCLASSPROC? _subclassDelegate;
         private const uint WM_GETMINMAXINFO = 0x0024;
         private const uint WM_DPICHANGED = 0x02E0;
-        private const uint WM_NCHITTEST = 0x0084;
         private const uint WM_DESTROY = 0x0002;
 
         private const int DWMWA_WINDOW_CORNER_PREFERENCE = 33;
@@ -104,6 +108,14 @@ namespace FolderRewind.Views
 
         private const int PanelColumnWidth = 228;
 
+        private enum MiniWindowExpansionState
+        {
+            Collapsed,
+            Expanding,
+            Expanded,
+            Collapsing,
+        }
+
         public MiniWindow(MiniWindowContext context)
         {
             _context = context ?? throw new ArgumentNullException(nameof(context));
@@ -117,7 +129,7 @@ namespace FolderRewind.Views
             StartWatchTimer();
             ApplyLocalizedStrings();
 
-            this.Closed += (_, _) => StopTimers();
+            this.Closed += MiniWindow_Closed;
         }
 
         // 窗口配置
@@ -198,7 +210,8 @@ namespace FolderRewind.Views
             try
             {
                 ThemeService.ApplyThemeToWindow(this);
-                ThemeService.ThemeChanged += (_) => ThemeService.ApplyThemeToWindow(this);
+                _themeChangedHandler = OnThemeChanged;
+                ThemeService.ThemeChanged += _themeChangedHandler;
             }
             catch { }
 
@@ -251,7 +264,7 @@ namespace FolderRewind.Views
         private void RootGrid_Loaded(object sender, RoutedEventArgs e)
         {
             RootGrid.Loaded -= RootGrid_Loaded;
-            if (_isExpanded)
+            if (IsWindowExpanded)
                 ResizeToExpanded();
             else
                 CollapseToSquare(false);
@@ -263,10 +276,8 @@ namespace FolderRewind.Views
         private void SetupTransitions()
         {
             // 输入面板：淡入淡出 + 平移
-            LeftInputPanel.OpacityTransition = new ScalarTransition { Duration = TimeSpan.FromMilliseconds(200) };
-            RightInputPanel.OpacityTransition = new ScalarTransition { Duration = TimeSpan.FromMilliseconds(200) };
-            LeftInputPanel.TranslationTransition = new Vector3Transition { Duration = TimeSpan.FromMilliseconds(250) };
-            RightInputPanel.TranslationTransition = new Vector3Transition { Duration = TimeSpan.FromMilliseconds(250) };
+            CommentPanel.OpacityTransition = new ScalarTransition { Duration = TimeSpan.FromMilliseconds(160) };
+            CommentPanel.TranslationTransition = new Vector3Transition { Duration = TimeSpan.FromMilliseconds(180) };
 
             // 丝带环 hover 缩放
             RibbonBorder.CenterPoint = new Vector3(16, 16, 0);
@@ -280,8 +291,7 @@ namespace FolderRewind.Views
                 var placeholder = I18n.GetString("MiniWindow_CommentPlaceholder");
                 if (!string.IsNullOrWhiteSpace(placeholder) && placeholder != "MiniWindow_CommentPlaceholder")
                 {
-                    LeftCommentBox.PlaceholderText = placeholder;
-                    RightCommentBox.PlaceholderText = placeholder;
+                    CommentBox.PlaceholderText = placeholder;
                 }
 
                 MenuItemOpenFolder.Text = I18n.GetString("MiniWindow_Menu_OpenFolder");
@@ -401,72 +411,84 @@ namespace FolderRewind.Views
 
         private void ToggleInputPanel()
         {
-            if (_isExpanded)
-                CollapseInputPanel();
-            else
-                ExpandInputPanel();
+            var shouldExpand = _expansionState is MiniWindowExpansionState.Collapsed
+                or MiniWindowExpansionState.Collapsing;
+            _ = SetInputPanelExpandedAsync(shouldExpand);
         }
 
-        private void ExpandInputPanel()
+        private void CollapseInputPanel()
         {
-            _isExpanded = true;
+            _ = SetInputPanelExpandedAsync(false);
+        }
 
-            bool isLeft = _context.ExpandDirection == MiniExpandDirection.Left;
-            var panel = isLeft ? LeftInputPanel : RightInputPanel;
-            var column = isLeft ? LeftExpandColumn : RightExpandColumn;
-            var otherPanel = isLeft ? RightInputPanel : LeftInputPanel;
-            var otherColumn = isLeft ? RightExpandColumn : LeftExpandColumn;
-            var commentBox = isLeft ? LeftCommentBox : RightCommentBox;
+        private async Task SetInputPanelExpandedAsync(bool expand)
+        {
+            if (expand && _expansionState is MiniWindowExpansionState.Expanding or MiniWindowExpansionState.Expanded)
+                return;
+            if (!expand && _expansionState == MiniWindowExpansionState.Collapsed)
+                return;
 
-            // 设置动画初始状态（面板不可见时设置，不触发可见过渡）
-            panel.Opacity = 0;
-            panel.Translation = isLeft ? new Vector3(20, 0, 0) : new Vector3(-20, 0, 0);
+            _transitionCts?.Cancel();
+            _transitionCts?.Dispose();
+            var transitionCts = new CancellationTokenSource();
+            _transitionCts = transitionCts;
+            var token = transitionCts.Token;
 
-            // 激活面板布局
-            panel.Visibility = Visibility.Visible;
-            column.Width = new GridLength(PanelColumnWidth);
-            otherPanel.Visibility = Visibility.Collapsed;
-            otherColumn.Width = new GridLength(0);
-
-            // 使用 SetWindowPos 原子化 resize + move，防止闪烁
-            ResizeToExpanded();
-
-            // 等待一帧布局完成后触发动画
-            DispatcherQueue.TryEnqueue(Microsoft.UI.Dispatching.DispatcherQueuePriority.Low, () =>
+            try
             {
-                panel.Opacity = 1;
-                panel.Translation = Vector3.Zero;
-                commentBox.Focus(FocusState.Programmatic);
-            });
+                if (expand)
+                {
+                    _expansionState = MiniWindowExpansionState.Expanding;
+                    _activeExpandDirection = _context.ExpandDirection;
+                    ConfigureCommentPanelLayout(_activeExpandDirection);
+
+                    var isLeft = _activeExpandDirection == MiniExpandDirection.Left;
+                    CommentPanel.Opacity = 0;
+                    CommentPanel.Translation = isLeft ? new Vector3(12, 0, 0) : new Vector3(-12, 0, 0);
+                    CommentPanel.Visibility = Visibility.Visible;
+                    ResizeToExpanded();
+
+                    await Task.Yield();
+                    token.ThrowIfCancellationRequested();
+                    CommentPanel.Opacity = 1;
+                    CommentPanel.Translation = Vector3.Zero;
+                    _expansionState = MiniWindowExpansionState.Expanded;
+                    CommentBox.Focus(FocusState.Programmatic);
+                }
+                else
+                {
+                    _expansionState = MiniWindowExpansionState.Collapsing;
+                    var wasLeftExpanded = _activeExpandDirection == MiniExpandDirection.Left;
+                    CommentPanel.Opacity = 0;
+                    CommentPanel.Translation = wasLeftExpanded
+                        ? new Vector3(12, 0, 0)
+                        : new Vector3(-12, 0, 0);
+                    CommentBox.Text = "";
+
+                    await Task.Delay(180, token);
+                    token.ThrowIfCancellationRequested();
+                    CommentPanel.Visibility = Visibility.Collapsed;
+                    LeftExpandColumn.Width = new GridLength(0);
+                    RightExpandColumn.Width = new GridLength(0);
+                    CollapseToSquare(wasLeftExpanded);
+                    _expansionState = MiniWindowExpansionState.Collapsed;
+                }
+            }
+            catch (OperationCanceledException)
+            {
+                // A newer transition owns the final visual and window state.
+            }
         }
 
-        private async void CollapseInputPanel()
+        private void ConfigureCommentPanelLayout(MiniExpandDirection direction)
         {
-            if (!_isExpanded) return;
-            _isExpanded = false;
-
-            bool isLeft = _context.ExpandDirection == MiniExpandDirection.Left;
-            var panel = isLeft ? LeftInputPanel : RightInputPanel;
-
-            // 启动退出动画
-            panel.Opacity = 0;
-            panel.Translation = isLeft ? new Vector3(20, 0, 0) : new Vector3(-20, 0, 0);
-
-            // 清空输入
-            LeftCommentBox.Text = "";
-            RightCommentBox.Text = "";
-
-            // 等待退出动画完成
-            await Task.Delay(220);
-
-            // 清理布局
-            LeftInputPanel.Visibility = Visibility.Collapsed;
-            RightInputPanel.Visibility = Visibility.Collapsed;
-            LeftExpandColumn.Width = new GridLength(0);
-            RightExpandColumn.Width = new GridLength(0);
-
-            // 原子化恢复位置和尺寸
-            CollapseToSquare(isLeft);
+            var isLeft = direction == MiniExpandDirection.Left;
+            Grid.SetColumn(CommentPanel, isLeft ? 0 : 2);
+            CommentPanel.Margin = isLeft
+                ? new Thickness(0, 0, MiniWindowMetrics.CardGapDip, 0)
+                : new Thickness(MiniWindowMetrics.CardGapDip, 0, 0, 0);
+            LeftExpandColumn.Width = new GridLength(isLeft ? PanelColumnWidth : 0);
+            RightExpandColumn.Width = new GridLength(isLeft ? 0 : PanelColumnWidth);
         }
 
         // 窗口尺寸管理
@@ -549,7 +571,7 @@ namespace FolderRewind.Views
                 var scale = dpi > 0 ? dpi / 96d : GetScaleFactor();
                 var suggested = Marshal.PtrToStructure<RECT>(lParam);
                 var size = MiniWindowLayoutPolicy.DipToPixels(MiniWindowMetrics.CardSizeDip, scale);
-                var width = _isExpanded
+                var width = IsWindowExpanded
                     ? MiniWindowLayoutPolicy.DipToPixels(MiniWindowMetrics.ExpandedWidthDip, scale)
                     : size;
 
@@ -581,9 +603,9 @@ namespace FolderRewind.Views
         {
             DispatcherQueue.TryEnqueue(Microsoft.UI.Dispatching.DispatcherQueuePriority.Low, () =>
             {
-                if (!_isExpanded) return;
+                if (_expansionState is MiniWindowExpansionState.Collapsed or MiniWindowExpansionState.Collapsing) return;
                 var focused = FocusManager.GetFocusedElement(RootGrid.XamlRoot);
-                if (focused is not TextBox tb || (tb != LeftCommentBox && tb != RightCommentBox))
+                if (!ReferenceEquals(focused, CommentBox))
                 {
                     CollapseInputPanel();
                 }
@@ -677,7 +699,8 @@ namespace FolderRewind.Views
             int deltaY = currentCursorPos.Y - _dragStartCursorPos.Y;
 
             // 移动超过阈值才认为是拖拽
-            if (!_isDragging && (Math.Abs(deltaX) > 3 || Math.Abs(deltaY) > 3))
+            var dragThreshold = MiniWindowLayoutPolicy.DipToPixels(MiniWindowMetrics.DragThresholdDip, GetScaleFactor());
+            if (!_isDragging && (Math.Abs(deltaX) > dragThreshold || Math.Abs(deltaY) > dragThreshold))
             {
                 _isDragging = true;
             }
@@ -744,7 +767,7 @@ namespace FolderRewind.Views
 
         private void OnContextToggleExpandDirection(object sender, RoutedEventArgs e)
         {
-            if (_isExpanded) CollapseInputPanel();
+            if (_expansionState != MiniWindowExpansionState.Collapsed) CollapseInputPanel();
 
             _context.ExpandDirection = _context.ExpandDirection == MiniExpandDirection.Right
                 ? MiniExpandDirection.Left
@@ -767,10 +790,39 @@ namespace FolderRewind.Views
 
         // 清理
 
-        private void StopTimers()
+        private bool IsWindowExpanded => _expansionState != MiniWindowExpansionState.Collapsed;
+
+        private void OnThemeChanged(ElementTheme theme)
+        {
+            ThemeService.ApplyThemeToWindow(this);
+            SetVisualState(_visualState);
+        }
+
+        private void MiniWindow_Closed(object sender, WindowEventArgs args)
         {
             _watchTimer?.Stop();
             _watchTimer = null;
+
+            _transitionCts?.Cancel();
+            _transitionCts?.Dispose();
+            _transitionCts = null;
+
+            if (_themeChangedHandler != null)
+            {
+                ThemeService.ThemeChanged -= _themeChangedHandler;
+                _themeChangedHandler = null;
+            }
+
+            if (_subclassDelegate != null)
+            {
+                try
+                {
+                    var hwnd = WindowNative.GetWindowHandle(this);
+                    RemoveWindowSubclass(hwnd, _subclassDelegate, 1);
+                }
+                catch { }
+                _subclassDelegate = null;
+            }
         }
     }
 }
