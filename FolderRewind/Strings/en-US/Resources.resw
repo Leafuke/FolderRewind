@@ -2667,10 +2667,10 @@ Choose whether to remove only the record, only the local backup file, or both. C
     <value>Close</value>
   </data>
   <data name="MiniWindow_Menu_ExpandLeft" xml:space="preserve">
-    <value>Expand left</value>
+    <value>Prefer expanding left</value>
   </data>
   <data name="MiniWindow_Menu_ExpandRight" xml:space="preserve">
-    <value>Expand right</value>
+    <value>Prefer expanding right</value>
   </data>
   <data name="MiniWindow_Tip_Normal" xml:space="preserve">
     <value>No changes</value>

@@ -30,6 +30,7 @@ namespace FolderRewind.Views
         private Action<ElementTheme>? _themeChangedHandler;
         private bool _isDragging = false;
         private bool _isPointerCaptured = false;
+        private bool _suppressNextTap = false;
         private POINT _dragStartCursorPos;
         private PointInt32 _windowStartPos;
 
@@ -102,7 +103,6 @@ namespace FolderRewind.Views
         private const uint SWP_NOACTIVATE = 0x0010;
         private const uint SWP_NOZORDER = 0x0004;
         private const uint SWP_NOOWNERZORDER = 0x0200;
-        private const uint SWP_NOMOVE = 0x0002;
         private const uint SWP_NOSIZE = 0x0001;
 
         // 尺寸常量
@@ -412,7 +412,11 @@ namespace FolderRewind.Views
 
         private void MiniSquare_Tapped(object sender, TappedRoutedEventArgs e)
         {
-            if (_isDragging) return;
+            if (_isDragging || _suppressNextTap)
+            {
+                _suppressNextTap = false;
+                return;
+            }
             ToggleInputPanel();
         }
 
@@ -445,15 +449,15 @@ namespace FolderRewind.Views
             {
                 if (expand)
                 {
+                    var anchor = GetCurrentAnchorPoint();
                     _expansionState = MiniWindowExpansionState.Expanding;
                     _activeExpandDirection = _context.ExpandDirection;
-                    ConfigureCommentPanelLayout(_activeExpandDirection);
+                    ResizeToExpanded(anchor);
 
                     var isLeft = _activeExpandDirection == MiniExpandDirection.Left;
                     CommentPanel.Opacity = 0;
                     CommentPanel.Translation = isLeft ? new Vector3(12, 0, 0) : new Vector3(-12, 0, 0);
                     CommentPanel.Visibility = Visibility.Visible;
-                    ResizeToExpanded();
 
                     await Task.Yield();
                     token.ThrowIfCancellationRequested();
@@ -500,32 +504,33 @@ namespace FolderRewind.Views
 
         // 窗口尺寸管理
 
-        private void ResizeToExpanded()
+        private void ResizeToExpanded(MiniWindowPixelPoint? requestedAnchor = null)
         {
             try
             {
                 var scale = GetScaleFactor();
-                int squarePixels = MiniWindowLayoutPolicy.DipToPixels(MiniWindowMetrics.CardSizeDip, scale);
-                int totalWidth = MiniWindowLayoutPolicy.DipToPixels(MiniWindowMetrics.ExpandedWidthDip, scale);
-                int extraPixels = totalWidth - squarePixels;
-                int height = squarePixels;
-
                 var hwnd = WindowNative.GetWindowHandle(this);
-                var pos = AppWindow.Position;
+                var anchor = requestedAnchor ?? GetCurrentAnchorPoint();
+                var preferredDirection = _context.ExpandDirection == MiniExpandDirection.Left
+                    ? MiniWindowLayoutDirection.Left
+                    : MiniWindowLayoutDirection.Right;
+                var layout = MiniWindowLayoutPolicy.GetExpandedBounds(
+                    anchor,
+                    GetCurrentWorkArea(),
+                    scale,
+                    preferredDirection);
 
-                if (_context.ExpandDirection == MiniExpandDirection.Left)
-                {
-                    // 向左展开: 原子化移动+resize，方块位置不变
-                    int newX = Math.Max(0, pos.X - extraPixels);
-                    SetWindowPos(hwnd, IntPtr.Zero, newX, pos.Y, totalWidth, height,
-                        SWP_NOACTIVATE | SWP_NOZORDER | SWP_NOOWNERZORDER);
-                }
-                else
-                {
-                    // 向右展开: 仅 resize
-                    SetWindowPos(hwnd, IntPtr.Zero, pos.X, pos.Y, totalWidth, height,
-                        SWP_NOACTIVATE | SWP_NOZORDER | SWP_NOOWNERZORDER | SWP_NOMOVE);
-                }
+                _activeExpandDirection = layout.Direction == MiniWindowLayoutDirection.Left
+                    ? MiniExpandDirection.Left
+                    : MiniExpandDirection.Right;
+                ConfigureCommentPanelLayout(_activeExpandDirection);
+
+                SetWindowPos(hwnd, IntPtr.Zero,
+                    layout.WindowBounds.X,
+                    layout.WindowBounds.Y,
+                    layout.WindowBounds.Width,
+                    layout.WindowBounds.Height,
+                    SWP_NOACTIVATE | SWP_NOZORDER | SWP_NOOWNERZORDER);
             }
             catch { }
         }
@@ -538,25 +543,50 @@ namespace FolderRewind.Views
             try
             {
                 var scale = GetScaleFactor();
-                int size = MiniWindowLayoutPolicy.DipToPixels(MiniWindowMetrics.CardSizeDip, scale);
                 var hwnd = WindowNative.GetWindowHandle(this);
-                var pos = AppWindow.Position;
+                var anchor = GetCurrentAnchorPoint(wasLeftExpanded);
+                var bounds = MiniWindowLayoutPolicy.ClampCollapsedBounds(
+                    anchor,
+                    GetCurrentWorkArea(),
+                    scale);
 
-                if (wasLeftExpanded)
-                {
-                    // 左展开收起：方块在窗口右端，需将窗口右移到方块位置
-                    int extraPixels = MiniWindowLayoutPolicy.DipToPixels(MiniWindowMetrics.ExpandedWidthDip, scale) - size;
-                    SetWindowPos(hwnd, IntPtr.Zero, pos.X + extraPixels, pos.Y, size, size,
-                        SWP_NOACTIVATE | SWP_NOZORDER | SWP_NOOWNERZORDER);
-                }
-                else
-                {
-                    // 右展开收起：方块在窗口左端，直接 resize
-                    SetWindowPos(hwnd, IntPtr.Zero, pos.X, pos.Y, size, size,
-                        SWP_NOACTIVATE | SWP_NOZORDER | SWP_NOOWNERZORDER | SWP_NOMOVE);
-                }
+                SetWindowPos(hwnd, IntPtr.Zero, bounds.X, bounds.Y, bounds.Width, bounds.Height,
+                    SWP_NOACTIVATE | SWP_NOZORDER | SWP_NOOWNERZORDER);
             }
             catch { }
+        }
+
+        private MiniWindowPixelPoint GetCurrentAnchorPoint(bool? leftExpandedOverride = null)
+        {
+            var position = AppWindow.Position;
+            var isLeftExpanded = leftExpandedOverride
+                ?? (IsWindowExpanded && _activeExpandDirection == MiniExpandDirection.Left);
+            if (!isLeftExpanded)
+                return new MiniWindowPixelPoint(position.X, position.Y);
+
+            var scale = GetScaleFactor();
+            var cardSize = MiniWindowLayoutPolicy.DipToPixels(MiniWindowMetrics.CardSizeDip, scale);
+            var expandedWidth = MiniWindowLayoutPolicy.DipToPixels(MiniWindowMetrics.ExpandedWidthDip, scale);
+            return new MiniWindowPixelPoint(position.X + expandedWidth - cardSize, position.Y);
+        }
+
+        private MiniWindowPixelRect GetCurrentWorkArea()
+        {
+            var displayArea = DisplayArea.GetFromWindowId(AppWindow.Id, DisplayAreaFallback.Nearest)
+                ?? DisplayArea.Primary;
+            var workArea = displayArea.WorkArea;
+            return new MiniWindowPixelRect(workArea.X, workArea.Y, workArea.Width, workArea.Height);
+        }
+
+        private void ReflowIntoCurrentWorkArea()
+        {
+            if (IsWindowExpanded)
+            {
+                ResizeToExpanded();
+                return;
+            }
+
+            CollapseToSquare(false);
         }
 
         private double GetScaleFactor()
@@ -584,6 +614,17 @@ namespace FolderRewind.Views
 
                 SetWindowPos(hwnd, IntPtr.Zero, suggested.Left, suggested.Top, width, size,
                     SWP_NOACTIVATE | SWP_NOZORDER | SWP_NOOWNERZORDER);
+                if (_isPointerCaptured)
+                {
+                    GetCursorPos(out _dragStartCursorPos);
+                    _windowStartPos = new PointInt32(suggested.Left, suggested.Top);
+                }
+
+                DispatcherQueue.TryEnqueue(() =>
+                {
+                    if (!_isDragging)
+                        ReflowIntoCurrentWorkArea();
+                });
             }
             catch { }
         }
@@ -686,6 +727,7 @@ namespace FolderRewind.Views
                 return;
 
             _isDragging = false;
+            _suppressNextTap = false;
             _isPointerCaptured = RootGrid.CapturePointer(e.Pointer);
 
             if (_isPointerCaptured)
@@ -726,6 +768,7 @@ namespace FolderRewind.Views
 
         private void RootGrid_PointerReleased(object sender, PointerRoutedEventArgs e)
         {
+            var wasDragging = _isDragging;
             if (_isPointerCaptured)
             {
                 RootGrid.ReleasePointerCapture(e.Pointer);
@@ -734,10 +777,16 @@ namespace FolderRewind.Views
 
             MiniSquare.Scale = Vector3.One;
 
-            if (_isDragging)
+            if (wasDragging)
             {
-                // 延迟重置，防止 Tapped 误触
-                DispatcherQueue.TryEnqueue(() => _isDragging = false);
+                ReflowIntoCurrentWorkArea();
+                _suppressNextTap = true;
+                // Tapped is raised before this queued callback for a completed pointer gesture.
+                DispatcherQueue.TryEnqueue(() =>
+                {
+                    _isDragging = false;
+                    _suppressNextTap = false;
+                });
             }
         }
 

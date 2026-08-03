@@ -2667,10 +2667,10 @@ cmd=RESTORE;from=minebackup.mod;request_id=req-mr-restore-002;current_save=true;
     <value>关闭</value>
   </data>
   <data name="MiniWindow_Menu_ExpandLeft" xml:space="preserve">
-    <value>向左展开</value>
+    <value>优先向左展开</value>
   </data>
   <data name="MiniWindow_Menu_ExpandRight" xml:space="preserve">
-    <value>向右展开</value>
+    <value>优先向右展开</value>
   </data>
   <data name="MiniWindow_Tip_Normal" xml:space="preserve">
     <value>无变更</value>

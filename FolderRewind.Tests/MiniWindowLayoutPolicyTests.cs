@@ -33,4 +33,63 @@ public sealed class MiniWindowLayoutPolicyTests
         Assert.AreEqual(MiniWindowLayoutDirection.Left, left.Direction);
         Assert.AreEqual(anchor, new MiniWindowPixelPoint(left.AnchorBounds.X, left.AnchorBounds.Y));
     }
+
+    [TestMethod]
+    public void ExpansionFlipsLeftNearRightEdge()
+    {
+        var result = MiniWindowLayoutPolicy.GetExpandedBounds(
+            new MiniWindowPixelPoint(1840, 200),
+            new MiniWindowPixelRect(0, 0, 1920, 1080),
+            1d,
+            MiniWindowLayoutDirection.Right);
+
+        Assert.AreEqual(MiniWindowLayoutDirection.Left, result.Direction);
+        Assert.AreEqual(1840, result.AnchorBounds.X);
+        Assert.IsGreaterThanOrEqualTo(8, result.WindowBounds.X);
+        Assert.IsLessThanOrEqualTo(1912, result.WindowBounds.Right);
+    }
+
+    [TestMethod]
+    public void ExpansionFlipsRightNearLeftEdgeOnNegativeCoordinateDisplay()
+    {
+        var result = MiniWindowLayoutPolicy.GetExpandedBounds(
+            new MiniWindowPixelPoint(-1910, 200),
+            new MiniWindowPixelRect(-1920, 0, 1920, 1080),
+            1d,
+            MiniWindowLayoutDirection.Left);
+
+        Assert.AreEqual(MiniWindowLayoutDirection.Right, result.Direction);
+        Assert.AreEqual(-1910, result.AnchorBounds.X);
+        Assert.IsGreaterThanOrEqualTo(-1912, result.WindowBounds.X);
+        Assert.IsLessThanOrEqualTo(-8, result.WindowBounds.Right);
+    }
+
+    [TestMethod]
+    public void ExpansionChoosesMoreSpaceAndClampsWhenNeitherSideFits()
+    {
+        var result = MiniWindowLayoutPolicy.GetExpandedBounds(
+            new MiniWindowPixelPoint(220, 100),
+            new MiniWindowPixelRect(0, 0, 500, 800),
+            1d,
+            MiniWindowLayoutDirection.Left);
+
+        Assert.AreEqual(MiniWindowLayoutDirection.Right, result.Direction);
+        Assert.AreEqual(216, result.WindowBounds.X);
+        Assert.AreEqual(216, result.AnchorBounds.X);
+        Assert.AreEqual(492, result.WindowBounds.Right);
+    }
+
+    [TestMethod]
+    public void CollapsedWindowClampsWithinNegativeCoordinateWorkArea()
+    {
+        var result = MiniWindowLayoutPolicy.ClampCollapsedBounds(
+            new MiniWindowPixelPoint(-2000, -30),
+            new MiniWindowPixelRect(-1920, 0, 1920, 1080),
+            1.5d);
+
+        Assert.AreEqual(-1908, result.X);
+        Assert.AreEqual(12, result.Y);
+        Assert.AreEqual(72, result.Width);
+        Assert.AreEqual(72, result.Height);
+    }
 }
