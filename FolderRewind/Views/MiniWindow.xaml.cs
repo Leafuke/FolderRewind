@@ -89,6 +89,7 @@ namespace FolderRewind.Views
 
         private SUBCLASSPROC? _subclassDelegate;
         private const uint WM_GETMINMAXINFO = 0x0024;
+        private const uint WM_NCCALCSIZE = 0x0083;
         private const uint WM_DPICHANGED = 0x02E0;
         private const uint WM_DESTROY = 0x0002;
 
@@ -96,14 +97,16 @@ namespace FolderRewind.Views
         private const int DWMWA_BORDER_COLOR = 34;
         private const int DWMWA_NCRENDERING_POLICY = 2;
         private const int DWMNCRP_DISABLED = 2;
-        private const int DWMWCP_ROUND = 2;
+        private const int DWMWCP_DONOTROUND = 1;
         private const int GWL_EXSTYLE = -20;
         private const int WS_EX_TOOLWINDOW = 0x00000080;
         private const int WS_EX_APPWINDOW = 0x00040000;
         private const uint SWP_NOACTIVATE = 0x0010;
         private const uint SWP_NOZORDER = 0x0004;
         private const uint SWP_NOOWNERZORDER = 0x0200;
+        private const uint SWP_NOMOVE = 0x0002;
         private const uint SWP_NOSIZE = 0x0001;
+        private const uint SWP_FRAMECHANGED = 0x0020;
 
         // 尺寸常量
 
@@ -173,31 +176,6 @@ namespace FolderRewind.Views
 
             appWindow.Title = $"Mini - {_context.Folder?.DisplayName ?? "Folder"}";
 
-            // Win11 圆角
-            try
-            {
-                int preference = DWMWCP_ROUND;
-                DwmSetWindowAttribute(hwnd, DWMWA_WINDOW_CORNER_PREFERENCE, ref preference, sizeof(int));
-            }
-            catch { }
-
-            // 移除 DWM 1px 边框（Win11 22H2+，低版本自动忽略）
-            try
-            {
-                int colorNone = unchecked((int)0xFFFFFFFE);
-                DwmSetWindowAttribute(hwnd, DWMWA_BORDER_COLOR, ref colorNone, sizeof(int));
-            }
-            catch { }
-
-            // 取消窗口阴影
-            try
-            {
-                int policy = DWMNCRP_DISABLED;
-                DwmSetWindowAttribute(hwnd, DWMWA_NCRENDERING_POLICY, ref policy, sizeof(int));
-            }
-            catch { }
-
-
             // 从任务栏隐藏（WS_EX_TOOLWINDOW）
             try
             {
@@ -233,6 +211,26 @@ namespace FolderRewind.Views
             }
             catch { }
 
+            ApplyNativeChrome(hwnd);
+        }
+
+        private static void ApplyNativeChrome(IntPtr hwnd)
+        {
+            // XAML draws the rounded ribbon. DWM rounding would clip that surface asymmetrically.
+            int cornerPreference = DWMWCP_DONOTROUND;
+            DwmSetWindowAttribute(hwnd, DWMWA_WINDOW_CORNER_PREFERENCE, ref cornerPreference, sizeof(int));
+
+            int colorNone = unchecked((int)0xFFFFFFFE);
+            DwmSetWindowAttribute(hwnd, DWMWA_BORDER_COLOR, ref colorNone, sizeof(int));
+
+            // Disable DWM non-client rendering, including its standard frame shadow.
+            int renderingPolicy = DWMNCRP_DISABLED;
+            DwmSetWindowAttribute(hwnd, DWMWA_NCRENDERING_POLICY, ref renderingPolicy, sizeof(int));
+
+            // Recalculate the client area after presenter and extended-style changes.
+            SetWindowPos(hwnd, IntPtr.Zero, 0, 0, 0, 0,
+                SWP_NOACTIVATE | SWP_NOZORDER | SWP_NOOWNERZORDER |
+                SWP_NOMOVE | SWP_NOSIZE | SWP_FRAMECHANGED);
         }
 
         private IntPtr WindowSubclassProc(IntPtr hWnd, uint uMsg, IntPtr wParam, IntPtr lParam, IntPtr uIdSubclass, IntPtr dwRefData)
@@ -243,6 +241,11 @@ namespace FolderRewind.Views
                 mmi.ptMinTrackSize.X = 10; // 允许极小宽度
                 mmi.ptMinTrackSize.Y = 10; // 允许极小高度
                 Marshal.StructureToPtr(mmi, lParam, false);
+                return IntPtr.Zero;
+            }
+            else if (uMsg == WM_NCCALCSIZE && wParam != IntPtr.Zero)
+            {
+                // Borderless mini windows use the complete HWND bounds as client area.
                 return IntPtr.Zero;
             }
             else if (uMsg == WM_DPICHANGED)
@@ -265,6 +268,12 @@ namespace FolderRewind.Views
         private void RootGrid_Loaded(object sender, RoutedEventArgs e)
         {
             RootGrid.Loaded -= RootGrid_Loaded;
+            try
+            {
+                ApplyNativeChrome(WindowNative.GetWindowHandle(this));
+            }
+            catch { }
+
             if (IsWindowExpanded)
                 ResizeToExpanded();
             else
@@ -285,7 +294,7 @@ namespace FolderRewind.Views
                 (float)(MiniWindowMetrics.CardSizeDip / 2d),
                 0);
             MiniSquare.ScaleTransition = new Vector3Transition { Duration = TimeSpan.FromMilliseconds(90) };
-            HoverOverlay.OpacityTransition = new ScalarTransition { Duration = TimeSpan.FromMilliseconds(120) };
+            RibbonBorder.OpacityTransition = new ScalarTransition { Duration = TimeSpan.FromMilliseconds(120) };
         }
 
         private void ApplyLocalizedStrings()
@@ -796,11 +805,11 @@ namespace FolderRewind.Views
         // 悬停效果
         private void MiniSquare_PointerEntered(object sender, PointerRoutedEventArgs e)
         {
-            HoverOverlay.Opacity = 1;
+            RibbonBorder.Opacity = 1;
         }
         private void MiniSquare_PointerExited(object sender, PointerRoutedEventArgs e)
         {
-            HoverOverlay.Opacity = 0;
+            RibbonBorder.Opacity = 0.92;
         }
 
         // 右键菜单

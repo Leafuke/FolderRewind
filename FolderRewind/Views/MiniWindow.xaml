@@ -27,35 +27,20 @@
         <!-- Mini 主卡片 -->
         <Grid x:Name="MiniSquare" Grid.Column="1"
               Width="{x:Bind MiniCardSizeDip}" Height="{x:Bind MiniCardSizeDip}"
+              Background="Transparent"
               PointerEntered="MiniSquare_PointerEntered"
               PointerExited="MiniSquare_PointerExited"
               Tapped="MiniSquare_Tapped"
               RightTapped="MiniSquare_RightTapped">
 
-            <SystemBackdropElement CornerRadius="{x:Bind MiniCornerRadius}">
-                <SystemBackdropElement.SystemBackdrop>
-                    <DesktopAcrylicBackdrop/>
-                </SystemBackdropElement.SystemBackdrop>
-            </SystemBackdropElement>
-
-            <Border x:Name="MiniSurfaceBorder"
-                    CornerRadius="{x:Bind MiniCornerRadius}"
-                    Background="Transparent"
-                    BorderBrush="{ThemeResource SurfaceStrokeColorDefaultBrush}"
-                    BorderThickness="1"/>
-
-            <Border x:Name="HoverOverlay"
-                    CornerRadius="{x:Bind MiniCornerRadius}"
-                    Background="{ThemeResource SubtleFillColorSecondaryBrush}"
-                    Opacity="0"/>
-
             <!-- 彩色丝带：常态使用主题色，文件变化与备份结果使用对应状态色 -->
             <Border x:Name="RibbonBorder"
-                    Margin="5"
+                    Margin="6"
                     CornerRadius="8"
                     Background="Transparent"
                     BorderBrush="{ThemeResource AccentFillColorDefaultBrush}"
-                    BorderThickness="2"/>
+                    BorderThickness="2"
+                    Opacity="0.92"/>
 
             <Grid HorizontalAlignment="Center" VerticalAlignment="Center">
                 <ProgressRing x:Name="BackupProgressRing"
