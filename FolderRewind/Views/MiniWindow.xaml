@@ -33,9 +33,15 @@
               Tapped="MiniSquare_Tapped"
               RightTapped="MiniSquare_RightTapped">
 
+            <Border x:Name="MiniSurfaceBorder"
+                    CornerRadius="8"
+                    Background="Transparent"
+                    BorderBrush="{ThemeResource SurfaceStrokeColorDefaultBrush}"
+                    BorderThickness="1"/>
+
             <!-- 彩色丝带：常态使用主题色，文件变化与备份结果使用对应状态色 -->
             <Border x:Name="RibbonBorder"
-                    Margin="6"
+                    Margin="5"
                     CornerRadius="8"
                     Background="Transparent"
                     BorderBrush="{ThemeResource AccentFillColorDefaultBrush}"
@@ -101,14 +107,14 @@
               Height="{x:Bind MiniCardSizeDip}"
               Visibility="Collapsed"
               VerticalAlignment="Center">
-            <SystemBackdropElement CornerRadius="{x:Bind MiniCornerRadius}">
+            <SystemBackdropElement CornerRadius="8">
                 <SystemBackdropElement.SystemBackdrop>
                     <DesktopAcrylicBackdrop/>
                 </SystemBackdropElement.SystemBackdrop>
             </SystemBackdropElement>
 
             <Border x:Name="CommentSurfaceBorder"
-                    CornerRadius="{x:Bind MiniCornerRadius}"
+                    CornerRadius="8"
                     Background="Transparent"
                     BorderBrush="{ThemeResource SurfaceStrokeColorDefaultBrush}"
                     BorderThickness="1"/>

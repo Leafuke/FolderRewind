@@ -97,7 +97,8 @@ namespace FolderRewind.Views
         private const int DWMWA_BORDER_COLOR = 34;
         private const int DWMWA_NCRENDERING_POLICY = 2;
         private const int DWMNCRP_DISABLED = 2;
-        private const int DWMWCP_DONOTROUND = 1;
+        // private const int DWMWCP_DONOTROUND = 1;
+        private const int DWMWCP_ROUND = 2;
         private const int GWL_EXSTYLE = -20;
         private const int WS_EX_TOOLWINDOW = 0x00000080;
         private const int WS_EX_APPWINDOW = 0x00040000;
@@ -176,6 +177,14 @@ namespace FolderRewind.Views
 
             appWindow.Title = $"Mini - {_context.Folder?.DisplayName ?? "Folder"}";
 
+            // Win11 圆角
+            try
+            {
+                int preference = DWMWCP_ROUND;
+                DwmSetWindowAttribute(hwnd, DWMWA_WINDOW_CORNER_PREFERENCE, ref preference, sizeof(int));
+            }
+            catch { }
+
             // 从任务栏隐藏（WS_EX_TOOLWINDOW）
             try
             {
@@ -217,8 +226,8 @@ namespace FolderRewind.Views
         private static void ApplyNativeChrome(IntPtr hwnd)
         {
             // XAML draws the rounded ribbon. DWM rounding would clip that surface asymmetrically.
-            int cornerPreference = DWMWCP_DONOTROUND;
-            DwmSetWindowAttribute(hwnd, DWMWA_WINDOW_CORNER_PREFERENCE, ref cornerPreference, sizeof(int));
+            // int cornerPreference = DWMWCP_DONOTROUND;
+            //DwmSetWindowAttribute(hwnd, DWMWA_WINDOW_CORNER_PREFERENCE, ref cornerPreference, sizeof(int));
 
             int colorNone = unchecked((int)0xFFFFFFFE);
             DwmSetWindowAttribute(hwnd, DWMWA_BORDER_COLOR, ref colorNone, sizeof(int));
