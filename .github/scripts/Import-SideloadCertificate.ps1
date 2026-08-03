@@ -25,4 +25,8 @@ if ($null -eq $importedCertificate) {
     throw "Failed to import the sideload certificate into Cert:\\CurrentUser\\My."
 }
 
+if ($env:GITHUB_OUTPUT) {
+    "imported_certificate_thumbprint=$($importedCertificate.Thumbprint)" >> $env:GITHUB_OUTPUT
+}
+
 Write-Host "Imported certificate into CurrentUser\\My: $($importedCertificate.Thumbprint)"
