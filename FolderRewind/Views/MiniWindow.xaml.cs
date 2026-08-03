@@ -367,7 +367,7 @@ namespace FolderRewind.Views
         {
             _visualState = state;
 
-            var statusBrush = state switch
+            var ribbonBrush = state switch
             {
                 MiniWindowVisualState.Normal => GetThemeBrush("AccentFillColorDefaultBrush", new SolidColorBrush(Microsoft.UI.Colors.CornflowerBlue)),
                 MiniWindowVisualState.Changed => GetThemeBrush("SystemFillColorCautionBrush", GetThemeBrush("AccentFillColorSecondaryBrush", GetThemeBrush("AccentFillColorDefaultBrush", new SolidColorBrush(Microsoft.UI.Colors.Orange)))),
@@ -377,11 +377,7 @@ namespace FolderRewind.Views
                 _ => GetThemeBrush("AccentFillColorDefaultBrush", new SolidColorBrush(Microsoft.UI.Colors.CornflowerBlue)),
             };
 
-            StatusDot.Fill = statusBrush;
-
-            var showAction = state is MiniWindowVisualState.Normal or MiniWindowVisualState.Changed;
-            ActionIcon.Visibility = showAction ? Visibility.Visible : Visibility.Collapsed;
-            StatusDot.Visibility = showAction ? Visibility.Visible : Visibility.Collapsed;
+            RibbonBorder.BorderBrush = ribbonBrush;
 
             // 仅在备份/完成/失败状态显示中心图标
             BackupProgressRing.IsActive = state == MiniWindowVisualState.BackingUp;

@@ -49,12 +49,15 @@
                     Background="{ThemeResource SubtleFillColorSecondaryBrush}"
                     Opacity="0"/>
 
-            <Grid HorizontalAlignment="Center" VerticalAlignment="Center">
-                <FontIcon x:Name="ActionIcon"
-                          Glyph="&#xE898;"
-                          FontSize="18"
-                          Foreground="{ThemeResource TextFillColorPrimaryBrush}"/>
+            <!-- 彩色丝带：常态使用主题色，文件变化与备份结果使用对应状态色 -->
+            <Border x:Name="RibbonBorder"
+                    Margin="5"
+                    CornerRadius="8"
+                    Background="Transparent"
+                    BorderBrush="{ThemeResource AccentFillColorDefaultBrush}"
+                    BorderThickness="2"/>
 
+            <Grid HorizontalAlignment="Center" VerticalAlignment="Center">
                 <ProgressRing x:Name="BackupProgressRing"
                               IsActive="False"
                               Width="20" Height="20"
@@ -72,13 +75,6 @@
                           Foreground="{ThemeResource SystemFillColorCriticalBrush}"
                           Visibility="Collapsed"/>
             </Grid>
-
-            <Ellipse x:Name="StatusDot"
-                     Width="8" Height="8"
-                     Margin="0,8,8,0"
-                     HorizontalAlignment="Right"
-                     VerticalAlignment="Top"
-                     Fill="{ThemeResource AccentFillColorDefaultBrush}"/>
 
             <!-- 悬停提示 -->
             <ToolTipService.ToolTip>
@@ -132,15 +128,16 @@
                     BorderBrush="{ThemeResource SurfaceStrokeColorDefaultBrush}"
                     BorderThickness="1"/>
 
-            <TextBox x:Name="CommentBox"
-                     PlaceholderText=""
-                     Padding="12,0"
-                     BorderThickness="0"
-                     CornerRadius="{x:Bind MiniCornerRadius}"
-                     Background="Transparent"
-                     VerticalContentAlignment="Center"
-                     KeyDown="CommentBox_KeyDown"
-                     LostFocus="CommentBox_LostFocus"/>
+            <!-- 将 TextBox 限制在卡片内部，避免默认焦点层占满整扇窗口 -->
+            <Grid Margin="8,6">
+                <TextBox x:Name="CommentBox"
+                         PlaceholderText=""
+                         BorderThickness="0"
+                         Background="Transparent"
+                         VerticalContentAlignment="Center"
+                         KeyDown="CommentBox_KeyDown"
+                         LostFocus="CommentBox_LostFocus"/>
+            </Grid>
         </Grid>
     </Grid>
 </Window>
