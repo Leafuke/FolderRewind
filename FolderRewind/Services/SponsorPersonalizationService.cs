@@ -43,18 +43,29 @@ namespace FolderRewind.Services
             try
             {
                 var targetDir = Path.Combine(ConfigService.ConfigDirectory, BackgroundDirectoryName);
-                Directory.CreateDirectory(targetDir);
-
                 var targetPath = Path.Combine(targetDir, $"background{extension.ToLowerInvariant()}");
-                await Task.Run(() => File.Copy(sourcePath, targetPath, overwrite: true)).ConfigureAwait(false);
 
-                var settings = ConfigService.CurrentConfig.GlobalSettings;
-                settings.SponsorBackgroundImagePath = targetPath;
-                settings.SponsorBackgroundEnabled = true;
-                ConfigService.Save();
+                // 文件 IO 可以放到线程池，但 GlobalSettings 会被 XAML x:Bind 监听，
+                // 其属性变更必须在 UI 线程触发，否则绑定会跨线程更新 ToggleSwitch。
+                await Task.Run(() =>
+                {
+                    Directory.CreateDirectory(targetDir);
+                    File.Copy(sourcePath, targetPath, overwrite: true);
+                }).ConfigureAwait(false);
 
-                MainWindowService.ApplySponsorVisuals();
-                NotificationService.ShowSuccess(I18n.GetString("Sponsor_BackgroundApplied"), I18n.GetString("Sponsor_Title"));
+                await UiDispatcherService.RunOnUiAsync(() =>
+                {
+                    var settings = ConfigService.CurrentConfig.GlobalSettings;
+                    settings.SponsorBackgroundImagePath = targetPath;
+                    settings.SponsorBackgroundEnabled = true;
+                    ConfigService.Save();
+
+                    MainWindowService.ApplySponsorVisuals();
+                    NotificationService.ShowSuccess(
+                        I18n.GetString("Sponsor_BackgroundApplied"),
+                        I18n.GetString("Sponsor_Title"));
+                }).ConfigureAwait(false);
+
                 return true;
             }
             catch (Exception ex)
@@ -74,14 +85,22 @@ namespace FolderRewind.Services
 
             try
             {
-                var settings = ConfigService.CurrentConfig.GlobalSettings;
-                settings.SponsorBackgroundEnabled = false;
-                settings.SponsorBackgroundImagePath = string.Empty;
-                ConfigService.Save();
+                var cleared = false;
+                UiDispatcherService.RunOnUiAsync(() =>
+                {
+                    var settings = ConfigService.CurrentConfig.GlobalSettings;
+                    settings.SponsorBackgroundEnabled = false;
+                    settings.SponsorBackgroundImagePath = string.Empty;
+                    ConfigService.Save();
 
-                MainWindowService.ApplySponsorVisuals();
-                NotificationService.ShowSuccess(I18n.GetString("Sponsor_BackgroundCleared"), I18n.GetString("Sponsor_Title"));
-                return true;
+                    MainWindowService.ApplySponsorVisuals();
+                    NotificationService.ShowSuccess(
+                        I18n.GetString("Sponsor_BackgroundCleared"),
+                        I18n.GetString("Sponsor_Title"));
+                    cleared = true;
+                }).GetAwaiter().GetResult();
+
+                return cleared;
             }
             catch (Exception ex)
             {
