@@ -3,6 +3,8 @@ using Microsoft.UI.Xaml.Media;
 using Microsoft.UI.Xaml.Media.Imaging;
 using System;
 using System.IO;
+using System.Threading.Tasks;
+using Windows.Storage;
 using Windows.UI;
 using Windows.UI.ViewManagement;
 
@@ -11,14 +13,18 @@ namespace FolderRewind.ViewModels
     public sealed class ShellPageViewModel : ViewModelBase, IDisposable
     {
         private bool _disposed;
+        private BitmapImage? _sponsorBackgroundImageSource;
+        private bool _isSponsorBackgroundVisible;
+        private SponsorBackgroundImageState _backgroundImageState;
+        private int _backgroundLoadVersion;
 
         public string TitleText => GetTitleText();
 
         public string TitleIconGlyph => GetTitleIconGlyph();
 
-        public bool IsSponsorBackgroundVisible => GetSponsorBackgroundImageSource() != null;
+        public bool IsSponsorBackgroundVisible => _isSponsorBackgroundVisible;
 
-        public ImageSource? SponsorBackgroundImageSource => GetSponsorBackgroundImageSource();
+        public ImageSource? SponsorBackgroundImageSource => _sponsorBackgroundImageSource;
 
         public Stretch SponsorBackgroundStretch => GetSponsorBackgroundStretch();
 
@@ -40,16 +46,21 @@ namespace FolderRewind.ViewModels
             SponsorService.StateChanged += OnStateChanged;
         }
 
-        public void RefreshTitleBar()
+        public async Task RefreshVisualsAsync(bool forceBackgroundImageReload = false)
         {
+            if (_disposed)
+            {
+                return;
+            }
+
             OnPropertyChanged(nameof(TitleText));
             OnPropertyChanged(nameof(TitleIconGlyph));
-            OnPropertyChanged(nameof(IsSponsorBackgroundVisible));
-            OnPropertyChanged(nameof(SponsorBackgroundImageSource));
             OnPropertyChanged(nameof(SponsorBackgroundStretch));
             OnPropertyChanged(nameof(SponsorBackgroundOpacity));
             OnPropertyChanged(nameof(SponsorBackgroundOverlayBrush));
             OnPropertyChanged(nameof(SponsorBackgroundOverlayOpacity));
+
+            await RefreshBackgroundImageAsync(forceBackgroundImageReload);
         }
 
         public void Dispose()
@@ -60,13 +71,14 @@ namespace FolderRewind.ViewModels
             }
 
             _disposed = true;
+            _backgroundLoadVersion++;
             ConfigService.Saved -= OnStateChanged;
             SponsorService.StateChanged -= OnStateChanged;
         }
 
         private void OnStateChanged()
         {
-            EnqueueOnUiThread(RefreshTitleBar);
+            EnqueueOnUiThread(() => _ = RefreshVisualsAsync());
         }
 
         private static string GetTitleText()
@@ -91,26 +103,112 @@ namespace FolderRewind.ViewModels
             return IconCatalog.DefaultConfigIconGlyph;
         }
 
-        private static ImageSource? GetSponsorBackgroundImageSource()
+        private async Task RefreshBackgroundImageAsync(bool forceReload)
         {
-            var settings = ConfigService.CurrentConfig?.GlobalSettings;
-            if (!SponsorService.IsUnlocked
-                || settings?.SponsorBackgroundEnabled != true
-                || string.IsNullOrWhiteSpace(settings.SponsorBackgroundImagePath)
-                || !File.Exists(settings.SponsorBackgroundImagePath))
+            if (_disposed)
             {
-                return null;
+                return;
             }
+
+            var currentState = GetSponsorBackgroundImageState();
+            if (SponsorBackgroundImageCachePolicy.ShouldClear(currentState))
+            {
+                _backgroundImageState = currentState;
+                _backgroundLoadVersion++;
+                SetSponsorBackgroundImage(null, isVisible: false);
+                return;
+            }
+
+            var shouldReload = SponsorBackgroundImageCachePolicy.ShouldReload(
+                _backgroundImageState,
+                currentState,
+                _sponsorBackgroundImageSource != null,
+                forceReload);
+            if (!shouldReload)
+            {
+                return;
+            }
+
+            _backgroundImageState = currentState;
+            var requestVersion = ++_backgroundLoadVersion;
 
             try
             {
-                // BitmapImage 直接指向复制后的本地文件；用户原始路径不会被长期依赖。
-                return new BitmapImage(new Uri(settings.SponsorBackgroundImagePath, UriKind.Absolute));
+                var bitmap = await LoadSponsorBackgroundImageAsync(currentState.Path);
+                if (!SponsorBackgroundImageCachePolicy.IsCurrentLoad(
+                        requestVersion,
+                        _backgroundLoadVersion,
+                        _disposed))
+                {
+                    return;
+                }
+
+                // 保留旧图直到新图完整解码成功，避免导航或换图时出现空白帧。
+                SetSponsorBackgroundImage(bitmap, isVisible: true);
             }
             catch (Exception ex)
             {
-                LogService.LogWarning(I18n.Format("Sponsor_Log_BackgroundLoadFailed", ex.Message), nameof(ShellPageViewModel));
-                return null;
+                if (!SponsorBackgroundImageCachePolicy.IsCurrentLoad(
+                        requestVersion,
+                        _backgroundLoadVersion,
+                        _disposed))
+                {
+                    return;
+                }
+
+                LogService.LogWarning(
+                    I18n.Format("Sponsor_Log_BackgroundLoadFailed", ex.Message),
+                    nameof(ShellPageViewModel));
+
+                // 如果没有旧图，失败后保持隐藏；如果已有旧图，则继续显示旧图，
+                // 避免一次加载失败让整个 Shell 突然变空。
+                if (_sponsorBackgroundImageSource == null)
+                {
+                    SetSponsorBackgroundImage(null, isVisible: false);
+                }
+            }
+        }
+
+        private static SponsorBackgroundImageState GetSponsorBackgroundImageState()
+        {
+            var settings = ConfigService.CurrentConfig?.GlobalSettings;
+            var path = settings?.SponsorBackgroundImagePath?.Trim() ?? string.Empty;
+            var fileExists = !string.IsNullOrWhiteSpace(path) && File.Exists(path);
+
+            return new SponsorBackgroundImageState(
+                path,
+                settings?.SponsorBackgroundEnabled == true,
+                SponsorService.IsUnlocked,
+                fileExists);
+        }
+
+        private static async Task<BitmapImage> LoadSponsorBackgroundImageAsync(string path)
+        {
+            // BitmapImage 是 UI 绑定对象；此方法由 UI 调度入口调用，且不使用
+            // ConfigureAwait(false)，保证创建和填充过程留在 XAML 所属线程。
+            var file = await StorageFile.GetFileFromPathAsync(path);
+            var bitmap = new BitmapImage();
+            using var stream = await file.OpenAsync(FileAccessMode.Read);
+            await bitmap.SetSourceAsync(stream);
+            return bitmap;
+        }
+
+        private void SetSponsorBackgroundImage(BitmapImage? image, bool isVisible)
+        {
+            var imageChanged = !ReferenceEquals(_sponsorBackgroundImageSource, image);
+            var visibilityChanged = _isSponsorBackgroundVisible != isVisible;
+
+            _sponsorBackgroundImageSource = image;
+            _isSponsorBackgroundVisible = isVisible;
+
+            if (imageChanged)
+            {
+                OnPropertyChanged(nameof(SponsorBackgroundImageSource));
+            }
+
+            if (visibilityChanged)
+            {
+                OnPropertyChanged(nameof(IsSponsorBackgroundVisible));
             }
         }
 

@@ -35,6 +35,7 @@
     <Compile Include="..\FolderRewind\Services\TemplateFormatPolicy.cs" Link="Source\TemplateFormatPolicy.cs" />
     <Compile Include="..\FolderRewind\Services\LanguageSettingPolicy.cs" Link="Source\LanguageSettingPolicy.cs" />
     <Compile Include="..\FolderRewind\Services\MiniWindowLayoutPolicy.cs" Link="Source\MiniWindowLayoutPolicy.cs" />
+    <Compile Include="..\FolderRewind\Services\SponsorBackgroundImageCachePolicy.cs" Link="Source\SponsorBackgroundImageCachePolicy.cs" />
     <Compile Include="..\FolderRewind\Services\ArchiveCompressionPolicy.cs" Link="Source\ArchiveCompressionPolicy.cs" />
     <Compile Include="..\FolderRewind\Services\BackupArchiveTypePolicy.cs" Link="Source\BackupArchiveTypePolicy.cs" />
     <Compile Include="..\FolderRewind\Services\BackupFilterRulePolicy.cs" Link="Source\BackupFilterRulePolicy.cs" />

@@ -60,7 +60,8 @@ namespace FolderRewind.Services
                     settings.SponsorBackgroundEnabled = true;
                     ConfigService.Save();
 
-                    MainWindowService.ApplySponsorVisuals();
+                    // 同一扩展名会覆盖同一个目标路径，显式要求 Shell 重新解码。
+                    MainWindowService.ApplySponsorVisuals(forceBackgroundImageReload: true);
                     NotificationService.ShowSuccess(
                         I18n.GetString("Sponsor_BackgroundApplied"),
                         I18n.GetString("Sponsor_Title"));

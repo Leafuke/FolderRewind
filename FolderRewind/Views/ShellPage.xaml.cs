@@ -37,6 +37,7 @@ namespace FolderRewind.Views
             NotificationService.InfoBarRequested += OnInfoBarRequested;
             NotificationService.RunningTaskCountChanged += OnRunningTaskCountChanged;
             ConfigService.Saved += OnConfigSaved;
+            Loaded += ShellPage_Loaded;
             Unloaded += ShellPage_Unloaded;
 
             UpdateTasksRunningBadge(NotificationService.GetRunningTaskCount());
@@ -49,6 +50,7 @@ namespace FolderRewind.Views
             NotificationService.InfoBarRequested -= OnInfoBarRequested;
             NotificationService.RunningTaskCountChanged -= OnRunningTaskCountChanged;
             ConfigService.Saved -= OnConfigSaved;
+            Loaded -= ShellPage_Loaded;
             ViewModel.Dispose();
 
             if (_infoBarTimer != null)
@@ -59,6 +61,12 @@ namespace FolderRewind.Views
             }
 
             Unloaded -= ShellPage_Unloaded;
+        }
+
+        private void ShellPage_Loaded(object sender, Microsoft.UI.Xaml.RoutedEventArgs e)
+        {
+            // 背景图使用显式异步解码，避免在 x:Bind 首次取值时同步访问文件。
+            _ = ViewModel.RefreshVisualsAsync();
         }
 
         private void OnConfigSaved()

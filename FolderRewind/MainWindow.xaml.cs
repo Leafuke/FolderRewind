@@ -279,10 +279,16 @@ namespace FolderRewind
             }
         }
 
+        internal void RefreshShellVisuals(bool forceBackgroundImageReload = false)
+        {
+            _ = ShellRoot?.ViewModel.RefreshVisualsAsync(forceBackgroundImageReload);
+        }
+
         private void ThemeService_ThemeChanged(ElementTheme theme)
         {
             ThemeService.ApplyThemeToWindow(this);
             ThemeService.ApplyPersonalizationToWindow(this);
+            RefreshShellVisuals();
             UpdateTitleBar(theme);
         }
 

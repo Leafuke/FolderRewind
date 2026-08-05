@@ -45,7 +45,7 @@ namespace FolderRewind.Services
             App.UpdateWindowTitle();
         }
 
-        public static void ApplySponsorVisuals()
+        public static void ApplySponsorVisuals(bool forceBackgroundImageReload = false)
         {
             UiDispatcherService.Enqueue(() =>
             {
@@ -56,6 +56,10 @@ namespace FolderRewind.Services
                 }
 
                 ThemeService.ApplyPersonalizationToWindow(window);
+                if (window is MainWindow mainWindow)
+                {
+                    mainWindow.RefreshShellVisuals(forceBackgroundImageReload);
+                }
                 UpdateWindowTitle();
             });
         }
