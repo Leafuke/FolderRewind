@@ -23,6 +23,7 @@ namespace FolderRewind
         private static Window _window { get; set; } = null!;
 
         private TaskbarIcon? _trayIcon;
+        private bool _trayRestorePending;
         internal static bool ForceExitRequested { get; private set; }
 
         #endregion
@@ -417,24 +418,66 @@ namespace FolderRewind
 
         private void ToggleWindowVisibility()
         {
-            if (_window?.AppWindow == null) return;
+            var window = _window;
+            var appWindow = window?.AppWindow;
+            var dispatcherQueue = window?.DispatcherQueue;
+            if (appWindow == null || dispatcherQueue == null) return;
 
             try
             {
-                var appWindow = _window.AppWindow;
                 if (appWindow.IsVisible)
                 {
+                    _trayRestorePending = false;
                     appWindow.Hide();
+                    return;
                 }
-                else
+
+                // 托盘菜单/Explorer 仍可能处于激活状态；把恢复动作排到当前
+                // 回调之后，再显式请求激活，避免窗口仅显示但停留在后台层级。
+                if (_trayRestorePending)
                 {
-                    appWindow.Show();
-                    _window.Activate();
+                    return;
+                }
+
+                _trayRestorePending = true;
+                if (!dispatcherQueue.TryEnqueue(
+                        Microsoft.UI.Dispatching.DispatcherQueuePriority.High,
+                        RestoreWindowFromTray))
+                {
+                    _trayRestorePending = false;
+                    LogService.Log(I18n.Format(
+                        "Tray_ToggleFailed",
+                        "Failed to enqueue tray window restore."));
                 }
             }
             catch (Exception ex)
             {
+                _trayRestorePending = false;
                 LogService.Log(I18n.Format("Tray_ToggleFailed", ex.Message));
+            }
+        }
+
+        private void RestoreWindowFromTray()
+        {
+            try
+            {
+                var window = _window;
+                var appWindow = window?.AppWindow;
+                if (window == null || appWindow == null)
+                {
+                    return;
+                }
+
+                appWindow.Show(true);
+                window.Activate();
+            }
+            catch (Exception ex)
+            {
+                LogService.Log(I18n.Format("Tray_ToggleFailed", ex.Message));
+            }
+            finally
+            {
+                _trayRestorePending = false;
             }
         }
 
