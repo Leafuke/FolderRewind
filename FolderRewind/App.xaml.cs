@@ -470,6 +470,7 @@ namespace FolderRewind
 
                 appWindow.Show(true);
                 window.Activate();
+                NativeWindowActivationService.TryActivate(window);
             }
             catch (Exception ex)
             {
