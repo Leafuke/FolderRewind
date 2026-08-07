@@ -12,6 +12,7 @@
     <PackageReference Include="Microsoft.NET.Test.Sdk" Version="18.0.1" />
     <PackageReference Include="MSTest.TestAdapter" Version="4.0.2" />
     <PackageReference Include="MSTest.TestFramework" Version="4.0.2" />
+    <PackageReference Include="YamlDotNet" Version="18.1.0" />
   </ItemGroup>
 
   <ItemGroup>
@@ -34,8 +35,11 @@
     <Compile Include="..\FolderRewind\Services\RestoreModePolicy.cs" Link="Source\RestoreModePolicy.cs" />
     <Compile Include="..\FolderRewind\Services\TemplateFormatPolicy.cs" Link="Source\TemplateFormatPolicy.cs" />
     <Compile Include="..\FolderRewind\Models\DiscoveryModels.cs" Link="Source\DiscoveryModels.cs" />
+    <Compile Include="..\FolderRewind\Models\LudusaviIndexModels.cs" Link="Source\LudusaviIndexModels.cs" />
     <Compile Include="..\FolderRewind\Services\Discovery\DiscoveryCandidateMerger.cs" Link="Source\DiscoveryCandidateMerger.cs" />
     <Compile Include="..\FolderRewind\Services\Discovery\GameDiscoveryService.cs" Link="Source\GameDiscoveryService.cs" />
+    <Compile Include="..\FolderRewind\Services\Discovery\LudusaviManifestCompiler.cs" Link="Source\LudusaviManifestCompiler.cs" />
+    <Compile Include="..\FolderRewind\Services\Discovery\LudusaviManifestCacheService.cs" Link="Source\LudusaviManifestCacheService.cs" />
     <Compile Include="..\FolderRewind\Services\Plugins\IFolderRewindDiscoveryProvider.cs" Link="Source\IFolderRewindDiscoveryProvider.cs" />
     <Compile Include="..\FolderRewind\Services\LanguageSettingPolicy.cs" Link="Source\LanguageSettingPolicy.cs" />
     <Compile Include="..\FolderRewind\Services\MiniWindowLayoutPolicy.cs" Link="Source\MiniWindowLayoutPolicy.cs" />
