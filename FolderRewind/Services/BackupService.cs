@@ -369,14 +369,14 @@ namespace FolderRewind.Services
                 {
                     case BackupMode.Incremental:
                         {
-                            var res = await DoSmartBackupAsync(sourcePath, backupSubDir, metadataDir, folder.DisplayName, config, comment, task);
+                            var res = await DoSmartBackupAsync(sourcePath, backupSubDir, metadataDir, folder.DisplayName, config, folder.Selection, comment, task);
                             success = res.Success;
                             generatedFileName = res.FileName;
                             break;
                         }
                     case BackupMode.Overwrite:
                         {
-                            var res = await DoOverwriteBackupAsync(sourcePath, backupSubDir, metadataDir, folder.DisplayName, config, comment, task);
+                            var res = await DoOverwriteBackupAsync(sourcePath, backupSubDir, metadataDir, folder.DisplayName, config, folder.Selection, comment, task);
                             success = res.Success;
                             generatedFileName = res.FileName;
                             break;
@@ -384,7 +384,7 @@ namespace FolderRewind.Services
                     case BackupMode.Full:
                     default:
                         {
-                            var res = await DoFullBackupAsync(sourcePath, backupSubDir, metadataDir, folder.DisplayName, config, comment, task);
+                            var res = await DoFullBackupAsync(sourcePath, backupSubDir, metadataDir, folder.DisplayName, config, folder.Selection, comment, task);
                             success = res.Success;
                             generatedFileName = res.FileName;
                             break;
@@ -424,7 +424,7 @@ namespace FolderRewind.Services
                         typeStr,
                         comment,
                         storageFolderName,
-                        IsPartialBackupFilter(config.Filters));
+                        IsPartialBackupFilter(config.Filters) || folder.Selection.IsPartial);
 
                     var pruneResult = await Task.Run(() => PruneOldArchives(
                         backupSubDir,
@@ -627,7 +627,7 @@ namespace FolderRewind.Services
                             "Plugin",
                             comment,
                             storageFolderName,
-                            IsPartialBackupFilter(config.Filters));
+                            IsPartialBackupFilter(config.Filters) || folder.Selection.IsPartial);
                         CloudSyncService.QueueUploadAfterBackup(config, folder, result.GeneratedFileName, comment);
                     }
 

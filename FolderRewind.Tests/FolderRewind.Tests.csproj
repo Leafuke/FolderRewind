@@ -36,6 +36,7 @@
     <Compile Include="..\FolderRewind\Services\RestoreModePolicy.cs" Link="Source\RestoreModePolicy.cs" />
     <Compile Include="..\FolderRewind\Services\TemplateFormatPolicy.cs" Link="Source\TemplateFormatPolicy.cs" />
     <Compile Include="..\FolderRewind\Models\DiscoveryModels.cs" Link="Source\DiscoveryModels.cs" />
+    <Compile Include="..\FolderRewind\Models\BackupSourceSelectionModels.cs" Link="Source\BackupSourceSelectionModels.cs" />
     <Compile Include="..\FolderRewind\Models\LudusaviIndexModels.cs" Link="Source\LudusaviIndexModels.cs" />
     <Compile Include="..\FolderRewind\Services\Discovery\DiscoveryCandidateMerger.cs" Link="Source\DiscoveryCandidateMerger.cs" />
     <Compile Include="..\FolderRewind\Services\Discovery\GameDiscoveryService.cs" Link="Source\GameDiscoveryService.cs" />
@@ -44,6 +45,7 @@
     <Compile Include="..\FolderRewind\Services\Discovery\LauncherInstallationScanners.cs" Link="Source\LauncherInstallationScanners.cs" />
     <Compile Include="..\FolderRewind\Services\Discovery\LudusaviPathExpressionResolver.cs" Link="Source\LudusaviPathExpressionResolver.cs" />
     <Compile Include="..\FolderRewind\Services\Discovery\LudusaviDiscoveryProvider.cs" Link="Source\LudusaviDiscoveryProvider.cs" />
+    <Compile Include="..\FolderRewind\Services\BackupSourceFileEnumerator.cs" Link="Source\BackupSourceFileEnumerator.cs" />
     <Compile Include="..\FolderRewind\Services\Plugins\IFolderRewindDiscoveryProvider.cs" Link="Source\IFolderRewindDiscoveryProvider.cs" />
     <Compile Include="..\FolderRewind\Services\LanguageSettingPolicy.cs" Link="Source\LanguageSettingPolicy.cs" />
     <Compile Include="..\FolderRewind\Services\MiniWindowLayoutPolicy.cs" Link="Source\MiniWindowLayoutPolicy.cs" />

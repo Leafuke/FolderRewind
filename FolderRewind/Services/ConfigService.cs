@@ -178,6 +178,20 @@ namespace FolderRewind.Services
                 if (backupConfig == null) continue;
 
                 backupConfig.Automation.Normalize(backupConfig.SourceFolders);
+                foreach (var folder in backupConfig.SourceFolders.Where(folder => folder != null))
+                {
+                    folder.Selection ??= new BackupSourceSelection();
+                    folder.Selection.IncludePatterns = new System.Collections.ObjectModel.ObservableCollection<string>(
+                        (folder.Selection.IncludePatterns ?? new System.Collections.ObjectModel.ObservableCollection<string>())
+                            .Where(pattern => !string.IsNullOrWhiteSpace(pattern))
+                            .Select(pattern => pattern.Trim().Replace('\\', '/'))
+                            .Distinct(StringComparer.OrdinalIgnoreCase));
+                    folder.Selection.ResourceIds = new System.Collections.ObjectModel.ObservableCollection<string>(
+                        (folder.Selection.ResourceIds ?? new System.Collections.ObjectModel.ObservableCollection<string>())
+                            .Where(id => !string.IsNullOrWhiteSpace(id))
+                            .Select(id => id.Trim())
+                            .Distinct(StringComparer.OrdinalIgnoreCase));
+                }
                 NormalizeBackupScope(backupConfig.BackupScope);
                 NormalizeCloudSettings(backupConfig.Cloud, defaultRemoteBasePath);
             }

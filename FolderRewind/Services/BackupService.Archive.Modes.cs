@@ -14,7 +14,7 @@ namespace FolderRewind.Services
 {
     public static partial class BackupService
     {
-        private static async Task<(bool Success, string? FileName)> DoFullBackupAsync(string source, string destDir, string metaDir, string baseName, BackupConfig config, string comment = "", BackupTask? taskToUpdate = null)
+        private static async Task<(bool Success, string? FileName)> DoFullBackupAsync(string source, string destDir, string metaDir, string baseName, BackupConfig config, BackupSourceSelection selection, string comment = "", BackupTask? taskToUpdate = null)
         {
             BackupMetadata? oldMeta = null;
             if (!string.IsNullOrEmpty(metaDir))
@@ -27,7 +27,7 @@ namespace FolderRewind.Services
                 }
             }
 
-            var currentStates = ScanDirectory(source, config.Filters);
+            var currentStates = ScanDirectory(source, config.Filters, selection: selection);
             var changeSet = CompareFileStates(currentStates, oldMeta?.FileStates);
 
             if (config.Archive.SkipIfUnchanged && !string.IsNullOrEmpty(metaDir) && oldMeta != null)
@@ -61,12 +61,12 @@ namespace FolderRewind.Services
 
             // 1. 直接压缩（带黑名单过滤 + 自定义文件类型排除）
             var fileTypeExclusions = config.Archive.FileTypeHandlingEnabled ? (IReadOnlyList<FileTypeRule>)config.Archive.FileTypeRules : null;
-            bool result = await Run7zCommandAsync("a", source, destFile, config.Archive, password, null, config.Filters, fileTypeExclusions, taskToUpdate, applyAdditionalArguments: true);
+            bool result = await Run7zCommandAsync("a", source, destFile, config.Archive, password, null, config.Filters, fileTypeExclusions, taskToUpdate, applyAdditionalArguments: true, selection: selection);
 
             // 2. 自定义文件类型追加压缩（不同压缩等级）
             if (result && config.Archive.FileTypeHandlingEnabled)
             {
-                bool ruleResult = await RunFileTypeRulePassesAsync(source, destFile, config.Archive, null, config.Filters, password, taskToUpdate);
+                bool ruleResult = await RunFileTypeRulePassesAsync(source, destFile, config.Archive, null, config.Filters, password, taskToUpdate, selection);
                 if (!ruleResult)
                 {
                     Log(I18n.Format("BackupService_Log_FileTypeRulePassFailed"), LogLevel.Warning);
@@ -90,7 +90,7 @@ namespace FolderRewind.Services
 
         // --- 模式 2: 智能增量备份 ---
         // 返回 (Success, FileName)
-        private static async Task<(bool Success, string? FileName)> DoSmartBackupAsync(string source, string destDir, string metaDir, string baseName, BackupConfig config, string comment = "", BackupTask? taskToUpdate = null)
+        private static async Task<(bool Success, string? FileName)> DoSmartBackupAsync(string source, string destDir, string metaDir, string baseName, BackupConfig config, BackupSourceSelection selection, string comment = "", BackupTask? taskToUpdate = null)
         {
             var metadataLoadResult = await LoadBackupMetadataAsync(metaDir).ConfigureAwait(false);
             BackupMetadata? oldMeta = ConvertToAggregateMetadata(metadataLoadResult);
@@ -104,7 +104,7 @@ namespace FolderRewind.Services
             if (oldMeta == null)
             {
                 Log(I18n.Format("BackupService_Log_NoBaselineMetadataFallbackFull"), LogLevel.Info);
-                return await DoFullBackupAsync(source, destDir, metaDir, baseName, config, comment, taskToUpdate);
+                return await DoFullBackupAsync(source, destDir, metaDir, baseName, config, selection, comment, taskToUpdate);
             }
 
             // 校验元数据引用的备份文件是否仍然存在
@@ -115,7 +115,7 @@ namespace FolderRewind.Services
                 if (!File.Exists(referencedBackupPath))
                 {
                     Log(I18n.Format("BackupService_Log_ReferencedBackupMissing", oldMeta.LastBackupFileName), LogLevel.Warning);
-                    return await DoFullBackupAsync(source, destDir, metaDir, baseName, config, comment, taskToUpdate);
+                    return await DoFullBackupAsync(source, destDir, metaDir, baseName, config, selection, comment, taskToUpdate);
                 }
             }
             if (!string.IsNullOrEmpty(oldMeta.BasedOnFullBackup) && oldMeta.BasedOnFullBackup != oldMeta.LastBackupFileName)
@@ -124,7 +124,7 @@ namespace FolderRewind.Services
                 if (!File.Exists(baseBackupPath))
                 {
                     Log(I18n.Format("BackupService_Log_ReferencedBackupMissing", oldMeta.BasedOnFullBackup), LogLevel.Warning);
-                    return await DoFullBackupAsync(source, destDir, metaDir, baseName, config, comment, taskToUpdate);
+                    return await DoFullBackupAsync(source, destDir, metaDir, baseName, config, selection, comment, taskToUpdate);
                 }
             }
 
@@ -175,13 +175,13 @@ namespace FolderRewind.Services
 
                 if (forceFullDueToChainLimit)
                 {
-                    return await DoFullBackupAsync(source, destDir, metaDir, baseName, config, comment, taskToUpdate);
+                    return await DoFullBackupAsync(source, destDir, metaDir, baseName, config, selection, comment, taskToUpdate);
                 }
             }
 
             // 2. 扫描并对比文件（带黑名单过滤）
             Log(I18n.Format("BackupService_Log_AnalyzingDiff"), LogLevel.Info);
-            var currentStates = ScanDirectory(source, config.Filters);
+            var currentStates = ScanDirectory(source, config.Filters, selection: selection);
             var changeSet = CompareFileStates(currentStates, oldMeta.FileStates);
 
             if (!changeSet.HasChanges)
@@ -242,7 +242,7 @@ namespace FolderRewind.Services
             }
             else if (!string.IsNullOrWhiteSpace(listFile))
             {
-                result = await Run7zCommandAsync("a", source, destFile, config.Archive, password, listFile, config.Filters, fileTypeExclusions, taskToUpdate, applyAdditionalArguments: true);
+                result = await Run7zCommandAsync("a", source, destFile, config.Archive, password, listFile, config.Filters, fileTypeExclusions, taskToUpdate, applyAdditionalArguments: true, selection: selection);
             }
             else
             {
@@ -253,7 +253,7 @@ namespace FolderRewind.Services
             // 4.5 自定义文件类型追加压缩（增量模式下传递变更文件列表用于筛选）
             if (result && hasFileTypeRules && contentChangedFiles.Count > 0)
             {
-                bool ruleResult = await RunFileTypeRulePassesAsync(source, destFile, config.Archive, contentChangedFiles, config.Filters, password, taskToUpdate);
+                bool ruleResult = await RunFileTypeRulePassesAsync(source, destFile, config.Archive, contentChangedFiles, config.Filters, password, taskToUpdate, selection);
                 if (!ruleResult)
                 {
                     if (string.IsNullOrWhiteSpace(listFile))
@@ -295,7 +295,7 @@ namespace FolderRewind.Services
 
         // --- 模式 3: 覆写备份 ---
         // 返回 (Success, FileName)
-        private static async Task<(bool Success, string? FileName)> DoOverwriteBackupAsync(string source, string destDir, string metaDir, string baseName, BackupConfig config, string comment = "", BackupTask? taskToUpdate = null)
+        private static async Task<(bool Success, string? FileName)> DoOverwriteBackupAsync(string source, string destDir, string metaDir, string baseName, BackupConfig config, BackupSourceSelection selection, string comment = "", BackupTask? taskToUpdate = null)
         {
             BackupMetadata? oldMeta = null;
             if (!string.IsNullOrEmpty(metaDir))
@@ -308,7 +308,7 @@ namespace FolderRewind.Services
                 }
             }
 
-            var currentStates = ScanDirectory(source, config.Filters);
+            var currentStates = ScanDirectory(source, config.Filters, selection: selection);
             var changeSet = CompareFileStates(currentStates, oldMeta?.FileStates);
 
             // 1. 寻找最近的备份文件
@@ -320,30 +320,67 @@ namespace FolderRewind.Services
             if (files.Count == 0)
             {
                 Log(I18n.Format("BackupService_Log_NoExistingBackupFallbackFull"), LogLevel.Info);
-                return await DoFullBackupAsync(source, destDir, metaDir, baseName, config, comment, taskToUpdate);
+                return await DoFullBackupAsync(source, destDir, metaDir, baseName, config, selection, comment, taskToUpdate);
             }
 
             FileInfo targetFile = files[0];
             Log(I18n.Format("BackupService_Log_OverwriteUpdating", targetFile.Name), LogLevel.Info);
 
-            // 2. 执行 update 命令 (u)（带黑名单过滤 + 自定义文件类型排除）
-            // 7z u <archive_name> <file_names>
-            // u 指令会更新已存在的文件并添加新文件
+            // Include 来源不能复用旧归档内容，否则已取消选择或已删除的文件仍会残留。
+            // 先在同目录构建精确临时归档，成功后再替换；All 来源继续使用原有 7z update 行为。
             var fileTypeExclusions = config.Archive.FileTypeHandlingEnabled ? (IReadOnlyList<FileTypeRule>)config.Archive.FileTypeRules : null;
             if (!TryResolveRequiredPassword(config, out var password, taskToUpdate))
             {
                 return (false, null);
             }
-            bool result = await Run7zCommandAsync("u", source, targetFile.FullName, config.Archive, password, null, config.Filters, fileTypeExclusions, taskToUpdate, applyAdditionalArguments: true);
+            var isExactSelection = selection.Mode == BackupSourceSelectionMode.Include;
+            string? replacementArchivePath = isExactSelection
+                ? Path.Combine(destDir, $".{Guid.NewGuid():N}.{config.Archive.Format}")
+                : null;
+            string archiveToUpdate = replacementArchivePath ?? targetFile.FullName;
+            bool result = await Run7zCommandAsync(
+                isExactSelection ? "a" : "u",
+                source,
+                archiveToUpdate,
+                config.Archive,
+                password,
+                null,
+                config.Filters,
+                fileTypeExclusions,
+                taskToUpdate,
+                applyAdditionalArguments: true,
+                selection: selection);
 
             // 2.5 自定义文件类型追加压缩
             if (result && config.Archive.FileTypeHandlingEnabled)
             {
-                bool ruleResult = await RunFileTypeRulePassesAsync(source, targetFile.FullName, config.Archive, null, config.Filters, password, taskToUpdate);
+                bool ruleResult = await RunFileTypeRulePassesAsync(source, archiveToUpdate, config.Archive, null, config.Filters, password, taskToUpdate, selection);
                 if (!ruleResult)
                 {
                     Log(I18n.Format("BackupService_Log_FileTypeRulePassFailed"), LogLevel.Warning);
+                    if (isExactSelection)
+                    {
+                        result = false;
+                    }
                 }
+            }
+
+            if (result && replacementArchivePath != null)
+            {
+                try
+                {
+                    File.Move(replacementArchivePath, targetFile.FullName, overwrite: true);
+                    replacementArchivePath = null;
+                }
+                catch (Exception ex)
+                {
+                    Log($"[Backup] Failed to replace exact overwrite archive: {ex.Message}", LogLevel.Error);
+                    result = false;
+                }
+            }
+            if (replacementArchivePath != null)
+            {
+                try { File.Delete(replacementArchivePath); } catch { }
             }
 
             string? resultingFileName = null;

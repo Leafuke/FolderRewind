@@ -1,6 +1,8 @@
 using FolderRewind.Models;
+using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 
@@ -40,6 +42,15 @@ public static class FolderDetailsService
     }
 
     public static async Task<FolderStatisticsSnapshot> ComputeStatisticsAsync(string folderPath, CancellationToken cancellationToken)
+        => await ComputeStatisticsAsync(
+            new BackupConfig(),
+            new ManagedFolder { Path = folderPath },
+            cancellationToken);
+
+    public static async Task<FolderStatisticsSnapshot> ComputeStatisticsAsync(
+        BackupConfig config,
+        ManagedFolder folder,
+        CancellationToken cancellationToken)
     {
         cancellationToken.ThrowIfCancellationRequested();
 
@@ -49,18 +60,27 @@ public static class FolderDetailsService
             int fileCount = 0;
             int directoryCount = 0;
 
-            foreach (string directory in Directory.EnumerateDirectories(folderPath, "*", SearchOption.AllDirectories))
+            var files = BackupSourceFileEnumerator.Enumerate(
+                folder.Path,
+                folder.Selection,
+                file => BackupService.ShouldIncludeInBackup(
+                    file,
+                    folder.Path,
+                    folder.Path,
+                    config.Filters));
+            var directories = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+            foreach (var file in files)
             {
                 cancellationToken.ThrowIfCancellationRequested();
-                directoryCount++;
-            }
-
-            foreach (string file in Directory.EnumerateFiles(folderPath, "*", SearchOption.AllDirectories))
-            {
-                cancellationToken.ThrowIfCancellationRequested();
-                totalBytes += new FileInfo(file).Length;
+                totalBytes += file.Size;
                 fileCount++;
+                var directory = Path.GetDirectoryName(file.RelativePath);
+                while (!string.IsNullOrWhiteSpace(directory) && directories.Add(directory))
+                {
+                    directory = Path.GetDirectoryName(directory);
+                }
             }
+            directoryCount = directories.Count;
 
             return new FolderStatisticsSnapshot
             {

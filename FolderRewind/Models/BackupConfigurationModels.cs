@@ -24,6 +24,8 @@ namespace FolderRewind.Models
         private string _summaryText = I18n.Format("BackupConfig_DefaultSummary");
         private string _configType = "Default"; // 配置类型，由插件定义，如 "Minecraft Saves"
         private bool _isEncrypted = false; // 是否为加密配置
+        private BackupHistoryMode _historyMode = BackupHistoryMode.PerSource;
+        private DiscoveryOrigin? _discoveryOrigin;
 
         // 核心路径
         public string Id { get => _id; set => SetProperty(ref _id, value); }
@@ -41,6 +43,10 @@ namespace FolderRewind.Models
         /// 密码一旦设置无法更改。
         /// </summary>
         public bool IsEncrypted { get => _isEncrypted; set => SetProperty(ref _isEncrypted, value); }
+
+        public BackupHistoryMode HistoryMode { get => _historyMode; set => SetProperty(ref _historyMode, value); }
+
+        public DiscoveryOrigin? DiscoveryOrigin { get => _discoveryOrigin; set => SetProperty(ref _discoveryOrigin, value); }
 
         /// <summary>
         /// 是否为 Minecraft Saves 配置类型（用于 UI 卡片徽标显示）。
@@ -120,6 +126,7 @@ namespace FolderRewind.Models
         private string _lastBackupTime = I18n.Format("FolderManager_NeverBackedUp");
         private bool _isFavorite;
         private string _coverImagePath = ""; // 对应封面图片路径
+        private BackupSourceSelection _selection = new();
 
         // 核心路径
         public string Path
@@ -145,6 +152,15 @@ namespace FolderRewind.Models
         public string StatusText { get => _statusText; set => SetProperty(ref _statusText, value ?? string.Empty); }
 
         public string CoverImagePath { get => _coverImagePath; set => SetProperty(ref _coverImagePath, value ?? string.Empty); }
+
+        /// <summary>
+        /// 该来源允许进入备份的最大文件集合。配置过滤器和插件范围只能继续缩小它。
+        /// </summary>
+        public BackupSourceSelection Selection
+        {
+            get => _selection;
+            set => SetProperty(ref _selection, value ?? new BackupSourceSelection());
+        }
     }
 
     public enum BackupMode

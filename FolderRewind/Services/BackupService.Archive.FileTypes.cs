@@ -32,7 +32,8 @@ namespace FolderRewind.Services
             IReadOnlyList<string>? changedFileList = null,
             FilterSettings? filters = null,
             string? password = null,
-            BackupTask? taskToUpdate = null)
+            BackupTask? taskToUpdate = null,
+            BackupSourceSelection? selection = null)
         {
             if (!settings.FileTypeHandlingEnabled || settings.FileTypeRules == null || settings.FileTypeRules.Count == 0)
                 return true;
@@ -86,7 +87,7 @@ namespace FolderRewind.Services
                         File.WriteAllLines(tmpList, matchedFiles);
 
                         var sb = new StringBuilder();
-                        sb.Append($"a -t{settings.Format} \"{archivePath}\" @\"{tmpList}\"");
+                        sb.Append($"a -t{settings.Format} \"{archivePath}\" @\"{tmpList}\" -scsUTF-8");
                         sb.Append($" -mx={level} -m0={settings.Method} -ms=off -ssw");
                         int cpuThreads = NormalizeCpuThreadCount(settings.CpuThreads);
                         if (cpuThreads > 0) sb.Append($" -mmt{cpuThreads}"); else sb.Append(" -mmt");
@@ -109,9 +110,13 @@ namespace FolderRewind.Services
                     {
                         // 全量/覆写模式：白名单下仍使用 listfile，避免 -ir! 把白名单外同类型文件追加进归档。
                         List<string>? matchedWhitelistFiles = null;
-                        if (HasBackupWhitelist(filters))
+                        if (HasBackupWhitelist(filters)
+                            || selection?.Mode == BackupSourceSelectionMode.Include)
                         {
-                            matchedWhitelistFiles = EnumerateBackupRelativeFiles(sourceDir, filters)
+                            matchedWhitelistFiles = EnumerateBackupRelativeFiles(
+                                    sourceDir,
+                                    filters,
+                                    selection: selection)
                                 .Where(relPath => MatchesAnyFileTypePattern(relPath, patternMatchers))
                                 .ToList();
 
@@ -129,7 +134,7 @@ namespace FolderRewind.Services
                             string tmpList = Path.GetTempFileName();
                             tempFiles.Add(tmpList);
                             File.WriteAllLines(tmpList, matchedWhitelistFiles);
-                            sb.Append($" @\"{tmpList}\"");
+                            sb.Append($" @\"{tmpList}\" -scsUTF-8");
                         }
                         else
                         {
