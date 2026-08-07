@@ -3565,6 +3565,12 @@ cmd=RESTORE;from=minebackup.mod;request_id=req-mr-restore-002;current_save=true;
   <data name="Template_DefaultName" xml:space="preserve">
     <value>新模板</value>
   </data>
+  <data name="BackupPreset_StandardGame_Name" xml:space="preserve">
+    <value>标准游戏备份方案</value>
+  </data>
+  <data name="BackupPreset_StandardGame_Description" xml:space="preserve">
+    <value>使用 FolderRewind 当前的安全默认设置，不自动启用计划任务或云同步。</value>
+  </data>
   <data name="Template_SaveDialog_Title" xml:space="preserve">
     <value>保存为模板</value>
   </data>

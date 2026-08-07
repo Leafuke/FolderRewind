@@ -3565,6 +3565,12 @@ Release notes:
   <data name="Template_DefaultName" xml:space="preserve">
     <value>New template</value>
   </data>
+  <data name="BackupPreset_StandardGame_Name" xml:space="preserve">
+    <value>Standard Game Backup</value>
+  </data>
+  <data name="BackupPreset_StandardGame_Description" xml:space="preserve">
+    <value>Uses FolderRewind's current safe defaults without enabling schedules or cloud sync.</value>
+  </data>
   <data name="Template_SaveDialog_Title" xml:space="preserve">
     <value>Save as template</value>
   </data>

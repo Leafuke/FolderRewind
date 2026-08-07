@@ -11,15 +11,16 @@ using System.Text.RegularExpressions;
 
 namespace FolderRewind.Services
 {
-    public static partial class TemplateService
+    public static partial class BackupPresetService
     {
-        private const string ShareMagic = TemplateFormatPolicy.TemplateMagic;
-        private const string ShareSchemaVersion = TemplateFormatPolicy.SchemaVersion;
+        private const string ShareMagic = TemplateFormatPolicy.BackupPresetMagic;
+        private const string ShareSchemaVersion = TemplateFormatPolicy.BackupPresetSchemaVersion;
         // 规则预览会扫目录，给个上限避免某些磁盘结构把 UI 卡死。
         private const int ScanDepthLimit = 6;
         private const int ScanDirectoryLimit = 5000;
         private const int MarkerSearchDepth = 1;
-        public const string ShareFileExtension = ".frtemplate.json";
+        public const string ShareFileExtension = ".frpreset.json";
+        public const string LegacyShareFileExtension = ".frtemplate.json";
 
         private static readonly string[] KnownMarkerDirectories =
         {
@@ -90,7 +91,7 @@ namespace FolderRewind.Services
         {
             public bool Success { get; init; }
             public string Message { get; init; } = string.Empty;
-            public ConfigTemplate? Template { get; init; }
+            public BackupPreset? Template { get; init; }
             public bool HasConflict { get; init; }
             public string ConflictTemplateId { get; init; } = string.Empty;
             public string ConflictTemplateName { get; init; } = string.Empty;
@@ -115,12 +116,31 @@ namespace FolderRewind.Services
             public bool AutoAdd { get; init; }
         }
 
-        public static IReadOnlyList<ConfigTemplate> GetTemplates()
+        public static IReadOnlyList<BackupPreset> GetTemplates()
         {
-            return ConfigService.CurrentConfig?.Templates?.ToList() ?? new List<ConfigTemplate>();
+            return ConfigService.CurrentConfig?.BackupPresets?.ToList() ?? new List<BackupPreset>();
         }
 
-        public static IReadOnlyList<TemplateRuleEditItem> BuildRuleEditItems(ConfigTemplate? template)
+        public static BackupPreset CreateStandardGamePreset()
+        {
+            return new BackupPreset
+            {
+                Id = "builtin.standard-game",
+                ShareId = "builtin.standard-game",
+                Name = I18n.GetString("BackupPreset_StandardGame_Name"),
+                Description = I18n.GetString("BackupPreset_StandardGame_Description"),
+                Version = "1.0",
+                BaseConfigType = "Default",
+                IsBuiltIn = true,
+                Archive = new ArchiveSettings(),
+                Automation = new AutomationSettings(),
+                Filters = new FilterSettings(),
+                BackupScope = new BackupScopeSettings(),
+                Cloud = new CloudSettings()
+            };
+        }
+
+        public static IReadOnlyList<TemplateRuleEditItem> BuildRuleEditItems(BackupPreset? template)
         {
             if (template?.PathRules == null)
             {
@@ -180,14 +200,14 @@ namespace FolderRewind.Services
             };
         }
 
-        public static ConfigTemplate? GetTemplateById(string? templateId)
+        public static BackupPreset? GetTemplateById(string? templateId)
         {
             if (string.IsNullOrWhiteSpace(templateId))
             {
                 return null;
             }
 
-            return ConfigService.CurrentConfig?.Templates?
+            return ConfigService.CurrentConfig?.BackupPresets?
                 .FirstOrDefault(t => string.Equals(t.Id, templateId, StringComparison.OrdinalIgnoreCase));
         }
 
@@ -200,7 +220,7 @@ namespace FolderRewind.Services
         {
             message = string.Empty;
             var appConfig = ConfigService.CurrentConfig;
-            if (appConfig?.Templates == null)
+            if (appConfig?.BackupPresets == null)
             {
                 message = I18n.GetString("Template_Create_ConfigUnavailable");
                 return false;
@@ -212,7 +232,7 @@ namespace FolderRewind.Services
                 return false;
             }
 
-            var template = appConfig.Templates.FirstOrDefault(t => string.Equals(t.Id, templateId, StringComparison.OrdinalIgnoreCase));
+            var template = appConfig.BackupPresets.FirstOrDefault(t => string.Equals(t.Id, templateId, StringComparison.OrdinalIgnoreCase));
             if (template == null)
             {
                 message = I18n.GetString("Template_Update_TemplateNotFound");
@@ -220,7 +240,7 @@ namespace FolderRewind.Services
             }
 
             var finalName = templateName.Trim();
-            var hasConflict = appConfig.Templates.Any(t =>
+            var hasConflict = appConfig.BackupPresets.Any(t =>
                 !string.Equals(t.Id, template.Id, StringComparison.OrdinalIgnoreCase)
                 && string.Equals(t.Name, finalName, StringComparison.OrdinalIgnoreCase));
 
@@ -240,15 +260,15 @@ namespace FolderRewind.Services
             return true;
         }
 
-        public static (bool Success, string Message, ConfigTemplate? Template) DuplicateTemplate(string templateId)
+        public static (bool Success, string Message, BackupPreset? Template) DuplicateTemplate(string templateId)
         {
             var appConfig = ConfigService.CurrentConfig;
-            if (appConfig?.Templates == null)
+            if (appConfig?.BackupPresets == null)
             {
                 return (false, I18n.GetString("Template_Create_ConfigUnavailable"), null);
             }
 
-            var source = appConfig.Templates.FirstOrDefault(t => string.Equals(t.Id, templateId, StringComparison.OrdinalIgnoreCase));
+            var source = appConfig.BackupPresets.FirstOrDefault(t => string.Equals(t.Id, templateId, StringComparison.OrdinalIgnoreCase));
             if (source == null)
             {
                 return (false, I18n.GetString("Template_Duplicate_TemplateNotFound"), null);
@@ -259,9 +279,9 @@ namespace FolderRewind.Services
             clone.ShareId = Guid.NewGuid().ToString("N");
             clone.CreatedUtc = DateTime.UtcNow;
             clone.UpdatedUtc = DateTime.UtcNow;
-            clone.Name = BuildCopyTemplateName(source.Name, appConfig.Templates);
+            clone.Name = BuildCopyTemplateName(source.Name, appConfig.BackupPresets);
 
-            appConfig.Templates.Add(clone);
+            appConfig.BackupPresets.Add(clone);
             ConfigService.Save();
 
             return (true, I18n.Format("Template_Duplicate_Success", clone.Name), clone);
@@ -271,20 +291,20 @@ namespace FolderRewind.Services
         {
             message = string.Empty;
             var appConfig = ConfigService.CurrentConfig;
-            if (appConfig?.Templates == null)
+            if (appConfig?.BackupPresets == null)
             {
                 message = I18n.GetString("Template_Create_ConfigUnavailable");
                 return false;
             }
 
-            var template = appConfig.Templates.FirstOrDefault(t => string.Equals(t.Id, templateId, StringComparison.OrdinalIgnoreCase));
+            var template = appConfig.BackupPresets.FirstOrDefault(t => string.Equals(t.Id, templateId, StringComparison.OrdinalIgnoreCase));
             if (template == null)
             {
                 message = I18n.GetString("Template_Delete_TemplateNotFound");
                 return false;
             }
 
-            if (!appConfig.Templates.Remove(template))
+            if (!appConfig.BackupPresets.Remove(template))
             {
                 message = I18n.GetString("Template_Delete_Failed");
                 return false;
@@ -355,7 +375,7 @@ namespace FolderRewind.Services
             };
         }
 
-        public static (bool Success, string Message, ConfigTemplate? Template) UpsertTemplateFromConfig(
+        public static (bool Success, string Message, BackupPreset? Template) UpsertTemplateFromConfig(
             BackupConfig sourceConfig,
             string templateName,
             string? author,
@@ -372,16 +392,16 @@ namespace FolderRewind.Services
             }
 
             var appConfig = ConfigService.CurrentConfig;
-            if (appConfig?.Templates == null)
+            if (appConfig?.BackupPresets == null)
             {
                 return (false, I18n.GetString("Template_Create_ConfigUnavailable"), null);
             }
 
             var now = DateTime.UtcNow;
-            var existing = appConfig.Templates
+            var existing = appConfig.BackupPresets
                 .FirstOrDefault(t => string.Equals(t.Name, templateName.Trim(), StringComparison.OrdinalIgnoreCase));
 
-            var template = existing ?? new ConfigTemplate
+            var template = existing ?? new BackupPreset
             {
                 CreatedUtc = now
             };
@@ -421,6 +441,7 @@ namespace FolderRewind.Services
             template.RequiredPluginIds = new ObservableCollection<string>(requiredPlugins.OrderBy(x => x, StringComparer.OrdinalIgnoreCase));
 
             template.PathRules = InferPathRules(sourceConfig);
+            template.NormalizeDiscoverySources();
             if (template.PathRules.Count == 0)
             {
                 // 没有可推断规则时不阻断创建，模板依旧可复用策略参数。
@@ -429,7 +450,7 @@ namespace FolderRewind.Services
 
             if (existing == null)
             {
-                appConfig.Templates.Add(template);
+                appConfig.BackupPresets.Add(template);
             }
 
             ConfigService.Save();

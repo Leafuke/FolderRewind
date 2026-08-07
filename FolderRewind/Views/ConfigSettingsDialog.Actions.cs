@@ -112,7 +112,7 @@ namespace FolderRewind.Views
             var result = await dialog.ShowAsync();
             if (result == ContentDialogResult.Primary)
             {
-                var createResult = TemplateService.UpsertTemplateFromConfig(
+                var createResult = BackupPresetService.UpsertTemplateFromConfig(
                     Config,
                     templateNameBox.Text,
                     authorBox.Text,

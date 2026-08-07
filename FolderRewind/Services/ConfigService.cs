@@ -1,4 +1,4 @@
-﻿using FolderRewind.Models;
+using FolderRewind.Models;
 using Microsoft.UI.Windowing;
 using System;
 using System.Diagnostics;
@@ -181,7 +181,7 @@ namespace FolderRewind.Services
                 NormalizeCloudSettings(backupConfig.Cloud, defaultRemoteBasePath);
             }
 
-            foreach (var template in config.Templates)
+            foreach (var template in config.BackupPresets)
             {
                 if (template == null) continue;
 
@@ -198,6 +198,7 @@ namespace FolderRewind.Services
                 template.Automation.Normalize();
                 NormalizeBackupScope(template.BackupScope);
                 NormalizeCloudSettings(template.Cloud, defaultRemoteBasePath);
+                template.NormalizeDiscoverySources();
 
                 foreach (var rule in template.PathRules)
                 {

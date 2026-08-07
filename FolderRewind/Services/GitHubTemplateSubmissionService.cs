@@ -39,7 +39,7 @@ namespace FolderRewind.Services
         }
 
         public static async Task<SubmissionResult> SubmitTemplateAsync(
-            ConfigTemplate template,
+            BackupPreset template,
             IProgress<string>? progress = null,
             CancellationToken ct = default)
         {
@@ -52,7 +52,7 @@ namespace FolderRewind.Services
                 };
             }
 
-            var validation = TemplateService.ValidateTemplateForOfficialSharing(template);
+            var validation = BackupPresetService.ValidateTemplateForOfficialSharing(template);
             if (!validation.Success)
             {
                 return new SubmissionResult
@@ -97,7 +97,7 @@ namespace FolderRewind.Services
             }
 
             progress?.Report(I18n.GetString("GitHubSubmit_Progress_LoadRepo"));
-            var upstreamRepo = await GetRepositoryAsync(token, OfficialTemplateService.OfficialRepoOwner, OfficialTemplateService.OfficialRepoName, ct);
+            var upstreamRepo = await GetRepositoryAsync(token, OfficialBackupPresetService.OfficialRepoOwner, OfficialBackupPresetService.OfficialRepoName, ct);
             if (upstreamRepo == null)
             {
                 return new SubmissionResult
@@ -108,7 +108,7 @@ namespace FolderRewind.Services
             }
 
             progress?.Report(I18n.GetString("GitHubSubmit_Progress_LoadIndex"));
-            var indexResult = await OfficialTemplateService.GetIndexAsync();
+            var indexResult = await OfficialBackupPresetService.GetIndexAsync();
             if (!indexResult.Success)
             {
                 return new SubmissionResult
@@ -120,7 +120,7 @@ namespace FolderRewind.Services
 
             var shareCode = ResolveShareCode(template, indexResult.Templates);
             var branchName = $"template/{shareCode}-{BuildSlug(template.GameName, template.Name)}";
-            var tempPath = Path.Combine(Path.GetTempPath(), "FolderRewind", "TemplateSubmit", $"{shareCode}{TemplateService.ShareFileExtension}");
+            var tempPath = Path.Combine(Path.GetTempPath(), "FolderRewind", "TemplateSubmit", $"{shareCode}{BackupPresetService.ShareFileExtension}");
             Directory.CreateDirectory(Path.GetDirectoryName(tempPath)!);
 
             var originalShareCode = template.ShareCode;
@@ -128,7 +128,7 @@ namespace FolderRewind.Services
             {
                 template.ShareCode = shareCode;
                 progress?.Report(I18n.GetString("GitHubSubmit_Progress_ExportTemplate"));
-                if (!TemplateService.ExportTemplate(template.Id, tempPath, out var exportMessage))
+                if (!BackupPresetService.ExportTemplate(template.Id, tempPath, out var exportMessage))
                 {
                     template.ShareCode = originalShareCode;
                     return new SubmissionResult
@@ -256,7 +256,7 @@ namespace FolderRewind.Services
             return client;
         }
 
-        private static string ResolveShareCode(ConfigTemplate template, IReadOnlyList<RemoteTemplateIndexItem> items)
+        private static string ResolveShareCode(BackupPreset template, IReadOnlyList<RemoteTemplateIndexItem> items)
         {
             var templateId = template.ShareId;
             var byTemplateId = items.FirstOrDefault(item =>
@@ -267,7 +267,7 @@ namespace FolderRewind.Services
                 return byTemplateId.ShareCode;
             }
 
-            if (OfficialTemplateService.IsValidShareCode(template.ShareCode))
+            if (OfficialBackupPresetService.IsValidShareCode(template.ShareCode))
             {
                 var collision = items.FirstOrDefault(item =>
                     string.Equals(item.ShareCode, template.ShareCode, StringComparison.OrdinalIgnoreCase)
@@ -488,13 +488,13 @@ namespace FolderRewind.Services
             return response.IsSuccessStatusCode;
         }
 
-        private static string BuildPullRequestTitle(ConfigTemplate template, string shareCode)
+        private static string BuildPullRequestTitle(BackupPreset template, string shareCode)
         {
             var gameText = string.IsNullOrWhiteSpace(template.GameName) ? template.Name : template.GameName;
             return $"Add template {shareCode}: {gameText}";
         }
 
-        private static string BuildPullRequestBody(ConfigTemplate template, string shareCode, IReadOnlyList<string> warnings)
+        private static string BuildPullRequestBody(BackupPreset template, string shareCode, IReadOnlyList<string> warnings)
         {
             var builder = new StringBuilder();
             builder.AppendLine("## Template Metadata");

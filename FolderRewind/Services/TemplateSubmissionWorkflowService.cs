@@ -18,7 +18,7 @@ namespace FolderRewind.Services
     {
         public static async Task RunAsync(XamlRoot? xamlRoot, CancellationToken ct = default)
         {
-            if (!TemplateService.GetTemplates().Any())
+            if (!BackupPresetService.GetTemplates().Any())
             {
                 NotificationService.ShowWarning(I18n.GetString("Settings_Template_Export_NoTemplates"));
                 return;
@@ -44,7 +44,7 @@ namespace FolderRewind.Services
             }
         }
 
-        private static void ApplySubmissionMetadata(ConfigTemplate template, string gameName, bool clearSteamAppId)
+        private static void ApplySubmissionMetadata(BackupPreset template, string gameName, bool clearSteamAppId)
         {
             // 元数据先落地，后面的导出/提交都基于这份一致状态运行。
             template.GameName = gameName?.Trim() ?? string.Empty;
@@ -57,14 +57,14 @@ namespace FolderRewind.Services
         }
 
         private static async Task ExportTemplateSubmissionPackageAsync(
-            ConfigTemplate selected,
+            BackupPreset selected,
             string gameName,
             XamlRoot? xamlRoot,
             CancellationToken ct)
         {
             ApplySubmissionMetadata(selected, gameName, clearSteamAppId: true);
 
-            var validation = TemplateService.ValidateTemplateForOfficialSharing(selected);
+            var validation = BackupPresetService.ValidateTemplateForOfficialSharing(selected);
             if (!validation.Success)
             {
                 var validationMessage = validation.Errors.Count > 0 ? string.Join(Environment.NewLine, validation.Errors) : validation.Message;
@@ -85,7 +85,7 @@ namespace FolderRewind.Services
                 "FolderRewind.TemplateSubmission.ExportPackage",
                 new Dictionary<string, IReadOnlyList<string>>
                 {
-                    ["FolderRewind Template"] = new ReadOnlyCollection<string>(new[] { TemplateService.ShareFileExtension })
+                    ["FolderRewind Template"] = new ReadOnlyCollection<string>(new[] { BackupPresetService.ShareFileExtension })
                 },
                 $"FolderRewind_submission_{SanitizeFileName(selected.Name)}",
                 MainWindowService.SuggestedPickerLocation.DocumentsLibrary);
@@ -94,7 +94,7 @@ namespace FolderRewind.Services
                 return;
             }
 
-            var ok = TemplateService.ExportTemplateSubmissionPackage(selected.Id, filePath, out var summary, out var message);
+            var ok = BackupPresetService.ExportTemplateSubmissionPackage(selected.Id, filePath, out var summary, out var message);
             if (!ok)
             {
                 LogService.LogWarning(message, nameof(TemplateSubmissionWorkflowService));
@@ -126,7 +126,7 @@ namespace FolderRewind.Services
         }
 
         private static async Task SubmitOfficialTemplateAsync(
-            ConfigTemplate selected,
+            BackupPreset selected,
             string gameName,
             XamlRoot? xamlRoot,
             CancellationToken ct)

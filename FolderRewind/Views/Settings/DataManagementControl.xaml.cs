@@ -136,7 +136,7 @@ namespace FolderRewind.Views.Settings
         {
             try
             {
-                var templates = TemplateService.GetTemplates()
+                var templates = BackupPresetService.GetTemplates()
                     .OrderBy(t => t.Name, StringComparer.CurrentCultureIgnoreCase)
                     .ToList();
 
@@ -173,7 +173,7 @@ namespace FolderRewind.Views.Settings
                     return;
                 }
 
-                var selectedTemplate = (templateCombo.SelectedItem as ComboBoxItem)?.Tag as ConfigTemplate;
+                var selectedTemplate = (templateCombo.SelectedItem as ComboBoxItem)?.Tag as BackupPreset;
                 if (selectedTemplate == null)
                 {
                     ShowInfoBar(I18n.GetString("Template_Export_TemplateNotFound"), InfoBarSeverity.Error);
@@ -185,13 +185,13 @@ namespace FolderRewind.Views.Settings
                     "FolderRewind.Settings.DataManagement.ExportTemplate",
                     new Dictionary<string, IReadOnlyList<string>>
                     {
-                        ["FolderRewind Template"] = new ReadOnlyCollection<string>(new[] { TemplateService.ShareFileExtension })
+                        ["FolderRewind Template"] = new ReadOnlyCollection<string>(new[] { BackupPresetService.ShareFileExtension })
                     },
                     $"FolderRewind_template_{SanitizeFileName(selectedTemplate.Name)}",
                     MainWindowService.SuggestedPickerLocation.DocumentsLibrary);
                 if (string.IsNullOrWhiteSpace(filePath)) return;
 
-                var ok = TemplateService.ExportTemplate(selectedTemplate.Id, filePath, out var message);
+                var ok = BackupPresetService.ExportTemplate(selectedTemplate.Id, filePath, out var message);
                 ShowInfoBar(message, ok ? InfoBarSeverity.Success : InfoBarSeverity.Error);
             }
             catch (Exception ex)
@@ -219,14 +219,14 @@ namespace FolderRewind.Views.Settings
                     return;
                 }
 
-                var inspection = TemplateService.InspectImportTemplate(filePath);
+                var inspection = BackupPresetService.InspectImportTemplate(filePath);
                 if (!inspection.Success)
                 {
                     ShowInfoBar(inspection.Message, InfoBarSeverity.Error);
                     return;
                 }
 
-                var strategy = TemplateService.TemplateImportConflictStrategy.KeepBoth;
+                var strategy = BackupPresetService.TemplateImportConflictStrategy.KeepBoth;
                 if (inspection.HasConflict)
                 {
                     var conflictDialog = new ContentDialog
@@ -251,11 +251,11 @@ namespace FolderRewind.Views.Settings
                     }
 
                     strategy = conflictResult == ContentDialogResult.Primary
-                        ? TemplateService.TemplateImportConflictStrategy.ReplaceExisting
-                        : TemplateService.TemplateImportConflictStrategy.KeepBoth;
+                        ? BackupPresetService.TemplateImportConflictStrategy.ReplaceExisting
+                        : BackupPresetService.TemplateImportConflictStrategy.KeepBoth;
                 }
 
-                var ok = TemplateService.ImportTemplate(filePath, strategy, out var message);
+                var ok = BackupPresetService.ImportTemplate(filePath, strategy, out var message);
                 ShowInfoBar(message, ok ? InfoBarSeverity.Success : InfoBarSeverity.Error);
             }
             catch (Exception ex)

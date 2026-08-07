@@ -33,7 +33,7 @@
                       ItemsSource="{x:Bind ViewModel.TemplatesView, Mode=OneWay}"
                       SelectedItem="{x:Bind ViewModel.SelectedTemplate, Mode=TwoWay}">
                 <ListView.ItemTemplate>
-                    <DataTemplate x:DataType="models:ConfigTemplate">
+                    <DataTemplate x:DataType="models:BackupPreset">
                         <StackPanel Spacing="2" Padding="0,6,0,6">
                             <TextBlock Text="{x:Bind Name}" Style="{ThemeResource BodyStrongTextBlockStyle}" TextTrimming="CharacterEllipsis" />
                             <TextBlock Text="{x:Bind Author}" Style="{ThemeResource CaptionTextBlockStyle}" Foreground="{ThemeResource TextFillColorSecondaryBrush}" TextTrimming="CharacterEllipsis" />

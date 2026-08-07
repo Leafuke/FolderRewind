@@ -35,10 +35,10 @@ namespace FolderRewind.ViewModels
 
     public sealed class TemplateManagerDialogViewModel : ViewModelBase
     {
-        private readonly List<ConfigTemplate> _allTemplates = new();
+        private readonly List<BackupPreset> _allTemplates = new();
 
         private string _searchText = string.Empty;
-        private ConfigTemplate? _selectedTemplate;
+        private BackupPreset? _selectedTemplate;
         private string _selectedTemplateId = string.Empty;
         private string _templateName = string.Empty;
         private string _templateAuthor = string.Empty;
@@ -51,7 +51,7 @@ namespace FolderRewind.ViewModels
         private string _feedbackMessage = string.Empty;
         private InfoBarSeverity _feedbackSeverity = InfoBarSeverity.Informational;
 
-        public ObservableCollection<ConfigTemplate> TemplatesView { get; } = new();
+        public ObservableCollection<BackupPreset> TemplatesView { get; } = new();
         public ObservableCollection<TemplateRulePreviewItem> PreviewItems { get; } = new();
         public ObservableCollection<EditableTemplateRuleItem> EditablePathRules { get; } = new();
         public ObservableCollection<TemplateRuleSyntaxHelpItem> SyntaxHelpItems { get; } = new();
@@ -68,7 +68,7 @@ namespace FolderRewind.ViewModels
             }
         }
 
-        public ConfigTemplate? SelectedTemplate
+        public BackupPreset? SelectedTemplate
         {
             get => _selectedTemplate;
             set
@@ -147,7 +147,7 @@ namespace FolderRewind.ViewModels
 
         public TemplateManagerDialogViewModel()
         {
-            foreach (var item in TemplateService.GetRuleSyntaxHelpItems())
+            foreach (var item in BackupPresetService.GetRuleSyntaxHelpItems())
             {
                 SyntaxHelpItems.Add(item);
             }
@@ -158,7 +158,7 @@ namespace FolderRewind.ViewModels
         public void ReloadTemplates(string? preferredTemplateId = null)
         {
             _allTemplates.Clear();
-            _allTemplates.AddRange(TemplateService.GetTemplates()
+            _allTemplates.AddRange(BackupPresetService.GetTemplates()
                 .OrderBy(t => t.Name, StringComparer.CurrentCultureIgnoreCase));
 
             ApplyFilter(preferredTemplateId);
@@ -174,7 +174,7 @@ namespace FolderRewind.ViewModels
                     return false;
                 }
 
-                var ok = TemplateService.UpdateTemplateMetadata(
+                var ok = BackupPresetService.UpdateTemplateMetadata(
                     SelectedTemplate.Id,
                     TemplateName,
                     TemplateAuthor,
@@ -264,7 +264,7 @@ namespace FolderRewind.ViewModels
                 return false;
             }
 
-            var result = TemplateService.DuplicateTemplate(SelectedTemplate.Id);
+            var result = BackupPresetService.DuplicateTemplate(SelectedTemplate.Id);
             SetFeedback(result.Message, result.Success ? InfoBarSeverity.Success : InfoBarSeverity.Error);
             if (!result.Success || result.Template == null)
             {
@@ -296,7 +296,7 @@ namespace FolderRewind.ViewModels
                 return false;
             }
 
-            var ok = TemplateService.DeleteTemplate(SelectedTemplate.Id, out var message);
+            var ok = BackupPresetService.DeleteTemplate(SelectedTemplate.Id, out var message);
             HideDeleteConfirm();
             SetFeedback(message, ok ? InfoBarSeverity.Success : InfoBarSeverity.Error);
             if (!ok)
@@ -324,7 +324,7 @@ namespace FolderRewind.ViewModels
                 return false;
             }
 
-            var ok = TemplateService.ExportTemplate(SelectedTemplate.Id, path, out var message);
+            var ok = BackupPresetService.ExportTemplate(SelectedTemplate.Id, path, out var message);
             SetFeedback(message, ok ? InfoBarSeverity.Success : InfoBarSeverity.Error);
             return ok;
         }
@@ -357,7 +357,7 @@ namespace FolderRewind.ViewModels
                 return;
             }
 
-            var result = TemplateService.PreviewTemplateRules(SelectedTemplate.Id);
+            var result = BackupPresetService.PreviewTemplateRules(SelectedTemplate.Id);
             PreviewSummaryText = result.Message;
             foreach (var item in result.Items)
             {
@@ -371,7 +371,7 @@ namespace FolderRewind.ViewModels
         {
             var keyword = SearchText.Trim();
 
-            IEnumerable<ConfigTemplate> filtered = _allTemplates;
+            IEnumerable<BackupPreset> filtered = _allTemplates;
             if (!string.IsNullOrWhiteSpace(keyword))
             {
                 filtered = filtered.Where(t =>
@@ -434,10 +434,10 @@ namespace FolderRewind.ViewModels
             RaiseStatePropertiesChanged();
         }
 
-        private void ReloadEditableRules(ConfigTemplate selectedTemplate)
+        private void ReloadEditableRules(BackupPreset selectedTemplate)
         {
             EditablePathRules.Clear();
-            foreach (var item in TemplateService.BuildRuleEditItems(selectedTemplate))
+            foreach (var item in BackupPresetService.BuildRuleEditItems(selectedTemplate))
             {
                 EditablePathRules.Add(new EditableTemplateRuleItem
                 {
@@ -456,7 +456,7 @@ namespace FolderRewind.ViewModels
         private bool SaveRulesInternal(string templateId, out string message)
         {
             // EditablePathRules 是 UI 编辑态；提交前统一映射成服务层的 DTO。
-            var items = EditablePathRules.Select(rule => new TemplateService.TemplateRuleEditItem
+            var items = EditablePathRules.Select(rule => new BackupPresetService.TemplateRuleEditItem
             {
                 Id = rule.Id,
                 Name = rule.Name,
@@ -466,7 +466,7 @@ namespace FolderRewind.ViewModels
                 AutoAdd = rule.AutoAdd
             }).ToList();
 
-            return TemplateService.UpdateTemplatePathRules(templateId, items, out message);
+            return BackupPresetService.UpdateTemplatePathRules(templateId, items, out message);
         }
 
         private void ClearDetail()

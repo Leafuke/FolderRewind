@@ -14,7 +14,7 @@ using System.Threading.Tasks;
 
 namespace FolderRewind.Services
 {
-    internal static class OfficialTemplateService
+    internal static class OfficialBackupPresetService
     {
         internal const string OfficialRepoOwner = "Leafuke";
         internal const string OfficialRepoName = "folderrewind-official-templates";
@@ -37,7 +37,7 @@ namespace FolderRewind.Services
             public bool Success { get; init; }
             public string Message { get; init; } = string.Empty;
             public string LocalPath { get; init; } = string.Empty;
-            public ConfigTemplate? Template { get; init; }
+            public BackupPreset? Template { get; init; }
             public RemoteTemplateIndexItem? IndexItem { get; init; }
         }
 
@@ -180,13 +180,13 @@ namespace FolderRewind.Services
                         && !string.Equals(actualHash, item.Sha256.Trim(), StringComparison.OrdinalIgnoreCase))
                     {
                         lastError = I18n.GetString("OfficialTemplates_HashMismatch");
-                        LogService.LogWarning(I18n.Format("OfficialTemplates_FetchIndexFailedLog", source.Url, lastError), nameof(OfficialTemplateService));
+                        LogService.LogWarning(I18n.Format("OfficialTemplates_FetchIndexFailedLog", source.Url, lastError), nameof(OfficialBackupPresetService));
                         continue;
                     }
 
                     File.Move(tempPath, cachePath, true);
 
-                    if (!TemplateService.TryLoadTemplateFromPackage(cachePath, out var template, out var message) || template == null)
+                    if (!BackupPresetService.TryLoadTemplateFromPackage(cachePath, out var template, out var message) || template == null)
                     {
                         return new DownloadTemplateResult
                         {
@@ -197,7 +197,7 @@ namespace FolderRewind.Services
                     }
 
                     // 二次校验：不仅文件能读，还要满足官方共享规则。
-                    var validation = TemplateService.ValidateTemplateForOfficialSharing(template);
+                    var validation = BackupPresetService.ValidateTemplateForOfficialSharing(template);
                     if (!validation.Success)
                     {
                         return new DownloadTemplateResult
@@ -229,7 +229,7 @@ namespace FolderRewind.Services
                 {
                     TryDeleteFile(tempPath);
                     lastError = I18n.Format("OfficialTemplates_DownloadFailed", ex.Message);
-                    LogService.LogWarning(I18n.Format("OfficialTemplates_FetchIndexFailedLog", source.Url, ex.Message), nameof(OfficialTemplateService));
+                    LogService.LogWarning(I18n.Format("OfficialTemplates_FetchIndexFailedLog", source.Url, ex.Message), nameof(OfficialBackupPresetService));
                 }
             }
 
@@ -348,7 +348,7 @@ namespace FolderRewind.Services
 
         private static string GetTemplateCachePath(string shareCode)
         {
-            return Path.Combine(GetOfficialTemplateCacheDirectory(), "templates", $"{shareCode.Trim().ToUpperInvariant()}{TemplateService.ShareFileExtension}");
+            return Path.Combine(GetOfficialTemplateCacheDirectory(), "templates", $"{shareCode.Trim().ToUpperInvariant()}{BackupPresetService.ShareFileExtension}");
         }
 
         private static void WriteCachedIndex(string json)

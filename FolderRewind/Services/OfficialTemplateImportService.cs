@@ -14,7 +14,7 @@ namespace FolderRewind.Services
             public bool Success { get; init; }
             public bool Canceled { get; init; }
             public string Message { get; init; } = string.Empty;
-            public ConfigTemplate? ImportedTemplate { get; init; }
+            public BackupPreset? ImportedTemplate { get; init; }
             public RemoteTemplateIndexItem? IndexItem { get; init; }
         }
 
@@ -23,7 +23,7 @@ namespace FolderRewind.Services
             RemoteTemplateIndexItem item,
             CancellationToken ct = default)
         {
-            var downloadResult = await OfficialTemplateService.DownloadTemplateAsync(item, ct);
+            var downloadResult = await OfficialBackupPresetService.DownloadTemplateAsync(item, ct);
             if (!downloadResult.Success || string.IsNullOrWhiteSpace(downloadResult.LocalPath))
             {
                 return new ImportOfficialTemplateResult
@@ -34,7 +34,7 @@ namespace FolderRewind.Services
                 };
             }
 
-            var inspection = TemplateService.InspectImportTemplate(downloadResult.LocalPath);
+            var inspection = BackupPresetService.InspectImportTemplate(downloadResult.LocalPath);
             if (!inspection.Success)
             {
                 return new ImportOfficialTemplateResult
@@ -45,10 +45,10 @@ namespace FolderRewind.Services
                 };
             }
 
-            var strategy = TemplateService.TemplateImportConflictStrategy.KeepBoth;
+            var strategy = BackupPresetService.TemplateImportConflictStrategy.KeepBoth;
             if (inspection.HasConflict)
             {
-                // 冲突选择只负责“策略”，实际导入仍交给 TemplateService 统一处理。
+                // 冲突选择只负责“策略”，实际导入仍交给 BackupPresetService 统一处理。
                 var conflictDialog = new ContentDialog
                 {
                     Title = I18n.GetString("Template_Import_ConflictTitle"),
@@ -74,12 +74,12 @@ namespace FolderRewind.Services
                 }
 
                 strategy = result == ContentDialogResult.Primary
-                    ? TemplateService.TemplateImportConflictStrategy.ReplaceExisting
-                    : TemplateService.TemplateImportConflictStrategy.KeepBoth;
+                    ? BackupPresetService.TemplateImportConflictStrategy.ReplaceExisting
+                    : BackupPresetService.TemplateImportConflictStrategy.KeepBoth;
             }
 
             // 设置页和主页都走同一条导入链路，后续修正冲突逻辑时才不会出现行为漂移。
-            var ok = TemplateService.ImportTemplate(downloadResult.LocalPath, strategy, out var message, out var importedTemplate);
+            var ok = BackupPresetService.ImportTemplate(downloadResult.LocalPath, strategy, out var message, out var importedTemplate);
             return new ImportOfficialTemplateResult
             {
                 Success = ok,

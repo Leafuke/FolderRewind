@@ -11,10 +11,10 @@ using System.Text.RegularExpressions;
 
 namespace FolderRewind.Services
 {
-    public static partial class TemplateService
+    public static partial class BackupPresetService
     {
         public static CreateConfigFromTemplateResult CreateConfigFromTemplate(
-            ConfigTemplate template,
+            BackupPreset template,
             string configName,
             string? configTypeOverride = null)
         {
@@ -143,7 +143,7 @@ namespace FolderRewind.Services
             return false;
         }
 
-        public static IReadOnlyList<string> GetMissingRequiredPluginIds(ConfigTemplate? template)
+        public static IReadOnlyList<string> GetMissingRequiredPluginIds(BackupPreset? template)
         {
             if (template?.RequiredPluginIds == null || template.RequiredPluginIds.Count == 0)
             {
@@ -163,7 +163,7 @@ namespace FolderRewind.Services
                 .ToList();
         }
 
-        public static TemplateValidationResult ValidateTemplateForOfficialSharing(ConfigTemplate? template)
+        public static TemplateValidationResult ValidateTemplateForOfficialSharing(BackupPreset? template)
         {
             if (template == null)
             {
@@ -188,13 +188,22 @@ namespace FolderRewind.Services
                 errors.Add(I18n.GetString("Template_Submission_DescriptionRequired"));
             }
 
-            if (template.PathRules == null || template.PathRules.Count == 0)
+            template.NormalizeDiscoverySources();
+            var pathRules = template.PathRules ?? new ObservableCollection<TemplatePathRule>();
+            var validProviderReferences = template.DiscoverySources
+                .Where(source => source?.Kind == BackupPresetDiscoverySourceKind.ProviderReference)
+                .Where(source => !string.IsNullOrWhiteSpace(source.ProviderId)
+                    && !string.IsNullOrWhiteSpace(source.DefinitionId))
+                .ToList();
+
+            if (pathRules.Count == 0
+                && validProviderReferences.Count == 0)
             {
                 errors.Add(I18n.GetString("Template_Submission_PathRulesRequired"));
             }
-            else
+            else if (pathRules.Count > 0)
             {
-                foreach (var issue in ValidatePathRules(template.PathRules))
+                foreach (var issue in ValidatePathRules(pathRules))
                 {
                     errors.Add(issue);
                 }
@@ -208,11 +217,15 @@ namespace FolderRewind.Services
 
             // 提交前做一次“干跑”，尽早发现规则在当前机器上无法解析的问题。
             var dryRun = CreateConfigFromTemplate(template, template.DefaultConfigName);
-            if (!dryRun.Success)
+            if (!dryRun.Success && pathRules.Count > 0)
             {
                 errors.Add(string.IsNullOrWhiteSpace(dryRun.Message)
                     ? I18n.GetString("Template_Submission_DryRunFailed")
                     : dryRun.Message);
+            }
+            else if (pathRules.Count == 0 && validProviderReferences.Count > 0)
+            {
+                warnings.Add(I18n.GetString("Template_Apply_SuccessNoFolders"));
             }
 
             var missingPlugins = GetMissingRequiredPluginIds(template);

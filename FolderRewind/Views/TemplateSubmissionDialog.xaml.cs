@@ -18,11 +18,11 @@ namespace FolderRewind.Views
 
     public sealed partial class TemplateSubmissionDialog : ContentDialog
     {
-        private readonly List<ConfigTemplate> _templates = new();
+        private readonly List<BackupPreset> _templates = new();
 
         public TemplateSubmissionDialogAction RequestedAction { get; private set; }
 
-        public ConfigTemplate? SelectedTemplate { get; private set; }
+        public BackupPreset? SelectedTemplate { get; private set; }
 
         public string SelectedGameName => GameNameBox.Text?.Trim() ?? string.Empty;
 
@@ -50,7 +50,7 @@ namespace FolderRewind.Views
         private void LoadTemplates()
         {
             _templates.Clear();
-            _templates.AddRange(TemplateService.GetTemplates()
+            _templates.AddRange(BackupPresetService.GetTemplates()
                 .OrderBy(t => t.Name, StringComparer.CurrentCultureIgnoreCase));
 
             TemplateComboBox.Items.Clear();
@@ -78,7 +78,7 @@ namespace FolderRewind.Views
 
         private void RefreshSelectedTemplateMetadata()
         {
-            if (GetSelectedTemplate() is not ConfigTemplate selected)
+            if (GetSelectedTemplate() is not BackupPreset selected)
             {
                 GameNameBox.Text = string.Empty;
                 TemplateMetaTextBlock.Text = I18n.GetString("TemplateSubmissionDialog_TemplateMeta.Text");
@@ -109,9 +109,9 @@ namespace FolderRewind.Views
             FeedbackBar.IsOpen = true;
         }
 
-        private ConfigTemplate? GetSelectedTemplate()
+        private BackupPreset? GetSelectedTemplate()
         {
-            return (TemplateComboBox.SelectedItem as ComboBoxItem)?.Tag as ConfigTemplate;
+            return (TemplateComboBox.SelectedItem as ComboBoxItem)?.Tag as BackupPreset;
         }
 
         private bool TryPrepareAction(ContentDialogButton button, ContentDialogButtonClickEventArgs args)

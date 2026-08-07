@@ -43,7 +43,7 @@ namespace FolderRewind.Models
     {
         private GlobalSettings _globalSettings = new();
         private ObservableCollection<BackupConfig> _backupConfigs = new();
-        private ObservableCollection<ConfigTemplate> _templates = new();
+        private ObservableCollection<BackupPreset> _backupPresets = new();
 
         public GlobalSettings GlobalSettings
         {
@@ -57,10 +57,11 @@ namespace FolderRewind.Models
             set => SetProperty(ref _backupConfigs, value ?? new ObservableCollection<BackupConfig>());
         }
 
-        public ObservableCollection<ConfigTemplate> Templates
+        [JsonPropertyName("Templates")]
+        public ObservableCollection<BackupPreset> BackupPresets
         {
-            get => _templates;
-            set => SetProperty(ref _templates, value ?? new ObservableCollection<ConfigTemplate>());
+            get => _backupPresets;
+            set => SetProperty(ref _backupPresets, value ?? new ObservableCollection<BackupPreset>());
         }
     }
 

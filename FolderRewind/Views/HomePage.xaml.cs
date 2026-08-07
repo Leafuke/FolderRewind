@@ -1,4 +1,4 @@
-﻿using FolderRewind.Models;
+using FolderRewind.Models;
 using FolderRewind.Services;
 using FolderRewind.Services.Plugins;
 using FolderRewind.ViewModels;
@@ -135,7 +135,7 @@ namespace FolderRewind.Views
 
             while (true)
             {
-                var templates = TemplateService.GetTemplates()
+                var templates = BackupPresetService.GetTemplates()
                     .OrderBy(t => t.Name, StringComparer.CurrentCultureIgnoreCase)
                     .ToList();
 
@@ -208,9 +208,9 @@ namespace FolderRewind.Views
                     typeCombo.SelectedItem = configTypes.FirstOrDefault(t => string.Equals(t, preferredType, StringComparison.OrdinalIgnoreCase));
                 }
 
-                ConfigTemplate? GetSelectedTemplate()
+                BackupPreset? GetSelectedTemplate()
                 {
-                    return (templateCombo.SelectedItem as ComboBoxItem)?.Tag as ConfigTemplate;
+                    return (templateCombo.SelectedItem as ComboBoxItem)?.Tag as BackupPreset;
                 }
 
                 void RefreshSelection()
@@ -250,13 +250,13 @@ namespace FolderRewind.Views
                     typeCombo.SelectedItem = configTypes.FirstOrDefault(t => string.Equals(t, typeToSelect, StringComparison.OrdinalIgnoreCase));
 
                     var warnings = new List<string>();
-                    if (!TemplateService.IsConfigTypeAvailable(selectedTemplate.BaseConfigType, out var reason)
+                    if (!BackupPresetService.IsConfigTypeAvailable(selectedTemplate.BaseConfigType, out var reason)
                         && !string.IsNullOrWhiteSpace(reason))
                     {
                         warnings.Add(reason);
                     }
 
-                    var missingPluginIds = TemplateService.GetMissingRequiredPluginIds(selectedTemplate);
+                    var missingPluginIds = BackupPresetService.GetMissingRequiredPluginIds(selectedTemplate);
                     if (missingPluginIds.Count > 0)
                     {
                         warnings.Add(I18n.Format("Template_RequiredPluginsMissing", string.Join(", ", missingPluginIds)));
@@ -270,7 +270,7 @@ namespace FolderRewind.Views
                 {
                     var preferredItem = templateCombo.Items
                         .OfType<ComboBoxItem>()
-                        .FirstOrDefault(item => string.Equals((item.Tag as ConfigTemplate)?.Id, preferredTemplateId, StringComparison.OrdinalIgnoreCase));
+                        .FirstOrDefault(item => string.Equals((item.Tag as BackupPreset)?.Id, preferredTemplateId, StringComparison.OrdinalIgnoreCase));
                     templateCombo.SelectedItem = preferredItem ?? templateCombo.Items[0];
                 }
 
@@ -370,12 +370,12 @@ namespace FolderRewind.Views
         }
 
         private async Task CreateConfigFromTemplateAsync(
-            ConfigTemplate selectedTemplate,
+            BackupPreset selectedTemplate,
             string configName,
             string? selectedType,
             ResourceLoader resourceLoader)
         {
-            var createResult = TemplateService.CreateConfigFromTemplate(selectedTemplate, configName, selectedType);
+            var createResult = BackupPresetService.CreateConfigFromTemplate(selectedTemplate, configName, selectedType);
             if (!createResult.Success || createResult.Config == null)
             {
                 var failedDialog = new ContentDialog
@@ -440,8 +440,8 @@ namespace FolderRewind.Views
         }
 
         private async System.Threading.Tasks.Task<List<ManagedFolder>?> ConfirmTemplateFolderSelectionAsync(
-            ConfigTemplate template,
-            IReadOnlyList<TemplateService.TemplateFolderCandidate> candidates)
+            BackupPreset template,
+            IReadOnlyList<BackupPresetService.TemplateFolderCandidate> candidates)
         {
             if (candidates == null || candidates.Count == 0)
             {
@@ -472,7 +472,7 @@ namespace FolderRewind.Views
             // 这里故意把“自动勾选”和“仅建议”放在同一个确认框里，
             // 让用户能顺手二次筛一遍，而不是被迫回到配置页里返工。
             var listPanel = new StackPanel { Spacing = 10 };
-            var checkboxEntries = new List<(CheckBox Box, TemplateService.TemplateFolderCandidate Candidate)>();
+            var checkboxEntries = new List<(CheckBox Box, BackupPresetService.TemplateFolderCandidate Candidate)>();
             foreach (var candidate in candidates
                 .OrderByDescending(c => c.IsSelectedByDefault)
                 .ThenByDescending(c => c.Confidence)
@@ -579,7 +579,7 @@ namespace FolderRewind.Views
         }
 
         private static string BuildTemplateCreationMessage(
-            TemplateService.CreateConfigFromTemplateResult createResult,
+            BackupPresetService.CreateConfigFromTemplateResult createResult,
             int selectedFolderCount)
         {
             if (createResult == null)

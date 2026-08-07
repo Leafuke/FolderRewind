@@ -11,9 +11,9 @@ using System.Text.RegularExpressions;
 
 namespace FolderRewind.Services
 {
-    public static partial class TemplateService
+    public static partial class BackupPresetService
     {
-        public static bool TryLoadTemplateFromPackage(string sourcePath, out ConfigTemplate? template, out string message)
+        public static bool TryLoadTemplateFromPackage(string sourcePath, out BackupPreset? template, out string message)
         {
             template = null;
             var (success, resultMessage, loadedTemplate) = ReadTemplateFromFile(sourcePath);
@@ -27,7 +27,7 @@ namespace FolderRewind.Services
             return true;
         }
 
-        public static string BuildTemplateSubmissionSummary(ConfigTemplate template)
+        public static string BuildTemplateSubmissionSummary(BackupPreset template)
         {
             var lines = new List<string>
             {
@@ -104,12 +104,13 @@ namespace FolderRewind.Services
                 var sanitizedTemplate = CloneTemplate(template);
                 SanitizeTemplateForShare(sanitizedTemplate);
 
-                var envelope = new TemplateShareEnvelope
+                sanitizedTemplate.NormalizeDiscoverySources();
+                var envelope = new BackupPresetShareEnvelope
                 {
                     Magic = ShareMagic,
                     SchemaVersion = ShareSchemaVersion,
                     ExportedAtUtc = DateTime.UtcNow,
-                    Template = sanitizedTemplate
+                    Preset = sanitizedTemplate
                 };
 
                 AtomicFileService.Write(
@@ -117,7 +118,7 @@ namespace FolderRewind.Services
                     stream => JsonSerializer.Serialize(
                         stream,
                         envelope,
-                        AppJsonContext.Default.TemplateShareEnvelope));
+                        AppJsonContext.Default.BackupPresetShareEnvelope));
                 message = I18n.Format("Template_Export_Success", destPath);
                 LogService.Log(message);
                 return true;
@@ -142,7 +143,7 @@ namespace FolderRewind.Services
             }
 
             var appConfig = ConfigService.CurrentConfig;
-            if (appConfig?.Templates == null)
+            if (appConfig?.BackupPresets == null)
             {
                 return new TemplateImportInspectionResult
                 {
@@ -163,7 +164,7 @@ namespace FolderRewind.Services
                     };
                 }
 
-                var conflict = FindImportConflict(appConfig.Templates, template);
+                var conflict = FindImportConflict(appConfig.BackupPresets, template);
                 return new TemplateImportInspectionResult
                 {
                     Success = true,
@@ -200,7 +201,7 @@ namespace FolderRewind.Services
             string sourcePath,
             TemplateImportConflictStrategy strategy,
             out string message,
-            out ConfigTemplate? importedTemplate)
+            out BackupPreset? importedTemplate)
         {
             message = string.Empty;
             importedTemplate = null;
@@ -213,7 +214,7 @@ namespace FolderRewind.Services
             }
 
             var appConfig = ConfigService.CurrentConfig;
-            if (appConfig?.Templates == null)
+            if (appConfig?.BackupPresets == null)
             {
                 message = I18n.GetString("Template_Import_ConfigUnavailable");
                 return false;
@@ -225,15 +226,15 @@ namespace FolderRewind.Services
                 var template = CloneTemplate(inspection.Template);
 
 
-                var existingIndex = appConfig.Templates
+                var existingIndex = appConfig.BackupPresets
                     .ToList()
                     .FindIndex(t => string.Equals(t.Id, inspection.ConflictTemplateId, StringComparison.OrdinalIgnoreCase));
                 if (inspection.HasConflict && strategy == TemplateImportConflictStrategy.ReplaceExisting && existingIndex >= 0)
                 {
                     // 用户已确认同名模板直接覆盖。
-                    template.Id = appConfig.Templates[existingIndex].Id;
-                    appConfig.Templates[existingIndex] = template;
-                    importedTemplate = appConfig.Templates[existingIndex];
+                    template.Id = appConfig.BackupPresets[existingIndex].Id;
+                    appConfig.BackupPresets[existingIndex] = template;
+                    importedTemplate = appConfig.BackupPresets[existingIndex];
                     message = I18n.Format("Template_Import_Overwrite", template.Name);
                 }
                 else
@@ -243,14 +244,14 @@ namespace FolderRewind.Services
                     {
                         template.Id = Guid.NewGuid().ToString("N");
                         // “保留两份”时主动改名，避免用户导入完还分不清哪份是新来的。
-                        template.Name = BuildCopyTemplateName(template.Name, appConfig.Templates);
+                        template.Name = BuildCopyTemplateName(template.Name, appConfig.BackupPresets);
                         if (inspection.ConflictMatchedByShareId)
                         {
                             template.ShareId = Guid.NewGuid().ToString("N");
                         }
                     }
 
-                    appConfig.Templates.Add(template);
+                    appConfig.BackupPresets.Add(template);
                     importedTemplate = template;
                     message = !string.Equals(originalName, template.Name, StringComparison.Ordinal)
                         ? I18n.Format("Template_Import_KeepBothRenamed", originalName, template.Name)
@@ -270,26 +271,45 @@ namespace FolderRewind.Services
         }
 
 
-        private static (bool Success, string Message, ConfigTemplate? Template) ReadTemplateFromFile(string sourcePath)
+        private static (bool Success, string Message, BackupPreset? Template) ReadTemplateFromFile(string sourcePath)
         {
             using var stream = new FileStream(sourcePath, FileMode.Open, FileAccess.Read, FileShare.Read);
-            var envelope = JsonSerializer.Deserialize(stream, AppJsonContext.Default.TemplateShareEnvelope);
-            if (envelope == null || envelope.Template == null)
+            using var document = JsonDocument.Parse(stream);
+            var root = document.RootElement;
+            if (!root.TryGetProperty("Magic", out var magicElement)
+                || !root.TryGetProperty("SchemaVersion", out var schemaElement))
             {
                 return (false, I18n.GetString("Template_Import_InvalidFile"), null);
             }
 
-            if (!TemplateFormatPolicy.IsCurrentEnvelope(envelope.Magic, envelope.SchemaVersion))
+            var magic = magicElement.GetString();
+            var schemaVersion = schemaElement.GetString();
+            BackupPreset? template;
+            if (TemplateFormatPolicy.IsBackupPresetEnvelope(magic, schemaVersion))
+            {
+                var envelope = root.Deserialize(AppJsonContext.Default.BackupPresetShareEnvelope);
+                template = envelope?.Preset;
+            }
+            else if (TemplateFormatPolicy.IsLegacyEnvelope(magic, schemaVersion))
+            {
+                var envelope = root.Deserialize(AppJsonContext.Default.TemplateShareEnvelope);
+                template = envelope?.Template;
+            }
+            else
             {
                 return (false, I18n.GetString("Template_Import_SchemaUnsupported"), null);
             }
 
-            var template = envelope.Template;
+            if (template == null)
+            {
+                return (false, I18n.GetString("Template_Import_InvalidFile"), null);
+            }
+
             NormalizeImportedTemplate(template);
             return (true, string.Empty, template);
         }
 
-        private static ConfigTemplate? FindImportConflict(IEnumerable<ConfigTemplate> existingTemplates, ConfigTemplate template)
+        private static BackupPreset? FindImportConflict(IEnumerable<BackupPreset> existingTemplates, BackupPreset template)
         {
             if (!string.IsNullOrWhiteSpace(template.ShareId))
             {
@@ -400,7 +420,7 @@ namespace FolderRewind.Services
             return true;
         }
 
-        private static void SanitizeTemplateForShare(ConfigTemplate template)
+        private static void SanitizeTemplateForShare(BackupPreset template)
         {
             var userName = Environment.UserName;
             var userProfileName = Path.GetFileName(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile)
@@ -437,7 +457,7 @@ namespace FolderRewind.Services
             }
         }
 
-        private static void NormalizeImportedTemplate(ConfigTemplate template)
+        private static void NormalizeImportedTemplate(BackupPreset template)
         {
             if (string.IsNullOrWhiteSpace(template.Id))
             {
@@ -468,6 +488,8 @@ namespace FolderRewind.Services
             template.Automation = CreateTemplateAutomationPreset(template.Automation);
             template.Cloud = CreateTemplateCloudPreset();
             template.PathRules ??= new ObservableCollection<TemplatePathRule>();
+            template.DiscoverySources ??= new ObservableCollection<BackupPresetDiscoverySource>();
+            template.NormalizeDiscoverySources();
             template.RequiredPluginIds ??= new ObservableCollection<string>();
             template.ExtendedProperties = FilterTemplateExtendedProperties(template.ExtendedProperties);
 
@@ -500,7 +522,7 @@ namespace FolderRewind.Services
             }
         }
 
-        private static string BuildCopyTemplateName(string sourceName, IEnumerable<ConfigTemplate> existingTemplates)
+        private static string BuildCopyTemplateName(string sourceName, IEnumerable<BackupPreset> existingTemplates)
         {
             var suffix = I18n.GetString("Template_Duplicate_CopySuffix");
             if (string.IsNullOrWhiteSpace(suffix))
@@ -583,9 +605,9 @@ namespace FolderRewind.Services
             return errors;
         }
 
-        private static ConfigTemplate CloneTemplate(ConfigTemplate template)
+        private static BackupPreset CloneTemplate(BackupPreset template)
         {
-            return JsonCloneService.Clone(template, AppJsonContext.Default.ConfigTemplate);
+            return JsonCloneService.Clone(template, AppJsonContext.Default.BackupPreset);
         }
 
         private static ArchiveSettings CloneArchive(ArchiveSettings source)
