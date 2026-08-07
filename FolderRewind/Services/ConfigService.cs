@@ -190,6 +190,19 @@ namespace FolderRewind.Services
                         (folder.Selection.ResourceIds ?? new System.Collections.ObjectModel.ObservableCollection<string>())
                             .Where(id => !string.IsNullOrWhiteSpace(id))
                             .Select(id => id.Trim())
+                        .Distinct(StringComparer.OrdinalIgnoreCase));
+                }
+                if (backupConfig.DiscoveryOrigin != null)
+                {
+                    backupConfig.DiscoveryOrigin.ProviderId = backupConfig.DiscoveryOrigin.ProviderId?.Trim() ?? string.Empty;
+                    backupConfig.DiscoveryOrigin.DefinitionId = backupConfig.DiscoveryOrigin.DefinitionId?.Trim() ?? string.Empty;
+                    backupConfig.DiscoveryOrigin.ExternalIds = backupConfig.DiscoveryOrigin.ExternalIds == null
+                        ? new System.Collections.Generic.Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
+                        : new System.Collections.Generic.Dictionary<string, string>(backupConfig.DiscoveryOrigin.ExternalIds, StringComparer.OrdinalIgnoreCase);
+                    backupConfig.DiscoveryOrigin.ResourceIds = new System.Collections.ObjectModel.ObservableCollection<string>(
+                        (backupConfig.DiscoveryOrigin.ResourceIds ?? new System.Collections.ObjectModel.ObservableCollection<string>())
+                            .Where(id => !string.IsNullOrWhiteSpace(id))
+                            .Select(id => id.Trim())
                             .Distinct(StringComparer.OrdinalIgnoreCase));
                 }
                 NormalizeBackupScope(backupConfig.BackupScope);

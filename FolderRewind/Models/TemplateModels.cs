@@ -158,6 +158,7 @@ namespace FolderRewind.Models
         private ObservableCollection<TemplatePathRule> _pathRules = new();
         private ObservableCollection<BackupPresetDiscoverySource> _discoverySources = new();
         private bool _isBuiltIn;
+        private bool _isRecommended;
 
         public string Id { get => _id; set => SetProperty(ref _id, value ?? string.Empty); }
         public string ShareId { get => _shareId; set => SetProperty(ref _shareId, value ?? string.Empty); }
@@ -231,6 +232,7 @@ namespace FolderRewind.Models
 
         [JsonIgnore]
         public bool IsBuiltIn { get => _isBuiltIn; set => SetProperty(ref _isBuiltIn, value); }
+        public bool IsRecommended { get => _isRecommended; set => SetProperty(ref _isRecommended, value); }
 
         public void NormalizeDiscoverySources()
         {

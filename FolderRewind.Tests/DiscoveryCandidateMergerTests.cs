@@ -23,6 +23,17 @@ public sealed class DiscoveryCandidateMergerTests
     }
 
     [TestMethod]
+    public void CommaSeparatedUpstreamStoreIdsAreMatchedIndividually()
+    {
+        var first = CreateGame("ludusavi:game", "Game", "69,70", GameStore.Steam, "C:\\Steam\\Game");
+        var second = CreateGame("launcher:game", "Game", "70", GameStore.Steam, "D:\\Steam\\Game");
+
+        var merged = DiscoveryCandidateMerger.Merge(new[] { Result("provider", first, second) });
+
+        Assert.HasCount(1, merged);
+    }
+
+    [TestMethod]
     public void SpecializedResourceSuppressesOnlyOverlappingGenericResource()
     {
         var generic = CreateResource(
@@ -69,6 +80,17 @@ public sealed class DiscoveryCandidateMergerTests
         Assert.HasCount(2, merged);
     }
 
+    [TestMethod]
+    public void AliasOnlyLowEvidenceDoesNotMerge()
+    {
+        var first = CreateGame("one", "Game One", string.Empty, GameStore.Unknown, string.Empty, new[] { "Known Alias" });
+        var second = CreateGame("two", "Known Alias", string.Empty, GameStore.Unknown, string.Empty);
+
+        var merged = DiscoveryCandidateMerger.Merge(new[] { Result("provider", first, second) });
+
+        Assert.HasCount(2, merged);
+    }
+
     private static DiscoveryProviderResult Result(string providerId, params DiscoveredGameCandidate[] candidates) =>
         new()
         {
@@ -81,7 +103,8 @@ public sealed class DiscoveryCandidateMergerTests
         string name,
         string steamId,
         GameStore store,
-        string path)
+        string path,
+        IReadOnlyList<string>? aliases = null)
     {
         return new DiscoveredGameCandidate
         {
@@ -91,6 +114,7 @@ public sealed class DiscoveryCandidateMergerTests
                 ProviderId = "test",
                 DefinitionId = key,
                 DisplayName = name,
+                Aliases = aliases ?? Array.Empty<string>(),
                 ExternalIds = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
                 {
                     ["steam"] = steamId

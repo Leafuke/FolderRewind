@@ -53,10 +53,12 @@ public static class DiscoveryCandidateMerger
             return true;
         }
 
-        if (left.Definition.Aliases.Any(alias =>
+        if (HasMergeEvidence(left)
+            && HasMergeEvidence(right)
+            && (left.Definition.Aliases.Any(alias =>
                 NameEquals(alias, right.Definition.DisplayName))
             || right.Definition.Aliases.Any(alias =>
-                NameEquals(alias, left.Definition.DisplayName)))
+                NameEquals(alias, left.Definition.DisplayName))))
         {
             return true;
         }
@@ -68,9 +70,17 @@ public static class DiscoveryCandidateMerger
     {
         return ids
             .Where(pair => !string.IsNullOrWhiteSpace(pair.Key) && !string.IsNullOrWhiteSpace(pair.Value))
-            .Select(pair => $"{pair.Key.Trim().ToLowerInvariant()}:{pair.Value.Trim().ToLowerInvariant()}")
+            .SelectMany(pair => pair.Value
+                .Split(',', StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries)
+                .Select(value => $"{pair.Key.Trim().ToLowerInvariant()}:{value.ToLowerInvariant()}"))
             .ToHashSet(StringComparer.OrdinalIgnoreCase);
     }
+
+    private static bool HasMergeEvidence(DiscoveredGameCandidate candidate) =>
+        candidate.Installations.Any(installation => installation.Evidence.Any(evidence =>
+            evidence.Confidence >= DiscoveryConfidence.Medium))
+        || candidate.BackupSets.SelectMany(set => set.Resources).Any(resource =>
+            resource.Confidence >= DiscoveryConfidence.Medium);
 
     private static bool NameEquals(string left, string right) =>
         string.Equals(NormalizeName(left), NormalizeName(right), StringComparison.Ordinal);
