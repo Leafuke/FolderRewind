@@ -62,6 +62,7 @@ public sealed class DiscoveryRequest
     public DiscoveryRequestMode Mode { get; init; } = DiscoveryRequestMode.FullMachine;
     public IReadOnlyDictionary<GameStore, IReadOnlyList<string>> StoreRoots { get; init; }
         = new Dictionary<GameStore, IReadOnlyList<string>>();
+    public IReadOnlyList<string> DisabledAutoRoots { get; init; } = Array.Empty<string>();
     public IReadOnlyList<string> UserRoots { get; init; } = Array.Empty<string>();
     public IReadOnlyList<DiscoveryDefinitionReference> Definitions { get; init; }
         = Array.Empty<DiscoveryDefinitionReference>();
@@ -125,6 +126,16 @@ public sealed class GameInstallation
     public string LibraryRoot { get; init; } = string.Empty;
     public IReadOnlyList<string> StoreUserIds { get; init; } = Array.Empty<string>();
     public IReadOnlyList<DiscoveryEvidence> Evidence { get; init; } = Array.Empty<DiscoveryEvidence>();
+}
+
+public sealed class DetectedGameInstallation
+{
+    public GameStore Store { get; init; }
+    public string StoreGameId { get; init; } = string.Empty;
+    public string DisplayName { get; init; } = string.Empty;
+    public string InstallPath { get; init; } = string.Empty;
+    public string LibraryRoot { get; init; } = string.Empty;
+    public IReadOnlyList<string> StoreUserIds { get; init; } = Array.Empty<string>();
 }
 
 public sealed class BackupResourceCandidate

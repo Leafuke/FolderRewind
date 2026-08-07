@@ -115,6 +115,7 @@ namespace FolderRewind.Models
 
         // 插件系统设置（集中管理，避免散落在 GlobalSettings 顶层）
         private PluginHostSettings _plugins = new();
+        private GameDiscoverySettings _gameDiscovery = new();
 
         // KnotLink 互联设置
         private bool _enableKnotLink = false;
@@ -262,6 +263,8 @@ namespace FolderRewind.Models
         /// 插件系统设置。
         /// </summary>
         public PluginHostSettings Plugins { get => _plugins; set => SetProperty(ref _plugins, value ?? new PluginHostSettings()); }
+
+        public GameDiscoverySettings GameDiscovery { get => _gameDiscovery; set => SetProperty(ref _gameDiscovery, value ?? new GameDiscoverySettings()); }
 
         // KnotLink 互联设置属性
         /// <summary>

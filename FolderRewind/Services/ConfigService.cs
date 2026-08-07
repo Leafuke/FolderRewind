@@ -3,6 +3,7 @@ using Microsoft.UI.Windowing;
 using System;
 using System.Diagnostics;
 using System.IO;
+using System.Linq;
 using System.Runtime.InteropServices;
 using System.Text.Json;
 using Windows.Graphics;
@@ -489,6 +490,20 @@ namespace FolderRewind.Services
 
             settings.AppUpdatePreferredSource = Math.Clamp(settings.AppUpdatePreferredSource, 0, 3);
             settings.AppUpdateCustomMirrorUrl = settings.AppUpdateCustomMirrorUrl?.Trim() ?? string.Empty;
+
+            settings.GameDiscovery ??= new GameDiscoverySettings();
+            settings.GameDiscovery.SecondaryManifestPath = settings.GameDiscovery.SecondaryManifestPath?.Trim() ?? string.Empty;
+            settings.GameDiscovery.OverridePath = settings.GameDiscovery.OverridePath?.Trim() ?? string.Empty;
+            settings.GameDiscovery.LibraryRoots = new System.Collections.ObjectModel.ObservableCollection<GameLibraryRootSetting>(
+                settings.GameDiscovery.LibraryRoots
+                    .Where(root => root != null && !string.IsNullOrWhiteSpace(root.Path))
+                    .Select(root =>
+                    {
+                        root.Path = root.Path.Trim();
+                        return root;
+                    })
+                    .GroupBy(root => $"{root.Store}|{root.Path}", StringComparer.OrdinalIgnoreCase)
+                    .Select(group => group.First()));
 
             settings.SponsorAccentColorIndex = Math.Clamp(settings.SponsorAccentColorIndex, 0, ThemeService.SponsorAccentPresetCount - 1);
             settings.SponsorBackdropIndex = Math.Clamp(settings.SponsorBackdropIndex, 0, 1);

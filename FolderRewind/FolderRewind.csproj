@@ -144,6 +144,7 @@
     <PackageReference Include="CommunityToolkit.WinUI.Controls.SettingsControls" Version="8.2.251219" />
     <PackageReference Include="System.Security.Cryptography.ProtectedData" Version="10.0.5" />
     <PackageReference Include="YamlDotNet" Version="18.1.0" />
+    <PackageReference Include="ValveKeyValue" Version="0.70.0.499" />
   </ItemGroup>
 
   <!--

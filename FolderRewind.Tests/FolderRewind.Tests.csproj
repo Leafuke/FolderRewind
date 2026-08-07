@@ -13,6 +13,7 @@
     <PackageReference Include="MSTest.TestAdapter" Version="4.0.2" />
     <PackageReference Include="MSTest.TestFramework" Version="4.0.2" />
     <PackageReference Include="YamlDotNet" Version="18.1.0" />
+    <PackageReference Include="ValveKeyValue" Version="0.70.0.499" />
   </ItemGroup>
 
   <ItemGroup>
@@ -40,6 +41,9 @@
     <Compile Include="..\FolderRewind\Services\Discovery\GameDiscoveryService.cs" Link="Source\GameDiscoveryService.cs" />
     <Compile Include="..\FolderRewind\Services\Discovery\LudusaviManifestCompiler.cs" Link="Source\LudusaviManifestCompiler.cs" />
     <Compile Include="..\FolderRewind\Services\Discovery\LudusaviManifestCacheService.cs" Link="Source\LudusaviManifestCacheService.cs" />
+    <Compile Include="..\FolderRewind\Services\Discovery\LauncherInstallationScanners.cs" Link="Source\LauncherInstallationScanners.cs" />
+    <Compile Include="..\FolderRewind\Services\Discovery\LudusaviPathExpressionResolver.cs" Link="Source\LudusaviPathExpressionResolver.cs" />
+    <Compile Include="..\FolderRewind\Services\Discovery\LudusaviDiscoveryProvider.cs" Link="Source\LudusaviDiscoveryProvider.cs" />
     <Compile Include="..\FolderRewind\Services\Plugins\IFolderRewindDiscoveryProvider.cs" Link="Source\IFolderRewindDiscoveryProvider.cs" />
     <Compile Include="..\FolderRewind\Services\LanguageSettingPolicy.cs" Link="Source\LanguageSettingPolicy.cs" />
     <Compile Include="..\FolderRewind\Services\MiniWindowLayoutPolicy.cs" Link="Source\MiniWindowLayoutPolicy.cs" />
