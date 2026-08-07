@@ -1,0 +1,147 @@
+using FolderRewind.Models;
+using FolderRewind.Services.Discovery;
+
+namespace FolderRewind.Tests;
+
+[TestClass]
+public sealed class DiscoveryCandidateMergerTests
+{
+    [TestMethod]
+    public void StrongStoreIdentityMergesInstallationsAcrossProviders()
+    {
+        var first = CreateGame("ludusavi:hades", "Hades", "70", GameStore.Steam, "C:\\Steam\\Hades");
+        var second = CreateGame("store:hades", "Hades game", "70", GameStore.Standalone, "D:\\Games\\Hades");
+
+        var merged = DiscoveryCandidateMerger.Merge(new[]
+        {
+            Result("ludusavi", first),
+            Result("launcher", second)
+        });
+
+        Assert.HasCount(1, merged);
+        Assert.HasCount(2, merged[0].Installations);
+    }
+
+    [TestMethod]
+    public void SpecializedResourceSuppressesOnlyOverlappingGenericResource()
+    {
+        var generic = CreateResource(
+            "ludusavi:saves",
+            "ludusavi",
+            "C:\\Games\\Example\\saves",
+            specialized: false,
+            priority: 10);
+        var genericConfig = CreateResource(
+            "ludusavi:config",
+            "ludusavi",
+            "C:\\Games\\Example\\config",
+            specialized: false,
+            priority: 10);
+        var specialized = CreateResource(
+            "minerewind:saves",
+            "minerewind",
+            "C:\\Games\\Example\\saves",
+            specialized: true,
+            priority: 100);
+
+        var game = CreateGame("game:example", "Example", "10", GameStore.Steam, "C:\\Games\\Example");
+        game.BackupSets[0].Resources.Add(generic);
+        game.BackupSets[0].Resources.Add(genericConfig);
+        game.BackupSets[0].Resources.Add(specialized);
+
+        var merged = DiscoveryCandidateMerger.Merge(new[] { Result("combined", game) });
+        var resources = merged[0].BackupSets[0].Resources;
+
+        Assert.IsTrue(resources.Single(item => item.ResourceId == generic.ResourceId).IsSuppressed);
+        Assert.AreEqual("minerewind", resources.Single(item => item.ResourceId == generic.ResourceId).SuppressedByProviderId);
+        Assert.IsFalse(resources.Single(item => item.ResourceId == genericConfig.ResourceId).IsSuppressed);
+        Assert.IsFalse(resources.Single(item => item.ResourceId == specialized.ResourceId).IsSuppressed);
+    }
+
+    [TestMethod]
+    public void SimilarDisplayNameWithoutStrongEvidenceDoesNotMerge()
+    {
+        var first = CreateGame("one", "The Game", "1", GameStore.Steam, "C:\\One");
+        var second = CreateGame("two", "The Game", "2", GameStore.Steam, "C:\\Two");
+
+        var merged = DiscoveryCandidateMerger.Merge(new[] { Result("provider", first, second) });
+
+        Assert.HasCount(2, merged);
+    }
+
+    private static DiscoveryProviderResult Result(string providerId, params DiscoveredGameCandidate[] candidates) =>
+        new()
+        {
+            ProviderId = providerId,
+            Candidates = candidates
+        };
+
+    private static DiscoveredGameCandidate CreateGame(
+        string key,
+        string name,
+        string steamId,
+        GameStore store,
+        string path)
+    {
+        return new DiscoveredGameCandidate
+        {
+            StableKey = key,
+            Definition = new GameDefinition
+            {
+                ProviderId = "test",
+                DefinitionId = key,
+                DisplayName = name,
+                ExternalIds = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
+                {
+                    ["steam"] = steamId
+                }
+            },
+            Installations = new List<GameInstallation>
+            {
+                new()
+                {
+                    InstallationId = $"{store}:{steamId}:{path}",
+                    Store = store,
+                    StoreGameId = steamId,
+                    InstallPath = path
+                }
+            },
+            BackupSets = new List<BackupSetCandidate>
+            {
+                new()
+                {
+                    StableKey = "main",
+                    DisplayName = name
+                }
+            }
+        };
+    }
+
+    private static BackupResourceCandidate CreateResource(
+        string id,
+        string provider,
+        string root,
+        bool specialized,
+        int priority)
+    {
+        return new BackupResourceCandidate
+        {
+            ResourceId = id,
+            ProviderId = provider,
+            ProviderPriority = priority,
+            IsSpecializedProvider = specialized,
+            DisplayName = id,
+            Kind = BackupResourceKind.Directory,
+            FixedRoot = root,
+            Evidence = new[]
+            {
+                new DiscoveryEvidence
+                {
+                    Confidence = DiscoveryConfidence.High,
+                    Kind = "test",
+                    Description = "test"
+                }
+            }
+        };
+    }
+}

@@ -18,6 +18,20 @@ namespace FolderRewind.Services.Plugins
 {
     public static partial class PluginService
     {
+        public static IReadOnlyList<IFolderRewindDiscoveryProvider> GetDiscoveryProviders()
+        {
+            if (!IsPluginSystemEnabled())
+            {
+                return Array.Empty<IFolderRewindDiscoveryProvider>();
+            }
+
+            Initialize();
+            return GetEnabledLoadedPluginsSnapshot()
+                .OfType<IFolderRewindDiscoveryProvider>()
+                .OrderByDescending(provider => provider.Descriptor.Priority)
+                .ToList();
+        }
+
         public static IReadOnlyList<PluginBackupScopeDefinition> GetBackupScopeDefinitions(BackupConfig config)
         {
             if (config == null || !IsPluginSystemEnabled())
