@@ -51,6 +51,14 @@ namespace FolderRewind.Services
                 return (false, 0, message);
             }
 
+            var runImportResult = await ImportConfigurationBackupRunsAsync(config, analysis.MappedItems).ConfigureAwait(false);
+            if (!runImportResult.Success)
+            {
+                string message = "History items were imported, but backup-runs.json could not be synchronized.";
+                NotificationService.ShowError(message, I18n.GetString("CloudSync_Notification_Title"));
+                return (false, 0, message);
+            }
+
             return await DownloadHistoryItemsAsync(
                 config,
                 analysis.MappedItems,
@@ -96,6 +104,18 @@ namespace FolderRewind.Services
                 {
                     Success = false,
                     Message = importFailedMessage,
+                    Analysis = analysis
+                };
+            }
+
+            var runImportResult = await ImportConfigurationBackupRunsAsync(config, analysis.MappedItems).ConfigureAwait(false);
+            if (!runImportResult.Success)
+            {
+                string runsImportMessage = "History items were imported, but backup-runs.json could not be synchronized.";
+                return new ConfigCloudSyncResult
+                {
+                    Success = false,
+                    Message = runsImportMessage,
                     Analysis = analysis
                 };
             }
@@ -166,22 +186,44 @@ namespace FolderRewind.Services
 
         public static async Task<(bool Success, int Count, string Message)> ImportHistoryFromCloudAsync(string remoteBasePath, bool merge)
         {
-            return await ImportHistoryFromCloudCoreAsync(
+            var historyResult = await ImportHistoryFromCloudCoreAsync(
                 AppendRemotePath(remoteBasePath, "history.json"),
                 merge,
                 I18n.GetString("CloudSync_Task_HistoryImportName"),
                 I18n.GetString("CloudSync_Notification_HistoryImportFailed")).ConfigureAwait(false);
+            if (!historyResult.Success)
+            {
+                return historyResult;
+            }
+
+            var settings = ConfigService.CurrentConfig?.BackupConfigs?.FirstOrDefault()?.Cloud ?? new CloudSettings();
+            var runResult = await ImportBackupRunsFromCloudOptionalAsync(
+                remoteBasePath,
+                settings,
+                merge).ConfigureAwait(false);
+            return runResult.Success
+                ? historyResult
+                : (false, historyResult.Count, "history.json was imported, but backup-runs.json failed to import.");
         }
 
         public static async Task<(bool Success, string Message)> ExportHistoryToCloudAsync(string remoteBasePath)
         {
             string remoteHistoryPath = AppendRemotePath(remoteBasePath, "history.json");
-            return await ExportJsonToCloudAsync(
+            var historyResult = await ExportJsonToCloudAsync(
                 remoteHistoryPath,
                 I18n.GetString("CloudSync_Task_HistoryExportName"),
                 I18n.GetString("CloudSync_Notification_HistoryExportSucceeded"),
                 I18n.GetString("CloudSync_Notification_HistoryExportFailed"),
                 localPath => HistoryService.ExportHistory(localPath)).ConfigureAwait(false);
+            if (!historyResult.Success)
+            {
+                return historyResult;
+            }
+
+            var runResult = await ExportBackupRunsToCloudAsync(remoteBasePath).ConfigureAwait(false);
+            return runResult.Success
+                ? historyResult
+                : (false, "history.json was exported, but backup-runs.json failed to export.");
         }
 
         public static void QueueConfigurationHistorySyncAfterLocalChange(BackupConfig? config, string? reason = null)
@@ -262,13 +304,17 @@ namespace FolderRewind.Services
 
             var settings = config.Cloud;
             var localEntries = HistoryService.GetEntriesForConfig(config.Id);
+            var localRuns = BackupRunService.GetRuns(config.Id);
             var manifest = BuildActiveHistoryManifest(config, localEntries);
             string remoteHistoryPath = AppendRemotePath(settings.RemoteBasePath ?? string.Empty, "history.json");
+            string remoteRunsPath = AppendRemotePath(settings.RemoteBasePath ?? string.Empty, BackupRunsFileName);
             string activeHistoryRemotePath = BuildActiveHistoryManifestRemotePath(config);
 
             string tempHistoryPath = Path.Combine(Path.GetTempPath(), $"FolderRewind_config_history_upload_{Guid.NewGuid():N}.json");
+            string tempRunsPath = Path.Combine(Path.GetTempPath(), $"FolderRewind_config_runs_upload_{Guid.NewGuid():N}.json");
             string tempManifestPath = Path.Combine(Path.GetTempPath(), $"FolderRewind_config_active_history_{Guid.NewGuid():N}.json");
             Directory.CreateDirectory(Path.GetDirectoryName(tempHistoryPath) ?? Path.GetTempPath());
+            Directory.CreateDirectory(Path.GetDirectoryName(tempRunsPath) ?? Path.GetTempPath());
             Directory.CreateDirectory(Path.GetDirectoryName(tempManifestPath) ?? Path.GetTempPath());
 
             var task = CreateTask(I18n.Format("CloudSync_Task_ConfigurationHistoryUploadName", config.Name ?? string.Empty), UploadTaskIconGlyph);
@@ -290,12 +336,20 @@ namespace FolderRewind.Services
                     settings,
                     remoteHistoryPath,
                     task).ConfigureAwait(false);
+                List<BackupRunRecord> remoteRuns = await DownloadRemoteBackupRunsOptionalAsync(
+                    executablePath,
+                    workingDirectory,
+                    settings,
+                    remoteRunsPath,
+                    task).ConfigureAwait(false);
 
                 string remoteConfigRoot = AppendRemotePath(settings.RemoteBasePath ?? string.Empty, config.Name ?? string.Empty);
                 int removedCount = remoteEntries.RemoveAll(item => BelongsToConfiguration(item, config, remoteConfigRoot));
                 remoteEntries.AddRange(localEntries.Select(CloneHistoryItemForCloudSync));
+                remoteRuns = BackupRunPolicy.ReplaceConfigurationRuns(remoteRuns, localRuns, config.Id).ToList();
 
                 SerializeToFile(tempHistoryPath, remoteEntries, AppJsonContext.Default.ListHistoryItem);
+                SerializeBackupRuns(tempRunsPath, remoteRuns);
                 SerializeToFile(tempManifestPath, manifest, AppJsonContext.Default.CloudActiveHistoryManifest);
 
                 await RunOnUIAsync(() => task.Progress = 20).ConfigureAwait(false);
@@ -317,25 +371,42 @@ namespace FolderRewind.Services
                 }
                 else
                 {
-                    await RunOnUIAsync(() => task.Progress = 65).ConfigureAwait(false);
+                    await RunOnUIAsync(() => task.Progress = 50).ConfigureAwait(false);
 
-                    var manifestUploadResult = await ExecuteCommandWithRetryAsync(
+                    var runsUploadResult = await ExecuteCommandWithRetryAsync(
                         task,
                         settings,
-                        CreateDirectCommand(executablePath, workingDirectory, BuildRcloneCopyToArguments(tempManifestPath, activeHistoryRemotePath)),
-                        I18n.GetString("CloudSync_Task_UploadingActiveHistoryManifest"),
-                        ActiveHistoryManifestFileName).ConfigureAwait(false);
+                        CreateDirectCommand(executablePath, workingDirectory, BuildRcloneCopyToArguments(tempRunsPath, remoteRunsPath)),
+                        I18n.GetString("CloudSync_Task_UploadingConfigurationHistory"),
+                        BackupRunsFileName).ConfigureAwait(false);
 
-                    if (!manifestUploadResult.Success)
+                    if (!runsUploadResult.Success)
                     {
-                        success = true;
-                        warningMessage = I18n.Format("CloudSync_Notification_ActiveHistoryManifestUploadFailedWithReason", manifestUploadResult.ErrorMessage);
-                        LogService.LogWarning(
-                            I18n.Format("CloudSync_Log_CommandFailed", ActiveHistoryManifestFileName, manifestUploadResult.ErrorMessage),
-                            nameof(CloudSyncService));
+                        success = false;
+                        resultMessage = $"history.json was uploaded, but {BackupRunsFileName} failed: {runsUploadResult.ErrorMessage}";
                     }
+                    else
+                    {
+                        await RunOnUIAsync(() => task.Progress = 70).ConfigureAwait(false);
 
-                    resultMessage = I18n.Format("CloudSync_Notification_ConfigurationHistoryUploadSucceeded", config.Name ?? string.Empty, localEntries.Count);
+                        var manifestUploadResult = await ExecuteCommandWithRetryAsync(
+                            task,
+                            settings,
+                            CreateDirectCommand(executablePath, workingDirectory, BuildRcloneCopyToArguments(tempManifestPath, activeHistoryRemotePath)),
+                            I18n.GetString("CloudSync_Task_UploadingActiveHistoryManifest"),
+                            ActiveHistoryManifestFileName).ConfigureAwait(false);
+
+                        if (!manifestUploadResult.Success)
+                        {
+                            success = true;
+                            warningMessage = I18n.Format("CloudSync_Notification_ActiveHistoryManifestUploadFailedWithReason", manifestUploadResult.ErrorMessage);
+                            LogService.LogWarning(
+                                I18n.Format("CloudSync_Log_CommandFailed", ActiveHistoryManifestFileName, manifestUploadResult.ErrorMessage),
+                                nameof(CloudSyncService));
+                        }
+
+                        resultMessage = I18n.Format("CloudSync_Notification_ConfigurationHistoryUploadSucceeded", config.Name ?? string.Empty, localEntries.Count);
+                    }
                 }
 
                 if (showNotifications)
@@ -390,6 +461,7 @@ namespace FolderRewind.Services
             {
                 CommandSemaphore.Release();
                 TryDeleteTempFile(tempHistoryPath);
+                TryDeleteTempFile(tempRunsPath);
                 TryDeleteTempFile(tempManifestPath);
             }
         }

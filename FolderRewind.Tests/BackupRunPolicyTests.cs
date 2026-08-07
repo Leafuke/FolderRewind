@@ -89,6 +89,57 @@ public sealed class BackupRunPolicyTests
         Assert.IsFalse(removed.Any(run => run.IsImportant));
     }
 
+    [TestMethod]
+    public void CloudMergeReplacesOnlyTargetConfigurationAndDeduplicatesRunIds()
+    {
+        var remote = new[]
+        {
+            new BackupRunRecord { RunId = "old-target", ConfigId = "target" },
+            new BackupRunRecord { RunId = "keep-other", ConfigId = "other" }
+        };
+        var local = new[]
+        {
+            new BackupRunRecord { RunId = "new-target", ConfigId = "target" },
+            new BackupRunRecord { RunId = "new-target", ConfigId = "target" }
+        };
+
+        var merged = BackupRunPolicy.ReplaceConfigurationRuns(remote, local, "target");
+
+        CollectionAssert.AreEquivalent(
+            new[] { "keep-other", "new-target" },
+            merged.Select(run => run.RunId).ToArray());
+    }
+
+    [TestMethod]
+    public void BackupRunsDocumentRoundTripsWithIndependentVersionEnvelope()
+    {
+        var document = new BackupRunDocument
+        {
+            Runs = new List<BackupRunRecord>
+            {
+                new()
+                {
+                    RunId = "run",
+                    ConfigId = "config",
+                    Status = BackupRunStatus.Completed,
+                    Sources = new List<BackupRunSourceRecord>
+                    {
+                        Source(BackupRunSourceStatus.NewArchive, "history")
+                    }
+                }
+            }
+        };
+
+        var json = System.Text.Json.JsonSerializer.Serialize(document);
+        var restored = System.Text.Json.JsonSerializer.Deserialize<BackupRunDocument>(json);
+
+        Assert.IsNotNull(restored);
+        Assert.AreEqual(BackupRunDocument.CurrentMagic, restored.Magic);
+        Assert.AreEqual(BackupRunDocument.CurrentSchemaVersion, restored.SchemaVersion);
+        Assert.HasCount(1, restored.Runs);
+        Assert.AreEqual("history", restored.Runs[0].Sources[0].HistoryItemId);
+    }
+
     private static BackupRunSourceRecord Source(
         BackupRunSourceStatus status,
         string historyItemId = "") => new()

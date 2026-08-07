@@ -376,12 +376,15 @@ namespace FolderRewind.Services
             bool hasCloudCopy = remoteItem.IsCloudArchived || !string.IsNullOrWhiteSpace(remoteItem.CloudArchiveRemotePath);
             return new HistoryItem
             {
+                Id = remoteItem.Id ?? string.Empty,
+                CreatedByRunId = remoteItem.CreatedByRunId ?? string.Empty,
                 ConfigId = config.Id,
                 FolderPath = folder.Path ?? string.Empty,
                 FolderName = folder.DisplayName ?? remoteItem.FolderName ?? string.Empty,
                 FileName = remoteItem.FileName ?? string.Empty,
                 Timestamp = remoteItem.Timestamp,
                 BackupType = remoteItem.BackupType ?? string.Empty,
+                IsPartialBackup = remoteItem.IsPartialBackup,
                 Comment = remoteItem.Comment ?? string.Empty,
                 IsImportant = remoteItem.IsImportant,
                 IsCloudArchived = hasCloudCopy,
@@ -396,12 +399,15 @@ namespace FolderRewind.Services
         {
             return new HistoryItem
             {
+                Id = item.Id ?? string.Empty,
+                CreatedByRunId = item.CreatedByRunId ?? string.Empty,
                 ConfigId = item.ConfigId ?? string.Empty,
                 FolderPath = item.FolderPath ?? string.Empty,
                 FolderName = item.FolderName ?? string.Empty,
                 FileName = item.FileName ?? string.Empty,
                 Timestamp = item.Timestamp,
                 BackupType = item.BackupType ?? string.Empty,
+                IsPartialBackup = item.IsPartialBackup,
                 Comment = item.Comment ?? string.Empty,
                 IsImportant = item.IsImportant,
                 IsCloudArchived = item.IsCloudArchived,

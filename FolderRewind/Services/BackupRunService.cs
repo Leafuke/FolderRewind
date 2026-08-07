@@ -71,6 +71,91 @@ public static class BackupRunService
         }
     }
 
+    public static bool Export(string destinationPath)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(destinationPath);
+        Initialize();
+        lock (Gate)
+        {
+            try
+            {
+                var document = new BackupRunDocument { Runs = _runs.ToList() };
+                AtomicFileService.Write(
+                    destinationPath,
+                    stream => JsonSerializer.Serialize(
+                        stream,
+                        document,
+                        AppJsonContext.Default.BackupRunDocument));
+                return true;
+            }
+            catch (Exception ex)
+            {
+                LogService.LogError($"Failed to export backup runs: {ex.Message}", nameof(BackupRunService), ex);
+                return false;
+            }
+        }
+    }
+
+    public static (bool Success, int ImportedCount, int DuplicateCount) Import(
+        string sourcePath,
+        bool merge = true,
+        string? configId = null)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(sourcePath);
+        try
+        {
+            var json = File.ReadAllText(sourcePath);
+            var document = JsonSerializer.Deserialize(json, AppJsonContext.Default.BackupRunDocument);
+            if (document?.Magic != BackupRunDocument.CurrentMagic
+                || document.SchemaVersion != BackupRunDocument.CurrentSchemaVersion)
+            {
+                return (false, 0, 0);
+            }
+
+            return Import(document.Runs, merge, configId);
+        }
+        catch (Exception ex)
+        {
+            LogService.LogError($"Failed to import backup runs: {ex.Message}", nameof(BackupRunService), ex);
+            return (false, 0, 0);
+        }
+    }
+
+    public static (bool Success, int ImportedCount, int DuplicateCount) Import(
+        IEnumerable<BackupRunRecord> runs,
+        bool merge = true,
+        string? configId = null)
+    {
+        Initialize();
+        var imported = Normalize(runs)
+            .Where(run => string.IsNullOrWhiteSpace(configId)
+                          || string.Equals(run.ConfigId, configId, StringComparison.OrdinalIgnoreCase))
+            .ToList();
+        lock (Gate)
+        {
+            var duplicateCount = 0;
+            var importedCount = 0;
+            if (!merge)
+            {
+                _runs.Clear();
+            }
+            foreach (var run in imported)
+            {
+                if (_runs.Any(existing => string.Equals(existing.RunId, run.RunId, StringComparison.OrdinalIgnoreCase)))
+                {
+                    duplicateCount++;
+                    continue;
+                }
+                _runs.Add(run);
+                importedCount++;
+            }
+
+            return PersistLocked()
+                ? (true, importedCount, duplicateCount)
+                : (false, 0, duplicateCount);
+        }
+    }
+
     public static bool Add(BackupRunRecord run)
     {
         ArgumentNullException.ThrowIfNull(run);

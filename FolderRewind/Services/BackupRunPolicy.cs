@@ -85,4 +85,17 @@ public static class BackupRunPolicy
         !string.IsNullOrWhiteSpace(historyItemId)
         && runs.Any(run => run.Sources.Any(source =>
             string.Equals(source.HistoryItemId, historyItemId, StringComparison.OrdinalIgnoreCase)));
+
+    public static IReadOnlyList<BackupRunRecord> ReplaceConfigurationRuns(
+        IEnumerable<BackupRunRecord> remoteRuns,
+        IEnumerable<BackupRunRecord> localRuns,
+        string configId)
+    {
+        return (remoteRuns ?? Array.Empty<BackupRunRecord>())
+            .Where(run => !string.Equals(run.ConfigId, configId, StringComparison.OrdinalIgnoreCase))
+            .Concat(localRuns ?? Array.Empty<BackupRunRecord>())
+            .GroupBy(run => run.RunId, StringComparer.OrdinalIgnoreCase)
+            .Select(group => group.Last())
+            .ToList();
+    }
 }

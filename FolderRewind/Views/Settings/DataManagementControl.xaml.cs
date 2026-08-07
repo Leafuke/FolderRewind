@@ -354,6 +354,8 @@ namespace FolderRewind.Views.Settings
             if (string.IsNullOrWhiteSpace(filePath)) return;
 
             bool ok = HistoryService.ExportHistory(filePath);
+            string runsPath = Path.Combine(Path.GetDirectoryName(filePath) ?? string.Empty, "backup-runs.json");
+            ok = ok && BackupRunService.Export(runsPath);
             if (ok)
                 ShowInfoBar(I18n.GetString("Settings_ExportHistorySuccess"), InfoBarSeverity.Success);
             else
@@ -410,6 +412,11 @@ namespace FolderRewind.Views.Settings
             if (string.IsNullOrWhiteSpace(filePath)) return;
 
             var (ok, count) = HistoryService.ImportHistory(filePath, merge);
+            string runsPath = Path.Combine(Path.GetDirectoryName(filePath) ?? string.Empty, "backup-runs.json");
+            if (ok && File.Exists(runsPath))
+            {
+                ok = BackupRunService.Import(runsPath, merge).Success;
+            }
             if (ok)
                 ShowInfoBar(I18n.Format("Settings_ImportHistorySuccess", count.ToString()), InfoBarSeverity.Success);
             else

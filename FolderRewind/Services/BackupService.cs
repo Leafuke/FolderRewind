@@ -216,6 +216,9 @@ namespace FolderRewind.Services
                     BackupRunService.Add(run);
                     var removedRuns = BackupRunService.ApplyRetention(config);
                     await PruneGroupedRunArchivesAsync(config, removedRuns);
+                    CloudSyncService.QueueConfigurationHistorySyncAfterLocalChange(
+                        config,
+                        "configuration backup run completion");
                 }
             }
 
