@@ -27,6 +27,16 @@ namespace FolderRewind.Services
                 };
             }
 
+            if (!string.IsNullOrWhiteSpace(historyItem.Id)
+                && BackupRunService.IsHistoryItemReferenced(historyItem.Id))
+            {
+                return new DeleteBackupResult
+                {
+                    Success = false,
+                    Message = "This archive is referenced by a retained configuration backup run."
+                };
+            }
+
             if (deleteMode == BackupDeleteMode.RecordOnly)
             {
                 HistoryService.RemoveEntry(historyItem);

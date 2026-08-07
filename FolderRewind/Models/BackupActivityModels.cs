@@ -15,6 +15,8 @@ namespace FolderRewind.Models
     public class HistoryItem : ObservableObject
     {
         // 核心字段 (需要保存)
+        public string Id { get; set; } = "";
+        public string CreatedByRunId { get; set; } = "";
         public string ConfigId { get; set; } = "";        // 所属配置ID
         public string FolderPath { get; set; } = "";      // 所属源文件夹路径 (作为唯一标识)
         public string FolderName { get; set; } = "";      // 文件夹名 (冗余备份，防止源被删后无法识别)

@@ -29,7 +29,7 @@ namespace FolderRewind.Services
                 ? RestoreMode.Overwrite
                 : RestoreMode.Clean;
 
-        public static async Task RestoreBackupAsync(BackupConfig config, ManagedFolder folder, HistoryItem historyItem, RestoreMode mode)
+        public static async Task<bool> RestoreBackupAsync(BackupConfig config, ManagedFolder folder, HistoryItem historyItem, RestoreMode mode)
         {
             RestoreMode requestedMode = mode;
             RestoreMode effectiveMode = ResolveEffectiveRestoreMode(historyItem, requestedMode);
@@ -66,7 +66,7 @@ namespace FolderRewind.Services
                     NotificationService.ShowError(message);
                 }
 
-                return;
+                return interception.Status == Services.Plugins.PluginRestoreInterceptionStatus.Handled;
             }
 
             int configIndex = GetConfigIndex(config);
@@ -138,7 +138,7 @@ namespace FolderRewind.Services
                 {
                     Log($"[Filter] Restore whitelist validation failed: {ex.Message}", LogLevel.Error);
                     await FailAsync(ex.Message, "invalid_restore_filter");
-                    return;
+                    return false;
                 }
             }
 
@@ -147,7 +147,7 @@ namespace FolderRewind.Services
                 string message = "Invalid backup path in history record.";
                 Log(message, LogLevel.Error);
                 await FailAsync(message, "invalid_backup_path");
-                return;
+                return false;
             }
 
             string resolvedBackupFilePath = backupFilePath;
@@ -189,8 +189,7 @@ namespace FolderRewind.Services
             var (shouldHandleRestore, handlerPlugin) = Services.Plugins.PluginService.CheckPluginWantsToHandleRestore(config);
             if (shouldHandleRestore && handlerPlugin != null && !historyItem.IsPartialBackup)
             {
-                await HandlePluginRestoreAsync(config, folder, historyItem, restoreTask, handlerPlugin, configIndex);
-                return;
+                return await HandlePluginRestoreAsync(config, folder, historyItem, restoreTask, handlerPlugin, configIndex);
             }
             if (shouldHandleRestore && handlerPlugin != null && historyItem.IsPartialBackup)
             {
@@ -204,7 +203,7 @@ namespace FolderRewind.Services
                 string message = I18n.Format("BackupService_Log_BackupFileNotFound", resolvedBackupFilePath);
                 Log(message, LogLevel.Error);
                 await FailAsync(message, "no_backup_found");
-                return;
+                return false;
             }
 
             string? sevenZipExe = ResolveSevenZipExecutable();
@@ -212,7 +211,7 @@ namespace FolderRewind.Services
             {
                 string message = I18n.Format("BackupService_Log_SevenZipNotFound");
                 await FailAsync(message, "seven_zip_not_found");
-                return;
+                return false;
             }
 
             var backupDir = new DirectoryInfo(Path.GetDirectoryName(resolvedBackupFilePath)!);
@@ -233,7 +232,7 @@ namespace FolderRewind.Services
                         restoreTask.IsSuccess = false;
                         restoreTask.ErrorMessage = I18n.GetString("Common_Canceled");
                     });
-                    return;
+                    return false;
                 }
 
                 restoreChain = BuildReverseCompatibilityChain(backupDir, targetFile, config, resolvedFolderName);
@@ -247,7 +246,7 @@ namespace FolderRewind.Services
                     string message = I18n.Format("BackupService_Log_RestoreChainNotFound");
                     Log(message, LogLevel.Error);
                     await FailAsync(message, "reverse_chain_not_found");
-                    return;
+                    return false;
                 }
             }
             else
@@ -258,7 +257,7 @@ namespace FolderRewind.Services
                     string message = I18n.Format("BackupService_Log_RestoreChainNotFound");
                     Log(message, LogLevel.Error);
                     await FailAsync(message, "restore_chain_not_found");
-                    return;
+                    return false;
                 }
             }
 
@@ -275,7 +274,7 @@ namespace FolderRewind.Services
                     string message = I18n.GetString("BackupService_Log_InvalidRestoreStorageFolderName");
                     Log(message, LogLevel.Error);
                     await FailAsync(message, "invalid_folder_name");
-                    return;
+                    return false;
                 }
 
                 var metadataLoadResult = await LoadBackupMetadataAsync(metadataDir, restoreChain.Select(file => file.Name)).ConfigureAwait(false);
@@ -307,7 +306,7 @@ namespace FolderRewind.Services
                     ? MissingEncryptionPasswordMessage
                     : restoreTask.ErrorMessage!;
                 await FailAsync(message, "encryption_password_missing");
-                return;
+                return false;
             }
             // 智能还原方案与普通还原方案都共用这一段完整性校验入口。
             var archivesToVerify = smartRestorePlan?.Chain ?? restoreChain;
@@ -321,7 +320,7 @@ namespace FolderRewind.Services
                     string message = I18n.Format("BackupService_Log_RestoreIntegrityCheckFailedStop");
                     Log(message, LogLevel.Error);
                     await FailAsync(message, "archive_integrity_check_failed");
-                    return;
+                    return false;
                 }
 
                 Log(I18n.Format("BackupService_Log_RestoreIntegrityCheckPassed"), LogLevel.Info);
@@ -360,7 +359,7 @@ namespace FolderRewind.Services
                     {
                     }
                     await FailAsync(message, "snapshot_prepare_failed");
-                    return;
+                    return false;
                 }
 
                 safeRestoreWorkspacePrepared = !string.IsNullOrWhiteSpace(safeRestoreTempDir);
@@ -387,7 +386,7 @@ namespace FolderRewind.Services
                     {
                     }
                     await FailAsync(message, "create_dir_failed");
-                    return;
+                    return false;
                 }
             }
 
@@ -512,7 +511,7 @@ namespace FolderRewind.Services
                     ? I18n.GetString("BackupService_Log_RestoreExtractFailed")
                     : restoreTask.ErrorMessage!;
                 await FailAsync(failureMessage, "command_failed");
-                return;
+                return false;
             }
 
             try
@@ -543,6 +542,7 @@ namespace FolderRewind.Services
             {
                 ["backup"] = historyItem.FileName
             });
+            return true;
         }
 
         /// <summary>

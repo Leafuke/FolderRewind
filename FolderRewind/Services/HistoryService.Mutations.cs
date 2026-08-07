@@ -53,6 +53,34 @@ namespace FolderRewind.Services
             }
         }
 
+        public static HistoryItem? TryGetEntryById(string historyItemId)
+        {
+            if (string.IsNullOrWhiteSpace(historyItemId))
+            {
+                return null;
+            }
+
+            Initialize();
+            lock (_historyLock)
+            {
+                return _allHistory.FirstOrDefault(item =>
+                    string.Equals(item.Id, historyItemId, StringComparison.OrdinalIgnoreCase));
+            }
+        }
+
+        public static HistoryItem? GetLatestEntryForFolder(string configId, string folderPath)
+        {
+            Initialize();
+            lock (_historyLock)
+            {
+                return _allHistory
+                    .Where(item => string.Equals(item.ConfigId, configId, StringComparison.OrdinalIgnoreCase)
+                                   && string.Equals(item.FolderPath, folderPath, StringComparison.OrdinalIgnoreCase))
+                    .OrderByDescending(item => item.Timestamp)
+                    .FirstOrDefault();
+            }
+        }
+
         public static int RemoveEntriesForFile(string configId, string folderName, string fileName)
         {
             if (string.IsNullOrWhiteSpace(configId)

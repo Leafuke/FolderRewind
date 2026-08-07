@@ -80,6 +80,26 @@ namespace FolderRewind.Services
             public string Message { get; set; } = string.Empty;
         }
 
+        private sealed class BackupSourceExecutionOutcome
+        {
+            public BackupRunSourceStatus Status { get; init; }
+            public string FolderPath { get; init; } = string.Empty;
+            public string FolderName { get; init; } = string.Empty;
+            public HistoryItem? HistoryItem { get; init; }
+            public string ErrorMessage { get; init; } = string.Empty;
+            public bool CreatedNewArchive => Status == BackupRunSourceStatus.NewArchive;
+
+            public BackupRunSourceRecord ToRunSource() => new()
+            {
+                FolderPath = FolderPath,
+                FolderName = FolderName,
+                Status = Status,
+                HistoryItemId = HistoryItem?.Id ?? string.Empty,
+                ArchiveFileName = HistoryItem?.FileName ?? string.Empty,
+                ErrorMessage = ErrorMessage
+            };
+        }
+
         private static void BroadcastBackupEvent(
             int configIndex,
             BackupConfig config,
@@ -166,10 +186,37 @@ namespace FolderRewind.Services
             Log(I18n.Format("BackupService_Log_ConfigTaskBegin", config.Name), LogLevel.Info);
 
             bool anyChanges = false;
+            var startedAtUtc = DateTime.UtcNow;
+            var runId = Guid.NewGuid().ToString("N");
+            var sourceOutcomes = new List<BackupSourceExecutionOutcome>();
             foreach (var folder in config.SourceFolders)
             {
-                var hadChanges = await BackupFolderAsync(config, folder, invocationOptions: invocationOptions);
-                if (hadChanges) anyChanges = true;
+                var outcome = await BackupFolderCoreAsync(
+                    config,
+                    folder,
+                    comment: string.Empty,
+                    invocationOptions: invocationOptions,
+                    createdByRunId: config.HistoryMode == BackupHistoryMode.GroupedRun ? runId : null);
+                sourceOutcomes.Add(outcome);
+                if (outcome.CreatedNewArchive) anyChanges = true;
+            }
+
+            if (config.HistoryMode == BackupHistoryMode.GroupedRun)
+            {
+                var run = BackupRunPolicy.Create(
+                    runId,
+                    config.Id,
+                    startedAtUtc,
+                    DateTime.UtcNow,
+                    MapRunTriggerSource(invocationOptions.Source),
+                    string.Empty,
+                    sourceOutcomes.Select(outcome => outcome.ToRunSource()));
+                if (run != null)
+                {
+                    BackupRunService.Add(run);
+                    var removedRuns = BackupRunService.ApplyRetention(config);
+                    await PruneGroupedRunArchivesAsync(config, removedRuns);
+                }
             }
 
             Log(I18n.Format("BackupService_Log_TaskEnd"), LogLevel.Info);
@@ -186,7 +233,30 @@ namespace FolderRewind.Services
             string? comment = "",
             BackupInvocationOptions? invocationOptions = null)
         {
-            if (config == null || folder == null) return false;
+            var outcome = await BackupFolderCoreAsync(
+                config,
+                folder,
+                comment,
+                invocationOptions,
+                createdByRunId: null);
+            return outcome.CreatedNewArchive;
+        }
+
+        private static async Task<BackupSourceExecutionOutcome> BackupFolderCoreAsync(
+            BackupConfig config,
+            ManagedFolder folder,
+            string? comment,
+            BackupInvocationOptions? invocationOptions,
+            string? createdByRunId)
+        {
+            if (config == null || folder == null)
+            {
+                return new BackupSourceExecutionOutcome
+                {
+                    Status = BackupRunSourceStatus.Failed,
+                    ErrorMessage = "Invalid backup configuration or source."
+                };
+            }
             comment ??= string.Empty;
             invocationOptions ??= BackupInvocationOptions.Default;
 
@@ -228,7 +298,7 @@ namespace FolderRewind.Services
                     ["error"] = scopeResolution.ErrorCode,
                     ["message"] = scopeError
                 });
-                return false;
+                return CreateSourceOutcome(folder, BackupRunSourceStatus.Failed, errorMessage: scopeError);
             }
 
             config = scopeResolution.EffectiveConfig;
@@ -254,14 +324,14 @@ namespace FolderRewind.Services
                     ["error"] = "invalid_filter_rule",
                     ["message"] = filterValidationError
                 });
-                return false;
+                return CreateSourceOutcome(folder, BackupRunSourceStatus.Failed, errorMessage: filterValidationError);
             }
 
             // 插件接管同样只能收到已经解析并验证过的运行配置，不能绕过范围的失败关闭策略。
             var (shouldHandle, handlerPlugin) = Services.Plugins.PluginService.CheckPluginWantsToHandleBackup(config);
             if (shouldHandle && handlerPlugin != null)
             {
-                return await HandlePluginBackupAsync(config, folder, task, handlerPlugin, comment);
+                return await HandlePluginBackupAsync(config, folder, task, handlerPlugin, comment, createdByRunId);
             }
 
             // 允许插件在备份前创建快照并替换源路径（例如 Minecraft 热备份：先复制到 snapshot 再备份）。
@@ -293,7 +363,10 @@ namespace FolderRewind.Services
 
                 BroadcastBackupLifecycle("command_failed", new Dictionary<string, string?> { ["reason"] = "command_failed" });
                 BroadcastBackupEvent(configIndex, config, folder, "backup_failed", new Dictionary<string, string?> { ["error"] = "command_failed" });
-                return false;
+                return CreateSourceOutcome(
+                    folder,
+                    BackupRunSourceStatus.Unavailable,
+                    errorMessage: I18n.Format("BackupService_Folder_SourceNotFound"));
             }
 
             if (string.IsNullOrEmpty(config.DestinationPath))
@@ -311,7 +384,10 @@ namespace FolderRewind.Services
 
                 BroadcastBackupLifecycle("command_failed", new Dictionary<string, string?> { ["reason"] = "command_failed" });
                 BroadcastBackupEvent(configIndex, config, folder, "backup_failed", new Dictionary<string, string?> { ["error"] = "command_failed" });
-                return false;
+                return CreateSourceOutcome(
+                    folder,
+                    BackupRunSourceStatus.Failed,
+                    errorMessage: I18n.Format("BackupService_Folder_TargetNotSet"));
             }
 
             if (!TryResolveBackupStoragePaths(
@@ -336,7 +412,7 @@ namespace FolderRewind.Services
 
                 BroadcastBackupLifecycle("command_failed", new Dictionary<string, string?> { ["reason"] = "invalid_folder_name" });
                 BroadcastBackupEvent(configIndex, config, folder, "backup_failed", new Dictionary<string, string?> { ["error"] = "invalid_folder_name" });
-                return false;
+                return CreateSourceOutcome(folder, BackupRunSourceStatus.Failed, errorMessage: invalidFolderNameMessage);
             }
 
             // 创建必要的目录
@@ -353,6 +429,7 @@ namespace FolderRewind.Services
 
             bool success = false;
             string? generatedFileName = null;
+            HistoryItem? generatedHistoryItem = null;
             try
             {
 
@@ -417,23 +494,26 @@ namespace FolderRewind.Services
                     {
                         typeStr = config.Archive.Mode.ToString();
                     }
-                    HistoryService.AddEntry(
+                    generatedHistoryItem = HistoryService.AddEntry(
                         config,
                         folder,
                         completedFileName,
                         typeStr,
                         comment,
                         storageFolderName,
-                        IsPartialBackupFilter(config.Filters) || folder.Selection.IsPartial);
+                        IsPartialBackupFilter(config.Filters) || folder.Selection.IsPartial,
+                        createdByRunId);
 
-                    var pruneResult = await Task.Run(() => PruneOldArchives(
-                        backupSubDir,
-                        config.Archive.Format,
-                        config.Archive.KeepCount,
-                        config.Archive.Mode,
-                        config.Archive.SafeDeleteEnabled,
-                        config,
-                        folder.DisplayName)).ConfigureAwait(false);
+                    var pruneResult = config.HistoryMode == BackupHistoryMode.GroupedRun
+                        ? new PruneArchivesResult()
+                        : await Task.Run(() => PruneOldArchives(
+                            backupSubDir,
+                            config.Archive.Format,
+                            config.Archive.KeepCount,
+                            config.Archive.Mode,
+                            config.Archive.SafeDeleteEnabled,
+                            config,
+                            folder.DisplayName)).ConfigureAwait(false);
 
                     if (!pruneResult.Success)
                     {
@@ -546,19 +626,103 @@ namespace FolderRewind.Services
             {
             }
 
-            // 注意：这里返回“是否真的产出新归档”，会影响自动化里的无变更计数策略。
-            return success && !string.IsNullOrWhiteSpace(generatedFileName);
+            if (!success)
+            {
+                return CreateSourceOutcome(
+                    folder,
+                    BackupRunSourceStatus.Failed,
+                    errorMessage: task.ErrorMessage);
+            }
+            if (!string.IsNullOrWhiteSpace(generatedFileName))
+            {
+                return CreateSourceOutcome(
+                    folder,
+                    BackupRunSourceStatus.NewArchive,
+                    generatedHistoryItem);
+            }
+
+            var reusedHistory = HistoryService.GetLatestEntryForFolder(config.Id, folder.Path);
+            return reusedHistory == null
+                ? CreateSourceOutcome(
+                    folder,
+                    BackupRunSourceStatus.Unavailable,
+                    errorMessage: "No changes were detected, but no previous successful history item exists.")
+                : CreateSourceOutcome(folder, BackupRunSourceStatus.Reused, reusedHistory);
+        }
+
+        private static BackupSourceExecutionOutcome CreateSourceOutcome(
+            ManagedFolder folder,
+            BackupRunSourceStatus status,
+            HistoryItem? historyItem = null,
+            string? errorMessage = null) => new()
+        {
+            Status = status,
+            FolderPath = folder.Path ?? string.Empty,
+            FolderName = folder.DisplayName ?? string.Empty,
+            HistoryItem = historyItem,
+            ErrorMessage = errorMessage ?? string.Empty
+        };
+
+        private static BackupRunTriggerSource MapRunTriggerSource(BackupInvocationSource source) => source switch
+        {
+            BackupInvocationSource.Manual => BackupRunTriggerSource.Manual,
+            BackupInvocationSource.Automatic => BackupRunTriggerSource.Automatic,
+            BackupInvocationSource.Remote => BackupRunTriggerSource.Remote,
+            BackupInvocationSource.PluginHotkey => BackupRunTriggerSource.PluginHotkey,
+            BackupInvocationSource.Internal => BackupRunTriggerSource.Internal,
+            _ => BackupRunTriggerSource.Unknown
+        };
+
+        private static async Task PruneGroupedRunArchivesAsync(
+            BackupConfig config,
+            IReadOnlyList<BackupRunRecord> removedRuns)
+        {
+            foreach (var removedRun in removedRuns)
+            {
+                foreach (var source in removedRun.Sources.Where(source =>
+                             source.Status == BackupRunSourceStatus.NewArchive
+                             && !string.IsNullOrWhiteSpace(source.HistoryItemId)))
+                {
+                    var historyItem = HistoryService.TryGetEntryById(source.HistoryItemId);
+                    if (historyItem == null
+                        || !string.Equals(historyItem.CreatedByRunId, removedRun.RunId, StringComparison.OrdinalIgnoreCase)
+                        || BackupRunService.IsHistoryItemReferenced(historyItem.Id))
+                    {
+                        continue;
+                    }
+
+                    var folder = config.SourceFolders.FirstOrDefault(candidate =>
+                        string.Equals(candidate.Path, source.FolderPath, StringComparison.OrdinalIgnoreCase));
+                    if (folder == null)
+                    {
+                        continue;
+                    }
+
+                    var deletion = await DeleteBackupAsync(
+                        config,
+                        folder,
+                        historyItem,
+                        BackupDeleteMode.LocalArchiveAndRecord);
+                    if (!deletion.Success)
+                    {
+                        Log(
+                            $"[BackupRun] Failed to prune unreferenced archive '{historyItem.FileName}': {deletion.Message}",
+                            LogLevel.Warning);
+                    }
+                }
+            }
         }
 
         /// <summary>
         /// 由插件完全接管的备份流程
         /// </summary>
-        private static async Task<bool> HandlePluginBackupAsync(
+        private static async Task<BackupSourceExecutionOutcome> HandlePluginBackupAsync(
             BackupConfig config,
             ManagedFolder folder,
             BackupTask task,
             Services.Plugins.IFolderRewindPlugin plugin,
-            string comment)
+            string comment,
+            string? createdByRunId)
         {
             Log(I18n.Format("BackupService_Log_PluginTakeover", plugin.Manifest.Name, folder.DisplayName), LogLevel.Info);
             var configIndex = GetConfigIndex(config);
@@ -592,6 +756,7 @@ namespace FolderRewind.Services
                 if (result.Success)
                 {
                     bool hasNewFile = !string.IsNullOrWhiteSpace(result.GeneratedFileName);
+                    HistoryItem? newHistoryItem = null;
 
                     await RunOnUIAsync(() =>
                     {
@@ -620,14 +785,15 @@ namespace FolderRewind.Services
                             throw new InvalidOperationException(I18n.GetString("BackupService_Log_InvalidStorageFolderName"));
                         }
 
-                        HistoryService.AddEntry(
+                        newHistoryItem = HistoryService.AddEntry(
                             config,
                             folder,
                             result.GeneratedFileName!,
                             "Plugin",
                             comment,
                             storageFolderName,
-                            IsPartialBackupFilter(config.Filters) || folder.Selection.IsPartial);
+                            IsPartialBackupFilter(config.Filters) || folder.Selection.IsPartial,
+                            createdByRunId);
                         CloudSyncService.QueueUploadAfterBackup(config, folder, result.GeneratedFileName, comment);
                     }
 
@@ -657,7 +823,21 @@ namespace FolderRewind.Services
                         });
                     }
 
-                    return hasNewFile;
+                    if (hasNewFile)
+                    {
+                        return CreateSourceOutcome(
+                            folder,
+                            BackupRunSourceStatus.NewArchive,
+                            newHistoryItem);
+                    }
+
+                    var reusedHistory = HistoryService.GetLatestEntryForFolder(config.Id, folder.Path);
+                    return reusedHistory == null
+                        ? CreateSourceOutcome(
+                            folder,
+                            BackupRunSourceStatus.Unavailable,
+                            errorMessage: "The plugin reported no changes, but no previous successful history item exists.")
+                        : CreateSourceOutcome(folder, BackupRunSourceStatus.Reused, reusedHistory);
                 }
                 else
                 {
@@ -677,7 +857,10 @@ namespace FolderRewind.Services
                     {
                         ["error"] = result.Message ?? "plugin_failed"
                     });
-                    return false;
+                    return CreateSourceOutcome(
+                        folder,
+                        BackupRunSourceStatus.Failed,
+                        errorMessage: result.Message ?? "plugin_failed");
                 }
             }
             catch (Exception ex)
@@ -702,14 +885,17 @@ namespace FolderRewind.Services
                 {
                     ["error"] = ex.Message
                 });
-                return false;
+                return CreateSourceOutcome(
+                    folder,
+                    BackupRunSourceStatus.Failed,
+                    errorMessage: ex.Message);
             }
         }
 
         /// <summary>
         /// 由插件完全接管的还原流程
         /// </summary>
-        private static async Task HandlePluginRestoreAsync(
+        private static async Task<bool> HandlePluginRestoreAsync(
             BackupConfig config,
             ManagedFolder folder,
             HistoryItem historyItem,
@@ -775,7 +961,7 @@ namespace FolderRewind.Services
                         ["backup"] = historyItem.FileName
                     });
 
-                    return;
+                    return true;
                 }
 
                 string failureMessage = string.IsNullOrWhiteSpace(result.Message)
@@ -804,6 +990,7 @@ namespace FolderRewind.Services
                 }
 
                 NotificationService.NotifyRestoreCompleted(folder.DisplayName, false, failureMessage);
+                return false;
             }
             catch (Exception ex)
             {
@@ -829,6 +1016,7 @@ namespace FolderRewind.Services
                 }
 
                 NotificationService.NotifyRestoreCompleted(folder.DisplayName, false, ex.Message);
+                return false;
             }
         }
 

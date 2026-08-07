@@ -14,12 +14,14 @@ namespace FolderRewind.Services
 {
     public static partial class HistoryService
     {
-        public static void AddEntry(BackupConfig config, ManagedFolder folder, string fileName, string type, string comment, string? folderNameOverride = null, bool isPartialBackup = false)
+        public static HistoryItem AddEntry(BackupConfig config, ManagedFolder folder, string fileName, string type, string comment, string? folderNameOverride = null, bool isPartialBackup = false, string? createdByRunId = null)
         {
             Initialize();
 
             var item = new HistoryItem
             {
+                Id = Guid.NewGuid().ToString("N"),
+                CreatedByRunId = createdByRunId ?? string.Empty,
                 ConfigId = config.Id,
                 FolderPath = folder.Path,
                 FolderName = string.IsNullOrWhiteSpace(folderNameOverride) ? folder.DisplayName : folderNameOverride,
@@ -37,6 +39,7 @@ namespace FolderRewind.Services
             }
 
             ScheduleSave();
+            return item;
         }
 
         /// <summary>

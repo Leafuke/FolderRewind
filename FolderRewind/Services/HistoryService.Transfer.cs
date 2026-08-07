@@ -74,6 +74,10 @@ namespace FolderRewind.Services
 
                 var imported = items.Where(item => item != null).ToList();
                 var safeImported = imported.Where(IsSafeHistoryItem).ToList();
+                foreach (var item in safeImported)
+                {
+                    EnsureHistoryItemIdentity(item);
+                }
                 int droppedCount = imported.Count - safeImported.Count;
                 if (safeImported.Count == 0 && imported.Count > 0)
                 {
@@ -215,6 +219,7 @@ namespace FolderRewind.Services
 
                     var item = new HistoryItem
                     {
+                        Id = Guid.NewGuid().ToString("N"),
                         ConfigId = config.Id,
                         FolderPath = folder.Path,
                         FolderName = folderName,

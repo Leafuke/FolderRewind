@@ -57,6 +57,11 @@ namespace FolderRewind.Services
                 else if (_allHistory.GetType() != typeof(List<HistoryItem>))
                     _allHistory = new List<HistoryItem>(_allHistory);
 
+                foreach (var item in _allHistory)
+                {
+                    EnsureHistoryItemIdentity(item);
+                }
+
                 _initialized = true;
             }
         }
@@ -165,6 +170,20 @@ namespace FolderRewind.Services
                     _saveLock.Release();
                 }
             }
+        }
+
+        private static void EnsureHistoryItemIdentity(HistoryItem item)
+        {
+            if (item == null || !string.IsNullOrWhiteSpace(item.Id))
+            {
+                return;
+            }
+
+            item.Id = HistoryItemIdentity.CreateLegacyId(
+                item.ConfigId,
+                item.FolderPath,
+                item.FileName,
+                item.Timestamp);
         }
     }
 }
