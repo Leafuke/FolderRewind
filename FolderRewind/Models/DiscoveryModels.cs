@@ -154,8 +154,7 @@ public sealed class BackupResourceCandidate
     public IReadOnlyDictionary<string, string> Constraints { get; init; }
         = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
     public IReadOnlyList<DiscoveryEvidence> Evidence { get; init; } = Array.Empty<DiscoveryEvidence>();
-    public long CurrentSizeBytes { get; init; }
-    public int CurrentMatchCount { get; init; }
+    public bool FixedRootExists { get; init; }
     public bool IsSelectedByDefault { get; init; }
     public string SuppressedByProviderId { get; internal set; } = string.Empty;
     public string SuppressionReason { get; internal set; } = string.Empty;

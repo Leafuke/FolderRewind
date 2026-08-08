@@ -14,6 +14,7 @@ _Avoid_: Game definition, backup source
 
 **Discovery Provider**:
 A component that reports game, installation, backup-set, and resource candidates without creating persistent backup configurations.
+Default machine discovery requires explicit installation evidence and must not recursively enumerate candidate resources for counts or sizes.
 _Avoid_: Template resolver, config factory
 
 **Discovered Game Candidate**:

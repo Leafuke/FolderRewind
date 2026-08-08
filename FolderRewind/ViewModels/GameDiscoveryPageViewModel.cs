@@ -494,7 +494,11 @@ public sealed class GameDiscoveryResourceItem : FolderRewind.Models.ObservableOb
     public string Expression => Candidate.OriginalExpression;
     public string Tags => string.Join(", ", Candidate.Tags);
     public string Evidence => string.Join("; ", Candidate.Evidence.Select(item => $"{item.Confidence}: {item.Description}"));
-    public string MatchSummary => I18n.Format("GameDiscovery_ResourceMatches", Candidate.CurrentMatchCount, FormatBytes(Candidate.CurrentSizeBytes));
+    public string PathSummary => Candidate.Kind == BackupResourceKind.Registry
+        ? string.Empty
+        : I18n.GetString(Candidate.FixedRootExists
+            ? "GameDiscovery_ResourcePathExists"
+            : "GameDiscovery_ResourcePathMissing");
     public string SupportText => Candidate.SupportState switch
     {
         BackupResourceSupportState.UnsupportedRegistry => I18n.GetString("GameDiscovery_Resource_RegistryUnsupported"),
@@ -504,18 +508,6 @@ public sealed class GameDiscoveryResourceItem : FolderRewind.Models.ObservableOb
         _ => string.Empty
     };
 
-    private static string FormatBytes(long bytes)
-    {
-        string[] units = ["B", "KB", "MB", "GB", "TB"];
-        var value = (double)Math.Max(0, bytes);
-        var unit = 0;
-        while (value >= 1024 && unit < units.Length - 1)
-        {
-            value /= 1024;
-            unit++;
-        }
-        return $"{value:F1} {units[unit]}";
-    }
 }
 
 public sealed class GameDiscoveryPresetItem

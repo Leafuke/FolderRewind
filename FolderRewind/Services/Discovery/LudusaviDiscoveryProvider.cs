@@ -15,7 +15,6 @@ namespace FolderRewind.Services.Discovery;
 public sealed class LudusaviDiscoveryProvider : IFolderRewindDiscoveryProvider
 {
     public const string ProviderId = "ludusavi";
-    private const int MaximumFallbackProbes = 5000;
 
     private readonly Func<CancellationToken, Task<(
         LudusaviManifestCacheMetadata Metadata,
@@ -89,55 +88,29 @@ public sealed class LudusaviDiscoveryProvider : IFolderRewindDiscoveryProvider
             request.DisabledAutoRoots);
 
         var definitions = SelectDefinitions(current.Value.Index.Games, request);
+        var matchedDefinitions = MatchInstallationsToDefinitions(
+            definitions,
+            detectedInstallations,
+            cancellationToken);
         var candidates = new List<DiscoveredGameCandidate>();
         var diagnostics = new List<DiscoveryDiagnostic>();
-        var fallbackProbes = 0;
-        for (var definitionIndex = 0; definitionIndex < definitions.Count; definitionIndex++)
+        for (var definitionIndex = 0; definitionIndex < matchedDefinitions.Count; definitionIndex++)
         {
             cancellationToken.ThrowIfCancellationRequested();
-            var definition = definitions[definitionIndex];
+            var matchedDefinition = matchedDefinitions[definitionIndex];
             progress?.Report(new DiscoveryProgress
             {
                 ProviderId = ProviderId,
                 Phase = "resources",
-                Message = definition.DisplayName,
+                Message = matchedDefinition.Definition.DisplayName,
                 Completed = definitionIndex,
-                Total = definitions.Count
+                Total = matchedDefinitions.Count
             });
-
-            var matches = detectedInstallations
-                .Select(installation => MatchInstallation(definition, installation, detectedInstallations))
-                .Where(match => match != null)
-                .Cast<InstallationMatch>()
-                .ToList();
-            if (matches.Count > 0)
-            {
-                candidates.Add(CreateCandidate(definition, matches, diagnostics, cancellationToken));
-                continue;
-            }
-
-            if (request.Mode == DiscoveryRequestMode.PresetTargeted)
-            {
-                continue;
-            }
-
-            var fallback = CreateFallbackCandidate(
-                definition,
-                ref fallbackProbes,
+            candidates.Add(CreateCandidate(
+                matchedDefinition.Definition,
+                matchedDefinition.Matches,
                 diagnostics,
-                cancellationToken);
-            if (fallback != null)
-            {
-                candidates.Add(fallback);
-            }
-            if (fallbackProbes >= MaximumFallbackProbes)
-            {
-                diagnostics.Add(Diagnostic(
-                    DiscoveryDiagnosticSeverity.Warning,
-                    "fallback-probe-limit",
-                    $"Fallback probing stopped after {MaximumFallbackProbes} stable path expressions."));
-                break;
-            }
+                cancellationToken));
         }
 
         stopwatch.Stop();
@@ -148,7 +121,7 @@ public sealed class LudusaviDiscoveryProvider : IFolderRewindDiscoveryProvider
             Diagnostics = diagnostics,
             Statistics = new DiscoveryScanStatistics
             {
-                DefinitionsConsidered = definitions.Count,
+                DefinitionsConsidered = matchedDefinitions.Count,
                 InstallationsFound = candidates.Sum(candidate => candidate.Installations.Count),
                 ResourcesFound = candidates.Sum(candidate => candidate.BackupSets.Sum(set => set.Resources.Count)),
                 Duration = stopwatch.Elapsed
@@ -223,62 +196,6 @@ public sealed class LudusaviDiscoveryProvider : IFolderRewindDiscoveryProvider
         };
     }
 
-    private DiscoveredGameCandidate? CreateFallbackCandidate(
-        LudusaviCompiledGame definition,
-        ref int probeCount,
-        ICollection<DiscoveryDiagnostic> diagnostics,
-        CancellationToken cancellationToken)
-    {
-        var resources = new List<BackupResourceCandidate>();
-        foreach (var resource in definition.Files.Where(resource => !resource.IsDisabled))
-        {
-            cancellationToken.ThrowIfCancellationRequested();
-            if (probeCount >= MaximumFallbackProbes)
-            {
-                break;
-            }
-            if (!_resolver.CanProbeWithoutInstallation(resource.Expression, definition.DisplayName)
-                || !MatchesConstraint(resource, GameStore.Unknown, diagnostics, definition.DefinitionId))
-            {
-                continue;
-            }
-
-            probeCount++;
-            var resolved = _resolver.Resolve(resource, installation: null, storeUserId: string.Empty);
-            if (resolved == null || resolved.CurrentMatchCount == 0)
-            {
-                continue;
-            }
-            resources.Add(CreateResourceCandidate(
-                definition,
-                resource,
-                resolved,
-                DiscoveryConfidence.Medium,
-                "stable-path",
-                "Matched a game-specific stable Windows path without launcher installation evidence."));
-        }
-
-        if (resources.Count == 0)
-        {
-            return null;
-        }
-
-        return new DiscoveredGameCandidate
-        {
-            StableKey = $"{ProviderId}:{definition.DefinitionId}",
-            Definition = CreateDefinition(definition),
-            BackupSets = new List<BackupSetCandidate>
-            {
-                new()
-                {
-                    StableKey = $"{ProviderId}:{definition.DefinitionId}:main",
-                    DisplayName = definition.DisplayName,
-                    Resources = DeduplicateResources(resources)
-                }
-            }
-        };
-    }
-
     private BackupResourceCandidate CreateResourceCandidate(
         LudusaviCompiledGame definition,
         LudusaviCompiledResource resource,
@@ -290,6 +207,8 @@ public sealed class LudusaviDiscoveryProvider : IFolderRewindDiscoveryProvider
         var support = string.IsNullOrWhiteSpace(resolved.FixedRoot)
             ? BackupResourceSupportState.InvalidPath
             : BackupResourceSupportState.Supported;
+        var fixedRootExists = support == BackupResourceSupportState.Supported
+                              && Directory.Exists(resolved.FixedRoot);
         return new BackupResourceCandidate
         {
             ResourceId = CreateResolvedResourceId(resource.ResourceId, resolved.FixedRoot, resolved.IncludePatterns),
@@ -303,10 +222,9 @@ public sealed class LudusaviDiscoveryProvider : IFolderRewindDiscoveryProvider
             OriginalExpression = resource.Expression,
             Tags = resource.Tags,
             Constraints = FlattenConstraints(resource.Constraints),
-            CurrentMatchCount = resolved.CurrentMatchCount,
-            CurrentSizeBytes = resolved.CurrentSizeBytes,
+            FixedRootExists = fixedRootExists,
             IsSelectedByDefault = support == BackupResourceSupportState.Supported
-                                  && resolved.CurrentMatchCount > 0
+                                  && fixedRootExists
                                   && confidence >= DiscoveryConfidence.Medium,
             Evidence = new[]
             {
@@ -367,52 +285,165 @@ public sealed class LudusaviDiscoveryProvider : IFolderRewindDiscoveryProvider
         return definitions.Where(definition => requested.Contains(definition.DefinitionId)).ToList();
     }
 
-    private static InstallationMatch? MatchInstallation(
-        LudusaviCompiledGame definition,
-        DetectedGameInstallation installation,
-        IReadOnlyList<DetectedGameInstallation> allInstallations)
+    private static IReadOnlyList<DefinitionInstallationMatches> MatchInstallationsToDefinitions(
+        IReadOnlyList<LudusaviCompiledGame> definitions,
+        IReadOnlyList<DetectedGameInstallation> installations,
+        CancellationToken cancellationToken)
     {
-        var storeKey = StoreKey(installation.Store);
-        if (installation.Store is GameStore.Steam or GameStore.Gog
-            && definition.ExternalIds.TryGetValue(storeKey, out var ids)
-            && SplitIds(ids).Contains(installation.StoreGameId, StringComparer.OrdinalIgnoreCase))
+        if (installations.Count == 0 || definitions.Count == 0)
         {
-            return new InstallationMatch(
-                installation,
-                DiscoveryConfidence.High,
-                "store-id",
-                $"Matched {installation.Store} ID {installation.StoreGameId}.");
+            return Array.Empty<DefinitionInstallationMatches>();
         }
 
-        var names = new[] { definition.DisplayName }
-            .Concat(definition.Aliases)
-            .Concat(definition.InstallDirectoryHints)
-            .Where(value => !string.IsNullOrWhiteSpace(value))
-            .Select(NormalizeName)
-            .Where(value => value.Length > 0)
-            .ToHashSet(StringComparer.OrdinalIgnoreCase);
-        var installationNames = new[]
+        var matchesByDefinition = new Dictionary<LudusaviCompiledGame, List<InstallationMatch>>();
+        var strongIdIndex = new Dictionary<string, List<LudusaviCompiledGame>>(StringComparer.OrdinalIgnoreCase);
+        foreach (var definition in definitions)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            foreach (var store in new[] { GameStore.Steam, GameStore.Gog })
+            {
+                if (!definition.ExternalIds.TryGetValue(StoreKey(store), out var ids))
+                {
+                    continue;
+                }
+                foreach (var id in SplitIds(ids))
+                {
+                    AddLookup(strongIdIndex, StrongIdKey(store, id), definition);
+                }
+            }
+        }
+
+        var needsNameMatch = new List<DetectedGameInstallation>();
+        foreach (var installation in installations)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            if (installation.Store is GameStore.Steam or GameStore.Gog
+                && !string.IsNullOrWhiteSpace(installation.StoreGameId)
+                && strongIdIndex.TryGetValue(
+                    StrongIdKey(installation.Store, installation.StoreGameId),
+                    out var strongDefinitions))
+            {
+                foreach (var definition in strongDefinitions)
+                {
+                    AddMatch(matchesByDefinition, definition, new InstallationMatch(
+                        installation,
+                        DiscoveryConfidence.High,
+                        "store-id",
+                        $"Matched {installation.Store} ID {installation.StoreGameId}."));
+                }
+            }
+            else
+            {
+                needsNameMatch.Add(installation);
+            }
+        }
+
+        if (needsNameMatch.Count > 0)
+        {
+            var nameIndex = BuildNameIndex(definitions, cancellationToken);
+            foreach (var installation in needsNameMatch)
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+                var installationNames = InstallationNames(installation);
+                var nameDefinitions = installationNames
+                    .Where(nameIndex.ContainsKey)
+                    .SelectMany(name => nameIndex[name])
+                    .Distinct()
+                    .ToList();
+                if (nameDefinitions.Count == 0)
+                {
+                    continue;
+                }
+                var installationAmbiguous = installations.Count(other =>
+                    other.Store == installation.Store
+                    && string.Equals(
+                        NormalizeName(other.DisplayName),
+                        NormalizeName(installation.DisplayName),
+                        StringComparison.OrdinalIgnoreCase)) > 1;
+                var ambiguous = installationAmbiguous || nameDefinitions.Count > 1;
+                foreach (var definition in nameDefinitions)
+                {
+                    AddMatch(matchesByDefinition, definition, new InstallationMatch(
+                        installation,
+                        ambiguous ? DiscoveryConfidence.Low : DiscoveryConfidence.Medium,
+                        ambiguous ? "ambiguous-name" : "name-and-install-dir",
+                        ambiguous
+                            ? "Only an ambiguous normalized name matched; resources are not selected by default."
+                            : "Matched the normalized display name, alias, or install directory hint."));
+                }
+            }
+        }
+
+        return definitions
+            .Where(matchesByDefinition.ContainsKey)
+            .Select(definition => new DefinitionInstallationMatches(
+                definition,
+                matchesByDefinition[definition]
+                    .GroupBy(match => InstallationKey(match.Installation), StringComparer.OrdinalIgnoreCase)
+                    .Select(group => group.OrderByDescending(match => match.Confidence).First())
+                    .ToList()))
+            .ToList();
+    }
+
+    private static Dictionary<string, List<LudusaviCompiledGame>> BuildNameIndex(
+        IReadOnlyList<LudusaviCompiledGame> definitions,
+        CancellationToken cancellationToken)
+    {
+        var index = new Dictionary<string, List<LudusaviCompiledGame>>(StringComparer.OrdinalIgnoreCase);
+        foreach (var definition in definitions)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            foreach (var name in new[] { definition.DisplayName }
+                         .Concat(definition.Aliases)
+                         .Concat(definition.InstallDirectoryHints)
+                         .Select(NormalizeName)
+                         .Where(value => value.Length > 0)
+                         .Distinct(StringComparer.OrdinalIgnoreCase))
+            {
+                AddLookup(index, name, definition);
+            }
+        }
+        return index;
+    }
+
+    private static IReadOnlyList<string> InstallationNames(DetectedGameInstallation installation) =>
+        new[]
         {
             installation.DisplayName,
             Path.GetFileName(installation.InstallPath.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar))
-        }.Select(NormalizeName).Where(value => value.Length > 0).ToHashSet(StringComparer.OrdinalIgnoreCase);
-        if (!names.Overlaps(installationNames))
-        {
-            return null;
         }
+        .Select(NormalizeName)
+        .Where(value => value.Length > 0)
+        .Distinct(StringComparer.OrdinalIgnoreCase)
+        .ToList();
 
-        var ambiguous = allInstallations.Count(other =>
-            other.Store == installation.Store
-            && string.Equals(NormalizeName(other.DisplayName), NormalizeName(installation.DisplayName), StringComparison.OrdinalIgnoreCase)) > 1;
-        var confidence = ambiguous ? DiscoveryConfidence.Low : DiscoveryConfidence.Medium;
-        return new InstallationMatch(
-            installation,
-            confidence,
-            ambiguous ? "ambiguous-name" : "name-and-install-dir",
-            ambiguous
-                ? "Only an ambiguous normalized name matched; resources are not selected by default."
-                : "Matched the normalized display name, alias, or install directory hint.");
+    private static void AddLookup(
+        IDictionary<string, List<LudusaviCompiledGame>> lookup,
+        string key,
+        LudusaviCompiledGame definition)
+    {
+        if (!lookup.TryGetValue(key, out var values))
+        {
+            values = new List<LudusaviCompiledGame>();
+            lookup[key] = values;
+        }
+        values.Add(definition);
     }
+
+    private static void AddMatch(
+        IDictionary<LudusaviCompiledGame, List<InstallationMatch>> matches,
+        LudusaviCompiledGame definition,
+        InstallationMatch match)
+    {
+        if (!matches.TryGetValue(definition, out var values))
+        {
+            values = new List<InstallationMatch>();
+            matches[definition] = values;
+        }
+        values.Add(match);
+    }
+
+    private static string StrongIdKey(GameStore store, string id) => $"{store}:{id.Trim()}";
 
     private static bool MatchesConstraint(
         LudusaviCompiledResource resource,
@@ -471,7 +502,7 @@ public sealed class LudusaviDiscoveryProvider : IFolderRewindDiscoveryProvider
             .GroupBy(resource => resource.ResourceId, StringComparer.OrdinalIgnoreCase)
             .Select(group => group
                 .OrderByDescending(resource => resource.Confidence)
-                .ThenByDescending(resource => resource.CurrentMatchCount)
+                .ThenByDescending(resource => resource.FixedRootExists)
                 .First())
             .ToList();
     }
@@ -585,4 +616,8 @@ public sealed class LudusaviDiscoveryProvider : IFolderRewindDiscoveryProvider
         DiscoveryConfidence Confidence,
         string EvidenceKind,
         string EvidenceDescription);
+
+    private sealed record DefinitionInstallationMatches(
+        LudusaviCompiledGame Definition,
+        IReadOnlyList<InstallationMatch> Matches);
 }

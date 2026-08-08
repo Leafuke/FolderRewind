@@ -17,7 +17,9 @@ Heroic, Lutris, registry backup, remote overrides, automatic manifest updates, c
 - [x] Cache generations are atomic and retain the current and previous valid generation.
 - [x] Repository and installer contain no Ludusavi manifest or compiled index.
 - [x] Registry candidates remain visible and disabled.
-- [x] Low-confidence/zero-match resources are not selected by default.
+- [x] Default scanning only resolves definitions backed by launcher installation evidence; it does not probe uninstalled games.
+- [x] Discovery providers do not recursively enumerate candidate resources for file counts or sizes.
+- [x] Low-confidence or missing-root resources are not selected by default.
 - [x] Draft confirmation performs one configuration save and rolls back memory on failure.
 - [x] V1 config, package, official index, and history compatibility tests pass.
 - [x] V2 and V1 official indexes are read together and deduplicated by ShareId with V2 priority.

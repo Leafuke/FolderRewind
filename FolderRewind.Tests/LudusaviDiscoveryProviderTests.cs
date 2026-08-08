@@ -25,12 +25,10 @@ public sealed class LudusaviDiscoveryProviderTests
     }
 
     [TestMethod]
-    public void ResolverPreservesFutureSlotsAsRelativeIncludeGlob()
+    public void ResolverPreservesFutureSlotsWithoutEnumeratingFiles()
     {
         var saves = Path.Combine(_root, "Studio", "Example", "Saves");
-        Directory.CreateDirectory(Path.Combine(saves, "nested"));
-        File.WriteAllText(Path.Combine(saves, "slot1.sav"), "one");
-        File.WriteAllText(Path.Combine(saves, "nested", "slot2.sav"), "two");
+        Directory.CreateDirectory(saves);
         var resolver = CreateResolver();
         var resource = FileResource("<winAppData>/Studio/Example/Saves/**/*.sav");
 
@@ -39,9 +37,7 @@ public sealed class LudusaviDiscoveryProviderTests
         Assert.IsNotNull(resolved);
         Assert.AreEqual(Path.GetFullPath(saves), resolved.FixedRoot);
         CollectionAssert.AreEqual(new[] { "**/*.sav" }, resolved.IncludePatterns.ToArray());
-        Assert.AreEqual(2, resolved.CurrentMatchCount);
-        File.WriteAllText(Path.Combine(saves, "slot3.sav"), "three");
-        Assert.AreEqual(3, resolver.Resolve(resource, null, string.Empty)!.CurrentMatchCount);
+        Assert.AreEqual(BackupResourceKind.FileSet, resolved.Kind);
     }
 
     [TestMethod]
@@ -51,18 +47,6 @@ public sealed class LudusaviDiscoveryProviderTests
         Assert.IsFalse(LudusaviGlobMatcher.IsMatch("Saves/nested/SlotA.sav", "Saves/*.sav"));
         Assert.IsTrue(LudusaviGlobMatcher.IsMatch("Saves/nested/SlotA.sav", "Saves/**/*.sav"));
         Assert.IsFalse(LudusaviGlobMatcher.IsSafeRelativePattern("../outside/*.sav"));
-    }
-
-    [TestMethod]
-    public void FallbackProbeRequiresStableGameSpecificPrefix()
-    {
-        var resolver = CreateResolver();
-
-        Assert.IsTrue(resolver.CanProbeWithoutInstallation(
-            "<winAppData>/Supergiant Games/Hades/*.sav",
-            "Hades"));
-        Assert.IsFalse(resolver.CanProbeWithoutInstallation("<home>/**/save.dat", "Hades"));
-        Assert.IsFalse(resolver.CanProbeWithoutInstallation("<root>/Saves/*.sav", "Hades"));
     }
 
     [TestMethod]
@@ -115,7 +99,7 @@ public sealed class LudusaviDiscoveryProviderTests
     }
 
     [TestMethod]
-    public async Task ProviderUsesStableFallbackButDoesNotProbeBroadHomeGlob()
+    public async Task ProviderDoesNotProbeDefinitionsWithoutInstallationEvidence()
     {
         var stable = Path.Combine(_root, "Studio", "Example");
         Directory.CreateDirectory(stable);
@@ -136,12 +120,49 @@ public sealed class LudusaviDiscoveryProviderTests
             },
             Array.Empty<DetectedGameInstallation>());
 
+        var progress = new RecordingProgress();
+        var result = await provider.DiscoverAsync(new DiscoveryRequest(), progress, CancellationToken.None);
+
+        Assert.IsEmpty(result.Candidates);
+        Assert.AreEqual(0, result.Statistics.DefinitionsConsidered);
+        Assert.IsFalse(progress.Values.Any(item => item.Phase == "resources"));
+    }
+
+    [TestMethod]
+    public async Task ZeroInstallationsDoNotEnumerateManifestDefinitions()
+    {
+        var provider = CreateProvider(
+            new ThrowingGameList(),
+            Array.Empty<DetectedGameInstallation>());
+
         var result = await provider.DiscoverAsync(new DiscoveryRequest(), null, CancellationToken.None);
 
-        Assert.HasCount(1, result.Candidates);
-        Assert.HasCount(1, result.Candidates[0].BackupSets[0].Resources);
-        Assert.AreEqual(DiscoveryConfidence.Medium, result.Candidates[0].BackupSets[0].Resources[0].Confidence);
-        Assert.IsTrue(result.Candidates[0].BackupSets[0].Resources[0].IsSelectedByDefault);
+        Assert.IsEmpty(result.Candidates);
+        Assert.AreEqual(0, result.Statistics.DefinitionsConsidered);
+    }
+
+    [TestMethod]
+    public async Task InstalledGameSelectsExistingRootWithoutMatchingFiles()
+    {
+        var installRoot = Path.Combine(_root, "EmptyGame");
+        var savesRoot = Path.Combine(installRoot, "Saves");
+        Directory.CreateDirectory(savesRoot);
+        var game = new LudusaviCompiledGame
+        {
+            DefinitionId = "EmptyGame",
+            DisplayName = "Empty Game",
+            ExternalIds = new Dictionary<string, string> { ["steam"] = "42" },
+            Files = new[] { FileResource("<root>/Saves/*.sav") }
+        };
+        var provider = CreateProvider(
+            new[] { game },
+            new[] { Installation(GameStore.Steam, "42", installRoot, "Empty Game") });
+
+        var result = await provider.DiscoverAsync(new DiscoveryRequest(), null, CancellationToken.None);
+
+        var resource = result.Candidates.Single().BackupSets.Single().Resources.Single();
+        Assert.IsTrue(resource.FixedRootExists);
+        Assert.IsTrue(resource.IsSelectedByDefault);
     }
 
     private LudusaviDiscoveryProvider CreateProvider(
@@ -183,11 +204,15 @@ public sealed class LudusaviDiscoveryProviderTests
         Tags = new[] { "save" }
     };
 
-    private static DetectedGameInstallation Installation(GameStore store, string id, string path) => new()
+    private static DetectedGameInstallation Installation(
+        GameStore store,
+        string id,
+        string path,
+        string displayName = "Hades") => new()
     {
         Store = store,
         StoreGameId = id,
-        DisplayName = "Hades",
+        DisplayName = displayName,
         InstallPath = path,
         LibraryRoot = Path.GetDirectoryName(path) ?? string.Empty
     };
@@ -198,5 +223,20 @@ public sealed class LudusaviDiscoveryProviderTests
         public IReadOnlyList<DetectedGameInstallation> Scan(
             IReadOnlyDictionary<GameStore, IReadOnlyList<string>> configuredRoots,
             IReadOnlyList<string>? disabledAutoRoots = null) => installations;
+    }
+
+    private sealed class RecordingProgress : IProgress<DiscoveryProgress>
+    {
+        public List<DiscoveryProgress> Values { get; } = new();
+        public void Report(DiscoveryProgress value) => Values.Add(value);
+    }
+
+    private sealed class ThrowingGameList : IReadOnlyList<LudusaviCompiledGame>
+    {
+        public int Count => throw new AssertFailedException("Definitions must not be inspected when no installations exist.");
+        public LudusaviCompiledGame this[int index] => throw new AssertFailedException("Definitions must not be inspected when no installations exist.");
+        public IEnumerator<LudusaviCompiledGame> GetEnumerator() =>
+            throw new AssertFailedException("Definitions must not be inspected when no installations exist.");
+        System.Collections.IEnumerator System.Collections.IEnumerable.GetEnumerator() => GetEnumerator();
     }
 }

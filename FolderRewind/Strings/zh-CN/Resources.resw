@@ -4953,7 +4953,8 @@ Pull Request：{1}</value>
   <data name="GameDiscovery_Status_UpToDate" xml:space="preserve"><value>已是最新</value></data>
   <data name="GameDiscovery_Status_NewResources" xml:space="preserve"><value>发现新资源</value></data>
   <data name="GameDiscovery_ResultSummary" xml:space="preserve"><value>发现 {0} 个游戏、{1} 个资源，{2} 条警告，用时 {3} 秒。</value></data>
-  <data name="GameDiscovery_ResourceMatches" xml:space="preserve"><value>{0} 个匹配文件 · {1}</value></data>
+  <data name="GameDiscovery_ResourcePathExists" xml:space="preserve"><value>候选根目录已存在</value></data>
+  <data name="GameDiscovery_ResourcePathMissing" xml:space="preserve"><value>候选根目录尚未创建</value></data>
   <data name="GameDiscovery_Resource_RegistryUnsupported" xml:space="preserve"><value>Registry 备份暂不支持；此规则仅展示，不能选择。</value></data>
   <data name="GameDiscovery_Resource_ConstraintUnsupported" xml:space="preserve"><value>规则包含当前版本无法安全匹配的条件。</value></data>
   <data name="GameDiscovery_Resource_InvalidPath" xml:space="preserve"><value>路径表达式无效或不安全。</value></data>

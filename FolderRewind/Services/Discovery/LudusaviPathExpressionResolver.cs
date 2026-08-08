@@ -29,9 +29,6 @@ public sealed class ResolvedLudusaviResource
     public required string FixedRoot { get; init; }
     public IReadOnlyList<string> IncludePatterns { get; init; } = Array.Empty<string>();
     public BackupResourceKind Kind { get; init; }
-    public int CurrentMatchCount { get; init; }
-    public long CurrentSizeBytes { get; init; }
-    public bool WasTruncated { get; init; }
 }
 
 public sealed class LudusaviPathExpressionResolver
@@ -49,8 +46,7 @@ public sealed class LudusaviPathExpressionResolver
     public ResolvedLudusaviResource? Resolve(
         LudusaviCompiledResource resource,
         DetectedGameInstallation? installation,
-        string storeUserId,
-        int matchLimit = 5000)
+        string storeUserId)
     {
         ArgumentNullException.ThrowIfNull(resource);
         if (resource.Kind == BackupResourceKind.Registry)
@@ -126,50 +122,12 @@ public sealed class LudusaviPathExpressionResolver
             kind = BackupResourceKind.FileSet;
         }
 
-        var matches = kind == BackupResourceKind.Directory
-            ? LudusaviGlobMatcher.MeasureDirectory(fixedRoot, matchLimit)
-            : LudusaviGlobMatcher.MeasureMatches(fixedRoot, includePatterns, matchLimit);
         return new ResolvedLudusaviResource
         {
             FixedRoot = fixedRoot,
             IncludePatterns = includePatterns,
-            Kind = kind,
-            CurrentMatchCount = matches.MatchCount,
-            CurrentSizeBytes = matches.SizeBytes,
-            WasTruncated = matches.WasTruncated
+            Kind = kind
         };
-    }
-
-    public bool CanProbeWithoutInstallation(string expression, string gameName)
-    {
-        if (string.IsNullOrWhiteSpace(expression)
-            || expression.Contains("<root>", StringComparison.OrdinalIgnoreCase)
-            || expression.Contains("<base>", StringComparison.OrdinalIgnoreCase)
-            || expression.Contains("<game>", StringComparison.OrdinalIgnoreCase)
-            || expression.Contains("<storeGameId>", StringComparison.OrdinalIgnoreCase)
-            || expression.Contains("<storeUserId>", StringComparison.OrdinalIgnoreCase))
-        {
-            return false;
-        }
-
-        var allowedPrefix = new[]
-        {
-            "<home>", "<winAppData>", "<winLocalAppData>", "<winLocalAppDataLow>",
-            "<winDocuments>", "<winPublic>", "<winProgramData>"
-        }.Any(prefix => expression.StartsWith(prefix, StringComparison.OrdinalIgnoreCase));
-        if (!allowedPrefix)
-        {
-            return false;
-        }
-
-        var withoutPlaceholder = PlaceholderRegex.Replace(expression, string.Empty);
-        var firstSegment = withoutPlaceholder
-            .TrimStart('/', '\\')
-            .Split(new[] { '/', '\\' }, StringSplitOptions.RemoveEmptyEntries)
-            .FirstOrDefault() ?? string.Empty;
-        var literal = new string(firstSegment.TakeWhile(character => character is not '*' and not '?' and not '[').ToArray());
-        return literal.Count(char.IsLetterOrDigit) >= 3
-               && !IsGenericFallbackSegment(literal, gameName);
     }
 
     private Dictionary<string, string> CreateReplacements(
@@ -196,15 +154,6 @@ public sealed class LudusaviPathExpressionResolver
         };
     }
 
-    private static bool IsGenericFallbackSegment(string value, string gameName)
-    {
-        var normalized = new string(value.Where(char.IsLetterOrDigit).Select(char.ToLowerInvariant).ToArray());
-        var normalizedGame = new string(gameName.Where(char.IsLetterOrDigit).Select(char.ToLowerInvariant).ToArray());
-        return normalized is "game" or "games" or "save" or "saves" or "savedgames" or "config" or "userdata"
-               || normalized.Length < 3
-               || (normalizedGame.Length > 0 && normalized.Length <= 2);
-    }
-
     private static int IndexOfWildcard(string value)
     {
         var indexes = new[] { value.IndexOf('*'), value.IndexOf('?'), value.IndexOf('[') }
@@ -213,8 +162,6 @@ public sealed class LudusaviPathExpressionResolver
         return indexes.Count == 0 ? -1 : indexes.Min();
     }
 }
-
-public readonly record struct LudusaviGlobMeasurement(int MatchCount, long SizeBytes, bool WasTruncated);
 
 public static class LudusaviGlobMatcher
 {
@@ -239,97 +186,6 @@ public static class LudusaviGlobMatcher
         }
 
         return !value.Replace('\\', '/').Split('/').Any(segment => segment == "..");
-    }
-
-    public static LudusaviGlobMeasurement MeasureDirectory(string root, int limit)
-    {
-        if (!Directory.Exists(root))
-        {
-            return default;
-        }
-
-        return MeasureFiles(EnumerateFilesSafely(root), limit);
-    }
-
-    public static LudusaviGlobMeasurement MeasureMatches(
-        string root,
-        IReadOnlyList<string> patterns,
-        int limit)
-    {
-        if (!Directory.Exists(root) || patterns.Count == 0)
-        {
-            return default;
-        }
-
-        var matchingFiles = EnumerateFilesSafely(root).Where(path =>
-        {
-            var relative = Path.GetRelativePath(root, path).Replace('\\', '/');
-            return patterns.Any(pattern => IsMatch(relative, pattern));
-        });
-        return MeasureFiles(matchingFiles, limit);
-    }
-
-    private static LudusaviGlobMeasurement MeasureFiles(IEnumerable<string> files, int limit)
-    {
-        var count = 0;
-        long size = 0;
-        var truncated = false;
-        foreach (var file in files)
-        {
-            if (count >= limit)
-            {
-                truncated = true;
-                break;
-            }
-
-            try
-            {
-                size += new FileInfo(file).Length;
-                count++;
-            }
-            catch (IOException)
-            {
-            }
-            catch (UnauthorizedAccessException)
-            {
-            }
-        }
-
-        return new LudusaviGlobMeasurement(count, size, truncated);
-    }
-
-    private static IEnumerable<string> EnumerateFilesSafely(string root)
-    {
-        var pending = new Stack<string>();
-        pending.Push(root);
-        while (pending.Count > 0)
-        {
-            var current = pending.Pop();
-            string[] files;
-            string[] directories;
-            try
-            {
-                files = Directory.GetFiles(current);
-                directories = Directory.GetDirectories(current);
-            }
-            catch (IOException)
-            {
-                continue;
-            }
-            catch (UnauthorizedAccessException)
-            {
-                continue;
-            }
-
-            foreach (var file in files)
-            {
-                yield return file;
-            }
-            foreach (var directory in directories)
-            {
-                pending.Push(directory);
-            }
-        }
     }
 
     private static string ToRegex(string pattern)

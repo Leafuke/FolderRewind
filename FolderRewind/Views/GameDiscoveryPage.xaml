@@ -174,7 +174,7 @@
                                                                 <TextBlock Text="{x:Bind Name}" Style="{ThemeResource BodyStrongTextBlockStyle}"/>
                                                                 <TextBlock Text="{x:Bind Expression}" FontFamily="Consolas" TextWrapping="Wrap"/>
                                                                 <TextBlock Text="{x:Bind Tags}" Foreground="{ThemeResource TextFillColorSecondaryBrush}"/>
-                                                                <TextBlock Text="{x:Bind MatchSummary}" Foreground="{ThemeResource TextFillColorSecondaryBrush}"/>
+                                                                <TextBlock Text="{x:Bind PathSummary}" Foreground="{ThemeResource TextFillColorSecondaryBrush}"/>
                                                                 <TextBlock Text="{x:Bind Evidence}" Foreground="{ThemeResource TextFillColorSecondaryBrush}" TextWrapping="Wrap"/>
                                                                 <TextBlock Text="{x:Bind SupportText}" Foreground="{ThemeResource SystemFillColorCriticalBrush}" TextWrapping="Wrap"/>
                                                             </StackPanel>

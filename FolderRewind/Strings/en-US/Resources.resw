@@ -4953,7 +4953,8 @@ Pull request: {1}</value>
   <data name="GameDiscovery_Status_UpToDate" xml:space="preserve"><value>Up to date</value></data>
   <data name="GameDiscovery_Status_NewResources" xml:space="preserve"><value>New resources</value></data>
   <data name="GameDiscovery_ResultSummary" xml:space="preserve"><value>Found {0} games and {1} resources with {2} warnings in {3} seconds.</value></data>
-  <data name="GameDiscovery_ResourceMatches" xml:space="preserve"><value>{0} matching files · {1}</value></data>
+  <data name="GameDiscovery_ResourcePathExists" xml:space="preserve"><value>Candidate root exists</value></data>
+  <data name="GameDiscovery_ResourcePathMissing" xml:space="preserve"><value>Candidate root has not been created</value></data>
   <data name="GameDiscovery_Resource_RegistryUnsupported" xml:space="preserve"><value>Registry backup is not supported yet. This rule is visible but cannot be selected.</value></data>
   <data name="GameDiscovery_Resource_ConstraintUnsupported" xml:space="preserve"><value>This rule contains a condition that cannot be matched safely yet.</value></data>
   <data name="GameDiscovery_Resource_InvalidPath" xml:space="preserve"><value>The path expression is invalid or unsafe.</value></data>
