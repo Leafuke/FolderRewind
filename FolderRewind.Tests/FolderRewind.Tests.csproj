@@ -44,6 +44,8 @@
     <Compile Include="..\FolderRewind\Services\Discovery\DiscoveryDraftTransaction.cs" Link="Source\DiscoveryDraftTransaction.cs" />
     <Compile Include="..\FolderRewind\Services\Discovery\DiscoveryPresentationService.cs" Link="Source\DiscoveryPresentationService.cs" />
     <Compile Include="..\FolderRewind\Services\OfficialPresetIndexMergePolicy.cs" Link="Source\OfficialPresetIndexMergePolicy.cs" />
+    <Compile Include="..\FolderRewind\Services\BackupInvocationOptions.cs" Link="Source\BackupInvocationOptions.cs" />
+    <Compile Include="..\FolderRewind\Services\BackupRunRestoreOrchestrator.cs" Link="Source\BackupRunRestoreOrchestrator.cs" />
     <Compile Include="..\FolderRewind\Services\Discovery\GameDiscoveryService.cs" Link="Source\GameDiscoveryService.cs" />
     <Compile Include="..\FolderRewind\Services\Discovery\LudusaviManifestCompiler.cs" Link="Source\LudusaviManifestCompiler.cs" />
     <Compile Include="..\FolderRewind\Services\Discovery\LudusaviManifestCacheService.cs" Link="Source\LudusaviManifestCacheService.cs" />

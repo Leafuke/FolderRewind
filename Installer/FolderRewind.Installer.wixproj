@@ -4,7 +4,7 @@
     <InstallerPlatform Condition="'$(InstallerPlatform)'==''">x64</InstallerPlatform>
     <!-- WiX 7 OSMF EULA: the project owner accepted this for the CI build channel. -->
     <AcceptEula>wix7</AcceptEula>
-    <ProductVersion Condition="'$(ProductVersion)'==''">1.0.0</ProductVersion>
+    <ProductVersion Condition="'$(ProductVersion)'==''">1.9.0.0</ProductVersion>
     <PublishDir Condition="'$(PublishDir)'==''">$(MSBuildThisFileDirectory)..\FolderRewind\bin\$(InstallerPlatform)\Release\net10.0-windows10.0.19041.0\win-$(InstallerPlatform)\publish</PublishDir>
     <OutputName Condition="'$(OutputName)'==''">FolderRewind_$(ProductVersion)_$(InstallerPlatform)</OutputName>
     <DefineConstants>ProductVersion=$(ProductVersion);PublishDir=$(PublishDir)</DefineConstants>

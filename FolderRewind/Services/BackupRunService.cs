@@ -233,6 +233,27 @@ public static class BackupRunService
         }
     }
 
+    public static BackupRunRecord? Remove(string runId)
+    {
+        Initialize();
+        lock (Gate)
+        {
+            var run = _runs.FirstOrDefault(candidate =>
+                string.Equals(candidate.RunId, runId, StringComparison.OrdinalIgnoreCase));
+            if (run == null)
+            {
+                return null;
+            }
+            _runs.Remove(run);
+            if (PersistLocked())
+            {
+                return run;
+            }
+            _runs.Add(run);
+            return null;
+        }
+    }
+
     public static async Task<BackupRunRestoreResult> RestoreAsync(
         BackupConfig config,
         BackupRunRecord run,
@@ -240,20 +261,9 @@ public static class BackupRunService
     {
         ArgumentNullException.ThrowIfNull(config);
         ArgumentNullException.ThrowIfNull(run);
-        var result = new BackupRunRestoreResult { RunId = run.RunId };
-        foreach (var source in run.Sources)
+        return await BackupRunRestoreOrchestrator.RestoreAsync(run, async source =>
         {
             var sourceResult = new BackupRunRestoreSourceResult { FolderPath = source.FolderPath };
-            result.Sources.Add(sourceResult);
-            if (source.Status is BackupRunSourceStatus.Failed or BackupRunSourceStatus.Unavailable
-                || string.IsNullOrWhiteSpace(source.HistoryItemId))
-            {
-                sourceResult.ErrorMessage = string.IsNullOrWhiteSpace(source.ErrorMessage)
-                    ? "No recoverable archive reference is available for this source."
-                    : source.ErrorMessage;
-                continue;
-            }
-
             var folder = config.SourceFolders.FirstOrDefault(candidate =>
                 string.Equals(candidate.Path, source.FolderPath, StringComparison.OrdinalIgnoreCase));
             var historyItem = HistoryService.TryGetEntryById(source.HistoryItemId);
@@ -262,24 +272,16 @@ public static class BackupRunService
                 sourceResult.ErrorMessage = folder == null
                     ? "The source is no longer present in this configuration."
                     : "The referenced history item is missing.";
-                continue;
+                return sourceResult;
             }
 
-            try
+            sourceResult.Success = await BackupService.RestoreBackupAsync(config, folder, historyItem, mode);
+            if (!sourceResult.Success)
             {
-                sourceResult.Success = await BackupService.RestoreBackupAsync(config, folder, historyItem, mode);
-                if (!sourceResult.Success)
-                {
-                    sourceResult.ErrorMessage = "The source restore failed; see the local log for details.";
-                }
+                sourceResult.ErrorMessage = "The source restore failed; see the local log for details.";
             }
-            catch (Exception ex)
-            {
-                sourceResult.ErrorMessage = ex.Message;
-            }
-        }
-
-        return result;
+            return sourceResult;
+        }).ConfigureAwait(false);
     }
 
     private static List<BackupRunRecord> Normalize(IEnumerable<BackupRunRecord>? runs)

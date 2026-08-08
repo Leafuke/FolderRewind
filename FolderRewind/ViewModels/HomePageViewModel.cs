@@ -147,14 +147,9 @@ namespace FolderRewind.ViewModels
                 return;
             }
 
-            foreach (var folder in config.SourceFolders)
-            {
-                await BackupService.BackupFolderAsync(
-                    config,
-                    folder,
-                    comment,
-                    invocationOptions: BackupInvocationOptions.ForManual());
-            }
+            await BackupService.BackupConfigAsync(
+                config,
+                BackupInvocationOptions.ForManual(comment));
         }
 
         public void TryOpenDestination(BackupConfig config)

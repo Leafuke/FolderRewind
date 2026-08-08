@@ -490,24 +490,9 @@ namespace FolderRewind.Services
                 {
                     BroadcastCommandLifecycle(context, "command_started");
                     bool anyNewBackup = false;
-                    if (!string.IsNullOrWhiteSpace(comment))
-                    {
-                        foreach (var folder in effectiveConfig.SourceFolders)
-                        {
-                            var hasNewBackup = await BackupService.BackupFolderAsync(
-                                effectiveConfig,
-                                folder,
-                                comment,
-                                BackupInvocationOptions.ForRemote());
-                            anyNewBackup = anyNewBackup || hasNewBackup;
-                        }
-                    }
-                    else
-                    {
-                        anyNewBackup = await BackupService.BackupConfigAsync(
-                            effectiveConfig,
-                            BackupInvocationOptions.ForRemote());
-                    }
+                    anyNewBackup = await BackupService.BackupConfigAsync(
+                        effectiveConfig,
+                        BackupInvocationOptions.ForRemote().WithComment(comment));
 
                     var result = anyNewBackup ? "created" : "no_changes";
                     BroadcastEvent(context, "backup_all_completed", new Dictionary<string, string?>

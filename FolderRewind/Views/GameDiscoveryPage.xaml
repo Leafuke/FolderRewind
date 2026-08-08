@@ -23,6 +23,11 @@
                     <TextBlock x:Uid="GameDiscoveryPage_DataHeading" Style="{ThemeResource SubtitleTextBlockStyle}"/>
                     <TextBlock Text="{x:Bind ViewModel.CacheStatus, Mode=OneWay}" TextWrapping="Wrap"/>
                     <StackPanel Orientation="Horizontal" Spacing="8">
+                        <TextBlock x:Uid="GameDiscoveryPage_Attribution" Foreground="{ThemeResource TextFillColorSecondaryBrush}" VerticalAlignment="Center"/>
+                        <HyperlinkButton x:Uid="GameDiscoveryPage_LudusaviSource" NavigateUri="https://github.com/mtkennerly/ludusavi-manifest" Padding="0"/>
+                        <HyperlinkButton x:Uid="GameDiscoveryPage_PcgwNotice" NavigateUri="https://www.pcgamingwiki.com/wiki/PCGamingWiki:Disclaimer" Padding="0"/>
+                    </StackPanel>
+                    <StackPanel Orientation="Horizontal" Spacing="8">
                         <Button x:Uid="GameDiscoveryPage_DownloadAndScan" Click="OnDownloadAndScanClick" IsEnabled="{x:Bind ViewModel.CanStart, Mode=OneWay}"/>
                         <Button x:Uid="GameDiscoveryPage_CheckUpdate" Click="OnCheckUpdateClick" IsEnabled="{x:Bind ViewModel.CanStart, Mode=OneWay}"/>
                         <Button x:Uid="GameDiscoveryPage_ImportManifest" Click="OnImportManifestClick" IsEnabled="{x:Bind ViewModel.CanStart, Mode=OneWay}"/>

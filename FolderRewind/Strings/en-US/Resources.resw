@@ -4968,4 +4968,21 @@ Pull request: {1}</value>
   <data name="GameDiscoveryPage_CommitFailed" xml:space="preserve"><value>Could not save configurations</value></data>
   <data name="GameDiscoveryPage_CommitComplete" xml:space="preserve"><value>Configurations saved</value></data>
   <data name="GameDiscoveryPage_CommitSummary" xml:space="preserve"><value>Added {0} configurations and {1} sources.</value></data>
+  <data name="History_Run_AllSources" xml:space="preserve"><value>All sources</value></data>
+  <data name="History_Run_StatusCompleted" xml:space="preserve"><value>Configuration backup completed</value></data>
+  <data name="History_Run_StatusPartial" xml:space="preserve"><value>Configuration backup partially completed</value></data>
+  <data name="History_Run_SourceSummary" xml:space="preserve"><value>{0} sources · {1} new archives · {2} reused · {3} failed/unavailable</value></data>
+  <data name="History_Run_SourceNewArchive" xml:space="preserve"><value>New archive</value></data>
+  <data name="History_Run_SourceReused" xml:space="preserve"><value>Reused previous archive</value></data>
+  <data name="History_Run_SourceFailed" xml:space="preserve"><value>Failed</value></data>
+  <data name="History_Run_SourceUnavailable" xml:space="preserve"><value>Unavailable</value></data>
+  <data name="History_Run_RestoreTitle" xml:space="preserve"><value>Restore configuration run</value></data>
+  <data name="History_Run_RestoreContent" xml:space="preserve"><value>FolderRewind will safely restore each available source in sequence. It continues after a source failure and does not provide cross-source atomic rollback.</value></data>
+  <data name="History_Run_RestoreSummary" xml:space="preserve"><value>Run restore completed: {0} sources succeeded; {1} failed or were skipped.</value></data>
+  <data name="History_Run_DeleteTitle" xml:space="preserve"><value>Delete configuration run</value></data>
+  <data name="History_Run_DeleteContent" xml:space="preserve"><value>This removes the run record. Archives referenced by another run, independent source history, or an incremental chain remain protected.</value></data>
+  <data name="History_Run_DeleteFailed" xml:space="preserve"><value>The configuration run could not be deleted.</value></data>
+  <data name="GameDiscoveryPage_Attribution.Text" xml:space="preserve"><value>Path data comes from the Ludusavi manifest (primarily compiled from PCGamingWiki). This Beta only fetches upstream after user action and does not redistribute it with the app.</value></data>
+  <data name="GameDiscoveryPage_LudusaviSource.Content" xml:space="preserve"><value>Ludusavi source</value></data>
+  <data name="GameDiscoveryPage_PcgwNotice.Content" xml:space="preserve"><value>PCGamingWiki terms</value></data>
 </root>

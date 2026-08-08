@@ -5,6 +5,7 @@ using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Navigation;
 using System;
+using System.Linq;
 using System.Threading.Tasks;
 
 namespace FolderRewind.Views
@@ -25,6 +26,7 @@ namespace FolderRewind.Views
             // 这里保留一次显式赋值，确保下拉框与列表首次进入可见。
             ConfigFilter.ItemsSource = ViewModel.Configs;
             HistoryList.ItemsSource = ViewModel.FilteredHistory;
+            RunHistoryList.ItemsSource = ViewModel.FilteredRuns;
             UseColorsToggle.IsOn = ViewModel.UseHistoryStatusColors;
         }
 
@@ -59,13 +61,12 @@ namespace FolderRewind.Views
                 }
 
                 ConfigFilter.SelectedItem = targetConfig;
-                FolderFilter.ItemsSource = targetConfig.SourceFolders;
-                FolderFilter.SelectedItem = targetFolder;
+                ConfigureFolderFilter(targetConfig, targetFolder);
 
                 ViewModel.SetCurrentSelection(
                     targetConfig,
-                    targetFolder,
-                    refreshHistoryIfFolder: targetFolder != null,
+                    targetConfig.HistoryMode == BackupHistoryMode.GroupedRun ? null : targetFolder,
+                    refreshHistoryIfFolder: targetConfig.HistoryMode == BackupHistoryMode.GroupedRun || targetFolder != null,
                     persistSelection: true);
             }
             finally
@@ -84,22 +85,18 @@ namespace FolderRewind.Views
             if (ConfigFilter.SelectedItem is BackupConfig config)
             {
                 ViewModel.SetCurrentSelection(config, null, refreshHistoryIfFolder: false, persistSelection: true);
-                FolderFilter.ItemsSource = config.SourceFolders;
-
-                if (config.SourceFolders.Count > 0)
-                {
+                ConfigureFolderFilter(config, null);
+                if (config.HistoryMode != BackupHistoryMode.GroupedRun && config.SourceFolders.Count > 0)
                     FolderFilter.SelectedIndex = 0;
-                }
-                else
-                {
-                    FolderFilter.SelectedIndex = -1;
-                }
             }
         }
 
         private void FolderFilter_SelectionChanged(object sender, SelectionChangedEventArgs e)
         {
-            if (FolderFilter.SelectedItem is ManagedFolder folder && ConfigFilter.SelectedItem is BackupConfig config)
+            if (_isNavigating) return;
+            if (FolderFilter.SelectedItem is ManagedFolder folder
+                && ConfigFilter.SelectedItem is BackupConfig config
+                && config.HistoryMode != BackupHistoryMode.GroupedRun)
             {
                 ViewModel.SetCurrentSelection(config, folder, refreshHistoryIfFolder: true, persistSelection: true);
             }
@@ -170,6 +167,99 @@ namespace FolderRewind.Views
             }
 
             ViewModel.ToggleImportant(item);
+        }
+
+        private async void OnEditRunCommentClick(object sender, RoutedEventArgs e)
+        {
+            if (sender is not Button btn || btn.DataContext is not BackupRunViewItem item) return;
+            var inputBox = new TextBox
+            {
+                Text = item.Record.Comment ?? string.Empty,
+                PlaceholderText = I18n.GetString("History_EditComment_Placeholder"),
+                MinWidth = 300
+            };
+            var dialog = new ContentDialog
+            {
+                Title = I18n.GetString("History_EditComment_Title"),
+                Content = inputBox,
+                PrimaryButtonText = I18n.GetString("Common_Ok"),
+                CloseButtonText = I18n.GetString("Common_Cancel"),
+                DefaultButton = ContentDialogButton.Primary,
+                XamlRoot = XamlRoot
+            };
+            ThemeService.ApplyThemeToDialog(dialog);
+            if (await dialog.ShowAsync() == ContentDialogResult.Primary)
+                ViewModel.UpdateRunComment(item, inputBox.Text?.Trim() ?? string.Empty);
+        }
+
+        private void OnToggleRunImportantClick(object sender, RoutedEventArgs e)
+        {
+            if (sender is Button { DataContext: BackupRunViewItem item })
+                ViewModel.ToggleRunImportant(item);
+        }
+
+        private async void OnRestoreRunClick(object sender, RoutedEventArgs e)
+        {
+            if (sender is not Button { DataContext: BackupRunViewItem item }
+                || !ViewModel.TryGetCurrentConfig(out var config) || config == null) return;
+            if (config.IsEncrypted && !await PromptAndVerifyPasswordAsync(config)) return;
+            var mode = await PromptRunRestoreModeAsync(item);
+            if (mode == null) return;
+            var result = await ViewModel.RestoreRunAsync(item, mode.Value);
+            if (result == null) return;
+            var succeeded = result.Sources.Count(source => source.Success);
+            var failed = result.Sources.Count - succeeded;
+            if (failed == 0)
+                NotificationService.ShowSuccess(I18n.Format("History_Run_RestoreSummary", succeeded, failed));
+            else
+                NotificationService.ShowWarning(I18n.Format("History_Run_RestoreSummary", succeeded, failed));
+        }
+
+        private async Task<BackupService.RestoreMode?> PromptRunRestoreModeAsync(BackupRunViewItem item)
+        {
+            var partial = item.HasPartialBackup;
+            var dialog = new ContentDialog
+            {
+                Title = partial ? I18n.GetString("History_PartialRestore_Title") : I18n.GetString("History_Run_RestoreTitle"),
+                Content = new TextBlock
+                {
+                    Text = partial
+                        ? I18n.GetString("History_PartialRestore_Content")
+                        : I18n.GetString("History_Run_RestoreContent"),
+                    TextWrapping = TextWrapping.Wrap
+                },
+                PrimaryButtonText = partial
+                    ? I18n.GetString("History_PartialRestore_Primary")
+                    : I18n.GetString("History_RestoreConfirm_Primary"),
+                SecondaryButtonText = partial ? string.Empty : I18n.GetString("History_RestoreConfirm_Secondary"),
+                CloseButtonText = I18n.GetString("Common_Cancel"),
+                DefaultButton = ContentDialogButton.Primary,
+                XamlRoot = XamlRoot
+            };
+            ThemeService.ApplyThemeToDialog(dialog);
+            var result = await dialog.ShowAsync();
+            if (result == ContentDialogResult.Primary)
+                return partial ? BackupService.RestoreMode.Overwrite : BackupService.RestoreMode.Clean;
+            return result == ContentDialogResult.Secondary ? BackupService.RestoreMode.Overwrite : null;
+        }
+
+        private async void OnDeleteRunClick(object sender, RoutedEventArgs e)
+        {
+            if (sender is not Button { DataContext: BackupRunViewItem item }) return;
+            if (item.IsImportant && !await ConfirmDeleteImportantAsync()) return;
+            var dialog = new ContentDialog
+            {
+                Title = I18n.GetString("History_Run_DeleteTitle"),
+                Content = I18n.GetString("History_Run_DeleteContent"),
+                PrimaryButtonText = I18n.GetString("Common_Delete"),
+                CloseButtonText = I18n.GetString("Common_Cancel"),
+                DefaultButton = ContentDialogButton.Close,
+                XamlRoot = XamlRoot
+            };
+            ThemeService.ApplyThemeToDialog(dialog);
+            if (await dialog.ShowAsync() != ContentDialogResult.Primary) return;
+            if (!await ViewModel.DeleteRunAsync(item))
+                NotificationService.ShowError(I18n.GetString("History_Run_DeleteFailed"));
         }
 
         private async void OnRestoreClick(object sender, RoutedEventArgs e)
@@ -446,7 +536,7 @@ namespace FolderRewind.Views
 
         private async void OnOpenCloudSyncClick(object sender, RoutedEventArgs e)
         {
-            if (!TryGetSelectedContext(persistSelection: false, out var config, out _))
+            if (ConfigFilter.SelectedItem is not BackupConfig config)
             {
                 NotificationService.ShowWarning(I18n.GetString("History_ScanRecover_SelectFirst"));
                 return;
@@ -551,13 +641,12 @@ namespace FolderRewind.Views
             try
             {
                 ConfigFilter.SelectedItem = config;
-                FolderFilter.ItemsSource = config?.SourceFolders;
-                FolderFilter.SelectedItem = folder;
+                ConfigureFolderFilter(config, folder);
 
                 ViewModel.SetCurrentSelection(
                     config,
-                    folder,
-                    refreshHistoryIfFolder: folder != null,
+                    config.HistoryMode == BackupHistoryMode.GroupedRun ? null : folder,
+                    refreshHistoryIfFolder: config.HistoryMode == BackupHistoryMode.GroupedRun || folder != null,
                     persistSelection: true);
             }
             finally
@@ -578,6 +667,18 @@ namespace FolderRewind.Views
             // 统一从筛选器同步当前上下文，避免后续按钮操作拿到旧选择。
             ViewModel.SetCurrentSelection(config, folder, refreshHistoryIfFolder: false, persistSelection: persistSelection);
             return true;
+        }
+
+        private void ConfigureFolderFilter(BackupConfig config, ManagedFolder? preferredFolder)
+        {
+            var grouped = config.HistoryMode == BackupHistoryMode.GroupedRun;
+            FolderFilter.IsEnabled = !grouped;
+            FolderFilter.PlaceholderText = grouped ? I18n.GetString("History_Run_AllSources") : string.Empty;
+            FolderFilter.ItemsSource = grouped ? null : config.SourceFolders;
+            FolderFilter.SelectedItem = grouped ? null : preferredFolder;
+            if (!grouped && preferredFolder == null)
+                FolderFilter.SelectedIndex = config.SourceFolders.Count > 0 ? 0 : -1;
+            ScanRecoverButton.IsEnabled = !grouped;
         }
     }
 }

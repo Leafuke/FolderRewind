@@ -4968,4 +4968,21 @@ Pull Request：{1}</value>
   <data name="GameDiscoveryPage_CommitFailed" xml:space="preserve"><value>保存配置失败</value></data>
   <data name="GameDiscoveryPage_CommitComplete" xml:space="preserve"><value>配置已保存</value></data>
   <data name="GameDiscoveryPage_CommitSummary" xml:space="preserve"><value>新增 {0} 个配置和 {1} 个来源。</value></data>
+  <data name="History_Run_AllSources" xml:space="preserve"><value>全部来源</value></data>
+  <data name="History_Run_StatusCompleted" xml:space="preserve"><value>完整配置备份已完成</value></data>
+  <data name="History_Run_StatusPartial" xml:space="preserve"><value>完整配置备份部分完成</value></data>
+  <data name="History_Run_SourceSummary" xml:space="preserve"><value>{0} 个来源 · {1} 个新归档 · {2} 个复用 · {3} 个失败/不可用</value></data>
+  <data name="History_Run_SourceNewArchive" xml:space="preserve"><value>新归档</value></data>
+  <data name="History_Run_SourceReused" xml:space="preserve"><value>复用上次归档</value></data>
+  <data name="History_Run_SourceFailed" xml:space="preserve"><value>失败</value></data>
+  <data name="History_Run_SourceUnavailable" xml:space="preserve"><value>不可用</value></data>
+  <data name="History_Run_RestoreTitle" xml:space="preserve"><value>还原完整配置运行</value></data>
+  <data name="History_Run_RestoreContent" xml:space="preserve"><value>将依次安全还原此运行中的所有可用来源；单个来源失败后仍会继续，不提供跨来源原子回滚。</value></data>
+  <data name="History_Run_RestoreSummary" xml:space="preserve"><value>运行还原完成：{0} 个来源成功，{1} 个来源失败或跳过。</value></data>
+  <data name="History_Run_DeleteTitle" xml:space="preserve"><value>删除配置运行</value></data>
+  <data name="History_Run_DeleteContent" xml:space="preserve"><value>将删除此运行记录。仍被其他运行引用、独立来源历史或增量链需要的归档会继续保留。</value></data>
+  <data name="History_Run_DeleteFailed" xml:space="preserve"><value>无法删除此配置运行。</value></data>
+  <data name="GameDiscoveryPage_Attribution.Text" xml:space="preserve"><value>路径数据来自 Ludusavi manifest（主要汇编自 PCGamingWiki）；当前 Beta 仅在用户操作后直连上游并缓存，不随应用再分发。</value></data>
+  <data name="GameDiscoveryPage_LudusaviSource.Content" xml:space="preserve"><value>Ludusavi 来源</value></data>
+  <data name="GameDiscoveryPage_PcgwNotice.Content" xml:space="preserve"><value>PCGamingWiki 许可说明</value></data>
 </root>

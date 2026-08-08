@@ -15,6 +15,7 @@ namespace FolderRewind.ViewModels
     public sealed class HistoryPageViewModel : ViewModelBase
     {
         private readonly List<HistoryItem> _currentAllItems = new();
+        private readonly List<BackupRunViewItem> _currentAllRuns = new();
         private bool _historyEventsSubscribed;
         private int _missingCount;
         private bool _isEmpty = true;
@@ -24,6 +25,7 @@ namespace FolderRewind.ViewModels
         private ManagedFolder? _currentFolder;
 
         public ObservableCollection<HistoryItem> FilteredHistory { get; } = new();
+        public ObservableCollection<BackupRunViewItem> FilteredRuns { get; } = new();
 
         public ObservableCollection<BackupConfig> Configs => ConfigService.CurrentConfig?.BackupConfigs ?? new ObservableCollection<BackupConfig>();
 
@@ -36,6 +38,10 @@ namespace FolderRewind.ViewModels
         }
 
         public bool HasMissing => _missingCount > 0;
+        public bool IsGroupedRunView => _currentConfig?.HistoryMode == BackupHistoryMode.GroupedRun;
+        public Visibility GroupedRunHistoryVisibility => IsGroupedRunView ? Visibility.Visible : Visibility.Collapsed;
+        public Visibility PerSourceHistoryVisibility => IsGroupedRunView ? Visibility.Collapsed : Visibility.Visible;
+        public bool CanUsePerSourceActions => !IsGroupedRunView && _currentFolder != null;
 
         public bool CanUseCloudHistoryActions => CloudSyncService.CanUseManualCloudActions(_currentConfig);
 
@@ -87,12 +93,20 @@ namespace FolderRewind.ViewModels
         public void SetCurrentSelection(BackupConfig? config, ManagedFolder? folder, bool refreshHistoryIfFolder, bool persistSelection)
         {
             _currentConfig = config;
-            _currentFolder = folder;
+            _currentFolder = config?.HistoryMode == BackupHistoryMode.GroupedRun ? null : folder;
             OnPropertyChanged(nameof(CanUseCloudHistoryActions));
             OnPropertyChanged(nameof(CanOpenConfigCloudSync));
+            OnPropertyChanged(nameof(IsGroupedRunView));
+            OnPropertyChanged(nameof(GroupedRunHistoryVisibility));
+            OnPropertyChanged(nameof(PerSourceHistoryVisibility));
+            OnPropertyChanged(nameof(CanUsePerSourceActions));
 
             // 页面初始化阶段可关闭刷新，避免控件尚未就绪时重复拉取历史。
-            if (refreshHistoryIfFolder && _currentConfig != null && _currentFolder != null)
+            if (IsGroupedRunView && _currentConfig != null)
+            {
+                RefreshRuns(_currentConfig);
+            }
+            else if (refreshHistoryIfFolder && _currentConfig != null && _currentFolder != null)
             {
                 RefreshHistory(_currentConfig, _currentFolder);
             }
@@ -108,6 +122,12 @@ namespace FolderRewind.ViewModels
             config = _currentConfig;
             folder = _currentFolder;
             return config != null && folder != null;
+        }
+
+        public bool TryGetCurrentConfig(out BackupConfig? config)
+        {
+            config = _currentConfig;
+            return config != null;
         }
 
         public bool TryResolveSelection(string? configId, string? folderPath, out BackupConfig? config, out ManagedFolder? folder)
@@ -162,7 +182,8 @@ namespace FolderRewind.ViewModels
                 folder = config.SourceFolders.FirstOrDefault(f => f.Path == settings.LastHistoryFolderPath);
             }
 
-            if (folder == null && config.SourceFolders.Count > 0)
+            if (config.HistoryMode != BackupHistoryMode.GroupedRun
+                && folder == null && config.SourceFolders.Count > 0)
             {
                 // 历史路径失效时兜底到首项，保证页面总有可展示目标。
                 folder = config.SourceFolders[0];
@@ -173,6 +194,11 @@ namespace FolderRewind.ViewModels
 
         public void RefreshCurrentHistory()
         {
+            if (_currentConfig?.HistoryMode == BackupHistoryMode.GroupedRun)
+            {
+                RefreshRuns(_currentConfig);
+                return;
+            }
             if (_currentConfig == null || _currentFolder == null)
             {
                 return;
@@ -185,6 +211,8 @@ namespace FolderRewind.ViewModels
         {
             _currentAllItems.Clear();
             FilteredHistory.Clear();
+            _currentAllRuns.Clear();
+            FilteredRuns.Clear();
 
             var items = HistoryService.GetHistoryForFolder(config, folder);
             foreach (var item in items)
@@ -192,6 +220,19 @@ namespace FolderRewind.ViewModels
                 _currentAllItems.Add(item);
             }
 
+            ApplyCommentFilter();
+        }
+
+        public void RefreshRuns(BackupConfig config)
+        {
+            _currentAllItems.Clear();
+            FilteredHistory.Clear();
+            _currentAllRuns.Clear();
+            FilteredRuns.Clear();
+            foreach (var run in BackupRunService.GetRuns(config.Id))
+            {
+                _currentAllRuns.Add(new BackupRunViewItem(run));
+            }
             ApplyCommentFilter();
         }
 
@@ -274,6 +315,34 @@ namespace FolderRewind.ViewModels
             UpdateTimelineVisuals(FilteredHistory);
         }
 
+        public void UpdateRunComment(BackupRunViewItem item, string comment)
+        {
+            BackupRunService.UpdateComment(item.Record.RunId, comment);
+            RefreshCurrentHistory();
+        }
+
+        public void ToggleRunImportant(BackupRunViewItem item)
+        {
+            BackupRunService.SetImportant(item.Record.RunId, !item.Record.IsImportant);
+            RefreshCurrentHistory();
+        }
+
+        public async Task<BackupRunRestoreResult?> RestoreRunAsync(
+            BackupRunViewItem item,
+            BackupService.RestoreMode mode)
+        {
+            if (_currentConfig == null) return null;
+            return await BackupRunService.RestoreAsync(_currentConfig, item.Record, mode).ConfigureAwait(true);
+        }
+
+        public async Task<bool> DeleteRunAsync(BackupRunViewItem item)
+        {
+            if (_currentConfig == null) return false;
+            var success = await BackupService.DeleteBackupRunAsync(_currentConfig, item.Record).ConfigureAwait(true);
+            RefreshCurrentHistory();
+            return success;
+        }
+
         public async Task<bool> UploadToCloudAsync(HistoryItem item)
         {
             if (_currentConfig == null || _currentFolder == null || item == null)
@@ -324,6 +393,23 @@ namespace FolderRewind.ViewModels
 
         private void ApplyCommentFilter()
         {
+            if (IsGroupedRunView)
+            {
+                FilteredRuns.Clear();
+                var runNeedle = (CommentFilterText ?? string.Empty).Trim();
+                foreach (var item in _currentAllRuns.Where(item =>
+                             runNeedle.Length == 0
+                             || item.Record.Comment.Contains(runNeedle, StringComparison.OrdinalIgnoreCase)))
+                {
+                    FilteredRuns.Add(item);
+                }
+                _missingCount = 0;
+                OnPropertyChanged(nameof(HasMissing));
+                IsEmpty = FilteredRuns.Count == 0;
+                OnPropertyChanged(nameof(CanUseCloudHistoryActions));
+                OnPropertyChanged(nameof(CanOpenConfigCloudSync));
+                return;
+            }
             UpdateCloudPresentation(_currentAllItems);
             FilteredHistory.Clear();
 
@@ -485,5 +571,50 @@ namespace FolderRewind.ViewModels
 
             return string.Empty;
         }
+    }
+
+    public sealed class BackupRunViewItem
+    {
+        public BackupRunViewItem(BackupRunRecord record)
+        {
+            Record = record;
+            Sources = record.Sources.Select(source => new BackupRunSourceViewItem(source)).ToList();
+        }
+
+        public BackupRunRecord Record { get; }
+        public IReadOnlyList<BackupRunSourceViewItem> Sources { get; }
+        public string TimeDisplay => Record.CompletedAtUtc.ToLocalTime().ToString("HH:mm");
+        public string DateDisplay => Record.CompletedAtUtc.ToLocalTime().ToString("yyyy-MM-dd");
+        public string StatusText => Record.Status == BackupRunStatus.Partial
+            ? I18n.GetString("History_Run_StatusPartial")
+            : I18n.GetString("History_Run_StatusCompleted");
+        public string Message => string.IsNullOrWhiteSpace(Record.Comment) ? StatusText : Record.Comment;
+        public string SourceSummary => I18n.Format(
+            "History_Run_SourceSummary",
+            Record.Sources.Count,
+            Record.Sources.Count(source => source.Status == BackupRunSourceStatus.NewArchive),
+            Record.Sources.Count(source => source.Status == BackupRunSourceStatus.Reused),
+            Record.Sources.Count(source => source.Status is BackupRunSourceStatus.Failed or BackupRunSourceStatus.Unavailable));
+        public bool IsImportant => Record.IsImportant;
+        public bool HasPartialBackup => Record.Sources.Any(source =>
+            !string.IsNullOrWhiteSpace(source.HistoryItemId)
+            && HistoryService.TryGetEntryById(source.HistoryItemId)?.IsPartialBackup == true);
+    }
+
+    public sealed class BackupRunSourceViewItem
+    {
+        public BackupRunSourceViewItem(BackupRunSourceRecord record) => Record = record;
+        public BackupRunSourceRecord Record { get; }
+        public string Name => string.IsNullOrWhiteSpace(Record.FolderName) ? Record.FolderPath : Record.FolderName;
+        public string StatusText => Record.Status switch
+        {
+            BackupRunSourceStatus.NewArchive => I18n.GetString("History_Run_SourceNewArchive"),
+            BackupRunSourceStatus.Reused => I18n.GetString("History_Run_SourceReused"),
+            BackupRunSourceStatus.Failed => I18n.GetString("History_Run_SourceFailed"),
+            _ => I18n.GetString("History_Run_SourceUnavailable")
+        };
+        public string Detail => string.IsNullOrWhiteSpace(Record.ErrorMessage)
+            ? Record.ArchiveFileName
+            : Record.ErrorMessage;
     }
 }

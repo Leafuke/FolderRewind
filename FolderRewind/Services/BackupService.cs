@@ -194,7 +194,7 @@ namespace FolderRewind.Services
                 var outcome = await BackupFolderCoreAsync(
                     config,
                     folder,
-                    comment: string.Empty,
+                    comment: invocationOptions.Comment,
                     invocationOptions: invocationOptions,
                     createdByRunId: config.HistoryMode == BackupHistoryMode.GroupedRun ? runId : null);
                 sourceOutcomes.Add(outcome);
@@ -209,7 +209,7 @@ namespace FolderRewind.Services
                     startedAtUtc,
                     DateTime.UtcNow,
                     MapRunTriggerSource(invocationOptions.Source),
-                    string.Empty,
+                    invocationOptions.Comment,
                     sourceOutcomes.Select(outcome => outcome.ToRunSource()));
                 if (run != null)
                 {
@@ -714,6 +714,23 @@ namespace FolderRewind.Services
                     }
                 }
             }
+        }
+
+        public static async Task<bool> DeleteBackupRunAsync(BackupConfig config, BackupRunRecord run)
+        {
+            if (config == null || run == null
+                || !string.Equals(config.Id, run.ConfigId, StringComparison.OrdinalIgnoreCase))
+            {
+                return false;
+            }
+            var removed = BackupRunService.Remove(run.RunId);
+            if (removed == null)
+            {
+                return false;
+            }
+            await PruneGroupedRunArchivesAsync(config, new[] { removed });
+            CloudSyncService.QueueConfigurationHistorySyncAfterLocalChange(config, "configuration backup run deletion");
+            return true;
         }
 
         /// <summary>
