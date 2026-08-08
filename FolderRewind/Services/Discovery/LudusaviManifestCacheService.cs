@@ -21,7 +21,7 @@ public sealed class LudusaviManifestCacheService
     public const long MaximumManifestBytes = 64L * 1024 * 1024;
     private const string ManifestFileName = "manifest.yaml";
     private const string SecondaryManifestFileName = ".ludusavi.yaml";
-    private const string IndexFileName = "index.v1.json.gz";
+    private const string IndexFileName = "index.v2.json.gz";
     private const string MetadataFileName = "metadata.json";
     private const string PointerFileName = "current.json";
 
@@ -207,6 +207,77 @@ public sealed class LudusaviManifestCacheService
         return (metadata, index);
     }
 
+    public async Task<(LudusaviManifestCacheMetadata Metadata, LudusaviCompiledIndex Index)?> EnsureCurrentAsync(
+        string? secondaryManifestPath,
+        string? overridePath,
+        IProgress<DiscoveryProgress>? progress,
+        CancellationToken cancellationToken)
+    {
+        var current = await LoadCurrentAsync(cancellationToken).ConfigureAwait(false);
+        if (current != null)
+        {
+            return current;
+        }
+
+        await _gate.WaitAsync(cancellationToken).ConfigureAwait(false);
+        try
+        {
+            current = await LoadCurrentAsync(cancellationToken).ConfigureAwait(false);
+            if (current != null)
+            {
+                return current;
+            }
+
+            var pointer = await TryLoadPointerAsync(cancellationToken).ConfigureAwait(false);
+            if (pointer == null || !IsSafeGenerationId(pointer.GenerationId))
+            {
+                return null;
+            }
+            var legacyRoot = GetGenerationRoot(pointer.GenerationId);
+            var manifestPath = Path.Combine(legacyRoot, ManifestFileName);
+            var metadataPath = Path.Combine(legacyRoot, MetadataFileName);
+            if (!File.Exists(manifestPath) || !File.Exists(metadataPath))
+            {
+                return null;
+            }
+
+            await using var metadataStream = new FileStream(metadataPath, FileMode.Open, FileAccess.Read, FileShare.Read);
+            var metadata = await JsonSerializer.DeserializeAsync<LudusaviManifestCacheMetadata>(
+                metadataStream,
+                JsonOptions,
+                cancellationToken).ConfigureAwait(false);
+            if (metadata == null)
+            {
+                return null;
+            }
+
+            var cachedSecondaryPath = Path.Combine(legacyRoot, SecondaryManifestFileName);
+            var effectiveSecondaryPath = !string.IsNullOrWhiteSpace(secondaryManifestPath)
+                ? secondaryManifestPath
+                : File.Exists(cachedSecondaryPath) ? cachedSecondaryPath : null;
+            var primaryBytes = await ReadBoundedFileAsync(manifestPath, cancellationToken).ConfigureAwait(false);
+            progress?.Report(new DiscoveryProgress
+            {
+                ProviderId = "ludusavi",
+                Phase = "compile",
+                Message = "Rebuilding the local Ludusavi index for the current compiler version"
+            });
+            return await CompileAndStoreAsync(
+                primaryBytes,
+                effectiveSecondaryPath,
+                overridePath,
+                metadata.SourceKind,
+                metadata.SourceUri,
+                metadata.ETag,
+                progress,
+                cancellationToken).ConfigureAwait(false);
+        }
+        finally
+        {
+            _gate.Release();
+        }
+    }
+
     private async Task<(LudusaviManifestCacheMetadata Metadata, LudusaviCompiledIndex Index)> CompileAndStoreAsync(
         byte[] primaryBytes,
         string? secondaryManifestPath,
@@ -229,7 +300,7 @@ public sealed class LudusaviManifestCacheService
               ?? throw new InvalidDataException("The FolderRewind override document is empty.");
 
         var sourceHash = ComputeSourceHash(primaryBytes, secondaryBytes, overrideBytes);
-        var generationId = sourceHash.ToLowerInvariant();
+        var generationId = ComputeGenerationId(sourceHash);
         progress?.Report(new DiscoveryProgress
         {
             ProviderId = "ludusavi",
@@ -374,6 +445,12 @@ public sealed class LudusaviManifestCacheService
         }
 
         return Convert.ToHexString(hash.GetHashAndReset()).ToLowerInvariant();
+    }
+
+    private static string ComputeGenerationId(string sourceHash)
+    {
+        var value = $"ludusavi-index-v{LudusaviCompiledIndex.CurrentSchemaVersion}:{sourceHash}";
+        return Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(value))).ToLowerInvariant();
     }
 
     private static async Task WriteJsonAsync<T>(

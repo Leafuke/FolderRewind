@@ -15,6 +15,9 @@ public sealed class LudusaviManifestCompilerTests
             Hades:
               alias:
                 - Hades Game
+              installDir:
+                Hades: {}
+                Hades Demo: {}
               files:
                 '<home>/Saved Games/Hades/*.sav':
                   tags: [save]
@@ -29,6 +32,9 @@ public sealed class LudusaviManifestCompilerTests
                   tags: [config]
               steam:
                 id: 1145360
+              id:
+                steamExtra: [1145361]
+                gogExtra: [123456]
               cloud:
                 steam: true
             """);
@@ -43,6 +49,11 @@ public sealed class LudusaviManifestCompilerTests
         Assert.HasCount(1, index.Games);
         var game = index.Games[0];
         Assert.AreEqual("1145360", game.ExternalIds["steam"]);
+        Assert.AreEqual("1145361", game.ExternalIds["steamExtra"]);
+        Assert.AreEqual("123456", game.ExternalIds["gogExtra"]);
+        CollectionAssert.AreEquivalent(
+            new[] { "Hades", "Hades Demo" },
+            game.InstallDirectoryHints.ToArray());
         Assert.HasCount(1, game.Files);
         Assert.HasCount(1, game.Registry);
         Assert.AreEqual(BackupResourceKind.Registry, game.Registry[0].Kind);

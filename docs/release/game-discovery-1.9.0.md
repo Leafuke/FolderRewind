@@ -15,6 +15,7 @@ Heroic, Lutris, registry backup, remote overrides, automatic manifest updates, c
 
 - [x] Opening the Beta page performs no network request; download/update is button-driven.
 - [x] Cache generations are atomic and retain the current and previous valid generation.
+- [x] Legacy compiled index v1 caches rebuild locally as v2 from their retained manifest without a network request.
 - [x] Repository and installer contain no Ludusavi manifest or compiled index.
 - [x] Registry candidates remain visible and disabled.
 - [x] Default scanning only resolves definitions backed by launcher installation evidence; it does not probe uninstalled games.

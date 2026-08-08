@@ -5,7 +5,7 @@ namespace FolderRewind.Models;
 
 public sealed class LudusaviCompiledIndex
 {
-    public const int CurrentSchemaVersion = 1;
+    public const int CurrentSchemaVersion = 2;
 
     public int SchemaVersion { get; init; } = CurrentSchemaVersion;
     public string SourceSha256 { get; init; } = string.Empty;

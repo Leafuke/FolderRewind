@@ -29,6 +29,7 @@ public sealed class ResolvedLudusaviResource
     public required string FixedRoot { get; init; }
     public IReadOnlyList<string> IncludePatterns { get; init; } = Array.Empty<string>();
     public BackupResourceKind Kind { get; init; }
+    public bool UsesStoreUserIdWildcard { get; init; }
 }
 
 public sealed class LudusaviPathExpressionResolver
@@ -56,12 +57,19 @@ public sealed class LudusaviPathExpressionResolver
 
         var replacements = CreateReplacements(installation, storeUserId);
         var unresolved = false;
+        var usesStoreUserIdWildcard = false;
         var expanded = PlaceholderRegex.Replace(resource.Expression, match =>
         {
             var key = match.Groups["name"].Value;
             if (replacements.TryGetValue(key, out var value) && !string.IsNullOrWhiteSpace(value))
             {
                 return value;
+            }
+
+            if (string.Equals(key, "storeUserId", StringComparison.OrdinalIgnoreCase))
+            {
+                usesStoreUserIdWildcard = true;
+                return "*";
             }
 
             unresolved = true;
@@ -126,7 +134,8 @@ public sealed class LudusaviPathExpressionResolver
         {
             FixedRoot = fixedRoot,
             IncludePatterns = includePatterns,
-            Kind = kind
+            Kind = kind,
+            UsesStoreUserIdWildcard = usesStoreUserIdWildcard
         };
     }
 

@@ -239,7 +239,11 @@ public sealed class GameDiscoveryPageViewModel : ViewModelBase, IDisposable
 
     private async Task ScanCoreAsync(CancellationToken token)
     {
-        var current = await _cacheService.LoadCurrentAsync(token);
+        var current = await _cacheService.EnsureCurrentAsync(
+            EmptyToNull(Settings.SecondaryManifestPath),
+            EmptyToNull(Settings.OverridePath),
+            CreateProgress(),
+            token);
         if (current == null)
         {
             HasCache = false;
@@ -317,7 +321,11 @@ public sealed class GameDiscoveryPageViewModel : ViewModelBase, IDisposable
     {
         try
         {
-            var current = await _cacheService.LoadCurrentAsync(token);
+            var current = await _cacheService.EnsureCurrentAsync(
+                EmptyToNull(Settings.SecondaryManifestPath),
+                EmptyToNull(Settings.OverridePath),
+                progress: null,
+                cancellationToken: token);
             if (current == null)
             {
                 HasCache = false;

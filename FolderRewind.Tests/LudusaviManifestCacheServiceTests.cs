@@ -2,6 +2,7 @@ using FolderRewind.Models;
 using FolderRewind.Services.Discovery;
 using System.Net;
 using System.Net.Http.Headers;
+using System.Text.Json;
 
 namespace FolderRewind.Tests;
 
@@ -59,7 +60,7 @@ public sealed class LudusaviManifestCacheServiceTests
 
         Assert.IsTrue(File.Exists(Path.Combine(cacheRoot, "current.json")));
         Assert.IsTrue(File.Exists(Path.Combine(generationRoot, "manifest.yaml")));
-        Assert.IsTrue(File.Exists(Path.Combine(generationRoot, "index.v1.json.gz")));
+        Assert.IsTrue(File.Exists(Path.Combine(generationRoot, "index.v2.json.gz")));
         Assert.IsTrue(File.Exists(Path.Combine(generationRoot, "metadata.json")));
     }
 
@@ -91,6 +92,48 @@ public sealed class LudusaviManifestCacheServiceTests
         Assert.AreEqual(LudusaviManifestUpdateStatus.Updated, first.Status);
         Assert.AreEqual(LudusaviManifestUpdateStatus.NotModified, second.Status);
         Assert.AreEqual(first.Metadata.GenerationId, second.Metadata.GenerationId);
+    }
+
+    [TestMethod]
+    public async Task LegacyCompiledIndexIsRebuiltFromCachedManifestWithoutNetwork()
+    {
+        var cacheRoot = Path.Combine(_root, "cache");
+        var legacyGenerationId = new string('a', 64);
+        var legacyRoot = Path.Combine(cacheRoot, "generations", legacyGenerationId);
+        Directory.CreateDirectory(legacyRoot);
+        await File.WriteAllTextAsync(
+            Path.Combine(legacyRoot, "manifest.yaml"),
+            "Game Extended:\n  installDir:\n    GameFolder: {}\n");
+        await File.WriteAllTextAsync(
+            Path.Combine(legacyRoot, "metadata.json"),
+            JsonSerializer.Serialize(new LudusaviManifestCacheMetadata
+            {
+                GenerationId = legacyGenerationId,
+                SourceSha256 = new string('b', 64),
+                SourceKind = "upstream",
+                SourceUri = "https://example.test/manifest.yaml",
+                ETag = "\"legacy\"",
+                UpdatedAtUtc = DateTime.UtcNow
+            }));
+        await File.WriteAllTextAsync(
+            Path.Combine(cacheRoot, "current.json"),
+            JsonSerializer.Serialize(new LudusaviManifestPointer { GenerationId = legacyGenerationId }));
+        await File.WriteAllTextAsync(Path.Combine(legacyRoot, "index.v1.json.gz"), "legacy");
+        var service = new LudusaviManifestCacheService(cacheRoot);
+
+        var current = await service.EnsureCurrentAsync(null, null, null, CancellationToken.None);
+
+        Assert.IsNotNull(current);
+        Assert.AreNotEqual(legacyGenerationId, current.Value.Metadata.GenerationId);
+        Assert.AreEqual(LudusaviCompiledIndex.CurrentSchemaVersion, current.Value.Index.SchemaVersion);
+        CollectionAssert.AreEqual(
+            new[] { "GameFolder" },
+            current.Value.Index.Games.Single().InstallDirectoryHints.ToArray());
+        Assert.IsTrue(File.Exists(Path.Combine(
+            cacheRoot,
+            "generations",
+            current.Value.Metadata.GenerationId,
+            "index.v2.json.gz")));
     }
 
     private sealed class SequenceHandler : HttpMessageHandler

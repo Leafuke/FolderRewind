@@ -1,5 +1,6 @@
 using FolderRewind.Models;
 using FolderRewind.Services.Discovery;
+using System.Text;
 
 namespace FolderRewind.Tests;
 
@@ -46,6 +47,8 @@ public sealed class LudusaviDiscoveryProviderTests
         Assert.IsTrue(LudusaviGlobMatcher.IsMatch("Saves/SlotA.SAV", "saves/slot[AB].sav"));
         Assert.IsFalse(LudusaviGlobMatcher.IsMatch("Saves/nested/SlotA.sav", "Saves/*.sav"));
         Assert.IsTrue(LudusaviGlobMatcher.IsMatch("Saves/nested/SlotA.sav", "Saves/**/*.sav"));
+        Assert.IsTrue(LudusaviGlobMatcher.IsMatch("account/slot.sav", "*/*.sav"));
+        Assert.IsFalse(LudusaviGlobMatcher.IsMatch("account/nested/slot.sav", "*/*.sav"));
         Assert.IsFalse(LudusaviGlobMatcher.IsSafeRelativePattern("../outside/*.sav"));
     }
 
@@ -64,8 +67,8 @@ public sealed class LudusaviDiscoveryProviderTests
             DisplayName = "Hades",
             ExternalIds = new Dictionary<string, string>
             {
-                ["steam"] = "1145360",
-                ["gog"] = "123456"
+                ["steamExtra"] = "1145360",
+                ["gogExtra"] = "123456"
             },
             Files = new[] { FileResource("<root>/Saves/*.sav") },
             Registry = new[]
@@ -163,6 +166,108 @@ public sealed class LudusaviDiscoveryProviderTests
         var resource = result.Candidates.Single().BackupSets.Single().Resources.Single();
         Assert.IsTrue(resource.FixedRootExists);
         Assert.IsTrue(resource.IsSelectedByDefault);
+    }
+
+    [TestMethod]
+    public async Task InstallDirectoryHintsMatchSteamAndGogWithoutStrongIds()
+    {
+        var steamRoot = Path.Combine(_root, "SteamFolder");
+        var gogRoot = Path.Combine(_root, "GogFolder");
+        Directory.CreateDirectory(Path.Combine(steamRoot, "Saves"));
+        Directory.CreateDirectory(Path.Combine(gogRoot, "Saves"));
+        var games = new[]
+        {
+            new LudusaviCompiledGame
+            {
+                DefinitionId = "Steam Extended Edition",
+                DisplayName = "Steam Extended Edition",
+                InstallDirectoryHints = new[] { "SteamFolder" },
+                Files = new[] { FileResource("<root>/Saves/*.sav") }
+            },
+            new LudusaviCompiledGame
+            {
+                DefinitionId = "GOG Extended Edition",
+                DisplayName = "GOG Extended Edition",
+                InstallDirectoryHints = new[] { "GogFolder" },
+                Files = new[] { FileResource("<root>/Saves/*.sav") }
+            }
+        };
+        var installations = new[]
+        {
+            Installation(GameStore.Steam, "999999", steamRoot, "Localized Steam Name"),
+            Installation(GameStore.Gog, string.Empty, gogRoot, "Localized GOG Name")
+        };
+        var provider = CreateProvider(games, installations);
+
+        var result = await provider.DiscoverAsync(new DiscoveryRequest(), null, CancellationToken.None);
+
+        Assert.HasCount(2, result.Candidates);
+        Assert.IsTrue(result.Candidates.All(candidate =>
+            candidate.Installations.Single().Evidence.Single().Confidence == DiscoveryConfidence.Medium));
+        Assert.IsTrue(result.Candidates.SelectMany(candidate => candidate.BackupSets)
+            .SelectMany(set => set.Resources)
+            .All(resource => resource.IsSelectedByDefault));
+    }
+
+    [TestMethod]
+    public async Task MonumentValleyEpicInstallUsesDirectoryHintAndWildcardUserId()
+    {
+        var installRoot = Path.Combine(_root, "MonumentValley2");
+        var gameDataRoot = Path.Combine(
+            _root,
+            "AppData",
+            "LocalLow",
+            "ustwo games",
+            "Monument Valley 2");
+        var cloudRoot = Path.Combine(gameDataRoot, "CloudSave");
+        Directory.CreateDirectory(installRoot);
+        Directory.CreateDirectory(cloudRoot);
+        using var manifest = new MemoryStream(Encoding.UTF8.GetBytes(
+            """
+            "Monument Valley 2: Panoramic Edition":
+              files:
+                "<home>/AppData/LocalLow/ustwo games/Monument Valley 2/CloudSave/<storeUserId>/*.sav":
+                  tags: [save]
+                  when:
+                    - os: windows
+                      store: epic
+                "<home>/AppData/LocalLow/ustwo games/Monument Valley 2/UserData_<storeUserId>":
+                  tags: [save]
+                  when:
+                    - os: windows
+              installDir:
+                Monument Valley 2: {}
+            """));
+        var compiled = new LudusaviManifestCompiler().Compile(
+            manifest,
+            null,
+            null,
+            "fixture",
+            CancellationToken.None);
+        var provider = CreateProvider(
+            compiled.Games,
+            new[]
+            {
+                Installation(
+                    GameStore.Epic,
+                    "d2e5e3fe19f24372a67c44f931a26740",
+                    installRoot,
+                    "《Monument Valley II》")
+            });
+
+        var result = await provider.DiscoverAsync(new DiscoveryRequest(), null, CancellationToken.None);
+
+        var candidate = result.Candidates.Single();
+        Assert.AreEqual(DiscoveryConfidence.Medium, candidate.Installations.Single().Evidence.Single().Confidence);
+        var resources = candidate.BackupSets.Single().Resources;
+        Assert.HasCount(2, resources);
+        var cloud = resources.Single(resource => resource.FixedRoot == Path.GetFullPath(cloudRoot));
+        CollectionAssert.AreEqual(new[] { "*/*.sav" }, cloud.IncludePatterns.ToArray());
+        Assert.IsTrue(cloud.FixedRootExists);
+        Assert.IsTrue(cloud.IsSelectedByDefault);
+        var userData = resources.Single(resource => resource.FixedRoot == Path.GetFullPath(gameDataRoot));
+        CollectionAssert.AreEqual(new[] { "UserData_*" }, userData.IncludePatterns.ToArray());
+        Assert.IsTrue(userData.Evidence.Single().Description.Contains("single path-segment wildcard", StringComparison.Ordinal));
     }
 
     private LudusaviDiscoveryProvider CreateProvider(

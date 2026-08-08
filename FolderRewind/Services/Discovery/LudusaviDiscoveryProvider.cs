@@ -232,7 +232,9 @@ public sealed class LudusaviDiscoveryProvider : IFolderRewindDiscoveryProvider
                 {
                     Confidence = confidence,
                     Kind = evidenceKind,
-                    Description = evidenceDescription,
+                    Description = resolved.UsesStoreUserIdWildcard
+                        ? $"{evidenceDescription} The unknown store user ID is preserved as a single path-segment wildcard."
+                        : evidenceDescription,
                     Source = ProviderId
                 }
             }
@@ -302,13 +304,17 @@ public sealed class LudusaviDiscoveryProvider : IFolderRewindDiscoveryProvider
             cancellationToken.ThrowIfCancellationRequested();
             foreach (var store in new[] { GameStore.Steam, GameStore.Gog })
             {
-                if (!definition.ExternalIds.TryGetValue(StoreKey(store), out var ids))
+                var storeKey = StoreKey(store);
+                foreach (var externalIdKey in new[] { storeKey, $"{storeKey}Extra" })
                 {
-                    continue;
-                }
-                foreach (var id in SplitIds(ids))
-                {
-                    AddLookup(strongIdIndex, StrongIdKey(store, id), definition);
+                    if (!definition.ExternalIds.TryGetValue(externalIdKey, out var ids))
+                    {
+                        continue;
+                    }
+                    foreach (var id in SplitIds(ids))
+                    {
+                        AddLookup(strongIdIndex, StrongIdKey(store, id), definition);
+                    }
                 }
             }
         }

@@ -128,7 +128,7 @@ public sealed class LudusaviManifestCompiler
                 .Distinct(StringComparer.OrdinalIgnoreCase)
                 .ToList(),
             ExternalIds = externalIds,
-            InstallDirectoryHints = ScalarValues(GetNode(gameNode, "installDir"))
+            InstallDirectoryHints = InstallDirectoryValues(GetNode(gameNode, "installDir"))
                 .Where(value => !string.IsNullOrWhiteSpace(value))
                 .Distinct(StringComparer.OrdinalIgnoreCase)
                 .ToList(),
@@ -294,6 +294,27 @@ public sealed class LudusaviManifestCompiler
                     }
                 }
                 yield break;
+        }
+    }
+
+    private static IEnumerable<string> InstallDirectoryValues(YamlNode? node)
+    {
+        if (node is YamlMappingNode mapping)
+        {
+            foreach (var pair in mapping.Children)
+            {
+                var value = ScalarValue(pair.Key).Trim();
+                if (!string.IsNullOrWhiteSpace(value))
+                {
+                    yield return value;
+                }
+            }
+            yield break;
+        }
+
+        foreach (var value in ScalarValues(node))
+        {
+            yield return value;
         }
     }
 
