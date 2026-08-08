@@ -41,6 +41,15 @@ namespace FolderRewind.Services
             public RemoteTemplateIndexItem? IndexItem { get; init; }
         }
 
+        private sealed class RawIndexResult
+        {
+            public bool Success { get; init; }
+            public IReadOnlyList<RemoteTemplateIndexItem> Items { get; init; } = Array.Empty<RemoteTemplateIndexItem>();
+            public string Json { get; init; } = string.Empty;
+            public string SourceDisplayName { get; init; } = string.Empty;
+            public bool UsedCache { get; init; }
+        }
+
         public static bool IsValidShareCode(string? shareCode)
         {
             return !string.IsNullOrWhiteSpace(shareCode)
@@ -49,75 +58,35 @@ namespace FolderRewind.Services
 
         public static async Task<FetchIndexResult> GetIndexAsync(bool allowCachedFallback = true, CancellationToken ct = default)
         {
-            var candidates = BuildIndexCandidates();
-            FetchIndexResult? emptyIndexResult = null;
-
-            // 多源顺序尝试：主源失败不立刻报错，尽量用可用镜像提升成功率。
-            foreach (var candidate in candidates)
-            {
-                try
-                {
-                    using var request = new HttpRequestMessage(HttpMethod.Get, candidate.Url);
-                    using var response = await Http.SendAsync(request, HttpCompletionOption.ResponseHeadersRead, ct);
-                    response.EnsureSuccessStatusCode();
-
-                    var json = await response.Content.ReadAsStringAsync(ct);
-                    var templates = DeserializeIndex(json);
-
-                    WriteCachedIndex(json);
-
-                    if (templates.Count > 0)
-                    {
-                        return new FetchIndexResult
-                        {
-                            Success = true,
-                            Templates = templates,
-                            SourceDisplayName = candidate.DisplayName
-                        };
-                    }
-
-                    emptyIndexResult ??= new FetchIndexResult
-                    {
-                        Success = true,
-                        Templates = templates,
-                        SourceDisplayName = candidate.DisplayName,
-                        Message = I18n.GetString("OfficialTemplates_IndexEmpty")
-                    };
-                }
-                catch (OperationCanceledException)
-                {
-                    throw;
-                }
-                catch (Exception ex)
-                {
-                    LogService.Log(I18n.Format("OfficialTemplates_FetchIndexFailedLog", candidate.Url, ex.Message), LogLevel.Warning);
-                }
-            }
-
-            if (emptyIndexResult != null)
-            {
-                return emptyIndexResult;
-            }
-
-            // 网络全部失败时再回退本地缓存，保证离线场景也能继续选模板。
-            if (allowCachedFallback && TryReadCachedIndex(out var cachedTemplates))
+            var v2 = await FetchRawIndexAsync(isV2: true, ct);
+            var legacy = await FetchRawIndexAsync(isV2: false, ct);
+            if (!v2.Success && allowCachedFallback) v2 = ReadCachedIndex(isV2: true);
+            if (!legacy.Success && allowCachedFallback) legacy = ReadCachedIndex(isV2: false);
+            if (!v2.Success && !legacy.Success)
             {
                 return new FetchIndexResult
                 {
-                    Success = true,
-                    Templates = cachedTemplates,
-                    UsedCache = true,
-                    SourceDisplayName = I18n.GetString("OfficialTemplates_SourceCache"),
-                    Message = cachedTemplates.Count == 0
-                        ? I18n.GetString("OfficialTemplates_IndexEmpty")
-                        : I18n.GetString("OfficialTemplates_UsingCachedIndex")
+                    Success = false,
+                    Message = I18n.GetString("OfficialTemplates_FetchIndexFailed")
                 };
             }
 
+            var templates = OfficialPresetIndexMergePolicy.MergeV2First(
+                v2.Items,
+                legacy.Items,
+                item => string.IsNullOrWhiteSpace(item.ShareId) ? item.TemplateId : item.ShareId);
+            var usedCache = v2.UsedCache || legacy.UsedCache;
             return new FetchIndexResult
             {
-                Success = false,
-                Message = I18n.GetString("OfficialTemplates_FetchIndexFailed")
+                Success = true,
+                Templates = templates,
+                UsedCache = usedCache,
+                SourceDisplayName = string.Join(" + ", new[] { v2.SourceDisplayName, legacy.SourceDisplayName }
+                    .Where(value => !string.IsNullOrWhiteSpace(value))
+                    .Distinct(StringComparer.CurrentCultureIgnoreCase)),
+                Message = templates.Count == 0
+                    ? I18n.GetString("OfficialTemplates_IndexEmpty")
+                    : (usedCache ? I18n.GetString("OfficialTemplates_UsingCachedIndex") : string.Empty)
             };
         }
 
@@ -152,7 +121,7 @@ namespace FolderRewind.Services
                 };
             }
 
-            var cachePath = GetTemplateCachePath(item.ShareCode);
+            var cachePath = GetTemplateCachePath(item.ShareCode, item.IsV2);
             var tempPath = cachePath + ".tmp";
 
             string lastError = string.Empty;
@@ -209,8 +178,12 @@ namespace FolderRewind.Services
                     }
 
                     template.ShareCode = string.IsNullOrWhiteSpace(template.ShareCode) ? item.ShareCode : template.ShareCode.Trim().ToUpperInvariant();
+                    template.ShareId = string.IsNullOrWhiteSpace(template.ShareId)
+                        ? (string.IsNullOrWhiteSpace(item.ShareId) ? item.TemplateId : item.ShareId)
+                        : template.ShareId.Trim();
                     template.GameName = string.IsNullOrWhiteSpace(template.GameName) ? item.GameName : template.GameName;
                     template.SteamAppId ??= item.SteamAppId;
+                    template.IsRecommended = item.IsRecommended;
 
                     return new DownloadTemplateResult
                     {
@@ -243,21 +216,68 @@ namespace FolderRewind.Services
 
         public static bool TryReadCachedIndex(out IReadOnlyList<RemoteTemplateIndexItem> templates)
         {
-            templates = Array.Empty<RemoteTemplateIndexItem>();
-            var cachePath = GetIndexCachePath();
-            if (!File.Exists(cachePath))
-            {
-                return false;
-            }
+            var v2 = ReadCachedIndex(isV2: true);
+            var legacy = ReadCachedIndex(isV2: false);
+            templates = OfficialPresetIndexMergePolicy.MergeV2First(
+                v2.Items,
+                legacy.Items,
+                item => string.IsNullOrWhiteSpace(item.ShareId) ? item.TemplateId : item.ShareId);
+            return v2.Success || legacy.Success;
+        }
 
+        private static async Task<RawIndexResult> FetchRawIndexAsync(bool isV2, CancellationToken ct)
+        {
+            foreach (var candidate in BuildIndexCandidates(isV2))
+            {
+                try
+                {
+                    using var request = new HttpRequestMessage(HttpMethod.Get, candidate.Url);
+                    using var response = await Http.SendAsync(request, HttpCompletionOption.ResponseHeadersRead, ct);
+                    response.EnsureSuccessStatusCode();
+                    var json = await response.Content.ReadAsStringAsync(ct);
+                    var items = DeserializeIndex(json, isV2);
+                    WriteCachedIndex(json, isV2);
+                    return new RawIndexResult
+                    {
+                        Success = true,
+                        Items = items,
+                        Json = json,
+                        SourceDisplayName = candidate.DisplayName
+                    };
+                }
+                catch (OperationCanceledException)
+                {
+                    throw;
+                }
+                catch (Exception ex)
+                {
+                    LogService.Log(
+                        I18n.Format("OfficialTemplates_FetchIndexFailedLog", candidate.Url, ex.Message),
+                        LogLevel.Warning);
+                }
+            }
+            return new RawIndexResult();
+        }
+
+        private static RawIndexResult ReadCachedIndex(bool isV2)
+        {
+            var path = GetIndexCachePath(isV2);
+            if (!File.Exists(path)) return new RawIndexResult();
             try
             {
-                templates = DeserializeIndex(File.ReadAllText(cachePath));
-                return true;
+                var json = File.ReadAllText(path);
+                return new RawIndexResult
+                {
+                    Success = true,
+                    Items = DeserializeIndex(json, isV2),
+                    Json = json,
+                    UsedCache = true,
+                    SourceDisplayName = I18n.GetString("OfficialTemplates_SourceCache")
+                };
             }
             catch
             {
-                return false;
+                return new RawIndexResult();
             }
         }
 
@@ -270,7 +290,7 @@ namespace FolderRewind.Services
             return client;
         }
 
-        private static IReadOnlyList<RemoteTemplateIndexItem> DeserializeIndex(string json)
+        private static IReadOnlyList<RemoteTemplateIndexItem> DeserializeIndex(string json, bool isV2)
         {
             if (string.IsNullOrWhiteSpace(json))
             {
@@ -278,11 +298,26 @@ namespace FolderRewind.Services
             }
 
             using var jsonDocument = JsonDocument.Parse(json);
+            if (isV2)
+            {
+                if (!TemplateFormatPolicy.IsCurrentBackupPresetIndex(jsonDocument.RootElement))
+                {
+                    throw new JsonException("Unsupported official backup preset index schema.");
+                }
+                var v2Document = JsonSerializer.Deserialize(json, AppJsonContext.Default.RemoteBackupPresetIndexDocument)
+                    ?? throw new JsonException("Invalid official backup preset index.");
+                foreach (var item in v2Document.Presets)
+                {
+                    item.IsV2 = true;
+                    item.TemplateId = item.ShareId;
+                    item.FileUrl = item.ContentPath;
+                }
+                return NormalizeIndexItems(v2Document.Presets);
+            }
             if (!TemplateFormatPolicy.IsCurrentOfficialIndex(jsonDocument.RootElement))
             {
                 throw new JsonException("Unsupported official template index schema.");
             }
-
             var document = JsonSerializer.Deserialize(json, AppJsonContext.Default.RemoteTemplateIndexDocument)
                 ?? throw new JsonException("Invalid official template index.");
             return NormalizeIndexItems(document.Templates);
@@ -300,16 +335,20 @@ namespace FolderRewind.Services
 
                 // 统一清洗字段，后续 UI/导入逻辑就不用到处写 null 与 Trim 防守。
                 item.ShareCode = item.ShareCode.Trim().ToUpperInvariant();
+                item.ShareId = item.ShareId?.Trim() ?? string.Empty;
                 item.TemplateId = item.TemplateId?.Trim() ?? string.Empty;
+                if (string.IsNullOrWhiteSpace(item.ShareId)) item.ShareId = item.TemplateId;
                 item.Name = item.Name?.Trim() ?? string.Empty;
                 item.Author = item.Author?.Trim() ?? string.Empty;
                 item.Description = item.Description?.Trim() ?? string.Empty;
                 item.GameName = item.GameName?.Trim() ?? string.Empty;
                 item.BaseConfigType = string.IsNullOrWhiteSpace(item.BaseConfigType) ? "Default" : item.BaseConfigType.Trim();
                 item.RequiredPluginIds ??= new ObservableCollection<string>();
+                item.Matches ??= new ObservableCollection<RemoteBackupPresetMatchKey>();
                 item.FileUrl = item.FileUrl?.Trim() ?? string.Empty;
+                item.ContentPath = item.ContentPath?.Trim() ?? string.Empty;
                 item.Sha256 = item.Sha256?.Trim().ToUpperInvariant() ?? string.Empty;
-                item.FileUrl = ResolveTemplateUrl(item.FileUrl, item.ShareCode);
+                item.FileUrl = ResolveTemplateUrl(item.FileUrl, item.ShareCode, item.IsV2);
                 normalized.Add(item);
             }
 
@@ -320,20 +359,24 @@ namespace FolderRewind.Services
                 .ToList();
         }
 
-        private static IReadOnlyList<DownloadSourceCandidate> BuildIndexCandidates()
+        private static IReadOnlyList<DownloadSourceCandidate> BuildIndexCandidates(bool isV2)
         {
-            var rawIndexUrl = $"https://raw.githubusercontent.com/{OfficialRepoOwner}/{OfficialRepoName}/{OfficialRepoBranch}/index.json";
+            var relativePath = isV2 ? "presets/index.json" : "index.json";
+            var rawIndexUrl = $"https://raw.githubusercontent.com/{OfficialRepoOwner}/{OfficialRepoName}/{OfficialRepoBranch}/{relativePath}";
             return DownloadSourceService.BuildCandidates(rawIndexUrl);
         }
 
-        private static string ResolveTemplateUrl(string currentUrl, string shareCode)
+        private static string ResolveTemplateUrl(string currentUrl, string shareCode, bool isV2)
         {
             if (Uri.TryCreate(currentUrl, UriKind.Absolute, out _))
             {
                 return currentUrl;
             }
 
-            return $"https://raw.githubusercontent.com/{OfficialRepoOwner}/{OfficialRepoName}/{OfficialRepoBranch}/templates/{shareCode}.json";
+            var relativePath = isV2
+                ? $"presets/{shareCode}.frpreset.json"
+                : $"templates/{shareCode}.json";
+            return $"https://raw.githubusercontent.com/{OfficialRepoOwner}/{OfficialRepoName}/{OfficialRepoBranch}/{relativePath}";
         }
 
         private static string GetOfficialTemplateCacheDirectory()
@@ -341,19 +384,20 @@ namespace FolderRewind.Services
             return Path.Combine(ConfigService.ConfigDirectory, "cache", "official-templates");
         }
 
-        private static string GetIndexCachePath()
+        private static string GetIndexCachePath(bool isV2)
         {
-            return Path.Combine(GetOfficialTemplateCacheDirectory(), "index.json");
+            return Path.Combine(GetOfficialTemplateCacheDirectory(), isV2 ? "presets-index.json" : "index.json");
         }
 
-        private static string GetTemplateCachePath(string shareCode)
+        private static string GetTemplateCachePath(string shareCode, bool isV2 = false)
         {
-            return Path.Combine(GetOfficialTemplateCacheDirectory(), "templates", $"{shareCode.Trim().ToUpperInvariant()}{BackupPresetService.ShareFileExtension}");
+            var extension = isV2 ? BackupPresetService.ShareFileExtension : BackupPresetService.LegacyShareFileExtension;
+            return Path.Combine(GetOfficialTemplateCacheDirectory(), "templates", $"{shareCode.Trim().ToUpperInvariant()}{extension}");
         }
 
-        private static void WriteCachedIndex(string json)
+        private static void WriteCachedIndex(string json, bool isV2)
         {
-            var path = GetIndexCachePath();
+            var path = GetIndexCachePath(isV2);
             Directory.CreateDirectory(Path.GetDirectoryName(path)!);
             File.WriteAllText(path, json);
         }

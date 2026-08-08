@@ -308,6 +308,9 @@ namespace FolderRewind.Models
 
     public class RemoteTemplateIndexItem
     {
+        [JsonPropertyName("shareId")]
+        public string ShareId { get; set; } = string.Empty;
+
         [JsonPropertyName("shareCode")]
         public string ShareCode { get; set; } = string.Empty;
 
@@ -344,11 +347,23 @@ namespace FolderRewind.Models
         [JsonPropertyName("fileUrl")]
         public string FileUrl { get; set; } = string.Empty;
 
+        [JsonPropertyName("contentPath")]
+        public string ContentPath { get; set; } = string.Empty;
+
+        [JsonPropertyName("matches")]
+        public ObservableCollection<RemoteBackupPresetMatchKey> Matches { get; set; } = new();
+
+        [JsonPropertyName("isRecommended")]
+        public bool IsRecommended { get; set; }
+
         [JsonPropertyName("sha256")]
         public string Sha256 { get; set; } = string.Empty;
 
         [JsonPropertyName("isDisabled")]
         public bool IsDisabled { get; set; }
+
+        [JsonIgnore]
+        public bool IsV2 { get; set; }
 
         [JsonIgnore]
         public string DisplayName
@@ -363,6 +378,33 @@ namespace FolderRewind.Models
                 return Name;
             }
         }
+    }
+
+    public class RemoteBackupPresetMatchKey
+    {
+        [JsonPropertyName("providerId")]
+        public string ProviderId { get; set; } = string.Empty;
+
+        [JsonPropertyName("definitionId")]
+        public string DefinitionId { get; set; } = string.Empty;
+
+        [JsonPropertyName("externalIds")]
+        public Dictionary<string, string> ExternalIds { get; set; } = new(StringComparer.OrdinalIgnoreCase);
+    }
+
+    public class RemoteBackupPresetIndexDocument
+    {
+        [JsonPropertyName("magic")]
+        public string Magic { get; set; } = string.Empty;
+
+        [JsonPropertyName("schemaVersion")]
+        public string SchemaVersion { get; set; } = string.Empty;
+
+        [JsonPropertyName("generatedAtUtc")]
+        public DateTime GeneratedAtUtc { get; set; } = DateTime.UtcNow;
+
+        [JsonPropertyName("presets")]
+        public ObservableCollection<RemoteTemplateIndexItem> Presets { get; set; } = new();
     }
 
     public class RemoteTemplateIndexDocument

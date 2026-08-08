@@ -14,6 +14,8 @@ namespace FolderRewind.Models
     [JsonSerializable(typeof(TemplateShareEnvelope))]
     [JsonSerializable(typeof(RemoteTemplateIndexItem))]
     [JsonSerializable(typeof(RemoteTemplateIndexDocument))]
+    [JsonSerializable(typeof(RemoteBackupPresetIndexDocument))]
+    [JsonSerializable(typeof(RemoteBackupPresetMatchKey))]
     [JsonSerializable(typeof(BackupMetadata))]
     [JsonSerializable(typeof(BackupMetadataState))]
     [JsonSerializable(typeof(BackupChangeRecord))]
