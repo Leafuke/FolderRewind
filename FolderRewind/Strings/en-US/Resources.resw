@@ -4909,4 +4909,63 @@ Pull request: {1}</value>
   <data name="History_SaveFailed" xml:space="preserve">
     <value>Failed to save backup history: {0}</value>
   </data>
+  <data name="HomePage_AutoDiscoverGames.Text" xml:space="preserve"><value>Discover game saves Beta</value></data>
+  <data name="GameDiscoveryPage_Title.Text" xml:space="preserve"><value>Discover game saves Beta</value></data>
+  <data name="GameDiscoveryPage_Description.Text" xml:space="preserve"><value>Find backup data from local game stores and the Ludusavi game database. No configuration changes before confirmation.</value></data>
+  <data name="GameDiscoveryPage_BetaNotice.Title" xml:space="preserve"><value>Data source and cache</value></data>
+  <data name="GameDiscoveryPage_BetaNotice.Message" xml:space="preserve"><value>Opening this page never connects to the network. FolderRewind downloads directly from Ludusavi only after you click Download and scan or Check for updates.</value></data>
+  <data name="GameDiscoveryPage_DataHeading.Text" xml:space="preserve"><value>Game database</value></data>
+  <data name="GameDiscoveryPage_DownloadAndScan.Content" xml:space="preserve"><value>Download and scan</value></data>
+  <data name="GameDiscoveryPage_CheckUpdate.Content" xml:space="preserve"><value>Check update and scan</value></data>
+  <data name="GameDiscoveryPage_ImportManifest.Content" xml:space="preserve"><value>Import local manifest</value></data>
+  <data name="GameDiscoveryPage_SecondaryManifest.Text" xml:space="preserve"><value>Secondary manifest</value></data>
+  <data name="GameDiscoveryPage_Override.Text" xml:space="preserve"><value>Local override</value></data>
+  <data name="Common_Browse.Content" xml:space="preserve"><value>Browse</value></data>
+  <data name="GameDiscoveryPage_DeleteRoot.Content" xml:space="preserve"><value>Delete</value></data>
+  <data name="GameDiscoveryPage_LibraryRoots.Header" xml:space="preserve"><value>Game store roots</value></data>
+  <data name="GameDiscoveryPage_AddSteamRoot.Content" xml:space="preserve"><value>Add Steam root</value></data>
+  <data name="GameDiscoveryPage_AddGogRoot.Content" xml:space="preserve"><value>Add GOG root</value></data>
+  <data name="GameDiscoveryPage_AddEpicRoot.Content" xml:space="preserve"><value>Add Epic root</value></data>
+  <data name="GameDiscoveryPage_SaveRoots.Content" xml:space="preserve"><value>Save discovery settings</value></data>
+  <data name="GameDiscoveryPage_ScanHeading.Text" xml:space="preserve"><value>Scan and filter</value></data>
+  <data name="GameDiscoveryPage_Search.PlaceholderText" xml:space="preserve"><value>Search games or aliases</value></data>
+  <data name="GameDiscoveryPage_FilterAllStores.Content" xml:space="preserve"><value>All stores</value></data>
+  <data name="GameDiscoveryPage_FilterAllStatus.Content" xml:space="preserve"><value>All statuses</value></data>
+  <data name="GameDiscoveryPage_FilterNew.Content" xml:space="preserve"><value>New game</value></data>
+  <data name="GameDiscoveryPage_FilterNewResources.Content" xml:space="preserve"><value>New resources</value></data>
+  <data name="GameDiscoveryPage_FilterUpToDate.Content" xml:space="preserve"><value>Up to date</value></data>
+  <data name="GameDiscoveryPage_Scan.Content" xml:space="preserve"><value>Scan</value></data>
+  <data name="GameDiscoveryPage_Cancel.Content" xml:space="preserve"><value>Cancel</value></data>
+  <data name="GameDiscoveryPage_Review.Content" xml:space="preserve"><value>Review selected configurations</value></data>
+  <data name="GameDiscoveryPage_ConfirmHeading.Text" xml:space="preserve"><value>Final confirmation</value></data>
+  <data name="GameDiscoveryPage_ConfirmDescription.Text" xml:space="preserve"><value>Confirm names and destinations. All changes are saved once and rolled back in memory if saving fails.</value></data>
+  <data name="GameDiscoveryPage_Commit.Content" xml:space="preserve"><value>Add to FolderRewind</value></data>
+  <data name="GameDiscovery_Cache_Missing" xml:space="preserve"><value>No game database has been downloaded or imported yet.</value></data>
+  <data name="GameDiscovery_Cache_Invalid" xml:space="preserve"><value>The local cache is unavailable: {0}</value></data>
+  <data name="GameDiscovery_Cache_Ready" xml:space="preserve"><value>Cache ready · updated {0} · revision {1} · source {2}</value></data>
+  <data name="GameDiscovery_Status_NotModified" xml:space="preserve"><value>The upstream manifest is unchanged. Using the current cache.</value></data>
+  <data name="GameDiscovery_Status_Downloaded" xml:space="preserve"><value>Manifest updated. Scanning now.</value></data>
+  <data name="GameDiscovery_Status_Cancelled" xml:space="preserve"><value>Operation cancelled.</value></data>
+  <data name="GameDiscovery_Status_Failed" xml:space="preserve"><value>Operation failed: {0}</value></data>
+  <data name="GameDiscovery_Status_NoCache" xml:space="preserve"><value>Download or import a Ludusavi manifest first.</value></data>
+  <data name="GameDiscovery_Status_Complete" xml:space="preserve"><value>Scan complete.</value></data>
+  <data name="GameDiscovery_Status_New" xml:space="preserve"><value>New game</value></data>
+  <data name="GameDiscovery_Status_UpToDate" xml:space="preserve"><value>Up to date</value></data>
+  <data name="GameDiscovery_Status_NewResources" xml:space="preserve"><value>New resources</value></data>
+  <data name="GameDiscovery_ResultSummary" xml:space="preserve"><value>Found {0} games and {1} resources with {2} warnings in {3} seconds.</value></data>
+  <data name="GameDiscovery_ResourceMatches" xml:space="preserve"><value>{0} matching files · {1}</value></data>
+  <data name="GameDiscovery_Resource_RegistryUnsupported" xml:space="preserve"><value>Registry backup is not supported yet. This rule is visible but cannot be selected.</value></data>
+  <data name="GameDiscovery_Resource_ConstraintUnsupported" xml:space="preserve"><value>This rule contains a condition that cannot be matched safely yet.</value></data>
+  <data name="GameDiscovery_Resource_InvalidPath" xml:space="preserve"><value>The path expression is invalid or unsafe.</value></data>
+  <data name="GameDiscovery_Resource_Suppressed" xml:space="preserve"><value>Suppressed by specialized provider {0}: {1}</value></data>
+  <data name="GameDiscovery_Preset_Recommended" xml:space="preserve"><value>{0} (recommended)</value></data>
+  <data name="GameDiscoveryPage_PickManifest" xml:space="preserve"><value>Select a Ludusavi YAML manifest</value></data>
+  <data name="GameDiscoveryPage_PickOverride" xml:space="preserve"><value>Select a FolderRewind override JSON</value></data>
+  <data name="GameDiscoveryPage_PickStoreRoot" xml:space="preserve"><value>Select the {0} game library root</value></data>
+  <data name="GameDiscoveryPage_SaveFailed" xml:space="preserve"><value>Could not save discovery settings</value></data>
+  <data name="GameDiscoveryPage_NoSelectionTitle" xml:space="preserve"><value>No configuration to review</value></data>
+  <data name="GameDiscoveryPage_NoSelectionContent" xml:space="preserve"><value>Select at least one game, backup set, and supported filesystem resource.</value></data>
+  <data name="GameDiscoveryPage_CommitFailed" xml:space="preserve"><value>Could not save configurations</value></data>
+  <data name="GameDiscoveryPage_CommitComplete" xml:space="preserve"><value>Configurations saved</value></data>
+  <data name="GameDiscoveryPage_CommitSummary" xml:space="preserve"><value>Added {0} configurations and {1} sources.</value></data>
 </root>

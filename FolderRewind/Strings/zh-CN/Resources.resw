@@ -4909,4 +4909,63 @@ Pull Request：{1}</value>
   <data name="History_SaveFailed" xml:space="preserve">
     <value>保存备份历史失败：{0}</value>
   </data>
+  <data name="HomePage_AutoDiscoverGames.Text" xml:space="preserve"><value>自动发现游戏存档 Beta</value></data>
+  <data name="GameDiscoveryPage_Title.Text" xml:space="preserve"><value>自动发现游戏存档 Beta</value></data>
+  <data name="GameDiscoveryPage_Description.Text" xml:space="preserve"><value>从本机游戏平台和 Ludusavi 游戏数据库识别可备份的数据；确认前不会修改任何配置。</value></data>
+  <data name="GameDiscoveryPage_BetaNotice.Title" xml:space="preserve"><value>数据来源与缓存</value></data>
+  <data name="GameDiscoveryPage_BetaNotice.Message" xml:space="preserve"><value>首次进入不会联网。只有点击“下载并扫描”或“检查更新”时，才会直接从 Ludusavi 上游下载清单并保存在本地版本化缓存中。</value></data>
+  <data name="GameDiscoveryPage_DataHeading.Text" xml:space="preserve"><value>游戏数据库</value></data>
+  <data name="GameDiscoveryPage_DownloadAndScan.Content" xml:space="preserve"><value>下载并扫描</value></data>
+  <data name="GameDiscoveryPage_CheckUpdate.Content" xml:space="preserve"><value>检查更新并扫描</value></data>
+  <data name="GameDiscoveryPage_ImportManifest.Content" xml:space="preserve"><value>导入本地清单</value></data>
+  <data name="GameDiscoveryPage_SecondaryManifest.Text" xml:space="preserve"><value>次级清单</value></data>
+  <data name="GameDiscoveryPage_Override.Text" xml:space="preserve"><value>本地 Override</value></data>
+  <data name="Common_Browse.Content" xml:space="preserve"><value>浏览</value></data>
+  <data name="GameDiscoveryPage_DeleteRoot.Content" xml:space="preserve"><value>删除</value></data>
+  <data name="GameDiscoveryPage_LibraryRoots.Header" xml:space="preserve"><value>游戏平台根目录</value></data>
+  <data name="GameDiscoveryPage_AddSteamRoot.Content" xml:space="preserve"><value>添加 Steam 根目录</value></data>
+  <data name="GameDiscoveryPage_AddGogRoot.Content" xml:space="preserve"><value>添加 GOG 根目录</value></data>
+  <data name="GameDiscoveryPage_AddEpicRoot.Content" xml:space="preserve"><value>添加 Epic 根目录</value></data>
+  <data name="GameDiscoveryPage_SaveRoots.Content" xml:space="preserve"><value>保存发现设置</value></data>
+  <data name="GameDiscoveryPage_ScanHeading.Text" xml:space="preserve"><value>扫描与筛选</value></data>
+  <data name="GameDiscoveryPage_Search.PlaceholderText" xml:space="preserve"><value>搜索游戏或别名</value></data>
+  <data name="GameDiscoveryPage_FilterAllStores.Content" xml:space="preserve"><value>全部商店</value></data>
+  <data name="GameDiscoveryPage_FilterAllStatus.Content" xml:space="preserve"><value>全部状态</value></data>
+  <data name="GameDiscoveryPage_FilterNew.Content" xml:space="preserve"><value>新游戏</value></data>
+  <data name="GameDiscoveryPage_FilterNewResources.Content" xml:space="preserve"><value>发现新资源</value></data>
+  <data name="GameDiscoveryPage_FilterUpToDate.Content" xml:space="preserve"><value>已是最新</value></data>
+  <data name="GameDiscoveryPage_Scan.Content" xml:space="preserve"><value>扫描</value></data>
+  <data name="GameDiscoveryPage_Cancel.Content" xml:space="preserve"><value>取消</value></data>
+  <data name="GameDiscoveryPage_Review.Content" xml:space="preserve"><value>检查并确认所选配置</value></data>
+  <data name="GameDiscoveryPage_ConfirmHeading.Text" xml:space="preserve"><value>最终确认</value></data>
+  <data name="GameDiscoveryPage_ConfirmDescription.Text" xml:space="preserve"><value>在这里统一确认名称和目标目录。提交时所有变更一次性保存；失败会回滚内存修改。</value></data>
+  <data name="GameDiscoveryPage_Commit.Content" xml:space="preserve"><value>添加到 FolderRewind</value></data>
+  <data name="GameDiscovery_Cache_Missing" xml:space="preserve"><value>尚未下载或导入游戏数据库。</value></data>
+  <data name="GameDiscovery_Cache_Invalid" xml:space="preserve"><value>本地缓存不可用：{0}</value></data>
+  <data name="GameDiscovery_Cache_Ready" xml:space="preserve"><value>缓存可用 · 更新于 {0} · revision {1} · 来源 {2}</value></data>
+  <data name="GameDiscovery_Status_NotModified" xml:space="preserve"><value>上游清单没有变化，继续使用当前缓存。</value></data>
+  <data name="GameDiscovery_Status_Downloaded" xml:space="preserve"><value>清单已更新，正在扫描。</value></data>
+  <data name="GameDiscovery_Status_Cancelled" xml:space="preserve"><value>操作已取消。</value></data>
+  <data name="GameDiscovery_Status_Failed" xml:space="preserve"><value>操作失败：{0}</value></data>
+  <data name="GameDiscovery_Status_NoCache" xml:space="preserve"><value>请先下载或导入 Ludusavi 清单。</value></data>
+  <data name="GameDiscovery_Status_Complete" xml:space="preserve"><value>扫描完成。</value></data>
+  <data name="GameDiscovery_Status_New" xml:space="preserve"><value>新游戏</value></data>
+  <data name="GameDiscovery_Status_UpToDate" xml:space="preserve"><value>已是最新</value></data>
+  <data name="GameDiscovery_Status_NewResources" xml:space="preserve"><value>发现新资源</value></data>
+  <data name="GameDiscovery_ResultSummary" xml:space="preserve"><value>发现 {0} 个游戏、{1} 个资源，{2} 条警告，用时 {3} 秒。</value></data>
+  <data name="GameDiscovery_ResourceMatches" xml:space="preserve"><value>{0} 个匹配文件 · {1}</value></data>
+  <data name="GameDiscovery_Resource_RegistryUnsupported" xml:space="preserve"><value>Registry 备份暂不支持；此规则仅展示，不能选择。</value></data>
+  <data name="GameDiscovery_Resource_ConstraintUnsupported" xml:space="preserve"><value>规则包含当前版本无法安全匹配的条件。</value></data>
+  <data name="GameDiscovery_Resource_InvalidPath" xml:space="preserve"><value>路径表达式无效或不安全。</value></data>
+  <data name="GameDiscovery_Resource_Suppressed" xml:space="preserve"><value>已由专用提供程序 {0} 压制：{1}</value></data>
+  <data name="GameDiscovery_Preset_Recommended" xml:space="preserve"><value>{0}（推荐）</value></data>
+  <data name="GameDiscoveryPage_PickManifest" xml:space="preserve"><value>选择 Ludusavi YAML 清单</value></data>
+  <data name="GameDiscoveryPage_PickOverride" xml:space="preserve"><value>选择 FolderRewind Override JSON</value></data>
+  <data name="GameDiscoveryPage_PickStoreRoot" xml:space="preserve"><value>选择 {0} 游戏库根目录</value></data>
+  <data name="GameDiscoveryPage_SaveFailed" xml:space="preserve"><value>保存发现设置失败</value></data>
+  <data name="GameDiscoveryPage_NoSelectionTitle" xml:space="preserve"><value>没有可确认的配置</value></data>
+  <data name="GameDiscoveryPage_NoSelectionContent" xml:space="preserve"><value>请至少选择一个游戏、备份集和受支持的文件系统资源。</value></data>
+  <data name="GameDiscoveryPage_CommitFailed" xml:space="preserve"><value>保存配置失败</value></data>
+  <data name="GameDiscoveryPage_CommitComplete" xml:space="preserve"><value>配置已保存</value></data>
+  <data name="GameDiscoveryPage_CommitSummary" xml:space="preserve"><value>新增 {0} 个配置和 {1} 个来源。</value></data>
 </root>

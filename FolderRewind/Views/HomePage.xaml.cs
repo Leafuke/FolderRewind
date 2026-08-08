@@ -369,6 +369,11 @@ namespace FolderRewind.Views
             }
         }
 
+        private void OnAutoDiscoverGamesClick(object sender, RoutedEventArgs e)
+        {
+            _ = NavigationService.NavigateTo("GameDiscovery");
+        }
+
         private async Task CreateConfigFromTemplateAsync(
             BackupPreset selectedTemplate,
             string configName,

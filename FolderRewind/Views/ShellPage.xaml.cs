@@ -683,6 +683,7 @@ namespace FolderRewind.Views
                 "History" => typeof(HistoryPage),
                 "Logs" => typeof(LogPage),
                 "Settings" => typeof(SettingsPage),
+                "GameDiscovery" => typeof(GameDiscoveryPage),
                 _ => null
             };
 
@@ -837,6 +838,7 @@ namespace FolderRewind.Views
             if (sourcePageType == typeof(HistoryPage)) return "History";
             if (sourcePageType == typeof(LogPage)) return "Logs";
             if (sourcePageType == typeof(SettingsPage)) return "Settings";
+            if (sourcePageType == typeof(GameDiscoveryPage)) return "GameDiscovery";
             return null;
         }
     }

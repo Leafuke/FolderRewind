@@ -166,6 +166,11 @@
                         </SplitButton.Content>
                         <SplitButton.Flyout>
                             <MenuFlyout>
+                                <MenuFlyoutItem x:Uid="HomePage_AutoDiscoverGames" Click="OnAutoDiscoverGamesClick">
+                                    <MenuFlyoutItem.Icon>
+                                        <FontIcon Glyph="&#xE721;"/>
+                                    </MenuFlyoutItem.Icon>
+                                </MenuFlyoutItem>
                                 <MenuFlyoutItem x:Uid="HomePage_AddFromTemplate" Click="OnAddConfigFromTemplateClick">
                                     <MenuFlyoutItem.Icon>
                                         <FontIcon Glyph="&#xE71D;"/>
