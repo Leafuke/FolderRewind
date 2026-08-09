@@ -19,9 +19,34 @@ public sealed class DiscoveryResourcePlannerTests
         var plans = DiscoveryResourcePlanner.CreatePlans(resources);
 
         Assert.HasCount(1, plans);
+        Assert.AreEqual("Data", plans[0].DisplayName);
         Assert.AreEqual(BackupSourceSelectionMode.Include, plans[0].SelectionMode);
         CollectionAssert.AreEquivalent(new[] { "Saves/**/*.sav", "Config/*.json" }, plans[0].IncludePatterns.ToArray());
         CollectionAssert.AreEquivalent(new[] { "save", "config" }, plans[0].ResourceIds.ToArray());
+    }
+
+    [TestMethod]
+    public void ManagedSourceNameUsesFixedRootLeafInsteadOfProviderLabel()
+    {
+        var resources = new[]
+        {
+            new BackupResourceCandidate
+            {
+                ResourceId = "save",
+                ProviderId = "ludusavi",
+                DisplayName = "Monument Valley 2: Panoramic Edition SAVE",
+                Kind = BackupResourceKind.FileSet,
+                SupportState = BackupResourceSupportState.Supported,
+                FixedRoot = "C:\\Users\\admin\\AppData\\LocalLow\\ustwo games\\Monument Valley 2\\CloudSave",
+                IncludePatterns = new[] { "*/*.sav" },
+                IsSelectedByDefault = true
+            }
+        };
+
+        var plans = DiscoveryResourcePlanner.CreatePlans(resources);
+
+        Assert.HasCount(1, plans);
+        Assert.AreEqual("CloudSave", plans[0].DisplayName);
     }
 
     [TestMethod]

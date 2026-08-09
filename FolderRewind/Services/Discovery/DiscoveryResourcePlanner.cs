@@ -37,9 +37,7 @@ public static class DiscoveryResourcePlanner
                 return new DiscoveredSourcePlan
                 {
                     FixedRoot = group.Key,
-                    DisplayName = grouped.Select(resource => resource.DisplayName)
-                        .FirstOrDefault(name => !string.IsNullOrWhiteSpace(name))
-                        ?? Path.GetFileName(group.Key),
+                    DisplayName = ResolveSourceDisplayName(group.Key, grouped),
                     SelectionMode = selectAll
                         ? BackupSourceSelectionMode.All
                         : BackupSourceSelectionMode.Include,
@@ -60,6 +58,21 @@ public static class DiscoveryResourcePlanner
             .Where(plan => plan.SelectionMode == BackupSourceSelectionMode.All || plan.IncludePatterns.Count > 0)
             .OrderBy(plan => plan.FixedRoot, StringComparer.OrdinalIgnoreCase)
             .ToList();
+    }
+
+    private static string ResolveSourceDisplayName(
+        string fixedRoot,
+        IReadOnlyList<BackupResourceCandidate> resources)
+    {
+        // ManagedFolder 的默认名称应描述实际备份目录；游戏名、标签等语义信息仍保留在发现候选中。
+        // 根目录没有可用末级名称（例如卷根）时，才退回 Provider 提供的资源名称。
+        var leafName = Path.GetFileName(
+            fixedRoot.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar));
+        return !string.IsNullOrWhiteSpace(leafName)
+            ? leafName
+            : resources.Select(resource => resource.DisplayName)
+                .FirstOrDefault(name => !string.IsNullOrWhiteSpace(name))
+              ?? "Game data";
     }
 
     public static string NormalizePath(string path)

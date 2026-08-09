@@ -14,7 +14,7 @@ namespace FolderRewind.Services
 {
     public static partial class BackupService
     {
-        private static async Task<(bool Success, string? FileName)> DoFullBackupAsync(string source, string destDir, string metaDir, string baseName, BackupConfig config, BackupSourceSelection selection, string comment = "", BackupTask? taskToUpdate = null)
+        private static async Task<BackupArchiveExecutionResult> DoFullBackupAsync(string source, string destDir, string metaDir, string baseName, BackupConfig config, BackupSourceSelection selection, string comment = "", BackupTask? taskToUpdate = null)
         {
             BackupMetadata? oldMeta = null;
             if (!string.IsNullOrEmpty(metaDir))
@@ -28,6 +28,10 @@ namespace FolderRewind.Services
             }
 
             var currentStates = ScanDirectory(source, config.Filters, selection: selection);
+            if (BackupSourceAvailabilityPolicy.IsUnavailable(selection, currentStates.Count))
+            {
+                return BackupArchiveExecutionResult.Unavailable;
+            }
             var changeSet = CompareFileStates(currentStates, oldMeta?.FileStates);
 
             if (config.Archive.SkipIfUnchanged && !string.IsNullOrEmpty(metaDir) && oldMeta != null)
@@ -46,7 +50,7 @@ namespace FolderRewind.Services
                 if (referencedBackupExists && !changeSet.HasChanges)
                 {
                     Log(I18n.Format("BackupService_Log_NoChangesDetected"), LogLevel.Info);
-                    return (true, null);
+                    return BackupArchiveExecutionResult.NoChanges;
                 }
             }
 
@@ -56,7 +60,7 @@ namespace FolderRewind.Services
             // 获取加密密码
             if (!TryResolveRequiredPassword(config, out var password, taskToUpdate))
             {
-                return (false, null);
+                return BackupArchiveExecutionResult.Failed;
             }
 
             // 1. 直接压缩（带黑名单过滤 + 自定义文件类型排除）
@@ -80,17 +84,17 @@ namespace FolderRewind.Services
                 bool metadataSaved = await UpdateMetadataAsync(source, metaDir, fileName, fileName, "Full", oldMeta, currentStates, changeSet, config.Filters);
                 if (!metadataSaved)
                 {
-                    return (false, null);
+                    return BackupArchiveExecutionResult.Failed;
                 }
 
-                return (true, fileName);
+                return BackupArchiveExecutionResult.Created(fileName);
             }
-            return (false, null);
+            return BackupArchiveExecutionResult.Failed;
         }
 
         // --- 模式 2: 智能增量备份 ---
-        // 返回 (Success, FileName)
-        private static async Task<(bool Success, string? FileName)> DoSmartBackupAsync(string source, string destDir, string metaDir, string baseName, BackupConfig config, BackupSourceSelection selection, string comment = "", BackupTask? taskToUpdate = null)
+        // 返回归档执行结果，并显式区分无变化、不可用和失败。
+        private static async Task<BackupArchiveExecutionResult> DoSmartBackupAsync(string source, string destDir, string metaDir, string baseName, BackupConfig config, BackupSourceSelection selection, string comment = "", BackupTask? taskToUpdate = null)
         {
             var metadataLoadResult = await LoadBackupMetadataAsync(metaDir).ConfigureAwait(false);
             BackupMetadata? oldMeta = ConvertToAggregateMetadata(metadataLoadResult);
@@ -182,12 +186,16 @@ namespace FolderRewind.Services
             // 2. 扫描并对比文件（带黑名单过滤）
             Log(I18n.Format("BackupService_Log_AnalyzingDiff"), LogLevel.Info);
             var currentStates = ScanDirectory(source, config.Filters, selection: selection);
+            if (BackupSourceAvailabilityPolicy.IsUnavailable(selection, currentStates.Count))
+            {
+                return BackupArchiveExecutionResult.Unavailable;
+            }
             var changeSet = CompareFileStates(currentStates, oldMeta.FileStates);
 
             if (!changeSet.HasChanges)
             {
                 Log(I18n.Format("BackupService_Log_NoChangesDetected"), LogLevel.Info);
-                return (true, null);
+                return BackupArchiveExecutionResult.NoChanges;
             }
 
             var contentChangedFiles = changeSet.AddedFiles
@@ -231,7 +239,7 @@ namespace FolderRewind.Services
             var fileTypeExclusions = hasFileTypeRules && fileTypeRules != null ? (IReadOnlyList<FileTypeRule>)fileTypeRules : null;
             if (!TryResolveRequiredPassword(config, out var password, taskToUpdate))
             {
-                return (false, null);
+                return BackupArchiveExecutionResult.Failed;
             }
             bool deletionOnlyChange = contentChangedFiles.Count == 0 && changeSet.DeletedFiles.Count > 0;
             bool result;
@@ -274,28 +282,28 @@ namespace FolderRewind.Services
 
                 if (!File.Exists(destFile))
                 {
-                    return (false, null);
+                    return BackupArchiveExecutionResult.Failed;
                 }
 
                 // 更新元数据：基准文件保持不变（指向最初的Full），LastBackup指向自己
                 bool metadataSaved = await UpdateMetadataAsync(source, metaDir, fileName, oldMeta.BasedOnFullBackup, "Smart", oldMeta, currentStates, changeSet, config.Filters);
                 if (!metadataSaved)
                 {
-                    return (false, null);
+                    return BackupArchiveExecutionResult.Failed;
                 }
 
-                return (true, fileName);
+                return BackupArchiveExecutionResult.Created(fileName);
             }
             else
             {
                 try { if (!string.IsNullOrWhiteSpace(listFile)) File.Delete(listFile); } catch { }
-                return (false, null);
+                return BackupArchiveExecutionResult.Failed;
             }
         }
 
         // --- 模式 3: 覆写备份 ---
-        // 返回 (Success, FileName)
-        private static async Task<(bool Success, string? FileName)> DoOverwriteBackupAsync(string source, string destDir, string metaDir, string baseName, BackupConfig config, BackupSourceSelection selection, string comment = "", BackupTask? taskToUpdate = null)
+        // 返回归档执行结果，并显式区分无变化、不可用和失败。
+        private static async Task<BackupArchiveExecutionResult> DoOverwriteBackupAsync(string source, string destDir, string metaDir, string baseName, BackupConfig config, BackupSourceSelection selection, string comment = "", BackupTask? taskToUpdate = null)
         {
             BackupMetadata? oldMeta = null;
             if (!string.IsNullOrEmpty(metaDir))
@@ -309,6 +317,10 @@ namespace FolderRewind.Services
             }
 
             var currentStates = ScanDirectory(source, config.Filters, selection: selection);
+            if (BackupSourceAvailabilityPolicy.IsUnavailable(selection, currentStates.Count))
+            {
+                return BackupArchiveExecutionResult.Unavailable;
+            }
             var changeSet = CompareFileStates(currentStates, oldMeta?.FileStates);
 
             // 1. 寻找最近的备份文件
@@ -331,7 +343,7 @@ namespace FolderRewind.Services
             var fileTypeExclusions = config.Archive.FileTypeHandlingEnabled ? (IReadOnlyList<FileTypeRule>)config.Archive.FileTypeRules : null;
             if (!TryResolveRequiredPassword(config, out var password, taskToUpdate))
             {
-                return (false, null);
+                return BackupArchiveExecutionResult.Failed;
             }
             var isExactSelection = selection.Mode == BackupSourceSelectionMode.Include;
             string? replacementArchivePath = isExactSelection
@@ -441,12 +453,14 @@ namespace FolderRewind.Services
                         config.Filters);
                     if (!metadataSaved)
                     {
-                        return (false, null);
+                        return BackupArchiveExecutionResult.Failed;
                     }
                 }
             }
 
-            return (result, resultingFileName ?? targetFile.Name);
+            return result
+                ? BackupArchiveExecutionResult.Created(resultingFileName ?? targetFile.Name)
+                : BackupArchiveExecutionResult.Failed;
         }
 
         private static async Task<bool> CreateDeletionOnlyArchiveAsync(string archivePath, ArchiveSettings settings, string? password, BackupTask? taskToUpdate)

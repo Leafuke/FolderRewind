@@ -80,6 +80,18 @@ namespace FolderRewind.Services
             public string Message { get; set; } = string.Empty;
         }
 
+        // 压缩模式除了成功/失败，还必须区分“精确来源当前没有匹配文件”，避免把可预期的缺席误报为错误。
+        private readonly record struct BackupArchiveExecutionResult(
+            bool Success,
+            string? FileName,
+            bool IsUnavailable)
+        {
+            public static BackupArchiveExecutionResult Created(string fileName) => new(true, fileName, false);
+            public static BackupArchiveExecutionResult NoChanges => new(true, null, false);
+            public static BackupArchiveExecutionResult Unavailable => new(true, null, true);
+            public static BackupArchiveExecutionResult Failed => new(false, null, false);
+        }
+
         private sealed class BackupSourceExecutionOutcome
         {
             public BackupRunSourceStatus Status { get; init; }
@@ -431,6 +443,7 @@ namespace FolderRewind.Services
             BroadcastBackupEvent(configIndex, config, folder, "backup_started");
 
             bool success = false;
+            bool sourceUnavailable = false;
             string? generatedFileName = null;
             HistoryItem? generatedHistoryItem = null;
             try
@@ -452,6 +465,7 @@ namespace FolderRewind.Services
                             var res = await DoSmartBackupAsync(sourcePath, backupSubDir, metadataDir, folder.DisplayName, config, folder.Selection, comment, task);
                             success = res.Success;
                             generatedFileName = res.FileName;
+                            sourceUnavailable = res.IsUnavailable;
                             break;
                         }
                     case BackupMode.Overwrite:
@@ -459,6 +473,7 @@ namespace FolderRewind.Services
                             var res = await DoOverwriteBackupAsync(sourcePath, backupSubDir, metadataDir, folder.DisplayName, config, folder.Selection, comment, task);
                             success = res.Success;
                             generatedFileName = res.FileName;
+                            sourceUnavailable = res.IsUnavailable;
                             break;
                         }
                     case BackupMode.Full:
@@ -467,6 +482,7 @@ namespace FolderRewind.Services
                             var res = await DoFullBackupAsync(sourcePath, backupSubDir, metadataDir, folder.DisplayName, config, folder.Selection, comment, task);
                             success = res.Success;
                             generatedFileName = res.FileName;
+                            sourceUnavailable = res.IsUnavailable;
                             break;
                         }
                 }
@@ -478,7 +494,32 @@ namespace FolderRewind.Services
                 await RunOnUIAsync(() => { if (string.IsNullOrEmpty(task.ErrorMessage)) task.ErrorMessage = ex.Message; });
             }
 
-            if (success)
+            if (sourceUnavailable)
+            {
+                string unavailableMessage = I18n.GetString("BackupService_Folder_NoMatchingFiles");
+                await RunOnUIAsync(() =>
+                {
+                    task.Status = unavailableMessage;
+                    task.Progress = 100;
+                    task.IsCompleted = true;
+                    task.IsIndeterminate = false;
+                    task.IsSuccess = true;
+                    task.ErrorMessage = string.Empty;
+                    folder.StatusText = unavailableMessage;
+                });
+
+                Log(I18n.Format("BackupService_Log_NoMatchingFiles", folder.DisplayName), LogLevel.Warning);
+                BroadcastBackupEvent(configIndex, config, folder, "backup_unavailable", new Dictionary<string, string?>
+                {
+                    ["reason"] = "no_matching_files"
+                });
+                BroadcastBackupLifecycle("command_completed", new Dictionary<string, string?>
+                {
+                    ["result"] = "unavailable",
+                    ["reason"] = "no_matching_files"
+                });
+            }
+            else if (success)
             {
                 var completedFileName = string.IsNullOrWhiteSpace(generatedFileName) ? null : generatedFileName;
                 bool hasNewFile = completedFileName != null;
@@ -629,6 +670,13 @@ namespace FolderRewind.Services
             {
             }
 
+            if (sourceUnavailable)
+            {
+                return CreateSourceOutcome(
+                    folder,
+                    BackupRunSourceStatus.Unavailable,
+                    errorMessage: I18n.GetString("BackupService_Folder_NoMatchingFiles"));
+            }
             if (!success)
             {
                 return CreateSourceOutcome(

@@ -31,6 +31,7 @@ public sealed class FolderDetailsDialogViewModel : ViewModelBase
         string sizeLabel = I18n.GetString("FolderDetailsDialog_Size");
         string fileCountLabel = I18n.GetString("FolderDetailsDialog_FileCount");
         string directoryCountLabel = I18n.GetString("FolderDetailsDialog_DirectoryCount");
+        string matchStatusLabel = I18n.GetString("FolderDetailsDialog_MatchStatus");
         var basicItems = Sections[0].Items;
 
         try
@@ -46,6 +47,15 @@ public sealed class FolderDetailsDialogViewModel : ViewModelBase
             }
             SetItemValue(basicItems, fileCountLabel, stats.FileCount.ToString());
             SetItemValue(basicItems, directoryCountLabel, stats.DirectoryCount.ToString());
+            if (folder.Selection?.Mode == BackupSourceSelectionMode.Include)
+            {
+                SetItemValue(
+                    basicItems,
+                    matchStatusLabel,
+                    stats.FileCount == 0
+                        ? I18n.GetString("FolderDetailsDialog_NoMatchingFiles")
+                        : I18n.Format("FolderDetailsDialog_MatchingFiles", stats.FileCount));
+            }
         }
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
         {
@@ -60,6 +70,7 @@ public sealed class FolderDetailsDialogViewModel : ViewModelBase
             SetItemError(basicItems, sizeLabel, ex.Message);
             SetItemError(basicItems, fileCountLabel, ex.Message);
             SetItemError(basicItems, directoryCountLabel, ex.Message);
+            SetItemError(basicItems, matchStatusLabel, ex.Message);
         }
     }
 

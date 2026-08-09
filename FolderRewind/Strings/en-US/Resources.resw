@@ -1995,6 +1995,9 @@ If you have a listener subscribed to this signal, it should receive a message.</
   <data name="BackupService_Folder_SourceNotFound" xml:space="preserve">
     <value>Source not found</value>
   </data>
+  <data name="BackupService_Folder_NoMatchingFiles" xml:space="preserve">
+    <value>No files currently match</value>
+  </data>
   <data name="BackupService_Folder_TargetNotSet" xml:space="preserve">
     <value>Destination not set</value>
   </data>
@@ -2018,6 +2021,9 @@ If you have a listener subscribed to this signal, it should receive a message.</
   </data>
   <data name="BackupService_Log_SourceFolderMissing" xml:space="preserve">
     <value>Source folder not found: {0}</value>
+  </data>
+  <data name="BackupService_Log_NoMatchingFiles" xml:space="preserve">
+    <value>{0} has no files matching its source include rules and was skipped.</value>
   </data>
   <data name="BackupService_Log_DestinationNotSet" xml:space="preserve">
     <value>Backup destination path is not set.</value>
@@ -4743,6 +4749,18 @@ Pull request: {1}</value>
   </data>
   <data name="FolderDetailsDialog_DirectoryCount" xml:space="preserve">
     <value>Subdirectories</value>
+  </data>
+  <data name="FolderDetailsDialog_IncludePatterns" xml:space="preserve">
+    <value>Includes only</value>
+  </data>
+  <data name="FolderDetailsDialog_MatchStatus" xml:space="preserve">
+    <value>Match status</value>
+  </data>
+  <data name="FolderDetailsDialog_NoMatchingFiles" xml:space="preserve">
+    <value>No files currently match</value>
+  </data>
+  <data name="FolderDetailsDialog_MatchingFiles" xml:space="preserve">
+    <value>{0} file(s) matched</value>
   </data>
   <data name="FolderDetailsDialog_Loading" xml:space="preserve">
     <value>Calculating...</value>

@@ -1995,6 +1995,9 @@ cmd=RESTORE;from=minebackup.mod;request_id=req-mr-restore-002;current_save=true;
   <data name="BackupService_Folder_SourceNotFound" xml:space="preserve">
     <value>源不存在</value>
   </data>
+  <data name="BackupService_Folder_NoMatchingFiles" xml:space="preserve">
+    <value>当前没有匹配文件</value>
+  </data>
   <data name="BackupService_Folder_TargetNotSet" xml:space="preserve">
     <value>未设置目标</value>
   </data>
@@ -2018,6 +2021,9 @@ cmd=RESTORE;from=minebackup.mod;request_id=req-mr-restore-002;current_save=true;
   </data>
   <data name="BackupService_Log_SourceFolderMissing" xml:space="preserve">
     <value>源文件夹不存在: {0}</value>
+  </data>
+  <data name="BackupService_Log_NoMatchingFiles" xml:space="preserve">
+    <value>{0} 当前没有符合来源包含规则的文件，已跳过</value>
   </data>
   <data name="BackupService_Log_DestinationNotSet" xml:space="preserve">
     <value>未设置备份目标路径！</value>
@@ -4743,6 +4749,18 @@ Pull Request：{1}</value>
   </data>
   <data name="FolderDetailsDialog_DirectoryCount" xml:space="preserve">
     <value>子目录数</value>
+  </data>
+  <data name="FolderDetailsDialog_IncludePatterns" xml:space="preserve">
+    <value>仅包含</value>
+  </data>
+  <data name="FolderDetailsDialog_MatchStatus" xml:space="preserve">
+    <value>匹配状态</value>
+  </data>
+  <data name="FolderDetailsDialog_NoMatchingFiles" xml:space="preserve">
+    <value>当前没有匹配文件</value>
+  </data>
+  <data name="FolderDetailsDialog_MatchingFiles" xml:space="preserve">
+    <value>已匹配 {0} 个文件</value>
   </data>
   <data name="FolderDetailsDialog_Loading" xml:space="preserve">
     <value>正在计算...</value>

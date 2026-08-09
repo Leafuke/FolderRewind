@@ -53,6 +53,7 @@
     <Compile Include="..\FolderRewind\Services\Discovery\LudusaviPathExpressionResolver.cs" Link="Source\LudusaviPathExpressionResolver.cs" />
     <Compile Include="..\FolderRewind\Services\Discovery\LudusaviDiscoveryProvider.cs" Link="Source\LudusaviDiscoveryProvider.cs" />
     <Compile Include="..\FolderRewind\Services\BackupSourceFileEnumerator.cs" Link="Source\BackupSourceFileEnumerator.cs" />
+    <Compile Include="..\FolderRewind\Services\BackupSourceAvailabilityPolicy.cs" Link="Source\BackupSourceAvailabilityPolicy.cs" />
     <Compile Include="..\FolderRewind\Services\BackupRunPolicy.cs" Link="Source\BackupRunPolicy.cs" />
     <Compile Include="..\FolderRewind\Services\Plugins\IFolderRewindDiscoveryProvider.cs" Link="Source\IFolderRewindDiscoveryProvider.cs" />
     <Compile Include="..\FolderRewind\Services\LanguageSettingPolicy.cs" Link="Source\LanguageSettingPolicy.cs" />
