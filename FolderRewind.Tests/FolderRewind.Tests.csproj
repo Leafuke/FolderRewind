@@ -44,6 +44,7 @@
     <Compile Include="..\FolderRewind\Services\Discovery\DiscoveryDraftTransaction.cs" Link="Source\DiscoveryDraftTransaction.cs" />
     <Compile Include="..\FolderRewind\Services\Discovery\DiscoveryPresentationService.cs" Link="Source\DiscoveryPresentationService.cs" />
     <Compile Include="..\FolderRewind\Services\Discovery\DiscoverySetIdentityMatcher.cs" Link="Source\DiscoverySetIdentityMatcher.cs" />
+    <Compile Include="..\FolderRewind\Services\Discovery\DiscoveryThreeWayReviewService.cs" Link="Source\DiscoveryThreeWayReviewService.cs" />
     <Compile Include="..\FolderRewind\Services\OfficialPresetIndexMergePolicy.cs" Link="Source\OfficialPresetIndexMergePolicy.cs" />
     <Compile Include="..\FolderRewind\Services\BackupInvocationOptions.cs" Link="Source\BackupInvocationOptions.cs" />
     <Compile Include="..\FolderRewind\Services\BackupRunRestoreOrchestrator.cs" Link="Source\BackupRunRestoreOrchestrator.cs" />

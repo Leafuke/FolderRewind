@@ -4974,7 +4974,7 @@ Pull Request：{1}</value>
   <data name="GameDiscoveryPage_Cancel.Content" xml:space="preserve"><value>取消</value></data>
   <data name="GameDiscoveryPage_Review.Content" xml:space="preserve"><value>检查并确认所选配置</value></data>
   <data name="GameDiscoveryPage_ConfirmHeading.Text" xml:space="preserve"><value>最终确认</value></data>
-  <data name="GameDiscoveryPage_ConfirmDescription.Text" xml:space="preserve"><value>在这里统一确认名称和目标目录。提交时所有变更一次性保存；失败会回滚内存修改。</value></data>
+  <data name="GameDiscoveryPage_ConfirmDescription.Text" xml:space="preserve"><value>新配置可确认名称和目标目录；已有配置只应用下方勾选的发现变更。提交时一次性保存，失败会完整回滚。</value></data>
   <data name="GameDiscoveryPage_Commit.Content" xml:space="preserve"><value>添加到 FolderRewind</value></data>
   <data name="GameDiscovery_Cache_Missing" xml:space="preserve"><value>尚未下载或导入游戏数据库。</value></data>
   <data name="GameDiscovery_Cache_Invalid" xml:space="preserve"><value>本地缓存不可用：{0}</value></data>
@@ -4988,6 +4988,7 @@ Pull Request：{1}</value>
   <data name="GameDiscovery_Status_New" xml:space="preserve"><value>新游戏</value></data>
   <data name="GameDiscovery_Status_UpToDate" xml:space="preserve"><value>已是最新</value></data>
   <data name="GameDiscovery_Status_NewResources" xml:space="preserve"><value>发现新资源</value></data>
+  <data name="GameDiscovery_HiddenSelection" xml:space="preserve"><value>另有 {0} 个已选游戏被当前筛选隐藏；确认页仍会列出它们。</value></data>
   <data name="GameDiscovery_ResultSummary" xml:space="preserve"><value>发现 {0} 个游戏、{1} 个资源，{2} 条警告，用时 {3} 秒。</value></data>
   <data name="GameDiscovery_ResourcePathExists" xml:space="preserve"><value>候选根目录已存在</value></data>
   <data name="GameDiscovery_ResourcePathMissing" xml:space="preserve"><value>候选根目录尚未创建</value></data>

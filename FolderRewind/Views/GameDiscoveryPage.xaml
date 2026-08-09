@@ -43,16 +43,16 @@
                             <RowDefinition Height="Auto"/>
                         </Grid.RowDefinitions>
                         <TextBlock x:Uid="GameDiscoveryPage_SecondaryManifest" VerticalAlignment="Center"/>
-                        <TextBox Grid.Column="1" Text="{x:Bind ViewModel.Settings.SecondaryManifestPath, Mode=TwoWay}"/>
-                        <Button x:Uid="Common_Browse" Grid.Column="2" Click="OnBrowseSecondaryClick"/>
+                        <TextBox Grid.Column="1" Text="{x:Bind ViewModel.Settings.SecondaryManifestPath, Mode=TwoWay}" IsEnabled="{x:Bind ViewModel.CanStart, Mode=OneWay}"/>
+                        <Button x:Uid="Common_Browse" Grid.Column="2" Click="OnBrowseSecondaryClick" IsEnabled="{x:Bind ViewModel.CanStart, Mode=OneWay}"/>
                         <TextBlock x:Uid="GameDiscoveryPage_Override" Grid.Row="1" VerticalAlignment="Center"/>
-                        <TextBox Grid.Row="1" Grid.Column="1" Text="{x:Bind ViewModel.Settings.OverridePath, Mode=TwoWay}"/>
-                        <Button x:Uid="Common_Browse" Grid.Row="1" Grid.Column="2" Click="OnBrowseOverrideClick"/>
+                        <TextBox Grid.Row="1" Grid.Column="1" Text="{x:Bind ViewModel.Settings.OverridePath, Mode=TwoWay}" IsEnabled="{x:Bind ViewModel.CanStart, Mode=OneWay}"/>
+                        <Button x:Uid="Common_Browse" Grid.Row="1" Grid.Column="2" Click="OnBrowseOverrideClick" IsEnabled="{x:Bind ViewModel.CanStart, Mode=OneWay}"/>
                     </Grid>
                 </StackPanel>
             </Border>
 
-            <Expander x:Uid="GameDiscoveryPage_LibraryRoots" IsExpanded="False">
+            <Expander x:Uid="GameDiscoveryPage_LibraryRoots" IsExpanded="False" IsEnabled="{x:Bind ViewModel.CanStart, Mode=OneWay}">
                 <StackPanel Spacing="10" Padding="0,10,0,0">
                     <ItemsControl ItemsSource="{x:Bind ViewModel.Settings.LibraryRoots, Mode=OneWay}">
                         <ItemsControl.ItemTemplate>
@@ -116,7 +116,9 @@
                 </StackPanel>
             </Border>
 
-            <Grid Visibility="{x:Bind ViewModel.HasResultsVisibility, Mode=OneWay}" ColumnSpacing="12" MinHeight="380">
+            <TextBlock Text="{x:Bind ViewModel.HiddenSelectionSummary, Mode=OneWay}" Foreground="{ThemeResource SystemControlForegroundAccentBrush}" TextWrapping="Wrap"/>
+
+            <Grid Visibility="{x:Bind ViewModel.HasResultsVisibility, Mode=OneWay}" IsHitTestVisible="{x:Bind ViewModel.CanStart, Mode=OneWay}" ColumnSpacing="12" MinHeight="380">
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="300"/>
                     <ColumnDefinition Width="*"/>
@@ -159,7 +161,7 @@
                                                 </Grid.ColumnDefinitions>
                                                 <CheckBox IsChecked="{x:Bind IsSelected, Mode=TwoWay}" VerticalAlignment="Center"/>
                                                 <TextBlock Grid.Column="1" Text="{x:Bind Name}" Style="{ThemeResource BodyStrongTextBlockStyle}" VerticalAlignment="Center"/>
-                                                <ComboBox Grid.Column="2" ItemsSource="{x:Bind Presets}" SelectedItem="{x:Bind SelectedPreset, Mode=TwoWay}" DisplayMemberPath="Name"/>
+                                                <ComboBox Grid.Column="2" ItemsSource="{x:Bind Presets}" SelectedItem="{x:Bind SelectedPreset, Mode=TwoWay}" DisplayMemberPath="Name" IsEnabled="{x:Bind CanChoosePreset}"/>
                                             </Grid>
                                             <ItemsControl ItemsSource="{x:Bind Resources}">
                                                 <ItemsControl.ItemTemplate>
@@ -191,7 +193,7 @@
                 </ScrollViewer>
             </Grid>
 
-            <Button x:Uid="GameDiscoveryPage_Review" Click="OnReviewClick" HorizontalAlignment="Right" Visibility="{x:Bind ViewModel.HasResultsVisibility, Mode=OneWay}"/>
+            <Button x:Uid="GameDiscoveryPage_Review" Click="OnReviewClick" HorizontalAlignment="Right" Visibility="{x:Bind ViewModel.HasResultsVisibility, Mode=OneWay}" IsEnabled="{x:Bind ViewModel.CanStart, Mode=OneWay}"/>
 
             <Border Visibility="{x:Bind ViewModel.HasDraftsVisibility, Mode=OneWay}" Padding="16" CornerRadius="8" Background="{ThemeResource CardBackgroundFillColorDefaultBrush}" BorderBrush="{ThemeResource SystemControlForegroundAccentBrush}" BorderThickness="1">
                 <StackPanel Spacing="12">
@@ -211,15 +213,29 @@
                                         <RowDefinition Height="Auto"/>
                                     </Grid.RowDefinitions>
                                     <CheckBox IsChecked="{x:Bind IsSelected, Mode=TwoWay}" VerticalAlignment="Center"/>
-                                    <TextBox Grid.Column="1" Text="{x:Bind ConfigName, Mode=TwoWay}"/>
-                                    <TextBox Grid.Column="2" Text="{x:Bind DestinationPath, Mode=TwoWay}"/>
+                                    <TextBox Grid.Column="1" Text="{x:Bind ConfigName, Mode=TwoWay}" IsReadOnly="{x:Bind IsExistingConfiguration}"/>
+                                    <TextBox Grid.Column="2" Text="{x:Bind DestinationPath, Mode=TwoWay}" IsReadOnly="{x:Bind IsExistingConfiguration}"/>
                                     <TextBlock Grid.Row="1" Grid.Column="1" Text="{x:Bind Reconciliation}" Foreground="{ThemeResource TextFillColorSecondaryBrush}"/>
-                                    <TextBlock Grid.Row="1" Grid.Column="2" Text="{x:Bind Issues}" Foreground="{ThemeResource SystemFillColorCriticalBrush}" TextWrapping="Wrap"/>
+                                    <StackPanel Grid.Row="1" Grid.Column="2" Spacing="4">
+                                        <TextBlock Text="{x:Bind Issues}" Foreground="{ThemeResource SystemFillColorCriticalBrush}" TextWrapping="Wrap"/>
+                                        <ItemsControl ItemsSource="{x:Bind Changes}">
+                                            <ItemsControl.ItemTemplate>
+                                                <DataTemplate x:DataType="models:DiscoverySourceChange">
+                                                    <CheckBox IsChecked="{x:Bind IsSelected, Mode=TwoWay}" IsEnabled="{x:Bind IsActionable}">
+                                                        <StackPanel Orientation="Horizontal" Spacing="8">
+                                                            <TextBlock Text="{x:Bind Kind}"/>
+                                                            <TextBlock Text="{x:Bind NormalizedRootPath}" FontFamily="Consolas" TextWrapping="Wrap"/>
+                                                        </StackPanel>
+                                                    </CheckBox>
+                                                </DataTemplate>
+                                            </ItemsControl.ItemTemplate>
+                                        </ItemsControl>
+                                    </StackPanel>
                                 </Grid>
                             </DataTemplate>
                         </ItemsControl.ItemTemplate>
                     </ItemsControl>
-                    <Button x:Uid="GameDiscoveryPage_Commit" Click="OnCommitClick" HorizontalAlignment="Right"/>
+                    <Button x:Uid="GameDiscoveryPage_Commit" Click="OnCommitClick" HorizontalAlignment="Right" IsEnabled="{x:Bind ViewModel.CanStart, Mode=OneWay}"/>
                 </StackPanel>
             </Border>
         </StackPanel>

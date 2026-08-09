@@ -4974,7 +4974,7 @@ Pull request: {1}</value>
   <data name="GameDiscoveryPage_Cancel.Content" xml:space="preserve"><value>Cancel</value></data>
   <data name="GameDiscoveryPage_Review.Content" xml:space="preserve"><value>Review selected configurations</value></data>
   <data name="GameDiscoveryPage_ConfirmHeading.Text" xml:space="preserve"><value>Final confirmation</value></data>
-  <data name="GameDiscoveryPage_ConfirmDescription.Text" xml:space="preserve"><value>Confirm names and destinations. All changes are saved once and rolled back in memory if saving fails.</value></data>
+  <data name="GameDiscoveryPage_ConfirmDescription.Text" xml:space="preserve"><value>New configurations can set names and destinations; existing configurations only apply the selected discovery changes below. Saving is atomic and fully rolls back on failure.</value></data>
   <data name="GameDiscoveryPage_Commit.Content" xml:space="preserve"><value>Add to FolderRewind</value></data>
   <data name="GameDiscovery_Cache_Missing" xml:space="preserve"><value>No game database has been downloaded or imported yet.</value></data>
   <data name="GameDiscovery_Cache_Invalid" xml:space="preserve"><value>The local cache is unavailable: {0}</value></data>
@@ -4988,6 +4988,7 @@ Pull request: {1}</value>
   <data name="GameDiscovery_Status_New" xml:space="preserve"><value>New game</value></data>
   <data name="GameDiscovery_Status_UpToDate" xml:space="preserve"><value>Up to date</value></data>
   <data name="GameDiscovery_Status_NewResources" xml:space="preserve"><value>New resources</value></data>
+  <data name="GameDiscovery_HiddenSelection" xml:space="preserve"><value>{0} selected game(s) are hidden by the current filter; the review still lists them.</value></data>
   <data name="GameDiscovery_ResultSummary" xml:space="preserve"><value>Found {0} games and {1} resources with {2} warnings in {3} seconds.</value></data>
   <data name="GameDiscovery_ResourcePathExists" xml:space="preserve"><value>Candidate root exists</value></data>
   <data name="GameDiscovery_ResourcePathMissing" xml:space="preserve"><value>Candidate root has not been created</value></data>

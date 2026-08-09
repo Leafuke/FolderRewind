@@ -23,6 +23,7 @@ public sealed class GameDiscoveryPageViewModel : ViewModelBase, IDisposable
 
     private readonly LudusaviManifestCacheService _cacheService;
     private readonly HttpClient _httpClient;
+    private readonly GameDiscoverySettings _settings;
     private CancellationTokenSource? _operationCts;
     private bool _initialized;
     private bool _isBusy;
@@ -47,13 +48,14 @@ public sealed class GameDiscoveryPageViewModel : ViewModelBase, IDisposable
     {
         _cacheService = cacheService;
         _httpClient = httpClient;
+        _settings = CloneSettings(ConfigService.CurrentConfig.GlobalSettings.GameDiscovery);
         _httpClient.DefaultRequestHeaders.UserAgent.ParseAdd("FolderRewind/GameDiscovery");
     }
 
     public ObservableCollection<GameDiscoveryCandidateItem> Games { get; } = new();
     public ObservableCollection<GameDiscoveryCandidateItem> VisibleGames { get; } = new();
     public ObservableCollection<GameDiscoveryDraftItem> Drafts { get; } = new();
-    public GameDiscoverySettings Settings => ConfigService.CurrentConfig.GlobalSettings.GameDiscovery;
+    public GameDiscoverySettings Settings => _settings;
 
     public bool IsBusy
     {
@@ -74,6 +76,10 @@ public sealed class GameDiscoveryPageViewModel : ViewModelBase, IDisposable
     public string ResultSummary { get => _resultSummary; private set => SetProperty(ref _resultSummary, value); }
     public Visibility HasResultsVisibility => VisibleGames.Count > 0 ? Visibility.Visible : Visibility.Collapsed;
     public Visibility HasDraftsVisibility => Drafts.Count > 0 ? Visibility.Visible : Visibility.Collapsed;
+    public int HiddenSelectedCount => Games.Count(item => item.IsSelected && !VisibleGames.Contains(item));
+    public string HiddenSelectionSummary => HiddenSelectedCount == 0
+        ? string.Empty
+        : I18n.Format("GameDiscovery_HiddenSelection", HiddenSelectedCount);
 
     public GameDiscoveryCandidateItem? SelectedGame
     {
@@ -137,6 +143,7 @@ public sealed class GameDiscoveryPageViewModel : ViewModelBase, IDisposable
 
     public void AddLibraryRoot(GameStore store, string path)
     {
+        if (IsBusy) return;
         var fullPath = Path.GetFullPath(path);
         var existing = Settings.LibraryRoots.FirstOrDefault(root =>
             root.Store == store && string.Equals(root.Path, fullPath, StringComparison.OrdinalIgnoreCase));
@@ -156,13 +163,25 @@ public sealed class GameDiscoveryPageViewModel : ViewModelBase, IDisposable
 
     public bool SaveSettings(out string errorMessage)
     {
+        if (IsBusy)
+        {
+            errorMessage = "A discovery operation is still running.";
+            return false;
+        }
+        var previous = ConfigService.CurrentConfig.GlobalSettings.GameDiscovery;
+        ConfigService.CurrentConfig.GlobalSettings.GameDiscovery = CloneSettings(Settings);
         var result = ConfigService.SaveWithResult();
+        if (!result.Success)
+        {
+            ConfigService.CurrentConfig.GlobalSettings.GameDiscovery = previous;
+        }
         errorMessage = result.ErrorMessage;
         return result.Success;
     }
 
     public void BuildDrafts()
     {
+        if (IsBusy) return;
         Drafts.Clear();
         var presets = BackupPresetService.GetTemplates();
         foreach (var gameItem in Games.Where(item => item.IsSelected))
@@ -199,6 +218,10 @@ public sealed class GameDiscoveryPageViewModel : ViewModelBase, IDisposable
 
     public BackupConfigDraftCommitResult CommitDrafts()
     {
+        if (IsBusy)
+        {
+            return new BackupConfigDraftCommitResult { ErrorMessage = "A discovery operation is still running." };
+        }
         foreach (var item in Drafts)
         {
             item.Draft.IsSelected = item.IsSelected;
@@ -274,10 +297,19 @@ public sealed class GameDiscoveryPageViewModel : ViewModelBase, IDisposable
         Games.Clear();
         foreach (var game in result.Candidates.OrderBy(candidate => candidate.Definition.DisplayName, StringComparer.CurrentCultureIgnoreCase))
         {
-            Games.Add(new GameDiscoveryCandidateItem(
+            var item = new GameDiscoveryCandidateItem(
                 game,
                 FindMatchingPresets(game),
-                ConfigService.CurrentConfig.BackupConfigs.Select(config => config.DiscoveryOrigin)));
+                ConfigService.CurrentConfig.BackupConfigs);
+            item.PropertyChanged += (_, args) =>
+            {
+                if (args.PropertyName == nameof(GameDiscoveryCandidateItem.IsSelected))
+                {
+                    OnPropertyChanged(nameof(HiddenSelectedCount));
+                    OnPropertyChanged(nameof(HiddenSelectionSummary));
+                }
+            };
+            Games.Add(item);
         }
         RefreshVisibleGames();
         ResultSummary = I18n.Format(
@@ -420,10 +452,27 @@ public sealed class GameDiscoveryPageViewModel : ViewModelBase, IDisposable
             SelectedGame = VisibleGames.FirstOrDefault();
         }
         OnPropertyChanged(nameof(HasResultsVisibility));
+        OnPropertyChanged(nameof(HiddenSelectedCount));
+        OnPropertyChanged(nameof(HiddenSelectionSummary));
     }
 
     private static string? EmptyToNull(string value) => string.IsNullOrWhiteSpace(value) ? null : value.Trim();
     private static string ShortRevision(string revision) => revision.Length <= 12 ? revision : revision[..12];
+
+    private static GameDiscoverySettings CloneSettings(GameDiscoverySettings? source) => new()
+    {
+        SecondaryManifestPath = source?.SecondaryManifestPath ?? string.Empty,
+        OverridePath = source?.OverridePath ?? string.Empty,
+        LibraryRoots = new ObservableCollection<GameLibraryRootSetting>(
+            (source?.LibraryRoots ?? new ObservableCollection<GameLibraryRootSetting>()).Select(root =>
+                new GameLibraryRootSetting
+                {
+                    Store = root.Store,
+                    Path = root.Path,
+                    IsEnabled = root.IsEnabled,
+                    IsAutoDetected = root.IsAutoDetected
+                }))
+    };
 }
 
 public sealed class GameDiscoveryCandidateItem : FolderRewind.Models.ObservableObject
@@ -434,10 +483,11 @@ public sealed class GameDiscoveryCandidateItem : FolderRewind.Models.ObservableO
     public GameDiscoveryCandidateItem(
         DiscoveredGameCandidate candidate,
         IEnumerable<BackupPreset> presets,
-        IEnumerable<DiscoveryOrigin?> existingOrigins)
+        IEnumerable<BackupConfig> existingConfigs)
     {
         Candidate = candidate;
-        _status = DiscoveryPresentationService.GetStatus(candidate, existingOrigins);
+        var configs = existingConfigs.ToList();
+        _status = DiscoveryPresentationService.GetStatus(candidate, configs.Select(config => config.DiscoveryOrigin));
         var presetItems = new[] { BackupPresetService.CreateStandardGamePreset() }
             .Concat(presets)
             .GroupBy(preset => preset.ShareId, StringComparer.OrdinalIgnoreCase)
@@ -445,7 +495,10 @@ public sealed class GameDiscoveryCandidateItem : FolderRewind.Models.ObservableO
             .ToList();
         foreach (var set in candidate.BackupSets)
         {
-            BackupSets.Add(new GameDiscoveryBackupSetItem(set, presetItems));
+            BackupSets.Add(new GameDiscoveryBackupSetItem(
+                set,
+                presetItems,
+                DiscoverySetIdentityMatcher.FindUnique(set.Identity, configs, config => config.DiscoveryOrigin) != null));
         }
     }
 
@@ -474,9 +527,13 @@ public sealed class GameDiscoveryBackupSetItem : FolderRewind.Models.ObservableO
     private bool _isSelected = true;
     private GameDiscoveryPresetItem? _selectedPreset;
 
-    public GameDiscoveryBackupSetItem(BackupSetCandidate candidate, IReadOnlyList<GameDiscoveryPresetItem> presets)
+    public GameDiscoveryBackupSetItem(
+        BackupSetCandidate candidate,
+        IReadOnlyList<GameDiscoveryPresetItem> presets,
+        bool hasExistingConfiguration)
     {
         Candidate = candidate;
+        HasExistingConfiguration = hasExistingConfiguration;
         foreach (var resource in candidate.Resources)
         {
             Resources.Add(new GameDiscoveryResourceItem(resource));
@@ -488,10 +545,12 @@ public sealed class GameDiscoveryBackupSetItem : FolderRewind.Models.ObservableO
         SelectedPreset = Presets.Count(item => item.Preset.IsRecommended) == 1
             ? Presets.Single(item => item.Preset.IsRecommended)
             : Presets.FirstOrDefault();
-        _isSelected = Resources.Any(item => item.IsSelected);
+        _isSelected = hasExistingConfiguration || Resources.Any(item => item.IsSelected);
     }
 
     public BackupSetCandidate Candidate { get; }
+    public bool HasExistingConfiguration { get; }
+    public bool CanChoosePreset => !HasExistingConfiguration;
     public string Name => Candidate.DisplayName;
     public ObservableCollection<GameDiscoveryResourceItem> Resources { get; } = new();
     public ObservableCollection<GameDiscoveryPresetItem> Presets { get; } = new();
@@ -562,6 +621,9 @@ public sealed class GameDiscoveryDraftItem : FolderRewind.Models.ObservableObjec
     public bool IsSelected { get => _isSelected; set => SetProperty(ref _isSelected, value); }
     public string ConfigName { get => _configName; set => SetProperty(ref _configName, value ?? string.Empty); }
     public string DestinationPath { get => _destinationPath; set => SetProperty(ref _destinationPath, value ?? string.Empty); }
+    public bool CanEditConfiguration => Draft.ExistingConfig == null;
+    public bool IsExistingConfiguration => Draft.ExistingConfig != null;
+    public IReadOnlyList<DiscoverySourceChange> Changes => Draft.DiscoveryChanges;
     public string Reconciliation => Draft.Reconciliation switch
     {
         BackupConfigDraftReconciliation.UpToDate => I18n.GetString("GameDiscovery_Status_UpToDate"),

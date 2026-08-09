@@ -32,23 +32,12 @@ public sealed class BackupConfigDraft
     public BackupConfigDraftReconciliation Reconciliation { get; init; }
     public IReadOnlyList<BackupResourceCandidate> SelectedResources { get; init; }
         = Array.Empty<BackupResourceCandidate>();
-    public IReadOnlyList<ManagedFolder> FoldersToAdd { get; init; }
-        = Array.Empty<ManagedFolder>();
-    public IReadOnlyList<BackupManagedFolderUpdate> FolderUpdates { get; init; }
-        = Array.Empty<BackupManagedFolderUpdate>();
+    public IReadOnlyList<DiscoverySourceChange> DiscoveryChanges { get; init; }
+        = Array.Empty<DiscoverySourceChange>();
     public IReadOnlyList<BackupConfigDraftIssue> Issues { get; init; }
         = Array.Empty<BackupConfigDraftIssue>();
     public bool IsSelected { get; set; } = true;
-    public bool IsCommittable => IsSelected
-                                 && Reconciliation != BackupConfigDraftReconciliation.UpToDate
-                                 && Issues.All(issue => !issue.IsBlocking);
-}
-
-public sealed class BackupManagedFolderUpdate
-{
-    public required ManagedFolder ExistingFolder { get; init; }
-    public bool SetScopeToAll { get; init; }
-    public IReadOnlyList<string> IncludePatternsToAdd { get; init; } = Array.Empty<string>();
+    public bool IsCommittable => IsSelected && Issues.All(issue => !issue.IsBlocking);
 }
 
 public sealed class BackupConfigDraftCommitResult

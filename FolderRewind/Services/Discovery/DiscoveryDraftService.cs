@@ -24,6 +24,7 @@ public static class DiscoveryDraftService
         ArgumentNullException.ThrowIfNull(backupSet);
 
         var issues = new List<BackupConfigDraftIssue>();
+        var existing = FindExistingConfiguration(backupSet, existingConfigs);
         var matchingPresets = FindMatchingPresets(game, availablePresets).ToList();
         var recommended = matchingPresets.Where(preset => preset.IsRecommended).ToList();
         var preset = selectedPreset;
@@ -48,7 +49,7 @@ public static class DiscoveryDraftService
             .Distinct(StringComparer.OrdinalIgnoreCase)
             .OrderBy(id => id, StringComparer.OrdinalIgnoreCase)
             .ToList();
-        if (unavailablePlugins.Count > 0)
+        if (existing == null && unavailablePlugins.Count > 0)
         {
             issues.Add(new BackupConfigDraftIssue
             {
@@ -63,35 +64,49 @@ public static class DiscoveryDraftService
                                      && !string.Equals(backupSet.SuggestedConfigType, "Default", StringComparison.OrdinalIgnoreCase)
             ? backupSet.SuggestedConfigType
             : null;
-        var presetResult = BackupPresetService.CreateConfigFromTemplate(
-            preset,
-            backupSet.DisplayName,
-            configTypeOverride);
         BackupConfig config;
-        if (!presetResult.Success || presetResult.Config == null)
+        if (existing != null)
         {
-            issues.Add(new BackupConfigDraftIssue
+            // Existing configurations are user-owned. A discovery review never reapplies a preset,
+            // changes the display name, or changes the destination directory.
+            config = new BackupConfig
             {
-                Code = "preset-unavailable",
-                Message = string.IsNullOrWhiteSpace(presetResult.Message)
-                    ? "The selected preset cannot be applied on this host."
-                    : presetResult.Message,
-                IsBlocking = true
-            });
-            config = BackupPresetService.CreateConfigFromTemplate(
-                BackupPresetService.CreateStandardGamePreset(),
-                backupSet.DisplayName).Config ?? new BackupConfig { Name = backupSet.DisplayName };
+                Name = existing.Name,
+                DestinationPath = existing.DestinationPath,
+                ConfigType = existing.ConfigType
+            };
         }
         else
         {
-            config = presetResult.Config;
+            var presetResult = BackupPresetService.CreateConfigFromTemplate(
+                preset,
+                backupSet.DisplayName,
+                configTypeOverride);
+            if (!presetResult.Success || presetResult.Config == null)
+            {
+                issues.Add(new BackupConfigDraftIssue
+                {
+                    Code = "preset-unavailable",
+                    Message = string.IsNullOrWhiteSpace(presetResult.Message)
+                        ? "The selected preset cannot be applied on this host."
+                        : presetResult.Message,
+                    IsBlocking = true
+                });
+                config = BackupPresetService.CreateConfigFromTemplate(
+                    BackupPresetService.CreateStandardGamePreset(),
+                    backupSet.DisplayName).Config ?? new BackupConfig { Name = backupSet.DisplayName };
+            }
+            else
+            {
+                config = presetResult.Config;
+            }
         }
 
         var plans = DiscoveryResourcePlanner.CreatePlans(backupSet.Resources, selectedResourceIds);
         var selectedResources = backupSet.Resources
             .Where(resource => plans.Any(plan => plan.ResourceIds.Contains(resource.ResourceId, StringComparer.OrdinalIgnoreCase)))
             .ToList();
-        if (plans.Count == 0)
+        if (existing == null && plans.Count == 0)
         {
             issues.Add(new BackupConfigDraftIssue
             {
@@ -105,16 +120,17 @@ public static class DiscoveryDraftService
         {
             config.SourceFolders.Add(folder);
         }
+        var discoveredBaseline = BuildReviewedBaseline(backupSet.Resources);
         config.DiscoveryOrigin = new DiscoveryOrigin
         {
             Identity = CloneIdentity(backupSet.Identity),
-            ReviewedBaseline = BuildReviewedBaseline(backupSet.Resources),
+            ReviewedBaseline = discoveredBaseline,
             PresetShareId = preset.ShareId,
             PresetVersion = preset.Version,
             ManifestRevision = manifestRevision ?? string.Empty
         };
 
-        if (config.IsEncrypted && !EncryptionService.HasStoredPassword(config.Id))
+        if (existing == null && config.IsEncrypted && !EncryptionService.HasStoredPassword(config.Id))
         {
             issues.Add(new BackupConfigDraftIssue
             {
@@ -124,20 +140,21 @@ public static class DiscoveryDraftService
             });
         }
 
-        var existing = FindExistingConfiguration(backupSet, existingConfigs);
-        var foldersToAdd = new List<ManagedFolder>();
-        var updates = new List<BackupManagedFolderUpdate>();
+        IReadOnlyList<DiscoverySourceChange> discoveryChanges = Array.Empty<DiscoverySourceChange>();
         var reconciliation = BackupConfigDraftReconciliation.NewConfiguration;
         if (existing != null)
         {
-            BuildExistingConfigurationChanges(existing, config.SourceFolders, foldersToAdd, updates);
-            reconciliation = foldersToAdd.Count == 0 && updates.Count == 0
+            var defaultSelectedRoots = plans
+                .Select(plan => DiscoveryResourcePlanner.NormalizePath(plan.FixedRoot))
+                .ToHashSet(StringComparer.OrdinalIgnoreCase);
+            discoveryChanges = DiscoveryThreeWayReviewService.Review(
+                existing.DiscoveryOrigin?.ReviewedBaseline,
+                BuildCurrentSources(existing),
+                discoveredBaseline,
+                defaultSelectedRoots);
+            reconciliation = discoveryChanges.Count == 0
                 ? BackupConfigDraftReconciliation.UpToDate
                 : BackupConfigDraftReconciliation.NewResources;
-        }
-        else
-        {
-            foldersToAdd.AddRange(config.SourceFolders);
         }
 
         return new BackupConfigDraft
@@ -149,8 +166,7 @@ public static class DiscoveryDraftService
             ExistingConfig = existing,
             Reconciliation = reconciliation,
             SelectedResources = selectedResources,
-            FoldersToAdd = foldersToAdd,
-            FolderUpdates = updates,
+            DiscoveryChanges = discoveryChanges,
             Issues = issues
         };
     }
@@ -211,6 +227,7 @@ public static class DiscoveryDraftService
 
         var addedConfigs = new List<BackupConfig>();
         var addedFolders = new List<(BackupConfig Config, ManagedFolder Folder)>();
+        var removedFolders = new List<(BackupConfig Config, ManagedFolder Folder, int Index)>();
         var updateSnapshots = new List<(ManagedFolder Folder, BackupSourceScope SourceScope)>();
         var originSnapshots = new List<(BackupConfig Config, DiscoveryOrigin? Origin)>();
         var transaction = DiscoveryDraftTransaction.Execute(
@@ -220,6 +237,7 @@ public static class DiscoveryDraftService
                 {
                     if (draft.Reconciliation == BackupConfigDraftReconciliation.NewConfiguration)
                     {
+                        CompleteProposedOriginReview(draft.ProposedConfig, draft.ProposedConfig.DiscoveryOrigin, Array.Empty<string>());
                         ConfigService.CurrentConfig.BackupConfigs.Add(draft.ProposedConfig);
                         addedConfigs.Add(draft.ProposedConfig);
                         continue;
@@ -229,21 +247,20 @@ public static class DiscoveryDraftService
                         continue;
                     }
 
-                    foreach (var folder in draft.FoldersToAdd)
-                    {
-                        draft.ExistingConfig.SourceFolders.Add(folder);
-                        addedFolders.Add((draft.ExistingConfig, folder));
-                    }
-                    foreach (var update in draft.FolderUpdates)
-                    {
-                        updateSnapshots.Add((update.ExistingFolder, CloneSourceScope(update.ExistingFolder.SourceScope)));
-                        ApplyFolderUpdate(update);
-                    }
                     originSnapshots.Add((draft.ExistingConfig, CloneOrigin(draft.ExistingConfig.DiscoveryOrigin)));
-                    UpdateDiscoveryOrigin(draft.ExistingConfig, draft.ProposedConfig.DiscoveryOrigin);
+                    ApplyDiscoveryChanges(draft, addedFolders, removedFolders, updateSnapshots);
+                    var trackedRoots = draft.ExistingConfig.DiscoveryOrigin?.ReviewedBaseline.Sources
+                        .Select(source => source.NormalizedRootPath)
+                        .Concat(draft.ExistingConfig.DiscoveryOrigin.ReviewedBaseline.UserOverrides
+                            .Select(item => item.NormalizedRootPath))
+                        .ToList() ?? new List<string>();
+                    CompleteProposedOriginReview(
+                        draft.ExistingConfig,
+                        draft.ProposedConfig.DiscoveryOrigin,
+                        trackedRoots);
                 }
             },
-            rollback: () => Rollback(addedConfigs, addedFolders, updateSnapshots, originSnapshots),
+            rollback: () => Rollback(addedConfigs, addedFolders, removedFolders, updateSnapshots, originSnapshots),
             save: () =>
             {
                 var result = ConfigService.SaveWithResult(publishSavedEvent: false);
@@ -311,43 +328,6 @@ public static class DiscoveryDraftService
             config => config.DiscoveryOrigin);
     }
 
-    private static void BuildExistingConfigurationChanges(
-        BackupConfig existing,
-        IEnumerable<ManagedFolder> proposedFolders,
-        ICollection<ManagedFolder> foldersToAdd,
-        ICollection<BackupManagedFolderUpdate> updates)
-    {
-        foreach (var proposed in proposedFolders)
-        {
-            var current = existing.SourceFolders.FirstOrDefault(folder =>
-                string.Equals(
-                    DiscoveryResourcePlanner.NormalizePath(folder.Path),
-                    DiscoveryResourcePlanner.NormalizePath(proposed.Path),
-                    StringComparison.OrdinalIgnoreCase));
-            if (current == null)
-            {
-                foldersToAdd.Add(proposed);
-                continue;
-            }
-
-            var currentScope = current.SourceScope ?? new BackupSourceScope();
-            var patterns = proposed.SourceScope.IncludePatterns
-                .Except(currentScope.IncludePatterns ?? new ObservableCollection<string>(), StringComparer.OrdinalIgnoreCase)
-                .ToList();
-            var setAll = proposed.SourceScope.Mode == BackupSourceScopeMode.All
-                         && currentScope.Mode != BackupSourceScopeMode.All;
-            if (patterns.Count > 0 || setAll)
-            {
-                updates.Add(new BackupManagedFolderUpdate
-                {
-                    ExistingFolder = current,
-                    SetScopeToAll = setAll,
-                    IncludePatternsToAdd = patterns
-                });
-            }
-        }
-    }
-
     private static string ValidateCommit(
         IReadOnlyList<BackupConfigDraft> selectedDrafts,
         IReadOnlyList<BackupConfig> newConfigs)
@@ -394,7 +374,12 @@ public static class DiscoveryDraftService
 
             var folders = draft.Reconciliation == BackupConfigDraftReconciliation.NewConfiguration
                 ? draft.ProposedConfig.SourceFolders.AsEnumerable()
-                : draft.FoldersToAdd;
+                : draft.DiscoveryChanges
+                    .Where(change => change.IsSelected && change.IsActionable && change.Discovered != null)
+                    .Select(change => CreateManagedFolder(
+                        change.Discovered!,
+                        draft.ProposedConfig.SourceFolders.FirstOrDefault(folder => PathsEqual(folder.Path, change.NormalizedRootPath))?.DisplayName))
+                    .ToList();
             foreach (var folder in folders)
             {
                 if (!BackupStoragePathService.TryResolveBackupStoragePaths(
@@ -419,20 +404,101 @@ public static class DiscoveryDraftService
         return string.Empty;
     }
 
-    private static void ApplyFolderUpdate(BackupManagedFolderUpdate update)
+    private static void ApplyDiscoveryChanges(
+        BackupConfigDraft draft,
+        ICollection<(BackupConfig Config, ManagedFolder Folder)> addedFolders,
+        ICollection<(BackupConfig Config, ManagedFolder Folder, int Index)> removedFolders,
+        ICollection<(ManagedFolder Folder, BackupSourceScope SourceScope)> updateSnapshots)
     {
-        update.ExistingFolder.SourceScope ??= new BackupSourceScope();
-        if (update.SetScopeToAll)
+        var config = draft.ExistingConfig!;
+        foreach (var change in draft.DiscoveryChanges.Where(change => change.IsActionable && change.IsSelected))
         {
-            update.ExistingFolder.SourceScope.Mode = BackupSourceScopeMode.All;
-            update.ExistingFolder.SourceScope.IncludePatterns.Clear();
-        }
-        foreach (var pattern in update.IncludePatternsToAdd.Where(pattern =>
-                     !update.ExistingFolder.SourceScope.IncludePatterns.Contains(pattern, StringComparer.OrdinalIgnoreCase)))
-        {
-            update.ExistingFolder.SourceScope.IncludePatterns.Add(pattern);
+            var existingFolder = config.SourceFolders.FirstOrDefault(folder => PathsEqual(folder.Path, change.NormalizedRootPath));
+            if (change.Discovered == null)
+            {
+                if (existingFolder != null)
+                {
+                    var index = config.SourceFolders.IndexOf(existingFolder);
+                    config.SourceFolders.Remove(existingFolder);
+                    removedFolders.Add((config, existingFolder, index));
+                }
+                continue;
+            }
+
+            if (existingFolder == null)
+            {
+                var proposedName = draft.ProposedConfig.SourceFolders
+                    .FirstOrDefault(folder => PathsEqual(folder.Path, change.NormalizedRootPath))?.DisplayName;
+                var folder = CreateManagedFolder(change.Discovered, proposedName);
+                folder.DisplayName = UniqueFolderName(config, folder.DisplayName);
+                config.SourceFolders.Add(folder);
+                addedFolders.Add((config, folder));
+                continue;
+            }
+
+            updateSnapshots.Add((existingFolder, CloneSourceScope(existingFolder.SourceScope)));
+            existingFolder.SourceScope = ScopeFrom(change.Discovered);
         }
     }
+
+    private static void CompleteProposedOriginReview(
+        BackupConfig config,
+        DiscoveryOrigin? proposedOrigin,
+        IEnumerable<string> previouslyTrackedRoots)
+    {
+        if (proposedOrigin == null)
+        {
+            return;
+        }
+        var completed = CloneOrigin(proposedOrigin)!;
+        completed.ReviewedBaseline = DiscoveryThreeWayReviewService.CompleteReview(
+            completed.ReviewedBaseline,
+            BuildCurrentSources(config),
+            previouslyTrackedRoots);
+        config.DiscoveryOrigin = completed;
+    }
+
+    private static IReadOnlyList<ReviewedDiscoverySource> BuildCurrentSources(BackupConfig config) =>
+        config.SourceFolders.Select(folder => new ReviewedDiscoverySource
+        {
+            NormalizedRootPath = DiscoveryResourcePlanner.NormalizePath(folder.Path),
+            Mode = folder.SourceScope?.Mode ?? BackupSourceScopeMode.All,
+            IncludePatterns = new ObservableCollection<string>(folder.SourceScope?.IncludePatterns
+                ?? new ObservableCollection<string>())
+        }).ToList();
+
+    private static ManagedFolder CreateManagedFolder(ReviewedDiscoverySource source, string? displayName = null) => new()
+    {
+        Path = source.NormalizedRootPath,
+        DisplayName = string.IsNullOrWhiteSpace(displayName)
+            ? FolderNameConflictService.ResolveDisplayName(string.Empty, source.NormalizedRootPath)
+            : displayName,
+        SourceScope = ScopeFrom(source)
+    };
+
+    private static BackupSourceScope ScopeFrom(ReviewedDiscoverySource source) => new()
+    {
+        Mode = source.Mode,
+        IncludePatterns = new ObservableCollection<string>(source.IncludePatterns)
+    };
+
+    private static string UniqueFolderName(BackupConfig config, string requested)
+    {
+        var baseName = string.IsNullOrWhiteSpace(requested) ? "Game data" : requested;
+        var candidate = baseName;
+        var suffix = 2;
+        while (config.SourceFolders.Any(folder =>
+                   string.Equals(folder.DisplayName, candidate, StringComparison.OrdinalIgnoreCase)))
+        {
+            candidate = $"{baseName} ({suffix++})";
+        }
+        return candidate;
+    }
+
+    private static bool PathsEqual(string left, string right) => string.Equals(
+        DiscoveryResourcePlanner.NormalizePath(left),
+        DiscoveryResourcePlanner.NormalizePath(right),
+        StringComparison.OrdinalIgnoreCase);
 
     private static BackupSourceScope CloneSourceScope(BackupSourceScope source) => new()
     {
@@ -472,18 +538,8 @@ public static class DiscoveryDraftService
         };
     }
 
-    private static ReviewedDiscoveryBaseline CloneBaseline(ReviewedDiscoveryBaseline source) => new()
-    {
-        Sources = new ObservableCollection<ReviewedDiscoverySource>(
-            (source?.Sources ?? new ObservableCollection<ReviewedDiscoverySource>()).Select(item =>
-                new ReviewedDiscoverySource
-                {
-                    NormalizedRootPath = item.NormalizedRootPath,
-                    Mode = item.Mode,
-                    IncludePatterns = new ObservableCollection<string>(item.IncludePatterns),
-                    ResourceIds = new ObservableCollection<string>(item.ResourceIds)
-                }))
-    };
+    private static ReviewedDiscoveryBaseline CloneBaseline(ReviewedDiscoveryBaseline source) =>
+        DiscoveryThreeWayReviewService.Clone(source);
 
     private static DiscoveryOrigin? CloneOrigin(DiscoveryOrigin? source)
     {
@@ -501,19 +557,10 @@ public static class DiscoveryDraftService
         };
     }
 
-    private static void UpdateDiscoveryOrigin(
-        BackupConfig config,
-        DiscoveryOrigin? proposedOrigin)
-    {
-        if (proposedOrigin != null)
-        {
-            config.DiscoveryOrigin = CloneOrigin(proposedOrigin);
-        }
-    }
-
     private static void Rollback(
         IEnumerable<BackupConfig> addedConfigs,
         IEnumerable<(BackupConfig Config, ManagedFolder Folder)> addedFolders,
+        IEnumerable<(BackupConfig Config, ManagedFolder Folder, int Index)> removedFolders,
         IEnumerable<(ManagedFolder Folder, BackupSourceScope SourceScope)> updateSnapshots,
         IEnumerable<(BackupConfig Config, DiscoveryOrigin? Origin)> originSnapshots)
     {
@@ -524,6 +571,10 @@ public static class DiscoveryDraftService
         foreach (var snapshot in updateSnapshots.Reverse())
         {
             snapshot.Folder.SourceScope = snapshot.SourceScope;
+        }
+        foreach (var removed in removedFolders.Reverse())
+        {
+            removed.Config.SourceFolders.Insert(removed.Index, removed.Folder);
         }
         foreach (var added in addedFolders.Reverse())
         {
