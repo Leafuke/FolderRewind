@@ -4989,6 +4989,28 @@ Pull Request：{1}</value>
   <data name="GameDiscovery_Status_UpToDate" xml:space="preserve"><value>已是最新</value></data>
   <data name="GameDiscovery_Status_NewResources" xml:space="preserve"><value>发现新资源</value></data>
   <data name="GameDiscovery_HiddenSelection" xml:space="preserve"><value>另有 {0} 个已选游戏被当前筛选隐藏；确认页仍会列出它们。</value></data>
+  <data name="FolderManager_EditSourceScope.Text" xml:space="preserve"><value>编辑备份范围</value></data>
+  <data name="SourceScopeEditor_Title" xml:space="preserve"><value>编辑来源备份范围</value></data>
+  <data name="SourceScopeEditor_Description.Text" xml:space="preserve"><value>来源备份范围是此来源的硬边界；配置白名单、黑名单和插件范围只能在其基础上进一步缩小。</value></data>
+  <data name="SourceScopeEditor_ModeAll.Content" xml:space="preserve"><value>全部文件</value></data>
+  <data name="SourceScopeEditor_ModeInclude.Content" xml:space="preserve"><value>仅包含以下 glob</value></data>
+  <data name="SourceScopeEditor_AddRule.Content" xml:space="preserve"><value>添加规则</value></data>
+  <data name="SourceScopeEditor_RemoveRule.ToolTipService.ToolTip" xml:space="preserve"><value>删除规则</value></data>
+  <data name="SourceScopeEditor_FilterNote.Message" xml:space="preserve"><value>预览只计算来源范围；配置级白名单、黑名单和插件范围在备份时仍会继续缩小实际集合。</value></data>
+  <data name="SourceScopeEditor_RefreshPreview.Content" xml:space="preserve"><value>刷新预览</value></data>
+  <data name="SourceScopeEditor_CancelPreview.Content" xml:space="preserve"><value>取消</value></data>
+  <data name="SourceScopeEditor_PreviewRunning" xml:space="preserve"><value>正在计算匹配文件数和大小…</value></data>
+  <data name="SourceScopeEditor_PreviewResult" xml:space="preserve"><value>来源范围匹配 {0} 个文件，共 {1}。</value></data>
+  <data name="SourceScopeEditor_PreviewFailed" xml:space="preserve"><value>预览失败：{0}</value></data>
+  <data name="SourceScopeEditor_PreviewBroadRootSkipped" xml:space="preserve"><value>宽根的“全部文件”预览已跳过；保存前会要求额外确认。</value></data>
+  <data name="SourceScopeEditor_ErrorEmpty" xml:space="preserve"><value>规则不能为空。</value></data>
+  <data name="SourceScopeEditor_ErrorLength" xml:space="preserve"><value>规则不能超过 {0} 个字符。</value></data>
+  <data name="SourceScopeEditor_ErrorUnsafe" xml:space="preserve"><value>规则必须是安全的相对 glob，不能包含绝对路径或 ..。</value></data>
+  <data name="SourceScopeEditor_ExpandTitle" xml:space="preserve"><value>扩大来源备份范围？</value></data>
+  <data name="SourceScopeEditor_ExpandContent" xml:space="preserve"><value>切换为“全部文件”会让当前 Include 规则之外的文件也有资格进入备份。配置过滤器仍可进一步缩小范围。</value></data>
+  <data name="SourceScopeEditor_BroadRootTitle" xml:space="preserve"><value>确认备份宽范围目录</value></data>
+  <data name="SourceScopeEditor_BroadRootContent" xml:space="preserve"><value>此来源是用户目录、系统目录或卷根等宽范围。允许全部文件可能产生巨大归档或纳入敏感数据，请再次确认。</value></data>
+  <data name="SourceScopeEditor_SaveFailed" xml:space="preserve"><value>保存备份范围失败，已恢复原设置：{0}</value></data>
   <data name="GameDiscovery_ResultSummary" xml:space="preserve"><value>发现 {0} 个游戏、{1} 个资源，{2} 条警告，用时 {3} 秒。</value></data>
   <data name="GameDiscovery_ResourcePathExists" xml:space="preserve"><value>候选根目录已存在</value></data>
   <data name="GameDiscovery_ResourcePathMissing" xml:space="preserve"><value>候选根目录尚未创建</value></data>

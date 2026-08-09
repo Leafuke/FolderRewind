@@ -1,0 +1,59 @@
+<?xml version="1.0" encoding="utf-8"?>
+<ContentDialog
+    x:Class="FolderRewind.Views.SourceScopeEditorDialog"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:vm="using:FolderRewind.ViewModels"
+    Style="{StaticResource DefaultContentDialogStyle}">
+
+    <ContentDialog.Resources>
+        <x:Double x:Key="ContentDialogMinWidth">640</x:Double>
+    </ContentDialog.Resources>
+
+    <ScrollViewer MaxHeight="620">
+        <StackPanel Spacing="14">
+            <TextBlock x:Uid="SourceScopeEditor_Description" TextWrapping="Wrap" Foreground="{ThemeResource TextFillColorSecondaryBrush}"/>
+            <RadioButtons SelectedIndex="{x:Bind ViewModel.ModeSelectedIndex, Mode=TwoWay}" SelectionChanged="OnModeSelectionChanged">
+                <RadioButton x:Uid="SourceScopeEditor_ModeAll"/>
+                <RadioButton x:Uid="SourceScopeEditor_ModeInclude"/>
+            </RadioButtons>
+
+            <StackPanel Spacing="8" Visibility="{x:Bind ViewModel.IsIncludeMode, Mode=OneWay, Converter={StaticResource BoolToVisConverter}}">
+                <ItemsControl ItemsSource="{x:Bind ViewModel.Rules, Mode=OneWay}">
+                    <ItemsControl.ItemTemplate>
+                        <DataTemplate x:DataType="vm:SourceScopeRuleItem">
+                            <Grid ColumnSpacing="8" Margin="0,3">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*"/>
+                                    <ColumnDefinition Width="Auto"/>
+                                </Grid.ColumnDefinitions>
+                                <StackPanel Spacing="2">
+                                    <TextBox Text="{x:Bind Pattern, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" FontFamily="Consolas"/>
+                                    <TextBlock Text="{x:Bind Error, Mode=OneWay}" Foreground="{ThemeResource SystemFillColorCriticalBrush}" TextWrapping="Wrap"/>
+                                </StackPanel>
+                                <Button Grid.Column="1" x:Uid="SourceScopeEditor_RemoveRule" Click="OnRemoveRuleClick" Tag="{x:Bind}">
+                                    <FontIcon Glyph="&#xE74D;"/>
+                                </Button>
+                            </Grid>
+                        </DataTemplate>
+                    </ItemsControl.ItemTemplate>
+                </ItemsControl>
+                <Button x:Uid="SourceScopeEditor_AddRule" Click="OnAddRuleClick" HorizontalAlignment="Left"/>
+            </StackPanel>
+
+            <InfoBar x:Uid="SourceScopeEditor_FilterNote" IsOpen="True" IsClosable="False" Severity="Informational"/>
+            <Border Padding="12" CornerRadius="6" Background="{ThemeResource CardBackgroundFillColorDefaultBrush}">
+                <Grid ColumnSpacing="8">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="Auto"/>
+                        <ColumnDefinition Width="Auto"/>
+                    </Grid.ColumnDefinitions>
+                    <TextBlock Text="{x:Bind ViewModel.PreviewText, Mode=OneWay}" TextWrapping="Wrap" VerticalAlignment="Center"/>
+                    <Button Grid.Column="1" x:Uid="SourceScopeEditor_RefreshPreview" Click="OnRefreshPreviewClick"/>
+                    <Button Grid.Column="2" x:Uid="SourceScopeEditor_CancelPreview" Click="OnCancelPreviewClick" IsEnabled="{x:Bind ViewModel.IsPreviewing, Mode=OneWay}"/>
+                </Grid>
+            </Border>
+        </StackPanel>
+    </ScrollViewer>
+</ContentDialog>

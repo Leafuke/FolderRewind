@@ -4989,6 +4989,28 @@ Pull request: {1}</value>
   <data name="GameDiscovery_Status_UpToDate" xml:space="preserve"><value>Up to date</value></data>
   <data name="GameDiscovery_Status_NewResources" xml:space="preserve"><value>New resources</value></data>
   <data name="GameDiscovery_HiddenSelection" xml:space="preserve"><value>{0} selected game(s) are hidden by the current filter; the review still lists them.</value></data>
+  <data name="FolderManager_EditSourceScope.Text" xml:space="preserve"><value>Edit backup scope</value></data>
+  <data name="SourceScopeEditor_Title" xml:space="preserve"><value>Edit source backup scope</value></data>
+  <data name="SourceScopeEditor_Description.Text" xml:space="preserve"><value>The source backup scope is this source's hard boundary. Configuration allow/deny filters and plugin scopes can only narrow it further.</value></data>
+  <data name="SourceScopeEditor_ModeAll.Content" xml:space="preserve"><value>All files</value></data>
+  <data name="SourceScopeEditor_ModeInclude.Content" xml:space="preserve"><value>Only these globs</value></data>
+  <data name="SourceScopeEditor_AddRule.Content" xml:space="preserve"><value>Add rule</value></data>
+  <data name="SourceScopeEditor_RemoveRule.ToolTipService.ToolTip" xml:space="preserve"><value>Remove rule</value></data>
+  <data name="SourceScopeEditor_FilterNote.Message" xml:space="preserve"><value>The preview evaluates source scope only. Configuration allow/deny filters and plugin scopes still narrow the actual backup set.</value></data>
+  <data name="SourceScopeEditor_RefreshPreview.Content" xml:space="preserve"><value>Refresh preview</value></data>
+  <data name="SourceScopeEditor_CancelPreview.Content" xml:space="preserve"><value>Cancel</value></data>
+  <data name="SourceScopeEditor_PreviewRunning" xml:space="preserve"><value>Calculating matched files and size…</value></data>
+  <data name="SourceScopeEditor_PreviewResult" xml:space="preserve"><value>Source scope matches {0} file(s), totaling {1}.</value></data>
+  <data name="SourceScopeEditor_PreviewFailed" xml:space="preserve"><value>Preview failed: {0}</value></data>
+  <data name="SourceScopeEditor_PreviewBroadRootSkipped" xml:space="preserve"><value>The All-files preview for this broad root was skipped; saving will require an extra confirmation.</value></data>
+  <data name="SourceScopeEditor_ErrorEmpty" xml:space="preserve"><value>A rule cannot be empty.</value></data>
+  <data name="SourceScopeEditor_ErrorLength" xml:space="preserve"><value>A rule cannot exceed {0} characters.</value></data>
+  <data name="SourceScopeEditor_ErrorUnsafe" xml:space="preserve"><value>Use a safe relative glob without an absolute path or .. segments.</value></data>
+  <data name="SourceScopeEditor_ExpandTitle" xml:space="preserve"><value>Expand the source backup scope?</value></data>
+  <data name="SourceScopeEditor_ExpandContent" xml:space="preserve"><value>Switching to All files makes files outside the current Include rules eligible for backup. Configuration filters can still narrow the result.</value></data>
+  <data name="SourceScopeEditor_BroadRootTitle" xml:space="preserve"><value>Confirm broad-root backup</value></data>
+  <data name="SourceScopeEditor_BroadRootContent" xml:space="preserve"><value>This source is a broad user, system, or volume root. Allowing all files may create a huge archive or include sensitive data. Confirm again to continue.</value></data>
+  <data name="SourceScopeEditor_SaveFailed" xml:space="preserve"><value>Could not save the backup scope. The original scope was restored: {0}</value></data>
   <data name="GameDiscovery_ResultSummary" xml:space="preserve"><value>Found {0} games and {1} resources with {2} warnings in {3} seconds.</value></data>
   <data name="GameDiscovery_ResourcePathExists" xml:space="preserve"><value>Candidate root exists</value></data>
   <data name="GameDiscovery_ResourcePathMissing" xml:space="preserve"><value>Candidate root has not been created</value></data>

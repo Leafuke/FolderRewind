@@ -451,6 +451,76 @@ namespace FolderRewind.Views
             await dialog.ShowAsync();
         }
 
+        private async void OnEditSourceScopeClick(object sender, RoutedEventArgs e)
+        {
+            if (sender is not MenuFlyoutItem { DataContext: ManagedFolder folder }
+                || ViewModel.CurrentConfig == null)
+            {
+                return;
+            }
+
+            var original = new BackupSourceScope
+            {
+                Mode = folder.SourceScope?.Mode ?? BackupSourceScopeMode.All,
+                IncludePatterns = new System.Collections.ObjectModel.ObservableCollection<string>(
+                    folder.SourceScope?.IncludePatterns ?? new System.Collections.ObjectModel.ObservableCollection<string>())
+            };
+            var dialog = new SourceScopeEditorDialog(ViewModel.CurrentConfig, folder)
+            {
+                XamlRoot = XamlRoot
+            };
+            if (await dialog.ShowAsync() != ContentDialogResult.Primary || dialog.ResultScope == null)
+            {
+                return;
+            }
+
+            var expandsToAll = original.Mode == BackupSourceScopeMode.Include
+                               && dialog.ResultScope.Mode == BackupSourceScopeMode.All;
+            if (expandsToAll && !await ConfirmSourceScopeExpansionAsync(
+                    "SourceScopeEditor_ExpandTitle",
+                    "SourceScopeEditor_ExpandContent"))
+            {
+                return;
+            }
+            if (expandsToAll
+                && BackupSourceRootSafetyPolicy.IsBroadRoot(folder.Path)
+                && !await ConfirmSourceScopeExpansionAsync(
+                    "SourceScopeEditor_BroadRootTitle",
+                    "SourceScopeEditor_BroadRootContent"))
+            {
+                return;
+            }
+
+            folder.SourceScope = dialog.ResultScope;
+            var saveResult = ConfigService.SaveWithResult();
+            if (!saveResult.Success)
+            {
+                folder.SourceScope = original;
+                NotificationService.ShowError(I18n.Format(
+                    "SourceScopeEditor_SaveFailed",
+                    saveResult.ErrorMessage));
+            }
+        }
+
+        private async Task<bool> ConfirmSourceScopeExpansionAsync(string titleKey, string contentKey)
+        {
+            var dialog = new ContentDialog
+            {
+                XamlRoot = XamlRoot,
+                Title = I18n.GetString(titleKey),
+                Content = new TextBlock
+                {
+                    Text = I18n.GetString(contentKey),
+                    TextWrapping = TextWrapping.Wrap
+                },
+                PrimaryButtonText = I18n.GetString("Common_Confirm"),
+                CloseButtonText = I18n.GetString("Common_Cancel"),
+                DefaultButton = ContentDialogButton.Close
+            };
+            ThemeService.ApplyThemeToDialog(dialog);
+            return await dialog.ShowAsync() == ContentDialogResult.Primary;
+        }
+
         private async Task ShowUnsafePathOverlapAsync(IEnumerable<string> folderPaths)
         {
             var paths = folderPaths

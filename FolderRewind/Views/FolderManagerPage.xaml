@@ -298,6 +298,7 @@
                                             <FontIcon Glyph="&#xE946;"/>
                                         </MenuFlyoutItem.Icon>
                                     </MenuFlyoutItem>
+                                    <MenuFlyoutItem x:Uid="FolderManager_EditSourceScope" Icon="Filter" Click="OnEditSourceScopeClick"/>
                                     <MenuFlyoutItem x:Uid="FolderManager_RenameFolder" Icon="Rename" Click="OnRenameFolderClick"/>
                                     <MenuFlyoutItem x:Uid="FolderManager_Rescan" Icon="Refresh"/>
                                     <MenuFlyoutItem x:Uid="FolderManager_MiniWindow" Click="OnOpenMiniWindowClick">
