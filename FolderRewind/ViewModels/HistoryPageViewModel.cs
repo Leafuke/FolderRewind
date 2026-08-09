@@ -38,7 +38,7 @@ namespace FolderRewind.ViewModels
         }
 
         public bool HasMissing => _missingCount > 0;
-        public bool IsGroupedRunView => _currentConfig?.HistoryMode == BackupHistoryMode.GroupedRun;
+        public bool IsGroupedRunView => false;
         public Visibility GroupedRunHistoryVisibility => IsGroupedRunView ? Visibility.Visible : Visibility.Collapsed;
         public Visibility PerSourceHistoryVisibility => IsGroupedRunView ? Visibility.Collapsed : Visibility.Visible;
         public bool CanUsePerSourceActions => !IsGroupedRunView && _currentFolder != null;
@@ -93,7 +93,7 @@ namespace FolderRewind.ViewModels
         public void SetCurrentSelection(BackupConfig? config, ManagedFolder? folder, bool refreshHistoryIfFolder, bool persistSelection)
         {
             _currentConfig = config;
-            _currentFolder = config?.HistoryMode == BackupHistoryMode.GroupedRun ? null : folder;
+            _currentFolder = folder;
             OnPropertyChanged(nameof(CanUseCloudHistoryActions));
             OnPropertyChanged(nameof(CanOpenConfigCloudSync));
             OnPropertyChanged(nameof(IsGroupedRunView));
@@ -102,11 +102,7 @@ namespace FolderRewind.ViewModels
             OnPropertyChanged(nameof(CanUsePerSourceActions));
 
             // 页面初始化阶段可关闭刷新，避免控件尚未就绪时重复拉取历史。
-            if (IsGroupedRunView && _currentConfig != null)
-            {
-                RefreshRuns(_currentConfig);
-            }
-            else if (refreshHistoryIfFolder && _currentConfig != null && _currentFolder != null)
+            if (refreshHistoryIfFolder && _currentConfig != null && _currentFolder != null)
             {
                 RefreshHistory(_currentConfig, _currentFolder);
             }
@@ -182,8 +178,7 @@ namespace FolderRewind.ViewModels
                 folder = config.SourceFolders.FirstOrDefault(f => f.Path == settings.LastHistoryFolderPath);
             }
 
-            if (config.HistoryMode != BackupHistoryMode.GroupedRun
-                && folder == null && config.SourceFolders.Count > 0)
+            if (folder == null && config.SourceFolders.Count > 0)
             {
                 // 历史路径失效时兜底到首项，保证页面总有可展示目标。
                 folder = config.SourceFolders[0];
@@ -194,11 +189,6 @@ namespace FolderRewind.ViewModels
 
         public void RefreshCurrentHistory()
         {
-            if (_currentConfig?.HistoryMode == BackupHistoryMode.GroupedRun)
-            {
-                RefreshRuns(_currentConfig);
-                return;
-            }
             if (_currentConfig == null || _currentFolder == null)
             {
                 return;

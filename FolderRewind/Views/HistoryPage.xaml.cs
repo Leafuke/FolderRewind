@@ -65,8 +65,8 @@ namespace FolderRewind.Views
 
                 ViewModel.SetCurrentSelection(
                     targetConfig,
-                    targetConfig.HistoryMode == BackupHistoryMode.GroupedRun ? null : targetFolder,
-                    refreshHistoryIfFolder: targetConfig.HistoryMode == BackupHistoryMode.GroupedRun || targetFolder != null,
+                    targetFolder,
+                    refreshHistoryIfFolder: targetFolder != null,
                     persistSelection: true);
             }
             finally
@@ -86,7 +86,7 @@ namespace FolderRewind.Views
             {
                 ViewModel.SetCurrentSelection(config, null, refreshHistoryIfFolder: false, persistSelection: true);
                 ConfigureFolderFilter(config, null);
-                if (config.HistoryMode != BackupHistoryMode.GroupedRun && config.SourceFolders.Count > 0)
+                if (config.SourceFolders.Count > 0)
                     FolderFilter.SelectedIndex = 0;
             }
         }
@@ -95,8 +95,7 @@ namespace FolderRewind.Views
         {
             if (_isNavigating) return;
             if (FolderFilter.SelectedItem is ManagedFolder folder
-                && ConfigFilter.SelectedItem is BackupConfig config
-                && config.HistoryMode != BackupHistoryMode.GroupedRun)
+                && ConfigFilter.SelectedItem is BackupConfig config)
             {
                 ViewModel.SetCurrentSelection(config, folder, refreshHistoryIfFolder: true, persistSelection: true);
             }
@@ -645,8 +644,8 @@ namespace FolderRewind.Views
 
                 ViewModel.SetCurrentSelection(
                     config,
-                    config.HistoryMode == BackupHistoryMode.GroupedRun ? null : folder,
-                    refreshHistoryIfFolder: config.HistoryMode == BackupHistoryMode.GroupedRun || folder != null,
+                    folder,
+                    refreshHistoryIfFolder: folder != null,
                     persistSelection: true);
             }
             finally
@@ -671,14 +670,13 @@ namespace FolderRewind.Views
 
         private void ConfigureFolderFilter(BackupConfig config, ManagedFolder? preferredFolder)
         {
-            var grouped = config.HistoryMode == BackupHistoryMode.GroupedRun;
-            FolderFilter.IsEnabled = !grouped;
-            FolderFilter.PlaceholderText = grouped ? I18n.GetString("History_Run_AllSources") : string.Empty;
-            FolderFilter.ItemsSource = grouped ? null : config.SourceFolders;
-            FolderFilter.SelectedItem = grouped ? null : preferredFolder;
-            if (!grouped && preferredFolder == null)
+            FolderFilter.IsEnabled = true;
+            FolderFilter.PlaceholderText = string.Empty;
+            FolderFilter.ItemsSource = config.SourceFolders;
+            FolderFilter.SelectedItem = preferredFolder;
+            if (preferredFolder == null)
                 FolderFilter.SelectedIndex = config.SourceFolders.Count > 0 ? 0 : -1;
-            ScanRecoverButton.IsEnabled = !grouped;
+            ScanRecoverButton.IsEnabled = true;
         }
     }
 }

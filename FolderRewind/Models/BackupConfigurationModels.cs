@@ -24,7 +24,6 @@ namespace FolderRewind.Models
         private string _summaryText = I18n.Format("BackupConfig_DefaultSummary");
         private string _configType = "Default"; // 配置类型，由插件定义，如 "Minecraft Saves"
         private bool _isEncrypted = false; // 是否为加密配置
-        private BackupHistoryMode _historyMode = BackupHistoryMode.PerSource;
         private DiscoveryOrigin? _discoveryOrigin;
 
         // 核心路径
@@ -43,8 +42,6 @@ namespace FolderRewind.Models
         /// 密码一旦设置无法更改。
         /// </summary>
         public bool IsEncrypted { get => _isEncrypted; set => SetProperty(ref _isEncrypted, value); }
-
-        public BackupHistoryMode HistoryMode { get => _historyMode; set => SetProperty(ref _historyMode, value); }
 
         public DiscoveryOrigin? DiscoveryOrigin { get => _discoveryOrigin; set => SetProperty(ref _discoveryOrigin, value); }
 

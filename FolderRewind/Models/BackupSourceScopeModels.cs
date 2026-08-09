@@ -21,12 +21,6 @@ public sealed class BackupSourceScope
     public bool IsPartial => Mode == BackupSourceScopeMode.Include;
 }
 
-public enum BackupHistoryMode
-{
-    PerSource = 0,
-    GroupedRun = 1
-}
-
 public sealed class DiscoverySetIdentity
 {
     public string ProviderId { get; set; } = string.Empty;

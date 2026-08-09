@@ -53,7 +53,7 @@ public sealed class BackupRunRecord
 public sealed class BackupRunDocument
 {
     public const string CurrentMagic = "FolderRewindBackupRuns";
-    public const string CurrentSchemaVersion = "1.0";
+    public const string CurrentSchemaVersion = "2.0";
 
     public string Magic { get; set; } = CurrentMagic;
     public string SchemaVersion { get; set; } = CurrentSchemaVersion;
@@ -72,4 +72,12 @@ public sealed class BackupRunRestoreResult
     public string RunId { get; set; } = string.Empty;
     public List<BackupRunRestoreSourceResult> Sources { get; set; } = new();
     public bool Success => Sources.Count > 0 && Sources.TrueForAll(source => source.Success);
+}
+
+public sealed class BackupRetentionHistoryRecord
+{
+    public string HistoryItemId { get; set; } = string.Empty;
+    public string SourcePath { get; set; } = string.Empty;
+    public DateTime Timestamp { get; set; }
+    public bool IsImportant { get; set; }
 }

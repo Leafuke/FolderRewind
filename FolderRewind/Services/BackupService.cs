@@ -73,13 +73,6 @@ namespace FolderRewind.Services
             public string Message { get; set; } = string.Empty;
         }
 
-        private sealed class PruneArchivesResult
-        {
-            public bool Success { get; set; } = true;
-            public int DeletedCount { get; set; }
-            public string Message { get; set; } = string.Empty;
-        }
-
         // 压缩模式除了成功/失败，还必须区分“精确来源当前没有匹配文件”，避免把可预期的缺席误报为错误。
         private readonly record struct BackupArchiveExecutionResult(
             bool Success,
@@ -208,31 +201,30 @@ namespace FolderRewind.Services
                     folder,
                     comment: invocationOptions.Comment,
                     invocationOptions: invocationOptions,
-                    createdByRunId: config.HistoryMode == BackupHistoryMode.GroupedRun ? runId : null);
+                    createdByRunId: runId);
                 sourceOutcomes.Add(outcome);
                 if (outcome.CreatedNewArchive) anyChanges = true;
             }
 
-            if (config.HistoryMode == BackupHistoryMode.GroupedRun)
+            var run = BackupRunPolicy.Create(
+                runId,
+                config.Id,
+                startedAtUtc,
+                DateTime.UtcNow,
+                MapRunTriggerSource(invocationOptions.Source),
+                invocationOptions.Comment,
+                sourceOutcomes.Select(outcome => outcome.ToRunSource()));
+            if (run != null)
             {
-                var run = BackupRunPolicy.Create(
-                    runId,
-                    config.Id,
-                    startedAtUtc,
-                    DateTime.UtcNow,
-                    MapRunTriggerSource(invocationOptions.Source),
-                    invocationOptions.Comment,
-                    sourceOutcomes.Select(outcome => outcome.ToRunSource()));
-                if (run != null)
+                if (BackupRunService.Add(run))
                 {
-                    BackupRunService.Add(run);
-                    var removedRuns = BackupRunService.ApplyRetention(config);
-                    await PruneGroupedRunArchivesAsync(config, removedRuns);
+                    BackupRunService.ApplyRetention(config);
                     CloudSyncService.QueueConfigurationHistorySyncAfterLocalChange(
                         config,
                         "configuration backup run completion");
                 }
             }
+            await PruneRetainedSourceArchivesAsync(config);
 
             Log(I18n.Format("BackupService_Log_TaskEnd"), LogLevel.Info);
             return anyChanges;
@@ -254,6 +246,10 @@ namespace FolderRewind.Services
                 comment,
                 invocationOptions,
                 createdByRunId: null);
+            if (outcome.CreatedNewArchive)
+            {
+                await PruneRetainedSourceArchivesAsync(config);
+            }
             return outcome.CreatedNewArchive;
         }
 
@@ -597,28 +593,6 @@ namespace FolderRewind.Services
                         IsPartialBackupFilter(config.Filters) || folder.SourceScope.IsPartial,
                         createdByRunId);
 
-                    var pruneResult = config.HistoryMode == BackupHistoryMode.GroupedRun
-                        ? new PruneArchivesResult()
-                        : await Task.Run(() => PruneOldArchives(
-                            backupSubDir,
-                            config.Archive.Format,
-                            config.Archive.KeepCount,
-                            config.Archive.Mode,
-                            config.Archive.SafeDeleteEnabled,
-                            config,
-                            folder.DisplayName)).ConfigureAwait(false);
-
-                    if (!pruneResult.Success)
-                    {
-                        string pruneWarning = I18n.Format("BackupService_Warning_PostBackupCleanupFailed", folder.DisplayName, pruneResult.Message);
-                        Log(I18n.Format("BackupService_Log_PostBackupCleanupFailed", folder.DisplayName, pruneResult.Message), LogLevel.Warning);
-                        NotificationService.ShowWarning(pruneWarning);
-                    }
-                    else if (pruneResult.DeletedCount > 0)
-                    {
-                        CloudSyncService.QueueConfigurationHistorySyncAfterLocalChange(config, "automatic archive pruning");
-                    }
-
                     // 备份完成后检查文件大小，过小时发出警告
                     try
                     {
@@ -773,42 +747,44 @@ namespace FolderRewind.Services
             _ => BackupRunTriggerSource.Unknown
         };
 
-        private static async Task PruneGroupedRunArchivesAsync(
-            BackupConfig config,
-            IReadOnlyList<BackupRunRecord> removedRuns)
+        private static async Task PruneRetainedSourceArchivesAsync(BackupConfig config)
         {
-            foreach (var removedRun in removedRuns)
+            if (config.Archive.KeepCount <= 0)
             {
-                foreach (var source in removedRun.Sources.Where(source =>
-                             source.Status == BackupRunSourceStatus.NewArchive
-                             && !string.IsNullOrWhiteSpace(source.HistoryItemId)))
+                return;
+            }
+
+            var historyItems = HistoryService.GetEntriesForConfig(config.Id);
+            var removableIds = BackupRunPolicy.SelectHistoryItemIdsToRemove(
+                historyItems.Select(item => new BackupRetentionHistoryRecord
                 {
-                    var historyItem = HistoryService.TryGetEntryById(source.HistoryItemId);
-                    if (historyItem == null
-                        || !string.Equals(historyItem.CreatedByRunId, removedRun.RunId, StringComparison.OrdinalIgnoreCase)
-                        || BackupRunService.IsHistoryItemReferenced(historyItem.Id))
+                    HistoryItemId = item.Id,
+                    SourcePath = item.FolderPath,
+                    Timestamp = item.Timestamp,
+                    IsImportant = item.IsImportant
+                }),
+                BackupRunService.GetRuns(config.Id),
+                config.Archive.KeepCount)
+                .ToHashSet(StringComparer.OrdinalIgnoreCase);
+            foreach (var historyItem in historyItems.Where(item => removableIds.Contains(item.Id)))
+            {
+                var folder = config.SourceFolders.FirstOrDefault(candidate =>
+                    string.Equals(candidate.Path, historyItem.FolderPath, StringComparison.OrdinalIgnoreCase))
+                    ?? new ManagedFolder
                     {
-                        continue;
-                    }
-
-                    var folder = config.SourceFolders.FirstOrDefault(candidate =>
-                        string.Equals(candidate.Path, source.FolderPath, StringComparison.OrdinalIgnoreCase));
-                    if (folder == null)
-                    {
-                        continue;
-                    }
-
-                    var deletion = await DeleteBackupAsync(
-                        config,
-                        folder,
-                        historyItem,
-                        BackupDeleteMode.LocalArchiveAndRecord);
-                    if (!deletion.Success)
-                    {
-                        Log(
-                            $"[BackupRun] Failed to prune unreferenced archive '{historyItem.FileName}': {deletion.Message}",
-                            LogLevel.Warning);
-                    }
+                        Path = historyItem.FolderPath,
+                        DisplayName = historyItem.FolderName
+                    };
+                var deletion = await DeleteBackupAsync(
+                    config,
+                    folder,
+                    historyItem,
+                    BackupDeleteMode.LocalArchiveAndRecord);
+                if (!deletion.Success)
+                {
+                    Log(
+                        $"[Retention] Failed to prune archive '{historyItem.FileName}': {deletion.Message}",
+                        LogLevel.Warning);
                 }
             }
         }
@@ -825,7 +801,7 @@ namespace FolderRewind.Services
             {
                 return false;
             }
-            await PruneGroupedRunArchivesAsync(config, new[] { removed });
+            await PruneRetainedSourceArchivesAsync(config);
             CloudSyncService.QueueConfigurationHistorySyncAfterLocalChange(config, "configuration backup run deletion");
             return true;
         }

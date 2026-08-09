@@ -86,6 +86,44 @@ public static class BackupRunPolicy
         && runs.Any(run => run.Sources.Any(source =>
             string.Equals(source.HistoryItemId, historyItemId, StringComparison.OrdinalIgnoreCase)));
 
+    public static IReadOnlyList<string> SelectHistoryItemIdsToRemove(
+        IEnumerable<BackupRetentionHistoryRecord> historyItems,
+        IEnumerable<BackupRunRecord> retainedRuns,
+        int keepCount)
+    {
+        if (keepCount <= 0)
+        {
+            return Array.Empty<string>();
+        }
+
+        var referencedIds = (retainedRuns ?? Array.Empty<BackupRunRecord>())
+            .SelectMany(run => run.Sources)
+            .Select(source => source.HistoryItemId)
+            .Where(id => !string.IsNullOrWhiteSpace(id))
+            .ToHashSet(StringComparer.OrdinalIgnoreCase);
+        var removable = new List<BackupRetentionHistoryRecord>();
+        foreach (var sourceGroup in (historyItems ?? Array.Empty<BackupRetentionHistoryRecord>())
+                     .GroupBy(item => NormalizeSourcePath(item.SourcePath), StringComparer.OrdinalIgnoreCase))
+        {
+            var retainedRegularIds = sourceGroup
+                .Where(item => !item.IsImportant)
+                .OrderByDescending(item => item.Timestamp)
+                .ThenByDescending(item => item.HistoryItemId, StringComparer.OrdinalIgnoreCase)
+                .Take(keepCount)
+                .Select(item => item.HistoryItemId)
+                .ToHashSet(StringComparer.OrdinalIgnoreCase);
+            removable.AddRange(sourceGroup.Where(item =>
+                !item.IsImportant
+                && !retainedRegularIds.Contains(item.HistoryItemId)
+                && !referencedIds.Contains(item.HistoryItemId)));
+        }
+        return removable
+            .OrderBy(item => item.Timestamp)
+            .ThenBy(item => item.HistoryItemId, StringComparer.OrdinalIgnoreCase)
+            .Select(item => item.HistoryItemId)
+            .ToList();
+    }
+
     public static IReadOnlyList<BackupRunRecord> ReplaceConfigurationRuns(
         IEnumerable<BackupRunRecord> remoteRuns,
         IEnumerable<BackupRunRecord> localRuns,
@@ -97,5 +135,18 @@ public static class BackupRunPolicy
             .GroupBy(run => run.RunId, StringComparer.OrdinalIgnoreCase)
             .Select(group => group.Last())
             .ToList();
+    }
+
+    private static string NormalizeSourcePath(string path)
+    {
+        try
+        {
+            return System.IO.Path.GetFullPath(path ?? string.Empty)
+                .TrimEnd(System.IO.Path.DirectorySeparatorChar, System.IO.Path.AltDirectorySeparatorChar);
+        }
+        catch
+        {
+            return (path ?? string.Empty).Trim().TrimEnd('\\', '/');
+        }
     }
 }

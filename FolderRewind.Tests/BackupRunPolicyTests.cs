@@ -111,6 +111,31 @@ public sealed class BackupRunPolicyTests
     }
 
     [TestMethod]
+    public void SourceRetentionKeepsNImportantAndRetainedRunReferences()
+    {
+        var history = Enumerable.Range(0, 5).Select(index => new BackupRetentionHistoryRecord
+        {
+            HistoryItemId = $"history-{index}",
+            SourcePath = index == 4 ? "C:/Other" : "C:/Game/Saves/",
+            Timestamp = new DateTime(2026, 8, 7, index, 0, 0, DateTimeKind.Utc),
+            IsImportant = index == 0
+        }).ToList();
+        var retainedRun = new BackupRunRecord
+        {
+            RunId = "retained",
+            ConfigId = "config",
+            Sources = new List<BackupRunSourceRecord>
+            {
+                Source(BackupRunSourceStatus.Reused, "history-1")
+            }
+        };
+
+        var removed = BackupRunPolicy.SelectHistoryItemIdsToRemove(history, new[] { retainedRun }, keepCount: 1);
+
+        CollectionAssert.AreEqual(new[] { "history-2" }, removed.ToArray());
+    }
+
+    [TestMethod]
     public void BackupRunsDocumentRoundTripsWithIndependentVersionEnvelope()
     {
         var document = new BackupRunDocument
