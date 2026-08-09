@@ -93,4 +93,34 @@ public sealed class BackupSourceFileEnumeratorTests
                 IncludePatterns = new() { Path.Combine(_root, "*.sav") }
             }));
     }
+
+    [TestMethod]
+    public void IncludeSelectionRejectsExcessivePatternCountAndLength()
+    {
+        Assert.ThrowsExactly<InvalidDataException>(() => BackupSourceFileEnumerator.ValidateAndNormalize(
+            new BackupSourceSelection
+            {
+                Mode = BackupSourceSelectionMode.Include,
+                IncludePatterns = new(Enumerable.Range(0, BackupSourceScopePatternSet.MaximumPatternCount + 1)
+                    .Select(index => $"Saves/{index}.sav"))
+            }));
+        Assert.ThrowsExactly<InvalidDataException>(() => BackupSourceFileEnumerator.ValidateAndNormalize(
+            new BackupSourceSelection
+            {
+                Mode = BackupSourceSelectionMode.Include,
+                IncludePatterns = new() { new string('a', BackupSourceScopePatternSet.MaximumPatternLength + 1) }
+            }));
+    }
+
+    [TestMethod]
+    public void EnumerationHonorsCancellationBeforeWalkingSource()
+    {
+        using var cancellation = new CancellationTokenSource();
+        cancellation.Cancel();
+
+        Assert.ThrowsExactly<OperationCanceledException>(() => BackupSourceFileEnumerator.Enumerate(
+            _root,
+            new BackupSourceSelection(),
+            cancellationToken: cancellation.Token));
+    }
 }

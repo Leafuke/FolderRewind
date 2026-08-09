@@ -83,7 +83,8 @@ public static class FolderDetailsService
                     file,
                     folder.Path,
                     folder.Path,
-                    config.Filters));
+                    config.Filters),
+                cancellationToken);
             var directories = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
             foreach (var file in files)
             {

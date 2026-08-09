@@ -1,9 +1,9 @@
 using FolderRewind.Models;
-using FolderRewind.Services.Discovery;
 using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using System.Threading;
 
 namespace FolderRewind.Services;
 
@@ -24,9 +24,11 @@ public static class BackupSourceFileEnumerator
     public static IReadOnlyList<BackupSourceFile> Enumerate(
         string sourceRoot,
         BackupSourceSelection? selection,
-        Func<string, bool>? additionalFilter = null)
+        Func<string, bool>? additionalFilter = null,
+        CancellationToken cancellationToken = default)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(sourceRoot);
+        cancellationToken.ThrowIfCancellationRequested();
         var root = Path.GetFullPath(sourceRoot);
         if (!Directory.Exists(root))
         {
@@ -34,7 +36,9 @@ public static class BackupSourceFileEnumerator
         }
 
         selection ??= new BackupSourceSelection();
-        var includePatterns = ValidateAndNormalize(selection);
+        var includePatterns = selection.Mode == BackupSourceSelectionMode.Include
+            ? BackupSourceScopePatternSet.Compile(selection.IncludePatterns)
+            : null;
         var result = new List<BackupSourceFile>();
         var options = new EnumerationOptions
         {
@@ -45,13 +49,14 @@ public static class BackupSourceFileEnumerator
         };
         foreach (var path in Directory.EnumerateFiles(root, "*", options))
         {
+            cancellationToken.ThrowIfCancellationRequested();
             var relativePath = Path.GetRelativePath(root, path).Replace('\\', '/');
             if (!IsSafeRelativeFilePath(relativePath))
             {
                 continue;
             }
             if (selection.Mode == BackupSourceSelectionMode.Include
-                && !includePatterns.Any(pattern => LudusaviGlobMatcher.IsMatch(relativePath, pattern)))
+                && includePatterns?.IsMatch(relativePath) != true)
             {
                 continue;
             }
@@ -96,20 +101,7 @@ public static class BackupSourceFileEnumerator
             throw new InvalidDataException($"Unsupported backup source selection mode: {selection.Mode}.");
         }
 
-        var patterns = (selection.IncludePatterns ?? new System.Collections.ObjectModel.ObservableCollection<string>())
-            .Where(pattern => !string.IsNullOrWhiteSpace(pattern))
-            .Select(pattern => pattern.Trim().Replace('\\', '/'))
-            .Distinct(StringComparer.OrdinalIgnoreCase)
-            .ToList();
-        if (patterns.Count == 0)
-        {
-            throw new InvalidDataException("Include source selection must contain at least one relative glob.");
-        }
-        if (patterns.Any(pattern => !LudusaviGlobMatcher.IsSafeRelativePattern(pattern)))
-        {
-            throw new InvalidDataException("Include source selection contains an absolute or parent-traversing pattern.");
-        }
-        return patterns;
+        return BackupSourceScopePatternSet.NormalizeAndValidate(selection.IncludePatterns);
     }
 
     public static bool IsSafeRelativeFilePath(string relativePath)

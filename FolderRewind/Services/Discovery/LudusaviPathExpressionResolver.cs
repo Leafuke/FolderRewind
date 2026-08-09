@@ -3,7 +3,6 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
-using System.Text;
 using System.Text.RegularExpressions;
 
 namespace FolderRewind.Services.Discovery;
@@ -181,81 +180,16 @@ public static class LudusaviGlobMatcher
             return false;
         }
 
-        var regex = new Regex(
-            "^" + ToRegex(pattern.Replace('\\', '/')) + "$",
-            RegexOptions.IgnoreCase | RegexOptions.CultureInvariant);
-        return regex.IsMatch(relativePath.Replace('\\', '/'));
-    }
-
-    public static bool IsSafeRelativePattern(string value)
-    {
-        if (string.IsNullOrWhiteSpace(value) || Path.IsPathRooted(value))
+        try
+        {
+            return BackupSourceScopePatternSet.Compile(new[] { pattern }).IsMatch(relativePath);
+        }
+        catch (InvalidDataException)
         {
             return false;
         }
-
-        return !value.Replace('\\', '/').Split('/').Any(segment => segment == "..");
     }
 
-    private static string ToRegex(string pattern)
-    {
-        var builder = new StringBuilder();
-        for (var index = 0; index < pattern.Length; index++)
-        {
-            var current = pattern[index];
-            switch (current)
-            {
-                case '*':
-                    if (index + 1 < pattern.Length && pattern[index + 1] == '*')
-                    {
-                        if (index + 2 < pattern.Length && pattern[index + 2] == '/')
-                        {
-                            builder.Append("(?:.*/)?");
-                            index += 2;
-                        }
-                        else
-                        {
-                            builder.Append(".*");
-                            index++;
-                        }
-                    }
-                    else
-                    {
-                        builder.Append("[^/]*");
-                    }
-                    break;
-                case '?':
-                    builder.Append("[^/]");
-                    break;
-                case '[':
-                    var closing = pattern.IndexOf(']', index + 1);
-                    if (closing > index + 1)
-                    {
-                        var content = pattern[(index + 1)..closing];
-                        builder.Append('[');
-                        if (content.StartsWith('!'))
-                        {
-                            builder.Append('^');
-                            content = content[1..];
-                        }
-                        builder.Append(content.Replace("\\", "\\\\"));
-                        builder.Append(']');
-                        index = closing;
-                    }
-                    else
-                    {
-                        builder.Append("\\[");
-                    }
-                    break;
-                case '/':
-                    builder.Append('/');
-                    break;
-                default:
-                    builder.Append(Regex.Escape(current.ToString()));
-                    break;
-            }
-        }
-
-        return builder.ToString();
-    }
+    public static bool IsSafeRelativePattern(string value) =>
+        BackupSourceScopePatternSet.IsSafeRelativePattern(value);
 }
