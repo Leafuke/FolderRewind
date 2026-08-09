@@ -101,7 +101,7 @@
                     <TextBlock x:Uid="FolderManager_BackupComment" VerticalAlignment="Center" Margin="0,0,8,0" Foreground="{ThemeResource TextFillColorSecondaryBrush}"/>
                     <TextBox x:Name="CommentBox" Grid.Column="1" x:Uid="FolderManager_CommentPlaceholder"
                              Text="{x:Bind ViewModel.BackupComment, Mode=TwoWay}"
-                             IsEnabled="{x:Bind ViewModel.HasSelectedFolder, Mode=OneWay}"/>
+                             IsEnabled="{x:Bind ViewModel.HasCurrentConfig, Mode=OneWay}"/>
                 </Grid>
 
                 <!-- 右侧：针对选中项的按钮 -->

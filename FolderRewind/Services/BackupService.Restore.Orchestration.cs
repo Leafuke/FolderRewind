@@ -177,7 +177,10 @@ namespace FolderRewind.Services
                 Log(I18n.Format("BackupService_Log_BackupBeforeRestore", folder.DisplayName), LogLevel.Info);
                 try
                 {
-                    await BackupFolderAsync(config, folder, "BeforeRestore");
+                    await BackupFolderAsync(
+                        config,
+                        folder,
+                        BackupInvocationOptions.ForInternal().WithComment("BeforeRestore"));
                     Log(I18n.Format("BackupService_Log_BackupBeforeRestoreCompleted"), LogLevel.Info);
                 }
                 catch (Exception ex)

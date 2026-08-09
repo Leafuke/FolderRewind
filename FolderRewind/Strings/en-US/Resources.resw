@@ -820,7 +820,7 @@ Duplicate folder names are blocked within the same configuration so different di
     <value>Selected:</value>
   </data>
   <data name="FolderManager_BackupComment.Text" xml:space="preserve">
-    <value>Comment:</value>
+    <value>Operation comment:</value>
   </data>
   <data name="FolderManager_CommentPlaceholder.PlaceholderText" xml:space="preserve">
     <value>e.g., Before update (optional)</value>

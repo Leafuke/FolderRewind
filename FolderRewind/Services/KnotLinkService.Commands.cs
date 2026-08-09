@@ -355,8 +355,7 @@ namespace FolderRewind.Services
                     await BackupService.BackupFolderAsync(
                         effectiveConfig,
                         effectiveFolder,
-                        comment,
-                        BackupInvocationOptions.ForRemote());
+                        BackupInvocationOptions.ForRemote().WithComment(comment));
                 }
                 catch (Exception ex)
                 {
@@ -565,8 +564,7 @@ namespace FolderRewind.Services
                                 await BackupService.BackupFolderAsync(
                                     config,
                                     folder,
-                                    "Auto backup via KnotLink",
-                                    invocationOptions: BackupInvocationOptions.ForAutomatic());
+                                    BackupInvocationOptions.ForAutomatic().WithComment("Auto backup via KnotLink"));
                             }
                             BroadcastEvent(context, "auto_backup_executed", new Dictionary<string, string?>
                             {

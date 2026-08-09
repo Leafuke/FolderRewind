@@ -84,6 +84,7 @@ namespace FolderRewind.ViewModels
 
                 _currentConfig = value;
                 OnPropertyChanged(nameof(CurrentConfig));
+                OnPropertyChanged(nameof(HasCurrentConfig));
 
                 HookCurrentFoldersChanged(_currentConfig);
                 RefreshCurrentFoldersView();
@@ -101,6 +102,7 @@ namespace FolderRewind.ViewModels
         public ManagedFolder? SelectedFolder => _selectedFolder;
 
         public bool HasSelectedFolder => _selectedFolder != null;
+        public bool HasCurrentConfig => _currentConfig != null;
 
         public string SelectedFolderDisplayName => _selectedFolder?.DisplayName ?? I18n.GetString("FolderManager_NotSelected");
 
@@ -534,17 +536,19 @@ namespace FolderRewind.ViewModels
             ConfigService.Save();
         }
 
-        public async Task BackupCurrentConfigAsync()
+        public async Task BackupCurrentConfigAsync(BackupInvocationOptions? invocationOptions = null)
         {
             if (CurrentConfig == null)
             {
                 return;
             }
 
-            await BackupService.BackupConfigAsync(CurrentConfig, BackupInvocationOptions.ForManual());
+            await BackupService.BackupConfigAsync(
+                CurrentConfig,
+                invocationOptions ?? BackupInvocationOptions.ForManual(BackupComment.Trim()));
         }
 
-        public async Task BackupSelectedFolderAsync(string? comment)
+        public async Task BackupSelectedFolderAsync(BackupInvocationOptions? invocationOptions = null)
         {
             if (CurrentConfig == null || _selectedFolder == null)
             {
@@ -554,8 +558,7 @@ namespace FolderRewind.ViewModels
             await BackupService.BackupFolderAsync(
                 CurrentConfig,
                 _selectedFolder,
-                comment,
-                invocationOptions: BackupInvocationOptions.ForManual());
+                invocationOptions ?? BackupInvocationOptions.ForManual(BackupComment.Trim()));
         }
 
         private AddFolderResult AddFolderInternal(

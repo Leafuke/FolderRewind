@@ -285,7 +285,10 @@ namespace FolderRewind.Services
                             RewriteMetadataAsLegacyOnly(mainConfig!, mainSourceFolder!);
 
                             var beforeEntries = GetHistoryEntries(mainConfig!.Id, mainSourceFolder!.DisplayName);
-                            bool created = await BackupService.BackupFolderAsync(mainConfig, mainSourceFolder, "CoreValidation Legacy Metadata").ConfigureAwait(false);
+                            bool created = await BackupService.BackupFolderAsync(
+                                mainConfig,
+                                mainSourceFolder,
+                                BackupInvocationOptions.ForInternal().WithComment("CoreValidation Legacy Metadata")).ConfigureAwait(false);
                             if (created)
                             {
                                 throw new InvalidOperationException("Legacy metadata migration probe unexpectedly created a new archive.");
@@ -632,7 +635,10 @@ namespace FolderRewind.Services
                 ? DateTime.MinValue
                 : beforeEntries.Max(item => item.Timestamp);
 
-            bool created = await BackupService.BackupFolderAsync(config, folder, comment).ConfigureAwait(false);
+            bool created = await BackupService.BackupFolderAsync(
+                config,
+                folder,
+                BackupInvocationOptions.ForInternal().WithComment(comment)).ConfigureAwait(false);
             if (!created)
             {
                 LogService.Log($"[CoreValidation] Backup '{comment}' did not create archive. beforeEntries={beforeEntries.Count}.", LogLevel.Warning);
@@ -687,7 +693,10 @@ namespace FolderRewind.Services
             await DelayBeforeBackupAsync().ConfigureAwait(false);
 
             var beforeEntries = GetHistoryEntries(config.Id, folder.DisplayName);
-            bool created = await BackupService.BackupFolderAsync(config, folder, comment).ConfigureAwait(false);
+            bool created = await BackupService.BackupFolderAsync(
+                config,
+                folder,
+                BackupInvocationOptions.ForInternal().WithComment(comment)).ConfigureAwait(false);
             if (created)
             {
                 throw new InvalidOperationException($"Backup '{comment}' unexpectedly created a new archive.");

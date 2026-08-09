@@ -237,13 +237,13 @@ namespace FolderRewind.Services
         public static async Task<bool> BackupFolderAsync(
             BackupConfig config,
             ManagedFolder folder,
-            string? comment = "",
             BackupInvocationOptions? invocationOptions = null)
         {
+            invocationOptions ??= BackupInvocationOptions.Default;
             var outcome = await BackupFolderCoreAsync(
                 config,
                 folder,
-                comment,
+                invocationOptions.Comment,
                 invocationOptions,
                 createdByRunId: null);
             if (outcome.CreatedNewArchive)

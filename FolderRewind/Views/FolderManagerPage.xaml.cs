@@ -127,7 +127,9 @@ namespace FolderRewind.Views
                         BackupSelectedButton.IsEnabled = false;
                     }
 
-                    await ViewModel.BackupSelectedFolderAsync(comment);
+                    await ViewModel.BackupSelectedFolderAsync(
+                        BackupInvocationOptions.ForPluginHotkey().WithComment(comment));
+                    ViewModel.BackupComment = string.Empty;
                 }
                 finally
                 {
@@ -700,10 +702,12 @@ namespace FolderRewind.Views
             }
 
             BackupConfigButton.IsEnabled = false;
+            var comment = ViewModel.BackupComment?.Trim();
 
             try
             {
-                await ViewModel.BackupCurrentConfigAsync();
+                await ViewModel.BackupCurrentConfigAsync(BackupInvocationOptions.ForManual(comment));
+                ViewModel.BackupComment = string.Empty;
                 Debug.WriteLine("配置备份完成");
             }
             finally
@@ -724,7 +728,7 @@ namespace FolderRewind.Views
 
             try
             {
-                await ViewModel.BackupSelectedFolderAsync(comment);
+                await ViewModel.BackupSelectedFolderAsync(BackupInvocationOptions.ForManual(comment));
                 ViewModel.BackupComment = string.Empty;
             }
             finally

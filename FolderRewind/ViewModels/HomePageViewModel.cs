@@ -136,8 +136,7 @@ namespace FolderRewind.ViewModels
             await BackupService.BackupFolderAsync(
                 parentConfig,
                 folder,
-                comment,
-                invocationOptions: BackupInvocationOptions.ForManual());
+                BackupInvocationOptions.ForManual(comment));
         }
 
         public async Task BackupAllFoldersAsync(BackupConfig config, string comment)
