@@ -6,7 +6,6 @@ using System.Collections.ObjectModel;
 using System.Diagnostics;
 using System.IO;
 using System.Linq;
-using System.Text;
 using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 
@@ -47,27 +46,36 @@ namespace FolderRewind.Services
         private static string GenerateFileName(string baseName, string format, string prefix, string comment)
         {
             string timeStr = DateTime.Now.ToString("yyyy-MM-dd_HH-mm-ss");
+            string safeBaseName = SanitizeFileName(baseName);
             string safeComment = SanitizeFileName(comment);
+            string safeFormat = SanitizeFileName(format).Trim('.');
+            string safePrefix = SanitizeFileName(prefix);
+
+            if (string.IsNullOrWhiteSpace(safeBaseName)) safeBaseName = "Backup";
+            if (string.IsNullOrWhiteSpace(safeFormat)) safeFormat = "7z";
+            if (string.IsNullOrWhiteSpace(safePrefix)) safePrefix = "Backup";
 
             // 格式: [Full][2025-01-01_12-00-00]WorldName [Comment].7z
             string commentPart = string.IsNullOrEmpty(safeComment) ? "" : $" [{safeComment}]";
-            return $"[{prefix}][{timeStr}]{baseName}{commentPart}.{format}";
+            string fileName = $"[{safePrefix}][{timeStr}]{safeBaseName}{commentPart}.{safeFormat}";
+
+            // 显示名可能来自旧配置、插件或用户输入；调用 7-Zip 前必须再次关闭非法路径和 ADS 入口。
+            if (!BackupStoragePathService.IsSafeSinglePathSegment(fileName))
+            {
+                throw new InvalidDataException("The generated backup archive name is not a safe Windows file name.");
+            }
+
+            return fileName;
         }
 
         private static string SanitizeFileName(string name)
         {
-            if (string.IsNullOrEmpty(name)) return "";
-            var invalid = Path.GetInvalidFileNameChars();
-            // 额外过滤掉中括号，以免破坏解析逻辑
-            var sb = new StringBuilder();
-            foreach (char c in name)
-            {
-                if (!invalid.Contains(c) && c != '[' && c != ']')
-                {
-                    sb.Append(c);
-                }
-            }
-            return sb.ToString();
+            if (!BackupStoragePathService.TryResolveStorageFolderName(name, null, out var sanitized)) return "";
+
+            // 中括号由归档类型和时间戳占用，来源名称与评论不能注入额外的解析片段。
+            return sanitized.Replace("[", string.Empty, StringComparison.Ordinal)
+                .Replace("]", string.Empty, StringComparison.Ordinal)
+                .Trim();
         }
 
         private static int GetConfigIndex(BackupConfig config)
