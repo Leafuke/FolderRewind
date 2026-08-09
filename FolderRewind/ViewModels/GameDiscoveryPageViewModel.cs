@@ -388,6 +388,10 @@ public sealed class GameDiscoveryPageViewModel : ViewModelBase, IDisposable
             metadata.UpdatedAtUtc.ToLocalTime().ToString("g", CultureInfo.CurrentCulture),
             ShortRevision(metadata.SourceSha256),
             metadata.SourceKind);
+        if (metadata.Warnings.Count > 0)
+        {
+            CacheStatus += Environment.NewLine + string.Join(Environment.NewLine, metadata.Warnings);
+        }
     }
 
     private void RefreshStatuses()

@@ -99,15 +99,21 @@ public sealed class LudusaviManifestCacheMetadata
 {
     public string GenerationId { get; init; } = string.Empty;
     public string SourceSha256 { get; init; } = string.Empty;
+    public string PrimarySha256 { get; init; } = string.Empty;
+    public string SecondarySha256 { get; init; } = string.Empty;
+    public string OverrideSha256 { get; init; } = string.Empty;
+    public string CompilerVersion { get; init; } = string.Empty;
     public string SourceKind { get; init; } = string.Empty;
     public string SourceUri { get; init; } = string.Empty;
     public string ETag { get; init; } = string.Empty;
     public DateTime UpdatedAtUtc { get; init; }
+    public IReadOnlyList<string> Warnings { get; init; } = Array.Empty<string>();
 }
 
 public sealed class LudusaviManifestPointer
 {
-    public string GenerationId { get; init; } = string.Empty;
+    public string CurrentGenerationId { get; init; } = string.Empty;
+    public string PreviousGenerationId { get; init; } = string.Empty;
 }
 
 public enum LudusaviManifestUpdateStatus
