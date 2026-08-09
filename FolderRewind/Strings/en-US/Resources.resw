@@ -2001,6 +2001,9 @@ If you have a listener subscribed to this signal, it should receive a message.</
   <data name="BackupService_Folder_TargetNotSet" xml:space="preserve">
     <value>Destination not set</value>
   </data>
+  <data name="BackupService_Folder_SourceDestinationOverlap" xml:space="preserve">
+    <value>Source and backup storage overlap: {0} ↔ {1}</value>
+  </data>
   <data name="BackupService_Folder_BackupInProgress" xml:space="preserve">
     <value>Backing up...</value>
   </data>
@@ -2027,6 +2030,12 @@ If you have a listener subscribed to this signal, it should receive a message.</
   </data>
   <data name="BackupService_Log_DestinationNotSet" xml:space="preserve">
     <value>Backup destination path is not set.</value>
+  </data>
+  <data name="BackupService_Log_SourceDestinationOverlap" xml:space="preserve">
+    <value>Backup blocked because source and storage paths overlap: {0} ↔ {1}</value>
+  </data>
+  <data name="FolderManager_SourceDestinationOverlap_Content" xml:space="preserve">
+    <value>The following sources overlap the configuration's backup or metadata directory and were not added:\n{0}</value>
   </data>
   <data name="BackupService_Log_ProcessingFolder" xml:space="preserve">
     <value>Processing: {0}</value>

@@ -18,6 +18,7 @@ namespace FolderRewind.ViewModels
             Added,
             DuplicatePath,
             DuplicateDisplayName,
+            UnsafePathOverlap,
             Invalid
         }
 
@@ -30,6 +31,8 @@ namespace FolderRewind.ViewModels
             public List<ManagedFolder> AddedFolders { get; } = new();
 
             public List<string> DuplicateDisplayNames { get; } = new();
+
+            public List<string> UnsafePaths { get; } = new();
         }
 
         public sealed class PluginDiscoverCandidatesResult
@@ -37,6 +40,8 @@ namespace FolderRewind.ViewModels
             public List<ManagedFolder> ToAdd { get; } = new();
 
             public List<string> DuplicateDisplayNames { get; } = new();
+
+            public List<string> UnsafePaths { get; } = new();
         }
 
         private bool _isActive;
@@ -282,6 +287,10 @@ namespace FolderRewind.ViewModels
                     {
                         result.DuplicateDisplayNames.Add(FolderNameConflictService.ResolveDisplayName(null, dir));
                     }
+                    else if (addResult == AddFolderResult.UnsafePathOverlap)
+                    {
+                        result.UnsafePaths.Add(dir);
+                    }
                 }
 
                 if (result.AddedFolders.Count > 0)
@@ -326,6 +335,12 @@ namespace FolderRewind.ViewModels
                 if (knownDisplayNames.Contains(candidateName))
                 {
                     result.DuplicateDisplayNames.Add(candidateName);
+                    continue;
+                }
+
+                if (!IsSourceStorageSafe(candidatePath, candidateName))
+                {
+                    result.UnsafePaths.Add(candidatePath);
                     continue;
                 }
 
@@ -576,6 +591,11 @@ namespace FolderRewind.ViewModels
                 return AddFolderResult.DuplicateDisplayName;
             }
 
+            if (!IsSourceStorageSafe(path, displayName))
+            {
+                return AddFolderResult.UnsafePathOverlap;
+            }
+
             addedFolder = BuildManagedFolderCandidate(path, displayName);
             CurrentConfig.SourceFolders.Add(addedFolder);
 
@@ -588,6 +608,23 @@ namespace FolderRewind.ViewModels
             }
 
             return AddFolderResult.Added;
+        }
+
+        private bool IsSourceStorageSafe(string path, string displayName)
+        {
+            if (CurrentConfig == null
+                || !BackupStoragePathService.TryResolveBackupStoragePaths(
+                    CurrentConfig.DestinationPath,
+                    displayName,
+                    path,
+                    out _,
+                    out var backupSubDir,
+                    out var metadataDir))
+            {
+                return false;
+            }
+
+            return BackupPathOverlapPolicy.Validate(path, backupSubDir, metadataDir).IsSafe;
         }
 
         private ManagedFolder BuildManagedFolderCandidate(string path, string? name = null, ManagedFolder? template = null)

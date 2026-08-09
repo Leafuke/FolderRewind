@@ -342,48 +342,6 @@ namespace FolderRewind.Services
                 return CreateSourceOutcome(folder, BackupRunSourceStatus.Failed, errorMessage: filterValidationError);
             }
 
-            // 插件接管同样只能收到已经解析并验证过的运行配置，不能绕过范围的失败关闭策略。
-            var (shouldHandle, handlerPlugin) = Services.Plugins.PluginService.CheckPluginWantsToHandleBackup(config);
-            if (shouldHandle && handlerPlugin != null)
-            {
-                return await HandlePluginBackupAsync(config, folder, task, handlerPlugin, comment, createdByRunId);
-            }
-
-            // 允许插件在备份前创建快照并替换源路径（例如 Minecraft 热备份：先复制到 snapshot 再备份）。
-            string sourcePath = folder.Path;
-            try
-            {
-                var pluginOverride = Services.Plugins.PluginService.InvokeBeforeBackupFolder(config, folder, invocationOptions);
-                if (!string.IsNullOrWhiteSpace(pluginOverride))
-                {
-                    sourcePath = pluginOverride;
-                }
-            }
-            catch
-            {
-                // 插件异常不会影响核心备份流程（具体异常会在 PluginService 内记录）
-            }
-            if (!Directory.Exists(sourcePath))
-            {
-                Log(I18n.Format("BackupService_Log_SourceFolderMissing", sourcePath), LogLevel.Error);
-                await RunOnUIAsync(() =>
-                {
-                    folder.StatusText = I18n.Format("BackupService_Folder_SourceNotFound");
-                    task.Status = I18n.Format("BackupService_Task_Failed");
-                    task.IsCompleted = true;
-                    task.IsIndeterminate = false;
-                    task.IsSuccess = false;
-                    task.ErrorMessage = I18n.Format("BackupService_Folder_SourceNotFound");
-                });
-
-                BroadcastBackupLifecycle("command_failed", new Dictionary<string, string?> { ["reason"] = "command_failed" });
-                BroadcastBackupEvent(configIndex, config, folder, "backup_failed", new Dictionary<string, string?> { ["error"] = "command_failed" });
-                return CreateSourceOutcome(
-                    folder,
-                    BackupRunSourceStatus.Unavailable,
-                    errorMessage: I18n.Format("BackupService_Folder_SourceNotFound"));
-            }
-
             if (string.IsNullOrEmpty(config.DestinationPath))
             {
                 Log(I18n.Format("BackupService_Log_DestinationNotSet"), LogLevel.Error);
@@ -428,6 +386,97 @@ namespace FolderRewind.Services
                 BroadcastBackupLifecycle("command_failed", new Dictionary<string, string?> { ["reason"] = "invalid_folder_name" });
                 BroadcastBackupEvent(configIndex, config, folder, "backup_failed", new Dictionary<string, string?> { ["error"] = "invalid_folder_name" });
                 return CreateSourceOutcome(folder, BackupRunSourceStatus.Failed, errorMessage: invalidFolderNameMessage);
+            }
+
+            async Task<BackupSourceExecutionOutcome?> RejectOverlappingPathAsync(string candidateSourcePath)
+            {
+                var overlap = BackupPathOverlapPolicy.Validate(candidateSourcePath, backupSubDir, metadataDir);
+                if (overlap.IsSafe)
+                {
+                    return null;
+                }
+
+                var overlapMessage = I18n.Format(
+                    "BackupService_Folder_SourceDestinationOverlap",
+                    overlap.SourcePath,
+                    overlap.TargetPath);
+                Log(I18n.Format("BackupService_Log_SourceDestinationOverlap", overlap.SourcePath, overlap.TargetPath), LogLevel.Error);
+                await RunOnUIAsync(() =>
+                {
+                    folder.StatusText = I18n.Format("BackupService_Task_Failed");
+                    task.Status = I18n.Format("BackupService_Task_Failed");
+                    task.IsCompleted = true;
+                    task.IsIndeterminate = false;
+                    task.IsSuccess = false;
+                    task.ErrorMessage = overlapMessage;
+                });
+                BroadcastBackupLifecycle("command_failed", new Dictionary<string, string?>
+                {
+                    ["reason"] = "source_destination_overlap",
+                    ["error"] = overlapMessage
+                });
+                BroadcastBackupEvent(configIndex, config, folder, "backup_failed", new Dictionary<string, string?>
+                {
+                    ["error"] = "source_destination_overlap",
+                    ["message"] = overlapMessage
+                });
+                return CreateSourceOutcome(folder, BackupRunSourceStatus.Failed, errorMessage: overlapMessage);
+            }
+
+            var configuredPathFailure = await RejectOverlappingPathAsync(folder.Path);
+            if (configuredPathFailure != null)
+            {
+                return configuredPathFailure;
+            }
+
+            // 插件接管同样只能收到已经解析并验证过的运行配置，不能绕过范围的失败关闭策略。
+            var (shouldHandle, handlerPlugin) = Services.Plugins.PluginService.CheckPluginWantsToHandleBackup(config);
+            if (shouldHandle && handlerPlugin != null)
+            {
+                return await HandlePluginBackupAsync(config, folder, task, handlerPlugin, comment, createdByRunId);
+            }
+
+            // 允许插件在备份前创建快照并替换源路径（例如 Minecraft 热备份：先复制到 snapshot 再备份）。
+            string sourcePath = folder.Path;
+            try
+            {
+                var pluginOverride = Services.Plugins.PluginService.InvokeBeforeBackupFolder(config, folder, invocationOptions);
+                if (!string.IsNullOrWhiteSpace(pluginOverride))
+                {
+                    sourcePath = pluginOverride;
+                }
+            }
+            catch
+            {
+                // 插件异常不会影响核心备份流程（具体异常会在 PluginService 内记录）
+            }
+            if (!string.Equals(sourcePath, folder.Path, StringComparison.OrdinalIgnoreCase))
+            {
+                var overridePathFailure = await RejectOverlappingPathAsync(sourcePath);
+                if (overridePathFailure != null)
+                {
+                    return overridePathFailure;
+                }
+            }
+            if (!Directory.Exists(sourcePath))
+            {
+                Log(I18n.Format("BackupService_Log_SourceFolderMissing", sourcePath), LogLevel.Error);
+                await RunOnUIAsync(() =>
+                {
+                    folder.StatusText = I18n.Format("BackupService_Folder_SourceNotFound");
+                    task.Status = I18n.Format("BackupService_Task_Failed");
+                    task.IsCompleted = true;
+                    task.IsIndeterminate = false;
+                    task.IsSuccess = false;
+                    task.ErrorMessage = I18n.Format("BackupService_Folder_SourceNotFound");
+                });
+
+                BroadcastBackupLifecycle("command_failed", new Dictionary<string, string?> { ["reason"] = "command_failed" });
+                BroadcastBackupEvent(configIndex, config, folder, "backup_failed", new Dictionary<string, string?> { ["error"] = "command_failed" });
+                return CreateSourceOutcome(
+                    folder,
+                    BackupRunSourceStatus.Unavailable,
+                    errorMessage: I18n.Format("BackupService_Folder_SourceNotFound"));
             }
 
             // 创建必要的目录

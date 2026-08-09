@@ -386,6 +386,11 @@ namespace FolderRewind.Views
                 await ShowDuplicateDisplayNameBlockedAsync(FolderNameConflictService.ResolveDisplayName(folderName, folderPath));
                 return;
             }
+            if (result == FolderManagerPageViewModel.AddFolderResult.UnsafePathOverlap)
+            {
+                await ShowUnsafePathOverlapAsync(new[] { folderPath });
+                return;
+            }
 
             if (result == FolderManagerPageViewModel.AddFolderResult.Added &&
                 addedFolder != null &&
@@ -444,6 +449,31 @@ namespace FolderRewind.Views
             await dialog.ShowAsync();
         }
 
+        private async Task ShowUnsafePathOverlapAsync(IEnumerable<string> folderPaths)
+        {
+            var paths = folderPaths
+                .Where(path => !string.IsNullOrWhiteSpace(path))
+                .Distinct(StringComparer.OrdinalIgnoreCase)
+                .ToList();
+            if (paths.Count == 0)
+            {
+                return;
+            }
+
+            var dialog = new ContentDialog
+            {
+                Title = I18n.GetString("Common_Failed"),
+                Content = I18n.Format(
+                    "FolderManager_SourceDestinationOverlap_Content",
+                    string.Join(Environment.NewLine, paths.Select(path => $"- {path}"))),
+                CloseButtonText = I18n.GetString("Common_Ok"),
+                DefaultButton = ContentDialogButton.Close,
+                XamlRoot = this.XamlRoot
+            };
+            ThemeService.ApplyThemeToDialog(dialog);
+            await dialog.ShowAsync();
+        }
+
         private async void OnAddSingleFolderClick(object sender, RoutedEventArgs e)
         {
             var folderPath = await PickFolderPathAsync(
@@ -486,6 +516,10 @@ namespace FolderRewind.Views
             {
                 await ShowSkippedDuplicateDisplayNamesAsync(result.DuplicateDisplayNames);
             }
+            if (result.UnsafePaths.Count > 0)
+            {
+                await ShowUnsafePathOverlapAsync(result.UnsafePaths);
+            }
         }
 
         private async void OnPluginDiscoverFoldersClick(object sender, RoutedEventArgs e)
@@ -515,6 +549,11 @@ namespace FolderRewind.Views
             var candidates = ViewModel.BuildPluginDiscoverCandidates(discovered);
             if (candidates.ToAdd.Count == 0)
             {
+                if (candidates.UnsafePaths.Count > 0)
+                {
+                    await ShowUnsafePathOverlapAsync(candidates.UnsafePaths);
+                    return;
+                }
                 if (candidates.DuplicateDisplayNames.Count > 0)
                 {
                     await ShowSkippedDuplicateDisplayNamesAsync(candidates.DuplicateDisplayNames);
@@ -541,6 +580,10 @@ namespace FolderRewind.Views
             if (candidates.DuplicateDisplayNames.Count > 0)
             {
                 await ShowSkippedDuplicateDisplayNamesAsync(candidates.DuplicateDisplayNames);
+            }
+            if (candidates.UnsafePaths.Count > 0)
+            {
+                await ShowUnsafePathOverlapAsync(candidates.UnsafePaths);
             }
         }
 

@@ -374,6 +374,33 @@ namespace FolderRewind.Views
 
         private async void OnSaveClick(ContentDialog sender, ContentDialogButtonClickEventArgs args)
         {
+            foreach (var folder in Config.SourceFolders ?? new ObservableCollection<ManagedFolder>())
+            {
+                if (!BackupStoragePathService.TryResolveBackupStoragePaths(
+                        Config.DestinationPath,
+                        folder.DisplayName,
+                        folder.Path,
+                        out _,
+                        out var backupSubDir,
+                        out var metadataDir))
+                {
+                    args.Cancel = true;
+                    await ShowValidationErrorAsync(I18n.GetString("BackupService_Log_InvalidStorageFolderName"));
+                    return;
+                }
+
+                var overlap = BackupPathOverlapPolicy.Validate(folder.Path, backupSubDir, metadataDir);
+                if (!overlap.IsSafe)
+                {
+                    args.Cancel = true;
+                    await ShowValidationErrorAsync(I18n.Format(
+                        "BackupService_Folder_SourceDestinationOverlap",
+                        overlap.SourcePath,
+                        overlap.TargetPath));
+                    return;
+                }
+            }
+
             if (!ViewModel.TryValidateAndNormalizeAdditionalSevenZipArguments(out var errorMessage))
             {
                 args.Cancel = true;
@@ -435,6 +462,23 @@ namespace FolderRewind.Views
             }
 
             ConfigService.Save();
+        }
+
+        private async Task ShowValidationErrorAsync(string errorMessage)
+        {
+            var dialog = new ContentDialog
+            {
+                Title = I18n.GetString("Common_Failed"),
+                Content = new TextBlock
+                {
+                    Text = errorMessage,
+                    TextWrapping = TextWrapping.Wrap
+                },
+                CloseButtonText = I18n.GetString("Common_Ok"),
+                XamlRoot = MainWindowService.GetXamlRoot() ?? this.XamlRoot
+            };
+            ThemeService.ApplyThemeToDialog(dialog);
+            await dialog.ShowAsync();
         }
 
         private async void OnDeleteClick(ContentDialog sender, ContentDialogButtonClickEventArgs args)

@@ -206,7 +206,7 @@ public static class DiscoveryDraftService
             .Where(draft => draft.Reconciliation == BackupConfigDraftReconciliation.NewConfiguration)
             .Select(draft => draft.ProposedConfig)
             .ToList();
-        var validationError = ValidateCommit(newConfigs);
+        var validationError = ValidateCommit(selected, newConfigs);
         if (!string.IsNullOrWhiteSpace(validationError))
         {
             return new BackupConfigDraftCommitResult { ErrorMessage = validationError };
@@ -356,7 +356,9 @@ public static class DiscoveryDraftService
         }
     }
 
-    private static string ValidateCommit(IReadOnlyList<BackupConfig> newConfigs)
+    private static string ValidateCommit(
+        IReadOnlyList<BackupConfigDraft> selectedDrafts,
+        IReadOnlyList<BackupConfig> newConfigs)
     {
         if (newConfigs.Any(config => string.IsNullOrWhiteSpace(config.Name)))
         {
@@ -386,6 +388,41 @@ public static class DiscoveryDraftService
             || newDestinations.Any(existingDestinations.Contains))
         {
             return "Configuration destination directories must be unique.";
+        }
+
+        foreach (var draft in selectedDrafts.Where(draft => draft.IsCommittable))
+        {
+            var config = draft.Reconciliation == BackupConfigDraftReconciliation.NewConfiguration
+                ? draft.ProposedConfig
+                : draft.ExistingConfig;
+            if (config == null)
+            {
+                continue;
+            }
+
+            var folders = draft.Reconciliation == BackupConfigDraftReconciliation.NewConfiguration
+                ? draft.ProposedConfig.SourceFolders.AsEnumerable()
+                : draft.FoldersToAdd;
+            foreach (var folder in folders)
+            {
+                if (!BackupStoragePathService.TryResolveBackupStoragePaths(
+                        config.DestinationPath,
+                        folder.DisplayName,
+                        folder.Path,
+                        out _,
+                        out var backupSubDir,
+                        out var metadataDir))
+                {
+                    return $"Cannot resolve a safe backup storage path for source '{folder.DisplayName}'.";
+                }
+
+                var overlap = BackupPathOverlapPolicy.Validate(folder.Path, backupSubDir, metadataDir);
+                if (!overlap.IsSafe)
+                {
+                    return $"Source '{folder.DisplayName}' overlaps its backup storage path: "
+                           + $"{overlap.SourcePath} ↔ {overlap.TargetPath}";
+                }
+            }
         }
         return string.Empty;
     }

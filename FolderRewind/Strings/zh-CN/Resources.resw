@@ -2001,6 +2001,9 @@ cmd=RESTORE;from=minebackup.mod;request_id=req-mr-restore-002;current_save=true;
   <data name="BackupService_Folder_TargetNotSet" xml:space="preserve">
     <value>未设置目标</value>
   </data>
+  <data name="BackupService_Folder_SourceDestinationOverlap" xml:space="preserve">
+    <value>来源与备份存储路径重叠：{0} ↔ {1}</value>
+  </data>
   <data name="BackupService_Folder_BackupInProgress" xml:space="preserve">
     <value>正在备份...</value>
   </data>
@@ -2027,6 +2030,12 @@ cmd=RESTORE;from=minebackup.mod;request_id=req-mr-restore-002;current_save=true;
   </data>
   <data name="BackupService_Log_DestinationNotSet" xml:space="preserve">
     <value>未设置备份目标路径！</value>
+  </data>
+  <data name="BackupService_Log_SourceDestinationOverlap" xml:space="preserve">
+    <value>来源与备份存储路径重叠，已阻止备份：{0} ↔ {1}</value>
+  </data>
+  <data name="FolderManager_SourceDestinationOverlap_Content" xml:space="preserve">
+    <value>以下来源与当前配置的备份目录或元数据目录重叠，因此未添加：\n{0}</value>
   </data>
   <data name="BackupService_Log_ProcessingFolder" xml:space="preserve">
     <value>处理中: {0}</value>
