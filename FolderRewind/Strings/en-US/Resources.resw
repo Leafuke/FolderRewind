@@ -4947,9 +4947,9 @@ Pull request: {1}</value>
   </data>
   <data name="HomePage_AutoDiscoverGames.Text" xml:space="preserve"><value>Discover game saves Beta</value></data>
   <data name="GameDiscoveryPage_Title.Text" xml:space="preserve"><value>Discover game saves Beta</value></data>
-  <data name="GameDiscoveryPage_Description.Text" xml:space="preserve"><value>Find backup data from local game stores and the Ludusavi game database. No configuration changes before confirmation.</value></data>
+  <data name="GameDiscoveryPage_Description.Text" xml:space="preserve"><value>Generate candidates or change proposals from local game stores and the Ludusavi database. Only a completed review creates or updates an ordinary, user-owned backup configuration.</value></data>
   <data name="GameDiscoveryPage_BetaNotice.Title" xml:space="preserve"><value>Data source and cache</value></data>
-  <data name="GameDiscoveryPage_BetaNotice.Message" xml:space="preserve"><value>Opening this page never connects to the network. FolderRewind downloads directly from Ludusavi only after you click Download and scan or Check for updates.</value></data>
+  <data name="GameDiscoveryPage_BetaNotice.Message" xml:space="preserve"><value>Opening this page does not connect to the network or modify the current configuration. FolderRewind contacts Ludusavi only after Download and scan or Check for updates; secondary manifests are used only when you select them manually and are stored with the primary in the recoverable versioned cache.</value></data>
   <data name="GameDiscoveryPage_DataHeading.Text" xml:space="preserve"><value>Game database</value></data>
   <data name="GameDiscoveryPage_DownloadAndScan.Content" xml:space="preserve"><value>Download and scan</value></data>
   <data name="GameDiscoveryPage_CheckUpdate.Content" xml:space="preserve"><value>Check update and scan</value></data>

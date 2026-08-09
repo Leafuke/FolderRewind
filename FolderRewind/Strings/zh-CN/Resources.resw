@@ -4947,9 +4947,9 @@ Pull Request：{1}</value>
   </data>
   <data name="HomePage_AutoDiscoverGames.Text" xml:space="preserve"><value>自动发现游戏存档 Beta</value></data>
   <data name="GameDiscoveryPage_Title.Text" xml:space="preserve"><value>自动发现游戏存档 Beta</value></data>
-  <data name="GameDiscoveryPage_Description.Text" xml:space="preserve"><value>从本机游戏平台和 Ludusavi 游戏数据库识别可备份的数据；确认前不会修改任何配置。</value></data>
+  <data name="GameDiscoveryPage_Description.Text" xml:space="preserve"><value>从本机游戏平台和 Ludusavi 游戏数据库生成候选或变更建议；只有完成审查才会创建或更新归用户所有的普通备份配置。</value></data>
   <data name="GameDiscoveryPage_BetaNotice.Title" xml:space="preserve"><value>数据来源与缓存</value></data>
-  <data name="GameDiscoveryPage_BetaNotice.Message" xml:space="preserve"><value>首次进入不会联网。只有点击“下载并扫描”或“检查更新”时，才会直接从 Ludusavi 上游下载清单并保存在本地版本化缓存中。</value></data>
+  <data name="GameDiscoveryPage_BetaNotice.Message" xml:space="preserve"><value>进入页面不会联网或修改当前配置。只有点击“下载并扫描”或“检查更新”才会连接 Ludusavi；导入的附加清单只使用你手动选择的文件，并与主清单一起保存在可回退的版本化缓存中。</value></data>
   <data name="GameDiscoveryPage_DataHeading.Text" xml:space="preserve"><value>游戏数据库</value></data>
   <data name="GameDiscoveryPage_DownloadAndScan.Content" xml:space="preserve"><value>下载并扫描</value></data>
   <data name="GameDiscoveryPage_CheckUpdate.Content" xml:space="preserve"><value>检查更新并扫描</value></data>

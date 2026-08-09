@@ -1,17 +1,20 @@
-# Separate game discovery from backup presets
+# Discovery proposes user-owned backup configurations
 
-FolderRewind will treat game definitions, backup presets, and persistent backup configurations as separate concepts connected through a provider-based discovery layer. Ludusavi data, legacy path rules, and specialized plugins all produce candidates; only the user's final confirmation creates or updates configurations. This avoids misrepresenting a large third-party location database as curated FolderRewind presets while preserving legacy V1 templates through adapters.
+FolderRewind treats automatic discovery as a provider-driven proposal and review workflow, not as a backup mode. Providers report games, independently identified backup sets, and resources; only explicit review creates or changes an ordinary `BackupConfig`, after which the user owns its source scopes, filters, history, retention, and restore behavior.
 
 ## Considered Options
 
-- Converting every Ludusavi entry into an official template was rejected because most entries contain location knowledge rather than a curated backup policy, and the legacy directory-oriented resolver cannot represent files, globs, and registry data faithfully.
-- Replacing the template system outright was rejected because existing presets contain valuable archive, automation, filtering, cloud, and plugin policy.
+- Keeping a discovery-specific `HistoryMode` was rejected because it hid source history and made behavior depend on how a configuration was created. A `HistoryItem` is always one source archive; a `BackupRun` is only optional grouping metadata for a configuration-level operation.
+- Treating a merged game title as persistent identity was rejected because providers and backup sets can merge for display without sharing ownership. A set is reconciled by `ProviderId + DefinitionId + SetId`, with a unique external-ID match used only to reconnect an upstream rename.
+- Automatically synchronizing discovery into an existing configuration was rejected because the configuration belongs to the user. Rediscovery compares the reviewed baseline, current configuration, and new candidates; conflicts, upstream removals, and upstream narrowing preserve the user's version by default.
+- Folding discovered globs into the configuration whitelist was rejected because that would leak rules across roots. Each source has an editable hard `SourceScope`; configuration filters can only narrow it.
 
 ## Consequences
 
-- Discovery providers cannot persist `BackupConfig` instances directly.
-- Full-machine discovery resolves only definitions backed by launcher, plugin, or user-supplied installation evidence; probing all uninstalled definitions is an explicit non-default workflow if introduced later.
-- Discovery reports path expressions and cheap fixed-root existence only. Recursive file enumeration, counts, and sizes are deferred until user selection or backup execution.
-- When an installed store does not expose `<storeUserId>`, the resolver preserves it as a single path-segment glob beneath the manifest's fixed game-specific root; it never triggers discovery-time traversal.
-- A game candidate may contain multiple backup-set candidates, allowing specialized providers such as MineRewind to propose one configuration per instance.
-- Files and globs require source-level selection semantics in the backup engine; registry resources remain visible but unsupported until a dedicated backup representation exists.
+- Discovery providers cannot persist `BackupConfig` instances directly, and merged game candidates are presentation only. Ludusavi uses set ID `main`; specialized providers such as MineRewind use a stable provider-owned set ID so separate instances remain separate configurations.
+- `ReviewedDiscoveryBaseline` records the complete upstream snapshot shown at the end of the last review, not just applied changes. User edits do not rewrite it, so three-way comparison can distinguish upstream changes, user overrides, and simultaneous conflicts. Unapplied changes become explicit user overrides until upstream changes again.
+- Steam `<storeUserId>` resources select only the most-recent account by default. Other local accounts remain visible but unselected; if no active account can be established, discovery proposes a single-segment wildcard with a cross-account warning and leaves it unselected. Rules without the placeholder are resolved once.
+- The Ludusavi primary manifest may be downloaded or imported. A secondary manifest remains an explicit manual input; FolderRewind does not search game directories for `.ludusavi.yaml`, and registry resources remain visible but unsupported.
+- The compiled-index generation identity includes every manifest input plus compiler and schema versions. `current.json` points to a fully validated current generation and one previous generation: generation data is written and validated before the pointer changes, current corruption falls back to previous and repairs the pointer, and two invalid generations trigger rebuilding from available inputs. HTTP 304 validates only the remote primary input and never skips local-input checks.
+- Configuration-level backup creates a run context but persists a `BackupRun` only when at least one source creates a new archive. Source history remains authoritative, and retained run references protect rather than own history items.
+- Because this design replaces an unpublished 1.9.0 Beta, `HistoryMode`, the old discovery-origin shape, index v2, and BackupRun v1 are deliberately invalidated without migration.
