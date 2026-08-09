@@ -325,10 +325,49 @@ public sealed class LudusaviDiscoveryProviderTests
         var cloud = resources.Single(resource => resource.FixedRoot == Path.GetFullPath(cloudRoot));
         CollectionAssert.AreEqual(new[] { "*/*.sav", "*/*.sav/**" }, cloud.IncludePatterns.ToArray());
         Assert.IsTrue(cloud.FixedRootExists);
-        Assert.IsTrue(cloud.IsSelectedByDefault);
+        Assert.IsFalse(cloud.IsSelectedByDefault);
         var userData = resources.Single(resource => resource.FixedRoot == Path.GetFullPath(gameDataRoot));
         CollectionAssert.AreEqual(new[] { "UserData_*", "UserData_*/**" }, userData.IncludePatterns.ToArray());
         Assert.IsTrue(userData.Evidence.Single().Description.Contains("single path-segment wildcard", StringComparison.Ordinal));
+        Assert.IsTrue(userData.Evidence.Single().Description.Contains("requires manual selection", StringComparison.Ordinal));
+    }
+
+    [TestMethod]
+    public async Task StoreUserRulesSelectOnlyActiveAccountAndDoNotDuplicateOtherRules()
+    {
+        var installRoot = Path.Combine(_root, "AccountGame");
+        Directory.CreateDirectory(Path.Combine(installRoot, "Common"));
+        Directory.CreateDirectory(Path.Combine(installRoot, "Users", "111"));
+        Directory.CreateDirectory(Path.Combine(installRoot, "Users", "222"));
+        var game = new LudusaviCompiledGame
+        {
+            DefinitionId = "AccountGame",
+            DisplayName = "Account Game",
+            ExternalIds = new Dictionary<string, string> { ["steam"] = "42" },
+            Files = new[]
+            {
+                FileResource("<base>/Common/*.sav"),
+                FileResource("<base>/Users/<storeUserId>/*.sav")
+            }
+        };
+        var installation = Installation(
+            GameStore.Steam,
+            "42",
+            installRoot,
+            "Account Game",
+            new[] { "111", "222" },
+            "111");
+        var provider = CreateProvider(new[] { game }, new[] { installation });
+
+        var result = await provider.DiscoverAsync(new DiscoveryRequest(), null, CancellationToken.None);
+
+        var resources = result.Candidates.Single().BackupSets.Single().Resources;
+        Assert.HasCount(3, resources);
+        Assert.AreEqual(1, resources.Count(item => item.FixedRoot.EndsWith("Common", StringComparison.OrdinalIgnoreCase)));
+        Assert.IsTrue(resources.Single(item => item.FixedRoot.EndsWith("111", StringComparison.OrdinalIgnoreCase)).IsSelectedByDefault);
+        var inactive = resources.Single(item => item.FixedRoot.EndsWith("222", StringComparison.OrdinalIgnoreCase));
+        Assert.IsFalse(inactive.IsSelectedByDefault);
+        Assert.IsTrue(inactive.Evidence.Single().Description.Contains("not the active account", StringComparison.Ordinal));
     }
 
     private LudusaviDiscoveryProvider CreateProvider(
@@ -374,22 +413,27 @@ public sealed class LudusaviDiscoveryProviderTests
         GameStore store,
         string id,
         string path,
-        string displayName = "Hades") => new()
+        string displayName = "Hades",
+        IReadOnlyList<string>? storeUserIds = null,
+        string? activeStoreUserId = null) => new()
     {
         Store = store,
         StoreGameId = id,
         DisplayName = displayName,
         RootPath = Path.GetDirectoryName(path) ?? string.Empty,
         BasePath = path,
-        InstalledGameName = Path.GetFileName(path.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar))
+        InstalledGameName = Path.GetFileName(path.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar)),
+        StoreUserIds = storeUserIds ?? Array.Empty<string>(),
+        ActiveStoreUserId = activeStoreUserId ?? string.Empty
     };
 
     private sealed class FakeInstallationDiscovery(
         IReadOnlyList<DetectedGameInstallation> installations) : ILauncherInstallationDiscoveryService
     {
-        public IReadOnlyList<DetectedGameInstallation> Scan(
+        public LauncherInstallationScanResult Scan(
             IReadOnlyDictionary<GameStore, IReadOnlyList<string>> configuredRoots,
-            IReadOnlyList<string>? disabledAutoRoots = null) => installations;
+            IReadOnlyList<string>? disabledAutoRoots,
+            CancellationToken cancellationToken) => new() { Installations = installations };
     }
 
     private sealed class RecordingProgress : IProgress<DiscoveryProgress>

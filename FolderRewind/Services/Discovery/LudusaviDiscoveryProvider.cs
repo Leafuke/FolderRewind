@@ -83,14 +83,15 @@ public sealed class LudusaviDiscoveryProvider : IFolderRewindDiscoveryProvider
             Phase = "installations",
             Message = "Scanning Steam, GOG, and Epic installations"
         });
-        var detectedInstallations = _installationDiscovery.Scan(
+        var installationScan = _installationDiscovery.Scan(
             request.StoreRoots,
-            request.DisabledAutoRoots);
+            request.DisabledAutoRoots,
+            cancellationToken);
 
         var definitions = SelectDefinitions(current.Value.Index.Games, request);
         var matchedDefinitions = MatchInstallationsToDefinitions(
             definitions,
-            detectedInstallations,
+            installationScan.Installations,
             cancellationToken);
         var candidates = new List<DiscoveredGameCandidate>();
         var diagnostics = current.Value.Index.Diagnostics
@@ -99,6 +100,7 @@ public sealed class LudusaviDiscoveryProvider : IFolderRewindDiscoveryProvider
                 item.Code,
                 $"{item.EntryName}: {item.Message}"))
             .ToList();
+        diagnostics.AddRange(installationScan.Diagnostics);
         for (var definitionIndex = 0; definitionIndex < matchedDefinitions.Count; definitionIndex++)
         {
             cancellationToken.ThrowIfCancellationRequested();
@@ -144,9 +146,6 @@ public sealed class LudusaviDiscoveryProvider : IFolderRewindDiscoveryProvider
         foreach (var match in matches)
         {
             cancellationToken.ThrowIfCancellationRequested();
-            var userIds = match.Installation.StoreUserIds.Count == 0
-                ? new[] { string.Empty }
-                : match.Installation.StoreUserIds;
             foreach (var resource in definition.Files.Where(resource => !resource.IsDisabled))
             {
                 if (!MatchesConstraint(resource, match.Installation.Store, diagnostics, definition.DefinitionId))
@@ -154,24 +153,52 @@ public sealed class LudusaviDiscoveryProvider : IFolderRewindDiscoveryProvider
                     continue;
                 }
 
-                foreach (var userId in userIds)
+                if (!UsesStoreUserId(resource.Expression))
                 {
-                    var resolved = _resolver.Resolve(resource, match.Installation, userId);
-                    if (resolved == null)
-                    {
-                        diagnostics.Add(Diagnostic(
-                            DiscoveryDiagnosticSeverity.Warning,
-                            "path-resolution-failed",
-                            $"{definition.DisplayName}: could not safely resolve '{resource.Expression}'."));
-                        continue;
-                    }
-                    resources.Add(CreateResourceCandidate(
+                    AddResolvedResource(
+                        resources,
+                        diagnostics,
                         definition,
                         resource,
-                        resolved,
-                        match.Confidence,
-                        match.EvidenceKind,
-                        match.EvidenceDescription));
+                        match,
+                        string.Empty,
+                        allowDefaultSelection: true,
+                        accountWarning: null);
+                    continue;
+                }
+
+                if (string.IsNullOrWhiteSpace(match.Installation.ActiveStoreUserId))
+                {
+                    AddResolvedResource(
+                        resources,
+                        diagnostics,
+                        definition,
+                        resource,
+                        match,
+                        string.Empty,
+                        allowDefaultSelection: false,
+                        accountWarning: "No active store account could be identified. This wildcard may include multiple local accounts and requires manual selection.");
+                    continue;
+                }
+
+                var activeUserId = match.Installation.ActiveStoreUserId;
+                foreach (var userId in match.Installation.StoreUserIds
+                             .Append(activeUserId)
+                             .Where(value => !string.IsNullOrWhiteSpace(value))
+                             .Distinct(StringComparer.OrdinalIgnoreCase))
+                {
+                    var isActive = string.Equals(userId, activeUserId, StringComparison.OrdinalIgnoreCase);
+                    AddResolvedResource(
+                        resources,
+                        diagnostics,
+                        definition,
+                        resource,
+                        match,
+                        userId,
+                        allowDefaultSelection: isActive,
+                        accountWarning: isActive
+                            ? null
+                            : $"Store account {userId} is not the active account and is not selected by default.");
                 }
             }
 
@@ -218,7 +245,9 @@ public sealed class LudusaviDiscoveryProvider : IFolderRewindDiscoveryProvider
         ResolvedLudusaviResource resolved,
         DiscoveryConfidence confidence,
         string evidenceKind,
-        string evidenceDescription)
+        string evidenceDescription,
+        bool allowDefaultSelection,
+        string? accountWarning)
     {
         var support = string.IsNullOrWhiteSpace(resolved.FixedRoot)
             ? BackupResourceSupportState.InvalidPath
@@ -246,6 +275,7 @@ public sealed class LudusaviDiscoveryProvider : IFolderRewindDiscoveryProvider
             IsSelectedByDefault = support == BackupResourceSupportState.Supported
                                   && fixedRootExists
                                   && resolved.Safety == LudusaviPathSafety.Normal
+                                  && allowDefaultSelection
                                   && confidence >= DiscoveryConfidence.Medium,
             Evidence = new[]
             {
@@ -253,13 +283,71 @@ public sealed class LudusaviDiscoveryProvider : IFolderRewindDiscoveryProvider
                 {
                     Confidence = confidence,
                     Kind = evidenceKind,
-                    Description = resolved.UsesStoreUserIdWildcard
-                        ? $"{evidenceDescription} The unknown store user ID is preserved as a single path-segment wildcard."
-                        : evidenceDescription,
+                    Description = BuildEvidenceDescription(
+                        evidenceDescription,
+                        resolved.UsesStoreUserIdWildcard,
+                        accountWarning),
                     Source = ProviderId
                 }
             }
         };
+    }
+
+    private void AddResolvedResource(
+        ICollection<BackupResourceCandidate> resources,
+        ICollection<DiscoveryDiagnostic> diagnostics,
+        LudusaviCompiledGame definition,
+        LudusaviCompiledResource resource,
+        InstallationMatch match,
+        string storeUserId,
+        bool allowDefaultSelection,
+        string? accountWarning)
+    {
+        var resolved = _resolver.Resolve(resource, match.Installation, storeUserId);
+        if (resolved == null)
+        {
+            diagnostics.Add(new DiscoveryDiagnostic
+            {
+                Severity = DiscoveryDiagnosticSeverity.Warning,
+                Code = "path-resolution-failed",
+                ProviderId = ProviderId,
+                DefinitionId = definition.DefinitionId,
+                RootPath = match.Installation.BasePath,
+                Category = "path",
+                Message = $"{definition.DisplayName}: could not safely resolve '{resource.Expression}'."
+            });
+            return;
+        }
+
+        resources.Add(CreateResourceCandidate(
+            definition,
+            resource,
+            resolved,
+            match.Confidence,
+            match.EvidenceKind,
+            match.EvidenceDescription,
+            allowDefaultSelection,
+            accountWarning));
+    }
+
+    private static bool UsesStoreUserId(string expression) =>
+        expression.Contains("<storeUserId>", StringComparison.OrdinalIgnoreCase);
+
+    private static string BuildEvidenceDescription(
+        string evidenceDescription,
+        bool usesStoreUserIdWildcard,
+        string? accountWarning)
+    {
+        var parts = new List<string> { evidenceDescription };
+        if (usesStoreUserIdWildcard)
+        {
+            parts.Add("The unknown store user ID is preserved as a single path-segment wildcard.");
+        }
+        if (!string.IsNullOrWhiteSpace(accountWarning))
+        {
+            parts.Add(accountWarning);
+        }
+        return string.Join(" ", parts);
     }
 
     private BackupResourceCandidate CreateRegistryCandidate(
@@ -555,6 +643,7 @@ public sealed class LudusaviDiscoveryProvider : IFolderRewindDiscoveryProvider
         BasePath = match.Installation.BasePath,
         InstalledGameName = match.Installation.InstalledGameName,
         StoreUserIds = match.Installation.StoreUserIds,
+        ActiveStoreUserId = match.Installation.ActiveStoreUserId,
         Evidence = new[]
         {
             new DiscoveryEvidence

@@ -33,7 +33,23 @@ public sealed class LauncherInstallationScannerTests
         var secondaryApps = Path.Combine(secondaryRoot, "steamapps");
         Directory.CreateDirectory(primaryApps);
         Directory.CreateDirectory(Path.Combine(secondaryApps, "common", "Hades"));
-        Directory.CreateDirectory(Path.Combine(primaryRoot, "userdata", "76561198000000000"));
+        const string steamId64 = "76561198000000000";
+        Assert.IsTrue(SteamInstallationScanner.TryConvertSteamId64(steamId64, out var accountId));
+        Directory.CreateDirectory(Path.Combine(primaryRoot, "userdata", accountId));
+        Directory.CreateDirectory(Path.Combine(primaryRoot, "userdata", "12345"));
+        Directory.CreateDirectory(Path.Combine(primaryRoot, "config"));
+        await File.WriteAllTextAsync(
+            Path.Combine(primaryRoot, "config", "loginusers.vdf"),
+            $$"""
+            "users"
+            {
+                "{{steamId64}}"
+                {
+                    "MostRecent" "1"
+                    "Timestamp" "100"
+                }
+            }
+            """);
         await File.WriteAllTextAsync(
             Path.Combine(primaryApps, "libraryfolders.vdf"),
             $$"""
@@ -56,7 +72,8 @@ public sealed class LauncherInstallationScannerTests
             }
             """);
 
-        var installations = new SteamInstallationScanner().Scan(new[] { primaryRoot });
+        var result = new SteamInstallationScanner().Scan(new[] { primaryRoot }, CancellationToken.None);
+        var installations = result.Installations;
 
         Assert.HasCount(1, installations);
         Assert.AreEqual("1145360", installations[0].StoreGameId);
@@ -66,7 +83,9 @@ public sealed class LauncherInstallationScannerTests
             Path.GetFullPath(Path.Combine(secondaryApps, "common", "Hades")),
             Path.GetFullPath(installations[0].BasePath));
         Assert.AreEqual("Hades", installations[0].InstalledGameName);
-        CollectionAssert.Contains(installations[0].StoreUserIds.ToList(), "76561198000000000");
+        CollectionAssert.Contains(installations[0].StoreUserIds.ToList(), accountId);
+        CollectionAssert.Contains(installations[0].StoreUserIds.ToList(), "12345");
+        Assert.AreEqual(accountId, installations[0].ActiveStoreUserId);
     }
 
     [TestMethod]
@@ -86,7 +105,9 @@ public sealed class LauncherInstallationScannerTests
             }
             """);
 
-        var installations = new EpicInstallationScanner().Scan(new[] { manifests });
+        var installations = new EpicInstallationScanner()
+            .Scan(new[] { manifests }, CancellationToken.None)
+            .Installations;
 
         Assert.HasCount(1, installations);
         Assert.AreEqual(GameStore.Epic, installations[0].Store);
@@ -103,11 +124,44 @@ public sealed class LauncherInstallationScannerTests
         var game = Path.Combine(_root, "GOG", "Baldurs Gate");
         Directory.CreateDirectory(game);
 
-        var installations = new GogInstallationScanner().Scan(new[] { Path.GetDirectoryName(game)! });
+        var installations = new GogInstallationScanner()
+            .Scan(new[] { Path.GetDirectoryName(game)! }, CancellationToken.None)
+            .Installations;
 
         Assert.IsTrue(installations.Any(item =>
             item.Store == GameStore.Gog
             && item.DisplayName == "Baldurs Gate"
             && string.Equals(item.BasePath, game, StringComparison.OrdinalIgnoreCase)));
+    }
+
+    [TestMethod]
+    public void ScannerHonorsCancellationBeforeEnumeratingRoots()
+    {
+        using var source = new CancellationTokenSource();
+        source.Cancel();
+
+        Assert.ThrowsExactly<OperationCanceledException>(() =>
+            new SteamInstallationScanner().Scan(new[] { _root }, source.Token));
+    }
+
+    [TestMethod]
+    public async Task EpicScannerIsolatesMalformedManifestAndReportsDiagnostic()
+    {
+        var manifests = Path.Combine(_root, "Manifests");
+        var install = Path.Combine(_root, "Games", "Valid");
+        Directory.CreateDirectory(manifests);
+        Directory.CreateDirectory(install);
+        await File.WriteAllTextAsync(Path.Combine(manifests, "broken.item"), "not json");
+        await File.WriteAllTextAsync(
+            Path.Combine(manifests, "valid.item"),
+            $$"""{"InstallLocation":"{{install.Replace("\\", "\\\\")}}","DisplayName":"Valid"}""");
+
+        var result = new EpicInstallationScanner().Scan(new[] { manifests }, CancellationToken.None);
+
+        Assert.HasCount(1, result.Installations);
+        Assert.HasCount(1, result.Diagnostics);
+        Assert.AreEqual("epic", result.Diagnostics[0].ProviderId);
+        Assert.AreEqual("format", result.Diagnostics[0].Category);
+        Assert.AreEqual(Path.Combine(manifests, "broken.item"), result.Diagnostics[0].RootPath);
     }
 }

@@ -95,6 +95,8 @@ public sealed class DiscoveryDiagnostic
     public required string Message { get; init; }
     public string ProviderId { get; init; } = string.Empty;
     public string DefinitionId { get; init; } = string.Empty;
+    public string RootPath { get; init; } = string.Empty;
+    public string Category { get; init; } = string.Empty;
 }
 
 public sealed class DiscoveryEvidence
@@ -127,6 +129,7 @@ public sealed class GameInstallation
     public string BasePath { get; init; } = string.Empty;
     public string InstalledGameName { get; init; } = string.Empty;
     public IReadOnlyList<string> StoreUserIds { get; init; } = Array.Empty<string>();
+    public string ActiveStoreUserId { get; init; } = string.Empty;
     public IReadOnlyList<DiscoveryEvidence> Evidence { get; init; } = Array.Empty<DiscoveryEvidence>();
 }
 
@@ -139,6 +142,15 @@ public sealed class DetectedGameInstallation
     public string BasePath { get; init; } = string.Empty;
     public string InstalledGameName { get; init; } = string.Empty;
     public IReadOnlyList<string> StoreUserIds { get; init; } = Array.Empty<string>();
+    public string ActiveStoreUserId { get; init; } = string.Empty;
+}
+
+public sealed class LauncherInstallationScanResult
+{
+    public IReadOnlyList<DetectedGameInstallation> Installations { get; init; }
+        = Array.Empty<DetectedGameInstallation>();
+    public IReadOnlyList<DiscoveryDiagnostic> Diagnostics { get; init; }
+        = Array.Empty<DiscoveryDiagnostic>();
 }
 
 public sealed class BackupResourceCandidate
