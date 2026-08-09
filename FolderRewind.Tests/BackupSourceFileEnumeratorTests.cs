@@ -31,7 +31,7 @@ public sealed class BackupSourceFileEnumeratorTests
     [TestMethod]
     public void AllSelectionKeepsLegacyWholeDirectoryBehavior()
     {
-        var files = BackupSourceFileEnumerator.Enumerate(_root, new BackupSourceSelection());
+        var files = BackupSourceFileEnumerator.Enumerate(_root, new BackupSourceScope());
 
         Assert.HasCount(3, files);
         CollectionAssert.AreEquivalent(
@@ -42,9 +42,9 @@ public sealed class BackupSourceFileEnumeratorTests
     [TestMethod]
     public void IncludeSelectionIsMaximumBoundaryAndFilterCanOnlyShrinkIt()
     {
-        var selection = new BackupSourceSelection
+        var selection = new BackupSourceScope
         {
-            Mode = BackupSourceSelectionMode.Include,
+            Mode = BackupSourceScopeMode.Include,
             IncludePatterns = new() { "Saves/**/*.sav" }
         };
 
@@ -63,9 +63,9 @@ public sealed class BackupSourceFileEnumeratorTests
     [TestMethod]
     public void IncludeSelectionAutomaticallyFindsFutureMatchingSlots()
     {
-        var selection = new BackupSourceSelection
+        var selection = new BackupSourceScope
         {
-            Mode = BackupSourceSelectionMode.Include,
+            Mode = BackupSourceScopeMode.Include,
             IncludePatterns = new() { "Saves/*.sav" }
         };
         Assert.HasCount(1, BackupSourceFileEnumerator.Enumerate(_root, selection));
@@ -79,17 +79,17 @@ public sealed class BackupSourceFileEnumeratorTests
     public void IncludeSelectionRejectsAbsoluteTraversalAndEmptyPatterns()
     {
         Assert.ThrowsExactly<InvalidDataException>(() => BackupSourceFileEnumerator.ValidateAndNormalize(
-            new BackupSourceSelection { Mode = BackupSourceSelectionMode.Include }));
+            new BackupSourceScope { Mode = BackupSourceScopeMode.Include }));
         Assert.ThrowsExactly<InvalidDataException>(() => BackupSourceFileEnumerator.ValidateAndNormalize(
-            new BackupSourceSelection
+            new BackupSourceScope
             {
-                Mode = BackupSourceSelectionMode.Include,
+                Mode = BackupSourceScopeMode.Include,
                 IncludePatterns = new() { "../outside/*.sav" }
             }));
         Assert.ThrowsExactly<InvalidDataException>(() => BackupSourceFileEnumerator.ValidateAndNormalize(
-            new BackupSourceSelection
+            new BackupSourceScope
             {
-                Mode = BackupSourceSelectionMode.Include,
+                Mode = BackupSourceScopeMode.Include,
                 IncludePatterns = new() { Path.Combine(_root, "*.sav") }
             }));
     }
@@ -98,16 +98,16 @@ public sealed class BackupSourceFileEnumeratorTests
     public void IncludeSelectionRejectsExcessivePatternCountAndLength()
     {
         Assert.ThrowsExactly<InvalidDataException>(() => BackupSourceFileEnumerator.ValidateAndNormalize(
-            new BackupSourceSelection
+            new BackupSourceScope
             {
-                Mode = BackupSourceSelectionMode.Include,
+                Mode = BackupSourceScopeMode.Include,
                 IncludePatterns = new(Enumerable.Range(0, BackupSourceScopePatternSet.MaximumPatternCount + 1)
                     .Select(index => $"Saves/{index}.sav"))
             }));
         Assert.ThrowsExactly<InvalidDataException>(() => BackupSourceFileEnumerator.ValidateAndNormalize(
-            new BackupSourceSelection
+            new BackupSourceScope
             {
-                Mode = BackupSourceSelectionMode.Include,
+                Mode = BackupSourceScopeMode.Include,
                 IncludePatterns = new() { new string('a', BackupSourceScopePatternSet.MaximumPatternLength + 1) }
             }));
     }
@@ -120,7 +120,7 @@ public sealed class BackupSourceFileEnumeratorTests
 
         Assert.ThrowsExactly<OperationCanceledException>(() => BackupSourceFileEnumerator.Enumerate(
             _root,
-            new BackupSourceSelection(),
+            new BackupSourceScope(),
             cancellationToken: cancellation.Token));
     }
 }

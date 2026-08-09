@@ -126,7 +126,7 @@ namespace FolderRewind.Models
         private string _lastBackupTime = I18n.Format("FolderManager_NeverBackedUp");
         private bool _isFavorite;
         private string _coverImagePath = ""; // 对应封面图片路径
-        private BackupSourceSelection _selection = new();
+        private BackupSourceScope _sourceScope = new();
 
         // 核心路径
         public string Path
@@ -156,10 +156,10 @@ namespace FolderRewind.Models
         /// <summary>
         /// 该来源允许进入备份的最大文件集合。配置过滤器和插件范围只能继续缩小它。
         /// </summary>
-        public BackupSourceSelection Selection
+        public BackupSourceScope SourceScope
         {
-            get => _selection;
-            set => SetProperty(ref _selection, value ?? new BackupSourceSelection());
+            get => _sourceScope;
+            set => SetProperty(ref _sourceScope, value ?? new BackupSourceScope());
         }
     }
 

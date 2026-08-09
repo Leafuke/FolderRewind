@@ -30,20 +30,40 @@ public static class DiscoveryPresentationService
         IEnumerable<DiscoveryOrigin?>? existingOrigins)
     {
         ArgumentNullException.ThrowIfNull(game);
-        var existing = (existingOrigins ?? Array.Empty<DiscoveryOrigin?>()).FirstOrDefault(origin =>
-            origin != null
-            && string.Equals(origin.ProviderId, game.Definition.ProviderId, StringComparison.OrdinalIgnoreCase)
-            && string.Equals(origin.DefinitionId, game.Definition.DefinitionId, StringComparison.OrdinalIgnoreCase));
-        if (existing == null)
+        var origins = (existingOrigins ?? Array.Empty<DiscoveryOrigin?>())
+            .Where(origin => origin?.Identity != null)
+            .Cast<DiscoveryOrigin>()
+            .ToList();
+        var matchedCount = 0;
+        var hasNewResources = false;
+        foreach (var set in game.BackupSets)
+        {
+            var existing = DiscoverySetIdentityMatcher.FindUnique(
+                set.Identity,
+                origins,
+                origin => origin);
+            if (existing == null)
+            {
+                hasNewResources = true;
+                continue;
+            }
+
+            matchedCount++;
+            var knownResourceIds = existing.ReviewedBaseline.Sources
+                .SelectMany(source => source.ResourceIds)
+                .ToHashSet(StringComparer.OrdinalIgnoreCase);
+            if (set.Resources
+                .Where(CanSelect)
+                .Any(resource => !knownResourceIds.Contains(resource.ResourceId)))
+            {
+                hasNewResources = true;
+            }
+        }
+
+        if (matchedCount == 0)
         {
             return DiscoveryCandidateStatus.New;
         }
-
-        var knownResourceIds = existing.ResourceIds;
-        var hasNewResources = game.BackupSets
-            .SelectMany(set => set.Resources)
-            .Where(CanSelect)
-            .Any(resource => !knownResourceIds.Contains(resource.ResourceId, StringComparer.OrdinalIgnoreCase));
         return hasNewResources
             ? DiscoveryCandidateStatus.NewResources
             : DiscoveryCandidateStatus.UpToDate;

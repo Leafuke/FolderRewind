@@ -180,30 +180,37 @@ namespace FolderRewind.Services
                 backupConfig.Automation.Normalize(backupConfig.SourceFolders);
                 foreach (var folder in backupConfig.SourceFolders.Where(folder => folder != null))
                 {
-                    folder.Selection ??= new BackupSourceSelection();
-                    folder.Selection.IncludePatterns = new System.Collections.ObjectModel.ObservableCollection<string>(
-                        (folder.Selection.IncludePatterns ?? new System.Collections.ObjectModel.ObservableCollection<string>())
+                    folder.SourceScope ??= new BackupSourceScope();
+                    folder.SourceScope.IncludePatterns = new System.Collections.ObjectModel.ObservableCollection<string>(
+                        (folder.SourceScope.IncludePatterns ?? new System.Collections.ObjectModel.ObservableCollection<string>())
                             .Where(pattern => !string.IsNullOrWhiteSpace(pattern))
                             .Select(pattern => pattern.Trim().Replace('\\', '/'))
                             .Distinct(StringComparer.OrdinalIgnoreCase));
-                    folder.Selection.ResourceIds = new System.Collections.ObjectModel.ObservableCollection<string>(
-                        (folder.Selection.ResourceIds ?? new System.Collections.ObjectModel.ObservableCollection<string>())
-                            .Where(id => !string.IsNullOrWhiteSpace(id))
-                            .Select(id => id.Trim())
-                        .Distinct(StringComparer.OrdinalIgnoreCase));
                 }
                 if (backupConfig.DiscoveryOrigin != null)
                 {
-                    backupConfig.DiscoveryOrigin.ProviderId = backupConfig.DiscoveryOrigin.ProviderId?.Trim() ?? string.Empty;
-                    backupConfig.DiscoveryOrigin.DefinitionId = backupConfig.DiscoveryOrigin.DefinitionId?.Trim() ?? string.Empty;
-                    backupConfig.DiscoveryOrigin.ExternalIds = backupConfig.DiscoveryOrigin.ExternalIds == null
+                    backupConfig.DiscoveryOrigin.Identity ??= new DiscoverySetIdentity();
+                    backupConfig.DiscoveryOrigin.Identity.ProviderId = backupConfig.DiscoveryOrigin.Identity.ProviderId?.Trim() ?? string.Empty;
+                    backupConfig.DiscoveryOrigin.Identity.DefinitionId = backupConfig.DiscoveryOrigin.Identity.DefinitionId?.Trim() ?? string.Empty;
+                    backupConfig.DiscoveryOrigin.Identity.SetId = backupConfig.DiscoveryOrigin.Identity.SetId?.Trim() ?? string.Empty;
+                    backupConfig.DiscoveryOrigin.Identity.ExternalIds = backupConfig.DiscoveryOrigin.Identity.ExternalIds == null
                         ? new System.Collections.Generic.Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
-                        : new System.Collections.Generic.Dictionary<string, string>(backupConfig.DiscoveryOrigin.ExternalIds, StringComparer.OrdinalIgnoreCase);
-                    backupConfig.DiscoveryOrigin.ResourceIds = new System.Collections.ObjectModel.ObservableCollection<string>(
-                        (backupConfig.DiscoveryOrigin.ResourceIds ?? new System.Collections.ObjectModel.ObservableCollection<string>())
-                            .Where(id => !string.IsNullOrWhiteSpace(id))
-                            .Select(id => id.Trim())
-                            .Distinct(StringComparer.OrdinalIgnoreCase));
+                        : new System.Collections.Generic.Dictionary<string, string>(backupConfig.DiscoveryOrigin.Identity.ExternalIds, StringComparer.OrdinalIgnoreCase);
+                    backupConfig.DiscoveryOrigin.ReviewedBaseline ??= new ReviewedDiscoveryBaseline();
+                    foreach (var source in backupConfig.DiscoveryOrigin.ReviewedBaseline.Sources)
+                    {
+                        source.NormalizedRootPath = source.NormalizedRootPath?.Trim() ?? string.Empty;
+                        source.IncludePatterns = new System.Collections.ObjectModel.ObservableCollection<string>(
+                            (source.IncludePatterns ?? new System.Collections.ObjectModel.ObservableCollection<string>())
+                                .Where(pattern => !string.IsNullOrWhiteSpace(pattern))
+                                .Select(pattern => pattern.Trim().Replace('\\', '/'))
+                                .Distinct(StringComparer.OrdinalIgnoreCase));
+                        source.ResourceIds = new System.Collections.ObjectModel.ObservableCollection<string>(
+                            (source.ResourceIds ?? new System.Collections.ObjectModel.ObservableCollection<string>())
+                                .Where(id => !string.IsNullOrWhiteSpace(id))
+                                .Select(id => id.Trim())
+                                .Distinct(StringComparer.OrdinalIgnoreCase));
+                    }
                 }
                 NormalizeBackupScope(backupConfig.BackupScope);
                 NormalizeCloudSettings(backupConfig.Cloud, defaultRemoteBasePath);

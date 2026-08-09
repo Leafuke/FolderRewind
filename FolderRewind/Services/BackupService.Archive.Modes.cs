@@ -14,7 +14,7 @@ namespace FolderRewind.Services
 {
     public static partial class BackupService
     {
-        private static async Task<BackupArchiveExecutionResult> DoFullBackupAsync(string source, string destDir, string metaDir, string baseName, BackupConfig config, BackupSourceSelection selection, string comment = "", BackupTask? taskToUpdate = null)
+        private static async Task<BackupArchiveExecutionResult> DoFullBackupAsync(string source, string destDir, string metaDir, string baseName, BackupConfig config, BackupSourceScope selection, string comment = "", BackupTask? taskToUpdate = null)
         {
             BackupMetadata? oldMeta = null;
             if (!string.IsNullOrEmpty(metaDir))
@@ -94,7 +94,7 @@ namespace FolderRewind.Services
 
         // --- 模式 2: 智能增量备份 ---
         // 返回归档执行结果，并显式区分无变化、不可用和失败。
-        private static async Task<BackupArchiveExecutionResult> DoSmartBackupAsync(string source, string destDir, string metaDir, string baseName, BackupConfig config, BackupSourceSelection selection, string comment = "", BackupTask? taskToUpdate = null)
+        private static async Task<BackupArchiveExecutionResult> DoSmartBackupAsync(string source, string destDir, string metaDir, string baseName, BackupConfig config, BackupSourceScope selection, string comment = "", BackupTask? taskToUpdate = null)
         {
             var metadataLoadResult = await LoadBackupMetadataAsync(metaDir).ConfigureAwait(false);
             BackupMetadata? oldMeta = ConvertToAggregateMetadata(metadataLoadResult);
@@ -303,7 +303,7 @@ namespace FolderRewind.Services
 
         // --- 模式 3: 覆写备份 ---
         // 返回归档执行结果，并显式区分无变化、不可用和失败。
-        private static async Task<BackupArchiveExecutionResult> DoOverwriteBackupAsync(string source, string destDir, string metaDir, string baseName, BackupConfig config, BackupSourceSelection selection, string comment = "", BackupTask? taskToUpdate = null)
+        private static async Task<BackupArchiveExecutionResult> DoOverwriteBackupAsync(string source, string destDir, string metaDir, string baseName, BackupConfig config, BackupSourceScope selection, string comment = "", BackupTask? taskToUpdate = null)
         {
             BackupMetadata? oldMeta = null;
             if (!string.IsNullOrEmpty(metaDir))
@@ -345,7 +345,7 @@ namespace FolderRewind.Services
             {
                 return BackupArchiveExecutionResult.Failed;
             }
-            var isExactSelection = selection.Mode == BackupSourceSelectionMode.Include;
+            var isExactSelection = selection.Mode == BackupSourceScopeMode.Include;
             string? replacementArchivePath = isExactSelection
                 ? Path.Combine(destDir, $".{Guid.NewGuid():N}.{config.Archive.Format}")
                 : null;

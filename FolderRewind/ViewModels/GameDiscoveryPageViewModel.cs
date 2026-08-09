@@ -528,6 +528,7 @@ public sealed class GameDiscoveryResourceItem : FolderRewind.Models.ObservableOb
         BackupResourceSupportState.InvalidPath => I18n.GetString("GameDiscovery_Resource_InvalidPath"),
         BackupResourceSupportState.UnsafeRoot => I18n.GetString("GameDiscovery_Resource_UnsafeRoot"),
         _ when Candidate.IsSuppressed => I18n.Format("GameDiscovery_Resource_Suppressed", Candidate.SuppressedByProviderId, Candidate.SuppressionReason),
+        _ when !string.IsNullOrWhiteSpace(Candidate.ConflictWarning) => Candidate.ConflictWarning,
         _ when Candidate.RequiresExplicitConfirmation => Candidate.SafetyWarning,
         _ => string.Empty
     };

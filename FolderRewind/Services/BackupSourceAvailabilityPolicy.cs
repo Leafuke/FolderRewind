@@ -7,8 +7,8 @@ namespace FolderRewind.Services;
 /// </summary>
 internal static class BackupSourceAvailabilityPolicy
 {
-    public static bool IsUnavailable(BackupSourceSelection? selection, int matchedFileCount)
+    public static bool IsUnavailable(BackupSourceScope? sourceScope, int matchedFileCount)
     {
-        return selection?.Mode == BackupSourceSelectionMode.Include && matchedFileCount == 0;
+        return sourceScope?.Mode == BackupSourceScopeMode.Include && matchedFileCount == 0;
     }
 }

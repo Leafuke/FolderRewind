@@ -23,7 +23,7 @@ public static class BackupSourceFileEnumerator
 {
     public static IReadOnlyList<BackupSourceFile> Enumerate(
         string sourceRoot,
-        BackupSourceSelection? selection,
+        BackupSourceScope? sourceScope,
         Func<string, bool>? additionalFilter = null,
         CancellationToken cancellationToken = default)
     {
@@ -35,9 +35,9 @@ public static class BackupSourceFileEnumerator
             return Array.Empty<BackupSourceFile>();
         }
 
-        selection ??= new BackupSourceSelection();
-        var includePatterns = selection.Mode == BackupSourceSelectionMode.Include
-            ? BackupSourceScopePatternSet.Compile(selection.IncludePatterns)
+        sourceScope ??= new BackupSourceScope();
+        var includePatterns = sourceScope.Mode == BackupSourceScopeMode.Include
+            ? BackupSourceScopePatternSet.Compile(sourceScope.IncludePatterns)
             : null;
         var result = new List<BackupSourceFile>();
         var options = new EnumerationOptions
@@ -55,7 +55,7 @@ public static class BackupSourceFileEnumerator
             {
                 continue;
             }
-            if (selection.Mode == BackupSourceSelectionMode.Include
+            if (sourceScope.Mode == BackupSourceScopeMode.Include
                 && includePatterns?.IsMatch(relativePath) != true)
             {
                 continue;
@@ -89,19 +89,19 @@ public static class BackupSourceFileEnumerator
             .ToList();
     }
 
-    public static IReadOnlyList<string> ValidateAndNormalize(BackupSourceSelection selection)
+    public static IReadOnlyList<string> ValidateAndNormalize(BackupSourceScope sourceScope)
     {
-        ArgumentNullException.ThrowIfNull(selection);
-        if (selection.Mode == BackupSourceSelectionMode.All)
+        ArgumentNullException.ThrowIfNull(sourceScope);
+        if (sourceScope.Mode == BackupSourceScopeMode.All)
         {
             return Array.Empty<string>();
         }
-        if (selection.Mode != BackupSourceSelectionMode.Include)
+        if (sourceScope.Mode != BackupSourceScopeMode.Include)
         {
-            throw new InvalidDataException($"Unsupported backup source selection mode: {selection.Mode}.");
+            throw new InvalidDataException($"Unsupported backup source scope mode: {sourceScope.Mode}.");
         }
 
-        return BackupSourceScopePatternSet.NormalizeAndValidate(selection.IncludePatterns);
+        return BackupSourceScopePatternSet.NormalizeAndValidate(sourceScope.IncludePatterns);
     }
 
     public static bool IsSafeRelativeFilePath(string relativePath)

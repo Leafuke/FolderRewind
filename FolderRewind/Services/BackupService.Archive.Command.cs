@@ -25,7 +25,7 @@ namespace FolderRewind.Services
             IReadOnlyList<FileTypeRule>? fileTypeExclusions = null,
             BackupTask? taskToUpdate = null,
             bool applyAdditionalArguments = false,
-            BackupSourceSelection? selection = null)
+            BackupSourceScope? selection = null)
         {
             string? sevenZipExe = ResolveSevenZipExecutable();
             if (string.IsNullOrEmpty(sevenZipExe)) return false;
@@ -37,7 +37,7 @@ namespace FolderRewind.Services
                 // 白名单无法可靠翻译成 7z 的排除参数，统一转为相对路径 listfile，
                 // 让压缩包内容、差异扫描和元数据看到的是同一批文件。
                 if (string.IsNullOrWhiteSpace(listFile)
-                    && (HasBackupWhitelist(filters) || selection?.Mode == BackupSourceSelectionMode.Include))
+                    && (HasBackupWhitelist(filters) || selection?.Mode == BackupSourceScopeMode.Include))
                 {
                     var includedFiles = EnumerateBackupRelativeFiles(
                         sourceDir,

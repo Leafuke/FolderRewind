@@ -163,6 +163,7 @@ public sealed class BackupResourceCandidate
     public string SafetyWarning { get; init; } = string.Empty;
     public string SuppressedByProviderId { get; internal set; } = string.Empty;
     public string SuppressionReason { get; internal set; } = string.Empty;
+    public string ConflictWarning { get; internal set; } = string.Empty;
     public bool IsSuppressed => !string.IsNullOrWhiteSpace(SuppressedByProviderId);
 
     public DiscoveryConfidence Confidence => Evidence.Count == 0
@@ -173,6 +174,7 @@ public sealed class BackupResourceCandidate
 public sealed class BackupSetCandidate
 {
     public required string StableKey { get; init; }
+    public required DiscoverySetIdentity Identity { get; init; }
     public required string DisplayName { get; init; }
     public string SuggestedConfigType { get; init; } = "Default";
     public IList<BackupResourceCandidate> Resources { get; init; } = new List<BackupResourceCandidate>();

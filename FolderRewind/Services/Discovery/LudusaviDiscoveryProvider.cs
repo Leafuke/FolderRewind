@@ -198,6 +198,13 @@ public sealed class LudusaviDiscoveryProvider : IFolderRewindDiscoveryProvider
                 new()
                 {
                     StableKey = $"{ProviderId}:{definition.DefinitionId}:main",
+                    Identity = new DiscoverySetIdentity
+                    {
+                        ProviderId = ProviderId,
+                        DefinitionId = definition.DefinitionId,
+                        SetId = "main",
+                        ExternalIds = new Dictionary<string, string>(definition.ExternalIds, StringComparer.OrdinalIgnoreCase)
+                    },
                     DisplayName = definition.DisplayName,
                     Resources = DeduplicateResources(resources)
                 }

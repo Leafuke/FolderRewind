@@ -208,7 +208,7 @@ namespace FolderRewind.Services
             string path,
             FilterSettings? filters = null,
             string? originalSourcePath = null,
-            BackupSourceSelection? selection = null)
+            BackupSourceScope? selection = null)
         {
             var originalRoot = originalSourcePath ?? path;
             var matcher = CreateBackupMatcher(path, originalRoot, filters);
@@ -225,7 +225,7 @@ namespace FolderRewind.Services
             string path,
             FilterSettings? filters = null,
             string? originalSourcePath = null,
-            BackupSourceSelection? selection = null)
+            BackupSourceScope? selection = null)
         {
             // 预估容量以减少字典扩容开销
             var result = new Dictionary<string, FileState>(1024, StringComparer.OrdinalIgnoreCase);

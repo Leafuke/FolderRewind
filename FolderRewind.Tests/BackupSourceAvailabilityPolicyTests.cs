@@ -9,8 +9,8 @@ public sealed class BackupSourceAvailabilityPolicyTests
     [TestMethod]
     public void EmptyIncludeSelectionIsUnavailableButEmptyWholeDirectoryIsNot()
     {
-        var include = new BackupSourceSelection { Mode = BackupSourceSelectionMode.Include };
-        var all = new BackupSourceSelection { Mode = BackupSourceSelectionMode.All };
+        var include = new BackupSourceScope { Mode = BackupSourceScopeMode.Include };
+        var all = new BackupSourceScope { Mode = BackupSourceScopeMode.All };
 
         Assert.IsTrue(BackupSourceAvailabilityPolicy.IsUnavailable(include, 0));
         Assert.IsFalse(BackupSourceAvailabilityPolicy.IsUnavailable(all, 0));

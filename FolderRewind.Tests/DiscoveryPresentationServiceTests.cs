@@ -51,6 +51,27 @@ public sealed class DiscoveryPresentationServiceTests
             DiscoveryCandidateStatus.New));
     }
 
+    [TestMethod]
+    public void IdentityMatcherUsesUniqueExternalIdForUpstreamRenameButRejectsAmbiguity()
+    {
+        var identity = new DiscoverySetIdentity
+        {
+            ProviderId = "ludusavi",
+            DefinitionId = "New Title",
+            SetId = "main",
+            ExternalIds = new Dictionary<string, string> { ["steam"] = "42" }
+        };
+        var renamed = Origin("Old Title", "42");
+
+        Assert.AreSame(
+            renamed,
+            DiscoverySetIdentityMatcher.FindUnique(identity, new[] { renamed }, origin => origin));
+        Assert.IsNull(DiscoverySetIdentityMatcher.FindUnique(
+            identity,
+            new[] { renamed, Origin("Another Old Title", "42") },
+            origin => origin));
+    }
+
     private static BackupResourceCandidate Resource(
         string id,
         BackupResourceSupportState support,
@@ -93,6 +114,7 @@ public sealed class DiscoveryPresentationServiceTests
                 new BackupSetCandidate
                 {
                     StableKey = "test-game:default",
+                    Identity = Identity(),
                     DisplayName = "Test Game",
                     Resources = { resource }
                 }
@@ -104,9 +126,32 @@ public sealed class DiscoveryPresentationServiceTests
     {
         return new DiscoveryOrigin
         {
-            ProviderId = "ludusavi",
-            DefinitionId = "test-game",
-            ResourceIds = new ObservableCollection<string>(resourceIds)
+            Identity = Identity(),
+            ReviewedBaseline = new ReviewedDiscoveryBaseline
+            {
+                Sources = new ObservableCollection<ReviewedDiscoverySource>
+                {
+                    new() { ResourceIds = new ObservableCollection<string>(resourceIds) }
+                }
+            }
         };
     }
+
+    private static DiscoverySetIdentity Identity() => new()
+    {
+        ProviderId = "ludusavi",
+        DefinitionId = "test-game",
+        SetId = "main"
+    };
+
+    private static DiscoveryOrigin Origin(string definitionId, string steamId) => new()
+    {
+        Identity = new DiscoverySetIdentity
+        {
+            ProviderId = "ludusavi",
+            DefinitionId = definitionId,
+            SetId = "main",
+            ExternalIds = new Dictionary<string, string> { ["steam"] = steamId }
+        }
+    };
 }

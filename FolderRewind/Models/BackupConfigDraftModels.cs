@@ -47,9 +47,8 @@ public sealed class BackupConfigDraft
 public sealed class BackupManagedFolderUpdate
 {
     public required ManagedFolder ExistingFolder { get; init; }
-    public bool SetSelectionToAll { get; init; }
+    public bool SetScopeToAll { get; init; }
     public IReadOnlyList<string> IncludePatternsToAdd { get; init; } = Array.Empty<string>();
-    public IReadOnlyList<string> ResourceIdsToAdd { get; init; } = Array.Empty<string>();
 }
 
 public sealed class BackupConfigDraftCommitResult

@@ -284,13 +284,11 @@ namespace FolderRewind.Services.Plugins
                 DisplayName = source.DisplayName?.Trim() ?? string.Empty,
                 Description = source.Description?.Trim() ?? string.Empty,
                 CoverImagePath = source.CoverImagePath?.Trim() ?? string.Empty,
-                Selection = new BackupSourceSelection
+                SourceScope = new BackupSourceScope
                 {
-                    Mode = source.Selection?.Mode ?? BackupSourceSelectionMode.All,
+                    Mode = source.SourceScope?.Mode ?? BackupSourceScopeMode.All,
                     IncludePatterns = new ObservableCollection<string>(
-                        source.Selection?.IncludePatterns ?? new ObservableCollection<string>()),
-                    ResourceIds = new ObservableCollection<string>(
-                        source.Selection?.ResourceIds ?? new ObservableCollection<string>())
+                        source.SourceScope?.IncludePatterns ?? new ObservableCollection<string>())
                 }
             };
         }

@@ -20,7 +20,7 @@ public sealed class DiscoveryResourcePlannerTests
 
         Assert.HasCount(1, plans);
         Assert.AreEqual("Data", plans[0].DisplayName);
-        Assert.AreEqual(BackupSourceSelectionMode.Include, plans[0].SelectionMode);
+        Assert.AreEqual(BackupSourceScopeMode.Include, plans[0].ScopeMode);
         CollectionAssert.AreEquivalent(new[] { "Saves/**/*.sav", "Config/*.json" }, plans[0].IncludePatterns.ToArray());
         CollectionAssert.AreEquivalent(new[] { "save", "config" }, plans[0].ResourceIds.ToArray());
     }
@@ -61,7 +61,7 @@ public sealed class DiscoveryResourcePlannerTests
         var plans = DiscoveryResourcePlanner.CreatePlans(resources);
 
         Assert.HasCount(1, plans);
-        Assert.AreEqual(BackupSourceSelectionMode.All, plans[0].SelectionMode);
+        Assert.AreEqual(BackupSourceScopeMode.All, plans[0].ScopeMode);
         Assert.IsEmpty(plans[0].IncludePatterns);
     }
 

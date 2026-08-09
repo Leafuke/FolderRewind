@@ -70,6 +70,61 @@ public sealed class DiscoveryCandidateMergerTests
     }
 
     [TestMethod]
+    public void MergedUiGameKeepsProviderSetIdentitiesSeparate()
+    {
+        var ludusavi = CreateGame("ludusavi:game", "Game", "42", GameStore.Steam, "C:\\Games\\Game");
+        ludusavi.BackupSets[0].Identity.ProviderId = "ludusavi";
+        var specialized = CreateGame("specialized:game", "Game", "42", GameStore.Steam, "C:\\Games\\Game");
+        specialized.BackupSets[0].Identity.ProviderId = "specialized";
+
+        var merged = DiscoveryCandidateMerger.Merge(new[] { Result("all", ludusavi, specialized) });
+
+        Assert.HasCount(1, merged);
+        Assert.HasCount(2, merged[0].BackupSets);
+        CollectionAssert.AreEquivalent(
+            new[] { "ludusavi", "specialized" },
+            merged[0].BackupSets.Select(set => set.Identity.ProviderId).ToArray());
+    }
+
+    [TestMethod]
+    public void NestedSpecializedRangeWarnsWithoutSuppressingGenericRange()
+    {
+        var generic = CreateResource(
+            "ludusavi:all",
+            "ludusavi",
+            "C:\\Games\\Example",
+            specialized: false,
+            priority: 10);
+        var specialized = CreateResource(
+            "specialized:saves",
+            "specialized",
+            "C:\\Games\\Example\\saves",
+            specialized: true,
+            priority: 100);
+        var game = CreateGame("game:overlap", "Example", "10", GameStore.Steam, "C:\\Games\\Example");
+        game.BackupSets[0].Resources.Add(generic);
+        game.BackupSets.Add(new BackupSetCandidate
+        {
+            StableKey = "specialized",
+            Identity = new DiscoverySetIdentity
+            {
+                ProviderId = "specialized",
+                DefinitionId = "example",
+                SetId = "main"
+            },
+            DisplayName = "Specialized",
+            Resources = { specialized }
+        });
+
+        var merged = DiscoveryCandidateMerger.Merge(new[] { Result("combined", game) });
+
+        Assert.IsFalse(generic.IsSuppressed);
+        Assert.IsFalse(specialized.IsSuppressed);
+        Assert.IsFalse(string.IsNullOrWhiteSpace(generic.ConflictWarning));
+        Assert.IsFalse(string.IsNullOrWhiteSpace(specialized.ConflictWarning));
+    }
+
+    [TestMethod]
     public void SimilarDisplayNameWithoutStrongEvidenceDoesNotMerge()
     {
         var first = CreateGame("one", "The Game", "1", GameStore.Steam, "C:\\One");
@@ -137,6 +192,16 @@ public sealed class DiscoveryCandidateMergerTests
                 new()
                 {
                     StableKey = "main",
+                    Identity = new DiscoverySetIdentity
+                    {
+                        ProviderId = "test",
+                        DefinitionId = key,
+                        SetId = "main",
+                        ExternalIds = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
+                        {
+                            ["steam"] = steamId
+                        }
+                    },
                     DisplayName = name
                 }
             }

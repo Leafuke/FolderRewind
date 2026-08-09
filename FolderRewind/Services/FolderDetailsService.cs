@@ -34,13 +34,13 @@ public static class FolderDetailsService
             }
         };
 
-        if (folder.Selection?.Mode == BackupSourceSelectionMode.Include)
+        if (folder.SourceScope?.Mode == BackupSourceScopeMode.Include)
         {
             // 精确来源的统计只覆盖 Include 允许的文件，直接展示规则可避免把 0 误解为目录扫描失败。
             section.Items.Add(new FolderDetailsItem
             {
                 Label = I18n.GetString("FolderDetailsDialog_IncludePatterns"),
-                Value = string.Join(Environment.NewLine, folder.Selection.IncludePatterns)
+                Value = string.Join(Environment.NewLine, folder.SourceScope.IncludePatterns)
             });
             section.Items.Add(new FolderDetailsItem
             {
@@ -78,7 +78,7 @@ public static class FolderDetailsService
 
             var files = BackupSourceFileEnumerator.Enumerate(
                 folder.Path,
-                folder.Selection,
+                folder.SourceScope,
                 file => BackupService.ShouldIncludeInBackup(
                     file,
                     folder.Path,

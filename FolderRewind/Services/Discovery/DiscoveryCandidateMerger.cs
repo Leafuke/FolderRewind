@@ -104,6 +104,7 @@ public static class DiscoveryCandidateMerger
         return new BackupSetCandidate
         {
             StableKey = source.StableKey,
+            Identity = source.Identity,
             DisplayName = source.DisplayName,
             SuggestedConfigType = source.SuggestedConfigType,
             Resources = source.Resources.ToList()
@@ -136,7 +137,7 @@ public static class DiscoveryCandidateMerger
         foreach (var backupSet in incoming.BackupSets)
         {
             var existing = target.BackupSets.FirstOrDefault(item =>
-                string.Equals(item.StableKey, backupSet.StableKey, StringComparison.OrdinalIgnoreCase));
+                item.Identity.HasSameStableIdentity(backupSet.Identity));
             if (existing == null)
             {
                 target.BackupSets.Add(CloneBackupSet(backupSet));
@@ -156,36 +157,43 @@ public static class DiscoveryCandidateMerger
 
     private static void ApplySpecializedSuppression(DiscoveredGameCandidate candidate)
     {
-        foreach (var backupSet in candidate.BackupSets)
+        var resources = candidate.BackupSets
+            .SelectMany(set => set.Resources)
+            .OrderByDescending(resource => resource.IsSpecializedProvider)
+            .ThenByDescending(resource => resource.ProviderPriority)
+            .ToList();
+        for (var index = 0; index < resources.Count; index++)
         {
-            var resources = backupSet.Resources
-                .OrderByDescending(resource => resource.IsSpecializedProvider)
-                .ThenByDescending(resource => resource.ProviderPriority)
-                .ToList();
-            for (var index = 0; index < resources.Count; index++)
+            var winner = resources[index];
+            if (!winner.IsSpecializedProvider || winner.IsSuppressed)
             {
-                var winner = resources[index];
-                if (!winner.IsSpecializedProvider || winner.IsSuppressed)
+                continue;
+            }
+
+            for (var otherIndex = index + 1; otherIndex < resources.Count; otherIndex++)
+            {
+                var other = resources[otherIndex];
+                if (other.IsSpecializedProvider || other.IsSuppressed)
                 {
                     continue;
                 }
 
-                for (var otherIndex = index + 1; otherIndex < resources.Count; otherIndex++)
+                if (ResourcesEquivalent(winner, other))
                 {
-                    var other = resources[otherIndex];
-                    if (other.IsSpecializedProvider || other.IsSuppressed || !ResourcesOverlap(winner, other))
-                    {
-                        continue;
-                    }
-
                     other.SuppressedByProviderId = winner.ProviderId;
-                    other.SuppressionReason = $"Overlaps specialized provider resource {winner.ResourceId}.";
+                    other.SuppressionReason = $"Has the same effective source scope as specialized resource {winner.ResourceId}.";
+                }
+                else if (ResourcesMayOverlap(winner, other))
+                {
+                    var warning = $"Partially overlaps resource '{winner.ResourceId}' from specialized provider '{winner.ProviderId}'.";
+                    other.ConflictWarning = warning;
+                    winner.ConflictWarning = $"Partially overlaps generic resource '{other.ResourceId}'.";
                 }
             }
         }
     }
 
-    private static bool ResourcesOverlap(BackupResourceCandidate left, BackupResourceCandidate right)
+    private static bool ResourcesEquivalent(BackupResourceCandidate left, BackupResourceCandidate right)
     {
         if (left.Kind == BackupResourceKind.Registry || right.Kind == BackupResourceKind.Registry)
         {
@@ -198,13 +206,35 @@ public static class DiscoveryCandidateMerger
             return false;
         }
 
-        if (left.IncludePatterns.Count == 0 || right.IncludePatterns.Count == 0)
+        return left.IncludePatterns.Count == right.IncludePatterns.Count
+               && left.IncludePatterns.ToHashSet(StringComparer.OrdinalIgnoreCase)
+                   .SetEquals(right.IncludePatterns);
+    }
+
+    private static bool ResourcesMayOverlap(BackupResourceCandidate left, BackupResourceCandidate right)
+    {
+        if (left.Kind == BackupResourceKind.Registry || right.Kind == BackupResourceKind.Registry)
         {
-            return true;
+            return false;
         }
 
-        return left.IncludePatterns.Intersect(right.IncludePatterns, StringComparer.OrdinalIgnoreCase).Any();
+        var leftRoot = NormalizePath(left.FixedRoot);
+        var rightRoot = NormalizePath(right.FixedRoot);
+        if (PathEquals(leftRoot, rightRoot))
+        {
+            return left.IncludePatterns.Count == 0
+                   || right.IncludePatterns.Count == 0
+                   || left.IncludePatterns.Intersect(right.IncludePatterns, StringComparer.OrdinalIgnoreCase).Any();
+        }
+
+        return IsDescendant(leftRoot, rightRoot) || IsDescendant(rightRoot, leftRoot);
     }
+
+    private static bool IsDescendant(string candidate, string parent) =>
+        candidate.Length > parent.Length
+        && candidate.StartsWith(parent, StringComparison.OrdinalIgnoreCase)
+        && (parent.EndsWith(Path.DirectorySeparatorChar)
+            || candidate[parent.Length] is '\\' or '/');
 
     private static bool PathEquals(string left, string right)
     {

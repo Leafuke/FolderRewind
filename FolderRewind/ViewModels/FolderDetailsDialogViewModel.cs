@@ -47,7 +47,7 @@ public sealed class FolderDetailsDialogViewModel : ViewModelBase
             }
             SetItemValue(basicItems, fileCountLabel, stats.FileCount.ToString());
             SetItemValue(basicItems, directoryCountLabel, stats.DirectoryCount.ToString());
-            if (folder.Selection?.Mode == BackupSourceSelectionMode.Include)
+            if (folder.SourceScope?.Mode == BackupSourceScopeMode.Include)
             {
                 SetItemValue(
                     basicItems,

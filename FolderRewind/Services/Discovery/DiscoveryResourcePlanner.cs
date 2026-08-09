@@ -10,7 +10,7 @@ public sealed class DiscoveredSourcePlan
 {
     public required string FixedRoot { get; init; }
     public required string DisplayName { get; init; }
-    public BackupSourceSelectionMode SelectionMode { get; init; }
+    public BackupSourceScopeMode ScopeMode { get; init; }
     public IReadOnlyList<string> IncludePatterns { get; init; } = Array.Empty<string>();
     public IReadOnlyList<string> ResourceIds { get; init; } = Array.Empty<string>();
 }
@@ -38,9 +38,9 @@ public static class DiscoveryResourcePlanner
                 {
                     FixedRoot = group.Key,
                     DisplayName = ResolveSourceDisplayName(group.Key, grouped),
-                    SelectionMode = selectAll
-                        ? BackupSourceSelectionMode.All
-                        : BackupSourceSelectionMode.Include,
+                    ScopeMode = selectAll
+                        ? BackupSourceScopeMode.All
+                        : BackupSourceScopeMode.Include,
                     IncludePatterns = selectAll
                         ? Array.Empty<string>()
                         : grouped.SelectMany(resource => resource.IncludePatterns)
@@ -55,7 +55,7 @@ public static class DiscoveryResourcePlanner
                         .ToList()
                 };
             })
-            .Where(plan => plan.SelectionMode == BackupSourceSelectionMode.All || plan.IncludePatterns.Count > 0)
+            .Where(plan => plan.ScopeMode == BackupSourceScopeMode.All || plan.IncludePatterns.Count > 0)
             .OrderBy(plan => plan.FixedRoot, StringComparer.OrdinalIgnoreCase)
             .ToList();
     }
