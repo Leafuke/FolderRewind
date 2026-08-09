@@ -120,7 +120,7 @@ public static class DiscoveryCandidateMerger
                     string.Equals(existing.InstallationId, installation.InstallationId, StringComparison.OrdinalIgnoreCase)
                     || (existing.Store == installation.Store
                         && string.Equals(existing.StoreGameId, installation.StoreGameId, StringComparison.OrdinalIgnoreCase)
-                        && PathEquals(existing.InstallPath, installation.InstallPath))))
+                        && PathEquals(existing.BasePath, installation.BasePath))))
             {
                 continue;
             }

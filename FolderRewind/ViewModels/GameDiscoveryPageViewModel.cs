@@ -187,6 +187,16 @@ public sealed class GameDiscoveryPageViewModel : ViewModelBase, IDisposable
         OnPropertyChanged(nameof(HasDraftsVisibility));
     }
 
+    public IReadOnlyList<BackupResourceCandidate> GetSelectedBroadRootResources() => Games
+        .Where(game => game.IsSelected)
+        .SelectMany(game => game.BackupSets.Where(set => set.IsSelected))
+        .SelectMany(set => set.Resources)
+        .Where(resource => resource.IsSelected
+                           && resource.CanSelect
+                           && resource.Candidate.RequiresExplicitConfirmation)
+        .Select(resource => resource.Candidate)
+        .ToList();
+
     public BackupConfigDraftCommitResult CommitDrafts()
     {
         foreach (var item in Drafts)
@@ -445,7 +455,7 @@ public sealed class GameDiscoveryCandidateItem : FolderRewind.Models.ObservableO
         _ => I18n.GetString("GameDiscovery_Status_New")
     };
     public string InstallationSummary => string.Join(Environment.NewLine, Candidate.Installations.Select(installation =>
-        $"{installation.Store}: {installation.InstallPath}"));
+        $"{installation.Store}: {installation.BasePath}"));
     public string Notes => string.Join(Environment.NewLine, Candidate.Definition.Notes);
     public string NativeCloud => string.Join(Environment.NewLine, Candidate.Definition.NativeCloud.Select(item => $"{item.Key}: {item.Value}"));
     public ObservableCollection<GameDiscoveryBackupSetItem> BackupSets { get; } = new();
@@ -512,7 +522,9 @@ public sealed class GameDiscoveryResourceItem : FolderRewind.Models.ObservableOb
         BackupResourceSupportState.UnsupportedRegistry => I18n.GetString("GameDiscovery_Resource_RegistryUnsupported"),
         BackupResourceSupportState.UnsupportedConstraint => I18n.GetString("GameDiscovery_Resource_ConstraintUnsupported"),
         BackupResourceSupportState.InvalidPath => I18n.GetString("GameDiscovery_Resource_InvalidPath"),
+        BackupResourceSupportState.UnsafeRoot => I18n.GetString("GameDiscovery_Resource_UnsafeRoot"),
         _ when Candidate.IsSuppressed => I18n.Format("GameDiscovery_Resource_Suppressed", Candidate.SuppressedByProviderId, Candidate.SuppressionReason),
+        _ when Candidate.RequiresExplicitConfirmation => Candidate.SafetyWarning,
         _ => string.Empty
     };
 

@@ -93,7 +93,12 @@ public sealed class LudusaviDiscoveryProvider : IFolderRewindDiscoveryProvider
             detectedInstallations,
             cancellationToken);
         var candidates = new List<DiscoveredGameCandidate>();
-        var diagnostics = new List<DiscoveryDiagnostic>();
+        var diagnostics = current.Value.Index.Diagnostics
+            .Select(item => Diagnostic(
+                DiscoveryDiagnosticSeverity.Warning,
+                item.Code,
+                $"{item.EntryName}: {item.Message}"))
+            .ToList();
         for (var definitionIndex = 0; definitionIndex < matchedDefinitions.Count; definitionIndex++)
         {
             cancellationToken.ThrowIfCancellationRequested();
@@ -154,6 +159,10 @@ public sealed class LudusaviDiscoveryProvider : IFolderRewindDiscoveryProvider
                     var resolved = _resolver.Resolve(resource, match.Installation, userId);
                     if (resolved == null)
                     {
+                        diagnostics.Add(Diagnostic(
+                            DiscoveryDiagnosticSeverity.Warning,
+                            "path-resolution-failed",
+                            $"{definition.DisplayName}: could not safely resolve '{resource.Expression}'."));
                         continue;
                     }
                     resources.Add(CreateResourceCandidate(
@@ -206,7 +215,9 @@ public sealed class LudusaviDiscoveryProvider : IFolderRewindDiscoveryProvider
     {
         var support = string.IsNullOrWhiteSpace(resolved.FixedRoot)
             ? BackupResourceSupportState.InvalidPath
-            : BackupResourceSupportState.Supported;
+            : resolved.Safety == LudusaviPathSafety.Blocked
+                ? BackupResourceSupportState.UnsafeRoot
+                : BackupResourceSupportState.Supported;
         var fixedRootExists = support == BackupResourceSupportState.Supported
                               && Directory.Exists(resolved.FixedRoot);
         return new BackupResourceCandidate
@@ -223,8 +234,11 @@ public sealed class LudusaviDiscoveryProvider : IFolderRewindDiscoveryProvider
             Tags = resource.Tags,
             Constraints = FlattenConstraints(resource.Constraints),
             FixedRootExists = fixedRootExists,
+            RequiresExplicitConfirmation = resolved.Safety == LudusaviPathSafety.RequiresConfirmation,
+            SafetyWarning = resolved.SafetyWarning,
             IsSelectedByDefault = support == BackupResourceSupportState.Supported
                                   && fixedRootExists
+                                  && resolved.Safety == LudusaviPathSafety.Normal
                                   && confidence >= DiscoveryConfidence.Medium,
             Evidence = new[]
             {
@@ -416,7 +430,8 @@ public sealed class LudusaviDiscoveryProvider : IFolderRewindDiscoveryProvider
         new[]
         {
             installation.DisplayName,
-            Path.GetFileName(installation.InstallPath.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar))
+            installation.InstalledGameName,
+            Path.GetFileName(installation.BasePath.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar))
         }
         .Select(NormalizeName)
         .Where(value => value.Length > 0)
@@ -529,8 +544,9 @@ public sealed class LudusaviDiscoveryProvider : IFolderRewindDiscoveryProvider
         InstallationId = InstallationKey(match.Installation),
         Store = match.Installation.Store,
         StoreGameId = match.Installation.StoreGameId,
-        InstallPath = match.Installation.InstallPath,
-        LibraryRoot = match.Installation.LibraryRoot,
+        RootPath = match.Installation.RootPath,
+        BasePath = match.Installation.BasePath,
+        InstalledGameName = match.Installation.InstalledGameName,
         StoreUserIds = match.Installation.StoreUserIds,
         Evidence = new[]
         {
@@ -545,7 +561,7 @@ public sealed class LudusaviDiscoveryProvider : IFolderRewindDiscoveryProvider
     };
 
     private static string InstallationKey(DetectedGameInstallation installation) =>
-        $"{ProviderId}:{installation.Store}:{installation.StoreGameId}:{NormalizePath(installation.InstallPath)}";
+        $"{ProviderId}:{installation.Store}:{installation.StoreGameId}:{NormalizePath(installation.BasePath)}";
 
     private static string CreateResolvedResourceId(
         string resourceId,

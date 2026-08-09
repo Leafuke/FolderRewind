@@ -13,8 +13,6 @@ public sealed class LudusaviManifestCompilerTests
         using var manifest = StreamOf(
             """
             Hades:
-              alias:
-                - Hades Game
               installDir:
                 Hades: {}
                 Hades Demo: {}
@@ -37,6 +35,8 @@ public sealed class LudusaviManifestCompilerTests
                 gogExtra: [123456]
               cloud:
                 steam: true
+            Hades Game:
+              alias: Hades
             """);
 
         var index = new LudusaviManifestCompiler().Compile(
@@ -58,6 +58,46 @@ public sealed class LudusaviManifestCompilerTests
         Assert.HasCount(1, game.Registry);
         Assert.AreEqual(BackupResourceKind.Registry, game.Registry[0].Kind);
         Assert.AreEqual("true", game.NativeCloud["steam"]);
+        CollectionAssert.Contains(game.Aliases.ToList(), "Hades Game");
+        Assert.AreEqual(3, index.SchemaVersion);
+    }
+
+    [TestMethod]
+    public void CompilerResolvesAliasChainsAndDiagnosesInvalidAliases()
+    {
+        using var manifest = StreamOf(
+            """
+            Canonical:
+              files:
+                '<home>/Canonical/save.dat': {}
+            Nickname:
+              alias: Canonical
+            Older Nickname:
+              alias: Nickname
+            Cycle A:
+              alias: Cycle B
+            Cycle B:
+              alias: Cycle A
+            Missing:
+              alias: Does Not Exist
+            Empty:
+              alias: ''
+            """);
+
+        var index = new LudusaviManifestCompiler().Compile(
+            manifest,
+            null,
+            null,
+            "source",
+            CancellationToken.None);
+
+        Assert.HasCount(1, index.Games);
+        CollectionAssert.AreEquivalent(
+            new[] { "Nickname", "Older Nickname" },
+            index.Games[0].Aliases.ToArray());
+        Assert.IsTrue(index.Diagnostics.Any(item => item.Code == "alias-cycle"));
+        Assert.IsTrue(index.Diagnostics.Any(item => item.Code == "alias-missing-target"));
+        Assert.IsTrue(index.Diagnostics.Any(item => item.Code == "alias-empty-target"));
     }
 
     [TestMethod]

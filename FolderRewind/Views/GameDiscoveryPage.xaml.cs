@@ -111,6 +111,33 @@ public sealed partial class GameDiscoveryPage : Page
 
     private async void OnReviewClick(object sender, RoutedEventArgs e)
     {
+        var broadRoots = ViewModel.GetSelectedBroadRootResources();
+        if (broadRoots.Count > 0)
+        {
+            var confirm = new ContentDialog
+            {
+                XamlRoot = XamlRoot,
+                Title = I18n.GetString("GameDiscovery_BroadRootConfirm_Title"),
+                Content = new TextBlock
+                {
+                    Text = I18n.Format(
+                        "GameDiscovery_BroadRootConfirm_Content",
+                        string.Join(Environment.NewLine, broadRoots
+                            .Select(resource => $"- {resource.FixedRoot}")
+                            .Distinct(StringComparer.OrdinalIgnoreCase))),
+                    TextWrapping = TextWrapping.Wrap
+                },
+                PrimaryButtonText = I18n.GetString("Common_Confirm"),
+                CloseButtonText = I18n.GetString("Common_Cancel"),
+                DefaultButton = ContentDialogButton.Close
+            };
+            ThemeService.ApplyThemeToDialog(confirm);
+            if (await confirm.ShowAsync() != ContentDialogResult.Primary)
+            {
+                return;
+            }
+        }
+
         ViewModel.BuildDrafts();
         if (ViewModel.Drafts.Count == 0)
         {

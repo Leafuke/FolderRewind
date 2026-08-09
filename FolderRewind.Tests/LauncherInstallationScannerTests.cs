@@ -61,6 +61,11 @@ public sealed class LauncherInstallationScannerTests
         Assert.HasCount(1, installations);
         Assert.AreEqual("1145360", installations[0].StoreGameId);
         Assert.AreEqual("Hades", installations[0].DisplayName);
+        Assert.AreEqual(Path.GetFullPath(secondaryRoot), Path.GetFullPath(installations[0].RootPath));
+        Assert.AreEqual(
+            Path.GetFullPath(Path.Combine(secondaryApps, "common", "Hades")),
+            Path.GetFullPath(installations[0].BasePath));
+        Assert.AreEqual("Hades", installations[0].InstalledGameName);
         CollectionAssert.Contains(installations[0].StoreUserIds.ToList(), "76561198000000000");
     }
 
@@ -87,6 +92,9 @@ public sealed class LauncherInstallationScannerTests
         Assert.AreEqual(GameStore.Epic, installations[0].Store);
         Assert.AreEqual("catalog-id", installations[0].StoreGameId);
         Assert.AreEqual("Example Game", installations[0].DisplayName);
+        Assert.AreEqual(Path.GetDirectoryName(install), installations[0].RootPath);
+        Assert.AreEqual(install, installations[0].BasePath);
+        Assert.AreEqual("Example", installations[0].InstalledGameName);
     }
 
     [TestMethod]
@@ -100,6 +108,6 @@ public sealed class LauncherInstallationScannerTests
         Assert.IsTrue(installations.Any(item =>
             item.Store == GameStore.Gog
             && item.DisplayName == "Baldurs Gate"
-            && string.Equals(item.InstallPath, game, StringComparison.OrdinalIgnoreCase)));
+            && string.Equals(item.BasePath, game, StringComparison.OrdinalIgnoreCase)));
     }
 }

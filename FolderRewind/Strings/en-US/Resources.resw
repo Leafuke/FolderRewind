@@ -2004,6 +2004,15 @@ If you have a listener subscribed to this signal, it should receive a message.</
   <data name="BackupService_Folder_SourceDestinationOverlap" xml:space="preserve">
     <value>Source and backup storage overlap: {0} ↔ {1}</value>
   </data>
+  <data name="GameDiscovery_Resource_UnsafeRoot" xml:space="preserve">
+    <value>Blocked because the rule resolves to an unsafe root path</value>
+  </data>
+  <data name="GameDiscovery_BroadRootConfirm_Title" xml:space="preserve">
+    <value>Confirm broad backup sources</value>
+  </data>
+  <data name="GameDiscovery_BroadRootConfirm_Content" xml:space="preserve">
+    <value>These sources cover broad system, user, or game-library roots. Confirm that you intend to review them for backup:\n{0}</value>
+  </data>
   <data name="BackupService_Folder_BackupInProgress" xml:space="preserve">
     <value>Backing up...</value>
   </data>

@@ -127,7 +127,9 @@ public sealed class DiscoveryCandidateMergerTests
                     InstallationId = $"{store}:{steamId}:{path}",
                     Store = store,
                     StoreGameId = steamId,
-                    InstallPath = path
+                    BasePath = path,
+                    RootPath = Path.GetDirectoryName(path) ?? string.Empty,
+                    InstalledGameName = Path.GetFileName(path)
                 }
             },
             BackupSets = new List<BackupSetCandidate>

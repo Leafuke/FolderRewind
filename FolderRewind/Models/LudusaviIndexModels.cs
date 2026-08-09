@@ -5,13 +5,22 @@ namespace FolderRewind.Models;
 
 public sealed class LudusaviCompiledIndex
 {
-    public const int CurrentSchemaVersion = 2;
+    public const int CurrentSchemaVersion = 3;
 
     public int SchemaVersion { get; init; } = CurrentSchemaVersion;
     public string SourceSha256 { get; init; } = string.Empty;
     public DateTime CompiledAtUtc { get; init; } = DateTime.UtcNow;
     public IReadOnlyList<LudusaviCompiledGame> Games { get; init; }
         = Array.Empty<LudusaviCompiledGame>();
+    public IReadOnlyList<LudusaviCompilerDiagnostic> Diagnostics { get; init; }
+        = Array.Empty<LudusaviCompilerDiagnostic>();
+}
+
+public sealed class LudusaviCompilerDiagnostic
+{
+    public string Code { get; init; } = string.Empty;
+    public string EntryName { get; init; } = string.Empty;
+    public string Message { get; init; } = string.Empty;
 }
 
 public sealed class LudusaviCompiledGame

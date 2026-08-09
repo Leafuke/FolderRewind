@@ -3,6 +3,7 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using System.Text;
 using System.Text.RegularExpressions;
 
 namespace FolderRewind.Services.Discovery;
@@ -29,6 +30,15 @@ public sealed class ResolvedLudusaviResource
     public IReadOnlyList<string> IncludePatterns { get; init; } = Array.Empty<string>();
     public BackupResourceKind Kind { get; init; }
     public bool UsesStoreUserIdWildcard { get; init; }
+    public LudusaviPathSafety Safety { get; init; }
+    public string SafetyWarning { get; init; } = string.Empty;
+}
+
+public enum LudusaviPathSafety
+{
+    Normal = 0,
+    RequiresConfirmation = 1,
+    Blocked = 2
 }
 
 public sealed class LudusaviPathExpressionResolver
@@ -57,92 +67,236 @@ public sealed class LudusaviPathExpressionResolver
         var replacements = CreateReplacements(installation, storeUserId);
         var unresolved = false;
         var usesStoreUserIdWildcard = false;
-        var expanded = PlaceholderRegex.Replace(resource.Expression, match =>
-        {
-            var key = match.Groups["name"].Value;
-            if (replacements.TryGetValue(key, out var value) && !string.IsNullOrWhiteSpace(value))
-            {
-                return value;
-            }
-
-            if (string.Equals(key, "storeUserId", StringComparison.OrdinalIgnoreCase))
-            {
-                usesStoreUserIdWildcard = true;
-                return "*";
-            }
-
-            unresolved = true;
-            return match.Value;
-        });
-        if (unresolved)
+        var expansion = ExpandExpression(
+            resource.Expression,
+            replacements,
+            ref unresolved,
+            ref usesStoreUserIdWildcard);
+        if (unresolved || string.IsNullOrWhiteSpace(expansion.Value))
         {
             return null;
         }
 
-        expanded = Environment.ExpandEnvironmentVariables(expanded)
+        var expanded = expansion.Value
             .Replace('/', Path.DirectorySeparatorChar);
         if (!Path.IsPathRooted(expanded))
         {
             return null;
         }
 
-        string fullExpression;
+        string fixedRoot;
+        string relativePattern;
         try
         {
-            fullExpression = Path.GetFullPath(expanded);
+            var prefixEnd = expansion.FirstGlobIndex < 0 ? expanded.Length : expansion.FirstGlobIndex;
+            var separatorIndex = expanded.LastIndexOfAny(
+                new[] { Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar },
+                Math.Max(0, prefixEnd - 1));
+            if (separatorIndex < 0)
+            {
+                return null;
+            }
+
+            fixedRoot = Path.GetFullPath(expanded[..separatorIndex]);
+            relativePattern = BuildRelativePattern(
+                expanded,
+                separatorIndex + 1,
+                expansion.LiteralGlobIndexes);
         }
         catch
         {
             return null;
         }
 
-        var firstWildcard = IndexOfWildcard(fullExpression);
-        string fixedRoot;
-        IReadOnlyList<string> includePatterns;
-        BackupResourceKind kind;
-        if (firstWildcard < 0 && Directory.Exists(fullExpression))
+        if (!LudusaviGlobMatcher.IsSafeRelativePattern(relativePattern))
         {
-            fixedRoot = fullExpression;
-            includePatterns = Array.Empty<string>();
-            kind = BackupResourceKind.Directory;
+            return null;
         }
-        else
+
+        var includePatterns = new List<string> { relativePattern };
+        if (!IsAlreadyRecursive(relativePattern))
         {
-            var prefixEnd = firstWildcard < 0 ? fullExpression.Length : firstWildcard;
-            var separatorIndex = fullExpression.LastIndexOfAny(
-                new[] { Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar },
-                Math.Max(0, prefixEnd - 1));
-            if (separatorIndex <= 2)
-            {
-                return null;
-            }
-
-            fixedRoot = fullExpression[..separatorIndex];
-            var relativePattern = fullExpression[(separatorIndex + 1)..]
-                .Replace(Path.DirectorySeparatorChar, '/');
-            if (!LudusaviGlobMatcher.IsSafeRelativePattern(relativePattern))
-            {
-                return null;
-            }
-
-            includePatterns = new[] { relativePattern };
-            kind = BackupResourceKind.FileSet;
+            includePatterns.Add(relativePattern.TrimEnd('/') + "/**");
         }
+
+        try
+        {
+            includePatterns = BackupSourceScopePatternSet.NormalizeAndValidate(includePatterns).ToList();
+        }
+        catch (InvalidDataException)
+        {
+            return null;
+        }
+
+        var (safety, safetyWarning) = EvaluateSafety(fixedRoot, installation);
 
         return new ResolvedLudusaviResource
         {
             FixedRoot = fixedRoot,
             IncludePatterns = includePatterns,
-            Kind = kind,
-            UsesStoreUserIdWildcard = usesStoreUserIdWildcard
+            Kind = BackupResourceKind.FileSet,
+            UsesStoreUserIdWildcard = usesStoreUserIdWildcard,
+            Safety = safety,
+            SafetyWarning = safetyWarning
         };
+    }
+
+    private static (string Value, int FirstGlobIndex, IReadOnlySet<int> LiteralGlobIndexes) ExpandExpression(
+        string expression,
+        IReadOnlyDictionary<string, string> replacements,
+        ref bool unresolved,
+        ref bool usesStoreUserIdWildcard)
+    {
+        var output = new StringBuilder(expression.Length + 64);
+        var firstGlobIndex = -1;
+        var literalGlobIndexes = new HashSet<int>();
+        var sourceIndex = 0;
+        foreach (Match match in PlaceholderRegex.Matches(expression))
+        {
+            AppendManifestLiteral(expression[sourceIndex..match.Index], output, ref firstGlobIndex);
+            var key = match.Groups["name"].Value;
+            if (replacements.TryGetValue(key, out var value) && !string.IsNullOrWhiteSpace(value))
+            {
+                // Placeholder values are literal path components. In particular, brackets in
+                // an installation directory must never become manifest character classes.
+                for (var index = 0; index < value.Length; index++)
+                {
+                    if (value[index] is '*' or '?' or '[')
+                    {
+                        literalGlobIndexes.Add(output.Length + index);
+                    }
+                }
+                output.Append(value);
+            }
+            else if (string.Equals(key, "storeUserId", StringComparison.OrdinalIgnoreCase))
+            {
+                usesStoreUserIdWildcard = true;
+                firstGlobIndex = firstGlobIndex < 0 ? output.Length : firstGlobIndex;
+                output.Append('*');
+            }
+            else
+            {
+                unresolved = true;
+            }
+            sourceIndex = match.Index + match.Length;
+        }
+        AppendManifestLiteral(expression[sourceIndex..], output, ref firstGlobIndex);
+        return (output.ToString(), firstGlobIndex, literalGlobIndexes);
+    }
+
+    private static string BuildRelativePattern(
+        string expanded,
+        int startIndex,
+        IReadOnlySet<int> literalGlobIndexes)
+    {
+        var pattern = new StringBuilder(expanded.Length - startIndex + 8);
+        for (var index = startIndex; index < expanded.Length; index++)
+        {
+            var value = expanded[index];
+            if (literalGlobIndexes.Contains(index))
+            {
+                pattern.Append(value switch
+                {
+                    '[' => "[[]",
+                    '*' => "[*]",
+                    '?' => "[?]",
+                    _ => value.ToString()
+                });
+            }
+            else
+            {
+                pattern.Append(value == Path.DirectorySeparatorChar ? '/' : value);
+            }
+        }
+        return pattern.ToString();
+    }
+
+    private static void AppendManifestLiteral(string value, StringBuilder output, ref int firstGlobIndex)
+    {
+        if (firstGlobIndex < 0)
+        {
+            var localIndex = IndexOfWildcard(value);
+            if (localIndex >= 0)
+            {
+                firstGlobIndex = output.Length + localIndex;
+            }
+        }
+        output.Append(value);
+    }
+
+    private (LudusaviPathSafety Safety, string Warning) EvaluateSafety(
+        string fixedRoot,
+        DetectedGameInstallation? installation)
+    {
+        string normalized;
+        try
+        {
+            normalized = NormalizePath(fixedRoot);
+        }
+        catch
+        {
+            return (LudusaviPathSafety.Blocked, "The manifest resolved to an invalid path.");
+        }
+
+        var volumeRoot = Path.GetPathRoot(normalized);
+        if (string.IsNullOrWhiteSpace(volumeRoot)
+            || string.Equals(normalized, NormalizePath(volumeRoot), StringComparison.OrdinalIgnoreCase))
+        {
+            return (LudusaviPathSafety.Blocked, "The manifest resolved to a volume root.");
+        }
+
+        var broadRoots = new[]
+        {
+            _environment.Home,
+            _environment.Documents,
+            _environment.AppData,
+            _environment.LocalAppData,
+            _environment.LocalAppDataLow,
+            _environment.ProgramData,
+            _environment.WindowsDirectory,
+            installation?.RootPath ?? string.Empty
+        };
+        if (broadRoots
+            .Where(path => !string.IsNullOrWhiteSpace(path))
+            .Any(path => PathsEqual(normalized, path)))
+        {
+            return (
+                LudusaviPathSafety.RequiresConfirmation,
+                "This rule resolves to a broad system, user, or game-library root and requires explicit confirmation.");
+        }
+
+        return (LudusaviPathSafety.Normal, string.Empty);
+    }
+
+    private static bool IsAlreadyRecursive(string pattern) =>
+        string.Equals(pattern, "**", StringComparison.Ordinal)
+        || pattern.EndsWith("/**", StringComparison.Ordinal);
+
+    private static bool PathsEqual(string left, string right)
+    {
+        try
+        {
+            return string.Equals(NormalizePath(left), NormalizePath(right), StringComparison.OrdinalIgnoreCase);
+        }
+        catch
+        {
+            return false;
+        }
+    }
+
+    private static string NormalizePath(string value)
+    {
+        var full = Path.GetFullPath(value);
+        var root = Path.GetPathRoot(full) ?? string.Empty;
+        var trimmed = full.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
+        return trimmed.Length < root.Length ? root : trimmed;
     }
 
     private Dictionary<string, string> CreateReplacements(
         DetectedGameInstallation? installation,
         string storeUserId)
     {
-        var installPath = installation?.InstallPath ?? string.Empty;
+        var basePath = installation?.BasePath ?? string.Empty;
         return new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
         {
             ["home"] = _environment.Home,
@@ -154,9 +308,9 @@ public sealed class LudusaviPathExpressionResolver
             ["winProgramData"] = _environment.ProgramData,
             ["winDir"] = _environment.WindowsDirectory,
             ["osUserName"] = _environment.UserName,
-            ["base"] = installation?.LibraryRoot ?? string.Empty,
-            ["game"] = string.IsNullOrWhiteSpace(installPath) ? string.Empty : Path.GetFileName(installPath.TrimEnd('\\', '/')),
-            ["root"] = installPath,
+            ["base"] = basePath,
+            ["game"] = installation?.InstalledGameName ?? string.Empty,
+            ["root"] = installation?.RootPath ?? string.Empty,
             ["storeGameId"] = installation?.StoreGameId ?? string.Empty,
             ["storeUserId"] = storeUserId
         };

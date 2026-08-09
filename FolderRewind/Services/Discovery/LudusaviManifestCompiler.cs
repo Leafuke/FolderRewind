@@ -27,6 +27,14 @@ public sealed class LudusaviManifestCompiler
             MergeMappings(root, LoadRoot(secondaryManifest));
         }
 
+        var entries = root.Children
+            .Where(pair => pair.Key is YamlScalarNode { Value: not null } && pair.Value is YamlMappingNode)
+            .ToDictionary(
+                pair => ((YamlScalarNode)pair.Key).Value!.Trim(),
+                pair => (YamlMappingNode)pair.Value,
+                StringComparer.OrdinalIgnoreCase);
+        var diagnostics = new List<LudusaviCompilerDiagnostic>();
+        var aliasesByCanonical = ResolveAliases(entries, diagnostics, cancellationToken);
         var games = new List<LudusaviCompiledGame>();
         foreach (var pair in root.Children)
         {
@@ -38,19 +46,114 @@ public sealed class LudusaviManifestCompiler
                 continue;
             }
 
-            games.Add(CompileGame(gameNameNode.Value.Trim(), gameNode));
+            var gameName = gameNameNode.Value.Trim();
+            if (GetNode(gameNode, "alias") != null)
+            {
+                continue;
+            }
+
+            aliasesByCanonical.TryGetValue(gameName, out var aliases);
+            games.Add(CompileGame(gameName, gameNode, aliases ?? Array.Empty<string>()));
         }
 
         var compiled = new LudusaviCompiledIndex
         {
             SourceSha256 = sourceSha256,
             CompiledAtUtc = DateTime.UtcNow,
+            Diagnostics = diagnostics,
             Games = games
                 .OrderBy(game => game.DisplayName, StringComparer.OrdinalIgnoreCase)
                 .ToList()
         };
         return ApplyOverrides(compiled, overrides);
     }
+
+    private static IReadOnlyDictionary<string, IReadOnlyList<string>> ResolveAliases(
+        IReadOnlyDictionary<string, YamlMappingNode> entries,
+        ICollection<LudusaviCompilerDiagnostic> diagnostics,
+        CancellationToken cancellationToken)
+    {
+        var output = new Dictionary<string, List<string>>(StringComparer.OrdinalIgnoreCase);
+        foreach (var (aliasName, aliasEntry) in entries)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            var aliasNode = GetNode(aliasEntry, "alias");
+            if (aliasNode == null)
+            {
+                continue;
+            }
+
+            var targetName = ScalarValue(aliasNode).Trim();
+            if (string.IsNullOrWhiteSpace(targetName))
+            {
+                AddAliasDiagnostic(diagnostics, "alias-empty-target", aliasName, "Alias target is empty.");
+                continue;
+            }
+
+            var visited = new HashSet<string>(StringComparer.OrdinalIgnoreCase) { aliasName };
+            while (true)
+            {
+                if (!entries.TryGetValue(targetName, out var targetEntry))
+                {
+                    AddAliasDiagnostic(
+                        diagnostics,
+                        "alias-missing-target",
+                        aliasName,
+                        $"Alias target '{targetName}' does not exist.");
+                    break;
+                }
+                if (!visited.Add(targetName))
+                {
+                    AddAliasDiagnostic(
+                        diagnostics,
+                        "alias-cycle",
+                        aliasName,
+                        $"Alias chain contains a cycle at '{targetName}'.");
+                    break;
+                }
+
+                var nextAliasNode = GetNode(targetEntry, "alias");
+                if (nextAliasNode == null)
+                {
+                    if (!output.TryGetValue(targetName, out var aliases))
+                    {
+                        aliases = new List<string>();
+                        output[targetName] = aliases;
+                    }
+                    if (!aliases.Contains(aliasName, StringComparer.OrdinalIgnoreCase))
+                    {
+                        aliases.Add(aliasName);
+                    }
+                    break;
+                }
+
+                targetName = ScalarValue(nextAliasNode).Trim();
+                if (string.IsNullOrWhiteSpace(targetName))
+                {
+                    AddAliasDiagnostic(diagnostics, "alias-empty-target", aliasName, "Alias chain contains an empty target.");
+                    break;
+                }
+            }
+        }
+
+        return output.ToDictionary(
+            pair => pair.Key,
+            pair => (IReadOnlyList<string>)pair.Value
+                .OrderBy(value => value, StringComparer.OrdinalIgnoreCase)
+                .ToList(),
+            StringComparer.OrdinalIgnoreCase);
+    }
+
+    private static void AddAliasDiagnostic(
+        ICollection<LudusaviCompilerDiagnostic> diagnostics,
+        string code,
+        string entryName,
+        string message) => diagnostics.Add(new LudusaviCompilerDiagnostic
+        {
+            Code = code,
+            EntryName = entryName,
+            Message = message
+        });
 
     private static YamlMappingNode LoadRoot(Stream stream)
     {
@@ -99,7 +202,10 @@ public sealed class LudusaviManifestCompiler
         }
     }
 
-    private static LudusaviCompiledGame CompileGame(string gameName, YamlMappingNode gameNode)
+    private static LudusaviCompiledGame CompileGame(
+        string gameName,
+        YamlMappingNode gameNode,
+        IReadOnlyList<string> aliases)
     {
         var externalIds = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
         AddStoreId(gameNode, "steam", externalIds);
@@ -124,9 +230,7 @@ public sealed class LudusaviManifestCompiler
         {
             DefinitionId = gameName,
             DisplayName = gameName,
-            Aliases = ScalarValues(GetNode(gameNode, "alias"))
-                .Distinct(StringComparer.OrdinalIgnoreCase)
-                .ToList(),
+            Aliases = aliases,
             ExternalIds = externalIds,
             InstallDirectoryHints = InstallDirectoryValues(GetNode(gameNode, "installDir"))
                 .Where(value => !string.IsNullOrWhiteSpace(value))
@@ -344,6 +448,7 @@ public sealed class LudusaviManifestCompiler
             SchemaVersion = index.SchemaVersion,
             SourceSha256 = index.SourceSha256,
             CompiledAtUtc = index.CompiledAtUtc,
+            Diagnostics = index.Diagnostics,
             Games = games
         };
     }

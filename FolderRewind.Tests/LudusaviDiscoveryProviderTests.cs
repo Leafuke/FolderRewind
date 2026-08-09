@@ -37,8 +37,69 @@ public sealed class LudusaviDiscoveryProviderTests
 
         Assert.IsNotNull(resolved);
         Assert.AreEqual(Path.GetFullPath(saves), resolved.FixedRoot);
-        CollectionAssert.AreEqual(new[] { "**/*.sav" }, resolved.IncludePatterns.ToArray());
+        CollectionAssert.AreEqual(new[] { "**/*.sav", "**/*.sav/**" }, resolved.IncludePatterns.ToArray());
         Assert.AreEqual(BackupResourceKind.FileSet, resolved.Kind);
+    }
+
+    [TestMethod]
+    public void ResolverUsesExplicitRootBaseAndGameAndTreatsPlaceholderGlobsLiterally()
+    {
+        var storeRoot = Path.Combine(_root, "SteamLibrary");
+        var basePath = Path.Combine(storeRoot, "steamapps", "common", "[Preview] Game");
+        var installation = new DetectedGameInstallation
+        {
+            Store = GameStore.Steam,
+            StoreGameId = "42",
+            RootPath = storeRoot,
+            BasePath = basePath,
+            InstalledGameName = "[Preview] Game"
+        };
+        var resolver = CreateResolver();
+
+        var fromBase = resolver.Resolve(FileResource("<base>/../Shared/*.sav"), installation, string.Empty);
+        var fromRootAndGame = resolver.Resolve(FileResource("<root>/Shared/<game>/*.sav"), installation, string.Empty);
+        var exactGame = resolver.Resolve(FileResource("<home>/<game>"), installation, string.Empty);
+
+        Assert.IsNotNull(fromBase);
+        Assert.AreEqual(Path.GetFullPath(Path.Combine(basePath, "..", "Shared")), fromBase.FixedRoot);
+        Assert.IsNotNull(fromRootAndGame);
+        Assert.AreEqual(Path.Combine(storeRoot, "Shared", "[Preview] Game"), fromRootAndGame.FixedRoot);
+        Assert.IsNotNull(exactGame);
+        CollectionAssert.AreEqual(
+            new[] { "[[]Preview] Game", "[[]Preview] Game/**" },
+            exactGame.IncludePatterns.ToArray());
+        Assert.IsTrue(LudusaviGlobMatcher.IsMatch("[Preview] Game/save.dat", exactGame.IncludePatterns[1]));
+        Assert.IsFalse(LudusaviGlobMatcher.IsMatch("P Game/save.dat", exactGame.IncludePatterns[1]));
+    }
+
+    [TestMethod]
+    public void ResolverKeepsFutureExactPathAsExactAndRecursiveRules()
+    {
+        var resolver = CreateResolver();
+        var resolved = resolver.Resolve(
+            FileResource("<winAppData>/FutureGame/Saves"),
+            installation: null,
+            storeUserId: string.Empty);
+
+        Assert.IsNotNull(resolved);
+        Assert.AreEqual(Path.Combine(_root, "FutureGame"), resolved.FixedRoot);
+        CollectionAssert.AreEqual(new[] { "Saves", "Saves/**" }, resolved.IncludePatterns.ToArray());
+    }
+
+    [TestMethod]
+    public void ResolverGradesBroadAndVolumeRoots()
+    {
+        var resolver = CreateResolver();
+        var broad = resolver.Resolve(FileResource("<home>/*"), null, string.Empty);
+        var volume = resolver.Resolve(
+            FileResource(Path.Combine(Path.GetPathRoot(_root)!, "*.sav")),
+            null,
+            string.Empty);
+
+        Assert.IsNotNull(broad);
+        Assert.AreEqual(LudusaviPathSafety.RequiresConfirmation, broad.Safety);
+        Assert.IsNotNull(volume);
+        Assert.AreEqual(LudusaviPathSafety.Blocked, volume.Safety);
     }
 
     [TestMethod]
@@ -70,7 +131,7 @@ public sealed class LudusaviDiscoveryProviderTests
                 ["steamExtra"] = "1145360",
                 ["gogExtra"] = "123456"
             },
-            Files = new[] { FileResource("<root>/Saves/*.sav") },
+            Files = new[] { FileResource("<base>/Saves/*.sav") },
             Registry = new[]
             {
                 new LudusaviCompiledResource
@@ -155,7 +216,7 @@ public sealed class LudusaviDiscoveryProviderTests
             DefinitionId = "EmptyGame",
             DisplayName = "Empty Game",
             ExternalIds = new Dictionary<string, string> { ["steam"] = "42" },
-            Files = new[] { FileResource("<root>/Saves/*.sav") }
+            Files = new[] { FileResource("<base>/Saves/*.sav") }
         };
         var provider = CreateProvider(
             new[] { game },
@@ -182,14 +243,14 @@ public sealed class LudusaviDiscoveryProviderTests
                 DefinitionId = "Steam Extended Edition",
                 DisplayName = "Steam Extended Edition",
                 InstallDirectoryHints = new[] { "SteamFolder" },
-                Files = new[] { FileResource("<root>/Saves/*.sav") }
+                Files = new[] { FileResource("<base>/Saves/*.sav") }
             },
             new LudusaviCompiledGame
             {
                 DefinitionId = "GOG Extended Edition",
                 DisplayName = "GOG Extended Edition",
                 InstallDirectoryHints = new[] { "GogFolder" },
-                Files = new[] { FileResource("<root>/Saves/*.sav") }
+                Files = new[] { FileResource("<base>/Saves/*.sav") }
             }
         };
         var installations = new[]
@@ -262,11 +323,11 @@ public sealed class LudusaviDiscoveryProviderTests
         var resources = candidate.BackupSets.Single().Resources;
         Assert.HasCount(2, resources);
         var cloud = resources.Single(resource => resource.FixedRoot == Path.GetFullPath(cloudRoot));
-        CollectionAssert.AreEqual(new[] { "*/*.sav" }, cloud.IncludePatterns.ToArray());
+        CollectionAssert.AreEqual(new[] { "*/*.sav", "*/*.sav/**" }, cloud.IncludePatterns.ToArray());
         Assert.IsTrue(cloud.FixedRootExists);
         Assert.IsTrue(cloud.IsSelectedByDefault);
         var userData = resources.Single(resource => resource.FixedRoot == Path.GetFullPath(gameDataRoot));
-        CollectionAssert.AreEqual(new[] { "UserData_*" }, userData.IncludePatterns.ToArray());
+        CollectionAssert.AreEqual(new[] { "UserData_*", "UserData_*/**" }, userData.IncludePatterns.ToArray());
         Assert.IsTrue(userData.Evidence.Single().Description.Contains("single path-segment wildcard", StringComparison.Ordinal));
     }
 
@@ -318,8 +379,9 @@ public sealed class LudusaviDiscoveryProviderTests
         Store = store,
         StoreGameId = id,
         DisplayName = displayName,
-        InstallPath = path,
-        LibraryRoot = Path.GetDirectoryName(path) ?? string.Empty
+        RootPath = Path.GetDirectoryName(path) ?? string.Empty,
+        BasePath = path,
+        InstalledGameName = Path.GetFileName(path.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar))
     };
 
     private sealed class FakeInstallationDiscovery(

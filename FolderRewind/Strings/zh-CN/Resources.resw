@@ -2004,6 +2004,15 @@ cmd=RESTORE;from=minebackup.mod;request_id=req-mr-restore-002;current_save=true;
   <data name="BackupService_Folder_SourceDestinationOverlap" xml:space="preserve">
     <value>来源与备份存储路径重叠：{0} ↔ {1}</value>
   </data>
+  <data name="GameDiscovery_Resource_UnsafeRoot" xml:space="preserve">
+    <value>规则解析到不安全的根路径，已阻止选择</value>
+  </data>
+  <data name="GameDiscovery_BroadRootConfirm_Title" xml:space="preserve">
+    <value>确认宽范围备份来源</value>
+  </data>
+  <data name="GameDiscovery_BroadRootConfirm_Content" xml:space="preserve">
+    <value>以下来源覆盖系统、用户或游戏平台宽根目录。请确认你确实要将其带入备份审查：\n{0}</value>
+  </data>
   <data name="BackupService_Folder_BackupInProgress" xml:space="preserve">
     <value>正在备份...</value>
   </data>

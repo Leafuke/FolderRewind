@@ -39,7 +39,8 @@ public enum BackupResourceSupportState
     Supported = 0,
     UnsupportedRegistry = 1,
     UnsupportedConstraint = 2,
-    InvalidPath = 3
+    InvalidPath = 3,
+    UnsafeRoot = 4
 }
 
 public enum DiscoveryDiagnosticSeverity
@@ -122,8 +123,9 @@ public sealed class GameInstallation
     public required string InstallationId { get; init; }
     public GameStore Store { get; init; }
     public string StoreGameId { get; init; } = string.Empty;
-    public string InstallPath { get; init; } = string.Empty;
-    public string LibraryRoot { get; init; } = string.Empty;
+    public string RootPath { get; init; } = string.Empty;
+    public string BasePath { get; init; } = string.Empty;
+    public string InstalledGameName { get; init; } = string.Empty;
     public IReadOnlyList<string> StoreUserIds { get; init; } = Array.Empty<string>();
     public IReadOnlyList<DiscoveryEvidence> Evidence { get; init; } = Array.Empty<DiscoveryEvidence>();
 }
@@ -133,8 +135,9 @@ public sealed class DetectedGameInstallation
     public GameStore Store { get; init; }
     public string StoreGameId { get; init; } = string.Empty;
     public string DisplayName { get; init; } = string.Empty;
-    public string InstallPath { get; init; } = string.Empty;
-    public string LibraryRoot { get; init; } = string.Empty;
+    public string RootPath { get; init; } = string.Empty;
+    public string BasePath { get; init; } = string.Empty;
+    public string InstalledGameName { get; init; } = string.Empty;
     public IReadOnlyList<string> StoreUserIds { get; init; } = Array.Empty<string>();
 }
 
@@ -156,6 +159,8 @@ public sealed class BackupResourceCandidate
     public IReadOnlyList<DiscoveryEvidence> Evidence { get; init; } = Array.Empty<DiscoveryEvidence>();
     public bool FixedRootExists { get; init; }
     public bool IsSelectedByDefault { get; init; }
+    public bool RequiresExplicitConfirmation { get; init; }
+    public string SafetyWarning { get; init; } = string.Empty;
     public string SuppressedByProviderId { get; internal set; } = string.Empty;
     public string SuppressionReason { get; internal set; } = string.Empty;
     public bool IsSuppressed => !string.IsNullOrWhiteSpace(SuppressedByProviderId);

@@ -63,7 +63,7 @@ public sealed class LauncherInstallationDiscoveryService : ILauncherInstallation
         }
 
         return result
-            .GroupBy(item => $"{item.Store}|{item.StoreGameId}|{NormalizePath(item.InstallPath)}", StringComparer.OrdinalIgnoreCase)
+            .GroupBy(item => $"{item.Store}|{item.StoreGameId}|{NormalizePath(item.BasePath)}", StringComparer.OrdinalIgnoreCase)
             .Select(group => group.First())
             .ToList();
     }
@@ -131,8 +131,9 @@ public sealed class SteamInstallationScanner : ILauncherInstallationScanner
                         Store = GameStore.Steam,
                         StoreGameId = appId,
                         DisplayName = name,
-                        InstallPath = Path.Combine(steamApps, "common", installDir),
-                        LibraryRoot = libraryRoot,
+                        RootPath = libraryRoot,
+                        BasePath = Path.Combine(steamApps, "common", installDir),
+                        InstalledGameName = installDir,
                         StoreUserIds = userIds
                     });
                 }
@@ -240,8 +241,9 @@ public sealed class EpicInstallationScanner : ILauncherInstallationScanner
                         Store = GameStore.Epic,
                         StoreGameId = appId,
                         DisplayName = GetString(json, "DisplayName"),
-                        InstallPath = installPath,
-                        LibraryRoot = manifestsRoot
+                        RootPath = Path.GetDirectoryName(installPath) ?? string.Empty,
+                        BasePath = installPath,
+                        InstalledGameName = Path.GetFileName(installPath.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar))
                     });
                 }
                 catch (Exception) when (File.Exists(path))
@@ -284,7 +286,7 @@ public sealed class GogInstallationScanner : ILauncherInstallationScanner
         {
             foreach (var directory in Directory.EnumerateDirectories(root, "*", SearchOption.TopDirectoryOnly))
             {
-                if (result.Any(item => PathsEqual(item.InstallPath, directory)))
+                if (result.Any(item => PathsEqual(item.BasePath, directory)))
                 {
                     continue;
                 }
@@ -293,8 +295,9 @@ public sealed class GogInstallationScanner : ILauncherInstallationScanner
                 {
                     Store = GameStore.Gog,
                     DisplayName = Path.GetFileName(directory),
-                    InstallPath = directory,
-                    LibraryRoot = root
+                    RootPath = root,
+                    BasePath = directory,
+                    InstalledGameName = Path.GetFileName(directory.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar))
                 });
             }
         }
@@ -335,8 +338,9 @@ public sealed class GogInstallationScanner : ILauncherInstallationScanner
                         Store = GameStore.Gog,
                         StoreGameId = gameKey?.GetValue("gameID")?.ToString() ?? subKeyName,
                         DisplayName = gameKey?.GetValue("gameName") as string ?? string.Empty,
-                        InstallPath = path,
-                        LibraryRoot = Path.GetDirectoryName(path) ?? string.Empty
+                        RootPath = Path.GetDirectoryName(path) ?? string.Empty,
+                        BasePath = path,
+                        InstalledGameName = Path.GetFileName(path.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar))
                     });
                 }
             }
@@ -346,7 +350,7 @@ public sealed class GogInstallationScanner : ILauncherInstallationScanner
         }
 
         return result
-            .GroupBy(item => $"{item.StoreGameId}|{item.InstallPath}", StringComparer.OrdinalIgnoreCase)
+            .GroupBy(item => $"{item.StoreGameId}|{item.BasePath}", StringComparer.OrdinalIgnoreCase)
             .Select(group => group.First())
             .ToList();
     }
