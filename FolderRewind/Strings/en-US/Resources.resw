@@ -5018,7 +5018,12 @@ Pull request: {1}</value>
   <data name="History_Run_RestoreContent" xml:space="preserve"><value>FolderRewind will safely restore each available source in sequence. It continues after a source failure and does not provide cross-source atomic rollback.</value></data>
   <data name="History_Run_RestoreSummary" xml:space="preserve"><value>Run restore completed: {0} sources succeeded; {1} failed or were skipped.</value></data>
   <data name="History_Run_DeleteTitle" xml:space="preserve"><value>Delete configuration run</value></data>
-  <data name="History_Run_DeleteContent" xml:space="preserve"><value>This removes the run record. Archives referenced by another run, independent source history, or an incremental chain remain protected.</value></data>
+  <data name="History_Run_DeleteContent" xml:space="preserve"><value>This only removes the run grouping record. It does not directly delete archives still retained by source history, referenced by another run, or required by an incremental chain.</value></data>
+  <data name="HistoryPage_ViewBySource.Text" xml:space="preserve"><value>By source</value></data>
+  <data name="HistoryPage_ViewByRun.Text" xml:space="preserve"><value>By run</value></data>
+  <data name="History_Run_SourceMissing" xml:space="preserve"><value>Missing reference</value></data>
+  <data name="History_Run_SourceMissingDetail" xml:space="preserve"><value>The referenced source history is missing, so this run cannot be fully restored.</value></data>
+  <data name="History_Run_MissingSummary" xml:space="preserve"><value> · {0} missing reference(s)</value></data>
   <data name="History_Run_DeleteFailed" xml:space="preserve"><value>The configuration run could not be deleted.</value></data>
   <data name="GameDiscoveryPage_Attribution.Text" xml:space="preserve"><value>Path data comes from the Ludusavi manifest (primarily compiled from PCGamingWiki). This Beta only fetches upstream after user action and does not redistribute it with the app.</value></data>
   <data name="GameDiscoveryPage_LudusaviSource.Content" xml:space="preserve"><value>Ludusavi source</value></data>

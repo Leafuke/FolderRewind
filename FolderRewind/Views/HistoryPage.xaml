@@ -51,6 +51,11 @@
                      TextChanged="CommentFilterBox_TextChanged"/>
             </Grid>
 
+            <SelectorBar x:Name="HistoryViewSelector" Grid.Column="3" SelectionChanged="OnHistoryViewSelectionChanged" VerticalAlignment="Bottom">
+                <SelectorBarItem x:Name="SourceHistoryViewItem" x:Uid="HistoryPage_ViewBySource" Tag="Source" IsSelected="True"/>
+                <SelectorBarItem x:Name="RunHistoryViewItem" x:Uid="HistoryPage_ViewByRun" Tag="Run"/>
+            </SelectorBar>
+
             <StackPanel Grid.Column="4" Orientation="Horizontal" Spacing="12" VerticalAlignment="Bottom">
                 <ToggleSwitch x:Name="UseColorsToggle"
                               x:Uid="HistoryPage_UseStatusColors"
@@ -180,7 +185,7 @@
                                             <FontIcon Glyph="{x:Bind IsImportant, Converter={StaticResource BoolToStarIconConverter}}" FontSize="14" Foreground="{ThemeResource SystemControlForegroundAccentBrush}"/>
                                         </Button>
                                         <Button x:Uid="HistoryPage_EditCommentButton" Click="OnEditRunCommentClick"><FontIcon Glyph="&#xE70F;" FontSize="14"/></Button>
-                                        <Button x:Uid="HistoryPage_RestoreButton" Click="OnRestoreRunClick"><FontIcon Glyph="&#xE777;" FontSize="14"/></Button>
+                                        <Button x:Uid="HistoryPage_RestoreButton" Click="OnRestoreRunClick" IsEnabled="{x:Bind CanRestore}"><FontIcon Glyph="&#xE777;" FontSize="14"/></Button>
                                         <Button x:Uid="HistoryPage_DeleteButton" Click="OnDeleteRunClick"><FontIcon Glyph="&#xE74D;" FontSize="14"/></Button>
                                     </StackPanel>
                                 </Grid>

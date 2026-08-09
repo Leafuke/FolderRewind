@@ -5018,7 +5018,12 @@ Pull Request：{1}</value>
   <data name="History_Run_RestoreContent" xml:space="preserve"><value>将依次安全还原此运行中的所有可用来源；单个来源失败后仍会继续，不提供跨来源原子回滚。</value></data>
   <data name="History_Run_RestoreSummary" xml:space="preserve"><value>运行还原完成：{0} 个来源成功，{1} 个来源失败或跳过。</value></data>
   <data name="History_Run_DeleteTitle" xml:space="preserve"><value>删除配置运行</value></data>
-  <data name="History_Run_DeleteContent" xml:space="preserve"><value>将删除此运行记录。仍被其他运行引用、独立来源历史或增量链需要的归档会继续保留。</value></data>
+  <data name="History_Run_DeleteContent" xml:space="preserve"><value>这只会删除批次分组记录，不会直接删除仍处于来源保留范围内、被其他批次引用或被增量链依赖的归档。</value></data>
+  <data name="HistoryPage_ViewBySource.Text" xml:space="preserve"><value>按来源</value></data>
+  <data name="HistoryPage_ViewByRun.Text" xml:space="preserve"><value>按批次</value></data>
+  <data name="History_Run_SourceMissing" xml:space="preserve"><value>引用缺失</value></data>
+  <data name="History_Run_SourceMissingDetail" xml:space="preserve"><value>引用的来源历史不存在，无法完整还原。</value></data>
+  <data name="History_Run_MissingSummary" xml:space="preserve"><value> · {0} 个引用缺失</value></data>
   <data name="History_Run_DeleteFailed" xml:space="preserve"><value>无法删除此配置运行。</value></data>
   <data name="GameDiscoveryPage_Attribution.Text" xml:space="preserve"><value>路径数据来自 Ludusavi manifest（主要汇编自 PCGamingWiki）；当前 Beta 仅在用户操作后直连上游并缓存，不随应用再分发。</value></data>
   <data name="GameDiscoveryPage_LudusaviSource.Content" xml:space="preserve"><value>Ludusavi 来源</value></data>

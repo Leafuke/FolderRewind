@@ -11,6 +11,12 @@ using System.Text.Json.Serialization;
 
 namespace FolderRewind.Models
 {
+    public enum HistoryViewMode
+    {
+        PerSource = 0,
+        ByRun = 1
+    }
+
 
     public enum CloseBehavior
     {
@@ -93,6 +99,7 @@ namespace FolderRewind.Models
         private string _lastManagerFolderPath = "";
         private string _lastHistoryConfigId = "";
         private string _lastHistoryFolderPath = "";
+        private HistoryViewMode _lastHistoryViewMode = HistoryViewMode.PerSource;
         private int _sponsorAccentColorIndex = 0;
         private int _sponsorBackdropIndex = 0;
         private string _sponsorTitleText = "";
@@ -178,6 +185,7 @@ namespace FolderRewind.Models
         public string LastManagerFolderPath { get => _lastManagerFolderPath; set => SetProperty(ref _lastManagerFolderPath, value ?? string.Empty); }
         public string LastHistoryConfigId { get => _lastHistoryConfigId; set => SetProperty(ref _lastHistoryConfigId, value ?? string.Empty); }
         public string LastHistoryFolderPath { get => _lastHistoryFolderPath; set => SetProperty(ref _lastHistoryFolderPath, value ?? string.Empty); }
+        public HistoryViewMode LastHistoryViewMode { get => _lastHistoryViewMode; set => SetProperty(ref _lastHistoryViewMode, value); }
 
         /// <summary>
         /// 赞助版主题色预设。0 表示继续跟随系统 Accent，避免免费版被新字段影响。

@@ -20,6 +20,7 @@ namespace FolderRewind.ViewModels
         private int _missingCount;
         private bool _isEmpty = true;
         private string _commentFilterText = string.Empty;
+        private HistoryViewMode _viewMode = HistoryViewMode.PerSource;
 
         private BackupConfig? _currentConfig;
         private ManagedFolder? _currentFolder;
@@ -38,7 +39,7 @@ namespace FolderRewind.ViewModels
         }
 
         public bool HasMissing => _missingCount > 0;
-        public bool IsGroupedRunView => false;
+        public bool IsGroupedRunView => _viewMode == HistoryViewMode.ByRun;
         public Visibility GroupedRunHistoryVisibility => IsGroupedRunView ? Visibility.Visible : Visibility.Collapsed;
         public Visibility PerSourceHistoryVisibility => IsGroupedRunView ? Visibility.Collapsed : Visibility.Visible;
         public bool CanUsePerSourceActions => !IsGroupedRunView && _currentFolder != null;
@@ -80,6 +81,8 @@ namespace FolderRewind.ViewModels
         public void Initialize()
         {
             HistoryService.Initialize();
+            _viewMode = Settings?.LastHistoryViewMode ?? HistoryViewMode.PerSource;
+            NotifyViewModeChanged();
 
             if (_historyEventsSubscribed)
             {
@@ -102,7 +105,11 @@ namespace FolderRewind.ViewModels
             OnPropertyChanged(nameof(CanUsePerSourceActions));
 
             // 页面初始化阶段可关闭刷新，避免控件尚未就绪时重复拉取历史。
-            if (refreshHistoryIfFolder && _currentConfig != null && _currentFolder != null)
+            if (IsGroupedRunView && _currentConfig != null)
+            {
+                RefreshRuns(_currentConfig);
+            }
+            else if (refreshHistoryIfFolder && _currentConfig != null && _currentFolder != null)
             {
                 RefreshHistory(_currentConfig, _currentFolder);
             }
@@ -189,12 +196,42 @@ namespace FolderRewind.ViewModels
 
         public void RefreshCurrentHistory()
         {
+            if (IsGroupedRunView && _currentConfig != null)
+            {
+                RefreshRuns(_currentConfig);
+                return;
+            }
             if (_currentConfig == null || _currentFolder == null)
             {
                 return;
             }
 
             RefreshHistory(_currentConfig, _currentFolder);
+        }
+
+        public void SetHistoryViewMode(HistoryViewMode mode)
+        {
+            if (_viewMode == mode)
+            {
+                RefreshCurrentHistory();
+                return;
+            }
+            _viewMode = mode;
+            if (Settings != null)
+            {
+                Settings.LastHistoryViewMode = mode;
+                ConfigService.Save();
+            }
+            NotifyViewModeChanged();
+            RefreshCurrentHistory();
+        }
+
+        private void NotifyViewModeChanged()
+        {
+            OnPropertyChanged(nameof(IsGroupedRunView));
+            OnPropertyChanged(nameof(GroupedRunHistoryVisibility));
+            OnPropertyChanged(nameof(PerSourceHistoryVisibility));
+            OnPropertyChanged(nameof(CanUsePerSourceActions));
         }
 
         public void RefreshHistory(BackupConfig config, ManagedFolder folder)
@@ -576,34 +613,48 @@ namespace FolderRewind.ViewModels
         public string TimeDisplay => Record.CompletedAtUtc.ToLocalTime().ToString("HH:mm");
         public string DateDisplay => Record.CompletedAtUtc.ToLocalTime().ToString("yyyy-MM-dd");
         public string StatusText => Record.Status == BackupRunStatus.Partial
-            ? I18n.GetString("History_Run_StatusPartial")
-            : I18n.GetString("History_Run_StatusCompleted");
+            || HasMissingReferences
+                ? I18n.GetString("History_Run_StatusPartial")
+                : I18n.GetString("History_Run_StatusCompleted");
         public string Message => string.IsNullOrWhiteSpace(Record.Comment) ? StatusText : Record.Comment;
         public string SourceSummary => I18n.Format(
             "History_Run_SourceSummary",
             Record.Sources.Count,
             Record.Sources.Count(source => source.Status == BackupRunSourceStatus.NewArchive),
             Record.Sources.Count(source => source.Status == BackupRunSourceStatus.Reused),
-            Record.Sources.Count(source => source.Status is BackupRunSourceStatus.Failed or BackupRunSourceStatus.Unavailable));
+            Record.Sources.Count(source => source.Status is BackupRunSourceStatus.Failed or BackupRunSourceStatus.Unavailable))
+            + (HasMissingReferences
+                ? I18n.Format("History_Run_MissingSummary", Sources.Count(source => source.IsReferenceMissing))
+                : string.Empty);
         public bool IsImportant => Record.IsImportant;
+        public bool HasMissingReferences => Sources.Any(source => source.IsReferenceMissing);
+        public bool CanRestore => Sources.Any(source => !source.IsReferenceMissing
+            && !string.IsNullOrWhiteSpace(source.Record.HistoryItemId));
         public bool HasPartialBackup => Record.Sources.Any(source =>
             !string.IsNullOrWhiteSpace(source.HistoryItemId)
-            && HistoryService.TryGetEntryById(source.HistoryItemId)?.IsPartialBackup == true);
+            && HistoryService.TryGetEntryById(source.HistoryItemId)?.IsPartialBackup == true)
+            || HasMissingReferences;
     }
 
     public sealed class BackupRunSourceViewItem
     {
         public BackupRunSourceViewItem(BackupRunSourceRecord record) => Record = record;
         public BackupRunSourceRecord Record { get; }
+        public bool IsReferenceMissing => Record.Status is BackupRunSourceStatus.NewArchive or BackupRunSourceStatus.Reused
+            && (string.IsNullOrWhiteSpace(Record.HistoryItemId)
+                || HistoryService.TryGetEntryById(Record.HistoryItemId) == null);
         public string Name => string.IsNullOrWhiteSpace(Record.FolderName) ? Record.FolderPath : Record.FolderName;
         public string StatusText => Record.Status switch
         {
+            _ when IsReferenceMissing => I18n.GetString("History_Run_SourceMissing"),
             BackupRunSourceStatus.NewArchive => I18n.GetString("History_Run_SourceNewArchive"),
             BackupRunSourceStatus.Reused => I18n.GetString("History_Run_SourceReused"),
             BackupRunSourceStatus.Failed => I18n.GetString("History_Run_SourceFailed"),
             _ => I18n.GetString("History_Run_SourceUnavailable")
         };
-        public string Detail => string.IsNullOrWhiteSpace(Record.ErrorMessage)
+        public string Detail => IsReferenceMissing
+            ? I18n.GetString("History_Run_SourceMissingDetail")
+            : string.IsNullOrWhiteSpace(Record.ErrorMessage)
             ? Record.ArchiveFileName
             : Record.ErrorMessage;
     }

@@ -28,6 +28,9 @@ namespace FolderRewind.Views
             HistoryList.ItemsSource = ViewModel.FilteredHistory;
             RunHistoryList.ItemsSource = ViewModel.FilteredRuns;
             UseColorsToggle.IsOn = ViewModel.UseHistoryStatusColors;
+            HistoryViewSelector.SelectedItem = ViewModel.IsGroupedRunView
+                ? RunHistoryViewItem
+                : SourceHistoryViewItem;
         }
 
         protected override void OnNavigatedTo(NavigationEventArgs e)
@@ -94,6 +97,7 @@ namespace FolderRewind.Views
         private void FolderFilter_SelectionChanged(object sender, SelectionChangedEventArgs e)
         {
             if (_isNavigating) return;
+            if (ViewModel.IsGroupedRunView) return;
             if (FolderFilter.SelectedItem is ManagedFolder folder
                 && ConfigFilter.SelectedItem is BackupConfig config)
             {
@@ -166,6 +170,19 @@ namespace FolderRewind.Views
             }
 
             ViewModel.ToggleImportant(item);
+        }
+
+        private void OnHistoryViewSelectionChanged(SelectorBar sender, SelectorBarSelectionChangedEventArgs args)
+        {
+            if (sender.SelectedItem?.Tag is not string tag) return;
+            ViewModel.SetHistoryViewMode(string.Equals(tag, "Run", StringComparison.OrdinalIgnoreCase)
+                ? HistoryViewMode.ByRun
+                : HistoryViewMode.PerSource);
+            if (ConfigFilter.SelectedItem is BackupConfig config)
+            {
+                ViewModel.TryGetCurrentSelection(out _, out var currentFolder);
+                ConfigureFolderFilter(config, currentFolder);
+            }
         }
 
         private async void OnEditRunCommentClick(object sender, RoutedEventArgs e)
@@ -670,13 +687,14 @@ namespace FolderRewind.Views
 
         private void ConfigureFolderFilter(BackupConfig config, ManagedFolder? preferredFolder)
         {
-            FolderFilter.IsEnabled = true;
-            FolderFilter.PlaceholderText = string.Empty;
-            FolderFilter.ItemsSource = config.SourceFolders;
-            FolderFilter.SelectedItem = preferredFolder;
-            if (preferredFolder == null)
+            var grouped = ViewModel.IsGroupedRunView;
+            FolderFilter.IsEnabled = !grouped;
+            FolderFilter.PlaceholderText = grouped ? I18n.GetString("History_Run_AllSources") : string.Empty;
+            FolderFilter.ItemsSource = grouped ? null : config.SourceFolders;
+            FolderFilter.SelectedItem = grouped ? null : preferredFolder;
+            if (!grouped && preferredFolder == null)
                 FolderFilter.SelectedIndex = config.SourceFolders.Count > 0 ? 0 : -1;
-            ScanRecoverButton.IsEnabled = true;
+            ScanRecoverButton.IsEnabled = !grouped;
         }
     }
 }
