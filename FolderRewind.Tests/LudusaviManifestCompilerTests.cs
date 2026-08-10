@@ -101,6 +101,64 @@ public sealed class LudusaviManifestCompilerTests
     }
 
     [TestMethod]
+    public void CompilerPreservesCaseDistinctGamesAndExactAliasTargets()
+    {
+        using var manifest = StreamOf(
+            """
+            AFTERLIFE:
+              alias: AFTERLIFE (2021)
+            AFTERLIFE (2021):
+              files:
+                '<base>/AFTERLIFE.exe': {}
+            Afterlife:
+              files:
+                '<base>/ALIFE.INI': {}
+            """);
+
+        var index = new LudusaviManifestCompiler().Compile(
+            manifest,
+            null,
+            null,
+            "source",
+            CancellationToken.None);
+
+        Assert.HasCount(2, index.Games);
+        var upper = index.Games.Single(game => game.DefinitionId == "AFTERLIFE (2021)");
+        var titleCase = index.Games.Single(game => game.DefinitionId == "Afterlife");
+        CollectionAssert.AreEqual(new[] { "AFTERLIFE" }, upper.Aliases.ToArray());
+        Assert.IsEmpty(titleCase.Aliases);
+        Assert.AreEqual("<base>/ALIFE.INI", titleCase.Files.Single().Expression);
+    }
+
+    [TestMethod]
+    public void SecondaryManifestKeepsCaseDistinctTopLevelGamesSeparate()
+    {
+        using var primary = StreamOf(
+            """
+            Game:
+              files:
+                '<base>/one.sav': {}
+            """);
+        using var secondary = StreamOf(
+            """
+            game:
+              files:
+                '<base>/two.sav': {}
+            """);
+
+        var index = new LudusaviManifestCompiler().Compile(
+            primary,
+            secondary,
+            null,
+            "source",
+            CancellationToken.None);
+
+        CollectionAssert.AreEquivalent(
+            new[] { "Game", "game" },
+            index.Games.Select(game => game.DefinitionId).ToArray());
+    }
+
+    [TestMethod]
     public void SecondaryManifestMergesBeforeFolderRewindOverride()
     {
         using var primary = StreamOf(

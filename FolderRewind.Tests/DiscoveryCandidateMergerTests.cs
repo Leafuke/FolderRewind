@@ -146,6 +146,40 @@ public sealed class DiscoveryCandidateMergerTests
         Assert.HasCount(2, merged);
     }
 
+    [TestMethod]
+    public void CaseDistinctDefinitionsFromSameProviderDoNotAliasMerge()
+    {
+        var upper = CreateGame(
+            "ludusavi:AFTERLIFE (2021)",
+            "AFTERLIFE (2021)",
+            string.Empty,
+            GameStore.Unknown,
+            "C:\\Games\\Upper",
+            new[] { "AFTERLIFE" });
+        var titleCase = CreateGame(
+            "ludusavi:Afterlife",
+            "Afterlife",
+            string.Empty,
+            GameStore.Unknown,
+            "C:\\Games\\TitleCase");
+        upper.BackupSets[0].Resources.Add(CreateResource(
+            "upper",
+            "test",
+            "C:\\Games\\Upper",
+            specialized: false,
+            priority: 10));
+        titleCase.BackupSets[0].Resources.Add(CreateResource(
+            "title-case",
+            "test",
+            "C:\\Games\\TitleCase",
+            specialized: false,
+            priority: 10));
+
+        var merged = DiscoveryCandidateMerger.Merge(new[] { Result("test", upper, titleCase) });
+
+        Assert.HasCount(2, merged);
+    }
+
     private static DiscoveryProviderResult Result(string providerId, params DiscoveredGameCandidate[] candidates) =>
         new()
         {

@@ -356,7 +356,7 @@ public sealed class GameDiscoveryPageViewModel : ViewModelBase, IDisposable
         return BackupPresetService.GetTemplates().Where(preset => preset.DiscoverySources.Any(source =>
             source.Kind == BackupPresetDiscoverySourceKind.ProviderReference
             && string.Equals(source.ProviderId, game.Definition.ProviderId, StringComparison.OrdinalIgnoreCase)
-            && string.Equals(source.DefinitionId, game.Definition.DefinitionId, StringComparison.OrdinalIgnoreCase)));
+            && string.Equals(source.DefinitionId, game.Definition.DefinitionId, StringComparison.Ordinal)));
     }
 
     private async Task RefreshCacheStatusAsync(CancellationToken token)

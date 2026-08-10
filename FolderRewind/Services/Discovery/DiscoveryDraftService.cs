@@ -288,7 +288,7 @@ public static class DiscoveryDraftService
             preset.DiscoverySources.Any(source =>
                 source.Kind == BackupPresetDiscoverySourceKind.ProviderReference
                 && string.Equals(source.ProviderId, game.Definition.ProviderId, StringComparison.OrdinalIgnoreCase)
-                && string.Equals(source.DefinitionId, game.Definition.DefinitionId, StringComparison.OrdinalIgnoreCase)));
+                && string.Equals(source.DefinitionId, game.Definition.DefinitionId, StringComparison.Ordinal)));
     }
 
     private static IReadOnlyList<ManagedFolder> CreateManagedFolders(IReadOnlyList<DiscoveredSourcePlan> plans)

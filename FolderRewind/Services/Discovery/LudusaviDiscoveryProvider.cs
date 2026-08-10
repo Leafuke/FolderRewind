@@ -392,7 +392,7 @@ public sealed class LudusaviDiscoveryProvider : IFolderRewindDiscoveryProvider
         var requested = request.Definitions
             .Where(reference => string.Equals(reference.ProviderId, ProviderId, StringComparison.OrdinalIgnoreCase))
             .Select(reference => reference.DefinitionId)
-            .ToHashSet(StringComparer.OrdinalIgnoreCase);
+            .ToHashSet(StringComparer.Ordinal);
         return definitions.Where(definition => requested.Contains(definition.DefinitionId)).ToList();
     }
 

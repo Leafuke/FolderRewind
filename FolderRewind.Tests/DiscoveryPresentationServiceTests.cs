@@ -72,6 +72,25 @@ public sealed class DiscoveryPresentationServiceTests
             origin => origin));
     }
 
+    [TestMethod]
+    public void StableDiscoveryIdentityPreservesDefinitionIdCase()
+    {
+        var upper = new DiscoverySetIdentity
+        {
+            ProviderId = "ludusavi",
+            DefinitionId = "AFTERLIFE",
+            SetId = "main"
+        };
+        var titleCase = new DiscoverySetIdentity
+        {
+            ProviderId = "LUDUSAVI",
+            DefinitionId = "Afterlife",
+            SetId = "main"
+        };
+
+        Assert.IsFalse(upper.HasSameStableIdentity(titleCase));
+    }
+
     private static BackupResourceCandidate Resource(
         string id,
         BackupResourceSupportState support,

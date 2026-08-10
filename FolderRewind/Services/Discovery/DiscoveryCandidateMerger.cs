@@ -41,7 +41,7 @@ public static class DiscoveryCandidateMerger
 
     private static bool IsSameGame(DiscoveredGameCandidate left, DiscoveredGameCandidate right)
     {
-        if (string.Equals(left.StableKey, right.StableKey, StringComparison.OrdinalIgnoreCase))
+        if (string.Equals(left.StableKey, right.StableKey, StringComparison.Ordinal))
         {
             return true;
         }
@@ -53,7 +53,11 @@ public static class DiscoveryCandidateMerger
             return true;
         }
 
-        if (HasMergeEvidence(left)
+        if (!string.Equals(
+                left.Definition.ProviderId,
+                right.Definition.ProviderId,
+                StringComparison.OrdinalIgnoreCase)
+            && HasMergeEvidence(left)
             && HasMergeEvidence(right)
             && (left.Definition.Aliases.Any(alias =>
                 NameEquals(alias, right.Definition.DisplayName))

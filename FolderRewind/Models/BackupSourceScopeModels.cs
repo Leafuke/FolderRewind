@@ -31,8 +31,8 @@ public sealed class DiscoverySetIdentity
 
     public bool HasSameStableIdentity(DiscoverySetIdentity? other) => other != null
         && string.Equals(ProviderId, other.ProviderId, StringComparison.OrdinalIgnoreCase)
-        && string.Equals(DefinitionId, other.DefinitionId, StringComparison.OrdinalIgnoreCase)
-        && string.Equals(SetId, other.SetId, StringComparison.OrdinalIgnoreCase);
+        && string.Equals(DefinitionId, other.DefinitionId, StringComparison.Ordinal)
+        && string.Equals(SetId, other.SetId, StringComparison.Ordinal);
 
     public IReadOnlySet<string> ExternalIdentityKeys() => ExternalIds
         .Where(pair => !string.IsNullOrWhiteSpace(pair.Key) && !string.IsNullOrWhiteSpace(pair.Value))

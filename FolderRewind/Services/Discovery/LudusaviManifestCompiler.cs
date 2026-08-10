@@ -32,7 +32,7 @@ public sealed class LudusaviManifestCompiler
             .ToDictionary(
                 pair => ((YamlScalarNode)pair.Key).Value!.Trim(),
                 pair => (YamlMappingNode)pair.Value,
-                StringComparer.OrdinalIgnoreCase);
+                StringComparer.Ordinal);
         var diagnostics = new List<LudusaviCompilerDiagnostic>();
         var aliasesByCanonical = ResolveAliases(entries, diagnostics, cancellationToken);
         var games = new List<LudusaviCompiledGame>();
@@ -73,7 +73,7 @@ public sealed class LudusaviManifestCompiler
         ICollection<LudusaviCompilerDiagnostic> diagnostics,
         CancellationToken cancellationToken)
     {
-        var output = new Dictionary<string, List<string>>(StringComparer.OrdinalIgnoreCase);
+        var output = new Dictionary<string, List<string>>(StringComparer.Ordinal);
         foreach (var (aliasName, aliasEntry) in entries)
         {
             cancellationToken.ThrowIfCancellationRequested();
@@ -90,7 +90,7 @@ public sealed class LudusaviManifestCompiler
                 continue;
             }
 
-            var visited = new HashSet<string>(StringComparer.OrdinalIgnoreCase) { aliasName };
+            var visited = new HashSet<string>(StringComparer.Ordinal) { aliasName };
             while (true)
             {
                 if (!entries.TryGetValue(targetName, out var targetEntry))
@@ -120,7 +120,7 @@ public sealed class LudusaviManifestCompiler
                         aliases = new List<string>();
                         output[targetName] = aliases;
                     }
-                    if (!aliases.Contains(aliasName, StringComparer.OrdinalIgnoreCase))
+                    if (!aliases.Contains(aliasName, StringComparer.Ordinal))
                     {
                         aliases.Add(aliasName);
                     }
@@ -139,9 +139,9 @@ public sealed class LudusaviManifestCompiler
         return output.ToDictionary(
             pair => pair.Key,
             pair => (IReadOnlyList<string>)pair.Value
-                .OrderBy(value => value, StringComparer.OrdinalIgnoreCase)
+                .OrderBy(value => value, StringComparer.Ordinal)
                 .ToList(),
-            StringComparer.OrdinalIgnoreCase);
+            StringComparer.Ordinal);
     }
 
     private static void AddAliasDiagnostic(
@@ -183,7 +183,7 @@ public sealed class LudusaviManifestCompiler
         foreach (var overlayPair in overlay.Children)
         {
             var key = ScalarValue(overlayPair.Key);
-            var targetPair = FindPair(target, key);
+            var targetPair = FindExactPair(target, key);
             if (targetPair.Key != null
                 && targetPair.Value is YamlMappingNode targetMapping
                 && overlayPair.Value is YamlMappingNode overlayMapping)
@@ -488,7 +488,7 @@ public sealed class LudusaviManifestCompiler
     private static bool Matches(FolderRewindGameOverrideEntry entry, LudusaviCompiledGame game)
     {
         if (!string.IsNullOrWhiteSpace(entry.DefinitionId)
-            && string.Equals(entry.DefinitionId, game.DefinitionId, StringComparison.OrdinalIgnoreCase))
+            && string.Equals(entry.DefinitionId, game.DefinitionId, StringComparison.Ordinal))
         {
             return true;
         }
@@ -582,6 +582,19 @@ public sealed class LudusaviManifestCompiler
         foreach (var pair in mapping.Children)
         {
             if (string.Equals(ScalarValue(pair.Key), key, StringComparison.OrdinalIgnoreCase))
+            {
+                return pair;
+            }
+        }
+
+        return default;
+    }
+
+    private static KeyValuePair<YamlNode, YamlNode> FindExactPair(YamlMappingNode mapping, string key)
+    {
+        foreach (var pair in mapping.Children)
+        {
+            if (string.Equals(ScalarValue(pair.Key), key, StringComparison.Ordinal))
             {
                 return pair;
             }
