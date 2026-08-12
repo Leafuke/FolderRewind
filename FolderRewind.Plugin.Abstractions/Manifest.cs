@@ -25,4 +25,18 @@ public sealed record PluginManifestContract(
 
 public sealed record ConfigKindDeclaration(
     ConfigKindRef Kind,
-    string DisplayName);
+    string DisplayName,
+    BackupFallbackPolicy BackupFallback,
+    RestoreCoordinationPolicy RestoreCoordination);
+
+public enum BackupFallbackPolicy
+{
+    Block = 0,
+    RawWithWarnings = 1
+}
+
+public enum RestoreCoordinationPolicy
+{
+    None = 0,
+    Required = 1
+}

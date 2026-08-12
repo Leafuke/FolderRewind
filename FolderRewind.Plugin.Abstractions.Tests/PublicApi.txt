@@ -1,6 +1,7 @@
 # Generated and reviewed public API baseline for Plugin API 3.0.0.
-# sha256:fa5ec0c78c7f50a41bc2ba09395b7f057bb9025ce9d19c6c70d3386eb2c3f76d
+# sha256:e6a0d7849fe2ed442def6b13bd5a1404eea6b78f480d0d334f9fea6a5f5cf119
 T FolderRewind.Plugin.Abstractions.BackupConsistencyRequest
+T FolderRewind.Plugin.Abstractions.BackupFallbackPolicy
 T FolderRewind.Plugin.Abstractions.BackupScopeDescriptor
 T FolderRewind.Plugin.Abstractions.BackupScopeId
 T FolderRewind.Plugin.Abstractions.BackupScopeRequest
@@ -11,6 +12,7 @@ T FolderRewind.Plugin.Abstractions.ConfigDraft
 T FolderRewind.Plugin.Abstractions.ConfigKindDeclaration
 T FolderRewind.Plugin.Abstractions.ConfigKindRef
 T FolderRewind.Plugin.Abstractions.ConfigSnapshot
+T FolderRewind.Plugin.Abstractions.ConsistencyIntent
 T FolderRewind.Plugin.Abstractions.DiagnosticSeverity
 T FolderRewind.Plugin.Abstractions.DiscoveryCandidate
 T FolderRewind.Plugin.Abstractions.DiscoveryProviderId
@@ -69,6 +71,7 @@ T FolderRewind.Plugin.Abstractions.PluginSettingsSnapshot
 T FolderRewind.Plugin.Abstractions.ProviderStateLocation
 T FolderRewind.Plugin.Abstractions.ProviderStatePatch
 T FolderRewind.Plugin.Abstractions.ProviderStateSnapshot
+T FolderRewind.Plugin.Abstractions.RestoreCoordinationPolicy
 T FolderRewind.Plugin.Abstractions.RestoreCoordinatorRequest
 T FolderRewind.Plugin.Abstractions.RestoreCoordinatorResult
 T FolderRewind.Plugin.Abstractions.RestoreMutationContinuation

@@ -37,6 +37,12 @@ public enum OperationOutcome
     Blocked = 5
 }
 
+public enum ConsistencyIntent
+{
+    Prefer = 0,
+    Require = 1
+}
+
 public enum DiagnosticSeverity
 {
     Information = 0,

@@ -49,7 +49,7 @@ public interface IBackupConsistencyCapability : IPluginCapability
     ValueTask<IConsistencyLease> AcquireAsync(BackupConsistencyRequest request, PluginInvocationContext context);
 }
 
-public sealed record BackupConsistencyRequest(ConfigSnapshot Config, FolderSnapshot Folder, string Intent);
+public sealed record BackupConsistencyRequest(ConfigSnapshot Config, FolderSnapshot Folder, ConsistencyIntent Intent);
 public interface IConsistencyLease : IAsyncDisposable
 {
     string SourcePath { get; }

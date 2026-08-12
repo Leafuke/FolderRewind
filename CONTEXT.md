@@ -119,6 +119,10 @@ _Avoid_: Installed state, runtime state, global plugin switch
 The host-observed lifecycle state of a plugin session: Inactive, Activating, Active, Draining, Deactivating, or Failed.
 _Avoid_: Enabled intent, installation status, operation outcome
 
+**Operation Resolution**:
+The host-owned, side-effect-free decision that combines Config Kind policy, runtime availability, selected provider scope, and consistency intent into Ready, Degraded, or Blocked plus durable diagnostics.
+_Avoid_: Plugin health check, operation result, fallback exception
+
 **Runtime Session**:
 One committed activation of a plugin instance together with its registered capabilities and active operation leases.
 _Avoid_: Installed plugin, enabled intent, process lifetime
