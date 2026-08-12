@@ -1,5 +1,5 @@
 ---
-status: proposed
+status: accepted
 ---
 
 # Plugin artifacts use Host-owned graph transactions

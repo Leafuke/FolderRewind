@@ -1,18 +1,18 @@
 # FolderRewind Plugin System v3 — 1.9.0 冻结与执行计划
 
-> 状态：D0 已冻结 / Revision 10 M3 修订待批准
+> 状态：D0 / M3R 已冻结 / M3 实施中
 >
 > 计划版本：2026-08-12 / Revision 10
 >
 > 产品版本：FolderRewind 1.9.0、MineRewind 1.9.0
 >
-> Plugin API：3.0.0（Revision 9 candidate 已撤回，等待 M3R 重新冻结）
+> Plugin API：3.0.0（Revision 9 candidate 已撤回，Revision 10 contract 正在 M3 重新实现与冻结）
 >
 > App Config Schema：1
 >
 > 目标仓库：`Leafuke/FolderRewind`、`Leafuke/FolderRewind-Plugin-Minecraft`、`Leafuke/FolderRewind-Site`、新建 `Leafuke/FolderRewind-Plugin-Catalog`
 >
-> 当前执行门：M3R 文档修订待用户批准；批准前不得继续修改产品代码或进入 M4。
+> 当前执行门：M3 实施；用户已授权完成后自动通过 M3 Gate、继续 M4 并自动通过 M4 Gate、继续 M5，最终停在 M5 Gate 等待人工测试与审阅。
 
 本文件是 Plugin System v3 的唯一执行依据。它先作为受版本控制的 proposed specification 接受审阅；用户明确通过 D0 后，才可把状态改为“已冻结 / 实施中”并修改产品代码。实施中若发现本计划无法满足仓库事实，必须先修订本文件、说明影响并重新通过当前里程碑，禁止在代码中静默偏离。
 
@@ -44,7 +44,7 @@
 | M5 Distribution | 安装/更新/离线迁移/Catalog/站点全绿 | 删除 v2 |
 | M6 Release Candidate | 四仓库 DoD 全部满足 | 单独申请发布授权 |
 
-每个门完成后必须暂停并提交：变更摘要、测试证据、已知风险、下一阶段计划。用户当前只授权本地修改、测试和里程碑内提交；push、PR、NuGet.org、GitHub Pages、Catalog 合并和正式 release 均需另行批准。
+每个门完成后必须提交：变更摘要、测试证据、已知风险、下一阶段计划。用户于 2026-08-12 批准 M3R，并特别授权本轮在证据全绿后自动批准 M3 与 M4、连续实施至 M5 Gate；M5 Gate 必须暂停，交由用户进行人工测试和审阅。此连续授权只覆盖本地修改、测试、仓库初始化和里程碑内提交；push、PR、NuGet.org、GitHub Pages、远程 Catalog 创建/合并和正式 release 均需另行批准。
 
 ### 0.3 基线与工作区约束
 
@@ -399,7 +399,7 @@ M2 后续边界与已知风险：
 
 真实第三方 MineDelta fork 证明：Revision 9 能支持 MineRewind 的 discovery/consistency/coordinator/command，却不能安全表达 reverse semantic delta。v2 `OnAfterBackupFolder` 在 History/Cloud/完成状态之后原地修改旧 archive，v2 restore interceptor/takeover 又可绕过完整 preflight、BackupBeforeRestore、Safe Restore、progress/cancellation 和 target mutation lifecycle；把这些自由 Hook 原样带入 v3 会固化 chain poisoning、middle deletion、Cloud divergence 和不可追溯后台失败。
 
-用户于 2026-08-12 明确认同“Host-owned Artifact Graph Transaction + Restore Materializer”的修订方向。本 Revision 10 将其转化为完整可执行规范，但依照既定变更控制，这一方向认同不等同于对完整修订文档的冻结批准。本次只修改计划、`CONTEXT.md`、ADR 0003 的 high-impact disclosure consequence 和 proposed ADR 0005；用户明确回复 `M3R 批准` 后，ADR 0005 改为 accepted、当前门切回 M3 实施，并从提交 13 开始修改产品代码。
+用户于 2026-08-12 明确认同“Host-owned Artifact Graph Transaction + Restore Materializer”的修订方向，并随后明确回复 `M3R 批准`。Revision 10、`CONTEXT.md`、ADR 0003 的 high-impact disclosure consequence 与 ADR 0005 因此冻结；ADR 0005 改为 accepted，当前门切回 M3 实施，并从提交 13 开始修改产品代码。用户同时授权在门禁证据全绿后自动批准 M3、M4，并连续实施到 M5 Gate；该授权不降低任何测试门禁，也不包含外部发布动作。
 
 10. `[Host] feat(plugin-operation): operation resolution and outcomes`
 11. `[MineRewind] refactor(plugin-api): remove Host project reference and adopt manifest v3`
@@ -468,7 +468,7 @@ Revision 10 新增边界与非目标：
 - 不承诺自动采用实验 fork 既有 `.rvdl`。任何 legacy Artifact import 必须先完整验证 graph/hash/format，再通过独立 Host-owned import transaction；未验证文件只读保留，不能进入正常 restore graph。
 - `.frplugin` 安装、Manifest/package 静态 parser、Catalog 与 bundled offline upgrade 尚未开始，分别属于 M5；本地 NuGet candidate 不代表 NuGet.org 发布授权。
 - Host 中现有 v2 runtime path 仍保留到完整 parity 和真实安装 E2E 通过；不得因 M3 API Freeze 提前删除。
-- Revision 10 文档、术语和 ADR 0005 获用户批准前不得继续 M3 产品代码；修订获批后从提交 13 开始，完成新 M3 Gate 并再次暂停，仍不得直接进入 M4。
+- Revision 10 文档、术语和 ADR 0005 已获用户批准；从提交 13 开始继续 M3 产品代码。M3 Gate 证据全绿后依本轮特别授权自动批准并进入 M4，M4 Gate 同理；完成 M5 后必须暂停在 M5 Gate 等待人工测试与审阅。
 
 ### M4 — 完整 Host/MineRewind 迁移
 
