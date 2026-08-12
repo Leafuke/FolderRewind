@@ -16,6 +16,12 @@ descriptors. Plugins register capabilities during `ActivateAsync`; the Host
 validates and commits the activation before those capabilities become visible.
 Activation may read settings and snapshots but cannot use the plugin DataStore.
 
+Config Reconciliation returns revision-bound proposals; it never saves a user
+configuration directly. Backup Artifact extensions operate only through
+Host-owned immutable graph transactions and bounded staging. Restore
+Materializers write an isolated Host workspace, while the Host retains
+preflight, integrity, Safe Restore, and target mutation ownership.
+
 Manifest declarations and settings schemas are static package data. Requested
 Host services are compatibility and user-consent declarations, not a security
 sandbox. Plugins execute in the FolderRewind process and must therefore be
