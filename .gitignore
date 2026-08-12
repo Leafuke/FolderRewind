@@ -383,6 +383,10 @@ FodyWeavers.xsd
 /docs/*
 !/docs/SponsorEdition.md
 !/docs/SPONSORS.md
+!/docs/adr/
+!/docs/adr/*.md
+!/docs/plans/
+!/docs/plans/FolderRewind_Plugin_System_v3_Execution_Plan.md
 !/docs/release/
 !/docs/release/*.md
 *.exe

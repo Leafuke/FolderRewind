@@ -26,7 +26,7 @@ A proposed configuration boundary containing backup-resource candidates that sho
 _Avoid_: Game candidate, source folder
 
 **Discovery Set Identity**:
-The persistent identity of one provider-owned backup set, formed by `ProviderId + DefinitionId + SetId`; external IDs may reconnect a uniquely renamed definition but display titles never establish identity.
+The persistent identity of one discovery-provider-owned backup set, formed by `DiscoveryProviderId + DefinitionId + SetId`; external IDs may reconnect a uniquely renamed definition but display titles never establish identity.
 _Avoid_: Game title, merged game identity, configuration name
 
 **Backup Resource Candidate**:
@@ -76,3 +76,45 @@ _Avoid_: History item, archive owner, alternative history mode
 **Operation Comment**:
 The comment supplied for one manual backup invocation; a configuration backup stores it on the run and newly created child history items, but never rewrites reused history items.
 _Avoid_: Folder note, mutable archive comment
+
+## Plugin language
+
+**Plugin**:
+An installed extension product that contributes domain behavior to FolderRewind while the host retains ownership of configuration, execution, persistence, conflict handling, and user interaction.
+_Avoid_: Add-on script, privileged core module
+
+**Plugin ID**:
+The permanent reverse-domain identity of one plugin product, independent of its name, version, installation path, or runtime state.
+_Avoid_: Provider ID, display name, assembly name
+
+**Capability**:
+A single kind of domain behavior that a plugin offers through the Plugin API; a capability is selected by explicit identity and contract rather than hook order or first-claim scanning.
+_Avoid_: Hook, middleware, plugin feature flag
+
+**Config Kind**:
+The stable domain classification of a backup configuration, formed by `OwnerId + KindId`; it identifies who defines the configuration's semantics without transferring ownership of the configuration away from the user.
+_Avoid_: Config type label, discovery provider, plugin name
+
+**Discovery Provider ID**:
+The stable identity of a component that proposes discovery candidates; it participates in discovery-set identity but does not identify a plugin, config kind, or state namespace.
+_Avoid_: Plugin ID, state owner ID, game title
+
+**State Owner ID**:
+The namespace owner of opaque provider state attached to a configuration or backup source; equal text may be used for a plugin's own state, but the role is distinct from Plugin ID.
+_Avoid_: Plugin ID, discovery provider ID, dictionary prefix
+
+**Runtime Session**:
+One committed activation of a plugin instance together with its registered capabilities and active operation leases.
+_Avoid_: Installed plugin, enabled intent, process lifetime
+
+**Consistency Lease**:
+A bounded right to read one stable backup source through difference detection and archive capture, together with the obligation to release any coordination or snapshot resources.
+_Avoid_: Backup hook, source path override, archive lifetime
+
+**Restore Coordinator**:
+The domain owner that surrounds one host-controlled restore mutation with required external preparation and finalization without taking ownership of archive resolution or file restoration.
+_Avoid_: Restore interceptor, restore engine, before/after hook
+
+**Plugin Command**:
+A stable plugin-owned action identified by `PluginId + CommandId`, independent of whether it is invoked from UI, hotkey, tray, KnotLink, or another host entry point.
+_Avoid_: Hotkey provider, KnotLink command handler, UI callback
