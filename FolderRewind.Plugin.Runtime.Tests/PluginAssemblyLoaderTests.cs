@@ -125,7 +125,18 @@ public sealed class PluginAssemblyLoaderTests
         => new(new PluginId(pluginId), FixtureOutput(fixture), assembly, entryType, new PluginApiVersion(3, 0));
 
     private static string FixtureOutput(string fixture)
-        => Path.Combine(RepositoryRoot(), "FolderRewind.Plugin.Runtime.Tests", "Fixtures", fixture, "bin", "Debug", "net10.0");
+        => Path.Combine(
+            RepositoryRoot(),
+            "FolderRewind.Plugin.Runtime.Tests",
+            "Fixtures",
+            fixture,
+            "bin",
+            BuildConfiguration(),
+            "net10.0");
+
+    private static string BuildConfiguration()
+        => new DirectoryInfo(AppContext.BaseDirectory).Parent?.Name
+           ?? throw new DirectoryNotFoundException("Test build configuration was not found.");
 
     private static string RepositoryRoot()
     {
