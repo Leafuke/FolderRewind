@@ -2,7 +2,7 @@
 
 > 状态：已冻结 / 实施中（D0 于 2026-08-12 经用户批准）
 >
-> 计划版本：2026-08-12 / Revision 4
+> 计划版本：2026-08-12 / Revision 5
 >
 > 产品版本：FolderRewind 1.9.0、MineRewind 1.9.0
 >
@@ -11,6 +11,8 @@
 > App Config Schema：1
 >
 > 目标仓库：`Leafuke/FolderRewind`、`Leafuke/FolderRewind-Plugin-Minecraft`、`Leafuke/FolderRewind-Site`、新建 `Leafuke/FolderRewind-Plugin-Catalog`
+>
+> 当前执行门：M1 已完成实施方自检，等待用户批准 M1 Gate；批准前不得进入 M2。
 
 本文件是 Plugin System v3 的唯一执行依据。它先作为受版本控制的 proposed specification 接受审阅；用户明确通过 D0 后，才可把状态改为“已冻结 / 实施中”并修改产品代码。实施中若发现本计划无法满足仓库事实，必须先修订本文件、说明影响并重新通过当前里程碑，禁止在代码中静默偏离。
 
@@ -228,6 +230,36 @@ Recovery Center 是受限启动状态，不是普通主界面。它禁止插件 
    - 实现 3.3/3.4；加入代表性、malformed、unknown、新版 schema 和 fault-injection fixtures。
 
 **M1 Gate**：migration atomic/idempotent、FolderId stable、unknown data retained、Recovery Center no-write；Host/MineRewind baseline 全绿。
+
+#### M1 实施记录（2026-08-12，待用户批准 Gate）
+
+提交边界：
+
+- Host `e509f85`：补充备份入口 consistency intent、不可恢复来源不得进入 restore mutation、可恢复来源逐项 once-only 的语义基线；
+- MineRewind `514798b`，Host submodule pointer `73f3e65`：补充 hot restore backup-id 安全、partial/full restore mode、session.lock/LevelDB 占用探测基线；
+- Host `05cbf34`：建立 `FolderRewind.Plugin.Runtime` 与独立 `FolderRewind.Plugin.Runtime.Tests`，配置 parser/migrator/validator/file transaction 不依赖 WinUI；
+- Host `cc271d7`：Host source-generated JSON payload validation、Schema 1 入口、稳定 FolderId、unknown-field extension preservation、受限 Recovery Center、导入同一 schema gate 与显式恢复动作。
+
+自检证据：
+
+| 门禁 | 结果 |
+|---|---|
+| Runtime tests | 21/21；包含 representative/malformed/unknown/newer fixtures、每个 commit stage fault injection、payload validation、原文件与临时文件断言 |
+| Host tests | 266/266，通过 |
+| MineRewind tests | 42/42，通过 |
+| Host x64 Debug build | 0 warning / 0 error |
+| MineRewind x64 Debug build | 0 warning / 0 error；仍会经现有 ProjectReference 构建 Host，按计划在 M2/M3 消除 |
+| migration atomic/idempotent | timestamped non-overwrite recovery copy、flush-to-disk、temporary read-back、bounded transient replace retry、atomic replace、formal read-back、post-replace rollback 均有自动测试 |
+| FolderId stable | legacy 一次生成；Schema 1 重读不重生成；重复/非法值在持久化前修复并校验唯一性 |
+| unknown data retained | JSON migration 使用 deep clone；Host `ObservableObject` 统一 extension-data round-trip；未知 ConfigType/ExtendedProperties 进入只读 preservation + warning |
+| Recovery Center no-write | malformed/newer/current schema gate 的无写入断言通过；受限启动在普通 Shell 创建前 return；关闭窗口没有配置写路径 |
+
+已知风险与后续边界：
+
+- Recovery Center XAML 已通过 WinUI build，但本轮没有为手工 smoke test 改动真实 `%LocalAppData%` 配置；真实安装迁移 E2E 仍按 M6 门禁执行。
+- Schema 1 的 Kind/Provider State/typed settings 目前通过受保护的 extension data 与 v2 字段并存，只为保证 M1 迁移与无损往返；M2 提交 6 必须替换成正式角色类型和持久化模型，M6 才删除 v2 字段。
+- Host/MineRewind 并行构建争用仍是冻结计划中的已知基线问题，必须在 M2/M3 通过独立 Abstractions 引用消除，未在 M1 越界处理。
+- 本记录只声明实施方自检通过；用户明确批准 M1 Gate 前，不开始 M2。
 
 ### M2 — Abstractions、Runtime 与持久化
 
