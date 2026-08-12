@@ -1,0 +1,12 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <AssemblyName>Fixture.PluginTwo</AssemblyName>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\..\..\FolderRewind.Plugin.Abstractions\FolderRewind.Plugin.Abstractions.csproj" Private="false" />
+    <ProjectReference Include="..\PrivateDependency.V2\PrivateDependency.V2.csproj" />
+  </ItemGroup>
+</Project>
