@@ -1,5 +1,5 @@
 ---
-status: proposed
+status: accepted
 ---
 
 # Plugin v3 uses capabilities and role-specific identities

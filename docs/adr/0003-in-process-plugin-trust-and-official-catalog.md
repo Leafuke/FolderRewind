@@ -1,5 +1,5 @@
 ---
-status: proposed
+status: accepted
 ---
 
 # In-process plugins use a curated catalog, not a security sandbox

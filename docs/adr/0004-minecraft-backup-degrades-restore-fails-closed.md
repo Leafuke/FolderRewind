@@ -1,5 +1,5 @@
 ---
-status: proposed
+status: accepted
 ---
 
 # Minecraft backup may degrade while restore fails closed
