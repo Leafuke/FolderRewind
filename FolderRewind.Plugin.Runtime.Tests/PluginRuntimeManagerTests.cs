@@ -1,6 +1,8 @@
+using System.Text;
 using System.Text.Json;
 using FolderRewind.Plugin.Abstractions;
 using FolderRewind.Plugin.Runtime.Activation;
+using FolderRewind.Plugin.Runtime.Settings;
 
 namespace FolderRewind.Plugin.Runtime.Tests;
 
@@ -162,7 +164,13 @@ public sealed class PluginRuntimeManagerTests
         var manager = new PluginRuntimeManager();
         var oldPlugin = PluginWithDiscovery("old");
         await manager.ActivateAsync(Candidate(PluginOneId, oldPlugin, new FakeStore(), settingsValue: "old"));
-        var newPlugin = PluginWithDiscovery("new");
+        var sawDrainingDuringActivation = false;
+        var newPlugin = new FakePlugin(context =>
+        {
+            sawDrainingDuringActivation = manager.GetSnapshot(PluginOneId).State == PluginRuntimeState.Draining;
+            context.RegisterCapability<IDiscoveryCapability>(new FakeDiscovery("new"));
+            return PluginActivationResult.Empty;
+        });
         var failingStore = new FakeStore { FailNextCommit = true };
 
         var result = await manager.ReplaceAsync(
@@ -172,9 +180,41 @@ public sealed class PluginRuntimeManagerTests
         Assert.AreEqual(PluginRuntimeState.Active, manager.GetSnapshot(PluginOneId).State);
         Assert.AreEqual(0, oldPlugin.DeactivationCount);
         Assert.AreEqual(1, newPlugin.DeactivationCount);
+        Assert.IsTrue(sawDrainingDuringActivation);
         using var lease = manager.TryAcquire<IDiscoveryCapability>(PluginOneId);
         Assert.IsNotNull(lease);
         Assert.AreEqual("old", ((FakeDiscovery)lease.Capability).Marker);
+    }
+
+    [TestMethod]
+    public async Task InvalidSettingsCandidateNeverCreatesOrCommitsPluginInstance()
+    {
+        var schema = PluginSettingsSchema.Parse(Encoding.UTF8.GetBytes("""
+            {
+              "schemaVersion": 1,
+              "settings": [{ "key": "setting", "type": "boolean", "required": true }]
+            }
+            """));
+        var factoryCalls = 0;
+        var store = new FakeStore();
+        var manager = new PluginRuntimeManager();
+        var coordinator = new PluginSettingsTransactionCoordinator(manager);
+        var candidate = Candidate(
+            PluginOneId,
+            () =>
+            {
+                factoryCalls++;
+                return PluginWithDiscovery("invalid");
+            },
+            store);
+
+        var result = await coordinator.ApplyAsync(schema, candidate);
+
+        Assert.IsFalse(result.Success);
+        Assert.IsNull(result.Transition);
+        Assert.AreEqual(0, factoryCalls);
+        Assert.IsEmpty(store.Commits);
+        Assert.AreEqual(PluginRuntimeState.Inactive, manager.GetSnapshot(PluginOneId).State);
     }
 
     private static PluginActivationCandidate Candidate(

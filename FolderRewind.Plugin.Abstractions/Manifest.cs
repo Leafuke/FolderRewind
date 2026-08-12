@@ -19,4 +19,10 @@ public sealed record PluginManifestContract(
     PluginApiVersion RequiredApi,
     string EntryAssembly,
     string EntryType,
+    IReadOnlyList<ConfigKindDeclaration> ConfigKinds,
+    string SettingsSchema,
     IReadOnlyList<HostServiceKind> RequestedHostServices);
+
+public sealed record ConfigKindDeclaration(
+    ConfigKindRef Kind,
+    string DisplayName);

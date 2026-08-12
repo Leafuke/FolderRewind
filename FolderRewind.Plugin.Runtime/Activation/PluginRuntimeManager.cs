@@ -125,7 +125,6 @@ public sealed class PluginRuntimeManager
             StagedPlugin? staged = null;
             try
             {
-                staged = await StageAsync(candidate, candidate.PluginId, cancellationToken).ConfigureAwait(false);
                 var drained = oldSession.BeginDrain();
                 try
                 {
@@ -134,12 +133,13 @@ public sealed class PluginRuntimeManager
                 catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
                 {
                     oldSession.ResumeActive();
-                    await DiscardAsync(staged).ConfigureAwait(false);
                     return PluginRuntimeTransitionResult.Rejected(
                         OperationOutcome.Canceled,
                         PluginRuntimeState.Active,
                         RuntimeDiagnostic.Warning("runtime.drain_canceled", candidate.PluginId, "The existing runtime session remains active."));
                 }
+
+                staged = await StageAsync(candidate, candidate.PluginId, cancellationToken).ConfigureAwait(false);
 
                 try
                 {
