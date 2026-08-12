@@ -103,6 +103,22 @@ _Avoid_: Plugin ID, state owner ID, game title
 The namespace owner of opaque provider state attached to a configuration or backup source; equal text may be used for a plugin's own state, but the role is distinct from Plugin ID.
 _Avoid_: Plugin ID, discovery provider ID, dictionary prefix
 
+**Provider State**:
+An opaque, versioned JSON value owned and migrated only by its State Owner while the host owns storage, validation, and atomic commit.
+_Avoid_: Plugin settings, extension properties, host origin
+
+**Provider State Location**:
+The stable host-owned address of provider state, formed by `ConfigId + optional FolderId`; a missing FolderId means configuration-level state and a present FolderId means backup-source state.
+_Avoid_: File path, State Owner ID, plugin data-store path
+
+**Enabled Intent**:
+The user's durable choice that an installed plugin should be active when compatible; it is not proof that the plugin is installed, loaded, or healthy and Safe Mode never rewrites it.
+_Avoid_: Installed state, runtime state, global plugin switch
+
+**Runtime State**:
+The host-observed lifecycle state of a plugin session: Inactive, Activating, Active, Draining, Deactivating, or Failed.
+_Avoid_: Enabled intent, installation status, operation outcome
+
 **Runtime Session**:
 One committed activation of a plugin instance together with its registered capabilities and active operation leases.
 _Avoid_: Installed plugin, enabled intent, process lifetime

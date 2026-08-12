@@ -2,7 +2,7 @@
 
 > 状态：已冻结 / 实施中（D0 于 2026-08-12 经用户批准）
 >
-> 计划版本：2026-08-12 / Revision 6
+> 计划版本：2026-08-12 / Revision 7
 >
 > 产品版本：FolderRewind 1.9.0、MineRewind 1.9.0
 >
@@ -12,7 +12,7 @@
 >
 > 目标仓库：`Leafuke/FolderRewind`、`Leafuke/FolderRewind-Plugin-Minecraft`、`Leafuke/FolderRewind-Site`、新建 `Leafuke/FolderRewind-Plugin-Catalog`
 >
-> 当前执行门：M1 Gate 已于 2026-08-12 经用户批准；M2 实施中。
+> 当前执行门：M2 实施完成，Gate 证据已记录，等待用户批准；未进入 M3。
 
 本文件是 Plugin System v3 的唯一执行依据。它先作为受版本控制的 proposed specification 接受审阅；用户明确通过 D0 后，才可把状态改为“已冻结 / 实施中”并修改产品代码。实施中若发现本计划无法满足仓库事实，必须先修订本文件、说明影响并重新通过当前里程碑，禁止在代码中静默偏离。
 
@@ -119,13 +119,15 @@ Host Services 至少提供：只读 config query、backup request、restore requ
 
 - 公共 boundary 只传 immutable snapshot、draft、patch、descriptor、request/result 和 cancellation token。
 - Snapshot 不携带 observable collection、Host service、UI type 或可变 Host model；所有路径、ID、scope、diagnostic 均有明确 contract type。
-- Settings values 使用 `JsonElement`/等价 typed JSON value map；Provider State 使用 `{ StateOwnerId, SchemaVersion, JsonElement Data }`。
+- Settings values 使用 `JsonElement`/等价 typed JSON value map；Provider State snapshot/patch 使用 `{ Location: { ConfigId, FolderId? }, StateOwnerId, SchemaVersion, JsonElement Data }`，补丁必须同时匹配 location、owner 和 expected schema version。
 - Activation 返回/提交的 patch 只能针对 Host 明确开放的 settings/provider state/config augmentation draft；Host 负责版本检查、冲突、去重、验证与原子保存。
 - DataStore 用于大体量、可重建或插件私有数据；不参与 Host settings/provider state 事务，插件必须 crash-safe/versioned/cache-rebuildable。
 
 ### 2.3 静态 Schema 与 Manifest
 
-- `settings.schema.json` 在禁用插件和 Safe Mode 下可读，v3.0 支持 string、boolean、integer、multiline、folderPath、filePath、enum；Host 负责 default、required、type/enum validation。
+- `settings.schema.json` 在禁用插件和 Safe Mode 下可读；根为 `{ schemaVersion: 1, settings: [...] }`，setting 至少包含唯一 `key` 与 `type`，可包含 `required`、`default`、`displayName`、`description`，enum 额外声明非空且唯一的 `enumValues`。
+- v3.0 setting type 固定为 string、boolean、integer、multiline、folderPath、filePath、enum；Host 负责 default、required、type/enum validation。schema 未识别的旧/未来 value 原样保留并产生 warning，不因设置 UI 往返丢失。
+- Manifest contract 静态声明 PluginId/version/API requirement/entry、Config Kind metadata、settings schema 相对路径和 requested Host Services；运行时不得用执行插件代码补充这些声明。
 - Backup Scope 复用轻量 form schema；未知 `EditorHint` 回退基础控件。
 - Manifest Config Kind metadata 至少包含 stable KindId、本地化 display、icon/description；metadata cache 允许插件缺失时展示 last-known identity。
 - Requested Host Services 扩大时必须在更新前向用户展示；高影响服务变化不得静默自动更新。
@@ -275,6 +277,41 @@ Recovery Center 是受限启动状态，不是普通主界面。它禁止插件 
    - Candidate validate → drain old → activate new instance with staged state → commit settings/state → failure restore old instance；augmentation 是 commit 后独立业务 step。
 
 **M2 Gate**：Abstractions 可 build/test/pack；半途 activation 无注册残留；settings/state rollback；Safe Mode 不执行 DLL；两个插件私有依赖版本隔离。
+
+#### M2 Gate 实施记录（2026-08-12，待用户批准）
+
+实现提交：
+
+- `9f63384 feat(plugin-api): introduce Abstractions 3.0`
+- `adf5a67 feat(config): formalize plugin v3 persistence`
+- `0fb5d94 feat(plugin-runtime): add transactional activation and draining`
+- `1479e48 feat(plugin-runtime): isolate plugin assembly dependencies`
+- `73c5721 feat(plugin-runtime): validate and transact typed settings`
+- `21d95bf fix(config): keep v2 bridge aligned with v3 intent`
+- `87f5054 test(plugin-loading): honor active build configuration`
+
+Gate 证据：
+
+| 检查项 | 结果 |
+|---|---|
+| Abstractions Release build/test | 9/9；0 warning / 0 error；BCL-only、AssemblyVersion `3.0.0.0`、public API SHA-256 baseline 全绿 |
+| Abstractions local pack | `FolderRewind.Plugin.Abstractions.3.0.0.nupkg` 成功；只含 README、nuspec、`net10.0` DLL/XML 与 NuGet metadata；SHA-256 `1BA5F6AF40B924673314D5D12651915180799EE9F8C62EF491D011323BB27C8E` |
+| Runtime Release tests | 42/42；覆盖 schema migration、activation rollback、capability conflict、state migration、Safe Mode、Draining/lease、settings rollback、ALC unload、contract DLL 拒绝及双私有依赖版本隔离 |
+| Host tests | 266/266 Debug 全绿 |
+| MineRewind tests | 42/42 Debug 全绿 |
+| Host x64 Debug build | 0 warning / 0 error |
+| MineRewind x64 Debug build | 0 warning / 0 error |
+| activation 可见性 | capability 仅在 staged validation、provider migration 和 store commit 全部成功后进入 committed registry；失败实例 Deactivate 且不保留 key |
+| settings/state rollback | 顺序固定为 candidate schema validation → old session Draining → new instance staged activation/migration → atomic store commit → registry swap；失败恢复旧 Active session/settings/state |
+| Safe Mode | `--safe-mode` 在配置/插件初始化前识别；v2/v3 loader 均有硬门禁，factory/DLL 不执行；Enabled Intent 不改写；设置页提供确认后的“以安全模式重启”入口 |
+| loader identity/isolation | Abstractions 强制返回 Default ALC；payload 自带该 DLL 即拒绝；两个同时加载的 fixture 各自得到 `Fixture.PrivateDependency` 1.x/2.x；collectible ALC 可释放 |
+
+M2 后续边界与已知风险：
+
+- 本地 NuGet 包只是四仓库开发候选，不代表 NuGet.org 发布授权；M3 API Freeze 后重新产出 candidate，正式发布仍需单独批准。
+- Safe Mode 的 no-DLL 行为已有 runtime factory 测试、Host loader 硬门禁和 WinUI build 证据；真实安装进程 smoke test 仍属于 M6 安装 E2E。
+- M2 建成 runtime/store/loader 边界和 Host schema 模型，但尚未让 MineRewind 采用 v3；Host v2 runtime 与 MineRewind Host ProjectReference 按计划保留到 M3 垂直切片/M6 clean break，当前仍不可并行构建两仓库。
+- M3 未开始。只有用户明确批准本 Gate 后，才允许接入 fake plugin 与 MineRewind 四条最小 E2E，并在其全绿后冻结 API 3.0。
 
 ### M3 — 最小垂直切片与 API Freeze
 
