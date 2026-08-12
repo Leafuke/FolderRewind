@@ -249,6 +249,7 @@ public sealed class PluginRuntimeManagerTests
     private static ConfigSnapshot ConfigWithState(ProviderStateSnapshot state)
         => new(
             state.Location.ConfigId,
+            new ConfigRevision("revision-1"),
             new ConfigKindRef(new OwnerId("folderrewind.core"), "default"),
             "Config",
             Array.Empty<FolderSnapshot>(),

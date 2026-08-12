@@ -12,17 +12,48 @@ public sealed record DiscoveryRequest(IReadOnlyList<string> UserRoots);
 public sealed record DiscoveryResult(IReadOnlyList<DiscoveryCandidate> Candidates, IReadOnlyList<PluginDiagnostic> Diagnostics);
 public sealed record DiscoveryCandidate(string CandidateId, string DisplayName, IReadOnlyList<ConfigDraft> ConfigDrafts);
 
-public interface IConfigAugmentationCapability : IPluginCapability
+public interface IConfigReconciliationCapability : IPluginCapability
 {
     ConfigKindRef Kind { get; }
-    ValueTask<ConfigAugmentationPatch> ProposeAsync(ConfigAugmentationRequest request, PluginInvocationContext context);
+    ValueTask<ConfigChangeProposal?> ProposeAsync(ConfigReconciliationRequest request, PluginInvocationContext context);
 }
 
-public sealed record ConfigAugmentationRequest(IReadOnlyList<ConfigSnapshot> Configs, string Reason);
-public sealed record ConfigAugmentationPatch(
-    IReadOnlyList<ConfigDraft> ConfigsToAdd,
-    IReadOnlyList<ConfigFolderAugmentation> FolderAugmentations);
-public sealed record ConfigFolderAugmentation(string ConfigId, IReadOnlyList<FolderDraft> FoldersToAdd);
+public sealed record ConfigReconciliationRequest(ConfigSnapshot Config, string Reason);
+public sealed record ConfigChangeProposal(
+    string ProposalId,
+    string ConfigId,
+    ConfigRevision ExpectedRevision,
+    string Reason,
+    IReadOnlyList<ConfigChange> Changes,
+    IReadOnlyList<PluginDiagnostic> Diagnostics);
+
+public enum ConfigChangeImpact
+{
+    Additive = 0,
+    Mutating = 1,
+    Destructive = 2
+}
+
+public enum ConfigFieldOwnership
+{
+    Provider = 0,
+    User = 1
+}
+
+public abstract record ConfigChange(ConfigChangeImpact Impact, ConfigFieldOwnership Ownership);
+public sealed record AddFolderChange(FolderDraft Folder)
+    : ConfigChange(ConfigChangeImpact.Additive, ConfigFieldOwnership.Provider);
+public sealed record UpdateFolderChange(Guid FolderId, string? Path, string? DisplayName)
+    : ConfigChange(ConfigChangeImpact.Mutating, ConfigFieldOwnership.User);
+public sealed record RemoveFolderChange(Guid FolderId)
+    : ConfigChange(ConfigChangeImpact.Destructive, ConfigFieldOwnership.User);
+public sealed record SetProviderOptionsChange(StateOwnerId StateOwnerId, int SchemaVersion, JsonElement Options)
+    : ConfigChange(ConfigChangeImpact.Mutating, ConfigFieldOwnership.Provider);
+public sealed record SetArtifactTransformPolicyChange(ArtifactTransformerId? TransformerId)
+    : ConfigChange(ConfigChangeImpact.Mutating, ConfigFieldOwnership.User);
+public sealed record SetUserPolicyChange(string PolicyId, JsonElement Value)
+    : ConfigChange(ConfigChangeImpact.Mutating, ConfigFieldOwnership.User);
+
 public sealed record ConfigDraft(
     ConfigKindRef Kind,
     string SuggestedName,

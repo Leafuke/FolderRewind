@@ -25,6 +25,7 @@ public sealed record ProviderStatePatch(
 
 public sealed record ConfigSnapshot(
     string ConfigId,
+    ConfigRevision Revision,
     ConfigKindRef Kind,
     string Name,
     IReadOnlyList<FolderSnapshot> Folders,

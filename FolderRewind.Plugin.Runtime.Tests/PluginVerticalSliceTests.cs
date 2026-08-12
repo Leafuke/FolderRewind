@@ -191,13 +191,124 @@ public sealed class PluginVerticalSliceTests
         CollectionAssert.AreEqual(new[] { "commit", "safety-backup" }, events);
     }
 
-    private static async Task<RuntimeFixture> ActivateFakeAsync(List<string> events)
+    [TestMethod]
+    public async Task ConfigReconciliationRejectsStaleProposalBeforeStoreMutation()
+    {
+        var events = new List<string>();
+        var plugin = new FakeVerticalPlugin(events)
+        {
+            ReconciliationProposal = Proposal(
+                new ConfigRevision("stale-revision"),
+                [new AddFolderChange(Folder("C:\\Additional"))])
+        };
+        var fixture = await ActivateFakeAsync(events, plugin);
+        var store = new RecordingConfigChangeStore(events);
+        var coordinator = new ConfigReconciliationCoordinator(fixture.Manager, store);
+        var (config, _) = Snapshot(FakeKind, "C:\\Data");
+
+        await Assert.ThrowsExactlyAsync<InvalidOperationException>(() => coordinator.ReconcileAsync(
+            FakePluginId,
+            new ConfigReconciliationRequest(config, "startup"),
+            new ConfigReconciliationApplyPolicy(true, true),
+            proposalConfirmed: false).AsTask());
+
+        Assert.HasCount(0, store.Commits);
+        CollectionAssert.AreEqual(new[] { "commit" }, events);
+    }
+
+    [TestMethod]
+    public async Task UserOwnedOrDestructiveConfigChangesAlwaysRequireReview()
+    {
+        var events = new List<string>();
+        var (config, folder) = Snapshot(FakeKind, "C:\\Data");
+        var plugin = new FakeVerticalPlugin(events)
+        {
+            ReconciliationProposal = Proposal(
+                config.Revision,
+                [new RemoveFolderChange(folder.FolderId)])
+        };
+        var fixture = await ActivateFakeAsync(events, plugin);
+        var store = new RecordingConfigChangeStore(events);
+        var coordinator = new ConfigReconciliationCoordinator(fixture.Manager, store);
+
+        var result = await coordinator.ReconcileAsync(
+            FakePluginId,
+            new ConfigReconciliationRequest(config, "world removed"),
+            new ConfigReconciliationApplyPolicy(true, true),
+            proposalConfirmed: false);
+
+        Assert.AreEqual(ConfigReconciliationStatus.ReviewRequired, result.Status);
+        Assert.HasCount(0, store.Commits);
+    }
+
+    [TestMethod]
+    public async Task ExplicitlyAuthorizedProviderOwnedChangesCommitAsOneRevision()
+    {
+        var events = new List<string>();
+        var (config, _) = Snapshot(FakeKind, "C:\\Data");
+        var plugin = new FakeVerticalPlugin(events)
+        {
+            ReconciliationProposal = Proposal(
+                config.Revision,
+                [
+                    new AddFolderChange(Folder("C:\\Additional")),
+                    new SetProviderOptionsChange(
+                        new StateOwnerId(FakePluginId.Value),
+                        1,
+                        Json("{\"enabled\":true}"))
+                ])
+        };
+        var fixture = await ActivateFakeAsync(events, plugin);
+        var store = new RecordingConfigChangeStore(events);
+        var coordinator = new ConfigReconciliationCoordinator(fixture.Manager, store);
+
+        var result = await coordinator.ReconcileAsync(
+            FakePluginId,
+            new ConfigReconciliationRequest(config, "startup"),
+            new ConfigReconciliationApplyPolicy(true, true),
+            proposalConfirmed: false);
+
+        Assert.AreEqual(ConfigReconciliationStatus.Committed, result.Status);
+        Assert.AreEqual(new ConfigRevision("revision-2"), result.CommittedRevision);
+        Assert.HasCount(1, store.Commits);
+        Assert.HasCount(2, store.Commits.Single().Changes);
+        CollectionAssert.AreEqual(new[] { "commit", "config-commit" }, events);
+    }
+
+    [TestMethod]
+    public async Task ConfigStoreFailureLeavesProposalUncommitted()
+    {
+        var events = new List<string>();
+        var (config, _) = Snapshot(FakeKind, "C:\\Data");
+        var plugin = new FakeVerticalPlugin(events)
+        {
+            ReconciliationProposal = Proposal(
+                config.Revision,
+                [new AddFolderChange(Folder("C:\\Additional"))])
+        };
+        var fixture = await ActivateFakeAsync(events, plugin);
+        var store = new RecordingConfigChangeStore(events) { FailBeforeCommit = true };
+        var coordinator = new ConfigReconciliationCoordinator(fixture.Manager, store);
+
+        await Assert.ThrowsExactlyAsync<IOException>(() => coordinator.ReconcileAsync(
+            FakePluginId,
+            new ConfigReconciliationRequest(config, "startup"),
+            new ConfigReconciliationApplyPolicy(true, false),
+            proposalConfirmed: false).AsTask());
+
+        Assert.HasCount(0, store.Commits);
+        Assert.AreEqual(new ConfigRevision("revision-1"), store.CurrentRevision);
+    }
+
+    private static async Task<RuntimeFixture> ActivateFakeAsync(
+        List<string> events,
+        FakeVerticalPlugin? plugin = null)
     {
         var host = new RecordingHostServices(events, knotLinkAvailable: false);
         var manager = new PluginRuntimeManager();
         var result = await manager.ActivateAsync(Candidate(
             FakePluginId,
-            () => new FakeVerticalPlugin(events),
+            () => plugin ?? new FakeVerticalPlugin(events),
             host,
             events,
             new Dictionary<string, JsonElement>()));
@@ -243,7 +354,7 @@ public sealed class PluginVerticalSliceTests
     private static (ConfigSnapshot Config, FolderSnapshot Folder) Snapshot(ConfigKindRef kind, string path)
     {
         var folder = new FolderSnapshot(Guid.NewGuid(), path, "World", EmptyStates());
-        var config = new ConfigSnapshot("config-1", kind, "Config", [folder], EmptyStates());
+        var config = new ConfigSnapshot("config-1", new ConfigRevision("revision-1"), kind, "Config", [folder], EmptyStates());
         return (config, folder);
     }
 
@@ -252,6 +363,20 @@ public sealed class PluginVerticalSliceTests
 
     private static JsonElement Json(string json)
         => JsonDocument.Parse(json).RootElement.Clone();
+
+    private static FolderDraft Folder(string path)
+        => new(path, Path.GetFileName(path), new Dictionary<StateOwnerId, ProviderStateDraft>());
+
+    private static ConfigChangeProposal Proposal(
+        ConfigRevision revision,
+        IReadOnlyList<ConfigChange> changes)
+        => new(
+            "proposal-1",
+            "config-1",
+            revision,
+            "Provider reconciliation",
+            changes,
+            Array.Empty<PluginDiagnostic>());
 
     private sealed record RuntimeFixture(PluginRuntimeManager Manager, RecordingHostServices Host);
 
@@ -276,13 +401,41 @@ public sealed class PluginVerticalSliceTests
         }
     }
 
+    private sealed class RecordingConfigChangeStore(List<string> events) : IConfigChangeStore
+    {
+        public bool FailBeforeCommit { get; init; }
+        public ConfigRevision CurrentRevision { get; private set; } = new("revision-1");
+        public List<ConfigChangeCommit> Commits { get; } = new();
+
+        public ValueTask<ConfigRevision> CommitAsync(
+            ConfigChangeCommit commit,
+            CancellationToken cancellationToken)
+        {
+            if (commit.ExpectedRevision != CurrentRevision)
+            {
+                throw new InvalidOperationException("stale");
+            }
+            if (FailBeforeCommit)
+            {
+                throw new IOException("fault before atomic commit");
+            }
+
+            Commits.Add(commit);
+            CurrentRevision = new ConfigRevision("revision-2");
+            events.Add("config-commit");
+            return ValueTask.FromResult(CurrentRevision);
+        }
+    }
+
     private sealed class FakeVerticalPlugin(List<string> events) :
         IFolderRewindPlugin,
         IDiscoveryCapability,
+        IConfigReconciliationCapability,
         IBackupConsistencyCapability,
         IRestoreCoordinatorCapability,
         IPluginCommandCapability
     {
+        public ConfigChangeProposal? ReconciliationProposal { get; init; }
         public DiscoveryProviderId ProviderId { get; } = new(FakePluginId.Value);
         public ConfigKindRef Kind => FakeKind;
         public IReadOnlyList<PluginCommandDescriptor> Commands { get; } =
@@ -310,6 +463,11 @@ public sealed class PluginVerticalSliceTests
                 [new DiscoveryCandidate("candidate-1", "Data", [config])],
                 Array.Empty<PluginDiagnostic>()));
         }
+
+        public ValueTask<ConfigChangeProposal?> ProposeAsync(
+            ConfigReconciliationRequest request,
+            PluginInvocationContext context)
+            => ValueTask.FromResult(ReconciliationProposal);
 
         public ValueTask<IConsistencyLease> AcquireAsync(BackupConsistencyRequest request, PluginInvocationContext context)
         {

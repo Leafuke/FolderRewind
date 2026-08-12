@@ -410,6 +410,7 @@ public sealed class PluginRuntimeManager
 
         return new ConfigSnapshot(
             config.ConfigId,
+            config.Revision,
             config.Kind,
             config.Name,
             config.Folders.Select(folder =>

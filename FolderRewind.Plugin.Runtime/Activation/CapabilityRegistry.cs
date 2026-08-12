@@ -40,9 +40,9 @@ internal sealed class CapabilityRegistrationSet
                 recognized = true;
             }
 
-            if (capability is IConfigAugmentationCapability augmentation)
+            if (capability is IConfigReconciliationCapability reconciliation)
             {
-                Add("config-augmentation", augmentation.Kind.ToString(), capability);
+                Add("config-reconciliation", reconciliation.Kind.ToString(), capability);
                 recognized = true;
             }
 

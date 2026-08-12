@@ -16,7 +16,7 @@ public enum HostServiceKind
 public enum PluginCapabilityKind
 {
     Discovery = 0,
-    ConfigAugmentation = 1,
+    ConfigReconciliation = 1,
     FilePolicy = 2,
     BackupScope = 3,
     BackupConsistency = 4,

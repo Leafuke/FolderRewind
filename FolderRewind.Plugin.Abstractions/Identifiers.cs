@@ -44,6 +44,33 @@ public readonly record struct ConfigKindRef
     public override string ToString() => $"{OwnerId}/{KindId}";
 }
 
+public readonly record struct ConfigRevision
+{
+    public ConfigRevision(string value)
+    {
+        Value = string.IsNullOrWhiteSpace(value)
+            ? throw new ArgumentException("Config revision is required.", nameof(value))
+            : value.Trim();
+    }
+
+    public string Value { get; }
+    public override string ToString() => Value ?? string.Empty;
+}
+
+public readonly record struct ArtifactTransformerId
+{
+    public ArtifactTransformerId(PluginId pluginId, string transformerId)
+    {
+        if (string.IsNullOrWhiteSpace(pluginId.Value)) throw new ArgumentException("PluginId is required.", nameof(pluginId));
+        PluginId = pluginId;
+        TransformerId = PluginIdentitySyntax.RequireLocal(transformerId, nameof(transformerId));
+    }
+
+    public PluginId PluginId { get; }
+    public string TransformerId { get; }
+    public override string ToString() => $"{PluginId}/{TransformerId}";
+}
+
 public readonly record struct PluginCommandId
 {
     public PluginCommandId(PluginId pluginId, string commandId)
