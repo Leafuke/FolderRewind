@@ -284,6 +284,7 @@ namespace FolderRewind.Services.Plugins
             var settings = ConfigService.CurrentConfig?.GlobalSettings?.Plugins;
             if (settings == null) return false;
 
+            if (settings.EnabledIntent.TryGetValue(pluginId, out var intended)) return intended;
             if (settings.PluginEnabled.TryGetValue(pluginId, out var enabled)) return enabled;
             return false;
         }
@@ -294,6 +295,7 @@ namespace FolderRewind.Services.Plugins
             if (settings == null) return;
 
             settings.PluginEnabled[pluginId] = enabled;
+            settings.EnabledIntent[pluginId] = enabled;
             ConfigService.Save();
 
             // 设计选择：启用可尝试立即加载；禁用仅停止调用（不强制卸载）。
@@ -355,6 +357,7 @@ namespace FolderRewind.Services.Plugins
             }
 
             plugins.PluginSettings[pluginId] = next;
+            plugins.TypedSettings[pluginId] = BuildTypedCompatibilitySettings(pluginId, next);
             ConfigService.Save();
 
             return new PluginSettingsSaveResult
@@ -425,7 +428,44 @@ namespace FolderRewind.Services.Plugins
             }
 
             dict[key] = value ?? string.Empty;
+            if (!plugins.TypedSettings.TryGetValue(pluginId, out var typed) || typed == null)
+            {
+                typed = new Dictionary<string, JsonElement>(StringComparer.OrdinalIgnoreCase);
+                plugins.TypedSettings[pluginId] = typed;
+            }
+            typed[key] = ToTypedCompatibilityValue(pluginId, key, value);
             ConfigService.Save();
+        }
+
+        private static Dictionary<string, JsonElement> BuildTypedCompatibilitySettings(
+            string pluginId,
+            IReadOnlyDictionary<string, string> values)
+            => values.ToDictionary(
+                pair => pair.Key,
+                pair => ToTypedCompatibilityValue(pluginId, pair.Key, pair.Value),
+                StringComparer.OrdinalIgnoreCase);
+
+        private static JsonElement ToTypedCompatibilityValue(string pluginId, string key, string? value)
+        {
+            if (string.Equals(pluginId, FolderRewind.Plugin.Runtime.Configuration.ConfigSchema.MineRewindPluginId, StringComparison.OrdinalIgnoreCase)
+                && (string.Equals(key, "AutoDiscoverSaves", StringComparison.OrdinalIgnoreCase)
+                    || string.Equals(key, "AutoCreateConfigs", StringComparison.OrdinalIgnoreCase)
+                    || string.Equals(key, "PreservePlayerData", StringComparison.OrdinalIgnoreCase))
+                && TryParseCompatibilityBoolean(value, out var booleanValue))
+            {
+                return JsonSerializer.SerializeToElement(booleanValue);
+            }
+
+            return JsonSerializer.SerializeToElement(value ?? string.Empty);
+        }
+
+        private static bool TryParseCompatibilityBoolean(string? value, out bool result)
+        {
+            if (bool.TryParse(value, out result)) return true;
+            if (value == "1") { result = true; return true; }
+            if (value == "0") { result = false; return true; }
+            result = false;
+            return false;
         }
 
         /// <summary>
