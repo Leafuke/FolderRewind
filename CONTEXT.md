@@ -99,6 +99,10 @@ _Avoid_: Config type label, discovery provider, plugin name
 The stable identity of a component that proposes discovery candidates; it participates in discovery-set identity but does not identify a plugin, config kind, or state namespace.
 _Avoid_: Plugin ID, state owner ID, game title
 
+**Discovery Draft Commit**:
+The host-owned atomic transaction that validates plugin discovery candidates, assigns host identities, and persists selected drafts only when the user's creation policy permits it.
+_Avoid_: Plugin-created config, discovery side effect, automatic provider save
+
 **State Owner ID**:
 The namespace owner of opaque provider state attached to a configuration or backup source; equal text may be used for a plugin's own state, but the role is distinct from Plugin ID.
 _Avoid_: Plugin ID, discovery provider ID, dictionary prefix

@@ -2,17 +2,17 @@
 
 > 状态：已冻结 / 实施中（D0 于 2026-08-12 经用户批准）
 >
-> 计划版本：2026-08-12 / Revision 8
+> 计划版本：2026-08-12 / Revision 9
 >
 > 产品版本：FolderRewind 1.9.0、MineRewind 1.9.0
 >
-> Plugin API：3.0.0
+> Plugin API：3.0.0（M3 frozen candidate）
 >
 > App Config Schema：1
 >
 > 目标仓库：`Leafuke/FolderRewind`、`Leafuke/FolderRewind-Plugin-Minecraft`、`Leafuke/FolderRewind-Site`、新建 `Leafuke/FolderRewind-Plugin-Catalog`
 >
-> 当前执行门：M2 Gate 已于 2026-08-12 经用户批准；M3 实施中。
+> 当前执行门：M3 Gate 已完成并暂停，等待用户批准；批准前不得进入 M4。
 
 本文件是 Plugin System v3 的唯一执行依据。它先作为受版本控制的 proposed specification 接受审阅；用户明确通过 D0 后，才可把状态改为“已冻结 / 实施中”并修改产品代码。实施中若发现本计划无法满足仓库事实，必须先修订本文件、说明影响并重新通过当前里程碑，禁止在代码中静默偏离。
 
@@ -324,6 +324,45 @@ M2 后续边界与已知风险：
     - command identity → Host backup/restore request。
 
 **M3 Gate / API Freeze**：四条 fake + MineRewind E2E 全绿，公开 API review 无 Host/UI leakage，MineRewind 可在 Host build 并行期间独立 build。随后只允许兼容性 contract 修正，准备 NuGet 3.0.0 candidate；正式发布待授权。
+
+#### M3 Gate 实施记录（2026-08-12，待批准）
+
+实现提交：
+
+- Host `7ddfbb3 feat(plugin-operation): resolve readiness and outcomes`：固化 Kind/runtime/scope/consistency 的 `Ready`、`Degraded`、`Blocked` 解析及结果 warning promotion；
+- MineRewind `9c773a8 refactor(plugin-api): adopt MineRewind v3 abstractions`：产品项目移除 Host App ProjectReference，改为只引用 Abstractions，并实现 discovery、consistency、restore、command、provider migration 最小能力；
+- MineRewind `c604ec2 test(plugin-v3): harden MineRewind vertical contracts`：补齐 Manifest kind metadata、command argument schema 和 restore warning preservation；
+- Host `cfb148f test(plugin-v3): run four runtime vertical slices`：通过 committed Runtime Session/lease 跑通 fake 与 MineRewind 两组四能力 E2E，并冻结公开 contract 候选。
+
+Gate 证据：
+
+| 检查项 | 结果 |
+|---|---|
+| fake plugin 四条 Runtime E2E | Discovery candidate → Host validation/atomic draft commit；consistency lease 在 diff 前取得且 diff/archive 使用同一 source；restore safety backup → once-only mutation；command → Host backup service，全绿 |
+| MineRewind 四条 Runtime E2E | activation commit 后通过 lease 执行 discovery/consistency/restore/command；Discovery 不调用 Host Config query，AutoCreate policy 由 Host coordinator 提交；全绿 |
+| Abstractions Release tests | 9/9；0 warning / 0 error；BCL-only、AssemblyVersion `3.0.0.0`、public API baseline 全绿 |
+| Plugin API frozen fingerprint | SHA-256 `3f47ba8375c6d608fa551e08dcb6ac7da7e317fea9ab1dab69cf2d7e816ae730`；snapshot/draft 分离，augmentation target、localized manifest metadata、capability declaration 全部进入 baseline |
+| Abstractions 3.0.0 local candidate | `artifacts/nuget/FolderRewind.Plugin.Abstractions.3.0.0.nupkg`；仅含 README、NuGet metadata、`net10.0` DLL/XML；SHA-256 `94A5A975325A487A392B7C7DCD07209D0A094CFB8A8F7F41B79674321ABD48E8` |
+| Runtime Release tests | 61/61；其中新增两组共 8 条真实 activation/lease 垂直切片，并锁定 operation cancellation 与 restore continuation once-only |
+| Host tests | 266/266 Debug 全绿 |
+| MineRewind tests | 50/50 Release 全绿；v3 manifest、draft、consistency、restore failure/warning、command schema/routing、state migration 均覆盖 |
+| Host + MineRewind 并行 build | Host x64 Debug 与 MineRewind x64 Debug 同时执行，均 0 warning / 0 error；未发生 WinUI `obj` 争用 |
+| MineRewind 独立 build | x64 Debug 与 AnyCPU Release 均 0 warning / 0 error；产品 ProjectReference 仅指向 `FolderRewind.Plugin.Abstractions` |
+| API/UI leakage review | Abstractions 只引用 BCL；MineRewind v3 产品只编译 `V3/**/*.cs`，不引用 WinUI、Host App、Host mutable model 或 v2 runtime interface |
+
+API Freeze 结论：
+
+- Plugin API 3.0 的 frozen candidate 由上述 public fingerprint 与本地 NuGet SHA 共同标识；M3 Gate 审阅期间只接受审阅驱动的 contract 修正，批准后只允许兼容性修复，破坏性变更必须先修订本计划并重新批准当前门。
+- `Discovery Draft Commit` 明确为 Host-owned 原子事务：plugin 只返回 immutable candidate/draft，Host 深拷贝并验证后才依据用户 `AutoCreateConfigs` policy 提交；Host identity 的分配和持久化不属于 plugin capability。
+- Restore mutation continuation 由 Host once-only gate 包装；operation cancellation 与 plugin lifetime token 已在 Runtime Session lease 中分离。
+
+已知风险与后续边界：
+
+- 本阶段证明的是无 WinUI 的最小垂直切片；现有 Host backup/restore/discovery UI 与 v3 capability 的完整接线、完整 MineRewind parity 属于 M4，尚未完成。
+- MineRewind 产品 DLL 已 cleanly 采用 v3，但旧 v2 源仍保留且从产品编译中排除，legacy parity tests 仍链接这些源作为 M4 行为基线；v2 删除门仍是 M6。
+- `.frplugin` 安装、Manifest/package 静态 parser、Catalog 与 bundled offline upgrade 尚未开始，分别属于 M5；本地 NuGet candidate 不代表 NuGet.org 发布授权。
+- Host 中现有 v2 runtime path 仍保留到完整 parity 和真实安装 E2E 通过；不得因 M3 API Freeze 提前删除。
+- 用户批准 M3 前不得开始 M4；批准后下一提交从 Host backup operation 的 FilePolicy/Scope/Consistency 接线开始，并继续按提交/里程碑门禁暂停。
 
 ### M4 — 完整 Host/MineRewind 迁移
 
