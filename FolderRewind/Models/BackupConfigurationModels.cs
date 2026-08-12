@@ -25,6 +25,9 @@ namespace FolderRewind.Models
         private string _configType = "Default"; // 配置类型，由插件定义，如 "Minecraft Saves"
         private bool _isEncrypted = false; // 是否为加密配置
         private DiscoveryOrigin? _discoveryOrigin;
+        private ConfigKindReference _kind = new();
+        private HostConfigOrigin _hostOrigin = new();
+        private LegacyConfigPreservation _legacyPreservation = new();
 
         // 核心路径
         public string Id { get => _id; set => SetProperty(ref _id, value); }
@@ -36,6 +39,33 @@ namespace FolderRewind.Models
         /// 插件可以定义自己的配置类型，如 "Minecraft Saves"。
         /// </summary>
         public string ConfigType { get => _configType; set => SetProperty(ref _configType, value ?? "Default"); }
+
+        /// <summary>
+        /// v3 role-specific configuration kind. ConfigType remains only for v2
+        /// runtime compatibility until the M6 clean break.
+        /// </summary>
+        public ConfigKindReference Kind
+        {
+            get => _kind;
+            set => SetProperty(ref _kind, value ?? new ConfigKindReference());
+        }
+
+        public Dictionary<string, ProviderStatePayload> ProviderStates { get; set; } =
+            new(StringComparer.OrdinalIgnoreCase);
+
+        public HostConfigOrigin HostOrigin
+        {
+            get => _hostOrigin;
+            set => SetProperty(ref _hostOrigin, value ?? new HostConfigOrigin());
+        }
+
+        public LegacyConfigPreservation LegacyPreservation
+        {
+            get => _legacyPreservation;
+            set => SetProperty(ref _legacyPreservation, value ?? new LegacyConfigPreservation());
+        }
+
+        public string RequiredPluginId { get; set; } = string.Empty;
 
         /// <summary>
         /// 是否为加密配置。加密配置的备份将使用 7-Zip 加密，密码通过 EncryptionService 安全存储。
@@ -85,6 +115,8 @@ namespace FolderRewind.Models
     public class BackupScopeSettings : ObservableObject
     {
         private string _pluginScopeId = string.Empty;
+        private string _ownerId = string.Empty;
+        private string _scopeId = string.Empty;
         private Dictionary<string, string> _parameters = new(StringComparer.OrdinalIgnoreCase);
 
         /// <summary>
@@ -94,6 +126,18 @@ namespace FolderRewind.Models
         {
             get => _pluginScopeId;
             set => SetProperty(ref _pluginScopeId, value?.Trim() ?? string.Empty);
+        }
+
+        public string OwnerId
+        {
+            get => _ownerId;
+            set => SetProperty(ref _ownerId, value?.Trim() ?? string.Empty);
+        }
+
+        public string ScopeId
+        {
+            get => _scopeId;
+            set => SetProperty(ref _scopeId, value?.Trim() ?? string.Empty);
         }
 
         /// <summary>
@@ -165,6 +209,9 @@ namespace FolderRewind.Models
             get => _sourceScope;
             set => SetProperty(ref _sourceScope, value ?? new BackupSourceScope());
         }
+
+        public Dictionary<string, ProviderStatePayload> ProviderStates { get; set; } =
+            new(StringComparer.OrdinalIgnoreCase);
     }
 
     public enum BackupMode

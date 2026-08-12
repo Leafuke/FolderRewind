@@ -81,6 +81,19 @@ namespace FolderRewind.Services
             }
         }
 
+        public static HistoryItem? GetLatestEntryForFolder(string configId, ManagedFolder folder)
+        {
+            Initialize();
+            lock (_historyLock)
+            {
+                return _allHistory
+                    .Where(item => string.Equals(item.ConfigId, configId, StringComparison.OrdinalIgnoreCase)
+                                   && MatchesFolderIdentity(item, folder))
+                    .OrderByDescending(item => item.Timestamp)
+                    .FirstOrDefault();
+            }
+        }
+
         public static int RemoveEntriesForFile(string configId, string folderName, string fileName)
         {
             if (string.IsNullOrWhiteSpace(configId)

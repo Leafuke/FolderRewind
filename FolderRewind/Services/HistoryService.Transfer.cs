@@ -211,7 +211,7 @@ namespace FolderRewind.Services
                     {
                         alreadyExists = _allHistory.Any(x =>
                             x.ConfigId == config.Id &&
-                            x.FolderPath == folder.Path &&
+                            MatchesFolderIdentity(x, folder) &&
                             string.Equals(x.FileName, fileName, StringComparison.OrdinalIgnoreCase));
                     }
 
@@ -221,12 +221,14 @@ namespace FolderRewind.Services
                     {
                         Id = Guid.NewGuid().ToString("N"),
                         ConfigId = config.Id,
+                        FolderId = Guid.TryParse(folder.Id, out var folderId) ? folderId : null,
                         FolderPath = folder.Path,
                         FolderName = folderName,
                         FileName = fileName,
                         Timestamp = timestamp,
                         BackupType = backupType,
                         Comment = comment,
+                        Outcome = PersistedOperationOutcome.Success,
                         IsImportant = false
                     };
 

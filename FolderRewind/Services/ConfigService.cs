@@ -8,7 +8,6 @@ using System.IO;
 using System.Linq;
 using System.Runtime.InteropServices;
 using System.Text.Json;
-using System.Text.Json.Nodes;
 using Windows.Graphics;
 
 namespace FolderRewind.Services
@@ -304,44 +303,46 @@ namespace FolderRewind.Services
             config.SchemaExtensions ??= new Dictionary<string, JsonElement>(StringComparer.OrdinalIgnoreCase);
             var usedFolderIds = new HashSet<Guid>();
 
-            config.GlobalSettings.Plugins.SchemaExtensions ??=
-                new Dictionary<string, JsonElement>(StringComparer.OrdinalIgnoreCase);
-            config.GlobalSettings.Plugins.SchemaExtensions["EnabledIntent"] = ParseElement(
-                JsonSerializer.Serialize(
-                    config.GlobalSettings.Plugins.PluginEnabled,
-                    AppJsonContext.Default.DictionaryStringBoolean));
-            config.GlobalSettings.Plugins.SchemaExtensions["TypedSettings"] = ParseElement(
-                BuildTypedPluginSettings(config.GlobalSettings.Plugins.PluginSettings).ToJsonString());
+            var pluginSettings = config.GlobalSettings.Plugins;
+            if (pluginSettings.EnabledIntent.Count == 0 && pluginSettings.PluginEnabled.Count > 0)
+            {
+                pluginSettings.EnabledIntent = new Dictionary<string, bool>(
+                    pluginSettings.PluginEnabled,
+                    StringComparer.OrdinalIgnoreCase);
+            }
+
+            if (pluginSettings.TypedSettings.Count == 0 && pluginSettings.PluginSettings.Count > 0)
+            {
+                pluginSettings.TypedSettings = BuildTypedPluginSettings(pluginSettings.PluginSettings);
+            }
 
             foreach (var backupConfig in config.BackupConfigs.Where(static item => item != null))
             {
-                backupConfig.SchemaExtensions ??=
-                    new Dictionary<string, JsonElement>(StringComparer.OrdinalIgnoreCase);
                 var isMinecraft = string.Equals(
                     backupConfig.ConfigType,
                     "Minecraft Saves",
                     StringComparison.OrdinalIgnoreCase);
                 var ownerId = isMinecraft ? ConfigSchema.MineRewindPluginId : ConfigSchema.CoreOwnerId;
                 var kindId = isMinecraft ? ConfigSchema.MineRewindKindId : ConfigSchema.CoreDefaultKindId;
-                EnsureExtension(
-                    backupConfig.SchemaExtensions,
-                    "Kind",
-                    $"{{\"OwnerId\":\"{ownerId}\",\"KindId\":\"{kindId}\"}}");
-                EnsureExtension(backupConfig.SchemaExtensions, "ProviderStates", "{}");
+                if (string.IsNullOrWhiteSpace(backupConfig.Kind.OwnerId)
+                    || string.IsNullOrWhiteSpace(backupConfig.Kind.KindId)
+                    || (isMinecraft
+                        && string.Equals(backupConfig.Kind.OwnerId, ConfigSchema.CoreOwnerId, StringComparison.OrdinalIgnoreCase)
+                        && string.Equals(backupConfig.Kind.KindId, ConfigSchema.CoreDefaultKindId, StringComparison.OrdinalIgnoreCase)))
+                {
+                    backupConfig.Kind = new ConfigKindReference { OwnerId = ownerId, KindId = kindId };
+                }
 
-                backupConfig.BackupScope.SchemaExtensions ??=
-                    new Dictionary<string, JsonElement>(StringComparer.OrdinalIgnoreCase);
-                if (!backupConfig.BackupScope.SchemaExtensions.ContainsKey("OwnerId")
-                    || !backupConfig.BackupScope.SchemaExtensions.ContainsKey("ScopeId"))
+                backupConfig.ProviderStates ??= new Dictionary<string, ProviderStatePayload>(StringComparer.OrdinalIgnoreCase);
+                if (string.IsNullOrWhiteSpace(backupConfig.BackupScope.OwnerId)
+                    && string.IsNullOrWhiteSpace(backupConfig.BackupScope.ScopeId))
                 {
                     var selectedRegions = string.Equals(
                         backupConfig.BackupScope.PluginScopeId,
                         "MineRewind.SelectedRegions",
                         StringComparison.OrdinalIgnoreCase);
-                    backupConfig.BackupScope.SchemaExtensions["OwnerId"] = ParseElement(
-                        selectedRegions ? $"\"{ConfigSchema.MineRewindPluginId}\"" : "\"\"");
-                    backupConfig.BackupScope.SchemaExtensions["ScopeId"] = ParseElement(
-                        selectedRegions ? $"\"{ConfigSchema.MineRewindSelectedRegionsScopeId}\"" : "\"\"");
+                    backupConfig.BackupScope.OwnerId = selectedRegions ? ConfigSchema.MineRewindPluginId : string.Empty;
+                    backupConfig.BackupScope.ScopeId = selectedRegions ? ConfigSchema.MineRewindSelectedRegionsScopeId : string.Empty;
                 }
 
                 foreach (var folder in backupConfig.SourceFolders.Where(static item => item != null))
@@ -359,20 +360,41 @@ namespace FolderRewind.Services
                         folder.Id = folderId.ToString();
                     }
 
-                    folder.SchemaExtensions ??=
-                        new Dictionary<string, JsonElement>(StringComparer.OrdinalIgnoreCase);
-                    EnsureExtension(folder.SchemaExtensions, "ProviderStates", "{}");
+                    folder.ProviderStates ??= new Dictionary<string, ProviderStatePayload>(StringComparer.OrdinalIgnoreCase);
                 }
+            }
+
+            foreach (var preset in config.BackupPresets.Where(static item => item != null))
+            {
+                preset.SchemaVersion = ConfigSchema.CurrentVersion;
+                var isMinecraft = string.Equals(
+                    preset.BaseConfigType,
+                    "Minecraft Saves",
+                    StringComparison.OrdinalIgnoreCase);
+                if (string.IsNullOrWhiteSpace(preset.Kind.OwnerId)
+                    || string.IsNullOrWhiteSpace(preset.Kind.KindId)
+                    || (isMinecraft
+                        && string.Equals(preset.Kind.OwnerId, ConfigSchema.CoreOwnerId, StringComparison.OrdinalIgnoreCase)
+                        && string.Equals(preset.Kind.KindId, ConfigSchema.CoreDefaultKindId, StringComparison.OrdinalIgnoreCase)))
+                {
+                    preset.Kind = new ConfigKindReference
+                    {
+                        OwnerId = isMinecraft ? ConfigSchema.MineRewindPluginId : ConfigSchema.CoreOwnerId,
+                        KindId = isMinecraft ? ConfigSchema.MineRewindKindId : ConfigSchema.CoreDefaultKindId
+                    };
+                }
+
+                preset.ProviderDefaults ??= new Dictionary<string, PresetProviderDefaults>(StringComparer.OrdinalIgnoreCase);
             }
         }
 
-        private static JsonObject BuildTypedPluginSettings(
+        private static Dictionary<string, Dictionary<string, JsonElement>> BuildTypedPluginSettings(
             IReadOnlyDictionary<string, Dictionary<string, string>> settings)
         {
-            var root = new JsonObject();
+            var root = new Dictionary<string, Dictionary<string, JsonElement>>(StringComparer.OrdinalIgnoreCase);
             foreach (var (pluginId, values) in settings)
             {
-                var typedValues = new JsonObject();
+                var typedValues = new Dictionary<string, JsonElement>(StringComparer.OrdinalIgnoreCase);
                 foreach (var (key, value) in values)
                 {
                     if (string.Equals(pluginId, ConfigSchema.MineRewindPluginId, StringComparison.OrdinalIgnoreCase)
@@ -381,11 +403,11 @@ namespace FolderRewind.Services
                             || string.Equals(key, "PreservePlayerData", StringComparison.OrdinalIgnoreCase))
                         && TryParseLegacyBoolean(value, out var booleanValue))
                     {
-                        typedValues[key] = booleanValue;
+                        typedValues[key] = JsonSerializer.SerializeToElement(booleanValue);
                     }
                     else
                     {
-                        typedValues[key] = value;
+                        typedValues[key] = JsonSerializer.SerializeToElement(value);
                     }
                 }
 
@@ -402,23 +424,6 @@ namespace FolderRewind.Services
             if (value == "0") { result = false; return true; }
             result = false;
             return false;
-        }
-
-        private static void EnsureExtension(
-            IDictionary<string, JsonElement> extensions,
-            string name,
-            string json)
-        {
-            if (!extensions.ContainsKey(name))
-            {
-                extensions[name] = ParseElement(json);
-            }
-        }
-
-        private static JsonElement ParseElement(string json)
-        {
-            using var document = JsonDocument.Parse(json);
-            return document.RootElement.Clone();
         }
 
         private static (double Width, double Height) GetRecommendedStartupWindowSize()

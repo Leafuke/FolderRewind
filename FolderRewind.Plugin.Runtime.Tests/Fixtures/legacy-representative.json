@@ -58,5 +58,11 @@
       "ExtendedProperties": {}
     }
   ],
-  "Templates": []
+  "Templates": [
+    {
+      "Id": "minecraft-preset",
+      "BaseConfigType": "Minecraft Saves",
+      "RequiredPluginIds": []
+    }
+  ]
 }

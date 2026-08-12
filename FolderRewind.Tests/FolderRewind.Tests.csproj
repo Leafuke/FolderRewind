@@ -38,6 +38,7 @@
     <Compile Include="..\FolderRewind\Models\DiscoveryModels.cs" Link="Source\DiscoveryModels.cs" />
     <Compile Include="..\FolderRewind\Models\BackupSourceScopeModels.cs" Link="Source\BackupSourceScopeModels.cs" />
     <Compile Include="..\FolderRewind\Models\BackupRunModels.cs" Link="Source\BackupRunModels.cs" />
+    <Compile Include="..\FolderRewind\Models\PluginPersistenceModels.cs" Link="Source\PluginPersistenceModels.cs" />
     <Compile Include="..\FolderRewind\Models\LudusaviIndexModels.cs" Link="Source\LudusaviIndexModels.cs" />
     <Compile Include="..\FolderRewind\Services\Discovery\DiscoveryCandidateMerger.cs" Link="Source\DiscoveryCandidateMerger.cs" />
     <Compile Include="..\FolderRewind\Services\Discovery\DiscoveryResourcePlanner.cs" Link="Source\DiscoveryResourcePlanner.cs" />

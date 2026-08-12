@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using System.Text.Json;
 using System.Text.Json.Serialization;
 
 namespace FolderRewind.Models
@@ -52,9 +53,21 @@ namespace FolderRewind.Models
     [JsonSerializable(typeof(PluginInstallManifest))]
     [JsonSerializable(typeof(PluginSettingDefinition))]
     [JsonSerializable(typeof(InstalledPluginInfo))]
+    [JsonSerializable(typeof(ConfigKindReference))]
+    [JsonSerializable(typeof(ProviderStatePayload))]
+    [JsonSerializable(typeof(HostConfigOrigin))]
+    [JsonSerializable(typeof(LegacyConfigPreservation))]
+    [JsonSerializable(typeof(OperationDiagnosticRecord))]
+    [JsonSerializable(typeof(PersistedOperationOutcome))]
+    [JsonSerializable(typeof(PersistedDiagnosticSeverity))]
+    [JsonSerializable(typeof(PresetProviderDefaults))]
     [JsonSerializable(typeof(Dictionary<string, bool>))]
     [JsonSerializable(typeof(Dictionary<string, string>))]
+    [JsonSerializable(typeof(Dictionary<string, JsonElement>))]
     [JsonSerializable(typeof(Dictionary<string, Dictionary<string, string>>))]
+    [JsonSerializable(typeof(Dictionary<string, Dictionary<string, JsonElement>>))]
+    [JsonSerializable(typeof(Dictionary<string, ProviderStatePayload>))]
+    [JsonSerializable(typeof(Dictionary<string, PresetProviderDefaults>))]
     [JsonSourceGenerationOptions(WriteIndented = true)]
     internal partial class AppJsonContext : JsonSerializerContext
     {

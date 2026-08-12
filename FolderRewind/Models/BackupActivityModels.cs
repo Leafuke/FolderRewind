@@ -18,11 +18,14 @@ namespace FolderRewind.Models
         public string Id { get; set; } = "";
         public string CreatedByRunId { get; set; } = "";
         public string ConfigId { get; set; } = "";        // 所属配置ID
+        public Guid? FolderId { get; set; }                // v3 stable source identity; null for legacy history
         public string FolderPath { get; set; } = "";      // 所属源文件夹路径 (作为唯一标识)
         public string FolderName { get; set; } = "";      // 文件夹名 (冗余备份，防止源被删后无法识别)
         public string FileName { get; set; } = "";        // 备份文件名 (如 [Full]...7z)
         public DateTime Timestamp { get; set; }     // 备份时间
         public string BackupType { get; set; } = "";      // Full, Smart, Overwrite
+        public PersistedOperationOutcome Outcome { get; set; }
+        public List<OperationDiagnosticRecord> Diagnostics { get; set; } = new();
 
         /// <summary>
         /// 是否为部分备份。白名单/插件区域备份会标记它，Clean 还原时需要额外提醒。

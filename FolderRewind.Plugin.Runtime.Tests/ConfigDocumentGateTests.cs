@@ -79,6 +79,12 @@ public sealed class ConfigDocumentGateTests
         var core = configs[1]!.AsObject();
         Assert.AreEqual("folderrewind.core", core["Kind"]!["OwnerId"]!.GetValue<string>());
         Assert.AreEqual("default", core["Kind"]!["KindId"]!.GetValue<string>());
+
+        var preset = root["Templates"]![0]!.AsObject();
+        Assert.AreEqual(1, preset["SchemaVersion"]!.GetValue<int>());
+        Assert.AreEqual("com.folderrewind.minerewind", preset["Kind"]!["OwnerId"]!.GetValue<string>());
+        Assert.IsNotNull(preset["ProviderDefaults"]);
+        Assert.AreEqual("com.folderrewind.minerewind", preset["RequiredPluginIds"]![0]!.GetValue<string>());
     }
 
     [TestMethod]

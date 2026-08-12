@@ -23,9 +23,13 @@ public static class ConfigDocumentValidator
             issues.Add(new("config_schema_version_invalid", "$.schemaVersion", "The document is not schema 1."));
         }
 
-        if (Get(root, "GlobalSettings") is not JsonObject)
+        if (Get(root, "GlobalSettings") is not JsonObject globalSettings)
         {
             issues.Add(new("config_global_settings_missing", "$.GlobalSettings", "GlobalSettings must be an object."));
+        }
+        else
+        {
+            ValidatePluginSettings(Get(globalSettings, "Plugins"), "$.GlobalSettings.Plugins", issues);
         }
 
         if (Get(root, "BackupConfigs") is not JsonArray configs)
@@ -93,7 +97,78 @@ public static class ConfigDocumentValidator
             }
         }
 
+        ValidatePresets(Get(root, "Templates"), issues);
         return new ConfigValidationResult { Issues = issues };
+    }
+
+    private static void ValidatePluginSettings(JsonNode? node, string path, List<ConfigValidationIssue> issues)
+    {
+        if (node is null)
+        {
+            return;
+        }
+
+        if (node is not JsonObject plugins)
+        {
+            issues.Add(new("plugin_settings_invalid", path, "Plugins must be an object."));
+            return;
+        }
+
+        if (Get(plugins, "EnabledIntent") is not null and not JsonObject)
+        {
+            issues.Add(new("plugin_enabled_intent_invalid", path + ".EnabledIntent", "EnabledIntent must be an object."));
+        }
+
+        var typedSettingsNode = Get(plugins, "TypedSettings");
+        if (typedSettingsNode is not null and not JsonObject)
+        {
+            issues.Add(new("plugin_typed_settings_invalid", path + ".TypedSettings", "TypedSettings must be an object."));
+        }
+        else if (typedSettingsNode is JsonObject settings)
+        {
+            foreach (var (pluginId, value) in settings)
+            {
+                if (string.IsNullOrWhiteSpace(pluginId) || value is not JsonObject)
+                {
+                    issues.Add(new("plugin_typed_setting_entry_invalid", path + ".TypedSettings." + pluginId, "Each plugin setting value must be an object."));
+                }
+            }
+        }
+    }
+
+    private static void ValidatePresets(JsonNode? node, List<ConfigValidationIssue> issues)
+    {
+        if (node is null)
+        {
+            return;
+        }
+
+        if (node is not JsonArray presets)
+        {
+            issues.Add(new("presets_invalid", "$.Templates", "Templates must be an array."));
+            return;
+        }
+
+        for (var index = 0; index < presets.Count; index++)
+        {
+            var path = $"$.Templates[{index}]";
+            if (presets[index] is not JsonObject preset)
+            {
+                issues.Add(new("preset_invalid", path, "Preset entries must be objects."));
+                continue;
+            }
+
+            if (!TryGetInt(preset, "SchemaVersion", out var schemaVersion) || schemaVersion != ConfigSchema.CurrentVersion)
+            {
+                issues.Add(new("preset_schema_invalid", path + ".SchemaVersion", "Preset SchemaVersion must be 1."));
+            }
+
+            ValidateKind(preset, path, issues);
+            if (Get(preset, "ProviderDefaults") is not JsonObject)
+            {
+                issues.Add(new("preset_provider_defaults_invalid", path + ".ProviderDefaults", "ProviderDefaults must be an object."));
+            }
+        }
     }
 
     private static void ValidateKind(JsonObject config, string path, List<ConfigValidationIssue> issues)

@@ -143,6 +143,8 @@ namespace FolderRewind.Models
         private int? _steamAppId;
         private string _version = "1.0";
         private string _baseConfigType = "Default";
+        private int _schemaVersion = 1;
+        private ConfigKindReference _kind = new();
         private bool _isEncrypted;
         private string _iconGlyph = "\uE8B7";
         private string _defaultConfigName = string.Empty;
@@ -169,6 +171,8 @@ namespace FolderRewind.Models
         public string GameName { get => _gameName; set => SetProperty(ref _gameName, value ?? string.Empty); }
         public int? SteamAppId { get => _steamAppId; set => SetProperty(ref _steamAppId, value); }
         public string Version { get => _version; set => SetProperty(ref _version, value ?? "1.0"); }
+        public int SchemaVersion { get => _schemaVersion; set => SetProperty(ref _schemaVersion, value); }
+        public ConfigKindReference Kind { get => _kind; set => SetProperty(ref _kind, value ?? new ConfigKindReference()); }
         public string BaseConfigType { get => _baseConfigType; set => SetProperty(ref _baseConfigType, value ?? "Default"); }
         public bool IsEncrypted { get => _isEncrypted; set => SetProperty(ref _isEncrypted, value); }
         public string IconGlyph { get => _iconGlyph; set => SetProperty(ref _iconGlyph, value ?? string.Empty); }
@@ -217,6 +221,9 @@ namespace FolderRewind.Models
             get => _requiredPluginIds;
             set => SetProperty(ref _requiredPluginIds, value ?? new ObservableCollection<string>());
         }
+
+        public Dictionary<string, PresetProviderDefaults> ProviderDefaults { get; set; } =
+            new(StringComparer.OrdinalIgnoreCase);
 
         public ObservableCollection<TemplatePathRule> PathRules
         {

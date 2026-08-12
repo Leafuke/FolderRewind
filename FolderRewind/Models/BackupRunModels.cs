@@ -29,6 +29,7 @@ public enum BackupRunSourceStatus
 
 public sealed class BackupRunSourceRecord
 {
+    public Guid? FolderId { get; set; }
     public string FolderPath { get; set; } = string.Empty;
     public string FolderName { get; set; } = string.Empty;
     public BackupRunSourceStatus Status { get; set; }
@@ -47,6 +48,8 @@ public sealed class BackupRunRecord
     public string Comment { get; set; } = string.Empty;
     public bool IsImportant { get; set; }
     public BackupRunStatus Status { get; set; }
+    public PersistedOperationOutcome Outcome { get; set; }
+    public List<OperationDiagnosticRecord> Diagnostics { get; set; } = new();
     public List<BackupRunSourceRecord> Sources { get; set; } = new();
 }
 

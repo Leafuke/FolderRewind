@@ -66,6 +66,7 @@ public sealed class BackupRunPolicyTests
 
         Assert.IsNotNull(run);
         Assert.AreEqual(BackupRunStatus.Partial, run.Status);
+        Assert.AreEqual(PersistedOperationOutcome.SuccessWithWarnings, run.Outcome);
         Assert.HasCount(3, run.Sources);
         Assert.IsTrue(BackupRunPolicy.IsHistoryItemReferenced("history-old", new[] { run }));
     }
@@ -147,9 +148,23 @@ public sealed class BackupRunPolicyTests
                     RunId = "run",
                     ConfigId = "config",
                     Status = BackupRunStatus.Completed,
+                    Outcome = PersistedOperationOutcome.SuccessWithWarnings,
+                    Diagnostics =
+                    [
+                        new OperationDiagnosticRecord
+                        {
+                            Code = "provider.raw_fallback",
+                            Severity = PersistedDiagnosticSeverity.Warning,
+                            Capability = "BackupConsistency",
+                            Owner = "com.folderrewind.minerewind"
+                        }
+                    ],
                     Sources = new List<BackupRunSourceRecord>
                     {
-                        Source(BackupRunSourceStatus.NewArchive, "history")
+                        Source(
+                            BackupRunSourceStatus.NewArchive,
+                            "history",
+                            Guid.Parse("11111111-1111-1111-1111-111111111111"))
                     }
                 }
             }
@@ -163,12 +178,17 @@ public sealed class BackupRunPolicyTests
         Assert.AreEqual(BackupRunDocument.CurrentSchemaVersion, restored.SchemaVersion);
         Assert.HasCount(1, restored.Runs);
         Assert.AreEqual("history", restored.Runs[0].Sources[0].HistoryItemId);
+        Assert.AreEqual(PersistedOperationOutcome.SuccessWithWarnings, restored.Runs[0].Outcome);
+        Assert.AreEqual("provider.raw_fallback", restored.Runs[0].Diagnostics[0].Code);
+        Assert.AreEqual(Guid.Parse("11111111-1111-1111-1111-111111111111"), restored.Runs[0].Sources[0].FolderId);
     }
 
     private static BackupRunSourceRecord Source(
         BackupRunSourceStatus status,
-        string historyItemId = "") => new()
+        string historyItemId = "",
+        Guid? folderId = null) => new()
     {
+        FolderId = folderId,
         FolderPath = "C:\\Game\\Saves",
         FolderName = "Saves",
         Status = status,

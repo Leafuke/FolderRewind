@@ -23,12 +23,14 @@ namespace FolderRewind.Services
                 Id = Guid.NewGuid().ToString("N"),
                 CreatedByRunId = createdByRunId ?? string.Empty,
                 ConfigId = config.Id,
+                FolderId = Guid.TryParse(folder.Id, out var folderId) ? folderId : null,
                 FolderPath = folder.Path,
                 FolderName = string.IsNullOrWhiteSpace(folderNameOverride) ? folder.DisplayName : folderNameOverride,
                 FileName = fileName,
                 Timestamp = DateTime.Now,
                 BackupType = type,
                 Comment = comment,
+                Outcome = PersistedOperationOutcome.Success,
                 IsPartialBackup = isPartialBackup,
                 IsImportant = false
             };
@@ -53,7 +55,7 @@ namespace FolderRewind.Services
             lock (_historyLock)
             {
                 targetList = _allHistory
-                    .Where(x => x.ConfigId == config.Id && x.FolderPath == folder.Path)
+                    .Where(x => x.ConfigId == config.Id && MatchesFolderIdentity(x, folder))
                     .OrderByDescending(x => x.Timestamp)
                     .ToList();
             }
@@ -185,7 +187,7 @@ namespace FolderRewind.Services
             lock (_historyLock)
             {
                 toRemove = _allHistory
-                    .Where(x => x.ConfigId == config.Id && x.FolderPath == folder.Path)
+                    .Where(x => x.ConfigId == config.Id && MatchesFolderIdentity(x, folder))
                     .Where(x =>
                     {
                         var p = GetBackupFilePath(config, folder, x);
@@ -207,6 +209,16 @@ namespace FolderRewind.Services
             }
 
             return toRemove.Count;
+        }
+
+        private static bool MatchesFolderIdentity(HistoryItem item, ManagedFolder folder)
+        {
+            if (item.FolderId.HasValue && Guid.TryParse(folder.Id, out var folderId))
+            {
+                return item.FolderId.Value == folderId;
+            }
+
+            return string.Equals(item.FolderPath, folder.Path, StringComparison.OrdinalIgnoreCase);
         }
 
     }

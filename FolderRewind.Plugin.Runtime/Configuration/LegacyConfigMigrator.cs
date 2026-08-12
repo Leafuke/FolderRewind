@@ -51,7 +51,45 @@ public sealed class LegacyConfigMigrator
             MigrateConfig(config, configIndex, usedFolderIds, warnings);
         }
 
+        MigratePresets(root, warnings);
+
         return new LegacyConfigMigrationResult(root, warnings);
+    }
+
+    private static void MigratePresets(JsonObject root, List<string> warnings)
+    {
+        if (ConfigDocumentValidator.Get(root, "Templates") is not JsonArray presets)
+        {
+            return;
+        }
+
+        for (var index = 0; index < presets.Count; index++)
+        {
+            if (presets[index] is not JsonObject preset)
+            {
+                warnings.Add($"Templates[{index}] was not an object and could not be migrated.");
+                continue;
+            }
+
+            preset["SchemaVersion"] = ConfigSchema.CurrentVersion;
+            var configType = ConfigDocumentValidator.GetString(preset, "BaseConfigType")?.Trim();
+            var isMinecraft = string.Equals(configType, "Minecraft Saves", StringComparison.OrdinalIgnoreCase);
+            preset["Kind"] = isMinecraft
+                ? Kind(ConfigSchema.MineRewindPluginId, ConfigSchema.MineRewindKindId)
+                : Kind(ConfigSchema.CoreOwnerId, ConfigSchema.CoreDefaultKindId);
+            EnsureObject(preset, "ProviderDefaults");
+
+            if (isMinecraft)
+            {
+                var required = EnsureArray(preset, "RequiredPluginIds");
+                if (!required.Any(node => node is JsonValue value
+                                          && value.TryGetValue<string>(out var text)
+                                          && string.Equals(text, ConfigSchema.MineRewindPluginId, StringComparison.OrdinalIgnoreCase)))
+                {
+                    required.Add(ConfigSchema.MineRewindPluginId);
+                }
+            }
+        }
     }
 
     private void MigrateConfig(

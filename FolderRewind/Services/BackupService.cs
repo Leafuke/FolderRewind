@@ -88,6 +88,7 @@ namespace FolderRewind.Services
         private sealed class BackupSourceExecutionOutcome
         {
             public BackupRunSourceStatus Status { get; init; }
+            public Guid? FolderId { get; init; }
             public string FolderPath { get; init; } = string.Empty;
             public string FolderName { get; init; } = string.Empty;
             public HistoryItem? HistoryItem { get; init; }
@@ -96,6 +97,7 @@ namespace FolderRewind.Services
 
             public BackupRunSourceRecord ToRunSource() => new()
             {
+                FolderId = FolderId,
                 FolderPath = FolderPath,
                 FolderName = FolderName,
                 Status = Status,
@@ -715,7 +717,7 @@ namespace FolderRewind.Services
                     generatedHistoryItem);
             }
 
-            var reusedHistory = HistoryService.GetLatestEntryForFolder(config.Id, folder.Path);
+            var reusedHistory = HistoryService.GetLatestEntryForFolder(config.Id, folder);
             return reusedHistory == null
                 ? CreateSourceOutcome(
                     folder,
@@ -731,6 +733,7 @@ namespace FolderRewind.Services
             string? errorMessage = null) => new()
         {
             Status = status,
+            FolderId = Guid.TryParse(folder.Id, out var folderId) ? folderId : null,
             FolderPath = folder.Path ?? string.Empty,
             FolderName = folder.DisplayName ?? string.Empty,
             HistoryItem = historyItem,

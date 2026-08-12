@@ -52,6 +52,9 @@ public static class BackupRunPolicy
             Status = sources.Any(source => source.Status is BackupRunSourceStatus.Failed or BackupRunSourceStatus.Unavailable)
                 ? BackupRunStatus.Partial
                 : BackupRunStatus.Completed,
+            Outcome = sources.Any(source => source.Status is BackupRunSourceStatus.Failed or BackupRunSourceStatus.Unavailable)
+                ? PersistedOperationOutcome.SuccessWithWarnings
+                : PersistedOperationOutcome.Success,
             Sources = sources
         };
     }

@@ -1,4 +1,6 @@
+using System;
 using System.Collections.Generic;
+using System.Text.Json;
 using System.Text.Json.Serialization;
 
 namespace FolderRewind.Models
@@ -13,6 +15,8 @@ namespace FolderRewind.Models
         private string _storeRepo = string.Empty;
         private Dictionary<string, bool> _pluginEnabled = new();
         private Dictionary<string, Dictionary<string, string>> _pluginSettings = new();
+        private Dictionary<string, bool> _enabledIntent = new(StringComparer.OrdinalIgnoreCase);
+        private Dictionary<string, Dictionary<string, JsonElement>> _typedSettings = new(StringComparer.OrdinalIgnoreCase);
 
         /// <summary>
         /// 插件系统总开关。关闭后：不执行插件逻辑、商店入口禁用。
@@ -61,6 +65,28 @@ namespace FolderRewind.Models
         {
             get => _autoCheckUpdates;
             set => SetProperty(ref _autoCheckUpdates, value);
+        }
+
+        /// <summary>
+        /// v3 user intent, independent from installed and runtime state.
+        /// </summary>
+        public Dictionary<string, bool> EnabledIntent
+        {
+            get => _enabledIntent;
+            set => _enabledIntent = value == null
+                ? new Dictionary<string, bool>(StringComparer.OrdinalIgnoreCase)
+                : new Dictionary<string, bool>(value, StringComparer.OrdinalIgnoreCase);
+        }
+
+        /// <summary>
+        /// Typed JSON settings declared by each plugin's static settings schema.
+        /// </summary>
+        public Dictionary<string, Dictionary<string, JsonElement>> TypedSettings
+        {
+            get => _typedSettings;
+            set => _typedSettings = value == null
+                ? new Dictionary<string, Dictionary<string, JsonElement>>(StringComparer.OrdinalIgnoreCase)
+                : new Dictionary<string, Dictionary<string, JsonElement>>(value, StringComparer.OrdinalIgnoreCase);
         }
     }
 
