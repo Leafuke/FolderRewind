@@ -11,3 +11,4 @@ FolderRewind v3 continues to run code plugins in-process because process isolati
 - Manual packages and catalog packages use the same static validator and Plugin API.
 - Installation never activates plugin code or runs install scripts, and newly installed plugins start disabled.
 - UI must state that enabled plugins run with the same user privileges as FolderRewind.
+- Artifact read/materialization declarations receive a separate high-impact disclosure because they may expose decrypted backup content; this improves informed consent but is not presented as an enforceable sandbox permission.

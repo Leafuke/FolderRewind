@@ -66,12 +66,32 @@ _Avoid_: Source scope, discovery rule
 ## History language
 
 **History Item**:
-A durable record of one source archive that may be referenced by zero or more backup runs.
-_Avoid_: Backup run, snapshot group
+A durable user-visible restore point rooted at one Backup Artifact and able to reach its required Artifact dependencies.
+_Avoid_: Backup run, physical archive, artifact node
 
 **Backup Run**:
 A configuration-level grouping record for one backup operation, referring to source results and history items without owning their archives.
 _Avoid_: History item, archive owner, alternative history mode
+
+**Backup Artifact**:
+An immutable, Host-managed payload that contributes to reconstructing one restorable state and may depend on other Backup Artifacts.
+_Avoid_: Mutable archive, history item, plugin data file
+
+**Artifact Format**:
+The stable owner-qualified identity and version that determine how a Backup Artifact can be interpreted and materialized.
+_Avoid_: File extension, backup mode, plugin version
+
+**Artifact Envelope**:
+The Host-owned storage protection around a logical Backup Artifact, including encryption and integrity metadata, without changing its Artifact Format.
+_Avoid_: Artifact format, plugin encryption, file extension
+
+**Artifact Dependency**:
+An explicit directed requirement stating that one Backup Artifact needs another to materialize its state.
+_Avoid_: Filename link, implicit chain order, neighboring history item
+
+**Artifact Transaction**:
+The Host-owned atomic change that validates and commits staged Backup Artifacts, dependency edges, and History root references as one recoverable graph revision.
+_Avoid_: Post-backup hook, in-place archive rewrite, plugin commit
 
 **Operation Comment**:
 The comment supplied for one manual backup invocation; a configuration backup stores it on the run and newly created child history items, but never rewrites reused history items.
@@ -102,6 +122,14 @@ _Avoid_: Plugin ID, state owner ID, game title
 **Discovery Draft Commit**:
 The host-owned atomic transaction that validates plugin discovery candidates, assigns host identities, and persists selected drafts only when the user's creation policy permits it.
 _Avoid_: Plugin-created config, discovery side effect, automatic provider save
+
+**Config Change Proposal**:
+A non-persistent, revision-bound set of configuration changes suggested by a plugin for Host validation, user review, and atomic commit.
+_Avoid_: Plugin config write, augmentation side effect, silent synchronization
+
+**Config Reconciliation**:
+The comparison of current user-owned configuration with plugin domain knowledge to produce Config Change Proposals without applying them.
+_Avoid_: Config augmentation, automatic sync, plugin migration
 
 **State Owner ID**:
 The namespace owner of opaque provider state attached to a configuration or backup source; equal text may be used for a plugin's own state, but the role is distinct from Plugin ID.
@@ -134,6 +162,22 @@ _Avoid_: Installed plugin, enabled intent, process lifetime
 **Consistency Lease**:
 A bounded right to read one stable backup source through difference detection and archive capture, together with the obligation to release any coordination or snapshot resources.
 _Avoid_: Backup hook, source path override, archive lifetime
+
+**Artifact Transformer**:
+A plugin capability that converts staged and compatible Backup Artifacts into a proposed Artifact Transaction without changing committed artifacts itself.
+_Avoid_: Post-backup hook, backup engine, archive interceptor
+
+**Backup Completion Observer**:
+A participant notified after a backup's Artifact and History root are durably committed but before final diagnostics; it may perform declared integration work while remaining read-only toward Host backup state.
+_Avoid_: Artifact finalizer, transactional hook, completion owner
+
+**Restore Mode**:
+The Host-owned policy for applying materialized content to a destination, currently Clean or Overwrite; Artifact completeness may constrain the effective choice.
+_Avoid_: Artifact format, restore strategy, plugin takeover
+
+**Restore Materializer**:
+A plugin capability that reconstructs a selected Artifact graph into an isolated Host workspace without applying it to the user's destination.
+_Avoid_: Restore mode, restore interceptor, target mutation
 
 **Restore Coordinator**:
 The domain owner that surrounds one host-controlled restore mutation with required external preparation and finalization without taking ownership of archive resolution or file restoration.
