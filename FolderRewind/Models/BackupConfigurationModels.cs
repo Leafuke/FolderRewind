@@ -116,6 +116,7 @@ namespace FolderRewind.Models
     /// </summary>
     public class ManagedFolder : ObservableObject
     {
+        private string _id = Guid.NewGuid().ToString();
         private string _path = "";
         private string _displayName = "";
         private string _description = "";
@@ -126,6 +127,12 @@ namespace FolderRewind.Models
         private BackupSourceScope _sourceScope = new();
 
         // 核心路径
+        public string Id
+        {
+            get => _id;
+            set => SetProperty(ref _id, value ?? string.Empty);
+        }
+
         public string Path
         {
             get => _path;

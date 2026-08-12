@@ -1,0 +1,47 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Window
+    x:Class="FolderRewind.Views.RecoveryCenterWindow"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+
+    <Grid x:Name="RootGrid" Padding="32">
+        <ScrollViewer VerticalScrollBarVisibility="Auto">
+            <StackPanel MaxWidth="820" Spacing="18" HorizontalAlignment="Center">
+                <FontIcon Glyph="&#xE7BA;" FontSize="42" Foreground="{ThemeResource SystemFillColorCriticalBrush}" HorizontalAlignment="Left" />
+                <TextBlock x:Name="TitleText" Style="{ThemeResource TitleTextBlockStyle}" TextWrapping="Wrap" />
+                <TextBlock x:Name="RestrictedText" Style="{ThemeResource BodyStrongTextBlockStyle}" TextWrapping="Wrap" />
+
+                <Border Style="{StaticResource StandardCardStyle}">
+                    <StackPanel Spacing="10">
+                        <TextBlock x:Name="DiagnosticHeaderText" Style="{ThemeResource SubtitleTextBlockStyle}" />
+                        <TextBlock x:Name="DiagnosticText" TextWrapping="Wrap" IsTextSelectionEnabled="True" />
+                        <TextBlock x:Name="ConfigPathHeaderText" Style="{ThemeResource BodyStrongTextBlockStyle}" Margin="0,6,0,0" />
+                        <TextBlock x:Name="ConfigPathText" TextWrapping="Wrap" IsTextSelectionEnabled="True" />
+                        <Button x:Name="OpenFolderButton" Click="OnOpenFolderClick" HorizontalAlignment="Left" />
+                    </StackPanel>
+                </Border>
+
+                <Border Style="{StaticResource StandardCardStyle}">
+                    <StackPanel Spacing="12">
+                        <TextBlock x:Name="RecoveryCopiesHeaderText" Style="{ThemeResource SubtitleTextBlockStyle}" />
+                        <TextBlock x:Name="RecoveryCopiesDescriptionText" TextWrapping="Wrap" />
+                        <ComboBox x:Name="RecoveryCopyComboBox" HorizontalAlignment="Stretch" />
+                        <StackPanel Orientation="Horizontal" Spacing="10">
+                            <Button x:Name="RestoreCopyButton" Click="OnRestoreCopyClick" />
+                            <Button x:Name="RefreshCopiesButton" Click="OnRefreshCopiesClick" />
+                        </StackPanel>
+                    </StackPanel>
+                </Border>
+
+                <InfoBar x:Name="StatusInfoBar" IsOpen="False" IsClosable="True" />
+
+                <StackPanel Orientation="Horizontal" Spacing="10">
+                    <Button x:Name="RetryButton" Click="OnRetryClick" Style="{StaticResource AccentButtonStyle}" />
+                    <Button x:Name="ExportButton" Click="OnExportClick" />
+                    <Button x:Name="ResetButton" Click="OnResetClick" />
+                    <Button x:Name="CloseButton" Click="OnCloseClick" />
+                </StackPanel>
+            </StackPanel>
+        </ScrollViewer>
+    </Grid>
+</Window>

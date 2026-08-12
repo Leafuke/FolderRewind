@@ -95,6 +95,13 @@ namespace FolderRewind
 
                 LogService.Log($"[Startup] Config loaded: {startupSw.ElapsedMilliseconds}ms");
 
+                if (Services.ConfigService.IsRecoveryMode)
+                {
+                    LaunchRecoveryCenter();
+                    LogService.Log($"[Startup] Recovery Center active: {startupSw.ElapsedMilliseconds}ms");
+                    return;
+                }
+
                 // 清理 Badge~
                 try
                 {
@@ -455,6 +462,22 @@ namespace FolderRewind
                 _trayRestorePending = false;
                 LogService.Log(I18n.Format("Tray_ToggleFailed", ex.Message));
             }
+        }
+
+        private void LaunchRecoveryCenter()
+        {
+            I18n.SetLanguageOverride(Services.ConfigService.CurrentConfig.GlobalSettings.Language);
+            LogService.MarkSessionStart();
+
+            _window = new Views.RecoveryCenterWindow();
+            MainWindowService.Initialize(_window);
+            UiDispatcherService.Initialize(_window.DispatcherQueue);
+            _window.Closed += OnMainWindowClosed;
+            Services.ThemeService.ApplyThemeToWindow(_window);
+            _window.Title = I18n.GetString("RecoveryCenter_WindowTitle");
+            _window.AppWindow.Title = _window.Title;
+            _window.AppWindow.Resize(new SizeInt32(900, 680));
+            _window.Activate();
         }
 
         private void RestoreWindowFromTray()

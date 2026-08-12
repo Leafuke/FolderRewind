@@ -130,6 +130,9 @@
     <ProjectCapability Include="Msix" />
   </ItemGroup>
   <ItemGroup>
+    <ProjectReference Include="..\FolderRewind.Plugin.Runtime\FolderRewind.Plugin.Runtime.csproj" />
+  </ItemGroup>
+  <ItemGroup>
     <PackageReference Include="Microsoft.Windows.SDK.BuildTools" Version="10.0.28000.2526" />
     <PackageReference Include="Microsoft.WindowsAppSDK" Version="$(FolderRewindWindowsAppSdkVersion)" />
     <!-- The metapackage is required by current WinUI controls, but these optional

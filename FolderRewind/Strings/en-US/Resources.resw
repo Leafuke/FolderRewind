@@ -5050,4 +5050,31 @@ Pull request: {1}</value>
   <data name="GameDiscoveryPage_Attribution.Text" xml:space="preserve"><value>Path data comes from the Ludusavi manifest (primarily compiled from PCGamingWiki). This Beta only fetches upstream after user action and does not redistribute it with the app.</value></data>
   <data name="GameDiscoveryPage_LudusaviSource.Content" xml:space="preserve"><value>Ludusavi source</value></data>
   <data name="GameDiscoveryPage_PcgwNotice.Content" xml:space="preserve"><value>PCGamingWiki terms</value></data>
+  <data name="RecoveryCenter_WindowTitle" xml:space="preserve"><value>FolderRewind Recovery Center</value></data>
+  <data name="RecoveryCenter_Title" xml:space="preserve"><value>FolderRewind could not safely load your configuration</value></data>
+  <data name="RecoveryCenter_Restricted" xml:space="preserve"><value>Recovery Center is a restricted startup mode. Plugins, configuration saving, backup, restore, automation, KnotLink, and updates are disabled. Closing this window does not modify your configuration.</value></data>
+  <data name="RecoveryCenter_DiagnosticHeader" xml:space="preserve"><value>Diagnostic</value></data>
+  <data name="RecoveryCenter_DiagnosticFormat" xml:space="preserve"><value>Code: {0}&#xA;{1}</value></data>
+  <data name="RecoveryCenter_UnknownDiagnostic" xml:space="preserve"><value>No additional diagnostic details are available.</value></data>
+  <data name="RecoveryCenter_ConfigPathHeader" xml:space="preserve"><value>Configuration file</value></data>
+  <data name="RecoveryCenter_OpenFolder" xml:space="preserve"><value>Open containing folder</value></data>
+  <data name="RecoveryCenter_RecoveryCopiesHeader" xml:space="preserve"><value>Recovery copies</value></data>
+  <data name="RecoveryCenter_RecoveryCopiesDescription" xml:space="preserve"><value>Select a recovery copy created before a migration or an explicit recovery action. The selected copy is validated before replacing the active file.</value></data>
+  <data name="RecoveryCenter_RestoreCopy" xml:space="preserve"><value>Restore selected copy</value></data>
+  <data name="RecoveryCenter_RefreshCopies" xml:space="preserve"><value>Refresh list</value></data>
+  <data name="RecoveryCenter_Retry" xml:space="preserve"><value>Retry migration</value></data>
+  <data name="RecoveryCenter_ExportOriginal" xml:space="preserve"><value>Export original file</value></data>
+  <data name="RecoveryCenter_Reset" xml:space="preserve"><value>Reset configuration…</value></data>
+  <data name="RecoveryCenter_ExportPickerTitle" xml:space="preserve"><value>Export the original configuration</value></data>
+  <data name="RecoveryCenter_JsonFiles" xml:space="preserve"><value>JSON files</value></data>
+  <data name="RecoveryCenter_ExportSuccess" xml:space="preserve"><value>The original configuration was exported.</value></data>
+  <data name="RecoveryCenter_ExportFailed" xml:space="preserve"><value>The original configuration could not be exported.</value></data>
+  <data name="RecoveryCenter_ResetConfirmTitle" xml:space="preserve"><value>Reset FolderRewind configuration?</value></data>
+  <data name="RecoveryCenter_ResetConfirmContent" xml:space="preserve"><value>This will replace the active configuration with defaults. FolderRewind will first preserve the current file as a recovery copy.</value></data>
+  <data name="RecoveryCenter_ResetConfirmButton" xml:space="preserve"><value>Continue</value></data>
+  <data name="RecoveryCenter_ResetFinalTitle" xml:space="preserve"><value>Final confirmation</value></data>
+  <data name="RecoveryCenter_ResetFinalContent" xml:space="preserve"><value>Resetting removes the active settings and backup configuration list from normal use. The preserved recovery copy will remain on disk.</value></data>
+  <data name="RecoveryCenter_ResetFinalButton" xml:space="preserve"><value>Reset now</value></data>
+  <data name="RecoveryCenter_ActionSuccessRestart" xml:space="preserve"><value>The configuration is valid again. Close FolderRewind and reopen it to leave restricted mode.</value></data>
+  <data name="RecoveryCenter_ActionFailed" xml:space="preserve"><value>The recovery action failed. The active configuration was not replaced with an unvalidated document.</value></data>
 </root>

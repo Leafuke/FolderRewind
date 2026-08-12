@@ -46,15 +46,18 @@ public sealed class ConfigFileMigrationService
     private readonly ConfigDocumentGate _gate;
     private readonly IConfigMigrationObserver? _observer;
     private readonly Func<DateTimeOffset> _utcNow;
+    private readonly Func<byte[], string?>? _payloadValidator;
 
     public ConfigFileMigrationService(
         ConfigDocumentGate? gate = null,
         IConfigMigrationObserver? observer = null,
-        Func<DateTimeOffset>? utcNow = null)
+        Func<DateTimeOffset>? utcNow = null,
+        Func<byte[], string?>? payloadValidator = null)
     {
         _gate = gate ?? new ConfigDocumentGate();
         _observer = observer;
         _utcNow = utcNow ?? (() => DateTimeOffset.UtcNow);
+        _payloadValidator = payloadValidator;
     }
 
     public ConfigFilePreparationResult Prepare(string configPath)
@@ -88,7 +91,15 @@ public sealed class ConfigFileMigrationService
 
         if (gateResult.Status == ConfigDocumentGateStatus.Current)
         {
-            return new ConfigFilePreparationResult(ConfigFilePreparationStatus.Current, original);
+            try
+            {
+                ValidateCurrentBytes(original);
+                return new ConfigFilePreparationResult(ConfigFilePreparationStatus.Current, original);
+            }
+            catch (Exception ex)
+            {
+                return Recovery(fullPath, "config_payload_invalid", ex.Message);
+            }
         }
 
         var recoveryCopyPath = string.Empty;
@@ -96,7 +107,7 @@ public sealed class ConfigFileMigrationService
         var replaced = false;
         try
         {
-            recoveryCopyPath = CreateRecoveryCopy(fullPath);
+            recoveryCopyPath = CreateRecoveryCopy(fullPath, original);
             Observe(ConfigMigrationStage.RecoveryCopyFlushed);
 
             WriteNewFileAndFlush(tempPath, gateResult.Utf8Json!);
@@ -104,7 +115,7 @@ public sealed class ConfigFileMigrationService
             ValidateCurrentFile(tempPath);
             Observe(ConfigMigrationStage.TemporaryFileValidated);
 
-            File.Replace(tempPath, fullPath, destinationBackupFileName: null, ignoreMetadataErrors: true);
+            ReplaceAtomically(tempPath, fullPath);
             replaced = true;
             Observe(ConfigMigrationStage.AtomicReplaceCompleted);
 
@@ -154,7 +165,7 @@ public sealed class ConfigFileMigrationService
             .ToArray();
     }
 
-    private string CreateRecoveryCopy(string configPath)
+    private string CreateRecoveryCopy(string configPath, byte[] original)
     {
         var directory = Path.GetDirectoryName(configPath)!;
         var fileName = Path.GetFileName(configPath);
@@ -165,7 +176,6 @@ public sealed class ConfigFileMigrationService
             var candidate = Path.Combine(directory, $"{fileName}.recovery.{timestamp}{suffix}.json");
             try
             {
-                using var source = new FileStream(configPath, FileMode.Open, FileAccess.Read, FileShare.Read);
                 using var destination = new FileStream(
                     candidate,
                     FileMode.CreateNew,
@@ -173,7 +183,7 @@ public sealed class ConfigFileMigrationService
                     FileShare.None,
                     64 * 1024,
                     FileOptions.WriteThrough);
-                source.CopyTo(destination);
+                destination.Write(original);
                 destination.Flush(flushToDisk: true);
                 return candidate;
             }
@@ -207,6 +217,12 @@ public sealed class ConfigFileMigrationService
         {
             throw new InvalidDataException($"Migrated configuration failed read-back validation: {prepared.DiagnosticCode} {prepared.DiagnosticMessage}");
         }
+
+        var payloadError = _payloadValidator?.Invoke(bytes);
+        if (!string.IsNullOrWhiteSpace(payloadError))
+        {
+            throw new InvalidDataException(payloadError);
+        }
     }
 
     private static void TryRestoreOriginal(string configPath, string recoveryCopyPath)
@@ -215,7 +231,7 @@ public sealed class ConfigFileMigrationService
         try
         {
             WriteNewFileAndFlush(rollbackPath, ReadAllBytes(recoveryCopyPath));
-            File.Replace(rollbackPath, configPath, destinationBackupFileName: null, ignoreMetadataErrors: true);
+            ReplaceAtomically(rollbackPath, configPath);
         }
         finally
         {
@@ -240,6 +256,23 @@ public sealed class ConfigFileMigrationService
         => Path.Combine(
             Path.GetDirectoryName(configPath)!,
             $".{Path.GetFileName(configPath)}.{purpose}.{Guid.NewGuid():N}.tmp");
+
+    private static void ReplaceAtomically(string sourcePath, string destinationPath)
+    {
+        const int maximumAttempts = 4;
+        for (var attempt = 1; ; attempt++)
+        {
+            try
+            {
+                File.Replace(sourcePath, destinationPath, destinationBackupFileName: null, ignoreMetadataErrors: true);
+                return;
+            }
+            catch (IOException) when (attempt < maximumAttempts)
+            {
+                Thread.Sleep(10 * attempt);
+            }
+        }
+    }
 
     private static void TryDelete(string path)
     {

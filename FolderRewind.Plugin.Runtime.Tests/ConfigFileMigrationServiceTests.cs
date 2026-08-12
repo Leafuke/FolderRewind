@@ -55,7 +55,10 @@ public sealed class ConfigFileMigrationServiceTests
 
         var result = service.Prepare(path);
 
-        Assert.AreEqual(ConfigFilePreparationStatus.Migrated, result.Status);
+        Assert.AreEqual(
+            ConfigFilePreparationStatus.Migrated,
+            result.Status,
+            $"{result.Diagnostic?.Code}: {result.Diagnostic?.Message}");
         Assert.IsNotNull(result.RecoveryCopyPath);
         CollectionAssert.AreEqual(original, File.ReadAllBytes(result.RecoveryCopyPath));
         Assert.AreEqual(ConfigDocumentKind.Current, ConfigDocumentParser.Parse(File.ReadAllBytes(path)).Kind);
@@ -111,6 +114,55 @@ public sealed class ConfigFileMigrationServiceTests
         Assert.AreEqual(migrated.RecoveryCopyPath, copies[0]);
         CollectionAssert.AreEqual(original, File.ReadAllBytes(copies[0]));
         CollectionAssert.AreEqual(bytesBefore, File.ReadAllBytes(path));
+    }
+
+    [TestMethod]
+    public void HostPayloadValidationFailureOccursBeforeAtomicReplace()
+    {
+        var (path, original) = CreateConfig("legacy-representative.json");
+        var service = new ConfigFileMigrationService(
+            payloadValidator: _ => "Host model rejected the document.");
+
+        var result = service.Prepare(path);
+
+        Assert.AreEqual(ConfigFilePreparationStatus.RecoveryRequired, result.Status);
+        Assert.AreEqual("config_migration_commit_failed", result.Diagnostic!.Code);
+        CollectionAssert.AreEqual(original, File.ReadAllBytes(path));
+        Assert.IsNotNull(result.RecoveryCopyPath);
+    }
+
+    [TestMethod]
+    public void CurrentPayloadValidationFailureIsReadOnly()
+    {
+        var (path, _) = CreateConfig("legacy-representative.json");
+        var initialMigration = new ConfigFileMigrationService().Prepare(path);
+        Assert.AreEqual(
+            ConfigFilePreparationStatus.Migrated,
+            initialMigration.Status,
+            $"{initialMigration.Diagnostic?.Code}: {initialMigration.Diagnostic?.Message}");
+        var current = File.ReadAllBytes(path);
+        var filesBefore = Directory.EnumerateFiles(Path.GetDirectoryName(path)!).Order().ToArray();
+
+        var result = new ConfigFileMigrationService(
+            payloadValidator: _ => "Host model rejected the current document.").Prepare(path);
+
+        Assert.AreEqual(ConfigFilePreparationStatus.RecoveryRequired, result.Status);
+        Assert.AreEqual("config_payload_invalid", result.Diagnostic!.Code);
+        CollectionAssert.AreEqual(current, File.ReadAllBytes(path));
+        CollectionAssert.AreEqual(filesBefore, Directory.EnumerateFiles(Path.GetDirectoryName(path)!).Order().ToArray());
+    }
+
+    [TestMethod]
+    public void FaultImmediatelyAfterReadCreatesNoRecoveryArtifacts()
+    {
+        var (path, original) = CreateConfig("legacy-representative.json");
+
+        var result = new ConfigFileMigrationService(
+            observer: new ThrowingObserver(ConfigMigrationStage.OriginalRead)).Prepare(path);
+
+        Assert.AreEqual(ConfigFilePreparationStatus.RecoveryRequired, result.Status);
+        CollectionAssert.AreEqual(original, File.ReadAllBytes(path));
+        Assert.AreEqual(1, Directory.EnumerateFiles(Path.GetDirectoryName(path)!).Count());
     }
 
     private (string Path, byte[] Original) CreateConfig(string fixture)

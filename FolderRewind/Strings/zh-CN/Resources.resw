@@ -5050,4 +5050,31 @@ Pull Request：{1}</value>
   <data name="GameDiscoveryPage_Attribution.Text" xml:space="preserve"><value>路径数据来自 Ludusavi manifest（主要汇编自 PCGamingWiki）；当前 Beta 仅在用户操作后直连上游并缓存，不随应用再分发。</value></data>
   <data name="GameDiscoveryPage_LudusaviSource.Content" xml:space="preserve"><value>Ludusavi 来源</value></data>
   <data name="GameDiscoveryPage_PcgwNotice.Content" xml:space="preserve"><value>PCGamingWiki 许可说明</value></data>
+  <data name="RecoveryCenter_WindowTitle" xml:space="preserve"><value>FolderRewind 恢复中心</value></data>
+  <data name="RecoveryCenter_Title" xml:space="preserve"><value>FolderRewind 无法安全加载配置</value></data>
+  <data name="RecoveryCenter_Restricted" xml:space="preserve"><value>恢复中心是受限启动模式。插件、配置保存、备份、还原、自动化、KnotLink 和更新均已禁用；关闭此窗口不会修改配置文件。</value></data>
+  <data name="RecoveryCenter_DiagnosticHeader" xml:space="preserve"><value>诊断信息</value></data>
+  <data name="RecoveryCenter_DiagnosticFormat" xml:space="preserve"><value>代码：{0}&#xA;{1}</value></data>
+  <data name="RecoveryCenter_UnknownDiagnostic" xml:space="preserve"><value>没有更多诊断详情。</value></data>
+  <data name="RecoveryCenter_ConfigPathHeader" xml:space="preserve"><value>配置文件</value></data>
+  <data name="RecoveryCenter_OpenFolder" xml:space="preserve"><value>打开所在文件夹</value></data>
+  <data name="RecoveryCenter_RecoveryCopiesHeader" xml:space="preserve"><value>恢复副本</value></data>
+  <data name="RecoveryCenter_RecoveryCopiesDescription" xml:space="preserve"><value>选择迁移前或显式恢复操作前创建的副本。替换当前文件前会先完整校验所选副本。</value></data>
+  <data name="RecoveryCenter_RestoreCopy" xml:space="preserve"><value>还原所选副本</value></data>
+  <data name="RecoveryCenter_RefreshCopies" xml:space="preserve"><value>刷新列表</value></data>
+  <data name="RecoveryCenter_Retry" xml:space="preserve"><value>重试迁移</value></data>
+  <data name="RecoveryCenter_ExportOriginal" xml:space="preserve"><value>导出原始文件</value></data>
+  <data name="RecoveryCenter_Reset" xml:space="preserve"><value>重置配置…</value></data>
+  <data name="RecoveryCenter_ExportPickerTitle" xml:space="preserve"><value>导出原始配置文件</value></data>
+  <data name="RecoveryCenter_JsonFiles" xml:space="preserve"><value>JSON 文件</value></data>
+  <data name="RecoveryCenter_ExportSuccess" xml:space="preserve"><value>原始配置已导出。</value></data>
+  <data name="RecoveryCenter_ExportFailed" xml:space="preserve"><value>无法导出原始配置。</value></data>
+  <data name="RecoveryCenter_ResetConfirmTitle" xml:space="preserve"><value>要重置 FolderRewind 配置吗？</value></data>
+  <data name="RecoveryCenter_ResetConfirmContent" xml:space="preserve"><value>这会使用默认值替换当前配置。FolderRewind 会先把现有文件保留为恢复副本。</value></data>
+  <data name="RecoveryCenter_ResetConfirmButton" xml:space="preserve"><value>继续</value></data>
+  <data name="RecoveryCenter_ResetFinalTitle" xml:space="preserve"><value>最终确认</value></data>
+  <data name="RecoveryCenter_ResetFinalContent" xml:space="preserve"><value>重置后，当前设置和备份配置列表将不再用于正常启动；已保留的恢复副本仍会留在磁盘上。</value></data>
+  <data name="RecoveryCenter_ResetFinalButton" xml:space="preserve"><value>立即重置</value></data>
+  <data name="RecoveryCenter_ActionSuccessRestart" xml:space="preserve"><value>配置已恢复有效。请关闭并重新打开 FolderRewind 以退出受限模式。</value></data>
+  <data name="RecoveryCenter_ActionFailed" xml:space="preserve"><value>恢复操作失败。未经校验的文档没有替换当前配置。</value></data>
 </root>

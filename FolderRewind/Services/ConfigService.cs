@@ -1,11 +1,14 @@
 using FolderRewind.Models;
+using FolderRewind.Plugin.Runtime.Configuration;
 using Microsoft.UI.Windowing;
 using System;
+using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using System.Runtime.InteropServices;
 using System.Text.Json;
+using System.Text.Json.Nodes;
 using Windows.Graphics;
 
 namespace FolderRewind.Services
@@ -26,6 +29,10 @@ namespace FolderRewind.Services
         public static event Action? Saved;
 
         public static AppConfig CurrentConfig { get; private set; } = new();
+
+        public static bool IsRecoveryMode { get; private set; }
+
+        public static ConfigRecoveryDiagnostic? RecoveryDiagnostic { get; private set; }
 
         public static string ConfigFilePath => ConfigPath;
 
@@ -71,10 +78,42 @@ namespace FolderRewind.Services
         {
             if (_initialized) return;
 
-            bool createdDefault;
-            var config = LoadConfig(out createdDefault);
+            IsRecoveryMode = false;
+            RecoveryDiagnostic = null;
+            bool createdDefault = false;
+            var preparation = CreateMigrationService().Prepare(ConfigPath);
+            AppConfig config;
+            if (preparation.Status == ConfigFilePreparationStatus.RecoveryRequired)
+            {
+                EnterRecoveryMode(preparation.Diagnostic);
+                return;
+            }
+
+            if (preparation.Status == ConfigFilePreparationStatus.Missing)
+            {
+                createdDefault = true;
+                config = CreateDefaultConfig();
+            }
+            else
+            {
+                try
+                {
+                    config = DeserializeConfig(preparation.Utf8Json!);
+                }
+                catch (Exception ex)
+                {
+                    EnterRecoveryMode(new ConfigRecoveryDiagnostic(
+                        "config_host_deserialization_failed",
+                        ex.Message,
+                        ConfigPath,
+                        preparation.RecoveryCopyPath));
+                    return;
+                }
+            }
+
             var originalLanguage = config.GlobalSettings.Language;
             NormalizeConfig(config);
+            PrepareSchemaOnePersistence(config);
             var languageNormalized = !string.Equals(
                 originalLanguage,
                 config.GlobalSettings.Language,
@@ -102,34 +141,50 @@ namespace FolderRewind.Services
             }
         }
 
-        private static AppConfig LoadConfig(out bool createdDefault)
-        {
-            createdDefault = false;
-            if (!File.Exists(ConfigPath))
-            {
-                createdDefault = true;
-                return CreateDefaultConfig();
-            }
+        private static ConfigFileMigrationService CreateMigrationService()
+            => new(payloadValidator: ValidateHostPayload);
 
+        private static string? ValidateHostPayload(byte[] utf8Json)
+        {
             try
             {
-                using var stream = new FileStream(ConfigPath, FileMode.Open, FileAccess.Read, FileShare.Read);
-                var loaded = JsonSerializer.Deserialize(stream, AppJsonContext.Default.AppConfig);
-                if (loaded != null)
-                {
-                    return loaded;
-                }
-
-                LogService.Log(I18n.GetString("Config_ParseNull_Reset"));
+                var config = DeserializeConfig(utf8Json);
+                NormalizeConfig(config);
+                PrepareSchemaOnePersistence(config);
+                return null;
             }
             catch (Exception ex)
             {
-                Debug.WriteLine($"Config load error: {ex.Message}");
-                LogService.Log(I18n.Format("Config_LoadFailed_Reset", ex.Message));
+                return $"Host configuration model rejected the document: {ex.Message}";
+            }
+        }
+
+        private static AppConfig DeserializeConfig(byte[] utf8Json)
+        {
+            var config = JsonSerializer.Deserialize(utf8Json, AppJsonContext.Default.AppConfig)
+                ?? throw new InvalidDataException("The configuration deserialized to null.");
+            if (config.SchemaVersion != ConfigSchema.CurrentVersion)
+            {
+                throw new InvalidDataException(
+                    $"Expected configuration schema {ConfigSchema.CurrentVersion}, got {config.SchemaVersion}.");
             }
 
-            createdDefault = true;
-            return CreateDefaultConfig();
+            return config;
+        }
+
+        private static void EnterRecoveryMode(ConfigRecoveryDiagnostic? diagnostic)
+        {
+            CurrentConfig = new AppConfig();
+            ApplyLogSettings(CurrentConfig.GlobalSettings);
+            RecoveryDiagnostic = diagnostic ?? new ConfigRecoveryDiagnostic(
+                "config_recovery_required",
+                "The configuration could not be loaded safely.",
+                ConfigPath);
+            IsRecoveryMode = true;
+            _initialized = true;
+            LogService.LogError(
+                $"[Config] Recovery Center required: {RecoveryDiagnostic.Code}: {RecoveryDiagnostic.Message}",
+                "ConfigService");
         }
 
         private static AppConfig CreateDefaultConfig()
@@ -243,6 +298,129 @@ namespace FolderRewind.Services
             }
         }
 
+        private static void PrepareSchemaOnePersistence(AppConfig config)
+        {
+            config.SchemaVersion = ConfigSchema.CurrentVersion;
+            config.SchemaExtensions ??= new Dictionary<string, JsonElement>(StringComparer.OrdinalIgnoreCase);
+            var usedFolderIds = new HashSet<Guid>();
+
+            config.GlobalSettings.Plugins.SchemaExtensions ??=
+                new Dictionary<string, JsonElement>(StringComparer.OrdinalIgnoreCase);
+            config.GlobalSettings.Plugins.SchemaExtensions["EnabledIntent"] = ParseElement(
+                JsonSerializer.Serialize(
+                    config.GlobalSettings.Plugins.PluginEnabled,
+                    AppJsonContext.Default.DictionaryStringBoolean));
+            config.GlobalSettings.Plugins.SchemaExtensions["TypedSettings"] = ParseElement(
+                BuildTypedPluginSettings(config.GlobalSettings.Plugins.PluginSettings).ToJsonString());
+
+            foreach (var backupConfig in config.BackupConfigs.Where(static item => item != null))
+            {
+                backupConfig.SchemaExtensions ??=
+                    new Dictionary<string, JsonElement>(StringComparer.OrdinalIgnoreCase);
+                var isMinecraft = string.Equals(
+                    backupConfig.ConfigType,
+                    "Minecraft Saves",
+                    StringComparison.OrdinalIgnoreCase);
+                var ownerId = isMinecraft ? ConfigSchema.MineRewindPluginId : ConfigSchema.CoreOwnerId;
+                var kindId = isMinecraft ? ConfigSchema.MineRewindKindId : ConfigSchema.CoreDefaultKindId;
+                EnsureExtension(
+                    backupConfig.SchemaExtensions,
+                    "Kind",
+                    $"{{\"OwnerId\":\"{ownerId}\",\"KindId\":\"{kindId}\"}}");
+                EnsureExtension(backupConfig.SchemaExtensions, "ProviderStates", "{}");
+
+                backupConfig.BackupScope.SchemaExtensions ??=
+                    new Dictionary<string, JsonElement>(StringComparer.OrdinalIgnoreCase);
+                if (!backupConfig.BackupScope.SchemaExtensions.ContainsKey("OwnerId")
+                    || !backupConfig.BackupScope.SchemaExtensions.ContainsKey("ScopeId"))
+                {
+                    var selectedRegions = string.Equals(
+                        backupConfig.BackupScope.PluginScopeId,
+                        "MineRewind.SelectedRegions",
+                        StringComparison.OrdinalIgnoreCase);
+                    backupConfig.BackupScope.SchemaExtensions["OwnerId"] = ParseElement(
+                        selectedRegions ? $"\"{ConfigSchema.MineRewindPluginId}\"" : "\"\"");
+                    backupConfig.BackupScope.SchemaExtensions["ScopeId"] = ParseElement(
+                        selectedRegions ? $"\"{ConfigSchema.MineRewindSelectedRegionsScopeId}\"" : "\"\"");
+                }
+
+                foreach (var folder in backupConfig.SourceFolders.Where(static item => item != null))
+                {
+                    if (!Guid.TryParse(folder.Id, out var folderId)
+                        || folderId == Guid.Empty
+                        || !usedFolderIds.Add(folderId))
+                    {
+                        do
+                        {
+                            folderId = Guid.NewGuid();
+                        }
+                        while (!usedFolderIds.Add(folderId));
+
+                        folder.Id = folderId.ToString();
+                    }
+
+                    folder.SchemaExtensions ??=
+                        new Dictionary<string, JsonElement>(StringComparer.OrdinalIgnoreCase);
+                    EnsureExtension(folder.SchemaExtensions, "ProviderStates", "{}");
+                }
+            }
+        }
+
+        private static JsonObject BuildTypedPluginSettings(
+            IReadOnlyDictionary<string, Dictionary<string, string>> settings)
+        {
+            var root = new JsonObject();
+            foreach (var (pluginId, values) in settings)
+            {
+                var typedValues = new JsonObject();
+                foreach (var (key, value) in values)
+                {
+                    if (string.Equals(pluginId, ConfigSchema.MineRewindPluginId, StringComparison.OrdinalIgnoreCase)
+                        && (string.Equals(key, "AutoDiscoverSaves", StringComparison.OrdinalIgnoreCase)
+                            || string.Equals(key, "AutoCreateConfigs", StringComparison.OrdinalIgnoreCase)
+                            || string.Equals(key, "PreservePlayerData", StringComparison.OrdinalIgnoreCase))
+                        && TryParseLegacyBoolean(value, out var booleanValue))
+                    {
+                        typedValues[key] = booleanValue;
+                    }
+                    else
+                    {
+                        typedValues[key] = value;
+                    }
+                }
+
+                root[pluginId] = typedValues;
+            }
+
+            return root;
+        }
+
+        private static bool TryParseLegacyBoolean(string? value, out bool result)
+        {
+            if (bool.TryParse(value, out result)) return true;
+            if (value == "1") { result = true; return true; }
+            if (value == "0") { result = false; return true; }
+            result = false;
+            return false;
+        }
+
+        private static void EnsureExtension(
+            IDictionary<string, JsonElement> extensions,
+            string name,
+            string json)
+        {
+            if (!extensions.ContainsKey(name))
+            {
+                extensions[name] = ParseElement(json);
+            }
+        }
+
+        private static JsonElement ParseElement(string json)
+        {
+            using var document = JsonDocument.Parse(json);
+            return document.RootElement.Clone();
+        }
+
         private static (double Width, double Height) GetRecommendedStartupWindowSize()
         {
             var scale = GetSystemDpiScale();
@@ -330,8 +508,19 @@ namespace FolderRewind.Services
 
         public static ConfigSaveResult SaveWithResult(bool publishSavedEvent = true)
         {
+            if (IsRecoveryMode)
+            {
+                return new ConfigSaveResult
+                {
+                    Success = false,
+                    ErrorMessage = "Configuration writes are disabled while Recovery Center is active."
+                };
+            }
+
             try
             {
+                NormalizeConfig(CurrentConfig);
+                PrepareSchemaOnePersistence(CurrentConfig);
                 AtomicFileService.Write(
                     ConfigPath,
                     stream => JsonSerializer.Serialize(
@@ -362,7 +551,7 @@ namespace FolderRewind.Services
         {
             _initialized = false;
             Initialize();
-            return _initialized;
+            return _initialized && !IsRecoveryMode;
         }
 
         #endregion
@@ -373,7 +562,11 @@ namespace FolderRewind.Services
         {
             try
             {
-                if (!Directory.Exists(ConfigDirectory)) Directory.CreateDirectory(ConfigDirectory);
+                if (!Directory.Exists(ConfigDirectory))
+                {
+                    if (IsRecoveryMode) return;
+                    Directory.CreateDirectory(ConfigDirectory);
+                }
                 if (!ShellPathService.TryOpenPath(ConfigDirectory, out var openError))
                 {
                     LogService.Log(I18n.Format("Config_OpenConfigDirFailed", openError ?? string.Empty));
@@ -389,7 +582,11 @@ namespace FolderRewind.Services
         {
             try
             {
-                if (!File.Exists(ConfigPath)) Save();
+                if (!File.Exists(ConfigPath))
+                {
+                    if (IsRecoveryMode) return;
+                    Save();
+                }
                 if (!ShellPathService.TryOpenPath(ConfigPath, out var openError))
                 {
                     LogService.Log(I18n.Format("Config_OpenConfigFileFailed", openError ?? string.Empty));
@@ -410,8 +607,15 @@ namespace FolderRewind.Services
         /// </summary>
         public static bool ExportConfig(string destPath)
         {
+            if (IsRecoveryMode)
+            {
+                return ExportRecoverySource(destPath);
+            }
+
             try
             {
+                NormalizeConfig(CurrentConfig);
+                PrepareSchemaOnePersistence(CurrentConfig);
                 AtomicFileService.Write(
                     destPath,
                     stream => JsonSerializer.Serialize(
@@ -433,30 +637,60 @@ namespace FolderRewind.Services
         /// </summary>
         public static bool ImportConfig(string sourcePath)
         {
+            if (IsRecoveryMode)
+            {
+                return false;
+            }
+
             try
             {
                 if (!File.Exists(sourcePath)) return false;
-                using var sourceStream = new FileStream(sourcePath, FileMode.Open, FileAccess.Read, FileShare.Read);
-                var imported = JsonSerializer.Deserialize(sourceStream, AppJsonContext.Default.AppConfig);
-                if (imported == null)
+                var sourceBytes = File.ReadAllBytes(sourcePath);
+                var gateResult = new ConfigDocumentGate().Prepare(sourceBytes);
+                if (!gateResult.IsReady || gateResult.Utf8Json is null)
                 {
-                    LogService.Log(I18n.GetString("Config_ImportFailed_Null"));
+                    LogService.Log(I18n.Format(
+                        "Config_ImportFailed",
+                        $"{gateResult.DiagnosticCode}: {gateResult.DiagnosticMessage}"));
                     return false;
                 }
 
-                // 先备份旧文件，导入后如果用户反悔还能手动找回。
-                string backupPath = ConfigPath + ".bak";
-                try { File.Copy(ConfigPath, backupPath, true); } catch { }
-
+                var imported = DeserializeConfig(gateResult.Utf8Json);
                 NormalizeConfig(imported);
-                AtomicFileService.Write(
-                    ConfigPath,
-                    stream => JsonSerializer.Serialize(
-                        stream,
-                        imported,
-                        AppJsonContext.Default.AppConfig));
+                PrepareSchemaOnePersistence(imported);
+                var importedBytes = SerializeConfig(imported);
+                var validation = new ConfigDocumentGate().Prepare(importedBytes);
+                if (validation.Status != ConfigDocumentGateStatus.Current)
+                {
+                    throw new InvalidDataException(
+                        $"Imported configuration failed schema validation: {validation.DiagnosticCode} {validation.DiagnosticMessage}");
+                }
+
+                var safetyCopy = CreateSafetyCopy("before-import");
+                try
+                {
+                    WriteBytesAtomically(ConfigPath, importedBytes);
+                    var readBackError = ValidateHostPayload(File.ReadAllBytes(ConfigPath));
+                    if (!string.IsNullOrWhiteSpace(readBackError))
+                    {
+                        throw new InvalidDataException(readBackError);
+                    }
+                }
+                catch
+                {
+                    RestoreSafetyCopy(safetyCopy);
+                    throw;
+                }
+
                 _initialized = false;
                 Initialize();
+                if (IsRecoveryMode)
+                {
+                    RestoreSafetyCopy(safetyCopy);
+                    _initialized = false;
+                    Initialize();
+                    throw new InvalidDataException("Imported configuration could not be activated safely.");
+                }
 
                 LogService.Log(I18n.Format("Config_ImportSuccess", sourcePath));
                 return true;
@@ -466,6 +700,177 @@ namespace FolderRewind.Services
                 LogService.Log(I18n.Format("Config_ImportFailed", ex.Message));
                 return false;
             }
+        }
+
+        public static IReadOnlyList<string> GetRecoveryCopies()
+        {
+            try
+            {
+                return ConfigFileMigrationService.ListRecoveryCopies(ConfigPath);
+            }
+            catch (Exception ex)
+            {
+                LogService.LogWarning($"[Config] Failed to enumerate recovery copies: {ex.Message}", "ConfigService");
+                return Array.Empty<string>();
+            }
+        }
+
+        public static bool ExportRecoverySource(string destinationPath)
+        {
+            if (!IsRecoveryMode || !File.Exists(ConfigPath) || string.IsNullOrWhiteSpace(destinationPath))
+            {
+                return false;
+            }
+
+            try
+            {
+                var original = File.ReadAllBytes(ConfigPath);
+                WriteBytesAtomically(destinationPath, original);
+                return true;
+            }
+            catch (Exception ex)
+            {
+                LogService.LogError($"[Config] Recovery export failed: {ex.Message}", "ConfigService", ex);
+                return false;
+            }
+        }
+
+        public static bool RetryRecovery()
+        {
+            if (!IsRecoveryMode) return true;
+            _initialized = false;
+            Initialize();
+            return !IsRecoveryMode;
+        }
+
+        public static bool RestoreRecoveryCopy(string recoveryCopyPath)
+        {
+            if (!IsRecoveryMode || string.IsNullOrWhiteSpace(recoveryCopyPath)) return false;
+            var requested = Path.GetFullPath(recoveryCopyPath);
+            if (!GetRecoveryCopies().Any(path => string.Equals(
+                    Path.GetFullPath(path),
+                    requested,
+                    StringComparison.OrdinalIgnoreCase)))
+            {
+                return false;
+            }
+
+            try
+            {
+                var prepared = new ConfigDocumentGate().Prepare(File.ReadAllBytes(requested));
+                if (!prepared.IsReady || prepared.Utf8Json is null) return false;
+                var restored = DeserializeConfig(prepared.Utf8Json);
+                NormalizeConfig(restored);
+                PrepareSchemaOnePersistence(restored);
+                return ReplaceFromRecoveryAction(SerializeConfig(restored), "before-restore-copy");
+            }
+            catch (Exception ex)
+            {
+                LogService.LogError($"[Config] Recovery-copy restore failed: {ex.Message}", "ConfigService", ex);
+                return false;
+            }
+        }
+
+        public static bool ResetFromRecovery()
+        {
+            if (!IsRecoveryMode) return false;
+            try
+            {
+                var replacement = CreateDefaultConfig();
+                NormalizeConfig(replacement);
+                PrepareSchemaOnePersistence(replacement);
+                return ReplaceFromRecoveryAction(SerializeConfig(replacement), "before-reset");
+            }
+            catch (Exception ex)
+            {
+                LogService.LogError($"[Config] Recovery reset failed: {ex.Message}", "ConfigService", ex);
+                return false;
+            }
+        }
+
+        private static bool ReplaceFromRecoveryAction(byte[] replacement, string safetyReason)
+        {
+            var validation = new ConfigDocumentGate().Prepare(replacement);
+            if (validation.Status != ConfigDocumentGateStatus.Current)
+            {
+                return false;
+            }
+
+            var safetyCopy = CreateSafetyCopy(safetyReason);
+            try
+            {
+                WriteBytesAtomically(ConfigPath, replacement);
+                var readBackError = ValidateHostPayload(File.ReadAllBytes(ConfigPath));
+                if (!string.IsNullOrWhiteSpace(readBackError))
+                {
+                    throw new InvalidDataException(readBackError);
+                }
+
+                _initialized = false;
+                Initialize();
+                if (IsRecoveryMode)
+                {
+                    throw new InvalidDataException("The replacement could not be activated safely.");
+                }
+
+                return true;
+            }
+            catch
+            {
+                RestoreSafetyCopy(safetyCopy);
+                _initialized = false;
+                Initialize();
+                return false;
+            }
+        }
+
+        private static byte[] SerializeConfig(AppConfig config)
+        {
+            using var stream = new MemoryStream();
+            JsonSerializer.Serialize(stream, config, AppJsonContext.Default.AppConfig);
+            return stream.ToArray();
+        }
+
+        private static void WriteBytesAtomically(string destinationPath, byte[] bytes)
+            => AtomicFileService.Write(destinationPath, stream => stream.Write(bytes));
+
+        private static string? CreateSafetyCopy(string reason)
+        {
+            if (!File.Exists(ConfigPath)) return null;
+            Directory.CreateDirectory(ConfigDirectory);
+            var timestamp = DateTime.UtcNow.ToString("yyyyMMdd'T'HHmmssfffffff'Z'");
+            for (var sequence = 0; sequence < 10_000; sequence++)
+            {
+                var suffix = sequence == 0 ? string.Empty : $".{sequence:D4}";
+                var candidate = Path.Combine(
+                    ConfigDirectory,
+                    $"{Path.GetFileName(ConfigPath)}.recovery.{timestamp}.{reason}{suffix}.json");
+                try
+                {
+                    using var source = new FileStream(ConfigPath, FileMode.Open, FileAccess.Read, FileShare.Read);
+                    using var destination = new FileStream(
+                        candidate,
+                        FileMode.CreateNew,
+                        FileAccess.Write,
+                        FileShare.None,
+                        64 * 1024,
+                        FileOptions.WriteThrough);
+                    source.CopyTo(destination);
+                    destination.Flush(flushToDisk: true);
+                    return candidate;
+                }
+                catch (IOException) when (File.Exists(candidate))
+                {
+                }
+            }
+
+            throw new IOException("Unable to create a unique configuration safety copy.");
+        }
+
+        private static void RestoreSafetyCopy(string? safetyCopy)
+        {
+            if (string.IsNullOrWhiteSpace(safetyCopy) || !File.Exists(safetyCopy)) return;
+            WriteBytesAtomically(ConfigPath, File.ReadAllBytes(safetyCopy));
         }
 
         #endregion

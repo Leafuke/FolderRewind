@@ -7,6 +7,7 @@ using System.Collections.ObjectModel;
 using System.ComponentModel;
 using System.Linq;
 using System.Runtime.CompilerServices;
+using System.Text.Json;
 using System.Text.Json.Serialization;
 
 namespace FolderRewind.Models
@@ -29,6 +30,10 @@ namespace FolderRewind.Models
     public class ObservableObject : INotifyPropertyChanged
     {
         public event PropertyChangedEventHandler? PropertyChanged;
+
+        [JsonExtensionData]
+        public Dictionary<string, JsonElement> SchemaExtensions { get; set; } = new();
+
         public void OnPropertyChanged([CallerMemberName] string? propertyName = null)
         {
             PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(propertyName));
@@ -47,9 +52,17 @@ namespace FolderRewind.Models
     /// </summary>
     public class AppConfig : ObservableObject
     {
+        private int _schemaVersion = 1;
         private GlobalSettings _globalSettings = new();
         private ObservableCollection<BackupConfig> _backupConfigs = new();
         private ObservableCollection<BackupPreset> _backupPresets = new();
+
+        [JsonPropertyName("schemaVersion")]
+        public int SchemaVersion
+        {
+            get => _schemaVersion;
+            set => SetProperty(ref _schemaVersion, value);
+        }
 
         public GlobalSettings GlobalSettings
         {
