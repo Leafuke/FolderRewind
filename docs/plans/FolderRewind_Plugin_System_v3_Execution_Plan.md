@@ -2,7 +2,7 @@
 
 > 状态：已冻结 / 实施中（D0 于 2026-08-12 经用户批准）
 >
-> 计划版本：2026-08-12 / Revision 5
+> 计划版本：2026-08-12 / Revision 6
 >
 > 产品版本：FolderRewind 1.9.0、MineRewind 1.9.0
 >
@@ -12,7 +12,7 @@
 >
 > 目标仓库：`Leafuke/FolderRewind`、`Leafuke/FolderRewind-Plugin-Minecraft`、`Leafuke/FolderRewind-Site`、新建 `Leafuke/FolderRewind-Plugin-Catalog`
 >
-> 当前执行门：M1 已完成实施方自检，等待用户批准 M1 Gate；批准前不得进入 M2。
+> 当前执行门：M1 Gate 已于 2026-08-12 经用户批准；M2 实施中。
 
 本文件是 Plugin System v3 的唯一执行依据。它先作为受版本控制的 proposed specification 接受审阅；用户明确通过 D0 后，才可把状态改为“已冻结 / 实施中”并修改产品代码。实施中若发现本计划无法满足仓库事实，必须先修订本文件、说明影响并重新通过当前里程碑，禁止在代码中静默偏离。
 
@@ -231,7 +231,7 @@ Recovery Center 是受限启动状态，不是普通主界面。它禁止插件 
 
 **M1 Gate**：migration atomic/idempotent、FolderId stable、unknown data retained、Recovery Center no-write；Host/MineRewind baseline 全绿。
 
-#### M1 实施记录（2026-08-12，待用户批准 Gate）
+#### M1 实施记录（2026-08-12，Gate 已获用户批准）
 
 提交边界：
 
@@ -259,7 +259,7 @@ Recovery Center 是受限启动状态，不是普通主界面。它禁止插件 
 - Recovery Center XAML 已通过 WinUI build，但本轮没有为手工 smoke test 改动真实 `%LocalAppData%` 配置；真实安装迁移 E2E 仍按 M6 门禁执行。
 - Schema 1 的 Kind/Provider State/typed settings 目前通过受保护的 extension data 与 v2 字段并存，只为保证 M1 迁移与无损往返；M2 提交 6 必须替换成正式角色类型和持久化模型，M6 才删除 v2 字段。
 - Host/MineRewind 并行构建争用仍是冻结计划中的已知基线问题，必须在 M2/M3 通过独立 Abstractions 引用消除，未在 M1 越界处理。
-- 本记录只声明实施方自检通过；用户明确批准 M1 Gate 前，不开始 M2。
+- 用户已于 2026-08-12 明确回复“M1 批准”；M2 授权生效。
 
 ### M2 — Abstractions、Runtime 与持久化
 
