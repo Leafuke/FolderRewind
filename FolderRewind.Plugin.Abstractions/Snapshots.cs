@@ -6,12 +6,18 @@ public sealed record PluginSettingsSnapshot(
     PluginId PluginId,
     IReadOnlyDictionary<string, JsonElement> Values);
 
+public sealed record ProviderStateLocation(
+    string ConfigId,
+    Guid? FolderId);
+
 public sealed record ProviderStateSnapshot(
+    ProviderStateLocation Location,
     StateOwnerId StateOwnerId,
     int SchemaVersion,
     JsonElement Data);
 
 public sealed record ProviderStatePatch(
+    ProviderStateLocation Location,
     StateOwnerId StateOwnerId,
     int ExpectedSchemaVersion,
     int SchemaVersion,

@@ -90,6 +90,8 @@ namespace FolderRewind
 
             try
             {
+                Services.PluginRuntimeModeService.Initialize(Environment.GetCommandLineArgs());
+
                 // 配置必须先于窗口创建：后面的语言/主题/尺寸都依赖它。
                 Services.ConfigService.Initialize();
 

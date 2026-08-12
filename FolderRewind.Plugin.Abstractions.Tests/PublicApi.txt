@@ -1,5 +1,5 @@
 # Generated and reviewed public API baseline for Plugin API 3.0.0.
-# sha256:19b1af5e96a2b5ad98795e4d82d5643779f6fc5c7ffaa5a9d1ea08b08cb1c011
+# sha256:4fcfec27b235bc082514808aaad399f9e417217a8838c93d514d21330df38f29
 T FolderRewind.Plugin.Abstractions.BackupConsistencyRequest
 T FolderRewind.Plugin.Abstractions.BackupScopeDescriptor
 T FolderRewind.Plugin.Abstractions.BackupScopeId
@@ -65,6 +65,7 @@ T FolderRewind.Plugin.Abstractions.PluginInvocationContext
 T FolderRewind.Plugin.Abstractions.PluginManifestContract
 T FolderRewind.Plugin.Abstractions.PluginRuntimeState
 T FolderRewind.Plugin.Abstractions.PluginSettingsSnapshot
+T FolderRewind.Plugin.Abstractions.ProviderStateLocation
 T FolderRewind.Plugin.Abstractions.ProviderStatePatch
 T FolderRewind.Plugin.Abstractions.ProviderStateSnapshot
 T FolderRewind.Plugin.Abstractions.RestoreCoordinatorRequest

@@ -104,6 +104,38 @@ namespace FolderRewind.Views.Settings
             PluginService.RefreshAndLoadEnabled();
         }
 
+        private async void OnRestartSafeModeClick(object sender, RoutedEventArgs e)
+        {
+            var rl = ResourceLoader.GetForViewIndependentUse();
+            var confirm = new ContentDialog
+            {
+                Title = rl.GetString("Plugins_RestartSafeModeTitle"),
+                Content = rl.GetString("Plugins_RestartSafeModeConfirm"),
+                PrimaryButtonText = rl.GetString("Plugins_RestartSafeModeButton"),
+                CloseButtonText = rl.GetString("Common_Cancel"),
+                DefaultButton = ContentDialogButton.Close,
+                XamlRoot = XamlRoot
+            };
+            ThemeService.ApplyThemeToDialog(confirm);
+            if (await confirm.ShowAsync() != ContentDialogResult.Primary) return;
+
+            if (PluginRuntimeModeService.TryStartSafeModeInstance(out var error))
+            {
+                Application.Current.Exit();
+                return;
+            }
+
+            var failure = new ContentDialog
+            {
+                Title = rl.GetString("Common_Failed"),
+                Content = string.Format(rl.GetString("Plugins_RestartSafeModeFailed"), error),
+                CloseButtonText = rl.GetString("Common_Ok"),
+                XamlRoot = XamlRoot
+            };
+            ThemeService.ApplyThemeToDialog(failure);
+            await failure.ShowAsync();
+        }
+
         private void OnPluginEnabledToggled(object sender, RoutedEventArgs e)
         {
             if (sender is not ToggleSwitch ts) return;

@@ -55,6 +55,8 @@ namespace FolderRewind.Services.Plugins
 
         private static bool TryLoadPlugin(string pluginId)
         {
+            if (PluginRuntimeModeService.IsSafeMode) return false;
+
             lock (_lock)
             {
                 if (_loaded.ContainsKey(pluginId)) return true;

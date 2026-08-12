@@ -82,7 +82,10 @@ public sealed class ContractTests
 
         Assert.IsNotNull(expectedFingerprint,
             $"Approve this API fingerprint and exported type list:\n# sha256:{actualFingerprint}\n{string.Join('\n', actualTypes)}");
-        Assert.AreEqual(expectedFingerprint, actualFingerprint, "The public member contract changed.");
+        Assert.AreEqual(
+            expectedFingerprint,
+            actualFingerprint,
+            $"The public member contract changed. Approve sha256:{actualFingerprint}");
         CollectionAssert.AreEqual(expectedTypes, actualTypes, "The exported type set changed.");
     }
 }

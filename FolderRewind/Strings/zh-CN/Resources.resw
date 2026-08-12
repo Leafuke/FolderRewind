@@ -1350,6 +1350,21 @@
   <data name="SettingsPage_RefreshPlugins.Content" xml:space="preserve">
     <value>刷新</value>
   </data>
+  <data name="SettingsPage_RestartSafeMode.Content" xml:space="preserve">
+    <value>以安全模式重启</value>
+  </data>
+  <data name="Plugins_RestartSafeModeTitle" xml:space="preserve">
+    <value>要以安全模式重启吗？</value>
+  </data>
+  <data name="Plugins_RestartSafeModeConfirm" xml:space="preserve">
+    <value>FolderRewind 将在不加载任何插件 DLL 的情况下重启，且不会修改你的插件启用意图。</value>
+  </data>
+  <data name="Plugins_RestartSafeModeButton" xml:space="preserve">
+    <value>重启</value>
+  </data>
+  <data name="Plugins_RestartSafeModeFailed" xml:space="preserve">
+    <value>无法启动安全模式：{0}</value>
+  </data>
   <data name="SettingsPage_InstalledPlugins.Text" xml:space="preserve">
     <value>已安装插件</value>
   </data>

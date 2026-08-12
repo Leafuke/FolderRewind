@@ -90,6 +90,13 @@ namespace FolderRewind.Services.Plugins
             {
                 if (_initialized) return;
 
+                if (PluginRuntimeModeService.IsSafeMode)
+                {
+                    RefreshInstalledList();
+                    _initialized = true;
+                    return;
+                }
+
                 try
                 {
                     Directory.CreateDirectory(PluginRootDirectory);
@@ -181,6 +188,7 @@ namespace FolderRewind.Services.Plugins
         public static void RefreshAndLoadEnabled()
         {
             RefreshInstalledList();
+            if (PluginRuntimeModeService.IsSafeMode) return;
             TryLoadEnabledPlugins();
             TryRegisterPluginHotkeysForEnabled();
 
@@ -252,6 +260,7 @@ namespace FolderRewind.Services.Plugins
 
         public static bool IsPluginSystemEnabled()
         {
+            if (PluginRuntimeModeService.IsSafeMode) return false;
             var settings = ConfigService.CurrentConfig?.GlobalSettings?.Plugins;
             return settings?.Enabled == true;
         }

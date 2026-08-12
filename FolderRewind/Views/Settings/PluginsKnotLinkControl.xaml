@@ -58,6 +58,7 @@
                         <Button Grid.Row="0" Grid.Column="2" x:Uid="SettingsPage_OpenPluginFolder" HorizontalAlignment="Stretch" Style="{StaticResource SettingsActionButtonStyle}" Click="OnOpenPluginFolderClick" />
                         <Button Grid.Row="1" Grid.Column="0" x:Uid="SettingsPage_RefreshPlugins" HorizontalAlignment="Stretch" Style="{StaticResource SettingsActionButtonStyle}" Click="OnRefreshPluginsClick" />
                         <Button Grid.Row="1" Grid.Column="1" x:Uid="SettingsPage_CheckPluginUpdates" HorizontalAlignment="Stretch" Style="{StaticResource SettingsActionButtonStyle}" Click="OnCheckPluginUpdatesClick" IsEnabled="{x:Bind ViewModel.Settings.Plugins.Enabled, Mode=OneWay}" />
+                        <Button Grid.Row="1" Grid.Column="2" x:Uid="SettingsPage_RestartSafeMode" HorizontalAlignment="Stretch" Style="{StaticResource SettingsActionButtonStyle}" Click="OnRestartSafeModeClick" />
                     </Grid>
                 </toolkit:SettingsCard>
 

@@ -1350,6 +1350,21 @@ Duplicate folder names are blocked within the same configuration so different di
   <data name="SettingsPage_RefreshPlugins.Content" xml:space="preserve">
     <value>Refresh</value>
   </data>
+  <data name="SettingsPage_RestartSafeMode.Content" xml:space="preserve">
+    <value>Restart in Safe Mode</value>
+  </data>
+  <data name="Plugins_RestartSafeModeTitle" xml:space="preserve">
+    <value>Restart in Safe Mode?</value>
+  </data>
+  <data name="Plugins_RestartSafeModeConfirm" xml:space="preserve">
+    <value>FolderRewind will restart without loading plugin DLLs. Your enabled-plugin choices will not be changed.</value>
+  </data>
+  <data name="Plugins_RestartSafeModeButton" xml:space="preserve">
+    <value>Restart</value>
+  </data>
+  <data name="Plugins_RestartSafeModeFailed" xml:space="preserve">
+    <value>Could not start Safe Mode: {0}</value>
+  </data>
   <data name="SettingsPage_InstalledPlugins.Text" xml:space="preserve">
     <value>Installed plugins</value>
   </data>
