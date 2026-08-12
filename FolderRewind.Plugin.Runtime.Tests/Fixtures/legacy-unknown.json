@@ -1,0 +1,19 @@
+{
+  "GlobalSettings": {},
+  "BackupConfigs": [
+    {
+      "Id": "unknown-config",
+      "ConfigType": "Third Party Save",
+      "SourceFolders": [],
+      "BackupScope": {
+        "PluginScopeId": "other.scope",
+        "Parameters": {}
+      },
+      "ExtendedProperties": {
+        "VendorPrivate": "opaque",
+        "NestedJsonString": "{\"doNotInterpret\":true}"
+      }
+    }
+  ],
+  "UnknownTopLevel": [1, 2, 3]
+}

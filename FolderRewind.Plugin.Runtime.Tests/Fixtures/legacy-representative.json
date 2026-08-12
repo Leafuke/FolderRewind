@@ -1,0 +1,62 @@
+{
+  "LegacyRootMarker": {
+    "future": true
+  },
+  "GlobalSettings": {
+    "Language": "system",
+    "Plugins": {
+      "Enabled": true,
+      "PluginEnabled": {
+        "com.folderrewind.minerewind": true
+      },
+      "PluginSettings": {
+        "com.folderrewind.minerewind": {
+          "AutoDiscoverSaves": "true",
+          "AutoCreateConfigs": "0",
+          "PreservePlayerData": "false",
+          "UnknownSetting": "keep-me"
+        }
+      }
+    }
+  },
+  "BackupConfigs": [
+    {
+      "Id": "minecraft-config",
+      "Name": "Minecraft",
+      "ConfigType": "Minecraft Saves",
+      "SourceFolders": [
+        {
+          "Path": "C:\\Games\\.minecraft\\saves\\World",
+          "DisplayName": "World",
+          "FutureFolderValue": 42
+        }
+      ],
+      "BackupScope": {
+        "PluginScopeId": "MineRewind.SelectedRegions",
+        "Parameters": {
+          "areas": "0,0,511,511"
+        }
+      },
+      "ExtendedProperties": {
+        "Plugin": "com.folderrewind.minerewind",
+        "MinecraftVersion": "1.21.8",
+        "MinecraftInstancePath": "C:\\Games\\.minecraft",
+        "TemplateId": "preset-1",
+        "TemplateName": "Minecraft Enhanced",
+        "FutureMineRewindValue": "preserve-me"
+      }
+    },
+    {
+      "Id": "core-config",
+      "Name": "Documents",
+      "ConfigType": "Default",
+      "SourceFolders": [],
+      "BackupScope": {
+        "PluginScopeId": "",
+        "Parameters": {}
+      },
+      "ExtendedProperties": {}
+    }
+  ],
+  "Templates": []
+}
