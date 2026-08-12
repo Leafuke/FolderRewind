@@ -1,18 +1,18 @@
 # FolderRewind Plugin System v3 — 1.9.0 冻结与执行计划
 
-> 状态：D0 / M3R 已冻结 / M3 实施中
+> 状态：D0 / M3R / M3 已冻结 / M4 实施中
 >
 > 计划版本：2026-08-12 / Revision 10
 >
 > 产品版本：FolderRewind 1.9.0、MineRewind 1.9.0
 >
-> Plugin API：3.0.0（Revision 9 candidate 已撤回，Revision 10 contract 正在 M3 重新实现与冻结）
+> Plugin API：3.0.0（Revision 10 contract 已于 M3 Gate 冻结）
 >
 > App Config Schema：1
 >
 > 目标仓库：`Leafuke/FolderRewind`、`Leafuke/FolderRewind-Plugin-Minecraft`、`Leafuke/FolderRewind-Site`、新建 `Leafuke/FolderRewind-Plugin-Catalog`
 >
-> 当前执行门：M3 实施；用户已授权完成后自动通过 M3 Gate、继续 M4 并自动通过 M4 Gate、继续 M5，最终停在 M5 Gate 等待人工测试与审阅。
+> 当前执行门：M4 实施；用户已授权完成后自动通过 M4 Gate、继续 M5，最终停在 M5 Gate 等待人工测试与审阅。
 
 本文件是 Plugin System v3 的唯一执行依据。它先作为受版本控制的 proposed specification 接受审阅；用户明确通过 D0 后，才可把状态改为“已冻结 / 实施中”并修改产品代码。实施中若发现本计划无法满足仓库事实，必须先修订本文件、说明影响并重新通过当前里程碑，禁止在代码中静默偏离。
 
@@ -426,6 +426,40 @@ M2 后续边界与已知风险：
     - 重新生成 public API fingerprint 与本地 NuGet candidate。此前 Revision 9 fingerprint/package SHA 全部作废。
 
 **M3 Gate / API Freeze**：原四条 fake + MineRewind E2E、Config Change Proposal E2E、fake reverse-delta Artifact Transform/Restore Materializer E2E 全绿；committed Artifact 不可原地修改，History/retention/Cloud 只观察 committed graph；公开 API review 无 Host/UI leakage；MineRewind 可与 Host 并行独立 build。随后只允许兼容性 contract 修正，准备新的 NuGet 3.0.0 candidate；正式发布待授权。
+
+#### M3 Revision 10 Gate 实施记录（2026-08-13，依连续授权自动批准）
+
+实现提交：
+
+- Host `77f3292 feat(plugin-config): reconcile revision-bound changes` 与 MineRewind `5ed0d0e test(plugin-v3): track config revisions`：删除 provisional augmentation contract，引入 revision-bound proposal、影响/字段所有权、stale rejection、review/AutoApply 和原子 store seam；
+- Host `61c0848 feat(plugin-artifact): define immutable graph contracts`：冻结 Artifact/format/transformer/strategy identity、Manifest descriptors、immutable handles、Ledger Schema 1、DAG/path/owner/depth validator 和 patch scope；
+- Host `8c9314f feat(plugin-artifact): transact staged transforms`：实现 bounded read/staging/workspace、copy-on-write journal transaction、read-back integrity、reachability GC、completion observer 和 materializer coordinator；
+- Host `7703acb feat(plugin-restore): materialize before safe mutation`：将 verified materialization workspace 放入 once-only Host target mutation continuation；
+- Host `19a8b94 test(plugin-artifact): run fake reverse-delta slice`：用独立 fake transformer/materializer 验证 reverse-delta graph，而未把 MineDelta/MCA engine 合并进官方 MineRewind；
+- MineRewind `123df8a docs(plugin-v3): declare empty artifact capabilities` 与 Host `e2bae43 feat(plugin-api): freeze artifact contracts`：静态声明 MineRewind 不拥有 Artifact format，冻结 Revision 10 public API baseline。
+
+Gate 证据：
+
+| 检查项 | 结果 |
+|---|---|
+| Config Reconciliation | stale proposal 在 store 前拒绝；destructive/user-owned 变化强制 review；仅显式授权的 additive/provider-owned 变化可原子 AutoApply；store fault 不推进 revision |
+| fake reverse-delta Artifact E2E | Complete Full 的旧 root 被替换为 `older delta -> newer full`；Smart/Partial 在 staging 写入前 Block；committed primary 不被原地改写 |
+| graph/retention/integrity | cycle、跨 Folder、超深 graph 拒绝；删除中间 History 后 dependency 仍 reachable；reachable physical delete Block；旧 replaced primary 才可 GC；payload hash 篡改在 workspace/target mutation 前失败 |
+| transaction/recovery | journal prepare、payload install、metadata switch、commit 有显式阶段；metadata switch 前 fault 保留旧 revision/roots，orphan payload 回滚；stale patch 拒绝 |
+| restore/observer | missing materializer owner 在 workspace 创建前 Block；requested/effective Restore Mode 传递；materialize 后 target mutation once-only；observer at-most-once，异常只提升为 `SuccessWithWarnings` |
+| Manifest disclosure | ArtifactRead/TransformStaging/RestoreWorkspace high-impact service 必须静态声明且在 factory/DLL 执行前校验；runtime registration 与静态 descriptor 不一致时 activation rollback |
+| Abstractions Release tests | 9/9；0 warning / 0 error；Revision 10 API fingerprint SHA-256 `d6289c6398796872f0014826e11f6aaf944354c207a3bfc2355081ae8913d0b6` |
+| Runtime Release tests | 78/78；0 warning / 0 error |
+| Host Release tests | 266/266 |
+| MineRewind Release tests | 50/50 |
+| NuGet local candidate | `FolderRewind.Plugin.Abstractions.3.0.0.nupkg`；SHA-256 `E41D407F5B5A1944B011890AD1465A623BCFC9BFD5D49652E2CABA8CBF7B1D97`；未发布到 NuGet.org |
+| Host + MineRewind parallel product build | 依赖预构建后以 `--no-dependencies` 同时执行 x64 Debug；Host 与 MineRewind 均 0 warning / 0 error，未争用 WinUI/Abstractions `obj` |
+
+M3 已知边界：
+
+- M3 完成的是 BCL-only contract、runtime transaction core 与 fake reference slice；FolderRewind 产品 backup/restore/history/retention/Cloud 的接线和 MineRewind 完整 parity 仍属于 M4。
+- 同时从两个独立 MSBuild graph 重建共享 Abstractions ProjectReference 会争用其普通 `obj`；正式并行门禁先构建共享 dependency，再并行构建 Host/MineRewind 产品节点。这不是旧 Host WinUI `obj` 耦合，发布态改用 NuGet PackageReference 后自然消失。
+- API 3.0 在本 Gate 后冻结；M4/M5 只允许兼容性修正。用户已预先授权 M3 Gate 证据全绿后自动批准并进入 M4，因此本记录落档后 M4 授权立即生效。
 
 #### M3 Revision 9 临时 Gate 记录（2026-08-12，已撤回）
 
