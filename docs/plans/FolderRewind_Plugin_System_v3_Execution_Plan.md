@@ -2,7 +2,7 @@
 
 > 状态：已冻结 / 实施中（D0 于 2026-08-12 经用户批准）
 >
-> 计划版本：2026-08-12 / Revision 7
+> 计划版本：2026-08-12 / Revision 8
 >
 > 产品版本：FolderRewind 1.9.0、MineRewind 1.9.0
 >
@@ -12,7 +12,7 @@
 >
 > 目标仓库：`Leafuke/FolderRewind`、`Leafuke/FolderRewind-Plugin-Minecraft`、`Leafuke/FolderRewind-Site`、新建 `Leafuke/FolderRewind-Plugin-Catalog`
 >
-> 当前执行门：M2 实施完成，Gate 证据已记录，等待用户批准；未进入 M3。
+> 当前执行门：M2 Gate 已于 2026-08-12 经用户批准；M3 实施中。
 
 本文件是 Plugin System v3 的唯一执行依据。它先作为受版本控制的 proposed specification 接受审阅；用户明确通过 D0 后，才可把状态改为“已冻结 / 实施中”并修改产品代码。实施中若发现本计划无法满足仓库事实，必须先修订本文件、说明影响并重新通过当前里程碑，禁止在代码中静默偏离。
 
@@ -278,7 +278,7 @@ Recovery Center 是受限启动状态，不是普通主界面。它禁止插件 
 
 **M2 Gate**：Abstractions 可 build/test/pack；半途 activation 无注册残留；settings/state rollback；Safe Mode 不执行 DLL；两个插件私有依赖版本隔离。
 
-#### M2 Gate 实施记录（2026-08-12，待用户批准）
+#### M2 Gate 实施记录（2026-08-12，已批准）
 
 实现提交：
 
@@ -311,7 +311,7 @@ M2 后续边界与已知风险：
 - 本地 NuGet 包只是四仓库开发候选，不代表 NuGet.org 发布授权；M3 API Freeze 后重新产出 candidate，正式发布仍需单独批准。
 - Safe Mode 的 no-DLL 行为已有 runtime factory 测试、Host loader 硬门禁和 WinUI build 证据；真实安装进程 smoke test 仍属于 M6 安装 E2E。
 - M2 建成 runtime/store/loader 边界和 Host schema 模型，但尚未让 MineRewind 采用 v3；Host v2 runtime 与 MineRewind Host ProjectReference 按计划保留到 M3 垂直切片/M6 clean break，当前仍不可并行构建两仓库。
-- M3 未开始。只有用户明确批准本 Gate 后，才允许接入 fake plugin 与 MineRewind 四条最小 E2E，并在其全绿后冻结 API 3.0。
+- 用户已于 2026-08-12 明确回复“M2 批准”；M3 授权生效。M3 将接入 fake plugin 与 MineRewind 四条最小 E2E，并在其全绿后冻结 API 3.0。
 
 ### M3 — 最小垂直切片与 API Freeze
 
