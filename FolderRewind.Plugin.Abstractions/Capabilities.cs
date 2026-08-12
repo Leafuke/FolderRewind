@@ -19,9 +19,20 @@ public interface IConfigAugmentationCapability : IPluginCapability
 }
 
 public sealed record ConfigAugmentationRequest(IReadOnlyList<ConfigSnapshot> Configs, string Reason);
-public sealed record ConfigAugmentationPatch(IReadOnlyList<ConfigDraft> ConfigsToAdd, IReadOnlyList<FolderDraft> FoldersToAdd);
-public sealed record ConfigDraft(ConfigKindRef Kind, string SuggestedName, IReadOnlyList<FolderDraft> Folders, IReadOnlyDictionary<StateOwnerId, ProviderStateSnapshot> ProviderStates);
-public sealed record FolderDraft(string Path, string DisplayName, IReadOnlyDictionary<StateOwnerId, ProviderStateSnapshot> ProviderStates);
+public sealed record ConfigAugmentationPatch(
+    IReadOnlyList<ConfigDraft> ConfigsToAdd,
+    IReadOnlyList<ConfigFolderAugmentation> FolderAugmentations);
+public sealed record ConfigFolderAugmentation(string ConfigId, IReadOnlyList<FolderDraft> FoldersToAdd);
+public sealed record ConfigDraft(
+    ConfigKindRef Kind,
+    string SuggestedName,
+    IReadOnlyList<FolderDraft> Folders,
+    IReadOnlyDictionary<StateOwnerId, ProviderStateDraft> ProviderStates);
+public sealed record FolderDraft(
+    string Path,
+    string DisplayName,
+    IReadOnlyDictionary<StateOwnerId, ProviderStateDraft> ProviderStates);
+public sealed record ProviderStateDraft(StateOwnerId StateOwnerId, int SchemaVersion, JsonElement Data);
 
 public interface IFilePolicyCapability : IPluginCapability
 {

@@ -17,6 +17,7 @@
   <ItemGroup>
     <Compile Remove="Fixtures\**\*.cs" />
     <ProjectReference Include="..\FolderRewind.Plugin.Runtime\FolderRewind.Plugin.Runtime.csproj" />
+    <ProjectReference Include="..\FolderRewind-Plugin-Minecraft\MineRewind\MineRewind.csproj" />
     <ProjectReference Include="Fixtures\PluginOne\PluginOne.csproj" ReferenceOutputAssembly="false" />
     <ProjectReference Include="Fixtures\PluginTwo\PluginTwo.csproj" ReferenceOutputAssembly="false" />
   </ItemGroup>

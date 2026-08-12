@@ -8,15 +8,22 @@ public sealed class PluginOperationResolverTests
 {
     private static readonly ConfigKindDeclaration Minecraft = new(
         new ConfigKindRef(new OwnerId("com.folderrewind.minerewind"), "minecraft-saves"),
-        "Minecraft Saves",
+        Text("Minecraft Saves"),
+        Text("Minecraft save folders"),
+        "minecraft",
         BackupFallbackPolicy.RawWithWarnings,
         RestoreCoordinationPolicy.Required);
 
     private static readonly ConfigKindDeclaration Core = new(
         new ConfigKindRef(new OwnerId("folderrewind.core"), "default"),
-        "Folder",
+        Text("Folder"),
+        Text("Folder backup"),
+        "folder",
         BackupFallbackPolicy.Block,
         RestoreCoordinationPolicy.None);
+
+    private static LocalizedText Text(string value)
+        => new(value, new Dictionary<string, string>());
 
     [TestMethod]
     public void CoreOperationWithoutPluginIsReady()

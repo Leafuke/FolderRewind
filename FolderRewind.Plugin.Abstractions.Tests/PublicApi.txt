@@ -1,5 +1,5 @@
 # Generated and reviewed public API baseline for Plugin API 3.0.0.
-# sha256:e6a0d7849fe2ed442def6b13bd5a1404eea6b78f480d0d334f9fea6a5f5cf119
+# sha256:3f47ba8375c6d608fa551e08dcb6ac7da7e317fea9ab1dab69cf2d7e816ae730
 T FolderRewind.Plugin.Abstractions.BackupConsistencyRequest
 T FolderRewind.Plugin.Abstractions.BackupFallbackPolicy
 T FolderRewind.Plugin.Abstractions.BackupScopeDescriptor
@@ -9,6 +9,7 @@ T FolderRewind.Plugin.Abstractions.BackupScopeResult
 T FolderRewind.Plugin.Abstractions.ConfigAugmentationPatch
 T FolderRewind.Plugin.Abstractions.ConfigAugmentationRequest
 T FolderRewind.Plugin.Abstractions.ConfigDraft
+T FolderRewind.Plugin.Abstractions.ConfigFolderAugmentation
 T FolderRewind.Plugin.Abstractions.ConfigKindDeclaration
 T FolderRewind.Plugin.Abstractions.ConfigKindRef
 T FolderRewind.Plugin.Abstractions.ConfigSnapshot
@@ -51,6 +52,7 @@ T FolderRewind.Plugin.Abstractions.IReadOnlyConfigQueryService
 T FolderRewind.Plugin.Abstractions.IRestoreCoordinatorCapability
 T FolderRewind.Plugin.Abstractions.IRestoreRequestService
 T FolderRewind.Plugin.Abstractions.KnotLinkCommandDescriptor
+T FolderRewind.Plugin.Abstractions.LocalizedText
 T FolderRewind.Plugin.Abstractions.OperationOutcome
 T FolderRewind.Plugin.Abstractions.OperationReadiness
 T FolderRewind.Plugin.Abstractions.OperationResolution
@@ -58,6 +60,7 @@ T FolderRewind.Plugin.Abstractions.OwnerId
 T FolderRewind.Plugin.Abstractions.PluginActivationPatch
 T FolderRewind.Plugin.Abstractions.PluginActivationResult
 T FolderRewind.Plugin.Abstractions.PluginApiVersion
+T FolderRewind.Plugin.Abstractions.PluginCapabilityKind
 T FolderRewind.Plugin.Abstractions.PluginCommandDescriptor
 T FolderRewind.Plugin.Abstractions.PluginCommandId
 T FolderRewind.Plugin.Abstractions.PluginCommandRequest
@@ -68,6 +71,7 @@ T FolderRewind.Plugin.Abstractions.PluginInvocationContext
 T FolderRewind.Plugin.Abstractions.PluginManifestContract
 T FolderRewind.Plugin.Abstractions.PluginRuntimeState
 T FolderRewind.Plugin.Abstractions.PluginSettingsSnapshot
+T FolderRewind.Plugin.Abstractions.ProviderStateDraft
 T FolderRewind.Plugin.Abstractions.ProviderStateLocation
 T FolderRewind.Plugin.Abstractions.ProviderStatePatch
 T FolderRewind.Plugin.Abstractions.ProviderStateSnapshot

@@ -30,9 +30,13 @@ public sealed class PluginRuntimeManager
             : new PluginRuntimeSnapshot(pluginId, PluginRuntimeState.Inactive, 0, string.Empty);
     }
 
-    public PluginCapabilityLease<TCapability>? TryAcquire<TCapability>(PluginId pluginId)
+    public PluginCapabilityLease<TCapability>? TryAcquire<TCapability>(
+        PluginId pluginId,
+        CancellationToken operationCancellation = default)
         where TCapability : class, IPluginCapability
-        => _sessions.TryGetValue(pluginId, out var session) ? session.TryAcquire<TCapability>() : null;
+        => _sessions.TryGetValue(pluginId, out var session)
+            ? session.TryAcquire<TCapability>(operationCancellation)
+            : null;
 
     public async ValueTask<PluginRuntimeTransitionResult> ActivateAsync(
         PluginActivationCandidate candidate,

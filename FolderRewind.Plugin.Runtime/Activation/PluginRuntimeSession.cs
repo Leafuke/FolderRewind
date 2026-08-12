@@ -35,7 +35,7 @@ internal sealed class PluginRuntimeSession
         get { lock (_sync) return _activeLeases; }
     }
 
-    public PluginCapabilityLease<TCapability>? TryAcquire<TCapability>()
+    public PluginCapabilityLease<TCapability>? TryAcquire<TCapability>(CancellationToken operationCancellation)
         where TCapability : class, IPluginCapability
     {
         lock (_sync)
@@ -52,7 +52,7 @@ internal sealed class PluginRuntimeSession
             }
 
             _activeLeases++;
-            var context = new PluginInvocationContext(PluginId, HostServices, CancellationToken.None, Lifetime.Token);
+            var context = new PluginInvocationContext(PluginId, HostServices, operationCancellation, Lifetime.Token);
             return new PluginCapabilityLease<TCapability>(capability, context, Release);
         }
     }

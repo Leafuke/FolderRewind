@@ -13,19 +13,42 @@ public enum HostServiceKind
     Logging = 8
 }
 
+public enum PluginCapabilityKind
+{
+    Discovery = 0,
+    ConfigAugmentation = 1,
+    FilePolicy = 2,
+    BackupScope = 3,
+    BackupConsistency = 4,
+    FolderMetadata = 5,
+    RestoreCoordinator = 6,
+    PluginCommand = 7,
+    KnotLinkIntegration = 8,
+    ProviderStateMigration = 9
+}
+
+public sealed record LocalizedText(
+    string Default,
+    IReadOnlyDictionary<string, string> Translations);
+
 public sealed record PluginManifestContract(
     PluginId PluginId,
     string Version,
     PluginApiVersion RequiredApi,
     string EntryAssembly,
     string EntryType,
+    LocalizedText Name,
+    LocalizedText Description,
     IReadOnlyList<ConfigKindDeclaration> ConfigKinds,
     string SettingsSchema,
-    IReadOnlyList<HostServiceKind> RequestedHostServices);
+    IReadOnlyList<HostServiceKind> RequestedHostServices,
+    IReadOnlyList<PluginCapabilityKind> Capabilities);
 
 public sealed record ConfigKindDeclaration(
     ConfigKindRef Kind,
-    string DisplayName,
+    LocalizedText DisplayName,
+    LocalizedText Description,
+    string Icon,
     BackupFallbackPolicy BackupFallback,
     RestoreCoordinationPolicy RestoreCoordination);
 
