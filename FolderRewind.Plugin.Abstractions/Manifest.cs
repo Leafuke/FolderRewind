@@ -1,3 +1,5 @@
+using System.Text.Json;
+
 namespace FolderRewind.Plugin.Abstractions;
 
 public enum HostServiceKind
@@ -10,7 +12,10 @@ public enum HostServiceKind
     KnotLink = 5,
     DataStore = 6,
     TemporaryStorage = 7,
-    Logging = 8
+    Logging = 8,
+    ArtifactRead = 9,
+    ArtifactTransformStaging = 10,
+    RestoreMaterializationWorkspace = 11
 }
 
 public enum PluginCapabilityKind
@@ -24,7 +29,10 @@ public enum PluginCapabilityKind
     RestoreCoordinator = 6,
     PluginCommand = 7,
     KnotLinkIntegration = 8,
-    ProviderStateMigration = 9
+    ProviderStateMigration = 9,
+    BackupArtifactTransformer = 10,
+    BackupCompletionObserver = 11,
+    RestoreMaterializer = 12
 }
 
 public sealed record LocalizedText(
@@ -42,7 +50,36 @@ public sealed record PluginManifestContract(
     IReadOnlyList<ConfigKindDeclaration> ConfigKinds,
     string SettingsSchema,
     IReadOnlyList<HostServiceKind> RequestedHostServices,
-    IReadOnlyList<PluginCapabilityKind> Capabilities);
+    IReadOnlyList<PluginCapabilityKind> Capabilities,
+    IReadOnlyList<ArtifactFormatDeclaration> ArtifactFormats,
+    IReadOnlyList<ArtifactTransformerDeclaration> ArtifactTransformers,
+    IReadOnlyList<RestoreStrategyDeclaration> RestoreStrategies,
+    bool HasBackupCompletionObserver);
+
+public sealed record ArtifactFormatDeclaration(
+    ArtifactFormatRef Format,
+    int MinimumVersion,
+    int MaximumVersion,
+    LocalizedText DisplayName);
+
+public sealed record ArtifactTransformerDeclaration(
+    ArtifactTransformerId TransformerId,
+    IReadOnlyList<ConfigKindRef> CompatibleConfigKinds,
+    IReadOnlyList<CoreCaptureMode> CompatibleCoreModes,
+    IReadOnlyList<ArtifactCompleteness> CompatibleCompleteness,
+    JsonElement ParameterSchema,
+    IReadOnlyList<ArtifactTransformFailureBehavior> SupportedFailureBehaviors);
+
+public sealed record ArtifactFormatVersionRange(
+    ArtifactFormatRef Format,
+    int MinimumVersion,
+    int MaximumVersion);
+
+public sealed record RestoreStrategyDeclaration(
+    RestoreStrategyId RestoreStrategyId,
+    IReadOnlyList<ArtifactFormatVersionRange> SupportedFormats,
+    IReadOnlyList<ArtifactCompleteness> SupportedCompleteness,
+    IReadOnlyList<RestoreMode> SupportedRestoreModes);
 
 public sealed record ConfigKindDeclaration(
     ConfigKindRef Kind,

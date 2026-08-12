@@ -1,9 +1,11 @@
 using System.Text.RegularExpressions;
+using System.Text.Json.Serialization;
 
 namespace FolderRewind.Plugin.Abstractions;
 
 public readonly record struct PluginId
 {
+    [JsonConstructor]
     public PluginId(string value) => Value = PluginIdentitySyntax.RequireOwner(value, nameof(value));
     public string Value { get; }
     public override string ToString() => Value ?? string.Empty;
@@ -11,6 +13,7 @@ public readonly record struct PluginId
 
 public readonly record struct OwnerId
 {
+    [JsonConstructor]
     public OwnerId(string value) => Value = PluginIdentitySyntax.RequireOwner(value, nameof(value));
     public string Value { get; }
     public override string ToString() => Value ?? string.Empty;
@@ -18,6 +21,7 @@ public readonly record struct OwnerId
 
 public readonly record struct DiscoveryProviderId
 {
+    [JsonConstructor]
     public DiscoveryProviderId(string value) => Value = PluginIdentitySyntax.RequireOwner(value, nameof(value));
     public string Value { get; }
     public override string ToString() => Value ?? string.Empty;
@@ -25,6 +29,7 @@ public readonly record struct DiscoveryProviderId
 
 public readonly record struct StateOwnerId
 {
+    [JsonConstructor]
     public StateOwnerId(string value) => Value = PluginIdentitySyntax.RequireOwner(value, nameof(value));
     public string Value { get; }
     public override string ToString() => Value ?? string.Empty;
@@ -32,6 +37,7 @@ public readonly record struct StateOwnerId
 
 public readonly record struct ConfigKindRef
 {
+    [JsonConstructor]
     public ConfigKindRef(OwnerId ownerId, string kindId)
     {
         if (string.IsNullOrWhiteSpace(ownerId.Value)) throw new ArgumentException("OwnerId is required.", nameof(ownerId));
@@ -46,6 +52,7 @@ public readonly record struct ConfigKindRef
 
 public readonly record struct ConfigRevision
 {
+    [JsonConstructor]
     public ConfigRevision(string value)
     {
         Value = string.IsNullOrWhiteSpace(value)
@@ -59,6 +66,7 @@ public readonly record struct ConfigRevision
 
 public readonly record struct ArtifactTransformerId
 {
+    [JsonConstructor]
     public ArtifactTransformerId(PluginId pluginId, string transformerId)
     {
         if (string.IsNullOrWhiteSpace(pluginId.Value)) throw new ArgumentException("PluginId is required.", nameof(pluginId));
@@ -71,8 +79,94 @@ public readonly record struct ArtifactTransformerId
     public override string ToString() => $"{PluginId}/{TransformerId}";
 }
 
+public readonly record struct ArtifactId
+{
+    [JsonConstructor]
+    public ArtifactId(Guid value)
+    {
+        if (value == Guid.Empty) throw new ArgumentException("ArtifactId cannot be empty.", nameof(value));
+        Value = value;
+    }
+
+    public Guid Value { get; }
+    public override string ToString() => Value.ToString("D");
+}
+
+public readonly record struct ArtifactGraphRevision
+{
+    [JsonConstructor]
+    public ArtifactGraphRevision(string value)
+    {
+        Value = string.IsNullOrWhiteSpace(value)
+            ? throw new ArgumentException("Artifact graph revision is required.", nameof(value))
+            : value.Trim();
+    }
+
+    public string Value { get; }
+    public override string ToString() => Value ?? string.Empty;
+}
+
+public readonly record struct ArtifactFormatRef
+{
+    [JsonConstructor]
+    public ArtifactFormatRef(OwnerId ownerId, string formatId)
+    {
+        if (string.IsNullOrWhiteSpace(ownerId.Value)) throw new ArgumentException("OwnerId is required.", nameof(ownerId));
+        OwnerId = ownerId;
+        FormatId = PluginIdentitySyntax.RequireLocal(formatId, nameof(formatId));
+    }
+
+    public OwnerId OwnerId { get; }
+    public string FormatId { get; }
+    public override string ToString() => $"{OwnerId}/{FormatId}";
+}
+
+public readonly record struct RestoreStrategyId
+{
+    [JsonConstructor]
+    public RestoreStrategyId(PluginId pluginId, string strategyId)
+    {
+        if (string.IsNullOrWhiteSpace(pluginId.Value)) throw new ArgumentException("PluginId is required.", nameof(pluginId));
+        PluginId = pluginId;
+        StrategyId = PluginIdentitySyntax.RequireLocal(strategyId, nameof(strategyId));
+    }
+
+    public PluginId PluginId { get; }
+    public string StrategyId { get; }
+    public override string ToString() => $"{PluginId}/{StrategyId}";
+}
+
+public readonly record struct ArtifactContentHandle
+{
+    [JsonConstructor]
+    public ArtifactContentHandle(string value)
+    {
+        Value = string.IsNullOrWhiteSpace(value)
+            ? throw new ArgumentException("Artifact content handle is required.", nameof(value))
+            : value.Trim();
+    }
+
+    public string Value { get; }
+    public override string ToString() => Value ?? string.Empty;
+}
+
+public readonly record struct ArtifactStagingHandle
+{
+    [JsonConstructor]
+    public ArtifactStagingHandle(string value)
+    {
+        Value = string.IsNullOrWhiteSpace(value)
+            ? throw new ArgumentException("Artifact staging handle is required.", nameof(value))
+            : value.Trim();
+    }
+
+    public string Value { get; }
+    public override string ToString() => Value ?? string.Empty;
+}
+
 public readonly record struct PluginCommandId
 {
+    [JsonConstructor]
     public PluginCommandId(PluginId pluginId, string commandId)
     {
         if (string.IsNullOrWhiteSpace(pluginId.Value)) throw new ArgumentException("PluginId is required.", nameof(pluginId));
@@ -87,6 +181,7 @@ public readonly record struct PluginCommandId
 
 public readonly record struct BackupScopeId
 {
+    [JsonConstructor]
     public BackupScopeId(OwnerId ownerId, string scopeId)
     {
         if (string.IsNullOrWhiteSpace(ownerId.Value)) throw new ArgumentException("OwnerId is required.", nameof(ownerId));

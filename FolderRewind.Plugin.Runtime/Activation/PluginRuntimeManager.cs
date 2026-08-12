@@ -275,6 +275,10 @@ public sealed class PluginRuntimeManager
             var activationResult = await plugin.ActivateAsync(context, cancellationToken).ConfigureAwait(false)
                 ?? throw new InvalidOperationException("Plugin activation returned null.");
             var registrations = CapabilityRegistrationSet.Create(candidate.PluginId, context.Capabilities);
+            if (candidate.Manifest is not null)
+            {
+                PluginManifestContractValidator.ValidateRuntime(candidate.Manifest, registrations);
+            }
             _registry.Validate(registrations, replacing);
             var patches = await StageProviderStatePatchesAsync(
                 candidate,
@@ -396,6 +400,10 @@ public sealed class PluginRuntimeManager
         ArgumentNullException.ThrowIfNull(candidate.Configs);
         ArgumentNullException.ThrowIfNull(candidate.HostServices);
         ArgumentNullException.ThrowIfNull(candidate.Store);
+        if (candidate.Manifest is not null)
+        {
+            PluginManifestContractValidator.ValidateStatic(candidate.Manifest, candidate.PluginId);
+        }
     }
 
     private static PluginSettingsSnapshot CloneSettings(PluginSettingsSnapshot settings)

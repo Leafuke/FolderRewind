@@ -109,6 +109,24 @@ internal sealed class CapabilityRegistrationSet
                 recognized = true;
             }
 
+            if (capability is IBackupArtifactTransformerCapability transformer)
+            {
+                Add("artifact-transformer", transformer.TransformerId.ToString(), capability);
+                recognized = true;
+            }
+
+            if (capability is IBackupCompletionObserverCapability)
+            {
+                Add("backup-completion-observer", pluginId.Value, capability);
+                recognized = true;
+            }
+
+            if (capability is IRestoreMaterializerCapability materializer)
+            {
+                Add("restore-materializer", materializer.RestoreStrategyId.ToString(), capability);
+                recognized = true;
+            }
+
             if (!recognized)
             {
                 throw new InvalidOperationException($"Unsupported capability type '{capability.GetType().FullName}'.");

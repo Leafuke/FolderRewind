@@ -8,7 +8,8 @@ public sealed record PluginActivationCandidate(
     PluginSettingsSnapshot Settings,
     IReadOnlyList<ConfigSnapshot> Configs,
     IPluginHostServices HostServices,
-    IPluginActivationStore Store);
+    IPluginActivationStore Store,
+    PluginManifestContract? Manifest = null);
 
 public sealed record PluginActivationCommit(
     PluginId PluginId,
