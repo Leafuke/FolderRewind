@@ -525,7 +525,7 @@ Revision 10 新增边界与非目标：
 - Artifact Cloud 以 History root/revision 为提交点，上传 reachable closure；下载时校验 root/revision、DAG 与每个 logical hash 后再原子导入 ledger。corrupt closure 不提交 History root且清理本次新装 payload。
 - MineRewind 完成 discovery/reconciliation/file policy/selected-regions、KnotLink consistency snapshot、NBT metadata、legacy/26.1+ player-state codec、Restore Coordinator、commands/default hotkeys 和 provider-state migration；产品程序集不引用 Host App。
 - API Freeze 后兼容修正：`PluginCommandDescriptor` 增加可选 `DefaultHotkey`/`IsGlobalHotkey`；`IReadOnlyConfigQueryService.QueryAsync(ConfigKindRef?)` 带默认实现。两者为实现原计划 command/hotkey parity 所需的仅加法修正，未改变 capability/identity/ownership 边界；3.0.0 fingerprint 更新为 `ccdda595b44deb5f992d6d0031f4672aa5d52b167a8b4f3c848b3dbbc5e40740`。
-- 自动证据：Abstractions 9/9、Runtime/Artifact 91/91、Host 266/266、MineRewind 55/55；Host x86/x64/ARM64 Release Msi 均 0 warning/0 error；MineRewind AnyCPU/x64 Release 均 0 warning/0 error。
+- 自动证据：Abstractions 9/9、Runtime/Artifact 91/91、Host 266/266、MineRewind 55/55；Host x86/x64/ARM64 Release Msi 与 unsigned sideload MSIX 均 0 warning/0 error；MineRewind AnyCPU/x64 Release 均 0 warning/0 error。
 - 真实 Minecraft/KnotLink/rclone/安装介质 E2E 合并进已获授权的 M5 人工 Gate，不据此提前删除 v2。
 
 ### M5 — Package、Update、Catalog 与 Preset
