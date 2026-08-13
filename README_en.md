@@ -68,11 +68,12 @@ As the spiritual successor to MineBackup, FolderRewind enhances its versatility 
 
 Note: Do not run Store, MSI, and side-loaded MSIX versions at the same time. MSI stores its data separately from MSIX/Store and does not automatically migrate configurations or plugins.
 
-### Version 1.8 upgrade notes
+### Version 1.9 upgrade notes
 
-- Version 1.8 supports direct upgrades from v1.7.4. Users on earlier releases should run v1.7.4 first to complete configuration migration. Existing backups and historical metadata remain restorable.
-- Template import now accepts only the version 1.0 envelope carrying the `FolderRewindTemplate` marker.
-- The KnotLink v1 plugin API has been removed. Plugins must use the parameterized KnotLink v2 API and declare host version 1.8.0 or newer.
+- Version 1.9.0 introduces Plugin System v3: `.frplugin`, the Official Catalog, typed settings, independent Enabled Intent, and a Host-owned Artifact graph.
+- Existing users can migrate the bundled MineRewind v3 package offline. Legacy flat v2 payloads are moved into a recoverable quarantine and are neither executed nor deleted.
+- Minecraft complete backups may fall back to raw capture with `SuccessWithWarnings` when consistency is unavailable; restore remains fail-closed.
+- Third-party plugins may submit revision-bound Config proposals and contribute Host-orchestrated semantic Artifact transformers/materializers. They cannot bypass Safe Restore or mutate old archives as an after-backup side effect.
 
 ## Usage
 

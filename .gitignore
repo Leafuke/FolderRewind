@@ -377,6 +377,10 @@ FodyWeavers.xsd
 !/FolderRewind/Assets/Wide310x150Logo.scale-200.png
 !/FolderRewind/Assets/logo.ico
 !/FolderRewind/Assets/qq_group_light.jpg
+!/FolderRewind/Assets/Plugins/
+!/FolderRewind/Assets/Plugins/*
+!/FolderRewind/Assets/PluginPresets/
+!/FolderRewind/Assets/PluginPresets/*
 /FolderRewind/obj
 /FolderRewind/Properties
 /Reference
@@ -389,5 +393,9 @@ FodyWeavers.xsd
 !/docs/plans/FolderRewind_Plugin_System_v3_Execution_Plan.md
 !/docs/release/
 !/docs/release/*.md
+!/docs/plugin-v3/
+!/docs/plugin-v3/*.md
+/repos/
+/.catalog-appdata/
 *.exe
 /.superpowers

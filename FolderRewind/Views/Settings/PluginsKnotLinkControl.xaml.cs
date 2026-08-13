@@ -69,12 +69,27 @@ namespace FolderRewind.Views.Settings
             var filePath = await MainWindowService.PickFilePathAsync(
                 string.Empty,
                 "FolderRewind.Settings.Plugins.ManualInstall",
-                new[] { ".zip" },
+                new[] { ".frplugin", ".zip" },
                 MainWindowService.SuggestedPickerLocation.Downloads,
                 viewMode: PickerViewMode.List);
             if (string.IsNullOrWhiteSpace(filePath)) return;
 
-            var res = await PluginService.InstallFromZipAsync(filePath);
+            (bool Success, string Message) res;
+            if (string.Equals(System.IO.Path.GetExtension(filePath), ".frplugin", StringComparison.OrdinalIgnoreCase))
+            {
+                try
+                {
+                    var installed = await FolderRewind.Services.Plugins.V3.PluginV3PackageService.InstallAsync(
+                        filePath,
+                        FolderRewind.Plugin.Runtime.Packaging.PluginInstallProvenance.Manual);
+                    res = (true, $"Installed {installed.Manifest.Contract.Name.Default} {installed.State.CurrentVersion}; it remains disabled until explicitly enabled.");
+                }
+                catch (Exception ex) { res = (false, ex.Message); }
+            }
+            else
+            {
+                res = await PluginService.InstallFromZipAsync(filePath);
+            }
 
             var msg = new ContentDialog
             {
@@ -136,12 +151,12 @@ namespace FolderRewind.Views.Settings
             await failure.ShowAsync();
         }
 
-        private void OnPluginEnabledToggled(object sender, RoutedEventArgs e)
+        private async void OnPluginEnabledToggled(object sender, RoutedEventArgs e)
         {
             if (sender is not ToggleSwitch ts) return;
             if (ts.DataContext is not InstalledPluginInfo plugin) return;
 
-            ViewModel.HandlePluginEnabledToggled(plugin.Id, ts.IsOn);
+            await ViewModel.HandlePluginEnabledToggledAsync(plugin.Id, ts.IsOn);
         }
 
         private async void OnPluginUninstallClick(object sender, RoutedEventArgs e)
@@ -165,7 +180,21 @@ namespace FolderRewind.Views.Settings
             var res = await confirm.ShowAsync();
             if (res != ContentDialogResult.Primary) return;
 
-            var result = PluginService.Uninstall(plugin.Id);
+            var v3Id = new FolderRewind.Plugin.Abstractions.PluginId(plugin.Id);
+            bool isV3 = await FolderRewind.Services.Plugins.V3.PluginV3PackageService.IsInstalledAsync(v3Id);
+            (bool Success, string Message) result;
+            if (isV3)
+            {
+                var preview = await FolderRewind.Services.Plugins.V3.PluginV3PackageService.UninstallAsync(
+                    v3Id,
+                    deleteData: false,
+                    confirmation: null);
+                result = (true, $"Plugin code removed. Settings={preview.SettingsCount}, provider states={preview.ProviderStateLocationCount}, data={preview.DataPath}. Data was preserved.");
+            }
+            else
+            {
+                result = PluginService.Uninstall(plugin.Id);
+            }
 
             var msg = new ContentDialog
             {
@@ -177,6 +206,55 @@ namespace FolderRewind.Views.Settings
             ThemeService.ApplyThemeToDialog(msg);
             await msg.ShowAsync();
 
+            PluginService.RefreshInstalledList();
+        }
+
+        private async void OnPluginDeleteDataClick(object sender, RoutedEventArgs e)
+        {
+            if (sender is not Button btn || btn.Tag is not InstalledPluginInfo plugin) return;
+            var pluginId = new FolderRewind.Plugin.Abstractions.PluginId(plugin.Id);
+            if (!await FolderRewind.Services.Plugins.V3.PluginV3PackageService.IsInstalledAsync(pluginId))
+            {
+                NotificationService.ShowWarning("Delete-data is available only for Plugin System v3 packages.");
+                return;
+            }
+
+            var preview = await FolderRewind.Services.Plugins.V3.PluginV3PackageService.PreviewUninstallAsync(pluginId);
+            var confirmation = new TextBox
+            {
+                Header = $"Type exactly: {preview.RequiredConfirmation}",
+                PlaceholderText = preview.RequiredConfirmation
+            };
+            var content = new StackPanel { Spacing = 8 };
+            content.Children.Add(new TextBlock
+            {
+                Text = $"This removes code, {preview.SettingsCount} setting(s), {preview.ProviderStateLocationCount} provider-state location(s), and data under {preview.DataPath}. {preview.AffectedHistoryItemIds.Count} History item(s) reference plugin-owned artifacts; those backup artifacts are retained and will fail closed if their owner is absent.",
+                TextWrapping = TextWrapping.Wrap
+            });
+            content.Children.Add(confirmation);
+            var dialog = new ContentDialog
+            {
+                Title = "Uninstall and delete plugin data",
+                Content = content,
+                PrimaryButtonText = "Delete data",
+                CloseButtonText = "Cancel",
+                DefaultButton = ContentDialogButton.Close,
+                XamlRoot = XamlRoot
+            };
+            ThemeService.ApplyThemeToDialog(dialog);
+            if (await dialog.ShowAsync() != ContentDialogResult.Primary) return;
+            try
+            {
+                await FolderRewind.Services.Plugins.V3.PluginV3PackageService.UninstallAsync(
+                    pluginId,
+                    deleteData: true,
+                    confirmation: confirmation.Text);
+                NotificationService.ShowSuccess("Plugin code and listed data were removed.");
+            }
+            catch (Exception ex)
+            {
+                NotificationService.ShowError(ex.Message);
+            }
             PluginService.RefreshInstalledList();
         }
 

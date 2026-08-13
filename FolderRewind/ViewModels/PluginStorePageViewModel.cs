@@ -2,6 +2,8 @@ using CommunityToolkit.Mvvm.Input;
 using FolderRewind.Models;
 using FolderRewind.Services;
 using FolderRewind.Services.Plugins;
+using FolderRewind.Services.Plugins.V3;
+using FolderRewind.Plugin.Runtime.Packaging;
 using Microsoft.UI.Xaml;
 using System;
 using System.Collections.ObjectModel;
@@ -22,14 +24,13 @@ namespace FolderRewind.ViewModels
         private string _releaseSummary = string.Empty;
         private bool _hasAutoLoaded;
 
-        private PluginHostSettings PluginSettings => ConfigService.CurrentConfig.GlobalSettings.Plugins;
-
         public PluginStorePageViewModel()
         {
             Assets.CollectionChanged += OnAssetsCollectionChanged;
 
             LoadCommand = new AsyncRelayCommand(LoadAssetsAsync, () => CanLoad);
             InstallCommand = new AsyncRelayCommand<PluginStoreAssetItem>(InstallAsync);
+            InstallManualCommand = new AsyncRelayCommand(InstallManualAsync);
         }
 
         public ObservableCollection<PluginStoreAssetItem> Assets { get; } = new();
@@ -37,26 +38,7 @@ namespace FolderRewind.ViewModels
         public IAsyncRelayCommand LoadCommand { get; }
 
         public IAsyncRelayCommand<PluginStoreAssetItem> InstallCommand { get; }
-
-        public string StoreRepo
-        {
-            get => PluginSettings.StoreRepo;
-            set
-            {
-                var next = value ?? string.Empty;
-                if (PluginSettings.StoreRepo == next)
-                {
-                    return;
-                }
-
-                PluginSettings.StoreRepo = next;
-                ConfigService.Save();
-
-                OnPropertyChanged();
-                OnPropertyChanged(nameof(EmptyRepoHintVisibility));
-                OnPropertyChanged(nameof(EmptyListVisibility));
-            }
-        }
+        public IAsyncRelayCommand InstallManualCommand { get; }
 
         public string StatusMessage
         {
@@ -104,10 +86,6 @@ namespace FolderRewind.ViewModels
 
         public bool CanLoad => !IsLoading && PluginService.IsPluginSystemEnabled();
 
-        public Visibility EmptyRepoHintVisibility => string.IsNullOrWhiteSpace(StoreRepo)
-            ? Visibility.Visible
-            : Visibility.Collapsed;
-
         public Visibility StatusVisibility => string.IsNullOrWhiteSpace(StatusMessage)
             ? Visibility.Collapsed
             : Visibility.Visible;
@@ -116,7 +94,7 @@ namespace FolderRewind.ViewModels
             ? Visibility.Collapsed
             : Visibility.Visible;
 
-        public Visibility EmptyListVisibility => !IsLoading && !string.IsNullOrWhiteSpace(StoreRepo) && Assets.Count == 0
+        public Visibility EmptyListVisibility => !IsLoading && Assets.Count == 0
             ? Visibility.Visible
             : Visibility.Collapsed;
 
@@ -150,7 +128,7 @@ namespace FolderRewind.ViewModels
             }
 
             _hasAutoLoaded = true;
-            if (!string.IsNullOrWhiteSpace(StoreRepo) && CanLoad)
+            if (CanLoad)
             {
                 await LoadAssetsAsync();
             }
@@ -175,12 +153,6 @@ namespace FolderRewind.ViewModels
                 return;
             }
 
-            if (!PluginStoreService.TryParseRepo(StoreRepo, out var owner, out var repo))
-            {
-                StatusMessage = rl.GetString("PluginStorePage_InvalidRepo");
-                return;
-            }
-
             _cts?.Cancel();
             _cts = new CancellationTokenSource();
             var ct = _cts.Token;
@@ -188,7 +160,7 @@ namespace FolderRewind.ViewModels
             IsLoading = true;
             try
             {
-                var result = await PluginStoreService.GetLatestAssetsAsync(owner, repo, ct);
+                var result = await PluginStoreService.GetOfficialCatalogAsync(ct);
                 if (!string.IsNullOrWhiteSpace(result.ErrorMessage))
                 {
                     StatusMessage = result.ErrorMessage;
@@ -204,7 +176,7 @@ namespace FolderRewind.ViewModels
 
                 foreach (var item in result.Items)
                 {
-                    item.IsInstalled = installedIds.Any(id => item.Name.Contains(id, StringComparison.OrdinalIgnoreCase));
+                    item.IsInstalled = installedIds.Any(id => string.Equals(id, item.PluginId, StringComparison.OrdinalIgnoreCase));
                     Assets.Add(item);
                 }
 
@@ -273,6 +245,32 @@ namespace FolderRewind.ViewModels
             {
                 item.IsBusy = false;
             }
+        }
+
+        private async Task InstallManualAsync()
+        {
+            var path = await MainWindowService.PickFilePathAsync(
+                "Install FolderRewind plugin",
+                "FolderRewind.PluginV3.ManualInstall",
+                new[] { ".frplugin" });
+            if (string.IsNullOrWhiteSpace(path)) return;
+            IsLoading = true;
+            try
+            {
+                var result = await PluginV3PackageService.InstallAsync(
+                    path,
+                    PluginInstallProvenance.Manual,
+                    cancellationToken: CancellationToken.None);
+                PluginService.RefreshInstalledList();
+                StatusMessage = $"Installed {result.Manifest.Contract.Name.Default} {result.State.CurrentVersion}; it remains disabled until you enable it.";
+                NotificationService.ShowSuccess(StatusMessage, I18n.GetString("PluginStorePage_Title.Text"));
+            }
+            catch (Exception ex)
+            {
+                StatusMessage = ex.Message;
+                NotificationService.ShowError(ex.Message, I18n.GetString("PluginStorePage_Title.Text"));
+            }
+            finally { IsLoading = false; }
         }
 
         private void OnAssetsCollectionChanged(object? sender, NotifyCollectionChangedEventArgs e)

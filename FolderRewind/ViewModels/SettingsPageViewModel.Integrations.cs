@@ -27,13 +27,23 @@ namespace FolderRewind.ViewModels
             _isDirty = true;
         }
 
-        public void HandlePluginEnabledToggled(string pluginId, bool isOn)
+        public async Task HandlePluginEnabledToggledAsync(string pluginId, bool isOn)
         {
             if (string.IsNullOrWhiteSpace(pluginId))
             {
                 return;
             }
 
+            var id = new FolderRewind.Plugin.Abstractions.PluginId(pluginId);
+            if (await FolderRewind.Services.Plugins.V3.PluginV3PackageService.IsInstalledAsync(id))
+            {
+                var transition = await FolderRewind.Services.Plugins.V3.PluginV3PackageService.SetEnabledAsync(id, isOn);
+                if (!transition.Success)
+                    NotificationService.ShowError(string.Join(", ", transition.Diagnostics.Select(value => value.Code)));
+                PluginService.RefreshInstalledList();
+                OnPropertyChanged(nameof(InstalledPlugins));
+                return;
+            }
             PluginService.SetPluginEnabled(pluginId, isOn);
         }
 

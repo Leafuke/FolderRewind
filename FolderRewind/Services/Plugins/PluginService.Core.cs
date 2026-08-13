@@ -2,6 +2,7 @@ using FolderRewind.Models;
 using FolderRewind.Services;
 using FolderRewind.Services.Hotkeys;
 using FolderRewind.Services.KnotLink;
+using FolderRewind.Services.Plugins.V3;
 using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
@@ -85,6 +86,16 @@ namespace FolderRewind.Services.Plugins
         public static void Initialize()
         {
             if (_initialized) return;
+
+            try
+            {
+                PluginV3PackageService.InitializeAsync().AsTask().GetAwaiter().GetResult();
+                PluginV3OfflineUpgradeService.RunAsync().AsTask().GetAwaiter().GetResult();
+            }
+            catch (Exception ex)
+            {
+                LogService.LogError($"Plugin v3 initialization failed: {ex.Message}", "PluginV3", ex);
+            }
 
             lock (_lock)
             {
@@ -173,6 +184,13 @@ namespace FolderRewind.Services.Plugins
                         {
                             _installed.Add(info);
                         }
+                    }
+
+                    foreach (var info in PluginV3PackageService.GetInstalledPluginInfosAsync()
+                                 .AsTask().GetAwaiter().GetResult())
+                    {
+                        if (_installed.All(value => !string.Equals(value.Id, info.Id, StringComparison.OrdinalIgnoreCase)))
+                            _installed.Add(info);
                     }
                 }
                 catch (Exception ex)

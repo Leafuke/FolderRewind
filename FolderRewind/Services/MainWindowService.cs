@@ -1,4 +1,5 @@
 using Microsoft.UI.Xaml;
+using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Windowing;
 using System;
 using System.Collections.Generic;
@@ -68,6 +69,39 @@ namespace FolderRewind.Services
         {
             var window = GetMainWindow();
             return window == null ? IntPtr.Zero : WindowNative.GetWindowHandle(window);
+        }
+
+        public static Task<bool> ConfirmAsync(string title, string message, string primaryButtonText)
+        {
+            var completion = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
+            UiDispatcherService.Enqueue(async () =>
+            {
+                try
+                {
+                    if (GetMainWindow()?.Content is not FrameworkElement root || root.XamlRoot is null)
+                    {
+                        completion.TrySetResult(false);
+                        return;
+                    }
+                    var dialog = new ContentDialog
+                    {
+                        Title = title,
+                        Content = message,
+                        PrimaryButtonText = primaryButtonText,
+                        CloseButtonText = I18n.GetString("Common_Cancel"),
+                        DefaultButton = ContentDialogButton.Close,
+                        XamlRoot = root.XamlRoot
+                    };
+                    ThemeService.ApplyThemeToDialog(dialog);
+                    completion.TrySetResult(await dialog.ShowAsync() == ContentDialogResult.Primary);
+                }
+                catch (Exception ex)
+                {
+                    LogService.LogWarning(ex.Message, nameof(MainWindowService));
+                    completion.TrySetResult(false);
+                }
+            });
+            return completion.Task;
         }
 
         public static void InitializeStoreContext(object? storeContext)

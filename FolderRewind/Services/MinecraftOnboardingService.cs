@@ -1,7 +1,6 @@
-using FolderRewind.Services.Plugins;
+using FolderRewind.Services.Plugins.V3;
 using System;
-using System.Diagnostics;
-using System.IO;
+using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 
@@ -10,145 +9,56 @@ namespace FolderRewind.Services
     public sealed class MinecraftOnboardingResult
     {
         public bool Success { get; init; }
-
         public string Message { get; init; } = string.Empty;
-
         public bool MineBackupModReminderRequired { get; init; }
     }
 
     public static class MinecraftOnboardingService
     {
-        private const string MineRewindPluginId = "com.folderrewind.minerewind";
-        private const string MineRewindOwner = "Leafuke";
-        private const string MineRewindRepo = "FolderRewind-Plugin-Minecraft";
-        private const string KnotLinkInstallerFileName = "KnotLinkService-windows-x86-Installer.exe";
-
         public static async Task<MinecraftOnboardingResult> InstallPresetAsync(
             IProgress<string>? progress = null,
             CancellationToken ct = default)
         {
             try
             {
-                progress?.Report(I18n.GetString("MinecraftOnboarding_Status_EnablePluginSystem"));
-                EnsurePluginSystemEnabled();
-
-                progress?.Report(I18n.GetString("MinecraftOnboarding_Status_DownloadMineRewind"));
-                var pluginResult = await PluginStoreService.DownloadAndInstallLatestZipAsync(
-                    MineRewindOwner,
-                    MineRewindRepo,
-                    item => item.Name.Contains("MineRewind", StringComparison.OrdinalIgnoreCase)
-                        || item.Name.Contains("Minecraft", StringComparison.OrdinalIgnoreCase)
-                        || item.Name.Contains("FolderRewind-Plugin", StringComparison.OrdinalIgnoreCase),
+                var result = await PluginPresetService.ExecuteAsync(
+                    PluginPresetService.MinecraftEnhancedExperiencePath,
+                    new InteractiveExternalInstallerConsent(),
+                    progress,
                     ct);
-
-                if (!pluginResult.Success)
-                {
-                    LogService.LogWarning(I18n.Format("MinecraftOnboarding_MineRewindFailed_Log", pluginResult.Message), nameof(MinecraftOnboardingService));
-                    NotificationService.ShowError(pluginResult.Message, I18n.GetString("MinecraftOnboarding_Title"));
-                    return new MinecraftOnboardingResult
-                    {
-                        Success = false,
-                        Message = pluginResult.Message
-                    };
-                }
-
-                progress?.Report(I18n.GetString("MinecraftOnboarding_Status_EnableMineRewind"));
-                PluginService.RefreshInstalledList();
-                PluginService.SetPluginEnabled(MineRewindPluginId, true);
-                PluginService.RefreshAndLoadEnabled();
-
-                progress?.Report(I18n.GetString("MinecraftOnboarding_Status_EnableKnotLink"));
-                EnableKnotLink();
-
-                progress?.Report(I18n.GetString("MinecraftOnboarding_Status_DownloadKnotLink"));
-                var installerPath = await DownloadKnotLinkInstallerAsync(ct);
-
-                progress?.Report(I18n.GetString("MinecraftOnboarding_Status_RunKnotLinkInstaller"));
-                LaunchInstaller(installerPath);
-
-                var message = I18n.GetString("MinecraftOnboarding_Success");
-                NotificationService.ShowSuccess(message, I18n.GetString("MinecraftOnboarding_Title"), 8000);
+                var message = string.Join(Environment.NewLine, result.Steps.Select(value => $"{value.ActionId}: {value.Message}"));
+                if (result.Success) NotificationService.ShowSuccess(message, I18n.GetString("MinecraftOnboarding_Title"), 8000);
+                else NotificationService.ShowError(message, I18n.GetString("MinecraftOnboarding_Title"));
                 return new MinecraftOnboardingResult
                 {
-                    Success = true,
+                    Success = result.Success,
                     Message = message,
                     MineBackupModReminderRequired = true
                 };
             }
             catch (OperationCanceledException)
             {
-                var message = I18n.GetString("Common_Canceled");
-                LogService.LogWarning(I18n.GetString("MinecraftOnboarding_Canceled_Log"), nameof(MinecraftOnboardingService));
-                NotificationService.ShowWarning(message, I18n.GetString("MinecraftOnboarding_Title"));
-                return new MinecraftOnboardingResult
-                {
-                    Success = false,
-                    Message = message
-                };
+                return new MinecraftOnboardingResult { Success = false, Message = I18n.GetString("Common_Canceled") };
             }
             catch (Exception ex)
             {
-                var message = I18n.Format("MinecraftOnboarding_Failed", ex.Message);
-                LogService.LogError(message, nameof(MinecraftOnboardingService), ex);
-                NotificationService.ShowError(message, I18n.GetString("MinecraftOnboarding_Title"));
-                return new MinecraftOnboardingResult
-                {
-                    Success = false,
-                    Message = message
-                };
+                LogService.LogError(ex.Message, nameof(MinecraftOnboardingService), ex);
+                return new MinecraftOnboardingResult { Success = false, Message = ex.Message };
             }
         }
 
-        private static void EnsurePluginSystemEnabled()
+        private sealed class InteractiveExternalInstallerConsent : IPluginPresetConsentBroker
         {
-            if (!PluginService.IsPluginSystemEnabled())
-            {
-                PluginService.SetPluginSystemEnabled(true);
-            }
-        }
-
-        private static void EnableKnotLink()
-        {
-            var settings = ConfigService.CurrentConfig.GlobalSettings;
-            settings.EnableKnotLink = true;
-            ConfigService.Save();
-            KnotLinkService.Initialize();
-        }
-
-        private static async Task<string> DownloadKnotLinkInstallerAsync(CancellationToken ct)
-        {
-            var tempDir = Path.Combine(Path.GetTempPath(), "FolderRewind", "MinecraftOnboarding");
-            Directory.CreateDirectory(tempDir);
-
-            // 从 KnotLink-Protocol/KnotLinkService 获取最新 Windows x86 安装包
-            var updateInfo = await KnotLinkServerManagerService.CheckForServerUpdateAsync(ct);
-            var installerUrl = updateInfo?.InstallerDownloadUrl
-                ?? throw new InvalidOperationException(I18n.GetString("SettingsPage_KnotLinkServerNoInstaller"));
-
-            var fileName = Path.GetFileName(new Uri(installerUrl).LocalPath);
-            if (string.IsNullOrWhiteSpace(fileName)) fileName = KnotLinkInstallerFileName;
-
-            var installerPath = Path.Combine(tempDir, fileName);
-            var bytes = await GitHubReleaseService.DownloadAssetAsync(installerUrl, ct);
-            await File.WriteAllBytesAsync(installerPath, bytes, ct);
-            return installerPath;
-        }
-
-        private static void LaunchInstaller(string installerPath)
-        {
-            if (string.IsNullOrWhiteSpace(installerPath) || !File.Exists(installerPath))
-            {
-                throw new FileNotFoundException(I18n.GetString("MinecraftOnboarding_KnotLinkInstallerMissing"), installerPath);
-            }
-
-            Process.Start(new ProcessStartInfo
-            {
-                FileName = installerPath,
-                UseShellExecute = true,
-                Verb = "open"
-            });
-
-            LogService.LogInfo(I18n.Format("MinecraftOnboarding_KnotLinkInstallerStarted_Log", installerPath), nameof(MinecraftOnboardingService));
+            public ValueTask<bool> ConfirmExternalDownloadAsync(string name, string url, string sha256, CancellationToken cancellationToken)
+                => new(MainWindowService.ConfirmAsync(
+                    $"Download {name}?",
+                    $"Official URL:\n{url}\n\nExpected SHA-256:\n{sha256}",
+                    "Download"));
+            public ValueTask<bool> ConfirmExternalLaunchAsync(string name, string localPath, CancellationToken cancellationToken)
+                => new(MainWindowService.ConfirmAsync(
+                    $"Launch {name} installer?",
+                    $"The downloaded file passed SHA-256 verification.\n\n{localPath}",
+                    "Launch"));
         }
     }
 }

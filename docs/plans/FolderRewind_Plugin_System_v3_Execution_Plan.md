@@ -1,18 +1,18 @@
 # FolderRewind Plugin System v3 — 1.9.0 冻结与执行计划
 
-> 状态：D0 / M3R / M3 已冻结 / M4 实施中
+> 状态：D0 / M3R / M3 / M4 已冻结；M5 Gate 等待用户人工测试与审阅
 >
-> 计划版本：2026-08-12 / Revision 10
+> 计划版本：2026-08-13 / Revision 10 + Compatibility Addendum 1
 >
 > 产品版本：FolderRewind 1.9.0、MineRewind 1.9.0
 >
-> Plugin API：3.0.0（Revision 10 contract 已于 M3 Gate 冻结）
+> Plugin API：3.0.0（Revision 10 contract 已于 M3 Gate 冻结；Addendum 1 仅增加有默认实现/可选值的 source/binary-compatible command-hotkey 与只读 Config Kind query）
 >
 > App Config Schema：1
 >
 > 目标仓库：`Leafuke/FolderRewind`、`Leafuke/FolderRewind-Plugin-Minecraft`、`Leafuke/FolderRewind-Site`、新建 `Leafuke/FolderRewind-Plugin-Catalog`
 >
-> 当前执行门：M4 实施；用户已授权完成后自动通过 M4 Gate、继续 M5，最终停在 M5 Gate 等待人工测试与审阅。
+> 当前执行门：M5 Gate；停止继续 M6，等待用户完成 `docs/plugin-v3/MANUAL_TEST_M5.md` 并明确批准。
 
 本文件是 Plugin System v3 的唯一执行依据。它先作为受版本控制的 proposed specification 接受审阅；用户明确通过 D0 后，才可把状态改为“已冻结 / 实施中”并修改产品代码。实施中若发现本计划无法满足仓库事实，必须先修订本文件、说明影响并重新通过当前里程碑，禁止在代码中静默偏离。
 
@@ -519,6 +519,15 @@ Revision 10 新增边界与非目标：
 
 **M4 Gate**：第 8 节三份 checklist 全绿；backup degrade/restore fail-closed 矩阵、Artifact graph/history/retention/Cloud/Safe Restore 全绿；尚不删除 v2。
 
+#### M4 Gate 实施记录（2026-08-13，依连续授权自动批准）
+
+- Host 将 FilePolicy/Scope/Consistency lease 接到 capture 前，Artifact transform 接到 History/retention/Cloud 可见性之前；Restore owner fail-closed，semantic graph/hash/Cloud closure preflight 在 Coordinator 的 Save & Exit 之前完成，Materializer 只向隔离 workspace 输出并通过 Host Safe Restore continuation 修改目标。
+- Artifact Cloud 以 History root/revision 为提交点，上传 reachable closure；下载时校验 root/revision、DAG 与每个 logical hash 后再原子导入 ledger。corrupt closure 不提交 History root且清理本次新装 payload。
+- MineRewind 完成 discovery/reconciliation/file policy/selected-regions、KnotLink consistency snapshot、NBT metadata、legacy/26.1+ player-state codec、Restore Coordinator、commands/default hotkeys 和 provider-state migration；产品程序集不引用 Host App。
+- API Freeze 后兼容修正：`PluginCommandDescriptor` 增加可选 `DefaultHotkey`/`IsGlobalHotkey`；`IReadOnlyConfigQueryService.QueryAsync(ConfigKindRef?)` 带默认实现。两者为实现原计划 command/hotkey parity 所需的仅加法修正，未改变 capability/identity/ownership 边界；3.0.0 fingerprint 更新为 `ccdda595b44deb5f992d6d0031f4672aa5d52b167a8b4f3c848b3dbbc5e40740`。
+- 自动证据：Abstractions 9/9、Runtime/Artifact 91/91、Host 266/266、MineRewind 55/55；Host x86/x64/ARM64 Release Msi 均 0 warning/0 error；MineRewind AnyCPU/x64 Release 均 0 warning/0 error。
+- 真实 Minecraft/KnotLink/rclone/安装介质 E2E 合并进已获授权的 M5 人工 Gate，不据此提前删除 v2。
+
 ### M5 — Package、Update、Catalog 与 Preset
 
 26. `[Host] feat(plugin-package): .frplugin validator and versioned install layout`
@@ -544,6 +553,14 @@ Revision 10 新增边界与非目标：
     - 默认仅删 code，保留 intent/settings/provider state/data；独立危险操作列出范围并二次确认后删除。
 
 **M5 Gate**：malformed/ZipSlip/collision/bomb 无半安装；update crash/failure 恢复 known-good；离线 legacy MineRewind 升级；Catalog/Manifest/hash 一致；普通卸载保留数据；Site/Package/Catalog CI 全绿。
+
+#### M5 Gate 候选记录（2026-08-13，等待用户批准）
+
+- `.frplugin` validator/transaction journal/versioned current+previous known-good、manual/official provenance、reachable Artifact compatibility update gate、code-only 与危险 delete-data 流程已实现；Settings 与 Store 均可选择 `.frplugin`，新安装默认 Disabled。
+- 随 Host 的 MineRewind 1.9.0 包包含 `MineRewind.dll`、`fNbt.dll`、root manifest/settings schema，不包含 Abstractions；SHA-256 为 `b0ed525bcf49dc22a7ee0ee04c07eda6242fe4efa52368758fc9ac406fc76b63`。legacy flat payload 离线迁移至 versioned layout并进入可恢复 quarantine。
+- 独立本地 Catalog repo 完成 schema、package/hash/manifest/API/architecture/service/Artifact summary 校验与 Pages/PR workflow；本地 production index 由真实 MineRewind 包生成。Site typecheck、i18n、image 与 production build 全绿。
+- Minecraft Enhanced Experience 使用有限 action 数据模型；外部安装步骤的下载确认、SHA-256 校验和启动确认代码已实现。由于本轮无法取得并核实不可变的官方 KnotLink installer URL/SHA-256，curated Preset 当前明确返回 warning，绝不下载或启动未知 payload；这是 M5 最终批准前保留的外部事实阻断项。
+- 未执行任何 push、PR、NuGet.org publish、Pages deploy、远程 Catalog 创建/合并或正式 release。
 
 ### M6 — Clean break 与发布候选
 

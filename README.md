@@ -71,11 +71,12 @@ FolderRewind 是一款基于 **WinUI 3** 和 **.NET 10** 构建的现代化、�
 
 注意：不要同时运行 Store、MSI 和 MSIX 侧载版本。MSI 与 MSIX/Store 使用独立的数据目录，不会自动迁移配置或插件。
 
-### 1.8 升级说明
+### 1.9 升级说明
 
-- v1.8 支持从 v1.7.4 直接升级；更早版本请先运行 v1.7.4 完成配置迁移。旧备份和历史元数据仍可继续恢复。
-- 模板导入仅支持带 `FolderRewindTemplate` 标识的 1.0 Envelope 格式。
-- KnotLink v1 插件接口已移除；插件需要改用参数化 KnotLink v2 接口，并将最低 Host 版本设为 1.8.0。
+- 1.9.0 引入 Plugin System v3：`.frplugin`、Official Catalog、typed settings、独立 Enabled Intent，以及 Host 管理的 Artifact graph。
+- 旧用户可离线迁移随安装介质携带的 MineRewind v3；旧 flat v2 payload 会移入可恢复的 legacy quarantine，不会执行或删除。
+- Minecraft 完整备份在一致性 provider 缺失时允许 raw fallback，并记录 `SuccessWithWarnings`；还原始终 fail-closed。
+- 第三方插件可通过 revision-bound proposal 修改配置，并可贡献 Host 编排的 semantic Artifact transformer/materializer；不能绕过 Safe Restore 或直接篡改既有归档。
 
 ## 使用
 

@@ -1435,7 +1435,7 @@
     <value>插件商店</value>
   </data>
   <data name="PluginStorePage_Desc.Text" xml:space="preserve">
-    <value>从 GitHub Release 下载插件压缩包，压缩包根目录需包含 manifest.json。</value>
+    <value>浏览经策展的官方目录。每个 .frplugin 在安装前都会核对目录 SHA-256 与 v3 Manifest；新安装插件保持禁用。</value>
   </data>
   <data name="PluginStorePage_RepoBox.Header" xml:space="preserve">
     <value>GitHub 仓库 (owner/repo)</value>
@@ -1444,7 +1444,7 @@
     <value>例如：YourOrg/FolderRewind.Plugins</value>
   </data>
   <data name="PluginStorePage_Load.Content" xml:space="preserve">
-    <value>加载</value>
+    <value>刷新官方目录</value>
   </data>
   <data name="PluginStorePage_EmptyRepoHint.Text" xml:space="preserve">
     <value>未配置仓库，无法加载插件列表。</value>
@@ -1453,7 +1453,7 @@
     <value>安装</value>
   </data>
   <data name="PluginStorePage_NoAssets.Text" xml:space="preserve">
-    <value>当前没有可显示的插件资产（可能被筛选条件过滤）。</value>
+    <value>官方目录当前没有可用插件；已安装插件离线时仍可继续使用。</value>
   </data>
   <data name="PluginStorePage_InstalledBadge.Text" xml:space="preserve">
     <value>已安装</value>

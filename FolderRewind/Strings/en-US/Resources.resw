@@ -1435,7 +1435,7 @@ Duplicate folder names are blocked within the same configuration so different di
     <value>Plugin store</value>
   </data>
   <data name="PluginStorePage_Desc.Text" xml:space="preserve">
-    <value>Download plugin packages from the latest GitHub Release. The package root must contain manifest.json.</value>
+    <value>Browse the curated Official Catalog. Every .frplugin is verified against its Catalog SHA-256 and v3 Manifest before installation; newly installed plugins remain disabled.</value>
   </data>
   <data name="PluginStorePage_RepoBox.Header" xml:space="preserve">
     <value>GitHub repo (owner/repo)</value>
@@ -1444,7 +1444,7 @@ Duplicate folder names are blocked within the same configuration so different di
     <value>e.g. YourOrg/FolderRewind.Plugins</value>
   </data>
   <data name="PluginStorePage_Load.Content" xml:space="preserve">
-    <value>Load</value>
+    <value>Refresh Official Catalog</value>
   </data>
   <data name="PluginStorePage_EmptyRepoHint.Text" xml:space="preserve">
     <value>No repository configured. Cannot load plugin assets.</value>
@@ -1453,7 +1453,7 @@ Duplicate folder names are blocked within the same configuration so different di
     <value>Install</value>
   </data>
   <data name="PluginStorePage_NoAssets.Text" xml:space="preserve">
-    <value>No plugin assets to display (they may be filtered out).</value>
+    <value>No Official Catalog plugins are available. Installed plugins continue to work offline.</value>
   </data>
   <data name="PluginStorePage_InstalledBadge.Text" xml:space="preserve">
     <value>Installed</value>

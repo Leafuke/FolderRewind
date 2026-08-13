@@ -2,136 +2,178 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using System.Net.Http;
+using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
+using FolderRewind.Plugin.Abstractions;
+using FolderRewind.Plugin.Runtime.Packaging;
+using FolderRewind.Services.Plugins.V3;
 using ResourceLoader = FolderRewind.Services.AppResourceLoader;
 
 namespace FolderRewind.Services.Plugins
 {
-    /// <summary>
-    /// 插件商店：从 GitHub Release 下载插件 zip，并调用 PluginService 安装。
-    /// 约定：Release 资产应为 zip，且 zip 根目录包含 manifest.json。
-    /// </summary>
+    /// <summary>Official Catalog and manual .frplugin installation entry point.</summary>
     public static class PluginStoreService
     {
-        private static readonly ResourceLoader _rl = ResourceLoader.GetForViewIndependentUse();
+        public const string OfficialCatalogUrl =
+            "https://leafuke.github.io/FolderRewind-Plugin-Catalog/catalog.v1.json";
+        private const int MaximumCatalogBytes = 4 * 1024 * 1024;
+        private const int MaximumEntries = 1000;
+        private static readonly HttpClient Client = new() { Timeout = TimeSpan.FromSeconds(30) };
+        private static readonly ResourceLoader Rl = ResourceLoader.GetForViewIndependentUse();
+        private static string CachePath => Path.Combine(
+            AppRuntimeInfo.WritableAppDataBaseDirectory,
+            "FolderRewind", "catalog-cache", "catalog.v1.json");
 
         public sealed class PluginStoreLoadResult
         {
             public IReadOnlyList<PluginStoreAssetItem> Items { get; set; } = Array.Empty<PluginStoreAssetItem>();
             public string? Summary { get; set; }
             public string? ErrorMessage { get; set; }
+            public bool FromCache { get; set; }
         }
 
-        public static bool TryParseRepo(string repoText, out string owner, out string repo)
+        public static async Task<PluginStoreLoadResult> GetOfficialCatalogAsync(CancellationToken ct)
         {
-            owner = string.Empty;
-            repo = string.Empty;
-
-            if (string.IsNullOrWhiteSpace(repoText)) return false;
-            var parts = repoText.Trim().Split('/', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
-            if (parts.Length != 2) return false;
-
-            owner = parts[0];
-            repo = parts[1];
-            return !(string.IsNullOrWhiteSpace(owner) || string.IsNullOrWhiteSpace(repo));
-        }
-
-        public static async Task<PluginStoreLoadResult> GetLatestAssetsAsync(string owner, string repo, CancellationToken ct)
-        {
-            var release = await GitHubReleaseService.GetLatestReleaseAsync(owner, repo, ct);
-            if (!string.IsNullOrWhiteSpace(release.ErrorMessage))
+            Exception? onlineError = null;
+            try
             {
+                var bytes = await Client.GetByteArrayAsync(OfficialCatalogUrl, ct).ConfigureAwait(false);
+                var items = ParseCatalog(bytes);
+                await WriteCacheAtomicallyAsync(bytes, ct).ConfigureAwait(false);
                 return new PluginStoreLoadResult
                 {
-                    ErrorMessage = string.Format(_rl.GetString("PluginStore_DownloadInstallFailed"), release.ErrorMessage)
+                    Items = items,
+                    Summary = $"Official Catalog · {items.Count} plugin(s)"
                 };
             }
-
-            var items = release.Assets
-                .Select(a => new PluginStoreAssetItem
-                {
-                    Name = a.Name,
-                    DownloadUrl = a.DownloadUrl,
-                    SizeBytes = a.SizeBytes,
-                    DownloadCount = a.DownloadCount,
-                    UpdatedAt = a.UpdatedAt,
-                    ReleaseTag = release.TagName
-                })
-                .ToList();
-
-            var summary = string.IsNullOrWhiteSpace(release.ReleaseName)
-                ? release.TagName
-                : string.IsNullOrWhiteSpace(release.TagName)
-                    ? release.ReleaseName
-                    : $"{release.ReleaseName} ({release.TagName})";
-
-            return new PluginStoreLoadResult
+            catch (Exception ex) when (ex is not OperationCanceledException)
             {
-                Items = items,
-                Summary = summary
-            };
-        }
-
-        public static async Task<(bool Success, string Message)> DownloadAndInstallAsync(PluginStoreAssetItem asset, CancellationToken ct)
-        {
-            if (asset == null || string.IsNullOrWhiteSpace(asset.DownloadUrl))
-                return (false, _rl.GetString("PluginStore_InvalidItem"));
-
-            // 当前版本仅支持 zip
-            if (!asset.Name.EndsWith(".zip", StringComparison.OrdinalIgnoreCase))
-                return (false, _rl.GetString("PluginStore_OnlyZipSupported"));
+                onlineError = ex;
+            }
 
             try
             {
-                Directory.CreateDirectory(PluginService.PluginRootDirectory);
-                var tempDir = Path.Combine(PluginService.PluginRootDirectory, "_downloads");
-                Directory.CreateDirectory(tempDir);
-
-                var tempZip = Path.Combine(tempDir, $"{Guid.NewGuid():N}-{asset.Name}");
-
-                var bytes = await GitHubReleaseService.DownloadAssetAsync(asset.DownloadUrl, ct);
-                await File.WriteAllBytesAsync(tempZip, bytes, ct);
-
-                var res = await PluginService.InstallFromZipAsync(tempZip, ct);
-
-                try { File.Delete(tempZip); } catch { }
-
-                return res;
+                if (!File.Exists(CachePath)) throw new FileNotFoundException("Official Catalog cache is unavailable.");
+                var bytes = await File.ReadAllBytesAsync(CachePath, ct).ConfigureAwait(false);
+                var items = ParseCatalog(bytes);
+                return new PluginStoreLoadResult
+                {
+                    Items = items,
+                    Summary = $"Official Catalog (offline cache) · {items.Count} plugin(s)",
+                    FromCache = true
+                };
             }
-            catch (OperationCanceledException)
+            catch (Exception cacheError) when (cacheError is not OperationCanceledException)
             {
-                return (false, _rl.GetString("Common_Canceled"));
-            }
-            catch (Exception ex)
-            {
-                LogService.LogError(I18n.Format("PluginStore_Log_DownloadInstallFailed", ex.Message), "PluginStoreService", ex);
-                return (false, string.Format(_rl.GetString("PluginStore_DownloadInstallFailed"), ex.Message));
+                return new PluginStoreLoadResult
+                {
+                    ErrorMessage = $"Official Catalog unavailable: {onlineError?.Message ?? cacheError.Message}"
+                };
             }
         }
 
-        public static async Task<(bool Success, string Message)> DownloadAndInstallLatestZipAsync(
-            string owner,
-            string repo,
-            Func<PluginStoreAssetItem, bool>? assetPredicate = null,
+        public static async Task<(bool Success, string Message)> DownloadAndInstallAsync(
+            PluginStoreAssetItem asset,
+            CancellationToken ct)
+        {
+            if (asset is null || string.IsNullOrWhiteSpace(asset.DownloadUrl)
+                || string.IsNullOrWhiteSpace(asset.Sha256))
+                return (false, Rl.GetString("PluginStore_InvalidItem"));
+            var downloadRoot = Path.Combine(PluginService.PluginRootDirectory, ".downloads");
+            Directory.CreateDirectory(downloadRoot);
+            var path = Path.Combine(downloadRoot, Guid.NewGuid().ToString("N") + ".frplugin");
+            try
+            {
+                var bytes = await Client.GetByteArrayAsync(asset.DownloadUrl, ct).ConfigureAwait(false);
+                await File.WriteAllBytesAsync(path, bytes, ct).ConfigureAwait(false);
+                var package = await PluginPackageValidator.ValidateAsync(path, asset.Sha256, cancellationToken: ct)
+                    .ConfigureAwait(false);
+                ValidateCatalogBinding(asset, package.Manifest);
+                await PluginV3PackageService.InstallAsync(
+                    path, PluginInstallProvenance.OfficialCatalog, asset.Sha256, ct).ConfigureAwait(false);
+                return (true, $"Installed {asset.PluginId} {asset.Version}; it remains disabled until explicitly enabled.");
+            }
+            catch (OperationCanceledException) { return (false, Rl.GetString("Common_Canceled")); }
+            catch (Exception ex)
+            {
+                LogService.LogError($"Official Catalog install failed: {ex.Message}", nameof(PluginStoreService), ex);
+                return (false, ex.Message);
+            }
+            finally { try { if (File.Exists(path)) File.Delete(path); } catch { } }
+        }
+
+        public static async Task<(bool Success, string Message)> InstallManualAsync(
+            string packagePath,
             CancellationToken ct = default)
         {
-            var release = await GetLatestAssetsAsync(owner, repo, ct);
-            if (!string.IsNullOrWhiteSpace(release.ErrorMessage))
+            try
             {
-                return (false, release.ErrorMessage);
+                var result = await PluginV3PackageService.InstallAsync(
+                    packagePath, PluginInstallProvenance.Manual, cancellationToken: ct).ConfigureAwait(false);
+                return (true, $"Installed {result.State.PluginId} {result.State.CurrentVersion}; it remains disabled until explicitly enabled.");
             }
+            catch (Exception ex) when (ex is not OperationCanceledException) { return (false, ex.Message); }
+        }
 
-            var zipAsset = release.Items
-                .Where(item => item.Name.EndsWith(".zip", StringComparison.OrdinalIgnoreCase))
-                .FirstOrDefault(item => assetPredicate?.Invoke(item) ?? true);
-
-            if (zipAsset == null)
+        private static IReadOnlyList<PluginStoreAssetItem> ParseCatalog(byte[] bytes)
+        {
+            if (bytes.Length is 0 or > MaximumCatalogBytes) throw new InvalidDataException("Catalog size is outside its bound.");
+            using var document = JsonDocument.Parse(bytes);
+            var root = document.RootElement;
+            if (root.GetProperty("schemaVersion").GetInt32() != 1) throw new InvalidDataException("Unsupported Catalog schema.");
+            var entries = root.GetProperty("entries");
+            if (entries.ValueKind != JsonValueKind.Array || entries.GetArrayLength() > MaximumEntries)
+                throw new InvalidDataException("Catalog entry count is outside its bound.");
+            var result = new List<PluginStoreAssetItem>();
+            var ids = new HashSet<string>(StringComparer.Ordinal);
+            foreach (var entry in entries.EnumerateArray())
             {
-                return (false, _rl.GetString("PluginStore_OnlyZipSupported"));
+                var pluginId = new PluginId(entry.GetProperty("pluginId").GetString()!).Value;
+                if (!ids.Add(pluginId)) throw new InvalidDataException("Catalog contains duplicate PluginIds.");
+                var artifact = entry.GetProperty("artifact");
+                var url = artifact.GetProperty("url").GetString()!;
+                var sha = artifact.GetProperty("sha256").GetString()!;
+                if (!Uri.TryCreate(url, UriKind.Absolute, out var uri) || uri.Scheme != Uri.UriSchemeHttps
+                    || sha.Length != 64 || !sha.All(char.IsAsciiHexDigit))
+                    throw new InvalidDataException("Catalog release facts are invalid.");
+                var api = entry.GetProperty("pluginApi");
+                result.Add(new PluginStoreAssetItem
+                {
+                    PluginId = pluginId,
+                    Name = pluginId,
+                    Version = entry.GetProperty("version").GetString()!,
+                    ReleaseTag = entry.GetProperty("version").GetString(),
+                    DownloadUrl = url,
+                    Sha256 = sha,
+                    PluginApiMajor = api.GetProperty("major").GetInt32(),
+                    PluginApiMinor = api.GetProperty("minor").GetInt32(),
+                    Channel = entry.GetProperty("channel").GetString()!,
+                    TrustClassification = entry.GetProperty("trustClassification").GetString()!,
+                    Architectures = entry.GetProperty("architectures").EnumerateArray().Select(value => value.GetString()!).ToArray()
+                });
             }
+            return result;
+        }
 
-            return await DownloadAndInstallAsync(zipAsset, ct);
+        private static void ValidateCatalogBinding(PluginStoreAssetItem item, ParsedPluginPackageManifest manifest)
+        {
+            if (!StringComparer.Ordinal.Equals(item.PluginId, manifest.Contract.PluginId.Value)
+                || !StringComparer.Ordinal.Equals(item.Version, manifest.Contract.Version)
+                || manifest.Contract.RequiredApi.Major != item.PluginApiMajor
+                || manifest.Contract.RequiredApi.Minor != item.PluginApiMinor
+                || !item.Architectures.Order(StringComparer.OrdinalIgnoreCase)
+                    .SequenceEqual(manifest.Architectures.Order(StringComparer.OrdinalIgnoreCase), StringComparer.OrdinalIgnoreCase))
+                throw new InvalidDataException("Catalog identity, API, or architecture does not match package Manifest.");
+        }
+
+        private static async Task WriteCacheAtomicallyAsync(byte[] bytes, CancellationToken ct)
+        {
+            Directory.CreateDirectory(Path.GetDirectoryName(CachePath)!);
+            var temporary = CachePath + "." + Guid.NewGuid().ToString("N") + ".tmp";
+            await File.WriteAllBytesAsync(temporary, bytes, ct).ConfigureAwait(false);
+            File.Move(temporary, CachePath, overwrite: true);
         }
     }
 }

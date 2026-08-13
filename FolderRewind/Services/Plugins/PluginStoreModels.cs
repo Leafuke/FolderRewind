@@ -13,7 +13,15 @@ namespace FolderRewind.Services.Plugins
         private bool _isInstalled;
 
         public string Name { get; set; } = string.Empty;
+        public string PluginId { get; set; } = string.Empty;
+        public string Version { get; set; } = string.Empty;
         public string DownloadUrl { get; set; } = string.Empty;
+        public string Sha256 { get; set; } = string.Empty;
+        public int PluginApiMajor { get; set; }
+        public int PluginApiMinor { get; set; }
+        public string Channel { get; set; } = string.Empty;
+        public string TrustClassification { get; set; } = string.Empty;
+        public string[] Architectures { get; set; } = Array.Empty<string>();
         public long SizeBytes { get; set; }
         public long DownloadCount { get; set; }
         public DateTimeOffset? UpdatedAt { get; set; }
@@ -51,6 +59,6 @@ namespace FolderRewind.Services.Plugins
 
         public string UpdatedDisplay => UpdatedAt.HasValue ? UpdatedAt.Value.LocalDateTime.ToString("yyyy-MM-dd") : "-";
 
-        public string FileType => Name.EndsWith(".zip", StringComparison.OrdinalIgnoreCase) ? "ZIP" : "OTHER";
+        public string FileType => "FRPLUGIN";
     }
 }
