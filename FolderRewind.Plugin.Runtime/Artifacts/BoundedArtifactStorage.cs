@@ -21,6 +21,13 @@ public sealed class HostArtifactReadService : IArtifactReadService
     {
         cancellationToken.ThrowIfCancellationRequested();
         var root = RequireRoot(content);
+        if (File.Exists(root))
+        {
+            using var stream = new FileStream(root, FileMode.Open, FileAccess.Read, FileShare.Read);
+            IReadOnlyList<ArtifactFileEntry> single =
+            [new("payload", stream.Length, Convert.ToHexString(SHA256.HashData(stream)).ToLowerInvariant())];
+            return ValueTask.FromResult(single);
+        }
         IReadOnlyList<ArtifactFileEntry> entries = EnumerateSafeFiles(root)
             .Select(file =>
             {
@@ -39,6 +46,22 @@ public sealed class HostArtifactReadService : IArtifactReadService
     {
         cancellationToken.ThrowIfCancellationRequested();
         var root = RequireRoot(content);
+        if (File.Exists(root))
+        {
+            if (!StringComparer.Ordinal.Equals(
+                    ArtifactPathRules.NormalizeRelativePath(relativePath),
+                    "payload"))
+            {
+                throw new FileNotFoundException("File-backed Artifacts expose one logical file named 'payload'.", relativePath);
+            }
+            return ValueTask.FromResult<Stream>(new FileStream(
+                root,
+                FileMode.Open,
+                FileAccess.Read,
+                FileShare.Read,
+                64 * 1024,
+                FileOptions.Asynchronous | FileOptions.SequentialScan));
+        }
         var path = ArtifactPathRules.ResolveUnderRoot(root, relativePath);
         EnsureNoReparsePoints(root, path);
         if (!File.Exists(path)) throw new FileNotFoundException("Artifact logical file was not found.", relativePath);
@@ -82,6 +105,12 @@ public sealed class HostArtifactReadService : IArtifactReadService
         string root,
         CancellationToken cancellationToken)
     {
+        if (File.Exists(root))
+        {
+            await using var stream = new FileStream(root, FileMode.Open, FileAccess.Read, FileShare.Read, 64 * 1024, true);
+            var hash = await SHA256.HashDataAsync(stream, cancellationToken).ConfigureAwait(false);
+            return (Convert.ToHexString(hash).ToLowerInvariant(), stream.Length);
+        }
         var files = EnumerateSafeFiles(root);
         if (files.Count == 0) throw new InvalidDataException("Artifact payload cannot be empty.");
         using var aggregate = IncrementalHash.CreateHash(HashAlgorithmName.SHA256);

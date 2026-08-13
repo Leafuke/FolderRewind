@@ -97,7 +97,10 @@ public sealed class LudusaviPathExpressionResolver
                 return null;
             }
 
-            fixedRoot = Path.GetFullPath(expanded[..separatorIndex]);
+            var expandedRoot = Path.GetPathRoot(expanded);
+            fixedRoot = !string.IsNullOrWhiteSpace(expandedRoot) && separatorIndex < expandedRoot.Length
+                ? Path.GetFullPath(expandedRoot)
+                : Path.GetFullPath(expanded[..separatorIndex]);
             relativePattern = BuildRelativePattern(
                 expanded,
                 separatorIndex + 1,

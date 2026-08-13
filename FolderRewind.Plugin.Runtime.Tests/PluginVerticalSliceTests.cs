@@ -136,15 +136,20 @@ public sealed class PluginVerticalSliceTests
         Assert.IsNotNull(capabilityLease);
         var (config, folder) = Snapshot(MinecraftKind, world.Path);
 
-        await using var sourceLease = await capabilityLease.Capability.AcquireAsync(
+        var sourceLease = await capabilityLease.Capability.AcquireAsync(
             new BackupConsistencyRequest(config, folder, ConsistencyIntent.Require),
             capabilityLease.Context);
+        var capturedSource = sourceLease.SourcePath;
         events.Add($"diff:{sourceLease.SourcePath}");
         events.Add($"archive:{sourceLease.SourcePath}");
 
         CollectionAssert.AreEqual(
-            new[] { "commit", "knot:minebackup.save", $"diff:{world.Path}", $"archive:{world.Path}" },
+            new[] { "commit", "knot:minebackup.save", $"diff:{capturedSource}", $"archive:{capturedSource}" },
             events);
+        Assert.AreNotEqual(world.Path, capturedSource);
+        Assert.IsTrue(File.Exists(Path.Combine(capturedSource, "level.dat")));
+        await sourceLease.DisposeAsync();
+        Assert.IsFalse(Directory.Exists(capturedSource));
     }
 
     [TestMethod]
@@ -169,7 +174,7 @@ public sealed class PluginVerticalSliceTests
         Assert.AreEqual(OperationOutcome.Success, result.Outcome);
         Assert.IsTrue(gate.WasInvoked);
         CollectionAssert.AreEqual(
-            new[] { "commit", "knot:minebackup.save-and-exit", "safety-backup", "mutation", "knot:minebackup.rejoin" },
+            new[] { "commit", "knot:minebackup.save-and-exit", "mutation", "knot:minebackup.rejoin" },
             events);
     }
 
@@ -183,7 +188,7 @@ public sealed class PluginVerticalSliceTests
 
         var result = await lease.Capability.ExecuteAsync(
             new PluginCommandRequest(
-                new PluginCommandId(MineRewindPluginId, "hot-backup"),
+                new PluginCommandId(MineRewindPluginId, "hotbackup.active-world"),
                 new Dictionary<string, JsonElement> { ["configId"] = Json("\"config-1\"") }),
             lease.Context);
 

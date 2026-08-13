@@ -12,7 +12,6 @@ namespace FolderRewind.Models
     public class PluginHostSettings : ObservableObject
     {
         private bool _enabled = false;
-        private string _storeRepo = string.Empty;
         private Dictionary<string, bool> _pluginEnabled = new();
         private Dictionary<string, Dictionary<string, string>> _pluginSettings = new();
         private Dictionary<string, bool> _enabledIntent = new(StringComparer.OrdinalIgnoreCase);
@@ -25,16 +24,6 @@ namespace FolderRewind.Models
         {
             get => _enabled;
             set => SetProperty(ref _enabled, value);
-        }
-
-        /// <summary>
-        /// 插件商店 GitHub 仓库："owner/repo"。
-        /// 为空时表示未配置商店来源。
-        /// </summary>
-        public string StoreRepo
-        {
-            get => _storeRepo;
-            set => SetProperty(ref _storeRepo, value ?? string.Empty);
         }
 
         /// <summary>

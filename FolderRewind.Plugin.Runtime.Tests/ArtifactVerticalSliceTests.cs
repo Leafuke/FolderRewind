@@ -14,8 +14,87 @@ public sealed class ArtifactVerticalSliceTests
     private static readonly RestoreStrategyId StrategyId = new(PluginId, "reverse-materializer");
     private static readonly ArtifactFormatRef DeltaFormat = new(new OwnerId(PluginId.Value), "reverse-delta");
     private static readonly ArtifactFormatRef CoreFormat = new(new OwnerId("folderrewind.core"), "archive-set");
+
+    [TestMethod]
+    public async Task CloudClosureImportVerifiesPayloadAndCommitsRootAtomically()
+    {
+        using var source = TemporaryDirectory.Create("M4-Cloud-Source");
+        using var target = TemporaryDirectory.Create("M4-Cloud-Target");
+        var sourceStore = new FileArtifactLedgerStore(source.Path);
+        var artifactId = await AddCoreHistoryAsync(sourceStore, "history-cloud", "cloud payload");
+        var closure = await sourceStore.LoadAsync();
+        var artifact = closure.Artifacts.Single(value => value.ArtifactId == artifactId);
+        var payloadPath = Path.Combine(source.Path, artifact.ContentRelativePath.Replace('/', Path.DirectorySeparatorChar));
+        var targetStore = new FileArtifactLedgerStore(target.Path);
+
+        await targetStore.ImportCloudClosureAsync(
+            closure,
+            new Dictionary<ArtifactId, CloudArtifactPayload>
+            {
+                [artifactId] = new(payloadPath, IsFile: File.Exists(payloadPath))
+            });
+
+        var imported = await targetStore.LoadAsync();
+        Assert.AreEqual(artifactId, imported.HistoryRoots.Single().RootArtifactId);
+        await targetStore.VerifyArtifactsAsync(imported, [artifactId]);
+    }
+
+    [TestMethod]
+    public async Task CorruptCloudClosureDoesNotCommitHistoryRoot()
+    {
+        using var source = TemporaryDirectory.Create("M4-Cloud-Corrupt-Source");
+        using var target = TemporaryDirectory.Create("M4-Cloud-Corrupt-Target");
+        var sourceStore = new FileArtifactLedgerStore(source.Path);
+        var artifactId = await AddCoreHistoryAsync(sourceStore, "history-cloud", "expected");
+        var closure = await sourceStore.LoadAsync();
+        var corrupt = Path.Combine(source.Path, "corrupt.bin");
+        await File.WriteAllTextAsync(corrupt, "corrupt");
+        var targetStore = new FileArtifactLedgerStore(target.Path);
+
+        await Assert.ThrowsExactlyAsync<InvalidDataException>(() => targetStore.ImportCloudClosureAsync(
+            closure,
+            new Dictionary<ArtifactId, CloudArtifactPayload>
+            {
+                [artifactId] = new(corrupt, IsFile: true)
+            }).AsTask());
+
+        Assert.IsEmpty((await targetStore.LoadAsync()).HistoryRoots);
+        Assert.IsFalse(File.Exists(Path.Combine(
+            target.Path,
+            closure.Artifacts.Single().ContentRelativePath.Replace('/', Path.DirectorySeparatorChar))));
+    }
     private static readonly RestoreStrategyId CoreStrategy = new(new PluginId("folderrewind.core"), "archive-materializer");
     private static readonly ConfigKindRef Kind = new(new OwnerId("com.folderrewind.domain"), "world");
+
+    [TestMethod]
+    public async Task CoreArchiveFileIsRegisteredAndReadThroughOpaquePayloadHandle()
+    {
+        using var repository = TemporaryDirectory.Create("M4-CoreArchive");
+        var archiveDirectory = Path.Combine(repository.Path, "World");
+        Directory.CreateDirectory(archiveDirectory);
+        var archivePath = Path.Combine(archiveDirectory, "[Full]world.7z");
+        await File.WriteAllTextAsync(archivePath, "archive bytes");
+        var store = new FileArtifactLedgerStore(repository.Path);
+
+        var ledger = await store.RegisterCoreArtifactAsync(
+            "config-1",
+            Guid.Parse("11111111-1111-1111-1111-111111111111"),
+            "history-file",
+            "World/[Full]world.7z",
+            ArtifactCompleteness.Complete,
+            CoreCaptureMode.Full,
+            "capture-file");
+
+        var root = ledger.HistoryRoots.Single(value => value.HistoryItemId == "history-file");
+        var session = store.CreateReadSession(ledger, [root.RootArtifactId]);
+        var snapshot = session.Snapshots[root.RootArtifactId];
+        var files = await session.ReadService.ListFilesAsync(snapshot.Content, CancellationToken.None);
+        Assert.HasCount(1, files);
+        Assert.AreEqual("payload", files[0].RelativePath);
+        await using var stream = await session.ReadService.OpenReadAsync(snapshot.Content, "payload", CancellationToken.None);
+        using var reader = new StreamReader(stream);
+        Assert.AreEqual("archive bytes", await reader.ReadToEndAsync());
+    }
 
     [TestMethod]
     public async Task FakeReverseDeltaCommitsGraphAndMaterializesOldHistory()

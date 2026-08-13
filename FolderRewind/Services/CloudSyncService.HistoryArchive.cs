@@ -430,6 +430,17 @@ namespace FolderRewind.Services
 
                 if (result.Success)
                 {
+                    var artifactWarning = await UploadArtifactClosureAsync(
+                        task,
+                        config,
+                        folder,
+                        settings,
+                        context).ConfigureAwait(false);
+                    if (!string.IsNullOrWhiteSpace(artifactWarning))
+                    {
+                        NotificationService.ShowWarning(artifactWarning, I18n.GetString("CloudSync_Notification_Title"));
+                        LogService.LogWarning(artifactWarning, nameof(CloudSyncService));
+                    }
                     string metadataRecordRemotePath = string.Empty;
                     string metadataStateRemotePath = string.Empty;
                     string? metadataWarning = null;

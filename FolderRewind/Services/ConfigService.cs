@@ -334,6 +334,17 @@ namespace FolderRewind.Services
                 }
 
                 backupConfig.ProviderStates ??= new Dictionary<string, ProviderStatePayload>(StringComparer.OrdinalIgnoreCase);
+                if (string.IsNullOrWhiteSpace(backupConfig.ConfigRevision))
+                {
+                    backupConfig.ConfigRevision = Guid.NewGuid().ToString("N");
+                }
+                if (backupConfig.ArtifactTransformPolicy is not null)
+                {
+                    backupConfig.ArtifactTransformPolicy.Transformer ??= new ArtifactTransformerReference();
+                    backupConfig.ArtifactTransformPolicy.Parameters = backupConfig.ArtifactTransformPolicy.Parameters is null
+                        ? new Dictionary<string, JsonElement>(StringComparer.Ordinal)
+                        : new Dictionary<string, JsonElement>(backupConfig.ArtifactTransformPolicy.Parameters, StringComparer.Ordinal);
+                }
                 if (string.IsNullOrWhiteSpace(backupConfig.BackupScope.OwnerId)
                     && string.IsNullOrWhiteSpace(backupConfig.BackupScope.ScopeId))
                 {

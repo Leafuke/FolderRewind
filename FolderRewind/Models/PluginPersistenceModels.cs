@@ -15,6 +15,31 @@ public sealed class ConfigKindReference
     public string KindId { get; set; } = "default";
 }
 
+public sealed class ArtifactTransformerReference
+{
+    public string PluginId { get; set; } = string.Empty;
+    public string TransformerId { get; set; } = string.Empty;
+}
+
+public enum PersistedArtifactTransformFailureBehavior
+{
+    KeepPrimaryWithWarnings = 0,
+    RequireTransform = 1
+}
+
+public sealed class ArtifactTransformPolicySettings
+{
+    public ArtifactTransformerReference Transformer { get; set; } = new();
+    public Dictionary<string, JsonElement> Parameters { get; set; } = new(StringComparer.Ordinal);
+    public PersistedArtifactTransformFailureBehavior FailureBehavior { get; set; }
+}
+
+public enum PersistedConsistencyIntent
+{
+    Prefer = 0,
+    Require = 1
+}
+
 /// <summary>
 /// Opaque state owned and migrated exclusively by a State Owner.
 /// </summary>

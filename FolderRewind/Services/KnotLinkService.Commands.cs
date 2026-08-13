@@ -1,6 +1,7 @@
 using FolderRewind.Models;
 using FolderRewind.Services.KnotLink;
 using FolderRewind.Services.Plugins;
+using FolderRewind.Services.Plugins.V3;
 using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
@@ -65,6 +66,13 @@ namespace FolderRewind.Services
                 if (!string.Equals(command, "GET_CAPABILITIES", StringComparison.OrdinalIgnoreCase)
                     && !string.Equals(command, "PING", StringComparison.OrdinalIgnoreCase))
                 {
+                    var (v3Handled, v3Response) = await PluginV3CommandService.TryExecuteKnotLinkAsync(
+                        command,
+                        context.Request.Options).ConfigureAwait(false);
+                    if (v3Handled)
+                    {
+                        return FormatCommandHandlerResponse(context, v3Response);
+                    }
                     var (pluginHandled, pluginResponse) = await PluginService.TryHandleParameterizedKnotLinkCommandAsync(context).ConfigureAwait(false);
                     if (pluginHandled)
                     {

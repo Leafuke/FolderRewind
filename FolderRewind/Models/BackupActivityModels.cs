@@ -24,6 +24,8 @@ namespace FolderRewind.Models
         public string FileName { get; set; } = "";        // 备份文件名 (如 [Full]...7z)
         public DateTime Timestamp { get; set; }     // 备份时间
         public string BackupType { get; set; } = "";      // Full, Smart, Overwrite
+        public Guid? ArtifactRootId { get; set; }
+        public string ArtifactGraphRevision { get; set; } = string.Empty;
         public PersistedOperationOutcome Outcome { get; set; }
         public List<OperationDiagnosticRecord> Diagnostics { get; set; } = new();
 

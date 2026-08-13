@@ -113,6 +113,70 @@ public sealed class FileArtifactLedgerStore
         }
     }
 
+    public async ValueTask<ArtifactLedgerDocument> RegisterCoreArtifactAsync(
+        string configId,
+        Guid folderId,
+        string historyItemId,
+        string contentRelativePath,
+        ArtifactCompleteness completeness,
+        CoreCaptureMode captureMode,
+        string transactionId,
+        CancellationToken cancellationToken = default)
+    {
+        if (string.IsNullOrWhiteSpace(configId) || folderId == Guid.Empty || string.IsNullOrWhiteSpace(historyItemId))
+        {
+            throw new ArgumentException("Core Artifact ownership is incomplete.");
+        }
+        var safeId = RequireTransactionId(transactionId);
+        var canonicalPath = ArtifactPathRules.NormalizeRelativePath(contentRelativePath);
+        var contentPath = ArtifactPathRules.ResolveUnderRoot(_repositoryRoot, canonicalPath);
+        var (sha256, size) = await HostArtifactReadService.ComputeLogicalFactsAsync(contentPath, cancellationToken).ConfigureAwait(false);
+
+        await _gate.WaitAsync(cancellationToken).ConfigureAwait(false);
+        try
+        {
+            var current = await LoadWithoutLockAsync(cancellationToken).ConfigureAwait(false);
+            if (current.HistoryRoots.Any(root => StringComparer.Ordinal.Equals(root.HistoryItemId, historyItemId)))
+            {
+                throw new InvalidOperationException("History Item already has an Artifact root.");
+            }
+            var artifactId = new ArtifactId(Guid.NewGuid());
+            var entry = new ArtifactLedgerEntry(
+                artifactId,
+                new ArtifactFormatRef(new OwnerId("folderrewind.core"), "archive-set"),
+                1,
+                new RestoreStrategyId(new PluginId("folderrewind.core"), "archive-materializer"),
+                configId,
+                folderId,
+                historyItemId,
+                canonicalPath,
+                sha256,
+                size,
+                sha256,
+                size,
+                completeness,
+                captureMode,
+                Array.Empty<ArtifactId>(),
+                safeId,
+                ArtifactAvailability.Available,
+                ArtifactAvailability.Pending);
+            var candidate = current with
+            {
+                Revision = NewRevision(),
+                Artifacts = current.Artifacts.Append(entry).ToArray(),
+                HistoryRoots = current.HistoryRoots.Append(
+                    new ArtifactHistoryRoot(historyItemId, configId, folderId, artifactId)).ToArray()
+            };
+            ArtifactLedgerValidator.Validate(candidate);
+            await WriteJsonAtomicallyAsync(_ledgerPath, candidate, cancellationToken).ConfigureAwait(false);
+            return candidate;
+        }
+        finally
+        {
+            _gate.Release();
+        }
+    }
+
     public async ValueTask CommitAsync(
         ArtifactLedgerDocument expected,
         ArtifactLedgerDocument candidate,
@@ -273,6 +337,85 @@ public sealed class FileArtifactLedgerStore
         }
     }
 
+    public async ValueTask ImportCloudClosureAsync(
+        ArtifactLedgerDocument closure,
+        IReadOnlyDictionary<ArtifactId, CloudArtifactPayload> payloads,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(closure);
+        ArgumentNullException.ThrowIfNull(payloads);
+        ArtifactLedgerValidator.Validate(closure);
+        var closureIds = closure.Artifacts.Select(value => value.ArtifactId).ToHashSet();
+        if (!closureIds.SetEquals(payloads.Keys))
+            throw new InvalidDataException("Cloud Artifact closure payloads do not match its ledger slice.");
+
+        await _gate.WaitAsync(cancellationToken).ConfigureAwait(false);
+        try
+        {
+            var current = await LoadWithoutLockAsync(cancellationToken).ConfigureAwait(false);
+            var installed = new List<string>();
+            try
+            {
+                foreach (var artifact in closure.Artifacts)
+                {
+                    cancellationToken.ThrowIfCancellationRequested();
+                    var existing = current.Artifacts.SingleOrDefault(value => value.ArtifactId == artifact.ArtifactId);
+                    if (existing is not null && !ArtifactIdentityMatches(existing, artifact))
+                        throw new InvalidDataException($"Cloud Artifact '{artifact.ArtifactId}' conflicts with local metadata.");
+                    var destination = ArtifactPathRules.ResolveUnderRoot(_repositoryRoot, artifact.ContentRelativePath);
+                    var payload = payloads[artifact.ArtifactId];
+                    if (!File.Exists(destination) && !Directory.Exists(destination))
+                    {
+                        Directory.CreateDirectory(Path.GetDirectoryName(destination)!);
+                        if (payload.IsFile)
+                            File.Copy(payload.Path, destination, overwrite: false);
+                        else
+                            CopyDirectory(payload.Path, destination, cancellationToken);
+                        installed.Add(destination);
+                    }
+                    var facts = await HostArtifactReadService.ComputeLogicalFactsAsync(destination, cancellationToken)
+                        .ConfigureAwait(false);
+                    if (!StringComparer.OrdinalIgnoreCase.Equals(facts.Sha256, artifact.LogicalSha256)
+                        || facts.Size != artifact.LogicalSize)
+                        throw new InvalidDataException($"Cloud Artifact '{artifact.ArtifactId}' failed logical integrity verification.");
+                }
+
+                var mergedArtifacts = current.Artifacts
+                    .Concat(closure.Artifacts.Where(incoming => current.Artifacts.All(value => value.ArtifactId != incoming.ArtifactId)))
+                    .ToArray();
+                var mergedRoots = current.HistoryRoots.ToList();
+                foreach (var root in closure.HistoryRoots)
+                {
+                    var existing = mergedRoots.SingleOrDefault(value => StringComparer.Ordinal.Equals(value.HistoryItemId, root.HistoryItemId));
+                    if (existing is not null && existing != root)
+                        throw new InvalidDataException("Cloud Artifact History root conflicts with local metadata.");
+                    if (existing is null) mergedRoots.Add(root);
+                }
+                var candidate = new ArtifactLedgerDocument(
+                    1,
+                    closure.Revision,
+                    mergedArtifacts,
+                    mergedRoots);
+                ArtifactLedgerValidator.Validate(candidate);
+                await WriteJsonAtomicallyAsync(_ledgerPath, candidate, cancellationToken).ConfigureAwait(false);
+            }
+            catch
+            {
+                foreach (var path in installed)
+                {
+                    try
+                    {
+                        if (File.Exists(path)) File.Delete(path);
+                        else if (Directory.Exists(path)) Directory.Delete(path, recursive: true);
+                    }
+                    catch { }
+                }
+                throw;
+            }
+        }
+        finally { _gate.Release(); }
+    }
+
     public async ValueTask RemoveHistoryRootAsync(
         string historyItemId,
         ArtifactGraphRevision committedRevision,
@@ -306,6 +449,38 @@ public sealed class FileArtifactLedgerStore
         {
             throw new InvalidOperationException(
                 $"Artifact '{artifactId}' is reachable from History: {string.Join(", ", dependentHistory)}.");
+        }
+    }
+
+    private static bool ArtifactIdentityMatches(ArtifactLedgerEntry left, ArtifactLedgerEntry right)
+        => left.ArtifactId == right.ArtifactId
+           && left.Format == right.Format
+           && left.FormatVersion == right.FormatVersion
+           && left.RestoreStrategyId == right.RestoreStrategyId
+           && StringComparer.Ordinal.Equals(left.ConfigId, right.ConfigId)
+           && left.FolderId == right.FolderId
+           && StringComparer.Ordinal.Equals(left.HistoryItemId, right.HistoryItemId)
+           && StringComparer.Ordinal.Equals(left.ContentRelativePath, right.ContentRelativePath)
+           && StringComparer.OrdinalIgnoreCase.Equals(left.LogicalSha256, right.LogicalSha256)
+           && left.LogicalSize == right.LogicalSize
+           && left.Completeness == right.Completeness
+           && left.CoreCaptureMode == right.CoreCaptureMode
+           && left.Dependencies.SequenceEqual(right.Dependencies);
+
+    private static void CopyDirectory(string source, string destination, CancellationToken cancellationToken)
+    {
+        Directory.CreateDirectory(destination);
+        foreach (var directory in Directory.EnumerateDirectories(source, "*", SearchOption.AllDirectories))
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            Directory.CreateDirectory(Path.Combine(destination, Path.GetRelativePath(source, directory)));
+        }
+        foreach (var file in Directory.EnumerateFiles(source, "*", SearchOption.AllDirectories))
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            var target = Path.Combine(destination, Path.GetRelativePath(source, file));
+            Directory.CreateDirectory(Path.GetDirectoryName(target)!);
+            File.Copy(file, target, overwrite: false);
         }
     }
 

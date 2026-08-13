@@ -28,11 +28,21 @@ namespace FolderRewind.Models
         private ConfigKindReference _kind = new();
         private HostConfigOrigin _hostOrigin = new();
         private LegacyConfigPreservation _legacyPreservation = new();
+        private string _configRevision = Guid.NewGuid().ToString("N");
+        private ArtifactTransformPolicySettings? _artifactTransformPolicy;
+        private PersistedConsistencyIntent _consistencyIntent;
 
         // 核心路径
         public string Id { get => _id; set => SetProperty(ref _id, value); }
         public string Name { get => _name; set => SetProperty(ref _name, value); }
         public string DestinationPath { get => _destinationPath; set => SetProperty(ref _destinationPath, value); }
+        public string ConfigRevision
+        {
+            get => _configRevision;
+            set => SetProperty(ref _configRevision, string.IsNullOrWhiteSpace(value)
+                ? Guid.NewGuid().ToString("N")
+                : value.Trim());
+        }
 
         /// <summary>
         /// 配置类型。默认为 "Default"。
@@ -66,6 +76,18 @@ namespace FolderRewind.Models
         }
 
         public string RequiredPluginId { get; set; } = string.Empty;
+
+        public ArtifactTransformPolicySettings? ArtifactTransformPolicy
+        {
+            get => _artifactTransformPolicy;
+            set => SetProperty(ref _artifactTransformPolicy, value);
+        }
+
+        public PersistedConsistencyIntent ConsistencyIntent
+        {
+            get => _consistencyIntent;
+            set => SetProperty(ref _consistencyIntent, value);
+        }
 
         /// <summary>
         /// 是否为加密配置。加密配置的备份将使用 7-Zip 加密，密码通过 EncryptionService 安全存储。

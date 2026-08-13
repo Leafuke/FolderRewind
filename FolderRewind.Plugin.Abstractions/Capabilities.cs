@@ -123,7 +123,11 @@ public interface IPluginCommandCapability : IPluginCapability
     ValueTask<PluginCommandResult> ExecuteAsync(PluginCommandRequest request, PluginInvocationContext context);
 }
 
-public sealed record PluginCommandDescriptor(PluginCommandId Id, string DisplayName, JsonElement ArgumentSchema);
+public sealed record PluginCommandDescriptor(PluginCommandId Id, string DisplayName, JsonElement ArgumentSchema)
+{
+    public string? DefaultHotkey { get; init; }
+    public bool IsGlobalHotkey { get; init; }
+}
 public sealed record PluginCommandRequest(PluginCommandId Id, IReadOnlyDictionary<string, JsonElement> Arguments);
 public sealed record PluginCommandResult(OperationOutcome Outcome, IReadOnlyDictionary<string, JsonElement> Values, IReadOnlyList<PluginDiagnostic> Diagnostics);
 

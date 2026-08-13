@@ -42,6 +42,8 @@ public interface IPluginHostServices
 public interface IReadOnlyConfigQueryService
 {
     ValueTask<ConfigSnapshot?> FindAsync(string configId, CancellationToken cancellationToken);
+    ValueTask<IReadOnlyList<ConfigSnapshot>> QueryAsync(ConfigKindRef? kind, CancellationToken cancellationToken)
+        => ValueTask.FromResult<IReadOnlyList<ConfigSnapshot>>(Array.Empty<ConfigSnapshot>());
 }
 
 public interface IBackupRequestService

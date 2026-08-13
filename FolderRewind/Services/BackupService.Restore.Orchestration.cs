@@ -1,4 +1,8 @@
 using FolderRewind.Models;
+using FolderRewind.Plugin.Abstractions;
+using FolderRewind.Plugin.Runtime.Artifacts;
+using FolderRewind.Plugin.Runtime.Operations;
+using FolderRewind.Services.Plugins.V3;
 using Microsoft.UI.Xaml.Controls;
 using System;
 using System.Collections.Generic;
@@ -31,6 +35,170 @@ namespace FolderRewind.Services
 
         public static async Task<bool> RestoreBackupAsync(BackupConfig config, ManagedFolder folder, HistoryItem historyItem, RestoreMode mode)
         {
+            var owner = new PluginId(config.Kind?.OwnerId ?? "folderrewind.core");
+            if (string.Equals(owner.Value, "folderrewind.core", StringComparison.Ordinal))
+            {
+                return await RestoreBackupCoreAsync(config, folder, historyItem, mode, allowV2Plugins: true);
+            }
+
+            var runtime = PluginV3RuntimeService.Runtime;
+            var configSnapshot = PluginV3ModelMapper.ToSnapshot(config);
+            var folderId = Guid.Parse(folder.Id);
+            var folderSnapshot = configSnapshot.Folders.Single(value => value.FolderId == folderId);
+            var declaration = PluginV3RuntimeService.FindKind(configSnapshot.Kind);
+            using var coordinatorLease = runtime.TryAcquire<IRestoreCoordinatorCapability>(owner);
+            var resolution = PluginOperationResolver.Resolve(new PluginOperationResolutionRequest(
+                declaration ?? new ConfigKindDeclaration(
+                    configSnapshot.Kind,
+                    new LocalizedText(config.Name, new Dictionary<string, string>()),
+                    new LocalizedText(string.Empty, new Dictionary<string, string>()),
+                    string.Empty,
+                    BackupFallbackPolicy.RawWithWarnings,
+                    RestoreCoordinationPolicy.Required),
+                PluginOperationKind.Restore,
+                runtime.GetSnapshot(owner).State,
+                false,
+                false,
+                ConsistencyIntent.Prefer,
+                false,
+                coordinatorLease is not null));
+            if (resolution.Readiness == OperationReadiness.Blocked
+                || coordinatorLease is null
+                || coordinatorLease.Capability.Kind != configSnapshot.Kind)
+            {
+                var message = "The restore owner is missing, disabled, failed, or lacks its required Restore Coordinator.";
+                Log($"[PluginV3] {message} Owner={owner}", LogLevel.Error);
+                NotificationService.ShowError(message);
+                return false;
+            }
+
+            if (!await PreflightV3RestoreAsync(config, folder, historyItem))
+            {
+                const string message = "Plugin v3 restore preflight failed before external Save & Exit.";
+                Log($"[PluginV3] {message}", LogLevel.Error);
+                NotificationService.ShowError(message);
+                return false;
+            }
+
+            var continuation = new RestoreMutationContinuationGate(async cancellationToken =>
+            {
+                var semantic = await TryRestoreSemanticArtifactAsync(
+                    config,
+                    folder,
+                    historyItem,
+                    mode,
+                    cancellationToken);
+                if (semantic.HasValue)
+                {
+                    return semantic.Value ? OperationOutcome.Success : OperationOutcome.Failed;
+                }
+                return await RestoreBackupCoreAsync(
+                    config,
+                    folder,
+                    historyItem,
+                    mode,
+                    allowV2Plugins: false)
+                    ? OperationOutcome.Success
+                    : OperationOutcome.Failed;
+            });
+            try
+            {
+                var result = await coordinatorLease.Capability.CoordinateAsync(
+                    new RestoreCoordinatorRequest(
+                        configSnapshot,
+                        folderSnapshot,
+                        historyItem.Id,
+                        continuation.InvokeAsync),
+                    coordinatorLease.Context);
+                return continuation.WasInvoked
+                    && result.Outcome is OperationOutcome.Success or OperationOutcome.SuccessWithWarnings;
+            }
+            catch (Exception ex)
+            {
+                Log($"[PluginV3] Restore coordination failed: {ex.Message}", LogLevel.Error);
+                NotificationService.ShowError(ex.Message);
+                return false;
+            }
+        }
+
+        private static async Task<bool> PreflightV3RestoreAsync(
+            BackupConfig config,
+            ManagedFolder folder,
+            HistoryItem historyItem)
+        {
+            try
+            {
+                if (historyItem.ArtifactRootId.HasValue)
+                {
+                    var closure = await CloudSyncService.EnsureArtifactClosureAvailableAsync(
+                        config,
+                        folder,
+                        historyItem).ConfigureAwait(false);
+                    if (!closure.Success)
+                    {
+                        Log("[PluginV3] " + closure.Message, LogLevel.Error);
+                        return false;
+                    }
+                    var store = new FileArtifactLedgerStore(config.DestinationPath);
+                    var ledger = await store.LoadAsync().ConfigureAwait(false);
+                    var historyRoot = ledger.HistoryRoots.Single(value =>
+                        StringComparer.Ordinal.Equals(value.HistoryItemId, historyItem.Id)
+                        && value.RootArtifactId.Value == historyItem.ArtifactRootId.Value);
+                    if (!StringComparer.Ordinal.Equals(ledger.Revision.Value, historyItem.ArtifactGraphRevision))
+                        throw new InvalidDataException("History and Artifact graph revisions do not match.");
+                    var reachable = ArtifactLedgerValidator.ComputeReachable(ledger, [historyItem.Id]);
+                    await store.VerifyArtifactsAsync(ledger, reachable).ConfigureAwait(false);
+                    var root = ledger.Artifacts.Single(value => value.ArtifactId == historyRoot.RootArtifactId);
+                    if (!StringComparer.Ordinal.Equals(root.RestoreStrategyId.PluginId.Value, "folderrewind.core"))
+                    {
+                        using var lease = PluginV3RuntimeService.Runtime.TryAcquire<IRestoreMaterializerCapability>(
+                            root.RestoreStrategyId.PluginId);
+                        if (lease is null || lease.Capability.RestoreStrategyId != root.RestoreStrategyId)
+                            throw new InvalidOperationException("Artifact Restore Strategy owner is unavailable.");
+                        return true;
+                    }
+                }
+
+                var path = HistoryService.GetBackupFilePath(config, folder, historyItem);
+                var incremental = BackupArchiveTypePolicy.IsIncremental(historyItem.BackupType)
+                    || BackupArchiveTypePolicy.InferFromFileName(historyItem.FileName)
+                        .Equals("Smart", StringComparison.OrdinalIgnoreCase);
+                if (ConfigService.CurrentConfig?.GlobalSettings?.AutoDownloadMissingCloudBackupsBeforeRestore == true
+                    && CloudSyncService.CanUseManualCloudActions(config)
+                    && (string.IsNullOrWhiteSpace(path) || !File.Exists(path) || incremental))
+                {
+                    await CloudSyncService.EnsureRestoreChainAvailableAsync(config, folder, historyItem)
+                        .ConfigureAwait(false);
+                    path = HistoryService.GetBackupFilePath(config, folder, historyItem);
+                }
+                if (string.IsNullOrWhiteSpace(path) || !File.Exists(path)) return false;
+                var sevenZip = ResolveSevenZipExecutable();
+                if (string.IsNullOrWhiteSpace(sevenZip)) return false;
+                var chain = BuildRestoreChainWithStatus(
+                    new DirectoryInfo(Path.GetDirectoryName(path)!),
+                    new FileInfo(path),
+                    historyItem.BackupType,
+                    config,
+                    string.IsNullOrWhiteSpace(historyItem.FolderName) ? folder.DisplayName : historyItem.FolderName);
+                if (chain.Status != RestoreChainBuildStatus.Success || chain.Chain.Count == 0) return false;
+                if (!TryResolveRequiredPassword(config, out var password)) return false;
+                return config.Archive?.VerifyArchiveBeforeRestore != true
+                    || await ValidateRestoreChainAsync(chain.Chain, sevenZip, password, restoreTask: null).ConfigureAwait(false);
+            }
+            catch (Exception ex)
+            {
+                Log("[PluginV3] Restore preflight error: " + ex.Message, LogLevel.Error);
+                return false;
+            }
+        }
+
+        private static async Task<bool> RestoreBackupCoreAsync(
+            BackupConfig config,
+            ManagedFolder folder,
+            HistoryItem historyItem,
+            RestoreMode mode,
+            bool allowV2Plugins)
+        {
             RestoreMode requestedMode = mode;
             RestoreMode effectiveMode = ResolveEffectiveRestoreMode(historyItem, requestedMode);
             if (effectiveMode != requestedMode)
@@ -40,11 +208,12 @@ namespace FolderRewind.Services
                     LogLevel.Warning);
             }
 
-            var (interceptorPluginId, interception) =
-                await Services.Plugins.PluginService.TryInterceptRestoreFolderAsync(
+            var (interceptorPluginId, interception) = allowV2Plugins
+                ? await Services.Plugins.PluginService.TryInterceptRestoreFolderAsync(
                     config,
                     folder,
-                    historyItem.FileName);
+                    historyItem.FileName)
+                : (string.Empty, Services.Plugins.PluginRestoreInterceptionResult.Continue());
             if (interception.Status != Services.Plugins.PluginRestoreInterceptionStatus.Continue)
             {
                 string message = interception.Message;
@@ -177,19 +346,36 @@ namespace FolderRewind.Services
                 Log(I18n.Format("BackupService_Log_BackupBeforeRestore", folder.DisplayName), LogLevel.Info);
                 try
                 {
-                    await BackupFolderAsync(
+                    var beforeRestore = await BackupFolderCoreAsync(
                         config,
                         folder,
-                        BackupInvocationOptions.ForInternal().WithComment("BeforeRestore"));
+                        "BeforeRestore",
+                        BackupInvocationOptions.ForInternal().WithComment("BeforeRestore"),
+                        createdByRunId: null);
+                    if (beforeRestore.Status is BackupRunSourceStatus.Failed or BackupRunSourceStatus.Unavailable)
+                    {
+                        throw new InvalidOperationException(string.IsNullOrWhiteSpace(beforeRestore.ErrorMessage)
+                            ? "BackupBeforeRestore did not produce a safe restore point."
+                            : beforeRestore.ErrorMessage);
+                    }
+                    if (beforeRestore.CreatedNewArchive)
+                    {
+                        await PruneRetainedSourceArchivesAsync(config);
+                    }
                     Log(I18n.Format("BackupService_Log_BackupBeforeRestoreCompleted"), LogLevel.Info);
                 }
                 catch (Exception ex)
                 {
-                    Log(I18n.Format("BackupService_Log_BackupBeforeRestoreFailed", ex.Message), LogLevel.Warning);
+                    var message = I18n.Format("BackupService_Log_BackupBeforeRestoreFailed", ex.Message);
+                    Log(message, LogLevel.Error);
+                    await FailAsync(message, "backup_before_restore_failed");
+                    return false;
                 }
             }
 
-            var (shouldHandleRestore, handlerPlugin) = Services.Plugins.PluginService.CheckPluginWantsToHandleRestore(config);
+            var (shouldHandleRestore, handlerPlugin) = allowV2Plugins
+                ? Services.Plugins.PluginService.CheckPluginWantsToHandleRestore(config)
+                : (false, null);
             if (shouldHandleRestore && handlerPlugin != null && !historyItem.IsPartialBackup)
             {
                 return await HandlePluginRestoreAsync(config, folder, historyItem, restoreTask, handlerPlugin, configIndex);
@@ -332,7 +518,10 @@ namespace FolderRewind.Services
             List<(string PluginId, Services.Plugins.IFolderRewindPlugin Plugin, object? State)>? pluginRestoreStates = null;
             try
             {
-                pluginRestoreStates = Services.Plugins.PluginService.InvokeBeforeRestoreFolder(config, folder, historyItem.FileName);
+                if (allowV2Plugins)
+                {
+                    pluginRestoreStates = Services.Plugins.PluginService.InvokeBeforeRestoreFolder(config, folder, historyItem.FileName);
+                }
             }
             catch
             {
@@ -356,7 +545,8 @@ namespace FolderRewind.Services
                     Log(message, LogLevel.Error);
                     try
                     {
-                        Services.Plugins.PluginService.InvokeAfterRestoreFolder(config, folder, false, historyItem.FileName, pluginRestoreStates);
+                        if (allowV2Plugins)
+                            Services.Plugins.PluginService.InvokeAfterRestoreFolder(config, folder, false, historyItem.FileName, pluginRestoreStates);
                     }
                     catch
                     {
@@ -383,7 +573,8 @@ namespace FolderRewind.Services
                     Log(message, LogLevel.Error);
                     try
                     {
-                        Services.Plugins.PluginService.InvokeAfterRestoreFolder(config, folder, false, historyItem.FileName, pluginRestoreStates);
+                        if (allowV2Plugins)
+                            Services.Plugins.PluginService.InvokeAfterRestoreFolder(config, folder, false, historyItem.FileName, pluginRestoreStates);
                     }
                     catch
                     {
@@ -504,7 +695,8 @@ namespace FolderRewind.Services
 
                 try
                 {
-                    Services.Plugins.PluginService.InvokeAfterRestoreFolder(config, folder, false, historyItem.FileName, pluginRestoreStates);
+                    if (allowV2Plugins)
+                        Services.Plugins.PluginService.InvokeAfterRestoreFolder(config, folder, false, historyItem.FileName, pluginRestoreStates);
                 }
                 catch
                 {
@@ -519,7 +711,8 @@ namespace FolderRewind.Services
 
             try
             {
-                Services.Plugins.PluginService.InvokeAfterRestoreFolder(config, folder, true, historyItem.FileName, pluginRestoreStates);
+                if (allowV2Plugins)
+                    Services.Plugins.PluginService.InvokeAfterRestoreFolder(config, folder, true, historyItem.FileName, pluginRestoreStates);
             }
             catch
             {
@@ -565,12 +758,16 @@ namespace FolderRewind.Services
 
             var historyItem = new HistoryItem
             {
+                Id = existingEntry?.Id ?? string.Empty,
                 ConfigId = config.Id,
+                FolderId = existingEntry?.FolderId,
                 FolderPath = folder.Path,
                 FolderName = folder.DisplayName,
                 FileName = backupFileName,
                 BackupType = backupType,
-                IsPartialBackup = existingEntry?.IsPartialBackup ?? false
+                IsPartialBackup = existingEntry?.IsPartialBackup ?? false,
+                ArtifactRootId = existingEntry?.ArtifactRootId,
+                ArtifactGraphRevision = existingEntry?.ArtifactGraphRevision ?? string.Empty
             };
 
             await RestoreBackupAsync(config, folder, historyItem, mode);

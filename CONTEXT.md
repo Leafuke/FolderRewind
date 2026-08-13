@@ -185,4 +185,5 @@ _Avoid_: Restore interceptor, restore engine, before/after hook
 
 **Plugin Command**:
 A stable plugin-owned action identified by `PluginId + CommandId`, independent of whether it is invoked from UI, hotkey, tray, KnotLink, or another host entry point.
+The descriptor may carry an optional default gesture and global/local scope; the Host owns user overrides, registration, conflict handling, and dispatch. Commands that model an “active resource” may resolve it through the Host's read-only Config Kind query, but cannot mutate configuration as part of resolution.
 _Avoid_: Hotkey provider, KnotLink command handler, UI callback

@@ -51,6 +51,8 @@ public sealed record StagedArtifactFacts(
     string StorageSha256,
     long StorageSize);
 
+public sealed record CloudArtifactPayload(string Path, bool IsFile);
+
 public sealed record ArtifactPatchScope(
     PluginId PluginId,
     string ConfigId,

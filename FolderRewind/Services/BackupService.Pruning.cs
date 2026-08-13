@@ -1,4 +1,5 @@
 using FolderRewind.Models;
+using FolderRewind.Services.Plugins.V3;
 using Microsoft.UI.Xaml.Controls;
 using System;
 using System.Collections.Generic;
@@ -35,6 +36,20 @@ namespace FolderRewind.Services
                     Success = false,
                     Message = "This archive is referenced by a retained configuration backup run."
                 };
+            }
+
+            if (historyItem.ArtifactRootId.HasValue)
+            {
+                var artifactDeletion = await PluginV3ArtifactRetentionService.DeleteAsync(
+                    config,
+                    folder,
+                    historyItem,
+                    deleteMode);
+                if (artifactDeletion.Success)
+                {
+                    CloudSyncService.QueueConfigurationHistorySyncAfterLocalChange(config, "artifact history deletion");
+                }
+                return artifactDeletion;
             }
 
             if (deleteMode == BackupDeleteMode.RecordOnly)

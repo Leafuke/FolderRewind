@@ -14,13 +14,26 @@ namespace FolderRewind.Services
 {
     public static partial class HistoryService
     {
-        public static HistoryItem AddEntry(BackupConfig config, ManagedFolder folder, string fileName, string type, string comment, string? folderNameOverride = null, bool isPartialBackup = false, string? createdByRunId = null)
+        public static HistoryItem AddEntry(
+            BackupConfig config,
+            ManagedFolder folder,
+            string fileName,
+            string type,
+            string comment,
+            string? folderNameOverride = null,
+            bool isPartialBackup = false,
+            string? createdByRunId = null,
+            string? historyItemId = null,
+            Guid? artifactRootId = null,
+            string? artifactGraphRevision = null,
+            PersistedOperationOutcome outcome = PersistedOperationOutcome.Success,
+            IReadOnlyList<OperationDiagnosticRecord>? diagnostics = null)
         {
             Initialize();
 
             var item = new HistoryItem
             {
-                Id = Guid.NewGuid().ToString("N"),
+                Id = string.IsNullOrWhiteSpace(historyItemId) ? Guid.NewGuid().ToString("N") : historyItemId,
                 CreatedByRunId = createdByRunId ?? string.Empty,
                 ConfigId = config.Id,
                 FolderId = Guid.TryParse(folder.Id, out var folderId) ? folderId : null,
@@ -30,7 +43,10 @@ namespace FolderRewind.Services
                 Timestamp = DateTime.Now,
                 BackupType = type,
                 Comment = comment,
-                Outcome = PersistedOperationOutcome.Success,
+                ArtifactRootId = artifactRootId,
+                ArtifactGraphRevision = artifactGraphRevision ?? string.Empty,
+                Outcome = outcome,
+                Diagnostics = diagnostics?.ToList() ?? new List<OperationDiagnosticRecord>(),
                 IsPartialBackup = isPartialBackup,
                 IsImportant = false
             };
@@ -209,6 +225,42 @@ namespace FolderRewind.Services
             }
 
             return toRemove.Count;
+        }
+
+        public static void ApplyArtifactRoots(
+            IReadOnlyDictionary<string, Guid> roots,
+            string graphRevision)
+        {
+            Initialize();
+            var changed = false;
+            lock (_historyLock)
+            {
+                foreach (var item in _allHistory)
+                {
+                    if (!roots.TryGetValue(item.Id, out var artifactId)) continue;
+                    item.ArtifactRootId = artifactId;
+                    item.ArtifactGraphRevision = graphRevision;
+                    changed = true;
+                }
+            }
+            if (changed) ScheduleSave();
+        }
+
+        public static void ApplyOperationResult(
+            string historyItemId,
+            PersistedOperationOutcome outcome,
+            IReadOnlyList<OperationDiagnosticRecord> diagnostics)
+        {
+            Initialize();
+            lock (_historyLock)
+            {
+                var item = _allHistory.FirstOrDefault(value =>
+                    string.Equals(value.Id, historyItemId, StringComparison.Ordinal));
+                if (item is null) return;
+                item.Outcome = outcome;
+                item.Diagnostics = diagnostics.ToList();
+            }
+            ScheduleSave();
         }
 
         private static bool MatchesFolderIdentity(HistoryItem item, ManagedFolder folder)

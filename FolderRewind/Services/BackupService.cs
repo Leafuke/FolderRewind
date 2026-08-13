@@ -1,5 +1,7 @@
 ﻿using FolderRewind.Models;
 using FolderRewind.Services.KnotLink;
+using FolderRewind.Services.Plugins.V3;
+using FolderRewind.Plugin.Abstractions;
 using Microsoft.UI.Xaml.Controls;
 using System;
 using System.Collections.Generic;
@@ -285,7 +287,30 @@ namespace FolderRewind.Services
 
             await RunOnUIAsync(() => ActiveTasks.Insert(0, task));
 
-            var scopeResolution = Services.Plugins.PluginService.ResolveConfigWithBackupFilterContributions(config, folder);
+            await using var v3Session = await PluginV3BackupSession.PrepareAsync(config, folder);
+            if (v3Session.IsBlocked)
+            {
+                var diagnostic = v3Session.Diagnostics.LastOrDefault();
+                var message = diagnostic is null
+                    ? "The v3 plugin policy blocked this backup."
+                    : $"{diagnostic.Code} ({diagnostic.Owner})";
+                Log($"[PluginV3] {message}", LogLevel.Error);
+                await RunOnUIAsync(() =>
+                {
+                    folder.StatusText = I18n.Format("BackupService_Folder_BackupFailed");
+                    task.Status = I18n.Format("BackupService_Task_Failed");
+                    task.IsCompleted = true;
+                    task.IsIndeterminate = false;
+                    task.IsSuccess = false;
+                    task.ErrorMessage = message;
+                });
+                return CreateSourceOutcome(folder, BackupRunSourceStatus.Failed, errorMessage: message);
+            }
+
+            var runtimeConfig = v3Session.EffectiveConfig;
+            var runtimeFolder = v3Session.EffectiveFolder;
+
+            var scopeResolution = Services.Plugins.PluginService.ResolveConfigWithBackupFilterContributions(runtimeConfig, runtimeFolder);
             if (!scopeResolution.Success)
             {
                 string scopeError = string.IsNullOrWhiteSpace(scopeResolution.ErrorMessage)
@@ -314,8 +339,8 @@ namespace FolderRewind.Services
                 return CreateSourceOutcome(folder, BackupRunSourceStatus.Failed, errorMessage: scopeError);
             }
 
-            config = scopeResolution.EffectiveConfig;
-            if (!TryValidateBackupFilterRules(config.Filters, out string filterValidationError))
+            runtimeConfig = scopeResolution.EffectiveConfig;
+            if (!TryValidateBackupFilterRules(runtimeConfig.Filters, out string filterValidationError))
             {
                 Log($"[Filter] Backup filter validation failed: {filterValidationError}", LogLevel.Error);
                 await RunOnUIAsync(() =>
@@ -340,7 +365,7 @@ namespace FolderRewind.Services
                 return CreateSourceOutcome(folder, BackupRunSourceStatus.Failed, errorMessage: filterValidationError);
             }
 
-            if (string.IsNullOrEmpty(config.DestinationPath))
+            if (string.IsNullOrEmpty(runtimeConfig.DestinationPath))
             {
                 Log(I18n.Format("BackupService_Log_DestinationNotSet"), LogLevel.Error);
                 await RunOnUIAsync(() =>
@@ -362,7 +387,7 @@ namespace FolderRewind.Services
             }
 
             if (!TryResolveBackupStoragePaths(
-                config.DestinationPath,
+                runtimeConfig.DestinationPath,
                 folder.DisplayName,
                 folder.Path,
                 out var storageFolderName,
@@ -427,18 +452,43 @@ namespace FolderRewind.Services
                 return configuredPathFailure;
             }
 
+            try
+            {
+                await v3Session.AcquireConsistencyAsync();
+            }
+            catch (Exception ex)
+            {
+                Log($"[PluginV3] Consistency acquisition failed: {ex.Message}", LogLevel.Error);
+                await RunOnUIAsync(() =>
+                {
+                    task.Status = I18n.Format("BackupService_Task_Failed");
+                    task.IsCompleted = true;
+                    task.IsIndeterminate = false;
+                    task.IsSuccess = false;
+                    task.ErrorMessage = ex.Message;
+                    folder.StatusText = I18n.Format("BackupService_Folder_BackupFailed");
+                });
+                return CreateSourceOutcome(folder, BackupRunSourceStatus.Failed, errorMessage: ex.Message);
+            }
+
             // 插件接管同样只能收到已经解析并验证过的运行配置，不能绕过范围的失败关闭策略。
-            var (shouldHandle, handlerPlugin) = Services.Plugins.PluginService.CheckPluginWantsToHandleBackup(config);
+            var activeOwner = new PluginId(config.Kind?.OwnerId ?? "folderrewind.core");
+            var (shouldHandle, handlerPlugin) = PluginV3RuntimeService.IsActive(activeOwner)
+                ? (false, null)
+                : Services.Plugins.PluginService.CheckPluginWantsToHandleBackup(runtimeConfig);
             if (shouldHandle && handlerPlugin != null)
             {
-                return await HandlePluginBackupAsync(config, folder, task, handlerPlugin, comment, createdByRunId);
+                return await HandlePluginBackupAsync(runtimeConfig, folder, task, handlerPlugin, comment, createdByRunId);
             }
 
             // 允许插件在备份前创建快照并替换源路径（例如 Minecraft 热备份：先复制到 snapshot 再备份）。
-            string sourcePath = folder.Path;
+            string sourcePath = v3Session.SourcePath;
             try
             {
-                var pluginOverride = Services.Plugins.PluginService.InvokeBeforeBackupFolder(config, folder, invocationOptions);
+                var ownerId = new PluginId(config.Kind?.OwnerId ?? "folderrewind.core");
+                var pluginOverride = PluginV3RuntimeService.IsActive(ownerId)
+                    ? null
+                    : Services.Plugins.PluginService.InvokeBeforeBackupFolder(runtimeConfig, runtimeFolder, invocationOptions);
                 if (!string.IsNullOrWhiteSpace(pluginOverride))
                 {
                     sourcePath = pluginOverride;
@@ -509,7 +559,7 @@ namespace FolderRewind.Services
                 {
                     case BackupMode.Incremental:
                         {
-                            var res = await DoSmartBackupAsync(sourcePath, backupSubDir, metadataDir, folder.DisplayName, config, folder.SourceScope, comment, task);
+                            var res = await DoSmartBackupAsync(sourcePath, backupSubDir, metadataDir, folder.DisplayName, runtimeConfig, runtimeFolder.SourceScope, comment, task);
                             success = res.Success;
                             generatedFileName = res.FileName;
                             sourceUnavailable = res.IsUnavailable;
@@ -517,7 +567,7 @@ namespace FolderRewind.Services
                         }
                     case BackupMode.Overwrite:
                         {
-                            var res = await DoOverwriteBackupAsync(sourcePath, backupSubDir, metadataDir, folder.DisplayName, config, folder.SourceScope, comment, task);
+                            var res = await DoOverwriteBackupAsync(sourcePath, backupSubDir, metadataDir, folder.DisplayName, runtimeConfig, runtimeFolder.SourceScope, comment, task);
                             success = res.Success;
                             generatedFileName = res.FileName;
                             sourceUnavailable = res.IsUnavailable;
@@ -526,7 +576,7 @@ namespace FolderRewind.Services
                     case BackupMode.Full:
                     default:
                         {
-                            var res = await DoFullBackupAsync(sourcePath, backupSubDir, metadataDir, folder.DisplayName, config, folder.SourceScope, comment, task);
+                            var res = await DoFullBackupAsync(sourcePath, backupSubDir, metadataDir, folder.DisplayName, runtimeConfig, runtimeFolder.SourceScope, comment, task);
                             success = res.Success;
                             generatedFileName = res.FileName;
                             sourceUnavailable = res.IsUnavailable;
@@ -539,6 +589,34 @@ namespace FolderRewind.Services
                 Log(I18n.Format("BackupService_Log_Exception", ex.Message), LogLevel.Error);
                 success = false;
                 await RunOnUIAsync(() => { if (string.IsNullOrEmpty(task.ErrorMessage)) task.ErrorMessage = ex.Message; });
+            }
+
+            // The consistency lease spans source validation, diff calculation and
+            // archive creation, but cleanup finishes before History/Cloud commit.
+            await v3Session.CompleteCaptureAsync();
+
+            PluginV3ArtifactCommitResult? artifactCommit = null;
+            string? pendingHistoryItemId = null;
+            if (success && !sourceUnavailable && !string.IsNullOrWhiteSpace(generatedFileName))
+            {
+                try
+                {
+                    pendingHistoryItemId = Guid.NewGuid().ToString("N");
+                    artifactCommit = await PluginV3ArtifactService.CommitBackupAsync(
+                        config,
+                        folder,
+                        pendingHistoryItemId,
+                        Path.Combine(backupSubDir, generatedFileName),
+                        generatedFileName,
+                        IsPartialBackupFilter(runtimeConfig.Filters) || runtimeFolder.SourceScope.IsPartial,
+                        v3Session.Diagnostics);
+                }
+                catch (Exception ex)
+                {
+                    success = false;
+                    Log($"[PluginV3] Artifact commit failed: {ex.Message}", LogLevel.Error);
+                    await RunOnUIAsync(() => task.ErrorMessage = ex.Message);
+                }
             }
 
             if (sourceUnavailable)
@@ -577,13 +655,13 @@ namespace FolderRewind.Services
 
                     // 增量模式下，根据实际生成的文件名区分 Full 和 Smart
                     string typeStr;
-                    if (config.Archive.Mode == BackupMode.Incremental)
+                    if (runtimeConfig.Archive.Mode == BackupMode.Incremental)
                     {
                         typeStr = completedFileName.StartsWith("[Full]", StringComparison.OrdinalIgnoreCase) ? "Full" : "Smart";
                     }
                     else
                     {
-                        typeStr = config.Archive.Mode.ToString();
+                        typeStr = runtimeConfig.Archive.Mode.ToString();
                     }
                     generatedHistoryItem = HistoryService.AddEntry(
                         config,
@@ -592,8 +670,15 @@ namespace FolderRewind.Services
                         typeStr,
                         comment,
                         storageFolderName,
-                        IsPartialBackupFilter(config.Filters) || folder.SourceScope.IsPartial,
-                        createdByRunId);
+                        IsPartialBackupFilter(runtimeConfig.Filters) || runtimeFolder.SourceScope.IsPartial,
+                        createdByRunId,
+                        pendingHistoryItemId,
+                        artifactCommit?.RootArtifactId.Value,
+                        artifactCommit?.GraphRevision.Value,
+                        artifactCommit is null
+                            ? PersistedOperationOutcome.Success
+                            : PluginV3ModelMapper.ToPersisted(artifactCommit.Outcome),
+                        artifactCommit?.Diagnostics.Select(PluginV3ModelMapper.ToRecord).ToArray());
 
                     // 备份完成后检查文件大小，过小时发出警告
                     try
@@ -632,6 +717,15 @@ namespace FolderRewind.Services
                     });
 
                     CloudSyncService.QueueUploadAfterBackup(config, folder, completedFileName, comment);
+                    if (artifactCommit is not null && generatedHistoryItem is not null)
+                    {
+                        await PluginV3ArtifactService.ObserveCompletionAsync(
+                            createdByRunId ?? generatedHistoryItem.Id,
+                            config,
+                            folder,
+                            generatedHistoryItem,
+                            artifactCommit);
+                    }
                 }
 
                 await RunOnUIAsync(() =>
@@ -689,7 +783,11 @@ namespace FolderRewind.Services
             // 备份后回调（用于清理快照等）
             try
             {
-                Services.Plugins.PluginService.InvokeAfterBackupFolder(config, folder, success, generatedFileName);
+                var ownerId = new PluginId(config.Kind?.OwnerId ?? "folderrewind.core");
+                if (!PluginV3RuntimeService.IsActive(ownerId))
+                {
+                    Services.Plugins.PluginService.InvokeAfterBackupFolder(config, folder, success, generatedFileName);
+                }
             }
             catch
             {
