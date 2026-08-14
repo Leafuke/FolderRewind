@@ -262,7 +262,7 @@ namespace FolderRewind.ViewModels
                     PluginInstallProvenance.Manual,
                     cancellationToken: CancellationToken.None);
                 PluginService.RefreshInstalledList();
-                StatusMessage = $"Installed {result.Manifest.Contract.Name.Default} {result.State.CurrentVersion}; it remains disabled until you enable it.";
+                StatusMessage = PluginV3PackageService.FormatInstallOutcome(result);
                 NotificationService.ShowSuccess(StatusMessage, I18n.GetString("PluginStorePage_Title.Text"));
             }
             catch (Exception ex)

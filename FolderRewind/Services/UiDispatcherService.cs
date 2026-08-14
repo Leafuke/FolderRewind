@@ -49,7 +49,7 @@ namespace FolderRewind.Services
                 return Task.CompletedTask;
             }
 
-            var tcs = new TaskCompletionSource<object?>();
+            var tcs = new TaskCompletionSource<object?>(TaskCreationOptions.RunContinuationsAsynchronously);
 
             if (!queue.TryEnqueue(() =>
             {
@@ -83,7 +83,7 @@ namespace FolderRewind.Services
                 return action();
             }
 
-            var tcs = new TaskCompletionSource<T>();
+            var tcs = new TaskCompletionSource<T>(TaskCreationOptions.RunContinuationsAsynchronously);
 
             if (!queue.TryEnqueue(async () =>
             {

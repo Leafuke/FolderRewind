@@ -31,7 +31,7 @@ public static class PluginV3RuntimeService
         if (result.Success && manifest is not null)
         {
             Manifests[candidate.PluginId] = manifest;
-            PluginV3CommandService.RegisterHotkeys(candidate.PluginId, manifest.Name.Default);
+            TryRegisterHotkeys(candidate.PluginId, manifest.Name.Default);
         }
         return result;
     }
@@ -44,8 +44,8 @@ public static class PluginV3RuntimeService
         if (result.Success && candidate.Manifest is not null)
         {
             Manifests[candidate.PluginId] = candidate.Manifest;
-            PluginV3CommandService.UnregisterHotkeys(candidate.PluginId);
-            PluginV3CommandService.RegisterHotkeys(candidate.PluginId, candidate.Manifest.Name.Default);
+            TryUnregisterHotkeys(candidate.PluginId);
+            TryRegisterHotkeys(candidate.PluginId, candidate.Manifest.Name.Default);
         }
         return result;
     }
@@ -58,7 +58,7 @@ public static class PluginV3RuntimeService
         if (result.Success)
         {
             Manifests.TryRemove(pluginId, out _);
-            PluginV3CommandService.UnregisterHotkeys(pluginId);
+            TryUnregisterHotkeys(pluginId);
         }
         return result;
     }
@@ -81,4 +81,32 @@ public static class PluginV3RuntimeService
 
     public static IReadOnlyList<PluginId> GetActivePlugins()
         => Manifests.Keys.Where(IsActive).OrderBy(value => value.Value, StringComparer.Ordinal).ToArray();
+
+    private static void TryRegisterHotkeys(PluginId pluginId, string pluginName)
+    {
+        try
+        {
+            PluginV3CommandService.RegisterHotkeys(pluginId, pluginName);
+        }
+        catch (Exception ex)
+        {
+            LogService.LogWarning(
+                $"Plugin '{pluginId}' is active, but its hotkeys could not be registered: {ex.Message}",
+                "PluginV3");
+        }
+    }
+
+    private static void TryUnregisterHotkeys(PluginId pluginId)
+    {
+        try
+        {
+            PluginV3CommandService.UnregisterHotkeys(pluginId);
+        }
+        catch (Exception ex)
+        {
+            LogService.LogWarning(
+                $"Plugin '{pluginId}' was transitioned, but its hotkeys could not be removed: {ex.Message}",
+                "PluginV3");
+        }
+    }
 }

@@ -91,9 +91,9 @@ namespace FolderRewind.Services.Plugins
                 var package = await PluginPackageValidator.ValidateAsync(path, asset.Sha256, cancellationToken: ct)
                     .ConfigureAwait(false);
                 ValidateCatalogBinding(asset, package.Manifest);
-                await PluginV3PackageService.InstallAsync(
+                var result = await PluginV3PackageService.InstallAsync(
                     path, PluginInstallProvenance.OfficialCatalog, asset.Sha256, ct).ConfigureAwait(false);
-                return (true, $"Installed {asset.PluginId} {asset.Version}; it remains disabled until explicitly enabled.");
+                return (true, PluginV3PackageService.FormatInstallOutcome(result));
             }
             catch (OperationCanceledException) { return (false, Rl.GetString("Common_Canceled")); }
             catch (Exception ex)
@@ -112,7 +112,7 @@ namespace FolderRewind.Services.Plugins
             {
                 var result = await PluginV3PackageService.InstallAsync(
                     packagePath, PluginInstallProvenance.Manual, cancellationToken: ct).ConfigureAwait(false);
-                return (true, $"Installed {result.State.PluginId} {result.State.CurrentVersion}; it remains disabled until explicitly enabled.");
+                return (true, PluginV3PackageService.FormatInstallOutcome(result));
             }
             catch (Exception ex) when (ex is not OperationCanceledException) { return (false, ex.Message); }
         }

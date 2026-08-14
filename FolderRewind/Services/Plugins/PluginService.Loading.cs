@@ -2,6 +2,7 @@ using FolderRewind.Models;
 using FolderRewind.Services;
 using FolderRewind.Services.Hotkeys;
 using FolderRewind.Services.KnotLink;
+using FolderRewind.Services.Plugins.V3;
 using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
@@ -46,6 +47,11 @@ namespace FolderRewind.Services.Plugins
                 var enabled = GetPluginEnabled(plugin.Id);
                 plugin.IsEnabled = enabled;
 
+                if (File.Exists(Path.Combine(plugin.InstallPath, "install-state.v1.json")))
+                {
+                    continue;
+                }
+
                 if (enabled)
                 {
                     TryLoadPlugin(plugin.Id);
@@ -56,6 +62,21 @@ namespace FolderRewind.Services.Plugins
         private static bool TryLoadPlugin(string pluginId)
         {
             if (PluginRuntimeModeService.IsSafeMode) return false;
+
+            if (PluginV3OfflineUpgradeService.ShouldBlockLegacyExecution(pluginId))
+            {
+                lock (_lock)
+                {
+                    var blocked = _installed.FirstOrDefault(value =>
+                        string.Equals(value.Id, pluginId, StringComparison.OrdinalIgnoreCase));
+                    if (blocked != null)
+                        blocked.LoadError = "Legacy flat payload is quarantined from execution until v3 migration recovery succeeds.";
+                }
+                LogService.LogWarning(
+                    $"Legacy flat payload '{pluginId}' was preserved for migration recovery and will not be executed.",
+                    "PluginV3Migration");
+                return false;
+            }
 
             lock (_lock)
             {

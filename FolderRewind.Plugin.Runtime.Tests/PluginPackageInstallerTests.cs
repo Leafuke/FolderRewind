@@ -10,6 +10,20 @@ namespace FolderRewind.Plugin.Runtime.Tests;
 public sealed class PluginPackageInstallerTests
 {
     [TestMethod]
+    public void NewInstallIsDisabledEvenWhenAStaleEnabledIntentExists()
+    {
+        Assert.IsFalse(PluginInstallIntentPolicy.ResolveAfterInstall(
+            isUpdate: false,
+            existingEnabledIntent: true));
+        Assert.IsTrue(PluginInstallIntentPolicy.ResolveAfterInstall(
+            isUpdate: true,
+            existingEnabledIntent: true));
+        Assert.IsFalse(PluginInstallIntentPolicy.ResolveAfterInstall(
+            isUpdate: true,
+            existingEnabledIntent: false));
+    }
+
+    [TestMethod]
     public async Task BundledMineRewindPackageMatchesFrozenIdentityAndHash()
     {
         var root = FindRepositoryRoot();
@@ -48,6 +62,59 @@ public sealed class PluginPackageInstallerTests
         Assert.IsTrue(File.Exists(Path.Combine(result.QuarantinePath, "Plugin.dll")));
         var receipt = await File.ReadAllTextAsync(Path.Combine(result.QuarantinePath, "quarantine-receipt.json"));
         StringAssert.Contains(receipt, "\"executable\": false");
+    }
+
+    [TestMethod]
+    public async Task CanceledLegacyQuarantineLeavesFlatPayloadUntouched()
+    {
+        using var root = PackageTemporaryDirectory.Create("M5-LegacyQuarantineCanceled");
+        var pluginRoot = Path.Combine(root.Path, "plugins", "com.example.package");
+        Directory.CreateDirectory(pluginRoot);
+        await File.WriteAllTextAsync(Path.Combine(pluginRoot, "manifest.json"), "legacy");
+        await File.WriteAllTextAsync(Path.Combine(pluginRoot, "Plugin.dll"), "legacy-code");
+        using var cancellation = new CancellationTokenSource();
+        cancellation.Cancel();
+
+        await Assert.ThrowsExactlyAsync<OperationCanceledException>(() =>
+            LegacyPluginQuarantineService.QuarantineFlatPayloadAsync(
+                new PluginId("com.example.package"),
+                pluginRoot,
+                Path.Combine(root.Path, "legacy-quarantine"),
+                cancellation.Token).AsTask());
+
+        Assert.IsTrue(File.Exists(Path.Combine(pluginRoot, "manifest.json")));
+        Assert.IsTrue(File.Exists(Path.Combine(pluginRoot, "Plugin.dll")));
+    }
+
+    [TestMethod]
+    public async Task MigrationStateIsAtomicAndReadBackVerified()
+    {
+        using var root = PackageTemporaryDirectory.Create("M5-MigrationState");
+        var pluginId = new PluginId("com.example.package");
+        var store = new PluginMigrationStateStore(Path.Combine(root.Path, ".migration"));
+        var started = DateTimeOffset.UtcNow;
+        var inProgress = new PluginMigrationState(
+            1,
+            pluginId,
+            PluginMigrationStatus.InProgress,
+            "InstallingPackage",
+            started,
+            started,
+            PreservedEnabledIntent: true);
+        await store.WriteAsync(inProgress);
+
+        var completed = inProgress with
+        {
+            Status = PluginMigrationStatus.Completed,
+            Phase = "Completed",
+            UpdatedAtUtc = started.AddSeconds(1),
+            InstalledVersion = "1.9.0",
+            QuarantinePath = "legacy-quarantine/com.example.package"
+        };
+        await store.WriteAsync(completed);
+
+        Assert.AreEqual(completed, await store.ReadAsync(pluginId));
+        Assert.AreEqual(1, Directory.EnumerateFiles(Path.Combine(root.Path, ".migration")).Count());
     }
 
     [TestMethod]

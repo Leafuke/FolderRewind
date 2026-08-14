@@ -561,7 +561,8 @@ namespace FolderRewind.Services
             }
         }
 
-        internal static void PublishSaved() => Saved?.Invoke();
+        internal static void PublishSaved()
+            => UiDispatcherService.Enqueue(() => Saved?.Invoke());
 
         public static bool Reload()
         {

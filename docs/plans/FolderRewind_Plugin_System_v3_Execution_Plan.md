@@ -1,8 +1,8 @@
 # FolderRewind Plugin System v3 — 1.9.0 冻结与执行计划
 
-> 状态：D0 / M3R / M3 / M4 已冻结；M5 Gate 等待用户人工测试与审阅
+> 状态：D0 / M3R / M3 / M4 已冻结；首轮 M5 Gate 已拒绝，M5R 阻断修复等待人工复测
 >
-> 计划版本：2026-08-13 / Revision 10 + Compatibility Addendum 1
+> 计划版本：2026-08-14 / Revision 11 + Compatibility Addendum 1
 >
 > 产品版本：FolderRewind 1.9.0、MineRewind 1.9.0
 >
@@ -12,7 +12,7 @@
 >
 > 目标仓库：`Leafuke/FolderRewind`、`Leafuke/FolderRewind-Plugin-Minecraft`、`Leafuke/FolderRewind-Site`、新建 `Leafuke/FolderRewind-Plugin-Catalog`
 >
-> 当前执行门：M5 Gate；停止继续 M6，等待用户完成 `docs/plugin-v3/MANUAL_TEST_M5.md` 并明确批准。
+> 当前执行门：M5R 人工复测；停止继续 M6，等待用户重新执行 `docs/plugin-v3/MANUAL_TEST_M5.md` 的 M5R 聚焦场景并明确批准。
 
 本文件是 Plugin System v3 的唯一执行依据。它先作为受版本控制的 proposed specification 接受审阅；用户明确通过 D0 后，才可把状态改为“已冻结 / 实施中”并修改产品代码。实施中若发现本计划无法满足仓库事实，必须先修订本文件、说明影响并重新通过当前里程碑，禁止在代码中静默偏离。
 
@@ -561,6 +561,25 @@ Revision 10 新增边界与非目标：
 - 独立本地 Catalog repo 完成 schema、package/hash/manifest/API/architecture/service/Artifact summary 校验与 Pages/PR workflow；本地 production index 由真实 MineRewind 包生成。Site typecheck、i18n、image 与 production build 全绿。
 - Minecraft Enhanced Experience 使用有限 action 数据模型；外部安装步骤的下载确认、SHA-256 校验和启动确认代码已实现。由于本轮无法取得并核实不可变的官方 KnotLink installer URL/SHA-256，curated Preset 当前明确返回 warning，绝不下载或启动未知 payload；这是 M5 最终批准前保留的外部事实阻断项。
 - 未执行任何 push、PR、NuGet.org publish、Pages deploy、远程 Catalog 创建/合并或正式 release。
+
+#### M5R 阻断修复（2026-08-14，等待人工复测）
+
+用户首轮本地 Gate 确认包 SHA、目录、transaction journal 与三套测试基线正确，但拒绝 M5 Gate，冻结以下两个阻断事实：
+
+1. 手动新装在残留 `EnabledIntent=true` 时提示 Disabled、列表却显示 Enabled；重启激活还会从后台 continuation 直接创建 `KeyboardAccelerator`，以 `COMException 0x8001010E` 失败。
+2. 真实 1.8.2 flat payload 的离线迁移被 `PluginService.Initialize()` 在 UI Dispatcher 上同步等待；窗口虽已显示，导航、键盘和关闭均会失去响应，且没有阶段日志、超时或 Recovery journal。失败后 v2 loader 仍可能执行该 flat DLL。
+
+M5R 决策与验收边界：
+
+- 新的 manual/catalog 安装必须在写 package 前原子持久化 `EnabledIntent=false`；这是“新安装默认 Disabled”的硬规则，即使 code-only uninstall 按既有规则保留了旧 intent。已有版本的 update 继续保留 intent，安装结果文案必须区分 install/update。
+- v3 Runtime activation commit 与 Host UI 热键投影解耦。命令 capability 注册成功即保持 Active；`KeyboardAccelerator`、定义变更事件和 native binding 只能经主窗口 Dispatcher 应用，投影失败只记录 warning，不得回滚或伪装 Runtime activation 失败。
+- package recovery、bundled migration、candidate validation 和 quarantine 不得被 UI 线程同步等待。启动只排队后台初始化，完成后再回 Dispatcher 刷新 `ObservableCollection` 和遗留 UI binding；Startup config augmentation 必须等待该后台初始化任务。
+- 离线迁移必须把 `DetectedLegacyState → InstallingBundledPackage → QuarantiningLegacyPayload → RestoringEnabledIntent → Completed` 写入 `plugins/.migration/com.folderrewind.minerewind.v2-v3.json`，每步记录日志，并使用 30 秒 cooperative cancellation boundary。失败/超时写 `RecoveryRequired` 诊断；下次启动从已提交 install/quarantine 状态继续。
+- quarantine 的部分 move/receipt 失败必须反向恢复已移动项；若恢复本身失败则保留 quarantine 并给出聚合诊断。无论迁移成功或失败，1.8.x MineRewind flat payload 都禁止进入 v2 loader。
+- code-only uninstall 仍保留 intent/settings/state/data，同时写 automatic-migration suppression marker，避免下次启动把用户主动卸载误判为旧用户并自动装回。
+- Official Catalog 继续按用户本轮授权跳过。M5R 自动测试完成后仍不得进入 M6；必须由用户重新验证 manual install、重启 activation 以及 1.8.2 flat 在 intent true/false 下的离线迁移与 UI 响应性。
+
+M5R 自动化候选证据：Runtime 94/94、Host 266/266、MineRewind 55/55；Host x86/x64/ARM64 Release 与 x64 Debug 均为 0 warning/0 error。额外 WinUI analyzer build 通过，新增代码无 analyzer 诊断；输出中的 93 项均来自未改动的既存 XAML binding。自动化未改写用户已恢复的真实 AppData，也不替代上述人工复测，因此 M5 Gate 继续保持拒绝状态。
 
 ### M6 — Clean break 与发布候选
 

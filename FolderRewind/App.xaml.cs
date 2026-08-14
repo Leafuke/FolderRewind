@@ -165,7 +165,7 @@ namespace FolderRewind
                     }
                 });
 
-                // 插件初始化包含热键注册，必须在UI线程执行，所以用DispatcherQueue而非Task.Run
+                // 插件包恢复和离线迁移在后台执行；只有集合与旧版 UI 热键收尾会回到 Dispatcher。
                 _window.DispatcherQueue.TryEnqueue(Microsoft.UI.Dispatching.DispatcherQueuePriority.Low, () =>
                 {
                     try
@@ -173,6 +173,7 @@ namespace FolderRewind
                         PluginService.Initialize();
                         _ = Task.Run(async () =>
                         {
+                            await PluginService.Initialization.ConfigureAwait(false);
                             await PluginService.RunConfigAugmentationAsync(PluginConfigAugmentationReason.Startup).ConfigureAwait(false);
                         });
                     }

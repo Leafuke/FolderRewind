@@ -20,6 +20,12 @@ public static class PluginV3CommandService
         var commands = lease.Capability.Commands
             .Where(value => !string.IsNullOrWhiteSpace(value.DefaultHotkey))
             .ToArray();
+        foreach (var command in commands)
+        {
+            HotkeyManager.RegisterHandler(
+                HotkeyId(command.Id),
+                _ => ExecuteAsync(command.Id, new Dictionary<string, JsonElement>(), CancellationToken.None).AsTask());
+        }
         HotkeyManager.RegisterDefinitions(commands.Select(command => new HotkeyDefinition
         {
             Id = HotkeyId(command.Id),
@@ -30,12 +36,6 @@ public static class PluginV3CommandService
             OwnerPluginId = pluginId.Value,
             OwnerPluginName = pluginName
         }));
-        foreach (var command in commands)
-        {
-            HotkeyManager.RegisterHandler(
-                HotkeyId(command.Id),
-                _ => ExecuteAsync(command.Id, new Dictionary<string, JsonElement>(), CancellationToken.None).AsTask());
-        }
     }
 
     public static void UnregisterHotkeys(PluginId pluginId)

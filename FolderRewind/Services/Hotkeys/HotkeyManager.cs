@@ -1,5 +1,6 @@
 using FolderRewind.Models;
 using FolderRewind.Services.Plugins;
+using Microsoft.UI.Dispatching;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Input;
 using System;
@@ -31,6 +32,7 @@ namespace FolderRewind.Services.Hotkeys
         private static Window? _window;
         private static UIElement? _root;
         private static NativeHotkeyService? _native;
+        private static DispatcherQueue? _dispatcherQueue;
 
         private static readonly Dictionary<string, HotkeyDefinition> _definitions = new(StringComparer.OrdinalIgnoreCase);
         private static readonly Dictionary<string, Func<HotkeyTrigger, Task>> _handlers = new(StringComparer.OrdinalIgnoreCase);
@@ -46,6 +48,7 @@ namespace FolderRewind.Services.Hotkeys
             {
                 _window = window;
                 _root = rootElement;
+                _dispatcherQueue = rootElement.DispatcherQueue;
 
                 try
                 {
@@ -110,8 +113,7 @@ namespace FolderRewind.Services.Hotkeys
 
             if (changed)
             {
-                DefinitionsChanged?.Invoke(null, EventArgs.Empty);
-                ApplyBindingsToUiAndNative();
+                NotifyDefinitionsChangedAndApplyBindings();
             }
         }
 
@@ -140,8 +142,7 @@ namespace FolderRewind.Services.Hotkeys
 
             if (changed)
             {
-                DefinitionsChanged?.Invoke(null, EventArgs.Empty);
-                ApplyBindingsToUiAndNative();
+                NotifyDefinitionsChangedAndApplyBindings();
             }
         }
 
@@ -210,6 +211,23 @@ namespace FolderRewind.Services.Hotkeys
 
         public static void ApplyBindingsToUiAndNative()
         {
+            DispatcherQueue? dispatcherQueue;
+            lock (_lock)
+            {
+                dispatcherQueue = _dispatcherQueue;
+            }
+
+            if (dispatcherQueue != null && !dispatcherQueue.HasThreadAccess)
+            {
+                if (!dispatcherQueue.TryEnqueue(ApplyBindingsToUiAndNative))
+                {
+                    LogService.LogWarning(
+                        "Failed to enqueue hotkey binding refresh on the UI thread.",
+                        nameof(HotkeyManager));
+                }
+                return;
+            }
+
             lock (_lock)
             {
                 if (_root == null) return;
@@ -283,6 +301,34 @@ namespace FolderRewind.Services.Hotkeys
                     }
                 }
             }
+        }
+
+        private static void NotifyDefinitionsChangedAndApplyBindings()
+        {
+            DispatcherQueue? dispatcherQueue;
+            lock (_lock)
+            {
+                dispatcherQueue = _dispatcherQueue;
+            }
+
+            void NotifyAndApply()
+            {
+                DefinitionsChanged?.Invoke(null, EventArgs.Empty);
+                ApplyBindingsToUiAndNative();
+            }
+
+            if (dispatcherQueue != null && !dispatcherQueue.HasThreadAccess)
+            {
+                if (!dispatcherQueue.TryEnqueue(NotifyAndApply))
+                {
+                    LogService.LogWarning(
+                        "Failed to enqueue hotkey definition refresh on the UI thread.",
+                        nameof(HotkeyManager));
+                }
+                return;
+            }
+
+            NotifyAndApply();
         }
 
         public static async Task InvokeAsync(string hotkeyId, HotkeyTrigger trigger)

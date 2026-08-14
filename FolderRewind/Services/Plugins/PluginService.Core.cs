@@ -35,12 +35,15 @@ namespace FolderRewind.Services.Plugins
 
         private static readonly object _lock = new();
         private static bool _initialized;
+        private static Task _initializationTask = Task.CompletedTask;
 
         private static readonly Dictionary<string, LoadedPlugin> _loaded = new(StringComparer.OrdinalIgnoreCase);
         private static readonly ObservableCollection<InstalledPluginInfo> _installed = new();
         private static readonly SemaphoreSlim _configAugmentationLock = new(1, 1);
 
         public static ReadOnlyObservableCollection<InstalledPluginInfo> InstalledPlugins { get; } = new(_installed);
+
+        public static Task Initialization => Volatile.Read(ref _initializationTask);
 
         public static string PluginRootDirectory => Path.Combine(AppRuntimeInfo.WritableAppDataBaseDirectory, "FolderRewind", "plugins");
 
@@ -85,66 +88,88 @@ namespace FolderRewind.Services.Plugins
 
         public static void Initialize()
         {
-            if (_initialized) return;
-
-            try
-            {
-                PluginV3PackageService.InitializeAsync().AsTask().GetAwaiter().GetResult();
-                PluginV3OfflineUpgradeService.RunAsync().AsTask().GetAwaiter().GetResult();
-            }
-            catch (Exception ex)
-            {
-                LogService.LogError($"Plugin v3 initialization failed: {ex.Message}", "PluginV3", ex);
-            }
-
             lock (_lock)
             {
                 if (_initialized) return;
-
-                if (PluginRuntimeModeService.IsSafeMode)
-                {
-                    RefreshInstalledList();
-                    _initialized = true;
-                    return;
-                }
 
                 try
                 {
                     Directory.CreateDirectory(PluginRootDirectory);
 
-                    // 清理上次未能删除的插件
-                    CleanPendingDeletions();
+                    if (!PluginRuntimeModeService.IsSafeMode)
+                    {
+                        // 清理上次未能删除的插件
+                        CleanPendingDeletions();
 
-                    // 应用上次未完成的插件更新
-                    ApplyPendingUpdates();
+                        // 应用上次未完成的插件更新
+                        ApplyPendingUpdates();
+                    }
                 }
                 catch (Exception ex)
                 {
                     LogService.LogError(I18n.Format("PluginService_CreatePluginDirFailed", ex.Message), "PluginService", ex);
                 }
 
-                // 扫描安装清单（不一定加载插件）
-                RefreshInstalledList();
-
-                // 根据总开关/启用状态加载
-                TryLoadEnabledPlugins();
-
-                // 注册已启用插件的热键定义（窗口就绪后 HotkeyManager 会自动应用）
-                TryRegisterPluginHotkeysForEnabled();
-
                 _initialized = true;
-
-                // 异步检查更新（不阻塞初始化）
-                _ = Task.Run(async () =>
-                {
-                    try
-                    {
-                        await Task.Delay(3000); // 延迟检查，避免启动时网络请求过多
-                        await CheckAllPluginUpdatesAsync();
-                    }
-                    catch { }
-                });
+                _initializationTask = Task.Run(InitializePluginSystemsAsync);
             }
+        }
+
+        private static async Task InitializePluginSystemsAsync()
+        {
+            LogService.LogInfo("Plugin initialization started on the background worker.", "PluginV3");
+            try
+            {
+                if (!PluginRuntimeModeService.IsSafeMode)
+                {
+                    var migration = await PluginV3OfflineUpgradeService.RunAsync().ConfigureAwait(false);
+                    if (migration.RecoveryRequired)
+                    {
+                        LogService.LogWarning(
+                            $"Plugin migration requires recovery: {migration.DiagnosticCode}: {migration.DiagnosticMessage}",
+                            "PluginV3Migration");
+                    }
+                }
+
+                await PluginV3PackageService.InitializeAsync().ConfigureAwait(false);
+            }
+            catch (Exception ex)
+            {
+                LogService.LogError($"Plugin v3 initialization failed: {ex.Message}", "PluginV3", ex);
+            }
+
+            try
+            {
+                await UiDispatcherService.RunOnUiAsync(CompletePluginInitializationOnUiThread)
+                    .ConfigureAwait(false);
+            }
+            catch (Exception ex)
+            {
+                LogService.LogError($"Plugin UI initialization failed: {ex.Message}", "PluginV3", ex);
+            }
+
+            LogService.LogInfo("Plugin initialization completed without blocking the UI dispatcher.", "PluginV3");
+
+            if (PluginRuntimeModeService.IsSafeMode) return;
+            _ = Task.Run(async () =>
+            {
+                try
+                {
+                    await Task.Delay(3000).ConfigureAwait(false);
+                    await CheckAllPluginUpdatesAsync().ConfigureAwait(false);
+                }
+                catch
+                {
+                }
+            });
+        }
+
+        private static void CompletePluginInitializationOnUiThread()
+        {
+            RefreshInstalledList();
+            if (PluginRuntimeModeService.IsSafeMode) return;
+            TryLoadEnabledPlugins();
+            TryRegisterPluginHotkeysForEnabled();
         }
 
         private static void TryRegisterPluginHotkeysForEnabled()
@@ -177,20 +202,19 @@ namespace FolderRewind.Services.Plugins
                         Directory.CreateDirectory(PluginRootDirectory);
                     }
 
+                    foreach (var info in PluginV3PackageService.GetInstalledPluginInfos())
+                    {
+                        _installed.Add(info);
+                    }
+
                     foreach (var dir in Directory.EnumerateDirectories(PluginRootDirectory))
                     {
                         var info = ReadInstalledPluginInfo(dir);
-                        if (info != null)
+                        if (info != null
+                            && _installed.All(value => !string.Equals(value.Id, info.Id, StringComparison.OrdinalIgnoreCase)))
                         {
                             _installed.Add(info);
                         }
-                    }
-
-                    foreach (var info in PluginV3PackageService.GetInstalledPluginInfosAsync()
-                                 .AsTask().GetAwaiter().GetResult())
-                    {
-                        if (_installed.All(value => !string.Equals(value.Id, info.Id, StringComparison.OrdinalIgnoreCase)))
-                            _installed.Add(info);
                     }
                 }
                 catch (Exception ex)

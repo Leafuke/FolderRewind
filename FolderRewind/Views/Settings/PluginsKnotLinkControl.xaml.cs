@@ -82,7 +82,7 @@ namespace FolderRewind.Views.Settings
                     var installed = await FolderRewind.Services.Plugins.V3.PluginV3PackageService.InstallAsync(
                         filePath,
                         FolderRewind.Plugin.Runtime.Packaging.PluginInstallProvenance.Manual);
-                    res = (true, $"Installed {installed.Manifest.Contract.Name.Default} {installed.State.CurrentVersion}; it remains disabled until explicitly enabled.");
+                    res = (true, FolderRewind.Services.Plugins.V3.PluginV3PackageService.FormatInstallOutcome(installed));
                 }
                 catch (Exception ex) { res = (false, ex.Message); }
             }

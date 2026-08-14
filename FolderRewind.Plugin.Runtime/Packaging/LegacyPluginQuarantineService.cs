@@ -8,6 +8,20 @@ public sealed record LegacyPluginQuarantineResult(
     string QuarantinePath,
     IReadOnlyList<string> Entries);
 
+public sealed class LegacyPluginQuarantineRecoveryException : IOException
+{
+    public LegacyPluginQuarantineRecoveryException(string quarantinePath, Exception innerException)
+        : base(
+            "Legacy payload quarantine failed and one or more entries could not be restored. "
+            + "The quarantine directory was preserved for recovery.",
+            innerException)
+    {
+        QuarantinePath = quarantinePath;
+    }
+
+    public string QuarantinePath { get; }
+}
+
 public static class LegacyPluginQuarantineService
 {
     private static readonly HashSet<string> V3Entries = new(StringComparer.OrdinalIgnoreCase)
@@ -36,28 +50,67 @@ public static class LegacyPluginQuarantineService
             DateTimeOffset.UtcNow.ToString("yyyyMMdd-HHmmss") + "-" + Guid.NewGuid().ToString("N"));
         Directory.CreateDirectory(quarantine);
         var moved = new List<string>();
-        foreach (var entry in entries)
+        try
         {
-            cancellationToken.ThrowIfCancellationRequested();
-            var name = Path.GetFileName(entry);
-            var destination = Path.Combine(quarantine, name);
-            if (Directory.Exists(entry)) Directory.Move(entry, destination);
-            else File.Move(entry, destination);
-            moved.Add(name);
+            foreach (var entry in entries)
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+                var name = Path.GetFileName(entry);
+                var destination = Path.Combine(quarantine, name);
+                if (Directory.Exists(entry)) Directory.Move(entry, destination);
+                else File.Move(entry, destination);
+                moved.Add(name);
+            }
+            var receipt = new
+            {
+                schemaVersion = 1,
+                pluginId = pluginId.Value,
+                quarantinedAtUtc = DateTimeOffset.UtcNow,
+                originalRoot = root,
+                entries = moved,
+                executable = false
+            };
+            await File.WriteAllTextAsync(
+                Path.Combine(quarantine, "quarantine-receipt.json"),
+                JsonSerializer.Serialize(receipt, new JsonSerializerOptions { WriteIndented = true }),
+                cancellationToken).ConfigureAwait(false);
+            return new LegacyPluginQuarantineResult(true, quarantine, moved);
         }
-        var receipt = new
+        catch (Exception operationError)
         {
-            schemaVersion = 1,
-            pluginId = pluginId.Value,
-            quarantinedAtUtc = DateTimeOffset.UtcNow,
-            originalRoot = root,
-            entries = moved,
-            executable = false
-        };
-        await File.WriteAllTextAsync(
-            Path.Combine(quarantine, "quarantine-receipt.json"),
-            JsonSerializer.Serialize(receipt, new JsonSerializerOptions { WriteIndented = true }),
-            cancellationToken).ConfigureAwait(false);
-        return new LegacyPluginQuarantineResult(true, quarantine, moved);
+            var rollbackErrors = new List<Exception>();
+            foreach (var name in moved.AsEnumerable().Reverse())
+            {
+                try
+                {
+                    var source = Path.Combine(quarantine, name);
+                    var destination = Path.Combine(root, name);
+                    if (Directory.Exists(source)) Directory.Move(source, destination);
+                    else if (File.Exists(source)) File.Move(source, destination);
+                }
+                catch (Exception rollbackError)
+                {
+                    rollbackErrors.Add(rollbackError);
+                }
+            }
+            if (rollbackErrors.Count == 0)
+            {
+                try
+                {
+                    if (Directory.Exists(quarantine)) Directory.Delete(quarantine, recursive: true);
+                }
+                catch
+                {
+                }
+            }
+
+            if (rollbackErrors.Count > 0)
+            {
+                throw new LegacyPluginQuarantineRecoveryException(
+                    quarantine,
+                    new AggregateException(new[] { operationError }.Concat(rollbackErrors)));
+            }
+            throw;
+        }
     }
 }

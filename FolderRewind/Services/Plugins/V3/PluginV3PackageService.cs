@@ -4,6 +4,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Text.Json;
+using System.Text.Json.Serialization;
 using System.Threading;
 using System.Threading.Tasks;
 using FolderRewind.Models;
@@ -19,6 +20,10 @@ public static class PluginV3PackageService
 {
     private static readonly SemaphoreSlim Gate = new(1, 1);
     private static readonly ConcurrentDictionary<PluginId, LoadedPluginAssembly> Loaded = new();
+    private static readonly JsonSerializerOptions InstallStateJson = new(JsonSerializerDefaults.Web)
+    {
+        Converters = { new JsonStringEnumConverter() }
+    };
     private static PluginPackageInstaller? _installer;
     private static bool _initialized;
 
@@ -26,6 +31,17 @@ public static class PluginV3PackageService
     private static string DataRoot => Path.Combine(AppRuntimeInfo.WritableAppDataBaseDirectory, "FolderRewind", "plugin-data");
     private static string TemporaryRoot => Path.Combine(AppRuntimeInfo.WritableAppDataBaseDirectory, "FolderRewind", "plugin-temp");
     private static PluginPackageInstaller Installer => _installer ??= new PluginPackageInstaller(PluginsRoot);
+
+    public static string FormatInstallOutcome(PluginInstallResult result)
+    {
+        ArgumentNullException.ThrowIfNull(result);
+        var name = result.Manifest.Contract.Name.Default;
+        var version = result.State.CurrentVersion;
+        if (!result.Updated)
+            return $"Installed {name} {version}; it remains disabled until explicitly enabled.";
+        var enabled = EnabledIntent(result.State.PluginId);
+        return $"Updated {name} {version}; Enabled Intent remains {(enabled ? "enabled" : "disabled")}.";
+    }
 
     public static async ValueTask InitializeAsync(CancellationToken cancellationToken = default)
     {
@@ -44,7 +60,17 @@ public static class PluginV3PackageService
                     catch { continue; }
                     var state = await Installer.ReadStateAsync(pluginId, cancellationToken).ConfigureAwait(false);
                     if (state is null || !EnabledIntent(pluginId)) continue;
-                    await ActivateInstalledWithoutLockAsync(state, replace: false, cancellationToken).ConfigureAwait(false);
+                    var transition = await ActivateInstalledWithoutLockAsync(
+                        state,
+                        replace: false,
+                        cancellationToken).ConfigureAwait(false);
+                    if (!transition.Success)
+                    {
+                        LogService.LogError(
+                            $"Plugin '{pluginId}' could not honor Enabled Intent during startup: "
+                            + string.Join(",", transition.Diagnostics.Select(value => value.Code)),
+                            "PluginV3");
+                    }
                 }
             }
             _initialized = true;
@@ -70,6 +96,18 @@ public static class PluginV3PackageService
                 && provenance == PluginInstallProvenance.OfficialCatalog)
                 throw new InvalidOperationException("Official background updates cannot replace a manually installed build.");
 
+            if (prior is null)
+            {
+                ConfigService.CurrentConfig.GlobalSettings.Plugins.EnabledIntent[
+                    package.Manifest.Contract.PluginId.Value] = PluginInstallIntentPolicy.ResolveAfterInstall(
+                        isUpdate: false,
+                        existingEnabledIntent: EnabledIntent(package.Manifest.Contract.PluginId));
+                var save = ConfigService.SaveWithResult();
+                if (!save.Success)
+                    throw new IOException("The plugin could not be installed as Disabled because Enabled Intent could not be persisted: "
+                                          + save.ErrorMessage);
+            }
+
             var result = await Installer.InstallAsync(
                 packagePath,
                 provenance,
@@ -79,9 +117,6 @@ public static class PluginV3PackageService
                 cancellationToken).ConfigureAwait(false);
             if (prior is null)
             {
-                ConfigService.CurrentConfig.GlobalSettings.Plugins.EnabledIntent.TryAdd(
-                    result.State.PluginId.Value, false);
-                ConfigService.Save();
                 return result;
             }
 
@@ -242,10 +277,9 @@ public static class PluginV3PackageService
         CancellationToken cancellationToken = default)
         => await Installer.ReadStateAsync(pluginId, cancellationToken).ConfigureAwait(false) is not null;
 
-    public static async ValueTask<IReadOnlyList<InstalledPluginInfo>> GetInstalledPluginInfosAsync(
+    public static IReadOnlyList<InstalledPluginInfo> GetInstalledPluginInfos(
         CancellationToken cancellationToken = default)
     {
-        await InitializeAsync(cancellationToken).ConfigureAwait(false);
         var result = new List<InstalledPluginInfo>();
         foreach (var directory in Directory.EnumerateDirectories(PluginsRoot))
         {
@@ -253,7 +287,7 @@ public static class PluginV3PackageService
             PluginId pluginId;
             try { pluginId = new PluginId(Path.GetFileName(directory)); }
             catch { continue; }
-            var state = await Installer.ReadStateAsync(pluginId, cancellationToken).ConfigureAwait(false);
+            var state = ReadInstallState(directory);
             if (state is null) continue;
             try
             {
@@ -284,6 +318,13 @@ public static class PluginV3PackageService
             }
         }
         return result;
+    }
+
+    public static async ValueTask<IReadOnlyList<InstalledPluginInfo>> GetInstalledPluginInfosAsync(
+        CancellationToken cancellationToken = default)
+    {
+        await InitializeAsync(cancellationToken).ConfigureAwait(false);
+        return GetInstalledPluginInfos(cancellationToken);
     }
 
     public static async ValueTask<PluginUninstallPreview> PreviewUninstallAsync(
@@ -323,6 +364,8 @@ public static class PluginV3PackageService
             if (!transition.Success)
                 throw new InvalidOperationException("Plugin is still draining; uninstall must be applied after restart.");
             if (Loaded.TryRemove(pluginId, out var loaded)) loaded.Dispose();
+            await PluginV3OfflineUpgradeService.SuppressAutomaticMigrationAsync(pluginId, cancellationToken)
+                .ConfigureAwait(false);
             await Installer.RemoveInstalledCodeAsync(pluginId, cancellationToken).ConfigureAwait(false);
             if (!deleteData) return preview;
 
@@ -390,6 +433,14 @@ public static class PluginV3PackageService
     {
         var owned = await LoadOwnedArtifactsAsync(pluginId, cancellationToken).ConfigureAwait(false);
         return owned.Select(value => value.HistoryItemId).Distinct(StringComparer.Ordinal).Order().ToArray();
+    }
+
+    private static PluginInstallState? ReadInstallState(string pluginDirectory)
+    {
+        var path = Path.Combine(pluginDirectory, "install-state.v1.json");
+        return File.Exists(path)
+            ? JsonSerializer.Deserialize<PluginInstallState>(File.ReadAllBytes(path), InstallStateJson)
+            : null;
     }
 
     private sealed class ValidationActivationStore : IPluginActivationStore

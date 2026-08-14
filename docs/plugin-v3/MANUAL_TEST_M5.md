@@ -1,6 +1,15 @@
 # Plugin System v3 — M5 人工测试清单
 
-状态：等待用户在 M5 Gate 执行。不要在通过本清单前进入 M6 clean break。
+状态：首轮 M5 Gate 已拒绝；等待 M5R 聚焦复测。不要在通过本清单前进入 M6 clean break。
+
+## M5R 聚焦复测（2026-08-14）
+
+- 先以 `EnabledIntent=true` 且 code 已卸载的状态手动安装 MineRewind v3：完成提示和列表都必须为 Disabled；不得在安装过程中 Activate。
+- 显式启用后重启：Runtime 必须为 Active，日志不得出现 `0x8001010E`、`KeyboardAccelerator` 跨线程异常或“Plugin v3 initialization failed”；默认 hotkeys 应可见并可触发。
+- 分别以 `EnabledIntent=true/false` 放入真实 1.8.2 flat payload 后启动：主页、导航、键盘与 `Alt+F4` 在迁移全程必须响应。
+- 两种 intent 均应产生 `install-state.v1.json`、`versions/1.9.0`、`legacy-quarantine` 和 `plugins/.migration/com.folderrewind.minerewind.v2-v3.json`；journal 最终为 `Completed`，日志应包含每个迁移 phase。
+- 制造 hash/文件占用或取消失败：journal 必须为 `RecoveryRequired` 并带诊断；flat DLL 不执行，部分 quarantine move 要么完整回滚，要么保留可恢复 quarantine，不能静默丢失。
+- 本轮 Official Catalog 按用户授权跳过；上述场景和三套测试基线通过后，再由用户决定 M5 Gate。
 
 ## A. 包安装与静态安全
 
