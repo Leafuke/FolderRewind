@@ -111,7 +111,7 @@
                                                 <TextBlock x:Uid="SettingsPage_PluginUpdateText" />
                                             </StackPanel>
                                         </Button>
-                                        <ToggleSwitch IsOn="{x:Bind IsEnabled, Mode=TwoWay}" Margin="8,0,0,0" Toggled="OnPluginEnabledToggled" />
+                                        <ToggleSwitch IsOn="{x:Bind IsEnabled, Mode=OneWay}" Margin="8,0,0,0" Toggled="OnPluginEnabledToggled" />
                                         <Button x:Uid="SettingsPage_PluginSettings" Style="{StaticResource SettingsActionRowButtonStyle}" Click="OnPluginSettingsClick" Tag="{x:Bind}" />
                                         <Button x:Uid="SettingsPage_PluginUninstall" Style="{StaticResource SettingsActionRowButtonStyle}" Click="OnPluginUninstallClick" Tag="{x:Bind}" />
                                         <Button Content="Delete data..." Style="{StaticResource SettingsActionRowButtonStyle}" Click="OnPluginDeleteDataClick" Tag="{x:Bind}" />

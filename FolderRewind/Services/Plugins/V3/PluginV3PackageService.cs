@@ -147,9 +147,20 @@ public static class PluginV3PackageService
         await Gate.WaitAsync(cancellationToken).ConfigureAwait(false);
         try
         {
-            ConfigService.CurrentConfig.GlobalSettings.Plugins.EnabledIntent[pluginId.Value] = enabled;
-            ConfigService.Save();
-            if (!enabled)
+            var currentIntent = EnabledIntent(pluginId);
+            var currentSnapshot = PluginV3RuntimeService.Runtime.GetSnapshot(pluginId);
+            var decision = PluginRuntimeIntentPolicy.Decide(enabled, currentIntent, currentSnapshot.State);
+
+            if (decision.PersistIntent)
+            {
+                ConfigService.CurrentConfig.GlobalSettings.Plugins.EnabledIntent[pluginId.Value] = enabled;
+                ConfigService.Save();
+            }
+
+            if (decision.RuntimeAction == PluginRuntimeIntentAction.None)
+                return PluginRuntimeTransitionResult.Completed(currentSnapshot.State);
+
+            if (decision.RuntimeAction == PluginRuntimeIntentAction.Deactivate)
             {
                 var result = await PluginV3RuntimeService.DeactivateAsync(pluginId, cancellationToken).ConfigureAwait(false);
                 if (result.Success && Loaded.TryRemove(pluginId, out var loaded)) loaded.Dispose();

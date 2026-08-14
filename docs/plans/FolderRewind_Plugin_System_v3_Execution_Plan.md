@@ -2,7 +2,7 @@
 
 > 状态：D0 / M3R / M3 / M4 已冻结；首轮 M5 Gate 已拒绝，M5R 阻断修复等待人工复测
 >
-> 计划版本：2026-08-14 / Revision 11 + Compatibility Addendum 1
+> 计划版本：2026-08-14 / Revision 12 + Compatibility Addendum 1
 >
 > 产品版本：FolderRewind 1.9.0、MineRewind 1.9.0
 >
@@ -578,8 +578,10 @@ M5R 决策与验收边界：
 - quarantine 的部分 move/receipt 失败必须反向恢复已移动项；若恢复本身失败则保留 quarantine 并给出聚合诊断。无论迁移成功或失败，1.8.x MineRewind flat payload 都禁止进入 v2 loader。
 - code-only uninstall 仍保留 intent/settings/state/data，同时写 automatic-migration suppression marker，避免下次启动把用户主动卸载误判为旧用户并自动装回。
 - Official Catalog 继续按用户本轮授权跳过。M5R 自动测试完成后仍不得进入 M6；必须由用户重新验证 manual install、重启 activation 以及 1.8.2 flat 在 intent true/false 下的离线迁移与 UI 响应性。
+- M5R 首次重启复测又发现：已 Active 的插件在插件页创建 `ToggleSwitch` 时，`TwoWay` 初始化触发 `Toggled`，Host 重复 Activate 后刷新列表，形成开关闪烁与 `runtime.already_active` 通知循环。修订后的 UI 使用单向状态投影，并仅把与当前快照不同的值视为用户命令；Package Service 在调用 Runtime 前以 Enabled Intent + Runtime State 作幂等决策，Active→Active 和 Inactive→Inactive 不写配置、不刷新 runtime session。Runtime Manager 仍保留 `runtime.already_active` 作为非法直接重复激活的诊断。
+- M5R 复测必须新增“启用 MineRewind → 关闭 Host → 重启 → 打开插件页并停留至少 30 秒”：开关保持稳定 Enabled，只存在一个 runtime session，不得出现 `runtime.already_active`、重复通知或列表刷新循环。
 
-M5R 自动化候选证据：Runtime 94/94、Host 266/266、MineRewind 55/55；Host x86/x64/ARM64 Release 与 x64 Debug 均为 0 warning/0 error。额外 WinUI analyzer build 通过，新增代码无 analyzer 诊断；输出中的 93 项均来自未改动的既存 XAML binding。自动化未改写用户已恢复的真实 AppData，也不替代上述人工复测，因此 M5 Gate 继续保持拒绝状态。
+M5R Revision 12 自动化候选证据：Runtime 96/96、Host 266/266、MineRewind 55/55；Host x86/x64/ARM64 Release 与 x64 Debug、MineRewind Release 均为 0 warning/0 error。额外 WinUI analyzer build 通过，闪烁修复没有新增 analyzer 诊断；输出中的 93 项均来自未改动的既存 XAML binding。自动化未改写用户已恢复的真实 AppData，也不替代上述人工复测，因此 M5 Gate 继续保持拒绝状态。
 
 ### M6 — Clean break 与发布候选
 

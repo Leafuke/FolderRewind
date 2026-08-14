@@ -24,6 +24,54 @@ public sealed class PluginPackageInstallerTests
     }
 
     [TestMethod]
+    public void EnabledIntentTransitionIsIdempotentForAnAlreadyActivePlugin()
+    {
+        var noOp = PluginRuntimeIntentPolicy.Decide(
+            requestedEnabled: true,
+            currentEnabledIntent: true,
+            currentRuntimeState: PluginRuntimeState.Active);
+
+        Assert.IsFalse(noOp.PersistIntent);
+        Assert.AreEqual(PluginRuntimeIntentAction.None, noOp.RuntimeAction);
+
+        var retry = PluginRuntimeIntentPolicy.Decide(
+            requestedEnabled: true,
+            currentEnabledIntent: true,
+            currentRuntimeState: PluginRuntimeState.Failed);
+
+        Assert.IsFalse(retry.PersistIntent);
+        Assert.AreEqual(PluginRuntimeIntentAction.Activate, retry.RuntimeAction);
+    }
+
+    [TestMethod]
+    public void EnabledIntentTransitionSeparatesPersistenceFromRuntimeWork()
+    {
+        var alreadyDisabled = PluginRuntimeIntentPolicy.Decide(
+            requestedEnabled: false,
+            currentEnabledIntent: false,
+            currentRuntimeState: PluginRuntimeState.Inactive);
+
+        Assert.IsFalse(alreadyDisabled.PersistIntent);
+        Assert.AreEqual(PluginRuntimeIntentAction.None, alreadyDisabled.RuntimeAction);
+
+        var disableInactive = PluginRuntimeIntentPolicy.Decide(
+            requestedEnabled: false,
+            currentEnabledIntent: true,
+            currentRuntimeState: PluginRuntimeState.Inactive);
+
+        Assert.IsTrue(disableInactive.PersistIntent);
+        Assert.AreEqual(PluginRuntimeIntentAction.None, disableInactive.RuntimeAction);
+
+        var enableInactive = PluginRuntimeIntentPolicy.Decide(
+            requestedEnabled: true,
+            currentEnabledIntent: false,
+            currentRuntimeState: PluginRuntimeState.Inactive);
+
+        Assert.IsTrue(enableInactive.PersistIntent);
+        Assert.AreEqual(PluginRuntimeIntentAction.Activate, enableInactive.RuntimeAction);
+    }
+
+    [TestMethod]
     public async Task BundledMineRewindPackageMatchesFrozenIdentityAndHash()
     {
         var root = FindRepositoryRoot();

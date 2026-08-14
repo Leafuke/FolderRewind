@@ -155,8 +155,17 @@ namespace FolderRewind.Views.Settings
         {
             if (sender is not ToggleSwitch ts) return;
             if (ts.DataContext is not InstalledPluginInfo plugin) return;
+            if (plugin.IsEnabled == ts.IsOn) return;
 
-            await ViewModel.HandlePluginEnabledToggledAsync(plugin.Id, ts.IsOn);
+            ts.IsEnabled = false;
+            try
+            {
+                await ViewModel.HandlePluginEnabledToggledAsync(plugin.Id, ts.IsOn);
+            }
+            finally
+            {
+                ts.IsEnabled = true;
+            }
         }
 
         private async void OnPluginUninstallClick(object sender, RoutedEventArgs e)

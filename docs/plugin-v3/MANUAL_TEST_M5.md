@@ -6,6 +6,7 @@
 
 - 先以 `EnabledIntent=true` 且 code 已卸载的状态手动安装 MineRewind v3：完成提示和列表都必须为 Disabled；不得在安装过程中 Activate。
 - 显式启用后重启：Runtime 必须为 Active，日志不得出现 `0x8001010E`、`KeyboardAccelerator` 跨线程异常或“Plugin v3 initialization failed”；默认 hotkeys 应可见并可触发。
+- 重启后打开插件页并停留至少 30 秒：MineRewind 开关必须稳定保持 Enabled；不得闪烁、重复刷新或反复弹出 `runtime.already_active`，且只能存在一个 runtime session。
 - 分别以 `EnabledIntent=true/false` 放入真实 1.8.2 flat payload 后启动：主页、导航、键盘与 `Alt+F4` 在迁移全程必须响应。
 - 两种 intent 均应产生 `install-state.v1.json`、`versions/1.9.0`、`legacy-quarantine` 和 `plugins/.migration/com.folderrewind.minerewind.v2-v3.json`；journal 最终为 `Completed`，日志应包含每个迁移 phase。
 - 制造 hash/文件占用或取消失败：journal 必须为 `RecoveryRequired` 并带诊断；flat DLL 不执行，部分 quarantine move 要么完整回滚，要么保留可恢复 quarantine，不能静默丢失。
