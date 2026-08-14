@@ -21,7 +21,9 @@ public sealed record PluginSettingSchemaDefinition(
     JsonElement? DefaultValue,
     IReadOnlyList<string> EnumValues,
     string DisplayName,
-    string Description);
+    string Description,
+    IReadOnlyDictionary<string, string> LocalizedDisplayName,
+    IReadOnlyDictionary<string, string> LocalizedDescription);
 
 public sealed class PluginSettingsSchema
 {
@@ -92,7 +94,9 @@ public sealed class PluginSettingsSchema
                     defaultValue,
                     enumValues,
                     OptionalString(node, "displayName"),
-                    OptionalString(node, "description"));
+                    OptionalString(node, "description"),
+                    OptionalLocalizedText(node, "localizedDisplayName"),
+                    OptionalLocalizedText(node, "localizedDescription"));
                 if (defaultValue.HasValue && !IsValueValid(definition, defaultValue.Value))
                 {
                     throw new InvalidDataException($"Default value for setting '{key}' does not match its type.");
@@ -220,6 +224,30 @@ public sealed class PluginSettingsSchema
         => node.TryGetProperty(property, out var value) && value.ValueKind == JsonValueKind.String
             ? value.GetString()?.Trim() ?? string.Empty
             : string.Empty;
+
+    private static IReadOnlyDictionary<string, string> OptionalLocalizedText(
+        JsonElement node,
+        string property)
+    {
+        if (!node.TryGetProperty(property, out var localized))
+            return new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+        if (localized.ValueKind != JsonValueKind.Object)
+            throw new InvalidDataException($"Plugin setting property '{property}' must be an object.");
+
+        var result = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+        foreach (var translation in localized.EnumerateObject())
+        {
+            if (string.IsNullOrWhiteSpace(translation.Name)
+                || translation.Value.ValueKind != JsonValueKind.String
+                || string.IsNullOrWhiteSpace(translation.Value.GetString()))
+            {
+                throw new InvalidDataException($"Plugin setting property '{property}' contains an invalid translation.");
+            }
+
+            result[translation.Name.Trim()] = translation.Value.GetString()!.Trim();
+        }
+        return result;
+    }
 
     private static bool IsValidKey(string key)
         => key.Length is > 0 and <= 128

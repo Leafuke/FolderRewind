@@ -78,7 +78,7 @@ public sealed class PluginPackageInstallerTests
         var packagePath = Path.Combine(root, "FolderRewind", "Assets", "Plugins", "MineRewind-1.9.0.frplugin");
         var package = await PluginPackageValidator.ValidateAsync(
             packagePath,
-            "b0ed525bcf49dc22a7ee0ee04c07eda6242fe4efa52368758fc9ac406fc76b63");
+            "6fdcf3022058a3b8ddc5e1eeab95b7d9e500e49d3dc9db81ba588467c38b4d66");
 
         Assert.AreEqual("com.folderrewind.minerewind", package.Manifest.Contract.PluginId.Value);
         Assert.AreEqual("1.9.0", package.Manifest.Contract.Version);
@@ -86,6 +86,14 @@ public sealed class PluginPackageInstallerTests
         Assert.AreEqual(0, package.Manifest.Contract.RequiredApi.Minor);
         Assert.IsFalse(package.Entries.Any(value =>
             value.CanonicalPath.EndsWith("FolderRewind.Plugin.Abstractions.dll", StringComparison.OrdinalIgnoreCase)));
+
+        using var archive = ZipFile.OpenRead(packagePath);
+        using var settingsStream = archive.GetEntry("settings.schema.json")!.Open();
+        using var settingsDocument = JsonDocument.Parse(settingsStream);
+        var firstSetting = settingsDocument.RootElement.GetProperty("settings")[0];
+        Assert.AreEqual(
+            "自动发现 Minecraft 存档",
+            firstSetting.GetProperty("localizedDisplayName").GetProperty("zh-CN").GetString());
     }
 
     [TestMethod]

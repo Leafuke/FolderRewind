@@ -4,6 +4,7 @@ using FolderRewind.Services.Plugins;
 using FolderRewind.ViewModels;
 using Microsoft.UI;
 using Microsoft.UI.Xaml;
+using Microsoft.UI.Xaml.Automation;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Media;
 using Microsoft.UI.Xaml.Navigation;
@@ -115,16 +116,7 @@ namespace FolderRewind.Views
             var resourceLoader = ResourceLoader.GetForViewIndependentUse();
             PluginService.Initialize();
 
-            var configTypes = PluginService.GetAllSupportedConfigTypes().ToList();
-            if (!configTypes.Contains("Default", StringComparer.OrdinalIgnoreCase))
-            {
-                configTypes.Insert(0, "Default");
-            }
-            if (!configTypes.Contains("Encrypted", StringComparer.OrdinalIgnoreCase))
-            {
-                var defaultIndex = configTypes.FindIndex(t => string.Equals(t, "Default", StringComparison.OrdinalIgnoreCase));
-                configTypes.Insert(defaultIndex >= 0 ? defaultIndex + 1 : configTypes.Count, "Encrypted");
-            }
+            var configKinds = PluginService.GetAllSupportedConfigKinds(includeEncrypted: true).ToList();
 
             string preferredTemplateId = string.Empty;
             string draftConfigName = string.Empty;
@@ -196,16 +188,20 @@ namespace FolderRewind.Views
                 var typeCombo = new ComboBox
             {
                 Header = resourceLoader.GetString("HomePage_ConfigTypeHeader"),
-                HorizontalAlignment = HorizontalAlignment.Stretch
+                HorizontalAlignment = HorizontalAlignment.Stretch,
+                DisplayMemberPath = nameof(PluginConfigKindOption.DisplayName)
             };
-            foreach (var type in configTypes)
+            foreach (var kind in configKinds)
             {
-                typeCombo.Items.Add(type);
+                typeCombo.Items.Add(kind);
             }
+            AutomationProperties.SetAutomationId(typeCombo, "TemplateConfigKindPicker");
+            AutomationProperties.SetName(typeCombo, resourceLoader.GetString("HomePage_ConfigTypeHeader"));
 
                 if (!string.IsNullOrWhiteSpace(preferredType))
                 {
-                    typeCombo.SelectedItem = configTypes.FirstOrDefault(t => string.Equals(t, preferredType, StringComparison.OrdinalIgnoreCase));
+                    typeCombo.SelectedItem = configKinds.FirstOrDefault(kind =>
+                        string.Equals(kind.SelectionValue, preferredType, StringComparison.OrdinalIgnoreCase));
                 }
 
                 BackupPreset? GetSelectedTemplate()
@@ -242,12 +238,14 @@ namespace FolderRewind.Views
                     var typeToSelect = string.IsNullOrWhiteSpace(selectedTemplate.BaseConfigType)
                         ? "Default"
                         : selectedTemplate.BaseConfigType;
-                    if (!configTypes.Contains(typeToSelect, StringComparer.OrdinalIgnoreCase))
+                    if (!configKinds.Any(kind =>
+                            string.Equals(kind.SelectionValue, typeToSelect, StringComparison.OrdinalIgnoreCase)))
                     {
                         typeToSelect = "Default";
                     }
 
-                    typeCombo.SelectedItem = configTypes.FirstOrDefault(t => string.Equals(t, typeToSelect, StringComparison.OrdinalIgnoreCase));
+                    typeCombo.SelectedItem = configKinds.FirstOrDefault(kind =>
+                        string.Equals(kind.SelectionValue, typeToSelect, StringComparison.OrdinalIgnoreCase));
 
                     var warnings = new List<string>();
                     if (!BackupPresetService.IsConfigTypeAvailable(selectedTemplate.BaseConfigType, out var reason)
@@ -317,7 +315,7 @@ namespace FolderRewind.Views
                 var dialogResult = await dialog.ShowAsync();
                 draftConfigName = nameBox.Text;
                 draftOfficialSearch = officialSearchBox.Text?.Trim() ?? string.Empty;
-                preferredType = typeCombo.SelectedItem as string;
+                preferredType = (typeCombo.SelectedItem as PluginConfigKindOption)?.SelectionValue;
                 preferredTemplateId = GetSelectedTemplate()?.Id ?? preferredTemplateId;
                 feedbackMessage = string.Empty;
 
@@ -363,7 +361,11 @@ namespace FolderRewind.Views
                     continue;
                 }
 
-                await CreateConfigFromTemplateAsync(selectedTemplateFinal, nameBox.Text, typeCombo.SelectedItem as string, resourceLoader);
+                await CreateConfigFromTemplateAsync(
+                    selectedTemplateFinal,
+                    nameBox.Text,
+                    typeCombo.SelectedItem as PluginConfigKindOption,
+                    resourceLoader);
                 return;
 
             }
@@ -377,10 +379,13 @@ namespace FolderRewind.Views
         private async Task CreateConfigFromTemplateAsync(
             BackupPreset selectedTemplate,
             string configName,
-            string? selectedType,
+            PluginConfigKindOption? selectedKind,
             ResourceLoader resourceLoader)
         {
-            var createResult = BackupPresetService.CreateConfigFromTemplate(selectedTemplate, configName, selectedType);
+            var createResult = BackupPresetService.CreateConfigFromTemplate(
+                selectedTemplate,
+                configName,
+                selectedKind?.SelectionValue);
             if (!createResult.Success || createResult.Config == null)
             {
                 var failedDialog = new ContentDialog
@@ -393,6 +398,12 @@ namespace FolderRewind.Views
                 ThemeService.ApplyThemeToDialog(failedDialog);
                 await failedDialog.ShowAsync();
                 return;
+            }
+
+            if (selectedKind is not null)
+            {
+                // 模板可以覆盖显示类型，但持久化必须同步写入稳定 Config Kind 身份。
+                PluginService.ApplyConfigKind(createResult.Config, selectedKind);
             }
 
             // 模板命中路径后先让用户确认一次，避免“猜错路径但已经落库”的尴尬情况。
@@ -615,29 +626,23 @@ namespace FolderRewind.Views
                 PlaceholderText = resourceLoader.GetString("HomePage_ConfigNamePlaceholder")
             };
 
-            var configTypes = PluginService.GetAllSupportedConfigTypes().ToList();
-            if (!configTypes.Contains("Default", StringComparer.OrdinalIgnoreCase))
-            {
-                configTypes.Insert(0, "Default");
-            }
-            if (!configTypes.Contains("Encrypted", StringComparer.OrdinalIgnoreCase))
-            {
-                int defaultIdx = configTypes.FindIndex(t => string.Equals(t, "Default", StringComparison.OrdinalIgnoreCase));
-                configTypes.Insert(defaultIdx >= 0 ? defaultIdx + 1 : configTypes.Count, "Encrypted");
-            }
+            var configKinds = PluginService.GetAllSupportedConfigKinds(includeEncrypted: true).ToList();
             var typeCombo = new ComboBox
             {
                 Header = resourceLoader.GetString("HomePage_ConfigTypeHeader"),
-                HorizontalAlignment = HorizontalAlignment.Stretch
+                HorizontalAlignment = HorizontalAlignment.Stretch,
+                DisplayMemberPath = nameof(PluginConfigKindOption.DisplayName)
             };
-            foreach (var t in configTypes) typeCombo.Items.Add(t);
+            foreach (var kind in configKinds) typeCombo.Items.Add(kind);
             typeCombo.SelectedIndex = 0;
+            AutomationProperties.SetAutomationId(typeCombo, "NewConfigKindPicker");
+            AutomationProperties.SetName(typeCombo, resourceLoader.GetString("HomePage_ConfigTypeHeader"));
 
             var typeDesc = new TextBlock
             {
                 Text = resourceLoader.GetString("HomePage_ConfigTypeDesc"),
-                FontSize = 12,
-                Opacity = 0.7,
+                Style = (Style)Application.Current.Resources["CaptionTextBlockStyle"],
+                Foreground = (Brush)Application.Current.Resources["TextFillColorSecondaryBrush"],
                 TextWrapping = TextWrapping.Wrap
             };
 
@@ -651,19 +656,20 @@ namespace FolderRewind.Views
 
             void RefreshBatchToggleState()
             {
-                var selectedType = typeCombo.SelectedItem as string;
-                var canBatch = !string.IsNullOrWhiteSpace(selectedType) && !string.Equals(selectedType, "Default", StringComparison.OrdinalIgnoreCase);
+                var selectedKind = typeCombo.SelectedItem as PluginConfigKindOption;
+                var canBatch = selectedKind?.SupportsLegacyBatchCreation == true;
                 batchCreateToggle.IsEnabled = canBatch;
                 if (!canBatch) batchCreateToggle.IsOn = false;
 
                 nameBox.IsEnabled = !batchCreateToggle.IsOn;
+                typeDesc.Text = selectedKind?.Description ?? resourceLoader.GetString("HomePage_ConfigTypeDesc");
             }
 
             typeCombo.SelectionChanged += (_, __) => RefreshBatchToggleState();
             batchCreateToggle.Toggled += (_, __) => RefreshBatchToggleState();
             RefreshBatchToggleState();
 
-            // 
+            // 图标选择保留 Host 的统一图标目录，插件只负责声明稳定的配置类型身份。
             var iconGrid = new GridView { SelectionMode = ListViewSelectionMode.Single, Height = 180 };
             foreach (var icon in IconCatalog.ConfigIconGlyphs) iconGrid.Items.Add(icon);
             iconGrid.SelectedIndex = 0;
@@ -695,8 +701,8 @@ namespace FolderRewind.Views
 
             if (await dialog.ShowAsync() == ContentDialogResult.Primary)
             {
-                var selectedType = typeCombo.SelectedItem as string;
-                if (string.IsNullOrWhiteSpace(selectedType)) selectedType = "Default";
+                var selectedKind = typeCombo.SelectedItem as PluginConfigKindOption
+                    ?? configKinds.First();
 
                 if (batchCreateToggle.IsOn)
                 {
@@ -706,7 +712,7 @@ namespace FolderRewind.Views
                         "FolderRewind.HomePage.PluginBatch.Root");
                     if (string.IsNullOrWhiteSpace(rootFolderPath)) return;
 
-                    var result = PluginService.InvokeCreateConfigs(rootFolderPath, selectedType);
+                    var result = PluginService.InvokeCreateConfigs(rootFolderPath, selectedKind.LegacyConfigType);
                     if (!result.Handled || result.CreatedConfigs == null || result.CreatedConfigs.Count == 0)
                     {
                         var failed = new ContentDialog
@@ -730,7 +736,10 @@ namespace FolderRewind.Views
 
                     foreach (var c in result.CreatedConfigs)
                     {
-                        if (string.IsNullOrWhiteSpace(c.ConfigType)) c.ConfigType = selectedType;
+                        if (string.IsNullOrWhiteSpace(c.ConfigType))
+                        {
+                            PluginService.ApplyConfigKind(c, selectedKind);
+                        }
                         c.Cloud ??= new CloudSettings();
                         if (string.IsNullOrWhiteSpace(c.Cloud.RemoteBasePath))
                         {
@@ -750,13 +759,13 @@ namespace FolderRewind.Views
 
                 if (string.IsNullOrWhiteSpace(nameBox.Text)) return;
 
-                bool isEncrypted = string.Equals(selectedType, "Encrypted", StringComparison.OrdinalIgnoreCase);
+                bool isEncrypted = selectedKind.IsEncrypted;
 
                 string? encryptionPassword = null;
                 if (isEncrypted)
                 {
                     encryptionPassword = await PromptSetPasswordAsync();
-                    if (encryptionPassword == null) return; // 鐢ㄦ埛鍙栨秷
+                    if (encryptionPassword == null) return; // 用户取消密码设置时，不创建半成品配置。
                 }
 
                 var selectedIcon = iconGrid.SelectedItem as string ?? IconCatalog.DefaultConfigIconGlyph;
@@ -764,7 +773,6 @@ namespace FolderRewind.Views
                 {
                     Name = nameBox.Text,
                     IconGlyph = selectedIcon,
-                    ConfigType = isEncrypted ? "Default" : selectedType, // 鍔犲瘑閰嶇疆鐨勫簳灞傜被鍨嬩粛涓?Default
                     IsEncrypted = isEncrypted,
                     DestinationPath = ConfigService.BuildDefaultDestinationPath(nameBox.Text),
                     SummaryText = resourceLoader.GetString("HomePage_NewConfigSummary"),
@@ -773,6 +781,7 @@ namespace FolderRewind.Views
                         RemoteBasePath = ConfigService.GetRecommendedDefaultCloudRemoteBasePath()
                     }
                 };
+                PluginService.ApplyConfigKind(newConfig, selectedKind);
 
                 ConfigService.CurrentConfig.BackupConfigs.Add(newConfig);
                 ConfigService.Save();

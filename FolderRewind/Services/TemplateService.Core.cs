@@ -417,6 +417,12 @@ namespace FolderRewind.Services
             template.BaseConfigType = sourceConfig.IsEncrypted
                 ? "Encrypted"
                 : (string.IsNullOrWhiteSpace(sourceConfig.ConfigType) ? "Default" : sourceConfig.ConfigType);
+            // 模板沿用稳定 Config Kind；本地化名称和 v2 ConfigType 都不能充当插件身份。
+            template.Kind = new ConfigKindReference
+            {
+                OwnerId = sourceConfig.Kind?.OwnerId ?? FolderRewind.Plugin.Runtime.Configuration.ConfigSchema.CoreOwnerId,
+                KindId = sourceConfig.Kind?.KindId ?? FolderRewind.Plugin.Runtime.Configuration.ConfigSchema.CoreDefaultKindId
+            };
             template.IsEncrypted = sourceConfig.IsEncrypted;
             template.IconGlyph = sourceConfig.IconGlyph;
             template.DefaultConfigName = sourceConfig.Name;
@@ -437,6 +443,10 @@ namespace FolderRewind.Services
             if (template.ExtendedProperties.TryGetValue("Plugin", out var pluginId) && !string.IsNullOrWhiteSpace(pluginId))
             {
                 requiredPlugins.Add(pluginId);
+            }
+            if (!string.IsNullOrWhiteSpace(sourceConfig.RequiredPluginId))
+            {
+                requiredPlugins.Add(sourceConfig.RequiredPluginId);
             }
             template.RequiredPluginIds = new ObservableCollection<string>(requiredPlugins.OrderBy(x => x, StringComparer.OrdinalIgnoreCase));
 

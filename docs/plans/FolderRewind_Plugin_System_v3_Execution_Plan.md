@@ -2,7 +2,7 @@
 
 > 状态：D0 / M3R / M3 / M4 已冻结；首轮 M5 Gate 已拒绝，M5R 阻断修复等待人工复测
 >
-> 计划版本：2026-08-14 / Revision 12 + Compatibility Addendum 1
+> 计划版本：2026-08-14 / Revision 13 + Compatibility Addendum 1
 >
 > 产品版本：FolderRewind 1.9.0、MineRewind 1.9.0
 >
@@ -191,7 +191,7 @@ Host Services 至少提供：只读 config query、backup request、restore requ
 
 ### 2.5 静态 Schema 与 Manifest
 
-- `settings.schema.json` 在禁用插件和 Safe Mode 下可读；根为 `{ schemaVersion: 1, settings: [...] }`，setting 至少包含唯一 `key` 与 `type`，可包含 `required`、`default`、`displayName`、`description`，enum 额外声明非空且唯一的 `enumValues`。
+- `settings.schema.json` 在禁用插件和 Safe Mode 下可读；根为 `{ schemaVersion: 1, settings: [...] }`，setting 至少包含唯一 `key` 与 `type`，可包含 `required`、`default`、`displayName`、`description`、`localizedDisplayName`、`localizedDescription`，enum 额外声明非空且唯一的 `enumValues`。Host 必须直接从该静态 Schema 生成设置 UI，不得退回 v2 实例接口，也不得为了显示或保存禁用插件的设置而执行 DLL。
 - v3.0 setting type 固定为 string、boolean、integer、multiline、folderPath、filePath、enum；Host 负责 default、required、type/enum validation。schema 未识别的旧/未来 value 原样保留并产生 warning，不因设置 UI 往返丢失。
 - Manifest contract 静态声明 PluginId/version/API requirement/entry、Config Kind metadata、settings schema 相对路径、requested Host Services、Artifact formats、transformers（含 compatible ConfigKinds/core modes/completeness）、restore strategies 和 completion observer；运行时不得用执行插件代码补充这些声明。
 - Backup Scope 复用轻量 form schema；未知 `EditorHint` 回退基础控件。
@@ -557,7 +557,7 @@ Revision 10 新增边界与非目标：
 #### M5 Gate 候选记录（2026-08-13，等待用户批准）
 
 - `.frplugin` validator/transaction journal/versioned current+previous known-good、manual/official provenance、reachable Artifact compatibility update gate、code-only 与危险 delete-data 流程已实现；Settings 与 Store 均可选择 `.frplugin`，新安装默认 Disabled。
-- 随 Host 的 MineRewind 1.9.0 包包含 `MineRewind.dll`、`fNbt.dll`、root manifest/settings schema，不包含 Abstractions；SHA-256 为 `b0ed525bcf49dc22a7ee0ee04c07eda6242fe4efa52368758fc9ac406fc76b63`。legacy flat payload 离线迁移至 versioned layout并进入可恢复 quarantine。
+- 随 Host 的 MineRewind 1.9.0 包包含 `MineRewind.dll`、`fNbt.dll`、root manifest/settings schema，不包含 Abstractions；Revision 13 本地化重打包后的 SHA-256 为 `6fdcf3022058a3b8ddc5e1eeab95b7d9e500e49d3dc9db81ba588467c38b4d66`。legacy flat payload 离线迁移至 versioned layout并进入可恢复 quarantine。
 - 独立本地 Catalog repo 完成 schema、package/hash/manifest/API/architecture/service/Artifact summary 校验与 Pages/PR workflow；本地 production index 由真实 MineRewind 包生成。Site typecheck、i18n、image 与 production build 全绿。
 - Minecraft Enhanced Experience 使用有限 action 数据模型；外部安装步骤的下载确认、SHA-256 校验和启动确认代码已实现。由于本轮无法取得并核实不可变的官方 KnotLink installer URL/SHA-256，curated Preset 当前明确返回 warning，绝不下载或启动未知 payload；这是 M5 最终批准前保留的外部事实阻断项。
 - 未执行任何 push、PR、NuGet.org publish、Pages deploy、远程 Catalog 创建/合并或正式 release。
@@ -580,8 +580,10 @@ M5R 决策与验收边界：
 - Official Catalog 继续按用户本轮授权跳过。M5R 自动测试完成后仍不得进入 M6；必须由用户重新验证 manual install、重启 activation 以及 1.8.2 flat 在 intent true/false 下的离线迁移与 UI 响应性。
 - M5R 首次重启复测又发现：已 Active 的插件在插件页创建 `ToggleSwitch` 时，`TwoWay` 初始化触发 `Toggled`，Host 重复 Activate 后刷新列表，形成开关闪烁与 `runtime.already_active` 通知循环。修订后的 UI 使用单向状态投影，并仅把与当前快照不同的值视为用户命令；Package Service 在调用 Runtime 前以 Enabled Intent + Runtime State 作幂等决策，Active→Active 和 Inactive→Inactive 不写配置、不刷新 runtime session。Runtime Manager 仍保留 `runtime.already_active` 作为非法直接重复激活的诊断。
 - M5R 复测必须新增“启用 MineRewind → 关闭 Host → 重启 → 打开插件页并停留至少 30 秒”：开关保持稳定 Enabled，只存在一个 runtime session，不得出现 `runtime.already_active`、重复通知或列表刷新循环。
+- Revision 13 人工复测继续发现三项静态投影缺口：配置类型选择器仍只读取 v2 `GetSupportedConfigTypes()`，设置按钮仍只读取 v2 `GetSettingsDefinitions()`，且 Manifest/Schema/Preset/危险删除中的大量用户可见字符串未进入本地化管线。修订后，配置类型目录必须读取已安装包的静态 Manifest（不以 Active/Disabled 为可见性条件），显示本地化名称但持久化稳定 `ConfigKindRef`；v2 string 仅作 M6 前兼容桥。插件描述、设置字段、Preset 进度/步骤/确认和 delete-data 全部由 Manifest/Schema translations 或 Host `.resw` 提供。
+- 设置保存遵循 Runtime 状态分离：Disabled/Safe Mode 只验证并原子保存 typed JSON，不执行 DLL；Active 创建新实例并走事务化 Replace，失败保留旧 settings/state/session。新建配置和模板覆盖类型时必须同时写 `ConfigType` 兼容值、`ConfigKindRef` 与 `RequiredPluginId`，不得把“Minecraft 存档”等本地化文本当作身份。
 
-M5R Revision 12 自动化候选证据：Runtime 96/96、Host 266/266、MineRewind 55/55；Host x86/x64/ARM64 Release 与 x64 Debug、MineRewind Release 均为 0 warning/0 error。额外 WinUI analyzer build 通过，闪烁修复没有新增 analyzer 诊断；输出中的 93 项均来自未改动的既存 XAML binding。自动化未改写用户已恢复的真实 AppData，也不替代上述人工复测，因此 M5 Gate 继续保持拒绝状态。
+M5R Revision 13 自动化候选证据：Runtime 98/98、Host 266/266、MineRewind 55/55；Host x86/x64/ARM64 Release 与 x64 Debug、MineRewind Release、Abstractions NuGet pack 全部成功。WinUI analyzer 仍为既存 93 warning / 0 error，本轮没有新增诊断；中英文 1779 个资源键完全一致，Manifest/Schema/Preset JSON、资源 XML、`.frplugin` 内容及 SHA-256 均通过静态校验。自动化没有改写用户已恢复的真实 AppData，也不替代 Revision 13 人工复测，因此 M5 Gate 继续保持拒绝状态。
 
 ### M6 — Clean break 与发布候选
 

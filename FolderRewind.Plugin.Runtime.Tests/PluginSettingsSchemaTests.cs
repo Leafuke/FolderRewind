@@ -84,10 +84,39 @@ public sealed class PluginSettingsSchemaTests
     }
 
     [TestMethod]
+    public void LocalizedPresentationMetadataIsParsedWithoutAffectingValidation()
+    {
+        var schema = Parse("""
+            {
+              "schemaVersion": 1,
+              "settings": [
+                {
+                  "key": "enabled",
+                  "type": "boolean",
+                  "default": true,
+                  "displayName": "Enabled",
+                  "description": "Default description",
+                  "localizedDisplayName": { "zh-CN": "启用" },
+                  "localizedDescription": { "zh-CN": "中文说明" }
+                }
+              ]
+            }
+            """);
+
+        var definition = schema.Settings.Single();
+
+        Assert.AreEqual("Enabled", definition.DisplayName);
+        Assert.AreEqual("启用", definition.LocalizedDisplayName["zh-CN"]);
+        Assert.AreEqual("中文说明", definition.LocalizedDescription["zh-CN"]);
+        Assert.IsTrue(schema.Validate(Snapshot(new Dictionary<string, JsonElement>())).IsValid);
+    }
+
+    [TestMethod]
     [DataRow("{ \"schemaVersion\": 2, \"settings\": [] }")]
     [DataRow("{ \"schemaVersion\": 1, \"settings\": [{ \"key\": \"x\", \"type\": \"number\" }] }")]
     [DataRow("{ \"schemaVersion\": 1, \"settings\": [{ \"key\": \"x\", \"type\": \"enum\", \"enumValues\": [] }] }")]
     [DataRow("{ \"schemaVersion\": 1, \"settings\": [{ \"key\": \"same\", \"type\": \"string\" }, { \"key\": \"same\", \"type\": \"string\" }] }")]
+    [DataRow("{ \"schemaVersion\": 1, \"settings\": [{ \"key\": \"x\", \"type\": \"string\", \"localizedDisplayName\": \"invalid\" }] }")]
     public void InvalidStaticSchemaIsRejected(string json)
         => Assert.ThrowsExactly<InvalidDataException>(() => Parse(json));
 

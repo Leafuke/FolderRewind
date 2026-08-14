@@ -1393,16 +1393,19 @@ Duplicate folder names are blocked within the same configuration so different di
     <value>Minecraft starter preset</value>
   </data>
   <data name="SettingsPage_MinecraftPresetDesc.Text" xml:space="preserve">
-    <value>Automatically install and enable MineRewind, turn on KnotLink, and launch the KnotLink server installer for Minecraft players.</value>
+    <value>Install and enable the bundled MineRewind plugin, turn on KnotLink, and explain the remaining in-game integration steps.</value>
   </data>
   <data name="SettingsPage_MinecraftPresetSteps.Text" xml:space="preserve">
-    <value>This downloads the MineRewind plugin, enables the plugin system, turns on KnotLink, and runs the KnotLink server installer.</value>
+    <value>The preset uses the verified bundled MineRewind package. An external KnotLink installer will not run until its immutable official URL and SHA-256 are curated.</value>
   </data>
   <data name="SettingsPage_MinecraftPresetModReminder.Text" xml:space="preserve">
     <value>After this, install MineBackup-Mod for Minecraft to use in-game commands with FolderRewind.</value>
   </data>
   <data name="SettingsPage_MinecraftPresetInstall.Content" xml:space="preserve">
     <value>Install preset</value>
+  </data>
+  <data name="SettingsPage_PluginDeleteData.Content" xml:space="preserve">
+    <value>Delete data...</value>
   </data>
   <data name="SettingsPage_CloudPreset.Text" xml:space="preserve">
     <value>Cloud backup starter preset</value>
@@ -3248,6 +3251,58 @@ Status: {3}</value>
   <data name="MinecraftOnboarding_KnotLinkInstallerStarted_Log" xml:space="preserve">
     <value>[MinecraftOnboarding] Started the KnotLink server installer: {0}</value>
   </data>
+  <data name="ConfigKind_CoreDefault_Name" xml:space="preserve"><value>Standard folder</value></data>
+  <data name="ConfigKind_CoreDefault_Description" xml:space="preserve"><value>Back up ordinary folders with FolderRewind's built-in file pipeline.</value></data>
+  <data name="ConfigKind_Encrypted_Name" xml:space="preserve"><value>Encrypted standard folder</value></data>
+  <data name="ConfigKind_Encrypted_Description" xml:space="preserve"><value>Create a standard folder configuration protected by a 7-Zip password.</value></data>
+  <data name="ConfigKind_Unknown_Name" xml:space="preserve"><value>Unknown configuration type</value></data>
+  <data name="ConfigKind_Unknown_Description" xml:space="preserve"><value>This configuration type is preserved for compatibility, but its owner is not currently available.</value></data>
+  <data name="Plugins_DeleteDataV3Only" xml:space="preserve"><value>Data deletion is available only for Plugin System v3 packages.</value></data>
+  <data name="Plugins_DeleteDataConfirmationHeader" xml:space="preserve"><value>Type exactly: {0}</value></data>
+  <data name="Plugins_DeleteDataPreview" xml:space="preserve"><value>This removes plugin code, {0} setting(s), {1} provider-state location(s), and data under {2}. {3} history item(s) reference plugin-owned artifacts; those backup artifacts are retained and restoration remains fail-closed while their owner is absent.</value></data>
+  <data name="Plugins_DeleteDataTitle" xml:space="preserve"><value>Uninstall and delete plugin data</value></data>
+  <data name="Plugins_DeleteDataButton" xml:space="preserve"><value>Delete data</value></data>
+  <data name="Plugins_DeleteDataSuccess" xml:space="preserve"><value>Plugin code and the listed data were removed.</value></data>
+  <data name="Plugins_UninstallPreservedResult" xml:space="preserve"><value>Plugin code was removed. {0} setting(s), {1} provider-state location(s), and data under {2} were preserved.</value></data>
+  <data name="Plugins_SettingsValidationFailed" xml:space="preserve"><value>These settings are invalid: {0}</value></data>
+  <data name="Plugins_SettingsLoadFailed" xml:space="preserve"><value>Could not load the plugin settings: {0}</value></data>
+  <data name="Plugins_SettingsSaveFailed" xml:space="preserve"><value>Could not apply the plugin settings: {0}</value></data>
+  <data name="Plugins_SettingsSaved" xml:space="preserve"><value>Plugin settings were applied.</value></data>
+  <data name="Plugins_InstallOutcomeNew" xml:space="preserve"><value>Installed {0} {1}; it remains disabled until explicitly enabled.</value></data>
+  <data name="Plugins_InstallOutcomeUpdatedEnabled" xml:space="preserve"><value>Updated {0} {1}; Enabled Intent remains enabled.</value></data>
+  <data name="Plugins_InstallOutcomeUpdatedDisabled" xml:space="preserve"><value>Updated {0} {1}; Enabled Intent remains disabled.</value></data>
+  <data name="PluginPreset_Progress_InstallMineRewind" xml:space="preserve"><value>Installing the verified bundled MineRewind package...</value></data>
+  <data name="PluginPreset_Progress_EnableMineRewind" xml:space="preserve"><value>Enabling MineRewind...</value></data>
+  <data name="PluginPreset_Progress_EnableKnotLink" xml:space="preserve"><value>Turning on KnotLink integration...</value></data>
+  <data name="PluginPreset_Progress_KnotLinkNotice" xml:space="preserve"><value>Checking KnotLink installer availability...</value></data>
+  <data name="PluginPreset_Progress_MineBackupReminder" xml:space="preserve"><value>Preparing the in-game integration reminder...</value></data>
+  <data name="PluginPreset_Step_InstallMineRewind" xml:space="preserve"><value>Install MineRewind</value></data>
+  <data name="PluginPreset_Step_EnableMineRewind" xml:space="preserve"><value>Enable MineRewind</value></data>
+  <data name="PluginPreset_Step_EnableKnotLink" xml:space="preserve"><value>Enable KnotLink</value></data>
+  <data name="PluginPreset_Step_KnotLinkNotice" xml:space="preserve"><value>KnotLink installer</value></data>
+  <data name="PluginPreset_Step_MineBackupReminder" xml:space="preserve"><value>In-game integration</value></data>
+  <data name="PluginPreset_StepResult" xml:space="preserve"><value>{0}: {1}</value></data>
+  <data name="PluginPreset_Installed" xml:space="preserve"><value>Installed {0} {1}.</value></data>
+  <data name="PluginPreset_Enabled" xml:space="preserve"><value>Enabled {0}.</value></data>
+  <data name="PluginPreset_KnotLinkConfigured" xml:space="preserve"><value>KnotLink Host integration was configured.</value></data>
+  <data name="PluginPreset_ExternalDownloadDeclined" xml:space="preserve"><value>The external download was not confirmed.</value></data>
+  <data name="PluginPreset_ExternalHashMismatch" xml:space="preserve"><value>The external installer did not match the curated SHA-256.</value></data>
+  <data name="PluginPreset_ExternalLaunchDeclined" xml:space="preserve"><value>Launching the external installer was not confirmed.</value></data>
+  <data name="PluginPreset_ExternalStarted" xml:space="preserve"><value>Started {0}.</value></data>
+  <data name="PluginPreset_Notice_KnotLinkCuration" xml:space="preserve"><value>The KnotLink external installer will not run until an immutable official URL and SHA-256 have been curated.</value></data>
+  <data name="PluginPreset_Notice_MineBackupReminder" xml:space="preserve"><value>For hot consistency, install a compatible in-game Mine backup integration. Raw full backup remains available with warnings.</value></data>
+  <data name="PluginPreset_ConsentDownloadTitle" xml:space="preserve"><value>Download {0}?</value></data>
+  <data name="PluginPreset_ConsentDownloadContent" xml:space="preserve"><value>Official URL:
+{0}
+
+Expected SHA-256:
+{1}</value></data>
+  <data name="PluginPreset_ConsentDownloadButton" xml:space="preserve"><value>Download</value></data>
+  <data name="PluginPreset_ConsentLaunchTitle" xml:space="preserve"><value>Launch the {0} installer?</value></data>
+  <data name="PluginPreset_ConsentLaunchContent" xml:space="preserve"><value>The downloaded file passed SHA-256 verification.
+
+{0}</value></data>
+  <data name="PluginPreset_ConsentLaunchButton" xml:space="preserve"><value>Launch</value></data>
   <data name="CloudOnboarding_Title" xml:space="preserve">
     <value>Cloud backup starter preset</value>
   </data>

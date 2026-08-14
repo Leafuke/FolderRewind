@@ -13,8 +13,13 @@ using FolderRewind.Plugin.Runtime.Activation;
 using FolderRewind.Plugin.Runtime.Artifacts;
 using FolderRewind.Plugin.Runtime.Loading;
 using FolderRewind.Plugin.Runtime.Packaging;
+using FolderRewind.Plugin.Runtime.Settings;
 
 namespace FolderRewind.Services.Plugins.V3;
+
+public sealed record PluginV3SettingsEditorData(
+    PluginSettingsSchema Schema,
+    PluginSettingsSnapshot Settings);
 
 public static class PluginV3PackageService
 {
@@ -35,12 +40,15 @@ public static class PluginV3PackageService
     public static string FormatInstallOutcome(PluginInstallResult result)
     {
         ArgumentNullException.ThrowIfNull(result);
-        var name = result.Manifest.Contract.Name.Default;
+        var name = Resolve(result.Manifest.Contract.Name);
         var version = result.State.CurrentVersion;
         if (!result.Updated)
-            return $"Installed {name} {version}; it remains disabled until explicitly enabled.";
+            return I18n.Format("Plugins_InstallOutcomeNew", name, version);
         var enabled = EnabledIntent(result.State.PluginId);
-        return $"Updated {name} {version}; Enabled Intent remains {(enabled ? "enabled" : "disabled")}.";
+        return I18n.Format(
+            enabled ? "Plugins_InstallOutcomeUpdatedEnabled" : "Plugins_InstallOutcomeUpdatedDisabled",
+            name,
+            version);
     }
 
     public static async ValueTask InitializeAsync(CancellationToken cancellationToken = default)
@@ -185,7 +193,8 @@ public static class PluginV3PackageService
     private static async ValueTask<PluginRuntimeTransitionResult> ActivateInstalledWithoutLockAsync(
         PluginInstallState state,
         bool replace,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken,
+        PluginSettingsSnapshot? settingsOverride = null)
     {
         var root = Path.Combine(PluginsRoot, state.PluginId.Value, "versions", state.CurrentVersion);
         var manifest = ReadManifest(root);
@@ -197,7 +206,7 @@ public static class PluginV3PackageService
             manifest.Contract.RequiredApi));
         try
         {
-            var candidate = BuildCandidate(manifest.Contract, loaded);
+            var candidate = BuildCandidate(manifest.Contract, loaded, settingsOverride);
             var result = replace
                 ? await PluginV3RuntimeService.ReplaceAsync(candidate, cancellationToken).ConfigureAwait(false)
                 : await PluginV3RuntimeService.ActivateAsync(candidate, cancellationToken).ConfigureAwait(false);
@@ -219,9 +228,11 @@ public static class PluginV3PackageService
 
     private static PluginActivationCandidate BuildCandidate(
         PluginManifestContract manifest,
-        LoadedPluginAssembly loaded)
+        LoadedPluginAssembly loaded,
+        PluginSettingsSnapshot? settingsOverride = null)
     {
-        var settings = ReadSettings(manifest.PluginId, loaded.Request.RootDirectory, manifest.SettingsSchema);
+        var settings = settingsOverride
+            ?? ReadSettings(manifest.PluginId, loaded.Request.RootDirectory, manifest.SettingsSchema);
         var configs = ConfigService.CurrentConfig.BackupConfigs.Select(PluginV3ModelMapper.ToSnapshot).ToArray();
         return new PluginActivationCandidate(
             manifest.PluginId,
@@ -244,8 +255,21 @@ public static class PluginV3PackageService
             parsed.Contract.EntryAssembly,
             parsed.Contract.EntryType,
             parsed.Contract.RequiredApi));
+        var schema = PluginSettingsSchema.Parse(
+            File.ReadAllBytes(Path.Combine(root, parsed.Contract.SettingsSchema)));
+        var validation = schema.Validate(ReadSettings(
+            parsed.Contract.PluginId,
+            root,
+            parsed.Contract.SettingsSchema));
+        if (!validation.IsValid)
+            throw new InvalidDataException("Plugin candidate settings do not satisfy the declared settings schema: "
+                                           + string.Join(",", validation.Issues.Select(issue => issue.Code)));
+
         var manager = new PluginRuntimeManager();
-        var candidate = BuildCandidate(parsed.Contract, loaded) with { Store = new ValidationActivationStore() };
+        var candidate = BuildCandidate(parsed.Contract, loaded, validation.NormalizedSettings) with
+        {
+            Store = new ValidationActivationStore()
+        };
         var result = await manager.ActivateAsync(candidate, cancellationToken).ConfigureAwait(false);
         if (!result.Success) throw new InvalidOperationException(
             "Plugin candidate activation validation failed: " + string.Join(",", result.Diagnostics.Select(value => value.Code)));
@@ -288,6 +312,71 @@ public static class PluginV3PackageService
         CancellationToken cancellationToken = default)
         => await Installer.ReadStateAsync(pluginId, cancellationToken).ConfigureAwait(false) is not null;
 
+    public static async ValueTask<PluginV3SettingsEditorData?> GetSettingsEditorDataAsync(
+        PluginId pluginId,
+        CancellationToken cancellationToken = default)
+    {
+        await InitializeAsync(cancellationToken).ConfigureAwait(false);
+        await Gate.WaitAsync(cancellationToken).ConfigureAwait(false);
+        try
+        {
+            var state = await Installer.ReadStateAsync(pluginId, cancellationToken).ConfigureAwait(false);
+            if (state is null) return null;
+            var root = GetCurrentVersionRoot(state);
+            var manifest = ReadManifest(root);
+            var schema = PluginSettingsSchema.Parse(
+                File.ReadAllBytes(Path.Combine(root, manifest.Contract.SettingsSchema)));
+            var validation = schema.Validate(ReadSettings(
+                pluginId,
+                root,
+                manifest.Contract.SettingsSchema));
+            return new PluginV3SettingsEditorData(schema, validation.NormalizedSettings);
+        }
+        finally { Gate.Release(); }
+    }
+
+    public static async ValueTask<PluginSettingsApplyResult> ApplySettingsAsync(
+        PluginId pluginId,
+        IReadOnlyDictionary<string, JsonElement> values,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(values);
+        await InitializeAsync(cancellationToken).ConfigureAwait(false);
+        await Gate.WaitAsync(cancellationToken).ConfigureAwait(false);
+        try
+        {
+            var state = await Installer.ReadStateAsync(pluginId, cancellationToken).ConfigureAwait(false)
+                ?? throw new InvalidOperationException("The plugin is not installed.");
+            var root = GetCurrentVersionRoot(state);
+            var manifest = ReadManifest(root);
+            var schema = PluginSettingsSchema.Parse(
+                File.ReadAllBytes(Path.Combine(root, manifest.Contract.SettingsSchema)));
+            var validation = schema.Validate(new PluginSettingsSnapshot(
+                pluginId,
+                values.ToDictionary(pair => pair.Key, pair => pair.Value.Clone(), StringComparer.Ordinal)));
+            if (!validation.IsValid) return new PluginSettingsApplyResult(validation, null);
+
+            var snapshot = PluginV3RuntimeService.Runtime.GetSnapshot(pluginId);
+            if (!PluginRuntimeModeService.IsSafeMode
+                && (snapshot.State == PluginRuntimeState.Active || EnabledIntent(pluginId)))
+            {
+                var transition = await ActivateInstalledWithoutLockAsync(
+                    state,
+                    replace: snapshot.State == PluginRuntimeState.Active,
+                    cancellationToken: cancellationToken,
+                    settingsOverride: validation.NormalizedSettings).ConfigureAwait(false);
+                return new PluginSettingsApplyResult(validation, transition);
+            }
+
+            // 禁用插件只保存已验证的静态设置；绝不能为了打开设置页而执行插件代码。
+            PersistInactiveSettings(pluginId, validation.NormalizedSettings);
+            return new PluginSettingsApplyResult(
+                validation,
+                PluginRuntimeTransitionResult.Completed(snapshot.State));
+        }
+        finally { Gate.Release(); }
+    }
+
     public static IReadOnlyList<InstalledPluginInfo> GetInstalledPluginInfos(
         CancellationToken cancellationToken = default)
     {
@@ -306,10 +395,10 @@ public static class PluginV3PackageService
                 result.Add(new InstalledPluginInfo
                 {
                     Id = pluginId.Value,
-                    Name = manifest.Contract.Name.Default,
+                    Name = Resolve(manifest.Contract.Name),
                     Version = state.CurrentVersion,
-                    Author = state.Provenance.ToString(),
-                    Description = manifest.Contract.Description.Default,
+                    Author = manifest.Author,
+                    Description = Resolve(manifest.Contract.Description),
                     InstallPath = directory,
                     IsEnabled = EnabledIntent(pluginId),
                     LoadError = PluginV3RuntimeService.Runtime.GetSnapshot(pluginId).LastError
@@ -330,6 +419,56 @@ public static class PluginV3PackageService
         }
         return result;
     }
+
+    public static IReadOnlyList<(PluginId PluginId, ConfigKindDeclaration Kind)> GetInstalledConfigKinds(
+        CancellationToken cancellationToken = default)
+    {
+        var result = new List<(PluginId, ConfigKindDeclaration)>();
+        if (!Directory.Exists(PluginsRoot)) return result;
+        foreach (var directory in Directory.EnumerateDirectories(PluginsRoot))
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            var state = ReadInstallState(directory);
+            if (state is null) continue;
+            try
+            {
+                var manifest = ReadManifest(GetCurrentVersionRoot(state));
+                result.AddRange(manifest.Contract.ConfigKinds.Select(kind => (state.PluginId, kind)));
+            }
+            catch (Exception ex)
+            {
+                LogService.LogWarning(
+                    $"Installed plugin Config Kind metadata could not be read from '{directory}': {ex.Message}",
+                    "PluginV3");
+            }
+        }
+        return result
+            .OrderBy(pair => pair.Item1.Value, StringComparer.Ordinal)
+            .ThenBy(pair => pair.Item2.Kind.KindId, StringComparer.Ordinal)
+            .ToArray();
+    }
+
+    private static void PersistInactiveSettings(PluginId pluginId, PluginSettingsSnapshot settings)
+    {
+        var typedSettings = ConfigService.CurrentConfig.GlobalSettings.Plugins.TypedSettings;
+        var hadPrevious = typedSettings.TryGetValue(pluginId.Value, out var previous);
+        typedSettings[pluginId.Value] = settings.Values.ToDictionary(
+            pair => pair.Key,
+            pair => pair.Value.Clone(),
+            StringComparer.Ordinal);
+        var save = ConfigService.SaveWithResult();
+        if (save.Success) return;
+
+        if (hadPrevious && previous is not null) typedSettings[pluginId.Value] = previous;
+        else typedSettings.Remove(pluginId.Value);
+        throw new IOException(save.ErrorMessage ?? "Plugin settings could not be saved.");
+    }
+
+    private static string GetCurrentVersionRoot(PluginInstallState state)
+        => Path.Combine(PluginsRoot, state.PluginId.Value, "versions", state.CurrentVersion);
+
+    private static string Resolve(LocalizedText text)
+        => I18n.PickBest(text.Translations, text.Default) ?? text.Default;
 
     public static async ValueTask<IReadOnlyList<InstalledPluginInfo>> GetInstalledPluginInfosAsync(
         CancellationToken cancellationToken = default)

@@ -7,6 +7,9 @@
 - 先以 `EnabledIntent=true` 且 code 已卸载的状态手动安装 MineRewind v3：完成提示和列表都必须为 Disabled；不得在安装过程中 Activate。
 - 显式启用后重启：Runtime 必须为 Active，日志不得出现 `0x8001010E`、`KeyboardAccelerator` 跨线程异常或“Plugin v3 initialization failed”；默认 hotkeys 应可见并可触发。
 - 重启后打开插件页并停留至少 30 秒：MineRewind 开关必须稳定保持 Enabled；不得闪烁、重复刷新或反复弹出 `runtime.already_active`，且只能存在一个 runtime session。
+- MineRewind 只要已安装（分别验证 Disabled 与 Active），新建配置和配置设置的类型列表均应显示随当前 Host 语言变化的“Minecraft Saves”/“Minecraft 存档”；创建后配置文件必须保存 `com.folderrewind.minerewind/minecraft-saves`，而不是把本地化显示文本当作身份。
+- 插件列表中的 MineRewind 描述应随中英文切换；点击设置应显示三个来自静态 Schema 的本地化布尔项。Disabled/Safe Mode 保存不得加载插件，Active 保存应事务化 Replace；重启后设置保持且失败时旧 session/settings 不变。
+- `Delete data...` 按钮、危险删除预览/确认/结果和 Minecraft 入门预设的进度、步骤结果、外部下载/启动确认必须完整本地化；中文界面不得出现 raw action ID 或本轮已知英文硬编码。
 - 分别以 `EnabledIntent=true/false` 放入真实 1.8.2 flat payload 后启动：主页、导航、键盘与 `Alt+F4` 在迁移全程必须响应。
 - 两种 intent 均应产生 `install-state.v1.json`、`versions/1.9.0`、`legacy-quarantine` 和 `plugins/.migration/com.folderrewind.minerewind.v2-v3.json`；journal 最终为 `Completed`，日志应包含每个迁移 phase。
 - 制造 hash/文件占用或取消失败：journal 必须为 `RecoveryRequired` 并带诊断；flat DLL 不执行，部分 quarantine move 要么完整回滚，要么保留可恢复 quarantine，不能静默丢失。
@@ -16,7 +19,7 @@
 
 - 从“插件商店”刷新 Official Catalog；断网后再次进入，确认已安装插件正常、目录显示离线缓存或明确诊断。
 - 通过 Manual Install 选择 `MineRewind-1.9.0.frplugin`，确认安装路径为 `plugins/com.folderrewind.minerewind/versions/1.9.0`，且默认 Disabled。
-- 确认包 SHA-256 为 `b0ed525bcf49dc22a7ee0ee04c07eda6242fe4efa52368758fc9ac406fc76b63`，包内包含 `fNbt.dll` 且不含 `FolderRewind.Plugin.Abstractions.dll`。
+- 确认包 SHA-256 为 `6fdcf3022058a3b8ddc5e1eeab95b7d9e500e49d3dc9db81ba588467c38b4d66`，包内包含 `fNbt.dll` 且不含 `FolderRewind.Plugin.Abstractions.dll`。
 - 尝试包含 `../`、大小写重复路径、Abstractions DLL 或高压缩 bomb 的测试包：均应在写入插件版本目录前拒绝。
 - 安装 Manual provenance 的包后模拟 Official Catalog 后台更新：必须拒绝覆盖。
 

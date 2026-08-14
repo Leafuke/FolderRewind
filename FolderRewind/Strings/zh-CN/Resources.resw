@@ -1393,16 +1393,19 @@
     <value>Minecraft 入门预设</value>
   </data>
   <data name="SettingsPage_MinecraftPresetDesc.Text" xml:space="preserve">
-    <value>为 Minecraft 玩家自动安装并启用 MineRewind，开启 KnotLink，并启动 KnotLink 服务端安装器。</value>
+    <value>安装并启用随软件提供的 MineRewind 插件，开启 KnotLink，并说明后续游戏内集成步骤。</value>
   </data>
   <data name="SettingsPage_MinecraftPresetSteps.Text" xml:space="preserve">
-    <value>将下载 MineRewind 插件、启用插件系统、开启 KnotLink，并自动运行 KnotLink 服务端安装器。</value>
+    <value>预设使用经过校验的内置 MineRewind 包。只有确定不可变的官方 URL 与 SHA-256 后，才会运行外部 KnotLink 安装器。</value>
   </data>
   <data name="SettingsPage_MinecraftPresetModReminder.Text" xml:space="preserve">
     <value>完成后还需要为 Minecraft 安装 MineBackup-Mod，才能在游戏内用指令调用存档时光机。</value>
   </data>
   <data name="SettingsPage_MinecraftPresetInstall.Content" xml:space="preserve">
     <value>一键安装</value>
+  </data>
+  <data name="SettingsPage_PluginDeleteData.Content" xml:space="preserve">
+    <value>删除数据...</value>
   </data>
   <data name="SettingsPage_CloudPreset.Text" xml:space="preserve">
     <value>云备份入门预设</value>
@@ -3248,6 +3251,58 @@ cmd=RESTORE;from=minebackup.mod;request_id=req-mr-restore-002;current_save=true;
   <data name="MinecraftOnboarding_KnotLinkInstallerStarted_Log" xml:space="preserve">
     <value>[MinecraftOnboarding] 已启动 KnotLink 服务端安装器：{0}</value>
   </data>
+  <data name="ConfigKind_CoreDefault_Name" xml:space="preserve"><value>标准文件夹</value></data>
+  <data name="ConfigKind_CoreDefault_Description" xml:space="preserve"><value>使用 FolderRewind 内置文件管线备份普通文件夹。</value></data>
+  <data name="ConfigKind_Encrypted_Name" xml:space="preserve"><value>加密标准文件夹</value></data>
+  <data name="ConfigKind_Encrypted_Description" xml:space="preserve"><value>创建使用 7-Zip 密码保护的标准文件夹配置。</value></data>
+  <data name="ConfigKind_Unknown_Name" xml:space="preserve"><value>未知配置类型</value></data>
+  <data name="ConfigKind_Unknown_Description" xml:space="preserve"><value>已为兼容性保留此配置类型，但其所有者当前不可用。</value></data>
+  <data name="Plugins_DeleteDataV3Only" xml:space="preserve"><value>只有 Plugin System v3 软件包支持删除插件数据。</value></data>
+  <data name="Plugins_DeleteDataConfirmationHeader" xml:space="preserve"><value>请准确输入：{0}</value></data>
+  <data name="Plugins_DeleteDataPreview" xml:space="preserve"><value>此操作将删除插件代码、{0} 项设置、{1} 个 Provider State 位置，以及 {2} 下的数据。另有 {3} 条历史记录引用插件拥有的 Artifact；这些备份 Artifact 会被保留，并在所有者缺失时保持 fail-closed。</value></data>
+  <data name="Plugins_DeleteDataTitle" xml:space="preserve"><value>卸载并删除插件数据</value></data>
+  <data name="Plugins_DeleteDataButton" xml:space="preserve"><value>删除数据</value></data>
+  <data name="Plugins_DeleteDataSuccess" xml:space="preserve"><value>已删除插件代码和列出的数据。</value></data>
+  <data name="Plugins_UninstallPreservedResult" xml:space="preserve"><value>已删除插件代码；保留了 {0} 项设置、{1} 个 Provider State 位置，以及 {2} 下的数据。</value></data>
+  <data name="Plugins_SettingsValidationFailed" xml:space="preserve"><value>以下设置无效：{0}</value></data>
+  <data name="Plugins_SettingsLoadFailed" xml:space="preserve"><value>无法加载插件设置：{0}</value></data>
+  <data name="Plugins_SettingsSaveFailed" xml:space="preserve"><value>无法应用插件设置：{0}</value></data>
+  <data name="Plugins_SettingsSaved" xml:space="preserve"><value>插件设置已应用。</value></data>
+  <data name="Plugins_InstallOutcomeNew" xml:space="preserve"><value>已安装 {0} {1}；在用户明确启用前将保持禁用。</value></data>
+  <data name="Plugins_InstallOutcomeUpdatedEnabled" xml:space="preserve"><value>已更新 {0} {1}；Enabled Intent 保持启用。</value></data>
+  <data name="Plugins_InstallOutcomeUpdatedDisabled" xml:space="preserve"><value>已更新 {0} {1}；Enabled Intent 保持禁用。</value></data>
+  <data name="PluginPreset_Progress_InstallMineRewind" xml:space="preserve"><value>正在安装经过校验的内置 MineRewind 包...</value></data>
+  <data name="PluginPreset_Progress_EnableMineRewind" xml:space="preserve"><value>正在启用 MineRewind...</value></data>
+  <data name="PluginPreset_Progress_EnableKnotLink" xml:space="preserve"><value>正在开启 KnotLink 集成...</value></data>
+  <data name="PluginPreset_Progress_KnotLinkNotice" xml:space="preserve"><value>正在检查 KnotLink 安装器可用性...</value></data>
+  <data name="PluginPreset_Progress_MineBackupReminder" xml:space="preserve"><value>正在准备游戏内集成提醒...</value></data>
+  <data name="PluginPreset_Step_InstallMineRewind" xml:space="preserve"><value>安装 MineRewind</value></data>
+  <data name="PluginPreset_Step_EnableMineRewind" xml:space="preserve"><value>启用 MineRewind</value></data>
+  <data name="PluginPreset_Step_EnableKnotLink" xml:space="preserve"><value>启用 KnotLink</value></data>
+  <data name="PluginPreset_Step_KnotLinkNotice" xml:space="preserve"><value>KnotLink 安装器</value></data>
+  <data name="PluginPreset_Step_MineBackupReminder" xml:space="preserve"><value>游戏内集成</value></data>
+  <data name="PluginPreset_StepResult" xml:space="preserve"><value>{0}：{1}</value></data>
+  <data name="PluginPreset_Installed" xml:space="preserve"><value>已安装 {0} {1}。</value></data>
+  <data name="PluginPreset_Enabled" xml:space="preserve"><value>已启用 {0}。</value></data>
+  <data name="PluginPreset_KnotLinkConfigured" xml:space="preserve"><value>已配置 KnotLink Host 集成。</value></data>
+  <data name="PluginPreset_ExternalDownloadDeclined" xml:space="preserve"><value>未确认下载外部程序。</value></data>
+  <data name="PluginPreset_ExternalHashMismatch" xml:space="preserve"><value>外部安装器与策展记录的 SHA-256 不一致。</value></data>
+  <data name="PluginPreset_ExternalLaunchDeclined" xml:space="preserve"><value>未确认启动外部安装器。</value></data>
+  <data name="PluginPreset_ExternalStarted" xml:space="preserve"><value>已启动 {0}。</value></data>
+  <data name="PluginPreset_Notice_KnotLinkCuration" xml:space="preserve"><value>在确定不可变的官方 URL 与 SHA-256 之前，不会运行 KnotLink 外部安装器。</value></data>
+  <data name="PluginPreset_Notice_MineBackupReminder" xml:space="preserve"><value>如需热一致性，请安装兼容的游戏内 Mine 备份集成；完整原始备份仍可降级完成并记录警告。</value></data>
+  <data name="PluginPreset_ConsentDownloadTitle" xml:space="preserve"><value>下载 {0}？</value></data>
+  <data name="PluginPreset_ConsentDownloadContent" xml:space="preserve"><value>官方 URL：
+{0}
+
+预期 SHA-256：
+{1}</value></data>
+  <data name="PluginPreset_ConsentDownloadButton" xml:space="preserve"><value>下载</value></data>
+  <data name="PluginPreset_ConsentLaunchTitle" xml:space="preserve"><value>启动 {0} 安装器？</value></data>
+  <data name="PluginPreset_ConsentLaunchContent" xml:space="preserve"><value>下载的文件已通过 SHA-256 校验。
+
+{0}</value></data>
+  <data name="PluginPreset_ConsentLaunchButton" xml:space="preserve"><value>启动</value></data>
   <data name="CloudOnboarding_Title" xml:space="preserve">
     <value>云备份入门预设</value>
   </data>

@@ -44,7 +44,7 @@ public static class PluginPresetService
         foreach (var action in preset.Actions)
         {
             cancellationToken.ThrowIfCancellationRequested();
-            progress?.Report(action.Id);
+            progress?.Report(GetProgressMessage(action.Id));
             try
             {
                 results.Add(await ExecuteActionAsync(action, consent, cancellationToken).ConfigureAwait(false));
@@ -68,6 +68,28 @@ public static class PluginPresetService
     public static string MinecraftEnhancedExperiencePath => Path.Combine(
         AppContext.BaseDirectory, "Assets", "PluginPresets", "minecraft-enhanced-experience.v1.json");
 
+    public static string GetActionDisplayName(string actionId)
+        => actionId switch
+        {
+            "install-minerewind" => I18n.GetString("PluginPreset_Step_InstallMineRewind"),
+            "enable-minerewind" => I18n.GetString("PluginPreset_Step_EnableMineRewind"),
+            "enable-knotlink-host" => I18n.GetString("PluginPreset_Step_EnableKnotLink"),
+            "knotlink-installer-awaits-curation" => I18n.GetString("PluginPreset_Step_KnotLinkNotice"),
+            "mine-backup-reminder" => I18n.GetString("PluginPreset_Step_MineBackupReminder"),
+            _ => actionId
+        };
+
+    private static string GetProgressMessage(string actionId)
+        => actionId switch
+        {
+            "install-minerewind" => I18n.GetString("PluginPreset_Progress_InstallMineRewind"),
+            "enable-minerewind" => I18n.GetString("PluginPreset_Progress_EnableMineRewind"),
+            "enable-knotlink-host" => I18n.GetString("PluginPreset_Progress_EnableKnotLink"),
+            "knotlink-installer-awaits-curation" => I18n.GetString("PluginPreset_Progress_KnotLinkNotice"),
+            "mine-backup-reminder" => I18n.GetString("PluginPreset_Progress_MineBackupReminder"),
+            _ => actionId
+        };
+
     private static async ValueTask<PluginPresetStepResult> ExecuteActionAsync(
         PresetAction action,
         IPluginPresetConsentBroker consent,
@@ -84,26 +106,29 @@ public static class PluginPresetService
                     cancellationToken).ConfigureAwait(false);
                 if (!StringComparer.Ordinal.Equals(install.State.PluginId.Value, action.PluginId))
                     throw new InvalidDataException("Preset PluginId does not match bundled package.");
-                return Success(action, $"Installed {install.State.PluginId} {install.State.CurrentVersion}.");
+                return Success(action, I18n.Format(
+                    "PluginPreset_Installed",
+                    install.State.PluginId,
+                    install.State.CurrentVersion));
             case "enablePlugin":
                 var transition = await PluginV3PackageService.SetEnabledAsync(
                     new PluginId(action.PluginId!), true, cancellationToken).ConfigureAwait(false);
                 return transition.Success
-                    ? Success(action, $"Enabled {action.PluginId}.")
+                    ? Success(action, I18n.Format("PluginPreset_Enabled", action.PluginId!))
                     : new PluginPresetStepResult(action.Id, PluginPresetStepOutcome.Failed,
                         string.Join(",", transition.Diagnostics.Select(value => value.Code)));
             case "setHostFeature" when action.Feature == "knotLink":
                 ConfigService.CurrentConfig.GlobalSettings.EnableKnotLink = action.Enabled;
                 ConfigService.Save();
                 if (action.Enabled) KnotLinkService.Initialize();
-                return Success(action, "KnotLink Host integration configured.");
+                return Success(action, I18n.GetString("PluginPreset_KnotLinkConfigured"));
             case "setupExternalIntegration":
                 return await DownloadAndLaunchAsync(action, consent, cancellationToken).ConfigureAwait(false);
             case "notice":
                 return new PluginPresetStepResult(
                     action.Id,
                     action.Severity == "warning" ? PluginPresetStepOutcome.SuccessWithWarnings : PluginPresetStepOutcome.Success,
-                    action.Message!);
+                    I18n.GetString(action.MessageResourceKey!));
             default:
                 throw new InvalidDataException($"Preset action type '{action.Type}' is not allowed.");
         }
@@ -116,19 +141,25 @@ public static class PluginPresetService
     {
         if (!await consent.ConfirmExternalDownloadAsync(
                 action.Name!, action.Url!, action.Sha256!, cancellationToken).ConfigureAwait(false))
-            return new PluginPresetStepResult(action.Id, PluginPresetStepOutcome.Blocked, "External download was not confirmed.");
+            return new PluginPresetStepResult(
+                action.Id,
+                PluginPresetStepOutcome.Blocked,
+                I18n.GetString("PluginPreset_ExternalDownloadDeclined"));
         var directory = Path.Combine(Path.GetTempPath(), "FolderRewind", "preset-downloads");
         Directory.CreateDirectory(directory);
         var path = Path.Combine(directory, action.FileName!);
         var bytes = await Client.GetByteArrayAsync(action.Url!, cancellationToken).ConfigureAwait(false);
         var hash = Convert.ToHexString(SHA256.HashData(bytes)).ToLowerInvariant();
         if (!StringComparer.OrdinalIgnoreCase.Equals(hash, action.Sha256))
-            throw new InvalidDataException("External installer SHA-256 does not match curated facts.");
+            throw new InvalidDataException(I18n.GetString("PluginPreset_ExternalHashMismatch"));
         await File.WriteAllBytesAsync(path, bytes, cancellationToken).ConfigureAwait(false);
         if (!await consent.ConfirmExternalLaunchAsync(action.Name!, path, cancellationToken).ConfigureAwait(false))
-            return new PluginPresetStepResult(action.Id, PluginPresetStepOutcome.Blocked, "External launch was not confirmed.");
+            return new PluginPresetStepResult(
+                action.Id,
+                PluginPresetStepOutcome.Blocked,
+                I18n.GetString("PluginPreset_ExternalLaunchDeclined"));
         Process.Start(new ProcessStartInfo { FileName = path, UseShellExecute = true, Verb = "open" });
-        return Success(action, $"Started {action.Name}.");
+        return Success(action, I18n.Format("PluginPreset_ExternalStarted", action.Name!));
     }
 
     private static PresetDocument Parse(string path)
@@ -165,7 +196,8 @@ public static class PluginPresetService
                 || Path.GetFileName(action.FileName) != action.FileName) throw new InvalidDataException("External integration identity is invalid.");
             RequireHash(action.Sha256);
         }
-        if (action.Type == "notice" && string.IsNullOrWhiteSpace(action.Message)) throw new InvalidDataException("Notice message is required.");
+        if (action.Type == "notice" && string.IsNullOrWhiteSpace(action.MessageResourceKey))
+            throw new InvalidDataException("Notice messageResourceKey is required.");
     }
 
     private static void RequireHashAndRelativePath(string? hash, string? path)
@@ -202,6 +234,6 @@ public static class PluginPresetService
         public string? Url { get; set; }
         public string? FileName { get; set; }
         public string? Severity { get; set; }
-        public string? Message { get; set; }
+        public string? MessageResourceKey { get; set; }
     }
 }

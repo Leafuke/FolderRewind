@@ -76,9 +76,11 @@
                 <StackPanel Spacing="8">
                     <TextBlock x:Uid="ConfigSettingsDialog_ConfigType" FontWeight="SemiBold"/>
                     <ComboBox ItemsSource="{x:Bind ConfigTypesView, Mode=OneWay}"
-                             SelectedItem="{x:Bind SelectedConfigType, Mode=TwoWay}"
+                             SelectedItem="{x:Bind SelectedConfigKind, Mode=TwoWay}"
+                             DisplayMemberPath="DisplayName"
+                             AutomationProperties.AutomationId="ConfigSettingsKindPicker"
                              HorizontalAlignment="Stretch" />
-                    <TextBlock x:Uid="ConfigSettingsDialog_ConfigTypeDesc" Style="{StaticResource CaptionTextBlockStyle}" Foreground="{ThemeResource TextFillColorSecondaryBrush}" TextWrapping="Wrap"/>
+                    <TextBlock x:Name="ConfigKindDescriptionText" Style="{StaticResource CaptionTextBlockStyle}" Foreground="{ThemeResource TextFillColorSecondaryBrush}" TextWrapping="Wrap"/>
                 </StackPanel>
 
                 <StackPanel Spacing="8">

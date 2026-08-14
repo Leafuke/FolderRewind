@@ -216,4 +216,30 @@ namespace FolderRewind.Models
             set => SetProperty(ref _updateDownloadUrl, value);
         }
     }
+
+    /// <summary>
+    /// Host 投影到配置类型选择器的稳定选项。显示文本可以随语言变化，
+    /// 持久化时始终使用 Config Kind 身份，避免把本地化名称误当成标识符。
+    /// </summary>
+    public sealed class PluginConfigKindOption
+    {
+        public string DisplayName { get; init; } = string.Empty;
+        public string Description { get; init; } = string.Empty;
+        public ConfigKindReference Kind { get; init; } = new();
+        public string LegacyConfigType { get; init; } = "Default";
+        public string RequiredPluginId { get; init; } = string.Empty;
+        public bool IsEncrypted { get; init; }
+        public bool SupportsLegacyBatchCreation { get; init; }
+
+        public string SelectionValue => IsEncrypted ? "Encrypted" : LegacyConfigType;
+
+        public string StableKey => IsEncrypted
+            ? "folderrewind.core/encrypted"
+            : $"{Kind.OwnerId}/{Kind.KindId}";
+
+        public ConfigKindReference CreateReference()
+            => new() { OwnerId = Kind.OwnerId, KindId = Kind.KindId };
+
+        public override string ToString() => DisplayName;
+    }
 }

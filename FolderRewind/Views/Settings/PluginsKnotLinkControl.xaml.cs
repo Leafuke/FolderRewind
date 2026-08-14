@@ -198,7 +198,11 @@ namespace FolderRewind.Views.Settings
                     v3Id,
                     deleteData: false,
                     confirmation: null);
-                result = (true, $"Plugin code removed. Settings={preview.SettingsCount}, provider states={preview.ProviderStateLocationCount}, data={preview.DataPath}. Data was preserved.");
+                result = (true, I18n.Format(
+                    "Plugins_UninstallPreservedResult",
+                    preview.SettingsCount,
+                    preview.ProviderStateLocationCount,
+                    preview.DataPath));
             }
             else
             {
@@ -224,29 +228,34 @@ namespace FolderRewind.Views.Settings
             var pluginId = new FolderRewind.Plugin.Abstractions.PluginId(plugin.Id);
             if (!await FolderRewind.Services.Plugins.V3.PluginV3PackageService.IsInstalledAsync(pluginId))
             {
-                NotificationService.ShowWarning("Delete-data is available only for Plugin System v3 packages.");
+                NotificationService.ShowWarning(I18n.GetString("Plugins_DeleteDataV3Only"));
                 return;
             }
 
             var preview = await FolderRewind.Services.Plugins.V3.PluginV3PackageService.PreviewUninstallAsync(pluginId);
             var confirmation = new TextBox
             {
-                Header = $"Type exactly: {preview.RequiredConfirmation}",
+                Header = I18n.Format("Plugins_DeleteDataConfirmationHeader", preview.RequiredConfirmation),
                 PlaceholderText = preview.RequiredConfirmation
             };
             var content = new StackPanel { Spacing = 8 };
             content.Children.Add(new TextBlock
             {
-                Text = $"This removes code, {preview.SettingsCount} setting(s), {preview.ProviderStateLocationCount} provider-state location(s), and data under {preview.DataPath}. {preview.AffectedHistoryItemIds.Count} History item(s) reference plugin-owned artifacts; those backup artifacts are retained and will fail closed if their owner is absent.",
+                Text = I18n.Format(
+                    "Plugins_DeleteDataPreview",
+                    preview.SettingsCount,
+                    preview.ProviderStateLocationCount,
+                    preview.DataPath,
+                    preview.AffectedHistoryItemIds.Count),
                 TextWrapping = TextWrapping.Wrap
             });
             content.Children.Add(confirmation);
             var dialog = new ContentDialog
             {
-                Title = "Uninstall and delete plugin data",
+                Title = I18n.GetString("Plugins_DeleteDataTitle"),
                 Content = content,
-                PrimaryButtonText = "Delete data",
-                CloseButtonText = "Cancel",
+                PrimaryButtonText = I18n.GetString("Plugins_DeleteDataButton"),
+                CloseButtonText = I18n.GetString("Common_Cancel"),
                 DefaultButton = ContentDialogButton.Close,
                 XamlRoot = XamlRoot
             };
@@ -258,7 +267,7 @@ namespace FolderRewind.Views.Settings
                     pluginId,
                     deleteData: true,
                     confirmation: confirmation.Text);
-                NotificationService.ShowSuccess("Plugin code and listed data were removed.");
+                NotificationService.ShowSuccess(I18n.GetString("Plugins_DeleteDataSuccess"));
             }
             catch (Exception ex)
             {
@@ -372,6 +381,12 @@ namespace FolderRewind.Views.Settings
             if (sender is not Button btn || btn.Tag is not InstalledPluginInfo plugin) return;
 
             var rl = ResourceLoader.GetForViewIndependentUse();
+            var pluginId = new FolderRewind.Plugin.Abstractions.PluginId(plugin.Id);
+            if (await FolderRewind.Services.Plugins.V3.PluginV3PackageService.IsInstalledAsync(pluginId))
+            {
+                await ShowPluginV3SettingsAsync(plugin, pluginId);
+                return;
+            }
 
             var defs = PluginService.GetSettingsDefinitions(plugin.Id);
             if (defs == null || defs.Count == 0)
@@ -513,6 +528,66 @@ namespace FolderRewind.Views.Settings
                 plugin.Id,
                 saveResult.PreviousSettings,
                 saveResult.CurrentSettings);
+        }
+
+        private async Task ShowPluginV3SettingsAsync(
+            InstalledPluginInfo plugin,
+            FolderRewind.Plugin.Abstractions.PluginId pluginId)
+        {
+            try
+            {
+                var data = await FolderRewind.Services.Plugins.V3.PluginV3PackageService
+                    .GetSettingsEditorDataAsync(pluginId);
+                if (data == null || data.Schema.Settings.Count == 0)
+                {
+                    await ShowMessageAsync(
+                        I18n.GetString("Plugins_SettingsTitle"),
+                        I18n.GetString("Plugins_NoSettings"));
+                    return;
+                }
+
+                var dialog = new PluginV3SettingsDialog(plugin.Name, data, XamlRoot);
+                if (await dialog.ShowAsync() != ContentDialogResult.Primary
+                    || dialog.ResultSettings is null)
+                {
+                    return;
+                }
+
+                var apply = await FolderRewind.Services.Plugins.V3.PluginV3PackageService.ApplySettingsAsync(
+                    pluginId,
+                    dialog.ResultSettings);
+                if (!apply.Success)
+                {
+                    var diagnostics = apply.Validation.Issues.Select(issue => issue.Code)
+                        .Concat(apply.Transition?.Diagnostics.Select(value => value.Code) ?? Array.Empty<string>());
+                    await ShowMessageAsync(
+                        I18n.GetString("Common_Failed"),
+                        I18n.Format("Plugins_SettingsSaveFailed", string.Join(", ", diagnostics)));
+                    return;
+                }
+
+                NotificationService.ShowSuccess(I18n.GetString("Plugins_SettingsSaved"));
+                PluginService.RefreshInstalledList();
+            }
+            catch (Exception ex)
+            {
+                await ShowMessageAsync(
+                    I18n.GetString("Common_Failed"),
+                    I18n.Format("Plugins_SettingsLoadFailed", ex.Message));
+            }
+        }
+
+        private async Task ShowMessageAsync(string title, string content)
+        {
+            var dialog = new ContentDialog
+            {
+                Title = title,
+                Content = content,
+                CloseButtonText = I18n.GetString("Common_Ok"),
+                XamlRoot = XamlRoot
+            };
+            ThemeService.ApplyThemeToDialog(dialog);
+            await dialog.ShowAsync();
         }
 
         private void OnKnotLinkToggled(object sender, RoutedEventArgs e)

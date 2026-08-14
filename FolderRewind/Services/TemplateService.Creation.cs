@@ -48,7 +48,20 @@ namespace FolderRewind.Services
             // “模板偏好加密”和“这次显式选了加密”都算数，但真正的运行时类型仍然走 Default + IsEncrypted。
             var useEncrypted = string.Equals(requestedType, "Encrypted", StringComparison.OrdinalIgnoreCase) || template.IsEncrypted;
             var effectiveType = useEncrypted ? "Default" : requestedType;
-            if (!IsConfigTypeAvailable(effectiveType, out var unavailableReason))
+            var kindOptions = PluginService.GetAllSupportedConfigKinds(includeEncrypted: true);
+            var hasExplicitOverride = !string.IsNullOrWhiteSpace(configTypeOverride);
+            var selectedKind = !hasExplicitOverride
+                ? kindOptions.FirstOrDefault(option =>
+                    string.Equals(option.Kind.OwnerId, template.Kind?.OwnerId, StringComparison.OrdinalIgnoreCase)
+                    && string.Equals(option.Kind.KindId, template.Kind?.KindId, StringComparison.OrdinalIgnoreCase)
+                    && option.IsEncrypted == useEncrypted)
+                : null;
+            selectedKind ??= kindOptions.FirstOrDefault(option => string.Equals(
+                option.SelectionValue,
+                requestedType,
+                StringComparison.OrdinalIgnoreCase));
+
+            if (selectedKind is null && !IsConfigTypeAvailable(effectiveType, out var unavailableReason))
             {
                 return new CreateConfigFromTemplateResult
                 {
@@ -57,11 +70,21 @@ namespace FolderRewind.Services
                 };
             }
 
+            var persistedKind = selectedKind?.CreateReference() ?? new ConfigKindReference
+            {
+                OwnerId = template.Kind?.OwnerId ?? FolderRewind.Plugin.Runtime.Configuration.ConfigSchema.CoreOwnerId,
+                KindId = template.Kind?.KindId ?? FolderRewind.Plugin.Runtime.Configuration.ConfigSchema.CoreDefaultKindId
+            };
+
             var config = new BackupConfig
             {
                 Name = finalName,
                 DestinationPath = ConfigService.BuildDefaultDestinationPath(finalName),
                 ConfigType = effectiveType,
+                Kind = persistedKind,
+                RequiredPluginId = selectedKind?.RequiredPluginId
+                    ?? template.RequiredPluginIds.FirstOrDefault()
+                    ?? string.Empty,
                 IsEncrypted = useEncrypted,
                 IconGlyph = string.IsNullOrWhiteSpace(template.IconGlyph) ? "\uE8B7" : template.IconGlyph,
                 SummaryText = string.Empty,

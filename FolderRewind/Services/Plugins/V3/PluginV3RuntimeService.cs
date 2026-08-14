@@ -31,7 +31,7 @@ public static class PluginV3RuntimeService
         if (result.Success && manifest is not null)
         {
             Manifests[candidate.PluginId] = manifest;
-            TryRegisterHotkeys(candidate.PluginId, manifest.Name.Default);
+            TryRegisterHotkeys(candidate.PluginId, Resolve(manifest.Name));
         }
         return result;
     }
@@ -45,7 +45,7 @@ public static class PluginV3RuntimeService
         {
             Manifests[candidate.PluginId] = candidate.Manifest;
             TryUnregisterHotkeys(candidate.PluginId);
-            TryRegisterHotkeys(candidate.PluginId, candidate.Manifest.Name.Default);
+            TryRegisterHotkeys(candidate.PluginId, Resolve(candidate.Manifest.Name));
         }
         return result;
     }
@@ -81,6 +81,9 @@ public static class PluginV3RuntimeService
 
     public static IReadOnlyList<PluginId> GetActivePlugins()
         => Manifests.Keys.Where(IsActive).OrderBy(value => value.Value, StringComparer.Ordinal).ToArray();
+
+    private static string Resolve(LocalizedText text)
+        => I18n.PickBest(text.Translations, text.Default) ?? text.Default;
 
     private static void TryRegisterHotkeys(PluginId pluginId, string pluginName)
     {

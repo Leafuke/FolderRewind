@@ -201,37 +201,5 @@ namespace FolderRewind.Services.Plugins
             return results;
         }
 
-        /// <summary>
-        /// 获取所有已加载插件支持的配置类型
-        /// </summary>
-        public static IReadOnlyList<string> GetAllSupportedConfigTypes()
-        {
-            if (!IsPluginSystemEnabled()) return Array.Empty<string>();
-
-            var types = new HashSet<string>(StringComparer.OrdinalIgnoreCase) { "Default" };
-
-            foreach (var plugin in GetEnabledLoadedPluginsSnapshot())
-            {
-                try
-                {
-                    var pluginTypes = plugin.GetSupportedConfigTypes();
-                    if (pluginTypes != null)
-                    {
-                        foreach (var t in pluginTypes)
-                        {
-                            if (!string.IsNullOrWhiteSpace(t))
-                                types.Add(t);
-                        }
-                    }
-                }
-                catch (Exception ex)
-                {
-                    LogService.LogError(I18n.Format("PluginService_GetSupportedConfigTypesFailed", plugin.Manifest.Id, ex.Message), "PluginService", ex);
-                }
-            }
-
-            return types.ToList();
-        }
-
     }
 }

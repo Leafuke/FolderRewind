@@ -236,24 +236,65 @@ internal sealed class PluginV3ActivationStore : IPluginActivationStore
     {
         cancellationToken.ThrowIfCancellationRequested();
         var settings = ConfigService.CurrentConfig.GlobalSettings.Plugins;
-        settings.TypedSettings[commit.PluginId.Value] = commit.Settings.Values
-            .ToDictionary(pair => pair.Key, pair => pair.Value.Clone(), StringComparer.Ordinal);
-        foreach (var patch in commit.ProviderStatePatches)
+        var hadPreviousSettings = settings.TypedSettings.TryGetValue(commit.PluginId.Value, out var previousSettings);
+        var stateRollbacks = new List<StateRollback>();
+        try
         {
-            var config = ConfigService.CurrentConfig.BackupConfigs.Single(value =>
-                string.Equals(value.Id, patch.Location.ConfigId, StringComparison.OrdinalIgnoreCase));
-            var container = patch.Location.FolderId.HasValue
-                ? config.SourceFolders.Single(folder =>
-                    Guid.TryParse(folder.Id, out var id) && id == patch.Location.FolderId.Value).ProviderStates
-                : config.ProviderStates;
-            container[patch.StateOwnerId.Value] = new ProviderStatePayload
+            settings.TypedSettings[commit.PluginId.Value] = commit.Settings.Values
+                .ToDictionary(pair => pair.Key, pair => pair.Value.Clone(), StringComparer.Ordinal);
+            foreach (var patch in commit.ProviderStatePatches)
             {
-                SchemaVersion = patch.SchemaVersion,
-                Data = patch.Data.Clone()
-            };
-            config.ConfigRevision = Guid.NewGuid().ToString("N");
+                var config = ConfigService.CurrentConfig.BackupConfigs.Single(value =>
+                    string.Equals(value.Id, patch.Location.ConfigId, StringComparison.OrdinalIgnoreCase));
+                var container = patch.Location.FolderId.HasValue
+                    ? config.SourceFolders.Single(folder =>
+                        Guid.TryParse(folder.Id, out var id) && id == patch.Location.FolderId.Value).ProviderStates
+                    : config.ProviderStates;
+                var hadPreviousState = container.TryGetValue(patch.StateOwnerId.Value, out var previousState);
+                stateRollbacks.Add(new StateRollback(
+                    config,
+                    container,
+                    patch.StateOwnerId.Value,
+                    hadPreviousState,
+                    previousState,
+                    config.ConfigRevision));
+                container[patch.StateOwnerId.Value] = new ProviderStatePayload
+                {
+                    SchemaVersion = patch.SchemaVersion,
+                    Data = patch.Data.Clone()
+                };
+                config.ConfigRevision = Guid.NewGuid().ToString("N");
+            }
+
+            var save = ConfigService.SaveWithResult();
+            if (!save.Success)
+                throw new IOException(save.ErrorMessage ?? "Plugin activation state could not be saved.");
+            return ValueTask.CompletedTask;
         }
-        ConfigService.Save();
-        return ValueTask.CompletedTask;
+        catch
+        {
+            // 激活事务失败时恢复内存镜像，确保旧 session 与旧持久化状态仍然一致。
+            if (hadPreviousSettings && previousSettings is not null)
+                settings.TypedSettings[commit.PluginId.Value] = previousSettings;
+            else
+                settings.TypedSettings.Remove(commit.PluginId.Value);
+            foreach (var rollback in stateRollbacks.AsEnumerable().Reverse())
+            {
+                if (rollback.HadPreviousState && rollback.PreviousState is not null)
+                    rollback.Container[rollback.StateOwnerId] = rollback.PreviousState;
+                else
+                    rollback.Container.Remove(rollback.StateOwnerId);
+                rollback.Config.ConfigRevision = rollback.ConfigRevision;
+            }
+            throw;
+        }
     }
+
+    private sealed record StateRollback(
+        BackupConfig Config,
+        Dictionary<string, ProviderStatePayload> Container,
+        string StateOwnerId,
+        bool HadPreviousState,
+        ProviderStatePayload? PreviousState,
+        string ConfigRevision);
 }

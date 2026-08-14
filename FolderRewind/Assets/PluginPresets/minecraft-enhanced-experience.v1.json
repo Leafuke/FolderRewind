@@ -8,7 +8,7 @@
       "type": "installBundledPlugin",
       "pluginId": "com.folderrewind.minerewind",
       "packagePath": "Assets/Plugins/MineRewind-1.9.0.frplugin",
-      "sha256": "b0ed525bcf49dc22a7ee0ee04c07eda6242fe4efa52368758fc9ac406fc76b63"
+      "sha256": "6fdcf3022058a3b8ddc5e1eeab95b7d9e500e49d3dc9db81ba588467c38b4d66"
     },
     {
       "id": "enable-minerewind",
@@ -25,13 +25,13 @@
       "id": "knotlink-installer-awaits-curation",
       "type": "notice",
       "severity": "warning",
-      "message": "KnotLink external installer is not executed until an immutable official URL and SHA-256 have been curated."
+      "messageResourceKey": "PluginPreset_Notice_KnotLinkCuration"
     },
     {
       "id": "mine-backup-reminder",
       "type": "notice",
       "severity": "information",
-      "message": "For hot consistency, install a compatible in-game Mine backup integration. Raw full backup remains available with warnings."
+      "messageResourceKey": "PluginPreset_Notice_MineBackupReminder"
     }
   ]
 }

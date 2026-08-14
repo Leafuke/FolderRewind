@@ -52,29 +52,24 @@ namespace FolderRewind.Views
 
         // 绑定视图（避免 MSIX + Trim 下 WinRT 对自定义泛型集合投影异常）
         public ObservableCollection<object> ConfigTypesView { get; } = new();
+        private PluginConfigKindOption? _selectedConfigKind;
 
-        public string SelectedConfigType
+        public PluginConfigKindOption? SelectedConfigKind
         {
-            get
-            {
-                if (Config == null) return "Default";
-                return string.IsNullOrWhiteSpace(Config.ConfigType) ? "Default" : Config.ConfigType;
-            }
+            get => _selectedConfigKind;
             set
             {
-                if (Config == null) return;
-                if (string.IsNullOrWhiteSpace(value))
-                {
-                    // ComboBox 初始化 ItemsSource/SelectedItem 时可能短暂回写 null；这不是用户选择。
-                    return;
-                }
+                if (Config == null || value == null) return;
 
-                if (string.Equals(Config.ConfigType, value, StringComparison.OrdinalIgnoreCase))
+                if (string.Equals(_selectedConfigKind?.StableKey, value.StableKey, StringComparison.OrdinalIgnoreCase))
                 {
                     return;
                 }
 
-                Config.ConfigType = value;
+                _selectedConfigKind = value;
+                // 配置类型名称只用于显示；实际持久化的是稳定 Config Kind 身份。
+                PluginService.ApplyConfigKind(Config, value, applyEncryption: false);
+                if (ConfigKindDescriptionText != null) ConfigKindDescriptionText.Text = value.Description;
                 ViewModel?.RefreshBackupScopeOptions();
                 if (_isDialogReady)
                 {
@@ -154,32 +149,11 @@ namespace FolderRewind.Views
             // 应用当前主题到对话框
             ThemeService.ApplyThemeToDialog(this);
 
-            ConfigTypesView.Clear();
-            foreach (var t in PluginService.GetAllSupportedConfigTypes())
-            {
-                if (string.Equals(t, "Encrypted", StringComparison.OrdinalIgnoreCase))
-                {
-                    continue;
-                }
-                ConfigTypesView.Add(t);
-            }
-
-            // 确保 "Default" 始终存在（插件系统未启用时列表可能为空）
-            if (!ConfigTypesView.OfType<string>().Any(t => string.Equals(t, "Default", StringComparison.OrdinalIgnoreCase)))
-            {
-                ConfigTypesView.Insert(0, "Default");
-            }
-
             if (string.Equals(Config.ConfigType, "Encrypted", StringComparison.OrdinalIgnoreCase))
             {
                 Config.ConfigType = "Default";
             }
-
-            // 如果当前类型不在列表里，也允许展示出来（避免旧配置类型丢失）
-            if (!ConfigTypesView.OfType<string>().Any(t => string.Equals(t, Config.ConfigType, StringComparison.OrdinalIgnoreCase)))
-            {
-                ConfigTypesView.Add(Config.ConfigType);
-            }
+            RefreshConfigKindOptions();
 
             IconGrid.ItemsSource = IconCatalog.ConfigIconGlyphs;
             IconGrid.SelectedItem = IconCatalog.ConfigIconGlyphs.FirstOrDefault(i => i == Config.IconGlyph) ?? IconCatalog.ConfigIconGlyphs.First();
@@ -305,17 +279,7 @@ namespace FolderRewind.Views
                 Config.ConfigType = "Default";
             }
 
-            // Reset ConfigTypesView
-            ConfigTypesView.Clear();
-            foreach (var t in PluginService.GetAllSupportedConfigTypes())
-            {
-                if (!string.Equals(t, "Encrypted", StringComparison.OrdinalIgnoreCase))
-                    ConfigTypesView.Add(t);
-            }
-            if (!ConfigTypesView.OfType<string>().Any(t => string.Equals(t, "Default", StringComparison.OrdinalIgnoreCase)))
-                ConfigTypesView.Insert(0, "Default");
-            if (!ConfigTypesView.OfType<string>().Any(t => string.Equals(t, Config.ConfigType, StringComparison.OrdinalIgnoreCase)))
-                ConfigTypesView.Add(Config.ConfigType);
+            RefreshConfigKindOptions();
 
             // Reset icon grid
             IconGrid.ItemsSource = IconCatalog.ConfigIconGlyphs;
@@ -345,6 +309,25 @@ namespace FolderRewind.Views
 
             RebuildBackupScopeParameterPanel();
             UpdateCloudBindings();
+            Bindings.Update();
+        }
+
+        private void RefreshConfigKindOptions()
+        {
+            ConfigTypesView.Clear();
+            var options = PluginService.GetAllSupportedConfigKinds();
+            foreach (var option in options) ConfigTypesView.Add(option);
+
+            var selected = PluginService.ResolveConfigKindOption(Config);
+            var matching = options.FirstOrDefault(option =>
+                string.Equals(option.StableKey, selected.StableKey, StringComparison.OrdinalIgnoreCase));
+            if (matching is null)
+            {
+                ConfigTypesView.Add(selected);
+                matching = selected;
+            }
+            _selectedConfigKind = matching;
+            if (ConfigKindDescriptionText != null) ConfigKindDescriptionText.Text = matching.Description;
             Bindings.Update();
         }
 

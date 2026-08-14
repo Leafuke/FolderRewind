@@ -26,7 +26,12 @@ namespace FolderRewind.Services
                     new InteractiveExternalInstallerConsent(),
                     progress,
                     ct);
-                var message = string.Join(Environment.NewLine, result.Steps.Select(value => $"{value.ActionId}: {value.Message}"));
+                var message = string.Join(
+                    Environment.NewLine,
+                    result.Steps.Select(value => I18n.Format(
+                        "PluginPreset_StepResult",
+                        PluginPresetService.GetActionDisplayName(value.ActionId),
+                        value.Message)));
                 if (result.Success) NotificationService.ShowSuccess(message, I18n.GetString("MinecraftOnboarding_Title"), 8000);
                 else NotificationService.ShowError(message, I18n.GetString("MinecraftOnboarding_Title"));
                 return new MinecraftOnboardingResult
@@ -51,14 +56,14 @@ namespace FolderRewind.Services
         {
             public ValueTask<bool> ConfirmExternalDownloadAsync(string name, string url, string sha256, CancellationToken cancellationToken)
                 => new(MainWindowService.ConfirmAsync(
-                    $"Download {name}?",
-                    $"Official URL:\n{url}\n\nExpected SHA-256:\n{sha256}",
-                    "Download"));
+                    I18n.Format("PluginPreset_ConsentDownloadTitle", name),
+                    I18n.Format("PluginPreset_ConsentDownloadContent", url, sha256),
+                    I18n.GetString("PluginPreset_ConsentDownloadButton")));
             public ValueTask<bool> ConfirmExternalLaunchAsync(string name, string localPath, CancellationToken cancellationToken)
                 => new(MainWindowService.ConfirmAsync(
-                    $"Launch {name} installer?",
-                    $"The downloaded file passed SHA-256 verification.\n\n{localPath}",
-                    "Launch"));
+                    I18n.Format("PluginPreset_ConsentLaunchTitle", name),
+                    I18n.Format("PluginPreset_ConsentLaunchContent", localPath),
+                    I18n.GetString("PluginPreset_ConsentLaunchButton")));
         }
     }
 }
