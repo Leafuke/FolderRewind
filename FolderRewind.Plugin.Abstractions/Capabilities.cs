@@ -137,7 +137,16 @@ public interface IKnotLinkIntegrationCapability : IPluginCapability
     ValueTask<PluginCommandResult> ExecuteAsync(string command, IReadOnlyDictionary<string, string> arguments, PluginInvocationContext context);
 }
 
-public sealed record KnotLinkCommandDescriptor(string Command, string Description);
+public sealed record KnotLinkCommandDescriptor(string Command, string Description)
+{
+    /// <summary>
+    /// Only route the command when every declared argument matches. This lets a plugin
+    /// extend a Core command such as BACKUP for a semantic selector without taking over
+    /// unrelated BACKUP requests. Boolean values use KnotLink's semantic aliases.
+    /// </summary>
+    public IReadOnlyDictionary<string, string> RequiredArguments { get; init; } =
+        new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+}
 
 public interface IProviderStateMigrationCapability : IPluginCapability
 {

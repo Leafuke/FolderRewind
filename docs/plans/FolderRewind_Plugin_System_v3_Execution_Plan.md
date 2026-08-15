@@ -2,11 +2,11 @@
 
 > 状态：D0 / M3R / M3 / M4 已冻结；首轮 M5 Gate 已拒绝，M5R 阻断修复等待人工复测
 >
-> 计划版本：2026-08-14 / Revision 13 + Compatibility Addendum 1
+> 计划版本：2026-08-15 / Revision 14 + Compatibility Addendum 2
 >
 > 产品版本：FolderRewind 1.9.0、MineRewind 1.9.0
 >
-> Plugin API：3.0.0（Revision 10 contract 已于 M3 Gate 冻结；Addendum 1 仅增加有默认实现/可选值的 source/binary-compatible command-hotkey 与只读 Config Kind query）
+> Plugin API：3.0.0（Revision 10 contract 已于 M3 Gate 冻结；Addendum 1–2 仅增加有默认实现/可选值的 source/binary-compatible command-hotkey、只读 Config Kind query 与 KnotLink route selector）
 >
 > App Config Schema：1
 >
@@ -584,6 +584,21 @@ M5R 决策与验收边界：
 - 设置保存遵循 Runtime 状态分离：Disabled/Safe Mode 只验证并原子保存 typed JSON，不执行 DLL；Active 创建新实例并走事务化 Replace，失败保留旧 settings/state/session。新建配置和模板覆盖类型时必须同时写 `ConfigType` 兼容值、`ConfigKindRef` 与 `RequiredPluginId`，不得把“Minecraft 存档”等本地化文本当作身份。
 
 M5R Revision 13 自动化候选证据：Runtime 98/98、Host 266/266、MineRewind 55/55；Host x86/x64/ARM64 Release 与 x64 Debug、MineRewind Release、Abstractions NuGet pack 全部成功。WinUI analyzer 仍为既存 93 warning / 0 error，本轮没有新增诊断；中英文 1779 个资源键完全一致，Manifest/Schema/Preset JSON、资源 XML、`.frplugin` 内容及 SHA-256 均通过静态校验。自动化没有改写用户已恢复的真实 AppData，也不替代 Revision 13 人工复测，因此 M5 Gate 继续保持拒绝状态。
+
+#### M5R Revision 14 — KnotLink parity 阻断修复（2026-08-15，等待人工复测）
+
+人工验证发现 MineRewind v3 没有声明 `BACKUP/LIST_BACKUPS/RESTORE + current_save=true` 入站路由，反而把 Host 发给模组的 signal 名误当成入站 command descriptor；请求因此落入 Core handler，并错误要求 `config_id`。进一步审计确认 v3 还丢失了 1.8.x 的 `handshake → HANDSHAKE_RESPONSE`、`pre_hot_backup → WORLD_SAVED`、`pre_hot_restore → WORLD_SAVE_AND_EXIT_COMPLETE` 与 `rejoin_world → REJOIN_RESULT` 状态机。KnotLink responder 串行收包，若在当前 command 回调中同步等待 Host backup/restore，后续 ACK 还会形成协议死锁。
+
+Revision 14 冻结以下兼容性修复：
+
+- `KnotLinkCommandDescriptor.RequiredArguments` 作为仅加法 selector 加入 API；Host 只有在 command 与全部 selector 语义匹配时才路由插件。MineRewind 只 claim 三个 Core command 的 `current_save=true` 变体，普通 `BACKUP/LIST_BACKUPS/RESTORE` 继续由 Core 处理。
+- `current_save` 先解析被 `session.lock` 占用的 Minecraft Config/Folder；`BACKUP`/`RESTORE` 立即返回 accepted，再由后台调用 Host-owned request service。这样 responder 可以继续处理握手和 ACK，而真正 operation 仍重新获取 Runtime capability lease 并进入 Host backup/restore pipeline。
+- 热备恢复 `handshake`、`pre_hot_backup` 和 `WORLD_SAVED`；`Prefer` 下握手/保存失败按原非对称策略 raw fallback + warning，`Require` 仍 Block。冷备份不伪造热保存。
+- 活跃世界热还原恢复 `handshake`、`pre_hot_restore`、退出 ACK、文件释放确认、Host once-only mutation、`hot_restore_complete`、`rejoin_world` 与 rejoin ACK；握手/退出/占用失败在 mutation 前 fail-closed 并发出 `restore_cancelled`。冷世界沿用 Host 安全还原，不要求无意义的模组退出握手。
+- 完整 History 的快捷热还原使用 Clean，Partial History 强制 Overwrite；`preserve_player_data=true` 作为单次 History 请求标记由 Coordinator 消费，不写全局设置。
+- Addendum 2 public API fingerprint 为 `8f62401dcb31e14fb26d145c381b3fdac8680a6353ddeb3c4ab6c9cd2e3cc979`，本地 NuGet candidate SHA-256 为 `91edfb6d58208eeeafbb44b89f1a17e0e5eb84a40055355169c6a39f43518180`。Revision 14 MineRewind `.frplugin` SHA-256 为 `415ce429eabdd14cbc5a1236bcb50983e31a2431e64a8bb163c7787bcf9b28b3`；随包 hash、Preset、离线升级常量和安装器测试必须一致。
+
+Revision 14 自动门禁候选：Abstractions 9/9、Runtime 105/105、Host 266/266、MineRewind 59/59。M5 Gate 继续保持拒绝，必须人工验证三条 `current_save` 命令不再要求 `config_id`，并用真实模组确认上述 signal/ACK 顺序、备份 raw fallback 与还原 mutation fail-closed。
 
 ### M6 — Clean break 与发布候选
 

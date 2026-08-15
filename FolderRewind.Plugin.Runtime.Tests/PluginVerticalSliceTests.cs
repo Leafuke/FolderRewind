@@ -130,8 +130,27 @@ public sealed class PluginVerticalSliceTests
     public async Task MineRewindConsistencyRunsBeforeOneSourceIsConsumedThroughRuntime()
     {
         using var world = TemporaryWorld.Create();
+        using var sessionLock = world.AcquireSessionLock();
         var events = new List<string>();
         var fixture = await ActivateMineRewindAsync(events, knotLinkAvailable: true);
+        fixture.Host.KnotLink.OnSendAsync = async (eventName, _, _) =>
+        {
+            var response = eventName switch
+            {
+                "handshake" => "HANDSHAKE_RESPONSE",
+                "pre_hot_backup" => "WORLD_SAVED",
+                _ => null
+            };
+            if (response is null) return;
+            using var signalLease = fixture.Manager.TryAcquire<IKnotLinkIntegrationCapability>(MineRewindPluginId);
+            Assert.IsNotNull(signalLease);
+            await signalLease.Capability.ExecuteAsync(
+                response,
+                response == "HANDSHAKE_RESPONSE"
+                    ? new Dictionary<string, string> { ["mod_version"] = "3.0.0" }
+                    : new Dictionary<string, string>(),
+                signalLease.Context);
+        };
         using var capabilityLease = fixture.Manager.TryAcquire<IBackupConsistencyCapability>(MineRewindPluginId);
         Assert.IsNotNull(capabilityLease);
         var (config, folder) = Snapshot(MinecraftKind, world.Path);
@@ -144,7 +163,15 @@ public sealed class PluginVerticalSliceTests
         events.Add($"archive:{sourceLease.SourcePath}");
 
         CollectionAssert.AreEqual(
-            new[] { "commit", "knot:minebackup.save", $"diff:{capturedSource}", $"archive:{capturedSource}" },
+            new[]
+            {
+                "commit",
+                "knot:handshake",
+                "knot:handshake_ack",
+                "knot:pre_hot_backup",
+                $"diff:{capturedSource}",
+                $"archive:{capturedSource}"
+            },
             events);
         Assert.AreNotEqual(world.Path, capturedSource);
         Assert.IsTrue(File.Exists(Path.Combine(capturedSource, "level.dat")));
@@ -156,8 +183,33 @@ public sealed class PluginVerticalSliceTests
     public async Task MineRewindRestoreCoordinatesBackupMutationAndRejoinThroughRuntime()
     {
         using var world = TemporaryWorld.Create();
+        using var sessionLock = world.AcquireSessionLock();
         var events = new List<string>();
         var fixture = await ActivateMineRewindAsync(events, knotLinkAvailable: true);
+        fixture.Host.KnotLink.OnSendAsync = async (eventName, _, _) =>
+        {
+            string? response = null;
+            IReadOnlyDictionary<string, string> arguments = new Dictionary<string, string>();
+            if (eventName == "handshake")
+            {
+                response = "HANDSHAKE_RESPONSE";
+                arguments = new Dictionary<string, string> { ["mod_version"] = "3.0.0" };
+            }
+            else if (eventName == "pre_hot_restore")
+            {
+                sessionLock.Dispose();
+                response = "WORLD_SAVE_AND_EXIT_COMPLETE";
+            }
+            else if (eventName == "rejoin_world")
+            {
+                response = "REJOIN_RESULT";
+                arguments = new Dictionary<string, string> { ["result"] = "success" };
+            }
+            if (response is null) return;
+            using var signalLease = fixture.Manager.TryAcquire<IKnotLinkIntegrationCapability>(MineRewindPluginId);
+            Assert.IsNotNull(signalLease);
+            await signalLease.Capability.ExecuteAsync(response, arguments, signalLease.Context);
+        };
         using var lease = fixture.Manager.TryAcquire<IRestoreCoordinatorCapability>(MineRewindPluginId);
         Assert.IsNotNull(lease);
         var (config, folder) = Snapshot(MinecraftKind, world.Path);
@@ -174,7 +226,16 @@ public sealed class PluginVerticalSliceTests
         Assert.AreEqual(OperationOutcome.Success, result.Outcome);
         Assert.IsTrue(gate.WasInvoked);
         CollectionAssert.AreEqual(
-            new[] { "commit", "knot:minebackup.save-and-exit", "mutation", "knot:minebackup.rejoin" },
+            new[]
+            {
+                "commit",
+                "knot:handshake",
+                "knot:handshake_ack",
+                "knot:pre_hot_restore",
+                "mutation",
+                "knot:hot_restore_complete",
+                "knot:rejoin_world"
+            },
             events);
     }
 
@@ -539,7 +600,8 @@ public sealed class PluginVerticalSliceTests
         public IRestoreRequestService Restores { get; }
         public IHistoryQueryService History { get; }
         public IPluginNotificationService Notifications { get; }
-        public IKnotLinkHostService KnotLink { get; }
+        public RecordingKnotLink KnotLink { get; }
+        IKnotLinkHostService IPluginHostServices.KnotLink => KnotLink;
         public IPluginDataStore DataStore { get; }
         public IPluginTemporaryStorage TemporaryStorage { get; }
         public IPluginLogger Logger { get; }
@@ -596,13 +658,17 @@ public sealed class PluginVerticalSliceTests
     private sealed class RecordingKnotLink(List<string> events, bool available) : IKnotLinkHostService
     {
         public bool IsAvailable { get; } = available;
-        public ValueTask SendAsync(
+        public Func<string, IReadOnlyDictionary<string, string>, CancellationToken, Task>? OnSendAsync { get; set; }
+        public async ValueTask SendAsync(
             string eventName,
             IReadOnlyDictionary<string, string> arguments,
             CancellationToken cancellationToken)
         {
             events.Add($"knot:{eventName}");
-            return ValueTask.CompletedTask;
+            if (OnSendAsync is not null)
+            {
+                await OnSendAsync(eventName, arguments, cancellationToken);
+            }
         }
     }
 
@@ -638,6 +704,13 @@ public sealed class PluginVerticalSliceTests
             Directory.CreateDirectory(path);
             File.WriteAllBytes(System.IO.Path.Combine(path, "level.dat"), [0x0A]);
             return new TemporaryWorld(path);
+        }
+
+        public FileStream AcquireSessionLock()
+        {
+            var path = System.IO.Path.Combine(Path, "session.lock");
+            File.WriteAllBytes(path, [0]);
+            return new FileStream(path, FileMode.Open, FileAccess.ReadWrite, FileShare.None);
         }
 
         public void Dispose()

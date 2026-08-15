@@ -78,7 +78,7 @@ public sealed class PluginPackageInstallerTests
         var packagePath = Path.Combine(root, "FolderRewind", "Assets", "Plugins", "MineRewind-1.9.0.frplugin");
         var package = await PluginPackageValidator.ValidateAsync(
             packagePath,
-            "6fdcf3022058a3b8ddc5e1eeab95b7d9e500e49d3dc9db81ba588467c38b4d66");
+            "415ce429eabdd14cbc5a1236bcb50983e31a2431e64a8bb163c7787bcf9b28b3");
 
         Assert.AreEqual("com.folderrewind.minerewind", package.Manifest.Contract.PluginId.Value);
         Assert.AreEqual("1.9.0", package.Manifest.Contract.Version);

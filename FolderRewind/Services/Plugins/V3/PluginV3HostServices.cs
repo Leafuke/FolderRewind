@@ -101,11 +101,15 @@ internal sealed class PluginV3HostServices : IPluginHostServices
                 Guid.TryParse(value.Id, out var id) && id == folderId);
             var history = HistoryService.TryGetEntryById(historyItemId);
             if (config is null || folder is null || history is null) return OperationOutcome.Blocked;
+            // 部分备份不能 Clean；完整热还原则沿用 MineRewind 1.8.x 的 Clean 语义。
+            var restoreMode = history.IsPartialBackup
+                ? BackupService.RestoreMode.Overwrite
+                : BackupService.RestoreMode.Clean;
             var success = await BackupService.RestoreBackupAsync(
                 config,
                 folder,
                 history,
-                BackupService.RestoreMode.Overwrite);
+                restoreMode);
             return success ? OperationOutcome.Success : OperationOutcome.Failed;
         }
     }

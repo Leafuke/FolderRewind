@@ -5,6 +5,7 @@ using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
 using FolderRewind.Plugin.Abstractions;
+using FolderRewind.Plugin.Runtime.Operations;
 using FolderRewind.Services.Hotkeys;
 
 namespace FolderRewind.Services.Plugins.V3;
@@ -71,16 +72,29 @@ public static class PluginV3CommandService
                 pluginId,
                 cancellationToken);
             if (lease is null || !lease.Capability.Commands.Any(value =>
-                    string.Equals(value.Command, command, StringComparison.OrdinalIgnoreCase)))
+                    KnotLinkCommandMatcher.Matches(value, command, arguments)))
                 continue;
             var result = await lease.Capability.ExecuteAsync(command, arguments, lease.Context)
                 .ConfigureAwait(false);
             var prefix = result.Outcome is OperationOutcome.Success or OperationOutcome.SuccessWithWarnings
                 ? "OK:"
                 : "ERROR:";
+            if (TryString(result.Values, "data", out var data)) return (true, prefix + data);
+            if (TryString(result.Values, "message", out var message)) return (true, prefix + message);
             var diagnostic = result.Diagnostics.FirstOrDefault();
             return (true, prefix + (diagnostic?.Code ?? result.Outcome.ToString()));
         }
         return (false, string.Empty);
+    }
+
+    private static bool TryString(
+        IReadOnlyDictionary<string, JsonElement> values,
+        string key,
+        out string value)
+    {
+        value = string.Empty;
+        if (!values.TryGetValue(key, out var element) || element.ValueKind != JsonValueKind.String) return false;
+        value = element.GetString() ?? string.Empty;
+        return true;
     }
 }
