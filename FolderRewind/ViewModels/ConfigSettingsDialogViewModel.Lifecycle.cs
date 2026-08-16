@@ -254,7 +254,7 @@ namespace FolderRewind.ViewModels
         {
             get
             {
-                var scopeId = _config.BackupScope?.PluginScopeId ?? string.Empty;
+                var scopeId = _config.BackupScope?.ScopeId ?? string.Empty;
                 return _backupScopeOptions.FirstOrDefault(option =>
                            string.Equals(option.Id, scopeId, StringComparison.OrdinalIgnoreCase))
                        ?? _backupScopeOptions.FirstOrDefault();

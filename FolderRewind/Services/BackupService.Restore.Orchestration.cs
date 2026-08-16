@@ -38,7 +38,7 @@ namespace FolderRewind.Services
             var owner = new PluginId(config.Kind?.OwnerId ?? "folderrewind.core");
             if (string.Equals(owner.Value, "folderrewind.core", StringComparison.Ordinal))
             {
-                return await RestoreBackupCoreAsync(config, folder, historyItem, mode, allowV2Plugins: true);
+                return await RestoreBackupCoreAsync(config, folder, historyItem, mode);
             }
 
             var runtime = PluginV3RuntimeService.Runtime;
@@ -96,8 +96,7 @@ namespace FolderRewind.Services
                     config,
                     folder,
                     historyItem,
-                    mode,
-                    allowV2Plugins: false)
+                    mode)
                     ? OperationOutcome.Success
                     : OperationOutcome.Failed;
             });
@@ -196,8 +195,7 @@ namespace FolderRewind.Services
             BackupConfig config,
             ManagedFolder folder,
             HistoryItem historyItem,
-            RestoreMode mode,
-            bool allowV2Plugins)
+            RestoreMode mode)
         {
             RestoreMode requestedMode = mode;
             RestoreMode effectiveMode = ResolveEffectiveRestoreMode(historyItem, requestedMode);
@@ -206,36 +204,6 @@ namespace FolderRewind.Services
                 Log(
                     $"[Restore] Partial backup '{historyItem.FileName}' requested Clean restore; forcing Overwrite.",
                     LogLevel.Warning);
-            }
-
-            var (interceptorPluginId, interception) = allowV2Plugins
-                ? await Services.Plugins.PluginService.TryInterceptRestoreFolderAsync(
-                    config,
-                    folder,
-                    historyItem.FileName)
-                : (string.Empty, Services.Plugins.PluginRestoreInterceptionResult.Continue());
-            if (interception.Status != Services.Plugins.PluginRestoreInterceptionStatus.Continue)
-            {
-                string message = interception.Message;
-                if (string.IsNullOrWhiteSpace(message))
-                {
-                    message = interception.Status == Services.Plugins.PluginRestoreInterceptionStatus.Handled
-                        ? I18n.Format("PluginService_RestoreIntercepted", interceptorPluginId)
-                        : I18n.Format("PluginService_RestoreBlocked", interceptorPluginId);
-                }
-
-                if (interception.Status == Services.Plugins.PluginRestoreInterceptionStatus.Handled)
-                {
-                    Log($"[Restore] Plugin '{interceptorPluginId}' handed off restore for '{folder.DisplayName}'.", LogLevel.Info);
-                    NotificationService.ShowInfo(message);
-                }
-                else
-                {
-                    Log($"[Restore] Plugin '{interceptorPluginId}' blocked direct restore for '{folder.DisplayName}': {message}", LogLevel.Warning);
-                    NotificationService.ShowError(message);
-                }
-
-                return interception.Status == Services.Plugins.PluginRestoreInterceptionStatus.Handled;
             }
 
             int configIndex = GetConfigIndex(config);
@@ -373,20 +341,6 @@ namespace FolderRewind.Services
                 }
             }
 
-            var (shouldHandleRestore, handlerPlugin) = allowV2Plugins
-                ? Services.Plugins.PluginService.CheckPluginWantsToHandleRestore(config)
-                : (false, null);
-            if (shouldHandleRestore && handlerPlugin != null && !historyItem.IsPartialBackup)
-            {
-                return await HandlePluginRestoreAsync(config, folder, historyItem, restoreTask, handlerPlugin, configIndex);
-            }
-            if (shouldHandleRestore && handlerPlugin != null && historyItem.IsPartialBackup)
-            {
-                Log(
-                    $"[Restore] Plugin takeover by '{handlerPlugin.Manifest.Id}' was bypassed for a partial backup.",
-                    LogLevel.Warning);
-            }
-
             if (!File.Exists(resolvedBackupFilePath))
             {
                 string message = I18n.Format("BackupService_Log_BackupFileNotFound", resolvedBackupFilePath);
@@ -515,18 +469,6 @@ namespace FolderRewind.Services
                 Log(I18n.Format("BackupService_Log_RestoreIntegrityCheckPassed"), LogLevel.Info);
             }
 
-            List<(string PluginId, Services.Plugins.IFolderRewindPlugin Plugin, object? State)>? pluginRestoreStates = null;
-            try
-            {
-                if (allowV2Plugins)
-                {
-                    pluginRestoreStates = Services.Plugins.PluginService.InvokeBeforeRestoreFolder(config, folder, historyItem.FileName);
-                }
-            }
-            catch
-            {
-            }
-
             var restoreModeFields = new Dictionary<string, string?>
             {
                 ["requested_mode"] = requestedMode.ToString().ToLowerInvariant(),
@@ -543,14 +485,6 @@ namespace FolderRewind.Services
                 {
                     string message = I18n.Format("BackupService_Log_RestoreSnapshotPrepareFailed", prepareError ?? "Unknown error");
                     Log(message, LogLevel.Error);
-                    try
-                    {
-                        if (allowV2Plugins)
-                            Services.Plugins.PluginService.InvokeAfterRestoreFolder(config, folder, false, historyItem.FileName, pluginRestoreStates);
-                    }
-                    catch
-                    {
-                    }
                     await FailAsync(message, "snapshot_prepare_failed");
                     return false;
                 }
@@ -571,14 +505,6 @@ namespace FolderRewind.Services
                 {
                     string message = I18n.Format("BackupService_Log_RestoreCreateTargetDirFailed", ex.Message);
                     Log(message, LogLevel.Error);
-                    try
-                    {
-                        if (allowV2Plugins)
-                            Services.Plugins.PluginService.InvokeAfterRestoreFolder(config, folder, false, historyItem.FileName, pluginRestoreStates);
-                    }
-                    catch
-                    {
-                    }
                     await FailAsync(message, "create_dir_failed");
                     return false;
                 }
@@ -693,29 +619,11 @@ namespace FolderRewind.Services
                     }
                 }
 
-                try
-                {
-                    if (allowV2Plugins)
-                        Services.Plugins.PluginService.InvokeAfterRestoreFolder(config, folder, false, historyItem.FileName, pluginRestoreStates);
-                }
-                catch
-                {
-                }
-
                 string failureMessage = string.IsNullOrWhiteSpace(restoreTask.ErrorMessage)
                     ? I18n.GetString("BackupService_Log_RestoreExtractFailed")
                     : restoreTask.ErrorMessage!;
                 await FailAsync(failureMessage, "command_failed");
                 return false;
-            }
-
-            try
-            {
-                if (allowV2Plugins)
-                    Services.Plugins.PluginService.InvokeAfterRestoreFolder(config, folder, true, historyItem.FileName, pluginRestoreStates);
-            }
-            catch
-            {
             }
 
             await RunOnUIAsync(() =>

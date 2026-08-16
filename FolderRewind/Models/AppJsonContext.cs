@@ -50,8 +50,6 @@ namespace FolderRewind.Models
     [JsonSerializable(typeof(List<BackupRunRecord>))]
     [JsonSerializable(typeof(List<BackupPreset>))]
     [JsonSerializable(typeof(PluginHostSettings))]
-    [JsonSerializable(typeof(PluginInstallManifest))]
-    [JsonSerializable(typeof(PluginSettingDefinition))]
     [JsonSerializable(typeof(InstalledPluginInfo))]
     [JsonSerializable(typeof(ConfigKindReference))]
     [JsonSerializable(typeof(ArtifactTransformerReference))]

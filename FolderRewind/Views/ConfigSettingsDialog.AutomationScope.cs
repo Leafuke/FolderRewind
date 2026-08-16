@@ -128,7 +128,7 @@ namespace FolderRewind.Views
 
                 switch (definition.Type)
                 {
-                    case PluginSettingType.Boolean:
+                    case PluginFormFieldType.Boolean:
                     {
                         var checkbox = new CheckBox
                         {
@@ -141,7 +141,7 @@ namespace FolderRewind.Views
                         container.Children.Add(checkbox);
                         break;
                     }
-                    case PluginSettingType.Integer:
+                    case PluginFormFieldType.Integer:
                     {
                         container.Children.Add(BuildScopeParameterLabel(definition.DisplayName));
                         var box = new NumberBox
@@ -153,7 +153,7 @@ namespace FolderRewind.Views
                         container.Children.Add(box);
                         break;
                     }
-                    case PluginSettingType.MultilineString:
+                    case PluginFormFieldType.MultilineString:
                     {
                         container.Children.Add(BuildScopeParameterLabel(definition.DisplayName));
                         var initialText = NormalizeMultilineForEditor(ViewModel.GetBackupScopeParameterValue(definition.Key));

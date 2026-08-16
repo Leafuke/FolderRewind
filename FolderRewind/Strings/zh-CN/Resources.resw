@@ -162,11 +162,11 @@
   <data name="HomePage_ContextMenu_DeleteConfirm_Delete" xml:space="preserve">
     <value>删除</value>
   </data>
-  <data name="HomePage_ConfigTypeHeader" xml:space="preserve">
-    <value>配置类型</value>
+  <data name="HomePage_ConfigKindHeader" xml:space="preserve">
+    <value>配置种类</value>
   </data>
-  <data name="HomePage_ConfigTypeDesc" xml:space="preserve">
-    <value>不同类型的配置可由插件提供额外能力（例如 Minecraft 热备份、自动扫描存档等）。</value>
+  <data name="HomePage_ConfigKindDesc" xml:space="preserve">
+    <value>稳定的配置种类决定由哪个插件提供该领域的能力。</value>
   </data>
   <data name="HomePage_PluginBatchCreateHeader" xml:space="preserve">
     <value>批量创建（插件）</value>
@@ -885,11 +885,11 @@
   <data name="ConfigSettingsDialog_ConfigName.Header" xml:space="preserve">
     <value>配置名称</value>
   </data>
-  <data name="ConfigSettingsDialog_ConfigType.Text" xml:space="preserve">
-    <value>配置类型</value>
+  <data name="ConfigSettingsDialog_ConfigKind.Text" xml:space="preserve">
+    <value>配置种类</value>
   </data>
-  <data name="ConfigSettingsDialog_ConfigTypeDesc.Text" xml:space="preserve">
-    <value>切换配置类型会影响插件是否介入备份流程（例如 Minecraft 热备份快照）。</value>
+  <data name="ConfigSettingsDialog_ConfigKindDesc.Text" xml:space="preserve">
+    <value>配置种类用于标识此配置使用的插件领域能力。</value>
   </data>
   <data name="ConfigSettingsDialog_DestPath.Text" xml:space="preserve">
     <value>备份存储位置</value>
@@ -1332,12 +1332,6 @@
   <data name="SettingsPage_Plugins.Text" xml:space="preserve">
     <value>插件</value>
   </data>
-  <data name="SettingsPage_PluginsEnabled.Text" xml:space="preserve">
-    <value>启用插件系统</value>
-  </data>
-  <data name="SettingsPage_PluginsEnabledDesc.Text" xml:space="preserve">
-    <value>启用后可从插件商店下载和管理插件</value>
-  </data>
   <data name="SettingsPage_OpenPluginStore.Content" xml:space="preserve">
     <value>打开插件商店</value>
   </data>
@@ -1618,12 +1612,6 @@
   <data name="PluginService_UninstallSuccess" xml:space="preserve">
     <value>卸载成功</value>
   </data>
-  <data name="PluginService_UninstallFailed" xml:space="preserve">
-    <value>卸载失败：{0}（如提示文件被占用，可关闭应用后重试）</value>
-  </data>
-  <data name="PluginService_UninstallPendingRestart" xml:space="preserve">
-    <value>插件将在下次启动应用时完全卸载</value>
-  </data>
   <data name="PluginService_UpdatesAvailable" xml:space="preserve">
     <value>发现可用更新，请在插件列表中查看详情</value>
   </data>
@@ -1632,54 +1620,6 @@
   </data>
   <data name="PluginService_NoUpdateUrl" xml:space="preserve">
     <value>无可用的更新下载链接</value>
-  </data>
-  <data name="PluginService_UpdateFailed" xml:space="preserve">
-    <value>更新失败：{0}</value>
-  </data>
-  <data name="PluginService_UpdatePendingRestart" xml:space="preserve">
-    <value>更新已排队，将在下次启动应用时自动完成。</value>
-  </data>
-  <data name="PluginService_DownloadFailed" xml:space="preserve">
-    <value>下载失败：{0}</value>
-  </data>
-  <data name="PluginService_QueueUpdateFailed_Log" xml:space="preserve">
-    <value>[Plugin] 排队更新写入失败：插件={0} 错误={1}</value>
-  </data>
-  <data name="PluginService_PendingUpdateApplied_Log" xml:space="preserve">
-    <value>[Plugin] 延迟更新已应用：插件={0}</value>
-  </data>
-  <data name="PluginService_PendingUpdateApplyFailed_Log" xml:space="preserve">
-    <value>[Plugin] 延迟更新应用失败：插件={0} 错误={1}</value>
-  </data>
-  <data name="PluginService_ApplyPendingUpdatesFailed_Log" xml:space="preserve">
-    <value>[Plugin] 批量应用延迟更新失败：错误={0}</value>
-  </data>
-  <data name="PluginService_PersistPendingPackageFailed_Log" xml:space="preserve">
-    <value>[Plugin] 复制待更新安装包失败：插件={0} 错误={1}</value>
-  </data>
-  <data name="PluginService_KnotLinkCommandFailed" xml:space="preserve">
-    <value>[Plugin] KnotLink 指令处理失败：插件={0} 指令={1} 错误={2}</value>
-  </data>
-  <data name="PluginService_Load_MissingManifest" xml:space="preserve">
-    <value>缺少 manifest.json</value>
-  </data>
-  <data name="PluginService_Load_ManifestParseFailed" xml:space="preserve">
-    <value>manifest.json 解析失败</value>
-  </data>
-  <data name="PluginService_Load_MissingEntry" xml:space="preserve">
-    <value>manifest 缺少 EntryAssembly/EntryType</value>
-  </data>
-  <data name="PluginService_Load_EntryAssemblyMissing" xml:space="preserve">
-    <value>入口程序集不存在</value>
-  </data>
-  <data name="PluginService_Load_EntryTypeMissing" xml:space="preserve">
-    <value>入口类型不存在</value>
-  </data>
-  <data name="PluginService_Load_EntryTypeNotPlugin" xml:space="preserve">
-    <value>入口类型未实现 IFolderRewindPlugin</value>
-  </data>
-  <data name="PluginService_Load_CreateInstanceFailed" xml:space="preserve">
-    <value>创建插件实例失败</value>
   </data>
   <data name="SettingsPage_KnotLink.Text" xml:space="preserve">
     <value>KnotLink 互联</value>
@@ -1709,18 +1649,18 @@
     <value>以下命令可通过 KnotLink 远程调用：</value>
   </data>
   <data name="SettingsPage_KnotLinkCommandsBody.Text" xml:space="preserve">
-    <value>严格键值对指令 v2：
+    <value>严格键值对协议：
 cmd=get_capabilities
 cmd=PING
 cmd=LIST_CONFIGS
 cmd=LIST_FOLDERS;config_id=ID
 cmd=LIST_BACKUPS;config_id=ID;folder=%E6%96%87%E4%BB%B6%E5%A4%B9%E5%90%8D%E7%A7%B0
 cmd=BACKUP;from=example.client;request_id=req-backup-001;config_id=ID;folder=%E6%96%87%E4%BB%B6%E5%A4%B9;comment=%E6%B3%A8%E9%87%8A;backup_mode=full;compression_method=zstd;compression_level=11;backup_blacklist=cache,logs;backup_whitelist=level.dat,region%2Fr.0.0.mca
-cmd=BACKUP;from=example.client;request_id=req-backup-002;config_id=ID;folder=%E6%96%87%E4%BB%B6%E5%A4%B9;backup_scope=MineRewind.SelectedRegions;scope_dimensions=overworld,nether;scope_areas=0%2C0%2C511%2C511
+cmd=BACKUP;from=example.client;request_id=req-backup-002;config_id=ID;folder=%E6%96%87%E4%BB%B6%E5%A4%B9;backup_scope=selected-regions;scope_dimensions=overworld,nether;scope_areas=0%2C0%2C511%2C511
 cmd=RESTORE;from=example.client;request_id=req-restore-001;config_id=ID;folder=%E6%96%87%E4%BB%B6%E5%A4%B9;file=backup.7z;mode=clean;restore_whitelist=options.txt,playerdata
 cmd=AUTO_BACKUP;from=example.client;request_id=req-auto-001;config_id=ID;folder=%E6%96%87%E4%BB%B6%E5%A4%B9;interval_minutes=10
 
-MineRewind v2 扩展：
+MineRewind Plugin API v3 命令：
 cmd=BACKUP;from=minebackup.mod;request_id=req-mr-backup-001;current_save=true;comment=QuickSave
 cmd=LIST_BACKUPS;current_save=true
 cmd=RESTORE;from=minebackup.mod;request_id=req-mr-restore-001;current_save=true
@@ -1784,39 +1724,6 @@ cmd=RESTORE;from=minebackup.mod;request_id=req-mr-restore-002;current_save=true;
   </data>
   <data name="PluginService_ScanPluginsFailed" xml:space="preserve">
     <value>[Plugin] 扫描插件失败：{0}</value>
-  </data>
-  <data name="PluginService_ReinitializeFailed" xml:space="preserve">
-    <value>[Plugin] 重新初始化失败：{0} - {1}</value>
-  </data>
-  <data name="PluginService_GetSettingsDefinitionsFailed" xml:space="preserve">
-    <value>[Plugin] 获取设置定义失败：{0} - {1}</value>
-  </data>
-  <data name="PluginService_BeforeBackupFailed" xml:space="preserve">
-    <value>[Plugin] BeforeBackup 失败：{0} - {1}</value>
-  </data>
-  <data name="PluginService_AfterBackupFailed" xml:space="preserve">
-    <value>[Plugin] AfterBackup 失败：{0} - {1}</value>
-  </data>
-  <data name="PluginService_DiscoverManagedFoldersFailed" xml:space="preserve">
-    <value>[Plugin] DiscoverManagedFolders 失败：{0} - {1}</value>
-  </data>
-  <data name="PluginService_GetSupportedConfigTypesFailed" xml:space="preserve">
-    <value>[Plugin] GetSupportedConfigTypes 失败：{0} - {1}</value>
-  </data>
-  <data name="PluginService_WantsToHandleBackupFailed" xml:space="preserve">
-    <value>[Plugin] WantsToHandleBackup 失败：{0} - {1}</value>
-  </data>
-  <data name="PluginService_WantsToHandleRestoreFailed" xml:space="preserve">
-    <value>[Plugin] WantsToHandleRestore 失败：{0} - {1}</value>
-  </data>
-  <data name="PluginService_PerformBackupFailed" xml:space="preserve">
-    <value>[Plugin] PerformBackupAsync 失败：{0} - {1}</value>
-  </data>
-  <data name="PluginService_PerformRestoreFailed" xml:space="preserve">
-    <value>[Plugin] PerformRestoreAsync 失败：{0} - {1}</value>
-  </data>
-  <data name="PluginService_TryCreateConfigsFailed" xml:space="preserve">
-    <value>[Plugin] TryCreateConfigs 失败：{0} - {1}</value>
   </data>
   <data name="PluginService_InstallFailed_Log" xml:space="preserve">
     <value>[Plugin] 安装失败：{0}</value>
@@ -2324,7 +2231,7 @@ cmd=RESTORE;from=minebackup.mod;request_id=req-mr-restore-002;current_save=true;
     <value>需要更新 KnotLink 服务端</value>
   </data>
   <data name="KnotLinkCompatibility_DialogContent" xml:space="preserve">
-    <value>检测到已安装的 KnotLink 服务端版本为 {0}。FolderRewind 1.8.0 使用 KnotLink v2 参数化协议，要求服务端版本至少为 {1}。请更新服务端以确保兼容。</value>
+    <value>检测到已安装的 KnotLink 服务端版本为 {0}。FolderRewind 1.9.0 要求服务端版本至少为 {1}。请更新服务端以确保兼容。</value>
   </data>
   <data name="KnotLinkCompatibility_UnknownVersion" xml:space="preserve">
     <value>未知</value>
@@ -2451,21 +2358,6 @@ cmd=RESTORE;from=minebackup.mod;request_id=req-mr-restore-002;current_save=true;
   </data>
   <data name="Hotkeys_InvokeFailed" xml:space="preserve">
     <value>快捷键/热键回调失败：{0}</value>
-  </data>
-  <data name="Hotkeys_PluginRegisterFailed" xml:space="preserve">
-    <value>插件热键注册失败：{0} - {1}</value>
-  </data>
-  <data name="PluginService_BeforeRestoreFailed" xml:space="preserve">
-    <value>插件 {0} 还原前钩子失败：{1}</value>
-  </data>
-  <data name="PluginService_RestoreIntercepted" xml:space="preserve">
-    <value>还原请求已由插件 {0} 接管。</value>
-  </data>
-  <data name="PluginService_RestoreBlocked" xml:space="preserve">
-    <value>插件 {0} 已阻止本次直接还原。</value>
-  </data>
-  <data name="PluginService_AfterRestoreFailed" xml:space="preserve">
-    <value>插件 {0} 还原后钩子失败：{1}</value>
   </data>
   <data name="SettingsPage_CloseBehavior.Text" xml:space="preserve">
     <value>关闭窗口按钮行为</value>
@@ -3716,8 +3608,8 @@ cmd=RESTORE;from=minebackup.mod;request_id=req-mr-restore-002;current_save=true;
   <data name="Template_Apply_SuccessNoFolders" xml:space="preserve">
     <value>配置已创建，但暂未自动识别到来源文件夹，请手动添加。</value>
   </data>
-  <data name="Template_ConfigTypeUnavailable" xml:space="preserve">
-    <value>模板类型“{0}”对应的插件不可用，已回退为 Default。</value>
+  <data name="Template_ConfigKindUnavailable" xml:space="preserve">
+    <value>模板种类“{0}”的所有者插件不可用，已回退为 Core 默认种类。</value>
   </data>
   <data name="Template_Export_TemplateNotFound" xml:space="preserve">
     <value>未找到要导出的模板。</value>
@@ -4184,8 +4076,8 @@ cmd=RESTORE;from=minebackup.mod;request_id=req-mr-restore-002;current_save=true;
   <data name="Template_Submission_SummaryAuthor" xml:space="preserve">
     <value>作者：{0}</value>
   </data>
-  <data name="Template_Submission_SummaryConfigType" xml:space="preserve">
-    <value>配置类型：{0}</value>
+  <data name="Template_Submission_SummaryConfigKind" xml:space="preserve">
+    <value>配置种类：{0}</value>
   </data>
   <data name="Template_Submission_SummaryVersion" xml:space="preserve">
     <value>模板版本：{0}</value>
@@ -4813,9 +4705,6 @@ Pull Request：{1}</value>
   </data>
   <data name="FolderDetailsDialog_Path" xml:space="preserve">
     <value>路径</value>
-  </data>
-  <data name="FolderDetailsDialog_ConfigType" xml:space="preserve">
-    <value>配置类型</value>
   </data>
   <data name="FolderDetailsDialog_ModifiedDate" xml:space="preserve">
     <value>修改日期</value>

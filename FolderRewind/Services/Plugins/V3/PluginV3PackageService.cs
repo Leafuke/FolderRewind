@@ -521,7 +521,6 @@ public static class PluginV3PackageService
 
             var settings = ConfigService.CurrentConfig.GlobalSettings.Plugins;
             settings.TypedSettings.Remove(pluginId.Value);
-            settings.PluginSettings.Remove(pluginId.Value);
             foreach (var config in ConfigService.CurrentConfig.BackupConfigs)
             {
                 config.ProviderStates.Remove(pluginId.Value);

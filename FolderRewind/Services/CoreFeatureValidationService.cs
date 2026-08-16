@@ -567,7 +567,6 @@ namespace FolderRewind.Services
                 Id = Guid.NewGuid().ToString("N"),
                 Name = name,
                 DestinationPath = destinationPath,
-                ConfigType = "Default",
                 IsEncrypted = false,
                 Archive = new ArchiveSettings
                 {

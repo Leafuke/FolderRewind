@@ -34,7 +34,7 @@ namespace FolderRewind.Services
                 I18n.Format("Template_Submission_SummaryName", template.Name),
                 I18n.Format("Template_Submission_SummaryGame", string.IsNullOrWhiteSpace(template.GameName) ? "-" : template.GameName),
                 I18n.Format("Template_Submission_SummaryAuthor", string.IsNullOrWhiteSpace(template.Author) ? I18n.GetString("Template_Submission_AuthorAnonymous") : template.Author),
-                I18n.Format("Template_Submission_SummaryConfigType", template.BaseConfigType),
+                I18n.Format("Template_Submission_SummaryConfigKind", $"{template.Kind.OwnerId}/{template.Kind.KindId}"),
                 I18n.Format("Template_Submission_SummaryVersion", template.Version),
                 I18n.Format("Template_Submission_SummaryRuleCount", (template.PathRules?.Count ?? 0).ToString())
             };
@@ -355,71 +355,6 @@ namespace FolderRewind.Services
             };
         }
 
-        private static Dictionary<string, string> FilterTemplateExtendedProperties(Dictionary<string, string>? source)
-        {
-            var result = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
-            if (source == null)
-            {
-                return result;
-            }
-
-            foreach (var pair in source)
-            {
-                if (!IsSafeTemplateExtendedProperty(pair.Key, pair.Value))
-                {
-                    continue;
-                }
-
-                result[pair.Key] = pair.Value?.Trim() ?? string.Empty;
-            }
-
-            return result;
-        }
-
-        private static bool IsSafeTemplateExtendedProperty(string? key, string? value)
-        {
-            if (string.IsNullOrWhiteSpace(key))
-            {
-                return false;
-            }
-
-            var normalizedKey = key.Trim();
-            if (string.Equals(normalizedKey, "TemplateId", StringComparison.OrdinalIgnoreCase)
-                || string.Equals(normalizedKey, "TemplateName", StringComparison.OrdinalIgnoreCase))
-            {
-                return false;
-            }
-
-            if (string.IsNullOrWhiteSpace(value))
-            {
-                return false;
-            }
-
-            var normalizedValue = value.Trim();
-            if (normalizedValue.Length > 256)
-            {
-                return false;
-            }
-
-            if (normalizedKey.Contains("password", StringComparison.OrdinalIgnoreCase)
-                || normalizedKey.Contains("secret", StringComparison.OrdinalIgnoreCase)
-                || normalizedKey.Contains("token", StringComparison.OrdinalIgnoreCase)
-                || normalizedKey.Contains("path", StringComparison.OrdinalIgnoreCase))
-            {
-                return false;
-            }
-
-            if (Path.IsPathRooted(normalizedValue)
-                || normalizedValue.Contains("://", StringComparison.OrdinalIgnoreCase)
-                || normalizedValue.Contains('\\')
-                || normalizedValue.Contains('/'))
-            {
-                return false;
-            }
-
-            return true;
-        }
-
         private static void SanitizeTemplateForShare(BackupPreset template)
         {
             var userName = Environment.UserName;
@@ -428,8 +363,6 @@ namespace FolderRewind.Services
 
             template.Automation = CreateTemplateAutomationPreset(template.Automation);
             template.Cloud = CreateTemplateCloudPreset();
-            template.ExtendedProperties = FilterTemplateExtendedProperties(template.ExtendedProperties);
-
             // 逐段清洗路径片段，只保留文件名，避免把本机绝对路径带出去。
             foreach (var rule in template.PathRules)
             {
@@ -476,7 +409,7 @@ namespace FolderRewind.Services
                 template.Name = I18n.GetString("Template_DefaultName");
             }
 
-            template.BaseConfigType = string.IsNullOrWhiteSpace(template.BaseConfigType) ? "Default" : template.BaseConfigType;
+            MigrateLegacyTemplateIdentity(template);
             template.Version = string.IsNullOrWhiteSpace(template.Version) ? "1.0" : template.Version;
             template.CreatedUtc = template.CreatedUtc == DateTime.MinValue ? DateTime.UtcNow : template.CreatedUtc;
             template.UpdatedUtc = DateTime.UtcNow;
@@ -491,15 +424,6 @@ namespace FolderRewind.Services
             template.DiscoverySources ??= new ObservableCollection<BackupPresetDiscoverySource>();
             template.NormalizeDiscoverySources();
             template.RequiredPluginIds ??= new ObservableCollection<string>();
-            template.ExtendedProperties = FilterTemplateExtendedProperties(template.ExtendedProperties);
-
-            if (template.ExtendedProperties.TryGetValue("Plugin", out var pluginId)
-                && !string.IsNullOrWhiteSpace(pluginId)
-                && !template.RequiredPluginIds.Any(id => string.Equals(id, pluginId, StringComparison.OrdinalIgnoreCase)))
-            {
-                template.RequiredPluginIds.Add(pluginId);
-            }
-
             foreach (var rule in template.PathRules)
             {
                 if (string.IsNullOrWhiteSpace(rule.Id))
@@ -520,6 +444,39 @@ namespace FolderRewind.Services
                     marker.Value = Path.GetFileName(marker.Value ?? string.Empty);
                 }
             }
+        }
+
+        private static void MigrateLegacyTemplateIdentity(BackupPreset template)
+        {
+            if (template.SchemaExtensions.TryGetValue("BaseConfigType", out var legacyType)
+                && legacyType.ValueKind == JsonValueKind.String)
+            {
+                var value = legacyType.GetString();
+                if (string.Equals(value, "Minecraft Saves", StringComparison.OrdinalIgnoreCase))
+                {
+                    template.Kind = new ConfigKindReference
+                    {
+                        OwnerId = FolderRewind.Plugin.Runtime.Configuration.ConfigSchema.MineRewindPluginId,
+                        KindId = FolderRewind.Plugin.Runtime.Configuration.ConfigSchema.MineRewindKindId
+                    };
+                }
+                else if (string.Equals(value, "Encrypted", StringComparison.OrdinalIgnoreCase))
+                {
+                    template.IsEncrypted = true;
+                }
+            }
+            template.SchemaExtensions.Remove("BaseConfigType");
+
+            if (template.SchemaExtensions.TryGetValue("ExtendedProperties", out var legacyProperties)
+                && legacyProperties.ValueKind == JsonValueKind.Object
+                && legacyProperties.TryGetProperty("Plugin", out var plugin)
+                && plugin.ValueKind == JsonValueKind.String
+                && !string.IsNullOrWhiteSpace(plugin.GetString())
+                && !template.RequiredPluginIds.Contains(plugin.GetString()!, StringComparer.OrdinalIgnoreCase))
+            {
+                template.RequiredPluginIds.Add(plugin.GetString()!);
+            }
+            template.SchemaExtensions.Remove("ExtendedProperties");
         }
 
         private static string BuildCopyTemplateName(string sourceName, IEnumerable<BackupPreset> existingTemplates)

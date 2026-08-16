@@ -15,12 +15,6 @@ namespace FolderRewind.ViewModels
 {
     public sealed partial class SettingsPageViewModel : ViewModelBase, IDisposable
     {
-        public void HandlePluginsEnabledToggled(bool isOn)
-        {
-            PluginService.SetPluginSystemEnabled(isOn);
-            OnPropertyChanged(nameof(Settings));
-        }
-
         public void HandlePluginsAutoCheckUpdatesToggled(bool isOn)
         {
             Settings.Plugins.AutoCheckUpdates = isOn;
@@ -35,16 +29,11 @@ namespace FolderRewind.ViewModels
             }
 
             var id = new FolderRewind.Plugin.Abstractions.PluginId(pluginId);
-            if (await FolderRewind.Services.Plugins.V3.PluginV3PackageService.IsInstalledAsync(id))
-            {
-                var transition = await FolderRewind.Services.Plugins.V3.PluginV3PackageService.SetEnabledAsync(id, isOn);
-                if (!transition.Success)
-                    NotificationService.ShowError(string.Join(", ", transition.Diagnostics.Select(value => value.Code)));
-                PluginService.RefreshInstalledList();
-                OnPropertyChanged(nameof(InstalledPlugins));
-                return;
-            }
-            PluginService.SetPluginEnabled(pluginId, isOn);
+            var transition = await FolderRewind.Services.Plugins.V3.PluginV3PackageService.SetEnabledAsync(id, isOn);
+            if (!transition.Success)
+                NotificationService.ShowError(string.Join(", ", transition.Diagnostics.Select(value => value.Code)));
+            PluginService.RefreshInstalledList();
+            OnPropertyChanged(nameof(InstalledPlugins));
         }
 
         public async Task<MinecraftOnboardingResult> InstallMinecraftPresetAsync()

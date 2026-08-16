@@ -16,7 +16,7 @@ namespace FolderRewind.Services
         public static CreateConfigFromTemplateResult CreateConfigFromTemplate(
             BackupPreset template,
             string configName,
-            string? configTypeOverride = null)
+            PluginConfigKindOption? kindOverride = null)
         {
             if (template == null)
             {
@@ -40,49 +40,31 @@ namespace FolderRewind.Services
                 };
             }
 
-            var requestedType = string.IsNullOrWhiteSpace(configTypeOverride)
-                ? template.BaseConfigType
-                : configTypeOverride.Trim();
-            requestedType = string.IsNullOrWhiteSpace(requestedType) ? "Default" : requestedType;
-
-            // “模板偏好加密”和“这次显式选了加密”都算数，但真正的运行时类型仍然走 Default + IsEncrypted。
-            var useEncrypted = string.Equals(requestedType, "Encrypted", StringComparison.OrdinalIgnoreCase) || template.IsEncrypted;
-            var effectiveType = useEncrypted ? "Default" : requestedType;
+            var useEncrypted = kindOverride?.IsEncrypted ?? template.IsEncrypted;
             var kindOptions = PluginService.GetAllSupportedConfigKinds(includeEncrypted: true);
-            var hasExplicitOverride = !string.IsNullOrWhiteSpace(configTypeOverride);
-            var selectedKind = !hasExplicitOverride
-                ? kindOptions.FirstOrDefault(option =>
+            var selectedKind = kindOverride
+                ?? kindOptions.FirstOrDefault(option =>
                     string.Equals(option.Kind.OwnerId, template.Kind?.OwnerId, StringComparison.OrdinalIgnoreCase)
                     && string.Equals(option.Kind.KindId, template.Kind?.KindId, StringComparison.OrdinalIgnoreCase)
-                    && option.IsEncrypted == useEncrypted)
-                : null;
-            selectedKind ??= kindOptions.FirstOrDefault(option => string.Equals(
-                option.SelectionValue,
-                requestedType,
-                StringComparison.OrdinalIgnoreCase));
+                    && option.IsEncrypted == useEncrypted);
 
-            if (selectedKind is null && !IsConfigTypeAvailable(effectiveType, out var unavailableReason))
+            if (selectedKind is null)
             {
                 return new CreateConfigFromTemplateResult
                 {
                     Success = false,
-                    Message = unavailableReason
+                    Message = I18n.Format(
+                        "Template_ConfigKindUnavailable",
+                        $"{template.Kind.OwnerId}/{template.Kind.KindId}")
                 };
             }
-
-            var persistedKind = selectedKind?.CreateReference() ?? new ConfigKindReference
-            {
-                OwnerId = template.Kind?.OwnerId ?? FolderRewind.Plugin.Runtime.Configuration.ConfigSchema.CoreOwnerId,
-                KindId = template.Kind?.KindId ?? FolderRewind.Plugin.Runtime.Configuration.ConfigSchema.CoreDefaultKindId
-            };
 
             var config = new BackupConfig
             {
                 Name = finalName,
                 DestinationPath = ConfigService.BuildDefaultDestinationPath(finalName),
-                ConfigType = effectiveType,
-                Kind = persistedKind,
-                RequiredPluginId = selectedKind?.RequiredPluginId
+                Kind = selectedKind.CreateReference(),
+                RequiredPluginId = selectedKind.RequiredPluginId
                     ?? template.RequiredPluginIds.FirstOrDefault()
                     ?? string.Empty,
                 IsEncrypted = useEncrypted,
@@ -93,13 +75,12 @@ namespace FolderRewind.Services
                 Filters = CloneFilters(template.Filters),
                 BackupScope = CloneBackupScope(template.BackupScope),
                 Cloud = CloneCloud(template.Cloud),
-                ExtendedProperties = template.ExtendedProperties == null
-                    ? new Dictionary<string, string>()
-                    : new Dictionary<string, string>(template.ExtendedProperties, StringComparer.OrdinalIgnoreCase)
+                HostOrigin = new HostConfigOrigin
+                {
+                    TemplateId = template.Id,
+                    TemplateName = template.Name
+                }
             };
-
-            config.ExtendedProperties["TemplateId"] = template.Id;
-            config.ExtendedProperties["TemplateName"] = template.Name;
 
             // 这里先生成候选项，不直接写进 Config.SourceFolders。
             // 游戏模板的推断再聪明，也不该替用户静默决定最终要备份哪些目录。
@@ -142,28 +123,6 @@ namespace FolderRewind.Services
                 FolderCandidates = candidates,
                 MissingPluginIds = missingPluginIds
             };
-        }
-
-        public static bool IsConfigTypeAvailable(string? configType, out string reason)
-        {
-            reason = string.Empty;
-            var normalized = string.IsNullOrWhiteSpace(configType) ? "Default" : configType.Trim();
-
-            if (string.Equals(normalized, "Default", StringComparison.OrdinalIgnoreCase)
-                || string.Equals(normalized, "Encrypted", StringComparison.OrdinalIgnoreCase))
-            {
-                return true;
-            }
-
-            PluginService.Initialize();
-            var supported = PluginService.GetAllSupportedConfigTypes();
-            if (supported.Any(t => string.Equals(t, normalized, StringComparison.OrdinalIgnoreCase)))
-            {
-                return true;
-            }
-
-            reason = I18n.Format("Template_ConfigTypeUnavailable", normalized);
-            return false;
         }
 
         public static IReadOnlyList<string> GetMissingRequiredPluginIds(BackupPreset? template)
@@ -232,10 +191,14 @@ namespace FolderRewind.Services
                 }
             }
 
-            if (!IsConfigTypeAvailable(template.BaseConfigType, out var unavailableReason)
-                && !string.IsNullOrWhiteSpace(unavailableReason))
+            if (!PluginService.GetAllSupportedConfigKinds(includeEncrypted: true).Any(option =>
+                    string.Equals(option.Kind.OwnerId, template.Kind.OwnerId, StringComparison.OrdinalIgnoreCase)
+                    && string.Equals(option.Kind.KindId, template.Kind.KindId, StringComparison.OrdinalIgnoreCase)
+                    && option.IsEncrypted == template.IsEncrypted))
             {
-                errors.Add(unavailableReason);
+                errors.Add(I18n.Format(
+                    "Template_ConfigKindUnavailable",
+                    $"{template.Kind.OwnerId}/{template.Kind.KindId}"));
             }
 
             // 提交前做一次“干跑”，尽早发现规则在当前机器上无法解析的问题。

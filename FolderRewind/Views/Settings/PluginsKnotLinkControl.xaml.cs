@@ -28,14 +28,6 @@ namespace FolderRewind.Views.Settings
             Bindings.Update();
         }
 
-        private void OnPluginsEnabledToggled(object sender, RoutedEventArgs e)
-        {
-            if (sender is ToggleSwitch ts)
-            {
-                ViewModel.HandlePluginsEnabledToggled(ts.IsOn);
-            }
-        }
-
         private async void OnOpenPluginStoreClick(object sender, RoutedEventArgs e)
         {
             if (!PluginService.IsPluginSystemEnabled()) return;
@@ -69,27 +61,20 @@ namespace FolderRewind.Views.Settings
             var filePath = await MainWindowService.PickFilePathAsync(
                 string.Empty,
                 "FolderRewind.Settings.Plugins.ManualInstall",
-                new[] { ".frplugin", ".zip" },
+                new[] { ".frplugin" },
                 MainWindowService.SuggestedPickerLocation.Downloads,
                 viewMode: PickerViewMode.List);
             if (string.IsNullOrWhiteSpace(filePath)) return;
 
             (bool Success, string Message) res;
-            if (string.Equals(System.IO.Path.GetExtension(filePath), ".frplugin", StringComparison.OrdinalIgnoreCase))
+            try
             {
-                try
-                {
-                    var installed = await FolderRewind.Services.Plugins.V3.PluginV3PackageService.InstallAsync(
-                        filePath,
-                        FolderRewind.Plugin.Runtime.Packaging.PluginInstallProvenance.Manual);
-                    res = (true, FolderRewind.Services.Plugins.V3.PluginV3PackageService.FormatInstallOutcome(installed));
-                }
-                catch (Exception ex) { res = (false, ex.Message); }
+                var installed = await FolderRewind.Services.Plugins.V3.PluginV3PackageService.InstallAsync(
+                    filePath,
+                    FolderRewind.Plugin.Runtime.Packaging.PluginInstallProvenance.Manual);
+                res = (true, FolderRewind.Services.Plugins.V3.PluginV3PackageService.FormatInstallOutcome(installed));
             }
-            else
-            {
-                res = await PluginService.InstallFromZipAsync(filePath);
-            }
+            catch (Exception ex) { res = (false, ex.Message); }
 
             var msg = new ContentDialog
             {
@@ -116,7 +101,7 @@ namespace FolderRewind.Views.Settings
 
         private void OnRefreshPluginsClick(object sender, RoutedEventArgs e)
         {
-            PluginService.RefreshAndLoadEnabled();
+            PluginService.RefreshRuntimeUi();
         }
 
         private async void OnRestartSafeModeClick(object sender, RoutedEventArgs e)
@@ -190,24 +175,15 @@ namespace FolderRewind.Views.Settings
             if (res != ContentDialogResult.Primary) return;
 
             var v3Id = new FolderRewind.Plugin.Abstractions.PluginId(plugin.Id);
-            bool isV3 = await FolderRewind.Services.Plugins.V3.PluginV3PackageService.IsInstalledAsync(v3Id);
-            (bool Success, string Message) result;
-            if (isV3)
-            {
-                var preview = await FolderRewind.Services.Plugins.V3.PluginV3PackageService.UninstallAsync(
-                    v3Id,
-                    deleteData: false,
-                    confirmation: null);
-                result = (true, I18n.Format(
-                    "Plugins_UninstallPreservedResult",
-                    preview.SettingsCount,
-                    preview.ProviderStateLocationCount,
-                    preview.DataPath));
-            }
-            else
-            {
-                result = PluginService.Uninstall(plugin.Id);
-            }
+            var preview = await FolderRewind.Services.Plugins.V3.PluginV3PackageService.UninstallAsync(
+                v3Id,
+                deleteData: false,
+                confirmation: null);
+            var result = (Success: true, Message: I18n.Format(
+                "Plugins_UninstallPreservedResult",
+                preview.SettingsCount,
+                preview.ProviderStateLocationCount,
+                preview.DataPath));
 
             var msg = new ContentDialog
             {
@@ -380,154 +356,16 @@ namespace FolderRewind.Views.Settings
         {
             if (sender is not Button btn || btn.Tag is not InstalledPluginInfo plugin) return;
 
-            var rl = ResourceLoader.GetForViewIndependentUse();
             var pluginId = new FolderRewind.Plugin.Abstractions.PluginId(plugin.Id);
-            if (await FolderRewind.Services.Plugins.V3.PluginV3PackageService.IsInstalledAsync(pluginId))
+            if (!await FolderRewind.Services.Plugins.V3.PluginV3PackageService.IsInstalledAsync(pluginId))
             {
-                await ShowPluginV3SettingsAsync(plugin, pluginId);
+                await ShowMessageAsync(
+                    I18n.GetString("Common_Failed"),
+                    I18n.GetString("Plugins_NotInstalled"));
                 return;
             }
 
-            var defs = PluginService.GetSettingsDefinitions(plugin.Id);
-            if (defs == null || defs.Count == 0)
-            {
-                var noSettings = new ContentDialog
-                {
-                    Title = rl.GetString("Plugins_SettingsTitle"),
-                    Content = rl.GetString("Plugins_NoSettings"),
-                    CloseButtonText = rl.GetString("Common_Ok"),
-                    XamlRoot = this.XamlRoot
-                };
-                ThemeService.ApplyThemeToDialog(noSettings);
-                await noSettings.ShowAsync();
-                return;
-            }
-
-            var current = PluginService.GetPluginSettings(plugin.Id);
-
-            var panel = new StackPanel { Spacing = 12 };
-            var validation = new TextBlock
-            {
-                Foreground = (Microsoft.UI.Xaml.Media.Brush)Application.Current.Resources["SystemFillColorCriticalBrush"],
-                TextWrapping = TextWrapping.Wrap
-            };
-            panel.Children.Add(validation);
-
-            var getters = new Dictionary<string, Func<string>>(StringComparer.OrdinalIgnoreCase);
-
-            foreach (var def in defs)
-            {
-                var key = def.Key ?? string.Empty;
-                if (string.IsNullOrWhiteSpace(key)) continue;
-
-                current.TryGetValue(key, out var curVal);
-                var initial = curVal ?? def.DefaultValue ?? string.Empty;
-
-                var header = new TextBlock { Text = def.DisplayName ?? key, FontWeight = Microsoft.UI.Text.FontWeights.SemiBold };
-                panel.Children.Add(header);
-
-                if (!string.IsNullOrWhiteSpace(def.Description))
-                {
-                    panel.Children.Add(new TextBlock { Text = def.Description, Opacity = 0.7, TextWrapping = TextWrapping.Wrap });
-                }
-
-                switch (def.Type)
-                {
-                    case PluginSettingType.Boolean:
-                        {
-                            var toggle = new ToggleSwitch { IsOn = string.Equals(initial, "true", StringComparison.OrdinalIgnoreCase) };
-                            panel.Children.Add(toggle);
-                            getters[key] = () => toggle.IsOn ? "true" : "false";
-                            break;
-                        }
-                    case PluginSettingType.Integer:
-                        {
-                            int.TryParse(initial, out var intVal);
-                            var nb = new NumberBox { Value = intVal, Minimum = int.MinValue, Maximum = int.MaxValue, SpinButtonPlacementMode = NumberBoxSpinButtonPlacementMode.Compact };
-                            panel.Children.Add(nb);
-                            getters[key] = () => ((int)Math.Round(nb.Value)).ToString();
-                            break;
-                        }
-                    case PluginSettingType.Path:
-                    case PluginSettingType.String:
-                    default:
-                        {
-                            var tb = new TextBox { Text = initial, PlaceholderText = def.IsRequired ? I18n.GetString("Common_Required") : string.Empty };
-                            panel.Children.Add(tb);
-                            getters[key] = () => tb.Text ?? string.Empty;
-                            break;
-                        }
-                    case PluginSettingType.MultilineString:
-                        {
-                            var tb = new TextBox
-                            {
-                                Text = initial,
-                                PlaceholderText = def.IsRequired ? I18n.GetString("Common_Required") : string.Empty,
-                                TextWrapping = TextWrapping.Wrap,
-                                AcceptsReturn = true,
-                                MinHeight = 120,
-                                MaxHeight = 260
-                            };
-                            panel.Children.Add(tb);
-                            getters[key] = () => tb.Text ?? string.Empty;
-                            break;
-                        }
-                }
-
-                panel.Children.Add(new TextBlock { Text = string.Empty, Height = 8 });
-            }
-
-            var scroll = new ScrollViewer { Content = panel, MaxHeight = 560 };
-
-            var dialog = new ContentDialog
-            {
-                Title = I18n.Format("Plugins_SettingsDialogTitle", plugin.Name),
-                Content = scroll,
-                PrimaryButtonText = I18n.GetString("Common_Save"),
-                CloseButtonText = I18n.GetString("Common_Cancel"),
-                DefaultButton = ContentDialogButton.Primary,
-                XamlRoot = this.XamlRoot
-            };
-            ThemeService.ApplyThemeToDialog(dialog);
-
-            dialog.Closing += (_, args) =>
-            {
-                if (args.Result != ContentDialogResult.Primary) return;
-
-                foreach (var def in defs)
-                {
-                    if (!def.IsRequired) continue;
-                    if (string.IsNullOrWhiteSpace(def.Key)) continue;
-                    if (!getters.TryGetValue(def.Key, out var get)) continue;
-                    var v = get();
-                    if (string.IsNullOrWhiteSpace(v))
-                    {
-                        validation.Text = I18n.Format("Plugins_SettingsMissingRequired", def.DisplayName ?? def.Key);
-                        args.Cancel = true;
-                        return;
-                    }
-                }
-
-                validation.Text = string.Empty;
-            };
-
-            var result = await dialog.ShowAsync();
-            if (result != ContentDialogResult.Primary) return;
-
-            var newValues = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
-            foreach (var def in defs)
-            {
-                if (string.IsNullOrWhiteSpace(def.Key)) continue;
-                if (!getters.TryGetValue(def.Key, out var get)) continue;
-                newValues[def.Key] = get();
-            }
-
-            var saveResult = PluginService.SavePluginSettings(plugin.Id, newValues);
-            PluginService.TryReinitialize(plugin.Id);
-            await PluginService.TryRunConfigAugmentationForSettingsChangeAsync(
-                plugin.Id,
-                saveResult.PreviousSettings,
-                saveResult.CurrentSettings);
+            await ShowPluginV3SettingsAsync(plugin, pluginId);
         }
 
         private async Task ShowPluginV3SettingsAsync(
@@ -568,6 +406,8 @@ namespace FolderRewind.Views.Settings
 
                 NotificationService.ShowSuccess(I18n.GetString("Plugins_SettingsSaved"));
                 PluginService.RefreshInstalledList();
+                await FolderRewind.Services.Plugins.V3.PluginV3DiscoveryService
+                    .RunAutoCreateAsync(pluginId);
             }
             catch (Exception ex)
             {

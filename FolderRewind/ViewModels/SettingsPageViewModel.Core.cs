@@ -373,7 +373,7 @@ namespace FolderRewind.ViewModels
                 // 先让出当前帧，避免在展开动画开始前同步阻塞 UI。
                 await Task.Yield();
 
-                PluginService.RefreshAndLoadEnabled();
+                PluginService.RefreshRuntimeUi();
                 _pluginsRefreshed = true;
                 OnPropertyChanged(nameof(InstalledPlugins));
             }

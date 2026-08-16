@@ -188,7 +188,6 @@ public sealed class BackupSetCandidate
     public required string StableKey { get; init; }
     public required DiscoverySetIdentity Identity { get; init; }
     public required string DisplayName { get; init; }
-    public string SuggestedConfigType { get; init; } = "Default";
     public IList<BackupResourceCandidate> Resources { get; init; } = new List<BackupResourceCandidate>();
 }
 

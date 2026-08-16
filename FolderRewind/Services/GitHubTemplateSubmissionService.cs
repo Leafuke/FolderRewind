@@ -504,7 +504,7 @@ namespace FolderRewind.Services
             builder.AppendLine($"- Game name: {(string.IsNullOrWhiteSpace(template.GameName) ? "-" : template.GameName)}");
             builder.AppendLine($"- Author: {(string.IsNullOrWhiteSpace(template.Author) ? "Anonymous" : template.Author)}");
             builder.AppendLine($"- Version: {template.Version}");
-            builder.AppendLine($"- Config type: {template.BaseConfigType}");
+            builder.AppendLine($"- Config kind: {template.Kind.OwnerId}/{template.Kind.KindId}");
             builder.AppendLine($"- Path rules: {template.PathRules?.Count ?? 0}");
 
             if (template.RequiredPluginIds != null && template.RequiredPluginIds.Count > 0)

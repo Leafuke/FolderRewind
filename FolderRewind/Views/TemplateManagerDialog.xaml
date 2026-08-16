@@ -37,7 +37,7 @@
                         <StackPanel Spacing="2" Padding="0,6,0,6">
                             <TextBlock Text="{x:Bind Name}" Style="{ThemeResource BodyStrongTextBlockStyle}" TextTrimming="CharacterEllipsis" />
                             <TextBlock Text="{x:Bind Author}" Style="{ThemeResource CaptionTextBlockStyle}" Foreground="{ThemeResource TextFillColorSecondaryBrush}" TextTrimming="CharacterEllipsis" />
-                            <TextBlock Text="{x:Bind BaseConfigType}" Style="{ThemeResource CaptionTextBlockStyle}" Foreground="{ThemeResource TextFillColorTertiaryBrush}" TextTrimming="CharacterEllipsis" />
+                            <TextBlock Text="{x:Bind KindDisplay}" Style="{ThemeResource CaptionTextBlockStyle}" Foreground="{ThemeResource TextFillColorTertiaryBrush}" TextTrimming="CharacterEllipsis" />
                         </StackPanel>
                     </DataTemplate>
                 </ListView.ItemTemplate>

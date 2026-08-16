@@ -1,4 +1,6 @@
 using FolderRewind.Services.Plugins;
+using FolderRewind.Services.Plugins.V3;
+using FolderRewind.Plugin.Abstractions;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -31,62 +33,59 @@ namespace FolderRewind.Services.KnotLink
             string signalId)
         {
             var manifest = BuildCore(appId, openSocketId, signalId);
-            MergePluginContributions(
-                manifest,
-                appId,
-                openSocketId,
-                signalId,
-                PluginService.GetKnotLinkCapabilityContributions());
+            MergeV3PluginCommands(manifest, appId, openSocketId);
             return manifest;
         }
 
-        internal static void MergePluginContributions(
+        private static void MergeV3PluginCommands(
+            KnotLinkFuncList manifest,
+            string appId,
+            string openSocketId)
+        {
+            var contributions = new List<(PluginId PluginId, IReadOnlyList<KnotLinkCommandDescriptor> Commands)>();
+            foreach (var pluginId in PluginV3RuntimeService.GetActivePlugins())
+            {
+                using var lease = PluginV3RuntimeService.Runtime
+                    .TryAcquire<IKnotLinkIntegrationCapability>(pluginId);
+                if (lease is null) continue;
+                contributions.Add((pluginId, lease.Capability.Commands.ToArray()));
+            }
+
+            MergePluginCommands(manifest, appId, openSocketId, contributions);
+        }
+
+        internal static void MergePluginCommands(
             KnotLinkFuncList manifest,
             string appId,
             string openSocketId,
-            string signalId,
-            IEnumerable<(string PluginId, PluginKnotLinkCapabilityContribution Contribution)> contributions)
+            IEnumerable<(PluginId PluginId, IReadOnlyList<KnotLinkCommandDescriptor> Commands)> contributions)
         {
-            foreach (var (pluginId, contribution) in contributions.OrderBy(item => item.PluginId, StringComparer.OrdinalIgnoreCase))
+            foreach (var contribution in contributions.OrderBy(item => item.PluginId.Value, StringComparer.Ordinal))
             {
-                foreach (var function in contribution.OpenSocket.OrderBy(item => item.Name, StringComparer.OrdinalIgnoreCase))
+                foreach (var command in contribution.Commands.OrderBy(item => item.Command, StringComparer.OrdinalIgnoreCase))
                 {
-                    var name = NormalizeCapabilityName(function.Name);
+                    var name = NormalizeCapabilityName(command.Command);
                     if (string.IsNullOrEmpty(name) || manifest.OpenSocket.ContainsKey(name))
                     {
-                        LogCapabilityCollision(pluginId, name, "openSocket");
+                        LogCapabilityCollision(contribution.PluginId.Value, name, "openSocket");
                         continue;
                     }
 
+                    var args = new SortedDictionary<string, KnotLinkFuncArgument>(StringComparer.Ordinal)
+                    {
+                        ["cmd"] = Static(command.Command, command.Description)
+                    };
+                    foreach (var argument in command.RequiredArguments)
+                    {
+                        args[argument.Key] = Static(argument.Value, $"Required value for {argument.Key}.");
+                    }
                     manifest.OpenSocket[name] = new KnotLinkOpenSocketFunction
                     {
                         AppId = appId,
                         OpenSocketId = openSocketId,
-                        Description = function.Description,
-                        Args = new SortedDictionary<string, KnotLinkFuncArgument>(
-                            function.Args.ToDictionary(item => item.Key, item => item.Value, StringComparer.Ordinal),
-                            StringComparer.Ordinal),
-                        Returns = function.Returns.Select(item => item.ToArray()).ToList()
-                    };
-                }
-
-                foreach (var signal in contribution.Signal.OrderBy(item => item.Name, StringComparer.OrdinalIgnoreCase))
-                {
-                    var name = NormalizeCapabilityName(signal.Name);
-                    if (string.IsNullOrEmpty(name) || manifest.Signal.ContainsKey(name))
-                    {
-                        LogCapabilityCollision(pluginId, name, "signal");
-                        continue;
-                    }
-
-                    manifest.Signal[name] = new KnotLinkSignalFunction
-                    {
-                        AppId = appId,
-                        SignalId = signalId,
-                        Description = signal.Description,
-                        Returns = new SortedDictionary<string, KnotLinkSignalField>(
-                            signal.Returns.ToDictionary(item => item.Key, item => item.Value, StringComparer.Ordinal),
-                            StringComparer.Ordinal)
+                        Description = command.Description,
+                        Args = args,
+                        Returns = StatusReturns("message", "data")
                     };
                 }
             }

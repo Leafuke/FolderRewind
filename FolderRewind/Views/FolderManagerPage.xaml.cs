@@ -611,7 +611,8 @@ namespace FolderRewind.Views
                 return;
             }
 
-            var discovered = PluginService.InvokeDiscoverManagedFolders(rootFolderPath);
+            var discovered = await FolderRewind.Services.Plugins.V3.PluginV3DiscoveryService
+                .DiscoverFoldersAsync(ViewModel.CurrentConfig, rootFolderPath);
             if (discovered == null || discovered.Count == 0)
             {
                 await ShowPluginDiscoverNoResultAsync();

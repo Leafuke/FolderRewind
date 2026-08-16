@@ -110,7 +110,6 @@ public static class DiscoveryCandidateMerger
             StableKey = source.StableKey,
             Identity = source.Identity,
             DisplayName = source.DisplayName,
-            SuggestedConfigType = source.SuggestedConfigType,
             Resources = source.Resources.ToList()
         };
     }

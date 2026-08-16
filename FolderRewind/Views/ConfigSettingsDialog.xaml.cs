@@ -51,7 +51,7 @@ namespace FolderRewind.Views
         private readonly Dictionary<string, bool> _tabLoaded = new();
 
         // 绑定视图（避免 MSIX + Trim 下 WinRT 对自定义泛型集合投影异常）
-        public ObservableCollection<object> ConfigTypesView { get; } = new();
+        public ObservableCollection<object> ConfigKindsView { get; } = new();
         private PluginConfigKindOption? _selectedConfigKind;
 
         public PluginConfigKindOption? SelectedConfigKind
@@ -149,10 +149,6 @@ namespace FolderRewind.Views
             // 应用当前主题到对话框
             ThemeService.ApplyThemeToDialog(this);
 
-            if (string.Equals(Config.ConfigType, "Encrypted", StringComparison.OrdinalIgnoreCase))
-            {
-                Config.ConfigType = "Default";
-            }
             RefreshConfigKindOptions();
 
             IconGrid.ItemsSource = IconCatalog.ConfigIconGlyphs;
@@ -273,12 +269,6 @@ namespace FolderRewind.Views
             CloudTabScrollViewer?.Visibility = Microsoft.UI.Xaml.Visibility.Collapsed;
             FilterTabScrollViewer?.Visibility = Microsoft.UI.Xaml.Visibility.Collapsed;
 
-            // Guard: same as constructor — convert "Encrypted" to "Default"
-            if (string.Equals(Config.ConfigType, "Encrypted", StringComparison.OrdinalIgnoreCase))
-            {
-                Config.ConfigType = "Default";
-            }
-
             RefreshConfigKindOptions();
 
             // Reset icon grid
@@ -314,16 +304,16 @@ namespace FolderRewind.Views
 
         private void RefreshConfigKindOptions()
         {
-            ConfigTypesView.Clear();
+            ConfigKindsView.Clear();
             var options = PluginService.GetAllSupportedConfigKinds();
-            foreach (var option in options) ConfigTypesView.Add(option);
+            foreach (var option in options) ConfigKindsView.Add(option);
 
             var selected = PluginService.ResolveConfigKindOption(Config);
             var matching = options.FirstOrDefault(option =>
                 string.Equals(option.StableKey, selected.StableKey, StringComparison.OrdinalIgnoreCase));
             if (matching is null)
             {
-                ConfigTypesView.Add(selected);
+                ConfigKindsView.Add(selected);
                 matching = selected;
             }
             _selectedConfigKind = matching;

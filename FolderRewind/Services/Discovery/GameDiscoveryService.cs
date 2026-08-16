@@ -10,9 +10,9 @@ namespace FolderRewind.Services.Discovery;
 
 public sealed class GameDiscoveryService
 {
-    private readonly IReadOnlyList<IFolderRewindDiscoveryProvider> _providers;
+    private readonly IReadOnlyList<IGameDiscoveryProvider> _providers;
 
-    public GameDiscoveryService(IEnumerable<IFolderRewindDiscoveryProvider> providers)
+    public GameDiscoveryService(IEnumerable<IGameDiscoveryProvider> providers)
     {
         ArgumentNullException.ThrowIfNull(providers);
         _providers = providers
@@ -43,7 +43,7 @@ public sealed class GameDiscoveryService
     }
 
     private static async Task<DiscoveryProviderResult> RunProviderAsync(
-        IFolderRewindDiscoveryProvider provider,
+        IGameDiscoveryProvider provider,
         DiscoveryRequest request,
         IProgress<DiscoveryProgress>? progress,
         CancellationToken cancellationToken)

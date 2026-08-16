@@ -12,7 +12,7 @@ using System.Threading.Tasks;
 
 namespace FolderRewind.Services.Discovery;
 
-public sealed class LudusaviDiscoveryProvider : IFolderRewindDiscoveryProvider
+public sealed class LudusaviDiscoveryProvider : IGameDiscoveryProvider
 {
     public const string ProviderId = "ludusavi";
 

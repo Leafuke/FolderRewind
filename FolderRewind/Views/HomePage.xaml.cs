@@ -187,7 +187,7 @@ namespace FolderRewind.Views
 
                 var typeCombo = new ComboBox
             {
-                Header = resourceLoader.GetString("HomePage_ConfigTypeHeader"),
+                Header = resourceLoader.GetString("HomePage_ConfigKindHeader"),
                 HorizontalAlignment = HorizontalAlignment.Stretch,
                 DisplayMemberPath = nameof(PluginConfigKindOption.DisplayName)
             };
@@ -196,7 +196,7 @@ namespace FolderRewind.Views
                 typeCombo.Items.Add(kind);
             }
             AutomationProperties.SetAutomationId(typeCombo, "TemplateConfigKindPicker");
-            AutomationProperties.SetName(typeCombo, resourceLoader.GetString("HomePage_ConfigTypeHeader"));
+            AutomationProperties.SetName(typeCombo, resourceLoader.GetString("HomePage_ConfigKindHeader"));
 
                 if (!string.IsNullOrWhiteSpace(preferredType))
                 {
@@ -235,23 +235,21 @@ namespace FolderRewind.Views
                         selectedTemplate.Name,
                         ruleCount.ToString());
 
-                    var typeToSelect = string.IsNullOrWhiteSpace(selectedTemplate.BaseConfigType)
-                        ? "Default"
-                        : selectedTemplate.BaseConfigType;
-                    if (!configKinds.Any(kind =>
-                            string.Equals(kind.SelectionValue, typeToSelect, StringComparison.OrdinalIgnoreCase)))
-                    {
-                        typeToSelect = "Default";
-                    }
-
                     typeCombo.SelectedItem = configKinds.FirstOrDefault(kind =>
-                        string.Equals(kind.SelectionValue, typeToSelect, StringComparison.OrdinalIgnoreCase));
+                        string.Equals(kind.Kind.OwnerId, selectedTemplate.Kind.OwnerId, StringComparison.OrdinalIgnoreCase)
+                        && string.Equals(kind.Kind.KindId, selectedTemplate.Kind.KindId, StringComparison.OrdinalIgnoreCase)
+                        && kind.IsEncrypted == selectedTemplate.IsEncrypted)
+                        ?? configKinds.FirstOrDefault();
 
                     var warnings = new List<string>();
-                    if (!BackupPresetService.IsConfigTypeAvailable(selectedTemplate.BaseConfigType, out var reason)
-                        && !string.IsNullOrWhiteSpace(reason))
+                    if (!configKinds.Any(kind =>
+                            string.Equals(kind.Kind.OwnerId, selectedTemplate.Kind.OwnerId, StringComparison.OrdinalIgnoreCase)
+                            && string.Equals(kind.Kind.KindId, selectedTemplate.Kind.KindId, StringComparison.OrdinalIgnoreCase)
+                            && kind.IsEncrypted == selectedTemplate.IsEncrypted))
                     {
-                        warnings.Add(reason);
+                        warnings.Add(I18n.Format(
+                            "Template_ConfigKindUnavailable",
+                            $"{selectedTemplate.Kind.OwnerId}/{selectedTemplate.Kind.KindId}"));
                     }
 
                     var missingPluginIds = BackupPresetService.GetMissingRequiredPluginIds(selectedTemplate);
@@ -385,7 +383,7 @@ namespace FolderRewind.Views
             var createResult = BackupPresetService.CreateConfigFromTemplate(
                 selectedTemplate,
                 configName,
-                selectedKind?.SelectionValue);
+                selectedKind);
             if (!createResult.Success || createResult.Config == null)
             {
                 var failedDialog = new ContentDialog
@@ -629,45 +627,31 @@ namespace FolderRewind.Views
             var configKinds = PluginService.GetAllSupportedConfigKinds(includeEncrypted: true).ToList();
             var typeCombo = new ComboBox
             {
-                Header = resourceLoader.GetString("HomePage_ConfigTypeHeader"),
+                Header = resourceLoader.GetString("HomePage_ConfigKindHeader"),
                 HorizontalAlignment = HorizontalAlignment.Stretch,
                 DisplayMemberPath = nameof(PluginConfigKindOption.DisplayName)
             };
             foreach (var kind in configKinds) typeCombo.Items.Add(kind);
             typeCombo.SelectedIndex = 0;
             AutomationProperties.SetAutomationId(typeCombo, "NewConfigKindPicker");
-            AutomationProperties.SetName(typeCombo, resourceLoader.GetString("HomePage_ConfigTypeHeader"));
+            AutomationProperties.SetName(typeCombo, resourceLoader.GetString("HomePage_ConfigKindHeader"));
 
             var typeDesc = new TextBlock
             {
-                Text = resourceLoader.GetString("HomePage_ConfigTypeDesc"),
+                Text = resourceLoader.GetString("HomePage_ConfigKindDesc"),
                 Style = (Style)Application.Current.Resources["CaptionTextBlockStyle"],
                 Foreground = (Brush)Application.Current.Resources["TextFillColorSecondaryBrush"],
                 TextWrapping = TextWrapping.Wrap
             };
 
-            var batchCreateToggle = new ToggleSwitch
-            {
-                Header = resourceLoader.GetString("HomePage_PluginBatchCreateHeader"),
-                OffContent = resourceLoader.GetString("HomePage_PluginBatchCreateOff"),
-                OnContent = resourceLoader.GetString("HomePage_PluginBatchCreateOn"),
-                IsOn = false
-            };
-
-            void RefreshBatchToggleState()
+            void RefreshKindDescription()
             {
                 var selectedKind = typeCombo.SelectedItem as PluginConfigKindOption;
-                var canBatch = selectedKind?.SupportsLegacyBatchCreation == true;
-                batchCreateToggle.IsEnabled = canBatch;
-                if (!canBatch) batchCreateToggle.IsOn = false;
-
-                nameBox.IsEnabled = !batchCreateToggle.IsOn;
-                typeDesc.Text = selectedKind?.Description ?? resourceLoader.GetString("HomePage_ConfigTypeDesc");
+                typeDesc.Text = selectedKind?.Description ?? resourceLoader.GetString("HomePage_ConfigKindDesc");
             }
 
-            typeCombo.SelectionChanged += (_, __) => RefreshBatchToggleState();
-            batchCreateToggle.Toggled += (_, __) => RefreshBatchToggleState();
-            RefreshBatchToggleState();
+            typeCombo.SelectionChanged += (_, __) => RefreshKindDescription();
+            RefreshKindDescription();
 
             // 图标选择保留 Host 的统一图标目录，插件只负责声明稳定的配置类型身份。
             var iconGrid = new GridView { SelectionMode = ListViewSelectionMode.Single, Height = 180 };
@@ -684,7 +668,6 @@ namespace FolderRewind.Views
             stack.Children.Add(nameBox);
             stack.Children.Add(typeCombo);
             stack.Children.Add(typeDesc);
-            stack.Children.Add(batchCreateToggle);
             stack.Children.Add(new TextBlock { Text = resourceLoader.GetString("HomePage_SelectIcon"), Style = (Style)Application.Current.Resources["BaseTextBlockStyle"], Margin = new Thickness(0, 8, 0, 0) });
             stack.Children.Add(iconGrid);
 
@@ -703,59 +686,6 @@ namespace FolderRewind.Views
             {
                 var selectedKind = typeCombo.SelectedItem as PluginConfigKindOption
                     ?? configKinds.First();
-
-                if (batchCreateToggle.IsOn)
-                {
-                    // Picker 统一走 MainWindowService，窗口绑定、标题和记忆目录都集中维护。
-                    var rootFolderPath = await PickFolderPathAsync(
-                        resourceLoader.GetString("HomePage_PluginBatchCreatePickRootTitle"),
-                        "FolderRewind.HomePage.PluginBatch.Root");
-                    if (string.IsNullOrWhiteSpace(rootFolderPath)) return;
-
-                    var result = PluginService.InvokeCreateConfigs(rootFolderPath, selectedKind.LegacyConfigType);
-                    if (!result.Handled || result.CreatedConfigs == null || result.CreatedConfigs.Count == 0)
-                    {
-                        var failed = new ContentDialog
-                        {
-                            Title = resourceLoader.GetString("HomePage_PluginBatchCreateFailedTitle"),
-                            Content = string.IsNullOrWhiteSpace(result.Message)
-                                ? resourceLoader.GetString("HomePage_PluginBatchCreateFailedContent")
-                                : result.Message,
-                            CloseButtonText = resourceLoader.GetString("Common_Ok"),
-                            XamlRoot = this.XamlRoot
-                        };
-                        ThemeService.ApplyThemeToDialog(failed);
-                        await failed.ShowAsync();
-                        return;
-                    }
-
-                    // 选择目标文件夹
-                    var destPath = await PickFolderPathAsync(
-                        resourceLoader.GetString("HomePage_PluginBatchCreatePickDestinationTitle"),
-                        "FolderRewind.HomePage.PluginBatch.Destination");
-
-                    foreach (var c in result.CreatedConfigs)
-                    {
-                        if (string.IsNullOrWhiteSpace(c.ConfigType))
-                        {
-                            PluginService.ApplyConfigKind(c, selectedKind);
-                        }
-                        c.Cloud ??= new CloudSettings();
-                        if (string.IsNullOrWhiteSpace(c.Cloud.RemoteBasePath))
-                        {
-                            c.Cloud.RemoteBasePath = ConfigService.GetRecommendedDefaultCloudRemoteBasePath();
-                        }
-                        c.DestinationPath = !string.IsNullOrWhiteSpace(destPath)
-                            ? Path.Combine(destPath, c.Name ?? string.Empty)
-                            : ConfigService.BuildDefaultDestinationPath(c.Name);
-                        c.SummaryText = resourceLoader.GetString("HomePage_NewConfigSummary");
-                        ConfigService.CurrentConfig.BackupConfigs.Add(c);
-                    }
-
-                    ConfigService.Save();
-                    _ = NavigationService.NavigateTo("Manager", ManagerNavigationParameter.ForConfig(result.CreatedConfigs[0].Id));
-                    return;
-                }
 
                 if (string.IsNullOrWhiteSpace(nameBox.Text)) return;
 

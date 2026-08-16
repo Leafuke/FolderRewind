@@ -89,7 +89,7 @@ namespace FolderRewind.Views
             TemplateMetaTextBlock.Text = I18n.Format(
                 "TemplateSubmissionDialog_TemplateMetaFormat",
                 string.IsNullOrWhiteSpace(selected.Author) ? I18n.GetString("Template_Submission_AuthorAnonymous") : selected.Author,
-                string.IsNullOrWhiteSpace(selected.BaseConfigType) ? "Default" : selected.BaseConfigType,
+                $"{selected.Kind.OwnerId}/{selected.Kind.KindId}",
                 (selected.PathRules?.Count ?? 0).ToString(CultureInfo.CurrentCulture));
         }
 

@@ -2,6 +2,7 @@ using System.Collections.ObjectModel;
 using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Globalization;
 using System.Linq;
 using System.Text.Json;
 using System.Threading;
@@ -72,19 +73,18 @@ internal sealed class PluginV3BackupSession : IAsyncDisposable
                 string.Empty,
                 BackupFallbackPolicy.Block,
                 RestoreCoordinationPolicy.None)
-            : PluginV3RuntimeService.FindKind(configSnapshot.Kind)
+            : FindInstalledKind(configSnapshot.Kind)
               ?? new ConfigKindDeclaration(
                   configSnapshot.Kind,
                   new LocalizedText(configSnapshot.Kind.KindId, new Dictionary<string, string>()),
                   new LocalizedText(string.Empty, new Dictionary<string, string>()),
                   string.Empty,
-                  BackupFallbackPolicy.RawWithWarnings,
+                  BackupFallbackPolicy.Block,
                   RestoreCoordinationPolicy.Required);
 
         using var scopeProbe = isCore ? null : runtime.TryAcquire<IBackupScopeCapability>(pluginId, cancellationToken);
         using var consistencyProbe = isCore ? null : runtime.TryAcquire<IBackupConsistencyCapability>(pluginId, cancellationToken);
-        var providerScopeSelected = !string.IsNullOrWhiteSpace(config.BackupScope?.ScopeId)
-            || !string.IsNullOrWhiteSpace(config.BackupScope?.PluginScopeId);
+        var providerScopeSelected = config.BackupScope?.IsPluginScopeEnabled == true;
         var intent = config.ConsistencyIntent == PersistedConsistencyIntent.Require
             ? ConsistencyIntent.Require
             : ConsistencyIntent.Prefer;
@@ -144,19 +144,22 @@ internal sealed class PluginV3BackupSession : IAsyncDisposable
                 return Block(session, "plugin.backup_scope_mismatch", owner.Value);
             }
             var backupScope = config.BackupScope ?? new BackupScopeSettings();
-            var scopeValue = !string.IsNullOrWhiteSpace(backupScope.ScopeId)
-                ? backupScope.ScopeId
-                : backupScope.PluginScopeId;
-            var parameters = (backupScope.Parameters ?? new Dictionary<string, string>())
-                .ToDictionary(
-                    pair => pair.Key,
-                    pair => JsonSerializer.SerializeToElement(pair.Value),
-                    StringComparer.Ordinal);
+            var descriptor = scopeProbe.Capability.Scopes.SingleOrDefault(candidate =>
+                string.Equals(candidate.Id.OwnerId.Value, backupScope.OwnerId, StringComparison.Ordinal)
+                && string.Equals(candidate.Id.ScopeId, backupScope.ScopeId, StringComparison.Ordinal));
+            if (descriptor is null
+                || !TryBuildScopeParameters(
+                    descriptor.FormSchema,
+                    backupScope.Parameters ?? new Dictionary<string, string>(),
+                    out var parameters))
+            {
+                return Block(session, "plugin.backup_scope_parameters_invalid", owner.Value);
+            }
             var scope = await scopeProbe.Capability.ResolveAsync(
                 new BackupScopeRequest(
                     configSnapshot,
                     folderSnapshot,
-                    new BackupScopeId(new OwnerId(owner.Value), scopeValue),
+                    new BackupScopeId(new OwnerId(backupScope.OwnerId), backupScope.ScopeId),
                     parameters),
                 scopeProbe.Context).ConfigureAwait(false);
             diagnostics.AddRange(scope.Diagnostics);
@@ -173,6 +176,51 @@ internal sealed class PluginV3BackupSession : IAsyncDisposable
         }
 
         return session;
+    }
+
+    private static ConfigKindDeclaration? FindInstalledKind(ConfigKindRef kind)
+        => PluginV3RuntimeService.FindKind(kind)
+           ?? PluginV3PackageService.GetInstalledConfigKinds()
+               .Where(pair => pair.PluginId.Value == kind.OwnerId.Value)
+               .Select(pair => pair.Kind)
+               .SingleOrDefault(candidate => candidate.Kind == kind);
+
+    private static bool TryBuildScopeParameters(
+        JsonElement schema,
+        IReadOnlyDictionary<string, string> values,
+        out IReadOnlyDictionary<string, JsonElement> parameters)
+    {
+        var result = new Dictionary<string, JsonElement>(StringComparer.Ordinal);
+        var properties = schema.ValueKind == JsonValueKind.Object
+                         && schema.TryGetProperty("properties", out var propertyElement)
+                         && propertyElement.ValueKind == JsonValueKind.Object
+            ? propertyElement
+            : default;
+        foreach (var pair in values)
+        {
+            var type = properties.ValueKind == JsonValueKind.Object
+                       && properties.TryGetProperty(pair.Key, out var definition)
+                       && definition.TryGetProperty("type", out var typeElement)
+                ? typeElement.GetString()
+                : "string";
+            switch (type)
+            {
+                case "boolean" when bool.TryParse(pair.Value, out var boolean):
+                    result[pair.Key] = JsonSerializer.SerializeToElement(boolean);
+                    break;
+                case "integer" when long.TryParse(pair.Value, NumberStyles.Integer, CultureInfo.InvariantCulture, out var integer):
+                    result[pair.Key] = JsonSerializer.SerializeToElement(integer);
+                    break;
+                case "boolean" or "integer":
+                    parameters = new Dictionary<string, JsonElement>();
+                    return false;
+                default:
+                    result[pair.Key] = JsonSerializer.SerializeToElement(pair.Value);
+                    break;
+            }
+        }
+        parameters = result;
+        return true;
     }
 
     public async ValueTask AcquireConsistencyAsync(CancellationToken cancellationToken = default)

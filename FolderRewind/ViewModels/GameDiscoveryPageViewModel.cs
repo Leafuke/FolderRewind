@@ -285,12 +285,10 @@ public sealed class GameDiscoveryPageViewModel : ViewModelBase, IDisposable
             return;
         }
         ApplyCacheMetadata(current.Value.Metadata);
-        PluginService.Initialize();
-        var providers = new List<IFolderRewindDiscoveryProvider>
+        var providers = new List<IGameDiscoveryProvider>
         {
             new LudusaviDiscoveryProvider(_cacheService)
         };
-        providers.AddRange(PluginService.GetDiscoveryProviders());
         var discoveryService = new GameDiscoveryService(providers);
         var stopwatch = Stopwatch.StartNew();
         var result = await discoveryService.DiscoverAsync(BuildRequest(), CreateProgress(), token);

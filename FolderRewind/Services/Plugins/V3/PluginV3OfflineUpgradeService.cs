@@ -20,7 +20,7 @@ internal static class PluginV3OfflineUpgradeService
 {
     private const string MineRewindId = "com.folderrewind.minerewind";
     private const string BundledFileName = "MineRewind-1.9.0.frplugin";
-    private const string BundledSha256 = "a97eddc838b7954fbbaf74de0fbc7bd88591159e48c8e71a68f64b54e2e9463c";
+    private const string BundledSha256 = "2790b49296c8b79bf6aae2a9643e254f47c4478d7a6fad389307a5d233c85ec2";
     private static readonly TimeSpan MigrationTimeout = TimeSpan.FromSeconds(30);
     private static readonly PluginId MineRewindPluginId = new(MineRewindId);
     private static readonly HashSet<string> V3Entries = new(StringComparer.OrdinalIgnoreCase)
@@ -53,8 +53,8 @@ internal static class PluginV3OfflineUpgradeService
                 MineRewindPluginId,
                 operationCancellation).ConfigureAwait(false);
             var settings = ConfigService.CurrentConfig.GlobalSettings.Plugins;
-            var hasLegacyData = settings.PluginEnabled.ContainsKey(MineRewindId)
-                || settings.PluginSettings.ContainsKey(MineRewindId)
+            var hasLegacyData = settings.EnabledIntent.ContainsKey(MineRewindId)
+                || settings.TypedSettings.ContainsKey(MineRewindId)
                 || ConfigService.CurrentConfig.BackupConfigs.Any(config =>
                     config.ProviderStates.ContainsKey(MineRewindId)
                     || config.SourceFolders.Any(folder => folder.ProviderStates.ContainsKey(MineRewindId)));
@@ -102,9 +102,7 @@ internal static class PluginV3OfflineUpgradeService
             }
 
             var priorIntent = priorState?.PreservedEnabledIntent
-                ?? (settings.EnabledIntent.TryGetValue(MineRewindId, out var intended)
-                    ? intended
-                    : settings.PluginEnabled.TryGetValue(MineRewindId, out var enabled) && enabled);
+                ?? (settings.EnabledIntent.TryGetValue(MineRewindId, out var intended) && intended);
             var now = DateTimeOffset.UtcNow;
             progress = new PluginMigrationState(
                 1,

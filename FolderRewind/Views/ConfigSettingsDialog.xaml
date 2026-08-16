@@ -74,8 +74,8 @@
                 </StackPanel>
 
                 <StackPanel Spacing="8">
-                    <TextBlock x:Uid="ConfigSettingsDialog_ConfigType" FontWeight="SemiBold"/>
-                    <ComboBox ItemsSource="{x:Bind ConfigTypesView, Mode=OneWay}"
+                    <TextBlock x:Uid="ConfigSettingsDialog_ConfigKind" FontWeight="SemiBold"/>
+                    <ComboBox ItemsSource="{x:Bind ConfigKindsView, Mode=OneWay}"
                              SelectedItem="{x:Bind SelectedConfigKind, Mode=TwoWay}"
                              DisplayMemberPath="DisplayName"
                              AutomationProperties.AutomationId="ConfigSettingsKindPicker"

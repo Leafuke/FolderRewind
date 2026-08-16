@@ -23,16 +23,6 @@
             <toolkit:SettingsExpander.Items>
                 <toolkit:SettingsCard>
                     <toolkit:SettingsCard.Header>
-                        <TextBlock x:Uid="SettingsPage_PluginsEnabled" Style="{StaticResource SettingsHeaderTextStyle}" />
-                    </toolkit:SettingsCard.Header>
-                    <toolkit:SettingsCard.Description>
-                        <TextBlock x:Uid="SettingsPage_PluginsEnabledDesc" Style="{StaticResource SettingsDescriptionStyle}" />
-                    </toolkit:SettingsCard.Description>
-                    <ToggleSwitch x:Name="PluginsMasterSwitch" IsOn="{x:Bind ViewModel.Settings.Plugins.Enabled, Mode=TwoWay}" Toggled="OnPluginsEnabledToggled" />
-                </toolkit:SettingsCard>
-
-                <toolkit:SettingsCard>
-                    <toolkit:SettingsCard.Header>
                         <TextBlock x:Uid="SettingsPage_PluginsAutoCheckUpdates" Style="{StaticResource SettingsHeaderTextStyle}" />
                     </toolkit:SettingsCard.Header>
                     <toolkit:SettingsCard.Description>
@@ -53,11 +43,11 @@
                             <RowDefinition Height="Auto" />
                         </Grid.RowDefinitions>
 
-                        <Button Grid.Row="0" Grid.Column="0" x:Uid="SettingsPage_OpenPluginStore" HorizontalAlignment="Stretch" Style="{StaticResource SettingsActionButtonStyle}" Click="OnOpenPluginStoreClick" IsEnabled="{x:Bind ViewModel.Settings.Plugins.Enabled, Mode=OneWay}" />
-                        <Button Grid.Row="0" Grid.Column="1" x:Uid="SettingsPage_ManualInstallPlugin" HorizontalAlignment="Stretch" Style="{StaticResource SettingsActionButtonStyle}" Click="OnManualInstallPluginClick" IsEnabled="{x:Bind ViewModel.Settings.Plugins.Enabled, Mode=OneWay}" />
+                        <Button Grid.Row="0" Grid.Column="0" x:Uid="SettingsPage_OpenPluginStore" HorizontalAlignment="Stretch" Style="{StaticResource SettingsActionButtonStyle}" Click="OnOpenPluginStoreClick" />
+                        <Button Grid.Row="0" Grid.Column="1" x:Uid="SettingsPage_ManualInstallPlugin" HorizontalAlignment="Stretch" Style="{StaticResource SettingsActionButtonStyle}" Click="OnManualInstallPluginClick" />
                         <Button Grid.Row="0" Grid.Column="2" x:Uid="SettingsPage_OpenPluginFolder" HorizontalAlignment="Stretch" Style="{StaticResource SettingsActionButtonStyle}" Click="OnOpenPluginFolderClick" />
                         <Button Grid.Row="1" Grid.Column="0" x:Uid="SettingsPage_RefreshPlugins" HorizontalAlignment="Stretch" Style="{StaticResource SettingsActionButtonStyle}" Click="OnRefreshPluginsClick" />
-                        <Button Grid.Row="1" Grid.Column="1" x:Uid="SettingsPage_CheckPluginUpdates" HorizontalAlignment="Stretch" Style="{StaticResource SettingsActionButtonStyle}" Click="OnCheckPluginUpdatesClick" IsEnabled="{x:Bind ViewModel.Settings.Plugins.Enabled, Mode=OneWay}" />
+                        <Button Grid.Row="1" Grid.Column="1" x:Uid="SettingsPage_CheckPluginUpdates" HorizontalAlignment="Stretch" Style="{StaticResource SettingsActionButtonStyle}" Click="OnCheckPluginUpdatesClick" />
                         <Button Grid.Row="1" Grid.Column="2" x:Uid="SettingsPage_RestartSafeMode" HorizontalAlignment="Stretch" Style="{StaticResource SettingsActionButtonStyle}" Click="OnRestartSafeModeClick" />
                     </Grid>
                 </toolkit:SettingsCard>
@@ -66,8 +56,7 @@
                     <toolkit:SettingsCard.Header>
                         <TextBlock x:Uid="SettingsPage_InstalledPlugins" Style="{StaticResource SettingsHeaderTextStyle}" />
                     </toolkit:SettingsCard.Header>
-                    <ItemsControl ItemsSource="{x:Bind ViewModel.InstalledPlugins, Mode=OneWay}"
-                                  IsEnabled="{x:Bind ViewModel.Settings.Plugins.Enabled, Mode=OneWay}">
+                    <ItemsControl ItemsSource="{x:Bind ViewModel.InstalledPlugins, Mode=OneWay}">
                         <ItemsControl.ItemTemplate>
                             <DataTemplate x:DataType="models:InstalledPluginInfo">
                                 <Grid Padding="8,12" ColumnSpacing="16">

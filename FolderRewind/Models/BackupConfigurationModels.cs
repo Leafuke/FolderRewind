@@ -22,7 +22,6 @@ namespace FolderRewind.Models
         private string _destinationPath = "";
         private string _iconGlyph = "\uE8B7"; // 默认文件夹图标
         private string _summaryText = I18n.Format("BackupConfig_DefaultSummary");
-        private string _configType = "Default"; // 配置类型，由插件定义，如 "Minecraft Saves"
         private bool _isEncrypted = false; // 是否为加密配置
         private DiscoveryOrigin? _discoveryOrigin;
         private ConfigKindReference _kind = new();
@@ -44,16 +43,7 @@ namespace FolderRewind.Models
                 : value.Trim());
         }
 
-        /// <summary>
-        /// 配置类型。默认为 "Default"。
-        /// 插件可以定义自己的配置类型，如 "Minecraft Saves"。
-        /// </summary>
-        public string ConfigType { get => _configType; set => SetProperty(ref _configType, value ?? "Default"); }
-
-        /// <summary>
-        /// v3 role-specific configuration kind. ConfigType remains only for v2
-        /// runtime compatibility until the M6 clean break.
-        /// </summary>
+        /// <summary>v3 配置身份；显示名称不得作为持久化身份使用。</summary>
         public ConfigKindReference Kind
         {
             get => _kind;
@@ -97,12 +87,6 @@ namespace FolderRewind.Models
 
         public DiscoveryOrigin? DiscoveryOrigin { get => _discoveryOrigin; set => SetProperty(ref _discoveryOrigin, value); }
 
-        /// <summary>
-        /// 是否为 Minecraft Saves 配置类型（用于 UI 卡片徽标显示）。
-        /// </summary>
-        [JsonIgnore]
-        public bool IsMinecraftConfig => string.Equals(_configType, "Minecraft Saves", StringComparison.OrdinalIgnoreCase);
-
         // UI 显示用
         public string IconGlyph { get => _iconGlyph; set => SetProperty(ref _iconGlyph, value); }
         [JsonIgnore] // 不需要保存到文件，运行时生成
@@ -126,8 +110,6 @@ namespace FolderRewind.Models
         // 云上传设置（通过外部工具执行）
         public CloudSettings Cloud { get; set; } = new();
 
-        // 扩展属性 (用于插件，如 Minecraft 插件存储 rcon 端口等)
-        public Dictionary<string, string> ExtendedProperties { get; set; } = new();
     }
 
     /// <summary>
@@ -136,19 +118,9 @@ namespace FolderRewind.Models
     /// </summary>
     public class BackupScopeSettings : ObservableObject
     {
-        private string _pluginScopeId = string.Empty;
         private string _ownerId = string.Empty;
         private string _scopeId = string.Empty;
         private Dictionary<string, string> _parameters = new(StringComparer.OrdinalIgnoreCase);
-
-        /// <summary>
-        /// 插件范围 ID。为空表示完整范围，沿用普通备份行为。
-        /// </summary>
-        public string PluginScopeId
-        {
-            get => _pluginScopeId;
-            set => SetProperty(ref _pluginScopeId, value?.Trim() ?? string.Empty);
-        }
 
         public string OwnerId
         {
@@ -174,7 +146,8 @@ namespace FolderRewind.Models
         }
 
         [JsonIgnore]
-        public bool IsPluginScopeEnabled => !string.IsNullOrWhiteSpace(PluginScopeId);
+        public bool IsPluginScopeEnabled =>
+            !string.IsNullOrWhiteSpace(OwnerId) && !string.IsNullOrWhiteSpace(ScopeId);
     }
 
     /// <summary>

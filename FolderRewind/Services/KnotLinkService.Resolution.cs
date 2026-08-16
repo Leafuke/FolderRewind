@@ -165,9 +165,12 @@ namespace FolderRewind.Services
 
             if (!string.IsNullOrWhiteSpace(backupScopeId))
             {
-                clone.BackupScope.PluginScopeId = IsFullScopeAlias(backupScopeId)
+                clone.BackupScope.ScopeId = IsFullScopeAlias(backupScopeId)
                     ? string.Empty
                     : backupScopeId.Trim();
+                clone.BackupScope.OwnerId = string.IsNullOrWhiteSpace(clone.BackupScope.ScopeId)
+                    ? string.Empty
+                    : clone.Kind.OwnerId;
             }
 
             if (backupScopeParameters != null && backupScopeParameters.Count > 0)

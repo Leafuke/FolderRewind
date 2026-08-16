@@ -142,7 +142,6 @@ namespace FolderRewind.Models
         private string _gameName = string.Empty;
         private int? _steamAppId;
         private string _version = "1.0";
-        private string _baseConfigType = "Default";
         private int _schemaVersion = 1;
         private ConfigKindReference _kind = new();
         private bool _isEncrypted;
@@ -155,7 +154,6 @@ namespace FolderRewind.Models
         private FilterSettings _filters = new();
         private BackupScopeSettings _backupScope = new();
         private CloudSettings _cloud = new();
-        private Dictionary<string, string> _extendedProperties = new();
         private ObservableCollection<string> _requiredPluginIds = new();
         private ObservableCollection<TemplatePathRule> _pathRules = new();
         private ObservableCollection<BackupPresetDiscoverySource> _discoverySources = new();
@@ -173,7 +171,8 @@ namespace FolderRewind.Models
         public string Version { get => _version; set => SetProperty(ref _version, value ?? "1.0"); }
         public int SchemaVersion { get => _schemaVersion; set => SetProperty(ref _schemaVersion, value); }
         public ConfigKindReference Kind { get => _kind; set => SetProperty(ref _kind, value ?? new ConfigKindReference()); }
-        public string BaseConfigType { get => _baseConfigType; set => SetProperty(ref _baseConfigType, value ?? "Default"); }
+        [JsonIgnore]
+        public string KindDisplay => $"{Kind.OwnerId}/{Kind.KindId}";
         public bool IsEncrypted { get => _isEncrypted; set => SetProperty(ref _isEncrypted, value); }
         public string IconGlyph { get => _iconGlyph; set => SetProperty(ref _iconGlyph, value ?? string.Empty); }
         public string DefaultConfigName { get => _defaultConfigName; set => SetProperty(ref _defaultConfigName, value ?? string.Empty); }
@@ -208,12 +207,6 @@ namespace FolderRewind.Models
         {
             get => _cloud;
             set => SetProperty(ref _cloud, value ?? new CloudSettings());
-        }
-
-        public Dictionary<string, string> ExtendedProperties
-        {
-            get => _extendedProperties;
-            set => SetProperty(ref _extendedProperties, value ?? new Dictionary<string, string>());
         }
 
         public ObservableCollection<string> RequiredPluginIds

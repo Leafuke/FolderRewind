@@ -163,7 +163,7 @@ namespace FolderRewind.ViewModels
                     return -1;
                 }
 
-                var scopeId = _config.BackupScope?.PluginScopeId ?? string.Empty;
+                var scopeId = _config.BackupScope?.ScopeId ?? string.Empty;
                 var index = _backupScopeOptions
                     .Select((option, i) => (option, i))
                     .FirstOrDefault(pair => string.Equals(pair.option.Id, scopeId, StringComparison.OrdinalIgnoreCase)).i;
@@ -190,12 +190,13 @@ namespace FolderRewind.ViewModels
 
             _config.BackupScope ??= new BackupScopeSettings();
             var option = _backupScopeOptions[value];
-            if (string.Equals(_config.BackupScope.PluginScopeId, option.Id, StringComparison.OrdinalIgnoreCase))
+            if (string.Equals(_config.BackupScope.ScopeId, option.Id, StringComparison.OrdinalIgnoreCase))
             {
                 return false;
             }
 
-            _config.BackupScope.PluginScopeId = option.Id;
+            _config.BackupScope.OwnerId = option.Definition?.OwnerId ?? string.Empty;
+            _config.BackupScope.ScopeId = option.Id;
             EnsureScopeParameterDefaults(option);
             RaiseBackupScopeUiProperties();
             return true;
@@ -207,8 +208,8 @@ namespace FolderRewind.ViewModels
 
         public string BackupScopeDescription => SelectedBackupScopeOption?.Description ?? string.Empty;
 
-        public IReadOnlyList<PluginSettingDefinition> SelectedBackupScopeParameters =>
-            SelectedBackupScopeOption?.Definition?.Parameters ?? Array.Empty<PluginSettingDefinition>();
+        public IReadOnlyList<PluginFormFieldDefinition> SelectedBackupScopeParameters =>
+            SelectedBackupScopeOption?.Definition?.Parameters ?? Array.Empty<PluginFormFieldDefinition>();
 
         public double CompressionLevelMin => ArchiveCompressionPolicy.GetLevelRange(_archive.Method).Min;
 
@@ -262,7 +263,7 @@ namespace FolderRewind.ViewModels
                     definition));
             }
 
-            var selectedScopeId = _config.BackupScope?.PluginScopeId ?? string.Empty;
+            var selectedScopeId = _config.BackupScope?.ScopeId ?? string.Empty;
             if (!string.IsNullOrWhiteSpace(selectedScopeId)
                 && !options.Any(option => string.Equals(option.Id, selectedScopeId, StringComparison.OrdinalIgnoreCase)))
             {

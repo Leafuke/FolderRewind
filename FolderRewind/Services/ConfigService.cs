@@ -281,9 +281,6 @@ namespace FolderRewind.Services
 
                 template.ShareCode = template.ShareCode.Trim().ToUpperInvariant();
                 template.GameName = template.GameName.Trim();
-                if (string.IsNullOrWhiteSpace(template.BaseConfigType))
-                    template.BaseConfigType = "Default";
-
                 template.Automation.Normalize();
                 NormalizeBackupScope(template.BackupScope);
                 NormalizeCloudSettings(template.Cloud, defaultRemoteBasePath);
@@ -304,33 +301,19 @@ namespace FolderRewind.Services
             var usedFolderIds = new HashSet<Guid>();
 
             var pluginSettings = config.GlobalSettings.Plugins;
-            if (pluginSettings.EnabledIntent.Count == 0 && pluginSettings.PluginEnabled.Count > 0)
-            {
-                pluginSettings.EnabledIntent = new Dictionary<string, bool>(
-                    pluginSettings.PluginEnabled,
-                    StringComparer.OrdinalIgnoreCase);
-            }
-
-            if (pluginSettings.TypedSettings.Count == 0 && pluginSettings.PluginSettings.Count > 0)
-            {
-                pluginSettings.TypedSettings = BuildTypedPluginSettings(pluginSettings.PluginSettings);
-            }
+            RemoveLegacyExtensions(pluginSettings, "Enabled", "PluginEnabled", "PluginSettings", "StoreRepo");
 
             foreach (var backupConfig in config.BackupConfigs.Where(static item => item != null))
             {
-                var isMinecraft = string.Equals(
-                    backupConfig.ConfigType,
-                    "Minecraft Saves",
-                    StringComparison.OrdinalIgnoreCase);
-                var ownerId = isMinecraft ? ConfigSchema.MineRewindPluginId : ConfigSchema.CoreOwnerId;
-                var kindId = isMinecraft ? ConfigSchema.MineRewindKindId : ConfigSchema.CoreDefaultKindId;
+                RemoveLegacyExtensions(backupConfig, "ConfigType", "ExtendedProperties");
                 if (string.IsNullOrWhiteSpace(backupConfig.Kind.OwnerId)
-                    || string.IsNullOrWhiteSpace(backupConfig.Kind.KindId)
-                    || (isMinecraft
-                        && string.Equals(backupConfig.Kind.OwnerId, ConfigSchema.CoreOwnerId, StringComparison.OrdinalIgnoreCase)
-                        && string.Equals(backupConfig.Kind.KindId, ConfigSchema.CoreDefaultKindId, StringComparison.OrdinalIgnoreCase)))
+                    || string.IsNullOrWhiteSpace(backupConfig.Kind.KindId))
                 {
-                    backupConfig.Kind = new ConfigKindReference { OwnerId = ownerId, KindId = kindId };
+                    backupConfig.Kind = new ConfigKindReference
+                    {
+                        OwnerId = ConfigSchema.CoreOwnerId,
+                        KindId = ConfigSchema.CoreDefaultKindId
+                    };
                 }
 
                 backupConfig.ProviderStates ??= new Dictionary<string, ProviderStatePayload>(StringComparer.OrdinalIgnoreCase);
@@ -345,16 +328,7 @@ namespace FolderRewind.Services
                         ? new Dictionary<string, JsonElement>(StringComparer.Ordinal)
                         : new Dictionary<string, JsonElement>(backupConfig.ArtifactTransformPolicy.Parameters, StringComparer.Ordinal);
                 }
-                if (string.IsNullOrWhiteSpace(backupConfig.BackupScope.OwnerId)
-                    && string.IsNullOrWhiteSpace(backupConfig.BackupScope.ScopeId))
-                {
-                    var selectedRegions = string.Equals(
-                        backupConfig.BackupScope.PluginScopeId,
-                        "MineRewind.SelectedRegions",
-                        StringComparison.OrdinalIgnoreCase);
-                    backupConfig.BackupScope.OwnerId = selectedRegions ? ConfigSchema.MineRewindPluginId : string.Empty;
-                    backupConfig.BackupScope.ScopeId = selectedRegions ? ConfigSchema.MineRewindSelectedRegionsScopeId : string.Empty;
-                }
+                RemoveLegacyExtensions(backupConfig.BackupScope, "PluginScopeId");
 
                 foreach (var folder in backupConfig.SourceFolders.Where(static item => item != null))
                 {
@@ -378,20 +352,14 @@ namespace FolderRewind.Services
             foreach (var preset in config.BackupPresets.Where(static item => item != null))
             {
                 preset.SchemaVersion = ConfigSchema.CurrentVersion;
-                var isMinecraft = string.Equals(
-                    preset.BaseConfigType,
-                    "Minecraft Saves",
-                    StringComparison.OrdinalIgnoreCase);
+                RemoveLegacyExtensions(preset, "BaseConfigType");
                 if (string.IsNullOrWhiteSpace(preset.Kind.OwnerId)
-                    || string.IsNullOrWhiteSpace(preset.Kind.KindId)
-                    || (isMinecraft
-                        && string.Equals(preset.Kind.OwnerId, ConfigSchema.CoreOwnerId, StringComparison.OrdinalIgnoreCase)
-                        && string.Equals(preset.Kind.KindId, ConfigSchema.CoreDefaultKindId, StringComparison.OrdinalIgnoreCase)))
+                    || string.IsNullOrWhiteSpace(preset.Kind.KindId))
                 {
                     preset.Kind = new ConfigKindReference
                     {
-                        OwnerId = isMinecraft ? ConfigSchema.MineRewindPluginId : ConfigSchema.CoreOwnerId,
-                        KindId = isMinecraft ? ConfigSchema.MineRewindKindId : ConfigSchema.CoreDefaultKindId
+                        OwnerId = ConfigSchema.CoreOwnerId,
+                        KindId = ConfigSchema.CoreDefaultKindId
                     };
                 }
 
@@ -399,42 +367,14 @@ namespace FolderRewind.Services
             }
         }
 
-        private static Dictionary<string, Dictionary<string, JsonElement>> BuildTypedPluginSettings(
-            IReadOnlyDictionary<string, Dictionary<string, string>> settings)
+        private static void RemoveLegacyExtensions(ObservableObject value, params string[] names)
         {
-            var root = new Dictionary<string, Dictionary<string, JsonElement>>(StringComparer.OrdinalIgnoreCase);
-            foreach (var (pluginId, values) in settings)
+            if (value.SchemaExtensions.Count == 0) return;
+            foreach (var key in value.SchemaExtensions.Keys.Where(key =>
+                         names.Contains(key, StringComparer.OrdinalIgnoreCase)).ToArray())
             {
-                var typedValues = new Dictionary<string, JsonElement>(StringComparer.OrdinalIgnoreCase);
-                foreach (var (key, value) in values)
-                {
-                    if (string.Equals(pluginId, ConfigSchema.MineRewindPluginId, StringComparison.OrdinalIgnoreCase)
-                        && (string.Equals(key, "AutoDiscoverSaves", StringComparison.OrdinalIgnoreCase)
-                            || string.Equals(key, "AutoCreateConfigs", StringComparison.OrdinalIgnoreCase)
-                            || string.Equals(key, "PreservePlayerData", StringComparison.OrdinalIgnoreCase))
-                        && TryParseLegacyBoolean(value, out var booleanValue))
-                    {
-                        typedValues[key] = JsonSerializer.SerializeToElement(booleanValue);
-                    }
-                    else
-                    {
-                        typedValues[key] = JsonSerializer.SerializeToElement(value);
-                    }
-                }
-
-                root[pluginId] = typedValues;
+                value.SchemaExtensions.Remove(key);
             }
-
-            return root;
-        }
-
-        private static bool TryParseLegacyBoolean(string? value, out bool result)
-        {
-            if (bool.TryParse(value, out result)) return true;
-            if (value == "1") { result = true; return true; }
-            if (value == "0") { result = false; return true; }
-            result = false;
-            return false;
         }
 
         private static (double Width, double Height) GetRecommendedStartupWindowSize()
@@ -502,7 +442,13 @@ namespace FolderRewind.Services
 
         private static void NormalizeBackupScope(BackupScopeSettings scope)
         {
-            scope.PluginScopeId = scope.PluginScopeId?.Trim() ?? string.Empty;
+            scope.OwnerId = scope.OwnerId?.Trim() ?? string.Empty;
+            scope.ScopeId = scope.ScopeId?.Trim() ?? string.Empty;
+            if (string.IsNullOrWhiteSpace(scope.OwnerId) || string.IsNullOrWhiteSpace(scope.ScopeId))
+            {
+                scope.OwnerId = string.Empty;
+                scope.ScopeId = string.Empty;
+            }
             scope.Parameters = scope.Parameters == null
                 ? new System.Collections.Generic.Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
                 : new System.Collections.Generic.Dictionary<string, string>(scope.Parameters, StringComparer.OrdinalIgnoreCase);

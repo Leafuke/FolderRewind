@@ -130,7 +130,6 @@ namespace FolderRewind.Services
                 Name = I18n.GetString("BackupPreset_StandardGame_Name"),
                 Description = I18n.GetString("BackupPreset_StandardGame_Description"),
                 Version = "1.0",
-                BaseConfigType = "Default",
                 IsBuiltIn = true,
                 Archive = new ArchiveSettings(),
                 Automation = new AutomationSettings(),
@@ -362,9 +361,14 @@ namespace FolderRewind.Services
             }
 
             var message = I18n.Format("Template_Preview_Summary", matchedRuleCount.ToString(), template.PathRules.Count.ToString());
-            if (!IsConfigTypeAvailable(template.BaseConfigType, out var reason) && !string.IsNullOrWhiteSpace(reason))
+            if (!PluginService.GetAllSupportedConfigKinds(includeEncrypted: true).Any(option =>
+                    string.Equals(option.Kind.OwnerId, template.Kind.OwnerId, StringComparison.OrdinalIgnoreCase)
+                    && string.Equals(option.Kind.KindId, template.Kind.KindId, StringComparison.OrdinalIgnoreCase)
+                    && option.IsEncrypted == template.IsEncrypted))
             {
-                message = message + " " + reason;
+                message = message + " " + I18n.Format(
+                    "Template_ConfigKindUnavailable",
+                    $"{template.Kind.OwnerId}/{template.Kind.KindId}");
             }
 
             return new TemplatePreviewResult
@@ -414,10 +418,7 @@ namespace FolderRewind.Services
             template.Name = templateName.Trim();
             template.Author = author?.Trim() ?? string.Empty;
             template.Description = description?.Trim() ?? string.Empty;
-            template.BaseConfigType = sourceConfig.IsEncrypted
-                ? "Encrypted"
-                : (string.IsNullOrWhiteSpace(sourceConfig.ConfigType) ? "Default" : sourceConfig.ConfigType);
-            // 模板沿用稳定 Config Kind；本地化名称和 v2 ConfigType 都不能充当插件身份。
+            // 模板沿用稳定 Config Kind；本地化名称不能充当插件身份。
             template.Kind = new ConfigKindReference
             {
                 OwnerId = sourceConfig.Kind?.OwnerId ?? FolderRewind.Plugin.Runtime.Configuration.ConfigSchema.CoreOwnerId,
@@ -436,14 +437,7 @@ namespace FolderRewind.Services
             template.BackupScope = CloneBackupScope(sourceConfig.BackupScope);
             // 云同步这类配置很容易带出本地路径和远端地址，分享时宁可保守一点。
             template.Cloud = CreateTemplateCloudPreset();
-            // 扩展字段先走白名单，后面如果插件要分享更多内容，再做显式声明机制。
-            template.ExtendedProperties = FilterTemplateExtendedProperties(sourceConfig.ExtendedProperties);
-
             var requiredPlugins = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-            if (template.ExtendedProperties.TryGetValue("Plugin", out var pluginId) && !string.IsNullOrWhiteSpace(pluginId))
-            {
-                requiredPlugins.Add(pluginId);
-            }
             if (!string.IsNullOrWhiteSpace(sourceConfig.RequiredPluginId))
             {
                 requiredPlugins.Add(sourceConfig.RequiredPluginId);

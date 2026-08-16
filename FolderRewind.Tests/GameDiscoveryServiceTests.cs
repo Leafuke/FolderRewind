@@ -1,6 +1,5 @@
 using FolderRewind.Models;
 using FolderRewind.Services.Discovery;
-using FolderRewind.Services.Plugins;
 
 namespace FolderRewind.Tests;
 
@@ -10,7 +9,7 @@ public sealed class GameDiscoveryServiceTests
     [TestMethod]
     public async Task ProviderFailureBecomesDiagnosticWithoutDroppingOtherResults()
     {
-        var service = new GameDiscoveryService(new IFolderRewindDiscoveryProvider[]
+        var service = new GameDiscoveryService(new IGameDiscoveryProvider[]
         {
             new FakeProvider("working", 10, CreateResult("working")),
             new ThrowingProvider("broken", 20)
@@ -27,7 +26,7 @@ public sealed class GameDiscoveryServiceTests
     [TestMethod]
     public async Task DuplicateProviderIdUsesHighestPriorityImplementation()
     {
-        var service = new GameDiscoveryService(new IFolderRewindDiscoveryProvider[]
+        var service = new GameDiscoveryService(new IGameDiscoveryProvider[]
         {
             new FakeProvider("same", 1, new DiscoveryProviderResult { ProviderId = "same" }),
             new FakeProvider("same", 5, CreateResult("same"))
@@ -59,7 +58,7 @@ public sealed class GameDiscoveryServiceTests
         };
     }
 
-    private sealed class FakeProvider : IFolderRewindDiscoveryProvider
+    private sealed class FakeProvider : IGameDiscoveryProvider
     {
         private readonly DiscoveryProviderResult _result;
 
@@ -82,7 +81,7 @@ public sealed class GameDiscoveryServiceTests
             CancellationToken cancellationToken) => Task.FromResult(_result);
     }
 
-    private sealed class ThrowingProvider : IFolderRewindDiscoveryProvider
+    private sealed class ThrowingProvider : IGameDiscoveryProvider
     {
         public ThrowingProvider(string id, int priority)
         {

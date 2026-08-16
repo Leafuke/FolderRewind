@@ -59,11 +59,6 @@ public static class DiscoveryDraftService
             });
         }
 
-        string? configTypeOverride = preset.IsBuiltIn
-                                     && !string.IsNullOrWhiteSpace(backupSet.SuggestedConfigType)
-                                     && !string.Equals(backupSet.SuggestedConfigType, "Default", StringComparison.OrdinalIgnoreCase)
-            ? backupSet.SuggestedConfigType
-            : null;
         BackupConfig config;
         if (existing != null)
         {
@@ -73,15 +68,20 @@ public static class DiscoveryDraftService
             {
                 Name = existing.Name,
                 DestinationPath = existing.DestinationPath,
-                ConfigType = existing.ConfigType
+                Kind = new ConfigKindReference
+                {
+                    OwnerId = existing.Kind.OwnerId,
+                    KindId = existing.Kind.KindId
+                },
+                RequiredPluginId = existing.RequiredPluginId,
+                IsEncrypted = existing.IsEncrypted
             };
         }
         else
         {
             var presetResult = BackupPresetService.CreateConfigFromTemplate(
                 preset,
-                backupSet.DisplayName,
-                configTypeOverride);
+                backupSet.DisplayName);
             if (!presetResult.Success || presetResult.Config == null)
             {
                 issues.Add(new BackupConfigDraftIssue

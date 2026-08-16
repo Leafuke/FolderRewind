@@ -9,6 +9,11 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <ProjectReference Include="..\FolderRewind.Plugin.Abstractions\FolderRewind.Plugin.Abstractions.csproj" />
+    <ProjectReference Include="..\FolderRewind.Plugin.Runtime\FolderRewind.Plugin.Runtime.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
     <PackageReference Include="Microsoft.NET.Test.Sdk" Version="18.0.1" />
     <PackageReference Include="MSTest.TestAdapter" Version="4.0.2" />
     <PackageReference Include="MSTest.TestFramework" Version="4.0.2" />
@@ -30,8 +35,6 @@
     <Compile Include="..\FolderRewind\Services\KnotLink\KnotLinkProtocolFormatter.cs" Link="Source\KnotLinkProtocolFormatter.cs" />
     <Compile Include="..\FolderRewind\Services\KnotLink\KnotLinkFuncListModels.cs" Link="Source\KnotLinkFuncListModels.cs" />
     <Compile Include="..\FolderRewind\Services\KnotLink\KnotLinkFuncListService.cs" Link="Source\KnotLinkFuncListService.cs" />
-    <Compile Include="..\FolderRewind\Services\Plugins\IFolderRewindKnotLinkCapabilityProvider.cs" Link="Source\IFolderRewindKnotLinkCapabilityProvider.cs" />
-    <Compile Include="..\FolderRewind-Plugin-Minecraft\MineRewind\MinecraftSavesPlugin.KnotLinkCapabilities.cs" Link="Source\MinecraftSavesPlugin.KnotLinkCapabilities.cs" />
     <Compile Include="..\FolderRewind\Services\PathRuleMatcher.cs" Link="Source\PathRuleMatcher.cs" />
     <Compile Include="..\FolderRewind\Services\RestoreModePolicy.cs" Link="Source\RestoreModePolicy.cs" />
     <Compile Include="..\FolderRewind\Services\TemplateFormatPolicy.cs" Link="Source\TemplateFormatPolicy.cs" />
@@ -50,6 +53,7 @@
     <Compile Include="..\FolderRewind\Services\BackupInvocationOptions.cs" Link="Source\BackupInvocationOptions.cs" />
     <Compile Include="..\FolderRewind\Services\BackupRunRestoreOrchestrator.cs" Link="Source\BackupRunRestoreOrchestrator.cs" />
     <Compile Include="..\FolderRewind\Services\Discovery\GameDiscoveryService.cs" Link="Source\GameDiscoveryService.cs" />
+    <Compile Include="..\FolderRewind\Services\Discovery\IGameDiscoveryProvider.cs" Link="Source\IGameDiscoveryProvider.cs" />
     <Compile Include="..\FolderRewind\Services\Discovery\LudusaviManifestCompiler.cs" Link="Source\LudusaviManifestCompiler.cs" />
     <Compile Include="..\FolderRewind\Services\Discovery\LudusaviManifestCacheService.cs" Link="Source\LudusaviManifestCacheService.cs" />
     <Compile Include="..\FolderRewind\Services\Discovery\LauncherInstallationScanners.cs" Link="Source\LauncherInstallationScanners.cs" />
@@ -60,7 +64,6 @@
     <Compile Include="..\FolderRewind\Services\BackupSourceAvailabilityPolicy.cs" Link="Source\BackupSourceAvailabilityPolicy.cs" />
     <Compile Include="..\FolderRewind\Services\BackupSourceRootSafetyPolicy.cs" Link="Source\BackupSourceRootSafetyPolicy.cs" />
     <Compile Include="..\FolderRewind\Services\BackupRunPolicy.cs" Link="Source\BackupRunPolicy.cs" />
-    <Compile Include="..\FolderRewind\Services\Plugins\IFolderRewindDiscoveryProvider.cs" Link="Source\IFolderRewindDiscoveryProvider.cs" />
     <Compile Include="..\FolderRewind\Services\LanguageSettingPolicy.cs" Link="Source\LanguageSettingPolicy.cs" />
     <Compile Include="..\FolderRewind\Services\MiniWindowLayoutPolicy.cs" Link="Source\MiniWindowLayoutPolicy.cs" />
     <Compile Include="..\FolderRewind\Services\SponsorBackgroundImageCachePolicy.cs" Link="Source\SponsorBackgroundImageCachePolicy.cs" />
@@ -73,7 +76,6 @@
     <Compile Include="..\FolderRewind\Services\BackupChainPlanner.cs" Link="Source\BackupChainPlanner.cs" />
     <Compile Include="..\FolderRewind\Models\BackupMetadata.cs" Link="Source\BackupMetadata.cs" />
     <Compile Include="..\FolderRewind\Services\BackupMetadataDeletionPolicy.cs" Link="Source\BackupMetadataDeletionPolicy.cs" />
-    <Compile Include="..\FolderRewind\Services\Plugins\PluginConfigAdditionPolicy.cs" Link="Source\PluginConfigAdditionPolicy.cs" />
     <Compile Include="..\FolderRewind\Models\FolderRenameModels.cs" Link="Source\FolderRenameModels.cs" />
     <Compile Include="..\FolderRewind\Models\PersistenceModels.cs" Link="Source\PersistenceModels.cs" />
     <Compile Include="..\FolderRewind\Services\AtomicFileService.cs" Link="Source\AtomicFileService.cs" />

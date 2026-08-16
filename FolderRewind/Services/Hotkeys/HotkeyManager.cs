@@ -353,49 +353,5 @@ namespace FolderRewind.Services.Hotkeys
                 LogService.LogError(I18n.Format("Hotkeys_InvokeFailed", ex.Message), nameof(HotkeyManager), ex);
             }
         }
-
-        public static void RegisterPluginHotkeys(PluginInstallManifest manifest, IFolderRewindPlugin instance)
-        {
-            if (manifest == null || instance == null) return;
-
-            if (instance is IFolderRewindHotkeyProvider provider)
-            {
-                try
-                {
-                    var defs = provider.GetHotkeyDefinitions() ?? Array.Empty<PluginHotkeyDefinition>();
-                    var normalized = defs
-                        .Where(d => d != null && !string.IsNullOrWhiteSpace(d.Id))
-                        .Select(d => new HotkeyDefinition
-                        {
-                            Id = $"plugin.{manifest.Id}.{d.Id}",
-                            DisplayName = d.DisplayName ?? d.Id,
-                            Description = d.Description,
-                            DefaultGesture = d.DefaultGesture ?? string.Empty,
-                            Scope = d.IsGlobalHotkey ? HotkeyScope.GlobalHotkey : HotkeyScope.Shortcut,
-                            OwnerPluginId = manifest.Id,
-                            OwnerPluginName = manifest.Name,
-                        })
-                        .ToList();
-
-                    RegisterDefinitions(normalized);
-
-                    foreach (var d in defs)
-                    {
-                        if (d == null || string.IsNullOrWhiteSpace(d.Id)) continue;
-                        var fullId = $"plugin.{manifest.Id}.{d.Id}";
-                        RegisterHandler(fullId, async trig =>
-                        {
-                            var settings = PluginService.GetPluginSettings(manifest.Id);
-                            var ctx = PluginHostContext.CreateForCurrentApp(manifest.Id, manifest.Name);
-                            await provider.OnHotkeyInvokedAsync(d.Id, trig == HotkeyTrigger.GlobalHotkey, settings, ctx);
-                        });
-                    }
-                }
-                catch (Exception ex)
-                {
-                    LogService.LogError(I18n.Format("Hotkeys_PluginRegisterFailed", manifest.Id, ex.Message), nameof(HotkeyManager), ex);
-                }
-            }
-        }
     }
 }

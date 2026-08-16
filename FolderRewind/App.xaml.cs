@@ -165,17 +165,12 @@ namespace FolderRewind
                     }
                 });
 
-                // 插件包恢复和离线迁移在后台执行；只有集合与旧版 UI 热键收尾会回到 Dispatcher。
+                // 插件包恢复和离线迁移在后台执行；UI 线程只负责启动入口。
                 _window.DispatcherQueue.TryEnqueue(Microsoft.UI.Dispatching.DispatcherQueuePriority.Low, () =>
                 {
                     try
                     {
                         PluginService.Initialize();
-                        _ = Task.Run(async () =>
-                        {
-                            await PluginService.Initialization.ConfigureAwait(false);
-                            await PluginService.RunConfigAugmentationAsync(PluginConfigAugmentationReason.Startup).ConfigureAwait(false);
-                        });
                     }
                     catch (Exception pluginEx)
                     {

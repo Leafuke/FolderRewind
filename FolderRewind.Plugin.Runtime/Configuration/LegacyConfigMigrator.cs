@@ -89,6 +89,9 @@ public sealed class LegacyConfigMigrator
                     required.Add(ConfigSchema.MineRewindPluginId);
                 }
             }
+
+            // clean break 后，已知 v2 字段只参与迁移，不能进入 schema v1 文档。
+            RemoveProperty(preset, "BaseConfigType");
         }
     }
 
@@ -192,6 +195,10 @@ public sealed class LegacyConfigMigrator
             EnsureFolderId(folder, usedFolderIds);
             EnsureObject(folder, "ProviderStates");
         }
+
+        RemoveProperty(config, "ConfigType");
+        RemoveProperty(config, "ExtendedProperties");
+        RemoveProperty(scope, "PluginScopeId");
     }
 
     private static void MigratePluginSettings(JsonObject globalSettings, List<string> warnings)
@@ -250,6 +257,10 @@ public sealed class LegacyConfigMigrator
         }
 
         plugins["TypedSettings"] = typedSettings;
+        RemoveProperty(plugins, "Enabled");
+        RemoveProperty(plugins, "PluginEnabled");
+        RemoveProperty(plugins, "PluginSettings");
+        RemoveProperty(plugins, "StoreRepo");
     }
 
     private void EnsureConfigId(JsonObject config, HashSet<string> usedIds)
@@ -350,5 +361,12 @@ public sealed class LegacyConfigMigrator
         var created = new JsonArray();
         parent[propertyName] = created;
         return created;
+    }
+
+    private static void RemoveProperty(JsonObject parent, string propertyName)
+    {
+        var key = parent.Select(pair => pair.Key).FirstOrDefault(key =>
+            string.Equals(key, propertyName, StringComparison.OrdinalIgnoreCase));
+        if (key is not null) parent.Remove(key);
     }
 }

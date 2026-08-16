@@ -377,7 +377,8 @@ namespace FolderRewind.ViewModels
                 filtered = filtered.Where(t =>
                     (t.Name?.Contains(keyword, StringComparison.CurrentCultureIgnoreCase) ?? false)
                     || (t.Author?.Contains(keyword, StringComparison.CurrentCultureIgnoreCase) ?? false)
-                    || (t.BaseConfigType?.Contains(keyword, StringComparison.CurrentCultureIgnoreCase) ?? false));
+                    || t.Kind.OwnerId.Contains(keyword, StringComparison.CurrentCultureIgnoreCase)
+                    || t.Kind.KindId.Contains(keyword, StringComparison.CurrentCultureIgnoreCase));
             }
 
             TemplatesView.Clear();
@@ -425,7 +426,7 @@ namespace FolderRewind.ViewModels
             var ruleCount = SelectedTemplate.PathRules?.Count ?? 0;
             TemplateMetaText = I18n.Format(
                 "TemplateManagerDialog_TemplateMetaFormat",
-                SelectedTemplate.BaseConfigType,
+                $"{SelectedTemplate.Kind.OwnerId}/{SelectedTemplate.Kind.KindId}",
                 updatedText,
                 ruleCount.ToString(CultureInfo.CurrentCulture));
 

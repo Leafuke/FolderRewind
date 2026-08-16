@@ -73,11 +73,6 @@ namespace FolderRewind.Services
                     {
                         return FormatCommandHandlerResponse(context, v3Response);
                     }
-                    var (pluginHandled, pluginResponse) = await PluginService.TryHandleParameterizedKnotLinkCommandAsync(context).ConfigureAwait(false);
-                    if (pluginHandled)
-                    {
-                        return FormatCommandHandlerResponse(context, pluginResponse);
-                    }
                 }
 
                 var response = await HandleV2CommandAsync(context).ConfigureAwait(false);
