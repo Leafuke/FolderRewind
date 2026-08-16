@@ -2,7 +2,7 @@
 
 状态：首轮 M5 Gate 已拒绝；等待 M5R 聚焦复测。不要在通过本清单前进入 M6 clean break。
 
-## M5R 聚焦复测（更新于 2026-08-15）
+## M5R 聚焦复测（更新于 2026-08-16）
 
 - 先以 `EnabledIntent=true` 且 code 已卸载的状态手动安装 MineRewind v3：完成提示和列表都必须为 Disabled；不得在安装过程中 Activate。
 - 显式启用后重启：Runtime 必须为 Active，日志不得出现 `0x8001010E`、`KeyboardAccelerator` 跨线程异常或“Plugin v3 initialization failed”；默认 hotkeys 应可见并可触发。
@@ -14,15 +14,16 @@
 - 两种 intent 均应产生 `install-state.v1.json`、`versions/1.9.0`、`legacy-quarantine` 和 `plugins/.migration/com.folderrewind.minerewind.v2-v3.json`；journal 最终为 `Completed`，日志应包含每个迁移 phase。
 - 制造 hash/文件占用或取消失败：journal 必须为 `RecoveryRequired` 并带诊断；flat DLL 不执行，部分 quarantine move 要么完整回滚，要么保留可恢复 quarantine，不能静默丢失。
 - 在一个由 Minecraft 占用（`session.lock` 被持有）的已配置世界中，依次从真实模组发送 `BACKUP`、`LIST_BACKUPS`、`RESTORE` 且仅带 `current_save=true`（以及既有 `from/request_id`）：三者不得再返回“缺少 config_id”；列表应返回该世界的 History 文件名，备份/还原应立即回复已受理。
+- `BACKUP + current_save=true` 同时发送 URL 编码的非 ASCII `comment`，例如“3.0插件修复后测试”；新 History 必须逐字保存并显示该注释。未发送 `comment` 时仍保存空注释，不能复用上一次值。
 - 检查热备日志/行为顺序：`handshake → HANDSHAKE_RESPONSE → handshake_ack → pre_hot_backup → WORLD_SAVED → Host backup`。模组不兼容或保存超时时，Preferred Full backup 应 raw fallback 并持久化 warning；Require consistency 应 Block。
-- 检查活跃世界热还原顺序：`handshake → pre_hot_restore → WORLD_SAVE_AND_EXIT_COMPLETE → 文件释放 → Host mutation once-only → hot_restore_complete → rejoin_world → REJOIN_RESULT`。握手、退出或文件释放失败时不得进入 mutation，并应发送 `restore_cancelled`；完整 History 使用 Clean，Partial History 强制 Overwrite。
+- 检查活跃世界热还原顺序：`handshake → pre_hot_restore → WORLD_SAVE_AND_EXIT_COMPLETE → 文件释放 → Host mutation once-only → restore_finished → 至少 3 秒稳定窗口 → rejoin_world → REJOIN_RESULT → hot_restore_complete`。模组必须实际自动重进；日志必须能观察 `restore_finished`、稳定窗口、`rejoin_world` 和最终状态。握手、退出或文件释放失败时不得进入 mutation，并应发送 `restore_cancelled`；完整 History 使用 Clean，Partial History 强制 Overwrite。
 - 本轮 Official Catalog 按用户授权跳过；上述场景和三套测试基线通过后，再由用户决定 M5 Gate。
 
 ## A. 包安装与静态安全
 
 - 从“插件商店”刷新 Official Catalog；断网后再次进入，确认已安装插件正常、目录显示离线缓存或明确诊断。
 - 通过 Manual Install 选择 `MineRewind-1.9.0.frplugin`，确认安装路径为 `plugins/com.folderrewind.minerewind/versions/1.9.0`，且默认 Disabled。
-- 确认包 SHA-256 为 `415ce429eabdd14cbc5a1236bcb50983e31a2431e64a8bb163c7787bcf9b28b3`，包内包含 `fNbt.dll` 且不含 `FolderRewind.Plugin.Abstractions.dll`。
+- 确认包 SHA-256 为 `a97eddc838b7954fbbaf74de0fbc7bd88591159e48c8e71a68f64b54e2e9463c`，包内包含 `fNbt.dll` 且不含 `FolderRewind.Plugin.Abstractions.dll`。
 - 尝试包含 `../`、大小写重复路径、Abstractions DLL 或高压缩 bomb 的测试包：均应在写入插件版本目录前拒绝。
 - 安装 Manual provenance 的包后模拟 Official Catalog 后台更新：必须拒绝覆盖。
 

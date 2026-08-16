@@ -600,6 +600,20 @@ Revision 14 冻结以下兼容性修复：
 
 Revision 14 自动门禁候选：Abstractions 9/9、Runtime 105/105、Host 266/266、MineRewind 59/59。M5 Gate 继续保持拒绝，必须人工验证三条 `current_save` 命令不再要求 `config_id`，并用真实模组确认上述 signal/ACK 顺序、备份 raw fallback 与还原 mutation fail-closed。
 
+#### M5R Revision 15 — KnotLink comment 与重进线协议修复（2026-08-16，等待人工复测）
+
+Revision 14 的真实模组复测继续暴露两项 parity 缺口：`BACKUP + current_save=true` 虽收到并解码 `comment`，但 v3 `IBackupRequestService` 只有 Config/Folder 参数，MineRewind 在请求 Host 时丢弃了注释；还原侧则把 `hot_restore_complete` 提前到 Rejoin 之前，同时遗漏 1.8.x 的 `restore_finished` 过渡事件和 3 秒客户端稳定窗口，导致模组仍处于退出世界状态时丢弃过早到达的 `rejoin_world`。
+
+Revision 15 冻结以下兼容性修复：
+
+- Addendum 3 以仅加法方式新增 `BackupRequestOptions.Comment` 和带 options 的 `IBackupRequestService.RequestAsync`。旧三参数实现通过 default interface method 保持兼容；当前 Host 显式实现新重载，并将注释映射到 `BackupInvocationOptions` 后进入统一 History 持久化链。插件仍不能修改备份模式、scope 或用户配置。
+- MineRewind `current_save` BACKUP 把解码后的 `comment` 原样传给 Host；缺失参数使用空字符串，不保留跨请求状态。含中文、空值和旧实现 fallback 必须有自动化覆盖。
+- 热还原线协议恢复 1.8.x 的阶段边界：Host mutation 完成后先发送 `restore_finished(success|failed)`，等待 3 秒状态稳定，再注册 ACK TCS 并发送 `rejoin_world`；收到 `REJOIN_RESULT` 或超时后才发送最终 `hot_restore_complete(full_success|restore_ok_rejoin_failed|restore_ok_rejoin_timeout|restore_failed_*)`。
+- `restore_finished`、稳定等待、`rejoin_world`、ACK timeout 与最终状态均写 PluginV3 日志；恢复文件成功但 Rejoin 失败/超时仍持久为 `SuccessWithWarnings`。中文注释解释稳定窗口是协议正确性边界，而不是任意性能延迟。
+- M5 Gate 继续拒绝。人工复测必须确认 Unicode comment 在新 History 中逐字可见，并从真实模组观察 `restore_finished → 至少 3 秒 → rejoin_world → REJOIN_RESULT → hot_restore_complete`，且客户端实际自动重进。
+
+Revision 15 自动门禁候选：Addendum 3 public API fingerprint 为 `00ad259c581ebd1cb7b624862605c71b9498b44cf3d02f8ac388cacdd048b7dd`，本地 NuGet candidate SHA-256 为 `0265810384f0f13895f5f385cafaf93e8f174235a628813976fd0521b431b046`；MineRewind `.frplugin` SHA-256 为 `a97eddc838b7954fbbaf74de0fbc7bd88591159e48c8e71a68f64b54e2e9463c`。Abstractions 10/10、Runtime 105/105、Host 266/266、MineRewind 59/59 全绿；Host x86/x64/ARM64 Release 与 analyzer-enabled x64 Debug build 均为 0 error，本轮未新增 WinUI analyzer 诊断。普通 restore/backup 安全语义未被绕过，M5 Gate 仍等待真实模组聚焦复测。
+
 ### M6 — Clean break 与发布候选
 
 34. `[Host] refactor(plugin-v3): delete v2 runtime and Minecraft special cases`
