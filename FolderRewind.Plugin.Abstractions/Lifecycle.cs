@@ -49,6 +49,21 @@ public interface IReadOnlyConfigQueryService
 public interface IBackupRequestService
 {
     ValueTask<OperationOutcome> RequestAsync(string configId, Guid? folderId, CancellationToken cancellationToken);
+
+    ValueTask<OperationOutcome> RequestAsync(
+        string configId,
+        Guid? folderId,
+        BackupRequestOptions options,
+        CancellationToken cancellationToken)
+        => RequestAsync(configId, folderId, cancellationToken);
+}
+
+public sealed record BackupRequestOptions
+{
+    /// <summary>Per-request history comment. The Host remains responsible for validation and persistence.</summary>
+    public string Comment { get; init; } = string.Empty;
+
+    public static BackupRequestOptions Default { get; } = new();
 }
 
 public interface IRestoreRequestService

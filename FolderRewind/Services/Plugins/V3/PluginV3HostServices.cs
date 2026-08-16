@@ -61,11 +61,19 @@ internal sealed class PluginV3HostServices : IPluginHostServices
 
     private sealed class BackupRequests : IBackupRequestService
     {
-        public async ValueTask<OperationOutcome> RequestAsync(
+        public ValueTask<OperationOutcome> RequestAsync(
             string configId,
             Guid? folderId,
             CancellationToken cancellationToken)
+            => RequestAsync(configId, folderId, BackupRequestOptions.Default, cancellationToken);
+
+        public async ValueTask<OperationOutcome> RequestAsync(
+            string configId,
+            Guid? folderId,
+            BackupRequestOptions options,
+            CancellationToken cancellationToken)
         {
+            ArgumentNullException.ThrowIfNull(options);
             var config = ConfigService.CurrentConfig.BackupConfigs.FirstOrDefault(value =>
                 string.Equals(value.Id, configId, StringComparison.OrdinalIgnoreCase));
             if (config is null) return OperationOutcome.Blocked;
@@ -79,7 +87,8 @@ internal sealed class PluginV3HostServices : IPluginHostServices
                 var success = await BackupService.BackupFolderAsync(
                     config,
                     folder,
-                    BackupInvocationOptions.ForInternal());
+                    // 注释属于本次请求的 History 元数据，不能写入全局配置或跨请求复用。
+                    BackupInvocationOptions.ForInternal().WithComment(options.Comment));
                 if (!success) return OperationOutcome.NoChanges;
             }
             return OperationOutcome.Success;

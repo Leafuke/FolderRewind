@@ -64,6 +64,22 @@ public sealed class ContractTests
     }
 
     [TestMethod]
+    public async Task BackupRequestOptionsRemainCompatibleWithLegacyServiceImplementations()
+    {
+        var legacy = new LegacyBackupRequestService();
+        IBackupRequestService service = legacy;
+
+        var outcome = await service.RequestAsync(
+            "config",
+            null,
+            new BackupRequestOptions { Comment = "checkpoint" },
+            CancellationToken.None);
+
+        Assert.AreEqual(OperationOutcome.Success, outcome);
+        Assert.AreEqual(1, legacy.RequestCount);
+    }
+
+    [TestMethod]
     public void PublicApiMatchesApprovedBaseline()
     {
         var actual = PublicApiSnapshot.Create(typeof(IFolderRewindPlugin).Assembly);
@@ -87,6 +103,20 @@ public sealed class ContractTests
             actualFingerprint,
             $"The public member contract changed. Approve sha256:{actualFingerprint}");
         CollectionAssert.AreEqual(expectedTypes, actualTypes, "The exported type set changed.");
+    }
+
+    private sealed class LegacyBackupRequestService : IBackupRequestService
+    {
+        public int RequestCount { get; private set; }
+
+        public ValueTask<OperationOutcome> RequestAsync(
+            string configId,
+            Guid? folderId,
+            CancellationToken cancellationToken)
+        {
+            RequestCount++;
+            return ValueTask.FromResult(OperationOutcome.Success);
+        }
     }
 }
 

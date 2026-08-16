@@ -233,8 +233,9 @@ public sealed class PluginVerticalSliceTests
                 "knot:handshake_ack",
                 "knot:pre_hot_restore",
                 "mutation",
-                "knot:hot_restore_complete",
-                "knot:rejoin_world"
+                "knot:restore_finished",
+                "knot:rejoin_world",
+                "knot:hot_restore_complete"
             },
             events);
     }
