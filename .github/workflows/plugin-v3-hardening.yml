@@ -1,0 +1,127 @@
+name: Plugin v3 Hardening
+
+on:
+  workflow_dispatch:
+  pull_request:
+  push:
+    branches:
+      - 1.9.x
+
+permissions:
+  contents: read
+
+jobs:
+  contracts-runtime-host:
+    name: Contracts, Runtime, Host, bundled plugin
+    runs-on: windows-latest
+
+    steps:
+      - name: Clean checkout without submodules
+        uses: actions/checkout@v4
+        with:
+          submodules: false
+
+      - name: Assert repository boundary
+        shell: pwsh
+        run: |
+          if (Test-Path -LiteralPath '.gitmodules') {
+            throw 'The Host repository must not declare source submodules.'
+          }
+          if (Test-Path -LiteralPath 'FolderRewind-Plugin-Minecraft') {
+            throw 'MineRewind source must not be present in the Host checkout.'
+          }
+          if (Select-String -Path 'FolderRewind.slnx','FolderRewind.Plugin.Runtime.Tests/FolderRewind.Plugin.Runtime.Tests.csproj' -Pattern 'FolderRewind-Plugin-Minecraft|MineRewind.csproj' -Quiet) {
+            throw 'A Host build input still references MineRewind source.'
+          }
+
+      - name: Setup .NET 10
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 10.0.x
+
+      - name: Restore Host solution
+        shell: pwsh
+        run: dotnet restore FolderRewind.slnx -p:Platform=x64
+
+      - name: Test frozen Plugin API
+        shell: pwsh
+        run: dotnet test FolderRewind.Plugin.Abstractions.Tests/FolderRewind.Plugin.Abstractions.Tests.csproj -c Release --no-restore
+
+      - name: Test Runtime and bundled MineRewind black box
+        shell: pwsh
+        run: dotnet test FolderRewind.Plugin.Runtime.Tests/FolderRewind.Plugin.Runtime.Tests.csproj -c Release --no-restore
+
+      - name: Test Host policies
+        shell: pwsh
+        run: dotnet test FolderRewind.Tests/FolderRewind.Tests.csproj -c Release --no-restore
+
+      - name: Pack frozen Plugin API
+        shell: pwsh
+        run: dotnet pack FolderRewind.Plugin.Abstractions/FolderRewind.Plugin.Abstractions.csproj -c Release --no-restore -o artifacts/nuget
+
+      - name: Verify Plugin API package boundary
+        shell: pwsh
+        run: |
+          Add-Type -AssemblyName System.IO.Compression.FileSystem
+          $package = Get-ChildItem -LiteralPath 'artifacts/nuget' -Filter 'FolderRewind.Plugin.Abstractions.3.0.0.nupkg' | Select-Object -First 1
+          if ($null -eq $package) { throw 'Plugin API 3.0.0 package was not produced.' }
+          $archive = [IO.Compression.ZipFile]::OpenRead($package.FullName)
+          try {
+            $entries = @($archive.Entries.FullName)
+            foreach ($required in @(
+              'lib/net10.0/FolderRewind.Plugin.Abstractions.dll',
+              'lib/net10.0/FolderRewind.Plugin.Abstractions.xml',
+              'README.md'
+            )) {
+              if ($entries -notcontains $required) { throw "Plugin API package is missing $required" }
+            }
+            if ($entries -match 'FolderRewind.Plugin.Runtime|FolderRewind.exe|Microsoft.UI.Xaml') {
+              throw 'Plugin API package leaked Host or UI implementation files.'
+            }
+          }
+          finally {
+            $archive.Dispose()
+          }
+
+  release-build:
+    name: Host Release ${{ matrix.platform }}
+    runs-on: windows-latest
+    needs: contracts-runtime-host
+    strategy:
+      fail-fast: false
+      matrix:
+        platform:
+          - x86
+          - x64
+          - ARM64
+
+    steps:
+      - name: Clean checkout without submodules
+        uses: actions/checkout@v4
+        with:
+          submodules: false
+
+      - name: Setup .NET 10
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 10.0.x
+
+      - name: Stage build-time 7-Zip executable
+        shell: pwsh
+        run: |
+          $sevenZip = (Get-Command '7z.exe' -ErrorAction Stop).Source
+          Copy-Item -LiteralPath $sevenZip -Destination '7za.exe'
+
+      - name: Restore architecture
+        shell: pwsh
+        run: dotnet restore FolderRewind/FolderRewind.csproj -p:Platform=${{ matrix.platform }}
+
+      - name: Build architecture
+        shell: pwsh
+        run: |
+          dotnet build FolderRewind/FolderRewind.csproj `
+            -c Release `
+            -p:Platform=${{ matrix.platform }} `
+            -p:CETCompat=false `
+            -p:GenerateAppxPackageOnBuild=false `
+            --no-restore
