@@ -159,6 +159,10 @@ _Avoid_: Plugin health check, operation result, fallback exception
 One committed activation of a plugin instance together with its registered capabilities and active operation leases.
 _Avoid_: Installed plugin, enabled intent, process lifetime
 
+**Restart Required**:
+A Host-side condition indicating that a plugin has already been logically isolated but one or more physical runtime resources must be retained until process restart, such as after bounded deactivation times out.
+_Avoid_: Runtime state, enabled intent, successful unload
+
 **Static Plugin Validation**:
 The inspection of package paths, Manifest and settings facts, and assembly metadata without loading the candidate assembly or executing constructors, module initializers, or lifecycle code.
 _Avoid_: Activation smoke test, trusted execution, plugin health check
@@ -166,6 +170,10 @@ _Avoid_: Activation smoke test, trusted execution, plugin health check
 **Requested Host Service**:
 A Manifest-declared capability to call one part of FolderRewind's formal Host API; the Host gates that façade and discloses the request to the user, while the declaration does not sandbox ambient .NET or operating-system access.
 _Avoid_: OS permission, security sandbox, optional documentation
+
+**Plugin Uninstall Transaction**:
+The Host-owned journaled operation that quarantines plugin code and requested private data, commits configuration removal, and then either completes physical cleanup or restores the prior state during recovery.
+_Avoid_: Recursive delete, best-effort cleanup, history deletion
 
 **Consistency Lease**:
 A bounded right to read one stable backup source through difference detection and archive capture, together with the obligation to release any coordination or snapshot resources.

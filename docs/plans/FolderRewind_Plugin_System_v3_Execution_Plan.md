@@ -1,6 +1,6 @@
 # FolderRewind Plugin System v3 — 1.9.0 冻结与执行计划
 
-> 状态：M6 clean break 已落地；M5R 发布硬化 Gate 重新拒绝，等待硬化修复、自动门与真实 MineBackup/KnotLink 复测
+> 状态：M6 clean break 已落地；Revision 16 自动硬化门已完成，M5R 发布 Gate 继续拒绝并等待真实 MineBackup/KnotLink 复测
 >
 > 计划版本：2026-08-17 / Revision 16 — Release Hardening and Repository Decoupling
 >
@@ -12,7 +12,7 @@
 >
 > 目标仓库：`Leafuke/FolderRewind`、`Leafuke/FolderRewind-Plugin-Minecraft`、`Leafuke/FolderRewind-Site`、新建 `Leafuke/FolderRewind-Plugin-Catalog`
 >
-> 当前执行门：M5R 发布硬化；P0/P1/P2、独立仓库自动门和真实 MineBackup/KnotLink 复测全部完成前禁止发布。
+> 当前执行门：M5R 发布硬化；P0/P1/P2 与独立仓库自动门已完成，真实 MineBackup/KnotLink 复测完成前禁止发布。
 
 本文件是 Plugin System v3 的唯一执行依据。它先作为受版本控制的 proposed specification 接受审阅；用户明确通过 D0 后，才可把状态改为“已冻结 / 实施中”并修改产品代码。实施中若发现本计划无法满足仓库事实，必须先修订本文件、说明影响并重新通过当前里程碑，禁止在代码中静默偏离。
 
@@ -614,7 +614,7 @@ Revision 15 冻结以下兼容性修复：
 
 Revision 15 自动门禁候选：Addendum 3 public API fingerprint 为 `00ad259c581ebd1cb7b624862605c71b9498b44cf3d02f8ac388cacdd048b7dd`，本地 NuGet candidate SHA-256 为 `0265810384f0f13895f5f385cafaf93e8f174235a628813976fd0521b431b046`；MineRewind `.frplugin` SHA-256 为 `a97eddc838b7954fbbaf74de0fbc7bd88591159e48c8e71a68f64b54e2e9463c`。Abstractions 10/10、Runtime 105/105、Host 266/266、MineRewind 59/59 全绿；Host x86/x64/ARM64 Release 与 analyzer-enabled x64 Debug build 均为 0 error，本轮未新增 WinUI analyzer 诊断。普通 restore/backup 安全语义未被绕过，M5 Gate 仍等待真实模组聚焦复测。
 
-#### M5R Revision 16 — 发布硬化与仓库解耦（2026-08-17，实施中）
+#### M5R Revision 16 — 发布硬化与仓库解耦（2026-08-17，自动门完成，等待人工复测）
 
 M6 clean break 已经落地且不恢复 v2，但随后静态审核确认发布门仍不能通过。本轮重新拒绝 M5R Gate，只处理发布硬化、回归测试与仓库边界，不增加 Plugin API 或 Artifact Graph 功能。
 
@@ -630,6 +630,10 @@ M6 clean break 已经落地且不恢复 v2，但随后静态审核确认发布�
 | P2 destructive uninstall 非事务 | 接受 | code/data quarantine、journal、配置原子提交与启动恢复 |
 
 FolderRewind App `1.9.0`、未发布 MineRewind `1.9.0` 与 Plugin API/NuGet `3.0.0` 是互不绑定的三条版本线。Host 以后可以在不改变 Plugin API 的情况下发版，插件也不得仅因 Host patch/minor 更新被迫重新编译。MineRewind 产品只依赖公开的 `FolderRewind.Plugin.Abstractions 3.0.0`；Host 仓库移除 MineRewind submodule、solution project 和测试源码引用，改为验证固定 SHA-256 的 bundled `.frplugin`。
+
+Revision 16 自动化候选证据：Abstractions 10/10、Runtime 141/141、Host 265/265、MineRewind 34/34 全绿；Plugin API fingerprint 仍为 `00ad259c581ebd1cb7b624862605c71b9498b44cf3d02f8ac388cacdd048b7dd`。Host x86/x64/ARM64 Release 均为 0 error，仅保留每个架构 23 个既存 XAML 编译 warning。MineRewind 独立仓库 commit `5b237ff` 只从 NuGet.org restore，并生成 SHA-256 为 `48eb2ab4e70cbb10c92f81d036540caaa35ca42dc294e014482c919fa3852d84` 的 `MineRewind-1.9.0.frplugin`；包内不含 Abstractions DLL。
+
+固定制品组合测试经正式 package validator、Manifest reader、loader 与 Runtime Manager 激活，并只通过 Plugin API capability 验证 MineRewind；Host solution、Runtime tests 和 CI 均不再引用或 checkout MineRewind 源码。安装/Disabled update 零执行 marker、Config Kind owner/inventory、所有 Host Service gate、rich backup outcome、Automation raw fallback、bounded deactivation、严格 SemVer 和 uninstall fault/recovery 已有回归测试。发布 Gate 仍保持拒绝：本段证据不替代真实 MineBackup/KnotLink 的安装、Hot Backup、Hot Restore、3 秒重进、draining/update rollback 与历史 Artifact restore 复测，也不代表 MSI/MSIX 或任何远程发布已经执行。
 
 ### M6 — Clean break 与发布候选
 

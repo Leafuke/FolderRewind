@@ -1,10 +1,11 @@
 # Plugin System v3 — M5 人工测试清单
 
-状态：M6 clean break 已落地；M5R 发布硬化 Gate 重新拒绝。硬化自动门与本清单真实联调全部通过前不得发布。
+状态：M6 clean break 已落地，Revision 16 硬化自动门已通过；M5R 发布 Gate 继续拒绝，本清单真实联调全部通过前不得发布。
 
-## M5R 聚焦复测（更新于 2026-08-16）
+## M5R 聚焦复测（更新于 2026-08-17）
 
 - 先以 `EnabledIntent=true` 且 code 已卸载的状态手动安装 MineRewind v3：完成提示和列表都必须为 Disabled；不得在安装过程中 Activate。
+- 使用会在构造、module initializer 或 `ActivateAsync` 写 marker 的测试包重复首次安装和 Disabled update：所有 marker 均不得出现；只有显式 Enable 或 Active replace 才允许执行候选代码。
 - 显式启用后重启：Runtime 必须为 Active，日志不得出现 `0x8001010E`、`KeyboardAccelerator` 跨线程异常或“Plugin v3 initialization failed”；默认 hotkeys 应可见并可触发。
 - 重启后打开插件页并停留至少 30 秒：MineRewind 开关必须稳定保持 Enabled；不得闪烁、重复刷新或反复弹出 `runtime.already_active`，且只能存在一个 runtime session。
 - MineRewind 只要已安装（分别验证 Disabled 与 Active），新建配置和配置设置的类型列表均应显示随当前 Host 语言变化的“Minecraft Saves”/“Minecraft 存档”；创建后配置文件必须保存 `com.folderrewind.minerewind/minecraft-saves`，而不是把本地化显示文本当作身份。
@@ -31,8 +32,11 @@
 
 - 启用 MineRewind，确认 Runtime State 为 Active；有进行中 backup lease 时禁用，应进入 Draining，可取消并保持原 session。
 - 候选包 Activate/migrate 失败时，确认 current pointer、settings/state 和运行 session 保持 previous known-good。
+- 用测试插件让 `DeactivateAsync` 永久挂起并忽略 cancellation：约 5 秒后 Disable/Replace 必须返回，其他插件 transition 仍可继续；旧 capability 已不可路由，Runtime 显示 `Failed + RequiresRestart`。Replace 时新 session 必须保持 Active。
+- 安装只声明 `logging` 的测试插件：Config/Backup/Restore/History/Notification/KnotLink/DataStore/TemporaryStorage 调用必须以 `host_service.not_declared` 拒绝，`KnotLink.IsAvailable` 返回 false；声明后的对应 façade 才可用，Activation 阶段 DataStore 仍保持不可用。
 - 普通卸载：只删除 code；Enabled Intent、typed settings、provider state、DataStore 和 History/Artifact graph 全部保留。
 - “卸载并删除数据”：界面必须列出 settings/state/data 与受影响 History，要求输入精确确认文本；Artifact graph 仍保留且还原 fail-closed。
+- 在 destructive uninstall 的 `Prepared`、`Quarantined`、`ConfigCommitted` 后分别终止进程，并制造 Config save failure、占用 quarantine 与最终清理失败：重启必须幂等回滚或完成清理；`RecoveryRequired` 不得显示普通成功，Enabled Intent 与 History/Artifact graph 始终不变。
 
 ## C. 旧用户离线升级
 
