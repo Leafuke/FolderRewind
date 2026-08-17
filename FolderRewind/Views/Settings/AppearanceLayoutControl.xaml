@@ -57,12 +57,12 @@
                     </toolkit:SettingsCard.Description>
                     <StackPanel Orientation="Horizontal" Spacing="8">
                         <ComboBox Style="{StaticResource SettingsSelectorStyle}"
-                                  ItemsSource="{x:Bind ViewModel.CompletionSoundPresets}"
+                                  ItemsSource="{x:Bind ViewModel.CompletionSoundPresets, Mode=OneWay}"
                                   SelectedIndex="{x:Bind ViewModel.Settings.CompletionSoundIndex, Mode=OneWay}"
                                   SelectionChanged="OnCompletionSoundChanged" />
                         <Button x:Uid="SettingsPage_CompletionSoundPreview"
                                 Style="{StaticResource SettingsActionRowButtonStyle}"
-                                Command="{x:Bind ViewModel.PreviewCompletionSoundCommand}" />
+                                Command="{x:Bind ViewModel.PreviewCompletionSoundCommand, Mode=OneTime}" />
                     </StackPanel>
                 </toolkit:SettingsCard>
 
@@ -73,7 +73,7 @@
                     <toolkit:SettingsCard.Description>
                         <TextBlock x:Uid="SettingsPage_FontFamilyDesc" Style="{StaticResource SettingsDescriptionStyle}" />
                     </toolkit:SettingsCard.Description>
-                    <ComboBox x:Name="FontFamilyCombo" Style="{StaticResource SettingsSelectorStyle}" ItemsSource="{x:Bind ViewModel.FontFamilies}" SelectionChanged="OnFontFamilyChanged" />
+                    <ComboBox x:Name="FontFamilyCombo" Style="{StaticResource SettingsSelectorStyle}" ItemsSource="{x:Bind ViewModel.FontFamilies, Mode=OneWay}" SelectionChanged="OnFontFamilyChanged" />
                 </toolkit:SettingsCard>
 
                 <toolkit:SettingsCard>
@@ -148,17 +148,17 @@
                         <TextBlock Text="{x:Bind ViewModel.SponsorStatusText, Mode=OneWay}"
                                    Style="{StaticResource SettingsDescriptionStyle}" />
                         <StackPanel Grid.Row="1" Orientation="Horizontal" Spacing="8">
-                            <Button x:Uid="SettingsPage_SponsorPurchase" 
+                            <Button x:Uid="SettingsPage_SponsorPurchase"
                                     Style="{StaticResource SettingsActionRowButtonStyle}"
-                                    Command="{x:Bind ViewModel.OpenSponsorWindowCommand}"
+                                    Command="{x:Bind ViewModel.OpenSponsorWindowCommand, Mode=OneTime}"
                                     IsEnabled="{x:Bind ViewModel.IsSponsorOperationIdle, Mode=OneWay}" />
                             <Button x:Uid="SettingsPage_SponsorRestore"
                                     Style="{StaticResource SettingsActionRowButtonStyle}"
-                                    Command="{x:Bind ViewModel.RestoreSponsorCommand}"
+                                    Command="{x:Bind ViewModel.RestoreSponsorCommand, Mode=OneTime}"
                                     IsEnabled="{x:Bind ViewModel.IsSponsorOperationIdle, Mode=OneWay}" />
                             <Button x:Uid="SettingsPage_SponsorRefresh"
                                     Style="{StaticResource SettingsActionRowButtonStyle}"
-                                    Command="{x:Bind ViewModel.RefreshSponsorCommand}"
+                                    Command="{x:Bind ViewModel.RefreshSponsorCommand, Mode=OneTime}"
                                     IsEnabled="{x:Bind ViewModel.IsSponsorOperationIdle, Mode=OneWay}" />
                         </StackPanel>
                     </Grid>
@@ -196,7 +196,7 @@
                                     <TextBlock x:Uid="SettingsPage_SponsorAccentDesc" Style="{StaticResource SettingsDescriptionStyle}" />
                                 </toolkit:SettingsCard.Description>
                                 <ComboBox Style="{StaticResource SettingsSelectorStyle}"
-                                        ItemsSource="{x:Bind ViewModel.SponsorAccentPresets}"
+                                        ItemsSource="{x:Bind ViewModel.SponsorAccentPresets, Mode=OneWay}"
                                         SelectedIndex="{x:Bind ViewModel.Settings.SponsorAccentColorIndex, Mode=TwoWay}"
                                         SelectionChanged="OnSponsorAccentChanged" />
                             </toolkit:SettingsCard>
@@ -209,7 +209,7 @@
                                     <TextBlock x:Uid="SettingsPage_SponsorBackdropDesc" Style="{StaticResource SettingsDescriptionStyle}" />
                                 </toolkit:SettingsCard.Description>
                                 <ComboBox Style="{StaticResource SettingsSelectorStyle}"
-                                        ItemsSource="{x:Bind ViewModel.SponsorBackdropPresets}"
+                                        ItemsSource="{x:Bind ViewModel.SponsorBackdropPresets, Mode=OneWay}"
                                         SelectedIndex="{x:Bind ViewModel.Settings.SponsorBackdropIndex, Mode=TwoWay}"
                                         SelectionChanged="OnSponsorBackdropChanged" />
                             </toolkit:SettingsCard>
@@ -234,12 +234,12 @@
                                     <TextBlock x:Uid="SettingsPage_SponsorTitleIconDesc" Style="{StaticResource SettingsDescriptionStyle}" />
                                 </toolkit:SettingsCard.Description>
                                 <ComboBox Style="{StaticResource SettingsSelectorStyle}"
-                                        ItemsSource="{x:Bind ViewModel.SponsorTitleIconGlyphs}"
+                                        ItemsSource="{x:Bind ViewModel.SponsorTitleIconGlyphs, Mode=OneWay}"
                                         SelectedItem="{x:Bind ViewModel.Settings.SponsorTitleIconGlyph, Mode=TwoWay}"
                                         SelectionChanged="OnSponsorTitleIconChanged">
                                     <ComboBox.ItemTemplate>
                                         <DataTemplate x:DataType="x:String">
-                                            <FontIcon Glyph="{x:Bind}" FontSize="18" />
+                                            <FontIcon Glyph="{x:Bind Mode=OneTime}" FontSize="18" />
                                         </DataTemplate>
                                     </ComboBox.ItemTemplate>
                                 </ComboBox>
@@ -258,7 +258,7 @@
                                             Click="OnChooseSponsorBackgroundClick" />
                                     <Button x:Uid="SettingsPage_SponsorBackgroundClear"
                                             Style="{StaticResource SettingsActionRowButtonStyle}"
-                                            Command="{x:Bind ViewModel.ClearSponsorBackgroundCommand}" />
+                                            Command="{x:Bind ViewModel.ClearSponsorBackgroundCommand, Mode=OneTime}" />
                                 </StackPanel>
                             </toolkit:SettingsCard>
 
@@ -280,7 +280,7 @@
                                     <TextBlock x:Uid="SettingsPage_SponsorBackgroundStretchDesc" Style="{StaticResource SettingsDescriptionStyle}" />
                                 </toolkit:SettingsCard.Description>
                                 <ComboBox Style="{StaticResource SettingsSelectorStyle}"
-                                        ItemsSource="{x:Bind ViewModel.SponsorBackgroundStretchModes}"
+                                        ItemsSource="{x:Bind ViewModel.SponsorBackgroundStretchModes, Mode=OneWay}"
                                         SelectedIndex="{x:Bind ViewModel.Settings.SponsorBackgroundStretchIndex, Mode=TwoWay}"
                                         SelectionChanged="OnSponsorBackgroundStretchChanged" />
                             </toolkit:SettingsCard>
@@ -336,7 +336,7 @@
                                             Click="OnChooseCustomCompletionSoundClick" />
                                     <Button x:Uid="SettingsPage_CustomCompletionSoundClear"
                                             Style="{StaticResource SettingsActionRowButtonStyle}"
-                                            Command="{x:Bind ViewModel.ClearCustomCompletionSoundCommand}" />
+                                            Command="{x:Bind ViewModel.ClearCustomCompletionSoundCommand, Mode=OneTime}" />
                                 </StackPanel>
                             </toolkit:SettingsCard>
                         </toolkit:SettingsExpander.Items>

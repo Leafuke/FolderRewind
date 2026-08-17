@@ -26,7 +26,7 @@
 
         <!-- Mini 主卡片 -->
         <Grid x:Name="MiniSquare" Grid.Column="1"
-              Width="{x:Bind MiniCardSizeDip}" Height="{x:Bind MiniCardSizeDip}"
+              Width="{x:Bind MiniCardSizeDip, Mode=OneTime}" Height="{x:Bind MiniCardSizeDip, Mode=OneTime}"
               Background="Transparent"
               PointerEntered="MiniSquare_PointerEntered"
               PointerExited="MiniSquare_PointerExited"
@@ -103,8 +103,8 @@
 
         <!-- 单一输入面板会根据当前展开方向切换到主卡片左侧或右侧 -->
         <Grid x:Name="CommentPanel" Grid.Column="2"
-              Width="{x:Bind CommentCardWidthDip}"
-              Height="{x:Bind MiniCardSizeDip}"
+              Width="{x:Bind CommentCardWidthDip, Mode=OneTime}"
+              Height="{x:Bind MiniCardSizeDip, Mode=OneTime}"
               Visibility="Collapsed"
               VerticalAlignment="Center">
             <SystemBackdropElement CornerRadius="8">

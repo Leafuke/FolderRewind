@@ -54,7 +54,7 @@
                                           Visibility="{x:Bind ViewModel.IsMinecraftPresetInstallRunning, Mode=OneWay, Converter={StaticResource BoolToVisConverter}}" />
                             <Button x:Uid="SettingsPage_MinecraftPresetInstall"
                                     Style="{StaticResource SettingsActionButtonStyle}"
-                                    Command="{x:Bind ViewModel.InstallMinecraftPresetCommand}"
+                                    Command="{x:Bind ViewModel.InstallMinecraftPresetCommand, Mode=OneTime}"
                                     IsEnabled="{x:Bind ViewModel.IsMinecraftPresetInstallIdle, Mode=OneWay}" />
                         </StackPanel>
                     </Grid>

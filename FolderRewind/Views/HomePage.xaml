@@ -93,12 +93,12 @@
                                             </Border>
 
                                             <StackPanel Grid.Column="1" VerticalAlignment="Center" Spacing="2">
-                                                <TextBlock Text="{x:Bind DisplayName}"
+                                                <TextBlock Text="{x:Bind DisplayName, Mode=OneWay}"
                                                            Style="{StaticResource BodyStrongTextBlockStyle}"
-                                                           TextTrimming="CharacterEllipsis" TextWrapping="NoWrap" 
-                                                           MaxLines="1" TextAlignment="Left" 
+                                                           TextTrimming="CharacterEllipsis" TextWrapping="NoWrap"
+                                                           MaxLines="1" TextAlignment="Left"
                                                            services:AutoToolTipService.IsEnabled="True"/>
-                                                <TextBlock Text="{x:Bind Path}"
+                                                <TextBlock Text="{x:Bind Path, Mode=OneWay}"
                                                            Style="{StaticResource CaptionTextBlockStyle}"
                                                            Foreground="{ThemeResource TextFillColorSecondaryBrush}"
                                                            TextTrimming="CharacterEllipsis" TextWrapping="NoWrap"
@@ -106,9 +106,9 @@
                                                            services:AutoToolTipService.IsEnabled="True"/>
                                                 <!-- 备份时间，附带图标标识 -->
                                                 <StackPanel Orientation="Horizontal" Spacing="4" Margin="0,2,0,0">
-                                                    <FontIcon Glyph="&#xE823;" FontSize="11" 
+                                                    <FontIcon Glyph="&#xE823;" FontSize="11"
                                                               Foreground="{ThemeResource TextFillColorTertiaryBrush}"/>
-                                                    <TextBlock Text="{x:Bind LastBackupTime}"
+                                                    <TextBlock Text="{x:Bind LastBackupTime, Mode=OneWay}"
                                                                Style="{StaticResource CaptionTextBlockStyle}"
                                                                Foreground="{ThemeResource TextFillColorTertiaryBrush}"
                                                                TextTrimming="CharacterEllipsis" TextWrapping="NoWrap"
@@ -271,38 +271,38 @@
                                             </Grid.ColumnDefinitions>
                                         
                                             <!-- 圆形配置图标 -->
-                                            <Border Width="40" Height="40" CornerRadius="20" 
-                                                    Background="{ThemeResource LayerFillColorAltBrush}" 
+                                            <Border Width="40" Height="40" CornerRadius="20"
+                                                    Background="{ThemeResource LayerFillColorAltBrush}"
                                                     VerticalAlignment="Center">
-                                                <FontIcon Glyph="{x:Bind IconGlyph}" FontSize="20" 
-                                                          Foreground="{ThemeResource SystemControlForegroundAccentBrush}" 
+                                                <FontIcon Glyph="{x:Bind IconGlyph, Mode=OneWay}" FontSize="20"
+                                                          Foreground="{ThemeResource SystemControlForegroundAccentBrush}"
                                                           HorizontalAlignment="Center" VerticalAlignment="Center"/>
                                             </Border>
-                                        
+
                                             <StackPanel Grid.Column="1" VerticalAlignment="Center" Spacing="2">
-                                                <TextBlock Text="{x:Bind Name}"
+                                                <TextBlock Text="{x:Bind Name, Mode=OneWay}"
                                                            Style="{StaticResource BodyStrongTextBlockStyle}"
-                                                           TextTrimming="CharacterEllipsis" TextWrapping="NoWrap" 
-                                                           MaxLines="1" TextAlignment="Left" 
+                                                           TextTrimming="CharacterEllipsis" TextWrapping="NoWrap"
+                                                           MaxLines="1" TextAlignment="Left"
                                                            services:AutoToolTipService.IsEnabled="True"/>
-                                                <TextBlock Text="{x:Bind DestinationPath}"
+                                                <TextBlock Text="{x:Bind DestinationPath, Mode=OneWay}"
                                                            Style="{StaticResource CaptionTextBlockStyle}"
                                                            Foreground="{ThemeResource TextFillColorSecondaryBrush}"
                                                            TextTrimming="CharacterEllipsis" TextWrapping="NoWrap"
                                                            MaxLines="1" TextAlignment="Left"
                                                            services:AutoToolTipService.IsEnabled="True"/>
-                                            
+
                                                 <!-- 信息标签行 -->
                                                 <StackPanel Orientation="Horizontal" Spacing="12" Margin="0,4,0,0">
                                                     <StackPanel Orientation="Horizontal" Spacing="4">
-                                                        <FontIcon Glyph="&#xE8B7;" FontSize="11" 
+                                                        <FontIcon Glyph="&#xE8B7;" FontSize="11"
                                                                   Foreground="{ThemeResource TextFillColorTertiaryBrush}"/>
-                                                        <TextBlock Text="{x:Bind SourceFolders.Count, TargetNullValue=0}"
-                                                                   Style="{StaticResource CaptionTextBlockStyle}" 
+                                                        <TextBlock Text="{x:Bind SourceFolders.Count, TargetNullValue=0, Mode=OneWay}"
+                                                                   Style="{StaticResource CaptionTextBlockStyle}"
                                                                    Foreground="{ThemeResource TextFillColorTertiaryBrush}"/>
                                                     </StackPanel>
-                                                    <StackPanel Orientation="Horizontal" Spacing="4" 
-                                                                Visibility="{x:Bind Automation.AutoBackupEnabled, Converter={StaticResource BoolToVisConverter}}">
+                                                    <StackPanel Orientation="Horizontal" Spacing="4"
+                                                                Visibility="{x:Bind Automation.AutoBackupEnabled, Converter={StaticResource BoolToVisConverter}, Mode=OneWay}">
                                                         <FontIcon Glyph="&#xE823;" FontSize="11" 
                                                                   Foreground="{ThemeResource TextFillColorTertiaryBrush}"/>
                                                         <TextBlock x:Uid="HomePage_Config_Auto"
@@ -324,7 +324,7 @@
                                                   Foreground="{ThemeResource TextFillColorTertiaryBrush}"
                                                   HorizontalAlignment="Right" VerticalAlignment="Bottom"
                                                   Margin="0,0,8,6"
-                                                  Visibility="{x:Bind IsEncrypted, Converter={StaticResource BoolToVisConverter}}"/>
+                                                  Visibility="{x:Bind IsEncrypted, Converter={StaticResource BoolToVisConverter}, Mode=OneWay}"/>
                                     </Grid>
                                 </Button>
                             </Border>

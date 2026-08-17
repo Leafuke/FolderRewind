@@ -48,8 +48,8 @@
                                 </Grid.ColumnDefinitions>
 
                                 <StackPanel Orientation="Horizontal" Spacing="12" VerticalAlignment="Center">
-                                    <FontIcon Glyph="{x:Bind IconGlyph}" FontSize="16" Foreground="{ThemeResource SystemControlForegroundAccentBrush}"/>
-                                    <TextBlock Text="{x:Bind FolderName}" Style="{StaticResource BodyStrongTextBlockStyle}"/>
+                                    <FontIcon Glyph="{x:Bind IconGlyph, Mode=OneWay}" FontSize="16" Foreground="{ThemeResource SystemControlForegroundAccentBrush}"/>
+                                    <TextBlock Text="{x:Bind FolderName, Mode=OneWay}" Style="{StaticResource BodyStrongTextBlockStyle}"/>
                                     <FontIcon Glyph="&#xE915;" FontSize="8" Foreground="{ThemeResource TextFillColorSecondaryBrush}" VerticalAlignment="Center"/>
                                     <TextBlock Text="{x:Bind Status, Mode=OneWay}" Foreground="{x:Bind StatusBrush, Mode=OneWay}"/>
                                 </StackPanel>

@@ -34,7 +34,7 @@
             <Button x:Uid="SponsorWindow_Contributor"
                     Height="60"
                     HorizontalAlignment="Stretch"
-                    Command="{x:Bind ViewModel.OpenContributorGuideCommand}"
+                    Command="{x:Bind ViewModel.OpenContributorGuideCommand, Mode=OneTime}"
                     IsEnabled="{x:Bind ViewModel.IsIdle, Mode=OneWay}">
                 <StackPanel Orientation="Horizontal" Spacing="12" >
                     <FontIcon Glyph="&#xE71B;" FontSize="20"/>
@@ -45,7 +45,7 @@
             <Button x:Uid="SponsorWindow_Purchase"
                     Height="60"
                     HorizontalAlignment="Stretch"
-                    Command="{x:Bind ViewModel.PurchaseSponsorCommand}"
+                    Command="{x:Bind ViewModel.PurchaseSponsorCommand, Mode=OneTime}"
                     IsEnabled="{x:Bind ViewModel.IsIdle, Mode=OneWay}">
                 <StackPanel Orientation="Horizontal" Spacing="12" HorizontalAlignment="Left">
                     <FontIcon Glyph="&#xE719;" FontSize="20" />
@@ -56,7 +56,7 @@
             <Button x:Uid="SponsorWindow_Policy"
                     Height="60"
                     HorizontalAlignment="Stretch"
-                    Command="{x:Bind ViewModel.OpenSponsorPolicyCommand}"
+                    Command="{x:Bind ViewModel.OpenSponsorPolicyCommand, Mode=OneTime}"
                     IsEnabled="{x:Bind ViewModel.IsIdle, Mode=OneWay}">
                 <StackPanel Orientation="Horizontal" Spacing="12" HorizontalAlignment="Left">
                     <FontIcon Glyph="&#xE897;" FontSize="20" />

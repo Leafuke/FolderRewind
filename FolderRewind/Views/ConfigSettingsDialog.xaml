@@ -270,7 +270,7 @@
                     <TextBlock x:Uid="ConfigSettingsDialog_FileTypeHandlingDesc" Style="{StaticResource CaptionTextBlockStyle}" Foreground="{ThemeResource TextFillColorSecondaryBrush}" TextWrapping="Wrap"/>
 
                     <StackPanel Visibility="{x:Bind Config.Archive.FileTypeHandlingEnabled, Mode=OneWay, Converter={StaticResource BoolToVisConverter}}" Spacing="8">
-                        <ListView x:Name="FileTypeRulesList" Height="160" ItemsSource="{x:Bind Config.Archive.FileTypeRules}" BorderThickness="1" BorderBrush="{ThemeResource SurfaceStrokeColorDefaultBrush}">
+                        <ListView x:Name="FileTypeRulesList" Height="160" ItemsSource="{x:Bind Config.Archive.FileTypeRules, Mode=OneWay}" BorderThickness="1" BorderBrush="{ThemeResource SurfaceStrokeColorDefaultBrush}">
                             <ListView.ItemTemplate>
                                 <DataTemplate x:DataType="models:FileTypeRule">
                                     <Grid ColumnSpacing="8">
@@ -324,7 +324,7 @@
                 <StackPanel Spacing="8">
                     <TextBlock x:Uid="ConfigSettingsDialog_RestoreWhitelist" FontWeight="SemiBold"/>
                     <TextBlock x:Uid="ConfigSettingsDialog_RestoreWhitelistDesc" Style="{StaticResource CaptionTextBlockStyle}" Foreground="{ThemeResource TextFillColorSecondaryBrush}" TextWrapping="Wrap"/>
-                    <ListView Height="160" ItemsSource="{x:Bind Config.Filters.RestoreWhitelist}" BorderThickness="1" BorderBrush="{ThemeResource SurfaceStrokeColorDefaultBrush}">
+                    <ListView Height="160" ItemsSource="{x:Bind Config.Filters.RestoreWhitelist, Mode=OneWay}" BorderThickness="1" BorderBrush="{ThemeResource SurfaceStrokeColorDefaultBrush}">
                         <ListView.ItemTemplate>
                             <DataTemplate>
                                 <Grid>
@@ -709,7 +709,7 @@
                 <StackPanel Spacing="12"
                             Visibility="{x:Bind ViewModel.IsBackupBlacklistMode, Mode=OneWay, Converter={StaticResource BoolToVisConverter}}">
                     <TextBlock x:Uid="ConfigSettingsDialog_Blacklist" FontWeight="SemiBold"/>
-                    <ListView Height="180" ItemsSource="{x:Bind Config.Filters.Blacklist}" BorderThickness="1" BorderBrush="{ThemeResource SurfaceStrokeColorDefaultBrush}">
+                    <ListView Height="180" ItemsSource="{x:Bind Config.Filters.Blacklist, Mode=OneWay}" BorderThickness="1" BorderBrush="{ThemeResource SurfaceStrokeColorDefaultBrush}">
                         <ListView.ItemTemplate>
                             <DataTemplate>
                                 <Grid>
@@ -741,7 +741,7 @@
                                    TextWrapping="Wrap"
                                    Foreground="{ThemeResource TextFillColorPrimaryBrush}"/>
                     </Border>
-                    <ListView Height="180" ItemsSource="{x:Bind Config.Filters.BackupWhitelist}" BorderThickness="1" BorderBrush="{ThemeResource SurfaceStrokeColorDefaultBrush}">
+                    <ListView Height="180" ItemsSource="{x:Bind Config.Filters.BackupWhitelist, Mode=OneWay}" BorderThickness="1" BorderBrush="{ThemeResource SurfaceStrokeColorDefaultBrush}">
                         <ListView.ItemTemplate>
                             <DataTemplate>
                                 <Grid>

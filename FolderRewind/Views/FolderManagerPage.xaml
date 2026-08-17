@@ -245,7 +245,7 @@
                         <!-- 2. 信息区域 -->
                         <StackPanel Grid.Column="1" Margin="16,0,12,0" VerticalAlignment="Center" Spacing="3">
                             <StackPanel Orientation="Horizontal" Spacing="8">
-                                <TextBlock Text="{x:Bind DisplayName}" Style="{StaticResource SubtitleTextBlockStyle}"/>
+                                <TextBlock Text="{x:Bind DisplayName, Mode=OneWay}" Style="{StaticResource SubtitleTextBlockStyle}"/>
                                 <Button x:Uid="FolderManager_FavoriteToggle" Background="Transparent" BorderThickness="0" Padding="4" Click="OnFavoriteToggleClick">
                                     <FontIcon Glyph="{x:Bind IsFavorite, Mode=OneWay, Converter={StaticResource BoolToStarIconConverter}}"
                                               Foreground="{x:Bind IsFavorite, Mode=OneWay, Converter={StaticResource BoolToColorConverter}}"/>
@@ -253,7 +253,7 @@
                             </StackPanel>
 
                             <!-- 路径 -->
-                            <TextBlock Text="{x:Bind Path}"
+                            <TextBlock Text="{x:Bind Path, Mode=OneWay}"
                                        Style="{StaticResource CaptionTextBlockStyle}"
                                        Foreground="{ThemeResource TextFillColorSecondaryBrush}"/>
 
@@ -271,16 +271,16 @@
                             <!-- 状态与时间 -->
                             <StackPanel Orientation="Horizontal" Spacing="16" Margin="0,2,0,0">
                                 <StackPanel Orientation="Horizontal" Spacing="4">
-                                    <FontIcon Glyph="&#xE73E;" FontSize="12" 
+                                    <FontIcon Glyph="&#xE73E;" FontSize="12"
                                               Foreground="{ThemeResource SystemFillColorSuccessBrush}"/>
-                                    <TextBlock Text="{x:Bind StatusText}"
+                                    <TextBlock Text="{x:Bind StatusText, Mode=OneWay}"
                                                Style="{StaticResource CaptionTextBlockStyle}"
                                                Foreground="{ThemeResource TextFillColorTertiaryBrush}"/>
                                 </StackPanel>
                                 <StackPanel Orientation="Horizontal" Spacing="4">
-                                    <FontIcon Glyph="&#xE823;" FontSize="11" 
+                                    <FontIcon Glyph="&#xE823;" FontSize="11"
                                               Foreground="{ThemeResource TextFillColorTertiaryBrush}"/>
-                                    <TextBlock Text="{x:Bind LastBackupTime}"
+                                    <TextBlock Text="{x:Bind LastBackupTime, Mode=OneWay}"
                                                Style="{StaticResource CaptionTextBlockStyle}"
                                                Foreground="{ThemeResource TextFillColorTertiaryBrush}"/>
                                 </StackPanel>

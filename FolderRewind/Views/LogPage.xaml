@@ -86,21 +86,21 @@
                             <Grid RowDefinitions="Auto,Auto,Auto" ColumnDefinitions="Auto,*" ColumnSpacing="12" RowSpacing="6">
                                 <StackPanel Orientation="Horizontal" Spacing="8" Grid.ColumnSpan="2">
                                     <Rectangle Width="8" Height="24" RadiusX="4" RadiusY="4"
-                                               Fill="{x:Bind Level, Converter={StaticResource LogLevelBrushConverter}}" />
-                                    <TextBlock Text="{x:Bind Timestamp}" FontFamily="Consolas" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                                               Fill="{x:Bind Level, Converter={StaticResource LogLevelBrushConverter}, Mode=OneWay}" />
+                                    <TextBlock Text="{x:Bind Timestamp, Mode=OneWay}" FontFamily="Consolas" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
                                     <Border CornerRadius="8" Padding="8,4"
-                                            Background="{x:Bind Level, Converter={StaticResource LogLevelBrushConverter}, ConverterParameter=background}"
-                                            BorderBrush="{x:Bind Level, Converter={StaticResource LogLevelBrushConverter}}"
+                                            Background="{x:Bind Level, Converter={StaticResource LogLevelBrushConverter}, ConverterParameter=background, Mode=OneWay}"
+                                            BorderBrush="{x:Bind Level, Converter={StaticResource LogLevelBrushConverter}, Mode=OneWay}"
                                             BorderThickness="1">
-                                        <TextBlock Text="{x:Bind Level, Converter={StaticResource LogLevelStringConverter}}" Style="{StaticResource BodyStrongTextBlockStyle}" />
+                                        <TextBlock Text="{x:Bind Level, Converter={StaticResource LogLevelStringConverter}, Mode=OneWay}" Style="{StaticResource BodyStrongTextBlockStyle}" />
                                     </Border>
-                                    <TextBlock Text="{x:Bind Source}" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                                    <TextBlock Text="{x:Bind Source, Mode=OneWay}" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
                                 </StackPanel>
 
-                                <TextBlock Grid.Row="1" Grid.ColumnSpan="2" Text="{x:Bind Message}" TextWrapping="WrapWholeWords" Style="{StaticResource BodyTextBlockStyle}" />
-                                <TextBlock Grid.Row="2" Grid.ColumnSpan="2" Text="{x:Bind Exception}" TextWrapping="WrapWholeWords"
+                                <TextBlock Grid.Row="1" Grid.ColumnSpan="2" Text="{x:Bind Message, Mode=OneWay}" TextWrapping="WrapWholeWords" Style="{StaticResource BodyTextBlockStyle}" />
+                                <TextBlock Grid.Row="2" Grid.ColumnSpan="2" Text="{x:Bind Exception, Mode=OneWay}" TextWrapping="WrapWholeWords"
                                    Foreground="{ThemeResource TextFillColorSecondaryBrush}"
-                                   Visibility="{x:Bind Exception, Converter={StaticResource StringNullOrEmptyToVisConverter}}" />
+                                   Visibility="{x:Bind Exception, Converter={StaticResource StringNullOrEmptyToVisConverter}, Mode=OneWay}" />
                             </Grid>
                         </Border>
                     </DataTemplate>
