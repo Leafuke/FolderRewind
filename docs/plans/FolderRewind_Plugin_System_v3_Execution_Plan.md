@@ -1,8 +1,8 @@
 # FolderRewind Plugin System v3 — 1.9.0 冻结与执行计划
 
-> 状态：D0 / M3R / M3 / M4 已冻结；首轮 M5 Gate 已拒绝，M5R 阻断修复等待人工复测
+> 状态：M6 clean break 已落地；M5R 发布硬化 Gate 重新拒绝，等待硬化修复、自动门与真实 MineBackup/KnotLink 复测
 >
-> 计划版本：2026-08-15 / Revision 14 + Compatibility Addendum 2
+> 计划版本：2026-08-17 / Revision 16 — Release Hardening and Repository Decoupling
 >
 > 产品版本：FolderRewind 1.9.0、MineRewind 1.9.0
 >
@@ -12,7 +12,7 @@
 >
 > 目标仓库：`Leafuke/FolderRewind`、`Leafuke/FolderRewind-Plugin-Minecraft`、`Leafuke/FolderRewind-Site`、新建 `Leafuke/FolderRewind-Plugin-Catalog`
 >
-> 当前执行门：M5R 人工复测；停止继续 M6，等待用户重新执行 `docs/plugin-v3/MANUAL_TEST_M5.md` 的 M5R 聚焦场景并明确批准。
+> 当前执行门：M5R 发布硬化；P0/P1/P2、独立仓库自动门和真实 MineBackup/KnotLink 复测全部完成前禁止发布。
 
 本文件是 Plugin System v3 的唯一执行依据。它先作为受版本控制的 proposed specification 接受审阅；用户明确通过 D0 后，才可把状态改为“已冻结 / 实施中”并修改产品代码。实施中若发现本计划无法满足仓库事实，必须先修订本文件、说明影响并重新通过当前里程碑，禁止在代码中静默偏离。
 
@@ -25,8 +25,8 @@
 1. **Host owns state and execution; plugins own semantics.** 插件不得获得 `ConfigService`、`BackupService`、ViewModel、WinUI 控件或其他 Host 内部可变对象的编译期访问。
 2. **Discovery proposes; Reconciliation proposes; the user owns configuration.** Discovery 只返回新配置候选/草稿；Config Reconciliation 只返回针对现有 revision 的 Change Proposal。`AutoCreateConfigs`/受限 AutoApply 都是用户明确开启后由 Host 执行的校验与原子提交策略，不是插件直接持久化配置的权限。
 3. **Clean break runtime, lossless known-data migration.** 1.9.0 只运行 v3 API，不提供 v2 runtime compatibility layer；MineRewind 的已知数据和 enabled intent 必须迁移，未知 v2 代码包只隔离和保留，不执行、不删除。
-4. **MineRewind parity and the third-party Artifact slice are v2 removal gates.** Discovery、自动补全、文件策略、世界详情、区域备份、热备份、热还原、玩家数据、命令/热键和 KnotLink，以及独立 transformer/materializer plugin 的安全 graph/restore E2E 未全绿前，不得删除 v2。
-5. **每个提交保持可构建、可测试、可审阅。** 两仓库短期可以在开发分支保留编译期过渡 adapter，但发布态不得存在 v2 compatibility path。
+4. **MineRewind parity and the third-party Artifact slice remain release gates.** v2 已按 M6 clean break 删除且不恢复；Discovery、自动补全、文件策略、世界详情、区域备份、热备份、热还原、玩家数据、命令/热键、KnotLink 和 Artifact graph/restore E2E 未全绿前不得发布。
+5. **每个提交保持可构建、可测试、可审阅。** Host 与 MineRewind 必须作为两个完全独立的仓库 restore、build、test 和 pack；组合验收只消费固定哈希的 `.frplugin`，不得恢复源码依赖。
 6. **不借 v3 重写完整备份引擎，但 Artifact 必须是一等扩展边界。** Core 继续拥有 capture、history、retention、Cloud、encryption、integrity 和 operation lifecycle；插件可以在 Host-controlled staging/transaction 中转换 Artifact，并为其格式提供 Restore Materializer，但不能通过自由 Hook 原地改写已提交归档或完全接管 Backup/Restore Engine。
 7. **破坏性动作先建恢复点。** 配置迁移、设置切换、插件更新、Provider State migration、版本指针切换必须有明确 prepare/commit/recovery 语义。
 8. **用户可见行为本地化。** 状态、诊断、降级、阻止、信任、包错误、Preset 和 Recovery Center 同步更新中英文资源。
@@ -93,7 +93,7 @@ Core Artifact format 固定为 `folderrewind.core/archive-set` version 1，Core 
 - 正式 runtime states：`Inactive`、`Activating`、`Active`、`Draining`、`Deactivating`、`Failed`；Installed、Enabled Intent、Runtime State 三轴分离。
 - 单次 capability invocation 异常只影响该 operation；只有 activation/deactivation/contract fatal error 才让 runtime 进入 `Failed`。
 - Safe Mode 只通过 `--safe-mode` 或“以安全模式重启”手动进入，不执行插件 DLL，不修改 Enabled Intent，仍允许 Recovery/Config/Plugin 管理 UI。
-- Disable/Update/Settings Change 进入 Draining：拒绝新 lease，等待现有 lease 自然结束，绝不强制撕掉数据 operation。用户可取消变更；无法卸载时记录为重启后应用。
+- Disable/Update/Settings Change 进入 Draining：拒绝新 lease，等待现有 lease 自然结束，绝不强制撕掉数据 operation。路由和 capability 隔离完成后，`DeactivateAsync` 默认只获得 5 秒 best-effort 宽限期；超时不能占住 Host transition gate，Runtime 标记 `Failed + RequiresRestart` 并保留相关加载上下文至进程重启。
 - 不提供可自由改写 Host Artifact 的通用 before/after Hook。备份前领域操作通过 Consistency Lease；capture 后 cleanup 必须在 `finally` 释放 lease；durable commit 后仅允许收到 immutable completion snapshot 的 Observer，Observer 不属于 Artifact transaction，也不能改变已提交结果。
 - Artifact Transformer 和 Restore Materializer 都必须持有同一个 Runtime Session operation lease；update/disable 不得在 graph transaction 或 materialization 中途卸载插件。
 
@@ -108,7 +108,7 @@ Plugin API 3.0 至少提供：
 - Plugin Command、KnotLink Integration；
 - Provider State Migration。
 
-Host Services 至少提供：只读 config query、backup request、restore request、history query、notification、KnotLink、Plugin DataStore、temporary storage、`ArtifactRead`、`ArtifactTransformStaging`、`RestoreMaterializationWorkspace`、progress 和 logging。Manifest 静态声明 requested services；Host 在执行代码前检查可用性，在安装/更新 UI 展示变化，但这不是 OS 权限或安全沙箱。ArtifactRead 可能暴露 Host 解开 envelope 后的备份内容，必须作为高影响 disclosure 单独突出。Official、Community、Manual 使用同一 Plugin API，没有 Core 私有能力。
+Host Services 至少提供：只读 config query、backup request、restore request、history query、notification、KnotLink、Plugin DataStore、temporary storage、`ArtifactRead`、`ArtifactTransformStaging`、`RestoreMaterializationWorkspace`、progress 和 logging。Manifest 静态声明 requested services；Host 据此构建 per-plugin façade，未声明的正式 Host API 以稳定诊断 `host_service.not_declared` 拒绝，同时在安装/更新 UI 展示变化。这是正式 API gate 与 disclosure，不是 .NET/OS 权限沙箱。ArtifactRead 可能暴露 Host 解开 envelope 后的备份内容，必须作为高影响 disclosure 单独突出。Official、Community、Manual 使用同一 Plugin API，没有 Core 私有能力。
 
 ### 1.4 Operation Resolution 与结果模型
 
@@ -614,6 +614,23 @@ Revision 15 冻结以下兼容性修复：
 
 Revision 15 自动门禁候选：Addendum 3 public API fingerprint 为 `00ad259c581ebd1cb7b624862605c71b9498b44cf3d02f8ac388cacdd048b7dd`，本地 NuGet candidate SHA-256 为 `0265810384f0f13895f5f385cafaf93e8f174235a628813976fd0521b431b046`；MineRewind `.frplugin` SHA-256 为 `a97eddc838b7954fbbaf74de0fbc7bd88591159e48c8e71a68f64b54e2e9463c`。Abstractions 10/10、Runtime 105/105、Host 266/266、MineRewind 59/59 全绿；Host x86/x64/ARM64 Release 与 analyzer-enabled x64 Debug build 均为 0 error，本轮未新增 WinUI analyzer 诊断。普通 restore/backup 安全语义未被绕过，M5 Gate 仍等待真实模组聚焦复测。
 
+#### M5R Revision 16 — 发布硬化与仓库解耦（2026-08-17，实施中）
+
+M6 clean break 已经落地且不恢复 v2，但随后静态审核确认发布门仍不能通过。本轮重新拒绝 M5R Gate，只处理发布硬化、回归测试与仓库边界，不增加 Plugin API 或 Artifact Graph 功能。
+
+| Finding | 处置 | 发布条件 |
+|---|---|---|
+| P0 安装执行插件代码 | 接受 | 首次安装与 Disabled update 只做静态 package/metadata/settings validation；显式 Enable 才首次执行 |
+| P1 Automation raw fallback | 按 ADR 0004 关闭为设计符合项 | Manual/Automation Full 均持久 `SuccessWithWarnings` 且 Automation 不重试；Selected Regions/Require 仍 Block |
+| P1 备份请求误报 `NoChanges` | 接受 | Host-internal rich outcome 精确映射并按固定优先级聚合 |
+| P1 Requested Host Services 未 gate | 接受 | 所有正式 façade 按 Manifest 声明拒绝未声明调用；不宣称 OS sandbox |
+| P1 Config Kind owner/inventory 缺口 | 接受 | owner 必须等于 PluginId，跨已安装 Manifest 的完整 Kind 唯一 |
+| P1 `DeactivateAsync` 无限挂起 | 接受 | 默认 5 秒宽限期；先逻辑隔离，超时 RequiresRestart 且释放 transition gate |
+| P2 Store 非 SemVer 比较 | 接受 | Manifest、Catalog、resolver 共用严格 SemVer 2.0 解析与 precedence |
+| P2 destructive uninstall 非事务 | 接受 | code/data quarantine、journal、配置原子提交与启动恢复 |
+
+FolderRewind App `1.9.0`、未发布 MineRewind `1.9.0` 与 Plugin API/NuGet `3.0.0` 是互不绑定的三条版本线。Host 以后可以在不改变 Plugin API 的情况下发版，插件也不得仅因 Host patch/minor 更新被迫重新编译。MineRewind 产品只依赖公开的 `FolderRewind.Plugin.Abstractions 3.0.0`；Host 仓库移除 MineRewind submodule、solution project 和测试源码引用，改为验证固定 SHA-256 的 bundled `.frplugin`。
+
 ### M6 — Clean break 与发布候选
 
 34. `[Host] refactor(plugin-v3): delete v2 runtime and Minecraft special cases`
@@ -645,7 +662,7 @@ Revision 15 自动门禁候选：Addendum 3 public API fingerprint 为 `00ad259c
 
 - Install provenance 为 Official Catalog 或 Manual；Manifest 不能自证 provenance/trust/update source。
 - `install-state.json`/等价 ledger 由 Host 原子写入，记录 current、previous known-good、versions、provenance 和 transaction ID。
-- Journal phases 至少为 prepared/candidate-selected/activation-validated/committed；启动 recovery 将任何未 committed transaction 恢复到 last committed pointer/state snapshot。
+- Install journal phases 至少为 prepared/candidate-selected/candidate-validated/committed；读取旧 `activation-validated` 时按已验证候选兼容恢复。静态候选验证不得创建 `AssemblyLoadContext`、实例、运行 module initializer 或生命周期代码；启动 recovery 将任何未 committed transaction 恢复到 last committed pointer/state snapshot。
 - Host 自动 snapshot settings/config-state/folder-state；DataStore 不复制回滚。
 - Current + Previous Known-Good 至少保留；清理更老版本只能发生在新版本 commit 后。
 - 如果 installed plugin 是任一可恢复 History ArtifactFormat 的唯一 owner，普通 disable/uninstall 必须预警并明确展示受影响 History；代码删除后 History/Artifact 仍保留，restore fail-closed。危险“删除数据”不得默认删除仍被 History graph 引用的 Artifact。
@@ -695,10 +712,11 @@ Revision 15 自动门禁候选：Addendum 3 public API fingerprint 为 `00ad259c
 | Backup core commit 成功，Completion Observer 失败/进程中断 | `SuccessWithWarnings`；Artifact/History 不回滚，不重跑 observer；final seal diagnostic 可追溯 |
 | Restore files 成功，player finalization/Rejoin 失败 | `SuccessWithWarnings`，明确文件已恢复 |
 | Disable/Update/Settings Change 有 active lease | Draining 等待；不强杀 operation；可取消变更/重启后应用 |
+| 插件 `DeactivateAsync` 超时 | capability 已逻辑隔离；5 秒后 Host 操作继续，Runtime `Failed + RequiresRestart`，加载上下文保留至重启 |
 | Safe Mode | 不执行 DLL；intent/data 不变；Config/Plugin/Recovery UI 可访问 |
 | Catalog offline/error | installed plugins 正常使用；Store 显示 cache/error |
 | 普通 uninstall | code 删除，intent/settings/state/data 保留 |
-| uninstall and delete data | 二次确认后删除列明数据；不可与普通 uninstall 混淆 |
+| uninstall and delete data | 二次确认；code/data 先同卷 quarantine，配置提交后再清理；失败/崩溃按 journal 回滚或继续恢复 |
 
 ---
 
@@ -762,11 +780,10 @@ Revision 15 自动门禁候选：Addendum 3 public API fingerprint 为 `00ad259c
 ```powershell
 dotnet test .\FolderRewind.Tests\FolderRewind.Tests.csproj -c Release --nologo
 dotnet test .\FolderRewind.Plugin.Runtime.Tests\FolderRewind.Plugin.Runtime.Tests.csproj -c Release --nologo
-dotnet test .\FolderRewind-Plugin-Minecraft\MineRewind.Tests\MineRewind.Tests.csproj -c Release --nologo
 dotnet pack .\FolderRewind.Plugin.Abstractions\FolderRewind.Plugin.Abstractions.csproj -c Release --nologo
 ```
 
-Host build/publish 必须按现有 workflow 对 x86/x64/ARM64 和 MSI/MSIX 执行；MineRewind 在独立仓库 checkout 使用本地/API candidate feed build、test、pack `.frplugin`。Site 执行：
+Host clean-checkout 不初始化 submodule，也不读取 MineRewind 源码；Runtime 组合测试只消费仓库内固定 SHA-256 的 bundled `.frplugin`。Host build/publish 必须按现有 workflow 对 x86/x64/ARM64 和 MSI/MSIX 执行；MineRewind 在自己的独立仓库 checkout 只使用公开 NuGet 源 restore、build、test、pack `.frplugin`。Site 执行：
 
 ```powershell
 npm ci

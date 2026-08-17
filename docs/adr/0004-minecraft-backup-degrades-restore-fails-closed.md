@@ -9,5 +9,6 @@ When MineRewind or KnotLink consistency is unavailable, a full Minecraft backup 
 ## Consequences
 
 - Degraded backup warnings remain visible in activity, history, and logs instead of being transient notifications.
+- Invocation source intentionally does not convert an otherwise permitted full-backup degradation into `Blocked`; Automation records success with warnings and does not retry it.
 - Selected-region backup never falls back to full backup.
 - Hot restore completes archive preflight before Save & Exit, performs BackupBeforeRestore after the world exits, and invokes the Host restore continuation at most once.

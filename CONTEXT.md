@@ -159,6 +159,14 @@ _Avoid_: Plugin health check, operation result, fallback exception
 One committed activation of a plugin instance together with its registered capabilities and active operation leases.
 _Avoid_: Installed plugin, enabled intent, process lifetime
 
+**Static Plugin Validation**:
+The inspection of package paths, Manifest and settings facts, and assembly metadata without loading the candidate assembly or executing constructors, module initializers, or lifecycle code.
+_Avoid_: Activation smoke test, trusted execution, plugin health check
+
+**Requested Host Service**:
+A Manifest-declared capability to call one part of FolderRewind's formal Host API; the Host gates that façade and discloses the request to the user, while the declaration does not sandbox ambient .NET or operating-system access.
+_Avoid_: OS permission, security sandbox, optional documentation
+
 **Consistency Lease**:
 A bounded right to read one stable backup source through difference detection and archive capture, together with the obligation to release any coordination or snapshot resources.
 _Avoid_: Backup hook, source path override, archive lifetime

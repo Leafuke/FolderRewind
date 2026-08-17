@@ -11,3 +11,5 @@ FolderRewind Plugin System v3 replaces ordered hooks, first-claim provider scann
 - A plugin may register at most one implementation of each capability contract in an activation session and must compose any internal multiplicity itself.
 - Kind-scoped behavior routes through the persisted Config Kind owner; discovery identity never elects a runtime owner.
 - MineRewind must compile against the public Abstractions package without referencing the FolderRewind application project.
+- Host and MineRewind repositories build independently. Cross-product acceptance consumes an exact `.frplugin` artifact and never recreates a source or solution dependency.
+- FolderRewind App, plugin product, and Plugin API versions evolve independently; a Host release does not by itself require plugin recompilation.
