@@ -2,7 +2,6 @@ using FolderRewind.Models;
 using FolderRewind.Services;
 using FolderRewind.Services.Discovery;
 using FolderRewind.Services.Plugins;
-using Microsoft.UI.Xaml;
 using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
@@ -74,8 +73,8 @@ public sealed class GameDiscoveryPageViewModel : ViewModelBase, IDisposable
     public string CacheStatus { get => _cacheStatus; private set => SetProperty(ref _cacheStatus, value); }
     public string ProgressText { get => _progressText; private set => SetProperty(ref _progressText, value); }
     public string ResultSummary { get => _resultSummary; private set => SetProperty(ref _resultSummary, value); }
-    public Visibility HasResultsVisibility => VisibleGames.Count > 0 ? Visibility.Visible : Visibility.Collapsed;
-    public Visibility HasDraftsVisibility => Drafts.Count > 0 ? Visibility.Visible : Visibility.Collapsed;
+    public bool HasResults => VisibleGames.Count > 0;
+    public bool HasDrafts => Drafts.Count > 0;
     public int HiddenSelectedCount => Games.Count(item => item.IsSelected && !VisibleGames.Contains(item));
     public string HiddenSelectionSummary => HiddenSelectedCount == 0
         ? string.Empty
@@ -203,7 +202,7 @@ public sealed class GameDiscoveryPageViewModel : ViewModelBase, IDisposable
                 Drafts.Add(new GameDiscoveryDraftItem(draft));
             }
         }
-        OnPropertyChanged(nameof(HasDraftsVisibility));
+        OnPropertyChanged(nameof(HasDrafts));
     }
 
     public IReadOnlyList<BackupResourceCandidate> GetSelectedBroadRootResources() => Games
@@ -232,7 +231,7 @@ public sealed class GameDiscoveryPageViewModel : ViewModelBase, IDisposable
         if (result.Success)
         {
             Drafts.Clear();
-            OnPropertyChanged(nameof(HasDraftsVisibility));
+            OnPropertyChanged(nameof(HasDrafts));
             RefreshStatuses();
         }
         return result;
@@ -449,7 +448,7 @@ public sealed class GameDiscoveryPageViewModel : ViewModelBase, IDisposable
         {
             SelectedGame = VisibleGames.FirstOrDefault();
         }
-        OnPropertyChanged(nameof(HasResultsVisibility));
+        OnPropertyChanged(nameof(HasResults));
         OnPropertyChanged(nameof(HiddenSelectedCount));
         OnPropertyChanged(nameof(HiddenSelectionSummary));
     }

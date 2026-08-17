@@ -79,7 +79,7 @@
         </Grid>
 
         <!-- 历史列表 -->
-        <ListView x:Name="HistoryList" Grid.Row="2" SelectionMode="None" ItemsSource="{x:Bind ViewModel.FilteredHistory, Mode=OneWay}" Visibility="{x:Bind ViewModel.PerSourceHistoryVisibility, Mode=OneWay}">
+        <ListView x:Name="HistoryList" Grid.Row="2" SelectionMode="None" ItemsSource="{x:Bind ViewModel.FilteredHistory, Mode=OneWay}" Visibility="{x:Bind ViewModel.ShowPerSourceHistory, Mode=OneWay, Converter={StaticResource BoolToVisConverter}}">
             <!-- ItemTemplate 保持之前的 Git 节点风格 -->
             <ListView.ItemTemplate>
                 <DataTemplate x:DataType="models:HistoryItem">
@@ -90,14 +90,14 @@
                             <ColumnDefinition Width="*"/>
                         </Grid.ColumnDefinitions>
                         <StackPanel VerticalAlignment="Center" HorizontalAlignment="Right" Margin="0,0,16,0">
-                            <TextBlock Text="{x:Bind TimeDisplay}" Style="{StaticResource BodyStrongTextBlockStyle}" HorizontalAlignment="Right"/>
-                            <TextBlock Text="{x:Bind DateDisplay}" Style="{StaticResource CaptionTextBlockStyle}" Foreground="{ThemeResource TextFillColorSecondaryBrush}" HorizontalAlignment="Right"/>
+                            <TextBlock Text="{x:Bind TimeDisplay, Mode=OneWay}" Style="{StaticResource BodyStrongTextBlockStyle}" HorizontalAlignment="Right"/>
+                            <TextBlock Text="{x:Bind DateDisplay, Mode=OneWay}" Style="{StaticResource CaptionTextBlockStyle}" Foreground="{ThemeResource TextFillColorSecondaryBrush}" HorizontalAlignment="Right"/>
                         </StackPanel>
                         <Grid Grid.Column="1">
-                            <Rectangle Width="2" Fill="{x:Bind TimelineLineBrush}" VerticalAlignment="Stretch" HorizontalAlignment="Center"/>
+                            <Rectangle Width="2" Fill="{x:Bind TimelineLineBrush, Mode=OneWay}" VerticalAlignment="Stretch" HorizontalAlignment="Center"/>
                             <Border Width="16" Height="16" CornerRadius="8"
-                                    Background="{x:Bind TimelineNodeFillBrush}"
-                                    BorderBrush="{x:Bind TimelineNodeBorderBrush}"
+                                    Background="{x:Bind TimelineNodeFillBrush, Mode=OneWay}"
+                                    BorderBrush="{x:Bind TimelineNodeBorderBrush, Mode=OneWay}"
                                     BorderThickness="2"
                                     VerticalAlignment="Center" HorizontalAlignment="Center"/>
                         </Grid>
@@ -110,7 +110,7 @@
                                 <StackPanel>
                                     <TextBlock Text="{x:Bind Message, Mode=OneWay}" Style="{StaticResource BodyStrongTextBlockStyle}"/>
                                     <StackPanel Orientation="Horizontal" Spacing="6">
-                                        <TextBlock Text="{x:Bind FileSizeDisplay}" Style="{StaticResource CaptionTextBlockStyle}" Foreground="{ThemeResource TextFillColorSecondaryBrush}"/>
+                                        <TextBlock Text="{x:Bind FileSizeDisplay, Mode=OneWay}" Style="{StaticResource CaptionTextBlockStyle}" Foreground="{ThemeResource TextFillColorSecondaryBrush}"/>
                                         <FontIcon Glyph="&#xE753;"
                                                   FontSize="12"
                                                   Foreground="{ThemeResource TextFillColorTertiaryBrush}"
@@ -125,7 +125,7 @@
                                         <FontIcon Glyph="{x:Bind IsImportant, Mode=OneWay, Converter={StaticResource BoolToStarIconConverter}}" FontSize="14"
                                                   Foreground="{ThemeResource SystemControlForegroundAccentBrush}"/>
                                     </Button>
-                                    <Button x:Uid="HistoryPage_ViewButton" Click="OnViewClick" ToolTipService.ToolTip="{x:Bind FileName}">
+                                    <Button x:Uid="HistoryPage_ViewButton" Click="OnViewClick" ToolTipService.ToolTip="{x:Bind FileName, Mode=OneWay}">
                                         <FontIcon Glyph="&#xE8A7;" FontSize="14"/>
                                     </Button>
                                     <Button x:Uid="HistoryPage_EditCommentButton" Click="OnEditCommentClick">
@@ -157,7 +157,7 @@
             </ListView.ItemTemplate>
         </ListView>
 
-        <ListView x:Name="RunHistoryList" Grid.Row="2" SelectionMode="None" ItemsSource="{x:Bind ViewModel.FilteredRuns, Mode=OneWay}" Visibility="{x:Bind ViewModel.GroupedRunHistoryVisibility, Mode=OneWay}">
+        <ListView x:Name="RunHistoryList" Grid.Row="2" SelectionMode="None" ItemsSource="{x:Bind ViewModel.FilteredRuns, Mode=OneWay}" Visibility="{x:Bind ViewModel.ShowGroupedRunHistory, Mode=OneWay, Converter={StaticResource BoolToVisConverter}}">
             <ListView.ItemTemplate>
                 <DataTemplate x:DataType="vm:BackupRunViewItem">
                     <Grid Margin="0,4" ColumnSpacing="12">
@@ -166,8 +166,8 @@
                             <ColumnDefinition Width="*"/>
                         </Grid.ColumnDefinitions>
                         <StackPanel VerticalAlignment="Center" HorizontalAlignment="Right">
-                            <TextBlock Text="{x:Bind TimeDisplay}" Style="{StaticResource BodyStrongTextBlockStyle}"/>
-                            <TextBlock Text="{x:Bind DateDisplay}" Style="{StaticResource CaptionTextBlockStyle}" Foreground="{ThemeResource TextFillColorSecondaryBrush}"/>
+                            <TextBlock Text="{x:Bind TimeDisplay, Mode=OneWay}" Style="{StaticResource BodyStrongTextBlockStyle}"/>
+                            <TextBlock Text="{x:Bind DateDisplay, Mode=OneWay}" Style="{StaticResource CaptionTextBlockStyle}" Foreground="{ThemeResource TextFillColorSecondaryBrush}"/>
                         </StackPanel>
                         <Expander Grid.Column="1" HorizontalAlignment="Stretch" Background="{ThemeResource CardBackgroundFillColorDefaultBrush}">
                             <Expander.Header>
@@ -177,20 +177,20 @@
                                         <ColumnDefinition Width="Auto"/>
                                     </Grid.ColumnDefinitions>
                                     <StackPanel VerticalAlignment="Center" Spacing="2">
-                                        <TextBlock Text="{x:Bind Message}" Style="{ThemeResource BodyStrongTextBlockStyle}"/>
-                                        <TextBlock Text="{x:Bind SourceSummary}" Foreground="{ThemeResource TextFillColorSecondaryBrush}"/>
+                                        <TextBlock Text="{x:Bind Message, Mode=OneWay}" Style="{ThemeResource BodyStrongTextBlockStyle}"/>
+                                        <TextBlock Text="{x:Bind SourceSummary, Mode=OneWay}" Foreground="{ThemeResource TextFillColorSecondaryBrush}"/>
                                     </StackPanel>
                                     <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="4" VerticalAlignment="Center">
                                         <Button x:Uid="HistoryPage_ToggleImportantButton" Click="OnToggleRunImportantClick" Background="Transparent" BorderThickness="0">
-                                            <FontIcon Glyph="{x:Bind IsImportant, Converter={StaticResource BoolToStarIconConverter}}" FontSize="14" Foreground="{ThemeResource SystemControlForegroundAccentBrush}"/>
+                                            <FontIcon Glyph="{x:Bind IsImportant, Converter={StaticResource BoolToStarIconConverter}, Mode=OneWay}" FontSize="14" Foreground="{ThemeResource SystemControlForegroundAccentBrush}"/>
                                         </Button>
                                         <Button x:Uid="HistoryPage_EditCommentButton" Click="OnEditRunCommentClick"><FontIcon Glyph="&#xE70F;" FontSize="14"/></Button>
-                                        <Button x:Uid="HistoryPage_RestoreButton" Click="OnRestoreRunClick" IsEnabled="{x:Bind CanRestore}"><FontIcon Glyph="&#xE777;" FontSize="14"/></Button>
+                                        <Button x:Uid="HistoryPage_RestoreButton" Click="OnRestoreRunClick" IsEnabled="{x:Bind CanRestore, Mode=OneWay}"><FontIcon Glyph="&#xE777;" FontSize="14"/></Button>
                                         <Button x:Uid="HistoryPage_DeleteButton" Click="OnDeleteRunClick"><FontIcon Glyph="&#xE74D;" FontSize="14"/></Button>
                                     </StackPanel>
                                 </Grid>
                             </Expander.Header>
-                            <ItemsControl ItemsSource="{x:Bind Sources}">
+                            <ItemsControl ItemsSource="{x:Bind Sources, Mode=OneWay}">
                                 <ItemsControl.ItemTemplate>
                                     <DataTemplate x:DataType="vm:BackupRunSourceViewItem">
                                         <Grid Padding="8,5" ColumnSpacing="12">
@@ -199,9 +199,9 @@
                                                 <ColumnDefinition Width="140"/>
                                                 <ColumnDefinition Width="*"/>
                                             </Grid.ColumnDefinitions>
-                                            <TextBlock Text="{x:Bind Name}" TextWrapping="Wrap"/>
-                                            <TextBlock Grid.Column="1" Text="{x:Bind StatusText}" Foreground="{ThemeResource TextFillColorSecondaryBrush}"/>
-                                            <TextBlock Grid.Column="2" Text="{x:Bind Detail}" Foreground="{ThemeResource TextFillColorSecondaryBrush}" TextWrapping="Wrap"/>
+                                            <TextBlock Text="{x:Bind Name, Mode=OneWay}" TextWrapping="Wrap"/>
+                                            <TextBlock Grid.Column="1" Text="{x:Bind StatusText, Mode=OneWay}" Foreground="{ThemeResource TextFillColorSecondaryBrush}"/>
+                                            <TextBlock Grid.Column="2" Text="{x:Bind Detail, Mode=OneWay}" Foreground="{ThemeResource TextFillColorSecondaryBrush}" TextWrapping="Wrap"/>
                                         </Grid>
                                     </DataTemplate>
                                 </ItemsControl.ItemTemplate>

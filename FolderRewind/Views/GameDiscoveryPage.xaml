@@ -65,9 +65,9 @@
                                         <ColumnDefinition Width="Auto"/>
                                     </Grid.ColumnDefinitions>
                                     <ToggleSwitch IsOn="{x:Bind IsEnabled, Mode=TwoWay}"/>
-                                    <TextBlock Grid.Column="1" Text="{x:Bind Store}" VerticalAlignment="Center" MinWidth="60"/>
-                                    <TextBox Grid.Column="2" Text="{x:Bind Path, Mode=TwoWay}" IsReadOnly="{x:Bind IsAutoDetected}"/>
-                                    <Button x:Uid="GameDiscoveryPage_DeleteRoot" Grid.Column="3" Click="OnRemoveRootClick" Tag="{x:Bind}" Visibility="{x:Bind IsAutoDetected, Converter={StaticResource BoolToVisInvertConverter}}"/>
+                                    <TextBlock Grid.Column="1" Text="{x:Bind Store, Mode=OneWay}" VerticalAlignment="Center" MinWidth="60"/>
+                                    <TextBox Grid.Column="2" Text="{x:Bind Path, Mode=TwoWay}" IsReadOnly="{x:Bind IsAutoDetected, Mode=OneWay}"/>
+                                    <Button x:Uid="GameDiscoveryPage_DeleteRoot" Grid.Column="3" Click="OnRemoveRootClick" Tag="{x:Bind}" Visibility="{x:Bind IsAutoDetected, Converter={StaticResource BoolToVisInvertConverter}, Mode=OneWay}"/>
                                 </Grid>
                             </DataTemplate>
                         </ItemsControl.ItemTemplate>
@@ -118,7 +118,7 @@
 
             <TextBlock Text="{x:Bind ViewModel.HiddenSelectionSummary, Mode=OneWay}" Foreground="{ThemeResource SystemControlForegroundAccentBrush}" TextWrapping="Wrap"/>
 
-            <Grid Visibility="{x:Bind ViewModel.HasResultsVisibility, Mode=OneWay}" IsHitTestVisible="{x:Bind ViewModel.CanStart, Mode=OneWay}" ColumnSpacing="12" MinHeight="380">
+            <Grid Visibility="{x:Bind ViewModel.HasResults, Mode=OneWay, Converter={StaticResource BoolToVisConverter}}" IsHitTestVisible="{x:Bind ViewModel.CanStart, Mode=OneWay}" ColumnSpacing="12" MinHeight="380">
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="300"/>
                     <ColumnDefinition Width="*"/>
@@ -133,9 +133,9 @@
                                 </Grid.ColumnDefinitions>
                                 <CheckBox IsChecked="{x:Bind IsSelected, Mode=TwoWay}" VerticalAlignment="Center"/>
                                 <StackPanel Grid.Column="1" Spacing="2">
-                                    <TextBlock Text="{x:Bind Name}" Style="{ThemeResource BodyStrongTextBlockStyle}" TextWrapping="Wrap"/>
-                                    <TextBlock Text="{x:Bind Stores}" Foreground="{ThemeResource TextFillColorSecondaryBrush}"/>
-                                    <TextBlock Text="{x:Bind StatusText}" Foreground="{ThemeResource SystemControlForegroundAccentBrush}"/>
+                                    <TextBlock Text="{x:Bind Name, Mode=OneWay}" Style="{ThemeResource BodyStrongTextBlockStyle}" TextWrapping="Wrap"/>
+                                    <TextBlock Text="{x:Bind Stores, Mode=OneWay}" Foreground="{ThemeResource TextFillColorSecondaryBrush}"/>
+                                    <TextBlock Text="{x:Bind StatusText, Mode=OneWay}" Foreground="{ThemeResource SystemControlForegroundAccentBrush}"/>
                                 </StackPanel>
                             </Grid>
                         </DataTemplate>
@@ -160,10 +160,10 @@
                                                     <ColumnDefinition Width="240"/>
                                                 </Grid.ColumnDefinitions>
                                                 <CheckBox IsChecked="{x:Bind IsSelected, Mode=TwoWay}" VerticalAlignment="Center"/>
-                                                <TextBlock Grid.Column="1" Text="{x:Bind Name}" Style="{ThemeResource BodyStrongTextBlockStyle}" VerticalAlignment="Center"/>
-                                                <ComboBox Grid.Column="2" ItemsSource="{x:Bind Presets}" SelectedItem="{x:Bind SelectedPreset, Mode=TwoWay}" DisplayMemberPath="Name" IsEnabled="{x:Bind CanChoosePreset}"/>
+                                                <TextBlock Grid.Column="1" Text="{x:Bind Name, Mode=OneWay}" Style="{ThemeResource BodyStrongTextBlockStyle}" VerticalAlignment="Center"/>
+                                                <ComboBox Grid.Column="2" ItemsSource="{x:Bind Presets, Mode=OneWay}" SelectedItem="{x:Bind SelectedPreset, Mode=TwoWay}" DisplayMemberPath="Name" IsEnabled="{x:Bind CanChoosePreset, Mode=OneWay}"/>
                                             </Grid>
-                                            <ItemsControl ItemsSource="{x:Bind Resources}">
+                                            <ItemsControl ItemsSource="{x:Bind Resources, Mode=OneWay}">
                                                 <ItemsControl.ItemTemplate>
                                                     <DataTemplate x:DataType="vm:GameDiscoveryResourceItem">
                                                         <Grid ColumnSpacing="8" Margin="0,5">
@@ -171,14 +171,14 @@
                                                                 <ColumnDefinition Width="Auto"/>
                                                                 <ColumnDefinition Width="*"/>
                                                             </Grid.ColumnDefinitions>
-                                                            <CheckBox IsChecked="{x:Bind IsSelected, Mode=TwoWay}" IsEnabled="{x:Bind CanSelect}" VerticalAlignment="Top"/>
+                                                            <CheckBox IsChecked="{x:Bind IsSelected, Mode=TwoWay}" IsEnabled="{x:Bind CanSelect, Mode=OneWay}" VerticalAlignment="Top"/>
                                                             <StackPanel Grid.Column="1" Spacing="2">
-                                                                <TextBlock Text="{x:Bind Name}" Style="{ThemeResource BodyStrongTextBlockStyle}"/>
-                                                                <TextBlock Text="{x:Bind Expression}" FontFamily="Consolas" TextWrapping="Wrap"/>
-                                                                <TextBlock Text="{x:Bind Tags}" Foreground="{ThemeResource TextFillColorSecondaryBrush}"/>
-                                                                <TextBlock Text="{x:Bind PathSummary}" Foreground="{ThemeResource TextFillColorSecondaryBrush}"/>
-                                                                <TextBlock Text="{x:Bind Evidence}" Foreground="{ThemeResource TextFillColorSecondaryBrush}" TextWrapping="Wrap"/>
-                                                                <TextBlock Text="{x:Bind SupportText}" Foreground="{ThemeResource SystemFillColorCriticalBrush}" TextWrapping="Wrap"/>
+                                                                <TextBlock Text="{x:Bind Name, Mode=OneWay}" Style="{ThemeResource BodyStrongTextBlockStyle}"/>
+                                                                <TextBlock Text="{x:Bind Expression, Mode=OneWay}" FontFamily="Consolas" TextWrapping="Wrap"/>
+                                                                <TextBlock Text="{x:Bind Tags, Mode=OneWay}" Foreground="{ThemeResource TextFillColorSecondaryBrush}"/>
+                                                                <TextBlock Text="{x:Bind PathSummary, Mode=OneWay}" Foreground="{ThemeResource TextFillColorSecondaryBrush}"/>
+                                                                <TextBlock Text="{x:Bind Evidence, Mode=OneWay}" Foreground="{ThemeResource TextFillColorSecondaryBrush}" TextWrapping="Wrap"/>
+                                                                <TextBlock Text="{x:Bind SupportText, Mode=OneWay}" Foreground="{ThemeResource SystemFillColorCriticalBrush}" TextWrapping="Wrap"/>
                                                             </StackPanel>
                                                         </Grid>
                                                     </DataTemplate>
@@ -193,9 +193,9 @@
                 </ScrollViewer>
             </Grid>
 
-            <Button x:Uid="GameDiscoveryPage_Review" Click="OnReviewClick" HorizontalAlignment="Right" Visibility="{x:Bind ViewModel.HasResultsVisibility, Mode=OneWay}" IsEnabled="{x:Bind ViewModel.CanStart, Mode=OneWay}"/>
+            <Button x:Uid="GameDiscoveryPage_Review" Click="OnReviewClick" HorizontalAlignment="Right" Visibility="{x:Bind ViewModel.HasResults, Mode=OneWay, Converter={StaticResource BoolToVisConverter}}" IsEnabled="{x:Bind ViewModel.CanStart, Mode=OneWay}"/>
 
-            <Border Visibility="{x:Bind ViewModel.HasDraftsVisibility, Mode=OneWay}" Padding="16" CornerRadius="8" Background="{ThemeResource CardBackgroundFillColorDefaultBrush}" BorderBrush="{ThemeResource SystemControlForegroundAccentBrush}" BorderThickness="1">
+            <Border Visibility="{x:Bind ViewModel.HasDrafts, Mode=OneWay, Converter={StaticResource BoolToVisConverter}}" Padding="16" CornerRadius="8" Background="{ThemeResource CardBackgroundFillColorDefaultBrush}" BorderBrush="{ThemeResource SystemControlForegroundAccentBrush}" BorderThickness="1">
                 <StackPanel Spacing="12">
                     <TextBlock x:Uid="GameDiscoveryPage_ConfirmHeading" Style="{ThemeResource SubtitleTextBlockStyle}"/>
                     <TextBlock x:Uid="GameDiscoveryPage_ConfirmDescription" Foreground="{ThemeResource TextFillColorSecondaryBrush}" TextWrapping="Wrap"/>
@@ -213,18 +213,18 @@
                                         <RowDefinition Height="Auto"/>
                                     </Grid.RowDefinitions>
                                     <CheckBox IsChecked="{x:Bind IsSelected, Mode=TwoWay}" VerticalAlignment="Center"/>
-                                    <TextBox Grid.Column="1" Text="{x:Bind ConfigName, Mode=TwoWay}" IsReadOnly="{x:Bind IsExistingConfiguration}"/>
-                                    <TextBox Grid.Column="2" Text="{x:Bind DestinationPath, Mode=TwoWay}" IsReadOnly="{x:Bind IsExistingConfiguration}"/>
-                                    <TextBlock Grid.Row="1" Grid.Column="1" Text="{x:Bind Reconciliation}" Foreground="{ThemeResource TextFillColorSecondaryBrush}"/>
+                                    <TextBox Grid.Column="1" Text="{x:Bind ConfigName, Mode=TwoWay}" IsReadOnly="{x:Bind IsExistingConfiguration, Mode=OneWay}"/>
+                                    <TextBox Grid.Column="2" Text="{x:Bind DestinationPath, Mode=TwoWay}" IsReadOnly="{x:Bind IsExistingConfiguration, Mode=OneWay}"/>
+                                    <TextBlock Grid.Row="1" Grid.Column="1" Text="{x:Bind Reconciliation, Mode=OneWay}" Foreground="{ThemeResource TextFillColorSecondaryBrush}"/>
                                     <StackPanel Grid.Row="1" Grid.Column="2" Spacing="4">
-                                        <TextBlock Text="{x:Bind Issues}" Foreground="{ThemeResource SystemFillColorCriticalBrush}" TextWrapping="Wrap"/>
-                                        <ItemsControl ItemsSource="{x:Bind Changes}">
+                                        <TextBlock Text="{x:Bind Issues, Mode=OneWay}" Foreground="{ThemeResource SystemFillColorCriticalBrush}" TextWrapping="Wrap"/>
+                                        <ItemsControl ItemsSource="{x:Bind Changes, Mode=OneWay}">
                                             <ItemsControl.ItemTemplate>
                                                 <DataTemplate x:DataType="models:DiscoverySourceChange">
-                                                    <CheckBox IsChecked="{x:Bind IsSelected, Mode=TwoWay}" IsEnabled="{x:Bind IsActionable}">
+                                                    <CheckBox IsChecked="{x:Bind IsSelected, Mode=TwoWay}" IsEnabled="{x:Bind IsActionable, Mode=OneWay}">
                                                         <StackPanel Orientation="Horizontal" Spacing="8">
-                                                            <TextBlock Text="{x:Bind Kind}"/>
-                                                            <TextBlock Text="{x:Bind NormalizedRootPath}" FontFamily="Consolas" TextWrapping="Wrap"/>
+                                                            <TextBlock Text="{x:Bind Kind, Mode=OneWay}"/>
+                                                            <TextBlock Text="{x:Bind NormalizedRootPath, Mode=OneWay}" FontFamily="Consolas" TextWrapping="Wrap"/>
                                                         </StackPanel>
                                                     </CheckBox>
                                                 </DataTemplate>

@@ -9,6 +9,7 @@ using System.Collections.ObjectModel;
 using System.IO;
 using System.Linq;
 using System.Threading.Tasks;
+using Windows.UI;
 
 namespace FolderRewind.ViewModels
 {
@@ -40,8 +41,8 @@ namespace FolderRewind.ViewModels
 
         public bool HasMissing => _missingCount > 0;
         public bool IsGroupedRunView => _viewMode == HistoryViewMode.ByRun;
-        public Visibility GroupedRunHistoryVisibility => IsGroupedRunView ? Visibility.Visible : Visibility.Collapsed;
-        public Visibility PerSourceHistoryVisibility => IsGroupedRunView ? Visibility.Collapsed : Visibility.Visible;
+        public bool ShowGroupedRunHistory => IsGroupedRunView;
+        public bool ShowPerSourceHistory => !IsGroupedRunView;
         public bool CanUsePerSourceActions => !IsGroupedRunView && _currentFolder != null;
 
         public bool CanUseCloudHistoryActions => CloudSyncService.CanUseManualCloudActions(_currentConfig);
@@ -100,8 +101,8 @@ namespace FolderRewind.ViewModels
             OnPropertyChanged(nameof(CanUseCloudHistoryActions));
             OnPropertyChanged(nameof(CanOpenConfigCloudSync));
             OnPropertyChanged(nameof(IsGroupedRunView));
-            OnPropertyChanged(nameof(GroupedRunHistoryVisibility));
-            OnPropertyChanged(nameof(PerSourceHistoryVisibility));
+            OnPropertyChanged(nameof(ShowGroupedRunHistory));
+            OnPropertyChanged(nameof(ShowPerSourceHistory));
             OnPropertyChanged(nameof(CanUsePerSourceActions));
 
             // 页面初始化阶段可关闭刷新，避免控件尚未就绪时重复拉取历史。
@@ -229,8 +230,8 @@ namespace FolderRewind.ViewModels
         private void NotifyViewModeChanged()
         {
             OnPropertyChanged(nameof(IsGroupedRunView));
-            OnPropertyChanged(nameof(GroupedRunHistoryVisibility));
-            OnPropertyChanged(nameof(PerSourceHistoryVisibility));
+            OnPropertyChanged(nameof(ShowGroupedRunHistory));
+            OnPropertyChanged(nameof(ShowPerSourceHistory));
             OnPropertyChanged(nameof(CanUsePerSourceActions));
         }
 

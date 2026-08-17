@@ -13,14 +13,17 @@
         </Grid.RowDefinitions>
 
         <Image Grid.RowSpan="3"
-               Source="{x:Bind ViewModel.SponsorBackgroundImageSource, Mode=OneWay}"
-               Stretch="{x:Bind ViewModel.SponsorBackgroundStretch, Mode=OneWay}"
+               Source="{x:Bind ViewModel.SponsorBackgroundImagePath, Mode=OneWay, Converter={StaticResource StringToBitmapConverter}}"
+               Stretch="{x:Bind ViewModel.SponsorBackgroundStretchIndex, Mode=OneWay, Converter={StaticResource IntToStretchConverter}}"
                Opacity="{x:Bind ViewModel.SponsorBackgroundOpacity, Mode=OneWay}"
                Visibility="{x:Bind ViewModel.IsSponsorBackgroundVisible, Mode=OneWay, Converter={StaticResource BoolToVisConverter}}" />
         <Border Grid.RowSpan="3"
-                Background="{x:Bind ViewModel.SponsorBackgroundOverlayBrush, Mode=OneWay}"
                 Opacity="{x:Bind ViewModel.SponsorBackgroundOverlayOpacity, Mode=OneWay}"
-                Visibility="{x:Bind ViewModel.IsSponsorBackgroundVisible, Mode=OneWay, Converter={StaticResource BoolToVisConverter}}" />
+                Visibility="{x:Bind ViewModel.IsSponsorBackgroundVisible, Mode=OneWay, Converter={StaticResource BoolToVisConverter}}">
+            <Border.Background>
+                <SolidColorBrush Color="{x:Bind ViewModel.SponsorBackgroundOverlayColor, Mode=OneWay}"/>
+            </Border.Background>
+        </Border>
 
         <Border x:Name="AppTitleBar"
                 Grid.Row="0"

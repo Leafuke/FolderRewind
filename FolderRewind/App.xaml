@@ -24,6 +24,7 @@
             <converters:StringNullOrEmptyToVisibilityConverter x:Key="StringNullOrEmptyToVisConverter"/>
             <converters:StringToBitmapConverter x:Key="StringToBitmapConverter"/>
             <converters:DoubleToOpacityBrushConverter x:Key="DoubleToOpacityBrushConverter"/>
+            <converters:IntToStretchConverter x:Key="IntToStretchConverter"/>
 
             <!-- ==================== 全局共享样式 ==================== -->
             

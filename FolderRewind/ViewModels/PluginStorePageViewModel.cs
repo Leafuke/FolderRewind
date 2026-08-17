@@ -4,7 +4,6 @@ using FolderRewind.Services;
 using FolderRewind.Services.Plugins;
 using FolderRewind.Services.Plugins.V3;
 using FolderRewind.Plugin.Runtime.Packaging;
-using Microsoft.UI.Xaml;
 using System;
 using System.Collections.ObjectModel;
 using System.Collections.Specialized;
@@ -50,7 +49,7 @@ namespace FolderRewind.ViewModels
                     return;
                 }
 
-                OnPropertyChanged(nameof(StatusVisibility));
+                OnPropertyChanged(nameof(HasStatus));
             }
         }
 
@@ -64,7 +63,7 @@ namespace FolderRewind.ViewModels
                     return;
                 }
 
-                OnPropertyChanged(nameof(ReleaseSummaryVisibility));
+                OnPropertyChanged(nameof(HasReleaseSummary));
             }
         }
 
@@ -79,24 +78,18 @@ namespace FolderRewind.ViewModels
                 }
 
                 OnPropertyChanged(nameof(CanLoad));
-                OnPropertyChanged(nameof(EmptyListVisibility));
+                OnPropertyChanged(nameof(IsEmptyList));
                 LoadCommand.NotifyCanExecuteChanged();
             }
         }
 
         public bool CanLoad => !IsLoading && PluginService.IsPluginSystemEnabled();
 
-        public Visibility StatusVisibility => string.IsNullOrWhiteSpace(StatusMessage)
-            ? Visibility.Collapsed
-            : Visibility.Visible;
+        public bool HasStatus => !string.IsNullOrWhiteSpace(StatusMessage);
 
-        public Visibility ReleaseSummaryVisibility => string.IsNullOrWhiteSpace(ReleaseSummary)
-            ? Visibility.Collapsed
-            : Visibility.Visible;
+        public bool HasReleaseSummary => !string.IsNullOrWhiteSpace(ReleaseSummary);
 
-        public Visibility EmptyListVisibility => !IsLoading && Assets.Count == 0
-            ? Visibility.Visible
-            : Visibility.Collapsed;
+        public bool IsEmptyList => !IsLoading && Assets.Count == 0;
 
         public async Task ActivateAsync()
         {
@@ -275,7 +268,7 @@ namespace FolderRewind.ViewModels
 
         private void OnAssetsCollectionChanged(object? sender, NotifyCollectionChangedEventArgs e)
         {
-            OnPropertyChanged(nameof(EmptyListVisibility));
+            OnPropertyChanged(nameof(IsEmptyList));
         }
     }
 }
