@@ -16,19 +16,6 @@ namespace FolderRewind.Services
 
         // <param name="enable">True to enable startup, false to disable.</param>
         // <returns>True if the operation succeeded.</returns>
-        public static bool SetStartup(bool enable)
-        {
-            try
-            {
-                return Task.Run(() => SetStartupAsync(enable)).GetAwaiter().GetResult();
-            }
-            catch (Exception ex)
-            {
-                Debug.WriteLine($"Startup set failed: {ex.Message}");
-                LogService.Log(I18n.Format("Startup_SetFailed", ex.Message));
-                return false;
-            }
-        }
         public static async Task<bool> SetStartupAsync(bool enable)
         {
             if (AppRuntimeInfo.IsMsiDistribution)
@@ -69,17 +56,6 @@ namespace FolderRewind.Services
             {
                 Debug.WriteLine($"Startup async set failed: {ex.Message}");
                 LogService.Log(I18n.Format("Startup_SetFailed", ex.Message));
-                return false;
-            }
-        }
-        public static bool IsStartupEnabled()
-        {
-            try
-            {
-                return Task.Run(() => IsStartupEnabledAsync()).GetAwaiter().GetResult();
-            }
-            catch
-            {
                 return false;
             }
         }
