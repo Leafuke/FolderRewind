@@ -132,6 +132,110 @@ public sealed class PluginRuntimeManagerTests
     }
 
     [TestMethod]
+    public async Task DeactivationTimeoutLogicallyIsolatesPluginAndReleasesTransitionGate()
+    {
+        var never = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var plugin = PluginWithDiscovery(
+            "hanging",
+            _ => new ValueTask(never.Task));
+        var manager = new PluginRuntimeManager(deactivationGracePeriod: TimeSpan.FromMilliseconds(25));
+        await manager.ActivateAsync(Candidate(PluginOneId, plugin, new FakeStore()));
+
+        var result = await manager.DeactivateAsync(PluginOneId);
+
+        Assert.IsTrue(result.Success);
+        Assert.AreEqual(OperationOutcome.SuccessWithWarnings, result.Outcome);
+        Assert.AreEqual(PluginRuntimeState.Failed, result.State);
+        Assert.IsTrue(result.RequiresRestart);
+        Assert.IsTrue(manager.GetSnapshot(PluginOneId).RequiresRestart);
+        Assert.IsNull(manager.TryAcquire<IDiscoveryCapability>(PluginOneId));
+        Assert.AreEqual(1, manager.RestartRetainedCount);
+
+        var repeated = await manager.DeactivateAsync(PluginOneId);
+        Assert.IsTrue(repeated.RequiresRestart);
+        Assert.IsTrue(manager.GetSnapshot(PluginOneId).RequiresRestart);
+        var samePlugin = await manager.ActivateAsync(
+            Candidate(PluginOneId, PluginWithDiscovery("unsafe-reload"), new FakeStore()));
+        Assert.IsFalse(samePlugin.Success);
+        Assert.AreEqual(OperationOutcome.Blocked, samePlugin.Outcome);
+        Assert.IsTrue(samePlugin.RequiresRestart);
+
+        var other = await manager.ActivateAsync(
+            Candidate(PluginTwoId, PluginWithDiscovery("other"), new FakeStore()));
+        Assert.IsTrue(other.Success, "A timed-out plugin must not retain the transition gate.");
+    }
+
+    [TestMethod]
+    public async Task ReplacementKeepsNewSessionActiveWhenOldDeactivationTimesOut()
+    {
+        var never = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var oldPlugin = PluginWithDiscovery(
+            "old",
+            _ => new ValueTask(never.Task));
+        var manager = new PluginRuntimeManager(deactivationGracePeriod: TimeSpan.FromMilliseconds(25));
+        await manager.ActivateAsync(Candidate(PluginOneId, oldPlugin, new FakeStore()));
+
+        var result = await manager.ReplaceAsync(
+            Candidate(PluginOneId, PluginWithDiscovery("new"), new FakeStore()));
+
+        Assert.IsTrue(result.Success);
+        Assert.AreEqual(OperationOutcome.SuccessWithWarnings, result.Outcome);
+        Assert.AreEqual(PluginRuntimeState.Active, result.State);
+        Assert.IsTrue(result.RequiresRestart);
+        Assert.IsTrue(manager.GetSnapshot(PluginOneId).RequiresRestart);
+        using (var lease = manager.TryAcquire<IDiscoveryCapability>(PluginOneId))
+        {
+            Assert.IsNotNull(lease);
+            Assert.AreEqual("new", ((FakeDiscovery)lease.Capability).Marker);
+        }
+
+        var deactivate = await manager.DeactivateAsync(PluginOneId);
+        Assert.IsTrue(deactivate.Success);
+        Assert.AreEqual(OperationOutcome.SuccessWithWarnings, deactivate.Outcome);
+        Assert.IsTrue(deactivate.RequiresRestart);
+        Assert.IsTrue(manager.GetSnapshot(PluginOneId).RequiresRestart);
+    }
+
+    [TestMethod]
+    public async Task DeactivationExceptionDoesNotUndoLogicalIsolationOrRequireRestart()
+    {
+        var plugin = PluginWithDiscovery(
+            "throwing",
+            _ => ValueTask.FromException(new InvalidOperationException("cleanup failed")));
+        var manager = new PluginRuntimeManager(deactivationGracePeriod: TimeSpan.FromMilliseconds(25));
+        await manager.ActivateAsync(Candidate(PluginOneId, plugin, new FakeStore()));
+
+        var result = await manager.DeactivateAsync(PluginOneId);
+
+        Assert.IsTrue(result.Success);
+        Assert.AreEqual(OperationOutcome.SuccessWithWarnings, result.Outcome);
+        Assert.AreEqual(PluginRuntimeState.Failed, result.State);
+        Assert.IsFalse(result.RequiresRestart);
+        Assert.IsNull(manager.TryAcquire<IDiscoveryCapability>(PluginOneId));
+    }
+
+    [TestMethod]
+    public async Task ActivationRollbackTimeoutIsRetainedAndReported()
+    {
+        var never = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var plugin = PluginWithDiscovery(
+            "candidate",
+            _ => new ValueTask(never.Task));
+        var manager = new PluginRuntimeManager(deactivationGracePeriod: TimeSpan.FromMilliseconds(25));
+        var store = new FakeStore { FailNextCommit = true };
+
+        var result = await manager.ActivateAsync(Candidate(PluginOneId, plugin, store));
+
+        Assert.IsFalse(result.Success);
+        Assert.IsTrue(result.RequiresRestart);
+        Assert.IsTrue(manager.GetSnapshot(PluginOneId).RequiresRestart);
+        Assert.AreEqual(1, manager.RestartRetainedCount);
+        var other = await manager.ActivateAsync(
+            Candidate(PluginTwoId, PluginWithDiscovery("other"), new FakeStore()));
+        Assert.IsTrue(other.Success);
+    }
+
+    [TestMethod]
     public async Task ProviderMigrationIsStagedWithDataStoreDisabledThenCommittedOnce()
     {
         var owner = new StateOwnerId("com.folderrewind.state");
@@ -239,12 +343,14 @@ public sealed class PluginRuntimeManagerTests
             new FakeHostServices(),
             store);
 
-    private static FakePlugin PluginWithDiscovery(string marker)
+    private static FakePlugin PluginWithDiscovery(
+        string marker,
+        Func<CancellationToken, ValueTask>? deactivate = null)
         => new(context =>
         {
             context.RegisterCapability<IDiscoveryCapability>(new FakeDiscovery(marker));
             return PluginActivationResult.Empty;
-        });
+        }, deactivate);
 
     private static ConfigSnapshot ConfigWithState(ProviderStateSnapshot state)
         => new(
@@ -274,9 +380,15 @@ public sealed class PluginRuntimeManagerTests
     private sealed class FakePlugin : IFolderRewindPlugin
     {
         private readonly Func<IPluginActivationContext, PluginActivationResult> _activate;
+        private readonly Func<CancellationToken, ValueTask>? _deactivate;
 
-        public FakePlugin(Func<IPluginActivationContext, PluginActivationResult> activate)
-            => _activate = activate;
+        public FakePlugin(
+            Func<IPluginActivationContext, PluginActivationResult> activate,
+            Func<CancellationToken, ValueTask>? deactivate = null)
+        {
+            _activate = activate;
+            _deactivate = deactivate;
+        }
 
         public int DeactivationCount { get; private set; }
 
@@ -286,7 +398,7 @@ public sealed class PluginRuntimeManagerTests
         public ValueTask DeactivateAsync(CancellationToken cancellationToken)
         {
             DeactivationCount++;
-            return ValueTask.CompletedTask;
+            return _deactivate?.Invoke(cancellationToken) ?? ValueTask.CompletedTask;
         }
     }
 

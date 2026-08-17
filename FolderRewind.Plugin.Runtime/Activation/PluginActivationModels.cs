@@ -29,10 +29,14 @@ public sealed record PluginRuntimeTransitionResult(
     bool Success,
     OperationOutcome Outcome,
     PluginRuntimeState State,
-    IReadOnlyList<PluginDiagnostic> Diagnostics)
+    IReadOnlyList<PluginDiagnostic> Diagnostics,
+    bool RequiresRestart = false)
 {
-    public static PluginRuntimeTransitionResult Completed(PluginRuntimeState state, IReadOnlyList<PluginDiagnostic>? diagnostics = null)
-        => new(true, OperationOutcome.Success, state, diagnostics ?? Array.Empty<PluginDiagnostic>());
+    public static PluginRuntimeTransitionResult Completed(
+        PluginRuntimeState state,
+        IReadOnlyList<PluginDiagnostic>? diagnostics = null,
+        bool requiresRestart = false)
+        => new(true, OperationOutcome.Success, state, diagnostics ?? Array.Empty<PluginDiagnostic>(), requiresRestart);
 
     public static PluginRuntimeTransitionResult Rejected(
         OperationOutcome outcome,
@@ -45,7 +49,8 @@ public sealed record PluginRuntimeSnapshot(
     PluginId PluginId,
     PluginRuntimeState State,
     int ActiveLeases,
-    string LastError);
+    string LastError,
+    bool RequiresRestart = false);
 
 public static class SafeModePolicy
 {

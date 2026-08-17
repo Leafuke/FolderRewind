@@ -25,6 +25,7 @@ public static class PluginV3PackageService
 {
     private static readonly SemaphoreSlim Gate = new(1, 1);
     private static readonly ConcurrentDictionary<PluginId, LoadedPluginAssembly> Loaded = new();
+    private static readonly ConcurrentQueue<LoadedPluginAssembly> RestartRetainedAssemblies = new();
     private static readonly JsonSerializerOptions InstallStateJson = new(JsonSerializerDefaults.Web)
     {
         Converters = { new JsonStringEnumConverter() }
@@ -170,7 +171,8 @@ public static class PluginV3PackageService
             if (decision.RuntimeAction == PluginRuntimeIntentAction.Deactivate)
             {
                 var result = await PluginV3RuntimeService.DeactivateAsync(pluginId, cancellationToken).ConfigureAwait(false);
-                if (result.Success && Loaded.TryRemove(pluginId, out var loaded)) loaded.Dispose();
+                if (result.Success && Loaded.TryRemove(pluginId, out var loaded))
+                    ReleaseLoadedAssembly(loaded, result.RequiresRestart);
                 return result;
             }
             var state = await Installer.ReadStateAsync(pluginId, cancellationToken).ConfigureAwait(false);
@@ -211,10 +213,11 @@ public static class PluginV3PackageService
                 : await PluginV3RuntimeService.ActivateAsync(candidate, cancellationToken).ConfigureAwait(false);
             if (!result.Success)
             {
-                loaded.Dispose();
+                ReleaseLoadedAssembly(loaded, result.RequiresRestart);
                 return result;
             }
-            if (Loaded.TryGetValue(state.PluginId, out var prior)) prior.Dispose();
+            if (Loaded.TryGetValue(state.PluginId, out var prior))
+                ReleaseLoadedAssembly(prior, result.RequiresRestart);
             Loaded[state.PluginId] = loaded;
             return result;
         }
@@ -241,6 +244,14 @@ public static class PluginV3PackageService
             new PluginV3HostServices(manifest.PluginId, DataRoot, TemporaryRoot),
             new PluginV3ActivationStore(),
             manifest);
+    }
+
+    private static void ReleaseLoadedAssembly(
+        LoadedPluginAssembly loaded,
+        bool requiresRestart)
+    {
+        if (requiresRestart) RestartRetainedAssemblies.Enqueue(loaded);
+        else loaded.Dispose();
     }
 
     private static ParsedPluginPackageManifest ReadManifest(string root)
@@ -487,7 +498,8 @@ public static class PluginV3PackageService
             var transition = await PluginV3RuntimeService.DeactivateAsync(pluginId, cancellationToken).ConfigureAwait(false);
             if (!transition.Success)
                 throw new InvalidOperationException("Plugin is still draining; uninstall must be applied after restart.");
-            if (Loaded.TryRemove(pluginId, out var loaded)) loaded.Dispose();
+            if (Loaded.TryRemove(pluginId, out var loaded))
+                ReleaseLoadedAssembly(loaded, transition.RequiresRestart);
             await PluginV3OfflineUpgradeService.SuppressAutomaticMigrationAsync(pluginId, cancellationToken)
                 .ConfigureAwait(false);
             await Installer.RemoveInstalledCodeAsync(pluginId, cancellationToken).ConfigureAwait(false);
