@@ -50,7 +50,7 @@ public static partial class FolderRenameService
             var runtimeState = CaptureRuntimeState(references, preview.OldPath);
             CloseRenameDependents(preview.OldPath);
 
-            var moveExecution = ExecuteMovePlanCore(operations, cancellationToken);
+            var moveExecution = await ExecuteMovePlanCore(operations, cancellationToken);
             if (!moveExecution.Result.Success)
             {
                 RestoreRuntimeState(runtimeState);

@@ -27,7 +27,7 @@ public sealed class FolderRenameServiceTests
     }
 
     [TestMethod]
-    public void ExecuteMovePlanMovesAllTypedDirectories()
+    public async Task ExecuteMovePlanMovesAllTypedDirectories()
     {
         string root = CreateRoot();
         string source = CreateDirectory(root, "source-old");
@@ -37,7 +37,7 @@ public sealed class FolderRenameServiceTests
         string backupNew = Path.Combine(root, "backup-new");
         string metadataNew = Path.Combine(root, "metadata-new");
 
-        var result = FolderRenameService.ExecuteMovePlan(
+        var result = await FolderRenameService.ExecuteMovePlanAsync(
         [
             Move(source, sourceNew, FolderMoveOperationKind.SourceFolder),
             Move(backup, backupNew, FolderMoveOperationKind.BackupDirectory),
@@ -51,13 +51,13 @@ public sealed class FolderRenameServiceTests
     }
 
     [TestMethod]
-    public void ExistingDestinationFailsBeforeAnyMove()
+    public async Task ExistingDestinationFailsBeforeAnyMove()
     {
         string root = CreateRoot();
         string source = CreateDirectory(root, "source");
         string destination = CreateDirectory(root, "destination");
 
-        var result = FolderRenameService.ExecuteMovePlan(
+        var result = await FolderRenameService.ExecuteMovePlanAsync(
         [
             Move(source, destination, FolderMoveOperationKind.SourceFolder)
         ]);
