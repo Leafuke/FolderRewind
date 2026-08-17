@@ -38,14 +38,12 @@ namespace FolderRewind.Services.KnotLink
 
             _client = new KlTcpClient();
             _client.OnDataReceivedAsync = HandleSignalAsync;
-
-            ConnectAndSubscribe();
         }
 
-        private void ConnectAndSubscribe()
+        public async Task InitializeAsync()
         {
-            _client.ConnectAsync(_host, _port).GetAwaiter().GetResult();
-            SubscribeAsync().GetAwaiter().GetResult();
+            await _client.ConnectAsync(_host, _port).ConfigureAwait(false);
+            await SubscribeAsync().ConfigureAwait(false);
         }
 
         private async Task SubscribeAsync()

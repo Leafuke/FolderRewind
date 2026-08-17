@@ -164,6 +164,7 @@ namespace FolderRewind.Services
             {
                 try { _signalSender?.Dispose(); } catch { }
                 _signalSender = new SignalSender(appId, signalId, host);
+                _signalSender.InitializeAsync().GetAwaiter().GetResult();
                 _signalSender.OnErrorAsync = ex => HandleTransportErrorAsync("SignalSender", ex);
                 LogService.Log(I18n.GetString("KnotLink_SenderInitSuccess"));
                 return true;
@@ -192,6 +193,7 @@ namespace FolderRewind.Services
                     openSocketId,
                     host,
                     onQuestionAsync: HandleQuestionAsync);
+                _commandResponser.InitializeAsync().GetAwaiter().GetResult();
                 _commandResponser.OnErrorAsync = ex => HandleTransportErrorAsync("OpenSocketResponser", ex);
                 LogService.Log(I18n.GetString("KnotLink_ResponderInitSuccess"));
                 return true;
@@ -433,6 +435,7 @@ namespace FolderRewind.Services
             try
             {
                 var sub = new SignalSubscriber(appId, signalId, host, onSignalAsync: onSignal);
+                sub.InitializeAsync().GetAwaiter().GetResult();
                 sub.OnErrorAsync = ex => HandleTransportErrorAsync("SignalSubscriber", ex);
                 return sub;
             }
