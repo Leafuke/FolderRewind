@@ -99,4 +99,14 @@ public sealed class PluginMigrationStateStore
             throw;
         }
     }
+
+    public ValueTask DeleteAsync(
+        PluginId pluginId,
+        CancellationToken cancellationToken = default)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        var path = GetStatePath(pluginId);
+        if (File.Exists(path)) File.Delete(path);
+        return ValueTask.CompletedTask;
+    }
 }

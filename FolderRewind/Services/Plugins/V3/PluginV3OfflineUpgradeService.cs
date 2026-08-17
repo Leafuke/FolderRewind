@@ -239,6 +239,21 @@ internal static class PluginV3OfflineUpgradeService
             prior?.QuarantinePath ?? string.Empty), cancellationToken).ConfigureAwait(false);
     }
 
+    internal static ValueTask<PluginMigrationState?> CaptureMigrationStateAsync(
+        PluginId pluginId,
+        CancellationToken cancellationToken = default)
+        => StateStore.ReadAsync(pluginId, cancellationToken);
+
+    internal static async ValueTask RestoreMigrationStateAsync(
+        PluginId pluginId,
+        PluginMigrationState? state,
+        CancellationToken cancellationToken = default)
+    {
+        var store = StateStore;
+        if (state is null) await store.DeleteAsync(pluginId, cancellationToken).ConfigureAwait(false);
+        else await store.WriteAsync(state, cancellationToken).ConfigureAwait(false);
+    }
+
     private static async ValueTask<PluginMigrationState> AdvanceAsync(
         PluginMigrationStateStore store,
         PluginMigrationState state,

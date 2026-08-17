@@ -58,6 +58,8 @@ public static class PluginV3PackageService
         try
         {
             if (_initialized) return;
+            // Destructive uninstall recovery must run before migration, Manifest projection, or plugin loading.
+            await PluginV3UninstallService.RecoverAsync(cancellationToken).ConfigureAwait(false);
             await Installer.RecoverAsync(cancellationToken).ConfigureAwait(false);
             if (!PluginRuntimeModeService.IsSafeMode)
             {
@@ -482,7 +484,7 @@ public static class PluginV3PackageService
             $"DELETE {pluginId.Value} DATA");
     }
 
-    public static async ValueTask<PluginUninstallPreview> UninstallAsync(
+    public static async ValueTask<PluginUninstallResult> UninstallAsync(
         PluginId pluginId,
         bool deleteData,
         string? confirmation,
@@ -500,21 +502,27 @@ public static class PluginV3PackageService
                 throw new InvalidOperationException("Plugin is still draining; uninstall must be applied after restart.");
             if (Loaded.TryRemove(pluginId, out var loaded))
                 ReleaseLoadedAssembly(loaded, transition.RequiresRestart);
-            await PluginV3OfflineUpgradeService.SuppressAutomaticMigrationAsync(pluginId, cancellationToken)
-                .ConfigureAwait(false);
-            await Installer.RemoveInstalledCodeAsync(pluginId, cancellationToken).ConfigureAwait(false);
-            if (!deleteData) return preview;
-
-            var settings = ConfigService.CurrentConfig.GlobalSettings.Plugins;
-            settings.TypedSettings.Remove(pluginId.Value);
-            foreach (var config in ConfigService.CurrentConfig.BackupConfigs)
+            if (!deleteData)
             {
-                config.ProviderStates.Remove(pluginId.Value);
-                foreach (var folder in config.SourceFolders) folder.ProviderStates.Remove(pluginId.Value);
+                await PluginV3OfflineUpgradeService.SuppressAutomaticMigrationAsync(pluginId, cancellationToken)
+                    .ConfigureAwait(false);
+                await Installer.RemoveInstalledCodeAsync(pluginId, cancellationToken).ConfigureAwait(false);
+                return new PluginUninstallResult(preview, OperationOutcome.Success, string.Empty, string.Empty);
             }
-            if (Directory.Exists(preview.DataPath)) Directory.Delete(preview.DataPath, recursive: true);
-            ConfigService.Save();
-            return preview;
+
+            var transaction = await PluginV3UninstallService.ExecuteAsync(preview, cancellationToken)
+                .ConfigureAwait(false);
+            if (transaction.Outcome == OperationOutcome.SuccessWithWarnings)
+            {
+                LogService.LogWarning(
+                    $"Plugin uninstall committed with cleanup pending at '{transaction.RecoveryPath}': {transaction.Diagnostic}",
+                    "PluginV3Uninstall");
+            }
+            return new PluginUninstallResult(
+                preview,
+                transaction.Outcome,
+                transaction.RecoveryPath,
+                transaction.Diagnostic);
         }
         finally { Gate.Release(); }
     }
@@ -606,3 +614,18 @@ public sealed record PluginUninstallPreview(
     string DataPath,
     IReadOnlyList<string> AffectedHistoryItemIds,
     string RequiredConfirmation);
+
+public sealed record PluginUninstallResult(
+    PluginUninstallPreview Preview,
+    OperationOutcome Outcome,
+    string RecoveryPath,
+    string Diagnostic)
+{
+    public PluginId PluginId => Preview.PluginId;
+    public string CodePath => Preview.CodePath;
+    public int SettingsCount => Preview.SettingsCount;
+    public int ProviderStateLocationCount => Preview.ProviderStateLocationCount;
+    public string DataPath => Preview.DataPath;
+    public IReadOnlyList<string> AffectedHistoryItemIds => Preview.AffectedHistoryItemIds;
+    public string RequiredConfirmation => Preview.RequiredConfirmation;
+}

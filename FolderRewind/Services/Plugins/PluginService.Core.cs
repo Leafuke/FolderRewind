@@ -47,6 +47,7 @@ public static partial class PluginService
         LogService.LogInfo("Plugin initialization started on the background worker.", "PluginV3");
         try
         {
+            await PluginV3UninstallService.RecoverAsync().ConfigureAwait(false);
             if (!PluginRuntimeModeService.IsSafeMode)
             {
                 var migration = await PluginV3OfflineUpgradeService.RunAsync().ConfigureAwait(false);

@@ -239,11 +239,14 @@ namespace FolderRewind.Views.Settings
             if (await dialog.ShowAsync() != ContentDialogResult.Primary) return;
             try
             {
-                await FolderRewind.Services.Plugins.V3.PluginV3PackageService.UninstallAsync(
+                var result = await FolderRewind.Services.Plugins.V3.PluginV3PackageService.UninstallAsync(
                     pluginId,
                     deleteData: true,
                     confirmation: confirmation.Text);
-                NotificationService.ShowSuccess(I18n.GetString("Plugins_DeleteDataSuccess"));
+                if (result.Outcome == FolderRewind.Plugin.Abstractions.OperationOutcome.SuccessWithWarnings)
+                    NotificationService.ShowWarning(result.Diagnostic);
+                else
+                    NotificationService.ShowSuccess(I18n.GetString("Plugins_DeleteDataSuccess"));
             }
             catch (Exception ex)
             {
