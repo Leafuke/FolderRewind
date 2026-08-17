@@ -18,7 +18,7 @@ internal sealed record PluginV3ArtifactCommitResult(
 
 internal static class PluginV3ArtifactService
 {
-    public static async ValueTask ObserveCompletionAsync(
+    public static async ValueTask<OperationOutcome> ObserveCompletionAsync(
         string backupRunId,
         BackupConfig config,
         ManagedFolder folder,
@@ -27,7 +27,7 @@ internal static class PluginV3ArtifactService
         CancellationToken cancellationToken = default)
     {
         var observers = PluginV3RuntimeService.GetCompletionObservers();
-        if (observers.Count == 0) return;
+        if (observers.Count == 0) return commit.Outcome;
         var configSnapshot = PluginV3ModelMapper.ToSnapshot(config);
         var folderId = Guid.Parse(folder.Id);
         var folderSnapshot = configSnapshot.Folders.Single(value => value.FolderId == folderId);
@@ -50,6 +50,7 @@ internal static class PluginV3ArtifactService
             history.Id,
             PluginV3ModelMapper.ToPersisted(observed.Outcome),
             observed.Diagnostics.Select(PluginV3ModelMapper.ToRecord).ToArray());
+        return observed.Outcome;
     }
 
     public static async ValueTask<PluginV3ArtifactCommitResult> CommitBackupAsync(

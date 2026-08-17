@@ -11,6 +11,7 @@ using System.IO;
 using System.Linq;
 using System.Text;
 using System.Text.RegularExpressions;
+using System.Threading;
 using System.Threading.Tasks;
 
 namespace FolderRewind.Services
@@ -95,7 +96,11 @@ namespace FolderRewind.Services
             public string FolderName { get; init; } = string.Empty;
             public HistoryItem? HistoryItem { get; init; }
             public string ErrorMessage { get; init; } = string.Empty;
+            public OperationOutcome OperationOutcome { get; init; } = OperationOutcome.Failed;
             public bool CreatedNewArchive => Status == BackupRunSourceStatus.NewArchive;
+
+            public PluginBackupRequestResult ToPluginResult()
+                => PluginBackupRequestResult.FromSource(Status, OperationOutcome);
 
             public BackupRunSourceRecord ToRunSource() => new()
             {
@@ -244,17 +249,44 @@ namespace FolderRewind.Services
             BackupInvocationOptions? invocationOptions = null)
         {
             invocationOptions ??= BackupInvocationOptions.Default;
-            var outcome = await BackupFolderCoreAsync(
+            var outcome = await BackupFolderForPluginAsync(
                 config,
                 folder,
-                invocationOptions.Comment,
                 invocationOptions,
-                createdByRunId: null);
-            if (outcome.CreatedNewArchive)
-            {
-                await PruneRetainedSourceArchivesAsync(config);
-            }
+                CancellationToken.None);
             return outcome.CreatedNewArchive;
+        }
+
+        internal static async Task<PluginBackupRequestResult> BackupFolderForPluginAsync(
+            BackupConfig config,
+            ManagedFolder folder,
+            BackupInvocationOptions invocationOptions,
+            CancellationToken cancellationToken)
+        {
+            try
+            {
+                var outcome = await BackupFolderCoreAsync(
+                    config,
+                    folder,
+                    invocationOptions.Comment,
+                    invocationOptions,
+                    createdByRunId: null,
+                    cancellationToken);
+                if (outcome.CreatedNewArchive)
+                {
+                    await PruneRetainedSourceArchivesAsync(config);
+                }
+                return outcome.ToPluginResult();
+            }
+            catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+            {
+                return new PluginBackupRequestResult(OperationOutcome.Canceled, CreatedNewArchive: false);
+            }
+            catch (Exception ex)
+            {
+                Log($"Plugin backup request failed: {ex.Message}", LogLevel.Error);
+                return new PluginBackupRequestResult(OperationOutcome.Failed, CreatedNewArchive: false);
+            }
         }
 
         private static async Task<BackupSourceExecutionOutcome> BackupFolderCoreAsync(
@@ -262,7 +294,8 @@ namespace FolderRewind.Services
             ManagedFolder folder,
             string? comment,
             BackupInvocationOptions? invocationOptions,
-            string? createdByRunId)
+            string? createdByRunId,
+            CancellationToken cancellationToken = default)
         {
             if (config == null || folder == null)
             {
@@ -274,6 +307,7 @@ namespace FolderRewind.Services
             }
             comment ??= string.Empty;
             invocationOptions ??= BackupInvocationOptions.Default;
+            cancellationToken.ThrowIfCancellationRequested();
 
             int configIndex = GetConfigIndex(config);
 
@@ -287,7 +321,10 @@ namespace FolderRewind.Services
 
             await RunOnUIAsync(() => ActiveTasks.Insert(0, task));
 
-            await using var v3Session = await PluginV3BackupSession.PrepareAsync(config, folder);
+            await using var v3Session = await PluginV3BackupSession.PrepareAsync(
+                config,
+                folder,
+                cancellationToken);
             if (v3Session.IsBlocked)
             {
                 var diagnostic = v3Session.Diagnostics.LastOrDefault();
@@ -304,7 +341,11 @@ namespace FolderRewind.Services
                     task.IsSuccess = false;
                     task.ErrorMessage = message;
                 });
-                return CreateSourceOutcome(folder, BackupRunSourceStatus.Failed, errorMessage: message);
+                return CreateSourceOutcome(
+                    folder,
+                    BackupRunSourceStatus.Failed,
+                    errorMessage: message,
+                    operationOutcome: OperationOutcome.Blocked);
             }
 
             var runtimeConfig = v3Session.EffectiveConfig;
@@ -424,7 +465,7 @@ namespace FolderRewind.Services
 
             try
             {
-                await v3Session.AcquireConsistencyAsync();
+                await v3Session.AcquireConsistencyAsync(cancellationToken);
             }
             catch (Exception ex)
             {
@@ -486,6 +527,7 @@ namespace FolderRewind.Services
             BroadcastBackupEvent(configIndex, config, folder, "backup_started");
 
             bool success = false;
+            bool canceled = false;
             bool sourceUnavailable = false;
             string? generatedFileName = null;
             HistoryItem? generatedHistoryItem = null;
@@ -530,6 +572,11 @@ namespace FolderRewind.Services
                         }
                 }
             }
+            catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+            {
+                canceled = true;
+                success = false;
+            }
             catch (Exception ex)
             {
                 Log(I18n.Format("BackupService_Log_Exception", ex.Message), LogLevel.Error);
@@ -539,7 +586,25 @@ namespace FolderRewind.Services
 
             // The consistency lease spans source validation, diff calculation and
             // archive creation, but cleanup finishes before History/Cloud commit.
-            await v3Session.CompleteCaptureAsync();
+            var operationDiagnostics = v3Session.Diagnostics.ToList();
+            var completionOutcome = operationDiagnostics.Any(value => value.Severity == DiagnosticSeverity.Warning)
+                ? OperationOutcome.SuccessWithWarnings
+                : OperationOutcome.Success;
+            try
+            {
+                await v3Session.CompleteCaptureAsync();
+            }
+            catch (Exception ex)
+            {
+                completionOutcome = OperationOutcome.SuccessWithWarnings;
+                Log($"[PluginV3] Consistency cleanup failed: {ex.Message}", LogLevel.Warning);
+                operationDiagnostics.Add(new PluginDiagnostic(
+                    "plugin.backup_consistency_cleanup_failed",
+                    DiagnosticSeverity.Warning,
+                    "BackupConsistency",
+                    v3Session.EffectiveConfig.Kind.OwnerId,
+                    new Dictionary<string, string> { ["message"] = ex.Message }));
+            }
 
             PluginV3ArtifactCommitResult? artifactCommit = null;
             string? pendingHistoryItemId = null;
@@ -555,7 +620,17 @@ namespace FolderRewind.Services
                         Path.Combine(backupSubDir, generatedFileName),
                         generatedFileName,
                         IsPartialBackupFilter(runtimeConfig.Filters) || runtimeFolder.SourceScope.IsPartial,
-                        v3Session.Diagnostics);
+                        operationDiagnostics,
+                        cancellationToken);
+                    completionOutcome = CombineSuccessfulBackupOutcomes(
+                        completionOutcome,
+                        artifactCommit.Outcome);
+                }
+                catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+                {
+                    canceled = true;
+                    success = false;
+                    await RunOnUIAsync(() => task.ErrorMessage = "Backup request was canceled.");
                 }
                 catch (Exception ex)
                 {
@@ -621,9 +696,7 @@ namespace FolderRewind.Services
                         pendingHistoryItemId,
                         artifactCommit?.RootArtifactId.Value,
                         artifactCommit?.GraphRevision.Value,
-                        artifactCommit is null
-                            ? PersistedOperationOutcome.Success
-                            : PluginV3ModelMapper.ToPersisted(artifactCommit.Outcome),
+                        PluginV3ModelMapper.ToPersisted(completionOutcome),
                         artifactCommit?.Diagnostics.Select(PluginV3ModelMapper.ToRecord).ToArray());
 
                     // 备份完成后检查文件大小，过小时发出警告
@@ -665,12 +738,38 @@ namespace FolderRewind.Services
                     CloudSyncService.QueueUploadAfterBackup(config, folder, completedFileName, comment);
                     if (artifactCommit is not null && generatedHistoryItem is not null)
                     {
-                        await PluginV3ArtifactService.ObserveCompletionAsync(
-                            createdByRunId ?? generatedHistoryItem.Id,
-                            config,
-                            folder,
-                            generatedHistoryItem,
-                            artifactCommit);
+                        try
+                        {
+                            var observerOutcome = await PluginV3ArtifactService.ObserveCompletionAsync(
+                                createdByRunId ?? generatedHistoryItem.Id,
+                                config,
+                                folder,
+                                generatedHistoryItem,
+                                artifactCommit,
+                                cancellationToken);
+                            completionOutcome = CombineSuccessfulBackupOutcomes(
+                                completionOutcome,
+                                observerOutcome);
+                        }
+                        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+                        {
+                            // Core Artifact/History is already durable; observer cancellation cannot rewrite it as failure.
+                            completionOutcome = OperationOutcome.SuccessWithWarnings;
+                            Log("[PluginV3] Completion observer was canceled after the backup committed.", LogLevel.Warning);
+                            var observerCanceled = new PluginDiagnostic(
+                                "plugin.backup_observer_canceled_after_commit",
+                                DiagnosticSeverity.Warning,
+                                "BackupCompletionObserver",
+                                v3Session.EffectiveConfig.Kind.OwnerId,
+                                new Dictionary<string, string>());
+                            HistoryService.ApplyOperationResult(
+                                generatedHistoryItem.Id,
+                                PersistedOperationOutcome.SuccessWithWarnings,
+                                artifactCommit.Diagnostics
+                                    .Append(observerCanceled)
+                                    .Select(PluginV3ModelMapper.ToRecord)
+                                    .ToArray());
+                        }
                     }
                 }
 
@@ -738,14 +837,16 @@ namespace FolderRewind.Services
                 return CreateSourceOutcome(
                     folder,
                     BackupRunSourceStatus.Failed,
-                    errorMessage: task.ErrorMessage);
+                    errorMessage: task.ErrorMessage,
+                    operationOutcome: canceled ? OperationOutcome.Canceled : OperationOutcome.Failed);
             }
             if (!string.IsNullOrWhiteSpace(generatedFileName))
             {
                 return CreateSourceOutcome(
                     folder,
                     BackupRunSourceStatus.NewArchive,
-                    generatedHistoryItem);
+                    generatedHistoryItem,
+                    operationOutcome: completionOutcome);
             }
 
             var reusedHistory = HistoryService.GetLatestEntryForFolder(config.Id, folder);
@@ -761,14 +862,16 @@ namespace FolderRewind.Services
             ManagedFolder folder,
             BackupRunSourceStatus status,
             HistoryItem? historyItem = null,
-            string? errorMessage = null) => new()
+            string? errorMessage = null,
+            OperationOutcome? operationOutcome = null) => new()
         {
             Status = status,
             FolderId = Guid.TryParse(folder.Id, out var folderId) ? folderId : null,
             FolderPath = folder.Path ?? string.Empty,
             FolderName = folder.DisplayName ?? string.Empty,
             HistoryItem = historyItem,
-            ErrorMessage = errorMessage ?? string.Empty
+            ErrorMessage = errorMessage ?? string.Empty,
+            OperationOutcome = operationOutcome ?? PluginBackupRequestResult.FromSource(status).Outcome
         };
 
         private static BackupRunTriggerSource MapRunTriggerSource(BackupInvocationSource source) => source switch
@@ -780,6 +883,13 @@ namespace FolderRewind.Services
             BackupInvocationSource.Internal => BackupRunTriggerSource.Internal,
             _ => BackupRunTriggerSource.Unknown
         };
+
+        private static OperationOutcome CombineSuccessfulBackupOutcomes(
+            OperationOutcome current,
+            OperationOutcome next)
+            => current == OperationOutcome.SuccessWithWarnings || next == OperationOutcome.SuccessWithWarnings
+                ? OperationOutcome.SuccessWithWarnings
+                : next;
 
         private static async Task PruneRetainedSourceArchivesAsync(BackupConfig config)
         {

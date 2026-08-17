@@ -64,6 +64,7 @@
     <Compile Include="..\FolderRewind\Services\BackupSourceAvailabilityPolicy.cs" Link="Source\BackupSourceAvailabilityPolicy.cs" />
     <Compile Include="..\FolderRewind\Services\BackupSourceRootSafetyPolicy.cs" Link="Source\BackupSourceRootSafetyPolicy.cs" />
     <Compile Include="..\FolderRewind\Services\BackupRunPolicy.cs" Link="Source\BackupRunPolicy.cs" />
+    <Compile Include="..\FolderRewind\Services\Plugins\V3\PluginBackupRequestResult.cs" Link="Source\PluginBackupRequestResult.cs" />
     <Compile Include="..\FolderRewind\Services\LanguageSettingPolicy.cs" Link="Source\LanguageSettingPolicy.cs" />
     <Compile Include="..\FolderRewind\Services\MiniWindowLayoutPolicy.cs" Link="Source\MiniWindowLayoutPolicy.cs" />
     <Compile Include="..\FolderRewind\Services\SponsorBackgroundImageCachePolicy.cs" Link="Source\SponsorBackgroundImageCachePolicy.cs" />
