@@ -64,7 +64,7 @@ namespace FolderRewind.Services
                 };
             }
 
-            var deleteOperationResult = await Task.Run(() =>
+            var deleteOperationResult = await Task.Run(async () =>
             {
                 string? targetFilePath = HistoryService.GetBackupFilePath(config, folder, historyItem);
                 if (string.IsNullOrWhiteSpace(targetFilePath))
@@ -94,14 +94,14 @@ namespace FolderRewind.Services
                     format = config.Archive.Format;
                 }
 
-                var deleteResult = DeleteBackupArchiveInternal(
+                var deleteResult = await DeleteBackupArchiveInternalAsync(
                     targetFile,
                     backupDir,
                     format,
                     config,
                     backupFolderName,
                     config.Archive.SafeDeleteEnabled,
-                    deleteMode == BackupDeleteMode.LocalArchiveAndRecord);
+                    deleteMode == BackupDeleteMode.LocalArchiveAndRecord).ConfigureAwait(false);
 
                 return new DeleteBackupResult
                 {
@@ -120,7 +120,7 @@ namespace FolderRewind.Services
             return deleteOperationResult;
         }
 
-        private static DeleteArchiveExecutionResult DeleteBackupArchiveInternal(
+        private static async Task<DeleteArchiveExecutionResult> DeleteBackupArchiveInternalAsync(
             FileInfo fileToDelete,
             DirectoryInfo backupDir,
             string format,
@@ -204,13 +204,13 @@ namespace FolderRewind.Services
 
                     result.HistoryUpdated = removedCount > 0 || !string.IsNullOrWhiteSpace(result.RenamedFromFileName);
 
-                    SynchronizeMetadataAfterArchiveDeletion(
+                    await SynchronizeMetadataAfterArchiveDeletionAsync(
                         config,
                         resolvedFolderName,
                         result.DeletedFileName,
                         result.RenamedFromFileName,
                         result.RenamedToFileName,
-                        result.RenamedToBackupType);
+                        result.RenamedToBackupType).ConfigureAwait(false);
                 }
             }
             catch (Exception ex)

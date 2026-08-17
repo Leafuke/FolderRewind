@@ -192,7 +192,7 @@ namespace FolderRewind.Services
             return saved;
         }
 
-        private static void SynchronizeMetadataAfterArchiveDeletion(
+        private static async Task SynchronizeMetadataAfterArchiveDeletionAsync(
             BackupConfig config,
             string folderName,
             string deletedFileName,
@@ -219,12 +219,12 @@ namespace FolderRewind.Services
                 return;
             }
 
-            if (!BackupMetadataStoreService.SynchronizeAfterArchiveDeletion(
+            if (!await BackupMetadataStoreService.SynchronizeAfterArchiveDeletionAsync(
                 metadataDir,
                 deletedFileName,
                 renamedOldFileName,
                 renamedNewFileName,
-                renamedBackupType))
+                renamedBackupType).ConfigureAwait(false))
             {
                 Log(I18n.GetString("BackupMetadataStore_Log_WriteFailedSimple"), LogLevel.Warning);
             }

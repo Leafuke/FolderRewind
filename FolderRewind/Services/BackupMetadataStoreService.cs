@@ -126,7 +126,7 @@ namespace FolderRewind.Services
             return TryGetRecordPath(metadataDir, archiveFileName, out recordPath);
         }
 
-        public static bool SynchronizeAfterArchiveDeletion(
+        public static async Task<bool> SynchronizeAfterArchiveDeletionAsync(
             string metadataDir,
             string deletedFileName,
             string? renamedOldFileName,
@@ -139,12 +139,11 @@ namespace FolderRewind.Services
             }
 
             var gate = GetGate(metadataDir);
-            gate.Wait();
+            await gate.WaitAsync().ConfigureAwait(false);
             try
             {
-                var loadResult = LoadCoreAsync(metadataDir, archiveFileNames: null, logMissingRequestedRecords: false)
-                    .GetAwaiter()
-                    .GetResult();
+                var loadResult = await LoadCoreAsync(metadataDir, archiveFileNames: null, logMissingRequestedRecords: false)
+                    .ConfigureAwait(false);
                 var state = loadResult.State;
                 if (state == null)
                 {
@@ -163,12 +162,12 @@ namespace FolderRewind.Services
                 {
                     TryDeleteFile(GetStatePath(metadataDir));
                 }
-                else if (!WriteStateAsync(GetStatePath(metadataDir), deletionResult.State).GetAwaiter().GetResult())
+                else if (!await WriteStateAsync(GetStatePath(metadataDir), deletionResult.State).ConfigureAwait(false))
                 {
                     return false;
                 }
 
-                if (!PersistRecordSnapshotAsync(metadataDir, deletionResult.Records).GetAwaiter().GetResult())
+                if (!await PersistRecordSnapshotAsync(metadataDir, deletionResult.Records).ConfigureAwait(false))
                 {
                     return false;
                 }
