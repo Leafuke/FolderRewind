@@ -265,6 +265,15 @@ public sealed class PluginRuntimeManager
         CancellationToken cancellationToken)
     {
         ValidateCandidate(candidate);
+        if (candidate.Manifest is not null)
+        {
+            candidate = candidate with
+            {
+                HostServices = new DeclaredPluginHostServices(
+                    candidate.HostServices,
+                    candidate.Manifest.RequestedHostServices)
+            };
+        }
         var settings = CloneSettings(candidate.Settings);
         var configs = candidate.Configs.Select(CloneConfig).ToArray();
         var plugin = candidate.Factory() ?? throw new InvalidOperationException("Plugin factory returned null.");
