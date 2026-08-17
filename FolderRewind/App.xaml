@@ -22,6 +22,8 @@
             <converters:BoolToColorConverter x:Key="BoolToColorConverter"/>
             <converters:CountToStringConverter x:Key="CountToStringConverter"/>
             <converters:StringNullOrEmptyToVisibilityConverter x:Key="StringNullOrEmptyToVisConverter"/>
+            <converters:StringToBitmapConverter x:Key="StringToBitmapConverter"/>
+            <converters:DoubleToOpacityBrushConverter x:Key="DoubleToOpacityBrushConverter"/>
 
             <!-- ==================== 全局共享样式 ==================== -->
             
