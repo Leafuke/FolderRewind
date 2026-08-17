@@ -2,6 +2,8 @@ using System.IO.Compression;
 using System.Text;
 using System.Text.Json;
 using FolderRewind.Plugin.Abstractions;
+using FolderRewind.Plugin.Runtime.Activation;
+using FolderRewind.Plugin.Runtime.Loading;
 using FolderRewind.Plugin.Runtime.Packaging;
 
 namespace FolderRewind.Plugin.Runtime.Tests;
@@ -225,10 +227,24 @@ public sealed class PluginPackageInstallerTests
         var plugins = Path.Combine(root.Path, "plugins");
         var installer = new PluginPackageInstaller(plugins);
 
-        await Assert.ThrowsExactlyAsync<InvalidOperationException>(() => installer.InstallAsync(
+        var pluginId = new PluginId("com.example.package");
+        var facts = PluginPackageInstallValidationFacts.Empty(pluginId) with
+        {
+            ReachableOwnedArtifacts =
+            [
+                new ReachableOwnedArtifactRequirement(
+                    new ArtifactId(Guid.NewGuid()),
+                    new ArtifactFormatRef(new OwnerId(pluginId.Value), "missing-format"),
+                    1,
+                    ArtifactCompleteness.Complete,
+                    new RestoreStrategyId(pluginId, "missing-strategy"))
+            ]
+        };
+
+        await Assert.ThrowsExactlyAsync<InvalidDataException>(() => installer.InstallAsync(
             package,
             PluginInstallProvenance.Manual,
-            validateOwnedArtifactsAsync: (_, _) => throw new InvalidOperationException("reachable format unsupported")).AsTask());
+            validationFacts: facts).AsTask());
 
         Assert.IsFalse(Directory.Exists(Path.Combine(plugins, "com.example.package")));
     }
@@ -268,7 +284,7 @@ public sealed class PluginPackageInstallerTests
     }
 
     [TestMethod]
-    public async Task FailedCandidateActivationRestoresKnownGoodAndRemovesCandidate()
+    public async Task FailedStaticCandidateValidationRestoresKnownGoodAndRemovesCandidate()
     {
         using var root = PackageTemporaryDirectory.Create("M5-ActivationRollback");
         var package1 = CreatePackage(root.Path, "v1", "1.0.0");
@@ -276,14 +292,83 @@ public sealed class PluginPackageInstallerTests
         var installer = new PluginPackageInstaller(Path.Combine(root.Path, "plugins"));
         await installer.InstallAsync(package1, PluginInstallProvenance.Manual);
 
-        await Assert.ThrowsExactlyAsync<InvalidOperationException>(() => installer.InstallAsync(
+        var invalidSettings = PluginPackageInstallValidationFacts.Empty(new PluginId("com.example.package")) with
+        {
+            PersistedSettings = new PluginSettingsSnapshot(
+                new PluginId("com.example.package"),
+                new Dictionary<string, JsonElement>
+                {
+                    ["required"] = JsonDocument.Parse("false").RootElement.Clone()
+                })
+        };
+        await Assert.ThrowsExactlyAsync<InvalidDataException>(() => installer.InstallAsync(
             package2,
             PluginInstallProvenance.Manual,
-            validateActivationAsync: (_, _, _) => throw new InvalidOperationException("candidate failed")).AsTask());
+            validationFacts: invalidSettings).AsTask());
 
         var state = await installer.ReadStateAsync(new PluginId("com.example.package"));
         Assert.AreEqual("1.0.0", state!.CurrentVersion);
         Assert.IsFalse(Directory.Exists(Path.Combine(root.Path, "plugins", "com.example.package", "versions", "2.0.0")));
+    }
+
+    [TestMethod]
+    public async Task InstallPerformsMetadataValidationWithoutConstructingPlugin()
+    {
+        using var root = PackageTemporaryDirectory.Create("M5-StaticNoExecution");
+        var package = CreatePackage(root.Path, "candidate", "1.0.0");
+        var plugins = Path.Combine(root.Path, "plugins");
+        var marker = Path.Combine(root.Path, "constructed.marker");
+        var original = Environment.GetEnvironmentVariable("FOLDERREWIND_PLUGIN_TEST_MARKER");
+        Environment.SetEnvironmentVariable("FOLDERREWIND_PLUGIN_TEST_MARKER", marker);
+        try
+        {
+            var result = await new PluginPackageInstaller(plugins).InstallAsync(
+                package,
+                PluginInstallProvenance.Manual);
+
+            Assert.IsFalse(File.Exists(marker), "Static install validation must not construct the plugin.");
+            using var loaded = PluginAssemblyLoader.Load(new PluginLoadRequest(
+                result.State.PluginId,
+                result.InstalledPath,
+                result.Manifest.Contract.EntryAssembly,
+                result.Manifest.Contract.EntryType,
+                result.Manifest.Contract.RequiredApi));
+            Assert.IsTrue(File.Exists(marker), "The marker should appear only when the plugin is explicitly loaded.");
+        }
+        finally
+        {
+            Environment.SetEnvironmentVariable("FOLDERREWIND_PLUGIN_TEST_MARKER", original);
+        }
+    }
+
+    [TestMethod]
+    public void ConfigKindMustBeOwnedByDeclaringPlugin()
+    {
+        var manifest = Manifest(
+            "com.example.owner",
+            "com.example.someone-else",
+            "saves");
+
+        var error = Assert.ThrowsExactly<InvalidDataException>(() =>
+            PluginManifestContractValidator.ValidateStatic(
+                manifest,
+                new PluginId("com.example.owner")));
+
+        StringAssert.Contains(error.Message, "Config Kinds");
+    }
+
+    [TestMethod]
+    public void ConfigKindInventoryRejectsCorruptDuplicatesButAllowsSelfUpdate()
+    {
+        var candidate = Manifest("com.example.candidate", "com.example.candidate", "saves");
+        var duplicateOne = Manifest("com.example.installed", "com.example.installed", "worlds");
+        var duplicateTwo = Manifest("com.example.installed", "com.example.installed", "worlds");
+
+        Assert.ThrowsExactly<InvalidDataException>(() =>
+            PluginManifestContractValidator.ValidateConfigKindInventory(
+                candidate,
+                [duplicateOne, duplicateTwo]));
+        PluginManifestContractValidator.ValidateConfigKindInventory(candidate, [candidate]);
     }
 
     [TestMethod]
@@ -343,8 +428,8 @@ public sealed class PluginPackageInstallerTests
               "name": "Package",
               "description": "Fixture",
               "pluginApi": { "major": 3, "minor": 0 },
-              "entryAssembly": "Plugin.dll",
-              "entryType": "Fixture.Plugin",
+              "entryAssembly": "Fixture.PluginOne.dll",
+              "entryType": "Fixture.PluginOne.EntryPlugin",
               "settingsSchema": "settings.schema.json",
               "architectures": ["any"],
               "configKinds": [],
@@ -356,8 +441,15 @@ public sealed class PluginPackageInstallerTests
               "hasBackupCompletionObserver": false
             }
             """);
-        Add(archive, "settings.schema.json", "{}");
-        Add(archive, "Plugin.dll", "fixture");
+        Add(archive, "settings.schema.json", """
+            {
+              "schemaVersion": 1,
+              "settings": [
+                { "key": "required", "type": "string", "required": true, "default": "value" }
+              ]
+            }
+            """);
+        Add(archive, "Fixture.PluginOne.dll", File.ReadAllBytes(FixturePluginAssembly()));
         customize?.Invoke(archive);
         return path;
     }
@@ -369,6 +461,56 @@ public sealed class PluginPackageInstallerTests
         var bytes = Encoding.UTF8.GetBytes(content);
         stream.Write(bytes);
     }
+
+    private static void Add(ZipArchive archive, string path, byte[] bytes)
+    {
+        var entry = archive.CreateEntry(path, CompressionLevel.SmallestSize);
+        using var stream = entry.Open();
+        stream.Write(bytes);
+    }
+
+    private static string FixturePluginAssembly()
+        => Path.Combine(
+            FindRepositoryRoot(),
+            "FolderRewind.Plugin.Runtime.Tests",
+            "Fixtures",
+            "PluginOne",
+            "bin",
+            new DirectoryInfo(AppContext.BaseDirectory).Parent?.Name ?? "Release",
+            "net10.0",
+            "Fixture.PluginOne.dll");
+
+    private static PluginManifestContract Manifest(string pluginId, string kindOwner, string kindId)
+        => PluginPackageManifestReader.Parse(Encoding.UTF8.GetBytes($$"""
+            {
+              "manifestVersion": 3,
+              "pluginId": "{{pluginId}}",
+              "version": "1.0.0",
+              "name": "Fixture",
+              "description": "Fixture",
+              "pluginApi": { "major": 3, "minor": 0 },
+              "entryAssembly": "Fixture.PluginOne.dll",
+              "entryType": "Fixture.PluginOne.EntryPlugin",
+              "settingsSchema": "settings.schema.json",
+              "architectures": ["any"],
+              "configKinds": [
+                {
+                  "ownerId": "{{kindOwner}}",
+                  "kindId": "{{kindId}}",
+                  "displayName": "Fixture",
+                  "description": "Fixture",
+                  "backupFallback": "block",
+                  "restoreCoordination": "required"
+                }
+              ],
+              "requestedHostServices": [],
+              "capabilities": [],
+              "artifactFormats": [],
+              "artifactTransformers": [],
+              "restoreStrategies": [],
+              "hasBackupCompletionObserver": false
+            }
+            """)).Contract;
 
     private static string FindRepositoryRoot()
     {

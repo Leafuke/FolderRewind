@@ -15,7 +15,9 @@ public enum PluginInstallTransactionPhase
 {
     Prepared = 0,
     CandidateSelected = 1,
-    ActivationValidated = 2,
+    CandidateValidated = 2,
+    [Obsolete("Read compatibility for Revision 15 journals.")]
+    ActivationValidated = CandidateValidated,
     Committed = 3,
     RolledBack = 4
 }
@@ -66,8 +68,7 @@ public sealed class PluginPackageInstaller
         string packagePath,
         PluginInstallProvenance provenance,
         string? expectedSha256 = null,
-        Func<ParsedPluginPackageManifest, CancellationToken, ValueTask>? validateOwnedArtifactsAsync = null,
-        Func<string, ParsedPluginPackageManifest, CancellationToken, ValueTask>? validateActivationAsync = null,
+        PluginPackageInstallValidationFacts? validationFacts = null,
         CancellationToken cancellationToken = default)
     {
         var package = await PluginPackageValidator.ValidateAsync(
@@ -78,8 +79,8 @@ public sealed class PluginPackageInstaller
         try
         {
             await RecoverWithoutLockAsync(cancellationToken).ConfigureAwait(false);
-            if (validateOwnedArtifactsAsync is not null)
-                await validateOwnedArtifactsAsync(package.Manifest, cancellationToken).ConfigureAwait(false);
+            var facts = validationFacts ?? PluginPackageInstallValidationFacts.Empty(package.Manifest.Contract.PluginId);
+            PluginStaticCandidateValidator.ValidateFacts(package.Manifest, facts);
             var pluginRoot = PluginRoot(package.Manifest.Contract.PluginId);
             var versionsRoot = Path.Combine(pluginRoot, "versions");
             var candidatePath = Path.Combine(versionsRoot, package.Manifest.Contract.Version);
@@ -120,11 +121,10 @@ public sealed class PluginPackageInstaller
                 };
                 await WriteAtomicallyAsync(journalPath, journal, cancellationToken).ConfigureAwait(false);
 
-                if (validateActivationAsync is not null)
-                    await validateActivationAsync(candidatePath, package.Manifest, cancellationToken).ConfigureAwait(false);
+                PluginStaticCandidateValidator.Validate(candidatePath, package.Manifest, facts);
                 journal = journal with
                 {
-                    Phase = PluginInstallTransactionPhase.ActivationValidated,
+                    Phase = PluginInstallTransactionPhase.CandidateValidated,
                     UpdatedAtUtc = DateTimeOffset.UtcNow
                 };
                 await WriteAtomicallyAsync(journalPath, journal, cancellationToken).ConfigureAwait(false);

@@ -120,8 +120,7 @@ public static class PluginV3PackageService
                 packagePath,
                 provenance,
                 expectedSha256,
-                ValidateOwnedArtifactsAsync,
-                ValidateCandidateAsync,
+                await BuildInstallValidationFactsAsync(package.Manifest, cancellationToken).ConfigureAwait(false),
                 cancellationToken).ConfigureAwait(false);
             if (prior is null)
             {
@@ -242,38 +241,6 @@ public static class PluginV3PackageService
             new PluginV3HostServices(manifest.PluginId, DataRoot, TemporaryRoot),
             new PluginV3ActivationStore(),
             manifest);
-    }
-
-    private static async ValueTask ValidateCandidateAsync(
-        string root,
-        ParsedPluginPackageManifest parsed,
-        CancellationToken cancellationToken)
-    {
-        using var loaded = PluginAssemblyLoader.Load(new PluginLoadRequest(
-            parsed.Contract.PluginId,
-            root,
-            parsed.Contract.EntryAssembly,
-            parsed.Contract.EntryType,
-            parsed.Contract.RequiredApi));
-        var schema = PluginSettingsSchema.Parse(
-            File.ReadAllBytes(Path.Combine(root, parsed.Contract.SettingsSchema)));
-        var validation = schema.Validate(ReadSettings(
-            parsed.Contract.PluginId,
-            root,
-            parsed.Contract.SettingsSchema));
-        if (!validation.IsValid)
-            throw new InvalidDataException("Plugin candidate settings do not satisfy the declared settings schema: "
-                                           + string.Join(",", validation.Issues.Select(issue => issue.Code)));
-
-        var manager = new PluginRuntimeManager();
-        var candidate = BuildCandidate(parsed.Contract, loaded, validation.NormalizedSettings) with
-        {
-            Store = new ValidationActivationStore()
-        };
-        var result = await manager.ActivateAsync(candidate, cancellationToken).ConfigureAwait(false);
-        if (!result.Success) throw new InvalidOperationException(
-            "Plugin candidate activation validation failed: " + string.Join(",", result.Diagnostics.Select(value => value.Code)));
-        await manager.DeactivateAsync(parsed.Contract.PluginId, cancellationToken).ConfigureAwait(false);
     }
 
     private static ParsedPluginPackageManifest ReadManifest(string root)
@@ -424,6 +391,7 @@ public static class PluginV3PackageService
         CancellationToken cancellationToken = default)
     {
         var result = new List<(PluginId, ConfigKindDeclaration)>();
+        var occupied = new HashSet<ConfigKindRef>();
         if (!Directory.Exists(PluginsRoot)) return result;
         foreach (var directory in Directory.EnumerateDirectories(PluginsRoot))
         {
@@ -433,7 +401,13 @@ public static class PluginV3PackageService
             try
             {
                 var manifest = ReadManifest(GetCurrentVersionRoot(state));
-                result.AddRange(manifest.Contract.ConfigKinds.Select(kind => (state.PluginId, kind)));
+                PluginManifestContractValidator.ValidateStatic(manifest.Contract, state.PluginId);
+                foreach (var kind in manifest.Contract.ConfigKinds)
+                {
+                    if (!occupied.Add(kind.Kind))
+                        throw new InvalidDataException($"Installed plugin inventory contains duplicate Config Kind '{kind.Kind}'.");
+                    result.Add((state.PluginId, kind));
+                }
             }
             catch (Exception ex)
             {
@@ -533,26 +507,44 @@ public static class PluginV3PackageService
         finally { Gate.Release(); }
     }
 
-    private static async ValueTask ValidateOwnedArtifactsAsync(
+    private static async ValueTask<PluginPackageInstallValidationFacts> BuildInstallValidationFactsAsync(
         ParsedPluginPackageManifest candidate,
         CancellationToken cancellationToken)
     {
         var owned = await LoadOwnedArtifactsAsync(candidate.Contract.PluginId, cancellationToken).ConfigureAwait(false);
-        foreach (var artifact in owned)
+        var installed = new List<PluginManifestContract>();
+        foreach (var directory in Directory.EnumerateDirectories(PluginsRoot))
         {
-            var format = candidate.Contract.ArtifactFormats.SingleOrDefault(value => value.Format == artifact.Format);
-            if (format is null || artifact.FormatVersion < format.MinimumVersion || artifact.FormatVersion > format.MaximumVersion)
-                throw new InvalidOperationException($"Candidate cannot read reachable Artifact format {artifact.Format} v{artifact.FormatVersion}.");
-            var strategy = candidate.Contract.RestoreStrategies.SingleOrDefault(value =>
-                value.RestoreStrategyId == artifact.RestoreStrategyId);
-            if (strategy is null
-                || !strategy.SupportedCompleteness.Contains(artifact.Completeness)
-                || !strategy.SupportedFormats.Any(value =>
-                    value.Format == artifact.Format
-                    && artifact.FormatVersion >= value.MinimumVersion
-                    && artifact.FormatVersion <= value.MaximumVersion))
-                throw new InvalidOperationException($"Candidate cannot materialize reachable Artifact {artifact.ArtifactId}.");
+            cancellationToken.ThrowIfCancellationRequested();
+            var state = ReadInstallState(directory);
+            if (state is null || state.PluginId == candidate.Contract.PluginId) continue;
+            try
+            {
+                var manifest = ReadManifest(GetCurrentVersionRoot(state));
+                PluginManifestContractValidator.ValidateStatic(manifest.Contract, state.PluginId);
+                installed.Add(manifest.Contract);
+            }
+            catch (Exception ex)
+            {
+                LogService.LogWarning(
+                    $"Invalid installed plugin Manifest was excluded from Config Kind inventory: {ex.Message}",
+                    "PluginV3");
+            }
         }
+
+        var persisted = ConfigService.CurrentConfig.GlobalSettings.Plugins.TypedSettings
+            .TryGetValue(candidate.Contract.PluginId.Value, out var values)
+            ? values.ToDictionary(pair => pair.Key, pair => pair.Value.Clone(), StringComparer.Ordinal)
+            : new Dictionary<string, JsonElement>(StringComparer.Ordinal);
+        return new PluginPackageInstallValidationFacts(
+            new PluginSettingsSnapshot(candidate.Contract.PluginId, persisted),
+            installed,
+            owned.Select(artifact => new ReachableOwnedArtifactRequirement(
+                artifact.ArtifactId,
+                artifact.Format,
+                artifact.FormatVersion,
+                artifact.Completeness,
+                artifact.RestoreStrategyId)).ToArray());
     }
 
     private static async ValueTask<IReadOnlyList<ArtifactLedgerEntry>> LoadOwnedArtifactsAsync(
@@ -592,11 +584,6 @@ public static class PluginV3PackageService
             : null;
     }
 
-    private sealed class ValidationActivationStore : IPluginActivationStore
-    {
-        public ValueTask CommitAsync(PluginActivationCommit commit, CancellationToken cancellationToken)
-            => ValueTask.CompletedTask;
-    }
 }
 
 public sealed record PluginUninstallPreview(

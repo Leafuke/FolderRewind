@@ -22,6 +22,12 @@ public static class PluginManifestContractValidator
         RequireUnique(manifest.ArtifactTransformers.Select(value => value.TransformerId), "Artifact Transformer");
         RequireUnique(manifest.RestoreStrategies.Select(value => value.RestoreStrategyId), "Restore Strategy");
 
+        if (manifest.ConfigKinds.Any(value =>
+                !StringComparer.Ordinal.Equals(value.Kind.OwnerId.Value, expectedPluginId.Value)))
+        {
+            throw new InvalidDataException("Plugin Config Kinds must be owned by the declaring PluginId.");
+        }
+
         foreach (var format in manifest.ArtifactFormats)
         {
             if (!StringComparer.Ordinal.Equals(format.Format.OwnerId.Value, expectedPluginId.Value)
@@ -77,6 +83,35 @@ public static class PluginManifestContractValidator
         if (manifest.RestoreStrategies.Count != 0)
         {
             RequireServices(manifest, HostServiceKind.ArtifactRead, HostServiceKind.RestoreMaterializationWorkspace);
+        }
+    }
+
+    public static void ValidateConfigKindInventory(
+        PluginManifestContract candidate,
+        IEnumerable<PluginManifestContract> installedManifests)
+    {
+        ArgumentNullException.ThrowIfNull(candidate);
+        ArgumentNullException.ThrowIfNull(installedManifests);
+        ValidateStatic(candidate, candidate.PluginId);
+
+        var occupied = new Dictionary<ConfigKindRef, PluginId>();
+        foreach (var installed in installedManifests.Where(value => value.PluginId != candidate.PluginId))
+        {
+            ValidateStatic(installed, installed.PluginId);
+            foreach (var declaration in installed.ConfigKinds)
+            {
+                if (!occupied.TryAdd(declaration.Kind, installed.PluginId))
+                    throw new InvalidDataException($"Installed plugin inventory contains duplicate Config Kind '{declaration.Kind}'.");
+            }
+        }
+
+        foreach (var declaration in candidate.ConfigKinds)
+        {
+            if (occupied.TryGetValue(declaration.Kind, out var owner))
+            {
+                throw new InvalidDataException(
+                    $"Config Kind '{declaration.Kind}' is already declared by installed plugin '{owner}'.");
+            }
         }
     }
 
