@@ -132,6 +132,9 @@ namespace FolderRewind.Services.Plugins
             {
                 var pluginId = new PluginId(entry.GetProperty("pluginId").GetString()!).Value;
                 if (!ids.Add(pluginId)) throw new InvalidDataException("Catalog contains duplicate PluginIds.");
+                var version = PluginSemanticVersion.RequireStrict(
+                    entry.GetProperty("version").GetString(),
+                    "Catalog version");
                 var artifact = entry.GetProperty("artifact");
                 var url = artifact.GetProperty("url").GetString()!;
                 var sha = artifact.GetProperty("sha256").GetString()!;
@@ -143,8 +146,8 @@ namespace FolderRewind.Services.Plugins
                 {
                     PluginId = pluginId,
                     Name = pluginId,
-                    Version = entry.GetProperty("version").GetString()!,
-                    ReleaseTag = entry.GetProperty("version").GetString(),
+                    Version = version,
+                    ReleaseTag = version,
                     DownloadUrl = url,
                     Sha256 = sha,
                     PluginApiMajor = api.GetProperty("major").GetInt32(),

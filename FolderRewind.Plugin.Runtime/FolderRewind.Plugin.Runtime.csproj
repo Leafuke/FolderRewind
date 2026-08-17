@@ -6,6 +6,7 @@
     <IsPackable>false</IsPackable>
   </PropertyGroup>
   <ItemGroup>
+    <PackageReference Include="NuGet.Versioning" Version="7.9.0" />
     <ProjectReference Include="..\FolderRewind.Plugin.Abstractions\FolderRewind.Plugin.Abstractions.csproj" />
   </ItemGroup>
 </Project>

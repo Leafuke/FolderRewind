@@ -1,4 +1,5 @@
 using FolderRewind.Models;
+using FolderRewind.Plugin.Runtime.Packaging;
 using System;
 using System.Linq;
 using System.Threading;
@@ -99,12 +100,6 @@ public static partial class PluginService
     }
 
     private static bool IsNewerVersion(string candidate, string current)
-    {
-        var candidateText = candidate.TrimStart('v', 'V');
-        var currentText = current.TrimStart('v', 'V');
-        return Version.TryParse(candidateText, out var candidateVersion)
-               && Version.TryParse(currentText, out var currentVersion)
-            ? candidateVersion > currentVersion
-            : string.Compare(candidateText, currentText, StringComparison.OrdinalIgnoreCase) > 0;
-    }
+        => PluginSemanticVersion.TryComparePrecedence(candidate, current, out var comparison)
+           && comparison > 0;
 }

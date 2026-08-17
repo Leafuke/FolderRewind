@@ -18,11 +18,11 @@ public static class PluginPackageManifestReader
             ?? throw new InvalidDataException("Plugin manifest is empty.");
         if (dto.ManifestVersion != 3) throw new InvalidDataException("Only manifestVersion 3 is supported.");
         var pluginId = new PluginId(dto.PluginId);
-        RequireSemVer(dto.Version);
+        var version = PluginSemanticVersion.RequireStrict(dto.Version, "Plugin version");
         var api = dto.PluginApi ?? throw new InvalidDataException("pluginApi is required.");
         var contract = new PluginManifestContract(
             pluginId,
-            dto.Version,
+            version,
             new PluginApiVersion(api.Major, api.Minor),
             RequireRelativeFile(dto.EntryAssembly, "entryAssembly"),
             Require(dto.EntryType, "entryType"),
@@ -97,16 +97,6 @@ public static class PluginPackageManifestReader
         if (Path.IsPathRooted(path) || path.Split('/').Any(segment => segment is "" or "." or ".."))
             throw new InvalidDataException($"{field} must be a canonical relative file path.");
         return path;
-    }
-
-    private static void RequireSemVer(string? value)
-    {
-        var version = Require(value, "version");
-        if (!System.Text.RegularExpressions.Regex.IsMatch(
-                version,
-                "^(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)(?:-[0-9A-Za-z-]+(?:\\.[0-9A-Za-z-]+)*)?(?:\\+[0-9A-Za-z-]+(?:\\.[0-9A-Za-z-]+)*)?$",
-                System.Text.RegularExpressions.RegexOptions.CultureInvariant))
-            throw new InvalidDataException("Plugin version must be SemVer 2.0.0.");
     }
 
     private sealed class ManifestDto
