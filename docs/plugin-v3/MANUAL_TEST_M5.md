@@ -23,7 +23,7 @@
 
 - 从“插件商店”刷新 Official Catalog；断网后再次进入，确认已安装插件正常、目录显示离线缓存或明确诊断。
 - 通过 Manual Install 选择 `MineRewind-1.9.0.frplugin`，确认安装路径为 `plugins/com.folderrewind.minerewind/versions/1.9.0`，且默认 Disabled。
-- 确认包 SHA-256 为 `a97eddc838b7954fbbaf74de0fbc7bd88591159e48c8e71a68f64b54e2e9463c`，包内包含 `fNbt.dll` 且不含 `FolderRewind.Plugin.Abstractions.dll`。
+- 确认由 MineRewind commit `5b237ff` 生成的候选包 SHA-256 为 `48eb2ab4e70cbb10c92f81d036540caaa35ca42dc294e014482c919fa3852d84`，包内包含 `fNbt.dll` 且不含 `FolderRewind.Plugin.Abstractions.dll`。
 - 尝试包含 `../`、大小写重复路径、Abstractions DLL 或高压缩 bomb 的测试包：均应在写入插件版本目录前拒绝。
 - 安装 Manual provenance 的包后模拟 Official Catalog 后台更新：必须拒绝覆盖。
 

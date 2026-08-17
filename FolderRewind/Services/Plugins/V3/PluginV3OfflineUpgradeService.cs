@@ -20,7 +20,7 @@ internal static class PluginV3OfflineUpgradeService
 {
     private const string MineRewindId = "com.folderrewind.minerewind";
     private const string BundledFileName = "MineRewind-1.9.0.frplugin";
-    private const string BundledSha256 = "2790b49296c8b79bf6aae2a9643e254f47c4478d7a6fad389307a5d233c85ec2";
+    private const string BundledSha256 = "48eb2ab4e70cbb10c92f81d036540caaa35ca42dc294e014482c919fa3852d84";
     private static readonly TimeSpan MigrationTimeout = TimeSpan.FromSeconds(30);
     private static readonly PluginId MineRewindPluginId = new(MineRewindId);
     private static readonly HashSet<string> V3Entries = new(StringComparer.OrdinalIgnoreCase)
