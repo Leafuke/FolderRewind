@@ -1,8 +1,10 @@
 using System.Text.Json;
 using FolderRewind.Plugin.Abstractions;
 using FolderRewind.Plugin.Runtime.Activation;
+using FolderRewind.Plugin.Runtime.Loading;
 using FolderRewind.Plugin.Runtime.Operations;
-using MineRewind;
+using FolderRewind.Plugin.Runtime.Packaging;
+using FolderRewind.Plugin.Runtime.Settings;
 
 namespace FolderRewind.Plugin.Runtime.Tests;
 
@@ -10,11 +12,16 @@ namespace FolderRewind.Plugin.Runtime.Tests;
 public sealed class PluginVerticalSliceTests
 {
     private static readonly PluginId FakePluginId = new("com.folderrewind.vertical-fake");
-    private static readonly PluginId MineRewindPluginId = new(MinecraftSavesPlugin.PluginIdentity);
+    private const string MineRewindSha256 = "48eb2ab4e70cbb10c92f81d036540caaa35ca42dc294e014482c919fa3852d84";
+    private static readonly PluginId MineRewindPluginId = new("com.folderrewind.minerewind");
     private static readonly ConfigKindRef FakeKind = new(new OwnerId(FakePluginId.Value), "test-data");
     private static readonly ConfigKindRef MinecraftKind = new(
-        new OwnerId(MinecraftSavesPlugin.PluginIdentity),
-        MinecraftSavesPlugin.MinecraftKindIdentity);
+        new OwnerId(MineRewindPluginId.Value),
+        "minecraft-saves");
+
+    [ClassCleanup]
+    public static void CleanupBlackBoxExtractions()
+        => BlackBoxExtraction.CleanupPending();
 
     [TestMethod]
     public async Task FakeDiscoveryRunsOnlyAfterRuntimeActivationCommit()
@@ -108,7 +115,7 @@ public sealed class PluginVerticalSliceTests
     {
         using var world = TemporaryWorld.Create();
         var events = new List<string>();
-        var fixture = await ActivateMineRewindAsync(events);
+        await using var fixture = await ActivateMineRewindAsync(events);
         var draftStore = new RecordingDiscoveryDraftStore(events);
         var coordinator = new PluginDiscoveryCoordinator(fixture.Manager, draftStore);
 
@@ -132,7 +139,7 @@ public sealed class PluginVerticalSliceTests
         using var world = TemporaryWorld.Create();
         using var sessionLock = world.AcquireSessionLock();
         var events = new List<string>();
-        var fixture = await ActivateMineRewindAsync(events, knotLinkAvailable: true);
+        await using var fixture = await ActivateMineRewindAsync(events, knotLinkAvailable: true);
         fixture.Host.KnotLink.OnSendAsync = async (eventName, _, _) =>
         {
             var response = eventName switch
@@ -185,7 +192,7 @@ public sealed class PluginVerticalSliceTests
         using var world = TemporaryWorld.Create();
         using var sessionLock = world.AcquireSessionLock();
         var events = new List<string>();
-        var fixture = await ActivateMineRewindAsync(events, knotLinkAvailable: true);
+        await using var fixture = await ActivateMineRewindAsync(events, knotLinkAvailable: true);
         fixture.Host.KnotLink.OnSendAsync = async (eventName, _, _) =>
         {
             string? response = null;
@@ -244,7 +251,7 @@ public sealed class PluginVerticalSliceTests
     public async Task MineRewindCommandRoutesThroughHostServiceAfterRuntimeActivation()
     {
         var events = new List<string>();
-        var fixture = await ActivateMineRewindAsync(events);
+        await using var fixture = await ActivateMineRewindAsync(events);
         using var lease = fixture.Manager.TryAcquire<IPluginCommandCapability>(MineRewindPluginId);
         Assert.IsNotNull(lease);
 
@@ -383,25 +390,75 @@ public sealed class PluginVerticalSliceTests
         return new RuntimeFixture(manager, host);
     }
 
-    private static async Task<RuntimeFixture> ActivateMineRewindAsync(
+    private static async Task<MineRuntimeFixture> ActivateMineRewindAsync(
         List<string> events,
         bool knotLinkAvailable = false)
     {
+        var repositoryRoot = FindRepositoryRoot();
+        var packagePath = Path.Combine(
+            repositoryRoot,
+            "FolderRewind",
+            "Assets",
+            "Plugins",
+            "MineRewind-1.9.0.frplugin");
+        var sidecarSha256 = (await File.ReadAllTextAsync(packagePath + ".sha256"))
+            .Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries)[0];
+        Assert.AreEqual(MineRewindSha256, sidecarSha256);
+        var package = await PluginPackageValidator.ValidateAsync(packagePath, sidecarSha256);
+        Assert.AreEqual(MineRewindPluginId, package.Manifest.Contract.PluginId);
+        Assert.AreEqual("1.9.0", package.Manifest.Contract.Version);
+        CollectionAssert.AreEquivalent(
+            new[]
+            {
+                HostServiceKind.ConfigQuery,
+                HostServiceKind.BackupRequest,
+                HostServiceKind.RestoreRequest,
+                HostServiceKind.HistoryQuery,
+                HostServiceKind.KnotLink,
+                HostServiceKind.TemporaryStorage,
+                HostServiceKind.Logging
+            },
+            package.Manifest.Contract.RequestedHostServices.ToArray());
+        Assert.IsFalse(package.Entries.Any(entry => entry.CanonicalPath.EndsWith(
+            "FolderRewind.Plugin.Abstractions.dll",
+            StringComparison.OrdinalIgnoreCase)));
+
+        var extraction = BlackBoxExtraction.Create();
+        await PluginPackageValidator.ExtractAsync(package, extraction.PayloadPath);
+        var manifest = PluginPackageManifestReader.Parse(
+            await File.ReadAllBytesAsync(Path.Combine(extraction.PayloadPath, "manifest.json")));
+        var loaded = PluginAssemblyLoader.Load(new PluginLoadRequest(
+            manifest.Contract.PluginId,
+            extraction.PayloadPath,
+            manifest.Contract.EntryAssembly,
+            manifest.Contract.EntryType,
+            manifest.Contract.RequiredApi));
+        var schema = PluginSettingsSchema.Parse(
+            await File.ReadAllBytesAsync(Path.Combine(extraction.PayloadPath, manifest.Contract.SettingsSchema)));
+        var settings = schema.Validate(new PluginSettingsSnapshot(
+            manifest.Contract.PluginId,
+            new Dictionary<string, JsonElement>())).NormalizedSettings;
         var host = new RecordingHostServices(events, knotLinkAvailable);
         var manager = new PluginRuntimeManager();
-        var result = await manager.ActivateAsync(Candidate(
-            MineRewindPluginId,
-            static () => new MinecraftSavesPlugin(),
-            host,
-            events,
-            new Dictionary<string, JsonElement>
-            {
-                ["AutoDiscoverSaves"] = Json("true"),
-                ["AutoCreateConfigs"] = Json("false"),
-                ["PreservePlayerData"] = Json("false")
-            }));
-        Assert.IsTrue(result.Success, string.Join(", ", result.Diagnostics.Select(diagnostic => diagnostic.Code)));
-        return new RuntimeFixture(manager, host);
+        try
+        {
+            var result = await manager.ActivateAsync(new PluginActivationCandidate(
+                manifest.Contract.PluginId,
+                () => loaded.Instance,
+                settings,
+                Array.Empty<ConfigSnapshot>(),
+                host,
+                new RecordingActivationStore(events),
+                manifest.Contract));
+            Assert.IsTrue(result.Success, string.Join(", ", result.Diagnostics.Select(diagnostic => diagnostic.Code)));
+            return new MineRuntimeFixture(manager, host, loaded, extraction);
+        }
+        catch
+        {
+            loaded.Dispose();
+            extraction.Dispose();
+            throw;
+        }
     }
 
     private static PluginActivationCandidate Candidate(
@@ -446,6 +503,98 @@ public sealed class PluginVerticalSliceTests
             Array.Empty<PluginDiagnostic>());
 
     private sealed record RuntimeFixture(PluginRuntimeManager Manager, RecordingHostServices Host);
+
+    private sealed class MineRuntimeFixture(
+        PluginRuntimeManager manager,
+        RecordingHostServices host,
+        LoadedPluginAssembly loaded,
+        BlackBoxExtraction extraction) : IAsyncDisposable
+    {
+        public PluginRuntimeManager Manager { get; } = manager;
+        public RecordingHostServices Host { get; } = host;
+
+        public async ValueTask DisposeAsync()
+        {
+            await Manager.DeactivateAsync(MineRewindPluginId);
+            loaded.Dispose();
+            extraction.Dispose();
+        }
+    }
+
+    private sealed class BlackBoxExtraction : IDisposable
+    {
+        private static readonly System.Collections.Concurrent.ConcurrentBag<string> PendingCleanup = new();
+
+        private BlackBoxExtraction(string root)
+        {
+            Root = root;
+            PayloadPath = Path.Combine(root, "payload");
+        }
+
+        public string Root { get; }
+        public string PayloadPath { get; }
+
+        public static BlackBoxExtraction Create()
+        {
+            var root = Path.Combine(
+                Path.GetTempPath(),
+                "FolderRewind-BlackBox",
+                Guid.NewGuid().ToString("N"));
+            Directory.CreateDirectory(root);
+            return new BlackBoxExtraction(root);
+        }
+
+        public void Dispose()
+        {
+            try
+            {
+                if (Directory.Exists(Root)) Directory.Delete(Root, recursive: true);
+            }
+            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+            {
+                PendingCleanup.Add(Root);
+            }
+        }
+
+        public static void CleanupPending()
+        {
+            while (PendingCleanup.TryTake(out var path))
+            {
+                for (var attempt = 0; attempt < 10 && Directory.Exists(path); attempt++)
+                {
+                    GC.Collect();
+                    GC.WaitForPendingFinalizers();
+                    GC.Collect();
+                    try
+                    {
+                        Directory.Delete(path, recursive: true);
+                    }
+                    catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+                    {
+                        // Windows may retain mapped plugin modules until testhost exits even after
+                        // collectible ALC disposal. The OS temp root remains the recovery boundary.
+                    }
+                }
+            }
+        }
+    }
+
+    private static string FindRepositoryRoot()
+    {
+        var directory = new DirectoryInfo(AppContext.BaseDirectory);
+        while (directory is not null)
+        {
+            if (File.Exists(Path.Combine(
+                    directory.FullName,
+                    "FolderRewind",
+                    "Assets",
+                    "Plugins",
+                    "MineRewind-1.9.0.frplugin")))
+                return directory.FullName;
+            directory = directory.Parent;
+        }
+        throw new DirectoryNotFoundException("FolderRewind repository root could not be located.");
+    }
 
     private sealed class RecordingActivationStore(List<string> events) : IPluginActivationStore
     {
