@@ -111,11 +111,7 @@ jobs:
         run: |
           $sevenZip = (Get-Command '7z.exe' -ErrorAction Stop).Source
           Copy-Item -LiteralPath $sevenZip -Destination '7za.exe'
-
-      - name: Restore architecture
-        shell: pwsh
-        run: dotnet restore FolderRewind/FolderRewind.csproj -p:Platform=${{ matrix.platform }}
-
+      
       - name: Build architecture
         shell: pwsh
         run: |
@@ -124,4 +120,3 @@ jobs:
             -p:Platform=${{ matrix.platform }} `
             -p:CETCompat=false `
             -p:GenerateAppxPackageOnBuild=false `
-            --no-restore

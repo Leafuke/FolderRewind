@@ -368,6 +368,8 @@ FodyWeavers.xsd
 /.claude
 /FolderRewind-Site/
 /FolderRewind-Plugin-Minecraft/
+/FolderRewind-Plugin-Catalog/
+/folderrewind-official-templates/
 /FolderRewind/Assets/*
 !/FolderRewind/Assets/LockScreenLogo.scale-200.png
 !/FolderRewind/Assets/SplashScreen.scale-200.png
