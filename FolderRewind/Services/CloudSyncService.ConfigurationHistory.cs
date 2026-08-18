@@ -261,8 +261,24 @@ namespace FolderRewind.Services
             });
         }
 
-        public static async Task<ConfigCloudHistoryUploadResult> UploadConfigurationHistoryAsync(BackupConfig? config, bool showNotifications = true)
+        public static Task<ConfigCloudHistoryUploadResult> UploadConfigurationHistoryAsync(BackupConfig? config, bool showNotifications = true)
+        {
+            return UploadConfigurationHistoryCoreAsync(config, showNotifications, acquireCommandSemaphore: true);
+        }
 
+        // The caller must hold CommandSemaphore for the entire operation.
+        private static Task<ConfigCloudHistoryUploadResult> UploadConfigurationHistoryWhileLockedAsync(
+            BackupConfig? config,
+            bool showNotifications)
+        {
+            return UploadConfigurationHistoryCoreAsync(config, showNotifications, acquireCommandSemaphore: false);
+        }
+
+        // False is reserved for callers that already own CommandSemaphore.
+        private static async Task<ConfigCloudHistoryUploadResult> UploadConfigurationHistoryCoreAsync(
+            BackupConfig? config,
+            bool showNotifications,
+            bool acquireCommandSemaphore)
         {
             if (config == null)
             {
@@ -320,7 +336,11 @@ namespace FolderRewind.Services
             var task = CreateTask(I18n.Format("CloudSync_Task_ConfigurationHistoryUploadName", config.Name ?? string.Empty), UploadTaskIconGlyph);
             await RunOnUIAsync(() => BackupService.ActiveTasks.Insert(0, task)).ConfigureAwait(false);
 
-            await CommandSemaphore.WaitAsync().ConfigureAwait(false);
+            if (acquireCommandSemaphore)
+            {
+                await CommandSemaphore.WaitAsync().ConfigureAwait(false);
+            }
+
             try
             {
                 await RunOnUIAsync(() =>
@@ -459,7 +479,11 @@ namespace FolderRewind.Services
             }
             finally
             {
-                CommandSemaphore.Release();
+                if (acquireCommandSemaphore)
+                {
+                    CommandSemaphore.Release();
+                }
+
                 TryDeleteTempFile(tempHistoryPath);
                 TryDeleteTempFile(tempRunsPath);
                 TryDeleteTempFile(tempManifestPath);

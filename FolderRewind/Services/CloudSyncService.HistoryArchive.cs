@@ -456,7 +456,8 @@ namespace FolderRewind.Services
                     MarkAutomaticUploadHistoryState(config, folder, settings, context, metadataRecordRemotePath, metadataStateRemotePath);
                     if (settings.SyncHistoryAfterUpload)
                     {
-                        var historyUploadResult = await UploadConfigurationHistoryAsync(config, showNotifications: false).ConfigureAwait(false);
+                        // ExecuteConfiguredUploadAsync already owns CommandSemaphore.
+                        var historyUploadResult = await UploadConfigurationHistoryWhileLockedAsync(config, showNotifications: false).ConfigureAwait(false);
                         if (!historyUploadResult.Success)
                         {
                             NotificationService.ShowWarning(historyUploadResult.Message, I18n.GetString("CloudSync_Notification_Title"));
