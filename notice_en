@@ -1,2 +1,5 @@
-After confirmation, the .msi sideload version of FolderRewind 1.8.2 has many issues and is not recommended for use at this stage.
+[Notice 1] After confirmation, the .msi sideload version of FolderRewind 1.8.2 has many issues and is not recommended for use at this stage.
 If you encounter any problems, please click the 'Feedback' button at the bottom of the settings page to provide feedback. Thank you for your support!
+
+[Notice 2] Based on recent feedback, running multiple instances of the software can lead to serious issues. Please open Task Manager and check if there are multiple child processes running. The following situations can easily cause 'accidental multiple instances':
+- You have enabled 'Minimize to system tray when closed', but forgot and started the software again from the Start menu or desktop shortcut.
