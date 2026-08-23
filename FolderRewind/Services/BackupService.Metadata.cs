@@ -28,23 +28,6 @@ namespace FolderRewind.Services
             return await BackupMetadataStoreService.LoadAsync(metaDir, archiveFileNames).ConfigureAwait(false);
         }
 
-        private static BackupMetadata? LoadBackupMetadata(string metadataPath)
-        {
-            if (string.IsNullOrWhiteSpace(metadataPath))
-            {
-                return null;
-            }
-
-            string? metaDir = Path.GetDirectoryName(metadataPath);
-            if (string.IsNullOrWhiteSpace(metaDir))
-            {
-                return null;
-            }
-
-            var loadResult = BackupMetadataStoreService.LoadAsync(metaDir).GetAwaiter().GetResult();
-            return ConvertToAggregateMetadata(loadResult);
-        }
-
         private static BackupMetadata? ConvertToAggregateMetadata(BackupMetadataStoreService.BackupMetadataLoadResult loadResult)
         {
             if (loadResult.State == null)
@@ -146,7 +129,7 @@ namespace FolderRewind.Services
             string currentBackupFile,
             string baseBackupFile,
             string backupType,
-            BackupMetadata? previousMetadata,
+            BackupMetadataState? previousState,
             Dictionary<string, FileState>? states = null,
             BackupChangeSet? changeSet = null,
             FilterSettings? filters = null)
@@ -157,9 +140,8 @@ namespace FolderRewind.Services
             }
 
             states ??= ScanDirectory(sourceDir, filters);
-            previousMetadata = NormalizeBackupMetadata(previousMetadata);
-            changeSet ??= CompareFileStates(states, previousMetadata.FileStates);
-            string previousLastBackupFileName = previousMetadata.LastBackupFileName ?? string.Empty;
+            changeSet ??= CompareFileStates(states, previousState?.FileStates);
+            string previousLastBackupFileName = previousState?.LastBackupFileName ?? string.Empty;
 
             var state = new BackupMetadataState
             {
@@ -167,7 +149,7 @@ namespace FolderRewind.Services
                 LastBackupTime = DateTime.Now,
                 LastBackupFileName = currentBackupFile,
                 BasedOnFullBackup = string.IsNullOrWhiteSpace(baseBackupFile) ? currentBackupFile : baseBackupFile,
-                FileStates = new Dictionary<string, FileState>(states, StringComparer.OrdinalIgnoreCase)
+                FileStates = states
             };
 
             var record = new BackupChangeRecord
@@ -177,9 +159,9 @@ namespace FolderRewind.Services
                 BasedOnFullBackup = state.BasedOnFullBackup,
                 PreviousBackupFileName = previousLastBackupFileName,
                 CreatedAtUtc = DateTime.UtcNow,
-                AddedFiles = changeSet.AddedFiles.OrderBy(x => x, StringComparer.OrdinalIgnoreCase).ToList(),
-                ModifiedFiles = changeSet.ModifiedFiles.OrderBy(x => x, StringComparer.OrdinalIgnoreCase).ToList(),
-                DeletedFiles = changeSet.DeletedFiles.OrderBy(x => x, StringComparer.OrdinalIgnoreCase).ToList(),
+                AddedFiles = changeSet.AddedFiles.ToList(),
+                ModifiedFiles = changeSet.ModifiedFiles.ToList(),
+                DeletedFiles = changeSet.DeletedFiles.ToList(),
                 FullFileList = states.Keys.OrderBy(x => x, StringComparer.OrdinalIgnoreCase).ToList()
             };
 

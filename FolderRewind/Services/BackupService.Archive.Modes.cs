@@ -16,12 +16,12 @@ namespace FolderRewind.Services
     {
         private static async Task<BackupArchiveExecutionResult> DoFullBackupAsync(string source, string destDir, string metaDir, string baseName, BackupConfig config, BackupSourceScope selection, string comment = "", BackupTask? taskToUpdate = null)
         {
-            BackupMetadata? oldMeta = null;
+            BackupMetadataState? oldState = null;
             if (!string.IsNullOrEmpty(metaDir))
             {
-                var metadataLoadResult = await LoadBackupMetadataAsync(metaDir).ConfigureAwait(false);
-                oldMeta = ConvertToAggregateMetadata(metadataLoadResult);
-                if (oldMeta == null && metadataLoadResult.StateLoadFailed)
+                var metadataLoadResult = await BackupMetadataStoreService.LoadStateAsync(metaDir).ConfigureAwait(false);
+                oldState = metadataLoadResult.State;
+                if (oldState == null && metadataLoadResult.StateLoadFailed)
                 {
                     Log(I18n.Format("BackupService_Log_MetadataCorruptedFallbackFull"), LogLevel.Warning);
                 }
@@ -32,18 +32,18 @@ namespace FolderRewind.Services
             {
                 return BackupArchiveExecutionResult.Unavailable;
             }
-            var changeSet = CompareFileStates(currentStates, oldMeta?.FileStates);
+            var changeSet = CompareFileStates(currentStates, oldState?.FileStates);
 
-            if (config.Archive.SkipIfUnchanged && !string.IsNullOrEmpty(metaDir) && oldMeta != null)
+            if (config.Archive.SkipIfUnchanged && !string.IsNullOrEmpty(metaDir) && oldState != null)
             {
                 bool referencedBackupExists = true;
-                if (!string.IsNullOrEmpty(oldMeta.LastBackupFileName))
+                if (!string.IsNullOrEmpty(oldState.LastBackupFileName))
                 {
-                    string referencedBackupPath = Path.Combine(destDir, oldMeta.LastBackupFileName);
+                    string referencedBackupPath = Path.Combine(destDir, oldState.LastBackupFileName);
                     if (!File.Exists(referencedBackupPath))
                     {
                         referencedBackupExists = false;
-                        Log(I18n.Format("BackupService_Log_ReferencedBackupMissing", oldMeta.LastBackupFileName), LogLevel.Warning);
+                        Log(I18n.Format("BackupService_Log_ReferencedBackupMissing", oldState.LastBackupFileName), LogLevel.Warning);
                     }
                 }
 
@@ -81,7 +81,7 @@ namespace FolderRewind.Services
             // 3. 如果成功，生成新的元数据（为后续可能的增量备份做基准）
             if (result)
             {
-                bool metadataSaved = await UpdateMetadataAsync(source, metaDir, fileName, fileName, "Full", oldMeta, currentStates, changeSet, config.Filters);
+                bool metadataSaved = await UpdateMetadataAsync(source, metaDir, fileName, fileName, "Full", oldState, currentStates, changeSet, config.Filters);
                 if (!metadataSaved)
                 {
                     return BackupArchiveExecutionResult.Failed;
@@ -96,16 +96,16 @@ namespace FolderRewind.Services
         // 返回归档执行结果，并显式区分无变化、不可用和失败。
         private static async Task<BackupArchiveExecutionResult> DoSmartBackupAsync(string source, string destDir, string metaDir, string baseName, BackupConfig config, BackupSourceScope selection, string comment = "", BackupTask? taskToUpdate = null)
         {
-            var metadataLoadResult = await LoadBackupMetadataAsync(metaDir).ConfigureAwait(false);
-            BackupMetadata? oldMeta = ConvertToAggregateMetadata(metadataLoadResult);
+            var metadataLoadResult = await BackupMetadataStoreService.LoadStateAsync(metaDir).ConfigureAwait(false);
+            BackupMetadataState? oldState = metadataLoadResult.State;
 
-            if (oldMeta == null && metadataLoadResult.StateLoadFailed)
+            if (oldState == null && metadataLoadResult.StateLoadFailed)
             {
                 Log(I18n.Format("BackupService_Log_MetadataCorruptedFallbackFull"), LogLevel.Warning);
             }
 
             // 如果没有元数据，强制全量
-            if (oldMeta == null)
+            if (oldState == null)
             {
                 Log(I18n.Format("BackupService_Log_NoBaselineMetadataFallbackFull"), LogLevel.Info);
                 return await DoFullBackupAsync(source, destDir, metaDir, baseName, config, selection, comment, taskToUpdate);
@@ -113,21 +113,21 @@ namespace FolderRewind.Services
 
             // 校验元数据引用的备份文件是否仍然存在
             // 如果用户删除了最近的备份文件，增量链已断裂，应强制全量备份
-            if (!string.IsNullOrEmpty(oldMeta.LastBackupFileName))
+            if (!string.IsNullOrEmpty(oldState.LastBackupFileName))
             {
-                string referencedBackupPath = Path.Combine(destDir, oldMeta.LastBackupFileName);
+                string referencedBackupPath = Path.Combine(destDir, oldState.LastBackupFileName);
                 if (!File.Exists(referencedBackupPath))
                 {
-                    Log(I18n.Format("BackupService_Log_ReferencedBackupMissing", oldMeta.LastBackupFileName), LogLevel.Warning);
+                    Log(I18n.Format("BackupService_Log_ReferencedBackupMissing", oldState.LastBackupFileName), LogLevel.Warning);
                     return await DoFullBackupAsync(source, destDir, metaDir, baseName, config, selection, comment, taskToUpdate);
                 }
             }
-            if (!string.IsNullOrEmpty(oldMeta.BasedOnFullBackup) && oldMeta.BasedOnFullBackup != oldMeta.LastBackupFileName)
+            if (!string.IsNullOrEmpty(oldState.BasedOnFullBackup) && oldState.BasedOnFullBackup != oldState.LastBackupFileName)
             {
-                string baseBackupPath = Path.Combine(destDir, oldMeta.BasedOnFullBackup);
+                string baseBackupPath = Path.Combine(destDir, oldState.BasedOnFullBackup);
                 if (!File.Exists(baseBackupPath))
                 {
-                    Log(I18n.Format("BackupService_Log_ReferencedBackupMissing", oldMeta.BasedOnFullBackup), LogLevel.Warning);
+                    Log(I18n.Format("BackupService_Log_ReferencedBackupMissing", oldState.BasedOnFullBackup), LogLevel.Warning);
                     return await DoFullBackupAsync(source, destDir, metaDir, baseName, config, selection, comment, taskToUpdate);
                 }
             }
@@ -190,7 +190,7 @@ namespace FolderRewind.Services
             {
                 return BackupArchiveExecutionResult.Unavailable;
             }
-            var changeSet = CompareFileStates(currentStates, oldMeta.FileStates);
+            var changeSet = CompareFileStates(currentStates, oldState.FileStates);
 
             if (!changeSet.HasChanges)
             {
@@ -286,7 +286,7 @@ namespace FolderRewind.Services
                 }
 
                 // 更新元数据：基准文件保持不变（指向最初的Full），LastBackup指向自己
-                bool metadataSaved = await UpdateMetadataAsync(source, metaDir, fileName, oldMeta.BasedOnFullBackup, "Smart", oldMeta, currentStates, changeSet, config.Filters);
+                bool metadataSaved = await UpdateMetadataAsync(source, metaDir, fileName, oldState.BasedOnFullBackup, "Smart", oldState, currentStates, changeSet, config.Filters);
                 if (!metadataSaved)
                 {
                     return BackupArchiveExecutionResult.Failed;
@@ -305,12 +305,12 @@ namespace FolderRewind.Services
         // 返回归档执行结果，并显式区分无变化、不可用和失败。
         private static async Task<BackupArchiveExecutionResult> DoOverwriteBackupAsync(string source, string destDir, string metaDir, string baseName, BackupConfig config, BackupSourceScope selection, string comment = "", BackupTask? taskToUpdate = null)
         {
-            BackupMetadata? oldMeta = null;
+            BackupMetadataState? oldState = null;
             if (!string.IsNullOrEmpty(metaDir))
             {
-                var metadataLoadResult = await LoadBackupMetadataAsync(metaDir).ConfigureAwait(false);
-                oldMeta = ConvertToAggregateMetadata(metadataLoadResult);
-                if (oldMeta == null && metadataLoadResult.StateLoadFailed)
+                var metadataLoadResult = await BackupMetadataStoreService.LoadStateAsync(metaDir).ConfigureAwait(false);
+                oldState = metadataLoadResult.State;
+                if (oldState == null && metadataLoadResult.StateLoadFailed)
                 {
                     Log(I18n.Format("BackupService_Log_MetadataCorruptedFallbackFull"), LogLevel.Warning);
                 }
@@ -321,7 +321,7 @@ namespace FolderRewind.Services
             {
                 return BackupArchiveExecutionResult.Unavailable;
             }
-            var changeSet = CompareFileStates(currentStates, oldMeta?.FileStates);
+            var changeSet = CompareFileStates(currentStates, oldState?.FileStates);
 
             // 1. 寻找最近的备份文件
             var dirInfo = new DirectoryInfo(destDir);
@@ -447,7 +447,7 @@ namespace FolderRewind.Services
                         resultingFileName,
                         resultingFileName,
                         "Overwrite",
-                        oldMeta,
+                        oldState,
                         currentStates,
                         changeSet,
                         config.Filters);

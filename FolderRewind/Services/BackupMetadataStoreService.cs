@@ -48,6 +48,11 @@ namespace FolderRewind.Services
             }
         }
 
+        internal static Task<BackupMetadataLoadResult> LoadStateAsync(string metadataDir)
+        {
+            return LoadAsync(metadataDir, Array.Empty<string>());
+        }
+
         public static async Task<bool> SaveAsync(string metadataDir, BackupMetadataState state, BackupChangeRecord record)
         {
             if (string.IsNullOrWhiteSpace(metadataDir))
@@ -540,9 +545,14 @@ namespace FolderRewind.Services
             state.Version = string.IsNullOrWhiteSpace(state.Version) ? "3.0" : state.Version;
             state.LastBackupFileName ??= string.Empty;
             state.BasedOnFullBackup ??= string.Empty;
-            state.FileStates = state.FileStates != null
-                ? new Dictionary<string, FileState>(state.FileStates, StringComparer.OrdinalIgnoreCase)
-                : new Dictionary<string, FileState>(StringComparer.OrdinalIgnoreCase);
+            if (state.FileStates == null)
+            {
+                state.FileStates = new Dictionary<string, FileState>(StringComparer.OrdinalIgnoreCase);
+            }
+            else if (!ReferenceEquals(state.FileStates.Comparer, StringComparer.OrdinalIgnoreCase))
+            {
+                state.FileStates = new Dictionary<string, FileState>(state.FileStates, StringComparer.OrdinalIgnoreCase);
+            }
             return state;
         }
 
