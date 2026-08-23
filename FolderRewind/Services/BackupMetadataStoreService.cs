@@ -64,30 +64,25 @@ namespace FolderRewind.Services
             await gate.WaitAsync().ConfigureAwait(false);
             try
             {
-                var existing = await LoadCoreAsync(metadataDir, archiveFileNames: null, logMissingRequestedRecords: false).ConfigureAwait(false);
+                bool legacyMetadataExists = File.Exists(GetLegacyMetadataPath(metadataDir));
+                if (legacyMetadataExists
+                    && !await TryMigrateLegacyAsync(metadataDir, archiveLegacyMetadata: false).ConfigureAwait(false))
+                {
+                    return false;
+                }
+
                 var normalizedState = NormalizeState(state);
                 var normalizedRecord = NormalizeRecord(record);
 
                 Directory.CreateDirectory(metadataDir);
                 Directory.CreateDirectory(GetRecordsDirectoryPath(metadataDir));
 
-                if (!await WriteStateAsync(GetStatePath(metadataDir), normalizedState).ConfigureAwait(false))
+                if (!await WriteRecordAsync(metadataDir, normalizedRecord).ConfigureAwait(false))
                 {
                     return false;
                 }
 
-                if (existing.Records.Count > 0)
-                {
-                    foreach (var existingRecord in existing.Records.Values)
-                    {
-                        if (!await WriteRecordAsync(metadataDir, existingRecord).ConfigureAwait(false))
-                        {
-                            return false;
-                        }
-                    }
-                }
-
-                if (!await WriteRecordAsync(metadataDir, normalizedRecord).ConfigureAwait(false))
+                if (!await WriteStateAsync(GetStatePath(metadataDir), normalizedState).ConfigureAwait(false))
                 {
                     return false;
                 }
@@ -163,16 +158,16 @@ namespace FolderRewind.Services
                     renamedNewFileName,
                     renamedBackupType);
 
+                if (!await PersistRecordSnapshotAsync(metadataDir, deletionResult.Records).ConfigureAwait(false))
+                {
+                    return false;
+                }
+
                 if (deletionResult.InvalidateState)
                 {
                     TryDeleteFile(GetStatePath(metadataDir));
                 }
                 else if (!await WriteStateAsync(GetStatePath(metadataDir), deletionResult.State).ConfigureAwait(false))
-                {
-                    return false;
-                }
-
-                if (!await PersistRecordSnapshotAsync(metadataDir, deletionResult.Records).ConfigureAwait(false))
                 {
                     return false;
                 }
@@ -305,7 +300,7 @@ namespace FolderRewind.Services
             };
         }
 
-        private static async Task<bool> TryMigrateLegacyAsync(string metadataDir)
+        private static async Task<bool> TryMigrateLegacyAsync(string metadataDir, bool archiveLegacyMetadata = true)
         {
             string legacyPath = GetLegacyMetadataPath(metadataDir);
             if (!File.Exists(legacyPath))
@@ -325,11 +320,6 @@ namespace FolderRewind.Services
                 Directory.CreateDirectory(metadataDir);
                 Directory.CreateDirectory(GetRecordsDirectoryPath(metadataDir));
 
-                if (!await WriteStateAsync(GetStatePath(metadataDir), ConvertToState(legacy)).ConfigureAwait(false))
-                {
-                    return false;
-                }
-
                 foreach (var record in NormalizeLegacyMetadata(legacy).BackupRecords)
                 {
                     if (!await WriteRecordAsync(metadataDir, record).ConfigureAwait(false))
@@ -338,7 +328,16 @@ namespace FolderRewind.Services
                     }
                 }
 
-                TryArchiveLegacyMetadata(metadataDir);
+                if (!await WriteStateAsync(GetStatePath(metadataDir), ConvertToState(legacy)).ConfigureAwait(false))
+                {
+                    return false;
+                }
+
+                if (archiveLegacyMetadata)
+                {
+                    TryArchiveLegacyMetadata(metadataDir);
+                }
+
                 return true;
             }
             catch (Exception ex)
