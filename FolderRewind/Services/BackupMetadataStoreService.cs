@@ -352,8 +352,11 @@ namespace FolderRewind.Services
         {
             try
             {
-                string json = await File.ReadAllTextAsync(legacyPath).ConfigureAwait(false);
-                return NormalizeLegacyMetadata(JsonSerializer.Deserialize(json, AppJsonContext.Default.BackupMetadata));
+                await using var stream = OpenReadStream(legacyPath);
+                var metadata = await JsonSerializer.DeserializeAsync(
+                    stream,
+                    AppJsonContext.Default.BackupMetadata).ConfigureAwait(false);
+                return NormalizeLegacyMetadata(metadata);
             }
             catch
             {
@@ -365,8 +368,11 @@ namespace FolderRewind.Services
         {
             try
             {
-                string json = await File.ReadAllTextAsync(statePath).ConfigureAwait(false);
-                return NormalizeState(JsonSerializer.Deserialize(json, AppJsonContext.Default.BackupMetadataState));
+                await using var stream = OpenReadStream(statePath);
+                var state = await JsonSerializer.DeserializeAsync(
+                    stream,
+                    AppJsonContext.Default.BackupMetadataState).ConfigureAwait(false);
+                return NormalizeState(state);
             }
             catch
             {
@@ -413,8 +419,11 @@ namespace FolderRewind.Services
         {
             try
             {
-                string json = await File.ReadAllTextAsync(recordPath).ConfigureAwait(false);
-                return NormalizeRecord(JsonSerializer.Deserialize(json, AppJsonContext.Default.BackupChangeRecord));
+                await using var stream = OpenReadStream(recordPath);
+                var record = await JsonSerializer.DeserializeAsync(
+                    stream,
+                    AppJsonContext.Default.BackupChangeRecord).ConfigureAwait(false);
+                return NormalizeRecord(record);
             }
             catch
             {
@@ -465,8 +474,14 @@ namespace FolderRewind.Services
             try
             {
                 Directory.CreateDirectory(Path.GetDirectoryName(statePath)!);
-                string json = JsonSerializer.Serialize(NormalizeState(state), AppJsonContext.Default.BackupMetadataState);
-                await WriteAtomicAsync(statePath, json).ConfigureAwait(false);
+                var normalizedState = NormalizeState(state);
+                await AtomicFileService.WriteAsync(
+                    statePath,
+                    (stream, cancellationToken) => JsonSerializer.SerializeAsync(
+                        stream,
+                        normalizedState,
+                        AppJsonContext.Default.BackupMetadataState,
+                        cancellationToken)).ConfigureAwait(false);
                 return true;
             }
             catch (Exception ex)
@@ -488,8 +503,13 @@ namespace FolderRewind.Services
             try
             {
                 Directory.CreateDirectory(Path.GetDirectoryName(recordPath)!);
-                string json = JsonSerializer.Serialize(normalizedRecord, AppJsonContext.Default.BackupChangeRecord);
-                await WriteAtomicAsync(recordPath, json).ConfigureAwait(false);
+                await AtomicFileService.WriteAsync(
+                    recordPath,
+                    (stream, cancellationToken) => JsonSerializer.SerializeAsync(
+                        stream,
+                        normalizedRecord,
+                        AppJsonContext.Default.BackupChangeRecord,
+                        cancellationToken)).ConfigureAwait(false);
                 return true;
             }
             catch (Exception ex)
@@ -499,11 +519,15 @@ namespace FolderRewind.Services
             }
         }
 
-        private static async Task WriteAtomicAsync(string filePath, string content)
+        private static FileStream OpenReadStream(string filePath)
         {
-            string tempPath = filePath + ".tmp";
-            await File.WriteAllTextAsync(tempPath, content).ConfigureAwait(false);
-            File.Move(tempPath, filePath, true);
+            return new FileStream(
+                filePath,
+                FileMode.Open,
+                FileAccess.Read,
+                FileShare.Read,
+                bufferSize: 64 * 1024,
+                FileOptions.Asynchronous | FileOptions.SequentialScan);
         }
 
         private static void TryArchiveLegacyMetadata(string metadataDir)
