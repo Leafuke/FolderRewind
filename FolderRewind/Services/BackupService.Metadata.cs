@@ -162,7 +162,9 @@ namespace FolderRewind.Services
                 AddedFiles = changeSet.AddedFiles.ToList(),
                 ModifiedFiles = changeSet.ModifiedFiles.ToList(),
                 DeletedFiles = changeSet.DeletedFiles.ToList(),
-                FullFileList = states.Keys.OrderBy(x => x, StringComparer.OrdinalIgnoreCase).ToList()
+                FullFileList = string.Equals(backupType, "Full", StringComparison.OrdinalIgnoreCase)
+                    ? states.Keys.OrderBy(x => x, StringComparer.OrdinalIgnoreCase).ToList()
+                    : new List<string>()
             };
 
             bool saved = await BackupMetadataStoreService.SaveAsync(metaDir, state, record).ConfigureAwait(false);

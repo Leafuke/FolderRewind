@@ -590,7 +590,20 @@ namespace FolderRewind.Services
             record.ModifiedFiles ??= new List<string>();
             record.DeletedFiles ??= new List<string>();
             record.FullFileList ??= new List<string>();
+            if (!IsFullRecord(record) && record.FullFileList.Count > 0)
+            {
+                record.FullFileList = new List<string>();
+            }
+
             return record;
+        }
+
+        private static bool IsFullRecord(BackupChangeRecord record)
+        {
+            string backupType = string.IsNullOrWhiteSpace(record.BackupType)
+                ? BackupArchiveTypePolicy.InferFromFileName(record.ArchiveFileName)
+                : record.BackupType;
+            return string.Equals(backupType, "Full", StringComparison.OrdinalIgnoreCase);
         }
 
         private static BackupMetadataState ConvertToState(BackupMetadata metadata)

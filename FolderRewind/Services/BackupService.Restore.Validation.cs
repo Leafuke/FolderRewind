@@ -70,6 +70,7 @@ namespace FolderRewind.Services
                     StringComparer.OrdinalIgnoreCase);
 
             if (!recordMap.TryGetValue(chain[0].Name, out var baseRecord)
+                || !IsFullBackupRecord(baseRecord)
                 || baseRecord.FullFileList == null
                 || baseRecord.FullFileList.Count == 0)
             {
@@ -103,17 +104,6 @@ namespace FolderRewind.Services
                 {
                     owners[modified] = record.ArchiveFileName;
                 }
-
-                if (record.FullFileList == null || record.FullFileList.Count == 0)
-                {
-                    return false;
-                }
-
-                var expected = new HashSet<string>(record.FullFileList.Where(f => !string.IsNullOrWhiteSpace(f)), StringComparer.OrdinalIgnoreCase);
-                if (owners.Count != expected.Count || owners.Keys.Any(path => !expected.Contains(path)))
-                {
-                    return false;
-                }
             }
 
             var archiveLookup = chain.ToDictionary(f => f.Name, StringComparer.OrdinalIgnoreCase);
@@ -138,6 +128,14 @@ namespace FolderRewind.Services
                 ArchiveGroups = groups
             };
             return true;
+        }
+
+        private static bool IsFullBackupRecord(BackupChangeRecord record)
+        {
+            string backupType = string.IsNullOrWhiteSpace(record.BackupType)
+                ? BackupArchiveTypePolicy.InferFromFileName(record.ArchiveFileName)
+                : record.BackupType;
+            return string.Equals(backupType, "Full", StringComparison.OrdinalIgnoreCase);
         }
     }
 }

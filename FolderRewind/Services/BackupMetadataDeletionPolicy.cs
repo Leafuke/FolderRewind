@@ -48,7 +48,33 @@ namespace FolderRewind.Services
 
             if (deletedRecord != null && successorRecord != null)
             {
-                RebaseSuccessor(previousRecord, deletedRecord, successorRecord, renamedNewFileName, renamedBackupType);
+                int successorIndex = orderedRecords.IndexOf(successorRecord);
+                string successorBackupType = string.IsNullOrWhiteSpace(renamedBackupType)
+                    ? GetEffectiveBackupType(successorRecord)
+                    : renamedBackupType;
+
+                if (!TryReconstructFileSets(
+                        orderedRecords,
+                        deletedIndex,
+                        successorIndex,
+                        out var previousSet,
+                        out var finalSet)
+                    || (previousRecord == null
+                        && !string.Equals(successorBackupType, "Full", StringComparison.OrdinalIgnoreCase)))
+                {
+                    invalidateState = true;
+                }
+                else
+                {
+                    RebaseSuccessor(
+                        previousRecord,
+                        deletedRecord,
+                        successorRecord,
+                        previousSet,
+                        finalSet,
+                        renamedNewFileName,
+                        renamedBackupType);
+                }
             }
 
             if (!string.IsNullOrWhiteSpace(renamedOldFileName) && !string.IsNullOrWhiteSpace(renamedNewFileName))
@@ -140,6 +166,8 @@ namespace FolderRewind.Services
             BackupChangeRecord? previousRecord,
             BackupChangeRecord deletedRecord,
             BackupChangeRecord successorRecord,
+            HashSet<string> previousSet,
+            HashSet<string> finalSet,
             string? renamedNewFileName,
             string? renamedBackupType)
         {
@@ -150,25 +178,18 @@ namespace FolderRewind.Services
                 ? successorRecord.BackupType
                 : renamedBackupType;
 
-            var finalSet = new HashSet<string>(
-                successorRecord.FullFileList.Where(path => !string.IsNullOrWhiteSpace(path)),
-                StringComparer.OrdinalIgnoreCase);
-
-            if (string.Equals(successorRecord.BackupType, "Full", StringComparison.OrdinalIgnoreCase)
-                || previousRecord == null)
+            if (IsFullRecord(successorRecord) || previousRecord == null)
             {
+                var sortedFinalSet = finalSet.OrderBy(path => path, StringComparer.OrdinalIgnoreCase).ToList();
                 successorRecord.BasedOnFullBackup = successorRecord.ArchiveFileName;
                 successorRecord.PreviousBackupFileName = string.Empty;
-                successorRecord.AddedFiles = finalSet.OrderBy(path => path, StringComparer.OrdinalIgnoreCase).ToList();
+                successorRecord.AddedFiles = sortedFinalSet.ToList();
                 successorRecord.ModifiedFiles = new List<string>();
                 successorRecord.DeletedFiles = new List<string>();
-                successorRecord.FullFileList = finalSet.OrderBy(path => path, StringComparer.OrdinalIgnoreCase).ToList();
+                successorRecord.FullFileList = sortedFinalSet;
                 return;
             }
 
-            var previousSet = new HashSet<string>(
-                previousRecord.FullFileList.Where(path => !string.IsNullOrWhiteSpace(path)),
-                StringComparer.OrdinalIgnoreCase);
             var ownerMap = previousSet.ToDictionary(path => path, _ => string.Empty, StringComparer.OrdinalIgnoreCase);
 
             ApplyOwnershipChanges(ownerMap, deletedRecord);
@@ -190,7 +211,101 @@ namespace FolderRewind.Services
                     && !string.IsNullOrWhiteSpace(owner))
                 .OrderBy(path => path, StringComparer.OrdinalIgnoreCase)
                 .ToList();
-            successorRecord.FullFileList = finalSet.OrderBy(path => path, StringComparer.OrdinalIgnoreCase).ToList();
+            successorRecord.FullFileList = new List<string>();
+        }
+
+        private static bool TryReconstructFileSets(
+            IReadOnlyList<BackupChangeRecord> orderedRecords,
+            int deletedIndex,
+            int successorIndex,
+            out HashSet<string> previousSet,
+            out HashSet<string> finalSet)
+        {
+            previousSet = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+            finalSet = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+            if (deletedIndex < 0 || successorIndex <= deletedIndex || successorIndex >= orderedRecords.Count)
+            {
+                return false;
+            }
+
+            int fullIndex = -1;
+            for (int i = deletedIndex; i >= 0; i--)
+            {
+                if (IsFullRecord(orderedRecords[i]) && orderedRecords[i].FullFileList.Count > 0)
+                {
+                    fullIndex = i;
+                    break;
+                }
+            }
+
+            if (fullIndex < 0)
+            {
+                return false;
+            }
+
+            var workingSet = new HashSet<string>(
+                orderedRecords[fullIndex].FullFileList.Where(path => !string.IsNullOrWhiteSpace(path)),
+                StringComparer.OrdinalIgnoreCase);
+            if (fullIndex == deletedIndex - 1)
+            {
+                previousSet = new HashSet<string>(workingSet, StringComparer.OrdinalIgnoreCase);
+            }
+
+            for (int i = fullIndex + 1; i <= successorIndex; i++)
+            {
+                ApplyFileChanges(workingSet, orderedRecords[i]);
+                if (i == deletedIndex - 1)
+                {
+                    previousSet = new HashSet<string>(workingSet, StringComparer.OrdinalIgnoreCase);
+                }
+            }
+
+            var successorSnapshot = orderedRecords[successorIndex].FullFileList;
+            if (successorSnapshot.Count > 0)
+            {
+                workingSet.Clear();
+                workingSet.UnionWith(successorSnapshot.Where(path => !string.IsNullOrWhiteSpace(path)));
+            }
+
+            finalSet = workingSet;
+            return true;
+        }
+
+        private static void ApplyFileChanges(ISet<string> fileSet, BackupChangeRecord record)
+        {
+            if (IsFullRecord(record) && record.FullFileList.Count > 0)
+            {
+                fileSet.Clear();
+                fileSet.UnionWith(record.FullFileList.Where(path => !string.IsNullOrWhiteSpace(path)));
+                return;
+            }
+
+            foreach (var deleted in record.DeletedFiles.Where(path => !string.IsNullOrWhiteSpace(path)))
+            {
+                fileSet.Remove(deleted);
+            }
+
+            foreach (var added in record.AddedFiles.Where(path => !string.IsNullOrWhiteSpace(path)))
+            {
+                fileSet.Add(added);
+            }
+
+            foreach (var modified in record.ModifiedFiles.Where(path => !string.IsNullOrWhiteSpace(path)))
+            {
+                fileSet.Add(modified);
+            }
+        }
+
+        private static bool IsFullRecord(BackupChangeRecord record)
+        {
+            return string.Equals(GetEffectiveBackupType(record), "Full", StringComparison.OrdinalIgnoreCase);
+        }
+
+        private static string GetEffectiveBackupType(BackupChangeRecord record)
+        {
+            return string.IsNullOrWhiteSpace(record.BackupType)
+                ? BackupArchiveTypePolicy.InferFromFileName(record.ArchiveFileName)
+                : record.BackupType;
         }
 
         private static void ApplyOwnershipChanges(
