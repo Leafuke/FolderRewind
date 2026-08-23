@@ -36,7 +36,9 @@ namespace FolderRewind.Services
 
         private static SignalSender? _signalSender;
         private static OpenSocketResponser? _commandResponser;
-        private static readonly object _initLock = new();
+        // 初始化/关停的串行化锁。临界区内包含网络 await（连接服务端 TCP 端口），
+        // Monitor 的 lock 不允许跨 await 持有，故改用 SemaphoreSlim。
+        private static readonly SemaphoreSlim _initLock = new(1, 1);
         private static readonly KnotLinkInitializationState _initializationState = new();
         private static bool _isEnabled;
 
@@ -101,9 +103,11 @@ namespace FolderRewind.Services
         #region 初始化与销毁
 
         /// <summary>
-        /// 初始化 KnotLink 服务
+        /// 初始化 KnotLink 服务。
+        /// 连接服务端 TCP 端口在主机不可达时会阻塞至系统重传超时（可达十余秒），
+        /// 因此本方法为异步实现，调用方不得在 UI 线程上同步等待。
         /// </summary>
-        public static void Initialize()
+        public static async Task InitializeAsync(CancellationToken ct = default)
         {
             var settings = ConfigService.CurrentConfig?.GlobalSettings;
             if (settings == null) return;
@@ -115,9 +119,14 @@ namespace FolderRewind.Services
                 return;
             }
 
-            lock (_initLock)
+            await _initLock.WaitAsync(ct).ConfigureAwait(false);
+            try
             {
                 if (IsInitialized) return;
+
+                // 拿到锁后需重新校验开关：等待期间用户可能已通过 ShutdownAsync 关闭服务，
+                // 此时不应再发起连接（典型场景：开启后立即关闭，或开关快速来回切换）。
+                if (!Volatile.Read(ref _isEnabled)) return;
 
                 try
                 {
@@ -131,10 +140,10 @@ namespace FolderRewind.Services
                     _activeSignalId = signalId;
 
                     // 初始化信号发送器（用于广播事件）
-                    var senderInitialized = InitializeSignalSender(appId, signalId, host, logFailure: true);
+                    var senderInitialized = await InitializeSignalSenderAsync(appId, signalId, host, logFailure: true).ConfigureAwait(false);
 
                     // 初始化命令响应器（用于接收远程命令）
-                    var responserInitialized = InitializeCommandResponser(appId, openSocketId, host, logFailure: true);
+                    var responserInitialized = await InitializeCommandResponserAsync(appId, openSocketId, host, logFailure: true).ConfigureAwait(false);
 
                     // KnotLink SDK 2.0 does not expose a durable connection-state contract.
                     // In particular, its transport read loop may end after the server closes a
@@ -153,18 +162,22 @@ namespace FolderRewind.Services
                     LogService.Log(I18n.Format("KnotLink_InitFailed", ex.Message));
                 }
             }
+            finally
+            {
+                _initLock.Release();
+            }
         }
 
         /// <summary>
         /// 初始化信号发送器
         /// </summary>
-        private static bool InitializeSignalSender(string appId, string signalId, string host, bool logFailure)
+        private static async Task<bool> InitializeSignalSenderAsync(string appId, string signalId, string host, bool logFailure)
         {
             try
             {
                 try { _signalSender?.Dispose(); } catch { }
                 _signalSender = new SignalSender(appId, signalId, host);
-                _signalSender.InitializeAsync().GetAwaiter().GetResult();
+                await _signalSender.InitializeAsync().ConfigureAwait(false);
                 _signalSender.OnErrorAsync = ex => HandleTransportErrorAsync("SignalSender", ex);
                 LogService.Log(I18n.GetString("KnotLink_SenderInitSuccess"));
                 return true;
@@ -183,7 +196,7 @@ namespace FolderRewind.Services
         /// <summary>
         /// 初始化命令响应器
         /// </summary>
-        private static bool InitializeCommandResponser(string appId, string openSocketId, string host, bool logFailure)
+        private static async Task<bool> InitializeCommandResponserAsync(string appId, string openSocketId, string host, bool logFailure)
         {
             try
             {
@@ -193,7 +206,7 @@ namespace FolderRewind.Services
                     openSocketId,
                     host,
                     onQuestionAsync: HandleQuestionAsync);
-                _commandResponser.InitializeAsync().GetAwaiter().GetResult();
+                await _commandResponser.InitializeAsync().ConfigureAwait(false);
                 _commandResponser.OnErrorAsync = ex => HandleTransportErrorAsync("OpenSocketResponser", ex);
                 LogService.Log(I18n.GetString("KnotLink_ResponderInitSuccess"));
                 return true;
@@ -234,9 +247,10 @@ namespace FolderRewind.Services
         /// <summary>
         /// 关闭 KnotLink 服务
         /// </summary>
-        public static void Shutdown()
+        public static async Task ShutdownAsync(CancellationToken ct = default)
         {
-            lock (_initLock)
+            await _initLock.WaitAsync(ct).ConfigureAwait(false);
+            try
             {
                 _isEnabled = false;
 
@@ -257,15 +271,19 @@ namespace FolderRewind.Services
 
                 LogService.Log(I18n.GetString("KnotLink_Shutdown"));
             }
+            finally
+            {
+                _initLock.Release();
+            }
         }
 
         /// <summary>
         /// 重启服务（配置更改后调用）
         /// </summary>
-        public static void Restart()
+        public static async Task RestartAsync(CancellationToken ct = default)
         {
-            Shutdown();
-            Initialize();
+            await ShutdownAsync(ct).ConfigureAwait(false);
+            await InitializeAsync(ct).ConfigureAwait(false);
         }
 
         #endregion

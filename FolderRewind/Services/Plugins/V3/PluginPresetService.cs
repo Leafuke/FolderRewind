@@ -120,7 +120,7 @@ public static class PluginPresetService
             case "setHostFeature" when action.Feature == "knotLink":
                 ConfigService.CurrentConfig.GlobalSettings.EnableKnotLink = action.Enabled;
                 ConfigService.Save();
-                if (action.Enabled) KnotLinkService.Initialize();
+                if (action.Enabled) await KnotLinkService.InitializeAsync(cancellationToken).ConfigureAwait(false);
                 return Success(action, I18n.GetString("PluginPreset_KnotLinkConfigured"));
             case "setupExternalIntegration":
                 return await DownloadAndLaunchAsync(action, consent, cancellationToken).ConfigureAwait(false);

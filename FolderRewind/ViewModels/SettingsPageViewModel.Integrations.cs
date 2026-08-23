@@ -122,16 +122,28 @@ namespace FolderRewind.ViewModels
             Settings.EnableKnotLink = isOn;
             _isDirty = true;
 
-            if (isOn)
+            // 初始化/关停涉及对服务端的 TCP 连接，远程主机不可达时可阻塞十余秒，
+            // 必须移出 UI 线程执行；服务内部用信号量串行化，开关快速来回切换也安全。
+            _ = Task.Run(async () =>
             {
-                KnotLinkService.Initialize();
-            }
-            else
-            {
-                KnotLinkService.Shutdown();
-            }
+                try
+                {
+                    if (isOn)
+                    {
+                        await KnotLinkService.InitializeAsync().ConfigureAwait(false);
+                    }
+                    else
+                    {
+                        await KnotLinkService.ShutdownAsync().ConfigureAwait(false);
+                    }
+                }
+                catch (Exception ex)
+                {
+                    LogService.Log(I18n.Format("App_Log_KnotLinkInitException", ex.Message));
+                }
 
-            UpdateKnotLinkStatus();
+                UpdateKnotLinkStatus();
+            });
         }
 
         public void HandleKnotLinkAutoStartToggled(bool isOn)
@@ -140,10 +152,11 @@ namespace FolderRewind.ViewModels
             _isDirty = true;
         }
 
-        public bool RestartKnotLinkService()
+        public async Task<bool> RestartKnotLinkServiceAsync()
         {
             ConfigService.Save();
-            KnotLinkService.Restart();
+            // 重启会重建对服务端的 TCP 连接，主机不可达时耗时较长，全程不占用 UI 线程。
+            await KnotLinkService.RestartAsync().ConfigureAwait(false);
             UpdateKnotLinkStatus();
             return KnotLinkService.IsInitialized;
         }
@@ -208,7 +221,7 @@ namespace FolderRewind.ViewModels
                         await KnotLinkServerManagerService.WaitForServerReadyAsync(host).ConfigureAwait(false);
                         if (Settings.EnableKnotLink)
                         {
-                            KnotLinkService.Restart();
+                            await KnotLinkService.RestartAsync().ConfigureAwait(false);
                         }
                     }
 

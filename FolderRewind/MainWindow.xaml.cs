@@ -106,10 +106,12 @@ namespace FolderRewind
 
         private void MainWindow_Closed(object sender, WindowEventArgs args)
         {
-            // 关闭 KnotLink 服务，释放网络资源
+            // 关闭 KnotLink 服务，释放网络资源。
+            // 异步关停且不等待：若此刻后台正在连接不可达主机，同步等待会把窗口关闭卡住；
+            // 进程退出前来不及释放的连接由操作系统统一回收。
             try
             {
-                KnotLinkService.Shutdown();
+                _ = KnotLinkService.ShutdownAsync();
             }
             catch
             {

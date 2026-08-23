@@ -231,7 +231,7 @@ namespace FolderRewind
                             }
                         }
 
-                        KnotLinkService.Initialize();
+                        await KnotLinkService.InitializeAsync().ConfigureAwait(false);
                     }
                     catch (Exception knotEx)
                     {

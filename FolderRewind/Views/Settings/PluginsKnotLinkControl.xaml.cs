@@ -17,6 +17,11 @@ namespace FolderRewind.Views.Settings
     {
         public SettingsPageViewModel ViewModel { get; private set; } = null!;
 
+        // SetViewModel 注入后 Bindings.Update() 会把持久化配置回填到各开关，
+        // 该回填同样会触发 Toggled 事件，但并非用户操作。若不加以忽略，
+        // 每次进入设置页都会借由开关事件重新执行一遍 KnotLink 连接等重逻辑。
+        private bool _bindingsApplied;
+
         public PluginsKnotLinkControl()
         {
             this.InitializeComponent();
@@ -26,6 +31,9 @@ namespace FolderRewind.Views.Settings
         {
             ViewModel = viewModel;
             Bindings.Update();
+            // Bindings.Update() 在 UI 线程同步应用绑定，绑定回填引发的虚假 Toggled
+            // 已在上面一行内触发完毕，此刻置位即可安全放行后续的用户操作事件。
+            _bindingsApplied = true;
         }
 
         private async void OnOpenPluginStoreClick(object sender, RoutedEventArgs e)
@@ -257,6 +265,8 @@ namespace FolderRewind.Views.Settings
 
         private void OnPluginsAutoCheckUpdatesToggled(object sender, RoutedEventArgs e)
         {
+            if (!_bindingsApplied) return; // 绑定回填触发，非用户操作
+
             if (sender is ToggleSwitch ts)
             {
                 ViewModel.HandlePluginsAutoCheckUpdatesToggled(ts.IsOn);
@@ -435,6 +445,9 @@ namespace FolderRewind.Views.Settings
 
         private void OnKnotLinkToggled(object sender, RoutedEventArgs e)
         {
+            // 绑定回填写入持久化值时同样触发 Toggled，忽略以免每次进设置页都重跑一次连接。
+            if (!_bindingsApplied) return;
+
             if (sender is ToggleSwitch ts)
             {
                 ViewModel.HandleKnotLinkToggled(ts.IsOn);
@@ -444,6 +457,8 @@ namespace FolderRewind.Views.Settings
 
         private void OnKnotLinkAutoStartToggled(object sender, RoutedEventArgs e)
         {
+            if (!_bindingsApplied) return; // 绑定回填触发，非用户操作
+
             if (sender is ToggleSwitch ts)
             {
                 ViewModel.HandleKnotLinkAutoStartToggled(ts.IsOn);
@@ -452,7 +467,7 @@ namespace FolderRewind.Views.Settings
 
         private async void OnKnotLinkRestartClick(object sender, RoutedEventArgs e)
         {
-            var initialized = ViewModel.RestartKnotLinkService();
+            var initialized = await ViewModel.RestartKnotLinkServiceAsync();
 
             var dialog = new ContentDialog
             {
