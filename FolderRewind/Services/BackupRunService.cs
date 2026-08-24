@@ -8,6 +8,11 @@ using System.Threading.Tasks;
 
 namespace FolderRewind.Services;
 
+/// <summary>
+/// 备份运行记录的内存态仓储：懒加载 backup-runs.json（Magic 与 SchemaVersion 不匹配时视为空），
+/// 所有变更在锁内执行并立即经 <see cref="PersistLocked"/> 原子落盘；
+/// 持久化失败的变更会回滚内存状态（见 Remove）。
+/// </summary>
 public static class BackupRunService
 {
     private const string FileName = "backup-runs.json";
@@ -121,6 +126,10 @@ public static class BackupRunService
         }
     }
 
+    /// <summary>
+    /// 导入运行记录：merge=false 时先清空现有记录；RunId 重复的跳过并计入重复数，
+    /// configId 非空时只导入该配置的记录。返回 (成功与否, 导入数, 重复数)。
+    /// </summary>
     public static (bool Success, int ImportedCount, int DuplicateCount) Import(
         IEnumerable<BackupRunRecord> runs,
         bool merge = true,
@@ -156,6 +165,9 @@ public static class BackupRunService
         }
     }
 
+    /// <summary>
+    /// 添加一条运行记录：RunId 已存在时拒绝（返回 false），成功后立即持久化。
+    /// </summary>
     public static bool Add(BackupRunRecord run)
     {
         ArgumentNullException.ThrowIfNull(run);
@@ -171,6 +183,9 @@ public static class BackupRunService
         }
     }
 
+    /// <summary>
+    /// 按配置的 KeepCount 裁剪运行记录（Important 运行受保护），返回被移除的记录。
+    /// </summary>
     public static IReadOnlyList<BackupRunRecord> ApplyRetention(BackupConfig config)
     {
         ArgumentNullException.ThrowIfNull(config);
@@ -233,6 +248,9 @@ public static class BackupRunService
         }
     }
 
+    /// <summary>
+    /// 移除一条运行记录：持久化失败时把记录放回内存（回滚），返回 null 表示未移除。
+    /// </summary>
     public static BackupRunRecord? Remove(string runId)
     {
         Initialize();
@@ -254,6 +272,10 @@ public static class BackupRunService
         }
     }
 
+    /// <summary>
+    /// 整运行还原：逐源查找其文件夹与历史条目并分别调用核心还原，
+    /// 由 BackupRunRestoreOrchestrator 汇总各源结果。
+    /// </summary>
     public static async Task<BackupRunRestoreResult> RestoreAsync(
         BackupConfig config,
         BackupRunRecord run,
@@ -284,6 +306,9 @@ public static class BackupRunService
         }).ConfigureAwait(false);
     }
 
+    /// <summary>
+    /// 过滤无效记录并按 RunId 去重（保留首条）。
+    /// </summary>
     private static List<BackupRunRecord> Normalize(IEnumerable<BackupRunRecord>? runs)
     {
         return (runs ?? Array.Empty<BackupRunRecord>())
@@ -293,6 +318,9 @@ public static class BackupRunService
             .ToList();
     }
 
+    /// <summary>
+    /// 原子写 backup-runs.json。必须在 Gate 锁内调用（故名 Locked）。
+    /// </summary>
     private static bool PersistLocked()
     {
         try

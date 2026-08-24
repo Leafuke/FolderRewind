@@ -14,6 +14,15 @@ namespace FolderRewind.Services
 {
     public static partial class BackupService
     {
+        /// <summary>
+        /// 模式 1：全量备份。压缩源目录内全部匹配文件，并把当前文件清单写入元数据，
+        /// 作为后续增量备份的基准。
+        /// </summary>
+        /// <remarks>
+        /// SkipIfUnchanged 短路需同时满足两个前提：确无变更，且元数据引用的上个归档文件仍然存在
+        /// （防止基于已被手动删除的基线判定"无变化"）。FileTypeRules 追加压缩失败只记警告，
+        /// 不使全量备份整体失败；元数据写入失败则视为本次备份失败。
+        /// </remarks>
         private static async Task<BackupArchiveExecutionResult> DoFullBackupAsync(string source, string destDir, string metaDir, string baseName, BackupConfig config, BackupSourceScope selection, string comment = "", BackupTask? taskToUpdate = null)
         {
             BackupMetadataState? oldState = null;
@@ -94,6 +103,16 @@ namespace FolderRewind.Services
 
         // --- 模式 2: 智能增量备份 ---
         // 返回归档执行结果，并显式区分无变化、不可用和失败。
+        /// <summary>
+        /// 模式 2：智能增量备份。与元数据基线对比后仅压缩有变更的文件；
+        /// 删除类变更用只含内部标记文件的"仅删除"归档表达。
+        /// </summary>
+        /// <remarks>
+        /// 三种情况强制回退为全量：基线元数据缺失（含损坏）、基线引用的归档文件已被删除
+        /// （增量链断裂）、或最近一次 Full 之后的 Smart 数量达到 MaxSmartBackupsPerFull 上限
+        /// （截断链条）。变更文件会先按 FileTypeRules 拆分：不匹配规则的进主列表文件，
+        /// 匹配的留给追加压缩阶段处理；若变更全部由删除构成，则跳过主压缩直接生成仅删除归档。
+        /// </remarks>
         private static async Task<BackupArchiveExecutionResult> DoSmartBackupAsync(string source, string destDir, string metaDir, string baseName, BackupConfig config, BackupSourceScope selection, string comment = "", BackupTask? taskToUpdate = null)
         {
             var metadataLoadResult = await BackupMetadataStoreService.LoadStateAsync(metaDir).ConfigureAwait(false);
@@ -303,6 +322,15 @@ namespace FolderRewind.Services
 
         // --- 模式 3: 覆写备份 ---
         // 返回归档执行结果，并显式区分无变化、不可用和失败。
+        /// <summary>
+        /// 模式 3：覆写备份。不生成新文件，而是更新目标目录中最近的归档并重命名刷新时间戳；
+        /// 目标目录为空时回退为全量备份。
+        /// </summary>
+        /// <remarks>
+        /// Include 来源必须整体重建：先用 7z a 在同目录构建精确临时归档、成功后原子替换，
+        /// 避免旧归档残留已取消选择或已删除的文件；All 来源继续用 7z u 增量更新原文件。
+        /// 时间戳重命名失败时保留原文件名，不影响备份内容。
+        /// </remarks>
         private static async Task<BackupArchiveExecutionResult> DoOverwriteBackupAsync(string source, string destDir, string metaDir, string baseName, BackupConfig config, BackupSourceScope selection, string comment = "", BackupTask? taskToUpdate = null)
         {
             BackupMetadataState? oldState = null;
@@ -463,6 +491,10 @@ namespace FolderRewind.Services
                 : BackupArchiveExecutionResult.Failed;
         }
 
+        /// <summary>
+        /// 创建"仅删除"归档：只包含一个内部标记文件（不含任何用户数据），
+        /// 恢复阶段据此识别该历史点的变更全部为文件删除。临时目录在 finally 中尽力清理。
+        /// </summary>
         private static async Task<bool> CreateDeletionOnlyArchiveAsync(string archivePath, ArchiveSettings settings, string? password, BackupTask? taskToUpdate)
         {
             string tempDir = Path.Combine(Path.GetTempPath(), "FolderRewind_DeleteOnly_" + Guid.NewGuid().ToString("N"));

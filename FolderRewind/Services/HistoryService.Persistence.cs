@@ -72,6 +72,9 @@ namespace FolderRewind.Services
             ScheduleSave();
         }
 
+        /// <summary>
+        /// 立即持久化历史：先取消挂起的防抖保存避免重复写盘，成功后按需发布变更事件。
+        /// </summary>
         public static Task<HistorySaveResult> SaveNowAsync(
             CancellationToken cancellationToken = default)
             => SaveNowAsync(publishChangedEvent: true, cancellationToken);
@@ -94,6 +97,10 @@ namespace FolderRewind.Services
         /// 添加一条新的历史记录
         /// </summary>
 
+        /// <summary>
+        /// 防抖保存：立即发布变更事件，随后延迟 300ms 落盘；期间的新请求会取消并合并
+        /// 上一次尚未执行的写入（OperationCanceledException 即"被合并"，非错误）。
+        /// </summary>
         private static void ScheduleSave()
         {
             PublishChanged();
@@ -127,6 +134,10 @@ namespace FolderRewind.Services
 
         internal static void PublishChanged() => HistoryChanged?.Invoke();
 
+        /// <summary>
+        /// 实际写盘：在 _saveLock 内对 _allHistory 做锁内快照，再经 AtomicFileService 原子写入，
+        /// 保证序列化的内容是某一时刻的完整一致状态且不会与并发保存交错。
+        /// </summary>
         private static async Task<HistorySaveResult> PersistAsync(CancellationToken ct)
         {
             Initialize();

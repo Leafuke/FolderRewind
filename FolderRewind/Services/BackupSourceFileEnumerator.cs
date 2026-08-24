@@ -21,7 +21,12 @@ public sealed class BackupSourceFile
 /// </summary>
 public static class BackupSourceFileEnumerator
 {
-    public static IReadOnlyList<BackupSourceFile> Enumerate(
+        /// <summary>
+        /// 枚举源目录内全部受保护文件（权威枚举路径）：跳过 System 属性与重解析点，
+        /// Include 源范围先于任何配置过滤器判定（下游规则只能收窄边界），再应用附加过滤器。
+        /// 结果按相对路径排序；单个文件的信息读取失败（IO/权限）静默跳过。
+        /// </summary>
+        public static IReadOnlyList<BackupSourceFile> Enumerate(
         string sourceRoot,
         BackupSourceScope? sourceScope,
         Func<string, bool>? additionalFilter = null,
@@ -89,7 +94,10 @@ public static class BackupSourceFileEnumerator
             .ToList();
     }
 
-    public static IReadOnlyList<string> ValidateAndNormalize(BackupSourceScope sourceScope)
+        /// <summary>
+        /// 校验并规范化 Include 源范围的模式列表；All 模式直接通过，未知模式抛出异常。
+        /// </summary>
+        public static IReadOnlyList<string> ValidateAndNormalize(BackupSourceScope sourceScope)
     {
         ArgumentNullException.ThrowIfNull(sourceScope);
         if (sourceScope.Mode == BackupSourceScopeMode.All)
@@ -104,7 +112,10 @@ public static class BackupSourceFileEnumerator
         return BackupSourceScopePatternSet.NormalizeAndValidate(sourceScope.IncludePatterns);
     }
 
-    public static bool IsSafeRelativeFilePath(string relativePath)
+        /// <summary>
+        /// 判断相对路径是否安全：非空、无换行、非根路径、不含 ".." 路径段（防路径穿越）。
+        /// </summary>
+        public static bool IsSafeRelativeFilePath(string relativePath)
     {
         if (string.IsNullOrWhiteSpace(relativePath)
             || relativePath.Contains('\r')

@@ -14,6 +14,10 @@ namespace FolderRewind.Services
 {
     public static partial class BackupService
     {
+        /// <summary>
+        /// 恢复前逐个运行 7z t 校验整条链的完整性，任一归档损坏立即失败；
+        /// 带密码时日志与进程输出中的密码一律替换为 ***。
+        /// </summary>
         private static async Task<bool> ValidateRestoreChainAsync(List<FileInfo> chain, string sevenZipExe, string? password, BackupTask? restoreTask)
         {
             if (chain == null || chain.Count == 0) return false;
@@ -51,6 +55,12 @@ namespace FolderRewind.Services
             return true;
         }
 
+        /// <summary>
+        /// 构建精确 Smart Clean 提取计划：以基线 Full 的完整清单为起点，沿链回放各记录的
+        /// 增删改，得到"最终文件 → 拥有它的归档"映射，再按链序分组成最小提取集合
+        /// （每个文件只从最近拥有它的归档中提取一次，避免整链解压）。
+        /// 任一链成员缺少记录、基线不是带完整清单的 Full 时返回 false（调用方回退整链提取）。
+        /// </summary>
         private static bool TryBuildSmartRestorePlan(IReadOnlyList<FileInfo> chain, BackupMetadata metadata, out SmartRestorePlan? plan)
         {
             plan = null;
@@ -130,6 +140,9 @@ namespace FolderRewind.Services
             return true;
         }
 
+        /// <summary>
+        /// 判断记录是否为 Full；BackupType 为空时按归档文件名前缀推断。
+        /// </summary>
         private static bool IsFullBackupRecord(BackupChangeRecord record)
         {
             string backupType = string.IsNullOrWhiteSpace(record.BackupType)

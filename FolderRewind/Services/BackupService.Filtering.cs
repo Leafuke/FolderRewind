@@ -221,6 +221,11 @@ namespace FolderRewind.Services
         }
 
         // --- 辅助：元数据处理 ---
+        /// <summary>
+        /// 扫描源目录构建"相对路径 → 文件状态"字典——这是全模式差异比对（增量基准）的唯一数据源。
+        /// Hash 刻意留空：默认口径是大小 + 修改时间比对（与 MineBackup 一致），计算哈希代价过高。
+        /// 配置了黑/白名单却扫出 0 项时，探测无过滤枚举是否有文件，有则警告过滤器可能过宽。
+        /// </summary>
         private static Dictionary<string, FileState> ScanDirectory(
             string path,
             FilterSettings? filters = null,

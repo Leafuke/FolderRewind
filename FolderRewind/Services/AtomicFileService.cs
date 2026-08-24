@@ -5,8 +5,16 @@ using System.Threading.Tasks;
 
 namespace FolderRewind.Services;
 
+/// <summary>
+/// 崩溃安全文件写入原语：先写同目录隐藏临时文件（WriteThrough 直落盘），
+/// 再用 File.Replace 原子替换（目标不存在则 Move）。所有配置/历史/元数据持久化都经由此类，
+/// 保证任一时刻磁盘上要么是完整的旧文件、要么是完整的新文件。
+/// </summary>
 internal static class AtomicFileService
 {
+    /// <summary>
+    /// 同步原子写入；write 委托负责把全部内容写入临时流。
+    /// </summary>
     public static void Write(string destinationPath, Action<Stream> write)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(destinationPath);
@@ -62,6 +70,9 @@ internal static class AtomicFileService
         }
     }
 
+    /// <summary>
+    /// 异步原子写入；异常或替换失败时 finally 尽力删除残留的临时文件。
+    /// </summary>
     public static async Task WriteAsync(
         string destinationPath,
         Func<Stream, CancellationToken, Task> writeAsync,

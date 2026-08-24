@@ -12,6 +12,10 @@ using Windows.Graphics;
 
 namespace FolderRewind.Services
 {
+    /// <summary>
+    /// 应用配置（config.json）的加载、规范化、原子持久化与恢复模式管理。
+    /// 恢复模式（Recovery Center）下所有写操作被拒绝，直至用户处理完损坏的配置文件。
+    /// </summary>
     public static class ConfigService
     {
         #region 常量与状态
@@ -171,6 +175,10 @@ namespace FolderRewind.Services
             return config;
         }
 
+        /// <summary>
+        /// 进入恢复模式：丢弃问题配置改用空默认值，记录诊断信息供恢复中心展示；
+        /// 恢复模式下配置写入被禁用，避免覆盖可能尚可抢救的文件。
+        /// </summary>
         private static void EnterRecoveryMode(ConfigRecoveryDiagnostic? diagnostic)
         {
             CurrentConfig = new AppConfig();
@@ -222,6 +230,10 @@ namespace FolderRewind.Services
             return config;
         }
 
+        /// <summary>
+        /// 配置规范化：补全全局设置默认值、各备份配置的自动化/源范围/发现来源基线/
+        /// 云同步设置，以及备份预设的 ID 与规则字段。仅修补字段，不改用户已有取值。
+        /// </summary>
         private static void NormalizeConfig(AppConfig config)
         {
             NormalizeGlobalSettings(config.GlobalSettings);
@@ -294,6 +306,11 @@ namespace FolderRewind.Services
             }
         }
 
+        /// <summary>
+        /// 为按当前 Schema 持久化做准备：盖版本戳、清理已迁移到强类型字段的旧
+        /// SchemaExtensions 键、给缺失 ConfigKind 的配置/预设补核心默认 Kind、
+        /// 重新生成重复或非法的文件夹 ID、补配置修订号与提供者状态字典。
+        /// </summary>
         private static void PrepareSchemaOnePersistence(AppConfig config)
         {
             config.SchemaVersion = ConfigSchema.CurrentVersion;
@@ -468,6 +485,9 @@ namespace FolderRewind.Services
             }
         }
 
+        /// <summary>
+        /// 保存配置：先规范化再原子写入；恢复模式下直接返回失败。可选发布 Saved 事件。
+        /// </summary>
         public static ConfigSaveResult SaveWithResult(bool publishSavedEvent = true)
         {
             if (IsRecoveryMode)
@@ -598,6 +618,11 @@ namespace FolderRewind.Services
         /// <summary>
         /// 从指定路径导入配置（替换当前配置）
         /// </summary>
+        /// <remarks>
+        /// 双重校验：导入文档先过文档门（迁移/校验），规范化后再序列化并重新过门。
+        /// 写入前创建安全副本，落盘后回读验证；任何失败（含激活后进入恢复模式）
+        /// 都会恢复安全副本并重新初始化。
+        /// </remarks>
         public static bool ImportConfig(string sourcePath)
         {
             if (IsRecoveryMode)

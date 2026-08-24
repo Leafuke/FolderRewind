@@ -5,6 +5,10 @@ using System.Linq;
 
 namespace FolderRewind.Services
 {
+    /// <summary>
+    /// 删除策略的计算结果：重写后的状态与记录集。InvalidateState=true 表示状态无法修补，
+    /// 调用方应删除 state.json（下次增量将因基线缺失而强制全量重建）。
+    /// </summary>
     internal sealed class BackupMetadataDeletionResult
     {
         public BackupMetadataState State { get; init; } = new();
@@ -12,8 +16,22 @@ namespace FolderRewind.Services
         public bool InvalidateState { get; init; }
     }
 
+    /// <summary>
+    /// 纯逻辑策略：归档删除（可选伴随后继增量改名转全量的"安全删除"）之后，
+    /// 计算元数据记录集与状态的重写方案。无 IO、无 UI 依赖，可直接单元测试。
+    /// </summary>
     internal static class BackupMetadataDeletionPolicy
     {
+        /// <summary>
+        /// 应用一次归档删除，返回重写后的记录集与状态。函数式语义：克隆输入后计算，不改调用方对象。
+        /// </summary>
+        /// <remarks>
+        /// 流程：定位被删记录与其前驱/后继（安全删除时后继由改名参数显式指定）；
+        /// 若存在后继则重建删除前后的文件集并把后继重定基到前驱（或整体转全量）；
+        /// 随后把记录与状态中指向旧文件名的引用（记录的 ArchiveFileName/PreviousBackupFileName/
+        /// BasedOnFullBackup 与状态的两字段）改写为新名；最后移除被删记录。
+        /// 状态仍指向被删文件、或链首 Full 被删而无人接替时置 InvalidateState。
+        /// </remarks>
         public static BackupMetadataDeletionResult Apply(
             BackupMetadataState sourceState,
             IEnumerable<BackupChangeRecord> sourceRecords,
@@ -162,6 +180,12 @@ namespace FolderRewind.Services
             };
         }
 
+        /// <summary>
+        /// 把后继记录重定基，吸收被删记录的变更。两条分支：
+        /// 后继已是（或将被改为）Full、或没有前驱时，直接把删除后的文件集写成它的全量快照；
+        /// 否则基于前驱集合重算 Added/Deleted/Modified——其中 Modified 由所有权映射推断，
+        /// 只保留"被删记录或后继记录声明过修改"的文件，其余前驱已有文件视为未变更。
+        /// </summary>
         private static void RebaseSuccessor(
             BackupChangeRecord? previousRecord,
             BackupChangeRecord deletedRecord,
@@ -214,6 +238,11 @@ namespace FolderRewind.Services
             successorRecord.FullFileList = new List<string>();
         }
 
+        /// <summary>
+        /// 回放重建两个文件集合：previousSet=被删记录生效前的文件集，finalSet=后继记录生效后的文件集。
+        /// 从被删记录向前找最近的带完整清单的 Full 作为起点，依次应用各记录的增删改；
+        /// 后继自身带完整清单时以其为准（比回放更可信）。找不到可用 Full 基准即失败。
+        /// </summary>
         private static bool TryReconstructFileSets(
             IReadOnlyList<BackupChangeRecord> orderedRecords,
             int deletedIndex,
@@ -271,6 +300,10 @@ namespace FolderRewind.Services
             return true;
         }
 
+        /// <summary>
+        /// 把一条记录的变更应用到工作集：Full 记录直接替换为完整清单，
+        /// 否则依次移除删除、并入新增与修改。
+        /// </summary>
         private static void ApplyFileChanges(ISet<string> fileSet, BackupChangeRecord record)
         {
             if (IsFullRecord(record) && record.FullFileList.Count > 0)
@@ -296,6 +329,9 @@ namespace FolderRewind.Services
             }
         }
 
+        /// <summary>
+        /// 判断是否为 Full 记录；BackupType 为空时按归档文件名前缀推断。
+        /// </summary>
         private static bool IsFullRecord(BackupChangeRecord record)
         {
             return string.Equals(GetEffectiveBackupType(record), "Full", StringComparison.OrdinalIgnoreCase);
@@ -308,6 +344,9 @@ namespace FolderRewind.Services
                 : record.BackupType;
         }
 
+        /// <summary>
+        /// 维护"文件→最后声明修改它的归档"所有权映射，供重定基时判定哪些文件应算作 Modified。
+        /// </summary>
         private static void ApplyOwnershipChanges(
             IDictionary<string, string> ownerMap,
             BackupChangeRecord record)

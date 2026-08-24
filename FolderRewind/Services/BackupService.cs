@@ -16,6 +16,12 @@ using System.Threading.Tasks;
 
 namespace FolderRewind.Services
 {
+    /// <summary>
+    /// 备份引擎核心：编排单个备份源的完整生命周期——插件 v3 一致性会话、过滤校验、
+    /// 源/目标路径重叠检查、按压缩模式分发、产物事务提交、历史条目写入与云端同步排队，
+    /// 以及备份后的保留期清理（KeepCount）。全部为静态成员，由 UI、自动化调度、
+    /// KnotLink 远程命令和插件宿主共同调用。
+    /// </summary>
     public static partial class BackupService
     {
         public static ObservableCollection<BackupTask> ActiveTasks { get; } = new();
@@ -88,6 +94,7 @@ namespace FolderRewind.Services
             public static BackupArchiveExecutionResult Failed => new(false, null, false);
         }
 
+        // 单个备份源的执行结果：同时供备份运行记录、插件结果映射与 UI 状态展示三处消费。
         private sealed class BackupSourceExecutionOutcome
         {
             public BackupRunSourceStatus Status { get; init; }
@@ -257,6 +264,11 @@ namespace FolderRewind.Services
             return outcome.CreatedNewArchive;
         }
 
+        /// <summary>
+        /// 插件备份请求入口：包装 <see cref="BackupFolderCoreAsync"/> 并把结果映射为插件的
+        /// <see cref="OperationOutcome"/>，仅在产生新归档时触发保留期清理；
+        /// 取消与异常均转换为 Canceled/Failed 结果返回，不向插件抛出。
+        /// </summary>
         internal static async Task<PluginBackupRequestResult> BackupFolderForPluginAsync(
             BackupConfig config,
             ManagedFolder folder,
@@ -289,6 +301,18 @@ namespace FolderRewind.Services
             }
         }
 
+        /// <summary>
+        /// 执行单个备份源的完整流程：插件 v3 会话准备与一致性租约获取、过滤规则与目标路径校验、
+        /// 源/目标路径重叠检查、按压缩模式分发到 DoSmart/DoOverwrite/DoFullBackupAsync，
+        /// 成功后提交产物事务、写入历史条目、排队云端上传，并触发完成观察者。
+        /// </summary>
+        /// <remarks>
+        /// 结果三态：<c>Unavailable</c> 表示源当前没有匹配文件（可预期缺席，不算失败）；
+        /// <c>Failed</c> 内部再区分用户取消（Canceled）与真实失败；
+        /// 未生成新归档且无变化时复用最近一条历史条目（Reused）。
+        /// 一致性租约只覆盖源校验、差异计算与归档创建；产物与历史落盘之后，
+        /// 完成观察者被取消只会把结果降级为 SuccessWithWarnings，不会改写已持久化的备份结果。
+        /// </remarks>
         private static async Task<BackupSourceExecutionOutcome> BackupFolderCoreAsync(
             BackupConfig config,
             ManagedFolder folder,
@@ -526,6 +550,8 @@ namespace FolderRewind.Services
             BroadcastBackupLifecycle("command_progress", new Dictionary<string, string?> { ["progress"] = "0" });
             BroadcastBackupEvent(configIndex, config, folder, "backup_started");
 
+            // 三态结果标志：success=归档创建成功；canceled=用户取消（区别于失败）；
+            // sourceUnavailable=源目录当前没有匹配文件（可预期缺席）。
             bool success = false;
             bool canceled = false;
             bool sourceUnavailable = false;
@@ -612,6 +638,7 @@ namespace FolderRewind.Services
             {
                 try
                 {
+                    // 预生成历史条目 ID，使产物事务与稍后创建的历史条目共享同一标识。
                     pendingHistoryItemId = Guid.NewGuid().ToString("N");
                     artifactCommit = await PluginV3ArtifactService.CommitBackupAsync(
                         config,
@@ -849,6 +876,7 @@ namespace FolderRewind.Services
                     operationOutcome: completionOutcome);
             }
 
+            // 无变化且未生成新归档：复用最近一条历史条目，让运行记录仍能指向可恢复的条目。
             var reusedHistory = HistoryService.GetLatestEntryForFolder(config.Id, folder);
             return reusedHistory == null
                 ? CreateSourceOutcome(
@@ -891,6 +919,11 @@ namespace FolderRewind.Services
                 ? OperationOutcome.SuccessWithWarnings
                 : next;
 
+        /// <summary>
+        /// 备份完成后按 KeepCount 保留策略清理多余的源归档：先委托 <see cref="BackupRunPolicy"/>
+        /// 计算可删除的历史条目（保护 Important 条目与被保留运行引用的条目），
+        /// 再逐个走 <see cref="DeleteBackupAsync"/> 的安全删除路径；单个清理失败仅记警告。
+        /// </summary>
         private static async Task PruneRetainedSourceArchivesAsync(BackupConfig config)
         {
             if (config.Archive.KeepCount <= 0)
@@ -933,6 +966,10 @@ namespace FolderRewind.Services
             }
         }
 
+        /// <summary>
+        /// 删除一条备份运行记录：仅移除运行分组本身，不触碰其引用的历史条目与归档；
+        /// 删除后重新执行保留期清理，并排队云端配置历史同步。
+        /// </summary>
         public static async Task<bool> DeleteBackupRunAsync(BackupConfig config, BackupRunRecord run)
         {
             if (config == null || run == null

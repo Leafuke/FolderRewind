@@ -17,6 +17,12 @@ namespace FolderRewind.Services
     {
         // 删除、裁剪和安全删除逻辑放在一起，避免增量链维护散落到备份主流程里。
 
+        /// <summary>
+        /// 删除一个历史条目对应的备份。路由顺序：
+        /// 被保留的运行记录引用时拒绝 → 产物图条目（ArtifactRootId）委托产物保留服务 →
+        /// RecordOnly 仅删历史记录 → LocalArchiveAndRecord 删除归档文件与记录。
+        /// 成功删除或改名后排队云端配置历史同步。
+        /// </summary>
         public static async Task<DeleteBackupResult> DeleteBackupAsync(BackupConfig config, ManagedFolder folder, HistoryItem historyItem, BackupDeleteMode deleteMode)
         {
             if (config == null || folder == null || historyItem == null)
@@ -120,6 +126,11 @@ namespace FolderRewind.Services
             return deleteOperationResult;
         }
 
+        /// <summary>
+        /// 归档删除执行体：前后各清理一次 7z 残留临时文件；启用安全删除且找到后继增量时
+        /// 走 TrySafeDeleteArchive 重建合并，否则直接删除文件（不存在的文件视为成功）。
+        /// 删除成功后同步历史（改名引用重写、按需移除条目）并调用元数据同步。
+        /// </summary>
         private static async Task<DeleteArchiveExecutionResult> DeleteBackupArchiveInternalAsync(
             FileInfo fileToDelete,
             DirectoryInfo backupDir,
@@ -223,6 +234,10 @@ namespace FolderRewind.Services
             return result;
         }
 
+        /// <summary>
+        /// 为安全删除寻找后继增量：目标必须是链成员（Full 或增量），且按时间排序的
+        /// 紧邻下一个文件是增量归档。链尾或后继非增量时返回 false（退化为普通删除）。
+        /// </summary>
         private static bool TryGetSafeDeleteSuccessor(
             FileInfo fileToDelete,
             DirectoryInfo backupDir,
@@ -268,6 +283,12 @@ namespace FolderRewind.Services
         /// <summary>
         /// 安全删除备份文件：将当前节点与它的后继 Smart 节点重建成一个新的后继归档，避免直接在原归档旁生成 7z 的 .tmp 临时文件。
         /// </summary>
+        /// <remarks>
+        /// 流程：把两个归档先后解压到同一合并目录 → 重新压缩为单个归档 → 原后继先挪到暂存名，
+        /// 新归档就位后删除原节点（替换失败会把暂存文件移回原位回滚）。
+        /// 删除的是 Full 且后继是 Smart 时，新归档文件名中的 [Smart] 改写为 [Full]（晋升为全量），
+        /// 并保留后继的原修改时间以维持链序。最终产物在临时目录中构建，finally 尽力清理。
+        /// </remarks>
         private static bool TrySafeDeleteArchive(
             FileInfo fileToDelete,
             FileInfo nextFile,

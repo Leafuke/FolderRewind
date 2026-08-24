@@ -14,6 +14,9 @@ namespace FolderRewind.Services
 {
     public static partial class BackupService
     {
+        /// <summary>
+        /// 解析 7z 可执行文件路径（用户配置优先，找不到记录错误日志）。
+        /// </summary>
         private static string? ResolveSevenZipExecutable()
         {
             var configPath = ConfigService.CurrentConfig.GlobalSettings?.SevenZipPath;
@@ -45,6 +48,12 @@ namespace FolderRewind.Services
             return true;
         }
 
+        /// <summary>
+        /// 运行一次 7z 进程并等待退出：stdout 逐行解析百分比进度（经 200ms 节流向 UI 报告，
+        /// 进度可由 progressBase/progressRange 映射到总任务的某一段），stderr 保留最后一行
+        /// 供任务错误显示。命令行强制附加 -ssw（允许读取被共享写入的文件），
+        /// 日志参数可传脱敏版本。退出码非 0 即失败。
+        /// </summary>
         private static async Task<bool> RunSevenZipProcessAsync(
             string sevenZipExe, string arguments,
             string? workingDirectory = null, string? logArguments = null,
@@ -142,6 +151,9 @@ namespace FolderRewind.Services
             }
         }
 
+        /// <summary>
+        /// 确保命令行包含 -ssw 参数（已存在则原样返回），保证备份运行中的游戏文件也能读取。
+        /// </summary>
         private static string EnsureSswArgument(string? arguments)
         {
             if (string.IsNullOrWhiteSpace(arguments))

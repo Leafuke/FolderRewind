@@ -9,6 +9,12 @@ using System.Threading.Tasks;
 
 namespace FolderRewind.Services
 {
+    /// <summary>
+    /// 自动备份调度：维护两条独立定时器——60 秒的调度/间隔定时器（OnTick）与
+    /// 10 秒的条件轮询定时器（OnConditionTick，文件解锁触发）。
+    /// 触发的备份经配置级/文件夹级运行态互斥排队执行，避免同一配置的自动备份重叠；
+    /// 定时器随配置保存动态启停。
+    /// </summary>
     public static class AutomationService
     {
         private static Timer? _scheduleTimer;
@@ -154,6 +160,16 @@ namespace FolderRewind.Services
 
         // ── Timer tick handlers ─────────────────────────────────────
 
+        /// <summary>
+        /// 调度/间隔定时器回调（每 60 秒）：先处理计划任务条目，同一配置每轮只触发
+        /// 第一个命中的条目且 2 分钟内不重复触发；计划已触发则本轮跳过间隔判断。
+        /// 间隔模式按"距上次自动备份的分钟数"到期触发，间隔被钳制在 1–10080 分钟。
+        /// 触发均为 fire-and-forget（Task.Run），不阻塞定时器线程。
+        /// </summary>
+        /// <remarks>
+        /// 进入即用 <c>WaitAsync(0)</c> 做非阻塞重入守卫：上一轮尚未跑完时本轮直接放弃，
+        /// 而不是排队堆积。
+        /// </remarks>
         private static async void OnTick(object? state)
         {
             if (!await _tickLock.WaitAsync(0))
@@ -241,6 +257,12 @@ namespace FolderRewind.Services
             }
         }
 
+        /// <summary>
+        /// 条件轮询回调（每 10 秒）：按"配置|文件夹|相对路径"三元组跟踪条件文件的状态
+        /// （Missing/Locked/Unlocked），仅在状态迁移时动作（Locked→Unlocked 触发备份）；
+        /// 首次观测只记录基线不触发。轮末清理不再活跃的三元组，防止配置删除后残留。
+        /// 同样使用非阻塞重入守卫。
+        /// </summary>
         private static async void OnConditionTick(object? state)
         {
             if (!await _conditionTickLock.WaitAsync(0))
@@ -365,6 +387,10 @@ namespace FolderRewind.Services
                 string.Equals(folder.Path, targetFolderPath, StringComparison.OrdinalIgnoreCase));
         }
 
+        /// <summary>
+        /// 排队执行一次自动备份：SingleFolder 作用域先解析目标文件夹（缺失即放弃），
+        /// 再经 TryEnterRunState 互斥进入运行态，执行完毕 finally 释放。
+        /// </summary>
         private static async Task QueueAutoBackupAsync(
             BackupConfig config,
             DateTime nowLocal,
@@ -406,6 +432,11 @@ namespace FolderRewind.Services
             }
         }
 
+        /// <summary>
+        /// 尝试进入自动备份运行态（配置级与文件夹级互斥）：
+        /// 整配置运行（targetFolder=null）要求该配置没有任何进行中的运行；
+        /// 单文件夹运行要求配置级无运行且同文件夹无运行。已占用时返回 false 静默放弃。
+        /// </summary>
         private static bool TryEnterRunState(BackupConfig config, ManagedFolder? targetFolder)
         {
             lock (_runStateLock)
@@ -436,6 +467,9 @@ namespace FolderRewind.Services
             }
         }
 
+        /// <summary>
+        /// 退出运行态，释放对应的配置级或文件夹级占用。
+        /// </summary>
         private static void ExitRunState(BackupConfig config, ManagedFolder? targetFolder)
         {
             lock (_runStateLock)
@@ -456,6 +490,10 @@ namespace FolderRewind.Services
             return $"{configId}|{folderPath?.Trim() ?? string.Empty}";
         }
 
+        /// <summary>
+        /// 条件状态迁移处理：Locked→Unlocked 触发该文件夹的自动备份
+        /// （SingleFolder 作用域才更新自动化状态）；Unlocked→Locked 仅记录日志。
+        /// </summary>
         private static async Task HandleConditionStateChangedAsync(
             BackupConfig config,
             ManagedFolder folder,
@@ -530,6 +568,10 @@ namespace FolderRewind.Services
             return normalized.TrimStart(Path.DirectorySeparatorChar);
         }
 
+        /// <summary>
+        /// 在文件夹根内解析条件文件路径：拒绝根路径输入，展开后必须仍位于文件夹根内
+        /// （路径穿越守卫），否则返回 null。
+        /// </summary>
         private static string? TryBuildConditionFilePath(ManagedFolder folder, string relativePath)
         {
             if (folder == null || string.IsNullOrWhiteSpace(folder.Path) || string.IsNullOrWhiteSpace(relativePath))
@@ -582,6 +624,10 @@ namespace FolderRewind.Services
             return $"{month}/{day} {entry.Hour:D2}:{entry.Minute:D2}";
         }
 
+        /// <summary>
+        /// 执行一次自动备份并更新自动化状态：记录 LastAutoBackupUtc、应用无变化停用策略、
+        /// 保存配置；异常只记录与通知，不向外抛出。
+        /// </summary>
         private static async Task RunAutoBackupAsync(
             BackupConfig config,
             DateTime nowLocal,
@@ -642,6 +688,11 @@ namespace FolderRewind.Services
             }
         }
 
+        /// <summary>
+        /// 无变化停用策略：连续 N 次自动备份都无变更时自动关闭该配置的自动备份。
+        /// 例外：任一源文件夹的 level.dat（Minecraft 存档锁文件）仍被锁定时本轮跳过停用
+        /// ——游戏仍在运行、变更大概率还会出现，待下一轮再检查。
+        /// </summary>
         private static void ApplyNoChangeStopPolicy(BackupConfig config, bool hadChanges)
         {
             if (!config.Automation.StopAfterNoChangeEnabled)

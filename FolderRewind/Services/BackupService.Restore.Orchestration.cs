@@ -20,12 +20,19 @@ namespace FolderRewind.Services
     {
         // 还原入口、还原链和安全还原工作区集中在这里，便于后续单独审计恢复路径。
 
+        /// <summary>
+        /// 恢复模式：Clean=清空目标后还原（最安全）；Overwrite=直接覆盖，保留未被覆盖的文件。
+        /// 部分备份（IsPartialBackup）无法承载 Clean 语义，会被强制提升为 Overwrite。
+        /// </summary>
         public enum RestoreMode
         {
             Clean = 0,      // 清空目标后还原 (最安全)
             Overwrite = 1   // 直接覆盖 (保留未被覆盖的文件)
         }
 
+        /// <summary>
+        /// 解析实际生效的恢复模式：部分备份强制 Overwrite，其余按调用方请求返回。
+        /// </summary>
         public static RestoreMode ResolveEffectiveRestoreMode(HistoryItem? historyItem, RestoreMode requestedMode)
             => RestoreModePolicy.UseOverwrite(
                 historyItem?.IsPartialBackup == true,
@@ -33,6 +40,12 @@ namespace FolderRewind.Services
                 ? RestoreMode.Overwrite
                 : RestoreMode.Clean;
 
+        /// <summary>
+        /// 恢复公共入口：按配置归属分发。宿主自有配置（folderrewind.core）直接进入核心还原；
+        /// 插件拥有的配置先做操作解析与预检，再经插件的 Restore Coordinator 包裹
+        /// （供其执行外部存档退出等前置动作），实际还原由续延门（continuation gate）
+        /// 保证只执行一次——优先语义产物恢复，插件不可用时回退到核心归档还原。
+        /// </summary>
         public static async Task<bool> RestoreBackupAsync(BackupConfig config, ManagedFolder folder, HistoryItem historyItem, RestoreMode mode)
         {
             var owner = new PluginId(config.Kind?.OwnerId ?? "folderrewind.core");
@@ -120,6 +133,12 @@ namespace FolderRewind.Services
             }
         }
 
+        /// <summary>
+        /// 插件恢复预检（在插件执行外部"保存并退出"之前跑完）：
+        /// 产物图路径核对产物闭包可用性、账本校验与图修订一致性；
+        /// 核心归档路径核对恢复链完整（可选云端补链）、7z 可用，并按设置预校验归档完整性。
+        /// 任一环节失败都返回 false，协调器不再启动。
+        /// </summary>
         private static async Task<bool> PreflightV3RestoreAsync(
             BackupConfig config,
             ManagedFolder folder,
@@ -191,6 +210,18 @@ namespace FolderRewind.Services
             }
         }
 
+        /// <summary>
+        /// 核心还原管线：生效模式解析 → 恢复链构建（增量缺基全量时经用户确认回退兼容链路）
+        /// → 可选的恢复前安全备份（BackupBeforeRestore）→ 元数据完整时构建精确 Smart Clean 计划
+        /// → 7z t 全链完整性校验 → 安全恢复工作区事务（准备/提交/回滚）或原地清理
+        /// → 执行解压（精确分组或整链）→ 白名单合并与收尾通知。
+        /// </summary>
+        /// <remarks>
+        /// Clean + SafeRestore 组合下目标目录先整体挪到同级临时快照，在干净目录中还原，
+        /// 成功才提交（回迁白名单内容后删除快照），失败则优先整体回滚；
+        /// 未启用安全快照时退化为"原地清理（保留白名单）+ 覆盖还原"，无回滚保障。
+        /// 兼容链路（缺基全量）无法精确执行 Clean 语义，一律强制为覆盖式还原。
+        /// </remarks>
         private static async Task<bool> RestoreBackupCoreAsync(
             BackupConfig config,
             ManagedFolder folder,
@@ -289,6 +320,7 @@ namespace FolderRewind.Services
 
             string resolvedBackupFilePath = backupFilePath;
 
+            // 增量链要求所有成员都在本地：目标文件缺席或目标是增量时，先尝试云端补齐整条链。
             bool shouldAttemptCloudRestoreCompletion =
                 ConfigService.CurrentConfig?.GlobalSettings?.AutoDownloadMissingCloudBackupsBeforeRestore == true
                 && CloudSyncService.CanUseManualCloudActions(config)
@@ -650,7 +682,7 @@ namespace FolderRewind.Services
         }
 
         /// <summary>
-        /// 通过备份文件名还原（供 KnotLink 远程调用使用）
+        /// 通过备份文件名还原（供 KnotLink 远程调用使用），默认覆盖模式。
         /// </summary>
         public static async Task RestoreBackupAsync(BackupConfig config, ManagedFolder folder, string backupFileName)
         {

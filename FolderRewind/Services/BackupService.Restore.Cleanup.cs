@@ -14,6 +14,12 @@ namespace FolderRewind.Services
 {
     public static partial class BackupService
     {
+        /// <summary>
+        /// 构建缺基全量时的兼容恢复链：收集目标及其之后（更新）的同扩展名归档，
+        /// 按时间降序排列——恢复时先应用更新的归档、再被逐个更旧的覆盖，目标最后写入因而内容胜出；
+        /// 但仅存在于更新归档中的文件会残留，所以此链路无法精确执行 Clean 语义（调用方会强制覆盖模式）。
+        /// 不做类型识别——这正是无元数据可用时的兜底路径。
+        /// </summary>
         private static List<FileInfo> BuildReverseCompatibilityChain(DirectoryInfo backupDir, FileInfo targetFile, BackupConfig? config = null, string? folderName = null)
         {
             if (!backupDir.Exists)
@@ -57,6 +63,9 @@ namespace FolderRewind.Services
                 .ToList();
         }
 
+        /// <summary>
+        /// 清理还原落地的内部标记目录（"仅删除"归档的载体），避免污染用户目录；失败静默。
+        /// </summary>
         private static void CleanupInternalRestoreMarkers(string targetDir)
         {
             try
@@ -73,6 +82,11 @@ namespace FolderRewind.Services
             }
         }
 
+        /// <summary>
+        /// 把快照（sourceDir）中命中恢复白名单的目录与文件复制回还原后的目标目录；
+        /// 文件或其任一祖先目录命中白名单即保留。目录按路径长度升序先建，文件逐个覆盖复制。
+        /// whitelistRootDir 指定白名单规则相对的根（默认为 sourceDir 自身）。
+        /// </summary>
         private static void CopyRestoreWhitelistEntries(
             string sourceDir,
             string targetDir,
@@ -130,6 +144,10 @@ namespace FolderRewind.Services
             }
         }
 
+        /// <summary>
+        /// 判断路径自身或其在 rootDir 之内的任一祖先目录是否命中恢复白名单
+        /// （祖先命中即视为整个子树保留），到达 rootDir 即停止上溯。
+        /// </summary>
         private static bool IsPathOrAncestorInRestoreWhitelist(
             string entryPath,
             string rootDir,
@@ -163,6 +181,10 @@ namespace FolderRewind.Services
             return false;
         }
 
+        /// <summary>
+        /// 递归清除目录内所有文件与子目录的只读属性（删除/覆盖前的必要步骤）；
+        /// 子目录按路径长度降序处理（先深后浅），枚举失败仅记调试日志。
+        /// </summary>
         private static void ClearReadonlyAttributes(string dir)
         {
             try
@@ -214,6 +236,10 @@ namespace FolderRewind.Services
             return whitelistMatcher.IsMatch(comparisonEntryPath);
         }
 
+        /// <summary>
+        /// 把条目路径从物理根换算到白名单规则根下的等价路径再做匹配；
+        /// 条目不在物理根内（相对路径以 .. 开头或为根路径）时原样返回全路径。
+        /// </summary>
         private static string GetRestoreWhitelistComparisonPath(string entryPath, string physicalRootDir, string comparisonRootDir)
         {
             string entryFullPath = Path.GetFullPath(entryPath);

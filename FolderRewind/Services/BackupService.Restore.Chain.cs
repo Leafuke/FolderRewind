@@ -14,6 +14,9 @@ namespace FolderRewind.Services
 {
     public static partial class BackupService
     {
+        /// <summary>
+        /// 解析备份文件类型：优先取历史记录中的类型（可信），缺失时按文件名前缀推断（兜底）。
+        /// </summary>
         private static string ResolveBackupType(FileInfo file, BackupConfig? config = null, string? folderName = null)
         {
             if (file == null)
@@ -45,6 +48,12 @@ namespace FolderRewind.Services
             return BackupArchiveTypePolicy.IsIncremental(backupType);
         }
 
+        /// <summary>
+        /// 构建恢复链：全量目标即为单文件链；增量目标委托 <see cref="BackupChainPlanner"/>
+        /// 取"最近全量 + 时间窗内增量"，目标不在窗口内时强制补入。
+        /// MissingBaseFull 状态表示找不到目标之前的基准 Full（老版本历史数据），
+        /// 由调用方决定是否回退兼容链路；目录枚举保持延迟，避免全量场景的无谓扫描。
+        /// </summary>
         private static (RestoreChainBuildStatus Status, List<FileInfo> Chain) BuildRestoreChainWithStatus(DirectoryInfo backupDir, FileInfo targetFile, string backupType, BackupConfig? config = null, string? folderName = null)
         {
             if (!backupDir.Exists)
@@ -102,6 +111,9 @@ namespace FolderRewind.Services
             return (RestoreChainBuildStatus.Success, chain);
         }
 
+        /// <summary>
+        /// 构建恢复链并丢弃状态信息（仅当调用方不关心 MissingBaseFull 时使用）。
+        /// </summary>
         private static List<FileInfo> BuildRestoreChain(DirectoryInfo backupDir, FileInfo targetFile, string backupType, BackupConfig? config = null, string? folderName = null)
         {
             return BuildRestoreChainWithStatus(backupDir, targetFile, backupType, config, folderName).Chain;

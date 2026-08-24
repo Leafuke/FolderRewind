@@ -22,6 +22,15 @@ namespace FolderRewind.Services
     /// </summary>
     internal static class BackupChainPlanner
     {
+        /// <summary>
+        /// 构建恢复链计划。目标为全量时链就是目标本身；目标为增量时：
+        /// 选出目标时间之前最近的 Full 作基准（找不到返回 MissingBaseFull），
+        /// 收集 (基准时间, 目标时间] 窗口内的增量成员，按调用方排序组成链。
+        /// 选项语义：PrependBaseFull=链首是否补入基准 Full 本身；IncludeTargetInWindow=
+        /// 目标是否参与窗口筛选（关闭时目标只能靠 EnsureTargetIncluded 补入）；
+        /// EnsureTargetIncluded=无论窗口结果如何都把目标追加到链尾；Deduplicate=
+        /// 按身份键去重（避免基准/目标与窗口成员重复）。
+        /// </summary>
         public static BackupChainPlan<T> Build<T>(
             IEnumerable<T>? candidates,
             T target,
@@ -99,6 +108,10 @@ namespace FolderRewind.Services
             };
     }
 
+    /// <summary>
+    /// 链路规划选项：由调用方提供时间戳、身份键、类型判定与排序策略，
+    /// 以及基线补齐/目标补入/去重行为开关（语义见 <see cref="BackupChainPlanner.Build"/>）。
+    /// </summary>
     internal sealed class BackupChainPlanOptions<T> where T : class
     {
         public required Func<T, DateTime> GetTimestamp { get; init; }

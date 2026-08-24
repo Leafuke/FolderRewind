@@ -14,6 +14,10 @@ namespace FolderRewind.Services
 {
     public static partial class BackupService
     {
+        /// <summary>
+        /// 按链序逐个整包解压到目标目录（Full → 各增量依次覆盖）；
+        /// 进度按链成员数量分段映射，日志中的密码替换为 ***。
+        /// </summary>
         private static async Task<bool> ApplyRestoreChainAsync(
             IReadOnlyList<FileInfo> chain,
             string targetDir,
@@ -59,6 +63,11 @@ namespace FolderRewind.Services
             return true;
         }
 
+        /// <summary>
+        /// 按精确 Smart Clean 计划分组解压：每组把该归档拥有的文件列表写入临时
+        /// @listfile 后单次提取（try/finally 确保删除），进度按分组数分段映射；
+        /// 没有任何可提取分组时直接成功。
+        /// </summary>
         private static async Task<bool> ApplySmartRestorePlanAsync(
             SmartRestorePlan plan,
             string targetDir,
@@ -122,6 +131,10 @@ namespace FolderRewind.Services
             return true;
         }
 
+        /// <summary>
+        /// 组装 7z 解压命令行：x 全路径解压、可选 @listfile 限定文件集、-y 全部确认、
+        /// -bsp1 输出进度、可选 -p 密码。
+        /// </summary>
         private static string BuildRestoreExtractArguments(string archivePath, string targetDir, string? password, string? listFile = null)
         {
             var sb = new StringBuilder();
@@ -138,6 +151,10 @@ namespace FolderRewind.Services
             return sb.ToString();
         }
 
+        /// <summary>
+        /// 增量目标缺少基准 Full 时的用户确认对话框（默认按钮为取消）；
+        /// 无可用窗口时返回 false（视为取消，走失败收尾）。
+        /// </summary>
         private static async Task<bool> ConfirmMissingBaseFullFallbackAsync(string folderDisplayName, string backupFileName)
         {
             var xamlRoot = MainWindowService.GetXamlRoot();
