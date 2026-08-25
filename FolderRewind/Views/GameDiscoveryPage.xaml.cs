@@ -160,6 +160,34 @@ public sealed partial class GameDiscoveryPage : Page
             I18n.Format("GameDiscoveryPage_CommitSummary", result.AddedConfigurationCount, result.AddedSourceCount));
     }
 
+    private async void OnPluginBatchCommitClick(object sender, RoutedEventArgs e)
+    {
+        var skippedCount = ViewModel.PluginBatchSkippedCount;
+        var result = ViewModel.CommitPluginBatch();
+        if (!result.Success)
+        {
+            await ShowMessageAsync(
+                I18n.GetString("GameDiscoveryPage_CommitFailed"),
+                result.ErrorMessage);
+            return;
+        }
+
+        await ShowMessageAsync(
+            I18n.GetString("GameDiscovery_PluginBatch_CommitComplete"),
+            I18n.Format(
+                "GameDiscovery_PluginBatch_CommitSummary",
+                result.AddedConfigurationCount,
+                skippedCount));
+        if (Frame.CanGoBack)
+        {
+            Frame.GoBack();
+        }
+        else
+        {
+            _ = NavigationService.NavigateTo("Home");
+        }
+    }
+
     private static Task<string?> PickYamlAsync(string settingsIdentifier)
     {
         return MainWindowService.PickFilePathAsync(

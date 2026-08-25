@@ -5036,4 +5036,29 @@ Pull request: {1}</value>
   <data name="RecoveryCenter_ResetFinalButton" xml:space="preserve"><value>Reset now</value></data>
   <data name="RecoveryCenter_ActionSuccessRestart" xml:space="preserve"><value>The configuration is valid again. Close FolderRewind and reopen it to leave restricted mode.</value></data>
   <data name="RecoveryCenter_ActionFailed" xml:space="preserve"><value>The recovery action failed. The active configuration was not replaced with an unvalidated document.</value></data>
+  <data name="HomePage_PluginBatchCreateContinue" xml:space="preserve"><value>Continue</value></data>
+  <data name="HomePage_PluginBatchCreateUnavailableCore" xml:space="preserve"><value>Select a plugin-provided configuration kind to use batch creation.</value></data>
+  <data name="HomePage_PluginBatchCreateUnavailableInactive" xml:space="preserve"><value>Plugin “{0}” is disabled or not active.</value></data>
+  <data name="HomePage_PluginBatchCreateUnavailableDiscovery" xml:space="preserve"><value>Plugin “{0}” does not provide save discovery.</value></data>
+  <data name="HomePage_PluginBatchCreateUnavailableCatalog" xml:space="preserve"><value>Plugin “{0}” does not support the current batch discovery protocol. Update the plugin first.</value></data>
+  <data name="HomePage_PluginBatchCreateUnavailable" xml:space="preserve"><value>The selected plugin cannot be used for batch creation.</value></data>
+  <data name="HomePage_PluginBatchCreateAvailable" xml:space="preserve"><value>Plugin “{0}” will scan the selected folder and create missing configurations after summary confirmation.</value></data>
+  <data name="GameDiscovery_PluginBatch_ProviderUnavailable" xml:space="preserve"><value>Could not start discovery for the selected plugin: {0}</value></data>
+  <data name="GameDiscovery_PluginBatch_SkippedNoResources" xml:space="preserve"><value>“{0}” has no safe, supported default sources and was skipped.</value></data>
+  <data name="GameDiscovery_PluginBatch_SkippedBlocking" xml:space="preserve"><value>“{0}” cannot be created: {1}</value></data>
+  <data name="GameDiscovery_PluginBatch_NoSupportedResources" xml:space="preserve"><value>No usable file-system sources are available.</value></data>
+  <data name="GameDiscovery_PluginBatch_NoMatchingKind" xml:space="preserve"><value>The plugin found no items matching the selected configuration kind.</value></data>
+  <data name="GameDiscovery_PluginBatch_InvalidRequest" xml:space="preserve"><value>The batch creation request is invalid, or the selected scan folder no longer exists.</value></data>
+  <data name="GameDiscovery_PluginBatch_NothingToCommit" xml:space="preserve"><value>There are no configurations to create, or a required safety confirmation is incomplete.</value></data>
+  <data name="GameDiscovery_PluginBatch_Summary" xml:space="preserve"><value>{0} configuration(s) ready; {1} existing configuration(s) skipped; {2} unavailable item(s) skipped.</value></data>
+  <data name="GameDiscovery_PluginBatch_Heading.Text" xml:space="preserve"><value>Plugin batch creation summary</value></data>
+  <data name="GameDiscovery_PluginBatch_Plugin.Text" xml:space="preserve"><value>Plugin</value></data>
+  <data name="GameDiscovery_PluginBatch_Kind.Text" xml:space="preserve"><value>Configuration kind</value></data>
+  <data name="GameDiscovery_PluginBatch_Root.Text" xml:space="preserve"><value>Scan folder</value></data>
+  <data name="GameDiscovery_PluginBatch_Rescan.Content" xml:space="preserve"><value>Scan again</value></data>
+  <data name="GameDiscovery_PluginBatch_BroadRootWarning.Text" xml:space="preserve"><value>The following sources have a broad scope. Confirm that these are the folders you intend to back up:</value></data>
+  <data name="GameDiscovery_PluginBatch_BroadRootConfirm.Content" xml:space="preserve"><value>I confirm these source folders</value></data>
+  <data name="GameDiscovery_PluginBatch_Commit.Content" xml:space="preserve"><value>Create all configurations</value></data>
+  <data name="GameDiscovery_PluginBatch_CommitComplete" xml:space="preserve"><value>Batch creation complete</value></data>
+  <data name="GameDiscovery_PluginBatch_CommitSummary" xml:space="preserve"><value>Created {0} configuration(s) and skipped {1} configuration(s).</value></data>
 </root>

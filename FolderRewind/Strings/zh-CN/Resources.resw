@@ -5036,4 +5036,29 @@ Pull Request：{1}</value>
   <data name="RecoveryCenter_ResetFinalButton" xml:space="preserve"><value>立即重置</value></data>
   <data name="RecoveryCenter_ActionSuccessRestart" xml:space="preserve"><value>配置已恢复有效。请关闭并重新打开 FolderRewind 以退出受限模式。</value></data>
   <data name="RecoveryCenter_ActionFailed" xml:space="preserve"><value>恢复操作失败。未经校验的文档没有替换当前配置。</value></data>
+  <data name="HomePage_PluginBatchCreateContinue" xml:space="preserve"><value>继续</value></data>
+  <data name="HomePage_PluginBatchCreateUnavailableCore" xml:space="preserve"><value>请选择由插件提供的配置种类以使用批量创建。</value></data>
+  <data name="HomePage_PluginBatchCreateUnavailableInactive" xml:space="preserve"><value>插件“{0}”未启用或尚未激活。</value></data>
+  <data name="HomePage_PluginBatchCreateUnavailableDiscovery" xml:space="preserve"><value>插件“{0}”没有提供存档发现能力。</value></data>
+  <data name="HomePage_PluginBatchCreateUnavailableCatalog" xml:space="preserve"><value>插件“{0}”不支持当前批量发现协议，请先升级插件。</value></data>
+  <data name="HomePage_PluginBatchCreateUnavailable" xml:space="preserve"><value>当前插件无法用于批量创建。</value></data>
+  <data name="HomePage_PluginBatchCreateAvailable" xml:space="preserve"><value>将使用插件“{0}”扫描所选目录，并在确认摘要后创建缺失配置。</value></data>
+  <data name="GameDiscovery_PluginBatch_ProviderUnavailable" xml:space="preserve"><value>无法启动所选插件的发现能力：{0}</value></data>
+  <data name="GameDiscovery_PluginBatch_SkippedNoResources" xml:space="preserve"><value>“{0}”没有安全且受支持的默认来源，已跳过。</value></data>
+  <data name="GameDiscovery_PluginBatch_SkippedBlocking" xml:space="preserve"><value>“{0}”无法创建：{1}</value></data>
+  <data name="GameDiscovery_PluginBatch_NoSupportedResources" xml:space="preserve"><value>没有可用的文件系统来源。</value></data>
+  <data name="GameDiscovery_PluginBatch_NoMatchingKind" xml:space="preserve"><value>插件没有发现与所选配置种类匹配的项目。</value></data>
+  <data name="GameDiscovery_PluginBatch_InvalidRequest" xml:space="preserve"><value>批量创建参数无效，或所选扫描目录已不存在。</value></data>
+  <data name="GameDiscovery_PluginBatch_NothingToCommit" xml:space="preserve"><value>当前没有可创建的配置，或尚未完成必要的安全确认。</value></data>
+  <data name="GameDiscovery_PluginBatch_Summary" xml:space="preserve"><value>待创建 {0} 个配置；已存在并跳过 {1} 个；不可用并跳过 {2} 个。</value></data>
+  <data name="GameDiscovery_PluginBatch_Heading.Text" xml:space="preserve"><value>插件批量创建摘要</value></data>
+  <data name="GameDiscovery_PluginBatch_Plugin.Text" xml:space="preserve"><value>插件</value></data>
+  <data name="GameDiscovery_PluginBatch_Kind.Text" xml:space="preserve"><value>配置种类</value></data>
+  <data name="GameDiscovery_PluginBatch_Root.Text" xml:space="preserve"><value>扫描目录</value></data>
+  <data name="GameDiscovery_PluginBatch_Rescan.Content" xml:space="preserve"><value>重新扫描</value></data>
+  <data name="GameDiscovery_PluginBatch_BroadRootWarning.Text" xml:space="preserve"><value>以下来源范围较宽。创建前请确认它们确实是需要备份的目录：</value></data>
+  <data name="GameDiscovery_PluginBatch_BroadRootConfirm.Content" xml:space="preserve"><value>我确认使用这些来源目录</value></data>
+  <data name="GameDiscovery_PluginBatch_Commit.Content" xml:space="preserve"><value>创建全部配置</value></data>
+  <data name="GameDiscovery_PluginBatch_CommitComplete" xml:space="preserve"><value>批量创建完成</value></data>
+  <data name="GameDiscovery_PluginBatch_CommitSummary" xml:space="preserve"><value>已创建 {0} 个配置，跳过 {1} 个配置。</value></data>
 </root>

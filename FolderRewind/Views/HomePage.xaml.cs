@@ -667,15 +667,6 @@ namespace FolderRewind.Views
                 TextWrapping = TextWrapping.Wrap
             };
 
-            void RefreshKindDescription()
-            {
-                var selectedKind = typeCombo.SelectedItem as PluginConfigKindOption;
-                typeDesc.Text = selectedKind?.Description ?? resourceLoader.GetString("HomePage_ConfigKindDesc");
-            }
-
-            typeCombo.SelectionChanged += (_, __) => RefreshKindDescription();
-            RefreshKindDescription();
-
             // 图标选择保留 Host 的统一图标目录，插件只负责声明稳定的配置类型身份。
             var iconGrid = new GridView { SelectionMode = ListViewSelectionMode.Single, Height = 180 };
             foreach (var icon in IconCatalog.ConfigIconGlyphs) iconGrid.Items.Add(icon);
@@ -688,9 +679,26 @@ namespace FolderRewind.Views
                     </Border>
                   </DataTemplate>");
 
+            var batchCreateToggle = new ToggleSwitch
+            {
+                Header = resourceLoader.GetString("HomePage_PluginBatchCreateHeader"),
+                OffContent = resourceLoader.GetString("HomePage_PluginBatchCreateOff"),
+                OnContent = resourceLoader.GetString("HomePage_PluginBatchCreateOn"),
+                IsOn = false
+            };
+            AutomationProperties.SetAutomationId(batchCreateToggle, "PluginBatchCreateToggle");
+            var batchStatus = new TextBlock
+            {
+                Style = (Style)Application.Current.Resources["CaptionTextBlockStyle"],
+                Foreground = (Brush)Application.Current.Resources["TextFillColorSecondaryBrush"],
+                TextWrapping = TextWrapping.Wrap
+            };
+
             stack.Children.Add(nameBox);
             stack.Children.Add(typeCombo);
             stack.Children.Add(typeDesc);
+            stack.Children.Add(batchCreateToggle);
+            stack.Children.Add(batchStatus);
             stack.Children.Add(new TextBlock { Text = resourceLoader.GetString("HomePage_SelectIcon"), Style = (Style)Application.Current.Resources["BaseTextBlockStyle"], Margin = new Thickness(0, 8, 0, 0) });
             stack.Children.Add(iconGrid);
 
@@ -705,10 +713,70 @@ namespace FolderRewind.Views
             };
             ThemeService.ApplyThemeToDialog(dialog);
 
+            PluginBatchProviderAvailability? batchAvailability = null;
+            void RefreshDialogState()
+            {
+                var selectedKind = typeCombo.SelectedItem as PluginConfigKindOption;
+                typeDesc.Text = selectedKind?.Description ?? resourceLoader.GetString("HomePage_ConfigKindDesc");
+                batchAvailability = GameDiscoveryProviderFactory.GetPluginBatchAvailability(
+                    selectedKind?.RequiredPluginId);
+                batchCreateToggle.IsEnabled = batchAvailability.IsAvailable;
+                if (!batchAvailability.IsAvailable)
+                {
+                    batchCreateToggle.IsOn = false;
+                }
+                batchStatus.Text = batchAvailability.Message;
+
+                var isBatch = batchCreateToggle.IsOn && batchAvailability.IsAvailable;
+                nameBox.IsEnabled = !isBatch;
+                iconGrid.IsEnabled = !isBatch;
+                dialog.PrimaryButtonText = resourceLoader.GetString(
+                    isBatch ? "HomePage_PluginBatchCreateContinue" : "HomePage_CreateButton");
+            }
+
+            typeCombo.SelectionChanged += (_, __) => RefreshDialogState();
+            batchCreateToggle.Toggled += (_, __) => RefreshDialogState();
+            RefreshDialogState();
+
             if (await dialog.ShowAsync() == ContentDialogResult.Primary)
             {
                 var selectedKind = typeCombo.SelectedItem as PluginConfigKindOption
                     ?? configKinds.First();
+
+                if (batchCreateToggle.IsOn)
+                {
+                    batchAvailability = GameDiscoveryProviderFactory.GetPluginBatchAvailability(
+                        selectedKind.RequiredPluginId);
+                    if (!batchAvailability.IsAvailable)
+                    {
+                        var unavailable = new ContentDialog
+                        {
+                            Title = resourceLoader.GetString("HomePage_PluginBatchCreateFailedTitle"),
+                            Content = batchAvailability.Message,
+                            CloseButtonText = resourceLoader.GetString("Common_Ok"),
+                            XamlRoot = this.XamlRoot
+                        };
+                        ThemeService.ApplyThemeToDialog(unavailable);
+                        await unavailable.ShowAsync();
+                        return;
+                    }
+
+                    var rootFolderPath = await PickFolderPathAsync(
+                        resourceLoader.GetString("HomePage_PluginBatchCreatePickRootTitle"),
+                        "FolderRewind.HomePage.PluginBatch.Root");
+                    if (string.IsNullOrWhiteSpace(rootFolderPath))
+                    {
+                        return;
+                    }
+
+                    _ = NavigationService.NavigateTo(
+                        "GameDiscovery",
+                        GameDiscoveryNavigationParameter.ForPluginBatch(
+                            selectedKind.RequiredPluginId,
+                            selectedKind.CreateReference(),
+                            rootFolderPath));
+                    return;
+                }
 
                 if (string.IsNullOrWhiteSpace(nameBox.Text)) return;
 
