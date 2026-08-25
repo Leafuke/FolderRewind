@@ -12,7 +12,7 @@ namespace FolderRewind.Plugin.Runtime.Tests;
 public sealed class PluginVerticalSliceTests
 {
     private static readonly PluginId FakePluginId = new("com.folderrewind.vertical-fake");
-    private const string MineRewindSha256 = "48eb2ab4e70cbb10c92f81d036540caaa35ca42dc294e014482c919fa3852d84";
+    private const string MineRewindSha256 = "f4cbf7dd7cdb1c8ea1a59b208fc4d40356b065fdde4a60494ee5aec74a346f09";
     private static readonly PluginId MineRewindPluginId = new("com.folderrewind.minerewind");
     private static readonly ConfigKindRef FakeKind = new(new OwnerId(FakePluginId.Value), "test-data");
     private static readonly ConfigKindRef MinecraftKind = new(
@@ -123,6 +123,16 @@ public sealed class PluginVerticalSliceTests
             MineRewindPluginId,
             new DiscoveryRequest([world.Path]),
             autoCreateConfigs: true);
+
+        using var discoveryLease = fixture.Manager.TryAcquire<IDiscoveryCapability>(MineRewindPluginId);
+        Assert.IsNotNull(discoveryLease);
+        var catalog = discoveryLease.Capability as IDiscoveryDefinitionCatalog;
+        Assert.IsNotNull(catalog);
+        var definition = catalog.Definitions.Single();
+        Assert.AreEqual("minecraft-java", definition.DefinitionId);
+        Assert.AreEqual(
+            definition.DefinitionId,
+            catalog.ResolveDefinitionId(run.Discovery.Candidates.Single()));
 
         CollectionAssert.AreEqual(new[] { "commit", "draft-commit" }, events);
         Assert.IsTrue(run.DraftsCommitted);
@@ -400,13 +410,13 @@ public sealed class PluginVerticalSliceTests
             "FolderRewind",
             "Assets",
             "Plugins",
-            "MineRewind-1.9.0.frplugin");
+            "MineRewind-1.9.1.frplugin");
         var sidecarSha256 = (await File.ReadAllTextAsync(packagePath + ".sha256"))
             .Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries)[0];
         Assert.AreEqual(MineRewindSha256, sidecarSha256);
         var package = await PluginPackageValidator.ValidateAsync(packagePath, sidecarSha256);
         Assert.AreEqual(MineRewindPluginId, package.Manifest.Contract.PluginId);
-        Assert.AreEqual("1.9.0", package.Manifest.Contract.Version);
+        Assert.AreEqual("1.9.1", package.Manifest.Contract.Version);
         CollectionAssert.AreEquivalent(
             new[]
             {
@@ -589,7 +599,7 @@ public sealed class PluginVerticalSliceTests
                     "FolderRewind",
                     "Assets",
                     "Plugins",
-                    "MineRewind-1.9.0.frplugin")))
+                    "MineRewind-1.9.1.frplugin")))
                 return directory.FullName;
             directory = directory.Parent;
         }

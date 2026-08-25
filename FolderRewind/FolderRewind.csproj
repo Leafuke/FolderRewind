@@ -87,11 +87,11 @@
     </Content>
     <Content Include="Assets\StoreLogo.png" />
     <Content Include="Assets\Wide310x150Logo.scale-200.png" />
-    <Content Include="Assets\Plugins\MineRewind-1.9.0.frplugin">
+    <Content Include="Assets\Plugins\MineRewind-1.9.1.frplugin">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
       <CopyToPublishDirectory>PreserveNewest</CopyToPublishDirectory>
     </Content>
-    <Content Include="Assets\Plugins\MineRewind-1.9.0.frplugin.sha256">
+    <Content Include="Assets\Plugins\MineRewind-1.9.1.frplugin.sha256">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
       <CopyToPublishDirectory>PreserveNewest</CopyToPublishDirectory>
     </Content>
