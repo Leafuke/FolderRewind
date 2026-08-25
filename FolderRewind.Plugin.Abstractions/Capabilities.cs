@@ -125,7 +125,13 @@ public interface IFolderMetadataCapability : IPluginCapability
 }
 
 public sealed record FolderMetadataRequest(ConfigSnapshot Config, FolderSnapshot Folder);
-public sealed record FolderMetadataResult(IReadOnlyDictionary<string, string> Values, IReadOnlyList<PluginDiagnostic> Diagnostics);
+public sealed record FolderMetadataField(
+    string Key,
+    LocalizedText DisplayName,
+    LocalizedText Value);
+public sealed record FolderMetadataResult(
+    IReadOnlyList<FolderMetadataField> Fields,
+    IReadOnlyList<PluginDiagnostic> Diagnostics);
 
 public interface IRestoreCoordinatorCapability : IPluginCapability
 {

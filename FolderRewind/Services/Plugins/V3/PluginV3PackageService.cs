@@ -501,7 +501,19 @@ public static class PluginV3PackageService
             if (!transition.Success)
                 throw new InvalidOperationException("Plugin is still draining; uninstall must be applied after restart.");
             if (Loaded.TryRemove(pluginId, out var loaded))
-                ReleaseLoadedAssembly(loaded, transition.RequiresRestart);
+            {
+                if (transition.RequiresRestart)
+                {
+                    ReleaseLoadedAssembly(loaded, requiresRestart: true);
+                    throw new InvalidOperationException(
+                        "The plugin is inactive but still has retained runtime work. Restart FolderRewind before uninstalling it.");
+                }
+                if (!await loaded.UnloadAsync(cancellationToken).ConfigureAwait(false))
+                {
+                    throw new InvalidOperationException(
+                        "The plugin runtime could not release its files. Restart FolderRewind before uninstalling it.");
+                }
+            }
             if (!deleteData)
             {
                 await PluginV3OfflineUpgradeService.SuppressAutomaticMigrationAsync(pluginId, cancellationToken)

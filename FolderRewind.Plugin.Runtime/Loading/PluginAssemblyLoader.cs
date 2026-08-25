@@ -43,6 +43,26 @@ public sealed class LoadedPluginAssembly : IDisposable
         Interlocked.Exchange(ref _entryAssembly, null);
         Interlocked.Exchange(ref _loadContext, null)?.Unload();
     }
+
+    /// <summary>
+    /// Starts collectible-context unloading and waits until Windows has released the
+    /// mapped plugin assemblies. <see cref="AssemblyLoadContext.Unload"/> only begins
+    /// unloading; deleting the plugin directory immediately afterwards can otherwise
+    /// fail with an access-denied error for a dependency DLL.
+    /// </summary>
+    public async ValueTask<bool> UnloadAsync(CancellationToken cancellationToken = default)
+    {
+        Dispose();
+        for (var attempt = 0; attempt < 10 && LoadContextWeakReference.IsAlive; attempt++)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            GC.Collect();
+            GC.WaitForPendingFinalizers();
+            GC.Collect();
+            await Task.Yield();
+        }
+        return !LoadContextWeakReference.IsAlive;
+    }
 }
 
 public static class PluginAssemblyLoader

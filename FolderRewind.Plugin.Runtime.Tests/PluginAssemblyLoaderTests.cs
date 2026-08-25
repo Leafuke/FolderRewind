@@ -107,6 +107,24 @@ public sealed class PluginAssemblyLoaderTests
         Assert.IsFalse(weakReference.IsAlive);
     }
 
+    [TestMethod]
+    public async Task UnloadAsyncReleasesPluginFilesBeforeDirectoryRemoval()
+    {
+        using var copy = new TemporaryDirectory();
+        CopyDirectory(FixtureOutput("PluginOne"), copy.Path);
+        var loaded = PluginAssemblyLoader.Load(new PluginLoadRequest(
+            new PluginId("com.folderrewind.fixture-one"),
+            copy.Path,
+            "Fixture.PluginOne.dll",
+            "Fixture.PluginOne.EntryPlugin",
+            new PluginApiVersion(3, 0)));
+
+        Assert.IsTrue(await loaded.UnloadAsync());
+
+        Directory.Delete(copy.Path, recursive: true);
+        Assert.IsFalse(Directory.Exists(copy.Path));
+    }
+
     private static WeakReference LoadAndDispose()
     {
         var loaded = PluginAssemblyLoader.Load(Request(
@@ -158,6 +176,19 @@ public sealed class PluginAssemblyLoaderTests
     {
         var context = AssemblyLoadContext.GetLoadContext(entryAssembly)!;
         return context.Assemblies.Single(assembly => assembly.GetName().Name == "Fixture.PrivateDependency");
+    }
+
+    private static void CopyDirectory(string source, string destination)
+    {
+        Directory.CreateDirectory(destination);
+        foreach (var file in Directory.EnumerateFiles(source))
+        {
+            File.Copy(file, Path.Combine(destination, Path.GetFileName(file)));
+        }
+        foreach (var directory in Directory.EnumerateDirectories(source))
+        {
+            CopyDirectory(directory, Path.Combine(destination, Path.GetFileName(directory)));
+        }
     }
 
     private sealed class TemporaryDirectory : IDisposable

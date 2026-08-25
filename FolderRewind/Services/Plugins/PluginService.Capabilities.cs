@@ -64,7 +64,27 @@ public static partial class PluginService
             var result = await lease.Capability.ReadAsync(
                 new FolderMetadataRequest(configSnapshot, folderSnapshot),
                 lease.Context).ConfigureAwait(false);
-            if (result.Values.Count == 0) return Array.Empty<FolderDetailsSection>();
+            if (result.Fields.Count == 0) return Array.Empty<FolderDetailsSection>();
+
+            var fieldKeys = new HashSet<string>(StringComparer.Ordinal);
+            var items = new List<FolderDetailsItem>(result.Fields.Count);
+            foreach (var field in result.Fields)
+            {
+                if (string.IsNullOrWhiteSpace(field.Key) || !fieldKeys.Add(field.Key))
+                {
+                    LogService.LogWarning(
+                        $"v3 folder metadata ignored an empty or duplicate field key '{field.Key}' from '{pluginId.Value}'.",
+                        nameof(PluginService));
+                    continue;
+                }
+
+                items.Add(new FolderDetailsItem
+                {
+                    Label = ResolveLocalizedText(field.DisplayName, field.Key),
+                    Value = ResolveLocalizedText(field.Value, string.Empty)
+                });
+            }
+            if (items.Count == 0) return Array.Empty<FolderDetailsSection>();
 
             var title = ResolveConfigKindOption(config).DisplayName;
             return
@@ -72,8 +92,7 @@ public static partial class PluginService
                 new FolderDetailsSection
                 {
                     Title = title,
-                    Items = new ObservableCollection<FolderDetailsItem>(result.Values.Select(pair =>
-                        new FolderDetailsItem { Label = pair.Key, Value = pair.Value }))
+                    Items = new ObservableCollection<FolderDetailsItem>(items)
                 }
             ];
         }
@@ -90,6 +109,9 @@ public static partial class PluginService
             return Array.Empty<FolderDetailsSection>();
         }
     }
+
+    private static string ResolveLocalizedText(LocalizedText text, string fallback)
+        => I18n.PickBest(text.Translations, text.Default) ?? fallback;
 
     /// <summary>
     /// 设置页只验证静态 Scope 身份和表单必填项；真正的领域解析在备份会话中执行，

@@ -41,6 +41,21 @@ public sealed class ContractTests
     }
 
     [TestMethod]
+    public void FolderMetadataKeepsStableKeysSeparateFromLocalizedPresentation()
+    {
+        var displayName = new LocalizedText(
+            "World name",
+            new Dictionary<string, string> { ["zh-CN"] = "世界名称" });
+        var value = new LocalizedText("Survival", new Dictionary<string, string> { ["zh-CN"] = "生存模式" });
+        var field = new FolderMetadataField("gameMode", displayName, value);
+        var result = new FolderMetadataResult([field], Array.Empty<PluginDiagnostic>());
+
+        Assert.AreEqual("gameMode", result.Fields[0].Key);
+        Assert.AreEqual("World name", result.Fields[0].DisplayName.Default);
+        Assert.AreEqual("生存模式", result.Fields[0].Value.Translations["zh-CN"]);
+    }
+
+    [TestMethod]
     public void RoleSpecificIdentitiesRemainDifferentClrTypes()
     {
         var text = "com.folderrewind.minerewind";

@@ -182,16 +182,25 @@ namespace FolderRewind.Views.Settings
             var res = await confirm.ShowAsync();
             if (res != ContentDialogResult.Primary) return;
 
-            var v3Id = new FolderRewind.Plugin.Abstractions.PluginId(plugin.Id);
-            var preview = await FolderRewind.Services.Plugins.V3.PluginV3PackageService.UninstallAsync(
-                v3Id,
-                deleteData: false,
-                confirmation: null);
-            var result = (Success: true, Message: I18n.Format(
-                "Plugins_UninstallPreservedResult",
-                preview.SettingsCount,
-                preview.ProviderStateLocationCount,
-                preview.DataPath));
+            (bool Success, string Message) result;
+            try
+            {
+                var v3Id = new FolderRewind.Plugin.Abstractions.PluginId(plugin.Id);
+                var preview = await FolderRewind.Services.Plugins.V3.PluginV3PackageService.UninstallAsync(
+                    v3Id,
+                    deleteData: false,
+                    confirmation: null);
+                result = (true, I18n.Format(
+                    "Plugins_UninstallPreservedResult",
+                    preview.SettingsCount,
+                    preview.ProviderStateLocationCount,
+                    preview.DataPath));
+            }
+            catch (Exception ex)
+            {
+                LogService.LogError(ex.Message, "PluginV3Uninstall", ex);
+                result = (false, ex.Message);
+            }
 
             var msg = new ContentDialog
             {
