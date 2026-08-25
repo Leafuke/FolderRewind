@@ -63,8 +63,8 @@ jobs:
         shell: pwsh
         run: |
           Add-Type -AssemblyName System.IO.Compression.FileSystem
-          $package = Get-ChildItem -LiteralPath 'artifacts/nuget' -Filter 'FolderRewind.Plugin.Abstractions.3.0.0.nupkg' | Select-Object -First 1
-          if ($null -eq $package) { throw 'Plugin API 3.0.0 package was not produced.' }
+          $package = Get-ChildItem -LiteralPath 'artifacts/nuget' -Filter 'FolderRewind.Plugin.Abstractions.3.1.0.nupkg' | Select-Object -First 1
+          if ($null -eq $package) { throw 'Plugin API 3.1.0 package was not produced.' }
           $archive = [IO.Compression.ZipFile]::OpenRead($package.FullName)
           try {
             $entries = @($archive.Entries.FullName)

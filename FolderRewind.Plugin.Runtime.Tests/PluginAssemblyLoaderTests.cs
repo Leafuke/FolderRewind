@@ -64,7 +64,7 @@ public sealed class PluginAssemblyLoaderTests
     [TestMethod]
     public void ManifestApiMinorAndMajorCompatibilityIsEnforcedBeforeLoad()
     {
-        var newerMinor = Request(
+        var supportedMinor = Request(
             "com.folderrewind.fixture-one",
             "PluginOne",
             "Fixture.PluginOne.dll",
@@ -72,8 +72,10 @@ public sealed class PluginAssemblyLoaderTests
         {
             RequiredApiVersion = new PluginApiVersion(3, 1)
         };
-        var wrongMajor = newerMinor with { RequiredApiVersion = new PluginApiVersion(2, 0) };
+        var newerMinor = supportedMinor with { RequiredApiVersion = new PluginApiVersion(3, 2) };
+        var wrongMajor = supportedMinor with { RequiredApiVersion = new PluginApiVersion(2, 0) };
 
+        using var loaded = PluginAssemblyLoader.Load(supportedMinor);
         Assert.ThrowsExactly<InvalidOperationException>(() => PluginAssemblyLoader.Load(newerMinor));
         Assert.ThrowsExactly<InvalidOperationException>(() => PluginAssemblyLoader.Load(wrongMajor));
     }

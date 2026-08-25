@@ -12,6 +12,26 @@ public sealed record DiscoveryRequest(IReadOnlyList<string> UserRoots);
 public sealed record DiscoveryResult(IReadOnlyList<DiscoveryCandidate> Candidates, IReadOnlyList<PluginDiagnostic> Diagnostics);
 public sealed record DiscoveryCandidate(string CandidateId, string DisplayName, IReadOnlyList<ConfigDraft> ConfigDrafts);
 
+/// <summary>
+/// Optional metadata extension implemented by an <see cref="IDiscoveryCapability" />
+/// when its candidates can participate in Host game discovery and targeted presets.
+/// This interface is not registered as a separate plugin capability.
+/// Definitions must be non-null, have non-empty identifiers, and be unique within
+/// the provider using ordinal comparison. The resolver returns only a declared
+/// identifier or <see langword="null" />.
+/// </summary>
+public interface IDiscoveryDefinitionCatalog
+{
+    IReadOnlyList<DiscoveryDefinitionDescriptor> Definitions { get; }
+    string? ResolveDefinitionId(DiscoveryCandidate candidate);
+}
+
+public sealed record DiscoveryDefinitionDescriptor(
+    string DefinitionId,
+    string DisplayName,
+    IReadOnlyList<string> Aliases,
+    IReadOnlyDictionary<string, string> ExternalIds);
+
 public interface IConfigReconciliationCapability : IPluginCapability
 {
     ConfigKindRef Kind { get; }

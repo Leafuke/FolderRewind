@@ -1,5 +1,5 @@
-# Generated and reviewed public API baseline for Plugin API 3.0.0.
-# sha256:00ad259c581ebd1cb7b624862605c71b9498b44cf3d02f8ac388cacdd048b7dd
+# Generated and reviewed public API baseline for Plugin API 3.1.0.
+# sha256:9840d799b46d386c0ee435789bee0dc17f4d24f013f00d1017921b9192f2833d
 T FolderRewind.Plugin.Abstractions.AddFolderChange
 T FolderRewind.Plugin.Abstractions.ArtifactCompleteness
 T FolderRewind.Plugin.Abstractions.ArtifactContentHandle
@@ -42,6 +42,7 @@ T FolderRewind.Plugin.Abstractions.ConsistencyIntent
 T FolderRewind.Plugin.Abstractions.CoreCaptureMode
 T FolderRewind.Plugin.Abstractions.DiagnosticSeverity
 T FolderRewind.Plugin.Abstractions.DiscoveryCandidate
+T FolderRewind.Plugin.Abstractions.DiscoveryDefinitionDescriptor
 T FolderRewind.Plugin.Abstractions.DiscoveryProviderId
 T FolderRewind.Plugin.Abstractions.DiscoveryRequest
 T FolderRewind.Plugin.Abstractions.DiscoveryResult
@@ -64,6 +65,7 @@ T FolderRewind.Plugin.Abstractions.IBackupScopeCapability
 T FolderRewind.Plugin.Abstractions.IConfigReconciliationCapability
 T FolderRewind.Plugin.Abstractions.IConsistencyLease
 T FolderRewind.Plugin.Abstractions.IDiscoveryCapability
+T FolderRewind.Plugin.Abstractions.IDiscoveryDefinitionCatalog
 T FolderRewind.Plugin.Abstractions.IFilePolicyCapability
 T FolderRewind.Plugin.Abstractions.IFolderMetadataCapability
 T FolderRewind.Plugin.Abstractions.IFolderRewindPlugin

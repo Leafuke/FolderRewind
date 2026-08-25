@@ -24,6 +24,20 @@ public sealed class ContractTests
         Assert.IsTrue(new PluginApiVersion(3, 0).IsSatisfiedBy(new PluginApiVersion(3, 2)));
         Assert.IsFalse(new PluginApiVersion(3, 2).IsSatisfiedBy(new PluginApiVersion(3, 1)));
         Assert.IsFalse(new PluginApiVersion(2, 9).IsSatisfiedBy(new PluginApiVersion(3, 9)));
+        Assert.AreEqual(new PluginApiVersion(3, 1), PluginApiVersion.HostVersion);
+    }
+
+    [TestMethod]
+    public void DiscoveryDefinitionCatalogIsAnOptionalMetadataExtension()
+    {
+        Assert.IsFalse(typeof(IPluginCapability).IsAssignableFrom(typeof(IDiscoveryDefinitionCatalog)));
+        var definition = new DiscoveryDefinitionDescriptor(
+            "minecraft-java",
+            "Minecraft: Java Edition",
+            ["Minecraft"],
+            new Dictionary<string, string>());
+
+        Assert.AreEqual("minecraft-java", definition.DefinitionId);
     }
 
     [TestMethod]
