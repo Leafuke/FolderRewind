@@ -166,8 +166,8 @@
                             <ColumnDefinition Width="*"/>
                         </Grid.ColumnDefinitions>
                         <StackPanel VerticalAlignment="Center" HorizontalAlignment="Right">
-                            <TextBlock Text="{x:Bind TimeDisplay, Mode=OneWay}" Style="{StaticResource BodyStrongTextBlockStyle}"/>
-                            <TextBlock Text="{x:Bind DateDisplay, Mode=OneWay}" Style="{StaticResource CaptionTextBlockStyle}" Foreground="{ThemeResource TextFillColorSecondaryBrush}"/>
+                            <TextBlock Text="{x:Bind TimeDisplay, Mode=OneTime}" Style="{StaticResource BodyStrongTextBlockStyle}"/>
+                            <TextBlock Text="{x:Bind DateDisplay, Mode=OneTime}" Style="{StaticResource CaptionTextBlockStyle}" Foreground="{ThemeResource TextFillColorSecondaryBrush}"/>
                         </StackPanel>
                         <Expander Grid.Column="1" HorizontalAlignment="Stretch" Background="{ThemeResource CardBackgroundFillColorDefaultBrush}">
                             <Expander.Header>
@@ -177,20 +177,20 @@
                                         <ColumnDefinition Width="Auto"/>
                                     </Grid.ColumnDefinitions>
                                     <StackPanel VerticalAlignment="Center" Spacing="2">
-                                        <TextBlock Text="{x:Bind Message, Mode=OneWay}" Style="{ThemeResource BodyStrongTextBlockStyle}"/>
-                                        <TextBlock Text="{x:Bind SourceSummary, Mode=OneWay}" Foreground="{ThemeResource TextFillColorSecondaryBrush}"/>
+                                        <TextBlock Text="{x:Bind Message, Mode=OneTime}" Style="{ThemeResource BodyStrongTextBlockStyle}"/>
+                                        <TextBlock Text="{x:Bind SourceSummary, Mode=OneTime}" Foreground="{ThemeResource TextFillColorSecondaryBrush}"/>
                                     </StackPanel>
                                     <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="4" VerticalAlignment="Center">
                                         <Button x:Uid="HistoryPage_ToggleImportantButton" Click="OnToggleRunImportantClick" Background="Transparent" BorderThickness="0">
-                                            <FontIcon Glyph="{x:Bind IsImportant, Converter={StaticResource BoolToStarIconConverter}, Mode=OneWay}" FontSize="14" Foreground="{ThemeResource SystemControlForegroundAccentBrush}"/>
+                                            <FontIcon Glyph="{x:Bind IsImportant, Converter={StaticResource BoolToStarIconConverter}, Mode=OneTime}" FontSize="14" Foreground="{ThemeResource SystemControlForegroundAccentBrush}"/>
                                         </Button>
                                         <Button x:Uid="HistoryPage_EditCommentButton" Click="OnEditRunCommentClick"><FontIcon Glyph="&#xE70F;" FontSize="14"/></Button>
-                                        <Button x:Uid="HistoryPage_RestoreButton" Click="OnRestoreRunClick" IsEnabled="{x:Bind CanRestore, Mode=OneWay}"><FontIcon Glyph="&#xE777;" FontSize="14"/></Button>
+                                        <Button x:Uid="HistoryPage_RestoreButton" Click="OnRestoreRunClick" IsEnabled="{x:Bind CanRestore, Mode=OneTime}"><FontIcon Glyph="&#xE777;" FontSize="14"/></Button>
                                         <Button x:Uid="HistoryPage_DeleteButton" Click="OnDeleteRunClick"><FontIcon Glyph="&#xE74D;" FontSize="14"/></Button>
                                     </StackPanel>
                                 </Grid>
                             </Expander.Header>
-                            <ItemsControl ItemsSource="{x:Bind Sources, Mode=OneWay}">
+                            <ItemsControl ItemsSource="{x:Bind Sources, Mode=OneTime}">
                                 <ItemsControl.ItemTemplate>
                                     <DataTemplate x:DataType="vm:BackupRunSourceViewItem">
                                         <Grid Padding="8,5" ColumnSpacing="12">
@@ -199,9 +199,9 @@
                                                 <ColumnDefinition Width="140"/>
                                                 <ColumnDefinition Width="*"/>
                                             </Grid.ColumnDefinitions>
-                                            <TextBlock Text="{x:Bind Name, Mode=OneWay}" TextWrapping="Wrap"/>
-                                            <TextBlock Grid.Column="1" Text="{x:Bind StatusText, Mode=OneWay}" Foreground="{ThemeResource TextFillColorSecondaryBrush}"/>
-                                            <TextBlock Grid.Column="2" Text="{x:Bind Detail, Mode=OneWay}" Foreground="{ThemeResource TextFillColorSecondaryBrush}" TextWrapping="Wrap"/>
+                                            <TextBlock Text="{x:Bind Name, Mode=OneTime}" TextWrapping="Wrap"/>
+                                            <TextBlock Grid.Column="1" Text="{x:Bind StatusText, Mode=OneTime}" Foreground="{ThemeResource TextFillColorSecondaryBrush}"/>
+                                            <TextBlock Grid.Column="2" Text="{x:Bind Detail, Mode=OneTime}" Foreground="{ThemeResource TextFillColorSecondaryBrush}" TextWrapping="Wrap"/>
                                         </Grid>
                                     </DataTemplate>
                                 </ItemsControl.ItemTemplate>

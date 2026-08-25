@@ -15,7 +15,7 @@
             <ItemsRepeater.ItemTemplate>
                 <DataTemplate x:DataType="models:FolderDetailsSection">
                     <StackPanel Margin="0,0,0,16" Spacing="8">
-                        <TextBlock Text="{x:Bind Title, Mode=OneWay}" Style="{StaticResource SubtitleTextBlockStyle}" />
+                        <TextBlock Text="{x:Bind Title, Mode=OneTime}" Style="{StaticResource SubtitleTextBlockStyle}" />
                         <ItemsRepeater ItemsSource="{x:Bind Items, Mode=OneWay}">
                             <ItemsRepeater.ItemTemplate>
                                 <DataTemplate x:DataType="models:FolderDetailsItem">

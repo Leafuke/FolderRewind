@@ -117,9 +117,9 @@
                             <DataTemplate x:DataType="discovery:PluginBatchCreationSummaryItem">
                                 <Border Padding="12" Margin="0,4" CornerRadius="6" BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}" BorderThickness="1">
                                     <StackPanel Spacing="4">
-                                        <TextBlock Text="{x:Bind ConfigName, Mode=OneWay}" Style="{ThemeResource BodyStrongTextBlockStyle}"/>
-                                        <TextBlock Text="{x:Bind DestinationPath, Mode=OneWay}" FontFamily="Consolas" TextWrapping="Wrap" Foreground="{ThemeResource TextFillColorSecondaryBrush}"/>
-                                        <TextBlock Text="{x:Bind SourceSummary, Mode=OneWay}" FontFamily="Consolas" TextWrapping="Wrap"/>
+                                        <TextBlock Text="{x:Bind ConfigName, Mode=OneTime}" Style="{ThemeResource BodyStrongTextBlockStyle}"/>
+                                        <TextBlock Text="{x:Bind DestinationPath, Mode=OneTime}" FontFamily="Consolas" TextWrapping="Wrap" Foreground="{ThemeResource TextFillColorSecondaryBrush}"/>
+                                        <TextBlock Text="{x:Bind SourceSummary, Mode=OneTime}" FontFamily="Consolas" TextWrapping="Wrap"/>
                                     </StackPanel>
                                 </Border>
                             </DataTemplate>
@@ -277,10 +277,10 @@
                                         <ItemsControl ItemsSource="{x:Bind Changes, Mode=OneWay}">
                                             <ItemsControl.ItemTemplate>
                                                 <DataTemplate x:DataType="models:DiscoverySourceChange">
-                                                    <CheckBox IsChecked="{x:Bind IsSelected, Mode=TwoWay}" IsEnabled="{x:Bind IsActionable, Mode=OneWay}">
+                                                    <CheckBox IsChecked="{x:Bind IsSelected, Mode=TwoWay}" IsEnabled="{x:Bind IsActionable, Mode=OneTime}">
                                                         <StackPanel Orientation="Horizontal" Spacing="8">
-                                                            <TextBlock Text="{x:Bind Kind, Mode=OneWay}"/>
-                                                            <TextBlock Text="{x:Bind NormalizedRootPath, Mode=OneWay}" FontFamily="Consolas" TextWrapping="Wrap"/>
+                                                            <TextBlock Text="{x:Bind Kind, Mode=OneTime}"/>
+                                                            <TextBlock Text="{x:Bind NormalizedRootPath, Mode=OneTime}" FontFamily="Consolas" TextWrapping="Wrap"/>
                                                         </StackPanel>
                                                     </CheckBox>
                                                 </DataTemplate>
