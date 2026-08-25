@@ -101,6 +101,7 @@ public static class PluginV3DiscoveryService
             Id = Guid.NewGuid().ToString(),
             Path = draft.Path,
             DisplayName = draft.DisplayName,
+            CoverImagePath = ResolveDefaultCoverImagePath(draft.Path),
             ProviderStates = draft.ProviderStates.ToDictionary(
                 pair => pair.Key.Value,
                 pair => new ProviderStatePayload
@@ -110,6 +111,20 @@ public static class PluginV3DiscoveryService
                 },
                 StringComparer.OrdinalIgnoreCase)
         };
+
+    private static string ResolveDefaultCoverImagePath(string folderPath)
+    {
+        if (string.IsNullOrWhiteSpace(folderPath)) return string.Empty;
+        try
+        {
+            var iconPath = Path.Combine(folderPath, "icon.png");
+            return File.Exists(iconPath) ? iconPath : string.Empty;
+        }
+        catch
+        {
+            return string.Empty;
+        }
+    }
 
     private sealed class NoCommitDiscoveryDraftStore : IDiscoveryDraftStore
     {

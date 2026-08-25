@@ -1,15 +1,39 @@
 using FolderRewind.Models;
 using System;
 using System.Collections.Generic;
+using System.Collections.ObjectModel;
 using System.Linq;
 
 namespace FolderRewind.Services.Discovery;
 
-public sealed class PluginBatchCreationSummaryItem
+public sealed class PluginBatchCreationSummaryItem : ObservableObject
 {
-    public string ConfigName { get; init; } = string.Empty;
-    public string DestinationPath { get; init; } = string.Empty;
-    public string SourceSummary { get; init; } = string.Empty;
+    private bool _isSelected;
+
+    public PluginBatchCreationSummaryItem(BackupConfigDraft draft)
+    {
+        Draft = draft;
+        _isSelected = draft.IsSelected;
+    }
+
+    public BackupConfigDraft Draft { get; }
+    public bool IsSelected
+    {
+        get => _isSelected;
+        set
+        {
+            if (!SetProperty(ref _isSelected, value)) return;
+            Draft.IsSelected = value;
+        }
+    }
+    public string ConfigName => Draft.ProposedConfig.Name;
+    public string DestinationPath => Draft.ProposedConfig.DestinationPath;
+    public string SourceSummary => string.Join(
+        Environment.NewLine,
+        Draft.SelectedResources
+            .Select(resource => resource.FixedRoot)
+            .Where(path => !string.IsNullOrWhiteSpace(path))
+            .Distinct(StringComparer.OrdinalIgnoreCase));
 }
 
 public sealed class PluginBatchCreationPlan
@@ -90,7 +114,8 @@ public static class PluginBatchCreationPlanner
                 presets,
                 existing,
                 string.Empty,
-                selectedResourceIds);
+                selectedResourceIds,
+                SelectBatchPreset(pair.Game.Definition, presets, pluginId, configKind));
             if (draft.ExistingConfig != null)
             {
                 existingCount++;
@@ -136,17 +161,7 @@ public static class PluginBatchCreationPlanner
         return new PluginBatchCreationPlan
         {
             Drafts = drafts,
-            Items = drafts.Select(draft => new PluginBatchCreationSummaryItem
-            {
-                ConfigName = draft.ProposedConfig.Name,
-                DestinationPath = draft.ProposedConfig.DestinationPath,
-                SourceSummary = string.Join(
-                    Environment.NewLine,
-                    draft.SelectedResources
-                        .Select(resource => resource.FixedRoot)
-                        .Where(path => !string.IsNullOrWhiteSpace(path))
-                        .Distinct(StringComparer.OrdinalIgnoreCase))
-            }).ToList(),
+            Items = drafts.Select(draft => new PluginBatchCreationSummaryItem(draft)).ToList(),
             BroadRootResources = broadRoots,
             SkippedMessages = skippedMessages,
             ExistingCount = existingCount,
@@ -200,6 +215,33 @@ public static class PluginBatchCreationPlanner
                 suffix++;
             }
         }
+    }
+
+    private static BackupPreset SelectBatchPreset(
+        GameDefinition definition,
+        IEnumerable<BackupPreset>? presets,
+        string pluginId,
+        ConfigKindReference configKind)
+    {
+        var recommended = BackupPresetDiscoveryMatcher.FindMatches(definition, presets)
+            .Where(preset => preset.IsRecommended && KindsEqual(preset.Kind, configKind))
+            .ToList();
+        if (recommended.Count == 1)
+        {
+            return recommended[0];
+        }
+
+        var preset = BackupPresetService.CreateStandardGamePreset();
+        var batchPresetId = $"builtin.plugin-batch:{configKind.OwnerId}/{configKind.KindId}";
+        preset.Id = batchPresetId;
+        preset.ShareId = batchPresetId;
+        preset.Kind = new ConfigKindReference
+        {
+            OwnerId = configKind.OwnerId,
+            KindId = configKind.KindId
+        };
+        preset.RequiredPluginIds = new ObservableCollection<string> { pluginId };
+        return preset;
     }
 
     private static bool KindsEqual(ConfigKindReference left, ConfigKindReference right) =>

@@ -77,13 +77,13 @@ public sealed class PluginPackageInstallerTests
     public async Task BundledMineRewindPackageMatchesFrozenIdentityAndHash()
     {
         var root = FindRepositoryRoot();
-        var packagePath = Path.Combine(root, "FolderRewind", "Assets", "Plugins", "MineRewind-1.9.1.frplugin");
+        var packagePath = Path.Combine(root, "FolderRewind", "Assets", "Plugins", "MineRewind-1.9.2.frplugin");
         var package = await PluginPackageValidator.ValidateAsync(
             packagePath,
             "f4cbf7dd7cdb1c8ea1a59b208fc4d40356b065fdde4a60494ee5aec74a346f09");
 
         Assert.AreEqual("com.folderrewind.minerewind", package.Manifest.Contract.PluginId.Value);
-        Assert.AreEqual("1.9.1", package.Manifest.Contract.Version);
+        Assert.AreEqual("1.9.2", package.Manifest.Contract.Version);
         Assert.AreEqual(3, package.Manifest.Contract.RequiredApi.Major);
         Assert.AreEqual(1, package.Manifest.Contract.RequiredApi.Minor);
         Assert.IsFalse(package.Entries.Any(value =>

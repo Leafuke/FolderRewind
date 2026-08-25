@@ -102,7 +102,7 @@ public sealed class GameDiscoveryPageViewModel : ViewModelBase, IDisposable
     public string PluginBatchFatalMessage { get => _pluginBatchFatalMessage; private set { if (SetProperty(ref _pluginBatchFatalMessage, value)) OnPropertyChanged(nameof(HasPluginBatchFatalMessage)); } }
     public bool HasPluginBatchFatalMessage => !string.IsNullOrWhiteSpace(PluginBatchFatalMessage);
     public string PluginBatchBroadRootSummary { get => _pluginBatchBroadRootSummary; private set => SetProperty(ref _pluginBatchBroadRootSummary, value); }
-    public bool RequiresPluginBatchBroadRootConfirmation => _pluginBatchPlan?.BroadRootResources.Count > 0;
+    public bool RequiresPluginBatchBroadRootConfirmation => GetSelectedPluginBatchBroadRootResources().Count > 0;
     public bool IsPluginBatchBroadRootConfirmed
     {
         get => _isPluginBatchBroadRootConfirmed;
@@ -114,7 +114,8 @@ public sealed class GameDiscoveryPageViewModel : ViewModelBase, IDisposable
     }
     public bool CanCommitPluginBatch => IsPluginBatchMode
         && !IsBusy
-        && _pluginBatchPlan?.Drafts.Count > 0
+        && _pluginBatchPlan != null
+        && PluginBatchItems.Any(item => item.IsSelected)
         && string.IsNullOrWhiteSpace(PluginBatchFatalMessage)
         && (!RequiresPluginBatchBroadRootConfirmation || IsPluginBatchBroadRootConfirmed);
     public int PluginBatchSkippedCount => (_pluginBatchPlan?.ExistingCount ?? 0)
@@ -378,10 +379,6 @@ public sealed class GameDiscoveryPageViewModel : ViewModelBase, IDisposable
             };
         }
 
-        foreach (var draft in _pluginBatchPlan.Drafts)
-        {
-            draft.IsSelected = true;
-        }
         var result = DiscoveryDraftService.Commit(_pluginBatchPlan.Drafts);
         if (result.Success)
         {
@@ -500,6 +497,13 @@ public sealed class GameDiscoveryPageViewModel : ViewModelBase, IDisposable
             ConfigService.CurrentConfig.BackupConfigs);
         foreach (var item in _pluginBatchPlan.Items)
         {
+            item.PropertyChanged += (_, args) =>
+            {
+                if (args.PropertyName == nameof(PluginBatchCreationSummaryItem.IsSelected))
+                {
+                    RefreshPluginBatchSelectionState();
+                }
+            };
             PluginBatchItems.Add(item);
         }
 
@@ -510,18 +514,38 @@ public sealed class GameDiscoveryPageViewModel : ViewModelBase, IDisposable
             _pluginBatchPlan.ExistingCount,
             _pluginBatchPlan.UnavailableCount);
         PluginBatchSkippedSummary = string.Join(Environment.NewLine, _pluginBatchPlan.SkippedMessages);
-        PluginBatchBroadRootSummary = string.Join(
-            Environment.NewLine,
-            _pluginBatchPlan.BroadRootResources
-                .Select(resource => resource.FixedRoot)
-                .Where(path => !string.IsNullOrWhiteSpace(path))
-                .Distinct(StringComparer.OrdinalIgnoreCase)
-                .Select(path => $"- {path}"));
+        RefreshPluginBatchSelectionState();
         ProgressText = !string.IsNullOrWhiteSpace(PluginBatchFatalMessage)
             ? PluginBatchFatalMessage
             : I18n.GetString("GameDiscovery_Status_Complete");
         OnPropertyChanged(nameof(RequiresPluginBatchBroadRootConfirmation));
         OnPropertyChanged(nameof(PluginBatchSkippedCount));
+        OnPropertyChanged(nameof(CanCommitPluginBatch));
+    }
+
+    private IReadOnlyList<BackupResourceCandidate> GetSelectedPluginBatchBroadRootResources() =>
+        PluginBatchItems
+            .Where(item => item.IsSelected)
+            .SelectMany(item => item.Draft.SelectedResources)
+            .Where(resource => resource.RequiresExplicitConfirmation)
+            .GroupBy(resource => resource.FixedRoot, StringComparer.OrdinalIgnoreCase)
+            .Select(group => group.First())
+            .ToList();
+
+    private void RefreshPluginBatchSelectionState()
+    {
+        var broadRootSummary = string.Join(
+            Environment.NewLine,
+            GetSelectedPluginBatchBroadRootResources()
+                .Select(resource => resource.FixedRoot)
+                .Where(path => !string.IsNullOrWhiteSpace(path))
+                .Select(path => $"- {path}"));
+        if (!string.Equals(PluginBatchBroadRootSummary, broadRootSummary, StringComparison.Ordinal))
+        {
+            IsPluginBatchBroadRootConfirmed = false;
+        }
+        PluginBatchBroadRootSummary = broadRootSummary;
+        OnPropertyChanged(nameof(RequiresPluginBatchBroadRootConfirmation));
         OnPropertyChanged(nameof(CanCommitPluginBatch));
     }
 

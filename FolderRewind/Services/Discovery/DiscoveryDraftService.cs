@@ -398,6 +398,7 @@ public static class DiscoveryDraftService
             {
                 Path = plan.FixedRoot,
                 DisplayName = name,
+                CoverImagePath = ResolveDefaultCoverImagePath(plan.FixedRoot),
                 SourceScope = new BackupSourceScope
                 {
                     Mode = plan.ScopeMode,
@@ -408,6 +409,23 @@ public static class DiscoveryDraftService
             result.Add(folder);
         }
         return result;
+    }
+
+    private static string ResolveDefaultCoverImagePath(string folderPath)
+    {
+        if (string.IsNullOrWhiteSpace(folderPath))
+        {
+            return string.Empty;
+        }
+        try
+        {
+            var iconPath = System.IO.Path.Combine(folderPath, "icon.png");
+            return System.IO.File.Exists(iconPath) ? iconPath : string.Empty;
+        }
+        catch
+        {
+            return string.Empty;
+        }
     }
 
     private static BackupConfig? FindExistingConfiguration(
@@ -574,6 +592,7 @@ public static class DiscoveryDraftService
         DisplayName = string.IsNullOrWhiteSpace(displayName)
             ? FolderNameConflictService.ResolveDisplayName(string.Empty, source.NormalizedRootPath)
             : displayName,
+        CoverImagePath = ResolveDefaultCoverImagePath(source.NormalizedRootPath),
         SourceScope = ScopeFrom(source)
     };
 

@@ -116,11 +116,18 @@
                         <ItemsControl.ItemTemplate>
                             <DataTemplate x:DataType="discovery:PluginBatchCreationSummaryItem">
                                 <Border Padding="12" Margin="0,4" CornerRadius="6" BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}" BorderThickness="1">
-                                    <StackPanel Spacing="4">
-                                        <TextBlock Text="{x:Bind ConfigName, Mode=OneTime}" Style="{ThemeResource BodyStrongTextBlockStyle}"/>
-                                        <TextBlock Text="{x:Bind DestinationPath, Mode=OneTime}" FontFamily="Consolas" TextWrapping="Wrap" Foreground="{ThemeResource TextFillColorSecondaryBrush}"/>
-                                        <TextBlock Text="{x:Bind SourceSummary, Mode=OneTime}" FontFamily="Consolas" TextWrapping="Wrap"/>
-                                    </StackPanel>
+                                    <Grid ColumnSpacing="10">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="Auto"/>
+                                            <ColumnDefinition Width="*"/>
+                                        </Grid.ColumnDefinitions>
+                                        <CheckBox IsChecked="{x:Bind IsSelected, Mode=TwoWay}" VerticalAlignment="Top"/>
+                                        <StackPanel Grid.Column="1" Spacing="4">
+                                            <TextBlock Text="{x:Bind ConfigName, Mode=OneTime}" Style="{ThemeResource BodyStrongTextBlockStyle}"/>
+                                            <TextBlock Text="{x:Bind DestinationPath, Mode=OneTime}" FontFamily="Consolas" TextWrapping="Wrap" Foreground="{ThemeResource TextFillColorSecondaryBrush}"/>
+                                            <TextBlock Text="{x:Bind SourceSummary, Mode=OneTime}" FontFamily="Consolas" TextWrapping="Wrap"/>
+                                        </StackPanel>
+                                    </Grid>
                                 </Border>
                             </DataTemplate>
                         </ItemsControl.ItemTemplate>

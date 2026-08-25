@@ -410,13 +410,13 @@ public sealed class PluginVerticalSliceTests
             "FolderRewind",
             "Assets",
             "Plugins",
-            "MineRewind-1.9.1.frplugin");
+            "MineRewind-1.9.2.frplugin");
         var sidecarSha256 = (await File.ReadAllTextAsync(packagePath + ".sha256"))
             .Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries)[0];
         Assert.AreEqual(MineRewindSha256, sidecarSha256);
         var package = await PluginPackageValidator.ValidateAsync(packagePath, sidecarSha256);
         Assert.AreEqual(MineRewindPluginId, package.Manifest.Contract.PluginId);
-        Assert.AreEqual("1.9.1", package.Manifest.Contract.Version);
+        Assert.AreEqual("1.9.2", package.Manifest.Contract.Version);
         CollectionAssert.AreEquivalent(
             new[]
             {
@@ -599,7 +599,7 @@ public sealed class PluginVerticalSliceTests
                     "FolderRewind",
                     "Assets",
                     "Plugins",
-                    "MineRewind-1.9.1.frplugin")))
+                    "MineRewind-1.9.2.frplugin")))
                 return directory.FullName;
             directory = directory.Parent;
         }
