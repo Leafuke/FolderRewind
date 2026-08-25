@@ -1,5 +1,6 @@
 using FolderRewind.Models;
 using FolderRewind.Services.Plugins;
+using FolderRewind.Services.Plugins.V3;
 using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
@@ -25,7 +26,7 @@ public static class DiscoveryDraftService
 
         var issues = new List<BackupConfigDraftIssue>();
         var existing = FindExistingConfiguration(backupSet, existingConfigs);
-        var matchingPresets = FindMatchingPresets(game, availablePresets).ToList();
+        var matchingPresets = BackupPresetDiscoveryMatcher.FindMatches(game.Definition, availablePresets).ToList();
         var recommended = matchingPresets.Where(preset => preset.IsRecommended).ToList();
         var preset = selectedPreset;
         if (preset == null)
@@ -74,7 +75,15 @@ public static class DiscoveryDraftService
                     KindId = existing.Kind.KindId
                 },
                 RequiredPluginId = existing.RequiredPluginId,
-                IsEncrypted = existing.IsEncrypted
+                IsEncrypted = existing.IsEncrypted,
+                ProviderStates = CloneProviderStates(existing.ProviderStates),
+                HostOrigin = new HostConfigOrigin
+                {
+                    TemplateId = existing.HostOrigin.TemplateId,
+                    TemplateName = existing.HostOrigin.TemplateName,
+                    DiscoveryProviderId = existing.HostOrigin.DiscoveryProviderId,
+                    DiscoveryCandidateId = existing.HostOrigin.DiscoveryCandidateId
+                }
             };
         }
         else
@@ -102,6 +111,8 @@ public static class DiscoveryDraftService
             }
         }
 
+        ApplyPluginDraftContext(config, existing, backupSet, issues);
+
         var plans = DiscoveryResourcePlanner.CreatePlans(backupSet.Resources, selectedResourceIds);
         var selectedResources = backupSet.Resources
             .Where(resource => plans.Any(plan => plan.ResourceIds.Contains(resource.ResourceId, StringComparer.OrdinalIgnoreCase)))
@@ -116,7 +127,7 @@ public static class DiscoveryDraftService
             });
         }
 
-        foreach (var folder in CreateManagedFolders(plans))
+        foreach (var folder in CreateManagedFolders(plans, backupSet.PluginDraftContext))
         {
             config.SourceFolders.Add(folder);
         }
@@ -127,7 +138,9 @@ public static class DiscoveryDraftService
             ReviewedBaseline = discoveredBaseline,
             PresetShareId = preset.ShareId,
             PresetVersion = preset.Version,
-            ManifestRevision = manifestRevision ?? string.Empty
+            ManifestRevision = string.IsNullOrWhiteSpace(backupSet.DiscoveryRevision)
+                ? manifestRevision ?? string.Empty
+                : backupSet.DiscoveryRevision
         };
 
         if (existing == null && config.IsEncrypted && !EncryptionService.HasStoredPassword(config.Id))
@@ -190,7 +203,37 @@ public static class DiscoveryDraftService
                 ExternalIds = source.ExternalIds
             })
             .ToList();
-        return await discoveryService.DiscoverAsync(
+        if (definitions.Count == 0)
+        {
+            return TargetedFailure(
+                "invalid-provider-preset",
+                "The preset does not contain a valid provider definition reference.",
+                string.Empty);
+        }
+        var providerId = definitions.FirstOrDefault()?.ProviderId ?? string.Empty;
+        var missingPlugins = BackupPresetService.GetMissingRequiredPluginIds(preset);
+        if (missingPlugins.Count > 0)
+        {
+            return TargetedFailure(
+                "provider-unavailable",
+                $"Required plugin(s) are not installed: {string.Join(", ", missingPlugins)}.",
+                providerId);
+        }
+        var installedV3 = GetInstalledV3PluginIds();
+        var inactivePlugins = (preset.RequiredPluginIds ?? new ObservableCollection<string>())
+            .Where(id => !string.IsNullOrWhiteSpace(id)
+                && (!PluginService.GetPluginEnabled(id)
+                    || (installedV3.Contains(id) && !IsV3PluginActive(id))))
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToList();
+        if (inactivePlugins.Count > 0)
+        {
+            return TargetedFailure(
+                "provider-inactive",
+                $"Required plugin(s) are disabled or inactive: {string.Join(", ", inactivePlugins)}.",
+                providerId);
+        }
+        var result = await discoveryService.DiscoverAsync(
             new DiscoveryRequest
             {
                 Mode = DiscoveryRequestMode.PresetTargeted,
@@ -198,6 +241,62 @@ public static class DiscoveryDraftService
             },
             progress,
             cancellationToken).ConfigureAwait(false);
+        if (result.Candidates.Count != 0
+            || result.Diagnostics.Any(value => value.Severity == DiscoveryDiagnosticSeverity.Error))
+        {
+            return result;
+        }
+        return new GameDiscoveryResult
+        {
+            Candidates = result.Candidates,
+            Diagnostics = result.Diagnostics.Concat(
+            [
+                new DiscoveryDiagnostic
+                {
+                    Severity = DiscoveryDiagnosticSeverity.Error,
+                    Code = "no-candidates",
+                    Message = "The selected provider found no matching backup targets.",
+                    ProviderId = providerId,
+                    Category = "preset-targeted"
+                }
+            ]).ToList()
+        };
+    }
+
+    private static GameDiscoveryResult TargetedFailure(string code, string message, string providerId) => new()
+    {
+        Diagnostics =
+        [
+            new DiscoveryDiagnostic
+            {
+                Severity = DiscoveryDiagnosticSeverity.Error,
+                Code = code,
+                Message = message,
+                ProviderId = providerId,
+                Category = "preset-targeted"
+            }
+        ]
+    };
+
+    private static HashSet<string> GetInstalledV3PluginIds()
+    {
+        try
+        {
+            return PluginV3PackageService.GetInstalledPluginInfos()
+                .Select(plugin => plugin.Id)
+                .ToHashSet(StringComparer.OrdinalIgnoreCase);
+        }
+        catch (Exception ex)
+        {
+            LogService.LogWarning($"Installed Plugin V3 inventory could not be read for targeted discovery: {ex.Message}", "GameDiscovery");
+            return new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        }
+    }
+
+    private static bool IsV3PluginActive(string pluginId)
+    {
+        try { return PluginV3RuntimeService.IsActive(new FolderRewind.Plugin.Abstractions.PluginId(pluginId)); }
+        catch { return false; }
     }
 
     public static BackupConfigDraftCommitResult Commit(IEnumerable<BackupConfigDraft> drafts)
@@ -280,18 +379,9 @@ public static class DiscoveryDraftService
         };
     }
 
-    private static IEnumerable<BackupPreset> FindMatchingPresets(
-        DiscoveredGameCandidate game,
-        IEnumerable<BackupPreset>? presets)
-    {
-        return (presets ?? Array.Empty<BackupPreset>()).Where(preset =>
-            preset.DiscoverySources.Any(source =>
-                source.Kind == BackupPresetDiscoverySourceKind.ProviderReference
-                && string.Equals(source.ProviderId, game.Definition.ProviderId, StringComparison.OrdinalIgnoreCase)
-                && string.Equals(source.DefinitionId, game.Definition.DefinitionId, StringComparison.Ordinal)));
-    }
-
-    private static IReadOnlyList<ManagedFolder> CreateManagedFolders(IReadOnlyList<DiscoveredSourcePlan> plans)
+    private static IReadOnlyList<ManagedFolder> CreateManagedFolders(
+        IReadOnlyList<DiscoveredSourcePlan> plans,
+        PluginDiscoveryDraftContext? pluginContext)
     {
         var names = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         var result = new List<ManagedFolder>();
@@ -304,7 +394,7 @@ public static class DiscoveryDraftService
             {
                 name = $"{baseName} ({suffix++})";
             }
-            result.Add(new ManagedFolder
+            var folder = new ManagedFolder
             {
                 Path = plan.FixedRoot,
                 DisplayName = name,
@@ -313,7 +403,9 @@ public static class DiscoveryDraftService
                     Mode = plan.ScopeMode,
                     IncludePatterns = new ObservableCollection<string>(plan.IncludePatterns)
                 }
-            });
+            };
+            folder.ProviderStates = MergeFolderProviderStates(pluginContext, plan.ResourceIds);
+            result.Add(folder);
         }
         return result;
     }
@@ -339,6 +431,10 @@ public static class DiscoveryDraftService
         if (newConfigs.Any(config => string.IsNullOrWhiteSpace(config.DestinationPath)))
         {
             return "Every configuration requires a destination directory.";
+        }
+        if (newConfigs.Any(config => config.SourceFolders.Count == 0))
+        {
+            return "A newly discovered configuration must contain at least one source folder.";
         }
 
         var existingNames = ConfigService.CurrentConfig.BackupConfigs
@@ -427,9 +523,14 @@ public static class DiscoveryDraftService
 
             if (existingFolder == null)
             {
-                var proposedName = draft.ProposedConfig.SourceFolders
-                    .FirstOrDefault(folder => PathsEqual(folder.Path, change.NormalizedRootPath))?.DisplayName;
+                var proposed = draft.ProposedConfig.SourceFolders
+                    .FirstOrDefault(folder => PathsEqual(folder.Path, change.NormalizedRootPath));
+                var proposedName = proposed?.DisplayName;
                 var folder = CreateManagedFolder(change.Discovered, proposedName);
+                if (proposed != null)
+                {
+                    folder.ProviderStates = CloneProviderStates(proposed.ProviderStates);
+                }
                 folder.DisplayName = UniqueFolderName(config, folder.DisplayName);
                 config.SourceFolders.Add(folder);
                 addedFolders.Add((config, folder));
@@ -504,6 +605,80 @@ public static class DiscoveryDraftService
     {
         Mode = source?.Mode ?? BackupSourceScopeMode.All,
         IncludePatterns = new ObservableCollection<string>(source?.IncludePatterns ?? new ObservableCollection<string>())
+    };
+
+    private static void ApplyPluginDraftContext(
+        BackupConfig config,
+        BackupConfig? existing,
+        BackupSetCandidate backupSet,
+        ICollection<BackupConfigDraftIssue> issues)
+    {
+        var context = backupSet.PluginDraftContext;
+        if (context == null)
+        {
+            return;
+        }
+        var targetKind = existing?.Kind ?? config.Kind;
+        if (!string.Equals(targetKind.OwnerId, context.Kind.OwnerId, StringComparison.OrdinalIgnoreCase)
+            || !string.Equals(targetKind.KindId, context.Kind.KindId, StringComparison.Ordinal))
+        {
+            issues.Add(new BackupConfigDraftIssue
+            {
+                Code = "plugin-config-kind-mismatch",
+                Message = $"The selected preset kind '{targetKind.OwnerId}/{targetKind.KindId}' does not match the plugin draft kind '{context.Kind.OwnerId}/{context.Kind.KindId}'.",
+                IsBlocking = true
+            });
+            return;
+        }
+
+        foreach (var pair in context.ConfigProviderStates)
+        {
+            config.ProviderStates[pair.Key] = CloneProviderState(pair.Value);
+        }
+        config.HostOrigin.DiscoveryProviderId = context.ProviderId;
+        config.HostOrigin.DiscoveryCandidateId = context.CandidateId;
+        if (existing == null)
+        {
+            config.RequiredPluginId = context.PluginId;
+        }
+    }
+
+    private static Dictionary<string, ProviderStatePayload> MergeFolderProviderStates(
+        PluginDiscoveryDraftContext? context,
+        IEnumerable<string> resourceIds)
+    {
+        var states = new Dictionary<string, ProviderStatePayload>(StringComparer.OrdinalIgnoreCase);
+        if (context == null)
+        {
+            return states;
+        }
+        foreach (var resourceId in resourceIds)
+        {
+            if (!context.FolderProviderStatesByResourceId.TryGetValue(resourceId, out var resourceStates))
+            {
+                continue;
+            }
+            foreach (var pair in resourceStates)
+            {
+                states.TryAdd(pair.Key, CloneProviderState(pair.Value));
+            }
+        }
+        return states;
+    }
+
+    private static Dictionary<string, ProviderStatePayload> CloneProviderStates(
+        IReadOnlyDictionary<string, ProviderStatePayload>? states)
+    {
+        return (states ?? new Dictionary<string, ProviderStatePayload>()).ToDictionary(
+            pair => pair.Key,
+            pair => CloneProviderState(pair.Value),
+            StringComparer.OrdinalIgnoreCase);
+    }
+
+    private static ProviderStatePayload CloneProviderState(ProviderStatePayload state) => new()
+    {
+        SchemaVersion = state.SchemaVersion,
+        Data = state.Data.Clone()
     };
 
     private static DiscoverySetIdentity CloneIdentity(DiscoverySetIdentity source) => new()

@@ -147,6 +147,51 @@ public sealed class DiscoveryCandidateMergerTests
     }
 
     [TestMethod]
+    public void SpecializedHighEvidenceAliasBecomesCanonicalAndSuppressesGenericScope()
+    {
+        var specialized = CreateGame(
+            "plugin-game:v1:com.folderrewind.minerewind:minecraft-java",
+            "Minecraft: Java Edition",
+            string.Empty,
+            GameStore.Unknown,
+            string.Empty,
+            ["Minecraft"],
+            providerId: "com.folderrewind.minerewind");
+        specialized.BackupSets[0].Identity.ProviderId = "com.folderrewind.minerewind";
+        specialized.BackupSets[0].Resources.Add(CreateResource(
+            "plugin-world",
+            "com.folderrewind.minerewind",
+            "C:\\Users\\Test\\.minecraft\\saves\\World",
+            specialized: true,
+            priority: 100));
+
+        var generic = CreateGame(
+            "ludusavi:Minecraft",
+            "Minecraft",
+            string.Empty,
+            GameStore.Unknown,
+            string.Empty,
+            providerId: "ludusavi");
+        generic.BackupSets[0].Identity.ProviderId = "ludusavi";
+        generic.BackupSets[0].Resources.Add(CreateResource(
+            "ludusavi-world",
+            "ludusavi",
+            "C:\\Users\\Test\\.minecraft\\saves\\World",
+            specialized: false,
+            priority: 10));
+
+        var merged = DiscoveryCandidateMerger.Merge([
+            Result("com.folderrewind.minerewind", specialized),
+            Result("ludusavi", generic)
+        ]);
+
+        Assert.HasCount(1, merged);
+        Assert.AreEqual("com.folderrewind.minerewind", merged[0].Definition.ProviderId);
+        Assert.IsTrue(merged[0].BackupSets.SelectMany(set => set.Resources)
+            .Single(resource => resource.ResourceId == "ludusavi-world").IsSuppressed);
+    }
+
+    [TestMethod]
     public void CaseDistinctDefinitionsFromSameProviderDoNotAliasMerge()
     {
         var upper = CreateGame(
@@ -193,14 +238,15 @@ public sealed class DiscoveryCandidateMergerTests
         string steamId,
         GameStore store,
         string path,
-        IReadOnlyList<string>? aliases = null)
+        IReadOnlyList<string>? aliases = null,
+        string providerId = "test")
     {
         return new DiscoveredGameCandidate
         {
             StableKey = key,
             Definition = new GameDefinition
             {
-                ProviderId = "test",
+                ProviderId = providerId,
                 DefinitionId = key,
                 DisplayName = name,
                 Aliases = aliases ?? Array.Empty<string>(),

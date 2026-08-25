@@ -71,7 +71,7 @@ public static class PluginV3DiscoveryService
             await coordinator.DiscoverAsync(
                 pluginId,
                 new FolderRewind.Plugin.Abstractions.DiscoveryRequest(
-                    await BuildUserRootsAsync(pluginId).ConfigureAwait(false)),
+                    await PluginV3DiscoveryRootService.BuildDefaultRootsAsync(pluginId).ConfigureAwait(false)),
                 autoCreateConfigs: true,
                 cancellationToken).ConfigureAwait(false);
         }
@@ -94,44 +94,6 @@ public static class PluginV3DiscoveryService
            && settings.TryGetValue("AutoCreateConfigs", out var value)
            && value.ValueKind is JsonValueKind.True or JsonValueKind.False
            && value.GetBoolean();
-
-    private static async Task<IReadOnlyList<string>> BuildUserRootsAsync(PluginId pluginId)
-    {
-        var roots = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-        AddExistingDirectory(roots, Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData));
-        AddExistingDirectory(roots, Environment.GetFolderPath(Environment.SpecialFolder.UserProfile));
-        // ObservableCollection 归 UI Dispatcher 所有，后台发现线程只能读取在 UI 线程创建的路径快照。
-        var managedPaths = new List<string>();
-        await UiDispatcherService.RunOnUiAsync(() =>
-        {
-            foreach (var config in ConfigService.CurrentConfig.BackupConfigs.Where(value =>
-                         string.Equals(value.Kind.OwnerId, pluginId.Value, StringComparison.OrdinalIgnoreCase)))
-            {
-                managedPaths.AddRange(config.SourceFolders.Select(folder => folder.Path));
-            }
-        }).ConfigureAwait(false);
-        foreach (var path in managedPaths)
-        {
-            AddExistingDirectory(roots, path);
-            var parent = TryGetParent(path);
-            AddExistingDirectory(roots, parent);
-            AddExistingDirectory(roots, TryGetParent(parent));
-        }
-        return roots.OrderBy(value => value, StringComparer.OrdinalIgnoreCase).ToArray();
-    }
-
-    private static string? TryGetParent(string? path)
-    {
-        if (string.IsNullOrWhiteSpace(path)) return null;
-        try { return Directory.GetParent(path)?.FullName; }
-        catch { return null; }
-    }
-
-    private static void AddExistingDirectory(ISet<string> roots, string? path)
-    {
-        if (!string.IsNullOrWhiteSpace(path) && Directory.Exists(path))
-            roots.Add(Path.GetFullPath(path));
-    }
 
     private static ManagedFolder ToManagedFolder(FolderDraft draft)
         => new()

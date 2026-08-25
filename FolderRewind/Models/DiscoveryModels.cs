@@ -188,7 +188,25 @@ public sealed class BackupSetCandidate
     public required string StableKey { get; init; }
     public required DiscoverySetIdentity Identity { get; init; }
     public required string DisplayName { get; init; }
+    public string DiscoveryRevision { get; init; } = string.Empty;
+    public PluginDiscoveryDraftContext? PluginDraftContext { get; init; }
     public IList<BackupResourceCandidate> Resources { get; init; } = new List<BackupResourceCandidate>();
+}
+
+/// <summary>
+/// Host-owned, non-persistent copy of the plugin draft metadata required to turn
+/// reviewed game-discovery resources back into a complete BackupConfig.
+/// </summary>
+public sealed class PluginDiscoveryDraftContext
+{
+    public required string PluginId { get; init; }
+    public required string ProviderId { get; init; }
+    public required string CandidateId { get; init; }
+    public required ConfigKindReference Kind { get; init; }
+    public IReadOnlyDictionary<string, ProviderStatePayload> ConfigProviderStates { get; init; }
+        = new Dictionary<string, ProviderStatePayload>(StringComparer.OrdinalIgnoreCase);
+    public IReadOnlyDictionary<string, IReadOnlyDictionary<string, ProviderStatePayload>> FolderProviderStatesByResourceId { get; init; }
+        = new Dictionary<string, IReadOnlyDictionary<string, ProviderStatePayload>>(StringComparer.OrdinalIgnoreCase);
 }
 
 public sealed class DiscoveredGameCandidate

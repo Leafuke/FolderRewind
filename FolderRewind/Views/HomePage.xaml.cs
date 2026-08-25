@@ -1,5 +1,6 @@
 using FolderRewind.Models;
 using FolderRewind.Services;
+using FolderRewind.Services.Discovery;
 using FolderRewind.Services.Plugins;
 using FolderRewind.ViewModels;
 using Microsoft.UI;
@@ -380,6 +381,28 @@ namespace FolderRewind.Views
             PluginConfigKindOption? selectedKind,
             ResourceLoader resourceLoader)
         {
+            var applicationMode = BackupPresetApplicationClassifier.Classify(selectedTemplate);
+            if (applicationMode == BackupPresetApplicationMode.ProviderTargeted)
+            {
+                _ = NavigationService.NavigateTo(
+                    "GameDiscovery",
+                    GameDiscoveryNavigationParameter.ForPreset(selectedTemplate.ShareId, configName));
+                return;
+            }
+            if (applicationMode == BackupPresetApplicationMode.Invalid)
+            {
+                var invalidDialog = new ContentDialog
+                {
+                    Title = I18n.GetString("Template_CreateFrom_Home_Title"),
+                    Content = "This preset has no usable inline path rules or provider definition reference.",
+                    CloseButtonText = I18n.GetString("Common_Ok"),
+                    XamlRoot = this.XamlRoot
+                };
+                ThemeService.ApplyThemeToDialog(invalidDialog);
+                await invalidDialog.ShowAsync();
+                return;
+            }
+
             var createResult = BackupPresetService.CreateConfigFromTemplate(
                 selectedTemplate,
                 configName,

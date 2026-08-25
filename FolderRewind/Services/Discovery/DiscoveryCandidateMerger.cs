@@ -110,6 +110,8 @@ public static class DiscoveryCandidateMerger
             StableKey = source.StableKey,
             Identity = source.Identity,
             DisplayName = source.DisplayName,
+            DiscoveryRevision = source.DiscoveryRevision,
+            PluginDraftContext = source.PluginDraftContext,
             Resources = source.Resources.ToList()
         };
     }

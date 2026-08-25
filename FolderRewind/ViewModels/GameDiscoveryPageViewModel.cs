@@ -34,7 +34,8 @@ public sealed class GameDiscoveryPageViewModel : ViewModelBase, IDisposable
     private GameStore? _storeFilter;
     private DiscoveryCandidateStatus? _statusFilter;
     private GameDiscoveryCandidateItem? _selectedGame;
-    private string _manifestRevision = string.Empty;
+    private BackupPreset? _targetedPreset;
+    private string _targetedConfigName = string.Empty;
 
     public GameDiscoveryPageViewModel()
         : this(
@@ -75,6 +76,8 @@ public sealed class GameDiscoveryPageViewModel : ViewModelBase, IDisposable
     public string ResultSummary { get => _resultSummary; private set => SetProperty(ref _resultSummary, value); }
     public bool HasResults => VisibleGames.Count > 0;
     public bool HasDrafts => Drafts.Count > 0;
+    public bool IsTargetedMode => _targetedPreset != null;
+    public bool IsFullMachineMode => !IsTargetedMode;
     public int HiddenSelectedCount => Games.Count(item => item.IsSelected && !VisibleGames.Contains(item));
     public string HiddenSelectionSummary => HiddenSelectedCount == 0
         ? string.Empty
@@ -86,16 +89,46 @@ public sealed class GameDiscoveryPageViewModel : ViewModelBase, IDisposable
         set => SetProperty(ref _selectedGame, value);
     }
 
-    public async Task InitializeAsync()
+    public async Task InitializeAsync(GameDiscoveryNavigationParameter? parameter = null)
     {
-        if (_initialized) return;
-        _initialized = true;
-        RefreshDetectedLibraryRoots();
-        await RefreshCacheStatusAsync(CancellationToken.None);
+        if (!_initialized)
+        {
+            _initialized = true;
+            RefreshDetectedLibraryRoots();
+            if (parameter?.Mode != DiscoveryRequestMode.PresetTargeted)
+            {
+                await RefreshCacheStatusAsync(CancellationToken.None);
+            }
+        }
+
+        _targetedPreset = parameter?.Mode == DiscoveryRequestMode.PresetTargeted
+            ? BackupPresetService.GetTemplates().FirstOrDefault(preset =>
+                string.Equals(preset.ShareId, parameter.PresetShareId, StringComparison.OrdinalIgnoreCase))
+            : null;
+        _targetedConfigName = _targetedPreset == null ? string.Empty : parameter?.RequestedConfigName ?? string.Empty;
+        OnPropertyChanged(nameof(IsTargetedMode));
+        OnPropertyChanged(nameof(IsFullMachineMode));
+        if (parameter?.Mode == DiscoveryRequestMode.PresetTargeted)
+        {
+            if (_targetedPreset == null)
+            {
+                ProgressText = "The selected provider-targeted preset is no longer available.";
+                Games.Clear();
+                VisibleGames.Clear();
+                Drafts.Clear();
+                return;
+            }
+            await RunOperationAsync(ScanTargetedCoreAsync);
+        }
     }
 
     public async Task DownloadAndScanAsync()
     {
+        if (IsTargetedMode)
+        {
+            await ScanAsync();
+            return;
+        }
         await RunOperationAsync(async token =>
         {
             var update = await _cacheService.DownloadAndCompileAsync(
@@ -128,7 +161,8 @@ public sealed class GameDiscoveryPageViewModel : ViewModelBase, IDisposable
         });
     }
 
-    public Task ScanAsync() => RunOperationAsync(ScanCoreAsync);
+    public Task ScanAsync() => RunOperationAsync(
+        _targetedPreset == null ? ScanCoreAsync : ScanTargetedCoreAsync);
 
     public void Cancel() => _operationCts?.Cancel();
 
@@ -196,13 +230,19 @@ public sealed class GameDiscoveryPageViewModel : ViewModelBase, IDisposable
                     setItem.Candidate,
                     presets,
                     ConfigService.CurrentConfig.BackupConfigs,
-                    _manifestRevision,
+                    string.Empty,
                     selectedResourceIds,
                     setItem.SelectedPreset?.Preset);
                 Drafts.Add(new GameDiscoveryDraftItem(draft));
             }
         }
         OnPropertyChanged(nameof(HasDrafts));
+        if (_targetedPreset != null
+            && Drafts.Count == 1
+            && !string.IsNullOrWhiteSpace(_targetedConfigName))
+        {
+            Drafts[0].ConfigName = _targetedConfigName;
+        }
     }
 
     public IReadOnlyList<BackupResourceCandidate> GetSelectedBroadRootResources() => Games
@@ -220,6 +260,10 @@ public sealed class GameDiscoveryPageViewModel : ViewModelBase, IDisposable
         if (IsBusy)
         {
             return new BackupConfigDraftCommitResult { ErrorMessage = "A discovery operation is still running." };
+        }
+        if (Drafts.Count == 0 || Drafts.All(item => !item.IsSelected))
+        {
+            return new BackupConfigDraftCommitResult { ErrorMessage = "Select at least one discovery draft before committing." };
         }
         foreach (var item in Drafts)
         {
@@ -281,23 +325,48 @@ public sealed class GameDiscoveryPageViewModel : ViewModelBase, IDisposable
             HasCache = false;
             CacheStatus = I18n.GetString("GameDiscovery_Cache_Missing");
             ProgressText = I18n.GetString("GameDiscovery_Status_NoCache");
-            return;
         }
-        ApplyCacheMetadata(current.Value.Metadata);
-        var providers = new List<IGameDiscoveryProvider>
+        else
         {
-            new LudusaviDiscoveryProvider(_cacheService)
-        };
-        var discoveryService = new GameDiscoveryService(providers);
+            ApplyCacheMetadata(current.Value.Metadata);
+        }
+        var composition = GameDiscoveryProviderFactory.Create(_cacheService);
+        var discoveryService = new GameDiscoveryService(composition.Providers, composition.Diagnostics);
         var stopwatch = Stopwatch.StartNew();
         var result = await discoveryService.DiscoverAsync(BuildRequest(), CreateProgress(), token);
+        ApplyResult(result, stopwatch, lockedPreset: null);
+    }
+
+    private async Task ScanTargetedCoreAsync(CancellationToken token)
+    {
+        var preset = _targetedPreset
+            ?? throw new InvalidOperationException("The targeted preset is unavailable.");
+        var composition = GameDiscoveryProviderFactory.Create(_cacheService);
+        var discoveryService = new GameDiscoveryService(composition.Providers, composition.Diagnostics);
+        var stopwatch = Stopwatch.StartNew();
+        var result = await DiscoveryDraftService.DiscoverPresetTargetsAsync(
+            preset,
+            discoveryService,
+            CreateProgress(),
+            token);
+        ApplyResult(result, stopwatch, preset);
+    }
+
+    private void ApplyResult(
+        GameDiscoveryResult result,
+        Stopwatch stopwatch,
+        BackupPreset? lockedPreset)
+    {
         Games.Clear();
         foreach (var game in result.Candidates.OrderBy(candidate => candidate.Definition.DisplayName, StringComparer.CurrentCultureIgnoreCase))
         {
             var item = new GameDiscoveryCandidateItem(
                 game,
-                FindMatchingPresets(game),
-                ConfigService.CurrentConfig.BackupConfigs);
+                lockedPreset == null
+                    ? BackupPresetDiscoveryMatcher.FindMatches(game.Definition, BackupPresetService.GetTemplates())
+                    : [lockedPreset],
+                ConfigService.CurrentConfig.BackupConfigs,
+                lockedPreset);
             item.PropertyChanged += (_, args) =>
             {
                 if (args.PropertyName == nameof(GameDiscoveryCandidateItem.IsSelected))
@@ -317,8 +386,15 @@ public sealed class GameDiscoveryPageViewModel : ViewModelBase, IDisposable
             stopwatch.Elapsed.TotalSeconds.ToString("F1", CultureInfo.CurrentCulture));
         ProgressText = result.Diagnostics.FirstOrDefault(diagnostic => diagnostic.Severity == DiscoveryDiagnosticSeverity.Error)?.Message
             ?? I18n.GetString("GameDiscovery_Status_Complete");
+        var revisions = result.Candidates
+            .SelectMany(candidate => candidate.BackupSets)
+            .Select(set => set.DiscoveryRevision)
+            .Where(value => !string.IsNullOrWhiteSpace(value))
+            .Distinct(StringComparer.Ordinal)
+            .OrderBy(value => value, StringComparer.Ordinal)
+            .ToList();
         LogService.LogInfo(
-            $"Discovery revision={_manifestRevision}, games={Games.Count}, resources={Games.Sum(game => game.BackupSets.Sum(set => set.Resources.Count))}, diagnostics={result.Diagnostics.Count}, elapsedMs={stopwatch.ElapsedMilliseconds}",
+            $"Discovery revisions=[{string.Join(",", revisions)}], games={Games.Count}, resources={Games.Sum(game => game.BackupSets.Sum(set => set.Resources.Count))}, diagnostics={result.Diagnostics.Count}, elapsedMs={stopwatch.ElapsedMilliseconds}",
             "GameDiscovery");
     }
 
@@ -346,14 +422,6 @@ public sealed class GameDiscoveryPageViewModel : ViewModelBase, IDisposable
             var total = progress.Total is > 0 ? $" ({progress.Completed}/{progress.Total})" : string.Empty;
             ProgressText = $"{progress.Message}{total}";
         });
-    }
-
-    private IEnumerable<BackupPreset> FindMatchingPresets(DiscoveredGameCandidate game)
-    {
-        return BackupPresetService.GetTemplates().Where(preset => preset.DiscoverySources.Any(source =>
-            source.Kind == BackupPresetDiscoverySourceKind.ProviderReference
-            && string.Equals(source.ProviderId, game.Definition.ProviderId, StringComparison.OrdinalIgnoreCase)
-            && string.Equals(source.DefinitionId, game.Definition.DefinitionId, StringComparison.Ordinal)));
     }
 
     private async Task RefreshCacheStatusAsync(CancellationToken token)
@@ -411,7 +479,6 @@ public sealed class GameDiscoveryPageViewModel : ViewModelBase, IDisposable
     private void ApplyCacheMetadata(LudusaviManifestCacheMetadata metadata)
     {
         HasCache = true;
-        _manifestRevision = metadata.SourceSha256;
         CacheStatus = I18n.Format(
             "GameDiscovery_Cache_Ready",
             metadata.UpdatedAtUtc.ToLocalTime().ToString("g", CultureInfo.CurrentCulture),
@@ -480,13 +547,15 @@ public sealed class GameDiscoveryCandidateItem : FolderRewind.Models.ObservableO
     public GameDiscoveryCandidateItem(
         DiscoveredGameCandidate candidate,
         IEnumerable<BackupPreset> presets,
-        IEnumerable<BackupConfig> existingConfigs)
+        IEnumerable<BackupConfig> existingConfigs,
+        BackupPreset? lockedPreset = null)
     {
         Candidate = candidate;
         var configs = existingConfigs.ToList();
         _status = DiscoveryPresentationService.GetStatus(candidate, configs.Select(config => config.DiscoveryOrigin));
-        var presetItems = new[] { BackupPresetService.CreateStandardGamePreset() }
-            .Concat(presets)
+        var presetItems = (lockedPreset == null
+                ? new[] { BackupPresetService.CreateStandardGamePreset() }.Concat(presets)
+                : presets)
             .GroupBy(preset => preset.ShareId, StringComparer.OrdinalIgnoreCase)
             .Select(group => new GameDiscoveryPresetItem(group.First()))
             .ToList();
@@ -495,7 +564,8 @@ public sealed class GameDiscoveryCandidateItem : FolderRewind.Models.ObservableO
             BackupSets.Add(new GameDiscoveryBackupSetItem(
                 set,
                 presetItems,
-                DiscoverySetIdentityMatcher.FindUnique(set.Identity, configs, config => config.DiscoveryOrigin) != null));
+                DiscoverySetIdentityMatcher.FindUnique(set.Identity, configs, config => config.DiscoveryOrigin) != null,
+                lockedPreset != null));
         }
     }
 
@@ -523,14 +593,17 @@ public sealed class GameDiscoveryBackupSetItem : FolderRewind.Models.ObservableO
 {
     private bool _isSelected = true;
     private GameDiscoveryPresetItem? _selectedPreset;
+    private readonly bool _isPresetLocked;
 
     public GameDiscoveryBackupSetItem(
         BackupSetCandidate candidate,
         IReadOnlyList<GameDiscoveryPresetItem> presets,
-        bool hasExistingConfiguration)
+        bool hasExistingConfiguration,
+        bool isPresetLocked = false)
     {
         Candidate = candidate;
         HasExistingConfiguration = hasExistingConfiguration;
+        _isPresetLocked = isPresetLocked;
         foreach (var resource in candidate.Resources)
         {
             Resources.Add(new GameDiscoveryResourceItem(resource));
@@ -547,7 +620,7 @@ public sealed class GameDiscoveryBackupSetItem : FolderRewind.Models.ObservableO
 
     public BackupSetCandidate Candidate { get; }
     public bool HasExistingConfiguration { get; }
-    public bool CanChoosePreset => !HasExistingConfiguration;
+    public bool CanChoosePreset => !HasExistingConfiguration && !_isPresetLocked;
     public string Name => Candidate.DisplayName;
     public ObservableCollection<GameDiscoveryResourceItem> Resources { get; } = new();
     public ObservableCollection<GameDiscoveryPresetItem> Presets { get; } = new();

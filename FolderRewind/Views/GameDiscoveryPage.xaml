@@ -18,7 +18,7 @@
 
             <InfoBar x:Uid="GameDiscoveryPage_BetaNotice" IsOpen="True" IsClosable="False" Severity="Informational"/>
 
-            <Border Padding="16" CornerRadius="8" Background="{ThemeResource CardBackgroundFillColorDefaultBrush}" BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}" BorderThickness="1">
+            <Border Visibility="{x:Bind ViewModel.IsFullMachineMode, Mode=OneWay, Converter={StaticResource BoolToVisConverter}}" Padding="16" CornerRadius="8" Background="{ThemeResource CardBackgroundFillColorDefaultBrush}" BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}" BorderThickness="1">
                 <StackPanel Spacing="12">
                     <TextBlock x:Uid="GameDiscoveryPage_DataHeading" Style="{ThemeResource SubtitleTextBlockStyle}"/>
                     <TextBlock Text="{x:Bind ViewModel.CacheStatus, Mode=OneWay}" TextWrapping="Wrap"/>
@@ -52,7 +52,7 @@
                 </StackPanel>
             </Border>
 
-            <Expander x:Uid="GameDiscoveryPage_LibraryRoots" IsExpanded="False" IsEnabled="{x:Bind ViewModel.CanStart, Mode=OneWay}">
+            <Expander x:Uid="GameDiscoveryPage_LibraryRoots" Visibility="{x:Bind ViewModel.IsFullMachineMode, Mode=OneWay, Converter={StaticResource BoolToVisConverter}}" IsExpanded="False" IsEnabled="{x:Bind ViewModel.CanStart, Mode=OneWay}">
                 <StackPanel Spacing="10" Padding="0,10,0,0">
                     <ItemsControl ItemsSource="{x:Bind ViewModel.Settings.LibraryRoots, Mode=OneWay}">
                         <ItemsControl.ItemTemplate>

@@ -24,7 +24,7 @@ public sealed partial class GameDiscoveryPage : Page
     protected override async void OnNavigatedTo(NavigationEventArgs e)
     {
         base.OnNavigatedTo(e);
-        await ViewModel.InitializeAsync();
+        await ViewModel.InitializeAsync(e.Parameter as GameDiscoveryNavigationParameter);
     }
 
     protected override void OnNavigatedFrom(NavigationEventArgs e)

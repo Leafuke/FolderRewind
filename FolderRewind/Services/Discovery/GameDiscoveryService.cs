@@ -11,8 +11,11 @@ namespace FolderRewind.Services.Discovery;
 public sealed class GameDiscoveryService
 {
     private readonly IReadOnlyList<IGameDiscoveryProvider> _providers;
+    private readonly IReadOnlyList<DiscoveryDiagnostic> _compositionDiagnostics;
 
-    public GameDiscoveryService(IEnumerable<IGameDiscoveryProvider> providers)
+    public GameDiscoveryService(
+        IEnumerable<IGameDiscoveryProvider> providers,
+        IEnumerable<DiscoveryDiagnostic>? compositionDiagnostics = null)
     {
         ArgumentNullException.ThrowIfNull(providers);
         _providers = providers
@@ -21,6 +24,7 @@ public sealed class GameDiscoveryService
             .Select(group => group.OrderByDescending(provider => provider.Descriptor.Priority).First())
             .OrderByDescending(provider => provider.Descriptor.Priority)
             .ToList();
+        _compositionDiagnostics = (compositionDiagnostics ?? Array.Empty<DiscoveryDiagnostic>()).ToList();
     }
 
     public async Task<GameDiscoveryResult> DiscoverAsync(
@@ -30,16 +34,59 @@ public sealed class GameDiscoveryService
     {
         ArgumentNullException.ThrowIfNull(request);
 
-        var tasks = _providers.Select(provider =>
+        var providers = _providers.AsEnumerable();
+        if (request.Mode == DiscoveryRequestMode.PresetTargeted)
+        {
+            var requestedProviderIds = request.Definitions.Select(value => value.ProviderId)
+                .ToHashSet(StringComparer.OrdinalIgnoreCase);
+            providers = providers.Where(provider => requestedProviderIds.Contains(provider.Descriptor.Id));
+        }
+        var tasks = providers.Select(provider =>
             RunProviderAsync(provider, request, progress, cancellationToken));
         var results = await Task.WhenAll(tasks).ConfigureAwait(false);
         cancellationToken.ThrowIfCancellationRequested();
 
+        var diagnostics = RelevantCompositionDiagnostics(request).ToList();
+        diagnostics.AddRange(results.SelectMany(result => result.Diagnostics));
+        if (request.Mode == DiscoveryRequestMode.PresetTargeted)
+        {
+            var availableProviders = _providers.Select(provider => provider.Descriptor.Id)
+                .ToHashSet(StringComparer.OrdinalIgnoreCase);
+            foreach (var providerId in request.Definitions.Select(value => value.ProviderId)
+                         .Where(value => !string.IsNullOrWhiteSpace(value))
+                         .Distinct(StringComparer.OrdinalIgnoreCase))
+            {
+                if (!availableProviders.Contains(providerId)
+                    && !diagnostics.Any(value => string.Equals(value.ProviderId, providerId, StringComparison.OrdinalIgnoreCase)))
+                {
+                    diagnostics.Add(new DiscoveryDiagnostic
+                    {
+                        Severity = DiscoveryDiagnosticSeverity.Error,
+                        Code = "provider-unavailable",
+                        Message = $"Discovery provider '{providerId}' is unavailable.",
+                        ProviderId = providerId,
+                        Category = "provider-composition"
+                    });
+                }
+            }
+        }
+
         return new GameDiscoveryResult
         {
             Candidates = DiscoveryCandidateMerger.Merge(results),
-            Diagnostics = results.SelectMany(result => result.Diagnostics).ToList()
+            Diagnostics = diagnostics
         };
+    }
+
+    private IEnumerable<DiscoveryDiagnostic> RelevantCompositionDiagnostics(DiscoveryRequest request)
+    {
+        if (request.Mode != DiscoveryRequestMode.PresetTargeted)
+        {
+            return _compositionDiagnostics;
+        }
+        var providerIds = request.Definitions.Select(value => value.ProviderId)
+            .ToHashSet(StringComparer.OrdinalIgnoreCase);
+        return _compositionDiagnostics.Where(value => providerIds.Contains(value.ProviderId));
     }
 
     private static async Task<DiscoveryProviderResult> RunProviderAsync(

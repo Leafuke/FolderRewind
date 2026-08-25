@@ -117,6 +117,7 @@ public sealed class LudusaviDiscoveryProvider : IGameDiscoveryProvider
                 matchedDefinition.Definition,
                 matchedDefinition.Matches,
                 diagnostics,
+                current.Value.Metadata.SourceSha256,
                 cancellationToken));
         }
 
@@ -140,6 +141,7 @@ public sealed class LudusaviDiscoveryProvider : IGameDiscoveryProvider
         LudusaviCompiledGame definition,
         IReadOnlyList<InstallationMatch> matches,
         ICollection<DiscoveryDiagnostic> diagnostics,
+        string discoveryRevision,
         CancellationToken cancellationToken)
     {
         var resources = new List<BackupResourceCandidate>();
@@ -233,6 +235,7 @@ public sealed class LudusaviDiscoveryProvider : IGameDiscoveryProvider
                         ExternalIds = new Dictionary<string, string>(definition.ExternalIds, StringComparer.OrdinalIgnoreCase)
                     },
                     DisplayName = definition.DisplayName,
+                    DiscoveryRevision = discoveryRevision,
                     Resources = DeduplicateResources(resources)
                 }
             }
