@@ -69,7 +69,8 @@ public sealed class PluginPackageInstaller
         PluginInstallProvenance provenance,
         string? expectedSha256 = null,
         PluginPackageInstallValidationFacts? validationFacts = null,
-        CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken = default,
+        bool retainExistingVersions = false)
     {
         var package = await PluginPackageValidator.ValidateAsync(
             packagePath,
@@ -148,7 +149,10 @@ public sealed class PluginPackageInstaller
                     UpdatedAtUtc = DateTimeOffset.UtcNow
                 };
                 await WriteAtomicallyAsync(journalPath, journal, cancellationToken).ConfigureAwait(false);
-                await RemoveOlderVersionsAsync(pluginRoot, state, cancellationToken).ConfigureAwait(false);
+                if (!retainExistingVersions)
+                {
+                    await RemoveOlderVersionsAsync(pluginRoot, state, cancellationToken).ConfigureAwait(false);
+                }
                 return new PluginInstallResult(state, package.Manifest, candidatePath, prior is not null);
             }
             catch

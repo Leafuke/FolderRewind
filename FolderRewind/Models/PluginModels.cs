@@ -53,6 +53,7 @@ namespace FolderRewind.Models
     public class InstalledPluginInfo : ObservableObject
     {
         private bool _isEnabled;
+        private bool _requiresRestart;
 
         public string Id { get; set; } = string.Empty;
         public string Name { get; set; } = string.Empty;
@@ -70,6 +71,16 @@ namespace FolderRewind.Models
         {
             get => _isEnabled;
             set => SetProperty(ref _isEnabled, value);
+        }
+
+        /// <summary>
+        /// Runtime cleanup 或物理卸载尚未安全完成，请求的插件状态需在 Host 重启后最终生效。
+        /// </summary>
+        [JsonIgnore]
+        public bool RequiresRestart
+        {
+            get => _requiresRestart;
+            set => SetProperty(ref _requiresRestart, value);
         }
 
         /// <summary>

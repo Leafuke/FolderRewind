@@ -1,9 +1,9 @@
 using Fixture.PrivateDependency;
-using FolderRewind.Plugin.Abstractions;
+using Fixture.PluginBase;
 
 namespace Fixture.PluginOne;
 
-public sealed class EntryPlugin : IFolderRewindPlugin
+public sealed class EntryPlugin : EntryPluginBase
 {
     public EntryPlugin()
     {
@@ -13,8 +13,4 @@ public sealed class EntryPlugin : IFolderRewindPlugin
 
     public string DependencyVersion => DependencyMarker.Value;
 
-    public ValueTask<PluginActivationResult> ActivateAsync(IPluginActivationContext context, CancellationToken cancellationToken)
-        => ValueTask.FromResult(PluginActivationResult.Empty);
-
-    public ValueTask DeactivateAsync(CancellationToken cancellationToken) => ValueTask.CompletedTask;
 }

@@ -30,6 +30,12 @@ internal sealed class CapabilityRegistrationSet
 
     public static CapabilityRegistrationSet Create(PluginId pluginId, IReadOnlyList<IPluginCapability> capabilities)
     {
+        ArgumentNullException.ThrowIfNull(capabilities);
+        EnsureAtMostOne<IDiscoveryCapability>("discovery");
+        EnsureAtMostOne<IPluginCommandCapability>("plugin command");
+        EnsureAtMostOne<IKnotLinkIntegrationCapability>("KnotLink integration");
+        EnsureAtMostOne<IBackupCompletionObserverCapability>("backup completion observer");
+
         var registrations = new List<CapabilityRegistration>();
         foreach (var capability in capabilities)
         {
@@ -134,6 +140,17 @@ internal sealed class CapabilityRegistrationSet
         }
 
         return new CapabilityRegistrationSet(pluginId, capabilities.ToArray(), registrations);
+
+        void EnsureAtMostOne<TCapability>(string name)
+            where TCapability : class, IPluginCapability
+        {
+            var count = capabilities.OfType<TCapability>().Count();
+            if (count > 1)
+            {
+                throw new InvalidOperationException(
+                    $"Plugin '{pluginId}' may register at most one {name} capability instance, but registered {count}.");
+            }
+        }
 
         void Add(string kind, string identity, IPluginCapability capability)
         {

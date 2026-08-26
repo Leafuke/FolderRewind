@@ -13,6 +13,15 @@ using ResourceLoader = FolderRewind.Services.AppResourceLoader;
 
 namespace FolderRewind.Services.Plugins
 {
+    public sealed record PluginStoreInstallResult(
+        bool Success,
+        string Message,
+        PluginV3InstallOperationResult? Operation = null)
+    {
+        public bool RequiresRestart => Operation?.RequiresRestart == true;
+        public bool CanEnableNow => Operation?.CanEnableNow == true;
+    }
+
     /// <summary>Official Catalog and manual .frplugin installation entry point.</summary>
     public static class PluginStoreService
     {
@@ -74,13 +83,13 @@ namespace FolderRewind.Services.Plugins
             }
         }
 
-        public static async Task<(bool Success, string Message)> DownloadAndInstallAsync(
+        public static async Task<PluginStoreInstallResult> DownloadAndInstallAsync(
             PluginStoreAssetItem asset,
             CancellationToken ct)
         {
             if (asset is null || string.IsNullOrWhiteSpace(asset.DownloadUrl)
                 || string.IsNullOrWhiteSpace(asset.Sha256))
-                return (false, Rl.GetString("PluginStore_InvalidItem"));
+                return new PluginStoreInstallResult(false, Rl.GetString("PluginStore_InvalidItem"));
             var downloadRoot = Path.Combine(PluginService.PluginRootDirectory, ".downloads");
             Directory.CreateDirectory(downloadRoot);
             var path = Path.Combine(downloadRoot, Guid.NewGuid().ToString("N") + ".frplugin");
@@ -93,18 +102,21 @@ namespace FolderRewind.Services.Plugins
                 ValidateCatalogBinding(asset, package.Manifest);
                 var result = await PluginV3PackageService.InstallAsync(
                     path, PluginInstallProvenance.OfficialCatalog, asset.Sha256, ct).ConfigureAwait(false);
-                return (true, PluginV3PackageService.FormatInstallOutcome(result));
+                return new PluginStoreInstallResult(
+                    result.Success,
+                    PluginV3PackageService.FormatInstallOutcome(result),
+                    result);
             }
-            catch (OperationCanceledException) { return (false, Rl.GetString("Common_Canceled")); }
+            catch (OperationCanceledException) { return new PluginStoreInstallResult(false, Rl.GetString("Common_Canceled")); }
             catch (Exception ex)
             {
                 LogService.LogError($"Official Catalog install failed: {ex.Message}", nameof(PluginStoreService), ex);
-                return (false, ex.Message);
+                return new PluginStoreInstallResult(false, ex.Message);
             }
             finally { try { if (File.Exists(path)) File.Delete(path); } catch { } }
         }
 
-        public static async Task<(bool Success, string Message)> InstallManualAsync(
+        public static async Task<PluginStoreInstallResult> InstallManualAsync(
             string packagePath,
             CancellationToken ct = default)
         {
@@ -112,9 +124,19 @@ namespace FolderRewind.Services.Plugins
             {
                 var result = await PluginV3PackageService.InstallAsync(
                     packagePath, PluginInstallProvenance.Manual, cancellationToken: ct).ConfigureAwait(false);
-                return (true, PluginV3PackageService.FormatInstallOutcome(result));
+                return new PluginStoreInstallResult(
+                    result.Success,
+                    PluginV3PackageService.FormatInstallOutcome(result),
+                    result);
             }
-            catch (Exception ex) when (ex is not OperationCanceledException) { return (false, ex.Message); }
+            catch (OperationCanceledException)
+            {
+                return new PluginStoreInstallResult(false, Rl.GetString("Common_Canceled"));
+            }
+            catch (Exception ex)
+            {
+                return new PluginStoreInstallResult(false, ex.Message);
+            }
         }
 
         private static IReadOnlyList<PluginStoreAssetItem> ParseCatalog(byte[] bytes)

@@ -11,6 +11,8 @@ namespace FolderRewind.Services.Plugins
         private bool _isBusy;
         private string _status = string.Empty;
         private bool _isInstalled;
+        private bool _canEnableNow;
+        private bool _requiresRestart;
 
         public string Name { get; set; } = string.Empty;
         public string PluginId { get; set; } = string.Empty;
@@ -45,6 +47,18 @@ namespace FolderRewind.Services.Plugins
         {
             get => _isInstalled;
             set => SetProperty(ref _isInstalled, value);
+        }
+
+        public bool CanEnableNow
+        {
+            get => _canEnableNow;
+            set => SetProperty(ref _canEnableNow, value);
+        }
+
+        public bool RequiresRestart
+        {
+            get => _requiresRestart;
+            set => SetProperty(ref _requiresRestart, value);
         }
 
         public string Status

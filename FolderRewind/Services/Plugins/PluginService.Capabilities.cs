@@ -22,8 +22,11 @@ public static partial class PluginService
         try { pluginId = new PluginId(config.Kind.OwnerId); }
         catch { return Array.Empty<PluginBackupScopeDefinition>(); }
 
-        using var lease = PluginV3RuntimeService.Runtime.TryAcquire<IBackupScopeCapability>(pluginId);
-        if (lease is null || lease.Capability.Kind != PluginV3ModelMapper.ToKind(config))
+        var kind = PluginV3ModelMapper.ToKind(config);
+        using var lease = PluginV3RuntimeService.Runtime.TryAcquire<IBackupScopeCapability>(
+            pluginId,
+            capability => capability.Kind == kind);
+        if (lease is null)
             return Array.Empty<PluginBackupScopeDefinition>();
 
         return lease.Capability.Scopes
@@ -51,10 +54,12 @@ public static partial class PluginService
         try { pluginId = new PluginId(config.Kind.OwnerId); }
         catch { return Array.Empty<FolderDetailsSection>(); }
 
+        var kind = PluginV3ModelMapper.ToKind(config);
         using var lease = PluginV3RuntimeService.Runtime.TryAcquire<IFolderMetadataCapability>(
             pluginId,
+            capability => capability.Kind == kind,
             cancellationToken);
-        if (lease is null || lease.Capability.Kind != PluginV3ModelMapper.ToKind(config))
+        if (lease is null)
             return Array.Empty<FolderDetailsSection>();
 
         try

@@ -23,6 +23,10 @@
             <TextBlock Text="{x:Bind ViewModel.ReleaseSummary, Mode=OneWay}" Visibility="{x:Bind ViewModel.HasReleaseSummary, Mode=OneWay, Converter={StaticResource BoolToVisConverter}}" Foreground="{ThemeResource TextFillColorSecondaryBrush}"/>
 
             <TextBlock Text="{x:Bind ViewModel.StatusMessage, Mode=OneWay}" Visibility="{x:Bind ViewModel.HasStatus, Mode=OneWay, Converter={StaticResource BoolToVisConverter}}" Foreground="{ThemeResource TextFillColorSecondaryBrush}" TextWrapping="Wrap"/>
+            <Button x:Uid="PluginStorePage_Enable"
+                    Command="{x:Bind ViewModel.EnableManualCommand}"
+                    Visibility="{x:Bind ViewModel.CanEnableManualNow, Mode=OneWay, Converter={StaticResource BoolToVisConverter}}"
+                    HorizontalAlignment="Left" />
 
             <TextBlock x:Uid="PluginStorePage_NoAssets" Foreground="{ThemeResource TextFillColorSecondaryBrush}" Visibility="{x:Bind ViewModel.IsEmptyList, Mode=OneWay, Converter={StaticResource BoolToVisConverter}}"/>
 
@@ -52,6 +56,15 @@
                                               Height="20"
                                               IsActive="{x:Bind IsBusy, Mode=OneWay}"
                                               Visibility="{x:Bind IsBusy, Converter={StaticResource BoolToVisConverter}, Mode=OneWay}"/>
+                                <TextBlock x:Uid="PluginStorePage_RestartRequired"
+                                           Visibility="{x:Bind RequiresRestart, Converter={StaticResource BoolToVisConverter}, Mode=OneWay}"
+                                           Foreground="{ThemeResource SystemFillColorCriticalBrush}"
+                                           VerticalAlignment="Center"/>
+                                <Button x:Uid="PluginStorePage_Enable"
+                                        Click="OnEnableClick"
+                                        Tag="{x:Bind}"
+                                        Visibility="{x:Bind CanEnableNow, Converter={StaticResource BoolToVisConverter}, Mode=OneWay}"
+                                        IsEnabled="{x:Bind CanInstall, Mode=OneWay}"/>
                                 <Button x:Uid="PluginStorePage_Install" Click="OnInstallClick" Tag="{x:Bind}" IsEnabled="{x:Bind CanInstall, Mode=OneWay}"/>
                             </StackPanel>
                         </Grid>

@@ -11,25 +11,31 @@ public enum PluginRuntimeIntentAction
 
 public readonly record struct PluginRuntimeIntentDecision(
     bool PersistIntent,
-    PluginRuntimeIntentAction RuntimeAction);
+    PluginRuntimeIntentAction RuntimeAction,
+    bool ActivationDeferred = false);
 
 public static class PluginRuntimeIntentPolicy
 {
     public static PluginRuntimeIntentDecision Decide(
         bool requestedEnabled,
         bool currentEnabledIntent,
-        PluginRuntimeState currentRuntimeState)
+        PluginRuntimeState currentRuntimeState,
+        bool currentRequiresRestart = false)
     {
-        var runtimeAction = requestedEnabled
-            ? currentRuntimeState == PluginRuntimeState.Active
-                ? PluginRuntimeIntentAction.None
-                : PluginRuntimeIntentAction.Activate
-            : currentRuntimeState == PluginRuntimeState.Inactive
-                ? PluginRuntimeIntentAction.None
-                : PluginRuntimeIntentAction.Deactivate;
+        var activationDeferred = requestedEnabled && currentRequiresRestart;
+        var runtimeAction = currentRequiresRestart
+            ? PluginRuntimeIntentAction.None
+            : requestedEnabled
+                ? currentRuntimeState == PluginRuntimeState.Active
+                    ? PluginRuntimeIntentAction.None
+                    : PluginRuntimeIntentAction.Activate
+                : currentRuntimeState == PluginRuntimeState.Inactive
+                    ? PluginRuntimeIntentAction.None
+                    : PluginRuntimeIntentAction.Deactivate;
 
         return new PluginRuntimeIntentDecision(
             requestedEnabled != currentEnabledIntent,
-            runtimeAction);
+            runtimeAction,
+            activationDeferred);
     }
 }

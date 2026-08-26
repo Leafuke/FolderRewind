@@ -16,8 +16,7 @@ namespace FolderRewind.Services.Plugins.V3;
 
 internal sealed class PluginV3BackupSession : IAsyncDisposable
 {
-    private PluginCapabilityLease<IBackupConsistencyCapability>? _capabilityLease;
-    private IConsistencyLease? _consistencyLease;
+    private readonly PluginV3CaptureLeaseOwner _captureLeaseOwner = new();
     private readonly PluginId? _pluginId;
     private readonly ConfigSnapshot? _configSnapshot;
     private readonly FolderSnapshot? _folderSnapshot;
@@ -49,7 +48,7 @@ internal sealed class PluginV3BackupSession : IAsyncDisposable
     public OperationResolution Resolution { get; }
     public IReadOnlyList<PluginDiagnostic> Diagnostics => _diagnostics;
     public bool IsBlocked => Resolution.Readiness == OperationReadiness.Blocked;
-    public string SourcePath => _consistencyLease?.SourcePath ?? EffectiveFolder.Path;
+    public string SourcePath => _captureLeaseOwner.SourcePath ?? EffectiveFolder.Path;
 
     public static async ValueTask<PluginV3BackupSession> PrepareAsync(
         BackupConfig originalConfig,
@@ -82,8 +81,18 @@ internal sealed class PluginV3BackupSession : IAsyncDisposable
                   BackupFallbackPolicy.Block,
                   RestoreCoordinationPolicy.Required);
 
-        using var scopeProbe = isCore ? null : runtime.TryAcquire<IBackupScopeCapability>(pluginId, cancellationToken);
-        using var consistencyProbe = isCore ? null : runtime.TryAcquire<IBackupConsistencyCapability>(pluginId, cancellationToken);
+        using var scopeProbe = isCore
+            ? null
+            : runtime.TryAcquire<IBackupScopeCapability>(
+                pluginId,
+                capability => capability.Kind == configSnapshot.Kind,
+                cancellationToken);
+        using var consistencyProbe = isCore
+            ? null
+            : runtime.TryAcquire<IBackupConsistencyCapability>(
+                pluginId,
+                capability => capability.Kind == configSnapshot.Kind,
+                cancellationToken);
         var providerScopeSelected = config.BackupScope?.IsPluginScopeEnabled == true;
         var intent = config.ConsistencyIntent == PersistedConsistencyIntent.Require
             ? ConsistencyIntent.Require
@@ -125,9 +134,12 @@ internal sealed class PluginV3BackupSession : IAsyncDisposable
             return session;
         }
 
-        using (var filePolicyLease = runtime.TryAcquire<IFilePolicyCapability>(pluginId, cancellationToken))
+        using (var filePolicyLease = runtime.TryAcquire<IFilePolicyCapability>(
+            pluginId,
+            capability => capability.Kind == configSnapshot.Kind,
+            cancellationToken))
         {
-            if (filePolicyLease is not null && filePolicyLease.Capability.Kind == configSnapshot.Kind)
+            if (filePolicyLease is not null)
             {
                 var policy = await filePolicyLease.Capability.ResolveAsync(
                     new FilePolicyRequest(configSnapshot, folderSnapshot),
@@ -139,7 +151,7 @@ internal sealed class PluginV3BackupSession : IAsyncDisposable
 
         if (providerScopeSelected)
         {
-            if (scopeProbe is null || scopeProbe.Capability.Kind != configSnapshot.Kind)
+            if (scopeProbe is null)
             {
                 return Block(session, "plugin.backup_scope_mismatch", owner.Value);
             }
@@ -226,51 +238,17 @@ internal sealed class PluginV3BackupSession : IAsyncDisposable
     public async ValueTask AcquireConsistencyAsync(CancellationToken cancellationToken = default)
     {
         if (_pluginId is null || _configSnapshot is null || _folderSnapshot is null) return;
-        var consistencyLease = PluginV3RuntimeService.Runtime.TryAcquire<IBackupConsistencyCapability>(
+        await _captureLeaseOwner.AcquireAsync(
+            PluginV3RuntimeService.Runtime,
             _pluginId.Value,
-            cancellationToken);
-        if (consistencyLease is null || consistencyLease.Capability.Kind != _configSnapshot.Kind)
-        {
-            consistencyLease?.Dispose();
-            if (_intent == ConsistencyIntent.Require)
-                throw new InvalidOperationException("The required consistency capability became unavailable.");
-            _diagnostics.Add(new PluginDiagnostic(
-                "plugin.backup_consistency_fallback",
-                DiagnosticSeverity.Warning,
-                "BackupConsistency",
-                _pluginId.Value.Value,
-                new Dictionary<string, string>()));
-            return;
-        }
-        if (consistencyLease is not null)
-        {
-            try
-            {
-                _consistencyLease = await consistencyLease.Capability.AcquireAsync(
-                    new BackupConsistencyRequest(_configSnapshot, _folderSnapshot, _intent),
-                    consistencyLease.Context).ConfigureAwait(false);
-                _capabilityLease = consistencyLease;
-                _diagnostics.AddRange(_consistencyLease.Diagnostics);
-            }
-            catch when (_intent == ConsistencyIntent.Prefer)
-            {
-                consistencyLease.Dispose();
-                _diagnostics.Add(new PluginDiagnostic(
-                    "plugin.backup_consistency_fallback",
-                    DiagnosticSeverity.Warning,
-                    "BackupConsistency",
-                    _pluginId.Value.Value,
-                    new Dictionary<string, string>()));
-            }
-        }
+            _configSnapshot,
+            _folderSnapshot,
+            _intent,
+            _diagnostics,
+            cancellationToken).ConfigureAwait(false);
     }
 
-    public async ValueTask CompleteCaptureAsync()
-    {
-        var lease = Interlocked.Exchange(ref _consistencyLease, null);
-        if (lease is not null) await lease.DisposeAsync().ConfigureAwait(false);
-        Interlocked.Exchange(ref _capabilityLease, null)?.Dispose();
-    }
+    public ValueTask CompleteCaptureAsync() => _captureLeaseOwner.CompleteAsync();
 
     public async ValueTask DisposeAsync() => await CompleteCaptureAsync().ConfigureAwait(false);
 
@@ -308,4 +286,5 @@ internal sealed class PluginV3BackupSession : IAsyncDisposable
             }
         }
     }
+
 }

@@ -71,6 +71,15 @@ public sealed class PluginPackageInstallerTests
 
         Assert.IsTrue(enableInactive.PersistIntent);
         Assert.AreEqual(PluginRuntimeIntentAction.Activate, enableInactive.RuntimeAction);
+
+        var deferredEnable = PluginRuntimeIntentPolicy.Decide(
+            requestedEnabled: true,
+            currentEnabledIntent: false,
+            currentRuntimeState: PluginRuntimeState.Inactive,
+            currentRequiresRestart: true);
+        Assert.IsTrue(deferredEnable.PersistIntent);
+        Assert.AreEqual(PluginRuntimeIntentAction.None, deferredEnable.RuntimeAction);
+        Assert.IsTrue(deferredEnable.ActivationDeferred);
     }
 
     [TestMethod]
@@ -220,6 +229,32 @@ public sealed class PluginPackageInstallerTests
     }
 
     [TestMethod]
+    public async Task ConsecutiveNextStartInstallsDoNotPruneExistingVersionDirectories()
+    {
+        using var root = PackageTemporaryDirectory.Create("M5-NextStartVersions");
+        var package1 = CreatePackage(root.Path, "v1", "1.0.0");
+        var package2 = CreatePackage(root.Path, "v2", "1.1.0");
+        var package3 = CreatePackage(root.Path, "v3", "1.2.0");
+        var plugins = Path.Combine(root.Path, "plugins");
+        var installer = new PluginPackageInstaller(plugins);
+
+        await installer.InstallAsync(package1, PluginInstallProvenance.Manual);
+        await installer.InstallAsync(
+            package2,
+            PluginInstallProvenance.Manual,
+            retainExistingVersions: true);
+        await installer.InstallAsync(
+            package3,
+            PluginInstallProvenance.Manual,
+            retainExistingVersions: true);
+
+        var versionsRoot = Path.Combine(plugins, "com.example.package", "versions");
+        CollectionAssert.AreEquivalent(
+            new[] { "1.0.0", "1.1.0", "1.2.0" },
+            Directory.EnumerateDirectories(versionsRoot).Select(Path.GetFileName).ToArray());
+    }
+
+    [TestMethod]
     public async Task OwnedArtifactCompatibilityIsCheckedBeforeCandidateIsWritten()
     {
         using var root = PackageTemporaryDirectory.Create("M5-OwnedArtifacts");
@@ -312,7 +347,7 @@ public sealed class PluginPackageInstallerTests
     }
 
     [TestMethod]
-    public async Task InstallPerformsMetadataValidationWithoutConstructingPlugin()
+    public async Task InstallAcceptsContractInheritedFromDependencyWithoutConstructingPlugin()
     {
         using var root = PackageTemporaryDirectory.Create("M5-StaticNoExecution");
         var package = CreatePackage(root.Path, "candidate", "1.0.0");
@@ -339,6 +374,22 @@ public sealed class PluginPackageInstallerTests
         {
             Environment.SetEnvironmentVariable("FOLDERREWIND_PLUGIN_TEST_MARKER", original);
         }
+    }
+
+    [TestMethod]
+    public async Task TransitiveHostImplementationReferenceIsRejectedWithReferrer()
+    {
+        using var root = PackageTemporaryDirectory.Create("M5-HostReference");
+        var package = CreatePackage(root.Path, "host-reference", "1.0.0", archive =>
+            Add(archive, "PrivateBridge.dll", File.ReadAllBytes(RuntimeReferencingBridgeAssembly())));
+
+        var error = await Assert.ThrowsExactlyAsync<InvalidDataException>(
+            () => new PluginPackageInstaller(Path.Combine(root.Path, "plugins"))
+                .InstallAsync(package, PluginInstallProvenance.Manual).AsTask());
+
+        StringAssert.Contains(error.Message, "Host implementation");
+        StringAssert.Contains(error.Message, "PrivateBridge.dll");
+        StringAssert.Contains(error.Message, "FolderRewind.Plugin.Runtime");
     }
 
     [TestMethod]
@@ -450,6 +501,7 @@ public sealed class PluginPackageInstallerTests
             }
             """);
         Add(archive, "Fixture.PluginOne.dll", File.ReadAllBytes(FixturePluginAssembly()));
+        Add(archive, "Fixture.PluginBase.dll", File.ReadAllBytes(FixturePluginBaseAssembly()));
         customize?.Invoke(archive);
         return path;
     }
@@ -479,6 +531,28 @@ public sealed class PluginPackageInstallerTests
             new DirectoryInfo(AppContext.BaseDirectory).Parent?.Name ?? "Release",
             "net10.0",
             "Fixture.PluginOne.dll");
+
+    private static string RuntimeReferencingBridgeAssembly()
+        => Path.Combine(
+            FindRepositoryRoot(),
+            "FolderRewind.Plugin.Runtime.Tests",
+            "Fixtures",
+            "HostBridge",
+            "bin",
+            new DirectoryInfo(AppContext.BaseDirectory).Parent?.Name ?? "Release",
+            "net10.0",
+            "Fixture.HostBridge.dll");
+
+    private static string FixturePluginBaseAssembly()
+        => Path.Combine(
+            FindRepositoryRoot(),
+            "FolderRewind.Plugin.Runtime.Tests",
+            "Fixtures",
+            "PluginBase",
+            "bin",
+            new DirectoryInfo(AppContext.BaseDirectory).Parent?.Name ?? "Release",
+            "net10.0",
+            "Fixture.PluginBase.dll");
 
     private static PluginManifestContract Manifest(string pluginId, string kindOwner, string kindId)
         => PluginPackageManifestReader.Parse(Encoding.UTF8.GetBytes($$"""

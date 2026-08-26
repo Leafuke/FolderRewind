@@ -56,23 +56,23 @@ public static partial class PluginService
         await UiDispatcherService.RunOnUiAsync(() => ApplyCatalogUpdate(plugin, item)).ConfigureAwait(false);
     }
 
-    public static async Task<(bool Success, string Message)> UpdatePluginFromUrlAsync(
+    public static async Task<PluginStoreInstallResult> UpdatePluginFromUrlAsync(
         InstalledPluginInfo plugin,
         CancellationToken ct = default)
     {
         if (plugin is null || string.IsNullOrWhiteSpace(plugin.UpdateDownloadUrl))
-            return (false, UpdateResources.GetString("PluginService_NoUpdateUrl"));
+            return new PluginStoreInstallResult(false, UpdateResources.GetString("PluginService_NoUpdateUrl"));
 
         var catalog = await PluginStoreService.GetOfficialCatalogAsync(ct).ConfigureAwait(false);
         if (!string.IsNullOrWhiteSpace(catalog.ErrorMessage))
-            return (false, catalog.ErrorMessage!);
+            return new PluginStoreInstallResult(false, catalog.ErrorMessage!);
 
         var item = catalog.Items.FirstOrDefault(candidate =>
             string.Equals(candidate.PluginId, plugin.Id, StringComparison.OrdinalIgnoreCase)
             && string.Equals(candidate.Version, plugin.LatestVersion, StringComparison.OrdinalIgnoreCase)
             && string.Equals(candidate.DownloadUrl, plugin.UpdateDownloadUrl, StringComparison.Ordinal));
         if (item is null)
-            return (false, UpdateResources.GetString("PluginService_NoUpdateUrl"));
+            return new PluginStoreInstallResult(false, UpdateResources.GetString("PluginService_NoUpdateUrl"));
 
         var result = await PluginStoreService.DownloadAndInstallAsync(item, ct).ConfigureAwait(false);
         if (result.Success)

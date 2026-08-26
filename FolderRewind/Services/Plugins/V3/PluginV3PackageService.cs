@@ -21,6 +21,29 @@ public sealed record PluginV3SettingsEditorData(
     PluginSettingsSchema Schema,
     PluginSettingsSnapshot Settings);
 
+public sealed record PluginV3InstallOperationResult(
+    OperationOutcome Outcome,
+    PluginInstallResult? InstalledPackage,
+    bool RolledBack,
+    bool WasInstalledBefore,
+    bool EnabledAfterOperation,
+    PluginRuntimeTransitionResult? RuntimeTransition,
+    PluginRuntimeSnapshot RuntimeAfterOperation,
+    IReadOnlyList<PluginDiagnostic> Diagnostics)
+{
+    public bool Success
+        => Outcome is OperationOutcome.Success or OperationOutcome.SuccessWithWarnings;
+
+    public bool RequiresRestart
+        => RuntimeTransition?.RequiresRestart == true || RuntimeAfterOperation.RequiresRestart;
+
+    public bool IsNewInstall
+        => Success && InstalledPackage is not null && !WasInstalledBefore;
+
+    public bool CanEnableNow
+        => IsNewInstall && !EnabledAfterOperation && !RequiresRestart;
+}
+
 public static class PluginV3PackageService
 {
     private static readonly SemaphoreSlim Gate = new(1, 1);
@@ -38,18 +61,43 @@ public static class PluginV3PackageService
     private static string TemporaryRoot => Path.Combine(AppRuntimeInfo.WritableAppDataBaseDirectory, "FolderRewind", "plugin-temp");
     private static PluginPackageInstaller Installer => _installer ??= new PluginPackageInstaller(PluginsRoot);
 
-    public static string FormatInstallOutcome(PluginInstallResult result)
+    public static string FormatInstallOutcome(PluginV3InstallOperationResult result)
     {
         ArgumentNullException.ThrowIfNull(result);
-        var name = Resolve(result.Manifest.Contract.Name);
-        var version = result.State.CurrentVersion;
-        if (!result.Updated)
+        var name = result.InstalledPackage is null
+            ? result.RuntimeAfterOperation.PluginId.Value
+            : Resolve(result.InstalledPackage.Manifest.Contract.Name);
+        var version = result.InstalledPackage?.State.CurrentVersion ?? string.Empty;
+        if (!result.Success)
+        {
+            var diagnostic = result.Diagnostics.FirstOrDefault()?.Arguments is { } arguments
+                && arguments.TryGetValue("message", out var message)
+                    ? message
+                    : I18n.Format("Plugins_InstallOutcomeFailed", name);
+            return diagnostic;
+        }
+        if (result.RequiresRestart)
+        {
+            return I18n.Format("Plugins_InstallOutcomeRequiresRestart", name, version);
+        }
+        if (result.IsNewInstall)
             return I18n.Format("Plugins_InstallOutcomeNew", name, version);
-        var enabled = EnabledIntent(result.State.PluginId);
         return I18n.Format(
-            enabled ? "Plugins_InstallOutcomeUpdatedEnabled" : "Plugins_InstallOutcomeUpdatedDisabled",
+            result.EnabledAfterOperation ? "Plugins_InstallOutcomeUpdatedEnabled" : "Plugins_InstallOutcomeUpdatedDisabled",
             name,
             version);
+    }
+
+    public static string FormatRuntimeDiagnostics(IReadOnlyList<PluginDiagnostic> diagnostics)
+    {
+        ArgumentNullException.ThrowIfNull(diagnostics);
+        var requiresRestart = diagnostics.Any(value =>
+            value.Code.Contains("restart_required", StringComparison.Ordinal)
+            || value.Code.Contains("physical_unload", StringComparison.Ordinal)
+            || value.Code.Contains("deactivation", StringComparison.Ordinal)
+            || value.Code.Contains("candidate_cleanup", StringComparison.Ordinal));
+        return I18n.GetString(
+            requiresRestart ? "Plugins_RuntimeRequiresRestart" : "Plugins_RuntimeOperationFailed");
     }
 
     public static async ValueTask InitializeAsync(CancellationToken cancellationToken = default)
@@ -89,7 +137,7 @@ public static class PluginV3PackageService
         finally { Gate.Release(); }
     }
 
-    public static async ValueTask<PluginInstallResult> InstallAsync(
+    public static async ValueTask<PluginV3InstallOperationResult> InstallAsync(
         string packagePath,
         PluginInstallProvenance provenance,
         string? expectedSha256 = null,
@@ -109,41 +157,89 @@ public static class PluginV3PackageService
 
             if (prior is null)
             {
-                ConfigService.CurrentConfig.GlobalSettings.Plugins.EnabledIntent[
-                    package.Manifest.Contract.PluginId.Value] = PluginInstallIntentPolicy.ResolveAfterInstall(
+                PersistEnabledIntent(
+                    package.Manifest.Contract.PluginId,
+                    PluginInstallIntentPolicy.ResolveAfterInstall(
                         isUpdate: false,
-                        existingEnabledIntent: EnabledIntent(package.Manifest.Contract.PluginId));
-                var save = ConfigService.SaveWithResult();
-                if (!save.Success)
-                    throw new IOException("The plugin could not be installed as Disabled because Enabled Intent could not be persisted: "
-                                          + save.ErrorMessage);
+                        existingEnabledIntent: EnabledIntent(package.Manifest.Contract.PluginId)));
             }
 
+            var runtimeBeforeInstall = PluginV3RuntimeService.Runtime.GetSnapshot(package.Manifest.Contract.PluginId);
             var result = await Installer.InstallAsync(
                 packagePath,
                 provenance,
                 expectedSha256,
                 await BuildInstallValidationFactsAsync(package.Manifest, cancellationToken).ConfigureAwait(false),
-                cancellationToken).ConfigureAwait(false);
-            if (prior is null)
-            {
-                return result;
-            }
+                cancellationToken,
+                retainExistingVersions: runtimeBeforeInstall.RequiresRestart).ConfigureAwait(false);
 
-            if (PluginV3RuntimeService.IsActive(result.State.PluginId))
+            PluginRuntimeTransitionResult? transition = null;
+            if (runtimeBeforeInstall.RequiresRestart)
             {
-                var transition = await ActivateInstalledWithoutLockAsync(
+                // 重启门禁期间只落盘新版本，不加载程序集，也不触碰当前进程中的保留实例。
+                transition = CreateRestartDeferredTransition(
+                    runtimeBeforeInstall,
+                    result.State.PluginId,
+                    "The update was installed and will take effect after FolderRewind restarts.");
+            }
+            else if (prior is not null && PluginV3RuntimeService.IsActive(result.State.PluginId))
+            {
+                transition = await ActivateInstalledWithoutLockAsync(
                     result.State, replace: true, cancellationToken).ConfigureAwait(false);
                 if (!transition.Success)
                 {
-                    await Installer.RollbackToPreviousKnownGoodAsync(result.State.PluginId, CancellationToken.None)
-                        .ConfigureAwait(false);
-                    throw new InvalidOperationException(
-                        "Plugin update was rolled back because runtime replacement failed: "
-                        + string.Join(",", transition.Diagnostics.Select(value => value.Code)));
+                    var diagnostics = transition.Diagnostics;
+                    var rollbackCompleted = false;
+                    try
+                    {
+                        await Installer.RollbackToPreviousKnownGoodAsync(result.State.PluginId, CancellationToken.None)
+                            .ConfigureAwait(false);
+                        rollbackCompleted = true;
+                    }
+                    catch (Exception rollbackFailure)
+                    {
+                        diagnostics = diagnostics
+                            .Append(new PluginDiagnostic(
+                                "plugin.install_rollback_failed",
+                                DiagnosticSeverity.Error,
+                                "PluginInstall",
+                                result.State.PluginId.Value,
+                                new Dictionary<string, string>
+                                {
+                                    ["message"] = rollbackFailure.Message
+                                }))
+                            .ToArray();
+                    }
+                    var afterRollback = PluginV3RuntimeService.Runtime.GetSnapshot(result.State.PluginId);
+                    return new PluginV3InstallOperationResult(
+                        transition.Outcome == OperationOutcome.Canceled
+                            ? OperationOutcome.Canceled
+                            : OperationOutcome.Failed,
+                        InstalledPackage: null,
+                        RolledBack: rollbackCompleted,
+                        WasInstalledBefore: prior is not null,
+                        EnabledAfterOperation: EnabledIntent(result.State.PluginId),
+                        RuntimeTransition: transition,
+                        RuntimeAfterOperation: afterRollback,
+                        Diagnostics: diagnostics);
                 }
             }
-            return result;
+
+            var runtimeAfterOperation = PluginV3RuntimeService.Runtime.GetSnapshot(result.State.PluginId);
+            var outcome = transition?.Outcome ?? OperationOutcome.Success;
+            if (runtimeAfterOperation.RequiresRestart)
+            {
+                outcome = OperationOutcome.SuccessWithWarnings;
+            }
+            return new PluginV3InstallOperationResult(
+                outcome,
+                result,
+                RolledBack: false,
+                WasInstalledBefore: prior is not null,
+                EnabledIntent(result.State.PluginId),
+                transition,
+                runtimeAfterOperation,
+                transition?.Diagnostics ?? Array.Empty<PluginDiagnostic>());
         }
         finally { Gate.Release(); }
     }
@@ -159,22 +255,65 @@ public static class PluginV3PackageService
         {
             var currentIntent = EnabledIntent(pluginId);
             var currentSnapshot = PluginV3RuntimeService.Runtime.GetSnapshot(pluginId);
-            var decision = PluginRuntimeIntentPolicy.Decide(enabled, currentIntent, currentSnapshot.State);
+            var decision = PluginRuntimeIntentPolicy.Decide(
+                enabled,
+                currentIntent,
+                currentSnapshot.State,
+                currentSnapshot.RequiresRestart);
 
             if (decision.PersistIntent)
             {
-                ConfigService.CurrentConfig.GlobalSettings.Plugins.EnabledIntent[pluginId.Value] = enabled;
-                ConfigService.Save();
+                PersistEnabledIntent(pluginId, enabled);
+            }
+
+            if (decision.ActivationDeferred)
+            {
+                return new PluginRuntimeTransitionResult(
+                    true,
+                    OperationOutcome.SuccessWithWarnings,
+                    currentSnapshot.State,
+                    [new PluginDiagnostic(
+                        "runtime.restart_required",
+                        DiagnosticSeverity.Warning,
+                        "Runtime",
+                        pluginId.Value,
+                        new Dictionary<string, string>
+                        {
+                            ["message"] = "The enable intent was saved and will take effect after FolderRewind restarts."
+                        })],
+                    RequiresRestart: true);
             }
 
             if (decision.RuntimeAction == PluginRuntimeIntentAction.None)
-                return PluginRuntimeTransitionResult.Completed(currentSnapshot.State);
+            {
+                return currentSnapshot.RequiresRestart
+                    ? new PluginRuntimeTransitionResult(
+                        true,
+                        OperationOutcome.SuccessWithWarnings,
+                        currentSnapshot.State,
+                        [new PluginDiagnostic(
+                            "runtime.restart_required",
+                            DiagnosticSeverity.Warning,
+                            "Runtime",
+                            pluginId.Value,
+                            new Dictionary<string, string>
+                            {
+                                ["message"] = "The requested state will be finalized after FolderRewind restarts."
+                            })],
+                        RequiresRestart: true)
+                    : PluginRuntimeTransitionResult.Completed(currentSnapshot.State);
+            }
 
             if (decision.RuntimeAction == PluginRuntimeIntentAction.Deactivate)
             {
                 var result = await PluginV3RuntimeService.DeactivateAsync(pluginId, cancellationToken).ConfigureAwait(false);
                 if (result.Success && Loaded.TryRemove(pluginId, out var loaded))
-                    ReleaseLoadedAssembly(loaded, result.RequiresRestart);
+                    result = await ReleaseLoadedAssemblyAsync(
+                        pluginId,
+                        loaded,
+                        result.RequiresRestart,
+                        CancellationToken.None,
+                        result).ConfigureAwait(false);
                 return result;
             }
             var state = await Installer.ReadStateAsync(pluginId, cancellationToken).ConfigureAwait(false);
@@ -199,36 +338,149 @@ public static class PluginV3PackageService
         CancellationToken cancellationToken,
         PluginSettingsSnapshot? settingsOverride = null)
     {
-        var root = Path.Combine(PluginsRoot, state.PluginId.Value, "versions", state.CurrentVersion);
-        var manifest = ReadManifest(root);
-        var loaded = PluginAssemblyLoader.Load(new PluginLoadRequest(
-            state.PluginId,
-            root,
-            manifest.Contract.EntryAssembly,
-            manifest.Contract.EntryType,
-            manifest.Contract.RequiredApi));
+        var beforeLoad = PluginV3RuntimeService.Runtime.GetSnapshot(state.PluginId);
+        if (PluginV3RuntimeService.Runtime.IsSafeMode)
+        {
+            return PluginRuntimeTransitionResult.Rejected(
+                OperationOutcome.Blocked,
+                beforeLoad.State,
+                new PluginDiagnostic(
+                    "runtime.safe_mode",
+                    DiagnosticSeverity.Error,
+                    "Runtime",
+                    state.PluginId.Value,
+                    new Dictionary<string, string>
+                    {
+                        ["message"] = "Safe Mode blocks all plugin loading."
+                    }));
+        }
+        if (beforeLoad.RequiresRestart)
+        {
+            return PluginRuntimeTransitionResult.Rejected(
+                OperationOutcome.Blocked,
+                beforeLoad.State,
+                new PluginDiagnostic(
+                    "runtime.restart_required",
+                    DiagnosticSeverity.Error,
+                    "Runtime",
+                    state.PluginId.Value,
+                    new Dictionary<string, string>
+                    {
+                        ["message"] = "Host restart is required before this plugin can be loaded again."
+                    })) with
+            {
+                RequiresRestart = true
+            };
+        }
+        if (replace && beforeLoad.State != PluginRuntimeState.Active)
+        {
+            return PluginRuntimeTransitionResult.Rejected(
+                OperationOutcome.Blocked,
+                beforeLoad.State,
+                new PluginDiagnostic(
+                    "runtime.not_active",
+                    DiagnosticSeverity.Error,
+                    "Runtime",
+                    state.PluginId.Value,
+                    new Dictionary<string, string>
+                    {
+                        ["message"] = "There is no active session to replace."
+                    }));
+        }
+        if (!replace && beforeLoad.State == PluginRuntimeState.Active)
+        {
+            return PluginRuntimeTransitionResult.Rejected(
+                OperationOutcome.Blocked,
+                beforeLoad.State,
+                new PluginDiagnostic(
+                    "runtime.already_active",
+                    DiagnosticSeverity.Error,
+                    "Runtime",
+                    state.PluginId.Value,
+                    new Dictionary<string, string>
+                    {
+                        ["message"] = "The plugin is already active."
+                    }));
+        }
+
+        LoadedPluginAssembly? loaded = null;
         try
         {
+            var root = Path.Combine(PluginsRoot, state.PluginId.Value, "versions", state.CurrentVersion);
+            var manifest = ReadManifest(root);
+            loaded = PluginAssemblyLoader.Load(new PluginLoadRequest(
+                state.PluginId,
+                root,
+                manifest.Contract.EntryAssembly,
+                manifest.Contract.EntryType,
+                manifest.Contract.RequiredApi));
             var candidate = BuildCandidate(manifest.Contract, loaded, settingsOverride);
             var result = replace
                 ? await PluginV3RuntimeService.ReplaceAsync(candidate, cancellationToken).ConfigureAwait(false)
                 : await PluginV3RuntimeService.ActivateAsync(candidate, cancellationToken).ConfigureAwait(false);
             if (!result.Success)
             {
-                ReleaseLoadedAssembly(loaded, result.RequiresRestart);
-                return result;
+                // Runtime 的并发门禁在候选工厂运行前返回；此时新加载上下文仍可独立卸载。
+                var retainCandidate = result.RequiresRestart && result.Outcome != OperationOutcome.Blocked;
+                return await ReleaseLoadedAssemblyAsync(
+                    state.PluginId,
+                    loaded,
+                    retainCandidate,
+                    CancellationToken.None,
+                    result).ConfigureAwait(false);
             }
             if (Loaded.TryGetValue(state.PluginId, out var prior))
-                ReleaseLoadedAssembly(prior, result.RequiresRestart);
+            {
+                result = await ReleaseLoadedAssemblyAsync(
+                    state.PluginId,
+                    prior,
+                    result.RequiresRestart,
+                    CancellationToken.None,
+                    result).ConfigureAwait(false);
+            }
             Loaded[state.PluginId] = loaded;
             return result;
         }
-        catch
+        catch (Exception ex)
         {
-            loaded.Dispose();
-            throw;
+            var snapshot = PluginV3RuntimeService.Runtime.GetSnapshot(state.PluginId);
+            var failed = new PluginRuntimeTransitionResult(
+                false,
+                ex is OperationCanceledException ? OperationOutcome.Canceled : OperationOutcome.Failed,
+                snapshot.State,
+                [new PluginDiagnostic(
+                    "runtime.plugin_load_failed",
+                    DiagnosticSeverity.Error,
+                    "Runtime",
+                    state.PluginId.Value,
+                    new Dictionary<string, string> { ["message"] = ex.Message })],
+                snapshot.RequiresRestart);
+            return loaded is null
+                ? failed
+                : await ReleaseLoadedAssemblyAsync(
+                    state.PluginId,
+                    loaded,
+                    false,
+                    CancellationToken.None,
+                    failed).ConfigureAwait(false);
         }
     }
+
+    private static PluginRuntimeTransitionResult CreateRestartDeferredTransition(
+        PluginRuntimeSnapshot snapshot,
+        PluginId pluginId,
+        string message)
+        => new(
+            true,
+            OperationOutcome.SuccessWithWarnings,
+            snapshot.State,
+            [new PluginDiagnostic(
+                "runtime.restart_required",
+                DiagnosticSeverity.Warning,
+                "Runtime",
+                pluginId.Value,
+                new Dictionary<string, string> { ["message"] = message })],
+            RequiresRestart: true);
 
     private static PluginActivationCandidate BuildCandidate(
         PluginManifestContract manifest,
@@ -248,12 +500,58 @@ public static class PluginV3PackageService
             manifest);
     }
 
-    private static void ReleaseLoadedAssembly(
+    private static async ValueTask<PluginRuntimeTransitionResult> ReleaseLoadedAssemblyAsync(
+        PluginId pluginId,
         LoadedPluginAssembly loaded,
-        bool requiresRestart)
+        bool requiresRestart,
+        CancellationToken cancellationToken,
+        PluginRuntimeTransitionResult transition)
     {
-        if (requiresRestart) RestartRetainedAssemblies.Enqueue(loaded);
-        else loaded.Dispose();
+        if (requiresRestart)
+        {
+            RestartRetainedAssemblies.Enqueue(loaded);
+            return transition;
+        }
+
+        try
+        {
+            if (await loaded.UnloadAsync(cancellationToken).ConfigureAwait(false))
+            {
+                return transition;
+            }
+        }
+        catch (Exception ex)
+        {
+            PluginV3RuntimeService.Runtime.MarkPhysicalUnloadFailed(
+                pluginId,
+                $"Physical plugin unload failed: {ex.Message}");
+            return AddPhysicalUnloadWarning(transition, pluginId, ex.Message);
+        }
+
+        const string message = "Physical plugin unload could not be verified; restart FolderRewind before loading it again.";
+        PluginV3RuntimeService.Runtime.MarkPhysicalUnloadFailed(pluginId, message);
+        return AddPhysicalUnloadWarning(transition, pluginId, message);
+    }
+
+    private static PluginRuntimeTransitionResult AddPhysicalUnloadWarning(
+        PluginRuntimeTransitionResult transition,
+        PluginId pluginId,
+        string message)
+    {
+        var diagnostics = transition.Diagnostics
+            .Append(new PluginDiagnostic(
+                "runtime.physical_unload_failed",
+                DiagnosticSeverity.Warning,
+                "Runtime",
+                pluginId.Value,
+                new Dictionary<string, string> { ["message"] = message }))
+            .ToArray();
+        return transition with
+        {
+            Outcome = transition.Success ? OperationOutcome.SuccessWithWarnings : transition.Outcome,
+            Diagnostics = diagnostics,
+            RequiresRestart = true
+        };
     }
 
     private static ParsedPluginPackageManifest ReadManifest(string root)
@@ -286,6 +584,20 @@ public static class PluginV3PackageService
     private static bool EnabledIntent(PluginId pluginId)
         => ConfigService.CurrentConfig.GlobalSettings.Plugins.EnabledIntent.TryGetValue(pluginId.Value, out var enabled)
            && enabled;
+
+    private static void PersistEnabledIntent(PluginId pluginId, bool enabled)
+    {
+        var intents = ConfigService.CurrentConfig.GlobalSettings.Plugins.EnabledIntent;
+        var hadPrevious = intents.TryGetValue(pluginId.Value, out var previous);
+        intents[pluginId.Value] = enabled;
+        var save = ConfigService.SaveWithResult();
+        if (save.Success) return;
+
+        if (hadPrevious) intents[pluginId.Value] = previous;
+        else intents.Remove(pluginId.Value);
+        throw new IOException(
+            "The plugin Enabled Intent could not be persisted: " + save.ErrorMessage);
+    }
 
     public static async ValueTask<bool> IsInstalledAsync(
         PluginId pluginId,
@@ -369,6 +681,7 @@ public static class PluginV3PackageService
             catch { continue; }
             var state = ReadInstallState(directory);
             if (state is null) continue;
+            var runtimeSnapshot = PluginV3RuntimeService.Runtime.GetSnapshot(pluginId);
             try
             {
                 var manifest = ReadManifest(Path.Combine(directory, "versions", state.CurrentVersion));
@@ -381,7 +694,8 @@ public static class PluginV3PackageService
                     Description = Resolve(manifest.Contract.Description),
                     InstallPath = directory,
                     IsEnabled = EnabledIntent(pluginId),
-                    LoadError = PluginV3RuntimeService.Runtime.GetSnapshot(pluginId).LastError
+                    LoadError = runtimeSnapshot.LastError,
+                    RequiresRestart = runtimeSnapshot.RequiresRestart
                 });
             }
             catch (Exception ex)
@@ -393,7 +707,8 @@ public static class PluginV3PackageService
                     Version = state.CurrentVersion,
                     InstallPath = directory,
                     IsEnabled = EnabledIntent(pluginId),
-                    LoadError = ex.Message
+                    LoadError = ex.Message,
+                    RequiresRestart = runtimeSnapshot.RequiresRestart
                 });
             }
         }
@@ -497,22 +812,33 @@ public static class PluginV3PackageService
         await Gate.WaitAsync(cancellationToken).ConfigureAwait(false);
         try
         {
+            // 用户已确认卸载；先清除启用意图，避免启动竞态重新激活插件。
+            PersistEnabledIntent(pluginId, enabled: false);
             var transition = await PluginV3RuntimeService.DeactivateAsync(pluginId, cancellationToken).ConfigureAwait(false);
             if (!transition.Success)
-                throw new InvalidOperationException("Plugin is still draining; uninstall must be applied after restart.");
+            {
+                return new PluginUninstallResult(
+                    preview,
+                    transition.Outcome,
+                    string.Empty,
+                    FormatDiagnostics(transition.Diagnostics));
+            }
             if (Loaded.TryRemove(pluginId, out var loaded))
             {
-                if (transition.RequiresRestart)
-                {
-                    ReleaseLoadedAssembly(loaded, requiresRestart: true);
-                    throw new InvalidOperationException(
-                        "The plugin is inactive but still has retained runtime work. Restart FolderRewind before uninstalling it.");
-                }
-                if (!await loaded.UnloadAsync(cancellationToken).ConfigureAwait(false))
-                {
-                    throw new InvalidOperationException(
-                        "The plugin runtime could not release its files. Restart FolderRewind before uninstalling it.");
-                }
+                transition = await ReleaseLoadedAssemblyAsync(
+                    pluginId,
+                    loaded,
+                    transition.RequiresRestart,
+                    CancellationToken.None,
+                    transition).ConfigureAwait(false);
+            }
+            if (transition.RequiresRestart)
+            {
+                return new PluginUninstallResult(
+                    preview,
+                    OperationOutcome.SuccessWithWarnings,
+                    string.Empty,
+                    FormatDiagnostics(transition.Diagnostics));
             }
             if (!deleteData)
             {
@@ -538,6 +864,9 @@ public static class PluginV3PackageService
         }
         finally { Gate.Release(); }
     }
+
+    private static string FormatDiagnostics(IReadOnlyList<PluginDiagnostic> diagnostics)
+        => FormatRuntimeDiagnostics(diagnostics);
 
     private static async ValueTask<PluginPackageInstallValidationFacts> BuildInstallValidationFactsAsync(
         ParsedPluginPackageManifest candidate,

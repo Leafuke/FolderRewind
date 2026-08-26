@@ -48,13 +48,11 @@ public sealed class ArtifactTransformCoordinator
             throw new InvalidOperationException("Artifact Transform Policy does not select the requested plugin.");
         }
 
-        using var lease = _runtime.TryAcquire<IBackupArtifactTransformerCapability>(pluginId, cancellationToken)
+        using var lease = _runtime.TryAcquire<IBackupArtifactTransformerCapability>(
+            pluginId,
+            capability => capability.TransformerId == policy.TransformerId,
+            cancellationToken)
             ?? throw new InvalidOperationException($"Plugin '{pluginId}' has no active Artifact Transformer.");
-        if (lease.Capability.TransformerId != policy.TransformerId)
-        {
-            throw new InvalidOperationException("Runtime Artifact Transformer does not match the selected policy.");
-        }
-
         var current = await _store.LoadAsync(cancellationToken).ConfigureAwait(false);
         var roots = current.HistoryRoots
             .Where(root => root.FolderId == folder.FolderId && StringComparer.Ordinal.Equals(root.ConfigId, config.ConfigId))
@@ -307,13 +305,11 @@ public sealed class RestoreMaterializationCoordinator
         var orderedIds = TopologicalClosure(root.ArtifactId, byId);
         await _store.VerifyArtifactsAsync(ledger, orderedIds, cancellationToken).ConfigureAwait(false);
         var readSession = _store.CreateReadSession(ledger, orderedIds);
-        using var lease = _runtime.TryAcquire<IRestoreMaterializerCapability>(root.RestoreStrategyId.PluginId, cancellationToken)
+        using var lease = _runtime.TryAcquire<IRestoreMaterializerCapability>(
+            root.RestoreStrategyId.PluginId,
+            capability => capability.RestoreStrategyId == root.RestoreStrategyId,
+            cancellationToken)
             ?? throw new InvalidOperationException("Restore Materializer owner is missing, disabled, or failed.");
-        if (lease.Capability.RestoreStrategyId != root.RestoreStrategyId)
-        {
-            throw new InvalidOperationException("Runtime Restore Materializer does not match the Artifact strategy.");
-        }
-
         var bounded = limits ?? ArtifactTransformLimits.Default;
         var workspace = await RestoreMaterializationWorkspace.CreateAsync(
             workspaceRoot,

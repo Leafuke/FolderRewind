@@ -93,6 +93,38 @@ public sealed class PluginAssemblyLoaderTests
     }
 
     [TestMethod]
+    public void HostImplementationAssemblyIsRejectedByLoaderResolution()
+    {
+        LoadedPluginAssembly? loaded = null;
+        Exception? failure = null;
+        try
+        {
+            loaded = PluginAssemblyLoader.Load(Request(
+                "com.folderrewind.host-bridge",
+                "HostBridge",
+                "Fixture.HostBridge.dll",
+                "Fixture.HostBridge.EntryPlugin"));
+            loaded.Instance.GetType()
+                .GetMethod("TouchRuntimeImplementation")!
+                .Invoke(loaded.Instance, null);
+        }
+        catch (Exception ex)
+        {
+            failure = ex is TargetInvocationException invocation && invocation.InnerException is not null
+                ? invocation.InnerException
+                : ex;
+        }
+        finally
+        {
+            loaded?.Dispose();
+        }
+
+        Assert.IsNotNull(failure);
+        Assert.IsInstanceOfType<FileLoadException>(failure);
+        StringAssert.Contains(failure.ToString(), "FolderRewind.Plugin.Runtime");
+    }
+
+    [TestMethod]
     public void DisposingLoadedPluginReleasesCollectibleLoadContext()
     {
         var weakReference = LoadAndDispose();

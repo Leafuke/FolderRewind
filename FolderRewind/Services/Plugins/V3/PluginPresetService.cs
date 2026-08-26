@@ -104,19 +104,26 @@ public static class PluginPresetService
                     PluginInstallProvenance.BundledOfficial,
                     action.Sha256,
                     cancellationToken).ConfigureAwait(false);
-                if (!StringComparer.Ordinal.Equals(install.State.PluginId.Value, action.PluginId))
+                if (!install.Success || install.InstalledPackage is null)
+                {
+                    return new PluginPresetStepResult(
+                        action.Id,
+                        PluginPresetStepOutcome.Failed,
+                        PluginV3PackageService.FormatInstallOutcome(install));
+                }
+                if (!StringComparer.Ordinal.Equals(install.InstalledPackage.State.PluginId.Value, action.PluginId))
                     throw new InvalidDataException("Preset PluginId does not match bundled package.");
                 return Success(action, I18n.Format(
                     "PluginPreset_Installed",
-                    install.State.PluginId,
-                    install.State.CurrentVersion));
+                    install.InstalledPackage.State.PluginId,
+                    install.InstalledPackage.State.CurrentVersion));
             case "enablePlugin":
                 var transition = await PluginV3PackageService.SetEnabledAsync(
                     new PluginId(action.PluginId!), true, cancellationToken).ConfigureAwait(false);
                 return transition.Success
                     ? Success(action, I18n.Format("PluginPreset_Enabled", action.PluginId!))
                     : new PluginPresetStepResult(action.Id, PluginPresetStepOutcome.Failed,
-                        string.Join(",", transition.Diagnostics.Select(value => value.Code)));
+                        PluginV3PackageService.FormatRuntimeDiagnostics(transition.Diagnostics));
             case "setHostFeature" when action.Feature == "knotLink":
                 ConfigService.CurrentConfig.GlobalSettings.EnableKnotLink = action.Enabled;
                 ConfigService.Save();

@@ -3163,6 +3163,20 @@ Status: {3}</value>
   <data name="Plugins_InstallOutcomeNew" xml:space="preserve"><value>Installed {0} {1}; it remains disabled until explicitly enabled.</value></data>
   <data name="Plugins_InstallOutcomeUpdatedEnabled" xml:space="preserve"><value>Updated {0} {1}; Enabled Intent remains enabled.</value></data>
   <data name="Plugins_InstallOutcomeUpdatedDisabled" xml:space="preserve"><value>Updated {0} {1}; Enabled Intent remains disabled.</value></data>
+  <data name="Plugins_InstallOutcomeRequiresRestart" xml:space="preserve"><value>Installed {0} {1}; restart FolderRewind to complete the runtime transition.</value></data>
+  <data name="Plugins_InstallOutcomeRequiresRestartShort" xml:space="preserve"><value>Restart FolderRewind to complete this change.</value></data>
+  <data name="Plugins_InstallOutcomeFailed" xml:space="preserve"><value>{0} installation failed.</value></data>
+  <data name="PluginStorePage_InstallManual.Content" xml:space="preserve"><value>Install .frplugin…</value></data>
+  <data name="PluginStorePage_Enable.Content" xml:space="preserve"><value>Enable now</value></data>
+  <data name="PluginStorePage_RestartRequired.Text" xml:space="preserve"><value>Restart required</value></data>
+  <data name="Plugins_EnableNowButton" xml:space="preserve"><value>Enable now</value></data>
+  <data name="Plugins_EnableLaterButton" xml:space="preserve"><value>Enable later</value></data>
+  <data name="Plugins_EnableSucceeded" xml:space="preserve"><value>Plugin enabled.</value></data>
+  <data name="Plugins_RuntimeRequiresRestart" xml:space="preserve"><value>The plugin state was recorded, but FolderRewind must restart to complete it.</value></data>
+  <data name="Plugins_RuntimeOperationFailed" xml:space="preserve"><value>The plugin operation could not be completed.</value></data>
+  <data name="Plugins_SettingsApplyRequiresRestart" xml:space="preserve"><value>Plugin settings were saved; restart FolderRewind to complete the runtime transition.</value></data>
+  <data name="Plugins_UninstallHistoryWarning" xml:space="preserve"><value>{0} history item(s) reference artifacts owned by this plugin. Uninstall preserves those history artifacts, but related restores remain fail-closed.</value></data>
+  <data name="SettingsPage_PluginRequiresRestart.Text" xml:space="preserve"><value>Restart required</value></data>
   <data name="PluginPreset_Progress_InstallMineRewind" xml:space="preserve"><value>Installing the verified bundled MineRewind package...</value></data>
   <data name="PluginPreset_Progress_EnableMineRewind" xml:space="preserve"><value>Enabling MineRewind...</value></data>
   <data name="PluginPreset_Progress_EnableKnotLink" xml:space="preserve"><value>Turning on KnotLink integration...</value></data>

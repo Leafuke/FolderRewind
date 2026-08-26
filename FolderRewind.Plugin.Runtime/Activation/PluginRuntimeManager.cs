@@ -53,6 +53,45 @@ public sealed class PluginRuntimeManager
             ? session.TryAcquire<TCapability>(operationCancellation)
             : null;
 
+    public PluginCapabilityLease<TCapability>? TryAcquire<TCapability>(
+        PluginId pluginId,
+        Func<TCapability, bool> selector,
+        CancellationToken operationCancellation = default)
+        where TCapability : class, IPluginCapability
+    {
+        ArgumentNullException.ThrowIfNull(selector);
+        return _sessions.TryGetValue(pluginId, out var session)
+            ? session.TryAcquire(selector, operationCancellation)
+            : null;
+    }
+
+    /// <summary>
+    /// Runtime 完成逻辑隔离不代表 collectible ALC 已物理释放；若 Host 检测到程序集仍被引用，
+    /// 必须禁止同一 PluginId 在当前进程重新激活，避免旧实例与新实例并存。
+    /// </summary>
+    public void MarkPhysicalUnloadFailed(PluginId pluginId, string message)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(message);
+        _status.AddOrUpdate(
+            pluginId,
+            _ =>
+            {
+                var state = _sessions.TryGetValue(pluginId, out var session)
+                    ? session.State
+                    : PluginRuntimeState.Inactive;
+                return (state, message, true);
+            },
+            (_, current) =>
+            {
+                var combined = string.IsNullOrWhiteSpace(current.Error)
+                    ? message
+                    : current.Error.Contains(message, StringComparison.Ordinal)
+                        ? current.Error
+                        : $"{current.Error} {message}";
+                return (current.State, combined, true);
+            });
+    }
+
     public async ValueTask<PluginRuntimeTransitionResult> ActivateAsync(
         PluginActivationCandidate candidate,
         CancellationToken cancellationToken = default)
@@ -105,36 +144,31 @@ public sealed class PluginRuntimeManager
                 _status[candidate.PluginId] = (PluginRuntimeState.Active, string.Empty, false);
                 return PluginRuntimeTransitionResult.Completed(PluginRuntimeState.Active);
             }
-            catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
-            {
-                var cleanup = staged is null
-                    ? PluginCleanupResult.Completed
-                    : await CleanupAsync(staged.Plugin, staged.Lifetime).ConfigureAwait(false);
-                _status[candidate.PluginId] = cleanup.TimedOut
-                    ? (PluginRuntimeState.Failed, "Plugin cleanup exceeded the deactivation grace period.", true)
-                    : (PluginRuntimeState.Inactive, string.Empty, false);
-                return PluginRuntimeTransitionResult.Rejected(
-                    OperationOutcome.Canceled,
-                    cleanup.TimedOut ? PluginRuntimeState.Failed : PluginRuntimeState.Inactive,
-                    RuntimeDiagnostic.Warning("runtime.activation_canceled", candidate.PluginId, "Activation was canceled before commit.")) with
-                {
-                    RequiresRestart = cleanup.TimedOut
-                };
-            }
             catch (Exception ex)
             {
-                var cleanup = staged is null
-                    ? PluginCleanupResult.Completed
-                    : await CleanupAsync(staged.Plugin, staged.Lifetime).ConfigureAwait(false);
-                var requiresRestart = cleanup.TimedOut || ex is PluginStageCleanupTimeoutException;
-                _status[candidate.PluginId] = (PluginRuntimeState.Failed, ex.Message, requiresRestart);
-                return PluginRuntimeTransitionResult.Rejected(
-                    OperationOutcome.Failed,
-                    PluginRuntimeState.Failed,
-                    RuntimeDiagnostic.Error("runtime.activation_failed", candidate.PluginId, ex.Message)) with
-                {
-                    RequiresRestart = requiresRestart
-                };
+                // StageAsync 报告 PluginStageFailureException 时已拥有 cleanup；只有取得 staged
+                // candidate 后发生的外层失败，才由本次转换负责清理。
+                var stageFailure = ex as PluginStageFailureException;
+                var primary = stageFailure?.PrimaryFailure ?? ex;
+                var cleanup = stageFailure?.Cleanup
+                    ?? (staged is null
+                        ? PluginCleanupResult.Completed
+                        : await CleanupAsync(staged.Plugin, staged.Lifetime).ConfigureAwait(false));
+                var canceled = primary is OperationCanceledException && cancellationToken.IsCancellationRequested;
+                var state = cleanup.RequiresRestart
+                    ? PluginRuntimeState.Failed
+                    : canceled ? PluginRuntimeState.Inactive : PluginRuntimeState.Failed;
+                var message = CombineFailureMessage(primary, cleanup);
+                _status[candidate.PluginId] = (state, message, cleanup.RequiresRestart);
+                return CreateFailureTransition(
+                    candidate.PluginId,
+                    canceled ? OperationOutcome.Canceled : OperationOutcome.Failed,
+                    state,
+                    primary,
+                    cleanup,
+                    "runtime.activation_canceled",
+                    "runtime.activation_failed",
+                    "Activation was canceled before commit.");
             }
         }
         finally
@@ -198,82 +232,79 @@ public sealed class PluginRuntimeManager
                 }
 
                 staged = await StageAsync(candidate, candidate.PluginId, cancellationToken).ConfigureAwait(false);
-
-                try
-                {
-                    await candidate.Store.CommitAsync(staged.Commit, cancellationToken).ConfigureAwait(false);
-                }
-                catch
-                {
-                    oldSession.ResumeActive();
-                    throw;
-                }
+                await candidate.Store.CommitAsync(staged.Commit, cancellationToken).ConfigureAwait(false);
 
                 _registry.Commit(staged.Registrations);
-                var newSession = staged.CreateSession();
-                _sessions[candidate.PluginId] = newSession;
+                _sessions[candidate.PluginId] = staged.CreateSession();
                 _status[candidate.PluginId] = (PluginRuntimeState.Active, string.Empty, false);
-
-                oldSession.BeginDeactivation();
-                var cleanup = await CleanupAsync(oldSession.Plugin, oldSession.Lifetime).ConfigureAwait(false);
-                if (cleanup.TimedOut)
-                {
-                    const string message = "The previous plugin instance exceeded the deactivation grace period.";
-                    _status[candidate.PluginId] = (PluginRuntimeState.Active, message, true);
-                    return new PluginRuntimeTransitionResult(
-                        true,
-                        OperationOutcome.SuccessWithWarnings,
-                        PluginRuntimeState.Active,
-                        [RuntimeDiagnostic.Warning("runtime.previous_deactivation_timeout", candidate.PluginId, message)],
-                        RequiresRestart: true);
-                }
-                if (cleanup.Exception is not null)
-                {
-                    return new PluginRuntimeTransitionResult(
-                        true,
-                        OperationOutcome.SuccessWithWarnings,
-                        PluginRuntimeState.Active,
-                        [RuntimeDiagnostic.Warning("runtime.previous_deactivation_failed", candidate.PluginId, cleanup.Exception.Message)]);
-                }
-                return PluginRuntimeTransitionResult.Completed(PluginRuntimeState.Active);
-            }
-            catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
-            {
-                var cleanup = staged is null
-                    ? PluginCleanupResult.Completed
-                    : await CleanupAsync(staged.Plugin, staged.Lifetime).ConfigureAwait(false);
-                oldSession.ResumeActive();
-                if (cleanup.TimedOut)
-                {
-                    _status[candidate.PluginId] = (
-                        PluginRuntimeState.Active,
-                        "Replacement candidate cleanup exceeded the deactivation grace period.",
-                        true);
-                }
-                return PluginRuntimeTransitionResult.Rejected(
-                    OperationOutcome.Canceled,
-                    PluginRuntimeState.Active,
-                    RuntimeDiagnostic.Warning("runtime.replace_canceled", candidate.PluginId, "The existing runtime session remains active.")) with
-                {
-                    RequiresRestart = cleanup.TimedOut
-                };
             }
             catch (Exception ex)
             {
-                var cleanup = staged is null
-                    ? PluginCleanupResult.Completed
-                    : await CleanupAsync(staged.Plugin, staged.Lifetime).ConfigureAwait(false);
-                var requiresRestart = cleanup.TimedOut || ex is PluginStageCleanupTimeoutException;
+                // 提交前失败时，候选实例仍由本次转换负责清理，旧会话恢复为 Active。
+                var stageFailure = ex as PluginStageFailureException;
+                var primary = stageFailure?.PrimaryFailure ?? ex;
+                var cleanup = stageFailure?.Cleanup
+                    ?? (staged is null
+                        ? PluginCleanupResult.Completed
+                        : await CleanupAsync(staged.Plugin, staged.Lifetime).ConfigureAwait(false));
                 oldSession.ResumeActive();
-                _status[candidate.PluginId] = (PluginRuntimeState.Active, ex.Message, requiresRestart);
-                return PluginRuntimeTransitionResult.Rejected(
-                    OperationOutcome.Failed,
+
+                var canceled = primary is OperationCanceledException && cancellationToken.IsCancellationRequested;
+                var message = CombineFailureMessage(primary, cleanup);
+                _status[candidate.PluginId] = (PluginRuntimeState.Active, message, cleanup.RequiresRestart);
+                return CreateFailureTransition(
+                    candidate.PluginId,
+                    canceled ? OperationOutcome.Canceled : OperationOutcome.Failed,
                     PluginRuntimeState.Active,
-                    RuntimeDiagnostic.Error("runtime.replace_failed", candidate.PluginId, ex.Message)) with
-                {
-                    RequiresRestart = requiresRestart
-                };
+                    primary,
+                    cleanup,
+                    "runtime.replace_canceled",
+                    "runtime.replace_failed",
+                    "The existing runtime session remains active.");
             }
+
+            try
+            {
+                oldSession.BeginDeactivation();
+            }
+            catch (Exception ex)
+            {
+                // 新实例已经提交，绝不能再清理它；保留无法安全停用的旧实例直到 Host 重启。
+                BeginCancellation(oldSession.Lifetime);
+                oldSession.MarkFailed();
+                _restartRetained.Enqueue(new RestartRetainedPlugin(
+                    oldSession.Plugin,
+                    oldSession.Lifetime,
+                    null,
+                    null,
+                    ex));
+                var failedCleanup = new PluginCleanupResult(PluginCleanupOutcome.Failed, ex);
+                _status[candidate.PluginId] = (PluginRuntimeState.Active, ex.Message, true);
+                return new PluginRuntimeTransitionResult(
+                    true,
+                    OperationOutcome.SuccessWithWarnings,
+                    PluginRuntimeState.Active,
+                    CreateCleanupDiagnostics(candidate.PluginId, failedCleanup, "runtime.previous_deactivation"),
+                    RequiresRestart: true);
+            }
+
+            var previousCleanup = await CleanupAsync(oldSession.Plugin, oldSession.Lifetime).ConfigureAwait(false);
+            if (previousCleanup.IsUnsafe)
+            {
+                var message = previousCleanup.Outcome == PluginCleanupOutcome.TimedOut
+                    ? "The previous plugin instance exceeded the deactivation grace period."
+                    : CombineFailureMessage(
+                        previousCleanup.Exception ?? new InvalidOperationException("The previous plugin cleanup failed."),
+                        previousCleanup);
+                _status[candidate.PluginId] = (PluginRuntimeState.Active, message, true);
+                return new PluginRuntimeTransitionResult(
+                    true,
+                    OperationOutcome.SuccessWithWarnings,
+                    PluginRuntimeState.Active,
+                    CreateCleanupDiagnostics(candidate.PluginId, previousCleanup, "runtime.previous_deactivation"),
+                    RequiresRestart: true);
+            }
+            return PluginRuntimeTransitionResult.Completed(PluginRuntimeState.Active);
         }
         finally
         {
@@ -326,32 +357,33 @@ public sealed class PluginRuntimeManager
             var alreadyRequiresRestart = _status.TryGetValue(pluginId, out var priorStatus)
                 && priorStatus.RequiresRestart;
             var cleanup = await CleanupAsync(session.Plugin, session.Lifetime).ConfigureAwait(false);
-            if (cleanup.TimedOut || alreadyRequiresRestart)
+            if (cleanup.IsUnsafe || alreadyRequiresRestart)
             {
-                var message = cleanup.TimedOut
-                    ? "Plugin deactivation exceeded the deactivation grace period."
+                session.MarkFailed();
+                var message = cleanup.IsUnsafe
+                    ? CombineFailureMessage(
+                        cleanup.Exception ?? new InvalidOperationException("Plugin deactivation exceeded the deactivation grace period."),
+                        cleanup)
                     : "The plugin is logically inactive but a previously retained instance still requires a Host restart.";
-                session.MarkFailed();
                 _status[pluginId] = (PluginRuntimeState.Failed, message, true);
+                var diagnostics = cleanup.IsUnsafe
+                    ? CreateCleanupDiagnostics(pluginId, cleanup, "runtime.deactivation")
+                    : [RuntimeDiagnostic.Warning("runtime.restart_required", pluginId, message)];
+                if (cleanup.IsUnsafe && alreadyRequiresRestart)
+                {
+                    diagnostics = diagnostics
+                        .Append(RuntimeDiagnostic.Warning(
+                            "runtime.restart_required",
+                            pluginId,
+                            "A previously retained plugin instance also requires a Host restart."))
+                        .ToArray();
+                }
                 return new PluginRuntimeTransitionResult(
                     true,
                     OperationOutcome.SuccessWithWarnings,
                     PluginRuntimeState.Failed,
-                    [RuntimeDiagnostic.Warning(
-                        cleanup.TimedOut ? "runtime.deactivation_timeout" : "runtime.restart_required",
-                        pluginId,
-                        message)],
+                    diagnostics,
                     RequiresRestart: true);
-            }
-            if (cleanup.Exception is not null)
-            {
-                session.MarkFailed();
-                _status[pluginId] = (PluginRuntimeState.Failed, cleanup.Exception.Message, false);
-                return new PluginRuntimeTransitionResult(
-                    true,
-                    OperationOutcome.SuccessWithWarnings,
-                    PluginRuntimeState.Failed,
-                    [RuntimeDiagnostic.Warning("runtime.deactivation_failed", pluginId, cleanup.Exception.Message)]);
             }
             _status[pluginId] = (PluginRuntimeState.Inactive, string.Empty, false);
             return PluginRuntimeTransitionResult.Completed(PluginRuntimeState.Inactive);
@@ -409,8 +441,8 @@ public sealed class PluginRuntimeManager
         catch (Exception ex)
         {
             var cleanup = await CleanupAsync(plugin, lifetime).ConfigureAwait(false);
-            if (cleanup.TimedOut) throw new PluginStageCleanupTimeoutException(ex);
-            throw;
+            // 激活失败与 cleanup 失败是两个独立事实；同时保留，避免丢失主因或重启门禁。
+            throw new PluginStageFailureException(ex, cleanup);
         }
     }
 
@@ -570,6 +602,67 @@ public sealed class PluginRuntimeManager
     private static ProviderStateSnapshot CloneState(ProviderStateSnapshot state)
         => state with { Data = state.Data.Clone() };
 
+    private PluginRuntimeTransitionResult CreateFailureTransition(
+        PluginId pluginId,
+        OperationOutcome outcome,
+        PluginRuntimeState state,
+        Exception primaryFailure,
+        PluginCleanupResult cleanup,
+        string canceledCode,
+        string failedCode,
+        string canceledMessage)
+    {
+        var diagnostics = new List<PluginDiagnostic>
+        {
+            outcome == OperationOutcome.Canceled
+                ? RuntimeDiagnostic.Warning(canceledCode, pluginId, canceledMessage)
+                : RuntimeDiagnostic.Error(failedCode, pluginId, primaryFailure.Message)
+        };
+        if (cleanup.IsUnsafe)
+        {
+            diagnostics.AddRange(CreateCleanupDiagnostics(pluginId, cleanup, "runtime.candidate_cleanup"));
+        }
+
+        return new PluginRuntimeTransitionResult(
+            false,
+            outcome,
+            state,
+            diagnostics,
+            RequiresRestart: cleanup.RequiresRestart);
+    }
+
+    private static IReadOnlyList<PluginDiagnostic> CreateCleanupDiagnostics(
+        PluginId pluginId,
+        PluginCleanupResult cleanup,
+        string codePrefix)
+    {
+        var message = cleanup.Outcome == PluginCleanupOutcome.TimedOut
+            ? "Plugin cleanup exceeded the deactivation grace period."
+            : cleanup.Exception?.Message ?? "Plugin cleanup failed.";
+        var code = cleanup.Outcome == PluginCleanupOutcome.TimedOut
+            ? $"{codePrefix}_timeout"
+            : $"{codePrefix}_failed";
+        return [RuntimeDiagnostic.Warning(code, pluginId, message)];
+    }
+
+    private static string CombineFailureMessage(Exception primaryFailure, PluginCleanupResult cleanup)
+    {
+        if (!cleanup.IsUnsafe)
+        {
+            return primaryFailure.Message;
+        }
+
+        if (ReferenceEquals(primaryFailure, cleanup.Exception))
+        {
+            return primaryFailure.Message;
+        }
+
+        var cleanupMessage = cleanup.Outcome == PluginCleanupOutcome.TimedOut
+            ? "Plugin cleanup exceeded the deactivation grace period."
+            : cleanup.Exception?.Message ?? "Plugin cleanup failed.";
+        return $"{primaryFailure.Message} Cleanup: {cleanupMessage}";
+    }
+
     private async ValueTask<PluginCleanupResult> CleanupAsync(
         IFolderRewindPlugin plugin,
         CancellationTokenSource lifetime)
@@ -584,8 +677,8 @@ public sealed class PluginRuntimeManager
         catch (Exception ex)
         {
             cleanupCancellation.Dispose();
-            lifetime.Dispose();
-            return new PluginCleanupResult(false, ex);
+            _restartRetained.Enqueue(new RestartRetainedPlugin(plugin, lifetime, null, null, ex));
+            return new PluginCleanupResult(PluginCleanupOutcome.Failed, ex);
         }
 
         if (await Task.WhenAny(cleanupTask, Task.Delay(_deactivationGracePeriod)).ConfigureAwait(false) != cleanupTask)
@@ -596,10 +689,11 @@ public sealed class PluginRuntimeManager
                 CancellationToken.None,
                 TaskContinuationOptions.OnlyOnFaulted | TaskContinuationOptions.ExecuteSynchronously,
                 TaskScheduler.Default);
-            _restartRetained.Enqueue(new RestartRetainedPlugin(plugin, lifetime, cleanupCancellation, cleanupTask));
-            return new PluginCleanupResult(true, null);
+            _restartRetained.Enqueue(new RestartRetainedPlugin(plugin, lifetime, cleanupCancellation, cleanupTask, null));
+            return new PluginCleanupResult(PluginCleanupOutcome.TimedOut, null);
         }
 
+        var retainLifetime = false;
         try
         {
             await cleanupTask.ConfigureAwait(false);
@@ -607,12 +701,19 @@ public sealed class PluginRuntimeManager
         }
         catch (Exception ex)
         {
-            return new PluginCleanupResult(false, ex);
+            // DeactivateAsync fault 意味着实例无法证明可安全释放，保留其 lifetime 直到 Host 重启。
+            cleanupCancellation.Dispose();
+            _restartRetained.Enqueue(new RestartRetainedPlugin(plugin, lifetime, null, null, ex));
+            retainLifetime = true;
+            return new PluginCleanupResult(PluginCleanupOutcome.Failed, ex);
         }
         finally
         {
-            cleanupCancellation.Dispose();
-            lifetime.Dispose();
+            if (!retainLifetime)
+            {
+                cleanupCancellation.Dispose();
+                lifetime.Dispose();
+            }
         }
     }
 
@@ -630,19 +731,33 @@ public sealed class PluginRuntimeManager
             ? (status.Error, status.RequiresRestart)
             : (string.Empty, false);
 
-    private sealed record PluginCleanupResult(bool TimedOut, Exception? Exception)
+    private enum PluginCleanupOutcome
     {
-        public static PluginCleanupResult Completed { get; } = new(false, null);
+        Completed,
+        Failed,
+        TimedOut
+    }
+
+    private sealed record PluginCleanupResult(PluginCleanupOutcome Outcome, Exception? Exception)
+    {
+        public static PluginCleanupResult Completed { get; } = new(PluginCleanupOutcome.Completed, null);
+        public bool IsUnsafe => Outcome != PluginCleanupOutcome.Completed;
+        public bool RequiresRestart => IsUnsafe;
     }
 
     private sealed record RestartRetainedPlugin(
         IFolderRewindPlugin Plugin,
         CancellationTokenSource Lifetime,
-        CancellationTokenSource CleanupCancellation,
-        Task CleanupTask);
+        CancellationTokenSource? CleanupCancellation,
+        Task? CleanupTask,
+        Exception? CleanupException);
 
-    private sealed class PluginStageCleanupTimeoutException(Exception innerException)
-        : Exception("Plugin staging failed and candidate cleanup exceeded the deactivation grace period.", innerException);
+    private sealed class PluginStageFailureException(Exception primaryFailure, PluginCleanupResult cleanup)
+        : Exception("Plugin staging failed.", primaryFailure)
+    {
+        public Exception PrimaryFailure { get; } = primaryFailure;
+        public PluginCleanupResult Cleanup { get; } = cleanup;
+    }
 
     private sealed record StagedPlugin(
         PluginActivationCandidate Candidate,

@@ -3,6 +3,7 @@ using System.Text.Json;
 using FolderRewind.Plugin.Abstractions;
 using FolderRewind.Plugin.Runtime.Activation;
 using FolderRewind.Plugin.Runtime.Settings;
+using FolderRewind.Services.Plugins.V3;
 
 namespace FolderRewind.Plugin.Runtime.Tests;
 
@@ -50,6 +51,45 @@ public sealed class PluginRuntimeManagerTests
     }
 
     [TestMethod]
+    public async Task StagingFailureKeepsPrimaryAndCleanupDiagnosticsAndRequiresRestart()
+    {
+        var plugin = new FakePlugin(
+            _ => throw new InvalidOperationException("activation primary failure"),
+            _ => ValueTask.FromException(new InvalidOperationException("cleanup failure")));
+        var manager = new PluginRuntimeManager();
+
+        var result = await manager.ActivateAsync(Candidate(PluginOneId, plugin, new FakeStore()));
+
+        Assert.IsFalse(result.Success);
+        Assert.AreEqual(OperationOutcome.Failed, result.Outcome);
+        Assert.IsTrue(result.RequiresRestart);
+        CollectionAssert.Contains(result.Diagnostics.Select(value => value.Code).ToArray(), "runtime.activation_failed");
+        CollectionAssert.Contains(result.Diagnostics.Select(value => value.Code).ToArray(), "runtime.candidate_cleanup_failed");
+        StringAssert.Contains(manager.GetSnapshot(PluginOneId).LastError, "activation primary failure");
+        StringAssert.Contains(manager.GetSnapshot(PluginOneId).LastError, "cleanup failure");
+        Assert.AreEqual(1, manager.RestartRetainedCount);
+    }
+
+    [TestMethod]
+    public async Task PhysicalUnloadFailureMarksRestartAndBlocksReactivation()
+    {
+        var manager = new PluginRuntimeManager();
+        await manager.ActivateAsync(Candidate(PluginOneId, PluginWithDiscovery("one"), new FakeStore()));
+
+        manager.MarkPhysicalUnloadFailed(PluginOneId, "simulated physical unload failure");
+
+        var snapshot = manager.GetSnapshot(PluginOneId);
+        Assert.AreEqual(PluginRuntimeState.Active, snapshot.State);
+        Assert.IsTrue(snapshot.RequiresRestart);
+        StringAssert.Contains(snapshot.LastError, "simulated physical unload failure");
+        var retry = await manager.ReplaceAsync(
+            Candidate(PluginOneId, PluginWithDiscovery("two"), new FakeStore()));
+        Assert.IsFalse(retry.Success);
+        Assert.AreEqual(OperationOutcome.Blocked, retry.Outcome);
+        Assert.IsTrue(retry.RequiresRestart);
+    }
+
+    [TestMethod]
     public async Task CapabilityConflictRollsBackSecondPlugin()
     {
         var manager = new PluginRuntimeManager();
@@ -66,6 +106,122 @@ public sealed class PluginRuntimeManagerTests
         using var lease = manager.TryAcquire<IDiscoveryCapability>(PluginOneId);
         Assert.IsNotNull(lease);
         Assert.AreEqual("first", ((FakeDiscovery)lease.Capability).Marker);
+    }
+
+    [TestMethod]
+    public async Task StableSelectorCanAcquireTheSecondCapabilityIdentity()
+    {
+        var kindA = new ConfigKindRef(new OwnerId(PluginOneId.Value), "kind-a");
+        var kindB = new ConfigKindRef(new OwnerId(PluginOneId.Value), "kind-b");
+        var plugin = new FakePlugin(context =>
+        {
+            context.RegisterCapability<IConfigReconciliationCapability>(new FakeConfigReconciliation(kindA));
+            context.RegisterCapability<IConfigReconciliationCapability>(new FakeConfigReconciliation(kindB));
+            return PluginActivationResult.Empty;
+        });
+        var manager = new PluginRuntimeManager();
+
+        var result = await manager.ActivateAsync(Candidate(PluginOneId, plugin, new FakeStore()));
+
+        Assert.IsTrue(result.Success);
+        using var lease = manager.TryAcquire<IConfigReconciliationCapability>(
+            PluginOneId,
+            capability => capability.Kind == kindB);
+        Assert.IsNotNull(lease);
+        Assert.AreEqual(kindB, lease.Capability.Kind);
+        Assert.AreEqual(1, manager.GetSnapshot(PluginOneId).ActiveLeases);
+    }
+
+    [TestMethod]
+    public async Task ConsistencyCleanupExceptionStillReleasesRuntimeLease()
+    {
+        var kind = new ConfigKindRef(new OwnerId(PluginOneId.Value), "consistency");
+        var consistency = new FakeConsistencyLease("C:\\Data", throwOnDispose: true);
+        var plugin = new FakePlugin(context =>
+        {
+            context.RegisterCapability<IBackupConsistencyCapability>(
+                new FakeConsistencyCapability(kind, consistency));
+            return PluginActivationResult.Empty;
+        });
+        var manager = new PluginRuntimeManager();
+        await manager.ActivateAsync(Candidate(PluginOneId, plugin, new FakeStore()));
+        var owner = new PluginV3CaptureLeaseOwner();
+        var diagnostics = new List<PluginDiagnostic>();
+        var (config, folder) = ConsistencySnapshots(kind);
+
+        await owner.AcquireAsync(
+            manager,
+            PluginOneId,
+            config,
+            folder,
+            ConsistencyIntent.Prefer,
+            diagnostics);
+        Assert.AreEqual(1, manager.GetSnapshot(PluginOneId).ActiveLeases);
+
+        await Assert.ThrowsExactlyAsync<InvalidOperationException>(
+            () => owner.CompleteAsync().AsTask());
+
+        Assert.AreEqual(0, manager.GetSnapshot(PluginOneId).ActiveLeases);
+        var deactivation = await manager.DeactivateAsync(PluginOneId);
+        Assert.IsTrue(deactivation.Success);
+        Assert.AreEqual(PluginRuntimeState.Inactive, deactivation.State);
+    }
+
+    [TestMethod]
+    public async Task RequiredConsistencyAcquireExceptionStillReleasesRuntimeLease()
+    {
+        var kind = new ConfigKindRef(new OwnerId(PluginOneId.Value), "consistency");
+        var plugin = new FakePlugin(context =>
+        {
+            context.RegisterCapability<IBackupConsistencyCapability>(
+                new FakeConsistencyCapability(
+                    kind,
+                    new FakeConsistencyLease("C:\\Data"),
+                    throwOnAcquire: true));
+            return PluginActivationResult.Empty;
+        });
+        var manager = new PluginRuntimeManager();
+        await manager.ActivateAsync(Candidate(PluginOneId, plugin, new FakeStore()));
+        var owner = new PluginV3CaptureLeaseOwner();
+        var diagnostics = new List<PluginDiagnostic>();
+        var (config, folder) = ConsistencySnapshots(kind);
+
+        var error = await Assert.ThrowsExactlyAsync<InvalidOperationException>(
+            () => owner.AcquireAsync(
+                manager,
+                PluginOneId,
+                config,
+                folder,
+                ConsistencyIntent.Require,
+                diagnostics).AsTask());
+
+        StringAssert.Contains(error.Message, "consistency acquire failed");
+        Assert.AreEqual(0, manager.GetSnapshot(PluginOneId).ActiveLeases);
+        var deactivation = await manager.DeactivateAsync(PluginOneId);
+        Assert.IsTrue(deactivation.Success);
+        Assert.AreEqual(PluginRuntimeState.Inactive, deactivation.State);
+    }
+
+    [TestMethod]
+    public async Task DuplicateAggregateCapabilityInstancesAreRejected()
+    {
+        var plugin = new FakePlugin(context =>
+        {
+            context.RegisterCapability<IDiscoveryCapability>(
+                new FakeDiscovery("one", new DiscoveryProviderId("com.folderrewind.discovery.one")));
+            context.RegisterCapability<IDiscoveryCapability>(
+                new FakeDiscovery("two", new DiscoveryProviderId("com.folderrewind.discovery.two")));
+            return PluginActivationResult.Empty;
+        });
+        var store = new FakeStore();
+        var manager = new PluginRuntimeManager();
+
+        var result = await manager.ActivateAsync(Candidate(PluginOneId, plugin, store));
+
+        Assert.IsFalse(result.Success);
+        Assert.AreEqual(PluginRuntimeState.Failed, result.State);
+        Assert.IsEmpty(store.Commits);
+        Assert.IsNull(manager.TryAcquire<IDiscoveryCapability>(PluginOneId));
     }
 
     [TestMethod]
@@ -197,7 +353,7 @@ public sealed class PluginRuntimeManagerTests
     }
 
     [TestMethod]
-    public async Task DeactivationExceptionDoesNotUndoLogicalIsolationOrRequireRestart()
+    public async Task DeactivationExceptionDoesNotUndoLogicalIsolationAndRequiresRestart()
     {
         var plugin = PluginWithDiscovery(
             "throwing",
@@ -210,7 +366,9 @@ public sealed class PluginRuntimeManagerTests
         Assert.IsTrue(result.Success);
         Assert.AreEqual(OperationOutcome.SuccessWithWarnings, result.Outcome);
         Assert.AreEqual(PluginRuntimeState.Failed, result.State);
-        Assert.IsFalse(result.RequiresRestart);
+        Assert.IsTrue(result.RequiresRestart);
+        Assert.AreEqual(1, manager.RestartRetainedCount);
+        Assert.IsTrue(manager.GetSnapshot(PluginOneId).RequiresRestart);
         Assert.IsNull(manager.TryAcquire<IDiscoveryCapability>(PluginOneId));
     }
 
@@ -255,6 +413,8 @@ public sealed class PluginRuntimeManagerTests
 
         Assert.IsTrue(result.Success);
         Assert.IsTrue(migration.DataStoreWasBlocked);
+        Assert.IsTrue(migration.ReadOnlyServicesWereAvailable);
+        Assert.IsTrue(migration.MutationServicesWereBlocked);
         Assert.HasCount(1, store.Commits);
         var patch = store.Commits[0].ProviderStatePatches.Single();
         Assert.AreEqual(location, patch.Location);
@@ -361,6 +521,24 @@ public sealed class PluginRuntimeManagerTests
             Array.Empty<FolderSnapshot>(),
             new Dictionary<StateOwnerId, ProviderStateSnapshot> { [state.StateOwnerId] = state });
 
+    private static (ConfigSnapshot Config, FolderSnapshot Folder) ConsistencySnapshots(ConfigKindRef kind)
+    {
+        var folder = new FolderSnapshot(
+            Guid.NewGuid(),
+            "C:\\Data",
+            "Data",
+            new Dictionary<StateOwnerId, ProviderStateSnapshot>());
+        return (
+            new ConfigSnapshot(
+                "config",
+                new ConfigRevision("revision-1"),
+                kind,
+                "Config",
+                [folder],
+                new Dictionary<StateOwnerId, ProviderStateSnapshot>()),
+            folder);
+    }
+
     private static JsonElement Json(string json)
         => JsonDocument.Parse(json).RootElement.Clone();
 
@@ -402,13 +580,50 @@ public sealed class PluginRuntimeManagerTests
         }
     }
 
-    private sealed class FakeDiscovery(string marker) : IDiscoveryCapability
+    private sealed class FakeDiscovery(string marker, DiscoveryProviderId? providerId = null) : IDiscoveryCapability
     {
         public string Marker { get; } = marker;
-        public DiscoveryProviderId ProviderId => SharedDiscoveryId;
+        public DiscoveryProviderId ProviderId { get; } = providerId ?? SharedDiscoveryId;
 
         public ValueTask<DiscoveryResult> DiscoverAsync(DiscoveryRequest request, PluginInvocationContext context)
             => ValueTask.FromResult(new DiscoveryResult(Array.Empty<DiscoveryCandidate>(), Array.Empty<PluginDiagnostic>()));
+    }
+
+    private sealed class FakeConfigReconciliation(ConfigKindRef kind) : IConfigReconciliationCapability
+    {
+        public ConfigKindRef Kind { get; } = kind;
+
+        public ValueTask<ConfigChangeProposal?> ProposeAsync(
+            ConfigReconciliationRequest request,
+            PluginInvocationContext context)
+            => ValueTask.FromResult<ConfigChangeProposal?>(null);
+    }
+
+    private sealed class FakeConsistencyCapability(
+        ConfigKindRef kind,
+        FakeConsistencyLease lease,
+        bool throwOnAcquire = false) : IBackupConsistencyCapability
+    {
+        public ConfigKindRef Kind { get; } = kind;
+
+        public ValueTask<IConsistencyLease> AcquireAsync(
+            BackupConsistencyRequest request,
+            PluginInvocationContext context)
+            => throwOnAcquire
+                ? ValueTask.FromException<IConsistencyLease>(
+                    new InvalidOperationException("consistency acquire failed"))
+                : ValueTask.FromResult<IConsistencyLease>(lease);
+    }
+
+    private sealed class FakeConsistencyLease(string sourcePath, bool throwOnDispose = false) : IConsistencyLease
+    {
+        public string SourcePath { get; } = sourcePath;
+        public IReadOnlyList<PluginDiagnostic> Diagnostics { get; } = Array.Empty<PluginDiagnostic>();
+
+        public ValueTask DisposeAsync()
+            => throwOnDispose
+                ? ValueTask.FromException(new InvalidOperationException("consistency cleanup failed"))
+                : ValueTask.CompletedTask;
     }
 
     private sealed class FakeMigration(StateOwnerId owner, ProviderStateLocation location) : IProviderStateMigrationCapability
@@ -416,9 +631,17 @@ public sealed class PluginRuntimeManagerTests
         public StateOwnerId StateOwnerId => owner;
         public int CurrentSchemaVersion => 1;
         public bool DataStoreWasBlocked { get; private set; }
+        public bool ReadOnlyServicesWereAvailable { get; private set; }
+        public bool MutationServicesWereBlocked { get; private set; }
 
         public async ValueTask<ProviderStatePatch> MigrateAsync(ProviderStateSnapshot state, PluginInvocationContext context)
         {
+            await context.HostServices.Configs.FindAsync("config", context.OperationCancellation);
+            await context.HostServices.History.QueryAsync("config", null, context.OperationCancellation);
+            context.HostServices.Logger.Log(DiagnosticSeverity.Information, "staging");
+            ReadOnlyServicesWereAvailable = true;
+
+            var blocked = 0;
             try
             {
                 await context.HostServices.DataStore.OpenReadAsync("state.json", context.OperationCancellation);
@@ -426,7 +649,50 @@ public sealed class PluginRuntimeManagerTests
             catch (InvalidOperationException)
             {
                 DataStoreWasBlocked = true;
+                blocked++;
             }
+
+            try
+            {
+                await context.HostServices.Backups.RequestAsync("config", null, context.OperationCancellation);
+            }
+            catch (InvalidOperationException ex) when (ex.Message.Contains("host_service.unavailable_during_activation", StringComparison.Ordinal))
+            {
+                blocked++;
+            }
+            try
+            {
+                await context.HostServices.Restores.RequestAsync("config", Guid.NewGuid(), "history", context.OperationCancellation);
+            }
+            catch (InvalidOperationException ex) when (ex.Message.Contains("host_service.unavailable_during_activation", StringComparison.Ordinal))
+            {
+                blocked++;
+            }
+            try
+            {
+                await context.HostServices.Notifications.ShowAsync("title", "message", DiagnosticSeverity.Information, context.OperationCancellation);
+            }
+            catch (InvalidOperationException ex) when (ex.Message.Contains("host_service.unavailable_during_activation", StringComparison.Ordinal))
+            {
+                blocked++;
+            }
+            try
+            {
+                await context.HostServices.KnotLink.SendAsync("event", new Dictionary<string, string>(), context.OperationCancellation);
+            }
+            catch (InvalidOperationException ex) when (ex.Message.Contains("host_service.unavailable_during_activation", StringComparison.Ordinal))
+            {
+                blocked++;
+            }
+            try
+            {
+                await context.HostServices.TemporaryStorage.CreateDirectoryAsync(context.OperationCancellation);
+            }
+            catch (InvalidOperationException ex) when (ex.Message.Contains("host_service.unavailable_during_activation", StringComparison.Ordinal))
+            {
+                blocked++;
+            }
+            MutationServicesWereBlocked = blocked == 6;
 
             return new ProviderStatePatch(location, owner, state.SchemaVersion, 1, Json("{\"migrated\":true}"));
         }

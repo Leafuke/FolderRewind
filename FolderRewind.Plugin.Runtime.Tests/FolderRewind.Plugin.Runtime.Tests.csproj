@@ -16,7 +16,10 @@
 
   <ItemGroup>
     <Compile Remove="Fixtures\**\*.cs" />
+    <Compile Include="..\FolderRewind\Services\Plugins\V3\PluginV3CaptureLeaseOwner.cs" Link="Source\PluginV3CaptureLeaseOwner.cs" />
     <ProjectReference Include="..\FolderRewind.Plugin.Runtime\FolderRewind.Plugin.Runtime.csproj" />
+    <ProjectReference Include="Fixtures\HostBridge\HostBridge.csproj" ReferenceOutputAssembly="false" />
+    <ProjectReference Include="Fixtures\PluginBase\PluginBase.csproj" ReferenceOutputAssembly="false" />
     <ProjectReference Include="Fixtures\PluginOne\PluginOne.csproj" ReferenceOutputAssembly="false" />
     <ProjectReference Include="Fixtures\PluginTwo\PluginTwo.csproj" ReferenceOutputAssembly="false" />
   </ItemGroup>

@@ -69,6 +69,8 @@ public static class PluginAssemblyLoader
 {
     private const string AbstractionsAssemblyName = "FolderRewind.Plugin.Abstractions";
     private const string AbstractionsFileName = AbstractionsAssemblyName + ".dll";
+    internal const string HostAssemblyName = "FolderRewind";
+    internal const string RuntimeAssemblyName = "FolderRewind.Plugin.Runtime";
 
     public static LoadedPluginAssembly Load(PluginLoadRequest request)
     {
@@ -96,7 +98,6 @@ public static class PluginAssemblyLoader
         try
         {
             var assembly = context.LoadFromAssemblyPath(entryPath);
-            ValidateContractReference(assembly);
             var entryType = assembly.GetType(request.EntryType, throwOnError: true, ignoreCase: false)
                 ?? throw new TypeLoadException($"Plugin entry type '{request.EntryType}' was not found.");
             if (!typeof(IFolderRewindPlugin).IsAssignableFrom(entryType)
@@ -148,20 +149,6 @@ public static class PluginAssemblyLoader
         return fullPath;
     }
 
-    private static void ValidateContractReference(Assembly assembly)
-    {
-        var reference = assembly.GetReferencedAssemblies()
-            .SingleOrDefault(name => string.Equals(name.Name, AbstractionsAssemblyName, StringComparison.Ordinal));
-        if (reference is null)
-        {
-            throw new InvalidOperationException("Plugin entry assembly does not reference FolderRewind.Plugin.Abstractions.");
-        }
-        if (reference.Version?.Major != PluginApiVersion.HostVersion.Major)
-        {
-            throw new InvalidOperationException(
-                $"Plugin contract assembly major '{reference.Version?.Major}' is incompatible with API {PluginApiVersion.HostVersion}.");
-        }
-    }
 }
 
 internal sealed class PluginLoadContext : AssemblyLoadContext
@@ -176,10 +163,17 @@ internal sealed class PluginLoadContext : AssemblyLoadContext
 
     protected override Assembly? Load(AssemblyName assemblyName)
     {
+        if (string.Equals(assemblyName.Name, PluginAssemblyLoader.HostAssemblyName, StringComparison.OrdinalIgnoreCase)
+            || string.Equals(assemblyName.Name, PluginAssemblyLoader.RuntimeAssemblyName, StringComparison.OrdinalIgnoreCase))
+        {
+            throw new FileLoadException(
+                $"Plugin payload cannot load Host implementation assembly '{assemblyName.Name}'.");
+        }
+
         if (string.Equals(
                 assemblyName.Name,
                 typeof(IFolderRewindPlugin).Assembly.GetName().Name,
-                StringComparison.Ordinal))
+                StringComparison.OrdinalIgnoreCase))
         {
             return typeof(IFolderRewindPlugin).Assembly;
         }

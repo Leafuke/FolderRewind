@@ -131,9 +131,13 @@ internal static class PluginV3OfflineUpgradeService
                     PluginInstallProvenance.BundledOfficial,
                     BundledSha256,
                     operationCancellation).ConfigureAwait(false);
+                if (!install.Success || install.InstalledPackage is null)
+                {
+                    throw new InvalidOperationException(PluginV3PackageService.FormatInstallOutcome(install));
+                }
                 progress = progress with
                 {
-                    InstalledVersion = install.State.CurrentVersion,
+                    InstalledVersion = install.InstalledPackage.State.CurrentVersion,
                     UpdatedAtUtc = DateTimeOffset.UtcNow
                 };
                 await store.WriteAsync(progress, operationCancellation).ConfigureAwait(false);

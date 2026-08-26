@@ -3163,6 +3163,20 @@ cmd=RESTORE;from=minebackup.mod;request_id=req-mr-restore-002;current_save=true;
   <data name="Plugins_InstallOutcomeNew" xml:space="preserve"><value>已安装 {0} {1}；在用户明确启用前将保持禁用。</value></data>
   <data name="Plugins_InstallOutcomeUpdatedEnabled" xml:space="preserve"><value>已更新 {0} {1}；Enabled Intent 保持启用。</value></data>
   <data name="Plugins_InstallOutcomeUpdatedDisabled" xml:space="preserve"><value>已更新 {0} {1}；Enabled Intent 保持禁用。</value></data>
+  <data name="Plugins_InstallOutcomeRequiresRestart" xml:space="preserve"><value>已安装 {0} {1}；运行时需要重启 FolderRewind 后才能完成切换。</value></data>
+  <data name="Plugins_InstallOutcomeRequiresRestartShort" xml:space="preserve"><value>需要重启 FolderRewind 后才能完成。</value></data>
+  <data name="Plugins_InstallOutcomeFailed" xml:space="preserve"><value>{0} 安装失败。</value></data>
+  <data name="PluginStorePage_InstallManual.Content" xml:space="preserve"><value>安装 .frplugin…</value></data>
+  <data name="PluginStorePage_Enable.Content" xml:space="preserve"><value>立即启用</value></data>
+  <data name="PluginStorePage_RestartRequired.Text" xml:space="preserve"><value>需要重启</value></data>
+  <data name="Plugins_EnableNowButton" xml:space="preserve"><value>立即启用</value></data>
+  <data name="Plugins_EnableLaterButton" xml:space="preserve"><value>稍后启用</value></data>
+  <data name="Plugins_EnableSucceeded" xml:space="preserve"><value>插件已启用。</value></data>
+  <data name="Plugins_RuntimeRequiresRestart" xml:space="preserve"><value>插件状态已记录，但需要重启 FolderRewind 后才能完成。</value></data>
+  <data name="Plugins_RuntimeOperationFailed" xml:space="preserve"><value>无法完成插件操作。</value></data>
+  <data name="Plugins_SettingsApplyRequiresRestart" xml:space="preserve"><value>插件设置已保存；需要重启 FolderRewind 后才能完成运行时切换。</value></data>
+  <data name="Plugins_UninstallHistoryWarning" xml:space="preserve"><value>有 {0} 条历史记录引用该插件拥有的 Artifact。卸载会保留这些历史 Artifact，但相关恢复将保持 fail-closed。</value></data>
+  <data name="SettingsPage_PluginRequiresRestart.Text" xml:space="preserve"><value>需要重启</value></data>
   <data name="PluginPreset_Progress_InstallMineRewind" xml:space="preserve"><value>正在安装经过校验的内置 MineRewind 包...</value></data>
   <data name="PluginPreset_Progress_EnableMineRewind" xml:space="preserve"><value>正在启用 MineRewind...</value></data>
   <data name="PluginPreset_Progress_EnableKnotLink" xml:space="preserve"><value>正在开启 KnotLink 集成...</value></data>

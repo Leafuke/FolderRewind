@@ -62,13 +62,11 @@ public sealed class ConfigReconciliationCoordinator
         ArgumentNullException.ThrowIfNull(request.Config);
         ArgumentNullException.ThrowIfNull(applyPolicy);
 
-        using var lease = _runtime.TryAcquire<IConfigReconciliationCapability>(pluginId, cancellationToken)
+        using var lease = _runtime.TryAcquire<IConfigReconciliationCapability>(
+            pluginId,
+            capability => capability.Kind == request.Config.Kind,
+            cancellationToken)
             ?? throw new InvalidOperationException($"Plugin '{pluginId}' has no active Config Reconciliation capability.");
-        if (lease.Capability.Kind != request.Config.Kind)
-        {
-            throw new InvalidOperationException("Config Reconciliation capability does not own the requested Config Kind.");
-        }
-
         var proposed = await lease.Capability.ProposeAsync(request, lease.Context).ConfigureAwait(false);
         if (proposed is null)
         {

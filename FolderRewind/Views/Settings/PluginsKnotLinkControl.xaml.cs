@@ -74,25 +74,48 @@ namespace FolderRewind.Views.Settings
                 viewMode: PickerViewMode.List);
             if (string.IsNullOrWhiteSpace(filePath)) return;
 
-            (bool Success, string Message) res;
-            try
-            {
-                var installed = await FolderRewind.Services.Plugins.V3.PluginV3PackageService.InstallAsync(
-                    filePath,
-                    FolderRewind.Plugin.Runtime.Packaging.PluginInstallProvenance.Manual);
-                res = (true, FolderRewind.Services.Plugins.V3.PluginV3PackageService.FormatInstallOutcome(installed));
-            }
-            catch (Exception ex) { res = (false, ex.Message); }
+            var res = await PluginStoreService.InstallManualAsync(filePath);
 
             var msg = new ContentDialog
             {
-                Title = res.Success ? rl.GetString("Common_Done") : rl.GetString("Common_Failed"),
+                Title = !res.Success
+                    ? rl.GetString("Common_Failed")
+                    : res.RequiresRestart
+                        ? rl.GetString("Notification_Warning_Title")
+                        : rl.GetString("Common_Done"),
                 Content = res.Message,
-                CloseButtonText = rl.GetString("Common_Ok"),
+                PrimaryButtonText = res.CanEnableNow
+                    ? rl.GetString("Plugins_EnableNowButton")
+                    : rl.GetString("Common_Ok"),
+                CloseButtonText = res.CanEnableNow
+                    ? rl.GetString("Plugins_EnableLaterButton")
+                    : string.Empty,
                 XamlRoot = this.XamlRoot
             };
             ThemeService.ApplyThemeToDialog(msg);
-            await msg.ShowAsync();
+            if (await msg.ShowAsync() == ContentDialogResult.Primary && res.CanEnableNow)
+            {
+                try
+                {
+                    var enabled = await FolderRewind.Services.Plugins.V3.PluginV3PackageService.SetEnabledAsync(
+                        new FolderRewind.Plugin.Abstractions.PluginId(res.Operation!.RuntimeAfterOperation.PluginId.Value),
+                        enabled: true);
+                    if (!enabled.Success)
+                        NotificationService.ShowError(
+                            FolderRewind.Services.Plugins.V3.PluginV3PackageService.FormatRuntimeDiagnostics(
+                                enabled.Diagnostics));
+                    else if (enabled.RequiresRestart)
+                        NotificationService.ShowWarning(I18n.GetString("Plugins_RuntimeRequiresRestart"));
+                }
+                catch (Exception ex)
+                {
+                    NotificationService.ShowError(ex.Message);
+                }
+            }
+            else if (res.Success && res.RequiresRestart)
+            {
+                NotificationService.ShowWarning(res.Message, rl.GetString("Plugins_StoreDialogTitle"));
+            }
 
             PluginService.RefreshInstalledList();
         }
@@ -166,11 +189,30 @@ namespace FolderRewind.Views.Settings
             if (sender is not Button btn || btn.Tag is not InstalledPluginInfo plugin) return;
 
             var rl = ResourceLoader.GetForViewIndependentUse();
+            FolderRewind.Services.Plugins.V3.PluginUninstallPreview preview;
+            try
+            {
+                preview = await FolderRewind.Services.Plugins.V3.PluginV3PackageService.PreviewUninstallAsync(
+                    new FolderRewind.Plugin.Abstractions.PluginId(plugin.Id));
+            }
+            catch (Exception ex)
+            {
+                NotificationService.ShowError(ex.Message);
+                return;
+            }
+
+            var confirmText = string.Format(rl.GetString("Plugins_UninstallConfirm"), plugin.Name, plugin.Id);
+            if (preview.AffectedHistoryItemIds.Count > 0)
+            {
+                confirmText += Environment.NewLine + Environment.NewLine + I18n.Format(
+                    "Plugins_UninstallHistoryWarning",
+                    preview.AffectedHistoryItemIds.Count);
+            }
 
             var confirm = new ContentDialog
             {
                 Title = rl.GetString("Plugins_UninstallTitle"),
-                Content = string.Format(rl.GetString("Plugins_UninstallConfirm"), plugin.Name, plugin.Id),
+                Content = confirmText,
                 PrimaryButtonText = rl.GetString("Plugins_UninstallButton"),
                 CloseButtonText = rl.GetString("Common_Cancel"),
                 DefaultButton = ContentDialogButton.Close,
@@ -183,18 +225,25 @@ namespace FolderRewind.Views.Settings
             if (res != ContentDialogResult.Primary) return;
 
             (bool Success, string Message) result;
+            var warning = false;
             try
             {
                 var v3Id = new FolderRewind.Plugin.Abstractions.PluginId(plugin.Id);
-                var preview = await FolderRewind.Services.Plugins.V3.PluginV3PackageService.UninstallAsync(
+                var uninstall = await FolderRewind.Services.Plugins.V3.PluginV3PackageService.UninstallAsync(
                     v3Id,
                     deleteData: false,
                     confirmation: null);
-                result = (true, I18n.Format(
-                    "Plugins_UninstallPreservedResult",
-                    preview.SettingsCount,
-                    preview.ProviderStateLocationCount,
-                    preview.DataPath));
+                result = (
+                    uninstall.Outcome is FolderRewind.Plugin.Abstractions.OperationOutcome.Success
+                        or FolderRewind.Plugin.Abstractions.OperationOutcome.SuccessWithWarnings,
+                    uninstall.Outcome == FolderRewind.Plugin.Abstractions.OperationOutcome.Success
+                        ? I18n.Format(
+                            "Plugins_UninstallPreservedResult",
+                            preview.SettingsCount,
+                            preview.ProviderStateLocationCount,
+                            preview.DataPath)
+                        : uninstall.Diagnostic);
+                warning = uninstall.Outcome == FolderRewind.Plugin.Abstractions.OperationOutcome.SuccessWithWarnings;
             }
             catch (Exception ex)
             {
@@ -204,13 +253,22 @@ namespace FolderRewind.Views.Settings
 
             var msg = new ContentDialog
             {
-                Title = result.Success ? rl.GetString("Common_Done") : rl.GetString("Common_Failed"),
+                Title = !result.Success
+                    ? rl.GetString("Common_Failed")
+                    : warning
+                        ? rl.GetString("Notification_Warning_Title")
+                        : rl.GetString("Common_Done"),
                 Content = result.Message,
                 CloseButtonText = rl.GetString("Common_Ok"),
                 XamlRoot = this.XamlRoot
             };
             ThemeService.ApplyThemeToDialog(msg);
             await msg.ShowAsync();
+
+            if (warning)
+            {
+                NotificationService.ShowWarning(result.Message);
+            }
 
             PluginService.RefreshInstalledList();
         }
@@ -358,13 +416,19 @@ namespace FolderRewind.Views.Settings
 
                 var msg = new ContentDialog
                 {
-                    Title = result.Success ? rl.GetString("Common_Done") : rl.GetString("Common_Failed"),
+                    Title = !result.Success
+                        ? rl.GetString("Common_Failed")
+                        : result.RequiresRestart
+                            ? rl.GetString("Notification_Warning_Title")
+                            : rl.GetString("Common_Done"),
                     Content = result.Message,
                     CloseButtonText = rl.GetString("Common_Ok"),
                     XamlRoot = this.XamlRoot
                 };
                 ThemeService.ApplyThemeToDialog(msg);
                 await msg.ShowAsync();
+                if (result.Success && result.RequiresRestart)
+                    NotificationService.ShowWarning(result.Message, rl.GetString("Plugins_StoreDialogTitle"));
 
                 PluginService.RefreshInstalledList();
             }
@@ -418,15 +482,23 @@ namespace FolderRewind.Views.Settings
                     dialog.ResultSettings);
                 if (!apply.Success)
                 {
-                    var diagnostics = apply.Validation.Issues.Select(issue => issue.Code)
-                        .Concat(apply.Transition?.Diagnostics.Select(value => value.Code) ?? Array.Empty<string>());
+                    var diagnostics = apply.Validation.Issues.Select(issue => issue.Code).ToList();
+                    if (apply.Transition is not null)
+                    {
+                        diagnostics.Add(
+                            FolderRewind.Services.Plugins.V3.PluginV3PackageService.FormatRuntimeDiagnostics(
+                                apply.Transition.Diagnostics));
+                    }
                     await ShowMessageAsync(
                         I18n.GetString("Common_Failed"),
                         I18n.Format("Plugins_SettingsSaveFailed", string.Join(", ", diagnostics)));
                     return;
                 }
 
-                NotificationService.ShowSuccess(I18n.GetString("Plugins_SettingsSaved"));
+                if (apply.Transition?.RequiresRestart == true)
+                    NotificationService.ShowWarning(I18n.GetString("Plugins_SettingsApplyRequiresRestart"));
+                else
+                    NotificationService.ShowSuccess(I18n.GetString("Plugins_SettingsSaved"));
                 PluginService.RefreshInstalledList();
                 await FolderRewind.Services.Plugins.V3.PluginV3DiscoveryService
                     .RunAutoCreateAsync(pluginId);

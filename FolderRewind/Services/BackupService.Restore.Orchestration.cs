@@ -59,7 +59,9 @@ namespace FolderRewind.Services
             var folderId = Guid.Parse(folder.Id);
             var folderSnapshot = configSnapshot.Folders.Single(value => value.FolderId == folderId);
             var declaration = PluginV3RuntimeService.FindKind(configSnapshot.Kind);
-            using var coordinatorLease = runtime.TryAcquire<IRestoreCoordinatorCapability>(owner);
+            using var coordinatorLease = runtime.TryAcquire<IRestoreCoordinatorCapability>(
+                owner,
+                capability => capability.Kind == configSnapshot.Kind);
             var resolution = PluginOperationResolver.Resolve(new PluginOperationResolutionRequest(
                 declaration ?? new ConfigKindDeclaration(
                     configSnapshot.Kind,
@@ -76,8 +78,7 @@ namespace FolderRewind.Services
                 false,
                 coordinatorLease is not null));
             if (resolution.Readiness == OperationReadiness.Blocked
-                || coordinatorLease is null
-                || coordinatorLease.Capability.Kind != configSnapshot.Kind)
+                || coordinatorLease is null)
             {
                 var message = "The restore owner is missing, disabled, failed, or lacks its required Restore Coordinator.";
                 Log($"[PluginV3] {message} Owner={owner}", LogLevel.Error);
@@ -170,8 +171,9 @@ namespace FolderRewind.Services
                     if (!StringComparer.Ordinal.Equals(root.RestoreStrategyId.PluginId.Value, "folderrewind.core"))
                     {
                         using var lease = PluginV3RuntimeService.Runtime.TryAcquire<IRestoreMaterializerCapability>(
-                            root.RestoreStrategyId.PluginId);
-                        if (lease is null || lease.Capability.RestoreStrategyId != root.RestoreStrategyId)
+                            root.RestoreStrategyId.PluginId,
+                            capability => capability.RestoreStrategyId == root.RestoreStrategyId);
+                        if (lease is null)
                             throw new InvalidOperationException("Artifact Restore Strategy owner is unavailable.");
                         return true;
                     }

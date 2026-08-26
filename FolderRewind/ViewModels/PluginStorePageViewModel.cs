@@ -4,6 +4,7 @@ using FolderRewind.Services;
 using FolderRewind.Services.Plugins;
 using FolderRewind.Services.Plugins.V3;
 using FolderRewind.Plugin.Runtime.Packaging;
+using FolderRewind.Plugin.Abstractions;
 using System;
 using System.Collections.ObjectModel;
 using System.Collections.Specialized;
@@ -22,6 +23,8 @@ namespace FolderRewind.ViewModels
         private string _statusMessage = string.Empty;
         private string _releaseSummary = string.Empty;
         private bool _hasAutoLoaded;
+        private string? _pendingEnablePluginId;
+        private bool _canEnableManualNow;
 
         public PluginStorePageViewModel()
         {
@@ -29,6 +32,8 @@ namespace FolderRewind.ViewModels
 
             LoadCommand = new AsyncRelayCommand(LoadAssetsAsync, () => CanLoad);
             InstallCommand = new AsyncRelayCommand<PluginStoreAssetItem>(InstallAsync);
+            EnableCommand = new AsyncRelayCommand<PluginStoreAssetItem>(EnableInstalledAsync);
+            EnableManualCommand = new AsyncRelayCommand(EnableManualAsync);
             InstallManualCommand = new AsyncRelayCommand(InstallManualAsync);
         }
 
@@ -37,7 +42,15 @@ namespace FolderRewind.ViewModels
         public IAsyncRelayCommand LoadCommand { get; }
 
         public IAsyncRelayCommand<PluginStoreAssetItem> InstallCommand { get; }
+        public IAsyncRelayCommand<PluginStoreAssetItem> EnableCommand { get; }
+        public IAsyncRelayCommand EnableManualCommand { get; }
         public IAsyncRelayCommand InstallManualCommand { get; }
+
+        public bool CanEnableManualNow
+        {
+            get => _canEnableManualNow;
+            private set => SetProperty(ref _canEnableManualNow, value);
+        }
 
         public string StatusMessage
         {
@@ -203,6 +216,8 @@ namespace FolderRewind.ViewModels
             var rl = ResourceLoader.GetForViewIndependentUse();
 
             item.IsBusy = true;
+            item.CanEnableNow = false;
+            item.RequiresRestart = false;
             item.Status = rl.GetString("PluginStorePage_StatusDownloading");
 
             try
@@ -218,11 +233,65 @@ namespace FolderRewind.ViewModels
                 {
                     PluginService.RefreshInstalledList();
                     item.IsInstalled = true;
-                    NotificationService.ShowSuccess(res.Message, I18n.GetString("PluginStorePage_Title.Text"));
+                    item.CanEnableNow = res.CanEnableNow;
+                    item.RequiresRestart = res.RequiresRestart;
+                    if (res.RequiresRestart)
+                    {
+                        NotificationService.ShowWarning(res.Message, I18n.GetString("PluginStorePage_Title.Text"));
+                    }
+                    else
+                    {
+                        NotificationService.ShowSuccess(res.Message, I18n.GetString("PluginStorePage_Title.Text"));
+                    }
                 }
                 else
                 {
                     NotificationService.ShowError(res.Message, I18n.GetString("PluginStorePage_Title.Text"));
+                }
+            }
+            catch (OperationCanceledException)
+            {
+                item.Status = rl.GetString("Common_Canceled");
+            }
+            catch (Exception ex)
+            {
+                item.Status = ex.Message;
+                NotificationService.ShowError(ex.Message, I18n.GetString("PluginStorePage_Title.Text"));
+            }
+            finally
+            {
+                item.IsBusy = false;
+            }
+        }
+
+        private async Task EnableInstalledAsync(PluginStoreAssetItem? item)
+        {
+            if (item is null || !item.CanEnableNow) return;
+            var rl = ResourceLoader.GetForViewIndependentUse();
+            item.IsBusy = true;
+            try
+            {
+                var result = await PluginV3PackageService.SetEnabledAsync(
+                    new PluginId(item.PluginId),
+                    enabled: true,
+                    CancellationToken.None);
+                if (result.Success)
+                {
+                    item.CanEnableNow = false;
+                    item.RequiresRestart = result.RequiresRestart;
+                    PluginService.RefreshInstalledList();
+                    item.Status = result.RequiresRestart
+                        ? I18n.GetString("Plugins_InstallOutcomeRequiresRestartShort")
+                        : I18n.GetString("Plugins_EnableSucceeded");
+                    if (result.RequiresRestart)
+                        NotificationService.ShowWarning(item.Status, I18n.GetString("PluginStorePage_Title.Text"));
+                    else
+                        NotificationService.ShowSuccess(item.Status, I18n.GetString("PluginStorePage_Title.Text"));
+                }
+                else
+                {
+                    item.Status = PluginV3PackageService.FormatRuntimeDiagnostics(result.Diagnostics);
+                    NotificationService.ShowError(item.Status, I18n.GetString("PluginStorePage_Title.Text"));
                 }
             }
             catch (OperationCanceledException)
@@ -248,15 +317,21 @@ namespace FolderRewind.ViewModels
                 new[] { ".frplugin" });
             if (string.IsNullOrWhiteSpace(path)) return;
             IsLoading = true;
+            CanEnableManualNow = false;
+            _pendingEnablePluginId = null;
             try
             {
-                var result = await PluginV3PackageService.InstallAsync(
-                    path,
-                    PluginInstallProvenance.Manual,
-                    cancellationToken: CancellationToken.None);
+                var result = await PluginStoreService.InstallManualAsync(path, CancellationToken.None);
                 PluginService.RefreshInstalledList();
-                StatusMessage = PluginV3PackageService.FormatInstallOutcome(result);
-                NotificationService.ShowSuccess(StatusMessage, I18n.GetString("PluginStorePage_Title.Text"));
+                StatusMessage = result.Message;
+                CanEnableManualNow = result.CanEnableNow;
+                _pendingEnablePluginId = result.Operation?.RuntimeAfterOperation.PluginId.Value;
+                if (!result.Success)
+                    NotificationService.ShowError(StatusMessage, I18n.GetString("PluginStorePage_Title.Text"));
+                else if (result.RequiresRestart)
+                    NotificationService.ShowWarning(StatusMessage, I18n.GetString("PluginStorePage_Title.Text"));
+                else if (!result.CanEnableNow)
+                    NotificationService.ShowSuccess(StatusMessage, I18n.GetString("PluginStorePage_Title.Text"));
             }
             catch (Exception ex)
             {
@@ -264,6 +339,47 @@ namespace FolderRewind.ViewModels
                 NotificationService.ShowError(ex.Message, I18n.GetString("PluginStorePage_Title.Text"));
             }
             finally { IsLoading = false; }
+        }
+
+        private async Task EnableManualAsync()
+        {
+            if (!CanEnableManualNow || string.IsNullOrWhiteSpace(_pendingEnablePluginId)) return;
+            var rl = ResourceLoader.GetForViewIndependentUse();
+            try
+            {
+                var result = await PluginV3PackageService.SetEnabledAsync(
+                    new PluginId(_pendingEnablePluginId),
+                    enabled: true,
+                    CancellationToken.None);
+                if (!result.Success)
+                {
+                    NotificationService.ShowError(
+                        PluginV3PackageService.FormatRuntimeDiagnostics(result.Diagnostics),
+                        I18n.GetString("PluginStorePage_Title.Text"));
+                    return;
+                }
+
+                CanEnableManualNow = false;
+                _pendingEnablePluginId = null;
+                PluginService.RefreshInstalledList();
+                var message = result.RequiresRestart
+                    ? I18n.GetString("Plugins_InstallOutcomeRequiresRestartShort")
+                    : I18n.GetString("Plugins_EnableSucceeded");
+                StatusMessage = message;
+                if (result.RequiresRestart)
+                    NotificationService.ShowWarning(message, I18n.GetString("PluginStorePage_Title.Text"));
+                else
+                    NotificationService.ShowSuccess(message, I18n.GetString("PluginStorePage_Title.Text"));
+            }
+            catch (OperationCanceledException)
+            {
+                StatusMessage = rl.GetString("Common_Canceled");
+            }
+            catch (Exception ex)
+            {
+                StatusMessage = ex.Message;
+                NotificationService.ShowError(ex.Message, I18n.GetString("PluginStorePage_Title.Text"));
+            }
         }
 
         private void OnAssetsCollectionChanged(object? sender, NotifyCollectionChangedEventArgs e)

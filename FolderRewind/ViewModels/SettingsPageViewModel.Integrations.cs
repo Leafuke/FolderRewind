@@ -31,7 +31,11 @@ namespace FolderRewind.ViewModels
             var id = new FolderRewind.Plugin.Abstractions.PluginId(pluginId);
             var transition = await FolderRewind.Services.Plugins.V3.PluginV3PackageService.SetEnabledAsync(id, isOn);
             if (!transition.Success)
-                NotificationService.ShowError(string.Join(", ", transition.Diagnostics.Select(value => value.Code)));
+                NotificationService.ShowError(
+                    FolderRewind.Services.Plugins.V3.PluginV3PackageService.FormatRuntimeDiagnostics(
+                        transition.Diagnostics));
+            else if (transition.RequiresRestart)
+                NotificationService.ShowWarning(I18n.GetString("Plugins_RuntimeRequiresRestart"));
             PluginService.RefreshInstalledList();
             OnPropertyChanged(nameof(InstalledPlugins));
         }

@@ -76,6 +76,14 @@
                                                            Style="{StaticResource CaptionTextBlockStyle}"
                                                            Foreground="{ThemeResource TextOnAccentFillColorPrimaryBrush}" />
                                             </Border>
+                                            <Border Background="{ThemeResource SystemFillColorCautionBrush}"
+                                                    CornerRadius="4"
+                                                    Padding="8,4"
+                                                    Visibility="{x:Bind RequiresRestart, Converter={StaticResource BoolToVisConverter}, Mode=OneWay}">
+                                                <TextBlock x:Uid="SettingsPage_PluginRequiresRestart"
+                                                           Style="{StaticResource CaptionTextBlockStyle}"
+                                                           Foreground="{ThemeResource TextOnAccentFillColorPrimaryBrush}" />
+                                            </Border>
                                         </StackPanel>
                                         <TextBlock Text="{x:Bind Description, Mode=OneWay}" Style="{StaticResource SettingsDescriptionStyle}" />
                                         <StackPanel Orientation="Horizontal" Spacing="12">

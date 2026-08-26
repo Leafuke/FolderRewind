@@ -37,7 +37,14 @@ internal sealed class PluginRuntimeSession
 
     public PluginCapabilityLease<TCapability>? TryAcquire<TCapability>(CancellationToken operationCancellation)
         where TCapability : class, IPluginCapability
+        => TryAcquire<TCapability>(_ => true, operationCancellation);
+
+    public PluginCapabilityLease<TCapability>? TryAcquire<TCapability>(
+        Func<TCapability, bool> selector,
+        CancellationToken operationCancellation)
+        where TCapability : class, IPluginCapability
     {
+        ArgumentNullException.ThrowIfNull(selector);
         lock (_sync)
         {
             if (State != PluginRuntimeState.Active)
@@ -45,7 +52,10 @@ internal sealed class PluginRuntimeSession
                 return null;
             }
 
-            var capability = Registrations.Capabilities.OfType<TCapability>().FirstOrDefault();
+            // 身份筛选与租约计数必须位于同一把锁内；selector 抛异常时不得增加租约计数。
+            var capability = Registrations.Capabilities.OfType<TCapability>()
+                .Where(selector)
+                .SingleOrDefault();
             if (capability is null)
             {
                 return null;

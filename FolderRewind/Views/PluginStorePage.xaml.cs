@@ -36,5 +36,15 @@ namespace FolderRewind.Views
 
             await ViewModel.InstallCommand.ExecuteAsync(item);
         }
+
+        private async void OnEnableClick(object sender, RoutedEventArgs e)
+        {
+            if (sender is not Button btn || btn.Tag is not PluginStoreAssetItem item)
+            {
+                return;
+            }
+
+            await ViewModel.EnableCommand.ExecuteAsync(item);
+        }
     }
 }
