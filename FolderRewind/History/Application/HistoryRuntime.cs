@@ -41,6 +41,7 @@ public sealed class HistoryRuntime : IAsyncDisposable
         MutationGate = new HistoryMutationGate(repository.ConfigId);
         ChangeFeed = new HistoryChangeFeed();
         Query = new HistoryQueryService(Index);
+        Commit = new HistoryCommitCoordinator(this, _codec);
     }
 
     public HistoryConfigId ConfigId => Repository.ConfigId;
@@ -51,6 +52,7 @@ public sealed class HistoryRuntime : IAsyncDisposable
     public HistoryMutationGate MutationGate { get; }
     public HistoryChangeFeed ChangeFeed { get; }
     public HistoryQueryService Query { get; }
+    public HistoryCommitCoordinator Commit { get; }
     public HistoryRuntimeHealth Health { get; private set; }
 
     public async Task InitializeAsync(CancellationToken cancellationToken = default)
@@ -89,17 +91,7 @@ public sealed class HistoryRuntime : IAsyncDisposable
                 rebuilt = true;
             }
 
-            var workspace = await WorkspaceStore.LoadAsync(cancellationToken).ConfigureAwait(false);
-            var catalog = await LocalReplicaCatalogStore.LoadAsync(cancellationToken).ConfigureAwait(false);
-            Health = HistoryRuntimeHealth.Ready;
-            if (workspace.Status != DeviceLocalStateStatus.Valid)
-            {
-                Health |= HistoryRuntimeHealth.WorkspaceRecoveryRequired;
-            }
-            if (catalog.Status != DeviceLocalStateStatus.Valid)
-            {
-                Health |= HistoryRuntimeHealth.LocalReplicaCatalogRecoveryRequired;
-            }
+            await RefreshLocalStateHealthAsync(cancellationToken).ConfigureAwait(false);
 
             _initialized = true;
             ChangeFeed.Publish(ConfigId, HistoryChangeKind.RepositoryInitialized);
@@ -126,5 +118,19 @@ public sealed class HistoryRuntime : IAsyncDisposable
         _initializationGate.Dispose();
         return ValueTask.CompletedTask;
     }
-}
 
+    internal async Task RefreshLocalStateHealthAsync(CancellationToken cancellationToken = default)
+    {
+        var workspace = await WorkspaceStore.LoadAsync(cancellationToken).ConfigureAwait(false);
+        var catalog = await LocalReplicaCatalogStore.LoadAsync(cancellationToken).ConfigureAwait(false);
+        Health = HistoryRuntimeHealth.Ready;
+        if (workspace.Status != DeviceLocalStateStatus.Valid)
+        {
+            Health |= HistoryRuntimeHealth.WorkspaceRecoveryRequired;
+        }
+        if (catalog.Status != DeviceLocalStateStatus.Valid)
+        {
+            Health |= HistoryRuntimeHealth.LocalReplicaCatalogRecoveryRequired;
+        }
+    }
+}

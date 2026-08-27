@@ -119,7 +119,8 @@ public sealed record SourceCaptureResult
         long expectedWorkspaceRevision,
         VersionId? expectedBaseVersionId,
         ICaptureCleanupHandle? cleanupHandle,
-        IEnumerable<HistoryDiagnostic>? diagnostics)
+        IEnumerable<HistoryDiagnostic>? diagnostics,
+        IEnumerable<MaterializationPolicyUpdateId>? expectedMaterializationPolicyTipIds = null)
     {
         SourceId = sourceId;
         Outcome = outcome;
@@ -133,6 +134,9 @@ public sealed record SourceCaptureResult
         ExpectedBaseVersionId = expectedBaseVersionId;
         CleanupHandle = cleanupHandle;
         Diagnostics = diagnostics is null ? [] : [.. diagnostics];
+        ExpectedMaterializationPolicyTipIds = expectedMaterializationPolicyTipIds is null
+            ? []
+            : [.. expectedMaterializationPolicyTipIds];
         ValidateShape();
     }
 
@@ -148,6 +152,7 @@ public sealed record SourceCaptureResult
     public VersionId? ExpectedBaseVersionId { get; }
     public ICaptureCleanupHandle? CleanupHandle { get; }
     public ImmutableArray<HistoryDiagnostic> Diagnostics { get; }
+    public ImmutableArray<MaterializationPolicyUpdateId> ExpectedMaterializationPolicyTipIds { get; }
 
     // Commit 8–16 的 Legacy Backup UI adapter 只消费这些投影；Native coordinator 消费上面的稳定字段。
     public bool Success => Outcome is SourceCaptureOutcome.Captured
@@ -157,22 +162,81 @@ public sealed record SourceCaptureResult
     public bool IsUnavailable => Outcome == SourceCaptureOutcome.Unavailable;
     public string? FileName => PayloadCandidate?.FileName;
 
-    public static SourceCaptureResult NoChanges(SourceId sourceId, CaptureScope scope)
-        => new(sourceId, SourceCaptureOutcome.NoChanges, scope, null, null, null, null, null, -1, null, null, []);
-
-    public static SourceCaptureResult Unavailable(SourceId sourceId, CaptureScope scope, string? diagnostic = null)
+    public static SourceCaptureResult NoChanges(
+        SourceId sourceId,
+        CaptureScope scope,
+        long expectedWorkspaceRevision = -1,
+        VersionId? expectedBaseVersionId = null,
+        string? stateFingerprint = null,
+        IEnumerable<MaterializationPolicyUpdateId>? expectedMaterializationPolicyTipIds = null)
         => new(
-            sourceId, SourceCaptureOutcome.Unavailable, scope, null, null, null, null, null, -1, null, null,
+            sourceId,
+            SourceCaptureOutcome.NoChanges,
+            scope,
+            stateFingerprint,
+            null,
+            null,
+            null,
+            null,
+            expectedWorkspaceRevision,
+            expectedBaseVersionId,
+            null,
+            [],
+            expectedMaterializationPolicyTipIds);
+
+    public static SourceCaptureResult Reused(
+        SourceId sourceId,
+        CaptureScope scope,
+        VersionId existingVersionId,
+        long expectedWorkspaceRevision,
+        VersionId? expectedBaseVersionId,
+        string? stateFingerprint = null,
+        IEnumerable<HistoryDiagnostic>? diagnostics = null,
+        IEnumerable<MaterializationPolicyUpdateId>? expectedMaterializationPolicyTipIds = null)
+        => new(
+            sourceId,
+            SourceCaptureOutcome.Reused,
+            scope,
+            stateFingerprint,
+            existingVersionId,
+            null,
+            null,
+            null,
+            expectedWorkspaceRevision,
+            expectedBaseVersionId,
+            null,
+            diagnostics,
+            expectedMaterializationPolicyTipIds);
+
+    public static SourceCaptureResult Unavailable(
+        SourceId sourceId,
+        CaptureScope scope,
+        string? diagnostic = null,
+        long expectedWorkspaceRevision = -1,
+        VersionId? expectedBaseVersionId = null,
+        IEnumerable<MaterializationPolicyUpdateId>? expectedMaterializationPolicyTipIds = null)
+        => new(
+            sourceId, SourceCaptureOutcome.Unavailable, scope, null, null, null, null, null,
+            expectedWorkspaceRevision, expectedBaseVersionId, null,
             string.IsNullOrWhiteSpace(diagnostic)
                 ? []
-                : [new HistoryDiagnostic("capture.unavailable", HistoryDiagnosticSeverity.Warning, diagnostic)]);
+                : [new HistoryDiagnostic("capture.unavailable", HistoryDiagnosticSeverity.Warning, diagnostic)],
+            expectedMaterializationPolicyTipIds);
 
-    public static SourceCaptureResult Failed(SourceId sourceId, CaptureScope scope, string? diagnostic = null)
+    public static SourceCaptureResult Failed(
+        SourceId sourceId,
+        CaptureScope scope,
+        string? diagnostic = null,
+        long expectedWorkspaceRevision = -1,
+        VersionId? expectedBaseVersionId = null,
+        IEnumerable<MaterializationPolicyUpdateId>? expectedMaterializationPolicyTipIds = null)
         => new(
-            sourceId, SourceCaptureOutcome.Failed, scope, null, null, null, null, null, -1, null, null,
+            sourceId, SourceCaptureOutcome.Failed, scope, null, null, null, null, null,
+            expectedWorkspaceRevision, expectedBaseVersionId, null,
             string.IsNullOrWhiteSpace(diagnostic)
                 ? []
-                : [new HistoryDiagnostic("capture.failed", HistoryDiagnosticSeverity.Error, diagnostic)]);
+                : [new HistoryDiagnostic("capture.failed", HistoryDiagnosticSeverity.Error, diagnostic)],
+            expectedMaterializationPolicyTipIds);
 
     private void ValidateShape()
     {

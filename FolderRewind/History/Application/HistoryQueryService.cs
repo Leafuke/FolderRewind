@@ -34,6 +34,11 @@ public sealed class HistoryQueryService
         CancellationToken cancellationToken = default)
         => _index.GetVersionsForSourceAsync(sourceId, cancellationToken);
 
+    public Task<SourceVersion?> GetVersionAsync(
+        VersionId versionId,
+        CancellationToken cancellationToken = default)
+        => _index.GetVersionAsync(versionId, cancellationToken);
+
     public Task<ConfigurationCheckpoint?> GetCheckpointAsync(
         CheckpointId checkpointId,
         CancellationToken cancellationToken = default)
@@ -44,18 +49,38 @@ public sealed class HistoryQueryService
         CancellationToken cancellationToken = default)
         => _index.GetBranchTipsWithFactsAsync(branchId, cancellationToken);
 
+    public Task<BranchUpdate?> GetBranchUpdateAsync(
+        BranchUpdateId updateId,
+        CancellationToken cancellationToken = default)
+        => _index.GetBranchUpdateAsync(updateId, cancellationToken);
+
     public Task<IReadOnlyList<BackupRun>> GetRunsAsync(
         CancellationToken cancellationToken = default)
         => _index.GetRunsAsync(cancellationToken);
+
+    public Task<BackupRun?> GetRunAsync(
+        RunId runId,
+        CancellationToken cancellationToken = default)
+        => _index.GetRunAsync(runId, cancellationToken);
 
     public Task<IReadOnlyList<VersionRepresentation>> GetRepresentationsAsync(
         VersionId versionId,
         CancellationToken cancellationToken = default)
         => _index.GetRepresentationsAsync(versionId, cancellationToken);
 
+    public Task<VersionRepresentation?> GetRepresentationAsync(
+        RepresentationId representationId,
+        CancellationToken cancellationToken = default)
+        => _index.GetRepresentationAsync(representationId, cancellationToken);
+
     public Task<IReadOnlyList<VersionRepresentation>> GetAllRepresentationsAsync(
         CancellationToken cancellationToken = default)
         => _index.GetAllRepresentationsAsync(cancellationToken);
+
+    public Task<IReadOnlyList<MaterializationPolicyUpdate>> GetMaterializationPolicyTipsAsync(
+        VersionId versionId,
+        CancellationToken cancellationToken = default)
+        => _index.GetMaterializationPolicyTipsAsync(versionId, cancellationToken);
 
     public async Task<IReadOnlyList<HistoryTimelineEntry>> GetTimelineAsync(
         CancellationToken cancellationToken = default)

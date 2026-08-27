@@ -182,6 +182,14 @@ public sealed class HistoryIndex : IDisposable
             [],
             cancellationToken);
 
+    public async Task<SourceVersion?> GetVersionAsync(
+        VersionId versionId,
+        CancellationToken cancellationToken = default)
+        => (await ReadPayloadsAsync<SourceVersion>(
+            "SELECT PayloadJson FROM Versions WHERE VersionId = $id",
+            [("$id", versionId.ToString())],
+            cancellationToken).ConfigureAwait(false)).SingleOrDefault();
+
     public async Task<ConfigurationCheckpoint?> GetCheckpointAsync(
         CheckpointId checkpointId,
         CancellationToken cancellationToken = default)
@@ -211,12 +219,28 @@ public sealed class HistoryIndex : IDisposable
             [("$branchId", branchId.ToString())],
             cancellationToken);
 
+    public async Task<BranchUpdate?> GetBranchUpdateAsync(
+        BranchUpdateId updateId,
+        CancellationToken cancellationToken = default)
+        => (await ReadPayloadsAsync<BranchUpdate>(
+            "SELECT PayloadJson FROM BranchUpdates WHERE UpdateId = $id",
+            [("$id", updateId.ToString())],
+            cancellationToken).ConfigureAwait(false)).SingleOrDefault();
+
     public Task<IReadOnlyList<BackupRun>> GetRunsAsync(
         CancellationToken cancellationToken = default)
         => ReadPayloadsAsync<BackupRun>(
             "SELECT PayloadJson FROM Runs ORDER BY CompletedAtUtc DESC, RunId DESC",
             [],
             cancellationToken);
+
+    public async Task<BackupRun?> GetRunAsync(
+        RunId runId,
+        CancellationToken cancellationToken = default)
+        => (await ReadPayloadsAsync<BackupRun>(
+            "SELECT PayloadJson FROM Runs WHERE RunId = $id",
+            [("$id", runId.ToString())],
+            cancellationToken).ConfigureAwait(false)).SingleOrDefault();
 
     public Task<IReadOnlyList<VersionRepresentation>> GetRepresentationsAsync(
         VersionId versionId,
@@ -226,12 +250,32 @@ public sealed class HistoryIndex : IDisposable
             [("$version", versionId.ToString())],
             cancellationToken);
 
+    public async Task<VersionRepresentation?> GetRepresentationAsync(
+        RepresentationId representationId,
+        CancellationToken cancellationToken = default)
+        => (await ReadPayloadsAsync<VersionRepresentation>(
+            "SELECT PayloadJson FROM Representations WHERE RepresentationId = $id",
+            [("$id", representationId.ToString())],
+            cancellationToken).ConfigureAwait(false)).SingleOrDefault();
+
     public Task<IReadOnlyList<VersionRepresentation>> GetAllRepresentationsAsync(
         CancellationToken cancellationToken = default)
         => ReadPayloadsAsync<VersionRepresentation>(
             "SELECT PayloadJson FROM Representations ORDER BY RepresentationId",
             [],
             cancellationToken);
+
+    public async Task<IReadOnlyList<MaterializationPolicyUpdate>> GetMaterializationPolicyTipsAsync(
+        VersionId versionId,
+        CancellationToken cancellationToken = default)
+    {
+        var updates = await ReadPayloadsAsync<MaterializationPolicyUpdate>(
+            "SELECT PayloadJson FROM MaterializationPolicies WHERE VersionId = $version ORDER BY CreatedAtUtc, UpdateId",
+            [("$version", versionId.ToString())],
+            cancellationToken).ConfigureAwait(false);
+        var parentIds = updates.SelectMany(update => update.ParentUpdateIds).ToHashSet();
+        return updates.Where(update => !parentIds.Contains(update.UpdateId)).ToImmutableArray();
+    }
 
     public async Task<int> GetIndexedPackCountAsync(CancellationToken cancellationToken = default)
     {

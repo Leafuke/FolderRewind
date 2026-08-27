@@ -42,18 +42,7 @@ internal static class AtomicFileService
                 stream.Flush(flushToDisk: true);
             }
 
-            if (File.Exists(fullDestinationPath))
-            {
-                File.Replace(
-                    temporaryPath,
-                    fullDestinationPath,
-                    destinationBackupFileName: null,
-                    ignoreMetadataErrors: true);
-            }
-            else
-            {
-                File.Move(temporaryPath, fullDestinationPath);
-            }
+            InstallSameVolume(temporaryPath, fullDestinationPath);
         }
         finally
         {
@@ -104,18 +93,7 @@ internal static class AtomicFileService
                 stream.Flush(flushToDisk: true);
             }
 
-            if (File.Exists(fullDestinationPath))
-            {
-                File.Replace(
-                    temporaryPath,
-                    fullDestinationPath,
-                    destinationBackupFileName: null,
-                    ignoreMetadataErrors: true);
-            }
-            else
-            {
-                File.Move(temporaryPath, fullDestinationPath);
-            }
+            InstallSameVolume(temporaryPath, fullDestinationPath);
         }
         finally
         {
@@ -129,6 +107,31 @@ internal static class AtomicFileService
             catch
             {
             }
+        }
+    }
+
+    private static void InstallSameVolume(string temporaryPath, string destinationPath)
+    {
+        if (!File.Exists(destinationPath))
+        {
+            File.Move(temporaryPath, destinationPath);
+            return;
+        }
+
+        try
+        {
+            File.Replace(
+                temporaryPath,
+                destinationPath,
+                destinationBackupFileName: null,
+                ignoreMetadataErrors: true);
+        }
+        catch (IOException)
+        {
+            // Some Windows filesystems reject ReplaceFile without a backup target even though an
+            // atomic same-volume overwrite is supported. MoveFileEx (used by File.Move overwrite)
+            // preserves the complete-old-or-complete-new contract for this fallback.
+            File.Move(temporaryPath, destinationPath, overwrite: true);
         }
     }
 }
