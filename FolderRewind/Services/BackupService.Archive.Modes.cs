@@ -1,4 +1,6 @@
 using FolderRewind.Models;
+using FolderRewind.History.Capture;
+using FolderRewind.History.Domain;
 using Microsoft.UI.Xaml.Controls;
 using System;
 using System.Collections.Generic;
@@ -23,7 +25,7 @@ namespace FolderRewind.Services
         /// （防止基于已被手动删除的基线判定"无变化"）。FileTypeRules 追加压缩失败只记警告，
         /// 不使全量备份整体失败；元数据写入失败则视为本次备份失败。
         /// </remarks>
-        private static async Task<BackupArchiveExecutionResult> DoFullBackupAsync(string source, string destDir, string metaDir, string baseName, BackupConfig config, BackupSourceScope selection, string comment = "", BackupTask? taskToUpdate = null)
+        private static async Task<SourceCaptureResult> DoFullBackupAsync(SourceId sourceId, FolderRewind.History.Domain.CaptureScope captureScope, string source, string destDir, string metaDir, string baseName, BackupConfig config, BackupSourceScope selection, string comment = "", BackupTask? taskToUpdate = null)
         {
             BackupMetadataState? oldState = null;
             if (!string.IsNullOrEmpty(metaDir))
@@ -39,7 +41,7 @@ namespace FolderRewind.Services
             var currentStates = ScanDirectory(source, config.Filters, selection: selection);
             if (BackupSourceAvailabilityPolicy.IsUnavailable(selection, currentStates.Count))
             {
-                return BackupArchiveExecutionResult.Unavailable;
+                return SourceCaptureResult.Unavailable(sourceId, captureScope);
             }
             var changeSet = CompareFileStates(currentStates, oldState?.FileStates);
 
@@ -59,7 +61,7 @@ namespace FolderRewind.Services
                 if (referencedBackupExists && !changeSet.HasChanges)
                 {
                     Log(I18n.Format("BackupService_Log_NoChangesDetected"), LogLevel.Info);
-                    return BackupArchiveExecutionResult.NoChanges;
+                    return SourceCaptureResult.NoChanges(sourceId, captureScope);
                 }
             }
 
@@ -69,7 +71,7 @@ namespace FolderRewind.Services
             // 获取加密密码
             if (!TryResolveRequiredPassword(config, out var password, taskToUpdate))
             {
-                return BackupArchiveExecutionResult.Failed;
+                return SourceCaptureResult.Failed(sourceId, captureScope);
             }
 
             // 1. 直接压缩（带黑名单过滤 + 自定义文件类型排除）
@@ -93,12 +95,12 @@ namespace FolderRewind.Services
                 bool metadataSaved = await UpdateMetadataAsync(source, metaDir, fileName, fileName, "Full", oldState, currentStates, changeSet, config.Filters);
                 if (!metadataSaved)
                 {
-                    return BackupArchiveExecutionResult.Failed;
+                    return SourceCaptureResult.Failed(sourceId, captureScope);
                 }
 
-                return BackupArchiveExecutionResult.Created(fileName);
+                return CreateLegacyArchiveCapture(sourceId, captureScope, destDir, fileName, RepresentationKind.CoreFull, config.Archive.Format);
             }
-            return BackupArchiveExecutionResult.Failed;
+            return SourceCaptureResult.Failed(sourceId, captureScope);
         }
 
         // --- 模式 2: 智能增量备份 ---
@@ -113,7 +115,7 @@ namespace FolderRewind.Services
         /// （截断链条）。变更文件会先按 FileTypeRules 拆分：不匹配规则的进主列表文件，
         /// 匹配的留给追加压缩阶段处理；若变更全部由删除构成，则跳过主压缩直接生成仅删除归档。
         /// </remarks>
-        private static async Task<BackupArchiveExecutionResult> DoSmartBackupAsync(string source, string destDir, string metaDir, string baseName, BackupConfig config, BackupSourceScope selection, string comment = "", BackupTask? taskToUpdate = null)
+        private static async Task<SourceCaptureResult> DoSmartBackupAsync(SourceId sourceId, FolderRewind.History.Domain.CaptureScope captureScope, string source, string destDir, string metaDir, string baseName, BackupConfig config, BackupSourceScope selection, string comment = "", BackupTask? taskToUpdate = null)
         {
             var metadataLoadResult = await BackupMetadataStoreService.LoadStateAsync(metaDir).ConfigureAwait(false);
             BackupMetadataState? oldState = metadataLoadResult.State;
@@ -127,7 +129,7 @@ namespace FolderRewind.Services
             if (oldState == null)
             {
                 Log(I18n.Format("BackupService_Log_NoBaselineMetadataFallbackFull"), LogLevel.Info);
-                return await DoFullBackupAsync(source, destDir, metaDir, baseName, config, selection, comment, taskToUpdate);
+                return await DoFullBackupAsync(sourceId, captureScope, source, destDir, metaDir, baseName, config, selection, comment, taskToUpdate);
             }
 
             // 校验元数据引用的备份文件是否仍然存在
@@ -138,7 +140,7 @@ namespace FolderRewind.Services
                 if (!File.Exists(referencedBackupPath))
                 {
                     Log(I18n.Format("BackupService_Log_ReferencedBackupMissing", oldState.LastBackupFileName), LogLevel.Warning);
-                    return await DoFullBackupAsync(source, destDir, metaDir, baseName, config, selection, comment, taskToUpdate);
+                    return await DoFullBackupAsync(sourceId, captureScope, source, destDir, metaDir, baseName, config, selection, comment, taskToUpdate);
                 }
             }
             if (!string.IsNullOrEmpty(oldState.BasedOnFullBackup) && oldState.BasedOnFullBackup != oldState.LastBackupFileName)
@@ -147,7 +149,7 @@ namespace FolderRewind.Services
                 if (!File.Exists(baseBackupPath))
                 {
                     Log(I18n.Format("BackupService_Log_ReferencedBackupMissing", oldState.BasedOnFullBackup), LogLevel.Warning);
-                    return await DoFullBackupAsync(source, destDir, metaDir, baseName, config, selection, comment, taskToUpdate);
+                    return await DoFullBackupAsync(sourceId, captureScope, source, destDir, metaDir, baseName, config, selection, comment, taskToUpdate);
                 }
             }
 
@@ -198,7 +200,7 @@ namespace FolderRewind.Services
 
                 if (forceFullDueToChainLimit)
                 {
-                    return await DoFullBackupAsync(source, destDir, metaDir, baseName, config, selection, comment, taskToUpdate);
+                    return await DoFullBackupAsync(sourceId, captureScope, source, destDir, metaDir, baseName, config, selection, comment, taskToUpdate);
                 }
             }
 
@@ -207,14 +209,14 @@ namespace FolderRewind.Services
             var currentStates = ScanDirectory(source, config.Filters, selection: selection);
             if (BackupSourceAvailabilityPolicy.IsUnavailable(selection, currentStates.Count))
             {
-                return BackupArchiveExecutionResult.Unavailable;
+                return SourceCaptureResult.Unavailable(sourceId, captureScope);
             }
             var changeSet = CompareFileStates(currentStates, oldState.FileStates);
 
             if (!changeSet.HasChanges)
             {
                 Log(I18n.Format("BackupService_Log_NoChangesDetected"), LogLevel.Info);
-                return BackupArchiveExecutionResult.NoChanges;
+                return SourceCaptureResult.NoChanges(sourceId, captureScope);
             }
 
             var contentChangedFiles = changeSet.AddedFiles
@@ -258,7 +260,7 @@ namespace FolderRewind.Services
             var fileTypeExclusions = hasFileTypeRules && fileTypeRules != null ? (IReadOnlyList<FileTypeRule>)fileTypeRules : null;
             if (!TryResolveRequiredPassword(config, out var password, taskToUpdate))
             {
-                return BackupArchiveExecutionResult.Failed;
+                return SourceCaptureResult.Failed(sourceId, captureScope);
             }
             bool deletionOnlyChange = contentChangedFiles.Count == 0 && changeSet.DeletedFiles.Count > 0;
             bool result;
@@ -301,22 +303,22 @@ namespace FolderRewind.Services
 
                 if (!File.Exists(destFile))
                 {
-                    return BackupArchiveExecutionResult.Failed;
+                    return SourceCaptureResult.Failed(sourceId, captureScope);
                 }
 
                 // 更新元数据：基准文件保持不变（指向最初的Full），LastBackup指向自己
                 bool metadataSaved = await UpdateMetadataAsync(source, metaDir, fileName, oldState.BasedOnFullBackup, "Smart", oldState, currentStates, changeSet, config.Filters);
                 if (!metadataSaved)
                 {
-                    return BackupArchiveExecutionResult.Failed;
+                    return SourceCaptureResult.Failed(sourceId, captureScope);
                 }
 
-                return BackupArchiveExecutionResult.Created(fileName);
+                return CreateLegacyArchiveCapture(sourceId, captureScope, destDir, fileName, RepresentationKind.CoreSmartDelta, config.Archive.Format);
             }
             else
             {
                 try { if (!string.IsNullOrWhiteSpace(listFile)) File.Delete(listFile); } catch { }
-                return BackupArchiveExecutionResult.Failed;
+                return SourceCaptureResult.Failed(sourceId, captureScope);
             }
         }
 
@@ -331,7 +333,7 @@ namespace FolderRewind.Services
         /// 避免旧归档残留已取消选择或已删除的文件；All 来源继续用 7z u 增量更新原文件。
         /// 时间戳重命名失败时保留原文件名，不影响备份内容。
         /// </remarks>
-        private static async Task<BackupArchiveExecutionResult> DoOverwriteBackupAsync(string source, string destDir, string metaDir, string baseName, BackupConfig config, BackupSourceScope selection, string comment = "", BackupTask? taskToUpdate = null)
+        private static async Task<SourceCaptureResult> DoOverwriteBackupAsync(SourceId sourceId, FolderRewind.History.Domain.CaptureScope captureScope, string source, string destDir, string metaDir, string baseName, BackupConfig config, BackupSourceScope selection, string comment = "", BackupTask? taskToUpdate = null)
         {
             BackupMetadataState? oldState = null;
             if (!string.IsNullOrEmpty(metaDir))
@@ -347,7 +349,7 @@ namespace FolderRewind.Services
             var currentStates = ScanDirectory(source, config.Filters, selection: selection);
             if (BackupSourceAvailabilityPolicy.IsUnavailable(selection, currentStates.Count))
             {
-                return BackupArchiveExecutionResult.Unavailable;
+                return SourceCaptureResult.Unavailable(sourceId, captureScope);
             }
             var changeSet = CompareFileStates(currentStates, oldState?.FileStates);
 
@@ -360,7 +362,7 @@ namespace FolderRewind.Services
             if (files.Count == 0)
             {
                 Log(I18n.Format("BackupService_Log_NoExistingBackupFallbackFull"), LogLevel.Info);
-                return await DoFullBackupAsync(source, destDir, metaDir, baseName, config, selection, comment, taskToUpdate);
+                return await DoFullBackupAsync(sourceId, captureScope, source, destDir, metaDir, baseName, config, selection, comment, taskToUpdate);
             }
 
             FileInfo targetFile = files[0];
@@ -371,7 +373,7 @@ namespace FolderRewind.Services
             var fileTypeExclusions = config.Archive.FileTypeHandlingEnabled ? (IReadOnlyList<FileTypeRule>)config.Archive.FileTypeRules : null;
             if (!TryResolveRequiredPassword(config, out var password, taskToUpdate))
             {
-                return BackupArchiveExecutionResult.Failed;
+                return SourceCaptureResult.Failed(sourceId, captureScope);
             }
             var isExactSelection = selection.Mode == BackupSourceScopeMode.Include;
             string? replacementArchivePath = isExactSelection
@@ -481,14 +483,14 @@ namespace FolderRewind.Services
                         config.Filters);
                     if (!metadataSaved)
                     {
-                        return BackupArchiveExecutionResult.Failed;
+                        return SourceCaptureResult.Failed(sourceId, captureScope);
                     }
                 }
             }
 
             return result
-                ? BackupArchiveExecutionResult.Created(resultingFileName ?? targetFile.Name)
-                : BackupArchiveExecutionResult.Failed;
+                ? CreateLegacyArchiveCapture(sourceId, captureScope, destDir, resultingFileName ?? targetFile.Name, RepresentationKind.CoreRolling, config.Archive.Format)
+                : SourceCaptureResult.Failed(sourceId, captureScope);
         }
 
         /// <summary>

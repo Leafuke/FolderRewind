@@ -1,4 +1,8 @@
 ﻿using FolderRewind.Models;
+using FolderRewind.History.Capture;
+using FolderRewind.History.Domain;
+using FolderRewind.History.LocalState;
+using FolderRewind.History.Legacy;
 using FolderRewind.Services.KnotLink;
 using FolderRewind.Services.Plugins.V3;
 using FolderRewind.Plugin.Abstractions;
@@ -82,18 +86,6 @@ namespace FolderRewind.Services
             public string Message { get; set; } = string.Empty;
         }
 
-        // 压缩模式除了成功/失败，还必须区分“精确来源当前没有匹配文件”，避免把可预期的缺席误报为错误。
-        private readonly record struct BackupArchiveExecutionResult(
-            bool Success,
-            string? FileName,
-            bool IsUnavailable)
-        {
-            public static BackupArchiveExecutionResult Created(string fileName) => new(true, fileName, false);
-            public static BackupArchiveExecutionResult NoChanges => new(true, null, false);
-            public static BackupArchiveExecutionResult Unavailable => new(true, null, true);
-            public static BackupArchiveExecutionResult Failed => new(false, null, false);
-        }
-
         // 单个备份源的执行结果：同时供备份运行记录、插件结果映射与 UI 状态展示三处消费。
         private sealed class BackupSourceExecutionOutcome
         {
@@ -104,6 +96,7 @@ namespace FolderRewind.Services
             public HistoryItem? HistoryItem { get; init; }
             public string ErrorMessage { get; init; } = string.Empty;
             public OperationOutcome OperationOutcome { get; init; } = OperationOutcome.Failed;
+            public SourceCaptureResult? CaptureResult { get; init; }
             public bool CreatedNewArchive => Status == BackupRunSourceStatus.NewArchive;
 
             public PluginBackupRequestResult ToPluginResult()
@@ -232,13 +225,7 @@ namespace FolderRewind.Services
                 sourceOutcomes.Select(outcome => outcome.ToRunSource()));
             if (run != null)
             {
-                if (BackupRunService.Add(run))
-                {
-                    BackupRunService.ApplyRetention(config);
-                    CloudSyncService.QueueConfigurationHistorySyncAfterLocalChange(
-                        config,
-                        "configuration backup run completion");
-                }
+                LegacyHistoryCapturePersistenceAdapter.PersistRun(config, run);
             }
             await PruneRetainedSourceArchivesAsync(config);
 
@@ -557,6 +544,11 @@ namespace FolderRewind.Services
             bool sourceUnavailable = false;
             string? generatedFileName = null;
             HistoryItem? generatedHistoryItem = null;
+            SourceCaptureResult? captureResult = null;
+            var sourceId = new SourceId(Guid.Parse(folder.Id));
+            var captureScope = IsPartialBackupFilter(runtimeConfig.Filters) || runtimeFolder.SourceScope.IsPartial
+                ? FolderRewind.History.Domain.CaptureScope.PartialSource
+                : FolderRewind.History.Domain.CaptureScope.FullSource;
             try
             {
 
@@ -573,7 +565,8 @@ namespace FolderRewind.Services
                 {
                     case BackupMode.Incremental:
                         {
-                            var res = await DoSmartBackupAsync(sourcePath, backupSubDir, metadataDir, folder.DisplayName, runtimeConfig, runtimeFolder.SourceScope, comment, task);
+                            var res = await DoSmartBackupAsync(sourceId, captureScope, sourcePath, backupSubDir, metadataDir, folder.DisplayName, runtimeConfig, runtimeFolder.SourceScope, comment, task);
+                            captureResult = res;
                             success = res.Success;
                             generatedFileName = res.FileName;
                             sourceUnavailable = res.IsUnavailable;
@@ -581,7 +574,8 @@ namespace FolderRewind.Services
                         }
                     case BackupMode.Overwrite:
                         {
-                            var res = await DoOverwriteBackupAsync(sourcePath, backupSubDir, metadataDir, folder.DisplayName, runtimeConfig, runtimeFolder.SourceScope, comment, task);
+                            var res = await DoOverwriteBackupAsync(sourceId, captureScope, sourcePath, backupSubDir, metadataDir, folder.DisplayName, runtimeConfig, runtimeFolder.SourceScope, comment, task);
+                            captureResult = res;
                             success = res.Success;
                             generatedFileName = res.FileName;
                             sourceUnavailable = res.IsUnavailable;
@@ -590,7 +584,8 @@ namespace FolderRewind.Services
                     case BackupMode.Full:
                     default:
                         {
-                            var res = await DoFullBackupAsync(sourcePath, backupSubDir, metadataDir, folder.DisplayName, runtimeConfig, runtimeFolder.SourceScope, comment, task);
+                            var res = await DoFullBackupAsync(sourceId, captureScope, sourcePath, backupSubDir, metadataDir, folder.DisplayName, runtimeConfig, runtimeFolder.SourceScope, comment, task);
+                            captureResult = res;
                             success = res.Success;
                             generatedFileName = res.FileName;
                             sourceUnavailable = res.IsUnavailable;
@@ -711,7 +706,7 @@ namespace FolderRewind.Services
                     {
                         typeStr = runtimeConfig.Archive.Mode.ToString();
                     }
-                    generatedHistoryItem = HistoryService.AddEntry(
+                    generatedHistoryItem = LegacyHistoryCapturePersistenceAdapter.AddEntry(
                         config,
                         folder,
                         completedFileName,
@@ -789,7 +784,7 @@ namespace FolderRewind.Services
                                 "BackupCompletionObserver",
                                 v3Session.EffectiveConfig.Kind.OwnerId,
                                 new Dictionary<string, string>());
-                            HistoryService.ApplyOperationResult(
+                            LegacyHistoryCapturePersistenceAdapter.ApplyOperationResult(
                                 generatedHistoryItem.Id,
                                 PersistedOperationOutcome.SuccessWithWarnings,
                                 artifactCommit.Diagnostics
@@ -857,7 +852,8 @@ namespace FolderRewind.Services
                 return CreateSourceOutcome(
                     folder,
                     BackupRunSourceStatus.Unavailable,
-                    errorMessage: I18n.GetString("BackupService_Folder_NoMatchingFiles"));
+                    errorMessage: I18n.GetString("BackupService_Folder_NoMatchingFiles"),
+                    captureResult: captureResult);
             }
             if (!success)
             {
@@ -865,6 +861,7 @@ namespace FolderRewind.Services
                     folder,
                     BackupRunSourceStatus.Failed,
                     errorMessage: task.ErrorMessage,
+                    captureResult: captureResult,
                     operationOutcome: canceled ? OperationOutcome.Canceled : OperationOutcome.Failed);
             }
             if (!string.IsNullOrWhiteSpace(generatedFileName))
@@ -873,17 +870,19 @@ namespace FolderRewind.Services
                     folder,
                     BackupRunSourceStatus.NewArchive,
                     generatedHistoryItem,
+                    captureResult: captureResult,
                     operationOutcome: completionOutcome);
             }
 
             // 无变化且未生成新归档：复用最近一条历史条目，让运行记录仍能指向可恢复的条目。
-            var reusedHistory = HistoryService.GetLatestEntryForFolder(config.Id, folder);
+            var reusedHistory = LegacyHistoryCapturePersistenceAdapter.GetLatestEntry(config, folder);
             return reusedHistory == null
                 ? CreateSourceOutcome(
                     folder,
                     BackupRunSourceStatus.Unavailable,
-                    errorMessage: "No changes were detected, but no previous successful history item exists.")
-                : CreateSourceOutcome(folder, BackupRunSourceStatus.Reused, reusedHistory);
+                    errorMessage: "No changes were detected, but no previous successful history item exists.",
+                    captureResult: captureResult)
+                : CreateSourceOutcome(folder, BackupRunSourceStatus.Reused, reusedHistory, captureResult: captureResult);
         }
 
         private static BackupSourceExecutionOutcome CreateSourceOutcome(
@@ -891,6 +890,7 @@ namespace FolderRewind.Services
             BackupRunSourceStatus status,
             HistoryItem? historyItem = null,
             string? errorMessage = null,
+            SourceCaptureResult? captureResult = null,
             OperationOutcome? operationOutcome = null) => new()
         {
             Status = status,
@@ -899,8 +899,57 @@ namespace FolderRewind.Services
             FolderName = folder.DisplayName ?? string.Empty,
             HistoryItem = historyItem,
             ErrorMessage = errorMessage ?? string.Empty,
+            CaptureResult = captureResult,
             OperationOutcome = operationOutcome ?? PluginBackupRequestResult.FromSource(status).Outcome
         };
+
+        private static SourceCaptureResult CreateLegacyArchiveCapture(
+            SourceId sourceId,
+            FolderRewind.History.Domain.CaptureScope captureScope,
+            string destinationDirectory,
+            string fileName,
+            RepresentationKind kind,
+            string format)
+        {
+            var representationId = RepresentationId.New();
+            var absolutePath = Path.GetFullPath(Path.Combine(destinationDirectory, fileName));
+            var payload = new CapturePayloadCandidate(
+                absolutePath,
+                CapturePayloadState.FinalUnverified,
+                File.Exists(absolutePath) ? new FileInfo(absolutePath).Length : null,
+                ExpectedStorageSha256: null);
+            var representation = new RepresentationCandidate(
+                representationId,
+                kind,
+                format,
+                dependencyRepresentationIds: [],
+                captureScope == FolderRewind.History.Domain.CaptureScope.PartialSource
+                    ? FolderRewind.History.Domain.RestoreStrategy.Overlay
+                    : FolderRewind.History.Domain.RestoreStrategy.Exact,
+                logicalSha256: null,
+                stateFingerprint: null,
+                metadata: null,
+                isLegacyBridgeCandidate: true);
+            var localReplica = new LocalReplicaCandidate(
+                LocalReplicaId.New(),
+                representationId,
+                LocalReplicaLocator.ControlledAbsolute(absolutePath),
+                CapturePayloadState.FinalUnverified,
+                DateTimeOffset.UtcNow);
+            return new SourceCaptureResult(
+                sourceId,
+                SourceCaptureOutcome.Captured,
+                captureScope,
+                stateFingerprint: null,
+                existingVersionId: null,
+                representation,
+                localReplica,
+                payload,
+                expectedWorkspaceRevision: -1,
+                expectedBaseVersionId: null,
+                cleanupHandle: null,
+                diagnostics: []);
+        }
 
         private static BackupRunTriggerSource MapRunTriggerSource(BackupInvocationSource source) => source switch
         {

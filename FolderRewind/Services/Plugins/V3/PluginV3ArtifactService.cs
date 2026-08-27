@@ -5,6 +5,7 @@ using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using FolderRewind.Models;
+using FolderRewind.History.Legacy;
 using FolderRewind.Plugin.Abstractions;
 using FolderRewind.Plugin.Runtime.Artifacts;
 
@@ -46,7 +47,7 @@ internal static class PluginV3ArtifactService
                 observers,
                 cancellationToken)
             .ConfigureAwait(false);
-        HistoryService.ApplyOperationResult(
+        LegacyHistoryCapturePersistenceAdapter.ApplyOperationResult(
             history.Id,
             PluginV3ModelMapper.ToPersisted(observed.Outcome),
             observed.Diagnostics.Select(PluginV3ModelMapper.ToRecord).ToArray());
@@ -103,7 +104,7 @@ internal static class PluginV3ArtifactService
             var configSnapshot = PluginV3ModelMapper.ToSnapshot(config);
             var folderId = Guid.Parse(folder.Id);
             var folderSnapshot = configSnapshot.Folders.Single(value => value.FolderId == folderId);
-            var compatible = HistoryService.GetHistoryForFolder(config, folder)
+            var compatible = LegacyHistoryCapturePersistenceAdapter.GetEntries(config, folder)
                 .Where(item => !item.IsPartialBackup && item.ArtifactRootId.HasValue)
                 .Select(item => item.Id)
                 .ToArray();
@@ -140,7 +141,7 @@ internal static class PluginV3ArtifactService
 
         var root = ledger.HistoryRoots.Single(value =>
             string.Equals(value.HistoryItemId, historyItemId, StringComparison.Ordinal));
-        HistoryService.ApplyArtifactRoots(
+        LegacyHistoryCapturePersistenceAdapter.ApplyArtifactRoots(
             ledger.HistoryRoots.ToDictionary(value => value.HistoryItemId, value => value.RootArtifactId.Value, StringComparer.Ordinal),
             ledger.Revision.Value);
         return new PluginV3ArtifactCommitResult(outcome, root.RootArtifactId, ledger.Revision, diagnostics);
