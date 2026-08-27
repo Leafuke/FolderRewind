@@ -15,6 +15,7 @@
 
   <ItemGroup>
     <PackageReference Include="Microsoft.NET.Test.Sdk" Version="18.0.1" />
+    <PackageReference Include="Microsoft.Data.Sqlite" Version="10.0.11" />
     <PackageReference Include="MSTest.TestAdapter" Version="4.0.2" />
     <PackageReference Include="MSTest.TestFramework" Version="4.0.2" />
     <PackageReference Include="YamlDotNet" Version="18.1.0" />
@@ -89,5 +90,7 @@
     <Compile Include="..\FolderRewind\Services\FolderRenameService.Moves.cs" Link="Source\FolderRenameService.Moves.cs" />
     <Compile Include="..\FolderRewind\History\Domain\*.cs" Link="Source\History\Domain\%(Filename)%(Extension)" />
     <Compile Include="..\FolderRewind\History\Storage\*.cs" Link="Source\History\Storage\%(Filename)%(Extension)" />
+    <Compile Include="..\FolderRewind\History\LocalState\*.cs" Link="Source\History\LocalState\%(Filename)%(Extension)" />
+    <Compile Include="..\FolderRewind\History\Index\*.cs" Link="Source\History\Index\%(Filename)%(Extension)" />
   </ItemGroup>
 </Project>
