@@ -76,27 +76,51 @@ public static class ArtifactLedgerValidator
     public static IReadOnlySet<ArtifactId> ComputeReachable(
         ArtifactLedgerDocument document,
         IEnumerable<string>? historyItemIds = null)
+        => ComputeReachableFromRoots(
+            document,
+            LegacyHistoryRootAdapter.GetArtifactRoots(document, historyItemIds));
+
+    public static IReadOnlySet<ArtifactId> ComputeReachableFromRoots(
+        ArtifactLedgerDocument document,
+        IEnumerable<ArtifactId> artifactRootIds)
+        => BuildClosure(document, artifactRootIds).Reachable;
+
+    public static ArtifactClosurePlan BuildClosure(
+        ArtifactLedgerDocument document,
+        IEnumerable<ArtifactId> artifactRootIds)
     {
         Validate(document);
-        var selected = historyItemIds is null
-            ? document.HistoryRoots
-            : document.HistoryRoots.Where(root => historyItemIds.Contains(root.HistoryItemId, StringComparer.Ordinal));
+        ArgumentNullException.ThrowIfNull(artifactRootIds);
+        var roots = artifactRootIds.Distinct().ToArray();
         var byId = document.Artifacts.ToDictionary(artifact => artifact.ArtifactId);
         var reachable = new HashSet<ArtifactId>();
-        var pending = new Stack<ArtifactId>(selected.Select(root => root.RootArtifactId));
-        while (pending.TryPop(out var artifactId))
+        var ordered = new List<ArtifactId>();
+        foreach (var root in roots)
         {
-            if (!reachable.Add(artifactId)) continue;
-            foreach (var dependency in byId[artifactId].Dependencies) pending.Push(dependency);
+            if (!byId.ContainsKey(root))
+            {
+                throw new KeyNotFoundException($"Artifact root '{root}' is missing from the ledger.");
+            }
+            Visit(root);
         }
-        return reachable;
+
+        return new ArtifactClosurePlan(roots, reachable, ordered);
+
+        void Visit(ArtifactId artifactId)
+        {
+            if (!reachable.Add(artifactId)) return;
+            foreach (var dependency in byId[artifactId].Dependencies)
+            {
+                Visit(dependency);
+            }
+            ordered.Add(artifactId);
+        }
     }
 
     private static void ValidateArtifact(ArtifactLedgerEntry artifact)
     {
         if (string.IsNullOrWhiteSpace(artifact.ConfigId)
             || artifact.FolderId == Guid.Empty
-            || string.IsNullOrWhiteSpace(artifact.HistoryItemId)
             || string.IsNullOrWhiteSpace(artifact.TransactionId)
             || artifact.FormatVersion < 0
             || artifact.LogicalSize < 0

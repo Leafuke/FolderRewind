@@ -97,6 +97,54 @@ public sealed class ArtifactVerticalSliceTests
     }
 
     [TestMethod]
+    public async Task DetachedArtifactUsesExplicitRootsAndDryRunDoesNotMutateLedger()
+    {
+        using var repository = TemporaryDirectory.Create("M4-DetachedArtifact");
+        var relativePath = "artifacts/detached.bin";
+        var physicalPath = Path.Combine(repository.Path, relativePath.Replace('/', Path.DirectorySeparatorChar));
+        Directory.CreateDirectory(Path.GetDirectoryName(physicalPath)!);
+        await File.WriteAllTextAsync(physicalPath, "detached payload");
+        var store = new FileArtifactLedgerStore(repository.Path);
+
+        var registered = await store.RegisterDetachedCoreArtifactAsync(
+            "config-1",
+            FolderId,
+            relativePath,
+            ArtifactCompleteness.Complete,
+            CoreCaptureMode.Full,
+            "detached-transaction");
+        var closure = ArtifactLedgerValidator.BuildClosure(
+            registered.Ledger,
+            [registered.ArtifactRootId]);
+        var dryRun = await store.GarbageCollectUnreachableAsync([], dryRun: true);
+
+        Assert.IsEmpty(registered.Ledger.HistoryRoots);
+        Assert.AreEqual(string.Empty, registered.Ledger.Artifacts.Single().HistoryItemId);
+        CollectionAssert.AreEqual(new[] { registered.ArtifactRootId }, closure.TopologicallySorted.ToArray());
+        CollectionAssert.AreEqual(new[] { registered.ArtifactRootId }, dryRun.ToArray());
+        Assert.Contains(
+            registered.ArtifactRootId,
+            (await store.LoadAsync()).Artifacts.Select(artifact => artifact.ArtifactId));
+        Assert.IsTrue(File.Exists(physicalPath));
+    }
+
+    [TestMethod]
+    public async Task ExplicitRootsProduceSameClosureAsTemporaryLegacyAdapter()
+    {
+        using var repository = TemporaryDirectory.Create("M4-ExplicitRoots");
+        var store = new FileArtifactLedgerStore(repository.Path);
+        await AddCoreHistoryAsync(store, "history-one", "one");
+        await AddCoreHistoryAsync(store, "history-two", "two");
+        var ledger = await store.LoadAsync();
+        var roots = LegacyHistoryRootAdapter.GetArtifactRoots(ledger);
+
+        var legacyReachable = ArtifactLedgerValidator.ComputeReachable(ledger);
+        var explicitReachable = ArtifactLedgerValidator.ComputeReachableFromRoots(ledger, roots);
+
+        CollectionAssert.AreEquivalent(legacyReachable.ToArray(), explicitReachable.ToArray());
+    }
+
+    [TestMethod]
     public async Task FakeReverseDeltaCommitsGraphAndMaterializesOldHistory()
     {
         using var repository = TemporaryDirectory.Create("M3-Artifact");

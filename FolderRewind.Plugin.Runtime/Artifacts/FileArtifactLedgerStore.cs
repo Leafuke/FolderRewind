@@ -177,6 +177,64 @@ public sealed class FileArtifactLedgerStore
         }
     }
 
+    public async ValueTask<(ArtifactLedgerDocument Ledger, ArtifactId ArtifactRootId)> RegisterDetachedCoreArtifactAsync(
+        string configId,
+        Guid folderId,
+        string contentRelativePath,
+        ArtifactCompleteness completeness,
+        CoreCaptureMode captureMode,
+        string transactionId,
+        CancellationToken cancellationToken = default)
+    {
+        if (string.IsNullOrWhiteSpace(configId) || folderId == Guid.Empty)
+        {
+            throw new ArgumentException("Detached Core Artifact ownership is incomplete.");
+        }
+        var safeId = RequireTransactionId(transactionId);
+        var canonicalPath = ArtifactPathRules.NormalizeRelativePath(contentRelativePath);
+        var contentPath = ArtifactPathRules.ResolveUnderRoot(_repositoryRoot, canonicalPath);
+        var (sha256, size) = await HostArtifactReadService.ComputeLogicalFactsAsync(contentPath, cancellationToken)
+            .ConfigureAwait(false);
+
+        await _gate.WaitAsync(cancellationToken).ConfigureAwait(false);
+        try
+        {
+            var current = await LoadWithoutLockAsync(cancellationToken).ConfigureAwait(false);
+            var artifactId = new ArtifactId(Guid.NewGuid());
+            var entry = new ArtifactLedgerEntry(
+                artifactId,
+                new ArtifactFormatRef(new OwnerId("folderrewind.core"), "archive-set"),
+                1,
+                new RestoreStrategyId(new PluginId("folderrewind.core"), "archive-materializer"),
+                configId,
+                folderId,
+                string.Empty,
+                canonicalPath,
+                sha256,
+                size,
+                sha256,
+                size,
+                completeness,
+                captureMode,
+                Array.Empty<ArtifactId>(),
+                safeId,
+                ArtifactAvailability.Available,
+                ArtifactAvailability.Pending);
+            var candidate = current with
+            {
+                Revision = NewRevision(),
+                Artifacts = current.Artifacts.Append(entry).ToArray()
+            };
+            ArtifactLedgerValidator.Validate(candidate);
+            await WriteJsonAtomicallyAsync(_ledgerPath, candidate, cancellationToken).ConfigureAwait(false);
+            return (candidate, artifactId);
+        }
+        finally
+        {
+            _gate.Release();
+        }
+    }
+
     public async ValueTask CommitAsync(
         ArtifactLedgerDocument expected,
         ArtifactLedgerDocument candidate,
@@ -308,11 +366,25 @@ public sealed class FileArtifactLedgerStore
     public async ValueTask<IReadOnlyList<ArtifactId>> GarbageCollectUnreachableAsync(
         CancellationToken cancellationToken = default)
     {
+        var current = await LoadAsync(cancellationToken).ConfigureAwait(false);
+        return await GarbageCollectUnreachableAsync(
+            LegacyHistoryRootAdapter.GetArtifactRoots(current),
+            dryRun: false,
+            cancellationToken).ConfigureAwait(false);
+    }
+
+    public async ValueTask<IReadOnlyList<ArtifactId>> GarbageCollectUnreachableAsync(
+        IEnumerable<ArtifactId> protectedArtifactRoots,
+        bool dryRun = false,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(protectedArtifactRoots);
+        var roots = protectedArtifactRoots.Distinct().ToArray();
         await _gate.WaitAsync(cancellationToken).ConfigureAwait(false);
         try
         {
             var current = await LoadWithoutLockAsync(cancellationToken).ConfigureAwait(false);
-            var reachable = ArtifactLedgerValidator.ComputeReachable(current);
+            var reachable = ArtifactLedgerValidator.ComputeReachableFromRoots(current, roots);
             var garbage = current.Artifacts.Where(artifact => !reachable.Contains(artifact.ArtifactId)).ToArray();
             if (garbage.Length == 0) return Array.Empty<ArtifactId>();
             var retained = current.Artifacts.Where(artifact => reachable.Contains(artifact.ArtifactId)).ToArray();
@@ -322,6 +394,10 @@ public sealed class FileArtifactLedgerStore
                 Artifacts = retained
             };
             ArtifactLedgerValidator.Validate(candidate);
+            if (dryRun)
+            {
+                return garbage.Select(artifact => artifact.ArtifactId).ToArray();
+            }
             await WriteJsonAtomicallyAsync(_ledgerPath, candidate, cancellationToken).ConfigureAwait(false);
             foreach (var artifact in garbage)
             {
@@ -442,7 +518,7 @@ public sealed class FileArtifactLedgerStore
         ArtifactId artifactId)
     {
         var dependentHistory = document.HistoryRoots
-            .Where(root => ArtifactLedgerValidator.ComputeReachable(document, [root.HistoryItemId]).Contains(artifactId))
+            .Where(root => ArtifactLedgerValidator.ComputeReachableFromRoots(document, [root.RootArtifactId]).Contains(artifactId))
             .Select(root => root.HistoryItemId)
             .ToArray();
         if (dependentHistory.Length != 0)

@@ -34,6 +34,11 @@ public sealed record ArtifactHistoryRoot(
     Guid FolderId,
     ArtifactId RootArtifactId);
 
+public sealed record ArtifactClosurePlan(
+    IReadOnlyList<ArtifactId> Roots,
+    IReadOnlySet<ArtifactId> Reachable,
+    IReadOnlyList<ArtifactId> TopologicallySorted);
+
 public enum ArtifactAvailability
 {
     Missing = 0,
