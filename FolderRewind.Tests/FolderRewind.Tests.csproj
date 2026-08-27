@@ -87,5 +87,6 @@
     <Compile Include="..\FolderRewind\Services\FolderRenameService.Planning.cs" Link="Source\FolderRenameService.Planning.cs" />
     <Compile Include="..\FolderRewind\Services\FolderRenameService.Transaction.cs" Link="Source\FolderRenameService.Transaction.cs" />
     <Compile Include="..\FolderRewind\Services\FolderRenameService.Moves.cs" Link="Source\FolderRenameService.Moves.cs" />
+    <Compile Include="..\FolderRewind\History\Domain\*.cs" Link="Source\History\Domain\%(Filename)%(Extension)" />
   </ItemGroup>
 </Project>
