@@ -42,10 +42,21 @@ public sealed class ConfigDocumentGate
 
         if (parse.Kind == ConfigDocumentKind.Current)
         {
-            var validation = ConfigDocumentValidator.Validate(parse.Document);
+            var normalization = _migrator.NormalizeCurrentIdentities(parse.Document);
+            var validation = ConfigDocumentValidator.Validate(normalization.Document);
             if (!validation.IsValid)
             {
                 return RecoveryFromValidation(validation);
+            }
+
+            if (normalization.Warnings.Count > 0)
+            {
+                var normalizedJson = normalization.Document.ToJsonString(SerializerOptions);
+                return new ConfigDocumentGateResult(
+                    ConfigDocumentGateStatus.Migrated,
+                    normalization.Document,
+                    Encoding.UTF8.GetBytes(normalizedJson),
+                    Warnings: normalization.Warnings);
             }
 
             return new ConfigDocumentGateResult(

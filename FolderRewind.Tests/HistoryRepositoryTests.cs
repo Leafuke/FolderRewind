@@ -190,6 +190,70 @@ public sealed class HistoryRepositoryTests
         Assert.IsFalse(HistoryRepositoryPaths.IsSafeRepositoryRelativePath("remote:path"));
     }
 
+    [TestMethod]
+    public async Task BindingCoordinator_CreateReadBackAndPersistIsIdempotent()
+    {
+        var configDirectory = Path.Combine(_root, "binding-config");
+        var coordinator = new HistoryRepositoryBindingCoordinator(configDirectory);
+        var persistedVersion = 0;
+
+        var first = await coordinator.EnsureAsync(
+            _configId,
+            bindingFormatVersion: null,
+            (version, _) => { persistedVersion = version; return Task.CompletedTask; });
+        first.Repository?.Dispose();
+        var descriptorPath = HistoryRepositoryPaths.ForConfigDirectory(configDirectory, _configId).DescriptorPath;
+        var descriptorBytes = await File.ReadAllBytesAsync(descriptorPath);
+        var second = await coordinator.EnsureAsync(
+            _configId,
+            persistedVersion,
+            (_, _) => throw new AssertFailedException("Existing binding must not be persisted again."));
+        second.Repository?.Dispose();
+
+        Assert.AreEqual(HistoryRepositoryBindingStatus.CreatedAndBound, first.Status);
+        Assert.AreEqual(HistoryRepositoryBindingStatus.Bound, second.Status);
+        CollectionAssert.AreEqual(descriptorBytes, await File.ReadAllBytesAsync(descriptorPath));
+    }
+
+    [TestMethod]
+    public async Task BindingCoordinator_MissingBoundRepositoryRequiresRecoveryWithoutCreatingEmptyHistory()
+    {
+        var configDirectory = Path.Combine(_root, "missing-binding-config");
+        var paths = HistoryRepositoryPaths.ForConfigDirectory(configDirectory, _configId);
+        var coordinator = new HistoryRepositoryBindingCoordinator(configDirectory);
+
+        var result = await coordinator.EnsureAsync(
+            _configId,
+            HistoryRepositoryDescriptor.CurrentFormatVersion,
+            (_, _) => Task.CompletedTask);
+
+        Assert.AreEqual(HistoryRepositoryBindingStatus.RecoveryRequired, result.Status);
+        Assert.IsFalse(File.Exists(paths.DescriptorPath));
+    }
+
+    [TestMethod]
+    public async Task BindingCoordinator_SaveFailureReusesCreateOnceRepositoryOnRetry()
+    {
+        var configDirectory = Path.Combine(_root, "binding-retry-config");
+        var coordinator = new HistoryRepositoryBindingCoordinator(configDirectory);
+        var first = await coordinator.EnsureAsync(
+            _configId,
+            null,
+            (_, _) => throw new IOException("Injected config save failure."));
+        var path = HistoryRepositoryPaths.ForConfigDirectory(configDirectory, _configId).DescriptorPath;
+        var bytes = await File.ReadAllBytesAsync(path);
+
+        var retry = await coordinator.EnsureAsync(
+            _configId,
+            null,
+            (_, _) => Task.CompletedTask);
+        retry.Repository?.Dispose();
+
+        Assert.AreEqual(HistoryRepositoryBindingStatus.BindingPersistenceFailed, first.Status);
+        Assert.AreEqual(HistoryRepositoryBindingStatus.Bound, retry.Status);
+        CollectionAssert.AreEqual(bytes, await File.ReadAllBytesAsync(path));
+    }
+
     private SourceVersion CreateVersion(VersionId? id = null, string displayName = "source")
         => new(
             id ?? VersionId.New(),

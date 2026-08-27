@@ -36,12 +36,7 @@ public sealed class ConfigDocumentGateTests
     [TestMethod]
     public void RepresentativeLegacyDocumentMapsKnownDataAndRetainsUnknownData()
     {
-        var ids = new Queue<Guid>(
-        [
-            Guid.Parse("11111111-1111-1111-1111-111111111111"),
-            Guid.Parse("22222222-2222-2222-2222-222222222222")
-        ]);
-        var gate = new ConfigDocumentGate(new LegacyConfigMigrator(ids.Dequeue));
+        var gate = new ConfigDocumentGate();
 
         var result = gate.Prepare(Fixture("legacy-representative.json"));
 
@@ -57,7 +52,10 @@ public sealed class ConfigDocumentGateTests
         Assert.AreEqual("com.folderrewind.minerewind", minecraft["BackupScope"]!["OwnerId"]!.GetValue<string>());
         Assert.AreEqual("selected-regions", minecraft["BackupScope"]!["ScopeId"]!.GetValue<string>());
         Assert.AreEqual(
-            "11111111-1111-1111-1111-111111111111",
+            LegacySourceIdentityV1.CreateSourceId(
+                "minecraft-config",
+                "C:\\Games\\.minecraft\\saves\\World",
+                0).ToString("D"),
             minecraft["SourceFolders"]![0]!["Id"]!.GetValue<string>());
         Assert.AreEqual(42, minecraft["SourceFolders"]![0]!["FutureFolderValue"]!.GetValue<int>());
         Assert.AreEqual(
@@ -120,7 +118,7 @@ public sealed class ConfigDocumentGateTests
     }
 
     [TestMethod]
-    public void CurrentDocumentWithDuplicateFolderIdsIsRejected()
+    public void CurrentDocumentWithDuplicateFolderIdsGetsNewNativeIdentity()
     {
         const string duplicate = """
             {
@@ -141,10 +139,30 @@ public sealed class ConfigDocumentGateTests
             }
             """;
 
-        var result = new ConfigDocumentGate().Prepare(System.Text.Encoding.UTF8.GetBytes(duplicate));
+        var replacement = Guid.Parse("22222222-2222-2222-2222-222222222222");
+        var result = new ConfigDocumentGate(new LegacyConfigMigrator(() => replacement))
+            .Prepare(System.Text.Encoding.UTF8.GetBytes(duplicate));
 
-        Assert.AreEqual(ConfigDocumentGateStatus.RecoveryRequired, result.Status);
-        Assert.AreEqual("folder_id_duplicate", result.DiagnosticCode);
+        Assert.AreEqual(ConfigDocumentGateStatus.Migrated, result.Status);
+        Assert.AreEqual(
+            replacement.ToString("D"),
+            result.Document!["BackupConfigs"]![0]!["SourceFolders"]![1]!["Id"]!.GetValue<string>());
+        Assert.IsNotEmpty(result.Warnings!);
+    }
+
+    [TestMethod]
+    public void MissingLegacySourceIdIsIndependentOfRandomGuidProvider()
+    {
+        var first = new ConfigDocumentGate(
+                new LegacyConfigMigrator(() => Guid.Parse("11111111-1111-1111-1111-111111111111")))
+            .Prepare(Fixture("legacy-representative.json"));
+        var second = new ConfigDocumentGate(
+                new LegacyConfigMigrator(() => Guid.Parse("22222222-2222-2222-2222-222222222222")))
+            .Prepare(Fixture("legacy-representative.json"));
+
+        Assert.AreEqual(
+            first.Document!["BackupConfigs"]![0]!["SourceFolders"]![0]!["Id"]!.GetValue<string>(),
+            second.Document!["BackupConfigs"]![0]!["SourceFolders"]![0]!["Id"]!.GetValue<string>());
     }
 
     private static byte[] Fixture(string name)

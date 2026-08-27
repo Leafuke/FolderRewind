@@ -1,15 +1,14 @@
 using FolderRewind.Models;
+using FolderRewind.Plugin.Runtime.Configuration;
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Security.Cryptography;
-using System.Text;
 
 namespace FolderRewind.Services;
 
 /// <summary>
-/// 历史条目旧版 ID 生成：由"配置|规范化文件夹路径|文件名|UTC 时间戳"拼接后取 SHA-256，
-/// 用于旧数据迁移时为无 ID 条目补发稳定标识。
+/// 历史条目旧版 ID 生成：统一委托给冻结的 LegacySourceIdentityV1 UUIDv5 contract，
+/// 避免 Config 与 History 各自实现略有差异的路径/时间规范化。
 /// </summary>
 public static class HistoryItemIdentity
 {
@@ -19,12 +18,11 @@ public static class HistoryItemIdentity
         string fileName,
         DateTime timestamp)
     {
-        var normalizedFolder = (folderPath ?? string.Empty).Trim().Replace('\\', '/').ToUpperInvariant();
-        var stableTicks = timestamp.Kind == DateTimeKind.Unspecified
-            ? timestamp.Ticks
-            : timestamp.ToUniversalTime().Ticks;
-        var payload = $"{configId?.Trim().ToUpperInvariant()}|{normalizedFolder}|{fileName?.Trim().ToUpperInvariant()}|{stableTicks}";
-        return Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(payload))).ToLowerInvariant();
+        return LegacySourceIdentityV1.CreateHistoryObjectId(
+            configId,
+            folderPath,
+            fileName,
+            timestamp).ToString("N");
     }
 }
 

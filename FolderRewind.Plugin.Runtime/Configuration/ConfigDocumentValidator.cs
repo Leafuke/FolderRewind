@@ -62,6 +62,10 @@ public static class ConfigDocumentValidator
             ValidateKind(config, path, issues);
             ValidateProviderStates(Get(config, "ProviderStates"), path + ".ProviderStates", issues);
             ValidateScope(Get(config, "BackupScope"), path + ".BackupScope", issues);
+            ValidateHistoryRepositoryBinding(
+                Get(config, "HistoryRepositoryBinding"),
+                path + ".HistoryRepositoryBinding",
+                issues);
 
             if (Get(config, "SourceFolders") is not JsonArray folders)
             {
@@ -99,6 +103,31 @@ public static class ConfigDocumentValidator
 
         ValidatePresets(Get(root, "Templates"), issues);
         return new ConfigValidationResult { Issues = issues };
+    }
+
+    private static void ValidateHistoryRepositoryBinding(
+        JsonNode? node,
+        string path,
+        List<ConfigValidationIssue> issues)
+    {
+        if (node is null)
+        {
+            return;
+        }
+
+        if (node is not JsonObject binding)
+        {
+            issues.Add(new("history_repository_binding_invalid", path, "HistoryRepositoryBinding must be an object."));
+            return;
+        }
+
+        if (!TryGetInt(binding, "FormatVersion", out var formatVersion) || formatVersion <= 0)
+        {
+            issues.Add(new(
+                "history_repository_binding_version_invalid",
+                path + ".FormatVersion",
+                "History repository format version must be a positive integer."));
+        }
     }
 
     private static void ValidatePluginSettings(JsonNode? node, string path, List<ConfigValidationIssue> issues)

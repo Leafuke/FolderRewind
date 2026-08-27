@@ -6,6 +6,7 @@ namespace FolderRewind.Models
 {
     [JsonSerializable(typeof(AppConfig))]
     [JsonSerializable(typeof(BackupConfig))]
+    [JsonSerializable(typeof(HistoryRepositoryBinding))]
     [JsonSerializable(typeof(BackupPreset))]
     [JsonSerializable(typeof(BackupPresetDiscoverySource))]
     [JsonSerializable(typeof(BackupPresetShareEnvelope))]

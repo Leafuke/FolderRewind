@@ -47,8 +47,8 @@ public sealed class LegacyConfigMigrator
                 continue;
             }
 
-            EnsureConfigId(config, usedConfigIds);
-            MigrateConfig(config, configIndex, usedFolderIds, warnings);
+            var configId = EnsureConfigId(config, configIndex, usedConfigIds);
+            MigrateConfig(config, configId, configIndex, usedFolderIds, warnings);
         }
 
         MigratePresets(root, warnings);
@@ -97,6 +97,7 @@ public sealed class LegacyConfigMigrator
 
     private void MigrateConfig(
         JsonObject config,
+        string configId,
         int configIndex,
         HashSet<Guid> usedFolderIds,
         List<string> warnings)
@@ -184,6 +185,7 @@ public sealed class LegacyConfigMigrator
         EnsureObject(scope, "Parameters");
 
         var folders = EnsureArray(config, "SourceFolders");
+        var pathOccurrences = new Dictionary<string, int>(StringComparer.Ordinal);
         for (var folderIndex = 0; folderIndex < folders.Count; folderIndex++)
         {
             if (folders[folderIndex] is not JsonObject folder)
@@ -192,7 +194,11 @@ public sealed class LegacyConfigMigrator
                 continue;
             }
 
-            EnsureFolderId(folder, usedFolderIds);
+            var canonicalPath = LegacySourceIdentityV1.NormalizePath(
+                ConfigDocumentValidator.GetString(folder, "Path"));
+            pathOccurrences.TryGetValue(canonicalPath, out var occurrence);
+            pathOccurrences[canonicalPath] = occurrence + 1;
+            EnsureFolderId(folder, configId, occurrence, usedFolderIds);
             EnsureObject(folder, "ProviderStates");
         }
 
@@ -263,33 +269,134 @@ public sealed class LegacyConfigMigrator
         RemoveProperty(plugins, "StoreRepo");
     }
 
-    private void EnsureConfigId(JsonObject config, HashSet<string> usedIds)
+    public LegacyConfigMigrationResult NormalizeCurrentIdentities(JsonObject current)
     {
+        ArgumentNullException.ThrowIfNull(current);
+        var root = (JsonObject)current.DeepClone();
+        var warnings = new List<string>();
+        var usedConfigIds = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        var usedFolderIds = new HashSet<Guid>();
+        var configs = EnsureArray(root, "BackupConfigs");
+        for (var configIndex = 0; configIndex < configs.Count; configIndex++)
+        {
+            if (configs[configIndex] is not JsonObject config)
+            {
+                continue;
+            }
+
+            var id = ConfigDocumentValidator.GetString(config, "Id")?.Trim();
+            if (string.IsNullOrWhiteSpace(id) || !usedConfigIds.Add(id))
+            {
+                do
+                {
+                    id = _newGuid().ToString("N");
+                }
+                while (!usedConfigIds.Add(id));
+                config["Id"] = id;
+                warnings.Add($"BackupConfigs[{configIndex}].Id was repaired with a new Native identity.");
+            }
+
+            var folders = EnsureArray(config, "SourceFolders");
+            for (var folderIndex = 0; folderIndex < folders.Count; folderIndex++)
+            {
+                if (folders[folderIndex] is not JsonObject folder)
+                {
+                    continue;
+                }
+
+                var idText = ConfigDocumentValidator.GetString(folder, "Id");
+                if (!Guid.TryParse(idText, out var folderId)
+                    || folderId == Guid.Empty
+                    || !usedFolderIds.Add(folderId))
+                {
+                    do
+                    {
+                        folderId = _newGuid();
+                    }
+                    while (folderId == Guid.Empty || !usedFolderIds.Add(folderId));
+                    folder["Id"] = folderId.ToString("D");
+                    warnings.Add(
+                        $"BackupConfigs[{configIndex}].SourceFolders[{folderIndex}].Id was repaired with a new Native identity.");
+                }
+            }
+        }
+
+        return new LegacyConfigMigrationResult(root, warnings);
+    }
+
+    private string EnsureConfigId(JsonObject config, int configIndex, HashSet<string> usedIds)
+    {
+        var idWasMissing = ConfigDocumentValidator.Get(config, "Id") is null;
         var id = ConfigDocumentValidator.GetString(config, "Id")?.Trim();
         if (string.IsNullOrWhiteSpace(id) || !usedIds.Add(id))
         {
-            do
+            if (idWasMissing)
             {
-                id = _newGuid().ToString();
+                id = LegacySourceIdentityV1.CreateConfigId(
+                    ConfigDocumentValidator.GetString(config, "Name"),
+                    ConfigDocumentValidator.GetString(config, "DestinationPath"),
+                    configIndex).ToString("D");
+                if (!usedIds.Add(id))
+                {
+                    id = string.Empty;
+                }
             }
-            while (!usedIds.Add(id));
+            else
+            {
+                id = string.Empty;
+            }
+
+            if (string.IsNullOrEmpty(id))
+            {
+                do
+                {
+                    id = _newGuid().ToString("D");
+                }
+                while (!usedIds.Add(id));
+            }
 
             config["Id"] = id;
         }
+
+        return id;
     }
 
-    private void EnsureFolderId(JsonObject folder, HashSet<Guid> usedIds)
+    private void EnsureFolderId(
+        JsonObject folder,
+        string configId,
+        int duplicateOrdinal,
+        HashSet<Guid> usedIds)
     {
+        var idWasMissing = ConfigDocumentValidator.Get(folder, "Id") is null;
         var idText = ConfigDocumentValidator.GetString(folder, "Id");
         if (!Guid.TryParse(idText, out var id) || id == Guid.Empty || !usedIds.Add(id))
         {
-            do
+            if (idWasMissing)
             {
-                id = _newGuid();
+                id = LegacySourceIdentityV1.CreateSourceId(
+                    configId,
+                    ConfigDocumentValidator.GetString(folder, "Path"),
+                    duplicateOrdinal);
+                if (!usedIds.Add(id))
+                {
+                    id = Guid.Empty;
+                }
             }
-            while (id == Guid.Empty || !usedIds.Add(id));
+            else
+            {
+                id = Guid.Empty;
+            }
 
-            folder["Id"] = id.ToString();
+            if (id == Guid.Empty)
+            {
+                do
+                {
+                    id = _newGuid();
+                }
+                while (id == Guid.Empty || !usedIds.Add(id));
+            }
+
+            folder["Id"] = id.ToString("D");
         }
     }
 

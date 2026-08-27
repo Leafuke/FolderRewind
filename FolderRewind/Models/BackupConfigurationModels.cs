@@ -30,6 +30,7 @@ namespace FolderRewind.Models
         private string _configRevision = Guid.NewGuid().ToString("N");
         private ArtifactTransformPolicySettings? _artifactTransformPolicy;
         private PersistedConsistencyIntent _consistencyIntent;
+        private HistoryRepositoryBinding? _historyRepositoryBinding;
 
         // 核心路径
         public string Id { get => _id; set => SetProperty(ref _id, value); }
@@ -80,6 +81,16 @@ namespace FolderRewind.Models
         }
 
         /// <summary>
+        /// 只记录配置已与哪一版 Native History 格式绑定；repository path 由 ConfigId 编码推导，
+        /// 不允许把设备路径持久化进配置。
+        /// </summary>
+        public HistoryRepositoryBinding? HistoryRepositoryBinding
+        {
+            get => _historyRepositoryBinding;
+            set => SetProperty(ref _historyRepositoryBinding, value);
+        }
+
+        /// <summary>
         /// 是否为加密配置。加密配置的备份将使用 7-Zip 加密，密码通过 EncryptionService 安全存储。
         /// 密码一旦设置无法更改。
         /// </summary>
@@ -110,6 +121,11 @@ namespace FolderRewind.Models
         // 云上传设置（通过外部工具执行）
         public CloudSettings Cloud { get; set; } = new();
 
+    }
+
+    public sealed class HistoryRepositoryBinding
+    {
+        public int FormatVersion { get; set; }
     }
 
     /// <summary>
