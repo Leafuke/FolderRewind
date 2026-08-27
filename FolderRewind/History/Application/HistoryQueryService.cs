@@ -53,6 +53,10 @@ public sealed class HistoryQueryService
         CancellationToken cancellationToken = default)
         => _index.GetRepresentationsAsync(versionId, cancellationToken);
 
+    public Task<IReadOnlyList<VersionRepresentation>> GetAllRepresentationsAsync(
+        CancellationToken cancellationToken = default)
+        => _index.GetAllRepresentationsAsync(cancellationToken);
+
     public async Task<IReadOnlyList<HistoryTimelineEntry>> GetTimelineAsync(
         CancellationToken cancellationToken = default)
     {
@@ -82,4 +86,3 @@ public sealed class HistoryQueryService
             .ToImmutableArray();
     }
 }
-

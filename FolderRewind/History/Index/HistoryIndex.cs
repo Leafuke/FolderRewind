@@ -226,6 +226,13 @@ public sealed class HistoryIndex : IDisposable
             [("$version", versionId.ToString())],
             cancellationToken);
 
+    public Task<IReadOnlyList<VersionRepresentation>> GetAllRepresentationsAsync(
+        CancellationToken cancellationToken = default)
+        => ReadPayloadsAsync<VersionRepresentation>(
+            "SELECT PayloadJson FROM Representations ORDER BY RepresentationId",
+            [],
+            cancellationToken);
+
     public async Task<int> GetIndexedPackCountAsync(CancellationToken cancellationToken = default)
     {
         ObjectDisposedException.ThrowIf(_disposed, this);
