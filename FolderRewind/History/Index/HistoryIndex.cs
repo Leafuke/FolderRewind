@@ -3,12 +3,14 @@ using FolderRewind.History.Storage;
 using Microsoft.Data.Sqlite;
 using System;
 using System.Collections.Generic;
+using System.Collections.Immutable;
 using System.Globalization;
 using System.IO;
 using System.Linq;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
+using System.Text.Json;
 
 namespace FolderRewind.History.Index;
 
@@ -36,6 +38,7 @@ public sealed record HistoryReplicaObservation(
 
 public sealed class HistoryIndex : IDisposable
 {
+    private static readonly JsonSerializerOptions PayloadJsonOptions = new(JsonSerializerDefaults.Web);
     private const string Schema = """
         PRAGMA foreign_keys = OFF;
         CREATE TABLE IndexedPacks(PackId TEXT PRIMARY KEY, PayloadSha256 TEXT NOT NULL);
@@ -164,6 +167,84 @@ public sealed class HistoryIndex : IDisposable
         }
     }
 
+    public Task<IReadOnlyList<SourceVersion>> GetVersionsForSourceAsync(
+        SourceId sourceId,
+        CancellationToken cancellationToken = default)
+        => ReadPayloadsAsync<SourceVersion>(
+            "SELECT PayloadJson FROM Versions WHERE SourceId = $source ORDER BY CreatedAtUtc DESC, VersionId DESC",
+            [("$source", sourceId.ToString())],
+            cancellationToken);
+
+    public Task<IReadOnlyList<SourceVersion>> GetAllVersionsAsync(
+        CancellationToken cancellationToken = default)
+        => ReadPayloadsAsync<SourceVersion>(
+            "SELECT PayloadJson FROM Versions ORDER BY CreatedAtUtc DESC, VersionId DESC",
+            [],
+            cancellationToken);
+
+    public async Task<ConfigurationCheckpoint?> GetCheckpointAsync(
+        CheckpointId checkpointId,
+        CancellationToken cancellationToken = default)
+        => (await ReadPayloadsAsync<ConfigurationCheckpoint>(
+            "SELECT PayloadJson FROM Checkpoints WHERE CheckpointId = $id",
+            [("$id", checkpointId.ToString())],
+            cancellationToken).ConfigureAwait(false)).SingleOrDefault();
+
+    public Task<IReadOnlyList<ConfigurationCheckpoint>> GetAllCheckpointsAsync(
+        CancellationToken cancellationToken = default)
+        => ReadPayloadsAsync<ConfigurationCheckpoint>(
+            "SELECT PayloadJson FROM Checkpoints ORDER BY CreatedAtUtc DESC, CheckpointId DESC",
+            [],
+            cancellationToken);
+
+    public Task<IReadOnlyList<BranchUpdate>> GetBranchTipsWithFactsAsync(
+        BranchId branchId,
+        CancellationToken cancellationToken = default)
+        => ReadPayloadsAsync<BranchUpdate>(
+            """
+            SELECT updateRow.PayloadJson
+            FROM BranchTips tip
+            JOIN BranchUpdates updateRow ON updateRow.UpdateId = tip.UpdateId
+            WHERE tip.BranchId = $branchId
+            ORDER BY updateRow.CreatedAtUtc DESC, updateRow.UpdateId DESC
+            """,
+            [("$branchId", branchId.ToString())],
+            cancellationToken);
+
+    public Task<IReadOnlyList<BackupRun>> GetRunsAsync(
+        CancellationToken cancellationToken = default)
+        => ReadPayloadsAsync<BackupRun>(
+            "SELECT PayloadJson FROM Runs ORDER BY CompletedAtUtc DESC, RunId DESC",
+            [],
+            cancellationToken);
+
+    public Task<IReadOnlyList<VersionRepresentation>> GetRepresentationsAsync(
+        VersionId versionId,
+        CancellationToken cancellationToken = default)
+        => ReadPayloadsAsync<VersionRepresentation>(
+            "SELECT PayloadJson FROM Representations WHERE VersionId = $version ORDER BY RepresentationId",
+            [("$version", versionId.ToString())],
+            cancellationToken);
+
+    public async Task<int> GetIndexedPackCountAsync(CancellationToken cancellationToken = default)
+    {
+        ObjectDisposedException.ThrowIf(_disposed, this);
+        await _gate.WaitAsync(cancellationToken).ConfigureAwait(false);
+        try
+        {
+            using var connection = OpenExisting();
+            using var command = connection.CreateCommand();
+            command.CommandText = "SELECT COUNT(*) FROM IndexedPacks";
+            return Convert.ToInt32(
+                await command.ExecuteScalarAsync(cancellationToken).ConfigureAwait(false),
+                CultureInfo.InvariantCulture);
+        }
+        finally
+        {
+            _gate.Release();
+        }
+    }
+
     public async Task UpsertObservationAsync(
         HistoryReplicaObservation observation,
         CancellationToken cancellationToken = default)
@@ -202,6 +283,41 @@ public sealed class HistoryIndex : IDisposable
         if (_disposed) return;
         _disposed = true;
         _gate.Dispose();
+    }
+
+    private async Task<IReadOnlyList<T>> ReadPayloadsAsync<T>(
+        string sql,
+        IReadOnlyList<(string Name, object? Value)> parameters,
+        CancellationToken cancellationToken)
+        where T : class
+    {
+        ObjectDisposedException.ThrowIf(_disposed, this);
+        await _gate.WaitAsync(cancellationToken).ConfigureAwait(false);
+        try
+        {
+            using var connection = OpenExisting();
+            using var command = connection.CreateCommand();
+            command.CommandText = sql;
+            foreach (var parameter in parameters)
+            {
+                command.Parameters.AddWithValue(parameter.Name, parameter.Value ?? DBNull.Value);
+            }
+
+            using var reader = await command.ExecuteReaderAsync(cancellationToken).ConfigureAwait(false);
+            var results = new List<T>();
+            while (await reader.ReadAsync(cancellationToken).ConfigureAwait(false))
+            {
+                results.Add(JsonSerializer.Deserialize<T>(reader.GetString(0), PayloadJsonOptions)
+                    ?? throw new HistoryRepositoryValidationException(
+                        $"History index returned a null {typeof(T).Name} payload."));
+            }
+
+            return results.ToImmutableArray();
+        }
+        finally
+        {
+            _gate.Release();
+        }
     }
 
     private void BuildDatabase(

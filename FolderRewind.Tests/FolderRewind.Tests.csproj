@@ -92,5 +92,10 @@
     <Compile Include="..\FolderRewind\History\Storage\*.cs" Link="Source\History\Storage\%(Filename)%(Extension)" />
     <Compile Include="..\FolderRewind\History\LocalState\*.cs" Link="Source\History\LocalState\%(Filename)%(Extension)" />
     <Compile Include="..\FolderRewind\History\Index\*.cs" Link="Source\History\Index\%(Filename)%(Extension)" />
+    <Compile Include="..\FolderRewind\History\Application\HistoryMutationGate.cs" Link="Source\History\Application\HistoryMutationGate.cs" />
+    <Compile Include="..\FolderRewind\History\Application\HistoryChangeFeed.cs" Link="Source\History\Application\HistoryChangeFeed.cs" />
+    <Compile Include="..\FolderRewind\History\Application\HistoryQueryService.cs" Link="Source\History\Application\HistoryQueryService.cs" />
+    <Compile Include="..\FolderRewind\History\Application\HistoryRuntime.cs" Link="Source\History\Application\HistoryRuntime.cs" />
+    <Compile Include="..\FolderRewind\History\Application\HistoryRuntimeManager.cs" Link="Source\History\Application\HistoryRuntimeManager.cs" />
   </ItemGroup>
 </Project>
