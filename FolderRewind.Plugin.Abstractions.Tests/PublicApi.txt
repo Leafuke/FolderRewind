@@ -1,5 +1,5 @@
 # Generated and reviewed public API baseline for Plugin API 3.1.0.
-# sha256:15b366107f69491ad500a3e7ed93a30c7578af9d966b6eceae1d6e4c7ff0bb64
+# sha256:2099a512911d5de905859b4153ec389bc5e4c655b471a20d855d1da5dc88bbfe
 T FolderRewind.Plugin.Abstractions.AddFolderChange
 T FolderRewind.Plugin.Abstractions.ArtifactCompleteness
 T FolderRewind.Plugin.Abstractions.ArtifactContentHandle

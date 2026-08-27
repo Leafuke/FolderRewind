@@ -80,7 +80,7 @@ namespace FolderRewind.Services
                     StringComparer.OrdinalIgnoreCase);
 
             if (!recordMap.TryGetValue(chain[0].Name, out var baseRecord)
-                || !IsFullBackupRecord(baseRecord)
+                || !IsSelfContainedBackupRecord(baseRecord)
                 || baseRecord.FullFileList == null
                 || baseRecord.FullFileList.Count == 0)
             {
@@ -141,14 +141,9 @@ namespace FolderRewind.Services
         }
 
         /// <summary>
-        /// 判断记录是否为 Full；BackupType 为空时按归档文件名前缀推断。
+        /// 判断记录是否是可独立还原的 Full/Rolling；仍接受旧 Overwrite 记录。
         /// </summary>
-        private static bool IsFullBackupRecord(BackupChangeRecord record)
-        {
-            string backupType = string.IsNullOrWhiteSpace(record.BackupType)
-                ? BackupArchiveTypePolicy.InferFromFileName(record.ArchiveFileName)
-                : record.BackupType;
-            return string.Equals(backupType, "Full", StringComparison.OrdinalIgnoreCase);
-        }
+        private static bool IsSelfContainedBackupRecord(BackupChangeRecord record)
+            => BackupArchiveTypePolicy.IsSelfContained(record.BackupType, record.ArchiveFileName);
     }
 }

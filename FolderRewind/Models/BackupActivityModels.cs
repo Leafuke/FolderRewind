@@ -23,7 +23,7 @@ namespace FolderRewind.Models
         public string FolderName { get; set; } = "";      // 文件夹名 (冗余备份，防止源被删后无法识别)
         public string FileName { get; set; } = "";        // 备份文件名 (如 [Full]...7z)
         public DateTime Timestamp { get; set; }     // 备份时间
-        public string BackupType { get; set; } = "";      // Full, Smart, Overwrite
+        public string BackupType { get; set; } = "";      // Full, Smart, Rolling (legacy Overwrite may still be read)
         public Guid? ArtifactRootId { get; set; }
         public string ArtifactGraphRevision { get; set; } = string.Empty;
         public PersistedOperationOutcome Outcome { get; set; }

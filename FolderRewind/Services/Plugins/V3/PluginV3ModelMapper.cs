@@ -85,10 +85,10 @@ internal static class PluginV3ModelMapper
     public static CoreCaptureMode ToCaptureMode(BackupMode mode, string fileName)
         => mode switch
         {
-            BackupMode.Incremental when fileName.StartsWith("[Full]", StringComparison.OrdinalIgnoreCase)
+            BackupMode.Smart when fileName.StartsWith("[Full]", StringComparison.OrdinalIgnoreCase)
                 => CoreCaptureMode.Full,
-            BackupMode.Incremental => CoreCaptureMode.Smart,
-            BackupMode.Overwrite => CoreCaptureMode.Overwrite,
+            BackupMode.Smart => CoreCaptureMode.Smart,
+            BackupMode.Rolling => CoreCaptureMode.Rolling,
             _ => CoreCaptureMode.Full
         };
 

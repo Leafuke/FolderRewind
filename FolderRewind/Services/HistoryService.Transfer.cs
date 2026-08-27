@@ -141,10 +141,11 @@ namespace FolderRewind.Services
         }
 
         /// <summary>
-        /// 备份文件名正则：匹配 [Full/Smart/Overwrite][yyyy-MM-dd_HH-mm-ss]FolderName [Comment].7z/zip
+        /// 备份文件名正则：匹配 [Full/Smart/Rolling][yyyy-MM-dd_HH-mm-ss]FolderName [Comment].7z/zip，
+        /// 并保留旧 Overwrite 文件的迁移识别。
         /// </summary>
         private static readonly Regex BackupFileNameRegex = new(
-            @"^\[(Full|Smart|Overwrite)\]\[(\d{4}-\d{2}-\d{2}_\d{2}-\d{2}-\d{2})\](.+?)(?:\s\[(.+?)\])?\.(7z|zip)$",
+            @"^\[(Full|Smart|Rolling|Overwrite)\]\[(\d{4}-\d{2}-\d{2}_\d{2}-\d{2}-\d{2})\](.+?)(?:\s\[(.+?)\])?\.(7z|zip)$",
             RegexOptions.Compiled | RegexOptions.IgnoreCase);
 
         /// <summary>
@@ -188,7 +189,7 @@ namespace FolderRewind.Services
                     var match = BackupFileNameRegex.Match(fileName);
                     if (!match.Success) continue;
 
-                    string backupType = match.Groups[1].Value;  // Full, Smart, Overwrite
+                    string backupType = match.Groups[1].Value;  // Full, Smart, Rolling; legacy Overwrite is preserved
                     string timeStr = match.Groups[2].Value;      // yyyy-MM-dd_HH-mm-ss
                     string parsedFolderName = match.Groups[3].Value; // 文件夹名
                     string comment = match.Groups[4].Success ? match.Groups[4].Value : string.Empty;

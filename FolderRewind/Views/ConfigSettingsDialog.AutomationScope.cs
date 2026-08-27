@@ -89,9 +89,9 @@ namespace FolderRewind.Views
             }
         }
 
-        public bool IsOverwriteModeSelected => Config?.Archive?.Mode == BackupMode.Overwrite;
+        public bool IsRollingModeSelected => Config?.Archive?.Mode == BackupMode.Rolling;
 
-        public string OverwriteModeWarningText => I18n.GetString("ConfigSettingsDialog_OverwriteWarning");
+        public string RollingModeDescriptionText => I18n.GetString("ConfigSettingsDialog_RollingDescription");
 
         private void OnBackupScopeSelectionChanged(object sender, SelectionChangedEventArgs e)
         {

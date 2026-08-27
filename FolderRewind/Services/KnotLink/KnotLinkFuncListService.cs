@@ -130,7 +130,7 @@ namespace FolderRewind.Services.KnotLink
                     ("config_id", Input("Backup configuration ID.", "config-id")),
                     ("folder", Input("Folder name or index.", "0")),
                     ("comment", Input("Optional backup comment.", "")),
-                    ("backup_mode", Optional("Optional one-shot backup mode.", ("Full", "full"), ("Incremental", "incremental"))),
+                    ("backup_mode", Optional("Optional one-shot backup mode.", ("Full", "full"), ("Smart", "smart"))),
                     ("compression_method", Optional(
                         "Optional one-shot compression method.",
                         ("LZMA2", "LZMA2"),

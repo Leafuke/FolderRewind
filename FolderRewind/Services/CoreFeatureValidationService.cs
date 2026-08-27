@@ -421,23 +421,23 @@ namespace FolderRewind.Services
                 if (continueValidation)
                 {
                     continueValidation = await RunStepAsync(
-                        I18n.GetString("CoreValidation_Step_SafeDelete"),
+                        I18n.GetString("CoreValidation_Step_DependencyRetention"),
                         async () =>
                         {
                             var deleteResult = await BackupService.DeleteBackupAsync(mainConfig!, mainSourceFolder!, smartEntryOne!, BackupDeleteMode.LocalArchiveAndRecord).ConfigureAwait(false);
-                            if (!deleteResult.Success)
+                            if (deleteResult.Success || deleteResult.ArchiveDeleted)
                             {
-                                throw new InvalidOperationException($"Safe delete failed: {deleteResult.Message}");
+                                throw new InvalidOperationException("Dependency-aware retention unexpectedly deleted a committed chain member.");
                             }
 
-                            if (!deleteResult.ArchiveDeleted)
+                            if (string.IsNullOrWhiteSpace(deleteResult.Message))
                             {
-                                throw new InvalidOperationException("Safe delete reported success but no archive was removed.");
+                                throw new InvalidOperationException("Dependency-aware retention skipped deletion without a diagnostic.");
                             }
 
                             await BackupService.RestoreBackupAsync(mainConfig!, mainRestoreFolder!, deletionOnlyEntry!, BackupService.RestoreMode.Clean).ConfigureAwait(false);
-                            AssertSnapshotEquals(mainRestoreDir, snapshotDeletionOnly!, "Restore after safe delete");
-                            return "Deleting an incremental archive preserved latest restore correctness.";
+                            AssertSnapshotEquals(mainRestoreDir, snapshotDeletionOnly!, "Restore after dependency-safe retention skip");
+                            return "Retention preserved the dependency chain by skipping an unsafe legacy compaction.";
                         },
                         steps).ConfigureAwait(false);
                 }
@@ -570,7 +570,7 @@ namespace FolderRewind.Services
                 IsEncrypted = false,
                 Archive = new ArchiveSettings
                 {
-                    Mode = BackupMode.Incremental,
+                    Mode = BackupMode.Smart,
                     Format = "7z",
                     CompressionLevel = 1,
                     Method = "LZMA2",
@@ -579,7 +579,6 @@ namespace FolderRewind.Services
                     SafeRestoreEnabled = true,
                     VerifyArchiveBeforeRestore = true,
                     MaxSmartBackupsPerFull = 12,
-                    SafeDeleteEnabled = true,
                     KeepCount = keepCount,
                     CpuThreads = 1,
                     FileTypeHandlingEnabled = false

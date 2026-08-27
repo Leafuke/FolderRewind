@@ -330,11 +330,11 @@ namespace FolderRewind.Services
         }
 
         /// <summary>
-        /// 判断是否为 Full 记录；BackupType 为空时按归档文件名前缀推断。
+        /// 判断是否为自包含记录；旧 Overwrite 仅用于迁移兼容。
         /// </summary>
         private static bool IsFullRecord(BackupChangeRecord record)
         {
-            return string.Equals(GetEffectiveBackupType(record), "Full", StringComparison.OrdinalIgnoreCase);
+            return BackupArchiveTypePolicy.IsSelfContained(GetEffectiveBackupType(record), record.ArchiveFileName);
         }
 
         private static string GetEffectiveBackupType(BackupChangeRecord record)

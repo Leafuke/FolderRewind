@@ -290,7 +290,7 @@ namespace FolderRewind.Services
 
         /// <summary>
         /// 执行单个备份源的完整流程：插件 v3 会话准备与一致性租约获取、过滤规则与目标路径校验、
-        /// 源/目标路径重叠检查、按压缩模式分发到 DoSmart/DoOverwrite/DoFullBackupAsync，
+        /// 源/目标路径重叠检查、按压缩模式分发到 DoSmart/DoRolling/DoFullBackupAsync，
         /// 成功后提交产物事务、写入历史条目、排队云端上传，并触发完成观察者。
         /// </summary>
         /// <remarks>
@@ -563,7 +563,7 @@ namespace FolderRewind.Services
                 // 根据模式分发逻辑
                 switch (config.Archive.Mode)
                 {
-                    case BackupMode.Incremental:
+                    case BackupMode.Smart:
                         {
                             var res = await DoSmartBackupAsync(sourceId, captureScope, sourcePath, backupSubDir, metadataDir, folder.DisplayName, runtimeConfig, runtimeFolder.SourceScope, comment, task);
                             captureResult = res;
@@ -572,9 +572,9 @@ namespace FolderRewind.Services
                             sourceUnavailable = res.IsUnavailable;
                             break;
                         }
-                    case BackupMode.Overwrite:
+                    case BackupMode.Rolling:
                         {
-                            var res = await DoOverwriteBackupAsync(sourceId, captureScope, sourcePath, backupSubDir, metadataDir, folder.DisplayName, runtimeConfig, runtimeFolder.SourceScope, comment, task);
+                            var res = await DoRollingBackupAsync(sourceId, captureScope, sourcePath, backupSubDir, metadataDir, folder.DisplayName, runtimeConfig, runtimeFolder.SourceScope, comment, task);
                             captureResult = res;
                             success = res.Success;
                             generatedFileName = res.FileName;
@@ -698,7 +698,7 @@ namespace FolderRewind.Services
 
                     // 增量模式下，根据实际生成的文件名区分 Full 和 Smart
                     string typeStr;
-                    if (runtimeConfig.Archive.Mode == BackupMode.Incremental)
+                    if (runtimeConfig.Archive.Mode == BackupMode.Smart)
                     {
                         typeStr = completedFileName.StartsWith("[Full]", StringComparison.OrdinalIgnoreCase) ? "Full" : "Smart";
                     }
@@ -909,13 +909,14 @@ namespace FolderRewind.Services
             string destinationDirectory,
             string fileName,
             RepresentationKind kind,
-            string format)
+            string format,
+            CapturePayloadState payloadState = CapturePayloadState.FinalUnverified)
         {
             var representationId = RepresentationId.New();
             var absolutePath = Path.GetFullPath(Path.Combine(destinationDirectory, fileName));
             var payload = new CapturePayloadCandidate(
                 absolutePath,
-                CapturePayloadState.FinalUnverified,
+                payloadState,
                 File.Exists(absolutePath) ? new FileInfo(absolutePath).Length : null,
                 ExpectedStorageSha256: null);
             var representation = new RepresentationCandidate(
@@ -934,7 +935,7 @@ namespace FolderRewind.Services
                 LocalReplicaId.New(),
                 representationId,
                 LocalReplicaLocator.ControlledAbsolute(absolutePath),
-                CapturePayloadState.FinalUnverified,
+                payloadState,
                 DateTimeOffset.UtcNow);
             return new SourceCaptureResult(
                 sourceId,

@@ -134,6 +134,17 @@ public sealed class ContractTests
         CollectionAssert.AreEqual(expectedTypes, actualTypes, "The exported type set changed.");
     }
 
+    [TestMethod]
+    public void CoreCaptureModePreservesReleasedNumericContract()
+    {
+        CollectionAssert.AreEqual(
+            new[] { 0, 1, 2 },
+            Enum.GetValues<CoreCaptureMode>().Select(static value => (int)value).ToArray());
+        CollectionAssert.AreEquivalent(
+            new[] { "Full", "Smart", "Rolling" },
+            Enum.GetNames<CoreCaptureMode>());
+    }
+
     private sealed class LegacyBackupRequestService : IBackupRequestService
     {
         public int RequestCount { get; private set; }

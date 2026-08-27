@@ -8,6 +8,7 @@ public sealed class BackupArchiveTypePolicyTests
     [TestMethod]
     [DataRow("[Smart][2026-08-01]World.7z", "Smart")]
     [DataRow("prefix[SMART]suffix.zip", "Smart")]
+    [DataRow("[Rolling][2026-08-01]World.7z", "Rolling")]
     [DataRow("[Overwrite][2026-08-01]World.7z", "Overwrite")]
     [DataRow("[Full][2026-08-01]World.7z", "Full")]
     [DataRow("backup.7z", "Full")]
@@ -29,5 +30,19 @@ public sealed class BackupArchiveTypePolicyTests
     public void IncrementalClassificationAcceptsHistoricalNames(string? backupType, bool expected)
     {
         Assert.AreEqual(expected, BackupArchiveTypePolicy.IsIncremental(backupType));
+    }
+
+    [TestMethod]
+    [DataRow("Full", null, true)]
+    [DataRow("Rolling", null, true)]
+    [DataRow("Overwrite", null, true)]
+    [DataRow("Smart", null, false)]
+    [DataRow(null, "[Rolling][2026-08-01]World.7z", true)]
+    public void SelfContainedClassificationIncludesRollingAndLegacyOverwrite(
+        string? backupType,
+        string? fileName,
+        bool expected)
+    {
+        Assert.AreEqual(expected, BackupArchiveTypePolicy.IsSelfContained(backupType, fileName));
     }
 }

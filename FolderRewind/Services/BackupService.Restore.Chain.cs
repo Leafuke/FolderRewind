@@ -39,7 +39,7 @@ namespace FolderRewind.Services
         private static bool IsFullBackupFile(FileInfo file, BackupConfig? config = null, string? folderName = null)
         {
             var backupType = ResolveBackupType(file, config, folderName);
-            return backupType.Equals("Full", StringComparison.OrdinalIgnoreCase);
+            return BackupArchiveTypePolicy.IsSelfContained(backupType, file.Name);
         }
 
         private static bool IsIncrementalBackupFile(FileInfo file, BackupConfig? config = null, string? folderName = null)

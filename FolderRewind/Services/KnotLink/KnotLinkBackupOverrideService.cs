@@ -45,8 +45,8 @@ namespace FolderRewind.Services.KnotLink
 
                 if (overrides.BackupMode != null)
                 {
-                    clone.Archive.Mode = overrides.BackupMode == "Incremental"
-                        ? BackupMode.Incremental
+                    clone.Archive.Mode = overrides.BackupMode == "Smart"
+                        ? BackupMode.Smart
                         : BackupMode.Full;
                 }
 

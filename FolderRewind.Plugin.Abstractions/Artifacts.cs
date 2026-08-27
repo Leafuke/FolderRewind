@@ -12,7 +12,7 @@ public enum CoreCaptureMode
 {
     Full = 0,
     Smart = 1,
-    Overwrite = 2
+    Rolling = 2
 }
 
 public enum ArtifactTransformFailureBehavior

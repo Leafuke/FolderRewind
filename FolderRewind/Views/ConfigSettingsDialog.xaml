@@ -146,13 +146,13 @@
                 <!-- 备份模式 -->
                 <ComboBox x:Uid="ConfigSettingsDialog_BackupMode" SelectedIndex="{x:Bind ModeSelectedIndex, Mode=TwoWay}" HorizontalAlignment="Stretch">
                     <ComboBoxItem x:Uid="ConfigSettingsDialog_ModeFull"/>
-                    <ComboBoxItem x:Uid="ConfigSettingsDialog_ModeIncremental"/>
-                    <ComboBoxItem x:Uid="ConfigSettingsDialog_ModeOverwrite"/>
+                    <ComboBoxItem x:Uid="ConfigSettingsDialog_ModeSmart"/>
+                    <ComboBoxItem x:Uid="ConfigSettingsDialog_ModeRolling"/>
                 </ComboBox>
 
                 <Border Padding="12" CornerRadius="8" Background="{ThemeResource SystemFillColorCautionBackgroundBrush}"
-                        Visibility="{x:Bind IsOverwriteModeSelected, Mode=OneTime, Converter={StaticResource BoolToVisConverter}}">
-                    <TextBlock Text="{x:Bind OverwriteModeWarningText, Mode=OneTime}"
+                        Visibility="{x:Bind IsRollingModeSelected, Mode=OneTime, Converter={StaticResource BoolToVisConverter}}">
+                    <TextBlock Text="{x:Bind RollingModeDescriptionText, Mode=OneTime}"
                                TextWrapping="Wrap"
                                Foreground="{ThemeResource TextFillColorPrimaryBrush}"/>
                 </Border>
@@ -213,9 +213,6 @@
                     <NumberBox x:Uid="ConfigSettingsDialog_MaxSmartChain" Value="{x:Bind Config.Archive.MaxSmartBackupsPerFull, Mode=TwoWay}" Minimum="0" Maximum="100"/>
                     <TextBlock x:Uid="ConfigSettingsDialog_MaxSmartChainDesc" Style="{StaticResource CaptionTextBlockStyle}" Foreground="{ThemeResource TextFillColorSecondaryBrush}" TextWrapping="Wrap"/>
                 </StackPanel>
-
-                <!-- 安全删除 -->
-                <ToggleSwitch x:Uid="ConfigSettingsDialog_SafeDelete" IsOn="{x:Bind Config.Archive.SafeDeleteEnabled, Mode=TwoWay}"/>
 
                 <!-- 无变更跳过 -->
                 <ToggleSwitch x:Uid="ConfigSettingsDialog_SkipIfUnchanged" IsOn="{x:Bind Config.Archive.SkipIfUnchanged, Mode=TwoWay}"/>

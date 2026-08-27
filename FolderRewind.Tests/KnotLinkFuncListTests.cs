@@ -18,7 +18,7 @@ public sealed class KnotLinkFuncListTests
         Assert.AreEqual("static", manifest.OpenSocket["backup"].Args["cmd"].Type);
         Assert.AreEqual("BACKUP", manifest.OpenSocket["backup"].Args["cmd"].Value);
         CollectionAssert.AreEquivalent(
-            new[] { "full", "incremental" },
+            new[] { "full", "smart" },
             manifest.OpenSocket["backup"].Args["backup_mode"].Options!.Select(option => option[1]).ToArray());
         CollectionAssert.AreEquivalent(
             new[] { "LZMA2", "Deflate", "BZip2", "zstd" },

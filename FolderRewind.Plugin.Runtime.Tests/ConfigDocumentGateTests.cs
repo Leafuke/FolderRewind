@@ -165,6 +165,25 @@ public sealed class ConfigDocumentGateTests
             second.Document!["BackupConfigs"]![0]!["SourceFolders"]![0]!["Id"]!.GetValue<string>());
     }
 
+    [TestMethod]
+    public void ReleasedNumericBackupModesSurviveMigrationAndCurrentRoundTrip()
+    {
+        var legacy = JsonNode.Parse(Fixture("legacy-representative.json"))!.AsObject();
+        var configs = legacy["BackupConfigs"]!.AsArray();
+        configs[0]!["Archive"] = new JsonObject { ["Mode"] = 1 };
+        configs[1]!["Archive"] = new JsonObject { ["Mode"] = 2 };
+        var gate = new ConfigDocumentGate();
+
+        var migrated = gate.Prepare(System.Text.Encoding.UTF8.GetBytes(legacy.ToJsonString()));
+        var current = gate.Prepare(migrated.Utf8Json!);
+
+        Assert.AreEqual(ConfigDocumentGateStatus.Migrated, migrated.Status);
+        Assert.AreEqual(1, migrated.Document!["BackupConfigs"]![0]!["Archive"]!["Mode"]!.GetValue<int>());
+        Assert.AreEqual(2, migrated.Document!["BackupConfigs"]![1]!["Archive"]!["Mode"]!.GetValue<int>());
+        Assert.AreEqual(ConfigDocumentGateStatus.Current, current.Status);
+        CollectionAssert.AreEqual(migrated.Utf8Json!, current.Utf8Json!);
+    }
+
     private static byte[] Fixture(string name)
         => File.ReadAllBytes(Path.Combine(AppContext.BaseDirectory, "Fixtures", name));
 }

@@ -654,7 +654,7 @@ namespace FolderRewind.Services
             record.ModifiedFiles ??= new List<string>();
             record.DeletedFiles ??= new List<string>();
             record.FullFileList ??= new List<string>();
-            if (!IsFullRecord(record) && record.FullFileList.Count > 0)
+            if (!IsSelfContainedRecord(record) && record.FullFileList.Count > 0)
             {
                 record.FullFileList = new List<string>();
             }
@@ -662,13 +662,8 @@ namespace FolderRewind.Services
             return record;
         }
 
-        private static bool IsFullRecord(BackupChangeRecord record)
-        {
-            string backupType = string.IsNullOrWhiteSpace(record.BackupType)
-                ? BackupArchiveTypePolicy.InferFromFileName(record.ArchiveFileName)
-                : record.BackupType;
-            return string.Equals(backupType, "Full", StringComparison.OrdinalIgnoreCase);
-        }
+        private static bool IsSelfContainedRecord(BackupChangeRecord record)
+            => BackupArchiveTypePolicy.IsSelfContained(record.BackupType, record.ArchiveFileName);
 
         private static BackupMetadataState ConvertToState(BackupMetadata metadata)
         {

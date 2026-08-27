@@ -927,14 +927,14 @@ Duplicate folder names are blocked within the same configuration so different di
   <data name="ConfigSettingsDialog_ModeFull.Content" xml:space="preserve">
     <value>Full (create new archive each time)</value>
   </data>
-  <data name="ConfigSettingsDialog_ModeIncremental.Content" xml:space="preserve">
-    <value>Smart incremental (only changed files)</value>
+  <data name="ConfigSettingsDialog_ModeSmart.Content" xml:space="preserve">
+    <value>Smart (changed files only)</value>
   </data>
-  <data name="ConfigSettingsDialog_ModeOverwrite.Content" xml:space="preserve">
-    <value>Overwrite (update latest backup)</value>
+  <data name="ConfigSettingsDialog_ModeRolling.Content" xml:space="preserve">
+    <value>Rolling (create a new immutable archive from the current baseline)</value>
   </data>
-  <data name="ConfigSettingsDialog_OverwriteWarning" xml:space="preserve">
-    <value>Overwrite mode only updates and adds files — it does not remove files deleted from the source folder. For exact point-in-time restore, use Full or Smart incremental backup with Clean restore.</value>
+  <data name="ConfigSettingsDialog_RollingDescription" xml:space="preserve">
+    <value>Rolling uses copy-on-write: the previous backup remains unchanged, while the new archive exactly reflects additions, modifications, and deletions. It falls back to Full when the baseline cannot be verified.</value>
   </data>
   <data name="ConfigSettingsDialog_Format.Header" xml:space="preserve">
     <value>Archive format</value>
@@ -1125,15 +1125,6 @@ Duplicate folder names are blocked within the same configuration so different di
   <data name="ConfigSettingsDialog_MaxSmartChainDesc.Text" xml:space="preserve">
     <value>After this many consecutive incremental backups, a full backup is forced to truncate the chain and improve restore efficiency. Only effective in incremental mode.</value>
   </data>
-  <data name="ConfigSettingsDialog_SafeDelete.Header" xml:space="preserve">
-    <value>Safe delete</value>
-  </data>
-  <data name="ConfigSettingsDialog_SafeDelete.OnContent" xml:space="preserve">
-    <value>On — merges incremental chain when pruning</value>
-  </data>
-  <data name="ConfigSettingsDialog_SafeDelete.OffContent" xml:space="preserve">
-    <value>Off — direct delete (may break incremental chain)</value>
-  </data>
   <data name="BackupService_Log_SmartChainLimitReached" xml:space="preserve">
     <value>Incremental chain limit reached ({0}), forcing full backup</value>
   </data>
@@ -1146,32 +1137,8 @@ Duplicate folder names are blocked within the same configuration so different di
   <data name="BackupService_Log_PruneDeleteFailed" xml:space="preserve">
     <value>Failed to prune backup {0}: {1}</value>
   </data>
-  <data name="BackupService_Log_SafeDeleteStart" xml:space="preserve">
-    <value>[Safe Delete] Processing: {0}</value>
-  </data>
-  <data name="BackupService_Log_SafeDeleteNo7z" xml:space="preserve">
-    <value>[Safe Delete] 7z not found, falling back to direct delete</value>
-  </data>
-  <data name="BackupService_Log_SafeDeleteStep1" xml:space="preserve">
-    <value>[Safe Delete] Step 1/4: Extracting content from backup to delete</value>
-  </data>
-  <data name="BackupService_Log_SafeDeleteStep2" xml:space="preserve">
-    <value>[Safe Delete] Step 2/4: Merging content into next backup</value>
-  </data>
-  <data name="BackupService_Log_SafeDeleteRenamed" xml:space="preserve">
-    <value>[Safe Delete] Backup promoted and renamed to: {0}</value>
-  </data>
-  <data name="BackupService_Log_SafeDeleteSuccess" xml:space="preserve">
-    <value>[Safe Delete] Successfully deleted backup: {0}</value>
-  </data>
-  <data name="BackupService_Log_SafeDeleteExtractFailed" xml:space="preserve">
-    <value>[Safe Delete] Extraction failed, aborting delete to protect data</value>
-  </data>
-  <data name="BackupService_Log_SafeDeleteMergeFailed" xml:space="preserve">
-    <value>[Safe Delete] Merge failed, aborting delete to protect data</value>
-  </data>
-  <data name="BackupService_Log_SafeDeleteFatalError" xml:space="preserve">
-    <value>[Safe Delete] Fatal error: {0}</value>
+  <data name="BackupService_Log_DependencyDeletionSkipped" xml:space="preserve">
+    <value>Skipped deleting {0}: successor {1} still depends on it, and the legacy storage path cannot compact that dependency atomically without mutating committed data.</value>
   </data>
   <data name="SettingsPage_LogDiag.Text" xml:space="preserve">
     <value>Logs &amp; diagnostics</value>
@@ -1186,7 +1153,7 @@ Duplicate folder names are blocked within the same configuration so different di
     <value>Run full self-check</value>
   </data>
   <data name="SettingsPage_CoreValidation_RunDesc.Text" xml:space="preserve">
-    <value>Create a temporary config and validate smart backup, shared-lock files, restore, safe delete, and keep-count pruning</value>
+    <value>Create a temporary config and validate Smart backup, shared-lock files, restore, dependency-safe retention, and keep-count pruning</value>
   </data>
   <data name="SettingsPage_CoreValidation_RunButton.Content" xml:space="preserve">
     <value>Run validation</value>
@@ -1299,8 +1266,8 @@ Duplicate folder names are blocked within the same configuration so different di
   <data name="CoreValidation_Step_OverwriteRestore" xml:space="preserve">
     <value>Overwrite restore validation</value>
   </data>
-  <data name="CoreValidation_Step_SafeDelete" xml:space="preserve">
-    <value>Safe delete validation</value>
+  <data name="CoreValidation_Step_DependencyRetention" xml:space="preserve">
+    <value>Dependency-safe retention validation</value>
   </data>
   <data name="CoreValidation_Step_KeepCountPrune" xml:space="preserve">
     <value>Keep-count prune validation</value>
@@ -2043,8 +2010,8 @@ If you have a listener subscribed to this signal, it should receive a message.</
   <data name="BackupService_Log_NoExistingBackupFallbackFull" xml:space="preserve">
     <value>No existing backup found. Running full backup.</value>
   </data>
-  <data name="BackupService_Log_OverwriteUpdating" xml:space="preserve">
-    <value>Overwrite: updating {0}</value>
+  <data name="BackupService_Log_RollingUpdating" xml:space="preserve">
+    <value>Rolling: creating a new archive from immutable baseline {0}</value>
   </data>
   <data name="BackupService_Log_RenamedTo" xml:space="preserve">
     <value>Renamed to: {0}</value>

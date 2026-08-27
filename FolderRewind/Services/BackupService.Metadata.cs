@@ -143,8 +143,8 @@ namespace FolderRewind.Services
         /// 备份成功后持久化元数据：写入新的状态（Version 3.0）与本次变更记录。
         /// </summary>
         /// <remarks>
-        /// FullFileList 仅在备份类型为 Full 时保留完整文件清单，增量/覆写记录只存差量，
-        /// 以控制元数据体积；增量记录的 BasedOnFullBackup 保持指向链首的 Full 归档。
+        /// Full 和 Rolling 都是自包含快照，因此保留完整文件清单；Smart 只存差量。
+        /// Smart 记录的 BasedOnFullBackup 指向链首的自包含归档。
         /// metaDir 为空时视为成功（没有可写的元数据）。
         /// </remarks>
         private static async Task<bool> UpdateMetadataAsync(
@@ -186,7 +186,7 @@ namespace FolderRewind.Services
                 AddedFiles = changeSet.AddedFiles.ToList(),
                 ModifiedFiles = changeSet.ModifiedFiles.ToList(),
                 DeletedFiles = changeSet.DeletedFiles.ToList(),
-                FullFileList = string.Equals(backupType, "Full", StringComparison.OrdinalIgnoreCase)
+                FullFileList = BackupArchiveTypePolicy.IsSelfContained(backupType, currentBackupFile)
                     ? states.Keys.OrderBy(x => x, StringComparer.OrdinalIgnoreCase).ToList()
                     : new List<string>()
             };

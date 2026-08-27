@@ -68,8 +68,8 @@
               "full"
             ],
             [
-              "Incremental",
-              "incremental"
+              "Smart",
+              "smart"
             ]
           ],
           "description": "Optional one-shot backup mode."

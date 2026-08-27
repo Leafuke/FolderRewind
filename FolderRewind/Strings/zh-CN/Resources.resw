@@ -927,14 +927,14 @@
   <data name="ConfigSettingsDialog_ModeFull.Content" xml:space="preserve">
     <value>全量备份 (每次生成新文件)</value>
   </data>
-  <data name="ConfigSettingsDialog_ModeIncremental.Content" xml:space="preserve">
-    <value>智能增量 (仅备份变更文件)</value>
+  <data name="ConfigSettingsDialog_ModeSmart.Content" xml:space="preserve">
+    <value>Smart（仅备份变更文件）</value>
   </data>
-  <data name="ConfigSettingsDialog_ModeOverwrite.Content" xml:space="preserve">
-    <value>覆写备份 (更新最近的备份)</value>
+  <data name="ConfigSettingsDialog_ModeRolling.Content" xml:space="preserve">
+    <value>Rolling（从当前基线创建新的不可变归档）</value>
   </data>
-  <data name="ConfigSettingsDialog_OverwriteWarning" xml:space="preserve">
-    <value>覆写模式只会更新和添加文件，不会删除归档中源目录已删除的旧文件。如需精确还原到某个时间点，建议使用全量或智能增量备份配合安全还原。</value>
+  <data name="ConfigSettingsDialog_RollingDescription" xml:space="preserve">
+    <value>Rolling 使用写时复制：保留上一份备份不变，新归档精确反映新增、修改和删除。无法验证基线时会自动回退为 Full。</value>
   </data>
   <data name="ConfigSettingsDialog_Format.Header" xml:space="preserve">
     <value>压缩格式</value>
@@ -1125,15 +1125,6 @@
   <data name="ConfigSettingsDialog_MaxSmartChainDesc.Text" xml:space="preserve">
     <value>连续智能增量备份达到此次数后，将自动执行一次全量备份以截断备份链，提高还原效率。仅在智能增量模式下有效。</value>
   </data>
-  <data name="ConfigSettingsDialog_SafeDelete.Header" xml:space="preserve">
-    <value>安全删除</value>
-  </data>
-  <data name="ConfigSettingsDialog_SafeDelete.OnContent" xml:space="preserve">
-    <value>开启 — 删除旧备份时自动合并增量链</value>
-  </data>
-  <data name="ConfigSettingsDialog_SafeDelete.OffContent" xml:space="preserve">
-    <value>关闭 — 直接删除（可能导致增量链断裂）</value>
-  </data>
   <data name="BackupService_Log_SmartChainLimitReached" xml:space="preserve">
     <value>增量备份链长度已达上限 ({0})，强制执行全量备份</value>
   </data>
@@ -1146,32 +1137,8 @@
   <data name="BackupService_Log_PruneDeleteFailed" xml:space="preserve">
     <value>清理备份失败 {0}：{1}</value>
   </data>
-  <data name="BackupService_Log_SafeDeleteStart" xml:space="preserve">
-    <value>[安全删除] 开始处理：{0}</value>
-  </data>
-  <data name="BackupService_Log_SafeDeleteNo7z" xml:space="preserve">
-    <value>[安全删除] 未找到 7z 程序，回退为直接删除</value>
-  </data>
-  <data name="BackupService_Log_SafeDeleteStep1" xml:space="preserve">
-    <value>[安全删除] 步骤 1/4：解压待删除备份的内容</value>
-  </data>
-  <data name="BackupService_Log_SafeDeleteStep2" xml:space="preserve">
-    <value>[安全删除] 步骤 2/4：将内容合并到下一个备份</value>
-  </data>
-  <data name="BackupService_Log_SafeDeleteRenamed" xml:space="preserve">
-    <value>[安全删除] 已将备份升级并重命名为：{0}</value>
-  </data>
-  <data name="BackupService_Log_SafeDeleteSuccess" xml:space="preserve">
-    <value>[安全删除] 成功删除备份：{0}</value>
-  </data>
-  <data name="BackupService_Log_SafeDeleteExtractFailed" xml:space="preserve">
-    <value>[安全删除] 解压失败，已中止删除以保护数据</value>
-  </data>
-  <data name="BackupService_Log_SafeDeleteMergeFailed" xml:space="preserve">
-    <value>[安全删除] 合并失败，已中止删除以保护数据</value>
-  </data>
-  <data name="BackupService_Log_SafeDeleteFatalError" xml:space="preserve">
-    <value>[安全删除] 发生严重错误：{0}</value>
+  <data name="BackupService_Log_DependencyDeletionSkipped" xml:space="preserve">
+    <value>已跳过删除 {0}：后继 {1} 仍依赖它，且旧存储路径无法完成不可变的原子压缩。</value>
   </data>
   <data name="SettingsPage_LogDiag.Text" xml:space="preserve">
     <value>日志与诊断</value>
@@ -1186,7 +1153,7 @@
     <value>执行完整自检</value>
   </data>
   <data name="SettingsPage_CoreValidation_RunDesc.Text" xml:space="preserve">
-    <value>自动创建临时配置并验证智能备份、共享锁文件、还原、安全删除与数量限制等关键行为</value>
+    <value>自动创建临时配置并验证 Smart 备份、共享锁文件、还原、依赖安全保留与数量限制等关键行为</value>
   </data>
   <data name="SettingsPage_CoreValidation_RunButton.Content" xml:space="preserve">
     <value>立即校验</value>
@@ -1299,8 +1266,8 @@
   <data name="CoreValidation_Step_OverwriteRestore" xml:space="preserve">
     <value>覆写还原校验</value>
   </data>
-  <data name="CoreValidation_Step_SafeDelete" xml:space="preserve">
-    <value>安全删除校验</value>
+  <data name="CoreValidation_Step_DependencyRetention" xml:space="preserve">
+    <value>依赖安全保留校验</value>
   </data>
   <data name="CoreValidation_Step_KeepCountPrune" xml:space="preserve">
     <value>数量限制与自动清理校验</value>
@@ -2043,8 +2010,8 @@ cmd=RESTORE;from=minebackup.mod;request_id=req-mr-restore-002;current_save=true;
   <data name="BackupService_Log_NoExistingBackupFallbackFull" xml:space="preserve">
     <value>未找到已有备份，将执行全量备份</value>
   </data>
-  <data name="BackupService_Log_OverwriteUpdating" xml:space="preserve">
-    <value>覆写: 正在更新: {0}</value>
+  <data name="BackupService_Log_RollingUpdating" xml:space="preserve">
+    <value>Rolling：正在从不可变基线创建新归档：{0}</value>
   </data>
   <data name="BackupService_Log_RenamedTo" xml:space="preserve">
     <value>重命名: 更新为: {0}</value>

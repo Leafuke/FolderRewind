@@ -322,28 +322,52 @@ namespace FolderRewind.Services
             }
         }
 
-        // --- 模式 3: 覆写备份 ---
-        // 返回归档执行结果，并显式区分无变化、不可用和失败。
+        // --- 模式 3: Rolling copy-on-write 备份 ---
         /// <summary>
-        /// 模式 3：覆写备份。不生成新文件，而是更新目标目录中最近的归档并重命名刷新时间戳；
-        /// 目标目录为空时回退为全量备份。
+        /// 从元数据指定的、已验证的自包含基线创建唯一 staging copy，在 copy 上应用增删改，
+        /// 校验通过后再以 create-once 语义安装为新归档。任何时候都不修改已提交的基线字节。
         /// </summary>
         /// <remarks>
-        /// Include 来源必须整体重建：先用 7z a 在同目录构建精确临时归档、成功后原子替换，
-        /// 避免旧归档残留已取消选择或已删除的文件；All 来源继续用 7z u 增量更新原文件。
-        /// 时间戳重命名失败时保留原文件名，不影响备份内容。
+        /// 基线缺失、类型不明、元数据损坏、归档校验失败或不能证明选择范围精确时，保守回退为 Full。
         /// </remarks>
-        private static async Task<SourceCaptureResult> DoOverwriteBackupAsync(SourceId sourceId, FolderRewind.History.Domain.CaptureScope captureScope, string source, string destDir, string metaDir, string baseName, BackupConfig config, BackupSourceScope selection, string comment = "", BackupTask? taskToUpdate = null)
+        private static async Task<SourceCaptureResult> DoRollingBackupAsync(SourceId sourceId, FolderRewind.History.Domain.CaptureScope captureScope, string source, string destDir, string metaDir, string baseName, BackupConfig config, BackupSourceScope selection, string comment = "", BackupTask? taskToUpdate = null)
         {
-            BackupMetadataState? oldState = null;
-            if (!string.IsNullOrEmpty(metaDir))
+            async Task<SourceCaptureResult> FallbackToFullAsync()
+                => await DoFullBackupAsync(sourceId, captureScope, source, destDir, metaDir, baseName, config, selection, comment, taskToUpdate);
+
+            if (string.IsNullOrWhiteSpace(metaDir)
+                || selection.Mode == BackupSourceScopeMode.Include)
             {
-                var metadataLoadResult = await BackupMetadataStoreService.LoadStateAsync(metaDir).ConfigureAwait(false);
-                oldState = metadataLoadResult.State;
-                if (oldState == null && metadataLoadResult.StateLoadFailed)
-                {
-                    Log(I18n.Format("BackupService_Log_MetadataCorruptedFallbackFull"), LogLevel.Warning);
-                }
+                Log(I18n.Format("BackupService_Log_NoBaselineMetadataFallbackFull"), LogLevel.Info);
+                return await FallbackToFullAsync();
+            }
+
+            var stateLoad = await BackupMetadataStoreService.LoadStateAsync(metaDir).ConfigureAwait(false);
+            var oldState = stateLoad.State;
+            if (oldState == null
+                || stateLoad.StateLoadFailed
+                || !IsSafeArchiveFileName(oldState.LastBackupFileName))
+            {
+                Log(I18n.Format("BackupService_Log_MetadataCorruptedFallbackFull"), LogLevel.Warning);
+                return await FallbackToFullAsync();
+            }
+
+            string baselineFileName = oldState.LastBackupFileName;
+            var recordLoad = await BackupMetadataStoreService.LoadAsync(metaDir, new[] { baselineFileName }).ConfigureAwait(false);
+            if (recordLoad.RecordLoadFailed
+                || recordLoad.HasMissingRequestedRecords
+                || !recordLoad.Records.TryGetValue(baselineFileName, out var baselineRecord)
+                || !BackupArchiveTypePolicy.IsSelfContained(baselineRecord.BackupType, baselineRecord.ArchiveFileName))
+            {
+                Log(I18n.Format("BackupService_Log_NoBaselineMetadataFallbackFull"), LogLevel.Warning);
+                return await FallbackToFullAsync();
+            }
+
+            string baselinePath = Path.Combine(destDir, baselineFileName);
+            if (!File.Exists(baselinePath))
+            {
+                Log(I18n.Format("BackupService_Log_ReferencedBackupMissing", baselineFileName), LogLevel.Warning);
+                return await FallbackToFullAsync();
             }
 
             var currentStates = ScanDirectory(source, config.Filters, selection: selection);
@@ -351,146 +375,168 @@ namespace FolderRewind.Services
             {
                 return SourceCaptureResult.Unavailable(sourceId, captureScope);
             }
-            var changeSet = CompareFileStates(currentStates, oldState?.FileStates);
 
-            // 1. 寻找最近的备份文件
-            var dirInfo = new DirectoryInfo(destDir);
-            var files = dirInfo.GetFiles($"*.{config.Archive.Format}")
-                               .OrderByDescending(f => f.LastWriteTime)
-                               .ToList();
-
-            if (files.Count == 0)
+            var changeSet = CompareFileStates(currentStates, oldState.FileStates);
+            if (config.Archive.SkipIfUnchanged && !changeSet.HasChanges)
             {
-                Log(I18n.Format("BackupService_Log_NoExistingBackupFallbackFull"), LogLevel.Info);
-                return await DoFullBackupAsync(sourceId, captureScope, source, destDir, metaDir, baseName, config, selection, comment, taskToUpdate);
+                Log(I18n.Format("BackupService_Log_NoChangesDetected"), LogLevel.Info);
+                return SourceCaptureResult.NoChanges(sourceId, captureScope);
             }
 
-            FileInfo targetFile = files[0];
-            Log(I18n.Format("BackupService_Log_OverwriteUpdating", targetFile.Name), LogLevel.Info);
-
-            // Include 来源不能复用旧归档内容，否则已取消选择或已删除的文件仍会残留。
-            // 先在同目录构建精确临时归档，成功后再替换；All 来源继续使用原有 7z update 行为。
-            var fileTypeExclusions = config.Archive.FileTypeHandlingEnabled ? (IReadOnlyList<FileTypeRule>)config.Archive.FileTypeRules : null;
             if (!TryResolveRequiredPassword(config, out var password, taskToUpdate))
             {
                 return SourceCaptureResult.Failed(sourceId, captureScope);
             }
-            var isExactSelection = selection.Mode == BackupSourceScopeMode.Include;
-            string? replacementArchivePath = isExactSelection
-                ? Path.Combine(destDir, $".{Guid.NewGuid():N}.{config.Archive.Format}")
-                : null;
-            string archiveToUpdate = replacementArchivePath ?? targetFile.FullName;
-            bool result = await Run7zCommandAsync(
-                isExactSelection ? "a" : "u",
-                source,
-                archiveToUpdate,
-                config.Archive,
-                password,
-                null,
-                config.Filters,
-                fileTypeExclusions,
-                taskToUpdate,
-                applyAdditionalArguments: true,
-                selection: selection);
 
-            // 2.5 自定义文件类型追加压缩
-            if (result && config.Archive.FileTypeHandlingEnabled)
+            string? sevenZipExe = ResolveSevenZipExecutable();
+            if (string.IsNullOrWhiteSpace(sevenZipExe)
+                || !await ValidateRestoreChainAsync(new List<FileInfo> { new(baselinePath) }, sevenZipExe, password, taskToUpdate).ConfigureAwait(false))
             {
-                bool ruleResult = await RunFileTypeRulePassesAsync(source, archiveToUpdate, config.Archive, null, config.Filters, password, taskToUpdate, selection);
-                if (!ruleResult)
-                {
-                    Log(I18n.Format("BackupService_Log_FileTypeRulePassFailed"), LogLevel.Warning);
-                    if (isExactSelection)
-                    {
-                        result = false;
-                    }
-                }
+                Log(I18n.Format("BackupService_Log_RestoreIntegrityArchiveCheckFailed", baselineFileName), LogLevel.Warning);
+                return await FallbackToFullAsync();
             }
 
-            if (result && replacementArchivePath != null)
+            string finalFileName = CreateUniqueRollingFileName(destDir, baseName, config.Archive.Format, comment);
+            string finalPath = Path.Combine(destDir, finalFileName);
+            string? changedListFile = null;
+            string? deletedListFile = null;
+            bool committed = false;
+
+            try
             {
-                try
-                {
-                    File.Move(replacementArchivePath, targetFile.FullName, overwrite: true);
-                    replacementArchivePath = null;
-                }
-                catch (Exception ex)
-                {
-                    Log($"[Backup] Failed to replace exact overwrite archive: {ex.Message}", LogLevel.Error);
-                    result = false;
-                }
-            }
-            if (replacementArchivePath != null)
-            {
-                try { File.Delete(replacementArchivePath); } catch { }
-            }
+                using var transaction = RollingArchiveTransaction.Create(baselinePath, destDir);
+                Log(I18n.Format("BackupService_Log_RollingUpdating", baselineFileName), LogLevel.Info);
 
-            string? resultingFileName = null;
+                var changedFiles = changeSet.AddedFiles
+                    .Concat(changeSet.ModifiedFiles)
+                    .Distinct(StringComparer.OrdinalIgnoreCase)
+                    .ToList();
+                var fileTypeRules = config.Archive.FileTypeRules;
+                bool hasFileTypeRules = config.Archive.FileTypeHandlingEnabled
+                    && fileTypeRules != null
+                    && fileTypeRules.Count > 0;
+                var fileTypeMatchers = hasFileTypeRules
+                    ? CompileFileTypeWildcardPatterns(fileTypeRules!.Select(rule => rule.Pattern))
+                    : Array.Empty<Regex>();
+                var mainChangedFiles = hasFileTypeRules
+                    ? changedFiles.Where(path => !MatchesAnyFileTypePattern(path, fileTypeMatchers)).ToList()
+                    : changedFiles;
 
-            if (result)
-            {
-                // 3. 重命名文件以更新时间戳 (参考 MineBackup 逻辑)
-                // 假设文件名格式包含 [YYYY-MM-DD...]，我们要替换它
-                string oldName = targetFile.Name;
-                string newTimeStr = DateTime.Now.ToString("yyyy-MM-dd_HH-mm-ss");
-
-                // 使用正则表达式精确匹配时间戳部分
-                string newName = oldName;
-                var timeRegex = new Regex(@"\[\d{4}-\d{2}-\d{2}_\d{2}-\d{2}-\d{2}\]");
-                var match = timeRegex.Match(oldName);
-
-                if (match.Success)
+                bool updated = true;
+                if (mainChangedFiles.Count > 0)
                 {
-                    newName = oldName.Substring(0, match.Index) + $"[{newTimeStr}]" + oldName.Substring(match.Index + match.Length);
-                }
-                else
-                {
-                    // 如果格式不对，就重新构造名字，保留类型前缀与后缀
-                    string extension = Path.GetExtension(oldName);
-                    // 去掉已存在的方括号信息尽量简化构造
-                    string simpleBase = baseName;
-                    newName = GenerateFileName(simpleBase, config.Archive.Format, "Overwrite", comment);
-                }
-
-                resultingFileName = newName;
-
-                if (newName != oldName)
-                {
-                    string newPath = Path.Combine(destDir, newName);
-                    try
-                    {
-                        File.Move(targetFile.FullName, newPath);
-                        Log(I18n.Format("BackupService_Log_RenamedTo", newName), LogLevel.Info);
-                    }
-                    catch { /* 忽略重命名错误 */ resultingFileName = targetFile.Name; }
-                }
-                else
-                {
-                    resultingFileName = oldName;
-                }
-
-                if (!string.IsNullOrWhiteSpace(resultingFileName))
-                {
-                    bool metadataSaved = await UpdateMetadataAsync(
+                    changedListFile = Path.GetTempFileName();
+                    await File.WriteAllLinesAsync(changedListFile, mainChangedFiles, new UTF8Encoding(encoderShouldEmitUTF8Identifier: false)).ConfigureAwait(false);
+                    updated = await Run7zCommandAsync(
+                        "u",
                         source,
-                        metaDir,
-                        resultingFileName,
-                        resultingFileName,
-                        "Overwrite",
-                        oldState,
-                        currentStates,
-                        changeSet,
-                        config.Filters);
-                    if (!metadataSaved)
-                    {
-                        return SourceCaptureResult.Failed(sourceId, captureScope);
-                    }
+                        transaction.StagingPath,
+                        config.Archive,
+                        password,
+                        changedListFile,
+                        filters: null,
+                        fileTypeExclusions: null,
+                        taskToUpdate,
+                        applyAdditionalArguments: true).ConfigureAwait(false);
                 }
+
+                if (updated && hasFileTypeRules && changedFiles.Count > 0)
+                {
+                    updated = await RunFileTypeRulePassesAsync(
+                        source,
+                        transaction.StagingPath,
+                        config.Archive,
+                        changedFiles,
+                        filters: null,
+                        password,
+                        taskToUpdate).ConfigureAwait(false);
+                }
+
+                if (updated && changeSet.DeletedFiles.Count > 0)
+                {
+                    deletedListFile = Path.GetTempFileName();
+                    await File.WriteAllLinesAsync(deletedListFile, changeSet.DeletedFiles, new UTF8Encoding(encoderShouldEmitUTF8Identifier: false)).ConfigureAwait(false);
+                    updated = await Run7zCommandAsync(
+                        "d",
+                        source,
+                        transaction.StagingPath,
+                        config.Archive,
+                        password,
+                        deletedListFile,
+                        filters: null,
+                        fileTypeExclusions: null,
+                        taskToUpdate).ConfigureAwait(false);
+                }
+
+                bool exactArchiveState = updated
+                    && await ValidateRestoreChainAsync(new List<FileInfo> { new(transaction.StagingPath) }, sevenZipExe, password, taskToUpdate).ConfigureAwait(false)
+                    && await ValidateArchiveLogicalStateAsync(sevenZipExe, transaction.StagingPath, password, currentStates).ConfigureAwait(false);
+                if (!exactArchiveState)
+                {
+                    transaction.Dispose();
+                    return await FallbackToFullAsync();
+                }
+
+                transaction.Commit(finalPath);
+                committed = true;
+
+                bool metadataSaved = await UpdateMetadataAsync(
+                    source,
+                    metaDir,
+                    finalFileName,
+                    finalFileName,
+                    "Rolling",
+                    oldState,
+                    currentStates,
+                    changeSet,
+                    config.Filters).ConfigureAwait(false);
+                if (!metadataSaved)
+                {
+                    try { File.Delete(finalPath); } catch { }
+                    return SourceCaptureResult.Failed(sourceId, captureScope);
+                }
+
+                return CreateLegacyArchiveCapture(
+                    sourceId,
+                    captureScope,
+                    destDir,
+                    finalFileName,
+                    RepresentationKind.CoreRolling,
+                    config.Archive.Format,
+                    CapturePayloadState.VerifiedFinal);
+            }
+            catch (Exception ex)
+            {
+                Log($"[Rolling] {ex.Message}", LogLevel.Error);
+                if (committed)
+                {
+                    try { File.Delete(finalPath); } catch { }
+                }
+                return SourceCaptureResult.Failed(sourceId, captureScope);
+            }
+            finally
+            {
+                try { if (!string.IsNullOrWhiteSpace(changedListFile)) File.Delete(changedListFile); } catch { }
+                try { if (!string.IsNullOrWhiteSpace(deletedListFile)) File.Delete(deletedListFile); } catch { }
+            }
+        }
+
+        private static bool IsSafeArchiveFileName(string? fileName)
+            => !string.IsNullOrWhiteSpace(fileName)
+                && string.Equals(fileName, Path.GetFileName(fileName), StringComparison.Ordinal)
+                && fileName.IndexOfAny(Path.GetInvalidFileNameChars()) < 0;
+
+        private static string CreateUniqueRollingFileName(string destinationDirectory, string baseName, string format, string comment)
+        {
+            string candidate = GenerateFileName(baseName, format, "Rolling", comment);
+            if (!File.Exists(Path.Combine(destinationDirectory, candidate)))
+            {
+                return candidate;
             }
 
-            return result
-                ? CreateLegacyArchiveCapture(sourceId, captureScope, destDir, resultingFileName ?? targetFile.Name, RepresentationKind.CoreRolling, config.Archive.Format)
-                : SourceCaptureResult.Failed(sourceId, captureScope);
+            string extension = Path.GetExtension(candidate);
+            string stem = Path.GetFileNameWithoutExtension(candidate);
+            return $"{stem}-{Guid.NewGuid():N}{extension}";
         }
 
         /// <summary>
