@@ -113,6 +113,16 @@ public sealed class HistoryQueryService
         CancellationToken cancellationToken = default)
         => _index.GetMigrationRecordsAsync(cancellationToken);
 
+    public Task<IReadOnlyList<StorageReplica>> GetStorageReplicasAsync(
+        RepresentationId representationId,
+        CancellationToken cancellationToken = default)
+        => _index.GetStorageReplicasAsync(representationId, cancellationToken);
+
+    public Task<IReadOnlyList<ReplicaLifecycleUpdate>> GetReplicaLifecycleUpdatesAsync(
+        ReplicaId replicaId,
+        CancellationToken cancellationToken = default)
+        => _index.GetReplicaLifecycleUpdatesAsync(replicaId, cancellationToken);
+
     public async Task<HistoryAnnotationProjectionResult> GetAnnotationProjectionAsync(
         HistoryAnnotationTarget target,
         CancellationToken cancellationToken = default)

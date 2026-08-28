@@ -319,6 +319,22 @@ public sealed class HistoryIndex : IDisposable
             [],
             cancellationToken);
 
+    public Task<IReadOnlyList<StorageReplica>> GetStorageReplicasAsync(
+        RepresentationId representationId,
+        CancellationToken cancellationToken = default)
+        => ReadPayloadsAsync<StorageReplica>(
+            "SELECT PayloadJson FROM SharedReplicas WHERE RepresentationId = $id ORDER BY ReplicaId",
+            [("$id", representationId.ToString())],
+            cancellationToken);
+
+    public Task<IReadOnlyList<ReplicaLifecycleUpdate>> GetReplicaLifecycleUpdatesAsync(
+        ReplicaId replicaId,
+        CancellationToken cancellationToken = default)
+        => ReadPayloadsAsync<ReplicaLifecycleUpdate>(
+            "SELECT PayloadJson FROM ReplicaLifecycle WHERE ReplicaId = $id ORDER BY CreatedAtUtc, UpdateId",
+            [("$id", replicaId.ToString())],
+            cancellationToken);
+
     public async Task<int> GetIndexedPackCountAsync(CancellationToken cancellationToken = default)
     {
         ObjectDisposedException.ThrowIf(_disposed, this);
