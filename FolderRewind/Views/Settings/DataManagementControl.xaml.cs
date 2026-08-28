@@ -1,5 +1,6 @@
 using FolderRewind.Models;
 using FolderRewind.Services;
+using FolderRewind.History.Application;
 using FolderRewind.ViewModels;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
@@ -319,65 +320,41 @@ namespace FolderRewind.Views.Settings
 
         private async void OnExportHistoryClick(object sender, RoutedEventArgs e)
         {
-            var location = await PromptDataTransferLocationAsync(
-                I18n.GetString("Settings_ExportHistoryMode_Title"),
-                I18n.GetString("Settings_ExportHistoryMode_Description"));
-            if (location == null)
-            {
-                return;
-            }
-
-            if (location == DataTransferLocation.Cloud)
-            {
-                var remoteBasePath = await PromptCloudRemoteBasePathAsync(
-                    I18n.GetString("Settings_ExportHistoryToCloud_Title"),
-                    I18n.GetString("Settings_ExportHistoryToCloud_Description"));
-                if (string.IsNullOrWhiteSpace(remoteBasePath))
-                {
-                    return;
-                }
-
-                var cloudResult = await CloudSyncService.ExportHistoryToCloudAsync(remoteBasePath);
-                ShowInfoBar(cloudResult.Message, cloudResult.Success ? InfoBarSeverity.Success : InfoBarSeverity.Error);
-                return;
-            }
-
             var filePath = await MainWindowService.PickSaveFilePathAsync(
                 string.Empty,
                 "FolderRewind.Settings.DataManagement.ExportHistory",
                 new Dictionary<string, IReadOnlyList<string>>
                 {
-                    ["JSON"] = new ReadOnlyCollection<string>(new[] { ".json" })
+                    ["FolderRewind History"] = new ReadOnlyCollection<string>(new[] { ".frhistory" })
                 },
                 "FolderRewind_history",
                 MainWindowService.SuggestedPickerLocation.DocumentsLibrary);
             if (string.IsNullOrWhiteSpace(filePath)) return;
 
-            bool ok = HistoryService.ExportHistory(filePath);
-            string runsPath = Path.Combine(Path.GetDirectoryName(filePath) ?? string.Empty, "backup-runs.json");
-            ok = ok && BackupRunService.Export(runsPath);
-            if (ok)
+            var config = ConfigService.CurrentConfig.BackupConfigs.FirstOrDefault(item =>
+                item.Id == ConfigService.CurrentConfig.GlobalSettings.LastHistoryConfigId)
+                ?? ConfigService.CurrentConfig.BackupConfigs.FirstOrDefault();
+            if (config is null) return;
+            try
+            {
+                await new HistoryRepositoryTransferService().ExportAsync(
+                    NativeHistoryCoreGateway.GetRequiredRuntime(config.Id), filePath);
                 ShowInfoBar(I18n.GetString("Settings_ExportHistorySuccess"), InfoBarSeverity.Success);
-            else
+            }
+            catch
+            {
                 ShowInfoBar(I18n.GetString("Settings_ExportHistoryFailed"), InfoBarSeverity.Error);
+            }
         }
 
         private async void OnImportHistoryClick(object sender, RoutedEventArgs e)
         {
-            var location = await PromptDataTransferLocationAsync(
-                I18n.GetString("Settings_ImportHistoryMode_Title"),
-                I18n.GetString("Settings_ImportHistoryMode_Description"));
-            if (location == null)
-            {
-                return;
-            }
-
             var confirm = new ContentDialog
             {
                 Title = I18n.GetString("Settings_ImportHistoryConfirmTitle"),
                 Content = new TextBlock { Text = I18n.GetString("Settings_ImportHistoryConfirmContent"), TextWrapping = TextWrapping.Wrap },
                 PrimaryButtonText = I18n.GetString("Settings_ImportHistoryMerge"),
-                SecondaryButtonText = I18n.GetString("Settings_ImportHistoryReplace"),
+                SecondaryButtonText = string.Empty,
                 CloseButtonText = I18n.GetString("Common_Cancel"),
                 DefaultButton = ContentDialogButton.Primary,
                 XamlRoot = this.XamlRoot
@@ -387,40 +364,27 @@ namespace FolderRewind.Views.Settings
             var result = await confirm.ShowAsync();
             if (result == ContentDialogResult.None) return;
 
-            bool merge = (result == ContentDialogResult.Primary);
-
-            if (location == DataTransferLocation.Cloud)
-            {
-                var remoteBasePath = await PromptCloudRemoteBasePathAsync(
-                    I18n.GetString("Settings_ImportHistoryFromCloud_Title"),
-                    I18n.GetString("Settings_ImportHistoryFromCloud_Description"));
-                if (string.IsNullOrWhiteSpace(remoteBasePath))
-                {
-                    return;
-                }
-
-                var cloudResult = await CloudSyncService.ImportHistoryFromCloudAsync(remoteBasePath, merge);
-                ShowInfoBar(cloudResult.Message, cloudResult.Success ? InfoBarSeverity.Success : InfoBarSeverity.Error);
-                return;
-            }
-
             var filePath = await MainWindowService.PickFilePathAsync(
                 string.Empty,
                 "FolderRewind.Settings.DataManagement.ImportHistory",
-                new[] { ".json" },
+                new[] { ".frhistory" },
                 MainWindowService.SuggestedPickerLocation.DocumentsLibrary);
             if (string.IsNullOrWhiteSpace(filePath)) return;
 
-            var (ok, count) = HistoryService.ImportHistory(filePath, merge);
-            string runsPath = Path.Combine(Path.GetDirectoryName(filePath) ?? string.Empty, "backup-runs.json");
-            if (ok && File.Exists(runsPath))
+            try
             {
-                ok = BackupRunService.Import(runsPath, merge).Success;
+                var imported = await new HistoryRepositoryTransferService(id =>
+                {
+                    NativeHistoryCoreGateway.TryGetRuntime(id, out var runtime);
+                    return runtime;
+                }).ImportAsync(
+                    filePath, ConfigService.ConfigDirectory);
+                ShowInfoBar(I18n.Format("Settings_ImportHistorySuccess", imported.InstalledPacks.ToString()), InfoBarSeverity.Success);
             }
-            if (ok)
-                ShowInfoBar(I18n.Format("Settings_ImportHistorySuccess", count.ToString()), InfoBarSeverity.Success);
-            else
+            catch
+            {
                 ShowInfoBar(I18n.GetString("Settings_ImportHistoryFailed"), InfoBarSeverity.Error);
+            }
         }
 
         private async Task<DataTransferLocation?> PromptDataTransferLocationAsync(string title, string description)

@@ -161,68 +161,6 @@ namespace FolderRewind.Services
             }
         }
 
-        internal static HistoryFolderIdentityUpdate UpdateFolderIdentities(
-            IReadOnlyList<FolderRenameReferencePlan> references)
-        {
-            if (references == null || references.Count == 0)
-            {
-                return new HistoryFolderIdentityUpdate();
-            }
-
-            Initialize();
-            int updated = 0;
-            var snapshots = new List<HistoryFolderIdentitySnapshot>();
-
-            lock (_historyLock)
-            {
-                foreach (var item in _allHistory)
-                {
-                    if (!FolderRenameService.TryResolveHistoryIdentityUpdate(
-                            item.ConfigId,
-                            item.FolderPath,
-                            item.FolderName,
-                            references,
-                            out string newPath,
-                            out string newFolderName))
-                    {
-                        continue;
-                    }
-
-                    snapshots.Add(new HistoryFolderIdentitySnapshot(
-                        item,
-                        item.FolderPath ?? string.Empty,
-                        item.FolderName ?? string.Empty));
-                    item.FolderPath = newPath;
-                    item.FolderName = newFolderName;
-                    updated++;
-                }
-            }
-
-            return new HistoryFolderIdentityUpdate
-            {
-                UpdatedCount = updated,
-                Snapshots = snapshots
-            };
-        }
-
-        internal static void RestoreFolderIdentities(
-            IReadOnlyList<HistoryFolderIdentitySnapshot> snapshots)
-        {
-            if (snapshots == null || snapshots.Count == 0)
-            {
-                return;
-            }
-
-            lock (_historyLock)
-            {
-                foreach (var snapshot in snapshots)
-                {
-                    snapshot.Item.FolderPath = snapshot.FolderPath;
-                    snapshot.Item.FolderName = snapshot.FolderName;
-                }
-            }
-        }
-
         /// <summary>
         /// 更新历史记录的注释
         /// </summary>

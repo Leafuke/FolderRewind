@@ -12,12 +12,16 @@ using System.Collections.ObjectModel;
 using System.IO;
 using System.Linq;
 using System.Threading.Tasks;
+using System.Text.RegularExpressions;
 using Windows.UI;
 
 namespace FolderRewind.ViewModels;
 
 public sealed class HistoryPageViewModel : ViewModelBase
 {
+    private static readonly Regex RecoverableArchiveName = new(
+        @"^\[(Full|Smart|Rolling|Overwrite)\]\[\d{4}-\d{2}-\d{2}_\d{2}-\d{2}-\d{2}\](.+?)(?:\s\[.+?\])?\.(7z|zip)$",
+        RegexOptions.Compiled | RegexOptions.IgnoreCase | RegexOptions.CultureInvariant);
     private readonly List<NativeHistoryVersionViewItem> _allVersions = [];
     private readonly List<BackupRunViewItem> _allRuns = [];
     private IDisposable? _changeSubscription;
@@ -105,8 +109,58 @@ public sealed class HistoryPageViewModel : ViewModelBase
     }
 
     public int GetMissingCount() => _missingCount;
-    public void ClearMissingEntries() { }
-    public int ScanAndRecoverHistory(string scanPath) => 0;
+    public async Task<int> ClearMissingEntriesAsync()
+    {
+        if (_currentConfig is null)
+            return 0;
+        return await new HistoryLocalReplicaMaintenanceService(
+            NativeHistoryCoreGateway.GetRequiredRuntime(_currentConfig.Id))
+            .RemoveMissingControlledReplicasAsync()
+            .ConfigureAwait(false);
+    }
+    public async Task<int> ScanAndRecoverHistoryAsync(string scanPath)
+    {
+        if (_currentConfig is null
+            || _currentFolder is null
+            || !Guid.TryParse(_currentFolder.Id, out var sourceGuid)
+            || sourceGuid == Guid.Empty
+            || string.IsNullOrWhiteSpace(scanPath)
+            || !Directory.Exists(scanPath))
+        {
+            return 0;
+        }
+
+        var sourceId = new SourceId(sourceGuid);
+        var displayName = string.IsNullOrWhiteSpace(_currentFolder.DisplayName)
+            ? Path.GetFileName(_currentFolder.Path.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar))
+            : _currentFolder.DisplayName.Trim();
+        var descriptor = new SourceDescriptorSnapshot(displayName, _currentFolder.Path);
+        var recovery = new HistoryArchiveRecoveryService(
+            NativeHistoryCoreGateway.GetRequiredRuntime(_currentConfig.Id));
+        var recovered = 0;
+        foreach (var path in Directory.EnumerateFiles(scanPath, "*.*", SearchOption.TopDirectoryOnly)
+                     .OrderBy(item => item, StringComparer.OrdinalIgnoreCase))
+        {
+            var match = RecoverableArchiveName.Match(Path.GetFileName(path));
+            if (!match.Success
+                || !string.Equals(match.Groups[2].Value.Trim(), displayName, StringComparison.OrdinalIgnoreCase))
+            {
+                continue;
+            }
+
+            var result = await recovery.RecoverAsync(
+                sourceId,
+                descriptor,
+                path,
+                overlay: string.Equals(match.Groups[1].Value, "Smart", StringComparison.OrdinalIgnoreCase))
+                .ConfigureAwait(false);
+            if (result.Created)
+            {
+                recovered++;
+            }
+        }
+        return recovered;
+    }
     public string? GetBackupFilePath(NativeHistoryVersionViewItem item) => item.LocalPath;
     public bool TryRevealBackupFile(NativeHistoryVersionViewItem item, out string? errorMessage)
     {
@@ -216,7 +270,11 @@ public sealed class HistoryPageViewModel : ViewModelBase
         else
         {
             foreach (var item in _allVersions.Where(item => needle.Length == 0 || item.Comment.Contains(needle, StringComparison.OrdinalIgnoreCase))) FilteredHistory.Add(item);
-            _missingCount = _allVersions.Count(item => item.IsMissing); IsEmpty = FilteredHistory.Count == 0; UpdateTimelineVisuals(FilteredHistory);
+            _missingCount = _allVersions.Count(item =>
+                item.LocalPath is not null
+                && !File.Exists(item.LocalPath)
+                && !Directory.Exists(item.LocalPath));
+            IsEmpty = FilteredHistory.Count == 0; UpdateTimelineVisuals(FilteredHistory);
         }
         OnPropertyChanged(nameof(HasMissing)); NotifyContextChanged();
     }

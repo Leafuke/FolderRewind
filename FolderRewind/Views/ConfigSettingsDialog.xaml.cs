@@ -1,4 +1,5 @@
 using FolderRewind.Models;
+using FolderRewind.History.Application;
 using FolderRewind.Services;
 using FolderRewind.Services.Plugins;
 using FolderRewind.ViewModels;
@@ -503,12 +504,6 @@ namespace FolderRewind.Views
 
             current.BackupConfigs.Remove(toRemove);
 
-            // 清除加密配置的存储密码
-            if (toRemove.IsEncrypted)
-            {
-                EncryptionService.RemovePassword(toRemove.Id);
-            }
-
             if (settings != null)
             {
                 if (settings.LastManagerConfigId == Config.Id)
@@ -525,6 +520,7 @@ namespace FolderRewind.Views
             }
 
             ConfigService.Save();
+            await NativeHistoryCoreGateway.DetachActiveConfigAsync(toRemove.Id);
         }
 
         private static void OpenPathInShell(string path)

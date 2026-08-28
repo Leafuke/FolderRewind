@@ -87,6 +87,26 @@ public static class NativeHistoryCoreGateway
         return Ready[new HistoryConfigId(configId).Value];
     }
 
+    public static bool TryGetRuntime(HistoryConfigId configId, out HistoryRuntime? runtime)
+        => Ready.TryGetValue(configId.Value, out runtime);
+
+    public static async Task DetachActiveConfigAsync(
+        string configId,
+        CancellationToken cancellationToken = default)
+    {
+        var id = new HistoryConfigId(configId);
+        Failed.TryRemove(id.Value, out _);
+        if (!Ready.TryRemove(id.Value, out var runtime))
+            return;
+
+        await using (await runtime.MutationGate.EnterAsync(cancellationToken).ConfigureAwait(false))
+        {
+            // Removing an active configuration only detaches its in-process runtime.
+            // Repository packs, payloads, local replica state, and credentials stay on disk.
+        }
+        await runtime.DisposeAsync().ConfigureAwait(false);
+    }
+
     public static async Task<IReadOnlyList<string>> ListBackupFilesAsync(
         string configId,
         SourceId sourceId,

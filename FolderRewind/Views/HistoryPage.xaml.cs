@@ -652,7 +652,16 @@ namespace FolderRewind.Views
             var result = await dialog.ShowAsync();
             if (result != ContentDialogResult.Primary) return;
 
-            ViewModel.ClearMissingEntries();
+            try
+            {
+                await ViewModel.ClearMissingEntriesAsync();
+            }
+            catch (Exception ex)
+            {
+                LogService.LogError($"[HistoryPage] Local replica cleanup failed: {ex.Message}", nameof(HistoryPage), ex);
+                NotificationService.ShowError(ex.Message);
+                return;
+            }
             ViewModel.RefreshCurrentHistory();
         }
 
@@ -670,7 +679,17 @@ namespace FolderRewind.Views
                 return;
             }
 
-            var recovered = await Task.Run(() => ViewModel.ScanAndRecoverHistory(scanPath));
+            int recovered;
+            try
+            {
+                recovered = await ViewModel.ScanAndRecoverHistoryAsync(scanPath);
+            }
+            catch (Exception ex)
+            {
+                LogService.LogError($"[HistoryPage] Native archive recovery failed: {ex.Message}", nameof(HistoryPage), ex);
+                NotificationService.ShowError(ex.Message);
+                return;
+            }
 
             if (recovered > 0)
             {

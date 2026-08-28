@@ -1,4 +1,5 @@
 using FolderRewind.Models;
+using FolderRewind.History.Application;
 using FolderRewind.Services;
 using System;
 using System.Collections.ObjectModel;
@@ -176,21 +177,16 @@ namespace FolderRewind.ViewModels
             }
         }
 
-        public void DeleteConfig(BackupConfig config)
+        public async Task DeleteConfigAsync(BackupConfig config)
         {
             if (config == null || ConfigService.CurrentConfig?.BackupConfigs == null)
             {
                 return;
             }
 
-            if (config.IsEncrypted)
-            {
-                // 删除配置时顺手清理本地密码缓存，避免残留无主密钥。
-                EncryptionService.RemovePassword(config.Id);
-            }
-
             ConfigService.CurrentConfig.BackupConfigs.Remove(config);
             ConfigService.Save();
+            await NativeHistoryCoreGateway.DetachActiveConfigAsync(config.Id);
         }
 
         private void HookConfigsChanged()

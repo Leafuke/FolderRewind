@@ -57,15 +57,3 @@ internal sealed class FolderRenameReferencePlan
     internal required BackupConfig Config { get; init; }
     internal required ManagedFolder Folder { get; init; }
 }
-
-internal sealed record HistoryFolderIdentitySnapshot(
-    HistoryItem Item,
-    string FolderPath,
-    string FolderName);
-
-internal sealed class HistoryFolderIdentityUpdate
-{
-    public int UpdatedCount { get; init; }
-    public IReadOnlyList<HistoryFolderIdentitySnapshot> Snapshots { get; init; }
-        = Array.Empty<HistoryFolderIdentitySnapshot>();
-}

@@ -962,7 +962,7 @@ namespace FolderRewind.Views
 
                 if (await dialog.ShowAsync() == ContentDialogResult.Primary)
                 {
-                    ViewModel.DeleteConfig(config);
+                    await ViewModel.DeleteConfigAsync(config);
                 }
             }
         }
