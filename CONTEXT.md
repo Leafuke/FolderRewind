@@ -65,17 +65,73 @@ _Avoid_: Source scope, discovery rule
 
 ## History language
 
-**History Item**:
-A durable user-visible restore point rooted at one Backup Artifact and able to reach its required Artifact dependencies.
-_Avoid_: Backup run, physical archive, artifact node
+**History Repository**:
+The durable collection of shared history facts for one Backup Config. Its contents converge by immutable Commit Pack union rather than by replacing a mutable snapshot.
+_Avoid_: History file, SQLite database, local workspace
+
+**Source Version**:
+An immutable logical state of one Backup Source, with explicit source ancestry but no claim about where recoverable bytes currently exist.
+_Avoid_: History item, archive, replica
 
 **Backup Run**:
-A configuration-level grouping record for one backup operation, referring to source results and history items without owning their archives.
-_Avoid_: History item, archive owner, alternative history mode
+A durable operation fact describing one backup invocation, its per-source outcomes, and its resulting Configuration Checkpoint when one exists.
+_Avoid_: Mutable run record, restore point, archive owner
+
+**Configuration Checkpoint**:
+A configuration-wide state vector that associates each configured Source with its reliable Source Version when available and the capture disposition for that checkpoint.
+_Avoid_: Backup run, archive set, branch
+
+**Version Representation**:
+An immutable way to materialize one Source Version, including its physical dependency Representations and restore fidelity.
+_Avoid_: Source version, archive filename, replica
+
+**Storage Replica**:
+A repository-shared identity for one physical copy of a Version Representation payload, with lifecycle facts that declare whether that copy is active or retired.
+_Avoid_: Local file path, availability observation, representation
+
+**Local Replica Catalog**:
+The device-local mapping from Version Representations to physical realizations on this computer; it is durable locally but never synchronized as shared history.
+_Avoid_: Storage replica, history repository, cloud manifest
+
+**Replica Observation**:
+A replaceable device-local assessment of a Replica's current availability and integrity.
+_Avoid_: Durable history fact, replica lifecycle, logical deletion
+
+**Commit Pack**:
+An immutable, create-once unit that makes all shared facts from one History transaction visible atomically and participates in set-union synchronization.
+_Avoid_: History snapshot, mutable manifest, database transaction log
+
+**Branch**:
+A stable user-facing history line whose current state is derived from its Branch Update tips; more than one tip means divergence, not an implicit winner.
+_Avoid_: Workspace, folder branch, mutable pointer
+
+**Branch Update**:
+An immutable fact that advances, creates, renames, or deletes a Branch by referencing a Configuration Checkpoint and prior update identities.
+_Avoid_: Source Version parent, checkout state, mutable branch row
+
+**Workspace**:
+The device-local record of the active Branch Update and per-Source baselines from which the next backup derives lineage.
+_Avoid_: Restore staging directory, shared branch state, cloud metadata
+
+**Materialization Policy**:
+The shared Retained or Released intent for a Source Version's recoverable materialization; it does not delete the logical Version itself.
+_Avoid_: Pin, replica availability, retention result
+
+**History Annotation**:
+An immutable update for comments, Pins, presentation suppression, or Backup Run importance; only Pins create a retention guarantee.
+_Avoid_: Mutable Version field, Materialization Policy, archive metadata
+
+**History Index**:
+A disposable query projection rebuilt from Commit Packs and never treated as history authority.
+_Avoid_: History repository, source of truth, workspace
+
+**Capture Baseline Cache**:
+A disposable device-local optimization for the next Smart diff; losing it forces a Full capture without losing logical history.
+_Avoid_: Smart history, representation dependency, workspace baseline
 
 **Backup Artifact**:
-An immutable, Host-managed payload that contributes to reconstructing one restorable state and may depend on other Backup Artifacts.
-_Avoid_: Mutable archive, history item, plugin data file
+An immutable, Host-managed payload node that may contribute to a Plugin Artifact Representation and depend on other Backup Artifacts.
+_Avoid_: Mutable archive, Source Version, History root
 
 **Artifact Format**:
 The stable owner-qualified identity and version that determine how a Backup Artifact can be interpreted and materialized.
@@ -90,11 +146,11 @@ An explicit directed requirement stating that one Backup Artifact needs another 
 _Avoid_: Filename link, implicit chain order, neighboring history item
 
 **Artifact Transaction**:
-The Host-owned atomic change that validates and commits staged Backup Artifacts, dependency edges, and History root references as one recoverable graph revision.
-_Avoid_: Post-backup hook, in-place archive rewrite, plugin commit
+The Host-owned atomic change that validates and commits staged Backup Artifacts and dependency edges, returning an explicit Artifact root for a Version Representation.
+_Avoid_: History transaction, in-place archive rewrite, plugin commit
 
 **Operation Comment**:
-The comment supplied for one manual backup invocation; a configuration backup stores it on the run and newly created child history items, but never rewrites reused history items.
+The comment supplied for one backup invocation and attached to its Backup Run and newly created Source Versions, without rewriting reused Versions.
 _Avoid_: Folder note, mutable archive comment
 
 ## Plugin language
@@ -180,11 +236,11 @@ A bounded right to read one stable backup source through difference detection an
 _Avoid_: Backup hook, source path override, archive lifetime
 
 **Artifact Transformer**:
-A plugin capability that converts staged and compatible Backup Artifacts into a proposed Artifact Transaction without changing committed artifacts itself.
+A plugin capability that converts Host-scoped Backup Artifacts into a proposed immutable Artifact result without changing committed artifacts itself.
 _Avoid_: Post-backup hook, backup engine, archive interceptor
 
 **Backup Completion Observer**:
-A participant notified after a backup's Artifact and History root are durably committed but before final diagnostics; it may perform declared integration work while remaining read-only toward Host backup state.
+A participant notified after a backup's Native History facts are durable; it may perform declared integration work while remaining read-only toward Host backup state.
 _Avoid_: Artifact finalizer, transactional hook, completion owner
 
 **Restore Mode**:
@@ -192,7 +248,7 @@ The Host-owned policy for applying materialized content to a destination, curren
 _Avoid_: Artifact format, restore strategy, plugin takeover
 
 **Restore Materializer**:
-A plugin capability that reconstructs a selected Artifact graph into an isolated Host workspace without applying it to the user's destination.
+A plugin capability that reconstructs a selected Artifact closure into an isolated Host staging area without applying it to the user's destination.
 _Avoid_: Restore mode, restore interceptor, target mutation
 
 **Restore Coordinator**:

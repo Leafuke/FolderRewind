@@ -7,10 +7,10 @@
 - Compiled Ludusavi index v3 with validated current/previous cache generations.
 - User-reviewed configuration creation and three-way rediscovery proposals.
 - Editable per-source `All` or `Include` scopes followed by configuration-level filters.
-- Source `HistoryItem` records, optional configuration-level `BackupRun` grouping, and both history views.
+- Source Versions, configuration Checkpoints, immutable Backup Runs, and both history views.
 - MineRewind instance-level discovery through host API version 1.9.0.
 
-Heroic, Lutris, registry backup, automatic game-directory `.ludusavi.yaml` discovery, remote overrides, generic ProviderSettings/UserRoots UI, and cross-source atomic restore remain out of scope.
+Heroic, Lutris, registry backup, automatic game-directory `.ludusavi.yaml` discovery, remote overrides, generic ProviderSettings/UserRoots UI, and History Merge/reconciliation remain out of scope.
 
 The old unpublished `HistoryMode`, discovery-origin structure, Ludusavi index v2, and BackupRun v1 have no migration path. No released FolderRewind data uses those formats.
 
@@ -27,10 +27,10 @@ The old unpublished `HistoryMode`, discovery-origin structure, Ludusavi index v2
 - [x] Scanner failures are isolated by provider root or manifest and reported as structured diagnostics.
 - [x] HTTP 304 still checks local inputs; changed, removed, or corrupt inputs rebuild or recover through current/previous generations.
 - [x] Configuration save is single-shot and restores both configuration and review baseline on failure.
-- [x] Configuration backup persists a run only after at least one new source archive and never hides source history.
-- [x] One retention count governs regular runs and per-source histories while important and retained-run references stay protected.
-- [x] Source and run history views expose their respective restore, comment, importance, synchronization, and deletion behavior.
-- [x] Manual source and configuration backups share one operation-comment path without rewriting comments on reused archives.
+- [x] Every backup invocation persists an immutable Run fact; changed source state atomically adds Versions, a Checkpoint, and a Branch Update.
+- [x] One retention count governs Checkpoints while Pins, Branch tips, Workspace baselines, and active operations remain protected.
+- [x] Source and run history views project Native Version and Checkpoint restore, annotations, synchronization, release, and suppression behavior.
+- [x] Manual source and configuration backups share one operation-comment path without rewriting comments on reused Versions.
 - [x] Ludusavi/PCGamingWiki attribution and the no-redistribution decision remain recorded in `THIRD-PARTY-NOTICES.md` and visible in the Beta page.
 
 ## Verification commands
@@ -47,7 +47,7 @@ dotnet build FolderRewind/FolderRewind.csproj -c Release -p:Platform=x64 --no-re
 - Download, update check, primary import, and manually selected secondary manifest all scan successfully.
 - Steam multi-account defaults and warnings match the documented policy.
 - A discovered configuration supports single-source backup, scope editing, source history, and ordinary restore.
-- Configuration backup creates a run; single-source backup creates only source history; both views remember the last selection.
+- Configuration and single-source backups both create Run facts; state changes additionally create Source Versions and Checkpoints, and both views remember the last selection.
 - Broad roots, source/archive overlap, and upstream narrowing cannot expand or shrink protection without explicit confirmation.
 
 A release candidate must be exercised once through the packaged WinUI workflow on Windows x64 before publication.
