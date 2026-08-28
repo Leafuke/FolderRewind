@@ -14,7 +14,8 @@ public enum HistoryChangeKind
     TransactionCommitted = 2,
     LocalStateChanged = 3,
     IndexRebuilt = 4,
-    MigrationCompleted = 5
+    MigrationCompleted = 5,
+    CloudUnionChanged = 6
 }
 
 public sealed record HistoryChange(
@@ -92,4 +93,3 @@ public sealed class HistoryChangeFeed
         public void Dispose() => Interlocked.Exchange(ref _owner, null)?.Unsubscribe(id);
     }
 }
-
