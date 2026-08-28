@@ -31,6 +31,7 @@ public sealed class HistoryRepositoryValidator
         var runs = known.OfType<BackupRun>().ToDictionary(item => item.RunId);
         var annotations = known.OfType<HistoryAnnotationUpdate>().ToDictionary(item => item.UpdateId);
         var policies = known.OfType<MaterializationPolicyUpdate>().ToDictionary(item => item.UpdateId);
+        var migrationRecords = known.OfType<LegacyMigrationRecord>().ToDictionary(item => item.RecordId);
 
         foreach (var version in versions.Values)
         {
@@ -163,6 +164,11 @@ public sealed class HistoryRepositoryValidator
             }
         }
 
+        foreach (var record in migrationRecords.Values)
+        {
+            Require(versions, record.VersionId, "LegacyMigrationRecord Version");
+        }
+
         EnsureAcyclic(versions.Values, item => item.VersionId, item => item.ParentVersionIds, "SourceVersion");
         EnsureAcyclic(representations.Values, item => item.RepresentationId, item => item.DependencyRepresentationIds, "Representation");
         EnsureAcyclic(branchUpdates.Values, item => item.UpdateId, item => item.ParentUpdateIds, "BranchUpdate");
@@ -271,4 +277,3 @@ public sealed class HistoryRepositoryValidator
 
     private static HistoryRepositoryValidationException Invalid(string message) => new(message);
 }
-

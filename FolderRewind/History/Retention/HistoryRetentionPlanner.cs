@@ -53,13 +53,15 @@ public sealed class HistoryRetentionPlanner
         var annotationsTask = _history.Query.GetAllAnnotationUpdatesAsync(cancellationToken);
         var versionsTask = _history.Query.GetAllVersionsAsync(cancellationToken);
         var representationsTask = _history.Query.GetAllRepresentationsAsync(cancellationToken);
+        var migrationsTask = _history.Query.GetMigrationRecordsAsync(cancellationToken);
         await Task.WhenAll(
             checkpointsTask,
             runsTask,
             branchUpdatesTask,
             annotationsTask,
             versionsTask,
-            representationsTask).ConfigureAwait(false);
+            representationsTask,
+            migrationsTask).ConfigureAwait(false);
 
         var checkpoints = checkpointsTask.Result;
         var checkpointMap = checkpoints.ToDictionary(item => item.CheckpointId);
@@ -70,6 +72,7 @@ public sealed class HistoryRetentionPlanner
         var versionMap = versions.ToDictionary(item => item.VersionId);
         var allRepresentations = representationsTask.Result;
         var representationMap = allRepresentations.ToDictionary(item => item.RepresentationId);
+        var migrationRecords = migrationsTask.Result;
         var catalogLoad = await _history.LocalReplicaCatalogStore.LoadAsync(cancellationToken).ConfigureAwait(false);
         var workspaceLoad = await _history.WorkspaceStore.LoadAsync(cancellationToken).ConfigureAwait(false);
         var blockers = new List<string>();
@@ -78,6 +81,12 @@ public sealed class HistoryRetentionPlanner
             blockers.Add("Local Replica Catalog requires recovery before retention can plan deletion.");
         if (workspaceLoad.Status != DeviceLocalStateStatus.Valid)
             blockers.Add("Workspace must be valid before retention can prove its protection roots.");
+        if (migrationRecords.Count > 0
+            && !request.AllowPostMigrationCleanup
+            && runs.All(run => run.Invocation == BackupInvocationKind.Migration))
+        {
+            blockers.Add("Automatic retention waits for a normal Native backup after Legacy migration.");
+        }
 
         var policyTips = new Dictionary<VersionId, ImmutableArray<MaterializationPolicyUpdateId>>();
         var released = new HashSet<VersionId>();
@@ -461,6 +470,7 @@ public sealed class HistoryRetentionPlanner
     {
         var text = new StringBuilder()
             .Append(request.KeepCount).Append('|').Append((int)request.RequiredFidelity).Append('|')
+            .Append(request.AllowPostMigrationCleanup ? '1' : '0').Append('|')
             .Append(catalogRevision).Append('|')
             .Append(workspace?.StateRevision.ToString(CultureInfo.InvariantCulture) ?? "missing").AppendLine();
         foreach (var item in checkpoints) text.Append("c:").Append(item.CheckpointId).Append(':').Append((int)item.Reasons).AppendLine();

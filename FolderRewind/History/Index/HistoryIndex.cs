@@ -312,6 +312,13 @@ public sealed class HistoryIndex : IDisposable
             [],
             cancellationToken);
 
+    public Task<IReadOnlyList<LegacyMigrationRecord>> GetMigrationRecordsAsync(
+        CancellationToken cancellationToken = default)
+        => ReadPayloadsAsync<LegacyMigrationRecord>(
+            "SELECT PayloadJson FROM MigrationRecords ORDER BY RecordId",
+            [],
+            cancellationToken);
+
     public async Task<int> GetIndexedPackCountAsync(CancellationToken cancellationToken = default)
     {
         ObjectDisposedException.ThrowIf(_disposed, this);
@@ -556,6 +563,11 @@ public sealed class HistoryIndex : IDisposable
                     ("$id", item.UpdateId.ToString()), ("$version", item.VersionId.ToString()),
                     ("$state", (int)item.State), ("$created", Utc(item.CreatedAtUtc)), ("$payload", payloadJson));
                 InsertEdges(connection, transaction, "MaterializationPolicyParents", "UpdateId", item.UpdateId.ToString(), "ParentUpdateId", item.ParentUpdateIds.Select(id => id.ToString()));
+                break;
+            case LegacyMigrationRecord item:
+                Execute(connection, transaction,
+                    "INSERT INTO MigrationRecords VALUES($id,$payload)",
+                    ("$id", item.RecordId.ToString()), ("$payload", payloadJson));
                 break;
         }
     }

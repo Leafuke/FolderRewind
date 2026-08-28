@@ -109,6 +109,10 @@ public sealed class HistoryQueryService
         CancellationToken cancellationToken = default)
         => _index.GetAllAnnotationUpdatesAsync(cancellationToken);
 
+    public Task<IReadOnlyList<LegacyMigrationRecord>> GetMigrationRecordsAsync(
+        CancellationToken cancellationToken = default)
+        => _index.GetMigrationRecordsAsync(cancellationToken);
+
     public async Task<HistoryAnnotationProjectionResult> GetAnnotationProjectionAsync(
         HistoryAnnotationTarget target,
         CancellationToken cancellationToken = default)
@@ -129,9 +133,15 @@ public sealed class HistoryQueryService
         var versionsTask = _index.GetAllVersionsAsync(cancellationToken);
         var checkpointsTask = _index.GetAllCheckpointsAsync(cancellationToken);
         var runsTask = _index.GetRunsAsync(cancellationToken);
-        await Task.WhenAll(versionsTask, checkpointsTask, runsTask).ConfigureAwait(false);
+        var migrationsTask = _index.GetMigrationRecordsAsync(cancellationToken);
+        await Task.WhenAll(versionsTask, checkpointsTask, runsTask, migrationsTask).ConfigureAwait(false);
+        var supportVersionIds = migrationsTask.Result
+            .Where(item => item.Visibility == LegacyMigrationVisibility.SupportOnly)
+            .Select(item => item.VersionId)
+            .ToHashSet();
 
         return versionsTask.Result
+            .Where(item => !supportVersionIds.Contains(item.VersionId))
             .Select(item => new HistoryTimelineEntry(
                 HistoryTimelineEntryKind.Version,
                 item.VersionId.ToString(),

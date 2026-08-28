@@ -228,6 +228,18 @@ public readonly record struct MaterializationPolicyUpdateId : IHistoryGuidId<Mat
 }
 public sealed class MaterializationPolicyUpdateIdJsonConverter : HistoryGuidIdJsonConverter<MaterializationPolicyUpdateId>;
 
+[JsonConverter(typeof(LegacyMigrationRecordIdJsonConverter))]
+public readonly record struct LegacyMigrationRecordId : IHistoryGuidId<LegacyMigrationRecordId>
+{
+    public LegacyMigrationRecordId(Guid value) => Value = HistoryGuidId.Require(value, nameof(value));
+    public Guid Value { get; }
+    public static LegacyMigrationRecordId New() => new(Guid.NewGuid());
+    public static LegacyMigrationRecordId Parse(string value) => new(HistoryGuidId.Parse(value, nameof(value)));
+    public static LegacyMigrationRecordId FromGuid(Guid value) => new(HistoryGuidId.Require(value, nameof(value)));
+    public override string ToString() => Value.ToString("N", CultureInfo.InvariantCulture);
+}
+public sealed class LegacyMigrationRecordIdJsonConverter : HistoryGuidIdJsonConverter<LegacyMigrationRecordId>;
+
 [JsonConverter(typeof(PackIdJsonConverter))]
 public readonly record struct PackId : IHistoryGuidId<PackId>
 {

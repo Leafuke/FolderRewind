@@ -42,7 +42,8 @@ public sealed record HistoryRetentionRequest
     public HistoryRetentionRequest(
         int keepCount,
         MaterializationFidelity requiredFidelity,
-        HistoryRetentionOperationRoots activeOperations)
+        HistoryRetentionOperationRoots activeOperations,
+        bool allowPostMigrationCleanup = false)
     {
         if (keepCount < 0) throw new ArgumentOutOfRangeException(nameof(keepCount));
         if (requiredFidelity == MaterializationFidelity.Unknown)
@@ -50,11 +51,13 @@ public sealed record HistoryRetentionRequest
         KeepCount = keepCount;
         RequiredFidelity = requiredFidelity;
         ActiveOperations = activeOperations ?? throw new ArgumentNullException(nameof(activeOperations));
+        AllowPostMigrationCleanup = allowPostMigrationCleanup;
     }
 
     public int KeepCount { get; }
     public MaterializationFidelity RequiredFidelity { get; }
     public HistoryRetentionOperationRoots ActiveOperations { get; }
+    public bool AllowPostMigrationCleanup { get; }
 }
 
 public sealed record HistoryProtectedCheckpoint(
