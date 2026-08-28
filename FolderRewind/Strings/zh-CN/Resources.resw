@@ -5042,4 +5042,19 @@ Pull Request：{1}</value>
   <data name="GameDiscovery_PluginBatch_Commit.Content" xml:space="preserve"><value>创建全部配置</value></data>
   <data name="GameDiscovery_PluginBatch_CommitComplete" xml:space="preserve"><value>批量创建完成</value></data>
   <data name="GameDiscovery_PluginBatch_CommitSummary" xml:space="preserve"><value>已创建 {0} 个配置，跳过 {1} 个配置。</value></data>
+  <data name="History_NativeReadiness_Ready" xml:space="preserve"><value>可还原（精确）</value></data>
+  <data name="History_NativeReadiness_PreparationRequired" xml:space="preserve"><value>可从云端准备后还原</value></data>
+  <data name="History_NativeReadiness_PluginRequired" xml:space="preserve"><value>需要插件或凭据</value></data>
+  <data name="History_NativeReadiness_Unavailable" xml:space="preserve"><value>备份数据不可用</value></data>
+  <data name="History_NativeReadiness_Released" xml:space="preserve"><value>历史存在，但 payload 已释放</value></data>
+  <data name="History_NativeReadiness_MetadataOnly" xml:space="preserve"><value>仅保留历史元数据</value></data>
+  <data name="History_NativeAction_NotAvailable" xml:space="preserve"><value>此操作尚未连接到安全的 Native History 执行器，已阻止旧版回退。</value></data>
+  <data name="HistoryPage_BranchCreate.ToolTipService.ToolTip" xml:space="preserve"><value>从最近检查点创建分支</value></data>
+  <data name="HistoryPage_BranchCheckout.ToolTipService.ToolTip" xml:space="preserve"><value>切换到所选分支</value></data>
+  <data name="HistoryPage_BranchRename.ToolTipService.ToolTip" xml:space="preserve"><value>重命名分支</value></data>
+  <data name="HistoryPage_BranchDelete.ToolTipService.ToolTip" xml:space="preserve"><value>删除分支</value></data>
+  <data name="History_Branch_CreateTitle" xml:space="preserve"><value>创建分支</value></data>
+  <data name="History_Branch_RenameTitle" xml:space="preserve"><value>重命名分支</value></data>
+  <data name="History_Branch_SelectTipTitle" xml:space="preserve"><value>选择要切换的分支进展</value></data>
+  <data name="History_Branch_NoCheckpoint" xml:space="preserve"><value>尚无可用于创建分支的检查点。</value></data>
 </root>

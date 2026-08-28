@@ -39,17 +39,16 @@
                       DisplayMemberPath="DisplayName"
                       SelectionChanged="FolderFilter_SelectionChanged"/>
             
-            <Grid Grid.Column="2">
-                <Grid.RowDefinitions>
-                    <RowDefinition Height="1*"/>
-                    <RowDefinition Height="1*"/>
-                </Grid.RowDefinitions>
-            <TextBox x:Name="CommentFilterBox"
-                         Grid.Row="1"
-                     Margin="0,0,0,4"
-                     x:Uid="HistoryPage_CommentFilter"
-                     TextChanged="CommentFilterBox_TextChanged"/>
-            </Grid>
+            <StackPanel Grid.Column="2" Spacing="4">
+                <TextBox x:Name="CommentFilterBox" x:Uid="HistoryPage_CommentFilter" TextChanged="CommentFilterBox_TextChanged"/>
+                <StackPanel Orientation="Horizontal" Spacing="4">
+                    <ComboBox x:Name="BranchFilter" Width="112" ItemsSource="{x:Bind ViewModel.Branches, Mode=OneWay}" DisplayMemberPath="Name"/>
+                    <Button x:Uid="HistoryPage_BranchCreate" Click="OnCreateBranchClick"><FontIcon Glyph="&#xE710;"/></Button>
+                    <Button x:Uid="HistoryPage_BranchCheckout" Click="OnCheckoutBranchClick"><FontIcon Glyph="&#xE72A;"/></Button>
+                    <Button x:Uid="HistoryPage_BranchRename" Click="OnRenameBranchClick"><FontIcon Glyph="&#xE70F;"/></Button>
+                    <Button x:Uid="HistoryPage_BranchDelete" Click="OnDeleteBranchClick"><FontIcon Glyph="&#xE74D;"/></Button>
+                </StackPanel>
+            </StackPanel>
 
             <SelectorBar x:Name="HistoryViewSelector" Grid.Column="3" SelectionChanged="OnHistoryViewSelectionChanged" VerticalAlignment="Bottom">
                 <SelectorBarItem x:Name="SourceHistoryViewItem" x:Uid="HistoryPage_ViewBySource" Tag="Source" IsSelected="True"/>
@@ -82,7 +81,7 @@
         <ListView x:Name="HistoryList" Grid.Row="2" SelectionMode="None" ItemsSource="{x:Bind ViewModel.FilteredHistory, Mode=OneWay}" Visibility="{x:Bind ViewModel.ShowPerSourceHistory, Mode=OneWay, Converter={StaticResource BoolToVisConverter}}">
             <!-- ItemTemplate 保持之前的 Git 节点风格 -->
             <ListView.ItemTemplate>
-                <DataTemplate x:DataType="models:HistoryItem">
+                <DataTemplate x:DataType="vm:NativeHistoryVersionViewItem">
                     <Grid Height="90">
                         <Grid.ColumnDefinitions>
                             <ColumnDefinition Width="80"/>
@@ -90,14 +89,14 @@
                             <ColumnDefinition Width="*"/>
                         </Grid.ColumnDefinitions>
                         <StackPanel VerticalAlignment="Center" HorizontalAlignment="Right" Margin="0,0,16,0">
-                            <TextBlock Text="{x:Bind TimeDisplay, Mode=OneWay}" Style="{StaticResource BodyStrongTextBlockStyle}" HorizontalAlignment="Right"/>
-                            <TextBlock Text="{x:Bind DateDisplay, Mode=OneWay}" Style="{StaticResource CaptionTextBlockStyle}" Foreground="{ThemeResource TextFillColorSecondaryBrush}" HorizontalAlignment="Right"/>
+                            <TextBlock Text="{x:Bind TimeDisplay, Mode=OneTime}" Style="{StaticResource BodyStrongTextBlockStyle}" HorizontalAlignment="Right"/>
+                            <TextBlock Text="{x:Bind DateDisplay, Mode=OneTime}" Style="{StaticResource CaptionTextBlockStyle}" Foreground="{ThemeResource TextFillColorSecondaryBrush}" HorizontalAlignment="Right"/>
                         </StackPanel>
                         <Grid Grid.Column="1">
-                            <Rectangle Width="2" Fill="{x:Bind TimelineLineBrush, Mode=OneWay}" VerticalAlignment="Stretch" HorizontalAlignment="Center"/>
+                            <Rectangle Width="2" Fill="{x:Bind TimelineLineBrush, Mode=OneTime}" VerticalAlignment="Stretch" HorizontalAlignment="Center"/>
                             <Border Width="16" Height="16" CornerRadius="8"
-                                    Background="{x:Bind TimelineNodeFillBrush, Mode=OneWay}"
-                                    BorderBrush="{x:Bind TimelineNodeBorderBrush, Mode=OneWay}"
+                                    Background="{x:Bind TimelineNodeFillBrush, Mode=OneTime}"
+                                    BorderBrush="{x:Bind TimelineNodeBorderBrush, Mode=OneTime}"
                                     BorderThickness="2"
                                     VerticalAlignment="Center" HorizontalAlignment="Center"/>
                         </Grid>
@@ -108,24 +107,24 @@
                                     <ColumnDefinition Width="Auto"/>
                                 </Grid.ColumnDefinitions>
                                 <StackPanel>
-                                    <TextBlock Text="{x:Bind Message, Mode=OneWay}" Style="{StaticResource BodyStrongTextBlockStyle}"/>
+                                    <TextBlock Text="{x:Bind Message, Mode=OneTime}" Style="{StaticResource BodyStrongTextBlockStyle}"/>
                                     <StackPanel Orientation="Horizontal" Spacing="6">
-                                        <TextBlock Text="{x:Bind FileSizeDisplay, Mode=OneWay}" Style="{StaticResource CaptionTextBlockStyle}" Foreground="{ThemeResource TextFillColorSecondaryBrush}"/>
+                                        <TextBlock Text="{x:Bind FileSizeDisplay, Mode=OneTime}" Style="{StaticResource CaptionTextBlockStyle}" Foreground="{ThemeResource TextFillColorSecondaryBrush}"/>
                                         <FontIcon Glyph="&#xE753;"
                                                   FontSize="12"
                                                   Foreground="{ThemeResource TextFillColorTertiaryBrush}"
                                                   VerticalAlignment="Center"
-                                                  Visibility="{x:Bind HasCloudCopy, Mode=OneWay, Converter={StaticResource BoolToVisConverter}}"
-                                                  ToolTipService.ToolTip="{x:Bind CloudStatusText, Mode=OneWay}"/>
+                                                  Visibility="{x:Bind HasCloudCopy, Mode=OneTime, Converter={StaticResource BoolToVisConverter}}"
+                                                  ToolTipService.ToolTip="{x:Bind CloudStatusText, Mode=OneTime}"/>
                                     </StackPanel>
                                 </StackPanel>
                                 <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="4" VerticalAlignment="Center">
                                     <Button x:Uid="HistoryPage_ToggleImportantButton" Click="OnToggleImportantClick"
                                             Background="Transparent" BorderThickness="0">
-                                        <FontIcon Glyph="{x:Bind IsImportant, Mode=OneWay, Converter={StaticResource BoolToStarIconConverter}}" FontSize="14"
+                                        <FontIcon Glyph="{x:Bind IsImportant, Mode=OneTime, Converter={StaticResource BoolToStarIconConverter}}" FontSize="14"
                                                   Foreground="{ThemeResource SystemControlForegroundAccentBrush}"/>
                                     </Button>
-                                    <Button x:Uid="HistoryPage_ViewButton" Click="OnViewClick" ToolTipService.ToolTip="{x:Bind FileName, Mode=OneWay}">
+                                    <Button x:Uid="HistoryPage_ViewButton" Click="OnViewClick" ToolTipService.ToolTip="{x:Bind FileName, Mode=OneTime}">
                                         <FontIcon Glyph="&#xE8A7;" FontSize="14"/>
                                     </Button>
                                     <Button x:Uid="HistoryPage_EditCommentButton" Click="OnEditCommentClick">
@@ -133,14 +132,14 @@
                                     </Button>
                                     <Button x:Uid="HistoryPage_UploadCloudButton"
                                             Click="OnUploadToCloudClick"
-                                            IsEnabled="{x:Bind CanUploadToCloud, Mode=OneWay}"
-                                            ToolTipService.ToolTip="{x:Bind CloudActionHintText, Mode=OneWay}">
+                                            IsEnabled="{x:Bind CanUploadToCloud, Mode=OneTime}"
+                                            ToolTipService.ToolTip="{x:Bind CloudActionHintText, Mode=OneTime}">
                                         <FontIcon Glyph="&#xE898;" FontSize="14"/>
                                     </Button>
                                     <Button x:Uid="HistoryPage_DownloadCloudButton"
                                             Click="OnDownloadFromCloudClick"
-                                            IsEnabled="{x:Bind CanDownloadFromCloud, Mode=OneWay}"
-                                            ToolTipService.ToolTip="{x:Bind DownloadFromCloudHintText, Mode=OneWay}">
+                                            IsEnabled="{x:Bind CanDownloadFromCloud, Mode=OneTime}"
+                                            ToolTipService.ToolTip="{x:Bind DownloadFromCloudHintText, Mode=OneTime}">
                                         <FontIcon Glyph="&#xE896;" FontSize="14"/>
                                     </Button>
                                     <Button x:Uid="HistoryPage_RestoreButton" Click="OnRestoreClick">

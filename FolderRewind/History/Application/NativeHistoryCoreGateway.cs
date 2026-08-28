@@ -81,6 +81,41 @@ public static class NativeHistoryCoreGateway
             "Native History is not ready for this configuration. " + Failed.GetValueOrDefault(id.Value, "Initialization has not completed."));
     }
 
+    public static HistoryRuntime GetRequiredRuntime(string configId)
+    {
+        EnsureReady(configId);
+        return Ready[new HistoryConfigId(configId).Value];
+    }
+
+    public static async Task<IReadOnlyList<string>> ListBackupFilesAsync(
+        string configId,
+        SourceId sourceId,
+        CancellationToken cancellationToken = default)
+        => (await new HistoryPresentationQueryService(GetRequiredRuntime(configId))
+                .QueryAsync(sourceId, cancellationToken: cancellationToken).ConfigureAwait(false))
+            .Timeline.Select(item => item.FileName).Where(item => !string.IsNullOrWhiteSpace(item))
+            .Select(item => item!).Distinct(StringComparer.OrdinalIgnoreCase).ToArray();
+
+    public static async Task<bool> SetVersionPinByFileAsync(
+        string configId,
+        SourceId sourceId,
+        string fileName,
+        bool pinned,
+        CancellationToken cancellationToken = default)
+    {
+        var runtime = GetRequiredRuntime(configId);
+        var snapshot = await new HistoryPresentationQueryService(runtime)
+            .QueryAsync(sourceId, includeSuppressed: true, cancellationToken).ConfigureAwait(false);
+        var match = snapshot.Timeline.FirstOrDefault(item =>
+            StringComparer.OrdinalIgnoreCase.Equals(item.FileName, fileName));
+        if (match is null) return false;
+        await runtime.Annotations.SetPinAsync(
+            new HistoryAnnotationTarget(HistoryAnnotationTargetKind.Version, match.VersionId.Value),
+            pinned,
+            cancellationToken).ConfigureAwait(false);
+        return true;
+    }
+
     public static async Task CommitBackupAsync(
         BackupConfig config,
         IEnumerable<SourceCaptureResult> results,

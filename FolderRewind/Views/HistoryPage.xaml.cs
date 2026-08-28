@@ -1,4 +1,5 @@
 using FolderRewind.Models;
+using FolderRewind.History.Domain;
 using FolderRewind.Services;
 using FolderRewind.ViewModels;
 using Microsoft.UI.Xaml;
@@ -27,6 +28,7 @@ namespace FolderRewind.Views
             ConfigFilter.ItemsSource = ViewModel.Configs;
             HistoryList.ItemsSource = ViewModel.FilteredHistory;
             RunHistoryList.ItemsSource = ViewModel.FilteredRuns;
+            BranchFilter.ItemsSource = ViewModel.Branches;
             UseColorsToggle.IsOn = ViewModel.UseHistoryStatusColors;
             HistoryViewSelector.SelectedItem = ViewModel.IsGroupedRunView
                 ? RunHistoryViewItem
@@ -107,7 +109,7 @@ namespace FolderRewind.Views
 
         private void OnViewClick(object sender, RoutedEventArgs e)
         {
-            if (sender is not Button btn || btn.DataContext is not HistoryItem item)
+            if (sender is not Button btn || btn.DataContext is not NativeHistoryVersionViewItem item)
             {
                 return;
             }
@@ -128,7 +130,7 @@ namespace FolderRewind.Views
 
         private async void OnEditCommentClick(object sender, RoutedEventArgs e)
         {
-            if (sender is not Button btn || btn.DataContext is not HistoryItem item)
+            if (sender is not Button btn || btn.DataContext is not NativeHistoryVersionViewItem item)
             {
                 return;
             }
@@ -164,7 +166,7 @@ namespace FolderRewind.Views
 
         private void OnToggleImportantClick(object sender, RoutedEventArgs e)
         {
-            if (sender is not Button btn || btn.DataContext is not HistoryItem item)
+            if (sender is not Button btn || btn.DataContext is not NativeHistoryVersionViewItem item)
             {
                 return;
             }
@@ -185,12 +187,58 @@ namespace FolderRewind.Views
             }
         }
 
+        private async void OnCreateBranchClick(object sender, RoutedEventArgs e)
+        {
+            var name = await PromptBranchNameAsync(I18n.GetString("History_Branch_CreateTitle"), string.Empty);
+            if (name is null) return;
+            if (!await ViewModel.CreateBranchAtLatestCheckpointAsync(name))
+                NotificationService.ShowWarning(I18n.GetString("History_Branch_NoCheckpoint"));
+        }
+
+        private async void OnRenameBranchClick(object sender, RoutedEventArgs e)
+        {
+            if (BranchFilter.SelectedItem is not BranchViewItem branch || !branch.CanRename) return;
+            var name = await PromptBranchNameAsync(I18n.GetString("History_Branch_RenameTitle"), branch.Name);
+            if (name is not null) await ViewModel.RenameBranchAsync(branch, name);
+        }
+
+        private async void OnDeleteBranchClick(object sender, RoutedEventArgs e)
+        {
+            if (BranchFilter.SelectedItem is BranchViewItem branch && branch.CanDelete)
+                await ViewModel.DeleteBranchAsync(branch);
+        }
+
+        private async void OnCheckoutBranchClick(object sender, RoutedEventArgs e)
+        {
+            if (BranchFilter.SelectedItem is not BranchViewItem branch || !branch.CanCheckout) return;
+            BranchUpdateId? selected = branch.IsMultiTip ? await PromptBranchTipAsync(branch) : branch.Tips.Single().UpdateId;
+            if (selected is null) return;
+            if (!await ViewModel.CheckoutBranchTipAsync(branch, selected.Value))
+                NotificationService.ShowWarning(I18n.GetString("History_NativeAction_NotAvailable"));
+        }
+
+        private async Task<string?> PromptBranchNameAsync(string title, string initial)
+        {
+            var input = new TextBox { Text = initial, MinWidth = 260 };
+            var dialog = new ContentDialog { Title = title, Content = input, PrimaryButtonText = I18n.GetString("Common_Ok"), CloseButtonText = I18n.GetString("Common_Cancel"), XamlRoot = XamlRoot };
+            ThemeService.ApplyThemeToDialog(dialog);
+            return await dialog.ShowAsync() == ContentDialogResult.Primary && !string.IsNullOrWhiteSpace(input.Text) ? input.Text.Trim() : null;
+        }
+
+        private async Task<BranchUpdateId?> PromptBranchTipAsync(BranchViewItem branch)
+        {
+            var choices = new ComboBox { ItemsSource = branch.Tips, DisplayMemberPath = "UpdateId", MinWidth = 300, SelectedIndex = 0 };
+            var dialog = new ContentDialog { Title = I18n.GetString("History_Branch_SelectTipTitle"), Content = choices, PrimaryButtonText = I18n.GetString("Common_Ok"), CloseButtonText = I18n.GetString("Common_Cancel"), XamlRoot = XamlRoot };
+            ThemeService.ApplyThemeToDialog(dialog);
+            return await dialog.ShowAsync() == ContentDialogResult.Primary && choices.SelectedItem is BranchUpdate tip ? tip.UpdateId : null;
+        }
+
         private async void OnEditRunCommentClick(object sender, RoutedEventArgs e)
         {
             if (sender is not Button btn || btn.DataContext is not BackupRunViewItem item) return;
             var inputBox = new TextBox
             {
-                Text = item.Record.Comment ?? string.Empty,
+                Text = item.Comment,
                 PlaceholderText = I18n.GetString("History_EditComment_Placeholder"),
                 MinWidth = 300
             };
@@ -280,7 +328,7 @@ namespace FolderRewind.Views
 
         private async void OnRestoreClick(object sender, RoutedEventArgs e)
         {
-            if (sender is not Button btn || btn.DataContext is not HistoryItem item)
+            if (sender is not Button btn || btn.DataContext is not NativeHistoryVersionViewItem item)
             {
                 return;
             }
@@ -305,10 +353,11 @@ namespace FolderRewind.Views
                 return;
             }
 
-            await BackupService.RestoreBackupAsync(config, folder, item, restoreMode.Value);
+            if (!await ViewModel.RestoreVersionAsync(item, restoreMode.Value))
+                NotificationService.ShowWarning(I18n.GetString("History_NativeAction_NotAvailable"));
         }
 
-        private async Task<BackupService.RestoreMode?> PromptRestoreModeAsync(HistoryItem item)
+        private async Task<BackupService.RestoreMode?> PromptRestoreModeAsync(NativeHistoryVersionViewItem item)
         {
             bool isPartialBackup = item.IsPartialBackup;
             var dialog = new ContentDialog
@@ -403,7 +452,7 @@ namespace FolderRewind.Views
 
         private async void OnDeleteClick(object sender, RoutedEventArgs e)
         {
-            if (sender is not Button btn || btn.DataContext is not HistoryItem item)
+            if (sender is not Button btn || btn.DataContext is not NativeHistoryVersionViewItem item)
             {
                 return;
             }
@@ -455,7 +504,7 @@ namespace FolderRewind.Views
             return result == ContentDialogResult.Primary;
         }
 
-        private async Task<BackupDeleteMode?> PromptDeleteModeAsync(HistoryItem item)
+        private async Task<BackupDeleteMode?> PromptDeleteModeAsync(NativeHistoryVersionViewItem item)
         {
             var recordOnlyRadio = new RadioButton
             {
@@ -522,7 +571,7 @@ namespace FolderRewind.Views
 
         private async void OnUploadToCloudClick(object sender, RoutedEventArgs e)
         {
-            if (sender is not Button btn || btn.DataContext is not HistoryItem item)
+            if (sender is not Button btn || btn.DataContext is not NativeHistoryVersionViewItem item)
             {
                 return;
             }
@@ -537,7 +586,7 @@ namespace FolderRewind.Views
 
         private async void OnDownloadFromCloudClick(object sender, RoutedEventArgs e)
         {
-            if (sender is not Button btn || btn.DataContext is not HistoryItem item)
+            if (sender is not Button btn || btn.DataContext is not NativeHistoryVersionViewItem item)
             {
                 return;
             }

@@ -1,3 +1,6 @@
+using FolderRewind.History.Application;
+using FolderRewind.History.Domain;
+using FolderRewind.History.Representation;
 using FolderRewind.Models;
 using FolderRewind.Services;
 using Microsoft.UI;
@@ -11,652 +14,322 @@ using System.Linq;
 using System.Threading.Tasks;
 using Windows.UI;
 
-namespace FolderRewind.ViewModels
+namespace FolderRewind.ViewModels;
+
+public sealed class HistoryPageViewModel : ViewModelBase
 {
-    public sealed class HistoryPageViewModel : ViewModelBase
+    private readonly List<NativeHistoryVersionViewItem> _allVersions = [];
+    private readonly List<BackupRunViewItem> _allRuns = [];
+    private IDisposable? _changeSubscription;
+    private BackupConfig? _currentConfig;
+    private ManagedFolder? _currentFolder;
+    private bool _isEmpty = true;
+    private int _missingCount;
+    private string _commentFilterText = string.Empty;
+    private HistoryViewMode _viewMode = HistoryViewMode.PerSource;
+
+    public ObservableCollection<NativeHistoryVersionViewItem> FilteredHistory { get; } = [];
+    public ObservableCollection<BackupRunViewItem> FilteredRuns { get; } = [];
+    public ObservableCollection<BranchViewItem> Branches { get; } = [];
+    public ObservableCollection<BackupConfig> Configs => ConfigService.CurrentConfig?.BackupConfigs ?? [];
+    private GlobalSettings? Settings => ConfigService.CurrentConfig?.GlobalSettings;
+    public bool IsEmpty { get => _isEmpty; private set => SetProperty(ref _isEmpty, value); }
+    public bool HasMissing => _missingCount > 0;
+    public bool IsGroupedRunView => _viewMode == HistoryViewMode.ByRun;
+    public bool ShowGroupedRunHistory => IsGroupedRunView;
+    public bool ShowPerSourceHistory => !IsGroupedRunView;
+    public bool CanUsePerSourceActions => !IsGroupedRunView && _currentFolder is not null;
+    public bool CanUseCloudHistoryActions => false;
+    public bool CanOpenConfigCloudSync => false;
+
+    public string CommentFilterText
     {
-        private readonly List<HistoryItem> _currentAllItems = new();
-        private readonly List<BackupRunViewItem> _currentAllRuns = new();
-        private bool _historyEventsSubscribed;
-        private int _missingCount;
-        private bool _isEmpty = true;
-        private string _commentFilterText = string.Empty;
-        private HistoryViewMode _viewMode = HistoryViewMode.PerSource;
+        get => _commentFilterText;
+        set { if (SetProperty(ref _commentFilterText, value ?? string.Empty)) ApplyFilter(); }
+    }
 
-        private BackupConfig? _currentConfig;
-        private ManagedFolder? _currentFolder;
-
-        public ObservableCollection<HistoryItem> FilteredHistory { get; } = new();
-        public ObservableCollection<BackupRunViewItem> FilteredRuns { get; } = new();
-
-        public ObservableCollection<BackupConfig> Configs => ConfigService.CurrentConfig?.BackupConfigs ?? new ObservableCollection<BackupConfig>();
-
-        private GlobalSettings? Settings => ConfigService.CurrentConfig?.GlobalSettings;
-
-        public bool IsEmpty
+    public bool UseHistoryStatusColors
+    {
+        get => Settings?.UseHistoryStatusColors ?? true;
+        set
         {
-            get => _isEmpty;
-            private set => SetProperty(ref _isEmpty, value);
-        }
-
-        public bool HasMissing => _missingCount > 0;
-        public bool IsGroupedRunView => _viewMode == HistoryViewMode.ByRun;
-        public bool ShowGroupedRunHistory => IsGroupedRunView;
-        public bool ShowPerSourceHistory => !IsGroupedRunView;
-        public bool CanUsePerSourceActions => !IsGroupedRunView && _currentFolder != null;
-
-        public bool CanUseCloudHistoryActions => CloudSyncService.CanUseManualCloudActions(_currentConfig);
-
-        public bool CanOpenConfigCloudSync => _currentConfig != null && CloudSyncService.CanUseManualCloudActions(_currentConfig);
-
-        public string CommentFilterText
-        {
-            get => _commentFilterText;
-            set
-            {
-                if (!SetProperty(ref _commentFilterText, value ?? string.Empty))
-                {
-                    return;
-                }
-
-                ApplyCommentFilter();
-            }
-        }
-
-        public bool UseHistoryStatusColors
-        {
-            get => Settings?.UseHistoryStatusColors ?? true;
-            set
-            {
-                if (Settings != null)
-                {
-                    Settings.UseHistoryStatusColors = value;
-                    ConfigService.Save();
-                }
-
-                UpdateTimelineVisuals(FilteredHistory);
-                OnPropertyChanged();
-            }
-        }
-
-        public void Initialize()
-        {
-            HistoryService.Initialize();
-            _viewMode = Settings?.LastHistoryViewMode ?? HistoryViewMode.PerSource;
-            NotifyViewModeChanged();
-
-            if (_historyEventsSubscribed)
-            {
-                return;
-            }
-
-            HistoryService.HistoryChanged += OnHistoryChanged;
-            _historyEventsSubscribed = true;
-        }
-
-        public void SetCurrentSelection(BackupConfig? config, ManagedFolder? folder, bool refreshHistoryIfFolder, bool persistSelection)
-        {
-            _currentConfig = config;
-            _currentFolder = folder;
-            OnPropertyChanged(nameof(CanUseCloudHistoryActions));
-            OnPropertyChanged(nameof(CanOpenConfigCloudSync));
-            OnPropertyChanged(nameof(IsGroupedRunView));
-            OnPropertyChanged(nameof(ShowGroupedRunHistory));
-            OnPropertyChanged(nameof(ShowPerSourceHistory));
-            OnPropertyChanged(nameof(CanUsePerSourceActions));
-
-            // 页面初始化阶段可关闭刷新，避免控件尚未就绪时重复拉取历史。
-            if (IsGroupedRunView && _currentConfig != null)
-            {
-                RefreshRuns(_currentConfig);
-            }
-            else if (refreshHistoryIfFolder && _currentConfig != null && _currentFolder != null)
-            {
-                RefreshHistory(_currentConfig, _currentFolder);
-            }
-
-            if (persistSelection)
-            {
-                PersistHistorySelection(_currentConfig, _currentFolder);
-            }
-        }
-
-        public bool TryGetCurrentSelection(out BackupConfig? config, out ManagedFolder? folder)
-        {
-            config = _currentConfig;
-            folder = _currentFolder;
-            return config != null && folder != null;
-        }
-
-        public bool TryGetCurrentConfig(out BackupConfig? config)
-        {
-            config = _currentConfig;
-            return config != null;
-        }
-
-        public bool TryResolveSelection(string? configId, string? folderPath, out BackupConfig? config, out ManagedFolder? folder)
-        {
-            config = null;
-            folder = null;
-
-            if (!string.IsNullOrWhiteSpace(configId))
-            {
-                config = Configs.FirstOrDefault(c => c.Id == configId);
-            }
-
-            if (config == null && !string.IsNullOrWhiteSpace(folderPath))
-            {
-                config = Configs.FirstOrDefault(c => c.SourceFolders.Any(f => f.Path == folderPath));
-            }
-
-            if (config == null)
-            {
-                return false;
-            }
-
-            if (!string.IsNullOrWhiteSpace(folderPath))
-            {
-                folder = config.SourceFolders.FirstOrDefault(f => f.Path == folderPath);
-            }
-
-            return true;
-        }
-
-        public bool TryResolveLastSelection(out BackupConfig? config, out ManagedFolder? folder)
-        {
-            config = null;
-            folder = null;
-
-            var settings = Settings;
-            if (settings == null || Configs.Count == 0)
-            {
-                return false;
-            }
-
-            config = Configs.FirstOrDefault(c => !string.IsNullOrWhiteSpace(settings.LastHistoryConfigId) && c.Id == settings.LastHistoryConfigId)
-                     ?? Configs.FirstOrDefault();
-
-            if (config == null)
-            {
-                return false;
-            }
-
-            if (!string.IsNullOrWhiteSpace(settings.LastHistoryFolderPath))
-            {
-                folder = config.SourceFolders.FirstOrDefault(f => f.Path == settings.LastHistoryFolderPath);
-            }
-
-            if (folder == null && config.SourceFolders.Count > 0)
-            {
-                // 历史路径失效时兜底到首项，保证页面总有可展示目标。
-                folder = config.SourceFolders[0];
-            }
-
-            return true;
-        }
-
-        public void RefreshCurrentHistory()
-        {
-            if (IsGroupedRunView && _currentConfig != null)
-            {
-                RefreshRuns(_currentConfig);
-                return;
-            }
-            if (_currentConfig == null || _currentFolder == null)
-            {
-                return;
-            }
-
-            RefreshHistory(_currentConfig, _currentFolder);
-        }
-
-        public void SetHistoryViewMode(HistoryViewMode mode)
-        {
-            if (_viewMode == mode)
-            {
-                RefreshCurrentHistory();
-                return;
-            }
-            _viewMode = mode;
-            if (Settings != null)
-            {
-                Settings.LastHistoryViewMode = mode;
-                ConfigService.Save();
-            }
-            NotifyViewModeChanged();
-            RefreshCurrentHistory();
-        }
-
-        private void NotifyViewModeChanged()
-        {
-            OnPropertyChanged(nameof(IsGroupedRunView));
-            OnPropertyChanged(nameof(ShowGroupedRunHistory));
-            OnPropertyChanged(nameof(ShowPerSourceHistory));
-            OnPropertyChanged(nameof(CanUsePerSourceActions));
-        }
-
-        public void RefreshHistory(BackupConfig config, ManagedFolder folder)
-        {
-            _currentAllItems.Clear();
-            FilteredHistory.Clear();
-            _currentAllRuns.Clear();
-            FilteredRuns.Clear();
-
-            var items = HistoryService.GetHistoryForFolder(config, folder);
-            foreach (var item in items)
-            {
-                _currentAllItems.Add(item);
-            }
-
-            ApplyCommentFilter();
-        }
-
-        public void RefreshRuns(BackupConfig config)
-        {
-            _currentAllItems.Clear();
-            FilteredHistory.Clear();
-            _currentAllRuns.Clear();
-            FilteredRuns.Clear();
-            foreach (var run in BackupRunService.GetRuns(config.Id))
-            {
-                _currentAllRuns.Add(new BackupRunViewItem(run));
-            }
-            ApplyCommentFilter();
-        }
-
-        public int GetMissingCount()
-        {
-            return _currentAllItems.Count(i => i.IsMissing);
-        }
-
-        public void ClearMissingEntries()
-        {
-            if (_currentConfig == null || _currentFolder == null)
-            {
-                return;
-            }
-
-            try
-            {
-                HistoryService.RemoveMissingEntries(_currentConfig, _currentFolder);
-            }
-            catch
-            {
-            }
-        }
-
-        public int ScanAndRecoverHistory(string scanPath)
-        {
-            if (_currentConfig == null || _currentFolder == null || string.IsNullOrWhiteSpace(scanPath))
-            {
-                return 0;
-            }
-
-            return HistoryService.ScanAndRecoverHistory(scanPath, _currentConfig, _currentFolder);
-        }
-
-        public string? GetBackupFilePath(HistoryItem item)
-        {
-            if (_currentConfig == null || _currentFolder == null)
-            {
-                return null;
-            }
-
-            return HistoryService.GetBackupFilePath(_currentConfig, _currentFolder, item);
-        }
-
-        public bool TryRevealBackupFile(HistoryItem item, out string? errorMessage)
-        {
-            errorMessage = null;
-
-            var filePath = GetBackupFilePath(item);
-            if (string.IsNullOrWhiteSpace(filePath))
-            {
-                errorMessage = I18n.GetString("History_ViewFile_PathEmpty");
-                return false;
-            }
-
-            if (!File.Exists(filePath))
-            {
-                errorMessage = I18n.Format("History_ViewFile_NotFound", Path.GetFileName(filePath));
-                return false;
-            }
-
-            if (!ShellPathService.TryRevealPathInExplorer(filePath, out var revealError))
-            {
-                errorMessage = I18n.Format("History_ViewFile_Failed", revealError ?? string.Empty);
-                return false;
-            }
-
-            return true;
-        }
-
-        public void UpdateComment(HistoryItem item, string newComment)
-        {
-            HistoryService.UpdateComment(item, newComment);
-            item.OnPropertyChanged(nameof(item.Message));
-        }
-
-        public void ToggleImportant(HistoryItem item)
-        {
-            HistoryService.ToggleImportant(item);
-            UpdateTimelineVisuals(FilteredHistory);
-        }
-
-        public void UpdateRunComment(BackupRunViewItem item, string comment)
-        {
-            BackupRunService.UpdateComment(item.Record.RunId, comment);
-            RefreshCurrentHistory();
-        }
-
-        public void ToggleRunImportant(BackupRunViewItem item)
-        {
-            BackupRunService.SetImportant(item.Record.RunId, !item.Record.IsImportant);
-            RefreshCurrentHistory();
-        }
-
-        public async Task<BackupRunRestoreResult?> RestoreRunAsync(
-            BackupRunViewItem item,
-            BackupService.RestoreMode mode)
-        {
-            if (_currentConfig == null) return null;
-            return await BackupRunService.RestoreAsync(_currentConfig, item.Record, mode).ConfigureAwait(true);
-        }
-
-        public async Task<bool> DeleteRunAsync(BackupRunViewItem item)
-        {
-            if (_currentConfig == null) return false;
-            var success = await BackupService.DeleteBackupRunAsync(_currentConfig, item.Record).ConfigureAwait(true);
-            RefreshCurrentHistory();
-            return success;
-        }
-
-        public async Task<bool> UploadToCloudAsync(HistoryItem item)
-        {
-            if (_currentConfig == null || _currentFolder == null || item == null)
-            {
-                return false;
-            }
-
-            bool success = await CloudSyncService.UploadHistoryItemAsync(_currentConfig, _currentFolder, item).ConfigureAwait(true);
-            RefreshCurrentHistory();
-            return success;
-        }
-
-        public async Task<bool> DownloadFromCloudAsync(HistoryItem item)
-        {
-            if (_currentConfig == null || _currentFolder == null || item == null)
-            {
-                return false;
-            }
-
-            bool success = await CloudSyncService.DownloadHistoryItemAsync(_currentConfig, _currentFolder, item).ConfigureAwait(true);
-            RefreshCurrentHistory();
-            return success;
-        }
-
-        public async Task<BackupService.DeleteBackupResult> DeleteHistoryItemAsync(HistoryItem item, BackupDeleteMode deleteMode)
-        {
-            if (_currentConfig == null || _currentFolder == null || item == null)
-            {
-                return new BackupService.DeleteBackupResult
-                {
-                    Success = false,
-                    Message = I18n.GetString("History_Delete_InvalidRequest")
-                };
-            }
-
-            var result = await BackupService.DeleteBackupAsync(_currentConfig, _currentFolder, item, deleteMode).ConfigureAwait(true);
-            RefreshCurrentHistory();
-            return result;
-        }
-
-        private void OnHistoryChanged()
-        {
-            _ = UiDispatcherService.RunOnUiAsync(() =>
-            {
-                RefreshCurrentHistory();
-            });
-        }
-
-        private void ApplyCommentFilter()
-        {
-            if (IsGroupedRunView)
-            {
-                FilteredRuns.Clear();
-                var runNeedle = (CommentFilterText ?? string.Empty).Trim();
-                foreach (var item in _currentAllRuns.Where(item =>
-                             runNeedle.Length == 0
-                             || item.Record.Comment.Contains(runNeedle, StringComparison.OrdinalIgnoreCase)))
-                {
-                    FilteredRuns.Add(item);
-                }
-                _missingCount = 0;
-                OnPropertyChanged(nameof(HasMissing));
-                IsEmpty = FilteredRuns.Count == 0;
-                OnPropertyChanged(nameof(CanUseCloudHistoryActions));
-                OnPropertyChanged(nameof(CanOpenConfigCloudSync));
-                return;
-            }
-            UpdateCloudPresentation(_currentAllItems);
-            FilteredHistory.Clear();
-
-            IEnumerable<HistoryItem> query = _currentAllItems;
-            var needle = (CommentFilterText ?? string.Empty).Trim();
-
-            if (!string.IsNullOrWhiteSpace(needle))
-            {
-                query = query.Where(i => (i.Comment ?? string.Empty).IndexOf(needle, StringComparison.OrdinalIgnoreCase) >= 0);
-            }
-
-            foreach (var item in query)
-            {
-                FilteredHistory.Add(item);
-            }
-
-            // 缺失统计基于完整历史，不受当前筛选词影响。
-            _missingCount = _currentAllItems.Count(i => i.IsMissing);
-            OnPropertyChanged(nameof(HasMissing));
-
-            IsEmpty = FilteredHistory.Count == 0;
-            UpdateTimelineVisuals(FilteredHistory);
-            OnPropertyChanged(nameof(CanUseCloudHistoryActions));
-            OnPropertyChanged(nameof(CanOpenConfigCloudSync));
-        }
-
-        private static Brush TryGetThemeBrush(string key, Windows.UI.Color fallback)
-        {
-            try
-            {
-                if (Application.Current?.Resources != null && Application.Current.Resources.TryGetValue(key, out var v) && v is Brush b)
-                {
-                    return b;
-                }
-            }
-            catch
-            {
-            }
-
-            return new SolidColorBrush(fallback);
-        }
-
-        private void UpdateTimelineVisuals(IEnumerable<HistoryItem> items)
-        {
-            var use = UseHistoryStatusColors;
-
-            var offLine = TryGetThemeBrush("SystemControlForegroundBaseLowBrush", Colors.Gray);
-            var offFill = TryGetThemeBrush("SystemControlBackgroundChromeMediumBrush", Colors.Transparent);
-            var offBorder = TryGetThemeBrush("SystemControlForegroundBaseHighBrush", Colors.Gray);
-
-            var ok = new SolidColorBrush(Colors.DodgerBlue);
-            var cloudOnly = new SolidColorBrush(Colors.LightSkyBlue);
-            var bad = new SolidColorBrush(Colors.OrangeRed);
-            var warn = new SolidColorBrush(Colors.Gold);
-            var importantFill = new SolidColorBrush(Colors.Gold);
-
-            foreach (var item in items)
-            {
-                if (!use)
-                {
-                    item.TimelineLineBrush = offLine;
-                    item.TimelineNodeFillBrush = offFill;
-                    item.TimelineNodeBorderBrush = offBorder;
-                    continue;
-                }
-
-                // 状态优先级：缺失 > 文件过小 > 正常，保持和旧版一致，避免视觉语义变化。
-                if (item.IsMissing)
-                {
-                    item.TimelineLineBrush = bad;
-                    item.TimelineNodeBorderBrush = bad;
-                }
-                else if (item.IsCloudOnly)
-                {
-                    item.TimelineLineBrush = cloudOnly;
-                    item.TimelineNodeBorderBrush = cloudOnly;
-                }
-                else if (item.IsSmallFile)
-                {
-                    item.TimelineLineBrush = warn;
-                    item.TimelineNodeBorderBrush = warn;
-                }
-                else
-                {
-                    item.TimelineLineBrush = ok;
-                    item.TimelineNodeBorderBrush = ok;
-                }
-
-                // 重要标记只影响节点填充，不改变线条颜色，便于一眼看出“时间状态 + 收藏状态”。
-                item.TimelineNodeFillBrush = item.IsImportant ? importantFill : offFill;
-            }
-        }
-
-        private void PersistHistorySelection(BackupConfig? config, ManagedFolder? folder)
-        {
-            var settings = Settings;
-            if (settings == null)
-            {
-                return;
-            }
-
-            var updated = false;
-
-            if (config != null && settings.LastHistoryConfigId != config.Id)
-            {
-                settings.LastHistoryConfigId = config.Id;
-                updated = true;
-            }
-
-            if (folder != null && settings.LastHistoryFolderPath != folder.Path)
-            {
-                settings.LastHistoryFolderPath = folder.Path;
-                updated = true;
-            }
-
-            if (updated)
-            {
-                // 仅在值变化时写盘，避免切换列表时产生多余 I/O。
-                ConfigService.Save();
-            }
-        }
-
-        private void UpdateCloudPresentation(IEnumerable<HistoryItem> items)
-        {
-            string availabilityHint = GetCloudAvailabilityHint();
-            bool cloudActionsEnabled = CanUseCloudHistoryActions;
-
-            foreach (var item in items)
-            {
-                item.CloudStatusText = item.HasCloudCopy
-                    ? item.IsCloudOnly
-                        ? I18n.GetString("History_CloudStatus_CloudOnly")
-                        : I18n.GetString("History_CloudStatus_CloudAvailable")
-                    : string.Empty;
-
-                item.CanUploadToCloud = cloudActionsEnabled && item.HasLocalFile;
-                item.CanDownloadFromCloud = cloudActionsEnabled && item.HasCloudCopy;
-
-                item.CloudActionHintText = item.CanUploadToCloud
-                    ? I18n.GetString("History_CloudUpload_Action")
-                    : !string.IsNullOrWhiteSpace(availabilityHint)
-                        ? availabilityHint
-                        : I18n.GetString("History_CloudUpload_NoLocalFile");
-
-                item.DownloadFromCloudHintText = item.CanDownloadFromCloud
-                    ? I18n.GetString("History_CloudDownload_Action")
-                    : !string.IsNullOrWhiteSpace(availabilityHint)
-                        ? availabilityHint
-                        : I18n.GetString("History_CloudDownload_NoCloudCopy");
-            }
-        }
-
-        private string GetCloudAvailabilityHint()
-        {
-            if (!CloudSyncService.CanUseManualCloudActions(_currentConfig))
-            {
-                return I18n.GetString("History_CloudAction_CustomModeOnly");
-            }
-
-            return string.Empty;
+            if (Settings is not null) { Settings.UseHistoryStatusColors = value; ConfigService.Save(); }
+            UpdateTimelineVisuals(FilteredHistory); OnPropertyChanged();
         }
     }
 
-    public sealed class BackupRunViewItem
+    public void Initialize() { _viewMode = Settings?.LastHistoryViewMode ?? HistoryViewMode.PerSource; NotifyViewModeChanged(); }
+
+    public void SetCurrentSelection(BackupConfig? config, ManagedFolder? folder, bool refreshHistoryIfFolder, bool persistSelection)
     {
-        public BackupRunViewItem(BackupRunRecord record)
+        _currentConfig = config; _currentFolder = folder; Subscribe(config); NotifyContextChanged();
+        if (config is not null && (IsGroupedRunView || (refreshHistoryIfFolder && folder is not null))) RefreshCurrentHistory();
+        if (persistSelection) PersistSelection(config, folder);
+    }
+
+    public bool TryGetCurrentSelection(out BackupConfig? config, out ManagedFolder? folder)
+    { config = _currentConfig; folder = _currentFolder; return config is not null && folder is not null; }
+    public bool TryGetCurrentConfig(out BackupConfig? config) { config = _currentConfig; return config is not null; }
+
+    public bool TryResolveSelection(string? configId, string? folderPath, out BackupConfig? config, out ManagedFolder? folder)
+    {
+        config = !string.IsNullOrWhiteSpace(configId) ? Configs.FirstOrDefault(item => item.Id == configId) : null;
+        config ??= !string.IsNullOrWhiteSpace(folderPath) ? Configs.FirstOrDefault(item => item.SourceFolders.Any(source => source.Path == folderPath)) : null;
+        folder = config?.SourceFolders.FirstOrDefault(item => item.Path == folderPath); return config is not null;
+    }
+
+    public bool TryResolveLastSelection(out BackupConfig? config, out ManagedFolder? folder)
+    {
+        config = Configs.FirstOrDefault(item => item.Id == Settings?.LastHistoryConfigId) ?? Configs.FirstOrDefault();
+        folder = config?.SourceFolders.FirstOrDefault(item => item.Path == Settings?.LastHistoryFolderPath) ?? config?.SourceFolders.FirstOrDefault();
+        return config is not null;
+    }
+
+    public void RefreshCurrentHistory()
+    {
+        _allVersions.Clear(); _allRuns.Clear(); FilteredHistory.Clear(); FilteredRuns.Clear(); Branches.Clear();
+        if (_currentConfig is null) { IsEmpty = true; return; }
+        var runtime = NativeHistoryCoreGateway.GetRequiredRuntime(_currentConfig.Id);
+        SourceId? sourceId = _currentFolder is not null && Guid.TryParse(_currentFolder.Id, out var id) && id != Guid.Empty ? new SourceId(id) : null;
+        var snapshot = new HistoryPresentationQueryService(runtime).QueryAsync(sourceId).ConfigureAwait(false).GetAwaiter().GetResult();
+        _allVersions.AddRange(snapshot.Timeline.Select(item => new NativeHistoryVersionViewItem(item)));
+        _allRuns.AddRange(snapshot.Runs.Select(item => new BackupRunViewItem(item)));
+        foreach (var branch in snapshot.Branches) Branches.Add(new BranchViewItem(branch));
+        ApplyFilter();
+    }
+
+    public void SetHistoryViewMode(HistoryViewMode mode)
+    {
+        _viewMode = mode; if (Settings is not null) { Settings.LastHistoryViewMode = mode; ConfigService.Save(); }
+        NotifyViewModeChanged(); RefreshCurrentHistory();
+    }
+
+    public int GetMissingCount() => _missingCount;
+    public void ClearMissingEntries() { }
+    public int ScanAndRecoverHistory(string scanPath) => 0;
+    public string? GetBackupFilePath(NativeHistoryVersionViewItem item) => item.LocalPath;
+    public bool TryRevealBackupFile(NativeHistoryVersionViewItem item, out string? errorMessage)
+    {
+        errorMessage = null;
+        if (string.IsNullOrWhiteSpace(item.LocalPath) || !File.Exists(item.LocalPath)) { errorMessage = I18n.GetString("History_ViewFile_NotFound"); return false; }
+        return ShellPathService.TryRevealPathInExplorer(item.LocalPath, out errorMessage);
+    }
+
+    public void UpdateComment(NativeHistoryVersionViewItem item, string comment)
+    {
+        if (_currentConfig is null) return;
+        NativeHistoryCoreGateway.GetRequiredRuntime(_currentConfig.Id).Annotations.SetCommentAsync(
+            new HistoryAnnotationTarget(HistoryAnnotationTargetKind.Version, item.VersionId.Value), comment).ConfigureAwait(false).GetAwaiter().GetResult();
+        RefreshCurrentHistory();
+    }
+
+    public void ToggleImportant(NativeHistoryVersionViewItem item)
+    {
+        if (_currentConfig is null) return;
+        NativeHistoryCoreGateway.GetRequiredRuntime(_currentConfig.Id).Annotations.SetPinAsync(
+            new HistoryAnnotationTarget(HistoryAnnotationTargetKind.Version, item.VersionId.Value), !item.IsImportant).ConfigureAwait(false).GetAwaiter().GetResult();
+        RefreshCurrentHistory();
+    }
+
+    public void UpdateRunComment(BackupRunViewItem item, string comment)
+    {
+        if (_currentConfig is null) return;
+        NativeHistoryCoreGateway.GetRequiredRuntime(_currentConfig.Id).Annotations.SetCommentAsync(
+            new HistoryAnnotationTarget(HistoryAnnotationTargetKind.Run, item.RunId.Value), comment).ConfigureAwait(false).GetAwaiter().GetResult();
+        RefreshCurrentHistory();
+    }
+
+    public void ToggleRunImportant(BackupRunViewItem item)
+    {
+        if (_currentConfig is null) return;
+        var runtime = NativeHistoryCoreGateway.GetRequiredRuntime(_currentConfig.Id);
+        runtime.Annotations.SetRunImportantAsync(new HistoryAnnotationTarget(HistoryAnnotationTargetKind.Run, item.RunId.Value), !item.IsImportant)
+            .ConfigureAwait(false).GetAwaiter().GetResult();
+        if (item.ResultCheckpointId is { } checkpointId)
+            runtime.Annotations.SetPinAsync(new HistoryAnnotationTarget(HistoryAnnotationTargetKind.Checkpoint, checkpointId.Value), !item.IsImportant)
+                .ConfigureAwait(false).GetAwaiter().GetResult();
+        RefreshCurrentHistory();
+    }
+
+    public Task<BackupRunRestoreResult?> RestoreRunAsync(BackupRunViewItem item, BackupService.RestoreMode mode) => Task.FromResult<BackupRunRestoreResult?>(null);
+    public Task<bool> DeleteRunAsync(BackupRunViewItem item) => Task.FromResult(false);
+    public Task<bool> UploadToCloudAsync(NativeHistoryVersionViewItem item) => Task.FromResult(false);
+    public Task<bool> DownloadFromCloudAsync(NativeHistoryVersionViewItem item) => Task.FromResult(false);
+    public Task<bool> RestoreVersionAsync(NativeHistoryVersionViewItem item, BackupService.RestoreMode mode) => Task.FromResult(false);
+    public Task<BackupService.DeleteBackupResult> DeleteHistoryItemAsync(NativeHistoryVersionViewItem item, BackupDeleteMode mode)
+        => Task.FromResult(new BackupService.DeleteBackupResult { Success = false, Message = "Native materialization deletion is not available from this view." });
+
+    public async Task<bool> CreateBranchAsync(CheckpointId checkpointId, string name)
+    {
+        if (_currentConfig is null) return false;
+        await NativeHistoryCoreGateway.GetRequiredRuntime(_currentConfig.Id).Branches
+            .CreateFromCheckpointAsync(checkpointId, name).ConfigureAwait(false);
+        return true;
+    }
+
+    public async Task<bool> CreateBranchAtLatestCheckpointAsync(string name)
+    {
+        if (_currentConfig is null) return false;
+        var runtime = NativeHistoryCoreGateway.GetRequiredRuntime(_currentConfig.Id);
+        var checkpoint = (await runtime.Query.GetAllCheckpointsAsync().ConfigureAwait(false))
+            .OrderByDescending(item => item.CreatedAtUtc)
+            .ThenByDescending(item => item.CheckpointId.ToString(), StringComparer.Ordinal)
+            .FirstOrDefault();
+        if (checkpoint is null) return false;
+        await runtime.Branches.CreateFromCheckpointAsync(checkpoint.CheckpointId, name).ConfigureAwait(false);
+        return true;
+    }
+
+    public async Task<bool> RenameBranchAsync(BranchViewItem branch, string name)
+    {
+        if (_currentConfig is null || !branch.CanRename) return false;
+        await NativeHistoryCoreGateway.GetRequiredRuntime(_currentConfig.Id).Branches
+            .RenameAsync(branch.BranchId, name).ConfigureAwait(false);
+        return true;
+    }
+
+    public async Task<bool> DeleteBranchAsync(BranchViewItem branch)
+    {
+        if (_currentConfig is null || !branch.CanDelete) return false;
+        await NativeHistoryCoreGateway.GetRequiredRuntime(_currentConfig.Id).Branches
+            .DeleteAsync(branch.BranchId).ConfigureAwait(false);
+        return true;
+    }
+
+    public Task<bool> CheckoutBranchTipAsync(BranchViewItem branch, BranchUpdateId selectedTipId)
+    {
+        if (!branch.CanCheckout || branch.IsMultiTip && branch.Tips.All(item => item.UpdateId != selectedTipId))
+            return Task.FromResult(false);
+        // Checkout requires the configured Representation backends and current-work protector.
+        // Until that app composition is available, remain fail-closed instead of invoking Legacy restore.
+        return Task.FromResult(false);
+    }
+
+    private void ApplyFilter()
+    {
+        var needle = CommentFilterText.Trim(); FilteredHistory.Clear(); FilteredRuns.Clear();
+        if (IsGroupedRunView)
         {
-            Record = record;
-            Sources = record.Sources.Select(source => new BackupRunSourceViewItem(source)).ToList();
+            foreach (var item in _allRuns.Where(item => needle.Length == 0 || item.Comment.Contains(needle, StringComparison.OrdinalIgnoreCase))) FilteredRuns.Add(item);
+            _missingCount = 0; IsEmpty = FilteredRuns.Count == 0;
         }
-
-        public BackupRunRecord Record { get; }
-        public IReadOnlyList<BackupRunSourceViewItem> Sources { get; }
-        public string TimeDisplay => Record.CompletedAtUtc.ToLocalTime().ToString("HH:mm");
-        public string DateDisplay => Record.CompletedAtUtc.ToLocalTime().ToString("yyyy-MM-dd");
-        public string StatusText => Record.Status == BackupRunStatus.Partial
-            || HasMissingReferences
-                ? I18n.GetString("History_Run_StatusPartial")
-                : I18n.GetString("History_Run_StatusCompleted");
-        public string Message => string.IsNullOrWhiteSpace(Record.Comment) ? StatusText : Record.Comment;
-        public string SourceSummary => I18n.Format(
-            "History_Run_SourceSummary",
-            Record.Sources.Count,
-            Record.Sources.Count(source => source.Status == BackupRunSourceStatus.NewArchive),
-            Record.Sources.Count(source => source.Status == BackupRunSourceStatus.Reused),
-            Record.Sources.Count(source => source.Status is BackupRunSourceStatus.Failed or BackupRunSourceStatus.Unavailable))
-            + (HasMissingReferences
-                ? I18n.Format("History_Run_MissingSummary", Sources.Count(source => source.IsReferenceMissing))
-                : string.Empty);
-        public bool IsImportant => Record.IsImportant;
-        public bool HasMissingReferences => Sources.Any(source => source.IsReferenceMissing);
-        public bool CanRestore => Sources.Any(source => !source.IsReferenceMissing
-            && !string.IsNullOrWhiteSpace(source.Record.HistoryItemId));
-        public bool HasPartialBackup => Record.Sources.Any(source =>
-            !string.IsNullOrWhiteSpace(source.HistoryItemId)
-            && HistoryService.TryGetEntryById(source.HistoryItemId)?.IsPartialBackup == true)
-            || HasMissingReferences;
-    }
-
-    public sealed class BackupRunSourceViewItem
-    {
-        public BackupRunSourceViewItem(BackupRunSourceRecord record) => Record = record;
-        public BackupRunSourceRecord Record { get; }
-        public bool IsReferenceMissing => Record.Status is BackupRunSourceStatus.NewArchive or BackupRunSourceStatus.Reused
-            && (string.IsNullOrWhiteSpace(Record.HistoryItemId)
-                || HistoryService.TryGetEntryById(Record.HistoryItemId) == null);
-        public string Name => string.IsNullOrWhiteSpace(Record.FolderName) ? Record.FolderPath : Record.FolderName;
-        public string StatusText => Record.Status switch
+        else
         {
-            _ when IsReferenceMissing => I18n.GetString("History_Run_SourceMissing"),
-            BackupRunSourceStatus.NewArchive => I18n.GetString("History_Run_SourceNewArchive"),
-            BackupRunSourceStatus.Reused => I18n.GetString("History_Run_SourceReused"),
-            BackupRunSourceStatus.Failed => I18n.GetString("History_Run_SourceFailed"),
-            _ => I18n.GetString("History_Run_SourceUnavailable")
-        };
-        public string Detail => IsReferenceMissing
-            ? I18n.GetString("History_Run_SourceMissingDetail")
-            : string.IsNullOrWhiteSpace(Record.ErrorMessage)
-            ? Record.ArchiveFileName
-            : Record.ErrorMessage;
+            foreach (var item in _allVersions.Where(item => needle.Length == 0 || item.Comment.Contains(needle, StringComparison.OrdinalIgnoreCase))) FilteredHistory.Add(item);
+            _missingCount = _allVersions.Count(item => item.IsMissing); IsEmpty = FilteredHistory.Count == 0; UpdateTimelineVisuals(FilteredHistory);
+        }
+        OnPropertyChanged(nameof(HasMissing)); NotifyContextChanged();
     }
+
+    private void Subscribe(BackupConfig? config)
+    {
+        _changeSubscription?.Dispose(); _changeSubscription = null;
+        if (config is null) return;
+        _changeSubscription = NativeHistoryCoreGateway.GetRequiredRuntime(config.Id).ChangeFeed.Subscribe(change =>
+        {
+            _ = UiDispatcherService.RunOnUiAsync(RefreshCurrentHistory);
+        });
+    }
+
+    private void NotifyViewModeChanged()
+    { OnPropertyChanged(nameof(IsGroupedRunView)); OnPropertyChanged(nameof(ShowGroupedRunHistory)); OnPropertyChanged(nameof(ShowPerSourceHistory)); OnPropertyChanged(nameof(CanUsePerSourceActions)); }
+    private void NotifyContextChanged()
+    { OnPropertyChanged(nameof(CanUseCloudHistoryActions)); OnPropertyChanged(nameof(CanOpenConfigCloudSync)); OnPropertyChanged(nameof(CanUsePerSourceActions)); }
+    private void PersistSelection(BackupConfig? config, ManagedFolder? folder)
+    {
+        if (Settings is null) return; bool changed = false;
+        if (config is not null && Settings.LastHistoryConfigId != config.Id) { Settings.LastHistoryConfigId = config.Id; changed = true; }
+        if (folder is not null && Settings.LastHistoryFolderPath != folder.Path) { Settings.LastHistoryFolderPath = folder.Path; changed = true; }
+        if (changed) ConfigService.Save();
+    }
+
+    private static Brush ThemeBrush(string key, Color fallback)
+    { try { if (Application.Current?.Resources.TryGetValue(key, out var value) == true && value is Brush brush) return brush; } catch { } return new SolidColorBrush(fallback); }
+    private void UpdateTimelineVisuals(IEnumerable<NativeHistoryVersionViewItem> items)
+    {
+        var off = ThemeBrush("SystemControlForegroundBaseLowBrush", Colors.Gray);
+        var fill = ThemeBrush("SystemControlBackgroundChromeMediumBrush", Colors.Transparent);
+        foreach (var item in items)
+        {
+            var color = !UseHistoryStatusColors ? off : item.Readiness switch
+            {
+                HistoryPresentationReadiness.Ready => new SolidColorBrush(Colors.DodgerBlue),
+                HistoryPresentationReadiness.PreparationRequired => new SolidColorBrush(Colors.LightSkyBlue),
+                HistoryPresentationReadiness.PluginOrCredentialRequired => new SolidColorBrush(Colors.Gold),
+                _ => new SolidColorBrush(Colors.OrangeRed)
+            };
+            item.TimelineLineBrush = color; item.TimelineNodeBorderBrush = color;
+            item.TimelineNodeFillBrush = item.IsImportant ? new SolidColorBrush(Colors.Gold) : fill;
+        }
+    }
+}
+
+public sealed class NativeHistoryVersionViewItem(TimelineEntrySummary summary)
+{
+    public VersionId VersionId => summary.VersionId;
+    public string TimeDisplay => summary.CreatedAtUtc.ToLocalTime().ToString("HH:mm:ss");
+    public string DateDisplay => summary.CreatedAtUtc.ToLocalTime().ToString("yyyy-MM-dd");
+    public string Comment => summary.Comment;
+    public string Message => string.IsNullOrWhiteSpace(Comment) ? summary.DisplayName : Comment;
+    public string FileName => summary.FileName ?? summary.VersionId.ToString();
+    public string? LocalPath => summary.LocalPath;
+    public bool IsImportant => summary.IsPinned;
+    public bool IsPartialBackup => summary.CaptureScope == CaptureScope.PartialSource || summary.Fidelity == MaterializationFidelity.Overlay;
+    public bool IsMissing => summary.Readiness is HistoryPresentationReadiness.Unavailable or HistoryPresentationReadiness.PayloadReleased or HistoryPresentationReadiness.MetadataOnly;
+    public bool HasLocalFile => summary.LocalPath is not null && File.Exists(summary.LocalPath);
+    public bool HasCloudCopy => summary.Readiness == HistoryPresentationReadiness.PreparationRequired;
+    public bool IsCloudOnly => HasCloudCopy && !HasLocalFile;
+    public string FileSizeDisplay => ReadinessText;
+    public string CloudStatusText => HasCloudCopy ? I18n.GetString("History_CloudStatus_CloudAvailable") : string.Empty;
+    public bool CanUploadToCloud => false;
+    public bool CanDownloadFromCloud => false;
+    public string CloudActionHintText => ReadinessText;
+    public string DownloadFromCloudHintText => ReadinessText;
+    public HistoryPresentationReadiness Readiness => summary.Readiness;
+    public string ReadinessText => summary.Readiness switch
+    {
+        HistoryPresentationReadiness.Ready => I18n.GetString("History_NativeReadiness_Ready"),
+        HistoryPresentationReadiness.PreparationRequired => I18n.GetString("History_NativeReadiness_PreparationRequired"),
+        HistoryPresentationReadiness.PluginOrCredentialRequired => I18n.GetString("History_NativeReadiness_PluginRequired"),
+        HistoryPresentationReadiness.PayloadReleased => I18n.GetString("History_NativeReadiness_Released"),
+        HistoryPresentationReadiness.MetadataOnly => I18n.GetString("History_NativeReadiness_MetadataOnly"),
+        _ => I18n.GetString("History_NativeReadiness_Unavailable")
+    };
+    public Brush? TimelineLineBrush { get; set; }
+    public Brush? TimelineNodeFillBrush { get; set; }
+    public Brush? TimelineNodeBorderBrush { get; set; }
+}
+
+public sealed class BackupRunViewItem(RunSummary summary)
+{
+    public RunId RunId => summary.RunId;
+    public CheckpointId? ResultCheckpointId => summary.ResultCheckpointId;
+    public string Comment => summary.Comment;
+    public string TimeDisplay => summary.CompletedAtUtc.ToLocalTime().ToString("HH:mm");
+    public string DateDisplay => summary.CompletedAtUtc.ToLocalTime().ToString("yyyy-MM-dd");
+    public string Message => string.IsNullOrWhiteSpace(Comment) ? summary.Outcome.ToString() : Comment;
+    public string SourceSummary => $"{summary.Sources.Length} sources";
+    public bool IsImportant => summary.IsImportant;
+    public bool CanRestore => false;
+    public bool HasPartialBackup => summary.Outcome == BackupRunOutcome.Partial;
+    public IReadOnlyList<BackupRunSourceViewItem> Sources { get; } = summary.Sources.Select(item => new BackupRunSourceViewItem(item)).ToArray();
+}
+
+public sealed class BackupRunSourceViewItem(BackupRunSourceResult result)
+{
+    public string Name => result.SourceId.ToString();
+    public string StatusText => result.Outcome.ToString();
+    public string Detail => result.VersionId?.ToString() ?? result.Diagnostics.FirstOrDefault()?.Message ?? string.Empty;
+}
+
+public sealed class BranchViewItem(BranchSummary summary)
+{
+    public BranchId BranchId => summary.BranchId;
+    public string Name => summary.Name;
+    public bool IsMultiTip => summary.IsMultiTip;
+    public bool IsUnborn => summary.IsUnborn;
+    public bool CanCheckout => summary.CanCheckout;
+    public bool CanRename => summary.CanRename;
+    public bool CanDelete => summary.CanDelete;
+    public IReadOnlyList<BranchUpdate> Tips => summary.Tips;
 }

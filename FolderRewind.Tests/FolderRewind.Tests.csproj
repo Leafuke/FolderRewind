@@ -100,6 +100,7 @@
     <Compile Include="..\FolderRewind\History\Application\HistoryRuntime.cs" Link="Source\History\Application\HistoryRuntime.cs" />
     <Compile Include="..\FolderRewind\History\Application\HistoryRuntimeManager.cs" Link="Source\History\Application\HistoryRuntimeManager.cs" />
     <Compile Include="..\FolderRewind\History\Application\HistoryAssessmentService.cs" Link="Source\History\Application\HistoryAssessmentService.cs" />
+    <Compile Include="..\FolderRewind\History\Application\HistoryPresentationQueryService.cs" Link="Source\History\Application\HistoryPresentationQueryService.cs" />
     <Compile Include="..\FolderRewind\History\Application\HistoryCommitCoordinator.cs" Link="Source\History\Application\HistoryCommitCoordinator.cs" />
     <Compile Include="..\FolderRewind\History\Application\HistoryBranchProjection.cs" Link="Source\History\Application\HistoryBranchProjection.cs" />
     <Compile Include="..\FolderRewind\History\Application\HistoryCommandCommitter.cs" Link="Source\History\Application\HistoryCommandCommitter.cs" />

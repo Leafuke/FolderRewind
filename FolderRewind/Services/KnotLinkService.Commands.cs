@@ -1,4 +1,6 @@
 using FolderRewind.Models;
+using FolderRewind.History.Application;
+using FolderRewind.History.Domain;
 using FolderRewind.Services.KnotLink;
 using FolderRewind.Services.Plugins;
 using FolderRewind.Services.Plugins.V3;
@@ -237,31 +239,24 @@ namespace FolderRewind.Services
             return Task.FromResult("OK:" + data);
         }
 
-        private static Task<string> HandleListBackups(KnotLinkCommandContext context)
+        private static async Task<string> HandleListBackups(KnotLinkCommandContext context)
         {
             var request = context.Request;
             if (!TryResolveConfig(request, out var config, out var error))
             {
-                return Task.FromResult(error);
+                return error;
             }
 
             if (!TryResolveFolder(request, config!, out var folder, out error))
             {
-                return Task.FromResult(error);
+                return error;
             }
 
-            var backupDir = Path.Combine(config!.DestinationPath, folder!.DisplayName);
-            var data = string.Empty;
-            if (Directory.Exists(backupDir))
-            {
-                var extensions = new[] { ".7z", ".zip" };
-                data = string.Join(
-                    ';',
-                    Directory.GetFiles(backupDir)
-                        .Where(file => extensions.Contains(Path.GetExtension(file).ToLowerInvariant()))
-                        .Select(Path.GetFileName)
-                        .Where(file => !string.IsNullOrWhiteSpace(file)));
-            }
+            if (!Guid.TryParse(folder!.Id, out var sourceGuid) || sourceGuid == Guid.Empty)
+                return "ERROR:Managed source has no stable identity.";
+            var data = string.Join(';', await NativeHistoryCoreGateway.ListBackupFilesAsync(
+                config!.Id,
+                new SourceId(sourceGuid)).ConfigureAwait(false));
 
             BroadcastEvent(context, "list_backups", new Dictionary<string, string?>
             {
@@ -269,7 +264,7 @@ namespace FolderRewind.Services
                 ["folder"] = folder.DisplayName,
                 ["data"] = data
             });
-            return Task.FromResult("OK:" + data);
+            return "OK:" + data;
         }
 
         private static Task<string> HandleGetConfig(KnotLinkCommandContext context)
@@ -631,18 +626,21 @@ namespace FolderRewind.Services
             return Task.FromResult($"OK:Auto-backup task for folder '{folder.DisplayName}' has been stopped.");
         }
 
-        private static Task<string> HandleMarkImportant(KnotLinkCommandContext context)
+        private static async Task<string> HandleMarkImportant(KnotLinkCommandContext context)
         {
             var request = context.Request;
-            if (!TryGetBoolOption(request, "important", true, out var isImportant, out var error)) return Task.FromResult(error);
+            if (!TryGetBoolOption(request, "important", true, out var isImportant, out var error)) return error;
 
             var backupFile = request.GetString("file");
-            if (!TryResolveConfig(request, out var config, out error)) return Task.FromResult(error);
-            if (!TryResolveFolder(request, config!, out var folder, out error)) return Task.FromResult(error);
-            if (string.IsNullOrWhiteSpace(backupFile)) return Task.FromResult("ERROR:" + I18n.GetString("KnotLink_Error_MissingBackupFile"));
+            if (!TryResolveConfig(request, out var config, out error)) return error;
+            if (!TryResolveFolder(request, config!, out var folder, out error)) return error;
+            if (string.IsNullOrWhiteSpace(backupFile)) return "ERROR:" + I18n.GetString("KnotLink_Error_MissingBackupFile");
 
-            bool success = HistoryService.SetImportant(config!.Id, folder!.DisplayName, backupFile!, isImportant);
-            if (!success) return Task.FromResult($"ERROR:Backup entry not found: {backupFile}");
+            if (!Guid.TryParse(folder!.Id, out var sourceGuid) || sourceGuid == Guid.Empty)
+                return "ERROR:Managed source has no stable identity.";
+            bool success = await NativeHistoryCoreGateway.SetVersionPinByFileAsync(
+                config!.Id, new SourceId(sourceGuid), backupFile!, isImportant).ConfigureAwait(false);
+            if (!success) return $"ERROR:Backup entry not found: {backupFile}";
 
             var action = isImportant ? "marked as important" : "unmarked";
             BroadcastEvent(context, "mark_important", new Dictionary<string, string?>
@@ -653,7 +651,7 @@ namespace FolderRewind.Services
                 ["important"] = isImportant.ToString()
             });
             BroadcastCommandLifecycle(context, "command_completed");
-            return Task.FromResult($"OK:Backup '{backupFile}' {action}");
+            return $"OK:Backup '{backupFile}' {action}";
         }
         #endregion
 
