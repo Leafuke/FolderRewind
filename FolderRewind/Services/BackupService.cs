@@ -3,6 +3,7 @@ using FolderRewind.History.Capture;
 using FolderRewind.History.Domain;
 using FolderRewind.History.LocalState;
 using FolderRewind.History.Legacy;
+using FolderRewind.History.Application;
 using FolderRewind.Services.KnotLink;
 using FolderRewind.Services.Plugins.V3;
 using FolderRewind.Plugin.Abstractions;
@@ -196,6 +197,7 @@ namespace FolderRewind.Services
             BackupInvocationOptions? invocationOptions = null)
         {
             if (config == null) return false;
+            NativeHistoryCoreGateway.EnsureReady(config.Id);
             invocationOptions ??= BackupInvocationOptions.Default;
             Log(I18n.Format("BackupService_Log_ConfigTaskBegin", config.Name), LogLevel.Info);
 
@@ -215,18 +217,11 @@ namespace FolderRewind.Services
                 if (outcome.CreatedNewArchive) anyChanges = true;
             }
 
-            var run = BackupRunPolicy.Create(
-                runId,
-                config.Id,
-                startedAtUtc,
-                DateTime.UtcNow,
-                MapRunTriggerSource(invocationOptions.Source),
-                invocationOptions.Comment,
-                sourceOutcomes.Select(outcome => outcome.ToRunSource()));
-            if (run != null)
-            {
-                LegacyHistoryCapturePersistenceAdapter.PersistRun(config, run);
-            }
+            await NativeHistoryCoreGateway.CommitBackupAsync(
+                config,
+                sourceOutcomes.Where(item => item.CaptureResult is not null).Select(item => item.CaptureResult!),
+                MapInvocationKind(invocationOptions.Source),
+                startedAtUtc);
             await PruneRetainedSourceArchivesAsync(config);
 
             Log(I18n.Format("BackupService_Log_TaskEnd"), LogLevel.Info);
@@ -264,6 +259,8 @@ namespace FolderRewind.Services
         {
             try
             {
+                NativeHistoryCoreGateway.EnsureReady(config.Id);
+                var startedAtUtc = DateTimeOffset.UtcNow;
                 var outcome = await BackupFolderCoreAsync(
                     config,
                     folder,
@@ -271,6 +268,12 @@ namespace FolderRewind.Services
                     invocationOptions,
                     createdByRunId: null,
                     cancellationToken);
+                if (outcome.CaptureResult is not null)
+                {
+                    await NativeHistoryCoreGateway.CommitBackupAsync(
+                        config, [outcome.CaptureResult], MapInvocationKind(invocationOptions.Source),
+                        startedAtUtc, cancellationToken);
+                }
                 if (outcome.CreatedNewArchive)
                 {
                     await PruneRetainedSourceArchivesAsync(config);
@@ -960,6 +963,15 @@ namespace FolderRewind.Services
             BackupInvocationSource.PluginHotkey => BackupRunTriggerSource.PluginHotkey,
             BackupInvocationSource.Internal => BackupRunTriggerSource.Internal,
             _ => BackupRunTriggerSource.Unknown
+        };
+
+        private static BackupInvocationKind MapInvocationKind(BackupInvocationSource source) => source switch
+        {
+            BackupInvocationSource.Automatic => BackupInvocationKind.Automatic,
+            BackupInvocationSource.Remote => BackupInvocationKind.Remote,
+            BackupInvocationSource.PluginHotkey => BackupInvocationKind.PluginHotkey,
+            BackupInvocationSource.Internal => BackupInvocationKind.Internal,
+            _ => BackupInvocationKind.Manual
         };
 
         private static OperationOutcome CombineSuccessfulBackupOutcomes(

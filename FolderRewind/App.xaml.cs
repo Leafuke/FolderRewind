@@ -95,6 +95,10 @@ namespace FolderRewind
                 // 配置必须先于窗口创建：后面的语言/主题/尺寸都依赖它。
                 Services.ConfigService.Initialize();
 
+                FolderRewind.History.Application.NativeHistoryCoreGateway.InitializeAsync(
+                    Services.ConfigService.CurrentConfig,
+                    Services.ConfigService.ConfigDirectory).GetAwaiter().GetResult();
+
                 LogService.Log($"[Startup] Config loaded: {startupSw.ElapsedMilliseconds}ms");
 
                 if (Services.ConfigService.IsRecoveryMode)

@@ -3,6 +3,7 @@ using FolderRewind.Services;
 using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
+using System.Linq;
 
 namespace FolderRewind.History.Legacy;
 
@@ -13,18 +14,7 @@ namespace FolderRewind.History.Legacy;
 internal static class LegacyHistoryCapturePersistenceAdapter
 {
     public static bool PersistRun(BackupConfig config, BackupRunRecord run)
-    {
-        if (!BackupRunService.Add(run))
-        {
-            return false;
-        }
-
-        BackupRunService.ApplyRetention(config);
-        CloudSyncService.QueueConfigurationHistorySyncAfterLocalChange(
-            config,
-            "configuration backup run completion");
-        return true;
-    }
+        => throw new InvalidOperationException("Legacy backup-runs.json authority is read-only after Native History cutover.");
 
     public static HistoryItem AddEntry(
         BackupConfig config,
@@ -40,33 +30,41 @@ internal static class LegacyHistoryCapturePersistenceAdapter
         string? artifactGraphRevision,
         PersistedOperationOutcome outcome,
         IReadOnlyList<OperationDiagnosticRecord>? diagnostics)
-        => HistoryService.AddEntry(
-            config,
-            folder,
-            fileName,
-            type,
-            comment,
-            storageFolderName,
-            isPartial,
-            createdByRunId,
-            historyItemId,
-            artifactRootId,
-            artifactGraphRevision,
-            outcome,
-            diagnostics);
+        => new()
+        {
+            Id = historyItemId ?? Guid.NewGuid().ToString("N"),
+            CreatedByRunId = createdByRunId ?? string.Empty,
+            ConfigId = config.Id,
+            FolderId = Guid.TryParse(folder.Id, out var sourceId) ? sourceId : null,
+            FolderPath = folder.Path,
+            FolderName = storageFolderName,
+            FileName = fileName,
+            Timestamp = DateTime.Now,
+            BackupType = type,
+            Comment = comment,
+            IsPartialBackup = isPartial,
+            ArtifactRootId = artifactRootId,
+            ArtifactGraphRevision = artifactGraphRevision ?? string.Empty,
+            Outcome = outcome,
+            Diagnostics = diagnostics?.ToList() ?? []
+        };
 
     public static HistoryItem? GetLatestEntry(BackupConfig config, ManagedFolder folder)
-        => HistoryService.GetLatestEntryForFolder(config.Id, folder);
+        => null;
 
     public static ObservableCollection<HistoryItem> GetEntries(BackupConfig config, ManagedFolder folder)
-        => HistoryService.GetHistoryForFolder(config, folder);
+        => [];
 
     public static void ApplyArtifactRoots(IReadOnlyDictionary<string, Guid> roots, string graphRevision)
-        => HistoryService.ApplyArtifactRoots(roots, graphRevision);
+    {
+        // Legacy HistoryItem bindings are read-only after the one-way cutover.
+    }
 
     public static void ApplyOperationResult(
         string historyItemId,
         PersistedOperationOutcome outcome,
         IReadOnlyList<OperationDiagnosticRecord> diagnostics)
-        => HistoryService.ApplyOperationResult(historyItemId, outcome, diagnostics);
+    {
+        // Native diagnostics are committed with Version/Run facts; never mutate history.json.
+    }
 }
