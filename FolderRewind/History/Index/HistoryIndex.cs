@@ -219,6 +219,13 @@ public sealed class HistoryIndex : IDisposable
             [("$branchId", branchId.ToString())],
             cancellationToken);
 
+    public Task<IReadOnlyList<BranchUpdate>> GetAllBranchUpdatesAsync(
+        CancellationToken cancellationToken = default)
+        => ReadPayloadsAsync<BranchUpdate>(
+            "SELECT PayloadJson FROM BranchUpdates ORDER BY CreatedAtUtc, UpdateId",
+            [],
+            cancellationToken);
+
     public async Task<BranchUpdate?> GetBranchUpdateAsync(
         BranchUpdateId updateId,
         CancellationToken cancellationToken = default)
@@ -276,6 +283,27 @@ public sealed class HistoryIndex : IDisposable
         var parentIds = updates.SelectMany(update => update.ParentUpdateIds).ToHashSet();
         return updates.Where(update => !parentIds.Contains(update.UpdateId)).ToImmutableArray();
     }
+
+    public Task<IReadOnlyList<HistoryAnnotationUpdate>> GetAnnotationUpdatesAsync(
+        HistoryAnnotationTarget target,
+        HistoryAnnotationKind? kind = null,
+        CancellationToken cancellationToken = default)
+        => kind is { } annotationKind
+            ? ReadPayloadsAsync<HistoryAnnotationUpdate>(
+                "SELECT PayloadJson FROM Annotations WHERE TargetKind = $targetKind AND TargetId = $targetId AND AnnotationKind = $kind ORDER BY CreatedAtUtc, UpdateId",
+                [
+                    ("$targetKind", (int)target.Kind),
+                    ("$targetId", target.TargetId.ToString("N")),
+                    ("$kind", (int)annotationKind)
+                ],
+                cancellationToken)
+            : ReadPayloadsAsync<HistoryAnnotationUpdate>(
+                "SELECT PayloadJson FROM Annotations WHERE TargetKind = $targetKind AND TargetId = $targetId ORDER BY AnnotationKind, CreatedAtUtc, UpdateId",
+                [
+                    ("$targetKind", (int)target.Kind),
+                    ("$targetId", target.TargetId.ToString("N"))
+                ],
+                cancellationToken);
 
     public async Task<int> GetIndexedPackCountAsync(CancellationToken cancellationToken = default)
     {

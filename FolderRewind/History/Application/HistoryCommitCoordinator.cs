@@ -51,17 +51,33 @@ public sealed record HistoryBackupInvocation(
     BackupInvocationKind Kind,
     HistoryProvenance Provenance);
 
+public sealed record HistoryBranchCreationIntent
+{
+    public HistoryBranchCreationIntent(BranchId branchId, string name)
+    {
+        BranchId = branchId;
+        Name = string.IsNullOrWhiteSpace(name)
+            ? throw new ArgumentException("Branch name cannot be empty.", nameof(name))
+            : name.Trim();
+    }
+
+    public BranchId BranchId { get; }
+    public string Name { get; }
+}
+
 public sealed record HistoryCommitRequest
 {
     public HistoryCommitRequest(
         HistoryConfigSnapshot configSnapshot,
         HistoryBackupInvocation invocation,
         HistoryWorkspace? expectedWorkspace,
-        IEnumerable<SourceCaptureResult> sourceCaptureResults)
+        IEnumerable<SourceCaptureResult> sourceCaptureResults,
+        HistoryBranchCreationIntent? branchCreationIntent = null)
     {
         ConfigSnapshot = configSnapshot ?? throw new ArgumentNullException(nameof(configSnapshot));
         Invocation = invocation ?? throw new ArgumentNullException(nameof(invocation));
         ExpectedWorkspace = expectedWorkspace;
+        BranchCreationIntent = branchCreationIntent;
         SourceCaptureResults = sourceCaptureResults is null
             ? throw new ArgumentNullException(nameof(sourceCaptureResults))
             : [.. sourceCaptureResults];
@@ -79,6 +95,7 @@ public sealed record HistoryCommitRequest
     public HistoryBackupInvocation Invocation { get; }
     public HistoryWorkspace? ExpectedWorkspace { get; }
     public ImmutableArray<SourceCaptureResult> SourceCaptureResults { get; }
+    public HistoryBranchCreationIntent? BranchCreationIntent { get; }
 }
 
 public sealed record HistoryCommitBatch(
@@ -160,7 +177,7 @@ public sealed class HistoryCommitCoordinator
         await using var acquiredLease = lease;
         try
         {
-            await EnsureIndexCurrentAsync(cancellationToken).ConfigureAwait(false);
+            await _runtime.EnsureIndexCurrentAsync(cancellationToken).ConfigureAwait(false);
             if (await _runtime.Query.GetRunAsync(request.Invocation.RunId, cancellationToken).ConfigureAwait(false) is not null)
             {
                 throw new HistoryCommitConflictException($"Backup Run {request.Invocation.RunId} is already committed.");
@@ -169,6 +186,10 @@ public sealed class HistoryCommitCoordinator
             var catalogLoad = await _runtime.LocalReplicaCatalogStore.LoadAsync(cancellationToken).ConfigureAwait(false);
             var currentWorkspace = ValidateExpectedWorkspace(request.ExpectedWorkspace, workspaceLoad);
             var currentCatalog = ValidateCatalog(catalogLoad);
+            if (request.BranchCreationIntent is not null)
+            {
+                await ValidateNewBranchIdentityAsync(request.BranchCreationIntent, cancellationToken).ConfigureAwait(false);
+            }
             await ValidateExpectedCaptureStateAsync(request, currentWorkspace, cancellationToken).ConfigureAwait(false);
 
             var batch = await BuildBatchAsync(
@@ -404,22 +425,27 @@ public sealed class HistoryCommitCoordinator
 
         BranchUpdate? branchUpdate = null;
         HistoryWorkspace? updatedWorkspace = null;
-        if (checkpoint is not null)
+        var branchTargetCheckpoint = checkpoint ?? (request.BranchCreationIntent is not null ? currentCheckpoint : null);
+        if (branchTargetCheckpoint is not null)
         {
-            var branchId = workspace?.ActiveBranchId ?? BranchId.New();
+            var branchId = request.BranchCreationIntent?.BranchId
+                ?? workspace?.ActiveBranchId
+                ?? BranchId.New();
             bool fromHistoricalState = currentCheckpoint is not null
                 && !WorkspaceMatchesCheckpoint(workspace!, currentCheckpoint);
             branchUpdate = new BranchUpdate(
                 BranchUpdateId.New(),
                 branchId,
-                workspace?.ActiveBranchUpdateId is { } parentUpdateId
+                request.BranchCreationIntent is null && workspace?.ActiveBranchUpdateId is { } parentUpdateId
                     ? new[] { parentUpdateId }
                     : [],
-                currentBranch?.Name ?? request.ConfigSnapshot.DefaultBranchName,
-                checkpoint.CheckpointId,
+                request.BranchCreationIntent?.Name
+                    ?? currentBranch?.Name
+                    ?? request.ConfigSnapshot.DefaultBranchName,
+                branchTargetCheckpoint.CheckpointId,
                 isDeleted: false,
                 now,
-                workspace?.ActiveBranchId is null
+                request.BranchCreationIntent is not null || workspace?.ActiveBranchId is null
                     ? BranchUpdateReason.Created
                     : fromHistoricalState
                         ? BranchUpdateReason.BackupFromHistoricalState
@@ -555,6 +581,26 @@ public sealed class HistoryCommitCoordinator
             throw new HistoryCommitConflictException("Workspace ActiveBranchUpdateId is no longer a current Branch tip.");
         }
         return update;
+    }
+
+    private async Task ValidateNewBranchIdentityAsync(
+        HistoryBranchCreationIntent intent,
+        CancellationToken cancellationToken)
+    {
+        var updates = await _runtime.Query.GetAllBranchUpdatesAsync(cancellationToken).ConfigureAwait(false);
+        if (updates.Any(update => update.BranchId == intent.BranchId))
+        {
+            throw new HistoryCommitConflictException("New BranchId already exists.");
+        }
+        var tips = HistoryBranchProjection.Build(updates);
+        if (tips.Any(branch => !branch.IsDeleted
+                               && branch.Tips.Any(tip => string.Equals(
+                                   tip.Name,
+                                   intent.Name,
+                                   StringComparison.OrdinalIgnoreCase))))
+        {
+            throw new HistoryCommitConflictException($"Active Branch name '{intent.Name}' already exists on this device.");
+        }
     }
 
     private static HistoryWorkspace? ValidateExpectedWorkspace(
@@ -763,16 +809,6 @@ public sealed class HistoryCommitCoordinator
         return hasFailure || hasUnavailable || hasIncompleteCoverage
             ? BackupRunOutcome.Partial
             : BackupRunOutcome.Completed;
-    }
-
-    private async Task EnsureIndexCurrentAsync(CancellationToken cancellationToken)
-    {
-        var packs = await _runtime.Repository.ReadAllPacksAsync(cancellationToken).ConfigureAwait(false);
-        if (!File.Exists(_runtime.Index.IndexPath)
-            || await _runtime.Index.GetIndexedPackCountAsync(cancellationToken).ConfigureAwait(false) != packs.Count)
-        {
-            await _runtime.Index.RebuildAsync(packs, cancellationToken).ConfigureAwait(false);
-        }
     }
 
     private static async Task CleanupUncommittedCaptureAsync(

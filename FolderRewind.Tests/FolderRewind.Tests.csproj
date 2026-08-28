@@ -101,6 +101,11 @@
     <Compile Include="..\FolderRewind\History\Application\HistoryRuntimeManager.cs" Link="Source\History\Application\HistoryRuntimeManager.cs" />
     <Compile Include="..\FolderRewind\History\Application\HistoryAssessmentService.cs" Link="Source\History\Application\HistoryAssessmentService.cs" />
     <Compile Include="..\FolderRewind\History\Application\HistoryCommitCoordinator.cs" Link="Source\History\Application\HistoryCommitCoordinator.cs" />
+    <Compile Include="..\FolderRewind\History\Application\HistoryBranchProjection.cs" Link="Source\History\Application\HistoryBranchProjection.cs" />
+    <Compile Include="..\FolderRewind\History\Application\HistoryCommandCommitter.cs" Link="Source\History\Application\HistoryCommandCommitter.cs" />
+    <Compile Include="..\FolderRewind\History\Application\HistoryBranchService.cs" Link="Source\History\Application\HistoryBranchService.cs" />
+    <Compile Include="..\FolderRewind\History\Application\HistoryAnnotationService.cs" Link="Source\History\Application\HistoryAnnotationService.cs" />
+    <Compile Include="..\FolderRewind\History\Application\MaterializationPolicyService.cs" Link="Source\History\Application\MaterializationPolicyService.cs" />
     <Compile Include="..\FolderRewind\History\Representation\*.cs" Link="Source\History\Representation\%(Filename)%(Extension)" />
     <Compile Include="..\FolderRewind\History\Capture\*.cs" Link="Source\History\Capture\%(Filename)%(Extension)" />
   </ItemGroup>

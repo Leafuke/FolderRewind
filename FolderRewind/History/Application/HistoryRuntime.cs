@@ -42,6 +42,9 @@ public sealed class HistoryRuntime : IAsyncDisposable
         ChangeFeed = new HistoryChangeFeed();
         Query = new HistoryQueryService(Index);
         Commit = new HistoryCommitCoordinator(this, _codec);
+        Branches = new HistoryBranchService(this, _codec);
+        Annotations = new HistoryAnnotationService(this, _codec);
+        MaterializationPolicies = new MaterializationPolicyService(this, _codec);
     }
 
     public HistoryConfigId ConfigId => Repository.ConfigId;
@@ -53,6 +56,9 @@ public sealed class HistoryRuntime : IAsyncDisposable
     public HistoryChangeFeed ChangeFeed { get; }
     public HistoryQueryService Query { get; }
     public HistoryCommitCoordinator Commit { get; }
+    public HistoryBranchService Branches { get; }
+    public HistoryAnnotationService Annotations { get; }
+    public MaterializationPolicyService MaterializationPolicies { get; }
     public HistoryRuntimeHealth Health { get; private set; }
 
     public async Task InitializeAsync(CancellationToken cancellationToken = default)
@@ -131,6 +137,16 @@ public sealed class HistoryRuntime : IAsyncDisposable
         if (catalog.Status != DeviceLocalStateStatus.Valid)
         {
             Health |= HistoryRuntimeHealth.LocalReplicaCatalogRecoveryRequired;
+        }
+    }
+
+    internal async Task EnsureIndexCurrentAsync(CancellationToken cancellationToken = default)
+    {
+        var packs = await Repository.ReadAllPacksAsync(cancellationToken).ConfigureAwait(false);
+        if (!File.Exists(Index.IndexPath)
+            || await Index.GetIndexedPackCountAsync(cancellationToken).ConfigureAwait(false) != packs.Count)
+        {
+            await Index.RebuildAsync(packs, cancellationToken).ConfigureAwait(false);
         }
     }
 }

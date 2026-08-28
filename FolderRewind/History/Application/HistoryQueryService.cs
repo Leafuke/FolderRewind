@@ -44,6 +44,10 @@ public sealed class HistoryQueryService
         CancellationToken cancellationToken = default)
         => _index.GetCheckpointAsync(checkpointId, cancellationToken);
 
+    public Task<IReadOnlyList<ConfigurationCheckpoint>> GetAllCheckpointsAsync(
+        CancellationToken cancellationToken = default)
+        => _index.GetAllCheckpointsAsync(cancellationToken);
+
     public Task<IReadOnlyList<BranchUpdate>> GetBranchTipsAsync(
         BranchId branchId,
         CancellationToken cancellationToken = default)
@@ -53,6 +57,15 @@ public sealed class HistoryQueryService
         BranchUpdateId updateId,
         CancellationToken cancellationToken = default)
         => _index.GetBranchUpdateAsync(updateId, cancellationToken);
+
+    public Task<IReadOnlyList<BranchUpdate>> GetAllBranchUpdatesAsync(
+        CancellationToken cancellationToken = default)
+        => _index.GetAllBranchUpdatesAsync(cancellationToken);
+
+    public async Task<HistoryBranchQueryResult> GetBranchesAsync(
+        CancellationToken cancellationToken = default)
+        => HistoryBranchProjection.Query(
+            await _index.GetAllBranchUpdatesAsync(cancellationToken).ConfigureAwait(false));
 
     public Task<IReadOnlyList<BackupRun>> GetRunsAsync(
         CancellationToken cancellationToken = default)
@@ -81,6 +94,26 @@ public sealed class HistoryQueryService
         VersionId versionId,
         CancellationToken cancellationToken = default)
         => _index.GetMaterializationPolicyTipsAsync(versionId, cancellationToken);
+
+    public Task<IReadOnlyList<HistoryAnnotationUpdate>> GetAnnotationUpdatesAsync(
+        HistoryAnnotationTarget target,
+        HistoryAnnotationKind? kind = null,
+        CancellationToken cancellationToken = default)
+        => _index.GetAnnotationUpdatesAsync(target, kind, cancellationToken);
+
+    public async Task<HistoryAnnotationProjectionResult> GetAnnotationProjectionAsync(
+        HistoryAnnotationTarget target,
+        CancellationToken cancellationToken = default)
+        => HistoryAnnotationProjection.Project(
+            target,
+            await _index.GetAnnotationUpdatesAsync(target, kind: null, cancellationToken).ConfigureAwait(false));
+
+    public async Task<MaterializationPolicyProjectionResult> GetMaterializationPolicyProjectionAsync(
+        VersionId versionId,
+        CancellationToken cancellationToken = default)
+        => MaterializationPolicyProjection.Project(
+            versionId,
+            await _index.GetMaterializationPolicyTipsAsync(versionId, cancellationToken).ConfigureAwait(false));
 
     public async Task<IReadOnlyList<HistoryTimelineEntry>> GetTimelineAsync(
         CancellationToken cancellationToken = default)

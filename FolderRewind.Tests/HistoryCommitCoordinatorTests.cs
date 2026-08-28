@@ -289,6 +289,39 @@ public sealed class HistoryCommitCoordinatorTests
     }
 
     [TestMethod]
+    public async Task CaptureCurrentStateForNewBranchDoesNotAdvanceOldBranch()
+    {
+        await using var runtime = await CreateRuntimeAsync();
+        var sourceId = SourceId.New();
+        var snapshot = Snapshot(Source(sourceId, "source-a"));
+        var first = await runtime.Commit.CommitAsync(Request(
+            snapshot,
+            null,
+            CreateCapture(sourceId, "first", -1, null)));
+        var workspace = (await runtime.WorkspaceStore.LoadAsync()).Value!;
+        var dirtyCapture = CreateCapture(
+            sourceId,
+            "dirty-working-state",
+            workspace.StateRevision,
+            first.NewVersions[0].VersionId);
+
+        var created = await runtime.Branches.CaptureCurrentStateForBranchAsync(
+            Request(snapshot, workspace, dirtyCapture),
+            "experiment");
+
+        Assert.AreNotEqual(first.NewBranchUpdate!.BranchId, created.NewBranchUpdate!.BranchId);
+        Assert.IsEmpty(created.NewBranchUpdate.ParentUpdateIds);
+        Assert.AreEqual(BranchUpdateReason.Created, created.NewBranchUpdate.Reason);
+        Assert.AreEqual(first.NewVersions[0].VersionId, created.NewVersions[0].ParentVersionIds.Single());
+        var oldTips = await runtime.Query.GetBranchTipsAsync(first.NewBranchUpdate!.BranchId);
+        Assert.HasCount(1, oldTips);
+        Assert.AreEqual(first.NewBranchUpdate.UpdateId, oldTips[0].UpdateId);
+        var current = (await runtime.WorkspaceStore.LoadAsync()).Value!;
+        Assert.AreEqual(created.NewBranchUpdate.BranchId, current.ActiveBranchId);
+        Assert.AreEqual(created.NewBranchUpdate.UpdateId, current.ActiveBranchUpdateId);
+    }
+
+    [TestMethod]
     public async Task UnknownWorkspaceRelationCreatesParentlessVersion()
     {
         await using var runtime = await CreateRuntimeAsync();
