@@ -31,8 +31,6 @@ namespace FolderRewind.Models
 
         public int AmbiguousEntries { get; set; }
 
-        // 已映射到本地 ManagedFolder 的可导入项。
-        public IReadOnlyList<HistoryItem> MappedItems { get; set; } = [];
     }
 
     /// <summary>
@@ -67,29 +65,4 @@ namespace FolderRewind.Models
         public int ReplacedRemoteEntryCount { get; set; }
     }
 
-    /// <summary>
-    /// 当前配置在云端仍视为有效的历史清单。
-    /// 只用于过滤导入/下载范围，不会删除归档本体。
-    /// </summary>
-    public sealed class CloudActiveHistoryManifest
-    {
-        public string ConfigId { get; set; } = string.Empty;
-
-        public string ConfigName { get; set; } = string.Empty;
-
-        public DateTime UpdatedAtUtc { get; set; } = DateTime.UtcNow;
-
-        public List<CloudActiveHistoryEntry> Entries { get; set; } = [];
-    }
-
-    public sealed class CloudActiveHistoryEntry
-    {
-        public string FolderPath { get; set; } = string.Empty;
-
-        public string FolderName { get; set; } = string.Empty;
-
-        public string FileName { get; set; } = string.Empty;
-
-        public DateTime Timestamp { get; set; }
-    }
 }

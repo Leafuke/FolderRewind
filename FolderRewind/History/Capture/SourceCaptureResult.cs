@@ -120,7 +120,8 @@ public sealed record SourceCaptureResult
         VersionId? expectedBaseVersionId,
         ICaptureCleanupHandle? cleanupHandle,
         IEnumerable<HistoryDiagnostic>? diagnostics,
-        IEnumerable<MaterializationPolicyUpdateId>? expectedMaterializationPolicyTipIds = null)
+        IEnumerable<MaterializationPolicyUpdateId>? expectedMaterializationPolicyTipIds = null,
+        SourceCaptureBaselineCandidate? baselineCandidate = null)
     {
         SourceId = sourceId;
         Outcome = outcome;
@@ -137,6 +138,7 @@ public sealed record SourceCaptureResult
         ExpectedMaterializationPolicyTipIds = expectedMaterializationPolicyTipIds is null
             ? []
             : [.. expectedMaterializationPolicyTipIds];
+        BaselineCandidate = baselineCandidate;
         ValidateShape();
     }
 
@@ -153,8 +155,9 @@ public sealed record SourceCaptureResult
     public ICaptureCleanupHandle? CleanupHandle { get; }
     public ImmutableArray<HistoryDiagnostic> Diagnostics { get; }
     public ImmutableArray<MaterializationPolicyUpdateId> ExpectedMaterializationPolicyTipIds { get; }
+    public SourceCaptureBaselineCandidate? BaselineCandidate { get; }
 
-    // Commit 8–16 的 Legacy Backup UI adapter 只消费这些投影；Native coordinator 消费上面的稳定字段。
+    // Backup UI 只消费这些便捷投影；Native coordinator 仍以上面的结构化字段为准。
     public bool Success => Outcome is SourceCaptureOutcome.Captured
         or SourceCaptureOutcome.Reused
         or SourceCaptureOutcome.NoChanges

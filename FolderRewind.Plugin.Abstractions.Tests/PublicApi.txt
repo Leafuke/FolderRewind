@@ -1,5 +1,5 @@
 # Generated and reviewed public API baseline for Plugin API 3.1.0.
-# sha256:2099a512911d5de905859b4153ec389bc5e4c655b471a20d855d1da5dc88bbfe
+# sha256:d5c6c162ea6db24b804a294fb7ce83ea1614d3f0e1fe7f414d5c363b6eebaa9f
 T FolderRewind.Plugin.Abstractions.AddFolderChange
 T FolderRewind.Plugin.Abstractions.ArtifactCompleteness
 T FolderRewind.Plugin.Abstractions.ArtifactContentHandle
@@ -53,8 +53,7 @@ T FolderRewind.Plugin.Abstractions.FolderMetadataField
 T FolderRewind.Plugin.Abstractions.FolderMetadataRequest
 T FolderRewind.Plugin.Abstractions.FolderMetadataResult
 T FolderRewind.Plugin.Abstractions.FolderSnapshot
-T FolderRewind.Plugin.Abstractions.HistoryItemSnapshot
-T FolderRewind.Plugin.Abstractions.HistoryRootReplacement
+T FolderRewind.Plugin.Abstractions.HistoryVersionSnapshot
 T FolderRewind.Plugin.Abstractions.HostServiceKind
 T FolderRewind.Plugin.Abstractions.IArtifactReadService
 T FolderRewind.Plugin.Abstractions.IArtifactTransformStaging

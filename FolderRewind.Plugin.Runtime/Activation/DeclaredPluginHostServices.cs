@@ -97,14 +97,14 @@ public sealed class DeclaredPluginHostServices : IPluginHostServices
         public ValueTask<OperationOutcome> RequestAsync(
             string configId,
             Guid folderId,
-            string historyItemId,
+            string versionId,
             CancellationToken cancellationToken)
             => throw Rejected(HostServiceKind.RestoreRequest);
     }
 
     private sealed class RejectedHistoryQuery : IHistoryQueryService
     {
-        public ValueTask<IReadOnlyList<HistoryItemSnapshot>> QueryAsync(
+        public ValueTask<IReadOnlyList<HistoryVersionSnapshot>> QueryAsync(
             string configId,
             Guid? folderId,
             CancellationToken cancellationToken)

@@ -5,24 +5,32 @@ using FolderRewind.Plugin.Abstractions;
 
 namespace FolderRewind.Services.Plugins.V3;
 
+internal enum BackupSourceExecutionStatus
+{
+    NewArchive = 0,
+    Reused = 1,
+    Failed = 2,
+    Unavailable = 3
+}
+
 internal sealed record PluginBackupRequestResult(
     OperationOutcome Outcome,
     bool CreatedNewArchive)
 {
     public static PluginBackupRequestResult FromSource(
-        BackupRunSourceStatus status,
+        BackupSourceExecutionStatus status,
         OperationOutcome? explicitOutcome = null,
         bool hasWarnings = false)
     {
         var outcome = explicitOutcome ?? status switch
         {
-            BackupRunSourceStatus.NewArchive when hasWarnings => OperationOutcome.SuccessWithWarnings,
-            BackupRunSourceStatus.NewArchive => OperationOutcome.Success,
-            BackupRunSourceStatus.Reused => OperationOutcome.NoChanges,
-            BackupRunSourceStatus.Failed or BackupRunSourceStatus.Unavailable => OperationOutcome.Failed,
+            BackupSourceExecutionStatus.NewArchive when hasWarnings => OperationOutcome.SuccessWithWarnings,
+            BackupSourceExecutionStatus.NewArchive => OperationOutcome.Success,
+            BackupSourceExecutionStatus.Reused => OperationOutcome.NoChanges,
+            BackupSourceExecutionStatus.Failed or BackupSourceExecutionStatus.Unavailable => OperationOutcome.Failed,
             _ => OperationOutcome.Failed
         };
-        return new PluginBackupRequestResult(outcome, status == BackupRunSourceStatus.NewArchive);
+        return new PluginBackupRequestResult(outcome, status == BackupSourceExecutionStatus.NewArchive);
     }
 
     public static OperationOutcome Aggregate(IEnumerable<PluginBackupRequestResult> results)

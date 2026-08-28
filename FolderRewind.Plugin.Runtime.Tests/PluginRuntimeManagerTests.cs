@@ -740,13 +740,13 @@ public sealed class PluginRuntimeManagerTests
 
     private sealed class FakeRestoreRequests : IRestoreRequestService
     {
-        public ValueTask<OperationOutcome> RequestAsync(string configId, Guid folderId, string historyItemId, CancellationToken cancellationToken) => ValueTask.FromResult(OperationOutcome.Success);
+        public ValueTask<OperationOutcome> RequestAsync(string configId, Guid folderId, string versionId, CancellationToken cancellationToken) => ValueTask.FromResult(OperationOutcome.Success);
     }
 
     private sealed class FakeHistory : IHistoryQueryService
     {
-        public ValueTask<IReadOnlyList<HistoryItemSnapshot>> QueryAsync(string configId, Guid? folderId, CancellationToken cancellationToken)
-            => ValueTask.FromResult<IReadOnlyList<HistoryItemSnapshot>>(Array.Empty<HistoryItemSnapshot>());
+        public ValueTask<IReadOnlyList<HistoryVersionSnapshot>> QueryAsync(string configId, Guid? folderId, CancellationToken cancellationToken)
+            => ValueTask.FromResult<IReadOnlyList<HistoryVersionSnapshot>>(Array.Empty<HistoryVersionSnapshot>());
     }
 
     private sealed class FakeNotifications : IPluginNotificationService

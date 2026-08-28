@@ -5,9 +5,8 @@ namespace FolderRewind.Plugin.Runtime.Artifacts;
 
 public static class ArtifactLedgerValidator
 {
-    public const int CurrentSchemaVersion = 1;
+    public const int CurrentSchemaVersion = 2;
     public const int MaximumArtifacts = 4096;
-    public const int MaximumHistoryRoots = 4096;
     public const int MaximumDependencyDepth = 256;
 
     private static readonly ArtifactFormatRef CoreFormat = new(new OwnerId("folderrewind.core"), "archive-set");
@@ -17,7 +16,6 @@ public static class ArtifactLedgerValidator
     {
         ArgumentNullException.ThrowIfNull(document);
         ArgumentNullException.ThrowIfNull(document.Artifacts);
-        ArgumentNullException.ThrowIfNull(document.HistoryRoots);
         if (document.SchemaVersion != CurrentSchemaVersion)
         {
             throw new InvalidDataException($"Unsupported Artifact Ledger schema {document.SchemaVersion}.");
@@ -26,7 +24,7 @@ public static class ArtifactLedgerValidator
         {
             throw new InvalidDataException("Artifact Ledger revision is required.");
         }
-        if (document.Artifacts.Count > MaximumArtifacts || document.HistoryRoots.Count > MaximumHistoryRoots)
+        if (document.Artifacts.Count > MaximumArtifacts)
         {
             throw new InvalidDataException("Artifact Ledger exceeds its bounded graph limits.");
         }
@@ -49,36 +47,8 @@ public static class ArtifactLedgerValidator
             }
         }
 
-        var historyIds = new HashSet<string>(StringComparer.Ordinal);
-        foreach (var root in document.HistoryRoots)
-        {
-            ArgumentNullException.ThrowIfNull(root);
-            if (string.IsNullOrWhiteSpace(root.HistoryItemId) || !historyIds.Add(root.HistoryItemId))
-            {
-                throw new InvalidDataException("History root identities must be unique and non-empty.");
-            }
-            if (string.IsNullOrWhiteSpace(root.ConfigId) || root.FolderId == Guid.Empty
-                || !artifacts.TryGetValue(root.RootArtifactId, out var rootArtifact))
-            {
-                throw new InvalidDataException("History root targets an invalid Artifact.");
-            }
-            if (!StringComparer.Ordinal.Equals(root.ConfigId, rootArtifact.ConfigId)
-                || root.FolderId != rootArtifact.FolderId
-                || !StringComparer.Ordinal.Equals(root.HistoryItemId, rootArtifact.HistoryItemId))
-            {
-                throw new InvalidDataException("History root and root Artifact ownership do not match.");
-            }
-        }
-
         ValidateDependencies(artifacts);
     }
-
-    public static IReadOnlySet<ArtifactId> ComputeReachable(
-        ArtifactLedgerDocument document,
-        IEnumerable<string>? historyItemIds = null)
-        => ComputeReachableFromRoots(
-            document,
-            LegacyHistoryRootAdapter.GetArtifactRoots(document, historyItemIds));
 
     public static IReadOnlySet<ArtifactId> ComputeReachableFromRoots(
         ArtifactLedgerDocument document,

@@ -12,30 +12,30 @@ public sealed class PluginBackupRequestResultTests
     {
         Assert.AreEqual(
             OperationOutcome.NoChanges,
-            PluginBackupRequestResult.FromSource(BackupRunSourceStatus.Reused).Outcome);
+            PluginBackupRequestResult.FromSource(BackupSourceExecutionStatus.Reused).Outcome);
         Assert.AreEqual(
             OperationOutcome.Failed,
-            PluginBackupRequestResult.FromSource(BackupRunSourceStatus.Failed).Outcome);
+            PluginBackupRequestResult.FromSource(BackupSourceExecutionStatus.Failed).Outcome);
         Assert.AreEqual(
             OperationOutcome.Failed,
-            PluginBackupRequestResult.FromSource(BackupRunSourceStatus.Unavailable).Outcome);
+            PluginBackupRequestResult.FromSource(BackupSourceExecutionStatus.Unavailable).Outcome);
         Assert.AreEqual(
             OperationOutcome.Success,
-            PluginBackupRequestResult.FromSource(BackupRunSourceStatus.NewArchive).Outcome);
+            PluginBackupRequestResult.FromSource(BackupSourceExecutionStatus.NewArchive).Outcome);
         Assert.AreEqual(
             OperationOutcome.SuccessWithWarnings,
             PluginBackupRequestResult.FromSource(
-                BackupRunSourceStatus.NewArchive,
+                BackupSourceExecutionStatus.NewArchive,
                 hasWarnings: true).Outcome);
         Assert.AreEqual(
             OperationOutcome.Blocked,
             PluginBackupRequestResult.FromSource(
-                BackupRunSourceStatus.Failed,
+                BackupSourceExecutionStatus.Failed,
                 OperationOutcome.Blocked).Outcome);
         Assert.AreEqual(
             OperationOutcome.Canceled,
             PluginBackupRequestResult.FromSource(
-                BackupRunSourceStatus.Failed,
+                BackupSourceExecutionStatus.Failed,
                 OperationOutcome.Canceled).Outcome);
     }
 

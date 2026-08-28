@@ -24,6 +24,7 @@ public enum HistoryPresentationReadiness
 
 public sealed record TimelineEntrySummary(
     VersionId VersionId,
+    RepresentationId? RepresentationId,
     SourceId SourceId,
     DateTimeOffset CreatedAtUtc,
     string DisplayName,
@@ -114,16 +115,13 @@ public sealed class HistoryPresentationQueryService
                 .ConfigureAwait(false);
             var reps = representationGroups.GetValueOrDefault(version.VersionId) ?? [];
             var state = await AssessAsync(reps, catalog, policy, cancellationToken).ConfigureAwait(false);
-            var selected = reps.OrderBy(item => item.RestoreStrategy == RestoreStrategy.Exact ? 0 : 1)
-                .ThenBy(item => item.RepresentationId.ToString(), StringComparer.Ordinal).FirstOrDefault();
-            var localEntry = selected is null ? null : catalog?.Entries.FirstOrDefault(item => item.RepresentationId == selected.RepresentationId);
-            var localPath = localEntry?.Locator.Kind == LocalReplicaLocatorKind.ControlledAbsolutePath
-                ? localEntry.Locator.AbsolutePath
-                : null;
-            var fileName = selected?.RepresentationSpecificMetadata.GetValueOrDefault("legacyFileName")
+            var selected = state.Representation;
+            var localPath = state.LocalPath;
+            var fileName = selected?.RepresentationSpecificMetadata.GetValueOrDefault("fileName")
+                ?? selected?.RepresentationSpecificMetadata.GetValueOrDefault("legacyFileName")
                 ?? (localPath is null ? null : Path.GetFileName(localPath));
             timeline.Add(new(
-                version.VersionId, version.SourceId, version.CreatedAtUtc,
+                version.VersionId, selected?.RepresentationId, version.SourceId, version.CreatedAtUtc,
                 version.SourceDescriptorSnapshot.DisplayName, fileName, localPath,
                 annotation.EffectiveComment ?? string.Empty, annotation.IsPinned, annotation.IsSuppressed,
                 policy.HasExplicitPolicy && policy.EffectiveState == MaterializationPolicyState.Released,
@@ -166,22 +164,31 @@ public sealed class HistoryPresentationQueryService
             branchSummaries);
     }
 
-    private async Task<(HistoryPresentationReadiness Readiness, MaterializationFidelity Fidelity)> AssessAsync(
+    private async Task<(
+        HistoryPresentationReadiness Readiness,
+        MaterializationFidelity Fidelity,
+        VersionRepresentation? Representation,
+        string? LocalPath)> AssessAsync(
         IReadOnlyList<VersionRepresentation> representations,
         LocalReplicaCatalog? catalog,
         MaterializationPolicyProjectionResult policy,
         CancellationToken cancellationToken)
     {
-        if (representations.Count == 0) return (HistoryPresentationReadiness.MetadataOnly, MaterializationFidelity.Unknown);
-        foreach (var representation in representations)
+        if (representations.Count == 0)
+            return (HistoryPresentationReadiness.MetadataOnly, MaterializationFidelity.Unknown, null, null);
+        var ordered = representations
+            .OrderBy(item => item.RestoreStrategy == RestoreStrategy.Exact ? 0 : 1)
+            .ThenBy(item => item.RepresentationId.ToString(), StringComparer.Ordinal)
+            .ToArray();
+        foreach (var representation in ordered)
         {
-            var local = catalog?.Entries.Where(item => item.RepresentationId == representation.RepresentationId)
+            var localPath = catalog?.Entries.Where(item => item.RepresentationId == representation.RepresentationId)
                 .Select(item => item.Locator.Kind == LocalReplicaLocatorKind.ControlledAbsolutePath ? item.Locator.AbsolutePath : null)
-                .Any(path => path is not null && (File.Exists(path) || Directory.Exists(path))) == true;
-            if (local)
-                return (HistoryPresentationReadiness.Ready, Fidelity(representation));
+                .FirstOrDefault(path => path is not null && (File.Exists(path) || Directory.Exists(path)));
+            if (localPath is not null)
+                return (HistoryPresentationReadiness.Ready, Fidelity(representation), representation, localPath);
         }
-        foreach (var representation in representations)
+        foreach (var representation in ordered)
         {
             var replicas = await _runtime.Query.GetStorageReplicasAsync(representation.RepresentationId, cancellationToken)
                 .ConfigureAwait(false);
@@ -191,16 +198,19 @@ public sealed class HistoryPresentationQueryService
                     .ConfigureAwait(false);
                 var parentIds = lifecycle.SelectMany(item => item.ParentUpdateIds).ToHashSet();
                 if (lifecycle.Where(item => !parentIds.Contains(item.UpdateId)).Any(item => item.State == ReplicaLifecycleState.Active))
-                    return (HistoryPresentationReadiness.PreparationRequired, Fidelity(representation));
+                    return (HistoryPresentationReadiness.PreparationRequired, Fidelity(representation), representation, null);
             }
         }
-        if (representations.Any(item => item.Kind == RepresentationKind.PluginArtifact))
-            return (HistoryPresentationReadiness.PluginOrCredentialRequired, MaterializationFidelity.Unknown);
+        var fallback = ordered[0];
+        if (ordered.Any(item => item.Kind == RepresentationKind.PluginArtifact))
+            return (HistoryPresentationReadiness.PluginOrCredentialRequired, MaterializationFidelity.Unknown, fallback, null);
         if (policy.HasExplicitPolicy && policy.EffectiveState == MaterializationPolicyState.Released)
-            return (HistoryPresentationReadiness.PayloadReleased, MaterializationFidelity.Unknown);
+            return (HistoryPresentationReadiness.PayloadReleased, MaterializationFidelity.Unknown, fallback, null);
         return (HistoryPresentationReadiness.Unavailable,
             representations.Any(item => item.RestoreStrategy == RestoreStrategy.Overlay)
-                ? MaterializationFidelity.Overlay : MaterializationFidelity.Unknown);
+                ? MaterializationFidelity.Overlay : MaterializationFidelity.Unknown,
+            fallback,
+            null);
     }
 
     private static MaterializationFidelity Fidelity(VersionRepresentation representation)

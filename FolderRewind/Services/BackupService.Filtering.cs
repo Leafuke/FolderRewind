@@ -1,4 +1,5 @@
 using FolderRewind.Models;
+using FolderRewind.History.Capture;
 using Microsoft.UI.Xaml.Controls;
 using System;
 using System.Collections.Generic;
@@ -226,14 +227,14 @@ namespace FolderRewind.Services
         /// Hash 刻意留空：默认口径是大小 + 修改时间比对（与 MineBackup 一致），计算哈希代价过高。
         /// 配置了黑/白名单却扫出 0 项时，探测无过滤枚举是否有文件，有则警告过滤器可能过宽。
         /// </summary>
-        private static Dictionary<string, FileState> ScanDirectory(
+        private static Dictionary<string, SourceCaptureFileState> ScanDirectory(
             string path,
             FilterSettings? filters = null,
             string? originalSourcePath = null,
             BackupSourceScope? selection = null)
         {
             // 预估容量以减少字典扩容开销
-            var result = new Dictionary<string, FileState>(1024, StringComparer.OrdinalIgnoreCase);
+            var result = new Dictionary<string, SourceCaptureFileState>(1024, StringComparer.OrdinalIgnoreCase);
             var originalRoot = originalSourcePath ?? path;
             var matcher = CreateBackupMatcher(path, originalRoot, filters);
 
@@ -242,14 +243,7 @@ namespace FolderRewind.Services
                          selection,
                          candidate => ShouldIncludeInBackup(candidate, filters, matcher)))
             {
-                result[file.RelativePath] = new FileState
-                {
-                    Size = file.Size,
-                    LastWriteTimeUtc = file.LastWriteTimeUtc,
-                    // 只有在真正需要的时候才算 Hash，因为很慢。
-                    // 这里暂且留空或仅在严格模式计算。MineBackup 默认也是优先比对 Time/Size
-                    Hash = ""
-                };
+                result[file.RelativePath] = new SourceCaptureFileState(file.Size, file.LastWriteTimeUtc);
             }
 
             if (result.Count == 0 && filters != null

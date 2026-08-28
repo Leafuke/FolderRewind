@@ -68,6 +68,31 @@ public sealed class HistoryCommitCoordinatorTests
     }
 
     [TestMethod]
+    public async Task OperationCommentIsCommittedForRunAndNewSourceVersion()
+    {
+        await using var runtime = await CreateRuntimeAsync();
+        var sourceId = SourceId.New();
+        var snapshot = Snapshot(Source(sourceId, "source-a"));
+        var request = Request(snapshot, null, CreateCapture(sourceId, "first", -1, null));
+        request = new HistoryCommitRequest(
+            request.ConfigSnapshot,
+            request.Invocation with { Comment = " before update " },
+            request.ExpectedWorkspace,
+            request.SourceCaptureResults);
+
+        var batch = await runtime.Commit.CommitAsync(request);
+
+        var runComments = await runtime.Query.GetAnnotationUpdatesAsync(
+            new HistoryAnnotationTarget(HistoryAnnotationTargetKind.Run, batch.Run.RunId.Value),
+            HistoryAnnotationKind.Comment);
+        var versionComments = await runtime.Query.GetAnnotationUpdatesAsync(
+            new HistoryAnnotationTarget(HistoryAnnotationTargetKind.Version, batch.NewVersions.Single().VersionId.Value),
+            HistoryAnnotationKind.Comment);
+        Assert.AreEqual("before update", runComments.Single().Value);
+        Assert.AreEqual("before update", versionComments.Single().Value);
+    }
+
+    [TestMethod]
     public async Task ExactWorkspaceBaselineBecomesVersionParentAndBranchUpdateHasOnlyRefParent()
     {
         await using var runtime = await CreateRuntimeAsync();

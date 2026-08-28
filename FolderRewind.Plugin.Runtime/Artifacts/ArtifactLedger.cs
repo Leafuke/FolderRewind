@@ -5,8 +5,7 @@ namespace FolderRewind.Plugin.Runtime.Artifacts;
 public sealed record ArtifactLedgerDocument(
     int SchemaVersion,
     ArtifactGraphRevision Revision,
-    IReadOnlyList<ArtifactLedgerEntry> Artifacts,
-    IReadOnlyList<ArtifactHistoryRoot> HistoryRoots);
+    IReadOnlyList<ArtifactLedgerEntry> Artifacts);
 
 public sealed record ArtifactLedgerEntry(
     ArtifactId ArtifactId,
@@ -15,7 +14,6 @@ public sealed record ArtifactLedgerEntry(
     RestoreStrategyId RestoreStrategyId,
     string ConfigId,
     Guid FolderId,
-    string HistoryItemId,
     string ContentRelativePath,
     string LogicalSha256,
     long LogicalSize,
@@ -27,12 +25,6 @@ public sealed record ArtifactLedgerEntry(
     string TransactionId,
     ArtifactAvailability LocalAvailability,
     ArtifactAvailability CloudAvailability);
-
-public sealed record ArtifactHistoryRoot(
-    string HistoryItemId,
-    string ConfigId,
-    Guid FolderId,
-    ArtifactId RootArtifactId);
 
 public sealed record ArtifactClosurePlan(
     IReadOnlyList<ArtifactId> Roots,
@@ -62,7 +54,6 @@ public sealed record ArtifactPatchScope(
     PluginId PluginId,
     string ConfigId,
     Guid FolderId,
-    IReadOnlyDictionary<string, ArtifactId> ReplaceableHistoryRoots,
     IReadOnlySet<ArtifactId> ReadableArtifacts,
     string TransactionId,
     ArtifactGraphRevision CommittedRevision);

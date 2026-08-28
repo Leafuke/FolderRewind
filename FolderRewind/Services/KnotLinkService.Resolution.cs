@@ -215,11 +215,6 @@ namespace FolderRewind.Services
             return request.GetList("backup_whitelist");
         }
 
-        private static bool IsPartialBackup(BackupConfig config, ManagedFolder folder, string backupFile)
-        {
-            return HistoryService.TryGetEntry(config.Id, folder.Path, backupFile)?.IsPartialBackup == true;
-        }
-
         private static ManagedFolder ResolveEquivalentFolder(BackupConfig effectiveConfig, ManagedFolder originalFolder)
         {
             if (effectiveConfig.SourceFolders.Count == 0)

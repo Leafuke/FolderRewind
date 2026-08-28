@@ -213,6 +213,21 @@ namespace FolderRewind.Views
             if (BranchFilter.SelectedItem is not BranchViewItem branch || !branch.CanCheckout) return;
             BranchUpdateId? selected = branch.IsMultiTip ? await PromptBranchTipAsync(branch) : branch.Tips.Single().UpdateId;
             if (selected is null) return;
+            var confirm = new ContentDialog
+            {
+                Title = I18n.GetString("History_Branch_CheckoutTitle"),
+                Content = new TextBlock
+                {
+                    Text = I18n.GetString("History_Branch_CheckoutContent"),
+                    TextWrapping = TextWrapping.Wrap
+                },
+                PrimaryButtonText = I18n.GetString("History_Branch_CheckoutPrimary"),
+                CloseButtonText = I18n.GetString("Common_Cancel"),
+                DefaultButton = ContentDialogButton.Close,
+                XamlRoot = XamlRoot
+            };
+            ThemeService.ApplyThemeToDialog(confirm);
+            if (await confirm.ShowAsync() != ContentDialogResult.Primary) return;
             if (!await ViewModel.CheckoutBranchTipAsync(branch, selected.Value))
                 NotificationService.ShowWarning(I18n.GetString("History_NativeAction_NotAvailable"));
         }
@@ -271,8 +286,8 @@ namespace FolderRewind.Views
             if (mode == null) return;
             var result = await ViewModel.RestoreRunAsync(item, mode.Value);
             if (result == null) return;
-            var succeeded = result.Sources.Count(source => source.Success);
-            var failed = result.Sources.Count - succeeded;
+            var succeeded = result.AppliedSources.Count;
+            var failed = Math.Max(0, item.Sources.Count - succeeded);
             if (failed == 0)
                 NotificationService.ShowSuccess(I18n.Format("History_Run_RestoreSummary", succeeded, failed));
             else
@@ -473,7 +488,7 @@ namespace FolderRewind.Views
                 return;
             }
 
-            var deleteResult = await ViewModel.DeleteHistoryItemAsync(item, deleteMode.Value);
+            var deleteResult = await ViewModel.DeleteVersionAsync(item, deleteMode.Value);
             if (!deleteResult.Success)
             {
                 NotificationService.ShowError(string.IsNullOrWhiteSpace(deleteResult.Message)

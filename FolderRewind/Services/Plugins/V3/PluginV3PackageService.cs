@@ -788,14 +788,14 @@ public static class PluginV3PackageService
         var providerStateLocations = ConfigService.CurrentConfig.BackupConfigs.Sum(config =>
             (config.ProviderStates.ContainsKey(pluginId.Value) ? 1 : 0)
             + config.SourceFolders.Count(folder => folder.ProviderStates.ContainsKey(pluginId.Value)));
-        var histories = await FindOwnedHistoryAsync(pluginId, cancellationToken).ConfigureAwait(false);
+        var artifacts = await FindOwnedArtifactsAsync(pluginId, cancellationToken).ConfigureAwait(false);
         return new PluginUninstallPreview(
             pluginId,
             Path.Combine(PluginsRoot, pluginId.Value),
             settings.TypedSettings.TryGetValue(pluginId.Value, out var typed) ? typed.Count : 0,
             providerStateLocations,
             Path.Combine(DataRoot, pluginId.Value),
-            histories,
+            artifacts,
             $"DELETE {pluginId.Value} DATA");
     }
 
@@ -921,20 +921,18 @@ public static class PluginV3PackageService
             cancellationToken.ThrowIfCancellationRequested();
             var store = new FileArtifactLedgerStore(destination);
             var ledger = await store.LoadAsync(cancellationToken).ConfigureAwait(false);
-            var reachable = ArtifactLedgerValidator.ComputeReachable(ledger);
             result.AddRange(ledger.Artifacts.Where(value =>
-                reachable.Contains(value.ArtifactId)
-                && StringComparer.Ordinal.Equals(value.Format.OwnerId.Value, pluginId.Value)));
+                StringComparer.Ordinal.Equals(value.Format.OwnerId.Value, pluginId.Value)));
         }
         return result;
     }
 
-    private static async ValueTask<IReadOnlyList<string>> FindOwnedHistoryAsync(
+    private static async ValueTask<IReadOnlyList<string>> FindOwnedArtifactsAsync(
         PluginId pluginId,
         CancellationToken cancellationToken)
     {
         var owned = await LoadOwnedArtifactsAsync(pluginId, cancellationToken).ConfigureAwait(false);
-        return owned.Select(value => value.HistoryItemId).Distinct(StringComparer.Ordinal).Order().ToArray();
+        return owned.Select(value => value.ArtifactId.ToString()).Distinct(StringComparer.Ordinal).Order().ToArray();
     }
 
     private static PluginInstallState? ReadInstallState(string pluginDirectory)
@@ -953,7 +951,7 @@ public sealed record PluginUninstallPreview(
     int SettingsCount,
     int ProviderStateLocationCount,
     string DataPath,
-    IReadOnlyList<string> AffectedHistoryItemIds,
+    IReadOnlyList<string> AffectedArtifactIds,
     string RequiredConfirmation);
 
 public sealed record PluginUninstallResult(
@@ -967,6 +965,6 @@ public sealed record PluginUninstallResult(
     public int SettingsCount => Preview.SettingsCount;
     public int ProviderStateLocationCount => Preview.ProviderStateLocationCount;
     public string DataPath => Preview.DataPath;
-    public IReadOnlyList<string> AffectedHistoryItemIds => Preview.AffectedHistoryItemIds;
+    public IReadOnlyList<string> AffectedArtifactIds => Preview.AffectedArtifactIds;
     public string RequiredConfirmation => Preview.RequiredConfirmation;
 }

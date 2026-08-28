@@ -68,18 +68,18 @@ public sealed record BackupRequestOptions
 
 public interface IRestoreRequestService
 {
-    ValueTask<OperationOutcome> RequestAsync(string configId, Guid folderId, string historyItemId, CancellationToken cancellationToken);
+    ValueTask<OperationOutcome> RequestAsync(string configId, Guid folderId, string versionId, CancellationToken cancellationToken);
 }
 
 public interface IHistoryQueryService
 {
-    ValueTask<IReadOnlyList<HistoryItemSnapshot>> QueryAsync(string configId, Guid? folderId, CancellationToken cancellationToken);
+    ValueTask<IReadOnlyList<HistoryVersionSnapshot>> QueryAsync(string configId, Guid? folderId, CancellationToken cancellationToken);
 }
 
-public sealed record HistoryItemSnapshot(
-    string HistoryItemId,
-    Guid? FolderId,
-    string FolderPath,
+public sealed record HistoryVersionSnapshot(
+    string VersionId,
+    Guid SourceId,
+    string PathHint,
     string ArchiveFileName,
     DateTimeOffset CreatedAt,
     OperationOutcome Outcome);

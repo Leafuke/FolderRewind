@@ -136,7 +136,7 @@ public sealed class PluginHostServicesGateTests
         public ValueTask<OperationOutcome> RequestAsync(
             string configId,
             Guid folderId,
-            string historyItemId,
+            string versionId,
             CancellationToken cancellationToken)
         {
             owner.Hit(HostServiceKind.RestoreRequest);
@@ -146,13 +146,13 @@ public sealed class PluginHostServicesGateTests
 
     private sealed class HistoryQuery(RecordingHostServices owner) : IHistoryQueryService
     {
-        public ValueTask<IReadOnlyList<HistoryItemSnapshot>> QueryAsync(
+        public ValueTask<IReadOnlyList<HistoryVersionSnapshot>> QueryAsync(
             string configId,
             Guid? folderId,
             CancellationToken cancellationToken)
         {
             owner.Hit(HostServiceKind.HistoryQuery);
-            return ValueTask.FromResult<IReadOnlyList<HistoryItemSnapshot>>([]);
+            return ValueTask.FromResult<IReadOnlyList<HistoryVersionSnapshot>>([]);
         }
     }
 

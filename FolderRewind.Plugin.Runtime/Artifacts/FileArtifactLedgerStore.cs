@@ -25,7 +25,7 @@ public sealed class FileArtifactLedgerStore
     {
         _repositoryRoot = Path.GetFullPath(repositoryRoot ?? throw new ArgumentNullException(nameof(repositoryRoot)));
         _metadataRoot = Path.Combine(_repositoryRoot, MetadataDirectoryName);
-        _ledgerPath = Path.Combine(_metadataRoot, "artifact-ledger.v1.json");
+        _ledgerPath = Path.Combine(_metadataRoot, "artifact-ledger.v2.json");
         _transactionsRoot = Path.Combine(_metadataRoot, "transactions");
         _observeStage = observeStage;
         Directory.CreateDirectory(_repositoryRoot);
@@ -72,7 +72,6 @@ public sealed class FileArtifactLedgerStore
                 artifact.CoreCaptureMode,
                 artifact.ConfigId,
                 artifact.FolderId,
-                artifact.HistoryItemId,
                 artifact.Dependencies));
         }
         return new ArtifactReadSession(new HostArtifactReadService(roots), snapshots);
@@ -113,70 +112,6 @@ public sealed class FileArtifactLedgerStore
         }
     }
 
-    public async ValueTask<ArtifactLedgerDocument> RegisterCoreArtifactAsync(
-        string configId,
-        Guid folderId,
-        string historyItemId,
-        string contentRelativePath,
-        ArtifactCompleteness completeness,
-        CoreCaptureMode captureMode,
-        string transactionId,
-        CancellationToken cancellationToken = default)
-    {
-        if (string.IsNullOrWhiteSpace(configId) || folderId == Guid.Empty || string.IsNullOrWhiteSpace(historyItemId))
-        {
-            throw new ArgumentException("Core Artifact ownership is incomplete.");
-        }
-        var safeId = RequireTransactionId(transactionId);
-        var canonicalPath = ArtifactPathRules.NormalizeRelativePath(contentRelativePath);
-        var contentPath = ArtifactPathRules.ResolveUnderRoot(_repositoryRoot, canonicalPath);
-        var (sha256, size) = await HostArtifactReadService.ComputeLogicalFactsAsync(contentPath, cancellationToken).ConfigureAwait(false);
-
-        await _gate.WaitAsync(cancellationToken).ConfigureAwait(false);
-        try
-        {
-            var current = await LoadWithoutLockAsync(cancellationToken).ConfigureAwait(false);
-            if (current.HistoryRoots.Any(root => StringComparer.Ordinal.Equals(root.HistoryItemId, historyItemId)))
-            {
-                throw new InvalidOperationException("History Item already has an Artifact root.");
-            }
-            var artifactId = new ArtifactId(Guid.NewGuid());
-            var entry = new ArtifactLedgerEntry(
-                artifactId,
-                new ArtifactFormatRef(new OwnerId("folderrewind.core"), "archive-set"),
-                1,
-                new RestoreStrategyId(new PluginId("folderrewind.core"), "archive-materializer"),
-                configId,
-                folderId,
-                historyItemId,
-                canonicalPath,
-                sha256,
-                size,
-                sha256,
-                size,
-                completeness,
-                captureMode,
-                Array.Empty<ArtifactId>(),
-                safeId,
-                ArtifactAvailability.Available,
-                ArtifactAvailability.Pending);
-            var candidate = current with
-            {
-                Revision = NewRevision(),
-                Artifacts = current.Artifacts.Append(entry).ToArray(),
-                HistoryRoots = current.HistoryRoots.Append(
-                    new ArtifactHistoryRoot(historyItemId, configId, folderId, artifactId)).ToArray()
-            };
-            ArtifactLedgerValidator.Validate(candidate);
-            await WriteJsonAtomicallyAsync(_ledgerPath, candidate, cancellationToken).ConfigureAwait(false);
-            return candidate;
-        }
-        finally
-        {
-            _gate.Release();
-        }
-    }
-
     public async ValueTask<(ArtifactLedgerDocument Ledger, ArtifactId ArtifactRootId)> RegisterDetachedCoreArtifactAsync(
         string configId,
         Guid folderId,
@@ -208,7 +143,6 @@ public sealed class FileArtifactLedgerStore
                 new RestoreStrategyId(new PluginId("folderrewind.core"), "archive-materializer"),
                 configId,
                 folderId,
-                string.Empty,
                 canonicalPath,
                 sha256,
                 size,
@@ -364,16 +298,6 @@ public sealed class FileArtifactLedgerStore
     }
 
     public async ValueTask<IReadOnlyList<ArtifactId>> GarbageCollectUnreachableAsync(
-        CancellationToken cancellationToken = default)
-    {
-        var current = await LoadAsync(cancellationToken).ConfigureAwait(false);
-        return await GarbageCollectUnreachableAsync(
-            LegacyHistoryRootAdapter.GetArtifactRoots(current),
-            dryRun: false,
-            cancellationToken).ConfigureAwait(false);
-    }
-
-    public async ValueTask<IReadOnlyList<ArtifactId>> GarbageCollectUnreachableAsync(
         IEnumerable<ArtifactId> protectedArtifactRoots,
         bool dryRun = false,
         CancellationToken cancellationToken = default)
@@ -459,19 +383,10 @@ public sealed class FileArtifactLedgerStore
                 var mergedArtifacts = current.Artifacts
                     .Concat(closure.Artifacts.Where(incoming => current.Artifacts.All(value => value.ArtifactId != incoming.ArtifactId)))
                     .ToArray();
-                var mergedRoots = current.HistoryRoots.ToList();
-                foreach (var root in closure.HistoryRoots)
-                {
-                    var existing = mergedRoots.SingleOrDefault(value => StringComparer.Ordinal.Equals(value.HistoryItemId, root.HistoryItemId));
-                    if (existing is not null && existing != root)
-                        throw new InvalidDataException("Cloud Artifact History root conflicts with local metadata.");
-                    if (existing is null) mergedRoots.Add(root);
-                }
                 var candidate = new ArtifactLedgerDocument(
-                    1,
-                    closure.Revision,
-                    mergedArtifacts,
-                    mergedRoots);
+                    ArtifactLedgerValidator.CurrentSchemaVersion,
+                    NewRevision(),
+                    mergedArtifacts);
                 ArtifactLedgerValidator.Validate(candidate);
                 await WriteJsonAtomicallyAsync(_ledgerPath, candidate, cancellationToken).ConfigureAwait(false);
             }
@@ -492,42 +407,6 @@ public sealed class FileArtifactLedgerStore
         finally { _gate.Release(); }
     }
 
-    public async ValueTask RemoveHistoryRootAsync(
-        string historyItemId,
-        ArtifactGraphRevision committedRevision,
-        CancellationToken cancellationToken = default)
-    {
-        await _gate.WaitAsync(cancellationToken).ConfigureAwait(false);
-        try
-        {
-            var current = await LoadWithoutLockAsync(cancellationToken).ConfigureAwait(false);
-            var roots = current.HistoryRoots.Where(root => !StringComparer.Ordinal.Equals(root.HistoryItemId, historyItemId)).ToArray();
-            if (roots.Length == current.HistoryRoots.Count) throw new KeyNotFoundException("History root was not found.");
-            var candidate = current with { Revision = committedRevision, HistoryRoots = roots };
-            ArtifactLedgerValidator.Validate(candidate);
-            await WriteJsonAtomicallyAsync(_ledgerPath, candidate, cancellationToken).ConfigureAwait(false);
-        }
-        finally
-        {
-            _gate.Release();
-        }
-    }
-
-    public static void EnsureArtifactCanBePhysicallyDeleted(
-        ArtifactLedgerDocument document,
-        ArtifactId artifactId)
-    {
-        var dependentHistory = document.HistoryRoots
-            .Where(root => ArtifactLedgerValidator.ComputeReachableFromRoots(document, [root.RootArtifactId]).Contains(artifactId))
-            .Select(root => root.HistoryItemId)
-            .ToArray();
-        if (dependentHistory.Length != 0)
-        {
-            throw new InvalidOperationException(
-                $"Artifact '{artifactId}' is reachable from History: {string.Join(", ", dependentHistory)}.");
-        }
-    }
-
     private static bool ArtifactIdentityMatches(ArtifactLedgerEntry left, ArtifactLedgerEntry right)
         => left.ArtifactId == right.ArtifactId
            && left.Format == right.Format
@@ -535,7 +414,6 @@ public sealed class FileArtifactLedgerStore
            && left.RestoreStrategyId == right.RestoreStrategyId
            && StringComparer.Ordinal.Equals(left.ConfigId, right.ConfigId)
            && left.FolderId == right.FolderId
-           && StringComparer.Ordinal.Equals(left.HistoryItemId, right.HistoryItemId)
            && StringComparer.Ordinal.Equals(left.ContentRelativePath, right.ContentRelativePath)
            && StringComparer.OrdinalIgnoreCase.Equals(left.LogicalSha256, right.LogicalSha256)
            && left.LogicalSize == right.LogicalSize
@@ -567,8 +445,7 @@ public sealed class FileArtifactLedgerStore
             return new ArtifactLedgerDocument(
                 ArtifactLedgerValidator.CurrentSchemaVersion,
                 new ArtifactGraphRevision("0"),
-                Array.Empty<ArtifactLedgerEntry>(),
-                Array.Empty<ArtifactHistoryRoot>());
+                Array.Empty<ArtifactLedgerEntry>());
         }
         var document = await ReadJsonAsync<ArtifactLedgerDocument>(_ledgerPath, cancellationToken).ConfigureAwait(false)
             ?? throw new InvalidDataException("Artifact Ledger is empty.");

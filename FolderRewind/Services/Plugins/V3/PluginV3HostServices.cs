@@ -6,6 +6,7 @@ using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
 using FolderRewind.Models;
+using FolderRewind.History.Application;
 using FolderRewind.Plugin.Abstractions;
 using FolderRewind.Plugin.Runtime.Activation;
 
@@ -102,7 +103,7 @@ internal sealed class PluginV3HostServices : IPluginHostServices
         public async ValueTask<OperationOutcome> RequestAsync(
             string configId,
             Guid folderId,
-            string historyItemId,
+            string versionId,
             CancellationToken cancellationToken)
         {
             cancellationToken.ThrowIfCancellationRequested();
@@ -110,48 +111,43 @@ internal sealed class PluginV3HostServices : IPluginHostServices
                 string.Equals(value.Id, configId, StringComparison.OrdinalIgnoreCase));
             var folder = config?.SourceFolders.FirstOrDefault(value =>
                 Guid.TryParse(value.Id, out var id) && id == folderId);
-            var history = HistoryService.TryGetEntryById(historyItemId);
-            if (config is null || folder is null || history is null) return OperationOutcome.Blocked;
-            // 部分备份不能 Clean；完整热还原则沿用 MineRewind 1.8.x 的 Clean 语义。
-            var restoreMode = history.IsPartialBackup
-                ? BackupService.RestoreMode.Overwrite
-                : BackupService.RestoreMode.Clean;
-            var success = await BackupService.RestoreBackupAsync(
+            if (config is null || folder is null) return OperationOutcome.Blocked;
+            FolderRewind.History.Domain.VersionId parsed;
+            try { parsed = FolderRewind.History.Domain.VersionId.Parse(versionId); }
+            catch (FormatException) { return OperationOutcome.Blocked; }
+            var result = await NativeHistoryApplicationService.RestoreVersionAsync(
                 config,
                 folder,
-                history,
-                restoreMode);
-            return success ? OperationOutcome.Success : OperationOutcome.Failed;
+                parsed,
+                cancellationToken).ConfigureAwait(false);
+            return result.Succeeded ? OperationOutcome.Success : OperationOutcome.Failed;
         }
     }
 
     private sealed class HistoryQuery : IHistoryQueryService
     {
-        public ValueTask<IReadOnlyList<HistoryItemSnapshot>> QueryAsync(
+        public async ValueTask<IReadOnlyList<HistoryVersionSnapshot>> QueryAsync(
             string configId,
             Guid? folderId,
             CancellationToken cancellationToken)
         {
             cancellationToken.ThrowIfCancellationRequested();
-            var values = HistoryService.GetEntriesForConfig(configId)
-                .Where(value => !folderId.HasValue || value.FolderId == folderId)
-                .Select(value => new HistoryItemSnapshot(
-                    value.Id,
-                    value.FolderId,
-                    value.FolderPath,
-                    value.FileName,
-                    value.Timestamp,
-                    value.Outcome switch
-                    {
-                        PersistedOperationOutcome.SuccessWithWarnings => OperationOutcome.SuccessWithWarnings,
-                        PersistedOperationOutcome.NoChanges => OperationOutcome.NoChanges,
-                        PersistedOperationOutcome.Canceled => OperationOutcome.Canceled,
-                        PersistedOperationOutcome.Blocked => OperationOutcome.Blocked,
-                        PersistedOperationOutcome.Failed => OperationOutcome.Failed,
-                        _ => OperationOutcome.Success
-                    }))
+            var runtime = NativeHistoryCoreGateway.GetRequiredRuntime(configId);
+            var versions = await runtime.Query.GetAllVersionsAsync(cancellationToken).ConfigureAwait(false);
+            var sourceId = folderId is { } id && id != Guid.Empty
+                ? new FolderRewind.History.Domain.SourceId(id)
+                : (FolderRewind.History.Domain.SourceId?)null;
+            var values = versions
+                .Where(value => sourceId is null || value.SourceId == sourceId.Value)
+                .Select(value => new HistoryVersionSnapshot(
+                    value.VersionId.ToString(),
+                    value.SourceId.Value,
+                    value.SourceDescriptorSnapshot.PathHint,
+                    string.Empty,
+                    value.CreatedAtUtc,
+                    OperationOutcome.Success))
                 .ToArray();
-            return ValueTask.FromResult<IReadOnlyList<HistoryItemSnapshot>>(values);
+            return values;
         }
     }
 

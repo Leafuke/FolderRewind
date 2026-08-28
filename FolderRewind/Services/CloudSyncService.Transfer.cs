@@ -15,46 +15,6 @@ namespace FolderRewind.Services
 {
     public static partial class CloudSyncService
     {
-        private static async Task<(bool Success, int Count, string Message)> ImportHistoryFromCloudCoreAsync(
-            string remoteHistoryPath,
-            bool merge,
-            string taskName,
-            string failureMessage)
-        {
-            string tempFilePath = Path.Combine(Path.GetTempPath(), $"FolderRewind_history_import_{Guid.NewGuid():N}.json");
-            var settings = ConfigService.CurrentConfig?.BackupConfigs?.FirstOrDefault()?.Cloud ?? new CloudSettings();
-
-            var downloadResult = await DownloadJsonToTempAsync(remoteHistoryPath, taskName, failureMessage, tempFilePath, settings).ConfigureAwait(false);
-            if (!downloadResult.Success)
-            {
-                TryDeleteTempFile(tempFilePath);
-                return (false, 0, downloadResult.Message);
-            }
-
-            try
-            {
-                var importResult = HistoryService.ImportHistory(tempFilePath, merge);
-                string message = importResult.Success
-                    ? I18n.Format("CloudSync_Notification_HistoryImportSucceeded", importResult.Count)
-                    : failureMessage;
-
-                if (importResult.Success)
-                {
-                    NotificationService.ShowSuccess(message, I18n.GetString("CloudSync_Notification_Title"));
-                }
-                else
-                {
-                    NotificationService.ShowError(message, I18n.GetString("CloudSync_Notification_Title"));
-                }
-
-                return (importResult.Success, importResult.Count, message);
-            }
-            finally
-            {
-                TryDeleteTempFile(tempFilePath);
-            }
-        }
-
         private static async Task<(bool Success, string Message)> ImportJsonFromCloudAsync(
             string remoteFilePath,
             string taskName,
@@ -244,80 +204,6 @@ namespace FolderRewind.Services
             {
                 CommandSemaphore.Release();
             }
-        }
-
-        private static async Task<(string MetadataRecordRemotePath, string MetadataStateRemotePath, string? WarningMessage)> UploadAutomaticMetadataAsync(
-
-            BackupTask task,
-            CloudSettings settings,
-            CloudCommandContext context)
-        {
-            if (settings.CommandMode != CloudCommandMode.Rclone || settings.TemplateKind == CloudTemplateKind.Custom)
-            {
-                return (string.Empty, string.Empty, null);
-            }
-
-            string executablePath = ResolveRcloneExecutable(settings);
-            string workingDirectory = settings.WorkingDirectory?.Trim() ?? string.Empty;
-            var remotePaths = BuildDefaultRemotePaths(context.ConfigName, context.FolderName, context.ArchiveFileName, settings.RemoteBasePath);
-
-            string metadataStateRemotePath = string.Empty;
-            string metadataRecordRemotePath = string.Empty;
-            string? metadataWarning = null;
-
-            if (BackupMetadataStoreService.TryGetStateFilePath(context.MetadataDir, out var stateFilePath) && File.Exists(stateFilePath))
-            {
-                await RunOnUIAsync(() => task.Progress = 70).ConfigureAwait(false);
-                var stateCommand = CreateDirectCommand(executablePath, workingDirectory, BuildRcloneCopyToArguments(stateFilePath, remotePaths.MetadataStateRemotePath));
-                var stateResult = await ExecuteCommandWithRetryAsync(
-                    task,
-                    settings,
-                    stateCommand,
-                    I18n.GetString("CloudSync_Task_UploadingMetadata"),
-                    context.FolderName).ConfigureAwait(false);
-
-                if (stateResult.Success)
-                {
-                    metadataStateRemotePath = remotePaths.MetadataStateRemotePath;
-                }
-                else
-                {
-                    metadataWarning = I18n.Format("CloudSync_Notification_MetadataPartial", context.ArchiveFileName);
-                    LogService.LogWarning(I18n.Format("CloudSync_Log_CommandFailed", context.ArchiveFileName, stateResult.ErrorMessage), nameof(CloudSyncService));
-                }
-            }
-            else
-            {
-                metadataWarning = I18n.Format("CloudSync_Notification_MetadataPartial", context.ArchiveFileName);
-            }
-
-            if (BackupMetadataStoreService.TryGetRecordFilePath(context.MetadataDir, context.ArchiveFileName, out var recordFilePath) && File.Exists(recordFilePath))
-            {
-                await RunOnUIAsync(() => task.Progress = 85).ConfigureAwait(false);
-                var recordCommand = CreateDirectCommand(executablePath, workingDirectory, BuildRcloneCopyToArguments(recordFilePath, remotePaths.MetadataRecordRemotePath));
-                var recordResult = await ExecuteCommandWithRetryAsync(
-                    task,
-                    settings,
-                    recordCommand,
-                    I18n.GetString("CloudSync_Task_UploadingMetadata"),
-                    context.FolderName).ConfigureAwait(false);
-
-                if (recordResult.Success)
-                {
-                    metadataRecordRemotePath = remotePaths.MetadataRecordRemotePath;
-                }
-                else
-                {
-                    metadataWarning = I18n.Format("CloudSync_Notification_MetadataPartial", context.ArchiveFileName);
-                    LogService.LogWarning(I18n.Format("CloudSync_Log_CommandFailed", context.ArchiveFileName, recordResult.ErrorMessage), nameof(CloudSyncService));
-                }
-            }
-            else
-            {
-                metadataWarning = I18n.Format("CloudSync_Notification_MetadataPartial", context.ArchiveFileName);
-            }
-
-            return (metadataRecordRemotePath, metadataStateRemotePath, metadataWarning);
         }
 
         private static bool TryResolveSharedRcloneRuntime(

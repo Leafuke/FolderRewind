@@ -1,4 +1,5 @@
 using FolderRewind.Models;
+using FolderRewind.History.Capture;
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
@@ -19,7 +20,7 @@ namespace FolderRewind.Services
             string sevenZipExe,
             string archivePath,
             string? password,
-            IReadOnlyDictionary<string, FileState> expectedStates)
+            IReadOnlyDictionary<string, SourceCaptureFileState> expectedStates)
         {
             try
             {

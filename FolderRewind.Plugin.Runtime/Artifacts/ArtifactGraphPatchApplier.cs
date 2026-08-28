@@ -23,7 +23,6 @@ public static class ArtifactGraphPatchApplier
             throw new InvalidOperationException("Host must issue a new Artifact graph revision.");
         }
         ArgumentNullException.ThrowIfNull(patch.AddedArtifacts);
-        ArgumentNullException.ThrowIfNull(patch.RootReplacements);
 
         var artifacts = current.Artifacts.ToDictionary(artifact => artifact.ArtifactId);
         var addedIds = patch.AddedArtifacts.Select(node => node.ArtifactId).ToHashSet();
@@ -42,9 +41,7 @@ public static class ArtifactGraphPatchApplier
             }
             if (!StringComparer.Ordinal.Equals(node.Format.OwnerId.Value, scope.PluginId.Value)
                 || node.RestoreStrategyId.PluginId != scope.PluginId
-                || node.FormatVersion < 0
-                || string.IsNullOrWhiteSpace(node.HistoryItemId)
-                || !scope.ReplaceableHistoryRoots.ContainsKey(node.HistoryItemId))
+                || node.FormatVersion < 0)
             {
                 throw new InvalidOperationException("Plugins may only emit their own Artifact formats and restore strategies.");
             }
@@ -63,7 +60,6 @@ public static class ArtifactGraphPatchApplier
                 node.RestoreStrategyId,
                 scope.ConfigId,
                 scope.FolderId,
-                node.HistoryItemId,
                 facts.ContentRelativePath,
                 facts.LogicalSha256,
                 facts.LogicalSize,
@@ -77,27 +73,19 @@ public static class ArtifactGraphPatchApplier
                 ArtifactAvailability.Pending));
         }
 
-        var roots = current.HistoryRoots.ToDictionary(root => root.HistoryItemId, StringComparer.Ordinal);
-        var replaced = new HashSet<string>(StringComparer.Ordinal);
-        foreach (var replacement in patch.RootReplacements)
+        if ((!addedIds.Contains(patch.ResultRootArtifactId)
+                && !scope.ReadableArtifacts.Contains(patch.ResultRootArtifactId))
+            || !artifacts.TryGetValue(patch.ResultRootArtifactId, out var resultRoot)
+            || !StringComparer.Ordinal.Equals(resultRoot.ConfigId, scope.ConfigId)
+            || resultRoot.FolderId != scope.FolderId)
         {
-            if (!replaced.Add(replacement.HistoryItemId)
-                || !scope.ReplaceableHistoryRoots.TryGetValue(replacement.HistoryItemId, out var allowedRoot)
-                || allowedRoot != replacement.ExpectedRootArtifactId
-                || !roots.TryGetValue(replacement.HistoryItemId, out var currentRoot)
-                || currentRoot.RootArtifactId != replacement.ExpectedRootArtifactId
-                || !artifacts.ContainsKey(replacement.NewRootArtifactId))
-            {
-                throw new InvalidOperationException("Artifact root replacement is not authorized by the transform request.");
-            }
-            roots[replacement.HistoryItemId] = currentRoot with { RootArtifactId = replacement.NewRootArtifactId };
+            throw new InvalidOperationException("Artifact transform result root is outside the request scope.");
         }
 
         var candidate = new ArtifactLedgerDocument(
             ArtifactLedgerValidator.CurrentSchemaVersion,
             scope.CommittedRevision,
-            artifacts.Values.ToArray(),
-            roots.Values.ToArray());
+            artifacts.Values.ToArray());
         ArtifactLedgerValidator.Validate(candidate);
         return candidate;
     }

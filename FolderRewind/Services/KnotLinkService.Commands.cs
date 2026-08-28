@@ -376,28 +376,28 @@ namespace FolderRewind.Services
             return Task.FromResult($"OK:Backup started for folder '{folder!.DisplayName}'");
         }
 
-        private static Task<string> HandleRestore(KnotLinkCommandContext context)
+        private static async Task<string> HandleRestore(KnotLinkCommandContext context)
         {
             var request = context.Request;
             if (!TryResolveConfig(request, out var config, out var error))
             {
-                return Task.FromResult(error);
+                return error;
             }
 
             if (!TryResolveFolder(request, config!, out var folder, out error))
             {
-                return Task.FromResult(error);
+                return error;
             }
 
             var backupFile = request.GetString("file");
             if (string.IsNullOrWhiteSpace(backupFile))
             {
-                return Task.FromResult("ERROR:" + I18n.GetString("KnotLink_Error_MissingBackupFile"));
+                return "ERROR:" + I18n.GetString("KnotLink_Error_MissingBackupFile");
             }
 
             if (!TryResolveRestoreMode(request, out var mode, out error))
             {
-                return Task.FromResult(error);
+                return error;
             }
 
             var restoreWhitelist = request.GetList("restore_whitelist");
@@ -405,10 +405,17 @@ namespace FolderRewind.Services
             var effectiveFolder = ResolveEquivalentFolder(effectiveConfig, folder!);
             if (!BackupService.TryValidateFilterRules(effectiveConfig.Filters, out string filterError))
             {
-                return Task.FromResult($"ERROR:invalid_filter_rule:{filterError}");
+                return $"ERROR:invalid_filter_rule:{filterError}";
             }
 
-            bool isPartialBackup = IsPartialBackup(config!, folder!, backupFile!);
+            if (!Guid.TryParse(folder!.Id, out var sourceGuid) || sourceGuid == Guid.Empty)
+                return "ERROR:invalid_source_identity";
+            var version = await NativeHistoryCoreGateway.FindVersionByFileAsync(
+                config!.Id,
+                new FolderRewind.History.Domain.SourceId(sourceGuid),
+                backupFile!).ConfigureAwait(false);
+            if (version is null) return "ERROR:history_version_not_found";
+            bool isPartialBackup = version.CaptureScope == FolderRewind.History.Domain.CaptureScope.PartialSource;
             var effectiveMode = isPartialBackup
                 ? BackupService.RestoreMode.Overwrite
                 : mode;
@@ -418,7 +425,12 @@ namespace FolderRewind.Services
                 using var scope = PushCommandContext(context);
                 try
                 {
-                    await BackupService.RestoreBackupAsync(effectiveConfig, effectiveFolder, backupFile!, mode);
+                    var restored = await NativeHistoryApplicationService.RestoreVersionAsync(
+                        effectiveConfig,
+                        effectiveFolder,
+                        version.VersionId).ConfigureAwait(false);
+                    if (!restored.Succeeded)
+                        throw new InvalidOperationException(restored.Diagnostic);
                 }
                 catch (Exception ex)
                 {
@@ -438,10 +450,10 @@ namespace FolderRewind.Services
                 }
             });
 
-            return Task.FromResult(
+            return
                 $"OK:Restore started for folder '{folder!.DisplayName}';" +
                 $"requested_mode={mode.ToString().ToLowerInvariant()};" +
-                $"effective_mode={effectiveMode.ToString().ToLowerInvariant()}");
+                $"effective_mode={effectiveMode.ToString().ToLowerInvariant()}";
         }
 
         private static Task<string> HandleBackupAll(KnotLinkCommandContext context)

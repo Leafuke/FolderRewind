@@ -2242,12 +2242,6 @@ Comment: {1}
   <data name="BackupConfig_DefaultSummary" xml:space="preserve">
     <value>No status</value>
   </data>
-  <data name="HistoryItem_Message_NoComment" xml:space="preserve">
-    <value>[{0}] Backup</value>
-  </data>
-  <data name="HistoryItem_Message_WithComment" xml:space="preserve">
-    <value>[{0}] {1}</value>
-  </data>
   <data name="History_FileMissing" xml:space="preserve">
     <value>File missing</value>
   </data>
@@ -4379,7 +4373,7 @@ Pull request: {1}</value>
     <value>Import History From Cloud</value>
   </data>
   <data name="Settings_ImportHistoryFromCloud_Description" xml:space="preserve">
-    <value>Enter the remote base path and FolderRewind will download its history.json, then reuse the existing history import flow.</value>
+    <value>Enter the remote base path to synchronize immutable History Commit Packs into the local repository.</value>
   </data>
   <data name="Settings_ExportConfigToCloud_Title" xml:space="preserve">
     <value>Export Configuration To Cloud</value>
@@ -4391,7 +4385,7 @@ Pull request: {1}</value>
     <value>Export History To Cloud</value>
   </data>
   <data name="Settings_ExportHistoryToCloud_Description" xml:space="preserve">
-    <value>Enter the remote base path and FolderRewind will export the current history as history.json, then upload it to the cloud.</value>
+    <value>Enter the remote base path to synchronize the local and remote History Commit Pack sets.</value>
   </data>
   <data name="Settings_DataTransferMode_Local" xml:space="preserve">
     <value>Local file</value>
@@ -4478,7 +4472,7 @@ Pull request: {1}</value>
     <value>This configuration still uses the legacy custom command mode. Auto upload remains available, but manual sync and history cloud actions only support rclone mode.</value>
   </data>
   <data name="ConfigSettingsDialog_CloudSyncHint" xml:space="preserve">
-    <value>Analyze the remote history.json first, then either import only this configuration's history or also pull remote backups and metadata back to local storage.</value>
+    <value>Analyze the remote Commit Pack set first, then synchronize immutable history metadata and any selected backup payloads.</value>
   </data>
   <data name="ConfigSettingsDialog_CloudLegacyModeHint" xml:space="preserve">
     <value>This configuration uses the legacy custom cloud command. Manual sync is unavailable until it is moved to an rclone-based setup.</value>
@@ -4493,7 +4487,7 @@ Pull request: {1}</value>
     <value>Cancel</value>
   </data>
   <data name="ConfigCloudSyncDialog_Description.Text" xml:space="preserve">
-    <value>The dialog analyzes the remote history.json first, then applies this configuration's folder mapping rules before importing anything locally.</value>
+    <value>The dialog analyzes the remote Commit Pack set, then safely unions missing immutable history metadata into this repository.</value>
   </data>
   <data name="ConfigCloudSyncDialog_ModeHeader.Text" xml:space="preserve">
     <value>Sync scope</value>
@@ -4520,7 +4514,7 @@ Pull request: {1}</value>
     <value>Ready. You can analyze the remote history first.</value>
   </data>
   <data name="ConfigCloudSyncDialog_Status_Analyzing" xml:space="preserve">
-    <value>Analyzing remote history.json...</value>
+    <value>Analyzing remote History Commit Packs...</value>
   </data>
   <data name="ConfigCloudSyncDialog_Status_AnalysisReady" xml:space="preserve">
     <value>Analysis complete. You can start syncing now.</value>
@@ -4583,16 +4577,16 @@ Pull request: {1}</value>
     <value>Used as the default cloud path for newly created configurations and as the default remote base path in the cloud import/export dialogs.</value>
   </data>
   <data name="CloudSync_Task_UploadingHistorySnapshot" xml:space="preserve">
-    <value>Uploading history.json...</value>
+    <value>Synchronizing History Commit Packs...</value>
   </data>
   <data name="CloudSync_Notification_HistorySyncUploadFailed" xml:space="preserve">
-    <value>The backup was uploaded, but syncing history.json failed.</value>
+    <value>The backup was uploaded, but History Commit Pack synchronization failed.</value>
   </data>
   <data name="CloudSync_Notification_HistorySyncUploadFailedWithReason" xml:space="preserve">
-    <value>The backup was uploaded, but syncing history.json failed: {0}</value>
+    <value>The backup was uploaded, but History Commit Pack synchronization failed: {0}</value>
   </data>
   <data name="CloudSync_Notification_HistorySyncSkippedLegacyMode" xml:space="preserve">
-    <value>This configuration still uses the legacy custom command mode, so history.json cannot be synced automatically.</value>
+    <value>The Native History repository is unavailable, so Commit Packs cannot be synchronized automatically.</value>
   </data>
   <data name="SettingsPage_AutoDownloadMissingCloudBackupsBeforeRestore.Text" xml:space="preserve">
     <value>Automatically download missing cloud backup chain before restore</value>
@@ -4624,12 +4618,6 @@ Pull request: {1}</value>
   <data name="CloudSync_Task_UploadingConfigurationHistory" xml:space="preserve">
     <value>Uploading configuration history...</value>
   </data>
-  <data name="CloudSync_Task_UploadingActiveHistoryManifest" xml:space="preserve">
-    <value>Uploading active-history manifest...</value>
-  </data>
-  <data name="CloudSync_Notification_ActiveHistoryManifestUploadFailedWithReason" xml:space="preserve">
-    <value>History was uploaded, but active-history manifest upload failed: {0}</value>
-  </data>
   <data name="CloudSync_Notification_ConfigurationHistoryUploadFailedWithReason" xml:space="preserve">
     <value>Failed to upload configuration history for "{0}": {1}</value>
   </data>
@@ -4650,9 +4638,6 @@ Pull request: {1}</value>
   </data>
   <data name="CloudSync_Task_DownloadingConfigurationHistory" xml:space="preserve">
     <value>Downloading configuration history...</value>
-  </data>
-  <data name="CloudSync_Task_DownloadingHistoryItem" xml:space="preserve">
-    <value>Downloading {0} ({1}/{2})...</value>
   </data>
   <data name="ProcessPathService_Log_QueryFailed" xml:space="preserve">
     <value>Failed to query the running process "{0}": {1}</value>
@@ -5057,4 +5042,7 @@ Pull request: {1}</value>
   <data name="History_Branch_RenameTitle" xml:space="preserve"><value>Rename branch</value></data>
   <data name="History_Branch_SelectTipTitle" xml:space="preserve"><value>Select branch progress to check out</value></data>
   <data name="History_Branch_NoCheckpoint" xml:space="preserve"><value>No checkpoint is available for branch creation.</value></data>
+  <data name="History_Branch_CheckoutTitle" xml:space="preserve"><value>Check out branch</value></data>
+  <data name="History_Branch_CheckoutContent" xml:space="preserve"><value>This exactly replaces every source directory in the current configuration with the selected branch checkpoint. Confirm that current uncommitted changes may be discarded.</value></data>
+  <data name="History_Branch_CheckoutPrimary" xml:space="preserve"><value>Discard changes and check out</value></data>
 </root>

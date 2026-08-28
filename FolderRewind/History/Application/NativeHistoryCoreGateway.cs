@@ -1,6 +1,7 @@
 using FolderRewind.History.Capture;
 using FolderRewind.History.Domain;
 using FolderRewind.History.Migration;
+using FolderRewind.History.Legacy;
 using FolderRewind.History.Storage;
 using FolderRewind.Models;
 using FolderRewind.Services;
@@ -9,7 +10,6 @@ using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
-using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
 
@@ -22,18 +22,19 @@ public static class NativeHistoryCoreGateway
 
     public static async Task InitializeAsync(AppConfig appConfig, string configDirectory, CancellationToken cancellationToken = default)
     {
-        var legacyPath = Path.Combine(configDirectory, "history.json");
-        var legacy = File.Exists(legacyPath)
-            ? JsonSerializer.Deserialize(File.ReadAllText(legacyPath), AppJsonContext.Default.ListHistoryItem) ?? []
-            : [];
+        IReadOnlyList<LegacyHistoryRecord>? legacy = null;
         foreach (var config in appConfig.BackupConfigs.Where(item => item is not null))
         {
             try
             {
                 var configId = new HistoryConfigId(config.Id);
                 FileHistoryRepository repository;
-                var configLegacy = legacy.Where(item => !string.IsNullOrWhiteSpace(item.ConfigId)
-                    && new HistoryConfigId(item.ConfigId) == configId).ToArray();
+                var configLegacy = config.HistoryRepositoryBinding is null
+                    ? (legacy ??= LegacyHistoryReader.Read(Path.Combine(configDirectory, "history.json")))
+                        .Where(item => !string.IsNullOrWhiteSpace(item.ConfigId)
+                            && new HistoryConfigId(item.ConfigId) == configId)
+                        .ToArray()
+                    : [];
                 if (config.HistoryRepositoryBinding is null && configLegacy.Length > 0)
                 {
                     var sources = config.SourceFolders.Select(folder => new LegacyMigrationSourceSnapshot(
@@ -44,7 +45,12 @@ public static class NativeHistoryCoreGateway
                         item.Timestamp, item.BackupType, item.Comment, item.IsImportant, item.IsPartialBackup,
                         item.IsCloudArchived, SafeLegacyCloudLocator(item))).ToArray();
                     var migration = await new LegacyHistoryMigrationService().MigrateAsync(
-                        new LegacyHistoryMigrationInput(configDirectory, configId, sources, entries),
+                        new LegacyHistoryMigrationInput(
+                            configDirectory,
+                            configId,
+                            sources,
+                            entries,
+                            LegacySmartMetadataReader.Read(config)),
                         (version, _) => PersistBinding(config, version),
                         cancellationToken).ConfigureAwait(false);
                     if (!migration.IsReady || migration.Repository is null)
@@ -136,11 +142,21 @@ public static class NativeHistoryCoreGateway
         return true;
     }
 
-    public static async Task CommitBackupAsync(
+    public static async Task<TimelineEntrySummary?> FindVersionByFileAsync(
+        string configId,
+        SourceId sourceId,
+        string fileName,
+        CancellationToken cancellationToken = default)
+        => (await new HistoryPresentationQueryService(GetRequiredRuntime(configId))
+                .QueryAsync(sourceId, includeSuppressed: true, cancellationToken).ConfigureAwait(false))
+            .Timeline.FirstOrDefault(item => StringComparer.OrdinalIgnoreCase.Equals(item.FileName, fileName));
+
+    public static async Task<HistoryCommitBatch> CommitBackupAsync(
         BackupConfig config,
         IEnumerable<SourceCaptureResult> results,
         BackupInvocationKind kind,
         DateTimeOffset startedAtUtc,
+        string? comment = null,
         CancellationToken cancellationToken = default)
     {
         EnsureReady(config.Id);
@@ -158,22 +174,49 @@ public static class NativeHistoryCoreGateway
             normalized.Add(new SourceCaptureResult(
                 result.SourceId, result.Outcome, result.CaptureScope, result.StateFingerprint,
                 result.ExistingVersionId, result.RepresentationCandidate, result.LocalReplicaCandidate,
-                result.PayloadCandidate, revision, baseline?.BaseVersionId, result.CleanupHandle,
-                result.Diagnostics, tips.Select(item => item.UpdateId)));
+                result.PayloadCandidate, revision, result.ExpectedBaseVersionId ?? baseline?.BaseVersionId, result.CleanupHandle,
+                result.Diagnostics, tips.Select(item => item.UpdateId), result.BaselineCandidate));
         }
         var snapshot = new HistoryConfigSnapshot(
             runtime.ConfigId,
             config.SourceFolders.Select(folder => new HistoryConfigSourceSnapshot(
                 Source(folder), new SourceDescriptorSnapshot(folder.DisplayName, folder.Path))));
-        await runtime.Commit.CommitAsync(new HistoryCommitRequest(
+        var committed = await runtime.Commit.CommitAsync(new HistoryCommitRequest(
             snapshot,
             new HistoryBackupInvocation(
-                RunId.New(), startedAtUtc, DateTimeOffset.UtcNow, kind, HistoryProvenance.Native("app")),
+                RunId.New(), startedAtUtc, DateTimeOffset.UtcNow, kind, HistoryProvenance.Native("app"), comment ?? string.Empty),
             workspace,
             normalized), cancellationToken).ConfigureAwait(false);
+        foreach (var result in normalized.Where(item => item.BaselineCandidate is not null))
+        {
+            var version = committed.NewVersions.Single(item => item.SourceId == result.SourceId);
+            var representation = committed.NewRepresentations.Single(item => item.VersionId == version.VersionId);
+            try
+            {
+                await runtime.CaptureBaselines.SaveAsync(
+                    result.SourceId,
+                    result.BaselineCandidate!,
+                    version.VersionId,
+                    representation,
+                    cancellationToken).ConfigureAwait(false);
+            }
+            catch (Exception ex)
+            {
+                LogService.LogWarning(
+                    $"Native History committed, but the disposable capture baseline cache was not updated: {ex.Message}",
+                    nameof(NativeHistoryCoreGateway));
+            }
+        }
+        return committed;
     }
 
-    private static SourceId ResolveSource(BackupConfig config, HistoryItem item)
+    public static Task<SourceCaptureBaseline?> LoadCaptureBaselineAsync(
+        string configId,
+        SourceId sourceId,
+        CancellationToken cancellationToken = default)
+        => GetRequiredRuntime(configId).CaptureBaselines.LoadAsync(sourceId, cancellationToken);
+
+    private static SourceId ResolveSource(BackupConfig config, LegacyHistoryRecord item)
     {
         var folder = item.FolderId is { } id
             ? config.SourceFolders.FirstOrDefault(value => Guid.TryParse(value.Id, out var parsed) && parsed == id)
@@ -186,7 +229,7 @@ public static class NativeHistoryCoreGateway
             ? new SourceId(id)
             : throw new InvalidDataException("ManagedFolder has no stable SourceId.");
 
-    private static string SafeLegacyCloudLocator(HistoryItem item)
+    private static string SafeLegacyCloudLocator(LegacyHistoryRecord item)
     {
         var value = (item.CloudArchiveRemotePath ?? string.Empty).Replace('\\', '/').Trim('/');
         return HistoryRepositoryPaths.IsSafeRepositoryRelativePath(value) ? value : string.Empty;

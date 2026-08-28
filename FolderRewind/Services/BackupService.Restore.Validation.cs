@@ -1,149 +1,38 @@
-using FolderRewind.Models;
 using Microsoft.UI.Xaml.Controls;
-using System;
+using FolderRewind.Models;
 using System.Collections.Generic;
-using System.Collections.ObjectModel;
-using System.Diagnostics;
 using System.IO;
-using System.Linq;
-using System.Text;
-using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 
 namespace FolderRewind.Services
 {
     public static partial class BackupService
     {
-        /// <summary>
-        /// 恢复前逐个运行 7z t 校验整条链的完整性，任一归档损坏立即失败；
-        /// 带密码时日志与进程输出中的密码一律替换为 ***。
-        /// </summary>
-        private static async Task<bool> ValidateRestoreChainAsync(List<FileInfo> chain, string sevenZipExe, string? password, BackupTask? restoreTask)
+        private static async Task<bool> ValidateRestoreChainAsync(
+            List<FileInfo> chain,
+            string sevenZipExe,
+            string? password,
+            BackupTask? restoreTask)
         {
-            if (chain == null || chain.Count == 0) return false;
-
-            // 逐包做完整性检测，提前挡住损坏归档，避免真正解压时把目标目录弄成半成品。
-            for (int i = 0; i < chain.Count; i++)
+            if (chain.Count == 0) return false;
+            for (var index = 0; index < chain.Count; index++)
             {
-                var file = chain[i];
-                if (restoreTask != null)
+                var file = chain[index];
+                if (restoreTask is not null)
                 {
-                    int fileIndex = i;
-                    await RunOnUIAsync(() => restoreTask.Status = I18n.Format("BackupService_Task_VerifyingRestore_N", fileIndex + 1, chain.Count));
+                    var current = index;
+                    await RunOnUIAsync(() => restoreTask.Status = I18n.Format(
+                        "BackupService_Task_VerifyingRestore_N",
+                        current + 1,
+                        chain.Count));
                 }
-
-                string testArgs = $"t \"{file.FullName}\" -bsp1";
-                if (!string.IsNullOrWhiteSpace(password))
-                {
-                    testArgs = $"t \"{file.FullName}\" -bsp1 -p\"{password}\"";
-                }
-
-                string safeTestArgs = string.IsNullOrWhiteSpace(password) ? testArgs : testArgs.Replace(password, "***");
-                bool ok = await RunSevenZipProcessAsync(sevenZipExe, testArgs, file.DirectoryName, safeTestArgs);
-                if (!ok)
-                {
-                    Log(I18n.Format("BackupService_Log_RestoreIntegrityArchiveCheckFailed", file.Name), LogLevel.Error);
+                var arguments = $"t \"{file.FullName}\" -bsp1";
+                if (!string.IsNullOrWhiteSpace(password)) arguments += $" -p\"{password}\"";
+                var safe = string.IsNullOrWhiteSpace(password) ? arguments : arguments.Replace(password, "***");
+                if (!await RunSevenZipProcessAsync(sevenZipExe, arguments, file.DirectoryName, safe))
                     return false;
-                }
             }
-
-            if (restoreTask != null)
-            {
-                await RunOnUIAsync(() => restoreTask.Status = I18n.Format("BackupService_Task_Restoring"));
-            }
-
             return true;
         }
-
-        /// <summary>
-        /// 构建精确 Smart Clean 提取计划：以基线 Full 的完整清单为起点，沿链回放各记录的
-        /// 增删改，得到"最终文件 → 拥有它的归档"映射，再按链序分组成最小提取集合
-        /// （每个文件只从最近拥有它的归档中提取一次，避免整链解压）。
-        /// 任一链成员缺少记录、基线不是带完整清单的 Full 时返回 false（调用方回退整链提取）。
-        /// </summary>
-        private static bool TryBuildSmartRestorePlan(IReadOnlyList<FileInfo> chain, BackupMetadata metadata, out SmartRestorePlan? plan)
-        {
-            plan = null;
-            if (chain == null || chain.Count == 0)
-            {
-                return false;
-            }
-
-            // 通过“最终文件 -> 最近归档拥有者”的映射，生成最小提取集合。
-            var normalized = NormalizeBackupMetadata(metadata);
-            var recordMap = normalized.BackupRecords
-                .Where(r => !string.IsNullOrWhiteSpace(r.ArchiveFileName))
-                .GroupBy(r => r.ArchiveFileName, StringComparer.OrdinalIgnoreCase)
-                .ToDictionary(
-                    g => g.Key,
-                    g => g.OrderByDescending(r => r.CreatedAtUtc).First(),
-                    StringComparer.OrdinalIgnoreCase);
-
-            if (!recordMap.TryGetValue(chain[0].Name, out var baseRecord)
-                || !IsSelfContainedBackupRecord(baseRecord)
-                || baseRecord.FullFileList == null
-                || baseRecord.FullFileList.Count == 0)
-            {
-                return false;
-            }
-
-            var owners = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
-            foreach (var file in baseRecord.FullFileList.Where(f => !string.IsNullOrWhiteSpace(f)).Distinct(StringComparer.OrdinalIgnoreCase))
-            {
-                owners[file] = chain[0].Name;
-            }
-
-            for (int i = 1; i < chain.Count; i++)
-            {
-                if (!recordMap.TryGetValue(chain[i].Name, out var record))
-                {
-                    return false;
-                }
-
-                foreach (var deleted in record.DeletedFiles.Where(f => !string.IsNullOrWhiteSpace(f)).Distinct(StringComparer.OrdinalIgnoreCase))
-                {
-                    owners.Remove(deleted);
-                }
-
-                foreach (var added in record.AddedFiles.Where(f => !string.IsNullOrWhiteSpace(f)).Distinct(StringComparer.OrdinalIgnoreCase))
-                {
-                    owners[added] = record.ArchiveFileName;
-                }
-
-                foreach (var modified in record.ModifiedFiles.Where(f => !string.IsNullOrWhiteSpace(f)).Distinct(StringComparer.OrdinalIgnoreCase))
-                {
-                    owners[modified] = record.ArchiveFileName;
-                }
-            }
-
-            var archiveLookup = chain.ToDictionary(f => f.Name, StringComparer.OrdinalIgnoreCase);
-            var archiveIndex = chain
-                .Select((file, index) => new { file.Name, Index = index })
-                .ToDictionary(x => x.Name, x => x.Index, StringComparer.OrdinalIgnoreCase);
-
-            var groups = owners
-                .GroupBy(kvp => kvp.Value, StringComparer.OrdinalIgnoreCase)
-                .Where(g => archiveLookup.ContainsKey(g.Key))
-                .Select(g => new SmartRestoreArchiveGroup
-                {
-                    Archive = archiveLookup[g.Key],
-                    Files = g.Select(x => x.Key).OrderBy(x => x, StringComparer.OrdinalIgnoreCase).ToList()
-                })
-                .OrderBy(g => archiveIndex[g.Archive.Name])
-                .ToList();
-
-            plan = new SmartRestorePlan
-            {
-                Chain = chain.ToList(),
-                ArchiveGroups = groups
-            };
-            return true;
-        }
-
-        /// <summary>
-        /// 判断记录是否是可独立还原的 Full/Rolling；仍接受旧 Overwrite 记录。
-        /// </summary>
-        private static bool IsSelfContainedBackupRecord(BackupChangeRecord record)
-            => BackupArchiveTypePolicy.IsSelfContained(record.BackupType, record.ArchiveFileName);
     }
 }

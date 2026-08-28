@@ -202,11 +202,11 @@ namespace FolderRewind.Views.Settings
             }
 
             var confirmText = string.Format(rl.GetString("Plugins_UninstallConfirm"), plugin.Name, plugin.Id);
-            if (preview.AffectedHistoryItemIds.Count > 0)
+            if (preview.AffectedArtifactIds.Count > 0)
             {
                 confirmText += Environment.NewLine + Environment.NewLine + I18n.Format(
                     "Plugins_UninstallHistoryWarning",
-                    preview.AffectedHistoryItemIds.Count);
+                    preview.AffectedArtifactIds.Count);
             }
 
             var confirm = new ContentDialog
@@ -297,7 +297,7 @@ namespace FolderRewind.Views.Settings
                     preview.SettingsCount,
                     preview.ProviderStateLocationCount,
                     preview.DataPath,
-                    preview.AffectedHistoryItemIds.Count),
+                    preview.AffectedArtifactIds.Count),
                 TextWrapping = TextWrapping.Wrap
             });
             content.Children.Add(confirmation);

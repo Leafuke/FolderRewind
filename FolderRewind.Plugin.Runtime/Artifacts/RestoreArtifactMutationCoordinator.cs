@@ -22,7 +22,8 @@ public sealed class RestoreArtifactMutationCoordinator
     public async ValueTask<RestoreArtifactMutationResult> ExecuteAsync(
         ConfigSnapshot config,
         FolderSnapshot folder,
-        string historyItemId,
+        string versionId,
+        ArtifactId artifactRootId,
         RestoreMode requestedMode,
         RestoreMode effectiveMode,
         string workspaceRoot,
@@ -35,7 +36,8 @@ public sealed class RestoreArtifactMutationCoordinator
         await using var materialized = await _materialization.MaterializeAsync(
             config,
             folder,
-            historyItemId,
+            versionId,
+            artifactRootId,
             requestedMode,
             effectiveMode,
             workspaceRoot,

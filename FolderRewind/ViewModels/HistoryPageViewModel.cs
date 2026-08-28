@@ -1,6 +1,7 @@
 using FolderRewind.History.Application;
 using FolderRewind.History.Domain;
 using FolderRewind.History.Representation;
+using FolderRewind.History.Legacy;
 using FolderRewind.Models;
 using FolderRewind.Services;
 using Microsoft.UI;
@@ -12,16 +13,12 @@ using System.Collections.ObjectModel;
 using System.IO;
 using System.Linq;
 using System.Threading.Tasks;
-using System.Text.RegularExpressions;
 using Windows.UI;
 
 namespace FolderRewind.ViewModels;
 
 public sealed class HistoryPageViewModel : ViewModelBase
 {
-    private static readonly Regex RecoverableArchiveName = new(
-        @"^\[(Full|Smart|Rolling|Overwrite)\]\[\d{4}-\d{2}-\d{2}_\d{2}-\d{2}-\d{2}\](.+?)(?:\s\[.+?\])?\.(7z|zip)$",
-        RegexOptions.Compiled | RegexOptions.IgnoreCase | RegexOptions.CultureInvariant);
     private readonly List<NativeHistoryVersionViewItem> _allVersions = [];
     private readonly List<BackupRunViewItem> _allRuns = [];
     private IDisposable? _changeSubscription;
@@ -43,8 +40,9 @@ public sealed class HistoryPageViewModel : ViewModelBase
     public bool ShowGroupedRunHistory => IsGroupedRunView;
     public bool ShowPerSourceHistory => !IsGroupedRunView;
     public bool CanUsePerSourceActions => !IsGroupedRunView && _currentFolder is not null;
-    public bool CanUseCloudHistoryActions => false;
-    public bool CanOpenConfigCloudSync => false;
+    public bool CanUseCloudHistoryActions => _currentConfig is not null
+        && CloudSyncService.CanUseHistoryCloudActions(_currentConfig);
+    public bool CanOpenConfigCloudSync => CanUseCloudHistoryActions;
 
     public string CommentFilterText
     {
@@ -141,9 +139,8 @@ public sealed class HistoryPageViewModel : ViewModelBase
         foreach (var path in Directory.EnumerateFiles(scanPath, "*.*", SearchOption.TopDirectoryOnly)
                      .OrderBy(item => item, StringComparer.OrdinalIgnoreCase))
         {
-            var match = RecoverableArchiveName.Match(Path.GetFileName(path));
-            if (!match.Success
-                || !string.Equals(match.Groups[2].Value.Trim(), displayName, StringComparison.OrdinalIgnoreCase))
+            if (!LegacyArchiveNameParser.TryParse(Path.GetFileName(path), out var parsed)
+                || !string.Equals(parsed!.SourceDisplayName, displayName, StringComparison.OrdinalIgnoreCase))
             {
                 continue;
             }
@@ -152,7 +149,7 @@ public sealed class HistoryPageViewModel : ViewModelBase
                 sourceId,
                 descriptor,
                 path,
-                overlay: string.Equals(match.Groups[1].Value, "Smart", StringComparison.OrdinalIgnoreCase))
+                overlay: string.Equals(parsed.BackupType, "Smart", StringComparison.OrdinalIgnoreCase))
                 .ConfigureAwait(false);
             if (result.Created)
             {
@@ -205,13 +202,82 @@ public sealed class HistoryPageViewModel : ViewModelBase
         RefreshCurrentHistory();
     }
 
-    public Task<BackupRunRestoreResult?> RestoreRunAsync(BackupRunViewItem item, BackupService.RestoreMode mode) => Task.FromResult<BackupRunRestoreResult?>(null);
-    public Task<bool> DeleteRunAsync(BackupRunViewItem item) => Task.FromResult(false);
-    public Task<bool> UploadToCloudAsync(NativeHistoryVersionViewItem item) => Task.FromResult(false);
-    public Task<bool> DownloadFromCloudAsync(NativeHistoryVersionViewItem item) => Task.FromResult(false);
-    public Task<bool> RestoreVersionAsync(NativeHistoryVersionViewItem item, BackupService.RestoreMode mode) => Task.FromResult(false);
-    public Task<BackupService.DeleteBackupResult> DeleteHistoryItemAsync(NativeHistoryVersionViewItem item, BackupDeleteMode mode)
-        => Task.FromResult(new BackupService.DeleteBackupResult { Success = false, Message = "Native materialization deletion is not available from this view." });
+    public async Task<HistoryRestoreResult?> RestoreRunAsync(BackupRunViewItem item, BackupService.RestoreMode mode)
+    {
+        if (_currentConfig is null || item.ResultCheckpointId is not { } checkpointId) return null;
+        return await NativeHistoryApplicationService.RestoreCheckpointAsync(
+            _currentConfig,
+            checkpointId,
+            completeCheckpoint: !item.HasPartialBackup).ConfigureAwait(false);
+    }
+    public async Task<bool> DeleteRunAsync(BackupRunViewItem item)
+    {
+        if (_currentConfig is null) return false;
+        var runtime = NativeHistoryCoreGateway.GetRequiredRuntime(_currentConfig.Id);
+        await runtime.Annotations.SetSuppressionAsync(
+            new HistoryAnnotationTarget(HistoryAnnotationTargetKind.Run, item.RunId.Value),
+            suppressed: true).ConfigureAwait(false);
+        return true;
+    }
+    public async Task<bool> UploadToCloudAsync(NativeHistoryVersionViewItem item)
+    {
+        if (_currentConfig is null
+            || item.RepresentationId is not { } representationId
+            || string.IsNullOrWhiteSpace(item.LocalPath)) return false;
+        return await CloudSyncService.UploadRepresentationAsync(
+            _currentConfig,
+            representationId,
+            item.LocalPath).ConfigureAwait(false);
+    }
+    public async Task<bool> DownloadFromCloudAsync(NativeHistoryVersionViewItem item)
+    {
+        if (_currentConfig is null
+            || _currentFolder is null
+            || item.RepresentationId is not { } representationId) return false;
+        return await CloudSyncService.DownloadRepresentationAsync(
+            _currentConfig,
+            _currentFolder,
+            representationId,
+            item.FileName).ConfigureAwait(false);
+    }
+    public async Task<bool> RestoreVersionAsync(NativeHistoryVersionViewItem item, BackupService.RestoreMode mode)
+    {
+        if (_currentConfig is null || _currentFolder is null) return false;
+        var result = await NativeHistoryApplicationService.RestoreVersionAsync(
+            _currentConfig,
+            _currentFolder,
+            item.VersionId).ConfigureAwait(false);
+        return result.Succeeded;
+    }
+    public async Task<BackupService.DeleteBackupResult> DeleteVersionAsync(NativeHistoryVersionViewItem item, BackupDeleteMode mode)
+    {
+        if (_currentConfig is null)
+            return new() { Success = false, Message = "No active configuration is selected." };
+        try
+        {
+            var runtime = NativeHistoryCoreGateway.GetRequiredRuntime(_currentConfig.Id);
+            if (mode == BackupDeleteMode.LocalArchiveAndRecord)
+            {
+                await NativeHistoryApplicationService.ReleaseVersionAsync(_currentConfig, item.VersionId)
+                    .ConfigureAwait(false);
+            }
+            await runtime.Annotations.SetSuppressionAsync(
+                new HistoryAnnotationTarget(HistoryAnnotationTargetKind.Version, item.VersionId.Value),
+                suppressed: true).ConfigureAwait(false);
+            var archiveDeleted = mode == BackupDeleteMode.LocalArchiveAndRecord
+                && (string.IsNullOrWhiteSpace(item.LocalPath) || !File.Exists(item.LocalPath));
+            return new()
+            {
+                Success = true,
+                ArchiveDeleted = archiveDeleted,
+                HistoryUpdated = true
+            };
+        }
+        catch (Exception ex)
+        {
+            return new() { Success = false, Message = ex.Message };
+        }
+    }
 
     public async Task<bool> CreateBranchAsync(CheckpointId checkpointId, string name)
     {
@@ -250,13 +316,15 @@ public sealed class HistoryPageViewModel : ViewModelBase
         return true;
     }
 
-    public Task<bool> CheckoutBranchTipAsync(BranchViewItem branch, BranchUpdateId selectedTipId)
+    public async Task<bool> CheckoutBranchTipAsync(BranchViewItem branch, BranchUpdateId selectedTipId)
     {
-        if (!branch.CanCheckout || branch.IsMultiTip && branch.Tips.All(item => item.UpdateId != selectedTipId))
-            return Task.FromResult(false);
-        // Checkout requires the configured Representation backends and current-work protector.
-        // Until that app composition is available, remain fail-closed instead of invoking Legacy restore.
-        return Task.FromResult(false);
+        if (_currentConfig is null
+            || !branch.CanCheckout
+            || branch.IsMultiTip && branch.Tips.All(item => item.UpdateId != selectedTipId))
+            return false;
+        var result = await NativeHistoryApplicationService.CheckoutAsync(_currentConfig, selectedTipId)
+            .ConfigureAwait(false);
+        return result.Succeeded;
     }
 
     private void ApplyFilter()
@@ -325,6 +393,7 @@ public sealed class HistoryPageViewModel : ViewModelBase
 public sealed class NativeHistoryVersionViewItem(TimelineEntrySummary summary)
 {
     public VersionId VersionId => summary.VersionId;
+    public RepresentationId? RepresentationId => summary.RepresentationId;
     public string TimeDisplay => summary.CreatedAtUtc.ToLocalTime().ToString("HH:mm:ss");
     public string DateDisplay => summary.CreatedAtUtc.ToLocalTime().ToString("yyyy-MM-dd");
     public string Comment => summary.Comment;
@@ -339,8 +408,8 @@ public sealed class NativeHistoryVersionViewItem(TimelineEntrySummary summary)
     public bool IsCloudOnly => HasCloudCopy && !HasLocalFile;
     public string FileSizeDisplay => ReadinessText;
     public string CloudStatusText => HasCloudCopy ? I18n.GetString("History_CloudStatus_CloudAvailable") : string.Empty;
-    public bool CanUploadToCloud => false;
-    public bool CanDownloadFromCloud => false;
+    public bool CanUploadToCloud => RepresentationId is not null && HasLocalFile && !HasCloudCopy;
+    public bool CanDownloadFromCloud => RepresentationId is not null && HasCloudCopy && !HasLocalFile;
     public string CloudActionHintText => ReadinessText;
     public string DownloadFromCloudHintText => ReadinessText;
     public HistoryPresentationReadiness Readiness => summary.Readiness;

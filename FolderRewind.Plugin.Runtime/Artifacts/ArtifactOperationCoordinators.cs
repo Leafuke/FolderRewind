@@ -14,6 +14,7 @@ public sealed record ArtifactTransformLimits(int MaximumFiles, long MaximumBytes
 public sealed record ArtifactTransformRunResult(
     OperationOutcome Outcome,
     ArtifactLedgerDocument Ledger,
+    ArtifactId ArtifactRootId,
     IReadOnlyList<PluginDiagnostic> Diagnostics,
     bool GraphCommitted);
 
@@ -32,9 +33,10 @@ public sealed class ArtifactTransformCoordinator
         PluginId pluginId,
         ConfigSnapshot config,
         FolderSnapshot folder,
-        string historyItemId,
+        string versionId,
+        ArtifactId primaryArtifactRootId,
         ArtifactTransformPolicy policy,
-        IReadOnlyList<string> compatibleHistoryItemIds,
+        IReadOnlyList<ArtifactId> compatibleArtifactRootIds,
         ArtifactTransformLimits? limits = null,
         IPluginOperationProgress? progress = null,
         CancellationToken cancellationToken = default)
@@ -42,7 +44,8 @@ public sealed class ArtifactTransformCoordinator
         ArgumentNullException.ThrowIfNull(config);
         ArgumentNullException.ThrowIfNull(folder);
         ArgumentNullException.ThrowIfNull(policy);
-        ArgumentNullException.ThrowIfNull(compatibleHistoryItemIds);
+        ArgumentNullException.ThrowIfNull(compatibleArtifactRootIds);
+        if (string.IsNullOrWhiteSpace(versionId)) throw new ArgumentException("VersionId is required.", nameof(versionId));
         if (policy.TransformerId.PluginId != pluginId)
         {
             throw new InvalidOperationException("Artifact Transform Policy does not select the requested plugin.");
@@ -54,21 +57,25 @@ public sealed class ArtifactTransformCoordinator
             cancellationToken)
             ?? throw new InvalidOperationException($"Plugin '{pluginId}' has no active Artifact Transformer.");
         var current = await _store.LoadAsync(cancellationToken).ConfigureAwait(false);
-        var roots = current.HistoryRoots
-            .Where(root => root.FolderId == folder.FolderId && StringComparer.Ordinal.Equals(root.ConfigId, config.ConfigId))
-            .ToDictionary(root => root.HistoryItemId, StringComparer.Ordinal);
-        if (!roots.TryGetValue(historyItemId, out var primaryRoot))
+        var artifacts = current.Artifacts.ToDictionary(artifact => artifact.ArtifactId);
+        if (!artifacts.TryGetValue(primaryArtifactRootId, out var primaryRoot))
         {
-            throw new KeyNotFoundException("Primary History root is missing from the Artifact Ledger.");
+            throw new KeyNotFoundException("Primary Artifact root is missing from the Artifact Ledger.");
         }
-        var compatibleRoots = compatibleHistoryItemIds
-            .Distinct(StringComparer.Ordinal)
-            .Select(id => roots.TryGetValue(id, out var root)
+        var compatibleRoots = compatibleArtifactRootIds
+            .Distinct()
+            .Select(id => artifacts.TryGetValue(id, out var root)
                 ? root
-                : throw new InvalidOperationException("Compatible History root is outside the transform scope."))
+                : throw new InvalidOperationException("Compatible Artifact root is outside the transform scope."))
             .ToArray();
-        var readableIds = compatibleRoots.Select(root => root.RootArtifactId)
-            .Append(primaryRoot.RootArtifactId)
+        if (compatibleRoots.Append(primaryRoot).Any(root =>
+                root.FolderId != folder.FolderId
+                || !StringComparer.Ordinal.Equals(root.ConfigId, config.ConfigId)))
+        {
+            throw new InvalidOperationException("Artifact transform roots belong to a different Config or Folder.");
+        }
+        var readableIds = compatibleRoots.Select(root => root.ArtifactId)
+            .Append(primaryRoot.ArtifactId)
             .ToHashSet();
         await _store.VerifyArtifactsAsync(current, readableIds, cancellationToken).ConfigureAwait(false);
         var readSession = _store.CreateReadSession(current, readableIds);
@@ -78,10 +85,10 @@ public sealed class ArtifactTransformCoordinator
         var request = new ArtifactTransformRequest(
             config,
             folder,
-            historyItemId,
+            versionId,
             current.Revision,
-            readSession.Snapshots[primaryRoot.RootArtifactId],
-            compatibleRoots.Select(root => readSession.Snapshots[root.RootArtifactId]).ToArray(),
+            readSession.Snapshots[primaryRoot.ArtifactId],
+            compatibleRoots.Select(root => readSession.Snapshots[root.ArtifactId]).ToArray(),
             CloneJson(policy.Parameters),
             readSession.ReadService,
             staging,
@@ -95,13 +102,14 @@ public sealed class ArtifactTransformCoordinator
         }
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
         {
-            return new ArtifactTransformRunResult(OperationOutcome.Canceled, current, Array.Empty<PluginDiagnostic>(), false);
+            return new ArtifactTransformRunResult(OperationOutcome.Canceled, current, primaryArtifactRootId, Array.Empty<PluginDiagnostic>(), false);
         }
         catch (Exception ex) when (policy.FailureBehavior == ArtifactTransformFailureBehavior.KeepPrimaryWithWarnings)
         {
             return new ArtifactTransformRunResult(
                 OperationOutcome.SuccessWithWarnings,
                 current,
+                primaryArtifactRootId,
                 [RuntimeDiagnostic.Warning("artifact.transform_failed_primary_kept", pluginId, ex.Message)],
                 false);
         }
@@ -114,19 +122,18 @@ public sealed class ArtifactTransformCoordinator
                 return new ArtifactTransformRunResult(
                     OperationOutcome.SuccessWithWarnings,
                     current,
+                    primaryArtifactRootId,
                     diagnostics.Append(RuntimeDiagnostic.Warning(
                         "artifact.transform_primary_kept",
                         pluginId,
                         "Artifact transform did not complete; the Core primary Artifact was retained.")).ToArray(),
                     false);
             }
-            return new ArtifactTransformRunResult(result.Outcome, current, diagnostics, false);
+            return new ArtifactTransformRunResult(result.Outcome, current, primaryArtifactRootId, diagnostics, false);
         }
         if (result.Patch is null) throw new InvalidOperationException("Successful Artifact Transform requires a graph patch.");
 
         var facts = await staging.SealAsync("artifacts", cancellationToken).ConfigureAwait(false);
-        var replaceable = compatibleRoots.Append(primaryRoot)
-            .ToDictionary(root => root.HistoryItemId, root => root.RootArtifactId, StringComparer.Ordinal);
         var committedRevision = new ArtifactGraphRevision(Guid.NewGuid().ToString("N"));
         var candidate = ArtifactGraphPatchApplier.Apply(
             current,
@@ -135,13 +142,12 @@ public sealed class ArtifactTransformCoordinator
                 pluginId,
                 config.ConfigId,
                 folder.FolderId,
-                replaceable,
                 readableIds,
                 transactionId,
                 committedRevision),
             facts);
         await _store.CommitAsync(current, candidate, transactionId, staging, facts, cancellationToken).ConfigureAwait(false);
-        return new ArtifactTransformRunResult(result.Outcome, candidate, diagnostics, true);
+        return new ArtifactTransformRunResult(result.Outcome, candidate, result.Patch.ResultRootArtifactId, diagnostics, true);
     }
 
     private static IReadOnlyDictionary<string, JsonElement> CloneJson(IReadOnlyDictionary<string, JsonElement> values)
@@ -180,7 +186,7 @@ public sealed class BackupCompletionObserverCoordinator
         var outcome = snapshot.CoreOutcome;
         foreach (var pluginId in observerPluginIds.Distinct())
         {
-            var deliveryId = $"{snapshot.BackupRunId}:{pluginId.Value}";
+            var deliveryId = $"{snapshot.RunVersionId}:{pluginId.Value}";
             if (!_deliveries.TryAdd(deliveryId, 0)) continue;
             using var lease = _runtime.TryAcquire<IBackupCompletionObserverCapability>(pluginId, cancellationToken);
             if (lease is null) continue;
@@ -233,7 +239,7 @@ public sealed class BackupCompletionObserverCoordinator
 
     private sealed class BlockedRestoreRequests : IRestoreRequestService
     {
-        public ValueTask<OperationOutcome> RequestAsync(string configId, Guid folderId, string historyItemId, CancellationToken cancellationToken)
+        public ValueTask<OperationOutcome> RequestAsync(string configId, Guid folderId, string versionId, CancellationToken cancellationToken)
             => throw new InvalidOperationException("Completion Observers cannot request restores.");
     }
 }
@@ -280,7 +286,8 @@ public sealed class RestoreMaterializationCoordinator
     public async ValueTask<RestoreMaterializationLease> MaterializeAsync(
         ConfigSnapshot config,
         FolderSnapshot folder,
-        string historyItemId,
+        string versionId,
+        ArtifactId artifactRootId,
         RestoreMode requestedMode,
         RestoreMode effectiveMode,
         string workspaceRoot,
@@ -289,14 +296,13 @@ public sealed class RestoreMaterializationCoordinator
         CancellationToken cancellationToken = default)
     {
         var ledger = await _store.LoadAsync(cancellationToken).ConfigureAwait(false);
-        var history = ledger.HistoryRoots.SingleOrDefault(root => StringComparer.Ordinal.Equals(root.HistoryItemId, historyItemId))
-            ?? throw new InvalidOperationException("Restore History root is missing.");
-        if (!StringComparer.Ordinal.Equals(history.ConfigId, config.ConfigId) || history.FolderId != folder.FolderId)
+        var root = ledger.Artifacts.SingleOrDefault(artifact => artifact.ArtifactId == artifactRootId)
+            ?? throw new InvalidOperationException("Restore Artifact root is missing.");
+        if (!StringComparer.Ordinal.Equals(root.ConfigId, config.ConfigId) || root.FolderId != folder.FolderId)
         {
-            throw new InvalidOperationException("Restore History root belongs to a different Config or Folder.");
+            throw new InvalidOperationException("Restore Artifact root belongs to a different Config or Folder.");
         }
         var byId = ledger.Artifacts.ToDictionary(artifact => artifact.ArtifactId);
-        var root = byId[history.RootArtifactId];
         if (root.Completeness == ArtifactCompleteness.Partial && effectiveMode != RestoreMode.Overwrite)
         {
             throw new InvalidOperationException("Partial Artifacts require effective Overwrite restore mode.");
@@ -321,7 +327,7 @@ public sealed class RestoreMaterializationCoordinator
             var request = new RestoreMaterializationRequest(
                 config,
                 folder,
-                historyItemId,
+                versionId,
                 root.ArtifactId,
                 orderedIds.Select(id => readSession.Snapshots[id]).ToArray(),
                 requestedMode,

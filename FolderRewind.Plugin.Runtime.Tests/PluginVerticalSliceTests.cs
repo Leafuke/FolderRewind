@@ -12,7 +12,7 @@ namespace FolderRewind.Plugin.Runtime.Tests;
 public sealed class PluginVerticalSliceTests
 {
     private static readonly PluginId FakePluginId = new("com.folderrewind.vertical-fake");
-    private const string MineRewindSha256 = "de1cf53d1b9ea8f4a16ca4c24a2949c481841a3a32a1fb89304f1feead2b0508";
+    private const string MineRewindSha256 = "f7284f87f2e65f5c8f8a6bdc0e0f3ae6052021a070cbbd04ddae0d5c6061ca62";
     private static readonly PluginId MineRewindPluginId = new("com.folderrewind.minerewind");
     private static readonly ConfigKindRef FakeKind = new(new OwnerId(FakePluginId.Value), "test-data");
     private static readonly ConfigKindRef MinecraftKind = new(
@@ -82,7 +82,7 @@ public sealed class PluginVerticalSliceTests
         });
 
         var result = await lease.Capability.CoordinateAsync(
-            new RestoreCoordinatorRequest(config, folder, "history-1", gate.InvokeAsync),
+            new RestoreCoordinatorRequest(config, folder, "version-1", gate.InvokeAsync),
             lease.Context);
 
         Assert.AreEqual(OperationOutcome.Success, result.Outcome);
@@ -791,18 +791,18 @@ public sealed class PluginVerticalSliceTests
         public ValueTask<OperationOutcome> RequestAsync(
             string configId,
             Guid folderId,
-            string historyItemId,
+            string versionId,
             CancellationToken cancellationToken)
             => ValueTask.FromResult(OperationOutcome.Success);
     }
 
     private sealed class EmptyHistory : IHistoryQueryService
     {
-        public ValueTask<IReadOnlyList<HistoryItemSnapshot>> QueryAsync(
+        public ValueTask<IReadOnlyList<HistoryVersionSnapshot>> QueryAsync(
             string configId,
             Guid? folderId,
             CancellationToken cancellationToken)
-            => ValueTask.FromResult<IReadOnlyList<HistoryItemSnapshot>>(Array.Empty<HistoryItemSnapshot>());
+            => ValueTask.FromResult<IReadOnlyList<HistoryVersionSnapshot>>(Array.Empty<HistoryVersionSnapshot>());
     }
 
     private sealed class NoOpNotifications : IPluginNotificationService

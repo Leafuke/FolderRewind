@@ -47,7 +47,7 @@ public sealed class BackupInvocationOptionsTests
             RestoreCoordinatorAvailable: false));
         var outcome = PluginOperationResolver.Complete(resolution, OperationOutcome.Success);
         var hostResult = PluginBackupRequestResult.FromSource(
-            BackupRunSourceStatus.NewArchive,
+            BackupSourceExecutionStatus.NewArchive,
             outcome,
             hasWarnings: true);
 

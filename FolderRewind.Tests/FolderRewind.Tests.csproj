@@ -41,7 +41,6 @@
     <Compile Include="..\FolderRewind\Services\TemplateFormatPolicy.cs" Link="Source\TemplateFormatPolicy.cs" />
     <Compile Include="..\FolderRewind\Models\DiscoveryModels.cs" Link="Source\DiscoveryModels.cs" />
     <Compile Include="..\FolderRewind\Models\BackupSourceScopeModels.cs" Link="Source\BackupSourceScopeModels.cs" />
-    <Compile Include="..\FolderRewind\Models\BackupRunModels.cs" Link="Source\BackupRunModels.cs" />
     <Compile Include="..\FolderRewind\Models\PluginPersistenceModels.cs" Link="Source\PluginPersistenceModels.cs" />
     <Compile Include="..\FolderRewind\Models\LudusaviIndexModels.cs" Link="Source\LudusaviIndexModels.cs" />
     <Compile Include="..\FolderRewind\Services\Discovery\DiscoveryCandidateMerger.cs" Link="Source\DiscoveryCandidateMerger.cs" />
@@ -54,7 +53,6 @@
     <Compile Include="..\FolderRewind\Services\Discovery\DiscoveryThreeWayReviewService.cs" Link="Source\DiscoveryThreeWayReviewService.cs" />
     <Compile Include="..\FolderRewind\Services\OfficialPresetIndexMergePolicy.cs" Link="Source\OfficialPresetIndexMergePolicy.cs" />
     <Compile Include="..\FolderRewind\Services\BackupInvocationOptions.cs" Link="Source\BackupInvocationOptions.cs" />
-    <Compile Include="..\FolderRewind\Services\BackupRunRestoreOrchestrator.cs" Link="Source\BackupRunRestoreOrchestrator.cs" />
     <Compile Include="..\FolderRewind\Services\Discovery\GameDiscoveryService.cs" Link="Source\GameDiscoveryService.cs" />
     <Compile Include="..\FolderRewind\Services\Discovery\IGameDiscoveryProvider.cs" Link="Source\IGameDiscoveryProvider.cs" />
     <Compile Include="..\FolderRewind\Services\Discovery\LudusaviManifestCompiler.cs" Link="Source\LudusaviManifestCompiler.cs" />
@@ -68,7 +66,6 @@
     <Compile Include="..\FolderRewind\Services\BackupSourceScopePatternSet.cs" Link="Source\BackupSourceScopePatternSet.cs" />
     <Compile Include="..\FolderRewind\Services\BackupSourceAvailabilityPolicy.cs" Link="Source\BackupSourceAvailabilityPolicy.cs" />
     <Compile Include="..\FolderRewind\Services\BackupSourceRootSafetyPolicy.cs" Link="Source\BackupSourceRootSafetyPolicy.cs" />
-    <Compile Include="..\FolderRewind\Services\BackupRunPolicy.cs" Link="Source\BackupRunPolicy.cs" />
     <Compile Include="..\FolderRewind\Services\Plugins\V3\PluginBackupRequestResult.cs" Link="Source\PluginBackupRequestResult.cs" />
     <Compile Include="..\FolderRewind\Services\LanguageSettingPolicy.cs" Link="Source\LanguageSettingPolicy.cs" />
     <Compile Include="..\FolderRewind\Services\MiniWindowLayoutPolicy.cs" Link="Source\MiniWindowLayoutPolicy.cs" />
@@ -79,9 +76,6 @@
     <Compile Include="..\FolderRewind\Services\BackupStoragePathService.cs" Link="Source\BackupStoragePathService.cs" />
     <Compile Include="..\FolderRewind\Services\BackupPathOverlapPolicy.cs" Link="Source\BackupPathOverlapPolicy.cs" />
     <Compile Include="..\FolderRewind\Services\SevenZipExecutableLocator.cs" Link="Source\SevenZipExecutableLocator.cs" />
-    <Compile Include="..\FolderRewind\Services\BackupChainPlanner.cs" Link="Source\BackupChainPlanner.cs" />
-    <Compile Include="..\FolderRewind\Models\BackupMetadata.cs" Link="Source\BackupMetadata.cs" />
-    <Compile Include="..\FolderRewind\Services\BackupMetadataDeletionPolicy.cs" Link="Source\BackupMetadataDeletionPolicy.cs" />
     <Compile Include="..\FolderRewind\Models\FolderRenameModels.cs" Link="Source\FolderRenameModels.cs" />
     <Compile Include="..\FolderRewind\Models\PersistenceModels.cs" Link="Source\PersistenceModels.cs" />
     <Compile Include="..\FolderRewind\Services\AtomicFileService.cs" Link="Source\AtomicFileService.cs" />

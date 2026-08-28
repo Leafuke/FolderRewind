@@ -1,4 +1,5 @@
 using FolderRewind.History.Domain;
+using FolderRewind.History.Capture;
 using FolderRewind.History.Index;
 using FolderRewind.History.LocalState;
 using FolderRewind.History.Storage;
@@ -38,6 +39,7 @@ public sealed class HistoryRuntime : IAsyncDisposable
         LocalReplicaCatalogStore = new LocalReplicaCatalogStore(
             repository.ConfigId,
             Path.Combine(repository.Paths.LocalStateRoot, "replicas.json"));
+        CaptureBaselines = new SourceCaptureBaselineCache(repository.Paths.LocalStateRoot);
         MutationGate = new HistoryMutationGate(repository.ConfigId);
         ChangeFeed = new HistoryChangeFeed();
         Query = new HistoryQueryService(Index);
@@ -52,6 +54,7 @@ public sealed class HistoryRuntime : IAsyncDisposable
     public HistoryIndex Index { get; }
     public HistoryWorkspaceStore WorkspaceStore { get; }
     public LocalReplicaCatalogStore LocalReplicaCatalogStore { get; }
+    public SourceCaptureBaselineCache CaptureBaselines { get; }
     public HistoryMutationGate MutationGate { get; }
     public HistoryChangeFeed ChangeFeed { get; }
     public HistoryQueryService Query { get; }
@@ -119,6 +122,7 @@ public sealed class HistoryRuntime : IAsyncDisposable
         MutationGate.Dispose();
         WorkspaceStore.Dispose();
         LocalReplicaCatalogStore.Dispose();
+        CaptureBaselines.Dispose();
         Index.Dispose();
         Repository.Dispose();
         _initializationGate.Dispose();

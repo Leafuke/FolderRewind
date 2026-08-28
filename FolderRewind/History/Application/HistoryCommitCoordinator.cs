@@ -49,7 +49,8 @@ public sealed record HistoryBackupInvocation(
     DateTimeOffset StartedAtUtc,
     DateTimeOffset CompletedAtUtc,
     BackupInvocationKind Kind,
-    HistoryProvenance Provenance);
+    HistoryProvenance Provenance,
+    string Comment = "");
 
 public sealed record HistoryBranchCreationIntent
 {
@@ -495,6 +496,28 @@ public sealed class HistoryCommitCoordinator
         if (checkpoint is not null) facts.Add(checkpoint);
         if (branchUpdate is not null) facts.Add(branchUpdate);
         facts.Add(run);
+        var comment = request.Invocation.Comment?.Trim() ?? string.Empty;
+        if (!string.IsNullOrEmpty(comment))
+        {
+            var annotations = versions
+                .Select(version => new HistoryAnnotationUpdate(
+                    AnnotationUpdateId.New(),
+                    new HistoryAnnotationTarget(HistoryAnnotationTargetKind.Version, version.VersionId.Value),
+                    HistoryAnnotationKind.Comment,
+                    [],
+                    comment,
+                    now))
+                .Append(new HistoryAnnotationUpdate(
+                    AnnotationUpdateId.New(),
+                    new HistoryAnnotationTarget(HistoryAnnotationTargetKind.Run, run.RunId.Value),
+                    HistoryAnnotationKind.Comment,
+                    [],
+                    comment,
+                    now))
+                .ToArray();
+            HistoryDomainValidator.ValidateAnnotationGraph(annotations);
+            facts.AddRange(annotations);
+        }
         var objects = facts
             .Select(fact => _codec.CreateObject(fact))
             .OrderBy(item => item.Kind, StringComparer.Ordinal)

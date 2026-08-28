@@ -49,7 +49,6 @@ public sealed record BackupArtifactSnapshot(
     CoreCaptureMode CoreCaptureMode,
     string ConfigId,
     Guid FolderId,
-    string HistoryItemId,
     IReadOnlyList<ArtifactId> Dependencies);
 
 public interface IArtifactReadService
@@ -101,7 +100,7 @@ public interface IBackupArtifactTransformerCapability : IPluginCapability
 public sealed record ArtifactTransformRequest(
     ConfigSnapshot Config,
     FolderSnapshot Folder,
-    string HistoryItemId,
+    string VersionId,
     ArtifactGraphRevision ExpectedGraphRevision,
     BackupArtifactSnapshot Primary,
     IReadOnlyList<BackupArtifactSnapshot> CompatibleCandidates,
@@ -113,7 +112,6 @@ public sealed record ArtifactTransformRequest(
 public sealed record StagedArtifactNode(
     ArtifactId ArtifactId,
     ArtifactStagingHandle Staging,
-    string HistoryItemId,
     ArtifactFormatRef Format,
     int FormatVersion,
     RestoreStrategyId RestoreStrategyId,
@@ -121,15 +119,10 @@ public sealed record StagedArtifactNode(
     CoreCaptureMode CoreCaptureMode,
     IReadOnlyList<ArtifactId> Dependencies);
 
-public sealed record HistoryRootReplacement(
-    string HistoryItemId,
-    ArtifactId ExpectedRootArtifactId,
-    ArtifactId NewRootArtifactId);
-
 public sealed record ArtifactGraphPatch(
     ArtifactGraphRevision ExpectedRevision,
     IReadOnlyList<StagedArtifactNode> AddedArtifacts,
-    IReadOnlyList<HistoryRootReplacement> RootReplacements);
+    ArtifactId ResultRootArtifactId);
 
 public sealed record ArtifactTransformResult(
     OperationOutcome Outcome,
@@ -144,10 +137,11 @@ public interface IBackupCompletionObserverCapability : IPluginCapability
 }
 
 public sealed record BackupCompletionSnapshot(
-    string BackupRunId,
+    string RunVersionId,
     ConfigSnapshot Config,
     FolderSnapshot Folder,
-    string HistoryItemId,
+    string VersionId,
+    string RepresentationId,
     ArtifactId RootArtifactId,
     ArtifactGraphRevision GraphRevision,
     OperationOutcome CoreOutcome,
@@ -167,7 +161,7 @@ public interface IRestoreMaterializerCapability : IPluginCapability
 public sealed record RestoreMaterializationRequest(
     ConfigSnapshot Config,
     FolderSnapshot Folder,
-    string HistoryItemId,
+    string VersionId,
     ArtifactId RootArtifactId,
     IReadOnlyList<BackupArtifactSnapshot> ArtifactsTopologicallySorted,
     RestoreMode RequestedMode,

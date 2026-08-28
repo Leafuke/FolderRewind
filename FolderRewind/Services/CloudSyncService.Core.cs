@@ -26,7 +26,6 @@ namespace FolderRewind.Services
         private const int MaxTimeoutSeconds = 86400;
         private const int MaxLogLength = 4096;
         private const string InternalCloudStateDirectoryName = "_folderrewind";
-        private const string ActiveHistoryManifestFileName = "active-history.json";
         // 故意串行执行云命令，避免并发 rclone 时任务状态、日志和元数据写入互相打架。
         private static readonly SemaphoreSlim CommandSemaphore = new(1, 1);
 
@@ -52,18 +51,6 @@ namespace FolderRewind.Services
             public required string Arguments { get; init; }
             public required string WorkingDirectory { get; init; }
             public required string Preview { get; init; }
-        }
-
-        private sealed class HistoryCloudPaths
-        {
-            public required string FolderName { get; init; }
-            public required string ArchiveFilePath { get; init; }
-            public required string ArchiveRemotePath { get; init; }
-            public required string MetadataDir { get; init; }
-            public required string MetadataStateFilePath { get; init; }
-            public required string MetadataRecordFilePath { get; init; }
-            public required string MetadataStateRemotePath { get; init; }
-            public required string MetadataRecordRemotePath { get; init; }
         }
 
         private static void SerializeToFile<T>(string path, T value, JsonTypeInfo<T> typeInfo)
@@ -169,83 +156,6 @@ namespace FolderRewind.Services
             }
         }
 
-
-        private static bool TryBuildHistoryCloudPaths(
-            BackupConfig config,
-            ManagedFolder folder,
-            HistoryItem item,
-            out HistoryCloudPaths paths,
-            out string errorMessage)
-        {
-            paths = null!;
-            errorMessage = string.Empty;
-
-            string archiveFilePath = HistoryService.GetBackupFilePath(config, folder, item) ?? string.Empty;
-            if (string.IsNullOrWhiteSpace(archiveFilePath))
-            {
-                errorMessage = I18n.GetString("History_ViewFile_PathEmpty");
-                return false;
-            }
-
-            string folderName = string.IsNullOrWhiteSpace(item.FolderName)
-                ? (folder.DisplayName ?? string.Empty)
-                : item.FolderName;
-            string destinationPath = config.DestinationPath ?? string.Empty;
-            string metadataDir = Path.Combine(destinationPath, "_metadata", folderName);
-            if (BackupStoragePathService.TryResolveBackupStoragePaths(
-                destinationPath,
-                folderName,
-                folder.Path,
-                out _,
-                out _,
-                out var resolvedMetadataDir))
-            {
-                metadataDir = resolvedMetadataDir;
-            }
-
-            if (!BackupMetadataStoreService.TryGetStateFilePath(metadataDir, out var stateFilePath))
-            {
-                stateFilePath = Path.Combine(metadataDir, "state.json");
-            }
-
-            if (!BackupMetadataStoreService.TryGetRecordFilePath(metadataDir, item.FileName, out var recordFilePath))
-            {
-                recordFilePath = Path.Combine(metadataDir, "records", item.FileName + ".json");
-            }
-
-            var defaultRemotePaths = BuildDefaultRemotePaths(config.Name ?? string.Empty, folderName, item.FileName, config.Cloud?.RemoteBasePath);
-            // 历史项若已有远端路径则优先复用，避免远端目录结构调整后被“默认路径”覆盖。
-            paths = new HistoryCloudPaths
-            {
-                FolderName = folderName,
-                ArchiveFilePath = archiveFilePath,
-                ArchiveRemotePath = string.IsNullOrWhiteSpace(item.CloudArchiveRemotePath) ? defaultRemotePaths.ArchiveRemotePath : item.CloudArchiveRemotePath,
-                MetadataDir = metadataDir,
-                MetadataStateFilePath = stateFilePath,
-                MetadataRecordFilePath = recordFilePath,
-                MetadataStateRemotePath = string.IsNullOrWhiteSpace(item.CloudMetadataStateRemotePath) ? defaultRemotePaths.MetadataStateRemotePath : item.CloudMetadataStateRemotePath,
-                MetadataRecordRemotePath = string.IsNullOrWhiteSpace(item.CloudMetadataRecordRemotePath) ? defaultRemotePaths.MetadataRecordRemotePath : item.CloudMetadataRecordRemotePath
-            };
-
-            return true;
-        }
-
-        private static (string ArchiveRemotePath, string MetadataRecordRemotePath, string MetadataStateRemotePath) BuildDefaultRemotePaths(
-            string configName,
-            string folderName,
-            string archiveFileName,
-            string? remoteBasePath)
-        {
-            string normalizedRemoteBasePath = string.IsNullOrWhiteSpace(remoteBasePath)
-                ? "remote:FolderRewind"
-                : remoteBasePath.Trim().TrimEnd('/');
-
-            string remoteFolderRoot = AppendRemotePath(normalizedRemoteBasePath, configName, folderName);
-            return (
-                AppendRemotePath(remoteFolderRoot, archiveFileName),
-                AppendRemotePath(remoteFolderRoot, "_metadata", "records", archiveFileName + ".json"),
-                AppendRemotePath(remoteFolderRoot, "_metadata", "state.json"));
-        }
 
         private static string AppendRemotePath(string root, params string[] segments)
         {

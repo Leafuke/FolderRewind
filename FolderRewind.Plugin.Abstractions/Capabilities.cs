@@ -140,7 +140,7 @@ public interface IRestoreCoordinatorCapability : IPluginCapability
 }
 
 public delegate ValueTask<OperationOutcome> RestoreMutationContinuation(CancellationToken cancellationToken);
-public sealed record RestoreCoordinatorRequest(ConfigSnapshot Config, FolderSnapshot Folder, string HistoryItemId, RestoreMutationContinuation ContinueMutationAsync);
+public sealed record RestoreCoordinatorRequest(ConfigSnapshot Config, FolderSnapshot Folder, string VersionId, RestoreMutationContinuation ContinueMutationAsync);
 public sealed record RestoreCoordinatorResult(OperationOutcome Outcome, IReadOnlyList<PluginDiagnostic> Diagnostics);
 
 public interface IPluginCommandCapability : IPluginCapability

@@ -2242,12 +2242,6 @@ cmd=RESTORE;from=minebackup.mod;request_id=req-mr-restore-002;current_save=true;
   <data name="BackupConfig_DefaultSummary" xml:space="preserve">
     <value>暂无状态</value>
   </data>
-  <data name="HistoryItem_Message_NoComment" xml:space="preserve">
-    <value>[{0}] 备份</value>
-  </data>
-  <data name="HistoryItem_Message_WithComment" xml:space="preserve">
-    <value>[{0}] {1}</value>
-  </data>
   <data name="History_FileMissing" xml:space="preserve">
     <value>文件丢失</value>
   </data>
@@ -4379,7 +4373,7 @@ Pull Request：{1}</value>
     <value>从云导入历史</value>
   </data>
   <data name="Settings_ImportHistoryFromCloud_Description" xml:space="preserve">
-    <value>填写远端基路径后，程序会尝试下载其中的 history.json，并复用现有历史导入流程。</value>
+    <value>填写远端基路径后，将不可变 History Commit Pack 同步到本地仓库。</value>
   </data>
   <data name="Settings_ExportConfigToCloud_Title" xml:space="preserve">
     <value>导出配置到云端</value>
@@ -4391,7 +4385,7 @@ Pull Request：{1}</value>
     <value>导出历史记录到云端</value>
   </data>
   <data name="Settings_ExportHistoryToCloud_Description" xml:space="preserve">
-    <value>填写远端基路径后，程序会将当前历史记录导出为 history.json 并上传到云端。</value>
+    <value>填写远端基路径后，将本地与远端的 History Commit Pack 集合进行同步。</value>
   </data>
   <data name="Settings_DataTransferMode_Local" xml:space="preserve">
     <value>本地文件</value>
@@ -4478,7 +4472,7 @@ Pull Request：{1}</value>
     <value>此配置保留了旧版“自定义命令”模式。自动上传仍可用，但手动同步与历史页云操作仅支持 rclone 模式。</value>
   </data>
   <data name="ConfigSettingsDialog_CloudSyncHint" xml:space="preserve">
-    <value>你可以先分析远端 history.json，再选择只补齐当前配置的历史记录，或继续把云端备份与元数据一起拉回本地。</value>
+    <value>先分析远端 Commit Pack 集合，再同步不可变历史元数据和选中的备份 payload。</value>
   </data>
   <data name="ConfigSettingsDialog_CloudLegacyModeHint" xml:space="preserve">
     <value>当前配置使用旧版自定义云命令，手动同步界面不可用；如需该能力，请切换到 rclone 配置。</value>
@@ -4493,7 +4487,7 @@ Pull Request：{1}</value>
     <value>取消</value>
   </data>
   <data name="ConfigCloudSyncDialog_Description.Text" xml:space="preserve">
-    <value>同步会先分析云端 history.json，再按当前配置的文件夹映射规则决定哪些记录可以安全落到本地。</value>
+    <value>同步会先分析远端 Commit Pack 集合，再将缺少的不可变历史元数据安全并入当前仓库。</value>
   </data>
   <data name="ConfigCloudSyncDialog_ModeHeader.Text" xml:space="preserve">
     <value>同步范围</value>
@@ -4520,7 +4514,7 @@ Pull Request：{1}</value>
     <value>准备就绪，可以先分析远端历史。</value>
   </data>
   <data name="ConfigCloudSyncDialog_Status_Analyzing" xml:space="preserve">
-    <value>正在分析云端 history.json…</value>
+    <value>正在分析远端 History Commit Pack…</value>
   </data>
   <data name="ConfigCloudSyncDialog_Status_AnalysisReady" xml:space="preserve">
     <value>分析完成，你可以开始同步。</value>
@@ -4583,16 +4577,16 @@ Pull Request：{1}</value>
     <value>用于新建配置时的云端默认路径，也会作为“导出/导入到云端”对话框里的默认远端基路径。</value>
   </data>
   <data name="CloudSync_Task_UploadingHistorySnapshot" xml:space="preserve">
-    <value>正在同步 history.json…</value>
+    <value>正在同步 History Commit Pack…</value>
   </data>
   <data name="CloudSync_Notification_HistorySyncUploadFailed" xml:space="preserve">
-    <value>备份已上传，但同步 history.json 失败。</value>
+    <value>备份已上传，但同步 History Commit Pack 失败。</value>
   </data>
   <data name="CloudSync_Notification_HistorySyncUploadFailedWithReason" xml:space="preserve">
-    <value>备份已上传，但同步 history.json 失败：{0}</value>
+    <value>备份已上传，但同步 History Commit Pack 失败：{0}</value>
   </data>
   <data name="CloudSync_Notification_HistorySyncSkippedLegacyMode" xml:space="preserve">
-    <value>当前配置使用旧版自定义命令模式，无法自动同步 history.json。</value>
+    <value>Native History 仓库不可用，无法自动同步 Commit Pack。</value>
   </data>
   <data name="SettingsPage_AutoDownloadMissingCloudBackupsBeforeRestore.Text" xml:space="preserve">
     <value>还原前自动下载缺失的云备份链</value>
@@ -4624,12 +4618,6 @@ Pull Request：{1}</value>
   <data name="CloudSync_Task_UploadingConfigurationHistory" xml:space="preserve">
     <value>正在上传配置历史…</value>
   </data>
-  <data name="CloudSync_Task_UploadingActiveHistoryManifest" xml:space="preserve">
-    <value>正在上传 active-history 清单…</value>
-  </data>
-  <data name="CloudSync_Notification_ActiveHistoryManifestUploadFailedWithReason" xml:space="preserve">
-    <value>历史记录已上传，但 active-history 清单上传失败：{0}</value>
-  </data>
   <data name="CloudSync_Notification_ConfigurationHistoryUploadFailedWithReason" xml:space="preserve">
     <value>上传“{0}”的配置历史失败：{1}</value>
   </data>
@@ -4650,9 +4638,6 @@ Pull Request：{1}</value>
   </data>
   <data name="CloudSync_Task_DownloadingConfigurationHistory" xml:space="preserve">
     <value>正在下载配置历史…</value>
-  </data>
-  <data name="CloudSync_Task_DownloadingHistoryItem" xml:space="preserve">
-    <value>正在下载 {0}（{1}/{2}）…</value>
   </data>
   <data name="ProcessPathService_Log_QueryFailed" xml:space="preserve">
     <value>查询运行中的进程“{0}”失败：{1}</value>
@@ -5057,4 +5042,7 @@ Pull Request：{1}</value>
   <data name="History_Branch_RenameTitle" xml:space="preserve"><value>重命名分支</value></data>
   <data name="History_Branch_SelectTipTitle" xml:space="preserve"><value>选择要切换的分支进展</value></data>
   <data name="History_Branch_NoCheckpoint" xml:space="preserve"><value>尚无可用于创建分支的检查点。</value></data>
+  <data name="History_Branch_CheckoutTitle" xml:space="preserve"><value>切换分支</value></data>
+  <data name="History_Branch_CheckoutContent" xml:space="preserve"><value>这会用所选分支检查点精确替换当前配置中的所有源目录内容。请确认当前未提交的更改可以丢弃。</value></data>
+  <data name="History_Branch_CheckoutPrimary" xml:space="preserve"><value>丢弃当前更改并切换</value></data>
 </root>
