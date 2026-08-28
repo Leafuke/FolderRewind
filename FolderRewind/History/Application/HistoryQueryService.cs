@@ -34,6 +34,10 @@ public sealed class HistoryQueryService
         CancellationToken cancellationToken = default)
         => _index.GetVersionsForSourceAsync(sourceId, cancellationToken);
 
+    public Task<IReadOnlyList<SourceVersion>> GetAllVersionsAsync(
+        CancellationToken cancellationToken = default)
+        => _index.GetAllVersionsAsync(cancellationToken);
+
     public Task<SourceVersion?> GetVersionAsync(
         VersionId versionId,
         CancellationToken cancellationToken = default)
@@ -100,6 +104,10 @@ public sealed class HistoryQueryService
         HistoryAnnotationKind? kind = null,
         CancellationToken cancellationToken = default)
         => _index.GetAnnotationUpdatesAsync(target, kind, cancellationToken);
+
+    public Task<IReadOnlyList<HistoryAnnotationUpdate>> GetAllAnnotationUpdatesAsync(
+        CancellationToken cancellationToken = default)
+        => _index.GetAllAnnotationUpdatesAsync(cancellationToken);
 
     public async Task<HistoryAnnotationProjectionResult> GetAnnotationProjectionAsync(
         HistoryAnnotationTarget target,

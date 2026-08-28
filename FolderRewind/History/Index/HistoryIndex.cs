@@ -305,6 +305,13 @@ public sealed class HistoryIndex : IDisposable
                 ],
                 cancellationToken);
 
+    public Task<IReadOnlyList<HistoryAnnotationUpdate>> GetAllAnnotationUpdatesAsync(
+        CancellationToken cancellationToken = default)
+        => ReadPayloadsAsync<HistoryAnnotationUpdate>(
+            "SELECT PayloadJson FROM Annotations ORDER BY TargetKind, TargetId, AnnotationKind, CreatedAtUtc, UpdateId",
+            [],
+            cancellationToken);
+
     public async Task<int> GetIndexedPackCountAsync(CancellationToken cancellationToken = default)
     {
         ObjectDisposedException.ThrowIf(_disposed, this);
