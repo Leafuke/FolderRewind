@@ -119,6 +119,7 @@ internal sealed class PluginV3HostServices : IPluginHostServices
                 config,
                 folder,
                 parsed,
+                BackupService.RestoreMode.Clean,
                 cancellationToken).ConfigureAwait(false);
             return result.Succeeded ? OperationOutcome.Success : OperationOutcome.Failed;
         }

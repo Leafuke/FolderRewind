@@ -1,6 +1,6 @@
 using FolderRewind.History.Domain;
-using FolderRewind.History.Representation;
 using System;
+using System.Collections.Generic;
 using System.IO;
 using System.Threading;
 using System.Threading.Tasks;
@@ -8,11 +8,18 @@ using System.Threading.Tasks;
 namespace FolderRewind.History.Application;
 
 /// <summary>
-/// Same-volume directory snapshot mutation backend used by Native Restore. Exact applies to an empty target;
-/// Overlay first restores the old tree into the empty target and then layers materialized content over it.
+/// Same-volume directory snapshot mutation backend used by Native Restore. Clean applies to an empty target;
+/// Overwrite first restores the old tree into the empty target and then layers materialized content over it.
 /// </summary>
 public sealed class FileSystemHistoryRestoreMutationBackend : IHistoryRestoreMutationBackend
 {
+    private static readonly TimeSpan[] RetryDelays =
+    [
+        TimeSpan.FromMilliseconds(50),
+        TimeSpan.FromMilliseconds(100),
+        TimeSpan.FromMilliseconds(200)
+    ];
+
     public HistoryRestoreRollbackSnapshot PlanRollback(
         HistoryRestoreSourceBinding source,
         HistoryTransactionId transactionId)
@@ -35,7 +42,7 @@ public sealed class FileSystemHistoryRestoreMutationBackend : IHistoryRestoreMut
             hadOriginal);
     }
 
-    public Task PrepareRollbackAsync(
+    public async Task PrepareRollbackAsync(
         HistoryRestoreRollbackSnapshot snapshot,
         CancellationToken cancellationToken)
     {
@@ -49,7 +56,10 @@ public sealed class FileSystemHistoryRestoreMutationBackend : IHistoryRestoreMut
             {
                 if (!Directory.Exists(snapshot.TargetDirectory))
                     throw new DirectoryNotFoundException("Restore target disappeared before rollback preparation.");
-                Directory.Move(snapshot.TargetDirectory, snapshot.RollbackDirectory);
+                await MoveDirectoryWithRetryAsync(
+                    snapshot.TargetDirectory,
+                    snapshot.RollbackDirectory,
+                    cancellationToken).ConfigureAwait(false);
             }
         }
         else if (File.Exists(snapshot.TargetDirectory))
@@ -57,17 +67,16 @@ public sealed class FileSystemHistoryRestoreMutationBackend : IHistoryRestoreMut
             throw new InvalidOperationException("Restore target became a file before rollback preparation.");
         }
         Directory.CreateDirectory(snapshot.TargetDirectory);
-        return Task.CompletedTask;
     }
 
     public async Task ApplyAsync(
         HistoryRestoreSourceBinding source,
         string stagingDirectory,
-        MaterializationFidelity fidelity,
+        HistoryRestoreApplyMode applyMode,
         HistoryRestoreRollbackSnapshot rollbackSnapshot,
         CancellationToken cancellationToken)
     {
-        if (fidelity == MaterializationFidelity.Overlay && rollbackSnapshot.HadOriginalTarget)
+        if (applyMode == HistoryRestoreApplyMode.Overwrite && rollbackSnapshot.HadOriginalTarget)
         {
             await CopyTreeAsync(rollbackSnapshot.RollbackDirectory, rollbackSnapshot.TargetDirectory, cancellationToken)
                 .ConfigureAwait(false);
@@ -76,7 +85,7 @@ public sealed class FileSystemHistoryRestoreMutationBackend : IHistoryRestoreMut
             .ConfigureAwait(false);
     }
 
-    public Task RollbackAsync(
+    public async Task RollbackAsync(
         HistoryRestoreRollbackSnapshot snapshot,
         CancellationToken cancellationToken)
     {
@@ -85,8 +94,11 @@ public sealed class FileSystemHistoryRestoreMutationBackend : IHistoryRestoreMut
         {
             if (Directory.Exists(snapshot.RollbackDirectory))
             {
-                DeleteDirectory(snapshot.TargetDirectory);
-                Directory.Move(snapshot.RollbackDirectory, snapshot.TargetDirectory);
+                await DeleteDirectoryWithRetryAsync(snapshot.TargetDirectory, cancellationToken).ConfigureAwait(false);
+                await MoveDirectoryWithRetryAsync(
+                    snapshot.RollbackDirectory,
+                    snapshot.TargetDirectory,
+                    cancellationToken).ConfigureAwait(false);
             }
             else if (!Directory.Exists(snapshot.TargetDirectory))
             {
@@ -95,18 +107,15 @@ public sealed class FileSystemHistoryRestoreMutationBackend : IHistoryRestoreMut
         }
         else
         {
-            DeleteDirectory(snapshot.TargetDirectory);
+            await DeleteDirectoryWithRetryAsync(snapshot.TargetDirectory, cancellationToken).ConfigureAwait(false);
         }
-        return Task.CompletedTask;
     }
 
-    public Task CommitAsync(
+    public async Task CommitAsync(
         HistoryRestoreRollbackSnapshot snapshot,
         CancellationToken cancellationToken)
     {
-        cancellationToken.ThrowIfCancellationRequested();
-        DeleteDirectory(snapshot.RollbackDirectory);
-        return Task.CompletedTask;
+        await DeleteDirectoryWithRetryAsync(snapshot.RollbackDirectory, cancellationToken).ConfigureAwait(false);
     }
 
     private static async Task CopyTreeAsync(
@@ -134,13 +143,92 @@ public sealed class FileSystemHistoryRestoreMutationBackend : IHistoryRestoreMut
         }
     }
 
-    private static void DeleteDirectory(string path)
+    private static Task MoveDirectoryWithRetryAsync(
+        string source,
+        string destination,
+        CancellationToken cancellationToken)
+        => ExecuteWithRetryAsync(
+            () => Directory.Move(source, destination),
+            cancellationToken);
+
+    private static Task DeleteDirectoryWithRetryAsync(string path, CancellationToken cancellationToken)
+        => ExecuteWithRetryAsync(
+            () =>
+            {
+                if (!Directory.Exists(path)) return;
+                NormalizeDeletionAttributes(path);
+                Directory.Delete(path, recursive: true);
+            },
+            cancellationToken);
+
+    private static async Task ExecuteWithRetryAsync(Action operation, CancellationToken cancellationToken)
     {
-        if (!Directory.Exists(path)) return;
-        foreach (var file in Directory.EnumerateFiles(path, "*", SearchOption.AllDirectories))
+        for (int attempt = 0; ; attempt++)
         {
-            try { File.SetAttributes(file, FileAttributes.Normal); } catch { }
+            cancellationToken.ThrowIfCancellationRequested();
+            try
+            {
+                operation();
+                return;
+            }
+            catch (Exception ex) when (IsRetryable(ex) && attempt < RetryDelays.Length)
+            {
+                await Task.Delay(RetryDelays[attempt], cancellationToken).ConfigureAwait(false);
+            }
         }
-        Directory.Delete(path, recursive: true);
+    }
+
+    private static bool IsRetryable(Exception exception)
+        => exception is IOException or UnauthorizedAccessException;
+
+    private static void NormalizeDeletionAttributes(string root)
+    {
+        var pending = new Stack<string>();
+        var directories = new List<string>();
+        pending.Push(root);
+        while (pending.Count > 0)
+        {
+            var current = pending.Pop();
+            directories.Add(current);
+            foreach (var entry in Directory.EnumerateFileSystemEntries(
+                         current,
+                         "*",
+                         SearchOption.TopDirectoryOnly))
+            {
+                FileAttributes attributes;
+                try { attributes = File.GetAttributes(entry); }
+                catch (Exception ex) when (ex is IOException or UnauthorizedAccessException) { continue; }
+
+                if ((attributes & FileAttributes.ReparsePoint) != 0)
+                {
+                    TryClearReadOnly(entry, attributes);
+                    continue;
+                }
+                if ((attributes & FileAttributes.Directory) != 0)
+                {
+                    pending.Push(entry);
+                    continue;
+                }
+                try { File.SetAttributes(entry, FileAttributes.Normal); }
+                catch (Exception ex) when (ex is IOException or UnauthorizedAccessException) { }
+            }
+        }
+
+        for (int index = directories.Count - 1; index >= 0; index--)
+        {
+            try
+            {
+                var attributes = File.GetAttributes(directories[index]);
+                TryClearReadOnly(directories[index], attributes);
+            }
+            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException) { }
+        }
+    }
+
+    private static void TryClearReadOnly(string path, FileAttributes attributes)
+    {
+        if ((attributes & FileAttributes.ReadOnly) == 0) return;
+        try { File.SetAttributes(path, attributes & ~FileAttributes.ReadOnly); }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException) { }
     }
 }

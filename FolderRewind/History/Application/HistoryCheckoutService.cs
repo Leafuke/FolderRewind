@@ -95,6 +95,7 @@ public sealed class HistoryCheckoutService
                     version,
                     binding,
                     MaterializationFidelity.Exact,
+                    HistoryRestoreApplyMode.Clean,
                     cancellationToken).ConfigureAwait(false));
             }
         }

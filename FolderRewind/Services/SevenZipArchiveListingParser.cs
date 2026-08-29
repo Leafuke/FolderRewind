@@ -9,7 +9,9 @@ internal sealed record ArchiveFileListingEntry(string RelativePath, long Size);
 
 /// <summary>
 /// Parses the machine-oriented output of <c>7z l -slt</c>. Only file entries are retained;
-/// directory entries and the archive header are ignored. Unsafe or duplicate paths invalidate the listing.
+/// directory entries and the archive header are ignored. Current 7-Zip builds classify entries through
+/// <c>Attributes</c>; some compatible builds also emit the older <c>Folder</c> field. Unsafe, ambiguous,
+/// contradictory, or duplicate paths invalidate the listing.
 /// </summary>
 internal static class SevenZipArchiveListingParser
 {
@@ -43,6 +45,13 @@ internal static class SevenZipArchiveListingParser
             path = null;
             size = null;
             isFolder = null;
+            return true;
+        }
+
+        bool SetFolderClassification(bool value)
+        {
+            if (isFolder.HasValue && isFolder.Value != value) return false;
+            isFolder = value;
             return true;
         }
 
@@ -80,17 +89,36 @@ internal static class SevenZipArchiveListingParser
                     size = parsedSize;
                     break;
                 case "Folder":
-                    isFolder = value switch
+                    var folderClassification = value switch
                     {
-                        "+" => true,
+                        "+" => (bool?)true,
                         "-" => false,
                         _ => null
                     };
+                    if (!folderClassification.HasValue
+                        || !SetFolderClassification(folderClassification.Value)) return false;
+                    break;
+                case "Attributes":
+                    if (!TryClassifyAttributes(value, out var attributesAreFolder)
+                        || !SetFolderClassification(attributesAreFolder)) return false;
                     break;
             }
         }
 
         return Flush();
+    }
+
+    private static bool TryClassifyAttributes(string value, out bool isFolder)
+    {
+        isFolder = false;
+        var attributes = value.Trim();
+        if (attributes.Length == 0) return false;
+
+        // 7-Zip on Windows emits values such as "A", "R", or "D". Archives carrying
+        // POSIX attributes may instead start with '-' for files or 'd' for directories.
+        var first = attributes[0];
+        isFolder = first is 'D' or 'd';
+        return first is '-' or 'D' or 'd' or 'A' or 'a' or 'R' or 'r' or 'H' or 'h' or 'S' or 's';
     }
 
     private static bool TryNormalizeRelativePath(string value, out string normalized)
@@ -113,16 +141,36 @@ internal static class ArchiveLogicalStateVerifier
     public static bool Matches(
         IReadOnlyDictionary<string, long> expectedFileSizes,
         IReadOnlyDictionary<string, ArchiveFileListingEntry> actualEntries)
+        => TryMatch(expectedFileSizes, actualEntries, out _);
+
+    public static bool TryMatch(
+        IReadOnlyDictionary<string, long> expectedFileSizes,
+        IReadOnlyDictionary<string, ArchiveFileListingEntry> actualEntries,
+        out string diagnostic)
     {
         ArgumentNullException.ThrowIfNull(expectedFileSizes);
         ArgumentNullException.ThrowIfNull(actualEntries);
-        if (expectedFileSizes.Count != actualEntries.Count) return false;
+        if (expectedFileSizes.Count != actualEntries.Count)
+        {
+            diagnostic = $"Archive file count mismatch: expected {expectedFileSizes.Count}, actual {actualEntries.Count}.";
+            return false;
+        }
 
         foreach (var (path, expectedSize) in expectedFileSizes)
         {
-            if (!actualEntries.TryGetValue(path, out var actual) || actual.Size != expectedSize) return false;
+            if (!actualEntries.TryGetValue(path, out var actual))
+            {
+                diagnostic = $"Archive entry is missing: {path}";
+                return false;
+            }
+            if (actual.Size != expectedSize)
+            {
+                diagnostic = $"Archive entry size mismatch for {path}: expected {expectedSize}, actual {actual.Size}.";
+                return false;
+            }
         }
 
+        diagnostic = string.Empty;
         return true;
     }
 }

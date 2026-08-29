@@ -129,6 +129,13 @@ internal sealed class PluginV3BackupSession : IAsyncDisposable
             configSnapshot,
             folderSnapshot,
             intent);
+        if (NativeHistoryArtifactTransformPolicy.MustBlock(config.ArtifactTransformPolicy))
+        {
+            var diagnosticOwner = string.IsNullOrWhiteSpace(config.ArtifactTransformPolicy?.Transformer?.PluginId)
+                ? owner.Value
+                : config.ArtifactTransformPolicy.Transformer.PluginId;
+            return Block(session, NativeHistoryArtifactTransformPolicy.BlockedDiagnosticCode, diagnosticOwner);
+        }
         if (session.IsBlocked || isCore || runtimeState != PluginRuntimeState.Active)
         {
             return session;

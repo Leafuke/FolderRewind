@@ -375,7 +375,8 @@ public static class DiscoveryDraftService
         {
             Success = true,
             AddedConfigurationCount = addedConfigs.Count,
-            AddedSourceCount = addedFolders.Count + addedConfigs.Sum(config => config.SourceFolders.Count)
+            AddedSourceCount = addedFolders.Count + addedConfigs.Sum(config => config.SourceFolders.Count),
+            AddedConfigurationIds = addedConfigs.Select(config => config.Id).ToArray()
         };
     }
 

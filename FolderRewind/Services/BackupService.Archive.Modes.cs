@@ -71,9 +71,23 @@ namespace FolderRewind.Services
             // 3. 如果成功，生成 Native Representation 与下一次 capture baseline candidate。
             if (result)
             {
-                return CreateArchiveCapture(
-                    sourceId, captureScope, destDir, fileName, RepresentationKind.CoreFull,
-                    config.Archive.Format, currentStates, baseline, dependencies: [], consecutiveSmartCaptures: 0);
+                var sevenZipExe = ResolveSevenZipExecutable();
+                return await VerifyAndCreateArchiveCaptureAsync(
+                    sourceId,
+                    captureScope,
+                    destDir,
+                    fileName,
+                    RepresentationKind.CoreFull,
+                    config.Archive.Format,
+                    currentStates,
+                    currentStates,
+                    allowDeletionMarker: false,
+                    baseline: baseline,
+                    dependencies: [],
+                    consecutiveSmartCaptures: 0,
+                    password: password,
+                    sevenZipExe: sevenZipExe,
+                    taskToUpdate: taskToUpdate).ConfigureAwait(false);
             }
             return SourceCaptureResult.Failed(sourceId, captureScope);
         }
@@ -213,13 +227,29 @@ namespace FolderRewind.Services
                     return SourceCaptureResult.Failed(sourceId, captureScope);
                 }
 
-                return CreateArchiveCapture(
-                    sourceId, captureScope, destDir, fileName, RepresentationKind.CoreSmartDelta,
-                    config.Archive.Format, currentStates, baseline,
+                var expectedDeltaStates = contentChangedFiles.ToDictionary(
+                    path => path,
+                    path => currentStates[path],
+                    StringComparer.OrdinalIgnoreCase);
+                var sevenZipExe = ResolveSevenZipExecutable();
+                return await VerifyAndCreateArchiveCaptureAsync(
+                    sourceId,
+                    captureScope,
+                    destDir,
+                    fileName,
+                    RepresentationKind.CoreSmartDelta,
+                    config.Archive.Format,
+                    currentStates,
+                    expectedDeltaStates,
+                    allowDeletionMarker: deletionOnlyChange,
+                    baseline: baseline,
                     dependencies: [baseline.BaseRepresentationId],
                     consecutiveSmartCaptures: checked(baseline.ConsecutiveSmartCaptures + 1),
+                    password: password,
+                    sevenZipExe: sevenZipExe,
+                    taskToUpdate: taskToUpdate,
                     expectedBaseVersionId: baseline.BaseVersionId,
-                    deletedFiles: changeSet.DeletedFiles);
+                    deletedFiles: changeSet.DeletedFiles).ConfigureAwait(false);
             }
             else
             {
@@ -373,8 +403,7 @@ namespace FolderRewind.Services
                     currentStates,
                     baseline,
                     dependencies: [],
-                    consecutiveSmartCaptures: 0,
-                    payloadState: CapturePayloadState.VerifiedFinal);
+                    consecutiveSmartCaptures: 0);
             }
             catch (Exception ex)
             {
@@ -389,6 +418,77 @@ namespace FolderRewind.Services
             {
                 try { if (!string.IsNullOrWhiteSpace(changedListFile)) File.Delete(changedListFile); } catch { }
                 try { if (!string.IsNullOrWhiteSpace(deletedListFile)) File.Delete(deletedListFile); } catch { }
+            }
+        }
+
+        private static async Task<SourceCaptureResult> VerifyAndCreateArchiveCaptureAsync(
+            SourceId sourceId,
+            FolderRewind.History.Domain.CaptureScope captureScope,
+            string destinationDirectory,
+            string fileName,
+            RepresentationKind kind,
+            string format,
+            IReadOnlyDictionary<string, SourceCaptureFileState> currentStates,
+            IReadOnlyDictionary<string, SourceCaptureFileState> expectedArchiveStates,
+            bool allowDeletionMarker,
+            SourceCaptureBaseline? baseline,
+            IEnumerable<RepresentationId> dependencies,
+            int consecutiveSmartCaptures,
+            string? password,
+            string? sevenZipExe,
+            BackupTask? taskToUpdate,
+            VersionId? expectedBaseVersionId = null,
+            IEnumerable<string>? deletedFiles = null)
+        {
+            var archivePath = Path.GetFullPath(Path.Combine(destinationDirectory, fileName));
+            var verified = !string.IsNullOrWhiteSpace(sevenZipExe)
+                && File.Exists(archivePath)
+                && await ValidateRestoreChainAsync(
+                    [new FileInfo(archivePath)],
+                    sevenZipExe,
+                    password,
+                    taskToUpdate).ConfigureAwait(false)
+                && await ValidateArchiveLogicalStateAsync(
+                    sevenZipExe,
+                    archivePath,
+                    password,
+                    expectedArchiveStates,
+                    allowDeletionMarker).ConfigureAwait(false);
+            if (!verified)
+            {
+                TryDeleteUncommittedArchive(archivePath);
+                return SourceCaptureResult.Failed(
+                    sourceId,
+                    captureScope,
+                    I18n.GetString("BackupService_HistoryCaptureVerificationFailed"));
+            }
+
+            return CreateArchiveCapture(
+                sourceId,
+                captureScope,
+                destinationDirectory,
+                fileName,
+                kind,
+                format,
+                currentStates,
+                baseline,
+                dependencies,
+                consecutiveSmartCaptures,
+                expectedBaseVersionId,
+                deletedFiles);
+        }
+
+        private static void TryDeleteUncommittedArchive(string path)
+        {
+            try
+            {
+                if (!File.Exists(path)) return;
+                File.SetAttributes(path, FileAttributes.Normal);
+                File.Delete(path);
+            }
+            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+            {
+                Log($"[History] Failed to clean an uncommitted archive: {ex.Message}", LogLevel.Warning);
             }
         }
 

@@ -14,6 +14,10 @@
   </ItemGroup>
 
   <ItemGroup>
+    <None Include="..\7za.exe" Link="7za.exe" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+
+  <ItemGroup>
     <PackageReference Include="Microsoft.NET.Test.Sdk" Version="18.0.1" />
     <PackageReference Include="Microsoft.Data.Sqlite" Version="10.0.11" />
     <PackageReference Include="MSTest.TestAdapter" Version="4.0.2" />
@@ -67,6 +71,7 @@
     <Compile Include="..\FolderRewind\Services\BackupSourceAvailabilityPolicy.cs" Link="Source\BackupSourceAvailabilityPolicy.cs" />
     <Compile Include="..\FolderRewind\Services\BackupSourceRootSafetyPolicy.cs" Link="Source\BackupSourceRootSafetyPolicy.cs" />
     <Compile Include="..\FolderRewind\Services\Plugins\V3\PluginBackupRequestResult.cs" Link="Source\PluginBackupRequestResult.cs" />
+    <Compile Include="..\FolderRewind\Services\Plugins\V3\NativeHistoryArtifactTransformPolicy.cs" Link="Source\NativeHistoryArtifactTransformPolicy.cs" />
     <Compile Include="..\FolderRewind\Services\LanguageSettingPolicy.cs" Link="Source\LanguageSettingPolicy.cs" />
     <Compile Include="..\FolderRewind\Services\MiniWindowLayoutPolicy.cs" Link="Source\MiniWindowLayoutPolicy.cs" />
     <Compile Include="..\FolderRewind\Services\SponsorBackgroundImageCachePolicy.cs" Link="Source\SponsorBackgroundImageCachePolicy.cs" />

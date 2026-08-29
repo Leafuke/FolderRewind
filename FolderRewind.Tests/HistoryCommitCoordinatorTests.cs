@@ -68,6 +68,56 @@ public sealed class HistoryCommitCoordinatorTests
     }
 
     [TestMethod]
+    public async Task CapturedResultMayOmitStateFingerprintWhenBothFactsAgree()
+    {
+        await using var runtime = await CreateRuntimeAsync();
+        var sourceId = SourceId.New();
+        var payloadPath = Path.Combine(_root, "verified-factory.7z");
+        await File.WriteAllTextAsync(payloadPath, "verified archive bytes");
+        var capture = VerifiedArchiveCaptureFactory.Create(
+            sourceId,
+            CaptureScope.FullSource,
+            payloadPath,
+            RepresentationKind.CoreFull,
+            "7z",
+            new Dictionary<string, SourceCaptureFileState>
+            {
+                ["file.txt"] = new(4, DateTime.UnixEpoch)
+            },
+            baseline: null,
+            dependencies: [],
+            consecutiveSmartCaptures: 0);
+
+        var batch = await runtime.Commit.CommitAsync(Request(
+            Snapshot(Source(sourceId, "source-a")),
+            workspace: null,
+            capture));
+
+        Assert.IsNull(batch.NewVersions.Single().StateFingerprint);
+        Assert.IsNull(batch.NewRepresentations.Single().StateFingerprint);
+        Assert.IsTrue(File.Exists(payloadPath), "A durable Commit Pack owns the archive; cleanup must not run.");
+    }
+
+    [TestMethod]
+    public async Task FinalUnverifiedPayloadIsRejectedBeforePackCommit()
+    {
+        await using var runtime = await CreateRuntimeAsync();
+        var sourceId = SourceId.New();
+        var capture = CreateCapture(
+            sourceId,
+            "unverified",
+            HistoryWorkspaceStore.MissingRevision,
+            expectedBaseVersionId: null,
+            payloadState: CapturePayloadState.FinalUnverified);
+
+        await Assert.ThrowsExactlyAsync<HistoryCommitConflictException>(() => runtime.Commit.CommitAsync(Request(
+            Snapshot(Source(sourceId, "source-a")),
+            workspace: null,
+            capture)));
+        Assert.IsEmpty(await runtime.Repository.ReadAllPacksAsync());
+    }
+
+    [TestMethod]
     public async Task OperationCommentIsCommittedForRunAndNewSourceVersion()
     {
         await using var runtime = await CreateRuntimeAsync();
@@ -499,7 +549,8 @@ public sealed class HistoryCommitCoordinatorTests
         long expectedRevision,
         VersionId? expectedBaseVersionId,
         string? payloadPath = null,
-        ICaptureCleanupHandle? cleanup = null)
+        ICaptureCleanupHandle? cleanup = null,
+        CapturePayloadState payloadState = CapturePayloadState.VerifiedFinal)
     {
         payloadPath ??= Path.Combine(_root, $"payload-{Guid.NewGuid():N}.bin");
         Directory.CreateDirectory(Path.GetDirectoryName(payloadPath)!);
@@ -526,11 +577,11 @@ public sealed class HistoryCommitCoordinatorTests
                 LocalReplicaId.New(),
                 representationId,
                 LocalReplicaLocator.ControlledAbsolute(payloadPath),
-                CapturePayloadState.VerifiedFinal,
+                payloadState,
                 DateTimeOffset.UtcNow),
             new CapturePayloadCandidate(
                 payloadPath,
-                CapturePayloadState.VerifiedFinal,
+                payloadState,
                 bytes.LongLength,
                 Convert.ToHexString(SHA256.HashData(bytes)).ToLowerInvariant()),
             expectedRevision,

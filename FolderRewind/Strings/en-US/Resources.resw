@@ -5045,4 +5045,8 @@ Pull request: {1}</value>
   <data name="History_Branch_CheckoutTitle" xml:space="preserve"><value>Check out branch</value></data>
   <data name="History_Branch_CheckoutContent" xml:space="preserve"><value>This exactly replaces every source directory in the current configuration with the selected branch checkpoint. Confirm that current uncommitted changes may be discarded.</value></data>
   <data name="History_Branch_CheckoutPrimary" xml:space="preserve"><value>Discard changes and check out</value></data>
+  <data name="BackupService_HistoryCaptureVerificationFailed" xml:space="preserve"><value>Archive verification failed, so Native History was not committed.</value></data>
+  <data name="BackupService_ArtifactTransformNativeHistoryNotSupported" xml:space="preserve"><value>This version does not yet integrate plugin artifact transforms with Native History. Disable the artifact transform policy for this configuration.</value></data>
+  <data name="History_NativeInitializationFailedTitle" xml:space="preserve"><value>History initialization failed</value></data>
+  <data name="History_NativeInitializationFailed" xml:space="preserve"><value>Native History could not be initialized for “{0}”: {1}</value></data>
 </root>

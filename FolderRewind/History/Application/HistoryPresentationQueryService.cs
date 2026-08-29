@@ -54,6 +54,7 @@ public sealed record RunSummary(
     CheckpointId? ResultCheckpointId,
     bool IsImportant,
     string Comment,
+    bool HasPartialCapture,
     ImmutableArray<BackupRunSourceResult> Sources);
 
 public sealed record BranchSummary(
@@ -102,6 +103,7 @@ public sealed class HistoryPresentationQueryService
             .ToDictionary(group => group.Key, group => group.Select(item => item.VersionId).ToImmutableArray());
         var annotationGroups = annotations.GroupBy(item => item.Target).ToDictionary(group => group.Key, group => group.AsEnumerable());
         var representationGroups = allRepresentations.GroupBy(item => item.VersionId).ToDictionary(group => group.Key, group => group.ToArray());
+        var versionScopes = versions.ToDictionary(item => item.VersionId, item => item.CaptureScope);
         var timeline = new List<TimelineEntrySummary>();
         foreach (var version in versions.Where(item => !supportIds.Contains(item.VersionId)
                      && (sourceId is null || item.SourceId == sourceId)))
@@ -141,8 +143,12 @@ public sealed class HistoryPresentationQueryService
         {
             var target = new HistoryAnnotationTarget(HistoryAnnotationTargetKind.Run, run.RunId.Value);
             var projection = HistoryAnnotationProjection.Project(target, annotationGroups.GetValueOrDefault(target) ?? []);
+            var hasPartialCapture = run.Outcome == BackupRunOutcome.Partial
+                || run.SourceResults.Any(item => item.VersionId is { } versionId
+                    && versionScopes.GetValueOrDefault(versionId) == CaptureScope.PartialSource);
             return new RunSummary(run.RunId, run.CompletedAtUtc, run.Outcome, run.ResultCheckpointId,
-                projection.IsRunImportant, projection.EffectiveComment ?? string.Empty, run.SourceResults);
+                projection.IsRunImportant, projection.EffectiveComment ?? string.Empty,
+                hasPartialCapture, run.SourceResults);
         }).ToImmutableArray();
         var branchSummaries = branches.Branches.Select(branch =>
         {

@@ -103,6 +103,90 @@ public sealed class HistoryCheckoutServiceTests
         Assert.IsTrue(HistoryRestoreTransactionJournalStore.WorkspaceEquals(expectedWorkspace, actualWorkspace));
     }
 
+    [TestMethod]
+    public async Task CleanRestoreRemovesUnrelatedTargetFiles()
+    {
+        var restored = await RestoreSingleVersionAsync(
+            CaptureScope.FullSource,
+            RestoreStrategy.Exact,
+            HistoryRestoreApplyMode.Clean);
+
+        Assert.IsTrue(restored.Result.Succeeded, restored.Result.Diagnostic);
+        Assert.IsFalse(File.Exists(Path.Combine(restored.Target, "original.txt")));
+        Assert.AreEqual("new", File.ReadAllText(Path.Combine(restored.Target, "restored.txt")));
+        Assert.AreEqual(WorkspaceBaselineRelation.Exact, restored.Relation);
+    }
+
+    [TestMethod]
+    public async Task OverwriteRestorePreservesUnrelatedTargetFiles()
+    {
+        var restored = await RestoreSingleVersionAsync(
+            CaptureScope.FullSource,
+            RestoreStrategy.Exact,
+            HistoryRestoreApplyMode.Overwrite);
+
+        Assert.IsTrue(restored.Result.Succeeded, restored.Result.Diagnostic);
+        Assert.AreEqual("old", File.ReadAllText(Path.Combine(restored.Target, "original.txt")));
+        Assert.AreEqual("new", File.ReadAllText(Path.Combine(restored.Target, "restored.txt")));
+        Assert.AreEqual(WorkspaceBaselineRelation.Derived, restored.Relation);
+    }
+
+    [TestMethod]
+    public async Task PartialSourceForcesOverwriteWhenCleanWasRequested()
+    {
+        var restored = await RestoreSingleVersionAsync(
+            CaptureScope.PartialSource,
+            RestoreStrategy.Overlay,
+            HistoryRestoreApplyMode.Clean);
+
+        Assert.IsTrue(restored.Result.Succeeded, restored.Result.Diagnostic);
+        Assert.AreEqual("old", File.ReadAllText(Path.Combine(restored.Target, "original.txt")));
+        Assert.AreEqual("new", File.ReadAllText(Path.Combine(restored.Target, "restored.txt")));
+        Assert.AreEqual(WorkspaceBaselineRelation.Derived, restored.Relation);
+    }
+
+    private async Task<(HistoryRestoreResult Result, string Target, WorkspaceBaselineRelation Relation)> RestoreSingleVersionAsync(
+        CaptureScope captureScope,
+        RestoreStrategy restoreStrategy,
+        HistoryRestoreApplyMode requestedMode)
+    {
+        var configId = new HistoryConfigId(Guid.NewGuid().ToString("N"));
+        var repository = new FileHistoryRepository(
+            configId,
+            new HistoryRepositoryPaths(Path.Combine(_root, "repository-" + Guid.NewGuid().ToString("N"))));
+        await using var history = new HistoryRuntime(repository);
+        await history.InitializeAsync();
+        var sourceId = SourceId.New();
+        var version = new SourceVersion(
+            VersionId.New(), configId, sourceId, [], DateTimeOffset.UtcNow, null,
+            captureScope, CaptureOutcome.Captured, [],
+            new SourceDescriptorSnapshot("source", "source"), null, HistoryProvenance.Native("test"));
+        var representation = new VersionRepresentation(
+            RepresentationId.New(), version.VersionId, RepresentationKind.CoreFull, "test", [],
+            restoreStrategy, null, null, null);
+        var codec = new HistoryPackCodec();
+        await repository.CommitAsync(new HistoryCommitPack(
+            PackId.New(), HistoryTransactionId.New(), DateTimeOffset.UtcNow,
+            [codec.CreateObject(version), codec.CreateObject(representation)]));
+        await history.EnsureIndexCurrentAsync();
+        var workspace = new HistoryWorkspace(configId, 0, null, null, []);
+        await history.WorkspaceStore.SaveAsync(workspace, HistoryWorkspaceStore.MissingRevision);
+        var target = CreateTarget("restore-" + Guid.NewGuid().ToString("N"), "old");
+        var restore = new HistoryRestoreService(
+            history,
+            new RepresentationRuntime([new ExactTestRepresentationHandler()]),
+            _ => Task.FromResult<IRepresentationEnvironment>(new RepresentationEnvironment([], [], [])),
+            new FileSystemHistoryRestoreMutationBackend());
+
+        var result = await restore.RestoreVersionAsync(
+            version.VersionId,
+            new HistoryRestoreSourceBinding(sourceId, target),
+            workspace,
+            requestedMode);
+        var updatedWorkspace = (await history.WorkspaceStore.LoadAsync()).Value!;
+        return (result, target, updatedWorkspace.SourceBaselines.Single().Relation);
+    }
+
     private string CreateTarget(string name, string content)
     {
         var path = Path.Combine(_root, name);
@@ -132,7 +216,9 @@ public sealed class HistoryCheckoutServiceTests
             => ValueTask.FromResult(new RepresentationAssessment(
                 context.Representation.RepresentationId,
                 HistoryReadiness.Ready,
-                MaterializationFidelity.Exact,
+                context.Representation.RestoreStrategy == RestoreStrategy.Overlay
+                    ? MaterializationFidelity.Overlay
+                    : MaterializationFidelity.Exact,
                 [],
                 []));
 
@@ -164,13 +250,13 @@ public sealed class HistoryCheckoutServiceTests
         public Task ApplyAsync(
             HistoryRestoreSourceBinding source,
             string stagingDirectory,
-            MaterializationFidelity fidelity,
+            HistoryRestoreApplyMode applyMode,
             HistoryRestoreRollbackSnapshot rollbackSnapshot,
             CancellationToken cancellationToken)
         {
             if (Interlocked.Increment(ref _applyCount) == 2)
                 throw new IOException("Injected second-source apply failure.");
-            return inner.ApplyAsync(source, stagingDirectory, fidelity, rollbackSnapshot, cancellationToken);
+            return inner.ApplyAsync(source, stagingDirectory, applyMode, rollbackSnapshot, cancellationToken);
         }
 
         public Task RollbackAsync(

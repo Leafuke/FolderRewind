@@ -28,6 +28,12 @@ public enum HistoryCheckpointRestoreScope
     AvailableMappedSources = 1
 }
 
+public enum HistoryRestoreApplyMode
+{
+    Clean = 0,
+    Overwrite = 1
+}
+
 public sealed record HistoryRestoreSourceBinding(SourceId SourceId, string TargetDirectory);
 
 public sealed record HistoryRestoreResult(
@@ -66,7 +72,7 @@ public interface IHistoryRestoreMutationBackend
     Task ApplyAsync(
         HistoryRestoreSourceBinding source,
         string stagingDirectory,
-        MaterializationFidelity fidelity,
+        HistoryRestoreApplyMode applyMode,
         HistoryRestoreRollbackSnapshot rollbackSnapshot,
         CancellationToken cancellationToken);
 

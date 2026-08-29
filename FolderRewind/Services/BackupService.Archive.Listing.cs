@@ -20,7 +20,8 @@ namespace FolderRewind.Services
             string sevenZipExe,
             string archivePath,
             string? password,
-            IReadOnlyDictionary<string, SourceCaptureFileState> expectedStates)
+            IReadOnlyDictionary<string, SourceCaptureFileState> expectedStates,
+            bool allowDeletionMarker = false)
         {
             try
             {
@@ -54,12 +55,39 @@ namespace FolderRewind.Services
                     return false;
                 }
 
-                if (!SevenZipArchiveListingParser.TryParse(output, out var entries)) return false;
+                if (!SevenZipArchiveListingParser.TryParse(output, out var entries))
+                {
+                    Log("[History] 7z listing output was ambiguous or malformed.", LogLevel.Warning);
+                    return false;
+                }
                 var expectedSizes = expectedStates.ToDictionary(
                     pair => pair.Key,
                     pair => pair.Value.Size,
                     StringComparer.OrdinalIgnoreCase);
-                return ArchiveLogicalStateVerifier.Matches(expectedSizes, entries);
+                if (!allowDeletionMarker)
+                {
+                    var matches = ArchiveLogicalStateVerifier.TryMatch(expectedSizes, entries, out var diagnostic);
+                    if (!matches) Log($"[History] {diagnostic}", LogLevel.Warning);
+                    return matches;
+                }
+
+                var markerPath = Path.Combine(
+                    InternalRestoreMarkerDirectoryName,
+                    InternalRestoreMarkerFileName);
+                var userEntries = entries
+                    .Where(pair => !string.Equals(pair.Key, markerPath, StringComparison.OrdinalIgnoreCase))
+                    .ToDictionary(pair => pair.Key, pair => pair.Value, StringComparer.OrdinalIgnoreCase);
+                var markerSetIsValid = entries.Keys.All(path => userEntries.ContainsKey(path)
+                        || string.Equals(path, markerPath, StringComparison.OrdinalIgnoreCase))
+                    && entries.ContainsKey(markerPath);
+                if (!markerSetIsValid)
+                {
+                    Log("[History] Smart deletion marker is missing or invalid.", LogLevel.Warning);
+                    return false;
+                }
+                var deltaMatches = ArchiveLogicalStateVerifier.TryMatch(expectedSizes, userEntries, out var deltaDiagnostic);
+                if (!deltaMatches) Log($"[History] {deltaDiagnostic}", LogLevel.Warning);
+                return deltaMatches;
             }
             catch (Exception ex)
             {

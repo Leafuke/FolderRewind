@@ -23,6 +23,7 @@ internal static class NativeHistoryApplicationService
         BackupConfig config,
         ManagedFolder folder,
         VersionId versionId,
+        BackupService.RestoreMode requestedMode,
         CancellationToken cancellationToken = default)
     {
         var runtime = NativeHistoryCoreGateway.GetRequiredRuntime(config.Id);
@@ -31,6 +32,7 @@ internal static class NativeHistoryApplicationService
             versionId,
             new HistoryRestoreSourceBinding(Source(folder), folder.Path),
             workspace,
+            MapRestoreMode(requestedMode),
             cancellationToken).ConfigureAwait(false);
     }
 
@@ -38,6 +40,7 @@ internal static class NativeHistoryApplicationService
         BackupConfig config,
         CheckpointId checkpointId,
         bool completeCheckpoint,
+        BackupService.RestoreMode requestedMode,
         CancellationToken cancellationToken = default)
     {
         var runtime = NativeHistoryCoreGateway.GetRequiredRuntime(config.Id);
@@ -59,6 +62,7 @@ internal static class NativeHistoryApplicationService
             completeCheckpoint
                 ? HistoryCheckpointRestoreScope.CompleteCheckpoint
                 : HistoryCheckpointRestoreScope.AvailableMappedSources,
+            MapRestoreMode(requestedMode),
             cancellationToken).ConfigureAwait(false);
     }
 
@@ -207,6 +211,11 @@ internal static class NativeHistoryApplicationService
         => Guid.TryParse(folder.Id, out var id) && id != Guid.Empty
             ? new SourceId(id)
             : throw new InvalidDataException("ManagedFolder has no stable SourceId.");
+
+    private static HistoryRestoreApplyMode MapRestoreMode(BackupService.RestoreMode mode)
+        => mode == BackupService.RestoreMode.Clean
+            ? HistoryRestoreApplyMode.Clean
+            : HistoryRestoreApplyMode.Overwrite;
 
     private sealed class ArtifactLedgerGarbageCollector(BackupConfig config) : IHistoryArtifactGarbageCollector
     {

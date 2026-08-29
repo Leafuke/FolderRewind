@@ -60,6 +60,34 @@ public sealed class HistoryPresentationQueryTests
         Assert.IsTrue(branch.CanCheckout);
     }
 
+    [TestMethod]
+    public async Task CompletedRunStillReportsPartialCaptureFromItsSourceVersion()
+    {
+        var configId = new HistoryConfigId(Guid.NewGuid().ToString("N"));
+        await using var runtime = new HistoryRuntime(new FileHistoryRepository(
+            configId, new HistoryRepositoryPaths(Path.Combine(_root, "partial-run-repository"))));
+        await runtime.InitializeAsync();
+        var sourceId = SourceId.New();
+        var version = new SourceVersion(
+            VersionId.New(), configId, sourceId, [], DateTimeOffset.UtcNow, null,
+            CaptureScope.PartialSource, CaptureOutcome.Captured, [],
+            new SourceDescriptorSnapshot("partial", "partial"), null, HistoryProvenance.Native("test"));
+        var run = new BackupRun(
+            RunId.New(), configId, DateTimeOffset.UtcNow.AddSeconds(-1), DateTimeOffset.UtcNow,
+            BackupInvocationKind.Manual, BackupRunOutcome.Completed,
+            [new BackupRunSourceResult(sourceId, BackupRunSourceOutcome.Captured, version.VersionId, [])],
+            resultCheckpointId: null,
+            diagnostics: []);
+        var codec = new HistoryPackCodec();
+        await runtime.Repository.CommitAsync(new HistoryCommitPack(
+            PackId.New(), HistoryTransactionId.New(), DateTimeOffset.UtcNow,
+            [codec.CreateObject(version), codec.CreateObject(run)]));
+
+        var snapshot = await new HistoryPresentationQueryService(runtime).QueryAsync();
+
+        Assert.IsTrue(snapshot.Runs.Single().HasPartialCapture);
+    }
+
     private static SourceVersion Version(HistoryConfigId configId, SourceId sourceId, string name)
         => new(
             VersionId.New(), configId, sourceId, [], DateTimeOffset.UtcNow, null,

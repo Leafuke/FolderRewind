@@ -428,7 +428,8 @@ namespace FolderRewind.Services
                     var restored = await NativeHistoryApplicationService.RestoreVersionAsync(
                         effectiveConfig,
                         effectiveFolder,
-                        version.VersionId).ConfigureAwait(false);
+                        version.VersionId,
+                        mode).ConfigureAwait(false);
                     if (!restored.Succeeded)
                         throw new InvalidOperationException(restored.Diagnostic);
                 }

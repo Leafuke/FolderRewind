@@ -53,6 +53,25 @@ public sealed class HistoryRuntimeManager : IAsyncDisposable
         return true;
     }
 
+    public async Task<HistoryRuntime?> RemoveAsync(
+        HistoryConfigId configId,
+        CancellationToken cancellationToken = default)
+    {
+        ObjectDisposedException.ThrowIf(_disposed, this);
+        cancellationToken.ThrowIfCancellationRequested();
+        if (!_runtimes.TryRemove(configId.Value, out var lazy) || !lazy.IsValueCreated) return null;
+        try
+        {
+            // Once removed from the registry, initialization must be observed to completion;
+            // abandoning it on cancellation would leak an untracked runtime and repository handles.
+            return await lazy.Value.ConfigureAwait(false);
+        }
+        catch
+        {
+            return null;
+        }
+    }
+
     public async ValueTask DisposeAsync()
     {
         if (_disposed) return;

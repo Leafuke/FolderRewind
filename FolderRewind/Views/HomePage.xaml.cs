@@ -1,4 +1,5 @@
 using FolderRewind.Models;
+using FolderRewind.History.Application;
 using FolderRewind.Services;
 using FolderRewind.Services.Discovery;
 using FolderRewind.Services.Plugins;
@@ -454,6 +455,7 @@ namespace FolderRewind.Views
             createResult.Config.SummaryText = resourceLoader.GetString("HomePage_NewConfigSummary");
             ConfigService.CurrentConfig.BackupConfigs.Add(createResult.Config);
             ConfigService.Save();
+            await TryInitializeNativeHistoryAsync(createResult.Config);
 
             if (createResult.Config.IsEncrypted && !string.IsNullOrEmpty(encryptionPassword))
             {
@@ -806,6 +808,7 @@ namespace FolderRewind.Views
 
                 ConfigService.CurrentConfig.BackupConfigs.Add(newConfig);
                 ConfigService.Save();
+                await TryInitializeNativeHistoryAsync(newConfig);
 
                 if (isEncrypted && !string.IsNullOrEmpty(encryptionPassword))
                 {
@@ -813,6 +816,23 @@ namespace FolderRewind.Views
                 }
 
                 _ = NavigationService.NavigateTo("Manager", ManagerNavigationParameter.ForConfig(newConfig.Id));
+            }
+        }
+
+        private static async Task TryInitializeNativeHistoryAsync(BackupConfig config)
+        {
+            try
+            {
+                _ = await NativeHistoryCoreGateway.EnsureReadyAsync(config);
+            }
+            catch (Exception ex)
+            {
+                LogService.LogError(
+                    I18n.Format("History_NativeInitializationFailed", config.Name, ex.Message),
+                    nameof(HomePage),
+                    ex);
+                NotificationService.ShowError(
+                    I18n.Format("History_NativeInitializationFailed", config.Name, ex.Message));
             }
         }
 

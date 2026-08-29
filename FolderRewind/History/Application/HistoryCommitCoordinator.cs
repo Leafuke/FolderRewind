@@ -713,8 +713,7 @@ public sealed class HistoryCommitCoordinator
     {
         if (capture.RepresentationCandidate is null
             || capture.LocalReplicaCandidate is null
-            || capture.PayloadCandidate is null
-            || string.IsNullOrWhiteSpace(capture.StateFingerprint))
+            || capture.PayloadCandidate is null)
         {
             throw new HistoryCommitConflictException("Captured Source result is incomplete for Native History.");
         }

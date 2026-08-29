@@ -17,7 +17,7 @@ namespace FolderRewind.History.Application;
 
 public static class NativeHistoryCoreGateway
 {
-    private static readonly ConcurrentDictionary<string, HistoryRuntime> Ready = new(StringComparer.Ordinal);
+    private static readonly HistoryRuntimeManager Runtimes = new();
     private static readonly ConcurrentDictionary<string, string> Failed = new(StringComparer.Ordinal);
 
     public static async Task InitializeAsync(AppConfig appConfig, string configDirectory, CancellationToken cancellationToken = default)
@@ -27,74 +27,41 @@ public static class NativeHistoryCoreGateway
         {
             try
             {
-                var configId = new HistoryConfigId(config.Id);
-                FileHistoryRepository repository;
-                var configLegacy = config.HistoryRepositoryBinding is null
-                    ? (legacy ??= LegacyHistoryReader.Read(Path.Combine(configDirectory, "history.json")))
-                        .Where(item => !string.IsNullOrWhiteSpace(item.ConfigId)
-                            && new HistoryConfigId(item.ConfigId) == configId)
-                        .ToArray()
-                    : [];
-                if (config.HistoryRepositoryBinding is null && configLegacy.Length > 0)
-                {
-                    var sources = config.SourceFolders.Select(folder => new LegacyMigrationSourceSnapshot(
-                        Source(folder), folder.Path, folder.DisplayName,
-                        Path.Combine(config.DestinationPath, folder.DisplayName))).ToArray();
-                    var entries = configLegacy.Select(item => new LegacyHistoryEntrySnapshot(
-                        ResolveSource(config, item), item.FolderPath, item.FolderName, item.FileName,
-                        item.Timestamp, item.BackupType, item.Comment, item.IsImportant, item.IsPartialBackup,
-                        item.IsCloudArchived, SafeLegacyCloudLocator(item))).ToArray();
-                    var migration = await new LegacyHistoryMigrationService().MigrateAsync(
-                        new LegacyHistoryMigrationInput(
-                            configDirectory,
-                            configId,
-                            sources,
-                            entries,
-                            LegacySmartMetadataReader.Read(config)),
-                        (version, _) => PersistBinding(config, version),
-                        cancellationToken).ConfigureAwait(false);
-                    if (!migration.IsReady || migration.Repository is null)
-                        throw new InvalidOperationException(migration.Diagnostic);
-                    repository = migration.Repository;
-                }
-                else
-                {
-                    var binding = await new HistoryRepositoryBindingService(configDirectory).EnsureAsync(
-                        config,
-                        _ => PersistConfig(),
-                        cancellationToken).ConfigureAwait(false);
-                    if (!binding.IsReady || binding.Repository is null)
-                        throw new InvalidOperationException(binding.Diagnostic);
-                    repository = binding.Repository;
-                }
-                var runtime = new HistoryRuntime(repository);
-                await runtime.InitializeAsync(cancellationToken).ConfigureAwait(false);
-                Ready[configId.Value] = runtime;
-                Failed.TryRemove(configId.Value, out _);
+                if (config.HistoryRepositoryBinding is null)
+                    legacy ??= LegacyHistoryReader.Read(Path.Combine(configDirectory, "history.json"));
+                _ = await EnsureReadyAsync(config, configDirectory, legacy, cancellationToken).ConfigureAwait(false);
             }
-            catch (Exception ex)
+            catch
             {
-                Failed[new HistoryConfigId(config.Id).Value] = ex.Message;
+                // EnsureReadyAsync records a per-configuration diagnostic. A failed legacy
+                // migration must not prevent unrelated configurations from starting.
             }
         }
     }
 
+    public static Task<HistoryRuntime> EnsureReadyAsync(
+        BackupConfig config,
+        CancellationToken cancellationToken = default)
+        => EnsureReadyAsync(config, ConfigService.ConfigDirectory, legacy: null, cancellationToken);
+
     public static void EnsureReady(string configId)
     {
         var id = new HistoryConfigId(configId);
-        if (Ready.ContainsKey(id.Value)) return;
+        if (Runtimes.TryGet(id, out _)) return;
         throw new InvalidOperationException(
             "Native History is not ready for this configuration. " + Failed.GetValueOrDefault(id.Value, "Initialization has not completed."));
     }
 
     public static HistoryRuntime GetRequiredRuntime(string configId)
     {
+        var id = new HistoryConfigId(configId);
+        if (Runtimes.TryGet(id, out var runtime) && runtime is not null) return runtime;
         EnsureReady(configId);
-        return Ready[new HistoryConfigId(configId).Value];
+        throw new InvalidOperationException("Native History runtime lookup failed after readiness validation.");
     }
 
     public static bool TryGetRuntime(HistoryConfigId configId, out HistoryRuntime? runtime)
-        => Ready.TryGetValue(configId.Value, out runtime);
+        => Runtimes.TryGet(configId, out runtime);
 
     public static async Task DetachActiveConfigAsync(
         string configId,
@@ -102,7 +69,8 @@ public static class NativeHistoryCoreGateway
     {
         var id = new HistoryConfigId(configId);
         Failed.TryRemove(id.Value, out _);
-        if (!Ready.TryRemove(id.Value, out var runtime))
+        var runtime = await Runtimes.RemoveAsync(id, cancellationToken).ConfigureAwait(false);
+        if (runtime is null)
             return;
 
         await using (await runtime.MutationGate.EnterAsync(cancellationToken).ConfigureAwait(false))
@@ -159,8 +127,7 @@ public static class NativeHistoryCoreGateway
         string? comment = null,
         CancellationToken cancellationToken = default)
     {
-        EnsureReady(config.Id);
-        var runtime = Ready[new HistoryConfigId(config.Id).Value];
+        var runtime = GetRequiredRuntime(config.Id);
         var workspace = (await runtime.WorkspaceStore.LoadAsync(cancellationToken).ConfigureAwait(false)).Value;
         long revision = workspace?.StateRevision ?? -1;
         var baselines = workspace?.SourceBaselines.ToDictionary(item => item.SourceId) ?? [];
@@ -215,6 +182,79 @@ public static class NativeHistoryCoreGateway
         SourceId sourceId,
         CancellationToken cancellationToken = default)
         => GetRequiredRuntime(configId).CaptureBaselines.LoadAsync(sourceId, cancellationToken);
+
+    private static async Task<HistoryRuntime> EnsureReadyAsync(
+        BackupConfig config,
+        string configDirectory,
+        IReadOnlyList<LegacyHistoryRecord>? legacy,
+        CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(config);
+        var configId = new HistoryConfigId(config.Id);
+        try
+        {
+            var runtime = await Runtimes.GetOrCreateAsync(
+                configId,
+                (_, token) => OpenRepositoryAsync(config, configDirectory, legacy, token),
+                cancellationToken).ConfigureAwait(false);
+            Failed.TryRemove(configId.Value, out _);
+            return runtime;
+        }
+        catch (Exception ex)
+        {
+            Failed[configId.Value] = ex.Message;
+            LogService.LogError(
+                $"Native History initialization failed for config '{configId.Value}': {ex.Message}",
+                nameof(NativeHistoryCoreGateway),
+                ex);
+            throw;
+        }
+    }
+
+    private static async Task<FileHistoryRepository> OpenRepositoryAsync(
+        BackupConfig config,
+        string configDirectory,
+        IReadOnlyList<LegacyHistoryRecord>? legacy,
+        CancellationToken cancellationToken)
+    {
+        var configId = new HistoryConfigId(config.Id);
+        var configLegacy = config.HistoryRepositoryBinding is null
+            ? (legacy ?? LegacyHistoryReader.Read(Path.Combine(configDirectory, "history.json")))
+                .Where(item => !string.IsNullOrWhiteSpace(item.ConfigId)
+                    && new HistoryConfigId(item.ConfigId) == configId)
+                .ToArray()
+            : [];
+        if (config.HistoryRepositoryBinding is null && configLegacy.Length > 0)
+        {
+            var sources = config.SourceFolders.Select(folder => new LegacyMigrationSourceSnapshot(
+                Source(folder), folder.Path, folder.DisplayName,
+                Path.Combine(config.DestinationPath, folder.DisplayName))).ToArray();
+            var entries = configLegacy.Select(item => new LegacyHistoryEntrySnapshot(
+                ResolveSource(config, item), item.FolderPath, item.FolderName, item.FileName,
+                item.Timestamp, item.BackupType, item.Comment, item.IsImportant, item.IsPartialBackup,
+                item.IsCloudArchived, SafeLegacyCloudLocator(item))).ToArray();
+            var migration = await new LegacyHistoryMigrationService().MigrateAsync(
+                new LegacyHistoryMigrationInput(
+                    configDirectory,
+                    configId,
+                    sources,
+                    entries,
+                    LegacySmartMetadataReader.Read(config)),
+                (version, _) => PersistBinding(config, version),
+                cancellationToken).ConfigureAwait(false);
+            if (!migration.IsReady || migration.Repository is null)
+                throw new InvalidOperationException(migration.Diagnostic);
+            return migration.Repository;
+        }
+
+        var binding = await new HistoryRepositoryBindingService(configDirectory).EnsureAsync(
+            config,
+            _ => PersistConfig(),
+            cancellationToken).ConfigureAwait(false);
+        if (!binding.IsReady || binding.Repository is null)
+            throw new InvalidOperationException(binding.Diagnostic);
+        return binding.Repository;
+    }
 
     private static SourceId ResolveSource(BackupConfig config, LegacyHistoryRecord item)
     {

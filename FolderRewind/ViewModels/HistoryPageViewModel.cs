@@ -69,6 +69,22 @@ public sealed class HistoryPageViewModel : ViewModelBase
         if (persistSelection) PersistSelection(config, folder);
     }
 
+    public void ClearCurrentSelection()
+    {
+        _currentConfig = null;
+        _currentFolder = null;
+        Subscribe(null);
+        _allVersions.Clear();
+        _allRuns.Clear();
+        FilteredHistory.Clear();
+        FilteredRuns.Clear();
+        Branches.Clear();
+        _missingCount = 0;
+        IsEmpty = true;
+        OnPropertyChanged(nameof(HasMissing));
+        NotifyContextChanged();
+    }
+
     public bool TryGetCurrentSelection(out BackupConfig? config, out ManagedFolder? folder)
     { config = _currentConfig; folder = _currentFolder; return config is not null && folder is not null; }
     public bool TryGetCurrentConfig(out BackupConfig? config) { config = _currentConfig; return config is not null; }
@@ -208,7 +224,8 @@ public sealed class HistoryPageViewModel : ViewModelBase
         return await NativeHistoryApplicationService.RestoreCheckpointAsync(
             _currentConfig,
             checkpointId,
-            completeCheckpoint: !item.HasPartialBackup).ConfigureAwait(false);
+            completeCheckpoint: !item.HasPartialBackup,
+            mode).ConfigureAwait(false);
     }
     public async Task<bool> DeleteRunAsync(BackupRunViewItem item)
     {
@@ -240,14 +257,16 @@ public sealed class HistoryPageViewModel : ViewModelBase
             representationId,
             item.FileName).ConfigureAwait(false);
     }
-    public async Task<bool> RestoreVersionAsync(NativeHistoryVersionViewItem item, BackupService.RestoreMode mode)
+    public async Task<HistoryRestoreResult?> RestoreVersionAsync(
+        NativeHistoryVersionViewItem item,
+        BackupService.RestoreMode mode)
     {
-        if (_currentConfig is null || _currentFolder is null) return false;
-        var result = await NativeHistoryApplicationService.RestoreVersionAsync(
+        if (_currentConfig is null || _currentFolder is null) return null;
+        return await NativeHistoryApplicationService.RestoreVersionAsync(
             _currentConfig,
             _currentFolder,
-            item.VersionId).ConfigureAwait(false);
-        return result.Succeeded;
+            item.VersionId,
+            mode).ConfigureAwait(false);
     }
     public async Task<BackupService.DeleteBackupResult> DeleteVersionAsync(NativeHistoryVersionViewItem item, BackupDeleteMode mode)
     {
@@ -437,8 +456,8 @@ public sealed class BackupRunViewItem(RunSummary summary)
     public string Message => string.IsNullOrWhiteSpace(Comment) ? summary.Outcome.ToString() : Comment;
     public string SourceSummary => $"{summary.Sources.Length} sources";
     public bool IsImportant => summary.IsImportant;
-    public bool CanRestore => false;
-    public bool HasPartialBackup => summary.Outcome == BackupRunOutcome.Partial;
+    public bool CanRestore => ResultCheckpointId is not null;
+    public bool HasPartialBackup => summary.HasPartialCapture;
     public IReadOnlyList<BackupRunSourceViewItem> Sources { get; } = summary.Sources.Select(item => new BackupRunSourceViewItem(item)).ToArray();
 }
 

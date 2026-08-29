@@ -45,5 +45,6 @@ public sealed class BackupConfigDraftCommitResult
     public bool Success { get; init; }
     public int AddedConfigurationCount { get; init; }
     public int AddedSourceCount { get; init; }
+    public IReadOnlyList<string> AddedConfigurationIds { get; init; } = Array.Empty<string>();
     public string ErrorMessage { get; init; } = string.Empty;
 }

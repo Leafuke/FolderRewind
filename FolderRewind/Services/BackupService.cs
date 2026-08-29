@@ -186,7 +186,7 @@ namespace FolderRewind.Services
             BackupInvocationOptions? invocationOptions = null)
         {
             if (config == null) return false;
-            NativeHistoryCoreGateway.EnsureReady(config.Id);
+            _ = await NativeHistoryCoreGateway.EnsureReadyAsync(config).ConfigureAwait(false);
             invocationOptions ??= BackupInvocationOptions.Default;
             Log(I18n.Format("BackupService_Log_ConfigTaskBegin", config.Name), LogLevel.Info);
 
@@ -248,7 +248,7 @@ namespace FolderRewind.Services
         {
             try
             {
-                NativeHistoryCoreGateway.EnsureReady(config.Id);
+                _ = await NativeHistoryCoreGateway.EnsureReadyAsync(config, cancellationToken).ConfigureAwait(false);
                 var startedAtUtc = DateTimeOffset.UtcNow;
                 var outcome = await BackupFolderCoreAsync(
                     config,
@@ -334,7 +334,9 @@ namespace FolderRewind.Services
                 var diagnostic = v3Session.Diagnostics.LastOrDefault();
                 var message = diagnostic is null
                     ? "The v3 plugin policy blocked this backup."
-                    : $"{diagnostic.Code} ({diagnostic.Owner})";
+                    : diagnostic.Code == NativeHistoryArtifactTransformPolicy.BlockedDiagnosticCode
+                        ? I18n.GetString("BackupService_ArtifactTransformNativeHistoryNotSupported")
+                        : $"{diagnostic.Code} ({diagnostic.Owner})";
                 Log($"[PluginV3] {message}", LogLevel.Error);
                 await RunOnUIAsync(() =>
                 {
@@ -847,61 +849,19 @@ namespace FolderRewind.Services
             IEnumerable<RepresentationId> dependencies,
             int consecutiveSmartCaptures,
             VersionId? expectedBaseVersionId = null,
-            IEnumerable<string>? deletedFiles = null,
-            CapturePayloadState payloadState = CapturePayloadState.FinalUnverified)
-        {
-            var representationId = RepresentationId.New();
-            var absolutePath = Path.GetFullPath(Path.Combine(destinationDirectory, fileName));
-            var payload = new CapturePayloadCandidate(
-                absolutePath,
-                payloadState,
-                File.Exists(absolutePath) ? new FileInfo(absolutePath).Length : null,
-                ExpectedStorageSha256: null);
-            var metadata = new Dictionary<string, string> { ["fileName"] = fileName };
-            var deleted = deletedFiles?.Where(item => !string.IsNullOrWhiteSpace(item)).ToArray() ?? [];
-            if (deleted.Length > 0)
-            {
-                metadata["deletedFiles"] = string.Join('\n', deleted);
-            }
-            var representation = new RepresentationCandidate(
-                representationId,
+            IEnumerable<string>? deletedFiles = null)
+            => VerifiedArchiveCaptureFactory.Create(
+                sourceId,
+                captureScope,
+                Path.Combine(destinationDirectory, fileName),
                 kind,
                 format,
-                dependencyRepresentationIds: dependencies,
-                captureScope == FolderRewind.History.Domain.CaptureScope.PartialSource
-                    ? FolderRewind.History.Domain.RestoreStrategy.Overlay
-                    : FolderRewind.History.Domain.RestoreStrategy.Exact,
-                logicalSha256: null,
-                stateFingerprint: null,
-                metadata);
-            var localReplica = new LocalReplicaCandidate(
-                LocalReplicaId.New(),
-                representationId,
-                LocalReplicaLocator.ControlledAbsolute(absolutePath),
-                payloadState,
-                DateTimeOffset.UtcNow);
-            return new SourceCaptureResult(
-                sourceId,
-                SourceCaptureOutcome.Captured,
-                captureScope,
-                stateFingerprint: null,
-                existingVersionId: null,
-                representation,
-                localReplica,
-                payload,
-                expectedWorkspaceRevision: -1,
+                currentStates,
+                baseline,
+                dependencies,
+                consecutiveSmartCaptures,
                 expectedBaseVersionId,
-                cleanupHandle: null,
-                diagnostics: [],
-                baselineCandidate: new SourceCaptureBaselineCandidate(
-                    baseline?.Revision ?? SourceCaptureBaselineCache.MissingRevision,
-                    absolutePath,
-                    consecutiveSmartCaptures,
-                    currentStates.ToImmutableSortedDictionary(
-                        pair => pair.Key,
-                        pair => pair.Value,
-                        StringComparer.Ordinal)));
-        }
+                deletedFiles);
 
         public enum RestoreMode
         {

@@ -47,6 +47,7 @@ public sealed class HistoryRestoreService
         IReadOnlyList<HistoryRestoreSourceBinding> mappedSources,
         HistoryWorkspace expectedWorkspace,
         HistoryCheckpointRestoreScope scope,
+        HistoryRestoreApplyMode requestedMode,
         CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(mappedSources);
@@ -94,10 +95,12 @@ public sealed class HistoryRestoreService
                     checkpointSource.VersionId.Value,
                     cancellationToken).ConfigureAwait(false)
                     ?? throw new InvalidOperationException("Checkpoint SourceVersion is missing.");
+                var effectiveMode = EffectiveApplyMode(version, requestedMode);
                 prepared.Add(await PrepareSourceAsync(
                     version,
                     binding,
-                    MaterializationFidelity.Overlay,
+                    RequiredFidelity(effectiveMode),
+                    effectiveMode,
                     cancellationToken).ConfigureAwait(false));
             }
         }
@@ -118,6 +121,7 @@ public sealed class HistoryRestoreService
                     item.Binding.SourceId,
                     item.Version.VersionId,
                     item.Fidelity == MaterializationFidelity.Exact
+                        && item.ApplyMode == HistoryRestoreApplyMode.Clean
                         ? WorkspaceBaselineRelation.Exact
                         : WorkspaceBaselineRelation.Derived)));
             var desired = new HistoryWorkspace(
@@ -139,6 +143,7 @@ public sealed class HistoryRestoreService
         VersionId versionId,
         HistoryRestoreSourceBinding source,
         HistoryWorkspace expectedWorkspace,
+        HistoryRestoreApplyMode requestedMode,
         CancellationToken cancellationToken = default)
     {
         await RecoverIncompleteAsync(cancellationToken).ConfigureAwait(false);
@@ -149,10 +154,12 @@ public sealed class HistoryRestoreService
         PreparedRestoreSource prepared;
         try
         {
+            var effectiveMode = EffectiveApplyMode(version, requestedMode);
             prepared = await PrepareSourceAsync(
                 version,
                 source,
-                MaterializationFidelity.Overlay,
+                RequiredFidelity(effectiveMode),
+                effectiveMode,
                 cancellationToken).ConfigureAwait(false);
         }
         catch (Exception ex)
@@ -165,6 +172,7 @@ public sealed class HistoryRestoreService
         {
             var current = await RequireExpectedWorkspaceAsync(expectedWorkspace, cancellationToken).ConfigureAwait(false);
             var relation = prepared.Fidelity == MaterializationFidelity.Exact
+                && prepared.ApplyMode == HistoryRestoreApplyMode.Clean
                 ? WorkspaceBaselineRelation.Exact
                 : WorkspaceBaselineRelation.Derived;
             var baselines = current.SourceBaselines
@@ -190,6 +198,7 @@ public sealed class HistoryRestoreService
         SourceVersion version,
         HistoryRestoreSourceBinding source,
         MaterializationFidelity requiredFidelity,
+        HistoryRestoreApplyMode applyMode,
         CancellationToken cancellationToken)
     {
         var allRepresentations = await _history.Query.GetAllRepresentationsAsync(cancellationToken).ConfigureAwait(false);
@@ -217,7 +226,7 @@ public sealed class HistoryRestoreService
                 requiredFidelity,
                 staging,
                 cancellationToken).ConfigureAwait(false);
-            return new PreparedRestoreSource(source, version, assessment.Selected.Fidelity, staging);
+            return new PreparedRestoreSource(source, version, assessment.Selected.Fidelity, applyMode, staging);
         }
         catch
         {
@@ -290,7 +299,7 @@ public sealed class HistoryRestoreService
                 await _mutation.ApplyAsync(
                     item.Binding,
                     item.StagingDirectory,
-                    item.Fidelity,
+                    item.ApplyMode,
                     snapshots[index],
                     cancellationToken).ConfigureAwait(false);
                 applied.Add(item.Binding.SourceId);
@@ -383,9 +392,22 @@ public sealed class HistoryRestoreService
     private static HistoryRestoreResult Blocked(string diagnostic)
         => new(HistoryRestoreStatus.Blocked, diagnostic, false, []);
 
+    private static HistoryRestoreApplyMode EffectiveApplyMode(
+        SourceVersion version,
+        HistoryRestoreApplyMode requestedMode)
+        => version.CaptureScope == CaptureScope.PartialSource
+            ? HistoryRestoreApplyMode.Overwrite
+            : requestedMode;
+
+    private static MaterializationFidelity RequiredFidelity(HistoryRestoreApplyMode applyMode)
+        => applyMode == HistoryRestoreApplyMode.Clean
+            ? MaterializationFidelity.Exact
+            : MaterializationFidelity.Overlay;
+
     internal sealed record PreparedRestoreSource(
         HistoryRestoreSourceBinding Binding,
         SourceVersion Version,
         MaterializationFidelity Fidelity,
+        HistoryRestoreApplyMode ApplyMode,
         string StagingDirectory);
 }

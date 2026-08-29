@@ -1,4 +1,5 @@
 using FolderRewind.Models;
+using FolderRewind.History.Application;
 using FolderRewind.Services;
 using FolderRewind.Services.Discovery;
 using FolderRewind.ViewModels;
@@ -155,6 +156,7 @@ public sealed partial class GameDiscoveryPage : Page
             await ShowMessageAsync(I18n.GetString("GameDiscoveryPage_CommitFailed"), result.ErrorMessage);
             return;
         }
+        if (!await TryInitializeNativeHistoryAsync(result.AddedConfigurationIds)) return;
         await ShowMessageAsync(
             I18n.GetString("GameDiscoveryPage_CommitComplete"),
             I18n.Format("GameDiscoveryPage_CommitSummary", result.AddedConfigurationCount, result.AddedSourceCount));
@@ -171,6 +173,7 @@ public sealed partial class GameDiscoveryPage : Page
                 result.ErrorMessage);
             return;
         }
+        if (!await TryInitializeNativeHistoryAsync(result.AddedConfigurationIds)) return;
 
         await ShowMessageAsync(
             I18n.GetString("GameDiscovery_PluginBatch_CommitComplete"),
@@ -186,6 +189,28 @@ public sealed partial class GameDiscoveryPage : Page
         {
             _ = NavigationService.NavigateTo("Home");
         }
+    }
+
+    private async Task<bool> TryInitializeNativeHistoryAsync(IEnumerable<string> configIds)
+    {
+        foreach (var configId in configIds)
+        {
+            var config = ConfigService.CurrentConfig.BackupConfigs.FirstOrDefault(item =>
+                string.Equals(item.Id, configId, StringComparison.OrdinalIgnoreCase));
+            if (config is null) continue;
+            try
+            {
+                _ = await NativeHistoryCoreGateway.EnsureReadyAsync(config);
+            }
+            catch (Exception ex)
+            {
+                await ShowMessageAsync(
+                    I18n.GetString("History_NativeInitializationFailedTitle"),
+                    I18n.Format("History_NativeInitializationFailed", config.Name, ex.Message));
+                return false;
+            }
+        }
+        return true;
     }
 
     private static Task<string?> PickYamlAsync(string settingsIdentifier)

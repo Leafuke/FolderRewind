@@ -1,4 +1,5 @@
 using FolderRewind.Models;
+using FolderRewind.History.Application;
 using FolderRewind.Plugin.Abstractions;
 using FolderRewind.Plugin.Runtime.Operations;
 using System;
@@ -148,11 +149,12 @@ public static class PluginV3DiscoveryService
                 throw new InvalidOperationException("A discovery draft declared an unknown Config Kind.");
 
             string? error = null;
+            List<BackupConfig> additions = [];
             await UiDispatcherService.RunOnUiAsync(() =>
             {
                 // 重复检测、稳定身份分配、集合写入和保存必须位于同一个 UI 临界区，
                 // 避免发现期间用户编辑配置造成 TOCTOU 或跨线程 ObservableCollection 访问。
-                var additions = BuildAdditions(commit);
+                additions = BuildAdditions(commit);
                 if (additions.Count == 0) return;
                 foreach (var config in additions) ConfigService.CurrentConfig.BackupConfigs.Add(config);
                 var save = ConfigService.SaveWithResult(publishSavedEvent: false);
@@ -166,6 +168,8 @@ public static class PluginV3DiscoveryService
             }).ConfigureAwait(false);
             if (!string.IsNullOrWhiteSpace(error))
                 throw new IOException(error);
+            foreach (var config in additions)
+                _ = await NativeHistoryCoreGateway.EnsureReadyAsync(config, cancellationToken).ConfigureAwait(false);
         }
 
         private static List<BackupConfig> BuildAdditions(DiscoveryDraftCommit commit)

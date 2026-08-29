@@ -91,6 +91,46 @@ public sealed class HistoryRuntimeTests
     }
 
     [TestMethod]
+    public async Task RuntimeManager_RemoveAllowsFreshRuntimeForSameConfig()
+    {
+        var factoryCalls = 0;
+        await using var manager = new HistoryRuntimeManager();
+        Task<FileHistoryRepository> Factory(HistoryConfigId id, CancellationToken _)
+        {
+            var call = Interlocked.Increment(ref factoryCalls);
+            return CreateRepositoryAsync(id, $"manager-remove-{call}");
+        }
+
+        var first = await manager.GetOrCreateAsync(_configId, Factory);
+        var removed = await manager.RemoveAsync(_configId);
+        Assert.AreSame(first, removed);
+        await removed!.DisposeAsync();
+
+        var second = await manager.GetOrCreateAsync(_configId, Factory);
+        Assert.AreNotSame(first, second);
+        Assert.AreEqual(2, factoryCalls);
+    }
+
+    [TestMethod]
+    public async Task RuntimeManager_FailedCreationCanRetry()
+    {
+        var factoryCalls = 0;
+        await using var manager = new HistoryRuntimeManager();
+        async Task<FileHistoryRepository> Factory(HistoryConfigId id, CancellationToken _)
+        {
+            if (Interlocked.Increment(ref factoryCalls) == 1)
+                throw new IOException("simulated first initialization failure");
+            return await CreateRepositoryAsync(id, "manager-retry");
+        }
+
+        await Assert.ThrowsExactlyAsync<IOException>(() => manager.GetOrCreateAsync(_configId, Factory));
+        var runtime = await manager.GetOrCreateAsync(_configId, Factory);
+
+        Assert.IsNotNull(runtime);
+        Assert.AreEqual(2, factoryCalls);
+    }
+
+    [TestMethod]
     public async Task MutationGate_SerializesOnlyCriticalSections()
     {
         using var gate = new HistoryMutationGate(_configId);
