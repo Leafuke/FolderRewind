@@ -26,6 +26,13 @@ namespace FolderRewind.Services
         /// </remarks>
         private static async Task<SourceCaptureResult> DoFullBackupAsync(SourceId sourceId, FolderRewind.History.Domain.CaptureScope captureScope, string source, string destDir, SourceCaptureBaseline? baseline, string baseName, BackupConfig config, BackupSourceScope selection, string comment = "", BackupTask? taskToUpdate = null)
         {
+            if (captureScope == FolderRewind.History.Domain.CaptureScope.PartialSource)
+            {
+                return SourceCaptureResult.Blocked(
+                    sourceId,
+                    captureScope,
+                    "Partial capture requires an Exact parent patch and cannot be represented by CoreFull.");
+            }
             var currentStates = ScanDirectory(source, config.Filters, selection: selection);
             if (BackupSourceAvailabilityPolicy.IsUnavailable(selection, currentStates.Count))
             {
@@ -108,11 +115,26 @@ namespace FolderRewind.Services
         {
             if (baseline is null)
             {
+                if (captureScope == FolderRewind.History.Domain.CaptureScope.PartialSource)
+                {
+                    return SourceCaptureResult.Blocked(
+                        sourceId,
+                        captureScope,
+                        "Partial capture requires an Exact logical baseline.");
+                }
                 Log(I18n.Format("BackupService_Log_NoBaselineMetadataFallbackFull"), LogLevel.Info);
                 return await DoFullBackupAsync(sourceId, captureScope, source, destDir, baseline: null, baseName, config, selection, comment, taskToUpdate);
             }
             if (!File.Exists(baseline.PayloadPath))
             {
+                if (captureScope == FolderRewind.History.Domain.CaptureScope.PartialSource)
+                {
+                    return SourceCaptureResult.Blocked(
+                        sourceId,
+                        captureScope,
+                        "The Exact logical parent must be prepared before partial capture.",
+                        expectedBaseVersionId: baseline.BaseVersionId);
+                }
                 Log(I18n.Format("BackupService_Log_NoBaselineMetadataFallbackFull"), LogLevel.Info);
                 return await DoFullBackupAsync(sourceId, captureScope, source, destDir, baseline, baseName, config, selection, comment, taskToUpdate);
             }
@@ -122,6 +144,14 @@ namespace FolderRewind.Services
             int maxChain = config.Archive.MaxSmartBackupsPerFull;
             if (maxChain > 0 && baseline.ConsecutiveSmartCaptures >= maxChain)
             {
+                if (captureScope == FolderRewind.History.Domain.CaptureScope.PartialSource)
+                {
+                    return SourceCaptureResult.Blocked(
+                        sourceId,
+                        captureScope,
+                        "Partial capture cannot truncate its dependency chain with a partial CoreFull payload.",
+                        expectedBaseVersionId: baseline.BaseVersionId);
+                }
                 Log(I18n.Format("BackupService_Log_SmartChainLimitReached", maxChain), LogLevel.Info);
                 return await DoFullBackupAsync(sourceId, captureScope, source, destDir, baseline, baseName, config, selection, comment, taskToUpdate);
             }
@@ -133,7 +163,23 @@ namespace FolderRewind.Services
             {
                 return SourceCaptureResult.Unavailable(sourceId, captureScope);
             }
-            var changeSet = CompareFileStates(currentStates, baseline.FileStates);
+            BackupChangeSet changeSet;
+            if (captureScope == FolderRewind.History.Domain.CaptureScope.PartialSource)
+            {
+                // 只在本次 captured scope 内计算删除；范围外父状态必须原样继承。
+                var scoped = ScopeAwareSourceCaptureDiff.Compute(
+                    baseline.FileStates,
+                    currentStates,
+                    path => IsWithinOperationSelection(path, selection));
+                changeSet = new BackupChangeSet();
+                changeSet.AddedFiles.AddRange(scoped.AddedFiles);
+                changeSet.ModifiedFiles.AddRange(scoped.ModifiedFiles);
+                changeSet.DeletedFiles.AddRange(scoped.DeletedFiles);
+            }
+            else
+            {
+                changeSet = CompareFileStates(currentStates, baseline.FileStates);
+            }
 
             if (!changeSet.HasChanges)
             {
@@ -268,6 +314,13 @@ namespace FolderRewind.Services
         /// </remarks>
         private static async Task<SourceCaptureResult> DoRollingBackupAsync(SourceId sourceId, FolderRewind.History.Domain.CaptureScope captureScope, string source, string destDir, SourceCaptureBaseline? baseline, string baseName, BackupConfig config, BackupSourceScope selection, string comment = "", BackupTask? taskToUpdate = null)
         {
+            if (captureScope == FolderRewind.History.Domain.CaptureScope.PartialSource)
+            {
+                return SourceCaptureResult.Blocked(
+                    sourceId,
+                    captureScope,
+                    "Partial capture must use an Exact-parent SmartDelta patch.");
+            }
             async Task<SourceCaptureResult> FallbackToFullAsync()
                 => await DoFullBackupAsync(sourceId, captureScope, source, destDir, baseline, baseName, config, selection, comment, taskToUpdate);
 
@@ -420,6 +473,10 @@ namespace FolderRewind.Services
                 try { if (!string.IsNullOrWhiteSpace(deletedListFile)) File.Delete(deletedListFile); } catch { }
             }
         }
+
+        private static bool IsWithinOperationSelection(string relativePath, BackupSourceScope selection)
+            => selection.Mode == BackupSourceScopeMode.All
+                || BackupSourceScopePatternSet.Compile(selection.IncludePatterns).IsMatch(relativePath);
 
         private static async Task<SourceCaptureResult> VerifyAndCreateArchiveCaptureAsync(
             SourceId sourceId,

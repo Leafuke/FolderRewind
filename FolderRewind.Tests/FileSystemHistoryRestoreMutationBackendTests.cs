@@ -69,6 +69,36 @@ public sealed class FileSystemHistoryRestoreMutationBackendTests
         Assert.IsFalse(Directory.Exists(snapshot.RollbackDirectory));
     }
 
+    [TestMethod]
+    public async Task CleanRestoreDeletesOnlyInsideHistoricalEffectiveBoundary()
+    {
+        var target = Path.Combine(_root, "boundary-target");
+        var staging = Path.Combine(_root, "boundary-staging");
+        Directory.CreateDirectory(Path.Combine(target, "managed"));
+        Directory.CreateDirectory(Path.Combine(target, "outside"));
+        Directory.CreateDirectory(Path.Combine(staging, "managed"));
+        await File.WriteAllTextAsync(Path.Combine(target, "managed", "stale.txt"), "stale");
+        await File.WriteAllTextAsync(Path.Combine(target, "outside", "keep.txt"), "keep");
+        await File.WriteAllTextAsync(Path.Combine(staging, "managed", "current.txt"), "current");
+        var boundary = new EffectiveSourceBoundarySnapshot(
+            EffectiveBoundaryScopeMode.Include,
+            ["managed/**"],
+            EffectiveBoundaryFilterMode.Blacklist,
+            [],
+            false);
+        var binding = new HistoryRestoreSourceBinding(SourceId.New(), target, boundary);
+        var backend = new FileSystemHistoryRestoreMutationBackend();
+        var snapshot = backend.PlanRollback(binding, HistoryTransactionId.New());
+
+        await backend.PrepareRollbackAsync(snapshot, CancellationToken.None);
+        await backend.ApplyAsync(binding, staging, HistoryRestoreApplyMode.Clean, snapshot, CancellationToken.None);
+
+        Assert.IsFalse(File.Exists(Path.Combine(target, "managed", "stale.txt")));
+        Assert.AreEqual("current", await File.ReadAllTextAsync(Path.Combine(target, "managed", "current.txt")));
+        Assert.AreEqual("keep", await File.ReadAllTextAsync(Path.Combine(target, "outside", "keep.txt")));
+        await backend.CommitAsync(snapshot, CancellationToken.None);
+    }
+
     private async Task<(FileSystemHistoryRestoreMutationBackend Backend,
         HistoryRestoreRollbackSnapshot Snapshot, string File, string Subdirectory)> PrepareSnapshotAsync()
     {

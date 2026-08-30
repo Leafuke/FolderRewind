@@ -22,9 +22,10 @@ public sealed record SourceCaptureBaseline(
     RepresentationKind BaseRepresentationKind,
     string PayloadPath,
     int ConsecutiveSmartCaptures,
-    ImmutableSortedDictionary<string, SourceCaptureFileState> FileStates)
+    ImmutableSortedDictionary<string, SourceCaptureFileState> FileStates,
+    string BoundaryFingerprint = "")
 {
-    public const int CurrentFormatVersion = 1;
+    public const int CurrentFormatVersion = 2;
     public int FormatVersion => CurrentFormatVersion;
 }
 
@@ -32,7 +33,8 @@ public sealed record SourceCaptureBaselineCandidate(
     long ExpectedRevision,
     string PayloadPath,
     int ConsecutiveSmartCaptures,
-    ImmutableSortedDictionary<string, SourceCaptureFileState> FileStates);
+    ImmutableSortedDictionary<string, SourceCaptureFileState> FileStates,
+    string BoundaryFingerprint = "");
 
 public static class SourceCaptureBaselinePolicy
 {
@@ -45,7 +47,7 @@ public static class SourceCaptureBaselinePolicy
             .FirstOrDefault(item => item.SourceId == baseline.SourceId);
         return workspaceBaseline is
             {
-                Relation: WorkspaceBaselineRelation.Exact,
+                Relation: WorkspaceBaselineRelation.Exact or WorkspaceBaselineRelation.Derived,
                 BaseVersionId: { } workspaceVersionId
             }
             && workspaceVersionId == baseline.BaseVersionId;
@@ -111,7 +113,8 @@ public sealed class SourceCaptureBaselineCache : IDisposable
                 committedRepresentation.Kind,
                 Path.GetFullPath(candidate.PayloadPath),
                 Math.Max(0, candidate.ConsecutiveSmartCaptures),
-                candidate.FileStates);
+                candidate.FileStates,
+                candidate.BoundaryFingerprint);
             await AtomicFileService.WriteAsync(
                 PathFor(sourceId),
                 (stream, token) => JsonSerializer.SerializeAsync(stream, baseline, JsonOptions, token),

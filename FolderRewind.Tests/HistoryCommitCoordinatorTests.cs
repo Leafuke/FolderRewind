@@ -51,7 +51,7 @@ public sealed class HistoryCommitCoordinatorTests
         Assert.HasCount(1, batch.NewVersions);
         Assert.HasCount(1, batch.NewRepresentations);
         Assert.IsNotNull(batch.NewCheckpoint);
-        Assert.IsTrue(batch.NewCheckpoint.IsComplete);
+        Assert.IsTrue(batch.NewCheckpoint.IsStructurallyComplete);
         Assert.AreEqual(BranchUpdateReason.Created, batch.NewBranchUpdate!.Reason);
         Assert.AreEqual(batch.NewCheckpoint.CheckpointId, batch.Run.ResultCheckpointId);
         Assert.IsTrue(batch.IndexRefreshSucceeded);
@@ -271,11 +271,54 @@ public sealed class HistoryCommitCoordinatorTests
 
         Assert.AreEqual(BackupRunOutcome.Partial, partial.Run.Outcome);
         Assert.IsNotNull(partial.NewCheckpoint);
-        Assert.IsTrue(partial.NewCheckpoint.IsComplete);
+        Assert.IsTrue(partial.NewCheckpoint.IsStructurallyComplete);
         var failedProjection = partial.NewCheckpoint.Sources.Single(item => item.SourceId == secondSource);
         Assert.AreEqual(CheckpointSourceDisposition.Failed, failedProjection.Disposition);
         Assert.AreEqual(secondBaseline, failedProjection.VersionId);
         Assert.AreEqual(initial.NewBranchUpdate!.UpdateId, partial.NewBranchUpdate!.ParentUpdateIds.Single());
+    }
+
+    [TestMethod]
+    public async Task BoundaryDriftRequiresSelfContainedRecaptureBeforeBranchAdvance()
+    {
+        await using var runtime = await CreateRuntimeAsync();
+        var sourceId = SourceId.New();
+        var originalBoundary = EffectiveSourceBoundarySnapshot.All;
+        var changedBoundary = new EffectiveSourceBoundarySnapshot(
+            EffectiveBoundaryScopeMode.Include,
+            ["region/**"],
+            EffectiveBoundaryFilterMode.Blacklist,
+            [],
+            false);
+        var initialSnapshot = Snapshot(Source(sourceId, "world", originalBoundary));
+        _ = await runtime.Commit.CommitAsync(Request(
+            initialSnapshot,
+            null,
+            CreateCapture(sourceId, "first", -1, null, boundary: originalBoundary)));
+        var workspace = (await runtime.WorkspaceStore.LoadAsync()).Value!;
+        var changedSnapshot = Snapshot(Source(sourceId, "world", changedBoundary));
+        var failed = SourceCaptureResult.Failed(
+                sourceId,
+                CaptureScope.FullSource,
+                "capture failed",
+                workspace.StateRevision,
+                workspace.SourceBaselines.Single().BaseVersionId)
+            .WithEffectiveSourceBoundary(changedBoundary);
+
+        await Assert.ThrowsExactlyAsync<HistoryCommitConflictException>(
+            () => runtime.Commit.CommitAsync(Request(changedSnapshot, workspace, failed)));
+
+        var committed = await runtime.Commit.CommitAsync(Request(
+            changedSnapshot,
+            workspace,
+            CreateCapture(
+                sourceId,
+                "second",
+                workspace.StateRevision,
+                workspace.SourceBaselines.Single().BaseVersionId,
+                boundary: changedBoundary)));
+        Assert.AreEqual(changedBoundary.Fingerprint, committed.NewVersions.Single().EffectiveSourceBoundaryFingerprint);
+        Assert.IsEmpty(committed.NewRepresentations.Single().DependencyRepresentationIds);
     }
 
     [TestMethod]
@@ -321,7 +364,7 @@ public sealed class HistoryCommitCoordinatorTests
             CreateCapture(selectedSource, "selected", HistoryWorkspaceStore.MissingRevision, null)));
 
         Assert.IsNotNull(committed.NewCheckpoint);
-        Assert.IsFalse(committed.NewCheckpoint.IsComplete);
+        Assert.IsFalse(committed.NewCheckpoint.IsStructurallyComplete);
         Assert.AreEqual(BackupRunOutcome.Partial, committed.Run.Outcome);
         var unknown = committed.NewCheckpoint.Sources.Single(item => item.SourceId == unknownSource);
         Assert.IsNull(unknown.VersionId);
@@ -523,8 +566,11 @@ public sealed class HistoryCommitCoordinatorTests
     private HistoryConfigSnapshot Snapshot(params HistoryConfigSourceSnapshot[] sources)
         => new(_configId, sources, "main");
 
-    private static HistoryConfigSourceSnapshot Source(SourceId sourceId, string displayName)
-        => new(sourceId, new SourceDescriptorSnapshot(displayName, $"C:\\{displayName}"));
+    private static HistoryConfigSourceSnapshot Source(
+        SourceId sourceId,
+        string displayName,
+        EffectiveSourceBoundarySnapshot? boundary = null)
+        => new(sourceId, new SourceDescriptorSnapshot(displayName, $"C:\\{displayName}"), boundary);
 
     private HistoryCommitRequest Request(
         HistoryConfigSnapshot snapshot,
@@ -551,7 +597,8 @@ public sealed class HistoryCommitCoordinatorTests
         VersionId? expectedBaseVersionId,
         string? payloadPath = null,
         ICaptureCleanupHandle? cleanup = null,
-        CapturePayloadState payloadState = CapturePayloadState.VerifiedFinal)
+        CapturePayloadState payloadState = CapturePayloadState.VerifiedFinal,
+        EffectiveSourceBoundarySnapshot? boundary = null)
     {
         payloadPath ??= Path.Combine(_root, $"payload-{Guid.NewGuid():N}.bin");
         Directory.CreateDirectory(Path.GetDirectoryName(payloadPath)!);
@@ -588,7 +635,8 @@ public sealed class HistoryCommitCoordinatorTests
             expectedRevision,
             expectedBaseVersionId,
             cleanup,
-            diagnostics: []);
+            diagnostics: [],
+            effectiveSourceBoundary: boundary);
     }
 
     private sealed class DeleteFileCleanup(string path) : ICaptureCleanupHandle

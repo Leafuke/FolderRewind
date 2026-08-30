@@ -44,7 +44,7 @@ public sealed record TimelineEntrySummary(
 public sealed record CheckpointSummary(
     CheckpointId CheckpointId,
     DateTimeOffset CreatedAtUtc,
-    bool IsComplete,
+    bool IsStructurallyComplete,
     bool IsPinned,
     ImmutableArray<CheckpointSource> Sources);
 
@@ -145,7 +145,7 @@ public sealed class HistoryPresentationQueryService
         {
             var target = new HistoryAnnotationTarget(HistoryAnnotationTargetKind.Checkpoint, checkpoint.CheckpointId.Value);
             var projection = HistoryAnnotationProjection.Project(target, annotationGroups.GetValueOrDefault(target) ?? []);
-            checkpointSummaries.Add(new(checkpoint.CheckpointId, checkpoint.CreatedAtUtc, checkpoint.IsComplete,
+            checkpointSummaries.Add(new(checkpoint.CheckpointId, checkpoint.CreatedAtUtc, checkpoint.IsStructurallyComplete,
                 projection.IsPinned, checkpoint.Sources));
         }
         var runSummaries = runs.Select(run =>

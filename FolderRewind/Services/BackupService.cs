@@ -386,6 +386,12 @@ namespace FolderRewind.Services
                 return CreateSourceOutcome(folder, BackupSourceExecutionStatus.Failed, errorMessage: filterValidationError);
             }
 
+            // Provider scope 与 required file policy 已合并到 runtime 配置；此刻才能冻结捕获边界。
+            var effectiveBoundary = EffectiveSourceBoundaryFactory.Create(
+                runtimeFolder.Path,
+                runtimeFolder.SourceScope,
+                runtimeConfig.Filters);
+
             if (string.IsNullOrEmpty(runtimeConfig.DestinationPath))
             {
                 Log(I18n.Format("BackupService_Log_DestinationNotSet"), LogLevel.Error);
@@ -547,9 +553,15 @@ namespace FolderRewind.Services
                 config.Id,
                 sourceId,
                 cancellationToken).ConfigureAwait(false);
-            var captureScope = IsPartialBackupFilter(runtimeConfig.Filters) || runtimeFolder.SourceScope.IsPartial
-                ? FolderRewind.History.Domain.CaptureScope.PartialSource
-                : FolderRewind.History.Domain.CaptureScope.FullSource;
+            if (captureBaseline is not null
+                && !StringComparer.Ordinal.Equals(
+                    captureBaseline.BoundaryFingerprint,
+                    effectiveBoundary.Fingerprint))
+            {
+                // 边界变化后旧缓存不再代表同一个逻辑状态，必须从新边界建立自包含基线。
+                captureBaseline = null;
+            }
+            var captureScope = CaptureScopePolicy.Determine(effectiveBoundary, effectiveBoundary);
             try
             {
 
@@ -593,6 +605,7 @@ namespace FolderRewind.Services
                             break;
                         }
                 }
+                captureResult = captureResult?.WithEffectiveSourceBoundary(effectiveBoundary);
             }
             catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
             {
@@ -809,11 +822,11 @@ namespace FolderRewind.Services
             var sourceId = Guid.TryParse(folder.Id, out var parsed) && parsed != Guid.Empty
                 ? new SourceId(parsed)
                 : throw new InvalidDataException("ManagedFolder has no stable SourceId.");
-            var scope = IsPartialBackupFilter(config.Filters) || folder.SourceScope.IsPartial
-                ? FolderRewind.History.Domain.CaptureScope.PartialSource
-                : FolderRewind.History.Domain.CaptureScope.FullSource;
+            var scope = FolderRewind.History.Domain.CaptureScope.FullSource;
+            var boundary = EffectiveSourceBoundaryFactory.Create(folder.Path, folder.SourceScope, config.Filters);
             if (outcome.Status == BackupSourceExecutionStatus.Unavailable)
-                return SourceCaptureResult.Unavailable(sourceId, scope, outcome.ErrorMessage);
+                return SourceCaptureResult.Unavailable(sourceId, scope, outcome.ErrorMessage)
+                    .WithEffectiveSourceBoundary(boundary);
             var captureOutcome = outcome.OperationOutcome switch
             {
                 OperationOutcome.Blocked => SourceCaptureOutcome.Blocked,
@@ -838,7 +851,8 @@ namespace FolderRewind.Services
                 expectedWorkspaceRevision: -1,
                 expectedBaseVersionId: null,
                 cleanupHandle: null,
-                diagnostics: diagnostic);
+                diagnostics: diagnostic,
+                effectiveSourceBoundary: boundary);
         }
 
         private static SourceCaptureResult CreateArchiveCapture(
@@ -865,6 +879,7 @@ namespace FolderRewind.Services
                 dependencies,
                 consecutiveSmartCaptures,
                 captureScope == FolderRewind.History.Domain.CaptureScope.FullSource
+                    || (kind == RepresentationKind.CoreSmartDelta && expectedBaseVersionId is not null)
                     ? MaterializationFidelity.Exact
                     : MaterializationFidelity.Partial,
                 expectedBaseVersionId,

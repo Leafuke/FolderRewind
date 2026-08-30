@@ -67,6 +67,12 @@ public static class VerifiedArchiveCaptureFactory
             CapturePayloadState.VerifiedFinal,
             new FileInfo(absolutePath).Length,
             ExpectedStorageSha256: null);
+        var nextBaselineStates = captureScope == CaptureScope.PartialSource && baseline is not null
+            ? MergePartialState(baseline.FileStates, currentStates, deleted)
+            : currentStates.ToImmutableSortedDictionary(
+                pair => pair.Key,
+                pair => pair.Value,
+                StringComparer.Ordinal);
 
         return new SourceCaptureResult(
             sourceId,
@@ -85,10 +91,23 @@ public static class VerifiedArchiveCaptureFactory
                 baseline?.Revision ?? SourceCaptureBaselineCache.MissingRevision,
                 absolutePath,
                 consecutiveSmartCaptures,
-                currentStates.ToImmutableSortedDictionary(
-                    pair => pair.Key,
-                    pair => pair.Value,
-                    StringComparer.Ordinal)));
+                nextBaselineStates));
+    }
+
+    private static ImmutableSortedDictionary<string, SourceCaptureFileState> MergePartialState(
+        IReadOnlyDictionary<string, SourceCaptureFileState> parent,
+        IReadOnlyDictionary<string, SourceCaptureFileState> currentWithinScope,
+        IEnumerable<string> deletedWithinScope)
+    {
+        var builder = parent.ToImmutableSortedDictionary(
+            pair => pair.Key,
+            pair => pair.Value,
+            StringComparer.Ordinal).ToBuilder();
+        foreach (var deleted in deletedWithinScope)
+            builder.Remove(deleted);
+        foreach (var pair in currentWithinScope)
+            builder[pair.Key] = pair.Value;
+        return builder.ToImmutable();
     }
 
     private sealed class DeleteUncommittedArchiveCleanupHandle(string path) : ICaptureCleanupHandle

@@ -15,11 +15,29 @@ public enum CheckpointSourceDisposition
     Failed = 4
 }
 
-public sealed record CheckpointSource(
-    SourceId SourceId,
-    SourceDescriptorSnapshot SourceDescriptorSnapshot,
-    VersionId? VersionId,
-    CheckpointSourceDisposition Disposition);
+public sealed record CheckpointSource
+{
+    public CheckpointSource(
+        SourceId sourceId,
+        SourceDescriptorSnapshot sourceDescriptorSnapshot,
+        VersionId? versionId,
+        CheckpointSourceDisposition disposition,
+        EffectiveSourceBoundarySnapshot? effectiveSourceBoundary = null)
+    {
+        SourceId = sourceId;
+        SourceDescriptorSnapshot = sourceDescriptorSnapshot;
+        VersionId = versionId;
+        Disposition = disposition;
+        EffectiveSourceBoundary = effectiveSourceBoundary ?? EffectiveSourceBoundarySnapshot.All;
+    }
+
+    public SourceId SourceId { get; }
+    public SourceDescriptorSnapshot SourceDescriptorSnapshot { get; }
+    public VersionId? VersionId { get; }
+    public CheckpointSourceDisposition Disposition { get; }
+    public EffectiveSourceBoundarySnapshot EffectiveSourceBoundary { get; }
+    public string EffectiveSourceBoundaryFingerprint => EffectiveSourceBoundary.Fingerprint;
+}
 
 public sealed record ConfigurationCheckpoint
 {
@@ -63,5 +81,5 @@ public sealed record ConfigurationCheckpoint
     public RunId? CreatedByRunId { get; }
     public HistoryProvenance Origin { get; }
     public ImmutableArray<CheckpointSource> Sources { get; }
-    public bool IsComplete => Sources.All(source => source.VersionId is not null);
+    public bool IsStructurallyComplete => Sources.All(source => source.VersionId is not null);
 }

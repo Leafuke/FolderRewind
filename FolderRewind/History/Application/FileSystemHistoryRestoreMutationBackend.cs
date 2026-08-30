@@ -1,4 +1,6 @@
 using FolderRewind.History.Domain;
+using FolderRewind.Models;
+using FolderRewind.Services;
 using System;
 using System.Collections.Generic;
 using System.IO;
@@ -76,12 +78,23 @@ public sealed class FileSystemHistoryRestoreMutationBackend : IHistoryRestoreMut
         HistoryRestoreRollbackSnapshot rollbackSnapshot,
         CancellationToken cancellationToken)
     {
-        if (applyMode == HistoryRestoreApplyMode.Overwrite && rollbackSnapshot.HadOriginalTarget)
+        var boundary = CreateBoundaryMatcher(source);
+        if (rollbackSnapshot.HadOriginalTarget)
         {
-            await CopyTreeAsync(rollbackSnapshot.RollbackDirectory, rollbackSnapshot.TargetDirectory, cancellationToken)
+            await CopyTreeAsync(
+                    rollbackSnapshot.RollbackDirectory,
+                    rollbackSnapshot.TargetDirectory,
+                    applyMode == HistoryRestoreApplyMode.Overwrite
+                        ? null
+                        : relativePath => !boundary(relativePath),
+                    cancellationToken)
                 .ConfigureAwait(false);
         }
-        await CopyTreeAsync(stagingDirectory, rollbackSnapshot.TargetDirectory, cancellationToken)
+        await CopyTreeAsync(
+                stagingDirectory,
+                rollbackSnapshot.TargetDirectory,
+                relativePath => boundary(relativePath),
+                cancellationToken)
             .ConfigureAwait(false);
     }
 
@@ -121,26 +134,46 @@ public sealed class FileSystemHistoryRestoreMutationBackend : IHistoryRestoreMut
     private static async Task CopyTreeAsync(
         string sourceDirectory,
         string targetDirectory,
+        Func<string, bool>? include,
         CancellationToken cancellationToken)
     {
         var source = Path.GetFullPath(sourceDirectory);
         if (!Directory.Exists(source)) throw new DirectoryNotFoundException($"Materialized directory '{source}' is missing.");
         Directory.CreateDirectory(targetDirectory);
-        foreach (var directory in Directory.EnumerateDirectories(source, "*", SearchOption.AllDirectories))
-        {
-            cancellationToken.ThrowIfCancellationRequested();
-            Directory.CreateDirectory(Path.Combine(targetDirectory, Path.GetRelativePath(source, directory)));
-        }
         foreach (var file in Directory.EnumerateFiles(source, "*", SearchOption.AllDirectories))
         {
             cancellationToken.ThrowIfCancellationRequested();
-            var destination = Path.Combine(targetDirectory, Path.GetRelativePath(source, file));
+            var relative = Path.GetRelativePath(source, file).Replace('\\', '/');
+            if (include is not null && !include(relative)) continue;
+            var destination = Path.Combine(targetDirectory, relative);
             Directory.CreateDirectory(Path.GetDirectoryName(destination)!);
             await using var input = new FileStream(file, FileMode.Open, FileAccess.Read, FileShare.Read, 64 * 1024, true);
             await using var output = new FileStream(destination, FileMode.Create, FileAccess.Write, FileShare.None, 64 * 1024, true);
             await input.CopyToAsync(output, cancellationToken).ConfigureAwait(false);
             await output.FlushAsync(cancellationToken).ConfigureAwait(false);
         }
+    }
+
+    private static Func<string, bool> CreateBoundaryMatcher(HistoryRestoreSourceBinding source)
+    {
+        var boundary = source.Boundary;
+        var scope = boundary.ScopeMode == EffectiveBoundaryScopeMode.Include
+            ? BackupSourceScopePatternSet.Compile(boundary.ScopeRules)
+            : null;
+        var filter = PathRuleMatcher.CreateForBackup(
+            boundary.FilterRules,
+            source.TargetDirectory,
+            source.TargetDirectory,
+            boundary.UseRegex);
+        return relativePath =>
+        {
+            var normalized = relativePath.Replace('\\', '/');
+            if (scope is not null && !scope.IsMatch(normalized)) return false;
+            var matched = filter.IsMatch(Path.Combine(source.TargetDirectory, normalized));
+            return boundary.FilterMode == EffectiveBoundaryFilterMode.Whitelist
+                ? matched
+                : !matched;
+        };
     }
 
     private static Task MoveDirectoryWithRetryAsync(

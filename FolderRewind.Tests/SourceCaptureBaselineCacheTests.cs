@@ -68,7 +68,7 @@ public sealed class SourceCaptureBaselineCacheTests
     }
 
     [TestMethod]
-    public void ApplicabilityRequiresExactMatchingWorkspaceVersion()
+    public void ApplicabilityRequiresReliableMatchingWorkspaceVersion()
     {
         var configId = new HistoryConfigId(Guid.NewGuid().ToString("N"));
         var sourceId = SourceId.New();
@@ -94,7 +94,7 @@ public sealed class SourceCaptureBaselineCacheTests
 
         Assert.IsTrue(SourceCaptureBaselinePolicy.IsApplicableToWorkspace(baseline, exact));
         Assert.IsFalse(SourceCaptureBaselinePolicy.IsApplicableToWorkspace(baseline, differentVersion));
-        Assert.IsFalse(SourceCaptureBaselinePolicy.IsApplicableToWorkspace(baseline, derived));
+        Assert.IsTrue(SourceCaptureBaselinePolicy.IsApplicableToWorkspace(baseline, derived));
         Assert.IsFalse(SourceCaptureBaselinePolicy.IsApplicableToWorkspace(baseline, null));
     }
 }

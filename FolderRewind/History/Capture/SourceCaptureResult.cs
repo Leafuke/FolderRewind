@@ -121,7 +121,8 @@ public sealed record SourceCaptureResult
         ICaptureCleanupHandle? cleanupHandle,
         IEnumerable<HistoryDiagnostic>? diagnostics,
         IEnumerable<MaterializationPolicyUpdateId>? expectedMaterializationPolicyTipIds = null,
-        SourceCaptureBaselineCandidate? baselineCandidate = null)
+        SourceCaptureBaselineCandidate? baselineCandidate = null,
+        EffectiveSourceBoundarySnapshot? effectiveSourceBoundary = null)
     {
         SourceId = sourceId;
         Outcome = outcome;
@@ -139,6 +140,7 @@ public sealed record SourceCaptureResult
             ? []
             : [.. expectedMaterializationPolicyTipIds];
         BaselineCandidate = baselineCandidate;
+        EffectiveSourceBoundary = effectiveSourceBoundary ?? EffectiveSourceBoundarySnapshot.All;
         ValidateShape();
     }
 
@@ -156,6 +158,30 @@ public sealed record SourceCaptureResult
     public ImmutableArray<HistoryDiagnostic> Diagnostics { get; }
     public ImmutableArray<MaterializationPolicyUpdateId> ExpectedMaterializationPolicyTipIds { get; }
     public SourceCaptureBaselineCandidate? BaselineCandidate { get; }
+    public EffectiveSourceBoundarySnapshot EffectiveSourceBoundary { get; }
+
+    public SourceCaptureResult WithEffectiveSourceBoundary(EffectiveSourceBoundarySnapshot boundary)
+    {
+        ArgumentNullException.ThrowIfNull(boundary);
+        return new SourceCaptureResult(
+            SourceId,
+            Outcome,
+            CaptureScope,
+            StateFingerprint,
+            ExistingVersionId,
+            RepresentationCandidate,
+            LocalReplicaCandidate,
+            PayloadCandidate,
+            ExpectedWorkspaceRevision,
+            ExpectedBaseVersionId,
+            CleanupHandle,
+            Diagnostics,
+            ExpectedMaterializationPolicyTipIds,
+            BaselineCandidate is null
+                ? null
+                : BaselineCandidate with { BoundaryFingerprint = boundary.Fingerprint },
+            boundary);
+    }
 
     // Backup UI 只消费这些便捷投影；Native coordinator 仍以上面的结构化字段为准。
     public bool Success => Outcome is SourceCaptureOutcome.Captured
@@ -240,6 +266,17 @@ public sealed record SourceCaptureResult
                 ? []
                 : [new HistoryDiagnostic("capture.failed", HistoryDiagnosticSeverity.Error, diagnostic)],
             expectedMaterializationPolicyTipIds);
+
+    public static SourceCaptureResult Blocked(
+        SourceId sourceId,
+        CaptureScope scope,
+        string diagnostic,
+        long expectedWorkspaceRevision = -1,
+        VersionId? expectedBaseVersionId = null)
+        => new(
+            sourceId, SourceCaptureOutcome.Blocked, scope, null, null, null, null, null,
+            expectedWorkspaceRevision, expectedBaseVersionId, null,
+            [new HistoryDiagnostic("capture.blocked_no_exact_baseline", HistoryDiagnosticSeverity.Error, diagnostic)]);
 
     private void ValidateShape()
     {

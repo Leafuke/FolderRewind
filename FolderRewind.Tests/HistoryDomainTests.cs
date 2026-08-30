@@ -121,7 +121,7 @@ public sealed class HistoryDomainTests
                 null,
                 CheckpointSourceDisposition.Unavailable)]);
 
-        Assert.IsFalse(checkpoint.IsComplete);
+        Assert.IsFalse(checkpoint.IsStructurallyComplete);
     }
 
     [TestMethod]

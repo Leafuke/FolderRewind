@@ -158,7 +158,7 @@ public sealed class HistoryCheckoutService
             update.TargetCheckpointId.Value,
             cancellationToken).ConfigureAwait(false)
             ?? throw new InvalidOperationException("Branch target Checkpoint is missing.");
-        if (!checkpoint.IsComplete)
+        if (!checkpoint.IsStructurallyComplete)
             throw new InvalidOperationException("Partial Checkpoint cannot be activated as a Branch checkout.");
 
         var bindingIds = currentConfigSources.Select(source => source.SourceId).ToArray();

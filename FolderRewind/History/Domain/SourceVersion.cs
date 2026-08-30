@@ -33,7 +33,8 @@ public sealed record SourceVersion
         IEnumerable<HistoryDiagnostic>? diagnostics,
         SourceDescriptorSnapshot sourceDescriptorSnapshot,
         string? stateFingerprint,
-        HistoryProvenance provenance)
+        HistoryProvenance provenance,
+        EffectiveSourceBoundarySnapshot? effectiveSourceBoundary = null)
         : this(
             versionId,
             configId,
@@ -46,7 +47,8 @@ public sealed record SourceVersion
             DomainCollections.Freeze(diagnostics),
             sourceDescriptorSnapshot,
             stateFingerprint,
-            provenance)
+            provenance,
+            effectiveSourceBoundary)
     {
     }
 
@@ -63,7 +65,8 @@ public sealed record SourceVersion
         ImmutableArray<HistoryDiagnostic> diagnostics,
         SourceDescriptorSnapshot sourceDescriptorSnapshot,
         string? stateFingerprint,
-        HistoryProvenance provenance)
+        HistoryProvenance provenance,
+        EffectiveSourceBoundarySnapshot? effectiveSourceBoundary = null)
     {
         VersionId = versionId;
         ConfigId = configId;
@@ -78,6 +81,7 @@ public sealed record SourceVersion
             ?? throw new ArgumentNullException(nameof(sourceDescriptorSnapshot));
         StateFingerprint = string.IsNullOrWhiteSpace(stateFingerprint) ? null : stateFingerprint.Trim();
         Provenance = provenance ?? throw new ArgumentNullException(nameof(provenance));
+        EffectiveSourceBoundary = effectiveSourceBoundary ?? EffectiveSourceBoundarySnapshot.All;
     }
 
     public VersionId VersionId { get; }
@@ -92,4 +96,6 @@ public sealed record SourceVersion
     public SourceDescriptorSnapshot SourceDescriptorSnapshot { get; }
     public string? StateFingerprint { get; }
     public HistoryProvenance Provenance { get; }
+    public EffectiveSourceBoundarySnapshot EffectiveSourceBoundary { get; }
+    public string EffectiveSourceBoundaryFingerprint => EffectiveSourceBoundary.Fingerprint;
 }

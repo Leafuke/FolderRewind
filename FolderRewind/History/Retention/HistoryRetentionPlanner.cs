@@ -173,7 +173,7 @@ public sealed class HistoryRetentionPlanner
                      .Where(item => item.CreatedByRunId is { } runId
                          && validBackupRuns.TryGetValue(runId, out var run)
                          && run.ResultCheckpointId == item.CheckpointId
-                         && item.IsComplete)
+                         && item.IsStructurallyComplete)
                      .OrderByDescending(item => item.CreatedAtUtc)
                      .ThenByDescending(item => item.CheckpointId.ToString(), StringComparer.Ordinal))
         {

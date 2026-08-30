@@ -34,7 +34,14 @@ public enum HistoryRestoreApplyMode
     Overwrite = 1
 }
 
-public sealed record HistoryRestoreSourceBinding(SourceId SourceId, string TargetDirectory);
+public sealed record HistoryRestoreSourceBinding(
+    SourceId SourceId,
+    string TargetDirectory,
+    EffectiveSourceBoundarySnapshot? EffectiveSourceBoundary = null)
+{
+    public EffectiveSourceBoundarySnapshot Boundary =>
+        EffectiveSourceBoundary ?? EffectiveSourceBoundarySnapshot.All;
+}
 
 public sealed record HistoryRestoreResult(
     HistoryRestoreStatus Status,

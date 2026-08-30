@@ -95,7 +95,9 @@ public static partial class BackupService
                         currentStates.ToImmutableSortedDictionary(
                             pair => pair.Key,
                             pair => pair.Value,
-                            StringComparer.Ordinal)),
+                            StringComparer.Ordinal),
+                        (await runtime.Query.GetVersionAsync(versionId, cancellationToken).ConfigureAwait(false))
+                            ?.EffectiveSourceBoundaryFingerprint ?? string.Empty),
                     versionId,
                     local.Representation,
                     cancellationToken).ConfigureAwait(false);

@@ -16,7 +16,12 @@ namespace FolderRewind.History.Application;
 
 public sealed record HistoryConfigSourceSnapshot(
     SourceId SourceId,
-    SourceDescriptorSnapshot Descriptor);
+    SourceDescriptorSnapshot Descriptor,
+    EffectiveSourceBoundarySnapshot? EffectiveSourceBoundary = null)
+{
+    public EffectiveSourceBoundarySnapshot Boundary =>
+        EffectiveSourceBoundary ?? EffectiveSourceBoundarySnapshot.All;
+}
 
 public sealed record HistoryConfigSnapshot
 {
@@ -305,7 +310,21 @@ public sealed class HistoryCommitCoordinator
             baselineMap.TryGetValue(source.SourceId, out var baseline);
             resultMap.TryGetValue(source.SourceId, out var capture);
             VersionId? reliableBaseline = ReliableVersion(baseline);
+            var reliableVersion = reliableBaseline is { } reliableVersionId
+                ? await RequireVersionForSourceAsync(reliableVersionId, source.SourceId, cancellationToken).ConfigureAwait(false)
+                : null;
+            var boundary = source.Boundary;
+            var boundaryChanged = reliableVersion is not null
+                && !StringComparer.Ordinal.Equals(
+                    reliableVersion.EffectiveSourceBoundaryFingerprint,
+                    boundary.Fingerprint);
+            if (boundaryChanged && capture?.Outcome != SourceCaptureOutcome.Captured)
+            {
+                throw new HistoryCommitConflictException(
+                    $"Source {source.SourceId} boundary changed and requires a self-contained recapture.");
+            }
             VersionId? finalVersionId = reliableBaseline;
+            var finalBoundary = reliableVersion?.EffectiveSourceBoundary ?? boundary;
             var disposition = CheckpointSourceDisposition.CarriedForward;
             var runOutcome = BackupRunSourceOutcome.CarriedForward;
             var nextRelation = baseline?.Relation ?? WorkspaceBaselineRelation.Unknown;
@@ -316,6 +335,19 @@ public sealed class HistoryCommitCoordinator
                 {
                     case SourceCaptureOutcome.Captured:
                         await ValidateCapturedResultAsync(capture, baseline, cancellationToken).ConfigureAwait(false);
+                        if (!StringComparer.Ordinal.Equals(
+                            capture.EffectiveSourceBoundary.Fingerprint,
+                            boundary.Fingerprint))
+                        {
+                            throw new HistoryCommitConflictException(
+                                "Captured Effective Source Boundary does not match the authoritative Config snapshot.");
+                        }
+                        if (boundaryChanged
+                            && capture.RepresentationCandidate!.DependencyRepresentationIds.Length > 0)
+                        {
+                            throw new HistoryCommitConflictException(
+                                "A boundary-changing capture must use a self-contained Representation.");
+                        }
                         var versionId = VersionId.New();
                         var parents = reliableBaseline is { } parent ? new[] { parent } : Array.Empty<VersionId>();
                         var version = new SourceVersion(
@@ -330,7 +362,8 @@ public sealed class HistoryCommitCoordinator
                             capture.Diagnostics,
                             source.Descriptor,
                             capture.StateFingerprint,
-                            request.Invocation.Provenance);
+                            request.Invocation.Provenance,
+                            capture.EffectiveSourceBoundary);
                         HistoryDomainValidator.ValidateNative(version);
                         var representation = capture.RepresentationCandidate!.ToFact(versionId);
                         versions.Add(version);
@@ -341,6 +374,7 @@ public sealed class HistoryCommitCoordinator
                             capture.LocalReplicaCandidate.Locator,
                             capture.LocalReplicaCandidate.CapturedAtUtc));
                         finalVersionId = versionId;
+                        finalBoundary = capture.EffectiveSourceBoundary;
                         disposition = CheckpointSourceDisposition.Captured;
                         runOutcome = BackupRunSourceOutcome.Captured;
                         nextRelation = capture.CaptureScope == CaptureScope.FullSource
@@ -349,7 +383,15 @@ public sealed class HistoryCommitCoordinator
                         break;
                     case SourceCaptureOutcome.Reused:
                         var reused = await RequireReusableVersionAsync(capture, source.SourceId, cancellationToken).ConfigureAwait(false);
+                        if (!StringComparer.Ordinal.Equals(
+                            reused.EffectiveSourceBoundaryFingerprint,
+                            boundary.Fingerprint))
+                        {
+                            throw new HistoryCommitConflictException(
+                                "A reused Version cannot cross an Effective Source Boundary change.");
+                        }
                         finalVersionId = reused.VersionId;
+                        finalBoundary = reused.EffectiveSourceBoundary;
                         disposition = CheckpointSourceDisposition.Reused;
                         runOutcome = BackupRunSourceOutcome.Reused;
                         nextRelation = reused.CaptureScope == CaptureScope.FullSource
@@ -366,6 +408,13 @@ public sealed class HistoryCommitCoordinator
                             reliableBaseline.Value,
                             source.SourceId,
                             cancellationToken).ConfigureAwait(false);
+                        if (!StringComparer.Ordinal.Equals(
+                            unchangedVersion.EffectiveSourceBoundaryFingerprint,
+                            boundary.Fingerprint))
+                        {
+                            throw new HistoryCommitConflictException(
+                                "NoChanges cannot carry a Version across an Effective Source Boundary change.");
+                        }
                         if (!string.IsNullOrWhiteSpace(capture.StateFingerprint)
                             && !StringComparer.Ordinal.Equals(capture.StateFingerprint, unchangedVersion.StateFingerprint))
                         {
@@ -374,6 +423,11 @@ public sealed class HistoryCommitCoordinator
                         }
                         disposition = CheckpointSourceDisposition.Reused;
                         runOutcome = BackupRunSourceOutcome.Reused;
+                        if (capture.CaptureScope == CaptureScope.PartialSource)
+                        {
+                            // 局部 NoChanges 只证明操作范围未变，不能证明整个工作目录仍等于基线。
+                            nextRelation = WorkspaceBaselineRelation.Derived;
+                        }
                         break;
                     case SourceCaptureOutcome.Unavailable:
                         disposition = CheckpointSourceDisposition.Unavailable;
@@ -394,7 +448,8 @@ public sealed class HistoryCommitCoordinator
                 source.SourceId,
                 source.Descriptor,
                 finalVersionId,
-                disposition));
+                disposition,
+                finalBoundary));
             runSources.Add(new BackupRunSourceResult(
                 source.SourceId,
                 runOutcome,
@@ -685,10 +740,10 @@ public sealed class HistoryCommitCoordinator
         IEnumerable<CheckpointSource> current,
         IEnumerable<CheckpointSource> final)
         => current
-            .Select(item => (item.SourceId, item.VersionId))
+            .Select(item => (item.SourceId, item.VersionId, item.EffectiveSourceBoundary.Fingerprint))
             .OrderBy(item => item.SourceId.ToString(), StringComparer.Ordinal)
             .SequenceEqual(final
-                .Select(item => (item.SourceId, item.VersionId))
+                .Select(item => (item.SourceId, item.VersionId, item.EffectiveSourceBoundary.Fingerprint))
                 .OrderBy(item => item.SourceId.ToString(), StringComparer.Ordinal));
 
     private static VersionId? ReliableVersion(WorkspaceSourceBaseline? baseline)
@@ -731,6 +786,12 @@ public sealed class HistoryCommitCoordinator
         {
             throw new HistoryCommitConflictException("A FullSource capture requires an Exact representation.");
         }
+        if (capture.CaptureScope == CaptureScope.PartialSource
+            && capture.RepresentationCandidate.Fidelity != MaterializationFidelity.Exact)
+        {
+            throw new HistoryCommitConflictException(
+                "A Native partial capture must still produce an Exact logical Version closure.");
+        }
         if (!StringComparer.Ordinal.Equals(
                 capture.RepresentationCandidate.StateFingerprint,
                 capture.StateFingerprint))
@@ -754,6 +815,17 @@ public sealed class HistoryCommitCoordinator
             var reliableBaseVersion = ReliableVersion(baseline)
                 ?? throw new HistoryCommitConflictException(
                     "A dependent representation requires an Exact or Derived Workspace baseline.");
+            var baseVersion = await RequireVersionForSourceAsync(
+                reliableBaseVersion,
+                capture.SourceId,
+                cancellationToken).ConfigureAwait(false);
+            if (!StringComparer.Ordinal.Equals(
+                baseVersion.EffectiveSourceBoundaryFingerprint,
+                capture.EffectiveSourceBoundary.Fingerprint))
+            {
+                throw new HistoryCommitConflictException(
+                    "A dependent representation cannot cross Effective Source Boundaries.");
+            }
             foreach (var dependencyId in dependencies)
             {
                 var dependency = await _runtime.Query.GetRepresentationAsync(
@@ -765,6 +837,11 @@ public sealed class HistoryCommitCoordinator
                 {
                     throw new HistoryCommitConflictException(
                         "Representation dependency does not belong to the expected base Version.");
+                }
+                if (dependency.Fidelity != MaterializationFidelity.Exact)
+                {
+                    throw new HistoryCommitConflictException(
+                        "A Native Exact patch requires an Exact dependency representation.");
                 }
             }
         }

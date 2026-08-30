@@ -72,7 +72,7 @@ public sealed class HistoryRestoreService
         if (mappedIds.Any(id => checkpoint.Sources.All(item => item.SourceId != id)))
             return Blocked("A mapped Source does not belong to the Checkpoint.");
         if (scope == HistoryCheckpointRestoreScope.CompleteCheckpoint
-            && (!checkpoint.IsComplete
+            && (!checkpoint.IsStructurallyComplete
                 || !mappedIds.SetEquals(checkpoint.Sources.Select(item => item.SourceId))))
         {
             return Blocked("Complete Checkpoint restore requires an available mapping for every Source.");
@@ -226,7 +226,12 @@ public sealed class HistoryRestoreService
                 requiredFidelity,
                 staging,
                 cancellationToken).ConfigureAwait(false);
-            return new PreparedRestoreSource(source, version, assessment.Selected.Fidelity, applyMode, staging);
+            return new PreparedRestoreSource(
+                source with { EffectiveSourceBoundary = version.EffectiveSourceBoundary },
+                version,
+                assessment.Selected.Fidelity,
+                applyMode,
+                staging);
         }
         catch
         {

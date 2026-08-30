@@ -143,12 +143,20 @@ public static class NativeHistoryCoreGateway
                 result.SourceId, result.Outcome, result.CaptureScope, result.StateFingerprint,
                 result.ExistingVersionId, result.RepresentationCandidate, result.LocalReplicaCandidate,
                 result.PayloadCandidate, revision, result.ExpectedBaseVersionId ?? baseline?.BaseVersionId, result.CleanupHandle,
-                result.Diagnostics, tips.Select(item => item.UpdateId), result.BaselineCandidate));
+                result.Diagnostics, tips.Select(item => item.UpdateId), result.BaselineCandidate,
+                result.EffectiveSourceBoundary));
         }
+        var resultBoundaries = normalized.ToDictionary(
+            item => item.SourceId,
+            item => item.EffectiveSourceBoundary);
         var snapshot = new HistoryConfigSnapshot(
             runtime.ConfigId,
             config.SourceFolders.Select(folder => new HistoryConfigSourceSnapshot(
-                Source(folder), new SourceDescriptorSnapshot(folder.DisplayName, folder.Path))));
+                Source(folder),
+                new SourceDescriptorSnapshot(folder.DisplayName, folder.Path),
+                resultBoundaries.TryGetValue(Source(folder), out var capturedBoundary)
+                    ? capturedBoundary
+                    : EffectiveSourceBoundaryFactory.Create(folder.Path, folder.SourceScope, config.Filters))));
         var committed = await runtime.Commit.CommitAsync(new HistoryCommitRequest(
             snapshot,
             new HistoryBackupInvocation(
