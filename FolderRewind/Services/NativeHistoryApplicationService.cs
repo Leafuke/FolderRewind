@@ -66,10 +66,14 @@ internal static class NativeHistoryApplicationService
         BackupService.RestoreMode requestedMode,
         CancellationToken cancellationToken = default)
     {
-        await using var operationLease = await NativeHistoryConfigurationOperationGate
-            .EnterAsync(config.Id, cancellationToken).ConfigureAwait(false);
         var runtime = NativeHistoryCoreGateway.GetRequiredRuntime(config.Id);
         var workspace = await RequireWorkspaceAsync(runtime, cancellationToken).ConfigureAwait(false);
+        if (config.Archive.BackupBeforeRestore)
+        {
+            var protection = await ProtectBeforeRestoreAsync(config, runtime, cancellationToken).ConfigureAwait(false);
+            if (protection.Result is not null) return protection.Result;
+            workspace = protection.Workspace!;
+        }
         var result = await CreateRestoreService(config, runtime).RestoreVersionAsync(
             versionId,
             Binding(config, folder),
@@ -89,8 +93,6 @@ internal static class NativeHistoryApplicationService
         BackupService.RestoreMode requestedMode,
         CancellationToken cancellationToken = default)
     {
-        await using var operationLease = await NativeHistoryConfigurationOperationGate
-            .EnterAsync(config.Id, cancellationToken).ConfigureAwait(false);
         var runtime = NativeHistoryCoreGateway.GetRequiredRuntime(config.Id);
         var workspace = await RequireWorkspaceAsync(runtime, cancellationToken).ConfigureAwait(false);
         var checkpoint = await runtime.Query.GetCheckpointAsync(checkpointId, cancellationToken).ConfigureAwait(false)
@@ -103,6 +105,12 @@ internal static class NativeHistoryApplicationService
             .Where(folder => completeCheckpoint || restorableSources.Contains(Source(folder)))
             .Select(folder => Binding(config, folder))
             .ToArray();
+        if (config.Archive.BackupBeforeRestore)
+        {
+            var protection = await ProtectBeforeRestoreAsync(config, runtime, cancellationToken).ConfigureAwait(false);
+            if (protection.Result is not null) return protection.Result;
+            workspace = protection.Workspace!;
+        }
         var result = await CreateRestoreService(config, runtime).RestoreCheckpointAsync(
             checkpointId,
             bindings,
@@ -123,19 +131,20 @@ internal static class NativeHistoryApplicationService
         BranchUpdateId selectedTipId,
         CancellationToken cancellationToken = default)
     {
-        await using var operationLease = await NativeHistoryConfigurationOperationGate
-            .EnterAsync(config.Id, cancellationToken).ConfigureAwait(false);
         var runtime = NativeHistoryCoreGateway.GetRequiredRuntime(config.Id);
         var workspace = await RequireWorkspaceAsync(runtime, cancellationToken).ConfigureAwait(false);
         var restore = CreateRestoreService(config, runtime);
         var bindings = config.SourceFolders
             .Select(folder => Binding(config, folder))
             .ToArray();
-        var result = await new HistoryCheckoutService(runtime, restore).CheckoutAsync(
+        var result = await new HistoryCheckoutService(
+            runtime,
+            restore,
+            new SafetySnapshotWorkingStateProtector(config, runtime)).CheckoutAsync(
             selectedTipId,
             bindings,
             workspace,
-            HistoryCheckoutProtectionMode.DiscardCurrentChanges,
+            HistoryCheckoutProtectionMode.ProtectCurrentWork,
             cancellationToken).ConfigureAwait(false);
         if (result.Succeeded)
             await BackupService.SynchronizeCaptureBaselinesWithWorkspaceAsync(
@@ -264,6 +273,37 @@ internal static class NativeHistoryApplicationService
         return load.Value;
     }
 
+    private static async Task<(HistoryWorkspace? Workspace, HistoryRestoreResult? Result)> ProtectBeforeRestoreAsync(
+        BackupConfig config,
+        HistoryRuntime runtime,
+        CancellationToken cancellationToken)
+    {
+        try
+        {
+            _ = await BackupService.CreateSafetySnapshotAsync(
+                config,
+                SafetySnapshotReason.BeforeRestore,
+                cancellationToken).ConfigureAwait(false);
+            return (await RequireWorkspaceAsync(runtime, cancellationToken).ConfigureAwait(false), null);
+        }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+            return (null, new HistoryRestoreResult(
+                HistoryRestoreStatus.Blocked,
+                "Required BeforeRestore SafetySnapshot was canceled; target mutation did not start.",
+                false,
+                []));
+        }
+        catch (Exception ex)
+        {
+            return (null, new HistoryRestoreResult(
+                HistoryRestoreStatus.Blocked,
+                $"Required BeforeRestore SafetySnapshot failed: {ex.Message}",
+                false,
+                []));
+        }
+    }
+
     private static SourceId Source(ManagedFolder folder)
         => Guid.TryParse(folder.Id, out var id) && id != Guid.Empty
             ? new SourceId(id)
@@ -274,6 +314,25 @@ internal static class NativeHistoryApplicationService
             Source(folder),
             folder.Path,
             EffectiveSourceBoundaryFactory.Create(folder.Path, folder.SourceScope, config.Filters));
+
+    private sealed class SafetySnapshotWorkingStateProtector(
+        BackupConfig config,
+        HistoryRuntime runtime) : IHistoryWorkingStateProtector
+    {
+        public async Task<HistoryWorkspace> ProtectAsync(
+            HistoryWorkspace expectedWorkspace,
+            CancellationToken cancellationToken)
+        {
+            var current = await RequireWorkspaceAsync(runtime, cancellationToken).ConfigureAwait(false);
+            if (!HistoryRestoreTransactionJournalStore.WorkspaceEquals(current, expectedWorkspace))
+                throw new DeviceLocalStateConflictException("Workspace changed before SafetySnapshot capture.");
+            _ = await BackupService.CreateSafetySnapshotAsync(
+                config,
+                SafetySnapshotReason.BeforeCheckout,
+                cancellationToken).ConfigureAwait(false);
+            return await RequireWorkspaceAsync(runtime, cancellationToken).ConfigureAwait(false);
+        }
+    }
 
     private static HistoryRestoreApplyMode MapRestoreMode(BackupService.RestoreMode mode)
         => mode == BackupService.RestoreMode.Clean

@@ -56,7 +56,9 @@ public sealed record HistoryCheckoutPlan(
     ImmutableArray<HistorySourceBoundaryMismatch> BoundaryMismatches,
     string Diagnostic)
 {
-    public bool CanExecute => Readiness == HistoryCheckoutReadiness.Ready;
+    public bool CanExecute => Readiness is HistoryCheckoutReadiness.Ready
+        or HistoryCheckoutReadiness.ProtectionRequired;
+    public bool RequiresProtection => Readiness == HistoryCheckoutReadiness.ProtectionRequired;
 }
 
 public sealed class HistoryCheckoutPlanner
@@ -172,8 +174,15 @@ public sealed class HistoryCheckoutPlanner
                 HistoryCheckoutSourceAction.PreserveCurrent,
                 null,
                 binding));
+        var requiresProtection = currentConfigSources.Any(binding =>
+        {
+            var baseline = expectedWorkspace.SourceBaselines.FirstOrDefault(item => item.SourceId == binding.SourceId);
+            return baseline is null
+                || baseline.BaseVersionId is null
+                || baseline.Relation != WorkspaceBaselineRelation.Exact;
+        });
         return new HistoryCheckoutPlan(
-            HistoryCheckoutReadiness.Ready,
+            requiresProtection ? HistoryCheckoutReadiness.ProtectionRequired : HistoryCheckoutReadiness.Ready,
             update,
             checkpoint,
             expectedWorkspace.StateRevision,

@@ -61,7 +61,8 @@ public sealed class HistoryCheckoutService
         HistoryWorkspace protectedWorkspace;
         try
         {
-            if (protectionMode == HistoryCheckoutProtectionMode.ProtectCurrentWork)
+            if (plan!.RequiresProtection
+                && protectionMode == HistoryCheckoutProtectionMode.ProtectCurrentWork)
             {
                 if (_protector is null)
                     return Blocked("Current-work protection is required but no protector is available.");

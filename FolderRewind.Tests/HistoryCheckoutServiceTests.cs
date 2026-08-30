@@ -149,6 +149,16 @@ public sealed class HistoryCheckoutServiceTests
             _ => Task.FromResult<IRepresentationEnvironment>(new RepresentationEnvironment([], [], [])),
             new FileSystemHistoryRestoreMutationBackend());
 
+        var plan = await new HistoryCheckoutPlanner(history, restore).BuildAsync(
+            branch.UpdateId,
+            [
+                new HistoryRestoreSourceBinding(historicalId, historicalTarget),
+                new HistoryRestoreSourceBinding(currentOnlyId, currentOnlyTarget)
+            ],
+            workspace,
+            AssessmentDepth.Deep);
+        Assert.AreEqual(HistoryCheckoutReadiness.ProtectionRequired, plan.Readiness);
+
         var result = await new HistoryCheckoutService(history, restore).CheckoutAsync(
             branch.UpdateId,
             [
