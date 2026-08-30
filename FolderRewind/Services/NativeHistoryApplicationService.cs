@@ -19,6 +19,46 @@ namespace FolderRewind.Services;
 
 internal static class NativeHistoryApplicationService
 {
+    public static async Task<IReadOnlyList<SafetySnapshotProjection>> GetSafetySnapshotsAsync(
+        BackupConfig config,
+        bool activeOnly = true,
+        CancellationToken cancellationToken = default)
+    {
+        var runtime = NativeHistoryCoreGateway.GetRequiredRuntime(config.Id);
+        await runtime.EnsureIndexCurrentAsync(cancellationToken).ConfigureAwait(false);
+        return await new SafetySnapshotService(runtime).QueryAsync(activeOnly, cancellationToken)
+            .ConfigureAwait(false);
+    }
+
+    public static async Task<HistoryRestoreResult> RestoreSafetySnapshotAsync(
+        BackupConfig config,
+        SafetySnapshotId snapshotId,
+        BackupService.RestoreMode requestedMode,
+        CancellationToken cancellationToken = default)
+    {
+        var runtime = NativeHistoryCoreGateway.GetRequiredRuntime(config.Id);
+        await runtime.EnsureIndexCurrentAsync(cancellationToken).ConfigureAwait(false);
+        var snapshot = (await runtime.Query.GetSafetySnapshotsAsync(cancellationToken).ConfigureAwait(false))
+            .SingleOrDefault(item => item.SnapshotId == snapshotId)
+            ?? throw new InvalidOperationException("SafetySnapshot does not exist.");
+        return await RestoreCheckpointAsync(
+            config,
+            snapshot.CheckpointId,
+            completeCheckpoint: true,
+            requestedMode,
+            cancellationToken).ConfigureAwait(false);
+    }
+
+    public static async Task<bool> ReleaseSafetySnapshotAsync(
+        BackupConfig config,
+        SafetySnapshotId snapshotId,
+        CancellationToken cancellationToken = default)
+    {
+        var runtime = NativeHistoryCoreGateway.GetRequiredRuntime(config.Id);
+        return await new SafetySnapshotService(runtime).ReleaseAsync(snapshotId, cancellationToken)
+            .ConfigureAwait(false);
+    }
+
     public static async Task<HistoryRestoreResult> RestoreVersionAsync(
         BackupConfig config,
         ManagedFolder folder,

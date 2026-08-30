@@ -54,6 +54,8 @@ public sealed class HistoryRetentionPlanner
         var versionsTask = _history.Query.GetAllVersionsAsync(cancellationToken);
         var representationsTask = _history.Query.GetAllRepresentationsAsync(cancellationToken);
         var migrationsTask = _history.Query.GetMigrationRecordsAsync(cancellationToken);
+        var safetySnapshotsTask = _history.Query.GetSafetySnapshotsAsync(cancellationToken);
+        var safetyReleasesTask = _history.Query.GetSafetySnapshotReleasesAsync(null, cancellationToken);
         await Task.WhenAll(
             checkpointsTask,
             runsTask,
@@ -61,7 +63,9 @@ public sealed class HistoryRetentionPlanner
             annotationsTask,
             versionsTask,
             representationsTask,
-            migrationsTask).ConfigureAwait(false);
+            migrationsTask,
+            safetySnapshotsTask,
+            safetyReleasesTask).ConfigureAwait(false);
 
         var checkpoints = checkpointsTask.Result;
         var checkpointMap = checkpoints.ToDictionary(item => item.CheckpointId);
@@ -73,6 +77,7 @@ public sealed class HistoryRetentionPlanner
         var allRepresentations = representationsTask.Result;
         var representationMap = allRepresentations.ToDictionary(item => item.RepresentationId);
         var migrationRecords = migrationsTask.Result;
+        var safetyReleases = safetyReleasesTask.Result;
         var catalogLoad = await _history.LocalReplicaCatalogStore.LoadAsync(cancellationToken).ConfigureAwait(false);
         var workspaceLoad = await _history.WorkspaceStore.LoadAsync(cancellationToken).ConfigureAwait(false);
         var blockers = new List<string>();
@@ -228,6 +233,22 @@ public sealed class HistoryRetentionPlanner
                 {
                     ProtectCheckpoint(checkpoint, HistoryProtectionReason.BranchTip, MaterializationFidelity.Exact);
                 }
+            }
+        }
+
+        foreach (var snapshot in safetySnapshotsTask.Result)
+        {
+            if (safetyReleases.Any(release => release.SnapshotId == snapshot.SnapshotId)) continue;
+            if (checkpointMap.TryGetValue(snapshot.CheckpointId, out var checkpoint))
+            {
+                ProtectCheckpoint(
+                    checkpoint,
+                    HistoryProtectionReason.SafetySnapshot,
+                    MaterializationFidelity.Exact);
+            }
+            else
+            {
+                blockers.Add($"Active SafetySnapshot {snapshot.SnapshotId} checkpoint is missing.");
             }
         }
 

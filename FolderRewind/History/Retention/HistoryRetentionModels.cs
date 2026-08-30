@@ -18,7 +18,8 @@ public enum HistoryProtectionReason
     BranchTip = 2,
     Pin = 4,
     Workspace = 8,
-    ActiveOperation = 16
+    ActiveOperation = 16,
+    SafetySnapshot = 32
 }
 
 public sealed record HistoryRetentionOperationRoots

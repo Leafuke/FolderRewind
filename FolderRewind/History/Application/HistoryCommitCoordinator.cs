@@ -77,6 +77,8 @@ public enum HistoryCommitIntent
     IndependentRecoveryPoint = 1
 }
 
+public sealed record HistorySafetySnapshotIntent(SafetySnapshotReason Reason);
+
 public sealed record HistoryCommitRequest
 {
     public HistoryCommitRequest(
@@ -86,13 +88,15 @@ public sealed record HistoryCommitRequest
         IEnumerable<SourceCaptureResult> sourceCaptureResults,
         HistoryBranchCreationIntent? branchCreationIntent = null,
         HistoryCommitIntent intent = HistoryCommitIntent.AdvanceBranch,
-        IEnumerable<SourceId>? affectedSourceIds = null)
+        IEnumerable<SourceId>? affectedSourceIds = null,
+        HistorySafetySnapshotIntent? safetySnapshotIntent = null)
     {
         ConfigSnapshot = configSnapshot ?? throw new ArgumentNullException(nameof(configSnapshot));
         Invocation = invocation ?? throw new ArgumentNullException(nameof(invocation));
         ExpectedWorkspace = expectedWorkspace;
         BranchCreationIntent = branchCreationIntent;
         Intent = intent;
+        SafetySnapshotIntent = safetySnapshotIntent;
         SourceCaptureResults = sourceCaptureResults is null
             ? throw new ArgumentNullException(nameof(sourceCaptureResults))
             : [.. sourceCaptureResults];
@@ -117,6 +121,12 @@ public sealed record HistoryCommitRequest
         {
             throw new ArgumentException("An independent recovery point cannot create a Branch.", nameof(branchCreationIntent));
         }
+        if (SafetySnapshotIntent is not null && Intent != HistoryCommitIntent.IndependentRecoveryPoint)
+        {
+            throw new ArgumentException(
+                "SafetySnapshot creation requires IndependentRecoveryPoint intent.",
+                nameof(safetySnapshotIntent));
+        }
     }
 
     public HistoryConfigSnapshot ConfigSnapshot { get; }
@@ -126,6 +136,7 @@ public sealed record HistoryCommitRequest
     public HistoryBranchCreationIntent? BranchCreationIntent { get; }
     public HistoryCommitIntent Intent { get; }
     public ImmutableArray<SourceId> AffectedSourceIds { get; }
+    public HistorySafetySnapshotIntent? SafetySnapshotIntent { get; }
 }
 
 public sealed record HistoryCommitBatch(
@@ -134,6 +145,7 @@ public sealed record HistoryCommitBatch(
     ImmutableArray<SourceVersion> NewVersions,
     ImmutableArray<VersionRepresentation> NewRepresentations,
     ConfigurationCheckpoint? NewCheckpoint,
+    SafetySnapshot? NewSafetySnapshot,
     BranchUpdate? NewBranchUpdate,
     HistoryWorkspace? UpdatedWorkspace,
     LocalReplicaCatalog? UpdatedLocalReplicaCatalog,
@@ -525,6 +537,20 @@ public sealed class HistoryCommitCoordinator
                 request.Invocation.Provenance,
                 checkpointSources)
             : null;
+        SafetySnapshot? safetySnapshot = null;
+        if (request.SafetySnapshotIntent is not null)
+        {
+            if (checkpoint is null || !checkpoint.IsStructurallyComplete)
+            {
+                throw new HistoryCommitConflictException(
+                    "SafetySnapshot requires a newly committed structurally complete checkpoint.");
+            }
+            safetySnapshot = new SafetySnapshot(
+                SafetySnapshotId.New(),
+                checkpoint.CheckpointId,
+                now,
+                request.SafetySnapshotIntent.Reason);
+        }
 
         BranchUpdate? branchUpdate = null;
         HistoryWorkspace? updatedWorkspace = null;
@@ -606,6 +632,7 @@ public sealed class HistoryCommitCoordinator
         facts.AddRange(versions);
         facts.AddRange(representations);
         if (checkpoint is not null) facts.Add(checkpoint);
+        if (safetySnapshot is not null) facts.Add(safetySnapshot);
         if (branchUpdate is not null) facts.Add(branchUpdate);
         facts.Add(run);
         var comment = request.Invocation.Comment?.Trim() ?? string.Empty;
@@ -646,6 +673,7 @@ public sealed class HistoryCommitCoordinator
             versions.ToImmutable(),
             representations.ToImmutable(),
             checkpoint,
+            safetySnapshot,
             branchUpdate,
             updatedWorkspace,
             updatedCatalog,

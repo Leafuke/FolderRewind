@@ -17,6 +17,8 @@ public static class HistoryObjectKinds
     public const string HistoryAnnotationUpdate = "historyAnnotationUpdate";
     public const string MaterializationPolicyUpdate = "materializationPolicyUpdate";
     public const string LegacyMigrationRecord = "legacyMigrationRecord";
+    public const string SafetySnapshot = "safetySnapshot";
+    public const string SafetySnapshotRelease = "safetySnapshotRelease";
 
     public static bool IsKnown(string kind)
         => kind is SourceVersion
@@ -28,7 +30,9 @@ public static class HistoryObjectKinds
             or BackupRun
             or HistoryAnnotationUpdate
             or MaterializationPolicyUpdate
-            or LegacyMigrationRecord;
+            or LegacyMigrationRecord
+            or SafetySnapshot
+            or SafetySnapshotRelease;
 }
 
 public readonly record struct HistoryObjectKey(string Kind, string Id);

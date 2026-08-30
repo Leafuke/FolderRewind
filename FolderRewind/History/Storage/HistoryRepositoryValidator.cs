@@ -32,6 +32,8 @@ public sealed class HistoryRepositoryValidator
         var annotations = known.OfType<HistoryAnnotationUpdate>().ToDictionary(item => item.UpdateId);
         var policies = known.OfType<MaterializationPolicyUpdate>().ToDictionary(item => item.UpdateId);
         var migrationRecords = known.OfType<LegacyMigrationRecord>().ToDictionary(item => item.RecordId);
+        var safetySnapshots = known.OfType<SafetySnapshot>().ToDictionary(item => item.SnapshotId);
+        var safetySnapshotReleases = known.OfType<SafetySnapshotRelease>().ToDictionary(item => item.ReleaseId);
 
         foreach (var version in versions.Values)
         {
@@ -168,6 +170,16 @@ public sealed class HistoryRepositoryValidator
         {
             Require(versions, record.VersionId, "LegacyMigrationRecord Version");
         }
+
+        foreach (var snapshot in safetySnapshots.Values)
+        {
+            var checkpoint = Require(checkpoints, snapshot.CheckpointId, "SafetySnapshot checkpoint");
+            if (!checkpoint.IsStructurallyComplete)
+                throw Invalid("SafetySnapshot requires a structurally complete checkpoint.");
+        }
+
+        foreach (var release in safetySnapshotReleases.Values)
+            Require(safetySnapshots, release.SnapshotId, "SafetySnapshotRelease target");
 
         EnsureAcyclic(versions.Values, item => item.VersionId, item => item.ParentVersionIds, "SourceVersion");
         EnsureAcyclic(representations.Values, item => item.RepresentationId, item => item.DependencyRepresentationIds, "Representation");

@@ -219,6 +219,42 @@ namespace FolderRewind.Services
             return anyChanges;
         }
 
+        internal static async Task<SafetySnapshot> CreateSafetySnapshotAsync(
+            BackupConfig config,
+            SafetySnapshotReason reason,
+            CancellationToken cancellationToken = default)
+        {
+            ArgumentNullException.ThrowIfNull(config);
+            await using var operationLease = await NativeHistoryConfigurationOperationGate
+                .EnterAsync(config.Id, cancellationToken).ConfigureAwait(false);
+            _ = await NativeHistoryCoreGateway.EnsureReadyAsync(config, cancellationToken).ConfigureAwait(false);
+            var startedAtUtc = DateTimeOffset.UtcNow;
+            var options = BackupInvocationOptions.ForInternal();
+            var outcomes = new List<BackupSourceExecutionOutcome>();
+            foreach (var folder in config.SourceFolders)
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+                outcomes.Add(await BackupFolderCoreAsync(
+                    config,
+                    folder,
+                    comment: string.Empty,
+                    invocationOptions: options,
+                    cancellationToken).ConfigureAwait(false));
+            }
+
+            var committed = await NativeHistoryCoreGateway.CommitBackupAsync(
+                config,
+                outcomes.Select((item, index) => EnsureCaptureResult(config, config.SourceFolders[index], item)),
+                BackupInvocationKind.Internal,
+                startedAtUtc,
+                comment: string.Empty,
+                cancellationToken,
+                HistoryCommitIntent.IndependentRecoveryPoint,
+                new HistorySafetySnapshotIntent(reason)).ConfigureAwait(false);
+            return committed.NewSafetySnapshot
+                ?? throw new InvalidOperationException("Independent recovery commit did not create a SafetySnapshot.");
+        }
+
         /// <summary>
         /// 备份单个文件夹
         /// </summary>

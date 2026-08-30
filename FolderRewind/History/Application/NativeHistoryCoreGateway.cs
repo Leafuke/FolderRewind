@@ -126,7 +126,9 @@ public static class NativeHistoryCoreGateway
         BackupInvocationKind kind,
         DateTimeOffset startedAtUtc,
         string? comment = null,
-        CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken = default,
+        HistoryCommitIntent intent = HistoryCommitIntent.AdvanceBranch,
+        HistorySafetySnapshotIntent? safetySnapshotIntent = null)
     {
         var runtime = GetRequiredRuntime(config.Id);
         var workspace = (await runtime.WorkspaceStore.LoadAsync(cancellationToken).ConfigureAwait(false)).Value;
@@ -162,7 +164,10 @@ public static class NativeHistoryCoreGateway
             new HistoryBackupInvocation(
                 RunId.New(), startedAtUtc, DateTimeOffset.UtcNow, kind, HistoryProvenance.Native("app"), comment ?? string.Empty),
             workspace,
-            normalized), cancellationToken).ConfigureAwait(false);
+            normalized,
+            intent: intent,
+            affectedSourceIds: normalized.Select(item => item.SourceId),
+            safetySnapshotIntent: safetySnapshotIntent), cancellationToken).ConfigureAwait(false);
         foreach (var result in normalized.Where(item => item.BaselineCandidate is not null))
         {
             var version = committed.NewVersions.Single(item => item.SourceId == result.SourceId);

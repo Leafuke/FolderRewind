@@ -107,21 +107,30 @@ public sealed class HistoryCommitCoordinatorTests
         var second = SourceId.New();
         var snapshot = Snapshot(Source(first, "first"), Source(second, "second"));
 
-        var batch = await runtime.Commit.CommitAsync(Request(
+        var batch = await runtime.Commit.CommitAsync(SafetyRequest(
             snapshot,
             null,
-            HistoryCommitIntent.IndependentRecoveryPoint,
+            SafetySnapshotReason.BeforeCheckout,
             CreateCapture(first, "first-state", -1, null),
             CreateCapture(second, "second-state", -1, null)));
 
         Assert.IsNotNull(batch.NewCheckpoint);
         Assert.IsNull(batch.NewBranchUpdate);
+        Assert.IsNotNull(batch.NewSafetySnapshot);
+        Assert.AreEqual(SafetySnapshotReason.BeforeCheckout, batch.NewSafetySnapshot.Reason);
         Assert.HasCount(2, batch.NewVersions);
         Assert.IsNotNull(batch.UpdatedWorkspace);
         Assert.IsNull(batch.UpdatedWorkspace.ActiveBranchId);
         Assert.IsNull(batch.UpdatedWorkspace.ActiveBranchUpdateId);
         Assert.IsTrue(batch.UpdatedWorkspace.SourceBaselines.All(item =>
             item.Relation == WorkspaceBaselineRelation.Exact));
+
+        var snapshots = new SafetySnapshotService(runtime);
+        Assert.HasCount(1, await snapshots.QueryAsync());
+        Assert.IsTrue(await snapshots.ReleaseAsync(batch.NewSafetySnapshot.SnapshotId));
+        Assert.IsFalse(await snapshots.ReleaseAsync(batch.NewSafetySnapshot.SnapshotId));
+        Assert.IsEmpty(await snapshots.QueryAsync());
+        Assert.HasCount(1, await snapshots.QueryAsync(activeOnly: false));
     }
 
     [TestMethod]
@@ -622,6 +631,28 @@ public sealed class HistoryCommitCoordinatorTests
             captures,
             intent: intent,
             affectedSourceIds: captures.Select(item => item.SourceId));
+    }
+
+    private HistoryCommitRequest SafetyRequest(
+        HistoryConfigSnapshot snapshot,
+        HistoryWorkspace? workspace,
+        SafetySnapshotReason reason,
+        params SourceCaptureResult[] captures)
+    {
+        var now = DateTimeOffset.UtcNow;
+        return new HistoryCommitRequest(
+            snapshot,
+            new HistoryBackupInvocation(
+                RunId.New(),
+                now.AddSeconds(-1),
+                now,
+                BackupInvocationKind.Internal,
+                HistoryProvenance.Native("test-device")),
+            workspace,
+            captures,
+            intent: HistoryCommitIntent.IndependentRecoveryPoint,
+            affectedSourceIds: captures.Select(item => item.SourceId),
+            safetySnapshotIntent: new HistorySafetySnapshotIntent(reason));
     }
 
     private SourceCaptureResult CreateCapture(

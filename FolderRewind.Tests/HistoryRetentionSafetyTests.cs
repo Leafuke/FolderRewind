@@ -169,6 +169,57 @@ public sealed class HistoryRetentionSafetyTests
         Assert.IsEmpty(plan.LocalPayloadDeletions);
     }
 
+    [TestMethod]
+    public async Task ActiveSafetySnapshotIsExactRootAndReleaseOnlyRemovesThatRoot()
+    {
+        var configId = new HistoryConfigId(Guid.NewGuid().ToString("N"));
+        var repository = new FileHistoryRepository(
+            configId,
+            new HistoryRepositoryPaths(Path.Combine(_root, "snapshot-retention-repository")));
+        await using var history = new HistoryRuntime(repository);
+        await history.InitializeAsync();
+        var sourceId = SourceId.New();
+        var version = Version(configId, sourceId, [], "snapshot");
+        var representation = new VersionRepresentation(
+            RepresentationId.New(), version.VersionId, RepresentationKind.CoreFull, "test", [],
+            MaterializationFidelity.Exact, null, null, null);
+        var checkpoint = new ConfigurationCheckpoint(
+            CheckpointId.New(), configId, DateTimeOffset.UtcNow, null, HistoryProvenance.Native("test"),
+            [new CheckpointSource(sourceId, version.SourceDescriptorSnapshot, version.VersionId, CheckpointSourceDisposition.Captured)]);
+        var snapshot = new SafetySnapshot(
+            SafetySnapshotId.New(), checkpoint.CheckpointId, DateTimeOffset.UtcNow, SafetySnapshotReason.BeforeRestore);
+        var codec = new HistoryPackCodec();
+        await repository.CommitAsync(new HistoryCommitPack(
+            PackId.New(), HistoryTransactionId.New(), DateTimeOffset.UtcNow,
+            new object[] { version, representation, checkpoint, snapshot }.Select(item => codec.CreateObject(item))));
+        var payload = CreatePayload("snapshot.bin", "payload");
+        await history.LocalReplicaCatalogStore.SaveAsync(
+            new LocalReplicaCatalog(configId, 0, [Entry(representation.RepresentationId, payload)]),
+            LocalReplicaCatalogStore.MissingRevision);
+        await history.WorkspaceStore.SaveAsync(
+            new HistoryWorkspace(configId, 0, null, null, []),
+            HistoryWorkspaceStore.MissingRevision);
+        var payloadStore = new TrackingPayloadStore();
+        Task<IRepresentationEnvironment> EnvironmentFactory(CancellationToken _)
+            => Task.FromResult<IRepresentationEnvironment>(new RepresentationEnvironment([], [], []));
+        var planner = new HistoryRetentionPlanner(
+            history,
+            new RepresentationRuntime([new ReadyTestHandler()]),
+            EnvironmentFactory,
+            payloadStore);
+
+        var activePlan = await planner.PlanAsync(new HistoryRetentionRequest(0, HistoryRetentionOperationRoots.Empty));
+        Assert.AreEqual(MaterializationFidelity.Exact, activePlan.ProtectedVersions.Single().RequiredFidelity);
+        Assert.IsTrue(activePlan.ProtectedVersions.Single().Reasons.HasFlag(HistoryProtectionReason.SafetySnapshot));
+        Assert.IsEmpty(activePlan.LocalPayloadDeletions);
+
+        Assert.IsTrue(await new SafetySnapshotService(history).ReleaseAsync(snapshot.SnapshotId));
+        Assert.IsTrue(File.Exists(payload), "Release appends a fact and must not delete payload bytes directly.");
+        var releasedPlan = await planner.PlanAsync(new HistoryRetentionRequest(0, HistoryRetentionOperationRoots.Empty));
+        Assert.IsEmpty(releasedPlan.ProtectedVersions);
+        Assert.HasCount(1, releasedPlan.LocalPayloadDeletions);
+    }
+
     private string CreatePayload(string name, string content)
     {
         var path = Path.Combine(_root, name);

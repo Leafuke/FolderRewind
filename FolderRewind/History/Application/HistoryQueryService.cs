@@ -113,6 +113,30 @@ public sealed class HistoryQueryService
         CancellationToken cancellationToken = default)
         => _index.GetMigrationRecordsAsync(cancellationToken);
 
+    public Task<IReadOnlyList<SafetySnapshot>> GetSafetySnapshotsAsync(
+        CancellationToken cancellationToken = default)
+        => _index.GetSafetySnapshotsAsync(cancellationToken);
+
+    public Task<IReadOnlyList<SafetySnapshotRelease>> GetSafetySnapshotReleasesAsync(
+        SafetySnapshotId? snapshotId = null,
+        CancellationToken cancellationToken = default)
+        => _index.GetSafetySnapshotReleasesAsync(snapshotId, cancellationToken);
+
+    public async Task<IReadOnlyList<SafetySnapshotProjection>> GetSafetySnapshotProjectionsAsync(
+        bool activeOnly,
+        CancellationToken cancellationToken = default)
+    {
+        var snapshotsTask = _index.GetSafetySnapshotsAsync(cancellationToken);
+        var releasesTask = _index.GetSafetySnapshotReleasesAsync(null, cancellationToken);
+        await Task.WhenAll(snapshotsTask, releasesTask).ConfigureAwait(false);
+        return snapshotsTask.Result
+            .Select(snapshot => SafetySnapshotProjectionService.Project(snapshot, releasesTask.Result))
+            .Where(item => !activeOnly || item.IsActive)
+            .OrderByDescending(item => item.Snapshot.CreatedAtUtc)
+            .ThenByDescending(item => item.Snapshot.SnapshotId.ToString(), StringComparer.Ordinal)
+            .ToImmutableArray();
+    }
+
     public Task<IReadOnlyList<StorageReplica>> GetStorageReplicasAsync(
         RepresentationId representationId,
         CancellationToken cancellationToken = default)

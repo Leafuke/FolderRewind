@@ -61,6 +61,8 @@ public sealed class HistoryIndex : IDisposable
         CREATE TABLE MaterializationPolicies(UpdateId TEXT PRIMARY KEY, VersionId TEXT NOT NULL, State INTEGER NOT NULL, CreatedAtUtc TEXT NOT NULL, PayloadJson TEXT NOT NULL);
         CREATE TABLE MaterializationPolicyParents(UpdateId TEXT NOT NULL, ParentUpdateId TEXT NOT NULL, Ordinal INTEGER NOT NULL, PRIMARY KEY(UpdateId, Ordinal));
         CREATE TABLE MigrationRecords(RecordId TEXT PRIMARY KEY, PayloadJson TEXT NOT NULL);
+        CREATE TABLE SafetySnapshots(SnapshotId TEXT PRIMARY KEY, CheckpointId TEXT NOT NULL, CreatedAtUtc TEXT NOT NULL, Reason INTEGER NOT NULL, PayloadJson TEXT NOT NULL);
+        CREATE TABLE SafetySnapshotReleases(ReleaseId TEXT PRIMARY KEY, SnapshotId TEXT NOT NULL, ReleasedAtUtc TEXT NOT NULL, PayloadJson TEXT NOT NULL);
         CREATE TABLE ReplicaObservations(ReplicaKey TEXT PRIMARY KEY, Availability INTEGER NOT NULL, Integrity INTEGER NOT NULL, ObservedAtUtc TEXT NOT NULL, Evidence TEXT NOT NULL);
         CREATE INDEX IX_Versions_Source ON Versions(SourceId, CreatedAtUtc);
         CREATE INDEX IX_Representations_Version ON Representations(VersionId);
@@ -318,6 +320,26 @@ public sealed class HistoryIndex : IDisposable
             "SELECT PayloadJson FROM MigrationRecords ORDER BY RecordId",
             [],
             cancellationToken);
+
+    public Task<IReadOnlyList<SafetySnapshot>> GetSafetySnapshotsAsync(
+        CancellationToken cancellationToken = default)
+        => ReadPayloadsAsync<SafetySnapshot>(
+            "SELECT PayloadJson FROM SafetySnapshots ORDER BY CreatedAtUtc, SnapshotId",
+            [],
+            cancellationToken);
+
+    public Task<IReadOnlyList<SafetySnapshotRelease>> GetSafetySnapshotReleasesAsync(
+        SafetySnapshotId? snapshotId = null,
+        CancellationToken cancellationToken = default)
+        => snapshotId is { } id
+            ? ReadPayloadsAsync<SafetySnapshotRelease>(
+                "SELECT PayloadJson FROM SafetySnapshotReleases WHERE SnapshotId = $id ORDER BY ReleasedAtUtc, ReleaseId",
+                [("$id", id.ToString())],
+                cancellationToken)
+            : ReadPayloadsAsync<SafetySnapshotRelease>(
+                "SELECT PayloadJson FROM SafetySnapshotReleases ORDER BY ReleasedAtUtc, ReleaseId",
+                [],
+                cancellationToken);
 
     public Task<IReadOnlyList<StorageReplica>> GetStorageReplicasAsync(
         RepresentationId representationId,
@@ -584,6 +606,19 @@ public sealed class HistoryIndex : IDisposable
                 Execute(connection, transaction,
                     "INSERT INTO MigrationRecords VALUES($id,$payload)",
                     ("$id", item.RecordId.ToString()), ("$payload", payloadJson));
+                break;
+            case SafetySnapshot item:
+                Execute(connection, transaction,
+                    "INSERT INTO SafetySnapshots VALUES($id,$checkpoint,$created,$reason,$payload)",
+                    ("$id", item.SnapshotId.ToString()), ("$checkpoint", item.CheckpointId.ToString()),
+                    ("$created", Utc(item.CreatedAtUtc)), ("$reason", (int)item.Reason),
+                    ("$payload", payloadJson));
+                break;
+            case SafetySnapshotRelease item:
+                Execute(connection, transaction,
+                    "INSERT INTO SafetySnapshotReleases VALUES($id,$snapshot,$released,$payload)",
+                    ("$id", item.ReleaseId.ToString()), ("$snapshot", item.SnapshotId.ToString()),
+                    ("$released", Utc(item.ReleasedAtUtc)), ("$payload", payloadJson));
                 break;
         }
     }

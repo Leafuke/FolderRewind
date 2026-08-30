@@ -240,6 +240,30 @@ public readonly record struct LegacyMigrationRecordId : IHistoryGuidId<LegacyMig
 }
 public sealed class LegacyMigrationRecordIdJsonConverter : HistoryGuidIdJsonConverter<LegacyMigrationRecordId>;
 
+[JsonConverter(typeof(SafetySnapshotIdJsonConverter))]
+public readonly record struct SafetySnapshotId : IHistoryGuidId<SafetySnapshotId>
+{
+    public SafetySnapshotId(Guid value) => Value = HistoryGuidId.Require(value, nameof(value));
+    public Guid Value { get; }
+    public static SafetySnapshotId New() => new(Guid.NewGuid());
+    public static SafetySnapshotId Parse(string value) => new(HistoryGuidId.Parse(value, nameof(value)));
+    public static SafetySnapshotId FromGuid(Guid value) => new(HistoryGuidId.Require(value, nameof(value)));
+    public override string ToString() => Value.ToString("N", CultureInfo.InvariantCulture);
+}
+public sealed class SafetySnapshotIdJsonConverter : HistoryGuidIdJsonConverter<SafetySnapshotId>;
+
+[JsonConverter(typeof(SafetySnapshotReleaseIdJsonConverter))]
+public readonly record struct SafetySnapshotReleaseId : IHistoryGuidId<SafetySnapshotReleaseId>
+{
+    public SafetySnapshotReleaseId(Guid value) => Value = HistoryGuidId.Require(value, nameof(value));
+    public Guid Value { get; }
+    public static SafetySnapshotReleaseId New() => new(Guid.NewGuid());
+    public static SafetySnapshotReleaseId Parse(string value) => new(HistoryGuidId.Parse(value, nameof(value)));
+    public static SafetySnapshotReleaseId FromGuid(Guid value) => new(HistoryGuidId.Require(value, nameof(value)));
+    public override string ToString() => Value.ToString("N", CultureInfo.InvariantCulture);
+}
+public sealed class SafetySnapshotReleaseIdJsonConverter : HistoryGuidIdJsonConverter<SafetySnapshotReleaseId>;
+
 [JsonConverter(typeof(PackIdJsonConverter))]
 public readonly record struct PackId : IHistoryGuidId<PackId>
 {
