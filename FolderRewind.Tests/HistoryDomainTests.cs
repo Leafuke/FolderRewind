@@ -7,6 +7,15 @@ namespace FolderRewind.Tests;
 public sealed class HistoryDomainTests
 {
     [TestMethod]
+    public void DeterministicHistoryIdHasStableDomainSeparatedVector()
+    {
+        var id = DeterministicHistoryId.Create("test-domain/v1", ["alpha", "β", string.Empty]);
+
+        Assert.AreEqual(Guid.Parse("72c6e9c1-3be7-533e-9aca-15b68a41ab92"), id);
+        Assert.AreNotEqual(id, DeterministicHistoryId.Create("another-domain/v1", ["alpha", "β", string.Empty]));
+    }
+
+    [TestMethod]
     public void StrongIds_RoundTripAsCanonicalStrings()
     {
         var id = VersionId.New();

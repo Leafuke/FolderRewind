@@ -21,10 +21,20 @@ public static class HistoryDomainValidator
     public static void ValidateNative(BranchUpdate update)
     {
         ArgumentNullException.ThrowIfNull(update);
-        if (update.ParentUpdateIds.Length > 1)
+        if (update.ParentUpdateIds.Length > 1 && update.Reason != BranchUpdateReason.Reconciled)
         {
             throw new HistoryDomainValidationException(
                 "Native BranchUpdate creation is single-parent in the current format stage.");
+        }
+        if (update.Reason == BranchUpdateReason.Reconciled)
+        {
+            if (update.ParentUpdateIds.Length < 2)
+                throw new HistoryDomainValidationException("A reconciliation update requires at least two parents.");
+            var ordered = update.ParentUpdateIds
+                .OrderBy(item => item.ToString(), StringComparer.Ordinal)
+                .ToArray();
+            if (!ordered.SequenceEqual(update.ParentUpdateIds))
+                throw new HistoryDomainValidationException("Reconciliation parents must use canonical ordinal order.");
         }
     }
 

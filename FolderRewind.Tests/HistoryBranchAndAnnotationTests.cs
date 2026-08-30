@@ -184,6 +184,93 @@ public sealed class HistoryBranchAndAnnotationTests
     }
 
     [TestMethod]
+    public async Task EquivalentTipsReconcileToSameDeterministicFactOnTwoRepositories()
+    {
+        await using var firstRuntime = await CreateRuntimeAsync("reconcile-first");
+        await using var secondRuntime = await CreateRuntimeAsync("reconcile-second");
+        var sourceId = SourceId.New();
+        var version = new SourceVersion(
+            VersionId.New(), _configId, sourceId, [], DateTimeOffset.UtcNow, null,
+            CaptureScope.FullSource, CaptureOutcome.Captured, [],
+            new SourceDescriptorSnapshot("source", "C:\\source"), null,
+            HistoryProvenance.Native("test"));
+        var checkpoint = new ConfigurationCheckpoint(
+            CheckpointId.New(), _configId, DateTimeOffset.UtcNow, null, HistoryProvenance.Native("test"),
+            [new CheckpointSource(sourceId, version.SourceDescriptorSnapshot, version.VersionId, CheckpointSourceDisposition.Captured)]);
+        var branchId = BranchId.New();
+        var earlier = new BranchUpdate(
+            BranchUpdateId.New(), branchId, [], "main", checkpoint.CheckpointId, false,
+            DateTimeOffset.UtcNow.AddSeconds(-1), BranchUpdateReason.Backup);
+        var later = new BranchUpdate(
+            BranchUpdateId.New(), branchId, [], "main", checkpoint.CheckpointId, false,
+            DateTimeOffset.UtcNow, BranchUpdateReason.Backup);
+        await CommitFactsAsync(firstRuntime, version, checkpoint, earlier, later);
+        await CommitFactsAsync(secondRuntime, version, checkpoint, earlier, later);
+
+        var first = await new HistoryBranchReconciliationService(firstRuntime).ReconcileAsync(
+            branchId, [later.UpdateId, earlier.UpdateId]);
+        var second = await new HistoryBranchReconciliationService(secondRuntime).ReconcileAsync(
+            branchId, [earlier.UpdateId, later.UpdateId]);
+
+        var firstObject = _codec.CreateObject(first.BranchUpdate);
+        var secondObject = _codec.CreateObject(second.BranchUpdate);
+        Assert.AreEqual(firstObject.Id, secondObject.Id);
+        Assert.AreEqual(firstObject.PayloadHash, secondObject.PayloadHash);
+        CollectionAssert.AreEqual(firstObject.CanonicalPayload, secondObject.CanonicalPayload);
+        Assert.AreEqual(later.CreatedAtUtc, first.BranchUpdate.CreatedAtUtc);
+        Assert.AreEqual(BranchUpdateReason.Reconciled, first.BranchUpdate.Reason);
+        Assert.HasCount(1, await firstRuntime.Query.GetBranchTipsAsync(branchId));
+        CollectionAssert.AreEqual(
+            new[] { earlier.UpdateId, later.UpdateId }.OrderBy(item => item.ToString(), StringComparer.Ordinal).ToArray(),
+            first.BranchUpdate.ParentUpdateIds.ToArray());
+    }
+
+    [TestMethod]
+    public async Task NonEquivalentReconciliationRequiresWinnerAndRejectsStaleTipSet()
+    {
+        await using var runtime = await CreateRuntimeAsync("reconcile-non-equivalent");
+        var firstCheckpoint = CheckpointId.New();
+        var secondCheckpoint = CheckpointId.New();
+        var branchId = BranchId.New();
+        var first = new BranchUpdate(
+            BranchUpdateId.New(), branchId, [], "main", firstCheckpoint, false,
+            DateTimeOffset.UtcNow.AddSeconds(-1), BranchUpdateReason.Backup);
+        var second = new BranchUpdate(
+            BranchUpdateId.New(), branchId, [], "main", secondCheckpoint, false,
+            DateTimeOffset.UtcNow, BranchUpdateReason.Backup);
+        var source = SourceId.New();
+        var version = new SourceVersion(
+            VersionId.New(), _configId, source, [], DateTimeOffset.UtcNow, null,
+            CaptureScope.FullSource, CaptureOutcome.Captured, [],
+            new SourceDescriptorSnapshot("source", "source"), null, HistoryProvenance.Native("test"));
+        var checkpointOne = new ConfigurationCheckpoint(
+            firstCheckpoint, _configId, DateTimeOffset.UtcNow, null, HistoryProvenance.Native("test"),
+            [new CheckpointSource(source, version.SourceDescriptorSnapshot, version.VersionId, CheckpointSourceDisposition.Captured)]);
+        var checkpointTwo = new ConfigurationCheckpoint(
+            secondCheckpoint, _configId, DateTimeOffset.UtcNow, null, HistoryProvenance.Native("test"),
+            [new CheckpointSource(source, version.SourceDescriptorSnapshot, version.VersionId, CheckpointSourceDisposition.Captured)]);
+        await CommitFactsAsync(runtime, version, checkpointOne, checkpointTwo, first, second);
+        var service = new HistoryBranchReconciliationService(runtime);
+
+        await Assert.ThrowsExactlyAsync<HistoryBranchCommandException>(
+            () => service.ReconcileAsync(branchId, [first.UpdateId, second.UpdateId]));
+        var third = new BranchUpdate(
+            BranchUpdateId.New(), branchId, [], "main", firstCheckpoint, false,
+            DateTimeOffset.UtcNow.AddSeconds(1), BranchUpdateReason.Backup);
+        await CommitFactsAsync(runtime, third);
+        await Assert.ThrowsExactlyAsync<HistoryBranchCommandException>(
+            () => service.ReconcileAsync(
+                branchId,
+                [first.UpdateId, second.UpdateId],
+                selectedWinnerTipId: second.UpdateId));
+        var reconciled = await service.ReconcileAsync(
+            branchId,
+            [first.UpdateId, second.UpdateId, third.UpdateId],
+            selectedWinnerTipId: second.UpdateId);
+        Assert.AreEqual(secondCheckpoint, reconciled.BranchUpdate.TargetCheckpointId);
+    }
+
+    [TestMethod]
     public void BranchProjectionReportsCloudNameCollisionWithoutDroppingEitherBranch()
     {
         var first = new BranchUpdate(
@@ -333,11 +420,11 @@ public sealed class HistoryBranchAndAnnotationTests
         return (snapshot, sourceId, batch);
     }
 
-    private async Task<HistoryRuntime> CreateRuntimeAsync()
+    private async Task<HistoryRuntime> CreateRuntimeAsync(string repositoryName = "repository")
     {
         var repository = new FileHistoryRepository(
             _configId,
-            new HistoryRepositoryPaths(Path.Combine(_root, "repository")));
+            new HistoryRepositoryPaths(Path.Combine(_root, repositoryName)));
         var runtime = new HistoryRuntime(repository);
         await runtime.InitializeAsync();
         return runtime;

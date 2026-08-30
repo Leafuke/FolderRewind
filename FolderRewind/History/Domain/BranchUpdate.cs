@@ -12,7 +12,8 @@ public enum BranchUpdateReason
     BackupFromHistoricalState = 2,
     Renamed = 3,
     Deleted = 4,
-    Migration = 5
+    Migration = 5,
+    Reconciled = 6
 }
 
 public sealed record BranchUpdate

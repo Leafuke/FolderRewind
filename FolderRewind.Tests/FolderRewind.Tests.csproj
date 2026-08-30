@@ -107,6 +107,7 @@
     <Compile Include="..\FolderRewind\History\Application\HistoryBranchProjection.cs" Link="Source\History\Application\HistoryBranchProjection.cs" />
     <Compile Include="..\FolderRewind\History\Application\HistoryCommandCommitter.cs" Link="Source\History\Application\HistoryCommandCommitter.cs" />
     <Compile Include="..\FolderRewind\History\Application\HistoryBranchService.cs" Link="Source\History\Application\HistoryBranchService.cs" />
+    <Compile Include="..\FolderRewind\History\Application\HistoryBranchReconciliationService.cs" Link="Source\History\Application\HistoryBranchReconciliationService.cs" />
     <Compile Include="..\FolderRewind\History\Application\HistoryAnnotationService.cs" Link="Source\History\Application\HistoryAnnotationService.cs" />
     <Compile Include="..\FolderRewind\History\Application\MaterializationPolicyService.cs" Link="Source\History\Application\MaterializationPolicyService.cs" />
     <Compile Include="..\FolderRewind\History\Application\HistoryRestoreModels.cs" Link="Source\History\Application\HistoryRestoreModels.cs" />

@@ -105,7 +105,9 @@ public sealed class HistoryRepositoryValidator
 
             foreach (var parentId in update.ParentUpdateIds)
             {
-                _ = Require(branchUpdates, parentId, "BranchUpdate parent");
+                var parent = Require(branchUpdates, parentId, "BranchUpdate parent");
+                if (update.Reason == BranchUpdateReason.Reconciled && parent.BranchId != update.BranchId)
+                    throw Invalid("Reconciliation parents must belong to the reconciled Branch.");
             }
         }
 
