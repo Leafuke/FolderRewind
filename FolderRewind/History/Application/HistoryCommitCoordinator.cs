@@ -71,6 +71,12 @@ public sealed record HistoryBranchCreationIntent
     public string Name { get; }
 }
 
+public enum HistoryCommitIntent
+{
+    AdvanceBranch = 0,
+    IndependentRecoveryPoint = 1
+}
+
 public sealed record HistoryCommitRequest
 {
     public HistoryCommitRequest(
@@ -78,12 +84,15 @@ public sealed record HistoryCommitRequest
         HistoryBackupInvocation invocation,
         HistoryWorkspace? expectedWorkspace,
         IEnumerable<SourceCaptureResult> sourceCaptureResults,
-        HistoryBranchCreationIntent? branchCreationIntent = null)
+        HistoryBranchCreationIntent? branchCreationIntent = null,
+        HistoryCommitIntent intent = HistoryCommitIntent.AdvanceBranch,
+        IEnumerable<SourceId>? affectedSourceIds = null)
     {
         ConfigSnapshot = configSnapshot ?? throw new ArgumentNullException(nameof(configSnapshot));
         Invocation = invocation ?? throw new ArgumentNullException(nameof(invocation));
         ExpectedWorkspace = expectedWorkspace;
         BranchCreationIntent = branchCreationIntent;
+        Intent = intent;
         SourceCaptureResults = sourceCaptureResults is null
             ? throw new ArgumentNullException(nameof(sourceCaptureResults))
             : [.. sourceCaptureResults];
@@ -95,6 +104,19 @@ public sealed record HistoryCommitRequest
         {
             throw new ArgumentException("Backup commit contains duplicate Source results.", nameof(sourceCaptureResults));
         }
+        AffectedSourceIds = affectedSourceIds is null
+            ? [.. SourceCaptureResults.Select(result => result.SourceId)]
+            : [.. affectedSourceIds.Distinct()];
+        if (!AffectedSourceIds.ToHashSet().SetEquals(SourceCaptureResults.Select(result => result.SourceId)))
+        {
+            throw new ArgumentException(
+                "Affected Source roster must exactly match the supplied capture results.",
+                nameof(affectedSourceIds));
+        }
+        if (Intent == HistoryCommitIntent.IndependentRecoveryPoint && BranchCreationIntent is not null)
+        {
+            throw new ArgumentException("An independent recovery point cannot create a Branch.", nameof(branchCreationIntent));
+        }
     }
 
     public HistoryConfigSnapshot ConfigSnapshot { get; }
@@ -102,6 +124,8 @@ public sealed record HistoryCommitRequest
     public HistoryWorkspace? ExpectedWorkspace { get; }
     public ImmutableArray<SourceCaptureResult> SourceCaptureResults { get; }
     public HistoryBranchCreationIntent? BranchCreationIntent { get; }
+    public HistoryCommitIntent Intent { get; }
+    public ImmutableArray<SourceId> AffectedSourceIds { get; }
 }
 
 public sealed record HistoryCommitBatch(
@@ -291,6 +315,20 @@ public sealed class HistoryCommitCoordinator
         var baselineMap = workspace?.SourceBaselines.ToDictionary(item => item.SourceId)
             ?? new Dictionary<SourceId, WorkspaceSourceBaseline>();
         var resultMap = request.SourceCaptureResults.ToDictionary(result => result.SourceId);
+        if (request.Intent == HistoryCommitIntent.IndependentRecoveryPoint)
+        {
+            var configuredSources = request.ConfigSnapshot.Sources.Select(source => source.SourceId).ToHashSet();
+            if (!configuredSources.SetEquals(request.AffectedSourceIds)
+                || request.SourceCaptureResults.Any(result => result.Outcome is
+                    SourceCaptureOutcome.Unavailable
+                    or SourceCaptureOutcome.Failed
+                    or SourceCaptureOutcome.Canceled
+                    or SourceCaptureOutcome.Blocked))
+            {
+                throw new HistoryCommitConflictException(
+                    "An independent recovery point requires a reliable Exact result for every configured Source.");
+            }
+        }
         var currentBranch = await ResolveCurrentBranchAsync(workspace, cancellationToken).ConfigureAwait(false);
         var currentCheckpoint = currentBranch?.TargetCheckpointId is { } checkpointId
             ? await _runtime.Query.GetCheckpointAsync(checkpointId, cancellationToken).ConfigureAwait(false)
@@ -444,6 +482,15 @@ public sealed class HistoryCommitCoordinator
                 }
             }
 
+            if (request.Intent == HistoryCommitIntent.IndependentRecoveryPoint
+                && capture?.Outcome != SourceCaptureOutcome.Captured
+                && finalVersionId is { } recoveryVersionId
+                && !await HasDeclaredExactClosureAsync(recoveryVersionId, cancellationToken).ConfigureAwait(false))
+            {
+                throw new HistoryCommitConflictException(
+                    $"Recovery Source {source.SourceId} has no declared Exact representation closure.");
+            }
+
             checkpointSources.Add(new CheckpointSource(
                 source.SourceId,
                 source.Descriptor,
@@ -482,7 +529,7 @@ public sealed class HistoryCommitCoordinator
         BranchUpdate? branchUpdate = null;
         HistoryWorkspace? updatedWorkspace = null;
         var branchTargetCheckpoint = checkpoint ?? (request.BranchCreationIntent is not null ? currentCheckpoint : null);
-        if (branchTargetCheckpoint is not null)
+        if (branchTargetCheckpoint is not null && request.Intent == HistoryCommitIntent.AdvanceBranch)
         {
             var branchId = request.BranchCreationIntent?.BranchId
                 ?? workspace?.ActiveBranchId
@@ -512,6 +559,16 @@ public sealed class HistoryCommitCoordinator
                 checked((workspace?.StateRevision ?? HistoryWorkspaceStore.MissingRevision) + 1),
                 branchId,
                 branchUpdate.UpdateId,
+                nextBaselines);
+        }
+        else if (checkpoint is not null && request.Intent == HistoryCommitIntent.IndependentRecoveryPoint)
+        {
+            // 独立恢复点更新本机可靠基线，但不伪造隐藏 Branch，也不改变当前 Branch anchor。
+            updatedWorkspace = new HistoryWorkspace(
+                request.ConfigSnapshot.ConfigId,
+                checked((workspace?.StateRevision ?? HistoryWorkspaceStore.MissingRevision) + 1),
+                workspace?.ActiveBranchId,
+                workspace?.ActiveBranchUpdateId,
                 nextBaselines);
         }
 
@@ -884,6 +941,38 @@ public sealed class HistoryCommitCoordinator
             throw new HistoryCommitConflictException("Workspace baseline belongs to another Config or Source.");
         }
         return version;
+    }
+
+    private async Task<bool> HasDeclaredExactClosureAsync(
+        VersionId versionId,
+        CancellationToken cancellationToken)
+    {
+        var representations = await _runtime.Query.GetAllRepresentationsAsync(cancellationToken).ConfigureAwait(false);
+        var graph = representations.ToDictionary(item => item.RepresentationId);
+        return representations
+            .Where(item => item.VersionId == versionId)
+            .Any(root => IsExact(root, new HashSet<RepresentationId>()));
+
+        bool IsExact(VersionRepresentation representation, HashSet<RepresentationId> visiting)
+        {
+            if (representation.Fidelity != MaterializationFidelity.Exact
+                || !visiting.Add(representation.RepresentationId))
+            {
+                return false;
+            }
+
+            foreach (var dependencyId in representation.DependencyRepresentationIds)
+            {
+                if (!graph.TryGetValue(dependencyId, out var dependency)
+                    || !IsExact(dependency, visiting))
+                {
+                    return false;
+                }
+            }
+
+            visiting.Remove(representation.RepresentationId);
+            return true;
+        }
     }
 
     private static BackupRunOutcome DetermineRunOutcome(

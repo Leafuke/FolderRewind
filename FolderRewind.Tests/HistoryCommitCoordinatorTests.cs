@@ -100,6 +100,31 @@ public sealed class HistoryCommitCoordinatorTests
     }
 
     [TestMethod]
+    public async Task IndependentRecoveryPointCommitsOneCheckpointWithoutAdvancingBranch()
+    {
+        await using var runtime = await CreateRuntimeAsync();
+        var first = SourceId.New();
+        var second = SourceId.New();
+        var snapshot = Snapshot(Source(first, "first"), Source(second, "second"));
+
+        var batch = await runtime.Commit.CommitAsync(Request(
+            snapshot,
+            null,
+            HistoryCommitIntent.IndependentRecoveryPoint,
+            CreateCapture(first, "first-state", -1, null),
+            CreateCapture(second, "second-state", -1, null)));
+
+        Assert.IsNotNull(batch.NewCheckpoint);
+        Assert.IsNull(batch.NewBranchUpdate);
+        Assert.HasCount(2, batch.NewVersions);
+        Assert.IsNotNull(batch.UpdatedWorkspace);
+        Assert.IsNull(batch.UpdatedWorkspace.ActiveBranchId);
+        Assert.IsNull(batch.UpdatedWorkspace.ActiveBranchUpdateId);
+        Assert.IsTrue(batch.UpdatedWorkspace.SourceBaselines.All(item =>
+            item.Relation == WorkspaceBaselineRelation.Exact));
+    }
+
+    [TestMethod]
     public async Task FinalUnverifiedPayloadIsRejectedBeforePackCommit()
     {
         await using var runtime = await CreateRuntimeAsync();
@@ -576,6 +601,13 @@ public sealed class HistoryCommitCoordinatorTests
         HistoryConfigSnapshot snapshot,
         HistoryWorkspace? workspace,
         params SourceCaptureResult[] captures)
+        => Request(snapshot, workspace, HistoryCommitIntent.AdvanceBranch, captures);
+
+    private HistoryCommitRequest Request(
+        HistoryConfigSnapshot snapshot,
+        HistoryWorkspace? workspace,
+        HistoryCommitIntent intent,
+        params SourceCaptureResult[] captures)
     {
         var now = DateTimeOffset.UtcNow;
         return new HistoryCommitRequest(
@@ -587,7 +619,9 @@ public sealed class HistoryCommitCoordinatorTests
                 BackupInvocationKind.Manual,
                 HistoryProvenance.Native("test-device")),
             workspace,
-            captures);
+            captures,
+            intent: intent,
+            affectedSourceIds: captures.Select(item => item.SourceId));
     }
 
     private SourceCaptureResult CreateCapture(
