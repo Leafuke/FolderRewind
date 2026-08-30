@@ -1,4 +1,5 @@
 using FolderRewind.History.Domain;
+using FolderRewind.History.Application;
 using FolderRewind.History.Index;
 using FolderRewind.History.LocalState;
 using FolderRewind.History.Storage;
@@ -78,6 +79,43 @@ public sealed class HistoryIndexAndLocalStateTests
         await index.RebuildAsync(await _repository.ReadAllPacksAsync());
 
         Assert.AreEqual(1, await index.GetObjectCountAsync());
+    }
+
+    [TestMethod]
+    public async Task CrossBranchParentDoesNotConsumeSourceBranchLocalTip()
+    {
+        var source = SourceId.New();
+        var version = CreateVersion(source);
+        var checkpoint = CreateCheckpoint(source, version.VersionId);
+        var experimentId = BranchId.New();
+        var mainId = BranchId.New();
+        var experimentTip = new BranchUpdate(
+            BranchUpdateId.New(), experimentId, [], "experiment", checkpoint.CheckpointId, false,
+            DateTimeOffset.UtcNow, BranchUpdateReason.Created);
+        var mainTip = new BranchUpdate(
+            BranchUpdateId.New(), mainId, [experimentTip.UpdateId], "main", checkpoint.CheckpointId, false,
+            DateTimeOffset.UtcNow.AddSeconds(1), BranchUpdateReason.Backup);
+        await _repository.CommitAsync(CreatePack(version, checkpoint, experimentTip, mainTip));
+        using var index = new HistoryIndex(
+            Path.Combine(_repository.Paths.IndexRoot, "history-index.db"),
+            _codec);
+
+        await index.RebuildAsync(await _repository.ReadAllPacksAsync());
+
+        CollectionAssert.AreEqual(
+            new[] { experimentTip.UpdateId },
+            (await index.GetBranchTipsAsync(experimentId)).ToArray());
+        CollectionAssert.AreEqual(
+            new[] { mainTip.UpdateId },
+            (await index.GetBranchTipsAsync(mainId)).ToArray());
+        var updates = new[] { experimentTip, mainTip };
+        CollectionAssert.AreEqual(
+            new[] { mainTip.UpdateId },
+            HistoryBranchProjection.LocalLineage(mainTip, updates).Select(item => item.UpdateId).ToArray());
+        Assert.IsTrue(HistoryBranchProjection.IsGlobalAncestor(
+            experimentTip.UpdateId,
+            mainTip.UpdateId,
+            updates));
     }
 
     [TestMethod]

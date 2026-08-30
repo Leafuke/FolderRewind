@@ -504,8 +504,11 @@ public sealed class HistoryIndex : IDisposable
             SELECT updateRow.BranchId, updateRow.UpdateId
             FROM BranchUpdates updateRow
             WHERE NOT EXISTS(
-                SELECT 1 FROM BranchUpdateParents parentRow
-                WHERE parentRow.ParentUpdateId = updateRow.UpdateId)
+                SELECT 1
+                FROM BranchUpdateParents parentRow
+                JOIN BranchUpdates childRow ON childRow.UpdateId = parentRow.UpdateId
+                WHERE parentRow.ParentUpdateId = updateRow.UpdateId
+                  AND childRow.BranchId = updateRow.BranchId)
             """);
         transaction.Commit();
         using var verify = connection.CreateCommand();

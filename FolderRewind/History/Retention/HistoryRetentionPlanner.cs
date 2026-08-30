@@ -540,8 +540,7 @@ public sealed class HistoryRetentionPlanner
         }
         foreach (var id in operationRepresentations.OrderBy(item => item.ToString(), StringComparer.Ordinal))
             text.Append("o:").Append(id).AppendLine();
-        var branchParentIds = branchUpdates.SelectMany(item => item.ParentUpdateIds).ToHashSet();
-        foreach (var tip in branchUpdates.Where(item => !branchParentIds.Contains(item.UpdateId))
+        foreach (var tip in HistoryBranchProjection.FindLocalTips(branchUpdates)
                      .OrderBy(item => item.UpdateId.ToString(), StringComparer.Ordinal))
             text.Append("b:").Append(tip.UpdateId).AppendLine();
         foreach (var group in annotations

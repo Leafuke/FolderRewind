@@ -105,11 +105,7 @@ public sealed class HistoryRepositoryValidator
 
             foreach (var parentId in update.ParentUpdateIds)
             {
-                var parent = Require(branchUpdates, parentId, "BranchUpdate parent");
-                if (parent.BranchId != update.BranchId)
-                {
-                    throw Invalid("BranchUpdate parent must belong to the same BranchId.");
-                }
+                _ = Require(branchUpdates, parentId, "BranchUpdate parent");
             }
         }
 

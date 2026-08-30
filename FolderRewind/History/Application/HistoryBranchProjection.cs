@@ -30,9 +30,7 @@ public static class HistoryBranchProjection
     {
         ArgumentNullException.ThrowIfNull(updates);
         var all = updates.ToImmutableArray();
-        var parentIds = all.SelectMany(update => update.ParentUpdateIds).ToHashSet();
-        var branchTips = all
-            .Where(update => !parentIds.Contains(update.UpdateId))
+        var branchTips = FindLocalTips(all)
             .GroupBy(update => update.BranchId)
             .ToDictionary(
                 group => group.Key,
@@ -67,6 +65,59 @@ public static class HistoryBranchProjection
                 collidingIds.Contains(pair.Key)))
             .ToImmutableArray();
         return new HistoryBranchQueryResult(branches, collisionGroups);
+    }
+
+    public static ImmutableArray<BranchUpdate> FindLocalTips(IEnumerable<BranchUpdate> updates)
+    {
+        ArgumentNullException.ThrowIfNull(updates);
+        var all = updates.ToImmutableArray();
+        var consumed = all
+            .SelectMany(child => child.ParentUpdateIds.Select(parentId => (child.BranchId, parentId)))
+            .ToHashSet();
+        // Branch ownership 与全局祖先关系不同：只有同 Branch child 才能消费 local tip。
+        return all
+            .Where(update => !consumed.Contains((update.BranchId, update.UpdateId)))
+            .ToImmutableArray();
+    }
+
+    public static ImmutableArray<BranchUpdate> LocalLineage(
+        BranchUpdate tip,
+        IEnumerable<BranchUpdate> updates)
+    {
+        ArgumentNullException.ThrowIfNull(tip);
+        var map = updates.ToDictionary(item => item.UpdateId);
+        var result = new List<BranchUpdate>();
+        var pending = new Stack<BranchUpdateId>();
+        pending.Push(tip.UpdateId);
+        var visited = new HashSet<BranchUpdateId>();
+        while (pending.TryPop(out var id))
+        {
+            if (!visited.Add(id) || !map.TryGetValue(id, out var update) || update.BranchId != tip.BranchId)
+                continue;
+            result.Add(update);
+            foreach (var parentId in update.ParentUpdateIds)
+                pending.Push(parentId);
+        }
+        return result.ToImmutableArray();
+    }
+
+    public static bool IsGlobalAncestor(
+        BranchUpdateId ancestorId,
+        BranchUpdateId descendantId,
+        IEnumerable<BranchUpdate> updates)
+    {
+        var map = updates.ToDictionary(item => item.UpdateId);
+        var pending = new Stack<BranchUpdateId>();
+        pending.Push(descendantId);
+        var visited = new HashSet<BranchUpdateId>();
+        while (pending.TryPop(out var id))
+        {
+            if (!visited.Add(id)) continue;
+            if (id == ancestorId) return true;
+            if (map.TryGetValue(id, out var update))
+                foreach (var parentId in update.ParentUpdateIds) pending.Push(parentId);
+        }
+        return false;
     }
 }
 
