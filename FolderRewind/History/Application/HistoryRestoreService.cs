@@ -95,7 +95,7 @@ public sealed class HistoryRestoreService
                     checkpointSource.VersionId.Value,
                     cancellationToken).ConfigureAwait(false)
                     ?? throw new InvalidOperationException("Checkpoint SourceVersion is missing.");
-                var effectiveMode = EffectiveApplyMode(version, requestedMode);
+                var effectiveMode = requestedMode;
                 prepared.Add(await PrepareSourceAsync(
                     version,
                     binding,
@@ -154,7 +154,7 @@ public sealed class HistoryRestoreService
         PreparedRestoreSource prepared;
         try
         {
-            var effectiveMode = EffectiveApplyMode(version, requestedMode);
+            var effectiveMode = requestedMode;
             prepared = await PrepareSourceAsync(
                 version,
                 source,
@@ -392,17 +392,10 @@ public sealed class HistoryRestoreService
     private static HistoryRestoreResult Blocked(string diagnostic)
         => new(HistoryRestoreStatus.Blocked, diagnostic, false, []);
 
-    private static HistoryRestoreApplyMode EffectiveApplyMode(
-        SourceVersion version,
-        HistoryRestoreApplyMode requestedMode)
-        => version.CaptureScope == CaptureScope.PartialSource
-            ? HistoryRestoreApplyMode.Overwrite
-            : requestedMode;
-
     private static MaterializationFidelity RequiredFidelity(HistoryRestoreApplyMode applyMode)
         => applyMode == HistoryRestoreApplyMode.Clean
             ? MaterializationFidelity.Exact
-            : MaterializationFidelity.Overlay;
+            : MaterializationFidelity.Partial;
 
     internal sealed record PreparedRestoreSource(
         HistoryRestoreSourceBinding Binding,

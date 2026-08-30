@@ -86,7 +86,8 @@ public sealed class HistoryCommitCoordinatorTests
             },
             baseline: null,
             dependencies: [],
-            consecutiveSmartCaptures: 0);
+            consecutiveSmartCaptures: 0,
+            fidelity: MaterializationFidelity.Exact);
 
         var batch = await runtime.Commit.CommitAsync(Request(
             Snapshot(Source(sourceId, "source-a")),
@@ -569,7 +570,7 @@ public sealed class HistoryCommitCoordinatorTests
                 RepresentationKind.CoreFull,
                 "7z",
                 dependencyRepresentationIds: [],
-                RestoreStrategy.Exact,
+                MaterializationFidelity.Exact,
                 logicalSha256: null,
                 stateFingerprint: fingerprint,
                 metadata: null),

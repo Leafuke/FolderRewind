@@ -45,7 +45,7 @@ public sealed class HistoryIndex : IDisposable
         CREATE TABLE Objects(Kind TEXT NOT NULL, ObjectId TEXT NOT NULL, SchemaVersion INTEGER NOT NULL, PayloadHash TEXT NOT NULL, PackId TEXT NOT NULL, IsSupported INTEGER NOT NULL, PayloadJson TEXT NOT NULL, PRIMARY KEY(Kind, ObjectId));
         CREATE TABLE Versions(VersionId TEXT PRIMARY KEY, ConfigId TEXT NOT NULL, SourceId TEXT NOT NULL, CreatedAtUtc TEXT NOT NULL, CaptureScope INTEGER NOT NULL, Outcome INTEGER NOT NULL, PayloadJson TEXT NOT NULL);
         CREATE TABLE VersionParents(VersionId TEXT NOT NULL, ParentVersionId TEXT NOT NULL, Ordinal INTEGER NOT NULL, PRIMARY KEY(VersionId, Ordinal));
-        CREATE TABLE Representations(RepresentationId TEXT PRIMARY KEY, VersionId TEXT NOT NULL, Kind INTEGER NOT NULL, Format TEXT NOT NULL, RestoreStrategy INTEGER NOT NULL, PayloadJson TEXT NOT NULL);
+        CREATE TABLE Representations(RepresentationId TEXT PRIMARY KEY, VersionId TEXT NOT NULL, Kind INTEGER NOT NULL, Format TEXT NOT NULL, Fidelity INTEGER NOT NULL, PayloadJson TEXT NOT NULL);
         CREATE TABLE RepresentationDependencies(RepresentationId TEXT NOT NULL, DependencyRepresentationId TEXT NOT NULL, Ordinal INTEGER NOT NULL, PRIMARY KEY(RepresentationId, Ordinal));
         CREATE TABLE Checkpoints(CheckpointId TEXT PRIMARY KEY, ConfigId TEXT NOT NULL, CreatedAtUtc TEXT NOT NULL, CreatedByRunId TEXT NULL, PayloadJson TEXT NOT NULL);
         CREATE TABLE CheckpointSources(CheckpointId TEXT NOT NULL, SourceId TEXT NOT NULL, VersionId TEXT NULL, Disposition INTEGER NOT NULL, Ordinal INTEGER NOT NULL, PRIMARY KEY(CheckpointId, SourceId));
@@ -516,7 +516,7 @@ public sealed class HistoryIndex : IDisposable
                     "INSERT INTO Representations VALUES($id,$version,$kind,$format,$strategy,$payload)",
                     ("$id", item.RepresentationId.ToString()), ("$version", item.VersionId.ToString()),
                     ("$kind", (int)item.Kind), ("$format", item.Format),
-                    ("$strategy", (int)item.RestoreStrategy), ("$payload", payloadJson));
+                    ("$strategy", (int)item.Fidelity), ("$payload", payloadJson));
                 InsertEdges(connection, transaction, "RepresentationDependencies", "RepresentationId", item.RepresentationId.ToString(), "DependencyRepresentationId", item.DependencyRepresentationIds.Select(id => id.ToString()));
                 break;
             case ConfigurationCheckpoint item:

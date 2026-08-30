@@ -103,7 +103,7 @@ public sealed class HistoryRetentionExecutor
                     RepresentationKind.CoreFull,
                     payload.Format,
                     [],
-                    RestoreStrategy.Exact,
+                    MaterializationFidelity.Exact,
                     payload.LogicalSha256,
                     payload.StateFingerprint ?? version.StateFingerprint,
                     payload.Metadata);

@@ -377,7 +377,7 @@ public sealed class HistoryBranchAndAnnotationTests
             fingerprint,
             null,
             new RepresentationCandidate(
-                representationId, RepresentationKind.CoreFull, "7z", [], RestoreStrategy.Exact,
+                representationId, RepresentationKind.CoreFull, "7z", [], MaterializationFidelity.Exact,
                 null, fingerprint, null),
             new LocalReplicaCandidate(
                 LocalReplicaId.New(), representationId, LocalReplicaLocator.ControlledAbsolute(path),

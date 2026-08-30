@@ -56,7 +56,7 @@ public static partial class BackupService
                 }
 
                 var local = representations
-                    .Where(item => item.VersionId == versionId && item.RestoreStrategy == RestoreStrategy.Exact)
+                    .Where(item => item.VersionId == versionId && item.Fidelity == MaterializationFidelity.Exact)
                     .SelectMany(representation => (catalog?.Entries ?? [])
                         .Where(entry => entry.RepresentationId == representation.RepresentationId
                             && entry.Locator.Kind == LocalReplicaLocatorKind.ControlledAbsolutePath)

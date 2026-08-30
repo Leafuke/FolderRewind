@@ -73,7 +73,7 @@ public sealed class HistoryArchiveRecoveryService
         var representation = new VersionRepresentation(
             RepresentationId.New(), version.VersionId, RepresentationKind.LegacyArchive,
             Path.GetExtension(path).TrimStart('.').ToLowerInvariant() is { Length: > 0 } format ? format : "7z",
-            [], overlay ? RestoreStrategy.Overlay : RestoreStrategy.Exact, null, null,
+            [], overlay ? MaterializationFidelity.Partial : MaterializationFidelity.Exact, null, null,
             new[] { new KeyValuePair<string, string>("recoveredFileName", Path.GetFileName(path)) });
         var localId = LocalReplicaId.New();
         var revision = load.Value?.CatalogRevision ?? LocalReplicaCatalogStore.MissingRevision;

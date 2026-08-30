@@ -727,7 +727,7 @@ public sealed class HistoryCommitCoordinator
             throw new HistoryCommitConflictException("Native History accepts only verified final payloads.");
         }
         if (capture.CaptureScope == CaptureScope.FullSource
-            && capture.RepresentationCandidate.RestoreStrategy != RestoreStrategy.Exact)
+            && capture.RepresentationCandidate.Fidelity != MaterializationFidelity.Exact)
         {
             throw new HistoryCommitConflictException("A FullSource capture requires an Exact representation.");
         }

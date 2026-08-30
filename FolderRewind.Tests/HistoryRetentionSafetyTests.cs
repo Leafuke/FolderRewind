@@ -41,10 +41,10 @@ public sealed class HistoryRetentionSafetyTests
         var currentVersion = Version(configId, sourceId, [baseVersion.VersionId], "current");
         var full = new VersionRepresentation(
             RepresentationId.New(), baseVersion.VersionId, RepresentationKind.CoreFull, "test", [],
-            RestoreStrategy.Exact, null, null, null);
+            MaterializationFidelity.Exact, null, null, null);
         var smart = new VersionRepresentation(
             RepresentationId.New(), currentVersion.VersionId, RepresentationKind.CoreSmartDelta, "test",
-            [full.RepresentationId], RestoreStrategy.Exact, null, null, null);
+            [full.RepresentationId], MaterializationFidelity.Exact, null, null, null);
         var checkpoint = new ConfigurationCheckpoint(
             CheckpointId.New(), configId, DateTimeOffset.UtcNow, null, HistoryProvenance.Native("test"),
             [new CheckpointSource(

@@ -20,13 +20,6 @@ public enum HistoryReadiness
     Unavailable = 3
 }
 
-public enum MaterializationFidelity
-{
-    Exact = 0,
-    Overlay = 1,
-    Unknown = 2
-}
-
 public enum RepresentationEvidenceKind
 {
     LocalReplica = 0,
@@ -76,4 +69,3 @@ public sealed record VersionAssessment(
     HistoryReadiness Readiness,
     RepresentationAssessment? Selected,
     ImmutableArray<RepresentationAssessment> Candidates);
-

@@ -59,7 +59,7 @@ public class CoreArchiveRepresentationHandler : IRepresentationHandler
         RepresentationAssessmentContext context,
         CancellationToken cancellationToken)
     {
-        var fidelity = GetFidelity(context.Representation);
+        var fidelity = GetEffectiveFidelity(context);
         var localCandidates = context.Environment.GetLocalCandidates(context.Representation.RepresentationId);
         foreach (var local in localCandidates.Where(item => item.Availability == ReplicaAvailabilityObservation.Available))
         {
@@ -130,7 +130,7 @@ public class CoreArchiveRepresentationHandler : IRepresentationHandler
                 return new RepresentationAssessment(
                     context.Representation.RepresentationId,
                     HistoryReadiness.Blocked,
-                    GetFidelity(context.Representation),
+                    GetEffectiveFidelity(context),
                     [],
                     [$"Dependency '{dependencyId}' is missing from the assessment graph."]);
             }
@@ -140,7 +140,7 @@ public class CoreArchiveRepresentationHandler : IRepresentationHandler
                 return new RepresentationAssessment(
                     context.Representation.RepresentationId,
                     HistoryReadiness.PreparationRequired,
-                    GetFidelity(context.Representation),
+                    GetEffectiveFidelity(context),
                     dependency.Evidence,
                     [$"Dependency '{dependencyId}' requires preparation."]);
             }
@@ -150,7 +150,7 @@ public class CoreArchiveRepresentationHandler : IRepresentationHandler
                 return new RepresentationAssessment(
                     context.Representation.RepresentationId,
                     HistoryReadiness.Blocked,
-                    GetFidelity(context.Representation),
+                    GetEffectiveFidelity(context),
                     dependency.Evidence,
                     [$"Dependency '{dependencyId}' is not materializable."]);
             }
@@ -159,13 +159,27 @@ public class CoreArchiveRepresentationHandler : IRepresentationHandler
         return null;
     }
 
-    protected static MaterializationFidelity GetFidelity(VersionRepresentation representation)
-        => representation.RestoreStrategy switch
+    protected static MaterializationFidelity GetEffectiveFidelity(RepresentationAssessmentContext context)
+    {
+        var fidelity = context.Representation.Fidelity;
+        foreach (var dependencyId in context.Representation.DependencyRepresentationIds)
         {
-            RestoreStrategy.Exact => MaterializationFidelity.Exact,
-            RestoreStrategy.Overlay => MaterializationFidelity.Overlay,
-            _ => MaterializationFidelity.Unknown
-        };
+            if (!context.DependencyAssessments.TryGetValue(dependencyId, out var dependency))
+            {
+                return MaterializationFidelity.Unknown;
+            }
+
+            // 根表示不能掩盖依赖闭包中更弱的保真度，否则会把不可精确恢复的链误报为 Exact。
+            fidelity = Weakest(fidelity, dependency.Fidelity);
+        }
+
+        return fidelity;
+    }
+
+    private static MaterializationFidelity Weakest(
+        MaterializationFidelity left,
+        MaterializationFidelity right)
+        => (MaterializationFidelity)Math.Max((int)left, (int)right);
 
     private static RepresentationAssessment Ready(
         VersionRepresentation representation,
@@ -198,4 +212,3 @@ public sealed class SmartDeltaRepresentationHandler : CoreArchiveRepresentationH
     public override bool CanHandle(VersionRepresentation representation)
         => representation.Kind == RepresentationKind.CoreSmartDelta;
 }
-

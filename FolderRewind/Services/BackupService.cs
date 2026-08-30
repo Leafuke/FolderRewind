@@ -864,6 +864,9 @@ namespace FolderRewind.Services
                 baseline,
                 dependencies,
                 consecutiveSmartCaptures,
+                captureScope == FolderRewind.History.Domain.CaptureScope.FullSource
+                    ? MaterializationFidelity.Exact
+                    : MaterializationFidelity.Partial,
                 expectedBaseVersionId,
                 deletedFiles);
 

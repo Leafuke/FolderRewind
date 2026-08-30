@@ -39,8 +39,8 @@ public sealed class RepresentationRuntimeTests
     [TestMethod]
     public async Task DeepAssessment_SelectsAlternateExactRepresentationWhenFirstIsCorrupt()
     {
-        var corrupt = CreateRepresentation(RepresentationKind.CoreFull, RestoreStrategy.Exact);
-        var good = CreateRepresentation(RepresentationKind.CoreRolling, RestoreStrategy.Exact);
+        var corrupt = CreateRepresentation(RepresentationKind.CoreFull, MaterializationFidelity.Exact);
+        var good = CreateRepresentation(RepresentationKind.CoreRolling, MaterializationFidelity.Exact);
         var corruptPath = CreateFile("corrupt.7z", "bad");
         var goodPath = CreateFile("good.7z", "good");
         _archive.CorruptPaths.Add(corruptPath);
@@ -65,7 +65,7 @@ public sealed class RepresentationRuntimeTests
     [TestMethod]
     public async Task CloudOnlyExactRepresentationRequiresExplicitPreparation()
     {
-        var representation = CreateRepresentation(RepresentationKind.CoreFull, RestoreStrategy.Exact);
+        var representation = CreateRepresentation(RepresentationKind.CoreFull, MaterializationFidelity.Exact);
         var replica = new StorageReplica(
             ReplicaId.New(), representation.RepresentationId, ReplicaProviderKind.Cloud,
             $"replicas/{Guid.NewGuid():N}/payload", 10, null, HistoryProvenance.Native("test"));
@@ -88,7 +88,7 @@ public sealed class RepresentationRuntimeTests
     {
         var delta = new VersionRepresentation(
             RepresentationId.New(), _versionId, RepresentationKind.CoreSmartDelta, "smart-v1",
-            [RepresentationId.New()], RestoreStrategy.Exact, null, null, null);
+            [RepresentationId.New()], MaterializationFidelity.Exact, null, null, null);
         var environment = Environment(Local(delta.RepresentationId, CreateFile("delta.7z", "delta")));
 
         var assessment = await _runtime.AssessVersionAsync(
@@ -103,12 +103,36 @@ public sealed class RepresentationRuntimeTests
     }
 
     [TestMethod]
+    public async Task ExactRootWithPartialDependencyCannotClaimExactClosure()
+    {
+        var dependency = new VersionRepresentation(
+            RepresentationId.New(), VersionId.New(), RepresentationKind.LegacyArchive, "test", [],
+            MaterializationFidelity.Partial, null, null, null);
+        var root = new VersionRepresentation(
+            RepresentationId.New(), _versionId, RepresentationKind.CoreSmartDelta, "test",
+            [dependency.RepresentationId], MaterializationFidelity.Exact, null, null, null);
+        var environment = Environment(
+            Local(dependency.RepresentationId, CreateFile("partial-base.7z", "base")),
+            Local(root.RepresentationId, CreateFile("exact-root.7z", "delta")));
+
+        var assessment = await _runtime.AssessVersionAsync(
+            _versionId,
+            [root, dependency],
+            environment,
+            AssessmentDepth.Fast,
+            MaterializationFidelity.Exact);
+
+        Assert.AreEqual(HistoryReadiness.Blocked, assessment.Readiness);
+        Assert.AreEqual(MaterializationFidelity.Partial, assessment.Candidates.Single().Fidelity);
+    }
+
+    [TestMethod]
     public async Task MissingPluginBlocksArtifactWithoutMutatingOrDownloading()
     {
         _plugin.PluginAvailable = false;
         var representation = new VersionRepresentation(
             RepresentationId.New(), _versionId, RepresentationKind.PluginArtifact, "plugin-v1", [],
-            RestoreStrategy.Plugin, null, null,
+            MaterializationFidelity.Exact, null, null,
             new Dictionary<string, string>
             {
                 [PluginArtifactRepresentationHandler.ArtifactRootIdMetadataKey] = Guid.NewGuid().ToString("D"),
@@ -128,29 +152,29 @@ public sealed class RepresentationRuntimeTests
     }
 
     [TestMethod]
-    public async Task ExactRequirementRejectsOverlayButOrdinaryRestoreCanSelectIt()
+    public async Task ExactRequirementRejectsPartialButOrdinaryRestoreCanSelectIt()
     {
-        var overlay = CreateRepresentation(RepresentationKind.LegacyArchive, RestoreStrategy.Overlay);
-        var environment = Environment(Local(overlay.RepresentationId, CreateFile("partial.7z", "partial")));
+        var partial = CreateRepresentation(RepresentationKind.LegacyArchive, MaterializationFidelity.Partial);
+        var environment = Environment(Local(partial.RepresentationId, CreateFile("partial.7z", "partial")));
 
         var exact = await _runtime.AssessVersionAsync(
-            _versionId, [overlay], environment, AssessmentDepth.Fast, MaterializationFidelity.Exact);
+            _versionId, [partial], environment, AssessmentDepth.Fast, MaterializationFidelity.Exact);
         var ordinary = await _runtime.AssessVersionAsync(
-            _versionId, [overlay], environment, AssessmentDepth.Fast, MaterializationFidelity.Overlay);
+            _versionId, [partial], environment, AssessmentDepth.Fast, MaterializationFidelity.Partial);
 
         Assert.AreEqual(HistoryReadiness.Blocked, exact.Readiness);
         Assert.IsNull(exact.Selected);
         Assert.AreEqual(HistoryReadiness.Ready, ordinary.Readiness);
-        Assert.AreEqual(MaterializationFidelity.Overlay, ordinary.Selected!.Fidelity);
+        Assert.AreEqual(MaterializationFidelity.Partial, ordinary.Selected!.Fidelity);
     }
 
     [TestMethod]
     public async Task SmartMaterializationPassesDependencyFirstStableRepresentationChain()
     {
-        var full = CreateRepresentation(RepresentationKind.CoreFull, RestoreStrategy.Exact);
+        var full = CreateRepresentation(RepresentationKind.CoreFull, MaterializationFidelity.Exact);
         var delta = new VersionRepresentation(
             RepresentationId.New(), _versionId, RepresentationKind.CoreSmartDelta, "smart-v1",
-            [full.RepresentationId], RestoreStrategy.Exact, null, null, null);
+            [full.RepresentationId], MaterializationFidelity.Exact, null, null, null);
         var environment = Environment(
             Local(full.RepresentationId, CreateFile("base.7z", "base")),
             Local(delta.RepresentationId, CreateFile("delta.7z", "delta")));
@@ -168,8 +192,8 @@ public sealed class RepresentationRuntimeTests
             _archive.LastMaterialization.Select(item => item.Representation.RepresentationId).ToArray());
     }
 
-    private VersionRepresentation CreateRepresentation(RepresentationKind kind, RestoreStrategy strategy)
-        => new(RepresentationId.New(), _versionId, kind, "test", [], strategy, null, null, null);
+    private VersionRepresentation CreateRepresentation(RepresentationKind kind, MaterializationFidelity fidelity)
+        => new(RepresentationId.New(), _versionId, kind, "test", [], fidelity, null, null, null);
 
     private string CreateFile(string name, string content)
     {

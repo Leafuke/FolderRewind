@@ -44,7 +44,7 @@ public sealed class SourceCaptureBaselineCacheTests
             var versionId = VersionId.New();
             var representation = new VersionRepresentation(
                 RepresentationId.New(), versionId, RepresentationKind.CoreFull, "7z", [],
-                RestoreStrategy.Exact, null, null, null);
+                MaterializationFidelity.Exact, null, null, null);
             using var cache = new SourceCaptureBaselineCache(root);
             await cache.SaveAsync(
                 sourceId,

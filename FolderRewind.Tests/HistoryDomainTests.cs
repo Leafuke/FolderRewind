@@ -41,7 +41,7 @@ public sealed class HistoryDomainTests
             [new CheckpointSource(version.SourceId, version.SourceDescriptorSnapshot, version.VersionId, CheckpointSourceDisposition.Captured)]);
         var representation = new VersionRepresentation(
             RepresentationId.New(), version.VersionId, RepresentationKind.CoreFull, "7z", [],
-            RestoreStrategy.Exact, null, null, new Dictionary<string, string> { ["b"] = "2", ["a"] = "1" });
+            MaterializationFidelity.Exact, null, null, new Dictionary<string, string> { ["b"] = "2", ["a"] = "1" });
         var replica = new StorageReplica(
             ReplicaId.New(), representation.RepresentationId, ReplicaProviderKind.Cloud,
             "replicas/object", 12, null, HistoryProvenance.Native("test"));

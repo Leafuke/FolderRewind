@@ -44,7 +44,7 @@ public sealed record RepresentationCandidate
         RepresentationKind kind,
         string format,
         IEnumerable<RepresentationId>? dependencyRepresentationIds,
-        RestoreStrategy restoreStrategy,
+        MaterializationFidelity fidelity,
         string? logicalSha256,
         string? stateFingerprint,
         IEnumerable<KeyValuePair<string, string>>? metadata,
@@ -54,7 +54,7 @@ public sealed record RepresentationCandidate
         Kind = kind;
         Format = format;
         DependencyRepresentationIds = dependencyRepresentationIds is null ? [] : [.. dependencyRepresentationIds];
-        RestoreStrategy = restoreStrategy;
+        Fidelity = fidelity;
         LogicalSha256 = logicalSha256;
         StateFingerprint = stateFingerprint;
         Metadata = metadata is null
@@ -67,7 +67,7 @@ public sealed record RepresentationCandidate
     public RepresentationKind Kind { get; }
     public string Format { get; }
     public ImmutableArray<RepresentationId> DependencyRepresentationIds { get; }
-    public RestoreStrategy RestoreStrategy { get; }
+    public MaterializationFidelity Fidelity { get; }
     public string? LogicalSha256 { get; }
     public string? StateFingerprint { get; }
     public ImmutableSortedDictionary<string, string> Metadata { get; }
@@ -86,7 +86,7 @@ public sealed record RepresentationCandidate
             Kind,
             Format,
             DependencyRepresentationIds,
-            RestoreStrategy,
+            Fidelity,
             LogicalSha256,
             StateFingerprint,
             Metadata);

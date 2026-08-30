@@ -32,7 +32,7 @@ public sealed class HistoryRuntimeTests
         var version = CreateVersion(sourceId);
         var representation = new VersionRepresentation(
             RepresentationId.New(), version.VersionId, RepresentationKind.CoreFull, "7z", [],
-            RestoreStrategy.Exact, null, null, null);
+            MaterializationFidelity.Exact, null, null, null);
         var checkpoint = new ConfigurationCheckpoint(
             CheckpointId.New(), _configId, DateTimeOffset.UtcNow.AddSeconds(1), null,
             HistoryProvenance.Native("test"),

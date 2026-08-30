@@ -27,6 +27,7 @@ public static class VerifiedArchiveCaptureFactory
         SourceCaptureBaseline? baseline,
         IEnumerable<RepresentationId> dependencies,
         int consecutiveSmartCaptures,
+        MaterializationFidelity fidelity,
         VersionId? expectedBaseVersionId = null,
         IEnumerable<string>? deletedFiles = null,
         string? stateFingerprint = null)
@@ -51,7 +52,7 @@ public static class VerifiedArchiveCaptureFactory
             kind,
             format,
             dependencies,
-            captureScope == CaptureScope.PartialSource ? RestoreStrategy.Overlay : RestoreStrategy.Exact,
+            fidelity,
             logicalSha256: null,
             stateFingerprint,
             metadata);

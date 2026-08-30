@@ -93,14 +93,14 @@ public sealed class HistoryRepositoryTests
             CultureInfo.CurrentCulture = new CultureInfo("tr-TR");
             var first = new VersionRepresentation(
                 representationId, version.VersionId, RepresentationKind.CoreFull, "7Z", [],
-                RestoreStrategy.Exact, null, null,
+                MaterializationFidelity.Exact, null, null,
                 new Dictionary<string, string> { ["z"] = "last", ["i"] = "first" });
             var firstObject = _codec.CreateObject(first);
 
             CultureInfo.CurrentCulture = new CultureInfo("fr-FR");
             var second = new VersionRepresentation(
                 representationId, version.VersionId, RepresentationKind.CoreFull, "7Z", [],
-                RestoreStrategy.Exact, null, null,
+                MaterializationFidelity.Exact, null, null,
                 new Dictionary<string, string> { ["i"] = "first", ["z"] = "last" });
             var secondObject = _codec.CreateObject(second);
 
@@ -139,7 +139,7 @@ public sealed class HistoryRepositoryTests
         var version = CreateVersion();
         var representation = new VersionRepresentation(
             RepresentationId.New(), version.VersionId, RepresentationKind.CoreFull, "7z", [],
-            RestoreStrategy.Exact, null, null, null);
+            MaterializationFidelity.Exact, null, null, null);
         var representationPack = CreatePack(_codec.CreateObject(representation));
         var versionPack = CreatePack(_codec.CreateObject(version));
 

@@ -16,7 +16,7 @@ public sealed class SourceCaptureResultTests
             RepresentationKind.CoreSmartDelta,
             "smart-v1",
             [dependencyId],
-            RestoreStrategy.Exact,
+            MaterializationFidelity.Exact,
             null,
             "fingerprint",
             null);
@@ -53,7 +53,7 @@ public sealed class SourceCaptureResultTests
             RepresentationKind.LegacyArchive,
             "7z",
             [],
-            RestoreStrategy.Overlay,
+            MaterializationFidelity.Partial,
             null,
             null,
             null,
@@ -83,7 +83,8 @@ public sealed class SourceCaptureResultTests
                 },
                 baseline: null,
                 dependencies: [],
-                consecutiveSmartCaptures: 0);
+                consecutiveSmartCaptures: 0,
+                fidelity: MaterializationFidelity.Exact);
 
             Assert.IsNull(capture.StateFingerprint);
             Assert.IsNull(capture.RepresentationCandidate!.StateFingerprint);

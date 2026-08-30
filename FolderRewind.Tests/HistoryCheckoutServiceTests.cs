@@ -108,7 +108,7 @@ public sealed class HistoryCheckoutServiceTests
     {
         var restored = await RestoreSingleVersionAsync(
             CaptureScope.FullSource,
-            RestoreStrategy.Exact,
+            MaterializationFidelity.Exact,
             HistoryRestoreApplyMode.Clean);
 
         Assert.IsTrue(restored.Result.Succeeded, restored.Result.Diagnostic);
@@ -122,7 +122,7 @@ public sealed class HistoryCheckoutServiceTests
     {
         var restored = await RestoreSingleVersionAsync(
             CaptureScope.FullSource,
-            RestoreStrategy.Exact,
+            MaterializationFidelity.Exact,
             HistoryRestoreApplyMode.Overwrite);
 
         Assert.IsTrue(restored.Result.Succeeded, restored.Result.Diagnostic);
@@ -132,22 +132,22 @@ public sealed class HistoryCheckoutServiceTests
     }
 
     [TestMethod]
-    public async Task PartialSourceForcesOverwriteWhenCleanWasRequested()
+    public async Task PartialSourceCanUseCleanWhenClosureIsExact()
     {
         var restored = await RestoreSingleVersionAsync(
             CaptureScope.PartialSource,
-            RestoreStrategy.Overlay,
+            MaterializationFidelity.Exact,
             HistoryRestoreApplyMode.Clean);
 
         Assert.IsTrue(restored.Result.Succeeded, restored.Result.Diagnostic);
-        Assert.AreEqual("old", File.ReadAllText(Path.Combine(restored.Target, "original.txt")));
+        Assert.IsFalse(File.Exists(Path.Combine(restored.Target, "original.txt")));
         Assert.AreEqual("new", File.ReadAllText(Path.Combine(restored.Target, "restored.txt")));
-        Assert.AreEqual(WorkspaceBaselineRelation.Derived, restored.Relation);
+        Assert.AreEqual(WorkspaceBaselineRelation.Exact, restored.Relation);
     }
 
     private async Task<(HistoryRestoreResult Result, string Target, WorkspaceBaselineRelation Relation)> RestoreSingleVersionAsync(
         CaptureScope captureScope,
-        RestoreStrategy restoreStrategy,
+        MaterializationFidelity fidelity,
         HistoryRestoreApplyMode requestedMode)
     {
         var configId = new HistoryConfigId(Guid.NewGuid().ToString("N"));
@@ -163,7 +163,7 @@ public sealed class HistoryCheckoutServiceTests
             new SourceDescriptorSnapshot("source", "source"), null, HistoryProvenance.Native("test"));
         var representation = new VersionRepresentation(
             RepresentationId.New(), version.VersionId, RepresentationKind.CoreFull, "test", [],
-            restoreStrategy, null, null, null);
+            fidelity, null, null, null);
         var codec = new HistoryPackCodec();
         await repository.CommitAsync(new HistoryCommitPack(
             PackId.New(), HistoryTransactionId.New(), DateTimeOffset.UtcNow,
@@ -204,7 +204,7 @@ public sealed class HistoryCheckoutServiceTests
     private static VersionRepresentation Representation(VersionId versionId)
         => new(
             RepresentationId.New(), versionId, RepresentationKind.CoreFull, "test", [],
-            RestoreStrategy.Exact, null, null, null);
+            MaterializationFidelity.Exact, null, null, null);
 
     private sealed class ExactTestRepresentationHandler : IRepresentationHandler
     {
@@ -216,9 +216,7 @@ public sealed class HistoryCheckoutServiceTests
             => ValueTask.FromResult(new RepresentationAssessment(
                 context.Representation.RepresentationId,
                 HistoryReadiness.Ready,
-                context.Representation.RestoreStrategy == RestoreStrategy.Overlay
-                    ? MaterializationFidelity.Overlay
-                    : MaterializationFidelity.Exact,
+                context.Representation.Fidelity,
                 [],
                 []));
 

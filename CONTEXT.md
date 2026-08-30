@@ -63,6 +63,10 @@ _Avoid_: Discovery selection, global whitelist, resource IDs
 A whitelist or blacklist applied across a configuration after each source scope, and therefore unable to expand a source's hard boundary.
 _Avoid_: Source scope, discovery rule
 
+**Effective Source Boundary**:
+The normalized managed file set produced by the resolved Source Scope and Config filters, including required provider policy/scope reductions; a complete capture is exact relative to this boundary, while files outside it remain unmanaged by restore.
+_Avoid_: Physical root, partial capture, one-shot selection
+
 ## History language
 
 **History Repository**:
@@ -112,6 +116,18 @@ _Avoid_: Source Version parent, checkout state, mutable branch row
 **Workspace**:
 The device-local record of the active Branch Update and per-Source baselines from which the next backup derives lineage.
 _Avoid_: Restore staging directory, shared branch state, cloud metadata
+
+**Safety Snapshot**:
+An exact, Branch-independent recovery point created before a destructive History apply; it remains retained until explicitly released and never advances the active Branch.
+_Avoid_: Hidden branch, temporary rollback copy, ordinary backup
+
+**Historical Source Binding**:
+The current Backup Config association that reinstates a historical Backup Source under its original stable Source identity at a user-confirmed path.
+_Avoid_: One-shot restore path, Source alias, path-based identity match
+
+**Quick Restore**:
+A Host-resolved intent to restore the active Source to its committed Source Version at the Workspace's unique current Branch tip; an already exact Workspace produces no change rather than selecting an older Version.
+_Avoid_: Latest by timestamp, previous-version rollback, cross-Branch latest
 
 **Materialization Policy**:
 The shared Retained or Released intent for a Source Version's recoverable materialization; it does not delete the logical Version itself.

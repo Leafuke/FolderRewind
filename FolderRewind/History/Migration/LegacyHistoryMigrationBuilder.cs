@@ -128,7 +128,7 @@ public sealed class LegacyHistoryMigrationBuilder
                         Kind(entry.BackupType),
                         Format(entry.FileName),
                         dependencies.Distinct(),
-                        entry.IsPartialBackup ? RestoreStrategy.Overlay : RestoreStrategy.Exact,
+                        entry.IsPartialBackup ? MaterializationFidelity.Partial : MaterializationFidelity.Exact,
                         null,
                         null,
                         new Dictionary<string, string>
@@ -282,7 +282,7 @@ public sealed class LegacyHistoryMigrationBuilder
             new HistoryProvenance(HistoryOrigin.LegacyMetadataRecovery, string.Empty, origin));
         var representation = new VersionRepresentation(
             LegacyHistoryMigrationIdentityV1.Representation(origin), version.VersionId,
-            RepresentationKind.LegacyArchive, Format(dependencyFile), [], RestoreStrategy.Exact,
+            RepresentationKind.LegacyArchive, Format(dependencyFile), [], MaterializationFidelity.Exact,
             null, null, new Dictionary<string, string> { ["legacyFileName"] = dependencyFile });
         versions[origin] = version;
         representations[origin] = representation;

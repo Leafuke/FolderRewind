@@ -202,7 +202,7 @@ public sealed class HistoryPresentationQueryService
         if (representations.Count == 0)
             return (HistoryPresentationReadiness.MetadataOnly, MaterializationFidelity.Unknown, null, null);
         var ordered = representations
-            .OrderBy(item => item.RestoreStrategy == RestoreStrategy.Exact ? 0 : 1)
+            .OrderBy(item => item.Fidelity == MaterializationFidelity.Exact ? 0 : 1)
             .ThenBy(item => item.RepresentationId.ToString(), StringComparer.Ordinal)
             .ToArray();
         foreach (var representation in ordered)
@@ -232,13 +232,12 @@ public sealed class HistoryPresentationQueryService
         if (policy.HasExplicitPolicy && policy.EffectiveState == MaterializationPolicyState.Released)
             return (HistoryPresentationReadiness.PayloadReleased, MaterializationFidelity.Unknown, fallback, null);
         return (HistoryPresentationReadiness.Unavailable,
-            representations.Any(item => item.RestoreStrategy == RestoreStrategy.Overlay)
-                ? MaterializationFidelity.Overlay : MaterializationFidelity.Unknown,
+            representations.Any(item => item.Fidelity == MaterializationFidelity.Partial)
+                ? MaterializationFidelity.Partial : MaterializationFidelity.Unknown,
             fallback,
             null);
     }
 
     private static MaterializationFidelity Fidelity(VersionRepresentation representation)
-        => representation.RestoreStrategy == RestoreStrategy.Overlay
-            ? MaterializationFidelity.Overlay : MaterializationFidelity.Exact;
+        => representation.Fidelity;
 }

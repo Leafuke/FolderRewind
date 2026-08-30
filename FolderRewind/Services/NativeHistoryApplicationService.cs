@@ -121,7 +121,7 @@ internal static class NativeHistoryApplicationService
         var plan = await planner.PlanAsync(
             new HistoryRetentionRequest(
                 config.Archive.KeepCount,
-                MaterializationFidelity.Overlay,
+                MaterializationFidelity.Partial,
                 HistoryRetentionOperationRoots.Empty,
                 allowPostMigrationCleanup: true),
             cancellationToken).ConfigureAwait(false);

@@ -492,7 +492,7 @@ public sealed class NativeHistoryVersionViewItem(
     public string FileName => summary.FileName ?? summary.VersionId.ToString();
     public string? LocalPath => summary.LocalPath;
     public bool IsImportant => summary.IsPinned;
-    public bool IsPartialBackup => summary.CaptureScope == CaptureScope.PartialSource || summary.Fidelity == MaterializationFidelity.Overlay;
+    public bool IsPartialBackup => summary.CaptureScope == CaptureScope.PartialSource || summary.Fidelity == MaterializationFidelity.Partial;
     public bool IsMissing => summary.Readiness is HistoryPresentationReadiness.Unavailable or HistoryPresentationReadiness.PayloadReleased or HistoryPresentationReadiness.MetadataOnly;
     public bool HasLocalFile => summary.LocalPath is not null && File.Exists(summary.LocalPath);
     public bool HasCloudCopy => summary.Readiness == HistoryPresentationReadiness.PreparationRequired;

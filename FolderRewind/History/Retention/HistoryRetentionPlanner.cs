@@ -389,7 +389,7 @@ public sealed class HistoryRetentionPlanner
     private static bool Satisfies(MaterializationFidelity actual, MaterializationFidelity required)
         => required == MaterializationFidelity.Exact
             ? actual == MaterializationFidelity.Exact
-            : actual is MaterializationFidelity.Exact or MaterializationFidelity.Overlay;
+            : actual is MaterializationFidelity.Exact or MaterializationFidelity.Partial;
 
     private static ImmutableArray<VersionRepresentation> BuildDependencyFirstClosure(
         VersionRepresentation root,

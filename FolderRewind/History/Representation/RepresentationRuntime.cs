@@ -234,8 +234,8 @@ public sealed class RepresentationRuntime
         {
             (HistoryReadiness.Ready, MaterializationFidelity.Exact) => 0,
             (HistoryReadiness.PreparationRequired, MaterializationFidelity.Exact) => 1,
-            (HistoryReadiness.Ready, MaterializationFidelity.Overlay) => 2,
-            (HistoryReadiness.PreparationRequired, MaterializationFidelity.Overlay) => 3,
+            (HistoryReadiness.Ready, MaterializationFidelity.Partial) => 2,
+            (HistoryReadiness.PreparationRequired, MaterializationFidelity.Partial) => 3,
             (HistoryReadiness.Blocked, _) => 4,
             _ => 5
         };
@@ -246,7 +246,7 @@ public sealed class RepresentationRuntime
         => required switch
         {
             MaterializationFidelity.Exact => actual == MaterializationFidelity.Exact,
-            MaterializationFidelity.Overlay => actual is MaterializationFidelity.Exact or MaterializationFidelity.Overlay,
+            MaterializationFidelity.Partial => actual is MaterializationFidelity.Exact or MaterializationFidelity.Partial,
             MaterializationFidelity.Unknown => true,
             _ => false
         };

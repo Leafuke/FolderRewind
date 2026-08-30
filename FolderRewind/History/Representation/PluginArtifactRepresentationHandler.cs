@@ -22,6 +22,7 @@ public sealed class PluginArtifactRepresentationHandler : IRepresentationHandler
         RepresentationAssessmentContext context,
         CancellationToken cancellationToken)
     {
+        var dependencyFidelity = MaterializationFidelity.Exact;
         foreach (var dependencyId in context.Representation.DependencyRepresentationIds)
         {
             if (!context.DependencyAssessments.TryGetValue(dependencyId, out var dependency)
@@ -38,6 +39,8 @@ public sealed class PluginArtifactRepresentationHandler : IRepresentationHandler
                     dependency.Evidence,
                     [$"Dependency '{dependencyId}' requires preparation."]);
             }
+
+            dependencyFidelity = Weakest(dependencyFidelity, dependency.Fidelity);
         }
 
         if (!TryGetBinding(context.Representation, out var artifactRootId, out var pluginId, out var diagnostic))
@@ -57,7 +60,7 @@ public sealed class PluginArtifactRepresentationHandler : IRepresentationHandler
             return new RepresentationAssessment(
                 context.Representation.RepresentationId,
                 HistoryReadiness.Unavailable,
-                probe.Fidelity,
+                Weakest(context.Representation.Fidelity, Weakest(probe.Fidelity, dependencyFidelity)),
                 [new RepresentationEvidence(
                     RepresentationEvidenceKind.Plugin,
                     probe.Diagnostic,
@@ -76,7 +79,7 @@ public sealed class PluginArtifactRepresentationHandler : IRepresentationHandler
                 return new RepresentationAssessment(
                     context.Representation.RepresentationId,
                     HistoryReadiness.Unavailable,
-                    probe.Fidelity,
+                    Weakest(context.Representation.Fidelity, Weakest(probe.Fidelity, dependencyFidelity)),
                     [new RepresentationEvidence(
                         RepresentationEvidenceKind.DeepVerification,
                         verification.Diagnostic,
@@ -90,7 +93,7 @@ public sealed class PluginArtifactRepresentationHandler : IRepresentationHandler
         return new RepresentationAssessment(
             context.Representation.RepresentationId,
             HistoryReadiness.Ready,
-            probe.Fidelity,
+            Weakest(context.Representation.Fidelity, Weakest(probe.Fidelity, dependencyFidelity)),
             [new RepresentationEvidence(
                 RepresentationEvidenceKind.Plugin,
                 probe.Diagnostic,
@@ -145,4 +148,9 @@ public sealed class PluginArtifactRepresentationHandler : IRepresentationHandler
             MaterializationFidelity.Unknown,
             [],
             [diagnostic]);
+
+    private static MaterializationFidelity Weakest(
+        MaterializationFidelity left,
+        MaterializationFidelity right)
+        => (MaterializationFidelity)Math.Max((int)left, (int)right);
 }
