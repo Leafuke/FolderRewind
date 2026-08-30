@@ -10,10 +10,11 @@ namespace FolderRewind.History.Application;
 
 public enum HistoryRestoreStatus
 {
-    Succeeded = 0,
-    Blocked = 1,
-    Failed = 2,
-    RollbackFailed = 3
+    Committed = 0,
+    BlockedBeforeMutation = 1,
+    MutationFailedRolledBack = 2,
+    MutationFailedRecoveryRequired = 3,
+    CommittedWithPostActionWarning = 4
 }
 
 public enum HistoryCheckoutProtectionMode
@@ -50,7 +51,9 @@ public sealed record HistoryRestoreResult(
     IReadOnlyList<SourceId> AppliedSources,
     HistoryCheckoutPlan? CheckoutPlan = null)
 {
-    public bool Succeeded => Status == HistoryRestoreStatus.Succeeded;
+    public bool Succeeded => Status is HistoryRestoreStatus.Committed
+        or HistoryRestoreStatus.CommittedWithPostActionWarning;
+    public bool TargetCommitted => Succeeded;
 }
 
 public sealed record HistoryRestoreRollbackSnapshot(

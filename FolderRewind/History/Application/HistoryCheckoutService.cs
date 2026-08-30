@@ -154,5 +154,5 @@ public sealed class HistoryCheckoutService
     private static HistoryRestoreResult Blocked(
         string diagnostic,
         HistoryCheckoutPlan? plan = null)
-        => new(HistoryRestoreStatus.Blocked, diagnostic, false, [], plan);
+        => new(HistoryRestoreStatus.BlockedBeforeMutation, diagnostic, false, [], plan);
 }

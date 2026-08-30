@@ -93,7 +93,7 @@ public sealed class HistoryCheckoutServiceTests
             expectedWorkspace,
             HistoryCheckoutProtectionMode.DiscardCurrentChanges);
 
-        Assert.AreEqual(HistoryRestoreStatus.Failed, result.Status);
+        Assert.AreEqual(HistoryRestoreStatus.MutationFailedRolledBack, result.Status);
         Assert.IsFalse(result.WorkspaceUpdated);
         Assert.AreEqual("old-one", File.ReadAllText(Path.Combine(targetOne, "original.txt")));
         Assert.AreEqual("old-two", File.ReadAllText(Path.Combine(targetTwo, "original.txt")));
@@ -215,7 +215,7 @@ public sealed class HistoryCheckoutServiceTests
             workspace,
             HistoryCheckoutProtectionMode.DiscardCurrentChanges);
 
-        Assert.AreEqual(HistoryRestoreStatus.Blocked, result.Status);
+        Assert.AreEqual(HistoryRestoreStatus.BlockedBeforeMutation, result.Status);
         Assert.AreEqual(HistoryCheckoutReadiness.ConfigurationMappingRequired, result.CheckoutPlan!.Readiness);
         var missing = result.CheckoutPlan.MissingHistoricalSources.Single();
         Assert.AreEqual(historicalId, missing.SourceId);

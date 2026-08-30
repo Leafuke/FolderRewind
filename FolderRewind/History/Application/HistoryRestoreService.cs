@@ -348,6 +348,7 @@ public sealed class HistoryRestoreService
                 var committed = await CompleteCommittedAsync(journal, snapshots, applied).ConfigureAwait(false);
                 return committed with
                 {
+                    Status = HistoryRestoreStatus.CommittedWithPostActionWarning,
                     Diagnostic = string.IsNullOrWhiteSpace(committed.Diagnostic)
                         ? $"Restore committed; post-commit recovery handled: {ex.Message}"
                         : committed.Diagnostic
@@ -364,7 +365,9 @@ public sealed class HistoryRestoreService
             if (!rollbackFailed)
                 _journals.Save(journal with { Phase = HistoryRestoreTransactionPhase.Complete });
             return new(
-                rollbackFailed ? HistoryRestoreStatus.RollbackFailed : HistoryRestoreStatus.Failed,
+                rollbackFailed
+                    ? HistoryRestoreStatus.MutationFailedRecoveryRequired
+                    : HistoryRestoreStatus.MutationFailedRolledBack,
                 ex.Message,
                 false,
                 applied.ToImmutableArray());
@@ -389,7 +392,7 @@ public sealed class HistoryRestoreService
             // can retry idempotent snapshot cleanup without reverting committed Source data.
             HistoryRestoreTransactionJournalStore.CleanupStaging(journal.StagingDirectories);
             return new(
-                HistoryRestoreStatus.Succeeded,
+                HistoryRestoreStatus.CommittedWithPostActionWarning,
                 $"Restore committed; rollback snapshot cleanup is deferred: {ex.Message}",
                 true,
                 applied.ToImmutableArray());
@@ -399,12 +402,12 @@ public sealed class HistoryRestoreService
         {
             await _history.RefreshLocalStateHealthAsync(CancellationToken.None).ConfigureAwait(false);
             _history.ChangeFeed.Publish(_history.ConfigId, HistoryChangeKind.LocalStateChanged);
-            return new(HistoryRestoreStatus.Succeeded, string.Empty, true, applied.ToImmutableArray());
+            return new(HistoryRestoreStatus.Committed, string.Empty, true, applied.ToImmutableArray());
         }
         catch (Exception ex)
         {
             return new(
-                HistoryRestoreStatus.Succeeded,
+                HistoryRestoreStatus.CommittedWithPostActionWarning,
                 $"Restore committed; local health refresh is deferred: {ex.Message}",
                 true,
                 applied.ToImmutableArray());
@@ -412,7 +415,7 @@ public sealed class HistoryRestoreService
     }
 
     private static HistoryRestoreResult Blocked(string diagnostic)
-        => new(HistoryRestoreStatus.Blocked, diagnostic, false, []);
+        => new(HistoryRestoreStatus.BlockedBeforeMutation, diagnostic, false, []);
 
     private static MaterializationFidelity RequiredFidelity(HistoryRestoreApplyMode applyMode)
         => applyMode == HistoryRestoreApplyMode.Clean

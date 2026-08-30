@@ -66,6 +66,31 @@ internal static class NativeHistoryApplicationService
         BackupService.RestoreMode requestedMode,
         CancellationToken cancellationToken = default)
     {
+        NativeHostMutationContext.ThrowIfNestedMutation();
+        var runtime = NativeHistoryCoreGateway.GetRequiredRuntime(config.Id);
+        var restore = CreateRestoreService(config, runtime);
+        var requiredFidelity = requestedMode == BackupService.RestoreMode.Clean
+            ? MaterializationFidelity.Exact
+            : MaterializationFidelity.Partial;
+        var assessment = await restore.AssessVersionAsync(
+            versionId, requiredFidelity, AssessmentDepth.Deep, cancellationToken).ConfigureAwait(false);
+        if (assessment.Readiness != HistoryReadiness.Ready || assessment.Selected is null)
+            return Blocked($"Restore target is not Ready with {requiredFidelity} fidelity.");
+        return await new NativeHistoryRestoreOrchestrator().ExecuteAsync(
+            config,
+            [folder],
+            versionId.ToString(),
+            token => RestoreVersionCoreAsync(config, folder, versionId, requestedMode, token),
+            cancellationToken).ConfigureAwait(false);
+    }
+
+    private static async Task<HistoryRestoreResult> RestoreVersionCoreAsync(
+        BackupConfig config,
+        ManagedFolder folder,
+        VersionId versionId,
+        BackupService.RestoreMode requestedMode,
+        CancellationToken cancellationToken = default)
+    {
         var runtime = NativeHistoryCoreGateway.GetRequiredRuntime(config.Id);
         var workspace = await RequireWorkspaceAsync(runtime, cancellationToken).ConfigureAwait(false);
         if (config.Archive.BackupBeforeRestore)
@@ -87,6 +112,44 @@ internal static class NativeHistoryApplicationService
     }
 
     public static async Task<HistoryRestoreResult> RestoreCheckpointAsync(
+        BackupConfig config,
+        CheckpointId checkpointId,
+        bool completeCheckpoint,
+        BackupService.RestoreMode requestedMode,
+        CancellationToken cancellationToken = default)
+    {
+        NativeHostMutationContext.ThrowIfNestedMutation();
+        var runtime = NativeHistoryCoreGateway.GetRequiredRuntime(config.Id);
+        await runtime.EnsureIndexCurrentAsync(cancellationToken).ConfigureAwait(false);
+        var checkpoint = await runtime.Query.GetCheckpointAsync(checkpointId, cancellationToken).ConfigureAwait(false);
+        if (checkpoint is null) return Blocked("Checkpoint does not exist.");
+        var currentIds = config.SourceFolders.Select(Source).ToHashSet();
+        if (completeCheckpoint && checkpoint.Sources.Any(item => !currentIds.Contains(item.SourceId)))
+            return Blocked("Complete restore requires explicit historical Source binding repair.");
+        var affected = config.SourceFolders
+            .Where(folder => checkpoint.Sources.Any(item => item.VersionId is not null && item.SourceId == Source(folder)))
+            .ToArray();
+        var restore = CreateRestoreService(config, runtime);
+        var requiredFidelity = requestedMode == BackupService.RestoreMode.Clean
+            ? MaterializationFidelity.Exact
+            : MaterializationFidelity.Partial;
+        foreach (var source in checkpoint.Sources.Where(item => item.VersionId is not null && currentIds.Contains(item.SourceId)))
+        {
+            var assessment = await restore.AssessVersionAsync(
+                source.VersionId!.Value, requiredFidelity, AssessmentDepth.Deep, cancellationToken).ConfigureAwait(false);
+            if (assessment.Readiness != HistoryReadiness.Ready || assessment.Selected is null)
+                return Blocked($"Checkpoint Source {source.SourceId} is not Ready.");
+        }
+        return await new NativeHistoryRestoreOrchestrator().ExecuteAsync(
+            config,
+            affected,
+            checkpointId.ToString(),
+            token => RestoreCheckpointCoreAsync(
+                config, checkpointId, completeCheckpoint, requestedMode, token),
+            cancellationToken).ConfigureAwait(false);
+    }
+
+    private static async Task<HistoryRestoreResult> RestoreCheckpointCoreAsync(
         BackupConfig config,
         CheckpointId checkpointId,
         bool completeCheckpoint,
@@ -127,6 +190,42 @@ internal static class NativeHistoryApplicationService
     }
 
     public static async Task<HistoryRestoreResult> CheckoutAsync(
+        BackupConfig config,
+        BranchUpdateId selectedTipId,
+        CancellationToken cancellationToken = default)
+    {
+        NativeHostMutationContext.ThrowIfNestedMutation();
+        var runtime = NativeHistoryCoreGateway.GetRequiredRuntime(config.Id);
+        var workspace = await RequireWorkspaceAsync(runtime, cancellationToken).ConfigureAwait(false);
+        var restore = CreateRestoreService(config, runtime);
+        var bindings = config.SourceFolders.Select(folder => Binding(config, folder)).ToArray();
+        var plan = await new HistoryCheckoutPlanner(runtime, restore).BuildAsync(
+            selectedTipId,
+            bindings,
+            workspace,
+            AssessmentDepth.Deep,
+            cancellationToken).ConfigureAwait(false);
+        if (!plan.CanExecute)
+            return new HistoryRestoreResult(
+                HistoryRestoreStatus.BlockedBeforeMutation,
+                plan.Diagnostic,
+                false,
+                [],
+                plan);
+        var restoreIds = plan.Sources
+            .Where(item => item.Action == HistoryCheckoutSourceAction.Restore)
+            .Select(item => item.SourceId)
+            .ToHashSet();
+        var affected = config.SourceFolders.Where(folder => restoreIds.Contains(Source(folder))).ToArray();
+        return await new NativeHistoryRestoreOrchestrator().ExecuteAsync(
+            config,
+            affected,
+            selectedTipId.ToString(),
+            token => CheckoutCoreAsync(config, selectedTipId, token),
+            cancellationToken).ConfigureAwait(false);
+    }
+
+    private static async Task<HistoryRestoreResult> CheckoutCoreAsync(
         BackupConfig config,
         BranchUpdateId selectedTipId,
         CancellationToken cancellationToken = default)
@@ -289,7 +388,7 @@ internal static class NativeHistoryApplicationService
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
         {
             return (null, new HistoryRestoreResult(
-                HistoryRestoreStatus.Blocked,
+                HistoryRestoreStatus.BlockedBeforeMutation,
                 "Required BeforeRestore SafetySnapshot was canceled; target mutation did not start.",
                 false,
                 []));
@@ -297,12 +396,15 @@ internal static class NativeHistoryApplicationService
         catch (Exception ex)
         {
             return (null, new HistoryRestoreResult(
-                HistoryRestoreStatus.Blocked,
+                HistoryRestoreStatus.BlockedBeforeMutation,
                 $"Required BeforeRestore SafetySnapshot failed: {ex.Message}",
                 false,
                 []));
         }
     }
+
+    private static HistoryRestoreResult Blocked(string diagnostic)
+        => new(HistoryRestoreStatus.BlockedBeforeMutation, diagnostic, false, []);
 
     private static SourceId Source(ManagedFolder folder)
         => Guid.TryParse(folder.Id, out var id) && id != Guid.Empty
