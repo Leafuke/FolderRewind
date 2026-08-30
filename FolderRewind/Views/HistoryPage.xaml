@@ -18,126 +18,201 @@
 
         <TextBlock x:Uid="HistoryPage_Title" Style="{StaticResource TitleTextBlockStyle}" Margin="0,0,0,24" AutomationProperties.HeadingLevel="Level1"/>
 
-        <!-- 筛选区 -->
-        <Grid Grid.Row="1" Margin="0,0,0,24" RowSpacing="12">
-            <Grid.RowDefinitions>
-                <RowDefinition Height="Auto"/>
-                <RowDefinition Height="Auto"/>
-            </Grid.RowDefinitions>
+        <!-- 顶部一体化控制面板 -->
+        <Border Grid.Row="1" Margin="0,0,0,24" 
+                Background="{ThemeResource LayerFillColorDefaultBrush}"
+                BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
+                BorderThickness="1"
+                CornerRadius="{StaticResource OverlayCornerRadius}"
+                Padding="16,14">
+            <StackPanel Spacing="12">
+                <!-- 第 1 行：核心维度切换 & 搜索 -->
+                <Grid ColumnSpacing="12">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="200"/>
+                        <ColumnDefinition Width="220"/>
+                        <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="Auto"/>
+                    </Grid.ColumnDefinitions>
 
-            <Grid ColumnSpacing="16">
-                <Grid.ColumnDefinitions>
-                    <ColumnDefinition Width="220"/>
-                    <ColumnDefinition Width="220"/>
-                    <ColumnDefinition Width="*"/>
-                    <ColumnDefinition Width="Auto"/>
-                </Grid.ColumnDefinitions>
+                    <ComboBox x:Name="ConfigFilter" x:Uid="HistoryPage_ConfigFilter"
+                              AutomationProperties.AutomationId="HistoryConfigFilter"
+                              ItemsSource="{x:Bind ViewModel.Configs, Mode=OneWay}"
+                              HorizontalAlignment="Stretch"
+                              DisplayMemberPath="Name"
+                              SelectionChanged="ConfigFilter_SelectionChanged"/>
 
-                <ComboBox x:Name="ConfigFilter" x:Uid="HistoryPage_ConfigFilter"
-                          AutomationProperties.AutomationId="HistoryConfigFilter"
-                          ItemsSource="{x:Bind ViewModel.Configs, Mode=OneWay}"
-                          HorizontalAlignment="Stretch"
-                          DisplayMemberPath="Name"
-                          SelectionChanged="ConfigFilter_SelectionChanged"/>
+                    <ComboBox x:Name="FolderFilter" Grid.Column="1" x:Uid="HistoryPage_FolderFilter"
+                              AutomationProperties.AutomationId="HistoryFolderFilter"
+                              HorizontalAlignment="Stretch"
+                              DisplayMemberPath="DisplayName"
+                              SelectionChanged="FolderFilter_SelectionChanged"/>
 
-                <ComboBox x:Name="FolderFilter" Grid.Column="1" x:Uid="HistoryPage_FolderFilter"
-                          AutomationProperties.AutomationId="HistoryFolderFilter"
-                          HorizontalAlignment="Stretch"
-                          DisplayMemberPath="DisplayName"
-                          SelectionChanged="FolderFilter_SelectionChanged"/>
+                    <TextBox x:Name="CommentFilterBox" Grid.Column="2"
+                             x:Uid="HistoryPage_CommentFilter"
+                             AutomationProperties.AutomationId="HistoryCommentFilter"
+                             TextChanged="CommentFilterBox_TextChanged"/>
 
-                <TextBox x:Name="CommentFilterBox" Grid.Column="2"
-                         x:Uid="HistoryPage_CommentFilter"
-                         AutomationProperties.AutomationId="HistoryCommentFilter"
-                         TextChanged="CommentFilterBox_TextChanged"/>
+                    <StackPanel Grid.Column="3" Spacing="6" VerticalAlignment="Top">
+                        <TextBlock x:Uid="HistoryPage_ViewSelectorHeader"
+                                   Style="{StaticResource CaptionTextBlockStyle}"
+                                   Foreground="{ThemeResource TextFillColorSecondaryBrush}"/>
+                        <SelectorBar x:Name="HistoryViewSelector"
+                                     Height="32"
+                                     AutomationProperties.AutomationId="HistoryViewSelector"
+                                     SelectionChanged="OnHistoryViewSelectionChanged">
+                            <SelectorBarItem x:Name="SourceHistoryViewItem" x:Uid="HistoryPage_ViewBySource" Tag="Source" IsSelected="True"/>
+                            <SelectorBarItem x:Name="RunHistoryViewItem" x:Uid="HistoryPage_ViewByRun" Tag="Run"/>
+                        </SelectorBar>
+                    </StackPanel>
+                </Grid>
 
-                <SelectorBar x:Name="HistoryViewSelector" Grid.Column="3"
-                             AutomationProperties.AutomationId="HistoryViewSelector"
-                             SelectionChanged="OnHistoryViewSelectionChanged"
-                             VerticalAlignment="Bottom">
-                    <SelectorBarItem x:Name="SourceHistoryViewItem" x:Uid="HistoryPage_ViewBySource" Tag="Source" IsSelected="True"/>
-                    <SelectorBarItem x:Name="RunHistoryViewItem" x:Uid="HistoryPage_ViewByRun" Tag="Run"/>
-                </SelectorBar>
-            </Grid>
+                <!-- 分割线 -->
+                <Border Height="1" Background="{ThemeResource DividerStrokeColorDefaultBrush}" Margin="0,2"/>
 
-            <Grid Grid.Row="1" ColumnSpacing="16">
-                <Grid.ColumnDefinitions>
-                    <ColumnDefinition Width="*"/>
-                    <ColumnDefinition Width="Auto"/>
-                </Grid.ColumnDefinitions>
+                <!-- 第 2 行：分支上下文与操作组（严格单行，所有控件垂直居中对齐） -->
+                <Grid>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="Auto"/>
+                    </Grid.ColumnDefinitions>
 
-                <StackPanel Orientation="Horizontal" Spacing="12" VerticalAlignment="Bottom">
-                    <StackPanel Spacing="4">
-                        <TextBlock Text="{x:Bind ViewModel.CurrentBranchDisplay, Mode=OneWay}"
-                                   AutomationProperties.AutomationId="HistoryCurrentBranch"
-                                   Style="{StaticResource BodyStrongTextBlockStyle}"/>
+                    <!-- 左侧：分支管理群组 -->
+                    <StackPanel Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
+                        <!-- 当前活动分支指示胶囊 -->
+                        <Border Background="{ThemeResource LayerFillColorAltBrush}" 
+                                BorderBrush="{ThemeResource SurfaceStrokeColorDefaultBrush}"
+                                BorderThickness="1"
+                                CornerRadius="4" 
+                                Padding="8,5"
+                                VerticalAlignment="Center">
+                            <StackPanel Orientation="Horizontal" Spacing="6" VerticalAlignment="Center">
+                                <FontIcon Glyph="&#xE8D7;" FontSize="13" Foreground="{ThemeResource AccentFillColorDefaultBrush}"/>
+                                <TextBlock Text="{x:Bind ViewModel.CurrentBranchDisplay, Mode=OneWay}"
+                                           AutomationProperties.AutomationId="HistoryCurrentBranch"
+                                           Style="{StaticResource CaptionTextBlockStyle}"
+                                           VerticalAlignment="Center"/>
+                            </StackPanel>
+                        </Border>
+
+                        <TextBlock x:Uid="HistoryPage_BranchSelectLabel"
+                                   Text="查看分支:"
+                                   VerticalAlignment="Center"
+                                   Style="{StaticResource CaptionTextBlockStyle}"
+                                   Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                                   Margin="4,0,0,0"/>
+
+                        <!-- 分支筛选下拉（无 Header，纯标准 32px 控件） -->
                         <ComboBox x:Name="BranchFilter"
-                                  x:Uid="HistoryPage_BranchFilter"
+                                  x:Uid="HistoryPage_BranchDropdown"
                                   AutomationProperties.AutomationId="HistoryBranchFilter"
-                                  MinWidth="240"
-                                  MaxWidth="360"
+                                  MinWidth="160"
+                                  MaxWidth="240"
+                                  VerticalAlignment="Center"
                                   ItemsSource="{x:Bind ViewModel.Branches, Mode=OneWay}"
                                   SelectedItem="{x:Bind ViewModel.SelectedBranch, Mode=TwoWay}"
                                   DisplayMemberPath="DisplayName"/>
+
+                        <Button x:Name="BranchCreateButton"
+                                x:Uid="HistoryPage_BranchCreateButton"
+                                AutomationProperties.AutomationId="HistoryBranchCreate"
+                                VerticalAlignment="Center"
+                                Click="OnCreateBranchClick">
+                            <StackPanel Orientation="Horizontal" Spacing="6" VerticalAlignment="Center">
+                                <FontIcon Glyph="&#xE710;" FontSize="12"/>
+                                <TextBlock x:Uid="HistoryPage_BranchCreateText"/>
+                            </StackPanel>
+                        </Button>
+
+                        <Button x:Name="BranchCheckoutButton"
+                                x:Uid="HistoryPage_BranchCheckoutButton"
+                                AutomationProperties.AutomationId="HistoryBranchCheckout"
+                                VerticalAlignment="Center"
+                                IsEnabled="{x:Bind ViewModel.CanCheckoutSelectedBranch, Mode=OneWay}"
+                                Click="OnCheckoutBranchClick">
+                            <StackPanel Orientation="Horizontal" Spacing="6" VerticalAlignment="Center">
+                                <FontIcon Glyph="&#xE72A;" FontSize="12"/>
+                                <TextBlock x:Uid="HistoryPage_BranchCheckoutText"/>
+                            </StackPanel>
+                        </Button>
+
+                        <DropDownButton x:Name="BranchMoreActionsButton"
+                                        x:Uid="HistoryPage_BranchMoreActions"
+                                        AutomationProperties.AutomationId="HistoryBranchMoreActions"
+                                        VerticalAlignment="Center">
+                            <FontIcon Glyph="&#xE712;" FontSize="12"/>
+                            <DropDownButton.Flyout>
+                                <MenuFlyout>
+                                    <MenuFlyoutItem x:Name="BranchRenameItem"
+                                                    x:Uid="HistoryPage_BranchRenameItem"
+                                                    AutomationProperties.AutomationId="HistoryBranchRename"
+                                                    IsEnabled="{x:Bind ViewModel.CanRenameSelectedBranch, Mode=OneWay}"
+                                                    Click="OnRenameBranchClick">
+                                        <MenuFlyoutItem.Icon><FontIcon Glyph="&#xE70F;"/></MenuFlyoutItem.Icon>
+                                    </MenuFlyoutItem>
+                                    <MenuFlyoutSeparator/>
+                                    <MenuFlyoutItem x:Name="BranchDeleteItem"
+                                                    x:Uid="HistoryPage_BranchDeleteItem"
+                                                    AutomationProperties.AutomationId="HistoryBranchDelete"
+                                                    Foreground="{ThemeResource SystemFillColorCriticalBrush}"
+                                                    IsEnabled="{x:Bind ViewModel.CanDeleteSelectedBranch, Mode=OneWay}"
+                                                    Click="OnDeleteBranchClick">
+                                        <MenuFlyoutItem.Icon><FontIcon Glyph="&#xE74D;" Foreground="{ThemeResource SystemFillColorCriticalBrush}"/></MenuFlyoutItem.Icon>
+                                    </MenuFlyoutItem>
+                                </MenuFlyout>
+                            </DropDownButton.Flyout>
+                        </DropDownButton>
                     </StackPanel>
 
-                    <CommandBar Background="Transparent" DefaultLabelPosition="Right" VerticalAlignment="Bottom">
-                        <AppBarButton x:Name="BranchCreateButton"
-                                      x:Uid="HistoryPage_BranchCreate"
-                                      AutomationProperties.AutomationId="HistoryBranchCreate"
-                                      Click="OnCreateBranchClick">
-                            <AppBarButton.Icon><FontIcon Glyph="&#xE710;"/></AppBarButton.Icon>
-                        </AppBarButton>
-                        <AppBarButton x:Name="BranchCheckoutButton"
-                                      x:Uid="HistoryPage_BranchCheckout"
-                                      AutomationProperties.AutomationId="HistoryBranchCheckout"
-                                      IsEnabled="{x:Bind ViewModel.CanCheckoutSelectedBranch, Mode=OneWay}"
-                                      Click="OnCheckoutBranchClick">
-                            <AppBarButton.Icon><FontIcon Glyph="&#xE72A;"/></AppBarButton.Icon>
-                        </AppBarButton>
-                        <AppBarButton x:Name="BranchRenameButton"
-                                      x:Uid="HistoryPage_BranchRename"
-                                      AutomationProperties.AutomationId="HistoryBranchRename"
-                                      IsEnabled="{x:Bind ViewModel.CanRenameSelectedBranch, Mode=OneWay}"
-                                      Click="OnRenameBranchClick">
-                            <AppBarButton.Icon><FontIcon Glyph="&#xE70F;"/></AppBarButton.Icon>
-                        </AppBarButton>
-                        <AppBarButton x:Name="BranchDeleteButton"
-                                      x:Uid="HistoryPage_BranchDelete"
-                                      AutomationProperties.AutomationId="HistoryBranchDelete"
-                                      IsEnabled="{x:Bind ViewModel.CanDeleteSelectedBranch, Mode=OneWay}"
-                                      Click="OnDeleteBranchClick">
-                            <AppBarButton.Icon><FontIcon Glyph="&#xE74D;"/></AppBarButton.Icon>
-                        </AppBarButton>
-                    </CommandBar>
-                </StackPanel>
+                    <!-- 右侧：维护与云端操作 -->
+                    <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
+                        <Button x:Uid="HistoryPage_OpenCloudSyncButton"
+                                AutomationProperties.AutomationId="HistoryOpenCloudSync"
+                                VerticalAlignment="Center"
+                                IsEnabled="{x:Bind ViewModel.CanOpenConfigCloudSync, Mode=OneWay}"
+                                Click="OnOpenCloudSyncClick">
+                            <StackPanel Orientation="Horizontal" Spacing="6" VerticalAlignment="Center">
+                                <FontIcon Glyph="&#xE753;" FontSize="13"/>
+                                <TextBlock x:Uid="HistoryPage_OpenCloudSyncText"/>
+                            </StackPanel>
+                        </Button>
 
-                <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="12" VerticalAlignment="Bottom">
-                    <ToggleSwitch x:Name="UseColorsToggle"
-                                  x:Uid="HistoryPage_UseStatusColors"
-                                  AutomationProperties.AutomationId="HistoryUseStatusColors"
-                                  IsOn="{x:Bind ViewModel.UseHistoryStatusColors, Mode=TwoWay}" />
-                    <Button x:Name="ScanRecoverButton"
-                            x:Uid="HistoryPage_ScanRecover"
-                            AutomationProperties.AutomationId="HistoryScanRecover"
-                            Click="OnScanRecoverClick">
-                        <StackPanel Orientation="Horizontal" Spacing="6">
-                            <FontIcon Glyph="&#xE71C;" FontSize="14"/>
-                            <TextBlock x:Uid="HistoryPage_ScanRecoverText"/>
-                        </StackPanel>
-                    </Button>
-                    <Button x:Name="ClearMissingButton"
-                            x:Uid="HistoryPage_ClearMissing"
-                            AutomationProperties.AutomationId="HistoryClearMissing"
-                            IsEnabled="{x:Bind ViewModel.HasMissing, Mode=OneWay}"
-                            Click="OnClearMissingClick" />
-                    <Button x:Uid="HistoryPage_OpenCloudSync"
-                            AutomationProperties.AutomationId="HistoryOpenCloudSync"
-                            IsEnabled="{x:Bind ViewModel.CanOpenConfigCloudSync, Mode=OneWay}"
-                            Click="OnOpenCloudSyncClick" />
-                </StackPanel>
-            </Grid>
-        </Grid>
+                        <DropDownButton x:Name="MaintenanceDropDownButton"
+                                        x:Uid="HistoryPage_MaintenanceDropDown"
+                                        AutomationProperties.AutomationId="HistoryMaintenanceDropDown"
+                                        VerticalAlignment="Center">
+                            <StackPanel Orientation="Horizontal" Spacing="6" VerticalAlignment="Center">
+                                <FontIcon Glyph="&#xE90F;" FontSize="13"/>
+                                <TextBlock x:Uid="HistoryPage_MaintenanceDropDownText"/>
+                            </StackPanel>
+                            <DropDownButton.Flyout>
+                                <MenuFlyout>
+                                    <MenuFlyoutItem x:Name="ScanRecoverMenuItem"
+                                                    x:Uid="HistoryPage_ScanRecoverMenuItem"
+                                                    AutomationProperties.AutomationId="HistoryScanRecover"
+                                                    IsEnabled="{x:Bind ViewModel.CanUsePerSourceActions, Mode=OneWay}"
+                                                    Click="OnScanRecoverClick">
+                                        <MenuFlyoutItem.Icon><FontIcon Glyph="&#xE71C;"/></MenuFlyoutItem.Icon>
+                                    </MenuFlyoutItem>
+                                    <MenuFlyoutItem x:Name="ClearMissingMenuItem"
+                                                    x:Uid="HistoryPage_ClearMissingMenuItem"
+                                                    AutomationProperties.AutomationId="HistoryClearMissing"
+                                                    IsEnabled="{x:Bind ViewModel.HasMissing, Mode=OneWay}"
+                                                    Click="OnClearMissingClick">
+                                        <MenuFlyoutItem.Icon><FontIcon Glyph="&#xE74D;"/></MenuFlyoutItem.Icon>
+                                    </MenuFlyoutItem>
+                                    <MenuFlyoutSeparator/>
+                                    <ToggleMenuFlyoutItem x:Name="UseColorsToggleMenuItem"
+                                                          x:Uid="HistoryPage_UseColorsMenuItem"
+                                                          AutomationProperties.AutomationId="HistoryUseStatusColors"
+                                                          IsChecked="{x:Bind ViewModel.UseHistoryStatusColors, Mode=TwoWay}"/>
+                                </MenuFlyout>
+                            </DropDownButton.Flyout>
+                        </DropDownButton>
+                    </StackPanel>
+                </Grid>
+            </StackPanel>
+        </Border>
 
         <!-- 历史列表 -->
         <ListView x:Name="HistoryList" Grid.Row="2" SelectionMode="None"

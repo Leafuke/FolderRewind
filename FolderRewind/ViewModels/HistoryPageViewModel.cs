@@ -406,14 +406,20 @@ public sealed class HistoryPageViewModel : ViewModelBase
         if (IsGroupedRunView)
         {
             foreach (var item in _allRuns.Where(item => (branchId is null || item.BranchIds.Contains(branchId.Value))
-                         && (needle.Length == 0 || item.Comment.Contains(needle, StringComparison.OrdinalIgnoreCase))))
+                         && (needle.Length == 0 
+                             || item.Comment.Contains(needle, StringComparison.OrdinalIgnoreCase)
+                             || item.Message.Contains(needle, StringComparison.OrdinalIgnoreCase))))
                 FilteredRuns.Add(item);
             _missingCount = 0; IsEmpty = FilteredRuns.Count == 0;
         }
         else
         {
             foreach (var item in _allVersions.Where(item => (branchId is null || item.BranchIds.Contains(branchId.Value))
-                         && (needle.Length == 0 || item.Comment.Contains(needle, StringComparison.OrdinalIgnoreCase))))
+                         && (needle.Length == 0 
+                             || item.Comment.Contains(needle, StringComparison.OrdinalIgnoreCase)
+                             || item.Message.Contains(needle, StringComparison.OrdinalIgnoreCase)
+                             || item.FileName.Contains(needle, StringComparison.OrdinalIgnoreCase)
+                             || item.BranchDisplay.Contains(needle, StringComparison.OrdinalIgnoreCase))))
                 FilteredHistory.Add(item);
             _missingCount = FilteredHistory.Count(item =>
                 item.LocalPath is not null

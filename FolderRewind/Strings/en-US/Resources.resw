@@ -1,4 +1,4 @@
-﻿<?xml version="1.0" encoding="utf-8"?>
+<?xml version="1.0" encoding="utf-8"?>
 <root>
   <!-- 
     Microsoft ResX Schema 
@@ -756,8 +756,11 @@ Duplicate folder names are blocked within the same configuration so different di
   <data name="HistoryPage_FolderFilter.PlaceholderText" xml:space="preserve">
     <value>Select a configuration first</value>
   </data>
+  <data name="HistoryPage_CommentFilter.Header" xml:space="preserve">
+    <value>Search &amp; Filter</value>
+  </data>
   <data name="HistoryPage_CommentFilter.PlaceholderText" xml:space="preserve">
-    <value>Search by note</value>
+    <value>Search comments, versions, branches...</value>
   </data>
   <data name="HistoryPage_UseStatusColors.Header" xml:space="preserve">
     <value>Status colors</value>
@@ -5058,4 +5061,23 @@ Pull request: {1}</value>
   <data name="History_Branch_CurrentFormat" xml:space="preserve"><value>Current branch: {0}</value></data>
   <data name="History_Branch_CurrentUnavailable" xml:space="preserve"><value>Current branch: unavailable</value></data>
   <data name="History_Branch_ActiveNameFormat" xml:space="preserve"><value>{0} (current)</value></data>
+  <data name="HistoryPage_ViewSelectorHeader.Text" xml:space="preserve"><value>View Mode</value></data>
+  <data name="HistoryPage_BranchCreateButton.ToolTipService.ToolTip" xml:space="preserve"><value>Create a branch at the latest checkpoint</value></data>
+  <data name="HistoryPage_BranchCreateText.Text" xml:space="preserve"><value>New Branch</value></data>
+  <data name="HistoryPage_BranchCheckoutButton.ToolTipService.ToolTip" xml:space="preserve"><value>Check out the selected branch</value></data>
+  <data name="HistoryPage_BranchCheckoutText.Text" xml:space="preserve"><value>Check out</value></data>
+  <data name="HistoryPage_BranchMoreActions.ToolTipService.ToolTip" xml:space="preserve"><value>More branch actions</value></data>
+  <data name="HistoryPage_BranchRenameItem.Text" xml:space="preserve"><value>Rename branch</value></data>
+  <data name="HistoryPage_BranchDeleteItem.Text" xml:space="preserve"><value>Delete branch</value></data>
+  <data name="HistoryPage_OpenCloudSyncText.Text" xml:space="preserve"><value>Cloud Sync</value></data>
+  <data name="HistoryPage_MaintenanceDropDown.ToolTipService.ToolTip" xml:space="preserve"><value>History maintenance and preferences</value></data>
+  <data name="HistoryPage_MaintenanceDropDownText.Text" xml:space="preserve"><value>Maintenance &amp; Settings</value></data>
+  <data name="HistoryPage_UseColorsMenuItem.Text" xml:space="preserve"><value>Show timeline status colors</value></data>
+  <data name="HistoryPage_OpenCloudSyncButton.ToolTipService.ToolTip" xml:space="preserve"><value>Configure cloud storage synchronization and version backups</value></data>
+  <data name="HistoryPage_ScanRecoverMenuItem.Text" xml:space="preserve"><value>Scan &amp; Rebuild History...</value></data>
+  <data name="HistoryPage_ScanRecoverMenuItem.ToolTipService.ToolTip" xml:space="preserve"><value>Scan and rebuild history index from existing backup archives</value></data>
+  <data name="HistoryPage_ClearMissingMenuItem.Text" xml:space="preserve"><value>Clear Missing Controlled Replicas</value></data>
+  <data name="HistoryPage_ClearMissingMenuItem.ToolTipService.ToolTip" xml:space="preserve"><value>Clean up records for replicas removed from disk</value></data>
+  <data name="HistoryPage_BranchSelectLabel.Text" xml:space="preserve"><value>View branch:</value></data>
+  <data name="HistoryPage_BranchDropdown.PlaceholderText" xml:space="preserve"><value>Select a branch</value></data>
 </root>

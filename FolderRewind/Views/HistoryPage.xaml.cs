@@ -24,13 +24,14 @@ namespace FolderRewind.Views
 
             ViewModel.Initialize();
 
+
             // 历史页在早期版本中遇到过首次导航时绑定晚于控件创建的问题，
             // 这里保留一次显式赋值，确保下拉框与列表首次进入可见。
             ConfigFilter.ItemsSource = ViewModel.Configs;
             HistoryList.ItemsSource = ViewModel.FilteredHistory;
             RunHistoryList.ItemsSource = ViewModel.FilteredRuns;
             BranchFilter.ItemsSource = ViewModel.Branches;
-            UseColorsToggle.IsOn = ViewModel.UseHistoryStatusColors;
+            UseColorsToggleMenuItem.IsChecked = ViewModel.UseHistoryStatusColors;
             HistoryViewSelector.SelectedItem = ViewModel.IsGroupedRunView
                 ? RunHistoryViewItem
                 : SourceHistoryViewItem;
@@ -858,7 +859,7 @@ namespace FolderRewind.Views
             FolderFilter.SelectedItem = grouped ? null : preferredFolder;
             if (!grouped && preferredFolder == null)
                 FolderFilter.SelectedIndex = config.SourceFolders.Count > 0 ? 0 : -1;
-            ScanRecoverButton.IsEnabled = !grouped;
+            ScanRecoverMenuItem.IsEnabled = !grouped;
         }
     }
 }
