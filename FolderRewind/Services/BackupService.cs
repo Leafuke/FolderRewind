@@ -185,6 +185,7 @@ namespace FolderRewind.Services
             BackupConfig config,
             BackupInvocationOptions? invocationOptions = null)
         {
+            NativeHostMutationContext.ThrowIfNestedMutation();
             if (config == null) return false;
             await using var operationLease = await NativeHistoryConfigurationOperationGate
                 .EnterAsync(config.Id).ConfigureAwait(false);
@@ -284,6 +285,8 @@ namespace FolderRewind.Services
             BackupInvocationOptions invocationOptions,
             CancellationToken cancellationToken)
         {
+            if (NativeHostMutationContext.IsNestedMutationBlocked)
+                return new PluginBackupRequestResult(OperationOutcome.Blocked, CreatedNewArchive: false);
             try
             {
                 await using var operationLease = await NativeHistoryConfigurationOperationGate

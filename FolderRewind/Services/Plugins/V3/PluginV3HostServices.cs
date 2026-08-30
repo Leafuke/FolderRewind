@@ -74,6 +74,8 @@ internal sealed class PluginV3HostServices : IPluginHostServices
             BackupRequestOptions options,
             CancellationToken cancellationToken)
         {
+            if (NativeHostMutationContext.IsNestedMutationBlocked)
+                return OperationOutcome.Blocked;
             ArgumentNullException.ThrowIfNull(options);
             var config = ConfigService.CurrentConfig.BackupConfigs.FirstOrDefault(value =>
                 string.Equals(value.Id, configId, StringComparison.OrdinalIgnoreCase));
@@ -106,6 +108,8 @@ internal sealed class PluginV3HostServices : IPluginHostServices
             string versionId,
             CancellationToken cancellationToken)
         {
+            if (NativeHostMutationContext.IsNestedMutationBlocked)
+                return OperationOutcome.Blocked;
             cancellationToken.ThrowIfCancellationRequested();
             var config = ConfigService.CurrentConfig.BackupConfigs.FirstOrDefault(value =>
                 string.Equals(value.Id, configId, StringComparison.OrdinalIgnoreCase));

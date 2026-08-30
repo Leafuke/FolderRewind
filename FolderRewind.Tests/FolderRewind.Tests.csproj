@@ -80,6 +80,7 @@
     <Compile Include="..\FolderRewind\Services\BackupFilterRulePolicy.cs" Link="Source\BackupFilterRulePolicy.cs" />
     <Compile Include="..\FolderRewind\Services\BackupStoragePathService.cs" Link="Source\BackupStoragePathService.cs" />
     <Compile Include="..\FolderRewind\Services\NativeHistoryConfigurationOperationGate.cs" Link="Source\NativeHistoryConfigurationOperationGate.cs" />
+    <Compile Include="..\FolderRewind\Services\NativeHostMutationContext.cs" Link="Source\NativeHostMutationContext.cs" />
     <Compile Include="..\FolderRewind\Services\BackupPathOverlapPolicy.cs" Link="Source\BackupPathOverlapPolicy.cs" />
     <Compile Include="..\FolderRewind\Services\SevenZipExecutableLocator.cs" Link="Source\SevenZipExecutableLocator.cs" />
     <Compile Include="..\FolderRewind\Models\FolderRenameModels.cs" Link="Source\FolderRenameModels.cs" />
