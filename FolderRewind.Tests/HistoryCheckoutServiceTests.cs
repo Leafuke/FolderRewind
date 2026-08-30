@@ -104,6 +104,169 @@ public sealed class HistoryCheckoutServiceTests
     }
 
     [TestMethod]
+    public async Task CheckoutRestoresHistoricalSourceAndPreservesCurrentOnlySourceBaselineAndFiles()
+    {
+        var configId = new HistoryConfigId(Guid.NewGuid().ToString("N"));
+        var repository = new FileHistoryRepository(
+            configId,
+            new HistoryRepositoryPaths(Path.Combine(_root, "preserve-repository")));
+        await using var history = new HistoryRuntime(repository);
+        await history.InitializeAsync();
+        var historicalId = SourceId.New();
+        var currentOnlyId = SourceId.New();
+        var historical = Version(configId, historicalId, "historical");
+        var currentOnly = Version(configId, currentOnlyId, "current-only");
+        var checkpoint = new ConfigurationCheckpoint(
+            CheckpointId.New(), configId, DateTimeOffset.UtcNow, null, HistoryProvenance.Native("test"),
+            [new CheckpointSource(
+                historicalId,
+                historical.SourceDescriptorSnapshot,
+                historical.VersionId,
+                CheckpointSourceDisposition.Captured)]);
+        var branch = new BranchUpdate(
+            BranchUpdateId.New(), BranchId.New(), [], "main", checkpoint.CheckpointId, false,
+            DateTimeOffset.UtcNow, BranchUpdateReason.Created);
+        var codec = new HistoryPackCodec();
+        await repository.CommitAsync(new HistoryCommitPack(
+            PackId.New(), HistoryTransactionId.New(), DateTimeOffset.UtcNow,
+            new object[]
+            {
+                historical, currentOnly, Representation(historical.VersionId),
+                Representation(currentOnly.VersionId), checkpoint, branch
+            }.Select(item => codec.CreateObject(item))));
+        var workspace = new HistoryWorkspace(
+            configId,
+            0,
+            null,
+            null,
+            [new WorkspaceSourceBaseline(currentOnlyId, currentOnly.VersionId, WorkspaceBaselineRelation.Derived)]);
+        await history.WorkspaceStore.SaveAsync(workspace, HistoryWorkspaceStore.MissingRevision);
+        var historicalTarget = CreateTarget("historical-target", "old");
+        var currentOnlyTarget = CreateTarget("current-only-target", "preserve-me");
+        var restore = new HistoryRestoreService(
+            history,
+            new RepresentationRuntime([new ExactTestRepresentationHandler()]),
+            _ => Task.FromResult<IRepresentationEnvironment>(new RepresentationEnvironment([], [], [])),
+            new FileSystemHistoryRestoreMutationBackend());
+
+        var result = await new HistoryCheckoutService(history, restore).CheckoutAsync(
+            branch.UpdateId,
+            [
+                new HistoryRestoreSourceBinding(historicalId, historicalTarget),
+                new HistoryRestoreSourceBinding(currentOnlyId, currentOnlyTarget)
+            ],
+            workspace,
+            HistoryCheckoutProtectionMode.DiscardCurrentChanges);
+
+        Assert.IsTrue(result.Succeeded, result.Diagnostic);
+        Assert.AreEqual("preserve-me", File.ReadAllText(Path.Combine(currentOnlyTarget, "original.txt")));
+        var updated = (await history.WorkspaceStore.LoadAsync()).Value!;
+        var preserved = updated.SourceBaselines.Single(item => item.SourceId == currentOnlyId);
+        Assert.AreEqual(currentOnly.VersionId, preserved.BaseVersionId);
+        Assert.AreEqual(WorkspaceBaselineRelation.Derived, preserved.Relation);
+    }
+
+    [TestMethod]
+    public async Task MissingHistoricalIdentityReturnsActionableMappingWithoutPathAlias()
+    {
+        var configId = new HistoryConfigId(Guid.NewGuid().ToString("N"));
+        var repository = new FileHistoryRepository(
+            configId,
+            new HistoryRepositoryPaths(Path.Combine(_root, "mapping-repository")));
+        await using var history = new HistoryRuntime(repository);
+        await history.InitializeAsync();
+        var historicalId = SourceId.New();
+        var differentCurrentId = SourceId.New();
+        var version = Version(configId, historicalId, "missing-world");
+        var checkpoint = new ConfigurationCheckpoint(
+            CheckpointId.New(), configId, DateTimeOffset.UtcNow, null, HistoryProvenance.Native("test"),
+            [new CheckpointSource(historicalId, version.SourceDescriptorSnapshot, version.VersionId, CheckpointSourceDisposition.Captured)]);
+        var branch = new BranchUpdate(
+            BranchUpdateId.New(), BranchId.New(), [], "main", checkpoint.CheckpointId, false,
+            DateTimeOffset.UtcNow, BranchUpdateReason.Created);
+        var codec = new HistoryPackCodec();
+        await repository.CommitAsync(new HistoryCommitPack(
+            PackId.New(), HistoryTransactionId.New(), DateTimeOffset.UtcNow,
+            new object[] { version, Representation(version.VersionId), checkpoint, branch }
+                .Select(item => codec.CreateObject(item))));
+        var workspace = new HistoryWorkspace(configId, 0, null, null, []);
+        await history.WorkspaceStore.SaveAsync(workspace, HistoryWorkspaceStore.MissingRevision);
+        var suggestedPath = version.SourceDescriptorSnapshot.PathHint;
+        var target = CreateTarget("missing-target", "untouched");
+        var restore = new HistoryRestoreService(
+            history,
+            new RepresentationRuntime([new ExactTestRepresentationHandler()]),
+            _ => Task.FromResult<IRepresentationEnvironment>(new RepresentationEnvironment([], [], [])),
+            new FileSystemHistoryRestoreMutationBackend());
+
+        var result = await new HistoryCheckoutService(history, restore).CheckoutAsync(
+            branch.UpdateId,
+            [new HistoryRestoreSourceBinding(differentCurrentId, suggestedPath)],
+            workspace,
+            HistoryCheckoutProtectionMode.DiscardCurrentChanges);
+
+        Assert.AreEqual(HistoryRestoreStatus.Blocked, result.Status);
+        Assert.AreEqual(HistoryCheckoutReadiness.ConfigurationMappingRequired, result.CheckoutPlan!.Readiness);
+        var missing = result.CheckoutPlan.MissingHistoricalSources.Single();
+        Assert.AreEqual(historicalId, missing.SourceId);
+        Assert.AreEqual(suggestedPath, missing.SuggestedPath);
+        Assert.AreEqual("untouched", File.ReadAllText(Path.Combine(target, "original.txt")));
+    }
+
+    [TestMethod]
+    public async Task SameSourceIdentityWithDifferentBoundaryRequiresExplicitConfigRepair()
+    {
+        var configId = new HistoryConfigId(Guid.NewGuid().ToString("N"));
+        var repository = new FileHistoryRepository(
+            configId,
+            new HistoryRepositoryPaths(Path.Combine(_root, "boundary-mapping-repository")));
+        await using var history = new HistoryRuntime(repository);
+        await history.InitializeAsync();
+        var sourceId = SourceId.New();
+        var historicalBoundary = new EffectiveSourceBoundarySnapshot(
+            EffectiveBoundaryScopeMode.Include,
+            ["region/**"],
+            EffectiveBoundaryFilterMode.Blacklist,
+            [],
+            false);
+        var version = new SourceVersion(
+            VersionId.New(), configId, sourceId, [], DateTimeOffset.UtcNow, null,
+            CaptureScope.FullSource, CaptureOutcome.Captured, [],
+            new SourceDescriptorSnapshot("world", "world"), null, HistoryProvenance.Native("test"), historicalBoundary);
+        var checkpoint = new ConfigurationCheckpoint(
+            CheckpointId.New(), configId, DateTimeOffset.UtcNow, null, HistoryProvenance.Native("test"),
+            [new CheckpointSource(
+                sourceId, version.SourceDescriptorSnapshot, version.VersionId,
+                CheckpointSourceDisposition.Captured, historicalBoundary)]);
+        var branch = new BranchUpdate(
+            BranchUpdateId.New(), BranchId.New(), [], "main", checkpoint.CheckpointId, false,
+            DateTimeOffset.UtcNow, BranchUpdateReason.Created);
+        var codec = new HistoryPackCodec();
+        await repository.CommitAsync(new HistoryCommitPack(
+            PackId.New(), HistoryTransactionId.New(), DateTimeOffset.UtcNow,
+            new object[] { version, Representation(version.VersionId), checkpoint, branch }
+                .Select(item => codec.CreateObject(item))));
+        var workspace = new HistoryWorkspace(configId, 0, null, null, []);
+        await history.WorkspaceStore.SaveAsync(workspace, HistoryWorkspaceStore.MissingRevision);
+        var restore = new HistoryRestoreService(
+            history,
+            new RepresentationRuntime([new ExactTestRepresentationHandler()]),
+            _ => Task.FromResult<IRepresentationEnvironment>(new RepresentationEnvironment([], [], [])),
+            new FileSystemHistoryRestoreMutationBackend());
+
+        var result = await new HistoryCheckoutService(history, restore).CheckoutAsync(
+            branch.UpdateId,
+            [new HistoryRestoreSourceBinding(sourceId, Path.Combine(_root, "world"), EffectiveSourceBoundarySnapshot.All)],
+            workspace,
+            HistoryCheckoutProtectionMode.DiscardCurrentChanges);
+
+        Assert.AreEqual(HistoryCheckoutReadiness.ConfigurationBoundaryChangeRequired, result.CheckoutPlan!.Readiness);
+        var mismatch = result.CheckoutPlan.BoundaryMismatches.Single();
+        Assert.AreEqual(historicalBoundary.Fingerprint, mismatch.HistoricalBoundary.Fingerprint);
+        Assert.AreEqual(EffectiveSourceBoundarySnapshot.All.Fingerprint, mismatch.CurrentBoundary.Fingerprint);
+    }
+
+    [TestMethod]
     public async Task CleanRestoreRemovesUnrelatedTargetFiles()
     {
         var restored = await RestoreSingleVersionAsync(

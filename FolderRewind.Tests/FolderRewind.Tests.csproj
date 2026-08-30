@@ -113,6 +113,7 @@
     <Compile Include="..\FolderRewind\History\Application\HistoryRestoreTransactionJournal.cs" Link="Source\History\Application\HistoryRestoreTransactionJournal.cs" />
     <Compile Include="..\FolderRewind\History\Application\HistoryRestoreService.cs" Link="Source\History\Application\HistoryRestoreService.cs" />
     <Compile Include="..\FolderRewind\History\Application\HistoryCheckoutService.cs" Link="Source\History\Application\HistoryCheckoutService.cs" />
+    <Compile Include="..\FolderRewind\History\Application\HistoryCheckoutPlanner.cs" Link="Source\History\Application\HistoryCheckoutPlanner.cs" />
     <Compile Include="..\FolderRewind\History\Application\SafetySnapshotService.cs" Link="Source\History\Application\SafetySnapshotService.cs" />
     <Compile Include="..\FolderRewind\History\Representation\*.cs" Link="Source\History\Representation\%(Filename)%(Extension)" />
     <Compile Include="..\FolderRewind\History\Retention\*.cs" Link="Source\History\Retention\%(Filename)%(Extension)" />

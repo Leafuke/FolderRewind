@@ -258,6 +258,23 @@ public sealed class HistoryRestoreService
             throw new InvalidOperationException($"Version {versionId} is not Ready with {requiredFidelity} fidelity.");
     }
 
+    internal async Task<VersionAssessment> AssessVersionAsync(
+        VersionId versionId,
+        MaterializationFidelity requiredFidelity,
+        AssessmentDepth depth,
+        CancellationToken cancellationToken)
+    {
+        var allRepresentations = await _history.Query.GetAllRepresentationsAsync(cancellationToken).ConfigureAwait(false);
+        var environment = await _environmentFactory(cancellationToken).ConfigureAwait(false);
+        return await _representations.AssessVersionAsync(
+            versionId,
+            allRepresentations,
+            environment,
+            depth,
+            requiredFidelity,
+            cancellationToken).ConfigureAwait(false);
+    }
+
     internal async Task<HistoryWorkspace> RequireExpectedWorkspaceAsync(
         HistoryWorkspace expected,
         CancellationToken cancellationToken)

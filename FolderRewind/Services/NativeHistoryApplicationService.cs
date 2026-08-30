@@ -72,7 +72,7 @@ internal static class NativeHistoryApplicationService
         var workspace = await RequireWorkspaceAsync(runtime, cancellationToken).ConfigureAwait(false);
         var result = await CreateRestoreService(config, runtime).RestoreVersionAsync(
             versionId,
-            new HistoryRestoreSourceBinding(Source(folder), folder.Path),
+            Binding(config, folder),
             workspace,
             MapRestoreMode(requestedMode),
             cancellationToken).ConfigureAwait(false);
@@ -101,7 +101,7 @@ internal static class NativeHistoryApplicationService
             .ToHashSet();
         var bindings = config.SourceFolders
             .Where(folder => completeCheckpoint || restorableSources.Contains(Source(folder)))
-            .Select(folder => new HistoryRestoreSourceBinding(Source(folder), folder.Path))
+            .Select(folder => Binding(config, folder))
             .ToArray();
         var result = await CreateRestoreService(config, runtime).RestoreCheckpointAsync(
             checkpointId,
@@ -129,7 +129,7 @@ internal static class NativeHistoryApplicationService
         var workspace = await RequireWorkspaceAsync(runtime, cancellationToken).ConfigureAwait(false);
         var restore = CreateRestoreService(config, runtime);
         var bindings = config.SourceFolders
-            .Select(folder => new HistoryRestoreSourceBinding(Source(folder), folder.Path))
+            .Select(folder => Binding(config, folder))
             .ToArray();
         var result = await new HistoryCheckoutService(runtime, restore).CheckoutAsync(
             selectedTipId,
@@ -268,6 +268,12 @@ internal static class NativeHistoryApplicationService
         => Guid.TryParse(folder.Id, out var id) && id != Guid.Empty
             ? new SourceId(id)
             : throw new InvalidDataException("ManagedFolder has no stable SourceId.");
+
+    private static HistoryRestoreSourceBinding Binding(BackupConfig config, ManagedFolder folder)
+        => new(
+            Source(folder),
+            folder.Path,
+            EffectiveSourceBoundaryFactory.Create(folder.Path, folder.SourceScope, config.Filters));
 
     private static HistoryRestoreApplyMode MapRestoreMode(BackupService.RestoreMode mode)
         => mode == BackupService.RestoreMode.Clean

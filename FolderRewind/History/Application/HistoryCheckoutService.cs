@@ -16,6 +16,7 @@ public sealed class HistoryCheckoutService
     private readonly HistoryRuntime _history;
     private readonly HistoryRestoreService _restore;
     private readonly IHistoryWorkingStateProtector? _protector;
+    private readonly HistoryCheckoutPlanner _planner;
 
     public HistoryCheckoutService(
         HistoryRuntime history,
@@ -25,6 +26,7 @@ public sealed class HistoryCheckoutService
         _history = history ?? throw new ArgumentNullException(nameof(history));
         _restore = restore ?? throw new ArgumentNullException(nameof(restore));
         _protector = protector;
+        _planner = new HistoryCheckoutPlanner(_history, _restore);
     }
 
     public async Task<HistoryRestoreResult> CheckoutAsync(
@@ -38,25 +40,22 @@ public sealed class HistoryCheckoutService
         ArgumentNullException.ThrowIfNull(expectedWorkspace);
         await _restore.RecoverIncompleteAsync(cancellationToken).ConfigureAwait(false);
 
-        CheckoutSelection selection;
+        HistoryCheckoutPlan? plan = null;
         try
         {
-            selection = await ResolveSelectionAsync(
+            plan = await _planner.BuildAsync(
                 selectedTipId,
                 currentConfigSources,
+                expectedWorkspace,
+                AssessmentDepth.Deep,
                 cancellationToken).ConfigureAwait(false);
+            if (!plan.CanExecute)
+                return Blocked(plan.Diagnostic, plan);
             _ = await _restore.RequireExpectedWorkspaceAsync(expectedWorkspace, cancellationToken).ConfigureAwait(false);
-            foreach (var checkpointSource in selection.Checkpoint.Sources)
-            {
-                await _restore.EnsureReadyAsync(
-                    checkpointSource.VersionId!.Value,
-                    MaterializationFidelity.Exact,
-                    cancellationToken).ConfigureAwait(false);
-            }
         }
         catch (Exception ex)
         {
-            return Blocked(ex.Message);
+                return Blocked(ex.Message, plan);
         }
 
         HistoryWorkspace protectedWorkspace;
@@ -84,16 +83,15 @@ public sealed class HistoryCheckoutService
         var prepared = new List<HistoryRestoreService.PreparedRestoreSource>();
         try
         {
-            foreach (var checkpointSource in selection.Checkpoint.Sources)
+            foreach (var sourcePlan in plan!.Sources.Where(item => item.Action == HistoryCheckoutSourceAction.Restore))
             {
                 var version = await _history.Query.GetVersionAsync(
-                    checkpointSource.VersionId!.Value,
+                    sourcePlan.VersionId!.Value,
                     cancellationToken).ConfigureAwait(false)
                     ?? throw new InvalidOperationException("Checkpoint SourceVersion is missing.");
-                var binding = currentConfigSources.Single(source => source.SourceId == checkpointSource.SourceId);
                 prepared.Add(await _restore.PrepareSourceAsync(
                     version,
-                    binding,
+                    sourcePlan.Binding!,
                     MaterializationFidelity.Exact,
                     HistoryRestoreApplyMode.Clean,
                     cancellationToken).ConfigureAwait(false));
@@ -109,25 +107,36 @@ public sealed class HistoryCheckoutService
         try
         {
             var current = await _restore.RequireExpectedWorkspaceAsync(protectedWorkspace, cancellationToken).ConfigureAwait(false);
-            var revalidated = await ResolveSelectionAsync(
+            var revalidated = await _planner.BuildAsync(
                 selectedTipId,
                 currentConfigSources,
+                current,
+                AssessmentDepth.Deep,
                 cancellationToken).ConfigureAwait(false);
-            if (revalidated.Update.UpdateId != selection.Update.UpdateId
-                || revalidated.Checkpoint.CheckpointId != selection.Checkpoint.CheckpointId)
+            if (!revalidated.CanExecute
+                || revalidated.Update!.UpdateId != plan.Update!.UpdateId
+                || revalidated.Checkpoint!.CheckpointId != plan.Checkpoint!.CheckpointId)
             {
                 throw new InvalidOperationException("Branch selection changed during materialization.");
             }
 
-            var desired = new HistoryWorkspace(
-                _history.ConfigId,
-                checked(current.StateRevision + 1),
-                selection.Update.BranchId,
-                selection.Update.UpdateId,
-                selection.Checkpoint.Sources.Select(source => new WorkspaceSourceBaseline(
+            var restoredIds = plan!.Sources
+                .Where(item => item.Action == HistoryCheckoutSourceAction.Restore)
+                .Select(item => item.SourceId)
+                .ToHashSet();
+            // current-only Source 保留最终 revalidation 时的 baseline；若前面创建过保护点，这里不会回退到旧 request。
+            var desiredBaselines = current.SourceBaselines
+                .Where(item => !restoredIds.Contains(item.SourceId))
+                .Concat(plan.Checkpoint!.Sources.Select(source => new WorkspaceSourceBaseline(
                     source.SourceId,
                     source.VersionId,
                     WorkspaceBaselineRelation.Exact)));
+            var desired = new HistoryWorkspace(
+                _history.ConfigId,
+                checked(current.StateRevision + 1),
+                plan.Update!.BranchId,
+                plan.Update.UpdateId,
+                desiredBaselines);
             return await _restore.ExecuteMutationAsync(
                 prepared,
                 current,
@@ -141,43 +150,8 @@ public sealed class HistoryCheckoutService
         }
     }
 
-    private async Task<CheckoutSelection> ResolveSelectionAsync(
-        BranchUpdateId selectedTipId,
-        IReadOnlyList<HistoryRestoreSourceBinding> currentConfigSources,
-        CancellationToken cancellationToken)
-    {
-        await _history.EnsureIndexCurrentAsync(cancellationToken).ConfigureAwait(false);
-        var update = await _history.Query.GetBranchUpdateAsync(selectedTipId, cancellationToken).ConfigureAwait(false)
-            ?? throw new InvalidOperationException("Selected BranchUpdate does not exist.");
-        if (update.IsDeleted || update.TargetCheckpointId is null)
-            throw new InvalidOperationException("Deleted or unborn Branch cannot be checked out.");
-        var tips = await _history.Query.GetBranchTipsAsync(update.BranchId, cancellationToken).ConfigureAwait(false);
-        if (tips.All(tip => tip.UpdateId != update.UpdateId))
-            throw new InvalidOperationException("Selected BranchUpdate is not a current tip.");
-        var checkpoint = await _history.Query.GetCheckpointAsync(
-            update.TargetCheckpointId.Value,
-            cancellationToken).ConfigureAwait(false)
-            ?? throw new InvalidOperationException("Branch target Checkpoint is missing.");
-        if (!checkpoint.IsStructurallyComplete)
-            throw new InvalidOperationException("Partial Checkpoint cannot be activated as a Branch checkout.");
-
-        var bindingIds = currentConfigSources.Select(source => source.SourceId).ToArray();
-        if (bindingIds.Distinct().Count() != bindingIds.Length
-            || currentConfigSources.Select(source => Path.GetFullPath(source.TargetDirectory))
-                .Distinct(StringComparer.OrdinalIgnoreCase).Count() != currentConfigSources.Count
-            || !bindingIds.OrderBy(id => id.ToString(), StringComparer.Ordinal).SequenceEqual(
-                checkpoint.Sources.Select(source => source.SourceId)
-                    .OrderBy(id => id.ToString(), StringComparer.Ordinal)))
-        {
-            throw new InvalidOperationException("BlockedConfigurationMismatch: Checkpoint roster does not match current Config Sources.");
-        }
-        return new CheckoutSelection(update, checkpoint);
-    }
-
-    private static HistoryRestoreResult Blocked(string diagnostic)
-        => new(HistoryRestoreStatus.Blocked, diagnostic, false, []);
-
-    private sealed record CheckoutSelection(
-        BranchUpdate Update,
-        ConfigurationCheckpoint Checkpoint);
+    private static HistoryRestoreResult Blocked(
+        string diagnostic,
+        HistoryCheckoutPlan? plan = null)
+        => new(HistoryRestoreStatus.Blocked, diagnostic, false, [], plan);
 }

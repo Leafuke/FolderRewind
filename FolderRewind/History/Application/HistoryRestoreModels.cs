@@ -47,7 +47,8 @@ public sealed record HistoryRestoreResult(
     HistoryRestoreStatus Status,
     string Diagnostic,
     bool WorkspaceUpdated,
-    IReadOnlyList<SourceId> AppliedSources)
+    IReadOnlyList<SourceId> AppliedSources,
+    HistoryCheckoutPlan? CheckoutPlan = null)
 {
     public bool Succeeded => Status == HistoryRestoreStatus.Succeeded;
 }
