@@ -84,19 +84,13 @@ internal sealed class PluginV3HostServices : IPluginHostServices
                 ? config.SourceFolders.Where(folder => Guid.TryParse(folder.Id, out var id) && id == folderId.Value).ToArray()
                 : config.SourceFolders.ToArray();
             if (folders.Length == 0) return OperationOutcome.Blocked;
-            var results = new List<PluginBackupRequestResult>(folders.Length);
-            foreach (var folder in folders)
-            {
-                var result = await BackupService.BackupFolderForPluginAsync(
-                    config,
-                    folder,
-                    // 注释属于本次请求的 History 元数据，不能写入全局配置或跨请求复用。
-                    BackupInvocationOptions.ForInternal().WithComment(options.Comment),
-                    cancellationToken);
-                results.Add(result);
-                if (cancellationToken.IsCancellationRequested) break;
-            }
-            return PluginBackupRequestResult.Aggregate(results);
+            var result = await BackupService.BackupConfigurationForPluginAsync(
+                config,
+                folders,
+                // 注释属于本次请求的 History 元数据，不能写入全局配置或跨请求复用。
+                BackupInvocationOptions.ForInternal().WithComment(options.Comment),
+                cancellationToken).ConfigureAwait(false);
+            return result.Outcome;
         }
     }
 

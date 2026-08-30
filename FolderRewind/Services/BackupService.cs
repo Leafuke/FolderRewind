@@ -894,6 +894,93 @@ namespace FolderRewind.Services
                 effectiveSourceBoundary: boundary);
         }
 
+        internal static async Task<PluginBackupRequestResult> BackupConfigurationForPluginAsync(
+            BackupConfig config,
+            IReadOnlyList<ManagedFolder> requestedFolders,
+            BackupInvocationOptions invocationOptions,
+            CancellationToken cancellationToken)
+        {
+            if (NativeHostMutationContext.IsNestedMutationBlocked)
+                return new PluginBackupRequestResult(OperationOutcome.Blocked, CreatedNewArchive: false);
+            if (config is null || requestedFolders is null || requestedFolders.Count == 0)
+                return new PluginBackupRequestResult(OperationOutcome.Blocked, CreatedNewArchive: false);
+            var outcomes = new List<BackupSourceExecutionOutcome>(requestedFolders.Count);
+            var historyCommitted = false;
+            try
+            {
+                await using var operationLease = await NativeHistoryConfigurationOperationGate
+                    .EnterAsync(config.Id, cancellationToken).ConfigureAwait(false);
+                _ = await NativeHistoryCoreGateway.EnsureReadyAsync(config, cancellationToken).ConfigureAwait(false);
+                var startedAtUtc = DateTimeOffset.UtcNow;
+                foreach (var folder in requestedFolders)
+                {
+                    cancellationToken.ThrowIfCancellationRequested();
+                    outcomes.Add(await BackupFolderCoreAsync(
+                        config,
+                        folder,
+                        invocationOptions.Comment,
+                        invocationOptions,
+                        cancellationToken).ConfigureAwait(false));
+                }
+
+                if (outcomes.Any(item => item.OperationOutcome == OperationOutcome.Canceled))
+                {
+                    await CleanupUncommittedOutcomesAsync(outcomes).ConfigureAwait(false);
+                    return new PluginBackupRequestResult(OperationOutcome.Canceled, CreatedNewArchive: false);
+                }
+
+                var results = outcomes.Select((item, index) =>
+                    EnsureCaptureResult(config, requestedFolders[index], item)).ToArray();
+                var committed = await NativeHistoryCoreGateway.CommitBackupAsync(
+                    config,
+                    results,
+                    MapInvocationKind(invocationOptions.Source),
+                    startedAtUtc,
+                    invocationOptions.Comment,
+                    cancellationToken).ConfigureAwait(false);
+                historyCommitted = true;
+                CloudSyncService.QueueNativeHistorySync(
+                    config,
+                    committed.NewRepresentations.Select(item => item.RepresentationId));
+                if (outcomes.Any(item => item.CreatedNewArchive))
+                    await PruneRetainedSourceArchivesAsync(config).ConfigureAwait(false);
+                return new PluginBackupRequestResult(
+                    PluginBackupRequestResult.Aggregate(outcomes.Select(item => item.ToPluginResult())),
+                    outcomes.Any(item => item.CreatedNewArchive));
+            }
+            catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+            {
+                if (!historyCommitted)
+                    await CleanupUncommittedOutcomesAsync(outcomes).ConfigureAwait(false);
+                return new PluginBackupRequestResult(OperationOutcome.Canceled, CreatedNewArchive: false);
+            }
+            catch (Exception ex)
+            {
+                if (!historyCommitted)
+                    await CleanupUncommittedOutcomesAsync(outcomes).ConfigureAwait(false);
+                Log($"Plugin config backup request failed: {ex.Message}", LogLevel.Error);
+                if (historyCommitted)
+                {
+                    return new PluginBackupRequestResult(
+                        OperationOutcome.SuccessWithWarnings,
+                        outcomes.Any(item => item.CreatedNewArchive));
+                }
+                return new PluginBackupRequestResult(OperationOutcome.Failed, CreatedNewArchive: false);
+            }
+        }
+
+        private static async Task CleanupUncommittedOutcomesAsync(
+            IEnumerable<BackupSourceExecutionOutcome> outcomes)
+        {
+            foreach (var cleanup in outcomes
+                         .Select(item => item.CaptureResult?.CleanupHandle)
+                         .Where(item => item is not null))
+            {
+                try { await cleanup!.CleanupAsync(CancellationToken.None).ConfigureAwait(false); }
+                catch { }
+            }
+        }
+
         private static SourceCaptureResult CreateArchiveCapture(
             SourceId sourceId,
             FolderRewind.History.Domain.CaptureScope captureScope,
