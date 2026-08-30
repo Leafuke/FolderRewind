@@ -114,20 +114,23 @@ public sealed class HistoryRetentionPlanner
             }
         }
 
-        var selectionCache = new Dictionary<VersionId, Selection?>();
-        async Task<Selection?> SelectVersionAsync(VersionId versionId)
+        var selectionCache = new Dictionary<(VersionId, MaterializationFidelity), Selection?>();
+        async Task<Selection?> SelectVersionAsync(
+            VersionId versionId,
+            MaterializationFidelity requiredFidelity)
         {
-            if (selectionCache.TryGetValue(versionId, out var cached)) return cached;
+            var cacheKey = (versionId, requiredFidelity);
+            if (selectionCache.TryGetValue(cacheKey, out var cached)) return cached;
             var assessment = await _representations.AssessVersionAsync(
                 versionId,
                 allRepresentations,
                 environment,
                 AssessmentDepth.Deep,
-                request.RequiredFidelity,
+                requiredFidelity,
                 cancellationToken).ConfigureAwait(false);
             var ready = assessment.Candidates
                 .Where(item => item.Readiness == HistoryReadiness.Ready
-                    && Satisfies(item.Fidelity, request.RequiredFidelity))
+                    && Satisfies(item.Fidelity, requiredFidelity))
                 .Select(item =>
                 {
                     var representation = representationMap[item.RepresentationId];
@@ -147,20 +150,39 @@ public sealed class HistoryRetentionPlanner
                 .ThenBy(item => item.Closure.Length)
                 .ThenBy(item => item.Root.RepresentationId.ToString(), StringComparer.Ordinal)
                 .FirstOrDefault();
-            selectionCache[versionId] = selected;
+            selectionCache[cacheKey] = selected;
             return selected;
         }
 
         var checkpointReasons = new Dictionary<CheckpointId, HistoryProtectionReason>();
-        var versionReasons = new Dictionary<VersionId, HistoryProtectionReason>();
-        void ProtectVersion(VersionId versionId, HistoryProtectionReason reason)
-            => versionReasons[versionId] = versionReasons.GetValueOrDefault(versionId) | reason;
-        void ProtectCheckpoint(ConfigurationCheckpoint checkpoint, HistoryProtectionReason reason)
+        var versionRoots = new Dictionary<VersionId, ProtectedRoot>();
+        void ProtectVersion(
+            VersionId versionId,
+            HistoryProtectionReason reason,
+            MaterializationFidelity requiredFidelity)
+        {
+            if (requiredFidelity == MaterializationFidelity.Unknown)
+                throw new ArgumentException("A retention root requires a provable fidelity.", nameof(requiredFidelity));
+            if (versionRoots.TryGetValue(versionId, out var existing))
+            {
+                versionRoots[versionId] = new ProtectedRoot(
+                    existing.Reasons | reason,
+                    Strongest(existing.RequiredFidelity, requiredFidelity));
+            }
+            else
+            {
+                versionRoots[versionId] = new ProtectedRoot(reason, requiredFidelity);
+            }
+        }
+        void ProtectCheckpoint(
+            ConfigurationCheckpoint checkpoint,
+            HistoryProtectionReason reason,
+            MaterializationFidelity requiredFidelity)
         {
             checkpointReasons[checkpoint.CheckpointId] = checkpointReasons.GetValueOrDefault(checkpoint.CheckpointId) | reason;
             foreach (var source in checkpoint.Sources)
             {
-                if (source.VersionId is { } versionId) ProtectVersion(versionId, reason);
+                if (source.VersionId is { } versionId) ProtectVersion(versionId, reason, requiredFidelity);
             }
         }
 
@@ -184,7 +206,7 @@ public sealed class HistoryRetentionPlanner
             foreach (var source in checkpoint.Sources)
             {
                 if (source.VersionId is not { } versionId
-                    || await SelectVersionAsync(versionId).ConfigureAwait(false) is null)
+                    || await SelectVersionAsync(versionId, MaterializationFidelity.Exact).ConfigureAwait(false) is null)
                 {
                     restorable = false;
                     break;
@@ -192,7 +214,7 @@ public sealed class HistoryRetentionPlanner
             }
             if (!restorable) continue;
             vectors.Add(vector);
-            ProtectCheckpoint(checkpoint, HistoryProtectionReason.KeepCount);
+            ProtectCheckpoint(checkpoint, HistoryProtectionReason.KeepCount, MaterializationFidelity.Exact);
             retainedCheckpointCount++;
         }
 
@@ -204,7 +226,7 @@ public sealed class HistoryRetentionPlanner
                 if (tip.TargetCheckpointId is { } checkpointId
                     && checkpointMap.TryGetValue(checkpointId, out var checkpoint))
                 {
-                    ProtectCheckpoint(checkpoint, HistoryProtectionReason.BranchTip);
+                    ProtectCheckpoint(checkpoint, HistoryProtectionReason.BranchTip, MaterializationFidelity.Exact);
                 }
             }
         }
@@ -214,12 +236,15 @@ public sealed class HistoryRetentionPlanner
             if (!HistoryAnnotationProjection.Project(group.Key, group).IsPinned) continue;
             if (group.Key.Kind == HistoryAnnotationTargetKind.Version)
             {
-                ProtectVersion(new VersionId(group.Key.TargetId), HistoryProtectionReason.Pin);
+                ProtectVersion(
+                    new VersionId(group.Key.TargetId),
+                    HistoryProtectionReason.Pin,
+                    MaterializationFidelity.Exact);
             }
             else if (group.Key.Kind == HistoryAnnotationTargetKind.Checkpoint
                 && checkpointMap.TryGetValue(new CheckpointId(group.Key.TargetId), out var checkpoint))
             {
-                ProtectCheckpoint(checkpoint, HistoryProtectionReason.Pin);
+                ProtectCheckpoint(checkpoint, HistoryProtectionReason.Pin, MaterializationFidelity.Exact);
             }
         }
 
@@ -228,28 +253,30 @@ public sealed class HistoryRetentionPlanner
             foreach (var baseline in workspace.SourceBaselines)
             {
                 if (baseline.BaseVersionId is { } versionId)
-                    ProtectVersion(versionId, HistoryProtectionReason.Workspace);
+                    ProtectVersion(versionId, HistoryProtectionReason.Workspace, MaterializationFidelity.Exact);
             }
         }
-        foreach (var versionId in request.ActiveOperations.VersionIds)
-            ProtectVersion(versionId, HistoryProtectionReason.ActiveOperation);
+        foreach (var operation in request.ActiveOperations.Versions)
+            ProtectVersion(operation.VersionId, HistoryProtectionReason.ActiveOperation, operation.RequiredFidelity);
 
         var closures = new List<HistoryRepresentationClosure>();
         var selections = new Dictionary<VersionId, Selection>();
-        foreach (var protectedVersion in versionReasons.OrderBy(item => item.Key.ToString(), StringComparer.Ordinal))
+        foreach (var protectedVersion in versionRoots.OrderBy(item => item.Key.ToString(), StringComparer.Ordinal))
         {
             if (!versionMap.ContainsKey(protectedVersion.Key))
             {
                 blockers.Add($"Protected Version {protectedVersion.Key} is missing.");
                 continue;
             }
-            var selection = await SelectVersionAsync(protectedVersion.Key).ConfigureAwait(false);
+            var selection = await SelectVersionAsync(
+                protectedVersion.Key,
+                protectedVersion.Value.RequiredFidelity).ConfigureAwait(false);
             if (selection is null)
             {
                 blockers.Add(
                     released.Contains(protectedVersion.Key)
                         ? $"Protected released Version {protectedVersion.Key} has no Ready local materialization; automatic rehydration is forbidden."
-                        : $"Protected Version {protectedVersion.Key} has no Ready {request.RequiredFidelity} Representation.");
+                        : $"Protected Version {protectedVersion.Key} has no Ready {protectedVersion.Value.RequiredFidelity} Representation.");
                 continue;
             }
             selections.Add(protectedVersion.Key, selection);
@@ -288,6 +315,7 @@ public sealed class HistoryRetentionPlanner
         {
             var selection = pair.Value;
             if (selection.Root.Kind != RepresentationKind.CoreSmartDelta
+                || selection.Fidelity != MaterializationFidelity.Exact
                 || selection.Closure.Length < 2
                 || released.Contains(pair.Key))
             {
@@ -346,9 +374,12 @@ public sealed class HistoryRetentionPlanner
             .OrderBy(item => item.Key.ToString(), StringComparer.Ordinal)
             .Select(item => new HistoryProtectedCheckpoint(item.Key, item.Value))
             .ToImmutableArray();
-        var protectedVersions = versionReasons
+        var protectedVersions = versionRoots
             .OrderBy(item => item.Key.ToString(), StringComparer.Ordinal)
-            .Select(item => new HistoryProtectedVersion(item.Key, item.Value))
+            .Select(item => new HistoryProtectedVersion(
+                item.Key,
+                item.Value.Reasons,
+                item.Value.RequiredFidelity))
             .ToImmutableArray();
         var fingerprint = Fingerprint(
             request,
@@ -390,6 +421,11 @@ public sealed class HistoryRetentionPlanner
         => required == MaterializationFidelity.Exact
             ? actual == MaterializationFidelity.Exact
             : actual is MaterializationFidelity.Exact or MaterializationFidelity.Partial;
+
+    private static MaterializationFidelity Strongest(
+        MaterializationFidelity left,
+        MaterializationFidelity right)
+        => (MaterializationFidelity)Math.Min((int)left, (int)right);
 
     private static ImmutableArray<VersionRepresentation> BuildDependencyFirstClosure(
         VersionRepresentation root,
@@ -469,12 +505,13 @@ public sealed class HistoryRetentionPlanner
         LocalReplicaCatalog? catalog)
     {
         var text = new StringBuilder()
-            .Append(request.KeepCount).Append('|').Append((int)request.RequiredFidelity).Append('|')
+            .Append(request.KeepCount).Append('|')
             .Append(request.AllowPostMigrationCleanup ? '1' : '0').Append('|')
             .Append(catalogRevision).Append('|')
             .Append(workspace?.StateRevision.ToString(CultureInfo.InvariantCulture) ?? "missing").AppendLine();
         foreach (var item in checkpoints) text.Append("c:").Append(item.CheckpointId).Append(':').Append((int)item.Reasons).AppendLine();
-        foreach (var item in versions) text.Append("v:").Append(item.VersionId).Append(':').Append((int)item.Reasons).AppendLine();
+        foreach (var item in versions) text.Append("v:").Append(item.VersionId).Append(':')
+            .Append((int)item.Reasons).Append(':').Append((int)item.RequiredFidelity).AppendLine();
         foreach (var item in closures.OrderBy(item => item.VersionId.ToString(), StringComparer.Ordinal))
         {
             text.Append("x:").Append(item.VersionId).Append(':').Append(item.SelectedRepresentationId).Append(':')
@@ -512,4 +549,8 @@ public sealed class HistoryRetentionPlanner
         MaterializationFidelity Fidelity,
         ImmutableArray<VersionRepresentation> Closure,
         long? EstimatedBytes);
+
+    private sealed record ProtectedRoot(
+        HistoryProtectionReason Reasons,
+        MaterializationFidelity RequiredFidelity);
 }

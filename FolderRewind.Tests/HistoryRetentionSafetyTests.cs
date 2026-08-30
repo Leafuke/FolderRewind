@@ -82,7 +82,6 @@ public sealed class HistoryRetentionSafetyTests
         var planner = new HistoryRetentionPlanner(history, representationRuntime, EnvironmentFactory, payloads);
         var plan = await planner.PlanAsync(new HistoryRetentionRequest(
             0,
-            MaterializationFidelity.Exact,
             HistoryRetentionOperationRoots.Empty));
         Assert.HasCount(1, plan.Compactions);
         Assert.IsTrue(plan.LocalPayloadDeletions.All(item => item.RequiresCompaction));
@@ -105,6 +104,69 @@ public sealed class HistoryRetentionSafetyTests
         CollectionAssert.AreEquivalent(
             new[] { fullEntry.LocalReplicaId, smartEntry.LocalReplicaId },
             catalog.Entries.Select(item => item.LocalReplicaId).ToArray());
+    }
+
+    [TestMethod]
+    public async Task BranchAndWorkspaceExactRootsOverridePartialOperationAndReleasedIntent()
+    {
+        var configId = new HistoryConfigId(Guid.NewGuid().ToString("N"));
+        var repository = new FileHistoryRepository(
+            configId,
+            new HistoryRepositoryPaths(Path.Combine(_root, "root-specific-repository")));
+        await using var history = new HistoryRuntime(repository);
+        await history.InitializeAsync();
+        var sourceId = SourceId.New();
+        var version = Version(configId, sourceId, [], "partial-only");
+        var representation = new VersionRepresentation(
+            RepresentationId.New(), version.VersionId, RepresentationKind.LegacyArchive, "declared", [],
+            MaterializationFidelity.Partial, null, null, null);
+        var checkpoint = new ConfigurationCheckpoint(
+            CheckpointId.New(), configId, DateTimeOffset.UtcNow, null, HistoryProvenance.Native("test"),
+            [new CheckpointSource(sourceId, version.SourceDescriptorSnapshot, version.VersionId, CheckpointSourceDisposition.Captured)]);
+        var branch = new BranchUpdate(
+            BranchUpdateId.New(), BranchId.New(), [], "main", checkpoint.CheckpointId, false,
+            DateTimeOffset.UtcNow, BranchUpdateReason.Created);
+        var released = new MaterializationPolicyUpdate(
+            MaterializationPolicyUpdateId.New(), version.VersionId, [], MaterializationPolicyState.Released,
+            DateTimeOffset.UtcNow, "user release");
+        var codec = new HistoryPackCodec();
+        await repository.CommitAsync(new HistoryCommitPack(
+            PackId.New(), HistoryTransactionId.New(), DateTimeOffset.UtcNow,
+            new object[] { version, representation, checkpoint, branch, released }
+                .Select(item => codec.CreateObject(item))));
+        var payload = CreatePayload("partial-only.bin", "payload");
+        await history.LocalReplicaCatalogStore.SaveAsync(
+            new LocalReplicaCatalog(configId, 0, [Entry(representation.RepresentationId, payload)]),
+            LocalReplicaCatalogStore.MissingRevision);
+        await history.WorkspaceStore.SaveAsync(
+            new HistoryWorkspace(
+                configId,
+                0,
+                branch.BranchId,
+                branch.UpdateId,
+                [new WorkspaceSourceBaseline(sourceId, version.VersionId, WorkspaceBaselineRelation.Derived)]),
+            HistoryWorkspaceStore.MissingRevision);
+        Task<IRepresentationEnvironment> EnvironmentFactory(CancellationToken _)
+            => Task.FromResult<IRepresentationEnvironment>(new RepresentationEnvironment([], [], []));
+        var planner = new HistoryRetentionPlanner(
+            history,
+            new RepresentationRuntime([new DeclaredFidelityHandler()]),
+            EnvironmentFactory,
+            new TrackingPayloadStore());
+
+        var plan = await planner.PlanAsync(new HistoryRetentionRequest(
+            0,
+            new HistoryRetentionOperationRoots(
+                [new HistoryRetentionOperationVersion(version.VersionId, MaterializationFidelity.Partial)])));
+
+        var protectedVersion = plan.ProtectedVersions.Single();
+        Assert.AreEqual(MaterializationFidelity.Exact, protectedVersion.RequiredFidelity);
+        Assert.IsTrue(protectedVersion.Reasons.HasFlag(HistoryProtectionReason.BranchTip));
+        Assert.IsTrue(protectedVersion.Reasons.HasFlag(HistoryProtectionReason.Workspace));
+        Assert.IsTrue(protectedVersion.Reasons.HasFlag(HistoryProtectionReason.ActiveOperation));
+        Assert.IsFalse(plan.CanExecute);
+        Assert.IsTrue(plan.Blockers.Any(item => item.Contains("Protected released Version", StringComparison.Ordinal)));
+        Assert.IsEmpty(plan.LocalPayloadDeletions);
     }
 
     private string CreatePayload(string name, string content)
@@ -153,6 +215,26 @@ public sealed class HistoryRetentionSafetyTests
             File.WriteAllText(Path.Combine(context.StagingDirectory, "state.txt"), "materialized");
             return ValueTask.CompletedTask;
         }
+    }
+
+    private sealed class DeclaredFidelityHandler : IRepresentationHandler
+    {
+        public bool CanHandle(VersionRepresentation representation) => representation.Format == "declared";
+
+        public ValueTask<RepresentationAssessment> AssessAsync(
+            RepresentationAssessmentContext context,
+            CancellationToken cancellationToken)
+            => ValueTask.FromResult(new RepresentationAssessment(
+                context.Representation.RepresentationId,
+                HistoryReadiness.Ready,
+                context.Representation.Fidelity,
+                [],
+                []));
+
+        public ValueTask MaterializeAsync(
+            RepresentationMaterializationContext context,
+            CancellationToken cancellationToken)
+            => ValueTask.CompletedTask;
     }
 
     private sealed class TrackingPayloadStore : IHistoryLocalPayloadStore

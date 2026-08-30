@@ -24,38 +24,37 @@ public enum HistoryProtectionReason
 public sealed record HistoryRetentionOperationRoots
 {
     public HistoryRetentionOperationRoots(
-        IEnumerable<VersionId>? versionIds = null,
+        IEnumerable<HistoryRetentionOperationVersion>? versions = null,
         IEnumerable<RepresentationId>? representationIds = null)
     {
-        VersionIds = versionIds is null ? [] : [.. versionIds];
+        Versions = versions is null ? [] : [.. versions];
         RepresentationIds = representationIds is null ? [] : [.. representationIds];
     }
 
-    public ImmutableArray<VersionId> VersionIds { get; }
+    public ImmutableArray<HistoryRetentionOperationVersion> Versions { get; }
     public ImmutableArray<RepresentationId> RepresentationIds { get; }
 
     public static HistoryRetentionOperationRoots Empty { get; } = new();
 }
 
+public sealed record HistoryRetentionOperationVersion(
+    VersionId VersionId,
+    MaterializationFidelity RequiredFidelity);
+
 public sealed record HistoryRetentionRequest
 {
     public HistoryRetentionRequest(
         int keepCount,
-        MaterializationFidelity requiredFidelity,
         HistoryRetentionOperationRoots activeOperations,
         bool allowPostMigrationCleanup = false)
     {
         if (keepCount < 0) throw new ArgumentOutOfRangeException(nameof(keepCount));
-        if (requiredFidelity == MaterializationFidelity.Unknown)
-            throw new ArgumentException("Retention requires a provable materialization fidelity.", nameof(requiredFidelity));
         KeepCount = keepCount;
-        RequiredFidelity = requiredFidelity;
         ActiveOperations = activeOperations ?? throw new ArgumentNullException(nameof(activeOperations));
         AllowPostMigrationCleanup = allowPostMigrationCleanup;
     }
 
     public int KeepCount { get; }
-    public MaterializationFidelity RequiredFidelity { get; }
     public HistoryRetentionOperationRoots ActiveOperations { get; }
     public bool AllowPostMigrationCleanup { get; }
 }
@@ -66,7 +65,8 @@ public sealed record HistoryProtectedCheckpoint(
 
 public sealed record HistoryProtectedVersion(
     VersionId VersionId,
-    HistoryProtectionReason Reasons);
+    HistoryProtectionReason Reasons,
+    MaterializationFidelity RequiredFidelity);
 
 public sealed record HistoryRepresentationClosure(
     VersionId VersionId,

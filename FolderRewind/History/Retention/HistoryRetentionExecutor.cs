@@ -82,7 +82,7 @@ public sealed class HistoryRetentionExecutor
                     compact.SelectedRepresentationId,
                     allRepresentations,
                     environment,
-                    plan.Request.RequiredFidelity,
+                    MaterializationFidelity.Exact,
                     materialized,
                     cancellationToken).ConfigureAwait(false);
 
