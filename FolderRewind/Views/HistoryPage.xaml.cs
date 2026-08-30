@@ -217,19 +217,24 @@ namespace FolderRewind.Views
             if (name is null) return;
             if (!await ViewModel.CreateBranchAtLatestCheckpointAsync(name))
                 NotificationService.ShowWarning(I18n.GetString("History_Branch_NoCheckpoint"));
+            else
+                ViewModel.RefreshCurrentHistory();
         }
 
         private async void OnRenameBranchClick(object sender, RoutedEventArgs e)
         {
             if (BranchFilter.SelectedItem is not BranchViewItem branch || !branch.CanRename) return;
             var name = await PromptBranchNameAsync(I18n.GetString("History_Branch_RenameTitle"), branch.Name);
-            if (name is not null) await ViewModel.RenameBranchAsync(branch, name);
+            if (name is not null && await ViewModel.RenameBranchAsync(branch, name))
+                ViewModel.RefreshCurrentHistory();
         }
 
         private async void OnDeleteBranchClick(object sender, RoutedEventArgs e)
         {
             if (BranchFilter.SelectedItem is BranchViewItem branch && branch.CanDelete)
-                await ViewModel.DeleteBranchAsync(branch);
+            {
+                if (await ViewModel.DeleteBranchAsync(branch)) ViewModel.RefreshCurrentHistory();
+            }
         }
 
         private async void OnCheckoutBranchClick(object sender, RoutedEventArgs e)
@@ -254,6 +259,8 @@ namespace FolderRewind.Views
             if (await confirm.ShowAsync() != ContentDialogResult.Primary) return;
             if (!await ViewModel.CheckoutBranchTipAsync(branch, selected.Value))
                 NotificationService.ShowWarning(I18n.GetString("History_NativeAction_NotAvailable"));
+            else
+                ViewModel.RefreshCurrentHistory();
         }
 
         private async Task<string?> PromptBranchNameAsync(string title, string initial)

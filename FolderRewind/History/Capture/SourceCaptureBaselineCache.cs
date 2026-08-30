@@ -1,9 +1,11 @@
 using FolderRewind.History.Domain;
+using FolderRewind.History.LocalState;
 using FolderRewind.Services;
 using System;
 using System.Collections.Generic;
 using System.Collections.Immutable;
 using System.IO;
+using System.Linq;
 using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
@@ -31,6 +33,24 @@ public sealed record SourceCaptureBaselineCandidate(
     string PayloadPath,
     int ConsecutiveSmartCaptures,
     ImmutableSortedDictionary<string, SourceCaptureFileState> FileStates);
+
+public static class SourceCaptureBaselinePolicy
+{
+    public static bool IsApplicableToWorkspace(
+        SourceCaptureBaseline baseline,
+        HistoryWorkspace? workspace)
+    {
+        ArgumentNullException.ThrowIfNull(baseline);
+        var workspaceBaseline = workspace?.SourceBaselines
+            .FirstOrDefault(item => item.SourceId == baseline.SourceId);
+        return workspaceBaseline is
+            {
+                Relation: WorkspaceBaselineRelation.Exact,
+                BaseVersionId: { } workspaceVersionId
+            }
+            && workspaceVersionId == baseline.BaseVersionId;
+    }
+}
 
 public sealed class SourceCaptureBaselineCache : IDisposable
 {
@@ -96,6 +116,30 @@ public sealed class SourceCaptureBaselineCache : IDisposable
                 PathFor(sourceId),
                 (stream, token) => JsonSerializer.SerializeAsync(stream, baseline, JsonOptions, token),
                 cancellationToken).ConfigureAwait(false);
+        }
+        finally
+        {
+            _gate.Release();
+        }
+    }
+
+    public async Task<bool> RemoveAsync(
+        SourceId sourceId,
+        long expectedRevision,
+        CancellationToken cancellationToken = default)
+    {
+        ObjectDisposedException.ThrowIf(_disposed, this);
+        await _gate.WaitAsync(cancellationToken).ConfigureAwait(false);
+        try
+        {
+            var current = LoadInsideGate(sourceId);
+            if (current is null) return expectedRevision == MissingRevision;
+            if (current.Revision != expectedRevision) return false;
+            var path = PathFor(sourceId);
+            if (!File.Exists(path)) return true;
+            try { File.SetAttributes(path, FileAttributes.Normal); } catch { }
+            File.Delete(path);
+            return true;
         }
         finally
         {

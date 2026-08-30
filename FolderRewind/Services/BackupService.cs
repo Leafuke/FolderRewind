@@ -186,6 +186,8 @@ namespace FolderRewind.Services
             BackupInvocationOptions? invocationOptions = null)
         {
             if (config == null) return false;
+            await using var operationLease = await NativeHistoryConfigurationOperationGate
+                .EnterAsync(config.Id).ConfigureAwait(false);
             _ = await NativeHistoryCoreGateway.EnsureReadyAsync(config).ConfigureAwait(false);
             invocationOptions ??= BackupInvocationOptions.Default;
             Log(I18n.Format("BackupService_Log_ConfigTaskBegin", config.Name), LogLevel.Info);
@@ -248,6 +250,8 @@ namespace FolderRewind.Services
         {
             try
             {
+                await using var operationLease = await NativeHistoryConfigurationOperationGate
+                    .EnterAsync(config.Id, cancellationToken).ConfigureAwait(false);
                 _ = await NativeHistoryCoreGateway.EnsureReadyAsync(config, cancellationToken).ConfigureAwait(false);
                 var startedAtUtc = DateTimeOffset.UtcNow;
                 var outcome = await BackupFolderCoreAsync(

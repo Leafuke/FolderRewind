@@ -2,6 +2,7 @@ using FolderRewind.History.Capture;
 using FolderRewind.History.Domain;
 using FolderRewind.History.Migration;
 using FolderRewind.History.Legacy;
+using FolderRewind.History.LocalState;
 using FolderRewind.History.Storage;
 using FolderRewind.Models;
 using FolderRewind.Services;
@@ -177,11 +178,37 @@ public static class NativeHistoryCoreGateway
         return committed;
     }
 
-    public static Task<SourceCaptureBaseline?> LoadCaptureBaselineAsync(
+    public static async Task<SourceCaptureBaseline?> LoadCaptureBaselineAsync(
         string configId,
         SourceId sourceId,
         CancellationToken cancellationToken = default)
-        => GetRequiredRuntime(configId).CaptureBaselines.LoadAsync(sourceId, cancellationToken);
+    {
+        var runtime = GetRequiredRuntime(configId);
+        for (var attempt = 0; attempt < 2; attempt++)
+        {
+            var baseline = await runtime.CaptureBaselines.LoadAsync(sourceId, cancellationToken).ConfigureAwait(false);
+            if (baseline is null) return null;
+            var workspaceLoad = await runtime.WorkspaceStore.LoadAsync(cancellationToken).ConfigureAwait(false);
+            if (workspaceLoad.Status is DeviceLocalStateStatus.Corrupt or DeviceLocalStateStatus.Inaccessible)
+                throw new InvalidOperationException($"Workspace recovery is required: {workspaceLoad.Diagnostic}");
+            if (SourceCaptureBaselinePolicy.IsApplicableToWorkspace(baseline, workspaceLoad.Value))
+            {
+                return baseline;
+            }
+
+            if (await runtime.CaptureBaselines.RemoveAsync(
+                    sourceId,
+                    baseline.Revision,
+                    cancellationToken).ConfigureAwait(false))
+            {
+                LogService.LogWarning(
+                    $"Discarded stale capture baseline for Source '{sourceId}' because it no longer matches the active Workspace.",
+                    nameof(NativeHistoryCoreGateway));
+                return null;
+            }
+        }
+        return null;
+    }
 
     private static async Task<HistoryRuntime> EnsureReadyAsync(
         BackupConfig config,

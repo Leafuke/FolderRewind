@@ -5049,4 +5049,13 @@ Pull Request：{1}</value>
   <data name="BackupService_ArtifactTransformNativeHistoryNotSupported" xml:space="preserve"><value>当前版本尚未完成插件产物转换与原生历史记录的集成。请先关闭此配置的产物转换策略。</value></data>
   <data name="History_NativeInitializationFailedTitle" xml:space="preserve"><value>历史记录初始化失败</value></data>
   <data name="History_NativeInitializationFailed" xml:space="preserve"><value>无法为“{0}”初始化原生历史：{1}</value></data>
+  <data name="HistoryPage_BranchFilter.Header" xml:space="preserve"><value>查看分支</value></data>
+  <data name="HistoryPage_BranchFilter.PlaceholderText" xml:space="preserve"><value>选择分支</value></data>
+  <data name="HistoryPage_BranchCreate.Label" xml:space="preserve"><value>新建</value></data>
+  <data name="HistoryPage_BranchCheckout.Label" xml:space="preserve"><value>检出</value></data>
+  <data name="HistoryPage_BranchRename.Label" xml:space="preserve"><value>重命名</value></data>
+  <data name="HistoryPage_BranchDelete.Label" xml:space="preserve"><value>删除</value></data>
+  <data name="History_Branch_CurrentFormat" xml:space="preserve"><value>当前分支：{0}</value></data>
+  <data name="History_Branch_CurrentUnavailable" xml:space="preserve"><value>当前分支：不可用</value></data>
+  <data name="History_Branch_ActiveNameFormat" xml:space="preserve"><value>{0}（当前）</value></data>
 </root>

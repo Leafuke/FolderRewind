@@ -69,3 +69,77 @@ public static class HistoryBranchProjection
         return new HistoryBranchQueryResult(branches, collisionGroups);
     }
 }
+
+public sealed record HistoryBranchMembershipProjectionResult(
+    ImmutableDictionary<CheckpointId, ImmutableArray<BranchId>> CheckpointBranches,
+    ImmutableDictionary<VersionId, ImmutableArray<BranchId>> VersionBranches);
+
+/// <summary>
+/// Projects BranchUpdate ancestry onto Checkpoints and SourceVersions. A branch point is
+/// intentionally shared: if two branches target the same Checkpoint, every Version in that
+/// Checkpoint belongs to both branches until their later Checkpoints diverge.
+/// </summary>
+public static class HistoryBranchMembershipProjection
+{
+    public static HistoryBranchMembershipProjectionResult Build(
+        IEnumerable<BranchUpdate> updates,
+        IEnumerable<ConfigurationCheckpoint> checkpoints)
+    {
+        ArgumentNullException.ThrowIfNull(updates);
+        ArgumentNullException.ThrowIfNull(checkpoints);
+        var allUpdates = updates.ToImmutableArray();
+        var allCheckpoints = checkpoints.ToImmutableArray();
+        var updatesById = allUpdates.ToDictionary(update => update.UpdateId);
+        var checkpointBranches = new Dictionary<CheckpointId, HashSet<BranchId>>();
+
+        foreach (var branch in HistoryBranchProjection.Build(allUpdates))
+        {
+            var pending = new Stack<BranchUpdateId>(branch.Tips.Select(tip => tip.UpdateId));
+            var visited = new HashSet<BranchUpdateId>();
+            while (pending.TryPop(out var updateId))
+            {
+                if (!visited.Add(updateId)
+                    || !updatesById.TryGetValue(updateId, out var update)
+                    || update.BranchId != branch.BranchId)
+                {
+                    continue;
+                }
+
+                if (update.TargetCheckpointId is { } checkpointId)
+                {
+                    if (!checkpointBranches.TryGetValue(checkpointId, out var branchIds))
+                    {
+                        branchIds = [];
+                        checkpointBranches[checkpointId] = branchIds;
+                    }
+                    branchIds.Add(branch.BranchId);
+                }
+                foreach (var parentId in update.ParentUpdateIds) pending.Push(parentId);
+            }
+        }
+
+        var versionBranches = new Dictionary<VersionId, HashSet<BranchId>>();
+        foreach (var checkpoint in allCheckpoints)
+        {
+            if (!checkpointBranches.TryGetValue(checkpoint.CheckpointId, out var branchIds)) continue;
+            foreach (var source in checkpoint.Sources.Where(source => source.VersionId is not null))
+            {
+                var versionId = source.VersionId!.Value;
+                if (!versionBranches.TryGetValue(versionId, out var memberships))
+                {
+                    memberships = [];
+                    versionBranches[versionId] = memberships;
+                }
+                memberships.UnionWith(branchIds);
+            }
+        }
+
+        return new HistoryBranchMembershipProjectionResult(
+            checkpointBranches.ToImmutableDictionary(
+                pair => pair.Key,
+                pair => pair.Value.OrderBy(id => id.ToString(), StringComparer.Ordinal).ToImmutableArray()),
+            versionBranches.ToImmutableDictionary(
+                pair => pair.Key,
+                pair => pair.Value.OrderBy(id => id.ToString(), StringComparer.Ordinal).ToImmutableArray()));
+    }
+}

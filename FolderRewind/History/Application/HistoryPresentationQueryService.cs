@@ -38,7 +38,8 @@ public sealed record TimelineEntrySummary(
     HistoryPresentationReadiness Readiness,
     MaterializationFidelity Fidelity,
     ImmutableArray<VersionId> ParentVersionIds,
-    ImmutableArray<VersionId> ChildVersionIds);
+    ImmutableArray<VersionId> ChildVersionIds,
+    ImmutableArray<BranchId> BranchIds);
 
 public sealed record CheckpointSummary(
     CheckpointId CheckpointId,
@@ -55,7 +56,8 @@ public sealed record RunSummary(
     bool IsImportant,
     string Comment,
     bool HasPartialCapture,
-    ImmutableArray<BackupRunSourceResult> Sources);
+    ImmutableArray<BackupRunSourceResult> Sources,
+    ImmutableArray<BranchId> BranchIds);
 
 public sealed record BranchSummary(
     BranchId BranchId,
@@ -65,6 +67,7 @@ public sealed record BranchSummary(
     bool IsMultiTip,
     bool IsDeleted,
     bool HasNameCollision,
+    bool IsActive,
     bool CanCheckout,
     bool CanRename,
     bool CanDelete);
@@ -73,7 +76,9 @@ public sealed record HistoryPresentationSnapshot(
     ImmutableArray<TimelineEntrySummary> Timeline,
     ImmutableArray<CheckpointSummary> Checkpoints,
     ImmutableArray<RunSummary> Runs,
-    ImmutableArray<BranchSummary> Branches);
+    ImmutableArray<BranchSummary> Branches,
+    BranchId? ActiveBranchId,
+    BranchUpdateId? ActiveBranchUpdateId);
 
 public sealed class HistoryPresentationQueryService
 {
@@ -93,9 +98,12 @@ public sealed class HistoryPresentationQueryService
         var checkpoints = await _runtime.Query.GetAllCheckpointsAsync(cancellationToken).ConfigureAwait(false);
         var runs = await _runtime.Query.GetRunsAsync(cancellationToken).ConfigureAwait(false);
         var annotations = await _runtime.Query.GetAllAnnotationUpdatesAsync(cancellationToken).ConfigureAwait(false);
-        var branches = await _runtime.Query.GetBranchesAsync(cancellationToken).ConfigureAwait(false);
+        var branchUpdates = await _runtime.Query.GetAllBranchUpdatesAsync(cancellationToken).ConfigureAwait(false);
         var migrations = await _runtime.Query.GetMigrationRecordsAsync(cancellationToken).ConfigureAwait(false);
         var catalog = (await _runtime.LocalReplicaCatalogStore.LoadAsync(cancellationToken).ConfigureAwait(false)).Value;
+        var workspace = (await _runtime.WorkspaceStore.LoadAsync(cancellationToken).ConfigureAwait(false)).Value;
+        var branchProjection = HistoryBranchProjection.Query(branchUpdates);
+        var memberships = HistoryBranchMembershipProjection.Build(branchUpdates, checkpoints);
         var supportIds = migrations.Where(item => item.Visibility == LegacyMigrationVisibility.SupportOnly)
             .Select(item => item.VersionId).ToHashSet();
         var children = versions.SelectMany(item => item.ParentVersionIds.Select(parent => (parent, item.VersionId)))
@@ -128,7 +136,8 @@ public sealed class HistoryPresentationQueryService
                 annotation.EffectiveComment ?? string.Empty, annotation.IsPinned, annotation.IsSuppressed,
                 policy.HasExplicitPolicy && policy.EffectiveState == MaterializationPolicyState.Released,
                 version.CaptureScope, state.Readiness, state.Fidelity, version.ParentVersionIds,
-                children.GetValueOrDefault(version.VersionId, [])));
+                children.GetValueOrDefault(version.VersionId, []),
+                memberships.VersionBranches.GetValueOrDefault(version.VersionId, [])));
         }
 
         var checkpointSummaries = new List<CheckpointSummary>();
@@ -146,28 +155,38 @@ public sealed class HistoryPresentationQueryService
             var hasPartialCapture = run.Outcome == BackupRunOutcome.Partial
                 || run.SourceResults.Any(item => item.VersionId is { } versionId
                     && versionScopes.GetValueOrDefault(versionId) == CaptureScope.PartialSource);
+            var branchIds = run.ResultCheckpointId is { } checkpointId
+                ? memberships.CheckpointBranches.GetValueOrDefault(checkpointId, [])
+                : [];
             return new RunSummary(run.RunId, run.CompletedAtUtc, run.Outcome, run.ResultCheckpointId,
                 projection.IsRunImportant, projection.EffectiveComment ?? string.Empty,
-                hasPartialCapture, run.SourceResults);
+                hasPartialCapture, run.SourceResults, branchIds);
         }).ToImmutableArray();
-        var branchSummaries = branches.Branches.Select(branch =>
+        var branchSummaries = branchProjection.Branches.Where(branch => !branch.IsDeleted).Select(branch =>
         {
             var name = branch.Tips.Where(item => !item.IsDeleted).Select(item => item.Name)
                 .OrderBy(item => item, StringComparer.Ordinal).FirstOrDefault()
                 ?? branch.Tips.FirstOrDefault()?.Name ?? string.Empty;
             bool unborn = branch.Tips.All(item => item.IsUnborn);
             bool canMutate = !branch.IsMultiTip && !branch.IsDeleted;
+            bool isActive = workspace?.ActiveBranchId == branch.BranchId;
             return new BranchSummary(branch.BranchId, name, branch.Tips, unborn, branch.IsMultiTip,
                 branch.IsDeleted, branch.HasNameCollision,
+                isActive,
                 !branch.IsDeleted && !unborn && branch.Tips.Any(item => item.TargetCheckpointId is not null),
-                canMutate, canMutate);
-        }).ToImmutableArray();
+                canMutate, canMutate && !isActive);
+        }).OrderByDescending(branch => branch.IsActive)
+            .ThenBy(branch => branch.Name, StringComparer.CurrentCultureIgnoreCase)
+            .ThenBy(branch => branch.BranchId.ToString(), StringComparer.Ordinal)
+            .ToImmutableArray();
         return new(
             timeline.OrderByDescending(item => item.CreatedAtUtc)
                 .ThenByDescending(item => item.VersionId.ToString(), StringComparer.Ordinal).ToImmutableArray(),
             checkpointSummaries.OrderByDescending(item => item.CreatedAtUtc).ToImmutableArray(),
             runSummaries.OrderByDescending(item => item.CompletedAtUtc).ToImmutableArray(),
-            branchSummaries);
+            branchSummaries,
+            workspace?.ActiveBranchId,
+            workspace?.ActiveBranchUpdateId);
     }
 
     private async Task<(

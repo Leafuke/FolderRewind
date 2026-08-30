@@ -26,14 +26,20 @@ internal static class NativeHistoryApplicationService
         BackupService.RestoreMode requestedMode,
         CancellationToken cancellationToken = default)
     {
+        await using var operationLease = await NativeHistoryConfigurationOperationGate
+            .EnterAsync(config.Id, cancellationToken).ConfigureAwait(false);
         var runtime = NativeHistoryCoreGateway.GetRequiredRuntime(config.Id);
         var workspace = await RequireWorkspaceAsync(runtime, cancellationToken).ConfigureAwait(false);
-        return await CreateRestoreService(config, runtime).RestoreVersionAsync(
+        var result = await CreateRestoreService(config, runtime).RestoreVersionAsync(
             versionId,
             new HistoryRestoreSourceBinding(Source(folder), folder.Path),
             workspace,
             MapRestoreMode(requestedMode),
             cancellationToken).ConfigureAwait(false);
+        if (result.Succeeded)
+            await BackupService.SynchronizeCaptureBaselinesWithWorkspaceAsync(
+                config, result.AppliedSources, cancellationToken).ConfigureAwait(false);
+        return result;
     }
 
     public static async Task<HistoryRestoreResult> RestoreCheckpointAsync(
@@ -43,6 +49,8 @@ internal static class NativeHistoryApplicationService
         BackupService.RestoreMode requestedMode,
         CancellationToken cancellationToken = default)
     {
+        await using var operationLease = await NativeHistoryConfigurationOperationGate
+            .EnterAsync(config.Id, cancellationToken).ConfigureAwait(false);
         var runtime = NativeHistoryCoreGateway.GetRequiredRuntime(config.Id);
         var workspace = await RequireWorkspaceAsync(runtime, cancellationToken).ConfigureAwait(false);
         var checkpoint = await runtime.Query.GetCheckpointAsync(checkpointId, cancellationToken).ConfigureAwait(false)
@@ -55,7 +63,7 @@ internal static class NativeHistoryApplicationService
             .Where(folder => completeCheckpoint || restorableSources.Contains(Source(folder)))
             .Select(folder => new HistoryRestoreSourceBinding(Source(folder), folder.Path))
             .ToArray();
-        return await CreateRestoreService(config, runtime).RestoreCheckpointAsync(
+        var result = await CreateRestoreService(config, runtime).RestoreCheckpointAsync(
             checkpointId,
             bindings,
             workspace,
@@ -64,6 +72,10 @@ internal static class NativeHistoryApplicationService
                 : HistoryCheckpointRestoreScope.AvailableMappedSources,
             MapRestoreMode(requestedMode),
             cancellationToken).ConfigureAwait(false);
+        if (result.Succeeded)
+            await BackupService.SynchronizeCaptureBaselinesWithWorkspaceAsync(
+                config, result.AppliedSources, cancellationToken).ConfigureAwait(false);
+        return result;
     }
 
     public static async Task<HistoryRestoreResult> CheckoutAsync(
@@ -71,18 +83,24 @@ internal static class NativeHistoryApplicationService
         BranchUpdateId selectedTipId,
         CancellationToken cancellationToken = default)
     {
+        await using var operationLease = await NativeHistoryConfigurationOperationGate
+            .EnterAsync(config.Id, cancellationToken).ConfigureAwait(false);
         var runtime = NativeHistoryCoreGateway.GetRequiredRuntime(config.Id);
         var workspace = await RequireWorkspaceAsync(runtime, cancellationToken).ConfigureAwait(false);
         var restore = CreateRestoreService(config, runtime);
         var bindings = config.SourceFolders
             .Select(folder => new HistoryRestoreSourceBinding(Source(folder), folder.Path))
             .ToArray();
-        return await new HistoryCheckoutService(runtime, restore).CheckoutAsync(
+        var result = await new HistoryCheckoutService(runtime, restore).CheckoutAsync(
             selectedTipId,
             bindings,
             workspace,
             HistoryCheckoutProtectionMode.DiscardCurrentChanges,
             cancellationToken).ConfigureAwait(false);
+        if (result.Succeeded)
+            await BackupService.SynchronizeCaptureBaselinesWithWorkspaceAsync(
+                config, result.AppliedSources, cancellationToken).ConfigureAwait(false);
+        return result;
     }
 
     public static async Task ApplyAutomaticRetentionAsync(
