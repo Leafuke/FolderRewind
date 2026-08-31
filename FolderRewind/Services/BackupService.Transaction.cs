@@ -48,6 +48,36 @@ public static partial class BackupService
         };
     }
 
+    private sealed record BackupTerminalLifecycle(
+        string EventName,
+        IReadOnlyDictionary<string, string?> Fields);
+
+    private sealed class BackupTerminalLifecycleScope(BackupTerminalLifecycle initial) : IDisposable
+    {
+        private BackupTerminalLifecycle _terminal = initial;
+        private int _disposed;
+
+        public void Set(BackupTerminalLifecycle terminal)
+            => _terminal = terminal ?? throw new ArgumentNullException(nameof(terminal));
+
+        public void Dispose()
+        {
+            if (Interlocked.Exchange(ref _disposed, 1) != 0)
+            {
+                return;
+            }
+
+            try
+            {
+                BroadcastBackupLifecycle(_terminal.EventName, _terminal.Fields);
+            }
+            catch (Exception ex)
+            {
+                Log($"Backup terminal lifecycle broadcast failed: {ex.Message}", LogLevel.Warning);
+            }
+        }
+    }
+
     /// <summary>
     /// 统一编排配置级备份事务生命周期：
     /// 1. 获取配置互斥操作门（Operation Gate）与历史就绪校验；
@@ -57,7 +87,7 @@ public static partial class BackupService
     /// 5. 组装权威 HistoryConfigSnapshot 并执行 Native History 原子提交；
     /// 6. 以 History Commit 为 durable boundary，仅对边界前的失败执行回滚清理；
     /// 7. 在 durable boundary 后执行终态处理、云同步排队与保留期清理，辅助失败只降级为 warning；
-    /// 8. 保持 History 已确定的 Failed/Partial 聚合结果不被 post-commit warning 反向改写。
+    /// 8. 保持 Failed/Blocked/Canceled 聚合结果不被 post-commit warning 覆盖；其余结果可降级为 SuccessWithWarnings。
     /// </summary>
     internal static async Task<BackupTransactionExecutionResult> ExecuteBackupTransactionAsync(
         BackupConfig config,
@@ -229,8 +259,12 @@ public static partial class BackupService
 
         // 4. 发送事务级 command_started 与 command_progress（一笔备份请求只广播一次）
         BroadcastBackupLifecycle("command_started");
+        using var terminalLifecycle = new BackupTerminalLifecycleScope(
+            CreateFailedTerminal("transaction_interrupted", "Backup transaction was interrupted."));
         BroadcastBackupLifecycle("command_progress", new Dictionary<string, string?> { ["progress"] = "0" });
 
+        // command_started 之后的唯一 terminal lifecycle 由作用域 owner 在方法退出时发送。
+        // 默认值仅用于防御未预期异常；所有正常返回路径都会先设置更具体的终态。
         // 5. Capture / pre-durable phase。只有这一阶段的失败允许补偿删除本次 Capture 产物。
         var sourceOutcomes = new List<BackupSourceExecutionOutcome>(requestedFolders.Count);
         HistoryCommitBatch committedBatch;
@@ -253,8 +287,9 @@ public static partial class BackupService
             // 如果有被取消的 Source，执行回滚清理
             if (sourceOutcomes.Any(item => item.OperationOutcome == OperationOutcome.Canceled))
             {
+                terminalLifecycle.Set(CreateCanceledTerminal());
                 await CleanupUncommittedOutcomesAsync(sourceOutcomes).ConfigureAwait(false);
-                BroadcastBackupLifecycle("command_failed", new Dictionary<string, string?> { ["reason"] = "canceled" });
+                await FinalizeCanceledBackupAsync(requestedFolders, sourceOutcomes).ConfigureAwait(false);
                 return BackupTransactionExecutionResult.Canceled(sourceOutcomes);
             }
 
@@ -276,18 +311,23 @@ public static partial class BackupService
             }
             catch (HistoryCommitRecoveryRequiredException ex)
             {
-                // Pack 已落盘成为 durable 历史事实。此分支不得进入 pre-durable 补偿或失败终态。
+                // Pack 已落盘成为 durable 历史事实。Recovery warning 叠加在 Source 原结果之上。
                 Log($"[NativeHistory] Commit pack '{ex.CommittedPackId}' is durable, but local state recovery is required: {ex.Message}", LogLevel.Warning);
+                var recoveryOutcome = PluginBackupRequestResult.Aggregate(sourceOutcomes.Select(item => item.ToPluginResult()));
+                terminalLifecycle.Set(CreateRecoveryRequiredTerminal(recoveryOutcome, sourceOutcomes, ex));
                 try
                 {
-                    await FinalizeRecoveryRequiredBackupAsync(config, requestedFolders, sourceOutcomes, ex).ConfigureAwait(false);
+                    _ = await FinalizeCommittedBackupAsync(
+                        config,
+                        requestedFolders,
+                        sourceOutcomes,
+                        ex).ConfigureAwait(false);
                 }
                 catch (Exception finalizationException)
                 {
                     Log($"[NativeHistory] Recovery-required post-commit finalization failed: {finalizationException.Message}", LogLevel.Warning);
                 }
 
-                var recoveryOutcome = PluginBackupRequestResult.Aggregate(sourceOutcomes.Select(item => item.ToPluginResult()));
                 return new BackupTransactionExecutionResult
                 {
                     Outcome = recoveryOutcome is OperationOutcome.Failed or OperationOutcome.Blocked or OperationOutcome.Canceled
@@ -306,6 +346,7 @@ public static partial class BackupService
             catch (Exception ex)
             {
                 // Pre-durable 失败：History Commit 未形成持久 Pack，清理本次事务产生的未提交归档产物
+                terminalLifecycle.Set(CreateFailedTerminal("transaction_failed", ex.Message));
                 await CleanupUncommittedOutcomesAsync(sourceOutcomes).ConfigureAwait(false);
                 Log($"Native History commit failed: {ex.Message}", LogLevel.Error);
                 await FinalizeFailedBackupAsync(config, requestedFolders, sourceOutcomes, ex.Message).ConfigureAwait(false);
@@ -314,12 +355,14 @@ public static partial class BackupService
         }
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
         {
+            terminalLifecycle.Set(CreateCanceledTerminal());
             await CleanupUncommittedOutcomesAsync(sourceOutcomes).ConfigureAwait(false);
-            BroadcastBackupLifecycle("command_failed", new Dictionary<string, string?> { ["reason"] = "canceled" });
+            await FinalizeCanceledBackupAsync(requestedFolders, sourceOutcomes).ConfigureAwait(false);
             return BackupTransactionExecutionResult.Canceled(sourceOutcomes);
         }
         catch (Exception ex)
         {
+            terminalLifecycle.Set(CreateFailedTerminal("transaction_failed", ex.Message));
             await CleanupUncommittedOutcomesAsync(sourceOutcomes).ConfigureAwait(false);
             Log($"Backup transaction unhandled exception: {ex.Message}", LogLevel.Error);
             await FinalizeFailedBackupAsync(config, requestedFolders, sourceOutcomes, ex.Message).ConfigureAwait(false);
@@ -327,14 +370,15 @@ public static partial class BackupService
         }
 
         // 6. Durable boundary。到达这里后 History 已经确定事实；所有辅助失败只能降级为 warning。
+        var committedOutcome = PluginBackupRequestResult.Aggregate(sourceOutcomes.Select(item => item.ToPluginResult()));
+        terminalLifecycle.Set(CreateCommittedTerminal(committedOutcome, sourceOutcomes, hasPostCommitWarnings: false));
         bool hasPostCommitWarnings = false;
         try
         {
             hasPostCommitWarnings = await FinalizeCommittedBackupAsync(
                 config,
                 requestedFolders,
-                sourceOutcomes,
-                committedBatch).ConfigureAwait(false);
+                sourceOutcomes).ConfigureAwait(false);
         }
         catch (Exception ex)
         {
@@ -367,40 +411,131 @@ public static partial class BackupService
             }
         }
 
-        var committedOutcome = PluginBackupRequestResult.Aggregate(sourceOutcomes.Select(item => item.ToPluginResult()));
+        var durableOutcome = ResolveDurableOutcome(committedOutcome, hasPostCommitWarnings);
+        terminalLifecycle.Set(CreateCommittedTerminal(durableOutcome, sourceOutcomes, hasPostCommitWarnings));
         return new BackupTransactionExecutionResult
         {
-            Outcome = ResolveDurableOutcome(committedOutcome, committedBatch.Run.Outcome, hasPostCommitWarnings),
+            Outcome = durableOutcome,
             CreatedNewArchive = sourceOutcomes.Any(item => item.CreatedNewArchive),
             SourceOutcomes = sourceOutcomes,
             CommittedBatch = committedBatch
         };
     }
 
-    private static OperationOutcome ResolveDurableOutcome(
-        OperationOutcome committedOutcome,
-        BackupRunOutcome runOutcome,
+    private static BackupTerminalLifecycle CreateCanceledTerminal()
+        => new(
+            "command_failed",
+            new Dictionary<string, string?> { ["reason"] = "canceled" });
+
+    private static BackupTerminalLifecycle CreateFailedTerminal(string reason, string error)
+        => new(
+            "command_failed",
+            new Dictionary<string, string?>
+            {
+                ["reason"] = reason,
+                ["error"] = error
+            });
+
+    private static BackupTerminalLifecycle CreateCommittedTerminal(
+        OperationOutcome outcome,
+        IReadOnlyList<BackupSourceExecutionOutcome> sourceOutcomes,
         bool hasPostCommitWarnings)
     {
-        if (!hasPostCommitWarnings || runOutcome is BackupRunOutcome.Partial or BackupRunOutcome.Failed)
+        if (outcome is OperationOutcome.Failed or OperationOutcome.Blocked or OperationOutcome.Canceled)
+        {
+            var firstFailed = sourceOutcomes.FirstOrDefault(item => item.Status == BackupSourceExecutionStatus.Failed);
+            var firstUnavailable = sourceOutcomes.FirstOrDefault(item => item.Status == BackupSourceExecutionStatus.Unavailable);
+            return firstFailed is not null
+                ? CreateFailedTerminal("source_failed", firstFailed.ErrorMessage)
+                : CreateFailedTerminal("source_unavailable", firstUnavailable?.ErrorMessage ?? "Backup source is unavailable.");
+        }
+
+        if (hasPostCommitWarnings)
+        {
+            return new BackupTerminalLifecycle(
+                "command_completed",
+                new Dictionary<string, string?>
+                {
+                    ["result"] = "warning",
+                    ["reason"] = "post_commit_warning"
+                });
+        }
+
+        var latestCreated = sourceOutcomes.LastOrDefault(item => item.CreatedNewArchive)?.GeneratedFileName;
+        if (sourceOutcomes.Any(item => item.CreatedNewArchive))
+        {
+            return new BackupTerminalLifecycle(
+                "command_completed",
+                new Dictionary<string, string?>
+                {
+                    ["result"] = "created",
+                    ["file"] = latestCreated
+                });
+        }
+
+        return new BackupTerminalLifecycle(
+            "command_completed",
+            new Dictionary<string, string?> { ["result"] = "no_changes" });
+    }
+
+    private static BackupTerminalLifecycle CreateRecoveryRequiredTerminal(
+        OperationOutcome outcome,
+        IReadOnlyList<BackupSourceExecutionOutcome> sourceOutcomes,
+        HistoryCommitRecoveryRequiredException ex)
+    {
+        if (outcome is OperationOutcome.Failed or OperationOutcome.Blocked or OperationOutcome.Canceled)
+        {
+            var firstFailed = sourceOutcomes.FirstOrDefault(item => item.Status == BackupSourceExecutionStatus.Failed);
+            var firstUnavailable = sourceOutcomes.FirstOrDefault(item => item.Status == BackupSourceExecutionStatus.Unavailable);
+            return new BackupTerminalLifecycle(
+                "command_failed",
+                new Dictionary<string, string?>
+                {
+                    ["reason"] = firstFailed is not null ? "source_failed" : "source_unavailable",
+                    ["error"] = firstFailed?.ErrorMessage
+                        ?? firstUnavailable?.ErrorMessage
+                        ?? "Backup failed",
+                    ["history_recovery_required"] = "true",
+                    ["pack_id"] = ex.CommittedPackId.ToString()
+                });
+        }
+
+        return new BackupTerminalLifecycle(
+            "command_completed",
+            new Dictionary<string, string?>
+            {
+                ["result"] = "warning",
+                ["reason"] = "history_recovery_required",
+                ["pack_id"] = ex.CommittedPackId.ToString()
+            });
+    }
+
+    private static OperationOutcome ResolveDurableOutcome(
+        OperationOutcome committedOutcome,
+        bool hasPostCommitWarnings)
+    {
+        if (committedOutcome is OperationOutcome.Failed or OperationOutcome.Blocked or OperationOutcome.Canceled)
         {
             return committedOutcome;
         }
 
-        return OperationOutcome.SuccessWithWarnings;
+        return hasPostCommitWarnings
+            ? OperationOutcome.SuccessWithWarnings
+            : committedOutcome;
     }
 
     private static async Task<bool> FinalizeCommittedBackupAsync(
         BackupConfig config,
         IReadOnlyList<ManagedFolder> requestedFolders,
         IReadOnlyList<BackupSourceExecutionOutcome> sourceOutcomes,
-        HistoryCommitBatch committedBatch)
+        HistoryCommitRecoveryRequiredException? recoveryRequired = null)
     {
         int configIndex = GetConfigIndex(config);
-        bool anyNewFile = false;
+        bool anyNewFile = sourceOutcomes.Any(item => item.CreatedNewArchive);
         bool hasPostCommitWarnings = false;
-        string? latestCompletedFile = null;
-        var overallOutcome = PluginBackupRequestResult.Aggregate(sourceOutcomes.Select(item => item.ToPluginResult()));
+        string? recoveryWarning = recoveryRequired is null
+            ? null
+            : I18n.Format("BackupService_Log_RecoveryRequired", recoveryRequired.CommittedPackId.ToString());
 
         for (int i = 0; i < requestedFolders.Count; i++)
         {
@@ -408,142 +543,167 @@ public static partial class BackupService
             var outcome = sourceOutcomes[i];
             var task = outcome.Task;
 
-            if (outcome.Status == BackupSourceExecutionStatus.Unavailable)
+            try
             {
-                string unavailableMessage = I18n.GetString("BackupService_Folder_NoMatchingFiles");
-                if (task is not null)
+                if (outcome.Status == BackupSourceExecutionStatus.Unavailable)
                 {
-                    await RunOnUIAsync(() =>
+                    string unavailableMessage = I18n.GetString("BackupService_Folder_NoMatchingFiles");
+                    if (task is not null)
                     {
-                        task.Status = unavailableMessage;
-                        task.Progress = 100;
-                        task.IsCompleted = true;
-                        task.IsIndeterminate = false;
-                        task.IsSuccess = true;
-                        task.ErrorMessage = string.Empty;
-                        folder.StatusText = unavailableMessage;
+                        await RunOnUIAsync(() =>
+                        {
+                            task.Status = unavailableMessage;
+                            task.Progress = 100;
+                            task.IsCompleted = true;
+                            task.IsIndeterminate = false;
+                            task.IsSuccess = false;
+                            task.ErrorMessage = outcome.ErrorMessage;
+                            folder.StatusText = unavailableMessage;
+                        });
+                    }
+                    Log(I18n.Format("BackupService_Log_NoMatchingFiles", folder.DisplayName), LogLevel.Warning);
+                    BroadcastBackupEvent(configIndex, config, folder, "backup_unavailable", new Dictionary<string, string?>
+                    {
+                        ["reason"] = "no_matching_files"
                     });
                 }
-                Log(I18n.Format("BackupService_Log_NoMatchingFiles", folder.DisplayName), LogLevel.Warning);
-                BroadcastBackupEvent(configIndex, config, folder, "backup_unavailable", new Dictionary<string, string?>
+                else if (outcome.CreatedNewArchive)
                 {
-                    ["reason"] = "no_matching_files"
-                });
-            }
-            else if (outcome.CreatedNewArchive)
-            {
-                anyNewFile = true;
-                latestCompletedFile = outcome.GeneratedFileName;
-                var completedFileName = outcome.GeneratedFileName;
+                    var completedFileName = outcome.GeneratedFileName;
 
-                // 备份完成后检查文件大小，过小时发出警告
-                if (!string.IsNullOrEmpty(completedFileName) && !string.IsNullOrEmpty(config.DestinationPath))
-                {
-                    try
+                    // 备份完成后检查文件大小，过小时发出警告
+                    if (!string.IsNullOrEmpty(completedFileName) && !string.IsNullOrEmpty(config.DestinationPath))
                     {
-                        if (TryResolveBackupStoragePaths(config.DestinationPath, folder.DisplayName, folder.Path, out _, out var backupSubDir, out _))
+                        try
                         {
-                            var archiveFile = Path.Combine(backupSubDir, completedFileName);
-                            if (File.Exists(archiveFile))
+                            if (TryResolveBackupStoragePaths(config.DestinationPath, folder.DisplayName, folder.Path, out _, out var backupSubDir, out _))
                             {
-                                var fileSizeKB = new FileInfo(archiveFile).Length / 1024.0;
-                                var thresholdKB = ConfigService.CurrentConfig?.GlobalSettings?.FileSizeWarningThresholdKB ?? 5;
-                                if (thresholdKB > 0 && fileSizeKB < thresholdKB)
+                                var archiveFile = Path.Combine(backupSubDir, completedFileName);
+                                if (File.Exists(archiveFile))
                                 {
-                                    Log(I18n.Format("BackupService_Log_FileSizeTooSmall", folder.DisplayName, fileSizeKB.ToString("F1"), thresholdKB.ToString()), LogLevel.Warning);
-                                    NotificationService.ShowWarning(
-                                        I18n.Format("BackupService_Warning_FileSizeTooSmall", folder.DisplayName, fileSizeKB.ToString("F1"), thresholdKB.ToString()));
-                                    BroadcastBackupEvent(configIndex, config, folder, "backup_warning", new Dictionary<string, string?>
+                                    var fileSizeKB = new FileInfo(archiveFile).Length / 1024.0;
+                                    var thresholdKB = ConfigService.CurrentConfig?.GlobalSettings?.FileSizeWarningThresholdKB ?? 5;
+                                    if (thresholdKB > 0 && fileSizeKB < thresholdKB)
                                     {
-                                        ["type"] = "file_too_small",
-                                        ["size_kb"] = fileSizeKB.ToString("F1")
-                                    });
+                                        Log(I18n.Format("BackupService_Log_FileSizeTooSmall", folder.DisplayName, fileSizeKB.ToString("F1"), thresholdKB.ToString()), LogLevel.Warning);
+                                        NotificationService.ShowWarning(
+                                            I18n.Format("BackupService_Warning_FileSizeTooSmall", folder.DisplayName, fileSizeKB.ToString("F1"), thresholdKB.ToString()));
+                                        BroadcastBackupEvent(configIndex, config, folder, "backup_warning", new Dictionary<string, string?>
+                                        {
+                                            ["type"] = "file_too_small",
+                                            ["size_kb"] = fileSizeKB.ToString("F1")
+                                        });
+                                    }
                                 }
                             }
                         }
+                        catch
+                        {
+                        }
                     }
-                    catch
+
+                    if (task is not null)
                     {
+                        await RunOnUIAsync(() =>
+                        {
+                            task.Status = recoveryWarning ?? I18n.Format("BackupService_Task_Completed");
+                            task.Progress = 100;
+                            task.IsCompleted = true;
+                            task.IsIndeterminate = false;
+                            task.IsSuccess = true;
+                            folder.StatusText = I18n.Format("BackupService_Folder_BackupCompleted");
+                            folder.LastBackupTime = DateTime.Now.ToString("yyyy/MM/dd HH:mm");
+                        });
                     }
-                }
+                    else
+                    {
+                        await RunOnUIAsync(() =>
+                        {
+                            folder.StatusText = I18n.Format("BackupService_Folder_BackupCompleted");
+                            folder.LastBackupTime = DateTime.Now.ToString("yyyy/MM/dd HH:mm");
+                        });
+                    }
 
-                if (task is not null)
-                {
-                    await RunOnUIAsync(() =>
+                    if (recoveryRequired is null)
                     {
-                        task.Status = I18n.Format("BackupService_Task_Completed");
-                        task.Progress = 100;
-                        task.IsCompleted = true;
-                        task.IsIndeterminate = false;
-                        task.IsSuccess = true;
-                        folder.StatusText = I18n.Format("BackupService_Folder_BackupCompleted");
-                        folder.LastBackupTime = DateTime.Now.ToString("yyyy/MM/dd HH:mm");
-                    });
+                        BroadcastBackupEvent(configIndex, config, folder, "backup_success", new Dictionary<string, string?>
+                        {
+                            ["file"] = completedFileName
+                        });
+                        NotificationService.NotifyBackupCompleted(folder.DisplayName, true);
+                    }
+                    else
+                    {
+                        BroadcastBackupEvent(configIndex, config, folder, "backup_warning", new Dictionary<string, string?>
+                        {
+                            ["type"] = "history_recovery_required",
+                            ["pack_id"] = recoveryRequired.CommittedPackId.ToString(),
+                            ["message"] = recoveryRequired.Message
+                        });
+                    }
+                    Log(I18n.Format("BackupService_Log_BackupSucceeded", folder.DisplayName), LogLevel.Info);
+                }
+                else if (outcome.Status == BackupSourceExecutionStatus.Reused)
+                {
+                    if (task is not null)
+                    {
+                        await RunOnUIAsync(() =>
+                        {
+                            task.Status = I18n.Format("BackupService_Task_NoChanges");
+                            task.Progress = 100;
+                            task.IsCompleted = true;
+                            task.IsIndeterminate = false;
+                            task.IsSuccess = true;
+                            folder.StatusText = I18n.Format("BackupService_Task_NoChanges");
+                        });
+                    }
+                    else
+                    {
+                        await RunOnUIAsync(() =>
+                        {
+                            folder.StatusText = I18n.Format("BackupService_Task_NoChanges");
+                        });
+                    }
+                    Log(I18n.Format("BackupService_Log_BackupSkippedNoChanges", folder.DisplayName), LogLevel.Info);
                 }
                 else
                 {
-                    await RunOnUIAsync(() =>
+                    if (task is not null)
                     {
-                        folder.StatusText = I18n.Format("BackupService_Folder_BackupCompleted");
-                        folder.LastBackupTime = DateTime.Now.ToString("yyyy/MM/dd HH:mm");
-                    });
+                        await RunOnUIAsync(() =>
+                        {
+                            task.Status = I18n.Format("BackupService_Task_Failed");
+                            task.IsCompleted = true;
+                            task.IsIndeterminate = false;
+                            task.IsSuccess = false;
+                            task.ErrorMessage = outcome.ErrorMessage;
+                            folder.StatusText = I18n.Format("BackupService_Folder_BackupFailed");
+                        });
+                    }
+                    else
+                    {
+                        await RunOnUIAsync(() =>
+                        {
+                            folder.StatusText = I18n.Format("BackupService_Folder_BackupFailed");
+                        });
+                    }
+                    var failureFields = new Dictionary<string, string?>
+                    {
+                        ["error"] = outcome.ErrorMessage
+                    };
+                    if (recoveryRequired is not null)
+                    {
+                        failureFields["history_recovery_required"] = "true";
+                        failureFields["pack_id"] = recoveryRequired.CommittedPackId.ToString();
+                    }
+                    BroadcastBackupEvent(configIndex, config, folder, "backup_failed", failureFields);
+                    NotificationService.NotifyBackupCompleted(folder.DisplayName, false, outcome.ErrorMessage);
                 }
-
-                BroadcastBackupEvent(configIndex, config, folder, "backup_success", new Dictionary<string, string?>
-                {
-                    ["file"] = completedFileName
-                });
-                Log(I18n.Format("BackupService_Log_BackupSucceeded", folder.DisplayName), LogLevel.Info);
             }
-            else if (outcome.Status == BackupSourceExecutionStatus.Reused)
+            catch (Exception ex)
             {
-                if (task is not null)
-                {
-                    await RunOnUIAsync(() =>
-                    {
-                        task.Status = I18n.Format("BackupService_Task_NoChanges");
-                        task.Progress = 100;
-                        task.IsCompleted = true;
-                        task.IsIndeterminate = false;
-                        task.IsSuccess = true;
-                        folder.StatusText = I18n.Format("BackupService_Task_NoChanges");
-                    });
-                }
-                else
-                {
-                    await RunOnUIAsync(() =>
-                    {
-                        folder.StatusText = I18n.Format("BackupService_Task_NoChanges");
-                    });
-                }
-                Log(I18n.Format("BackupService_Log_BackupSkippedNoChanges", folder.DisplayName), LogLevel.Info);
-            }
-            else
-            {
-                if (task is not null)
-                {
-                    await RunOnUIAsync(() =>
-                    {
-                        task.Status = I18n.Format("BackupService_Task_Failed");
-                        task.IsCompleted = true;
-                        task.IsIndeterminate = false;
-                        task.IsSuccess = false;
-                        task.ErrorMessage = outcome.ErrorMessage;
-                        folder.StatusText = I18n.Format("BackupService_Folder_BackupFailed");
-                    });
-                }
-                else
-                {
-                    await RunOnUIAsync(() =>
-                    {
-                        folder.StatusText = I18n.Format("BackupService_Folder_BackupFailed");
-                    });
-                }
-                BroadcastBackupEvent(configIndex, config, folder, "backup_failed", new Dictionary<string, string?>
-                {
-                    ["error"] = outcome.ErrorMessage
-                });
-                NotificationService.NotifyBackupCompleted(folder.DisplayName, false, outcome.ErrorMessage);
+                hasPostCommitWarnings = true;
+                Log($"Post-commit finalization failed for folder '{folder.DisplayName}': {ex.Message}", LogLevel.Warning);
             }
         }
 
@@ -558,104 +718,40 @@ public static partial class BackupService
             }
         }
 
-        // 关键设计：严禁在存在 Failed Source 时发送 command_completed { result = "no_changes" }
-        if (overallOutcome == OperationOutcome.Failed || committedBatch.Run.Outcome == BackupRunOutcome.Failed)
-        {
-            var firstFailed = sourceOutcomes.FirstOrDefault(o => o.Status == BackupSourceExecutionStatus.Failed);
-            var errorMsg = firstFailed?.ErrorMessage ?? "Backup failed";
-            BroadcastBackupLifecycle("command_failed", new Dictionary<string, string?>
-            {
-                ["reason"] = "source_failed",
-                ["error"] = errorMsg
-            });
-        }
-        else if (anyNewFile)
-        {
-            BroadcastBackupLifecycle("command_completed", new Dictionary<string, string?>
-            {
-                ["result"] = "created",
-                ["file"] = latestCompletedFile
-            });
-        }
-        else if (sourceOutcomes.All(o => o.Status == BackupSourceExecutionStatus.Unavailable))
-        {
-            BroadcastBackupLifecycle("command_completed", new Dictionary<string, string?>
-            {
-                ["result"] = "unavailable",
-                ["reason"] = "no_matching_files"
-            });
-        }
-        else
-        {
-            BroadcastBackupLifecycle("command_completed", new Dictionary<string, string?>
-            {
-                ["result"] = "no_changes"
-            });
-        }
-
         return hasPostCommitWarnings;
     }
 
-    private static async Task FinalizeRecoveryRequiredBackupAsync(
-        BackupConfig config,
+    private static async Task FinalizeCanceledBackupAsync(
         IReadOnlyList<ManagedFolder> requestedFolders,
-        IReadOnlyList<BackupSourceExecutionOutcome> sourceOutcomes,
-        HistoryCommitRecoveryRequiredException ex)
+        IReadOnlyList<BackupSourceExecutionOutcome> sourceOutcomes)
     {
-        int configIndex = GetConfigIndex(config);
-        string recoveryWarning = I18n.Format("BackupService_Log_RecoveryRequired", ex.CommittedPackId.ToString());
-        for (int i = 0; i < requestedFolders.Count; i++)
+        string canceledMessage = I18n.GetString("Common_Canceled");
+        for (int i = 0; i < sourceOutcomes.Count && i < requestedFolders.Count; i++)
         {
             var folder = requestedFolders[i];
-            var outcome = sourceOutcomes[i];
-            var task = outcome.Task;
-            if (task is not null)
+            var task = sourceOutcomes[i].Task;
+            if (task is null)
+            {
+                continue;
+            }
+
+            try
             {
                 await RunOnUIAsync(() =>
                 {
-                    task.Status = recoveryWarning;
-                    task.Progress = 100;
+                    task.Status = canceledMessage;
                     task.IsCompleted = true;
                     task.IsIndeterminate = false;
-                    task.IsSuccess = true;
-                    folder.StatusText = I18n.Format("BackupService_Folder_BackupCompleted");
-                    if (outcome.CreatedNewArchive)
-                    {
-                        folder.LastBackupTime = DateTime.Now.ToString("yyyy/MM/dd HH:mm");
-                    }
+                    task.IsSuccess = false;
+                    task.ErrorMessage = canceledMessage;
+                    folder.StatusText = canceledMessage;
                 });
             }
-            else
+            catch (Exception ex)
             {
-                await RunOnUIAsync(() =>
-                {
-                    folder.StatusText = I18n.Format("BackupService_Folder_BackupCompleted");
-                    if (outcome.CreatedNewArchive)
-                    {
-                        folder.LastBackupTime = DateTime.Now.ToString("yyyy/MM/dd HH:mm");
-                    }
-                });
-            }
-            if (outcome.CreatedNewArchive)
-            {
-                BroadcastBackupEvent(configIndex, config, folder, "backup_warning", new Dictionary<string, string?>
-                {
-                    ["type"] = "history_recovery_required",
-                    ["pack_id"] = ex.CommittedPackId.ToString(),
-                    ["message"] = ex.Message
-                });
+                Log($"Canceled backup finalization failed for folder '{folder.DisplayName}': {ex.Message}", LogLevel.Warning);
             }
         }
-        if (sourceOutcomes.Any(o => o.CreatedNewArchive))
-        {
-            ConfigService.Save();
-        }
-        BroadcastBackupLifecycle("command_completed", new Dictionary<string, string?>
-        {
-            ["result"] = "warning",
-            ["reason"] = "history_recovery_required",
-            ["pack_id"] = ex.CommittedPackId.ToString()
-        });
     }
 
     private static async Task FinalizeFailedBackupAsync(
@@ -669,37 +765,48 @@ public static partial class BackupService
         {
             var folder = requestedFolders[i];
             var outcome = i < sourceOutcomes.Count ? sourceOutcomes[i] : null;
-            var task = outcome?.Task;
-            if (task is not null)
+            try
             {
-                await RunOnUIAsync(() =>
-                {
-                    task.Status = I18n.Format("BackupService_Task_Failed");
-                    task.IsCompleted = true;
-                    task.IsIndeterminate = false;
-                    task.IsSuccess = false;
-                    task.ErrorMessage = errorMessage;
-                    folder.StatusText = I18n.Format("BackupService_Folder_BackupFailed");
-                });
+                await FinalizeFailedSourceAsync(configIndex, config, folder, outcome?.Task, errorMessage).ConfigureAwait(false);
             }
-            else
+            catch (Exception ex)
             {
-                await RunOnUIAsync(() =>
-                {
-                    folder.StatusText = I18n.Format("BackupService_Folder_BackupFailed");
-                });
+                Log($"Failed backup finalization failed for folder '{folder.DisplayName}': {ex.Message}", LogLevel.Warning);
             }
-            BroadcastBackupEvent(configIndex, config, folder, "backup_failed", new Dictionary<string, string?>
-            {
-                ["error"] = "transaction_failed",
-                ["message"] = errorMessage
-            });
-            NotificationService.NotifyBackupCompleted(folder.DisplayName, false, errorMessage);
         }
-        BroadcastBackupLifecycle("command_failed", new Dictionary<string, string?>
+    }
+
+    private static async Task FinalizeFailedSourceAsync(
+        int configIndex,
+        BackupConfig config,
+        ManagedFolder folder,
+        BackupTask? task,
+        string errorMessage)
+    {
+        if (task is not null)
         {
-            ["reason"] = "transaction_failed",
-            ["error"] = errorMessage
+            await RunOnUIAsync(() =>
+            {
+                task.Status = I18n.Format("BackupService_Task_Failed");
+                task.IsCompleted = true;
+                task.IsIndeterminate = false;
+                task.IsSuccess = false;
+                task.ErrorMessage = errorMessage;
+                folder.StatusText = I18n.Format("BackupService_Folder_BackupFailed");
+            });
+        }
+        else
+        {
+            await RunOnUIAsync(() =>
+            {
+                folder.StatusText = I18n.Format("BackupService_Folder_BackupFailed");
+            });
+        }
+        BroadcastBackupEvent(configIndex, config, folder, "backup_failed", new Dictionary<string, string?>
+        {
+            ["error"] = "transaction_failed",
+            ["message"] = errorMessage
         });
+        NotificationService.NotifyBackupCompleted(folder.DisplayName, false, errorMessage);
     }
 }

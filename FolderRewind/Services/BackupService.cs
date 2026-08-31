@@ -470,6 +470,15 @@ namespace FolderRewind.Services
             {
                 await v3Session.AcquireConsistencyAsync(cancellationToken);
             }
+            catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+            {
+                return CreateSourceOutcome(
+                    folder,
+                    BackupSourceExecutionStatus.Failed,
+                    errorMessage: I18n.GetString("Common_Canceled"),
+                    operationOutcome: OperationOutcome.Canceled,
+                    task: task);
+            }
             catch (Exception ex)
             {
                 Log($"[PluginV3] Consistency acquisition failed: {ex.Message}", LogLevel.Error);
@@ -527,10 +536,23 @@ namespace FolderRewind.Services
             string? generatedFileName = null;
             SourceCaptureResult? captureResult = null;
             var sourceId = new SourceId(Guid.Parse(folder.Id));
-            var captureBaseline = await NativeHistoryCoreGateway.LoadCaptureBaselineAsync(
-                config.Id,
-                sourceId,
-                cancellationToken).ConfigureAwait(false);
+            SourceCaptureBaseline? captureBaseline;
+            try
+            {
+                captureBaseline = await NativeHistoryCoreGateway.LoadCaptureBaselineAsync(
+                    config.Id,
+                    sourceId,
+                    cancellationToken).ConfigureAwait(false);
+            }
+            catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+            {
+                return CreateSourceOutcome(
+                    folder,
+                    BackupSourceExecutionStatus.Failed,
+                    errorMessage: I18n.GetString("Common_Canceled"),
+                    operationOutcome: OperationOutcome.Canceled,
+                    task: task);
+            }
             if (captureBaseline is not null
                 && !StringComparer.Ordinal.Equals(
                     captureBaseline.BoundaryFingerprint,
