@@ -32,8 +32,8 @@ namespace FolderRewind.Services
         public static ObservableCollection<BackupTask> ActiveTasks { get; } = new();
 
         // 还原阶段会用内部标记目录记录“仅删除”动作，完成后必须清理避免污染用户目录。
-        private const string InternalRestoreMarkerDirectoryName = "__FolderRewind_Internal";
-        private const string InternalRestoreMarkerFileName = "__DeletedOnly.marker";
+        internal const string InternalRestoreMarkerDirectoryName = "__FolderRewind_Internal";
+        internal const string InternalRestoreMarkerFileName = "__DeletedOnly.marker";
         private const string MissingEncryptionPasswordMessage = "Encrypted backup password is missing for this configuration.";
 
         // 变更集是增量备份/删除标记/元数据写入的统一输入。

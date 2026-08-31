@@ -87,4 +87,25 @@ public sealed class SevenZipArchiveListingParserTests
 
         Assert.IsFalse(SevenZipArchiveListingParser.TryParse(contradictoryListing, out _));
     }
+
+    [TestMethod]
+    public void DeletionMarkerListingWithBackslashesIsNormalizedToForwardSlashes()
+    {
+        const string deletionMarkerListing = """
+            7-Zip listing header
+            ----------
+            Path = __FolderRewind_Internal
+            Size = 0
+            Attributes = D
+
+            Path = __FolderRewind_Internal\__DeletedOnly.marker
+            Size = 28
+            Attributes = A
+            """;
+
+        Assert.IsTrue(SevenZipArchiveListingParser.TryParse(deletionMarkerListing, out var entries));
+        Assert.HasCount(1, entries);
+        Assert.IsTrue(entries.ContainsKey("__FolderRewind_Internal/__DeletedOnly.marker"));
+        Assert.AreEqual(28, entries["__FolderRewind_Internal/__DeletedOnly.marker"].Size);
+    }
 }

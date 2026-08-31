@@ -701,7 +701,7 @@ internal sealed class SevenZipHistoryArchiveBackend : IArchiveRepresentationBack
                 throw new InvalidDataException(result.Diagnostic);
             ApplyDeletedFiles(input.Representation, stagingDirectory);
         }
-        var marker = Path.Combine(stagingDirectory, "__FolderRewind_Internal");
+        var marker = Path.Combine(stagingDirectory, BackupService.InternalRestoreMarkerDirectoryName);
         if (Directory.Exists(marker)) Directory.Delete(marker, recursive: true);
     }
 

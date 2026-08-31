@@ -71,9 +71,9 @@ namespace FolderRewind.Services
                     return matches;
                 }
 
-                var markerPath = Path.Combine(
-                    InternalRestoreMarkerDirectoryName,
-                    InternalRestoreMarkerFileName);
+                // 此处不用 Path.Combine，因为 ArchiveLogicalStateVerifier 里是用的 string.Equals(path, markerPath, StringComparison.OrdinalIgnoreCase) 来比较的，Path.Combine 会把路径分隔符换成当前系统的分隔符，导致比较失败
+                // 不过我这么改未来可能仍然会在其他位置出问题，以后应该想想更好的解决方法。
+                var markerPath = $"{InternalRestoreMarkerDirectoryName}/{InternalRestoreMarkerFileName}";
                 var userEntries = entries
                     .Where(pair => !string.Equals(pair.Key, markerPath, StringComparison.OrdinalIgnoreCase))
                     .ToDictionary(pair => pair.Key, pair => pair.Value, StringComparer.OrdinalIgnoreCase);
