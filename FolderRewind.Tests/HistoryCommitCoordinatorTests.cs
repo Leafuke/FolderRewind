@@ -819,6 +819,18 @@ public sealed class HistoryCommitCoordinatorTests
             effectiveSourceBoundary: boundary);
     }
 
+    [TestMethod]
+    public void HistoryCommitRecoveryRequiredExceptionPreservesCommittedPackIdAndMessage()
+    {
+        var packId = PackId.New();
+        var inner = new InvalidOperationException("disk write error");
+        var ex = new HistoryCommitRecoveryRequiredException(packId, "local state recovery required", inner);
+
+        Assert.AreEqual(packId, ex.CommittedPackId);
+        Assert.AreEqual("local state recovery required", ex.Message);
+        Assert.AreSame(inner, ex.InnerException);
+    }
+
     private sealed class DeleteFileCleanup(string path) : ICaptureCleanupHandle
     {
         public bool WasCalled { get; private set; }
