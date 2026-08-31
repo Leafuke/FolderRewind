@@ -63,7 +63,7 @@ public sealed class MaterializationPolicyService
         }
         if (state == MaterializationPolicyState.Released)
         {
-            await EnsureReleaseIsNotProtectedAsync(versionId, cancellationToken).ConfigureAwait(false);
+            await EnsureCanReleaseAsync(versionId, cancellationToken).ConfigureAwait(false);
         }
         var currentTips = await _runtime.Query.GetMaterializationPolicyTipsAsync(versionId, cancellationToken).ConfigureAwait(false);
         var update = new MaterializationPolicyUpdate(
@@ -78,7 +78,7 @@ public sealed class MaterializationPolicyService
         return update;
     }
 
-    private async Task EnsureReleaseIsNotProtectedAsync(
+    public async Task EnsureCanReleaseAsync(
         VersionId versionId,
         CancellationToken cancellationToken)
     {
@@ -123,6 +123,21 @@ public sealed class MaterializationPolicyService
                 {
                     throw new MaterializationPolicyCommandException("Version is protected by a Branch tip.");
                 }
+            }
+        }
+
+        var activeSafetySnapshots = await _runtime.Query.GetSafetySnapshotProjectionsAsync(
+            activeOnly: true,
+            cancellationToken).ConfigureAwait(false);
+        foreach (var snapshot in activeSafetySnapshots)
+        {
+            var checkpoint = await _runtime.Query.GetCheckpointAsync(
+                snapshot.Snapshot.CheckpointId,
+                cancellationToken).ConfigureAwait(false);
+            if (checkpoint?.Sources.Any(source => source.VersionId == versionId) == true)
+            {
+                throw new MaterializationPolicyCommandException(
+                    "Version is protected by an active Safety Snapshot.");
             }
         }
     }

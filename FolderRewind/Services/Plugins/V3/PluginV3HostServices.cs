@@ -161,13 +161,15 @@ internal sealed class PluginV3HostServices : IPluginHostServices
             var sourceId = folderId is { } id && id != Guid.Empty
                 ? new FolderRewind.History.Domain.SourceId(id)
                 : (FolderRewind.History.Domain.SourceId?)null;
-            var values = versions
-                .Where(value => sourceId is null || value.SourceId == sourceId.Value)
+            var presentation = await new HistoryPresentationQueryService(runtime)
+                .QueryAsync(sourceId, cancellationToken: cancellationToken).ConfigureAwait(false);
+            var versionsById = versions.ToDictionary(value => value.VersionId);
+            var values = presentation.Timeline
                 .Select(value => new HistoryVersionSnapshot(
                     value.VersionId.ToString(),
                     value.SourceId.Value,
-                    value.SourceDescriptorSnapshot.PathHint,
-                    string.Empty,
+                    versionsById.GetValueOrDefault(value.VersionId)?.SourceDescriptorSnapshot.PathHint ?? string.Empty,
+                    value.FileName ?? string.Empty,
                     value.CreatedAtUtc,
                     OperationOutcome.Success))
                 .ToArray();

@@ -22,6 +22,8 @@ public sealed class HistoryPageViewModel : ViewModelBase
 {
     private readonly List<NativeHistoryVersionViewItem> _allVersions = [];
     private readonly List<BackupRunViewItem> _allRuns = [];
+    private readonly HashSet<VersionId> _deletingVersions = [];
+    private readonly object _deleteSync = new();
     private IDisposable? _changeSubscription;
     private BackupConfig? _currentConfig;
     private ManagedFolder? _currentFolder;
@@ -349,33 +351,111 @@ public sealed class HistoryPageViewModel : ViewModelBase
     }
     public async Task<BackupService.DeleteBackupResult> DeleteVersionAsync(NativeHistoryVersionViewItem item, BackupDeleteMode mode)
     {
-        if (_currentConfig is null)
+        var config = _currentConfig;
+        if (config is null)
             return new() { Success = false, Message = "No active configuration is selected." };
+        lock (_deleteSync)
+        {
+            if (!_deletingVersions.Add(item.VersionId))
+                return new() { Success = false, Message = I18n.GetString("History_Delete_InProgress") };
+        }
         try
         {
-            var runtime = NativeHistoryCoreGateway.GetRequiredRuntime(_currentConfig.Id);
-            if (mode == BackupDeleteMode.LocalArchiveAndRecord)
+            await using var operationLease = await NativeHistoryConfigurationOperationGate
+                .EnterAsync(config.Id).ConfigureAwait(false);
+            var runtime = NativeHistoryCoreGateway.GetRequiredRuntime(config.Id);
+            var deletesLocalPayload = mode is BackupDeleteMode.LocalArchiveOnly
+                or BackupDeleteMode.LocalArchiveAndRecord;
+            HistoryTargetedReplicaDeletionResult? deletion = null;
+            if (deletesLocalPayload)
             {
-                await NativeHistoryApplicationService.ReleaseVersionAsync(_currentConfig, item.VersionId)
+                if (item.RepresentationId is not { } representationId
+                    || string.IsNullOrWhiteSpace(item.LocalPath))
+                {
+                    return new()
+                    {
+                        Success = false,
+                        Message = I18n.GetString("History_Delete_InvalidRequest")
+                    };
+                }
+
+                // 手动删除只作用于用户选中的本地副本；不能借机运行配置级 Retention GC。
+                deletion = await NativeHistoryApplicationService.DeleteVersionLocalPayloadAsync(
+                        config,
+                        item.VersionId,
+                        representationId,
+                        item.LocalPath,
+                        releaseVersion: mode == BackupDeleteMode.LocalArchiveAndRecord)
                     .ConfigureAwait(false);
             }
-            await runtime.Annotations.SetSuppressionAsync(
-                new HistoryAnnotationTarget(HistoryAnnotationTargetKind.Version, item.VersionId.Value),
-                suppressed: true).ConfigureAwait(false);
-            var archiveDeleted = mode == BackupDeleteMode.LocalArchiveAndRecord
-                && (string.IsNullOrWhiteSpace(item.LocalPath) || !File.Exists(item.LocalPath));
+
+            var suppressesRecord = mode is BackupDeleteMode.RecordOnly
+                or BackupDeleteMode.LocalArchiveAndRecord;
+            if (suppressesRecord)
+            {
+                await runtime.Annotations.SetSuppressionAsync(
+                    new HistoryAnnotationTarget(HistoryAnnotationTargetKind.Version, item.VersionId.Value),
+                    suppressed: true).ConfigureAwait(false);
+            }
             return new()
             {
                 Success = true,
-                ArchiveDeleted = archiveDeleted,
-                HistoryUpdated = true
+                ArchiveDeleted = deletion?.PayloadDeleted == true,
+                HistoryUpdated = suppressesRecord || deletion is not null
             };
         }
         catch (Exception ex)
         {
-            return new() { Success = false, Message = ex.Message };
+            return new() { Success = false, Message = LocalizeDeleteError(ex.Message) };
+        }
+        finally
+        {
+            lock (_deleteSync)
+            {
+                _deletingVersions.Remove(item.VersionId);
+            }
         }
     }
+
+    public async Task<string?> GetLocalDeletionBlockerAsync(NativeHistoryVersionViewItem item)
+    {
+        var config = _currentConfig;
+        if (config is null
+            || item.RepresentationId is null
+            || string.IsNullOrWhiteSpace(item.LocalPath))
+        {
+            return I18n.GetString("History_Delete_InvalidRequest");
+        }
+
+        try
+        {
+            await NativeHistoryCoreGateway.GetRequiredRuntime(config.Id).MaterializationPolicies
+                .EnsureCanReleaseAsync(item.VersionId, default).ConfigureAwait(false);
+            return null;
+        }
+        catch (Exception ex)
+        {
+            return LocalizeDeleteError(ex.Message);
+        }
+    }
+
+    private static string LocalizeDeleteError(string message)
+        => message switch
+        {
+            "Version is protected by the current Workspace baseline." =>
+                I18n.GetString("History_Delete_WorkspaceProtected"),
+            "Version is protected by a Branch tip." =>
+                I18n.GetString("History_Delete_BranchProtected"),
+            "Version is protected by an active Safety Snapshot." =>
+                I18n.GetString("History_Delete_SafetySnapshotProtected"),
+            "Version is pinned and cannot be released." =>
+                I18n.GetString("History_Delete_PinProtected"),
+            "Version is protected by a pinned Checkpoint and cannot be released." =>
+                I18n.GetString("History_Delete_PinProtected"),
+            "The selected local backup is required by another Version Representation." =>
+                I18n.GetString("History_Delete_DependencyProtected"),
+            _ => message
+        };
 
     public async Task<bool> CreateBranchAsync(CheckpointId checkpointId, string name)
     {

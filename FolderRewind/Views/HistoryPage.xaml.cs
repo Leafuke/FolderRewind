@@ -721,19 +721,33 @@ namespace FolderRewind.Views
                 return;
             }
 
-            var deleteMode = await PromptDeleteModeAsync(item);
+            var localDeletionBlocker = item.HasLocalFile
+                ? await ViewModel.GetLocalDeletionBlockerAsync(item)
+                : null;
+            var deleteMode = await PromptDeleteModeAsync(item, localDeletionBlocker);
             if (deleteMode == null)
             {
                 return;
             }
 
-            var deleteResult = await ViewModel.DeleteVersionAsync(item, deleteMode.Value);
-            if (!deleteResult.Success)
+            btn.IsEnabled = false;
+            try
             {
-                NotificationService.ShowError(string.IsNullOrWhiteSpace(deleteResult.Message)
-                    ? I18n.GetString("BackupService_Task_Failed")
-                        : deleteResult.Message);
-                return;
+                var deleteResult = await ViewModel.DeleteVersionAsync(item, deleteMode.Value);
+                if (!deleteResult.Success)
+                {
+                    NotificationService.ShowError(string.IsNullOrWhiteSpace(deleteResult.Message)
+                        ? I18n.GetString("BackupService_Task_Failed")
+                            : deleteResult.Message);
+                    return;
+                }
+
+                // ChangeFeed 仍负责跨视图通知；当前页面在命令完成后同步刷新，避免用户误判并重复点击。
+                ViewModel.RefreshCurrentHistory();
+            }
+            finally
+            {
+                btn.IsEnabled = true;
             }
         }
 
@@ -758,45 +772,58 @@ namespace FolderRewind.Views
             return result == ContentDialogResult.Primary;
         }
 
-        private async Task<BackupDeleteMode?> PromptDeleteModeAsync(NativeHistoryVersionViewItem item)
+        private async Task<BackupDeleteMode?> PromptDeleteModeAsync(
+            NativeHistoryVersionViewItem item,
+            string? localDeletionBlocker)
         {
+            var canDeleteLocal = item.HasLocalFile && string.IsNullOrWhiteSpace(localDeletionBlocker);
             var recordOnlyRadio = new RadioButton
             {
                 Content = I18n.GetString("History_DeleteMode_RecordOnly"),
-                IsChecked = !item.HasLocalFile
+                IsChecked = !canDeleteLocal
             };
 
             var localOnlyRadio = new RadioButton
             {
                 Content = I18n.GetString("History_DeleteMode_LocalOnly"),
-                IsEnabled = item.HasLocalFile,
-                IsChecked = item.HasLocalFile
+                IsEnabled = canDeleteLocal,
+                IsChecked = canDeleteLocal
             };
 
             var localAndRecordRadio = new RadioButton
             {
                 Content = I18n.GetString("History_DeleteMode_LocalAndRecord"),
-                IsEnabled = item.HasLocalFile
+                IsEnabled = canDeleteLocal
             };
+
+            var content = new StackPanel
+            {
+                Spacing = 10,
+                Children =
+                {
+                    new TextBlock
+                    {
+                        Text = I18n.Format("History_DeleteConfirm_Content", item.FileName),
+                        TextWrapping = TextWrapping.Wrap
+                    },
+                    recordOnlyRadio,
+                    localOnlyRadio,
+                    localAndRecordRadio
+                }
+            };
+            if (!string.IsNullOrWhiteSpace(localDeletionBlocker))
+            {
+                content.Children.Add(new TextBlock
+                {
+                    Text = localDeletionBlocker,
+                    TextWrapping = TextWrapping.Wrap
+                });
+            }
 
             var dialog = new ContentDialog
             {
                 Title = I18n.GetString("History_DeleteConfirm_Title"),
-                Content = new StackPanel
-                {
-                    Spacing = 10,
-                    Children =
-                    {
-                        new TextBlock
-                        {
-                            Text = I18n.Format("History_DeleteConfirm_Content", item.FileName),
-                            TextWrapping = TextWrapping.Wrap
-                        },
-                        recordOnlyRadio,
-                        localOnlyRadio,
-                        localAndRecordRadio
-                    }
-                },
+                Content = content,
                 PrimaryButtonText = I18n.GetString("Common_Ok"),
                 CloseButtonText = I18n.GetString("Common_Cancel"),
                 DefaultButton = ContentDialogButton.Primary,

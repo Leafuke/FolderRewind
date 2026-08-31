@@ -30,7 +30,7 @@ public sealed class SevenZipArchiveListingParserTests
         Assert.IsTrue(ArchiveLogicalStateVerifier.Matches(
             new Dictionary<string, long>(StringComparer.OrdinalIgnoreCase)
             {
-                ["folder\\keep.txt"] = 4,
+                ["folder/keep.txt"] = 4,
                 ["added.bin"] = 9
             },
             entries));
@@ -111,7 +111,7 @@ public sealed class SevenZipArchiveListingParserTests
             Assert.IsTrue(ArchiveLogicalStateVerifier.Matches(
                 new Dictionary<string, long>(StringComparer.OrdinalIgnoreCase)
                 {
-                    ["folder\\keep.txt"] = 4,
+                    ["folder/keep.txt"] = 4,
                     ["added.bin"] = 9
                 },
                 entries));

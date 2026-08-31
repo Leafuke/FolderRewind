@@ -4306,6 +4306,24 @@ Pull request: {1}</value>
   <data name="History_Delete_InvalidRequest" xml:space="preserve">
     <value>Invalid delete request.</value>
   </data>
+  <data name="History_Delete_InProgress" xml:space="preserve">
+    <value>This backup is already being deleted. Wait for the current operation to finish.</value>
+  </data>
+  <data name="History_Delete_WorkspaceProtected" xml:space="preserve">
+    <value>This backup is the current Workspace baseline. Switch to another branch or establish a new Workspace baseline before deleting it.</value>
+  </data>
+  <data name="History_Delete_BranchProtected" xml:space="preserve">
+    <value>This backup is protected by a Branch tip. Move or delete the referencing Branch before deleting it.</value>
+  </data>
+  <data name="History_Delete_SafetySnapshotProtected" xml:space="preserve">
+    <value>This backup is protected by an active Safety Snapshot. Release that snapshot before deleting it.</value>
+  </data>
+  <data name="History_Delete_PinProtected" xml:space="preserve">
+    <value>This backup or its Checkpoint is pinned. Unpin it before deleting it.</value>
+  </data>
+  <data name="History_Delete_DependencyProtected" xml:space="preserve">
+    <value>Another backup still depends on this local file. Deletion was blocked to preserve unselected recovery points.</value>
+  </data>
   <data name="CloudSync_Task_HistoryUploadName" xml:space="preserve">
     <value>Upload cloud archive: {0}</value>
   </data>

@@ -4306,6 +4306,24 @@ Pull Request：{1}</value>
   <data name="History_Delete_InvalidRequest" xml:space="preserve">
     <value>删除请求无效。</value>
   </data>
+  <data name="History_Delete_InProgress" xml:space="preserve">
+    <value>该备份正在删除，请等待当前操作完成。</value>
+  </data>
+  <data name="History_Delete_WorkspaceProtected" xml:space="preserve">
+    <value>该备份是当前工作区基线。请先切换到其他分支或建立新的工作区基线，再删除它。</value>
+  </data>
+  <data name="History_Delete_BranchProtected" xml:space="preserve">
+    <value>该备份受分支尖端保护。请先移动或删除引用它的分支，再删除它。</value>
+  </data>
+  <data name="History_Delete_SafetySnapshotProtected" xml:space="preserve">
+    <value>该备份受活动安全快照保护。请先释放对应安全快照，再删除它。</value>
+  </data>
+  <data name="History_Delete_PinProtected" xml:space="preserve">
+    <value>该备份或其检查点已固定。请先取消固定，再删除它。</value>
+  </data>
+  <data name="History_Delete_DependencyProtected" xml:space="preserve">
+    <value>其他备份仍依赖该本地文件。为避免破坏未选中的恢复点，本次删除已被阻止。</value>
+  </data>
   <data name="CloudSync_Task_HistoryUploadName" xml:space="preserve">
     <value>上传云存档: {0}</value>
   </data>

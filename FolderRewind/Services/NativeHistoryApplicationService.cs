@@ -388,6 +388,10 @@ internal static class NativeHistoryApplicationService
         BackupConfig config,
         CancellationToken cancellationToken = default)
     {
+        // KeepCount=0 是用户配置层的“无限保留”哨兵；任何入口都不得把它下传为“保留 0 个”。
+        if (config.Archive.KeepCount <= 0)
+            return;
+
         var runtime = NativeHistoryCoreGateway.GetRequiredRuntime(config.Id);
         var archive = new SevenZipHistoryArchiveBackend(config);
         var representations = new RepresentationRuntime(
@@ -440,7 +444,56 @@ internal static class NativeHistoryApplicationService
             MaterializationPolicyState.Released,
             "Explicit user release",
             cancellationToken).ConfigureAwait(false);
-        await ApplyAutomaticRetentionAsync(config, cancellationToken).ConfigureAwait(false);
+    }
+
+    public static async Task<HistoryTargetedReplicaDeletionResult> DeleteVersionLocalPayloadAsync(
+        BackupConfig config,
+        VersionId versionId,
+        RepresentationId representationId,
+        string localPath,
+        bool releaseVersion,
+        CancellationToken cancellationToken = default)
+    {
+        var runtime = NativeHistoryCoreGateway.GetRequiredRuntime(config.Id);
+        await runtime.MaterializationPolicies.EnsureCanReleaseAsync(versionId, cancellationToken)
+            .ConfigureAwait(false);
+
+        var releaseCommitted = false;
+        try
+        {
+            if (releaseVersion)
+            {
+                await ReleaseVersionAsync(config, versionId, cancellationToken).ConfigureAwait(false);
+                releaseCommitted = true;
+            }
+
+            return await new HistoryLocalReplicaMaintenanceService(runtime)
+                .DeleteControlledReplicaAsync(
+                    versionId,
+                    representationId,
+                    localPath,
+                    cancellationToken)
+                .ConfigureAwait(false);
+        }
+        catch (Exception deleteError) when (releaseCommitted)
+        {
+            try
+            {
+                await runtime.MaterializationPolicies.SetAsync(
+                    versionId,
+                    MaterializationPolicyState.Retained,
+                    "Compensate failed targeted local deletion",
+                    CancellationToken.None).ConfigureAwait(false);
+            }
+            catch (Exception compensationError)
+            {
+                throw new AggregateException(
+                    "Targeted local deletion failed and the Version release could not be compensated.",
+                    deleteError,
+                    compensationError);
+            }
+            throw;
+        }
     }
 
     public static async Task<HistoryRestoreService> CreateRestoreServiceAsync(
