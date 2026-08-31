@@ -20,6 +20,7 @@ namespace FolderRewind.Services.Plugins.V3;
 /// <summary>
 /// 封装单个备份源的有效策略解析结果，包含解析后的克隆配置与文件夹、
 /// 诊断集合以及权威的有效备份边界（Effective Source Boundary）。
+/// 分离 Boundary Resolution 与 Capture Readiness 状态。
 /// </summary>
 internal sealed class PluginV3BackupSourceResolution
 {
@@ -29,6 +30,7 @@ internal sealed class PluginV3BackupSourceResolution
         OperationResolution resolution,
         IReadOnlyList<PluginDiagnostic> diagnostics,
         EffectiveSourceBoundarySnapshot effectiveBoundary,
+        bool isBoundaryBlocked = false,
         PluginId? pluginId = null,
         ConfigSnapshot? configSnapshot = null,
         FolderSnapshot? folderSnapshot = null,
@@ -39,6 +41,7 @@ internal sealed class PluginV3BackupSourceResolution
         Resolution = resolution ?? throw new ArgumentNullException(nameof(resolution));
         Diagnostics = diagnostics ?? throw new ArgumentNullException(nameof(diagnostics));
         EffectiveBoundary = effectiveBoundary ?? throw new ArgumentNullException(nameof(effectiveBoundary));
+        IsBoundaryBlocked = isBoundaryBlocked;
         PluginId = pluginId;
         ConfigSnapshot = configSnapshot;
         FolderSnapshot = folderSnapshot;
@@ -50,17 +53,20 @@ internal sealed class PluginV3BackupSourceResolution
     public OperationResolution Resolution { get; }
     public IReadOnlyList<PluginDiagnostic> Diagnostics { get; }
     public EffectiveSourceBoundarySnapshot EffectiveBoundary { get; }
+    public bool IsBoundaryBlocked { get; }
+    public bool IsCaptureBlocked => IsBoundaryBlocked || Resolution.Readiness == OperationReadiness.Blocked;
+    public bool IsBlocked => IsCaptureBlocked;
     public PluginId? PluginId { get; }
     public ConfigSnapshot? ConfigSnapshot { get; }
     public FolderSnapshot? FolderSnapshot { get; }
     public ConsistencyIntent Intent { get; }
-    public bool IsBlocked => Resolution.Readiness == OperationReadiness.Blocked;
 }
 
 /// <summary>
 /// 负责在备份事务开始时为备份源解析有效策略与逻辑管理边界。
 /// 确定“按当前配置与插件能力，该 Source 逻辑管理哪些文件”，
 /// 但不获取 Consistency Lease 或执行任何数据快照。
+/// 独立于一致性捕获就绪状态（Consistency Capability Probe）。
 /// </summary>
 internal static class PluginV3BackupSourceResolver
 {
@@ -114,7 +120,8 @@ internal static class PluginV3BackupSourceResolver
         var intent = config.ConsistencyIntent == PersistedConsistencyIntent.Require
             ? ConsistencyIntent.Require
             : ConsistencyIntent.Prefer;
-        var resolution = PluginOperationResolver.Resolve(new PluginOperationResolutionRequest(
+
+        var captureResolution = PluginOperationResolver.Resolve(new PluginOperationResolutionRequest(
             declaration,
             PluginOperationKind.Backup,
             isCore ? PluginRuntimeState.Active : runtimeState,
@@ -123,10 +130,10 @@ internal static class PluginV3BackupSourceResolver
             intent,
             isCore || consistencyProbe is not null,
             false));
-        var diagnostics = resolution.Diagnostics.ToList();
+        var diagnostics = captureResolution.Diagnostics.ToList();
 
         var partial = folder.SourceScope.IsPartial || providerScopeSelected;
-        if (resolution.Readiness == OperationReadiness.Degraded
+        if (captureResolution.Readiness == OperationReadiness.Degraded
             && (config.Archive.Mode != BackupMode.Full || partial))
         {
             diagnostics.Add(new PluginDiagnostic(
@@ -135,7 +142,7 @@ internal static class PluginV3BackupSourceResolver
                 "Backup",
                 owner.Value,
                 new Dictionary<string, string>()));
-            resolution = new OperationResolution(OperationReadiness.Blocked, diagnostics);
+            captureResolution = new OperationResolution(OperationReadiness.Blocked, diagnostics);
         }
 
         var activePluginId = isCore || runtimeState != PluginRuntimeState.Active ? null : (PluginId?)pluginId;
@@ -148,36 +155,38 @@ internal static class PluginV3BackupSourceResolver
             return Block(config, folder, NativeHistoryArtifactTransformPolicy.BlockedDiagnosticCode, diagnosticOwner, diagnostics, activePluginId, configSnapshot, folderSnapshot, intent);
         }
 
-        if (resolution.Readiness == OperationReadiness.Blocked || isCore || runtimeState != PluginRuntimeState.Active)
+        // 解析 FilePolicy（边界计算不可或缺部分，不受 consistency lease readiness 阻断）
+        if (!isCore && runtimeState == PluginRuntimeState.Active)
         {
-            var rawBoundary = EffectiveSourceBoundaryFactory.Create(folder.Path, folder.SourceScope, config.Filters);
-            return new PluginV3BackupSourceResolution(
-                config,
-                folder,
-                resolution,
-                diagnostics,
-                rawBoundary,
-                activePluginId,
-                configSnapshot,
-                folderSnapshot,
-                intent);
-        }
-
-        using (var filePolicyLease = runtime.TryAcquire<IFilePolicyCapability>(
-            pluginId,
-            capability => capability.Kind == configSnapshot.Kind,
-            cancellationToken))
-        {
-            if (filePolicyLease is not null)
+            using (var filePolicyLease = runtime.TryAcquire<IFilePolicyCapability>(
+                pluginId,
+                capability => capability.Kind == configSnapshot.Kind,
+                cancellationToken))
             {
-                var policy = await filePolicyLease.Capability.ResolveAsync(
-                    new FilePolicyRequest(configSnapshot, folderSnapshot),
-                    filePolicyLease.Context).ConfigureAwait(false);
-                MergeFilePolicy(config.Filters, policy);
-                diagnostics.AddRange(policy.Diagnostics);
+                if (filePolicyLease is not null)
+                {
+                    try
+                    {
+                        var policy = await filePolicyLease.Capability.ResolveAsync(
+                            new FilePolicyRequest(configSnapshot, folderSnapshot),
+                            filePolicyLease.Context).ConfigureAwait(false);
+                        MergeFilePolicy(config.Filters, policy);
+                        diagnostics.AddRange(policy.Diagnostics);
+                    }
+                    catch (Exception ex)
+                    {
+                        diagnostics.Add(new PluginDiagnostic(
+                            "plugin.file_policy_failed",
+                            DiagnosticSeverity.Warning,
+                            "FilePolicy",
+                            owner.Value,
+                            new Dictionary<string, string> { ["error"] = ex.Message }));
+                    }
+                }
             }
         }
 
+        // 解析 Provider Scope（边界计算不可或缺部分）
         if (providerScopeSelected)
         {
             if (scopeProbe is null)
@@ -196,33 +205,41 @@ internal static class PluginV3BackupSourceResolver
             {
                 return Block(config, folder, "plugin.backup_scope_parameters_invalid", owner.Value, diagnostics, activePluginId, configSnapshot, folderSnapshot, intent);
             }
-            var scope = await scopeProbe.Capability.ResolveAsync(
-                new BackupScopeRequest(
-                    configSnapshot,
-                    folderSnapshot,
-                    new BackupScopeId(new OwnerId(backupScope.OwnerId), backupScope.ScopeId),
-                    parameters),
-                scopeProbe.Context).ConfigureAwait(false);
-            diagnostics.AddRange(scope.Diagnostics);
-            if (scope.Readiness == OperationReadiness.Blocked)
+            try
             {
-                return Block(config, folder, "plugin.backup_scope_blocked", owner.Value, diagnostics, activePluginId, configSnapshot, folderSnapshot, intent);
+                var scope = await scopeProbe.Capability.ResolveAsync(
+                    new BackupScopeRequest(
+                        configSnapshot,
+                        folderSnapshot,
+                        new BackupScopeId(new OwnerId(backupScope.OwnerId), backupScope.ScopeId),
+                        parameters),
+                    scopeProbe.Context).ConfigureAwait(false);
+                diagnostics.AddRange(scope.Diagnostics);
+                if (scope.Readiness == OperationReadiness.Blocked)
+                {
+                    return Block(config, folder, "plugin.backup_scope_blocked", owner.Value, diagnostics, activePluginId, configSnapshot, folderSnapshot, intent);
+                }
+                var patterns = BackupSourceScopePatternSet.NormalizeAndValidate(scope.IncludePatterns);
+                folder.SourceScope = new BackupSourceScope
+                {
+                    Mode = BackupSourceScopeMode.Include,
+                    IncludePatterns = new ObservableCollection<string>(patterns)
+                };
             }
-            var patterns = BackupSourceScopePatternSet.NormalizeAndValidate(scope.IncludePatterns);
-            folder.SourceScope = new BackupSourceScope
+            catch (Exception)
             {
-                Mode = BackupSourceScopeMode.Include,
-                IncludePatterns = new ObservableCollection<string>(patterns)
-            };
+                return Block(config, folder, "plugin.backup_scope_failed", owner.Value, diagnostics, activePluginId, configSnapshot, folderSnapshot, intent);
+            }
         }
 
         var effectiveBoundary = EffectiveSourceBoundaryFactory.Create(folder.Path, folder.SourceScope, config.Filters);
         return new PluginV3BackupSourceResolution(
             config,
             folder,
-            new OperationResolution(resolution.Readiness, diagnostics),
+            new OperationResolution(captureResolution.Readiness, diagnostics),
             diagnostics,
             effectiveBoundary,
+            isBoundaryBlocked: false,
             activePluginId,
             configSnapshot,
             folderSnapshot,
@@ -298,6 +315,7 @@ internal static class PluginV3BackupSourceResolver
             new OperationResolution(OperationReadiness.Blocked, diagnostics),
             diagnostics,
             boundary,
+            isBoundaryBlocked: true,
             pluginId,
             configSnapshot,
             folderSnapshot,
