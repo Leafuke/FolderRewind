@@ -52,6 +52,12 @@ internal sealed class ActivationHostServices : IPluginHostServices
 
     private sealed class RejectedRestoreRequests : IRestoreRequestService
     {
+        public ValueTask<OperationOutcome> RequestQuickAsync(
+            string configId,
+            Guid folderId,
+            CancellationToken cancellationToken)
+            => throw Rejected(HostServiceKind.RestoreRequest);
+
         public ValueTask<OperationOutcome> RequestAsync(
             string configId,
             Guid folderId,

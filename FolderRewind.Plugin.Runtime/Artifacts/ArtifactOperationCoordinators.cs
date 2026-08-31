@@ -239,6 +239,9 @@ public sealed class BackupCompletionObserverCoordinator
 
     private sealed class BlockedRestoreRequests : IRestoreRequestService
     {
+        public ValueTask<OperationOutcome> RequestQuickAsync(string configId, Guid folderId, CancellationToken cancellationToken)
+            => throw new InvalidOperationException("Completion Observers cannot request restores.");
+
         public ValueTask<OperationOutcome> RequestAsync(string configId, Guid folderId, string versionId, CancellationToken cancellationToken)
             => throw new InvalidOperationException("Completion Observers cannot request restores.");
     }

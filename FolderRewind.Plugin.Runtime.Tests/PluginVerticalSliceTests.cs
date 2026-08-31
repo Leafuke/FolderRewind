@@ -788,6 +788,12 @@ public sealed class PluginVerticalSliceTests
 
     private sealed class RecordingRestoreRequests : IRestoreRequestService
     {
+        public ValueTask<OperationOutcome> RequestQuickAsync(
+            string configId,
+            Guid folderId,
+            CancellationToken cancellationToken)
+            => ValueTask.FromResult(OperationOutcome.Success);
+
         public ValueTask<OperationOutcome> RequestAsync(
             string configId,
             Guid folderId,

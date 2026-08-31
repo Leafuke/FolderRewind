@@ -96,6 +96,31 @@ internal sealed class PluginV3HostServices : IPluginHostServices
 
     private sealed class RestoreRequests : IRestoreRequestService
     {
+        public async ValueTask<OperationOutcome> RequestQuickAsync(
+            string configId,
+            Guid folderId,
+            CancellationToken cancellationToken)
+        {
+            if (NativeHostMutationContext.IsNestedMutationBlocked)
+                return OperationOutcome.Blocked;
+            var config = ConfigService.CurrentConfig.BackupConfigs.FirstOrDefault(value =>
+                string.Equals(value.Id, configId, StringComparison.OrdinalIgnoreCase));
+            var folder = config?.SourceFolders.FirstOrDefault(value =>
+                Guid.TryParse(value.Id, out var id) && id == folderId);
+            if (config is null || folder is null) return OperationOutcome.Blocked;
+            var result = await NativeHistoryApplicationService.QuickRestoreAsync(
+                config,
+                folder,
+                cancellationToken).ConfigureAwait(false);
+            return result.Status switch
+            {
+                HistoryRestoreStatus.NoChanges => OperationOutcome.NoChanges,
+                _ when result.Succeeded => OperationOutcome.Success,
+                HistoryRestoreStatus.BlockedBeforeMutation => OperationOutcome.Blocked,
+                _ => OperationOutcome.Failed
+            };
+        }
+
         public async ValueTask<OperationOutcome> RequestAsync(
             string configId,
             Guid folderId,

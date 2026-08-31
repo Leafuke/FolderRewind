@@ -14,7 +14,8 @@ public enum HistoryRestoreStatus
     BlockedBeforeMutation = 1,
     MutationFailedRolledBack = 2,
     MutationFailedRecoveryRequired = 3,
-    CommittedWithPostActionWarning = 4
+    CommittedWithPostActionWarning = 4,
+    NoChanges = 5
 }
 
 public enum HistoryCheckoutProtectionMode
@@ -52,8 +53,10 @@ public sealed record HistoryRestoreResult(
     HistoryCheckoutPlan? CheckoutPlan = null)
 {
     public bool Succeeded => Status is HistoryRestoreStatus.Committed
+        or HistoryRestoreStatus.CommittedWithPostActionWarning
+        or HistoryRestoreStatus.NoChanges;
+    public bool TargetCommitted => Status is HistoryRestoreStatus.Committed
         or HistoryRestoreStatus.CommittedWithPostActionWarning;
-    public bool TargetCommitted => Succeeded;
 }
 
 public sealed record HistoryRestoreRollbackSnapshot(

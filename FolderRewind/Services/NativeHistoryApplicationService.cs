@@ -59,6 +59,47 @@ internal static class NativeHistoryApplicationService
             .ConfigureAwait(false);
     }
 
+    public static async Task<HistoryRestoreResult> QuickRestoreAsync(
+        BackupConfig config,
+        ManagedFolder folder,
+        CancellationToken cancellationToken = default)
+    {
+        NativeHostMutationContext.ThrowIfNestedMutation();
+        var runtime = NativeHistoryCoreGateway.GetRequiredRuntime(config.Id);
+        var restore = CreateRestoreService(config, runtime);
+        var resolution = await new HistoryQuickRestoreResolver(runtime, restore).ResolveAsync(
+            Source(folder),
+            AssessmentDepth.Deep,
+            cancellationToken).ConfigureAwait(false);
+        if (!resolution.IsReady || resolution.VersionId is null)
+            return Blocked(resolution.Diagnostic);
+        if (await BackupService.DeepProbeWorkspaceVersionAsync(
+            config,
+            folder,
+            resolution.VersionId.Value,
+            cancellationToken).ConfigureAwait(false))
+        {
+            return new HistoryRestoreResult(
+                HistoryRestoreStatus.NoChanges,
+                "Already at the active Branch's latest committed state.",
+                false,
+                []);
+        }
+
+        return await new NativeHistoryRestoreOrchestrator().ExecuteAsync(
+            config,
+            [folder],
+            resolution.VersionId.Value.ToString(),
+            token => RestoreVersionCoreAsync(
+                config,
+                folder,
+                resolution.VersionId.Value,
+                BackupService.RestoreMode.Clean,
+                token,
+                requireSafetySnapshot: true),
+            cancellationToken).ConfigureAwait(false);
+    }
+
     public static async Task<HistoryRestoreResult> RestoreVersionAsync(
         BackupConfig config,
         ManagedFolder folder,
@@ -89,11 +130,12 @@ internal static class NativeHistoryApplicationService
         ManagedFolder folder,
         VersionId versionId,
         BackupService.RestoreMode requestedMode,
-        CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken = default,
+        bool requireSafetySnapshot = false)
     {
         var runtime = NativeHistoryCoreGateway.GetRequiredRuntime(config.Id);
         var workspace = await RequireWorkspaceAsync(runtime, cancellationToken).ConfigureAwait(false);
-        if (config.Archive.BackupBeforeRestore)
+        if (requireSafetySnapshot || config.Archive.BackupBeforeRestore)
         {
             var protection = await ProtectBeforeRestoreAsync(config, runtime, cancellationToken).ConfigureAwait(false);
             if (protection.Result is not null) return protection.Result;

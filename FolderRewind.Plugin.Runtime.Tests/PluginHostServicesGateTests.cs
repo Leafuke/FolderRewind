@@ -133,6 +133,15 @@ public sealed class PluginHostServicesGateTests
 
     private sealed class RestoreRequests(RecordingHostServices owner) : IRestoreRequestService
     {
+        public ValueTask<OperationOutcome> RequestQuickAsync(
+            string configId,
+            Guid folderId,
+            CancellationToken cancellationToken)
+        {
+            owner.Hit(HostServiceKind.RestoreRequest);
+            return ValueTask.FromResult(OperationOutcome.Success);
+        }
+
         public ValueTask<OperationOutcome> RequestAsync(
             string configId,
             Guid folderId,

@@ -69,6 +69,7 @@ public sealed record BackupRequestOptions
 public interface IRestoreRequestService
 {
     ValueTask<OperationOutcome> RequestAsync(string configId, Guid folderId, string versionId, CancellationToken cancellationToken);
+    ValueTask<OperationOutcome> RequestQuickAsync(string configId, Guid folderId, CancellationToken cancellationToken);
 }
 
 public interface IHistoryQueryService
