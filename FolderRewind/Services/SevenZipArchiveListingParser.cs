@@ -123,11 +123,15 @@ internal static class SevenZipArchiveListingParser
 
     private static bool TryNormalizeRelativePath(string value, out string normalized)
     {
-        normalized = value.Replace('/', '\\').Trim();
-        while (normalized.StartsWith(".\\", StringComparison.Ordinal)) normalized = normalized[2..];
+        // normalized = value.Replace('/', '\\').Trim();
+        // while (normalized.StartsWith(".\\", StringComparison.Ordinal))
+        normalized = value.Replace('\\', '/').Trim();
+        while (normalized.StartsWith("./", StringComparison.Ordinal))
+            normalized = normalized[2..];
         if (normalized.Length == 0 || Path.IsPathRooted(normalized)) return false;
 
-        foreach (var segment in normalized.Split('\\', StringSplitOptions.RemoveEmptyEntries))
+        // foreach (var segment in normalized.Split('\\', StringSplitOptions.RemoveEmptyEntries))
+        foreach (var segment in normalized.Split('/', StringSplitOptions.RemoveEmptyEntries))
         {
             if (segment is "." or ".." || segment.IndexOfAny(Path.GetInvalidFileNameChars()) >= 0) return false;
         }
