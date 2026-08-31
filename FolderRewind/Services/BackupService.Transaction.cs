@@ -87,24 +87,66 @@ public static partial class BackupService
         int configIndex = GetConfigIndex(config);
 
         // 1. 为全部 configured Sources 解析并冻结统一的 V3 有效策略与边界
-        // 关键设计：即使只备份部分 Source（如子集备份），也必须知道全部 configured Sources 在本次事务中的权威边界，
-        // 确保 History Snapshot 记录的未捕获 Source 同样应用 Plugin FilePolicy / Scope，避免未参与 Source 产生虚假边界漂移。
+        // 关键设计：即使只备份部分 Source（如子集备份），也必须知道全部 configured Sources 在本次事务中的权威边界。
         var resolutions = new Dictionary<string, PluginV3BackupSourceResolution>(StringComparer.Ordinal);
         foreach (var folder in config.SourceFolders)
         {
             cancellationToken.ThrowIfCancellationRequested();
             var resolution = await PluginV3BackupSourceResolver.ResolveAsync(config, folder, cancellationToken).ConfigureAwait(false);
             resolutions[folder.Id] = resolution;
-        }
 
-        // 检查请求的文件夹是否有被 V3 策略阻断的
-        foreach (var folder in requestedFolders)
-        {
-            if (resolutions.TryGetValue(folder.Id, out var resolution) && resolution.IsBlocked)
+            // 如果任何配置下的 Source 无法可靠计算有效边界（如 Scope 插件丢失或参数损坏），则配置级权威 Snapshot 无法建立，必须提前阻断
+            if (resolution.IsBoundaryBlocked)
             {
                 var diagnostic = resolution.Diagnostics.LastOrDefault();
                 var message = diagnostic is null
-                    ? "The v3 plugin policy blocked this backup."
+                    ? $"The v3 plugin policy could not resolve effective boundary for folder '{folder.DisplayName}'."
+                    : diagnostic.Code == NativeHistoryArtifactTransformPolicy.BlockedDiagnosticCode
+                        ? I18n.GetString("BackupService_ArtifactTransformNativeHistoryNotSupported")
+                        : $"{diagnostic.Code} ({diagnostic.Owner})";
+                Log($"[PluginV3] {message}", LogLevel.Error);
+
+                await RunOnUIAsync(() =>
+                {
+                    folder.StatusText = I18n.Format("BackupService_Folder_BackupFailed");
+                });
+
+                BroadcastBackupLifecycle("command_failed", new Dictionary<string, string?>
+                {
+                    ["reason"] = "boundary_resolution_blocked",
+                    ["error"] = message,
+                    ["folder"] = folder.DisplayName
+                });
+                BroadcastBackupEvent(configIndex, config, folder, "backup_failed", new Dictionary<string, string?>
+                {
+                    ["error"] = "boundary_resolution_blocked",
+                    ["message"] = message
+                });
+
+                var blockedOutcome = CreateSourceOutcome(
+                    folder,
+                    BackupSourceExecutionStatus.Failed,
+                    errorMessage: message,
+                    operationOutcome: OperationOutcome.Blocked);
+
+                return new BackupTransactionExecutionResult
+                {
+                    Outcome = OperationOutcome.Blocked,
+                    CreatedNewArchive = false,
+                    SourceOutcomes = [blockedOutcome]
+                };
+            }
+        }
+
+        // 检查请求捕获的文件夹是否有被 V3 策略阻断捕获就绪状态的
+        foreach (var folder in requestedFolders)
+        {
+            var resolution = resolutions[folder.Id];
+            if (resolution.IsCaptureBlocked)
+            {
+                var diagnostic = resolution.Diagnostics.LastOrDefault();
+                var message = diagnostic is null
+                    ? $"The v3 plugin policy blocked backup capture for '{folder.DisplayName}'."
                     : diagnostic.Code == NativeHistoryArtifactTransformPolicy.BlockedDiagnosticCode
                         ? I18n.GetString("BackupService_ArtifactTransformNativeHistoryNotSupported")
                         : $"{diagnostic.Code} ({diagnostic.Owner})";
@@ -156,7 +198,6 @@ public static partial class BackupService
 
         // 3. History Boundary Preflight
         // 在真正创建归档或获取 Minecraft 快照之前，检查是否存在未参与本次捕获但管理边界发生变更的 Source。
-        // 若存在，则子集备份无法安全 Carry Forward 其历史版本，在此提前阻断以避免产生无意义的临时归档。
         var plannedSourceIds = requestedFolders
             .Where(f => Guid.TryParse(f.Id, out var id) && id != Guid.Empty)
             .Select(f => new SourceId(Guid.Parse(f.Id)))
@@ -190,95 +231,116 @@ public static partial class BackupService
         BroadcastBackupLifecycle("command_started");
         BroadcastBackupLifecycle("command_progress", new Dictionary<string, string?> { ["progress"] = "0" });
 
-        // 5. 仅为请求的 Source 执行 Capture
-        // 关键设计：Consistency Lease 只在真正 Capture 的 Source 获取，未请求 Source 绝不创建快照或冻结世界。
+        // 5. 捕获与提交事务包络（全生命周期异常/取消补偿边界）
         var sourceOutcomes = new List<BackupSourceExecutionOutcome>(requestedFolders.Count);
-        foreach (var folder in requestedFolders)
+        bool commitPackDurable = false;
+        try
         {
-            cancellationToken.ThrowIfCancellationRequested();
-            var resolution = resolutions[folder.Id];
-            var outcome = await CaptureBackupSourceAsync(
-                config,
-                folder,
-                resolution,
-                invocationOptions.Comment,
-                invocationOptions,
-                cancellationToken).ConfigureAwait(false);
-            sourceOutcomes.Add(outcome);
-        }
+            foreach (var folder in requestedFolders)
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+                var resolution = resolutions[folder.Id];
+                var outcome = await CaptureBackupSourceAsync(
+                    config,
+                    folder,
+                    resolution,
+                    invocationOptions.Comment,
+                    invocationOptions,
+                    cancellationToken).ConfigureAwait(false);
+                sourceOutcomes.Add(outcome);
+            }
 
-        // 6. 如果有被取消的 Source，执行回滚清理
-        if (sourceOutcomes.Any(item => item.OperationOutcome == OperationOutcome.Canceled))
+            // 如果有被取消的 Source，执行回滚清理
+            if (sourceOutcomes.Any(item => item.OperationOutcome == OperationOutcome.Canceled))
+            {
+                await CleanupUncommittedOutcomesAsync(sourceOutcomes).ConfigureAwait(false);
+                BroadcastBackupLifecycle("command_failed", new Dictionary<string, string?> { ["reason"] = "canceled" });
+                return BackupTransactionExecutionResult.Canceled(sourceOutcomes);
+            }
+
+            // 提交到 Native History
+            var results = sourceOutcomes.Select((outcome, index) =>
+                EnsureCaptureResult(requestedFolders[index], resolutions[requestedFolders[index].Id].EffectiveBoundary, outcome)).ToArray();
+
+            HistoryCommitBatch committedBatch;
+            try
+            {
+                committedBatch = await NativeHistoryCoreGateway.CommitBackupAsync(
+                    historySnapshot,
+                    results,
+                    MapInvocationKind(invocationOptions.Source),
+                    startedAtUtc,
+                    invocationOptions.Comment,
+                    cancellationToken,
+                    intent,
+                    safetySnapshotIntent).ConfigureAwait(false);
+                commitPackDurable = true;
+            }
+            catch (HistoryCommitRecoveryRequiredException ex)
+            {
+                // Pack 已落盘成为 durable 历史事实！所有 catch 均禁止删除 Capture 归档产物！
+                commitPackDurable = true;
+                Log($"[NativeHistory] Commit pack '{ex.CommittedPackId}' is durable, but local state recovery is required: {ex.Message}", LogLevel.Warning);
+                await FinalizeRecoveryRequiredBackupAsync(config, requestedFolders, sourceOutcomes, ex).ConfigureAwait(false);
+                return new BackupTransactionExecutionResult
+                {
+                    Outcome = OperationOutcome.SuccessWithWarnings,
+                    CreatedNewArchive = sourceOutcomes.Any(item => item.CreatedNewArchive),
+                    SourceOutcomes = sourceOutcomes,
+                    HistoryRecoveryRequired = true,
+                    RecoveryMessage = ex.Message
+                };
+            }
+            catch (Exception ex)
+            {
+                // Pre-durable 失败：History Commit 未形成持久 Pack，清理本次事务产生的未提交归档产物
+                await CleanupUncommittedOutcomesAsync(sourceOutcomes).ConfigureAwait(false);
+                Log($"Native History commit failed: {ex.Message}", LogLevel.Error);
+                await FinalizeFailedBackupAsync(config, requestedFolders, sourceOutcomes, ex.Message).ConfigureAwait(false);
+                return BackupTransactionExecutionResult.Failed(sourceOutcomes, ex.Message);
+            }
+
+            // 提交成功：在 History durable 之后统一执行 Post-Commit 终态化
+            await FinalizeCommittedBackupAsync(config, requestedFolders, sourceOutcomes, committedBatch, invocationOptions).ConfigureAwait(false);
+
+            // 排队云同步与保留期清理
+            CloudSyncService.QueueNativeHistorySync(
+                config,
+                committedBatch.NewRepresentations.Select(item => item.RepresentationId));
+
+            if (sourceOutcomes.Any(item => item.CreatedNewArchive))
+            {
+                await PruneRetainedSourceArchivesAsync(config).ConfigureAwait(false);
+            }
+
+            var overallOutcome = PluginBackupRequestResult.Aggregate(sourceOutcomes.Select(item => item.ToPluginResult()));
+            return new BackupTransactionExecutionResult
+            {
+                Outcome = overallOutcome,
+                CreatedNewArchive = sourceOutcomes.Any(item => item.CreatedNewArchive),
+                SourceOutcomes = sourceOutcomes,
+                CommittedBatch = committedBatch
+            };
+        }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
         {
-            await CleanupUncommittedOutcomesAsync(sourceOutcomes).ConfigureAwait(false);
+            if (!commitPackDurable)
+            {
+                await CleanupUncommittedOutcomesAsync(sourceOutcomes).ConfigureAwait(false);
+            }
             BroadcastBackupLifecycle("command_failed", new Dictionary<string, string?> { ["reason"] = "canceled" });
             return BackupTransactionExecutionResult.Canceled(sourceOutcomes);
         }
-
-        // 7. 提交到 Native History
-        var results = sourceOutcomes.Select((outcome, index) =>
-            EnsureCaptureResult(requestedFolders[index], resolutions[requestedFolders[index].Id].EffectiveBoundary, outcome)).ToArray();
-
-        HistoryCommitBatch committedBatch;
-        try
-        {
-            committedBatch = await NativeHistoryCoreGateway.CommitBackupAsync(
-                historySnapshot,
-                results,
-                MapInvocationKind(invocationOptions.Source),
-                startedAtUtc,
-                invocationOptions.Comment,
-                cancellationToken,
-                intent,
-                safetySnapshotIntent).ConfigureAwait(false);
-        }
-        catch (HistoryCommitRecoveryRequiredException ex)
-        {
-            // 关键设计：Pack 已落盘成为 durable 历史事实！禁止删除 Capture 归档产物，
-            // 并将整体结果标记为 SuccessWithWarnings，避免上层误认为“备份不存在”而删除有效 payload。
-            Log($"[NativeHistory] Commit pack '{ex.CommittedPackId}' is durable, but local state recovery is required: {ex.Message}", LogLevel.Warning);
-            await FinalizeRecoveryRequiredBackupAsync(config, requestedFolders, sourceOutcomes, ex).ConfigureAwait(false);
-            return new BackupTransactionExecutionResult
-            {
-                Outcome = OperationOutcome.SuccessWithWarnings,
-                CreatedNewArchive = sourceOutcomes.Any(item => item.CreatedNewArchive),
-                SourceOutcomes = sourceOutcomes,
-                HistoryRecoveryRequired = true,
-                RecoveryMessage = ex.Message
-            };
-        }
         catch (Exception ex)
         {
-            // Pre-durable 失败：History Commit 未形成持久 Pack，清理本次事务产生的未提交归档产物
-            await CleanupUncommittedOutcomesAsync(sourceOutcomes).ConfigureAwait(false);
-            Log($"Native History commit failed: {ex.Message}", LogLevel.Error);
+            if (!commitPackDurable)
+            {
+                await CleanupUncommittedOutcomesAsync(sourceOutcomes).ConfigureAwait(false);
+            }
+            Log($"Backup transaction unhandled exception: {ex.Message}", LogLevel.Error);
             await FinalizeFailedBackupAsync(config, requestedFolders, sourceOutcomes, ex.Message).ConfigureAwait(false);
             return BackupTransactionExecutionResult.Failed(sourceOutcomes, ex.Message);
         }
-
-        // 8. 提交成功：在 History durable 之后统一执行 Post-Commit 终态化
-        // 关键设计：所有 UI 成功状态、KnotLink command_completed、LastBackupTime 更新与持久化保存，
-        // 必须延后到 History durable commit 之后，严禁在 Capture 阶段提前宣布“备份成功”。
-        await FinalizeCommittedBackupAsync(config, requestedFolders, sourceOutcomes, committedBatch, invocationOptions).ConfigureAwait(false);
-
-        // 9. 排队云同步与保留期清理
-        CloudSyncService.QueueNativeHistorySync(
-            config,
-            committedBatch.NewRepresentations.Select(item => item.RepresentationId));
-
-        if (sourceOutcomes.Any(item => item.CreatedNewArchive))
-        {
-            await PruneRetainedSourceArchivesAsync(config).ConfigureAwait(false);
-        }
-
-        var overallOutcome = PluginBackupRequestResult.Aggregate(sourceOutcomes.Select(item => item.ToPluginResult()));
-        return new BackupTransactionExecutionResult
-        {
-            Outcome = overallOutcome,
-            CreatedNewArchive = sourceOutcomes.Any(item => item.CreatedNewArchive),
-            SourceOutcomes = sourceOutcomes,
-            CommittedBatch = committedBatch
-        };
     }
 
     private static async Task FinalizeCommittedBackupAsync(
@@ -291,6 +353,7 @@ public static partial class BackupService
         int configIndex = GetConfigIndex(config);
         bool anyNewFile = false;
         string? latestCompletedFile = null;
+        var overallOutcome = PluginBackupRequestResult.Aggregate(sourceOutcomes.Select(item => item.ToPluginResult()));
 
         for (int i = 0; i < requestedFolders.Count; i++)
         {
@@ -418,6 +481,7 @@ public static partial class BackupService
                         task.IsCompleted = true;
                         task.IsIndeterminate = false;
                         task.IsSuccess = false;
+                        task.ErrorMessage = outcome.ErrorMessage;
                         folder.StatusText = I18n.Format("BackupService_Folder_BackupFailed");
                     });
                 }
@@ -432,10 +496,22 @@ public static partial class BackupService
                 {
                     ["error"] = outcome.ErrorMessage
                 });
+                NotificationService.NotifyBackupCompleted(folder.DisplayName, false, outcome.ErrorMessage);
             }
         }
 
-        if (anyNewFile)
+        // 关键设计：严禁在存在 Failed Source 时发送 command_completed { result = "no_changes" }
+        if (overallOutcome == OperationOutcome.Failed || committedBatch.Run.Outcome == BackupRunOutcome.Failed)
+        {
+            var firstFailed = sourceOutcomes.FirstOrDefault(o => o.Status == BackupSourceExecutionStatus.Failed);
+            var errorMsg = firstFailed?.ErrorMessage ?? "Backup failed";
+            BroadcastBackupLifecycle("command_failed", new Dictionary<string, string?>
+            {
+                ["reason"] = "source_failed",
+                ["error"] = errorMsg
+            });
+        }
+        else if (anyNewFile)
         {
             ConfigService.Save();
             BroadcastBackupLifecycle("command_completed", new Dictionary<string, string?>
@@ -533,8 +609,8 @@ public static partial class BackupService
         for (int i = 0; i < requestedFolders.Count; i++)
         {
             var folder = requestedFolders[i];
-            var outcome = sourceOutcomes[i];
-            var task = outcome.Task;
+            var outcome = i < sourceOutcomes.Count ? sourceOutcomes[i] : null;
+            var task = outcome?.Task;
             if (task is not null)
             {
                 await RunOnUIAsync(() =>
@@ -556,14 +632,14 @@ public static partial class BackupService
             }
             BroadcastBackupEvent(configIndex, config, folder, "backup_failed", new Dictionary<string, string?>
             {
-                ["error"] = "commit_failed",
+                ["error"] = "transaction_failed",
                 ["message"] = errorMessage
             });
-            NotificationService.NotifyBackupCompleted(folder.DisplayName, false, I18n.GetString("BackupService_Task_Failed"));
+            NotificationService.NotifyBackupCompleted(folder.DisplayName, false, errorMessage);
         }
         BroadcastBackupLifecycle("command_failed", new Dictionary<string, string?>
         {
-            ["reason"] = "commit_failed",
+            ["reason"] = "transaction_failed",
             ["error"] = errorMessage
         });
     }

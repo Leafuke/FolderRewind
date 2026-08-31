@@ -201,7 +201,16 @@ public sealed class HistoryCommitCoordinator
             throw new ArgumentException("Config snapshot does not belong to this History Runtime.", nameof(snapshot));
         }
 
+        if (_runtime.Health.HasFlag(HistoryRuntimeHealth.WorkspaceRecoveryRequired))
+        {
+            throw new HistoryCommitConflictException("History Workspace requires journal recovery before preflight.");
+        }
+
         var workspaceLoad = await _runtime.WorkspaceStore.LoadAsync(cancellationToken).ConfigureAwait(false);
+        if (workspaceLoad.Status == DeviceLocalStateStatus.Corrupt)
+        {
+            throw new HistoryCommitConflictException("History Workspace state is corrupt.");
+        }
         var workspace = workspaceLoad.Value;
         if (workspace is null)
         {
@@ -225,17 +234,14 @@ public sealed class HistoryCommitCoordinator
                 VersionId? reliableBaseline = ReliableVersion(baseline);
                 if (reliableBaseline is { } reliableVersionId)
                 {
-                    var version = await _runtime.Query.GetVersionAsync(reliableVersionId, cancellationToken).ConfigureAwait(false);
-                    if (version is not null)
+                    var version = await RequireVersionForSourceAsync(reliableVersionId, source.SourceId, cancellationToken).ConfigureAwait(false);
+                    var boundary = source.Boundary;
+                    if (!StringComparer.Ordinal.Equals(version.EffectiveSourceBoundaryFingerprint, boundary.Fingerprint))
                     {
-                        var boundary = source.Boundary;
-                        if (!StringComparer.Ordinal.Equals(version.EffectiveSourceBoundaryFingerprint, boundary.Fingerprint))
-                        {
-                            requirements.Add(new HistoryBoundaryRecaptureRequirement(
-                                source.SourceId,
-                                version.EffectiveSourceBoundaryFingerprint,
-                                boundary.Fingerprint));
-                        }
+                        requirements.Add(new HistoryBoundaryRecaptureRequirement(
+                            source.SourceId,
+                            version.EffectiveSourceBoundaryFingerprint,
+                            boundary.Fingerprint));
                     }
                 }
             }

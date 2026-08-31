@@ -820,6 +820,43 @@ public sealed class HistoryCommitCoordinatorTests
     }
 
     [TestMethod]
+    public async Task PreflightThrowsWhenWorkspaceIsCorrupt()
+    {
+        await using var runtime = await CreateRuntimeAsync();
+        var sourceId = SourceId.New();
+        var snapshot = Snapshot(Source(sourceId, "source-a"));
+
+        // Corrupt workspace file by writing non-json text directly
+        var workspacePath = Path.Combine(_root, "history", "local-state", "workspace.json");
+        Directory.CreateDirectory(Path.GetDirectoryName(workspacePath)!);
+        await File.WriteAllTextAsync(workspacePath, "{ not-valid-json");
+
+        await Assert.ThrowsExactlyAsync<HistoryCommitConflictException>(() =>
+            runtime.Commit.FindRequiredBoundaryRecapturesAsync(snapshot, plannedCaptureSources: []));
+    }
+
+    [TestMethod]
+    public async Task PreflightThrowsWhenBaselineVersionIsMissing()
+    {
+        await using var runtime = await CreateRuntimeAsync();
+        var sourceId = SourceId.New();
+        var snapshot = Snapshot(Source(sourceId, "source-a"));
+
+        // Save a workspace referencing a nonexistent version id
+        var missingVersionId = VersionId.New();
+        var workspace = new HistoryWorkspace(
+            _configId,
+            0,
+            BranchId.New(),
+            BranchUpdateId.New(),
+            [new WorkspaceSourceBaseline(sourceId, missingVersionId, WorkspaceBaselineRelation.Exact)]);
+        await runtime.WorkspaceStore.SaveAsync(workspace, HistoryWorkspaceStore.MissingRevision);
+
+        await Assert.ThrowsExactlyAsync<HistoryCommitConflictException>(() =>
+            runtime.Commit.FindRequiredBoundaryRecapturesAsync(snapshot, plannedCaptureSources: []));
+    }
+
+    [TestMethod]
     public void HistoryCommitRecoveryRequiredExceptionPreservesCommittedPackIdAndMessage()
     {
         var packId = PackId.New();

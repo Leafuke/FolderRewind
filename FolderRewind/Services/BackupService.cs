@@ -246,18 +246,32 @@ namespace FolderRewind.Services
             BackupInvocationOptions invocationOptions,
             CancellationToken cancellationToken)
         {
+            if (NativeHostMutationContext.IsNestedMutationBlocked)
+                return new PluginBackupRequestResult(OperationOutcome.Blocked, CreatedNewArchive: false);
             if (config is null || folder is null)
                 return new PluginBackupRequestResult(OperationOutcome.Blocked, CreatedNewArchive: false);
 
-            var result = await ExecuteBackupTransactionAsync(
-                config,
-                [folder],
-                invocationOptions,
-                HistoryCommitIntent.AdvanceBranch,
-                safetySnapshotIntent: null,
-                cancellationToken).ConfigureAwait(false);
+            try
+            {
+                var result = await ExecuteBackupTransactionAsync(
+                    config,
+                    [folder],
+                    invocationOptions,
+                    HistoryCommitIntent.AdvanceBranch,
+                    safetySnapshotIntent: null,
+                    cancellationToken).ConfigureAwait(false);
 
-            return new PluginBackupRequestResult(result.Outcome, result.CreatedNewArchive);
+                return new PluginBackupRequestResult(result.Outcome, result.CreatedNewArchive);
+            }
+            catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+            {
+                return new PluginBackupRequestResult(OperationOutcome.Canceled, CreatedNewArchive: false);
+            }
+            catch (Exception ex)
+            {
+                Log($"Plugin folder backup request failed: {ex.Message}", LogLevel.Error);
+                return new PluginBackupRequestResult(OperationOutcome.Failed, CreatedNewArchive: false);
+            }
         }
 
         internal static async Task<PluginBackupRequestResult> BackupConfigurationForPluginAsync(
@@ -266,18 +280,32 @@ namespace FolderRewind.Services
             BackupInvocationOptions invocationOptions,
             CancellationToken cancellationToken)
         {
+            if (NativeHostMutationContext.IsNestedMutationBlocked)
+                return new PluginBackupRequestResult(OperationOutcome.Blocked, CreatedNewArchive: false);
             if (config is null || requestedFolders is null || requestedFolders.Count == 0)
                 return new PluginBackupRequestResult(OperationOutcome.Blocked, CreatedNewArchive: false);
 
-            var result = await ExecuteBackupTransactionAsync(
-                config,
-                requestedFolders,
-                invocationOptions,
-                HistoryCommitIntent.AdvanceBranch,
-                safetySnapshotIntent: null,
-                cancellationToken).ConfigureAwait(false);
+            try
+            {
+                var result = await ExecuteBackupTransactionAsync(
+                    config,
+                    requestedFolders,
+                    invocationOptions,
+                    HistoryCommitIntent.AdvanceBranch,
+                    safetySnapshotIntent: null,
+                    cancellationToken).ConfigureAwait(false);
 
-            return new PluginBackupRequestResult(result.Outcome, result.CreatedNewArchive);
+                return new PluginBackupRequestResult(result.Outcome, result.CreatedNewArchive);
+            }
+            catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+            {
+                return new PluginBackupRequestResult(OperationOutcome.Canceled, CreatedNewArchive: false);
+            }
+            catch (Exception ex)
+            {
+                Log($"Plugin config backup request failed: {ex.Message}", LogLevel.Error);
+                return new PluginBackupRequestResult(OperationOutcome.Failed, CreatedNewArchive: false);
+            }
         }
 
         /// <summary>
@@ -317,7 +345,7 @@ namespace FolderRewind.Services
 
             await RunOnUIAsync(() => ActiveTasks.Insert(0, task));
 
-            var v3Session = PluginV3BackupSession.Create(resolution);
+            await using var v3Session = PluginV3BackupSession.Create(resolution);
             if (v3Session.IsBlocked)
             {
                 var diagnostic = v3Session.Diagnostics.LastOrDefault();
@@ -359,11 +387,6 @@ namespace FolderRewind.Services
                     task.IsSuccess = false;
                     task.ErrorMessage = filterValidationError;
                 });
-                BroadcastBackupEvent(configIndex, config, folder, "backup_failed", new Dictionary<string, string?>
-                {
-                    ["error"] = "invalid_filter_rule",
-                    ["message"] = filterValidationError
-                });
                 return CreateSourceOutcome(folder, BackupSourceExecutionStatus.Failed, errorMessage: filterValidationError, task: task);
             }
 
@@ -382,7 +405,6 @@ namespace FolderRewind.Services
                     task.ErrorMessage = I18n.Format("BackupService_Folder_TargetNotSet");
                 });
 
-                BroadcastBackupEvent(configIndex, config, folder, "backup_failed", new Dictionary<string, string?> { ["error"] = "target_not_set" });
                 return CreateSourceOutcome(
                     folder,
                     BackupSourceExecutionStatus.Failed,
@@ -410,7 +432,6 @@ namespace FolderRewind.Services
                     task.ErrorMessage = invalidFolderNameMessage;
                 });
 
-                BroadcastBackupEvent(configIndex, config, folder, "backup_failed", new Dictionary<string, string?> { ["error"] = "invalid_folder_name" });
                 return CreateSourceOutcome(folder, BackupSourceExecutionStatus.Failed, errorMessage: invalidFolderNameMessage, task: task);
             }
 
@@ -435,11 +456,6 @@ namespace FolderRewind.Services
                     task.IsIndeterminate = false;
                     task.IsSuccess = false;
                     task.ErrorMessage = overlapMessage;
-                });
-                BroadcastBackupEvent(configIndex, config, folder, "backup_failed", new Dictionary<string, string?>
-                {
-                    ["error"] = "source_destination_overlap",
-                    ["message"] = overlapMessage
                 });
                 return CreateSourceOutcome(folder, BackupSourceExecutionStatus.Failed, errorMessage: overlapMessage, task: task);
             }
@@ -491,7 +507,6 @@ namespace FolderRewind.Services
                     task.ErrorMessage = I18n.Format("BackupService_Folder_SourceNotFound");
                 });
 
-                BroadcastBackupEvent(configIndex, config, folder, "backup_failed", new Dictionary<string, string?> { ["error"] = "source_not_found" });
                 return CreateSourceOutcome(
                     folder,
                     BackupSourceExecutionStatus.Unavailable,
