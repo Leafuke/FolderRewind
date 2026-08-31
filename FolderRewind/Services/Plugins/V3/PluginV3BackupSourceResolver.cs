@@ -173,14 +173,24 @@ internal static class PluginV3BackupSourceResolver
                         MergeFilePolicy(config.Filters, policy);
                         diagnostics.AddRange(policy.Diagnostics);
                     }
+                    catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+                    {
+                        throw;
+                    }
                     catch (Exception ex)
                     {
-                        diagnostics.Add(new PluginDiagnostic(
+                        return Block(
+                            config,
+                            folder,
                             "plugin.file_policy_failed",
-                            DiagnosticSeverity.Warning,
-                            "FilePolicy",
                             owner.Value,
-                            new Dictionary<string, string> { ["error"] = ex.Message }));
+                            diagnostics,
+                            activePluginId,
+                            configSnapshot,
+                            folderSnapshot,
+                            intent,
+                            capability: "FilePolicy",
+                            arguments: new Dictionary<string, string> { ["error"] = ex.Message });
                     }
                 }
             }
@@ -225,6 +235,10 @@ internal static class PluginV3BackupSourceResolver
                     Mode = BackupSourceScopeMode.Include,
                     IncludePatterns = new ObservableCollection<string>(patterns)
                 };
+            }
+            catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+            {
+                throw;
             }
             catch (Exception)
             {
@@ -300,14 +314,16 @@ internal static class PluginV3BackupSourceResolver
         PluginId? pluginId,
         ConfigSnapshot? configSnapshot,
         FolderSnapshot? folderSnapshot,
-        ConsistencyIntent intent)
+        ConsistencyIntent intent,
+        string capability = "BackupScope",
+        IReadOnlyDictionary<string, string>? arguments = null)
     {
         diagnostics.Add(new PluginDiagnostic(
             code,
             DiagnosticSeverity.Error,
-            "BackupScope",
+            capability,
             owner,
-            new Dictionary<string, string>()));
+            arguments ?? new Dictionary<string, string>()));
         var boundary = EffectiveSourceBoundaryFactory.Create(folder.Path, folder.SourceScope, config.Filters);
         return new PluginV3BackupSourceResolution(
             config,

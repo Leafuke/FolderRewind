@@ -207,9 +207,10 @@ public sealed class HistoryCommitCoordinator
         }
 
         var workspaceLoad = await _runtime.WorkspaceStore.LoadAsync(cancellationToken).ConfigureAwait(false);
-        if (workspaceLoad.Status == DeviceLocalStateStatus.Corrupt)
+        if (workspaceLoad.Status is DeviceLocalStateStatus.Corrupt or DeviceLocalStateStatus.Inaccessible)
         {
-            throw new HistoryCommitConflictException("History Workspace state is corrupt.");
+            throw new HistoryCommitConflictException(
+                $"History Workspace state is {workspaceLoad.Status}: {workspaceLoad.Diagnostic}");
         }
         var workspace = workspaceLoad.Value;
         if (workspace is null)
