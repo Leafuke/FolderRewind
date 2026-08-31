@@ -827,7 +827,7 @@ public sealed class HistoryCommitCoordinatorTests
         var snapshot = Snapshot(Source(sourceId, "source-a"));
 
         // Corrupt workspace file by writing non-json text directly
-        var workspacePath = Path.Combine(_root, "history", "local-state", "workspace.json");
+        var workspacePath = Path.Combine(runtime.Repository.Paths.LocalStateRoot, "workspace.json");
         Directory.CreateDirectory(Path.GetDirectoryName(workspacePath)!);
         await File.WriteAllTextAsync(workspacePath, "{ not-valid-json");
 

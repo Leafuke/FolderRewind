@@ -87,13 +87,14 @@ public sealed class HistoryRuntime : IAsyncDisposable
             try
             {
                 if (!File.Exists(Index.IndexPath)
+                    || await Index.GetSchemaVersionAsync(cancellationToken).ConfigureAwait(false) != HistoryIndex.CurrentSchemaVersion
                     || await Index.GetIndexedPackCountAsync(cancellationToken).ConfigureAwait(false) != packs.Count)
                 {
                     await Index.RebuildAsync(packs, cancellationToken).ConfigureAwait(false);
                     rebuilt = true;
                 }
             }
-            catch (Exception ex) when (ex is SqliteException or InvalidDataException or HistoryRepositoryValidationException)
+            catch (Exception ex) when (ex is SqliteException or InvalidDataException or HistoryRepositoryValidationException or IOException)
             {
                 // SQLite 只是派生缓存；损坏时直接从 immutable packs 重建，不把 db 当 authority。
                 await Index.RebuildAsync(packs, cancellationToken).ConfigureAwait(false);
@@ -133,12 +134,15 @@ public sealed class HistoryRuntime : IAsyncDisposable
     {
         var workspace = await WorkspaceStore.LoadAsync(cancellationToken).ConfigureAwait(false);
         var catalog = await LocalReplicaCatalogStore.LoadAsync(cancellationToken).ConfigureAwait(false);
+        var packCount = (await Repository.ReadAllPacksAsync(cancellationToken).ConfigureAwait(false)).Count;
         Health = HistoryRuntimeHealth.Ready;
-        if (workspace.Status != DeviceLocalStateStatus.Valid)
+        if (workspace.Status is DeviceLocalStateStatus.Corrupt or DeviceLocalStateStatus.Inaccessible
+            || (workspace.Status == DeviceLocalStateStatus.Missing && packCount > 0))
         {
             Health |= HistoryRuntimeHealth.WorkspaceRecoveryRequired;
         }
-        if (catalog.Status != DeviceLocalStateStatus.Valid)
+        if (catalog.Status is DeviceLocalStateStatus.Corrupt or DeviceLocalStateStatus.Inaccessible
+            || (catalog.Status == DeviceLocalStateStatus.Missing && packCount > 0))
         {
             Health |= HistoryRuntimeHealth.LocalReplicaCatalogRecoveryRequired;
         }
@@ -147,10 +151,25 @@ public sealed class HistoryRuntime : IAsyncDisposable
     internal async Task EnsureIndexCurrentAsync(CancellationToken cancellationToken = default)
     {
         var packs = await Repository.ReadAllPacksAsync(cancellationToken).ConfigureAwait(false);
-        if (!File.Exists(Index.IndexPath)
-            || await Index.GetIndexedPackCountAsync(cancellationToken).ConfigureAwait(false) != packs.Count)
+        var needsRebuild = false;
+        try
+        {
+            if (!File.Exists(Index.IndexPath)
+                || await Index.GetSchemaVersionAsync(cancellationToken).ConfigureAwait(false) != HistoryIndex.CurrentSchemaVersion
+                || await Index.GetIndexedPackCountAsync(cancellationToken).ConfigureAwait(false) != packs.Count)
+            {
+                needsRebuild = true;
+            }
+        }
+        catch (Exception ex) when (ex is SqliteException or InvalidDataException or HistoryRepositoryValidationException or IOException)
+        {
+            needsRebuild = true;
+        }
+
+        if (needsRebuild)
         {
             await Index.RebuildAsync(packs, cancellationToken).ConfigureAwait(false);
+            ChangeFeed.Publish(ConfigId, HistoryChangeKind.IndexRebuilt);
         }
     }
 }

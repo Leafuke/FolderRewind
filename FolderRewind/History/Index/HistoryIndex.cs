@@ -38,6 +38,7 @@ public sealed record HistoryReplicaObservation(
 
 public sealed class HistoryIndex : IDisposable
 {
+    public const int CurrentSchemaVersion = 1;
     private static readonly JsonSerializerOptions PayloadJsonOptions = new(JsonSerializerDefaults.Web);
     private const string Schema = """
         PRAGMA foreign_keys = OFF;
@@ -372,6 +373,25 @@ public sealed class HistoryIndex : IDisposable
             [("$id", replicaId.ToString())],
             cancellationToken);
 
+    public async Task<int> GetSchemaVersionAsync(CancellationToken cancellationToken = default)
+    {
+        ObjectDisposedException.ThrowIf(_disposed, this);
+        await _gate.WaitAsync(cancellationToken).ConfigureAwait(false);
+        try
+        {
+            using var connection = OpenExisting();
+            using var command = connection.CreateCommand();
+            command.CommandText = "PRAGMA user_version;";
+            return Convert.ToInt32(
+                await command.ExecuteScalarAsync(cancellationToken).ConfigureAwait(false),
+                CultureInfo.InvariantCulture);
+        }
+        finally
+        {
+            _gate.Release();
+        }
+    }
+
     public async Task<int> GetIndexedPackCountAsync(CancellationToken cancellationToken = default)
     {
         ObjectDisposedException.ThrowIf(_disposed, this);
@@ -481,7 +501,7 @@ public sealed class HistoryIndex : IDisposable
         connection.Open();
         using (var schema = connection.CreateCommand())
         {
-            schema.CommandText = Schema;
+            schema.CommandText = $"PRAGMA user_version = {CurrentSchemaVersion};\n" + Schema;
             schema.ExecuteNonQuery();
         }
 

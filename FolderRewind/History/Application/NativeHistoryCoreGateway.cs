@@ -57,6 +57,11 @@ public static class NativeHistoryCoreGateway
     {
         var id = new HistoryConfigId(configId);
         if (Runtimes.TryGet(id, out var runtime) && runtime is not null) return runtime;
+        var config = ConfigService.CurrentConfig?.BackupConfigs?.FirstOrDefault(c => c?.Id == configId);
+        if (config is not null)
+        {
+            return EnsureReadyAsync(config).ConfigureAwait(false).GetAwaiter().GetResult();
+        }
         EnsureReady(configId);
         throw new InvalidOperationException("Native History runtime lookup failed after readiness validation.");
     }
@@ -249,7 +254,7 @@ public static class NativeHistoryCoreGateway
         {
             Failed[configId.Value] = ex.Message;
             LogService.LogError(
-                $"Native History initialization failed for config '{configId.Value}': {ex.Message}",
+                $"Failed to initialize History Workspace for config '{configId.Value}': {ex.Message}",
                 nameof(NativeHistoryCoreGateway),
                 ex);
             throw;
