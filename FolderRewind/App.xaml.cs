@@ -119,10 +119,10 @@ namespace FolderRewind
                     LogService.Log($"[App] Failed to clear startup badge: {badgeEx.Message}");
                 }
 
-                // 注册系统级 AppNotification 激活事件处理
+                // 注册系统级 AppNotification 激活事件处理（仅在打包且支持时注册 COM 激活）
                 try
                 {
-                    if (Microsoft.Windows.AppNotifications.AppNotificationManager.IsSupported())
+                    if (Services.AppRuntimeInfo.IsPackaged && Microsoft.Windows.AppNotifications.AppNotificationManager.IsSupported())
                     {
                         Microsoft.Windows.AppNotifications.AppNotificationManager.Default.NotificationInvoked += OnAppNotificationInvoked;
                         Microsoft.Windows.AppNotifications.AppNotificationManager.Default.Register();
@@ -130,7 +130,7 @@ namespace FolderRewind
                 }
                 catch (Exception notificationEx)
                 {
-                    LogService.Log($"[App] Failed to register AppNotificationManager: {notificationEx.Message}");
+                    LogService.Log($"[App] AppNotificationManager registration skipped or failed: {notificationEx.Message}");
                 }
 
                 LogService.Log(I18n.GetString("App_Log_OnLaunchedBegin"));

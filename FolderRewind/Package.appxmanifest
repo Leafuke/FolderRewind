@@ -1,4 +1,4 @@
-﻿<?xml version="1.0" encoding="utf-8"?>
+<?xml version="1.0" encoding="utf-8"?>
 
 <Package
   xmlns="http://schemas.microsoft.com/appx/manifest/foundation/windows10"
@@ -6,8 +6,9 @@
   xmlns:uap="http://schemas.microsoft.com/appx/manifest/uap/windows10"
   xmlns:uap5="http://schemas.microsoft.com/appx/manifest/uap/windows10/5"
   xmlns:desktop="http://schemas.microsoft.com/appx/manifest/desktop/windows10"
+  xmlns:com="http://schemas.microsoft.com/appx/manifest/com/windows10"
   xmlns:rescap="http://schemas.microsoft.com/appx/manifest/foundation/windows10/restrictedcapabilities"
-  IgnorableNamespaces="uap uap5 desktop rescap">
+  IgnorableNamespaces="uap uap5 desktop rescap com">
 
   <Identity
     Name="Leafuke.FolderRewind"
@@ -49,6 +50,16 @@
         <desktop:Extension Category="windows.startupTask" Executable="FolderRewind.exe" EntryPoint="Windows.FullTrustApplication">
           <desktop:StartupTask TaskId="FolderRewindStartupTask" Enabled="false" DisplayName="FolderRewind" />
         </desktop:Extension>
+        <desktop:Extension Category="windows.toastNotificationActivation">
+          <desktop:ToastNotificationActivation ToastActivatorCLSID="A686D74B-6A38-4FD9-9230-E5779D558DC0" />
+        </desktop:Extension>
+        <com:Extension Category="windows.comServer">
+          <com:ComServer>
+            <com:ExeServer Executable="FolderRewind.exe" Arguments="----AppNotificationActivated:" DisplayName="FolderRewind">
+              <com:Class Id="A686D74B-6A38-4FD9-9230-E5779D558DC0" DisplayName="FolderRewind Notification Activator" />
+            </com:ExeServer>
+          </com:ComServer>
+        </com:Extension>
       </Extensions>
     </Application>
   </Applications>

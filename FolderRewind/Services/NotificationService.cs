@@ -266,7 +266,7 @@ namespace FolderRewind.Services
         {
             if (!IsNotificationEnabled) return;
 
-            if (AppRuntimeInfo.IsMsiDistribution)
+            if (AppRuntimeInfo.IsMsiDistribution || !AppRuntimeInfo.IsPackaged)
             {
                 App.TryShowTrayNotification(title, message, NotificationSeverity.Informational);
                 return;
@@ -302,6 +302,7 @@ namespace FolderRewind.Services
             catch (Exception ex)
             {
                 System.Diagnostics.Debug.WriteLine($"[NotificationService] Toast failed: {ex.Message}");
+                App.TryShowTrayNotification(title, message, NotificationSeverity.Informational);
             }
         }
 
@@ -312,7 +313,7 @@ namespace FolderRewind.Services
         {
             if (!IsNotificationEnabled) return;
 
-            if (AppRuntimeInfo.IsMsiDistribution)
+            if (AppRuntimeInfo.IsMsiDistribution || !AppRuntimeInfo.IsPackaged)
             {
                 App.TryShowTrayNotification(title, message, NotificationSeverity.Informational);
                 return;
@@ -353,6 +354,7 @@ namespace FolderRewind.Services
             catch (Exception ex)
             {
                 System.Diagnostics.Debug.WriteLine($"[NotificationService] Toast with logo failed: {ex.Message}");
+                App.TryShowTrayNotification(title, message, NotificationSeverity.Informational);
             }
         }
 
