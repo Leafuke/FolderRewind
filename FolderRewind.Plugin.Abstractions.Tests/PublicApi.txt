@@ -1,5 +1,5 @@
-# Generated and reviewed public API baseline for Plugin API 3.1.0.
-# sha256:d91959b4a21d6bbde19461960998963be49b0f6a1b3e2b9541a5527aab0395c6
+# Generated and reviewed public API baseline for Plugin API 3.2.0.
+# sha256:44793f62512ec10be91b2fcbf890bc75d4aaab7c0a9c16b34fd57c0cc072286b
 T FolderRewind.Plugin.Abstractions.AddFolderChange
 T FolderRewind.Plugin.Abstractions.ArtifactCompleteness
 T FolderRewind.Plugin.Abstractions.ArtifactContentHandle
@@ -28,6 +28,7 @@ T FolderRewind.Plugin.Abstractions.BackupScopeDescriptor
 T FolderRewind.Plugin.Abstractions.BackupScopeId
 T FolderRewind.Plugin.Abstractions.BackupScopeRequest
 T FolderRewind.Plugin.Abstractions.BackupScopeResult
+T FolderRewind.Plugin.Abstractions.CapturedVersionMetadata
 T FolderRewind.Plugin.Abstractions.ConfigChange
 T FolderRewind.Plugin.Abstractions.ConfigChangeImpact
 T FolderRewind.Plugin.Abstractions.ConfigChangeProposal
@@ -87,6 +88,8 @@ T FolderRewind.Plugin.Abstractions.IRestoreCoordinatorCapability
 T FolderRewind.Plugin.Abstractions.IRestoreMaterializationWorkspace
 T FolderRewind.Plugin.Abstractions.IRestoreMaterializerCapability
 T FolderRewind.Plugin.Abstractions.IRestoreRequestService
+T FolderRewind.Plugin.Abstractions.IVersionMetadataProviderCapability
+T FolderRewind.Plugin.Abstractions.IVersionMetadataSourceView
 T FolderRewind.Plugin.Abstractions.KnotLinkCommandDescriptor
 T FolderRewind.Plugin.Abstractions.LocalizedText
 T FolderRewind.Plugin.Abstractions.OperationOutcome
@@ -128,3 +131,5 @@ T FolderRewind.Plugin.Abstractions.SetUserPolicyChange
 T FolderRewind.Plugin.Abstractions.StagedArtifactNode
 T FolderRewind.Plugin.Abstractions.StateOwnerId
 T FolderRewind.Plugin.Abstractions.UpdateFolderChange
+T FolderRewind.Plugin.Abstractions.VersionMetadataCaptureRequest
+T FolderRewind.Plugin.Abstractions.VersionMetadataCaptureResult

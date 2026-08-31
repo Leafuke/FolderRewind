@@ -146,7 +146,7 @@ public static class NativeHistoryCoreGateway
                 result.ExistingVersionId, result.RepresentationCandidate, result.LocalReplicaCandidate,
                 result.PayloadCandidate, revision, result.ExpectedBaseVersionId ?? baseline?.BaseVersionId, result.CleanupHandle,
                 result.Diagnostics, tips.Select(item => item.UpdateId), result.BaselineCandidate,
-                result.EffectiveSourceBoundary));
+                result.EffectiveSourceBoundary, result.VersionMetadataCandidates));
         }
         var resultBoundaries = normalized.ToDictionary(
             item => item.SourceId,

@@ -12,7 +12,7 @@ namespace FolderRewind.Plugin.Runtime.Tests;
 public sealed class PluginVerticalSliceTests
 {
     private static readonly PluginId FakePluginId = new("com.folderrewind.vertical-fake");
-    private const string MineRewindSha256 = "f7284f87f2e65f5c8f8a6bdc0e0f3ae6052021a070cbbd04ddae0d5c6061ca62";
+    private const string MineRewindSha256 = "9d7d7c105f43a254bf6780f44e394176b19044c186c68dfbe05140af7a1e8c31";
     private static readonly PluginId MineRewindPluginId = new("com.folderrewind.minerewind");
     private static readonly ConfigKindRef FakeKind = new(new OwnerId(FakePluginId.Value), "test-data");
     private static readonly ConfigKindRef MinecraftKind = new(
@@ -191,9 +191,22 @@ public sealed class PluginVerticalSliceTests
             },
             events);
         Assert.AreNotEqual(world.Path, capturedSource);
+        Assert.IsTrue(sourceLease.IsStableSourceView);
         Assert.IsTrue(File.Exists(Path.Combine(capturedSource, "level.dat")));
         await sourceLease.DisposeAsync();
         Assert.IsFalse(Directory.Exists(capturedSource));
+    }
+
+    [TestMethod]
+    public async Task MineRewindCaptureMetadataProviderIsRegisteredFromBundledManifest()
+    {
+        var events = new List<string>();
+        await using var fixture = await ActivateMineRewindAsync(events);
+
+        using var lease = fixture.Manager.TryAcquire<IVersionMetadataProviderCapability>(MineRewindPluginId);
+
+        Assert.IsNotNull(lease);
+        Assert.AreEqual(MinecraftKind, lease.Capability.Kind);
     }
 
     [TestMethod]
@@ -735,6 +748,7 @@ public sealed class PluginVerticalSliceTests
     private sealed class FakeConsistencyLease(string sourcePath) : IConsistencyLease
     {
         public string SourcePath { get; } = sourcePath;
+        public bool IsStableSourceView => true;
         public IReadOnlyList<PluginDiagnostic> Diagnostics { get; } = Array.Empty<PluginDiagnostic>();
         public ValueTask DisposeAsync() => ValueTask.CompletedTask;
     }

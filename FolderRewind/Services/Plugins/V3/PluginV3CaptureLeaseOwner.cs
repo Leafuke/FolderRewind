@@ -17,6 +17,9 @@ internal sealed class PluginV3CaptureLeaseOwner
     private CaptureLeaseOwnership? _ownership;
 
     public string? SourcePath => _ownership?.Consistency.SourcePath;
+    public string? StableSourcePath => _ownership?.Consistency.IsStableSourceView == true
+        ? _ownership.Consistency.SourcePath
+        : null;
 
     public async ValueTask AcquireAsync(
         PluginRuntimeManager runtime,

@@ -122,6 +122,11 @@ public sealed class HistoryQueryService
         CancellationToken cancellationToken = default)
         => _index.GetSafetySnapshotReleasesAsync(snapshotId, cancellationToken);
 
+    public Task<IReadOnlyList<VersionMetadataSnapshot>> GetVersionMetadataSnapshotsAsync(
+        VersionId? versionId = null,
+        CancellationToken cancellationToken = default)
+        => _index.GetVersionMetadataSnapshotsAsync(versionId, cancellationToken);
+
     public async Task<IReadOnlyList<SafetySnapshotProjection>> GetSafetySnapshotProjectionsAsync(
         bool activeOnly,
         CancellationToken cancellationToken = default)

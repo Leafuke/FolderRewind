@@ -34,6 +34,7 @@ public sealed class HistoryRepositoryValidator
         var migrationRecords = known.OfType<LegacyMigrationRecord>().ToDictionary(item => item.RecordId);
         var safetySnapshots = known.OfType<SafetySnapshot>().ToDictionary(item => item.SnapshotId);
         var safetySnapshotReleases = known.OfType<SafetySnapshotRelease>().ToDictionary(item => item.ReleaseId);
+        var metadataSnapshots = known.OfType<VersionMetadataSnapshot>().ToDictionary(item => item.MetadataSnapshotId);
 
         foreach (var version in versions.Values)
         {
@@ -178,6 +179,20 @@ public sealed class HistoryRepositoryValidator
 
         foreach (var release in safetySnapshotReleases.Values)
             Require(safetySnapshots, release.SnapshotId, "SafetySnapshotRelease target");
+
+        foreach (var metadata in metadataSnapshots.Values)
+        {
+            var owner = Require(versions, metadata.VersionId, "VersionMetadataSnapshot owner");
+            var expectedId = VersionMetadataSnapshot.CreateId(
+                metadata.VersionId,
+                metadata.ProducerPluginId,
+                metadata.SchemaId,
+                metadata.SchemaVersion);
+            if (metadata.MetadataSnapshotId != expectedId)
+                throw Invalid("VersionMetadataSnapshot identity does not match its semantic tuple.");
+            if (metadata.CapturedAtUtc != owner.CreatedAtUtc)
+                throw Invalid("VersionMetadataSnapshot must use its SourceVersion capture timestamp.");
+        }
 
         EnsureAcyclic(versions.Values, item => item.VersionId, item => item.ParentVersionIds, "SourceVersion");
         EnsureAcyclic(representations.Values, item => item.RepresentationId, item => item.DependencyRepresentationIds, "Representation");

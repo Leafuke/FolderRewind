@@ -6,7 +6,7 @@ package instead of the FolderRewind application or UI projects.
 ## Compatibility
 
 - Target framework: `net10.0`.
-- Package/API version: `3.1.0`.
+- Package/API version: `3.2.0`.
 - Assembly version remains `3.0.0.0` throughout API 3.x.
 - A Host accepts a manifest only when its API major matches and its minor is at
   least the plugin's requested minor.
@@ -27,6 +27,11 @@ Catalog definitions must be non-null, use non-empty `DefinitionId` values that
 are unique within the provider using ordinal comparison, and expose non-null
 alias and external-ID collections. `ResolveDefinitionId` may return only one of
 those declared IDs or `null`.
+
+API 3.2 adds `IVersionMetadataProviderCapability`. It receives a Host-owned,
+read-only source view for the same stable capture and returns bounded schema
+payloads. This capture-time contract is deliberately separate from
+`IFolderMetadataCapability`, which describes the current live folder for UI.
 
 Config Reconciliation returns revision-bound proposals; it never saves a user
 configuration directly. Backup Artifact extensions operate only through

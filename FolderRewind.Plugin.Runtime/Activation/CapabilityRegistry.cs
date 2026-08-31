@@ -80,6 +80,12 @@ internal sealed class CapabilityRegistrationSet
                 recognized = true;
             }
 
+            if (capability is IVersionMetadataProviderCapability versionMetadata)
+            {
+                Add("version-metadata", versionMetadata.Kind.ToString(), capability);
+                recognized = true;
+            }
+
             if (capability is IRestoreCoordinatorCapability restore)
             {
                 Add("restore-coordinator", restore.Kind.ToString(), capability);

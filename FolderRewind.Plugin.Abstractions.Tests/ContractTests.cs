@@ -24,7 +24,7 @@ public sealed class ContractTests
         Assert.IsTrue(new PluginApiVersion(3, 0).IsSatisfiedBy(new PluginApiVersion(3, 2)));
         Assert.IsFalse(new PluginApiVersion(3, 2).IsSatisfiedBy(new PluginApiVersion(3, 1)));
         Assert.IsFalse(new PluginApiVersion(2, 9).IsSatisfiedBy(new PluginApiVersion(3, 9)));
-        Assert.AreEqual(new PluginApiVersion(3, 1), PluginApiVersion.HostVersion);
+        Assert.AreEqual(new PluginApiVersion(3, 2), PluginApiVersion.HostVersion);
     }
 
     [TestMethod]
@@ -53,6 +53,23 @@ public sealed class ContractTests
         Assert.AreEqual("gameMode", result.Fields[0].Key);
         Assert.AreEqual("World name", result.Fields[0].DisplayName.Default);
         Assert.AreEqual("生存模式", result.Fields[0].Value.Translations["zh-CN"]);
+    }
+
+    [TestMethod]
+    public void CaptureTimeMetadataUsesHostOwnedSourceViewInsteadOfLiveFolderRequest()
+    {
+        Assert.AreNotEqual(typeof(FolderMetadataRequest), typeof(VersionMetadataCaptureRequest));
+        Assert.AreEqual(
+            typeof(IVersionMetadataSourceView),
+            typeof(VersionMetadataCaptureRequest).GetProperty(nameof(VersionMetadataCaptureRequest.Source))!.PropertyType);
+    }
+
+    [TestMethod]
+    public void LegacyConsistencyLeaseIsNotAssumedToExposeStableCaptureView()
+    {
+        IConsistencyLease lease = new LegacyConsistencyLease();
+
+        Assert.IsFalse(lease.IsStableSourceView);
     }
 
     [TestMethod]
@@ -157,6 +174,13 @@ public sealed class ContractTests
             RequestCount++;
             return ValueTask.FromResult(OperationOutcome.Success);
         }
+    }
+
+    private sealed class LegacyConsistencyLease : IConsistencyLease
+    {
+        public string SourcePath => "live";
+        public IReadOnlyList<PluginDiagnostic> Diagnostics => [];
+        public ValueTask DisposeAsync() => ValueTask.CompletedTask;
     }
 }
 

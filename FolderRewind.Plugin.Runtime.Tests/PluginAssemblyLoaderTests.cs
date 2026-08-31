@@ -72,7 +72,7 @@ public sealed class PluginAssemblyLoaderTests
         {
             RequiredApiVersion = new PluginApiVersion(3, 1)
         };
-        var newerMinor = supportedMinor with { RequiredApiVersion = new PluginApiVersion(3, 2) };
+        var newerMinor = supportedMinor with { RequiredApiVersion = new PluginApiVersion(3, 3) };
         var wrongMajor = supportedMinor with { RequiredApiVersion = new PluginApiVersion(2, 0) };
 
         using var loaded = PluginAssemblyLoader.Load(supportedMinor);

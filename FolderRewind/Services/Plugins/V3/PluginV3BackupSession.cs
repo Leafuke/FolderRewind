@@ -11,6 +11,10 @@ using FolderRewind.Models;
 using FolderRewind.Plugin.Abstractions;
 using FolderRewind.Plugin.Runtime.Activation;
 using FolderRewind.Plugin.Runtime.Operations;
+using FolderRewind.Plugin.Runtime.Artifacts;
+using FolderRewind.History.Capture;
+using FolderRewind.History.Domain;
+using FolderRewind.History.Storage;
 
 namespace FolderRewind.Services.Plugins.V3;
 
@@ -255,9 +259,120 @@ internal sealed class PluginV3BackupSession : IAsyncDisposable
             cancellationToken).ConfigureAwait(false);
     }
 
+    public async ValueTask<PluginV3VersionMetadataCaptureResult> CaptureVersionMetadataAsync(
+        CancellationToken cancellationToken = default)
+    {
+        if (_pluginId is null || _configSnapshot is null || _folderSnapshot is null)
+            return PluginV3VersionMetadataCaptureResult.Empty;
+        using var lease = PluginV3RuntimeService.Runtime.TryAcquire<IVersionMetadataProviderCapability>(
+            _pluginId.Value,
+            capability => capability.Kind == _configSnapshot.Kind,
+            cancellationToken);
+        if (lease is null) return PluginV3VersionMetadataCaptureResult.Empty;
+        var stableSourcePath = _captureLeaseOwner.StableSourcePath;
+        if (stableSourcePath is null)
+        {
+            var diagnostic = new PluginDiagnostic(
+                "plugin.version_metadata_stable_view_unavailable",
+                DiagnosticSeverity.Warning,
+                "VersionMetadata",
+                _pluginId.Value.Value,
+                new Dictionary<string, string>());
+            _diagnostics.Add(diagnostic);
+            return new PluginV3VersionMetadataCaptureResult([], [ToHistoryDiagnostic(diagnostic)]);
+        }
+
+        try
+        {
+            var result = await lease.Capability.CaptureAsync(
+                new VersionMetadataCaptureRequest(
+                    _configSnapshot,
+                    _folderSnapshot,
+                    new StableCaptureSourceView(stableSourcePath)),
+                lease.Context).ConfigureAwait(false);
+            ArgumentNullException.ThrowIfNull(result);
+            ArgumentNullException.ThrowIfNull(result.Snapshots);
+            ArgumentNullException.ThrowIfNull(result.Diagnostics);
+            if (result.Snapshots.Count > 8)
+                throw new InvalidDataException("Version metadata provider exceeded the snapshot count quota.");
+
+            var candidates = new List<VersionMetadataCandidate>();
+            var identities = new Dictionary<(string SchemaId, int SchemaVersion), byte[]>();
+            foreach (var snapshot in result.Snapshots)
+            {
+                ArgumentNullException.ThrowIfNull(snapshot);
+                // 先用领域构造器验证 identity/payload quota，避免坏 metadata 延迟到权威提交时才阻断备份。
+                var validated = VersionMetadataSnapshot.Create(
+                    VersionId.New(),
+                    _pluginId.Value.Value,
+                    snapshot.SchemaId,
+                    snapshot.SchemaVersion,
+                    snapshot.Payload,
+                    DateTimeOffset.UnixEpoch);
+                var canonicalPayload = HistoryPackCodec.Canonicalize(snapshot.Payload);
+                var key = (validated.SchemaId, validated.SchemaVersion);
+                if (identities.TryGetValue(key, out var existing))
+                {
+                    if (!existing.AsSpan().SequenceEqual(canonicalPayload))
+                        throw new InvalidDataException("Version metadata provider returned conflicting semantic identities.");
+                    continue;
+                }
+                identities.Add(key, canonicalPayload);
+                candidates.Add(new VersionMetadataCandidate(
+                    _pluginId.Value.Value,
+                    validated.SchemaId,
+                    validated.SchemaVersion,
+                    snapshot.Payload));
+            }
+
+            var normalizedDiagnostics = result.Diagnostics
+                .Select(item => item with { Severity = DiagnosticSeverity.Warning })
+                .ToArray();
+            var diagnostics = normalizedDiagnostics.Select(ToHistoryDiagnostic).ToArray();
+            _diagnostics.AddRange(normalizedDiagnostics);
+            return new PluginV3VersionMetadataCaptureResult(candidates, diagnostics);
+        }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+            throw;
+        }
+        catch (Exception ex)
+        {
+            var pluginDiagnostic = new PluginDiagnostic(
+                "plugin.version_metadata_capture_failed",
+                DiagnosticSeverity.Warning,
+                "VersionMetadata",
+                _pluginId.Value.Value,
+                new Dictionary<string, string> { ["message"] = ex.Message });
+            _diagnostics.Add(pluginDiagnostic);
+            return new PluginV3VersionMetadataCaptureResult(
+                [],
+                [ToHistoryDiagnostic(pluginDiagnostic)]);
+        }
+    }
+
     public ValueTask CompleteCaptureAsync() => _captureLeaseOwner.CompleteAsync();
 
     public async ValueTask DisposeAsync() => await CompleteCaptureAsync().ConfigureAwait(false);
+
+    private static HistoryDiagnostic ToHistoryDiagnostic(PluginDiagnostic diagnostic)
+        => new(
+            diagnostic.Code,
+            HistoryDiagnosticSeverity.Warning,
+            diagnostic.Arguments.GetValueOrDefault("message") ?? diagnostic.Code);
+
+    private sealed class StableCaptureSourceView : IVersionMetadataSourceView
+    {
+        private static readonly ArtifactContentHandle Content = new("capture-source");
+        private readonly HostArtifactReadService _read;
+
+        public StableCaptureSourceView(string stableSourcePath)
+            => _read = new HostArtifactReadService(
+                new Dictionary<ArtifactContentHandle, string> { [Content] = stableSourcePath });
+
+        public ValueTask<Stream> OpenReadAsync(string relativePath, CancellationToken cancellationToken)
+            => _read.OpenReadAsync(Content, relativePath, cancellationToken);
+    }
 
     private static PluginV3BackupSession Block(
         PluginV3BackupSession session,
@@ -294,4 +409,11 @@ internal sealed class PluginV3BackupSession : IAsyncDisposable
         }
     }
 
+}
+
+internal sealed record PluginV3VersionMetadataCaptureResult(
+    IReadOnlyList<VersionMetadataCandidate> Candidates,
+    IReadOnlyList<HistoryDiagnostic> Diagnostics)
+{
+    public static PluginV3VersionMetadataCaptureResult Empty { get; } = new([], []);
 }

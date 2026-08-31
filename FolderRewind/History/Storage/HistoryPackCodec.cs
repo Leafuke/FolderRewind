@@ -154,6 +154,7 @@ public sealed class HistoryPackCodec
             HistoryObjectKinds.LegacyMigrationRecord => typeof(LegacyMigrationRecord),
             HistoryObjectKinds.SafetySnapshot => typeof(SafetySnapshot),
             HistoryObjectKinds.SafetySnapshotRelease => typeof(SafetySnapshotRelease),
+            HistoryObjectKinds.VersionMetadataSnapshot => typeof(VersionMetadataSnapshot),
             _ => throw new HistoryPackCompatibilityException($"Unknown object kind '{item.Kind}'.")
         };
 
@@ -231,6 +232,7 @@ public sealed class HistoryPackCodec
             LegacyMigrationRecord item => (HistoryObjectKinds.LegacyMigrationRecord, item.RecordId.ToString()),
             SafetySnapshot item => (HistoryObjectKinds.SafetySnapshot, item.SnapshotId.ToString()),
             SafetySnapshotRelease item => (HistoryObjectKinds.SafetySnapshotRelease, item.ReleaseId.ToString()),
+            VersionMetadataSnapshot item => (HistoryObjectKinds.VersionMetadataSnapshot, item.MetadataSnapshotId.ToString()),
             _ => throw new ArgumentException($"Unsupported history object type {value.GetType().FullName}.", nameof(value))
         };
 }

@@ -7,6 +7,7 @@ using System.IO;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
+using System.Text.Json;
 
 namespace FolderRewind.History.Capture;
 
@@ -100,6 +101,26 @@ public sealed record LocalReplicaCandidate(
     CapturePayloadState PayloadState,
     DateTimeOffset CapturedAtUtc);
 
+public sealed record VersionMetadataCandidate
+{
+    public VersionMetadataCandidate(
+        string producerPluginId,
+        string schemaId,
+        int schemaVersion,
+        JsonElement payload)
+    {
+        ProducerPluginId = producerPluginId;
+        SchemaId = schemaId;
+        SchemaVersion = schemaVersion;
+        Payload = payload.Clone();
+    }
+
+    public string ProducerPluginId { get; }
+    public string SchemaId { get; }
+    public int SchemaVersion { get; }
+    public JsonElement Payload { get; }
+}
+
 public interface ICaptureCleanupHandle
 {
     ValueTask CleanupAsync(CancellationToken cancellationToken);
@@ -122,7 +143,8 @@ public sealed record SourceCaptureResult
         IEnumerable<HistoryDiagnostic>? diagnostics,
         IEnumerable<MaterializationPolicyUpdateId>? expectedMaterializationPolicyTipIds = null,
         SourceCaptureBaselineCandidate? baselineCandidate = null,
-        EffectiveSourceBoundarySnapshot? effectiveSourceBoundary = null)
+        EffectiveSourceBoundarySnapshot? effectiveSourceBoundary = null,
+        IEnumerable<VersionMetadataCandidate>? versionMetadataCandidates = null)
     {
         SourceId = sourceId;
         Outcome = outcome;
@@ -141,6 +163,7 @@ public sealed record SourceCaptureResult
             : [.. expectedMaterializationPolicyTipIds];
         BaselineCandidate = baselineCandidate;
         EffectiveSourceBoundary = effectiveSourceBoundary ?? EffectiveSourceBoundarySnapshot.All;
+        VersionMetadataCandidates = versionMetadataCandidates is null ? [] : [.. versionMetadataCandidates];
         ValidateShape();
     }
 
@@ -159,6 +182,7 @@ public sealed record SourceCaptureResult
     public ImmutableArray<MaterializationPolicyUpdateId> ExpectedMaterializationPolicyTipIds { get; }
     public SourceCaptureBaselineCandidate? BaselineCandidate { get; }
     public EffectiveSourceBoundarySnapshot EffectiveSourceBoundary { get; }
+    public ImmutableArray<VersionMetadataCandidate> VersionMetadataCandidates { get; }
 
     public SourceCaptureResult WithEffectiveSourceBoundary(EffectiveSourceBoundarySnapshot boundary)
     {
@@ -180,8 +204,30 @@ public sealed record SourceCaptureResult
             BaselineCandidate is null
                 ? null
                 : BaselineCandidate with { BoundaryFingerprint = boundary.Fingerprint },
-            boundary);
+            boundary,
+            VersionMetadataCandidates);
     }
+
+    public SourceCaptureResult WithVersionMetadata(
+        IEnumerable<VersionMetadataCandidate> candidates,
+        IEnumerable<HistoryDiagnostic>? diagnostics = null)
+        => new(
+            SourceId,
+            Outcome,
+            CaptureScope,
+            StateFingerprint,
+            ExistingVersionId,
+            RepresentationCandidate,
+            LocalReplicaCandidate,
+            PayloadCandidate,
+            ExpectedWorkspaceRevision,
+            ExpectedBaseVersionId,
+            CleanupHandle,
+            Diagnostics.Concat(diagnostics ?? []),
+            ExpectedMaterializationPolicyTipIds,
+            BaselineCandidate,
+            EffectiveSourceBoundary,
+            candidates);
 
     // Backup UI 只消费这些便捷投影；Native coordinator 仍以上面的结构化字段为准。
     public bool Success => Outcome is SourceCaptureOutcome.Captured
@@ -294,6 +340,14 @@ public sealed record SourceCaptureResult
             && LocalReplicaCandidate.RepresentationId != RepresentationCandidate.RepresentationId)
         {
             throw new ArgumentException("LocalReplica candidate must belong to the Representation candidate.");
+        }
+        if (Outcome != SourceCaptureOutcome.Captured && !VersionMetadataCandidates.IsEmpty)
+            throw new ArgumentException("Only a newly captured Version can carry metadata candidates.");
+        if (VersionMetadataCandidates
+            .GroupBy(item => (item.ProducerPluginId, item.SchemaId, item.SchemaVersion))
+            .Any(group => group.Count() > 1))
+        {
+            throw new ArgumentException("Version metadata candidates contain duplicate semantic identities.");
         }
     }
 }

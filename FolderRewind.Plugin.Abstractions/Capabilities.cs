@@ -115,6 +115,7 @@ public sealed record BackupConsistencyRequest(ConfigSnapshot Config, FolderSnaps
 public interface IConsistencyLease : IAsyncDisposable
 {
     string SourcePath { get; }
+    bool IsStableSourceView => false;
     IReadOnlyList<PluginDiagnostic> Diagnostics { get; }
 }
 
@@ -131,6 +132,37 @@ public sealed record FolderMetadataField(
     LocalizedText Value);
 public sealed record FolderMetadataResult(
     IReadOnlyList<FolderMetadataField> Fields,
+    IReadOnlyList<PluginDiagnostic> Diagnostics);
+
+/// <summary>
+/// Optional capture-time metadata provider. The source view is a Host-owned, read-only
+/// stable view for the same capture; it is intentionally distinct from live folder metadata.
+/// </summary>
+public interface IVersionMetadataProviderCapability : IPluginCapability
+{
+    ConfigKindRef Kind { get; }
+    ValueTask<VersionMetadataCaptureResult> CaptureAsync(
+        VersionMetadataCaptureRequest request,
+        PluginInvocationContext context);
+}
+
+public interface IVersionMetadataSourceView
+{
+    ValueTask<Stream> OpenReadAsync(string relativePath, CancellationToken cancellationToken);
+}
+
+public sealed record VersionMetadataCaptureRequest(
+    ConfigSnapshot Config,
+    FolderSnapshot Folder,
+    IVersionMetadataSourceView Source);
+
+public sealed record CapturedVersionMetadata(
+    string SchemaId,
+    int SchemaVersion,
+    JsonElement Payload);
+
+public sealed record VersionMetadataCaptureResult(
+    IReadOnlyList<CapturedVersionMetadata> Snapshots,
     IReadOnlyList<PluginDiagnostic> Diagnostics);
 
 public interface IRestoreCoordinatorCapability : IPluginCapability

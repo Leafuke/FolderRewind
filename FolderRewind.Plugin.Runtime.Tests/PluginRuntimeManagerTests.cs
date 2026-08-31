@@ -618,6 +618,7 @@ public sealed class PluginRuntimeManagerTests
     private sealed class FakeConsistencyLease(string sourcePath, bool throwOnDispose = false) : IConsistencyLease
     {
         public string SourcePath { get; } = sourcePath;
+        public bool IsStableSourceView => true;
         public IReadOnlyList<PluginDiagnostic> Diagnostics { get; } = Array.Empty<PluginDiagnostic>();
 
         public ValueTask DisposeAsync()

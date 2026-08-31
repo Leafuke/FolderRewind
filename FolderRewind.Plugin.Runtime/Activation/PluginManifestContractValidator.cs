@@ -162,6 +162,7 @@ public static class PluginManifestContractValidator
         if (capability is IBackupArtifactTransformerCapability) yield return PluginCapabilityKind.BackupArtifactTransformer;
         if (capability is IBackupCompletionObserverCapability) yield return PluginCapabilityKind.BackupCompletionObserver;
         if (capability is IRestoreMaterializerCapability) yield return PluginCapabilityKind.RestoreMaterializer;
+        if (capability is IVersionMetadataProviderCapability) yield return PluginCapabilityKind.VersionMetadataProvider;
     }
 
     private static void RequireServices(PluginManifestContract manifest, params HostServiceKind[] required)

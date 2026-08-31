@@ -240,6 +240,17 @@ public readonly record struct LegacyMigrationRecordId : IHistoryGuidId<LegacyMig
 }
 public sealed class LegacyMigrationRecordIdJsonConverter : HistoryGuidIdJsonConverter<LegacyMigrationRecordId>;
 
+[JsonConverter(typeof(MetadataSnapshotIdJsonConverter))]
+public readonly record struct MetadataSnapshotId : IHistoryGuidId<MetadataSnapshotId>
+{
+    public MetadataSnapshotId(Guid value) => Value = HistoryGuidId.Require(value, nameof(value));
+    public Guid Value { get; }
+    public static MetadataSnapshotId Parse(string value) => new(HistoryGuidId.Parse(value, nameof(value)));
+    public static MetadataSnapshotId FromGuid(Guid value) => new(HistoryGuidId.Require(value, nameof(value)));
+    public override string ToString() => Value.ToString("N", CultureInfo.InvariantCulture);
+}
+public sealed class MetadataSnapshotIdJsonConverter : HistoryGuidIdJsonConverter<MetadataSnapshotId>;
+
 [JsonConverter(typeof(SafetySnapshotIdJsonConverter))]
 public readonly record struct SafetySnapshotId : IHistoryGuidId<SafetySnapshotId>
 {

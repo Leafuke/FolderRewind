@@ -645,6 +645,14 @@ namespace FolderRewind.Services
                         }
                 }
                 captureResult = captureResult?.WithEffectiveSourceBoundary(effectiveBoundary);
+                if (captureResult?.Outcome == SourceCaptureOutcome.Captured)
+                {
+                    // Metadata 与归档共享同一 consistency lease/source view；失败只追加 warning，不反转数据捕获结果。
+                    var metadata = await v3Session.CaptureVersionMetadataAsync(cancellationToken).ConfigureAwait(false);
+                    captureResult = captureResult.WithVersionMetadata(
+                        metadata.Candidates,
+                        metadata.Diagnostics);
+                }
             }
             catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
             {

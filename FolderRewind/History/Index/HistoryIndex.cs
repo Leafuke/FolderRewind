@@ -63,9 +63,11 @@ public sealed class HistoryIndex : IDisposable
         CREATE TABLE MigrationRecords(RecordId TEXT PRIMARY KEY, PayloadJson TEXT NOT NULL);
         CREATE TABLE SafetySnapshots(SnapshotId TEXT PRIMARY KEY, CheckpointId TEXT NOT NULL, CreatedAtUtc TEXT NOT NULL, Reason INTEGER NOT NULL, PayloadJson TEXT NOT NULL);
         CREATE TABLE SafetySnapshotReleases(ReleaseId TEXT PRIMARY KEY, SnapshotId TEXT NOT NULL, ReleasedAtUtc TEXT NOT NULL, PayloadJson TEXT NOT NULL);
+        CREATE TABLE VersionMetadataSnapshots(MetadataSnapshotId TEXT PRIMARY KEY, VersionId TEXT NOT NULL, ProducerPluginId TEXT NOT NULL, SchemaId TEXT NOT NULL, SchemaVersion INTEGER NOT NULL, CapturedAtUtc TEXT NOT NULL, PayloadJson TEXT NOT NULL);
         CREATE TABLE ReplicaObservations(ReplicaKey TEXT PRIMARY KEY, Availability INTEGER NOT NULL, Integrity INTEGER NOT NULL, ObservedAtUtc TEXT NOT NULL, Evidence TEXT NOT NULL);
         CREATE INDEX IX_Versions_Source ON Versions(SourceId, CreatedAtUtc);
         CREATE INDEX IX_Representations_Version ON Representations(VersionId);
+        CREATE INDEX IX_VersionMetadataSnapshots_Version ON VersionMetadataSnapshots(VersionId, ProducerPluginId, SchemaId, SchemaVersion);
         CREATE INDEX IX_Checkpoints_Created ON Checkpoints(CreatedAtUtc);
         CREATE INDEX IX_BranchUpdates_Branch ON BranchUpdates(BranchId, CreatedAtUtc);
         """;
@@ -338,6 +340,19 @@ public sealed class HistoryIndex : IDisposable
                 cancellationToken)
             : ReadPayloadsAsync<SafetySnapshotRelease>(
                 "SELECT PayloadJson FROM SafetySnapshotReleases ORDER BY ReleasedAtUtc, ReleaseId",
+                [],
+                cancellationToken);
+
+    public Task<IReadOnlyList<VersionMetadataSnapshot>> GetVersionMetadataSnapshotsAsync(
+        VersionId? versionId = null,
+        CancellationToken cancellationToken = default)
+        => versionId is { } id
+            ? ReadPayloadsAsync<VersionMetadataSnapshot>(
+                "SELECT PayloadJson FROM VersionMetadataSnapshots WHERE VersionId = $id ORDER BY ProducerPluginId, SchemaId, SchemaVersion",
+                [("$id", id.ToString())],
+                cancellationToken)
+            : ReadPayloadsAsync<VersionMetadataSnapshot>(
+                "SELECT PayloadJson FROM VersionMetadataSnapshots ORDER BY VersionId, ProducerPluginId, SchemaId, SchemaVersion",
                 [],
                 cancellationToken);
 
@@ -622,6 +637,14 @@ public sealed class HistoryIndex : IDisposable
                     "INSERT INTO SafetySnapshotReleases VALUES($id,$snapshot,$released,$payload)",
                     ("$id", item.ReleaseId.ToString()), ("$snapshot", item.SnapshotId.ToString()),
                     ("$released", Utc(item.ReleasedAtUtc)), ("$payload", payloadJson));
+                break;
+            case VersionMetadataSnapshot item:
+                Execute(connection, transaction,
+                    "INSERT INTO VersionMetadataSnapshots VALUES($id,$version,$producer,$schema,$schemaVersion,$captured,$payload)",
+                    ("$id", item.MetadataSnapshotId.ToString()), ("$version", item.VersionId.ToString()),
+                    ("$producer", item.ProducerPluginId), ("$schema", item.SchemaId),
+                    ("$schemaVersion", item.SchemaVersion), ("$captured", Utc(item.CapturedAtUtc)),
+                    ("$payload", payloadJson));
                 break;
         }
     }

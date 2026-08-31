@@ -144,6 +144,7 @@ public sealed record HistoryCommitBatch(
     BackupRun Run,
     ImmutableArray<SourceVersion> NewVersions,
     ImmutableArray<VersionRepresentation> NewRepresentations,
+    ImmutableArray<VersionMetadataSnapshot> NewMetadataSnapshots,
     ConfigurationCheckpoint? NewCheckpoint,
     SafetySnapshot? NewSafetySnapshot,
     BranchUpdate? NewBranchUpdate,
@@ -349,6 +350,7 @@ public sealed class HistoryCommitCoordinator
 
         var versions = ImmutableArray.CreateBuilder<SourceVersion>();
         var representations = ImmutableArray.CreateBuilder<VersionRepresentation>();
+        var metadataSnapshots = ImmutableArray.CreateBuilder<VersionMetadataSnapshot>();
         var localEntries = new List<LocalReplicaCatalogEntry>();
         var checkpointSources = ImmutableArray.CreateBuilder<CheckpointSource>();
         var runSources = ImmutableArray.CreateBuilder<BackupRunSourceResult>();
@@ -418,6 +420,16 @@ public sealed class HistoryCommitCoordinator
                         var representation = capture.RepresentationCandidate!.ToFact(versionId);
                         versions.Add(version);
                         representations.Add(representation);
+                        foreach (var candidate in capture.VersionMetadataCandidates)
+                        {
+                            metadataSnapshots.Add(VersionMetadataSnapshot.Create(
+                                versionId,
+                                candidate.ProducerPluginId,
+                                candidate.SchemaId,
+                                candidate.SchemaVersion,
+                                candidate.Payload,
+                                version.CreatedAtUtc));
+                        }
                         localEntries.Add(new LocalReplicaCatalogEntry(
                             capture.LocalReplicaCandidate!.RepresentationId,
                             capture.LocalReplicaCandidate.LocalReplicaId,
@@ -631,6 +643,7 @@ public sealed class HistoryCommitCoordinator
         var facts = new List<object>();
         facts.AddRange(versions);
         facts.AddRange(representations);
+        facts.AddRange(metadataSnapshots);
         if (checkpoint is not null) facts.Add(checkpoint);
         if (safetySnapshot is not null) facts.Add(safetySnapshot);
         if (branchUpdate is not null) facts.Add(branchUpdate);
@@ -672,6 +685,7 @@ public sealed class HistoryCommitCoordinator
             run,
             versions.ToImmutable(),
             representations.ToImmutable(),
+            metadataSnapshots.ToImmutable(),
             checkpoint,
             safetySnapshot,
             branchUpdate,
