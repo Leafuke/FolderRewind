@@ -120,8 +120,22 @@ public static class NativeHistoryCoreGateway
                 .QueryAsync(sourceId, includeSuppressed: true, cancellationToken).ConfigureAwait(false))
             .Timeline.FirstOrDefault(item => StringComparer.OrdinalIgnoreCase.Equals(item.FileName, fileName));
 
+    public static async Task<IReadOnlyList<HistoryBoundaryRecaptureRequirement>> FindRequiredBoundaryRecapturesAsync(
+        HistoryConfigSnapshot snapshot,
+        IReadOnlyCollection<SourceId> plannedCaptureSources,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(snapshot);
+        ArgumentNullException.ThrowIfNull(plannedCaptureSources);
+        var runtime = GetRequiredRuntime(snapshot.ConfigId.Value);
+        return await runtime.Commit.FindRequiredBoundaryRecapturesAsync(
+            snapshot,
+            plannedCaptureSources,
+            cancellationToken).ConfigureAwait(false);
+    }
+
     public static async Task<HistoryCommitBatch> CommitBackupAsync(
-        BackupConfig config,
+        HistoryConfigSnapshot configSnapshot,
         IEnumerable<SourceCaptureResult> results,
         BackupInvocationKind kind,
         DateTimeOffset startedAtUtc,
@@ -130,7 +144,9 @@ public static class NativeHistoryCoreGateway
         HistoryCommitIntent intent = HistoryCommitIntent.AdvanceBranch,
         HistorySafetySnapshotIntent? safetySnapshotIntent = null)
     {
-        var runtime = GetRequiredRuntime(config.Id);
+        ArgumentNullException.ThrowIfNull(configSnapshot);
+        ArgumentNullException.ThrowIfNull(results);
+        var runtime = GetRequiredRuntime(configSnapshot.ConfigId.Value);
         var workspace = (await runtime.WorkspaceStore.LoadAsync(cancellationToken).ConfigureAwait(false)).Value;
         long revision = workspace?.StateRevision ?? -1;
         var baselines = workspace?.SourceBaselines.ToDictionary(item => item.SourceId) ?? [];
@@ -148,19 +164,8 @@ public static class NativeHistoryCoreGateway
                 result.Diagnostics, tips.Select(item => item.UpdateId), result.BaselineCandidate,
                 result.EffectiveSourceBoundary, result.VersionMetadataCandidates));
         }
-        var resultBoundaries = normalized.ToDictionary(
-            item => item.SourceId,
-            item => item.EffectiveSourceBoundary);
-        var snapshot = new HistoryConfigSnapshot(
-            runtime.ConfigId,
-            config.SourceFolders.Select(folder => new HistoryConfigSourceSnapshot(
-                Source(folder),
-                new SourceDescriptorSnapshot(folder.DisplayName, folder.Path),
-                resultBoundaries.TryGetValue(Source(folder), out var capturedBoundary)
-                    ? capturedBoundary
-                    : EffectiveSourceBoundaryFactory.Create(folder.Path, folder.SourceScope, config.Filters))));
         var committed = await runtime.Commit.CommitAsync(new HistoryCommitRequest(
-            snapshot,
+            configSnapshot,
             new HistoryBackupInvocation(
                 RunId.New(), startedAtUtc, DateTimeOffset.UtcNow, kind, HistoryProvenance.Native("app"), comment ?? string.Empty),
             workspace,

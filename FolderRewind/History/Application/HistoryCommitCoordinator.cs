@@ -163,6 +163,11 @@ public sealed class HistoryCommitRecoveryRequiredException(
     public PackId CommittedPackId { get; } = committedPackId;
 }
 
+public sealed record HistoryBoundaryRecaptureRequirement(
+    SourceId SourceId,
+    string PreviousBoundaryFingerprint,
+    string CurrentBoundaryFingerprint);
+
 /// <summary>
 /// The only Native Backup writer for Run, Version, Representation, Checkpoint and BranchUpdate facts.
 /// All authoritative facts enter one immutable Commit Pack; device-local Workspace and replica catalog
@@ -177,6 +182,66 @@ public sealed class HistoryCommitCoordinator
     {
         _runtime = runtime ?? throw new ArgumentNullException(nameof(runtime));
         _codec = codec ?? new HistoryPackCodec();
+    }
+
+    /// <summary>
+    /// 在捕获前执行只读预检查：发现未参与本次捕获（unrequested）但有效边界已发生变更（boundary drift）的备份源。
+    /// 如果存在此类源，则子集备份无法安全 Carry Forward 其历史版本，需要先通过完整备份重新建立基线。
+    /// </summary>
+    public async Task<IReadOnlyList<HistoryBoundaryRecaptureRequirement>> FindRequiredBoundaryRecapturesAsync(
+        HistoryConfigSnapshot snapshot,
+        IReadOnlyCollection<SourceId> plannedCaptureSources,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(snapshot);
+        ArgumentNullException.ThrowIfNull(plannedCaptureSources);
+
+        if (snapshot.ConfigId != _runtime.ConfigId)
+        {
+            throw new ArgumentException("Config snapshot does not belong to this History Runtime.", nameof(snapshot));
+        }
+
+        var workspaceLoad = await _runtime.WorkspaceStore.LoadAsync(cancellationToken).ConfigureAwait(false);
+        var workspace = workspaceLoad.Value;
+        if (workspace is null)
+        {
+            return Array.Empty<HistoryBoundaryRecaptureRequirement>();
+        }
+
+        var baselineMap = workspace.SourceBaselines.ToDictionary(item => item.SourceId);
+        var plannedSet = plannedCaptureSources.ToHashSet();
+        var requirements = new List<HistoryBoundaryRecaptureRequirement>();
+
+        foreach (var source in snapshot.Sources)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            if (plannedSet.Contains(source.SourceId))
+            {
+                continue;
+            }
+
+            if (baselineMap.TryGetValue(source.SourceId, out var baseline))
+            {
+                VersionId? reliableBaseline = ReliableVersion(baseline);
+                if (reliableBaseline is { } reliableVersionId)
+                {
+                    var version = await _runtime.Query.GetVersionAsync(reliableVersionId, cancellationToken).ConfigureAwait(false);
+                    if (version is not null)
+                    {
+                        var boundary = source.Boundary;
+                        if (!StringComparer.Ordinal.Equals(version.EffectiveSourceBoundaryFingerprint, boundary.Fingerprint))
+                        {
+                            requirements.Add(new HistoryBoundaryRecaptureRequirement(
+                                source.SourceId,
+                                version.EffectiveSourceBoundaryFingerprint,
+                                boundary.Fingerprint));
+                        }
+                    }
+                }
+            }
+        }
+
+        return requirements;
     }
 
     public async Task<HistoryCommitBatch> CommitAsync(

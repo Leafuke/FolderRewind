@@ -587,6 +587,121 @@ public sealed class HistoryCommitCoordinatorTests
         Assert.HasCount(2, await runtime.Repository.ReadAllPacksAsync());
     }
 
+    [TestMethod]
+    public async Task PreflightDoesNotReportUnrequestedSourceWhenBoundaryIsUnchanged()
+    {
+        await using var runtime = await CreateRuntimeAsync();
+        var sourceA = SourceId.New();
+        var sourceB = SourceId.New();
+        var boundaryA = EffectiveSourceBoundarySnapshot.All;
+        var boundaryB = new EffectiveSourceBoundarySnapshot(
+            EffectiveBoundaryScopeMode.Include,
+            ["region/**"],
+            EffectiveBoundaryFilterMode.Blacklist,
+            [],
+            false);
+        var initialSnapshot = Snapshot(
+            Source(sourceA, "source-a", boundaryA),
+            Source(sourceB, "source-b", boundaryB));
+
+        _ = await runtime.Commit.CommitAsync(Request(
+            initialSnapshot,
+            null,
+            CreateCapture(sourceA, "a1", -1, null, boundary: boundaryA),
+            CreateCapture(sourceB, "b1", -1, null, boundary: boundaryB)));
+
+        var nextSnapshot = Snapshot(
+            Source(sourceA, "source-a", boundaryA),
+            Source(sourceB, "source-b", boundaryB));
+
+        var requirements = await runtime.Commit.FindRequiredBoundaryRecapturesAsync(
+            nextSnapshot,
+            [sourceA]);
+
+        Assert.IsEmpty(requirements);
+    }
+
+    [TestMethod]
+    public async Task PreflightReportsUnrequestedSourceWhenBoundaryDriftOccurs()
+    {
+        await using var runtime = await CreateRuntimeAsync();
+        var sourceA = SourceId.New();
+        var sourceB = SourceId.New();
+        var boundaryA = EffectiveSourceBoundarySnapshot.All;
+        var boundaryB = new EffectiveSourceBoundarySnapshot(
+            EffectiveBoundaryScopeMode.Include,
+            ["region/**"],
+            EffectiveBoundaryFilterMode.Blacklist,
+            [],
+            false);
+        var initialSnapshot = Snapshot(
+            Source(sourceA, "source-a", boundaryA),
+            Source(sourceB, "source-b", boundaryB));
+
+        _ = await runtime.Commit.CommitAsync(Request(
+            initialSnapshot,
+            null,
+            CreateCapture(sourceA, "a1", -1, null, boundary: boundaryA),
+            CreateCapture(sourceB, "b1", -1, null, boundary: boundaryB)));
+
+        var changedBoundaryB = new EffectiveSourceBoundarySnapshot(
+            EffectiveBoundaryScopeMode.All,
+            [],
+            EffectiveBoundaryFilterMode.Blacklist,
+            ["session.lock"],
+            false);
+        var driftSnapshot = Snapshot(
+            Source(sourceA, "source-a", boundaryA),
+            Source(sourceB, "source-b", changedBoundaryB));
+
+        var requirements = await runtime.Commit.FindRequiredBoundaryRecapturesAsync(
+            driftSnapshot,
+            [sourceA]);
+
+        Assert.HasCount(1, requirements);
+        Assert.AreEqual(sourceB, requirements[0].SourceId);
+        Assert.AreEqual(boundaryB.Fingerprint, requirements[0].PreviousBoundaryFingerprint);
+        Assert.AreEqual(changedBoundaryB.Fingerprint, requirements[0].CurrentBoundaryFingerprint);
+
+        var workspace = (await runtime.WorkspaceStore.LoadAsync()).Value!;
+        var captureA = CreateCapture(sourceA, "a2", workspace.StateRevision, workspace.SourceBaselines.Single(b => b.SourceId == sourceA).BaseVersionId, boundary: boundaryA);
+        await Assert.ThrowsExactlyAsync<HistoryCommitConflictException>(
+            () => runtime.Commit.CommitAsync(Request(driftSnapshot, workspace, captureA)));
+    }
+
+    [TestMethod]
+    public async Task PreflightDoesNotReportPlannedSourceWhenBoundaryDriftOccurs()
+    {
+        await using var runtime = await CreateRuntimeAsync();
+        var sourceB = SourceId.New();
+        var boundaryB = new EffectiveSourceBoundarySnapshot(
+            EffectiveBoundaryScopeMode.Include,
+            ["region/**"],
+            EffectiveBoundaryFilterMode.Blacklist,
+            [],
+            false);
+        var initialSnapshot = Snapshot(Source(sourceB, "source-b", boundaryB));
+
+        _ = await runtime.Commit.CommitAsync(Request(
+            initialSnapshot,
+            null,
+            CreateCapture(sourceB, "b1", -1, null, boundary: boundaryB)));
+
+        var changedBoundaryB = new EffectiveSourceBoundarySnapshot(
+            EffectiveBoundaryScopeMode.All,
+            [],
+            EffectiveBoundaryFilterMode.Blacklist,
+            ["session.lock"],
+            false);
+        var driftSnapshot = Snapshot(Source(sourceB, "source-b", changedBoundaryB));
+
+        var requirements = await runtime.Commit.FindRequiredBoundaryRecapturesAsync(
+            driftSnapshot,
+            [sourceB]);
+
+        Assert.IsEmpty(requirements);
+    }
+
     private async Task<HistoryRuntime> CreateRuntimeAsync()
     {
         var repository = new FileHistoryRepository(
