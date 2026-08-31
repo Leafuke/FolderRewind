@@ -262,7 +262,7 @@ namespace FolderRewind.Services
         /// 发送系统 Toast 通知（AppNotification）。
         /// 通常不直接调用，由 ShowError/ShowImportant/NotifyXxx 根据等级自动决定。
         /// </summary>
-        public static void ShowToast(string title, string message)
+        public static void ShowToast(string title, string message, IDictionary<string, string>? arguments = null, string? tag = null, string? group = null)
         {
             if (!IsNotificationEnabled) return;
 
@@ -277,6 +277,24 @@ namespace FolderRewind.Services
                 var builder = new Microsoft.Windows.AppNotifications.Builder.AppNotificationBuilder()
                     .AddText(title)
                     .AddText(message);
+
+                if (arguments != null)
+                {
+                    foreach (var kvp in arguments)
+                    {
+                        builder.AddArgument(kvp.Key, kvp.Value);
+                    }
+                }
+
+                if (!string.IsNullOrWhiteSpace(tag))
+                {
+                    builder.SetTag(tag);
+                }
+
+                if (!string.IsNullOrWhiteSpace(group))
+                {
+                    builder.SetGroup(group);
+                }
 
                 var notification = builder.BuildNotification();
                 Microsoft.Windows.AppNotifications.AppNotificationManager.Default.Show(notification);
@@ -290,7 +308,7 @@ namespace FolderRewind.Services
         /// <summary>
         /// 发送带图标的系统 Toast 通知
         /// </summary>
-        public static void ShowToastWithLogo(string title, string message, Uri? logoUri = null)
+        public static void ShowToastWithLogo(string title, string message, Uri? logoUri = null, IDictionary<string, string>? arguments = null, string? tag = null, string? group = null)
         {
             if (!IsNotificationEnabled) return;
 
@@ -305,6 +323,24 @@ namespace FolderRewind.Services
                 var builder = new Microsoft.Windows.AppNotifications.Builder.AppNotificationBuilder()
                     .AddText(title)
                     .AddText(message);
+
+                if (arguments != null)
+                {
+                    foreach (var kvp in arguments)
+                    {
+                        builder.AddArgument(kvp.Key, kvp.Value);
+                    }
+                }
+
+                if (!string.IsNullOrWhiteSpace(tag))
+                {
+                    builder.SetTag(tag);
+                }
+
+                if (!string.IsNullOrWhiteSpace(group))
+                {
+                    builder.SetGroup(group);
+                }
 
                 if (logoUri != null)
                 {
@@ -410,14 +446,30 @@ namespace FolderRewind.Services
                 // 成功通知仅在用户设为 All 且应用在后台时发 Toast
                 if (ShouldShowToast(NotificationImportance.Info) && !IsAppForeground())
                 {
-                    ShowToast(I18n.GetString("Notification_BackupCompleted_Title"), message);
+                    var args = new Dictionary<string, string> { ["target"] = "Home" };
+                    ShowToast(I18n.GetString("Notification_BackupCompleted_Title"), message, args, tag: $"backup_{folderName}");
                 }
             }
             else
             {
                 var message = I18n.Format("Notification_BackupCompleted_Failed", folderName, errorMessage ?? "");
-                // ShowError 内部已包含 Badge 递增和 Toast 发送。
-                ShowError(message, I18n.GetString("Notification_BackupFailed_Title"));
+                var resolvedTitle = I18n.GetString("Notification_BackupFailed_Title");
+                var args = new Dictionary<string, string> { ["target"] = "Tasks" };
+
+                ShowInfoBar(resolvedTitle, message, NotificationSeverity.Error, 8000);
+                IncrementBadge();
+
+                if (ShouldShowToast(NotificationImportance.Error))
+                {
+                    if (AppRuntimeInfo.IsMsiDistribution)
+                    {
+                        App.TryShowTrayNotification(resolvedTitle, message, NotificationSeverity.Error);
+                    }
+                    else
+                    {
+                        ShowToast(resolvedTitle, message, args, tag: $"backup_{folderName}");
+                    }
+                }
             }
         }
 
@@ -437,13 +489,30 @@ namespace FolderRewind.Services
 
                 if (ShouldShowToast(NotificationImportance.Info) && !IsAppForeground())
                 {
-                    ShowToast(I18n.GetString("Notification_RestoreCompleted_Title"), message);
+                    var args = new Dictionary<string, string> { ["target"] = "History" };
+                    ShowToast(I18n.GetString("Notification_RestoreCompleted_Title"), message, args, tag: $"restore_{folderName}");
                 }
             }
             else
             {
                 var message = I18n.Format("Notification_RestoreCompleted_Failed", folderName, errorMessage ?? "");
-                ShowError(message, I18n.GetString("Notification_Error_Title"));
+                var resolvedTitle = I18n.GetString("Notification_Error_Title");
+                var args = new Dictionary<string, string> { ["target"] = "History" };
+
+                ShowInfoBar(resolvedTitle, message, NotificationSeverity.Error, 8000);
+                IncrementBadge();
+
+                if (ShouldShowToast(NotificationImportance.Error))
+                {
+                    if (AppRuntimeInfo.IsMsiDistribution)
+                    {
+                        App.TryShowTrayNotification(resolvedTitle, message, NotificationSeverity.Error);
+                    }
+                    else
+                    {
+                        ShowToast(resolvedTitle, message, args, tag: $"restore_{folderName}");
+                    }
+                }
             }
         }
 

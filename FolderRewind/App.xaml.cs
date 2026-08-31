@@ -1,4 +1,4 @@
-﻿using FolderRewind.Services;
+using FolderRewind.Services;
 using FolderRewind.Services.Plugins;
 using H.NotifyIcon;
 using Microsoft.Windows.AppLifecycle;
@@ -117,6 +117,20 @@ namespace FolderRewind
                 catch (Exception badgeEx)
                 {
                     LogService.Log($"[App] Failed to clear startup badge: {badgeEx.Message}");
+                }
+
+                // 注册系统级 AppNotification 激活事件处理
+                try
+                {
+                    if (Microsoft.Windows.AppNotifications.AppNotificationManager.IsSupported())
+                    {
+                        Microsoft.Windows.AppNotifications.AppNotificationManager.Default.NotificationInvoked += OnAppNotificationInvoked;
+                        Microsoft.Windows.AppNotifications.AppNotificationManager.Default.Register();
+                    }
+                }
+                catch (Exception notificationEx)
+                {
+                    LogService.Log($"[App] Failed to register AppNotificationManager: {notificationEx.Message}");
                 }
 
                 LogService.Log(I18n.GetString("App_Log_OnLaunchedBegin"));
@@ -507,6 +521,32 @@ namespace FolderRewind
             }
         }
 
+        private void OnAppNotificationInvoked(
+            Microsoft.Windows.AppNotifications.AppNotificationManager sender,
+            Microsoft.Windows.AppNotifications.AppNotificationActivatedEventArgs args)
+        {
+            var window = _window;
+            if (window?.DispatcherQueue == null) return;
+
+            window.DispatcherQueue.TryEnqueue(() =>
+            {
+                try
+                {
+                    RestoreWindowFromTray();
+
+                    if (args.Arguments.TryGetValue("target", out var target) && !string.IsNullOrWhiteSpace(target))
+                    {
+                        args.Arguments.TryGetValue("param", out var param);
+                        Services.NavigationService.NavigateTo(target, param);
+                    }
+                }
+                catch (Exception ex)
+                {
+                    LogService.Log($"[AppNotification] Failed to handle notification invoked: {ex.Message}");
+                }
+            });
+        }
+
         private void OnQuitCommandExecuteRequested(XamlUICommand sender, ExecuteRequestedEventArgs args)
         {
             // 标记强制退出，避免被 MainWindow 的“最小化到托盘”拦截逻辑再次兜回去。
@@ -516,6 +556,7 @@ namespace FolderRewind
             try { Services.MiniWindowService.CloseAll(); } catch { }
 
             CleanupTrayIcon();
+            CleanupAppNotifications();
 
             _window?.Close();
             Exit();
@@ -527,12 +568,27 @@ namespace FolderRewind
             // 主窗口关闭时清理 Mini 窗口
             try { Services.MiniWindowService.CloseAll(); } catch { }
             CleanupTrayIcon();
+            CleanupAppNotifications();
         }
 
         private void CleanupTrayIcon()
         {
             _trayIcon?.Dispose();
             _trayIcon = null;
+        }
+
+        private void CleanupAppNotifications()
+        {
+            try
+            {
+                if (Microsoft.Windows.AppNotifications.AppNotificationManager.IsSupported())
+                {
+                    Microsoft.Windows.AppNotifications.AppNotificationManager.Default.Unregister();
+                }
+            }
+            catch
+            {
+            }
         }
 
         #endregion
