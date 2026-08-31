@@ -515,17 +515,18 @@ namespace FolderRewind.Views
             if (result == null) return;
             if (!result.Succeeded)
             {
-                NotificationService.ShowWarning(string.IsNullOrWhiteSpace(result.Diagnostic)
+                var errorDiag = string.IsNullOrWhiteSpace(result.Diagnostic)
                     ? I18n.GetString("History_NativeAction_NotAvailable")
-                    : result.Diagnostic);
+                    : result.Diagnostic;
+                NotificationService.NotifyRestoreCompleted(config.Name, false, errorDiag);
                 return;
             }
             var succeeded = result.AppliedSources.Count;
             var failed = Math.Max(0, item.Sources.Count - succeeded);
             if (failed == 0)
-                NotificationService.ShowSuccess(I18n.Format("History_Run_RestoreSummary", succeeded, failed));
+                NotificationService.NotifyRestoreCompleted(config.Name, true);
             else
-                NotificationService.ShowWarning(I18n.Format("History_Run_RestoreSummary", succeeded, failed));
+                NotificationService.NotifyRestoreCompleted(config.Name, false, I18n.Format("History_Run_RestoreSummary", succeeded, failed));
         }
 
         private async Task<BackupService.RestoreMode?> PromptRunRestoreModeAsync(BackupRunViewItem item)
@@ -605,9 +606,14 @@ namespace FolderRewind.Views
             var result = await ViewModel.RestoreVersionAsync(item, restoreMode.Value);
             if (result is null || !result.Succeeded)
             {
-                NotificationService.ShowWarning(string.IsNullOrWhiteSpace(result?.Diagnostic)
+                var errorDiag = string.IsNullOrWhiteSpace(result?.Diagnostic)
                     ? I18n.GetString("History_NativeAction_NotAvailable")
-                    : result.Diagnostic);
+                    : result.Diagnostic;
+                NotificationService.NotifyRestoreCompleted(folder?.DisplayName ?? config.Name, false, errorDiag);
+            }
+            else
+            {
+                NotificationService.NotifyRestoreCompleted(folder?.DisplayName ?? config.Name, true);
             }
         }
 

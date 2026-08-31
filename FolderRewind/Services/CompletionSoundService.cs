@@ -37,16 +37,19 @@ namespace FolderRewind.Services
             };
         }
 
+        private const uint SuccessBeep = 0x00000040; // MB_ICONASTERISK
+        private const uint ErrorBeep = 0x00000010;   // MB_ICONHAND
+
         public static void PlayConfiguredCompletionSound(bool success)
         {
             var settings = ConfigService.CurrentConfig?.GlobalSettings;
-            Play(settings?.CompletionSoundIndex ?? 0);
+            Play(settings?.CompletionSoundIndex ?? 0, success);
         }
 
         public static void PreviewConfiguredSound()
         {
             var settings = ConfigService.CurrentConfig?.GlobalSettings;
-            Play(settings?.CompletionSoundIndex ?? 0);
+            Play(settings?.CompletionSoundIndex ?? 0, true);
         }
 
         public static async Task<bool> ApplyCustomSoundAsync(string sourcePath)
@@ -122,7 +125,7 @@ namespace FolderRewind.Services
                 && SupportedAudioExtensions.Contains(extension.Trim(), StringComparer.OrdinalIgnoreCase);
         }
 
-        private static void Play(int index)
+        private static void Play(int index, bool success)
         {
             if (Math.Clamp(index, 0, PresetCount - 1) == 0)
             {
@@ -130,22 +133,24 @@ namespace FolderRewind.Services
             }
 
             var settings = ConfigService.CurrentConfig?.GlobalSettings;
-            if (SponsorService.IsUnlocked
+            if (success
+                && SponsorService.IsUnlocked
                 && !string.IsNullOrWhiteSpace(settings?.CompletionSoundCustomPath)
                 && File.Exists(settings.CompletionSoundCustomPath))
             {
-                PlayCustom(settings.CompletionSoundCustomPath);
+                PlayCustom(settings.CompletionSoundCustomPath, success);
                 return;
             }
 
-            PlayDefault();
+            PlayDefault(success);
         }
 
-        private static void PlayDefault()
+        private static void PlayDefault(bool success)
         {
             try
             {
-                _ = Task.Run(() => MessageBeep(DefaultBeep));
+                var beepType = success ? SuccessBeep : ErrorBeep;
+                _ = Task.Run(() => MessageBeep(beepType));
             }
             catch (Exception ex)
             {
@@ -153,7 +158,7 @@ namespace FolderRewind.Services
             }
         }
 
-        private static void PlayCustom(string path)
+        private static void PlayCustom(string path, bool fallbackSuccess)
         {
             try
             {
@@ -164,7 +169,7 @@ namespace FolderRewind.Services
             catch (Exception ex)
             {
                 LogService.LogWarning(I18n.Format("CompletionSound_Log_PlayFailed", ex.Message), ServiceName);
-                PlayDefault();
+                PlayDefault(fallbackSuccess);
             }
         }
 
