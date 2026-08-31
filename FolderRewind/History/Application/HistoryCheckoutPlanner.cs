@@ -21,7 +21,8 @@ public enum HistoryCheckoutReadiness
     ExactRepresentationUnavailable = 5,
     BranchReconciliationRequired = 6,
     StalePlan = 7,
-    Blocked = 8
+    Blocked = 8,
+    CoordinatorUnavailable = 9
 }
 
 public enum HistoryCheckoutSourceAction

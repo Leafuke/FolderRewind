@@ -267,6 +267,97 @@ internal static class NativeHistoryApplicationService
             cancellationToken).ConfigureAwait(false);
     }
 
+    public static async Task<HistoryCheckoutPlan> PlanCheckoutAsync(
+        BackupConfig config,
+        BranchUpdateId selectedTipId,
+        AssessmentDepth assessmentDepth = AssessmentDepth.Deep,
+        CancellationToken cancellationToken = default)
+    {
+        var runtime = NativeHistoryCoreGateway.GetRequiredRuntime(config.Id);
+        var workspace = await RequireWorkspaceAsync(runtime, cancellationToken).ConfigureAwait(false);
+        var plan = await new HistoryCheckoutPlanner(runtime, CreateRestoreService(config, runtime)).BuildAsync(
+            selectedTipId,
+            config.SourceFolders.Select(folder => Binding(config, folder)).ToArray(),
+            workspace,
+            assessmentDepth,
+            cancellationToken).ConfigureAwait(false);
+        if (plan.Readiness is not (HistoryCheckoutReadiness.Ready
+            or HistoryCheckoutReadiness.ProtectionRequired
+            or HistoryCheckoutReadiness.PreparationRequired)) return plan;
+        // Planner 只判断 History 数据；Host 在展示执行入口前还必须验证必需的插件协调器。
+        if (NativeHistoryRestoreOrchestrator.IsCoordinatorAvailable(config, out var diagnostic)) return plan;
+        return plan with
+        {
+            Readiness = HistoryCheckoutReadiness.CoordinatorUnavailable,
+            Diagnostic = diagnostic
+        };
+    }
+
+    public static async Task<HistoryCheckoutPlan> PrepareCheckoutAsync(
+        BackupConfig config,
+        BranchUpdateId selectedTipId,
+        CancellationToken cancellationToken = default)
+    {
+        var initial = await PlanCheckoutAsync(
+            config,
+            selectedTipId,
+            AssessmentDepth.Fast,
+            cancellationToken).ConfigureAwait(false);
+        if (initial.Readiness != HistoryCheckoutReadiness.PreparationRequired
+            || initial.Checkpoint is null) return initial;
+
+        var runtime = NativeHistoryCoreGateway.GetRequiredRuntime(config.Id);
+        var restore = CreateRestoreService(config, runtime);
+        var allRepresentations = await runtime.Query.GetAllRepresentationsAsync(cancellationToken).ConfigureAwait(false);
+        var representationsById = allRepresentations.ToDictionary(item => item.RepresentationId);
+        var catalog = (await runtime.LocalReplicaCatalogStore.LoadAsync(cancellationToken).ConfigureAwait(false)).Value;
+        var preparedRepresentationIds = new HashSet<RepresentationId>();
+        // 准备是用户显式动作：按依赖优先顺序下载，历史列表刷新本身绝不触发网络副作用。
+        foreach (var source in initial.Checkpoint.Sources)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            if (source.VersionId is not { } versionId) continue;
+            var folder = config.SourceFolders.Single(item => Source(item) == source.SourceId);
+            var assessment = await restore.AssessVersionAsync(
+                versionId,
+                MaterializationFidelity.Exact,
+                AssessmentDepth.Fast,
+                cancellationToken).ConfigureAwait(false);
+            if (assessment.Readiness != HistoryReadiness.PreparationRequired
+                || assessment.Selected is null) continue;
+
+            foreach (var representation in DependencyFirstClosure(
+                         representationsById[assessment.Selected.RepresentationId],
+                         representationsById))
+            {
+                if (!preparedRepresentationIds.Add(representation.RepresentationId)) continue;
+                var alreadyLocal = (catalog?.Entries ?? []).Any(item =>
+                    item.RepresentationId == representation.RepresentationId
+                    && item.Locator.Kind == LocalReplicaLocatorKind.ControlledAbsolutePath
+                    && File.Exists(item.Locator.AbsolutePath));
+                if (alreadyLocal) continue;
+                var fileName = representation.RepresentationSpecificMetadata.GetValueOrDefault("fileName")
+                    ?? representation.RepresentationSpecificMetadata.GetValueOrDefault("legacyFileName")
+                    ?? $"{representation.RepresentationId}.7z";
+                if (!await CloudSyncService.DownloadRepresentationAsync(
+                        config,
+                        folder,
+                        representation.RepresentationId,
+                        fileName,
+                        cancellationToken).ConfigureAwait(false))
+                {
+                    return initial with
+                    {
+                        Readiness = HistoryCheckoutReadiness.ExactRepresentationUnavailable,
+                        Diagnostic = $"Failed to prepare Exact representation {representation.RepresentationId}."
+                    };
+                }
+            }
+        }
+        return await PlanCheckoutAsync(config, selectedTipId, AssessmentDepth.Deep, cancellationToken)
+            .ConfigureAwait(false);
+    }
+
     private static async Task<HistoryRestoreResult> CheckoutCoreAsync(
         BackupConfig config,
         BranchUpdateId selectedTipId,
@@ -458,6 +549,25 @@ internal static class NativeHistoryApplicationService
             Source(folder),
             folder.Path,
             EffectiveSourceBoundaryFactory.Create(folder.Path, folder.SourceScope, config.Filters));
+
+    private static IReadOnlyList<VersionRepresentation> DependencyFirstClosure(
+        VersionRepresentation root,
+        IReadOnlyDictionary<RepresentationId, VersionRepresentation> representations)
+    {
+        var result = new List<VersionRepresentation>();
+        var visited = new HashSet<RepresentationId>();
+        void Visit(VersionRepresentation representation)
+        {
+            if (!visited.Add(representation.RepresentationId)) return;
+            foreach (var dependencyId in representation.DependencyRepresentationIds)
+            {
+                if (representations.TryGetValue(dependencyId, out var dependency)) Visit(dependency);
+            }
+            result.Add(representation);
+        }
+        Visit(root);
+        return result;
+    }
 
     private sealed class SafetySnapshotWorkingStateProtector(
         BackupConfig config,

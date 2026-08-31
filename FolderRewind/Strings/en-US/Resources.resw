@@ -5037,11 +5037,9 @@ Pull request: {1}</value>
   <data name="History_NativeReadiness_Released" xml:space="preserve"><value>History retained; payload released</value></data>
   <data name="History_NativeReadiness_MetadataOnly" xml:space="preserve"><value>History metadata only</value></data>
   <data name="History_NativeAction_NotAvailable" xml:space="preserve"><value>This action is not connected to a safe Native History executor; Legacy fallback was blocked.</value></data>
-  <data name="HistoryPage_BranchCreate.ToolTipService.ToolTip" xml:space="preserve"><value>Create a branch at the latest checkpoint</value></data>
   <data name="HistoryPage_BranchCheckout.ToolTipService.ToolTip" xml:space="preserve"><value>Check out the selected branch</value></data>
   <data name="HistoryPage_BranchRename.ToolTipService.ToolTip" xml:space="preserve"><value>Rename branch</value></data>
   <data name="HistoryPage_BranchDelete.ToolTipService.ToolTip" xml:space="preserve"><value>Delete branch</value></data>
-  <data name="History_Branch_CreateTitle" xml:space="preserve"><value>Create branch</value></data>
   <data name="History_Branch_RenameTitle" xml:space="preserve"><value>Rename branch</value></data>
   <data name="History_Branch_SelectTipTitle" xml:space="preserve"><value>Select branch progress to check out</value></data>
   <data name="History_Branch_NoCheckpoint" xml:space="preserve"><value>No checkpoint is available for branch creation.</value></data>
@@ -5054,7 +5052,6 @@ Pull request: {1}</value>
   <data name="History_NativeInitializationFailed" xml:space="preserve"><value>Native History could not be initialized for “{0}”: {1}</value></data>
   <data name="HistoryPage_BranchFilter.Header" xml:space="preserve"><value>View branch</value></data>
   <data name="HistoryPage_BranchFilter.PlaceholderText" xml:space="preserve"><value>Select a branch</value></data>
-  <data name="HistoryPage_BranchCreate.Label" xml:space="preserve"><value>New</value></data>
   <data name="HistoryPage_BranchCheckout.Label" xml:space="preserve"><value>Check out</value></data>
   <data name="HistoryPage_BranchRename.Label" xml:space="preserve"><value>Rename</value></data>
   <data name="HistoryPage_BranchDelete.Label" xml:space="preserve"><value>Delete</value></data>
@@ -5062,8 +5059,6 @@ Pull request: {1}</value>
   <data name="History_Branch_CurrentUnavailable" xml:space="preserve"><value>Current branch: unavailable</value></data>
   <data name="History_Branch_ActiveNameFormat" xml:space="preserve"><value>{0} (current)</value></data>
   <data name="HistoryPage_ViewSelectorHeader.Text" xml:space="preserve"><value>View Mode</value></data>
-  <data name="HistoryPage_BranchCreateButton.ToolTipService.ToolTip" xml:space="preserve"><value>Create a branch at the latest checkpoint</value></data>
-  <data name="HistoryPage_BranchCreateText.Text" xml:space="preserve"><value>New Branch</value></data>
   <data name="HistoryPage_BranchCheckoutButton.ToolTipService.ToolTip" xml:space="preserve"><value>Check out the selected branch</value></data>
   <data name="HistoryPage_BranchCheckoutText.Text" xml:space="preserve"><value>Check out</value></data>
   <data name="HistoryPage_BranchMoreActions.ToolTipService.ToolTip" xml:space="preserve"><value>More branch actions</value></data>
@@ -5080,4 +5075,35 @@ Pull request: {1}</value>
   <data name="HistoryPage_ClearMissingMenuItem.ToolTipService.ToolTip" xml:space="preserve"><value>Clean up records for replicas removed from disk</value></data>
   <data name="HistoryPage_BranchSelectLabel.Text" xml:space="preserve"><value>View branch:</value></data>
   <data name="HistoryPage_BranchDropdown.PlaceholderText" xml:space="preserve"><value>Select a branch</value></data>
+  <data name="HistoryPage_BranchReconcileItem.Text" xml:space="preserve"><value>Reconcile branch tips</value></data>
+  <data name="HistoryPage_SafetySnapshotsMenuItem.Text" xml:space="preserve"><value>Safety recovery points</value></data>
+  <data name="History_Branch_CreateFromHereTitle" xml:space="preserve"><value>Create branch from here</value></data>
+  <data name="History_Branch_CreateFromHereHint" xml:space="preserve"><value>Create a dormant branch from this configuration checkpoint</value></data>
+  <data name="History_Branch_CreateUnavailableNoCheckpoint" xml:space="preserve"><value>This version is not part of a complete branchable configuration checkpoint</value></data>
+  <data name="History_Branch_CreateUnavailableAmbiguousCheckpoint" xml:space="preserve"><value>This version belongs to multiple checkpoints; create the branch from a backup run instead</value></data>
+  <data name="History_Branch_CheckoutProtectionContent" xml:space="preserve"><value>The current working state is not represented by an Exact baseline. A durable safety recovery point will be created and kept before restoring the selected branch checkpoint.</value></data>
+  <data name="History_CheckoutReadiness_Ready" xml:space="preserve"><value>Ready to switch</value></data>
+  <data name="History_CheckoutReadiness_PreparationRequired" xml:space="preserve"><value>Exact content preparation required</value></data>
+  <data name="History_CheckoutReadiness_ProtectionRequired" xml:space="preserve"><value>Current work will be protected first</value></data>
+  <data name="History_CheckoutReadiness_ConfigurationMappingRequired" xml:space="preserve"><value>Historical source binding repair required</value></data>
+  <data name="History_CheckoutReadiness_ConfigurationBoundaryChangeRequired" xml:space="preserve"><value>Source boundary change confirmation required</value></data>
+  <data name="History_CheckoutReadiness_ExactRepresentationUnavailable" xml:space="preserve"><value>Exact representation unavailable</value></data>
+  <data name="History_CheckoutReadiness_BranchReconciliationRequired" xml:space="preserve"><value>Multiple tips must be reconciled first</value></data>
+  <data name="History_CheckoutReadiness_StalePlan" xml:space="preserve"><value>State changed; revalidation required</value></data>
+  <data name="History_CheckoutReadiness_CoordinatorUnavailable" xml:space="preserve"><value>Required restore coordinator unavailable</value></data>
+  <data name="History_CheckoutReadiness_Blocked" xml:space="preserve"><value>Switch is currently blocked</value></data>
+  <data name="History_Checkout_PrepareTitle" xml:space="preserve"><value>Prepare history content</value></data>
+  <data name="History_Checkout_PrepareContent" xml:space="preserve"><value>Exact representations required for this switch are not available locally. Download and verify them now? Refreshing history never downloads content implicitly.</value></data>
+  <data name="History_Checkout_PreparePrimary" xml:space="preserve"><value>Prepare content</value></data>
+  <data name="History_Checkout_MissingSourceTitle" xml:space="preserve"><value>Restore historical source binding</value></data>
+  <data name="History_Checkout_MissingSourceDescription" xml:space="preserve"><value>Historical source “{0}” (SourceId: {1}) is missing from the current configuration. Confirm its directory to restore the binding with the original SourceId.</value></data>
+  <data name="History_Checkout_RepairBindingPrimary" xml:space="preserve"><value>Restore binding</value></data>
+  <data name="History_Checkout_BoundaryTitle" xml:space="preserve"><value>Confirm source boundary change</value></data>
+  <data name="History_Checkout_BoundaryDescription" xml:space="preserve"><value>Source {0} has current boundary {1} and historical boundary {2}. Continuing restores the historical source scope and config-wide filters and may affect other sources in this configuration.</value></data>
+  <data name="History_Checkout_RepairBoundaryPrimary" xml:space="preserve"><value>Apply historical boundary</value></data>
+  <data name="History_SafetySnapshot_None" xml:space="preserve"><value>There are no active safety recovery points.</value></data>
+  <data name="History_SafetySnapshot_Title" xml:space="preserve"><value>Safety recovery points</value></data>
+  <data name="History_SafetySnapshot_RestorePrimary" xml:space="preserve"><value>Restore completely</value></data>
+  <data name="History_SafetySnapshot_ReleaseSecondary" xml:space="preserve"><value>Release explicitly</value></data>
+  <data name="History_SafetySnapshot_AlreadyReleased" xml:space="preserve"><value>This safety recovery point was already released or its state changed.</value></data>
 </root>

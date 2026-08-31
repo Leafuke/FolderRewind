@@ -212,11 +212,27 @@ namespace FolderRewind.Views
             }
         }
 
-        private async void OnCreateBranchClick(object sender, RoutedEventArgs e)
+        private async void OnCreateBranchFromVersionClick(object sender, RoutedEventArgs e)
         {
-            var name = await PromptBranchNameAsync(I18n.GetString("History_Branch_CreateTitle"), string.Empty);
+            if (sender is not Button { DataContext: NativeHistoryVersionViewItem item }
+                || item.BranchableCheckpointId is not { } checkpointId) return;
+            await CreateBranchFromCheckpointAsync(checkpointId);
+        }
+
+        private async void OnCreateBranchFromRunClick(object sender, RoutedEventArgs e)
+        {
+            if (sender is not Button { DataContext: BackupRunViewItem item }
+                || item.ResultCheckpointId is not { } checkpointId) return;
+            await CreateBranchFromCheckpointAsync(checkpointId);
+        }
+
+        private async Task CreateBranchFromCheckpointAsync(CheckpointId checkpointId)
+        {
+            var name = await PromptBranchNameAsync(
+                I18n.GetString("History_Branch_CreateFromHereTitle"),
+                string.Empty);
             if (name is null) return;
-            if (!await ViewModel.CreateBranchAtLatestCheckpointAsync(name))
+            if (!await ViewModel.CreateBranchAsync(checkpointId, name))
                 NotificationService.ShowWarning(I18n.GetString("History_Branch_NoCheckpoint"));
             else
                 ViewModel.RefreshCurrentHistory();
@@ -240,15 +256,66 @@ namespace FolderRewind.Views
 
         private async void OnCheckoutBranchClick(object sender, RoutedEventArgs e)
         {
-            if (BranchFilter.SelectedItem is not BranchViewItem branch || !branch.CanCheckout) return;
-            BranchUpdateId? selected = branch.IsMultiTip ? await PromptBranchTipAsync(branch) : branch.Tips.Single().UpdateId;
-            if (selected is null) return;
+            if (BranchFilter.SelectedItem is not BranchViewItem branch || !branch.CanStartCheckout) return;
+            for (var attempt = 0; attempt < 6; attempt++)
+            {
+                var plan = await ViewModel.PlanCheckoutBranchTipAsync(branch);
+                if (plan is null) return;
+                switch (plan.Readiness)
+                {
+                    case HistoryCheckoutReadiness.Ready:
+                    case HistoryCheckoutReadiness.ProtectionRequired:
+                        if (!await ConfirmCheckoutAsync(plan.RequiresProtection)) return;
+                        var restore = await ViewModel.CheckoutBranchTipAsync(branch);
+                        if (restore?.Succeeded == true)
+                        {
+                            ViewModel.RefreshCurrentHistory();
+                            return;
+                        }
+                        ShowCheckoutWarning(restore?.Diagnostic ?? plan.Diagnostic);
+                        return;
+
+                    case HistoryCheckoutReadiness.PreparationRequired:
+                        if (!await ConfirmPreparationAsync()) return;
+                        var prepared = await ViewModel.PrepareCheckoutBranchTipAsync(branch);
+                        if (prepared is null) return;
+                        if (prepared.Readiness is not (HistoryCheckoutReadiness.Ready
+                            or HistoryCheckoutReadiness.ProtectionRequired))
+                        {
+                            ShowCheckoutWarning(prepared.Diagnostic);
+                            return;
+                        }
+                        continue;
+
+                    case HistoryCheckoutReadiness.ConfigurationMappingRequired:
+                        if (!await RepairMissingSourcesAsync(plan)) return;
+                        continue;
+
+                    case HistoryCheckoutReadiness.ConfigurationBoundaryChangeRequired:
+                        if (!await RepairFirstBoundaryAsync(plan)) return;
+                        continue;
+
+                    case HistoryCheckoutReadiness.StalePlan:
+                        continue;
+
+                    default:
+                        ShowCheckoutWarning(plan.Diagnostic);
+                        return;
+                }
+            }
+            ShowCheckoutWarning(I18n.GetString("History_CheckoutReadiness_StalePlan"));
+        }
+
+        private async Task<bool> ConfirmCheckoutAsync(bool requiresProtection)
+        {
             var confirm = new ContentDialog
             {
                 Title = I18n.GetString("History_Branch_CheckoutTitle"),
                 Content = new TextBlock
                 {
-                    Text = I18n.GetString("History_Branch_CheckoutContent"),
+                    Text = requiresProtection
+                        ? I18n.GetString("History_Branch_CheckoutProtectionContent")
+                        : I18n.GetString("History_Branch_CheckoutContent"),
                     TextWrapping = TextWrapping.Wrap
                 },
                 PrimaryButtonText = I18n.GetString("History_Branch_CheckoutPrimary"),
@@ -257,11 +324,139 @@ namespace FolderRewind.Views
                 XamlRoot = XamlRoot
             };
             ThemeService.ApplyThemeToDialog(confirm);
-            if (await confirm.ShowAsync() != ContentDialogResult.Primary) return;
-            if (!await ViewModel.CheckoutBranchTipAsync(branch, selected.Value))
-                NotificationService.ShowWarning(I18n.GetString("History_NativeAction_NotAvailable"));
-            else
+            return await confirm.ShowAsync() == ContentDialogResult.Primary;
+        }
+
+        private async Task<bool> ConfirmPreparationAsync()
+        {
+            var dialog = new ContentDialog
+            {
+                Title = I18n.GetString("History_Checkout_PrepareTitle"),
+                Content = new TextBlock
+                {
+                    Text = I18n.GetString("History_Checkout_PrepareContent"),
+                    TextWrapping = TextWrapping.Wrap
+                },
+                PrimaryButtonText = I18n.GetString("History_Checkout_PreparePrimary"),
+                CloseButtonText = I18n.GetString("Common_Cancel"),
+                DefaultButton = ContentDialogButton.Close,
+                XamlRoot = XamlRoot
+            };
+            ThemeService.ApplyThemeToDialog(dialog);
+            return await dialog.ShowAsync() == ContentDialogResult.Primary;
+        }
+
+        private async Task<bool> RepairMissingSourcesAsync(HistoryCheckoutPlan plan)
+        {
+            foreach (var missing in plan.MissingHistoricalSources)
+            {
+                var expectedRevision = ViewModel.CurrentConfigRevision;
+                if (expectedRevision is null) return false;
+                var path = await PromptMissingSourcePathAsync(missing);
+                if (path is null) return false;
+                var result = ViewModel.RepairMissingSource(missing, path, expectedRevision);
+                if (result.Succeeded) continue;
+                ShowCheckoutWarning(result.Diagnostic);
+                return false;
+            }
+            ViewModel.RefreshCurrentHistory();
+            return true;
+        }
+
+        private async Task<string?> PromptMissingSourcePathAsync(MissingHistoricalSource missing)
+        {
+            var path = new TextBox { Text = missing.SuggestedPath, MinWidth = 420 };
+            var content = new StackPanel
+            {
+                Spacing = 8,
+                Children =
+                {
+                    new TextBlock
+                    {
+                        Text = I18n.Format(
+                            "History_Checkout_MissingSourceDescription",
+                            missing.Descriptor.DisplayName,
+                            missing.SourceId),
+                        TextWrapping = TextWrapping.Wrap
+                    },
+                    path
+                }
+            };
+            var dialog = new ContentDialog
+            {
+                Title = I18n.GetString("History_Checkout_MissingSourceTitle"),
+                Content = content,
+                PrimaryButtonText = I18n.GetString("History_Checkout_RepairBindingPrimary"),
+                CloseButtonText = I18n.GetString("Common_Cancel"),
+                DefaultButton = ContentDialogButton.Close,
+                XamlRoot = XamlRoot
+            };
+            ThemeService.ApplyThemeToDialog(dialog);
+            return await dialog.ShowAsync() == ContentDialogResult.Primary
+                && !string.IsNullOrWhiteSpace(path.Text)
+                ? path.Text.Trim()
+                : null;
+        }
+
+        private async Task<bool> RepairFirstBoundaryAsync(HistoryCheckoutPlan plan)
+        {
+            var mismatch = plan.BoundaryMismatches.FirstOrDefault();
+            var expectedRevision = ViewModel.CurrentConfigRevision;
+            if (mismatch is null || expectedRevision is null) return false;
+            var dialog = new ContentDialog
+            {
+                Title = I18n.GetString("History_Checkout_BoundaryTitle"),
+                Content = new TextBlock
+                {
+                    Text = I18n.Format(
+                        "History_Checkout_BoundaryDescription",
+                        mismatch.SourceId,
+                        FormatBoundary(mismatch.CurrentBoundary),
+                        FormatBoundary(mismatch.HistoricalBoundary)),
+                    TextWrapping = TextWrapping.Wrap
+                },
+                PrimaryButtonText = I18n.GetString("History_Checkout_RepairBoundaryPrimary"),
+                CloseButtonText = I18n.GetString("Common_Cancel"),
+                DefaultButton = ContentDialogButton.Close,
+                XamlRoot = XamlRoot
+            };
+            ThemeService.ApplyThemeToDialog(dialog);
+            if (await dialog.ShowAsync() != ContentDialogResult.Primary) return false;
+            var result = ViewModel.RepairHistoricalBoundary(mismatch, expectedRevision);
+            if (!result.Succeeded)
+            {
+                ShowCheckoutWarning(result.Diagnostic);
+                return false;
+            }
+            ViewModel.RefreshCurrentHistory();
+            return true;
+        }
+
+        private static string FormatBoundary(EffectiveSourceBoundarySnapshot boundary)
+            => $"Scope={boundary.ScopeMode} [{string.Join(", ", boundary.ScopeRules)}]; "
+               + $"Filter={boundary.FilterMode} [{string.Join(", ", boundary.FilterRules)}]; "
+               + $"Regex={boundary.UseRegex}; Fingerprint={boundary.Fingerprint}";
+
+        private void ShowCheckoutWarning(string? diagnostic)
+            => NotificationService.ShowWarning(string.IsNullOrWhiteSpace(diagnostic)
+                ? I18n.GetString("History_NativeAction_NotAvailable")
+                : diagnostic);
+
+        private async void OnReconcileBranchClick(object sender, RoutedEventArgs e)
+        {
+            if (BranchFilter.SelectedItem is not BranchViewItem branch || !branch.CanReconcile) return;
+            var selected = await PromptBranchTipAsync(branch);
+            if (selected is null) return;
+            try
+            {
+                if (await ViewModel.ReconcileBranchAsync(branch, selected.Value))
+                    ViewModel.RefreshCurrentHistory();
+            }
+            catch (HistoryBranchCommandException ex)
+            {
+                ShowCheckoutWarning(ex.Message);
                 ViewModel.RefreshCurrentHistory();
+            }
         }
 
         private async Task<string?> PromptBranchNameAsync(string title, string initial)
@@ -680,6 +875,55 @@ namespace FolderRewind.Views
             if (sender is TextBox tb)
             {
                 ViewModel.CommentFilterText = tb.Text;
+            }
+        }
+
+        private async void OnManageSafetySnapshotsClick(object sender, RoutedEventArgs e)
+        {
+            if (!ViewModel.TryGetCurrentConfig(out var config) || config is null) return;
+            if (ViewModel.ActiveSafetySnapshots.Count == 0)
+            {
+                NotificationService.ShowWarning(I18n.GetString("History_SafetySnapshot_None"));
+                return;
+            }
+
+            var choices = new ComboBox
+            {
+                ItemsSource = ViewModel.ActiveSafetySnapshots,
+                DisplayMemberPath = nameof(SafetySnapshotViewItem.DisplayName),
+                SelectedIndex = 0,
+                MinWidth = 420
+            };
+            var dialog = new ContentDialog
+            {
+                Title = I18n.GetString("History_SafetySnapshot_Title"),
+                Content = choices,
+                PrimaryButtonText = I18n.GetString("History_SafetySnapshot_RestorePrimary"),
+                SecondaryButtonText = I18n.GetString("History_SafetySnapshot_ReleaseSecondary"),
+                CloseButtonText = I18n.GetString("Common_Cancel"),
+                DefaultButton = ContentDialogButton.Close,
+                XamlRoot = XamlRoot
+            };
+            ThemeService.ApplyThemeToDialog(dialog);
+            var action = await dialog.ShowAsync();
+            if (choices.SelectedItem is not SafetySnapshotViewItem snapshot) return;
+            if (action == ContentDialogResult.Primary)
+            {
+                if (config.IsEncrypted && !await PromptAndVerifyPasswordAsync(config)) return;
+                var result = await ViewModel.RestoreSafetySnapshotAsync(snapshot);
+                if (result?.Succeeded != true)
+                {
+                    ShowCheckoutWarning(result?.Diagnostic);
+                    return;
+                }
+                ViewModel.RefreshCurrentHistory();
+                return;
+            }
+            if (action == ContentDialogResult.Secondary)
+            {
+                if (!await ViewModel.ReleaseSafetySnapshotAsync(snapshot))
+                    ShowCheckoutWarning(I18n.GetString("History_SafetySnapshot_AlreadyReleased"));
+                ViewModel.RefreshCurrentHistory();
             }
         }
 

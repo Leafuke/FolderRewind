@@ -13,6 +13,30 @@ namespace FolderRewind.Services;
 
 internal sealed class NativeHistoryRestoreOrchestrator
 {
+    public static bool IsCoordinatorAvailable(BackupConfig config, out string diagnostic)
+    {
+        ArgumentNullException.ThrowIfNull(config);
+        diagnostic = string.Empty;
+        var kind = PluginV3ModelMapper.ToKind(config);
+        if (StringComparer.Ordinal.Equals(kind.OwnerId.Value, "folderrewind.core")) return true;
+
+        var pluginId = new PluginId(kind.OwnerId.Value);
+        var declaration = PluginV3RuntimeService.FindKind(kind)
+            ?? PluginV3PackageService.GetInstalledConfigKinds()
+                .Where(pair => pair.PluginId == pluginId)
+                .Select(pair => pair.Kind)
+                .SingleOrDefault(item => item.Kind == kind);
+        if (declaration?.RestoreCoordination != RestoreCoordinationPolicy.Required) return true;
+
+        using var lease = PluginV3RuntimeService.Runtime.TryAcquire<IRestoreCoordinatorCapability>(
+            pluginId,
+            capability => capability.Kind == kind,
+            CancellationToken.None);
+        if (lease is not null) return true;
+        diagnostic = "Required RestoreCoordinator is unavailable.";
+        return false;
+    }
+
     public async Task<HistoryRestoreResult> ExecuteAsync(
         BackupConfig config,
         IReadOnlyList<ManagedFolder> affectedFolders,

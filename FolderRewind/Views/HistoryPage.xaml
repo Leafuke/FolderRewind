@@ -113,22 +113,19 @@
                                   SelectedItem="{x:Bind ViewModel.SelectedBranch, Mode=TwoWay}"
                                   DisplayMemberPath="DisplayName"/>
 
-                        <Button x:Name="BranchCreateButton"
-                                x:Uid="HistoryPage_BranchCreateButton"
-                                AutomationProperties.AutomationId="HistoryBranchCreate"
-                                VerticalAlignment="Center"
-                                Click="OnCreateBranchClick">
-                            <StackPanel Orientation="Horizontal" Spacing="6" VerticalAlignment="Center">
-                                <FontIcon Glyph="&#xE710;" FontSize="12"/>
-                                <TextBlock x:Uid="HistoryPage_BranchCreateText"/>
-                            </StackPanel>
-                        </Button>
+                        <TextBlock Text="{x:Bind ViewModel.SelectedBranchCheckoutStatusText, Mode=OneWay}"
+                                   Style="{StaticResource CaptionTextBlockStyle}"
+                                   Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                                   MaxWidth="260"
+                                   TextTrimming="CharacterEllipsis"
+                                   ToolTipService.ToolTip="{x:Bind ViewModel.SelectedBranchCheckoutDiagnostic, Mode=OneWay}"
+                                   VerticalAlignment="Center"/>
 
                         <Button x:Name="BranchCheckoutButton"
                                 x:Uid="HistoryPage_BranchCheckoutButton"
                                 AutomationProperties.AutomationId="HistoryBranchCheckout"
                                 VerticalAlignment="Center"
-                                IsEnabled="{x:Bind ViewModel.CanCheckoutSelectedBranch, Mode=OneWay}"
+                                IsEnabled="{x:Bind ViewModel.CanStartCheckoutSelectedBranch, Mode=OneWay}"
                                 Click="OnCheckoutBranchClick">
                             <StackPanel Orientation="Horizontal" Spacing="6" VerticalAlignment="Center">
                                 <FontIcon Glyph="&#xE72A;" FontSize="12"/>
@@ -143,6 +140,14 @@
                             <FontIcon Glyph="&#xE712;" FontSize="12"/>
                             <DropDownButton.Flyout>
                                 <MenuFlyout>
+                                    <MenuFlyoutItem x:Name="BranchReconcileItem"
+                                                    x:Uid="HistoryPage_BranchReconcileItem"
+                                                    AutomationProperties.AutomationId="HistoryBranchReconcile"
+                                                    IsEnabled="{x:Bind ViewModel.CanReconcileSelectedBranch, Mode=OneWay}"
+                                                    Click="OnReconcileBranchClick">
+                                        <MenuFlyoutItem.Icon><FontIcon Glyph="&#xE895;"/></MenuFlyoutItem.Icon>
+                                    </MenuFlyoutItem>
+                                    <MenuFlyoutSeparator/>
                                     <MenuFlyoutItem x:Name="BranchRenameItem"
                                                     x:Uid="HistoryPage_BranchRenameItem"
                                                     AutomationProperties.AutomationId="HistoryBranchRename"
@@ -200,6 +205,12 @@
                                                     IsEnabled="{x:Bind ViewModel.HasMissing, Mode=OneWay}"
                                                     Click="OnClearMissingClick">
                                         <MenuFlyoutItem.Icon><FontIcon Glyph="&#xE74D;"/></MenuFlyoutItem.Icon>
+                                    </MenuFlyoutItem>
+                                    <MenuFlyoutItem x:Name="SafetySnapshotsMenuItem"
+                                                    x:Uid="HistoryPage_SafetySnapshotsMenuItem"
+                                                    AutomationProperties.AutomationId="HistorySafetySnapshots"
+                                                    Click="OnManageSafetySnapshotsClick">
+                                        <MenuFlyoutItem.Icon><FontIcon Glyph="&#xE72E;"/></MenuFlyoutItem.Icon>
                                     </MenuFlyoutItem>
                                     <MenuFlyoutSeparator/>
                                     <ToggleMenuFlyoutItem x:Name="UseColorsToggleMenuItem"
@@ -279,6 +290,11 @@
                                     <Button x:Uid="HistoryPage_EditCommentButton" Click="OnEditCommentClick">
                                         <FontIcon Glyph="&#xE70F;" FontSize="14"/>
                                     </Button>
+                                    <Button Click="OnCreateBranchFromVersionClick"
+                                            IsEnabled="{x:Bind CanCreateBranch, Mode=OneTime}"
+                                            ToolTipService.ToolTip="{x:Bind CreateBranchHintText, Mode=OneTime}">
+                                        <FontIcon Glyph="&#xE710;" FontSize="14"/>
+                                    </Button>
                                     <Button x:Uid="HistoryPage_UploadCloudButton"
                                             Click="OnUploadToCloudClick"
                                             IsEnabled="{x:Bind CanUploadToCloud, Mode=OneTime}"
@@ -335,6 +351,9 @@
                                             <FontIcon Glyph="{x:Bind IsImportant, Converter={StaticResource BoolToStarIconConverter}, Mode=OneTime}" FontSize="14" Foreground="{ThemeResource SystemControlForegroundAccentBrush}"/>
                                         </Button>
                                         <Button x:Uid="HistoryPage_EditCommentButton" Click="OnEditRunCommentClick"><FontIcon Glyph="&#xE70F;" FontSize="14"/></Button>
+                                        <Button Click="OnCreateBranchFromRunClick"
+                                                IsEnabled="{x:Bind CanCreateBranch, Mode=OneTime}"
+                                                ToolTipService.ToolTip="{x:Bind CreateBranchHintText, Mode=OneTime}"><FontIcon Glyph="&#xE710;" FontSize="14"/></Button>
                                         <Button x:Uid="HistoryPage_RestoreButton" Click="OnRestoreRunClick" IsEnabled="{x:Bind CanRestore, Mode=OneTime}"><FontIcon Glyph="&#xE777;" FontSize="14"/></Button>
                                         <Button x:Uid="HistoryPage_DeleteButton" Click="OnDeleteRunClick"><FontIcon Glyph="&#xE74D;" FontSize="14"/></Button>
                                     </StackPanel>

@@ -33,7 +33,13 @@ public sealed class HistoryPresentationQueryTests
         var first = Version(configId, sourceId, "first");
         var second = Version(configId, sourceId, "second");
         var checkpointOne = Checkpoint(configId, sourceId, first);
+        var duplicateCheckpointForFirst = Checkpoint(configId, sourceId, first);
         var checkpointTwo = Checkpoint(configId, sourceId, second);
+        var safetySnapshot = new SafetySnapshot(
+            SafetySnapshotId.New(),
+            checkpointOne.CheckpointId,
+            DateTimeOffset.UtcNow,
+            SafetySnapshotReason.BeforeCheckout);
         var branchId = BranchId.New();
         var tipOne = new BranchUpdate(
             BranchUpdateId.New(), branchId, [], "main", checkpointOne.CheckpointId, false,
@@ -44,7 +50,11 @@ public sealed class HistoryPresentationQueryTests
         var codec = new HistoryPackCodec();
         await runtime.Repository.CommitAsync(new HistoryCommitPack(
             PackId.New(), HistoryTransactionId.New(), DateTimeOffset.UtcNow,
-            new object[] { first, second, checkpointOne, checkpointTwo, tipOne, tipTwo }
+            new object[]
+            {
+                first, second, checkpointOne, duplicateCheckpointForFirst, checkpointTwo,
+                tipOne, tipTwo, safetySnapshot
+            }
                 .Select(item => codec.CreateObject(item))));
 
         var snapshot = await new HistoryPresentationQueryService(runtime).QueryAsync();
@@ -57,7 +67,13 @@ public sealed class HistoryPresentationQueryTests
         Assert.IsTrue(branch.IsMultiTip);
         Assert.IsFalse(branch.CanRename);
         Assert.IsFalse(branch.CanDelete);
-        Assert.IsTrue(branch.CanCheckout);
+        Assert.IsTrue(branch.HasCheckoutTarget);
+        var firstTimeline = snapshot.Timeline.Single(item => item.VersionId == first.VersionId);
+        Assert.AreEqual(2, firstTimeline.BranchableCheckpointCount);
+        Assert.IsNull(firstTimeline.BranchableCheckpointId);
+        var secondTimeline = snapshot.Timeline.Single(item => item.VersionId == second.VersionId);
+        Assert.AreEqual(checkpointTwo.CheckpointId, secondTimeline.BranchableCheckpointId);
+        Assert.AreEqual(safetySnapshot.SnapshotId, snapshot.ActiveSafetySnapshots.Single().Snapshot.SnapshotId);
     }
 
     [TestMethod]
@@ -140,7 +156,9 @@ public sealed class HistoryPresentationQueryTests
         var snapshot = await new HistoryPresentationQueryService(runtime).QueryAsync();
 
         Assert.AreEqual(featureId, snapshot.ActiveBranchId);
-        Assert.IsTrue(snapshot.Branches.Single(branch => branch.BranchId == featureId).IsActive);
+        var activeBranch = snapshot.Branches.Single(branch => branch.BranchId == featureId);
+        Assert.IsTrue(activeBranch.IsActive);
+        Assert.IsTrue(activeBranch.IsWorkspaceAnchoredAtTip);
         CollectionAssert.AreEquivalent(
             new[] { mainId, featureId },
             snapshot.Timeline.Single(item => item.VersionId == shared.VersionId).BranchIds.ToArray());
@@ -150,6 +168,22 @@ public sealed class HistoryPresentationQueryTests
         CollectionAssert.AreEqual(
             new[] { featureId },
             snapshot.Timeline.Single(item => item.VersionId == featureOnly.VersionId).BranchIds.ToArray());
+
+        await runtime.WorkspaceStore.SaveAsync(
+            new FolderRewind.History.LocalState.HistoryWorkspace(
+                configId,
+                1,
+                featureId,
+                featureRoot.UpdateId,
+                [new FolderRewind.History.LocalState.WorkspaceSourceBaseline(
+                    sourceId,
+                    shared.VersionId,
+                    FolderRewind.History.LocalState.WorkspaceBaselineRelation.Exact)]),
+            expectedRevision: 0);
+        var staleAnchorSnapshot = await new HistoryPresentationQueryService(runtime).QueryAsync();
+        Assert.IsFalse(staleAnchorSnapshot.Branches
+            .Single(branch => branch.BranchId == featureId)
+            .IsWorkspaceAnchoredAtTip);
     }
 
     private static SourceVersion Version(HistoryConfigId configId, SourceId sourceId, string name)

@@ -5037,11 +5037,9 @@ Pull Request：{1}</value>
   <data name="History_NativeReadiness_Released" xml:space="preserve"><value>历史存在，但 payload 已释放</value></data>
   <data name="History_NativeReadiness_MetadataOnly" xml:space="preserve"><value>仅保留历史元数据</value></data>
   <data name="History_NativeAction_NotAvailable" xml:space="preserve"><value>此操作尚未连接到安全的 Native History 执行器，已阻止旧版回退。</value></data>
-  <data name="HistoryPage_BranchCreate.ToolTipService.ToolTip" xml:space="preserve"><value>从最近检查点创建分支</value></data>
   <data name="HistoryPage_BranchCheckout.ToolTipService.ToolTip" xml:space="preserve"><value>切换到所选分支</value></data>
   <data name="HistoryPage_BranchRename.ToolTipService.ToolTip" xml:space="preserve"><value>重命名分支</value></data>
   <data name="HistoryPage_BranchDelete.ToolTipService.ToolTip" xml:space="preserve"><value>删除分支</value></data>
-  <data name="History_Branch_CreateTitle" xml:space="preserve"><value>创建分支</value></data>
   <data name="History_Branch_RenameTitle" xml:space="preserve"><value>重命名分支</value></data>
   <data name="History_Branch_SelectTipTitle" xml:space="preserve"><value>选择要切换的分支进展</value></data>
   <data name="History_Branch_NoCheckpoint" xml:space="preserve"><value>尚无可用于创建分支的检查点。</value></data>
@@ -5054,7 +5052,6 @@ Pull Request：{1}</value>
   <data name="History_NativeInitializationFailed" xml:space="preserve"><value>无法为“{0}”初始化原生历史：{1}</value></data>
   <data name="HistoryPage_BranchFilter.Header" xml:space="preserve"><value>查看分支</value></data>
   <data name="HistoryPage_BranchFilter.PlaceholderText" xml:space="preserve"><value>选择分支</value></data>
-  <data name="HistoryPage_BranchCreate.Label" xml:space="preserve"><value>新建</value></data>
   <data name="HistoryPage_BranchCheckout.Label" xml:space="preserve"><value>检出</value></data>
   <data name="HistoryPage_BranchRename.Label" xml:space="preserve"><value>重命名</value></data>
   <data name="HistoryPage_BranchDelete.Label" xml:space="preserve"><value>删除</value></data>
@@ -5062,8 +5059,6 @@ Pull Request：{1}</value>
   <data name="History_Branch_CurrentUnavailable" xml:space="preserve"><value>当前分支：不可用</value></data>
   <data name="History_Branch_ActiveNameFormat" xml:space="preserve"><value>{0}（当前）</value></data>
   <data name="HistoryPage_ViewSelectorHeader.Text" xml:space="preserve"><value>视图模式</value></data>
-  <data name="HistoryPage_BranchCreateButton.ToolTipService.ToolTip" xml:space="preserve"><value>从最近检查点创建分支</value></data>
-  <data name="HistoryPage_BranchCreateText.Text" xml:space="preserve"><value>新建分支</value></data>
   <data name="HistoryPage_BranchCheckoutButton.ToolTipService.ToolTip" xml:space="preserve"><value>切换到所选分支</value></data>
   <data name="HistoryPage_BranchCheckoutText.Text" xml:space="preserve"><value>检出</value></data>
   <data name="HistoryPage_BranchMoreActions.ToolTipService.ToolTip" xml:space="preserve"><value>更多分支操作</value></data>
@@ -5080,4 +5075,35 @@ Pull Request：{1}</value>
   <data name="HistoryPage_ClearMissingMenuItem.ToolTipService.ToolTip" xml:space="preserve"><value>清理已从磁盘移除的无效受控副本记录</value></data>
   <data name="HistoryPage_BranchSelectLabel.Text" xml:space="preserve"><value>查看分支:</value></data>
   <data name="HistoryPage_BranchDropdown.PlaceholderText" xml:space="preserve"><value>选择分支</value></data>
+  <data name="HistoryPage_BranchReconcileItem.Text" xml:space="preserve"><value>收敛分支尖端</value></data>
+  <data name="HistoryPage_SafetySnapshotsMenuItem.Text" xml:space="preserve"><value>安全恢复点</value></data>
+  <data name="History_Branch_CreateFromHereTitle" xml:space="preserve"><value>从此处创建分支</value></data>
+  <data name="History_Branch_CreateFromHereHint" xml:space="preserve"><value>从此配置检查点创建休眠分支</value></data>
+  <data name="History_Branch_CreateUnavailableNoCheckpoint" xml:space="preserve"><value>此版本不属于可创建分支的完整配置检查点</value></data>
+  <data name="History_Branch_CreateUnavailableAmbiguousCheckpoint" xml:space="preserve"><value>此版本属于多个配置检查点，请改从一次备份运行创建分支</value></data>
+  <data name="History_Branch_CheckoutProtectionContent" xml:space="preserve"><value>当前工作状态尚未由精确基线表示。切换前将先创建并保留一个安全恢复点，然后按所选分支检查点恢复。</value></data>
+  <data name="History_CheckoutReadiness_Ready" xml:space="preserve"><value>可以切换</value></data>
+  <data name="History_CheckoutReadiness_PreparationRequired" xml:space="preserve"><value>需要准备精确表示</value></data>
+  <data name="History_CheckoutReadiness_ProtectionRequired" xml:space="preserve"><value>切换前将保护当前工作</value></data>
+  <data name="History_CheckoutReadiness_ConfigurationMappingRequired" xml:space="preserve"><value>需要恢复历史来源绑定</value></data>
+  <data name="History_CheckoutReadiness_ConfigurationBoundaryChangeRequired" xml:space="preserve"><value>需要确认来源边界变更</value></data>
+  <data name="History_CheckoutReadiness_ExactRepresentationUnavailable" xml:space="preserve"><value>精确表示不可用</value></data>
+  <data name="History_CheckoutReadiness_BranchReconciliationRequired" xml:space="preserve"><value>存在多个尖端，需要先收敛</value></data>
+  <data name="History_CheckoutReadiness_StalePlan" xml:space="preserve"><value>状态已变化，需要重新验证</value></data>
+  <data name="History_CheckoutReadiness_CoordinatorUnavailable" xml:space="preserve"><value>所需恢复协调器不可用</value></data>
+  <data name="History_CheckoutReadiness_Blocked" xml:space="preserve"><value>当前无法切换</value></data>
+  <data name="History_Checkout_PrepareTitle" xml:space="preserve"><value>准备历史内容</value></data>
+  <data name="History_Checkout_PrepareContent" xml:space="preserve"><value>切换所需的精确表示尚未在本机可用。是否现在显式下载并验证所需内容？刷新历史列表不会自动下载。</value></data>
+  <data name="History_Checkout_PreparePrimary" xml:space="preserve"><value>准备内容</value></data>
+  <data name="History_Checkout_MissingSourceTitle" xml:space="preserve"><value>恢复历史来源绑定</value></data>
+  <data name="History_Checkout_MissingSourceDescription" xml:space="preserve"><value>历史来源“{0}”（SourceId: {1}）已不在当前配置中。请确认其目录；系统将以原 SourceId 恢复配置绑定。</value></data>
+  <data name="History_Checkout_RepairBindingPrimary" xml:space="preserve"><value>恢复绑定</value></data>
+  <data name="History_Checkout_BoundaryTitle" xml:space="preserve"><value>确认来源边界变更</value></data>
+  <data name="History_Checkout_BoundaryDescription" xml:space="preserve"><value>来源 {0} 的当前边界（{1}）与历史边界（{2}）不同。继续会把配置级来源范围和过滤规则恢复为历史值，可能影响该配置的其他来源。</value></data>
+  <data name="History_Checkout_RepairBoundaryPrimary" xml:space="preserve"><value>应用历史边界</value></data>
+  <data name="History_SafetySnapshot_None" xml:space="preserve"><value>当前没有活动的安全恢复点。</value></data>
+  <data name="History_SafetySnapshot_Title" xml:space="preserve"><value>安全恢复点</value></data>
+  <data name="History_SafetySnapshot_RestorePrimary" xml:space="preserve"><value>完整恢复</value></data>
+  <data name="History_SafetySnapshot_ReleaseSecondary" xml:space="preserve"><value>显式释放</value></data>
+  <data name="History_SafetySnapshot_AlreadyReleased" xml:space="preserve"><value>该安全恢复点已被释放或状态已经变化。</value></data>
 </root>

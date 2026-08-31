@@ -35,6 +35,7 @@ public sealed class HistoryPageViewModel : ViewModelBase
     public ObservableCollection<NativeHistoryVersionViewItem> FilteredHistory { get; } = [];
     public ObservableCollection<BackupRunViewItem> FilteredRuns { get; } = [];
     public ObservableCollection<BranchViewItem> Branches { get; } = [];
+    public ObservableCollection<SafetySnapshotViewItem> ActiveSafetySnapshots { get; } = [];
     public ObservableCollection<BackupConfig> Configs => ConfigService.CurrentConfig?.BackupConfigs ?? [];
     private GlobalSettings? Settings => ConfigService.CurrentConfig?.GlobalSettings;
     public bool IsEmpty { get => _isEmpty; private set => SetProperty(ref _isEmpty, value); }
@@ -66,7 +67,10 @@ public sealed class HistoryPageViewModel : ViewModelBase
                 : I18n.Format("History_Branch_CurrentFormat", active.Name);
         }
     }
-    public bool CanCheckoutSelectedBranch => SelectedBranch is { CanCheckout: true, IsActive: false };
+    public bool CanStartCheckoutSelectedBranch => SelectedBranch?.CanStartCheckout == true;
+    public bool CanReconcileSelectedBranch => SelectedBranch?.CanReconcile == true;
+    public string SelectedBranchCheckoutStatusText => SelectedBranch?.CheckoutStatusText ?? string.Empty;
+    public string SelectedBranchCheckoutDiagnostic => SelectedBranch?.CheckoutDiagnostic ?? string.Empty;
     public bool CanRenameSelectedBranch => SelectedBranch?.CanRename == true;
     public bool CanDeleteSelectedBranch => SelectedBranch?.CanDelete == true;
 
@@ -106,6 +110,7 @@ public sealed class HistoryPageViewModel : ViewModelBase
         FilteredHistory.Clear();
         FilteredRuns.Clear();
         Branches.Clear();
+        ActiveSafetySnapshots.Clear();
         SelectedBranch = null;
         _missingCount = 0;
         IsEmpty = true;
@@ -136,6 +141,7 @@ public sealed class HistoryPageViewModel : ViewModelBase
     {
         var selectedBranchId = SelectedBranch?.BranchId;
         _allVersions.Clear(); _allRuns.Clear(); FilteredHistory.Clear(); FilteredRuns.Clear(); Branches.Clear();
+        ActiveSafetySnapshots.Clear();
         if (_currentConfig is null) { IsEmpty = true; return; }
         var runtime = NativeHistoryCoreGateway.GetRequiredRuntime(_currentConfig.Id);
         SourceId? sourceId = _currentFolder is not null && Guid.TryParse(_currentFolder.Id, out var id) && id != Guid.Empty ? new SourceId(id) : null;
@@ -146,7 +152,36 @@ public sealed class HistoryPageViewModel : ViewModelBase
         _refreshingBranches = true;
         try
         {
-            foreach (var branch in snapshot.Branches) Branches.Add(new BranchViewItem(branch));
+            foreach (var branch in snapshot.Branches)
+            {
+                HistoryCheckoutPlan? checkoutPlan = null;
+                if (!branch.IsMultiTip && branch.HasCheckoutTarget && branch.Tips.Length == 1)
+                {
+                    try
+                    {
+                        checkoutPlan = NativeHistoryApplicationService.PlanCheckoutAsync(
+                                _currentConfig,
+                                branch.Tips[0].UpdateId,
+                                AssessmentDepth.Fast)
+                            .ConfigureAwait(false).GetAwaiter().GetResult();
+                    }
+                    catch (Exception ex)
+                    {
+                        checkoutPlan = new HistoryCheckoutPlan(
+                            HistoryCheckoutReadiness.Blocked,
+                            branch.Tips[0],
+                            null,
+                            -1,
+                            [],
+                            [],
+                            [],
+                            ex.Message);
+                    }
+                }
+                Branches.Add(new BranchViewItem(branch, checkoutPlan));
+            }
+            foreach (var safetySnapshot in snapshot.ActiveSafetySnapshots)
+                ActiveSafetySnapshots.Add(new SafetySnapshotViewItem(safetySnapshot));
             SelectedBranch = Branches.FirstOrDefault(branch => branch.BranchId == selectedBranchId)
                 ?? Branches.FirstOrDefault(branch => branch.IsActive)
                 ?? Branches.FirstOrDefault(branch => !branch.IsDeleted);
@@ -352,21 +387,6 @@ public sealed class HistoryPageViewModel : ViewModelBase
         return true;
     }
 
-    public async Task<bool> CreateBranchAtLatestCheckpointAsync(string name)
-    {
-        if (_currentConfig is null) return false;
-        await using var operationLease = await NativeHistoryConfigurationOperationGate
-            .EnterAsync(_currentConfig.Id).ConfigureAwait(false);
-        var runtime = NativeHistoryCoreGateway.GetRequiredRuntime(_currentConfig.Id);
-        var checkpoint = (await runtime.Query.GetAllCheckpointsAsync().ConfigureAwait(false))
-            .OrderByDescending(item => item.CreatedAtUtc)
-            .ThenByDescending(item => item.CheckpointId.ToString(), StringComparer.Ordinal)
-            .FirstOrDefault();
-        if (checkpoint is null) return false;
-        await runtime.Branches.CreateFromCheckpointAsync(checkpoint.CheckpointId, name).ConfigureAwait(false);
-        return true;
-    }
-
     public async Task<bool> RenameBranchAsync(BranchViewItem branch, string name)
     {
         if (_currentConfig is null || !branch.CanRename) return false;
@@ -387,15 +407,86 @@ public sealed class HistoryPageViewModel : ViewModelBase
         return true;
     }
 
-    public async Task<bool> CheckoutBranchTipAsync(BranchViewItem branch, BranchUpdateId selectedTipId)
+    public Task<HistoryCheckoutPlan?> PlanCheckoutBranchTipAsync(BranchViewItem branch)
     {
-        if (_currentConfig is null
-            || !branch.CanCheckout
-            || branch.IsMultiTip && branch.Tips.All(item => item.UpdateId != selectedTipId))
-            return false;
-        var result = await NativeHistoryApplicationService.CheckoutAsync(_currentConfig, selectedTipId)
-            .ConfigureAwait(false);
-        return result.Succeeded;
+        if (_currentConfig is null || branch.Tips.Count != 1)
+            return Task.FromResult<HistoryCheckoutPlan?>(null);
+        return PlanAsync(_currentConfig, branch.Tips[0].UpdateId);
+
+        static async Task<HistoryCheckoutPlan?> PlanAsync(BackupConfig config, BranchUpdateId tipId)
+            => await NativeHistoryApplicationService.PlanCheckoutAsync(config, tipId).ConfigureAwait(false);
+    }
+
+    public async Task<HistoryCheckoutPlan?> PrepareCheckoutBranchTipAsync(BranchViewItem branch)
+    {
+        if (_currentConfig is null || branch.Tips.Count != 1) return null;
+        return await NativeHistoryApplicationService.PrepareCheckoutAsync(
+            _currentConfig,
+            branch.Tips[0].UpdateId).ConfigureAwait(false);
+    }
+
+    public async Task<HistoryRestoreResult?> CheckoutBranchTipAsync(BranchViewItem branch)
+    {
+        if (_currentConfig is null || branch.Tips.Count != 1) return null;
+        return await NativeHistoryApplicationService.CheckoutAsync(
+            _currentConfig,
+            branch.Tips[0].UpdateId).ConfigureAwait(false);
+    }
+
+    internal HistoryConfigurationRepairResult RepairMissingSource(
+        MissingHistoricalSource missing,
+        string confirmedPath,
+        string expectedConfigRevision)
+        => _currentConfig is null
+            ? new(HistoryConfigurationRepairStatus.StaleConfig, "No active configuration is selected.")
+            : HistorySourceBindingRepairService.RestoreMissingBinding(
+                _currentConfig,
+                missing,
+                confirmedPath,
+                expectedConfigRevision);
+
+    internal HistoryConfigurationRepairResult RepairHistoricalBoundary(
+        HistorySourceBoundaryMismatch mismatch,
+        string expectedConfigRevision)
+        => _currentConfig is null
+            ? new(HistoryConfigurationRepairStatus.StaleConfig, "No active configuration is selected.")
+            : HistorySourceBindingRepairService.RestoreHistoricalBoundary(
+                _currentConfig,
+                mismatch,
+                expectedConfigRevision,
+                acceptConfigWideFilterImpact: true);
+
+    public string? CurrentConfigRevision => _currentConfig?.ConfigRevision;
+
+    public async Task<bool> ReconcileBranchAsync(BranchViewItem branch, BranchUpdateId winnerTipId)
+    {
+        if (_currentConfig is null || !branch.IsMultiTip) return false;
+        await using var operationLease = await NativeHistoryConfigurationOperationGate
+            .EnterAsync(_currentConfig.Id).ConfigureAwait(false);
+        await new HistoryBranchReconciliationService(
+                NativeHistoryCoreGateway.GetRequiredRuntime(_currentConfig.Id))
+            .ReconcileAsync(
+                branch.BranchId,
+                branch.Tips.Select(item => item.UpdateId),
+                winnerTipId).ConfigureAwait(false);
+        return true;
+    }
+
+    public async Task<HistoryRestoreResult?> RestoreSafetySnapshotAsync(SafetySnapshotViewItem item)
+    {
+        if (_currentConfig is null) return null;
+        return await NativeHistoryApplicationService.RestoreSafetySnapshotAsync(
+            _currentConfig,
+            item.SnapshotId,
+            BackupService.RestoreMode.Clean).ConfigureAwait(false);
+    }
+
+    public async Task<bool> ReleaseSafetySnapshotAsync(SafetySnapshotViewItem item)
+    {
+        if (_currentConfig is null) return false;
+        return await NativeHistoryApplicationService.ReleaseSafetySnapshotAsync(
+            _currentConfig,
+            item.SnapshotId).ConfigureAwait(false);
     }
 
     private void ApplyFilter()
@@ -446,7 +537,10 @@ public sealed class HistoryPageViewModel : ViewModelBase
     { OnPropertyChanged(nameof(CanUseCloudHistoryActions)); OnPropertyChanged(nameof(CanOpenConfigCloudSync)); OnPropertyChanged(nameof(CanUsePerSourceActions)); }
     private void NotifyBranchSelectionChanged()
     {
-        OnPropertyChanged(nameof(CanCheckoutSelectedBranch));
+        OnPropertyChanged(nameof(CanStartCheckoutSelectedBranch));
+        OnPropertyChanged(nameof(CanReconcileSelectedBranch));
+        OnPropertyChanged(nameof(SelectedBranchCheckoutStatusText));
+        OnPropertyChanged(nameof(SelectedBranchCheckoutDiagnostic));
         OnPropertyChanged(nameof(CanRenameSelectedBranch));
         OnPropertyChanged(nameof(CanDeleteSelectedBranch));
     }
@@ -498,6 +592,14 @@ public sealed class NativeHistoryVersionViewItem(
     public bool HasCloudCopy => summary.Readiness == HistoryPresentationReadiness.PreparationRequired;
     public bool IsCloudOnly => HasCloudCopy && !HasLocalFile;
     public IReadOnlyList<BranchId> BranchIds => summary.BranchIds;
+    public CheckpointId? BranchableCheckpointId => summary.BranchableCheckpointId;
+    public bool CanCreateBranch => summary.BranchableCheckpointCount == 1;
+    public string CreateBranchHintText => summary.BranchableCheckpointCount switch
+    {
+        0 => I18n.GetString("History_Branch_CreateUnavailableNoCheckpoint"),
+        1 => I18n.GetString("History_Branch_CreateFromHereHint"),
+        _ => I18n.GetString("History_Branch_CreateUnavailableAmbiguousCheckpoint")
+    };
     public string FileSizeDisplay => GetFileSizeDisplay();
     public string BranchDisplay => string.Join(" · ", summary.BranchIds
         .Select(branchId => branchNames?.GetValueOrDefault(branchId))
@@ -551,6 +653,10 @@ public sealed class BackupRunViewItem(RunSummary summary)
     public string SourceSummary => $"{summary.Sources.Length} sources";
     public bool IsImportant => summary.IsImportant;
     public bool CanRestore => ResultCheckpointId is not null;
+    public bool CanCreateBranch => summary.IsBranchableCheckpoint;
+    public string CreateBranchHintText => CanCreateBranch
+        ? I18n.GetString("History_Branch_CreateFromHereHint")
+        : I18n.GetString("History_Branch_CreateUnavailableNoCheckpoint");
     public bool HasPartialBackup => summary.HasPartialCapture;
     public IReadOnlyList<BranchId> BranchIds => summary.BranchIds;
     public IReadOnlyList<BackupRunSourceViewItem> Sources { get; } = summary.Sources.Select(item => new BackupRunSourceViewItem(item)).ToArray();
@@ -563,7 +669,7 @@ public sealed class BackupRunSourceViewItem(BackupRunSourceResult result)
     public string Detail => result.VersionId?.ToString() ?? result.Diagnostics.FirstOrDefault()?.Message ?? string.Empty;
 }
 
-public sealed class BranchViewItem(BranchSummary summary)
+public sealed class BranchViewItem(BranchSummary summary, HistoryCheckoutPlan? checkoutPlan)
 {
     public BranchId BranchId => summary.BranchId;
     public string Name => summary.Name;
@@ -574,8 +680,40 @@ public sealed class BranchViewItem(BranchSummary summary)
     public bool IsDeleted => summary.IsDeleted;
     public bool IsMultiTip => summary.IsMultiTip;
     public bool IsUnborn => summary.IsUnborn;
-    public bool CanCheckout => summary.CanCheckout;
+    public HistoryCheckoutReadiness CheckoutReadiness => summary.IsMultiTip
+        ? HistoryCheckoutReadiness.BranchReconciliationRequired
+        : checkoutPlan?.Readiness ?? HistoryCheckoutReadiness.Blocked;
+    public string CheckoutStatusText => CheckoutReadiness switch
+    {
+        HistoryCheckoutReadiness.Ready => I18n.GetString("History_CheckoutReadiness_Ready"),
+        HistoryCheckoutReadiness.PreparationRequired => I18n.GetString("History_CheckoutReadiness_PreparationRequired"),
+        HistoryCheckoutReadiness.ProtectionRequired => I18n.GetString("History_CheckoutReadiness_ProtectionRequired"),
+        HistoryCheckoutReadiness.ConfigurationMappingRequired => I18n.GetString("History_CheckoutReadiness_ConfigurationMappingRequired"),
+        HistoryCheckoutReadiness.ConfigurationBoundaryChangeRequired => I18n.GetString("History_CheckoutReadiness_ConfigurationBoundaryChangeRequired"),
+        HistoryCheckoutReadiness.ExactRepresentationUnavailable => I18n.GetString("History_CheckoutReadiness_ExactRepresentationUnavailable"),
+        HistoryCheckoutReadiness.BranchReconciliationRequired => I18n.GetString("History_CheckoutReadiness_BranchReconciliationRequired"),
+        HistoryCheckoutReadiness.StalePlan => I18n.GetString("History_CheckoutReadiness_StalePlan"),
+        HistoryCheckoutReadiness.CoordinatorUnavailable => I18n.GetString("History_CheckoutReadiness_CoordinatorUnavailable"),
+        _ => I18n.GetString("History_CheckoutReadiness_Blocked")
+    };
+    public string CheckoutDiagnostic => checkoutPlan?.Diagnostic ?? CheckoutStatusText;
+    public bool CanStartCheckout => !(summary.IsActive && summary.IsWorkspaceAnchoredAtTip)
+        && summary.HasCheckoutTarget
+        && CheckoutReadiness is HistoryCheckoutReadiness.Ready
+            or HistoryCheckoutReadiness.PreparationRequired
+            or HistoryCheckoutReadiness.ProtectionRequired
+            or HistoryCheckoutReadiness.ConfigurationMappingRequired
+            or HistoryCheckoutReadiness.ConfigurationBoundaryChangeRequired
+            or HistoryCheckoutReadiness.StalePlan;
+    public bool CanReconcile => summary.IsMultiTip;
     public bool CanRename => summary.CanRename;
     public bool CanDelete => summary.CanDelete;
     public IReadOnlyList<BranchUpdate> Tips => summary.Tips;
+}
+
+public sealed class SafetySnapshotViewItem(SafetySnapshotProjection projection)
+{
+    public SafetySnapshotId SnapshotId => projection.Snapshot.SnapshotId;
+    public CheckpointId CheckpointId => projection.Snapshot.CheckpointId;
+    public string DisplayName => $"{projection.Snapshot.CreatedAtUtc.ToLocalTime():yyyy-MM-dd HH:mm:ss} · {projection.Snapshot.Reason}";
 }

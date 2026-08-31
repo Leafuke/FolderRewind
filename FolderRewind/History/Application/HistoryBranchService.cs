@@ -51,6 +51,11 @@ public sealed class HistoryBranchService
         {
             throw new HistoryBranchCommandException("Checkpoint belongs to another Config.");
         }
+        if (!checkpoint.IsStructurallyComplete)
+        {
+            throw new HistoryBranchCommandException(
+                "A Branch requires a structurally complete configuration Checkpoint.");
+        }
         var branchName = NormalizeName(name);
         var branches = await LoadBranchesAsync(cancellationToken).ConfigureAwait(false);
         EnsureUniqueName(branches, branchName);

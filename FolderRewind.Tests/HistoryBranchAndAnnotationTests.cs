@@ -48,6 +48,28 @@ public sealed class HistoryBranchAndAnnotationTests
     }
 
     [TestMethod]
+    public async Task HistoricalBranchCreationRejectsIncompleteConfigurationCheckpoint()
+    {
+        await using var runtime = await CreateRuntimeAsync("incomplete-branch");
+        var sourceId = SourceId.New();
+        var incomplete = new ConfigurationCheckpoint(
+            CheckpointId.New(),
+            _configId,
+            DateTimeOffset.UtcNow,
+            null,
+            HistoryProvenance.Native("test"),
+            [new CheckpointSource(
+                sourceId,
+                new SourceDescriptorSnapshot("missing", "C:\\missing"),
+                null,
+                CheckpointSourceDisposition.Unavailable)]);
+        await CommitFactsAsync(runtime, incomplete);
+
+        await Assert.ThrowsExactlyAsync<HistoryBranchCommandException>(() =>
+            runtime.Branches.CreateFromCheckpointAsync(incomplete.CheckpointId, "invalid"));
+    }
+
+    [TestMethod]
     public async Task CurrentExactStateReusesCheckpointAndActivatesNewBranch()
     {
         await using var runtime = await CreateRuntimeAsync();
