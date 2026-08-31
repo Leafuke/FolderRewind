@@ -18,6 +18,12 @@ namespace FolderRewind.Views
         private bool _navViewInitialized;
         private DispatcherQueueTimer? _infoBarTimer;
         private bool _startupDialogsStarted;
+        private readonly Queue<InAppNotificationRequest> _infoBarQueue = new();
+        private InAppNotificationRequest? _currentNotification;
+        private DateTime _notificationShowTime;
+        private int _configuredAutoCloseMs;
+        private int _remainingAutoCloseMs;
+        private bool _isPointerHoveringInfoBar;
 
         public ShellPageViewModel ViewModel { get; } = new();
 
@@ -76,47 +82,94 @@ namespace FolderRewind.Views
         }
 
         /// <summary>
-        /// 处理 InfoBar 请求
+        /// 处理 InfoBar 请求并接入队列调度
         /// </summary>
-        private void OnInfoBarRequested(string title, string message, NotificationSeverity severity, int autoCloseMs, Action? action)
+        private void OnInfoBarRequested(InAppNotificationRequest request)
         {
             DispatcherQueue.TryEnqueue(() =>
             {
-                GlobalInfoBar.Title = title;
-                GlobalInfoBar.Message = message;
-                GlobalInfoBar.Severity = severity switch
+                if (_currentNotification == null && !GlobalInfoBar.IsOpen)
                 {
-                    NotificationSeverity.Success => InfoBarSeverity.Success,
-                    NotificationSeverity.Warning => InfoBarSeverity.Warning,
-                    NotificationSeverity.Error => InfoBarSeverity.Error,
-                    _ => InfoBarSeverity.Informational
-                };
-
-                // 如果有操作回调，添加操作按钮
-                if (action != null)
-                {
-                    var actionButton = new Button { Content = I18n.GetString("Notification_Action_View") };
-                    actionButton.Click += (s, e) => action?.Invoke();
-                    GlobalInfoBar.ActionButton = actionButton;
+                    DisplayNotification(request);
                 }
                 else
                 {
-                    GlobalInfoBar.ActionButton = null;
-                }
+                    // 高优先级插队：若新通知为 Error 且当前展示的不是 Error，排到队首
+                    if (request.Severity == NotificationSeverity.Error
+                        && _currentNotification?.Severity != NotificationSeverity.Error)
+                    {
+                        var remainingQueue = _infoBarQueue.ToList();
+                        _infoBarQueue.Clear();
+                        _infoBarQueue.Enqueue(request);
+                        foreach (var item in remainingQueue)
+                        {
+                            _infoBarQueue.Enqueue(item);
+                        }
 
-                GlobalInfoBar.IsOpen = true;
-
-                // 新消息到达时先停掉旧计时器，避免旧自动关闭任务误伤当前消息。
-                _infoBarTimer?.Stop();
-
-                // 自动关闭
-                if (autoCloseMs > 0)
-                {
-                    EnsureInfoBarTimer();
-                    _infoBarTimer!.Interval = TimeSpan.FromMilliseconds(autoCloseMs);
-                    _infoBarTimer.Start();
+                        GlobalInfoBar.IsOpen = false;
+                    }
+                    else
+                    {
+                        _infoBarQueue.Enqueue(request);
+                    }
                 }
             });
+        }
+
+        private void DisplayNotification(InAppNotificationRequest request)
+        {
+            _currentNotification = request;
+            GlobalInfoBar.Title = request.Title;
+            GlobalInfoBar.Message = request.Message;
+            GlobalInfoBar.Severity = request.Severity switch
+            {
+                NotificationSeverity.Success => InfoBarSeverity.Success,
+                NotificationSeverity.Warning => InfoBarSeverity.Warning,
+                NotificationSeverity.Error => InfoBarSeverity.Error,
+                _ => InfoBarSeverity.Informational
+            };
+
+            // 如果有操作回调，添加操作按钮
+            if (request.Action != null)
+            {
+                var actionButton = new Button
+                {
+                    Content = !string.IsNullOrWhiteSpace(request.ActionText)
+                        ? request.ActionText
+                        : I18n.GetString("Notification_Action_View")
+                };
+                actionButton.Click += (s, e) =>
+                {
+                    GlobalInfoBar.IsOpen = false;
+                    try
+                    {
+                        request.Action?.Invoke();
+                    }
+                    catch (Exception ex)
+                    {
+                        System.Diagnostics.Debug.WriteLine($"[InfoBarAction] {ex.Message}");
+                    }
+                };
+                GlobalInfoBar.ActionButton = actionButton;
+            }
+            else
+            {
+                GlobalInfoBar.ActionButton = null;
+            }
+
+            GlobalInfoBar.IsOpen = true;
+            _infoBarTimer?.Stop();
+
+            _configuredAutoCloseMs = request.AutoCloseMs;
+            _remainingAutoCloseMs = request.AutoCloseMs;
+            _notificationShowTime = DateTime.UtcNow;
+
+            if (request.AutoCloseMs > 0 && !_isPointerHoveringInfoBar)
+            {
+                EnsureInfoBarTimer();
+                _infoBarTimer!.Interval = TimeSpan.FromMilliseconds(request.AutoCloseMs);
+                _infoBarTimer.Start();
+            }
         }
 
         private void OnRunningTaskCountChanged(int runningTaskCount)
@@ -153,6 +206,37 @@ namespace FolderRewind.Views
         private void GlobalInfoBar_Closed(InfoBar sender, InfoBarClosedEventArgs args)
         {
             _infoBarTimer?.Stop();
+            _currentNotification = null;
+            _remainingAutoCloseMs = 0;
+
+            if (_infoBarQueue.TryDequeue(out var nextRequest))
+            {
+                DisplayNotification(nextRequest);
+            }
+        }
+
+        private void GlobalInfoBar_PointerEntered(object sender, Microsoft.UI.Xaml.Input.PointerRoutedEventArgs e)
+        {
+            _isPointerHoveringInfoBar = true;
+            if (_infoBarTimer?.IsRunning == true)
+            {
+                _infoBarTimer.Stop();
+                var elapsed = (int)(DateTime.UtcNow - _notificationShowTime).TotalMilliseconds;
+                _remainingAutoCloseMs = Math.Max(1000, _configuredAutoCloseMs - elapsed);
+            }
+        }
+
+        private void GlobalInfoBar_PointerExited(object sender, Microsoft.UI.Xaml.Input.PointerRoutedEventArgs e)
+        {
+            _isPointerHoveringInfoBar = false;
+            if (GlobalInfoBar.IsOpen && _remainingAutoCloseMs > 0)
+            {
+                EnsureInfoBarTimer();
+                _notificationShowTime = DateTime.UtcNow;
+                _configuredAutoCloseMs = _remainingAutoCloseMs;
+                _infoBarTimer!.Interval = TimeSpan.FromMilliseconds(_remainingAutoCloseMs);
+                _infoBarTimer.Start();
+            }
         }
 
         private void NavView_Loaded(object sender, Microsoft.UI.Xaml.RoutedEventArgs e)

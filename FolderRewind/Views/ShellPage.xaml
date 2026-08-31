@@ -52,7 +52,9 @@
                  IsOpen="False"
                  IsClosable="True"
                  Margin="12,0,12,8"
-                 Closed="GlobalInfoBar_Closed" />
+                 Closed="GlobalInfoBar_Closed"
+                 PointerEntered="GlobalInfoBar_PointerEntered"
+                 PointerExited="GlobalInfoBar_PointerExited" />
 
         <NavigationView x:Name="NavView"
                         Grid.Row="2"

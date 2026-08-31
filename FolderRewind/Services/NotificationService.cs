@@ -41,6 +41,20 @@ namespace FolderRewind.Services
     }
 
     /// <summary>
+    /// 应用内通知请求模型
+    /// </summary>
+    public sealed class InAppNotificationRequest
+    {
+        public string Title { get; set; } = string.Empty;
+        public string Message { get; set; } = string.Empty;
+        public NotificationSeverity Severity { get; set; } = NotificationSeverity.Informational;
+        public int AutoCloseMs { get; set; } = 5000;
+        public string? ActionText { get; set; }
+        public Action? Action { get; set; }
+        public DateTime CreatedTime { get; } = DateTime.Now;
+    }
+
+    /// <summary>
     /// 综合通知服务：支持 InfoBar (应用内)、AppNotification (系统 Toast)、Badge Notification
     /// 用户可在设置中全局关闭所有提醒，也可单独设置 Toast 通知等级。
     /// </summary>
@@ -63,7 +77,7 @@ namespace FolderRewind.Services
         }
 
         // 应用内 InfoBar 回调（由 ShellPage 订阅）
-        public static event Action<string, string, NotificationSeverity, int, Action?>? InfoBarRequested;
+        public static event Action<InAppNotificationRequest>? InfoBarRequested;
 
         // Badge 计数变更事件
         public static event Action<int>? BadgeCountChanged;
@@ -142,15 +156,15 @@ namespace FolderRewind.Services
         #region InfoBar（应用内通知）
 
         /// <summary>
-        /// 发送应用内 InfoBar 通知
+        /// 发送应用内 InfoBar 请求对象
         /// </summary>
-        public static void ShowInfoBar(string title, string message, NotificationSeverity severity = NotificationSeverity.Informational, int autoCloseMs = 5000, Action? action = null)
+        public static void ShowInfoBar(InAppNotificationRequest request)
         {
-            if (!IsNotificationEnabled) return;
+            if (!IsNotificationEnabled || request == null) return;
 
             try
             {
-                InfoBarRequested?.Invoke(title, message, severity, autoCloseMs, action);
+                InfoBarRequested?.Invoke(request);
             }
             catch
             {
@@ -158,28 +172,44 @@ namespace FolderRewind.Services
         }
 
         /// <summary>
+        /// 发送应用内 InfoBar 通知
+        /// </summary>
+        public static void ShowInfoBar(string title, string message, NotificationSeverity severity = NotificationSeverity.Informational, int autoCloseMs = 5000, Action? action = null, string? actionText = null)
+        {
+            ShowInfoBar(new InAppNotificationRequest
+            {
+                Title = title,
+                Message = message,
+                Severity = severity,
+                AutoCloseMs = autoCloseMs,
+                Action = action,
+                ActionText = actionText
+            });
+        }
+
+        /// <summary>
         /// 发送成功通知（InfoBar only）
         /// </summary>
-        public static void ShowSuccess(string message, string? title = null, int autoCloseMs = 4000)
+        public static void ShowSuccess(string message, string? title = null, int autoCloseMs = 4000, Action? action = null, string? actionText = null)
         {
-            ShowInfoBar(title ?? I18n.GetString("Notification_Success_Title"), message, NotificationSeverity.Success, autoCloseMs);
+            ShowInfoBar(title ?? I18n.GetString("Notification_Success_Title"), message, NotificationSeverity.Success, autoCloseMs, action, actionText);
         }
 
         /// <summary>
         /// 发送警告通知（InfoBar only）
         /// </summary>
-        public static void ShowWarning(string message, string? title = null, int autoCloseMs = 6000)
+        public static void ShowWarning(string message, string? title = null, int autoCloseMs = 6000, Action? action = null, string? actionText = null)
         {
-            ShowInfoBar(title ?? I18n.GetString("Notification_Warning_Title"), message, NotificationSeverity.Warning, autoCloseMs);
+            ShowInfoBar(title ?? I18n.GetString("Notification_Warning_Title"), message, NotificationSeverity.Warning, autoCloseMs, action, actionText);
         }
 
         /// <summary>
         /// 发送错误通知（InfoBar + Toast + Badge）
         /// </summary>
-        public static void ShowError(string message, string? title = null, int autoCloseMs = 8000)
+        public static void ShowError(string message, string? title = null, int autoCloseMs = 8000, Action? action = null, string? actionText = null)
         {
             var resolvedTitle = title ?? I18n.GetString("Notification_Error_Title");
-            ShowInfoBar(resolvedTitle, message, NotificationSeverity.Error, autoCloseMs);
+            ShowInfoBar(resolvedTitle, message, NotificationSeverity.Error, autoCloseMs, action, actionText);
             IncrementBadge();
 
             if (ShouldShowToast(NotificationImportance.Error))
@@ -198,18 +228,18 @@ namespace FolderRewind.Services
         /// <summary>
         /// 发送信息通知（InfoBar only）
         /// </summary>
-        public static void ShowInfo(string message, string? title = null, int autoCloseMs = 5000)
+        public static void ShowInfo(string message, string? title = null, int autoCloseMs = 5000, Action? action = null, string? actionText = null)
         {
-            ShowInfoBar(title ?? I18n.GetString("Notification_Info_Title"), message, NotificationSeverity.Informational, autoCloseMs);
+            ShowInfoBar(title ?? I18n.GetString("Notification_Info_Title"), message, NotificationSeverity.Informational, autoCloseMs, action, actionText);
         }
 
         /// <summary>
         /// 发送重要通知（InfoBar + Toast，适用于自动备份停止等重要但非错误事件）
         /// </summary>
-        public static void ShowImportant(string message, string? title = null, int autoCloseMs = 6000)
+        public static void ShowImportant(string message, string? title = null, int autoCloseMs = 6000, Action? action = null, string? actionText = null)
         {
             var resolvedTitle = title ?? I18n.GetString("Notification_Important_Title");
-            ShowInfoBar(resolvedTitle, message, NotificationSeverity.Warning, autoCloseMs);
+            ShowInfoBar(resolvedTitle, message, NotificationSeverity.Warning, autoCloseMs, action, actionText);
 
             if (ShouldShowToast(NotificationImportance.Important))
             {
