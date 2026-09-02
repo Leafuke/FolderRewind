@@ -41,8 +41,15 @@ namespace FolderRewind.Services
                 settings.LastRunUtc = DateTime.UtcNow;
                 settings.LastExitCode = finalExitCode;
                 settings.LastErrorMessage = success ? string.Empty : (errorMessage ?? string.Empty);
-                ConfigService.Save();
             }).ConfigureAwait(false);
+
+            var saveResult = await ConfigService.SaveAsync().ConfigureAwait(false);
+            if (!saveResult.Success)
+            {
+                LogService.LogWarning(
+                    $"Failed to persist cloud task state: {saveResult.ErrorMessage}",
+                    nameof(CloudSyncService));
+            }
         }
 
         private static async Task<(bool Success, int ExitCode, string ErrorMessage)> ExecuteCommandWithRetryAsync(

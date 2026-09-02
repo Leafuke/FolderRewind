@@ -666,13 +666,24 @@ namespace FolderRewind.Services
 
                 if (updateAutomationState)
                 {
-                    config.Automation.LastAutoBackupUtc = DateTime.UtcNow;
-                    if (isScheduledTrigger)
+                    var saveResult = await ConfigService.UpdateAndSaveAsync(current =>
                     {
-                    }
+                        var liveConfig = current.BackupConfigs.FirstOrDefault(item =>
+                            string.Equals(item.Id, config.Id, StringComparison.OrdinalIgnoreCase));
+                        if (liveConfig is null)
+                        {
+                            return;
+                        }
 
-                    ApplyNoChangeStopPolicy(config, hadChanges);
-                    ConfigService.Save();
+                        liveConfig.Automation.LastAutoBackupUtc = DateTime.UtcNow;
+                        ApplyNoChangeStopPolicy(liveConfig, hadChanges);
+                    }).ConfigureAwait(false);
+                    if (!saveResult.Success)
+                    {
+                        LogService.LogWarning(
+                            $"Failed to persist automation state for '{config.Name}': {saveResult.ErrorMessage}",
+                            nameof(AutomationService));
+                    }
                 }
             }
             catch (Exception ex)

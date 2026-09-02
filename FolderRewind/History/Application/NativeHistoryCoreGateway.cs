@@ -327,14 +327,28 @@ public static class NativeHistoryCoreGateway
 
     private static Task PersistBinding(BackupConfig config, int version)
     {
-        config.HistoryRepositoryBinding = new HistoryRepositoryBinding { FormatVersion = version };
-        return PersistConfig();
+        return PersistBindingAsync(config, version);
     }
 
-    private static Task PersistConfig()
+    private static async Task PersistBindingAsync(BackupConfig config, int version)
     {
-        var result = ConfigService.SaveWithResult();
+        var result = await ConfigService.UpdateAndSaveAsync(current =>
+        {
+            var liveConfig = current.BackupConfigs.FirstOrDefault(item =>
+                string.Equals(item.Id, config.Id, StringComparison.OrdinalIgnoreCase));
+            if (liveConfig is null)
+            {
+                throw new InvalidOperationException("History configuration was removed during initialization.");
+            }
+
+            liveConfig.HistoryRepositoryBinding = new HistoryRepositoryBinding { FormatVersion = version };
+        }).ConfigureAwait(false);
         if (!result.Success) throw result.Exception ?? new IOException(result.ErrorMessage);
-        return Task.CompletedTask;
+    }
+
+    private static async Task PersistConfig()
+    {
+        var result = await ConfigService.SaveAsync().ConfigureAwait(false);
+        if (!result.Success) throw result.Exception ?? new IOException(result.ErrorMessage);
     }
 }

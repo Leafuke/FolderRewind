@@ -216,8 +216,16 @@ namespace FolderRewind
                             var probe = await Services.StartupService.TryGetStartupEnabledAsync();
                             if (probe.success && startupSettings.RunOnStartup != probe.enabled)
                             {
-                                startupSettings.RunOnStartup = probe.enabled;
-                                Services.ConfigService.Save();
+                                var saveResult = await Services.ConfigService.UpdateAndSaveAsync(config =>
+                                {
+                                    config.GlobalSettings.RunOnStartup = probe.enabled;
+                                });
+                                if (!saveResult.Success)
+                                {
+                                    LogService.LogWarning(
+                                        $"[Startup] Failed to persist startup-task state: {saveResult.ErrorMessage}",
+                                        nameof(App));
+                                }
                             }
                         }
                         catch { }

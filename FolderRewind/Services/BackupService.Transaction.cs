@@ -710,7 +710,7 @@ public static partial class BackupService
         // 成功 Source 的 LastBackupTime 是否需要持久化，与整个 Run 的 terminal outcome 相互独立。
         if (anyNewFile)
         {
-            var saveResult = ConfigService.SaveWithResult();
+            var saveResult = await ConfigService.SaveAsync().ConfigureAwait(false);
             if (!saveResult.Success)
             {
                 hasPostCommitWarnings = true;
