@@ -24,7 +24,7 @@ internal static class NativeHistoryApplicationService
         bool activeOnly = true,
         CancellationToken cancellationToken = default)
     {
-        var runtime = NativeHistoryCoreGateway.GetRequiredRuntime(config.Id);
+        var runtime = await NativeHistoryCoreGateway.EnsureReadyAsync(config, cancellationToken).ConfigureAwait(false);
         await runtime.EnsureIndexCurrentAsync(cancellationToken).ConfigureAwait(false);
         return await new SafetySnapshotService(runtime).QueryAsync(activeOnly, cancellationToken)
             .ConfigureAwait(false);
@@ -36,7 +36,7 @@ internal static class NativeHistoryApplicationService
         BackupService.RestoreMode requestedMode,
         CancellationToken cancellationToken = default)
     {
-        var runtime = NativeHistoryCoreGateway.GetRequiredRuntime(config.Id);
+        var runtime = await NativeHistoryCoreGateway.EnsureReadyAsync(config, cancellationToken).ConfigureAwait(false);
         await runtime.EnsureIndexCurrentAsync(cancellationToken).ConfigureAwait(false);
         var snapshot = (await runtime.Query.GetSafetySnapshotsAsync(cancellationToken).ConfigureAwait(false))
             .SingleOrDefault(item => item.SnapshotId == snapshotId)
@@ -54,7 +54,7 @@ internal static class NativeHistoryApplicationService
         SafetySnapshotId snapshotId,
         CancellationToken cancellationToken = default)
     {
-        var runtime = NativeHistoryCoreGateway.GetRequiredRuntime(config.Id);
+        var runtime = await NativeHistoryCoreGateway.EnsureReadyAsync(config, cancellationToken).ConfigureAwait(false);
         return await new SafetySnapshotService(runtime).ReleaseAsync(snapshotId, cancellationToken)
             .ConfigureAwait(false);
     }
@@ -65,7 +65,7 @@ internal static class NativeHistoryApplicationService
         CancellationToken cancellationToken = default)
     {
         NativeHostMutationContext.ThrowIfNestedMutation();
-        var runtime = NativeHistoryCoreGateway.GetRequiredRuntime(config.Id);
+        var runtime = await NativeHistoryCoreGateway.EnsureReadyAsync(config, cancellationToken).ConfigureAwait(false);
         var restore = CreateRestoreService(config, runtime);
         var resolution = await new HistoryQuickRestoreResolver(runtime, restore).ResolveAsync(
             Source(folder),
@@ -108,7 +108,7 @@ internal static class NativeHistoryApplicationService
         CancellationToken cancellationToken = default)
     {
         NativeHostMutationContext.ThrowIfNestedMutation();
-        var runtime = NativeHistoryCoreGateway.GetRequiredRuntime(config.Id);
+        var runtime = await NativeHistoryCoreGateway.EnsureReadyAsync(config, cancellationToken).ConfigureAwait(false);
         var restore = CreateRestoreService(config, runtime);
         var requiredFidelity = requestedMode == BackupService.RestoreMode.Clean
             ? MaterializationFidelity.Exact
@@ -133,7 +133,7 @@ internal static class NativeHistoryApplicationService
         CancellationToken cancellationToken = default,
         bool requireSafetySnapshot = false)
     {
-        var runtime = NativeHistoryCoreGateway.GetRequiredRuntime(config.Id);
+        var runtime = await NativeHistoryCoreGateway.EnsureReadyAsync(config, cancellationToken).ConfigureAwait(false);
         var workspace = await RequireWorkspaceAsync(runtime, cancellationToken).ConfigureAwait(false);
         if (requireSafetySnapshot || config.Archive.BackupBeforeRestore)
         {
@@ -161,7 +161,7 @@ internal static class NativeHistoryApplicationService
         CancellationToken cancellationToken = default)
     {
         NativeHostMutationContext.ThrowIfNestedMutation();
-        var runtime = NativeHistoryCoreGateway.GetRequiredRuntime(config.Id);
+        var runtime = await NativeHistoryCoreGateway.EnsureReadyAsync(config, cancellationToken).ConfigureAwait(false);
         await runtime.EnsureIndexCurrentAsync(cancellationToken).ConfigureAwait(false);
         var checkpoint = await runtime.Query.GetCheckpointAsync(checkpointId, cancellationToken).ConfigureAwait(false);
         if (checkpoint is null) return Blocked("Checkpoint does not exist.");
@@ -198,7 +198,7 @@ internal static class NativeHistoryApplicationService
         BackupService.RestoreMode requestedMode,
         CancellationToken cancellationToken = default)
     {
-        var runtime = NativeHistoryCoreGateway.GetRequiredRuntime(config.Id);
+        var runtime = await NativeHistoryCoreGateway.EnsureReadyAsync(config, cancellationToken).ConfigureAwait(false);
         var workspace = await RequireWorkspaceAsync(runtime, cancellationToken).ConfigureAwait(false);
         var checkpoint = await runtime.Query.GetCheckpointAsync(checkpointId, cancellationToken).ConfigureAwait(false)
             ?? throw new InvalidOperationException("Checkpoint does not exist.");
@@ -237,7 +237,7 @@ internal static class NativeHistoryApplicationService
         CancellationToken cancellationToken = default)
     {
         NativeHostMutationContext.ThrowIfNestedMutation();
-        var runtime = NativeHistoryCoreGateway.GetRequiredRuntime(config.Id);
+        var runtime = await NativeHistoryCoreGateway.EnsureReadyAsync(config, cancellationToken).ConfigureAwait(false);
         var workspace = await RequireWorkspaceAsync(runtime, cancellationToken).ConfigureAwait(false);
         var restore = CreateRestoreService(config, runtime);
         var bindings = config.SourceFolders.Select(folder => Binding(config, folder)).ToArray();
@@ -273,7 +273,7 @@ internal static class NativeHistoryApplicationService
         AssessmentDepth assessmentDepth = AssessmentDepth.Deep,
         CancellationToken cancellationToken = default)
     {
-        var runtime = NativeHistoryCoreGateway.GetRequiredRuntime(config.Id);
+        var runtime = await NativeHistoryCoreGateway.EnsureReadyAsync(config, cancellationToken).ConfigureAwait(false);
         var workspace = await RequireWorkspaceAsync(runtime, cancellationToken).ConfigureAwait(false);
         var plan = await new HistoryCheckoutPlanner(runtime, CreateRestoreService(config, runtime)).BuildAsync(
             selectedTipId,
@@ -306,7 +306,7 @@ internal static class NativeHistoryApplicationService
         if (initial.Readiness != HistoryCheckoutReadiness.PreparationRequired
             || initial.Checkpoint is null) return initial;
 
-        var runtime = NativeHistoryCoreGateway.GetRequiredRuntime(config.Id);
+        var runtime = await NativeHistoryCoreGateway.EnsureReadyAsync(config, cancellationToken).ConfigureAwait(false);
         var restore = CreateRestoreService(config, runtime);
         var allRepresentations = await runtime.Query.GetAllRepresentationsAsync(cancellationToken).ConfigureAwait(false);
         var representationsById = allRepresentations.ToDictionary(item => item.RepresentationId);
@@ -363,7 +363,7 @@ internal static class NativeHistoryApplicationService
         BranchUpdateId selectedTipId,
         CancellationToken cancellationToken = default)
     {
-        var runtime = NativeHistoryCoreGateway.GetRequiredRuntime(config.Id);
+        var runtime = await NativeHistoryCoreGateway.EnsureReadyAsync(config, cancellationToken).ConfigureAwait(false);
         var workspace = await RequireWorkspaceAsync(runtime, cancellationToken).ConfigureAwait(false);
         var restore = CreateRestoreService(config, runtime);
         var bindings = config.SourceFolders
@@ -392,7 +392,7 @@ internal static class NativeHistoryApplicationService
         if (config.Archive.KeepCount <= 0)
             return;
 
-        var runtime = NativeHistoryCoreGateway.GetRequiredRuntime(config.Id);
+        var runtime = await NativeHistoryCoreGateway.EnsureReadyAsync(config, cancellationToken).ConfigureAwait(false);
         var archive = new SevenZipHistoryArchiveBackend(config);
         var representations = new RepresentationRuntime(
         [
@@ -438,7 +438,7 @@ internal static class NativeHistoryApplicationService
         VersionId versionId,
         CancellationToken cancellationToken = default)
     {
-        var runtime = NativeHistoryCoreGateway.GetRequiredRuntime(config.Id);
+        var runtime = await NativeHistoryCoreGateway.EnsureReadyAsync(config, cancellationToken).ConfigureAwait(false);
         await runtime.MaterializationPolicies.SetAsync(
             versionId,
             MaterializationPolicyState.Released,
@@ -454,7 +454,7 @@ internal static class NativeHistoryApplicationService
         bool releaseVersion,
         CancellationToken cancellationToken = default)
     {
-        var runtime = NativeHistoryCoreGateway.GetRequiredRuntime(config.Id);
+        var runtime = await NativeHistoryCoreGateway.EnsureReadyAsync(config, cancellationToken).ConfigureAwait(false);
         await runtime.MaterializationPolicies.EnsureCanReleaseAsync(versionId, cancellationToken)
             .ConfigureAwait(false);
 
@@ -500,7 +500,7 @@ internal static class NativeHistoryApplicationService
         BackupConfig config,
         CancellationToken cancellationToken = default)
     {
-        var runtime = NativeHistoryCoreGateway.GetRequiredRuntime(config.Id);
+        var runtime = await NativeHistoryCoreGateway.EnsureReadyAsync(config, cancellationToken).ConfigureAwait(false);
         await runtime.EnsureIndexCurrentAsync(cancellationToken).ConfigureAwait(false);
         return CreateRestoreService(config, runtime);
     }

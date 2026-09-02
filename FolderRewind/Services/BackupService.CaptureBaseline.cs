@@ -22,7 +22,7 @@ public static partial class BackupService
         CancellationToken cancellationToken = default)
     {
         var sourceId = new SourceId(Guid.Parse(folder.Id));
-        var runtime = NativeHistoryCoreGateway.GetRequiredRuntime(config.Id);
+        var runtime = await NativeHistoryCoreGateway.EnsureReadyAsync(config, cancellationToken).ConfigureAwait(false);
         var workspace = (await runtime.WorkspaceStore.LoadAsync(cancellationToken).ConfigureAwait(false)).Value;
         var workspaceBaseline = workspace?.SourceBaselines.SingleOrDefault(item => item.SourceId == sourceId);
         if (workspaceBaseline?.BaseVersionId != candidateVersionId || !Directory.Exists(folder.Path))
@@ -66,7 +66,7 @@ public static partial class BackupService
         ArgumentNullException.ThrowIfNull(config);
         var affected = affectedSources?.ToHashSet() ?? [];
         if (affected.Count == 0) return;
-        var runtime = NativeHistoryCoreGateway.GetRequiredRuntime(config.Id);
+        var runtime = await NativeHistoryCoreGateway.EnsureReadyAsync(config, cancellationToken).ConfigureAwait(false);
         var workspace = (await runtime.WorkspaceStore.LoadAsync(cancellationToken).ConfigureAwait(false)).Value;
         if (workspace is null) return;
         var representations = await runtime.Query.GetAllRepresentationsAsync(cancellationToken).ConfigureAwait(false);

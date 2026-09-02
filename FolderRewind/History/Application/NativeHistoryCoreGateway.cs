@@ -54,6 +54,18 @@ public static class NativeHistoryCoreGateway
         CancellationToken cancellationToken = default)
         => EnsureReadyAsync(config, ConfigService.ConfigDirectory, legacy: null, cancellationToken);
 
+    public static Task<HistoryRuntime> EnsureReadyAsync(
+        string configId,
+        CancellationToken cancellationToken = default)
+    {
+        var config = ConfigService.CurrentConfig.BackupConfigs.FirstOrDefault(item =>
+            string.Equals(item.Id, configId, StringComparison.OrdinalIgnoreCase));
+        return config is null
+            ? Task.FromException<HistoryRuntime>(new InvalidOperationException(
+                $"Native History configuration '{configId}' does not exist."))
+            : EnsureReadyAsync(config, cancellationToken);
+    }
+
     public static void EnsureReady(string configId)
     {
         var id = new HistoryConfigId(configId);
@@ -66,11 +78,6 @@ public static class NativeHistoryCoreGateway
     {
         var id = new HistoryConfigId(configId);
         if (Runtimes.TryGet(id, out var runtime) && runtime is not null) return runtime;
-        var config = ConfigService.CurrentConfig?.BackupConfigs?.FirstOrDefault(c => c?.Id == configId);
-        if (config is not null)
-        {
-            return EnsureReadyAsync(config).ConfigureAwait(false).GetAwaiter().GetResult();
-        }
         EnsureReady(configId);
         throw new InvalidOperationException("Native History runtime lookup failed after readiness validation.");
     }
@@ -100,10 +107,13 @@ public static class NativeHistoryCoreGateway
         string configId,
         SourceId sourceId,
         CancellationToken cancellationToken = default)
-        => (await new HistoryPresentationQueryService(GetRequiredRuntime(configId))
-                .QueryAsync(sourceId, cancellationToken: cancellationToken).ConfigureAwait(false))
-            .Timeline.Select(item => item.FileName).Where(item => !string.IsNullOrWhiteSpace(item))
-            .Select(item => item!).Distinct(StringComparer.OrdinalIgnoreCase).ToArray();
+    {
+        var runtime = await EnsureReadyAsync(configId, cancellationToken).ConfigureAwait(false);
+        return (await new HistoryPresentationQueryService(runtime)
+                    .QueryAsync(sourceId, cancellationToken: cancellationToken).ConfigureAwait(false))
+                .Timeline.Select(item => item.FileName).Where(item => !string.IsNullOrWhiteSpace(item))
+                .Select(item => item!).Distinct(StringComparer.OrdinalIgnoreCase).ToArray();
+    }
 
     public static async Task<bool> SetVersionPinByFileAsync(
         string configId,
@@ -112,7 +122,7 @@ public static class NativeHistoryCoreGateway
         bool pinned,
         CancellationToken cancellationToken = default)
     {
-        var runtime = GetRequiredRuntime(configId);
+        var runtime = await EnsureReadyAsync(configId, cancellationToken).ConfigureAwait(false);
         var snapshot = await new HistoryPresentationQueryService(runtime)
             .QueryAsync(sourceId, includeSuppressed: true, cancellationToken).ConfigureAwait(false);
         var match = snapshot.Timeline.FirstOrDefault(item =>
@@ -130,9 +140,12 @@ public static class NativeHistoryCoreGateway
         SourceId sourceId,
         string fileName,
         CancellationToken cancellationToken = default)
-        => (await new HistoryPresentationQueryService(GetRequiredRuntime(configId))
-                .QueryAsync(sourceId, includeSuppressed: true, cancellationToken).ConfigureAwait(false))
-            .Timeline.FirstOrDefault(item => StringComparer.OrdinalIgnoreCase.Equals(item.FileName, fileName));
+    {
+        var runtime = await EnsureReadyAsync(configId, cancellationToken).ConfigureAwait(false);
+        return (await new HistoryPresentationQueryService(runtime)
+                    .QueryAsync(sourceId, includeSuppressed: true, cancellationToken).ConfigureAwait(false))
+                .Timeline.FirstOrDefault(item => StringComparer.OrdinalIgnoreCase.Equals(item.FileName, fileName));
+    }
 
     public static async Task<IReadOnlyList<HistoryBoundaryRecaptureRequirement>> FindRequiredBoundaryRecapturesAsync(
         HistoryConfigSnapshot snapshot,
@@ -141,7 +154,7 @@ public static class NativeHistoryCoreGateway
     {
         ArgumentNullException.ThrowIfNull(snapshot);
         ArgumentNullException.ThrowIfNull(plannedCaptureSources);
-        var runtime = GetRequiredRuntime(snapshot.ConfigId.Value);
+        var runtime = await EnsureReadyAsync(snapshot.ConfigId.Value, cancellationToken).ConfigureAwait(false);
         return await runtime.Commit.FindRequiredBoundaryRecapturesAsync(
             snapshot,
             plannedCaptureSources,
@@ -160,7 +173,7 @@ public static class NativeHistoryCoreGateway
     {
         ArgumentNullException.ThrowIfNull(configSnapshot);
         ArgumentNullException.ThrowIfNull(results);
-        var runtime = GetRequiredRuntime(configSnapshot.ConfigId.Value);
+        var runtime = await EnsureReadyAsync(configSnapshot.ConfigId.Value, cancellationToken).ConfigureAwait(false);
         var workspace = (await runtime.WorkspaceStore.LoadAsync(cancellationToken).ConfigureAwait(false)).Value;
         long revision = workspace?.StateRevision ?? -1;
         var baselines = workspace?.SourceBaselines.ToDictionary(item => item.SourceId) ?? [];
@@ -215,7 +228,7 @@ public static class NativeHistoryCoreGateway
         SourceId sourceId,
         CancellationToken cancellationToken = default)
     {
-        var runtime = GetRequiredRuntime(configId);
+        var runtime = await EnsureReadyAsync(configId, cancellationToken).ConfigureAwait(false);
         for (var attempt = 0; attempt < 2; attempt++)
         {
             var baseline = await runtime.CaptureBaselines.LoadAsync(sourceId, cancellationToken).ConfigureAwait(false);

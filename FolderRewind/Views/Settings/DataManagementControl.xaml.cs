@@ -337,8 +337,8 @@ namespace FolderRewind.Views.Settings
             if (config is null) return;
             try
             {
-                await new HistoryRepositoryTransferService().ExportAsync(
-                    NativeHistoryCoreGateway.GetRequiredRuntime(config.Id), filePath);
+                var runtime = await NativeHistoryCoreGateway.EnsureReadyAsync(config);
+                await new HistoryRepositoryTransferService().ExportAsync(runtime, filePath);
                 ShowInfoBar(I18n.GetString("Settings_ExportHistorySuccess"), InfoBarSeverity.Success);
             }
             catch

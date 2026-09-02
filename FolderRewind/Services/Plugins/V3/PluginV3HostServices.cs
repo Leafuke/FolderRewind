@@ -156,7 +156,7 @@ internal sealed class PluginV3HostServices : IPluginHostServices
             CancellationToken cancellationToken)
         {
             cancellationToken.ThrowIfCancellationRequested();
-            var runtime = NativeHistoryCoreGateway.GetRequiredRuntime(configId);
+            var runtime = await NativeHistoryCoreGateway.EnsureReadyAsync(configId, cancellationToken).ConfigureAwait(false);
             var versions = await runtime.Query.GetAllVersionsAsync(cancellationToken).ConfigureAwait(false);
             var sourceId = folderId is { } id && id != Guid.Empty
                 ? new FolderRewind.History.Domain.SourceId(id)

@@ -26,7 +26,7 @@ namespace FolderRewind.Services
             {
                 try
                 {
-                    var runtime = NativeHistoryCoreGateway.GetRequiredRuntime(config.Id);
+                    var runtime = await NativeHistoryCoreGateway.EnsureReadyAsync(config).ConfigureAwait(false);
                     var metadataTransport = CreateHistoryTransport(config);
                     var metadata = new HistoryMetadataSyncService(runtime, metadataTransport);
                     var replicas = new HistoryReplicaSyncService(
@@ -65,7 +65,7 @@ namespace FolderRewind.Services
         {
             try
             {
-                var runtime = NativeHistoryCoreGateway.GetRequiredRuntime(config.Id);
+                var runtime = await NativeHistoryCoreGateway.EnsureReadyAsync(config, cancellationToken).ConfigureAwait(false);
                 var metadata = new HistoryMetadataSyncService(runtime, CreateHistoryTransport(config));
                 var service = new HistoryReplicaSyncService(
                     runtime,
@@ -94,7 +94,7 @@ namespace FolderRewind.Services
         {
             try
             {
-                var runtime = NativeHistoryCoreGateway.GetRequiredRuntime(config.Id);
+                var runtime = await NativeHistoryCoreGateway.EnsureReadyAsync(config, cancellationToken).ConfigureAwait(false);
                 var replicas = await runtime.Query.GetStorageReplicasAsync(representationId, cancellationToken)
                     .ConfigureAwait(false);
                 StorageReplica? replica = null;

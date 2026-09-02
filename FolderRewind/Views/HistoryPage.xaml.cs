@@ -139,7 +139,7 @@ namespace FolderRewind.Views
                 return;
             }
 
-            if (!TryGetSelectedContext(persistSelection: false, out _, out _))
+            if (!TryGetSelectedContext(out _, out _))
             {
                 return;
             }
@@ -185,24 +185,23 @@ namespace FolderRewind.Views
 
             var newComment = inputBox.Text?.Trim() ?? string.Empty;
 
-            ViewModel.UpdateComment(item, newComment);
-            ViewModel.RefreshCurrentHistory();
+            await ViewModel.UpdateCommentAsync(item, newComment);
         }
 
-        private void OnToggleImportantClick(object sender, RoutedEventArgs e)
+        private async void OnToggleImportantClick(object sender, RoutedEventArgs e)
         {
             if (sender is not Button btn || btn.DataContext is not NativeHistoryVersionViewItem item)
             {
                 return;
             }
 
-            ViewModel.ToggleImportant(item);
+            await ViewModel.ToggleImportantAsync(item);
         }
 
-        private void OnHistoryViewSelectionChanged(SelectorBar sender, SelectorBarSelectionChangedEventArgs args)
+        private async void OnHistoryViewSelectionChanged(SelectorBar sender, SelectorBarSelectionChangedEventArgs args)
         {
             if (sender.SelectedItem?.Tag is not string tag) return;
-            ViewModel.SetHistoryViewMode(string.Equals(tag, "Run", StringComparison.OrdinalIgnoreCase)
+            await ViewModel.SetHistoryViewModeAsync(string.Equals(tag, "Run", StringComparison.OrdinalIgnoreCase)
                 ? HistoryViewMode.ByRun
                 : HistoryViewMode.PerSource);
             if (ConfigFilter.SelectedItem is BackupConfig config)
@@ -235,7 +234,7 @@ namespace FolderRewind.Views
             if (!await ViewModel.CreateBranchAsync(checkpointId, name))
                 NotificationService.ShowWarning(I18n.GetString("History_Branch_NoCheckpoint"));
             else
-                ViewModel.RefreshCurrentHistory();
+                await ViewModel.RefreshCurrentHistoryAsync();
         }
 
         private async void OnRenameBranchClick(object sender, RoutedEventArgs e)
@@ -243,14 +242,14 @@ namespace FolderRewind.Views
             if (BranchFilter.SelectedItem is not BranchViewItem branch || !branch.CanRename) return;
             var name = await PromptBranchNameAsync(I18n.GetString("History_Branch_RenameTitle"), branch.Name);
             if (name is not null && await ViewModel.RenameBranchAsync(branch, name))
-                ViewModel.RefreshCurrentHistory();
+                await ViewModel.RefreshCurrentHistoryAsync();
         }
 
         private async void OnDeleteBranchClick(object sender, RoutedEventArgs e)
         {
             if (BranchFilter.SelectedItem is BranchViewItem branch && branch.CanDelete)
             {
-                if (await ViewModel.DeleteBranchAsync(branch)) ViewModel.RefreshCurrentHistory();
+                if (await ViewModel.DeleteBranchAsync(branch)) await ViewModel.RefreshCurrentHistoryAsync();
             }
         }
 
@@ -269,7 +268,7 @@ namespace FolderRewind.Views
                         var restore = await ViewModel.CheckoutBranchTipAsync(branch);
                         if (restore?.Succeeded == true)
                         {
-                            ViewModel.RefreshCurrentHistory();
+                            await ViewModel.RefreshCurrentHistoryAsync();
                             return;
                         }
                         ShowCheckoutWarning(restore?.Diagnostic ?? plan.Diagnostic);
@@ -359,7 +358,7 @@ namespace FolderRewind.Views
                 ShowCheckoutWarning(result.Diagnostic);
                 return false;
             }
-            ViewModel.RefreshCurrentHistory();
+            await ViewModel.RefreshCurrentHistoryAsync();
             return true;
         }
 
@@ -428,7 +427,7 @@ namespace FolderRewind.Views
                 ShowCheckoutWarning(result.Diagnostic);
                 return false;
             }
-            ViewModel.RefreshCurrentHistory();
+            await ViewModel.RefreshCurrentHistoryAsync();
             return true;
         }
 
@@ -450,12 +449,12 @@ namespace FolderRewind.Views
             try
             {
                 if (await ViewModel.ReconcileBranchAsync(branch, selected.Value))
-                    ViewModel.RefreshCurrentHistory();
+                    await ViewModel.RefreshCurrentHistoryAsync();
             }
             catch (HistoryBranchCommandException ex)
             {
                 ShowCheckoutWarning(ex.Message);
-                ViewModel.RefreshCurrentHistory();
+                await ViewModel.RefreshCurrentHistoryAsync();
             }
         }
 
@@ -495,13 +494,13 @@ namespace FolderRewind.Views
             };
             ThemeService.ApplyThemeToDialog(dialog);
             if (await dialog.ShowAsync() == ContentDialogResult.Primary)
-                ViewModel.UpdateRunComment(item, inputBox.Text?.Trim() ?? string.Empty);
+                await ViewModel.UpdateRunCommentAsync(item, inputBox.Text?.Trim() ?? string.Empty);
         }
 
-        private void OnToggleRunImportantClick(object sender, RoutedEventArgs e)
+        private async void OnToggleRunImportantClick(object sender, RoutedEventArgs e)
         {
             if (sender is Button { DataContext: BackupRunViewItem item })
-                ViewModel.ToggleRunImportant(item);
+                await ViewModel.ToggleRunImportantAsync(item);
         }
 
         private async void OnRestoreRunClick(object sender, RoutedEventArgs e)
@@ -583,7 +582,7 @@ namespace FolderRewind.Views
                 return;
             }
 
-            if (!TryGetSelectedContext(persistSelection: false, out var config, out var folder))
+            if (!TryGetSelectedContext(out var config, out var folder))
             {
                 return;
             }
@@ -717,7 +716,7 @@ namespace FolderRewind.Views
                 return;
             }
 
-            if (!TryGetSelectedContext(persistSelection: false, out var config, out var folder))
+            if (!TryGetSelectedContext(out var config, out var folder))
             {
                 return;
             }
@@ -749,7 +748,7 @@ namespace FolderRewind.Views
                 }
 
                 // ChangeFeed 仍负责跨视图通知；当前页面在命令完成后同步刷新，避免用户误判并重复点击。
-                ViewModel.RefreshCurrentHistory();
+                await ViewModel.RefreshCurrentHistoryAsync();
             }
             finally
             {
@@ -863,7 +862,7 @@ namespace FolderRewind.Views
                 return;
             }
 
-            if (!TryGetSelectedContext(persistSelection: false, out _, out _))
+            if (!TryGetSelectedContext(out _, out _))
             {
                 return;
             }
@@ -878,7 +877,7 @@ namespace FolderRewind.Views
                 return;
             }
 
-            if (!TryGetSelectedContext(persistSelection: false, out _, out _))
+            if (!TryGetSelectedContext(out _, out _))
             {
                 return;
             }
@@ -900,7 +899,7 @@ namespace FolderRewind.Views
             };
 
             await TemplateDialogCoordinatorService.ShowAsync(dialog, this.XamlRoot);
-            ViewModel.RefreshCurrentHistory();
+            await ViewModel.RefreshCurrentHistoryAsync();
         }
 
         private void CommentFilterBox_TextChanged(object sender, TextChangedEventArgs e)
@@ -949,20 +948,20 @@ namespace FolderRewind.Views
                     ShowCheckoutWarning(result?.Diagnostic);
                     return;
                 }
-                ViewModel.RefreshCurrentHistory();
+                await ViewModel.RefreshCurrentHistoryAsync();
                 return;
             }
             if (action == ContentDialogResult.Secondary)
             {
                 if (!await ViewModel.ReleaseSafetySnapshotAsync(snapshot))
                     ShowCheckoutWarning(I18n.GetString("History_SafetySnapshot_AlreadyReleased"));
-                ViewModel.RefreshCurrentHistory();
+                await ViewModel.RefreshCurrentHistoryAsync();
             }
         }
 
         private async void OnClearMissingClick(object sender, RoutedEventArgs e)
         {
-            if (!TryGetSelectedContext(persistSelection: false, out _, out _))
+            if (!TryGetSelectedContext(out _, out _))
             {
                 return;
             }
@@ -998,12 +997,12 @@ namespace FolderRewind.Views
                 NotificationService.ShowError(ex.Message);
                 return;
             }
-            ViewModel.RefreshCurrentHistory();
+            await ViewModel.RefreshCurrentHistoryAsync();
         }
 
         private async void OnScanRecoverClick(object sender, RoutedEventArgs e)
         {
-            if (!TryGetSelectedContext(persistSelection: false, out _, out _))
+            if (!TryGetSelectedContext(out _, out _))
             {
                 NotificationService.ShowWarning(I18n.GetString("History_ScanRecover_SelectFirst"));
                 return;
@@ -1031,7 +1030,7 @@ namespace FolderRewind.Views
             {
                 NotificationService.ShowSuccess(
                     I18n.Format("History_ScanRecover_ResultSuccess", recovered.ToString()));
-                ViewModel.RefreshCurrentHistory();
+                await ViewModel.RefreshCurrentHistoryAsync();
             }
             else
             {
@@ -1075,7 +1074,7 @@ namespace FolderRewind.Views
             }
         }
 
-        private bool TryGetSelectedContext(bool persistSelection, out BackupConfig config, out ManagedFolder folder)
+        private bool TryGetSelectedContext(out BackupConfig config, out ManagedFolder folder)
         {
             config = ConfigFilter.SelectedItem as BackupConfig ?? null!;
             folder = FolderFilter.SelectedItem as ManagedFolder ?? null!;
@@ -1093,8 +1092,6 @@ namespace FolderRewind.Views
                 return false;
             }
 
-            if (persistSelection)
-                ViewModel.SetCurrentSelection(config, folder, refreshHistoryIfFolder: false, persistSelection: true);
             return true;
         }
 
@@ -1108,8 +1105,11 @@ namespace FolderRewind.Views
             FolderFilter.IsEnabled = false;
             try
             {
-                _ = await NativeHistoryCoreGateway.EnsureReadyAsync(config);
-                ViewModel.SetCurrentSelection(config, folder, refreshHistoryIfFolder, persistSelection);
+                await ViewModel.SetCurrentSelectionAsync(
+                    config,
+                    folder,
+                    refreshHistoryIfFolder,
+                    persistSelection);
                 return true;
             }
             catch (Exception ex)

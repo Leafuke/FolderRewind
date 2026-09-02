@@ -13,6 +13,7 @@ using System.Collections.ObjectModel;
 using System.Globalization;
 using System.IO;
 using System.Linq;
+using System.Threading;
 using System.Threading.Tasks;
 using Windows.UI;
 
@@ -94,19 +95,29 @@ public sealed class HistoryPageViewModel : ViewModelBase
 
     public void Initialize() { _viewMode = Settings?.LastHistoryViewMode ?? HistoryViewMode.PerSource; NotifyViewModeChanged(); }
 
-    public void SetCurrentSelection(BackupConfig? config, ManagedFolder? folder, bool refreshHistoryIfFolder, bool persistSelection)
+    public async Task SetCurrentSelectionAsync(
+        BackupConfig? config,
+        ManagedFolder? folder,
+        bool refreshHistoryIfFolder,
+        bool persistSelection,
+        CancellationToken cancellationToken = default)
     {
         if (!string.Equals(_currentConfig?.Id, config?.Id, StringComparison.OrdinalIgnoreCase)) SelectedBranch = null;
-        _currentConfig = config; _currentFolder = folder; Subscribe(config); NotifyContextChanged();
-        if (config is not null && (IsGroupedRunView || (refreshHistoryIfFolder && folder is not null))) RefreshCurrentHistory();
-        if (persistSelection) PersistSelection(config, folder);
+        _currentConfig = config;
+        _currentFolder = folder;
+        await SubscribeAsync(config, cancellationToken);
+        NotifyContextChanged();
+        if (config is not null && (IsGroupedRunView || (refreshHistoryIfFolder && folder is not null)))
+            await RefreshCurrentHistoryAsync(cancellationToken);
+        if (persistSelection)
+            await PersistSelectionAsync(config, folder, cancellationToken);
     }
 
     public void ClearCurrentSelection()
     {
         _currentConfig = null;
         _currentFolder = null;
-        Subscribe(null);
+        DisposeChangeSubscription();
         _allVersions.Clear();
         _allRuns.Clear();
         FilteredHistory.Clear();
@@ -139,15 +150,18 @@ public sealed class HistoryPageViewModel : ViewModelBase
         return config is not null;
     }
 
-    public void RefreshCurrentHistory()
+    public async Task RefreshCurrentHistoryAsync(CancellationToken cancellationToken = default)
     {
         var selectedBranchId = SelectedBranch?.BranchId;
         _allVersions.Clear(); _allRuns.Clear(); FilteredHistory.Clear(); FilteredRuns.Clear(); Branches.Clear();
         ActiveSafetySnapshots.Clear();
-        if (_currentConfig is null) { IsEmpty = true; return; }
-        var runtime = NativeHistoryCoreGateway.GetRequiredRuntime(_currentConfig.Id);
-        SourceId? sourceId = _currentFolder is not null && Guid.TryParse(_currentFolder.Id, out var id) && id != Guid.Empty ? new SourceId(id) : null;
-        var snapshot = new HistoryPresentationQueryService(runtime).QueryAsync(sourceId).ConfigureAwait(false).GetAwaiter().GetResult();
+        var config = _currentConfig;
+        var folder = _currentFolder;
+        if (config is null) { IsEmpty = true; return; }
+        var runtime = await NativeHistoryCoreGateway.EnsureReadyAsync(config, cancellationToken);
+        SourceId? sourceId = folder is not null && Guid.TryParse(folder.Id, out var id) && id != Guid.Empty ? new SourceId(id) : null;
+        var snapshot = await new HistoryPresentationQueryService(runtime)
+            .QueryAsync(sourceId, cancellationToken: cancellationToken);
         var branchNames = snapshot.Branches.ToDictionary(branch => branch.BranchId, branch => branch.Name);
         _allVersions.AddRange(snapshot.Timeline.Select(item => new NativeHistoryVersionViewItem(item, branchNames)));
         _allRuns.AddRange(snapshot.Runs.Select(item => new BackupRunViewItem(item)));
@@ -161,13 +175,13 @@ public sealed class HistoryPageViewModel : ViewModelBase
                 {
                     try
                     {
-                        checkoutPlan = NativeHistoryApplicationService.PlanCheckoutAsync(
-                                _currentConfig,
+                        checkoutPlan = await NativeHistoryApplicationService.PlanCheckoutAsync(
+                                config,
                                 branch.Tips[0].UpdateId,
-                                AssessmentDepth.Fast)
-                            .ConfigureAwait(false).GetAwaiter().GetResult();
+                                AssessmentDepth.Fast,
+                                cancellationToken);
                     }
-                    catch (Exception ex)
+                    catch (Exception ex) when (ex is not OperationCanceledException)
                     {
                         checkoutPlan = new HistoryCheckoutPlan(
                             HistoryCheckoutReadiness.Blocked,
@@ -197,10 +211,16 @@ public sealed class HistoryPageViewModel : ViewModelBase
         ApplyFilter();
     }
 
-    public void SetHistoryViewMode(HistoryViewMode mode)
+    public async Task SetHistoryViewModeAsync(HistoryViewMode mode, CancellationToken cancellationToken = default)
     {
-        _viewMode = mode; if (Settings is not null) { Settings.LastHistoryViewMode = mode; ConfigService.Save(); }
-        NotifyViewModeChanged(); RefreshCurrentHistory();
+        _viewMode = mode;
+        if (Settings is not null)
+        {
+            Settings.LastHistoryViewMode = mode;
+            _ = await ConfigService.SaveAsync(cancellationToken: cancellationToken);
+        }
+        NotifyViewModeChanged();
+        await RefreshCurrentHistoryAsync(cancellationToken);
     }
 
     public int GetMissingCount() => _missingCount;
@@ -208,8 +228,8 @@ public sealed class HistoryPageViewModel : ViewModelBase
     {
         if (_currentConfig is null)
             return 0;
-        return await new HistoryLocalReplicaMaintenanceService(
-            NativeHistoryCoreGateway.GetRequiredRuntime(_currentConfig.Id))
+        var runtime = await NativeHistoryCoreGateway.EnsureReadyAsync(_currentConfig).ConfigureAwait(false);
+        return await new HistoryLocalReplicaMaintenanceService(runtime)
             .RemoveMissingControlledReplicasAsync()
             .ConfigureAwait(false);
     }
@@ -230,8 +250,8 @@ public sealed class HistoryPageViewModel : ViewModelBase
             ? Path.GetFileName(_currentFolder.Path.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar))
             : _currentFolder.DisplayName.Trim();
         var descriptor = new SourceDescriptorSnapshot(displayName, _currentFolder.Path);
-        var recovery = new HistoryArchiveRecoveryService(
-            NativeHistoryCoreGateway.GetRequiredRuntime(_currentConfig.Id));
+        var runtime = await NativeHistoryCoreGateway.EnsureReadyAsync(_currentConfig).ConfigureAwait(false);
+        var recovery = new HistoryArchiveRecoveryService(runtime);
         var recovered = 0;
         foreach (var path in Directory.EnumerateFiles(scanPath, "*.*", SearchOption.TopDirectoryOnly)
                      .OrderBy(item => item, StringComparer.OrdinalIgnoreCase))
@@ -263,40 +283,63 @@ public sealed class HistoryPageViewModel : ViewModelBase
         return ShellPathService.TryRevealPathInExplorer(item.LocalPath, out errorMessage);
     }
 
-    public void UpdateComment(NativeHistoryVersionViewItem item, string comment)
+    public async Task UpdateCommentAsync(
+        NativeHistoryVersionViewItem item,
+        string comment,
+        CancellationToken cancellationToken = default)
     {
         if (_currentConfig is null) return;
-        NativeHistoryCoreGateway.GetRequiredRuntime(_currentConfig.Id).Annotations.SetCommentAsync(
-            new HistoryAnnotationTarget(HistoryAnnotationTargetKind.Version, item.VersionId.Value), comment).ConfigureAwait(false).GetAwaiter().GetResult();
-        RefreshCurrentHistory();
+        var runtime = await NativeHistoryCoreGateway.EnsureReadyAsync(_currentConfig, cancellationToken);
+        await runtime.Annotations.SetCommentAsync(
+            new HistoryAnnotationTarget(HistoryAnnotationTargetKind.Version, item.VersionId.Value),
+            comment,
+            cancellationToken);
+        await RefreshCurrentHistoryAsync(cancellationToken);
     }
 
-    public void ToggleImportant(NativeHistoryVersionViewItem item)
+    public async Task ToggleImportantAsync(
+        NativeHistoryVersionViewItem item,
+        CancellationToken cancellationToken = default)
     {
         if (_currentConfig is null) return;
-        NativeHistoryCoreGateway.GetRequiredRuntime(_currentConfig.Id).Annotations.SetPinAsync(
-            new HistoryAnnotationTarget(HistoryAnnotationTargetKind.Version, item.VersionId.Value), !item.IsImportant).ConfigureAwait(false).GetAwaiter().GetResult();
-        RefreshCurrentHistory();
+        var runtime = await NativeHistoryCoreGateway.EnsureReadyAsync(_currentConfig, cancellationToken);
+        await runtime.Annotations.SetPinAsync(
+            new HistoryAnnotationTarget(HistoryAnnotationTargetKind.Version, item.VersionId.Value),
+            !item.IsImportant,
+            cancellationToken);
+        await RefreshCurrentHistoryAsync(cancellationToken);
     }
 
-    public void UpdateRunComment(BackupRunViewItem item, string comment)
+    public async Task UpdateRunCommentAsync(
+        BackupRunViewItem item,
+        string comment,
+        CancellationToken cancellationToken = default)
     {
         if (_currentConfig is null) return;
-        NativeHistoryCoreGateway.GetRequiredRuntime(_currentConfig.Id).Annotations.SetCommentAsync(
-            new HistoryAnnotationTarget(HistoryAnnotationTargetKind.Run, item.RunId.Value), comment).ConfigureAwait(false).GetAwaiter().GetResult();
-        RefreshCurrentHistory();
+        var runtime = await NativeHistoryCoreGateway.EnsureReadyAsync(_currentConfig, cancellationToken);
+        await runtime.Annotations.SetCommentAsync(
+            new HistoryAnnotationTarget(HistoryAnnotationTargetKind.Run, item.RunId.Value),
+            comment,
+            cancellationToken);
+        await RefreshCurrentHistoryAsync(cancellationToken);
     }
 
-    public void ToggleRunImportant(BackupRunViewItem item)
+    public async Task ToggleRunImportantAsync(
+        BackupRunViewItem item,
+        CancellationToken cancellationToken = default)
     {
         if (_currentConfig is null) return;
-        var runtime = NativeHistoryCoreGateway.GetRequiredRuntime(_currentConfig.Id);
-        runtime.Annotations.SetRunImportantAsync(new HistoryAnnotationTarget(HistoryAnnotationTargetKind.Run, item.RunId.Value), !item.IsImportant)
-            .ConfigureAwait(false).GetAwaiter().GetResult();
+        var runtime = await NativeHistoryCoreGateway.EnsureReadyAsync(_currentConfig, cancellationToken);
+        await runtime.Annotations.SetRunImportantAsync(
+            new HistoryAnnotationTarget(HistoryAnnotationTargetKind.Run, item.RunId.Value),
+            !item.IsImportant,
+            cancellationToken);
         if (item.ResultCheckpointId is { } checkpointId)
-            runtime.Annotations.SetPinAsync(new HistoryAnnotationTarget(HistoryAnnotationTargetKind.Checkpoint, checkpointId.Value), !item.IsImportant)
-                .ConfigureAwait(false).GetAwaiter().GetResult();
-        RefreshCurrentHistory();
+            await runtime.Annotations.SetPinAsync(
+                new HistoryAnnotationTarget(HistoryAnnotationTargetKind.Checkpoint, checkpointId.Value),
+                !item.IsImportant,
+                cancellationToken);
+        await RefreshCurrentHistoryAsync(cancellationToken);
     }
 
     public async Task<HistoryRestoreResult?> RestoreRunAsync(BackupRunViewItem item, BackupService.RestoreMode mode)
@@ -311,7 +354,7 @@ public sealed class HistoryPageViewModel : ViewModelBase
     public async Task<bool> DeleteRunAsync(BackupRunViewItem item)
     {
         if (_currentConfig is null) return false;
-        var runtime = NativeHistoryCoreGateway.GetRequiredRuntime(_currentConfig.Id);
+        var runtime = await NativeHistoryCoreGateway.EnsureReadyAsync(_currentConfig).ConfigureAwait(false);
         await runtime.Annotations.SetSuppressionAsync(
             new HistoryAnnotationTarget(HistoryAnnotationTargetKind.Run, item.RunId.Value),
             suppressed: true).ConfigureAwait(false);
@@ -363,7 +406,7 @@ public sealed class HistoryPageViewModel : ViewModelBase
         {
             await using var operationLease = await NativeHistoryConfigurationOperationGate
                 .EnterAsync(config.Id).ConfigureAwait(false);
-            var runtime = NativeHistoryCoreGateway.GetRequiredRuntime(config.Id);
+            var runtime = await NativeHistoryCoreGateway.EnsureReadyAsync(config).ConfigureAwait(false);
             var deletesLocalPayload = mode is BackupDeleteMode.LocalArchiveOnly
                 or BackupDeleteMode.LocalArchiveAndRecord;
             HistoryTargetedReplicaDeletionResult? deletion = null;
@@ -429,7 +472,8 @@ public sealed class HistoryPageViewModel : ViewModelBase
 
         try
         {
-            await NativeHistoryCoreGateway.GetRequiredRuntime(config.Id).MaterializationPolicies
+            var runtime = await NativeHistoryCoreGateway.EnsureReadyAsync(config).ConfigureAwait(false);
+            await runtime.MaterializationPolicies
                 .EnsureCanReleaseAsync(item.VersionId, default).ConfigureAwait(false);
             return null;
         }
@@ -462,7 +506,8 @@ public sealed class HistoryPageViewModel : ViewModelBase
         if (_currentConfig is null) return false;
         await using var operationLease = await NativeHistoryConfigurationOperationGate
             .EnterAsync(_currentConfig.Id).ConfigureAwait(false);
-        await NativeHistoryCoreGateway.GetRequiredRuntime(_currentConfig.Id).Branches
+        var runtime = await NativeHistoryCoreGateway.EnsureReadyAsync(_currentConfig).ConfigureAwait(false);
+        await runtime.Branches
             .CreateFromCheckpointAsync(checkpointId, name).ConfigureAwait(false);
         return true;
     }
@@ -472,7 +517,8 @@ public sealed class HistoryPageViewModel : ViewModelBase
         if (_currentConfig is null || !branch.CanRename) return false;
         await using var operationLease = await NativeHistoryConfigurationOperationGate
             .EnterAsync(_currentConfig.Id).ConfigureAwait(false);
-        await NativeHistoryCoreGateway.GetRequiredRuntime(_currentConfig.Id).Branches
+        var runtime = await NativeHistoryCoreGateway.EnsureReadyAsync(_currentConfig).ConfigureAwait(false);
+        await runtime.Branches
             .RenameAsync(branch.BranchId, name).ConfigureAwait(false);
         return true;
     }
@@ -482,7 +528,8 @@ public sealed class HistoryPageViewModel : ViewModelBase
         if (_currentConfig is null || !branch.CanDelete) return false;
         await using var operationLease = await NativeHistoryConfigurationOperationGate
             .EnterAsync(_currentConfig.Id).ConfigureAwait(false);
-        await NativeHistoryCoreGateway.GetRequiredRuntime(_currentConfig.Id).Branches
+        var runtime = await NativeHistoryCoreGateway.EnsureReadyAsync(_currentConfig).ConfigureAwait(false);
+        await runtime.Branches
             .DeleteAsync(branch.BranchId).ConfigureAwait(false);
         return true;
     }
@@ -543,8 +590,8 @@ public sealed class HistoryPageViewModel : ViewModelBase
         if (_currentConfig is null || !branch.IsMultiTip) return false;
         await using var operationLease = await NativeHistoryConfigurationOperationGate
             .EnterAsync(_currentConfig.Id).ConfigureAwait(false);
-        await new HistoryBranchReconciliationService(
-                NativeHistoryCoreGateway.GetRequiredRuntime(_currentConfig.Id))
+        var runtime = await NativeHistoryCoreGateway.EnsureReadyAsync(_currentConfig).ConfigureAwait(false);
+        await new HistoryBranchReconciliationService(runtime)
             .ReconcileAsync(
                 branch.BranchId,
                 branch.Tips.Select(item => item.UpdateId),
@@ -601,14 +648,21 @@ public sealed class HistoryPageViewModel : ViewModelBase
         OnPropertyChanged(nameof(HasMissing)); NotifyContextChanged();
     }
 
-    private void Subscribe(BackupConfig? config)
+    private async Task SubscribeAsync(BackupConfig? config, CancellationToken cancellationToken)
     {
-        _changeSubscription?.Dispose(); _changeSubscription = null;
+        DisposeChangeSubscription();
         if (config is null) return;
-        _changeSubscription = NativeHistoryCoreGateway.GetRequiredRuntime(config.Id).ChangeFeed.Subscribe(change =>
+        var runtime = await NativeHistoryCoreGateway.EnsureReadyAsync(config, cancellationToken);
+        _changeSubscription = runtime.ChangeFeed.Subscribe(change =>
         {
-            _ = UiDispatcherService.RunOnUiAsync(RefreshCurrentHistory);
+            _ = UiDispatcherService.RunOnUiAsync(() => RefreshCurrentHistoryAsync());
         });
+    }
+
+    private void DisposeChangeSubscription()
+    {
+        _changeSubscription?.Dispose();
+        _changeSubscription = null;
     }
 
     private void NotifyViewModeChanged()
@@ -624,12 +678,15 @@ public sealed class HistoryPageViewModel : ViewModelBase
         OnPropertyChanged(nameof(CanRenameSelectedBranch));
         OnPropertyChanged(nameof(CanDeleteSelectedBranch));
     }
-    private void PersistSelection(BackupConfig? config, ManagedFolder? folder)
+    private async Task PersistSelectionAsync(
+        BackupConfig? config,
+        ManagedFolder? folder,
+        CancellationToken cancellationToken)
     {
         if (Settings is null) return; bool changed = false;
         if (config is not null && Settings.LastHistoryConfigId != config.Id) { Settings.LastHistoryConfigId = config.Id; changed = true; }
         if (folder is not null && Settings.LastHistoryFolderPath != folder.Path) { Settings.LastHistoryFolderPath = folder.Path; changed = true; }
-        if (changed) ConfigService.Save();
+        if (changed) _ = await ConfigService.SaveAsync(cancellationToken: cancellationToken);
     }
 
     private static Brush ThemeBrush(string key, Color fallback)

@@ -123,7 +123,7 @@ public static class CoreFeatureValidationService
             try
             {
                 UpdateStatus(I18n.Format("CoreValidation_Status_Step", config.Name));
-                var runtime = NativeHistoryCoreGateway.GetRequiredRuntime(config.Id);
+                var runtime = await NativeHistoryCoreGateway.EnsureReadyAsync(config).ConfigureAwait(false);
                 var packs = await runtime.Repository.ReadAllPacksAsync().ConfigureAwait(false);
                 new HistoryRepositoryValidator(new HistoryPackCodec()).Validate(runtime.ConfigId, packs);
                 await runtime.EnsureIndexCurrentAsync().ConfigureAwait(false);
