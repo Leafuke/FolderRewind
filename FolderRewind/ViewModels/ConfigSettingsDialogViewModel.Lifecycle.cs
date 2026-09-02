@@ -22,6 +22,8 @@ namespace FolderRewind.ViewModels
                 return;
             }
 
+            OnPropertyChanged(e.PropertyName);
+
             switch (e.PropertyName)
             {
                 case nameof(AutomationSettings.Scope):
@@ -44,6 +46,8 @@ namespace FolderRewind.ViewModels
                 RaiseCloudUiProperties();
                 return;
             }
+
+            OnPropertyChanged(e.PropertyName);
 
             switch (e.PropertyName)
             {
@@ -70,6 +74,23 @@ namespace FolderRewind.ViewModels
                     RaiseCloudUiProperties();
                     break;
             }
+        }
+
+        private void OnFilterPropertyChanged(object? sender, PropertyChangedEventArgs e)
+        {
+            if (string.IsNullOrWhiteSpace(e.PropertyName))
+            {
+                OnPropertyChanged(nameof(UseRegex));
+                OnPropertyChanged(nameof(RestoreWhitelist));
+                OnPropertyChanged(nameof(Blacklist));
+                OnPropertyChanged(nameof(BackupWhitelist));
+                RaiseFilterUiProperties();
+                return;
+            }
+
+            OnPropertyChanged(e.PropertyName);
+            if (e.PropertyName == nameof(FilterSettings.BackupFilterMode))
+                RaiseFilterUiProperties();
         }
 
         private void OnConfigPropertyChanged(object? sender, PropertyChangedEventArgs e)

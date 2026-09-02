@@ -31,7 +31,7 @@
                     <toolkit:SettingsCard.Description>
                         <TextBlock x:Uid="SettingsPage_RunOnStartupDesc" Style="{StaticResource SettingsDescriptionStyle}" />
                     </toolkit:SettingsCard.Description>
-                    <ToggleSwitch IsOn="{x:Bind ViewModel.Settings.RunOnStartup, Mode=TwoWay}" Toggled="OnRunOnStartupToggled" />
+                    <ToggleSwitch IsOn="{x:Bind ViewModel.RunOnStartup, Mode=TwoWay}" Toggled="OnRunOnStartupToggled" />
                 </toolkit:SettingsCard>
 
                 <toolkit:SettingsCard>
@@ -53,8 +53,8 @@
                     <toolkit:SettingsCard.Description>
                         <TextBlock x:Uid="SettingsPage_SilentStartupDesc" Style="{StaticResource SettingsDescriptionStyle}" />
                     </toolkit:SettingsCard.Description>
-                    <ToggleSwitch IsOn="{x:Bind ViewModel.Settings.SilentStartup, Mode=TwoWay}"
-                                  IsEnabled="{x:Bind ViewModel.Settings.RunOnStartup, Mode=OneWay}"
+                    <ToggleSwitch IsOn="{x:Bind ViewModel.SilentStartup, Mode=TwoWay}"
+                                  IsEnabled="{x:Bind ViewModel.RunOnStartup, Mode=OneWay}"
                                   Toggled="OnSilentStartupToggled" />
                 </toolkit:SettingsCard>
 
@@ -96,10 +96,10 @@
                     <toolkit:SettingsCard.Description>
                         <TextBlock x:Uid="SettingsPage_EnableNotificationsDesc" Style="{StaticResource SettingsDescriptionStyle}" />
                     </toolkit:SettingsCard.Description>
-                    <ToggleSwitch IsOn="{x:Bind ViewModel.Settings.EnableNotifications, Mode=OneWay}" Toggled="OnNotificationsToggled" />
+                    <ToggleSwitch IsOn="{x:Bind ViewModel.EnableNotifications, Mode=OneWay}" Toggled="OnNotificationsToggled" />
                 </toolkit:SettingsCard>
 
-                <toolkit:SettingsCard Visibility="{x:Bind ViewModel.Settings.EnableNotifications, Mode=OneWay, Converter={StaticResource BoolToVisConverter}}">
+                <toolkit:SettingsCard Visibility="{x:Bind ViewModel.EnableNotifications, Mode=OneWay, Converter={StaticResource BoolToVisConverter}}">
                     <toolkit:SettingsCard.Header>
                         <TextBlock x:Uid="SettingsPage_ToastNotificationLevel" Style="{StaticResource SettingsHeaderTextStyle}" />
                     </toolkit:SettingsCard.Header>
@@ -107,7 +107,7 @@
                         <TextBlock x:Uid="SettingsPage_ToastNotificationLevelDesc" Style="{StaticResource SettingsDescriptionStyle}" />
                     </toolkit:SettingsCard.Description>
                     <ComboBox Style="{StaticResource SettingsSelectorStyle}"
-                              SelectedIndex="{x:Bind ViewModel.Settings.ToastNotificationLevel, Mode=OneWay}"
+                              SelectedIndex="{x:Bind ViewModel.ToastNotificationLevel, Mode=OneWay}"
                               SelectionChanged="OnToastLevelChanged">
                         <ComboBoxItem x:Uid="SettingsPage_ToastLevel_Off" />
                         <ComboBoxItem x:Uid="SettingsPage_ToastLevel_ErrorOnly" />
@@ -123,7 +123,7 @@
                     <toolkit:SettingsCard.Description>
                         <TextBlock x:Uid="SettingsPage_EnableNoticesDesc" Style="{StaticResource SettingsDescriptionStyle}" />
                     </toolkit:SettingsCard.Description>
-                    <ToggleSwitch IsOn="{x:Bind ViewModel.Settings.EnableNotices, Mode=OneWay}" Toggled="OnNoticesToggled" />
+                    <ToggleSwitch IsOn="{x:Bind ViewModel.EnableNotices, Mode=OneWay}" Toggled="OnNoticesToggled" />
                 </toolkit:SettingsCard>
 
                 <toolkit:SettingsCard>
@@ -133,7 +133,7 @@
                     <toolkit:SettingsCard.Description>
                         <TextBlock x:Uid="SettingsPage_EnableUpdateReminderDesc" Style="{StaticResource SettingsDescriptionStyle}" />
                     </toolkit:SettingsCard.Description>
-                    <ToggleSwitch IsOn="{x:Bind ViewModel.Settings.EnableUpdateReminder, Mode=OneWay}" Toggled="OnUpdateReminderToggled" />
+                    <ToggleSwitch IsOn="{x:Bind ViewModel.EnableUpdateReminder, Mode=OneWay}" Toggled="OnUpdateReminderToggled" />
                 </toolkit:SettingsCard>
 
                 <toolkit:SettingsCard>
@@ -149,7 +149,7 @@
                                    Maximum="10240"
                                    SmallChange="1"
                                    LargeChange="10"
-                                   Value="{x:Bind ViewModel.Settings.FileSizeWarningThresholdKB, Mode=OneWay}"
+                                   Value="{x:Bind ViewModel.FileSizeWarningThresholdKB, Mode=OneWay}"
                                    ValueChanged="OnFileSizeWarningThresholdChanged" />
                         <TextBlock Text="KB" VerticalAlignment="Center" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
                     </StackPanel>

@@ -41,7 +41,7 @@
                     <toolkit:SettingsCard.Description>
                         <TextBlock x:Uid="SettingsPage_AppThemeDesc" Style="{StaticResource SettingsDescriptionStyle}" />
                     </toolkit:SettingsCard.Description>
-                    <ComboBox Style="{StaticResource SettingsSelectorStyle}" SelectedIndex="{x:Bind ViewModel.Settings.ThemeIndex, Mode=TwoWay}" SelectionChanged="OnThemeChanged">
+                    <ComboBox Style="{StaticResource SettingsSelectorStyle}" SelectedIndex="{x:Bind ViewModel.ThemeIndex, Mode=TwoWay}" SelectionChanged="OnThemeChanged">
                         <ComboBoxItem x:Uid="SettingsPage_ThemeDark" />
                         <ComboBoxItem x:Uid="SettingsPage_ThemeLight" />
                         <ComboBoxItem x:Uid="SettingsPage_ThemeSystem" />
@@ -58,7 +58,7 @@
                     <StackPanel Orientation="Horizontal" Spacing="8">
                         <ComboBox Style="{StaticResource SettingsSelectorStyle}"
                                   ItemsSource="{x:Bind ViewModel.CompletionSoundPresets, Mode=OneWay}"
-                                  SelectedIndex="{x:Bind ViewModel.Settings.CompletionSoundIndex, Mode=OneWay}"
+                                  SelectedIndex="{x:Bind ViewModel.CompletionSoundIndex, Mode=OneWay}"
                                   SelectionChanged="OnCompletionSoundChanged" />
                         <Button x:Uid="SettingsPage_CompletionSoundPreview"
                                 Style="{StaticResource SettingsActionRowButtonStyle}"
@@ -83,7 +83,7 @@
                     <toolkit:SettingsCard.Description>
                         <TextBlock x:Uid="SettingsPage_FontSizeDesc" Style="{StaticResource SettingsDescriptionStyle}" />
                     </toolkit:SettingsCard.Description>
-                    <NumberBox x:Name="FontSizeBox" Style="{StaticResource SettingsNumberBoxStyle}" Minimum="12" Maximum="20" SmallChange="0.5" LargeChange="1" Value="{x:Bind ViewModel.Settings.BaseFontSize, Mode=TwoWay}" ValueChanged="OnFontSizeChanged" />
+                    <NumberBox x:Name="FontSizeBox" Style="{StaticResource SettingsNumberBoxStyle}" Minimum="12" Maximum="20" SmallChange="0.5" LargeChange="1" Value="{x:Bind ViewModel.BaseFontSize, Mode=TwoWay}" ValueChanged="OnFontSizeChanged" />
                 </toolkit:SettingsCard>
 
                 <toolkit:SettingsCard>
@@ -93,7 +93,7 @@
                     <toolkit:SettingsCard.Description>
                         <TextBlock x:Uid="SettingsPage_HistoryStatusColorsDesc" Style="{StaticResource SettingsDescriptionStyle}" />
                     </toolkit:SettingsCard.Description>
-                    <ToggleSwitch IsOn="{x:Bind ViewModel.Settings.UseHistoryStatusColors, Mode=OneWay}" Toggled="OnHistoryColorsToggled" />
+                    <ToggleSwitch IsOn="{x:Bind ViewModel.UseHistoryStatusColors, Mode=OneWay}" Toggled="OnHistoryColorsToggled" />
                 </toolkit:SettingsCard>
 
                 <toolkit:SettingsCard>
@@ -103,7 +103,7 @@
                     <toolkit:SettingsCard.Description>
                         <TextBlock x:Uid="SettingsPage_NavPaneWidthDesc" Style="{StaticResource SettingsDescriptionStyle}" />
                     </toolkit:SettingsCard.Description>
-                    <NumberBox Style="{StaticResource SettingsNumberBoxStyle}" Minimum="100" Maximum="600" Value="{x:Bind ViewModel.Settings.NavPaneWidth, Mode=TwoWay}" SmallChange="10" LargeChange="50" />
+                    <NumberBox Style="{StaticResource SettingsNumberBoxStyle}" Minimum="100" Maximum="600" Value="{x:Bind ViewModel.NavPaneWidth, Mode=TwoWay}" SmallChange="10" LargeChange="50" />
                 </toolkit:SettingsCard>
 
                 <toolkit:SettingsCard>
@@ -118,14 +118,14 @@
                                    Width="112"
                                    Minimum="{StaticResource StartupWidthMin}"
                                    Maximum="{StaticResource StartupWidthMax}"
-                                   Value="{x:Bind ViewModel.Settings.StartupWidth, Mode=TwoWay}"
+                                   Value="{x:Bind ViewModel.StartupWidth, Mode=TwoWay}"
                                    ValueChanged="OnStartupSizeChanged" />
                         <TextBlock Text="×" VerticalAlignment="Center" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
                         <NumberBox x:Name="StartupHeightBox"
                                    Width="112"
                                    Minimum="{StaticResource StartupHeightMin}"
                                    Maximum="{StaticResource StartupHeightMax}"
-                                   Value="{x:Bind ViewModel.Settings.StartupHeight, Mode=TwoWay}"
+                                   Value="{x:Bind ViewModel.StartupHeight, Mode=TwoWay}"
                                    ValueChanged="OnStartupSizeChanged" />
                         <TextBlock Text="px" VerticalAlignment="Center" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
                         <Button x:Uid="SettingsPage_ApplySize" Style="{StaticResource SettingsActionRowButtonStyle}" Click="OnApplyStartupSizeClick" />
@@ -197,7 +197,7 @@
                                 </toolkit:SettingsCard.Description>
                                 <ComboBox Style="{StaticResource SettingsSelectorStyle}"
                                         ItemsSource="{x:Bind ViewModel.SponsorAccentPresets, Mode=OneWay}"
-                                        SelectedIndex="{x:Bind ViewModel.Settings.SponsorAccentColorIndex, Mode=TwoWay}"
+                                        SelectedIndex="{x:Bind ViewModel.SponsorAccentColorIndex, Mode=TwoWay}"
                                         SelectionChanged="OnSponsorAccentChanged" />
                             </toolkit:SettingsCard>
 
@@ -210,7 +210,7 @@
                                 </toolkit:SettingsCard.Description>
                                 <ComboBox Style="{StaticResource SettingsSelectorStyle}"
                                         ItemsSource="{x:Bind ViewModel.SponsorBackdropPresets, Mode=OneWay}"
-                                        SelectedIndex="{x:Bind ViewModel.Settings.SponsorBackdropIndex, Mode=TwoWay}"
+                                        SelectedIndex="{x:Bind ViewModel.SponsorBackdropIndex, Mode=TwoWay}"
                                         SelectionChanged="OnSponsorBackdropChanged" />
                             </toolkit:SettingsCard>
 
@@ -222,7 +222,7 @@
                                     <TextBlock x:Uid="SettingsPage_SponsorTitleTextDesc" Style="{StaticResource SettingsDescriptionStyle}" />
                                 </toolkit:SettingsCard.Description>
                                 <TextBox Width="180"
-                                        Text="{x:Bind ViewModel.Settings.SponsorTitleText, Mode=OneWay}"
+                                        Text="{x:Bind ViewModel.SponsorTitleText, Mode=OneWay}"
                                         TextChanged="OnSponsorTitleTextChanged" />
                             </toolkit:SettingsCard>
 
@@ -235,7 +235,7 @@
                                 </toolkit:SettingsCard.Description>
                                 <ComboBox Style="{StaticResource SettingsSelectorStyle}"
                                         ItemsSource="{x:Bind ViewModel.SponsorTitleIconGlyphs, Mode=OneWay}"
-                                        SelectedItem="{x:Bind ViewModel.Settings.SponsorTitleIconGlyph, Mode=TwoWay}"
+                                        SelectedItem="{x:Bind ViewModel.SponsorTitleIconGlyph, Mode=TwoWay}"
                                         SelectionChanged="OnSponsorTitleIconChanged">
                                     <ComboBox.ItemTemplate>
                                         <DataTemplate x:DataType="x:String">
@@ -269,7 +269,7 @@
                                 <toolkit:SettingsCard.Description>
                                     <TextBlock x:Uid="SettingsPage_SponsorBackgroundEnabledDesc" Style="{StaticResource SettingsDescriptionStyle}" />
                                 </toolkit:SettingsCard.Description>
-                                <ToggleSwitch IsOn="{x:Bind ViewModel.Settings.SponsorBackgroundEnabled, Mode=OneWay}" Toggled="OnSponsorBackgroundEnabledToggled" />
+                                <ToggleSwitch IsOn="{x:Bind ViewModel.SponsorBackgroundEnabled, Mode=OneWay}" Toggled="OnSponsorBackgroundEnabledToggled" />
                             </toolkit:SettingsCard>
 
                             <toolkit:SettingsCard>
@@ -281,7 +281,7 @@
                                 </toolkit:SettingsCard.Description>
                                 <ComboBox Style="{StaticResource SettingsSelectorStyle}"
                                         ItemsSource="{x:Bind ViewModel.SponsorBackgroundStretchModes, Mode=OneWay}"
-                                        SelectedIndex="{x:Bind ViewModel.Settings.SponsorBackgroundStretchIndex, Mode=TwoWay}"
+                                        SelectedIndex="{x:Bind ViewModel.SponsorBackgroundStretchIndex, Mode=TwoWay}"
                                         SelectionChanged="OnSponsorBackgroundStretchChanged" />
                             </toolkit:SettingsCard>
 

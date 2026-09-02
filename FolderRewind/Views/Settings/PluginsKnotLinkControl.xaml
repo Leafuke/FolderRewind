@@ -28,7 +28,7 @@
                     <toolkit:SettingsCard.Description>
                         <TextBlock x:Uid="SettingsPage_PluginsAutoCheckUpdatesDesc" Style="{StaticResource SettingsDescriptionStyle}" />
                     </toolkit:SettingsCard.Description>
-                    <ToggleSwitch IsOn="{x:Bind ViewModel.Settings.Plugins.AutoCheckUpdates, Mode=OneWay}" Toggled="OnPluginsAutoCheckUpdatesToggled" />
+                    <ToggleSwitch IsOn="{x:Bind ViewModel.PluginsAutoCheckUpdates, Mode=OneWay}" Toggled="OnPluginsAutoCheckUpdatesToggled" />
                 </toolkit:SettingsCard>
 
                 <toolkit:SettingsCard ContentAlignment="Vertical" HorizontalContentAlignment="Stretch">
@@ -140,7 +140,7 @@
                     <toolkit:SettingsCard.Description>
                         <TextBlock x:Uid="SettingsPage_KnotLinkEnabledDesc" Style="{StaticResource SettingsDescriptionStyle}" />
                     </toolkit:SettingsCard.Description>
-                    <ToggleSwitch x:Name="KnotLinkSwitch" IsOn="{x:Bind ViewModel.Settings.EnableKnotLink, Mode=TwoWay}" Toggled="OnKnotLinkToggled" />
+                    <ToggleSwitch x:Name="KnotLinkSwitch" IsOn="{x:Bind ViewModel.EnableKnotLink, Mode=TwoWay}" Toggled="OnKnotLinkToggled" />
                 </toolkit:SettingsCard>
 
                 <toolkit:SettingsCard ContentAlignment="Vertical" HorizontalContentAlignment="Stretch">
@@ -177,7 +177,7 @@
                                     Style="{StaticResource SettingsActionRowButtonStyle}"
                                     Click="OnKnotLinkStartServerClick"
                                     Visibility="{x:Bind ViewModel.KnotLinkServerCanStart, Converter={StaticResource BoolToVisConverter}, Mode=OneWay}"
-                                    IsEnabled="{x:Bind ViewModel.Settings.EnableKnotLink, Mode=OneWay}" />
+                                    IsEnabled="{x:Bind ViewModel.EnableKnotLink, Mode=OneWay}" />
                             <Button x:Uid="SettingsPage_KnotLinkCheckServerUpdate"
                                     Style="{StaticResource SettingsActionRowButtonStyle}"
                                     Click="OnKnotLinkCheckServerUpdateClick"
@@ -199,14 +199,14 @@
                     <toolkit:SettingsCard.Description>
                         <TextBlock x:Uid="SettingsPage_KnotLinkAutoStartDesc" Style="{StaticResource SettingsDescriptionStyle}" />
                     </toolkit:SettingsCard.Description>
-                    <ToggleSwitch IsOn="{x:Bind ViewModel.Settings.AutoStartKnotLinkServer, Mode=TwoWay}" Toggled="OnKnotLinkAutoStartToggled" />
+                    <ToggleSwitch IsOn="{x:Bind ViewModel.AutoStartKnotLinkServer, Mode=TwoWay}" Toggled="OnKnotLinkAutoStartToggled" />
                 </toolkit:SettingsCard>
 
                 <toolkit:SettingsCard ContentAlignment="Vertical" HorizontalContentAlignment="Left">
                     <StackPanel Orientation="Horizontal" Spacing="8">
-                        <Button x:Uid="SettingsPage_KnotLinkRestart" Style="{StaticResource SettingsActionRowButtonStyle}" Click="OnKnotLinkRestartClick" IsEnabled="{x:Bind ViewModel.Settings.EnableKnotLink, Mode=OneWay}" />
-                        <Button x:Uid="SettingsPage_KnotLinkTest" Style="{StaticResource SettingsActionRowButtonStyle}" Click="OnKnotLinkTestClick" IsEnabled="{x:Bind ViewModel.Settings.EnableKnotLink, Mode=OneWay}" />
-                        <Button x:Uid="SettingsPage_KnotLinkSendCustom" Style="{StaticResource SettingsActionRowButtonStyle}" Click="OnKnotLinkSendCustomClick" IsEnabled="{x:Bind ViewModel.Settings.EnableKnotLink, Mode=OneWay}" />
+                        <Button x:Uid="SettingsPage_KnotLinkRestart" Style="{StaticResource SettingsActionRowButtonStyle}" Click="OnKnotLinkRestartClick" IsEnabled="{x:Bind ViewModel.EnableKnotLink, Mode=OneWay}" />
+                        <Button x:Uid="SettingsPage_KnotLinkTest" Style="{StaticResource SettingsActionRowButtonStyle}" Click="OnKnotLinkTestClick" IsEnabled="{x:Bind ViewModel.EnableKnotLink, Mode=OneWay}" />
+                        <Button x:Uid="SettingsPage_KnotLinkSendCustom" Style="{StaticResource SettingsActionRowButtonStyle}" Click="OnKnotLinkSendCustomClick" IsEnabled="{x:Bind ViewModel.EnableKnotLink, Mode=OneWay}" />
                     </StackPanel>
                 </toolkit:SettingsCard>
 

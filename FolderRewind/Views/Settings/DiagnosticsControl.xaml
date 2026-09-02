@@ -77,7 +77,7 @@
                     <toolkit:SettingsCard.Description>
                         <TextBlock x:Uid="SettingsPage_LogEnabledDesc" Style="{StaticResource SettingsDescriptionStyle}" />
                     </toolkit:SettingsCard.Description>
-                    <ToggleSwitch IsOn="{x:Bind ViewModel.Settings.EnableFileLogging, Mode=TwoWay}" Toggled="OnLoggingChanged" />
+                    <ToggleSwitch IsOn="{x:Bind ViewModel.EnableFileLogging, Mode=TwoWay}" Toggled="OnLoggingChanged" />
                 </toolkit:SettingsCard>
 
                 <toolkit:SettingsCard>
@@ -87,7 +87,7 @@
                     <toolkit:SettingsCard.Description>
                         <TextBlock x:Uid="SettingsPage_MaxLogSizeDesc" Style="{StaticResource SettingsDescriptionStyle}" />
                     </toolkit:SettingsCard.Description>
-                    <NumberBox Style="{StaticResource SettingsNumberBoxStyle}" Minimum="1" Maximum="50" Value="{x:Bind ViewModel.Settings.MaxLogFileSizeMb, Mode=TwoWay}" ValueChanged="OnLogSizeChanged" />
+                    <NumberBox Style="{StaticResource SettingsNumberBoxStyle}" Minimum="1" Maximum="50" Value="{x:Bind ViewModel.MaxLogFileSizeMb, Mode=TwoWay}" ValueChanged="OnLogSizeChanged" />
                 </toolkit:SettingsCard>
 
                 <toolkit:SettingsCard>
@@ -97,7 +97,7 @@
                     <toolkit:SettingsCard.Description>
                         <TextBlock x:Uid="SettingsPage_LogRetentionDesc" Style="{StaticResource SettingsDescriptionStyle}" />
                     </toolkit:SettingsCard.Description>
-                    <NumberBox Style="{StaticResource SettingsNumberBoxStyle}" Minimum="1" Maximum="60" Value="{x:Bind ViewModel.Settings.LogRetentionDays, Mode=TwoWay}" ValueChanged="OnRetentionChanged" />
+                    <NumberBox Style="{StaticResource SettingsNumberBoxStyle}" Minimum="1" Maximum="60" Value="{x:Bind ViewModel.LogRetentionDays, Mode=TwoWay}" ValueChanged="OnRetentionChanged" />
                 </toolkit:SettingsCard>
 
                 <toolkit:SettingsCard ContentAlignment="Vertical" HorizontalContentAlignment="Left">

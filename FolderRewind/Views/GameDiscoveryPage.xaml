@@ -44,10 +44,10 @@
                             <RowDefinition Height="Auto"/>
                         </Grid.RowDefinitions>
                         <TextBlock x:Uid="GameDiscoveryPage_SecondaryManifest" VerticalAlignment="Center"/>
-                        <TextBox Grid.Column="1" Text="{x:Bind ViewModel.Settings.SecondaryManifestPath, Mode=TwoWay}" IsEnabled="{x:Bind ViewModel.CanStart, Mode=OneWay}"/>
+                        <TextBox Grid.Column="1" Text="{x:Bind ViewModel.SecondaryManifestPath, Mode=TwoWay}" IsEnabled="{x:Bind ViewModel.CanStart, Mode=OneWay}"/>
                         <Button x:Uid="Common_Browse" Grid.Column="2" Click="OnBrowseSecondaryClick" IsEnabled="{x:Bind ViewModel.CanStart, Mode=OneWay}"/>
                         <TextBlock x:Uid="GameDiscoveryPage_Override" Grid.Row="1" VerticalAlignment="Center"/>
-                        <TextBox Grid.Row="1" Grid.Column="1" Text="{x:Bind ViewModel.Settings.OverridePath, Mode=TwoWay}" IsEnabled="{x:Bind ViewModel.CanStart, Mode=OneWay}"/>
+                        <TextBox Grid.Row="1" Grid.Column="1" Text="{x:Bind ViewModel.OverridePath, Mode=TwoWay}" IsEnabled="{x:Bind ViewModel.CanStart, Mode=OneWay}"/>
                         <Button x:Uid="Common_Browse" Grid.Row="1" Grid.Column="2" Click="OnBrowseOverrideClick" IsEnabled="{x:Bind ViewModel.CanStart, Mode=OneWay}"/>
                     </Grid>
                 </StackPanel>
@@ -55,7 +55,7 @@
 
             <Expander x:Uid="GameDiscoveryPage_LibraryRoots" Visibility="{x:Bind ViewModel.IsFullMachineMode, Mode=OneWay, Converter={StaticResource BoolToVisConverter}}" IsExpanded="False" IsEnabled="{x:Bind ViewModel.CanStart, Mode=OneWay}">
                 <StackPanel Spacing="10" Padding="0,10,0,0">
-                    <ItemsControl ItemsSource="{x:Bind ViewModel.Settings.LibraryRoots, Mode=OneWay}">
+                    <ItemsControl ItemsSource="{x:Bind ViewModel.LibraryRoots, Mode=OneWay}">
                         <ItemsControl.ItemTemplate>
                             <DataTemplate x:DataType="models:GameLibraryRootSetting">
                                 <Grid ColumnSpacing="8" Margin="0,3">
@@ -207,11 +207,11 @@
 
                 <ScrollViewer Grid.Column="1">
                     <StackPanel Spacing="12" Padding="8">
-                        <TextBlock Text="{x:Bind ViewModel.SelectedGame.Name, Mode=OneWay}" Style="{ThemeResource SubtitleTextBlockStyle}"/>
-                        <TextBlock Text="{x:Bind ViewModel.SelectedGame.InstallationSummary, Mode=OneWay}" TextWrapping="Wrap"/>
-                        <TextBlock Text="{x:Bind ViewModel.SelectedGame.Notes, Mode=OneWay}" Foreground="{ThemeResource TextFillColorSecondaryBrush}" TextWrapping="Wrap"/>
-                        <TextBlock Text="{x:Bind ViewModel.SelectedGame.NativeCloud, Mode=OneWay}" Foreground="{ThemeResource TextFillColorSecondaryBrush}" TextWrapping="Wrap"/>
-                        <ItemsControl ItemsSource="{x:Bind ViewModel.SelectedGame.BackupSets, Mode=OneWay}">
+                        <TextBlock Text="{x:Bind ViewModel.SelectedGameName, Mode=OneWay}" Style="{ThemeResource SubtitleTextBlockStyle}"/>
+                        <TextBlock Text="{x:Bind ViewModel.SelectedGameInstallationSummary, Mode=OneWay}" TextWrapping="Wrap"/>
+                        <TextBlock Text="{x:Bind ViewModel.SelectedGameNotes, Mode=OneWay}" Foreground="{ThemeResource TextFillColorSecondaryBrush}" TextWrapping="Wrap"/>
+                        <TextBlock Text="{x:Bind ViewModel.SelectedGameNativeCloud, Mode=OneWay}" Foreground="{ThemeResource TextFillColorSecondaryBrush}" TextWrapping="Wrap"/>
+                        <ItemsControl ItemsSource="{x:Bind ViewModel.SelectedGameBackupSets, Mode=OneWay}">
                             <ItemsControl.ItemTemplate>
                                 <DataTemplate x:DataType="vm:GameDiscoveryBackupSetItem">
                                     <Border Padding="12" Margin="0,4" CornerRadius="6" BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}" BorderThickness="1">

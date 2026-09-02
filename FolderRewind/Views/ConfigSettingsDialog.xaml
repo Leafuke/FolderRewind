@@ -125,9 +125,9 @@
                     <TextBlock x:Uid="ConfigSettingsDialog_Icon"/>
                     <GridView x:Name="IconGrid" SelectionMode="Single" Height="180" ScrollViewer.VerticalScrollBarVisibility="Auto" SelectionChanged="OnIconSelectionChanged">
                         <GridView.ItemTemplate>
-                            <DataTemplate>
+                            <DataTemplate x:DataType="x:String">
                                 <Border Width="40" Height="40" CornerRadius="4" Background="{ThemeResource LayerFillColorDefaultBrush}">
-                                    <FontIcon Glyph="{Binding}" FontSize="20" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                                    <FontIcon Glyph="{x:Bind}" FontSize="20" HorizontalAlignment="Center" VerticalAlignment="Center"/>
                                 </Border>
                             </DataTemplate>
                         </GridView.ItemTemplate>
@@ -202,20 +202,20 @@
                 <!-- 压缩等级 -->
                 <StackPanel Spacing="4">
                     <TextBlock x:Uid="ConfigSettingsDialog_CompressionLevel"/>
-                    <Slider x:Name="CompressionLevelSlider" Minimum="{x:Bind ViewModel.CompressionLevelMin, Mode=OneWay}" Maximum="{x:Bind ViewModel.CompressionLevelMax, Mode=OneWay}" Value="{x:Bind Config.Archive.CompressionLevel, Mode=TwoWay}"/>
+                    <Slider x:Name="CompressionLevelSlider" Minimum="{x:Bind ViewModel.CompressionLevelMin, Mode=OneWay}" Maximum="{x:Bind ViewModel.CompressionLevelMax, Mode=OneWay}" Value="{x:Bind ViewModel.CompressionLevel, Mode=TwoWay}"/>
                 </StackPanel>
 
                 <!-- 保留备份数量 -->
-                <NumberBox x:Uid="ConfigSettingsDialog_KeepCount" Value="{x:Bind Config.Archive.KeepCount, Mode=TwoWay}" Minimum="0"/>
+                <NumberBox x:Uid="ConfigSettingsDialog_KeepCount" Value="{x:Bind ViewModel.KeepCount, Mode=TwoWay}" Minimum="0"/>
 
                 <!-- 智能备份链长度（仅增量模式有效） -->
                 <StackPanel Spacing="4">
-                    <NumberBox x:Uid="ConfigSettingsDialog_MaxSmartChain" Value="{x:Bind Config.Archive.MaxSmartBackupsPerFull, Mode=TwoWay}" Minimum="0" Maximum="100"/>
+                    <NumberBox x:Uid="ConfigSettingsDialog_MaxSmartChain" Value="{x:Bind ViewModel.MaxSmartBackupsPerFull, Mode=TwoWay}" Minimum="0" Maximum="100"/>
                     <TextBlock x:Uid="ConfigSettingsDialog_MaxSmartChainDesc" Style="{StaticResource CaptionTextBlockStyle}" Foreground="{ThemeResource TextFillColorSecondaryBrush}" TextWrapping="Wrap"/>
                 </StackPanel>
 
                 <!-- 无变更跳过 -->
-                <ToggleSwitch x:Uid="ConfigSettingsDialog_SkipIfUnchanged" IsOn="{x:Bind Config.Archive.SkipIfUnchanged, Mode=TwoWay}"/>
+                <ToggleSwitch x:Uid="ConfigSettingsDialog_SkipIfUnchanged" IsOn="{x:Bind ViewModel.SkipIfUnchanged, Mode=TwoWay}"/>
 
                 <StackPanel Spacing="4">
                     <ComboBox x:Uid="ConfigSettingsDialog_PerformancePreset"
@@ -263,11 +263,11 @@
 
                 <!-- 自定义文件类型处理 -->
                 <StackPanel Spacing="8">
-                    <ToggleSwitch x:Uid="ConfigSettingsDialog_FileTypeHandling" IsOn="{x:Bind Config.Archive.FileTypeHandlingEnabled, Mode=TwoWay}"/>
+                    <ToggleSwitch x:Uid="ConfigSettingsDialog_FileTypeHandling" IsOn="{x:Bind ViewModel.FileTypeHandlingEnabled, Mode=TwoWay}"/>
                     <TextBlock x:Uid="ConfigSettingsDialog_FileTypeHandlingDesc" Style="{StaticResource CaptionTextBlockStyle}" Foreground="{ThemeResource TextFillColorSecondaryBrush}" TextWrapping="Wrap"/>
 
-                    <StackPanel Visibility="{x:Bind Config.Archive.FileTypeHandlingEnabled, Mode=OneWay, Converter={StaticResource BoolToVisConverter}}" Spacing="8">
-                        <ListView x:Name="FileTypeRulesList" Height="160" ItemsSource="{x:Bind Config.Archive.FileTypeRules, Mode=OneWay}" BorderThickness="1" BorderBrush="{ThemeResource SurfaceStrokeColorDefaultBrush}">
+                    <StackPanel Visibility="{x:Bind ViewModel.FileTypeHandlingEnabled, Mode=OneWay, Converter={StaticResource BoolToVisConverter}}" Spacing="8">
+                        <ListView x:Name="FileTypeRulesList" Height="160" ItemsSource="{x:Bind ViewModel.FileTypeRules, Mode=OneWay}" BorderThickness="1" BorderBrush="{ThemeResource SurfaceStrokeColorDefaultBrush}">
                             <ListView.ItemTemplate>
                                 <DataTemplate x:DataType="models:FileTypeRule">
                                     <Grid ColumnSpacing="8">
@@ -309,27 +309,27 @@
                       Padding="0,0,12,0">
             <StackPanel Spacing="20" Padding="0,12">
                 <!-- 还原前自动备份 -->
-                <ToggleSwitch x:Uid="ConfigSettingsDialog_BackupBeforeRestore" IsOn="{x:Bind Config.Archive.BackupBeforeRestore, Mode=TwoWay}"/>
+                <ToggleSwitch x:Uid="ConfigSettingsDialog_BackupBeforeRestore" IsOn="{x:Bind ViewModel.BackupBeforeRestore, Mode=TwoWay}"/>
 
                 <!-- 安全还原（Clean 模式） -->
-                <ToggleSwitch x:Uid="ConfigSettingsDialog_SafeRestore" IsOn="{x:Bind Config.Archive.SafeRestoreEnabled, Mode=TwoWay}"/>
+                <ToggleSwitch x:Uid="ConfigSettingsDialog_SafeRestore" IsOn="{x:Bind ViewModel.SafeRestoreEnabled, Mode=TwoWay}"/>
 
                 <!-- 还原前完整性校验 -->
-                <ToggleSwitch x:Uid="ConfigSettingsDialog_VerifyArchiveBeforeRestore" IsOn="{x:Bind Config.Archive.VerifyArchiveBeforeRestore, Mode=TwoWay}"/>
+                <ToggleSwitch x:Uid="ConfigSettingsDialog_VerifyArchiveBeforeRestore" IsOn="{x:Bind ViewModel.VerifyArchiveBeforeRestore, Mode=TwoWay}"/>
 
                 <!-- 还原白名单 -->
                 <StackPanel Spacing="8">
                     <TextBlock x:Uid="ConfigSettingsDialog_RestoreWhitelist" FontWeight="SemiBold"/>
                     <TextBlock x:Uid="ConfigSettingsDialog_RestoreWhitelistDesc" Style="{StaticResource CaptionTextBlockStyle}" Foreground="{ThemeResource TextFillColorSecondaryBrush}" TextWrapping="Wrap"/>
-                    <ListView Height="160" ItemsSource="{x:Bind Config.Filters.RestoreWhitelist, Mode=OneWay}" BorderThickness="1" BorderBrush="{ThemeResource SurfaceStrokeColorDefaultBrush}">
+                    <ListView Height="160" ItemsSource="{x:Bind ViewModel.RestoreWhitelist, Mode=OneWay}" BorderThickness="1" BorderBrush="{ThemeResource SurfaceStrokeColorDefaultBrush}">
                         <ListView.ItemTemplate>
-                            <DataTemplate>
+                            <DataTemplate x:DataType="x:String">
                                 <Grid>
                                     <Grid.ColumnDefinitions>
                                         <ColumnDefinition Width="*"/>
                                         <ColumnDefinition Width="Auto"/>
                                     </Grid.ColumnDefinitions>
-                                    <TextBlock Text="{Binding}" VerticalAlignment="Center"/>
+                                    <TextBlock Text="{x:Bind}" VerticalAlignment="Center"/>
                                     <Button Grid.Column="1" Content="&#xE711;" FontFamily="Segoe MDL2 Assets" Click="OnRemoveRestoreWhitelistClick"/>
                                 </Grid>
                             </DataTemplate>
@@ -354,9 +354,9 @@
                       VerticalScrollBarVisibility="Auto"
                       Padding="0,0,12,0">
             <StackPanel Spacing="20" Padding="0,12">
-                <ToggleSwitch x:Uid="ConfigSettingsDialog_AutoBackup" IsOn="{x:Bind Config.Automation.AutoBackupEnabled, Mode=TwoWay}"/>
+                <ToggleSwitch x:Uid="ConfigSettingsDialog_AutoBackup" IsOn="{x:Bind ViewModel.AutoBackupEnabled, Mode=TwoWay}"/>
 
-                <StackPanel Visibility="{x:Bind Config.Automation.AutoBackupEnabled, Mode=OneWay, Converter={StaticResource BoolToVisConverter}}" Spacing="12">
+                <StackPanel Visibility="{x:Bind ViewModel.AutoBackupEnabled, Mode=OneWay, Converter={StaticResource BoolToVisConverter}}" Spacing="12">
                     <StackPanel Spacing="8">
                         <TextBlock x:Uid="ConfigSettingsDialog_AutomationScope" FontWeight="SemiBold"/>
                         <ComboBox SelectedIndex="{x:Bind ViewModel.AutomationScopeSelectedIndex, Mode=TwoWay}">
@@ -383,20 +383,20 @@
                                    TextWrapping="Wrap"/>
                     </StackPanel>
 
-                    <CheckBox x:Uid="ConfigSettingsDialog_RunOnAppStart" IsChecked="{x:Bind Config.Automation.RunOnAppStart, Mode=TwoWay}"/>
-                    <CheckBox x:Uid="ConfigSettingsDialog_IntervalMode" IsChecked="{x:Bind Config.Automation.IntervalMode, Mode=TwoWay}"/>
-                    <StackPanel Orientation="Horizontal" Spacing="8" Visibility="{x:Bind Config.Automation.IntervalMode, Mode=OneWay, Converter={StaticResource BoolToVisConverter}}">
+                    <CheckBox x:Uid="ConfigSettingsDialog_RunOnAppStart" IsChecked="{x:Bind ViewModel.RunOnAppStart, Mode=TwoWay}"/>
+                    <CheckBox x:Uid="ConfigSettingsDialog_IntervalMode" IsChecked="{x:Bind ViewModel.IntervalMode, Mode=TwoWay}"/>
+                    <StackPanel Orientation="Horizontal" Spacing="8" Visibility="{x:Bind ViewModel.IntervalMode, Mode=OneWay, Converter={StaticResource BoolToVisConverter}}">
                         <TextBlock x:Uid="ConfigSettingsDialog_IntervalMinutes" VerticalAlignment="Center"/>
-                        <NumberBox Value="{x:Bind Config.Automation.IntervalMinutes, Mode=TwoWay}" MinWidth="200" Minimum="1" Maximum="10080" Width="140"/>
+                        <NumberBox Value="{x:Bind ViewModel.IntervalMinutes, Mode=TwoWay}" MinWidth="200" Minimum="1" Maximum="10080" Width="140"/>
                         <TextBlock x:Uid="ConfigSettingsDialog_IntervalMinutesSuffix" VerticalAlignment="Center"/>
                     </StackPanel>
-                    <CheckBox x:Uid="ConfigSettingsDialog_ScheduledMode" IsChecked="{x:Bind Config.Automation.ScheduledMode, Mode=TwoWay}"/>
+                    <CheckBox x:Uid="ConfigSettingsDialog_ScheduledMode" IsChecked="{x:Bind ViewModel.ScheduledMode, Mode=TwoWay}"/>
 
-                    <StackPanel Visibility="{x:Bind Config.Automation.ScheduledMode, Mode=OneWay, Converter={StaticResource BoolToVisConverter}}" Spacing="8">
+                    <StackPanel Visibility="{x:Bind ViewModel.ScheduledMode, Mode=OneWay, Converter={StaticResource BoolToVisConverter}}" Spacing="8">
                         <TextBlock x:Name="ScheduleEntriesHeader" FontWeight="SemiBold"/>
                         <TextBlock x:Name="ScheduleEntriesDesc" Style="{StaticResource CaptionTextBlockStyle}" Foreground="{ThemeResource TextFillColorSecondaryBrush}" TextWrapping="Wrap"/>
                         <ItemsControl x:Name="ScheduleEntriesControl"
-                                      ItemsSource="{x:Bind Config.Automation.ScheduleEntries, Mode=OneWay}">
+                                      ItemsSource="{x:Bind ViewModel.ScheduleEntries, Mode=OneWay}">
                             <ItemsControl.ItemsPanel>
                                 <ItemsPanelTemplate>
                                     <StackPanel Spacing="6"/>
@@ -477,10 +477,10 @@
                                    TextWrapping="Wrap"/>
                     </StackPanel>
 
-                    <ToggleSwitch x:Uid="ConfigSettingsDialog_StopAfterNoChange" IsOn="{x:Bind Config.Automation.StopAfterNoChangeEnabled, Mode=TwoWay}"/>
-                    <StackPanel Orientation="Horizontal" Spacing="8" Visibility="{x:Bind Config.Automation.StopAfterNoChangeEnabled, Mode=OneWay, Converter={StaticResource BoolToVisConverter}}">
+                    <ToggleSwitch x:Uid="ConfigSettingsDialog_StopAfterNoChange" IsOn="{x:Bind ViewModel.StopAfterNoChangeEnabled, Mode=TwoWay}"/>
+                    <StackPanel Orientation="Horizontal" Spacing="8" Visibility="{x:Bind ViewModel.StopAfterNoChangeEnabled, Mode=OneWay, Converter={StaticResource BoolToVisConverter}}">
                         <TextBlock x:Uid="ConfigSettingsDialog_StopAfterNoChangePrefix" VerticalAlignment="Center"/>
-                        <NumberBox Value="{x:Bind Config.Automation.StopAfterNoChangeCount, Mode=TwoWay}" MinWidth="200" Minimum="1" Maximum="100" Width="120"/>
+                        <NumberBox Value="{x:Bind ViewModel.StopAfterNoChangeCount, Mode=TwoWay}" MinWidth="200" Minimum="1" Maximum="100" Width="120"/>
                         <TextBlock x:Uid="ConfigSettingsDialog_StopAfterNoChangeSuffix" VerticalAlignment="Center"/>
                     </StackPanel>
                 </StackPanel>
@@ -701,20 +701,20 @@
                     <ComboBoxItem x:Uid="ConfigSettingsDialog_BackupFilterModeWhitelist"/>
                 </ComboBox>
 
-                <CheckBox x:Uid="ConfigSettingsDialog_UseRegex" IsChecked="{x:Bind Config.Filters.UseRegex, Mode=TwoWay}"/>
+                <CheckBox x:Uid="ConfigSettingsDialog_UseRegex" IsChecked="{x:Bind ViewModel.UseRegex, Mode=TwoWay}"/>
 
                 <StackPanel Spacing="12"
                             Visibility="{x:Bind ViewModel.IsBackupBlacklistMode, Mode=OneWay, Converter={StaticResource BoolToVisConverter}}">
                     <TextBlock x:Uid="ConfigSettingsDialog_Blacklist" FontWeight="SemiBold"/>
-                    <ListView Height="180" ItemsSource="{x:Bind Config.Filters.Blacklist, Mode=OneWay}" BorderThickness="1" BorderBrush="{ThemeResource SurfaceStrokeColorDefaultBrush}">
+                    <ListView Height="180" ItemsSource="{x:Bind ViewModel.Blacklist, Mode=OneWay}" BorderThickness="1" BorderBrush="{ThemeResource SurfaceStrokeColorDefaultBrush}">
                         <ListView.ItemTemplate>
-                            <DataTemplate>
+                            <DataTemplate x:DataType="x:String">
                                 <Grid>
                                     <Grid.ColumnDefinitions>
                                         <ColumnDefinition Width="*"/>
                                         <ColumnDefinition Width="Auto"/>
                                     </Grid.ColumnDefinitions>
-                                    <TextBlock Text="{Binding}" VerticalAlignment="Center"/>
+                                    <TextBlock Text="{x:Bind}" VerticalAlignment="Center"/>
                                     <Button Grid.Column="1" Content="&#xE711;" FontFamily="Segoe MDL2 Assets" Click="OnRemoveBlacklistClick"/>
                                 </Grid>
                             </DataTemplate>
@@ -738,15 +738,15 @@
                                    TextWrapping="Wrap"
                                    Foreground="{ThemeResource TextFillColorPrimaryBrush}"/>
                     </Border>
-                    <ListView Height="180" ItemsSource="{x:Bind Config.Filters.BackupWhitelist, Mode=OneWay}" BorderThickness="1" BorderBrush="{ThemeResource SurfaceStrokeColorDefaultBrush}">
+                    <ListView Height="180" ItemsSource="{x:Bind ViewModel.BackupWhitelist, Mode=OneWay}" BorderThickness="1" BorderBrush="{ThemeResource SurfaceStrokeColorDefaultBrush}">
                         <ListView.ItemTemplate>
-                            <DataTemplate>
+                            <DataTemplate x:DataType="x:String">
                                 <Grid>
                                     <Grid.ColumnDefinitions>
                                         <ColumnDefinition Width="*"/>
                                         <ColumnDefinition Width="Auto"/>
                                     </Grid.ColumnDefinitions>
-                                    <TextBlock Text="{Binding}" VerticalAlignment="Center"/>
+                                    <TextBlock Text="{x:Bind}" VerticalAlignment="Center"/>
                                     <Button Grid.Column="1" Content="&#xE711;" FontFamily="Segoe MDL2 Assets" Click="OnRemoveBackupWhitelistClick"/>
                                 </Grid>
                             </DataTemplate>

@@ -33,7 +33,7 @@
                         <ColumnDefinition Width="*"/>
                     </Grid.ColumnDefinitions>
                     <TextBlock x:Uid="ConfigCloudSyncDialog_RemoteBasePathLabel" FontWeight="SemiBold"/>
-                    <TextBlock Grid.Column="1" Text="{x:Bind ViewModel.Config.Cloud.RemoteBasePath, Mode=OneWay}" TextWrapping="Wrap"/>
+                    <TextBlock Grid.Column="1" Text="{x:Bind ViewModel.RemoteBasePath, Mode=OneWay}" TextWrapping="Wrap"/>
                 </Grid>
 
                 <Grid ColumnSpacing="12">

@@ -48,7 +48,7 @@ public sealed partial class GameDiscoveryPage : Page
     private async void OnBrowseSecondaryClick(object sender, RoutedEventArgs e)
     {
         var path = await PickYamlAsync("FolderRewind.GameDiscovery.Secondary");
-        if (!string.IsNullOrWhiteSpace(path)) ViewModel.Settings.SecondaryManifestPath = path;
+        if (!string.IsNullOrWhiteSpace(path)) ViewModel.SecondaryManifestPath = path;
     }
 
     private async void OnBrowseOverrideClick(object sender, RoutedEventArgs e)
@@ -57,7 +57,7 @@ public sealed partial class GameDiscoveryPage : Page
             I18n.GetString("GameDiscoveryPage_PickOverride"),
             "FolderRewind.GameDiscovery.Override",
             new[] { ".json" });
-        if (!string.IsNullOrWhiteSpace(path)) ViewModel.Settings.OverridePath = path;
+        if (!string.IsNullOrWhiteSpace(path)) ViewModel.OverridePath = path;
     }
 
     private async void OnAddSteamRootClick(object sender, RoutedEventArgs e) => await AddRootAsync(GameStore.Steam);
@@ -74,7 +74,7 @@ public sealed partial class GameDiscoveryPage : Page
 
     private void OnRemoveRootClick(object sender, RoutedEventArgs e)
     {
-        if (sender is Button { Tag: GameLibraryRootSetting root }) ViewModel.Settings.LibraryRoots.Remove(root);
+        if (sender is Button { Tag: GameLibraryRootSetting root }) ViewModel.LibraryRoots.Remove(root);
     }
 
     private async void OnSaveSettingsClick(object sender, RoutedEventArgs e)

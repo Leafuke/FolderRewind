@@ -61,6 +61,7 @@ public sealed class GameDiscoveryPageViewModel : ViewModelBase, IDisposable
         _cacheService = cacheService;
         _httpClient = httpClient;
         _settings = CloneSettings(ConfigService.CurrentConfig.GlobalSettings.GameDiscovery);
+        _settings.PropertyChanged += OnSettingsPropertyChanged;
         _httpClient.DefaultRequestHeaders.UserAgent.ParseAdd("FolderRewind/GameDiscovery");
     }
 
@@ -69,6 +70,9 @@ public sealed class GameDiscoveryPageViewModel : ViewModelBase, IDisposable
     public ObservableCollection<GameDiscoveryDraftItem> Drafts { get; } = new();
     public ObservableCollection<PluginBatchCreationSummaryItem> PluginBatchItems { get; } = new();
     public GameDiscoverySettings Settings => _settings;
+    public string SecondaryManifestPath { get => Settings.SecondaryManifestPath; set => Settings.SecondaryManifestPath = value; }
+    public string OverridePath { get => Settings.OverridePath; set => Settings.OverridePath = value; }
+    public ObservableCollection<GameLibraryRootSetting> LibraryRoots => Settings.LibraryRoots;
 
     public bool IsBusy
     {
@@ -128,8 +132,25 @@ public sealed class GameDiscoveryPageViewModel : ViewModelBase, IDisposable
     public GameDiscoveryCandidateItem? SelectedGame
     {
         get => _selectedGame;
-        set => SetProperty(ref _selectedGame, value);
+        set
+        {
+            if (!SetProperty(ref _selectedGame, value)) return;
+            OnPropertyChanged(nameof(SelectedGameName));
+            OnPropertyChanged(nameof(SelectedGameInstallationSummary));
+            OnPropertyChanged(nameof(SelectedGameNotes));
+            OnPropertyChanged(nameof(SelectedGameNativeCloud));
+            OnPropertyChanged(nameof(SelectedGameBackupSets));
+        }
     }
+
+    public string SelectedGameName => SelectedGame?.Name ?? string.Empty;
+    public string SelectedGameInstallationSummary => SelectedGame?.InstallationSummary ?? string.Empty;
+    public string SelectedGameNotes => SelectedGame?.Notes ?? string.Empty;
+    public string SelectedGameNativeCloud => SelectedGame?.NativeCloud ?? string.Empty;
+    public IReadOnlyList<GameDiscoveryBackupSetItem> SelectedGameBackupSets =>
+        SelectedGame is { } selectedGame
+            ? selectedGame.BackupSets
+            : Array.Empty<GameDiscoveryBackupSetItem>();
 
     public async Task InitializeAsync(GameDiscoveryNavigationParameter? parameter = null)
     {
@@ -391,9 +412,16 @@ public sealed class GameDiscoveryPageViewModel : ViewModelBase, IDisposable
 
     public void Dispose()
     {
+        _settings.PropertyChanged -= OnSettingsPropertyChanged;
         _operationCts?.Cancel();
         _operationCts?.Dispose();
         _httpClient.Dispose();
+    }
+
+    private void OnSettingsPropertyChanged(object? sender, System.ComponentModel.PropertyChangedEventArgs e)
+    {
+        if (!string.IsNullOrWhiteSpace(e.PropertyName))
+            OnPropertyChanged(e.PropertyName);
     }
 
     private async Task RunOperationAsync(Func<CancellationToken, Task> operation)

@@ -278,6 +278,7 @@ namespace FolderRewind.ViewModels
 
         public SettingsPageViewModel()
         {
+            ObserveBindableSettings();
             InstallMinecraftPresetCommand = new AsyncRelayCommand(
                 async () => { await InstallMinecraftPresetAsync(); },
                 () => IsMinecraftPresetInstallIdle);
@@ -388,6 +389,7 @@ namespace FolderRewind.ViewModels
 
         public void Dispose()
         {
+            StopObservingBindableSettings();
             // 与 Initialize 成对解绑，避免设置页被缓存后事件重复触发。
             CoreFeatureValidationService.StateChanged -= CoreFeatureValidationService_StateChanged;
             SponsorService.StateChanged -= SponsorService_StateChanged;

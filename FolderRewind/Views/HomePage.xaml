@@ -21,7 +21,7 @@
                 </StackPanel>
 
                 <!-- 绑定到 Favorites 集合 -->
-                <GridView ItemsSource="{x:Bind ViewModel.FavoriteFoldersView}" 
+                <GridView ItemsSource="{x:Bind ViewModel.FavoriteFoldersView, Mode=OneWay}"
                           SelectionMode="None" 
                           IsItemClickEnabled="False">
                     <GridView.ItemContainerStyle>
