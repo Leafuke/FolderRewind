@@ -5,6 +5,7 @@
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
     xmlns:models="using:FolderRewind.Models"
     xmlns:vm="using:FolderRewind.ViewModels"
+    xmlns:controls="using:FolderRewind.Controls"
     xmlns:converters="using:FolderRewind.Converters"
     x:Name="RootPage"
     NavigationCacheMode="Required">
@@ -268,10 +269,10 @@
                             <TextBlock Text="{x:Bind DateDisplay, Mode=OneTime}" Style="{StaticResource CaptionTextBlockStyle}" Foreground="{ThemeResource TextFillColorSecondaryBrush}" HorizontalAlignment="Right"/>
                         </StackPanel>
                         <Grid Grid.Column="1">
-                            <Rectangle Width="2" Fill="{x:Bind TimelineLineBrush, Mode=OneTime}" VerticalAlignment="Stretch" HorizontalAlignment="Center"/>
+                            <Rectangle Width="2" Fill="{ThemeResource TextFillColorTertiaryBrush}" VerticalAlignment="Stretch" HorizontalAlignment="Center"/>
                             <Border Width="16" Height="16" CornerRadius="8"
-                                    Background="{x:Bind TimelineNodeFillBrush, Mode=OneTime}"
-                                    BorderBrush="{x:Bind TimelineNodeBorderBrush, Mode=OneTime}"
+                                    Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
+                                    BorderBrush="{ThemeResource TextFillColorSecondaryBrush}"
                                     BorderThickness="2"
                                     VerticalAlignment="Center" HorizontalAlignment="Center"/>
                         </Grid>
@@ -285,7 +286,9 @@
                                     <TextBlock Text="{x:Bind Message, Mode=OneTime}" Style="{StaticResource BodyStrongTextBlockStyle}"/>
                                     <StackPanel Orientation="Horizontal" Spacing="6">
                                         <TextBlock Text="{x:Bind FileSizeDisplay, Mode=OneTime}" Style="{StaticResource CaptionTextBlockStyle}" Foreground="{ThemeResource TextFillColorSecondaryBrush}"/>
-                                        <TextBlock Text="{x:Bind ReadinessText, Mode=OneTime}" Style="{StaticResource CaptionTextBlockStyle}" Foreground="{ThemeResource TextFillColorSecondaryBrush}"/>
+                                        <controls:SemanticStatusPresenter Text="{x:Bind ReadinessText, Mode=OneTime}"
+                                                                          Status="{x:Bind ReadinessStatus, Mode=OneWay}"
+                                                                          Glyph="{x:Bind ReadinessGlyph, Mode=OneWay}"/>
                                         <FontIcon Glyph="&#xE8D7;" FontSize="11"
                                                   Foreground="{ThemeResource TextFillColorSecondaryBrush}"
                                                   Visibility="{x:Bind HasBranchDisplay, Mode=OneTime, Converter={StaticResource BoolToVisConverter}}"/>

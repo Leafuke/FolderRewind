@@ -3,7 +3,6 @@ using FolderRewind.Models;
 using FolderRewind.Services;
 using FolderRewind.Services.Hotkeys;
 using FolderRewind.Services.Plugins;
-using Microsoft.UI.Xaml.Media;
 using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
@@ -182,11 +181,11 @@ namespace FolderRewind.ViewModels
                 _knotLinkServerUpdateInfo = null;
             }
 
-            KnotLinkServerStatusBrush = KnotLinkServerRunning
-                ? new SolidColorBrush(Microsoft.UI.Colors.LimeGreen)
+            KnotLinkServerStatus = KnotLinkServerRunning
+                ? SemanticStatus.Success
                 : KnotLinkServerInstalled
-                    ? new SolidColorBrush(Microsoft.UI.Colors.OrangeRed)
-                    : new SolidColorBrush(Microsoft.UI.Colors.Gray);
+                    ? SemanticStatus.Error
+                    : SemanticStatus.Neutral;
 
             OnPropertyChanged(nameof(KnotLinkServerCanStart));
             OnPropertyChanged(nameof(KnotLinkServerUpdateEnabled));

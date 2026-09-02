@@ -3,7 +3,6 @@ using FolderRewind.Models;
 using FolderRewind.Services;
 using FolderRewind.Services.Hotkeys;
 using FolderRewind.Services.Plugins;
-using Microsoft.UI.Xaml.Media;
 using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
@@ -29,7 +28,7 @@ namespace FolderRewind.ViewModels
         private static IReadOnlyList<string>? _cachedInstalledFontFamilies;
 
         private string _knotLinkStatusMessage = I18n.GetString("SettingsPage_KnotLinkStatus_Disabled");
-        private Brush _knotLinkStatusColor = new SolidColorBrush(Microsoft.UI.Colors.Gray);
+        private SemanticStatus _knotLinkStatus = SemanticStatus.Neutral;
 
         private string _knotLinkServerVersionText = I18n.GetString("SettingsPage_KnotLinkServerNotInstalled");
         private bool _knotLinkServerInstalled;
@@ -38,7 +37,7 @@ namespace FolderRewind.ViewModels
         private bool _knotLinkServerUpdateChecking;
         private string _knotLinkServerLatestVersion = string.Empty;
         private KnotLinkUpdateInfo? _knotLinkServerUpdateInfo;
-        private Brush _knotLinkServerStatusBrush = new SolidColorBrush(Microsoft.UI.Colors.Gray);
+        private SemanticStatus _knotLinkServerStatus = SemanticStatus.Neutral;
 
         private bool _isDirty;
 
@@ -204,11 +203,13 @@ namespace FolderRewind.ViewModels
             private set => SetProperty(ref _knotLinkStatusMessage, value ?? string.Empty);
         }
 
-        public Brush KnotLinkStatusColor
+        public SemanticStatus KnotLinkStatus
         {
-            get => _knotLinkStatusColor;
-            private set => SetProperty(ref _knotLinkStatusColor, value);
+            get => _knotLinkStatus;
+            private set => SetProperty(ref _knotLinkStatus, value);
         }
+
+        public string KnotLinkStatusGlyph => "\uE774";
 
         public string KnotLinkServerVersionText
         {
@@ -245,11 +246,13 @@ namespace FolderRewind.ViewModels
 
         public bool KnotLinkServerUpdateEnabled => !KnotLinkServerUpdateChecking && KnotLinkServerHasUpdate;
 
-        public Brush KnotLinkServerStatusBrush
+        public SemanticStatus KnotLinkServerStatus
         {
-            get => _knotLinkServerStatusBrush;
-            private set => SetProperty(ref _knotLinkServerStatusBrush, value);
+            get => _knotLinkServerStatus;
+            private set => SetProperty(ref _knotLinkServerStatus, value);
         }
+
+        public string KnotLinkServerStatusGlyph => "\uE7F8";
 
         public bool IsCoreValidationRunning => CoreFeatureValidationService.IsRunning;
 

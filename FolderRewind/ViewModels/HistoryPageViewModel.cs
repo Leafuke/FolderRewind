@@ -4,9 +4,6 @@ using FolderRewind.History.Representation;
 using FolderRewind.History.Legacy;
 using FolderRewind.Models;
 using FolderRewind.Services;
-using Microsoft.UI;
-using Microsoft.UI.Xaml;
-using Microsoft.UI.Xaml.Media;
 using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
@@ -14,7 +11,6 @@ using System.IO;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
-using Windows.UI;
 
 namespace FolderRewind.ViewModels;
 
@@ -116,7 +112,7 @@ public sealed class HistoryPageViewModel : ViewModelBase
         set
         {
             if (Settings is not null) { Settings.UseHistoryStatusColors = value; ConfigService.Save(); }
-            UpdateTimelineVisuals(FilteredHistory); OnPropertyChanged();
+            UpdateSemanticStatusPreferences(FilteredHistory); OnPropertyChanged();
         }
     }
 
@@ -858,7 +854,7 @@ public sealed class HistoryPageViewModel : ViewModelBase
             FilteredHistory.ReplaceAll(versions);
             FilteredRuns.ReplaceAll([]);
             _missingCount = FilteredHistory.Count(item => item.IsLocalPayloadMissing);
-            IsEmpty = FilteredHistory.Count == 0; UpdateTimelineVisuals(FilteredHistory);
+            IsEmpty = FilteredHistory.Count == 0; UpdateSemanticStatusPreferences(FilteredHistory);
         }
         OnPropertyChanged(nameof(HasMissing)); NotifyContextChanged();
     }
@@ -980,36 +976,25 @@ public sealed class HistoryPageViewModel : ViewModelBase
         IReadOnlyList<BranchViewItem> Branches,
         IReadOnlyList<SafetySnapshotViewItem> SafetySnapshots);
 
-    private static Brush ThemeBrush(string key, Color fallback)
-    { try { if (Application.Current?.Resources.TryGetValue(key, out var value) == true && value is Brush brush) return brush; } catch { } return new SolidColorBrush(fallback); }
-    private void UpdateTimelineVisuals(IEnumerable<NativeHistoryVersionViewItem> items)
+    private void UpdateSemanticStatusPreferences(IEnumerable<NativeHistoryVersionViewItem> items)
     {
-        var off = ThemeBrush("SystemControlForegroundBaseLowBrush", Colors.Gray);
-        var fill = ThemeBrush("SystemControlBackgroundChromeMediumBrush", Colors.Transparent);
         foreach (var item in items)
         {
-            var color = !UseHistoryStatusColors ? off : item.Readiness switch
-            {
-                HistoryPresentationReadiness.Ready => new SolidColorBrush(Colors.DodgerBlue),
-                HistoryPresentationReadiness.PreparationRequired => new SolidColorBrush(Colors.LightSkyBlue),
-                HistoryPresentationReadiness.PluginOrCredentialRequired => new SolidColorBrush(Colors.Gold),
-                _ => new SolidColorBrush(Colors.OrangeRed)
-            };
-            item.TimelineLineBrush = color; item.TimelineNodeBorderBrush = color;
-            item.TimelineNodeFillBrush = item.IsImportant ? new SolidColorBrush(Colors.Gold) : fill;
+            item.ApplySemanticColorPreference(UseHistoryStatusColors);
         }
     }
 }
 
 public sealed class NativeHistoryVersionViewItem(
     TimelineEntrySummary summary,
-    IReadOnlyDictionary<BranchId, string>? branchNames = null)
+    IReadOnlyDictionary<BranchId, string>? branchNames = null) : CommunityToolkit.Mvvm.ComponentModel.ObservableObject
 {
     private readonly bool _hasLocalFile = summary.LocalPath is not null && File.Exists(summary.LocalPath);
     private readonly bool _isLocalPayloadMissing = summary.LocalPath is not null
         && !File.Exists(summary.LocalPath)
         && !Directory.Exists(summary.LocalPath);
     private readonly string _fileSizeDisplay = GetFileSizeDisplay(summary.LocalPath);
+    private SemanticStatus _readinessStatus = MapReadiness(summary.Readiness);
 
     public VersionId VersionId => summary.VersionId;
     public RepresentationId? RepresentationId => summary.RepresentationId;
@@ -1055,9 +1040,26 @@ public sealed class NativeHistoryVersionViewItem(
         HistoryPresentationReadiness.MetadataOnly => I18n.GetString("History_NativeReadiness_MetadataOnly"),
         _ => I18n.GetString("History_NativeReadiness_Unavailable")
     };
-    public Brush? TimelineLineBrush { get; set; }
-    public Brush? TimelineNodeFillBrush { get; set; }
-    public Brush? TimelineNodeBorderBrush { get; set; }
+    public SemanticStatus ReadinessStatus
+    {
+        get => _readinessStatus;
+        private set
+        {
+            SetProperty(ref _readinessStatus, value);
+        }
+    }
+    public string ReadinessGlyph => SemanticStatusGlyphs.GetGlyph(MapReadiness(Readiness));
+
+    public void ApplySemanticColorPreference(bool useStatusColors)
+        => ReadinessStatus = useStatusColors ? MapReadiness(Readiness) : SemanticStatus.Neutral;
+
+    private static SemanticStatus MapReadiness(HistoryPresentationReadiness readiness) => readiness switch
+    {
+        HistoryPresentationReadiness.Ready => SemanticStatus.Success,
+        HistoryPresentationReadiness.PreparationRequired => SemanticStatus.Info,
+        HistoryPresentationReadiness.PluginOrCredentialRequired => SemanticStatus.Warning,
+        _ => SemanticStatus.Error
+    };
 
     private static string GetFileSizeDisplay(string? localPath)
     {

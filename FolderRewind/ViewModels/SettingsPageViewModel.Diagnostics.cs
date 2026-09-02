@@ -3,7 +3,6 @@ using FolderRewind.Models;
 using FolderRewind.Services;
 using FolderRewind.Services.Hotkeys;
 using FolderRewind.Services.Plugins;
-using Microsoft.UI.Xaml.Media;
 using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
@@ -94,7 +93,7 @@ namespace FolderRewind.ViewModels
             if (!Settings.EnableKnotLink)
             {
                 KnotLinkStatusMessage = I18n.GetString("SettingsPage_KnotLinkStatus_Disabled");
-                KnotLinkStatusColor = new SolidColorBrush(Microsoft.UI.Colors.Gray);
+                KnotLinkStatus = SemanticStatus.Neutral;
                 return;
             }
 
@@ -106,7 +105,7 @@ namespace FolderRewind.ViewModels
                 if (responserOk && senderOk)
                 {
                     KnotLinkStatusMessage = I18n.GetString("SettingsPage_KnotLinkStatus_Connected");
-                    KnotLinkStatusColor = new SolidColorBrush(Microsoft.UI.Colors.LimeGreen);
+                    KnotLinkStatus = SemanticStatus.Success;
                 }
                 else if (responserOk || senderOk)
                 {
@@ -114,18 +113,18 @@ namespace FolderRewind.ViewModels
                         "SettingsPage_KnotLinkStatus_Partial",
                         responserOk ? "✓" : "✗",
                         senderOk ? "✓" : "✗");
-                    KnotLinkStatusColor = new SolidColorBrush(Microsoft.UI.Colors.Orange);
+                    KnotLinkStatus = SemanticStatus.Warning;
                 }
                 else
                 {
                     KnotLinkStatusMessage = I18n.GetString("SettingsPage_KnotLinkStatus_InitFailed");
-                    KnotLinkStatusColor = new SolidColorBrush(Microsoft.UI.Colors.OrangeRed);
+                    KnotLinkStatus = SemanticStatus.Error;
                 }
             }
             else
             {
                 KnotLinkStatusMessage = I18n.GetString("SettingsPage_KnotLinkStatus_NotInitialized");
-                KnotLinkStatusColor = new SolidColorBrush(Microsoft.UI.Colors.Orange);
+                KnotLinkStatus = SemanticStatus.Warning;
             }
         }
 
