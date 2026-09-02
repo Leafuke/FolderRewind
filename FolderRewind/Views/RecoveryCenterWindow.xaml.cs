@@ -79,7 +79,7 @@ public sealed partial class RecoveryCenterWindow : Window
             {
                 [I18n.GetString("RecoveryCenter_JsonFiles")] = new[] { ".json" }
             },
-            $"folderrewind-config-recovery-{DateTime.Now:yyyyMMdd-HHmmss}.json");
+            FormattableString.Invariant($"folderrewind-config-recovery-{DateTime.Now:yyyyMMdd-HHmmss}.json"));
         if (string.IsNullOrWhiteSpace(path)) return;
 
         ShowStatus(

@@ -108,7 +108,7 @@
                                                 <StackPanel Orientation="Horizontal" Spacing="4" Margin="0,2,0,0">
                                                     <FontIcon Glyph="&#xE823;" FontSize="11"
                                                               Foreground="{ThemeResource TextFillColorTertiaryBrush}"/>
-                                                    <TextBlock Text="{x:Bind LastBackupTime, Mode=OneWay}"
+                                                    <TextBlock Text="{x:Bind LastBackupTimeDisplay, Mode=OneWay}"
                                                                Style="{StaticResource CaptionTextBlockStyle}"
                                                                Foreground="{ThemeResource TextFillColorTertiaryBrush}"
                                                                TextTrimming="CharacterEllipsis" TextWrapping="NoWrap"

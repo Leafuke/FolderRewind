@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Globalization;
 using System.IO;
 using System.Linq;
 using System.Threading;
@@ -612,7 +613,7 @@ public static partial class BackupService
                             task.IsIndeterminate = false;
                             task.IsSuccess = true;
                             folder.StatusText = I18n.Format("BackupService_Folder_BackupCompleted");
-                            folder.LastBackupTime = DateTime.Now.ToString("yyyy/MM/dd HH:mm");
+                            folder.LastBackupTime = DateTime.Now.ToString("yyyy/MM/dd HH:mm", CultureInfo.InvariantCulture);
                         });
                     }
                     else
@@ -620,7 +621,7 @@ public static partial class BackupService
                         await RunOnUIAsync(() =>
                         {
                             folder.StatusText = I18n.Format("BackupService_Folder_BackupCompleted");
-                            folder.LastBackupTime = DateTime.Now.ToString("yyyy/MM/dd HH:mm");
+                            folder.LastBackupTime = DateTime.Now.ToString("yyyy/MM/dd HH:mm", CultureInfo.InvariantCulture);
                         });
                     }
 

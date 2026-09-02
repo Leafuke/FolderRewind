@@ -204,7 +204,7 @@ public sealed class GameDiscoveryPageViewModel : ViewModelBase, IDisposable
         {
             if (_targetedPreset == null)
             {
-                ProgressText = "The selected provider-targeted preset is no longer available.";
+                ProgressText = I18n.GetString("GameDiscovery_TargetedPresetUnavailable");
                 Games.Clear();
                 VisibleGames.Clear();
                 Drafts.Clear();
@@ -307,7 +307,7 @@ public sealed class GameDiscoveryPageViewModel : ViewModelBase, IDisposable
     {
         if (IsBusy)
         {
-            errorMessage = "A discovery operation is still running.";
+            errorMessage = I18n.GetString("GameDiscovery_OperationRunning");
             return false;
         }
         var previous = ConfigService.CurrentConfig.GlobalSettings.GameDiscovery;
@@ -368,11 +368,17 @@ public sealed class GameDiscoveryPageViewModel : ViewModelBase, IDisposable
     {
         if (IsBusy)
         {
-            return new BackupConfigDraftCommitResult { ErrorMessage = "A discovery operation is still running." };
+            return new BackupConfigDraftCommitResult
+            {
+                ErrorMessage = I18n.GetString("GameDiscovery_OperationRunning")
+            };
         }
         if (Drafts.Count == 0 || Drafts.All(item => !item.IsSelected))
         {
-            return new BackupConfigDraftCommitResult { ErrorMessage = "Select at least one discovery draft before committing." };
+            return new BackupConfigDraftCommitResult
+            {
+                ErrorMessage = I18n.GetString("GameDiscovery_SelectDraft")
+            };
         }
         foreach (var item in Drafts)
         {

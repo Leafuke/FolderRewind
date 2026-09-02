@@ -67,11 +67,15 @@ namespace FolderRewind.Services.Plugins
             set => SetProperty(ref _status, value);
         }
 
-        public string SizeDisplay => SizeBytes <= 0 ? string.Empty : $"{SizeBytes / 1024.0 / 1024.0:F2} MB";
+        public string SizeDisplay => SizeBytes <= 0
+            ? string.Empty
+            : $"{UserDisplayFormatter.Number(SizeBytes / 1024.0 / 1024.0, 2)} MB";
 
-        public string DownloadCountDisplay => DownloadCount <= 0 ? "-" : DownloadCount.ToString("N0");
+        public string DownloadCountDisplay => DownloadCount <= 0 ? "-" : UserDisplayFormatter.Number(DownloadCount);
 
-        public string UpdatedDisplay => UpdatedAt.HasValue ? UpdatedAt.Value.LocalDateTime.ToString("yyyy-MM-dd") : "-";
+        public string UpdatedDisplay => UpdatedAt.HasValue
+            ? UserDisplayFormatter.Date(UpdatedAt.Value.LocalDateTime)
+            : "-";
 
         public string FileType => "FRPLUGIN";
     }

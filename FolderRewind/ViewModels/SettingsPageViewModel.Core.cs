@@ -268,7 +268,9 @@ namespace FolderRewind.ViewModels
                     return I18n.GetString("CoreValidation_LastRun_None");
                 }
 
-                return I18n.Format("CoreValidation_LastRun_Value", Settings.LastCoreValidationUtc.ToLocalTime().ToString("yyyy-MM-dd HH:mm:ss"));
+                return I18n.Format(
+                    "CoreValidation_LastRun_Value",
+                    UserDisplayFormatter.LongDateTime(Settings.LastCoreValidationUtc.ToLocalTime()));
             }
         }
 

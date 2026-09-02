@@ -5133,4 +5133,36 @@ Pull request: {1}</value>
   <data name="History_SafetySnapshot_RestorePrimary" xml:space="preserve"><value>Restore completely</value></data>
   <data name="History_SafetySnapshot_ReleaseSecondary" xml:space="preserve"><value>Release explicitly</value></data>
   <data name="History_SafetySnapshot_AlreadyReleased" xml:space="preserve"><value>This safety recovery point was already released or its state changed.</value></data>
+  <data name="Schedule_MonthLabel.Text" xml:space="preserve"><value>Month:</value></data>
+  <data name="Schedule_DayLabel.Text" xml:space="preserve"><value>Day:</value></data>
+  <data name="Tray_ShowHideCommand.Label" xml:space="preserve"><value>Show / Hide</value></data>
+  <data name="Tray_ShowHideCommand.Description" xml:space="preserve"><value>Show or hide the window</value></data>
+  <data name="Tray_QuitCommand.Label" xml:space="preserve"><value>Exit</value></data>
+  <data name="Tray_QuitCommand.Description" xml:space="preserve"><value>Exit FolderRewind</value></data>
+  <data name="Tray_Icon.ToolTipText" xml:space="preserve"><value>FolderRewind</value></data>
+  <data name="Tray_ShowHideItem.Text" xml:space="preserve"><value>Show / Hide</value></data>
+  <data name="Tray_ExitItem.Text" xml:space="preserve"><value>Exit</value></data>
+  <data name="PluginStore_SummaryOnline" xml:space="preserve"><value>Official Catalog · {0:N0} plugin(s)</value></data>
+  <data name="PluginStore_SummaryOffline" xml:space="preserve"><value>Official Catalog (offline cache) · {0:N0} plugin(s)</value></data>
+  <data name="PluginStore_CatalogUnavailable" xml:space="preserve"><value>Official Catalog unavailable: {0}</value></data>
+  <data name="History_NoActiveConfiguration" xml:space="preserve"><value>No active configuration is selected.</value></data>
+  <data name="History_Run_SourceCount" xml:space="preserve"><value>{0:N0} source(s)</value></data>
+  <data name="History_Run_OutcomeCompleted" xml:space="preserve"><value>Completed</value></data>
+  <data name="History_Run_OutcomePartial" xml:space="preserve"><value>Partially completed</value></data>
+  <data name="History_Run_OutcomeFailed" xml:space="preserve"><value>Failed</value></data>
+  <data name="History_Run_OutcomeNoChange" xml:space="preserve"><value>No changes</value></data>
+  <data name="History_Run_SourceCarriedForward" xml:space="preserve"><value>Carried forward</value></data>
+  <data name="FolderManager_InvalidContext" xml:space="preserve"><value>No active configuration or valid folder was provided.</value></data>
+  <data name="FolderManager_InvalidIconSource" xml:space="preserve"><value>The icon source or target folder is invalid.</value></data>
+  <data name="Hotkeys_BackupCommentMarker" xml:space="preserve"><value>[Shortcut]</value></data>
+  <data name="GameDiscovery_TargetedPresetUnavailable" xml:space="preserve"><value>The selected provider-targeted preset is no longer available.</value></data>
+  <data name="GameDiscovery_OperationRunning" xml:space="preserve"><value>A discovery operation is still running.</value></data>
+  <data name="GameDiscovery_SelectDraft" xml:space="preserve"><value>Select at least one discovery draft before committing.</value></data>
+  <data name="CoreValidation_Report_DurationValue" xml:space="preserve"><value>{0:N1} s</value></data>
+  <data name="CoreValidation_Report_StepFormat" xml:space="preserve"><value>[{0}] {1} ({2})</value></data>
+  <data name="Template_CreateFrom_Home_InvalidPreset" xml:space="preserve"><value>This preset has no usable inline path rules or provider definition reference.</value></data>
+  <data name="MiniWindow_TitleFormat" xml:space="preserve"><value>Mini · {0}</value></data>
+  <data name="MiniWindow_DefaultFolderName" xml:space="preserve"><value>Folder</value></data>
+  <data name="BackupService_MissingEncryptionPassword" xml:space="preserve"><value>The encryption password is missing for this configuration.</value></data>
+  <data name="BackupService_InvalidConfigurationOrSource" xml:space="preserve"><value>The backup configuration or source is invalid.</value></data>
 </root>

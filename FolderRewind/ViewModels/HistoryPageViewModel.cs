@@ -10,7 +10,6 @@ using Microsoft.UI.Xaml.Media;
 using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
-using System.Globalization;
 using System.IO;
 using System.Linq;
 using System.Threading;
@@ -507,7 +506,7 @@ public sealed class HistoryPageViewModel : ViewModelBase
     {
         var config = _currentConfig;
         if (config is null)
-            return new() { Success = false, Message = "No active configuration is selected." };
+            return new() { Success = false, Message = I18n.GetString("History_NoActiveConfiguration") };
         lock (_deleteSync)
         {
             if (!_deletingVersions.Add(item.VersionId))
@@ -1014,8 +1013,8 @@ public sealed class NativeHistoryVersionViewItem(
 
     public VersionId VersionId => summary.VersionId;
     public RepresentationId? RepresentationId => summary.RepresentationId;
-    public string TimeDisplay => summary.CreatedAtUtc.ToLocalTime().ToString("HH:mm:ss");
-    public string DateDisplay => summary.CreatedAtUtc.ToLocalTime().ToString("yyyy-MM-dd");
+    public string TimeDisplay => UserDisplayFormatter.LongTime(summary.CreatedAtUtc.ToLocalTime());
+    public string DateDisplay => UserDisplayFormatter.Date(summary.CreatedAtUtc.ToLocalTime());
     public string Comment => summary.Comment;
     public string Message => string.IsNullOrWhiteSpace(Comment) ? summary.DisplayName : Comment;
     public string FileName => summary.FileName ?? summary.VersionId.ToString();
@@ -1066,10 +1065,10 @@ public sealed class NativeHistoryVersionViewItem(
         try
         {
             var bytes = new FileInfo(localPath).Length;
-            if (bytes < 1024) return $"{bytes.ToString("N0", CultureInfo.CurrentCulture)} B";
-            if (bytes < 1024L * 1024) return $"{(bytes / 1024d).ToString("N1", CultureInfo.CurrentCulture)} KB";
-            if (bytes < 1024L * 1024 * 1024) return $"{(bytes / 1024d / 1024d).ToString("N1", CultureInfo.CurrentCulture)} MB";
-            return $"{(bytes / 1024d / 1024d / 1024d).ToString("N2", CultureInfo.CurrentCulture)} GB";
+            if (bytes < 1024) return $"{UserDisplayFormatter.Number(bytes)} B";
+            if (bytes < 1024L * 1024) return $"{UserDisplayFormatter.Number(bytes / 1024d, 1)} KB";
+            if (bytes < 1024L * 1024 * 1024) return $"{UserDisplayFormatter.Number(bytes / 1024d / 1024d, 1)} MB";
+            return $"{UserDisplayFormatter.Number(bytes / 1024d / 1024d / 1024d, 2)} GB";
         }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
         {
@@ -1083,10 +1082,10 @@ public sealed class BackupRunViewItem(RunSummary summary)
     public RunId RunId => summary.RunId;
     public CheckpointId? ResultCheckpointId => summary.ResultCheckpointId;
     public string Comment => summary.Comment;
-    public string TimeDisplay => summary.CompletedAtUtc.ToLocalTime().ToString("HH:mm");
-    public string DateDisplay => summary.CompletedAtUtc.ToLocalTime().ToString("yyyy-MM-dd");
-    public string Message => string.IsNullOrWhiteSpace(Comment) ? summary.Outcome.ToString() : Comment;
-    public string SourceSummary => $"{summary.Sources.Length} sources";
+    public string TimeDisplay => UserDisplayFormatter.ShortTime(summary.CompletedAtUtc.ToLocalTime());
+    public string DateDisplay => UserDisplayFormatter.Date(summary.CompletedAtUtc.ToLocalTime());
+    public string Message => string.IsNullOrWhiteSpace(Comment) ? GetRunOutcomeText(summary.Outcome) : Comment;
+    public string SourceSummary => I18n.Format("History_Run_SourceCount", summary.Sources.Length);
     public bool IsImportant => summary.IsImportant;
     public bool CanRestore => ResultCheckpointId is not null;
     public bool CanCreateBranch => summary.IsBranchableCheckpoint;
@@ -1096,12 +1095,29 @@ public sealed class BackupRunViewItem(RunSummary summary)
     public bool HasPartialBackup => summary.HasPartialCapture;
     public IReadOnlyList<BranchId> BranchIds => summary.BranchIds;
     public IReadOnlyList<BackupRunSourceViewItem> Sources { get; } = summary.Sources.Select(item => new BackupRunSourceViewItem(item)).ToArray();
+
+    private static string GetRunOutcomeText(BackupRunOutcome outcome) => outcome switch
+    {
+        BackupRunOutcome.Completed => I18n.GetString("History_Run_OutcomeCompleted"),
+        BackupRunOutcome.Partial => I18n.GetString("History_Run_OutcomePartial"),
+        BackupRunOutcome.Failed => I18n.GetString("History_Run_OutcomeFailed"),
+        BackupRunOutcome.NoChange => I18n.GetString("History_Run_OutcomeNoChange"),
+        _ => outcome.ToString()
+    };
 }
 
 public sealed class BackupRunSourceViewItem(BackupRunSourceResult result)
 {
     public string Name => result.SourceId.ToString();
-    public string StatusText => result.Outcome.ToString();
+    public string StatusText => result.Outcome switch
+    {
+        BackupRunSourceOutcome.Captured => I18n.GetString("History_Run_SourceNewArchive"),
+        BackupRunSourceOutcome.Reused => I18n.GetString("History_Run_SourceReused"),
+        BackupRunSourceOutcome.Failed => I18n.GetString("History_Run_SourceFailed"),
+        BackupRunSourceOutcome.Unavailable => I18n.GetString("History_Run_SourceUnavailable"),
+        BackupRunSourceOutcome.CarriedForward => I18n.GetString("History_Run_SourceCarriedForward"),
+        _ => result.Outcome.ToString()
+    };
     public string Detail => result.VersionId?.ToString() ?? result.Diagnostics.FirstOrDefault()?.Message ?? string.Empty;
 }
 
@@ -1151,5 +1167,5 @@ public sealed class SafetySnapshotViewItem(SafetySnapshotProjection projection)
 {
     public SafetySnapshotId SnapshotId => projection.Snapshot.SnapshotId;
     public CheckpointId CheckpointId => projection.Snapshot.CheckpointId;
-    public string DisplayName => $"{projection.Snapshot.CreatedAtUtc.ToLocalTime():yyyy-MM-dd HH:mm:ss} · {projection.Snapshot.Reason}";
+    public string DisplayName => $"{UserDisplayFormatter.LongDateTime(projection.Snapshot.CreatedAtUtc.ToLocalTime())} · {projection.Snapshot.Reason}";
 }

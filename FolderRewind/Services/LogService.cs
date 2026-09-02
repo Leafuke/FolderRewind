@@ -2,6 +2,7 @@ using FolderRewind.Models;
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
+using System.Globalization;
 using System.IO;
 using System.Threading.Channels;
 using System.Threading.Tasks;
@@ -144,13 +145,13 @@ namespace FolderRewind.Services
 
         public static string GetLogFilePath()
         {
-            var today = DateTime.Now.ToString("yyyy-MM-dd");
+            var today = DateTime.Now.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture);
             return Path.Combine(GetLogDirectory(), $"app-{today}.log");
         }
 
         public static string GetLogFilePath(DateTime date)
         {
-            var dateStr = date.ToString("yyyy-MM-dd");
+            var dateStr = date.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture);
             return Path.Combine(GetLogDirectory(), $"app-{dateStr}.log");
         }
 
@@ -160,7 +161,7 @@ namespace FolderRewind.Services
 
             try
             {
-                var today = DateTime.Now.ToString("yyyy-MM-dd");
+                var today = DateTime.Now.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture);
                 var filePath = GetLogFilePath();
                 var dir = GetLogDirectory();
 
@@ -197,7 +198,8 @@ namespace FolderRewind.Services
                 if (string.IsNullOrWhiteSpace(dir)) return;
 
                 var baseName = Path.GetFileNameWithoutExtension(filePath);
-                var archivePath = Path.Combine(dir, $"{baseName}-{DateTime.Now:HHmmss}.log");
+                var archiveName = FormattableString.Invariant($"{baseName}-{DateTime.Now:HHmmss}.log");
+                var archivePath = Path.Combine(dir, archiveName);
                 File.Move(filePath, archivePath, true);
             }
             catch
@@ -258,7 +260,8 @@ namespace FolderRewind.Services
             var level = entry.Level.ToString().ToUpperInvariant();
             var source = string.IsNullOrWhiteSpace(entry.Source) ? string.Empty : $"[{entry.Source}] ";
             var exception = string.IsNullOrWhiteSpace(entry.Exception) ? string.Empty : $" | {entry.Exception}";
-            return $"[{entry.Timestamp:yyyy-MM-dd HH:mm:ss.fff}] [{level}] {source}{entry.Message}{exception}";
+            return FormattableString.Invariant(
+                $"[{entry.Timestamp:yyyy-MM-dd HH:mm:ss.fff}] [{level}] {source}{entry.Message}{exception}");
         }
 
         private static void TrimBufferIfNeeded()

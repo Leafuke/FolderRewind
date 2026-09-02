@@ -96,9 +96,11 @@ namespace FolderRewind.Models
         [JsonIgnore]
         public string LastRunDisplay => LastRunUtc == DateTime.MinValue
             ? "-"
-            : LastRunUtc.ToLocalTime().ToString("yyyy-MM-dd HH:mm:ss");
+            : UserDisplayFormatter.LongDateTime(LastRunUtc.ToLocalTime());
 
         [JsonIgnore]
-        public string LastExitCodeDisplay => LastRunUtc == DateTime.MinValue ? "-" : LastExitCode.ToString();
+        public string LastExitCodeDisplay => LastRunUtc == DateTime.MinValue
+            ? "-"
+            : UserDisplayFormatter.Number(LastExitCode);
     }
 }

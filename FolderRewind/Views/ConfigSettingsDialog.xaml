@@ -416,14 +416,14 @@
                                             <ColumnDefinition Width="*"/>
                                             <ColumnDefinition Width="Auto"/>
                                         </Grid.ColumnDefinitions>
-                                        <TextBlock Grid.Column="0" Text="月:" VerticalAlignment="Center" Margin="4,0"
+                                        <TextBlock Grid.Column="0" x:Uid="Schedule_MonthLabel" VerticalAlignment="Center" Margin="4,0"
                                                    Style="{StaticResource CaptionTextBlockStyle}"/>
                                         <ComboBox Grid.Column="1" Width="80"
                                                   SelectedIndex="{x:Bind MonthSelection, Mode=TwoWay}"
                                                   IsEnabled="{x:Bind IsMonthEnabled, Mode=OneWay}"
                                                   Loaded="OnScheduleMonthComboLoaded"
                                                   AutomationProperties.AutomationId="ScheduleMonthCombo"/>
-                                        <TextBlock Grid.Column="2" Text="日:" VerticalAlignment="Center" Margin="8,0,4,0"
+                                        <TextBlock Grid.Column="2" x:Uid="Schedule_DayLabel" VerticalAlignment="Center" Margin="8,0,4,0"
                                                    Style="{StaticResource CaptionTextBlockStyle}"/>
                                         <ComboBox Grid.Column="3" Width="80"
                                                   SelectedIndex="{x:Bind DaySelection, Mode=TwoWay}"

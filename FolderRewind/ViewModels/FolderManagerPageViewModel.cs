@@ -257,7 +257,7 @@ namespace FolderRewind.ViewModels
             if (CurrentConfig == null || string.IsNullOrWhiteSpace(rootPath))
             {
                 result.Success = false;
-                result.ErrorMessage = "Invalid context.";
+                result.ErrorMessage = I18n.GetString("FolderManager_InvalidContext");
                 return result;
             }
 
@@ -399,14 +399,15 @@ namespace FolderRewind.ViewModels
         public string BuildHotkeyBackupComment()
         {
             var baseComment = BackupComment;
+            var marker = I18n.GetString("Hotkeys_BackupCommentMarker");
             if (string.IsNullOrWhiteSpace(baseComment))
             {
-                return "[快捷键]";
+                return marker;
             }
 
-            return baseComment.Contains("[快捷键]", StringComparison.OrdinalIgnoreCase)
+            return baseComment.Contains(marker, StringComparison.OrdinalIgnoreCase)
                 ? baseComment
-                : $"{baseComment} [快捷键]";
+                : $"{baseComment} {marker}";
         }
 
         public bool TryOpenFolder(ManagedFolder folder)
@@ -445,7 +446,7 @@ namespace FolderRewind.ViewModels
             errorMessage = null;
             if (folder == null || string.IsNullOrWhiteSpace(folder.Path) || string.IsNullOrWhiteSpace(sourcePath))
             {
-                errorMessage = "Invalid icon source or folder path.";
+                errorMessage = I18n.GetString("FolderManager_InvalidIconSource");
                 return false;
             }
 

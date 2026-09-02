@@ -395,7 +395,7 @@ namespace FolderRewind.Views
                 var invalidDialog = new ContentDialog
                 {
                     Title = I18n.GetString("Template_CreateFrom_Home_Title"),
-                    Content = "This preset has no usable inline path rules or provider definition reference.",
+                    Content = I18n.GetString("Template_CreateFrom_Home_InvalidPreset"),
                     CloseButtonText = I18n.GetString("Common_Ok"),
                     XamlRoot = this.XamlRoot
                 };

@@ -6,7 +6,6 @@
     xmlns:models="using:FolderRewind.Models"
     xmlns:viewModels="using:FolderRewind.ViewModels"
     x:Uid="TemplateManagerDialog"
-    CloseButtonText="Close"
     DefaultButton="Close"
     Style="{StaticResource DefaultContentDialogStyle}">
 

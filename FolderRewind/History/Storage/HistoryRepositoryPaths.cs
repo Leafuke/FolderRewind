@@ -63,7 +63,8 @@ public sealed class HistoryRepositoryPaths
         var id = packId?.ToString() ?? "unknown";
         return Path.Combine(
             QuarantineRoot,
-            $"{DateTimeOffset.UtcNow:yyyyMMddHHmmssfff}-{id}-{Guid.NewGuid():N}.frpack");
+            FormattableString.Invariant(
+                $"{DateTimeOffset.UtcNow:yyyyMMddHHmmssfff}-{id}-{Guid.NewGuid():N}.frpack"));
     }
 
     public static string CreateReplicaObjectKey(ReplicaId replicaId)
@@ -93,4 +94,3 @@ public sealed class HistoryRepositoryPaths
         Directory.CreateDirectory(QuarantineRoot);
     }
 }
-

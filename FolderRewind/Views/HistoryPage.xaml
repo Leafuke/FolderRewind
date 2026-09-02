@@ -97,7 +97,6 @@
                         </Border>
 
                         <TextBlock x:Uid="HistoryPage_BranchSelectLabel"
-                                   Text="查看分支:"
                                    VerticalAlignment="Center"
                                    Style="{StaticResource CaptionTextBlockStyle}"
                                    Foreground="{ThemeResource TextFillColorSecondaryBrush}"

@@ -69,6 +69,7 @@
     <Compile Include="..\FolderRewind\Services\Plugins\V3\PluginBackupRequestResult.cs" Link="Source\PluginBackupRequestResult.cs" />
     <Compile Include="..\FolderRewind\Services\Plugins\V3\NativeHistoryArtifactTransformPolicy.cs" Link="Source\NativeHistoryArtifactTransformPolicy.cs" />
     <Compile Include="..\FolderRewind\Services\LanguageSettingPolicy.cs" Link="Source\LanguageSettingPolicy.cs" />
+    <Compile Include="..\FolderRewind\Services\UserDisplayFormatter.cs" Link="Source\UserDisplayFormatter.cs" />
     <Compile Include="..\FolderRewind\Services\MiniWindowLayoutPolicy.cs" Link="Source\MiniWindowLayoutPolicy.cs" />
     <Compile Include="..\FolderRewind\Services\SponsorBackgroundImageCachePolicy.cs" Link="Source\SponsorBackgroundImageCachePolicy.cs" />
     <Compile Include="..\FolderRewind\Services\ArchiveCompressionPolicy.cs" Link="Source\ArchiveCompressionPolicy.cs" />

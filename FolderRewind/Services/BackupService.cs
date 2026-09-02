@@ -34,7 +34,8 @@ namespace FolderRewind.Services
         // 还原阶段会用内部标记目录记录“仅删除”动作，完成后必须清理避免污染用户目录。
         internal const string InternalRestoreMarkerDirectoryName = "__FolderRewind_Internal";
         internal const string InternalRestoreMarkerFileName = "__DeletedOnly.marker";
-        private const string MissingEncryptionPasswordMessage = "Encrypted backup password is missing for this configuration.";
+        private static string MissingEncryptionPasswordMessage =>
+            I18n.GetString("BackupService_MissingEncryptionPassword");
 
         // 变更集是增量备份/删除标记/元数据写入的统一输入。
         private sealed class BackupChangeSet
@@ -326,7 +327,7 @@ namespace FolderRewind.Services
                 return new BackupSourceExecutionOutcome
                 {
                     Status = BackupSourceExecutionStatus.Failed,
-                    ErrorMessage = "Invalid backup configuration or source."
+                    ErrorMessage = I18n.GetString("BackupService_InvalidConfigurationOrSource")
                 };
             }
             comment ??= string.Empty;

@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Globalization;
 using System.Linq;
+using Windows.ApplicationModel.Resources.Core;
 using Windows.Globalization;
 using ResourceLoader = FolderRewind.Services.AppResourceLoader;
 
@@ -51,7 +52,14 @@ namespace FolderRewind.Services
             if (AppRuntimeInfo.IsPackaged)
             {
                 ApplicationLanguages.PrimaryLanguageOverride = languageOverride;
-                return;
+                if (string.IsNullOrWhiteSpace(languageOverride))
+                {
+                    ResourceContext.ResetGlobalQualifierValues(new[] { "Language" });
+                }
+                else
+                {
+                    ResourceContext.SetGlobalQualifierValue("Language", languageOverride);
+                }
             }
 
             var uiCulture = string.IsNullOrWhiteSpace(languageOverride)

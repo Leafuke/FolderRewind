@@ -5133,4 +5133,36 @@ Pull Request：{1}</value>
   <data name="History_SafetySnapshot_RestorePrimary" xml:space="preserve"><value>完整恢复</value></data>
   <data name="History_SafetySnapshot_ReleaseSecondary" xml:space="preserve"><value>显式释放</value></data>
   <data name="History_SafetySnapshot_AlreadyReleased" xml:space="preserve"><value>该安全恢复点已被释放或状态已经变化。</value></data>
+  <data name="Schedule_MonthLabel.Text" xml:space="preserve"><value>月：</value></data>
+  <data name="Schedule_DayLabel.Text" xml:space="preserve"><value>日：</value></data>
+  <data name="Tray_ShowHideCommand.Label" xml:space="preserve"><value>显示 / 隐藏</value></data>
+  <data name="Tray_ShowHideCommand.Description" xml:space="preserve"><value>显示或隐藏主窗口</value></data>
+  <data name="Tray_QuitCommand.Label" xml:space="preserve"><value>退出</value></data>
+  <data name="Tray_QuitCommand.Description" xml:space="preserve"><value>退出存档时光机</value></data>
+  <data name="Tray_Icon.ToolTipText" xml:space="preserve"><value>存档时光机</value></data>
+  <data name="Tray_ShowHideItem.Text" xml:space="preserve"><value>显示 / 隐藏</value></data>
+  <data name="Tray_ExitItem.Text" xml:space="preserve"><value>退出</value></data>
+  <data name="PluginStore_SummaryOnline" xml:space="preserve"><value>官方目录 · {0:N0} 个插件</value></data>
+  <data name="PluginStore_SummaryOffline" xml:space="preserve"><value>官方目录（离线缓存）· {0:N0} 个插件</value></data>
+  <data name="PluginStore_CatalogUnavailable" xml:space="preserve"><value>官方目录不可用：{0}</value></data>
+  <data name="History_NoActiveConfiguration" xml:space="preserve"><value>尚未选择活动配置。</value></data>
+  <data name="History_Run_SourceCount" xml:space="preserve"><value>{0:N0} 个来源</value></data>
+  <data name="History_Run_OutcomeCompleted" xml:space="preserve"><value>已完成</value></data>
+  <data name="History_Run_OutcomePartial" xml:space="preserve"><value>部分完成</value></data>
+  <data name="History_Run_OutcomeFailed" xml:space="preserve"><value>失败</value></data>
+  <data name="History_Run_OutcomeNoChange" xml:space="preserve"><value>无变更</value></data>
+  <data name="History_Run_SourceCarriedForward" xml:space="preserve"><value>沿用上次结果</value></data>
+  <data name="FolderManager_InvalidContext" xml:space="preserve"><value>未提供活动配置或有效文件夹。</value></data>
+  <data name="FolderManager_InvalidIconSource" xml:space="preserve"><value>图标来源或目标文件夹无效。</value></data>
+  <data name="Hotkeys_BackupCommentMarker" xml:space="preserve"><value>[快捷键]</value></data>
+  <data name="GameDiscovery_TargetedPresetUnavailable" xml:space="preserve"><value>所选的提供者定向预设已不可用。</value></data>
+  <data name="GameDiscovery_OperationRunning" xml:space="preserve"><value>游戏发现操作仍在运行。</value></data>
+  <data name="GameDiscovery_SelectDraft" xml:space="preserve"><value>提交前请至少选择一个发现草案。</value></data>
+  <data name="CoreValidation_Report_DurationValue" xml:space="preserve"><value>{0:N1} 秒</value></data>
+  <data name="CoreValidation_Report_StepFormat" xml:space="preserve"><value>[{0}] {1}（{2}）</value></data>
+  <data name="Template_CreateFrom_Home_InvalidPreset" xml:space="preserve"><value>此预设不包含可用的内联路径规则或提供者定义引用。</value></data>
+  <data name="MiniWindow_TitleFormat" xml:space="preserve"><value>迷你窗口 · {0}</value></data>
+  <data name="MiniWindow_DefaultFolderName" xml:space="preserve"><value>文件夹</value></data>
+  <data name="BackupService_MissingEncryptionPassword" xml:space="preserve"><value>此配置缺少加密密码。</value></data>
+  <data name="BackupService_InvalidConfigurationOrSource" xml:space="preserve"><value>备份配置或来源无效。</value></data>
 </root>

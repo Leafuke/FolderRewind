@@ -4,6 +4,7 @@ using Microsoft.UI.Windowing;
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
+using System.Globalization;
 using System.IO;
 using System.Linq;
 using System.Runtime.InteropServices;
@@ -909,7 +910,7 @@ namespace FolderRewind.Services
         {
             if (!File.Exists(ConfigPath)) return null;
             Directory.CreateDirectory(ConfigDirectory);
-            var timestamp = DateTime.UtcNow.ToString("yyyyMMdd'T'HHmmssfffffff'Z'");
+            var timestamp = DateTime.UtcNow.ToString("yyyyMMdd'T'HHmmssfffffff'Z'", CultureInfo.InvariantCulture);
             for (var sequence = 0; sequence < 10_000; sequence++)
             {
                 var suffix = sequence == 0 ? string.Empty : $".{sequence:D4}";

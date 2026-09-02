@@ -175,7 +175,9 @@ namespace FolderRewind.Views
             // 设置初始尺寸
             CollapseToSquare(false);
 
-            appWindow.Title = $"Mini - {_context.Folder?.DisplayName ?? "Folder"}";
+            appWindow.Title = I18n.Format(
+                "MiniWindow_TitleFormat",
+                _context.Folder?.DisplayName ?? I18n.GetString("MiniWindow_DefaultFolderName"));
 
             // Win11 圆角
             try
@@ -347,7 +349,7 @@ namespace FolderRewind.Views
                 "MiniWindow_Tip_Format",
                 folder.DisplayName,
                 folder.Path,
-                folder.LastBackupTime,
+                folder.LastBackupTimeDisplay,
                 status);
         }
 

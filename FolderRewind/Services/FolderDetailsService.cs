@@ -15,7 +15,7 @@ public static class FolderDetailsService
         string modifiedDate = string.Empty;
         try
         {
-            modifiedDate = Directory.GetLastWriteTime(folder.Path).ToString("yyyy/MM/dd HH:mm:ss");
+            modifiedDate = UserDisplayFormatter.LongDateTime(Directory.GetLastWriteTime(folder.Path));
         }
         catch
         {
@@ -30,7 +30,7 @@ public static class FolderDetailsService
                 new FolderDetailsItem { Label = I18n.GetString("FolderDetailsDialog_Name"), Value = folder.DisplayName ?? string.Empty },
                 new FolderDetailsItem { Label = I18n.GetString("FolderDetailsDialog_Path"), Value = folder.Path ?? string.Empty },
                 new FolderDetailsItem { Label = I18n.GetString("FolderDetailsDialog_ModifiedDate"), Value = modifiedDate },
-                new FolderDetailsItem { Label = I18n.GetString("FolderDetailsDialog_LastBackup"), Value = folder.LastBackupTime ?? string.Empty }
+                new FolderDetailsItem { Label = I18n.GetString("FolderDetailsDialog_LastBackup"), Value = folder.LastBackupTimeDisplay }
             }
         };
 
