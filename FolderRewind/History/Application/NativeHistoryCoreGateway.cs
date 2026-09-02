@@ -21,10 +21,19 @@ public static class NativeHistoryCoreGateway
     private static readonly HistoryRuntimeManager Runtimes = new();
     private static readonly ConcurrentDictionary<string, string> Failed = new(StringComparer.Ordinal);
 
-    public static async Task InitializeAsync(AppConfig appConfig, string configDirectory, CancellationToken cancellationToken = default)
+    public static Task InitializeAsync(AppConfig appConfig, string configDirectory, CancellationToken cancellationToken = default)
+        => InitializeAsync(
+            appConfig.BackupConfigs.Where(item => item is not null).ToArray(),
+            configDirectory,
+            cancellationToken);
+
+    public static async Task InitializeAsync(
+        IReadOnlyList<BackupConfig> configs,
+        string configDirectory,
+        CancellationToken cancellationToken = default)
     {
         IReadOnlyList<LegacyHistoryRecord>? legacy = null;
-        foreach (var config in appConfig.BackupConfigs.Where(item => item is not null))
+        foreach (var config in configs)
         {
             try
             {

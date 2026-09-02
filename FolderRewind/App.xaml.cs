@@ -6,7 +6,9 @@ using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Input;
 using System;
+using System.Collections.Generic;
 using System.Linq;
+using System.Threading;
 using System.Threading.Tasks;
 using Windows.Graphics;
 
@@ -24,6 +26,8 @@ namespace FolderRewind
 
         private TaskbarIcon? _trayIcon;
         private bool _trayRestorePending;
+        private readonly CancellationTokenSource _appLifetimeCancellation = new();
+        private Task _historyWarmupTask = Task.CompletedTask;
         internal static bool ForceExitRequested { get; private set; }
 
         #endregion
@@ -95,10 +99,6 @@ namespace FolderRewind
                 // 配置必须先于窗口创建：后面的语言/主题/尺寸都依赖它。
                 Services.ConfigService.Initialize();
 
-                FolderRewind.History.Application.NativeHistoryCoreGateway.InitializeAsync(
-                    Services.ConfigService.CurrentConfig,
-                    Services.ConfigService.ConfigDirectory).GetAwaiter().GetResult();
-
                 LogService.Log($"[Startup] Config loaded: {startupSw.ElapsedMilliseconds}ms");
 
                 if (Services.ConfigService.IsRecoveryMode)
@@ -153,6 +153,7 @@ namespace FolderRewind
                 _window.Activate();
 
                 LogService.Log($"[Startup] Window activated: {startupSw.ElapsedMilliseconds}ms");
+                StartHistoryWarmup();
 
                 _window.DispatcherQueue.TryEnqueue(Microsoft.UI.Dispatching.DispatcherQueuePriority.Low, async () =>
                 {
@@ -555,7 +556,7 @@ namespace FolderRewind
             });
         }
 
-        private void OnQuitCommandExecuteRequested(XamlUICommand sender, ExecuteRequestedEventArgs args)
+        private async void OnQuitCommandExecuteRequested(XamlUICommand sender, ExecuteRequestedEventArgs args)
         {
             // 标记强制退出，避免被 MainWindow 的“最小化到托盘”拦截逻辑再次兜回去。
             ForceExitRequested = true;
@@ -566,17 +567,74 @@ namespace FolderRewind
             CleanupTrayIcon();
             CleanupAppNotifications();
 
+            await StopHistoryWarmupAsync();
             _window?.Close();
             Exit();
         }
 
-        private void OnMainWindowClosed(object sender, WindowEventArgs args)
+        private async void OnMainWindowClosed(object sender, WindowEventArgs args)
         {
+            await StopHistoryWarmupAsync();
             try { Services.MainWindowService.CloseSponsorWindow(); } catch { }
             // 主窗口关闭时清理 Mini 窗口
             try { Services.MiniWindowService.CloseAll(); } catch { }
             CleanupTrayIcon();
             CleanupAppNotifications();
+        }
+
+        private void StartHistoryWarmup()
+        {
+            var configs = Services.ConfigService.CurrentConfig.BackupConfigs
+                .Where(config => config is not null)
+                .ToArray();
+            _historyWarmupTask = WarmHistoryRuntimesAsync(configs, _appLifetimeCancellation.Token);
+        }
+
+        private static async Task WarmHistoryRuntimesAsync(
+            IReadOnlyList<Models.BackupConfig> configs,
+            CancellationToken cancellationToken)
+        {
+            LogService.LogInfo("[Startup] Native History warmup started.", nameof(App));
+            var stopwatch = System.Diagnostics.Stopwatch.StartNew();
+            try
+            {
+                await Task.Run(
+                    () => FolderRewind.History.Application.NativeHistoryCoreGateway.InitializeAsync(
+                        configs,
+                        Services.ConfigService.ConfigDirectory,
+                        cancellationToken),
+                    cancellationToken).ConfigureAwait(false);
+                LogService.LogInfo(
+                    $"[Startup] Native History warmup completed in {stopwatch.ElapsedMilliseconds}ms.",
+                    nameof(App));
+            }
+            catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+            {
+                LogService.LogInfo("[Startup] Native History warmup canceled.", nameof(App));
+            }
+            catch (Exception ex)
+            {
+                LogService.LogError(
+                    $"[Startup] Native History warmup failed: {ex.Message}",
+                    nameof(App),
+                    ex);
+            }
+        }
+
+        private async Task StopHistoryWarmupAsync()
+        {
+            if (!_appLifetimeCancellation.IsCancellationRequested)
+            {
+                _appLifetimeCancellation.Cancel();
+            }
+
+            try
+            {
+                await _historyWarmupTask.ConfigureAwait(true);
+            }
+            catch (OperationCanceledException)
+            {
+            }
         }
 
         private void CleanupTrayIcon()
