@@ -45,14 +45,18 @@ namespace FolderRewind.Services
                         if (path is null) continue;
                         var result = await replicas.UploadAsync(representationId, path).ConfigureAwait(false);
                         if (result.Status != HistoryReplicaOperationStatus.Succeeded)
-                            LogService.LogWarning("[Cloud Replica] " + result.Diagnostic, nameof(CloudSyncService));
+                            LogService.LogWarning(
+                                "[Cloud Replica] " + CloudCommandSecurity.Redact(result.Diagnostic),
+                                nameof(CloudSyncService));
                     }
                     if (config.Cloud.SyncHistoryAfterUpload)
                         _ = await metadata.SyncAsync().ConfigureAwait(false);
                 }
                 catch (Exception ex)
                 {
-                    LogService.LogWarning("[Cloud Replica] " + ex.Message, nameof(CloudSyncService));
+                    LogService.LogWarning(
+                        "[Cloud Replica] " + CloudCommandSecurity.Redact(ex.Message),
+                        nameof(CloudSyncService));
                 }
             });
         }
@@ -80,7 +84,9 @@ namespace FolderRewind.Services
             }
             catch (Exception ex)
             {
-                LogService.LogWarning("[Cloud Replica] " + ex.Message, nameof(CloudSyncService));
+                LogService.LogWarning(
+                    "[Cloud Replica] " + CloudCommandSecurity.Redact(ex.Message),
+                    nameof(CloudSyncService));
                 return false;
             }
         }
@@ -150,7 +156,9 @@ namespace FolderRewind.Services
             }
             catch (Exception ex)
             {
-                LogService.LogWarning("[Cloud Replica] " + ex.Message, nameof(CloudSyncService));
+                LogService.LogWarning(
+                    "[Cloud Replica] " + CloudCommandSecurity.Redact(ex.Message),
+                    nameof(CloudSyncService));
                 return false;
             }
         }

@@ -2490,7 +2490,7 @@ cmd=RESTORE;from=minebackup.mod;request_id=req-mr-restore-002;current_save=true;
     <value>已将文件夹 "{0}" 的云上传加入队列：{1}</value>
   </data>
   <data name="CloudSync_Log_CommandStart" xml:space="preserve">
-    <value>开始执行文件夹 "{0}" 的云上传命令：{1}</value>
+    <value>开始执行云命令：{0}</value>
   </data>
   <data name="CloudSync_Log_CommandSucceeded" xml:space="preserve">
     <value>文件夹 "{0}" 的云上传已完成</value>
@@ -3003,7 +3003,7 @@ cmd=RESTORE;from=minebackup.mod;request_id=req-mr-restore-002;current_save=true;
     <value>下面这些变量会在执行前替换成当前备份上下文。高级模式和 rclone 模式都可以使用。</value>
   </data>
   <data name="ConfigSettingsDialog_CloudPreview.Text" xml:space="preserve">
-    <value>命令预览</value>
+    <value>命令预览（可能包含敏感信息）</value>
   </data>
   <data name="ConfigSettingsDialog_CloudLastStatus.Text" xml:space="preserve">
     <value>上次执行状态</value>

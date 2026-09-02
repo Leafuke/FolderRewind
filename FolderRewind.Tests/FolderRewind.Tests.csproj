@@ -88,6 +88,7 @@
     <Compile Include="..\FolderRewind\Services\AsyncPeriodicLoop.cs" Link="Source\AsyncPeriodicLoop.cs" />
     <Compile Include="..\FolderRewind\Services\AutomationSchedulePolicy.cs" Link="Source\AutomationSchedulePolicy.cs" />
     <Compile Include="..\FolderRewind\Services\AutomationConditionStateTracker.cs" Link="Source\AutomationConditionStateTracker.cs" />
+    <Compile Include="..\FolderRewind\Services\CloudCommandSecurity.cs" Link="Source\CloudCommandSecurity.cs" />
     <Compile Include="..\FolderRewind\Services\FolderRenameService.Planning.cs" Link="Source\FolderRenameService.Planning.cs" />
     <Compile Include="..\FolderRewind\Services\FolderRenameService.Transaction.cs" Link="Source\FolderRenameService.Transaction.cs" />
     <Compile Include="..\FolderRewind\Services\FolderRenameService.Moves.cs" Link="Source\FolderRenameService.Moves.cs" />
