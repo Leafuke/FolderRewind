@@ -236,7 +236,9 @@ namespace FolderRewind
                 // 托盘与自动化都放到窗口激活后再排队，避免拉长首屏时间。
                 _window.DispatcherQueue.TryEnqueue(Microsoft.UI.Dispatching.DispatcherQueuePriority.Low, InitializeTrayIcon);
 
-                _window.DispatcherQueue.TryEnqueue(Microsoft.UI.Dispatching.DispatcherQueuePriority.Low, Services.AutomationService.Start);
+                _window.DispatcherQueue.TryEnqueue(
+                    Microsoft.UI.Dispatching.DispatcherQueuePriority.Low,
+                    StartAutomation);
 
                 LogService.Log($"[Startup] App ready: {startupSw.ElapsedMilliseconds}ms");
 
@@ -567,6 +569,7 @@ namespace FolderRewind
             CleanupTrayIcon();
             CleanupAppNotifications();
 
+            await StopAutomationAsync();
             await StopHistoryWarmupAsync();
             _window?.Close();
             Exit();
@@ -574,12 +577,48 @@ namespace FolderRewind
 
         private async void OnMainWindowClosed(object sender, WindowEventArgs args)
         {
+            await StopAutomationAsync();
             await StopHistoryWarmupAsync();
             try { Services.MainWindowService.CloseSponsorWindow(); } catch { }
             // 主窗口关闭时清理 Mini 窗口
             try { Services.MiniWindowService.CloseAll(); } catch { }
             CleanupTrayIcon();
             CleanupAppNotifications();
+        }
+
+        private void StartAutomation()
+        {
+            _ = StartAutomationObservedAsync();
+        }
+
+        private static async Task StartAutomationObservedAsync()
+        {
+            try
+            {
+                await Services.AutomationService.StartAsync().ConfigureAwait(false);
+            }
+            catch (Exception ex)
+            {
+                LogService.LogError(
+                    $"[Startup] Automation service failed to start: {ex.Message}",
+                    nameof(App),
+                    ex);
+            }
+        }
+
+        private static async Task StopAutomationAsync()
+        {
+            try
+            {
+                await Services.AutomationService.StopAsync().ConfigureAwait(false);
+            }
+            catch (Exception ex)
+            {
+                LogService.LogError(
+                    $"[Shutdown] Automation service failed to stop: {ex.Message}",
+                    nameof(App),
+                    ex);
+            }
         }
 
         private void StartHistoryWarmup()
