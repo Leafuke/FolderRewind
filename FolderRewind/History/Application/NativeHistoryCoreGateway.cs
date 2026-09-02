@@ -272,6 +272,10 @@ public static class NativeHistoryCoreGateway
             Failed.TryRemove(configId.Value, out _);
             return runtime;
         }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+            throw;
+        }
         catch (Exception ex)
         {
             Failed[configId.Value] = ex.Message;

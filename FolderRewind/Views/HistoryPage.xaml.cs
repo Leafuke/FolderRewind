@@ -56,30 +56,49 @@ namespace FolderRewind.Views
             await RestoreLastSelectionAsync();
         }
 
+        protected override void OnNavigatedFrom(NavigationEventArgs e)
+        {
+            ViewModel.Suspend();
+            base.OnNavigatedFrom(e);
+        }
+
+        private async void OnRetryHistoryClick(object sender, RoutedEventArgs e)
+        {
+            if (ConfigFilter.SelectedItem is not BackupConfig config) return;
+            var folder = FolderFilter.SelectedItem as ManagedFolder;
+            _ = await TrySetCurrentSelectionAsync(
+                config,
+                folder,
+                refreshHistoryIfFolder: ViewModel.IsGroupedRunView || folder is not null,
+                persistSelection: false);
+        }
+
         private async Task ApplySelectionFromNavigationAsync(string? configId, string? folderPath)
         {
+            BackupConfig? targetConfig;
+            ManagedFolder? targetFolder;
             _isNavigating = true;
-
             try
             {
-                if (!ViewModel.TryResolveSelection(configId, folderPath, out var targetConfig, out var targetFolder) || targetConfig == null)
+                if (!ViewModel.TryResolveSelection(configId, folderPath, out targetConfig, out targetFolder)
+                    || targetConfig == null)
                 {
                     return;
                 }
 
                 ConfigFilter.SelectedItem = targetConfig;
                 ConfigureFolderFilter(targetConfig, targetFolder);
-
-                _ = await TrySetCurrentSelectionAsync(
-                    targetConfig,
-                    targetFolder,
-                    refreshHistoryIfFolder: targetFolder != null,
-                    persistSelection: true);
             }
             finally
             {
                 _isNavigating = false;
             }
+
+            _ = await TrySetCurrentSelectionAsync(
+                targetConfig,
+                targetFolder,
+                refreshHistoryIfFolder: targetFolder != null,
+                persistSelection: true);
         }
 
         private async void ConfigFilter_SelectionChanged(object sender, SelectionChangedEventArgs e)
@@ -91,21 +110,23 @@ namespace FolderRewind.Views
 
             if (ConfigFilter.SelectedItem is BackupConfig config)
             {
+                ManagedFolder? folder;
                 _isNavigating = true;
                 try
                 {
                     ConfigureFolderFilter(config, null);
-                    var folder = FolderFilter.SelectedItem as ManagedFolder;
-                    _ = await TrySetCurrentSelectionAsync(
-                        config,
-                        folder,
-                        refreshHistoryIfFolder: folder is not null,
-                        persistSelection: true);
+                    folder = FolderFilter.SelectedItem as ManagedFolder;
                 }
                 finally
                 {
                     _isNavigating = false;
                 }
+
+                _ = await TrySetCurrentSelectionAsync(
+                    config,
+                    folder,
+                    refreshHistoryIfFolder: folder is not null,
+                    persistSelection: true);
             }
         }
 
@@ -116,19 +137,11 @@ namespace FolderRewind.Views
             if (FolderFilter.SelectedItem is ManagedFolder folder
                 && ConfigFilter.SelectedItem is BackupConfig config)
             {
-                _isNavigating = true;
-                try
-                {
-                    _ = await TrySetCurrentSelectionAsync(
-                        config,
-                        folder,
-                        refreshHistoryIfFolder: true,
-                        persistSelection: true);
-                }
-                finally
-                {
-                    _isNavigating = false;
-                }
+                _ = await TrySetCurrentSelectionAsync(
+                    config,
+                    folder,
+                    refreshHistoryIfFolder: true,
+                    persistSelection: true);
             }
         }
 
@@ -185,7 +198,7 @@ namespace FolderRewind.Views
 
             var newComment = inputBox.Text?.Trim() ?? string.Empty;
 
-            await ViewModel.UpdateCommentAsync(item, newComment);
+            _ = await ViewModel.UpdateCommentAsync(item, newComment);
         }
 
         private async void OnToggleImportantClick(object sender, RoutedEventArgs e)
@@ -195,7 +208,7 @@ namespace FolderRewind.Views
                 return;
             }
 
-            await ViewModel.ToggleImportantAsync(item);
+            _ = await ViewModel.ToggleImportantAsync(item);
         }
 
         private async void OnHistoryViewSelectionChanged(SelectorBar sender, SelectorBarSelectionChangedEventArgs args)
@@ -494,13 +507,13 @@ namespace FolderRewind.Views
             };
             ThemeService.ApplyThemeToDialog(dialog);
             if (await dialog.ShowAsync() == ContentDialogResult.Primary)
-                await ViewModel.UpdateRunCommentAsync(item, inputBox.Text?.Trim() ?? string.Empty);
+                _ = await ViewModel.UpdateRunCommentAsync(item, inputBox.Text?.Trim() ?? string.Empty);
         }
 
         private async void OnToggleRunImportantClick(object sender, RoutedEventArgs e)
         {
             if (sender is Button { DataContext: BackupRunViewItem item })
-                await ViewModel.ToggleRunImportantAsync(item);
+                _ = await ViewModel.ToggleRunImportantAsync(item);
         }
 
         private async void OnRestoreRunClick(object sender, RoutedEventArgs e)
@@ -1061,17 +1074,17 @@ namespace FolderRewind.Views
             {
                 ConfigFilter.SelectedItem = config;
                 ConfigureFolderFilter(config, folder);
-
-                _ = await TrySetCurrentSelectionAsync(
-                    config,
-                    folder,
-                    refreshHistoryIfFolder: folder != null,
-                    persistSelection: true);
             }
             finally
             {
                 _isNavigating = false;
             }
+
+            _ = await TrySetCurrentSelectionAsync(
+                config,
+                folder,
+                refreshHistoryIfFolder: folder != null,
+                persistSelection: true);
         }
 
         private bool TryGetSelectedContext(out BackupConfig config, out ManagedFolder folder)
@@ -1101,8 +1114,6 @@ namespace FolderRewind.Views
             bool refreshHistoryIfFolder,
             bool persistSelection)
         {
-            ConfigFilter.IsEnabled = false;
-            FolderFilter.IsEnabled = false;
             try
             {
                 await ViewModel.SetCurrentSelectionAsync(
@@ -1112,18 +1123,17 @@ namespace FolderRewind.Views
                     persistSelection);
                 return true;
             }
+            catch (OperationCanceledException)
+            {
+                return false;
+            }
             catch (Exception ex)
             {
-                ViewModel.ClearCurrentSelection();
                 var message = I18n.Format("History_NativeInitializationFailed", config.Name, ex.Message);
+                ViewModel.ReportLoadFailure(message);
                 LogService.LogError(message, nameof(HistoryPage), ex);
                 NotificationService.ShowError(message);
                 return false;
-            }
-            finally
-            {
-                ConfigFilter.IsEnabled = true;
-                FolderFilter.IsEnabled = !ViewModel.IsGroupedRunView;
             }
         }
 

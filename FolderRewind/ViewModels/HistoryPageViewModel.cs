@@ -21,27 +21,55 @@ namespace FolderRewind.ViewModels;
 
 public sealed class HistoryPageViewModel : ViewModelBase
 {
+    private static readonly TimeSpan ChangeRefreshDebounce = TimeSpan.FromMilliseconds(200);
     private readonly List<NativeHistoryVersionViewItem> _allVersions = [];
     private readonly List<BackupRunViewItem> _allRuns = [];
     private readonly HashSet<VersionId> _deletingVersions = [];
     private readonly object _deleteSync = new();
+    private readonly object _changeRefreshSync = new();
+    private readonly LatestRequestCoordinator _selectionRequests = new();
+    private readonly LatestRequestCoordinator _refreshRequests = new();
     private IDisposable? _changeSubscription;
+    private CancellationTokenSource? _changeRefreshSource;
     private BackupConfig? _currentConfig;
     private ManagedFolder? _currentFolder;
     private bool _isEmpty = true;
+    private bool _isLoading;
+    private string _errorMessage = string.Empty;
     private int _missingCount;
     private string _commentFilterText = string.Empty;
     private HistoryViewMode _viewMode = HistoryViewMode.PerSource;
     private BranchViewItem? _selectedBranch;
     private bool _refreshingBranches;
+    private volatile bool _isActive;
 
-    public ObservableCollection<NativeHistoryVersionViewItem> FilteredHistory { get; } = [];
-    public ObservableCollection<BackupRunViewItem> FilteredRuns { get; } = [];
-    public ObservableCollection<BranchViewItem> Branches { get; } = [];
-    public ObservableCollection<SafetySnapshotViewItem> ActiveSafetySnapshots { get; } = [];
+    public BatchObservableCollection<NativeHistoryVersionViewItem> FilteredHistory { get; } = [];
+    public BatchObservableCollection<BackupRunViewItem> FilteredRuns { get; } = [];
+    public BatchObservableCollection<BranchViewItem> Branches { get; } = [];
+    public BatchObservableCollection<SafetySnapshotViewItem> ActiveSafetySnapshots { get; } = [];
     public ObservableCollection<BackupConfig> Configs => ConfigService.CurrentConfig?.BackupConfigs ?? [];
     private GlobalSettings? Settings => ConfigService.CurrentConfig?.GlobalSettings;
     public bool IsEmpty { get => _isEmpty; private set => SetProperty(ref _isEmpty, value); }
+    public bool IsLoading
+    {
+        get => _isLoading;
+        private set
+        {
+            if (SetProperty(ref _isLoading, value)) OnPropertyChanged(nameof(ShowEmptyState));
+        }
+    }
+    public string ErrorMessage
+    {
+        get => _errorMessage;
+        private set
+        {
+            if (!SetProperty(ref _errorMessage, value ?? string.Empty)) return;
+            OnPropertyChanged(nameof(HasError));
+            OnPropertyChanged(nameof(ShowEmptyState));
+        }
+    }
+    public bool HasError => !string.IsNullOrWhiteSpace(ErrorMessage);
+    public bool ShowEmptyState => IsEmpty && !IsLoading && !HasError;
     public bool HasMissing => _missingCount > 0;
     public bool IsGroupedRunView => _viewMode == HistoryViewMode.ByRun;
     public bool ShowGroupedRunHistory => IsGroupedRunView;
@@ -102,34 +130,70 @@ public sealed class HistoryPageViewModel : ViewModelBase
         bool persistSelection,
         CancellationToken cancellationToken = default)
     {
+        using var request = _selectionRequests.Begin(cancellationToken);
+        _isActive = true;
+        _refreshRequests.CancelCurrent();
+        CancelScheduledChangeRefresh();
+        DisposeChangeSubscription();
+        ErrorMessage = string.Empty;
+        var shouldRefresh = config is not null
+            && (IsGroupedRunView || (refreshHistoryIfFolder && folder is not null));
+        IsLoading = shouldRefresh;
         if (!string.Equals(_currentConfig?.Id, config?.Id, StringComparison.OrdinalIgnoreCase)) SelectedBranch = null;
         _currentConfig = config;
         _currentFolder = folder;
-        await SubscribeAsync(config, cancellationToken);
+        if (config is not null)
+        {
+            var runtime = await NativeHistoryCoreGateway.EnsureReadyAsync(config, request.Token);
+            if (!request.IsCurrent) return;
+            _changeSubscription = runtime.ChangeFeed.Subscribe(_ => ScheduleChangeRefresh());
+        }
+        if (!request.IsCurrent) return;
         NotifyContextChanged();
-        if (config is not null && (IsGroupedRunView || (refreshHistoryIfFolder && folder is not null)))
-            await RefreshCurrentHistoryAsync(cancellationToken);
-        if (persistSelection)
-            await PersistSelectionAsync(config, folder, cancellationToken);
+        if (shouldRefresh)
+            await RefreshCurrentHistoryAsync(request.Token);
+        else
+        {
+            ClearPresentation();
+            IsLoading = false;
+        }
+        if (request.IsCurrent && persistSelection)
+            await PersistSelectionAsync(config, folder, request.Token);
     }
 
     public void ClearCurrentSelection()
     {
+        Suspend();
         _currentConfig = null;
         _currentFolder = null;
-        DisposeChangeSubscription();
-        _allVersions.Clear();
-        _allRuns.Clear();
-        FilteredHistory.Clear();
-        FilteredRuns.Clear();
-        Branches.Clear();
-        ActiveSafetySnapshots.Clear();
-        SelectedBranch = null;
-        _missingCount = 0;
-        IsEmpty = true;
-        OnPropertyChanged(nameof(HasMissing));
-        OnPropertyChanged(nameof(CurrentBranchDisplay));
+        ClearPresentation();
+        ErrorMessage = string.Empty;
         NotifyContextChanged();
+    }
+
+    public void Suspend()
+    {
+        _isActive = false;
+        _selectionRequests.CancelCurrent();
+        _refreshRequests.CancelCurrent();
+        CancelScheduledChangeRefresh();
+        DisposeChangeSubscription();
+        IsLoading = false;
+    }
+
+    public void ReportLoadFailure(string message)
+    {
+        ErrorMessage = message ?? string.Empty;
+        IsLoading = false;
+    }
+
+    private void ReportOperationFailure(string operation, Exception exception)
+    {
+        ErrorMessage = exception.Message;
+        LogService.LogError(
+            $"[HistoryPageViewModel] History {operation} failed: {exception.Message}",
+            nameof(HistoryPageViewModel),
+            exception);
     }
 
     public bool TryGetCurrentSelection(out BackupConfig? config, out ManagedFolder? folder)
@@ -150,65 +214,60 @@ public sealed class HistoryPageViewModel : ViewModelBase
         return config is not null;
     }
 
-    public async Task RefreshCurrentHistoryAsync(CancellationToken cancellationToken = default)
+    public Task RefreshCurrentHistoryAsync(CancellationToken cancellationToken = default)
     {
+        CancelScheduledChangeRefresh();
+        return RefreshCurrentHistoryCoreAsync(cancellationToken);
+    }
+
+    private async Task RefreshCurrentHistoryCoreAsync(CancellationToken cancellationToken)
+    {
+        if (!_isActive) return;
+        using var request = _refreshRequests.Begin(cancellationToken);
+        var token = request.Token;
         var selectedBranchId = SelectedBranch?.BranchId;
-        _allVersions.Clear(); _allRuns.Clear(); FilteredHistory.Clear(); FilteredRuns.Clear(); Branches.Clear();
-        ActiveSafetySnapshots.Clear();
         var config = _currentConfig;
         var folder = _currentFolder;
-        if (config is null) { IsEmpty = true; return; }
-        var runtime = await NativeHistoryCoreGateway.EnsureReadyAsync(config, cancellationToken);
-        SourceId? sourceId = folder is not null && Guid.TryParse(folder.Id, out var id) && id != Guid.Empty ? new SourceId(id) : null;
-        var snapshot = await new HistoryPresentationQueryService(runtime)
-            .QueryAsync(sourceId, cancellationToken: cancellationToken);
-        var branchNames = snapshot.Branches.ToDictionary(branch => branch.BranchId, branch => branch.Name);
-        _allVersions.AddRange(snapshot.Timeline.Select(item => new NativeHistoryVersionViewItem(item, branchNames)));
-        _allRuns.AddRange(snapshot.Runs.Select(item => new BackupRunViewItem(item)));
-        _refreshingBranches = true;
+        IsLoading = true;
+        ErrorMessage = string.Empty;
         try
         {
-            foreach (var branch in snapshot.Branches)
+            if (config is null)
             {
-                HistoryCheckoutPlan? checkoutPlan = null;
-                if (!branch.IsMultiTip && branch.HasCheckoutTarget && branch.Tips.Length == 1)
-                {
-                    try
-                    {
-                        checkoutPlan = await NativeHistoryApplicationService.PlanCheckoutAsync(
-                                config,
-                                branch.Tips[0].UpdateId,
-                                AssessmentDepth.Fast,
-                                cancellationToken);
-                    }
-                    catch (Exception ex) when (ex is not OperationCanceledException)
-                    {
-                        checkoutPlan = new HistoryCheckoutPlan(
-                            HistoryCheckoutReadiness.Blocked,
-                            branch.Tips[0],
-                            null,
-                            -1,
-                            [],
-                            [],
-                            [],
-                            ex.Message);
-                    }
-                }
-                Branches.Add(new BranchViewItem(branch, checkoutPlan));
+                if (request.IsCurrent) ClearPresentation();
+                return;
             }
-            foreach (var safetySnapshot in snapshot.ActiveSafetySnapshots)
-                ActiveSafetySnapshots.Add(new SafetySnapshotViewItem(safetySnapshot));
-            SelectedBranch = Branches.FirstOrDefault(branch => branch.BranchId == selectedBranchId)
-                ?? Branches.FirstOrDefault(branch => branch.IsActive)
-                ?? Branches.FirstOrDefault(branch => !branch.IsDeleted);
+
+            var runtime = await NativeHistoryCoreGateway.EnsureReadyAsync(config, token);
+            SourceId? sourceId = folder is not null
+                && Guid.TryParse(folder.Id, out var id)
+                && id != Guid.Empty
+                    ? new SourceId(id)
+                    : null;
+            var snapshot = await new HistoryPresentationQueryService(runtime)
+                .QueryAsync(sourceId, cancellationToken: token);
+            var presentation = await BuildPresentationAsync(config, snapshot, token);
+            token.ThrowIfCancellationRequested();
+            if (!request.IsCurrent || !_isActive) return;
+
+            ApplyPresentation(presentation, selectedBranchId);
+        }
+        catch (OperationCanceledException) when (token.IsCancellationRequested)
+        {
+        }
+        catch (Exception ex)
+        {
+            if (!request.IsCurrent || !_isActive) return;
+            ErrorMessage = ex.Message;
+            LogService.LogError(
+                $"[HistoryPageViewModel] History refresh failed: {ex.Message}",
+                nameof(HistoryPageViewModel),
+                ex);
         }
         finally
         {
-            _refreshingBranches = false;
+            if (request.IsCurrent) IsLoading = false;
         }
-        OnPropertyChanged(nameof(CurrentBranchDisplay));
-        NotifyBranchSelectionChanged();
-        ApplyFilter();
     }
 
     public async Task SetHistoryViewModeAsync(HistoryViewMode mode, CancellationToken cancellationToken = default)
@@ -283,63 +342,115 @@ public sealed class HistoryPageViewModel : ViewModelBase
         return ShellPathService.TryRevealPathInExplorer(item.LocalPath, out errorMessage);
     }
 
-    public async Task UpdateCommentAsync(
+    public async Task<bool> UpdateCommentAsync(
         NativeHistoryVersionViewItem item,
         string comment,
         CancellationToken cancellationToken = default)
     {
-        if (_currentConfig is null) return;
-        var runtime = await NativeHistoryCoreGateway.EnsureReadyAsync(_currentConfig, cancellationToken);
-        await runtime.Annotations.SetCommentAsync(
-            new HistoryAnnotationTarget(HistoryAnnotationTargetKind.Version, item.VersionId.Value),
-            comment,
-            cancellationToken);
-        await RefreshCurrentHistoryAsync(cancellationToken);
+        if (_currentConfig is null) return false;
+        try
+        {
+            var runtime = await NativeHistoryCoreGateway.EnsureReadyAsync(_currentConfig, cancellationToken);
+            await runtime.Annotations.SetCommentAsync(
+                new HistoryAnnotationTarget(HistoryAnnotationTargetKind.Version, item.VersionId.Value),
+                comment,
+                cancellationToken);
+            await RefreshCurrentHistoryAsync(cancellationToken);
+            return true;
+        }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+            throw;
+        }
+        catch (Exception ex)
+        {
+            ReportOperationFailure("version comment", ex);
+            return false;
+        }
     }
 
-    public async Task ToggleImportantAsync(
+    public async Task<bool> ToggleImportantAsync(
         NativeHistoryVersionViewItem item,
         CancellationToken cancellationToken = default)
     {
-        if (_currentConfig is null) return;
-        var runtime = await NativeHistoryCoreGateway.EnsureReadyAsync(_currentConfig, cancellationToken);
-        await runtime.Annotations.SetPinAsync(
-            new HistoryAnnotationTarget(HistoryAnnotationTargetKind.Version, item.VersionId.Value),
-            !item.IsImportant,
-            cancellationToken);
-        await RefreshCurrentHistoryAsync(cancellationToken);
-    }
-
-    public async Task UpdateRunCommentAsync(
-        BackupRunViewItem item,
-        string comment,
-        CancellationToken cancellationToken = default)
-    {
-        if (_currentConfig is null) return;
-        var runtime = await NativeHistoryCoreGateway.EnsureReadyAsync(_currentConfig, cancellationToken);
-        await runtime.Annotations.SetCommentAsync(
-            new HistoryAnnotationTarget(HistoryAnnotationTargetKind.Run, item.RunId.Value),
-            comment,
-            cancellationToken);
-        await RefreshCurrentHistoryAsync(cancellationToken);
-    }
-
-    public async Task ToggleRunImportantAsync(
-        BackupRunViewItem item,
-        CancellationToken cancellationToken = default)
-    {
-        if (_currentConfig is null) return;
-        var runtime = await NativeHistoryCoreGateway.EnsureReadyAsync(_currentConfig, cancellationToken);
-        await runtime.Annotations.SetRunImportantAsync(
-            new HistoryAnnotationTarget(HistoryAnnotationTargetKind.Run, item.RunId.Value),
-            !item.IsImportant,
-            cancellationToken);
-        if (item.ResultCheckpointId is { } checkpointId)
+        if (_currentConfig is null) return false;
+        try
+        {
+            var runtime = await NativeHistoryCoreGateway.EnsureReadyAsync(_currentConfig, cancellationToken);
             await runtime.Annotations.SetPinAsync(
-                new HistoryAnnotationTarget(HistoryAnnotationTargetKind.Checkpoint, checkpointId.Value),
+                new HistoryAnnotationTarget(HistoryAnnotationTargetKind.Version, item.VersionId.Value),
                 !item.IsImportant,
                 cancellationToken);
-        await RefreshCurrentHistoryAsync(cancellationToken);
+            await RefreshCurrentHistoryAsync(cancellationToken);
+            return true;
+        }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+            throw;
+        }
+        catch (Exception ex)
+        {
+            ReportOperationFailure("version pin", ex);
+            return false;
+        }
+    }
+
+    public async Task<bool> UpdateRunCommentAsync(
+        BackupRunViewItem item,
+        string comment,
+        CancellationToken cancellationToken = default)
+    {
+        if (_currentConfig is null) return false;
+        try
+        {
+            var runtime = await NativeHistoryCoreGateway.EnsureReadyAsync(_currentConfig, cancellationToken);
+            await runtime.Annotations.SetCommentAsync(
+                new HistoryAnnotationTarget(HistoryAnnotationTargetKind.Run, item.RunId.Value),
+                comment,
+                cancellationToken);
+            await RefreshCurrentHistoryAsync(cancellationToken);
+            return true;
+        }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+            throw;
+        }
+        catch (Exception ex)
+        {
+            ReportOperationFailure("run comment", ex);
+            return false;
+        }
+    }
+
+    public async Task<bool> ToggleRunImportantAsync(
+        BackupRunViewItem item,
+        CancellationToken cancellationToken = default)
+    {
+        if (_currentConfig is null) return false;
+        try
+        {
+            var runtime = await NativeHistoryCoreGateway.EnsureReadyAsync(_currentConfig, cancellationToken);
+            await runtime.Annotations.SetRunImportantAsync(
+                new HistoryAnnotationTarget(HistoryAnnotationTargetKind.Run, item.RunId.Value),
+                !item.IsImportant,
+                cancellationToken);
+            if (item.ResultCheckpointId is { } checkpointId)
+                await runtime.Annotations.SetPinAsync(
+                    new HistoryAnnotationTarget(HistoryAnnotationTargetKind.Checkpoint, checkpointId.Value),
+                    !item.IsImportant,
+                    cancellationToken);
+            await RefreshCurrentHistoryAsync(cancellationToken);
+            return true;
+        }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+            throw;
+        }
+        catch (Exception ex)
+        {
+            ReportOperationFailure("run pin", ex);
+            return false;
+        }
     }
 
     public async Task<HistoryRestoreResult?> RestoreRunAsync(BackupRunViewItem item, BackupService.RestoreMode mode)
@@ -616,47 +727,222 @@ public sealed class HistoryPageViewModel : ViewModelBase
             item.SnapshotId).ConfigureAwait(false);
     }
 
+    private static Task<HistoryPresentationResult> BuildPresentationAsync(
+        BackupConfig config,
+        HistoryPresentationSnapshot snapshot,
+        CancellationToken cancellationToken)
+        => Task.Run(async () =>
+        {
+            var branchNames = snapshot.Branches.ToDictionary(branch => branch.BranchId, branch => branch.Name);
+            var versions = snapshot.Timeline
+                .Select(item => new NativeHistoryVersionViewItem(item, branchNames))
+                .ToArray();
+            var runs = snapshot.Runs.Select(item => new BackupRunViewItem(item)).ToArray();
+            var branches = new BranchViewItem[snapshot.Branches.Length];
+            await Parallel.ForEachAsync(
+                Enumerable.Range(0, snapshot.Branches.Length),
+                new ParallelOptions
+                {
+                    CancellationToken = cancellationToken,
+                    MaxDegreeOfParallelism = 4
+                },
+                async (index, token) =>
+                {
+                    var branch = snapshot.Branches[index];
+                    HistoryCheckoutPlan? checkoutPlan = null;
+                    if (!branch.IsMultiTip && branch.HasCheckoutTarget && branch.Tips.Length == 1)
+                    {
+                        try
+                        {
+                            checkoutPlan = await NativeHistoryApplicationService.PlanCheckoutAsync(
+                                    config,
+                                    branch.Tips[0].UpdateId,
+                                    AssessmentDepth.Fast,
+                                    token)
+                                .ConfigureAwait(false);
+                        }
+                        catch (Exception ex) when (ex is not OperationCanceledException)
+                        {
+                            checkoutPlan = new HistoryCheckoutPlan(
+                                HistoryCheckoutReadiness.Blocked,
+                                branch.Tips[0],
+                                null,
+                                -1,
+                                [],
+                                [],
+                                [],
+                                ex.Message);
+                        }
+                    }
+
+                    branches[index] = new BranchViewItem(branch, checkoutPlan);
+                }).ConfigureAwait(false);
+            var safetySnapshots = snapshot.ActiveSafetySnapshots
+                .Select(item => new SafetySnapshotViewItem(item))
+                .ToArray();
+            return new HistoryPresentationResult(versions, runs, branches, safetySnapshots);
+        }, cancellationToken);
+
+    private void ApplyPresentation(HistoryPresentationResult presentation, BranchId? selectedBranchId)
+    {
+        _allVersions.Clear();
+        _allVersions.AddRange(presentation.Versions);
+        _allRuns.Clear();
+        _allRuns.AddRange(presentation.Runs);
+        _refreshingBranches = true;
+        try
+        {
+            Branches.ReplaceAll(presentation.Branches);
+            ActiveSafetySnapshots.ReplaceAll(presentation.SafetySnapshots);
+            SelectedBranch = Branches.FirstOrDefault(branch => branch.BranchId == selectedBranchId)
+                ?? Branches.FirstOrDefault(branch => branch.IsActive)
+                ?? Branches.FirstOrDefault(branch => !branch.IsDeleted);
+        }
+        finally
+        {
+            _refreshingBranches = false;
+        }
+
+        OnPropertyChanged(nameof(CurrentBranchDisplay));
+        NotifyBranchSelectionChanged();
+        ApplyFilter();
+    }
+
+    private void ClearPresentation()
+    {
+        _allVersions.Clear();
+        _allRuns.Clear();
+        FilteredHistory.ReplaceAll([]);
+        FilteredRuns.ReplaceAll([]);
+        _refreshingBranches = true;
+        try
+        {
+            Branches.ReplaceAll([]);
+            ActiveSafetySnapshots.ReplaceAll([]);
+            SelectedBranch = null;
+        }
+        finally
+        {
+            _refreshingBranches = false;
+        }
+        _missingCount = 0;
+        IsEmpty = true;
+        OnPropertyChanged(nameof(HasMissing));
+        OnPropertyChanged(nameof(CurrentBranchDisplay));
+        NotifyBranchSelectionChanged();
+    }
+
     private void ApplyFilter()
     {
         var needle = CommentFilterText.Trim();
         var branchId = SelectedBranch?.BranchId;
-        FilteredHistory.Clear(); FilteredRuns.Clear();
         if (IsGroupedRunView)
         {
-            foreach (var item in _allRuns.Where(item => (branchId is null || item.BranchIds.Contains(branchId.Value))
-                         && (needle.Length == 0 
+            var runs = _allRuns.Where(item => (branchId is null || item.BranchIds.Contains(branchId.Value))
+                         && (needle.Length == 0
                              || item.Comment.Contains(needle, StringComparison.OrdinalIgnoreCase)
-                             || item.Message.Contains(needle, StringComparison.OrdinalIgnoreCase))))
-                FilteredRuns.Add(item);
+                             || item.Message.Contains(needle, StringComparison.OrdinalIgnoreCase)))
+                .ToArray();
+            FilteredRuns.ReplaceAll(runs);
+            FilteredHistory.ReplaceAll([]);
             _missingCount = 0; IsEmpty = FilteredRuns.Count == 0;
         }
         else
         {
-            foreach (var item in _allVersions.Where(item => (branchId is null || item.BranchIds.Contains(branchId.Value))
-                         && (needle.Length == 0 
+            var versions = _allVersions.Where(item => (branchId is null || item.BranchIds.Contains(branchId.Value))
+                         && (needle.Length == 0
                              || item.Comment.Contains(needle, StringComparison.OrdinalIgnoreCase)
                              || item.Message.Contains(needle, StringComparison.OrdinalIgnoreCase)
                              || item.FileName.Contains(needle, StringComparison.OrdinalIgnoreCase)
-                             || item.BranchDisplay.Contains(needle, StringComparison.OrdinalIgnoreCase))))
-                FilteredHistory.Add(item);
-            _missingCount = FilteredHistory.Count(item =>
-                item.LocalPath is not null
-                && !File.Exists(item.LocalPath)
-                && !Directory.Exists(item.LocalPath));
+                             || item.BranchDisplay.Contains(needle, StringComparison.OrdinalIgnoreCase)))
+                .ToArray();
+            FilteredHistory.ReplaceAll(versions);
+            FilteredRuns.ReplaceAll([]);
+            _missingCount = FilteredHistory.Count(item => item.IsLocalPayloadMissing);
             IsEmpty = FilteredHistory.Count == 0; UpdateTimelineVisuals(FilteredHistory);
         }
         OnPropertyChanged(nameof(HasMissing)); NotifyContextChanged();
     }
 
-    private async Task SubscribeAsync(BackupConfig? config, CancellationToken cancellationToken)
+    private void ScheduleChangeRefresh()
     {
-        DisposeChangeSubscription();
-        if (config is null) return;
-        var runtime = await NativeHistoryCoreGateway.EnsureReadyAsync(config, cancellationToken);
-        _changeSubscription = runtime.ChangeFeed.Subscribe(change =>
+        if (!_isActive) return;
+        var source = new CancellationTokenSource();
+        CancellationTokenSource? previous;
+        lock (_changeRefreshSync)
         {
-            _ = UiDispatcherService.RunOnUiAsync(() => RefreshCurrentHistoryAsync());
-        });
+            if (!_isActive)
+            {
+                source.Dispose();
+                return;
+            }
+            previous = _changeRefreshSource;
+            _changeRefreshSource = source;
+        }
+
+        CancelAndDispose(previous);
+        _ = RefreshAfterChangeDelayAsync(source, source.Token);
+    }
+
+    private async Task RefreshAfterChangeDelayAsync(
+        CancellationTokenSource source,
+        CancellationToken cancellationToken)
+    {
+        try
+        {
+            await Task.Delay(ChangeRefreshDebounce, cancellationToken).ConfigureAwait(false);
+            await UiDispatcherService.RunOnUiAsync(
+                () => RefreshCurrentHistoryCoreAsync(cancellationToken)).ConfigureAwait(false);
+        }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+        }
+        catch (Exception ex)
+        {
+            LogService.LogError(
+                $"[HistoryPageViewModel] Debounced history refresh failed: {ex.Message}",
+                nameof(HistoryPageViewModel),
+                ex);
+        }
+        finally
+        {
+            lock (_changeRefreshSync)
+            {
+                if (ReferenceEquals(_changeRefreshSource, source))
+                    _changeRefreshSource = null;
+            }
+            source.Dispose();
+        }
+    }
+
+    private void CancelScheduledChangeRefresh()
+    {
+        CancellationTokenSource? source;
+        lock (_changeRefreshSync)
+        {
+            source = _changeRefreshSource;
+            _changeRefreshSource = null;
+        }
+        CancelAndDispose(source);
+    }
+
+    private static void CancelAndDispose(CancellationTokenSource? source)
+    {
+        if (source is null) return;
+        try
+        {
+            source.Cancel(throwOnFirstException: false);
+        }
+        catch (AggregateException ex)
+        {
+            LogService.LogWarning(
+                $"[HistoryPageViewModel] A history refresh cancellation callback failed: {ex.Message}",
+                nameof(HistoryPageViewModel));
+        }
+        finally
+        {
+            source.Dispose();
+        }
     }
 
     private void DisposeChangeSubscription()
@@ -689,6 +975,12 @@ public sealed class HistoryPageViewModel : ViewModelBase
         if (changed) _ = await ConfigService.SaveAsync(cancellationToken: cancellationToken);
     }
 
+    private sealed record HistoryPresentationResult(
+        IReadOnlyList<NativeHistoryVersionViewItem> Versions,
+        IReadOnlyList<BackupRunViewItem> Runs,
+        IReadOnlyList<BranchViewItem> Branches,
+        IReadOnlyList<SafetySnapshotViewItem> SafetySnapshots);
+
     private static Brush ThemeBrush(string key, Color fallback)
     { try { if (Application.Current?.Resources.TryGetValue(key, out var value) == true && value is Brush brush) return brush; } catch { } return new SolidColorBrush(fallback); }
     private void UpdateTimelineVisuals(IEnumerable<NativeHistoryVersionViewItem> items)
@@ -714,6 +1006,12 @@ public sealed class NativeHistoryVersionViewItem(
     TimelineEntrySummary summary,
     IReadOnlyDictionary<BranchId, string>? branchNames = null)
 {
+    private readonly bool _hasLocalFile = summary.LocalPath is not null && File.Exists(summary.LocalPath);
+    private readonly bool _isLocalPayloadMissing = summary.LocalPath is not null
+        && !File.Exists(summary.LocalPath)
+        && !Directory.Exists(summary.LocalPath);
+    private readonly string _fileSizeDisplay = GetFileSizeDisplay(summary.LocalPath);
+
     public VersionId VersionId => summary.VersionId;
     public RepresentationId? RepresentationId => summary.RepresentationId;
     public string TimeDisplay => summary.CreatedAtUtc.ToLocalTime().ToString("HH:mm:ss");
@@ -725,7 +1023,8 @@ public sealed class NativeHistoryVersionViewItem(
     public bool IsImportant => summary.IsPinned;
     public bool IsPartialBackup => summary.CaptureScope == CaptureScope.PartialSource || summary.Fidelity == MaterializationFidelity.Partial;
     public bool IsMissing => summary.Readiness is HistoryPresentationReadiness.Unavailable or HistoryPresentationReadiness.PayloadReleased or HistoryPresentationReadiness.MetadataOnly;
-    public bool HasLocalFile => summary.LocalPath is not null && File.Exists(summary.LocalPath);
+    public bool HasLocalFile => _hasLocalFile;
+    public bool IsLocalPayloadMissing => _isLocalPayloadMissing;
     public bool HasCloudCopy => summary.Readiness == HistoryPresentationReadiness.PreparationRequired;
     public bool IsCloudOnly => HasCloudCopy && !HasLocalFile;
     public IReadOnlyList<BranchId> BranchIds => summary.BranchIds;
@@ -737,7 +1036,7 @@ public sealed class NativeHistoryVersionViewItem(
         1 => I18n.GetString("History_Branch_CreateFromHereHint"),
         _ => I18n.GetString("History_Branch_CreateUnavailableAmbiguousCheckpoint")
     };
-    public string FileSizeDisplay => GetFileSizeDisplay();
+    public string FileSizeDisplay => _fileSizeDisplay;
     public string BranchDisplay => string.Join(" · ", summary.BranchIds
         .Select(branchId => branchNames?.GetValueOrDefault(branchId))
         .Where(name => !string.IsNullOrWhiteSpace(name)));
@@ -761,12 +1060,12 @@ public sealed class NativeHistoryVersionViewItem(
     public Brush? TimelineNodeFillBrush { get; set; }
     public Brush? TimelineNodeBorderBrush { get; set; }
 
-    private string GetFileSizeDisplay()
+    private static string GetFileSizeDisplay(string? localPath)
     {
-        if (string.IsNullOrWhiteSpace(LocalPath) || !File.Exists(LocalPath)) return string.Empty;
+        if (string.IsNullOrWhiteSpace(localPath) || !File.Exists(localPath)) return string.Empty;
         try
         {
-            var bytes = new FileInfo(LocalPath).Length;
+            var bytes = new FileInfo(localPath).Length;
             if (bytes < 1024) return $"{bytes.ToString("N0", CultureInfo.CurrentCulture)} B";
             if (bytes < 1024L * 1024) return $"{(bytes / 1024d).ToString("N1", CultureInfo.CurrentCulture)} KB";
             if (bytes < 1024L * 1024 * 1024) return $"{(bytes / 1024d / 1024d).ToString("N1", CultureInfo.CurrentCulture)} MB";

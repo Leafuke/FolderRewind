@@ -26,11 +26,18 @@ public sealed class HistoryRuntimeManager : IAsyncDisposable
         var lazy = _runtimes.GetOrAdd(
             key,
             _ => new Lazy<Task<HistoryRuntime>>(
-                () => CreateRuntimeAsync(configId, repositoryFactory, cancellationToken),
+                () => CreateRuntimeAsync(configId, repositoryFactory, CancellationToken.None),
                 LazyThreadSafetyMode.ExecutionAndPublication));
+        var initialization = lazy.Value;
         try
         {
-            return await lazy.Value.ConfigureAwait(false);
+            return await initialization.WaitAsync(cancellationToken).ConfigureAwait(false);
+        }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+            // A caller may stop waiting without cancelling the shared initialization
+            // that another caller already depends on.
+            throw;
         }
         catch
         {

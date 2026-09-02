@@ -780,6 +780,15 @@ Duplicate folder names are blocked within the same configuration so different di
   <data name="HistoryPage_EmptyState.Text" xml:space="preserve">
     <value>Select a folder to view history</value>
   </data>
+  <data name="HistoryPage_Loading.Text" xml:space="preserve">
+    <value>Loading history...</value>
+  </data>
+  <data name="HistoryPage_LoadError.Title" xml:space="preserve">
+    <value>History could not be loaded</value>
+  </data>
+  <data name="HistoryPage_Retry.Content" xml:space="preserve">
+    <value>Retry</value>
+  </data>
   <data name="FolderManager_CurrentConfig.Text" xml:space="preserve">
     <value>Current config:</value>
   </data>

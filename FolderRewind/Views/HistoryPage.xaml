@@ -13,6 +13,7 @@
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto"/>
             <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
             <RowDefinition Height="*"/>
         </Grid.RowDefinitions>
 
@@ -225,8 +226,33 @@
             </StackPanel>
         </Border>
 
+        <StackPanel Grid.Row="2" Spacing="8" Margin="0,0,0,12">
+            <Grid Visibility="{x:Bind ViewModel.IsLoading, Mode=OneWay, Converter={StaticResource BoolToVisConverter}}"
+                  AutomationProperties.LiveSetting="Polite">
+                <StackPanel Orientation="Horizontal" Spacing="8">
+                    <ProgressRing Width="20" Height="20" IsActive="{x:Bind ViewModel.IsLoading, Mode=OneWay}"/>
+                    <TextBlock x:Uid="HistoryPage_Loading"
+                               VerticalAlignment="Center"
+                               Foreground="{ThemeResource TextFillColorSecondaryBrush}"/>
+                </StackPanel>
+            </Grid>
+            <InfoBar x:Name="HistoryLoadError"
+                     x:Uid="HistoryPage_LoadError"
+                     AutomationProperties.AutomationId="HistoryLoadError"
+                     IsOpen="{x:Bind ViewModel.HasError, Mode=OneWay}"
+                     IsClosable="False"
+                     Severity="Error"
+                     Message="{x:Bind ViewModel.ErrorMessage, Mode=OneWay}">
+                <InfoBar.ActionButton>
+                    <Button x:Uid="HistoryPage_Retry"
+                            AutomationProperties.AutomationId="HistoryRetry"
+                            Click="OnRetryHistoryClick"/>
+                </InfoBar.ActionButton>
+            </InfoBar>
+        </StackPanel>
+
         <!-- 历史列表 -->
-        <ListView x:Name="HistoryList" Grid.Row="2" SelectionMode="None"
+        <ListView x:Name="HistoryList" Grid.Row="3" SelectionMode="None"
                   AutomationProperties.AutomationId="HistoryVersionList"
                   ItemsSource="{x:Bind ViewModel.FilteredHistory, Mode=OneWay}" Visibility="{x:Bind ViewModel.ShowPerSourceHistory, Mode=OneWay, Converter={StaticResource BoolToVisConverter}}">
             <!-- ItemTemplate 保持之前的 Git 节点风格 -->
@@ -321,7 +347,7 @@
             </ListView.ItemTemplate>
         </ListView>
 
-        <ListView x:Name="RunHistoryList" Grid.Row="2" SelectionMode="None"
+        <ListView x:Name="RunHistoryList" Grid.Row="3" SelectionMode="None"
                   AutomationProperties.AutomationId="HistoryRunList"
                   ItemsSource="{x:Bind ViewModel.FilteredRuns, Mode=OneWay}" Visibility="{x:Bind ViewModel.ShowGroupedRunHistory, Mode=OneWay, Converter={StaticResource BoolToVisConverter}}">
             <ListView.ItemTemplate>
@@ -382,8 +408,8 @@
         </ListView>
 
         <!-- 空状态提示 -->
-        <StackPanel Grid.Row="2" VerticalAlignment="Center" HorizontalAlignment="Center" 
-                    Visibility="{x:Bind ViewModel.IsEmpty, Mode=OneWay, Converter={StaticResource BoolToVisConverter}}">
+        <StackPanel Grid.Row="3" VerticalAlignment="Center" HorizontalAlignment="Center"
+                    Visibility="{x:Bind ViewModel.ShowEmptyState, Mode=OneWay, Converter={StaticResource BoolToVisConverter}}">
             <FontIcon Glyph="&#xE7BA;" FontSize="48" Foreground="{ThemeResource TextFillColorSecondaryBrush}"/>
             <TextBlock x:Uid="HistoryPage_EmptyState" Margin="0,16,0,0" Foreground="{ThemeResource TextFillColorSecondaryBrush}"/>
         </StackPanel>
