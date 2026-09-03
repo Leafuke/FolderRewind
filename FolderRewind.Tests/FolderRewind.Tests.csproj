@@ -89,6 +89,7 @@
     <Compile Include="..\FolderRewind\Services\LatestRequestCoordinator.cs" Link="Source\LatestRequestCoordinator.cs" />
     <Compile Include="..\FolderRewind\Services\AsyncPeriodicLoop.cs" Link="Source\AsyncPeriodicLoop.cs" />
     <Compile Include="..\FolderRewind\Services\AsyncOperationQueue.cs" Link="Source\AsyncOperationQueue.cs" />
+    <Compile Include="..\FolderRewind\Services\HistoryInteractionContracts.cs" Link="Source\HistoryInteractionContracts.cs" />
     <Compile Include="..\FolderRewind\Services\AutomationSchedulePolicy.cs" Link="Source\AutomationSchedulePolicy.cs" />
     <Compile Include="..\FolderRewind\Services\AutomationConditionStateTracker.cs" Link="Source\AutomationConditionStateTracker.cs" />
     <Compile Include="..\FolderRewind\Services\CloudCommandSecurity.cs" Link="Source\CloudCommandSecurity.cs" />

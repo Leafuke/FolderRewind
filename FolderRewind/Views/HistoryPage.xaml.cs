@@ -1,1113 +1,287 @@
-using FolderRewind.Models;
 using FolderRewind.History.Application;
-using FolderRewind.History.Domain;
+using FolderRewind.Models;
 using FolderRewind.Services;
 using FolderRewind.ViewModels;
-using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Automation;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Navigation;
 using System;
-using System.Linq;
 using System.Threading.Tasks;
 
-namespace FolderRewind.Views
+namespace FolderRewind.Views;
+
+public sealed partial class HistoryPage : Page
 {
-    public sealed partial class HistoryPage : Page
+    private bool _isNavigating;
+
+    public HistoryPageViewModel ViewModel { get; }
+
+    public HistoryPage()
     {
-        public HistoryPageViewModel ViewModel { get; } = new();
+        ViewModel = new HistoryPageViewModel(new HistoryInteractionService(() => XamlRoot));
+        InitializeComponent();
+        ViewModel.Initialize();
 
-        private bool _isNavigating;
+        // 首次导航时显式设置集合，避免早期 WinUI 版本在缓存页面上延后建立绑定。
+        ConfigFilter.ItemsSource = ViewModel.Configs;
+        HistoryList.ItemsSource = ViewModel.FilteredHistory;
+        RunHistoryList.ItemsSource = ViewModel.FilteredRuns;
+        BranchFilter.ItemsSource = ViewModel.Branches;
+        UseColorsToggleMenuItem.IsChecked = ViewModel.UseHistoryStatusColors;
+        HistoryViewSelector.SelectedItem = ViewModel.IsGroupedRunView
+            ? RunHistoryViewItem
+            : SourceHistoryViewItem;
+    }
 
-        public HistoryPage()
+    private void OnHistoryContainerContentChanging(
+        ListViewBase sender,
+        ContainerContentChangingEventArgs args)
+    {
+        if (args.InRecycleQueue)
         {
-            this.InitializeComponent();
-
-            ViewModel.Initialize();
-
-
-            // 历史页在早期版本中遇到过首次导航时绑定晚于控件创建的问题，
-            // 这里保留一次显式赋值，确保下拉框与列表首次进入可见。
-            ConfigFilter.ItemsSource = ViewModel.Configs;
-            HistoryList.ItemsSource = ViewModel.FilteredHistory;
-            RunHistoryList.ItemsSource = ViewModel.FilteredRuns;
-            BranchFilter.ItemsSource = ViewModel.Branches;
-            UseColorsToggleMenuItem.IsChecked = ViewModel.UseHistoryStatusColors;
-            HistoryViewSelector.SelectedItem = ViewModel.IsGroupedRunView
-                ? RunHistoryViewItem
-                : SourceHistoryViewItem;
+            ClearContainerAutomationMetadata(args);
+            return;
         }
 
-        private void OnHistoryContainerContentChanging(
-            ListViewBase sender,
-            ContainerContentChangingEventArgs args)
+        if (args.Item is NativeHistoryVersionViewItem item)
         {
-            if (args.InRecycleQueue)
-            {
-                ClearContainerAutomationMetadata(args);
-                return;
-            }
-
-            if (args.Item is not NativeHistoryVersionViewItem item)
-            {
-                return;
-            }
-
             AutomationProperties.SetName(args.ItemContainer, item.Message);
             AutomationProperties.SetAutomationId(args.ItemContainer, $"HistoryVersionItem_{item.VersionId}");
         }
+    }
 
-        private void OnRunContainerContentChanging(
-            ListViewBase sender,
-            ContainerContentChangingEventArgs args)
+    private void OnRunContainerContentChanging(
+        ListViewBase sender,
+        ContainerContentChangingEventArgs args)
+    {
+        if (args.InRecycleQueue)
         {
-            if (args.InRecycleQueue)
-            {
-                ClearContainerAutomationMetadata(args);
-                return;
-            }
+            ClearContainerAutomationMetadata(args);
+            return;
+        }
 
-            if (args.Item is not BackupRunViewItem item)
-            {
-                return;
-            }
-
+        if (args.Item is BackupRunViewItem item)
+        {
             AutomationProperties.SetName(args.ItemContainer, item.Message);
             AutomationProperties.SetAutomationId(args.ItemContainer, $"HistoryRunItem_{item.RunId}");
         }
+    }
 
-        private static void ClearContainerAutomationMetadata(ContainerContentChangingEventArgs args)
+    private static void ClearContainerAutomationMetadata(ContainerContentChangingEventArgs args)
+    {
+        AutomationProperties.SetName(args.ItemContainer, string.Empty);
+        AutomationProperties.SetAutomationId(args.ItemContainer, string.Empty);
+    }
+
+    protected override async void OnNavigatedTo(NavigationEventArgs e)
+    {
+        base.OnNavigatedTo(e);
+
+        if (e.Parameter is ManagerNavigationParameter managerParameter)
         {
-            AutomationProperties.SetName(args.ItemContainer, string.Empty);
-            AutomationProperties.SetAutomationId(args.ItemContainer, string.Empty);
+            await ApplySelectionFromNavigationAsync(managerParameter.ConfigId, managerParameter.FolderPath);
+            return;
         }
 
-        protected override async void OnNavigatedTo(NavigationEventArgs e)
+        if (e.Parameter is ManagedFolder folder)
         {
-            base.OnNavigatedTo(e);
+            await ApplySelectionFromNavigationAsync(null, folder.Path);
+            return;
+        }
 
-            if (e.Parameter is ManagerNavigationParameter managerParam)
+        await RestoreLastSelectionAsync();
+    }
+
+    protected override void OnNavigatedFrom(NavigationEventArgs e)
+    {
+        ViewModel.Suspend();
+        base.OnNavigatedFrom(e);
+    }
+
+    private async Task ApplySelectionFromNavigationAsync(string? configId, string? folderPath)
+    {
+        _isNavigating = true;
+        BackupConfig? config;
+        ManagedFolder? folder;
+        try
+        {
+            if (!ViewModel.TryResolveSelection(configId, folderPath, out config, out folder)
+                || config is null)
             {
-                await ApplySelectionFromNavigationAsync(managerParam.ConfigId, managerParam.FolderPath);
                 return;
             }
 
-            if (e.Parameter is ManagedFolder folder)
-            {
-                await ApplySelectionFromNavigationAsync(null, folder.Path);
-                return;
-            }
-
-            await RestoreLastSelectionAsync();
+            ConfigFilter.SelectedItem = config;
+            ConfigureFolderFilter(config, folder);
+        }
+        finally
+        {
+            _isNavigating = false;
         }
 
-        protected override void OnNavigatedFrom(NavigationEventArgs e)
+        await SelectHistoryAsync(config, folder, folder is not null, true);
+    }
+
+    private async Task RestoreLastSelectionAsync()
+    {
+        if (_isNavigating
+            || !ViewModel.TryResolveLastSelection(out var config, out var folder)
+            || config is null)
         {
-            ViewModel.Suspend();
-            base.OnNavigatedFrom(e);
+            return;
         }
 
-        private async void OnRetryHistoryClick(object sender, RoutedEventArgs e)
+        _isNavigating = true;
+        try
         {
-            if (ConfigFilter.SelectedItem is not BackupConfig config) return;
-            var folder = FolderFilter.SelectedItem as ManagedFolder;
-            _ = await TrySetCurrentSelectionAsync(
+            ConfigFilter.SelectedItem = config;
+            ConfigureFolderFilter(config, folder);
+        }
+        finally
+        {
+            _isNavigating = false;
+        }
+
+        await SelectHistoryAsync(config, folder, folder is not null, true);
+    }
+
+    private async void ConfigFilter_SelectionChanged(object sender, SelectionChangedEventArgs e)
+    {
+        if (_isNavigating || ConfigFilter.SelectedItem is not BackupConfig config)
+        {
+            return;
+        }
+
+        ManagedFolder? folder;
+        _isNavigating = true;
+        try
+        {
+            ConfigureFolderFilter(config, null);
+            folder = FolderFilter.SelectedItem as ManagedFolder;
+        }
+        finally
+        {
+            _isNavigating = false;
+        }
+
+        await SelectHistoryAsync(config, folder, folder is not null, true);
+    }
+
+    private async void FolderFilter_SelectionChanged(object sender, SelectionChangedEventArgs e)
+    {
+        if (_isNavigating
+            || ViewModel.IsGroupedRunView
+            || FolderFilter.SelectedItem is not ManagedFolder folder
+            || ConfigFilter.SelectedItem is not BackupConfig config)
+        {
+            return;
+        }
+
+        await SelectHistoryAsync(config, folder, true, true);
+    }
+
+    private async void OnHistoryViewSelectionChanged(
+        SelectorBar sender,
+        SelectorBarSelectionChangedEventArgs args)
+    {
+        if (sender.SelectedItem?.Tag is not string tag)
+        {
+            return;
+        }
+
+        var mode = string.Equals(tag, "Run", StringComparison.OrdinalIgnoreCase)
+            ? HistoryViewMode.ByRun
+            : HistoryViewMode.PerSource;
+        await ViewModel.ChangeViewModeCommand.ExecuteAsync(mode);
+
+        if (ConfigFilter.SelectedItem is BackupConfig config)
+        {
+            ViewModel.TryGetCurrentSelection(out _, out var currentFolder);
+            ConfigureFolderFilter(config, currentFolder);
+        }
+    }
+
+    private Task SelectHistoryAsync(
+        BackupConfig config,
+        ManagedFolder? folder,
+        bool refreshHistory,
+        bool persistSelection)
+        => ViewModel.ChangeSelectionCommand.ExecuteAsync(
+            new HistoryPageViewModel.HistorySelectionRequest(
                 config,
                 folder,
-                refreshHistoryIfFolder: ViewModel.IsGroupedRunView || folder is not null,
-                persistSelection: false);
-        }
+                refreshHistory,
+                persistSelection));
 
-        private async Task ApplySelectionFromNavigationAsync(string? configId, string? folderPath)
+    private void ConfigureFolderFilter(BackupConfig config, ManagedFolder? preferredFolder)
+    {
+        var grouped = ViewModel.IsGroupedRunView;
+        FolderFilter.IsEnabled = !grouped;
+        FolderFilter.PlaceholderText = grouped
+            ? I18n.GetString("History_Run_AllSources")
+            : string.Empty;
+        FolderFilter.ItemsSource = grouped ? null : config.SourceFolders;
+        FolderFilter.SelectedItem = grouped ? null : preferredFolder;
+        if (!grouped && preferredFolder is null)
         {
-            BackupConfig? targetConfig;
-            ManagedFolder? targetFolder;
-            _isNavigating = true;
-            try
-            {
-                if (!ViewModel.TryResolveSelection(configId, folderPath, out targetConfig, out targetFolder)
-                    || targetConfig == null)
-                {
-                    return;
-                }
-
-                ConfigFilter.SelectedItem = targetConfig;
-                ConfigureFolderFilter(targetConfig, targetFolder);
-            }
-            finally
-            {
-                _isNavigating = false;
-            }
-
-            _ = await TrySetCurrentSelectionAsync(
-                targetConfig,
-                targetFolder,
-                refreshHistoryIfFolder: targetFolder != null,
-                persistSelection: true);
+            FolderFilter.SelectedIndex = config.SourceFolders.Count > 0 ? 0 : -1;
         }
+        ScanRecoverMenuItem.IsEnabled = !grouped;
+    }
 
-        private async void ConfigFilter_SelectionChanged(object sender, SelectionChangedEventArgs e)
+    private void OnViewClick(object sender, Microsoft.UI.Xaml.RoutedEventArgs e)
+        => ExecuteItemCommand<NativeHistoryVersionViewItem>(sender, ViewModel.ViewVersionCommand);
+
+    private void OnEditCommentClick(object sender, Microsoft.UI.Xaml.RoutedEventArgs e)
+        => ExecuteItemCommand<NativeHistoryVersionViewItem>(sender, ViewModel.EditVersionCommentCommand);
+
+    private void OnToggleImportantClick(object sender, Microsoft.UI.Xaml.RoutedEventArgs e)
+        => ExecuteItemCommand<NativeHistoryVersionViewItem>(sender, ViewModel.ToggleVersionImportantCommand);
+
+    private void OnCreateBranchFromVersionClick(object sender, Microsoft.UI.Xaml.RoutedEventArgs e)
+        => ExecuteItemCommand<NativeHistoryVersionViewItem>(sender, ViewModel.CreateBranchFromVersionCommand);
+
+    private void OnUploadToCloudClick(object sender, Microsoft.UI.Xaml.RoutedEventArgs e)
+        => ExecuteItemCommand<NativeHistoryVersionViewItem>(sender, ViewModel.UploadVersionCommand);
+
+    private void OnDownloadFromCloudClick(object sender, Microsoft.UI.Xaml.RoutedEventArgs e)
+        => ExecuteItemCommand<NativeHistoryVersionViewItem>(sender, ViewModel.DownloadVersionCommand);
+
+    private void OnRestoreClick(object sender, Microsoft.UI.Xaml.RoutedEventArgs e)
+        => ExecuteItemCommand<NativeHistoryVersionViewItem>(sender, ViewModel.RestoreVersionCommand);
+
+    private void OnDeleteClick(object sender, Microsoft.UI.Xaml.RoutedEventArgs e)
+        => ExecuteItemCommand<NativeHistoryVersionViewItem>(sender, ViewModel.DeleteVersionCommand);
+
+    private void OnEditRunCommentClick(object sender, Microsoft.UI.Xaml.RoutedEventArgs e)
+        => ExecuteItemCommand<BackupRunViewItem>(sender, ViewModel.EditRunCommentCommand);
+
+    private void OnToggleRunImportantClick(object sender, Microsoft.UI.Xaml.RoutedEventArgs e)
+        => ExecuteItemCommand<BackupRunViewItem>(sender, ViewModel.ToggleRunImportantCommand);
+
+    private void OnCreateBranchFromRunClick(object sender, Microsoft.UI.Xaml.RoutedEventArgs e)
+        => ExecuteItemCommand<BackupRunViewItem>(sender, ViewModel.CreateBranchFromRunCommand);
+
+    private void OnRestoreRunClick(object sender, Microsoft.UI.Xaml.RoutedEventArgs e)
+        => ExecuteItemCommand<BackupRunViewItem>(sender, ViewModel.RestoreRunCommand);
+
+    private void OnDeleteRunClick(object sender, Microsoft.UI.Xaml.RoutedEventArgs e)
+        => ExecuteItemCommand<BackupRunViewItem>(sender, ViewModel.DeleteRunCommand);
+
+    private static void ExecuteItemCommand<T>(object sender, System.Windows.Input.ICommand command)
+        where T : class
+    {
+        if (sender is Button { DataContext: T item } && command.CanExecute(item))
         {
-            if (_isNavigating)
-            {
-                return;
-            }
-
-            if (ConfigFilter.SelectedItem is BackupConfig config)
-            {
-                ManagedFolder? folder;
-                _isNavigating = true;
-                try
-                {
-                    ConfigureFolderFilter(config, null);
-                    folder = FolderFilter.SelectedItem as ManagedFolder;
-                }
-                finally
-                {
-                    _isNavigating = false;
-                }
-
-                _ = await TrySetCurrentSelectionAsync(
-                    config,
-                    folder,
-                    refreshHistoryIfFolder: folder is not null,
-                    persistSelection: true);
-            }
+            command.Execute(item);
         }
+    }
 
-        private async void FolderFilter_SelectionChanged(object sender, SelectionChangedEventArgs e)
+    private void CommentFilterBox_TextChanged(object sender, TextChangedEventArgs e)
+    {
+        if (sender is TextBox textBox)
         {
-            if (_isNavigating) return;
-            if (ViewModel.IsGroupedRunView) return;
-            if (FolderFilter.SelectedItem is ManagedFolder folder
-                && ConfigFilter.SelectedItem is BackupConfig config)
-            {
-                _ = await TrySetCurrentSelectionAsync(
-                    config,
-                    folder,
-                    refreshHistoryIfFolder: true,
-                    persistSelection: true);
-            }
-        }
-
-        private void OnViewClick(object sender, RoutedEventArgs e)
-        {
-            if (sender is not Button btn || btn.DataContext is not NativeHistoryVersionViewItem item)
-            {
-                return;
-            }
-
-            if (!TryGetSelectedContext(out _, out _))
-            {
-                return;
-            }
-
-            if (!ViewModel.TryRevealBackupFile(item, out var errorMessage))
-            {
-                if (!string.IsNullOrWhiteSpace(errorMessage))
-                {
-                    NotificationService.ShowWarning(errorMessage);
-                }
-            }
-        }
-
-        private async void OnEditCommentClick(object sender, RoutedEventArgs e)
-        {
-            if (sender is not Button btn || btn.DataContext is not NativeHistoryVersionViewItem item)
-            {
-                return;
-            }
-
-            var newComment = await AppDialogService.Default.RequestTextAsync(
-                I18n.GetString("History_EditComment_Title"),
-                I18n.GetString("History_EditComment_Placeholder"),
-                item.Comment,
-                I18n.GetString("History_EditComment_Placeholder"),
-                xamlRoot: this.XamlRoot);
-            if (newComment is null) return;
-
-            _ = await ViewModel.UpdateCommentAsync(item, newComment);
-        }
-
-        private async void OnToggleImportantClick(object sender, RoutedEventArgs e)
-        {
-            if (sender is not Button btn || btn.DataContext is not NativeHistoryVersionViewItem item)
-            {
-                return;
-            }
-
-            _ = await ViewModel.ToggleImportantAsync(item);
-        }
-
-        private async void OnHistoryViewSelectionChanged(SelectorBar sender, SelectorBarSelectionChangedEventArgs args)
-        {
-            if (sender.SelectedItem?.Tag is not string tag) return;
-            await ViewModel.SetHistoryViewModeAsync(string.Equals(tag, "Run", StringComparison.OrdinalIgnoreCase)
-                ? HistoryViewMode.ByRun
-                : HistoryViewMode.PerSource);
-            if (ConfigFilter.SelectedItem is BackupConfig config)
-            {
-                ViewModel.TryGetCurrentSelection(out _, out var currentFolder);
-                ConfigureFolderFilter(config, currentFolder);
-            }
-        }
-
-        private async void OnCreateBranchFromVersionClick(object sender, RoutedEventArgs e)
-        {
-            if (sender is not Button { DataContext: NativeHistoryVersionViewItem item }
-                || item.BranchableCheckpointId is not { } checkpointId) return;
-            await CreateBranchFromCheckpointAsync(checkpointId);
-        }
-
-        private async void OnCreateBranchFromRunClick(object sender, RoutedEventArgs e)
-        {
-            if (sender is not Button { DataContext: BackupRunViewItem item }
-                || item.ResultCheckpointId is not { } checkpointId) return;
-            await CreateBranchFromCheckpointAsync(checkpointId);
-        }
-
-        private async Task CreateBranchFromCheckpointAsync(CheckpointId checkpointId)
-        {
-            var name = await PromptBranchNameAsync(
-                I18n.GetString("History_Branch_CreateFromHereTitle"),
-                string.Empty);
-            if (name is null) return;
-            if (!await ViewModel.CreateBranchAsync(checkpointId, name))
-                NotificationService.ShowWarning(I18n.GetString("History_Branch_NoCheckpoint"));
-            else
-                await ViewModel.RefreshCurrentHistoryAsync();
-        }
-
-        private async void OnRenameBranchClick(object sender, RoutedEventArgs e)
-        {
-            if (BranchFilter.SelectedItem is not BranchViewItem branch || !branch.CanRename) return;
-            var name = await PromptBranchNameAsync(I18n.GetString("History_Branch_RenameTitle"), branch.Name);
-            if (name is not null && await ViewModel.RenameBranchAsync(branch, name))
-                await ViewModel.RefreshCurrentHistoryAsync();
-        }
-
-        private async void OnDeleteBranchClick(object sender, RoutedEventArgs e)
-        {
-            if (BranchFilter.SelectedItem is BranchViewItem branch && branch.CanDelete)
-            {
-                if (await ViewModel.DeleteBranchAsync(branch)) await ViewModel.RefreshCurrentHistoryAsync();
-            }
-        }
-
-        private async void OnCheckoutBranchClick(object sender, RoutedEventArgs e)
-        {
-            if (BranchFilter.SelectedItem is not BranchViewItem branch || !branch.CanStartCheckout) return;
-            for (var attempt = 0; attempt < 6; attempt++)
-            {
-                var plan = await ViewModel.PlanCheckoutBranchTipAsync(branch);
-                if (plan is null) return;
-                switch (plan.Readiness)
-                {
-                    case HistoryCheckoutReadiness.Ready:
-                    case HistoryCheckoutReadiness.ProtectionRequired:
-                        if (!await ConfirmCheckoutAsync(plan.RequiresProtection)) return;
-                        var restore = await ViewModel.CheckoutBranchTipAsync(branch);
-                        if (restore?.Succeeded == true)
-                        {
-                            await ViewModel.RefreshCurrentHistoryAsync();
-                            return;
-                        }
-                        ShowCheckoutWarning(restore?.Diagnostic ?? plan.Diagnostic);
-                        return;
-
-                    case HistoryCheckoutReadiness.PreparationRequired:
-                        if (!await ConfirmPreparationAsync()) return;
-                        var prepared = await ViewModel.PrepareCheckoutBranchTipAsync(branch);
-                        if (prepared is null) return;
-                        if (prepared.Readiness is not (HistoryCheckoutReadiness.Ready
-                            or HistoryCheckoutReadiness.ProtectionRequired))
-                        {
-                            ShowCheckoutWarning(prepared.Diagnostic);
-                            return;
-                        }
-                        continue;
-
-                    case HistoryCheckoutReadiness.ConfigurationMappingRequired:
-                        if (!await RepairMissingSourcesAsync(plan)) return;
-                        continue;
-
-                    case HistoryCheckoutReadiness.ConfigurationBoundaryChangeRequired:
-                        if (!await RepairFirstBoundaryAsync(plan)) return;
-                        continue;
-
-                    case HistoryCheckoutReadiness.StalePlan:
-                        continue;
-
-                    default:
-                        ShowCheckoutWarning(plan.Diagnostic);
-                        return;
-                }
-            }
-            ShowCheckoutWarning(I18n.GetString("History_CheckoutReadiness_StalePlan"));
-        }
-
-        private async Task<bool> ConfirmCheckoutAsync(bool requiresProtection)
-        {
-            return await AppDialogService.Default.ConfirmAsync(
-                I18n.GetString("History_Branch_CheckoutTitle"),
-                requiresProtection
-                    ? I18n.GetString("History_Branch_CheckoutProtectionContent")
-                    : I18n.GetString("History_Branch_CheckoutContent"),
-                I18n.GetString("History_Branch_CheckoutPrimary"),
-                XamlRoot,
-                isDestructive: true);
-        }
-
-        private async Task<bool> ConfirmPreparationAsync()
-        {
-            return await AppDialogService.Default.ConfirmAsync(
-                I18n.GetString("History_Checkout_PrepareTitle"),
-                I18n.GetString("History_Checkout_PrepareContent"),
-                I18n.GetString("History_Checkout_PreparePrimary"),
-                XamlRoot,
-                isDestructive: true);
-        }
-
-        private async Task<bool> RepairMissingSourcesAsync(HistoryCheckoutPlan plan)
-        {
-            foreach (var missing in plan.MissingHistoricalSources)
-            {
-                var expectedRevision = ViewModel.CurrentConfigRevision;
-                if (expectedRevision is null) return false;
-                var path = await PromptMissingSourcePathAsync(missing);
-                if (path is null) return false;
-                var result = ViewModel.RepairMissingSource(missing, path, expectedRevision);
-                if (result.Succeeded) continue;
-                ShowCheckoutWarning(result.Diagnostic);
-                return false;
-            }
-            await ViewModel.RefreshCurrentHistoryAsync();
-            return true;
-        }
-
-        private async Task<string?> PromptMissingSourcePathAsync(MissingHistoricalSource missing)
-        {
-            var path = new TextBox { Text = missing.SuggestedPath, MinWidth = 420 };
-            var content = new StackPanel
-            {
-                Spacing = 8,
-                Children =
-                {
-                    new TextBlock
-                    {
-                        Text = I18n.Format(
-                            "History_Checkout_MissingSourceDescription",
-                            missing.Descriptor.DisplayName,
-                            missing.SourceId),
-                        TextWrapping = TextWrapping.Wrap
-                    },
-                    path
-                }
-            };
-            var dialog = new ContentDialog
-            {
-                Title = I18n.GetString("History_Checkout_MissingSourceTitle"),
-                Content = content,
-                PrimaryButtonText = I18n.GetString("History_Checkout_RepairBindingPrimary"),
-                CloseButtonText = I18n.GetString("Common_Cancel"),
-                DefaultButton = ContentDialogButton.Close,
-                XamlRoot = XamlRoot
-            };
-            ThemeService.ApplyThemeToDialog(dialog);
-            return await AppDialogService.Default.ShowCustomAsync(dialog, this.XamlRoot) == ContentDialogResult.Primary
-                && !string.IsNullOrWhiteSpace(path.Text)
-                ? path.Text.Trim()
-                : null;
-        }
-
-        private async Task<bool> RepairFirstBoundaryAsync(HistoryCheckoutPlan plan)
-        {
-            var mismatch = plan.BoundaryMismatches.FirstOrDefault();
-            var expectedRevision = ViewModel.CurrentConfigRevision;
-            if (mismatch is null || expectedRevision is null) return false;
-            if (!await AppDialogService.Default.ConfirmAsync(
-                    I18n.GetString("History_Checkout_BoundaryTitle"),
-                    I18n.Format(
-                        "History_Checkout_BoundaryDescription",
-                        mismatch.SourceId,
-                        FormatBoundary(mismatch.CurrentBoundary),
-                        FormatBoundary(mismatch.HistoricalBoundary)),
-                    I18n.GetString("History_Checkout_RepairBoundaryPrimary"),
-                    XamlRoot,
-                    isDestructive: true)) return false;
-            var result = ViewModel.RepairHistoricalBoundary(mismatch, expectedRevision);
-            if (!result.Succeeded)
-            {
-                ShowCheckoutWarning(result.Diagnostic);
-                return false;
-            }
-            await ViewModel.RefreshCurrentHistoryAsync();
-            return true;
-        }
-
-        private static string FormatBoundary(EffectiveSourceBoundarySnapshot boundary)
-            => $"Scope={boundary.ScopeMode} [{string.Join(", ", boundary.ScopeRules)}]; "
-               + $"Filter={boundary.FilterMode} [{string.Join(", ", boundary.FilterRules)}]; "
-               + $"Regex={boundary.UseRegex}; Fingerprint={boundary.Fingerprint}";
-
-        private void ShowCheckoutWarning(string? diagnostic)
-            => NotificationService.ShowWarning(string.IsNullOrWhiteSpace(diagnostic)
-                ? I18n.GetString("History_NativeAction_NotAvailable")
-                : diagnostic);
-
-        private async void OnReconcileBranchClick(object sender, RoutedEventArgs e)
-        {
-            if (BranchFilter.SelectedItem is not BranchViewItem branch || !branch.CanReconcile) return;
-            var selected = await PromptBranchTipAsync(branch);
-            if (selected is null) return;
-            try
-            {
-                if (await ViewModel.ReconcileBranchAsync(branch, selected.Value))
-                    await ViewModel.RefreshCurrentHistoryAsync();
-            }
-            catch (HistoryBranchCommandException ex)
-            {
-                ShowCheckoutWarning(ex.Message);
-                await ViewModel.RefreshCurrentHistoryAsync();
-            }
-        }
-
-        private async Task<string?> PromptBranchNameAsync(string title, string initial)
-        {
-            var name = await AppDialogService.Default.RequestTextAsync(
-                title,
-                title,
-                initial,
-                xamlRoot: XamlRoot);
-            return string.IsNullOrWhiteSpace(name) ? null : name;
-        }
-
-        private async Task<BranchUpdateId?> PromptBranchTipAsync(BranchViewItem branch)
-        {
-            var choices = new ComboBox { ItemsSource = branch.Tips, DisplayMemberPath = "UpdateId", MinWidth = 300, SelectedIndex = 0 };
-            var dialog = new ContentDialog { Title = I18n.GetString("History_Branch_SelectTipTitle"), Content = choices, PrimaryButtonText = I18n.GetString("Common_Ok"), CloseButtonText = I18n.GetString("Common_Cancel"), XamlRoot = XamlRoot };
-            ThemeService.ApplyThemeToDialog(dialog);
-            return await AppDialogService.Default.ShowCustomAsync(dialog, this.XamlRoot) == ContentDialogResult.Primary && choices.SelectedItem is BranchUpdate tip ? tip.UpdateId : null;
-        }
-
-        private async void OnEditRunCommentClick(object sender, RoutedEventArgs e)
-        {
-            if (sender is not Button btn || btn.DataContext is not BackupRunViewItem item) return;
-            var comment = await AppDialogService.Default.RequestTextAsync(
-                I18n.GetString("History_EditComment_Title"),
-                I18n.GetString("History_EditComment_Placeholder"),
-                item.Comment,
-                I18n.GetString("History_EditComment_Placeholder"),
-                xamlRoot: XamlRoot);
-            if (comment is not null)
-                _ = await ViewModel.UpdateRunCommentAsync(item, comment);
-        }
-
-        private async void OnToggleRunImportantClick(object sender, RoutedEventArgs e)
-        {
-            if (sender is Button { DataContext: BackupRunViewItem item })
-                _ = await ViewModel.ToggleRunImportantAsync(item);
-        }
-
-        private async void OnRestoreRunClick(object sender, RoutedEventArgs e)
-        {
-            if (sender is not Button { DataContext: BackupRunViewItem item }
-                || !ViewModel.TryGetCurrentConfig(out var config) || config == null) return;
-            if (config.IsEncrypted && !await PromptAndVerifyPasswordAsync(config)) return;
-            var mode = await PromptRunRestoreModeAsync(item);
-            if (mode == null) return;
-            var result = await ViewModel.RestoreRunAsync(item, mode.Value);
-            if (result == null) return;
-            if (!result.Succeeded)
-            {
-                var errorDiag = string.IsNullOrWhiteSpace(result.Diagnostic)
-                    ? I18n.GetString("History_NativeAction_NotAvailable")
-                    : result.Diagnostic;
-                NotificationService.NotifyRestoreCompleted(config.Name, false, errorDiag);
-                return;
-            }
-            var succeeded = result.AppliedSources.Count;
-            var failed = Math.Max(0, item.Sources.Count - succeeded);
-            if (failed == 0)
-                NotificationService.NotifyRestoreCompleted(config.Name, true);
-            else
-                NotificationService.NotifyRestoreCompleted(config.Name, false, I18n.Format("History_Run_RestoreSummary", succeeded, failed));
-        }
-
-        private async Task<BackupService.RestoreMode?> PromptRunRestoreModeAsync(BackupRunViewItem item)
-        {
-            var partial = item.HasPartialBackup;
-            var dialog = new ContentDialog
-            {
-                Title = partial ? I18n.GetString("History_PartialRestore_Title") : I18n.GetString("History_Run_RestoreTitle"),
-                Content = new TextBlock
-                {
-                    Text = partial
-                        ? I18n.GetString("History_PartialRestore_Content")
-                        : I18n.GetString("History_Run_RestoreContent"),
-                    TextWrapping = TextWrapping.Wrap
-                },
-                PrimaryButtonText = partial
-                    ? I18n.GetString("History_PartialRestore_Primary")
-                    : I18n.GetString("History_RestoreConfirm_Primary"),
-                SecondaryButtonText = partial ? string.Empty : I18n.GetString("History_RestoreConfirm_Secondary"),
-                CloseButtonText = I18n.GetString("Common_Cancel"),
-                DefaultButton = ContentDialogButton.Primary,
-                XamlRoot = XamlRoot
-            };
-            ThemeService.ApplyThemeToDialog(dialog);
-            var result = await AppDialogService.Default.ShowCustomAsync(dialog, this.XamlRoot);
-            if (result == ContentDialogResult.Primary)
-                return partial ? BackupService.RestoreMode.Overwrite : BackupService.RestoreMode.Clean;
-            return result == ContentDialogResult.Secondary ? BackupService.RestoreMode.Overwrite : null;
-        }
-
-        private async void OnDeleteRunClick(object sender, RoutedEventArgs e)
-        {
-            if (sender is not Button { DataContext: BackupRunViewItem item }) return;
-            if (item.IsImportant && !await ConfirmDeleteImportantAsync()) return;
-            if (!await AppDialogService.Default.ConfirmAsync(
-                    I18n.GetString("History_Run_DeleteTitle"),
-                    I18n.GetString("History_Run_DeleteContent"),
-                    I18n.GetString("Common_Delete"),
-                    XamlRoot,
-                    isDestructive: true)) return;
-            if (!await ViewModel.DeleteRunAsync(item))
-                NotificationService.ShowError(I18n.GetString("History_Run_DeleteFailed"));
-        }
-
-        private async void OnRestoreClick(object sender, RoutedEventArgs e)
-        {
-            if (sender is not Button btn || btn.DataContext is not NativeHistoryVersionViewItem item)
-            {
-                return;
-            }
-
-            if (!TryGetSelectedContext(out var config, out var folder))
-            {
-                return;
-            }
-
-            if (config.IsEncrypted)
-            {
-                var passwordVerified = await PromptAndVerifyPasswordAsync(config);
-                if (!passwordVerified)
-                {
-                    return;
-                }
-            }
-
-            var restoreMode = await PromptRestoreModeAsync(item);
-            if (restoreMode == null)
-            {
-                return;
-            }
-
-            var result = await ViewModel.RestoreVersionAsync(item, restoreMode.Value);
-            if (result is null || !result.Succeeded)
-            {
-                var errorDiag = string.IsNullOrWhiteSpace(result?.Diagnostic)
-                    ? I18n.GetString("History_NativeAction_NotAvailable")
-                    : result.Diagnostic;
-                NotificationService.NotifyRestoreCompleted(folder?.DisplayName ?? config.Name, false, errorDiag);
-            }
-            else
-            {
-                NotificationService.NotifyRestoreCompleted(folder?.DisplayName ?? config.Name, true);
-            }
-        }
-
-        private async Task<BackupService.RestoreMode?> PromptRestoreModeAsync(NativeHistoryVersionViewItem item)
-        {
-            bool isPartialBackup = item.IsPartialBackup;
-            var dialog = new ContentDialog
-            {
-                Title = isPartialBackup
-                    ? I18n.GetString("History_PartialRestore_Title")
-                    : I18n.GetString("History_RestoreConfirm_Title"),
-                Content = new TextBlock
-                {
-                    Text = isPartialBackup
-                        ? I18n.GetString("History_PartialRestore_Content")
-                        : I18n.Format("History_RestoreConfirm_Content", item.TimeDisplay, item.Comment ?? string.Empty),
-                    TextWrapping = TextWrapping.Wrap
-                },
-                PrimaryButtonText = isPartialBackup
-                    ? I18n.GetString("History_PartialRestore_Primary")
-                    : I18n.GetString("History_RestoreConfirm_Primary"),
-                SecondaryButtonText = isPartialBackup
-                    ? string.Empty
-                    : I18n.GetString("History_RestoreConfirm_Secondary"),
-                CloseButtonText = I18n.GetString("Common_Cancel"),
-                DefaultButton = ContentDialogButton.Primary,
-                XamlRoot = this.XamlRoot
-            };
-            ThemeService.ApplyThemeToDialog(dialog);
-
-            var result = await AppDialogService.Default.ShowCustomAsync(dialog, this.XamlRoot);
-            if (result == ContentDialogResult.Primary)
-            {
-                return isPartialBackup
-                    ? BackupService.RestoreMode.Overwrite
-                    : BackupService.RestoreMode.Clean;
-            }
-
-            if (result == ContentDialogResult.Secondary)
-            {
-                return BackupService.RestoreMode.Overwrite;
-            }
-
-            return null;
-        }
-
-        private async Task<bool> PromptAndVerifyPasswordAsync(BackupConfig config)
-        {
-            var passwordBox = new PasswordBox
-            {
-                PlaceholderText = I18n.GetString("Encryption_EnterPasswordPlaceholder")
-            };
-
-            var dialog = new ContentDialog
-            {
-                Title = I18n.GetString("Encryption_RestorePasswordTitle"),
-                Content = new StackPanel
-                {
-                    Spacing = 8,
-                    Children =
-                    {
-                        new TextBlock
-                        {
-                            Text = I18n.GetString("Encryption_RestorePasswordDesc"),
-                            TextWrapping = TextWrapping.Wrap
-                        },
-                        passwordBox
-                    }
-                },
-                PrimaryButtonText = I18n.GetString("Common_Ok"),
-                CloseButtonText = I18n.GetString("Common_Cancel"),
-                DefaultButton = ContentDialogButton.Primary,
-                XamlRoot = this.XamlRoot
-            };
-            ThemeService.ApplyThemeToDialog(dialog);
-
-            var result = await AppDialogService.Default.ShowCustomAsync(dialog, this.XamlRoot);
-            if (result != ContentDialogResult.Primary) return false;
-
-            if (!EncryptionService.VerifyPassword(config.Id, passwordBox.Password))
-            {
-                await AppDialogService.Default.ShowMessageAsync(
-                    I18n.GetString("Encryption_WrongPasswordTitle"),
-                    I18n.GetString("Encryption_WrongPasswordDesc"),
-                    this.XamlRoot);
-                return false;
-            }
-
-            return true;
-        }
-
-        private async void OnDeleteClick(object sender, RoutedEventArgs e)
-        {
-            if (sender is not Button btn || btn.DataContext is not NativeHistoryVersionViewItem item)
-            {
-                return;
-            }
-
-            if (!TryGetSelectedContext(out var config, out var folder))
-            {
-                return;
-            }
-
-            if (item.IsImportant && !await ConfirmDeleteImportantAsync())
-            {
-                return;
-            }
-
-            var localDeletionBlocker = item.HasLocalFile
-                ? await ViewModel.GetLocalDeletionBlockerAsync(item)
-                : null;
-            var deleteMode = await PromptDeleteModeAsync(item, localDeletionBlocker);
-            if (deleteMode == null)
-            {
-                return;
-            }
-
-            btn.IsEnabled = false;
-            try
-            {
-                var deleteResult = await ViewModel.DeleteVersionAsync(item, deleteMode.Value);
-                if (!deleteResult.Success)
-                {
-                    NotificationService.ShowError(string.IsNullOrWhiteSpace(deleteResult.Message)
-                        ? I18n.GetString("BackupService_Task_Failed")
-                            : deleteResult.Message);
-                    return;
-                }
-
-                // ChangeFeed 仍负责跨视图通知；当前页面在命令完成后同步刷新，避免用户误判并重复点击。
-                await ViewModel.RefreshCurrentHistoryAsync();
-            }
-            finally
-            {
-                btn.IsEnabled = true;
-            }
-        }
-
-        private async Task<bool> ConfirmDeleteImportantAsync()
-        {
-            return await AppDialogService.Default.ConfirmAsync(
-                I18n.GetString("History_DeleteImportant_Title"),
-                I18n.GetString("History_DeleteImportant_Content"),
-                I18n.GetString("History_DeleteImportant_Continue"),
-                this.XamlRoot,
-                isDestructive: true);
-        }
-
-        private async Task<BackupDeleteMode?> PromptDeleteModeAsync(
-            NativeHistoryVersionViewItem item,
-            string? localDeletionBlocker)
-        {
-            var canDeleteLocal = item.HasLocalFile && string.IsNullOrWhiteSpace(localDeletionBlocker);
-            var recordOnlyRadio = new RadioButton
-            {
-                Content = I18n.GetString("History_DeleteMode_RecordOnly"),
-                IsChecked = !canDeleteLocal
-            };
-
-            var localOnlyRadio = new RadioButton
-            {
-                Content = I18n.GetString("History_DeleteMode_LocalOnly"),
-                IsEnabled = canDeleteLocal,
-                IsChecked = canDeleteLocal
-            };
-
-            var localAndRecordRadio = new RadioButton
-            {
-                Content = I18n.GetString("History_DeleteMode_LocalAndRecord"),
-                IsEnabled = canDeleteLocal
-            };
-
-            var content = new StackPanel
-            {
-                Spacing = 10,
-                Children =
-                {
-                    new TextBlock
-                    {
-                        Text = I18n.Format("History_DeleteConfirm_Content", item.FileName),
-                        TextWrapping = TextWrapping.Wrap
-                    },
-                    recordOnlyRadio,
-                    localOnlyRadio,
-                    localAndRecordRadio
-                }
-            };
-            if (!string.IsNullOrWhiteSpace(localDeletionBlocker))
-            {
-                content.Children.Add(new TextBlock
-                {
-                    Text = localDeletionBlocker,
-                    TextWrapping = TextWrapping.Wrap
-                });
-            }
-
-            var dialog = new ContentDialog
-            {
-                Title = I18n.GetString("History_DeleteConfirm_Title"),
-                Content = content,
-                PrimaryButtonText = I18n.GetString("Common_Ok"),
-                CloseButtonText = I18n.GetString("Common_Cancel"),
-                DefaultButton = ContentDialogButton.Primary,
-                XamlRoot = this.XamlRoot
-            };
-            ThemeService.ApplyThemeToDialog(dialog);
-
-            var result = await AppDialogService.Default.ShowCustomAsync(dialog, this.XamlRoot);
-            if (result == ContentDialogResult.Primary)
-            {
-                if (localOnlyRadio.IsChecked == true)
-                {
-                    return BackupDeleteMode.LocalArchiveOnly;
-                }
-
-                if (localAndRecordRadio.IsChecked == true)
-                {
-                    return BackupDeleteMode.LocalArchiveAndRecord;
-                }
-
-                return BackupDeleteMode.RecordOnly;
-            }
-
-            return null;
-        }
-
-        private async void OnUploadToCloudClick(object sender, RoutedEventArgs e)
-        {
-            if (sender is not Button btn || btn.DataContext is not NativeHistoryVersionViewItem item)
-            {
-                return;
-            }
-
-            if (!TryGetSelectedContext(out _, out _))
-            {
-                return;
-            }
-
-            await ViewModel.UploadToCloudAsync(item);
-        }
-
-        private async void OnDownloadFromCloudClick(object sender, RoutedEventArgs e)
-        {
-            if (sender is not Button btn || btn.DataContext is not NativeHistoryVersionViewItem item)
-            {
-                return;
-            }
-
-            if (!TryGetSelectedContext(out _, out _))
-            {
-                return;
-            }
-
-            await ViewModel.DownloadFromCloudAsync(item);
-        }
-
-        private async void OnOpenCloudSyncClick(object sender, RoutedEventArgs e)
-        {
-            if (ConfigFilter.SelectedItem is not BackupConfig config)
-            {
-                NotificationService.ShowWarning(I18n.GetString("History_ScanRecover_SelectFirst"));
-                return;
-            }
-
-            var dialog = new ConfigCloudSyncDialog(config)
-            {
-                XamlRoot = MainWindowService.GetXamlRoot() ?? this.XamlRoot
-            };
-
-            await AppDialogService.Default.ShowCustomAsync(dialog, this.XamlRoot);
-            await ViewModel.RefreshCurrentHistoryAsync();
-        }
-
-        private void CommentFilterBox_TextChanged(object sender, TextChangedEventArgs e)
-        {
-            if (sender is TextBox tb)
-            {
-                ViewModel.CommentFilterText = tb.Text;
-            }
-        }
-
-        private async void OnManageSafetySnapshotsClick(object sender, RoutedEventArgs e)
-        {
-            if (!ViewModel.TryGetCurrentConfig(out var config) || config is null) return;
-            if (ViewModel.ActiveSafetySnapshots.Count == 0)
-            {
-                NotificationService.ShowWarning(I18n.GetString("History_SafetySnapshot_None"));
-                return;
-            }
-
-            var choices = new ComboBox
-            {
-                ItemsSource = ViewModel.ActiveSafetySnapshots,
-                DisplayMemberPath = nameof(SafetySnapshotViewItem.DisplayName),
-                SelectedIndex = 0,
-                MinWidth = 420
-            };
-            var dialog = new ContentDialog
-            {
-                Title = I18n.GetString("History_SafetySnapshot_Title"),
-                Content = choices,
-                PrimaryButtonText = I18n.GetString("History_SafetySnapshot_RestorePrimary"),
-                SecondaryButtonText = I18n.GetString("History_SafetySnapshot_ReleaseSecondary"),
-                CloseButtonText = I18n.GetString("Common_Cancel"),
-                DefaultButton = ContentDialogButton.Close,
-                XamlRoot = XamlRoot
-            };
-            ThemeService.ApplyThemeToDialog(dialog);
-            var action = await AppDialogService.Default.ShowCustomAsync(dialog, this.XamlRoot);
-            if (choices.SelectedItem is not SafetySnapshotViewItem snapshot) return;
-            if (action == ContentDialogResult.Primary)
-            {
-                if (config.IsEncrypted && !await PromptAndVerifyPasswordAsync(config)) return;
-                var result = await ViewModel.RestoreSafetySnapshotAsync(snapshot);
-                if (result?.Succeeded != true)
-                {
-                    ShowCheckoutWarning(result?.Diagnostic);
-                    return;
-                }
-                await ViewModel.RefreshCurrentHistoryAsync();
-                return;
-            }
-            if (action == ContentDialogResult.Secondary)
-            {
-                if (!await ViewModel.ReleaseSafetySnapshotAsync(snapshot))
-                    ShowCheckoutWarning(I18n.GetString("History_SafetySnapshot_AlreadyReleased"));
-                await ViewModel.RefreshCurrentHistoryAsync();
-            }
-        }
-
-        private async void OnClearMissingClick(object sender, RoutedEventArgs e)
-        {
-            if (!TryGetSelectedContext(out _, out _))
-            {
-                return;
-            }
-
-            var missingCount = ViewModel.GetMissingCount();
-            if (missingCount <= 0) return;
-
-            if (!await AppDialogService.Default.ConfirmAsync(
-                    I18n.GetString("History_ClearMissingConfirm_Title"),
-                    I18n.Format("History_ClearMissingConfirm_Content", missingCount),
-                    I18n.GetString("History_ClearMissingConfirm_Primary"),
-                    this.XamlRoot,
-                    isDestructive: true)) return;
-
-            try
-            {
-                await ViewModel.ClearMissingEntriesAsync();
-            }
-            catch (Exception ex)
-            {
-                LogService.LogError($"[HistoryPage] Local replica cleanup failed: {ex.Message}", nameof(HistoryPage), ex);
-                NotificationService.ShowError(ex.Message);
-                return;
-            }
-            await ViewModel.RefreshCurrentHistoryAsync();
-        }
-
-        private async void OnScanRecoverClick(object sender, RoutedEventArgs e)
-        {
-            if (!TryGetSelectedContext(out _, out _))
-            {
-                NotificationService.ShowWarning(I18n.GetString("History_ScanRecover_SelectFirst"));
-                return;
-            }
-
-            var scanPath = await PickScanRecoverFolderPathAsync();
-            if (string.IsNullOrWhiteSpace(scanPath))
-            {
-                return;
-            }
-
-            int recovered;
-            try
-            {
-                recovered = await ViewModel.ScanAndRecoverHistoryAsync(scanPath);
-            }
-            catch (Exception ex)
-            {
-                LogService.LogError($"[HistoryPage] Native archive recovery failed: {ex.Message}", nameof(HistoryPage), ex);
-                NotificationService.ShowError(ex.Message);
-                return;
-            }
-
-            if (recovered > 0)
-            {
-                NotificationService.ShowSuccess(
-                    I18n.Format("History_ScanRecover_ResultSuccess", recovered.ToString()));
-                await ViewModel.RefreshCurrentHistoryAsync();
-            }
-            else
-            {
-                NotificationService.ShowInfo(
-                    I18n.GetString("History_ScanRecover_ResultNone"));
-            }
-        }
-
-        private Task<string?> PickScanRecoverFolderPathAsync()
-        {
-            return MainWindowService.PickFolderPathAsync(
-                string.Empty,
-                "FolderRewind.History.ScanRecover",
-                MainWindowService.SuggestedPickerLocation.DocumentsLibrary);
-        }
-
-        private async Task RestoreLastSelectionAsync()
-        {
-            if (_isNavigating) return;
-
-            if (!ViewModel.TryResolveLastSelection(out var config, out var folder) || config == null)
-            {
-                return;
-            }
-
-            _isNavigating = true;
-            try
-            {
-                ConfigFilter.SelectedItem = config;
-                ConfigureFolderFilter(config, folder);
-            }
-            finally
-            {
-                _isNavigating = false;
-            }
-
-            _ = await TrySetCurrentSelectionAsync(
-                config,
-                folder,
-                refreshHistoryIfFolder: folder != null,
-                persistSelection: true);
-        }
-
-        private bool TryGetSelectedContext(out BackupConfig config, out ManagedFolder folder)
-        {
-            config = ConfigFilter.SelectedItem as BackupConfig ?? null!;
-            folder = FolderFilter.SelectedItem as ManagedFolder ?? null!;
-            if (config == null || folder == null)
-            {
-                return false;
-            }
-
-            if (!ViewModel.TryGetCurrentSelection(out var currentConfig, out var currentFolder)
-                || currentConfig is null
-                || currentFolder is null
-                || !string.Equals(currentConfig.Id, config.Id, StringComparison.OrdinalIgnoreCase)
-                || !string.Equals(currentFolder.Id, folder.Id, StringComparison.OrdinalIgnoreCase))
-            {
-                return false;
-            }
-
-            return true;
-        }
-
-        private async Task<bool> TrySetCurrentSelectionAsync(
-            BackupConfig config,
-            ManagedFolder? folder,
-            bool refreshHistoryIfFolder,
-            bool persistSelection)
-        {
-            try
-            {
-                await ViewModel.SetCurrentSelectionAsync(
-                    config,
-                    folder,
-                    refreshHistoryIfFolder,
-                    persistSelection);
-                return true;
-            }
-            catch (OperationCanceledException)
-            {
-                return false;
-            }
-            catch (Exception ex)
-            {
-                var message = I18n.Format("History_NativeInitializationFailed", config.Name, ex.Message);
-                ViewModel.ReportLoadFailure(message);
-                LogService.LogError(message, nameof(HistoryPage), ex);
-                NotificationService.ShowError(message);
-                return false;
-            }
-        }
-
-        private void ConfigureFolderFilter(BackupConfig config, ManagedFolder? preferredFolder)
-        {
-            var grouped = ViewModel.IsGroupedRunView;
-            FolderFilter.IsEnabled = !grouped;
-            FolderFilter.PlaceholderText = grouped ? I18n.GetString("History_Run_AllSources") : string.Empty;
-            FolderFilter.ItemsSource = grouped ? null : config.SourceFolders;
-            FolderFilter.SelectedItem = grouped ? null : preferredFolder;
-            if (!grouped && preferredFolder == null)
-                FolderFilter.SelectedIndex = config.SourceFolders.Count > 0 ? 0 : -1;
-            ScanRecoverMenuItem.IsEnabled = !grouped;
+            ViewModel.CommentFilterText = textBox.Text;
         }
     }
 }

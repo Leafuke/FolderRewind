@@ -14,7 +14,7 @@ using System.Threading.Tasks;
 
 namespace FolderRewind.ViewModels;
 
-public sealed class HistoryPageViewModel : ViewModelBase
+public sealed partial class HistoryPageViewModel : ViewModelBase
 {
     private static readonly TimeSpan ChangeRefreshDebounce = TimeSpan.FromMilliseconds(200);
     private readonly List<NativeHistoryVersionViewItem> _allVersions = [];
@@ -111,9 +111,25 @@ public sealed class HistoryPageViewModel : ViewModelBase
         get => Settings?.UseHistoryStatusColors ?? true;
         set
         {
-            if (Settings is not null) { Settings.UseHistoryStatusColors = value; ConfigService.Save(); }
+            if (Settings is not null)
+            {
+                Settings.UseHistoryStatusColors = value;
+                ObservePreferenceSave(ConfigService.SaveAsync());
+            }
             UpdateSemanticStatusPreferences(FilteredHistory); OnPropertyChanged();
         }
+    }
+
+    private static void ObservePreferenceSave(Task saveTask)
+    {
+        _ = saveTask.ContinueWith(
+            task => LogService.LogError(
+                $"[HistoryPageViewModel] Saving history preferences failed: {task.Exception?.GetBaseException().Message}",
+                nameof(HistoryPageViewModel),
+                task.Exception?.GetBaseException()),
+            CancellationToken.None,
+            TaskContinuationOptions.OnlyOnFaulted,
+            TaskScheduler.Default);
     }
 
     public void Initialize() { _viewMode = Settings?.LastHistoryViewMode ?? HistoryViewMode.PerSource; NotifyViewModeChanged(); }
@@ -169,6 +185,7 @@ public sealed class HistoryPageViewModel : ViewModelBase
     public void Suspend()
     {
         _isActive = false;
+        CancelHistoryCommands();
         _selectionRequests.CancelCurrent();
         _refreshRequests.CancelCurrent();
         CancelScheduledChangeRefresh();
@@ -947,9 +964,9 @@ public sealed class HistoryPageViewModel : ViewModelBase
     }
 
     private void NotifyViewModeChanged()
-    { OnPropertyChanged(nameof(IsGroupedRunView)); OnPropertyChanged(nameof(ShowGroupedRunHistory)); OnPropertyChanged(nameof(ShowPerSourceHistory)); OnPropertyChanged(nameof(CanUsePerSourceActions)); }
+    { OnPropertyChanged(nameof(IsGroupedRunView)); OnPropertyChanged(nameof(ShowGroupedRunHistory)); OnPropertyChanged(nameof(ShowPerSourceHistory)); OnPropertyChanged(nameof(CanUsePerSourceActions)); NotifyCommandStateChanged(); }
     private void NotifyContextChanged()
-    { OnPropertyChanged(nameof(CanUseCloudHistoryActions)); OnPropertyChanged(nameof(CanOpenConfigCloudSync)); OnPropertyChanged(nameof(CanUsePerSourceActions)); }
+    { OnPropertyChanged(nameof(CanUseCloudHistoryActions)); OnPropertyChanged(nameof(CanOpenConfigCloudSync)); OnPropertyChanged(nameof(CanUsePerSourceActions)); NotifyCommandStateChanged(); }
     private void NotifyBranchSelectionChanged()
     {
         OnPropertyChanged(nameof(CanStartCheckoutSelectedBranch));
@@ -958,6 +975,7 @@ public sealed class HistoryPageViewModel : ViewModelBase
         OnPropertyChanged(nameof(SelectedBranchCheckoutDiagnostic));
         OnPropertyChanged(nameof(CanRenameSelectedBranch));
         OnPropertyChanged(nameof(CanDeleteSelectedBranch));
+        NotifyCommandStateChanged();
     }
     private async Task PersistSelectionAsync(
         BackupConfig? config,

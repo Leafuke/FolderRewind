@@ -128,7 +128,7 @@
                                 AutomationProperties.AutomationId="HistoryBranchCheckout"
                                 VerticalAlignment="Center"
                                 IsEnabled="{x:Bind ViewModel.CanStartCheckoutSelectedBranch, Mode=OneWay}"
-                                Click="OnCheckoutBranchClick">
+                                Command="{x:Bind ViewModel.CheckoutBranchCommand}">
                             <StackPanel Orientation="Horizontal" Spacing="6" VerticalAlignment="Center">
                                 <FontIcon Glyph="&#xE72A;" FontSize="12"/>
                                 <TextBlock x:Uid="HistoryPage_BranchCheckoutText"/>
@@ -146,7 +146,7 @@
                                                     x:Uid="HistoryPage_BranchReconcileItem"
                                                     AutomationProperties.AutomationId="HistoryBranchReconcile"
                                                     IsEnabled="{x:Bind ViewModel.CanReconcileSelectedBranch, Mode=OneWay}"
-                                                    Click="OnReconcileBranchClick">
+                                                    Command="{x:Bind ViewModel.ReconcileBranchCommand}">
                                         <MenuFlyoutItem.Icon><FontIcon Glyph="&#xE895;"/></MenuFlyoutItem.Icon>
                                     </MenuFlyoutItem>
                                     <MenuFlyoutSeparator/>
@@ -154,7 +154,7 @@
                                                     x:Uid="HistoryPage_BranchRenameItem"
                                                     AutomationProperties.AutomationId="HistoryBranchRename"
                                                     IsEnabled="{x:Bind ViewModel.CanRenameSelectedBranch, Mode=OneWay}"
-                                                    Click="OnRenameBranchClick">
+                                                    Command="{x:Bind ViewModel.RenameBranchCommand}">
                                         <MenuFlyoutItem.Icon><FontIcon Glyph="&#xE70F;"/></MenuFlyoutItem.Icon>
                                     </MenuFlyoutItem>
                                     <MenuFlyoutSeparator/>
@@ -163,7 +163,7 @@
                                                     AutomationProperties.AutomationId="HistoryBranchDelete"
                                                     Foreground="{ThemeResource SystemFillColorCriticalBrush}"
                                                     IsEnabled="{x:Bind ViewModel.CanDeleteSelectedBranch, Mode=OneWay}"
-                                                    Click="OnDeleteBranchClick">
+                                                    Command="{x:Bind ViewModel.DeleteBranchCommand}">
                                         <MenuFlyoutItem.Icon><FontIcon Glyph="&#xE74D;" Foreground="{ThemeResource SystemFillColorCriticalBrush}"/></MenuFlyoutItem.Icon>
                                     </MenuFlyoutItem>
                                 </MenuFlyout>
@@ -177,7 +177,7 @@
                                 AutomationProperties.AutomationId="HistoryOpenCloudSync"
                                 VerticalAlignment="Center"
                                 IsEnabled="{x:Bind ViewModel.CanOpenConfigCloudSync, Mode=OneWay}"
-                                Click="OnOpenCloudSyncClick">
+                                Command="{x:Bind ViewModel.OpenCloudSyncCommand}">
                             <StackPanel Orientation="Horizontal" Spacing="6" VerticalAlignment="Center">
                                 <FontIcon Glyph="&#xE753;" FontSize="13"/>
                                 <TextBlock x:Uid="HistoryPage_OpenCloudSyncText"/>
@@ -198,20 +198,20 @@
                                                     x:Uid="HistoryPage_ScanRecoverMenuItem"
                                                     AutomationProperties.AutomationId="HistoryScanRecover"
                                                     IsEnabled="{x:Bind ViewModel.CanUsePerSourceActions, Mode=OneWay}"
-                                                    Click="OnScanRecoverClick">
+                                                    Command="{x:Bind ViewModel.ScanRecoverCommand}">
                                         <MenuFlyoutItem.Icon><FontIcon Glyph="&#xE71C;"/></MenuFlyoutItem.Icon>
                                     </MenuFlyoutItem>
                                     <MenuFlyoutItem x:Name="ClearMissingMenuItem"
                                                     x:Uid="HistoryPage_ClearMissingMenuItem"
                                                     AutomationProperties.AutomationId="HistoryClearMissing"
                                                     IsEnabled="{x:Bind ViewModel.HasMissing, Mode=OneWay}"
-                                                    Click="OnClearMissingClick">
+                                                    Command="{x:Bind ViewModel.ClearMissingCommand}">
                                         <MenuFlyoutItem.Icon><FontIcon Glyph="&#xE74D;"/></MenuFlyoutItem.Icon>
                                     </MenuFlyoutItem>
                                     <MenuFlyoutItem x:Name="SafetySnapshotsMenuItem"
                                                     x:Uid="HistoryPage_SafetySnapshotsMenuItem"
                                                     AutomationProperties.AutomationId="HistorySafetySnapshots"
-                                                    Click="OnManageSafetySnapshotsClick">
+                                                    Command="{x:Bind ViewModel.ManageSafetySnapshotsCommand}">
                                         <MenuFlyoutItem.Icon><FontIcon Glyph="&#xE72E;"/></MenuFlyoutItem.Icon>
                                     </MenuFlyoutItem>
                                     <MenuFlyoutSeparator/>
@@ -247,7 +247,7 @@
                 <InfoBar.ActionButton>
                     <Button x:Uid="HistoryPage_Retry"
                             AutomationProperties.AutomationId="HistoryRetry"
-                            Click="OnRetryHistoryClick"/>
+                            Command="{x:Bind ViewModel.RetryCommand}"/>
                 </InfoBar.ActionButton>
             </InfoBar>
         </StackPanel>
