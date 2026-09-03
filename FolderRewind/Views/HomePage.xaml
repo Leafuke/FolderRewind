@@ -60,10 +60,9 @@
                                     <ThemeShadow />
                                 </Border.Shadow>
 
-                                <Button Background="Transparent"
+                                <Button Style="{StaticResource TransparentIconButtonStyle}"
                                         AutomationProperties.AutomationId="{x:Bind Id, Converter={StaticResource AutomationIdConverter}, ConverterParameter=HomeFavoriteCard}"
                                         AutomationProperties.Name="{x:Bind DisplayName, Mode=OneWay}"
-                                        BorderThickness="0"
                                         CornerRadius="{StaticResource OverlayCornerRadius}"
                                         Padding="0"
                                         HorizontalContentAlignment="Stretch"
@@ -122,7 +121,7 @@
                                             </StackPanel>
 
                                             <!-- 快速备份按钮 -->
-                                            <Button Grid.Column="2" Padding="8" Background="Transparent" BorderThickness="0" 
+                                            <Button Grid.Column="2" Style="{StaticResource TransparentIconButtonStyle}"
                                                     AutomationProperties.AutomationId="{x:Bind Id, Converter={StaticResource AutomationIdConverter}, ConverterParameter=HomeFavoriteQuickBackup}"
                                                     Click="OnQuickBackupClick" x:Uid="HomePage_QuickBackupButton" VerticalAlignment="Center">
                                                 <FontIcon Glyph="&#xE896;" FontSize="16"/>
@@ -236,10 +235,9 @@
                                     <ThemeShadow />
                                 </Border.Shadow>
 
-                                <Button Background="Transparent"
+                                <Button Style="{StaticResource TransparentIconButtonStyle}"
                                         AutomationProperties.AutomationId="{x:Bind Id, Converter={StaticResource AutomationIdConverter}, ConverterParameter=HomeConfigCard}"
                                         AutomationProperties.Name="{x:Bind Name, Mode=OneWay}"
-                                        BorderThickness="0"
                                         CornerRadius="{StaticResource OverlayCornerRadius}"
                                         Padding="0"
                                         HorizontalContentAlignment="Stretch"

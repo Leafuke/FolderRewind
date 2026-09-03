@@ -45,7 +45,7 @@
                               DisplayMemberPath="Name"
                               SelectionChanged="ConfigSelector_SelectionChanged"/>
                     <!-- 配置设置按钮 -->
-                    <Button Click="OnConfigSettingsClick" Padding="6" Background="Transparent" BorderThickness="0"
+                    <Button Click="OnConfigSettingsClick" Style="{StaticResource TransparentIconButtonStyle}" Padding="6"
                             AutomationProperties.AutomationId="FolderManagerConfigSettings"
                             x:Uid="FolderManager_ConfigSettingsButton">
                         <FontIcon Glyph="&#xE713;" FontSize="14"/>
@@ -238,7 +238,7 @@
                         </Grid.ColumnDefinitions>
 
                         <!-- 1. 封面图片区域 -->
-                        <Button Padding="0" CornerRadius="{StaticResource OverlayCornerRadius}" Width="72" Height="72" BorderThickness="0" Background="Transparent"
+                        <Button Style="{StaticResource TransparentIconButtonStyle}" Padding="0" CornerRadius="{StaticResource OverlayCornerRadius}" Width="72" Height="72"
                             AutomationProperties.AutomationId="{x:Bind Id, Converter={StaticResource AutomationIdConverter}, ConverterParameter=FolderManagerChangeCover}"
                             Click="OnChangeIconClick" x:Uid="FolderManager_ChangeCover">
                             <Grid>
@@ -257,7 +257,7 @@
                                 <TextBlock Text="{x:Bind DisplayName, Mode=OneWay}" Style="{StaticResource SubtitleTextBlockStyle}"/>
                                 <Button x:Uid="FolderManager_FavoriteToggle"
                                         AutomationProperties.AutomationId="{x:Bind Id, Converter={StaticResource AutomationIdConverter}, ConverterParameter=FolderManagerToggleFavorite}"
-                                        Background="Transparent" BorderThickness="0" Padding="4" Click="OnFavoriteToggleClick">
+                                        Style="{StaticResource TransparentIconButtonStyle}" Padding="4" Click="OnFavoriteToggleClick">
                                     <FontIcon Glyph="{x:Bind IsFavorite, Mode=OneWay, Converter={StaticResource BoolToStarIconConverter}}"
                                               Foreground="{x:Bind IsFavorite, Mode=OneWay, Converter={StaticResource BoolToColorConverter}}"/>
                                 </Button>
@@ -302,7 +302,7 @@
                         <!-- 3. 操作菜单 -->
                         <Button Grid.Column="2" x:Uid="FolderManager_MoreActions"
                                 AutomationProperties.AutomationId="{x:Bind Id, Converter={StaticResource AutomationIdConverter}, ConverterParameter=FolderManagerMoreActions}"
-                                Background="Transparent" BorderThickness="0" Padding="8" VerticalAlignment="Center">
+                                Style="{StaticResource TransparentIconButtonStyle}" VerticalAlignment="Center">
                             <FontIcon Glyph="&#xE712;"/>
                             <Button.Flyout>
                                 <MenuFlyout>

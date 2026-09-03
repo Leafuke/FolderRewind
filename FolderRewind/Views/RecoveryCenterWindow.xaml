@@ -8,14 +8,14 @@
         <ScrollViewer VerticalScrollBarVisibility="Auto">
             <StackPanel MaxWidth="820" Spacing="18" HorizontalAlignment="Center">
                 <FontIcon Glyph="&#xE7BA;" FontSize="42" Foreground="{ThemeResource SystemFillColorCriticalBrush}" HorizontalAlignment="Left" />
-                <TextBlock x:Name="TitleText" Style="{ThemeResource TitleTextBlockStyle}" TextWrapping="Wrap" />
-                <TextBlock x:Name="RestrictedText" Style="{ThemeResource BodyStrongTextBlockStyle}" TextWrapping="Wrap" />
+                <TextBlock x:Name="TitleText" Style="{StaticResource TitleTextBlockStyle}" TextWrapping="Wrap" />
+                <TextBlock x:Name="RestrictedText" Style="{StaticResource BodyStrongTextBlockStyle}" TextWrapping="Wrap" />
 
                 <Border Style="{StaticResource StandardCardStyle}">
                     <StackPanel Spacing="10">
-                        <TextBlock x:Name="DiagnosticHeaderText" Style="{ThemeResource SubtitleTextBlockStyle}" />
+                        <TextBlock x:Name="DiagnosticHeaderText" Style="{StaticResource SubtitleTextBlockStyle}" />
                         <TextBlock x:Name="DiagnosticText" TextWrapping="Wrap" IsTextSelectionEnabled="True" />
-                        <TextBlock x:Name="ConfigPathHeaderText" Style="{ThemeResource BodyStrongTextBlockStyle}" Margin="0,6,0,0" />
+                        <TextBlock x:Name="ConfigPathHeaderText" Style="{StaticResource BodyStrongTextBlockStyle}" Margin="0,6,0,0" />
                         <TextBlock x:Name="ConfigPathText" TextWrapping="Wrap" IsTextSelectionEnabled="True" />
                         <Button x:Name="OpenFolderButton" Click="OnOpenFolderClick" HorizontalAlignment="Left" />
                     </StackPanel>
@@ -23,7 +23,7 @@
 
                 <Border Style="{StaticResource StandardCardStyle}">
                     <StackPanel Spacing="12">
-                        <TextBlock x:Name="RecoveryCopiesHeaderText" Style="{ThemeResource SubtitleTextBlockStyle}" />
+                        <TextBlock x:Name="RecoveryCopiesHeaderText" Style="{StaticResource SubtitleTextBlockStyle}" />
                         <TextBlock x:Name="RecoveryCopiesDescriptionText" TextWrapping="Wrap" />
                         <ComboBox x:Name="RecoveryCopyComboBox" HorizontalAlignment="Stretch" />
                         <StackPanel Orientation="Horizontal" Spacing="10">

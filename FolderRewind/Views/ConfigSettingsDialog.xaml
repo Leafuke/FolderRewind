@@ -150,7 +150,7 @@
                     <ComboBoxItem x:Uid="ConfigSettingsDialog_ModeRolling"/>
                 </ComboBox>
 
-                <Border Padding="12" CornerRadius="8" Background="{ThemeResource SystemFillColorCautionBackgroundBrush}"
+                <Border Style="{StaticResource CautionCardStyle}"
                         Visibility="{x:Bind IsRollingModeSelected, Mode=OneTime, Converter={StaticResource BoolToVisConverter}}">
                     <TextBlock Text="{x:Bind RollingModeDescriptionText, Mode=OneTime}"
                                TextWrapping="Wrap"
@@ -169,9 +169,7 @@
                                Style="{StaticResource CaptionTextBlockStyle}"
                                Foreground="{ThemeResource TextFillColorSecondaryBrush}"
                                TextWrapping="Wrap"/>
-                    <Border Padding="12"
-                            CornerRadius="8"
-                            Background="{ThemeResource SystemFillColorCautionBackgroundBrush}"
+                    <Border Style="{StaticResource CautionCardStyle}"
                             Visibility="{x:Bind ViewModel.IsPluginBackupScopeSelected, Mode=OneWay, Converter={StaticResource BoolToVisConverter}}">
                         <TextBlock x:Uid="ConfigSettingsDialog_BackupScopePartialWarning"
                                    TextWrapping="Wrap"
@@ -495,7 +493,7 @@
                       Padding="0,0,12,0">
             <StackPanel Spacing="20" Padding="0,12">
                 <StackPanel Spacing="8">
-                    <TextBlock x:Uid="ConfigSettingsDialog_CloudEnvironmentSection" Style="{ThemeResource SubtitleTextBlockStyle}"/>
+                    <TextBlock x:Uid="ConfigSettingsDialog_CloudEnvironmentSection" Style="{StaticResource SubtitleTextBlockStyle}"/>
 
                     <TextBlock x:Uid="ConfigSettingsDialog_CloudExecutable" FontWeight="SemiBold"/>
                     <Grid>
@@ -544,7 +542,7 @@
                 </StackPanel>
 
                 <StackPanel Spacing="8">
-                    <TextBlock x:Uid="ConfigSettingsDialog_CloudSyncSection" Style="{ThemeResource SubtitleTextBlockStyle}"/>
+                    <TextBlock x:Uid="ConfigSettingsDialog_CloudSyncSection" Style="{StaticResource SubtitleTextBlockStyle}"/>
                     <TextBlock Text="{x:Bind ViewModel.CloudManualSyncHint, Mode=OneWay}"
                                Style="{StaticResource CaptionTextBlockStyle}"
                                Foreground="{ThemeResource TextFillColorSecondaryBrush}"
@@ -733,7 +731,7 @@
                 <StackPanel Spacing="12"
                             Visibility="{x:Bind ViewModel.IsBackupWhitelistMode, Mode=OneWay, Converter={StaticResource BoolToVisConverter}}">
                     <TextBlock x:Uid="ConfigSettingsDialog_BackupWhitelist" FontWeight="SemiBold"/>
-                    <Border Padding="12" CornerRadius="8" Background="{ThemeResource SystemFillColorCautionBackgroundBrush}">
+                    <Border Style="{StaticResource CautionCardStyle}">
                         <TextBlock Text="{x:Bind ViewModel.BackupWhitelistCleanWarningText, Mode=OneWay}"
                                    TextWrapping="Wrap"
                                    Foreground="{ThemeResource TextFillColorPrimaryBrush}"/>

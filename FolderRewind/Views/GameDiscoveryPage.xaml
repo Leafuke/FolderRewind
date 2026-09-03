@@ -13,15 +13,15 @@
     <ScrollViewer Padding="28">
         <StackPanel Spacing="16">
             <StackPanel Spacing="4">
-                <TextBlock x:Uid="GameDiscoveryPage_Title" Style="{ThemeResource TitleTextBlockStyle}" AutomationProperties.HeadingLevel="Level1"/>
+                <TextBlock x:Uid="GameDiscoveryPage_Title" Style="{StaticResource TitleTextBlockStyle}" AutomationProperties.HeadingLevel="Level1"/>
                 <TextBlock x:Uid="GameDiscoveryPage_Description" Foreground="{ThemeResource TextFillColorSecondaryBrush}" TextWrapping="Wrap"/>
             </StackPanel>
 
             <InfoBar x:Uid="GameDiscoveryPage_BetaNotice" IsOpen="True" IsClosable="False" Severity="Informational" Visibility="{x:Bind ViewModel.IsStandardDiscoveryMode, Mode=OneWay, Converter={StaticResource BoolToVisConverter}}"/>
 
-            <Border Visibility="{x:Bind ViewModel.IsFullMachineMode, Mode=OneWay, Converter={StaticResource BoolToVisConverter}}" Padding="16" CornerRadius="8" Background="{ThemeResource CardBackgroundFillColorDefaultBrush}" BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}" BorderThickness="1">
+            <Border Visibility="{x:Bind ViewModel.IsFullMachineMode, Mode=OneWay, Converter={StaticResource BoolToVisConverter}}" Style="{StaticResource StandardCardStyle}">
                 <StackPanel Spacing="12">
-                    <TextBlock x:Uid="GameDiscoveryPage_DataHeading" Style="{ThemeResource SubtitleTextBlockStyle}"/>
+                    <TextBlock x:Uid="GameDiscoveryPage_DataHeading" Style="{StaticResource SubtitleTextBlockStyle}"/>
                     <TextBlock Text="{x:Bind ViewModel.CacheStatus, Mode=OneWay}" TextWrapping="Wrap"/>
                     <StackPanel Orientation="Horizontal" Spacing="8">
                         <TextBlock x:Uid="GameDiscoveryPage_Attribution" Foreground="{ThemeResource TextFillColorSecondaryBrush}" VerticalAlignment="Center"/>
@@ -82,9 +82,9 @@
                 </StackPanel>
             </Expander>
 
-            <Border Visibility="{x:Bind ViewModel.IsPluginBatchMode, Mode=OneWay, Converter={StaticResource BoolToVisConverter}}" Padding="16" CornerRadius="8" Background="{ThemeResource CardBackgroundFillColorDefaultBrush}" BorderBrush="{ThemeResource SystemControlForegroundAccentBrush}" BorderThickness="1" AutomationProperties.AutomationId="PluginBatchSummary">
+            <Border Visibility="{x:Bind ViewModel.IsPluginBatchMode, Mode=OneWay, Converter={StaticResource BoolToVisConverter}}" Style="{StaticResource AccentCardStyle}" AutomationProperties.AutomationId="PluginBatchSummary">
                 <StackPanel Spacing="12">
-                    <TextBlock x:Uid="GameDiscovery_PluginBatch_Heading" Style="{ThemeResource SubtitleTextBlockStyle}"/>
+                    <TextBlock x:Uid="GameDiscovery_PluginBatch_Heading" Style="{StaticResource SubtitleTextBlockStyle}"/>
                     <Grid ColumnSpacing="12" RowSpacing="6">
                         <Grid.ColumnDefinitions>
                             <ColumnDefinition Width="Auto"/>
@@ -111,11 +111,11 @@
                         <Button x:Uid="GameDiscoveryPage_Cancel" Click="OnCancelClick" IsEnabled="{x:Bind ViewModel.CanCancel, Mode=OneWay}"/>
                     </StackPanel>
                     <InfoBar IsOpen="{x:Bind ViewModel.HasPluginBatchFatalMessage, Mode=OneWay}" IsClosable="False" Severity="Error" Message="{x:Bind ViewModel.PluginBatchFatalMessage, Mode=OneWay}"/>
-                    <TextBlock Text="{x:Bind ViewModel.PluginBatchSummary, Mode=OneWay}" Style="{ThemeResource BodyStrongTextBlockStyle}" TextWrapping="Wrap"/>
+                    <TextBlock Text="{x:Bind ViewModel.PluginBatchSummary, Mode=OneWay}" Style="{StaticResource BodyStrongTextBlockStyle}" TextWrapping="Wrap"/>
                     <ItemsControl ItemsSource="{x:Bind ViewModel.PluginBatchItems, Mode=OneWay}">
                         <ItemsControl.ItemTemplate>
                             <DataTemplate x:DataType="discovery:PluginBatchCreationSummaryItem">
-                                <Border Padding="12" Margin="0,4" CornerRadius="6" BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}" BorderThickness="1">
+                                <Border Style="{StaticResource OutlinedCardStyle}" Margin="0,4">
                                     <Grid ColumnSpacing="10">
                                         <Grid.ColumnDefinitions>
                                             <ColumnDefinition Width="Auto"/>
@@ -123,7 +123,7 @@
                                         </Grid.ColumnDefinitions>
                                         <CheckBox IsChecked="{x:Bind IsSelected, Mode=TwoWay}" VerticalAlignment="Top"/>
                                         <StackPanel Grid.Column="1" Spacing="4">
-                                            <TextBlock Text="{x:Bind ConfigName, Mode=OneTime}" Style="{ThemeResource BodyStrongTextBlockStyle}"/>
+                                            <TextBlock Text="{x:Bind ConfigName, Mode=OneTime}" Style="{StaticResource BodyStrongTextBlockStyle}"/>
                                             <TextBlock Text="{x:Bind DestinationPath, Mode=OneTime}" FontFamily="Consolas" TextWrapping="Wrap" Foreground="{ThemeResource TextFillColorSecondaryBrush}"/>
                                             <TextBlock Text="{x:Bind SourceSummary, Mode=OneTime}" FontFamily="Consolas" TextWrapping="Wrap"/>
                                         </StackPanel>
@@ -133,7 +133,7 @@
                         </ItemsControl.ItemTemplate>
                     </ItemsControl>
                     <TextBlock Text="{x:Bind ViewModel.PluginBatchSkippedSummary, Mode=OneWay}" Foreground="{ThemeResource TextFillColorSecondaryBrush}" TextWrapping="Wrap"/>
-                    <Border Visibility="{x:Bind ViewModel.RequiresPluginBatchBroadRootConfirmation, Mode=OneWay, Converter={StaticResource BoolToVisConverter}}" Padding="12" CornerRadius="6" Background="{ThemeResource SystemFillColorCautionBackgroundBrush}">
+                    <Border Visibility="{x:Bind ViewModel.RequiresPluginBatchBroadRootConfirmation, Mode=OneWay, Converter={StaticResource BoolToVisConverter}}" Style="{StaticResource CautionCardStyle}">
                         <StackPanel Spacing="8">
                             <TextBlock x:Uid="GameDiscovery_PluginBatch_BroadRootWarning" TextWrapping="Wrap"/>
                             <TextBlock Text="{x:Bind ViewModel.PluginBatchBroadRootSummary, Mode=OneWay}" FontFamily="Consolas" TextWrapping="Wrap"/>
@@ -144,9 +144,9 @@
                 </StackPanel>
             </Border>
 
-            <Border Visibility="{x:Bind ViewModel.IsStandardDiscoveryMode, Mode=OneWay, Converter={StaticResource BoolToVisConverter}}" Padding="16" CornerRadius="8" Background="{ThemeResource CardBackgroundFillColorDefaultBrush}" BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}" BorderThickness="1">
+            <Border Visibility="{x:Bind ViewModel.IsStandardDiscoveryMode, Mode=OneWay, Converter={StaticResource BoolToVisConverter}}" Style="{StaticResource StandardCardStyle}">
                 <StackPanel Spacing="12">
-                    <TextBlock x:Uid="GameDiscoveryPage_ScanHeading" Style="{ThemeResource SubtitleTextBlockStyle}"/>
+                    <TextBlock x:Uid="GameDiscoveryPage_ScanHeading" Style="{StaticResource SubtitleTextBlockStyle}"/>
                     <Grid ColumnSpacing="8">
                         <Grid.ColumnDefinitions>
                             <ColumnDefinition Width="*"/>
@@ -196,7 +196,7 @@
                                 </Grid.ColumnDefinitions>
                                 <CheckBox IsChecked="{x:Bind IsSelected, Mode=TwoWay}" VerticalAlignment="Center"/>
                                 <StackPanel Grid.Column="1" Spacing="2">
-                                    <TextBlock Text="{x:Bind Name, Mode=OneWay}" Style="{ThemeResource BodyStrongTextBlockStyle}" TextWrapping="Wrap"/>
+                                    <TextBlock Text="{x:Bind Name, Mode=OneWay}" Style="{StaticResource BodyStrongTextBlockStyle}" TextWrapping="Wrap"/>
                                     <TextBlock Text="{x:Bind Stores, Mode=OneWay}" Foreground="{ThemeResource TextFillColorSecondaryBrush}"/>
                                     <TextBlock Text="{x:Bind StatusText, Mode=OneWay}" Foreground="{ThemeResource SystemControlForegroundAccentBrush}"/>
                                 </StackPanel>
@@ -207,14 +207,14 @@
 
                 <ScrollViewer Grid.Column="1">
                     <StackPanel Spacing="12" Padding="8">
-                        <TextBlock Text="{x:Bind ViewModel.SelectedGameName, Mode=OneWay}" Style="{ThemeResource SubtitleTextBlockStyle}"/>
+                        <TextBlock Text="{x:Bind ViewModel.SelectedGameName, Mode=OneWay}" Style="{StaticResource SubtitleTextBlockStyle}"/>
                         <TextBlock Text="{x:Bind ViewModel.SelectedGameInstallationSummary, Mode=OneWay}" TextWrapping="Wrap"/>
                         <TextBlock Text="{x:Bind ViewModel.SelectedGameNotes, Mode=OneWay}" Foreground="{ThemeResource TextFillColorSecondaryBrush}" TextWrapping="Wrap"/>
                         <TextBlock Text="{x:Bind ViewModel.SelectedGameNativeCloud, Mode=OneWay}" Foreground="{ThemeResource TextFillColorSecondaryBrush}" TextWrapping="Wrap"/>
                         <ItemsControl ItemsSource="{x:Bind ViewModel.SelectedGameBackupSets, Mode=OneWay}">
                             <ItemsControl.ItemTemplate>
                                 <DataTemplate x:DataType="vm:GameDiscoveryBackupSetItem">
-                                    <Border Padding="12" Margin="0,4" CornerRadius="6" BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}" BorderThickness="1">
+                                    <Border Style="{StaticResource OutlinedCardStyle}" Margin="0,4">
                                         <StackPanel Spacing="8">
                                             <Grid ColumnSpacing="8">
                                                 <Grid.ColumnDefinitions>
@@ -223,7 +223,7 @@
                                                     <ColumnDefinition Width="240"/>
                                                 </Grid.ColumnDefinitions>
                                                 <CheckBox IsChecked="{x:Bind IsSelected, Mode=TwoWay}" VerticalAlignment="Center"/>
-                                                <TextBlock Grid.Column="1" Text="{x:Bind Name, Mode=OneWay}" Style="{ThemeResource BodyStrongTextBlockStyle}" VerticalAlignment="Center"/>
+                                                <TextBlock Grid.Column="1" Text="{x:Bind Name, Mode=OneWay}" Style="{StaticResource BodyStrongTextBlockStyle}" VerticalAlignment="Center"/>
                                                 <ComboBox Grid.Column="2" ItemsSource="{x:Bind Presets, Mode=OneWay}" SelectedItem="{x:Bind SelectedPreset, Mode=TwoWay}" DisplayMemberPath="Name" IsEnabled="{x:Bind CanChoosePreset, Mode=OneWay}"/>
                                             </Grid>
                                             <ItemsControl ItemsSource="{x:Bind Resources, Mode=OneWay}">
@@ -236,7 +236,7 @@
                                                             </Grid.ColumnDefinitions>
                                                             <CheckBox IsChecked="{x:Bind IsSelected, Mode=TwoWay}" IsEnabled="{x:Bind CanSelect, Mode=OneWay}" VerticalAlignment="Top"/>
                                                             <StackPanel Grid.Column="1" Spacing="2">
-                                                                <TextBlock Text="{x:Bind Name, Mode=OneWay}" Style="{ThemeResource BodyStrongTextBlockStyle}"/>
+                                                                <TextBlock Text="{x:Bind Name, Mode=OneWay}" Style="{StaticResource BodyStrongTextBlockStyle}"/>
                                                                 <TextBlock Text="{x:Bind Expression, Mode=OneWay}" FontFamily="Consolas" TextWrapping="Wrap"/>
                                                                 <TextBlock Text="{x:Bind Tags, Mode=OneWay}" Foreground="{ThemeResource TextFillColorSecondaryBrush}"/>
                                                                 <TextBlock Text="{x:Bind PathSummary, Mode=OneWay}" Foreground="{ThemeResource TextFillColorSecondaryBrush}"/>
@@ -258,9 +258,9 @@
 
             <Button x:Uid="GameDiscoveryPage_Review" Click="OnReviewClick" HorizontalAlignment="Right" Visibility="{x:Bind ViewModel.HasResults, Mode=OneWay, Converter={StaticResource BoolToVisConverter}}" IsEnabled="{x:Bind ViewModel.CanStart, Mode=OneWay}"/>
 
-            <Border Visibility="{x:Bind ViewModel.HasDrafts, Mode=OneWay, Converter={StaticResource BoolToVisConverter}}" Padding="16" CornerRadius="8" Background="{ThemeResource CardBackgroundFillColorDefaultBrush}" BorderBrush="{ThemeResource SystemControlForegroundAccentBrush}" BorderThickness="1">
+            <Border Visibility="{x:Bind ViewModel.HasDrafts, Mode=OneWay, Converter={StaticResource BoolToVisConverter}}" Style="{StaticResource AccentCardStyle}">
                 <StackPanel Spacing="12">
-                    <TextBlock x:Uid="GameDiscoveryPage_ConfirmHeading" Style="{ThemeResource SubtitleTextBlockStyle}"/>
+                    <TextBlock x:Uid="GameDiscoveryPage_ConfirmHeading" Style="{StaticResource SubtitleTextBlockStyle}"/>
                     <TextBlock x:Uid="GameDiscoveryPage_ConfirmDescription" Foreground="{ThemeResource TextFillColorSecondaryBrush}" TextWrapping="Wrap"/>
                     <ItemsControl ItemsSource="{x:Bind ViewModel.Drafts, Mode=OneWay}">
                         <ItemsControl.ItemTemplate>

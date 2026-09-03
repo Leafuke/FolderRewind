@@ -10,7 +10,7 @@
 
     <ScrollViewer Padding="28">
         <StackPanel Spacing="12">
-            <TextBlock x:Uid="PluginStorePage_Title" Style="{ThemeResource TitleTextBlockStyle}" AutomationProperties.HeadingLevel="Level1"/>
+            <TextBlock x:Uid="PluginStorePage_Title" Style="{StaticResource TitleTextBlockStyle}" AutomationProperties.HeadingLevel="Level1"/>
             <TextBlock x:Uid="PluginStorePage_Desc" Foreground="{ThemeResource TextFillColorSecondaryBrush}" TextWrapping="Wrap"/>
 
             <StackPanel Orientation="Horizontal" Spacing="8">
@@ -40,7 +40,7 @@
                             </Grid.ColumnDefinitions>
 
                             <StackPanel Spacing="4">
-                                <TextBlock Text="{x:Bind Name, Mode=OneWay}" Style="{ThemeResource BodyStrongTextBlockStyle}" TextWrapping="Wrap"/>
+                                <TextBlock Text="{x:Bind Name, Mode=OneWay}" Style="{StaticResource BodyStrongTextBlockStyle}" TextWrapping="Wrap"/>
                                 <StackPanel Orientation="Horizontal" Spacing="12">
                                     <TextBlock Text="{x:Bind SizeDisplay, Mode=OneWay}" Foreground="{ThemeResource TextFillColorSecondaryBrush}"/>
                                 </StackPanel>

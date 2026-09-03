@@ -22,8 +22,7 @@
             </RadioButtons>
         </StackPanel>
 
-        <Border Padding="12"
-                CornerRadius="8"
+        <Border Style="{StaticResource FilledCardStyle}"
                 Background="{ThemeResource CardBackgroundFillColorSecondaryBrush}">
             <StackPanel Spacing="8">
                 <Grid ColumnSpacing="12">
@@ -52,7 +51,7 @@
                     <ColumnDefinition Width="*"/>
                     <ColumnDefinition Width="Auto"/>
                 </Grid.ColumnDefinitions>
-                <TextBlock x:Uid="ConfigCloudSyncDialog_AnalysisHeader" Style="{ThemeResource SubtitleTextBlockStyle}"/>
+                <TextBlock x:Uid="ConfigCloudSyncDialog_AnalysisHeader" Style="{StaticResource SubtitleTextBlockStyle}"/>
                 <Button Grid.Column="1"
                         x:Uid="ConfigCloudSyncDialog_RefreshAnalysis"
                         Click="OnRefreshAnalysisClick"
@@ -69,10 +68,7 @@
                        Foreground="{ThemeResource TextFillColorSecondaryBrush}"
                        TextWrapping="Wrap"/>
 
-            <Border Padding="12"
-                    CornerRadius="8"
-                    BorderThickness="1"
-                    BorderBrush="{ThemeResource SurfaceStrokeColorDefaultBrush}">
+            <Border Style="{StaticResource OutlinedCardStyle}">
                 <StackPanel Spacing="8">
                     <TextBlock Text="{x:Bind ViewModel.AnalysisSummary, Mode=OneWay}" TextWrapping="Wrap"/>
                     <TextBlock Text="{x:Bind ViewModel.AnalysisMatchedText, Mode=OneWay}" />
@@ -85,7 +81,7 @@
 
         <StackPanel Spacing="8">
             <TextBlock x:Uid="ConfigCloudSyncDialog_UploadHeader"
-                       Style="{ThemeResource SubtitleTextBlockStyle}"/>
+                       Style="{StaticResource SubtitleTextBlockStyle}"/>
             <TextBlock x:Uid="ConfigCloudSyncDialog_UploadDescription"
                        Style="{StaticResource CaptionTextBlockStyle}"
                        Foreground="{ThemeResource TextFillColorSecondaryBrush}"
