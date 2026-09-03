@@ -5165,4 +5165,46 @@ Pull request: {1}</value>
   <data name="MiniWindow_DefaultFolderName" xml:space="preserve"><value>Folder</value></data>
   <data name="BackupService_MissingEncryptionPassword" xml:space="preserve"><value>The encryption password is missing for this configuration.</value></data>
   <data name="BackupService_InvalidConfigurationOrSource" xml:space="preserve"><value>The backup configuration or source is invalid.</value></data>
+  <data name="HomePage_QuickBackupButton.AutomationProperties.Name" xml:space="preserve"><value>Quick back up folder</value></data>
+  <data name="HomePage_ContextMenu_DeleteConfig.AutomationProperties.HelpText" xml:space="preserve"><value>Deletes this configuration after confirmation.</value></data>
+  <data name="HistoryPage_ToggleImportantButton.AutomationProperties.Name" xml:space="preserve"><value>Toggle important status</value></data>
+  <data name="HistoryPage_ViewButton.AutomationProperties.Name" xml:space="preserve"><value>View version</value></data>
+  <data name="HistoryPage_EditCommentButton.AutomationProperties.Name" xml:space="preserve"><value>Edit comment</value></data>
+  <data name="HistoryPage_CreateBranchButton.AutomationProperties.Name" xml:space="preserve"><value>Create branch from here</value></data>
+  <data name="HistoryPage_UploadCloudButton.AutomationProperties.Name" xml:space="preserve"><value>Upload version to cloud storage</value></data>
+  <data name="HistoryPage_DownloadCloudButton.AutomationProperties.Name" xml:space="preserve"><value>Download version from cloud storage</value></data>
+  <data name="HistoryPage_RestoreButton.AutomationProperties.Name" xml:space="preserve"><value>Restore this version</value></data>
+  <data name="HistoryPage_RestoreButton.AutomationProperties.HelpText" xml:space="preserve"><value>Replaces the selected source with this version after confirmation.</value></data>
+  <data name="HistoryPage_DeleteButton.AutomationProperties.Name" xml:space="preserve"><value>Delete history item</value></data>
+  <data name="HistoryPage_DeleteButton.AutomationProperties.HelpText" xml:space="preserve"><value>Permanently deletes this history item after confirmation.</value></data>
+  <data name="FolderManager_ConfigSettingsButton.AutomationProperties.Name" xml:space="preserve"><value>Open configuration settings</value></data>
+  <data name="FolderManager_ChangeCover.AutomationProperties.Name" xml:space="preserve"><value>Change folder cover</value></data>
+  <data name="FolderManager_FavoriteToggle.AutomationProperties.Name" xml:space="preserve"><value>Toggle favorite folder</value></data>
+  <data name="FolderManager_AddDescription.AutomationProperties.Name" xml:space="preserve"><value>Folder description</value></data>
+  <data name="FolderManager_MoreActions.AutomationProperties.Name" xml:space="preserve"><value>More folder actions</value></data>
+  <data name="FolderManager_MoreActions.ToolTipService.ToolTip" xml:space="preserve"><value>More folder actions</value></data>
+  <data name="FolderManager_RemoveFolder.AutomationProperties.HelpText" xml:space="preserve"><value>Removes this folder from the configuration after confirmation.</value></data>
+  <data name="SettingsPage_PluginsAutoCheckUpdatesToggle.AutomationProperties.Name" xml:space="preserve"><value>Automatically check for plugin updates</value></data>
+  <data name="SettingsPage_PluginEnabledToggle.AutomationProperties.Name" xml:space="preserve"><value>Enable or disable plugin</value></data>
+  <data name="SettingsPage_PluginUninstall.AutomationProperties.HelpText" xml:space="preserve"><value>Uninstalls this plugin after confirmation.</value></data>
+  <data name="SettingsPage_PluginDeleteData.AutomationProperties.HelpText" xml:space="preserve"><value>Permanently deletes this plugin's stored data after confirmation.</value></data>
+  <data name="SettingsPage_KnotLinkEnabledToggle.AutomationProperties.Name" xml:space="preserve"><value>Enable KnotLink integration</value></data>
+  <data name="SettingsPage_KnotLinkAutoStartToggle.AutomationProperties.Name" xml:space="preserve"><value>Automatically start the KnotLink server</value></data>
+  <data name="MiniWindow_PrimaryAction.AutomationProperties.Name" xml:space="preserve"><value>Open backup comment panel</value></data>
+  <data name="MiniWindow_CommentBox.AutomationProperties.Name" xml:space="preserve"><value>Backup comment</value></data>
+  <data name="MiniWindow_OpenCommentPanel" xml:space="preserve"><value>Open backup comment panel</value></data>
+  <data name="MiniWindow_CloseCommentPanel" xml:space="preserve"><value>Close backup comment panel</value></data>
+  <data name="HomePage_NewConfigButton.AutomationProperties.Name" xml:space="preserve"><value>Create configuration</value></data>
+  <data name="HistoryPage_BranchCheckoutButton.AutomationProperties.Name" xml:space="preserve"><value>Check out selected branch</value></data>
+  <data name="HistoryPage_BranchMoreActions.AutomationProperties.Name" xml:space="preserve"><value>More branch actions</value></data>
+  <data name="HistoryPage_OpenCloudSyncButton.AutomationProperties.Name" xml:space="preserve"><value>Open cloud synchronization settings</value></data>
+  <data name="HistoryPage_MaintenanceDropDown.AutomationProperties.Name" xml:space="preserve"><value>History maintenance and preferences</value></data>
+  <data name="HistoryPage_BranchDeleteItem.AutomationProperties.HelpText" xml:space="preserve"><value>Deletes the selected dormant branch after confirmation.</value></data>
+  <data name="HistoryPage_ClearMissingMenuItem.AutomationProperties.HelpText" xml:space="preserve"><value>Removes history records whose local payload no longer exists.</value></data>
+  <data name="FolderManager_AddFolderButton.AutomationProperties.Name" xml:space="preserve"><value>Add folder</value></data>
+  <data name="FolderManager_BackupConfigButton.AutomationProperties.Name" xml:space="preserve"><value>Back up all folders</value></data>
+  <data name="FolderManager_BackupSelectedButton.AutomationProperties.Name" xml:space="preserve"><value>Back up selected folder</value></data>
+  <data name="FolderManager_HistoryButton.AutomationProperties.Name" xml:space="preserve"><value>Open selected folder history</value></data>
+  <data name="SettingsPage_StartupWidthInput.AutomationProperties.Name" xml:space="preserve"><value>Startup window width</value></data>
+  <data name="SettingsPage_StartupHeightInput.AutomationProperties.Name" xml:space="preserve"><value>Startup window height</value></data>
 </root>

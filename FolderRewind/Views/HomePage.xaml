@@ -22,6 +22,8 @@
 
                 <!-- 绑定到 Favorites 集合 -->
                 <GridView ItemsSource="{x:Bind ViewModel.FavoriteFoldersView, Mode=OneWay}"
+                          AutomationProperties.AutomationId="HomeFavoriteFolders"
+                          ContainerContentChanging="OnFavoriteContainerContentChanging"
                           SelectionMode="None" 
                           IsItemClickEnabled="False">
                     <GridView.ItemContainerStyle>
@@ -30,6 +32,7 @@
                             <Setter Property="Padding" Value="0"/>
                             <Setter Property="MinWidth" Value="0"/>
                             <Setter Property="MinHeight" Value="0"/>
+                            <Setter Property="IsTabStop" Value="False"/>
                             <Setter Property="Template">
                                 <Setter.Value>
                                     <ControlTemplate TargetType="GridViewItem">
@@ -58,6 +61,8 @@
                                 </Border.Shadow>
 
                                 <Button Background="Transparent"
+                                        AutomationProperties.AutomationId="{x:Bind Id, Converter={StaticResource AutomationIdConverter}, ConverterParameter=HomeFavoriteCard}"
+                                        AutomationProperties.Name="{x:Bind DisplayName, Mode=OneWay}"
                                         BorderThickness="0"
                                         CornerRadius="{StaticResource OverlayCornerRadius}"
                                         Padding="0"
@@ -118,6 +123,7 @@
 
                                             <!-- 快速备份按钮 -->
                                             <Button Grid.Column="2" Padding="8" Background="Transparent" BorderThickness="0" 
+                                                    AutomationProperties.AutomationId="{x:Bind Id, Converter={StaticResource AutomationIdConverter}, ConverterParameter=HomeFavoriteQuickBackup}"
                                                     Click="OnQuickBackupClick" x:Uid="HomePage_QuickBackupButton" VerticalAlignment="Center">
                                                 <FontIcon Glyph="&#xE896;" FontSize="16"/>
                                             </Button>
@@ -148,8 +154,11 @@
                     </StackPanel>
 
                     <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="6" VerticalAlignment="Center">
-                        <TextBlock x:Uid="HomePage_SortLabel" Foreground="{ThemeResource TextFillColorSecondaryBrush}"/>
-                        <ComboBox x:Name="SortCombo" MinWidth="160" SelectionChanged="OnSortModeChanged">
+                        <TextBlock x:Name="SortLabel" x:Uid="HomePage_SortLabel" Foreground="{ThemeResource TextFillColorSecondaryBrush}"/>
+                        <ComboBox x:Name="SortCombo" MinWidth="160"
+                                  AutomationProperties.AutomationId="HomeConfigSort"
+                                  AutomationProperties.LabeledBy="{x:Bind SortLabel}"
+                                  SelectionChanged="OnSortModeChanged">
                             <ComboBoxItem Tag="NameAsc" x:Uid="HomePage_Sort_NameAsc"/>
                             <ComboBoxItem Tag="NameDesc" x:Uid="HomePage_Sort_NameDesc"/>
                             <ComboBoxItem Tag="LastBackupDesc" x:Uid="HomePage_Sort_LastBackup"/>
@@ -157,7 +166,9 @@
                         </ComboBox>
                     </StackPanel>
 
-                    <SplitButton Grid.Column="2" HorizontalAlignment="Right" Click="OnAddConfigClick">
+                    <SplitButton Grid.Column="2" x:Uid="HomePage_NewConfigButton" HorizontalAlignment="Right"
+                                 AutomationProperties.AutomationId="HomeNewConfig"
+                                 Click="OnAddConfigClick">
                         <SplitButton.Content>
                             <StackPanel Orientation="Horizontal" Spacing="8">
                                 <FontIcon Glyph="&#xE710;"/>
@@ -166,12 +177,16 @@
                         </SplitButton.Content>
                         <SplitButton.Flyout>
                             <MenuFlyout>
-                                <MenuFlyoutItem x:Uid="HomePage_AutoDiscoverGames" Click="OnAutoDiscoverGamesClick">
+                                <MenuFlyoutItem x:Uid="HomePage_AutoDiscoverGames"
+                                                AutomationProperties.AutomationId="HomeAutoDiscoverGames"
+                                                Click="OnAutoDiscoverGamesClick">
                                     <MenuFlyoutItem.Icon>
                                         <FontIcon Glyph="&#xE721;"/>
                                     </MenuFlyoutItem.Icon>
                                 </MenuFlyoutItem>
-                                <MenuFlyoutItem x:Uid="HomePage_AddFromTemplate" Click="OnAddConfigFromTemplateClick">
+                                <MenuFlyoutItem x:Uid="HomePage_AddFromTemplate"
+                                                AutomationProperties.AutomationId="HomeAddFromTemplate"
+                                                Click="OnAddConfigFromTemplateClick">
                                     <MenuFlyoutItem.Icon>
                                         <FontIcon Glyph="&#xE71D;"/>
                                     </MenuFlyoutItem.Icon>
@@ -182,6 +197,8 @@
                 </Grid>
 
                 <GridView x:Name="ConfigGridView" 
+                          AutomationProperties.AutomationId="HomeConfigGrid"
+                          ContainerContentChanging="OnConfigContainerContentChanging"
                           ItemsSource="{x:Bind ViewModel.ConfigsView, Mode=OneWay}"
                           SelectionMode="None" 
                           IsItemClickEnabled="False">
@@ -191,6 +208,7 @@
                             <Setter Property="Padding" Value="0"/>
                             <Setter Property="MinWidth" Value="0"/>
                             <Setter Property="MinHeight" Value="0"/>
+                            <Setter Property="IsTabStop" Value="False"/>
                             <Setter Property="Template">
                                 <Setter.Value>
                                     <ControlTemplate TargetType="GridViewItem">
@@ -219,6 +237,8 @@
                                 </Border.Shadow>
 
                                 <Button Background="Transparent"
+                                        AutomationProperties.AutomationId="{x:Bind Id, Converter={StaticResource AutomationIdConverter}, ConverterParameter=HomeConfigCard}"
+                                        AutomationProperties.Name="{x:Bind Name, Mode=OneWay}"
                                         BorderThickness="0"
                                         CornerRadius="{StaticResource OverlayCornerRadius}"
                                         Padding="0"
@@ -231,24 +251,32 @@
                                         Click="OnConfigCardClick">
                                     <Button.ContextFlyout>
                                         <MenuFlyout>
-                                            <MenuFlyoutItem x:Uid="HomePage_ContextMenu_BackupAll" Click="OnBackupAllFoldersClick">
+                                            <MenuFlyoutItem x:Uid="HomePage_ContextMenu_BackupAll"
+                                                            AutomationProperties.AutomationId="{x:Bind Id, Converter={StaticResource AutomationIdConverter}, ConverterParameter=HomeConfigBackupAll}"
+                                                            Click="OnBackupAllFoldersClick">
                                                 <MenuFlyoutItem.Icon>
                                                     <FontIcon Glyph="&#xE896;"/>
                                                 </MenuFlyoutItem.Icon>
                                             </MenuFlyoutItem>
-                                            <MenuFlyoutItem x:Uid="HomePage_ContextMenu_OpenDestination" Click="OnOpenDestinationClick">
+                                            <MenuFlyoutItem x:Uid="HomePage_ContextMenu_OpenDestination"
+                                                            AutomationProperties.AutomationId="{x:Bind Id, Converter={StaticResource AutomationIdConverter}, ConverterParameter=HomeConfigOpenDestination}"
+                                                            Click="OnOpenDestinationClick">
                                                 <MenuFlyoutItem.Icon>
                                                     <FontIcon Glyph="&#xE8DA;"/>
                                                 </MenuFlyoutItem.Icon>
                                             </MenuFlyoutItem>
                                             <MenuFlyoutSeparator/>
-                                            <MenuFlyoutItem x:Uid="HomePage_ContextMenu_EditConfig" Click="OnEditConfigClick">
+                                            <MenuFlyoutItem x:Uid="HomePage_ContextMenu_EditConfig"
+                                                            AutomationProperties.AutomationId="{x:Bind Id, Converter={StaticResource AutomationIdConverter}, ConverterParameter=HomeConfigEdit}"
+                                                            Click="OnEditConfigClick">
                                                 <MenuFlyoutItem.Icon>
                                                     <FontIcon Glyph="&#xE70F;"/>
                                                 </MenuFlyoutItem.Icon>
                                             </MenuFlyoutItem>
                                             <MenuFlyoutSeparator/>
-                                            <MenuFlyoutItem x:Uid="HomePage_ContextMenu_DeleteConfig" Click="OnDeleteConfigClick">
+                                            <MenuFlyoutItem x:Uid="HomePage_ContextMenu_DeleteConfig"
+                                                            AutomationProperties.AutomationId="{x:Bind Id, Converter={StaticResource AutomationIdConverter}, ConverterParameter=HomeConfigDelete}"
+                                                            Click="OnDeleteConfigClick">
                                                 <MenuFlyoutItem.Icon>
                                                     <FontIcon Glyph="&#xE74D;" Foreground="{ThemeResource SystemFillColorCriticalBrush}"/>
                                                 </MenuFlyoutItem.Icon>

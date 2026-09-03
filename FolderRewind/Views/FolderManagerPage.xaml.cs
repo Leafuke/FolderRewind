@@ -4,6 +4,7 @@ using FolderRewind.Services.Hotkeys;
 using FolderRewind.Services.Plugins;
 using FolderRewind.ViewModels;
 using Microsoft.UI.Xaml;
+using Microsoft.UI.Xaml.Automation;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Input;
 using Microsoft.UI.Xaml.Navigation;
@@ -29,6 +30,26 @@ namespace FolderRewind.Views
 
             ViewModel.PendingFolderSelectionRequested += TryApplyPendingSelection;
             Loaded += (_, __) => TryApplyPendingSelection();
+        }
+
+        private void OnFolderContainerContentChanging(
+            ListViewBase sender,
+            ContainerContentChangingEventArgs args)
+        {
+            if (args.InRecycleQueue)
+            {
+                AutomationProperties.SetName(args.ItemContainer, string.Empty);
+                AutomationProperties.SetAutomationId(args.ItemContainer, string.Empty);
+                return;
+            }
+
+            if (args.Item is not ManagedFolder folder)
+            {
+                return;
+            }
+
+            AutomationProperties.SetName(args.ItemContainer, folder.DisplayName);
+            AutomationProperties.SetAutomationId(args.ItemContainer, $"FolderManagerFolder_{folder.Id}");
         }
 
         protected override void OnNavigatedTo(NavigationEventArgs e)

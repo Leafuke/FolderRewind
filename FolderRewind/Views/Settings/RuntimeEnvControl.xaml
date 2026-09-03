@@ -14,7 +14,7 @@
         <!-- 运行环境 -->
         <toolkit:SettingsExpander IsExpanded="False">
             <toolkit:SettingsExpander.Header>
-                <TextBlock x:Uid="SettingsPage_Environment" Style="{StaticResource SettingsHeaderTextStyle}" />
+                <TextBlock x:Uid="SettingsPage_Environment" AutomationProperties.AutomationId="SettingsEnvironmentHeader" Style="{StaticResource SettingsHeaderTextStyle}" />
             </toolkit:SettingsExpander.Header>
             <toolkit:SettingsExpander.Description>
                 <TextBlock x:Uid="SettingsPage_EnvironmentSectionDesc" Style="{StaticResource SettingsDescriptionStyle}" />
@@ -25,74 +25,80 @@
             <toolkit:SettingsExpander.Items>
                 <toolkit:SettingsCard>
                     <toolkit:SettingsCard.Header>
-                        <TextBlock x:Uid="SettingsPage_7zPath" Style="{StaticResource SettingsHeaderTextStyle}" />
+                        <TextBlock x:Name="SevenZipPathLabel" x:Uid="SettingsPage_7zPath" Style="{StaticResource SettingsHeaderTextStyle}" />
                     </toolkit:SettingsCard.Header>
                     <toolkit:SettingsCard.Description>
                         <TextBlock x:Uid="SettingsPage_7zPathDesc" Style="{StaticResource SettingsDescriptionStyle}" />
                     </toolkit:SettingsCard.Description>
                     <StackPanel Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
-                        <TextBox Text="{x:Bind ViewModel.SevenZipPath, Mode=TwoWay}" Style="{StaticResource SettingsPathTextBoxStyle}" />
-                        <Button x:Uid="SettingsPage_BrowseButton" Style="{StaticResource SettingsActionButtonStyle}" Click="OnBrowse7zClick" />
+                        <TextBox AutomationProperties.AutomationId="SettingsSevenZipPath" AutomationProperties.LabeledBy="{x:Bind SevenZipPathLabel}" Text="{x:Bind ViewModel.SevenZipPath, Mode=TwoWay}" Style="{StaticResource SettingsPathTextBoxStyle}" />
+                        <Button x:Uid="SettingsPage_BrowseButton" AutomationProperties.AutomationId="SettingsSevenZipBrowse" Style="{StaticResource SettingsActionButtonStyle}" Click="OnBrowse7zClick" />
                     </StackPanel>
                 </toolkit:SettingsCard>
 
                 <toolkit:SettingsCard>
                     <toolkit:SettingsCard.Header>
-                        <TextBlock x:Uid="SettingsPage_DefaultBackupRootPath" Style="{StaticResource SettingsHeaderTextStyle}" />
+                        <TextBlock x:Name="DefaultBackupRootLabel" x:Uid="SettingsPage_DefaultBackupRootPath" Style="{StaticResource SettingsHeaderTextStyle}" />
                     </toolkit:SettingsCard.Header>
                     <toolkit:SettingsCard.Description>
                         <TextBlock x:Uid="SettingsPage_DefaultBackupRootPathDesc" Style="{StaticResource SettingsDescriptionStyle}" />
                     </toolkit:SettingsCard.Description>
                     <StackPanel Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
-                        <TextBox Text="{x:Bind ViewModel.DefaultBackupRootPath, Mode=TwoWay}" Style="{StaticResource SettingsPathTextBoxStyle}" />
-                        <Button x:Uid="SettingsPage_BrowseButton" Style="{StaticResource SettingsActionButtonStyle}" Click="OnBrowseDefaultBackupRootClick" />
+                        <TextBox AutomationProperties.AutomationId="SettingsDefaultBackupRoot" AutomationProperties.LabeledBy="{x:Bind DefaultBackupRootLabel}" Text="{x:Bind ViewModel.DefaultBackupRootPath, Mode=TwoWay}" Style="{StaticResource SettingsPathTextBoxStyle}" />
+                        <Button x:Uid="SettingsPage_BrowseButton" AutomationProperties.AutomationId="SettingsDefaultBackupRootBrowse" Style="{StaticResource SettingsActionButtonStyle}" Click="OnBrowseDefaultBackupRootClick" />
                     </StackPanel>
                 </toolkit:SettingsCard>
 
                 <toolkit:SettingsCard>
                     <toolkit:SettingsCard.Header>
-                        <TextBlock x:Uid="SettingsPage_RclonePath" Style="{StaticResource SettingsHeaderTextStyle}" />
+                        <TextBlock x:Name="RclonePathLabel" x:Uid="SettingsPage_RclonePath" Style="{StaticResource SettingsHeaderTextStyle}" />
                     </toolkit:SettingsCard.Header>
                     <toolkit:SettingsCard.Description>
                         <TextBlock x:Uid="SettingsPage_RclonePathDesc" Style="{StaticResource SettingsDescriptionStyle}" />
                     </toolkit:SettingsCard.Description>
                     <StackPanel Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
-                        <TextBox Text="{x:Bind ViewModel.RcloneExecutablePath, Mode=TwoWay}" Style="{StaticResource SettingsPathTextBoxStyle}" />
-                        <Button x:Uid="SettingsPage_BrowseButton" Style="{StaticResource SettingsActionButtonStyle}" Click="OnBrowseRcloneClick" />
+                        <TextBox AutomationProperties.AutomationId="SettingsRclonePath" AutomationProperties.LabeledBy="{x:Bind RclonePathLabel}" Text="{x:Bind ViewModel.RcloneExecutablePath, Mode=TwoWay}" Style="{StaticResource SettingsPathTextBoxStyle}" />
+                        <Button x:Uid="SettingsPage_BrowseButton" AutomationProperties.AutomationId="SettingsRcloneBrowse" Style="{StaticResource SettingsActionButtonStyle}" Click="OnBrowseRcloneClick" />
                     </StackPanel>
                 </toolkit:SettingsCard>
 
                 <toolkit:SettingsCard>
                     <toolkit:SettingsCard.Header>
-                        <TextBlock x:Uid="SettingsPage_DefaultCloudRemoteBasePath" Style="{StaticResource SettingsHeaderTextStyle}" />
+                        <TextBlock x:Name="DefaultCloudRemoteBasePathLabel" x:Uid="SettingsPage_DefaultCloudRemoteBasePath" Style="{StaticResource SettingsHeaderTextStyle}" />
                     </toolkit:SettingsCard.Header>
                     <toolkit:SettingsCard.Description>
                         <TextBlock x:Uid="SettingsPage_DefaultCloudRemoteBasePathDesc" Style="{StaticResource SettingsDescriptionStyle}" />
                     </toolkit:SettingsCard.Description>
-                    <TextBox Text="{x:Bind ViewModel.DefaultCloudRemoteBasePath, Mode=OneWay}"
+                    <TextBox AutomationProperties.AutomationId="SettingsDefaultCloudRemoteBasePath"
+                             AutomationProperties.LabeledBy="{x:Bind DefaultCloudRemoteBasePathLabel}"
+                             Text="{x:Bind ViewModel.DefaultCloudRemoteBasePath, Mode=OneWay}"
                              Style="{StaticResource SettingsPathTextBoxStyle}"
                              TextChanged="OnDefaultCloudRemoteBasePathChanged" />
                 </toolkit:SettingsCard>
 
                 <toolkit:SettingsCard>
                     <toolkit:SettingsCard.Header>
-                        <TextBlock x:Uid="SettingsPage_AutoDownloadMissingCloudBackupsBeforeRestore" Style="{StaticResource SettingsHeaderTextStyle}" />
+                        <TextBlock x:Name="AutoDownloadCloudBackupsLabel" x:Uid="SettingsPage_AutoDownloadMissingCloudBackupsBeforeRestore" Style="{StaticResource SettingsHeaderTextStyle}" />
                     </toolkit:SettingsCard.Header>
                     <toolkit:SettingsCard.Description>
                         <TextBlock x:Uid="SettingsPage_AutoDownloadMissingCloudBackupsBeforeRestoreDesc" Style="{StaticResource SettingsDescriptionStyle}" />
                     </toolkit:SettingsCard.Description>
-                    <ToggleSwitch IsOn="{x:Bind ViewModel.AutoDownloadMissingCloudBackupsBeforeRestore, Mode=OneWay}"
+                    <ToggleSwitch AutomationProperties.AutomationId="SettingsAutoDownloadMissingCloudBackups"
+                                  AutomationProperties.LabeledBy="{x:Bind AutoDownloadCloudBackupsLabel}"
+                                  IsOn="{x:Bind ViewModel.AutoDownloadMissingCloudBackupsBeforeRestore, Mode=OneWay}"
                                   Toggled="OnAutoDownloadMissingCloudBackupsBeforeRestoreToggled" />
                 </toolkit:SettingsCard>
 
                 <toolkit:SettingsCard>
                     <toolkit:SettingsCard.Header>
-                        <TextBlock x:Uid="SettingsPage_AppUpdateSource" Style="{StaticResource SettingsHeaderTextStyle}" />
+                        <TextBlock x:Name="AppUpdateSourceLabel" x:Uid="SettingsPage_AppUpdateSource" Style="{StaticResource SettingsHeaderTextStyle}" />
                     </toolkit:SettingsCard.Header>
                     <toolkit:SettingsCard.Description>
                         <TextBlock x:Uid="SettingsPage_AppUpdateSourceDesc" Style="{StaticResource SettingsDescriptionStyle}" />
                     </toolkit:SettingsCard.Description>
-                    <ComboBox Style="{StaticResource SettingsSelectorStyle}"
+                    <ComboBox AutomationProperties.AutomationId="SettingsAppUpdateChannel"
+                              AutomationProperties.LabeledBy="{x:Bind AppUpdateSourceLabel}"
+                              Style="{StaticResource SettingsSelectorStyle}"
                               SelectedIndex="{x:Bind ViewModel.AppUpdatePreferredSource, Mode=TwoWay}"
                               SelectionChanged="OnAppUpdateSourceSelectionChanged">
                         <ComboBoxItem x:Uid="SettingsPage_AppUpdateSource_Official" />
@@ -104,22 +110,27 @@
 
                 <toolkit:SettingsCard>
                     <toolkit:SettingsCard.Header>
-                        <TextBlock x:Uid="SettingsPage_AppUpdateAutoFallback" Style="{StaticResource SettingsHeaderTextStyle}" />
+                        <TextBlock x:Name="AppUpdateAutoFallbackLabel" x:Uid="SettingsPage_AppUpdateAutoFallback" Style="{StaticResource SettingsHeaderTextStyle}" />
                     </toolkit:SettingsCard.Header>
                     <toolkit:SettingsCard.Description>
                         <TextBlock x:Uid="SettingsPage_AppUpdateAutoFallbackDesc" Style="{StaticResource SettingsDescriptionStyle}" />
                     </toolkit:SettingsCard.Description>
-                    <ToggleSwitch IsOn="{x:Bind ViewModel.AppUpdateAutoFallback, Mode=OneWay}" Toggled="OnAppUpdateAutoFallbackToggled" />
+                    <ToggleSwitch AutomationProperties.AutomationId="SettingsAppUpdateAutoFallback"
+                                  AutomationProperties.LabeledBy="{x:Bind AppUpdateAutoFallbackLabel}"
+                                  IsOn="{x:Bind ViewModel.AppUpdateAutoFallback, Mode=OneWay}"
+                                  Toggled="OnAppUpdateAutoFallbackToggled" />
                 </toolkit:SettingsCard>
 
                 <toolkit:SettingsCard>
                     <toolkit:SettingsCard.Header>
-                        <TextBlock x:Uid="SettingsPage_AppUpdateCustomMirror" Style="{StaticResource SettingsHeaderTextStyle}" />
+                        <TextBlock x:Name="AppUpdateCustomMirrorLabel" x:Uid="SettingsPage_AppUpdateCustomMirror" Style="{StaticResource SettingsHeaderTextStyle}" />
                     </toolkit:SettingsCard.Header>
                     <toolkit:SettingsCard.Description>
                         <TextBlock x:Uid="SettingsPage_AppUpdateCustomMirrorDesc" Style="{StaticResource SettingsDescriptionStyle}" />
                     </toolkit:SettingsCard.Description>
                     <TextBox x:Uid="SettingsPage_AppUpdateCustomMirrorInput"
+                             AutomationProperties.AutomationId="SettingsAppUpdateCustomMirror"
+                             AutomationProperties.LabeledBy="{x:Bind AppUpdateCustomMirrorLabel}"
                              Style="{StaticResource SettingsEntryTextBoxStyle}"
                              Text="{x:Bind ViewModel.AppUpdateCustomMirrorUrl, Mode=OneWay}"
                              TextChanged="OnAppUpdateCustomMirrorTextChanged" />

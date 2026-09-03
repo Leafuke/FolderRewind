@@ -33,6 +33,50 @@ namespace FolderRewind.Views
             this.Loaded += OnLoaded;
         }
 
+        private void OnFavoriteContainerContentChanging(
+            ListViewBase sender,
+            ContainerContentChangingEventArgs args)
+        {
+            if (args.InRecycleQueue)
+            {
+                ClearContainerAutomationMetadata(args);
+                return;
+            }
+
+            if (args.Item is not ManagedFolder folder)
+            {
+                return;
+            }
+
+            AutomationProperties.SetName(args.ItemContainer, folder.DisplayName);
+            AutomationProperties.SetAutomationId(args.ItemContainer, $"HomeFavoriteItem_{folder.Id}");
+        }
+
+        private void OnConfigContainerContentChanging(
+            ListViewBase sender,
+            ContainerContentChangingEventArgs args)
+        {
+            if (args.InRecycleQueue)
+            {
+                ClearContainerAutomationMetadata(args);
+                return;
+            }
+
+            if (args.Item is not BackupConfig config)
+            {
+                return;
+            }
+
+            AutomationProperties.SetName(args.ItemContainer, config.Name);
+            AutomationProperties.SetAutomationId(args.ItemContainer, $"HomeConfigItem_{config.Id}");
+        }
+
+        private static void ClearContainerAutomationMetadata(ContainerContentChangingEventArgs args)
+        {
+            AutomationProperties.SetName(args.ItemContainer, string.Empty);
+            AutomationProperties.SetAutomationId(args.ItemContainer, string.Empty);
+        }
+
         protected override void OnNavigatedTo(NavigationEventArgs e)
         {
             base.OnNavigatedTo(e);

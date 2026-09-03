@@ -4,6 +4,7 @@ using FolderRewind.History.Domain;
 using FolderRewind.Services;
 using FolderRewind.ViewModels;
 using Microsoft.UI.Xaml;
+using Microsoft.UI.Xaml.Automation;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Navigation;
 using System;
@@ -35,6 +36,50 @@ namespace FolderRewind.Views
             HistoryViewSelector.SelectedItem = ViewModel.IsGroupedRunView
                 ? RunHistoryViewItem
                 : SourceHistoryViewItem;
+        }
+
+        private void OnHistoryContainerContentChanging(
+            ListViewBase sender,
+            ContainerContentChangingEventArgs args)
+        {
+            if (args.InRecycleQueue)
+            {
+                ClearContainerAutomationMetadata(args);
+                return;
+            }
+
+            if (args.Item is not NativeHistoryVersionViewItem item)
+            {
+                return;
+            }
+
+            AutomationProperties.SetName(args.ItemContainer, item.Message);
+            AutomationProperties.SetAutomationId(args.ItemContainer, $"HistoryVersionItem_{item.VersionId}");
+        }
+
+        private void OnRunContainerContentChanging(
+            ListViewBase sender,
+            ContainerContentChangingEventArgs args)
+        {
+            if (args.InRecycleQueue)
+            {
+                ClearContainerAutomationMetadata(args);
+                return;
+            }
+
+            if (args.Item is not BackupRunViewItem item)
+            {
+                return;
+            }
+
+            AutomationProperties.SetName(args.ItemContainer, item.Message);
+            AutomationProperties.SetAutomationId(args.ItemContainer, $"HistoryRunItem_{item.RunId}");
+        }
+
+        private static void ClearContainerAutomationMetadata(ContainerContentChangingEventArgs args)
+        {
+            AutomationProperties.SetName(args.ItemContainer, string.Empty);
+            AutomationProperties.SetAutomationId(args.ItemContainer, string.Empty);
         }
 
         protected override async void OnNavigatedTo(NavigationEventArgs e)

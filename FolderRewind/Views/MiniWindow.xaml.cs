@@ -2,6 +2,7 @@
 using FolderRewind.Services;
 using Microsoft.UI.Windowing;
 using Microsoft.UI.Xaml;
+using Microsoft.UI.Xaml.Automation;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Input;
 using Microsoft.UI.Xaml.Media;
@@ -345,12 +346,14 @@ namespace FolderRewind.Views
             };
 
             // Tooltip 整体格式必须可本地化（不同语言的顺序/标点可能不同）
-            MiniTooltip.Content = I18n.Format(
+            var tooltip = I18n.Format(
                 "MiniWindow_Tip_Format",
                 folder.DisplayName,
                 folder.Path,
                 folder.LastBackupTimeDisplay,
                 status);
+            MiniTooltip.Content = tooltip;
+            AutomationProperties.SetHelpText(MiniPrimaryButton, tooltip);
         }
 
         // 变更检测定时器
@@ -436,6 +439,11 @@ namespace FolderRewind.Views
             ToggleInputPanel();
         }
 
+        private void MiniPrimaryButton_Click(object sender, RoutedEventArgs e) => ToggleInputPanel();
+
+        private void MiniPrimaryButton_Tapped(object sender, TappedRoutedEventArgs e)
+            => e.Handled = true;
+
         private void ToggleInputPanel()
         {
             var shouldExpand = _expansionState is MiniWindowExpansionState.Collapsed
@@ -480,6 +488,9 @@ namespace FolderRewind.Views
                     CommentPanel.Opacity = 1;
                     CommentPanel.Translation = Vector3.Zero;
                     _expansionState = MiniWindowExpansionState.Expanded;
+                    AutomationProperties.SetName(
+                        MiniPrimaryButton,
+                        I18n.GetString("MiniWindow_CloseCommentPanel"));
                     CommentBox.Focus(FocusState.Programmatic);
                 }
                 else
@@ -499,6 +510,10 @@ namespace FolderRewind.Views
                     RightExpandColumn.Width = new GridLength(0);
                     CollapseToSquare(wasLeftExpanded);
                     _expansionState = MiniWindowExpansionState.Collapsed;
+                    AutomationProperties.SetName(
+                        MiniPrimaryButton,
+                        I18n.GetString("MiniWindow_OpenCommentPanel"));
+                    MiniPrimaryButton.Focus(FocusState.Programmatic);
                 }
             }
             catch (OperationCanceledException)

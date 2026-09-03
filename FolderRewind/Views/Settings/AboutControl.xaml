@@ -13,7 +13,7 @@
 
         <toolkit:SettingsExpander Margin="0,0,0,24" IsExpanded="False">
             <toolkit:SettingsExpander.Header>
-                <TextBlock x:Uid="SettingsPage_About" Style="{StaticResource SettingsHeaderTextStyle}" />
+                <TextBlock x:Uid="SettingsPage_About" AutomationProperties.AutomationId="SettingsAboutHeader" Style="{StaticResource SettingsHeaderTextStyle}" />
             </toolkit:SettingsExpander.Header>
             <toolkit:SettingsExpander.Description>
                 <TextBlock x:Uid="SettingsPage_AboutDesc" Style="{StaticResource SettingsDescriptionStyle}" />
@@ -25,17 +25,17 @@
             <toolkit:SettingsExpander.Items>
                 <toolkit:SettingsCard ContentAlignment="Vertical" HorizontalContentAlignment="Left">
                     <StackPanel Orientation="Horizontal" Spacing="8">
-                        <HyperlinkButton x:Uid="SettingsPage_About_Link_Repository" NavigateUri="https://github.com/Leafuke/FolderRewind" />
-                        <HyperlinkButton x:Uid="SettingsPage_About_Link_Sponsors" NavigateUri="https://github.com/Leafuke/FolderRewind/blob/dev/docs/SPONSORS.md" />
-                        <HyperlinkButton x:Uid="SettingsPage_About_Link_Bilibili" NavigateUri="https://space.bilibili.com/545429962" />
-                        <HyperlinkButton x:Uid="SettingsPage_About_Link_Privacy" NavigateUri="https://github.com/Leafuke/FolderRewind/blob/dev/PRIVACY.md" />
-                        <HyperlinkButton x:Uid="SettingsPage_About_Link_KnotLink" NavigateUri="https://github.com/KnotLink-Protocol/KnotLinkService" ToolTipService.ToolTip="By KnotLink-Protocol"/>
+                        <HyperlinkButton x:Uid="SettingsPage_About_Link_Repository" AutomationProperties.AutomationId="SettingsAboutRepository" NavigateUri="https://github.com/Leafuke/FolderRewind" />
+                        <HyperlinkButton x:Uid="SettingsPage_About_Link_Sponsors" AutomationProperties.AutomationId="SettingsAboutSponsors" NavigateUri="https://github.com/Leafuke/FolderRewind/blob/dev/docs/SPONSORS.md" />
+                        <HyperlinkButton x:Uid="SettingsPage_About_Link_Bilibili" AutomationProperties.AutomationId="SettingsAboutBilibili" NavigateUri="https://space.bilibili.com/545429962" />
+                        <HyperlinkButton x:Uid="SettingsPage_About_Link_Privacy" AutomationProperties.AutomationId="SettingsAboutPrivacy" NavigateUri="https://github.com/Leafuke/FolderRewind/blob/dev/PRIVACY.md" />
+                        <HyperlinkButton x:Uid="SettingsPage_About_Link_KnotLink" AutomationProperties.AutomationId="SettingsAboutKnotLink" NavigateUri="https://github.com/KnotLink-Protocol/KnotLinkService" ToolTipService.ToolTip="By KnotLink-Protocol"/>
                     </StackPanel>
                 </toolkit:SettingsCard>
             </toolkit:SettingsExpander.Items>
         </toolkit:SettingsExpander>
         <StackPanel Orientation="Horizontal" Spacing="4">
-            <HyperlinkButton x:Uid="SettingsPage_About_Link_QQ_GROUP" Padding="8,4" Click="OnJoinGroupButtonClick">
+            <HyperlinkButton x:Uid="SettingsPage_About_Link_QQ_GROUP" AutomationProperties.AutomationId="SettingsAboutQQGroup" Padding="8,4" Click="OnJoinGroupButtonClick">
                 <FlyoutBase.AttachedFlyout>
                     <Flyout>
                         <Flyout.FlyoutPresenterStyle>
@@ -50,11 +50,11 @@
                 </FlyoutBase.AttachedFlyout>
             </HyperlinkButton>
             <StackPanel Width="1" Height="16" Background="{ThemeResource ControlStrokeColorDefaultBrush}" />
-            <HyperlinkButton x:Uid="SettingsPage_About_Link_Feedback" Padding="8,4" NavigateUri="https://github.com/Leafuke/FolderRewind/issues" />
+            <HyperlinkButton x:Uid="SettingsPage_About_Link_Feedback" AutomationProperties.AutomationId="SettingsAboutFeedback" Padding="8,4" NavigateUri="https://github.com/Leafuke/FolderRewind/issues" />
             <StackPanel Width="1" Height="16" Background="{ThemeResource ControlStrokeColorDefaultBrush}" />
-            <HyperlinkButton x:Uid="SettingsPage_About_Link_Guide" NavigateUri="https://www.bilibili.com/video/BV1zbcjzhE1y" />
+            <HyperlinkButton x:Uid="SettingsPage_About_Link_Guide" AutomationProperties.AutomationId="SettingsAboutGuide" NavigateUri="https://www.bilibili.com/video/BV1zbcjzhE1y" />
             <StackPanel Width="1" Height="16" Background="{ThemeResource ControlStrokeColorDefaultBrush}" />
-            <HyperlinkButton x:Name="DocumentLink" x:Uid="SettingsPage_About_Link_Document" NavigateUri="https://folderrewind.top" />
+            <HyperlinkButton x:Name="DocumentLink" x:Uid="SettingsPage_About_Link_Document" AutomationProperties.AutomationId="SettingsAboutDocumentation" NavigateUri="https://folderrewind.top" />
         </StackPanel>
     </StackPanel>
 </UserControl>

@@ -5165,4 +5165,46 @@ Pull Request：{1}</value>
   <data name="MiniWindow_DefaultFolderName" xml:space="preserve"><value>文件夹</value></data>
   <data name="BackupService_MissingEncryptionPassword" xml:space="preserve"><value>此配置缺少加密密码。</value></data>
   <data name="BackupService_InvalidConfigurationOrSource" xml:space="preserve"><value>备份配置或来源无效。</value></data>
+  <data name="HomePage_QuickBackupButton.AutomationProperties.Name" xml:space="preserve"><value>快速备份文件夹</value></data>
+  <data name="HomePage_ContextMenu_DeleteConfig.AutomationProperties.HelpText" xml:space="preserve"><value>确认后删除此配置。</value></data>
+  <data name="HistoryPage_ToggleImportantButton.AutomationProperties.Name" xml:space="preserve"><value>切换重要状态</value></data>
+  <data name="HistoryPage_ViewButton.AutomationProperties.Name" xml:space="preserve"><value>查看版本</value></data>
+  <data name="HistoryPage_EditCommentButton.AutomationProperties.Name" xml:space="preserve"><value>编辑注释</value></data>
+  <data name="HistoryPage_CreateBranchButton.AutomationProperties.Name" xml:space="preserve"><value>从此处创建分支</value></data>
+  <data name="HistoryPage_UploadCloudButton.AutomationProperties.Name" xml:space="preserve"><value>将版本上传到云存储</value></data>
+  <data name="HistoryPage_DownloadCloudButton.AutomationProperties.Name" xml:space="preserve"><value>从云存储下载版本</value></data>
+  <data name="HistoryPage_RestoreButton.AutomationProperties.Name" xml:space="preserve"><value>恢复此版本</value></data>
+  <data name="HistoryPage_RestoreButton.AutomationProperties.HelpText" xml:space="preserve"><value>确认后使用此版本替换所选来源。</value></data>
+  <data name="HistoryPage_DeleteButton.AutomationProperties.Name" xml:space="preserve"><value>删除历史项目</value></data>
+  <data name="HistoryPage_DeleteButton.AutomationProperties.HelpText" xml:space="preserve"><value>确认后永久删除此历史项目。</value></data>
+  <data name="FolderManager_ConfigSettingsButton.AutomationProperties.Name" xml:space="preserve"><value>打开配置设置</value></data>
+  <data name="FolderManager_ChangeCover.AutomationProperties.Name" xml:space="preserve"><value>更改文件夹封面</value></data>
+  <data name="FolderManager_FavoriteToggle.AutomationProperties.Name" xml:space="preserve"><value>切换收藏文件夹</value></data>
+  <data name="FolderManager_AddDescription.AutomationProperties.Name" xml:space="preserve"><value>文件夹描述</value></data>
+  <data name="FolderManager_MoreActions.AutomationProperties.Name" xml:space="preserve"><value>更多文件夹操作</value></data>
+  <data name="FolderManager_MoreActions.ToolTipService.ToolTip" xml:space="preserve"><value>更多文件夹操作</value></data>
+  <data name="FolderManager_RemoveFolder.AutomationProperties.HelpText" xml:space="preserve"><value>确认后从配置中移除此文件夹。</value></data>
+  <data name="SettingsPage_PluginsAutoCheckUpdatesToggle.AutomationProperties.Name" xml:space="preserve"><value>自动检查插件更新</value></data>
+  <data name="SettingsPage_PluginEnabledToggle.AutomationProperties.Name" xml:space="preserve"><value>启用或禁用插件</value></data>
+  <data name="SettingsPage_PluginUninstall.AutomationProperties.HelpText" xml:space="preserve"><value>确认后卸载此插件。</value></data>
+  <data name="SettingsPage_PluginDeleteData.AutomationProperties.HelpText" xml:space="preserve"><value>确认后永久删除此插件保存的数据。</value></data>
+  <data name="SettingsPage_KnotLinkEnabledToggle.AutomationProperties.Name" xml:space="preserve"><value>启用 KnotLink 互联</value></data>
+  <data name="SettingsPage_KnotLinkAutoStartToggle.AutomationProperties.Name" xml:space="preserve"><value>自动启动 KnotLink 服务端</value></data>
+  <data name="MiniWindow_PrimaryAction.AutomationProperties.Name" xml:space="preserve"><value>打开备份注释面板</value></data>
+  <data name="MiniWindow_CommentBox.AutomationProperties.Name" xml:space="preserve"><value>备份注释</value></data>
+  <data name="MiniWindow_OpenCommentPanel" xml:space="preserve"><value>打开备份注释面板</value></data>
+  <data name="MiniWindow_CloseCommentPanel" xml:space="preserve"><value>关闭备份注释面板</value></data>
+  <data name="HomePage_NewConfigButton.AutomationProperties.Name" xml:space="preserve"><value>新建配置</value></data>
+  <data name="HistoryPage_BranchCheckoutButton.AutomationProperties.Name" xml:space="preserve"><value>切换到所选分支</value></data>
+  <data name="HistoryPage_BranchMoreActions.AutomationProperties.Name" xml:space="preserve"><value>更多分支操作</value></data>
+  <data name="HistoryPage_OpenCloudSyncButton.AutomationProperties.Name" xml:space="preserve"><value>打开云同步设置</value></data>
+  <data name="HistoryPage_MaintenanceDropDown.AutomationProperties.Name" xml:space="preserve"><value>历史记录维护与偏好设置</value></data>
+  <data name="HistoryPage_BranchDeleteItem.AutomationProperties.HelpText" xml:space="preserve"><value>确认后删除所选休眠分支。</value></data>
+  <data name="HistoryPage_ClearMissingMenuItem.AutomationProperties.HelpText" xml:space="preserve"><value>移除本地载荷已不存在的历史记录。</value></data>
+  <data name="FolderManager_AddFolderButton.AutomationProperties.Name" xml:space="preserve"><value>添加文件夹</value></data>
+  <data name="FolderManager_BackupConfigButton.AutomationProperties.Name" xml:space="preserve"><value>备份全部文件夹</value></data>
+  <data name="FolderManager_BackupSelectedButton.AutomationProperties.Name" xml:space="preserve"><value>备份所选文件夹</value></data>
+  <data name="FolderManager_HistoryButton.AutomationProperties.Name" xml:space="preserve"><value>打开所选文件夹历史</value></data>
+  <data name="SettingsPage_StartupWidthInput.AutomationProperties.Name" xml:space="preserve"><value>启动窗口宽度</value></data>
+  <data name="SettingsPage_StartupHeightInput.AutomationProperties.Name" xml:space="preserve"><value>启动窗口高度</value></data>
 </root>

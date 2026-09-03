@@ -11,9 +11,11 @@
 
     <StackPanel Spacing="8">
         <!-- 插件 -->
-        <toolkit:SettingsExpander x:Name="PluginsExpander" IsExpanded="False" Expanded="OnPluginsExpanderExpanded">
+        <toolkit:SettingsExpander x:Name="PluginsExpander"
+                                  AutomationProperties.AutomationId="SettingsPluginsExpander"
+                                  IsExpanded="False" Expanded="OnPluginsExpanderExpanded">
             <toolkit:SettingsExpander.Header>
-                <TextBlock x:Uid="SettingsPage_Plugins" Style="{StaticResource SettingsHeaderTextStyle}" />
+                <TextBlock x:Uid="SettingsPage_Plugins" AutomationProperties.AutomationId="SettingsPluginsHeader" Style="{StaticResource SettingsHeaderTextStyle}" />
             </toolkit:SettingsExpander.Header>
             <toolkit:SettingsExpander.Description>
                 <TextBlock x:Uid="SettingsPage_PluginsSectionDesc" Style="{StaticResource SettingsDescriptionStyle}" />
@@ -29,7 +31,9 @@
                     <toolkit:SettingsCard.Description>
                         <TextBlock x:Uid="SettingsPage_PluginsAutoCheckUpdatesDesc" Style="{StaticResource SettingsDescriptionStyle}" />
                     </toolkit:SettingsCard.Description>
-                    <ToggleSwitch IsOn="{x:Bind ViewModel.PluginsAutoCheckUpdates, Mode=OneWay}" Toggled="OnPluginsAutoCheckUpdatesToggled" />
+                    <ToggleSwitch x:Uid="SettingsPage_PluginsAutoCheckUpdatesToggle"
+                                  AutomationProperties.AutomationId="SettingsPluginsAutoUpdate"
+                                  IsOn="{x:Bind ViewModel.PluginsAutoCheckUpdates, Mode=OneWay}" Toggled="OnPluginsAutoCheckUpdatesToggled" />
                 </toolkit:SettingsCard>
 
                 <toolkit:SettingsCard ContentAlignment="Vertical" HorizontalContentAlignment="Stretch">
@@ -44,12 +48,12 @@
                             <RowDefinition Height="Auto" />
                         </Grid.RowDefinitions>
 
-                        <Button Grid.Row="0" Grid.Column="0" x:Uid="SettingsPage_OpenPluginStore" HorizontalAlignment="Stretch" Style="{StaticResource SettingsActionButtonStyle}" Click="OnOpenPluginStoreClick" />
-                        <Button Grid.Row="0" Grid.Column="1" x:Uid="SettingsPage_ManualInstallPlugin" HorizontalAlignment="Stretch" Style="{StaticResource SettingsActionButtonStyle}" Click="OnManualInstallPluginClick" />
-                        <Button Grid.Row="0" Grid.Column="2" x:Uid="SettingsPage_OpenPluginFolder" HorizontalAlignment="Stretch" Style="{StaticResource SettingsActionButtonStyle}" Click="OnOpenPluginFolderClick" />
-                        <Button Grid.Row="1" Grid.Column="0" x:Uid="SettingsPage_RefreshPlugins" HorizontalAlignment="Stretch" Style="{StaticResource SettingsActionButtonStyle}" Click="OnRefreshPluginsClick" />
-                        <Button Grid.Row="1" Grid.Column="1" x:Uid="SettingsPage_CheckPluginUpdates" HorizontalAlignment="Stretch" Style="{StaticResource SettingsActionButtonStyle}" Click="OnCheckPluginUpdatesClick" />
-                        <Button Grid.Row="1" Grid.Column="2" x:Uid="SettingsPage_RestartSafeMode" HorizontalAlignment="Stretch" Style="{StaticResource SettingsActionButtonStyle}" Click="OnRestartSafeModeClick" />
+                        <Button Grid.Row="0" Grid.Column="0" x:Uid="SettingsPage_OpenPluginStore" AutomationProperties.AutomationId="SettingsOpenPluginStore" HorizontalAlignment="Stretch" Style="{StaticResource SettingsActionButtonStyle}" Click="OnOpenPluginStoreClick" />
+                        <Button Grid.Row="0" Grid.Column="1" x:Uid="SettingsPage_ManualInstallPlugin" AutomationProperties.AutomationId="SettingsManualInstallPlugin" HorizontalAlignment="Stretch" Style="{StaticResource SettingsActionButtonStyle}" Click="OnManualInstallPluginClick" />
+                        <Button Grid.Row="0" Grid.Column="2" x:Uid="SettingsPage_OpenPluginFolder" AutomationProperties.AutomationId="SettingsOpenPluginFolder" HorizontalAlignment="Stretch" Style="{StaticResource SettingsActionButtonStyle}" Click="OnOpenPluginFolderClick" />
+                        <Button Grid.Row="1" Grid.Column="0" x:Uid="SettingsPage_RefreshPlugins" AutomationProperties.AutomationId="SettingsRefreshPlugins" HorizontalAlignment="Stretch" Style="{StaticResource SettingsActionButtonStyle}" Click="OnRefreshPluginsClick" />
+                        <Button Grid.Row="1" Grid.Column="1" x:Uid="SettingsPage_CheckPluginUpdates" AutomationProperties.AutomationId="SettingsCheckPluginUpdates" HorizontalAlignment="Stretch" Style="{StaticResource SettingsActionButtonStyle}" Click="OnCheckPluginUpdatesClick" />
+                        <Button Grid.Row="1" Grid.Column="2" x:Uid="SettingsPage_RestartSafeMode" AutomationProperties.AutomationId="SettingsRestartSafeMode" HorizontalAlignment="Stretch" Style="{StaticResource SettingsActionButtonStyle}" Click="OnRestartSafeModeClick" />
                     </Grid>
                 </toolkit:SettingsCard>
 
@@ -100,6 +104,7 @@
 
                                     <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
                                         <Button x:Uid="SettingsPage_PluginUpdate"
+                                                AutomationProperties.AutomationId="{x:Bind Id, Converter={StaticResource AutomationIdConverter}, ConverterParameter=SettingsPluginUpdate}"
                                                 Style="{StaticResource SettingsActionRowButtonStyle}"
                                                 Click="OnPluginUpdateClick"
                                                 Tag="{x:Bind}"
@@ -109,10 +114,12 @@
                                                 <TextBlock x:Uid="SettingsPage_PluginUpdateText" />
                                             </StackPanel>
                                         </Button>
-                                        <ToggleSwitch IsOn="{x:Bind IsEnabled, Mode=OneWay}" Margin="8,0,0,0" Toggled="OnPluginEnabledToggled" />
-                                        <Button x:Uid="SettingsPage_PluginSettings" Style="{StaticResource SettingsActionRowButtonStyle}" Click="OnPluginSettingsClick" Tag="{x:Bind}" />
-                                        <Button x:Uid="SettingsPage_PluginUninstall" Style="{StaticResource SettingsActionRowButtonStyle}" Click="OnPluginUninstallClick" Tag="{x:Bind}" />
-                                        <Button x:Uid="SettingsPage_PluginDeleteData" Style="{StaticResource SettingsActionRowButtonStyle}" Click="OnPluginDeleteDataClick" Tag="{x:Bind}" />
+                                        <ToggleSwitch x:Uid="SettingsPage_PluginEnabledToggle"
+                                                      AutomationProperties.AutomationId="{x:Bind Id, Converter={StaticResource AutomationIdConverter}, ConverterParameter=SettingsPluginEnabled}"
+                                                      IsOn="{x:Bind IsEnabled, Mode=OneWay}" Margin="8,0,0,0" Toggled="OnPluginEnabledToggled" />
+                                        <Button x:Uid="SettingsPage_PluginSettings" AutomationProperties.AutomationId="{x:Bind Id, Converter={StaticResource AutomationIdConverter}, ConverterParameter=SettingsPluginSettings}" Style="{StaticResource SettingsActionRowButtonStyle}" Click="OnPluginSettingsClick" Tag="{x:Bind}" />
+                                        <Button x:Uid="SettingsPage_PluginUninstall" AutomationProperties.AutomationId="{x:Bind Id, Converter={StaticResource AutomationIdConverter}, ConverterParameter=SettingsPluginUninstall}" Style="{StaticResource SettingsActionRowButtonStyle}" Click="OnPluginUninstallClick" Tag="{x:Bind}" />
+                                        <Button x:Uid="SettingsPage_PluginDeleteData" AutomationProperties.AutomationId="{x:Bind Id, Converter={StaticResource AutomationIdConverter}, ConverterParameter=SettingsPluginDeleteData}" Style="{StaticResource SettingsActionRowButtonStyle}" Click="OnPluginDeleteDataClick" Tag="{x:Bind}" />
                                     </StackPanel>
                                 </Grid>
                             </DataTemplate>
@@ -123,9 +130,9 @@
         </toolkit:SettingsExpander>
 
         <!-- KnotLink 互联 -->
-        <toolkit:SettingsExpander IsExpanded="False">
+        <toolkit:SettingsExpander AutomationProperties.AutomationId="SettingsKnotLinkExpander" IsExpanded="False">
             <toolkit:SettingsExpander.Header>
-                <TextBlock x:Uid="SettingsPage_KnotLink" Style="{StaticResource SettingsHeaderTextStyle}" />
+                <TextBlock x:Uid="SettingsPage_KnotLink" AutomationProperties.AutomationId="SettingsKnotLinkHeader" Style="{StaticResource SettingsHeaderTextStyle}" />
             </toolkit:SettingsExpander.Header>
             <toolkit:SettingsExpander.Description>
                 <TextBlock x:Uid="SettingsPage_KnotLinkSectionDesc" Style="{StaticResource SettingsDescriptionStyle}" />
@@ -141,7 +148,9 @@
                     <toolkit:SettingsCard.Description>
                         <TextBlock x:Uid="SettingsPage_KnotLinkEnabledDesc" Style="{StaticResource SettingsDescriptionStyle}" />
                     </toolkit:SettingsCard.Description>
-                    <ToggleSwitch x:Name="KnotLinkSwitch" IsOn="{x:Bind ViewModel.EnableKnotLink, Mode=TwoWay}" Toggled="OnKnotLinkToggled" />
+                    <ToggleSwitch x:Name="KnotLinkSwitch" x:Uid="SettingsPage_KnotLinkEnabledToggle"
+                                  AutomationProperties.AutomationId="SettingsKnotLinkEnabled"
+                                  IsOn="{x:Bind ViewModel.EnableKnotLink, Mode=TwoWay}" Toggled="OnKnotLinkToggled" />
                 </toolkit:SettingsCard>
 
                 <toolkit:SettingsCard ContentAlignment="Vertical" HorizontalContentAlignment="Stretch">
@@ -170,15 +179,18 @@
                         </StackPanel>
                         <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
                             <Button x:Uid="SettingsPage_KnotLinkStartServer"
+                                    AutomationProperties.AutomationId="SettingsKnotLinkStartServer"
                                     Style="{StaticResource SettingsActionRowButtonStyle}"
                                     Click="OnKnotLinkStartServerClick"
                                     Visibility="{x:Bind ViewModel.KnotLinkServerCanStart, Converter={StaticResource BoolToVisConverter}, Mode=OneWay}"
                                     IsEnabled="{x:Bind ViewModel.EnableKnotLink, Mode=OneWay}" />
                             <Button x:Uid="SettingsPage_KnotLinkCheckServerUpdate"
+                                    AutomationProperties.AutomationId="SettingsKnotLinkCheckServerUpdate"
                                     Style="{StaticResource SettingsActionRowButtonStyle}"
                                     Click="OnKnotLinkCheckServerUpdateClick"
                                     Visibility="{x:Bind ViewModel.KnotLinkServerInstalled, Converter={StaticResource BoolToVisConverter}, Mode=OneWay}" />
                             <Button x:Uid="SettingsPage_KnotLinkUpdateServer"
+                                    AutomationProperties.AutomationId="SettingsKnotLinkUpdateServer"
                                     Style="{StaticResource SettingsActionRowButtonStyle}"
                                     Click="OnKnotLinkUpdateServerClick"
                                     Visibility="{x:Bind ViewModel.KnotLinkServerHasUpdate, Converter={StaticResource BoolToVisConverter}, Mode=OneWay}"
@@ -195,19 +207,21 @@
                     <toolkit:SettingsCard.Description>
                         <TextBlock x:Uid="SettingsPage_KnotLinkAutoStartDesc" Style="{StaticResource SettingsDescriptionStyle}" />
                     </toolkit:SettingsCard.Description>
-                    <ToggleSwitch IsOn="{x:Bind ViewModel.AutoStartKnotLinkServer, Mode=TwoWay}" Toggled="OnKnotLinkAutoStartToggled" />
+                    <ToggleSwitch x:Uid="SettingsPage_KnotLinkAutoStartToggle"
+                                  AutomationProperties.AutomationId="SettingsKnotLinkAutoStart"
+                                  IsOn="{x:Bind ViewModel.AutoStartKnotLinkServer, Mode=TwoWay}" Toggled="OnKnotLinkAutoStartToggled" />
                 </toolkit:SettingsCard>
 
                 <toolkit:SettingsCard ContentAlignment="Vertical" HorizontalContentAlignment="Left">
                     <StackPanel Orientation="Horizontal" Spacing="8">
-                        <Button x:Uid="SettingsPage_KnotLinkRestart" Style="{StaticResource SettingsActionRowButtonStyle}" Click="OnKnotLinkRestartClick" IsEnabled="{x:Bind ViewModel.EnableKnotLink, Mode=OneWay}" />
-                        <Button x:Uid="SettingsPage_KnotLinkTest" Style="{StaticResource SettingsActionRowButtonStyle}" Click="OnKnotLinkTestClick" IsEnabled="{x:Bind ViewModel.EnableKnotLink, Mode=OneWay}" />
-                        <Button x:Uid="SettingsPage_KnotLinkSendCustom" Style="{StaticResource SettingsActionRowButtonStyle}" Click="OnKnotLinkSendCustomClick" IsEnabled="{x:Bind ViewModel.EnableKnotLink, Mode=OneWay}" />
+                        <Button x:Uid="SettingsPage_KnotLinkRestart" AutomationProperties.AutomationId="SettingsKnotLinkRestart" Style="{StaticResource SettingsActionRowButtonStyle}" Click="OnKnotLinkRestartClick" IsEnabled="{x:Bind ViewModel.EnableKnotLink, Mode=OneWay}" />
+                        <Button x:Uid="SettingsPage_KnotLinkTest" AutomationProperties.AutomationId="SettingsKnotLinkTest" Style="{StaticResource SettingsActionRowButtonStyle}" Click="OnKnotLinkTestClick" IsEnabled="{x:Bind ViewModel.EnableKnotLink, Mode=OneWay}" />
+                        <Button x:Uid="SettingsPage_KnotLinkSendCustom" AutomationProperties.AutomationId="SettingsKnotLinkSendCustom" Style="{StaticResource SettingsActionRowButtonStyle}" Click="OnKnotLinkSendCustomClick" IsEnabled="{x:Bind ViewModel.EnableKnotLink, Mode=OneWay}" />
                     </StackPanel>
                 </toolkit:SettingsCard>
 
                 <toolkit:SettingsCard ContentAlignment="Vertical" HorizontalContentAlignment="Stretch">
-                    <toolkit:SettingsExpander x:Uid="SettingsPage_KnotLinkCommands" IsExpanded="False">
+                    <toolkit:SettingsExpander x:Uid="SettingsPage_KnotLinkCommands" AutomationProperties.AutomationId="SettingsKnotLinkCommands" IsExpanded="False">
                         <toolkit:SettingsExpander.Description>
                             <TextBlock x:Uid="SettingsPage_KnotLinkCommandsDesc" Style="{StaticResource SettingsDescriptionStyle}" />
                         </toolkit:SettingsExpander.Description>
