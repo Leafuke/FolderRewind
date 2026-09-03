@@ -341,8 +341,6 @@ namespace FolderRewind.Views
                 };
                 dialog.IsPrimaryButtonEnabled = GetSelectedTemplate() != null;
                 templateCombo.SelectionChanged += (_, __) => dialog.IsPrimaryButtonEnabled = GetSelectedTemplate() != null;
-                ThemeService.ApplyThemeToDialog(dialog);
-
                 var triggerOfficialSearchByEnter = false;
                 officialSearchBox.KeyDown += (_, keyArgs) =>
                 {
@@ -356,7 +354,7 @@ namespace FolderRewind.Views
                     dialog.Hide();
                 };
 
-                var dialogResult = await dialog.ShowAsync();
+                var dialogResult = await AppDialogService.Default.ShowCustomAsync(dialog, this.XamlRoot);
                 draftConfigName = nameBox.Text;
                 draftOfficialSearch = officialSearchBox.Text?.Trim() ?? string.Empty;
                 preferredType = (typeCombo.SelectedItem as PluginConfigKindOption)?.SelectionValue;
@@ -436,15 +434,10 @@ namespace FolderRewind.Views
             }
             if (applicationMode == BackupPresetApplicationMode.Invalid)
             {
-                var invalidDialog = new ContentDialog
-                {
-                    Title = I18n.GetString("Template_CreateFrom_Home_Title"),
-                    Content = I18n.GetString("Template_CreateFrom_Home_InvalidPreset"),
-                    CloseButtonText = I18n.GetString("Common_Ok"),
-                    XamlRoot = this.XamlRoot
-                };
-                ThemeService.ApplyThemeToDialog(invalidDialog);
-                await invalidDialog.ShowAsync();
+                await AppDialogService.Default.ShowMessageAsync(
+                    I18n.GetString("Template_CreateFrom_Home_Title"),
+                    I18n.GetString("Template_CreateFrom_Home_InvalidPreset"),
+                    this.XamlRoot);
                 return;
             }
 
@@ -454,15 +447,10 @@ namespace FolderRewind.Views
                 selectedKind);
             if (!createResult.Success || createResult.Config == null)
             {
-                var failedDialog = new ContentDialog
-                {
-                    Title = I18n.GetString("Template_CreateFrom_Home_Title"),
-                    Content = createResult.Message,
-                    CloseButtonText = I18n.GetString("Common_Ok"),
-                    XamlRoot = this.XamlRoot
-                };
-                ThemeService.ApplyThemeToDialog(failedDialog);
-                await failedDialog.ShowAsync();
+                await AppDialogService.Default.ShowMessageAsync(
+                    I18n.GetString("Template_CreateFrom_Home_Title"),
+                    createResult.Message,
+                    this.XamlRoot);
                 return;
             }
 
@@ -509,14 +497,10 @@ namespace FolderRewind.Views
             var finalMessage = BuildTemplateCreationMessage(createResult, createResult.Config.SourceFolders.Count);
             if (!string.IsNullOrWhiteSpace(finalMessage))
             {
-                var infoDialog = new ContentDialog
-                {
-                    Content = finalMessage,
-                    CloseButtonText = I18n.GetString("Common_Ok"),
-                    XamlRoot = this.XamlRoot
-                };
-                ThemeService.ApplyThemeToDialog(infoDialog);
-                await infoDialog.ShowAsync();
+                await AppDialogService.Default.ShowMessageAsync(
+                    string.Empty,
+                    finalMessage,
+                    this.XamlRoot);
             }
 
             _ = NavigationService.NavigateTo("Manager", ManagerNavigationParameter.ForConfig(createResult.Config.Id));
@@ -624,9 +608,7 @@ namespace FolderRewind.Views
                 DefaultButton = ContentDialogButton.Primary,
                 XamlRoot = this.XamlRoot
             };
-            ThemeService.ApplyThemeToDialog(dialog);
-
-            if (await dialog.ShowAsync() != ContentDialogResult.Primary)
+            if (await AppDialogService.Default.ShowCustomAsync(dialog, this.XamlRoot) != ContentDialogResult.Primary)
             {
                 return null;
             }
@@ -757,8 +739,6 @@ namespace FolderRewind.Views
                 DefaultButton = ContentDialogButton.Primary,
                 XamlRoot = this.XamlRoot
             };
-            ThemeService.ApplyThemeToDialog(dialog);
-
             PluginBatchProviderAvailability? batchAvailability = null;
             void RefreshDialogState()
             {
@@ -784,7 +764,7 @@ namespace FolderRewind.Views
             batchCreateToggle.Toggled += (_, __) => RefreshDialogState();
             RefreshDialogState();
 
-            if (await dialog.ShowAsync() == ContentDialogResult.Primary)
+            if (await AppDialogService.Default.ShowCustomAsync(dialog, this.XamlRoot) == ContentDialogResult.Primary)
             {
                 var selectedKind = typeCombo.SelectedItem as PluginConfigKindOption
                     ?? configKinds.First();
@@ -795,15 +775,10 @@ namespace FolderRewind.Views
                         selectedKind.RequiredPluginId);
                     if (!batchAvailability.IsAvailable)
                     {
-                        var unavailable = new ContentDialog
-                        {
-                            Title = resourceLoader.GetString("HomePage_PluginBatchCreateFailedTitle"),
-                            Content = batchAvailability.Message,
-                            CloseButtonText = resourceLoader.GetString("Common_Ok"),
-                            XamlRoot = this.XamlRoot
-                        };
-                        ThemeService.ApplyThemeToDialog(unavailable);
-                        await unavailable.ShowAsync();
+                        await AppDialogService.Default.ShowMessageAsync(
+                            resourceLoader.GetString("HomePage_PluginBatchCreateFailedTitle"),
+                            batchAvailability.Message,
+                            this.XamlRoot);
                         return;
                     }
 
@@ -931,11 +906,9 @@ namespace FolderRewind.Views
                 DefaultButton = ContentDialogButton.Primary,
                 XamlRoot = this.XamlRoot
             };
-            ThemeService.ApplyThemeToDialog(dialog);
-
             while (true)
             {
-                var result = await dialog.ShowAsync();
+                var result = await AppDialogService.Default.ShowCustomAsync(dialog, this.XamlRoot);
                 if (result != ContentDialogResult.Primary) return null;
 
                 if (string.IsNullOrEmpty(passwordBox.Password))
@@ -973,15 +946,10 @@ namespace FolderRewind.Views
                 if (config.SourceFolders == null || config.SourceFolders.Count == 0)
                 {
                     var resourceLoader = ResourceLoader.GetForViewIndependentUse();
-                    var dialog = new ContentDialog
-                    {
-                        Title = resourceLoader.GetString("HomePage_ContextMenu_NoFolders_Title"),
-                        Content = resourceLoader.GetString("HomePage_ContextMenu_NoFolders_Content"),
-                        CloseButtonText = resourceLoader.GetString("Common_Ok"),
-                        XamlRoot = this.XamlRoot
-                    };
-                    ThemeService.ApplyThemeToDialog(dialog);
-                    await dialog.ShowAsync();
+                    await AppDialogService.Default.ShowMessageAsync(
+                        resourceLoader.GetString("HomePage_ContextMenu_NoFolders_Title"),
+                        resourceLoader.GetString("HomePage_ContextMenu_NoFolders_Content"),
+                        this.XamlRoot);
                     return;
                 }
 
@@ -1013,18 +981,12 @@ namespace FolderRewind.Views
             {
                 var resourceLoader = ResourceLoader.GetForViewIndependentUse();
 
-                var dialog = new ContentDialog
-                {
-                    Title = resourceLoader.GetString("HomePage_ContextMenu_DeleteConfirm_Title"),
-                    Content = string.Format(resourceLoader.GetString("HomePage_ContextMenu_DeleteConfirm_Content"), config.Name),
-                    PrimaryButtonText = resourceLoader.GetString("HomePage_ContextMenu_DeleteConfirm_Delete"),
-                    CloseButtonText = resourceLoader.GetString("Common_Cancel"),
-                    DefaultButton = ContentDialogButton.Close,
-                    XamlRoot = this.XamlRoot
-                };
-                ThemeService.ApplyThemeToDialog(dialog);
-
-                if (await dialog.ShowAsync() == ContentDialogResult.Primary)
+                if (await AppDialogService.Default.ConfirmAsync(
+                        resourceLoader.GetString("HomePage_ContextMenu_DeleteConfirm_Title"),
+                        string.Format(resourceLoader.GetString("HomePage_ContextMenu_DeleteConfirm_Content"), config.Name),
+                        resourceLoader.GetString("HomePage_ContextMenu_DeleteConfirm_Delete"),
+                        this.XamlRoot,
+                        isDestructive: true))
                 {
                     await ViewModel.DeleteConfigAsync(config);
                 }

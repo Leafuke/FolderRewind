@@ -379,19 +379,9 @@ namespace FolderRewind.Views
             {
                 args.Cancel = true;
 
-                var dialog = new ContentDialog
-                {
-                    Title = I18n.GetString("ConfigSettingsDialog_Additional7zArgsSaveErrorTitle"),
-                    Content = new TextBlock
-                    {
-                        Text = errorMessage,
-                        TextWrapping = TextWrapping.Wrap
-                    },
-                    CloseButtonText = I18n.GetString("Common_Ok"),
-                    XamlRoot = MainWindowService.GetXamlRoot() ?? this.XamlRoot
-                };
-                ThemeService.ApplyThemeToDialog(dialog);
-                await dialog.ShowAsync();
+                NotificationService.ShowError(
+                    errorMessage,
+                    I18n.GetString("ConfigSettingsDialog_Additional7zArgsSaveErrorTitle"));
                 return;
             }
 
@@ -399,19 +389,7 @@ namespace FolderRewind.Views
             {
                 args.Cancel = true;
 
-                var dialog = new ContentDialog
-                {
-                    Title = I18n.GetString("Common_Failed"),
-                    Content = new TextBlock
-                    {
-                        Text = errorMessage,
-                        TextWrapping = TextWrapping.Wrap
-                    },
-                    CloseButtonText = I18n.GetString("Common_Ok"),
-                    XamlRoot = MainWindowService.GetXamlRoot() ?? this.XamlRoot
-                };
-                ThemeService.ApplyThemeToDialog(dialog);
-                await dialog.ShowAsync();
+                NotificationService.ShowError(errorMessage, I18n.GetString("Common_Failed"));
                 return;
             }
 
@@ -419,40 +397,17 @@ namespace FolderRewind.Views
             {
                 args.Cancel = true;
 
-                var dialog = new ContentDialog
-                {
-                    Title = I18n.GetString("Common_Failed"),
-                    Content = new TextBlock
-                    {
-                        Text = errorMessage,
-                        TextWrapping = TextWrapping.Wrap
-                    },
-                    CloseButtonText = I18n.GetString("Common_Ok"),
-                    XamlRoot = MainWindowService.GetXamlRoot() ?? this.XamlRoot
-                };
-                ThemeService.ApplyThemeToDialog(dialog);
-                await dialog.ShowAsync();
+                NotificationService.ShowError(errorMessage, I18n.GetString("Common_Failed"));
                 return;
             }
 
             ConfigService.Save();
         }
 
-        private async Task ShowValidationErrorAsync(string errorMessage)
+        private static Task ShowValidationErrorAsync(string errorMessage)
         {
-            var dialog = new ContentDialog
-            {
-                Title = I18n.GetString("Common_Failed"),
-                Content = new TextBlock
-                {
-                    Text = errorMessage,
-                    TextWrapping = TextWrapping.Wrap
-                },
-                CloseButtonText = I18n.GetString("Common_Ok"),
-                XamlRoot = MainWindowService.GetXamlRoot() ?? this.XamlRoot
-            };
-            ThemeService.ApplyThemeToDialog(dialog);
-            await dialog.ShowAsync();
+            NotificationService.ShowError(errorMessage, I18n.GetString("Common_Failed"));
+            return Task.CompletedTask;
         }
 
         private async void OnDeleteClick(ContentDialog sender, ContentDialogButtonClickEventArgs args)
@@ -466,20 +421,15 @@ namespace FolderRewind.Views
             sender.Hide();
             await Task.Yield();
 
-            var confirm = new ContentDialog
+            var confirmed = await AppDialogService.Default.ConfirmAsync(
+                I18n.GetString("ConfigSettingsDialog_DeleteConfirmTitle"),
+                I18n.GetString("ConfigSettingsDialog_DeleteConfirmContent"),
+                I18n.GetString("Common_Delete"),
+                MainWindowService.GetXamlRoot() ?? this.XamlRoot,
+                isDestructive: true);
+            if (!confirmed)
             {
-                Title = I18n.GetString("ConfigSettingsDialog_DeleteConfirmTitle"),
-                Content = new TextBlock { Text = I18n.GetString("ConfigSettingsDialog_DeleteConfirmContent"), TextWrapping = TextWrapping.Wrap },
-                PrimaryButtonText = I18n.GetString("Common_Delete"),
-                CloseButtonText = I18n.GetString("Common_Cancel"),
-                DefaultButton = ContentDialogButton.Close,
-                XamlRoot = MainWindowService.GetXamlRoot() ?? this.XamlRoot
-            };
-
-            var result = await confirm.ShowAsync();
-            if (result != ContentDialogResult.Primary)
-            {
-                await this.ShowAsync();
+                await AppDialogService.Default.ShowCustomAsync(this, this.XamlRoot);
                 return;
             }
 

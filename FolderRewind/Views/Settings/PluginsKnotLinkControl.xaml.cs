@@ -57,7 +57,7 @@ namespace FolderRewind.Views.Settings
             }
 
             ThemeService.ApplyThemeToDialog(dialog);
-            await dialog.ShowAsync();
+            await AppDialogService.Default.ShowCustomAsync(dialog, this.XamlRoot);
         }
 
         private async void OnManualInstallPluginClick(object sender, RoutedEventArgs e)
@@ -93,7 +93,7 @@ namespace FolderRewind.Views.Settings
                 XamlRoot = this.XamlRoot
             };
             ThemeService.ApplyThemeToDialog(msg);
-            if (await msg.ShowAsync() == ContentDialogResult.Primary && res.CanEnableNow)
+            if (await AppDialogService.Default.ShowCustomAsync(msg, this.XamlRoot) == ContentDialogResult.Primary && res.CanEnableNow)
             {
                 try
                 {
@@ -138,17 +138,12 @@ namespace FolderRewind.Views.Settings
         private async void OnRestartSafeModeClick(object sender, RoutedEventArgs e)
         {
             var rl = ResourceLoader.GetForViewIndependentUse();
-            var confirm = new ContentDialog
-            {
-                Title = rl.GetString("Plugins_RestartSafeModeTitle"),
-                Content = rl.GetString("Plugins_RestartSafeModeConfirm"),
-                PrimaryButtonText = rl.GetString("Plugins_RestartSafeModeButton"),
-                CloseButtonText = rl.GetString("Common_Cancel"),
-                DefaultButton = ContentDialogButton.Close,
-                XamlRoot = XamlRoot
-            };
-            ThemeService.ApplyThemeToDialog(confirm);
-            if (await confirm.ShowAsync() != ContentDialogResult.Primary) return;
+            if (!await AppDialogService.Default.ConfirmAsync(
+                    rl.GetString("Plugins_RestartSafeModeTitle"),
+                    rl.GetString("Plugins_RestartSafeModeConfirm"),
+                    rl.GetString("Plugins_RestartSafeModeButton"),
+                    XamlRoot,
+                    isDestructive: true)) return;
 
             if (PluginRuntimeModeService.TryStartSafeModeInstance(out var error))
             {
@@ -156,15 +151,9 @@ namespace FolderRewind.Views.Settings
                 return;
             }
 
-            var failure = new ContentDialog
-            {
-                Title = rl.GetString("Common_Failed"),
-                Content = string.Format(rl.GetString("Plugins_RestartSafeModeFailed"), error),
-                CloseButtonText = rl.GetString("Common_Ok"),
-                XamlRoot = XamlRoot
-            };
-            ThemeService.ApplyThemeToDialog(failure);
-            await failure.ShowAsync();
+            await ShowMessageAsync(
+                rl.GetString("Common_Failed"),
+                string.Format(rl.GetString("Plugins_RestartSafeModeFailed"), error));
         }
 
         private async void OnPluginEnabledToggled(object sender, RoutedEventArgs e)
@@ -209,20 +198,12 @@ namespace FolderRewind.Views.Settings
                     preview.AffectedArtifactIds.Count);
             }
 
-            var confirm = new ContentDialog
-            {
-                Title = rl.GetString("Plugins_UninstallTitle"),
-                Content = confirmText,
-                PrimaryButtonText = rl.GetString("Plugins_UninstallButton"),
-                CloseButtonText = rl.GetString("Common_Cancel"),
-                DefaultButton = ContentDialogButton.Close,
-                XamlRoot = this.XamlRoot
-            };
-
-            ThemeService.ApplyThemeToDialog(confirm);
-
-            var res = await confirm.ShowAsync();
-            if (res != ContentDialogResult.Primary) return;
+            if (!await AppDialogService.Default.ConfirmAsync(
+                    rl.GetString("Plugins_UninstallTitle"),
+                    confirmText,
+                    rl.GetString("Plugins_UninstallButton"),
+                    this.XamlRoot,
+                    isDestructive: true)) return;
 
             (bool Success, string Message) result;
             var warning = false;
@@ -251,19 +232,13 @@ namespace FolderRewind.Views.Settings
                 result = (false, ex.Message);
             }
 
-            var msg = new ContentDialog
-            {
-                Title = !result.Success
+            await ShowMessageAsync(
+                !result.Success
                     ? rl.GetString("Common_Failed")
                     : warning
                         ? rl.GetString("Notification_Warning_Title")
                         : rl.GetString("Common_Done"),
-                Content = result.Message,
-                CloseButtonText = rl.GetString("Common_Ok"),
-                XamlRoot = this.XamlRoot
-            };
-            ThemeService.ApplyThemeToDialog(msg);
-            await msg.ShowAsync();
+                result.Message);
 
             if (warning)
             {
@@ -311,7 +286,7 @@ namespace FolderRewind.Views.Settings
                 XamlRoot = XamlRoot
             };
             ThemeService.ApplyThemeToDialog(dialog);
-            if (await dialog.ShowAsync() != ContentDialogResult.Primary) return;
+            if (await AppDialogService.Default.ShowCustomAsync(dialog, this.XamlRoot) != ContentDialogResult.Primary) return;
             try
             {
                 var result = await FolderRewind.Services.Plugins.V3.PluginV3PackageService.UninstallAsync(
@@ -349,29 +324,15 @@ namespace FolderRewind.Views.Settings
                 await PluginService.CheckAllPluginUpdatesAsync(respectAutoCheckSetting: false);
 
                 var hasUpdates = ViewModel.InstalledPlugins.Any(p => p.HasUpdate && !string.IsNullOrWhiteSpace(p.UpdateDownloadUrl));
-                var msg = new ContentDialog
-                {
-                    Title = rl.GetString("Common_Done"),
-                    Content = hasUpdates
+                await ShowMessageAsync(
+                    rl.GetString("Common_Done"),
+                    hasUpdates
                         ? rl.GetString("PluginService_UpdatesAvailable")
-                        : rl.GetString("PluginService_NoUpdatesAvailable"),
-                    CloseButtonText = rl.GetString("Common_Ok"),
-                    XamlRoot = this.XamlRoot
-                };
-                ThemeService.ApplyThemeToDialog(msg);
-                await msg.ShowAsync();
+                        : rl.GetString("PluginService_NoUpdatesAvailable"));
             }
             catch (Exception ex)
             {
-                var msg = new ContentDialog
-                {
-                    Title = rl.GetString("Common_Failed"),
-                    Content = ex.Message,
-                    CloseButtonText = rl.GetString("Common_Ok"),
-                    XamlRoot = this.XamlRoot
-                };
-                ThemeService.ApplyThemeToDialog(msg);
-                await msg.ShowAsync();
+                await ShowMessageAsync(rl.GetString("Common_Failed"), ex.Message);
             }
         }
 
@@ -383,50 +344,28 @@ namespace FolderRewind.Views.Settings
 
             if (string.IsNullOrWhiteSpace(plugin.UpdateDownloadUrl))
             {
-                var noUrl = new ContentDialog
-                {
-                    Title = rl.GetString("Common_Failed"),
-                    Content = rl.GetString("PluginService_NoUpdateUrl"),
-                    CloseButtonText = rl.GetString("Common_Ok"),
-                    XamlRoot = this.XamlRoot
-                };
-                ThemeService.ApplyThemeToDialog(noUrl);
-                await noUrl.ShowAsync();
+                await ShowMessageAsync(rl.GetString("Common_Failed"), rl.GetString("PluginService_NoUpdateUrl"));
                 return;
             }
 
-            var confirm = new ContentDialog
-            {
-                Title = rl.GetString("Plugins_UpdateTitle"),
-                Content = string.Format(rl.GetString("Plugins_UpdateConfirm"), plugin.Name, plugin.Version, plugin.LatestVersion),
-                PrimaryButtonText = rl.GetString("Plugins_UpdateButton"),
-                CloseButtonText = rl.GetString("Common_Cancel"),
-                DefaultButton = ContentDialogButton.Primary,
-                XamlRoot = this.XamlRoot
-            };
-            ThemeService.ApplyThemeToDialog(confirm);
-
-            var res = await confirm.ShowAsync();
-            if (res != ContentDialogResult.Primary) return;
+            if (!await AppDialogService.Default.ConfirmAsync(
+                    rl.GetString("Plugins_UpdateTitle"),
+                    string.Format(rl.GetString("Plugins_UpdateConfirm"), plugin.Name, plugin.Version, plugin.LatestVersion),
+                    rl.GetString("Plugins_UpdateButton"),
+                    this.XamlRoot)) return;
 
             btn.IsEnabled = false;
             try
             {
                 var result = await PluginService.UpdatePluginFromUrlAsync(plugin);
 
-                var msg = new ContentDialog
-                {
-                    Title = !result.Success
+                await ShowMessageAsync(
+                    !result.Success
                         ? rl.GetString("Common_Failed")
                         : result.RequiresRestart
                             ? rl.GetString("Notification_Warning_Title")
                             : rl.GetString("Common_Done"),
-                    Content = result.Message,
-                    CloseButtonText = rl.GetString("Common_Ok"),
-                    XamlRoot = this.XamlRoot
-                };
-                ThemeService.ApplyThemeToDialog(msg);
-                await msg.ShowAsync();
+                    result.Message);
                 if (result.Success && result.RequiresRestart)
                     NotificationService.ShowWarning(result.Message, rl.GetString("Plugins_StoreDialogTitle"));
 
@@ -471,7 +410,7 @@ namespace FolderRewind.Views.Settings
                 }
 
                 var dialog = new PluginV3SettingsDialog(plugin.Name, data, XamlRoot);
-                if (await dialog.ShowAsync() != ContentDialogResult.Primary
+                if (await AppDialogService.Default.ShowCustomAsync(dialog, this.XamlRoot) != ContentDialogResult.Primary
                     || dialog.ResultSettings is null)
                 {
                     return;
@@ -511,18 +450,8 @@ namespace FolderRewind.Views.Settings
             }
         }
 
-        private async Task ShowMessageAsync(string title, string content)
-        {
-            var dialog = new ContentDialog
-            {
-                Title = title,
-                Content = content,
-                CloseButtonText = I18n.GetString("Common_Ok"),
-                XamlRoot = XamlRoot
-            };
-            ThemeService.ApplyThemeToDialog(dialog);
-            await dialog.ShowAsync();
-        }
+        private Task ShowMessageAsync(string title, string content) =>
+            AppDialogService.Default.ShowMessageAsync(title, content, XamlRoot);
 
         private void OnKnotLinkToggled(object sender, RoutedEventArgs e)
         {
@@ -550,32 +479,20 @@ namespace FolderRewind.Views.Settings
         {
             var initialized = await ViewModel.RestartKnotLinkServiceAsync();
 
-            var dialog = new ContentDialog
-            {
-                Title = I18n.GetString("SettingsPage_KnotLink_Title"),
-                Content = initialized
+            await ShowMessageAsync(
+                I18n.GetString("SettingsPage_KnotLink_Title"),
+                initialized
                     ? I18n.GetString("SettingsPage_KnotLink_RestartSuccess")
-                    : I18n.GetString("SettingsPage_KnotLink_RestartFailed"),
-                CloseButtonText = I18n.GetString("Common_Ok"),
-                XamlRoot = this.XamlRoot
-            };
-            ThemeService.ApplyThemeToDialog(dialog);
-            await dialog.ShowAsync();
+                    : I18n.GetString("SettingsPage_KnotLink_RestartFailed"));
         }
 
         private async void OnKnotLinkTestClick(object sender, RoutedEventArgs e)
         {
             if (!KnotLinkService.IsInitialized)
             {
-                var errorDialog = new ContentDialog
-                {
-                    Title = I18n.GetString("SettingsPage_KnotLinkTest_Title"),
-                    Content = I18n.GetString("SettingsPage_KnotLinkTest_NotInitialized"),
-                    CloseButtonText = I18n.GetString("Common_Ok"),
-                    XamlRoot = this.XamlRoot
-                };
-                ThemeService.ApplyThemeToDialog(errorDialog);
-                await errorDialog.ShowAsync();
+                await ShowMessageAsync(
+                    I18n.GetString("SettingsPage_KnotLinkTest_Title"),
+                    I18n.GetString("SettingsPage_KnotLinkTest_NotInitialized"));
                 return;
             }
 
@@ -584,67 +501,35 @@ namespace FolderRewind.Views.Settings
                 ["message"] = "Hello from FolderRewind!"
             });
 
-            var dialog = new ContentDialog
-            {
-                Title = I18n.GetString("SettingsPage_KnotLinkTest_Title"),
-                Content = I18n.GetString("SettingsPage_KnotLinkTest_Broadcasted"),
-                CloseButtonText = I18n.GetString("Common_Ok"),
-                XamlRoot = this.XamlRoot
-            };
-            ThemeService.ApplyThemeToDialog(dialog);
-            await dialog.ShowAsync();
+            await ShowMessageAsync(
+                I18n.GetString("SettingsPage_KnotLinkTest_Title"),
+                I18n.GetString("SettingsPage_KnotLinkTest_Broadcasted"));
         }
 
         private async void OnKnotLinkSendCustomClick(object sender, RoutedEventArgs e)
         {
             if (!KnotLinkService.IsInitialized)
             {
-                var errorDialog = new ContentDialog
-                {
-                    Title = I18n.GetString("SettingsPage_KnotLinkSendCustom_Title"),
-                    Content = I18n.GetString("SettingsPage_KnotLinkTest_NotInitialized"),
-                    CloseButtonText = I18n.GetString("Common_Ok"),
-                    XamlRoot = this.XamlRoot
-                };
-                ThemeService.ApplyThemeToDialog(errorDialog);
-                await errorDialog.ShowAsync();
+                await ShowMessageAsync(
+                    I18n.GetString("SettingsPage_KnotLinkSendCustom_Title"),
+                    I18n.GetString("SettingsPage_KnotLinkTest_NotInitialized"));
                 return;
             }
 
-            var inputBox = new TextBox
-            {
-                PlaceholderText = I18n.GetString("SettingsPage_KnotLinkSendCustom_Placeholder"),
-                TextWrapping = TextWrapping.Wrap,
-                AcceptsReturn = true,
-                MinWidth = 360
-            };
+            var message = await AppDialogService.Default.RequestTextAsync(
+                I18n.GetString("SettingsPage_KnotLinkSendCustom_Title"),
+                I18n.GetString("SettingsPage_KnotLinkSendCustom_Placeholder"),
+                placeholderText: I18n.GetString("SettingsPage_KnotLinkSendCustom_Placeholder"),
+                primaryButtonText: I18n.GetString("Common_Confirm"),
+                acceptsReturn: true,
+                xamlRoot: this.XamlRoot);
+            if (message is null) return;
 
-            var dialog = new ContentDialog
-            {
-                Title = I18n.GetString("SettingsPage_KnotLinkSendCustom_Title"),
-                Content = inputBox,
-                PrimaryButtonText = I18n.GetString("Common_Confirm"),
-                CloseButtonText = I18n.GetString("Common_Cancel"),
-                DefaultButton = ContentDialogButton.Primary,
-                XamlRoot = this.XamlRoot
-            };
-            ThemeService.ApplyThemeToDialog(dialog);
-
-            var result = await dialog.ShowAsync();
-            if (result != ContentDialogResult.Primary) return;
-
-            var message = inputBox.Text?.Trim() ?? string.Empty;
             if (string.IsNullOrWhiteSpace(message))
             {
-                var emptyDialog = new ContentDialog
-                {
-                    Title = I18n.GetString("SettingsPage_KnotLinkSendCustom_Title"),
-                    Content = I18n.GetString("SettingsPage_KnotLinkSendCustom_Empty"),
-                    CloseButtonText = I18n.GetString("Common_Ok"),
-                    XamlRoot = this.XamlRoot
-                };
-                ThemeService.ApplyThemeToDialog(emptyDialog);
-                await emptyDialog.ShowAsync();
+                await ShowMessageAsync(
+                    I18n.GetString("SettingsPage_KnotLinkSendCustom_Title"),
+                    I18n.GetString("SettingsPage_KnotLinkSendCustom_Empty"));
                 return;
             }
 
@@ -652,44 +537,22 @@ namespace FolderRewind.Views.Settings
             {
                 var response = await KnotLinkService.QueryAsync(message, 5000);
 
-                var respDialog = new ContentDialog
-                {
-                    Title = I18n.GetString("SettingsPage_KnotLinkSendCustom_ResultTitle"),
-                    Content = response,
-                    CloseButtonText = I18n.GetString("Common_Ok"),
-                    XamlRoot = this.XamlRoot
-                };
-                ThemeService.ApplyThemeToDialog(respDialog);
-                await respDialog.ShowAsync();
+                await ShowMessageAsync(I18n.GetString("SettingsPage_KnotLinkSendCustom_ResultTitle"), response);
             }
             catch (Exception ex)
             {
-                var respDialog = new ContentDialog
-                {
-                    Title = I18n.GetString("Common_Failed"),
-                    Content = ex.Message,
-                    CloseButtonText = I18n.GetString("Common_Ok"),
-                    XamlRoot = this.XamlRoot
-                };
-                ThemeService.ApplyThemeToDialog(respDialog);
-                await respDialog.ShowAsync();
+                await ShowMessageAsync(I18n.GetString("Common_Failed"), ex.Message);
             }
         }
 
         private async void OnKnotLinkStartServerClick(object sender, RoutedEventArgs e)
         {
             var started = ViewModel.StartKnotLinkServer();
-            var dialog = new ContentDialog
-            {
-                Title = I18n.GetString("SettingsPage_KnotLink_Title"),
-                Content = started
+            await ShowMessageAsync(
+                I18n.GetString("SettingsPage_KnotLink_Title"),
+                started
                     ? I18n.GetString("SettingsPage_KnotLinkServer_StartSuccess")
-                    : I18n.GetString("SettingsPage_KnotLinkServer_StartFailed"),
-                CloseButtonText = I18n.GetString("Common_Ok"),
-                XamlRoot = this.XamlRoot
-            };
-            ThemeService.ApplyThemeToDialog(dialog);
-            await dialog.ShowAsync();
+                    : I18n.GetString("SettingsPage_KnotLinkServer_StartFailed"));
         }
 
         private async void OnKnotLinkCheckServerUpdateClick(object sender, RoutedEventArgs e)
@@ -697,29 +560,17 @@ namespace FolderRewind.Views.Settings
             try
             {
                 var info = await ViewModel.CheckKnotLinkServerUpdateAsync();
-                var dialog = new ContentDialog
-                {
-                    Title = I18n.GetString("SettingsPage_KnotLinkCheckUpdate"),
-                    Content = info?.HasUpdate == true
+                await ShowMessageAsync(
+                    I18n.GetString("SettingsPage_KnotLinkCheckUpdate"),
+                    info?.HasUpdate == true
                         ? I18n.Format("SettingsPage_KnotLinkUpdateAvailable", info.LatestVersion)
-                        : I18n.GetString("SettingsPage_KnotLinkUpToDate"),
-                    CloseButtonText = I18n.GetString("Common_Ok"),
-                    XamlRoot = this.XamlRoot
-                };
-                ThemeService.ApplyThemeToDialog(dialog);
-                await dialog.ShowAsync();
+                        : I18n.GetString("SettingsPage_KnotLinkUpToDate"));
             }
             catch (Exception ex)
             {
-                var dialog = new ContentDialog
-                {
-                    Title = I18n.GetString("SettingsPage_KnotLinkCheckUpdate"),
-                    Content = I18n.Format("SettingsPage_KnotLinkUpdateServerError", ex.Message),
-                    CloseButtonText = I18n.GetString("Common_Ok"),
-                    XamlRoot = this.XamlRoot
-                };
-                ThemeService.ApplyThemeToDialog(dialog);
-                await dialog.ShowAsync();
+                await ShowMessageAsync(
+                    I18n.GetString("SettingsPage_KnotLinkCheckUpdate"),
+                    I18n.Format("SettingsPage_KnotLinkUpdateServerError", ex.Message));
             }
         }
 
@@ -732,15 +583,7 @@ namespace FolderRewind.Views.Settings
             }
             catch (Exception ex)
             {
-                var dialog = new ContentDialog
-                {
-                    Title = I18n.GetString("Common_Failed"),
-                    Content = ex.Message,
-                    CloseButtonText = I18n.GetString("Common_Ok"),
-                    XamlRoot = this.XamlRoot
-                };
-                ThemeService.ApplyThemeToDialog(dialog);
-                await dialog.ShowAsync();
+                await ShowMessageAsync(I18n.GetString("Common_Failed"), ex.Message);
             }
             finally
             {

@@ -86,19 +86,12 @@ namespace FolderRewind.Views.Settings
                 return;
             }
 
-            var confirm = new ContentDialog
-            {
-                Title = I18n.GetString("Settings_ImportConfigConfirmTitle"),
-                Content = new TextBlock { Text = I18n.GetString("Settings_ImportConfigConfirmContent"), TextWrapping = TextWrapping.Wrap },
-                PrimaryButtonText = I18n.GetString("Common_Confirm"),
-                CloseButtonText = I18n.GetString("Common_Cancel"),
-                DefaultButton = ContentDialogButton.Close,
-                XamlRoot = this.XamlRoot
-            };
-            ThemeService.ApplyThemeToDialog(confirm);
-
-            var result = await confirm.ShowAsync();
-            if (result != ContentDialogResult.Primary) return;
+            if (!await AppDialogService.Default.ConfirmAsync(
+                    I18n.GetString("Settings_ImportConfigConfirmTitle"),
+                    I18n.GetString("Settings_ImportConfigConfirmContent"),
+                    I18n.GetString("Common_Confirm"),
+                    this.XamlRoot,
+                    isDestructive: true)) return;
 
             if (location == DataTransferLocation.Cloud)
             {
@@ -169,7 +162,7 @@ namespace FolderRewind.Views.Settings
                 };
                 ThemeService.ApplyThemeToDialog(chooseDialog);
 
-                if (await chooseDialog.ShowAsync() != ContentDialogResult.Primary)
+                if (await AppDialogService.Default.ShowCustomAsync(chooseDialog, this.XamlRoot) != ContentDialogResult.Primary)
                 {
                     return;
                 }
@@ -245,7 +238,7 @@ namespace FolderRewind.Views.Settings
                     };
                     ThemeService.ApplyThemeToDialog(conflictDialog);
 
-                    var conflictResult = await conflictDialog.ShowAsync();
+                    var conflictResult = await AppDialogService.Default.ShowCustomAsync(conflictDialog, this.XamlRoot);
                     if (conflictResult == ContentDialogResult.None)
                     {
                         return;
@@ -273,7 +266,7 @@ namespace FolderRewind.Views.Settings
                 XamlRoot = this.XamlRoot
             };
             ThemeService.ApplyThemeToDialog(dialog);
-            await dialog.ShowAsync();
+            await AppDialogService.Default.ShowCustomAsync(dialog, this.XamlRoot);
         }
 
         private async void OnBrowseOfficialTemplatesClick(object sender, RoutedEventArgs e)
@@ -349,20 +342,11 @@ namespace FolderRewind.Views.Settings
 
         private async void OnImportHistoryClick(object sender, RoutedEventArgs e)
         {
-            var confirm = new ContentDialog
-            {
-                Title = I18n.GetString("Settings_ImportHistoryConfirmTitle"),
-                Content = new TextBlock { Text = I18n.GetString("Settings_ImportHistoryConfirmContent"), TextWrapping = TextWrapping.Wrap },
-                PrimaryButtonText = I18n.GetString("Settings_ImportHistoryMerge"),
-                SecondaryButtonText = string.Empty,
-                CloseButtonText = I18n.GetString("Common_Cancel"),
-                DefaultButton = ContentDialogButton.Primary,
-                XamlRoot = this.XamlRoot
-            };
-            ThemeService.ApplyThemeToDialog(confirm);
-
-            var result = await confirm.ShowAsync();
-            if (result == ContentDialogResult.None) return;
+            if (!await AppDialogService.Default.ConfirmAsync(
+                    I18n.GetString("Settings_ImportHistoryConfirmTitle"),
+                    I18n.GetString("Settings_ImportHistoryConfirmContent"),
+                    I18n.GetString("Settings_ImportHistoryMerge"),
+                    this.XamlRoot)) return;
 
             var filePath = await MainWindowService.PickFilePathAsync(
                 string.Empty,
@@ -424,7 +408,7 @@ namespace FolderRewind.Views.Settings
             };
             ThemeService.ApplyThemeToDialog(dialog);
 
-            if (await dialog.ShowAsync() != ContentDialogResult.Primary)
+            if (await AppDialogService.Default.ShowCustomAsync(dialog, this.XamlRoot) != ContentDialogResult.Primary)
             {
                 return null;
             }
@@ -461,7 +445,7 @@ namespace FolderRewind.Views.Settings
             };
             ThemeService.ApplyThemeToDialog(dialog);
 
-            if (await dialog.ShowAsync() != ContentDialogResult.Primary)
+            if (await AppDialogService.Default.ShowCustomAsync(dialog, this.XamlRoot) != ContentDialogResult.Primary)
             {
                 return null;
             }
@@ -489,14 +473,7 @@ namespace FolderRewind.Views.Settings
         {
             try
             {
-                var dialog = new ContentDialog
-                {
-                    Content = message,
-                    CloseButtonText = I18n.GetString("Common_Ok"),
-                    XamlRoot = this.XamlRoot
-                };
-                ThemeService.ApplyThemeToDialog(dialog);
-                await dialog.ShowAsync();
+                await AppDialogService.Default.ShowMessageAsync(string.Empty, message, this.XamlRoot);
             }
             catch (Exception ex)
             {

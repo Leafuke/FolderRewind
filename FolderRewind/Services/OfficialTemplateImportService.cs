@@ -63,7 +63,7 @@ namespace FolderRewind.Services
                     XamlRoot = xamlRoot
                 };
 
-                var result = await TemplateDialogCoordinatorService.ShowAsync(conflictDialog, xamlRoot);
+                var result = await AppDialogService.Default.ShowCustomAsync(conflictDialog, xamlRoot);
                 if (result == ContentDialogResult.None)
                 {
                     return new ImportOfficialTemplateResult

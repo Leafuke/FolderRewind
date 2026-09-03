@@ -5,7 +5,6 @@ using Microsoft.UI.Windowing;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using System;
-using Windows.Foundation;
 using Windows.UI;
 
 namespace FolderRewind
@@ -169,105 +168,86 @@ namespace FolderRewind
 
             args.Cancel = true;
             _closeDialogShowing = true;
+            _ = ShowCloseDialogAsync(settings);
+        }
 
-            DispatcherQueue.TryEnqueue(() =>
+        private async System.Threading.Tasks.Task ShowCloseDialogAsync(Models.GlobalSettings settings)
+        {
+            try
             {
-                try
+                var remember = new CheckBox
                 {
-                    var remember = new CheckBox
-                    {
-                        Content = I18n.GetString("CloseDialog_Remember"),
-                        IsChecked = false,
-                        Margin = new Thickness(0, 12, 0, 0)
-                    };
+                    Content = I18n.GetString("CloseDialog_Remember"),
+                    IsChecked = false,
+                    Margin = new Thickness(0, 12, 0, 0)
+                };
 
-                    var content = new StackPanel
-                    {
-                        Spacing = 8,
-                        Children =
-                        {
-                            new TextBlock
-                            {
-                                Text = I18n.GetString("CloseDialog_Content"),
-                                TextWrapping = TextWrapping.Wrap
-                            },
-                            remember
-                        }
-                    };
-
-                    var dialog = new ContentDialog
-                    {
-                        Title = I18n.GetString("CloseDialog_Title"),
-                        Content = content,
-                        PrimaryButtonText = I18n.GetString("CloseDialog_MinimizeToTray"),
-                        SecondaryButtonText = I18n.GetString("CloseDialog_Exit"),
-                        CloseButtonText = I18n.GetString("Common_Cancel"),
-                        DefaultButton = ContentDialogButton.Primary,
-                        XamlRoot = (Content as FrameworkElement)?.XamlRoot
-                    };
-                    ThemeService.ApplyThemeToDialog(dialog);
-
-                    var op = dialog.ShowAsync();
-                    op.Completed = (info, status) =>
-                    {
-                        DispatcherQueue.TryEnqueue(() =>
-                        {
-                            try
-                            {
-                                if (status != AsyncStatus.Completed)
-                                {
-                                    return;
-                                }
-
-                                var result = info.GetResults();
-
-                                if (result == ContentDialogResult.None)
-                                {
-                                    return;
-                                }
-
-                                bool doRemember = remember.IsChecked == true;
-
-                                if (result == ContentDialogResult.Primary)
-                                {
-                                    if (doRemember)
-                                    {
-                                        settings.CloseBehavior = Models.CloseBehavior.MinimizeToTray;
-                                        settings.RememberCloseBehavior = true;
-                                        ConfigService.Save();
-                                    }
-
-                                    HideToTray();
-                                }
-                                else if (result == ContentDialogResult.Secondary)
-                                {
-                                    if (doRemember)
-                                    {
-                                        settings.CloseBehavior = Models.CloseBehavior.Exit;
-                                        settings.RememberCloseBehavior = true;
-                                        ConfigService.Save();
-                                    }
-
-                                    // 二次 Close 时绕过本方法的拦截分支。
-                                    _allowCloseOnce = true;
-                                    Close();
-                                }
-                            }
-                            catch
-                            {
-                            }
-                            finally
-                            {
-                                _closeDialogShowing = false;
-                            }
-                        });
-                    };
-                }
-                catch
+                var content = new StackPanel
                 {
-                    _closeDialogShowing = false;
+                    Spacing = 8,
+                    Children =
+                    {
+                        new TextBlock
+                        {
+                            Text = I18n.GetString("CloseDialog_Content"),
+                            TextWrapping = TextWrapping.Wrap
+                        },
+                        remember
+                    }
+                };
+
+                var dialog = new ContentDialog
+                {
+                    Title = I18n.GetString("CloseDialog_Title"),
+                    Content = content,
+                    PrimaryButtonText = I18n.GetString("CloseDialog_MinimizeToTray"),
+                    SecondaryButtonText = I18n.GetString("CloseDialog_Exit"),
+                    CloseButtonText = I18n.GetString("Common_Cancel"),
+                    DefaultButton = ContentDialogButton.Primary,
+                    XamlRoot = (Content as FrameworkElement)?.XamlRoot
+                };
+
+                var result = await AppDialogService.Default.ShowCustomAsync(
+                    dialog,
+                    (Content as FrameworkElement)?.XamlRoot);
+                if (result == ContentDialogResult.None)
+                {
+                    return;
                 }
-            });
+
+                var doRemember = remember.IsChecked == true;
+                if (result == ContentDialogResult.Primary)
+                {
+                    if (doRemember)
+                    {
+                        settings.CloseBehavior = Models.CloseBehavior.MinimizeToTray;
+                        settings.RememberCloseBehavior = true;
+                        await ConfigService.SaveAsync();
+                    }
+
+                    HideToTray();
+                }
+                else if (result == ContentDialogResult.Secondary)
+                {
+                    if (doRemember)
+                    {
+                        settings.CloseBehavior = Models.CloseBehavior.Exit;
+                        settings.RememberCloseBehavior = true;
+                        await ConfigService.SaveAsync();
+                    }
+
+                    _allowCloseOnce = true;
+                    Close();
+                }
+            }
+            catch (Exception ex)
+            {
+                LogService.LogWarning(ex.Message, nameof(MainWindow));
+            }
+            finally
+            {
+                _closeDialogShowing = false;
+            }
         }
 
         internal void HideToTray()

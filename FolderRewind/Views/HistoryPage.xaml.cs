@@ -218,30 +218,13 @@ namespace FolderRewind.Views
                 return;
             }
 
-            var inputBox = new TextBox
-            {
-                Text = item.Comment ?? string.Empty,
-                PlaceholderText = I18n.GetString("History_EditComment_Placeholder"),
-                AcceptsReturn = false,
-                TextWrapping = TextWrapping.Wrap,
-                MinWidth = 300
-            };
-
-            var dialog = new ContentDialog
-            {
-                Title = I18n.GetString("History_EditComment_Title"),
-                Content = inputBox,
-                PrimaryButtonText = I18n.GetString("Common_Ok"),
-                CloseButtonText = I18n.GetString("Common_Cancel"),
-                DefaultButton = ContentDialogButton.Primary,
-                XamlRoot = this.XamlRoot
-            };
-            ThemeService.ApplyThemeToDialog(dialog);
-
-            var result = await dialog.ShowAsync();
-            if (result != ContentDialogResult.Primary) return;
-
-            var newComment = inputBox.Text?.Trim() ?? string.Empty;
+            var newComment = await AppDialogService.Default.RequestTextAsync(
+                I18n.GetString("History_EditComment_Title"),
+                I18n.GetString("History_EditComment_Placeholder"),
+                item.Comment,
+                I18n.GetString("History_EditComment_Placeholder"),
+                xamlRoot: this.XamlRoot);
+            if (newComment is null) return;
 
             _ = await ViewModel.UpdateCommentAsync(item, newComment);
         }
@@ -365,42 +348,24 @@ namespace FolderRewind.Views
 
         private async Task<bool> ConfirmCheckoutAsync(bool requiresProtection)
         {
-            var confirm = new ContentDialog
-            {
-                Title = I18n.GetString("History_Branch_CheckoutTitle"),
-                Content = new TextBlock
-                {
-                    Text = requiresProtection
-                        ? I18n.GetString("History_Branch_CheckoutProtectionContent")
-                        : I18n.GetString("History_Branch_CheckoutContent"),
-                    TextWrapping = TextWrapping.Wrap
-                },
-                PrimaryButtonText = I18n.GetString("History_Branch_CheckoutPrimary"),
-                CloseButtonText = I18n.GetString("Common_Cancel"),
-                DefaultButton = ContentDialogButton.Close,
-                XamlRoot = XamlRoot
-            };
-            ThemeService.ApplyThemeToDialog(confirm);
-            return await confirm.ShowAsync() == ContentDialogResult.Primary;
+            return await AppDialogService.Default.ConfirmAsync(
+                I18n.GetString("History_Branch_CheckoutTitle"),
+                requiresProtection
+                    ? I18n.GetString("History_Branch_CheckoutProtectionContent")
+                    : I18n.GetString("History_Branch_CheckoutContent"),
+                I18n.GetString("History_Branch_CheckoutPrimary"),
+                XamlRoot,
+                isDestructive: true);
         }
 
         private async Task<bool> ConfirmPreparationAsync()
         {
-            var dialog = new ContentDialog
-            {
-                Title = I18n.GetString("History_Checkout_PrepareTitle"),
-                Content = new TextBlock
-                {
-                    Text = I18n.GetString("History_Checkout_PrepareContent"),
-                    TextWrapping = TextWrapping.Wrap
-                },
-                PrimaryButtonText = I18n.GetString("History_Checkout_PreparePrimary"),
-                CloseButtonText = I18n.GetString("Common_Cancel"),
-                DefaultButton = ContentDialogButton.Close,
-                XamlRoot = XamlRoot
-            };
-            ThemeService.ApplyThemeToDialog(dialog);
-            return await dialog.ShowAsync() == ContentDialogResult.Primary;
+            return await AppDialogService.Default.ConfirmAsync(
+                I18n.GetString("History_Checkout_PrepareTitle"),
+                I18n.GetString("History_Checkout_PrepareContent"),
+                I18n.GetString("History_Checkout_PreparePrimary"),
+                XamlRoot,
+                isDestructive: true);
         }
 
         private async Task<bool> RepairMissingSourcesAsync(HistoryCheckoutPlan plan)
@@ -449,7 +414,7 @@ namespace FolderRewind.Views
                 XamlRoot = XamlRoot
             };
             ThemeService.ApplyThemeToDialog(dialog);
-            return await dialog.ShowAsync() == ContentDialogResult.Primary
+            return await AppDialogService.Default.ShowCustomAsync(dialog, this.XamlRoot) == ContentDialogResult.Primary
                 && !string.IsNullOrWhiteSpace(path.Text)
                 ? path.Text.Trim()
                 : null;
@@ -460,25 +425,16 @@ namespace FolderRewind.Views
             var mismatch = plan.BoundaryMismatches.FirstOrDefault();
             var expectedRevision = ViewModel.CurrentConfigRevision;
             if (mismatch is null || expectedRevision is null) return false;
-            var dialog = new ContentDialog
-            {
-                Title = I18n.GetString("History_Checkout_BoundaryTitle"),
-                Content = new TextBlock
-                {
-                    Text = I18n.Format(
+            if (!await AppDialogService.Default.ConfirmAsync(
+                    I18n.GetString("History_Checkout_BoundaryTitle"),
+                    I18n.Format(
                         "History_Checkout_BoundaryDescription",
                         mismatch.SourceId,
                         FormatBoundary(mismatch.CurrentBoundary),
                         FormatBoundary(mismatch.HistoricalBoundary)),
-                    TextWrapping = TextWrapping.Wrap
-                },
-                PrimaryButtonText = I18n.GetString("History_Checkout_RepairBoundaryPrimary"),
-                CloseButtonText = I18n.GetString("Common_Cancel"),
-                DefaultButton = ContentDialogButton.Close,
-                XamlRoot = XamlRoot
-            };
-            ThemeService.ApplyThemeToDialog(dialog);
-            if (await dialog.ShowAsync() != ContentDialogResult.Primary) return false;
+                    I18n.GetString("History_Checkout_RepairBoundaryPrimary"),
+                    XamlRoot,
+                    isDestructive: true)) return false;
             var result = ViewModel.RepairHistoricalBoundary(mismatch, expectedRevision);
             if (!result.Succeeded)
             {
@@ -518,10 +474,12 @@ namespace FolderRewind.Views
 
         private async Task<string?> PromptBranchNameAsync(string title, string initial)
         {
-            var input = new TextBox { Text = initial, MinWidth = 260 };
-            var dialog = new ContentDialog { Title = title, Content = input, PrimaryButtonText = I18n.GetString("Common_Ok"), CloseButtonText = I18n.GetString("Common_Cancel"), XamlRoot = XamlRoot };
-            ThemeService.ApplyThemeToDialog(dialog);
-            return await dialog.ShowAsync() == ContentDialogResult.Primary && !string.IsNullOrWhiteSpace(input.Text) ? input.Text.Trim() : null;
+            var name = await AppDialogService.Default.RequestTextAsync(
+                title,
+                title,
+                initial,
+                xamlRoot: XamlRoot);
+            return string.IsNullOrWhiteSpace(name) ? null : name;
         }
 
         private async Task<BranchUpdateId?> PromptBranchTipAsync(BranchViewItem branch)
@@ -529,30 +487,20 @@ namespace FolderRewind.Views
             var choices = new ComboBox { ItemsSource = branch.Tips, DisplayMemberPath = "UpdateId", MinWidth = 300, SelectedIndex = 0 };
             var dialog = new ContentDialog { Title = I18n.GetString("History_Branch_SelectTipTitle"), Content = choices, PrimaryButtonText = I18n.GetString("Common_Ok"), CloseButtonText = I18n.GetString("Common_Cancel"), XamlRoot = XamlRoot };
             ThemeService.ApplyThemeToDialog(dialog);
-            return await dialog.ShowAsync() == ContentDialogResult.Primary && choices.SelectedItem is BranchUpdate tip ? tip.UpdateId : null;
+            return await AppDialogService.Default.ShowCustomAsync(dialog, this.XamlRoot) == ContentDialogResult.Primary && choices.SelectedItem is BranchUpdate tip ? tip.UpdateId : null;
         }
 
         private async void OnEditRunCommentClick(object sender, RoutedEventArgs e)
         {
             if (sender is not Button btn || btn.DataContext is not BackupRunViewItem item) return;
-            var inputBox = new TextBox
-            {
-                Text = item.Comment,
-                PlaceholderText = I18n.GetString("History_EditComment_Placeholder"),
-                MinWidth = 300
-            };
-            var dialog = new ContentDialog
-            {
-                Title = I18n.GetString("History_EditComment_Title"),
-                Content = inputBox,
-                PrimaryButtonText = I18n.GetString("Common_Ok"),
-                CloseButtonText = I18n.GetString("Common_Cancel"),
-                DefaultButton = ContentDialogButton.Primary,
-                XamlRoot = XamlRoot
-            };
-            ThemeService.ApplyThemeToDialog(dialog);
-            if (await dialog.ShowAsync() == ContentDialogResult.Primary)
-                _ = await ViewModel.UpdateRunCommentAsync(item, inputBox.Text?.Trim() ?? string.Empty);
+            var comment = await AppDialogService.Default.RequestTextAsync(
+                I18n.GetString("History_EditComment_Title"),
+                I18n.GetString("History_EditComment_Placeholder"),
+                item.Comment,
+                I18n.GetString("History_EditComment_Placeholder"),
+                xamlRoot: XamlRoot);
+            if (comment is not null)
+                _ = await ViewModel.UpdateRunCommentAsync(item, comment);
         }
 
         private async void OnToggleRunImportantClick(object sender, RoutedEventArgs e)
@@ -608,7 +556,7 @@ namespace FolderRewind.Views
                 XamlRoot = XamlRoot
             };
             ThemeService.ApplyThemeToDialog(dialog);
-            var result = await dialog.ShowAsync();
+            var result = await AppDialogService.Default.ShowCustomAsync(dialog, this.XamlRoot);
             if (result == ContentDialogResult.Primary)
                 return partial ? BackupService.RestoreMode.Overwrite : BackupService.RestoreMode.Clean;
             return result == ContentDialogResult.Secondary ? BackupService.RestoreMode.Overwrite : null;
@@ -618,17 +566,12 @@ namespace FolderRewind.Views
         {
             if (sender is not Button { DataContext: BackupRunViewItem item }) return;
             if (item.IsImportant && !await ConfirmDeleteImportantAsync()) return;
-            var dialog = new ContentDialog
-            {
-                Title = I18n.GetString("History_Run_DeleteTitle"),
-                Content = I18n.GetString("History_Run_DeleteContent"),
-                PrimaryButtonText = I18n.GetString("Common_Delete"),
-                CloseButtonText = I18n.GetString("Common_Cancel"),
-                DefaultButton = ContentDialogButton.Close,
-                XamlRoot = XamlRoot
-            };
-            ThemeService.ApplyThemeToDialog(dialog);
-            if (await dialog.ShowAsync() != ContentDialogResult.Primary) return;
+            if (!await AppDialogService.Default.ConfirmAsync(
+                    I18n.GetString("History_Run_DeleteTitle"),
+                    I18n.GetString("History_Run_DeleteContent"),
+                    I18n.GetString("Common_Delete"),
+                    XamlRoot,
+                    isDestructive: true)) return;
             if (!await ViewModel.DeleteRunAsync(item))
                 NotificationService.ShowError(I18n.GetString("History_Run_DeleteFailed"));
         }
@@ -701,7 +644,7 @@ namespace FolderRewind.Views
             };
             ThemeService.ApplyThemeToDialog(dialog);
 
-            var result = await dialog.ShowAsync();
+            var result = await AppDialogService.Default.ShowCustomAsync(dialog, this.XamlRoot);
             if (result == ContentDialogResult.Primary)
             {
                 return isPartialBackup
@@ -747,20 +690,15 @@ namespace FolderRewind.Views
             };
             ThemeService.ApplyThemeToDialog(dialog);
 
-            var result = await dialog.ShowAsync();
+            var result = await AppDialogService.Default.ShowCustomAsync(dialog, this.XamlRoot);
             if (result != ContentDialogResult.Primary) return false;
 
             if (!EncryptionService.VerifyPassword(config.Id, passwordBox.Password))
             {
-                var failDialog = new ContentDialog
-                {
-                    Title = I18n.GetString("Encryption_WrongPasswordTitle"),
-                    Content = I18n.GetString("Encryption_WrongPasswordDesc"),
-                    CloseButtonText = I18n.GetString("Common_Ok"),
-                    XamlRoot = this.XamlRoot
-                };
-                ThemeService.ApplyThemeToDialog(failDialog);
-                await failDialog.ShowAsync();
+                await AppDialogService.Default.ShowMessageAsync(
+                    I18n.GetString("Encryption_WrongPasswordTitle"),
+                    I18n.GetString("Encryption_WrongPasswordDesc"),
+                    this.XamlRoot);
                 return false;
             }
 
@@ -816,23 +754,12 @@ namespace FolderRewind.Views
 
         private async Task<bool> ConfirmDeleteImportantAsync()
         {
-            var warnDialog = new ContentDialog
-            {
-                Title = I18n.GetString("History_DeleteImportant_Title"),
-                Content = new TextBlock
-                {
-                    Text = I18n.GetString("History_DeleteImportant_Content"),
-                    TextWrapping = TextWrapping.Wrap
-                },
-                PrimaryButtonText = I18n.GetString("History_DeleteImportant_Continue"),
-                CloseButtonText = I18n.GetString("Common_Cancel"),
-                DefaultButton = ContentDialogButton.Close,
-                XamlRoot = this.XamlRoot
-            };
-            ThemeService.ApplyThemeToDialog(warnDialog);
-
-            var result = await warnDialog.ShowAsync();
-            return result == ContentDialogResult.Primary;
+            return await AppDialogService.Default.ConfirmAsync(
+                I18n.GetString("History_DeleteImportant_Title"),
+                I18n.GetString("History_DeleteImportant_Content"),
+                I18n.GetString("History_DeleteImportant_Continue"),
+                this.XamlRoot,
+                isDestructive: true);
         }
 
         private async Task<BackupDeleteMode?> PromptDeleteModeAsync(
@@ -894,7 +821,7 @@ namespace FolderRewind.Views
             };
             ThemeService.ApplyThemeToDialog(dialog);
 
-            var result = await dialog.ShowAsync();
+            var result = await AppDialogService.Default.ShowCustomAsync(dialog, this.XamlRoot);
             if (result == ContentDialogResult.Primary)
             {
                 if (localOnlyRadio.IsChecked == true)
@@ -956,7 +883,7 @@ namespace FolderRewind.Views
                 XamlRoot = MainWindowService.GetXamlRoot() ?? this.XamlRoot
             };
 
-            await TemplateDialogCoordinatorService.ShowAsync(dialog, this.XamlRoot);
+            await AppDialogService.Default.ShowCustomAsync(dialog, this.XamlRoot);
             await ViewModel.RefreshCurrentHistoryAsync();
         }
 
@@ -995,7 +922,7 @@ namespace FolderRewind.Views
                 XamlRoot = XamlRoot
             };
             ThemeService.ApplyThemeToDialog(dialog);
-            var action = await dialog.ShowAsync();
+            var action = await AppDialogService.Default.ShowCustomAsync(dialog, this.XamlRoot);
             if (choices.SelectedItem is not SafetySnapshotViewItem snapshot) return;
             if (action == ContentDialogResult.Primary)
             {
@@ -1027,23 +954,12 @@ namespace FolderRewind.Views
             var missingCount = ViewModel.GetMissingCount();
             if (missingCount <= 0) return;
 
-            var dialog = new ContentDialog
-            {
-                Title = I18n.GetString("History_ClearMissingConfirm_Title"),
-                Content = new TextBlock
-                {
-                    Text = I18n.Format("History_ClearMissingConfirm_Content", missingCount),
-                    TextWrapping = TextWrapping.Wrap
-                },
-                PrimaryButtonText = I18n.GetString("History_ClearMissingConfirm_Primary"),
-                CloseButtonText = I18n.GetString("Common_Cancel"),
-                DefaultButton = ContentDialogButton.Primary,
-                XamlRoot = this.XamlRoot
-            };
-            ThemeService.ApplyThemeToDialog(dialog);
-
-            var result = await dialog.ShowAsync();
-            if (result != ContentDialogResult.Primary) return;
+            if (!await AppDialogService.Default.ConfirmAsync(
+                    I18n.GetString("History_ClearMissingConfirm_Title"),
+                    I18n.Format("History_ClearMissingConfirm_Content", missingCount),
+                    I18n.GetString("History_ClearMissingConfirm_Primary"),
+                    this.XamlRoot,
+                    isDestructive: true)) return;
 
             try
             {

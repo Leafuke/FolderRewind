@@ -107,9 +107,7 @@ namespace FolderRewind.Views
                 DefaultButton = ContentDialogButton.Primary,
                 XamlRoot = MainWindowService.GetXamlRoot() ?? this.XamlRoot
             };
-            ThemeService.ApplyThemeToDialog(dialog);
-
-            var result = await dialog.ShowAsync();
+            var result = await AppDialogService.Default.ShowCustomAsync(dialog, this.XamlRoot);
             if (result == ContentDialogResult.Primary)
             {
                 var createResult = BackupPresetService.UpsertTemplateFromConfig(
@@ -118,17 +116,13 @@ namespace FolderRewind.Views
                     authorBox.Text,
                     descriptionBox.Text);
 
-                var tipDialog = new ContentDialog
-                {
-                    Content = createResult.Message,
-                    CloseButtonText = I18n.GetString("Common_Ok"),
-                    XamlRoot = MainWindowService.GetXamlRoot() ?? this.XamlRoot
-                };
-                ThemeService.ApplyThemeToDialog(tipDialog);
-                await tipDialog.ShowAsync();
+                await AppDialogService.Default.ShowMessageAsync(
+                    string.Empty,
+                    createResult.Message,
+                    MainWindowService.GetXamlRoot() ?? this.XamlRoot);
             }
 
-            await this.ShowAsync();
+            await AppDialogService.Default.ShowCustomAsync(this, this.XamlRoot);
         }
 
         private void OnApplyCloudTemplateClick(object sender, RoutedEventArgs e)
@@ -172,9 +166,9 @@ namespace FolderRewind.Views
                 XamlRoot = MainWindowService.GetXamlRoot() ?? this.XamlRoot
             };
 
-            await TemplateDialogCoordinatorService.ShowAsync(dialog, this.XamlRoot);
+            await AppDialogService.Default.ShowCustomAsync(dialog, this.XamlRoot);
             ViewModel.RefreshCloudUi();
-            await this.ShowAsync();
+            await AppDialogService.Default.ShowCustomAsync(this, this.XamlRoot);
         }
 
     }

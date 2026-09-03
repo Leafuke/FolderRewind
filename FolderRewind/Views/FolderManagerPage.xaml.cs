@@ -298,7 +298,7 @@ namespace FolderRewind.Views
 
             try
             {
-                await dialog.ShowAsync();
+                await AppDialogService.Default.ShowCustomAsync(dialog, XamlRoot);
                 await loadTask;
             }
             catch (OperationCanceledException)
@@ -322,7 +322,7 @@ namespace FolderRewind.Views
             };
             dialog.Initialize(folder, preview);
 
-            if (await dialog.ShowAsync() != ContentDialogResult.Primary)
+            if (await AppDialogService.Default.ShowCustomAsync(dialog, XamlRoot) != ContentDialogResult.Primary)
             {
                 return;
             }
@@ -423,24 +423,17 @@ namespace FolderRewind.Views
             }
         }
 
-        private async Task ShowDuplicateDisplayNameBlockedAsync(string folderName)
+        private Task ShowDuplicateDisplayNameBlockedAsync(string folderName)
         {
             if (string.IsNullOrWhiteSpace(folderName))
             {
-                return;
+                return Task.CompletedTask;
             }
 
-            var dialog = new ContentDialog
-            {
-                Title = I18n.GetString("FolderManager_DuplicateDisplayName_Title"),
-                Content = I18n.Format("FolderManager_DuplicateDisplayName_Content", folderName, ViewModel.CurrentConfig?.Name ?? string.Empty),
-                CloseButtonText = I18n.GetString("Common_Ok"),
-                DefaultButton = ContentDialogButton.Close,
-                XamlRoot = this.XamlRoot
-            };
-            ThemeService.ApplyThemeToDialog(dialog);
-
-            await dialog.ShowAsync();
+            return AppDialogService.Default.ShowMessageAsync(
+                I18n.GetString("FolderManager_DuplicateDisplayName_Title"),
+                I18n.Format("FolderManager_DuplicateDisplayName_Content", folderName, ViewModel.CurrentConfig?.Name ?? string.Empty),
+                this.XamlRoot);
         }
 
         private async Task ShowSkippedDuplicateDisplayNamesAsync(IEnumerable<string> folderNames)
@@ -456,20 +449,13 @@ namespace FolderRewind.Views
                 return;
             }
 
-            var dialog = new ContentDialog
-            {
-                Title = I18n.GetString("FolderManager_DuplicateDisplayName_Title"),
-                Content = I18n.Format(
+            await AppDialogService.Default.ShowMessageAsync(
+                I18n.GetString("FolderManager_DuplicateDisplayName_Title"),
+                I18n.Format(
                     "FolderManager_DuplicateDisplayName_BatchContent",
                     ViewModel.CurrentConfig?.Name ?? string.Empty,
                     string.Join(Environment.NewLine, distinctNames.Select(name => $"- {name}"))),
-                CloseButtonText = I18n.GetString("Common_Ok"),
-                DefaultButton = ContentDialogButton.Close,
-                XamlRoot = this.XamlRoot
-            };
-            ThemeService.ApplyThemeToDialog(dialog);
-
-            await dialog.ShowAsync();
+                this.XamlRoot);
         }
 
         private async void OnEditSourceScopeClick(object sender, RoutedEventArgs e)
@@ -490,7 +476,7 @@ namespace FolderRewind.Views
             {
                 XamlRoot = XamlRoot
             };
-            if (await dialog.ShowAsync() != ContentDialogResult.Primary || dialog.ResultScope == null)
+            if (await AppDialogService.Default.ShowCustomAsync(dialog, XamlRoot) != ContentDialogResult.Primary || dialog.ResultScope == null)
             {
                 return;
             }
@@ -525,21 +511,12 @@ namespace FolderRewind.Views
 
         private async Task<bool> ConfirmSourceScopeExpansionAsync(string titleKey, string contentKey)
         {
-            var dialog = new ContentDialog
-            {
-                XamlRoot = XamlRoot,
-                Title = I18n.GetString(titleKey),
-                Content = new TextBlock
-                {
-                    Text = I18n.GetString(contentKey),
-                    TextWrapping = TextWrapping.Wrap
-                },
-                PrimaryButtonText = I18n.GetString("Common_Confirm"),
-                CloseButtonText = I18n.GetString("Common_Cancel"),
-                DefaultButton = ContentDialogButton.Close
-            };
-            ThemeService.ApplyThemeToDialog(dialog);
-            return await dialog.ShowAsync() == ContentDialogResult.Primary;
+            return await AppDialogService.Default.ConfirmAsync(
+                I18n.GetString(titleKey),
+                I18n.GetString(contentKey),
+                I18n.GetString("Common_Confirm"),
+                XamlRoot,
+                isDestructive: true);
         }
 
         private async Task ShowUnsafePathOverlapAsync(IEnumerable<string> folderPaths)
@@ -553,18 +530,12 @@ namespace FolderRewind.Views
                 return;
             }
 
-            var dialog = new ContentDialog
-            {
-                Title = I18n.GetString("Common_Failed"),
-                Content = I18n.Format(
+            await AppDialogService.Default.ShowMessageAsync(
+                I18n.GetString("Common_Failed"),
+                I18n.Format(
                     "FolderManager_SourceDestinationOverlap_Content",
                     string.Join(Environment.NewLine, paths.Select(path => $"- {path}"))),
-                CloseButtonText = I18n.GetString("Common_Ok"),
-                DefaultButton = ContentDialogButton.Close,
-                XamlRoot = this.XamlRoot
-            };
-            ThemeService.ApplyThemeToDialog(dialog);
-            await dialog.ShowAsync();
+                this.XamlRoot);
         }
 
         private async void OnAddSingleFolderClick(object sender, RoutedEventArgs e)
@@ -681,72 +652,42 @@ namespace FolderRewind.Views
             }
         }
 
-        private async Task ShowPluginDiscoverNoResultAsync()
+        private Task ShowPluginDiscoverNoResultAsync()
         {
             var rl = ResourceLoader.GetForViewIndependentUse();
-            var dialog = new ContentDialog
-            {
-                Title = rl.GetString("FolderManager_PluginDiscover_NoResultTitle"),
-                Content = rl.GetString("FolderManager_PluginDiscover_NoResultContent"),
-                CloseButtonText = rl.GetString("Common_Ok"),
-                DefaultButton = ContentDialogButton.Close,
-                XamlRoot = this.XamlRoot
-            };
-            ThemeService.ApplyThemeToDialog(dialog);
-
-            await dialog.ShowAsync();
+            return AppDialogService.Default.ShowMessageAsync(
+                rl.GetString("FolderManager_PluginDiscover_NoResultTitle"),
+                rl.GetString("FolderManager_PluginDiscover_NoResultContent"),
+                this.XamlRoot);
         }
 
-        private async Task ShowPluginDiscoverNoNewAsync()
+        private Task ShowPluginDiscoverNoNewAsync()
         {
             var rl = ResourceLoader.GetForViewIndependentUse();
-            var dialog = new ContentDialog
-            {
-                Title = rl.GetString("FolderManager_PluginDiscover_NoNewTitle"),
-                Content = rl.GetString("FolderManager_PluginDiscover_NoNewContent"),
-                CloseButtonText = rl.GetString("Common_Ok"),
-                DefaultButton = ContentDialogButton.Close,
-                XamlRoot = this.XamlRoot
-            };
-            ThemeService.ApplyThemeToDialog(dialog);
-
-            await dialog.ShowAsync();
+            return AppDialogService.Default.ShowMessageAsync(
+                rl.GetString("FolderManager_PluginDiscover_NoNewTitle"),
+                rl.GetString("FolderManager_PluginDiscover_NoNewContent"),
+                this.XamlRoot);
         }
 
         private async Task<bool> ConfirmPluginDiscoverImportAsync(int folderCount)
         {
             var rl = ResourceLoader.GetForViewIndependentUse();
-            var confirm = new ContentDialog
-            {
-                Title = rl.GetString("FolderManager_PluginDiscover_ConfirmTitle"),
-                Content = string.Format(rl.GetString("FolderManager_PluginDiscover_ConfirmContent"), folderCount),
-                PrimaryButtonText = rl.GetString("Common_Ok"),
-                CloseButtonText = rl.GetString("Common_Cancel"),
-                DefaultButton = ContentDialogButton.Primary,
-                XamlRoot = this.XamlRoot
-            };
-            ThemeService.ApplyThemeToDialog(confirm);
-
-            var result = await confirm.ShowAsync();
-            return result == ContentDialogResult.Primary;
+            return await AppDialogService.Default.ConfirmAsync(
+                rl.GetString("FolderManager_PluginDiscover_ConfirmTitle"),
+                string.Format(rl.GetString("FolderManager_PluginDiscover_ConfirmContent"), folderCount),
+                rl.GetString("Common_Ok"),
+                this.XamlRoot);
         }
 
         private async Task ShowMineRewindSuggestionAsync()
         {
             var rl = ResourceLoader.GetForViewIndependentUse();
-            var dialog = new ContentDialog
-            {
-                Title = rl.GetString("FolderManager_MineRewindHint_Title"),
-                Content = rl.GetString("FolderManager_MineRewindHint_Content"),
-                PrimaryButtonText = rl.GetString("FolderManager_MineRewindHint_OpenDownload"),
-                CloseButtonText = rl.GetString("Common_Cancel"),
-                DefaultButton = ContentDialogButton.Primary,
-                XamlRoot = this.XamlRoot
-            };
-            ThemeService.ApplyThemeToDialog(dialog);
-
-            var result = await dialog.ShowAsync();
-            if (result == ContentDialogResult.Primary)
+            if (await AppDialogService.Default.ConfirmAsync(
+                    rl.GetString("FolderManager_MineRewindHint_Title"),
+                    rl.GetString("FolderManager_MineRewindHint_Content"),
+                    rl.GetString("FolderManager_MineRewindHint_OpenDownload"),
+                    this.XamlRoot))
             {
                 if (!NavigationService.NavigateTo("Settings", NavigationService.SettingsMinecraftPresetTarget))
                 {
@@ -850,7 +791,7 @@ namespace FolderRewind.Views
             var dialog = ConfigSettingsDialog.Instance;
             dialog.Rebind(ViewModel.CurrentConfig);
             dialog.XamlRoot = this.XamlRoot;
-            var result = await dialog.ShowAsync();
+            var result = await AppDialogService.Default.ShowCustomAsync(dialog, this.XamlRoot);
 
             if (result == ContentDialogResult.Primary)
             {

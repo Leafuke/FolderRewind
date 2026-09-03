@@ -25,7 +25,7 @@ namespace FolderRewind.Services
             }
 
             var dialog = new TemplateSubmissionDialog();
-            var dialogResult = await TemplateDialogCoordinatorService.ShowAsync(dialog, xamlRoot, ct);
+            var dialogResult = await AppDialogService.Default.ShowCustomAsync(dialog, xamlRoot, ct);
             if (dialogResult == ContentDialogResult.None
                 || dialog.SelectedTemplate == null
                 || dialog.RequestedAction == TemplateSubmissionDialogAction.None)
@@ -122,7 +122,7 @@ namespace FolderRewind.Services
                 CloseButtonText = I18n.GetString("Common_Ok")
             };
 
-            await TemplateDialogCoordinatorService.ShowAsync(successDialog, xamlRoot, ct);
+            await AppDialogService.Default.ShowCustomAsync(successDialog, xamlRoot, ct);
         }
 
         private static async Task SubmitOfficialTemplateAsync(
@@ -191,11 +191,11 @@ namespace FolderRewind.Services
                 finally
                 {
                     completedByWorkflow = true;
-                    await TemplateDialogCoordinatorService.HideAsync(progressDialog);
+                    await AppDialogService.Default.HideCustomAsync(progressDialog);
                 }
             }, CancellationToken.None);
 
-            var progressResult = await TemplateDialogCoordinatorService.ShowAsync(progressDialog, xamlRoot, ct);
+            var progressResult = await AppDialogService.Default.ShowCustomAsync(progressDialog, xamlRoot, ct);
             var canceledByUser = progressResult == ContentDialogResult.None && !completedByWorkflow;
             if (canceledByUser)
             {
@@ -251,7 +251,7 @@ namespace FolderRewind.Services
                 CloseButtonText = I18n.GetString("Common_Ok")
             };
 
-            var result = await TemplateDialogCoordinatorService.ShowAsync(resultDialog, xamlRoot, ct);
+            var result = await AppDialogService.Default.ShowCustomAsync(resultDialog, xamlRoot, ct);
             if (result == ContentDialogResult.Primary)
             {
                 _ = Launcher.LaunchUriAsync(new Uri(submitResult.PullRequestUrl));

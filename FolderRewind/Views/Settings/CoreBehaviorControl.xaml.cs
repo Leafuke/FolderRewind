@@ -38,15 +38,10 @@ namespace FolderRewind.Views.Settings
 
                     if (result.DisabledByUser)
                     {
-                        var dialog = new ContentDialog
-                        {
-                            Title = I18n.GetString("Startup_DisabledByUser_Title"),
-                            Content = I18n.GetString("Startup_DisabledByUser_Content"),
-                            CloseButtonText = I18n.GetString("Common_Ok"),
-                            XamlRoot = this.XamlRoot
-                        };
-                        ThemeService.ApplyThemeToDialog(dialog);
-                        await dialog.ShowAsync();
+                        await AppDialogService.Default.ShowMessageAsync(
+                            I18n.GetString("Startup_DisabledByUser_Title"),
+                            I18n.GetString("Startup_DisabledByUser_Content"),
+                            this.XamlRoot);
                     }
                 }
 
@@ -187,9 +182,7 @@ namespace FolderRewind.Views.Settings
                 XamlRoot = this.XamlRoot,
                 DefaultButton = ContentDialogButton.Primary,
             };
-            ThemeService.ApplyThemeToDialog(dialog);
-
-            var result = await dialog.ShowAsync();
+            var result = await AppDialogService.Default.ShowCustomAsync(dialog, this.XamlRoot);
             if (result == ContentDialogResult.Primary)
             {
                 if (captured == null)
@@ -235,17 +228,11 @@ namespace FolderRewind.Views.Settings
             return ViewModel.FindHotkeyDefinition(id);
         }
 
-        private async Task ShowSimpleMessageAsync(string message)
-        {
-            var dialog = new ContentDialog
-            {
-                Title = I18n.GetString("Common_Tip"),
-                Content = new TextBlock { Text = message, TextWrapping = TextWrapping.Wrap },
-                CloseButtonText = I18n.GetString("Common_Close"),
-                XamlRoot = this.XamlRoot,
-            };
-            ThemeService.ApplyThemeToDialog(dialog);
-            await dialog.ShowAsync();
-        }
+        private Task ShowSimpleMessageAsync(string message) =>
+            AppDialogService.Default.ShowMessageAsync(
+                I18n.GetString("Common_Tip"),
+                message,
+                this.XamlRoot,
+                I18n.GetString("Common_Close"));
     }
 }

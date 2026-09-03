@@ -292,36 +292,8 @@ namespace FolderRewind.Views
             CoreFeatureValidationService.TryScheduleInitialValidation();
         }
 
-        private async System.Threading.Tasks.Task<ContentDialogResult> ShowDialogAsync(ContentDialog dialog)
-        {
-            if (DispatcherQueue.HasThreadAccess)
-            {
-                dialog.XamlRoot ??= this.XamlRoot;
-                ThemeService.ApplyThemeToDialog(dialog);
-                return await dialog.ShowAsync();
-            }
-
-            var tcs = new System.Threading.Tasks.TaskCompletionSource<ContentDialogResult>();
-            if (!DispatcherQueue.TryEnqueue(async () =>
-            {
-                try
-                {
-                    // 统一在 UI 线程补全 XamlRoot 与主题，避免跨线程弹窗异常。
-                    dialog.XamlRoot ??= this.XamlRoot;
-                    ThemeService.ApplyThemeToDialog(dialog);
-                    tcs.TrySetResult(await dialog.ShowAsync());
-                }
-                catch (Exception ex)
-                {
-                    tcs.TrySetException(ex);
-                }
-            }))
-            {
-                tcs.TrySetException(new InvalidOperationException("Unable to enqueue startup dialog."));
-            }
-
-            return await tcs.Task;
-        }
+        private System.Threading.Tasks.Task<ContentDialogResult> ShowDialogAsync(ContentDialog dialog) =>
+            AppDialogService.Default.ShowCustomAsync(dialog, this.XamlRoot);
 
         /// <summary>
         /// 首次启动引导：中文界面提示视频，其他语言提示官网文档。
