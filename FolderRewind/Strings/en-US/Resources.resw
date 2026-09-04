@@ -1315,7 +1315,7 @@ Duplicate folder names are blocked within the same configuration so different di
     <value>Open plugin store</value>
   </data>
   <data name="SettingsPage_ManualInstallPlugin.Content" xml:space="preserve">
-    <value>Install plugin from .zip</value>
+    <value>Install .frplugin package</value>
   </data>
   <data name="SettingsPage_OpenPluginFolder.Content" xml:space="preserve">
     <value>Open plugin folder</value>
@@ -5207,4 +5207,6 @@ Pull request: {1}</value>
   <data name="FolderManager_HistoryButton.AutomationProperties.Name" xml:space="preserve"><value>Open selected folder history</value></data>
   <data name="SettingsPage_StartupWidthInput.AutomationProperties.Name" xml:space="preserve"><value>Startup window width</value></data>
   <data name="SettingsPage_StartupHeightInput.AutomationProperties.Name" xml:space="preserve"><value>Startup window height</value></data>
+  <data name="Settings_KnotLink_InvalidHost" xml:space="preserve"><value>Enter a host name or IP address without a URL scheme or port.</value></data>
+  <data name="Settings_KnotLink_InvalidIdentifier" xml:space="preserve"><value>KnotLink identifiers must not contain control characters.</value></data>
 </root>

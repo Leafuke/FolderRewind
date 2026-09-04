@@ -69,8 +69,7 @@ internal sealed class FolderManagerInteractionService(Func<XamlRoot?> root) : IF
     {
         var dialog = ConfigSettingsDialog.Instance;
         dialog.Rebind(config);
-        if (await AppDialogService.Default.ShowCustomAsync(dialog, root(), token) == ContentDialogResult.Primary)
-            await TaskObserver.SaveConfigAsync();
+        await AppDialogService.Default.ShowCustomAsync(dialog, root(), token);
     }
     public void Notify(string message, bool error = false)
     {

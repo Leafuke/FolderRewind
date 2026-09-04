@@ -22,32 +22,32 @@
 
         <SelectorBar x:Name="ConfigSelectorBar"
                      SelectionChanged="OnSettingsSelectorBarSelectionChanged">
-            <SelectorBarItem x:Uid="ConfigSettingsDialog_TabGeneral" Tag="General" IsSelected="True" FontSize="15" FontWeight="SemiBold">
+            <SelectorBarItem AutomationProperties.AutomationId="ConfigSettingsTabGeneral" x:Uid="ConfigSettingsDialog_TabGeneral" Tag="General" IsSelected="True" FontSize="15" FontWeight="SemiBold">
                 <SelectorBarItem.Icon>
                     <SymbolIcon Symbol="Setting"/>
                 </SelectorBarItem.Icon>
             </SelectorBarItem>
-            <SelectorBarItem x:Uid="ConfigSettingsDialog_TabBackup" Tag="Backup" FontSize="15" FontWeight="SemiBold">
+            <SelectorBarItem AutomationProperties.AutomationId="ConfigSettingsTabBackup" x:Uid="ConfigSettingsDialog_TabBackup" Tag="Backup" FontSize="15" FontWeight="SemiBold">
                 <SelectorBarItem.Icon>
                     <SymbolIcon Symbol="Upload"/>
                 </SelectorBarItem.Icon>
             </SelectorBarItem>
-            <SelectorBarItem x:Uid="ConfigSettingsDialog_TabRestore" Tag="Restore" FontSize="15" FontWeight="SemiBold">
+            <SelectorBarItem AutomationProperties.AutomationId="ConfigSettingsTabRestore" x:Uid="ConfigSettingsDialog_TabRestore" Tag="Restore" FontSize="15" FontWeight="SemiBold">
                 <SelectorBarItem.Icon>
                     <SymbolIcon Symbol="Download"/>
                 </SelectorBarItem.Icon>
             </SelectorBarItem>
-            <SelectorBarItem x:Uid="ConfigSettingsDialog_TabAutomation" Tag="Automation" FontSize="15" FontWeight="SemiBold">
+            <SelectorBarItem AutomationProperties.AutomationId="ConfigSettingsTabAutomation" x:Uid="ConfigSettingsDialog_TabAutomation" Tag="Automation" FontSize="15" FontWeight="SemiBold">
                 <SelectorBarItem.Icon>
                     <SymbolIcon Symbol="Clock"/>
                 </SelectorBarItem.Icon>
             </SelectorBarItem>
-            <SelectorBarItem x:Uid="ConfigSettingsDialog_TabCloud" Tag="Cloud" FontSize="15" FontWeight="SemiBold">
+            <SelectorBarItem AutomationProperties.AutomationId="ConfigSettingsTabCloud" x:Uid="ConfigSettingsDialog_TabCloud" Tag="Cloud" FontSize="15" FontWeight="SemiBold">
                 <SelectorBarItem.Icon>
                     <SymbolIcon Symbol="World"/>
                 </SelectorBarItem.Icon>
             </SelectorBarItem>
-            <SelectorBarItem x:Uid="ConfigSettingsDialog_TabFilter" Tag="Filter" FontSize="15" FontWeight="SemiBold">
+            <SelectorBarItem AutomationProperties.AutomationId="ConfigSettingsTabFilter" x:Uid="ConfigSettingsDialog_TabFilter" Tag="Filter" FontSize="15" FontWeight="SemiBold">
                 <SelectorBarItem.Icon>
                     <SymbolIcon Symbol="Filter"/>
                 </SelectorBarItem.Icon>
@@ -61,10 +61,10 @@
                       VerticalScrollBarVisibility="Auto"
                       Padding="0,0,12,0">
             <StackPanel Spacing="20" Padding="0,12">
-                <TextBox x:Uid="ConfigSettingsDialog_ConfigName" Text="{x:Bind Config.Name, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"/>
+                <TextBox AutomationProperties.AutomationId="ConfigSettingsName" x:Uid="ConfigSettingsDialog_ConfigName" Text="{x:Bind Config.Name, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"/>
 
                 <StackPanel Spacing="6">
-                    <Button Click="OnSaveAsTemplateClick" HorizontalAlignment="Left">
+                    <Button AutomationProperties.AutomationId="ConfigSettingsSaveTemplate" Click="OnSaveAsTemplateClick" HorizontalAlignment="Left">
                         <StackPanel Orientation="Horizontal" Spacing="6">
                             <FontIcon Glyph="&#xE7BF;"/>
                             <TextBlock x:Uid="ConfigSettingsDialog_SaveAsTemplateText"/>

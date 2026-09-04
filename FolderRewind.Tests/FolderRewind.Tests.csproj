@@ -97,6 +97,11 @@
     <Compile Include="..\FolderRewind\Services\NotificationPresentationState.cs" Link="Source\NotificationPresentationState.cs" />
     <Compile Include="..\FolderRewind\Services\WindowCloseController.cs" Link="Source\WindowCloseController.cs" />
     <Compile Include="..\FolderRewind\Services\MiniBackupController.cs" Link="Source\MiniBackupController.cs" />
+    <Compile Include="..\FolderRewind\Services\KnotLinkSettingsPolicy.cs" Link="Source\KnotLinkSettingsPolicy.cs" />
+    <Compile Include="..\FolderRewind\Services\SettingsSaveController.cs" Link="Source\SettingsSaveController.cs" />
+    <Compile Include="..\FolderRewind\Services\IPluginSettingsActions.cs" Link="Source\IPluginSettingsActions.cs" />
+    <Compile Include="..\FolderRewind\Services\PluginSettingsCommandController.cs" Link="Source\PluginSettingsCommandController.cs" />
+    <Compile Include="..\FolderRewind\Services\PluginSettingsOutcomePolicy.cs" Link="Source\PluginSettingsOutcomePolicy.cs" />
     <Compile Include="..\FolderRewind\Services\ChangeTrackingState.cs" Link="Source\ChangeTrackingState.cs" />
     <Compile Include="..\FolderRewind\Models\MiniWindowState.cs" Link="Source\MiniWindowState.cs" />
     <Compile Include="..\FolderRewind\Services\AutomationSchedulePolicy.cs" Link="Source\AutomationSchedulePolicy.cs" />

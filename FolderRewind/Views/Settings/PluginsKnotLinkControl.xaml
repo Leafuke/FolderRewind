@@ -150,7 +150,7 @@
                     </toolkit:SettingsCard.Description>
                     <ToggleSwitch x:Name="KnotLinkSwitch" x:Uid="SettingsPage_KnotLinkEnabledToggle"
                                   AutomationProperties.AutomationId="SettingsKnotLinkEnabled"
-                                  IsOn="{x:Bind ViewModel.EnableKnotLink, Mode=TwoWay}" Toggled="OnKnotLinkToggled" />
+                                  IsOn="{x:Bind ViewModel.EnableKnotLink, Mode=OneWay}" Toggled="OnKnotLinkToggled" />
                 </toolkit:SettingsCard>
 
                 <toolkit:SettingsCard ContentAlignment="Vertical" HorizontalContentAlignment="Stretch">

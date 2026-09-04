@@ -1315,7 +1315,7 @@
     <value>打开插件商店</value>
   </data>
   <data name="SettingsPage_ManualInstallPlugin.Content" xml:space="preserve">
-    <value>从 .zip 安装插件</value>
+    <value>安装 .frplugin 插件包</value>
   </data>
   <data name="SettingsPage_OpenPluginFolder.Content" xml:space="preserve">
     <value>打开插件目录</value>
@@ -5207,4 +5207,6 @@ Pull Request：{1}</value>
   <data name="FolderManager_HistoryButton.AutomationProperties.Name" xml:space="preserve"><value>打开所选文件夹历史</value></data>
   <data name="SettingsPage_StartupWidthInput.AutomationProperties.Name" xml:space="preserve"><value>启动窗口宽度</value></data>
   <data name="SettingsPage_StartupHeightInput.AutomationProperties.Name" xml:space="preserve"><value>启动窗口高度</value></data>
+  <data name="Settings_KnotLink_InvalidHost" xml:space="preserve"><value>请输入主机名或 IP 地址，不要包含 URL 协议或端口。</value></data>
+  <data name="Settings_KnotLink_InvalidIdentifier" xml:space="preserve"><value>KnotLink 标识符不能包含控制字符。</value></data>
 </root>

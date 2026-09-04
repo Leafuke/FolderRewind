@@ -90,42 +90,24 @@ namespace FolderRewind.ViewModels
 
         public void UpdateKnotLinkStatus()
         {
-            if (!Settings.EnableKnotLink)
+            var state = KnotLinkSettingsPolicy.GetStatus(Settings.EnableKnotLink, KnotLinkService.IsInitialized,
+                KnotLinkService.IsResponserRunning, KnotLinkService.IsSenderRunning);
+            KnotLinkStatus = state switch
             {
-                KnotLinkStatusMessage = I18n.GetString("SettingsPage_KnotLinkStatus_Disabled");
-                KnotLinkStatus = SemanticStatus.Neutral;
-                return;
-            }
-
-            if (KnotLinkService.IsInitialized)
+                KnotLinkConnectionStatus.Disabled => SemanticStatus.Neutral,
+                KnotLinkConnectionStatus.Connected => SemanticStatus.Success,
+                KnotLinkConnectionStatus.Failed => SemanticStatus.Error,
+                _ => SemanticStatus.Warning
+            };
+            KnotLinkStatusMessage = state switch
             {
-                var responserOk = KnotLinkService.IsResponserRunning;
-                var senderOk = KnotLinkService.IsSenderRunning;
-
-                if (responserOk && senderOk)
-                {
-                    KnotLinkStatusMessage = I18n.GetString("SettingsPage_KnotLinkStatus_Connected");
-                    KnotLinkStatus = SemanticStatus.Success;
-                }
-                else if (responserOk || senderOk)
-                {
-                    KnotLinkStatusMessage = I18n.Format(
-                        "SettingsPage_KnotLinkStatus_Partial",
-                        responserOk ? "✓" : "✗",
-                        senderOk ? "✓" : "✗");
-                    KnotLinkStatus = SemanticStatus.Warning;
-                }
-                else
-                {
-                    KnotLinkStatusMessage = I18n.GetString("SettingsPage_KnotLinkStatus_InitFailed");
-                    KnotLinkStatus = SemanticStatus.Error;
-                }
-            }
-            else
-            {
-                KnotLinkStatusMessage = I18n.GetString("SettingsPage_KnotLinkStatus_NotInitialized");
-                KnotLinkStatus = SemanticStatus.Warning;
-            }
+                KnotLinkConnectionStatus.Disabled => I18n.GetString("SettingsPage_KnotLinkStatus_Disabled"),
+                KnotLinkConnectionStatus.Connected => I18n.GetString("SettingsPage_KnotLinkStatus_Connected"),
+                KnotLinkConnectionStatus.Failed => I18n.GetString("SettingsPage_KnotLinkStatus_InitFailed"),
+                KnotLinkConnectionStatus.Partial => I18n.Format("SettingsPage_KnotLinkStatus_Partial",
+                    KnotLinkService.IsResponserRunning ? "✓" : "✗", KnotLinkService.IsSenderRunning ? "✓" : "✗"),
+                _ => I18n.GetString("SettingsPage_KnotLinkStatus_NotInitialized")
+            };
         }
 
 

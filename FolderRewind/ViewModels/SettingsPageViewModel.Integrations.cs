@@ -7,6 +7,7 @@ using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.Linq;
+using System.Threading;
 using System.Threading.Tasks;
 using Windows.ApplicationModel;
 
@@ -121,32 +122,25 @@ namespace FolderRewind.ViewModels
         }
 
         public void HandleKnotLinkToggled(bool isOn)
+            => TaskObserver.Observe(SetKnotLinkEnabledAsync(isOn), nameof(SettingsPageViewModel));
+
+        public async Task SetKnotLinkEnabledAsync(bool isOn, CancellationToken cancellationToken = default)
         {
-            Settings.EnableKnotLink = isOn;
-            _isDirty = true;
+            if (isOn) ValidateKnotLinkSettings();
+            var previous = Settings.EnableKnotLink;
+            await ConfigEditTransaction.ApplyAsync(() => Settings.EnableKnotLink = isOn,
+                () => Settings.EnableKnotLink = previous, () => ConfigService.SaveAsync(), I18n.GetString("Common_Failed"), cancellationToken);
+            if (isOn) await KnotLinkService.InitializeAsync(cancellationToken);
+            else await KnotLinkService.ShutdownAsync();
+            UpdateKnotLinkStatus();
+            RefreshKnotLinkServerInfo();
+        }
 
-            // 初始化/关停涉及对服务端的 TCP 连接，远程主机不可达时可阻塞十余秒，
-            // 必须移出 UI 线程执行；服务内部用信号量串行化，开关快速来回切换也安全。
-            _ = Task.Run(async () =>
-            {
-                try
-                {
-                    if (isOn)
-                    {
-                        await KnotLinkService.InitializeAsync().ConfigureAwait(false);
-                    }
-                    else
-                    {
-                        await KnotLinkService.ShutdownAsync().ConfigureAwait(false);
-                    }
-                }
-                catch (Exception ex)
-                {
-                    LogService.Log(I18n.Format("App_Log_KnotLinkInitException", ex.Message));
-                }
-
-                UpdateKnotLinkStatus();
-            });
+        private void ValidateKnotLinkSettings()
+        {
+            var error = KnotLinkSettingsPolicy.Validate(Settings.KnotLinkHost, Settings.KnotLinkAppId,
+                Settings.KnotLinkOpenSocketId, Settings.KnotLinkSignalId);
+            if (error is not null) throw new ArgumentException(I18n.GetString(error));
         }
 
         public void HandleKnotLinkAutoStartToggled(bool isOn)
@@ -155,11 +149,11 @@ namespace FolderRewind.ViewModels
             _isDirty = true;
         }
 
-        public async Task<bool> RestartKnotLinkServiceAsync()
+        public async Task<bool> RestartKnotLinkServiceAsync(CancellationToken cancellationToken = default)
         {
-            ConfigService.Save();
-            // 重启会重建对服务端的 TCP 连接，主机不可达时耗时较长，全程不占用 UI 线程。
-            await KnotLinkService.RestartAsync().ConfigureAwait(false);
+            ValidateKnotLinkSettings();
+            await TaskObserver.SaveConfigAsync();
+            await KnotLinkService.RestartAsync(cancellationToken);
             UpdateKnotLinkStatus();
             return KnotLinkService.IsInitialized;
         }
@@ -209,30 +203,21 @@ namespace FolderRewind.ViewModels
             }
         }
 
-        public bool StartKnotLinkServer()
+        public async Task<bool> StartKnotLinkServerAsync(CancellationToken cancellationToken = default)
         {
+            cancellationToken.ThrowIfCancellationRequested();
+            ValidateKnotLinkSettings();
             var result = KnotLinkServerManagerService.TryStartServer();
-            _ = Task.Run(async () =>
+            if (result)
             {
-                try
-                {
-                    if (result)
-                    {
-                        var host = string.IsNullOrWhiteSpace(Settings.KnotLinkHost)
-                            ? "127.0.0.1"
-                            : Settings.KnotLinkHost;
-                        await KnotLinkServerManagerService.WaitForServerReadyAsync(host).ConfigureAwait(false);
-                        if (Settings.EnableKnotLink)
-                        {
-                            await KnotLinkService.RestartAsync().ConfigureAwait(false);
-                        }
-                    }
-
-                    RefreshKnotLinkServerInfo();
-                }
-                catch { }
-            });
-            return result;
+                var host = string.IsNullOrWhiteSpace(Settings.KnotLinkHost) ? "127.0.0.1" : Settings.KnotLinkHost.Trim();
+                result = await KnotLinkServerManagerService.WaitForServerReadyAsync(host, ct: cancellationToken);
+                cancellationToken.ThrowIfCancellationRequested();
+                if (result && Settings.EnableKnotLink) await KnotLinkService.RestartAsync(cancellationToken);
+            }
+            RefreshKnotLinkServerInfo();
+            UpdateKnotLinkStatus();
+            return result && KnotLinkServerRunning;
         }
 
         public async Task DownloadAndRunKnotLinkInstallerAsync()

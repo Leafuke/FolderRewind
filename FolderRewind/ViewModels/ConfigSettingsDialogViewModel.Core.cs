@@ -32,6 +32,12 @@ namespace FolderRewind.ViewModels
         private const int PerformancePresetCustomIndex = 3;
 
         public ConfigSettingsDialogViewModel(BackupConfig config)
+            : this(config, viewModel => new ConfigSettingsActions(viewModel, MainWindowService.GetXamlRoot))
+        {
+        }
+
+        internal ConfigSettingsDialogViewModel(BackupConfig config,
+            Func<ConfigSettingsDialogViewModel, IConfigSettingsActions> actionsFactory)
         {
             _config = config ?? throw new ArgumentNullException(nameof(config));
             _archive = _config.Archive ??= new ArchiveSettings();
@@ -54,6 +60,7 @@ namespace FolderRewind.ViewModels
             RefreshBackupScopeOptions();
             RefreshAutomationFolderOptions();
             RaiseCloudUiProperties();
+            InitializeActions(actionsFactory(this));
         }
 
         public void Unbind()
@@ -81,6 +88,7 @@ namespace FolderRewind.ViewModels
 
         public void Rebind(BackupConfig config)
         {
+            Unbind();
             _config = config ?? throw new ArgumentNullException(nameof(config));
             _archive = _config.Archive ??= new ArchiveSettings();
             _automation = _config.Automation ??= new AutomationSettings();

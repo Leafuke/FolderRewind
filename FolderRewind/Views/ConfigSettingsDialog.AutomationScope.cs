@@ -42,18 +42,7 @@ namespace FolderRewind.Views
 
 
         private void OnAddScheduleEntryClick(object sender, RoutedEventArgs e)
-        {
-            if (Config.Automation.ScheduleEntries == null)
-                Config.Automation.ScheduleEntries = new ObservableCollection<ScheduleEntry>();
-
-            Config.Automation.ScheduleEntries.Add(new ScheduleEntry
-            {
-                MonthSelection = 0,
-                DaySelection = 0,
-                Hour = 8,
-                Minute = 0
-            });
-        }
+            => ViewModel.EditCommand.Execute(new ConfigSettingsEditRequest(ConfigSettingsEdit.AddSchedule));
 
         private void OnScheduleMonthComboLoaded(object sender, RoutedEventArgs e)
         {
@@ -75,7 +64,7 @@ namespace FolderRewind.Views
         {
             if (sender is Button btn && btn.DataContext is ScheduleEntry entry)
             {
-                Config.Automation.ScheduleEntries?.Remove(entry);
+                ViewModel.EditCommand.Execute(new ConfigSettingsEditRequest(ConfigSettingsEdit.RemoveSchedule, entry));
             }
         }
 

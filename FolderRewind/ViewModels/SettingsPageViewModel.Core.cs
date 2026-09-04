@@ -359,10 +359,19 @@ namespace FolderRewind.ViewModels
 
         public void SaveIfDirty()
         {
-            if (_isDirty)
+            TaskObserver.Observe(SaveIfDirtyAsync(), nameof(SettingsPageViewModel));
+        }
+
+        private async Task SaveIfDirtyAsync()
+        {
+            if (!_isDirty) return;
+            _isDirty = false;
+            try { await TaskObserver.SaveConfigAsync(); }
+            catch (Exception ex)
             {
-                ConfigService.Save();
-                _isDirty = false;
+                _isDirty = true;
+                NotificationService.ShowError(ex.Message);
+                throw;
             }
         }
 
@@ -383,8 +392,10 @@ namespace FolderRewind.ViewModels
                 _pluginsRefreshed = true;
                 OnPropertyChanged(nameof(InstalledPlugins));
             }
-            catch
+            catch (Exception ex)
             {
+                LogService.LogError(ex.Message, nameof(SettingsPageViewModel), ex);
+                throw;
             }
             finally
             {
