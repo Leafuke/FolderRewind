@@ -96,6 +96,9 @@
     <Compile Include="..\FolderRewind\Services\StartupSequence.cs" Link="Source\StartupSequence.cs" />
     <Compile Include="..\FolderRewind\Services\NotificationPresentationState.cs" Link="Source\NotificationPresentationState.cs" />
     <Compile Include="..\FolderRewind\Services\WindowCloseController.cs" Link="Source\WindowCloseController.cs" />
+    <Compile Include="..\FolderRewind\Services\MiniBackupController.cs" Link="Source\MiniBackupController.cs" />
+    <Compile Include="..\FolderRewind\Services\ChangeTrackingState.cs" Link="Source\ChangeTrackingState.cs" />
+    <Compile Include="..\FolderRewind\Models\MiniWindowState.cs" Link="Source\MiniWindowState.cs" />
     <Compile Include="..\FolderRewind\Services\AutomationSchedulePolicy.cs" Link="Source\AutomationSchedulePolicy.cs" />
     <Compile Include="..\FolderRewind\Services\AutomationConditionStateTracker.cs" Link="Source\AutomationConditionStateTracker.cs" />
     <Compile Include="..\FolderRewind\Services\CloudCommandSecurity.cs" Link="Source\CloudCommandSecurity.cs" />
