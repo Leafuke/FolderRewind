@@ -126,6 +126,8 @@ public sealed class VersionMetadataSnapshotTests
         Assert.IsTrue(batch.Run.Diagnostics.Any(item =>
             item.Code == "minerewind.version_metadata_partial"
             && item.Severity == HistoryDiagnosticSeverity.Warning));
+        Assert.IsTrue(batch.IndexRefreshSucceeded,
+            "The history pack was committed, but refreshing the derived index failed.");
         var indexed = await runtime.Query.GetVersionMetadataSnapshotsAsync(batch.NewVersions[0].VersionId);
         Assert.AreEqual(batch.NewMetadataSnapshots[0].MetadataSnapshotId, indexed.Single().MetadataSnapshotId);
         CollectionAssert.AreEqual(

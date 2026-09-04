@@ -15,4 +15,16 @@ public sealed class BackupSourceRootSafetyPolicyTests
         Assert.IsTrue(BackupSourceRootSafetyPolicy.IsBroadRoot(userProfile));
         Assert.IsFalse(BackupSourceRootSafetyPolicy.IsBroadRoot(Path.Combine(userProfile, "FolderRewind", "Game")));
     }
+
+    [TestMethod]
+    public void CurrentDriveRootRemainsBroadRegardlessOfWorkingDirectory()
+    {
+        var volumeRoot = Path.GetPathRoot(Environment.CurrentDirectory)!;
+
+        Assert.IsTrue(BackupSourceRootSafetyPolicy.IsBroadRoot(volumeRoot));
+        Assert.IsTrue(BackupSourceRootSafetyPolicy.IsBroadRoot(
+            Path.Combine(volumeRoot, "FolderRewind-RootPolicyRegression", "..")));
+        Assert.IsFalse(BackupSourceRootSafetyPolicy.IsBroadRoot(
+            Path.Combine(volumeRoot, "FolderRewind-RootPolicyRegression", "Game")));
+    }
 }

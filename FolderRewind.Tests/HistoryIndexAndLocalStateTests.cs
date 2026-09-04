@@ -67,6 +67,53 @@ public sealed class HistoryIndexAndLocalStateTests
     }
 
     [TestMethod]
+    public void IndexInstall_RecoversWhenReplaceCannotRemoveTheExistingFile()
+    {
+        var indexPath = Path.Combine(_root, "index.db");
+        var temporaryPath = Path.Combine(_root, "index.tmp");
+        File.WriteAllText(indexPath, "previous complete index");
+        File.WriteAllText(temporaryPath, "rebuilt complete index");
+
+        HistoryIndex.InstallRebuiltDatabase(temporaryPath, indexPath, (_, _) =>
+            throw new IOException("Cannot remove replaced file", unchecked((int)0x80070497)));
+
+        Assert.AreEqual("rebuilt complete index", File.ReadAllText(indexPath));
+        Assert.IsFalse(File.Exists(temporaryPath));
+    }
+
+    [TestMethod]
+    public void IndexInstall_DoesNotHideOtherIoFailuresOrRemoveThePreviousIndex()
+    {
+        var indexPath = Path.Combine(_root, "index.db");
+        var temporaryPath = Path.Combine(_root, "index.tmp");
+        File.WriteAllText(indexPath, "previous complete index");
+        File.WriteAllText(temporaryPath, "rebuilt complete index");
+        var failure = new IOException("Sharing violation", unchecked((int)0x80070020));
+
+        var reported = Assert.ThrowsExactly<IOException>(() =>
+            HistoryIndex.InstallRebuiltDatabase(temporaryPath, indexPath, (_, _) => throw failure));
+
+        Assert.AreSame(failure, reported);
+        Assert.AreEqual("previous complete index", File.ReadAllText(indexPath));
+        Assert.AreEqual("rebuilt complete index", File.ReadAllText(temporaryPath));
+    }
+
+    [TestMethod]
+    public async Task Index_RebuildReplacesThePreviousDatabaseWithNewFacts()
+    {
+        using var index = new HistoryIndex(Path.Combine(_repository.Paths.IndexRoot, "history-index.db"), _codec);
+        await index.RebuildAsync(await _repository.ReadAllPacksAsync());
+        Assert.AreEqual(0, await index.GetObjectCountAsync());
+        var version = CreateVersion(SourceId.New());
+        await _repository.CommitAsync(CreatePack(version));
+
+        await index.RebuildAsync(await _repository.ReadAllPacksAsync());
+
+        Assert.AreEqual(version.VersionId, (await index.GetVersionsForSourceAsync(version.SourceId)).Single().VersionId);
+        Assert.AreEqual(1, await index.GetObjectCountAsync());
+    }
+
+    [TestMethod]
     public async Task Index_RebuildCollapsesIdempotentDefinitionsFromDifferentPacks()
     {
         var version = CreateVersion(SourceId.New());
