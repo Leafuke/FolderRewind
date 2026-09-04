@@ -11,10 +11,11 @@ using System.Threading.Tasks;
 
 namespace FolderRewind.ViewModels
 {
-    public sealed class HomePageViewModel : ViewModelBase, IDisposable
+    public sealed partial class HomePageViewModel : ViewModelBase, IDisposable
     {
         private bool _isActive;
         private bool _isFavoritesEmpty = true;
+        private ObservableCollection<BackupConfig>? _subscribedConfigs;
 
         // 业务层仍保留强类型集合，方便后续查找所属配置等逻辑。
         public ObservableCollection<ManagedFolder> FavoriteFolders { get; } = new();
@@ -37,7 +38,14 @@ namespace FolderRewind.ViewModels
         public string CurrentSortMode => Settings?.HomeSortMode ?? "NameAsc";
 
         public HomePageViewModel()
+            : this(new HomeInteractionService(MainWindowService.GetXamlRoot))
         {
+        }
+
+        internal HomePageViewModel(IHomeInteractionService interactions)
+        {
+            _interactions = interactions ?? throw new ArgumentNullException(nameof(interactions));
+            InitializeCommands();
             // 收藏源集合变化时统一刷新投影视图，避免页面手动维护两份数据。
             FavoriteFolders.CollectionChanged += (_, __) => SyncFavoritesView();
         }
@@ -51,6 +59,11 @@ namespace FolderRewind.ViewModels
 
             // 页面通常被导航缓存，进入页面时再挂订阅比构造函数更稳妥。
             _isActive = true;
+            if (_pageLifetime.IsCancellationRequested)
+            {
+                _pageLifetime.Dispose();
+                _pageLifetime = new System.Threading.CancellationTokenSource();
+            }
             HookConfigsChanged();
             RefreshFavorites();
             RefreshConfigsView();
@@ -65,12 +78,13 @@ namespace FolderRewind.ViewModels
 
             // 对称解绑，避免下次激活后收到重复 CollectionChanged。
             _isActive = false;
+            _pageLifetime.Cancel();
             UnhookConfigsChanged();
         }
 
         public void Dispose()
         {
-            UnhookConfigsChanged();
+            Deactivate();
         }
 
         public void RefreshFavorites()
@@ -100,20 +114,6 @@ namespace FolderRewind.ViewModels
             {
                 ConfigsView.Add(cfg);
             }
-        }
-
-        public void SetSortMode(string modeTag)
-        {
-            if (Settings == null || string.IsNullOrWhiteSpace(modeTag))
-            {
-                return;
-            }
-
-            Settings.HomeSortMode = modeTag;
-            ConfigService.Save();
-
-            RefreshConfigsView();
-            OnPropertyChanged(nameof(CurrentSortMode));
         }
 
         public BackupConfig? FindParentConfig(ManagedFolder folder)
@@ -169,53 +169,30 @@ namespace FolderRewind.ViewModels
                 if (!ShellPathService.TryOpenPath(config.DestinationPath, out var openError))
                 {
                     LogService.LogError($"Failed to open destination: {openError}");
+                    _interactions.NotifyError(openError ?? I18n.GetString("Common_Failed"));
                 }
             }
             catch (Exception ex)
             {
                 LogService.LogError($"Failed to open destination: {ex.Message}");
+                _interactions.NotifyError(ex.Message);
             }
-        }
-
-        public async Task DeleteConfigAsync(BackupConfig config)
-        {
-            if (config == null || ConfigService.CurrentConfig?.BackupConfigs == null)
-            {
-                return;
-            }
-
-            ConfigService.CurrentConfig.BackupConfigs.Remove(config);
-            ConfigService.Save();
-            await NativeHistoryCoreGateway.DetachActiveConfigAsync(config.Id);
         }
 
         private void HookConfigsChanged()
         {
-            try
-            {
-                if (ConfigService.CurrentConfig?.BackupConfigs != null)
-                {
-                    // 先减后加，保证多次 Activate 不会重复订阅。
-                    ConfigService.CurrentConfig.BackupConfigs.CollectionChanged -= OnConfigsChanged;
-                    ConfigService.CurrentConfig.BackupConfigs.CollectionChanged += OnConfigsChanged;
-                }
-            }
-            catch
-            {
-            }
+            UnhookConfigsChanged();
+            _subscribedConfigs = Configs;
+            if (_subscribedConfigs is not null)
+                _subscribedConfigs.CollectionChanged += OnConfigsChanged;
         }
 
         private void UnhookConfigsChanged()
         {
-            try
+            if (_subscribedConfigs is not null)
             {
-                if (ConfigService.CurrentConfig?.BackupConfigs != null)
-                {
-                    ConfigService.CurrentConfig.BackupConfigs.CollectionChanged -= OnConfigsChanged;
-                }
-            }
-            catch
-            {
+                _subscribedConfigs.CollectionChanged -= OnConfigsChanged;
+                _subscribedConfigs = null;
             }
         }
 
@@ -223,6 +200,7 @@ namespace FolderRewind.ViewModels
         {
             EnqueueOnUiThread(() =>
             {
+                if (!_isActive) return;
                 // 配置列表变化后，这两个视图都要同步，否则会出现首页卡片和收藏不同步。
                 RefreshConfigsView();
                 RefreshFavorites();

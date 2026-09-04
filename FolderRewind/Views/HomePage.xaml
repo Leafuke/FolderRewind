@@ -10,6 +10,16 @@
     mc:Ignorable="d"
     NavigationCacheMode="Required">
 
+    <Page.Resources>
+        <DataTemplate x:Key="ConfigIconTemplate" x:DataType="x:String">
+            <Border Width="40" Height="40" CornerRadius="{StaticResource ControlCornerRadius}"
+                    Background="{ThemeResource LayerFillColorDefaultBrush}">
+                <FontIcon Glyph="{x:Bind Mode=OneTime}" FontSize="20"
+                          HorizontalAlignment="Center" VerticalAlignment="Center"/>
+            </Border>
+        </DataTemplate>
+    </Page.Resources>
+
     <ScrollViewer Padding="36,24,36,36">
         <StackPanel Spacing="0">
 
