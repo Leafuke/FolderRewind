@@ -1,5 +1,3 @@
-using Microsoft.UI.Xaml;
-using Microsoft.UI.Xaml.Media;
 using System.Text.Json.Serialization;
 
 namespace FolderRewind.Models
@@ -34,7 +32,8 @@ namespace FolderRewind.Models
             set
             {
                 SetProperty(ref _isCompleted, value);
-                OnPropertyChanged(nameof(StatusBrush));
+                OnPropertyChanged(nameof(StatusSemantic));
+                OnPropertyChanged(nameof(StatusGlyph));
             }
         }
         public string Log { get => _log; set => SetProperty(ref _log, value ?? string.Empty); }
@@ -44,7 +43,8 @@ namespace FolderRewind.Models
             set
             {
                 SetProperty(ref _errorMessage, value ?? string.Empty);
-                OnPropertyChanged(nameof(StatusBrush));
+                OnPropertyChanged(nameof(StatusSemantic));
+                OnPropertyChanged(nameof(StatusGlyph));
             }
         }
         public bool IsIndeterminate
@@ -61,7 +61,8 @@ namespace FolderRewind.Models
             set
             {
                 SetProperty(ref _isSuccess, value);
-                OnPropertyChanged(nameof(StatusBrush));
+                OnPropertyChanged(nameof(StatusSemantic));
+                OnPropertyChanged(nameof(StatusGlyph));
             }
         }
         public string IconGlyph { get => _iconGlyph; set => SetProperty(ref _iconGlyph, value ?? string.Empty); }
@@ -70,16 +71,14 @@ namespace FolderRewind.Models
         public string ProgressText => IsIndeterminate ? string.Empty : $"{Progress:F0}%";
 
         [JsonIgnore]
-        public SolidColorBrush? StatusBrush
+        public SemanticStatus StatusSemantic => IsCompleted switch
         {
-            get
-            {
-                if (IsCompleted && !IsSuccess && !string.IsNullOrEmpty(ErrorMessage))
-                    return (SolidColorBrush?)Application.Current.Resources["SystemFillColorCriticalBrush"];
-                if (IsCompleted && IsSuccess)
-                    return (SolidColorBrush?)Application.Current.Resources["SystemFillColorSuccessBrush"];
-                return (SolidColorBrush?)Application.Current.Resources["AccentFillColorDefaultBrush"];
-            }
-        }
+            true when IsSuccess => SemanticStatus.Success,
+            true when !string.IsNullOrEmpty(ErrorMessage) => SemanticStatus.Error,
+            _ => SemanticStatus.Info
+        };
+
+        [JsonIgnore]
+        public string StatusGlyph => SemanticStatusGlyphs.GetGlyph(StatusSemantic);
     }
 }

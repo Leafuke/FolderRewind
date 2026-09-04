@@ -4,6 +4,7 @@ using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.Diagnostics;
+using System.Globalization;
 using System.IO;
 using System.Linq;
 using System.Text.RegularExpressions;
@@ -45,7 +46,7 @@ namespace FolderRewind.Services
 
         private static string GenerateFileName(string baseName, string format, string prefix, string comment)
         {
-            string timeStr = DateTime.Now.ToString("yyyy-MM-dd_HH-mm-ss");
+            string timeStr = DateTime.Now.ToString("yyyy-MM-dd_HH-mm-ss", CultureInfo.InvariantCulture);
             string safeBaseName = SanitizeFileName(baseName);
             string safeComment = SanitizeFileName(comment);
             string safeFormat = SanitizeFileName(format).Trim('.');

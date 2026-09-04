@@ -131,6 +131,77 @@ public sealed class HistoryRuntimeTests
     }
 
     [TestMethod]
+    public async Task RuntimeManager_TryGetDoesNotWaitForPendingInitialization()
+    {
+        var factoryEntered = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var releaseFactory = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        await using var manager = new HistoryRuntimeManager();
+
+        async Task<FileHistoryRepository> Factory(HistoryConfigId id, CancellationToken _)
+        {
+            factoryEntered.SetResult();
+            await releaseFactory.Task;
+            return await CreateRepositoryAsync(id, "manager-pending");
+        }
+
+        var initialization = manager.GetOrCreateAsync(_configId, Factory);
+        await factoryEntered.Task;
+
+        try
+        {
+            Assert.IsFalse(manager.TryGet(_configId, out var pending));
+            Assert.IsNull(pending);
+        }
+        finally
+        {
+            releaseFactory.TrySetResult();
+        }
+
+        var runtime = await initialization;
+        Assert.IsTrue(manager.TryGet(_configId, out var ready));
+        Assert.AreSame(runtime, ready);
+    }
+
+    [TestMethod]
+    public async Task RuntimeManager_CancelledWaiterDoesNotCancelSharedInitialization()
+    {
+        var factoryEntered = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var releaseFactory = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var factoryCalls = 0;
+        var factoryTokenCanBeCanceled = true;
+        await using var manager = new HistoryRuntimeManager();
+        using var cancellation = new CancellationTokenSource();
+
+        async Task<FileHistoryRepository> Factory(HistoryConfigId id, CancellationToken token)
+        {
+            Interlocked.Increment(ref factoryCalls);
+            factoryTokenCanBeCanceled = token.CanBeCanceled;
+            factoryEntered.SetResult();
+            await releaseFactory.Task;
+            return await CreateRepositoryAsync(id, "manager-cancelled-waiter");
+        }
+
+        var cancelledWaiter = manager.GetOrCreateAsync(_configId, Factory, cancellation.Token);
+        await factoryEntered.Task;
+        var survivingWaiter = manager.GetOrCreateAsync(_configId, Factory);
+        cancellation.Cancel();
+
+        try
+        {
+            await Assert.ThrowsExactlyAsync<TaskCanceledException>(() => cancelledWaiter);
+        }
+        finally
+        {
+            releaseFactory.TrySetResult();
+        }
+
+        var runtime = await survivingWaiter;
+        Assert.IsNotNull(runtime);
+        Assert.AreEqual(1, factoryCalls);
+        Assert.IsFalse(factoryTokenCanBeCanceled);
+    }
+
+    [TestMethod]
     public async Task MutationGate_SerializesOnlyCriticalSections()
     {
         using var gate = new HistoryMutationGate(_configId);

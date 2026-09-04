@@ -43,6 +43,7 @@
     <Compile Include="..\FolderRewind\Models\BackupSourceScopeModels.cs" Link="Source\BackupSourceScopeModels.cs" />
     <Compile Include="..\FolderRewind\Models\PluginPersistenceModels.cs" Link="Source\PluginPersistenceModels.cs" />
     <Compile Include="..\FolderRewind\Models\LudusaviIndexModels.cs" Link="Source\LudusaviIndexModels.cs" />
+    <Compile Include="..\FolderRewind\Models\SemanticStatus.cs" Link="Source\SemanticStatus.cs" />
     <Compile Include="..\FolderRewind\Services\Discovery\DiscoveryCandidateMerger.cs" Link="Source\DiscoveryCandidateMerger.cs" />
     <Compile Include="..\FolderRewind\Services\Discovery\BackupPresetApplicationPolicy.cs" Link="Source\BackupPresetApplicationPolicy.cs" />
     <Compile Include="..\FolderRewind\Services\Discovery\DiscoveryDefinitionMatchPolicy.cs" Link="Source\DiscoveryDefinitionMatchPolicy.cs" />
@@ -69,6 +70,7 @@
     <Compile Include="..\FolderRewind\Services\Plugins\V3\PluginBackupRequestResult.cs" Link="Source\PluginBackupRequestResult.cs" />
     <Compile Include="..\FolderRewind\Services\Plugins\V3\NativeHistoryArtifactTransformPolicy.cs" Link="Source\NativeHistoryArtifactTransformPolicy.cs" />
     <Compile Include="..\FolderRewind\Services\LanguageSettingPolicy.cs" Link="Source\LanguageSettingPolicy.cs" />
+    <Compile Include="..\FolderRewind\Services\UserDisplayFormatter.cs" Link="Source\UserDisplayFormatter.cs" />
     <Compile Include="..\FolderRewind\Services\MiniWindowLayoutPolicy.cs" Link="Source\MiniWindowLayoutPolicy.cs" />
     <Compile Include="..\FolderRewind\Services\SponsorBackgroundImageCachePolicy.cs" Link="Source\SponsorBackgroundImageCachePolicy.cs" />
     <Compile Include="..\FolderRewind\Services\ArchiveCompressionPolicy.cs" Link="Source\ArchiveCompressionPolicy.cs" />
@@ -82,6 +84,29 @@
     <Compile Include="..\FolderRewind\Models\FolderRenameModels.cs" Link="Source\FolderRenameModels.cs" />
     <Compile Include="..\FolderRewind\Models\PersistenceModels.cs" Link="Source\PersistenceModels.cs" />
     <Compile Include="..\FolderRewind\Services\AtomicFileService.cs" Link="Source\AtomicFileService.cs" />
+    <Compile Include="..\FolderRewind\Services\ConfigWriteCoordinator.cs" Link="Source\ConfigWriteCoordinator.cs" />
+    <Compile Include="..\FolderRewind\Services\BatchObservableCollection.cs" Link="Source\BatchObservableCollection.cs" />
+    <Compile Include="..\FolderRewind\Services\LatestRequestCoordinator.cs" Link="Source\LatestRequestCoordinator.cs" />
+    <Compile Include="..\FolderRewind\Services\AsyncPeriodicLoop.cs" Link="Source\AsyncPeriodicLoop.cs" />
+    <Compile Include="..\FolderRewind\Services\AsyncOperationQueue.cs" Link="Source\AsyncOperationQueue.cs" />
+    <Compile Include="..\FolderRewind\Services\HistoryInteractionContracts.cs" Link="Source\HistoryInteractionContracts.cs" />
+    <Compile Include="..\FolderRewind\Services\ConfigEditTransaction.cs" Link="Source\ConfigEditTransaction.cs" />
+    <Compile Include="..\FolderRewind\Services\AsyncCommandLifetime.cs" Link="Source\AsyncCommandLifetime.cs" />
+    <Compile Include="..\FolderRewind\Services\FolderScopeEditController.cs" Link="Source\FolderScopeEditController.cs" />
+    <Compile Include="..\FolderRewind\Services\StartupSequence.cs" Link="Source\StartupSequence.cs" />
+    <Compile Include="..\FolderRewind\Services\NotificationPresentationState.cs" Link="Source\NotificationPresentationState.cs" />
+    <Compile Include="..\FolderRewind\Services\WindowCloseController.cs" Link="Source\WindowCloseController.cs" />
+    <Compile Include="..\FolderRewind\Services\MiniBackupController.cs" Link="Source\MiniBackupController.cs" />
+    <Compile Include="..\FolderRewind\Services\KnotLinkSettingsPolicy.cs" Link="Source\KnotLinkSettingsPolicy.cs" />
+    <Compile Include="..\FolderRewind\Services\SettingsSaveController.cs" Link="Source\SettingsSaveController.cs" />
+    <Compile Include="..\FolderRewind\Services\IPluginSettingsActions.cs" Link="Source\IPluginSettingsActions.cs" />
+    <Compile Include="..\FolderRewind\Services\PluginSettingsCommandController.cs" Link="Source\PluginSettingsCommandController.cs" />
+    <Compile Include="..\FolderRewind\Services\PluginSettingsOutcomePolicy.cs" Link="Source\PluginSettingsOutcomePolicy.cs" />
+    <Compile Include="..\FolderRewind\Services\ChangeTrackingState.cs" Link="Source\ChangeTrackingState.cs" />
+    <Compile Include="..\FolderRewind\Models\MiniWindowState.cs" Link="Source\MiniWindowState.cs" />
+    <Compile Include="..\FolderRewind\Services\AutomationSchedulePolicy.cs" Link="Source\AutomationSchedulePolicy.cs" />
+    <Compile Include="..\FolderRewind\Services\AutomationConditionStateTracker.cs" Link="Source\AutomationConditionStateTracker.cs" />
+    <Compile Include="..\FolderRewind\Services\CloudCommandSecurity.cs" Link="Source\CloudCommandSecurity.cs" />
     <Compile Include="..\FolderRewind\Services\FolderRenameService.Planning.cs" Link="Source\FolderRenameService.Planning.cs" />
     <Compile Include="..\FolderRewind\Services\FolderRenameService.Transaction.cs" Link="Source\FolderRenameService.Transaction.cs" />
     <Compile Include="..\FolderRewind\Services\FolderRenameService.Moves.cs" Link="Source\FolderRenameService.Moves.cs" />

@@ -10,7 +10,7 @@
     <StackPanel Spacing="8">
         <toolkit:SettingsExpander IsExpanded="False">
             <toolkit:SettingsExpander.Header>
-                <TextBlock x:Uid="SettingsPage_CoreValidation" Style="{StaticResource SettingsHeaderTextStyle}" />
+                <TextBlock x:Uid="SettingsPage_CoreValidation" AutomationProperties.AutomationId="SettingsCoreValidationHeader" Style="{StaticResource SettingsHeaderTextStyle}" />
             </toolkit:SettingsExpander.Header>
             <toolkit:SettingsExpander.Description>
                 <TextBlock x:Uid="SettingsPage_CoreValidationSectionDesc" Style="{StaticResource SettingsDescriptionStyle}" />
@@ -28,10 +28,12 @@
                     </toolkit:SettingsCard.Description>
                     <StackPanel Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
                         <Button x:Uid="SettingsPage_CoreValidation_RunButton"
+                                AutomationProperties.AutomationId="SettingsCoreValidationRun"
                                 Style="{StaticResource SettingsActionRowButtonStyle}"
                                 Click="OnRunCoreValidationClick"
                                 IsEnabled="{x:Bind ViewModel.IsCoreValidationIdle, Mode=OneWay}" />
                         <Button x:Uid="SettingsPage_CoreValidation_ViewReportButton"
+                                AutomationProperties.AutomationId="SettingsCoreValidationViewReport"
                                 Style="{StaticResource SettingsActionRowButtonStyle}"
                                 Click="OnViewCoreValidationReportClick"
                                 IsEnabled="{x:Bind ViewModel.HasCoreValidationReport, Mode=OneWay}" />
@@ -61,7 +63,7 @@
         <!-- 日志与诊断 -->
         <toolkit:SettingsExpander IsExpanded="False">
             <toolkit:SettingsExpander.Header>
-                <TextBlock x:Uid="SettingsPage_LogDiag" Style="{StaticResource SettingsHeaderTextStyle}" />
+                <TextBlock x:Uid="SettingsPage_LogDiag" AutomationProperties.AutomationId="SettingsDiagnosticsHeader" Style="{StaticResource SettingsHeaderTextStyle}" />
             </toolkit:SettingsExpander.Header>
             <toolkit:SettingsExpander.Description>
                 <TextBlock x:Uid="SettingsPage_LogDiagSectionDesc" Style="{StaticResource SettingsDescriptionStyle}" />
@@ -72,36 +74,51 @@
             <toolkit:SettingsExpander.Items>
                 <toolkit:SettingsCard>
                     <toolkit:SettingsCard.Header>
-                        <TextBlock x:Uid="SettingsPage_LogEnabled" Style="{StaticResource SettingsHeaderTextStyle}" />
+                        <TextBlock x:Name="FileLoggingLabel" x:Uid="SettingsPage_LogEnabled" Style="{StaticResource SettingsHeaderTextStyle}" />
                     </toolkit:SettingsCard.Header>
                     <toolkit:SettingsCard.Description>
                         <TextBlock x:Uid="SettingsPage_LogEnabledDesc" Style="{StaticResource SettingsDescriptionStyle}" />
                     </toolkit:SettingsCard.Description>
-                    <ToggleSwitch IsOn="{x:Bind ViewModel.Settings.EnableFileLogging, Mode=TwoWay}" Toggled="OnLoggingChanged" />
+                    <ToggleSwitch AutomationProperties.AutomationId="SettingsFileLogging"
+                                  AutomationProperties.LabeledBy="{x:Bind FileLoggingLabel}"
+                                  IsOn="{x:Bind ViewModel.EnableFileLogging, Mode=TwoWay}"
+                                  Toggled="OnLoggingChanged" />
                 </toolkit:SettingsCard>
 
                 <toolkit:SettingsCard>
                     <toolkit:SettingsCard.Header>
-                        <TextBlock x:Uid="SettingsPage_MaxLogSize" Style="{StaticResource SettingsHeaderTextStyle}" />
+                        <TextBlock x:Name="MaxLogSizeLabel" x:Uid="SettingsPage_MaxLogSize" Style="{StaticResource SettingsHeaderTextStyle}" />
                     </toolkit:SettingsCard.Header>
                     <toolkit:SettingsCard.Description>
                         <TextBlock x:Uid="SettingsPage_MaxLogSizeDesc" Style="{StaticResource SettingsDescriptionStyle}" />
                     </toolkit:SettingsCard.Description>
-                    <NumberBox Style="{StaticResource SettingsNumberBoxStyle}" Minimum="1" Maximum="50" Value="{x:Bind ViewModel.Settings.MaxLogFileSizeMb, Mode=TwoWay}" ValueChanged="OnLogSizeChanged" />
+                    <NumberBox AutomationProperties.AutomationId="SettingsMaxLogFileSize"
+                               AutomationProperties.LabeledBy="{x:Bind MaxLogSizeLabel}"
+                               Style="{StaticResource SettingsNumberBoxStyle}"
+                               Minimum="1"
+                               Maximum="50"
+                               Value="{x:Bind ViewModel.MaxLogFileSizeMb, Mode=TwoWay}"
+                               ValueChanged="OnLogSizeChanged" />
                 </toolkit:SettingsCard>
 
                 <toolkit:SettingsCard>
                     <toolkit:SettingsCard.Header>
-                        <TextBlock x:Uid="SettingsPage_LogRetention" Style="{StaticResource SettingsHeaderTextStyle}" />
+                        <TextBlock x:Name="LogRetentionLabel" x:Uid="SettingsPage_LogRetention" Style="{StaticResource SettingsHeaderTextStyle}" />
                     </toolkit:SettingsCard.Header>
                     <toolkit:SettingsCard.Description>
                         <TextBlock x:Uid="SettingsPage_LogRetentionDesc" Style="{StaticResource SettingsDescriptionStyle}" />
                     </toolkit:SettingsCard.Description>
-                    <NumberBox Style="{StaticResource SettingsNumberBoxStyle}" Minimum="1" Maximum="60" Value="{x:Bind ViewModel.Settings.LogRetentionDays, Mode=TwoWay}" ValueChanged="OnRetentionChanged" />
+                    <NumberBox AutomationProperties.AutomationId="SettingsLogRetentionDays"
+                               AutomationProperties.LabeledBy="{x:Bind LogRetentionLabel}"
+                               Style="{StaticResource SettingsNumberBoxStyle}"
+                               Minimum="1"
+                               Maximum="60"
+                               Value="{x:Bind ViewModel.LogRetentionDays, Mode=TwoWay}"
+                               ValueChanged="OnRetentionChanged" />
                 </toolkit:SettingsCard>
 
                 <toolkit:SettingsCard ContentAlignment="Vertical" HorizontalContentAlignment="Left">
-                    <Button x:Uid="SettingsPage_OpenLogCenter" Style="{StaticResource SettingsActionButtonStyle}" Click="OnOpenLogCenterClick" />
+                    <Button x:Uid="SettingsPage_OpenLogCenter" AutomationProperties.AutomationId="SettingsOpenLogCenter" Style="{StaticResource SettingsActionButtonStyle}" Click="OnOpenLogCenterClick" />
                 </toolkit:SettingsCard>
             </toolkit:SettingsExpander.Items>
         </toolkit:SettingsExpander>

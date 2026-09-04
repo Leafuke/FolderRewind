@@ -1,0 +1,54 @@
+<?xml version="1.0" encoding="utf-8"?>
+<UserControl
+    x:Class="FolderRewind.Controls.SemanticStatusPresenter"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+
+    <Grid x:Name="LayoutRoot">
+        <VisualStateManager.VisualStateGroups>
+            <VisualStateGroup x:Name="SemanticStates">
+                <VisualState x:Name="Neutral">
+                    <VisualState.Setters>
+                        <Setter Target="StatusIcon.Foreground" Value="{ThemeResource TextFillColorSecondaryBrush}" />
+                        <Setter Target="StatusTextBlock.Foreground" Value="{ThemeResource TextFillColorSecondaryBrush}" />
+                    </VisualState.Setters>
+                </VisualState>
+                <VisualState x:Name="Info">
+                    <VisualState.Setters>
+                        <Setter Target="StatusIcon.Foreground" Value="{ThemeResource SystemControlForegroundAccentBrush}" />
+                        <Setter Target="StatusTextBlock.Foreground" Value="{ThemeResource SystemControlForegroundAccentBrush}" />
+                    </VisualState.Setters>
+                </VisualState>
+                <VisualState x:Name="Success">
+                    <VisualState.Setters>
+                        <Setter Target="StatusIcon.Foreground" Value="{ThemeResource SystemFillColorSuccessBrush}" />
+                        <Setter Target="StatusTextBlock.Foreground" Value="{ThemeResource SystemFillColorSuccessBrush}" />
+                    </VisualState.Setters>
+                </VisualState>
+                <VisualState x:Name="Warning">
+                    <VisualState.Setters>
+                        <Setter Target="StatusIcon.Foreground" Value="{ThemeResource SystemFillColorCautionBrush}" />
+                        <Setter Target="StatusTextBlock.Foreground" Value="{ThemeResource SystemFillColorCautionBrush}" />
+                    </VisualState.Setters>
+                </VisualState>
+                <VisualState x:Name="Error">
+                    <VisualState.Setters>
+                        <Setter Target="StatusIcon.Foreground" Value="{ThemeResource SystemFillColorCriticalBrush}" />
+                        <Setter Target="StatusTextBlock.Foreground" Value="{ThemeResource SystemFillColorCriticalBrush}" />
+                    </VisualState.Setters>
+                </VisualState>
+            </VisualStateGroup>
+        </VisualStateManager.VisualStateGroups>
+
+        <StackPanel Orientation="Horizontal" Spacing="4" VerticalAlignment="Center">
+            <FontIcon x:Name="StatusIcon"
+                      FontSize="12"
+                      AutomationProperties.AccessibilityView="Raw"
+                      Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+            <TextBlock x:Name="StatusTextBlock"
+                       Style="{StaticResource CaptionTextBlockStyle}"
+                       Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                       TextTrimming="CharacterEllipsis" />
+        </StackPanel>
+    </Grid>
+</UserControl>

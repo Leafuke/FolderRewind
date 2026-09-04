@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Globalization;
 using System.IO;
 using System.Linq;
 using System.Threading;
@@ -612,7 +613,7 @@ public static partial class BackupService
                             task.IsIndeterminate = false;
                             task.IsSuccess = true;
                             folder.StatusText = I18n.Format("BackupService_Folder_BackupCompleted");
-                            folder.LastBackupTime = DateTime.Now.ToString("yyyy/MM/dd HH:mm");
+                            folder.LastBackupTime = DateTime.Now.ToString("yyyy/MM/dd HH:mm", CultureInfo.InvariantCulture);
                         });
                     }
                     else
@@ -620,7 +621,7 @@ public static partial class BackupService
                         await RunOnUIAsync(() =>
                         {
                             folder.StatusText = I18n.Format("BackupService_Folder_BackupCompleted");
-                            folder.LastBackupTime = DateTime.Now.ToString("yyyy/MM/dd HH:mm");
+                            folder.LastBackupTime = DateTime.Now.ToString("yyyy/MM/dd HH:mm", CultureInfo.InvariantCulture);
                         });
                     }
 
@@ -710,7 +711,7 @@ public static partial class BackupService
         // 成功 Source 的 LastBackupTime 是否需要持久化，与整个 Run 的 terminal outcome 相互独立。
         if (anyNewFile)
         {
-            var saveResult = ConfigService.SaveWithResult();
+            var saveResult = await ConfigService.SaveAsync().ConfigureAwait(false);
             if (!saveResult.Success)
             {
                 hasPostCommitWarnings = true;

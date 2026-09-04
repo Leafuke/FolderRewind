@@ -41,8 +41,15 @@ namespace FolderRewind.Services
                 settings.LastRunUtc = DateTime.UtcNow;
                 settings.LastExitCode = finalExitCode;
                 settings.LastErrorMessage = success ? string.Empty : (errorMessage ?? string.Empty);
-                ConfigService.Save();
             }).ConfigureAwait(false);
+
+            var saveResult = await ConfigService.SaveAsync().ConfigureAwait(false);
+            if (!saveResult.Success)
+            {
+                LogService.LogWarning(
+                    $"Failed to persist cloud task state: {saveResult.ErrorMessage}",
+                    nameof(CloudSyncService));
+            }
         }
 
         private static async Task<(bool Success, int ExitCode, string ErrorMessage)> ExecuteCommandWithRetryAsync(
@@ -68,10 +75,12 @@ namespace FolderRewind.Services
                     task.ErrorMessage = string.Empty;
                 }).ConfigureAwait(false);
 
-                LogService.LogInfo(I18n.Format("CloudSync_Log_CommandStart", logLabel, command.Preview), nameof(CloudSyncService));
+                LogService.LogInfo(
+                    I18n.Format("CloudSync_Log_CommandStart", command.LogPreview),
+                    nameof(CloudSyncService));
                 var result = await RunCommandAsync(task, command, timeoutSeconds).ConfigureAwait(false);
                 exitCode = result.ExitCode;
-                lastError = result.ErrorMessage;
+                lastError = CloudCommandSecurity.Redact(result.ErrorMessage);
 
                 if (result.Success)
                 {
@@ -151,7 +160,7 @@ namespace FolderRewind.Services
             }
             catch (Exception ex)
             {
-                return (false, -1, ex.Message);
+                return (false, -1, CloudCommandSecurity.Redact(ex.Message));
             }
         }
 
@@ -163,7 +172,8 @@ namespace FolderRewind.Services
 
             }
 
-            builder.AppendLine(line);
+            var safeLine = CloudCommandSecurity.Redact(line);
+            builder.AppendLine(safeLine);
             TrimBuilder(builder);
 
             _ = RunOnUIAsync(() =>
@@ -171,7 +181,7 @@ namespace FolderRewind.Services
                 task.Log = builder.ToString().Trim();
                 if (isError)
                 {
-                    task.ErrorMessage = line;
+                    task.ErrorMessage = safeLine;
                 }
             });
         }
@@ -200,7 +210,7 @@ namespace FolderRewind.Services
                         lastNonEmpty = trimmed;
                 }
                 if (lastNonEmpty.Length > 0)
-                    return lastNonEmpty.ToString();
+                    return CloudCommandSecurity.Redact(lastNonEmpty.ToString());
             }
 
             return I18n.Format("CloudSync_Error_ExitCode", exitCode);
@@ -223,19 +233,21 @@ namespace FolderRewind.Services
             string resolvedExecutable = ReplaceVariables(executable, variables);
             string resolvedArguments = ReplaceVariables(argumentsTemplate, variables);
             string resolvedWorkingDirectory = ReplaceVariables(settings.WorkingDirectory ?? string.Empty, variables);
+            string operationCategory = CloudCommandSecurity.DetectOperationCategory(resolvedArguments);
 
             (resolvedExecutable, resolvedArguments) = WrapScriptExecutionIfNeeded(resolvedExecutable.Trim(), resolvedArguments.Trim());
-
-            string preview = string.IsNullOrWhiteSpace(resolvedArguments)
-                ? resolvedExecutable
-                : $"{resolvedExecutable} {resolvedArguments}";
+            var previews = CloudCommandSecurity.BuildPreviews(
+                resolvedExecutable,
+                resolvedArguments,
+                operationCategory);
 
             return new ResolvedCommand
             {
                 ExecutablePath = resolvedExecutable.Trim(),
                 Arguments = resolvedArguments.Trim(),
                 WorkingDirectory = resolvedWorkingDirectory.Trim(),
-                Preview = preview.Trim()
+                DisplayPreview = previews.DisplayPreview,
+                LogPreview = previews.LogPreview
             };
         }
 
@@ -243,18 +255,20 @@ namespace FolderRewind.Services
         {
             string resolvedExecutable = executablePath?.Trim() ?? string.Empty;
             string resolvedArguments = arguments?.Trim() ?? string.Empty;
+            string operationCategory = CloudCommandSecurity.DetectOperationCategory(resolvedArguments);
             (resolvedExecutable, resolvedArguments) = WrapScriptExecutionIfNeeded(resolvedExecutable, resolvedArguments);
-
-            string preview = string.IsNullOrWhiteSpace(resolvedArguments)
-                ? resolvedExecutable
-                : $"{resolvedExecutable} {resolvedArguments}";
+            var previews = CloudCommandSecurity.BuildPreviews(
+                resolvedExecutable,
+                resolvedArguments,
+                operationCategory);
 
             return new ResolvedCommand
             {
                 ExecutablePath = resolvedExecutable,
                 Arguments = resolvedArguments,
                 WorkingDirectory = workingDirectory ?? string.Empty,
-                Preview = preview
+                DisplayPreview = previews.DisplayPreview,
+                LogPreview = previews.LogPreview
             };
         }
 

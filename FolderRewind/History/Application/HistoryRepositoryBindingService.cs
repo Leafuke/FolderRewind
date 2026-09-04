@@ -1,6 +1,7 @@
 using FolderRewind.History.Domain;
 using FolderRewind.History.Storage;
 using FolderRewind.Models;
+using FolderRewind.Services;
 using System;
 using System.Threading;
 using System.Threading.Tasks;
@@ -26,13 +27,12 @@ public sealed class HistoryRepositoryBindingService
             config.HistoryRepositoryBinding?.FormatVersion,
             async (formatVersion, token) =>
             {
-                config.HistoryRepositoryBinding = new HistoryRepositoryBinding
+                await UiDispatcherService.RunOnUiAsync(async () =>
                 {
-                    FormatVersion = formatVersion
-                };
-                await persistConfigAsync(token).ConfigureAwait(false);
+                    config.HistoryRepositoryBinding = new HistoryRepositoryBinding { FormatVersion = formatVersion };
+                    await persistConfigAsync(token);
+                }).ConfigureAwait(false);
             },
             cancellationToken);
     }
 }
-

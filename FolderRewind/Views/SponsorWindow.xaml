@@ -25,7 +25,7 @@
                    Margin="36,0,36,22"
                    HorizontalAlignment="Center"
                    TextAlignment="Center"
-                   Style="{ThemeResource TitleTextBlockStyle}" />
+                   Style="{StaticResource TitleTextBlockStyle}" />
 
         <StackPanel Grid.Row="2"
                     Spacing="4"

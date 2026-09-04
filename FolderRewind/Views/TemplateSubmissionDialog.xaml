@@ -31,23 +31,21 @@
 
             <StackPanel Grid.Row="1" Grid.Column="0" Spacing="12">
                 <TextBlock x:Uid="TemplateSubmissionDialog_PrepareSection"
-                           Style="{ThemeResource SubtitleTextBlockStyle}" />
+                           Style="{StaticResource SubtitleTextBlockStyle}" />
                 <TextBlock x:Uid="Template_Submission_PrepareHint"
                            Foreground="{ThemeResource TextFillColorSecondaryBrush}"
                            TextWrapping="Wrap" />
 
                 <TextBlock x:Uid="Template_Submission_SelectTemplate"
-                           Style="{ThemeResource BodyStrongTextBlockStyle}" />
+                           Style="{StaticResource BodyStrongTextBlockStyle}" />
                 <ComboBox x:Name="TemplateComboBox"
                           HorizontalAlignment="Stretch"
                           SelectionChanged="OnTemplateSelectionChanged" />
 
-                <Border Padding="12"
-                        CornerRadius="8"
-                        Background="{ThemeResource CardBackgroundFillColorDefaultBrush}">
+                <Border Style="{StaticResource FilledCardStyle}">
                     <StackPanel Spacing="8">
                         <TextBlock x:Uid="TemplateSubmissionDialog_SelectedTemplate"
-                                   Style="{ThemeResource BodyStrongTextBlockStyle}" />
+                                   Style="{StaticResource BodyStrongTextBlockStyle}" />
                         <TextBlock x:Name="TemplateMetaTextBlock"
                                    Foreground="{ThemeResource TextFillColorSecondaryBrush}"
                                    TextWrapping="Wrap" />
@@ -55,13 +53,13 @@
                 </Border>
 
                 <TextBlock x:Uid="Template_Submission_GameNameHeader"
-                           Style="{ThemeResource BodyStrongTextBlockStyle}" />
+                           Style="{StaticResource BodyStrongTextBlockStyle}" />
                 <TextBox x:Name="GameNameBox" />
             </StackPanel>
 
             <StackPanel Grid.Row="1" Grid.Column="1" Spacing="12">
                 <TextBlock x:Uid="TemplateSubmissionDialog_GitHubSection"
-                           Style="{ThemeResource SubtitleTextBlockStyle}" />
+                           Style="{StaticResource SubtitleTextBlockStyle}" />
                 <TextBlock x:Uid="TemplateSubmissionDialog_GitHubHint"
                            Foreground="{ThemeResource TextFillColorSecondaryBrush}"
                            TextWrapping="Wrap" />
@@ -69,12 +67,10 @@
                            Foreground="{ThemeResource SystemFillColorCautionBrush}"
                            TextWrapping="Wrap" />
 
-                <Border Padding="12"
-                        CornerRadius="8"
-                        Background="{ThemeResource CardBackgroundFillColorDefaultBrush}">
+                <Border Style="{StaticResource FilledCardStyle}">
                     <StackPanel Spacing="10">
                         <TextBlock x:Uid="TemplateSubmissionDialog_GitHubStatus"
-                                   Style="{ThemeResource BodyStrongTextBlockStyle}" />
+                                   Style="{StaticResource BodyStrongTextBlockStyle}" />
                         <TextBlock x:Name="GitHubAuthStatusTextBlock"
                                    TextWrapping="Wrap" />
                         <StackPanel Orientation="Horizontal" Spacing="8">

@@ -5,12 +5,14 @@
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
     xmlns:models="using:FolderRewind.Models"
     xmlns:vm="using:FolderRewind.ViewModels"
+    xmlns:controls="using:FolderRewind.Controls"
     xmlns:converters="using:FolderRewind.Converters"
     x:Name="RootPage"
     NavigationCacheMode="Required">
 
     <Grid Padding="36">
         <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
             <RowDefinition Height="Auto"/>
             <RowDefinition Height="Auto"/>
             <RowDefinition Height="*"/>
@@ -95,8 +97,7 @@
                             </StackPanel>
                         </Border>
 
-                        <TextBlock x:Uid="HistoryPage_BranchSelectLabel"
-                                   Text="查看分支:"
+                        <TextBlock x:Name="BranchSelectLabel" x:Uid="HistoryPage_BranchSelectLabel"
                                    VerticalAlignment="Center"
                                    Style="{StaticResource CaptionTextBlockStyle}"
                                    Foreground="{ThemeResource TextFillColorSecondaryBrush}"
@@ -106,6 +107,7 @@
                         <ComboBox x:Name="BranchFilter"
                                   x:Uid="HistoryPage_BranchDropdown"
                                   AutomationProperties.AutomationId="HistoryBranchFilter"
+                                  AutomationProperties.LabeledBy="{x:Bind BranchSelectLabel}"
                                   MinWidth="160"
                                   MaxWidth="240"
                                   VerticalAlignment="Center"
@@ -126,7 +128,7 @@
                                 AutomationProperties.AutomationId="HistoryBranchCheckout"
                                 VerticalAlignment="Center"
                                 IsEnabled="{x:Bind ViewModel.CanStartCheckoutSelectedBranch, Mode=OneWay}"
-                                Click="OnCheckoutBranchClick">
+                                Command="{x:Bind ViewModel.CheckoutBranchCommand}">
                             <StackPanel Orientation="Horizontal" Spacing="6" VerticalAlignment="Center">
                                 <FontIcon Glyph="&#xE72A;" FontSize="12"/>
                                 <TextBlock x:Uid="HistoryPage_BranchCheckoutText"/>
@@ -144,7 +146,7 @@
                                                     x:Uid="HistoryPage_BranchReconcileItem"
                                                     AutomationProperties.AutomationId="HistoryBranchReconcile"
                                                     IsEnabled="{x:Bind ViewModel.CanReconcileSelectedBranch, Mode=OneWay}"
-                                                    Click="OnReconcileBranchClick">
+                                                    Command="{x:Bind ViewModel.ReconcileBranchCommand}">
                                         <MenuFlyoutItem.Icon><FontIcon Glyph="&#xE895;"/></MenuFlyoutItem.Icon>
                                     </MenuFlyoutItem>
                                     <MenuFlyoutSeparator/>
@@ -152,7 +154,7 @@
                                                     x:Uid="HistoryPage_BranchRenameItem"
                                                     AutomationProperties.AutomationId="HistoryBranchRename"
                                                     IsEnabled="{x:Bind ViewModel.CanRenameSelectedBranch, Mode=OneWay}"
-                                                    Click="OnRenameBranchClick">
+                                                    Command="{x:Bind ViewModel.RenameBranchCommand}">
                                         <MenuFlyoutItem.Icon><FontIcon Glyph="&#xE70F;"/></MenuFlyoutItem.Icon>
                                     </MenuFlyoutItem>
                                     <MenuFlyoutSeparator/>
@@ -161,7 +163,7 @@
                                                     AutomationProperties.AutomationId="HistoryBranchDelete"
                                                     Foreground="{ThemeResource SystemFillColorCriticalBrush}"
                                                     IsEnabled="{x:Bind ViewModel.CanDeleteSelectedBranch, Mode=OneWay}"
-                                                    Click="OnDeleteBranchClick">
+                                                    Command="{x:Bind ViewModel.DeleteBranchCommand}">
                                         <MenuFlyoutItem.Icon><FontIcon Glyph="&#xE74D;" Foreground="{ThemeResource SystemFillColorCriticalBrush}"/></MenuFlyoutItem.Icon>
                                     </MenuFlyoutItem>
                                 </MenuFlyout>
@@ -175,7 +177,7 @@
                                 AutomationProperties.AutomationId="HistoryOpenCloudSync"
                                 VerticalAlignment="Center"
                                 IsEnabled="{x:Bind ViewModel.CanOpenConfigCloudSync, Mode=OneWay}"
-                                Click="OnOpenCloudSyncClick">
+                                Command="{x:Bind ViewModel.OpenCloudSyncCommand}">
                             <StackPanel Orientation="Horizontal" Spacing="6" VerticalAlignment="Center">
                                 <FontIcon Glyph="&#xE753;" FontSize="13"/>
                                 <TextBlock x:Uid="HistoryPage_OpenCloudSyncText"/>
@@ -196,20 +198,20 @@
                                                     x:Uid="HistoryPage_ScanRecoverMenuItem"
                                                     AutomationProperties.AutomationId="HistoryScanRecover"
                                                     IsEnabled="{x:Bind ViewModel.CanUsePerSourceActions, Mode=OneWay}"
-                                                    Click="OnScanRecoverClick">
+                                                    Command="{x:Bind ViewModel.ScanRecoverCommand}">
                                         <MenuFlyoutItem.Icon><FontIcon Glyph="&#xE71C;"/></MenuFlyoutItem.Icon>
                                     </MenuFlyoutItem>
                                     <MenuFlyoutItem x:Name="ClearMissingMenuItem"
                                                     x:Uid="HistoryPage_ClearMissingMenuItem"
                                                     AutomationProperties.AutomationId="HistoryClearMissing"
                                                     IsEnabled="{x:Bind ViewModel.HasMissing, Mode=OneWay}"
-                                                    Click="OnClearMissingClick">
+                                                    Command="{x:Bind ViewModel.ClearMissingCommand}">
                                         <MenuFlyoutItem.Icon><FontIcon Glyph="&#xE74D;"/></MenuFlyoutItem.Icon>
                                     </MenuFlyoutItem>
                                     <MenuFlyoutItem x:Name="SafetySnapshotsMenuItem"
                                                     x:Uid="HistoryPage_SafetySnapshotsMenuItem"
                                                     AutomationProperties.AutomationId="HistorySafetySnapshots"
-                                                    Click="OnManageSafetySnapshotsClick">
+                                                    Command="{x:Bind ViewModel.ManageSafetySnapshotsCommand}">
                                         <MenuFlyoutItem.Icon><FontIcon Glyph="&#xE72E;"/></MenuFlyoutItem.Icon>
                                     </MenuFlyoutItem>
                                     <MenuFlyoutSeparator/>
@@ -225,10 +227,42 @@
             </StackPanel>
         </Border>
 
+        <StackPanel Grid.Row="2" Spacing="8" Margin="0,0,0,12">
+            <Grid Visibility="{x:Bind ViewModel.IsLoading, Mode=OneWay, Converter={StaticResource BoolToVisConverter}}"
+                  AutomationProperties.LiveSetting="Polite">
+                <StackPanel Orientation="Horizontal" Spacing="8">
+                    <ProgressRing Width="20" Height="20" IsActive="{x:Bind ViewModel.IsLoading, Mode=OneWay}"/>
+                    <TextBlock x:Uid="HistoryPage_Loading"
+                               VerticalAlignment="Center"
+                               Foreground="{ThemeResource TextFillColorSecondaryBrush}"/>
+                </StackPanel>
+            </Grid>
+            <InfoBar x:Name="HistoryLoadError"
+                     x:Uid="HistoryPage_LoadError"
+                     AutomationProperties.AutomationId="HistoryLoadError"
+                     IsOpen="{x:Bind ViewModel.HasError, Mode=OneWay}"
+                     IsClosable="False"
+                     Severity="Error"
+                     Message="{x:Bind ViewModel.ErrorMessage, Mode=OneWay}">
+                <InfoBar.ActionButton>
+                    <Button x:Uid="HistoryPage_Retry"
+                            AutomationProperties.AutomationId="HistoryRetry"
+                            Command="{x:Bind ViewModel.RetryCommand}"/>
+                </InfoBar.ActionButton>
+            </InfoBar>
+        </StackPanel>
+
         <!-- 历史列表 -->
-        <ListView x:Name="HistoryList" Grid.Row="2" SelectionMode="None"
+        <ListView x:Name="HistoryList" Grid.Row="3" SelectionMode="None"
                   AutomationProperties.AutomationId="HistoryVersionList"
+                  ContainerContentChanging="OnHistoryContainerContentChanging"
                   ItemsSource="{x:Bind ViewModel.FilteredHistory, Mode=OneWay}" Visibility="{x:Bind ViewModel.ShowPerSourceHistory, Mode=OneWay, Converter={StaticResource BoolToVisConverter}}">
+            <ListView.ItemContainerStyle>
+                <Style TargetType="ListViewItem">
+                    <Setter Property="IsTabStop" Value="False"/>
+                    <Setter Property="HorizontalContentAlignment" Value="Stretch"/>
+                </Style>
+            </ListView.ItemContainerStyle>
             <!-- ItemTemplate 保持之前的 Git 节点风格 -->
             <ListView.ItemTemplate>
                 <DataTemplate x:DataType="vm:NativeHistoryVersionViewItem">
@@ -243,14 +277,19 @@
                             <TextBlock Text="{x:Bind DateDisplay, Mode=OneTime}" Style="{StaticResource CaptionTextBlockStyle}" Foreground="{ThemeResource TextFillColorSecondaryBrush}" HorizontalAlignment="Right"/>
                         </StackPanel>
                         <Grid Grid.Column="1">
-                            <Rectangle Width="2" Fill="{x:Bind TimelineLineBrush, Mode=OneTime}" VerticalAlignment="Stretch" HorizontalAlignment="Center"/>
+                            <Rectangle Width="2" Fill="{ThemeResource TextFillColorTertiaryBrush}" VerticalAlignment="Stretch" HorizontalAlignment="Center"/>
                             <Border Width="16" Height="16" CornerRadius="8"
-                                    Background="{x:Bind TimelineNodeFillBrush, Mode=OneTime}"
-                                    BorderBrush="{x:Bind TimelineNodeBorderBrush, Mode=OneTime}"
+                                    Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
+                                    BorderBrush="{ThemeResource TextFillColorSecondaryBrush}"
                                     BorderThickness="2"
                                     VerticalAlignment="Center" HorizontalAlignment="Center"/>
                         </Grid>
-                        <Border Grid.Column="2" Background="{ThemeResource CardBackgroundFillColorDefaultBrush}" CornerRadius="{StaticResource ControlCornerRadius}" Padding="12" Margin="0,4">
+                        <Border Grid.Column="2"
+                                Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
+                                BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
+                                BorderThickness="1"
+                                CornerRadius="{StaticResource ControlCornerRadius}"
+                                Padding="12" Margin="0,4">
                             <Grid>
                                 <Grid.ColumnDefinitions>
                                     <ColumnDefinition Width="*"/>
@@ -260,7 +299,9 @@
                                     <TextBlock Text="{x:Bind Message, Mode=OneTime}" Style="{StaticResource BodyStrongTextBlockStyle}"/>
                                     <StackPanel Orientation="Horizontal" Spacing="6">
                                         <TextBlock Text="{x:Bind FileSizeDisplay, Mode=OneTime}" Style="{StaticResource CaptionTextBlockStyle}" Foreground="{ThemeResource TextFillColorSecondaryBrush}"/>
-                                        <TextBlock Text="{x:Bind ReadinessText, Mode=OneTime}" Style="{StaticResource CaptionTextBlockStyle}" Foreground="{ThemeResource TextFillColorSecondaryBrush}"/>
+                                        <controls:SemanticStatusPresenter Text="{x:Bind ReadinessText, Mode=OneTime}"
+                                                                          Status="{x:Bind ReadinessStatus, Mode=OneWay}"
+                                                                          Glyph="{x:Bind ReadinessGlyph, Mode=OneWay}"/>
                                         <FontIcon Glyph="&#xE8D7;" FontSize="11"
                                                   Foreground="{ThemeResource TextFillColorSecondaryBrush}"
                                                   Visibility="{x:Bind HasBranchDisplay, Mode=OneTime, Converter={StaticResource BoolToVisConverter}}"/>
@@ -280,37 +321,47 @@
                                 </StackPanel>
                                 <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="4" VerticalAlignment="Center">
                                     <Button x:Uid="HistoryPage_ToggleImportantButton" Click="OnToggleImportantClick"
+                                            AutomationProperties.AutomationId="{x:Bind VersionId, Converter={StaticResource AutomationIdConverter}, ConverterParameter=HistoryVersionToggleImportant}"
                                             Background="Transparent" BorderThickness="0">
                                         <FontIcon Glyph="{x:Bind IsImportant, Mode=OneTime, Converter={StaticResource BoolToStarIconConverter}}" FontSize="14"
                                                   Foreground="{ThemeResource SystemControlForegroundAccentBrush}"/>
                                     </Button>
-                                    <Button x:Uid="HistoryPage_ViewButton" Click="OnViewClick" ToolTipService.ToolTip="{x:Bind FileName, Mode=OneTime}">
+                                    <Button x:Uid="HistoryPage_ViewButton" Click="OnViewClick"
+                                            AutomationProperties.AutomationId="{x:Bind VersionId, Converter={StaticResource AutomationIdConverter}, ConverterParameter=HistoryVersionView}"
+                                            ToolTipService.ToolTip="{x:Bind FileName, Mode=OneTime}">
                                         <FontIcon Glyph="&#xE8A7;" FontSize="14"/>
                                     </Button>
-                                    <Button x:Uid="HistoryPage_EditCommentButton" Click="OnEditCommentClick">
+                                    <Button x:Uid="HistoryPage_EditCommentButton" Click="OnEditCommentClick"
+                                            AutomationProperties.AutomationId="{x:Bind VersionId, Converter={StaticResource AutomationIdConverter}, ConverterParameter=HistoryVersionEditComment}">
                                         <FontIcon Glyph="&#xE70F;" FontSize="14"/>
                                     </Button>
-                                    <Button Click="OnCreateBranchFromVersionClick"
+                                    <Button x:Uid="HistoryPage_CreateBranchButton"
+                                            Click="OnCreateBranchFromVersionClick"
+                                            AutomationProperties.AutomationId="{x:Bind VersionId, Converter={StaticResource AutomationIdConverter}, ConverterParameter=HistoryVersionCreateBranch}"
                                             IsEnabled="{x:Bind CanCreateBranch, Mode=OneTime}"
                                             ToolTipService.ToolTip="{x:Bind CreateBranchHintText, Mode=OneTime}">
                                         <FontIcon Glyph="&#xE710;" FontSize="14"/>
                                     </Button>
                                     <Button x:Uid="HistoryPage_UploadCloudButton"
                                             Click="OnUploadToCloudClick"
+                                            AutomationProperties.AutomationId="{x:Bind VersionId, Converter={StaticResource AutomationIdConverter}, ConverterParameter=HistoryVersionUploadCloud}"
                                             IsEnabled="{x:Bind CanUploadToCloud, Mode=OneTime}"
                                             ToolTipService.ToolTip="{x:Bind CloudActionHintText, Mode=OneTime}">
                                         <FontIcon Glyph="&#xE898;" FontSize="14"/>
                                     </Button>
                                     <Button x:Uid="HistoryPage_DownloadCloudButton"
                                             Click="OnDownloadFromCloudClick"
+                                            AutomationProperties.AutomationId="{x:Bind VersionId, Converter={StaticResource AutomationIdConverter}, ConverterParameter=HistoryVersionDownloadCloud}"
                                             IsEnabled="{x:Bind CanDownloadFromCloud, Mode=OneTime}"
                                             ToolTipService.ToolTip="{x:Bind DownloadFromCloudHintText, Mode=OneTime}">
                                         <FontIcon Glyph="&#xE896;" FontSize="14"/>
                                     </Button>
-                                    <Button x:Uid="HistoryPage_RestoreButton" Click="OnRestoreClick">
+                                    <Button x:Uid="HistoryPage_RestoreButton" Click="OnRestoreClick"
+                                            AutomationProperties.AutomationId="{x:Bind VersionId, Converter={StaticResource AutomationIdConverter}, ConverterParameter=HistoryVersionRestore}">
                                         <FontIcon Glyph="&#xE777;" FontSize="14"/>
                                     </Button>
-                                    <Button x:Uid="HistoryPage_DeleteButton" Click="OnDeleteClick">
+                                    <Button x:Uid="HistoryPage_DeleteButton" Click="OnDeleteClick"
+                                            AutomationProperties.AutomationId="{x:Bind VersionId, Converter={StaticResource AutomationIdConverter}, ConverterParameter=HistoryVersionDelete}">
                                         <FontIcon Glyph="&#xE74D;" FontSize="14"/>
                                     </Button>
                                 </StackPanel>
@@ -321,9 +372,16 @@
             </ListView.ItemTemplate>
         </ListView>
 
-        <ListView x:Name="RunHistoryList" Grid.Row="2" SelectionMode="None"
+        <ListView x:Name="RunHistoryList" Grid.Row="3" SelectionMode="None"
                   AutomationProperties.AutomationId="HistoryRunList"
+                  ContainerContentChanging="OnRunContainerContentChanging"
                   ItemsSource="{x:Bind ViewModel.FilteredRuns, Mode=OneWay}" Visibility="{x:Bind ViewModel.ShowGroupedRunHistory, Mode=OneWay, Converter={StaticResource BoolToVisConverter}}">
+            <ListView.ItemContainerStyle>
+                <Style TargetType="ListViewItem">
+                    <Setter Property="IsTabStop" Value="False"/>
+                    <Setter Property="HorizontalContentAlignment" Value="Stretch"/>
+                </Style>
+            </ListView.ItemContainerStyle>
             <ListView.ItemTemplate>
                 <DataTemplate x:DataType="vm:BackupRunViewItem">
                     <Grid Margin="0,4" ColumnSpacing="12">
@@ -335,7 +393,9 @@
                             <TextBlock Text="{x:Bind TimeDisplay, Mode=OneTime}" Style="{StaticResource BodyStrongTextBlockStyle}"/>
                             <TextBlock Text="{x:Bind DateDisplay, Mode=OneTime}" Style="{StaticResource CaptionTextBlockStyle}" Foreground="{ThemeResource TextFillColorSecondaryBrush}"/>
                         </StackPanel>
-                        <Expander Grid.Column="1" HorizontalAlignment="Stretch" Background="{ThemeResource CardBackgroundFillColorDefaultBrush}">
+                        <Expander Grid.Column="1"
+                                  AutomationProperties.AutomationId="{x:Bind RunId, Converter={StaticResource AutomationIdConverter}, ConverterParameter=HistoryRun}"
+                                  HorizontalAlignment="Stretch" Background="{ThemeResource CardBackgroundFillColorDefaultBrush}">
                             <Expander.Header>
                                 <Grid MinHeight="62" ColumnSpacing="10">
                                     <Grid.ColumnDefinitions>
@@ -343,19 +403,27 @@
                                         <ColumnDefinition Width="Auto"/>
                                     </Grid.ColumnDefinitions>
                                     <StackPanel VerticalAlignment="Center" Spacing="2">
-                                        <TextBlock Text="{x:Bind Message, Mode=OneTime}" Style="{ThemeResource BodyStrongTextBlockStyle}"/>
+                                        <TextBlock Text="{x:Bind Message, Mode=OneTime}" Style="{StaticResource BodyStrongTextBlockStyle}"/>
                                         <TextBlock Text="{x:Bind SourceSummary, Mode=OneTime}" Foreground="{ThemeResource TextFillColorSecondaryBrush}"/>
                                     </StackPanel>
                                     <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="4" VerticalAlignment="Center">
-                                        <Button x:Uid="HistoryPage_ToggleImportantButton" Click="OnToggleRunImportantClick" Background="Transparent" BorderThickness="0">
+                                        <Button x:Uid="HistoryPage_ToggleImportantButton" Click="OnToggleRunImportantClick"
+                                                AutomationProperties.AutomationId="{x:Bind RunId, Converter={StaticResource AutomationIdConverter}, ConverterParameter=HistoryRunToggleImportant}"
+                                                Background="Transparent" BorderThickness="0">
                                             <FontIcon Glyph="{x:Bind IsImportant, Converter={StaticResource BoolToStarIconConverter}, Mode=OneTime}" FontSize="14" Foreground="{ThemeResource SystemControlForegroundAccentBrush}"/>
                                         </Button>
-                                        <Button x:Uid="HistoryPage_EditCommentButton" Click="OnEditRunCommentClick"><FontIcon Glyph="&#xE70F;" FontSize="14"/></Button>
-                                        <Button Click="OnCreateBranchFromRunClick"
+                                        <Button x:Uid="HistoryPage_EditCommentButton" Click="OnEditRunCommentClick"
+                                                AutomationProperties.AutomationId="{x:Bind RunId, Converter={StaticResource AutomationIdConverter}, ConverterParameter=HistoryRunEditComment}"><FontIcon Glyph="&#xE70F;" FontSize="14"/></Button>
+                                        <Button x:Uid="HistoryPage_CreateBranchButton"
+                                                Click="OnCreateBranchFromRunClick"
+                                                AutomationProperties.AutomationId="{x:Bind RunId, Converter={StaticResource AutomationIdConverter}, ConverterParameter=HistoryRunCreateBranch}"
                                                 IsEnabled="{x:Bind CanCreateBranch, Mode=OneTime}"
                                                 ToolTipService.ToolTip="{x:Bind CreateBranchHintText, Mode=OneTime}"><FontIcon Glyph="&#xE710;" FontSize="14"/></Button>
-                                        <Button x:Uid="HistoryPage_RestoreButton" Click="OnRestoreRunClick" IsEnabled="{x:Bind CanRestore, Mode=OneTime}"><FontIcon Glyph="&#xE777;" FontSize="14"/></Button>
-                                        <Button x:Uid="HistoryPage_DeleteButton" Click="OnDeleteRunClick"><FontIcon Glyph="&#xE74D;" FontSize="14"/></Button>
+                                        <Button x:Uid="HistoryPage_RestoreButton" Click="OnRestoreRunClick"
+                                                AutomationProperties.AutomationId="{x:Bind RunId, Converter={StaticResource AutomationIdConverter}, ConverterParameter=HistoryRunRestore}"
+                                                IsEnabled="{x:Bind CanRestore, Mode=OneTime}"><FontIcon Glyph="&#xE777;" FontSize="14"/></Button>
+                                        <Button x:Uid="HistoryPage_DeleteButton" Click="OnDeleteRunClick"
+                                                AutomationProperties.AutomationId="{x:Bind RunId, Converter={StaticResource AutomationIdConverter}, ConverterParameter=HistoryRunDelete}"><FontIcon Glyph="&#xE74D;" FontSize="14"/></Button>
                                     </StackPanel>
                                 </Grid>
                             </Expander.Header>
@@ -382,8 +450,8 @@
         </ListView>
 
         <!-- 空状态提示 -->
-        <StackPanel Grid.Row="2" VerticalAlignment="Center" HorizontalAlignment="Center" 
-                    Visibility="{x:Bind ViewModel.IsEmpty, Mode=OneWay, Converter={StaticResource BoolToVisConverter}}">
+        <StackPanel Grid.Row="3" VerticalAlignment="Center" HorizontalAlignment="Center"
+                    Visibility="{x:Bind ViewModel.ShowEmptyState, Mode=OneWay, Converter={StaticResource BoolToVisConverter}}">
             <FontIcon Glyph="&#xE7BA;" FontSize="48" Foreground="{ThemeResource TextFillColorSecondaryBrush}"/>
             <TextBlock x:Uid="HistoryPage_EmptyState" Margin="0,16,0,0" Foreground="{ThemeResource TextFillColorSecondaryBrush}"/>
         </StackPanel>

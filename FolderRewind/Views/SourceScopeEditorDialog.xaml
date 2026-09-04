@@ -42,7 +42,7 @@
             </StackPanel>
 
             <InfoBar x:Uid="SourceScopeEditor_FilterNote" IsOpen="True" IsClosable="False" Severity="Informational"/>
-            <Border Padding="12" CornerRadius="6" Background="{ThemeResource CardBackgroundFillColorDefaultBrush}">
+            <Border Style="{StaticResource FilledCardStyle}">
                 <Grid ColumnSpacing="8">
                     <Grid.ColumnDefinitions>
                         <ColumnDefinition Width="*"/>

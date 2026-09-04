@@ -4,27 +4,25 @@
     xmlns:tb="using:H.NotifyIcon">
 
     <XamlUICommand x:Key="ShowHideWindowCommand"
-                   Label="FolderRewind"
-                   Description="Show or hide the window" />
+                   x:Uid="Tray_ShowHideCommand" />
 
     <XamlUICommand x:Key="QuitCommand"
-                   Label="Exit"
-                   Description="Exit FolderRewind" />
+                   x:Uid="Tray_QuitCommand" />
 
     <tb:TaskbarIcon
         x:Key="TrayIcon"
+        x:Uid="Tray_Icon"
         ContextMenuMode="PopupMenu"
         IconSource="ms-appx:///Assets/logo.ico"
         LeftClickCommand="{StaticResource ShowHideWindowCommand}"
         NoLeftClickDelay="True"
-        ToolTipText="FolderRewind"
         Visibility="Visible">
         <tb:TaskbarIcon.ContextFlyout>
             <MenuFlyout>
-                <MenuFlyoutItem Text="Show / Hide"
+                <MenuFlyoutItem x:Uid="Tray_ShowHideItem"
                                 Command="{StaticResource ShowHideWindowCommand}" />
                 <MenuFlyoutSeparator />
-                <MenuFlyoutItem Text="Exit"
+                <MenuFlyoutItem x:Uid="Tray_ExitItem"
                                 Command="{StaticResource QuitCommand}" />
             </MenuFlyout>
         </tb:TaskbarIcon.ContextFlyout>

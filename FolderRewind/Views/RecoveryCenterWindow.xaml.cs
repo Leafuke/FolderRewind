@@ -79,7 +79,7 @@ public sealed partial class RecoveryCenterWindow : Window
             {
                 [I18n.GetString("RecoveryCenter_JsonFiles")] = new[] { ".json" }
             },
-            $"folderrewind-config-recovery-{DateTime.Now:yyyyMMdd-HHmmss}.json");
+            FormattableString.Invariant($"folderrewind-config-recovery-{DateTime.Now:yyyyMMdd-HHmmss}.json"));
         if (string.IsNullOrWhiteSpace(path)) return;
 
         ShowStatus(
@@ -113,17 +113,12 @@ public sealed partial class RecoveryCenterWindow : Window
 
     private async Task<bool> ConfirmAsync(string titleKey, string contentKey, string buttonKey)
     {
-        var dialog = new ContentDialog
-        {
-            Title = I18n.GetString(titleKey),
-            Content = I18n.GetString(contentKey),
-            PrimaryButtonText = I18n.GetString(buttonKey),
-            CloseButtonText = I18n.GetString("Common_Cancel"),
-            DefaultButton = ContentDialogButton.Close,
-            XamlRoot = RootGrid.XamlRoot
-        };
-        ThemeService.ApplyThemeToDialog(dialog);
-        return await dialog.ShowAsync() == ContentDialogResult.Primary;
+        return await AppDialogService.Default.ConfirmAsync(
+            I18n.GetString(titleKey),
+            I18n.GetString(contentKey),
+            I18n.GetString(buttonKey),
+            RootGrid.XamlRoot,
+            isDestructive: true);
     }
 
     private void CompleteRecoveryAction(bool success)

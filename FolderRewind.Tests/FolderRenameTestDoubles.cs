@@ -57,6 +57,9 @@ namespace FolderRewind.Services
                 : new ConfigSaveResult { Success = true };
         }
 
+        public static Task<ConfigSaveResult> SaveAsync(bool publishSavedEvent = true, CancellationToken cancellationToken = default)
+            => Task.FromResult(SaveWithResult(publishSavedEvent));
+
         internal static void PublishSaved()
         {
         }

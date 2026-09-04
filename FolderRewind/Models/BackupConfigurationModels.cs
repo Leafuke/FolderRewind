@@ -205,7 +205,21 @@ namespace FolderRewind.Models
 
         public bool IsFavorite { get => _isFavorite; set => SetProperty(ref _isFavorite, value); }
 
-        public string LastBackupTime { get => _lastBackupTime; set => SetProperty(ref _lastBackupTime, value ?? string.Empty); }
+        public string LastBackupTime
+        {
+            get => _lastBackupTime;
+            set
+            {
+                if (SetProperty(ref _lastBackupTime, value ?? string.Empty))
+                {
+                    OnPropertyChanged(nameof(LastBackupTimeDisplay));
+                }
+            }
+        }
+
+        [JsonIgnore]
+        public string LastBackupTimeDisplay =>
+            UserDisplayFormatter.PersistedLocalDateTime(LastBackupTime, "yyyy/MM/dd HH:mm");
 
         [JsonIgnore] // 运行时状态，不需要存Json
         public string StatusText { get => _statusText; set => SetProperty(ref _statusText, value ?? string.Empty); }

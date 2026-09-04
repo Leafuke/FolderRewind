@@ -3,7 +3,6 @@ using FolderRewind.Models;
 using FolderRewind.Services;
 using FolderRewind.Services.Hotkeys;
 using FolderRewind.Services.Plugins;
-using Microsoft.UI.Xaml.Media;
 using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
@@ -29,7 +28,7 @@ namespace FolderRewind.ViewModels
         private static IReadOnlyList<string>? _cachedInstalledFontFamilies;
 
         private string _knotLinkStatusMessage = I18n.GetString("SettingsPage_KnotLinkStatus_Disabled");
-        private Brush _knotLinkStatusColor = new SolidColorBrush(Microsoft.UI.Colors.Gray);
+        private SemanticStatus _knotLinkStatus = SemanticStatus.Neutral;
 
         private string _knotLinkServerVersionText = I18n.GetString("SettingsPage_KnotLinkServerNotInstalled");
         private bool _knotLinkServerInstalled;
@@ -38,7 +37,7 @@ namespace FolderRewind.ViewModels
         private bool _knotLinkServerUpdateChecking;
         private string _knotLinkServerLatestVersion = string.Empty;
         private KnotLinkUpdateInfo? _knotLinkServerUpdateInfo;
-        private Brush _knotLinkServerStatusBrush = new SolidColorBrush(Microsoft.UI.Colors.Gray);
+        private SemanticStatus _knotLinkServerStatus = SemanticStatus.Neutral;
 
         private bool _isDirty;
 
@@ -204,11 +203,13 @@ namespace FolderRewind.ViewModels
             private set => SetProperty(ref _knotLinkStatusMessage, value ?? string.Empty);
         }
 
-        public Brush KnotLinkStatusColor
+        public SemanticStatus KnotLinkStatus
         {
-            get => _knotLinkStatusColor;
-            private set => SetProperty(ref _knotLinkStatusColor, value);
+            get => _knotLinkStatus;
+            private set => SetProperty(ref _knotLinkStatus, value);
         }
+
+        public string KnotLinkStatusGlyph => "\uE774";
 
         public string KnotLinkServerVersionText
         {
@@ -245,11 +246,13 @@ namespace FolderRewind.ViewModels
 
         public bool KnotLinkServerUpdateEnabled => !KnotLinkServerUpdateChecking && KnotLinkServerHasUpdate;
 
-        public Brush KnotLinkServerStatusBrush
+        public SemanticStatus KnotLinkServerStatus
         {
-            get => _knotLinkServerStatusBrush;
-            private set => SetProperty(ref _knotLinkServerStatusBrush, value);
+            get => _knotLinkServerStatus;
+            private set => SetProperty(ref _knotLinkServerStatus, value);
         }
+
+        public string KnotLinkServerStatusGlyph => "\uE7F8";
 
         public bool IsCoreValidationRunning => CoreFeatureValidationService.IsRunning;
 
@@ -268,7 +271,9 @@ namespace FolderRewind.ViewModels
                     return I18n.GetString("CoreValidation_LastRun_None");
                 }
 
-                return I18n.Format("CoreValidation_LastRun_Value", Settings.LastCoreValidationUtc.ToLocalTime().ToString("yyyy-MM-dd HH:mm:ss"));
+                return I18n.Format(
+                    "CoreValidation_LastRun_Value",
+                    UserDisplayFormatter.LongDateTime(Settings.LastCoreValidationUtc.ToLocalTime()));
             }
         }
 
@@ -278,6 +283,7 @@ namespace FolderRewind.ViewModels
 
         public SettingsPageViewModel()
         {
+            ObserveBindableSettings();
             InstallMinecraftPresetCommand = new AsyncRelayCommand(
                 async () => { await InstallMinecraftPresetAsync(); },
                 () => IsMinecraftPresetInstallIdle);
@@ -353,10 +359,19 @@ namespace FolderRewind.ViewModels
 
         public void SaveIfDirty()
         {
-            if (_isDirty)
+            TaskObserver.Observe(SaveIfDirtyAsync(), nameof(SettingsPageViewModel));
+        }
+
+        private async Task SaveIfDirtyAsync()
+        {
+            if (!_isDirty) return;
+            _isDirty = false;
+            try { await TaskObserver.SaveConfigAsync(); }
+            catch (Exception ex)
             {
-                ConfigService.Save();
-                _isDirty = false;
+                _isDirty = true;
+                NotificationService.ShowError(ex.Message);
+                throw;
             }
         }
 
@@ -377,8 +392,10 @@ namespace FolderRewind.ViewModels
                 _pluginsRefreshed = true;
                 OnPropertyChanged(nameof(InstalledPlugins));
             }
-            catch
+            catch (Exception ex)
             {
+                LogService.LogError(ex.Message, nameof(SettingsPageViewModel), ex);
+                throw;
             }
             finally
             {
@@ -388,6 +405,7 @@ namespace FolderRewind.ViewModels
 
         public void Dispose()
         {
+            StopObservingBindableSettings();
             // 与 Initialize 成对解绑，避免设置页被缓存后事件重复触发。
             CoreFeatureValidationService.StateChanged -= CoreFeatureValidationService_StateChanged;
             SponsorService.StateChanged -= SponsorService_StateChanged;

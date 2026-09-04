@@ -13,7 +13,7 @@
 
         <toolkit:SettingsExpander IsExpanded="False">
             <toolkit:SettingsExpander.Header>
-                <TextBlock x:Uid="SettingsPage_Presets" Style="{StaticResource SettingsHeaderTextStyle}" />
+                <TextBlock x:Uid="SettingsPage_Presets" AutomationProperties.AutomationId="SettingsPresetsHeader" Style="{StaticResource SettingsHeaderTextStyle}" />
             </toolkit:SettingsExpander.Header>
             <toolkit:SettingsExpander.Description>
                 <TextBlock x:Uid="SettingsPage_PresetsDesc" Style="{StaticResource SettingsDescriptionStyle}" />
@@ -53,6 +53,7 @@
                                           IsActive="{x:Bind ViewModel.IsMinecraftPresetInstallRunning, Mode=OneWay}"
                                           Visibility="{x:Bind ViewModel.IsMinecraftPresetInstallRunning, Mode=OneWay, Converter={StaticResource BoolToVisConverter}}" />
                             <Button x:Uid="SettingsPage_MinecraftPresetInstall"
+                                    AutomationProperties.AutomationId="SettingsMinecraftPresetInstall"
                                     Style="{StaticResource SettingsActionButtonStyle}"
                                     Command="{x:Bind ViewModel.InstallMinecraftPresetCommand, Mode=OneTime}"
                                     IsEnabled="{x:Bind ViewModel.IsMinecraftPresetInstallIdle, Mode=OneWay}" />
@@ -62,7 +63,7 @@
 
                 <toolkit:SettingsCard x:Name="CloudPresetCard" ContentAlignment="Vertical" HorizontalContentAlignment="Stretch">
                     <toolkit:SettingsCard.Header>
-                        <TextBlock x:Uid="SettingsPage_CloudPreset" Style="{StaticResource SettingsHeaderTextStyle}" />
+                        <TextBlock x:Name="CloudPresetLabel" x:Uid="SettingsPage_CloudPreset" Style="{StaticResource SettingsHeaderTextStyle}" />
                     </toolkit:SettingsCard.Header>
                     <toolkit:SettingsCard.Description>
                         <TextBlock x:Uid="SettingsPage_CloudPresetDesc" Style="{StaticResource SettingsDescriptionStyle}" />
@@ -80,6 +81,8 @@
                         <StackPanel Spacing="6">
                             <TextBlock x:Uid="SettingsPage_CloudPresetSteps" Style="{StaticResource SettingsDescriptionStyle}" />
                             <ComboBox Width="260"
+                                      AutomationProperties.AutomationId="SettingsCloudPresetProvider"
+                                      AutomationProperties.LabeledBy="{x:Bind CloudPresetLabel}"
                                       HorizontalAlignment="Left"
                                       ItemsSource="{x:Bind ViewModel.CloudPresetOptions, Mode=OneWay}"
                                       SelectedItem="{x:Bind ViewModel.SelectedCloudPresetOption, Mode=TwoWay}"
@@ -95,6 +98,7 @@
                                           IsActive="{x:Bind ViewModel.IsCloudPresetRunning, Mode=OneWay}"
                                           Visibility="{x:Bind ViewModel.IsCloudPresetRunning, Mode=OneWay, Converter={StaticResource BoolToVisConverter}}" />
                             <Button x:Uid="SettingsPage_CloudPresetStart"
+                                    AutomationProperties.AutomationId="SettingsCloudPresetStart"
                                     Style="{StaticResource SettingsActionButtonStyle}"
                                     Click="OnStartCloudPresetClick"
                                     IsEnabled="{x:Bind ViewModel.IsCloudPresetIdle, Mode=OneWay}" />

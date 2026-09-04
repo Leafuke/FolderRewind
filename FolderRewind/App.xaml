@@ -25,6 +25,7 @@
             <converters:StringToBitmapConverter x:Key="StringToBitmapConverter"/>
             <converters:DoubleToOpacityBrushConverter x:Key="DoubleToOpacityBrushConverter"/>
             <converters:IntToStretchConverter x:Key="IntToStretchConverter"/>
+            <converters:AutomationIdConverter x:Key="AutomationIdConverter"/>
 
             <!-- ==================== 全局共享样式 ==================== -->
             
@@ -53,6 +54,32 @@
                 <Setter Property="BorderThickness" Value="1"/>
                 <Setter Property="CornerRadius" Value="{StaticResource OverlayCornerRadius}"/>
                 <Setter Property="Padding" Value="16"/>
+            </Style>
+
+            <Style x:Key="AccentCardStyle" TargetType="Border" BasedOn="{StaticResource StandardCardStyle}">
+                <Setter Property="BorderBrush" Value="{ThemeResource SystemControlForegroundAccentBrush}"/>
+            </Style>
+
+            <Style x:Key="FilledCardStyle" TargetType="Border">
+                <Setter Property="Background" Value="{ThemeResource CardBackgroundFillColorDefaultBrush}"/>
+                <Setter Property="CornerRadius" Value="{StaticResource OverlayCornerRadius}"/>
+                <Setter Property="Padding" Value="12"/>
+            </Style>
+
+            <Style x:Key="OutlinedCardStyle" TargetType="Border" BasedOn="{StaticResource FilledCardStyle}">
+                <Setter Property="Background" Value="Transparent"/>
+                <Setter Property="BorderBrush" Value="{ThemeResource SurfaceStrokeColorDefaultBrush}"/>
+                <Setter Property="BorderThickness" Value="1"/>
+            </Style>
+
+            <Style x:Key="CautionCardStyle" TargetType="Border" BasedOn="{StaticResource FilledCardStyle}">
+                <Setter Property="Background" Value="{ThemeResource SystemFillColorCautionBackgroundBrush}"/>
+            </Style>
+
+            <Style x:Key="TransparentIconButtonStyle" TargetType="Button" BasedOn="{StaticResource DefaultButtonStyle}">
+                <Setter Property="Background" Value="Transparent"/>
+                <Setter Property="BorderThickness" Value="0"/>
+                <Setter Property="Padding" Value="8"/>
             </Style>
 
         </ResourceDictionary>

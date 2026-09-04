@@ -1,7 +1,9 @@
 ﻿using FolderRewind.Models;
 using FolderRewind.Services;
+using FolderRewind.ViewModels;
 using Microsoft.UI.Windowing;
 using Microsoft.UI.Xaml;
+using Microsoft.UI.Xaml.Automation;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Input;
 using Microsoft.UI.Xaml.Media;
@@ -21,7 +23,8 @@ namespace FolderRewind.Views
         public double CommentCardWidthDip => MiniWindowMetrics.CommentCardWidthDip;
         public CornerRadius MiniCornerRadius => new(MiniWindowMetrics.CornerRadiusDip);
 
-        private readonly MiniWindowContext _context;
+        internal MiniWindowViewModel ViewModel { get; }
+        private bool _closed;
         private MiniWindowVisualState _visualState = MiniWindowVisualState.Normal;
         private MiniWindowExpansionState _expansionState = MiniWindowExpansionState.Collapsed;
         private MiniExpandDirection _activeExpandDirection = MiniExpandDirection.Right;
@@ -123,10 +126,11 @@ namespace FolderRewind.Views
 
         public MiniWindow(MiniWindowContext context)
         {
-            _context = context ?? throw new ArgumentNullException(nameof(context));
+            ViewModel = new(context ?? throw new ArgumentNullException(nameof(context)));
             this.InitializeComponent();
 
             RootGrid.Loaded += RootGrid_Loaded;
+            ViewModel.PropertyChanged += ViewModel_PropertyChanged;
 
             ConfigureWindow();
             SetupUI();
@@ -175,7 +179,9 @@ namespace FolderRewind.Views
             // 设置初始尺寸
             CollapseToSquare(false);
 
-            appWindow.Title = $"Mini - {_context.Folder?.DisplayName ?? "Folder"}";
+            appWindow.Title = I18n.Format(
+                "MiniWindow_TitleFormat",
+                ViewModel.FolderDisplayName);
 
             // Win11 圆角
             try
@@ -320,7 +326,7 @@ namespace FolderRewind.Views
                 MenuItemBackup.Text = I18n.GetString("MiniWindow_Menu_Backup");
                 MenuItemClose.Text = I18n.GetString("MiniWindow_Menu_Close");
 
-                var expandDir = _context.ExpandDirection;
+                var expandDir = ViewModel.ExpandDirection;
                 MenuItemExpandLeft.Text = expandDir == MiniExpandDirection.Right
                     ? I18n.GetString("MiniWindow_Menu_ExpandLeft")
                     : I18n.GetString("MiniWindow_Menu_ExpandRight");
@@ -330,25 +336,8 @@ namespace FolderRewind.Views
 
         private void UpdateTooltip()
         {
-            var folder = _context.Folder;
-            if (folder == null) return;
-
-            var status = _visualState switch
-            {
-                MiniWindowVisualState.Changed => I18n.GetString("MiniWindow_Tip_Changed"),
-                MiniWindowVisualState.BackingUp => I18n.GetString("MiniWindow_Tip_BackingUp"),
-                MiniWindowVisualState.BackupDone => I18n.GetString("MiniWindow_Tip_Done"),
-                MiniWindowVisualState.BackupFailed => I18n.GetString("MiniWindow_Tip_Failed"),
-                _ => I18n.GetString("MiniWindow_Tip_Normal"),
-            };
-
-            // Tooltip 整体格式必须可本地化（不同语言的顺序/标点可能不同）
-            MiniTooltip.Content = I18n.Format(
-                "MiniWindow_Tip_Format",
-                folder.DisplayName,
-                folder.Path,
-                folder.LastBackupTime,
-                status);
+            MiniTooltip.Content = ViewModel.Tooltip;
+            AutomationProperties.SetHelpText(MiniPrimaryButton, ViewModel.Tooltip);
         }
 
         // 变更检测定时器
@@ -360,22 +349,17 @@ namespace FolderRewind.Views
             _watchTimer.Start();
         }
 
-        private void WatchTimer_Tick(object? sender, object e)
+        private void WatchTimer_Tick(object? sender, object e) => ViewModel.RefreshWatchState();
+
+        private void ViewModel_PropertyChanged(object? sender, System.ComponentModel.PropertyChangedEventArgs e)
         {
-            if (_visualState == MiniWindowVisualState.BackingUp) return;
-
-            var folderPath = _context.Folder?.Path;
-            if (string.IsNullOrWhiteSpace(folderPath)) return;
-
-            bool hasChanges = FolderWatcherService.HasChanges(folderPath);
-
-            if (hasChanges && _visualState != MiniWindowVisualState.Changed)
+            if (_closed) return;
+            if (e.PropertyName == nameof(MiniWindowViewModel.VisualState)) SetVisualState(ViewModel.VisualState);
+            else if (e.PropertyName == nameof(MiniWindowViewModel.Tooltip)) UpdateTooltip();
+            else if (e.PropertyName == nameof(MiniWindowViewModel.ExpandDirection))
             {
-                SetVisualState(MiniWindowVisualState.Changed);
-            }
-            else if (!hasChanges && _visualState == MiniWindowVisualState.Changed)
-            {
-                SetVisualState(MiniWindowVisualState.Normal);
+                MenuItemExpandLeft.Text = ViewModel.ExpandDirectionText;
+                MenuItemExpandLeft.Icon = new FontIcon { Glyph = ViewModel.ExpandDirectionGlyph };
             }
         }
 
@@ -434,20 +418,26 @@ namespace FolderRewind.Views
             ToggleInputPanel();
         }
 
+        private void MiniPrimaryButton_Click(object sender, RoutedEventArgs e) => ToggleInputPanel();
+
+        private void MiniPrimaryButton_Tapped(object sender, TappedRoutedEventArgs e)
+            => e.Handled = true;
+
         private void ToggleInputPanel()
         {
             var shouldExpand = _expansionState is MiniWindowExpansionState.Collapsed
                 or MiniWindowExpansionState.Collapsing;
-            _ = SetInputPanelExpandedAsync(shouldExpand);
+            TaskObserver.Observe(SetInputPanelExpandedAsync(shouldExpand), nameof(MiniWindow));
         }
 
         private void CollapseInputPanel()
         {
-            _ = SetInputPanelExpandedAsync(false);
+            TaskObserver.Observe(SetInputPanelExpandedAsync(false), nameof(MiniWindow));
         }
 
         private async Task SetInputPanelExpandedAsync(bool expand)
         {
+            if (_closed) return;
             if (expand && _expansionState is MiniWindowExpansionState.Expanding or MiniWindowExpansionState.Expanded)
                 return;
             if (!expand && _expansionState == MiniWindowExpansionState.Collapsed)
@@ -465,7 +455,7 @@ namespace FolderRewind.Views
                 {
                     var anchor = GetCurrentAnchorPoint();
                     _expansionState = MiniWindowExpansionState.Expanding;
-                    _activeExpandDirection = _context.ExpandDirection;
+                    _activeExpandDirection = ViewModel.ExpandDirection;
                     ResizeToExpanded(anchor);
 
                     var isLeft = _activeExpandDirection == MiniExpandDirection.Left;
@@ -478,6 +468,9 @@ namespace FolderRewind.Views
                     CommentPanel.Opacity = 1;
                     CommentPanel.Translation = Vector3.Zero;
                     _expansionState = MiniWindowExpansionState.Expanded;
+                    AutomationProperties.SetName(
+                        MiniPrimaryButton,
+                        I18n.GetString("MiniWindow_CloseCommentPanel"));
                     CommentBox.Focus(FocusState.Programmatic);
                 }
                 else
@@ -497,6 +490,10 @@ namespace FolderRewind.Views
                     RightExpandColumn.Width = new GridLength(0);
                     CollapseToSquare(wasLeftExpanded);
                     _expansionState = MiniWindowExpansionState.Collapsed;
+                    AutomationProperties.SetName(
+                        MiniPrimaryButton,
+                        I18n.GetString("MiniWindow_OpenCommentPanel"));
+                    MiniPrimaryButton.Focus(FocusState.Programmatic);
                 }
             }
             catch (OperationCanceledException)
@@ -525,15 +522,7 @@ namespace FolderRewind.Views
                 var scale = GetScaleFactor();
                 var hwnd = WindowNative.GetWindowHandle(this);
                 var anchor = requestedAnchor ?? GetCurrentAnchorPoint();
-                var preferredDirection = _context.ExpandDirection == MiniExpandDirection.Left
-                    ? MiniWindowLayoutDirection.Left
-                    : MiniWindowLayoutDirection.Right;
-                var layout = MiniWindowLayoutPolicy.GetExpandedBounds(
-                    anchor,
-                    GetCurrentWorkArea(),
-                    scale,
-                    preferredDirection);
-
+                var layout = ViewModel.GetExpandedLayout(anchor, GetCurrentWorkArea(), scale);
                 _activeExpandDirection = layout.Direction == MiniWindowLayoutDirection.Left
                     ? MiniExpandDirection.Left
                     : MiniExpandDirection.Right;
@@ -651,7 +640,7 @@ namespace FolderRewind.Views
             {
                 e.Handled = true;
                 var comment = (sender as TextBox)?.Text?.Trim() ?? "";
-                _ = ExecuteBackupAsync(comment);
+                ExecuteBackup(comment);
                 CollapseInputPanel();
             }
             else if (e.Key == Windows.System.VirtualKey.Escape)
@@ -665,7 +654,7 @@ namespace FolderRewind.Views
         {
             DispatcherQueue.TryEnqueue(Microsoft.UI.Dispatching.DispatcherQueuePriority.Low, () =>
             {
-                if (_expansionState is MiniWindowExpansionState.Collapsed or MiniWindowExpansionState.Collapsing) return;
+                if (_closed || _expansionState is MiniWindowExpansionState.Collapsed or MiniWindowExpansionState.Collapsing) return;
                 var focused = FocusManager.GetFocusedElement(RootGrid.XamlRoot);
                 if (!ReferenceEquals(focused, CommentBox))
                 {
@@ -676,55 +665,16 @@ namespace FolderRewind.Views
 
         // 备份执行
 
-        private async Task ExecuteBackupAsync(string comment)
+        private void ExecuteBackup(string comment)
         {
-            if (_context.Config == null || _context.Folder == null) return;
-            if (_visualState == MiniWindowVisualState.BackingUp) return;
-
-            SetVisualState(MiniWindowVisualState.BackingUp);
-
-            try
-            {
-                string backupComment = string.IsNullOrWhiteSpace(comment)
-                    ? "[Mini]"
-                    : $"{comment} [Mini]";
-
-                await BackupService.BackupFolderAsync(
-                    _context.Config,
-                    _context.Folder,
-                    BackupInvocationOptions.ForManual(backupComment));
-                FolderWatcherService.ResetChanges(_context.Folder.Path);
-
-                SetVisualState(MiniWindowVisualState.BackupDone);
-                await Task.Delay(2000);
-                if (_visualState == MiniWindowVisualState.BackupDone)
-                    SetVisualState(MiniWindowVisualState.Normal);
-            }
-            catch (Exception ex)
-            {
-                LogService.LogError(I18n.Format("MiniWindow_Log_BackupFailed", ex.Message), nameof(MiniWindow), ex);
-                SetVisualState(MiniWindowVisualState.BackupFailed);
-
-                await Task.Delay(3000);
-                if (_visualState == MiniWindowVisualState.BackupFailed)
-                    SetVisualState(MiniWindowVisualState.Normal);
-            }
+            if (ViewModel.BackupCommand.CanExecute(comment)) ViewModel.BackupCommand.Execute(comment);
         }
 
         /// <summary>
         /// 由 MiniWindowService 从热键触发调用
         /// </summary>
         public void TriggerBackupFromHotkey()
-        {
-            DispatcherQueue.TryEnqueue(async () =>
-            {
-                var hotkeyComment = I18n.GetString("MiniWindow_BackupComment_Hotkey");
-                if (string.IsNullOrWhiteSpace(hotkeyComment) || hotkeyComment == "MiniWindow_BackupComment_Hotkey")
-                    hotkeyComment = "[Hotkey]";
-
-                await ExecuteBackupAsync(hotkeyComment);
-            });
-        }
+            => DispatcherQueue.TryEnqueue(() => { if (!_closed) ExecuteBackup(ViewModel.HotkeyComment); });
 
         // 窗口拖拽（使用屏幕坐标消除抖动）
 
@@ -827,33 +777,17 @@ namespace FolderRewind.Views
             // ContextFlyout 自动处理
         }
 
-        private void OnContextOpenFolder(object sender, RoutedEventArgs e)
-        {
-            try { System.Diagnostics.Process.Start("explorer.exe", _context.Folder.Path); }
-            catch { }
-        }
+        private void OnContextOpenFolder(object sender, RoutedEventArgs e) => ViewModel.OpenFolderCommand.Execute(null);
 
         private void OnContextBackup(object sender, RoutedEventArgs e)
         {
-            _ = ExecuteBackupAsync("");
+            ExecuteBackup("");
         }
 
         private void OnContextToggleExpandDirection(object sender, RoutedEventArgs e)
         {
             if (_expansionState != MiniWindowExpansionState.Collapsed) CollapseInputPanel();
-
-            _context.ExpandDirection = _context.ExpandDirection == MiniExpandDirection.Right
-                ? MiniExpandDirection.Left
-                : MiniExpandDirection.Right;
-
-            MenuItemExpandLeft.Text = _context.ExpandDirection == MiniExpandDirection.Right
-                ? I18n.GetString("MiniWindow_Menu_ExpandLeft")
-                : I18n.GetString("MiniWindow_Menu_ExpandRight");
-
-            MenuItemExpandLeft.Icon = new FontIcon
-            {
-                Glyph = _context.ExpandDirection == MiniExpandDirection.Right ? "\uE76B" : "\uE76C"
-            };
+            ViewModel.ToggleExpandDirectionCommand.Execute(null);
         }
 
         private void OnContextClose(object sender, RoutedEventArgs e)
@@ -873,7 +807,13 @@ namespace FolderRewind.Views
 
         private void MiniWindow_Closed(object sender, WindowEventArgs args)
         {
+            _closed = true;
+            ViewModel.PropertyChanged -= ViewModel_PropertyChanged;
+            ViewModel.Dispose();
+            RootGrid.Loaded -= RootGrid_Loaded;
+            Closed -= MiniWindow_Closed;
             _watchTimer?.Stop();
+            if (_watchTimer is not null) _watchTimer.Tick -= WatchTimer_Tick;
             _watchTimer = null;
 
             _transitionCts?.Cancel();

@@ -4,10 +4,13 @@ using Microsoft.UI.Windowing;
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
+using System.Globalization;
 using System.IO;
 using System.Linq;
 using System.Runtime.InteropServices;
 using System.Text.Json;
+using System.Threading;
+using System.Threading.Tasks;
 using Windows.Graphics;
 
 namespace FolderRewind.Services
@@ -28,6 +31,7 @@ namespace FolderRewind.Services
         private static string ConfigPath => Path.Combine(AppRuntimeInfo.WritableAppDataBaseDirectory, "FolderRewind", ConfigFileName);
 
         private static bool _initialized;
+        private static readonly ConfigWriteCoordinator ConfigWriter = new(WriteSnapshotAsync, PublishSaved);
 
         public static event Action? Saved;
 
@@ -501,20 +505,9 @@ namespace FolderRewind.Services
 
             try
             {
-                NormalizeConfig(CurrentConfig);
-                PrepareSchemaOnePersistence(CurrentConfig);
-                AtomicFileService.Write(
-                    ConfigPath,
-                    stream => JsonSerializer.Serialize(
-                        stream,
-                        CurrentConfig,
-                        AppJsonContext.Default.AppConfig));
-                if (publishSavedEvent)
-                {
-                    PublishSaved();
-                }
-
-                return new ConfigSaveResult { Success = true };
+                var snapshot = CaptureSnapshot();
+                return ConfigWriter.EnqueueAsync(snapshot, publishSavedEvent)
+                    .ConfigureAwait(false).GetAwaiter().GetResult();
             }
             catch (Exception ex)
             {
@@ -526,6 +519,97 @@ namespace FolderRewind.Services
                 };
             }
         }
+
+        public static async Task<ConfigSaveResult> SaveAsync(
+            bool publishSavedEvent = true,
+            CancellationToken cancellationToken = default)
+        {
+            if (IsRecoveryMode)
+            {
+                return RecoveryModeSaveFailure();
+            }
+
+            try
+            {
+                var snapshot = await UiDispatcherService.RunOnUiAsync(
+                    () => Task.FromResult(CaptureSnapshot())).ConfigureAwait(false);
+                return await ConfigWriter.EnqueueAsync(snapshot, publishSavedEvent, cancellationToken)
+                    .ConfigureAwait(false);
+            }
+            catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+            {
+                throw;
+            }
+            catch (Exception ex)
+            {
+                return SaveFailure(ex);
+            }
+        }
+
+        public static async Task<ConfigSaveResult> UpdateAndSaveAsync(
+            Action<AppConfig> mutation,
+            bool publishSavedEvent = true,
+            CancellationToken cancellationToken = default)
+        {
+            ArgumentNullException.ThrowIfNull(mutation);
+            if (IsRecoveryMode)
+            {
+                return RecoveryModeSaveFailure();
+            }
+
+            try
+            {
+                var snapshot = await UiDispatcherService.RunOnUiAsync(async () =>
+                {
+                    cancellationToken.ThrowIfCancellationRequested();
+                    mutation(CurrentConfig);
+                    return await Task.FromResult(CaptureSnapshot());
+                }).ConfigureAwait(false);
+                return await ConfigWriter.EnqueueAsync(snapshot, publishSavedEvent, cancellationToken)
+                    .ConfigureAwait(false);
+            }
+            catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+            {
+                throw;
+            }
+            catch (Exception ex)
+            {
+                return SaveFailure(ex);
+            }
+        }
+
+        public static Task FlushAsync(CancellationToken cancellationToken = default)
+            => ConfigWriter.FlushAsync(cancellationToken);
+
+        private static byte[] CaptureSnapshot()
+        {
+            NormalizeConfig(CurrentConfig);
+            PrepareSchemaOnePersistence(CurrentConfig);
+            return SerializeConfig(CurrentConfig);
+        }
+
+        private static Task WriteSnapshotAsync(
+            ReadOnlyMemory<byte> payload,
+            CancellationToken cancellationToken)
+            => AtomicFileService.WriteAsync(
+                ConfigPath,
+                (stream, token) => stream.WriteAsync(payload, token).AsTask(),
+                cancellationToken);
+
+        private static ConfigSaveResult RecoveryModeSaveFailure()
+            => new()
+            {
+                Success = false,
+                ErrorMessage = "Configuration writes are disabled while Recovery Center is active."
+            };
+
+        private static ConfigSaveResult SaveFailure(Exception exception)
+            => new()
+            {
+                Success = false,
+                ErrorMessage = exception.Message,
+                Exception = exception
+            };
 
         internal static void PublishSaved()
             => UiDispatcherService.Enqueue(() => Saved?.Invoke());
@@ -826,7 +910,7 @@ namespace FolderRewind.Services
         {
             if (!File.Exists(ConfigPath)) return null;
             Directory.CreateDirectory(ConfigDirectory);
-            var timestamp = DateTime.UtcNow.ToString("yyyyMMdd'T'HHmmssfffffff'Z'");
+            var timestamp = DateTime.UtcNow.ToString("yyyyMMdd'T'HHmmssfffffff'Z'", CultureInfo.InvariantCulture);
             for (var sequence = 0; sequence < 10_000; sequence++)
             {
                 var suffix = sequence == 0 ? string.Empty : $".{sequence:D4}";

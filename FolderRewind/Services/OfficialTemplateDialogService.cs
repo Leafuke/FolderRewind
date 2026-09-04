@@ -143,7 +143,7 @@ namespace FolderRewind.Services
                 XamlRoot = xamlRoot
             };
 
-            if (await TemplateDialogCoordinatorService.ShowAsync(dialog, xamlRoot) != ContentDialogResult.Primary)
+            if (await AppDialogService.Default.ShowCustomAsync(dialog, xamlRoot) != ContentDialogResult.Primary)
             {
                 return null;
             }
@@ -182,7 +182,7 @@ namespace FolderRewind.Services
                     XamlRoot = xamlRoot
                 };
 
-                if (await TemplateDialogCoordinatorService.ShowAsync(dialog, xamlRoot) != ContentDialogResult.Primary)
+                if (await AppDialogService.Default.ShowCustomAsync(dialog, xamlRoot) != ContentDialogResult.Primary)
                 {
                     return null;
                 }
@@ -280,7 +280,7 @@ namespace FolderRewind.Services
                 CloseButtonText = I18n.GetString("Common_Ok"),
                 XamlRoot = xamlRoot
             };
-            await TemplateDialogCoordinatorService.ShowAsync(dialog, xamlRoot);
+            await AppDialogService.Default.ShowCustomAsync(dialog, xamlRoot);
         }
     }
 }

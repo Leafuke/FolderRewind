@@ -11,7 +11,7 @@
         <!-- 外观与布局 (Expander) -->
         <toolkit:SettingsExpander IsExpanded="False">
             <toolkit:SettingsExpander.Header>
-                <TextBlock x:Uid="SettingsPage_Personalization" Style="{StaticResource SettingsHeaderTextStyle}" />
+                <TextBlock x:Uid="SettingsPage_Personalization" AutomationProperties.AutomationId="SettingsPersonalizationHeader" Style="{StaticResource SettingsHeaderTextStyle}" />
             </toolkit:SettingsExpander.Header>
             <toolkit:SettingsExpander.Description>
                 <TextBlock x:Uid="SettingsPage_PersonalizationSectionDesc" Style="{StaticResource SettingsDescriptionStyle}" />
@@ -22,12 +22,12 @@
             <toolkit:SettingsExpander.Items>
                 <toolkit:SettingsCard>
                     <toolkit:SettingsCard.Header>
-                        <TextBlock x:Uid="SettingsPage_Language" Style="{StaticResource SettingsHeaderTextStyle}" />
+                        <TextBlock x:Name="LanguageLabel" x:Uid="SettingsPage_Language" Style="{StaticResource SettingsHeaderTextStyle}" />
                     </toolkit:SettingsCard.Header>
                     <toolkit:SettingsCard.Description>
                         <TextBlock x:Uid="SettingsPage_LanguageDesc" Style="{StaticResource SettingsDescriptionStyle}" />
                     </toolkit:SettingsCard.Description>
-                    <ComboBox x:Name="LanguageCombo" Style="{StaticResource SettingsSelectorStyle}" SelectionChanged="OnLanguageChanged">
+                    <ComboBox x:Name="LanguageCombo" AutomationProperties.AutomationId="SettingsLanguage" AutomationProperties.LabeledBy="{x:Bind LanguageLabel}" Style="{StaticResource SettingsSelectorStyle}" SelectionChanged="OnLanguageChanged">
                         <ComboBoxItem x:Uid="SettingsPage_LanguageSystem" />
                         <ComboBoxItem x:Uid="SettingsPage_LanguageEnglish" />
                         <ComboBoxItem x:Uid="SettingsPage_LanguageChinese" />
@@ -36,12 +36,12 @@
 
                 <toolkit:SettingsCard>
                     <toolkit:SettingsCard.Header>
-                        <TextBlock x:Uid="SettingsPage_AppTheme" Style="{StaticResource SettingsHeaderTextStyle}" />
+                        <TextBlock x:Name="AppThemeLabel" x:Uid="SettingsPage_AppTheme" Style="{StaticResource SettingsHeaderTextStyle}" />
                     </toolkit:SettingsCard.Header>
                     <toolkit:SettingsCard.Description>
                         <TextBlock x:Uid="SettingsPage_AppThemeDesc" Style="{StaticResource SettingsDescriptionStyle}" />
                     </toolkit:SettingsCard.Description>
-                    <ComboBox Style="{StaticResource SettingsSelectorStyle}" SelectedIndex="{x:Bind ViewModel.Settings.ThemeIndex, Mode=TwoWay}" SelectionChanged="OnThemeChanged">
+                    <ComboBox AutomationProperties.AutomationId="SettingsTheme" AutomationProperties.LabeledBy="{x:Bind AppThemeLabel}" Style="{StaticResource SettingsSelectorStyle}" SelectedIndex="{x:Bind ViewModel.ThemeIndex, Mode=TwoWay}" SelectionChanged="OnThemeChanged">
                         <ComboBoxItem x:Uid="SettingsPage_ThemeDark" />
                         <ComboBoxItem x:Uid="SettingsPage_ThemeLight" />
                         <ComboBoxItem x:Uid="SettingsPage_ThemeSystem" />
@@ -50,17 +50,20 @@
 
                 <toolkit:SettingsCard>
                     <toolkit:SettingsCard.Header>
-                        <TextBlock x:Uid="SettingsPage_CompletionSound" Style="{StaticResource SettingsHeaderTextStyle}" />
+                        <TextBlock x:Name="CompletionSoundLabel" x:Uid="SettingsPage_CompletionSound" Style="{StaticResource SettingsHeaderTextStyle}" />
                     </toolkit:SettingsCard.Header>
                     <toolkit:SettingsCard.Description>
                         <TextBlock x:Uid="SettingsPage_CompletionSoundDesc" Style="{StaticResource SettingsDescriptionStyle}" />
                     </toolkit:SettingsCard.Description>
                     <StackPanel Orientation="Horizontal" Spacing="8">
-                        <ComboBox Style="{StaticResource SettingsSelectorStyle}"
+                        <ComboBox AutomationProperties.AutomationId="SettingsCompletionSound"
+                                  AutomationProperties.LabeledBy="{x:Bind CompletionSoundLabel}"
+                                  Style="{StaticResource SettingsSelectorStyle}"
                                   ItemsSource="{x:Bind ViewModel.CompletionSoundPresets, Mode=OneWay}"
-                                  SelectedIndex="{x:Bind ViewModel.Settings.CompletionSoundIndex, Mode=OneWay}"
+                                  SelectedIndex="{x:Bind ViewModel.CompletionSoundIndex, Mode=OneWay}"
                                   SelectionChanged="OnCompletionSoundChanged" />
                         <Button x:Uid="SettingsPage_CompletionSoundPreview"
+                                AutomationProperties.AutomationId="SettingsCompletionSoundPreview"
                                 Style="{StaticResource SettingsActionRowButtonStyle}"
                                 Command="{x:Bind ViewModel.PreviewCompletionSoundCommand, Mode=OneTime}" />
                     </StackPanel>
@@ -68,42 +71,42 @@
 
                 <toolkit:SettingsCard>
                     <toolkit:SettingsCard.Header>
-                        <TextBlock x:Uid="SettingsPage_FontFamily" Style="{StaticResource SettingsHeaderTextStyle}" />
+                        <TextBlock x:Name="FontFamilyLabel" x:Uid="SettingsPage_FontFamily" Style="{StaticResource SettingsHeaderTextStyle}" />
                     </toolkit:SettingsCard.Header>
                     <toolkit:SettingsCard.Description>
                         <TextBlock x:Uid="SettingsPage_FontFamilyDesc" Style="{StaticResource SettingsDescriptionStyle}" />
                     </toolkit:SettingsCard.Description>
-                    <ComboBox x:Name="FontFamilyCombo" Style="{StaticResource SettingsSelectorStyle}" ItemsSource="{x:Bind ViewModel.FontFamilies, Mode=OneWay}" SelectionChanged="OnFontFamilyChanged" />
+                    <ComboBox x:Name="FontFamilyCombo" AutomationProperties.AutomationId="SettingsFontFamily" AutomationProperties.LabeledBy="{x:Bind FontFamilyLabel}" Style="{StaticResource SettingsSelectorStyle}" ItemsSource="{x:Bind ViewModel.FontFamilies, Mode=OneWay}" SelectionChanged="OnFontFamilyChanged" />
                 </toolkit:SettingsCard>
 
                 <toolkit:SettingsCard>
                     <toolkit:SettingsCard.Header>
-                        <TextBlock x:Uid="SettingsPage_FontSize" Style="{StaticResource SettingsHeaderTextStyle}" />
+                        <TextBlock x:Name="FontSizeLabel" x:Uid="SettingsPage_FontSize" Style="{StaticResource SettingsHeaderTextStyle}" />
                     </toolkit:SettingsCard.Header>
                     <toolkit:SettingsCard.Description>
                         <TextBlock x:Uid="SettingsPage_FontSizeDesc" Style="{StaticResource SettingsDescriptionStyle}" />
                     </toolkit:SettingsCard.Description>
-                    <NumberBox x:Name="FontSizeBox" Style="{StaticResource SettingsNumberBoxStyle}" Minimum="12" Maximum="20" SmallChange="0.5" LargeChange="1" Value="{x:Bind ViewModel.Settings.BaseFontSize, Mode=TwoWay}" ValueChanged="OnFontSizeChanged" />
+                    <NumberBox x:Name="FontSizeBox" AutomationProperties.AutomationId="SettingsFontSize" AutomationProperties.LabeledBy="{x:Bind FontSizeLabel}" Style="{StaticResource SettingsNumberBoxStyle}" Minimum="12" Maximum="20" SmallChange="0.5" LargeChange="1" Value="{x:Bind ViewModel.BaseFontSize, Mode=TwoWay}" ValueChanged="OnFontSizeChanged" />
                 </toolkit:SettingsCard>
 
                 <toolkit:SettingsCard>
                     <toolkit:SettingsCard.Header>
-                        <TextBlock x:Uid="SettingsPage_HistoryStatusColors" Style="{StaticResource SettingsHeaderTextStyle}" />
+                        <TextBlock x:Name="HistoryStatusColorsLabel" x:Uid="SettingsPage_HistoryStatusColors" Style="{StaticResource SettingsHeaderTextStyle}" />
                     </toolkit:SettingsCard.Header>
                     <toolkit:SettingsCard.Description>
                         <TextBlock x:Uid="SettingsPage_HistoryStatusColorsDesc" Style="{StaticResource SettingsDescriptionStyle}" />
                     </toolkit:SettingsCard.Description>
-                    <ToggleSwitch IsOn="{x:Bind ViewModel.Settings.UseHistoryStatusColors, Mode=OneWay}" Toggled="OnHistoryColorsToggled" />
+                    <ToggleSwitch AutomationProperties.AutomationId="SettingsHistoryStatusColors" AutomationProperties.LabeledBy="{x:Bind HistoryStatusColorsLabel}" IsOn="{x:Bind ViewModel.UseHistoryStatusColors, Mode=OneWay}" Toggled="OnHistoryColorsToggled" />
                 </toolkit:SettingsCard>
 
                 <toolkit:SettingsCard>
                     <toolkit:SettingsCard.Header>
-                        <TextBlock x:Uid="SettingsPage_NavPaneWidth" Style="{StaticResource SettingsHeaderTextStyle}" />
+                        <TextBlock x:Name="NavPaneWidthLabel" x:Uid="SettingsPage_NavPaneWidth" Style="{StaticResource SettingsHeaderTextStyle}" />
                     </toolkit:SettingsCard.Header>
                     <toolkit:SettingsCard.Description>
                         <TextBlock x:Uid="SettingsPage_NavPaneWidthDesc" Style="{StaticResource SettingsDescriptionStyle}" />
                     </toolkit:SettingsCard.Description>
-                    <NumberBox Style="{StaticResource SettingsNumberBoxStyle}" Minimum="100" Maximum="600" Value="{x:Bind ViewModel.Settings.NavPaneWidth, Mode=TwoWay}" SmallChange="10" LargeChange="50" />
+                    <NumberBox AutomationProperties.AutomationId="SettingsNavPaneWidth" AutomationProperties.LabeledBy="{x:Bind NavPaneWidthLabel}" Style="{StaticResource SettingsNumberBoxStyle}" Minimum="100" Maximum="600" Value="{x:Bind ViewModel.NavPaneWidth, Mode=TwoWay}" SmallChange="10" LargeChange="50" />
                 </toolkit:SettingsCard>
 
                 <toolkit:SettingsCard>
@@ -115,20 +118,24 @@
                     </toolkit:SettingsCard.Description>
                     <StackPanel Orientation="Horizontal" Spacing="12" VerticalAlignment="Center">
                         <NumberBox x:Name="StartupWidthBox"
+                                   x:Uid="SettingsPage_StartupWidthInput"
+                                   AutomationProperties.AutomationId="SettingsStartupWidth"
                                    Width="112"
                                    Minimum="{StaticResource StartupWidthMin}"
                                    Maximum="{StaticResource StartupWidthMax}"
-                                   Value="{x:Bind ViewModel.Settings.StartupWidth, Mode=TwoWay}"
+                                   Value="{x:Bind ViewModel.StartupWidth, Mode=TwoWay}"
                                    ValueChanged="OnStartupSizeChanged" />
                         <TextBlock Text="×" VerticalAlignment="Center" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
                         <NumberBox x:Name="StartupHeightBox"
+                                   x:Uid="SettingsPage_StartupHeightInput"
+                                   AutomationProperties.AutomationId="SettingsStartupHeight"
                                    Width="112"
                                    Minimum="{StaticResource StartupHeightMin}"
                                    Maximum="{StaticResource StartupHeightMax}"
-                                   Value="{x:Bind ViewModel.Settings.StartupHeight, Mode=TwoWay}"
+                                   Value="{x:Bind ViewModel.StartupHeight, Mode=TwoWay}"
                                    ValueChanged="OnStartupSizeChanged" />
                         <TextBlock Text="px" VerticalAlignment="Center" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
-                        <Button x:Uid="SettingsPage_ApplySize" Style="{StaticResource SettingsActionRowButtonStyle}" Click="OnApplyStartupSizeClick" />
+                        <Button x:Uid="SettingsPage_ApplySize" AutomationProperties.AutomationId="SettingsStartupSizeApply" Style="{StaticResource SettingsActionRowButtonStyle}" Click="OnApplyStartupSizeClick" />
                     </StackPanel>
                 </toolkit:SettingsCard>
 
@@ -149,14 +156,17 @@
                                    Style="{StaticResource SettingsDescriptionStyle}" />
                         <StackPanel Grid.Row="1" Orientation="Horizontal" Spacing="8">
                             <Button x:Uid="SettingsPage_SponsorPurchase"
+                                    AutomationProperties.AutomationId="SettingsSponsorPurchase"
                                     Style="{StaticResource SettingsActionRowButtonStyle}"
                                     Command="{x:Bind ViewModel.OpenSponsorWindowCommand, Mode=OneTime}"
                                     IsEnabled="{x:Bind ViewModel.IsSponsorOperationIdle, Mode=OneWay}" />
                             <Button x:Uid="SettingsPage_SponsorRestore"
+                                    AutomationProperties.AutomationId="SettingsSponsorRestore"
                                     Style="{StaticResource SettingsActionRowButtonStyle}"
                                     Command="{x:Bind ViewModel.RestoreSponsorCommand, Mode=OneTime}"
                                     IsEnabled="{x:Bind ViewModel.IsSponsorOperationIdle, Mode=OneWay}" />
                             <Button x:Uid="SettingsPage_SponsorRefresh"
+                                    AutomationProperties.AutomationId="SettingsSponsorRefresh"
                                     Style="{StaticResource SettingsActionRowButtonStyle}"
                                     Command="{x:Bind ViewModel.RefreshSponsorCommand, Mode=OneTime}"
                                     IsEnabled="{x:Bind ViewModel.IsSponsorOperationIdle, Mode=OneWay}" />
@@ -179,7 +189,7 @@
                     <toolkit:SettingsExpander IsExpanded="False"
                                             IsEnabled="{x:Bind ViewModel.IsSponsorUnlocked, Mode=OneWay}">
                         <toolkit:SettingsExpander.Header>
-                            <TextBlock x:Uid="SettingsPage_SponsorPersonalization" Style="{StaticResource SettingsHeaderTextStyle}" />
+                            <TextBlock x:Uid="SettingsPage_SponsorPersonalization" AutomationProperties.AutomationId="SettingsSponsorPersonalizationHeader" Style="{StaticResource SettingsHeaderTextStyle}" />
                         </toolkit:SettingsExpander.Header>
                         <toolkit:SettingsExpander.Description>
                             <TextBlock x:Uid="SettingsPage_SponsorPersonalizationDesc" Style="{StaticResource SettingsDescriptionStyle}" />
@@ -190,52 +200,60 @@
                         <toolkit:SettingsExpander.Items>
                             <toolkit:SettingsCard>
                                 <toolkit:SettingsCard.Header>
-                                    <TextBlock x:Uid="SettingsPage_SponsorAccent" Style="{StaticResource SettingsHeaderTextStyle}" />
+                                    <TextBlock x:Name="SponsorAccentLabel" x:Uid="SettingsPage_SponsorAccent" Style="{StaticResource SettingsHeaderTextStyle}" />
                                 </toolkit:SettingsCard.Header>
                                 <toolkit:SettingsCard.Description>
                                     <TextBlock x:Uid="SettingsPage_SponsorAccentDesc" Style="{StaticResource SettingsDescriptionStyle}" />
                                 </toolkit:SettingsCard.Description>
-                                <ComboBox Style="{StaticResource SettingsSelectorStyle}"
+                                <ComboBox AutomationProperties.AutomationId="SettingsSponsorAccent"
+                                        AutomationProperties.LabeledBy="{x:Bind SponsorAccentLabel}"
+                                        Style="{StaticResource SettingsSelectorStyle}"
                                         ItemsSource="{x:Bind ViewModel.SponsorAccentPresets, Mode=OneWay}"
-                                        SelectedIndex="{x:Bind ViewModel.Settings.SponsorAccentColorIndex, Mode=TwoWay}"
+                                        SelectedIndex="{x:Bind ViewModel.SponsorAccentColorIndex, Mode=TwoWay}"
                                         SelectionChanged="OnSponsorAccentChanged" />
                             </toolkit:SettingsCard>
 
                             <toolkit:SettingsCard>
                                 <toolkit:SettingsCard.Header>
-                                    <TextBlock x:Uid="SettingsPage_SponsorBackdrop" Style="{StaticResource SettingsHeaderTextStyle}" />
+                                    <TextBlock x:Name="SponsorBackdropLabel" x:Uid="SettingsPage_SponsorBackdrop" Style="{StaticResource SettingsHeaderTextStyle}" />
                                 </toolkit:SettingsCard.Header>
                                 <toolkit:SettingsCard.Description>
                                     <TextBlock x:Uid="SettingsPage_SponsorBackdropDesc" Style="{StaticResource SettingsDescriptionStyle}" />
                                 </toolkit:SettingsCard.Description>
-                                <ComboBox Style="{StaticResource SettingsSelectorStyle}"
+                                <ComboBox AutomationProperties.AutomationId="SettingsSponsorBackdrop"
+                                        AutomationProperties.LabeledBy="{x:Bind SponsorBackdropLabel}"
+                                        Style="{StaticResource SettingsSelectorStyle}"
                                         ItemsSource="{x:Bind ViewModel.SponsorBackdropPresets, Mode=OneWay}"
-                                        SelectedIndex="{x:Bind ViewModel.Settings.SponsorBackdropIndex, Mode=TwoWay}"
+                                        SelectedIndex="{x:Bind ViewModel.SponsorBackdropIndex, Mode=TwoWay}"
                                         SelectionChanged="OnSponsorBackdropChanged" />
                             </toolkit:SettingsCard>
 
                             <toolkit:SettingsCard>
                                 <toolkit:SettingsCard.Header>
-                                    <TextBlock x:Uid="SettingsPage_SponsorTitleText" Style="{StaticResource SettingsHeaderTextStyle}" />
+                                    <TextBlock x:Name="SponsorTitleTextLabel" x:Uid="SettingsPage_SponsorTitleText" Style="{StaticResource SettingsHeaderTextStyle}" />
                                 </toolkit:SettingsCard.Header>
                                 <toolkit:SettingsCard.Description>
                                     <TextBlock x:Uid="SettingsPage_SponsorTitleTextDesc" Style="{StaticResource SettingsDescriptionStyle}" />
                                 </toolkit:SettingsCard.Description>
                                 <TextBox Width="180"
-                                        Text="{x:Bind ViewModel.Settings.SponsorTitleText, Mode=OneWay}"
+                                        AutomationProperties.AutomationId="SettingsSponsorTitleText"
+                                        AutomationProperties.LabeledBy="{x:Bind SponsorTitleTextLabel}"
+                                        Text="{x:Bind ViewModel.SponsorTitleText, Mode=OneWay}"
                                         TextChanged="OnSponsorTitleTextChanged" />
                             </toolkit:SettingsCard>
 
                             <toolkit:SettingsCard>
                                 <toolkit:SettingsCard.Header>
-                                    <TextBlock x:Uid="SettingsPage_SponsorTitleIcon" Style="{StaticResource SettingsHeaderTextStyle}" />
+                                    <TextBlock x:Name="SponsorTitleIconLabel" x:Uid="SettingsPage_SponsorTitleIcon" Style="{StaticResource SettingsHeaderTextStyle}" />
                                 </toolkit:SettingsCard.Header>
                                 <toolkit:SettingsCard.Description>
                                     <TextBlock x:Uid="SettingsPage_SponsorTitleIconDesc" Style="{StaticResource SettingsDescriptionStyle}" />
                                 </toolkit:SettingsCard.Description>
-                                <ComboBox Style="{StaticResource SettingsSelectorStyle}"
+                                <ComboBox AutomationProperties.AutomationId="SettingsSponsorTitleIcon"
+                                        AutomationProperties.LabeledBy="{x:Bind SponsorTitleIconLabel}"
+                                        Style="{StaticResource SettingsSelectorStyle}"
                                         ItemsSource="{x:Bind ViewModel.SponsorTitleIconGlyphs, Mode=OneWay}"
-                                        SelectedItem="{x:Bind ViewModel.Settings.SponsorTitleIconGlyph, Mode=TwoWay}"
+                                        SelectedItem="{x:Bind ViewModel.SponsorTitleIconGlyph, Mode=TwoWay}"
                                         SelectionChanged="OnSponsorTitleIconChanged">
                                     <ComboBox.ItemTemplate>
                                         <DataTemplate x:DataType="x:String">
@@ -254,9 +272,11 @@
                                 </toolkit:SettingsCard.Description>
                                 <StackPanel Orientation="Horizontal" Spacing="8">
                                     <Button x:Uid="SettingsPage_SponsorBackgroundChoose"
+                                            AutomationProperties.AutomationId="SettingsSponsorBackgroundChoose"
                                             Style="{StaticResource SettingsActionRowButtonStyle}"
                                             Click="OnChooseSponsorBackgroundClick" />
                                     <Button x:Uid="SettingsPage_SponsorBackgroundClear"
+                                            AutomationProperties.AutomationId="SettingsSponsorBackgroundClear"
                                             Style="{StaticResource SettingsActionRowButtonStyle}"
                                             Command="{x:Bind ViewModel.ClearSponsorBackgroundCommand, Mode=OneTime}" />
                                 </StackPanel>
@@ -264,36 +284,40 @@
 
                             <toolkit:SettingsCard>
                                 <toolkit:SettingsCard.Header>
-                                    <TextBlock x:Uid="SettingsPage_SponsorBackgroundEnabled" Style="{StaticResource SettingsHeaderTextStyle}" />
+                                    <TextBlock x:Name="SponsorBackgroundEnabledLabel" x:Uid="SettingsPage_SponsorBackgroundEnabled" Style="{StaticResource SettingsHeaderTextStyle}" />
                                 </toolkit:SettingsCard.Header>
                                 <toolkit:SettingsCard.Description>
                                     <TextBlock x:Uid="SettingsPage_SponsorBackgroundEnabledDesc" Style="{StaticResource SettingsDescriptionStyle}" />
                                 </toolkit:SettingsCard.Description>
-                                <ToggleSwitch IsOn="{x:Bind ViewModel.Settings.SponsorBackgroundEnabled, Mode=OneWay}" Toggled="OnSponsorBackgroundEnabledToggled" />
+                                <ToggleSwitch AutomationProperties.AutomationId="SettingsSponsorBackgroundEnabled" AutomationProperties.LabeledBy="{x:Bind SponsorBackgroundEnabledLabel}" IsOn="{x:Bind ViewModel.SponsorBackgroundEnabled, Mode=OneWay}" Toggled="OnSponsorBackgroundEnabledToggled" />
                             </toolkit:SettingsCard>
 
                             <toolkit:SettingsCard>
                                 <toolkit:SettingsCard.Header>
-                                    <TextBlock x:Uid="SettingsPage_SponsorBackgroundStretch" Style="{StaticResource SettingsHeaderTextStyle}" />
+                                    <TextBlock x:Name="SponsorBackgroundStretchLabel" x:Uid="SettingsPage_SponsorBackgroundStretch" Style="{StaticResource SettingsHeaderTextStyle}" />
                                 </toolkit:SettingsCard.Header>
                                 <toolkit:SettingsCard.Description>
                                     <TextBlock x:Uid="SettingsPage_SponsorBackgroundStretchDesc" Style="{StaticResource SettingsDescriptionStyle}" />
                                 </toolkit:SettingsCard.Description>
-                                <ComboBox Style="{StaticResource SettingsSelectorStyle}"
+                                <ComboBox AutomationProperties.AutomationId="SettingsSponsorBackgroundStretch"
+                                        AutomationProperties.LabeledBy="{x:Bind SponsorBackgroundStretchLabel}"
+                                        Style="{StaticResource SettingsSelectorStyle}"
                                         ItemsSource="{x:Bind ViewModel.SponsorBackgroundStretchModes, Mode=OneWay}"
-                                        SelectedIndex="{x:Bind ViewModel.Settings.SponsorBackgroundStretchIndex, Mode=TwoWay}"
+                                        SelectedIndex="{x:Bind ViewModel.SponsorBackgroundStretchIndex, Mode=TwoWay}"
                                         SelectionChanged="OnSponsorBackgroundStretchChanged" />
                             </toolkit:SettingsCard>
 
                             <toolkit:SettingsCard>
                                 <toolkit:SettingsCard.Header>
-                                    <TextBlock x:Uid="SettingsPage_SponsorBackgroundImageOpacity" Style="{StaticResource SettingsHeaderTextStyle}" />
+                                    <TextBlock x:Name="SponsorBackgroundImageOpacityLabel" x:Uid="SettingsPage_SponsorBackgroundImageOpacity" Style="{StaticResource SettingsHeaderTextStyle}" />
                                 </toolkit:SettingsCard.Header>
                                 <toolkit:SettingsCard.Description>
                                     <TextBlock x:Uid="SettingsPage_SponsorBackgroundImageOpacityDesc" Style="{StaticResource SettingsDescriptionStyle}" />
                                 </toolkit:SettingsCard.Description>
                                 <StackPanel Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
-                                    <NumberBox Style="{StaticResource SettingsNumberBoxStyle}"
+                                    <NumberBox AutomationProperties.AutomationId="SettingsSponsorBackgroundImageOpacity"
+                                            AutomationProperties.LabeledBy="{x:Bind SponsorBackgroundImageOpacityLabel}"
+                                            Style="{StaticResource SettingsNumberBoxStyle}"
                                             Minimum="0"
                                             Maximum="100"
                                             SmallChange="5"
@@ -306,13 +330,15 @@
 
                             <toolkit:SettingsCard>
                                 <toolkit:SettingsCard.Header>
-                                    <TextBlock x:Uid="SettingsPage_SponsorBackgroundOverlayOpacity" Style="{StaticResource SettingsHeaderTextStyle}" />
+                                    <TextBlock x:Name="SponsorBackgroundOverlayOpacityLabel" x:Uid="SettingsPage_SponsorBackgroundOverlayOpacity" Style="{StaticResource SettingsHeaderTextStyle}" />
                                 </toolkit:SettingsCard.Header>
                                 <toolkit:SettingsCard.Description>
                                     <TextBlock x:Uid="SettingsPage_SponsorBackgroundOverlayOpacityDesc" Style="{StaticResource SettingsDescriptionStyle}" />
                                 </toolkit:SettingsCard.Description>
                                 <StackPanel Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
-                                    <NumberBox Style="{StaticResource SettingsNumberBoxStyle}"
+                                    <NumberBox AutomationProperties.AutomationId="SettingsSponsorBackgroundOverlayOpacity"
+                                            AutomationProperties.LabeledBy="{x:Bind SponsorBackgroundOverlayOpacityLabel}"
+                                            Style="{StaticResource SettingsNumberBoxStyle}"
                                             Minimum="0"
                                             Maximum="100"
                                             SmallChange="5"
@@ -332,9 +358,11 @@
                                 </toolkit:SettingsCard.Description>
                                 <StackPanel Orientation="Horizontal" Spacing="8">
                                     <Button x:Uid="SettingsPage_CustomCompletionSoundChoose"
+                                            AutomationProperties.AutomationId="SettingsCustomCompletionSoundChoose"
                                             Style="{StaticResource SettingsActionRowButtonStyle}"
                                             Click="OnChooseCustomCompletionSoundClick" />
                                     <Button x:Uid="SettingsPage_CustomCompletionSoundClear"
+                                            AutomationProperties.AutomationId="SettingsCustomCompletionSoundClear"
                                             Style="{StaticResource SettingsActionRowButtonStyle}"
                                             Command="{x:Bind ViewModel.ClearCustomCompletionSoundCommand, Mode=OneTime}" />
                                 </StackPanel>

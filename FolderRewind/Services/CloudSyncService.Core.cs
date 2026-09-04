@@ -50,7 +50,8 @@ namespace FolderRewind.Services
             public required string ExecutablePath { get; init; }
             public required string Arguments { get; init; }
             public required string WorkingDirectory { get; init; }
-            public required string Preview { get; init; }
+            public required string DisplayPreview { get; init; }
+            public required string LogPreview { get; init; }
         }
 
         private static void SerializeToFile<T>(string path, T value, JsonTypeInfo<T> typeInfo)
@@ -105,7 +106,7 @@ namespace FolderRewind.Services
 
             var context = BuildSampleContext(config);
             var resolved = ResolveCommand(config.Cloud, context);
-            return resolved.Preview;
+            return resolved.DisplayPreview;
         }
 
         public static bool CanUseHistoryCloudActions(BackupConfig? config)

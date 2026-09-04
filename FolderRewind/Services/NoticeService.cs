@@ -123,13 +123,14 @@ namespace FolderRewind.Services
         /// <summary>
         /// 标记当前公告为已读（"确认并不再提示"）
         /// </summary>
-        public static void MarkAsRead()
+        public static async Task MarkAsReadAsync()
         {
             var settings = ConfigService.CurrentConfig?.GlobalSettings;
             if (settings != null)
             {
-                settings.NoticeLastSeenVersion = _noticeVersion;
-                ConfigService.Save();
+                var previous = settings.NoticeLastSeenVersion;
+                await ConfigEditTransaction.ApplyAsync(() => settings.NoticeLastSeenVersion = _noticeVersion,
+                    () => settings.NoticeLastSeenVersion = previous, () => ConfigService.SaveAsync(), I18n.GetString("Common_Failed"));
             }
             _newNoticeAvailable = false;
         }

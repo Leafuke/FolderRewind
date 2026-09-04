@@ -28,7 +28,7 @@ namespace FolderRewind.Services
                 return new() { Success = false, Message = I18n.GetString("CloudSync_Notification_HistoryImportFailed") };
             try
             {
-                var runtime = NativeHistoryCoreGateway.GetRequiredRuntime(config.Id);
+                var runtime = await NativeHistoryCoreGateway.EnsureReadyAsync(config).ConfigureAwait(false);
                 var transport = CreateHistoryTransport(config);
                 var local = (await runtime.Repository.ReadAllPacksAsync().ConfigureAwait(false))
                     .Select(item => item.Pack.PackId).ToHashSet();
@@ -113,7 +113,7 @@ namespace FolderRewind.Services
         {
             if (config is null || !CanUseManualCloudActions(config))
                 return (false, 0, 0, I18n.GetString("CloudSync_Notification_HistoryImportFailed"));
-            var runtime = NativeHistoryCoreGateway.GetRequiredRuntime(config.Id);
+            var runtime = await NativeHistoryCoreGateway.EnsureReadyAsync(config).ConfigureAwait(false);
             var result = await new HistoryMetadataSyncService(runtime, CreateHistoryTransport(config))
                 .SyncAsync().ConfigureAwait(false);
             var message = result.Succeeded

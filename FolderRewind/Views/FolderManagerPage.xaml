@@ -36,21 +36,25 @@
                 <!-- 左侧：配置切换 -->
                 <StackPanel Orientation="Horizontal" Spacing="12" VerticalAlignment="Center">
                     <FontIcon Glyph="&#xE713;" FontSize="16" Foreground="{ThemeResource TextFillColorSecondaryBrush}"/>
-                    <TextBlock x:Uid="FolderManager_CurrentConfig" VerticalAlignment="Center" Foreground="{ThemeResource TextFillColorSecondaryBrush}"/>
+                    <TextBlock x:Name="CurrentConfigLabel" x:Uid="FolderManager_CurrentConfig" VerticalAlignment="Center" Foreground="{ThemeResource TextFillColorSecondaryBrush}"/>
                     <ComboBox x:Name="ConfigSelector" Width="220" 
+                              AutomationProperties.AutomationId="FolderManagerConfigSelector"
+                              AutomationProperties.LabeledBy="{x:Bind CurrentConfigLabel}"
                               ItemsSource="{x:Bind ViewModel.ConfigsView, Mode=OneWay}"
                               SelectedItem="{x:Bind ViewModel.CurrentConfig, Mode=TwoWay}"
                               DisplayMemberPath="Name"
                               SelectionChanged="ConfigSelector_SelectionChanged"/>
                     <!-- 配置设置按钮 -->
-                    <Button Click="OnConfigSettingsClick" Padding="6" Background="Transparent" BorderThickness="0" x:Uid="FolderManager_ConfigSettingsButton">
+                    <Button Click="OnConfigSettingsClick" Style="{StaticResource TransparentIconButtonStyle}" Padding="6"
+                            AutomationProperties.AutomationId="FolderManagerConfigSettings"
+                            x:Uid="FolderManager_ConfigSettingsButton">
                         <FontIcon Glyph="&#xE713;" FontSize="14"/>
                     </Button>
                 </StackPanel>
 
                 <!-- 右侧：全局操作 -->
                 <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="8">
-                    <Button x:Name="AddFolderButton">
+                    <Button x:Name="AddFolderButton" x:Uid="FolderManager_AddFolderButton" AutomationProperties.AutomationId="FolderManagerAddFolder">
                         <StackPanel Orientation="Horizontal" Spacing="8">
                             <FontIcon Glyph="&#xE710;"/>
                             <TextBlock x:Uid="FolderManager_AddFolder"/>
@@ -58,14 +62,14 @@
                         </StackPanel>
                         <Button.Flyout>
                             <MenuFlyout>
-                                <MenuFlyoutItem x:Uid="FolderManager_AddSingleFolder" Icon="Folder" Click="OnAddSingleFolderClick"/>
-                                <MenuFlyoutItem x:Uid="FolderManager_AddSubFolders" Icon="List" Click="OnAddSubFoldersClick"/>
+                                <MenuFlyoutItem x:Uid="FolderManager_AddSingleFolder" Icon="Folder" AutomationProperties.AutomationId="FolderManagerAddSingleFolder" Click="OnAddSingleFolderClick"/>
+                                <MenuFlyoutItem x:Uid="FolderManager_AddSubFolders" Icon="List" AutomationProperties.AutomationId="FolderManagerAddSubFolders" Click="OnAddSubFoldersClick"/>
                                 <MenuFlyoutSeparator />
-                                <MenuFlyoutItem x:Uid="FolderManager_PluginDiscover" Icon="Find" Click="OnPluginDiscoverFoldersClick"/>
+                                <MenuFlyoutItem x:Uid="FolderManager_PluginDiscover" Icon="Find" AutomationProperties.AutomationId="FolderManagerPluginDiscover" Click="OnPluginDiscoverFoldersClick"/>
                             </MenuFlyout>
                         </Button.Flyout>
                     </Button>
-                    <Button x:Name="BackupConfigButton" Style="{StaticResource AccentButtonStyle}" Click="OnBackupConfigClick">
+                    <Button x:Name="BackupConfigButton" x:Uid="FolderManager_BackupConfigButton" AutomationProperties.AutomationId="FolderManagerBackupConfig" Style="{StaticResource AccentButtonStyle}" Click="OnBackupConfigClick">
                         <StackPanel Orientation="Horizontal" Spacing="8">
                             <FontIcon Glyph="&#xE896;"/>
                             <TextBlock x:Uid="FolderManager_BackupAll"/>
@@ -98,22 +102,24 @@
                         <ColumnDefinition Width="Auto"/>
                         <ColumnDefinition Width="*"/>
                     </Grid.ColumnDefinitions>
-                    <TextBlock x:Uid="FolderManager_BackupComment" VerticalAlignment="Center" Margin="0,0,8,0" Foreground="{ThemeResource TextFillColorSecondaryBrush}"/>
+                    <TextBlock x:Name="BackupCommentLabel" x:Uid="FolderManager_BackupComment" VerticalAlignment="Center" Margin="0,0,8,0" Foreground="{ThemeResource TextFillColorSecondaryBrush}"/>
                     <TextBox x:Name="CommentBox" Grid.Column="1" x:Uid="FolderManager_CommentPlaceholder"
+                             AutomationProperties.AutomationId="FolderManagerBackupComment"
+                             AutomationProperties.LabeledBy="{x:Bind BackupCommentLabel}"
                              Text="{x:Bind ViewModel.BackupComment, Mode=TwoWay}"
                              IsEnabled="{x:Bind ViewModel.HasCurrentConfig, Mode=OneWay}"/>
                 </Grid>
 
                 <!-- 右侧：针对选中项的按钮 -->
                 <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="8">
-                    <Button x:Name="BackupSelectedButton" IsEnabled="{x:Bind ViewModel.HasSelectedFolder, Mode=OneWay}" Click="OnBackupSelectedClick" Style="{StaticResource AccentButtonStyle}">
+                    <Button x:Name="BackupSelectedButton" x:Uid="FolderManager_BackupSelectedButton" AutomationProperties.AutomationId="FolderManagerBackupSelected" IsEnabled="{x:Bind ViewModel.HasSelectedFolder, Mode=OneWay}" Click="OnBackupSelectedClick" Style="{StaticResource AccentButtonStyle}">
                         <StackPanel Orientation="Horizontal" Spacing="8">
                             <FontIcon Glyph="&#xE898;"/>
                             <TextBlock x:Uid="FolderManager_BackupSelected"/>
                         </StackPanel>
                     </Button>
 
-                    <Button x:Name="HistoryButton" IsEnabled="{x:Bind ViewModel.HasSelectedFolder, Mode=OneWay}" Click="OnHistoryClick">
+                    <Button x:Name="HistoryButton" x:Uid="FolderManager_HistoryButton" AutomationProperties.AutomationId="FolderManagerOpenHistory" IsEnabled="{x:Bind ViewModel.HasSelectedFolder, Mode=OneWay}" Click="OnHistoryClick">
                         <StackPanel Orientation="Horizontal" Spacing="8">
                             <FontIcon Glyph="&#xE81C;"/>
                             <TextBlock x:Uid="FolderManager_History"/>
@@ -125,6 +131,8 @@
 
         <!-- 文件夹列表 -->
         <ListView x:Name="FolderList" Grid.Row="1" Padding="16,8,16,16" 
+                  AutomationProperties.AutomationId="FolderManagerFolderList"
+                  ContainerContentChanging="OnFolderContainerContentChanging"
                   ItemsSource="{x:Bind ViewModel.CurrentFoldersView, Mode=OneWay}"
                   SelectionMode="Single" 
                   SelectionChanged="FolderList_SelectionChanged">
@@ -230,7 +238,8 @@
                         </Grid.ColumnDefinitions>
 
                         <!-- 1. 封面图片区域 -->
-                        <Button Padding="0" CornerRadius="{StaticResource OverlayCornerRadius}" Width="72" Height="72" BorderThickness="0" Background="Transparent"
+                        <Button Style="{StaticResource TransparentIconButtonStyle}" Padding="0" CornerRadius="{StaticResource OverlayCornerRadius}" Width="72" Height="72"
+                            AutomationProperties.AutomationId="{x:Bind Id, Converter={StaticResource AutomationIdConverter}, ConverterParameter=FolderManagerChangeCover}"
                             Click="OnChangeIconClick" x:Uid="FolderManager_ChangeCover">
                             <Grid>
                                 <!-- 默认图标（无图片时显示） -->
@@ -246,7 +255,9 @@
                         <StackPanel Grid.Column="1" Margin="16,0,12,0" VerticalAlignment="Center" Spacing="3">
                             <StackPanel Orientation="Horizontal" Spacing="8">
                                 <TextBlock Text="{x:Bind DisplayName, Mode=OneWay}" Style="{StaticResource SubtitleTextBlockStyle}"/>
-                                <Button x:Uid="FolderManager_FavoriteToggle" Background="Transparent" BorderThickness="0" Padding="4" Click="OnFavoriteToggleClick">
+                                <Button x:Uid="FolderManager_FavoriteToggle"
+                                        AutomationProperties.AutomationId="{x:Bind Id, Converter={StaticResource AutomationIdConverter}, ConverterParameter=FolderManagerToggleFavorite}"
+                                        Style="{StaticResource TransparentIconButtonStyle}" Padding="4" Click="OnFavoriteToggleClick">
                                     <FontIcon Glyph="{x:Bind IsFavorite, Mode=OneWay, Converter={StaticResource BoolToStarIconConverter}}"
                                               Foreground="{x:Bind IsFavorite, Mode=OneWay, Converter={StaticResource BoolToColorConverter}}"/>
                                 </Button>
@@ -258,8 +269,9 @@
                                        Foreground="{ThemeResource TextFillColorSecondaryBrush}"/>
 
                             <!-- 描述 -->
-                            <TextBox Text="{x:Bind Description, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" 
+                            <TextBox Text="{x:Bind Description, Mode=OneWay}"
                                      x:Uid="FolderManager_AddDescription"
+                                     AutomationProperties.AutomationId="{x:Bind Id, Converter={StaticResource AutomationIdConverter}, ConverterParameter=FolderManagerDescription}"
                                      BorderThickness="0" Background="Transparent" 
                                      Padding="0" Margin="0,8,0,0"
                                      MaxWidth="300"
@@ -280,7 +292,7 @@
                                 <StackPanel Orientation="Horizontal" Spacing="4">
                                     <FontIcon Glyph="&#xE823;" FontSize="11"
                                               Foreground="{ThemeResource TextFillColorTertiaryBrush}"/>
-                                    <TextBlock Text="{x:Bind LastBackupTime, Mode=OneWay}"
+                                    <TextBlock Text="{x:Bind LastBackupTimeDisplay, Mode=OneWay}"
                                                Style="{StaticResource CaptionTextBlockStyle}"
                                                Foreground="{ThemeResource TextFillColorTertiaryBrush}"/>
                                 </StackPanel>
@@ -288,31 +300,48 @@
                         </StackPanel>
 
                         <!-- 3. 操作菜单 -->
-                        <Button Grid.Column="2" Background="Transparent" BorderThickness="0" Padding="8" VerticalAlignment="Center">
+                        <Button Grid.Column="2" x:Uid="FolderManager_MoreActions"
+                                AutomationProperties.AutomationId="{x:Bind Id, Converter={StaticResource AutomationIdConverter}, ConverterParameter=FolderManagerMoreActions}"
+                                Style="{StaticResource TransparentIconButtonStyle}" VerticalAlignment="Center">
                             <FontIcon Glyph="&#xE712;"/>
                             <Button.Flyout>
                                 <MenuFlyout>
-                                    <MenuFlyoutItem x:Uid="FolderManager_OpenFolder" Icon="Folder" Click="OnOpenFolderClick"/>
-                                    <MenuFlyoutItem x:Uid="FolderManager_Details" Click="OnShowFolderDetailsClick">
+                                    <MenuFlyoutItem x:Uid="FolderManager_OpenFolder" Icon="Folder"
+                                                    AutomationProperties.AutomationId="{x:Bind Id, Converter={StaticResource AutomationIdConverter}, ConverterParameter=FolderManagerOpenFolder}"
+                                                    Click="OnOpenFolderClick"/>
+                                    <MenuFlyoutItem x:Uid="FolderManager_Details"
+                                                    AutomationProperties.AutomationId="{x:Bind Id, Converter={StaticResource AutomationIdConverter}, ConverterParameter=FolderManagerDetails}"
+                                                    Click="OnShowFolderDetailsClick">
                                         <MenuFlyoutItem.Icon>
                                             <FontIcon Glyph="&#xE946;"/>
                                         </MenuFlyoutItem.Icon>
                                     </MenuFlyoutItem>
-                                    <MenuFlyoutItem x:Uid="FolderManager_EditSourceScope" Icon="Filter" Click="OnEditSourceScopeClick"/>
-                                    <MenuFlyoutItem x:Uid="FolderManager_RenameFolder" Icon="Rename" Click="OnRenameFolderClick"/>
-                                    <MenuFlyoutItem x:Uid="FolderManager_Rescan" Icon="Refresh"/>
-                                    <MenuFlyoutItem x:Uid="FolderManager_MiniWindow" Click="OnOpenMiniWindowClick">
+                                    <MenuFlyoutItem x:Uid="FolderManager_EditSourceScope" Icon="Filter"
+                                                    AutomationProperties.AutomationId="{x:Bind Id, Converter={StaticResource AutomationIdConverter}, ConverterParameter=FolderManagerEditScope}"
+                                                    Click="OnEditSourceScopeClick"/>
+                                    <MenuFlyoutItem x:Uid="FolderManager_RenameFolder" Icon="Rename"
+                                                    AutomationProperties.AutomationId="{x:Bind Id, Converter={StaticResource AutomationIdConverter}, ConverterParameter=FolderManagerRename}"
+                                                    Click="OnRenameFolderClick"/>
+                                    <MenuFlyoutItem x:Uid="FolderManager_Rescan" Icon="Refresh"
+                                                    AutomationProperties.AutomationId="{x:Bind Id, Converter={StaticResource AutomationIdConverter}, ConverterParameter=FolderManagerRescan}"/>
+                                    <MenuFlyoutItem x:Uid="FolderManager_MiniWindow"
+                                                    AutomationProperties.AutomationId="{x:Bind Id, Converter={StaticResource AutomationIdConverter}, ConverterParameter=FolderManagerMiniWindow}"
+                                                    Click="OnOpenMiniWindowClick">
                                         <MenuFlyoutItem.Icon>
                                             <FontIcon Glyph="&#xE8A7;"/>
                                         </MenuFlyoutItem.Icon>
                                     </MenuFlyoutItem>
                                     <MenuFlyoutSeparator/>
-                                    <MenuFlyoutItem x:Uid="FolderManager_PinToTop" Click="OnPinToTopClick">
+                                    <MenuFlyoutItem x:Uid="FolderManager_PinToTop"
+                                                    AutomationProperties.AutomationId="{x:Bind Id, Converter={StaticResource AutomationIdConverter}, ConverterParameter=FolderManagerPinToTop}"
+                                                    Click="OnPinToTopClick">
                                         <MenuFlyoutItem.Icon>
                                             <FontIcon Glyph="&#xE718;"/>
                                         </MenuFlyoutItem.Icon>
                                     </MenuFlyoutItem>
-                                    <MenuFlyoutItem x:Uid="FolderManager_RemoveFolder" Icon="Delete" Foreground="{ThemeResource SystemFillColorCriticalBrush}" Click="OnRemoveFolderClick"/>
+                                    <MenuFlyoutItem x:Uid="FolderManager_RemoveFolder" Icon="Delete"
+                                                    AutomationProperties.AutomationId="{x:Bind Id, Converter={StaticResource AutomationIdConverter}, ConverterParameter=FolderManagerRemove}"
+                                                    Foreground="{ThemeResource SystemFillColorCriticalBrush}" Click="OnRemoveFolderClick"/>
                                 </MenuFlyout>
                             </Button.Flyout>
                         </Button>

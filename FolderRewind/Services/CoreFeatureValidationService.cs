@@ -34,14 +34,20 @@ public sealed class CoreFeatureValidationReport
         var text = new StringBuilder();
         text.AppendLine($"{I18n.GetString("CoreValidation_Report_Result")}: {(Success ? I18n.GetString("CoreValidation_Report_Result_Passed") : I18n.GetString("CoreValidation_Report_Result_Failed"))}");
         text.AppendLine($"{I18n.GetString("CoreValidation_Report_Mode")}: {(Automatic ? I18n.GetString("CoreValidation_Report_Mode_Automatic") : I18n.GetString("CoreValidation_Report_Mode_Manual"))}");
-        text.AppendLine($"{I18n.GetString("CoreValidation_Report_Started")}: {StartedAtUtc.ToLocalTime():yyyy-MM-dd HH:mm:ss}");
-        text.AppendLine($"{I18n.GetString("CoreValidation_Report_Finished")}: {FinishedAtUtc.ToLocalTime():yyyy-MM-dd HH:mm:ss}");
-        text.AppendLine($"{I18n.GetString("CoreValidation_Report_Duration")}: {Duration.TotalSeconds:F1}s");
+        text.AppendLine($"{I18n.GetString("CoreValidation_Report_Started")}: {UserDisplayFormatter.LongDateTime(StartedAtUtc.ToLocalTime())}");
+        text.AppendLine($"{I18n.GetString("CoreValidation_Report_Finished")}: {UserDisplayFormatter.LongDateTime(FinishedAtUtc.ToLocalTime())}");
+        text.AppendLine($"{I18n.GetString("CoreValidation_Report_Duration")}: {I18n.Format("CoreValidation_Report_DurationValue", Duration.TotalSeconds)}");
         text.AppendLine($"{I18n.GetString("CoreValidation_Report_Summary")}: {Summary}");
         foreach (var step in Steps)
         {
             text.AppendLine();
-            text.AppendLine($"[{(step.Success ? "OK" : "FAIL")}] {step.Name} ({step.Duration.TotalSeconds:F1}s)");
+            text.AppendLine(I18n.Format(
+                "CoreValidation_Report_StepFormat",
+                step.Success
+                    ? I18n.GetString("CoreValidation_Report_Result_Passed")
+                    : I18n.GetString("CoreValidation_Report_Result_Failed"),
+                step.Name,
+                I18n.Format("CoreValidation_Report_DurationValue", step.Duration.TotalSeconds)));
             if (!string.IsNullOrWhiteSpace(step.Details)) text.AppendLine(step.Details);
         }
         return text.ToString().TrimEnd();
@@ -123,7 +129,7 @@ public static class CoreFeatureValidationService
             try
             {
                 UpdateStatus(I18n.Format("CoreValidation_Status_Step", config.Name));
-                var runtime = NativeHistoryCoreGateway.GetRequiredRuntime(config.Id);
+                var runtime = await NativeHistoryCoreGateway.EnsureReadyAsync(config).ConfigureAwait(false);
                 var packs = await runtime.Repository.ReadAllPacksAsync().ConfigureAwait(false);
                 new HistoryRepositoryValidator(new HistoryPackCodec()).Validate(runtime.ConfigId, packs);
                 await runtime.EnsureIndexCurrentAsync().ConfigureAwait(false);

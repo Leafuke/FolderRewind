@@ -10,6 +10,7 @@
 
     <Grid x:Name="RootGrid"
           Background="Transparent"
+          TabFocusNavigation="Cycle"
           PointerPressed="RootGrid_PointerPressed"
           PointerMoved="RootGrid_PointerMoved"
           PointerReleased="RootGrid_PointerReleased"
@@ -26,6 +27,7 @@
 
         <!-- Mini 主卡片 -->
         <Grid x:Name="MiniSquare" Grid.Column="1"
+              AutomationProperties.LiveSetting="Polite"
               Width="{x:Bind MiniCardSizeDip, Mode=OneTime}" Height="{x:Bind MiniCardSizeDip, Mode=OneTime}"
               Background="Transparent"
               PointerEntered="MiniSquare_PointerEntered"
@@ -48,24 +50,36 @@
                     BorderThickness="2"
                     Opacity="0.92"/>
 
-            <Grid HorizontalAlignment="Center" VerticalAlignment="Center">
-                <ProgressRing x:Name="BackupProgressRing"
-                              IsActive="False"
-                              Width="20" Height="20"
+            <Button x:Name="MiniPrimaryButton"
+                    x:Uid="MiniWindow_PrimaryAction"
+                    AutomationProperties.AutomationId="MiniWindowPrimaryAction"
+                    HorizontalAlignment="Center"
+                    VerticalAlignment="Center"
+                    Width="40" Height="40"
+                    Padding="0"
+                    Background="Transparent"
+                    BorderThickness="0"
+                    Click="MiniPrimaryButton_Click"
+                    Tapped="MiniPrimaryButton_Tapped">
+                <Grid>
+                    <ProgressRing x:Name="BackupProgressRing"
+                                  IsActive="False"
+                                  Width="20" Height="20"
+                                  Visibility="Collapsed"/>
+
+                    <FontIcon x:Name="DoneIcon"
+                              Glyph="&#xE73E;"
+                              FontSize="18"
+                              Foreground="{ThemeResource SystemFillColorSuccessBrush}"
                               Visibility="Collapsed"/>
 
-                <FontIcon x:Name="DoneIcon"
-                          Glyph="&#xE73E;"
-                          FontSize="18"
-                          Foreground="{ThemeResource SystemFillColorSuccessBrush}"
-                          Visibility="Collapsed"/>
-
-                <FontIcon x:Name="FailIcon"
-                          Glyph="&#xEA39;"
-                          FontSize="18"
-                          Foreground="{ThemeResource SystemFillColorCriticalBrush}"
-                          Visibility="Collapsed"/>
-            </Grid>
+                    <FontIcon x:Name="FailIcon"
+                              Glyph="&#xEA39;"
+                              FontSize="18"
+                              Foreground="{ThemeResource SystemFillColorCriticalBrush}"
+                              Visibility="Collapsed"/>
+                </Grid>
+            </Button>
 
             <!-- 悬停提示 -->
             <ToolTipService.ToolTip>
@@ -75,24 +89,24 @@
             <!-- 右键菜单 -->
             <Grid.ContextFlyout>
                 <MenuFlyout>
-                    <MenuFlyoutItem x:Name="MenuItemOpenFolder" Text="" Click="OnContextOpenFolder">
+                    <MenuFlyoutItem x:Name="MenuItemOpenFolder" AutomationProperties.AutomationId="MiniWindowOpenFolder" Text="" Click="OnContextOpenFolder">
                         <MenuFlyoutItem.Icon>
                             <FontIcon Glyph="&#xE838;"/>
                         </MenuFlyoutItem.Icon>
                     </MenuFlyoutItem>
-                    <MenuFlyoutItem x:Name="MenuItemBackup" Text="" Click="OnContextBackup">
+                    <MenuFlyoutItem x:Name="MenuItemBackup" AutomationProperties.AutomationId="MiniWindowBackup" Text="" Click="OnContextBackup">
                         <MenuFlyoutItem.Icon>
                             <FontIcon Glyph="&#xE898;"/>
                         </MenuFlyoutItem.Icon>
                     </MenuFlyoutItem>
                     <MenuFlyoutSeparator/>
-                    <MenuFlyoutItem x:Name="MenuItemExpandLeft" Text="" Click="OnContextToggleExpandDirection">
+                    <MenuFlyoutItem x:Name="MenuItemExpandLeft" AutomationProperties.AutomationId="MiniWindowExpandDirection" Text="" Click="OnContextToggleExpandDirection">
                         <MenuFlyoutItem.Icon>
                             <FontIcon Glyph="&#xE76B;"/>
                         </MenuFlyoutItem.Icon>
                     </MenuFlyoutItem>
                     <MenuFlyoutSeparator/>
-                    <MenuFlyoutItem x:Name="MenuItemClose" Text="" Click="OnContextClose" Foreground="{ThemeResource SystemFillColorCriticalBrush}">
+                    <MenuFlyoutItem x:Name="MenuItemClose" AutomationProperties.AutomationId="MiniWindowClose" Text="" Click="OnContextClose" Foreground="{ThemeResource SystemFillColorCriticalBrush}">
                         <MenuFlyoutItem.Icon>
                             <FontIcon Glyph="&#xE711;"/>
                         </MenuFlyoutItem.Icon>
@@ -122,6 +136,8 @@
             <!-- 将 TextBox 限制在卡片内部，避免默认焦点层占满整扇窗口 -->
             <Grid Margin="8,6">
                 <TextBox x:Name="CommentBox"
+                         x:Uid="MiniWindow_CommentBox"
+                         AutomationProperties.AutomationId="MiniWindowBackupComment"
                          PlaceholderText=""
                          BorderThickness="0"
                          Background="Transparent"

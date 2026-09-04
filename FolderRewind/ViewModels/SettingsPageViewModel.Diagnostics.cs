@@ -3,7 +3,6 @@ using FolderRewind.Models;
 using FolderRewind.Services;
 using FolderRewind.Services.Hotkeys;
 using FolderRewind.Services.Plugins;
-using Microsoft.UI.Xaml.Media;
 using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
@@ -91,42 +90,24 @@ namespace FolderRewind.ViewModels
 
         public void UpdateKnotLinkStatus()
         {
-            if (!Settings.EnableKnotLink)
+            var state = KnotLinkSettingsPolicy.GetStatus(Settings.EnableKnotLink, KnotLinkService.IsInitialized,
+                KnotLinkService.IsResponserRunning, KnotLinkService.IsSenderRunning);
+            KnotLinkStatus = state switch
             {
-                KnotLinkStatusMessage = I18n.GetString("SettingsPage_KnotLinkStatus_Disabled");
-                KnotLinkStatusColor = new SolidColorBrush(Microsoft.UI.Colors.Gray);
-                return;
-            }
-
-            if (KnotLinkService.IsInitialized)
+                KnotLinkConnectionStatus.Disabled => SemanticStatus.Neutral,
+                KnotLinkConnectionStatus.Connected => SemanticStatus.Success,
+                KnotLinkConnectionStatus.Failed => SemanticStatus.Error,
+                _ => SemanticStatus.Warning
+            };
+            KnotLinkStatusMessage = state switch
             {
-                var responserOk = KnotLinkService.IsResponserRunning;
-                var senderOk = KnotLinkService.IsSenderRunning;
-
-                if (responserOk && senderOk)
-                {
-                    KnotLinkStatusMessage = I18n.GetString("SettingsPage_KnotLinkStatus_Connected");
-                    KnotLinkStatusColor = new SolidColorBrush(Microsoft.UI.Colors.LimeGreen);
-                }
-                else if (responserOk || senderOk)
-                {
-                    KnotLinkStatusMessage = I18n.Format(
-                        "SettingsPage_KnotLinkStatus_Partial",
-                        responserOk ? "✓" : "✗",
-                        senderOk ? "✓" : "✗");
-                    KnotLinkStatusColor = new SolidColorBrush(Microsoft.UI.Colors.Orange);
-                }
-                else
-                {
-                    KnotLinkStatusMessage = I18n.GetString("SettingsPage_KnotLinkStatus_InitFailed");
-                    KnotLinkStatusColor = new SolidColorBrush(Microsoft.UI.Colors.OrangeRed);
-                }
-            }
-            else
-            {
-                KnotLinkStatusMessage = I18n.GetString("SettingsPage_KnotLinkStatus_NotInitialized");
-                KnotLinkStatusColor = new SolidColorBrush(Microsoft.UI.Colors.Orange);
-            }
+                KnotLinkConnectionStatus.Disabled => I18n.GetString("SettingsPage_KnotLinkStatus_Disabled"),
+                KnotLinkConnectionStatus.Connected => I18n.GetString("SettingsPage_KnotLinkStatus_Connected"),
+                KnotLinkConnectionStatus.Failed => I18n.GetString("SettingsPage_KnotLinkStatus_InitFailed"),
+                KnotLinkConnectionStatus.Partial => I18n.Format("SettingsPage_KnotLinkStatus_Partial",
+                    KnotLinkService.IsResponserRunning ? "✓" : "✗", KnotLinkService.IsSenderRunning ? "✓" : "✗"),
+                _ => I18n.GetString("SettingsPage_KnotLinkStatus_NotInitialized")
+            };
         }
 
 

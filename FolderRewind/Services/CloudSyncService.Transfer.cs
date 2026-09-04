@@ -332,7 +332,7 @@ namespace FolderRewind.Services
             }
             catch (Exception ex)
             {
-                return (false, -1, string.Empty, ex.Message);
+                return (false, -1, string.Empty, CloudCommandSecurity.Redact(ex.Message));
             }
         }
 

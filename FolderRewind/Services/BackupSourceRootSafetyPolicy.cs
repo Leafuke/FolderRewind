@@ -47,6 +47,7 @@ public static class BackupSourceRootSafetyPolicy
         !string.IsNullOrWhiteSpace(right)
         && string.Equals(Normalize(left), Normalize(right), StringComparison.OrdinalIgnoreCase);
 
-    private static string Normalize(string path) => Path.GetFullPath(path)
-        .TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
+    // Keep the separator on filesystem roots: "C:" resolves against the drive's
+    // current directory, whereas "C:\" always denotes the volume root.
+    private static string Normalize(string path) => Path.TrimEndingDirectorySeparator(Path.GetFullPath(path));
 }

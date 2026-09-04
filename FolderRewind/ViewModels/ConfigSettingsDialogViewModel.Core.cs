@@ -16,6 +16,7 @@ namespace FolderRewind.ViewModels
         private BackupConfig _config;
         private ArchiveSettings _archive;
         private AutomationSettings _automation;
+        private FilterSettings _filters;
         private CloudSettings _cloud;
         private readonly int _cpuThreadMax;
         private List<AutomationFolderOption> _automationFolderOptions = new();
@@ -31,16 +32,24 @@ namespace FolderRewind.ViewModels
         private const int PerformancePresetCustomIndex = 3;
 
         public ConfigSettingsDialogViewModel(BackupConfig config)
+            : this(config, viewModel => new ConfigSettingsActions(viewModel, MainWindowService.GetXamlRoot))
+        {
+        }
+
+        internal ConfigSettingsDialogViewModel(BackupConfig config,
+            Func<ConfigSettingsDialogViewModel, IConfigSettingsActions> actionsFactory)
         {
             _config = config ?? throw new ArgumentNullException(nameof(config));
             _archive = _config.Archive ??= new ArchiveSettings();
             _automation = _config.Automation ??= new AutomationSettings();
+            _filters = _config.Filters ??= new FilterSettings();
             _cloud = _config.Cloud ??= new CloudSettings();
             _config.BackupScope ??= new BackupScopeSettings();
             _cpuThreadMax = Math.Max(Environment.ProcessorCount, 1);
 
             _archive.PropertyChanged += OnArchivePropertyChanged;
             _automation.PropertyChanged += OnAutomationPropertyChanged;
+            _filters.PropertyChanged += OnFilterPropertyChanged;
             _config.PropertyChanged += OnConfigPropertyChanged;
             _cloud.PropertyChanged += OnCloudPropertyChanged;
             _config.SourceFolders.CollectionChanged += OnSourceFoldersCollectionChanged;
@@ -51,6 +60,7 @@ namespace FolderRewind.ViewModels
             RefreshBackupScopeOptions();
             RefreshAutomationFolderOptions();
             RaiseCloudUiProperties();
+            InitializeActions(actionsFactory(this));
         }
 
         public void Unbind()
@@ -62,6 +72,7 @@ namespace FolderRewind.ViewModels
 
             _archive.PropertyChanged -= OnArchivePropertyChanged;
             _automation.PropertyChanged -= OnAutomationPropertyChanged;
+            _filters.PropertyChanged -= OnFilterPropertyChanged;
             _config.PropertyChanged -= OnConfigPropertyChanged;
             _cloud.PropertyChanged -= OnCloudPropertyChanged;
             _config.SourceFolders.CollectionChanged -= OnSourceFoldersCollectionChanged;
@@ -77,14 +88,17 @@ namespace FolderRewind.ViewModels
 
         public void Rebind(BackupConfig config)
         {
+            Unbind();
             _config = config ?? throw new ArgumentNullException(nameof(config));
             _archive = _config.Archive ??= new ArchiveSettings();
             _automation = _config.Automation ??= new AutomationSettings();
+            _filters = _config.Filters ??= new FilterSettings();
             _cloud = _config.Cloud ??= new CloudSettings();
             _config.BackupScope ??= new BackupScopeSettings();
 
             _archive.PropertyChanged += OnArchivePropertyChanged;
             _automation.PropertyChanged += OnAutomationPropertyChanged;
+            _filters.PropertyChanged += OnFilterPropertyChanged;
             _config.PropertyChanged += OnConfigPropertyChanged;
             _cloud.PropertyChanged += OnCloudPropertyChanged;
             _config.SourceFolders.CollectionChanged += OnSourceFoldersCollectionChanged;

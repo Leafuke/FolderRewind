@@ -21,10 +21,19 @@ public static class NativeHistoryCoreGateway
     private static readonly HistoryRuntimeManager Runtimes = new();
     private static readonly ConcurrentDictionary<string, string> Failed = new(StringComparer.Ordinal);
 
-    public static async Task InitializeAsync(AppConfig appConfig, string configDirectory, CancellationToken cancellationToken = default)
+    public static Task InitializeAsync(AppConfig appConfig, string configDirectory, CancellationToken cancellationToken = default)
+        => InitializeAsync(
+            appConfig.BackupConfigs.Where(item => item is not null).ToArray(),
+            configDirectory,
+            cancellationToken);
+
+    public static async Task InitializeAsync(
+        IReadOnlyList<BackupConfig> configs,
+        string configDirectory,
+        CancellationToken cancellationToken = default)
     {
         IReadOnlyList<LegacyHistoryRecord>? legacy = null;
-        foreach (var config in appConfig.BackupConfigs.Where(item => item is not null))
+        foreach (var config in configs)
         {
             try
             {
@@ -45,6 +54,20 @@ public static class NativeHistoryCoreGateway
         CancellationToken cancellationToken = default)
         => EnsureReadyAsync(config, ConfigService.ConfigDirectory, legacy: null, cancellationToken);
 
+    public static async Task<HistoryRuntime> EnsureReadyAsync(
+        string configId,
+        CancellationToken cancellationToken = default)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        var identity = new HistoryConfigId(configId);
+        var config = await UiDispatcherService.RunOnUiAsync(() => Task.FromResult(
+            ConfigService.CurrentConfig.BackupConfigs.FirstOrDefault(item => identity.Matches(item.Id))))
+            .ConfigureAwait(false);
+        if (config is null)
+            throw new InvalidOperationException($"Native History configuration '{configId}' does not exist.");
+        return await EnsureReadyAsync(config, cancellationToken).ConfigureAwait(false);
+    }
+
     public static void EnsureReady(string configId)
     {
         var id = new HistoryConfigId(configId);
@@ -57,11 +80,6 @@ public static class NativeHistoryCoreGateway
     {
         var id = new HistoryConfigId(configId);
         if (Runtimes.TryGet(id, out var runtime) && runtime is not null) return runtime;
-        var config = ConfigService.CurrentConfig?.BackupConfigs?.FirstOrDefault(c => c?.Id == configId);
-        if (config is not null)
-        {
-            return EnsureReadyAsync(config).ConfigureAwait(false).GetAwaiter().GetResult();
-        }
         EnsureReady(configId);
         throw new InvalidOperationException("Native History runtime lookup failed after readiness validation.");
     }
@@ -91,10 +109,13 @@ public static class NativeHistoryCoreGateway
         string configId,
         SourceId sourceId,
         CancellationToken cancellationToken = default)
-        => (await new HistoryPresentationQueryService(GetRequiredRuntime(configId))
-                .QueryAsync(sourceId, cancellationToken: cancellationToken).ConfigureAwait(false))
-            .Timeline.Select(item => item.FileName).Where(item => !string.IsNullOrWhiteSpace(item))
-            .Select(item => item!).Distinct(StringComparer.OrdinalIgnoreCase).ToArray();
+    {
+        var runtime = await EnsureReadyAsync(configId, cancellationToken).ConfigureAwait(false);
+        return (await new HistoryPresentationQueryService(runtime)
+                    .QueryAsync(sourceId, cancellationToken: cancellationToken).ConfigureAwait(false))
+                .Timeline.Select(item => item.FileName).Where(item => !string.IsNullOrWhiteSpace(item))
+                .Select(item => item!).Distinct(StringComparer.OrdinalIgnoreCase).ToArray();
+    }
 
     public static async Task<bool> SetVersionPinByFileAsync(
         string configId,
@@ -103,7 +124,7 @@ public static class NativeHistoryCoreGateway
         bool pinned,
         CancellationToken cancellationToken = default)
     {
-        var runtime = GetRequiredRuntime(configId);
+        var runtime = await EnsureReadyAsync(configId, cancellationToken).ConfigureAwait(false);
         var snapshot = await new HistoryPresentationQueryService(runtime)
             .QueryAsync(sourceId, includeSuppressed: true, cancellationToken).ConfigureAwait(false);
         var match = snapshot.Timeline.FirstOrDefault(item =>
@@ -121,9 +142,12 @@ public static class NativeHistoryCoreGateway
         SourceId sourceId,
         string fileName,
         CancellationToken cancellationToken = default)
-        => (await new HistoryPresentationQueryService(GetRequiredRuntime(configId))
-                .QueryAsync(sourceId, includeSuppressed: true, cancellationToken).ConfigureAwait(false))
-            .Timeline.FirstOrDefault(item => StringComparer.OrdinalIgnoreCase.Equals(item.FileName, fileName));
+    {
+        var runtime = await EnsureReadyAsync(configId, cancellationToken).ConfigureAwait(false);
+        return (await new HistoryPresentationQueryService(runtime)
+                    .QueryAsync(sourceId, includeSuppressed: true, cancellationToken).ConfigureAwait(false))
+                .Timeline.FirstOrDefault(item => StringComparer.OrdinalIgnoreCase.Equals(item.FileName, fileName));
+    }
 
     public static async Task<IReadOnlyList<HistoryBoundaryRecaptureRequirement>> FindRequiredBoundaryRecapturesAsync(
         HistoryConfigSnapshot snapshot,
@@ -132,7 +156,7 @@ public static class NativeHistoryCoreGateway
     {
         ArgumentNullException.ThrowIfNull(snapshot);
         ArgumentNullException.ThrowIfNull(plannedCaptureSources);
-        var runtime = GetRequiredRuntime(snapshot.ConfigId.Value);
+        var runtime = await EnsureReadyAsync(snapshot.ConfigId.Value, cancellationToken).ConfigureAwait(false);
         return await runtime.Commit.FindRequiredBoundaryRecapturesAsync(
             snapshot,
             plannedCaptureSources,
@@ -151,7 +175,7 @@ public static class NativeHistoryCoreGateway
     {
         ArgumentNullException.ThrowIfNull(configSnapshot);
         ArgumentNullException.ThrowIfNull(results);
-        var runtime = GetRequiredRuntime(configSnapshot.ConfigId.Value);
+        var runtime = await EnsureReadyAsync(configSnapshot.ConfigId.Value, cancellationToken).ConfigureAwait(false);
         var workspace = (await runtime.WorkspaceStore.LoadAsync(cancellationToken).ConfigureAwait(false)).Value;
         long revision = workspace?.StateRevision ?? -1;
         var baselines = workspace?.SourceBaselines.ToDictionary(item => item.SourceId) ?? [];
@@ -206,7 +230,7 @@ public static class NativeHistoryCoreGateway
         SourceId sourceId,
         CancellationToken cancellationToken = default)
     {
-        var runtime = GetRequiredRuntime(configId);
+        var runtime = await EnsureReadyAsync(configId, cancellationToken).ConfigureAwait(false);
         for (var attempt = 0; attempt < 2; attempt++)
         {
             var baseline = await runtime.CaptureBaselines.LoadAsync(sourceId, cancellationToken).ConfigureAwait(false);
@@ -249,6 +273,10 @@ public static class NativeHistoryCoreGateway
                 cancellationToken).ConfigureAwait(false);
             Failed.TryRemove(configId.Value, out _);
             return runtime;
+        }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+            throw;
         }
         catch (Exception ex)
         {
@@ -327,14 +355,28 @@ public static class NativeHistoryCoreGateway
 
     private static Task PersistBinding(BackupConfig config, int version)
     {
-        config.HistoryRepositoryBinding = new HistoryRepositoryBinding { FormatVersion = version };
-        return PersistConfig();
+        return PersistBindingAsync(config, version);
     }
 
-    private static Task PersistConfig()
+    private static async Task PersistBindingAsync(BackupConfig config, int version)
     {
-        var result = ConfigService.SaveWithResult();
+        var result = await ConfigService.UpdateAndSaveAsync(current =>
+        {
+            var liveConfig = current.BackupConfigs.FirstOrDefault(item =>
+                string.Equals(item.Id, config.Id, StringComparison.OrdinalIgnoreCase));
+            if (liveConfig is null)
+            {
+                throw new InvalidOperationException("History configuration was removed during initialization.");
+            }
+
+            liveConfig.HistoryRepositoryBinding = new HistoryRepositoryBinding { FormatVersion = version };
+        }).ConfigureAwait(false);
         if (!result.Success) throw result.Exception ?? new IOException(result.ErrorMessage);
-        return Task.CompletedTask;
+    }
+
+    private static async Task PersistConfig()
+    {
+        var result = await ConfigService.SaveAsync().ConfigureAwait(false);
+        if (!result.Success) throw result.Exception ?? new IOException(result.ErrorMessage);
     }
 }

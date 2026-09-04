@@ -26,7 +26,7 @@ namespace FolderRewind.Services
             {
                 try
                 {
-                    var runtime = NativeHistoryCoreGateway.GetRequiredRuntime(config.Id);
+                    var runtime = await NativeHistoryCoreGateway.EnsureReadyAsync(config).ConfigureAwait(false);
                     var metadataTransport = CreateHistoryTransport(config);
                     var metadata = new HistoryMetadataSyncService(runtime, metadataTransport);
                     var replicas = new HistoryReplicaSyncService(
@@ -45,14 +45,18 @@ namespace FolderRewind.Services
                         if (path is null) continue;
                         var result = await replicas.UploadAsync(representationId, path).ConfigureAwait(false);
                         if (result.Status != HistoryReplicaOperationStatus.Succeeded)
-                            LogService.LogWarning("[Cloud Replica] " + result.Diagnostic, nameof(CloudSyncService));
+                            LogService.LogWarning(
+                                "[Cloud Replica] " + CloudCommandSecurity.Redact(result.Diagnostic),
+                                nameof(CloudSyncService));
                     }
                     if (config.Cloud.SyncHistoryAfterUpload)
                         _ = await metadata.SyncAsync().ConfigureAwait(false);
                 }
                 catch (Exception ex)
                 {
-                    LogService.LogWarning("[Cloud Replica] " + ex.Message, nameof(CloudSyncService));
+                    LogService.LogWarning(
+                        "[Cloud Replica] " + CloudCommandSecurity.Redact(ex.Message),
+                        nameof(CloudSyncService));
                 }
             });
         }
@@ -65,7 +69,7 @@ namespace FolderRewind.Services
         {
             try
             {
-                var runtime = NativeHistoryCoreGateway.GetRequiredRuntime(config.Id);
+                var runtime = await NativeHistoryCoreGateway.EnsureReadyAsync(config, cancellationToken).ConfigureAwait(false);
                 var metadata = new HistoryMetadataSyncService(runtime, CreateHistoryTransport(config));
                 var service = new HistoryReplicaSyncService(
                     runtime,
@@ -80,7 +84,9 @@ namespace FolderRewind.Services
             }
             catch (Exception ex)
             {
-                LogService.LogWarning("[Cloud Replica] " + ex.Message, nameof(CloudSyncService));
+                LogService.LogWarning(
+                    "[Cloud Replica] " + CloudCommandSecurity.Redact(ex.Message),
+                    nameof(CloudSyncService));
                 return false;
             }
         }
@@ -94,7 +100,7 @@ namespace FolderRewind.Services
         {
             try
             {
-                var runtime = NativeHistoryCoreGateway.GetRequiredRuntime(config.Id);
+                var runtime = await NativeHistoryCoreGateway.EnsureReadyAsync(config, cancellationToken).ConfigureAwait(false);
                 var replicas = await runtime.Query.GetStorageReplicasAsync(representationId, cancellationToken)
                     .ConfigureAwait(false);
                 StorageReplica? replica = null;
@@ -150,7 +156,9 @@ namespace FolderRewind.Services
             }
             catch (Exception ex)
             {
-                LogService.LogWarning("[Cloud Replica] " + ex.Message, nameof(CloudSyncService));
+                LogService.LogWarning(
+                    "[Cloud Replica] " + CloudCommandSecurity.Redact(ex.Message),
+                    nameof(CloudSyncService));
                 return false;
             }
         }

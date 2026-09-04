@@ -48,7 +48,7 @@ public sealed partial class GameDiscoveryPage : Page
     private async void OnBrowseSecondaryClick(object sender, RoutedEventArgs e)
     {
         var path = await PickYamlAsync("FolderRewind.GameDiscovery.Secondary");
-        if (!string.IsNullOrWhiteSpace(path)) ViewModel.Settings.SecondaryManifestPath = path;
+        if (!string.IsNullOrWhiteSpace(path)) ViewModel.SecondaryManifestPath = path;
     }
 
     private async void OnBrowseOverrideClick(object sender, RoutedEventArgs e)
@@ -57,7 +57,7 @@ public sealed partial class GameDiscoveryPage : Page
             I18n.GetString("GameDiscoveryPage_PickOverride"),
             "FolderRewind.GameDiscovery.Override",
             new[] { ".json" });
-        if (!string.IsNullOrWhiteSpace(path)) ViewModel.Settings.OverridePath = path;
+        if (!string.IsNullOrWhiteSpace(path)) ViewModel.OverridePath = path;
     }
 
     private async void OnAddSteamRootClick(object sender, RoutedEventArgs e) => await AddRootAsync(GameStore.Steam);
@@ -74,7 +74,7 @@ public sealed partial class GameDiscoveryPage : Page
 
     private void OnRemoveRootClick(object sender, RoutedEventArgs e)
     {
-        if (sender is Button { Tag: GameLibraryRootSetting root }) ViewModel.Settings.LibraryRoots.Remove(root);
+        if (sender is Button { Tag: GameLibraryRootSetting root }) ViewModel.LibraryRoots.Remove(root);
     }
 
     private async void OnSaveSettingsClick(object sender, RoutedEventArgs e)
@@ -115,25 +115,16 @@ public sealed partial class GameDiscoveryPage : Page
         var broadRoots = ViewModel.GetSelectedBroadRootResources();
         if (broadRoots.Count > 0)
         {
-            var confirm = new ContentDialog
-            {
-                XamlRoot = XamlRoot,
-                Title = I18n.GetString("GameDiscovery_BroadRootConfirm_Title"),
-                Content = new TextBlock
-                {
-                    Text = I18n.Format(
+            if (!await AppDialogService.Default.ConfirmAsync(
+                    I18n.GetString("GameDiscovery_BroadRootConfirm_Title"),
+                    I18n.Format(
                         "GameDiscovery_BroadRootConfirm_Content",
                         string.Join(Environment.NewLine, broadRoots
                             .Select(resource => $"- {resource.FixedRoot}")
                             .Distinct(StringComparer.OrdinalIgnoreCase))),
-                    TextWrapping = TextWrapping.Wrap
-                },
-                PrimaryButtonText = I18n.GetString("Common_Confirm"),
-                CloseButtonText = I18n.GetString("Common_Cancel"),
-                DefaultButton = ContentDialogButton.Close
-            };
-            ThemeService.ApplyThemeToDialog(confirm);
-            if (await confirm.ShowAsync() != ContentDialogResult.Primary)
+                    I18n.GetString("Common_Confirm"),
+                    XamlRoot,
+                    isDestructive: true))
             {
                 return;
             }
@@ -221,16 +212,6 @@ public sealed partial class GameDiscoveryPage : Page
             new[] { ".yaml", ".yml" });
     }
 
-    private async Task ShowMessageAsync(string title, string content)
-    {
-        var dialog = new ContentDialog
-        {
-            XamlRoot = XamlRoot,
-            Title = title,
-            Content = content,
-            CloseButtonText = I18n.GetString("Common_Ok"),
-            DefaultButton = ContentDialogButton.Close
-        };
-        await dialog.ShowAsync();
-    }
+    private Task ShowMessageAsync(string title, string content) =>
+        AppDialogService.Default.ShowMessageAsync(title, content, XamlRoot);
 }

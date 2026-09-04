@@ -48,6 +48,8 @@ namespace FolderRewind.Views
         public BackupConfig Config { get; private set; }
         public ConfigSettingsDialogViewModel ViewModel { get; }
         private bool _isDialogReady;
+        private bool _subscriptionsAttached = true;
+        private bool _showingChild;
         private Microsoft.UI.Xaml.UIElement? _currentTabContent;
         private readonly Dictionary<string, bool> _tabLoaded = new();
 
@@ -69,7 +71,7 @@ namespace FolderRewind.Views
 
                 _selectedConfigKind = value;
                 // 配置类型名称只用于显示；实际持久化的是稳定 Config Kind 身份。
-                PluginService.ApplyConfigKind(Config, value, applyEncryption: false);
+                ViewModel?.SelectConfigKind(value);
                 if (ConfigKindDescriptionText != null) ConfigKindDescriptionText.Text = value.Description;
                 ViewModel?.RefreshBackupScopeOptions();
                 if (_isDialogReady)
@@ -80,7 +82,7 @@ namespace FolderRewind.Views
             }
         }
 
-        public string ConfigFilePath => ConfigService.ConfigFilePath;
+        public string ConfigFilePath => ViewModel.ConfigFilePath;
 
         public int FormatSelectedIndex
         {
@@ -144,7 +146,10 @@ namespace FolderRewind.Views
             this.Config = config;
             this.Config.Cloud ??= new CloudSettings();
             this.Config.BackupScope ??= new BackupScopeSettings();
-            this.ViewModel = new ConfigSettingsDialogViewModel(this.Config);
+            this.ViewModel = new ConfigSettingsDialogViewModel(this.Config,
+                viewModel => new ConfigSettingsActions(viewModel, () => XamlRoot));
+            Opened += OnDialogOpened;
+            Closed += OnDialogClosed;
             this.XamlRoot = MainWindowService.GetXamlRoot();
 
             // 应用当前主题到对话框
@@ -279,6 +284,7 @@ namespace FolderRewind.Views
             // Re-register config events
             Config.PropertyChanged += OnDialogConfigPropertyChanged;
             Config.Cloud.PropertyChanged += OnDialogCloudPropertyChanged;
+            _subscriptionsAttached = true;
 
             // 重新打开时 SelectionChanged 可能不会触发，或者控件仍保留关闭前的选中项；
             // 这里以当前实际选中的页签为准显式恢复内容，避免标签和正文不同步。
@@ -306,10 +312,10 @@ namespace FolderRewind.Views
         private void RefreshConfigKindOptions()
         {
             ConfigKindsView.Clear();
-            var options = PluginService.GetAllSupportedConfigKinds();
+            var options = ViewModel.GetConfigKindOptions();
             foreach (var option in options) ConfigKindsView.Add(option);
 
-            var selected = PluginService.ResolveConfigKindOption(Config);
+            var selected = ViewModel.ResolveConfigKind();
             var matching = options.FirstOrDefault(option =>
                 string.Equals(option.StableKey, selected.StableKey, StringComparison.OrdinalIgnoreCase));
             if (matching is null)
@@ -348,187 +354,62 @@ namespace FolderRewind.Views
 
         private async void OnSaveClick(ContentDialog sender, ContentDialogButtonClickEventArgs args)
         {
-            foreach (var folder in Config.SourceFolders ?? new ObservableCollection<ManagedFolder>())
+            var deferral = args.GetDeferral();
+            args.Cancel = true;
+            try
             {
-                if (!BackupStoragePathService.TryResolveBackupStoragePaths(
-                        Config.DestinationPath,
-                        folder.DisplayName,
-                        folder.Path,
-                        out _,
-                        out var backupSubDir,
-                        out var metadataDir))
-                {
-                    args.Cancel = true;
-                    await ShowValidationErrorAsync(I18n.GetString("BackupService_Log_InvalidStorageFolderName"));
-                    return;
-                }
-
-                var overlap = BackupPathOverlapPolicy.Validate(folder.Path, backupSubDir, metadataDir);
-                if (!overlap.IsSafe)
-                {
-                    args.Cancel = true;
-                    await ShowValidationErrorAsync(I18n.Format(
-                        "BackupService_Folder_SourceDestinationOverlap",
-                        overlap.SourcePath,
-                        overlap.TargetPath));
-                    return;
-                }
+                if (!ViewModel.SaveCommand.CanExecute(null)) return;
+                IsEnabled = false;
+                await ViewModel.SaveCommand.ExecuteAsync(null);
+                args.Cancel = !ViewModel.LastSaveSucceeded;
             }
-
-            if (!ViewModel.TryValidateAndNormalizeAdditionalSevenZipArguments(out var errorMessage))
-            {
-                args.Cancel = true;
-
-                var dialog = new ContentDialog
-                {
-                    Title = I18n.GetString("ConfigSettingsDialog_Additional7zArgsSaveErrorTitle"),
-                    Content = new TextBlock
-                    {
-                        Text = errorMessage,
-                        TextWrapping = TextWrapping.Wrap
-                    },
-                    CloseButtonText = I18n.GetString("Common_Ok"),
-                    XamlRoot = MainWindowService.GetXamlRoot() ?? this.XamlRoot
-                };
-                ThemeService.ApplyThemeToDialog(dialog);
-                await dialog.ShowAsync();
-                return;
-            }
-
-            if (!ViewModel.TryValidateFilters(out errorMessage))
-            {
-                args.Cancel = true;
-
-                var dialog = new ContentDialog
-                {
-                    Title = I18n.GetString("Common_Failed"),
-                    Content = new TextBlock
-                    {
-                        Text = errorMessage,
-                        TextWrapping = TextWrapping.Wrap
-                    },
-                    CloseButtonText = I18n.GetString("Common_Ok"),
-                    XamlRoot = MainWindowService.GetXamlRoot() ?? this.XamlRoot
-                };
-                ThemeService.ApplyThemeToDialog(dialog);
-                await dialog.ShowAsync();
-                return;
-            }
-
-            if (!ViewModel.TryValidateBackupScope(out errorMessage))
-            {
-                args.Cancel = true;
-
-                var dialog = new ContentDialog
-                {
-                    Title = I18n.GetString("Common_Failed"),
-                    Content = new TextBlock
-                    {
-                        Text = errorMessage,
-                        TextWrapping = TextWrapping.Wrap
-                    },
-                    CloseButtonText = I18n.GetString("Common_Ok"),
-                    XamlRoot = MainWindowService.GetXamlRoot() ?? this.XamlRoot
-                };
-                ThemeService.ApplyThemeToDialog(dialog);
-                await dialog.ShowAsync();
-                return;
-            }
-
-            ConfigService.Save();
+            finally { IsEnabled = true; deferral.Complete(); }
         }
 
-        private async Task ShowValidationErrorAsync(string errorMessage)
-        {
-            var dialog = new ContentDialog
-            {
-                Title = I18n.GetString("Common_Failed"),
-                Content = new TextBlock
-                {
-                    Text = errorMessage,
-                    TextWrapping = TextWrapping.Wrap
-                },
-                CloseButtonText = I18n.GetString("Common_Ok"),
-                XamlRoot = MainWindowService.GetXamlRoot() ?? this.XamlRoot
-            };
-            ThemeService.ApplyThemeToDialog(dialog);
-            await dialog.ShowAsync();
-        }
 
-        private async void OnDeleteClick(ContentDialog sender, ContentDialogButtonClickEventArgs args)
+
+        private void OnDeleteClick(ContentDialog sender, ContentDialogButtonClickEventArgs args)
         {
             args.Cancel = true;
-
-            // WinUI同一时间只能打开一个 ContentDialog。
-            // 当前设置对话框处于打开状态时，如果直接 ShowAsync 另一个对话框会抛出：
-            // "Only a single ContentDialog can be open at any time."
-            // 因此这里先隐藏当前对话框，再显示确认对话框；取消再把设置对话框重新显示出来。
+            if (!ViewModel.DeleteCommand.CanExecute(null) || _showingChild) return;
+            _showingChild = true;
             sender.Hide();
-            await Task.Yield();
-
-            var confirm = new ContentDialog
-            {
-                Title = I18n.GetString("ConfigSettingsDialog_DeleteConfirmTitle"),
-                Content = new TextBlock { Text = I18n.GetString("ConfigSettingsDialog_DeleteConfirmContent"), TextWrapping = TextWrapping.Wrap },
-                PrimaryButtonText = I18n.GetString("Common_Delete"),
-                CloseButtonText = I18n.GetString("Common_Cancel"),
-                DefaultButton = ContentDialogButton.Close,
-                XamlRoot = MainWindowService.GetXamlRoot() ?? this.XamlRoot
-            };
-
-            var result = await confirm.ShowAsync();
-            if (result != ContentDialogResult.Primary)
-            {
-                await this.ShowAsync();
-                return;
-            }
-
-            var current = ConfigService.CurrentConfig;
-            if (current?.BackupConfigs == null)
-            {
-                LogService.Log(I18n.GetString("Config_Delete_CurrentConfigNull"));
-                return;
-            }
-
-            // 有些页面传入的 Config 可能不是 CurrentConfig.BackupConfigs 中的同一引用
-            // 必须按 Id 找到真实对象再删除
-            var toRemove = current.BackupConfigs.FirstOrDefault(c => string.Equals(c.Id, Config.Id, StringComparison.OrdinalIgnoreCase));
-            if (toRemove == null)
-            {
-                LogService.Log(I18n.GetString("Config_Delete_NotFound"));
-                return;
-            }
-
-            var settings = ConfigService.CurrentConfig?.GlobalSettings;
-            var fallback = current.BackupConfigs.FirstOrDefault(c => !string.Equals(c.Id, toRemove.Id, StringComparison.OrdinalIgnoreCase));
-
-            current.BackupConfigs.Remove(toRemove);
-
-            if (settings != null)
-            {
-                if (settings.LastManagerConfigId == Config.Id)
-                {
-                    settings.LastManagerConfigId = fallback?.Id ?? string.Empty;
-                    settings.LastManagerFolderPath = string.Empty;
-                }
-
-                if (settings.LastHistoryConfigId == Config.Id)
-                {
-                    settings.LastHistoryConfigId = fallback?.Id ?? string.Empty;
-                    settings.LastHistoryFolderPath = string.Empty;
-                }
-            }
-
-            ConfigService.Save();
-            await NativeHistoryCoreGateway.DetachActiveConfigAsync(toRemove.Id);
+            TaskObserver.Observe(DeleteAndRestoreAsync(), nameof(ConfigSettingsDialog));
         }
 
-        private static void OpenPathInShell(string path)
+        private async Task DeleteAndRestoreAsync()
         {
-            if (!ShellPathService.TryOpenPath(path, out var error))
+            await Task.Yield();
+            try
             {
-                LogService.Log(I18n.Format("Config_OpenPath_Failed", error ?? string.Empty));
+                await ViewModel.DeleteCommand.ExecuteAsync(null);
+                if (!ViewModel.LastDeleteSucceeded)
+                    await AppDialogService.Default.ShowCustomAsync(this, XamlRoot);
             }
+            finally { _showingChild = false; }
         }
+
+        private void OnDialogOpened(ContentDialog sender, ContentDialogOpenedEventArgs args)
+        {
+            ViewModel.ActivateActions();
+            if (_subscriptionsAttached) return;
+            ViewModel.Rebind(Config);
+            ViewModel.SelectedPageIndex = Math.Max(0, ConfigSelectorBar.Items.IndexOf(ConfigSelectorBar.SelectedItem));
+            Config.PropertyChanged += OnDialogConfigPropertyChanged;
+            Config.Cloud.PropertyChanged += OnDialogCloudPropertyChanged;
+            _subscriptionsAttached = true;
+            Bindings.Update();
+        }
+
+        private void OnDialogClosed(ContentDialog sender, ContentDialogClosedEventArgs args)
+        {
+            ViewModel.Unbind();
+            Config.PropertyChanged -= OnDialogConfigPropertyChanged;
+            Config.Cloud.PropertyChanged -= OnDialogCloudPropertyChanged;
+            _subscriptionsAttached = false;
+            if (!_showingChild) ViewModel.CancelActions();
+        }
+
+
     }
 }

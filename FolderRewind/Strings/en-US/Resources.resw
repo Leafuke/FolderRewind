@@ -780,6 +780,15 @@ Duplicate folder names are blocked within the same configuration so different di
   <data name="HistoryPage_EmptyState.Text" xml:space="preserve">
     <value>Select a folder to view history</value>
   </data>
+  <data name="HistoryPage_Loading.Text" xml:space="preserve">
+    <value>Loading history...</value>
+  </data>
+  <data name="HistoryPage_LoadError.Title" xml:space="preserve">
+    <value>History could not be loaded</value>
+  </data>
+  <data name="HistoryPage_Retry.Content" xml:space="preserve">
+    <value>Retry</value>
+  </data>
   <data name="FolderManager_CurrentConfig.Text" xml:space="preserve">
     <value>Current config:</value>
   </data>
@@ -1306,7 +1315,7 @@ Duplicate folder names are blocked within the same configuration so different di
     <value>Open plugin store</value>
   </data>
   <data name="SettingsPage_ManualInstallPlugin.Content" xml:space="preserve">
-    <value>Install plugin from .zip</value>
+    <value>Install .frplugin package</value>
   </data>
   <data name="SettingsPage_OpenPluginFolder.Content" xml:space="preserve">
     <value>Open plugin folder</value>
@@ -2481,7 +2490,7 @@ Choose whether to remove only the record, only the local backup file, or both. C
     <value>Queued cloud upload for folder "{0}": {1}</value>
   </data>
   <data name="CloudSync_Log_CommandStart" xml:space="preserve">
-    <value>Starting cloud upload command for folder "{0}": {1}</value>
+    <value>Starting cloud command: {0}</value>
   </data>
   <data name="CloudSync_Log_CommandSucceeded" xml:space="preserve">
     <value>Cloud upload completed for folder "{0}"</value>
@@ -2994,7 +3003,7 @@ Status: {3}</value>
     <value>These variables are resolved with the current backup context before the command runs. Both rclone mode and custom mode can use them.</value>
   </data>
   <data name="ConfigSettingsDialog_CloudPreview.Text" xml:space="preserve">
-    <value>Command preview</value>
+    <value>Command preview (may contain sensitive information)</value>
   </data>
   <data name="ConfigSettingsDialog_CloudLastStatus.Text" xml:space="preserve">
     <value>Last run status</value>
@@ -5124,4 +5133,80 @@ Pull request: {1}</value>
   <data name="History_SafetySnapshot_RestorePrimary" xml:space="preserve"><value>Restore completely</value></data>
   <data name="History_SafetySnapshot_ReleaseSecondary" xml:space="preserve"><value>Release explicitly</value></data>
   <data name="History_SafetySnapshot_AlreadyReleased" xml:space="preserve"><value>This safety recovery point was already released or its state changed.</value></data>
+  <data name="Schedule_MonthLabel.Text" xml:space="preserve"><value>Month:</value></data>
+  <data name="Schedule_DayLabel.Text" xml:space="preserve"><value>Day:</value></data>
+  <data name="Tray_ShowHideCommand.Label" xml:space="preserve"><value>Show / Hide</value></data>
+  <data name="Tray_ShowHideCommand.Description" xml:space="preserve"><value>Show or hide the window</value></data>
+  <data name="Tray_QuitCommand.Label" xml:space="preserve"><value>Exit</value></data>
+  <data name="Tray_QuitCommand.Description" xml:space="preserve"><value>Exit FolderRewind</value></data>
+  <data name="Tray_Icon.ToolTipText" xml:space="preserve"><value>FolderRewind</value></data>
+  <data name="Tray_ShowHideItem.Text" xml:space="preserve"><value>Show / Hide</value></data>
+  <data name="Tray_ExitItem.Text" xml:space="preserve"><value>Exit</value></data>
+  <data name="PluginStore_SummaryOnline" xml:space="preserve"><value>Official Catalog · {0:N0} plugin(s)</value></data>
+  <data name="PluginStore_SummaryOffline" xml:space="preserve"><value>Official Catalog (offline cache) · {0:N0} plugin(s)</value></data>
+  <data name="PluginStore_CatalogUnavailable" xml:space="preserve"><value>Official Catalog unavailable: {0}</value></data>
+  <data name="History_NoActiveConfiguration" xml:space="preserve"><value>No active configuration is selected.</value></data>
+  <data name="History_Run_SourceCount" xml:space="preserve"><value>{0:N0} source(s)</value></data>
+  <data name="History_Run_OutcomeCompleted" xml:space="preserve"><value>Completed</value></data>
+  <data name="History_Run_OutcomePartial" xml:space="preserve"><value>Partially completed</value></data>
+  <data name="History_Run_OutcomeFailed" xml:space="preserve"><value>Failed</value></data>
+  <data name="History_Run_OutcomeNoChange" xml:space="preserve"><value>No changes</value></data>
+  <data name="History_Run_SourceCarriedForward" xml:space="preserve"><value>Carried forward</value></data>
+  <data name="FolderManager_InvalidContext" xml:space="preserve"><value>No active configuration or valid folder was provided.</value></data>
+  <data name="FolderManager_InvalidIconSource" xml:space="preserve"><value>The icon source or target folder is invalid.</value></data>
+  <data name="Hotkeys_BackupCommentMarker" xml:space="preserve"><value>[Shortcut]</value></data>
+  <data name="GameDiscovery_TargetedPresetUnavailable" xml:space="preserve"><value>The selected provider-targeted preset is no longer available.</value></data>
+  <data name="GameDiscovery_OperationRunning" xml:space="preserve"><value>A discovery operation is still running.</value></data>
+  <data name="GameDiscovery_SelectDraft" xml:space="preserve"><value>Select at least one discovery draft before committing.</value></data>
+  <data name="CoreValidation_Report_DurationValue" xml:space="preserve"><value>{0:N1} s</value></data>
+  <data name="CoreValidation_Report_StepFormat" xml:space="preserve"><value>[{0}] {1} ({2})</value></data>
+  <data name="Template_CreateFrom_Home_InvalidPreset" xml:space="preserve"><value>This preset has no usable inline path rules or provider definition reference.</value></data>
+  <data name="MiniWindow_TitleFormat" xml:space="preserve"><value>Mini · {0}</value></data>
+  <data name="MiniWindow_DefaultFolderName" xml:space="preserve"><value>Folder</value></data>
+  <data name="BackupService_MissingEncryptionPassword" xml:space="preserve"><value>The encryption password is missing for this configuration.</value></data>
+  <data name="BackupService_InvalidConfigurationOrSource" xml:space="preserve"><value>The backup configuration or source is invalid.</value></data>
+  <data name="HomePage_QuickBackupButton.AutomationProperties.Name" xml:space="preserve"><value>Quick back up folder</value></data>
+  <data name="HomePage_ContextMenu_DeleteConfig.AutomationProperties.HelpText" xml:space="preserve"><value>Deletes this configuration after confirmation.</value></data>
+  <data name="HistoryPage_ToggleImportantButton.AutomationProperties.Name" xml:space="preserve"><value>Toggle important status</value></data>
+  <data name="HistoryPage_ViewButton.AutomationProperties.Name" xml:space="preserve"><value>View version</value></data>
+  <data name="HistoryPage_EditCommentButton.AutomationProperties.Name" xml:space="preserve"><value>Edit comment</value></data>
+  <data name="HistoryPage_CreateBranchButton.AutomationProperties.Name" xml:space="preserve"><value>Create branch from here</value></data>
+  <data name="HistoryPage_UploadCloudButton.AutomationProperties.Name" xml:space="preserve"><value>Upload version to cloud storage</value></data>
+  <data name="HistoryPage_DownloadCloudButton.AutomationProperties.Name" xml:space="preserve"><value>Download version from cloud storage</value></data>
+  <data name="HistoryPage_RestoreButton.AutomationProperties.Name" xml:space="preserve"><value>Restore this version</value></data>
+  <data name="HistoryPage_RestoreButton.AutomationProperties.HelpText" xml:space="preserve"><value>Replaces the selected source with this version after confirmation.</value></data>
+  <data name="HistoryPage_DeleteButton.AutomationProperties.Name" xml:space="preserve"><value>Delete history item</value></data>
+  <data name="HistoryPage_DeleteButton.AutomationProperties.HelpText" xml:space="preserve"><value>Permanently deletes this history item after confirmation.</value></data>
+  <data name="FolderManager_ConfigSettingsButton.AutomationProperties.Name" xml:space="preserve"><value>Open configuration settings</value></data>
+  <data name="FolderManager_ChangeCover.AutomationProperties.Name" xml:space="preserve"><value>Change folder cover</value></data>
+  <data name="FolderManager_FavoriteToggle.AutomationProperties.Name" xml:space="preserve"><value>Toggle favorite folder</value></data>
+  <data name="FolderManager_AddDescription.AutomationProperties.Name" xml:space="preserve"><value>Folder description</value></data>
+  <data name="FolderManager_MoreActions.AutomationProperties.Name" xml:space="preserve"><value>More folder actions</value></data>
+  <data name="FolderManager_MoreActions.ToolTipService.ToolTip" xml:space="preserve"><value>More folder actions</value></data>
+  <data name="FolderManager_RemoveFolder.AutomationProperties.HelpText" xml:space="preserve"><value>Removes this folder from the configuration after confirmation.</value></data>
+  <data name="SettingsPage_PluginsAutoCheckUpdatesToggle.AutomationProperties.Name" xml:space="preserve"><value>Automatically check for plugin updates</value></data>
+  <data name="SettingsPage_PluginEnabledToggle.AutomationProperties.Name" xml:space="preserve"><value>Enable or disable plugin</value></data>
+  <data name="SettingsPage_PluginUninstall.AutomationProperties.HelpText" xml:space="preserve"><value>Uninstalls this plugin after confirmation.</value></data>
+  <data name="SettingsPage_PluginDeleteData.AutomationProperties.HelpText" xml:space="preserve"><value>Permanently deletes this plugin's stored data after confirmation.</value></data>
+  <data name="SettingsPage_KnotLinkEnabledToggle.AutomationProperties.Name" xml:space="preserve"><value>Enable KnotLink integration</value></data>
+  <data name="SettingsPage_KnotLinkAutoStartToggle.AutomationProperties.Name" xml:space="preserve"><value>Automatically start the KnotLink server</value></data>
+  <data name="MiniWindow_PrimaryAction.AutomationProperties.Name" xml:space="preserve"><value>Open backup comment panel</value></data>
+  <data name="MiniWindow_CommentBox.AutomationProperties.Name" xml:space="preserve"><value>Backup comment</value></data>
+  <data name="MiniWindow_OpenCommentPanel" xml:space="preserve"><value>Open backup comment panel</value></data>
+  <data name="MiniWindow_CloseCommentPanel" xml:space="preserve"><value>Close backup comment panel</value></data>
+  <data name="HomePage_NewConfigButton.AutomationProperties.Name" xml:space="preserve"><value>Create configuration</value></data>
+  <data name="HistoryPage_BranchCheckoutButton.AutomationProperties.Name" xml:space="preserve"><value>Check out selected branch</value></data>
+  <data name="HistoryPage_BranchMoreActions.AutomationProperties.Name" xml:space="preserve"><value>More branch actions</value></data>
+  <data name="HistoryPage_OpenCloudSyncButton.AutomationProperties.Name" xml:space="preserve"><value>Open cloud synchronization settings</value></data>
+  <data name="HistoryPage_MaintenanceDropDown.AutomationProperties.Name" xml:space="preserve"><value>History maintenance and preferences</value></data>
+  <data name="HistoryPage_BranchDeleteItem.AutomationProperties.HelpText" xml:space="preserve"><value>Deletes the selected dormant branch after confirmation.</value></data>
+  <data name="HistoryPage_ClearMissingMenuItem.AutomationProperties.HelpText" xml:space="preserve"><value>Removes history records whose local payload no longer exists.</value></data>
+  <data name="FolderManager_AddFolderButton.AutomationProperties.Name" xml:space="preserve"><value>Add folder</value></data>
+  <data name="FolderManager_BackupConfigButton.AutomationProperties.Name" xml:space="preserve"><value>Back up all folders</value></data>
+  <data name="FolderManager_BackupSelectedButton.AutomationProperties.Name" xml:space="preserve"><value>Back up selected folder</value></data>
+  <data name="FolderManager_HistoryButton.AutomationProperties.Name" xml:space="preserve"><value>Open selected folder history</value></data>
+  <data name="SettingsPage_StartupWidthInput.AutomationProperties.Name" xml:space="preserve"><value>Startup window width</value></data>
+  <data name="SettingsPage_StartupHeightInput.AutomationProperties.Name" xml:space="preserve"><value>Startup window height</value></data>
+  <data name="Settings_KnotLink_InvalidHost" xml:space="preserve"><value>Enter a host name or IP address without a URL scheme or port.</value></data>
+  <data name="Settings_KnotLink_InvalidIdentifier" xml:space="preserve"><value>KnotLink identifiers must not contain control characters.</value></data>
 </root>

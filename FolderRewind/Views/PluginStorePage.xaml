@@ -10,12 +10,12 @@
 
     <ScrollViewer Padding="28">
         <StackPanel Spacing="12">
-            <TextBlock x:Uid="PluginStorePage_Title" Style="{ThemeResource TitleTextBlockStyle}" AutomationProperties.HeadingLevel="Level1"/>
+            <TextBlock x:Uid="PluginStorePage_Title" Style="{StaticResource TitleTextBlockStyle}" AutomationProperties.HeadingLevel="Level1"/>
             <TextBlock x:Uid="PluginStorePage_Desc" Foreground="{ThemeResource TextFillColorSecondaryBrush}" TextWrapping="Wrap"/>
 
             <StackPanel Orientation="Horizontal" Spacing="8">
                 <Button x:Uid="PluginStorePage_Load" Command="{x:Bind ViewModel.LoadCommand}" IsEnabled="{x:Bind ViewModel.CanLoad, Mode=OneWay}"/>
-                <Button x:Uid="PluginStorePage_InstallManual" Content="Install .frplugin..." Command="{x:Bind ViewModel.InstallManualCommand}" IsEnabled="{x:Bind ViewModel.CanLoad, Mode=OneWay}"/>
+                <Button x:Uid="PluginStorePage_InstallManual" Command="{x:Bind ViewModel.InstallManualCommand}" IsEnabled="{x:Bind ViewModel.CanLoad, Mode=OneWay}"/>
             </StackPanel>
 
             <ProgressRing IsActive="{x:Bind ViewModel.IsLoading, Mode=OneWay}" Visibility="{x:Bind ViewModel.IsLoading, Mode=OneWay, Converter={StaticResource BoolToVisConverter}}" Width="28" Height="28"/>
@@ -40,7 +40,7 @@
                             </Grid.ColumnDefinitions>
 
                             <StackPanel Spacing="4">
-                                <TextBlock Text="{x:Bind Name, Mode=OneWay}" Style="{ThemeResource BodyStrongTextBlockStyle}" TextWrapping="Wrap"/>
+                                <TextBlock Text="{x:Bind Name, Mode=OneWay}" Style="{StaticResource BodyStrongTextBlockStyle}" TextWrapping="Wrap"/>
                                 <StackPanel Orientation="Horizontal" Spacing="12">
                                     <TextBlock Text="{x:Bind SizeDisplay, Mode=OneWay}" Foreground="{ThemeResource TextFillColorSecondaryBrush}"/>
                                 </StackPanel>

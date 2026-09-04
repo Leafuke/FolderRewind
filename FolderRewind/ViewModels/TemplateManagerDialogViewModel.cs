@@ -422,7 +422,7 @@ namespace FolderRewind.ViewModels
             TemplateAuthor = SelectedTemplate.Author;
             TemplateDescription = SelectedTemplate.Description;
 
-            var updatedText = SelectedTemplate.UpdatedUtc.ToLocalTime().ToString("yyyy-MM-dd HH:mm", CultureInfo.CurrentCulture);
+            var updatedText = UserDisplayFormatter.ShortDateTime(SelectedTemplate.UpdatedUtc.ToLocalTime());
             var ruleCount = SelectedTemplate.PathRules?.Count ?? 0;
             TemplateMetaText = I18n.Format(
                 "TemplateManagerDialog_TemplateMetaFormat",

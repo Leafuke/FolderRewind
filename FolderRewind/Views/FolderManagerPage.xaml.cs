@@ -1,34 +1,48 @@
 using FolderRewind.Models;
 using FolderRewind.Services;
 using FolderRewind.Services.Hotkeys;
-using FolderRewind.Services.Plugins;
 using FolderRewind.ViewModels;
 using Microsoft.UI.Xaml;
+using Microsoft.UI.Xaml.Automation;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Input;
 using Microsoft.UI.Xaml.Navigation;
 using System;
-using System.Collections.Generic;
-using System.Diagnostics;
-using System.IO;
-using System.Linq;
-using System.Threading.Tasks;
-using ResourceLoader = FolderRewind.Services.AppResourceLoader;
 using Windows.System;
-using PickerViewMode = Windows.Storage.Pickers.PickerViewMode;
 
 namespace FolderRewind.Views
 {
     public sealed partial class FolderManagerPage : Page
     {
-        public FolderManagerPageViewModel ViewModel { get; } = new();
+        public FolderManagerPageViewModel ViewModel { get; }
 
         public FolderManagerPage()
         {
+            ViewModel = new(new FolderManagerInteractionService(() => XamlRoot));
             this.InitializeComponent();
 
             ViewModel.PendingFolderSelectionRequested += TryApplyPendingSelection;
             Loaded += (_, __) => TryApplyPendingSelection();
+        }
+
+        private void OnFolderContainerContentChanging(
+            ListViewBase sender,
+            ContainerContentChangingEventArgs args)
+        {
+            if (args.InRecycleQueue)
+            {
+                AutomationProperties.SetName(args.ItemContainer, string.Empty);
+                AutomationProperties.SetAutomationId(args.ItemContainer, string.Empty);
+                return;
+            }
+
+            if (args.Item is not ManagedFolder folder)
+            {
+                return;
+            }
+
+            AutomationProperties.SetName(args.ItemContainer, folder.DisplayName);
+            AutomationProperties.SetAutomationId(args.ItemContainer, $"FolderManagerFolder_{folder.Id}");
         }
 
         protected override void OnNavigatedTo(NavigationEventArgs e)
@@ -99,47 +113,12 @@ namespace FolderRewind.Views
             ViewModel.Deactivate();
         }
 
-        private async void HotkeyManager_Invoked(object? sender, HotkeyInvokedEventArgs e)
+        private void HotkeyManager_Invoked(object? sender, HotkeyInvokedEventArgs e)
         {
-            if (e == null || e.HotkeyId != HotkeyManager.Action_BackupSelectedFolder)
-            {
-                return;
-            }
-
-            if (!TryGetSelectedContext(out _, out _))
-            {
-                return;
-            }
-
-            var comment = ViewModel.BuildHotkeyBackupComment();
-
-            _ = DispatcherQueue.TryEnqueue(async () =>
-            {
-                try
-                {
-                    if (BackupSelectedButton != null && !BackupSelectedButton.IsEnabled)
-                    {
-                        return;
-                    }
-
-                    if (BackupSelectedButton != null)
-                    {
-                        BackupSelectedButton.IsEnabled = false;
-                    }
-
-                    await ViewModel.BackupSelectedFolderAsync(
-                        BackupInvocationOptions.ForPluginHotkey().WithComment(comment));
-                    ViewModel.BackupComment = string.Empty;
-                }
-                finally
-                {
-                    if (BackupSelectedButton != null)
-                    {
-                        BackupSelectedButton.IsEnabled = ViewModel.HasSelectedFolder;
-                    }
-                }
-            });
+            if (e.HotkeyId == HotkeyManager.Action_BackupSelectedFolder)
+                DispatcherQueue.TryEnqueue(() => ExecuteCommand(ViewModel.HotkeyBackupCommand));
         }
+
 
         private void ApplyManagerNavigation(ManagerNavigationParameter param)
         {
@@ -221,591 +200,43 @@ namespace FolderRewind.Views
             ViewModel.SetSelectedFolder(FolderList.SelectedItem as ManagedFolder, persistSelection: true);
         }
 
-        private void OnRemoveFolderClick(object sender, RoutedEventArgs e)
+        private void OnRemoveFolderClick(object sender, RoutedEventArgs e) => ExecuteCommand(ViewModel.RemoveFolderCommand, (sender as FrameworkElement)?.DataContext);
+        private void OnFavoriteToggleClick(object sender, RoutedEventArgs e) => ExecuteCommand(ViewModel.ToggleFavoriteCommand, (sender as FrameworkElement)?.DataContext);
+        private void OnPinToTopClick(object sender, RoutedEventArgs e) => ExecuteCommand(ViewModel.PinFolderCommand, (sender as FrameworkElement)?.DataContext);
+        private void OnOpenFolderClick(object sender, RoutedEventArgs e) => ExecuteCommand(ViewModel.OpenFolderCommand, (sender as FrameworkElement)?.DataContext);
+        private void OnOpenMiniWindowClick(object sender, RoutedEventArgs e) => ExecuteCommand(ViewModel.OpenMiniWindowCommand, (sender as FrameworkElement)?.DataContext);
+        private void OnShowFolderDetailsClick(object sender, RoutedEventArgs e) => ExecuteCommand(ViewModel.ShowDetailsCommand, (sender as FrameworkElement)?.DataContext);
+        private void OnRenameFolderClick(object sender, RoutedEventArgs e) => ExecuteCommand(ViewModel.RenameFolderCommand, (sender as FrameworkElement)?.DataContext);
+        private void OnEditSourceScopeClick(object sender, RoutedEventArgs e) => ExecuteCommand(ViewModel.EditSourceScopeCommand, (sender as FrameworkElement)?.DataContext);
+        private void OnChangeIconClick(object sender, RoutedEventArgs e) => ExecuteCommand(ViewModel.ChangeIconCommand, (sender as FrameworkElement)?.DataContext);
+        private void OnAddSingleFolderClick(object sender, RoutedEventArgs e) => ExecuteCommand(ViewModel.AddSingleFolderCommand);
+        private void OnAddSubFoldersClick(object sender, RoutedEventArgs e) => ExecuteCommand(ViewModel.AddSubFoldersCommand);
+        private void OnPluginDiscoverFoldersClick(object sender, RoutedEventArgs e) => ExecuteCommand(ViewModel.PluginDiscoverCommand);
+        private void OnBackupConfigClick(object sender, RoutedEventArgs e) => ExecuteCommand(ViewModel.BackupConfigCommand);
+        private void OnBackupSelectedClick(object sender, RoutedEventArgs e) => ExecuteCommand(ViewModel.BackupSelectedCommand);
+        private void OnConfigSettingsClick(object sender, RoutedEventArgs e) => ExecuteCommand(ViewModel.ConfigSettingsCommand);
+        private static void ExecuteCommand(System.Windows.Input.ICommand command, object? parameter = null)
         {
-            if (sender is MenuFlyoutItem item && item.DataContext is ManagedFolder folder)
-            {
-                ViewModel.RemoveFolder(folder);
-            }
-        }
-
-        private void OnFavoriteToggleClick(object sender, RoutedEventArgs e)
-        {
-            if (sender is Button btn && btn.DataContext is ManagedFolder folder)
-            {
-                ViewModel.ToggleFavorite(folder);
-            }
-        }
-
-        private void OnPinToTopClick(object sender, RoutedEventArgs e)
-        {
-            if (sender is MenuFlyoutItem item && item.DataContext is ManagedFolder folder)
-            {
-                ViewModel.PinFolderToTop(folder);
-            }
-        }
-
-        private void OnOpenFolderClick(object sender, RoutedEventArgs e)
-        {
-            if (sender is MenuFlyoutItem item && item.DataContext is ManagedFolder folder)
-            {
-                ViewModel.TryOpenFolder(folder);
-            }
-        }
-
-        private void OnOpenMiniWindowClick(object sender, RoutedEventArgs e)
-        {
-            if (sender is MenuFlyoutItem item && item.DataContext is ManagedFolder folder)
-            {
-                ViewModel.TryOpenMiniWindow(folder);
-            }
-        }
-
-        private async void OnShowFolderDetailsClick(object sender, RoutedEventArgs e)
-        {
-            if (sender is not MenuFlyoutItem item || item.DataContext is not ManagedFolder folder || ViewModel.CurrentConfig == null)
-            {
-                return;
-            }
-
-            var dialog = new FolderDetailsDialog
-            {
-                XamlRoot = XamlRoot
-            };
-
-            Task loadTask = dialog.InitializeAsync(ViewModel.CurrentConfig, folder);
-
-            try
-            {
-                await dialog.ShowAsync();
-                await loadTask;
-            }
-            catch (OperationCanceledException)
-            {
-            }
-        }
-
-        private async void OnRenameFolderClick(object sender, RoutedEventArgs e)
-        {
-            if (sender is not MenuFlyoutItem item || item.DataContext is not ManagedFolder folder)
-            {
-                return;
-            }
-
-            string currentLeaf = Path.GetFileName(folder.Path.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar));
-            var preview = FolderRenameService.PreviewRename(folder, currentLeaf);
-
-            var dialog = new FolderRenameDialog
-            {
-                XamlRoot = XamlRoot
-            };
-            dialog.Initialize(folder, preview);
-
-            if (await dialog.ShowAsync() != ContentDialogResult.Primary)
-            {
-                return;
-            }
-
-            var livePreview = FolderRenameService.PreviewRename(folder, dialog.ViewModel.NewLeafName);
-            if (!livePreview.IsValid)
-            {
-                NotificationService.ShowError(livePreview.Message, I18n.GetString("FolderManager_RenameFolder_Title"));
-                return;
-            }
-
-            var result = await FolderRenameService.RenameAsync(folder, dialog.ViewModel.NewLeafName);
-            if (!result.Success)
-            {
-                NotificationService.ShowError(result.Message, I18n.GetString("FolderManager_RenameFolder_Title"));
-                return;
-            }
-
-            ViewModel.SetPendingFolderPath(result.NewPath);
-            ViewModel.SetSelectedFolder(null, persistSelection: false);
-            ViewModel.RefreshCurrentFoldersView();
-            TryApplyPendingSelection();
-            NotificationService.ShowSuccess(result.Message, I18n.GetString("FolderManager_RenameFolder_Title"));
+            if (command.CanExecute(parameter)) command.Execute(parameter);
         }
 
         private void OnDescriptionEditorKeyDown(object sender, KeyRoutedEventArgs e)
         {
-            if (e.Key != VirtualKey.Enter || sender is not TextBox textBox)
-            {
-                return;
-            }
-
+            if (e.Key != VirtualKey.Enter || sender is not TextBox input) return;
             e.Handled = true;
-
-            try
-            {
-                textBox.GetBindingExpression(TextBox.TextProperty)?.UpdateSource();
-            }
-            catch
-            {
-            }
-
-            SaveDescriptionIfNeeded(textBox);
-
-            try
-            {
-                FolderList?.Focus(FocusState.Programmatic);
-            }
-            catch
-            {
-            }
+            SaveDescription(input);
+            FolderList.Focus(FocusState.Programmatic);
         }
 
         private void OnDescriptionEditorLostFocus(object sender, RoutedEventArgs e)
         {
-            if (sender is TextBox textBox)
-            {
-                SaveDescriptionIfNeeded(textBox);
-            }
+            if (sender is TextBox input) SaveDescription(input);
         }
 
-        private void SaveDescriptionIfNeeded(TextBox textBox)
+        private void SaveDescription(TextBox input)
         {
-            if (textBox.DataContext is not ManagedFolder folder)
-            {
-                return;
-            }
-
-            try
-            {
-                ViewModel.SaveFolderDescription(folder);
-            }
-            catch
-            {
-            }
-        }
-
-        private async Task AddSingleFolderInternalAsync(string folderPath)
-        {
-            var folderName = GetFolderDisplayName(folderPath);
-            var result = ViewModel.AddFolder(folderPath, folderName, out var addedFolder);
-            if (result == FolderManagerPageViewModel.AddFolderResult.DuplicateDisplayName)
-            {
-                await ShowDuplicateDisplayNameBlockedAsync(FolderNameConflictService.ResolveDisplayName(folderName, folderPath));
-                return;
-            }
-            if (result == FolderManagerPageViewModel.AddFolderResult.UnsafePathOverlap)
-            {
-                await ShowUnsafePathOverlapAsync(new[] { folderPath });
-                return;
-            }
-
-            if (result == FolderManagerPageViewModel.AddFolderResult.Added &&
-                addedFolder != null &&
-                ViewModel.TryMarkNeedMineRewindSuggestion(addedFolder))
-            {
-                _ = ShowMineRewindSuggestionAsync();
-            }
-        }
-
-        private async Task ShowDuplicateDisplayNameBlockedAsync(string folderName)
-        {
-            if (string.IsNullOrWhiteSpace(folderName))
-            {
-                return;
-            }
-
-            var dialog = new ContentDialog
-            {
-                Title = I18n.GetString("FolderManager_DuplicateDisplayName_Title"),
-                Content = I18n.Format("FolderManager_DuplicateDisplayName_Content", folderName, ViewModel.CurrentConfig?.Name ?? string.Empty),
-                CloseButtonText = I18n.GetString("Common_Ok"),
-                DefaultButton = ContentDialogButton.Close,
-                XamlRoot = this.XamlRoot
-            };
-            ThemeService.ApplyThemeToDialog(dialog);
-
-            await dialog.ShowAsync();
-        }
-
-        private async Task ShowSkippedDuplicateDisplayNamesAsync(IEnumerable<string> folderNames)
-        {
-            var distinctNames = folderNames
-                .Where(name => !string.IsNullOrWhiteSpace(name))
-                .Distinct(StringComparer.OrdinalIgnoreCase)
-                .OrderBy(name => name, StringComparer.CurrentCultureIgnoreCase)
-                .ToList();
-
-            if (distinctNames.Count == 0)
-            {
-                return;
-            }
-
-            var dialog = new ContentDialog
-            {
-                Title = I18n.GetString("FolderManager_DuplicateDisplayName_Title"),
-                Content = I18n.Format(
-                    "FolderManager_DuplicateDisplayName_BatchContent",
-                    ViewModel.CurrentConfig?.Name ?? string.Empty,
-                    string.Join(Environment.NewLine, distinctNames.Select(name => $"- {name}"))),
-                CloseButtonText = I18n.GetString("Common_Ok"),
-                DefaultButton = ContentDialogButton.Close,
-                XamlRoot = this.XamlRoot
-            };
-            ThemeService.ApplyThemeToDialog(dialog);
-
-            await dialog.ShowAsync();
-        }
-
-        private async void OnEditSourceScopeClick(object sender, RoutedEventArgs e)
-        {
-            if (sender is not MenuFlyoutItem { DataContext: ManagedFolder folder }
-                || ViewModel.CurrentConfig == null)
-            {
-                return;
-            }
-
-            var original = new BackupSourceScope
-            {
-                Mode = folder.SourceScope?.Mode ?? BackupSourceScopeMode.All,
-                IncludePatterns = new System.Collections.ObjectModel.ObservableCollection<string>(
-                    folder.SourceScope?.IncludePatterns ?? new System.Collections.ObjectModel.ObservableCollection<string>())
-            };
-            var dialog = new SourceScopeEditorDialog(ViewModel.CurrentConfig, folder)
-            {
-                XamlRoot = XamlRoot
-            };
-            if (await dialog.ShowAsync() != ContentDialogResult.Primary || dialog.ResultScope == null)
-            {
-                return;
-            }
-
-            var expandsToAll = original.Mode == BackupSourceScopeMode.Include
-                               && dialog.ResultScope.Mode == BackupSourceScopeMode.All;
-            if (expandsToAll && !await ConfirmSourceScopeExpansionAsync(
-                    "SourceScopeEditor_ExpandTitle",
-                    "SourceScopeEditor_ExpandContent"))
-            {
-                return;
-            }
-            if (expandsToAll
-                && BackupSourceRootSafetyPolicy.IsBroadRoot(folder.Path)
-                && !await ConfirmSourceScopeExpansionAsync(
-                    "SourceScopeEditor_BroadRootTitle",
-                    "SourceScopeEditor_BroadRootContent"))
-            {
-                return;
-            }
-
-            folder.SourceScope = dialog.ResultScope;
-            var saveResult = ConfigService.SaveWithResult();
-            if (!saveResult.Success)
-            {
-                folder.SourceScope = original;
-                NotificationService.ShowError(I18n.Format(
-                    "SourceScopeEditor_SaveFailed",
-                    saveResult.ErrorMessage));
-            }
-        }
-
-        private async Task<bool> ConfirmSourceScopeExpansionAsync(string titleKey, string contentKey)
-        {
-            var dialog = new ContentDialog
-            {
-                XamlRoot = XamlRoot,
-                Title = I18n.GetString(titleKey),
-                Content = new TextBlock
-                {
-                    Text = I18n.GetString(contentKey),
-                    TextWrapping = TextWrapping.Wrap
-                },
-                PrimaryButtonText = I18n.GetString("Common_Confirm"),
-                CloseButtonText = I18n.GetString("Common_Cancel"),
-                DefaultButton = ContentDialogButton.Close
-            };
-            ThemeService.ApplyThemeToDialog(dialog);
-            return await dialog.ShowAsync() == ContentDialogResult.Primary;
-        }
-
-        private async Task ShowUnsafePathOverlapAsync(IEnumerable<string> folderPaths)
-        {
-            var paths = folderPaths
-                .Where(path => !string.IsNullOrWhiteSpace(path))
-                .Distinct(StringComparer.OrdinalIgnoreCase)
-                .ToList();
-            if (paths.Count == 0)
-            {
-                return;
-            }
-
-            var dialog = new ContentDialog
-            {
-                Title = I18n.GetString("Common_Failed"),
-                Content = I18n.Format(
-                    "FolderManager_SourceDestinationOverlap_Content",
-                    string.Join(Environment.NewLine, paths.Select(path => $"- {path}"))),
-                CloseButtonText = I18n.GetString("Common_Ok"),
-                DefaultButton = ContentDialogButton.Close,
-                XamlRoot = this.XamlRoot
-            };
-            ThemeService.ApplyThemeToDialog(dialog);
-            await dialog.ShowAsync();
-        }
-
-        private async void OnAddSingleFolderClick(object sender, RoutedEventArgs e)
-        {
-            var folderPath = await PickFolderPathAsync(
-                I18n.GetString("FolderManager_AddSingleFolderPickerTitle"),
-                "FolderRewind.FolderManager.AddSingle");
-            if (string.IsNullOrWhiteSpace(folderPath))
-            {
-                return;
-            }
-
-            await AddSingleFolderInternalAsync(folderPath);
-        }
-
-        private async void OnAddSubFoldersClick(object sender, RoutedEventArgs e)
-        {
-            var rootFolderPath = await PickFolderPathAsync(
-                I18n.GetString("FolderManager_AddSubFoldersPickerTitle"),
-                "FolderRewind.FolderManager.AddSubFolders");
-            if (string.IsNullOrWhiteSpace(rootFolderPath))
-            {
-                return;
-            }
-
-            var result = ViewModel.AddSubFolders(rootFolderPath);
-            if (!result.Success)
-            {
-                LogService.LogWarning(result.ErrorMessage ?? I18n.GetString("FolderManager_AddSubFoldersFailed"), nameof(FolderManagerPage));
-                NotificationService.ShowWarning(
-                    result.ErrorMessage ?? I18n.GetString("FolderManager_AddSubFoldersFailed"),
-                    I18n.GetString("FolderManager_AddFolder_Title"));
-                return;
-            }
-
-            if (ViewModel.TryMarkNeedMineRewindSuggestion(result.AddedFolders))
-            {
-                _ = ShowMineRewindSuggestionAsync();
-            }
-
-            if (result.DuplicateDisplayNames.Count > 0)
-            {
-                await ShowSkippedDuplicateDisplayNamesAsync(result.DuplicateDisplayNames);
-            }
-            if (result.UnsafePaths.Count > 0)
-            {
-                await ShowUnsafePathOverlapAsync(result.UnsafePaths);
-            }
-        }
-
-        private async void OnPluginDiscoverFoldersClick(object sender, RoutedEventArgs e)
-        {
-            if (ViewModel.CurrentConfig == null)
-            {
-                return;
-            }
-
-            PluginService.Initialize();
-
-            var rootFolderPath = await PickFolderPathAsync(
-                I18n.GetString("FolderManager_PluginDiscoverPickerTitle"),
-                "FolderRewind.FolderManager.PluginDiscover");
-            if (string.IsNullOrWhiteSpace(rootFolderPath))
-            {
-                return;
-            }
-
-            var discovered = await FolderRewind.Services.Plugins.V3.PluginV3DiscoveryService
-                .DiscoverFoldersAsync(ViewModel.CurrentConfig, rootFolderPath);
-            if (discovered == null || discovered.Count == 0)
-            {
-                await ShowPluginDiscoverNoResultAsync();
-                return;
-            }
-
-            var candidates = ViewModel.BuildPluginDiscoverCandidates(discovered);
-            if (candidates.ToAdd.Count == 0)
-            {
-                if (candidates.UnsafePaths.Count > 0)
-                {
-                    await ShowUnsafePathOverlapAsync(candidates.UnsafePaths);
-                    return;
-                }
-                if (candidates.DuplicateDisplayNames.Count > 0)
-                {
-                    await ShowSkippedDuplicateDisplayNamesAsync(candidates.DuplicateDisplayNames);
-                    return;
-                }
-
-                await ShowPluginDiscoverNoNewAsync();
-                return;
-            }
-
-            var confirmed = await ConfirmPluginDiscoverImportAsync(candidates.ToAdd.Count);
-            if (!confirmed)
-            {
-                return;
-            }
-
-            ViewModel.AddDiscoveredFolders(candidates.ToAdd);
-
-            if (ViewModel.TryMarkNeedMineRewindSuggestion(candidates.ToAdd))
-            {
-                _ = ShowMineRewindSuggestionAsync();
-            }
-
-            if (candidates.DuplicateDisplayNames.Count > 0)
-            {
-                await ShowSkippedDuplicateDisplayNamesAsync(candidates.DuplicateDisplayNames);
-            }
-            if (candidates.UnsafePaths.Count > 0)
-            {
-                await ShowUnsafePathOverlapAsync(candidates.UnsafePaths);
-            }
-        }
-
-        private async Task ShowPluginDiscoverNoResultAsync()
-        {
-            var rl = ResourceLoader.GetForViewIndependentUse();
-            var dialog = new ContentDialog
-            {
-                Title = rl.GetString("FolderManager_PluginDiscover_NoResultTitle"),
-                Content = rl.GetString("FolderManager_PluginDiscover_NoResultContent"),
-                CloseButtonText = rl.GetString("Common_Ok"),
-                DefaultButton = ContentDialogButton.Close,
-                XamlRoot = this.XamlRoot
-            };
-            ThemeService.ApplyThemeToDialog(dialog);
-
-            await dialog.ShowAsync();
-        }
-
-        private async Task ShowPluginDiscoverNoNewAsync()
-        {
-            var rl = ResourceLoader.GetForViewIndependentUse();
-            var dialog = new ContentDialog
-            {
-                Title = rl.GetString("FolderManager_PluginDiscover_NoNewTitle"),
-                Content = rl.GetString("FolderManager_PluginDiscover_NoNewContent"),
-                CloseButtonText = rl.GetString("Common_Ok"),
-                DefaultButton = ContentDialogButton.Close,
-                XamlRoot = this.XamlRoot
-            };
-            ThemeService.ApplyThemeToDialog(dialog);
-
-            await dialog.ShowAsync();
-        }
-
-        private async Task<bool> ConfirmPluginDiscoverImportAsync(int folderCount)
-        {
-            var rl = ResourceLoader.GetForViewIndependentUse();
-            var confirm = new ContentDialog
-            {
-                Title = rl.GetString("FolderManager_PluginDiscover_ConfirmTitle"),
-                Content = string.Format(rl.GetString("FolderManager_PluginDiscover_ConfirmContent"), folderCount),
-                PrimaryButtonText = rl.GetString("Common_Ok"),
-                CloseButtonText = rl.GetString("Common_Cancel"),
-                DefaultButton = ContentDialogButton.Primary,
-                XamlRoot = this.XamlRoot
-            };
-            ThemeService.ApplyThemeToDialog(confirm);
-
-            var result = await confirm.ShowAsync();
-            return result == ContentDialogResult.Primary;
-        }
-
-        private async Task ShowMineRewindSuggestionAsync()
-        {
-            var rl = ResourceLoader.GetForViewIndependentUse();
-            var dialog = new ContentDialog
-            {
-                Title = rl.GetString("FolderManager_MineRewindHint_Title"),
-                Content = rl.GetString("FolderManager_MineRewindHint_Content"),
-                PrimaryButtonText = rl.GetString("FolderManager_MineRewindHint_OpenDownload"),
-                CloseButtonText = rl.GetString("Common_Cancel"),
-                DefaultButton = ContentDialogButton.Primary,
-                XamlRoot = this.XamlRoot
-            };
-            ThemeService.ApplyThemeToDialog(dialog);
-
-            var result = await dialog.ShowAsync();
-            if (result == ContentDialogResult.Primary)
-            {
-                if (!NavigationService.NavigateTo("Settings", NavigationService.SettingsMinecraftPresetTarget))
-                {
-                    NotificationService.ShowInfo(
-                        I18n.GetString("FolderManager_MineRewindHint_SettingsFallback"),
-                        I18n.GetString("FolderManager_MineRewindHint_Title"));
-                }
-            }
-        }
-
-        private async void OnChangeIconClick(object sender, RoutedEventArgs e)
-        {
-            if (sender is not Button btn || btn.DataContext is not ManagedFolder folder)
-            {
-                return;
-            }
-
-            // 封面图片只需要文件路径，使用现代 Picker 可以少一层 StorageFile 依赖。
-            var filePath = await MainWindowService.PickFilePathAsync(
-                I18n.GetString("FolderManager_ChangeCoverPickerTitle"),
-                "FolderRewind.FolderManager.ChangeCover",
-                new[] { ".png", ".jpg", ".jpeg" },
-                MainWindowService.SuggestedPickerLocation.PicturesLibrary,
-                viewMode: PickerViewMode.Thumbnail);
-            if (string.IsNullOrWhiteSpace(filePath))
-            {
-                return;
-            }
-
-            if (!ViewModel.TryReplaceFolderIcon(folder, filePath, out var errorMessage))
-            {
-                var message = string.IsNullOrWhiteSpace(errorMessage)
-                    ? I18n.GetString("FolderManager_ChangeCoverFailed")
-                    : errorMessage;
-                LogService.LogWarning(I18n.Format("FolderManager_Log_ChangeCoverFailed", message), nameof(FolderManagerPage));
-                NotificationService.ShowError(message, I18n.GetString("FolderManager_ChangeCover_Title"));
-            }
-        }
-
-        private async void OnBackupConfigClick(object sender, RoutedEventArgs e)
-        {
-            if (ViewModel.CurrentConfig == null)
-            {
-                return;
-            }
-
-            BackupConfigButton.IsEnabled = false;
-            var comment = ViewModel.BackupComment?.Trim();
-
-            try
-            {
-                await ViewModel.BackupCurrentConfigAsync(BackupInvocationOptions.ForManual(comment));
-                ViewModel.BackupComment = string.Empty;
-                Debug.WriteLine("配置备份完成");
-            }
-            finally
-            {
-                BackupConfigButton.IsEnabled = true;
-            }
-        }
-
-        private async void OnBackupSelectedClick(object sender, RoutedEventArgs e)
-        {
-            if (!TryGetSelectedContext(out _, out _))
-            {
-                return;
-            }
-
-            BackupSelectedButton.IsEnabled = false;
-            var comment = ViewModel.BackupComment?.Trim();
-
-            try
-            {
-                await ViewModel.BackupSelectedFolderAsync(BackupInvocationOptions.ForManual(comment));
-                ViewModel.BackupComment = string.Empty;
-            }
-            finally
-            {
-                BackupSelectedButton.IsEnabled = ViewModel.HasSelectedFolder;
-            }
+            if (input.DataContext is ManagedFolder folder)
+                ExecuteCommand(ViewModel.SaveDescriptionCommand, new FolderManagerPageViewModel.DescriptionEdit(folder, input.Text));
         }
 
         private void OnHistoryClick(object sender, RoutedEventArgs e)
@@ -818,53 +249,6 @@ namespace FolderRewind.Views
             var param = ManagerNavigationParameter.ForFolder(config.Id, folder.Path);
             _ = NavigationService.NavigateTo("History", param);
         }
-
-        private async void OnConfigSettingsClick(object sender, RoutedEventArgs e)
-        {
-            if (ViewModel.CurrentConfig == null)
-            {
-                return;
-            }
-
-            var dialog = ConfigSettingsDialog.Instance;
-            dialog.Rebind(ViewModel.CurrentConfig);
-            dialog.XamlRoot = this.XamlRoot;
-            var result = await dialog.ShowAsync();
-
-            if (result == ContentDialogResult.Primary)
-            {
-                ViewModel.SaveConfig();
-            }
-        }
-
-        private static Task<string?> PickFolderPathAsync(string title, string settingsIdentifier)
-        {
-            return MainWindowService.PickFolderPathAsync(
-                title,
-                settingsIdentifier,
-                MainWindowService.SuggestedPickerLocation.ComputerFolder);
-        }
-
-        private static string GetFolderDisplayName(string folderPath)
-        {
-            if (string.IsNullOrWhiteSpace(folderPath))
-            {
-                return string.Empty;
-            }
-
-            try
-            {
-                var trimmed = folderPath.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
-                var name = Path.GetFileName(trimmed);
-                return string.IsNullOrWhiteSpace(name) ? folderPath : name;
-            }
-            catch
-            {
-                return folderPath;
-            }
-        }
-
-
         private bool TryGetSelectedContext(out BackupConfig config, out ManagedFolder folder)
         {
             config = ViewModel.CurrentConfig ?? null!;

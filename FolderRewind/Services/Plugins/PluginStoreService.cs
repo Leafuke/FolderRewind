@@ -54,7 +54,7 @@ namespace FolderRewind.Services.Plugins
                 return new PluginStoreLoadResult
                 {
                     Items = items,
-                    Summary = $"Official Catalog · {items.Count} plugin(s)"
+                    Summary = I18n.Format("PluginStore_SummaryOnline", items.Count)
                 };
             }
             catch (Exception ex) when (ex is not OperationCanceledException)
@@ -70,7 +70,7 @@ namespace FolderRewind.Services.Plugins
                 return new PluginStoreLoadResult
                 {
                     Items = items,
-                    Summary = $"Official Catalog (offline cache) · {items.Count} plugin(s)",
+                    Summary = I18n.Format("PluginStore_SummaryOffline", items.Count),
                     FromCache = true
                 };
             }
@@ -78,7 +78,9 @@ namespace FolderRewind.Services.Plugins
             {
                 return new PluginStoreLoadResult
                 {
-                    ErrorMessage = $"Official Catalog unavailable: {onlineError?.Message ?? cacheError.Message}"
+                    ErrorMessage = I18n.Format(
+                        "PluginStore_CatalogUnavailable",
+                        onlineError?.Message ?? cacheError.Message)
                 };
             }
         }

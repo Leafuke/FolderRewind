@@ -780,6 +780,15 @@
   <data name="HistoryPage_EmptyState.Text" xml:space="preserve">
     <value>请选择文件夹以查看历史</value>
   </data>
+  <data name="HistoryPage_Loading.Text" xml:space="preserve">
+    <value>正在加载历史记录...</value>
+  </data>
+  <data name="HistoryPage_LoadError.Title" xml:space="preserve">
+    <value>无法加载历史记录</value>
+  </data>
+  <data name="HistoryPage_Retry.Content" xml:space="preserve">
+    <value>重试</value>
+  </data>
   <data name="FolderManager_CurrentConfig.Text" xml:space="preserve">
     <value>当前配置：</value>
   </data>
@@ -1306,7 +1315,7 @@
     <value>打开插件商店</value>
   </data>
   <data name="SettingsPage_ManualInstallPlugin.Content" xml:space="preserve">
-    <value>从 .zip 安装插件</value>
+    <value>安装 .frplugin 插件包</value>
   </data>
   <data name="SettingsPage_OpenPluginFolder.Content" xml:space="preserve">
     <value>打开插件目录</value>
@@ -2481,7 +2490,7 @@ cmd=RESTORE;from=minebackup.mod;request_id=req-mr-restore-002;current_save=true;
     <value>已将文件夹 "{0}" 的云上传加入队列：{1}</value>
   </data>
   <data name="CloudSync_Log_CommandStart" xml:space="preserve">
-    <value>开始执行文件夹 "{0}" 的云上传命令：{1}</value>
+    <value>开始执行云命令：{0}</value>
   </data>
   <data name="CloudSync_Log_CommandSucceeded" xml:space="preserve">
     <value>文件夹 "{0}" 的云上传已完成</value>
@@ -2994,7 +3003,7 @@ cmd=RESTORE;from=minebackup.mod;request_id=req-mr-restore-002;current_save=true;
     <value>下面这些变量会在执行前替换成当前备份上下文。高级模式和 rclone 模式都可以使用。</value>
   </data>
   <data name="ConfigSettingsDialog_CloudPreview.Text" xml:space="preserve">
-    <value>命令预览</value>
+    <value>命令预览（可能包含敏感信息）</value>
   </data>
   <data name="ConfigSettingsDialog_CloudLastStatus.Text" xml:space="preserve">
     <value>上次执行状态</value>
@@ -5124,4 +5133,80 @@ Pull Request：{1}</value>
   <data name="History_SafetySnapshot_RestorePrimary" xml:space="preserve"><value>完整恢复</value></data>
   <data name="History_SafetySnapshot_ReleaseSecondary" xml:space="preserve"><value>显式释放</value></data>
   <data name="History_SafetySnapshot_AlreadyReleased" xml:space="preserve"><value>该安全恢复点已被释放或状态已经变化。</value></data>
+  <data name="Schedule_MonthLabel.Text" xml:space="preserve"><value>月：</value></data>
+  <data name="Schedule_DayLabel.Text" xml:space="preserve"><value>日：</value></data>
+  <data name="Tray_ShowHideCommand.Label" xml:space="preserve"><value>显示 / 隐藏</value></data>
+  <data name="Tray_ShowHideCommand.Description" xml:space="preserve"><value>显示或隐藏主窗口</value></data>
+  <data name="Tray_QuitCommand.Label" xml:space="preserve"><value>退出</value></data>
+  <data name="Tray_QuitCommand.Description" xml:space="preserve"><value>退出存档时光机</value></data>
+  <data name="Tray_Icon.ToolTipText" xml:space="preserve"><value>存档时光机</value></data>
+  <data name="Tray_ShowHideItem.Text" xml:space="preserve"><value>显示 / 隐藏</value></data>
+  <data name="Tray_ExitItem.Text" xml:space="preserve"><value>退出</value></data>
+  <data name="PluginStore_SummaryOnline" xml:space="preserve"><value>官方目录 · {0:N0} 个插件</value></data>
+  <data name="PluginStore_SummaryOffline" xml:space="preserve"><value>官方目录（离线缓存）· {0:N0} 个插件</value></data>
+  <data name="PluginStore_CatalogUnavailable" xml:space="preserve"><value>官方目录不可用：{0}</value></data>
+  <data name="History_NoActiveConfiguration" xml:space="preserve"><value>尚未选择活动配置。</value></data>
+  <data name="History_Run_SourceCount" xml:space="preserve"><value>{0:N0} 个来源</value></data>
+  <data name="History_Run_OutcomeCompleted" xml:space="preserve"><value>已完成</value></data>
+  <data name="History_Run_OutcomePartial" xml:space="preserve"><value>部分完成</value></data>
+  <data name="History_Run_OutcomeFailed" xml:space="preserve"><value>失败</value></data>
+  <data name="History_Run_OutcomeNoChange" xml:space="preserve"><value>无变更</value></data>
+  <data name="History_Run_SourceCarriedForward" xml:space="preserve"><value>沿用上次结果</value></data>
+  <data name="FolderManager_InvalidContext" xml:space="preserve"><value>未提供活动配置或有效文件夹。</value></data>
+  <data name="FolderManager_InvalidIconSource" xml:space="preserve"><value>图标来源或目标文件夹无效。</value></data>
+  <data name="Hotkeys_BackupCommentMarker" xml:space="preserve"><value>[快捷键]</value></data>
+  <data name="GameDiscovery_TargetedPresetUnavailable" xml:space="preserve"><value>所选的提供者定向预设已不可用。</value></data>
+  <data name="GameDiscovery_OperationRunning" xml:space="preserve"><value>游戏发现操作仍在运行。</value></data>
+  <data name="GameDiscovery_SelectDraft" xml:space="preserve"><value>提交前请至少选择一个发现草案。</value></data>
+  <data name="CoreValidation_Report_DurationValue" xml:space="preserve"><value>{0:N1} 秒</value></data>
+  <data name="CoreValidation_Report_StepFormat" xml:space="preserve"><value>[{0}] {1}（{2}）</value></data>
+  <data name="Template_CreateFrom_Home_InvalidPreset" xml:space="preserve"><value>此预设不包含可用的内联路径规则或提供者定义引用。</value></data>
+  <data name="MiniWindow_TitleFormat" xml:space="preserve"><value>迷你窗口 · {0}</value></data>
+  <data name="MiniWindow_DefaultFolderName" xml:space="preserve"><value>文件夹</value></data>
+  <data name="BackupService_MissingEncryptionPassword" xml:space="preserve"><value>此配置缺少加密密码。</value></data>
+  <data name="BackupService_InvalidConfigurationOrSource" xml:space="preserve"><value>备份配置或来源无效。</value></data>
+  <data name="HomePage_QuickBackupButton.AutomationProperties.Name" xml:space="preserve"><value>快速备份文件夹</value></data>
+  <data name="HomePage_ContextMenu_DeleteConfig.AutomationProperties.HelpText" xml:space="preserve"><value>确认后删除此配置。</value></data>
+  <data name="HistoryPage_ToggleImportantButton.AutomationProperties.Name" xml:space="preserve"><value>切换重要状态</value></data>
+  <data name="HistoryPage_ViewButton.AutomationProperties.Name" xml:space="preserve"><value>查看版本</value></data>
+  <data name="HistoryPage_EditCommentButton.AutomationProperties.Name" xml:space="preserve"><value>编辑注释</value></data>
+  <data name="HistoryPage_CreateBranchButton.AutomationProperties.Name" xml:space="preserve"><value>从此处创建分支</value></data>
+  <data name="HistoryPage_UploadCloudButton.AutomationProperties.Name" xml:space="preserve"><value>将版本上传到云存储</value></data>
+  <data name="HistoryPage_DownloadCloudButton.AutomationProperties.Name" xml:space="preserve"><value>从云存储下载版本</value></data>
+  <data name="HistoryPage_RestoreButton.AutomationProperties.Name" xml:space="preserve"><value>恢复此版本</value></data>
+  <data name="HistoryPage_RestoreButton.AutomationProperties.HelpText" xml:space="preserve"><value>确认后使用此版本替换所选来源。</value></data>
+  <data name="HistoryPage_DeleteButton.AutomationProperties.Name" xml:space="preserve"><value>删除历史项目</value></data>
+  <data name="HistoryPage_DeleteButton.AutomationProperties.HelpText" xml:space="preserve"><value>确认后永久删除此历史项目。</value></data>
+  <data name="FolderManager_ConfigSettingsButton.AutomationProperties.Name" xml:space="preserve"><value>打开配置设置</value></data>
+  <data name="FolderManager_ChangeCover.AutomationProperties.Name" xml:space="preserve"><value>更改文件夹封面</value></data>
+  <data name="FolderManager_FavoriteToggle.AutomationProperties.Name" xml:space="preserve"><value>切换收藏文件夹</value></data>
+  <data name="FolderManager_AddDescription.AutomationProperties.Name" xml:space="preserve"><value>文件夹描述</value></data>
+  <data name="FolderManager_MoreActions.AutomationProperties.Name" xml:space="preserve"><value>更多文件夹操作</value></data>
+  <data name="FolderManager_MoreActions.ToolTipService.ToolTip" xml:space="preserve"><value>更多文件夹操作</value></data>
+  <data name="FolderManager_RemoveFolder.AutomationProperties.HelpText" xml:space="preserve"><value>确认后从配置中移除此文件夹。</value></data>
+  <data name="SettingsPage_PluginsAutoCheckUpdatesToggle.AutomationProperties.Name" xml:space="preserve"><value>自动检查插件更新</value></data>
+  <data name="SettingsPage_PluginEnabledToggle.AutomationProperties.Name" xml:space="preserve"><value>启用或禁用插件</value></data>
+  <data name="SettingsPage_PluginUninstall.AutomationProperties.HelpText" xml:space="preserve"><value>确认后卸载此插件。</value></data>
+  <data name="SettingsPage_PluginDeleteData.AutomationProperties.HelpText" xml:space="preserve"><value>确认后永久删除此插件保存的数据。</value></data>
+  <data name="SettingsPage_KnotLinkEnabledToggle.AutomationProperties.Name" xml:space="preserve"><value>启用 KnotLink 互联</value></data>
+  <data name="SettingsPage_KnotLinkAutoStartToggle.AutomationProperties.Name" xml:space="preserve"><value>自动启动 KnotLink 服务端</value></data>
+  <data name="MiniWindow_PrimaryAction.AutomationProperties.Name" xml:space="preserve"><value>打开备份注释面板</value></data>
+  <data name="MiniWindow_CommentBox.AutomationProperties.Name" xml:space="preserve"><value>备份注释</value></data>
+  <data name="MiniWindow_OpenCommentPanel" xml:space="preserve"><value>打开备份注释面板</value></data>
+  <data name="MiniWindow_CloseCommentPanel" xml:space="preserve"><value>关闭备份注释面板</value></data>
+  <data name="HomePage_NewConfigButton.AutomationProperties.Name" xml:space="preserve"><value>新建配置</value></data>
+  <data name="HistoryPage_BranchCheckoutButton.AutomationProperties.Name" xml:space="preserve"><value>切换到所选分支</value></data>
+  <data name="HistoryPage_BranchMoreActions.AutomationProperties.Name" xml:space="preserve"><value>更多分支操作</value></data>
+  <data name="HistoryPage_OpenCloudSyncButton.AutomationProperties.Name" xml:space="preserve"><value>打开云同步设置</value></data>
+  <data name="HistoryPage_MaintenanceDropDown.AutomationProperties.Name" xml:space="preserve"><value>历史记录维护与偏好设置</value></data>
+  <data name="HistoryPage_BranchDeleteItem.AutomationProperties.HelpText" xml:space="preserve"><value>确认后删除所选休眠分支。</value></data>
+  <data name="HistoryPage_ClearMissingMenuItem.AutomationProperties.HelpText" xml:space="preserve"><value>移除本地载荷已不存在的历史记录。</value></data>
+  <data name="FolderManager_AddFolderButton.AutomationProperties.Name" xml:space="preserve"><value>添加文件夹</value></data>
+  <data name="FolderManager_BackupConfigButton.AutomationProperties.Name" xml:space="preserve"><value>备份全部文件夹</value></data>
+  <data name="FolderManager_BackupSelectedButton.AutomationProperties.Name" xml:space="preserve"><value>备份所选文件夹</value></data>
+  <data name="FolderManager_HistoryButton.AutomationProperties.Name" xml:space="preserve"><value>打开所选文件夹历史</value></data>
+  <data name="SettingsPage_StartupWidthInput.AutomationProperties.Name" xml:space="preserve"><value>启动窗口宽度</value></data>
+  <data name="SettingsPage_StartupHeightInput.AutomationProperties.Name" xml:space="preserve"><value>启动窗口高度</value></data>
+  <data name="Settings_KnotLink_InvalidHost" xml:space="preserve"><value>请输入主机名或 IP 地址，不要包含 URL 协议或端口。</value></data>
+  <data name="Settings_KnotLink_InvalidIdentifier" xml:space="preserve"><value>KnotLink 标识符不能包含控制字符。</value></data>
 </root>
