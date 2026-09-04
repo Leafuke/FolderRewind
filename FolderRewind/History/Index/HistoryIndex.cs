@@ -102,14 +102,7 @@ public sealed class HistoryIndex : IDisposable
             temporaryPath = Path.Combine(directory, $".history-index.{Guid.NewGuid():N}.tmp");
             BuildDatabase(temporaryPath, packs, cancellationToken);
 
-            if (File.Exists(_indexPath))
-            {
-                File.Replace(temporaryPath, _indexPath, destinationBackupFileName: null, ignoreMetadataErrors: true);
-            }
-            else
-            {
-                File.Move(temporaryPath, _indexPath);
-            }
+            InstallRebuiltDatabase(temporaryPath, _indexPath);
         }
         finally
         {
@@ -125,6 +118,31 @@ public sealed class HistoryIndex : IDisposable
             }
 
             _gate.Release();
+        }
+    }
+
+    internal static void InstallRebuiltDatabase(
+        string temporaryPath,
+        string indexPath,
+        Action<string, string>? replaceExisting = null)
+    {
+        if (!File.Exists(indexPath))
+        {
+            File.Move(temporaryPath, indexPath);
+            return;
+        }
+
+        try
+        {
+            if (replaceExisting is not null) replaceExisting(temporaryPath, indexPath);
+            else File.Replace(temporaryPath, indexPath, destinationBackupFileName: null, ignoreMetadataErrors: true);
+        }
+        catch (IOException ex) when (ex.HResult == unchecked((int)0x80070497))
+        {
+            // ERROR_UNABLE_TO_REMOVE_REPLACED leaves both filenames intact. The
+            // completed database is in the same directory; overwrite by rename
+            // without first deleting the old index. Other I/O failures propagate.
+            File.Move(temporaryPath, indexPath, overwrite: true);
         }
     }
 
