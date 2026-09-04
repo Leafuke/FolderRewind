@@ -70,6 +70,9 @@ public readonly record struct HistoryConfigId
 
     public static HistoryConfigId Parse(string value) => new(value);
 
+    public bool Matches(string? value)
+        => !string.IsNullOrWhiteSpace(value) && this == new HistoryConfigId(value);
+
     public override string ToString() => Value;
 }
 

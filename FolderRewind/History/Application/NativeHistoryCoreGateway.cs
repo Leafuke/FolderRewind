@@ -54,16 +54,18 @@ public static class NativeHistoryCoreGateway
         CancellationToken cancellationToken = default)
         => EnsureReadyAsync(config, ConfigService.ConfigDirectory, legacy: null, cancellationToken);
 
-    public static Task<HistoryRuntime> EnsureReadyAsync(
+    public static async Task<HistoryRuntime> EnsureReadyAsync(
         string configId,
         CancellationToken cancellationToken = default)
     {
-        var config = ConfigService.CurrentConfig.BackupConfigs.FirstOrDefault(item =>
-            string.Equals(item.Id, configId, StringComparison.OrdinalIgnoreCase));
-        return config is null
-            ? Task.FromException<HistoryRuntime>(new InvalidOperationException(
-                $"Native History configuration '{configId}' does not exist."))
-            : EnsureReadyAsync(config, cancellationToken);
+        cancellationToken.ThrowIfCancellationRequested();
+        var identity = new HistoryConfigId(configId);
+        var config = await UiDispatcherService.RunOnUiAsync(() => Task.FromResult(
+            ConfigService.CurrentConfig.BackupConfigs.FirstOrDefault(item => identity.Matches(item.Id))))
+            .ConfigureAwait(false);
+        if (config is null)
+            throw new InvalidOperationException($"Native History configuration '{configId}' does not exist.");
+        return await EnsureReadyAsync(config, cancellationToken).ConfigureAwait(false);
     }
 
     public static void EnsureReady(string configId)
