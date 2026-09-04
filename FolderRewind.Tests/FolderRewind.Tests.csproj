@@ -93,6 +93,9 @@
     <Compile Include="..\FolderRewind\Services\ConfigEditTransaction.cs" Link="Source\ConfigEditTransaction.cs" />
     <Compile Include="..\FolderRewind\Services\AsyncCommandLifetime.cs" Link="Source\AsyncCommandLifetime.cs" />
     <Compile Include="..\FolderRewind\Services\FolderScopeEditController.cs" Link="Source\FolderScopeEditController.cs" />
+    <Compile Include="..\FolderRewind\Services\StartupSequence.cs" Link="Source\StartupSequence.cs" />
+    <Compile Include="..\FolderRewind\Services\NotificationPresentationState.cs" Link="Source\NotificationPresentationState.cs" />
+    <Compile Include="..\FolderRewind\Services\WindowCloseController.cs" Link="Source\WindowCloseController.cs" />
     <Compile Include="..\FolderRewind\Services\AutomationSchedulePolicy.cs" Link="Source\AutomationSchedulePolicy.cs" />
     <Compile Include="..\FolderRewind\Services\AutomationConditionStateTracker.cs" Link="Source\AutomationConditionStateTracker.cs" />
     <Compile Include="..\FolderRewind\Services\CloudCommandSecurity.cs" Link="Source\CloudCommandSecurity.cs" />

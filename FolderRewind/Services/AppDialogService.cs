@@ -9,6 +9,7 @@ namespace FolderRewind.Services;
 
 internal interface IAppDialogService
 {
+    Task<ContentDialogResult> ShowRequestAsync(AppDialogRequest request, XamlRoot? xamlRoot = null, CancellationToken cancellationToken = default);
     Task ShowMessageAsync(
         string title,
         string message,
@@ -47,6 +48,17 @@ internal sealed class AppDialogService : IAppDialogService
     private readonly AsyncOperationQueue _queue = new();
 
     public static IAppDialogService Default { get; } = new AppDialogService();
+
+    public Task<ContentDialogResult> ShowRequestAsync(AppDialogRequest request, XamlRoot? xamlRoot = null, CancellationToken cancellationToken = default)
+        => ShowCustomAsync(new ContentDialog
+        {
+            Title = request.Title,
+            Content = request.Content,
+            PrimaryButtonText = request.PrimaryButtonText,
+            SecondaryButtonText = request.SecondaryButtonText,
+            CloseButtonText = request.CloseButtonText,
+            DefaultButton = request.DefaultButton
+        }, xamlRoot, cancellationToken);
 
     public async Task ShowMessageAsync(
         string title,

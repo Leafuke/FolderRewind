@@ -17,6 +17,17 @@ namespace FolderRewind.ViewModels
 
         public string TitleText => GetTitleText();
 
+        public FolderRewind.Models.GlobalSettings? Settings => ConfigService.CurrentConfig?.GlobalSettings;
+
+        public void PersistPaneState(bool isOpen)
+        {
+            if (Settings is not { } settings || settings.IsNavPaneOpen == isOpen) return;
+            var previous = settings.IsNavPaneOpen;
+            TaskObserver.Observe(ConfigEditTransaction.ApplyAsync(() => settings.IsNavPaneOpen = isOpen,
+                () => { if (settings.IsNavPaneOpen == isOpen) settings.IsNavPaneOpen = previous; },
+                () => ConfigService.SaveAsync(), I18n.GetString("Common_Failed")), nameof(ShellPageViewModel));
+        }
+
         public string TitleIconGlyph => GetTitleIconGlyph();
 
         public bool IsSponsorBackgroundVisible => _isSponsorBackgroundVisible;
@@ -75,7 +86,8 @@ namespace FolderRewind.ViewModels
 
         private void OnStateChanged()
         {
-            EnqueueOnUiThread(() => _ = RefreshVisualsAsync());
+            CoreFeatureValidationService.TryScheduleInitialValidation();
+            EnqueueOnUiThread(() => TaskObserver.Observe(RefreshVisualsAsync(), nameof(ShellPageViewModel)));
         }
 
         private static string GetTitleText()
