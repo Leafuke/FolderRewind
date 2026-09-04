@@ -269,7 +269,7 @@
                                        Foreground="{ThemeResource TextFillColorSecondaryBrush}"/>
 
                             <!-- 描述 -->
-                            <TextBox Text="{x:Bind Description, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" 
+                            <TextBox Text="{x:Bind Description, Mode=OneWay}"
                                      x:Uid="FolderManager_AddDescription"
                                      AutomationProperties.AutomationId="{x:Bind Id, Converter={StaticResource AutomationIdConverter}, ConverterParameter=FolderManagerDescription}"
                                      BorderThickness="0" Background="Transparent" 

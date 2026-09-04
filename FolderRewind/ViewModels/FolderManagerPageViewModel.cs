@@ -11,7 +11,7 @@ using ResourceLoader = FolderRewind.Services.AppResourceLoader;
 
 namespace FolderRewind.ViewModels
 {
-    public sealed class FolderManagerPageViewModel : ViewModelBase, IDisposable
+    public sealed partial class FolderManagerPageViewModel : ViewModelBase, IDisposable
     {
         public enum AddFolderResult
         {
@@ -78,6 +78,7 @@ namespace FolderRewind.ViewModels
                     return;
                 }
 
+                _commands.Cancel();
                 var old = _currentConfig;
                 // 切配置前先解绑旧集合监听，避免旧配置变更继续污染当前页面。
                 UnhookCurrentFoldersChanged(old);
@@ -123,6 +124,8 @@ namespace FolderRewind.ViewModels
 
             // 页面走缓存时会重复进入，订阅放在激活阶段更安全。
             _isActive = true;
+            _commands.Activate();
+            HookCurrentFoldersChanged(_currentConfig);
             HookConfigsChanged();
             RefreshConfigsView();
         }
@@ -136,12 +139,14 @@ namespace FolderRewind.ViewModels
 
             // 与 Activate 成对解绑，防止重复回调与内存滞留。
             _isActive = false;
+            _commands.Deactivate();
             UnhookConfigsChanged();
             UnhookCurrentFoldersChanged(_currentConfig);
         }
 
         public void Dispose()
         {
+            _commands.Dispose();
             UnhookConfigsChanged();
             UnhookCurrentFoldersChanged(_currentConfig);
         }
@@ -243,71 +248,15 @@ namespace FolderRewind.ViewModels
             }
 
             settings.LastManagerFolderPath = string.Empty;
-            ConfigService.Save();
+            TaskObserver.Observe(TaskObserver.SaveConfigAsync(), nameof(FolderManagerPageViewModel));
         }
 
         public AddFolderResult AddFolder(string path, string? name, out ManagedFolder? addedFolder)
         {
-            return AddFolderInternal(path, name, null, null, persist: true, out addedFolder);
+            return AddFolderInternal(path, name, null, null, out addedFolder);
         }
 
-        public BatchAddFoldersResult AddSubFolders(string rootPath)
-        {
-            var result = new BatchAddFoldersResult();
-            if (CurrentConfig == null || string.IsNullOrWhiteSpace(rootPath))
-            {
-                result.Success = false;
-                result.ErrorMessage = I18n.GetString("FolderManager_InvalidContext");
-                return result;
-            }
 
-            try
-            {
-                var subDirs = Directory.GetDirectories(rootPath);
-                var knownPaths = new HashSet<string>(
-                    CurrentConfig.SourceFolders.Select(f => f.Path ?? string.Empty),
-                    StringComparer.OrdinalIgnoreCase);
-                var knownDisplayNames = new HashSet<string>(
-                    CurrentConfig.SourceFolders.Select(FolderNameConflictService.ResolveDisplayName),
-                    StringComparer.OrdinalIgnoreCase);
-
-                foreach (var dir in subDirs)
-                {
-                    var addResult = AddFolderInternal(
-                        dir,
-                        Path.GetFileName(dir),
-                        knownPaths,
-                        knownDisplayNames,
-                        persist: false,
-                        out var added);
-
-                    if (addResult == AddFolderResult.Added && added != null)
-                    {
-                        result.AddedFolders.Add(added);
-                    }
-                    else if (addResult == AddFolderResult.DuplicateDisplayName)
-                    {
-                        result.DuplicateDisplayNames.Add(FolderNameConflictService.ResolveDisplayName(null, dir));
-                    }
-                    else if (addResult == AddFolderResult.UnsafePathOverlap)
-                    {
-                        result.UnsafePaths.Add(dir);
-                    }
-                }
-
-                if (result.AddedFolders.Count > 0)
-                {
-                    ConfigService.Save();
-                }
-            }
-            catch (Exception ex)
-            {
-                result.Success = false;
-                result.ErrorMessage = ex.Message;
-            }
-
-            return result;
-        }
 
         public PluginDiscoverCandidatesResult BuildPluginDiscoverCandidates(IEnumerable<ManagedFolder> discovered)
         {
@@ -370,7 +319,7 @@ namespace FolderRewind.ViewModels
 
             if (addedAny)
             {
-                ConfigService.Save();
+                // Persisted by the owning asynchronous command.
             }
         }
 
@@ -392,7 +341,7 @@ namespace FolderRewind.ViewModels
                 SetSelectedFolder(null, persistSelection: false);
             }
 
-            ConfigService.Save();
+            // Persisted by the owning asynchronous command.
             return true;
         }
 
@@ -431,42 +380,9 @@ namespace FolderRewind.ViewModels
             return true;
         }
 
-        public void SaveFolderDescription(ManagedFolder folder)
-        {
-            if (folder == null)
-            {
-                return;
-            }
 
-            ConfigService.Save();
-        }
 
-        public bool TryReplaceFolderIcon(ManagedFolder folder, string sourcePath, out string? errorMessage)
-        {
-            errorMessage = null;
-            if (folder == null || string.IsNullOrWhiteSpace(folder.Path) || string.IsNullOrWhiteSpace(sourcePath))
-            {
-                errorMessage = I18n.GetString("FolderManager_InvalidIconSource");
-                return false;
-            }
 
-            try
-            {
-                var destPath = Path.Combine(folder.Path, "icon.png");
-                File.Copy(sourcePath, destPath, overwrite: true);
-
-                // 先清空再赋值，确保绑定图片强制刷新。
-                folder.CoverImagePath = string.Empty;
-                folder.CoverImagePath = destPath;
-                ConfigService.Save();
-                return true;
-            }
-            catch (Exception ex)
-            {
-                errorMessage = ex.Message;
-                return false;
-            }
-        }
 
         public bool TryMarkNeedMineRewindSuggestion(ManagedFolder? folder)
         {
@@ -504,16 +420,7 @@ namespace FolderRewind.ViewModels
             return false;
         }
 
-        public void ToggleFavorite(ManagedFolder folder)
-        {
-            if (folder == null)
-            {
-                return;
-            }
 
-            folder.IsFavorite = !folder.IsFavorite;
-            ConfigService.Save();
-        }
 
         public void PinFolderToTop(ManagedFolder folder)
         {
@@ -529,13 +436,10 @@ namespace FolderRewind.ViewModels
             }
 
             CurrentConfig.SourceFolders.Move(index, 0);
-            ConfigService.Save();
+            // Persisted by the owning asynchronous command.
         }
 
-        public void SaveConfig()
-        {
-            ConfigService.Save();
-        }
+
 
         public async Task BackupCurrentConfigAsync(BackupInvocationOptions? invocationOptions = null)
         {
@@ -567,7 +471,6 @@ namespace FolderRewind.ViewModels
             string? name,
             ISet<string>? knownPaths,
             ISet<string>? knownDisplayNames,
-            bool persist,
             out ManagedFolder? addedFolder)
         {
             addedFolder = null;
@@ -606,10 +509,6 @@ namespace FolderRewind.ViewModels
             knownPaths.Add(path);
             knownDisplayNames.Add(displayName);
 
-            if (persist)
-            {
-                ConfigService.Save();
-            }
 
             return AddFolderResult.Added;
         }
@@ -693,6 +592,7 @@ namespace FolderRewind.ViewModels
         {
             EnqueueOnUiThread(() =>
             {
+                if (!_isActive) return;
                 RefreshConfigsView();
 
                 if (CurrentConfig != null && !Configs.Contains(CurrentConfig))
@@ -764,6 +664,7 @@ namespace FolderRewind.ViewModels
             _currentFoldersRefreshPending = true;
             EnqueueOnUiThread(() =>
             {
+                if (!_isActive) return;
                 _currentFoldersRefreshPending = false;
                 RefreshCurrentFoldersView();
 
@@ -823,7 +724,7 @@ namespace FolderRewind.ViewModels
             if (updated)
             {
                 // 只在值变化时落盘，避免列表选择抖动导致高频写配置。
-                ConfigService.Save();
+                TaskObserver.Observe(TaskObserver.SaveConfigAsync(), nameof(FolderManagerPageViewModel));
             }
         }
 

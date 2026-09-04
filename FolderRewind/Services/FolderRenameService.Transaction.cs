@@ -75,7 +75,7 @@ public static partial class FolderRenameService
                     ConfigService.CurrentConfig?.GlobalSettings,
                     preview.OldPath,
                     preview.NewPath);
-                var configSave = ConfigService.SaveWithResult(publishSavedEvent: false);
+                var configSave = await ConfigService.SaveAsync(publishSavedEvent: false);
                 if (!configSave.Success)
                 {
                     return await RollbackTransactionAsync(
@@ -204,7 +204,7 @@ public static partial class FolderRenameService
         }
     }
 
-    private static Task<FolderRenameResult> RollbackTransactionAsync(
+    private static async Task<FolderRenameResult> RollbackTransactionAsync(
         FolderRenamePreview preview,
         int affectedReferenceCount,
         RenameMemorySnapshot memorySnapshot,
@@ -225,7 +225,7 @@ public static partial class FolderRenameService
 
         rollbackErrors.AddRange(RollbackMoves(completedOperations));
 
-        var configRollbackSave = ConfigService.SaveWithResult(publishSavedEvent: false);
+        var configRollbackSave = await ConfigService.SaveAsync(publishSavedEvent: false);
         if (!configRollbackSave.Success)
         {
             rollbackErrors.Add(
@@ -244,7 +244,7 @@ public static partial class FolderRenameService
         string message = rollbackErrors.Count == 0
             ? $"{failureMessage} Changes were rolled back."
             : $"{failureMessage} Rollback errors: {string.Join(" | ", rollbackErrors)}";
-        return Task.FromResult(new FolderRenameResult
+        return new FolderRenameResult
         {
             Success = false,
             Message = message,
@@ -254,7 +254,7 @@ public static partial class FolderRenameService
             AffectedHistoryCount = 0,
             RollbackSucceeded = rollbackErrors.Count == 0,
             RollbackErrors = rollbackErrors
-        });
+        };
     }
 
     private static RenameRuntimeState CaptureRuntimeState(
