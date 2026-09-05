@@ -121,13 +121,14 @@ public sealed class HistoryBranchAndAnnotationTests
             seeded.Snapshot.Sources[0].Descriptor,
             "detached-state",
             HistoryProvenance.Native("test"));
-        await CommitFactsAsync(runtime, detached);
+        await CommitFactsAsync(runtime, detached, ExactRepresentation(detached.VersionId));
         var detachedWorkspace = new HistoryWorkspace(
             _configId,
             before.StateRevision + 1,
             before.ActiveBranchId,
             before.ActiveBranchUpdateId,
-            [new WorkspaceSourceBaseline(seeded.SourceId, detached.VersionId, WorkspaceBaselineRelation.Exact)]);
+            [new WorkspaceSourceBaseline(seeded.SourceId, detached.VersionId, WorkspaceBaselineRelation.Exact)],
+            before.CheckpointAncestryAnchorId);
         await runtime.WorkspaceStore.SaveAsync(detachedWorkspace, before.StateRevision);
 
         var created = await runtime.Branches.CreateFromCurrentStateAsync(
@@ -226,8 +227,9 @@ public sealed class HistoryBranchAndAnnotationTests
         var later = new BranchUpdate(
             BranchUpdateId.New(), branchId, [], "main", checkpoint.CheckpointId, false,
             DateTimeOffset.UtcNow, BranchUpdateReason.Backup);
-        await CommitFactsAsync(firstRuntime, version, checkpoint, earlier, later);
-        await CommitFactsAsync(secondRuntime, version, checkpoint, earlier, later);
+        var representation = ExactRepresentation(version.VersionId);
+        await CommitFactsAsync(firstRuntime, version, representation, checkpoint, earlier, later);
+        await CommitFactsAsync(secondRuntime, version, representation, checkpoint, earlier, later);
 
         var first = await new HistoryBranchReconciliationService(firstRuntime).ReconcileAsync(
             branchId, [later.UpdateId, earlier.UpdateId]);
@@ -271,7 +273,14 @@ public sealed class HistoryBranchAndAnnotationTests
         var checkpointTwo = new ConfigurationCheckpoint(
             secondCheckpoint, _configId, DateTimeOffset.UtcNow, null, HistoryProvenance.Native("test"),
             [new CheckpointSource(source, version.SourceDescriptorSnapshot, version.VersionId, CheckpointSourceDisposition.Captured)]);
-        await CommitFactsAsync(runtime, version, checkpointOne, checkpointTwo, first, second);
+        await CommitFactsAsync(
+            runtime,
+            version,
+            ExactRepresentation(version.VersionId),
+            checkpointOne,
+            checkpointTwo,
+            first,
+            second);
         var service = new HistoryBranchReconciliationService(runtime);
 
         await Assert.ThrowsExactlyAsync<HistoryBranchCommandException>(
@@ -507,6 +516,18 @@ public sealed class HistoryBranchAndAnnotationTests
             facts.Select(fact => _codec.CreateObject(fact)));
         await runtime.Repository.CommitAsync(pack);
     }
+
+    private static VersionRepresentation ExactRepresentation(VersionId versionId)
+        => new(
+            RepresentationId.New(),
+            versionId,
+            RepresentationKind.CoreFull,
+            "test",
+            [],
+            MaterializationFidelity.Exact,
+            null,
+            null,
+            null);
 
     private static HistoryAnnotationUpdate Annotation(
         HistoryAnnotationTarget target,

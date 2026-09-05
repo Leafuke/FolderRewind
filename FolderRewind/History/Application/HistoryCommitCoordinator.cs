@@ -177,11 +177,13 @@ public sealed class HistoryCommitCoordinator
 {
     private readonly HistoryRuntime _runtime;
     private readonly HistoryPackCodec _codec;
+    private readonly HistoryExactCheckpointAdmission _admission;
 
     public HistoryCommitCoordinator(HistoryRuntime runtime, HistoryPackCodec? codec = null)
     {
         _runtime = runtime ?? throw new ArgumentNullException(nameof(runtime));
         _codec = codec ?? new HistoryPackCodec();
+        _admission = new HistoryExactCheckpointAdmission(_runtime);
     }
 
     /// <summary>
@@ -627,13 +629,20 @@ public sealed class HistoryCommitCoordinator
                     ? CheckpointCreationKind.SafetySnapshot
                     : CheckpointCreationKind.Capture)
             : null;
+        var checkpointAdmission = checkpoint is null
+            ? null
+            : await _admission.EvaluateAsync(
+                checkpoint,
+                versions,
+                representations,
+                cancellationToken).ConfigureAwait(false);
         SafetySnapshot? safetySnapshot = null;
         if (request.SafetySnapshotIntent is not null)
         {
-            if (checkpoint is null || !checkpoint.IsStructurallyComplete)
+            if (checkpoint is null || checkpointAdmission?.IsReady != true)
             {
                 throw new HistoryCommitConflictException(
-                    "SafetySnapshot requires a newly committed structurally complete checkpoint.");
+                    "SafetySnapshot requires a newly committed complete Exact checkpoint.");
             }
             safetySnapshot = new SafetySnapshot(
                 SafetySnapshotId.New(),
@@ -644,7 +653,14 @@ public sealed class HistoryCommitCoordinator
 
         BranchUpdate? branchUpdate = null;
         HistoryWorkspace? updatedWorkspace = null;
-        var branchTargetCheckpoint = checkpoint ?? (request.BranchCreationIntent is not null ? currentCheckpoint : null);
+        var branchCandidate = checkpoint ?? (request.BranchCreationIntent is not null ? currentCheckpoint : null);
+        var branchCandidateAdmission = branchCandidate is null
+            ? null
+            : ReferenceEquals(branchCandidate, checkpoint)
+                ? checkpointAdmission
+                : await _admission.EvaluateAsync(branchCandidate, cancellationToken: cancellationToken)
+                    .ConfigureAwait(false);
+        var branchTargetCheckpoint = branchCandidateAdmission?.IsReady == true ? branchCandidate : null;
         if (branchTargetCheckpoint is not null && request.Intent == HistoryCommitIntent.AdvanceBranch)
         {
             var branchId = request.BranchCreationIntent?.BranchId
@@ -689,6 +705,17 @@ public sealed class HistoryCommitCoordinator
                 nextBaselines,
                 checkpoint.CheckpointId);
         }
+        else if (checkpoint is not null && request.Intent == HistoryCommitIntent.AdvanceBranch)
+        {
+            // 捕获事实仍然持久化，但不完整/不可满足 Exact 的配置向量不得成为 Branch tip。
+            updatedWorkspace = new HistoryWorkspace(
+                request.ConfigSnapshot.ConfigId,
+                checked((workspace?.StateRevision ?? HistoryWorkspaceStore.MissingRevision) + 1),
+                workspace?.ActiveBranchId,
+                workspace?.ActiveBranchUpdateId,
+                nextBaselines,
+                workspace?.CheckpointAncestryAnchorId);
+        }
 
         var checkpointForRun = checkpoint?.CheckpointId ?? currentCheckpoint?.CheckpointId;
         var runOutcomeValue = DetermineRunOutcome(
@@ -704,7 +731,13 @@ public sealed class HistoryCommitCoordinator
             runOutcomeValue,
             runSources,
             checkpointForRun,
-            request.SourceCaptureResults.SelectMany(result => result.Diagnostics));
+            request.SourceCaptureResults.SelectMany(result => result.Diagnostics)
+                .Concat(checkpointAdmission is { IsReady: false }
+                    ? [new HistoryDiagnostic(
+                        "history.checkpoint.exact_admission_failed",
+                        HistoryDiagnosticSeverity.Warning,
+                        checkpointAdmission.Diagnostic)]
+                    : []));
 
         LocalReplicaCatalog? updatedCatalog = null;
         if (localEntries.Count > 0)

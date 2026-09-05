@@ -342,6 +342,39 @@ public sealed class HistoryCommitCoordinatorTests
     }
 
     [TestMethod]
+    public async Task IncompleteInitialCheckpointPreservesCaptureFactsWithoutAdvancingBranch()
+    {
+        await using var runtime = await CreateRuntimeAsync();
+        var capturedSource = SourceId.New();
+        var unavailableSource = SourceId.New();
+        var snapshot = Snapshot(
+            Source(capturedSource, "captured"),
+            Source(unavailableSource, "unavailable"));
+
+        var result = await runtime.Commit.CommitAsync(Request(
+            snapshot,
+            null,
+            CreateCapture(capturedSource, "state", -1, null),
+            SourceCaptureResult.Unavailable(
+                unavailableSource,
+                CaptureScope.FullSource,
+                "not available")));
+
+        Assert.AreEqual(BackupRunOutcome.Partial, result.Run.Outcome);
+        Assert.IsNotNull(result.NewCheckpoint);
+        Assert.IsFalse(result.NewCheckpoint.IsStructurallyComplete);
+        Assert.IsNull(result.NewBranchUpdate);
+        Assert.HasCount(1, result.NewVersions);
+        Assert.IsTrue(result.Run.Diagnostics.Any(item =>
+            item.Code == "history.checkpoint.exact_admission_failed"));
+        var workspace = (await runtime.WorkspaceStore.LoadAsync()).Value!;
+        Assert.IsNull(workspace.ActiveBranchId);
+        Assert.IsNull(workspace.CheckpointAncestryAnchorId);
+        Assert.AreEqual(result.NewVersions.Single().VersionId,
+            workspace.SourceBaselines.Single(item => item.SourceId == capturedSource).BaseVersionId);
+    }
+
+    [TestMethod]
     public async Task BoundaryDriftRequiresSelfContainedRecaptureBeforeBranchAdvance()
     {
         await using var runtime = await CreateRuntimeAsync();

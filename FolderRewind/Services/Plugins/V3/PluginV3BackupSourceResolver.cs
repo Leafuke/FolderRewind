@@ -1,10 +1,7 @@
 using System;
 using System.Collections.Generic;
-using System.Collections.ObjectModel;
-using System.Globalization;
 using System.IO;
 using System.Linq;
-using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
 using FolderRewind.History.Capture;
@@ -78,10 +75,14 @@ internal static class PluginV3BackupSourceResolver
         ArgumentNullException.ThrowIfNull(originalConfig);
         ArgumentNullException.ThrowIfNull(originalFolder);
 
-        var (config, folder) = PluginV3ModelMapper.CloneForOperation(originalConfig, originalFolder);
-        var configSnapshot = PluginV3ModelMapper.ToSnapshot(config);
-        var folderId = Guid.Parse(folder.Id);
-        var folderSnapshot = configSnapshot.Folders.Single(value => value.FolderId == folderId);
+        var boundaryResolution = await HistorySourceBoundaryResolver.ResolveAsync(
+            originalConfig,
+            originalFolder,
+            cancellationToken).ConfigureAwait(false);
+        var config = boundaryResolution.EffectiveConfig;
+        var folder = boundaryResolution.EffectiveFolder;
+        var configSnapshot = boundaryResolution.ConfigSnapshot;
+        var folderSnapshot = boundaryResolution.FolderSnapshot;
         var owner = configSnapshot.Kind.OwnerId;
         var isCore = string.Equals(owner.Value, "folderrewind.core", StringComparison.Ordinal);
         var pluginId = new PluginId(owner.Value);
@@ -130,7 +131,7 @@ internal static class PluginV3BackupSourceResolver
             intent,
             isCore || consistencyProbe is not null,
             false));
-        var diagnostics = captureResolution.Diagnostics.ToList();
+        var diagnostics = captureResolution.Diagnostics.Concat(boundaryResolution.Diagnostics).ToList();
 
         var partial = folder.SourceScope.IsPartial || providerScopeSelected;
         if (captureResolution.Readiness == OperationReadiness.Degraded
@@ -145,7 +146,22 @@ internal static class PluginV3BackupSourceResolver
             captureResolution = new OperationResolution(OperationReadiness.Blocked, diagnostics);
         }
 
-        var activePluginId = isCore || runtimeState != PluginRuntimeState.Active ? null : (PluginId?)pluginId;
+        var activePluginId = boundaryResolution.ActivePluginId;
+
+        if (boundaryResolution.IsBlocked)
+        {
+            return new PluginV3BackupSourceResolution(
+                config,
+                folder,
+                new OperationResolution(OperationReadiness.Blocked, diagnostics),
+                diagnostics,
+                boundaryResolution.Boundary,
+                isBoundaryBlocked: true,
+                activePluginId,
+                configSnapshot,
+                folderSnapshot,
+                intent);
+        }
 
         if (NativeHistoryArtifactTransformPolicy.MustBlock(config.ArtifactTransformPolicy))
         {
@@ -155,98 +171,7 @@ internal static class PluginV3BackupSourceResolver
             return Block(config, folder, NativeHistoryArtifactTransformPolicy.BlockedDiagnosticCode, diagnosticOwner, diagnostics, activePluginId, configSnapshot, folderSnapshot, intent);
         }
 
-        // 解析 FilePolicy（边界计算不可或缺部分，不受 consistency lease readiness 阻断）
-        if (!isCore && runtimeState == PluginRuntimeState.Active)
-        {
-            using (var filePolicyLease = runtime.TryAcquire<IFilePolicyCapability>(
-                pluginId,
-                capability => capability.Kind == configSnapshot.Kind,
-                cancellationToken))
-            {
-                if (filePolicyLease is not null)
-                {
-                    try
-                    {
-                        var policy = await filePolicyLease.Capability.ResolveAsync(
-                            new FilePolicyRequest(configSnapshot, folderSnapshot),
-                            filePolicyLease.Context).ConfigureAwait(false);
-                        MergeFilePolicy(config.Filters, policy);
-                        diagnostics.AddRange(policy.Diagnostics);
-                    }
-                    catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
-                    {
-                        throw;
-                    }
-                    catch (Exception ex)
-                    {
-                        return Block(
-                            config,
-                            folder,
-                            "plugin.file_policy_failed",
-                            owner.Value,
-                            diagnostics,
-                            activePluginId,
-                            configSnapshot,
-                            folderSnapshot,
-                            intent,
-                            capability: "FilePolicy",
-                            arguments: new Dictionary<string, string> { ["error"] = ex.Message });
-                    }
-                }
-            }
-        }
-
-        // 解析 Provider Scope（边界计算不可或缺部分）
-        if (providerScopeSelected)
-        {
-            if (scopeProbe is null)
-            {
-                return Block(config, folder, "plugin.backup_scope_mismatch", owner.Value, diagnostics, activePluginId, configSnapshot, folderSnapshot, intent);
-            }
-            var backupScope = config.BackupScope ?? new BackupScopeSettings();
-            var descriptor = scopeProbe.Capability.Scopes.SingleOrDefault(candidate =>
-                string.Equals(candidate.Id.OwnerId.Value, backupScope.OwnerId, StringComparison.Ordinal)
-                && string.Equals(candidate.Id.ScopeId, backupScope.ScopeId, StringComparison.Ordinal));
-            if (descriptor is null
-                || !TryBuildScopeParameters(
-                    descriptor.FormSchema,
-                    backupScope.Parameters ?? new Dictionary<string, string>(),
-                    out var parameters))
-            {
-                return Block(config, folder, "plugin.backup_scope_parameters_invalid", owner.Value, diagnostics, activePluginId, configSnapshot, folderSnapshot, intent);
-            }
-            try
-            {
-                var scope = await scopeProbe.Capability.ResolveAsync(
-                    new BackupScopeRequest(
-                        configSnapshot,
-                        folderSnapshot,
-                        new BackupScopeId(new OwnerId(backupScope.OwnerId), backupScope.ScopeId),
-                        parameters),
-                    scopeProbe.Context).ConfigureAwait(false);
-                diagnostics.AddRange(scope.Diagnostics);
-                if (scope.Readiness == OperationReadiness.Blocked)
-                {
-                    return Block(config, folder, "plugin.backup_scope_blocked", owner.Value, diagnostics, activePluginId, configSnapshot, folderSnapshot, intent);
-                }
-                var patterns = BackupSourceScopePatternSet.NormalizeAndValidate(scope.IncludePatterns);
-                folder.SourceScope = new BackupSourceScope
-                {
-                    Mode = BackupSourceScopeMode.Include,
-                    IncludePatterns = new ObservableCollection<string>(patterns)
-                };
-            }
-            catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
-            {
-                throw;
-            }
-            catch (Exception)
-            {
-                return Block(config, folder, "plugin.backup_scope_failed", owner.Value, diagnostics, activePluginId, configSnapshot, folderSnapshot, intent);
-            }
-        }
-
-        var effectiveBoundary = EffectiveSourceBoundaryFactory.Create(folder.Path, folder.SourceScope, config.Filters);
+        var effectiveBoundary = boundaryResolution.Boundary;
         return new PluginV3BackupSourceResolution(
             config,
             folder,
@@ -266,44 +191,6 @@ internal static class PluginV3BackupSourceResolver
                .Where(pair => pair.PluginId.Value == kind.OwnerId.Value)
                .Select(pair => pair.Kind)
                .SingleOrDefault(candidate => candidate.Kind == kind);
-
-    private static bool TryBuildScopeParameters(
-        JsonElement schema,
-        IReadOnlyDictionary<string, string> values,
-        out IReadOnlyDictionary<string, JsonElement> parameters)
-    {
-        var result = new Dictionary<string, JsonElement>(StringComparer.Ordinal);
-        var properties = schema.ValueKind == JsonValueKind.Object
-                         && schema.TryGetProperty("properties", out var propertyElement)
-                         && propertyElement.ValueKind == JsonValueKind.Object
-            ? propertyElement
-            : default;
-        foreach (var pair in values)
-        {
-            var type = properties.ValueKind == JsonValueKind.Object
-                       && properties.TryGetProperty(pair.Key, out var definition)
-                       && definition.TryGetProperty("type", out var typeElement)
-                ? typeElement.GetString()
-                : "string";
-            switch (type)
-            {
-                case "boolean" when bool.TryParse(pair.Value, out var boolean):
-                    result[pair.Key] = JsonSerializer.SerializeToElement(boolean);
-                    break;
-                case "integer" when long.TryParse(pair.Value, NumberStyles.Integer, CultureInfo.InvariantCulture, out var integer):
-                    result[pair.Key] = JsonSerializer.SerializeToElement(integer);
-                    break;
-                case "boolean" or "integer":
-                    parameters = new Dictionary<string, JsonElement>();
-                    return false;
-                default:
-                    result[pair.Key] = JsonSerializer.SerializeToElement(pair.Value);
-                    break;
-            }
-        }
-        parameters = result;
-        return true;
-    }
 
     private static PluginV3BackupSourceResolution Block(
         BackupConfig config,
@@ -338,20 +225,4 @@ internal static class PluginV3BackupSourceResolver
             intent);
     }
 
-    private static void MergeFilePolicy(FilterSettings filters, FilePolicyResult policy)
-    {
-        filters.Blacklist ??= new ObservableCollection<string>();
-        filters.BackupWhitelist ??= new ObservableCollection<string>();
-        foreach (var exclusion in policy.RequiredExclusions.Where(BackupSourceScopePatternSet.IsSafeRelativePattern))
-        {
-            BackupFilterRulePolicy.AddDistinct(filters.Blacklist, exclusion);
-        }
-        if (filters.BackupFilterMode == BackupFilterMode.Whitelist)
-        {
-            foreach (var inclusion in policy.RequiredInclusions.Where(BackupSourceScopePatternSet.IsSafeRelativePattern))
-            {
-                BackupFilterRulePolicy.AddDistinct(filters.BackupWhitelist, inclusion);
-            }
-        }
-    }
 }

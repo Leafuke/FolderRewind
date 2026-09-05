@@ -16,11 +16,13 @@ public sealed class HistoryBranchReconciliationService
     private const string IdentityDomain = "folderrewind/branch-reconciliation/v1";
     private readonly HistoryRuntime _runtime;
     private readonly HistoryPackCodec _codec;
+    private readonly HistoryExactCheckpointAdmission _admission;
 
     public HistoryBranchReconciliationService(HistoryRuntime runtime, HistoryPackCodec? codec = null)
     {
         _runtime = runtime ?? throw new ArgumentNullException(nameof(runtime));
         _codec = codec ?? new HistoryPackCodec();
+        _admission = new HistoryExactCheckpointAdmission(_runtime);
     }
 
     public async Task<HistoryBranchCommandResult> ReconcileAsync(
@@ -59,6 +61,17 @@ public sealed class HistoryBranchReconciliationService
                 throw new HistoryBranchCommandException("Non-equivalent tips require an explicit winner.");
             winner = actualTips.SingleOrDefault(item => item.UpdateId == selectedWinnerTipId.Value)
                 ?? throw new HistoryBranchCommandException("Selected winner is not in the expected current tip set.");
+        }
+        if (!winner.IsDeleted && winner.TargetCheckpointId is { } winnerCheckpointId)
+        {
+            var winnerCheckpoint = await _runtime.Query.GetCheckpointAsync(winnerCheckpointId, cancellationToken)
+                .ConfigureAwait(false)
+                ?? throw new HistoryBranchCommandException("Selected winner checkpoint is missing.");
+            var admission = await _admission.EvaluateAsync(winnerCheckpoint, cancellationToken: cancellationToken)
+                .ConfigureAwait(false);
+            if (!admission.IsReady)
+                throw new HistoryBranchCommandException(
+                    $"Selected winner is not a complete Exact checkpoint: {admission.Diagnostic}");
         }
 
         var createdAtUtc = actualTips.Max(item => item.CreatedAtUtc).ToUniversalTime();

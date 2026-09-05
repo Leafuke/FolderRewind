@@ -29,10 +29,12 @@ public static partial class BackupService
             return false;
         var cache = await runtime.CaptureBaselines.LoadAsync(sourceId, cancellationToken).ConfigureAwait(false);
         var version = await runtime.Query.GetVersionAsync(candidateVersionId, cancellationToken).ConfigureAwait(false);
-        var currentBoundary = EffectiveSourceBoundaryFactory.Create(
-            folder.Path,
-            folder.SourceScope,
-            config.Filters);
+        var boundaryResolution = await HistorySourceBoundaryResolver.ResolveAsync(
+            config,
+            folder,
+            cancellationToken).ConfigureAwait(false);
+        if (boundaryResolution.IsBlocked) return false;
+        var currentBoundary = boundaryResolution.Boundary;
         if (cache is null
             || version is null
             || cache.BaseVersionId != candidateVersionId

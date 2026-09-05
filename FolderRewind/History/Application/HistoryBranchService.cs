@@ -30,11 +30,13 @@ public sealed class HistoryBranchService
 {
     private readonly HistoryRuntime _runtime;
     private readonly HistoryPackCodec _codec;
+    private readonly HistoryExactCheckpointAdmission _admission;
 
     public HistoryBranchService(HistoryRuntime runtime, HistoryPackCodec? codec = null)
     {
         _runtime = runtime ?? throw new ArgumentNullException(nameof(runtime));
         _codec = codec ?? new HistoryPackCodec();
+        _admission = new HistoryExactCheckpointAdmission(_runtime);
     }
 
     /// <summary>Create a dormant Branch at a historical Checkpoint. It does not restore or alter Workspace.</summary>
@@ -51,10 +53,12 @@ public sealed class HistoryBranchService
         {
             throw new HistoryBranchCommandException("Checkpoint belongs to another Config.");
         }
-        if (!checkpoint.IsStructurallyComplete)
+        var admission = await _admission.EvaluateAsync(checkpoint, cancellationToken: cancellationToken)
+            .ConfigureAwait(false);
+        if (!admission.IsReady)
         {
             throw new HistoryBranchCommandException(
-                "A Branch requires a structurally complete configuration Checkpoint.");
+                $"A Branch requires a complete Exact configuration Checkpoint: {admission.Diagnostic}");
         }
         var branchName = NormalizeName(name);
         var branches = await LoadBranchesAsync(cancellationToken).ConfigureAwait(false);
@@ -145,6 +149,11 @@ public sealed class HistoryBranchService
                 CheckpointCreationKind.Aggregate);
             exactCheckpoint = aggregate;
         }
+        var admission = await _admission.EvaluateAsync(exactCheckpoint, cancellationToken: cancellationToken)
+            .ConfigureAwait(false);
+        if (!admission.IsReady)
+            throw new HistoryBranchCommandException(
+                $"Current state cannot seed a Branch without a complete Exact checkpoint: {admission.Diagnostic}");
 
         var update = new BranchUpdate(
             BranchUpdateId.New(),

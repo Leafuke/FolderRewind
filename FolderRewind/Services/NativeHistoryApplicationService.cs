@@ -143,7 +143,7 @@ internal static class NativeHistoryApplicationService
         }
         var result = await CreateRestoreService(config, runtime).RestoreVersionAsync(
             versionId,
-            Binding(config, folder),
+            await BindingAsync(config, folder, cancellationToken).ConfigureAwait(false),
             workspace,
             MapRestoreMode(requestedMode),
             cancellationToken).ConfigureAwait(false);
@@ -206,10 +206,10 @@ internal static class NativeHistoryApplicationService
             .Where(item => item.VersionId is not null)
             .Select(item => item.SourceId)
             .ToHashSet();
-        var bindings = config.SourceFolders
-            .Where(folder => completeCheckpoint || restorableSources.Contains(Source(folder)))
-            .Select(folder => Binding(config, folder))
-            .ToArray();
+        var bindings = await BindingsAsync(
+            config,
+            config.SourceFolders.Where(folder => completeCheckpoint || restorableSources.Contains(Source(folder))),
+            cancellationToken).ConfigureAwait(false);
         if (config.Archive.BackupBeforeRestore)
         {
             var protection = await ProtectBeforeRestoreAsync(config, runtime, cancellationToken).ConfigureAwait(false);
@@ -240,7 +240,7 @@ internal static class NativeHistoryApplicationService
         var runtime = await NativeHistoryCoreGateway.EnsureReadyAsync(config, cancellationToken).ConfigureAwait(false);
         var workspace = await RequireWorkspaceAsync(runtime, cancellationToken).ConfigureAwait(false);
         var restore = CreateRestoreService(config, runtime);
-        var bindings = config.SourceFolders.Select(folder => Binding(config, folder)).ToArray();
+        var bindings = await BindingsAsync(config, config.SourceFolders, cancellationToken).ConfigureAwait(false);
         var plan = await new HistoryCheckoutPlanner(runtime, restore).BuildAsync(
             selectedTipId,
             bindings,
@@ -277,7 +277,7 @@ internal static class NativeHistoryApplicationService
         var workspace = await RequireWorkspaceAsync(runtime, cancellationToken).ConfigureAwait(false);
         var plan = await new HistoryCheckoutPlanner(runtime, CreateRestoreService(config, runtime)).BuildAsync(
             selectedTipId,
-            config.SourceFolders.Select(folder => Binding(config, folder)).ToArray(),
+            await BindingsAsync(config, config.SourceFolders, cancellationToken).ConfigureAwait(false),
             workspace,
             assessmentDepth,
             cancellationToken).ConfigureAwait(false);
@@ -366,9 +366,7 @@ internal static class NativeHistoryApplicationService
         var runtime = await NativeHistoryCoreGateway.EnsureReadyAsync(config, cancellationToken).ConfigureAwait(false);
         var workspace = await RequireWorkspaceAsync(runtime, cancellationToken).ConfigureAwait(false);
         var restore = CreateRestoreService(config, runtime);
-        var bindings = config.SourceFolders
-            .Select(folder => Binding(config, folder))
-            .ToArray();
+        var bindings = await BindingsAsync(config, config.SourceFolders, cancellationToken).ConfigureAwait(false);
         var result = await new HistoryCheckoutService(
             runtime,
             restore,
@@ -597,11 +595,34 @@ internal static class NativeHistoryApplicationService
             ? new SourceId(id)
             : throw new InvalidDataException("ManagedFolder has no stable SourceId.");
 
-    private static HistoryRestoreSourceBinding Binding(BackupConfig config, ManagedFolder folder)
-        => new(
-            Source(folder),
-            folder.Path,
-            EffectiveSourceBoundaryFactory.Create(folder.Path, folder.SourceScope, config.Filters));
+    private static async Task<HistoryRestoreSourceBinding> BindingAsync(
+        BackupConfig config,
+        ManagedFolder folder,
+        CancellationToken cancellationToken)
+    {
+        var resolution = await HistorySourceBoundaryResolver.ResolveAsync(config, folder, cancellationToken)
+            .ConfigureAwait(false);
+        if (resolution.IsBlocked)
+        {
+            var code = resolution.Diagnostics.LastOrDefault()?.Code ?? "history.boundary_resolution_failed";
+            throw new InvalidOperationException($"Effective Source Boundary resolution was blocked: {code}");
+        }
+        return new HistoryRestoreSourceBinding(
+            Source(resolution.EffectiveFolder),
+            resolution.EffectiveFolder.Path,
+            resolution.Boundary);
+    }
+
+    private static async Task<IReadOnlyList<HistoryRestoreSourceBinding>> BindingsAsync(
+        BackupConfig config,
+        IEnumerable<ManagedFolder> folders,
+        CancellationToken cancellationToken)
+    {
+        var result = new List<HistoryRestoreSourceBinding>();
+        foreach (var folder in folders)
+            result.Add(await BindingAsync(config, folder, cancellationToken).ConfigureAwait(false));
+        return result;
+    }
 
     private static IReadOnlyList<VersionRepresentation> DependencyFirstClosure(
         VersionRepresentation root,

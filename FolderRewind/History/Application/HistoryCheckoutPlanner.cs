@@ -66,11 +66,13 @@ public sealed class HistoryCheckoutPlanner
 {
     private readonly HistoryRuntime _history;
     private readonly HistoryRestoreService _restore;
+    private readonly HistoryExactCheckpointAdmission _admission;
 
     public HistoryCheckoutPlanner(HistoryRuntime history, HistoryRestoreService restore)
     {
         _history = history ?? throw new ArgumentNullException(nameof(history));
         _restore = restore ?? throw new ArgumentNullException(nameof(restore));
+        _admission = new HistoryExactCheckpointAdmission(_history);
     }
 
     public async Task<HistoryCheckoutPlan> BuildAsync(
@@ -102,8 +104,13 @@ public sealed class HistoryCheckoutPlanner
                 update);
         var checkpoint = await _history.Query.GetCheckpointAsync(update.TargetCheckpointId.Value, cancellationToken)
             .ConfigureAwait(false);
-        if (checkpoint is null || !checkpoint.IsStructurallyComplete)
-            return Blocked(HistoryCheckoutReadiness.Blocked, expectedWorkspace, "Branch target checkpoint is missing or structurally incomplete.", update, checkpoint);
+        if (checkpoint is null)
+            return Blocked(HistoryCheckoutReadiness.Blocked, expectedWorkspace, "Branch target checkpoint is missing.", update);
+        var admission = await _admission.EvaluateAsync(checkpoint, cancellationToken: cancellationToken)
+            .ConfigureAwait(false);
+        if (!admission.IsReady)
+            return Blocked(HistoryCheckoutReadiness.ExactRepresentationUnavailable, expectedWorkspace,
+                $"Branch target checkpoint is not admissible as Exact: {admission.Diagnostic}", update, checkpoint);
 
         var bindingMap = currentConfigSources.ToDictionary(item => item.SourceId);
         var missing = checkpoint.Sources
