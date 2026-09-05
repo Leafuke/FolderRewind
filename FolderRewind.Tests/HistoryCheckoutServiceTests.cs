@@ -277,6 +277,58 @@ public sealed class HistoryCheckoutServiceTests
     }
 
     [TestMethod]
+    public async Task ExactWorkspaceStillRequiresProtectionWhenDiskProbeDiffers()
+    {
+        var configId = new HistoryConfigId(Guid.NewGuid().ToString("N"));
+        var repository = new FileHistoryRepository(
+            configId,
+            new HistoryRepositoryPaths(Path.Combine(_root, "dirty-probe-repository")));
+        await using var history = new HistoryRuntime(repository);
+        await history.InitializeAsync();
+        var sourceId = SourceId.New();
+        var version = Version(configId, sourceId, "source");
+        var checkpoint = new ConfigurationCheckpoint(
+            CheckpointId.New(), configId, DateTimeOffset.UtcNow, null, HistoryProvenance.Native("test"),
+            [new CheckpointSource(
+                sourceId,
+                version.SourceDescriptorSnapshot,
+                version.VersionId,
+                CheckpointSourceDisposition.Captured)]);
+        var branch = new BranchUpdate(
+            BranchUpdateId.New(), BranchId.New(), [], "target", checkpoint.CheckpointId, false,
+            DateTimeOffset.UtcNow, BranchUpdateReason.Created);
+        var codec = new HistoryPackCodec();
+        await repository.CommitAsync(new HistoryCommitPack(
+            PackId.New(), HistoryTransactionId.New(), DateTimeOffset.UtcNow,
+            new object[] { version, Representation(version.VersionId), checkpoint, branch }
+                .Select(item => codec.CreateObject(item))));
+        var workspace = new HistoryWorkspace(
+            configId,
+            0,
+            null,
+            null,
+            [new WorkspaceSourceBaseline(sourceId, version.VersionId, WorkspaceBaselineRelation.Exact)],
+            checkpoint.CheckpointId);
+        await history.WorkspaceStore.SaveAsync(workspace, HistoryWorkspaceStore.MissingRevision);
+        var restore = new HistoryRestoreService(
+            history,
+            new RepresentationRuntime([new ExactTestRepresentationHandler()]),
+            _ => Task.FromResult<IRepresentationEnvironment>(new RepresentationEnvironment([], [], [])),
+            new FileSystemHistoryRestoreMutationBackend());
+
+        var plan = await new HistoryCheckoutPlanner(
+            history,
+            restore,
+            new AlwaysDirtyProbe()).BuildAsync(
+            branch.UpdateId,
+            [new HistoryRestoreSourceBinding(sourceId, Path.Combine(_root, "source"))],
+            workspace,
+            AssessmentDepth.Deep);
+
+        Assert.AreEqual(HistoryCheckoutReadiness.ProtectionRequired, plan.Readiness);
+    }
+
+    [TestMethod]
     public async Task CleanRestoreRemovesUnrelatedTargetFiles()
     {
         var restored = await RestoreSingleVersionAsync(
@@ -410,6 +462,15 @@ public sealed class HistoryCheckoutServiceTests
             File.WriteAllText(Path.Combine(context.StagingDirectory, "restored.txt"), "new");
             return ValueTask.CompletedTask;
         }
+    }
+
+    private sealed class AlwaysDirtyProbe : IHistoryWorkingStateProbe
+    {
+        public Task<bool> IsExactAsync(
+            HistoryRestoreSourceBinding binding,
+            WorkspaceSourceBaseline baseline,
+            CancellationToken cancellationToken)
+            => Task.FromResult(false);
     }
 
     private sealed class FailSecondApplyBackend(IHistoryRestoreMutationBackend inner)

@@ -241,7 +241,10 @@ internal static class NativeHistoryApplicationService
         var workspace = await RequireWorkspaceAsync(runtime, cancellationToken).ConfigureAwait(false);
         var restore = CreateRestoreService(config, runtime);
         var bindings = await BindingsAsync(config, config.SourceFolders, cancellationToken).ConfigureAwait(false);
-        var plan = await new HistoryCheckoutPlanner(runtime, restore).BuildAsync(
+        var plan = await new HistoryCheckoutPlanner(
+            runtime,
+            restore,
+            new NativeWorkingStateProbe(config)).BuildAsync(
             selectedTipId,
             bindings,
             workspace,
@@ -275,7 +278,10 @@ internal static class NativeHistoryApplicationService
     {
         var runtime = await NativeHistoryCoreGateway.EnsureReadyAsync(config, cancellationToken).ConfigureAwait(false);
         var workspace = await RequireWorkspaceAsync(runtime, cancellationToken).ConfigureAwait(false);
-        var plan = await new HistoryCheckoutPlanner(runtime, CreateRestoreService(config, runtime)).BuildAsync(
+        var plan = await new HistoryCheckoutPlanner(
+            runtime,
+            CreateRestoreService(config, runtime),
+            new NativeWorkingStateProbe(config)).BuildAsync(
             selectedTipId,
             await BindingsAsync(config, config.SourceFolders, cancellationToken).ConfigureAwait(false),
             workspace,
@@ -370,7 +376,8 @@ internal static class NativeHistoryApplicationService
         var result = await new HistoryCheckoutService(
             runtime,
             restore,
-            new SafetySnapshotWorkingStateProtector(config, runtime)).CheckoutAsync(
+            new SafetySnapshotWorkingStateProtector(config, runtime),
+            new NativeWorkingStateProbe(config)).CheckoutAsync(
             selectedTipId,
             bindings,
             workspace,
@@ -659,6 +666,26 @@ internal static class NativeHistoryApplicationService
                 SafetySnapshotReason.BeforeCheckout,
                 cancellationToken).ConfigureAwait(false);
             return await RequireWorkspaceAsync(runtime, cancellationToken).ConfigureAwait(false);
+        }
+    }
+
+    private sealed class NativeWorkingStateProbe(BackupConfig config) : IHistoryWorkingStateProbe
+    {
+        public async Task<bool> IsExactAsync(
+            HistoryRestoreSourceBinding binding,
+            WorkspaceSourceBaseline baseline,
+            CancellationToken cancellationToken)
+        {
+            if (baseline.BaseVersionId is not { } versionId
+                || baseline.Relation != WorkspaceBaselineRelation.Exact)
+                return false;
+            var folder = config.SourceFolders.SingleOrDefault(item => Source(item) == binding.SourceId);
+            return folder is not null
+                && await BackupService.DeepProbeWorkspaceVersionAsync(
+                    config,
+                    folder,
+                    versionId,
+                    cancellationToken).ConfigureAwait(false);
         }
     }
 

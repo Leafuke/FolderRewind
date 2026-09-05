@@ -21,12 +21,13 @@ public sealed class HistoryCheckoutService
     public HistoryCheckoutService(
         HistoryRuntime history,
         HistoryRestoreService restore,
-        IHistoryWorkingStateProtector? protector = null)
+        IHistoryWorkingStateProtector? protector = null,
+        IHistoryWorkingStateProbe? workingStateProbe = null)
     {
         _history = history ?? throw new ArgumentNullException(nameof(history));
         _restore = restore ?? throw new ArgumentNullException(nameof(restore));
         _protector = protector;
-        _planner = new HistoryCheckoutPlanner(_history, _restore);
+        _planner = new HistoryCheckoutPlanner(_history, _restore, workingStateProbe);
     }
 
     public async Task<HistoryRestoreResult> CheckoutAsync(
@@ -119,6 +120,12 @@ public sealed class HistoryCheckoutService
                 || revalidated.Checkpoint!.CheckpointId != plan.Checkpoint!.CheckpointId)
             {
                 throw new InvalidOperationException("Branch selection changed during materialization.");
+            }
+            if (revalidated.RequiresProtection
+                && protectionMode == HistoryCheckoutProtectionMode.ProtectCurrentWork)
+            {
+                throw new InvalidOperationException(
+                    "Working files changed after the SafetySnapshot; rebuild protection before Checkout.");
             }
 
             var restoredIds = plan!.Sources

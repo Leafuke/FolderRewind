@@ -67,12 +67,17 @@ public sealed class HistoryCheckoutPlanner
     private readonly HistoryRuntime _history;
     private readonly HistoryRestoreService _restore;
     private readonly HistoryExactCheckpointAdmission _admission;
+    private readonly IHistoryWorkingStateProbe? _workingStateProbe;
 
-    public HistoryCheckoutPlanner(HistoryRuntime history, HistoryRestoreService restore)
+    public HistoryCheckoutPlanner(
+        HistoryRuntime history,
+        HistoryRestoreService restore,
+        IHistoryWorkingStateProbe? workingStateProbe = null)
     {
         _history = history ?? throw new ArgumentNullException(nameof(history));
         _restore = restore ?? throw new ArgumentNullException(nameof(restore));
         _admission = new HistoryExactCheckpointAdmission(_history);
+        _workingStateProbe = workingStateProbe;
     }
 
     public async Task<HistoryCheckoutPlan> BuildAsync(
@@ -182,13 +187,21 @@ public sealed class HistoryCheckoutPlanner
                 HistoryCheckoutSourceAction.PreserveCurrent,
                 null,
                 binding));
-        var requiresProtection = currentConfigSources.Any(binding =>
+        var requiresProtection = false;
+        foreach (var binding in currentConfigSources)
         {
             var baseline = expectedWorkspace.SourceBaselines.FirstOrDefault(item => item.SourceId == binding.SourceId);
-            return baseline is null
+            if (baseline is null
                 || baseline.BaseVersionId is null
-                || baseline.Relation != WorkspaceBaselineRelation.Exact;
-        });
+                || baseline.Relation != WorkspaceBaselineRelation.Exact
+                || (_workingStateProbe is not null
+                    && !await _workingStateProbe.IsExactAsync(binding, baseline, cancellationToken)
+                        .ConfigureAwait(false)))
+            {
+                requiresProtection = true;
+                break;
+            }
+        }
         return new HistoryCheckoutPlan(
             requiresProtection ? HistoryCheckoutReadiness.ProtectionRequired : HistoryCheckoutReadiness.Ready,
             update,

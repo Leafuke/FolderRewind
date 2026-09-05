@@ -73,6 +73,14 @@ public interface IHistoryWorkingStateProtector
         CancellationToken cancellationToken);
 }
 
+public interface IHistoryWorkingStateProbe
+{
+    Task<bool> IsExactAsync(
+        HistoryRestoreSourceBinding binding,
+        WorkspaceSourceBaseline baseline,
+        CancellationToken cancellationToken);
+}
+
 public interface IHistoryRestoreMutationBackend
 {
     HistoryRestoreRollbackSnapshot PlanRollback(
