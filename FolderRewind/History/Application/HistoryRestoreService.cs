@@ -129,7 +129,8 @@ public sealed class HistoryRestoreService
                 checked(current.StateRevision + 1),
                 current.ActiveBranchId,
                 current.ActiveBranchUpdateId,
-                baselines);
+                baselines,
+                current.CheckpointAncestryAnchorId);
             return await ExecuteMutationAsync(prepared, current, desired, cancellationToken).ConfigureAwait(false);
         }
         catch (Exception ex)
@@ -183,7 +184,8 @@ public sealed class HistoryRestoreService
                 checked(current.StateRevision + 1),
                 current.ActiveBranchId,
                 current.ActiveBranchUpdateId,
-                baselines);
+                baselines,
+                current.CheckpointAncestryAnchorId);
             return await ExecuteMutationAsync(
                 [prepared], current, desired, cancellationToken).ConfigureAwait(false);
         }

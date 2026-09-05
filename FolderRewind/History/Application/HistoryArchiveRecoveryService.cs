@@ -69,7 +69,8 @@ public sealed class HistoryArchiveRecoveryService
             VersionId.New(), _runtime.ConfigId, explicitlySelectedSourceId, [], DateTimeOffset.UtcNow, null,
             overlay ? CaptureScope.PartialSource : CaptureScope.FullSource,
             CaptureOutcome.Recovered, [], descriptor, null,
-            new HistoryProvenance(HistoryOrigin.Recovery, string.Empty, "explicit archive recovery"));
+            new HistoryProvenance(HistoryOrigin.Recovery, string.Empty, "explicit archive recovery"),
+            creationKind: SourceVersionCreationKind.Recovery);
         var representation = new VersionRepresentation(
             RepresentationId.New(), version.VersionId, RepresentationKind.LegacyArchive,
             Path.GetExtension(path).TrimStart('.').ToLowerInvariant() is { Length: > 0 } format ? format : "7z",

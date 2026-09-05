@@ -11,10 +11,46 @@ public static class HistoryDomainValidator
     public static void ValidateNative(SourceVersion version)
     {
         ArgumentNullException.ThrowIfNull(version);
-        if (version.ParentVersionIds.Length > 1)
+        var maxParents = version.CreationKind == SourceVersionCreationKind.Merge ? 2 : 1;
+        if (version.ParentVersionIds.Length > maxParents)
         {
             throw new HistoryDomainValidationException(
-                "Native SourceVersion creation is single-parent in the current format stage.");
+                $"{version.CreationKind} SourceVersion creation allows at most {maxParents} semantic parent(s).");
+        }
+        if (version.ParentVersionIds.Distinct().Count() != version.ParentVersionIds.Length)
+        {
+            throw new HistoryDomainValidationException("SourceVersion semantic parents cannot contain duplicates.");
+        }
+        if (version.CaptureScope == CaptureScope.PartialSource
+            && version.CreationKind is SourceVersionCreationKind.Capture or SourceVersionCreationKind.Merge
+            && version.ParentVersionIds.IsEmpty)
+        {
+            throw new HistoryDomainValidationException(
+                "A PartialSource Version requires a reliable Exact logical parent.");
+        }
+    }
+
+    public static void ValidateNative(ConfigurationCheckpoint checkpoint)
+    {
+        ArgumentNullException.ThrowIfNull(checkpoint);
+        if (checkpoint.CreationKind == CheckpointCreationKind.Merge
+            && checkpoint.ParentCheckpointIds.Length != 2)
+        {
+            throw new HistoryDomainValidationException("A Merge checkpoint requires exactly two semantic parents.");
+        }
+        if (checkpoint.CreationKind != CheckpointCreationKind.Merge
+            && checkpoint.ParentCheckpointIds.Length > 1)
+        {
+            throw new HistoryDomainValidationException(
+                $"{checkpoint.CreationKind} checkpoint creation allows at most one semantic parent.");
+        }
+        if (checkpoint.ParentCheckpointIds.Distinct().Count() != checkpoint.ParentCheckpointIds.Length)
+        {
+            throw new HistoryDomainValidationException("Checkpoint semantic parents cannot contain duplicates.");
+        }
+        if (checkpoint.Sources.GroupBy(item => item.SourceId).Any(group => group.Count() > 1))
+        {
+            throw new HistoryDomainValidationException("Checkpoint Source roster cannot contain duplicate SourceIds.");
         }
     }
 

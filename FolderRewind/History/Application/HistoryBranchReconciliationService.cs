@@ -99,7 +99,8 @@ public sealed class HistoryBranchReconciliationService
                 checked(workspace.StateRevision + 1),
                 branchId,
                 reconciliation.UpdateId,
-                workspace.SourceBaselines);
+                workspace.SourceBaselines,
+                workspace.CheckpointAncestryAnchorId);
         }
 
         var committed = await HistoryCommandCommitter.CommitInsideGateAsync(

@@ -84,8 +84,12 @@ public sealed class HistoryPresentationQueryTests
             configId, new HistoryRepositoryPaths(Path.Combine(_root, "partial-run-repository"))));
         await runtime.InitializeAsync();
         var sourceId = SourceId.New();
+        var parent = new SourceVersion(
+            VersionId.New(), configId, sourceId, [], DateTimeOffset.UtcNow.AddSeconds(-1), null,
+            CaptureScope.FullSource, CaptureOutcome.Captured, [],
+            new SourceDescriptorSnapshot("partial", "partial"), null, HistoryProvenance.Native("test"));
         var version = new SourceVersion(
-            VersionId.New(), configId, sourceId, [], DateTimeOffset.UtcNow, null,
+            VersionId.New(), configId, sourceId, [parent.VersionId], DateTimeOffset.UtcNow, null,
             CaptureScope.PartialSource, CaptureOutcome.Captured, [],
             new SourceDescriptorSnapshot("partial", "partial"), null, HistoryProvenance.Native("test"));
         var run = new BackupRun(
@@ -97,7 +101,7 @@ public sealed class HistoryPresentationQueryTests
         var codec = new HistoryPackCodec();
         await runtime.Repository.CommitAsync(new HistoryCommitPack(
             PackId.New(), HistoryTransactionId.New(), DateTimeOffset.UtcNow,
-            [codec.CreateObject(version), codec.CreateObject(run)]));
+            [codec.CreateObject(parent), codec.CreateObject(version), codec.CreateObject(run)]));
 
         var snapshot = await new HistoryPresentationQueryService(runtime).QueryAsync();
 

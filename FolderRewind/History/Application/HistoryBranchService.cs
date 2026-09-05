@@ -116,12 +116,16 @@ public sealed class HistoryBranchService
         var branches = await LoadBranchesAsync(cancellationToken).ConfigureAwait(false);
         EnsureUniqueName(branches, branchName);
         var vector = currentWorkspace.SourceBaselines.ToDictionary(item => item.SourceId, item => item.BaseVersionId);
-        var checkpoints = await _runtime.Query.GetAllCheckpointsAsync(cancellationToken).ConfigureAwait(false);
-        var exactCheckpoint = checkpoints
-            .Where(checkpoint => checkpoint.ConfigId == _runtime.ConfigId && CheckpointMatches(checkpoint, vector))
-            .OrderByDescending(checkpoint => checkpoint.CreatedAtUtc)
-            .ThenByDescending(checkpoint => checkpoint.CheckpointId.ToString(), StringComparer.Ordinal)
-            .FirstOrDefault();
+        ConfigurationCheckpoint? exactCheckpoint = null;
+        if (currentWorkspace.CheckpointAncestryAnchorId is { } anchorId)
+        {
+            var anchor = await _runtime.Query.GetCheckpointAsync(anchorId, cancellationToken).ConfigureAwait(false)
+                ?? throw new HistoryBranchCommandException("Workspace ancestry anchor is missing.");
+            if (anchor.ConfigId != _runtime.ConfigId)
+                throw new HistoryBranchCommandException("Workspace ancestry anchor belongs to another Config.");
+            if (CheckpointMatches(anchor, vector))
+                exactCheckpoint = anchor;
+        }
         ConfigurationCheckpoint? aggregate = null;
         if (exactCheckpoint is null)
         {
@@ -135,7 +139,10 @@ public sealed class HistoryBranchService
                     source.SourceId,
                     source.Descriptor,
                     vector[source.SourceId],
-                    CheckpointSourceDisposition.CarriedForward)));
+                    CheckpointSourceDisposition.CarriedForward,
+                    source.Boundary)),
+                currentWorkspace.CheckpointAncestryAnchorId is { } parentId ? [parentId] : [],
+                CheckpointCreationKind.Aggregate);
             exactCheckpoint = aggregate;
         }
 
@@ -153,7 +160,8 @@ public sealed class HistoryBranchService
             checked(currentWorkspace.StateRevision + 1),
             update.BranchId,
             update.UpdateId,
-            currentWorkspace.SourceBaselines);
+            currentWorkspace.SourceBaselines,
+            exactCheckpoint.CheckpointId);
         var facts = aggregate is null ? new object[] { update } : [aggregate, update];
         var committed = await HistoryCommandCommitter.CommitInsideGateAsync(
             _runtime,
@@ -213,7 +221,8 @@ public sealed class HistoryBranchService
                 checked(workspace.StateRevision + 1),
                 branchId,
                 update.UpdateId,
-                workspace.SourceBaselines);
+                workspace.SourceBaselines,
+                workspace.CheckpointAncestryAnchorId);
         }
         var committed = await HistoryCommandCommitter.CommitInsideGateAsync(
             _runtime, _codec, [update], workspace, updatedWorkspace, cancellationToken).ConfigureAwait(false);
@@ -317,6 +326,7 @@ public sealed class HistoryBranchService
             && left.StateRevision == right.StateRevision
             && left.ActiveBranchId == right.ActiveBranchId
             && left.ActiveBranchUpdateId == right.ActiveBranchUpdateId
+            && left.CheckpointAncestryAnchorId == right.CheckpointAncestryAnchorId
             && left.SourceBaselines.OrderBy(item => item.SourceId.ToString(), StringComparer.Ordinal)
                 .SequenceEqual(right.SourceBaselines.OrderBy(item => item.SourceId.ToString(), StringComparer.Ordinal));
 

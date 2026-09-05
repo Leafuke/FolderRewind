@@ -415,9 +415,11 @@ public sealed class HistoryCommitCoordinator
             }
         }
         var currentBranch = await ResolveCurrentBranchAsync(workspace, cancellationToken).ConfigureAwait(false);
-        var currentCheckpoint = currentBranch?.TargetCheckpointId is { } checkpointId
+        var ancestryCheckpointId = workspace?.CheckpointAncestryAnchorId
+            ?? currentBranch?.TargetCheckpointId;
+        var currentCheckpoint = ancestryCheckpointId is { } checkpointId
             ? await _runtime.Query.GetCheckpointAsync(checkpointId, cancellationToken).ConfigureAwait(false)
-                ?? throw new HistoryCommitConflictException("Active Branch target Checkpoint is missing from the index.")
+                ?? throw new HistoryCommitConflictException("Workspace ancestry Checkpoint is missing from the index.")
             : null;
 
         var versions = ImmutableArray.CreateBuilder<SourceVersion>();
@@ -619,7 +621,11 @@ public sealed class HistoryCommitCoordinator
                 now,
                 request.Invocation.RunId,
                 request.Invocation.Provenance,
-                checkpointSources)
+                checkpointSources,
+                currentCheckpoint is null ? [] : [currentCheckpoint.CheckpointId],
+                request.SafetySnapshotIntent is not null
+                    ? CheckpointCreationKind.SafetySnapshot
+                    : CheckpointCreationKind.Capture)
             : null;
         SafetySnapshot? safetySnapshot = null;
         if (request.SafetySnapshotIntent is not null)
@@ -669,7 +675,8 @@ public sealed class HistoryCommitCoordinator
                 checked((workspace?.StateRevision ?? HistoryWorkspaceStore.MissingRevision) + 1),
                 branchId,
                 branchUpdate.UpdateId,
-                nextBaselines);
+                nextBaselines,
+                branchTargetCheckpoint.CheckpointId);
         }
         else if (checkpoint is not null && request.Intent == HistoryCommitIntent.IndependentRecoveryPoint)
         {
@@ -679,7 +686,8 @@ public sealed class HistoryCommitCoordinator
                 checked((workspace?.StateRevision ?? HistoryWorkspaceStore.MissingRevision) + 1),
                 workspace?.ActiveBranchId,
                 workspace?.ActiveBranchUpdateId,
-                nextBaselines);
+                nextBaselines,
+                checkpoint.CheckpointId);
         }
 
         var checkpointForRun = checkpoint?.CheckpointId ?? currentCheckpoint?.CheckpointId;
@@ -890,6 +898,7 @@ public sealed class HistoryCommitCoordinator
             && left.StateRevision == right.StateRevision
             && left.ActiveBranchId == right.ActiveBranchId
             && left.ActiveBranchUpdateId == right.ActiveBranchUpdateId
+            && left.CheckpointAncestryAnchorId == right.CheckpointAncestryAnchorId
             && left.SourceBaselines
                 .OrderBy(item => item.SourceId.ToString(), StringComparer.Ordinal)
                 .SequenceEqual(right.SourceBaselines.OrderBy(item => item.SourceId.ToString(), StringComparer.Ordinal));

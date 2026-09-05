@@ -20,20 +20,22 @@ public sealed record WorkspaceSourceBaseline(
 
 public sealed record HistoryWorkspace
 {
-    public const int CurrentFormatVersion = 1;
+    public const int CurrentFormatVersion = 2;
 
     public HistoryWorkspace(
         HistoryConfigId configId,
         long stateRevision,
         BranchId? activeBranchId,
         BranchUpdateId? activeBranchUpdateId,
-        IEnumerable<WorkspaceSourceBaseline>? sourceBaselines)
+        IEnumerable<WorkspaceSourceBaseline>? sourceBaselines,
+        CheckpointId? checkpointAncestryAnchorId = null)
         : this(
             configId,
             stateRevision,
             activeBranchId,
             activeBranchUpdateId,
-            sourceBaselines is null ? [] : [.. sourceBaselines])
+            sourceBaselines is null ? [] : [.. sourceBaselines],
+            checkpointAncestryAnchorId)
     {
     }
 
@@ -43,7 +45,8 @@ public sealed record HistoryWorkspace
         long stateRevision,
         BranchId? activeBranchId,
         BranchUpdateId? activeBranchUpdateId,
-        ImmutableArray<WorkspaceSourceBaseline> sourceBaselines)
+        ImmutableArray<WorkspaceSourceBaseline> sourceBaselines,
+        CheckpointId? checkpointAncestryAnchorId = null)
     {
         if (stateRevision < 0)
         {
@@ -59,6 +62,7 @@ public sealed record HistoryWorkspace
         StateRevision = stateRevision;
         ActiveBranchId = activeBranchId;
         ActiveBranchUpdateId = activeBranchUpdateId;
+        CheckpointAncestryAnchorId = checkpointAncestryAnchorId;
         SourceBaselines = sourceBaselines.IsDefault ? [] : sourceBaselines;
     }
 
@@ -67,6 +71,7 @@ public sealed record HistoryWorkspace
     public long StateRevision { get; }
     public BranchId? ActiveBranchId { get; }
     public BranchUpdateId? ActiveBranchUpdateId { get; }
+    public CheckpointId? CheckpointAncestryAnchorId { get; }
     public ImmutableArray<WorkspaceSourceBaseline> SourceBaselines { get; }
 }
 

@@ -44,11 +44,12 @@ public sealed class HistoryIndex : IDisposable
         PRAGMA foreign_keys = OFF;
         CREATE TABLE IndexedPacks(PackId TEXT PRIMARY KEY, PayloadSha256 TEXT NOT NULL);
         CREATE TABLE Objects(Kind TEXT NOT NULL, ObjectId TEXT NOT NULL, SchemaVersion INTEGER NOT NULL, PayloadHash TEXT NOT NULL, PackId TEXT NOT NULL, IsSupported INTEGER NOT NULL, PayloadJson TEXT NOT NULL, PRIMARY KEY(Kind, ObjectId));
-        CREATE TABLE Versions(VersionId TEXT PRIMARY KEY, ConfigId TEXT NOT NULL, SourceId TEXT NOT NULL, CreatedAtUtc TEXT NOT NULL, CaptureScope INTEGER NOT NULL, Outcome INTEGER NOT NULL, PayloadJson TEXT NOT NULL);
+        CREATE TABLE Versions(VersionId TEXT PRIMARY KEY, ConfigId TEXT NOT NULL, SourceId TEXT NOT NULL, CreatedAtUtc TEXT NOT NULL, CaptureScope INTEGER NOT NULL, Outcome INTEGER NOT NULL, CreationKind INTEGER NOT NULL, PayloadJson TEXT NOT NULL);
         CREATE TABLE VersionParents(VersionId TEXT NOT NULL, ParentVersionId TEXT NOT NULL, Ordinal INTEGER NOT NULL, PRIMARY KEY(VersionId, Ordinal));
         CREATE TABLE Representations(RepresentationId TEXT PRIMARY KEY, VersionId TEXT NOT NULL, Kind INTEGER NOT NULL, Format TEXT NOT NULL, Fidelity INTEGER NOT NULL, PayloadJson TEXT NOT NULL);
         CREATE TABLE RepresentationDependencies(RepresentationId TEXT NOT NULL, DependencyRepresentationId TEXT NOT NULL, Ordinal INTEGER NOT NULL, PRIMARY KEY(RepresentationId, Ordinal));
-        CREATE TABLE Checkpoints(CheckpointId TEXT PRIMARY KEY, ConfigId TEXT NOT NULL, CreatedAtUtc TEXT NOT NULL, CreatedByRunId TEXT NULL, PayloadJson TEXT NOT NULL);
+        CREATE TABLE Checkpoints(CheckpointId TEXT PRIMARY KEY, ConfigId TEXT NOT NULL, CreatedAtUtc TEXT NOT NULL, CreatedByRunId TEXT NULL, CreationKind INTEGER NOT NULL, PayloadJson TEXT NOT NULL);
+        CREATE TABLE CheckpointParents(CheckpointId TEXT NOT NULL, ParentCheckpointId TEXT NOT NULL, Ordinal INTEGER NOT NULL, PRIMARY KEY(CheckpointId, Ordinal));
         CREATE TABLE CheckpointSources(CheckpointId TEXT NOT NULL, SourceId TEXT NOT NULL, VersionId TEXT NULL, Disposition INTEGER NOT NULL, Ordinal INTEGER NOT NULL, PRIMARY KEY(CheckpointId, SourceId));
         CREATE TABLE Runs(RunId TEXT PRIMARY KEY, ConfigId TEXT NOT NULL, StartedAtUtc TEXT NOT NULL, CompletedAtUtc TEXT NOT NULL, Outcome INTEGER NOT NULL, ResultCheckpointId TEXT NULL, PayloadJson TEXT NOT NULL);
         CREATE TABLE BranchUpdates(UpdateId TEXT PRIMARY KEY, BranchId TEXT NOT NULL, Name TEXT NOT NULL, TargetCheckpointId TEXT NULL, IsDeleted INTEGER NOT NULL, CreatedAtUtc TEXT NOT NULL, Reason INTEGER NOT NULL, PayloadJson TEXT NOT NULL);
@@ -583,10 +584,11 @@ public sealed class HistoryIndex : IDisposable
         {
             case SourceVersion item:
                 Execute(connection, transaction,
-                    "INSERT INTO Versions VALUES($id,$config,$source,$created,$scope,$outcome,$payload)",
+                    "INSERT INTO Versions VALUES($id,$config,$source,$created,$scope,$outcome,$creationKind,$payload)",
                     ("$id", item.VersionId.ToString()), ("$config", item.ConfigId.Value),
                     ("$source", item.SourceId.ToString()), ("$created", Utc(item.CreatedAtUtc)),
-                    ("$scope", (int)item.CaptureScope), ("$outcome", (int)item.Outcome), ("$payload", payloadJson));
+                    ("$scope", (int)item.CaptureScope), ("$outcome", (int)item.Outcome),
+                    ("$creationKind", (int)item.CreationKind), ("$payload", payloadJson));
                 InsertEdges(connection, transaction, "VersionParents", "VersionId", item.VersionId.ToString(), "ParentVersionId", item.ParentVersionIds.Select(id => id.ToString()));
                 break;
             case VersionRepresentation item:
@@ -599,10 +601,12 @@ public sealed class HistoryIndex : IDisposable
                 break;
             case ConfigurationCheckpoint item:
                 Execute(connection, transaction,
-                    "INSERT INTO Checkpoints VALUES($id,$config,$created,$run,$payload)",
+                    "INSERT INTO Checkpoints VALUES($id,$config,$created,$run,$creationKind,$payload)",
                     ("$id", item.CheckpointId.ToString()), ("$config", item.ConfigId.Value),
                     ("$created", Utc(item.CreatedAtUtc)), ("$run", item.CreatedByRunId?.ToString()),
+                    ("$creationKind", (int)item.CreationKind),
                     ("$payload", payloadJson));
+                InsertEdges(connection, transaction, "CheckpointParents", "CheckpointId", item.CheckpointId.ToString(), "ParentCheckpointId", item.ParentCheckpointIds.Select(id => id.ToString()));
                 for (var index = 0; index < item.Sources.Length; index++)
                 {
                     var source = item.Sources[index];

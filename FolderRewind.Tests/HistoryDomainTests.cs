@@ -116,6 +116,36 @@ public sealed class HistoryDomainTests
     }
 
     [TestMethod]
+    public void MergeVersion_AllowsTwoDistinctSemanticParents()
+    {
+        var version = new SourceVersion(
+            VersionId.New(), new HistoryConfigId("config"), SourceId.New(),
+            [VersionId.New(), VersionId.New()], DateTimeOffset.UtcNow, null,
+            CaptureScope.FullSource, CaptureOutcome.Captured, [],
+            new SourceDescriptorSnapshot("source", "C:\\source"), null,
+            HistoryProvenance.Native("merge"),
+            creationKind: SourceVersionCreationKind.Merge);
+
+        HistoryDomainValidator.ValidateNative(version);
+    }
+
+    [TestMethod]
+    public void MergeCheckpoint_RequiresTwoDistinctParents()
+    {
+        var parent = CheckpointId.New();
+        var invalid = new ConfigurationCheckpoint(
+            CheckpointId.New(), new HistoryConfigId("config"), DateTimeOffset.UtcNow, null,
+            HistoryProvenance.Native("merge"), [], [parent], CheckpointCreationKind.Merge);
+        var valid = new ConfigurationCheckpoint(
+            CheckpointId.New(), new HistoryConfigId("config"), DateTimeOffset.UtcNow, null,
+            HistoryProvenance.Native("merge"), [], [parent, CheckpointId.New()], CheckpointCreationKind.Merge);
+
+        Assert.ThrowsExactly<HistoryDomainValidationException>(
+            () => HistoryDomainValidator.ValidateNative(invalid));
+        HistoryDomainValidator.ValidateNative(valid);
+    }
+
+    [TestMethod]
     public void Checkpoint_AllowsUnavailableSourceWithoutVersion()
     {
         var checkpoint = new ConfigurationCheckpoint(

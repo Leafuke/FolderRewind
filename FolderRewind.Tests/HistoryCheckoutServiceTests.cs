@@ -330,8 +330,15 @@ public sealed class HistoryCheckoutServiceTests
         await using var history = new HistoryRuntime(repository);
         await history.InitializeAsync();
         var sourceId = SourceId.New();
+        var parent = captureScope == CaptureScope.PartialSource
+            ? new SourceVersion(
+                VersionId.New(), configId, sourceId, [], DateTimeOffset.UtcNow.AddSeconds(-1), null,
+                CaptureScope.FullSource, CaptureOutcome.Captured, [],
+                new SourceDescriptorSnapshot("source", "source"), null, HistoryProvenance.Native("test"))
+            : null;
         var version = new SourceVersion(
-            VersionId.New(), configId, sourceId, [], DateTimeOffset.UtcNow, null,
+            VersionId.New(), configId, sourceId,
+            parent is null ? [] : [parent.VersionId], DateTimeOffset.UtcNow, null,
             captureScope, CaptureOutcome.Captured, [],
             new SourceDescriptorSnapshot("source", "source"), null, HistoryProvenance.Native("test"));
         var representation = new VersionRepresentation(
@@ -340,7 +347,9 @@ public sealed class HistoryCheckoutServiceTests
         var codec = new HistoryPackCodec();
         await repository.CommitAsync(new HistoryCommitPack(
             PackId.New(), HistoryTransactionId.New(), DateTimeOffset.UtcNow,
-            [codec.CreateObject(version), codec.CreateObject(representation)]));
+            parent is null
+                ? [codec.CreateObject(version), codec.CreateObject(representation)]
+                : [codec.CreateObject(parent), codec.CreateObject(version), codec.CreateObject(representation)]));
         await history.EnsureIndexCurrentAsync();
         var workspace = new HistoryWorkspace(configId, 0, null, null, []);
         await history.WorkspaceStore.SaveAsync(workspace, HistoryWorkspaceStore.MissingRevision);

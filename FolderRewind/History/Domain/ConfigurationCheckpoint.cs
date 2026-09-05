@@ -15,6 +15,15 @@ public enum CheckpointSourceDisposition
     Failed = 4
 }
 
+public enum CheckpointCreationKind
+{
+    Capture = 0,
+    Merge = 1,
+    SafetySnapshot = 2,
+    Aggregate = 3,
+    Import = 4
+}
+
 public sealed record CheckpointSource
 {
     public CheckpointSource(
@@ -47,14 +56,18 @@ public sealed record ConfigurationCheckpoint
         DateTimeOffset createdAtUtc,
         RunId? createdByRunId,
         HistoryProvenance origin,
-        IEnumerable<CheckpointSource> sources)
+        IEnumerable<CheckpointSource> sources,
+        IEnumerable<CheckpointId>? parentCheckpointIds = null,
+        CheckpointCreationKind creationKind = CheckpointCreationKind.Capture)
         : this(
             checkpointId,
             configId,
             createdAtUtc,
             createdByRunId,
             origin,
-            DomainCollections.Freeze(sources))
+            DomainCollections.Freeze(sources),
+            DomainCollections.Freeze(parentCheckpointIds),
+            creationKind)
     {
     }
 
@@ -65,7 +78,9 @@ public sealed record ConfigurationCheckpoint
         DateTimeOffset createdAtUtc,
         RunId? createdByRunId,
         HistoryProvenance origin,
-        ImmutableArray<CheckpointSource> sources)
+        ImmutableArray<CheckpointSource> sources,
+        ImmutableArray<CheckpointId> parentCheckpointIds = default,
+        CheckpointCreationKind creationKind = CheckpointCreationKind.Capture)
     {
         CheckpointId = checkpointId;
         ConfigId = configId;
@@ -73,6 +88,10 @@ public sealed record ConfigurationCheckpoint
         CreatedByRunId = createdByRunId;
         Origin = origin ?? throw new ArgumentNullException(nameof(origin));
         Sources = sources.IsDefault ? ImmutableArray<CheckpointSource>.Empty : sources;
+        ParentCheckpointIds = parentCheckpointIds.IsDefault
+            ? ImmutableArray<CheckpointId>.Empty
+            : parentCheckpointIds;
+        CreationKind = creationKind;
     }
 
     public CheckpointId CheckpointId { get; }
@@ -81,5 +100,7 @@ public sealed record ConfigurationCheckpoint
     public RunId? CreatedByRunId { get; }
     public HistoryProvenance Origin { get; }
     public ImmutableArray<CheckpointSource> Sources { get; }
+    public ImmutableArray<CheckpointId> ParentCheckpointIds { get; }
+    public CheckpointCreationKind CreationKind { get; }
     public bool IsStructurallyComplete => Sources.All(source => source.VersionId is not null);
 }

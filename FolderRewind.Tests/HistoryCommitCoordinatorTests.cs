@@ -276,6 +276,35 @@ public sealed class HistoryCommitCoordinatorTests
     }
 
     [TestMethod]
+    public async Task BackupExtendsWorkspaceCheckpointAnchor()
+    {
+        await using var runtime = await CreateRuntimeAsync();
+        var sourceId = SourceId.New();
+        var snapshot = Snapshot(Source(sourceId, "source-a"));
+        var first = await runtime.Commit.CommitAsync(Request(
+            snapshot,
+            null,
+            CreateCapture(sourceId, "first", -1, null)));
+        var firstWorkspace = (await runtime.WorkspaceStore.LoadAsync()).Value!;
+
+        var second = await runtime.Commit.CommitAsync(Request(
+            snapshot,
+            firstWorkspace,
+            CreateCapture(
+                sourceId,
+                "second",
+                firstWorkspace.StateRevision,
+                first.NewVersions.Single().VersionId)));
+
+        Assert.AreEqual(
+            first.NewCheckpoint!.CheckpointId,
+            second.NewCheckpoint!.ParentCheckpointIds.Single());
+        Assert.AreEqual(
+            second.NewCheckpoint.CheckpointId,
+            second.UpdatedWorkspace!.CheckpointAncestryAnchorId);
+    }
+
+    [TestMethod]
     public async Task PartialRunCarriesForwardFailedSourceAndStillAdvancesBranch()
     {
         await using var runtime = await CreateRuntimeAsync();

@@ -58,7 +58,8 @@ public sealed class HistoryWorkspaceStore : IDisposable
         {
             var bytes = File.ReadAllBytes(_path);
             using var document = JsonDocument.Parse(bytes);
-            if (document.RootElement.GetProperty("formatVersion").GetInt32() != HistoryWorkspace.CurrentFormatVersion)
+            var formatVersion = document.RootElement.GetProperty("formatVersion").GetInt32();
+            if (formatVersion is not 1 && formatVersion != HistoryWorkspace.CurrentFormatVersion)
             {
                 return new(DeviceLocalStateStatus.Corrupt, null, "Workspace format is unsupported.");
             }

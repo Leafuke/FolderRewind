@@ -95,6 +95,7 @@ internal sealed class HistoryRestoreTransactionJournalStore
             && left.StateRevision == right.StateRevision
             && left.ActiveBranchId == right.ActiveBranchId
             && left.ActiveBranchUpdateId == right.ActiveBranchUpdateId
+            && left.CheckpointAncestryAnchorId == right.CheckpointAncestryAnchorId
             && left.SourceBaselines.OrderBy(item => item.SourceId.ToString(), StringComparer.Ordinal)
                 .SequenceEqual(right.SourceBaselines.OrderBy(item => item.SourceId.ToString(), StringComparer.Ordinal));
 

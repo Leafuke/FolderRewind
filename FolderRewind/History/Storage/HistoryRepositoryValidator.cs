@@ -62,6 +62,13 @@ public sealed class HistoryRepositoryValidator
         foreach (var checkpoint in checkpoints.Values)
         {
             RequireConfig(configId, checkpoint.ConfigId, HistoryObjectKinds.ConfigurationCheckpoint, checkpoint.CheckpointId.ToString());
+            HistoryDomainValidator.ValidateNative(checkpoint);
+            foreach (var parentId in checkpoint.ParentCheckpointIds)
+            {
+                var parent = Require(checkpoints, parentId, "ConfigurationCheckpoint parent");
+                if (parent.ConfigId != checkpoint.ConfigId)
+                    throw Invalid("Checkpoint parent must belong to the same Config.");
+            }
             var duplicateSource = checkpoint.Sources.GroupBy(item => item.SourceId).FirstOrDefault(group => group.Count() > 1);
             if (duplicateSource is not null)
             {
@@ -74,6 +81,12 @@ public sealed class HistoryRepositoryValidator
                 if (version.ConfigId != checkpoint.ConfigId || version.SourceId != source.SourceId)
                 {
                     throw Invalid("Checkpoint source references a Version for another Config or Source.");
+                }
+                if (!StringComparer.Ordinal.Equals(
+                        version.EffectiveSourceBoundaryFingerprint,
+                        source.EffectiveSourceBoundaryFingerprint))
+                {
+                    throw Invalid("Checkpoint source boundary must match its referenced SourceVersion boundary.");
                 }
             }
         }
@@ -195,6 +208,7 @@ public sealed class HistoryRepositoryValidator
         }
 
         EnsureAcyclic(versions.Values, item => item.VersionId, item => item.ParentVersionIds, "SourceVersion");
+        EnsureAcyclic(checkpoints.Values, item => item.CheckpointId, item => item.ParentCheckpointIds, "ConfigurationCheckpoint");
         EnsureAcyclic(representations.Values, item => item.RepresentationId, item => item.DependencyRepresentationIds, "Representation");
         EnsureAcyclic(branchUpdates.Values, item => item.UpdateId, item => item.ParentUpdateIds, "BranchUpdate");
         EnsureAcyclic(lifecycles.Values, item => item.UpdateId, item => item.ParentUpdateIds, "ReplicaLifecycle");

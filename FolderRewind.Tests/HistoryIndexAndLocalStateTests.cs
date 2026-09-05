@@ -173,9 +173,11 @@ public sealed class HistoryIndexAndLocalStateTests
         var missing = await store.LoadAsync();
         var branchId = BranchId.New();
         var updateId = BranchUpdateId.New();
+        var anchorId = CheckpointId.New();
         var workspace = new HistoryWorkspace(
             _configId, 0, branchId, updateId,
-            [new WorkspaceSourceBaseline(SourceId.New(), null, WorkspaceBaselineRelation.Unknown)]);
+            [new WorkspaceSourceBaseline(SourceId.New(), null, WorkspaceBaselineRelation.Unknown)],
+            anchorId);
 
         await store.SaveAsync(workspace, HistoryWorkspaceStore.MissingRevision);
         var conflicting = new HistoryWorkspace(_configId, 1, branchId, updateId, workspace.SourceBaselines);
@@ -183,7 +185,9 @@ public sealed class HistoryIndexAndLocalStateTests
         Assert.AreEqual(DeviceLocalStateStatus.Missing, missing.Status);
         await Assert.ThrowsExactlyAsync<DeviceLocalStateConflictException>(
             () => store.SaveAsync(conflicting, HistoryWorkspaceStore.MissingRevision));
-        Assert.AreEqual(0, (await store.LoadAsync()).Value!.StateRevision);
+        var loaded = (await store.LoadAsync()).Value!;
+        Assert.AreEqual(0, loaded.StateRevision);
+        Assert.AreEqual(anchorId, loaded.CheckpointAncestryAnchorId);
     }
 
     [TestMethod]

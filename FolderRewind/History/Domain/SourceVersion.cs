@@ -17,6 +17,14 @@ public enum CaptureOutcome
     Recovered = 1
 }
 
+public enum SourceVersionCreationKind
+{
+    Capture = 0,
+    Merge = 1,
+    Recovery = 2,
+    Import = 3
+}
+
 public sealed record SourceDescriptorSnapshot(string DisplayName, string PathHint);
 
 public sealed record SourceVersion
@@ -34,7 +42,8 @@ public sealed record SourceVersion
         SourceDescriptorSnapshot sourceDescriptorSnapshot,
         string? stateFingerprint,
         HistoryProvenance provenance,
-        EffectiveSourceBoundarySnapshot? effectiveSourceBoundary = null)
+        EffectiveSourceBoundarySnapshot? effectiveSourceBoundary = null,
+        SourceVersionCreationKind creationKind = SourceVersionCreationKind.Capture)
         : this(
             versionId,
             configId,
@@ -48,7 +57,8 @@ public sealed record SourceVersion
             sourceDescriptorSnapshot,
             stateFingerprint,
             provenance,
-            effectiveSourceBoundary)
+            effectiveSourceBoundary,
+            creationKind)
     {
     }
 
@@ -66,7 +76,8 @@ public sealed record SourceVersion
         SourceDescriptorSnapshot sourceDescriptorSnapshot,
         string? stateFingerprint,
         HistoryProvenance provenance,
-        EffectiveSourceBoundarySnapshot? effectiveSourceBoundary = null)
+        EffectiveSourceBoundarySnapshot? effectiveSourceBoundary = null,
+        SourceVersionCreationKind creationKind = SourceVersionCreationKind.Capture)
     {
         VersionId = versionId;
         ConfigId = configId;
@@ -82,6 +93,7 @@ public sealed record SourceVersion
         StateFingerprint = string.IsNullOrWhiteSpace(stateFingerprint) ? null : stateFingerprint.Trim();
         Provenance = provenance ?? throw new ArgumentNullException(nameof(provenance));
         EffectiveSourceBoundary = effectiveSourceBoundary ?? EffectiveSourceBoundarySnapshot.All;
+        CreationKind = creationKind;
     }
 
     public VersionId VersionId { get; }
@@ -97,5 +109,6 @@ public sealed record SourceVersion
     public string? StateFingerprint { get; }
     public HistoryProvenance Provenance { get; }
     public EffectiveSourceBoundarySnapshot EffectiveSourceBoundary { get; }
+    public SourceVersionCreationKind CreationKind { get; }
     public string EffectiveSourceBoundaryFingerprint => EffectiveSourceBoundary.Fingerprint;
 }

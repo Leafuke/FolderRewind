@@ -137,7 +137,8 @@ public sealed class HistoryCheckoutService
                 checked(current.StateRevision + 1),
                 plan.Update!.BranchId,
                 plan.Update.UpdateId,
-                desiredBaselines);
+                desiredBaselines,
+                plan.Checkpoint.CheckpointId);
             return await _restore.ExecuteMutationAsync(
                 prepared,
                 current,

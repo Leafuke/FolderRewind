@@ -71,7 +71,8 @@ public sealed class LegacyHistoryMigrationBuilder
                     string.IsNullOrWhiteSpace(entry.FolderName) ? sourceMap[entry.SourceId].DisplayName : entry.FolderName,
                     entry.OriginalFolderPath),
                 null,
-                new HistoryProvenance(HistoryOrigin.LegacyMigration, string.Empty, state.OriginKey));
+                new HistoryProvenance(HistoryOrigin.LegacyMigration, string.Empty, state.OriginKey),
+                creationKind: SourceVersionCreationKind.Import);
             versions[state.OriginKey] = version;
             var facts = new List<object> { version };
             string archivePath = SafeFileName(entry.FileName)
@@ -208,7 +209,9 @@ public sealed class LegacyHistoryMigrationBuilder
             created,
             null,
             new HistoryProvenance(HistoryOrigin.LegacyMigration, string.Empty, "bootstrap"),
-            checkpointSources);
+            checkpointSources,
+            parentCheckpointIds: [],
+            creationKind: CheckpointCreationKind.Import);
         var branchId = LegacyHistoryMigrationIdentityV1.LegacyMain(input.ConfigId);
         var branch = new BranchUpdate(
             LegacyHistoryMigrationIdentityV1.BranchUpdate(branchId, checkpointId),
@@ -231,7 +234,8 @@ public sealed class LegacyHistoryMigrationBuilder
             checkpointSources.Select(item => new WorkspaceSourceBaseline(
                 item.SourceId,
                 item.VersionId,
-                WorkspaceBaselineRelation.Unknown)));
+                WorkspaceBaselineRelation.Unknown)),
+            checkpointId);
         return new LegacyHistoryMigrationBuild(
             packs,
             new LocalReplicaCatalog(input.ConfigId, 0, localEntries.DistinctBy(item => item.LocalReplicaId)),
@@ -279,7 +283,8 @@ public sealed class LegacyHistoryMigrationBuilder
             LegacyHistoryMigrationIdentityV1.Version(origin), input.ConfigId, sourceId, [], DateTimeOffset.UnixEpoch,
             null, CaptureScope.FullSource, CaptureOutcome.Recovered, [],
             new SourceDescriptorSnapshot(source.DisplayName, source.OriginalPath), null,
-            new HistoryProvenance(HistoryOrigin.LegacyMetadataRecovery, string.Empty, origin));
+            new HistoryProvenance(HistoryOrigin.LegacyMetadataRecovery, string.Empty, origin),
+            creationKind: SourceVersionCreationKind.Import);
         var representation = new VersionRepresentation(
             LegacyHistoryMigrationIdentityV1.Representation(origin), version.VersionId,
             RepresentationKind.LegacyArchive, Format(dependencyFile), [], MaterializationFidelity.Exact,
