@@ -27,32 +27,14 @@ public static partial class BackupService
         var workspaceBaseline = workspace?.SourceBaselines.SingleOrDefault(item => item.SourceId == sourceId);
         if (workspaceBaseline?.BaseVersionId != candidateVersionId || !Directory.Exists(folder.Path))
             return false;
-        var cache = await runtime.CaptureBaselines.LoadAsync(sourceId, cancellationToken).ConfigureAwait(false);
-        var version = await runtime.Query.GetVersionAsync(candidateVersionId, cancellationToken).ConfigureAwait(false);
-        var boundaryResolution = await HistorySourceBoundaryResolver.ResolveAsync(
-            config,
-            folder,
-            cancellationToken).ConfigureAwait(false);
-        if (boundaryResolution.IsBlocked) return false;
-        var currentBoundary = boundaryResolution.Boundary;
-        if (cache is null
-            || version is null
-            || cache.BaseVersionId != candidateVersionId
-            // 配置边界漂移时，即使现有文件恰好相同，也不能把旧边界的 Version 判为当前精确状态。
-            || !StringComparer.Ordinal.Equals(
-                currentBoundary.Fingerprint,
-                version.EffectiveSourceBoundaryFingerprint)
-            || !StringComparer.Ordinal.Equals(
-                cache.BoundaryFingerprint,
-                version.EffectiveSourceBoundaryFingerprint))
-        {
-            return false;
-        }
-
-        var current = await Task.Run(
-            () => ScanDirectory(folder.Path, config.Filters, selection: folder.SourceScope),
-            cancellationToken).ConfigureAwait(false);
-        return FileStatesEqual(cache.FileStates, current);
+        var resolution = await HistorySourceBoundaryResolver.ResolveAsync(config, folder, cancellationToken)
+            .ConfigureAwait(false);
+        if (resolution.IsBlocked || workspaceBaseline is null) return false;
+        var restore = await NativeHistoryApplicationService.CreateRestoreServiceAsync(config, cancellationToken)
+            .ConfigureAwait(false);
+        return await new HistoryExactWorkingStateProbe(runtime, restore).IsExactAsync(
+            new HistoryRestoreSourceBinding(sourceId, resolution.EffectiveFolder.Path, resolution.Boundary),
+            workspaceBaseline, cancellationToken).ConfigureAwait(false);
     }
 
     /// <summary>

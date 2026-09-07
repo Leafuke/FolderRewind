@@ -17,16 +17,19 @@ public sealed class HistoryCheckoutService
     private readonly HistoryRestoreService _restore;
     private readonly IHistoryWorkingStateProtector? _protector;
     private readonly HistoryCheckoutPlanner _planner;
+    private readonly Func<CancellationToken, Task<IReadOnlyList<HistoryRestoreSourceBinding>>>? _reloadBindings;
 
     public HistoryCheckoutService(
         HistoryRuntime history,
         HistoryRestoreService restore,
         IHistoryWorkingStateProtector? protector = null,
-        IHistoryWorkingStateProbe? workingStateProbe = null)
+        IHistoryWorkingStateProbe? workingStateProbe = null,
+        Func<CancellationToken, Task<IReadOnlyList<HistoryRestoreSourceBinding>>>? reloadBindings = null)
     {
         _history = history ?? throw new ArgumentNullException(nameof(history));
         _restore = restore ?? throw new ArgumentNullException(nameof(restore));
         _protector = protector;
+        _reloadBindings = reloadBindings;
         _planner = new HistoryCheckoutPlanner(_history, _restore, workingStateProbe);
     }
 
@@ -109,9 +112,18 @@ public sealed class HistoryCheckoutService
         try
         {
             var current = await _restore.RequireExpectedWorkspaceAsync(protectedWorkspace, cancellationToken).ConfigureAwait(false);
+            var authoritativeBindings = _reloadBindings is null ? currentConfigSources
+                : await _reloadBindings(cancellationToken).ConfigureAwait(false);
+            if (authoritativeBindings.Count != currentConfigSources.Count
+                || currentConfigSources.Any(expected => !authoritativeBindings.Any(actual =>
+                    actual.SourceId == expected.SourceId
+                    && StringComparer.OrdinalIgnoreCase.Equals(Path.GetFullPath(actual.TargetDirectory),
+                        Path.GetFullPath(expected.TargetDirectory))
+                    && actual.Boundary.Fingerprint == expected.Boundary.Fingerprint)))
+                throw new InvalidOperationException("Configuration bindings changed during materialization.");
             var revalidated = await _planner.BuildAsync(
                 selectedTipId,
-                currentConfigSources,
+                authoritativeBindings,
                 current,
                 AssessmentDepth.Deep,
                 cancellationToken).ConfigureAwait(false);

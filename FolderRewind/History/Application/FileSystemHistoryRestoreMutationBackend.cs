@@ -154,7 +154,7 @@ public sealed class FileSystemHistoryRestoreMutationBackend : IHistoryRestoreMut
         }
     }
 
-    private static Func<string, bool> CreateBoundaryMatcher(HistoryRestoreSourceBinding source)
+    internal static Func<string, bool> CreateBoundaryMatcher(HistoryRestoreSourceBinding source)
     {
         var boundary = source.Boundary;
         var scope = boundary.ScopeMode == EffectiveBoundaryScopeMode.Include

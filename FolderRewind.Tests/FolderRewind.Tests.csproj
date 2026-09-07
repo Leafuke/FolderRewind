@@ -9,6 +9,7 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <Compile Include="..\FolderRewind\History\Application\HistoryExactWorkingStateProbe.cs" Link="Source\History\Application\HistoryExactWorkingStateProbe.cs" />
     <ProjectReference Include="..\FolderRewind.Plugin.Abstractions\FolderRewind.Plugin.Abstractions.csproj" />
     <ProjectReference Include="..\FolderRewind.Plugin.Runtime\FolderRewind.Plugin.Runtime.csproj" />
   </ItemGroup>

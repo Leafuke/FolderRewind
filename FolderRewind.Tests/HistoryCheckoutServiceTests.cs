@@ -25,7 +25,9 @@ public sealed class HistoryCheckoutServiceTests
     }
 
     [TestMethod]
-    public async Task MultiSourceCheckoutFailureRestoresEverySourceAndLeavesWorkspaceUnchanged()
+    [DataRow(false)]
+    [DataRow(true)]
+    public async Task MultiSourceCheckoutFailureRestoresEverySourceAndLeavesWorkspaceUnchanged(bool bindingChanged)
     {
         var configId = new HistoryConfigId(Guid.NewGuid().ToString("N"));
         var repository = new FileHistoryRepository(
@@ -82,7 +84,11 @@ public sealed class HistoryCheckoutServiceTests
             representationRuntime,
             _ => Task.FromResult<IRepresentationEnvironment>(new RepresentationEnvironment([], [], [])),
             mutation);
-        var checkout = new HistoryCheckoutService(history, restore);
+        var checkout = new HistoryCheckoutService(history, restore,
+            reloadBindings: _ => Task.FromResult<IReadOnlyList<HistoryRestoreSourceBinding>>([
+                new(sourceOne, bindingChanged ? Path.Combine(_root, "remapped") : targetOne),
+                new(sourceTwo, targetTwo)
+            ]));
 
         var result = await checkout.CheckoutAsync(
             branch.UpdateId,
@@ -93,7 +99,9 @@ public sealed class HistoryCheckoutServiceTests
             expectedWorkspace,
             HistoryCheckoutProtectionMode.DiscardCurrentChanges);
 
-        Assert.AreEqual(HistoryRestoreStatus.MutationFailedRolledBack, result.Status);
+        Assert.AreEqual(bindingChanged ? HistoryRestoreStatus.BlockedBeforeMutation
+            : HistoryRestoreStatus.MutationFailedRolledBack, result.Status);
+        Assert.IsFalse(Directory.Exists(Path.Combine(_root, "remapped")));
         Assert.IsFalse(result.WorkspaceUpdated);
         Assert.AreEqual("old-one", File.ReadAllText(Path.Combine(targetOne, "original.txt")));
         Assert.AreEqual("old-two", File.ReadAllText(Path.Combine(targetTwo, "original.txt")));
@@ -368,6 +376,39 @@ public sealed class HistoryCheckoutServiceTests
         Assert.IsFalse(File.Exists(Path.Combine(restored.Target, "original.txt")));
         Assert.AreEqual("new", File.ReadAllText(Path.Combine(restored.Target, "restored.txt")));
         Assert.AreEqual(WorkspaceBaselineRelation.Exact, restored.Relation);
+    }
+
+    [TestMethod]
+    public async Task ExactProbeDetectsSameLengthEditWithPreservedTimestamp()
+    {
+        var configId = new HistoryConfigId(Guid.NewGuid().ToString("N"));
+        var repository = new FileHistoryRepository(configId,
+            new HistoryRepositoryPaths(Path.Combine(_root, "probe-repository")));
+        await using var history = new HistoryRuntime(repository);
+        await history.InitializeAsync();
+        var sourceId = SourceId.New();
+        var version = Version(configId, sourceId, "source");
+        var codec = new HistoryPackCodec();
+        await repository.CommitAsync(new HistoryCommitPack(PackId.New(), HistoryTransactionId.New(),
+            DateTimeOffset.UtcNow, new object[] { version, Representation(version.VersionId) }
+                .Select(fact => codec.CreateObject(fact))));
+        await history.EnsureIndexCurrentAsync();
+        var target = Path.Combine(_root, "probe-target");
+        Directory.CreateDirectory(target);
+        var file = Path.Combine(target, "restored.txt");
+        await File.WriteAllTextAsync(file, "new");
+        var timestamp = File.GetLastWriteTimeUtc(file);
+        var restore = new HistoryRestoreService(history,
+            new RepresentationRuntime([new ExactTestRepresentationHandler()]),
+            _ => Task.FromResult<IRepresentationEnvironment>(new RepresentationEnvironment([], [], [])),
+            new FileSystemHistoryRestoreMutationBackend());
+        var probe = new HistoryExactWorkingStateProbe(history, restore);
+        var binding = new HistoryRestoreSourceBinding(sourceId, target);
+        var baseline = new WorkspaceSourceBaseline(sourceId, version.VersionId, WorkspaceBaselineRelation.Exact);
+        Assert.IsTrue(await probe.IsExactAsync(binding, baseline, default));
+        await File.WriteAllTextAsync(file, "old");
+        File.SetLastWriteTimeUtc(file, timestamp);
+        Assert.IsFalse(await probe.IsExactAsync(binding, baseline, default));
     }
 
     private async Task<(HistoryRestoreResult Result, string Target, WorkspaceBaselineRelation Relation)> RestoreSingleVersionAsync(

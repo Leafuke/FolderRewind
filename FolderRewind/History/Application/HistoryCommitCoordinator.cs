@@ -671,7 +671,7 @@ public sealed class HistoryCommitCoordinator
             branchUpdate = new BranchUpdate(
                 BranchUpdateId.New(),
                 branchId,
-                request.BranchCreationIntent is null && workspace?.ActiveBranchUpdateId is { } parentUpdateId
+                workspace?.ActiveBranchUpdateId is { } parentUpdateId
                     ? new[] { parentUpdateId }
                     : [],
                 request.BranchCreationIntent?.Name

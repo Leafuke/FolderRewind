@@ -78,7 +78,7 @@ public sealed class HistoryExactCheckpointAdmission
                 return Blocked(HistoryExactCheckpointAdmissionStatus.BoundaryMismatch, [source.SourceId],
                     "Checkpoint and SourceVersion Effective Source Boundaries differ.");
             if (version.CaptureScope == CaptureScope.PartialSource
-                && version.ParentVersionIds.IsEmpty)
+                && !HasReliableLogicalParent(version, versions, representations, new HashSet<VersionId>()))
                 return Blocked(HistoryExactCheckpointAdmissionStatus.ExactLogicalParentMissing, [source.SourceId],
                     "PartialSource artifact has no reliable Exact logical parent.");
             if (!representations.Values
@@ -89,6 +89,30 @@ public sealed class HistoryExactCheckpointAdmission
         }
 
         return new(HistoryExactCheckpointAdmissionStatus.Ready, [], string.Empty);
+    }
+
+    private static bool HasReliableLogicalParent(
+        SourceVersion version,
+        IReadOnlyDictionary<VersionId, SourceVersion> versions,
+        IReadOnlyDictionary<RepresentationId, VersionRepresentation> representations,
+        HashSet<VersionId> visiting)
+    {
+        if (!visiting.Add(version.VersionId)) return false;
+        try
+        {
+            if (version.ParentVersionIds.IsEmpty) return false;
+            return version.ParentVersionIds.All(id =>
+                versions.TryGetValue(id, out var parent)
+                && parent.ConfigId == version.ConfigId
+                && parent.SourceId == version.SourceId
+                && StringComparer.Ordinal.Equals(parent.EffectiveSourceBoundaryFingerprint,
+                    version.EffectiveSourceBoundaryFingerprint)
+                && (parent.CaptureScope != CaptureScope.PartialSource
+                    || HasReliableLogicalParent(parent, versions, representations, visiting))
+                && representations.Values.Any(root => root.VersionId == id
+                    && HasExactClosure(root, representations, new HashSet<RepresentationId>())));
+        }
+        finally { visiting.Remove(version.VersionId); }
     }
 
     private static bool HasExactClosure(

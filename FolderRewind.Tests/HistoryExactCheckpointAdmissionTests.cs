@@ -89,6 +89,22 @@ public sealed class HistoryExactCheckpointAdmissionTests
         Assert.AreEqual(HistoryExactCheckpointAdmissionStatus.ExactRepresentationUnavailable, result.Status);
     }
 
+    [TestMethod]
+    public void PartialSourceWithNonExactParent_IsRejectedEvenWhenRepackedAsExact()
+    {
+        var sourceId = SourceId.New();
+        var parent = Version(sourceId, CaptureScope.FullSource, [], SourceVersionCreationKind.Import);
+        var child = Version(sourceId, CaptureScope.PartialSource, [parent.VersionId], SourceVersionCreationKind.Capture);
+        var parentRepresentation = Representation(parent.VersionId, MaterializationFidelity.Partial, []);
+        var childRepresentation = Representation(child.VersionId, MaterializationFidelity.Exact, []);
+        var checkpoint = Checkpoint([new CheckpointSource(sourceId, child.SourceDescriptorSnapshot,
+            child.VersionId, CheckpointSourceDisposition.Captured, child.EffectiveSourceBoundary)]);
+        var result = HistoryExactCheckpointAdmission.Evaluate(checkpoint,
+            new[] { parent, child }.ToDictionary(v => v.VersionId),
+            new[] { parentRepresentation, childRepresentation }.ToDictionary(r => r.RepresentationId));
+        Assert.AreEqual(HistoryExactCheckpointAdmissionStatus.ExactLogicalParentMissing, result.Status);
+    }
+
     private static ConfigurationCheckpoint Checkpoint(IEnumerable<CheckpointSource> sources)
         => new(
             CheckpointId.New(),

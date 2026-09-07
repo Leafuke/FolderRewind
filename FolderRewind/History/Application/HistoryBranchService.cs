@@ -158,7 +158,7 @@ public sealed class HistoryBranchService
         var update = new BranchUpdate(
             BranchUpdateId.New(),
             BranchId.New(),
-            [],
+            currentWorkspace.ActiveBranchUpdateId is { } sourceUpdateId ? [sourceUpdateId] : [],
             branchName,
             exactCheckpoint.CheckpointId,
             isDeleted: false,

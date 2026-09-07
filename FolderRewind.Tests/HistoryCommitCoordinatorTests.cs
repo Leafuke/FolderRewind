@@ -525,7 +525,7 @@ public sealed class HistoryCommitCoordinatorTests
             "experiment");
 
         Assert.AreNotEqual(first.NewBranchUpdate!.BranchId, created.NewBranchUpdate!.BranchId);
-        Assert.IsEmpty(created.NewBranchUpdate.ParentUpdateIds);
+        Assert.AreEqual(first.NewBranchUpdate.UpdateId, created.NewBranchUpdate.ParentUpdateIds.Single());
         Assert.AreEqual(BranchUpdateReason.Created, created.NewBranchUpdate.Reason);
         Assert.AreEqual(first.NewVersions[0].VersionId, created.NewVersions[0].ParentVersionIds.Single());
         var oldTips = await runtime.Query.GetBranchTipsAsync(first.NewBranchUpdate!.BranchId);

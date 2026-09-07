@@ -77,7 +77,7 @@ public sealed class HistoryCheckoutPlanner
         _history = history ?? throw new ArgumentNullException(nameof(history));
         _restore = restore ?? throw new ArgumentNullException(nameof(restore));
         _admission = new HistoryExactCheckpointAdmission(_history);
-        _workingStateProbe = workingStateProbe;
+        _workingStateProbe = workingStateProbe ?? new HistoryExactWorkingStateProbe(_history, _restore);
     }
 
     public async Task<HistoryCheckoutPlan> BuildAsync(
