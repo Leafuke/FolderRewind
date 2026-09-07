@@ -156,6 +156,7 @@ public static class PluginManifestContractValidator
         if (capability is IBackupConsistencyCapability) yield return PluginCapabilityKind.BackupConsistency;
         if (capability is IFolderMetadataCapability) yield return PluginCapabilityKind.FolderMetadata;
         if (capability is IRestoreCoordinatorCapability) yield return PluginCapabilityKind.RestoreCoordinator;
+        if (capability is IRestoreStagingPreparationCapability) yield return PluginCapabilityKind.RestoreStagingPreparation;
         if (capability is IPluginCommandCapability) yield return PluginCapabilityKind.PluginCommand;
         if (capability is IKnotLinkIntegrationCapability) yield return PluginCapabilityKind.KnotLinkIntegration;
         if (capability is IProviderStateMigrationCapability) yield return PluginCapabilityKind.ProviderStateMigration;

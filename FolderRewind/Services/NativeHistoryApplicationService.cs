@@ -267,7 +267,8 @@ internal static class NativeHistoryApplicationService
             affected,
             selectedTipId.ToString(),
             token => CheckoutCoreAsync(config, selectedTipId, token),
-            cancellationToken).ConfigureAwait(false);
+            cancellationToken,
+            WorkspaceOperationKind.Checkout).ConfigureAwait(false);
     }
 
     public static async Task<HistoryCheckoutPlan> PlanCheckoutAsync(
@@ -369,6 +370,7 @@ internal static class NativeHistoryApplicationService
         BranchUpdateId selectedTipId,
         CancellationToken cancellationToken = default)
     {
+        var expectedConfigRevision = config.ConfigRevision;
         var runtime = await NativeHistoryCoreGateway.EnsureReadyAsync(config, cancellationToken).ConfigureAwait(false);
         var workspace = await RequireWorkspaceAsync(runtime, cancellationToken).ConfigureAwait(false);
         var restore = CreateRestoreService(config, runtime);
@@ -377,7 +379,15 @@ internal static class NativeHistoryApplicationService
             runtime,
             restore,
             new SafetySnapshotWorkingStateProtector(config, runtime),
-            new NativeWorkingStateProbe(config)).CheckoutAsync(
+            new NativeWorkingStateProbe(config),
+            async token =>
+            {
+                var authoritative = ConfigService.CurrentConfig.BackupConfigs.SingleOrDefault(item => item.Id == config.Id)
+                    ?? throw new InvalidOperationException("Configuration was removed during Checkout.");
+                if (authoritative.ConfigRevision != expectedConfigRevision)
+                    throw new InvalidOperationException("Configuration revision changed during Checkout.");
+                return await BindingsAsync(authoritative, authoritative.SourceFolders, token).ConfigureAwait(false);
+            }).CheckoutAsync(
             selectedTipId,
             bindings,
             workspace,

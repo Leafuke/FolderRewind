@@ -33,7 +33,8 @@ public enum PluginCapabilityKind
     BackupArtifactTransformer = 10,
     BackupCompletionObserver = 11,
     RestoreMaterializer = 12,
-    VersionMetadataProvider = 13
+    VersionMetadataProvider = 13,
+    RestoreStagingPreparation = 14
 }
 
 public sealed record LocalizedText(

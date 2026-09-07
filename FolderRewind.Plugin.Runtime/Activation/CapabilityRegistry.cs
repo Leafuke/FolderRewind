@@ -92,6 +92,12 @@ internal sealed class CapabilityRegistrationSet
                 recognized = true;
             }
 
+            if (capability is IRestoreStagingPreparationCapability preparation)
+            {
+                Add("restore-staging-preparation", preparation.Kind.ToString(), capability);
+                recognized = true;
+            }
+
             if (capability is IProviderStateMigrationCapability migration)
             {
                 Add("state-migration", migration.StateOwnerId.Value, capability);

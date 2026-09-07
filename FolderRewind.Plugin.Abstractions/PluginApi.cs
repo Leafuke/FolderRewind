@@ -2,7 +2,7 @@ namespace FolderRewind.Plugin.Abstractions;
 
 public readonly record struct PluginApiVersion(int Major, int Minor)
 {
-    public static PluginApiVersion HostVersion { get; } = new(3, 2);
+    public static PluginApiVersion HostVersion { get; } = new(3, 3);
 
     public bool IsSatisfiedBy(PluginApiVersion host)
         => Major == host.Major && host.Minor >= Minor;
@@ -34,7 +34,9 @@ public enum OperationOutcome
     NoChanges = 2,
     Canceled = 3,
     Failed = 4,
-    Blocked = 5
+    Blocked = 5,
+    RecoveryRequired = 6,
+    CommittedRecoveryRequired = 7
 }
 
 public enum ConsistencyIntent

@@ -12,7 +12,7 @@ namespace FolderRewind.Plugin.Runtime.Tests;
 public sealed class PluginVerticalSliceTests
 {
     private static readonly PluginId FakePluginId = new("com.folderrewind.vertical-fake");
-    private const string MineRewindSha256 = "9d7d7c105f43a254bf6780f44e394176b19044c186c68dfbe05140af7a1e8c31";
+    private const string MineRewindSha256 = "96f83d24945db9acda2d2a835926a2e03fb0213d9b3316447c14c6811964a585";
     private static readonly PluginId MineRewindPluginId = new("com.folderrewind.minerewind");
     private static readonly ConfigKindRef FakeKind = new(new OwnerId(FakePluginId.Value), "test-data");
     private static readonly ConfigKindRef MinecraftKind = new(
@@ -82,7 +82,7 @@ public sealed class PluginVerticalSliceTests
         });
 
         var result = await lease.Capability.CoordinateAsync(
-            new RestoreCoordinatorRequest(config, folder, "version-1", gate.InvokeAsync),
+            new RestoreCoordinatorRequest(config, [folder], "version-1", Guid.NewGuid(), WorkspaceOperationKind.Restore, gate.InvokeAsync),
             lease.Context);
 
         Assert.AreEqual(OperationOutcome.Success, result.Outcome);
@@ -250,7 +250,7 @@ public sealed class PluginVerticalSliceTests
         });
 
         var result = await lease.Capability.CoordinateAsync(
-            new RestoreCoordinatorRequest(config, folder, "history-1", gate.InvokeAsync),
+            new RestoreCoordinatorRequest(config, [folder], "history-1", Guid.NewGuid(), WorkspaceOperationKind.Restore, gate.InvokeAsync),
             lease.Context);
 
         Assert.AreEqual(OperationOutcome.Success, result.Outcome);
@@ -720,7 +720,7 @@ public sealed class PluginVerticalSliceTests
         {
             var safetyBackup = await context.HostServices.Backups.RequestAsync(
                 request.Config.ConfigId,
-                request.Folder.FolderId,
+                request.Folders.Single().FolderId,
                 context.OperationCancellation);
             var outcome = safetyBackup == OperationOutcome.Success
                 ? await request.ContinueMutationAsync(context.OperationCancellation)

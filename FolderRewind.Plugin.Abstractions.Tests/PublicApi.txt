@@ -1,5 +1,5 @@
 # Generated and reviewed public API baseline for Plugin API 3.2.0.
-# sha256:44793f62512ec10be91b2fcbf890bc75d4aaab7c0a9c16b34fd57c0cc072286b
+# sha256:0d52ce4813285064a84d2709aae748d4e4daad69fec589971cafa6d4944d7625
 T FolderRewind.Plugin.Abstractions.AddFolderChange
 T FolderRewind.Plugin.Abstractions.ArtifactCompleteness
 T FolderRewind.Plugin.Abstractions.ArtifactContentHandle
@@ -88,6 +88,7 @@ T FolderRewind.Plugin.Abstractions.IRestoreCoordinatorCapability
 T FolderRewind.Plugin.Abstractions.IRestoreMaterializationWorkspace
 T FolderRewind.Plugin.Abstractions.IRestoreMaterializerCapability
 T FolderRewind.Plugin.Abstractions.IRestoreRequestService
+T FolderRewind.Plugin.Abstractions.IRestoreStagingPreparationCapability
 T FolderRewind.Plugin.Abstractions.IVersionMetadataProviderCapability
 T FolderRewind.Plugin.Abstractions.IVersionMetadataSourceView
 T FolderRewind.Plugin.Abstractions.KnotLinkCommandDescriptor
@@ -123,6 +124,9 @@ T FolderRewind.Plugin.Abstractions.RestoreMaterializationRequest
 T FolderRewind.Plugin.Abstractions.RestoreMaterializationResult
 T FolderRewind.Plugin.Abstractions.RestoreMode
 T FolderRewind.Plugin.Abstractions.RestoreMutationContinuation
+T FolderRewind.Plugin.Abstractions.RestoreStagedFileProposal
+T FolderRewind.Plugin.Abstractions.RestoreStagingPreparationRequest
+T FolderRewind.Plugin.Abstractions.RestoreStagingPreparationResult
 T FolderRewind.Plugin.Abstractions.RestoreStrategyDeclaration
 T FolderRewind.Plugin.Abstractions.RestoreStrategyId
 T FolderRewind.Plugin.Abstractions.SetArtifactTransformPolicyChange
@@ -133,3 +137,4 @@ T FolderRewind.Plugin.Abstractions.StateOwnerId
 T FolderRewind.Plugin.Abstractions.UpdateFolderChange
 T FolderRewind.Plugin.Abstractions.VersionMetadataCaptureRequest
 T FolderRewind.Plugin.Abstractions.VersionMetadataCaptureResult
+T FolderRewind.Plugin.Abstractions.WorkspaceOperationKind

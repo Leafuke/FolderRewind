@@ -172,8 +172,37 @@ public interface IRestoreCoordinatorCapability : IPluginCapability
 }
 
 public delegate ValueTask<OperationOutcome> RestoreMutationContinuation(CancellationToken cancellationToken);
-public sealed record RestoreCoordinatorRequest(ConfigSnapshot Config, FolderSnapshot Folder, string VersionId, RestoreMutationContinuation ContinueMutationAsync);
+public enum WorkspaceOperationKind { Restore = 0, Checkout = 1, Merge = 2 }
+
+public sealed record RestoreCoordinatorRequest(
+    ConfigSnapshot Config,
+    IReadOnlyList<FolderSnapshot> Folders,
+    string TargetIdentity,
+    Guid OperationId,
+    WorkspaceOperationKind OperationKind,
+    RestoreMutationContinuation ContinueMutationAsync);
 public sealed record RestoreCoordinatorResult(OperationOutcome Outcome, IReadOnlyList<PluginDiagnostic> Diagnostics);
+
+/// <summary>Ordinary Restore only. Inputs are stable read-only views; proposals never name live paths.</summary>
+public interface IRestoreStagingPreparationCapability : IPluginCapability
+{
+    ConfigKindRef Kind { get; }
+    ValueTask<RestoreStagingPreparationResult> PrepareAsync(
+        RestoreStagingPreparationRequest request, PluginInvocationContext context);
+}
+
+public sealed record RestoreStagingPreparationRequest(
+    Guid OperationId,
+    ConfigSnapshot Config,
+    Guid FolderId,
+    IVersionMetadataSourceView Current,
+    IVersionMetadataSourceView Target,
+    bool PreservePlayerData);
+
+public sealed record RestoreStagedFileProposal(string RelativePath, ReadOnlyMemory<byte> Content);
+public sealed record RestoreStagingPreparationResult(
+    IReadOnlyList<RestoreStagedFileProposal> Files,
+    IReadOnlyList<PluginDiagnostic> Diagnostics);
 
 public interface IPluginCommandCapability : IPluginCapability
 {

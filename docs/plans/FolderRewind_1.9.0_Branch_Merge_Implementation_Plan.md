@@ -1,6 +1,6 @@
 # FolderRewind 1.9.0 Branch Merge：AI Agent 实施计划
 
-状态：设计已冻结，业务代码尚未实施。
+状态：设计已冻结，实施中。实际完成范围和未解决 blocker 见 [实施进度](FolderRewind_1.9.0_Branch_Merge_Implementation_Progress.md)。
 
 本计划汇总维护者在本轮讨论中采纳的决策，以及授权 Agent 直接确定的工程默认项。实施时以仓库实际代码为准；本文件中的“新增”均为待实施能力，不代表当前代码已经存在。
 

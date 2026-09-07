@@ -42,13 +42,14 @@ internal sealed class NativeHistoryRestoreOrchestrator
         IReadOnlyList<ManagedFolder> affectedFolders,
         string targetIdentity,
         Func<CancellationToken, Task<HistoryRestoreResult>> hostMutation,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken,
+        WorkspaceOperationKind operationKind = WorkspaceOperationKind.Restore)
     {
         ArgumentNullException.ThrowIfNull(config);
         ArgumentNullException.ThrowIfNull(affectedFolders);
         ArgumentNullException.ThrowIfNull(hostMutation);
         if (affectedFolders.Count == 0)
-            return Blocked("Restore has no affected Source binding.");
+            return await hostMutation(cancellationToken).ConfigureAwait(false);
 
         var kind = PluginV3ModelMapper.ToKind(config);
         if (StringComparer.Ordinal.Equals(kind.OwnerId.Value, "folderrewind.core"))
@@ -73,29 +74,37 @@ internal sealed class NativeHistoryRestoreOrchestrator
         }
 
         var configSnapshot = PluginV3ModelMapper.ToSnapshot(config);
-        var firstFolderId = Guid.Parse(affectedFolders[0].Id);
-        var folderSnapshot = configSnapshot.Folders.Single(item => item.FolderId == firstFolderId);
+        var folderSnapshots = affectedFolders.Select(folder => configSnapshot.Folders.Single(
+            item => item.FolderId == Guid.Parse(folder.Id))).ToArray();
         HistoryRestoreResult? mutationResult = null;
         var gate = new RestoreMutationContinuationGate(async token =>
         {
             mutationResult = await NativeHostMutationContext.RunSuppliedContinuationAsync(
                 () => hostMutation(token)).ConfigureAwait(false);
-            return mutationResult.Succeeded ? OperationOutcome.Success : OperationOutcome.Failed;
+            return mutationResult.Status == HistoryRestoreStatus.MutationFailedRecoveryRequired
+                ? OperationOutcome.RecoveryRequired
+                : mutationResult.Succeeded ? OperationOutcome.Success : OperationOutcome.Failed;
         });
 
         try
         {
             RestoreCoordinatorResult coordinated;
-            using (NativeHostMutationContext.EnterCoordinatorCallback())
+            try
             {
+                using (NativeHostMutationContext.EnterCoordinatorCallback())
+                {
                 coordinated = await lease.Capability.CoordinateAsync(
                     new RestoreCoordinatorRequest(
                         configSnapshot,
-                        folderSnapshot,
+                        folderSnapshots,
                         targetIdentity,
+                        Guid.NewGuid(),
+                        operationKind,
                         gate.InvokeAsync),
                     lease.Context).ConfigureAwait(false);
+                }
             }
+            finally { await gate.CloseAndDrainAsync().ConfigureAwait(false); }
 
             if (!gate.WasInvoked || mutationResult is null)
                 return Blocked("RestoreCoordinator did not invoke the supplied Host continuation.");
@@ -121,7 +130,7 @@ internal sealed class NativeHistoryRestoreOrchestrator
                     Status = HistoryRestoreStatus.CommittedWithPostActionWarning,
                     Diagnostic = $"Target mutation committed; coordinator post-action failed: {ex.Message}"
                 }
-                : Blocked(ex.Message);
+                : mutationResult ?? Blocked(ex.Message);
         }
     }
 
