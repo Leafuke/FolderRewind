@@ -1,6 +1,6 @@
 # Plugin System v3 — M5 人工测试清单
 
-状态：M6 clean break 已落地，Revision 16 硬化自动门已通过；M5R 发布 Gate 继续拒绝，本清单真实联调全部通过前不得发布。
+状态：M6 clean break 与 Plugin API 3.4 已落地；M5R 发布 Gate 继续拒绝，本清单真实联调全部通过前不得发布。
 
 ## M5R 聚焦复测（更新于 2026-08-17）
 
@@ -17,7 +17,7 @@
 - 在一个由 Minecraft 占用（`session.lock` 被持有）的已配置世界中，依次从真实模组发送 `BACKUP`、`LIST_BACKUPS`、`RESTORE` 且仅带 `current_save=true`（以及既有 `from/request_id`）：三者不得再返回“缺少 config_id”；列表应返回该世界的 History 文件名，备份/还原应立即回复已受理。
 - `BACKUP + current_save=true` 同时发送 URL 编码的非 ASCII `comment`，例如“3.0插件修复后测试”；新 History 必须逐字保存并显示该注释。未发送 `comment` 时仍保存空注释，不能复用上一次值。
 - 检查热备日志/行为顺序：`handshake → HANDSHAKE_RESPONSE → handshake_ack → pre_hot_backup → WORLD_SAVED → Host backup`。模组不兼容或保存超时时，Preferred Full backup 应 raw fallback 并持久化 warning；Require consistency 应 Block。
-- 检查活跃世界热还原顺序：`handshake → pre_hot_restore → WORLD_SAVE_AND_EXIT_COMPLETE → 文件释放 → Host mutation once-only → restore_finished → 至少 3 秒稳定窗口 → rejoin_world → REJOIN_RESULT → hot_restore_complete`。模组必须实际自动重进；日志必须能观察 `restore_finished`、稳定窗口、`rejoin_world` 和最终状态。握手、退出或文件释放失败时不得进入 mutation，并应发送 `restore_cancelled`；完整 History 使用 Clean，Partial History 强制 Overwrite。
+- 检查活跃世界热还原顺序：`handshake → pre_hot_restore → WORLD_SAVE_AND_EXIT_COMPLETE → 文件释放 → Host ordinary-Restore staging preparation → Host mutation once-only → restore_finished → 至少 3 秒稳定窗口 → rejoin_world → REJOIN_RESULT → hot_restore_complete`。玩家数据只能作为 staging proposal 进入同一 Host 事务，continuation 返回后不得再写 live world。模组必须实际自动重进；日志必须能观察 `restore_finished`、稳定窗口、`rejoin_world` 和最终状态。握手、退出或文件释放失败时不得进入 mutation，并应发送 `restore_cancelled`；完整 History 使用 Clean，Partial History 强制 Overwrite。
 - 本轮 Official Catalog 按用户授权跳过；上述场景和三套测试基线通过后，再由用户决定 M5 Gate。
 
 ## A. 包安装与静态安全
@@ -50,7 +50,9 @@
 - Full/manual/automatic：KnotLink 不可用时 raw backup 成功并持久化 `SuccessWithWarnings`，自动化按成功计数且不重试。
 - Selected Regions 或 `Require consistency`：provider/consistency 不可用时 Block。
 - Restore：owner Disabled/Failed/missing 一律 Block；活跃世界的 KnotLink/兼容模组不可用时 Block，冷世界仍走 Host 安全还原而不要求无意义的退出握手。
-- Hot restore：Save & Exit → Host `BackupBeforeRestore` → Safe Restore/mutation once-only → PreservePlayerData → Rejoin。安全备份失败/取消时不得进入 mutation。
+- Hot restore：Save & Exit → Host `BackupBeforeRestore` → 只读 current/target 准备玩家数据 proposal → Safe Restore/mutation once-only → Rejoin。proposal 改变目标 Version 时 Workspace 必须标记 Derived；准备失败以 warning 降级且不得在 mutation 后补写 live world。安全备份失败/取消时不得进入 mutation。
+- Branch Merge：一个配置包含两个世界时，coordinator 必须一次接收全部受影响 Source；第二个世界活跃也必须被发现。多个活动世界无法唯一协调时整次 Block。Merge/Checkout 不启用 PreservePlayerData；`.mca` 双改显示普通文件冲突，不得宣称区块级自动合并。
+- 分别故障注入 Host `RecoveryRequired` 与 `CommittedRecoveryRequired`：两者都不得自动 rejoin；后者重启后必须完成本机 Workspace/catalog，且不得创建第二个 Merge Update。
 - 删除中间 semantic Artifact History 时，确认 Host 按 graph retention/GC 处理，不能形成断链；Cloud queue 只观察 committed graph root。用 rclone 在第二个空环境下载 semantic History，确认先校验 manifest root/revision 和 reachable hashes，再允许 Save & Exit。
 - 命令 ID 验证：`com.folderrewind.minerewind/hotbackup.active-world` 与 `.../hotrestore.active-world`；默认 `Alt+Ctrl+S` / `Alt+Ctrl+Z`，修改用户 override 后重启仍保持 override。
 - 用含 legacy `level.dat/Data/Player` 的世界验证 world name/mode/seed/time/player-data metadata 与 PreservePlayerData；如有 26.1+ fixture，再验证 `singleplayer_uuid` + `players/data/<uuid>.dat`。
