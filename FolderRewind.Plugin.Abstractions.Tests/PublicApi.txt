@@ -1,5 +1,5 @@
-# Generated and reviewed public API baseline for Plugin API 3.2.0.
-# sha256:0d52ce4813285064a84d2709aae748d4e4daad69fec589971cafa6d4944d7625
+# Generated and reviewed public API baseline for Plugin API 3.4.0.
+# sha256:68fddc974ba4200ca72c636065860ad34551fbc7ceac1eacae987b942d6a9948
 T FolderRewind.Plugin.Abstractions.AddFolderChange
 T FolderRewind.Plugin.Abstractions.ArtifactCompleteness
 T FolderRewind.Plugin.Abstractions.ArtifactContentHandle
@@ -124,6 +124,7 @@ T FolderRewind.Plugin.Abstractions.RestoreMaterializationRequest
 T FolderRewind.Plugin.Abstractions.RestoreMaterializationResult
 T FolderRewind.Plugin.Abstractions.RestoreMode
 T FolderRewind.Plugin.Abstractions.RestoreMutationContinuation
+T FolderRewind.Plugin.Abstractions.RestoreRequestOptions
 T FolderRewind.Plugin.Abstractions.RestoreStagedFileProposal
 T FolderRewind.Plugin.Abstractions.RestoreStagingPreparationRequest
 T FolderRewind.Plugin.Abstractions.RestoreStagingPreparationResult

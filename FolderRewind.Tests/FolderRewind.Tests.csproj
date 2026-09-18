@@ -9,6 +9,15 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <Compile Include="..\FolderRewind\Services\ConfigMutationProtection.cs" Link="Source\ConfigMutationProtection.cs" />
+    <Compile Include="..\FolderRewind\History\Application\HistoryMergeService.cs" Link="Source\HistoryMergeService.cs" />
+    <Compile Include="..\FolderRewind\History\Application\HistoryMergeApplyService.cs" Link="History\Application\HistoryMergeApplyService.cs" />
+    <Compile Include="..\FolderRewind\History\Application\HistoryMergeCommitBuilder.cs" Link="Source\HistoryMergeCommitBuilder.cs" />
+    <Compile Include="..\FolderRewind\History\Application\HistoryCheckpointGraph.cs" Link="Source\HistoryCheckpointGraph.cs" />
+    <Compile Include="..\FolderRewind\History\Application\HistoryMergePlanner.cs" Link="Source\HistoryMergePlanner.cs" />
+    <Compile Include="..\FolderRewind\History\Merge\*.cs" Link="Source\Merge\%(Filename)%(Extension)" />
+  </ItemGroup>
+  <ItemGroup>
     <Compile Include="..\FolderRewind\History\Application\HistoryExactWorkingStateProbe.cs" Link="Source\History\Application\HistoryExactWorkingStateProbe.cs" />
     <ProjectReference Include="..\FolderRewind.Plugin.Abstractions\FolderRewind.Plugin.Abstractions.csproj" />
     <ProjectReference Include="..\FolderRewind.Plugin.Runtime\FolderRewind.Plugin.Runtime.csproj" />

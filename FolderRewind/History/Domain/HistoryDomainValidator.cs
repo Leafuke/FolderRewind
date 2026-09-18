@@ -11,6 +11,9 @@ public static class HistoryDomainValidator
     public static void ValidateNative(SourceVersion version)
     {
         ArgumentNullException.ThrowIfNull(version);
+        if (version.CreationKind == SourceVersionCreationKind.Merge
+            && (version.ParentVersionIds.IsEmpty || version.CreatedByRunId is not null || version.CaptureScope != CaptureScope.FullSource))
+            throw new HistoryDomainValidationException("Merge Versions require semantic parents, a full Exact state, and no BackupRun.");
         var maxParents = version.CreationKind == SourceVersionCreationKind.Merge ? 2 : 1;
         if (version.ParentVersionIds.Length > maxParents)
         {
@@ -57,7 +60,19 @@ public static class HistoryDomainValidator
     public static void ValidateNative(BranchUpdate update)
     {
         ArgumentNullException.ThrowIfNull(update);
-        if (update.ParentUpdateIds.Length > 1 && update.Reason != BranchUpdateReason.Reconciled)
+        if (update.Reason == BranchUpdateReason.Merged)
+        {
+            var p = update.MergeProvenance ?? throw new HistoryDomainValidationException("Merge provenance is required.");
+            if (!Enum.IsDefined(p.Mode) || string.IsNullOrWhiteSpace(p.ResolutionDigest) || update.IsDeleted || update.TargetCheckpointId is null || update.BranchId != p.TargetBranchId
+                || p.TargetBranchId == p.SourceBranchId || p.OursUpdateId == p.TheirsUpdateId
+                || update.ParentUpdateIds.Length != 2
+                || !update.ParentUpdateIds.ToHashSet().SetEquals([p.OursUpdateId, p.TheirsUpdateId])
+                || (p.Mode == BranchMergeMode.ThreeWay) != (p.BaseCheckpointId is not null)
+                || string.IsNullOrWhiteSpace(p.ProviderVersion) || string.IsNullOrWhiteSpace(p.PolicyVersion))
+                throw new HistoryDomainValidationException("Merge roles or provenance are inconsistent.");
+        }
+        else if (update.MergeProvenance is not null) throw new HistoryDomainValidationException("Only Merged updates carry Merge provenance.");
+        if (update.ParentUpdateIds.Length > 1 && update.Reason is not (BranchUpdateReason.Reconciled or BranchUpdateReason.Merged))
         {
             throw new HistoryDomainValidationException(
                 "Native BranchUpdate creation is single-parent in the current format stage.");

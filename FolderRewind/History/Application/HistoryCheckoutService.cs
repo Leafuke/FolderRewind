@@ -108,9 +108,10 @@ public sealed class HistoryCheckoutService
             return Blocked(ex.Message);
         }
 
-        await using var lease = await _history.MutationGate.EnterAsync(cancellationToken).ConfigureAwait(false);
         try
         {
+            await using var guard = await _restore.EnterFinalGuardAsync(cancellationToken).ConfigureAwait(false);
+            await using var lease = await _history.MutationGate.EnterAsync(cancellationToken).ConfigureAwait(false);
             var current = await _restore.RequireExpectedWorkspaceAsync(protectedWorkspace, cancellationToken).ConfigureAwait(false);
             var authoritativeBindings = _reloadBindings is null ? currentConfigSources
                 : await _reloadBindings(cancellationToken).ConfigureAwait(false);

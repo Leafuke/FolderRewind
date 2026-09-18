@@ -5209,4 +5209,41 @@ Pull request: {1}</value>
   <data name="SettingsPage_StartupHeightInput.AutomationProperties.Name" xml:space="preserve"><value>Startup window height</value></data>
   <data name="Settings_KnotLink_InvalidHost" xml:space="preserve"><value>Enter a host name or IP address without a URL scheme or port.</value></data>
   <data name="Settings_KnotLink_InvalidIdentifier" xml:space="preserve"><value>KnotLink identifiers must not contain control characters.</value></data>
+  <data name="HistoryPage_BranchMergeItem.Text" xml:space="preserve"><value>Merge branches…</value></data>
+  <data name="Merge_Title" xml:space="preserve"><value>Branch merge</value></data>
+  <data name="Merge_Sessions" xml:space="preserve"><value>Saved merge sessions</value></data>
+  <data name="Merge_Explanation" xml:space="preserve"><value>Merge the selected source branch into the active branch. Create or select a session, review conflicts, then apply. Changed work is protected by a safety snapshot first. The source branch stays at its tip. Closing saves the session.</value></data>
+  <data name="Merge_New" xml:space="preserve"><value>New session</value></data>
+  <data name="Merge_Recompute" xml:space="preserve"><value>Recompute</value></data>
+  <data name="Merge_Resume" xml:space="preserve"><value>Resume / recover</value></data>
+  <data name="Merge_Abandon" xml:space="preserve"><value>Abandon</value></data>
+  <data name="Merge_Apply" xml:space="preserve"><value>Apply merge</value></data>
+  <data name="Merge_Ours" xml:space="preserve"><value>Use target</value></data>
+  <data name="Merge_Theirs" xml:space="preserve"><value>Use source</value></data>
+  <data name="Merge_Manual" xml:space="preserve"><value>Import resolution</value></data>
+  <data name="Merge_Close" xml:space="preserve"><value>Close and keep</value></data>
+  <data name="Merge_WholeSource" xml:space="preserve"><value>Whole Source</value></data>
+  <data name="Merge_Page" xml:space="preserve"><value>Page</value></data>
+  <data name="Merge_Base" xml:space="preserve"><value>Merge base</value></data>
+  <data name="Merge_SelectBranch" xml:space="preserve"><value>Select the source branch in History first.</value></data>
+  <data name="Merge_NoOp" xml:space="preserve"><value>The source is already contained in the target. No merge is needed.</value></data>
+  <data name="Merge_Previous" xml:space="preserve"><value>Previous</value></data>
+  <data name="Merge_Next" xml:space="preserve"><value>Next</value></data>
+  <data name="Merge_PreviewBase" xml:space="preserve"><value>Preview base</value></data>
+  <data name="Merge_PreviewOurs" xml:space="preserve"><value>Preview target</value></data>
+  <data name="Merge_PreviewTheirs" xml:space="preserve"><value>Preview source</value></data>
+  <data name="Merge_State_Preparing" xml:space="preserve"><value>Preparing inputs</value></data>
+  <data name="Merge_State_Resolving" xml:space="preserve"><value>Resolve conflicts</value></data>
+  <data name="Merge_State_Ready" xml:space="preserve"><value>Ready to apply</value></data>
+  <data name="Merge_State_Stale" xml:space="preserve"><value>Plan is stale</value></data>
+  <data name="Merge_State_Applying" xml:space="preserve"><value>Applying / recovery required</value></data>
+  <data name="Merge_State_Committed" xml:space="preserve"><value>Committed</value></data>
+  <data name="Merge_State_Abandoned" xml:space="preserve"><value>Abandoned</value></data>
+  <data name="Merge_Result_Committed" xml:space="preserve"><value>Merge committed.</value></data>
+  <data name="Merge_Result_BlockedBeforeMutation" xml:space="preserve"><value>Blocked before mutation.</value></data>
+  <data name="Merge_Result_MutationFailedRolledBack" xml:space="preserve"><value>Merge failed; original state restored.</value></data>
+  <data name="Merge_Result_MutationFailedRecoveryRequired" xml:space="preserve"><value>Merge interrupted; recovery required. Keep transaction files.</value></data>
+  <data name="Merge_Result_CommittedWithPostActionWarning" xml:space="preserve"><value>Committed with a post-action warning.</value></data>
+  <data name="Merge_Result_NoChanges" xml:space="preserve"><value>No changes needed.</value></data>
+  <data name="Merge_Result_CommittedRecoveryRequired" xml:space="preserve"><value>Merge commit is durable; local recovery must complete.</value></data>
 </root>

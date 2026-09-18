@@ -70,7 +70,17 @@ public interface IRestoreRequestService
 {
     ValueTask<OperationOutcome> RequestAsync(string configId, Guid folderId, string versionId, CancellationToken cancellationToken);
     ValueTask<OperationOutcome> RequestQuickAsync(string configId, Guid folderId, CancellationToken cancellationToken);
+    ValueTask<OperationOutcome> RequestAsync(string configId, Guid folderId, string versionId,
+        RestoreRequestOptions options, CancellationToken cancellationToken)
+        => options.PreservePlayerData ? ValueTask.FromResult(OperationOutcome.Blocked)
+            : RequestAsync(configId, folderId, versionId, cancellationToken);
+    ValueTask<OperationOutcome> RequestQuickAsync(string configId, Guid folderId,
+        RestoreRequestOptions options, CancellationToken cancellationToken)
+        => options.PreservePlayerData ? ValueTask.FromResult(OperationOutcome.Blocked)
+            : RequestQuickAsync(configId, folderId, cancellationToken);
 }
+
+public sealed record RestoreRequestOptions(bool PreservePlayerData = false);
 
 public interface IHistoryQueryService
 {

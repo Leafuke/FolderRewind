@@ -1,3 +1,4 @@
+using FolderRewind.Services;
 using System;
 using System.Collections.Generic;
 using System.Text.Json;
@@ -11,8 +12,10 @@ namespace FolderRewind.Models;
 /// </summary>
 public sealed class ConfigKindReference
 {
-    public string OwnerId { get; set; } = "folderrewind.core";
-    public string KindId { get; set; } = "default";
+    private string _ownerId = "folderrewind.core";
+    public string OwnerId { get => _ownerId; set => ConfigMutationProtection.Set(this, ref _ownerId, value); }
+    private string _kindId = "default";
+    public string KindId { get => _kindId; set => ConfigMutationProtection.Set(this, ref _kindId, value); }
 }
 
 public sealed class ArtifactTransformerReference
@@ -45,8 +48,10 @@ public enum PersistedConsistencyIntent
 /// </summary>
 public sealed class ProviderStatePayload
 {
-    public int SchemaVersion { get; set; }
-    public JsonElement Data { get; set; } = EmptyObject();
+    private int _schemaVersion;
+    private JsonElement _data = EmptyObject();
+    public int SchemaVersion { get => _schemaVersion; set => ConfigMutationProtection.Set(this, ref _schemaVersion, value); }
+    public JsonElement Data { get => _data; set => ConfigMutationProtection.Set(this, ref _data, value); }
 
     private static JsonElement EmptyObject()
         => JsonDocument.Parse("{}").RootElement.Clone();

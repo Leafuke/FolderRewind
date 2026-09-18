@@ -96,9 +96,16 @@ internal sealed class PluginV3HostServices : IPluginHostServices
 
     private sealed class RestoreRequests : IRestoreRequestService
     {
+        public ValueTask<OperationOutcome> RequestQuickAsync(string configId, Guid folderId, CancellationToken token)
+            => RequestQuickAsync(configId, folderId, new RestoreRequestOptions(), token);
+
+        public ValueTask<OperationOutcome> RequestAsync(string configId, Guid folderId, string versionId, CancellationToken token)
+            => RequestAsync(configId, folderId, versionId, new RestoreRequestOptions(), token);
+
         public async ValueTask<OperationOutcome> RequestQuickAsync(
             string configId,
             Guid folderId,
+            RestoreRequestOptions options,
             CancellationToken cancellationToken)
         {
             if (NativeHostMutationContext.IsNestedMutationBlocked)
@@ -111,9 +118,11 @@ internal sealed class PluginV3HostServices : IPluginHostServices
             var result = await NativeHistoryApplicationService.QuickRestoreAsync(
                 config,
                 folder,
-                cancellationToken).ConfigureAwait(false);
+                cancellationToken, options).ConfigureAwait(false);
             return result.Status switch
             {
+                HistoryRestoreStatus.CommittedRecoveryRequired => OperationOutcome.CommittedRecoveryRequired,
+                HistoryRestoreStatus.MutationFailedRecoveryRequired => OperationOutcome.RecoveryRequired,
                 HistoryRestoreStatus.NoChanges => OperationOutcome.NoChanges,
                 _ when result.Succeeded => OperationOutcome.Success,
                 HistoryRestoreStatus.BlockedBeforeMutation => OperationOutcome.Blocked,
@@ -125,6 +134,7 @@ internal sealed class PluginV3HostServices : IPluginHostServices
             string configId,
             Guid folderId,
             string versionId,
+            RestoreRequestOptions options,
             CancellationToken cancellationToken)
         {
             if (NativeHostMutationContext.IsNestedMutationBlocked)
@@ -143,8 +153,13 @@ internal sealed class PluginV3HostServices : IPluginHostServices
                 folder,
                 parsed,
                 BackupService.RestoreMode.Clean,
-                cancellationToken).ConfigureAwait(false);
-            return result.Succeeded ? OperationOutcome.Success : OperationOutcome.Failed;
+                cancellationToken, options).ConfigureAwait(false);
+            return result.Status switch
+            {
+                HistoryRestoreStatus.CommittedRecoveryRequired => OperationOutcome.CommittedRecoveryRequired,
+                HistoryRestoreStatus.MutationFailedRecoveryRequired => OperationOutcome.RecoveryRequired,
+                _ => result.Succeeded ? OperationOutcome.Success : OperationOutcome.Failed
+            };
         }
     }
 
@@ -329,7 +344,7 @@ internal sealed class PluginV3ActivationStore : IPluginActivationStore
 
     private sealed record StateRollback(
         BackupConfig Config,
-        Dictionary<string, ProviderStatePayload> Container,
+        IDictionary<string, ProviderStatePayload> Container,
         string StateOwnerId,
         bool HadPreviousState,
         ProviderStatePayload? PreviousState,

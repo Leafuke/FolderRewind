@@ -40,8 +40,7 @@ namespace FolderRewind.Models
         }
         protected bool SetProperty<T>(ref T field, T value, [CallerMemberName] string? propertyName = null)
         {
-            if (EqualityComparer<T>.Default.Equals(field, value)) return false;
-            field = value;
+            if (!ConfigMutationProtection.Set(this, ref field, value)) return false;
             OnPropertyChanged(propertyName);
             return true;
         }
@@ -54,7 +53,7 @@ namespace FolderRewind.Models
     {
         private int _schemaVersion = 1;
         private GlobalSettings _globalSettings = new();
-        private ObservableCollection<BackupConfig> _backupConfigs = new();
+        private ObservableCollection<BackupConfig> _backupConfigs = new GuardedObservableCollection<BackupConfig>();
         private ObservableCollection<BackupPreset> _backupPresets = new();
 
         [JsonPropertyName("schemaVersion")]
@@ -73,7 +72,7 @@ namespace FolderRewind.Models
         public ObservableCollection<BackupConfig> BackupConfigs
         {
             get => _backupConfigs;
-            set => SetProperty(ref _backupConfigs, value ?? new ObservableCollection<BackupConfig>());
+            set => SetProperty(ref _backupConfigs, GuardedObservableCollection<BackupConfig>.Wrap(value));
         }
 
         [JsonPropertyName("Templates")]

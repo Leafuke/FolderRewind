@@ -56,6 +56,7 @@ internal sealed class PluginV3CaptureLeaseOwner
         IConsistencyLease? acquiredConsistency = null;
         try
         {
+            using var callback = NativeHostMutationContext.EnterCoordinatorCallback();
             acquiredConsistency = await capabilityLease.Capability.AcquireAsync(
                 new BackupConsistencyRequest(config, folder, intent),
                 capabilityLease.Context).ConfigureAwait(false);
@@ -118,6 +119,7 @@ internal sealed class PluginV3CaptureLeaseOwner
 
         try
         {
+            using var callback = NativeHostMutationContext.EnterCoordinatorCallback();
             await ownership.Consistency.DisposeAsync().ConfigureAwait(false);
         }
         finally
@@ -132,6 +134,7 @@ internal sealed class PluginV3CaptureLeaseOwner
     {
         try
         {
+            using var callback = NativeHostMutationContext.EnterCoordinatorCallback();
             if (consistency is not null)
                 await consistency.DisposeAsync().ConfigureAwait(false);
         }

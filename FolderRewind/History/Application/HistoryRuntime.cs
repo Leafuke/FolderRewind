@@ -40,7 +40,8 @@ public sealed class HistoryRuntime : IAsyncDisposable
             repository.ConfigId,
             Path.Combine(repository.Paths.LocalStateRoot, "replicas.json"));
         CaptureBaselines = new SourceCaptureBaselineCache(repository.Paths.LocalStateRoot);
-        MutationGate = new HistoryMutationGate(repository.ConfigId);
+        MergeSessions = new MergeSessionStore(repository.Paths.LocalStateRoot);
+        MutationGate = new HistoryMutationGate(repository.ConfigId, () => HistoryRestoreTransactionJournalStore.RequireRecovered(repository.Paths.TransactionsRoot));
         ChangeFeed = new HistoryChangeFeed();
         Query = new HistoryQueryService(Index);
         Commit = new HistoryCommitCoordinator(this, _codec);
@@ -55,6 +56,7 @@ public sealed class HistoryRuntime : IAsyncDisposable
     public HistoryWorkspaceStore WorkspaceStore { get; }
     public LocalReplicaCatalogStore LocalReplicaCatalogStore { get; }
     public SourceCaptureBaselineCache CaptureBaselines { get; }
+    public MergeSessionStore MergeSessions { get; }
     public HistoryMutationGate MutationGate { get; }
     public HistoryChangeFeed ChangeFeed { get; }
     public HistoryQueryService Query { get; }
@@ -74,6 +76,9 @@ public sealed class HistoryRuntime : IAsyncDisposable
             await Repository.InitializeAsync(cancellationToken).ConfigureAwait(false);
             var packs = await Repository.ReadAllPacksAsync(cancellationToken).ConfigureAwait(false);
             new HistoryRepositoryValidator(_codec).Validate(ConfigId, packs);
+
+            await new HistoryRestoreTransactionJournalStore(this, new FileSystemHistoryRestoreMutationBackend())
+                .RecoverIncompleteAsync(cancellationToken).ConfigureAwait(false);
 
             var localRecovery = new HistoryLocalStateJournalRecovery(
                 WorkspaceStore,

@@ -12,7 +12,7 @@ namespace FolderRewind.Plugin.Runtime.Tests;
 public sealed class PluginVerticalSliceTests
 {
     private static readonly PluginId FakePluginId = new("com.folderrewind.vertical-fake");
-    private const string MineRewindSha256 = "96f83d24945db9acda2d2a835926a2e03fb0213d9b3316447c14c6811964a585";
+    private const string MineRewindSha256 = "dbdffdeb8c67dbb9100c17c03758c4433500d95b6f9bfe41a5ee48aa47033cd8";
     private static readonly PluginId MineRewindPluginId = new("com.folderrewind.minerewind");
     private static readonly ConfigKindRef FakeKind = new(new OwnerId(FakePluginId.Value), "test-data");
     private static readonly ConfigKindRef MinecraftKind = new(
@@ -473,7 +473,8 @@ public sealed class PluginVerticalSliceTests
                 host,
                 new RecordingActivationStore(events),
                 manifest.Contract));
-            Assert.IsTrue(result.Success, string.Join(", ", result.Diagnostics.Select(diagnostic => diagnostic.Code)));
+            Assert.IsTrue(result.Success, string.Join(", ", result.Diagnostics.Select(diagnostic =>
+                diagnostic.Arguments.TryGetValue("message", out var message) ? $"{diagnostic.Code}: {message}" : diagnostic.Code)));
             return new MineRuntimeFixture(manager, host, loaded, extraction);
         }
         catch

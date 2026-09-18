@@ -70,7 +70,7 @@ internal sealed class PluginV3BackupSession : IAsyncDisposable
     }
 
     public async ValueTask<PluginV3VersionMetadataCaptureResult> CaptureVersionMetadataAsync(
-        CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken = default, string? stagedSourcePath = null)
     {
         if (_resolution.PluginId is null || _resolution.ConfigSnapshot is null || _resolution.FolderSnapshot is null)
             return PluginV3VersionMetadataCaptureResult.Empty;
@@ -79,7 +79,7 @@ internal sealed class PluginV3BackupSession : IAsyncDisposable
             capability => capability.Kind == _resolution.ConfigSnapshot.Kind,
             cancellationToken);
         if (lease is null) return PluginV3VersionMetadataCaptureResult.Empty;
-        var stableSourcePath = _captureLeaseOwner.StableSourcePath;
+        var stableSourcePath = stagedSourcePath ?? _captureLeaseOwner.StableSourcePath;
         if (stableSourcePath is null)
         {
             var diagnostic = new PluginDiagnostic(
@@ -94,6 +94,7 @@ internal sealed class PluginV3BackupSession : IAsyncDisposable
 
         try
         {
+            using var callback = NativeHostMutationContext.EnterCoordinatorCallback();
             var result = await lease.Capability.CaptureAsync(
                 new VersionMetadataCaptureRequest(
                     _resolution.ConfigSnapshot,

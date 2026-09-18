@@ -411,10 +411,19 @@ public sealed class HistoryCheckoutServiceTests
         Assert.IsFalse(await probe.IsExactAsync(binding, baseline, default));
     }
 
+    [TestMethod]
+    public async Task OrdinaryRestorePreparationChangesOnlyStagingAndMarksDerived()
+    {
+        var restored = await RestoreSingleVersionAsync(CaptureScope.FullSource, MaterializationFidelity.Exact, HistoryRestoreApplyMode.Clean, transform: true);
+        Assert.AreEqual(HistoryRestoreStatus.Committed, restored.Result.Status);
+        Assert.AreEqual(WorkspaceBaselineRelation.Derived, restored.Relation);
+        Assert.AreEqual("prepared", File.ReadAllText(Path.Combine(restored.Target, "restored.txt")));
+    }
+
     private async Task<(HistoryRestoreResult Result, string Target, WorkspaceBaselineRelation Relation)> RestoreSingleVersionAsync(
         CaptureScope captureScope,
         MaterializationFidelity fidelity,
-        HistoryRestoreApplyMode requestedMode)
+        HistoryRestoreApplyMode requestedMode, bool transform = false)
     {
         var configId = new HistoryConfigId(Guid.NewGuid().ToString("N"));
         var repository = new FileHistoryRepository(
@@ -451,7 +460,13 @@ public sealed class HistoryCheckoutServiceTests
             history,
             new RepresentationRuntime([new ExactTestRepresentationHandler()]),
             _ => Task.FromResult<IRepresentationEnvironment>(new RepresentationEnvironment([], [], [])),
-            new FileSystemHistoryRestoreMutationBackend());
+            new FileSystemHistoryRestoreMutationBackend(),
+            transform ? (_, staging, _) =>
+            {
+                Assert.AreEqual("old", File.ReadAllText(Path.Combine(target, "original.txt")));
+                File.WriteAllText(Path.Combine(staging, "restored.txt"), "prepared");
+                return Task.FromResult(true);
+            } : null);
 
         var result = await restore.RestoreVersionAsync(
             version.VersionId,

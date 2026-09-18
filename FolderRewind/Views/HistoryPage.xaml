@@ -142,6 +142,7 @@
                             <FontIcon Glyph="&#xE712;" FontSize="12"/>
                             <DropDownButton.Flyout>
                                 <MenuFlyout>
+                                    <MenuFlyoutItem x:Uid="HistoryPage_BranchMergeItem" AutomationProperties.AutomationId="HistoryBranchMerge" Command="{x:Bind ViewModel.MergeBranchCommand}"/>
                                     <MenuFlyoutItem x:Name="BranchReconcileItem"
                                                     x:Uid="HistoryPage_BranchReconcileItem"
                                                     AutomationProperties.AutomationId="HistoryBranchReconcile"

@@ -56,6 +56,7 @@ internal static class HistorySourceBoundaryResolver
             {
                 try
                 {
+                    using var callback = NativeHostMutationContext.EnterCoordinatorCallback();
                     var policy = await filePolicyLease.Capability.ResolveAsync(
                         new FilePolicyRequest(configSnapshot, folderSnapshot),
                         filePolicyLease.Context).ConfigureAwait(false);
@@ -100,6 +101,7 @@ internal static class HistorySourceBoundaryResolver
                     diagnostics, "plugin.backup_scope_parameters_invalid", "BackupScope", owner.Value);
             try
             {
+                using var callback = NativeHostMutationContext.EnterCoordinatorCallback();
                 var scope = await scopeLease.Capability.ResolveAsync(
                     new BackupScopeRequest(
                         configSnapshot,
@@ -172,7 +174,7 @@ internal static class HistorySourceBoundaryResolver
 
     private static bool TryBuildScopeParameters(
         JsonElement schema,
-        IReadOnlyDictionary<string, string> values,
+        IEnumerable<KeyValuePair<string, string>> values,
         out IReadOnlyDictionary<string, JsonElement> parameters)
     {
         var result = new Dictionary<string, JsonElement>(StringComparer.Ordinal);

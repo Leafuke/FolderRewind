@@ -687,7 +687,7 @@ public static class DiscoveryDraftService
     }
 
     private static Dictionary<string, ProviderStatePayload> CloneProviderStates(
-        IReadOnlyDictionary<string, ProviderStatePayload>? states)
+        IEnumerable<KeyValuePair<string, ProviderStatePayload>>? states)
     {
         return (states ?? new Dictionary<string, ProviderStatePayload>()).ToDictionary(
             pair => pair.Key,

@@ -50,6 +50,7 @@ public sealed partial class HistoryPageViewModel
         RestoreRunCommand = new AsyncRelayCommand<BackupRunViewItem>(RestoreRunCommandAsync, CanExecuteItemOperation);
         DeleteRunCommand = new AsyncRelayCommand<BackupRunViewItem>(DeleteRunCommandAsync, CanExecuteItemOperation);
 
+        MergeBranchCommand = new AsyncRelayCommand(MergeBranchCommandAsync, CanExecuteOperation);
         CheckoutBranchCommand = new AsyncRelayCommand(CheckoutBranchCommandAsync, () => CanExecuteOperation() && CanStartCheckoutSelectedBranch);
         ReconcileBranchCommand = new AsyncRelayCommand(ReconcileBranchCommandAsync, () => CanExecuteOperation() && CanReconcileSelectedBranch);
         RenameBranchCommand = new AsyncRelayCommand(RenameBranchCommandAsync, () => CanExecuteOperation() && CanRenameSelectedBranch);
@@ -82,6 +83,7 @@ public sealed partial class HistoryPageViewModel
     public IAsyncRelayCommand<BackupRunViewItem> CreateBranchFromRunCommand { get; }
     public IAsyncRelayCommand<BackupRunViewItem> RestoreRunCommand { get; }
     public IAsyncRelayCommand<BackupRunViewItem> DeleteRunCommand { get; }
+    public IAsyncRelayCommand MergeBranchCommand { get; }
     public IAsyncRelayCommand CheckoutBranchCommand { get; }
     public IAsyncRelayCommand ReconcileBranchCommand { get; }
     public IAsyncRelayCommand RenameBranchCommand { get; }
@@ -273,6 +275,14 @@ public sealed partial class HistoryPageViewModel
                 },
                 cancellationToken);
     }
+
+    private Task MergeBranchCommandAsync(CancellationToken cancellationToken)
+        => ExecuteOperationAsync("branch merge", async token =>
+        {
+            if (!TryGetCurrentConfig(out var config) || config is null) return;
+            await HistoryMergeInteraction.ShowAsync(config, SelectedBranch?.BranchId, token);
+            await RefreshCurrentHistoryAsync(token);
+        }, cancellationToken);
 
     private Task CheckoutBranchCommandAsync(CancellationToken cancellationToken)
     {
@@ -955,6 +965,7 @@ public sealed partial class HistoryPageViewModel
         CreateBranchFromRunCommand.NotifyCanExecuteChanged();
         RestoreRunCommand.NotifyCanExecuteChanged();
         DeleteRunCommand.NotifyCanExecuteChanged();
+        MergeBranchCommand.NotifyCanExecuteChanged();
         CheckoutBranchCommand.NotifyCanExecuteChanged();
         ReconcileBranchCommand.NotifyCanExecuteChanged();
         RenameBranchCommand.NotifyCanExecuteChanged();
@@ -987,6 +998,7 @@ public sealed partial class HistoryPageViewModel
         CreateBranchFromRunCommand.Cancel();
         RestoreRunCommand.Cancel();
         DeleteRunCommand.Cancel();
+        MergeBranchCommand.Cancel();
         CheckoutBranchCommand.Cancel();
         ReconcileBranchCommand.Cancel();
         RenameBranchCommand.Cancel();

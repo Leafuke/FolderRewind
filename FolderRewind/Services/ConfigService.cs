@@ -35,7 +35,12 @@ namespace FolderRewind.Services
 
         public static event Action? Saved;
 
-        public static AppConfig CurrentConfig { get; private set; } = new();
+        private static AppConfig _currentConfig = new();
+        public static AppConfig CurrentConfig
+        {
+            get => _currentConfig;
+            private set { lock (ConfigMutationProtection.Sync) { ConfigMutationProtection.RequireWritable(_currentConfig); _currentConfig = value; } }
+        }
 
         public static bool IsRecoveryMode { get; private set; }
 

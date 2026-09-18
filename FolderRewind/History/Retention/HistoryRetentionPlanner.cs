@@ -281,6 +281,8 @@ public sealed class HistoryRetentionPlanner
             ProtectVersion(operation.VersionId, HistoryProtectionReason.ActiveOperation, operation.RequiredFidelity);
 
         var closures = new List<HistoryRepresentationClosure>();
+        foreach (var sessionRoot in _history.MergeSessions.ActiveRoots())
+            ProtectVersion(sessionRoot, HistoryProtectionReason.ActiveOperation, MaterializationFidelity.Exact);
         var selections = new Dictionary<VersionId, Selection>();
         foreach (var protectedVersion in versionRoots.OrderBy(item => item.Key.ToString(), StringComparer.Ordinal))
         {

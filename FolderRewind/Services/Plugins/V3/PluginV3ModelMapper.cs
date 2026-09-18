@@ -95,7 +95,7 @@ internal static class PluginV3ModelMapper
     private static IReadOnlyDictionary<StateOwnerId, ProviderStateSnapshot> ToStates(
         string configId,
         Guid? folderId,
-        IReadOnlyDictionary<string, ProviderStatePayload>? states)
+        IEnumerable<KeyValuePair<string, ProviderStatePayload>>? states)
     {
         var result = new Dictionary<StateOwnerId, ProviderStateSnapshot>();
         foreach (var (ownerValue, payload) in states ?? new Dictionary<string, ProviderStatePayload>())

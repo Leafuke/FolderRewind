@@ -41,7 +41,7 @@ public sealed class FileSystemHistoryRestoreMutationBackend : IHistoryRestoreMut
             source.SourceId,
             target,
             rollback,
-            hadOriginal);
+            hadOriginal, hadOriginal ? null : $".folderrewind-restore-{transactionId}.owner");
     }
 
     public async Task PrepareRollbackAsync(
@@ -64,9 +64,14 @@ public sealed class FileSystemHistoryRestoreMutationBackend : IHistoryRestoreMut
                     cancellationToken).ConfigureAwait(false);
             }
         }
-        else if (File.Exists(snapshot.TargetDirectory))
+        else
         {
-            throw new InvalidOperationException("Restore target became a file before rollback preparation.");
+            if (snapshot.NewTargetOwnershipMarker is null) throw new InvalidOperationException("New restore target requires an ownership marker.");
+            Directory.CreateDirectory(snapshot.RollbackDirectory);
+            var marker = Path.Combine(snapshot.RollbackDirectory, snapshot.NewTargetOwnershipMarker);
+            using (var stream = new FileStream(marker, FileMode.CreateNew, FileAccess.Write, FileShare.None)) stream.Flush(true);
+            // Directory.Move fails if another writer has created the target; never adopt that directory.
+            await MoveDirectoryWithRetryAsync(snapshot.RollbackDirectory, snapshot.TargetDirectory, cancellationToken).ConfigureAwait(false);
         }
         Directory.CreateDirectory(snapshot.TargetDirectory);
     }
@@ -120,7 +125,9 @@ public sealed class FileSystemHistoryRestoreMutationBackend : IHistoryRestoreMut
         }
         else
         {
-            await DeleteDirectoryWithRetryAsync(snapshot.TargetDirectory, cancellationToken).ConfigureAwait(false);
+            if (snapshot.NewTargetOwnershipMarker is not null && File.Exists(Path.Combine(snapshot.TargetDirectory, snapshot.NewTargetOwnershipMarker)))
+                await DeleteDirectoryWithRetryAsync(snapshot.TargetDirectory, cancellationToken).ConfigureAwait(false);
+            await DeleteDirectoryWithRetryAsync(snapshot.RollbackDirectory, cancellationToken).ConfigureAwait(false);
         }
     }
 
@@ -128,6 +135,8 @@ public sealed class FileSystemHistoryRestoreMutationBackend : IHistoryRestoreMut
         HistoryRestoreRollbackSnapshot snapshot,
         CancellationToken cancellationToken)
     {
+        if (!snapshot.HadOriginalTarget && snapshot.NewTargetOwnershipMarker is not null)
+            File.Delete(Path.Combine(snapshot.TargetDirectory, snapshot.NewTargetOwnershipMarker));
         await DeleteDirectoryWithRetryAsync(snapshot.RollbackDirectory, cancellationToken).ConfigureAwait(false);
     }
 

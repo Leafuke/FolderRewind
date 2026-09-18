@@ -1,3 +1,4 @@
+using FolderRewind.Services;
 using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
@@ -14,8 +15,10 @@ public enum BackupSourceScopeMode
 
 public sealed class BackupSourceScope
 {
-    public BackupSourceScopeMode Mode { get; set; } = BackupSourceScopeMode.All;
-    public ObservableCollection<string> IncludePatterns { get; set; } = new();
+    private BackupSourceScopeMode _mode;
+    public BackupSourceScopeMode Mode { get => _mode; set => ConfigMutationProtection.Set(this, ref _mode, value); }
+    private ObservableCollection<string> _includePatterns = new GuardedObservableCollection<string>();
+    public ObservableCollection<string> IncludePatterns { get => _includePatterns; set => ConfigMutationProtection.Set(this, ref _includePatterns, GuardedObservableCollection<string>.Wrap(value)); }
 
     [JsonIgnore]
     public bool IsPartial => Mode == BackupSourceScopeMode.Include;

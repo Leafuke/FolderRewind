@@ -63,6 +63,10 @@ public sealed class MaterializationPolicyService
         }
         if (state == MaterializationPolicyState.Released)
         {
+            var representations = await _runtime.Query.GetAllRepresentationsAsync(cancellationToken).ConfigureAwait(false);
+            var protectedIds = _runtime.MergeSessions.ProtectedRepresentations(representations);
+            if (representations.Any(r => r.VersionId == versionId && protectedIds.Contains(r.RepresentationId)))
+                throw new MaterializationPolicyCommandException("Version is protected by an unfinished Merge Session.");
             await EnsureCanReleaseAsync(versionId, cancellationToken).ConfigureAwait(false);
         }
         var currentTips = await _runtime.Query.GetMaterializationPolicyTipsAsync(versionId, cancellationToken).ConfigureAwait(false);

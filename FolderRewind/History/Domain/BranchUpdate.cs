@@ -13,7 +13,8 @@ public enum BranchUpdateReason
     Renamed = 3,
     Deleted = 4,
     Migration = 5,
-    Reconciled = 6
+    Reconciled = 6,
+    Merged = 7
 }
 
 public sealed record BranchUpdate
@@ -26,7 +27,8 @@ public sealed record BranchUpdate
         CheckpointId? targetCheckpointId,
         bool isDeleted,
         DateTimeOffset createdAtUtc,
-        BranchUpdateReason reason)
+        BranchUpdateReason reason,
+        BranchMergeProvenance? mergeProvenance = null)
         : this(
             updateId,
             branchId,
@@ -35,7 +37,7 @@ public sealed record BranchUpdate
             targetCheckpointId,
             isDeleted,
             createdAtUtc,
-            reason)
+            reason, mergeProvenance)
     {
     }
 
@@ -48,7 +50,8 @@ public sealed record BranchUpdate
         CheckpointId? targetCheckpointId,
         bool isDeleted,
         DateTimeOffset createdAtUtc,
-        BranchUpdateReason reason)
+        BranchUpdateReason reason,
+        BranchMergeProvenance? mergeProvenance = null)
     {
         UpdateId = updateId;
         BranchId = branchId;
@@ -60,6 +63,7 @@ public sealed record BranchUpdate
         IsDeleted = isDeleted;
         CreatedAtUtc = createdAtUtc.ToUniversalTime();
         Reason = reason;
+        MergeProvenance = mergeProvenance;
     }
 
     public BranchUpdateId UpdateId { get; }
@@ -70,5 +74,12 @@ public sealed record BranchUpdate
     public bool IsDeleted { get; }
     public DateTimeOffset CreatedAtUtc { get; }
     public BranchUpdateReason Reason { get; }
+    public BranchMergeProvenance? MergeProvenance { get; }
     public bool IsUnborn => !IsDeleted && TargetCheckpointId is null;
 }
+
+public enum BranchMergeMode { FastForwardLike, ThreeWay }
+public sealed record BranchMergeProvenance(BranchMergeMode Mode, BranchId TargetBranchId, BranchId SourceBranchId,
+    BranchUpdateId OursUpdateId, BranchUpdateId TheirsUpdateId, CheckpointId OursCheckpointId,
+    CheckpointId TheirsCheckpointId, CheckpointId? BaseCheckpointId, string ProviderVersion,
+    string PolicyVersion, string ResolutionDigest);

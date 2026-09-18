@@ -15,7 +15,8 @@ public enum HistoryRestoreStatus
     MutationFailedRolledBack = 2,
     MutationFailedRecoveryRequired = 3,
     CommittedWithPostActionWarning = 4,
-    NoChanges = 5
+    NoChanges = 5,
+    CommittedRecoveryRequired = 6
 }
 
 public enum HistoryCheckoutProtectionMode
@@ -56,14 +57,14 @@ public sealed record HistoryRestoreResult(
         or HistoryRestoreStatus.CommittedWithPostActionWarning
         or HistoryRestoreStatus.NoChanges;
     public bool TargetCommitted => Status is HistoryRestoreStatus.Committed
-        or HistoryRestoreStatus.CommittedWithPostActionWarning;
+        or HistoryRestoreStatus.CommittedWithPostActionWarning or HistoryRestoreStatus.CommittedRecoveryRequired;
 }
 
 public sealed record HistoryRestoreRollbackSnapshot(
     SourceId SourceId,
     string TargetDirectory,
     string RollbackDirectory,
-    bool HadOriginalTarget);
+    bool HadOriginalTarget, string? NewTargetOwnershipMarker = null);
 
 public interface IHistoryWorkingStateProtector
 {

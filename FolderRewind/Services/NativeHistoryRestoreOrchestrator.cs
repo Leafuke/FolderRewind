@@ -13,6 +13,9 @@ namespace FolderRewind.Services;
 
 internal sealed class NativeHistoryRestoreOrchestrator
 {
+    internal sealed record Operation(Guid Id, bool PreservePlayerData);
+    private static readonly AsyncLocal<Operation?> CurrentOperation = new();
+    internal static Operation? Current => CurrentOperation.Value;
     public static bool IsCoordinatorAvailable(BackupConfig config, out string diagnostic)
     {
         ArgumentNullException.ThrowIfNull(config);
@@ -43,7 +46,21 @@ internal sealed class NativeHistoryRestoreOrchestrator
         string targetIdentity,
         Func<CancellationToken, Task<HistoryRestoreResult>> hostMutation,
         CancellationToken cancellationToken,
-        WorkspaceOperationKind operationKind = WorkspaceOperationKind.Restore)
+        WorkspaceOperationKind operationKind = WorkspaceOperationKind.Restore,
+        RestoreRequestOptions? options = null)
+    {
+        var previous = CurrentOperation.Value;
+        CurrentOperation.Value = new(Guid.NewGuid(), operationKind == WorkspaceOperationKind.Restore
+            && options?.PreservePlayerData == true);
+        try { return await ExecuteCoreAsync(config, affectedFolders, targetIdentity, hostMutation,
+            cancellationToken, operationKind).ConfigureAwait(false); }
+        finally { CurrentOperation.Value = previous; }
+    }
+
+    private async Task<HistoryRestoreResult> ExecuteCoreAsync(BackupConfig config,
+        IReadOnlyList<ManagedFolder> affectedFolders, string targetIdentity,
+        Func<CancellationToken, Task<HistoryRestoreResult>> hostMutation, CancellationToken cancellationToken,
+        WorkspaceOperationKind operationKind)
     {
         ArgumentNullException.ThrowIfNull(config);
         ArgumentNullException.ThrowIfNull(affectedFolders);
@@ -81,7 +98,9 @@ internal sealed class NativeHistoryRestoreOrchestrator
         {
             mutationResult = await NativeHostMutationContext.RunSuppliedContinuationAsync(
                 () => hostMutation(token)).ConfigureAwait(false);
-            return mutationResult.Status == HistoryRestoreStatus.MutationFailedRecoveryRequired
+            return mutationResult.Status == HistoryRestoreStatus.CommittedRecoveryRequired
+                ? OperationOutcome.CommittedRecoveryRequired
+                : mutationResult.Status == HistoryRestoreStatus.MutationFailedRecoveryRequired
                 ? OperationOutcome.RecoveryRequired
                 : mutationResult.Succeeded ? OperationOutcome.Success : OperationOutcome.Failed;
         });
@@ -98,7 +117,7 @@ internal sealed class NativeHistoryRestoreOrchestrator
                         configSnapshot,
                         folderSnapshots,
                         targetIdentity,
-                        Guid.NewGuid(),
+                        Current!.Id,
                         operationKind,
                         gate.InvokeAsync),
                     lease.Context).ConfigureAwait(false);
@@ -108,7 +127,7 @@ internal sealed class NativeHistoryRestoreOrchestrator
 
             if (!gate.WasInvoked || mutationResult is null)
                 return Blocked("RestoreCoordinator did not invoke the supplied Host continuation.");
-            if (!mutationResult.TargetCommitted)
+            if (!mutationResult.TargetCommitted || mutationResult.Status == HistoryRestoreStatus.CommittedRecoveryRequired)
                 return mutationResult;
             if (coordinated.Outcome is OperationOutcome.Success or OperationOutcome.SuccessWithWarnings)
             {
@@ -124,6 +143,7 @@ internal sealed class NativeHistoryRestoreOrchestrator
         }
         catch (Exception ex)
         {
+            if (mutationResult?.Status == HistoryRestoreStatus.CommittedRecoveryRequired) return mutationResult;
             return mutationResult?.TargetCommitted == true
                 ? mutationResult with
                 {

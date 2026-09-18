@@ -112,6 +112,29 @@ public sealed class HistoryRepositoryValidator
         foreach (var update in branchUpdates.Values)
         {
             HistoryDomainValidator.ValidateNative(update);
+            if (update.MergeProvenance is { } merge)
+            {
+                var ours = Require(branchUpdates, merge.OursUpdateId, "Merge target");
+                var theirs = Require(branchUpdates, merge.TheirsUpdateId, "Merge source");
+                if (ours.BranchId != merge.TargetBranchId || theirs.BranchId != merge.SourceBranchId
+                    || ours.TargetCheckpointId != merge.OursCheckpointId || theirs.TargetCheckpointId != merge.TheirsCheckpointId
+                    || ours.IsDeleted || theirs.IsDeleted)
+                    throw Invalid("Merge provenance does not identify its parents.");
+                var ancestry = new Application.HistoryCheckpointGraph(checkpoints.Values, configId).FindBase(merge.OursCheckpointId, merge.TheirsCheckpointId);
+                if (ancestry.Mode != (merge.Mode == BranchMergeMode.FastForwardLike ? Application.HistoryMergeMode.FastForwardLike : Application.HistoryMergeMode.ThreeWay)
+                    || ancestry.BaseCheckpointId != merge.BaseCheckpointId) throw Invalid("Merge provenance does not match checkpoint ancestry.");
+                var result = Require(checkpoints, update.TargetCheckpointId!.Value, "Merge result");
+                var admission = Application.HistoryExactCheckpointAdmission.Evaluate(result, versions, representations);
+                if (!admission.IsReady) throw Invalid(admission.Diagnostic);
+                if (merge.Mode == BranchMergeMode.FastForwardLike)
+                {
+                    if (result.CheckpointId != merge.TheirsCheckpointId) throw Invalid("Fast-forward result must reuse Theirs checkpoint.");
+                }
+                else if (result.CreationKind != CheckpointCreationKind.Merge
+                    || !result.ParentCheckpointIds.ToHashSet().SetEquals([merge.OursCheckpointId, merge.TheirsCheckpointId]))
+                    throw Invalid("Three-way result must extend both checkpoints.");
+                if (merge.BaseCheckpointId is { } baseId) Require(checkpoints, baseId, "Merge base");
+            }
             if (update.TargetCheckpointId is { } targetId)
             {
                 Require(checkpoints, targetId, "Branch target checkpoint");

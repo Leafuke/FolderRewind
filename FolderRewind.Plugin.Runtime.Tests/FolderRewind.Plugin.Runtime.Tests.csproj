@@ -16,6 +16,7 @@
 
   <ItemGroup>
     <Compile Remove="Fixtures\**\*.cs" />
+    <Compile Include="..\FolderRewind\Services\NativeHostMutationContext.cs" Link="Source\NativeHostMutationContext.cs" />
     <Compile Include="..\FolderRewind\Services\Plugins\V3\PluginV3CaptureLeaseOwner.cs" Link="Source\PluginV3CaptureLeaseOwner.cs" />
     <ProjectReference Include="..\FolderRewind.Plugin.Runtime\FolderRewind.Plugin.Runtime.csproj" />
     <ProjectReference Include="Fixtures\HostBridge\HostBridge.csproj" ReferenceOutputAssembly="false" />

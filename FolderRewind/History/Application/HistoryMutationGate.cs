@@ -10,7 +10,8 @@ public sealed class HistoryMutationGate : IDisposable
     private readonly SemaphoreSlim _gate = new(1, 1);
     private bool _disposed;
 
-    public HistoryMutationGate(HistoryConfigId configId) => ConfigId = configId;
+    private readonly Action? _validateReady;
+    public HistoryMutationGate(HistoryConfigId configId, Action? validateReady = null) { ConfigId = configId; _validateReady = validateReady; }
 
     public HistoryConfigId ConfigId { get; }
 
@@ -18,7 +19,14 @@ public sealed class HistoryMutationGate : IDisposable
     {
         ObjectDisposedException.ThrowIf(_disposed, this);
         await _gate.WaitAsync(cancellationToken).ConfigureAwait(false);
-        return new Lease(_gate);
+        try { _validateReady?.Invoke(); return new Lease(_gate); }
+        catch { _gate.Release(); throw; }
+    }
+
+    internal async ValueTask<IAsyncDisposable> EnterForRecoveryAsync(CancellationToken token)
+    {
+        ObjectDisposedException.ThrowIf(_disposed, this);
+        await _gate.WaitAsync(token).ConfigureAwait(false); return new Lease(_gate);
     }
 
     public void Dispose()

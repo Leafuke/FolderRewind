@@ -17,7 +17,7 @@ using System.Threading.Tasks;
 
 namespace FolderRewind.Services;
 
-internal static class NativeHistoryApplicationService
+internal static partial class NativeHistoryApplicationService
 {
     public static async Task<IReadOnlyList<SafetySnapshotProjection>> GetSafetySnapshotsAsync(
         BackupConfig config,
@@ -62,7 +62,8 @@ internal static class NativeHistoryApplicationService
     public static async Task<HistoryRestoreResult> QuickRestoreAsync(
         BackupConfig config,
         ManagedFolder folder,
-        CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken = default,
+        RestoreRequestOptions? options = null)
     {
         NativeHostMutationContext.ThrowIfNestedMutation();
         var runtime = await NativeHistoryCoreGateway.EnsureReadyAsync(config, cancellationToken).ConfigureAwait(false);
@@ -97,7 +98,7 @@ internal static class NativeHistoryApplicationService
                 BackupService.RestoreMode.Clean,
                 token,
                 requireSafetySnapshot: true),
-            cancellationToken).ConfigureAwait(false);
+            cancellationToken, options: options).ConfigureAwait(false);
     }
 
     public static async Task<HistoryRestoreResult> RestoreVersionAsync(
@@ -105,7 +106,8 @@ internal static class NativeHistoryApplicationService
         ManagedFolder folder,
         VersionId versionId,
         BackupService.RestoreMode requestedMode,
-        CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken = default,
+        RestoreRequestOptions? options = null)
     {
         NativeHostMutationContext.ThrowIfNestedMutation();
         var runtime = await NativeHistoryCoreGateway.EnsureReadyAsync(config, cancellationToken).ConfigureAwait(false);
@@ -122,7 +124,7 @@ internal static class NativeHistoryApplicationService
             [folder],
             versionId.ToString(),
             token => RestoreVersionCoreAsync(config, folder, versionId, requestedMode, token),
-            cancellationToken).ConfigureAwait(false);
+            cancellationToken, options: options).ConfigureAwait(false);
     }
 
     private static async Task<HistoryRestoreResult> RestoreVersionCoreAsync(
@@ -141,7 +143,7 @@ internal static class NativeHistoryApplicationService
             if (protection.Result is not null) return protection.Result;
             workspace = protection.Workspace!;
         }
-        var result = await CreateRestoreService(config, runtime).RestoreVersionAsync(
+        var result = await CreateRestoreService(config, runtime, ordinaryRestore: true).RestoreVersionAsync(
             versionId,
             await BindingAsync(config, folder, cancellationToken).ConfigureAwait(false),
             workspace,
@@ -216,7 +218,7 @@ internal static class NativeHistoryApplicationService
             if (protection.Result is not null) return protection.Result;
             workspace = protection.Workspace!;
         }
-        var result = await CreateRestoreService(config, runtime).RestoreCheckpointAsync(
+        var result = await CreateRestoreService(config, runtime, ordinaryRestore: true).RestoreCheckpointAsync(
             checkpointId,
             bindings,
             workspace,
@@ -520,8 +522,9 @@ internal static class NativeHistoryApplicationService
         return CreateRestoreService(config, runtime);
     }
 
-    private static HistoryRestoreService CreateRestoreService(BackupConfig config, HistoryRuntime runtime)
+    private static HistoryRestoreService CreateRestoreService(BackupConfig config, HistoryRuntime runtime, bool ordinaryRestore = false)
     {
+        var configSignature = NativeHistoryConfigLease.Signature(config);
         var archive = new SevenZipHistoryArchiveBackend(config);
         var representations = new RepresentationRuntime(
         [
@@ -532,7 +535,11 @@ internal static class NativeHistoryApplicationService
             runtime,
             representations,
             token => BuildEnvironmentAsync(runtime, token),
-            new FileSystemHistoryRestoreMutationBackend());
+            new FileSystemHistoryRestoreMutationBackend(),
+            ordinaryRestore ? (binding, staging, token) => Plugins.V3.PluginV3RestoreStagingPreparation.PrepareAsync(
+                config, NativeHistoryRestoreOrchestrator.Current?.Id ?? Guid.NewGuid(),
+                NativeHistoryRestoreOrchestrator.Current?.PreservePlayerData == true, binding, staging, token) : null,
+            token => NativeHistoryConfigLease.EnterAsync(config, configSignature, token));
     }
 
     private static async Task<IRepresentationEnvironment> BuildEnvironmentAsync(
@@ -662,7 +669,7 @@ internal static class NativeHistoryApplicationService
 
     private sealed class SafetySnapshotWorkingStateProtector(
         BackupConfig config,
-        HistoryRuntime runtime) : IHistoryWorkingStateProtector
+        HistoryRuntime runtime, SafetySnapshotReason reason = SafetySnapshotReason.BeforeCheckout) : IHistoryWorkingStateProtector
     {
         public async Task<HistoryWorkspace> ProtectAsync(
             HistoryWorkspace expectedWorkspace,
@@ -673,7 +680,7 @@ internal static class NativeHistoryApplicationService
                 throw new DeviceLocalStateConflictException("Workspace changed before SafetySnapshot capture.");
             _ = await BackupService.CreateSafetySnapshotAsync(
                 config,
-                SafetySnapshotReason.BeforeCheckout,
+                reason,
                 cancellationToken).ConfigureAwait(false);
             return await RequireWorkspaceAsync(runtime, cancellationToken).ConfigureAwait(false);
         }

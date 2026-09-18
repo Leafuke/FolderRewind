@@ -5209,4 +5209,41 @@ Pull Request：{1}</value>
   <data name="SettingsPage_StartupHeightInput.AutomationProperties.Name" xml:space="preserve"><value>启动窗口高度</value></data>
   <data name="Settings_KnotLink_InvalidHost" xml:space="preserve"><value>请输入主机名或 IP 地址，不要包含 URL 协议或端口。</value></data>
   <data name="Settings_KnotLink_InvalidIdentifier" xml:space="preserve"><value>KnotLink 标识符不能包含控制字符。</value></data>
+  <data name="HistoryPage_BranchMergeItem.Text" xml:space="preserve"><value>合并分支…</value></data>
+  <data name="Merge_Title" xml:space="preserve"><value>分支合并</value></data>
+  <data name="Merge_Sessions" xml:space="preserve"><value>已保存的合并会话</value></data>
+  <data name="Merge_Explanation" xml:space="preserve"><value>将所选来源分支合入当前活动分支。先创建或选择会话，审查冲突后应用；当前工作有改动时会先创建保护快照。来源分支不移动。关闭窗口会保留会话。</value></data>
+  <data name="Merge_New" xml:space="preserve"><value>创建会话</value></data>
+  <data name="Merge_Recompute" xml:space="preserve"><value>重新计算</value></data>
+  <data name="Merge_Resume" xml:space="preserve"><value>继续 / 恢复</value></data>
+  <data name="Merge_Abandon" xml:space="preserve"><value>放弃会话</value></data>
+  <data name="Merge_Apply" xml:space="preserve"><value>应用合并</value></data>
+  <data name="Merge_Ours" xml:space="preserve"><value>采用当前分支</value></data>
+  <data name="Merge_Theirs" xml:space="preserve"><value>采用来源分支</value></data>
+  <data name="Merge_Manual" xml:space="preserve"><value>导入解决文件</value></data>
+  <data name="Merge_Close" xml:space="preserve"><value>关闭并保留</value></data>
+  <data name="Merge_WholeSource" xml:space="preserve"><value>整个 Source</value></data>
+  <data name="Merge_Page" xml:space="preserve"><value>页</value></data>
+  <data name="Merge_Base" xml:space="preserve"><value>共同基点</value></data>
+  <data name="Merge_SelectBranch" xml:space="preserve"><value>请先在历史页选择来源分支。</value></data>
+  <data name="Merge_NoOp" xml:space="preserve"><value>来源已包含在当前分支中，无需合并。</value></data>
+  <data name="Merge_Previous" xml:space="preserve"><value>上一页</value></data>
+  <data name="Merge_Next" xml:space="preserve"><value>下一页</value></data>
+  <data name="Merge_PreviewBase" xml:space="preserve"><value>预览基点</value></data>
+  <data name="Merge_PreviewOurs" xml:space="preserve"><value>预览当前</value></data>
+  <data name="Merge_PreviewTheirs" xml:space="preserve"><value>预览来源</value></data>
+  <data name="Merge_State_Preparing" xml:space="preserve"><value>准备输入</value></data>
+  <data name="Merge_State_Resolving" xml:space="preserve"><value>等待解决冲突</value></data>
+  <data name="Merge_State_Ready" xml:space="preserve"><value>可应用</value></data>
+  <data name="Merge_State_Stale" xml:space="preserve"><value>计划已过期</value></data>
+  <data name="Merge_State_Applying" xml:space="preserve"><value>应用中 / 需要恢复</value></data>
+  <data name="Merge_State_Committed" xml:space="preserve"><value>已提交</value></data>
+  <data name="Merge_State_Abandoned" xml:space="preserve"><value>已放弃</value></data>
+  <data name="Merge_Result_Committed" xml:space="preserve"><value>合并已提交。</value></data>
+  <data name="Merge_Result_BlockedBeforeMutation" xml:space="preserve"><value>已在修改前阻断。</value></data>
+  <data name="Merge_Result_MutationFailedRolledBack" xml:space="preserve"><value>合并失败，已还原原状态。</value></data>
+  <data name="Merge_Result_MutationFailedRecoveryRequired" xml:space="preserve"><value>合并中断，需要恢复；请保留事务文件。</value></data>
+  <data name="Merge_Result_CommittedWithPostActionWarning" xml:space="preserve"><value>已提交，但后续操作有警告。</value></data>
+  <data name="Merge_Result_NoChanges" xml:space="preserve"><value>无需修改。</value></data>
+  <data name="Merge_Result_CommittedRecoveryRequired" xml:space="preserve"><value>合并提交已落盘，需要完成本机恢复。</value></data>
 </root>

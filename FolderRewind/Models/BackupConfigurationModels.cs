@@ -51,8 +51,8 @@ namespace FolderRewind.Models
             set => SetProperty(ref _kind, value ?? new ConfigKindReference());
         }
 
-        public Dictionary<string, ProviderStatePayload> ProviderStates { get; set; } =
-            new(StringComparer.OrdinalIgnoreCase);
+        private IDictionary<string, ProviderStatePayload> _providerStates = new GuardedDictionary<ProviderStatePayload>();
+        public IDictionary<string, ProviderStatePayload> ProviderStates { get => _providerStates; set => SetProperty(ref _providerStates, new GuardedDictionary<ProviderStatePayload>(value)); }
 
         public HostConfigOrigin HostOrigin
         {
@@ -104,7 +104,8 @@ namespace FolderRewind.Models
         public string SummaryText { get => _summaryText; set => SetProperty(ref _summaryText, value); }
 
         // 源文件夹列表 (替代原有的 RootPath + 扫描逻辑)
-        public ObservableCollection<ManagedFolder> SourceFolders { get; set; } = new();
+        private ObservableCollection<ManagedFolder> _sourceFolders = new GuardedObservableCollection<ManagedFolder>();
+        public ObservableCollection<ManagedFolder> SourceFolders { get => _sourceFolders; set => SetProperty(ref _sourceFolders, GuardedObservableCollection<ManagedFolder>.Wrap(value)); }
 
         // 归档设置
         public ArchiveSettings Archive { get; set; } = new();
@@ -113,10 +114,12 @@ namespace FolderRewind.Models
         public AutomationSettings Automation { get; set; } = new();
 
         // 过滤器 (黑名单/白名单)
-        public FilterSettings Filters { get; set; } = new();
+        private FilterSettings _Filters = new();
+        public FilterSettings Filters { get => _Filters; set => SetProperty(ref _Filters, value); }
 
         // 备份范围。默认完整范围；插件可以按配置提供“Minecraft 指定区域”等范围策略。
-        public BackupScopeSettings BackupScope { get; set; } = new();
+        private BackupScopeSettings _BackupScope = new();
+        public BackupScopeSettings BackupScope { get => _BackupScope; set => SetProperty(ref _BackupScope, value); }
 
         // 云上传设置（通过外部工具执行）
         public CloudSettings Cloud { get; set; } = new();
@@ -136,7 +139,7 @@ namespace FolderRewind.Models
     {
         private string _ownerId = string.Empty;
         private string _scopeId = string.Empty;
-        private Dictionary<string, string> _parameters = new(StringComparer.OrdinalIgnoreCase);
+        private IDictionary<string, string> _parameters = new GuardedDictionary<string>();
 
         public string OwnerId
         {
@@ -153,12 +156,10 @@ namespace FolderRewind.Models
         /// <summary>
         /// 插件范围参数。Key 由插件声明，Host 只负责保存和传递。
         /// </summary>
-        public Dictionary<string, string> Parameters
+        public IDictionary<string, string> Parameters
         {
             get => _parameters;
-            set => SetProperty(ref _parameters, value == null
-                ? new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
-                : new Dictionary<string, string>(value, StringComparer.OrdinalIgnoreCase));
+            set => SetProperty(ref _parameters, new GuardedDictionary<string>(value));
         }
 
         [JsonIgnore]
@@ -235,8 +236,8 @@ namespace FolderRewind.Models
             set => SetProperty(ref _sourceScope, value ?? new BackupSourceScope());
         }
 
-        public Dictionary<string, ProviderStatePayload> ProviderStates { get; set; } =
-            new(StringComparer.OrdinalIgnoreCase);
+        private IDictionary<string, ProviderStatePayload> _providerStates = new GuardedDictionary<ProviderStatePayload>();
+        public IDictionary<string, ProviderStatePayload> ProviderStates { get => _providerStates; set => SetProperty(ref _providerStates, new GuardedDictionary<ProviderStatePayload>(value)); }
     }
 
     public enum BackupMode

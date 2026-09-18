@@ -24,7 +24,7 @@ public sealed class ContractTests
         Assert.IsTrue(new PluginApiVersion(3, 0).IsSatisfiedBy(new PluginApiVersion(3, 2)));
         Assert.IsFalse(new PluginApiVersion(3, 2).IsSatisfiedBy(new PluginApiVersion(3, 1)));
         Assert.IsFalse(new PluginApiVersion(2, 9).IsSatisfiedBy(new PluginApiVersion(3, 9)));
-        Assert.AreEqual(new PluginApiVersion(3, 3), PluginApiVersion.HostVersion);
+        Assert.AreEqual(new PluginApiVersion(3, 4), PluginApiVersion.HostVersion);
     }
 
     [TestMethod]

@@ -1,6 +1,7 @@
 using FolderRewind.History.Domain;
 using FolderRewind.History.LocalState;
 using FolderRewind.History.Representation;
+using FolderRewind.History.Storage;
 using System;
 using System.Collections.Generic;
 using System.Collections.Immutable;
@@ -18,23 +19,29 @@ public sealed class HistoryRestoreService
     private readonly Func<CancellationToken, Task<IRepresentationEnvironment>> _environmentFactory;
     private readonly IHistoryRestoreMutationBackend _mutation;
     private readonly HistoryRestoreTransactionJournalStore _journals;
+    private readonly Func<HistoryRestoreSourceBinding, string, CancellationToken, Task<bool>>? _prepareRestore;
+    private readonly Func<CancellationToken, ValueTask<IAsyncDisposable>>? _finalGuard;
 
     public HistoryRestoreService(
         HistoryRuntime history,
         RepresentationRuntime representations,
         Func<CancellationToken, Task<IRepresentationEnvironment>> environmentFactory,
-        IHistoryRestoreMutationBackend mutation)
+        IHistoryRestoreMutationBackend mutation,
+        Func<HistoryRestoreSourceBinding, string, CancellationToken, Task<bool>>? prepareRestore = null,
+        Func<CancellationToken, ValueTask<IAsyncDisposable>>? finalGuard = null)
     {
         _history = history ?? throw new ArgumentNullException(nameof(history));
         _representations = representations ?? throw new ArgumentNullException(nameof(representations));
         _environmentFactory = environmentFactory ?? throw new ArgumentNullException(nameof(environmentFactory));
         _mutation = mutation ?? throw new ArgumentNullException(nameof(mutation));
         _journals = new HistoryRestoreTransactionJournalStore(history, mutation);
+        _prepareRestore = prepareRestore;
+        _finalGuard = finalGuard;
     }
 
     public async Task RecoverIncompleteAsync(CancellationToken cancellationToken = default)
     {
-        await using var lease = await _history.MutationGate.EnterAsync(cancellationToken).ConfigureAwait(false);
+        await using var lease = await _history.MutationGate.EnterForRecoveryAsync(cancellationToken).ConfigureAwait(false);
         if (await _journals.RecoverIncompleteAsync(cancellationToken).ConfigureAwait(false))
         {
             await _history.RefreshLocalStateHealthAsync(cancellationToken).ConfigureAwait(false);
@@ -110,10 +117,13 @@ public sealed class HistoryRestoreService
             return Blocked(ex.Message);
         }
 
-        await using var lease = await _history.MutationGate.EnterAsync(cancellationToken).ConfigureAwait(false);
         try
         {
+            await using var guard = await EnterFinalGuardAsync(cancellationToken).ConfigureAwait(false);
+            await using var lease = await _history.MutationGate.EnterAsync(cancellationToken).ConfigureAwait(false);
             var current = await RequireExpectedWorkspaceAsync(expectedWorkspace, cancellationToken).ConfigureAwait(false);
+            for (int i = 0; i < prepared.Count; i++)
+                prepared[i] = await PrepareOrdinaryRestoreAsync(prepared[i], cancellationToken).ConfigureAwait(false);
             var restoredIds = prepared.Select(item => item.Binding.SourceId).ToHashSet();
             var baselines = current.SourceBaselines
                 .Where(item => !restoredIds.Contains(item.SourceId))
@@ -168,10 +178,12 @@ public sealed class HistoryRestoreService
             return Blocked(ex.Message);
         }
 
-        await using var lease = await _history.MutationGate.EnterAsync(cancellationToken).ConfigureAwait(false);
         try
         {
+            await using var guard = await EnterFinalGuardAsync(cancellationToken).ConfigureAwait(false);
+            await using var lease = await _history.MutationGate.EnterAsync(cancellationToken).ConfigureAwait(false);
             var current = await RequireExpectedWorkspaceAsync(expectedWorkspace, cancellationToken).ConfigureAwait(false);
+            prepared = await PrepareOrdinaryRestoreAsync(prepared, cancellationToken).ConfigureAwait(false);
             var relation = prepared.Fidelity == MaterializationFidelity.Exact
                 && prepared.ApplyMode == HistoryRestoreApplyMode.Clean
                 ? WorkspaceBaselineRelation.Exact
@@ -242,6 +254,13 @@ public sealed class HistoryRestoreService
         }
     }
 
+    private async Task<PreparedRestoreSource> PrepareOrdinaryRestoreAsync(PreparedRestoreSource source, CancellationToken token)
+        => _prepareRestore is not null
+            && await _prepareRestore(source.Binding, source.StagingDirectory, token).ConfigureAwait(false)
+                ? source with { Fidelity = MaterializationFidelity.Partial } : source;
+    internal async ValueTask<IAsyncDisposable?> EnterFinalGuardAsync(CancellationToken token)
+        => _finalGuard is null ? null : await _finalGuard(token).ConfigureAwait(false);
+
     internal async Task EnsureReadyAsync(
         VersionId versionId,
         MaterializationFidelity requiredFidelity,
@@ -291,9 +310,12 @@ public sealed class HistoryRestoreService
         IReadOnlyList<PreparedRestoreSource> prepared,
         HistoryWorkspace currentWorkspace,
         HistoryWorkspace desiredWorkspace,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken,
+        HistoryCommitPack? commitPack = null,
+        LocalReplicaCatalog? desiredCatalog = null,
+        long expectedCatalogRevision = -1)
     {
-        var transactionId = HistoryTransactionId.New();
+        var transactionId = commitPack?.TransactionId ?? HistoryTransactionId.New();
         var journal = new HistoryRestoreTransactionJournal(
             transactionId,
             HistoryRestoreTransactionPhase.Prepared,
@@ -301,10 +323,24 @@ public sealed class HistoryRestoreService
             desiredWorkspace,
             prepared.Select(item => item.StagingDirectory).ToImmutableArray(),
             [],
-            []);
+            [], [], commitPack is null ? null : new HistoryPackCodec().Encode(commitPack), desiredCatalog, expectedCatalogRevision);
         _journals.Save(journal);
         var snapshots = new List<HistoryRestoreRollbackSnapshot>();
         var applied = new List<SourceId>();
+        var readLocks = new List<FileStream>();
+        void ReleaseReads() { foreach (var file in readLocks) file.Dispose(); readLocks.Clear(); }
+        async Task VerifyOriginalAsync()
+        {
+            foreach (var item in prepared.Where(p => p.ExpectedOriginalTreeDigest is not null))
+            {
+                var snapshot = snapshots.Single(s => s.SourceId == item.Binding.SourceId);
+                var tree = snapshot.HadOriginalTarget
+                    ? await Merge.MergeTreeManifest.ReadAsync(snapshot.RollbackDirectory,
+                        FileSystemHistoryRestoreMutationBackend.CreateBoundaryMatcher(item.Binding), cancellationToken).ConfigureAwait(false)
+                    : Merge.MergeTreeManifest.Empty;
+                if (tree.Digest != item.ExpectedOriginalTreeDigest) throw new IOException("Working files changed after protection and before mutation.");
+            }
+        }
         try
         {
             foreach (var item in prepared)
@@ -316,7 +352,29 @@ public sealed class HistoryRestoreService
             };
             _journals.Save(journal);
             foreach (var snapshot in snapshots)
+            {
+                journal = journal with { StartedSources = journal.StartedSources.Add(snapshot.SourceId) };
+                _journals.Save(journal);
                 await _mutation.PrepareRollbackAsync(snapshot, cancellationToken).ConfigureAwait(false);
+            }
+            foreach (var item in prepared.Where(p => p.ExpectedOriginalTreeDigest is not null))
+            {
+                var snapshot = snapshots.Single(s => s.SourceId == item.Binding.SourceId);
+                if (!snapshot.HadOriginalTarget) continue;
+                var directories = new Stack<string>(); directories.Push(snapshot.RollbackDirectory);
+                while (directories.TryPop(out var directory))
+                {
+                    if ((File.GetAttributes(directory) & FileAttributes.ReparsePoint) != 0) throw new IOException("Rollback tree contains a link.");
+                    foreach (var entry in Directory.EnumerateFileSystemEntries(directory))
+                    {
+                        var attributes = File.GetAttributes(entry);
+                        if ((attributes & FileAttributes.ReparsePoint) != 0) throw new IOException("Rollback tree contains a link.");
+                        if ((attributes & FileAttributes.Directory) != 0) directories.Push(entry);
+                        else readLocks.Add(new FileStream(entry, FileMode.Open, FileAccess.Read, FileShare.Read));
+                    }
+                }
+            }
+            await VerifyOriginalAsync().ConfigureAwait(false);
             for (int index = 0; index < prepared.Count; index++)
             {
                 var item = prepared[index];
@@ -331,18 +389,47 @@ public sealed class HistoryRestoreService
                 _journals.Save(journal);
             }
 
+            await VerifyOriginalAsync().ConfigureAwait(false);
+            foreach (var item in prepared.Where(p => p.ExpectedResultTreeDigest is not null))
+            {
+                var snapshot = snapshots.Single(s => s.SourceId == item.Binding.SourceId);
+                var boundary = FileSystemHistoryRestoreMutationBackend.CreateBoundaryMatcher(item.Binding);
+                bool IncludeResult(string path) => (snapshot.NewTargetOwnershipMarker is null
+                        || !StringComparer.Ordinal.Equals(path.Replace('\\', '/'), snapshot.NewTargetOwnershipMarker))
+                    && boundary(path);
+                if ((await Merge.MergeTreeManifest.ReadAsync(item.Binding.TargetDirectory,
+                    IncludeResult, cancellationToken).ConfigureAwait(false)).Digest != item.ExpectedResultTreeDigest)
+                    throw new IOException("Applied Merge state differs from the verified result.");
+            }
+            if (commitPack is not null)
+                await _history.Repository.CommitAsync(commitPack, cancellationToken: cancellationToken).ConfigureAwait(false);
             journal = journal with { Phase = HistoryRestoreTransactionPhase.WorkspaceApplying };
             _journals.Save(journal);
-            await _history.WorkspaceStore.SaveAsync(
-                desiredWorkspace,
-                currentWorkspace.StateRevision,
-                cancellationToken).ConfigureAwait(false);
+            await _journals.CompleteLocalStateAsync(journal, commitPack is null ? cancellationToken : CancellationToken.None).ConfigureAwait(false);
             journal = journal with { Phase = HistoryRestoreTransactionPhase.WorkspaceApplied };
             _journals.Save(journal);
+            ReleaseReads();
             return await CompleteCommittedAsync(journal, snapshots, applied).ConfigureAwait(false);
         }
         catch (Exception ex)
         {
+            ReleaseReads();
+            if (commitPack is not null)
+            {
+                try
+                {
+                    if (_journals.IsPackCommitted(journal))
+                    {
+                        await _journals.CompleteLocalStateAsync(journal, CancellationToken.None).ConfigureAwait(false);
+                        return await CompleteCommittedAsync(journal, snapshots, applied).ConfigureAwait(false);
+                    }
+                }
+                catch (Exception recovery)
+                {
+                    return new(HistoryRestoreStatus.CommittedRecoveryRequired,
+                        $"Durable Merge requires local recovery: {recovery.Message}", false, applied.ToImmutableArray());
+                }
+            }
             var workspaceLoad = await _history.WorkspaceStore.LoadAsync(CancellationToken.None).ConfigureAwait(false);
             if (workspaceLoad.Value is not null
                 && HistoryRestoreTransactionJournalStore.WorkspaceEquals(workspaceLoad.Value, desiredWorkspace))
@@ -358,7 +445,7 @@ public sealed class HistoryRestoreService
             }
 
             bool rollbackFailed = false;
-            foreach (var snapshot in snapshots.AsEnumerable().Reverse())
+            foreach (var snapshot in snapshots.Where(s => journal.StartedSources.Contains(s.SourceId)).Reverse())
             {
                 try { await _mutation.RollbackAsync(snapshot, CancellationToken.None).ConfigureAwait(false); }
                 catch { rollbackFailed = true; }
@@ -402,6 +489,7 @@ public sealed class HistoryRestoreService
 
         try
         {
+            await _history.EnsureIndexCurrentAsync(CancellationToken.None).ConfigureAwait(false);
             await _history.RefreshLocalStateHealthAsync(CancellationToken.None).ConfigureAwait(false);
             _history.ChangeFeed.Publish(_history.ConfigId, HistoryChangeKind.LocalStateChanged);
             return new(HistoryRestoreStatus.Committed, string.Empty, true, applied.ToImmutableArray());
@@ -429,5 +517,5 @@ public sealed class HistoryRestoreService
         SourceVersion Version,
         MaterializationFidelity Fidelity,
         HistoryRestoreApplyMode ApplyMode,
-        string StagingDirectory);
+        string StagingDirectory, string? ExpectedOriginalTreeDigest = null, string? ExpectedResultTreeDigest = null);
 }

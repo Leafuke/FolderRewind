@@ -65,6 +65,8 @@ public sealed class HistoryLocalReplicaMaintenanceService
         await _runtime.EnsureIndexCurrentAsync(cancellationToken).ConfigureAwait(false);
 
         var representations = await _runtime.Query.GetAllRepresentationsAsync(cancellationToken).ConfigureAwait(false);
+        if (_runtime.MergeSessions.ProtectedRepresentations(representations).Contains(representationId))
+            throw new InvalidOperationException("Representation is protected by an unfinished Merge Session.");
         var representation = representations.SingleOrDefault(item => item.RepresentationId == representationId)
             ?? throw new InvalidOperationException("The selected Version Representation no longer exists.");
         if (representation.VersionId != versionId)

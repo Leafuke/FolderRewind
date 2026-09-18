@@ -6,7 +6,8 @@ namespace FolderRewind.History.Domain;
 public enum SafetySnapshotReason
 {
     BeforeCheckout = 0,
-    BeforeRestore = 1
+    BeforeRestore = 1,
+    BeforeMerge = 2
 }
 
 public sealed record SafetySnapshot
