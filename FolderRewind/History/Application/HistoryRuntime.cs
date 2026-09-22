@@ -65,6 +65,20 @@ public sealed class HistoryRuntime : IAsyncDisposable
     public HistoryAnnotationService Annotations { get; }
     public MaterializationPolicyService MaterializationPolicies { get; }
     public HistoryRuntimeHealth Health { get; private set; }
+    public string? MaintenanceDiagnostic { get; private set; }
+
+    internal async Task<bool> CleanupMergeArtifactsAsync()
+    {
+        if (!Directory.Exists(MergeSessions.Root)) return true;
+        try
+        {
+            var catalog = (await LocalReplicaCatalogStore.LoadAsync(CancellationToken.None).ConfigureAwait(false)).Value;
+            if (catalog is null) throw new InvalidDataException("Merge cleanup requires a valid replica catalog.");
+            MergeSessions.CleanupTerminalArtifacts(catalog);
+            MaintenanceDiagnostic = null; return true;
+        }
+        catch (Exception ex) { MaintenanceDiagnostic = ex.Message; return false; }
+    }
 
     public async Task InitializeAsync(CancellationToken cancellationToken = default)
     {
@@ -88,6 +102,7 @@ public sealed class HistoryRuntime : IAsyncDisposable
                 localRecovery.ApplyCommittedStateAsync,
                 (_, _) => Task.CompletedTask,
                 cancellationToken).ConfigureAwait(false);
+            await CleanupMergeArtifactsAsync().ConfigureAwait(false);
 
             var rebuilt = false;
             try

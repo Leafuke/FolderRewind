@@ -54,6 +54,7 @@ public sealed class HistoryRestoreService
             await _history.RefreshLocalStateHealthAsync(cancellationToken).ConfigureAwait(false);
             _history.ChangeFeed.Publish(_history.ConfigId, HistoryChangeKind.LocalStateChanged);
         }
+        await _history.CleanupMergeArtifactsAsync().ConfigureAwait(false);
     }
 
     public async Task<HistoryRestoreResult> RestoreCheckpointAsync(

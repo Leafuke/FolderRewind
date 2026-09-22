@@ -247,19 +247,20 @@ public sealed class MergeSessionStore
     // Caller holds the Runtime gate. Keep every published payload, even for completed sessions.
     public void CleanupTerminalArtifacts(LocalReplicaCatalog catalog)
     {
+        var repositoryRoot = Path.GetDirectoryName(Path.GetDirectoryName(Root))!;
+        HistoryRestoreTransactionJournalStore.RequireRecovered(Path.Combine(repositoryRoot, "transactions"));
         var retained = catalog.Entries.Where(e => e.Locator.Kind == LocalReplicaLocatorKind.ControlledAbsolutePath)
             .Select(e => Path.GetFullPath(e.Locator.AbsolutePath)).ToArray();
         foreach (var session in List().Where(s => s.State is MergeSessionState.Committed or MergeSessionState.Abandoned))
         {
             var root = Path.GetFullPath(SessionDirectory(session.Id));
-            if (!Directory.Exists(root)) continue;
-            void Clean(string directory)
+            void Clean(string directory, string ownedRoot)
             {
                 var full = Path.GetFullPath(directory);
-                if (!full.Equals(root, StringComparison.OrdinalIgnoreCase) && !full.StartsWith(root + Path.DirectorySeparatorChar, StringComparison.OrdinalIgnoreCase))
+                if (!full.Equals(ownedRoot, StringComparison.OrdinalIgnoreCase) && !full.StartsWith(ownedRoot + Path.DirectorySeparatorChar, StringComparison.OrdinalIgnoreCase))
                     throw new InvalidDataException("Session cleanup escapes its root.");
                 if ((File.GetAttributes(full) & FileAttributes.ReparsePoint) != 0) throw new InvalidDataException("Session cleanup cannot follow links.");
-                foreach (var child in Directory.EnumerateDirectories(full)) Clean(child);
+                foreach (var child in Directory.EnumerateDirectories(full)) Clean(child, ownedRoot);
                 foreach (var file in Directory.EnumerateFiles(full))
                 {
                     if ((File.GetAttributes(file) & FileAttributes.ReparsePoint) != 0) throw new InvalidDataException("Session cleanup cannot follow links.");
@@ -267,7 +268,20 @@ public sealed class MergeSessionStore
                 }
                 if (!Directory.EnumerateFileSystemEntries(full).Any()) Directory.Delete(full);
             }
-            Clean(root);
+            if (Directory.Exists(root)) Clean(root, root);
+            using var db = Open();
+            var owned = new List<string>();
+            using (var query = Command(db, "SELECT path FROM artifacts WHERE session=$s", ("$s", session.Id.ToString())))
+            using (var reader = query.ExecuteReader()) while (reader.Read()) owned.Add(Path.GetFullPath(reader.GetString(0)));
+            foreach (var path in owned)
+            {
+                var payloadRoot = Path.Combine(repositoryRoot, "payloads");
+                if (path.StartsWith(root + Path.DirectorySeparatorChar, StringComparison.OrdinalIgnoreCase)) continue;
+                if (!StringComparer.OrdinalIgnoreCase.Equals(Path.GetDirectoryName(path), payloadRoot))
+                    throw new InvalidDataException("Owned payload directory escapes repository payloads.");
+                _ = RepresentationId.Parse(Path.GetFileName(path));
+                if (Directory.Exists(path)) Clean(path, path);
+            }
         }
     }
 

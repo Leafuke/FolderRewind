@@ -129,6 +129,14 @@ public sealed class HistoryMergeApplyTests
             Assert.HasCount(2, (await history.Query.GetCheckpointAsync(merged.TargetCheckpointId!.Value))!.ParentCheckpointIds);
             Assert.HasCount(2, (await history.LocalReplicaCatalogStore.LoadAsync()).Value!.Entries);
             Assert.HasCount(0, history.MergeSessions.ActiveRoots());
+            Assert.IsFalse(Directory.Exists(history.MergeSessions.SessionDirectory(session.Id)));
+            foreach (var replica in (await history.LocalReplicaCatalogStore.LoadAsync()).Value!.Entries)
+            {
+                Assert.IsTrue(File.Exists(replica.Locator.AbsolutePath));
+                var verification = Path.Combine(_root, "verify-" + replica.RepresentationId);
+                ZipFile.ExtractToDirectory(replica.Locator.AbsolutePath, verification);
+                Assert.AreEqual("theirs-b", File.ReadAllText(Path.Combine(verification, "b.txt")));
+            }
             foreach (var binding in bindings)
             {
                 Assert.AreEqual("ours-a", File.ReadAllText(Path.Combine(binding.TargetDirectory, "a.txt")));

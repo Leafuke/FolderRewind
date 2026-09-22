@@ -107,7 +107,12 @@ public sealed class HistoryMergeApplyService(HistoryRuntime history, HistoryRest
                     s.Version, MaterializationFidelity.Exact, HistoryRestoreApplyMode.Clean, s.StagingDirectory, originalDigests[s.Version.SourceId], s.TreeDigest)).ToArray(),
                 workspace, desired, token, pack, desiredCatalog, catalog.CatalogRevision).ConfigureAwait(false);
             if (result.TargetCommitted && result.Status != HistoryRestoreStatus.CommittedRecoveryRequired)
+            {
                 history.MergeSessions.Update(session, MergeSessionState.Committed);
+                if (!await history.CleanupMergeArtifactsAsync().ConfigureAwait(false))
+                    return result with { Status = HistoryRestoreStatus.CommittedWithPostActionWarning,
+                        Diagnostic = history.MaintenanceDiagnostic ?? "Merge cleanup is deferred." };
+            }
             else if (result.Status == HistoryRestoreStatus.MutationFailedRolledBack)
                 history.MergeSessions.Update(session, MergeSessionState.Ready);
             return result;
