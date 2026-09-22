@@ -90,6 +90,16 @@ public sealed class HistoryMergeApplyTests
             command.ExecuteNonQuery();
         }
         var archive = new ZipBackend();
+        if (failure is "success" or "provider")
+        {
+            var builder = new HistoryMergeCommitBuilder(history, restore, archive, archive);
+            var first = await builder.BuildAsync(session);
+            var reopened = new MergeSessionStore(history.Repository.Paths.LocalStateRoot).LoadPrepared(session)!.Restore(session);
+            Assert.AreEqual(first.PackId, reopened.PackId);
+            Assert.AreEqual(first.TransactionId, (await builder.BuildAsync(session)).TransactionId);
+            Assert.IsTrue(first.NewReplicas.All(r => r.Locator.AbsolutePath.StartsWith(Path.Combine(history.Repository.Paths.RepositoryRoot, "payloads"), StringComparison.OrdinalIgnoreCase)));
+            Assert.HasCount(0, (await history.Query.GetAllBranchUpdatesAsync()).Where(u => u.Reason == BranchUpdateReason.Merged).ToArray());
+        }
         var result = await new HistoryMergeApplyService(history, restore, new(history, restore, archive, archive),
             reload: _ => Task.FromResult((failure == "config" ? "config-2" : "config-1", (IReadOnlyList<HistoryRestoreSourceBinding>)bindings)),
             provider: failure == "provider-changed" ? provider.Descriptor with { SchemaVersion = 2 } : provider.Descriptor).ApplyAsync(session);

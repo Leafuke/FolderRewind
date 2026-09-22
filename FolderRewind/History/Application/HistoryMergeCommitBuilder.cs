@@ -41,6 +41,9 @@ public sealed class HistoryMergeCommitBuilder(HistoryRuntime history, HistoryRes
                 var path = prepared.NewReplicas.Single(r => r.RepresentationId == representation.RepresentationId).Locator.AbsolutePath;
                 var input = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.Read, 65536, true);
                 held.Items.Add(input);
+                if (representation.RepresentationSpecificMetadata.TryGetValue("storageLength", out var length)
+                    && input.Length.ToString(System.Globalization.CultureInfo.InvariantCulture) != length)
+                    throw new InvalidDataException("Prepared payload length changed.");
                 var hash = Convert.ToHexString(await SHA256.HashDataAsync(input, token).ConfigureAwait(false));
                 if (!StringComparer.OrdinalIgnoreCase.Equals(hash, representation.RepresentationSpecificMetadata["storageSha256"]))
                     throw new InvalidDataException("Prepared payload storage hash changed.");
@@ -67,11 +70,13 @@ public sealed class HistoryMergeCommitBuilder(HistoryRuntime history, HistoryRes
     public async Task<PreparedMerge> BuildAsync(MergeSession session, CancellationToken token = default)
     {
         if (session.State != MergeSessionState.Ready) throw new InvalidOperationException("Merge Session has unresolved conflicts.");
+        if (history.MergeSessions.LoadPrepared(session) is { } stored) return stored.Restore(session);
         var service = new HistoryMergeService(history, restore);
         var conflicts = service.AllConflicts(session).ToLookup(c => c.Conflict.Subject.SourceId);
         var sources = history.MergeSessions.Sources(session);
         if (sources.Count != session.Plan.Sources.Length) throw new InvalidDataException("Merge preparation is incomplete.");
         var root = Path.Combine(history.MergeSessions.SessionDirectory(session.Id), "results", Guid.NewGuid().ToString("N"));
+        history.MergeSessions.RegisterArtifact(session, root);
         Directory.CreateDirectory(root);
         var facts = new List<object>(); var replicas = new List<LocalReplicaCatalogEntry>(); var prepared = new List<PreparedMergeSource>();
         var roster = new List<CheckpointSource>();
@@ -140,13 +145,20 @@ public sealed class HistoryMergeCommitBuilder(HistoryRuntime history, HistoryRes
                     CaptureScope.FullSource, CaptureOutcome.Captured, [], descriptor.SourceDescriptorSnapshot, tree.Digest,
                     HistoryProvenance.Native("branch-merge"), descriptor.EffectiveSourceBoundary, SourceVersionCreationKind.Merge);
                 var representationId = RepresentationId.New();
-                var output = Path.Combine(history.MergeSessions.SessionDirectory(session.Id), "payloads", representationId.ToString());
+                var output = Path.Combine(history.Repository.Paths.RepositoryRoot, "payloads", representationId.ToString());
+                history.MergeSessions.RegisterArtifact(session, output);
                 var payload = await archives.CreateFullAsync(version, staging, representationId, output, token).ConfigureAwait(false);
+                var fullPayload = Path.GetFullPath(payload.PayloadPath);
+                if (!fullPayload.StartsWith(Path.GetFullPath(output) + Path.DirectorySeparatorChar, StringComparison.OrdinalIgnoreCase)
+                    || (File.GetAttributes(fullPayload) & FileAttributes.ReparsePoint) != 0)
+                    throw new InvalidDataException("Merge archive escapes its owned payload directory.");
+                using (var seal = new FileStream(fullPayload, FileMode.Open, FileAccess.ReadWrite, FileShare.Read)) seal.Flush(true);
                 await using var payloadStream = File.OpenRead(payload.PayloadPath);
                 var storageHash = Convert.ToHexString(await SHA256.HashDataAsync(payloadStream, token).ConfigureAwait(false));
                 var representation = new VersionRepresentation(representationId, version.VersionId, RepresentationKind.CoreFull,
                     payload.Format, [], MaterializationFidelity.Exact, tree.Digest, tree.Digest,
-                    payload.Metadata.SetItem("fileName", Path.GetFileName(payload.PayloadPath)).SetItem("storageSha256", storageHash));
+                    payload.Metadata.SetItem("fileName", Path.GetFileName(payload.PayloadPath)).SetItem("storageSha256", storageHash)
+                        .SetItem("storageLength", payloadStream.Length.ToString(System.Globalization.CultureInfo.InvariantCulture)));
                 var verification = await archives.DeepVerifyAsync(representation, payload.PayloadPath, token).ConfigureAwait(false);
                 if (!verification.Success) throw new InvalidDataException("Merge archive verification failed.");
                 var verifyRoot = Path.Combine(root, "verify-" + representationId);
@@ -183,6 +195,7 @@ public sealed class HistoryMergeCommitBuilder(HistoryRuntime history, HistoryRes
             new[] { session.Plan.Ours.UpdateId, session.Plan.Theirs.UpdateId }, session.Plan.Ours.Name, checkpoint.CheckpointId,
             false, DateTimeOffset.UtcNow, BranchUpdateReason.Merged, provenance);
         facts.Add(update);
-        return new(session, prepared.ToImmutableArray(), facts.ToImmutableArray(), checkpoint, update, replicas.ToImmutableArray(), PackId.New(), HistoryTransactionId.New());
+        var result = new PreparedMerge(session, prepared.ToImmutableArray(), facts.ToImmutableArray(), checkpoint, update, replicas.ToImmutableArray(), PackId.New(), HistoryTransactionId.New());
+        return history.MergeSessions.SavePrepared(session, result).Restore(session);
     }
 }

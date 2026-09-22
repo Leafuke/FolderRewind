@@ -74,7 +74,7 @@ public sealed class HistoryMergeApplyService(HistoryRuntime history, HistoryRest
                 if ((await MergeTreeManifest.ReadAsync(source.StagingDirectory, _ => true, token).ConfigureAwait(false)).Digest != source.TreeDigest)
                     throw new InvalidDataException("Staged Merge result changed before Apply.");
             var codec = new HistoryPackCodec();
-            var pack = new HistoryCommitPack(prepared.PackId, prepared.TransactionId, DateTimeOffset.UtcNow,
+            var pack = new HistoryCommitPack(prepared.PackId, prepared.TransactionId, prepared.Update.CreatedAtUtc,
                 prepared.Facts.Select(f => codec.CreateObject(f)));
             var packs = await history.Repository.ReadAllPacksAsync(token).ConfigureAwait(false);
             new HistoryRepositoryValidator(codec).Validate(history.ConfigId,
@@ -137,7 +137,7 @@ public sealed class HistoryMergeApplyService(HistoryRuntime history, HistoryRest
                 }
                 return new(HistoryRestoreStatus.MutationFailedRecoveryRequired, ex.Message, false, []);
             }
-            if (prepared is not null) HistoryRestoreTransactionJournalStore.CleanupStaging(prepared.Sources.Select(s => s.StagingDirectory));
+            // 已发布准备结果由 Session 拥有；阻断/取消后仍可显式重试。
             var diagnostic = (ex as HistoryMergeBlockedException)?.Diagnostic
                 ?? new HistoryMergeDiagnostic(MergeDiagnosticCode.PreparationFailed, Detail: ex.Message);
             return new(diagnostic.Code == MergeDiagnosticCode.PreparationRequired ? HistoryRestoreStatus.PreparationRequired

@@ -8,6 +8,7 @@ using System.Collections.Immutable;
 using System.IO;
 using System.Linq;
 using System.Text.Json;
+using FolderRewind.History.Storage;
 
 namespace FolderRewind.History.LocalState;
 
@@ -19,6 +20,20 @@ public sealed record MergeSession(Guid Id, long Revision, MergeSessionState Stat
     HistoryTransactionId? ApplyTransactionId = null, PackId? IntendedPackId = null, HistoryWorkspace? ProtectedWorkspace = null);
 public sealed record MergeSessionSource(HistoryMergeSourcePlan Plan, MergeTreeManifest Automatic,
     MergeTreeManifest Base, MergeTreeManifest Ours, MergeTreeManifest Theirs);
+public sealed record PreparedMergeDescriptor(Guid SessionId, Guid PlanRevision, long ResolutionRevision,
+    string ProviderVersion, string PolicyVersion, ImmutableArray<PreparedMergeSource> Sources,
+    ConfigurationCheckpoint Checkpoint, ImmutableArray<LocalReplicaCatalogEntry> NewReplicas, byte[] PackBytes)
+{
+    public PreparedMerge Restore(MergeSession session)
+    {
+        if (session.Id != SessionId || session.Plan.Revision != PlanRevision || session.Revision != ResolutionRevision
+            || session.Plan.ProviderVersion != ProviderVersion || session.Plan.PolicyVersion != PolicyVersion)
+            throw new InvalidOperationException("Prepared Merge belongs to another Session revision.");
+        var codec = new HistoryPackCodec(); var pack = codec.Decode(PackBytes).Pack;
+        var facts = pack.Objects.Select(codec.DeserializeKnown).ToImmutableArray();
+        return new(session, Sources, facts, Checkpoint, facts.OfType<BranchUpdate>().Single(), NewReplicas, pack.PackId, pack.TransactionId);
+    }
+}
 
 public sealed class MergeSessionStore
 {
@@ -40,11 +55,19 @@ public sealed class MergeSessionStore
         try
         {
             db.Open();
+            using var version = db.CreateCommand(); version.CommandText = "PRAGMA user_version";
+            var schema = Convert.ToInt32(version.ExecuteScalar());
+            if (schema is < 0 or > 1) throw new InvalidDataException("Unsupported Merge Session schema; preserve artifacts.");
             if (existed)
             {
                 using var check = db.CreateCommand();
                 check.CommandText = "SELECT COUNT(*) FROM sqlite_master WHERE type='table' AND name IN ('sessions','plans','sources','conflicts','roots')";
                 if (Convert.ToInt64(check.ExecuteScalar()) != 5) throw new InvalidDataException("Merge Session schema is incomplete; recovery is required.");
+                if (schema == 1)
+                {
+                    check.CommandText = "SELECT COUNT(*) FROM sqlite_master WHERE type='table' AND name IN ('prepared','artifacts')";
+                    if (Convert.ToInt64(check.ExecuteScalar()) != 2) throw new InvalidDataException("Prepared Merge schema is incomplete.");
+                }
             }
             using var command = db.CreateCommand(); command.CommandText = """
                 PRAGMA journal_mode=WAL; PRAGMA synchronous=FULL; PRAGMA busy_timeout=30000;
@@ -53,6 +76,9 @@ public sealed class MergeSessionStore
                 CREATE TABLE IF NOT EXISTS sources(session TEXT NOT NULL, revision TEXT NOT NULL, source TEXT NOT NULL, data TEXT NOT NULL, PRIMARY KEY(session,revision,source));
                 CREATE TABLE IF NOT EXISTS conflicts(session TEXT NOT NULL, revision TEXT NOT NULL, id TEXT NOT NULL, data TEXT NOT NULL, resolution TEXT, PRIMARY KEY(session,revision,id));
                 CREATE TABLE IF NOT EXISTS roots(session TEXT NOT NULL, version TEXT NOT NULL, PRIMARY KEY(session,version));
+                CREATE TABLE IF NOT EXISTS prepared(session TEXT NOT NULL, revision INTEGER NOT NULL, data TEXT NOT NULL, PRIMARY KEY(session,revision));
+                CREATE TABLE IF NOT EXISTS artifacts(session TEXT NOT NULL, path TEXT NOT NULL PRIMARY KEY);
+                PRAGMA user_version=1;
                 """; command.ExecuteNonQuery(); return db;
         }
         catch { db.Dispose(); throw; }
@@ -87,6 +113,38 @@ public sealed class MergeSessionStore
     {
         using var db = Open(); using var cmd = Command(db, "SELECT data FROM sessions WHERE id=$id", ("$id", id.ToString()));
         return Decode<MergeSession>(cmd.ExecuteScalar() as string ?? throw new InvalidDataException("Merge Session is missing."));
+    }
+
+    public PreparedMergeDescriptor? LoadPrepared(MergeSession session)
+    {
+        using var db = Open(); using var cmd = Command(db, "SELECT data FROM prepared WHERE session=$s AND revision=$r",
+            ("$s", session.Id.ToString()), ("$r", session.Revision));
+        return cmd.ExecuteScalar() is string data ? Decode<PreparedMergeDescriptor>(data) : null;
+    }
+
+    public void RegisterArtifact(MergeSession expected, string path)
+    {
+        using var db = Open(); using var tx = db.BeginTransaction();
+        RequireReadyRevision(db, expected);
+        using var cmd = Command(db, "INSERT INTO artifacts VALUES($s,$p)", ("$s", expected.Id.ToString()), ("$p", Path.GetFullPath(path)));
+        cmd.ExecuteNonQuery(); tx.Commit();
+    }
+
+    public PreparedMergeDescriptor SavePrepared(MergeSession expected, PreparedMerge prepared)
+    {
+        var codec = new HistoryPackCodec();
+        var pack = new HistoryCommitPack(prepared.PackId, prepared.TransactionId, prepared.Update.CreatedAtUtc, prepared.Facts.Select(f => codec.CreateObject(f)));
+        var descriptor = new PreparedMergeDescriptor(expected.Id, expected.Plan.Revision, expected.Revision,
+            expected.Plan.ProviderVersion, expected.Plan.PolicyVersion, prepared.Sources, prepared.Checkpoint, prepared.NewReplicas, codec.Encode(pack));
+        using var db = Open(); using var tx = db.BeginTransaction(); RequireReadyRevision(db, expected);
+        using (var cmd = Command(db, "INSERT OR IGNORE INTO prepared VALUES($s,$r,$d)", ("$s", expected.Id.ToString()), ("$r", expected.Revision), ("$d", Encode(descriptor)))) cmd.ExecuteNonQuery();
+        tx.Commit(); return LoadPrepared(expected)!;
+    }
+
+    private static void RequireReadyRevision(SqliteConnection db, MergeSession expected)
+    {
+        using var cmd = Command(db, "SELECT revision FROM sessions WHERE id=$s AND state=$st", ("$s", expected.Id.ToString()), ("$st", (int)MergeSessionState.Ready));
+        if (Convert.ToInt64(cmd.ExecuteScalar() ?? -1L) != expected.Revision) throw new InvalidOperationException("Merge Session is not Ready at this revision.");
     }
     public MergeSession Replan(MergeSession expected, HistoryMergePlan plan, IEnumerable<VersionId> roots)
     {
