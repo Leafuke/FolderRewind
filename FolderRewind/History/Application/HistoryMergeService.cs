@@ -25,7 +25,7 @@ public sealed class HistoryMergeService(HistoryRuntime history, HistoryRestoreSe
         {
             var workspace = (await history.WorkspaceStore.LoadAsync(token).ConfigureAwait(false)).Value
                 ?? throw new InvalidOperationException("Workspace is unavailable.");
-            var plan = await new HistoryMergePlanner(history).BuildAsync(source, workspace, configRevision, bindings, token).ConfigureAwait(false);
+            var plan = await new HistoryMergePlanner(history).BuildAsync(source, workspace, configRevision, bindings, token, _provider.Descriptor).ConfigureAwait(false);
             if (plan.Mode == HistoryMergeMode.NoOp) return null;
             if (plan.Mode is HistoryMergeMode.NoCommonBase or HistoryMergeMode.MultipleMergeBases)
                 throw new InvalidOperationException(plan.Mode.ToString());
@@ -43,7 +43,7 @@ public sealed class HistoryMergeService(HistoryRuntime history, HistoryRestoreSe
         {
             var workspace = (await history.WorkspaceStore.LoadAsync(token).ConfigureAwait(false)).Value
                 ?? throw new InvalidOperationException("Workspace is unavailable.");
-            var plan = await new HistoryMergePlanner(history).BuildAsync(session.Plan.Theirs.BranchId, workspace, configRevision, bindings, token).ConfigureAwait(false);
+            var plan = await new HistoryMergePlanner(history).BuildAsync(session.Plan.Theirs.BranchId, workspace, configRevision, bindings, token, _provider.Descriptor).ConfigureAwait(false);
             if (plan.Mode is not (HistoryMergeMode.ThreeWay or HistoryMergeMode.FastForwardLike))
                 throw new InvalidOperationException(plan.Mode.ToString());
             session = history.MergeSessions.Replan(session, plan, Roots(plan));
@@ -53,7 +53,8 @@ public sealed class HistoryMergeService(HistoryRuntime history, HistoryRestoreSe
 
     public async Task<MergeSession> PrepareAsync(MergeSession session, CancellationToken token = default)
     {
-        if (session.State != MergeSessionState.Preparing || session.Plan.ProviderVersion != _provider.Version)
+        if (session.State != MergeSessionState.Preparing || session.Plan.ProviderVersion != _provider.Descriptor.Identity
+            || session.Plan.PolicyVersion != _provider.Descriptor.PolicyIdentity)
             throw new InvalidOperationException("Merge preparation requires its fixed provider and Preparing state.");
         var root = Path.Combine(history.MergeSessions.SessionDirectory(session.Id), session.Plan.Revision.ToString("N"));
         Directory.CreateDirectory(root);
@@ -91,6 +92,7 @@ public sealed class HistoryMergeService(HistoryRuntime history, HistoryRestoreSe
                 if (plan.Action == HistoryMergeSourceAction.MergeFiles)
                 {
                     b = await Materialize(plan.Base); var proposal = _provider.Analyze(plan.SourceId, b, o, t);
+                    ValidateProposal(plan.SourceId, b, o, t, proposal);
                     automatic = proposal.Automatic; conflicts = proposal.Conflicts;
                 }
                 else
@@ -143,6 +145,34 @@ public sealed class HistoryMergeService(HistoryRuntime history, HistoryRestoreSe
             var page = history.MergeSessions.Conflicts(session, offset, 500);
             foreach (var item in page) yield return item;
             if (page.Count < 500) yield break;
+        }
+    }
+
+    internal static void ValidateProposal(SourceId source, MergeTreeManifest b, MergeTreeManifest o, MergeTreeManifest t, MergeFileProposal proposal)
+    {
+        var paths = b.Files.Keys.Concat(o.Files.Keys).Concat(t.Files.Keys).ToHashSet(StringComparer.Ordinal);
+        if (proposal.HandledPaths.IsDefault || proposal.HandledPaths.Length != paths.Count || !paths.SetEquals(proposal.HandledPaths))
+            throw new InvalidDataException("Provider must claim each authorized path exactly once.");
+        var claimed = new HashSet<string>(StringComparer.Ordinal);
+        foreach (var pair in proposal.Automatic.Files)
+        {
+            if (!paths.Contains(pair.Key) || !new[] { b, o, t }.Any(tree => tree.Files.TryGetValue(pair.Key, out var value) && value == pair.Value))
+                throw new InvalidDataException("Provider returned an uncontrolled file value.");
+            claimed.Add(pair.Key);
+        }
+        foreach (var conflict in proposal.Conflicts)
+        {
+            if (conflict.Subject.SourceId != source || conflict.Subject.Paths.IsEmpty)
+                throw new InvalidDataException("Provider returned an invalid conflict subject.");
+            foreach (var path in conflict.Subject.Paths)
+                if (!paths.Contains(path) || !claimed.Add(path)) throw new InvalidDataException("Provider claims overlap or escape authorized paths.");
+            void Check(ImmutableSortedDictionary<string, MergeFileValue> values, MergeTreeManifest tree)
+            {
+                var expected = tree.Files.Where(p => conflict.Subject.Paths.Contains(p.Key)).ToArray();
+                if (expected.Length != values.Count || expected.Any(p => !values.TryGetValue(p.Key, out var v) || v != p.Value))
+                    throw new InvalidDataException("Provider conflict inputs differ from the fixed views.");
+            }
+            Check(conflict.Base, b); Check(conflict.Ours, o); Check(conflict.Theirs, t);
         }
     }
 }

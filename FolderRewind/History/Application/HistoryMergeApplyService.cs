@@ -13,7 +13,8 @@ namespace FolderRewind.History.Application;
 
 public sealed class HistoryMergeApplyService(HistoryRuntime history, HistoryRestoreService restore,
     HistoryMergeCommitBuilder builder, IHistoryWorkingStateProtector? protector = null,
-    Func<CancellationToken, Task<(string Revision, IReadOnlyList<HistoryRestoreSourceBinding> Bindings)>>? reload = null)
+    Func<CancellationToken, Task<(string Revision, IReadOnlyList<HistoryRestoreSourceBinding> Bindings)>>? reload = null,
+    MergeProviderDescriptor? provider = null)
 {
     public async Task<HistoryRestoreResult> ApplyAsync(MergeSession expected, CancellationToken token = default)
     {
@@ -24,6 +25,13 @@ public sealed class HistoryMergeApplyService(HistoryRuntime history, HistoryRest
         {
             await restore.RecoverIncompleteAsync(token).ConfigureAwait(false);
             var stored = history.MergeSessions.Load(session.Id);
+            var selectedProvider = provider ?? MergeProviderDescriptor.Generic;
+            if (session.Plan.ProviderVersion != selectedProvider.Identity || session.Plan.PolicyVersion != selectedProvider.PolicyIdentity)
+            {
+                if (stored.State is MergeSessionState.Ready or MergeSessionState.Resolving or MergeSessionState.Preparing)
+                    history.MergeSessions.Update(stored, MergeSessionState.Stale);
+                throw new HistoryMergeBlockedException(new(MergeDiagnosticCode.Stale));
+            }
             if (stored.Revision != session.Revision || stored.State != MergeSessionState.Ready)
                 throw new InvalidOperationException("Merge Session is not ready at the expected revision.");
             var workspace = session.ProtectedWorkspace ?? session.Plan.ExpectedWorkspace;
@@ -51,7 +59,7 @@ public sealed class HistoryMergeApplyService(HistoryRuntime history, HistoryRest
                 throw new InvalidOperationException("Configuration changed; recompute the Merge plan.");
             }
             var plan = await new HistoryMergePlanner(history).BuildAsync(session.Plan.Theirs.BranchId, workspace,
-                current.Item1, current.Item2, token).ConfigureAwait(false);
+                current.Item1, current.Item2, token, selectedProvider).ConfigureAwait(false);
             if (plan.Ours.UpdateId != session.Plan.Ours.UpdateId || plan.Theirs.UpdateId != session.Plan.Theirs.UpdateId
                 || plan.Mode != session.Plan.Mode || plan.BaseCheckpointId != session.Plan.BaseCheckpointId)
             {

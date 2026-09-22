@@ -4,6 +4,7 @@ using FolderRewind.History.LocalState;
 using FolderRewind.History.Representation;
 using FolderRewind.History.Retention;
 using FolderRewind.History.Storage;
+using FolderRewind.History.Merge;
 using System.Collections.Immutable;
 using System.IO.Compression;
 
@@ -25,6 +26,8 @@ public sealed class HistoryMergeApplyTests
     [DataRow("session-completion")]
     [DataRow("ff-unavailable")]
     [DataRow("reuse-unavailable")]
+    [DataRow("provider")]
+    [DataRow("provider-changed")]
     public async Task ThreeWayApplyIsAtomicAndLeavesSourceTipUnchanged(string failure)
     {
         var config = new HistoryConfigId(Guid.NewGuid().ToString("N"));
@@ -71,7 +74,9 @@ public sealed class HistoryMergeApplyTests
         var backend = new FailingBackend(failure == "second-source");
         var restore = new HistoryRestoreService(history, new RepresentationRuntime([handler]),
             _ => Task.FromResult<IRepresentationEnvironment>(new RepresentationEnvironment([], [], [])), backend);
-        var session = (await new HistoryMergeService(history, restore).StartAsync(theirs.BranchId, "config-1", bindings))!;
+        IHistoryMergeProvider provider = failure.StartsWith("provider", StringComparison.Ordinal) ? new ReplacementProvider() : new GenericFileMergeProvider();
+        var session = (await new HistoryMergeService(history, restore, provider).StartAsync(theirs.BranchId, "config-1", bindings))!;
+        Assert.AreEqual(provider.Descriptor.Identity, session.Plan.ProviderVersion);
         Assert.AreEqual(MergeSessionState.Ready, session.State);
         Assert.HasCount(failure == "ff-unavailable" ? 4 : 6, history.MergeSessions.ActiveRoots());
         if (failure.EndsWith("unavailable", StringComparison.Ordinal)) handler.Unavailable.UnionWith(t.Select(v => v.VersionId));
@@ -86,7 +91,8 @@ public sealed class HistoryMergeApplyTests
         }
         var archive = new ZipBackend();
         var result = await new HistoryMergeApplyService(history, restore, new(history, restore, archive, archive),
-            reload: _ => Task.FromResult((failure == "config" ? "config-2" : "config-1", (IReadOnlyList<HistoryRestoreSourceBinding>)bindings))).ApplyAsync(session);
+            reload: _ => Task.FromResult((failure == "config" ? "config-2" : "config-1", (IReadOnlyList<HistoryRestoreSourceBinding>)bindings)),
+            provider: failure == "provider-changed" ? provider.Descriptor with { SchemaVersion = 2 } : provider.Descriptor).ApplyAsync(session);
         var current = (await history.WorkspaceStore.LoadAsync()).Value!;
         Assert.AreEqual(theirs.UpdateId, HistoryBranchProjection.Build(await history.Query.GetAllBranchUpdatesAsync()).Single(p => p.BranchId == theirs.BranchId).Tips.Single().UpdateId);
         if (failure == "session-completion")
@@ -104,7 +110,7 @@ public sealed class HistoryMergeApplyTests
             Assert.AreEqual(MergeSessionState.Committed, history.MergeSessions.Load(session.Id).State);
             Assert.HasCount(1, (await history.Query.GetAllBranchUpdatesAsync()).Where(u => u.Reason == BranchUpdateReason.Merged).ToArray());
         }
-        else if (failure == "success")
+        else if (failure is "success" or "provider")
         {
             Assert.AreEqual(HistoryRestoreStatus.Committed, result.Status, result.Diagnostic);
             Assert.AreNotEqual(workspace.ActiveBranchUpdateId, current.ActiveBranchUpdateId);
@@ -145,6 +151,13 @@ public sealed class HistoryMergeApplyTests
             foreach (var pair in Trees[context.Representation.RepresentationId]) File.WriteAllText(Path.Combine(context.StagingDirectory, pair.Key), pair.Value);
             return ValueTask.CompletedTask;
         }
+    }
+    private sealed class ReplacementProvider : IHistoryMergeProvider
+    {
+        public MergeProviderDescriptor Descriptor => new("replacement", "2", 1, "conservative", "1");
+        public string Version => Descriptor.Identity;
+        public MergeFileProposal Analyze(SourceId source, MergeTreeManifest b, MergeTreeManifest o, MergeTreeManifest t)
+            => new GenericFileMergeProvider().Analyze(source, b, o, t);
     }
     private sealed class ZipBackend : IHistoryCompactionBackend, IArchiveRepresentationBackend
     {

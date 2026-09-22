@@ -60,16 +60,25 @@ public sealed record MergeConflictSubject(SourceId SourceId, ImmutableArray<stri
 public sealed record MergeConflict(string Id, MergeConflictSubject Subject, MergeConflictKind Kind, string InputSignature,
     ImmutableSortedDictionary<string, MergeFileValue> Base, ImmutableSortedDictionary<string, MergeFileValue> Ours,
     ImmutableSortedDictionary<string, MergeFileValue> Theirs);
-public sealed record MergeFileProposal(MergeTreeManifest Automatic, ImmutableArray<MergeConflict> Conflicts);
+public sealed record MergeProviderDescriptor(string Id, string ImplementationVersion, int SchemaVersion, string PolicyId, string PolicyVersion)
+{
+    public static MergeProviderDescriptor Generic { get; } = new("generic-file", "1", 1, "conservative", "1");
+    public string Identity => $"{Id}@{ImplementationVersion};schema={SchemaVersion}";
+    public string PolicyIdentity => $"{PolicyId}@{PolicyVersion}";
+}
+public sealed record MergeFileProposal(MergeTreeManifest Automatic, ImmutableArray<MergeConflict> Conflicts,
+    ImmutableArray<string> HandledPaths = default);
 public interface IHistoryMergeProvider
 {
+    MergeProviderDescriptor Descriptor { get; }
     string Version { get; }
     MergeFileProposal Analyze(SourceId source, MergeTreeManifest @base, MergeTreeManifest ours, MergeTreeManifest theirs);
 }
 
 public sealed class GenericFileMergeProvider : IHistoryMergeProvider
 {
-    public string Version => "generic-file/1";
+    public MergeProviderDescriptor Descriptor => MergeProviderDescriptor.Generic;
+    public string Version => Descriptor.Identity;
     public MergeFileProposal Analyze(SourceId source, MergeTreeManifest b, MergeTreeManifest o, MergeTreeManifest t)
     {
         var paths = b.Files.Keys.Concat(o.Files.Keys).Concat(t.Files.Keys).Distinct(StringComparer.Ordinal).ToArray();
@@ -96,7 +105,7 @@ public sealed class GenericFileMergeProvider : IHistoryMergeProvider
                 : ov is null || tv is null ? MergeConflictKind.ModifyDelete : MergeConflictKind.ModifyModify); continue; }
             if (selected is not null) automatic.Add(path, selected);
         }
-        return new(MergeTreeManifest.Create(automatic), conflicts.ToImmutableArray());
+        return new(MergeTreeManifest.Create(automatic), conflicts.ToImmutableArray(), paths.ToImmutableArray());
 
         void Conflict(IEnumerable<string> members, MergeConflictKind kind)
         {

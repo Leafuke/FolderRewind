@@ -8,6 +8,18 @@ namespace FolderRewind.Tests;
 [TestClass]
 public sealed class HistoryMergeTests
 {
+    [TestMethod]
+    public void ProviderCannotEscapeOrDoubleClaimInputPaths()
+    {
+        var id = SourceId.New();
+        var tree = MergeTreeManifest.Create(new Dictionary<string, MergeFileValue> { ["file"] = new("controlled", "digest", 1) });
+        var valid = new GenericFileMergeProvider().Analyze(id, MergeTreeManifest.Empty, tree, tree);
+        HistoryMergeService.ValidateProposal(id, MergeTreeManifest.Empty, tree, tree, valid);
+        Assert.ThrowsExactly<InvalidDataException>(() => HistoryMergeService.ValidateProposal(id, MergeTreeManifest.Empty, tree, tree,
+            valid with { HandledPaths = ["file", "file"] }));
+        Assert.ThrowsExactly<InvalidDataException>(() => HistoryMergeService.ValidateProposal(id, MergeTreeManifest.Empty, tree, tree,
+            valid with { Automatic = MergeTreeManifest.Create(new Dictionary<string, MergeFileValue> { ["../escape"] = new("external", "digest", 1) }) }));
+    }
     private static readonly HistoryConfigId Config = new("merge-tests");
     private static ConfigurationCheckpoint Checkpoint(params CheckpointId[] parents) => new(CheckpointId.New(), Config,
         DateTimeOffset.UtcNow, null, HistoryProvenance.Native("test"), [], parents,

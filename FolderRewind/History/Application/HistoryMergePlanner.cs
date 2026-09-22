@@ -1,5 +1,6 @@
 using FolderRewind.History.Domain;
 using FolderRewind.History.LocalState;
+using FolderRewind.History.Merge;
 using System;
 using System.Collections.Generic;
 using System.Collections.Immutable;
@@ -15,13 +16,15 @@ public sealed record HistoryMergeSourcePlan(SourceId SourceId, CheckpointSource?
 public sealed record HistoryMergePlan(Guid Revision, HistoryMergeMode Mode, BranchUpdate Ours, BranchUpdate Theirs,
     CheckpointId? BaseCheckpointId, HistoryWorkspace ExpectedWorkspace, string ConfigRevision,
     ImmutableArray<HistoryRestoreSourceBinding> Bindings, ImmutableArray<HistoryMergeSourcePlan> Sources,
-    string ProviderVersion = "generic-file/1", string PolicyVersion = "conservative/1");
+    string ProviderVersion = "generic-file@1;schema=1", string PolicyVersion = "conservative@1");
 
 public sealed class HistoryMergePlanner(HistoryRuntime history)
 {
     public async Task<HistoryMergePlan> BuildAsync(BranchId sourceBranch, HistoryWorkspace workspace,
-        string configRevision, IReadOnlyList<HistoryRestoreSourceBinding> bindings, CancellationToken token = default)
+        string configRevision, IReadOnlyList<HistoryRestoreSourceBinding> bindings, CancellationToken token = default,
+        MergeProviderDescriptor? provider = null)
     {
+        provider ??= MergeProviderDescriptor.Generic;
         await history.EnsureIndexCurrentAsync(token).ConfigureAwait(false);
         if (workspace.ConfigId != history.ConfigId || workspace.ActiveBranchId is not { } targetBranch || targetBranch == sourceBranch)
             throw new InvalidOperationException("Merge requires distinct source and active target Branches in one Config.");
@@ -45,7 +48,7 @@ public sealed class HistoryMergePlanner(HistoryRuntime history)
             if (!admission.IsReady) throw new InvalidOperationException(admission.Diagnostic);
         }
         if (found.Mode is HistoryMergeMode.NoCommonBase or HistoryMergeMode.MultipleMergeBases or HistoryMergeMode.NoOp)
-            return new(Guid.NewGuid(), found.Mode, ours, theirs, found.BaseCheckpointId, workspace, configRevision, bindings.ToImmutableArray(), []);
+            return new(Guid.NewGuid(), found.Mode, ours, theirs, found.BaseCheckpointId, workspace, configRevision, bindings.ToImmutableArray(), [], provider.Identity, provider.PolicyIdentity);
         var b = found.BaseCheckpointId is { } baseId ? map[baseId] : null;
         if (b is not null && !b.IsStructurallyComplete) throw new InvalidOperationException("Merge base roster is incomplete.");
         if (b is not null)
@@ -63,7 +66,7 @@ public sealed class HistoryMergePlanner(HistoryRuntime history)
                 : PlanSource(id, bs, os, ts));
         }
         return new(Guid.NewGuid(), found.Mode, ours, theirs, found.BaseCheckpointId, workspace, configRevision,
-            bindings.ToImmutableArray(), sources.ToImmutableArray());
+            bindings.ToImmutableArray(), sources.ToImmutableArray(), provider.Identity, provider.PolicyIdentity);
     }
 
     internal static HistoryMergeSourcePlan PlanSource(SourceId id, CheckpointSource? b, CheckpointSource? o, CheckpointSource? t)
