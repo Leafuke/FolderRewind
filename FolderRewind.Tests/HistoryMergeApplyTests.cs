@@ -22,6 +22,7 @@ public sealed class HistoryMergeApplyTests
     [DataRow("dirty")]
     [DataRow("config")]
     [DataRow("stale-session")]
+    [DataRow("session-completion")]
     public async Task ThreeWayApplyIsAtomicAndLeavesSourceTipUnchanged(string failure)
     {
         var config = new HistoryConfigId(Guid.NewGuid().ToString("N"));
@@ -72,12 +73,34 @@ public sealed class HistoryMergeApplyTests
         Assert.HasCount(6, history.MergeSessions.ActiveRoots());
         if (failure == "dirty") File.WriteAllText(Path.Combine(bindings[0].TargetDirectory, "a.txt"), "dirty!");
         if (failure == "stale-session") history.MergeSessions.Update(session, MergeSessionState.Abandoned);
+        if (failure == "session-completion")
+        {
+            using var db = new Microsoft.Data.Sqlite.SqliteConnection("Pooling=False;Data Source=" + Path.Combine(history.MergeSessions.Root, "sessions.db"));
+            db.Open(); using var command = db.CreateCommand();
+            command.CommandText = "CREATE TRIGGER fail_completion BEFORE UPDATE ON sessions WHEN NEW.state=5 BEGIN SELECT RAISE(ABORT, 'injected completion failure'); END;";
+            command.ExecuteNonQuery();
+        }
         var archive = new ZipBackend();
         var result = await new HistoryMergeApplyService(history, restore, new(history, restore, archive, archive),
             reload: _ => Task.FromResult((failure == "config" ? "config-2" : "config-1", (IReadOnlyList<HistoryRestoreSourceBinding>)bindings))).ApplyAsync(session);
         var current = (await history.WorkspaceStore.LoadAsync()).Value!;
         Assert.AreEqual(theirs.UpdateId, HistoryBranchProjection.Build(await history.Query.GetAllBranchUpdatesAsync()).Single(p => p.BranchId == theirs.BranchId).Tips.Single().UpdateId);
-        if (failure == "success")
+        if (failure == "session-completion")
+        {
+            Assert.AreEqual(HistoryRestoreStatus.CommittedRecoveryRequired, result.Status, result.Diagnostic);
+            Assert.IsTrue(result.TargetCommitted);
+            Assert.IsTrue(result.WorkspaceUpdated);
+            Assert.HasCount(2, result.AppliedSources);
+            Assert.HasCount(1, (await history.Query.GetAllBranchUpdatesAsync()).Where(u => u.Reason == BranchUpdateReason.Merged).ToArray());
+            using (var db = new Microsoft.Data.Sqlite.SqliteConnection("Pooling=False;Data Source=" + Path.Combine(history.MergeSessions.Root, "sessions.db")))
+            {
+                db.Open(); using var command = db.CreateCommand(); command.CommandText = "DROP TRIGGER fail_completion"; command.ExecuteNonQuery();
+            }
+            await restore.RecoverIncompleteAsync();
+            Assert.AreEqual(MergeSessionState.Committed, history.MergeSessions.Load(session.Id).State);
+            Assert.HasCount(1, (await history.Query.GetAllBranchUpdatesAsync()).Where(u => u.Reason == BranchUpdateReason.Merged).ToArray());
+        }
+        else if (failure == "success")
         {
             Assert.AreEqual(HistoryRestoreStatus.Committed, result.Status, result.Diagnostic);
             Assert.AreNotEqual(workspace.ActiveBranchUpdateId, current.ActiveBranchUpdateId);

@@ -18,6 +18,7 @@ public sealed class HistoryMergeApplyService(HistoryRuntime history, HistoryRest
     public async Task<HistoryRestoreResult> ApplyAsync(MergeSession expected, CancellationToken token = default)
     {
         PreparedMerge? prepared = null;
+        HistoryRestoreResult? mutationResult = null;
         var session = expected;
         try
         {
@@ -92,7 +93,7 @@ public sealed class HistoryMergeApplyService(HistoryRuntime history, HistoryRest
                 finally { HistoryRestoreTransactionJournalStore.CleanupStaging([original.StagingDirectory]); }
             }
             session = history.MergeSessions.Update(session, MergeSessionState.Applying, pack.TransactionId, pack.PackId);
-            var result = await restore.ExecuteMutationAsync(prepared.Sources.Select(s =>
+            var result = mutationResult = await restore.ExecuteMutationAsync(prepared.Sources.Select(s =>
                 new HistoryRestoreService.PreparedRestoreSource(current.Item2.Single(b => b.SourceId == s.Version.SourceId),
                     s.Version, MaterializationFidelity.Exact, HistoryRestoreApplyMode.Clean, s.StagingDirectory, originalDigests[s.Version.SourceId], s.TreeDigest)).ToArray(),
                 workspace, desired, token, pack, desiredCatalog, catalog.CatalogRevision).ConfigureAwait(false);
@@ -104,9 +105,29 @@ public sealed class HistoryMergeApplyService(HistoryRuntime history, HistoryRest
         }
         catch (Exception ex)
         {
-            // Applying must retain its identity and roots until journal recovery resolves durability.
-            if (history.MergeSessions.Load(session.Id).State == MergeSessionState.Applying)
+            if (mutationResult?.TargetCommitted == true)
+                return mutationResult with { Status = HistoryRestoreStatus.CommittedRecoveryRequired,
+                    Diagnostic = $"Merge committed; Session completion requires recovery: {ex.Message}" };
+            if (mutationResult is not null) return mutationResult with { Diagnostic = mutationResult.Diagnostic + " " + ex.Message };
+            // 不依赖可能已经不可读的 Session DB 判断 durable 事实。
+            if (session.State == MergeSessionState.Applying)
+            {
+                if (prepared is not null)
+                {
+                    try
+                    {
+                        var path = history.Repository.Paths.GetPackPath(prepared.PackId);
+                        if (File.Exists(path))
+                        {
+                            var pack = new HistoryPackCodec().Decode(File.ReadAllBytes(path)).Pack;
+                            if (pack.TransactionId == prepared.TransactionId)
+                                return new(HistoryRestoreStatus.CommittedRecoveryRequired, ex.Message, false, []);
+                        }
+                    }
+                    catch { /* 无法证明提交状态，保留 intent 并阻断后续 mutation。 */ }
+                }
                 return new(HistoryRestoreStatus.MutationFailedRecoveryRequired, ex.Message, false, []);
+            }
             if (prepared is not null) HistoryRestoreTransactionJournalStore.CleanupStaging(prepared.Sources.Select(s => s.StagingDirectory));
             return new(HistoryRestoreStatus.BlockedBeforeMutation, ex.Message, false, []);
         }

@@ -47,7 +47,23 @@ internal static partial class NativeHistoryApplicationService
                         await BindingsAsync(config, config.SourceFolders, cancellation).ConfigureAwait(false)))
                     .ApplyAsync(session, ct).ConfigureAwait(false);
                 if (result.Succeeded)
-                    await BackupService.SynchronizeCaptureBaselinesWithWorkspaceAsync(config, result.AppliedSources, ct).ConfigureAwait(false);
+                {
+                    try { await BackupService.SynchronizeCaptureBaselinesWithWorkspaceAsync(config, result.AppliedSources, CancellationToken.None).ConfigureAwait(false); }
+                    catch (Exception ex)
+                    {
+                        foreach (var source in result.AppliedSources)
+                        {
+                            try
+                            {
+                                var baseline = await runtime.CaptureBaselines.LoadAsync(source, CancellationToken.None).ConfigureAwait(false);
+                                if (baseline is not null) await runtime.CaptureBaselines.RemoveAsync(source, baseline.Revision, CancellationToken.None).ConfigureAwait(false);
+                            }
+                            catch (Exception cleanup) { LogService.LogWarning(cleanup.Message, "Merge capture cache"); }
+                        }
+                        return result with { Status = HistoryRestoreStatus.CommittedWithPostActionWarning,
+                            Diagnostic = $"Merge committed; capture cache synchronization failed: {ex.Message}" };
+                    }
+                }
                 return result;
             }, token, WorkspaceOperationKind.Merge);
 
