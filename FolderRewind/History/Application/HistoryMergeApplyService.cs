@@ -61,6 +61,7 @@ public sealed class HistoryMergeApplyService(HistoryRuntime history, HistoryRest
             if (!await IsCleanAsync(workspace, current.Item2, token).ConfigureAwait(false))
                 throw new InvalidOperationException("Working files changed after protection; Merge was blocked.");
             ValidateMapping(prepared, current.Item2);
+            using var payloadLocks = await builder.ValidateAndLockAsync(prepared, token).ConfigureAwait(false);
             foreach (var source in prepared.Sources)
                 if ((await MergeTreeManifest.ReadAsync(source.StagingDirectory, _ => true, token).ConfigureAwait(false)).Digest != source.TreeDigest)
                     throw new InvalidDataException("Staged Merge result changed before Apply.");
@@ -129,7 +130,10 @@ public sealed class HistoryMergeApplyService(HistoryRuntime history, HistoryRest
                 return new(HistoryRestoreStatus.MutationFailedRecoveryRequired, ex.Message, false, []);
             }
             if (prepared is not null) HistoryRestoreTransactionJournalStore.CleanupStaging(prepared.Sources.Select(s => s.StagingDirectory));
-            return new(HistoryRestoreStatus.BlockedBeforeMutation, ex.Message, false, []);
+            var diagnostic = (ex as HistoryMergeBlockedException)?.Diagnostic
+                ?? new HistoryMergeDiagnostic(MergeDiagnosticCode.PreparationFailed, Detail: ex.Message);
+            return new(diagnostic.Code == MergeDiagnosticCode.PreparationRequired ? HistoryRestoreStatus.PreparationRequired
+                : HistoryRestoreStatus.BlockedBeforeMutation, ex.Message, false, [], MergeDiagnostic: diagnostic);
         }
     }
 

@@ -286,6 +286,24 @@ public sealed class HistoryRestoreService
             throw new InvalidOperationException($"Version {versionId} is not Ready with {requiredFidelity} fidelity.");
     }
 
+    internal async Task<IDisposable> VerifyExactTreeAndLockAsync(SourceVersion version, string expectedDigest, CancellationToken token)
+    {
+        var representations = await _history.Query.GetAllRepresentationsAsync(token).ConfigureAwait(false);
+        var environment = await _environmentFactory(token).ConfigureAwait(false);
+        var lease = await _representations.LockExactVersionAsync(version.VersionId, representations, environment, token).ConfigureAwait(false);
+        var staging = Path.Combine(_history.Repository.Paths.TransactionsRoot, "merge-verification", Guid.NewGuid().ToString("N"));
+        try
+        {
+            await _representations.MaterializeAsync(lease.RepresentationId, representations, environment, MaterializationFidelity.Exact, staging, token).ConfigureAwait(false);
+            var include = FileSystemHistoryRestoreMutationBackend.CreateBoundaryMatcher(new(version.SourceId, staging, version.EffectiveSourceBoundary));
+            if ((await Merge.MergeTreeManifest.ReadAsync(staging, include, token).ConfigureAwait(false)).Digest != expectedDigest)
+                throw new IOException("Exact representation no longer matches the fixed Merge input.");
+            return lease;
+        }
+        catch { lease.Dispose(); throw; }
+        finally { HistoryRestoreTransactionJournalStore.CleanupStaging([staging]); }
+    }
+
     internal async Task<VersionAssessment> AssessVersionAsync(
         VersionId versionId,
         MaterializationFidelity requiredFidelity,

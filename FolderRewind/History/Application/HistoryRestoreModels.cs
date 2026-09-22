@@ -16,7 +16,8 @@ public enum HistoryRestoreStatus
     MutationFailedRecoveryRequired = 3,
     CommittedWithPostActionWarning = 4,
     NoChanges = 5,
-    CommittedRecoveryRequired = 6
+    CommittedRecoveryRequired = 6,
+    PreparationRequired = 7
 }
 
 public enum HistoryCheckoutProtectionMode
@@ -51,7 +52,8 @@ public sealed record HistoryRestoreResult(
     string Diagnostic,
     bool WorkspaceUpdated,
     IReadOnlyList<SourceId> AppliedSources,
-    HistoryCheckoutPlan? CheckoutPlan = null)
+    HistoryCheckoutPlan? CheckoutPlan = null,
+    Merge.HistoryMergeDiagnostic? MergeDiagnostic = null)
 {
     public bool Succeeded => Status is HistoryRestoreStatus.Committed
         or HistoryRestoreStatus.CommittedWithPostActionWarning

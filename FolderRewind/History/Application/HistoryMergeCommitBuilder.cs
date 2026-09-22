@@ -25,6 +25,45 @@ public sealed class HistoryMergeCommitBuilder(HistoryRuntime history, HistoryRes
     IHistoryCompactionBackend archives, IArchiveRepresentationBackend materializer,
     Func<SourceVersion, string, CancellationToken, Task<IReadOnlyList<VersionMetadataSnapshot>>>? metadata = null)
 {
+    internal async Task<IDisposable> ValidateAndLockAsync(PreparedMerge prepared, CancellationToken token)
+    {
+        var held = new PayloadLocks();
+        try
+        {
+            foreach (var source in prepared.Sources)
+            {
+                var representation = prepared.Facts.OfType<VersionRepresentation>().SingleOrDefault(r => r.VersionId == source.Version.VersionId);
+                if (representation is null)
+                {
+                    held.Items.Add(await restore.VerifyExactTreeAndLockAsync(source.Version, source.TreeDigest, token).ConfigureAwait(false));
+                    continue;
+                }
+                var path = prepared.NewReplicas.Single(r => r.RepresentationId == representation.RepresentationId).Locator.AbsolutePath;
+                var input = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.Read, 65536, true);
+                held.Items.Add(input);
+                var hash = Convert.ToHexString(await SHA256.HashDataAsync(input, token).ConfigureAwait(false));
+                if (!StringComparer.OrdinalIgnoreCase.Equals(hash, representation.RepresentationSpecificMetadata["storageSha256"]))
+                    throw new InvalidDataException("Prepared payload storage hash changed.");
+                var root = Path.Combine(history.Repository.Paths.TransactionsRoot, "merge-verification", Guid.NewGuid().ToString("N"));
+                try
+                {
+                    await materializer.MaterializeAsync([new(representation, path)], root, token).ConfigureAwait(false);
+                    if ((await MergeTreeManifest.ReadAsync(root, _ => true, token).ConfigureAwait(false)).Digest != source.TreeDigest)
+                        throw new InvalidDataException("Prepared payload logical state changed.");
+                }
+                finally { HistoryRestoreTransactionJournalStore.CleanupStaging([root]); }
+            }
+            return held;
+        }
+        catch { held.Dispose(); throw; }
+    }
+
+    private sealed class PayloadLocks : IDisposable
+    {
+        internal List<IDisposable> Items { get; } = [];
+        public void Dispose() { foreach (var item in Items) item.Dispose(); }
+    }
+
     public async Task<PreparedMerge> BuildAsync(MergeSession session, CancellationToken token = default)
     {
         if (session.State != MergeSessionState.Ready) throw new InvalidOperationException("Merge Session has unresolved conflicts.");

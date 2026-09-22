@@ -23,6 +23,8 @@ public sealed class HistoryMergeApplyTests
     [DataRow("config")]
     [DataRow("stale-session")]
     [DataRow("session-completion")]
+    [DataRow("ff-unavailable")]
+    [DataRow("reuse-unavailable")]
     public async Task ThreeWayApplyIsAtomicAndLeavesSourceTipUnchanged(string failure)
     {
         var config = new HistoryConfigId(Guid.NewGuid().ToString("N"));
@@ -39,7 +41,8 @@ public sealed class HistoryMergeApplyTests
             facts.Add(version); facts.Add(rep); return version;
         }
         var b = sourceIds.Select(id => Version(id, "base", null, ("a.txt", "base-a"), ("b.txt", "base-b"))).ToArray();
-        var o = b.Select(v => Version(v.SourceId, "ours", v, ("a.txt", "ours-a"), ("b.txt", "base-b"))).ToArray();
+        var oursText = failure == "reuse-unavailable" ? "base-a" : "ours-a";
+        var o = b.Select(v => Version(v.SourceId, "ours", v, ("a.txt", oursText), ("b.txt", "base-b"))).ToArray();
         var t = b.Select(v => Version(v.SourceId, "theirs", v, ("a.txt", "base-a"), ("b.txt", "theirs-b"))).ToArray();
         ConfigurationCheckpoint Checkpoint(SourceVersion[] versions, ConfigurationCheckpoint? parent)
         {
@@ -48,7 +51,7 @@ public sealed class HistoryMergeApplyTests
                 parent is null ? [] : [parent.CheckpointId]);
             facts.Add(cp); return cp;
         }
-        var bc = Checkpoint(b, null); var oc = Checkpoint(o, bc); var tc = Checkpoint(t, bc);
+        var bc = Checkpoint(b, null); var oc = Checkpoint(o, bc); var tc = Checkpoint(t, failure == "ff-unavailable" ? oc : bc);
         var ours = new BranchUpdate(BranchUpdateId.New(), BranchId.New(), [], "ours", oc.CheckpointId, false, DateTimeOffset.UtcNow, BranchUpdateReason.Created);
         var theirs = new BranchUpdate(BranchUpdateId.New(), BranchId.New(), [], "theirs", tc.CheckpointId, false, DateTimeOffset.UtcNow, BranchUpdateReason.Created);
         facts.AddRange([ours, theirs]); var codec = new HistoryPackCodec();
@@ -62,7 +65,7 @@ public sealed class HistoryMergeApplyTests
         foreach (var binding in bindings)
         {
             Directory.CreateDirectory(binding.TargetDirectory);
-            File.WriteAllText(Path.Combine(binding.TargetDirectory, "a.txt"), "ours-a");
+            File.WriteAllText(Path.Combine(binding.TargetDirectory, "a.txt"), oursText);
             File.WriteAllText(Path.Combine(binding.TargetDirectory, "b.txt"), "base-b");
         }
         var backend = new FailingBackend(failure == "second-source");
@@ -70,7 +73,8 @@ public sealed class HistoryMergeApplyTests
             _ => Task.FromResult<IRepresentationEnvironment>(new RepresentationEnvironment([], [], [])), backend);
         var session = (await new HistoryMergeService(history, restore).StartAsync(theirs.BranchId, "config-1", bindings))!;
         Assert.AreEqual(MergeSessionState.Ready, session.State);
-        Assert.HasCount(6, history.MergeSessions.ActiveRoots());
+        Assert.HasCount(failure == "ff-unavailable" ? 4 : 6, history.MergeSessions.ActiveRoots());
+        if (failure.EndsWith("unavailable", StringComparison.Ordinal)) handler.Unavailable.UnionWith(t.Select(v => v.VersionId));
         if (failure == "dirty") File.WriteAllText(Path.Combine(bindings[0].TargetDirectory, "a.txt"), "dirty!");
         if (failure == "stale-session") history.MergeSessions.Update(session, MergeSessionState.Abandoned);
         if (failure == "session-completion")
@@ -129,10 +133,12 @@ public sealed class HistoryMergeApplyTests
 
     private sealed class TreeHandler : IRepresentationHandler
     {
+        public HashSet<VersionId> Unavailable { get; } = [];
         public Dictionary<RepresentationId, Dictionary<string, string>> Trees { get; } = [];
         public bool CanHandle(VersionRepresentation representation) => representation.Format == "tree";
         public ValueTask<RepresentationAssessment> AssessAsync(RepresentationAssessmentContext context, CancellationToken token)
-            => ValueTask.FromResult(new RepresentationAssessment(context.Representation.RepresentationId, HistoryReadiness.Ready, MaterializationFidelity.Exact, [], []));
+            => ValueTask.FromResult(new RepresentationAssessment(context.Representation.RepresentationId,
+                Unavailable.Contains(context.Representation.VersionId) ? HistoryReadiness.Unavailable : HistoryReadiness.Ready, MaterializationFidelity.Exact, [], []));
         public ValueTask MaterializeAsync(RepresentationMaterializationContext context, CancellationToken token)
         {
             Directory.CreateDirectory(context.StagingDirectory);

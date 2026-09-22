@@ -130,6 +130,39 @@ public sealed class RepresentationRuntime
             cancellationToken).ConfigureAwait(false);
     }
 
+    internal async Task<RepresentationReadLease> LockExactVersionAsync(VersionId versionId,
+        IReadOnlyList<VersionRepresentation> representations, IRepresentationEnvironment environment, CancellationToken token)
+    {
+        var assessment = await AssessVersionAsync(versionId, representations, environment, AssessmentDepth.Deep, MaterializationFidelity.Exact, token).ConfigureAwait(false);
+        if (assessment.Readiness != HistoryReadiness.Ready || assessment.Selected is null)
+            throw new Merge.HistoryMergeBlockedException(new(assessment.Readiness == HistoryReadiness.PreparationRequired
+                ? Merge.MergeDiagnosticCode.PreparationRequired : Merge.MergeDiagnosticCode.ExactUnavailable, VersionId: versionId));
+        var graph = representations.ToDictionary(r => r.RepresentationId);
+        var root = graph[assessment.Selected.RepresentationId];
+        var assessments = new Dictionary<RepresentationId, RepresentationAssessment>();
+        await AssessRepresentationAsync(root, graph, environment, AssessmentDepth.Deep, assessments, [], token).ConfigureAwait(false);
+        var held = new RepresentationReadLease(root.RepresentationId);
+        try
+        {
+            foreach (var representation in BuildDependencyFirstClosure(root, graph))
+            {
+                var selected = assessments[representation.RepresentationId];
+                if (selected.Readiness != HistoryReadiness.Ready) throw new IOException("Exact dependency became unavailable.");
+                if (selected.SelectedLocalPath is not { } path) continue;
+                var file = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.Read, 65536, true);
+                held.Streams.Add(file);
+                if (representation.RepresentationSpecificMetadata.TryGetValue("storageSha256", out var expected))
+                {
+                    var actual = Convert.ToHexString(await System.Security.Cryptography.SHA256.HashDataAsync(file, token).ConfigureAwait(false));
+                    if (!StringComparer.OrdinalIgnoreCase.Equals(expected, actual)) throw new IOException("Exact payload storage hash changed.");
+                    file.Position = 0;
+                }
+            }
+            return held;
+        }
+        catch { held.Dispose(); throw; }
+    }
+
     private async Task<RepresentationAssessment> AssessRepresentationAsync(
         VersionRepresentation representation,
         IReadOnlyDictionary<RepresentationId, VersionRepresentation> graph,
@@ -250,4 +283,11 @@ public sealed class RepresentationRuntime
             MaterializationFidelity.Unknown => true,
             _ => false
         };
+}
+
+internal sealed class RepresentationReadLease(RepresentationId representationId) : IDisposable
+{
+    internal RepresentationId RepresentationId { get; } = representationId;
+    internal List<FileStream> Streams { get; } = [];
+    public void Dispose() { foreach (var stream in Streams) stream.Dispose(); Streams.Clear(); }
 }
