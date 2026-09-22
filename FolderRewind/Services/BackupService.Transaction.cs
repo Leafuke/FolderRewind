@@ -110,9 +110,11 @@ public static partial class BackupService
 
         invocationOptions ??= BackupInvocationOptions.Default;
 
+        _ = await NativeHistoryCoreGateway.EnsureReadyAsync(config, cancellationToken).ConfigureAwait(false);
         await using var operationLease = await NativeHistoryConfigurationOperationGate
             .EnterAsync(config.Id, cancellationToken).ConfigureAwait(false);
-        _ = await NativeHistoryCoreGateway.EnsureReadyAsync(config, cancellationToken).ConfigureAwait(false);
+        var recovery = await NativeHistoryApplicationService.CreateRestoreServiceAsync(config, cancellationToken).ConfigureAwait(false);
+        await recovery.RecoverInsideConfigurationAsync(operationLease, cancellationToken).ConfigureAwait(false);
 
         var startedAtUtc = DateTimeOffset.UtcNow;
         int configIndex = GetConfigIndex(config);

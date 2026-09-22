@@ -96,6 +96,9 @@ public sealed class HistoryJointTransactionRecoveryTests
                 var journal = new HistoryRestoreTransactionJournal(pack.TransactionId, HistoryRestoreTransactionPhase.Mutating,
                     original, desired, [staging], [snapshot, unstarted], [source], [source], codec.Encode(pack), desiredCatalog, 0);
                 new HistoryRestoreTransactionJournalStore(history, backend).Save(journal);
+                await Assert.ThrowsExactlyAsync<HistoryCommitConflictException>(async () =>
+                    await history.Commit.FindRequiredBoundaryRecapturesAsync(new HistoryConfigSnapshot(config,
+                        [new HistoryConfigSourceSnapshot(source, version.SourceDescriptorSnapshot)]), [source]));
                 await Assert.ThrowsExactlyAsync<InvalidOperationException>(async () => { await using var lease = await history.MutationGate.EnterAsync(); });
                 if (packCommitted) await history.Repository.CommitAsync(pack);
                 if (catalogSaved) await history.LocalReplicaCatalogStore.SaveAsync(desiredCatalog, 0);

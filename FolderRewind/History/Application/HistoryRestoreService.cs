@@ -41,6 +41,13 @@ public sealed class HistoryRestoreService
 
     public async Task RecoverIncompleteAsync(CancellationToken cancellationToken = default)
     {
+        await using var operation = await Services.NativeHistoryConfigurationOperationGate.EnterHistoryAsync(_history.ConfigId, cancellationToken).ConfigureAwait(false);
+        await RecoverInsideConfigurationAsync(operation, cancellationToken).ConfigureAwait(false);
+    }
+
+    internal async Task RecoverInsideConfigurationAsync(Services.NativeHistoryConfigurationOperationGate.Lease operation, CancellationToken cancellationToken = default)
+    {
+        operation.Require(_history.ConfigId);
         await using var lease = await _history.MutationGate.EnterForRecoveryAsync(cancellationToken).ConfigureAwait(false);
         if (await _journals.RecoverIncompleteAsync(cancellationToken).ConfigureAwait(false))
         {

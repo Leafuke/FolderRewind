@@ -2,6 +2,7 @@ using System;
 using System.Collections.Concurrent;
 using System.Threading;
 using System.Threading.Tasks;
+using FolderRewind.History.Domain;
 
 namespace FolderRewind.Services;
 
@@ -13,20 +14,31 @@ internal static class NativeHistoryConfigurationOperationGate
 {
     private static readonly ConcurrentDictionary<string, SemaphoreSlim> Gates = new(StringComparer.Ordinal);
 
-    public static async ValueTask<IAsyncDisposable> EnterAsync(
+    public static ValueTask<Lease> EnterAsync(
         string configId,
         CancellationToken cancellationToken = default)
     {
         if (!Guid.TryParse(configId, out var parsed) || parsed == Guid.Empty)
             throw new ArgumentException("A stable configuration ID is required.", nameof(configId));
-        var gate = Gates.GetOrAdd(parsed.ToString("N"), _ => new SemaphoreSlim(1, 1));
-        await gate.WaitAsync(cancellationToken).ConfigureAwait(false);
-        return new Lease(gate);
+        return EnterHistoryAsync(new HistoryConfigId(configId), cancellationToken);
     }
 
-    private sealed class Lease(SemaphoreSlim gate) : IAsyncDisposable
+    internal static async ValueTask<Lease> EnterHistoryAsync(HistoryConfigId configId, CancellationToken cancellationToken = default)
+    {
+        var gate = Gates.GetOrAdd(configId.Value, _ => new SemaphoreSlim(1, 1));
+        await gate.WaitAsync(cancellationToken).ConfigureAwait(false);
+        return new Lease(configId, gate);
+    }
+
+    internal sealed class Lease(HistoryConfigId configId, SemaphoreSlim gate) : IAsyncDisposable
     {
         private int _released;
+
+        internal void Require(HistoryConfigId expected)
+        {
+            if (configId != expected || Volatile.Read(ref _released) != 0)
+                throw new InvalidOperationException("An active operation lease for this configuration is required.");
+        }
 
         public ValueTask DisposeAsync()
         {

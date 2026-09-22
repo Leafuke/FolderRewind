@@ -197,6 +197,9 @@ public sealed class HistoryCommitCoordinator
     {
         ArgumentNullException.ThrowIfNull(snapshot);
         ArgumentNullException.ThrowIfNull(plannedCaptureSources);
+        try { HistoryRestoreTransactionJournalStore.RequireRecovered(_runtime.Repository.Paths.TransactionsRoot); }
+        catch (Exception ex) when (ex is IOException or InvalidOperationException or System.Text.Json.JsonException or UnauthorizedAccessException)
+        { throw new HistoryCommitConflictException($"Workspace recovery is required before capture: {ex.Message}"); }
 
         if (snapshot.ConfigId != _runtime.ConfigId)
         {

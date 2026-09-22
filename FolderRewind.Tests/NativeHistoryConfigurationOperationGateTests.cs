@@ -22,11 +22,24 @@ public sealed class NativeHistoryConfigurationOperationGateTests
         {
             Assert.IsFalse(secondEntered.Task.IsCompleted);
         }
-        await Task.Delay(50);
         Assert.IsFalse(secondEntered.Task.IsCompleted);
 
         await first.DisposeAsync();
         await second.WaitAsync(TimeSpan.FromSeconds(2));
         Assert.IsTrue(secondEntered.Task.IsCompletedSuccessfully);
+    }
+
+    [TestMethod]
+    public async Task RecoveryLeaseMustBeActiveAndBelongToConfiguration()
+    {
+        var id = new FolderRewind.History.Domain.HistoryConfigId(Guid.NewGuid().ToString());
+        var lease = await NativeHistoryConfigurationOperationGate.EnterHistoryAsync(id);
+        lease.Require(id);
+        Assert.ThrowsExactly<InvalidOperationException>(() => lease.Require(new("another-config")));
+        var waiting = NativeHistoryConfigurationOperationGate.EnterHistoryAsync(id).AsTask();
+        Assert.IsFalse(waiting.IsCompleted);
+        await lease.DisposeAsync();
+        await using var next = await waiting.WaitAsync(TimeSpan.FromSeconds(2));
+        Assert.ThrowsExactly<InvalidOperationException>(() => lease.Require(id));
     }
 }

@@ -77,8 +77,9 @@ public sealed class HistoryRuntime : IAsyncDisposable
             var packs = await Repository.ReadAllPacksAsync(cancellationToken).ConfigureAwait(false);
             new HistoryRepositoryValidator(_codec).Validate(ConfigId, packs);
 
-            await new HistoryRestoreTransactionJournalStore(this, new FileSystemHistoryRestoreMutationBackend())
-                .RecoverIncompleteAsync(cancellationToken).ConfigureAwait(false);
+            await using (var operation = await Services.NativeHistoryConfigurationOperationGate.EnterHistoryAsync(ConfigId, cancellationToken).ConfigureAwait(false))
+                await new HistoryRestoreTransactionJournalStore(this, new FileSystemHistoryRestoreMutationBackend())
+                    .RecoverIncompleteAsync(cancellationToken).ConfigureAwait(false);
 
             var localRecovery = new HistoryLocalStateJournalRecovery(
                 WorkspaceStore,
@@ -141,6 +142,9 @@ public sealed class HistoryRuntime : IAsyncDisposable
         var catalog = await LocalReplicaCatalogStore.LoadAsync(cancellationToken).ConfigureAwait(false);
         var packCount = (await Repository.ReadAllPacksAsync(cancellationToken).ConfigureAwait(false)).Count;
         Health = HistoryRuntimeHealth.Ready;
+        try { HistoryRestoreTransactionJournalStore.RequireRecovered(Repository.Paths.TransactionsRoot); }
+        catch (Exception ex) when (ex is IOException or InvalidOperationException or System.Text.Json.JsonException or UnauthorizedAccessException)
+        { Health |= HistoryRuntimeHealth.WorkspaceRecoveryRequired; }
         if (workspace.Status is DeviceLocalStateStatus.Corrupt or DeviceLocalStateStatus.Inaccessible
             || (workspace.Status == DeviceLocalStateStatus.Missing && packCount > 0))
         {
