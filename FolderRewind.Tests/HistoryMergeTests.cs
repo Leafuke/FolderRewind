@@ -1,3 +1,4 @@
+using System.Collections.Immutable;
 using FolderRewind.History.Application;
 using FolderRewind.History.Domain;
 using FolderRewind.History.LocalState;
@@ -125,7 +126,12 @@ public sealed class HistoryMergeTests
     }
 
     [TestMethod]
-    public void DurableSessionRoundTripsResolutionAndKeepsRootsUntilAbandoned()
+    [DataRow("ours")]
+    [DataRow("theirs")]
+    [DataRow("manual")]
+    [DataRow("manual-corrupt")]
+    [DataRow("changed")]
+    public async Task DurableSessionRoundTripsResolutionAndKeepsRootsUntilAbandoned(string scenario)
     {
         var root = Path.Combine(Path.GetTempPath(), "merge-session-" + Guid.NewGuid().ToString("N"));
         try
@@ -139,15 +145,54 @@ public sealed class HistoryMergeTests
             MergeTreeManifest Tree(string digest) => MergeTreeManifest.Create(new Dictionary<string, MergeFileValue> { ["file"] = new("controlled", digest, 1) });
             var proposal = new GenericFileMergeProvider().Analyze(source, Tree("b"), Tree("o"), Tree("t"));
             var conflict = proposal.Conflicts.Single();
+            var sourcePlan = new HistoryMergeSourcePlan(source, null, null, null, HistoryMergeSourceAction.MergeFiles, null);
+            var signature = HistoryMergeService.ConflictSignature(plan, sourcePlan, conflict);
+            var relocated = conflict with { Ours = conflict.Ours.ToImmutableSortedDictionary(p => p.Key,
+                p => p.Value with { Handle = "different/local/path" }, StringComparer.Ordinal) };
+            Assert.AreEqual(signature, HistoryMergeService.ConflictSignature(plan with { Revision = Guid.NewGuid(), ConfigRevision = "fixed-binding" }, sourcePlan, relocated));
+            Assert.AreNotEqual(signature, HistoryMergeService.ConflictSignature(plan with { ProviderVersion = "other@2;schema=2" }, sourcePlan, conflict));
+            Assert.AreNotEqual(signature, HistoryMergeService.ConflictSignature(plan with { PolicyVersion = "other@2" }, sourcePlan, conflict));
+            Assert.AreNotEqual(signature, HistoryMergeService.ConflictSignature(plan, sourcePlan, conflict with { Ours = conflict.Theirs }));
             store.SaveSource(session, new(new(source, null, null, null, HistoryMergeSourceAction.MergeFiles, null), proposal.Automatic, Tree("b"), Tree("o"), Tree("t")), proposal.Conflicts);
             session = store.Update(session, MergeSessionState.Resolving);
             var old = session;
-            session = store.Resolve(session, new(plan.Revision, conflict.Id, conflict.InputSignature, MergeResolutionChoice.Ours));
+            MergeFileValue? manual = null;
+            if (scenario.StartsWith("manual", StringComparison.Ordinal))
+            {
+                var owned = Path.Combine(store.SessionDirectory(session.Id), "manual"); Directory.CreateDirectory(owned);
+                File.WriteAllText(Path.Combine(owned, "content"), "manual");
+                manual = (await MergeTreeManifest.ReadAsync(owned, _ => true, default)).Files["content"];
+            }
+            var choice = manual is not null ? MergeResolutionChoice.Manual : scenario == "theirs" ? MergeResolutionChoice.Theirs : MergeResolutionChoice.Ours;
+            session = store.Resolve(session, new(plan.Revision, conflict.Id, conflict.InputSignature, choice, manual));
             store = new MergeSessionStore(root);
             Assert.AreEqual(MergeSessionState.Ready, store.Load(session.Id).State);
-            Assert.AreEqual(MergeResolutionChoice.Ours, store.Conflicts(session).Single().Resolution!.Choice);
+            Assert.AreEqual(choice, store.Conflicts(session).Single().Resolution!.Choice);
             Assert.Contains(version, store.ActiveRoots());
             Assert.ThrowsExactly<InvalidOperationException>(() => store.Update(old, MergeSessionState.Abandoned));
+            if (scenario == "manual-corrupt") File.WriteAllText(manual!.Handle, "corrupted");
+            var nextRoot = VersionId.New();
+            session = store.Replan(session, plan with { Revision = Guid.NewGuid() }, [nextRoot]);
+            Assert.Contains(version, store.ActiveRoots()); Assert.Contains(nextRoot, store.ActiveRoots());
+            Assert.AreEqual(plan.Revision, old.Plan.Revision);
+            Assert.AreEqual(MergeSessionState.Preparing, store.Load(session.Id).State);
+            var nextConflict = conflict with { Id = "new-conflict", InputSignature = scenario == "changed" ? "changed" : conflict.InputSignature };
+            store.SaveSource(session, new(new(source, null, null, null, HistoryMergeSourceAction.MergeFiles, null), proposal.Automatic, Tree("b"), Tree("o"), Tree("t")), [nextConflict]);
+            session = store.CompletePreparation(session, [nextRoot]);
+            Assert.DoesNotContain(version, store.ActiveRoots()); Assert.Contains(nextRoot, store.ActiveRoots());
+            var resolution = store.Conflicts(session).Single().Resolution;
+            if (scenario is "changed" or "manual-corrupt")
+            {
+                Assert.IsNull(resolution); Assert.AreEqual(MergeSessionState.Resolving, session.State);
+                if (manual is not null) Assert.IsTrue(File.Exists(manual.Handle));
+            }
+            else
+            {
+                Assert.AreEqual(choice, resolution!.Choice);
+                Assert.AreEqual(session.Plan.Revision, resolution.PlanRevision);
+                Assert.AreEqual("new-conflict", resolution.ConflictId);
+                Assert.AreEqual(MergeSessionState.Ready, session.State);
+            }
             store.Update(session, MergeSessionState.Abandoned);
             Assert.IsEmpty(store.ActiveRoots());
         }

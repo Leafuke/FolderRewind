@@ -8,6 +8,8 @@ using System.Collections.Immutable;
 using System.IO;
 using System.Linq;
 using System.Text.Json;
+using System.Security.Cryptography;
+using System.Text;
 using FolderRewind.History.Storage;
 
 namespace FolderRewind.History.LocalState;
@@ -152,9 +154,45 @@ public sealed class MergeSessionStore
             throw new InvalidOperationException("This Session cannot be replanned.");
         var next = expected with { Revision = expected.Revision + 1, State = MergeSessionState.Preparing, Plan = plan, ProtectedWorkspace = null };
         using var db = Open(); using var tx = db.BeginTransaction();
-        using (var clear = Command(db, "DELETE FROM roots WHERE session=$s", ("$s", expected.Id.ToString()))) clear.ExecuteNonQuery();
         SavePlan(db, next, roots); Cas(db, expected, next); tx.Commit(); return next;
     }
+    public MergeSession CompletePreparation(MergeSession expected, IEnumerable<VersionId> roots)
+    {
+        if (expected.State != MergeSessionState.Preparing) throw new InvalidOperationException("Session is not preparing.");
+        using var db = Open(); using var tx = db.BeginTransaction();
+        using var missing = Command(db, "SELECT COUNT(*) FROM conflicts WHERE session=$s AND revision=$r AND resolution IS NULL",
+            ("$s", expected.Id.ToString()), ("$r", expected.Plan.Revision.ToString()));
+        var next = expected with { Revision = checked(expected.Revision + 1),
+            State = Convert.ToInt64(missing.ExecuteScalar()) == 0 ? MergeSessionState.Ready : MergeSessionState.Resolving };
+        Cas(db, expected, next);
+        using (var clear = Command(db, "DELETE FROM roots WHERE session=$s", ("$s", expected.Id.ToString()))) clear.ExecuteNonQuery();
+        foreach (var root in roots.Distinct())
+        {
+            using var insert = Command(db, "INSERT INTO roots VALUES($s,$v)", ("$s", expected.Id.ToString()), ("$v", root.ToString())); insert.ExecuteNonQuery();
+        }
+        tx.Commit(); return next;
+    }
+
+    private bool ManualIsOwnedAndValid(MergeSession session, MergeFileValue file)
+    {
+        try
+        {
+            var root = Path.GetFullPath(SessionDirectory(session.Id));
+            var path = Path.GetFullPath(file.Handle);
+            if (!path.StartsWith(root + Path.DirectorySeparatorChar, StringComparison.OrdinalIgnoreCase)) return false;
+            for (var parent = path; !parent.Equals(root, StringComparison.OrdinalIgnoreCase); parent = Path.GetDirectoryName(parent)!)
+                if ((File.GetAttributes(parent) & FileAttributes.ReparsePoint) != 0) return false;
+            using var stream = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.Read);
+            using var hash = IncrementalHash.CreateHash(HashAlgorithmName.SHA256);
+            hash.AppendData(Encoding.UTF8.GetBytes("folderrewind/file/1\0"));
+            var buffer = new byte[65536]; int count;
+            while ((count = stream.Read(buffer)) != 0) hash.AppendData(buffer, 0, count);
+            return stream.Length == file.Length && Convert.ToHexString(hash.GetHashAndReset()) == file.Digest;
+        }
+        catch (IOException) { return false; }
+        catch (UnauthorizedAccessException) { return false; }
+    }
+
     public IReadOnlyList<MergeSession> List()
     {
         using var db = Open(); using var cmd = Command(db, "SELECT data FROM sessions ORDER BY rowid DESC");
@@ -202,8 +240,21 @@ public sealed class MergeSessionStore
             ("$s", session.Id.ToString()), ("$r", session.Plan.Revision.ToString()), ("$source", source.Plan.SourceId.ToString()))) clear.ExecuteNonQuery();
         foreach (var conflict in conflicts)
         {
-            using var cmd = Command(db, "INSERT OR REPLACE INTO conflicts VALUES($s,$r,$id,$d,NULL)", ("$s", session.Id.ToString()),
-                ("$r", session.Plan.Revision.ToString()), ("$id", conflict.Id), ("$d", Encode(conflict))); cmd.ExecuteNonQuery();
+            MergeResolution? migrated = null;
+            using (var prior = Command(db, "SELECT resolution FROM conflicts WHERE session=$s AND revision<>$r AND json_extract(data,'$.inputSignature')=$sig AND resolution IS NOT NULL ORDER BY rowid DESC LIMIT 1",
+                ("$s", session.Id.ToString()), ("$r", session.Plan.Revision.ToString()), ("$sig", conflict.InputSignature)))
+            {
+                if (prior.ExecuteScalar() is string data)
+                {
+                    var value = Decode<MergeResolution>(data);
+                    if (value.InputSignature == conflict.InputSignature && Enum.IsDefined(value.Choice)
+                        && (value.Choice != MergeResolutionChoice.Manual || value.Manual is { } manual && ManualIsOwnedAndValid(session, manual)))
+                        migrated = value with { PlanRevision = session.Plan.Revision, ConflictId = conflict.Id };
+                }
+            }
+            using var cmd = Command(db, "INSERT OR REPLACE INTO conflicts VALUES($s,$r,$id,$d,$resolution)", ("$s", session.Id.ToString()),
+                ("$r", session.Plan.Revision.ToString()), ("$id", conflict.Id), ("$d", Encode(conflict)),
+                ("$resolution", migrated is null ? null : Encode(migrated))); cmd.ExecuteNonQuery();
         }
         tx.Commit();
     }

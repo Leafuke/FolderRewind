@@ -77,7 +77,6 @@ public sealed class HistoryMergeService(HistoryRuntime history, HistoryRestoreSe
             }
             finally { HistoryRestoreTransactionJournalStore.CleanupStaging([prepared.StagingDirectory]); }
         }
-        bool any = false;
         foreach (var original in session.Plan.Sources)
         {
             token.ThrowIfCancellationRequested();
@@ -119,9 +118,31 @@ public sealed class HistoryMergeService(HistoryRuntime history, HistoryRestoreSe
                     }
                 }
             }
-            history.MergeSessions.SaveSource(session, new(plan, automatic, b, o, t), conflicts); any |= conflicts.Length > 0;
+            conflicts = conflicts.Select(conflict =>
+            {
+                var signature = ConflictSignature(session.Plan, plan, conflict);
+                return conflict with { Id = signature, InputSignature = signature };
+            }).ToImmutableArray();
+            history.MergeSessions.SaveSource(session, new(plan, automatic, b, o, t), conflicts);
         }
-        return history.MergeSessions.Update(session, any ? MergeSessionState.Resolving : MergeSessionState.Ready);
+        return history.MergeSessions.CompletePreparation(session, Roots(session.Plan));
+    }
+
+    internal static string ConflictSignature(HistoryMergePlan plan, HistoryMergeSourcePlan source, MergeConflict conflict)
+    {
+        object Role(CheckpointSource? role, ImmutableSortedDictionary<string, MergeFileValue> values) => new
+        {
+            Present = role?.VersionId is not null, Boundary = role?.EffectiveSourceBoundaryFingerprint,
+            Files = values.Select(p => new { Path = p.Key, p.Value.Digest, p.Value.Length }).ToArray()
+        };
+        var canonical = JsonSerializer.Serialize(new
+        {
+            Contract = "folderrewind/conflict/2", source.SourceId, source.Action, conflict.Kind,
+            Paths = conflict.Subject.Paths.Order(StringComparer.Ordinal).ToArray(), conflict.Subject.ProviderUnitId,
+            Base = Role(source.Base, conflict.Base), Ours = Role(source.Ours, conflict.Ours), Theirs = Role(source.Theirs, conflict.Theirs),
+            plan.ProviderVersion, plan.PolicyVersion
+        });
+        return Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(canonical)));
     }
 
     public async Task<MergeSession> ImportManualAsync(MergeSession session, MergeConflict conflict, string externalFile, CancellationToken token = default)
