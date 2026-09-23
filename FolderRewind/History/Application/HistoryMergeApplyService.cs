@@ -1,4 +1,5 @@
 using FolderRewind.History.Domain;
+using FolderRewind.Services;
 using FolderRewind.History.LocalState;
 using FolderRewind.History.Merge;
 using FolderRewind.History.Storage;
@@ -16,7 +17,30 @@ public sealed class HistoryMergeApplyService(HistoryRuntime history, HistoryRest
     Func<CancellationToken, Task<(string Revision, IReadOnlyList<HistoryRestoreSourceBinding> Bindings)>>? reload = null,
     MergeProviderDescriptor? provider = null)
 {
-    public async Task<HistoryRestoreResult> ApplyAsync(MergeSession expected, CancellationToken token = default)
+    public sealed record CoordinationPlan(IReadOnlyDictionary<SourceId, string> Writes, bool NeedsProtection);
+
+    public async Task<CoordinationPlan> PlanCoordinationAsync(PreparedMerge prepared, HistoryWorkspace workspace,
+        IReadOnlyList<HistoryRestoreSourceBinding> bindings, CancellationToken token = default)
+    {
+        ValidateMapping(prepared, bindings);
+        var writes = new Dictionary<SourceId, string>();
+        var needsProtection = false;
+        foreach (var source in prepared.Sources)
+        {
+            var binding = bindings.Single(b => b.SourceId == source.Version.SourceId);
+            var exists = Directory.Exists(binding.TargetDirectory);
+            var live = exists ? await MergeTreeManifest.ReadAsync(binding.TargetDirectory,
+                FileSystemHistoryRestoreMutationBackend.CreateBoundaryMatcher(binding), token).ConfigureAwait(false) : MergeTreeManifest.Empty;
+            if (exists && live.Digest == source.TreeDigest) continue;
+            writes.Add(binding.SourceId, live.Digest);
+            if (live.Files.Count != 0 && !await IsCleanAsync(workspace, [binding], token).ConfigureAwait(false))
+                needsProtection = true;
+        }
+        return new(writes, needsProtection);
+    }
+
+    public async Task<HistoryRestoreResult> ApplyAsync(MergeSession expected, CancellationToken token = default,
+        PreparedMerge? ready = null, CoordinationPlan? coordinated = null)
     {
         PreparedMerge? prepared = null;
         HistoryRestoreResult? mutationResult = null;
@@ -36,19 +60,30 @@ public sealed class HistoryMergeApplyService(HistoryRuntime history, HistoryRest
                 throw new InvalidOperationException("Merge Session is not ready at the expected revision.");
             var workspace = session.ProtectedWorkspace ?? session.Plan.ExpectedWorkspace;
             await restore.RequireExpectedWorkspaceAsync(workspace, token).ConfigureAwait(false);
-            prepared = await builder.BuildAsync(session, token).ConfigureAwait(false);
-            ValidateMapping(prepared, session.Plan.Bindings);
-            if (!await IsCleanAsync(workspace, session.Plan.Bindings, token).ConfigureAwait(false))
+            prepared = ready ?? await builder.BuildAsync(session, token).ConfigureAwait(false);
+            var persisted = history.MergeSessions.LoadPrepared(session)?.Restore(session);
+            if (persisted is null || persisted.PackId != prepared.PackId || persisted.TransactionId != prepared.TransactionId)
+                throw new HistoryMergeBlockedException(new(MergeDiagnosticCode.Stale));
+            coordinated ??= await PlanCoordinationAsync(prepared, workspace, session.Plan.Bindings, token).ConfigureAwait(false);
+            await using var operation = await NativeHistoryConfigurationOperationGate.EnterHistoryAsync(history.ConfigId, token).ConfigureAwait(false);
+            await restore.RecoverInsideConfigurationAsync(operation, token).ConfigureAwait(false);
+            await restore.RequireExpectedWorkspaceAsync(workspace, token).ConfigureAwait(false);
+            var scope = await PlanCoordinationAsync(prepared, workspace, session.Plan.Bindings, token).ConfigureAwait(false);
+            if (scope.Writes.Keys.Except(coordinated.Writes.Keys).Any() || scope.NeedsProtection && !coordinated.NeedsProtection)
+                throw new HistoryMergeBlockedException(new(MergeDiagnosticCode.CoordinationScopeChanged));
+            if (scope.NeedsProtection)
             {
                 if (protector is null) throw new InvalidOperationException("An Exact SafetySnapshot is required before Merge.");
-                var protectedWorkspace = await protector.ProtectAsync(workspace, token).ConfigureAwait(false);
+                var protectedWorkspace = protector is IHistoryWorkingStateProtectorInsideOperation nested
+                    ? await nested.ProtectInsideOperationAsync(workspace, operation, token).ConfigureAwait(false)
+                    : await protector.ProtectAsync(workspace, token).ConfigureAwait(false);
                 if (protectedWorkspace.ActiveBranchId != workspace.ActiveBranchId
                     || protectedWorkspace.ActiveBranchUpdateId != workspace.ActiveBranchUpdateId)
                     throw new InvalidOperationException("Protection must not advance a Branch.");
                 session = history.MergeSessions.RecordProtection(session, protectedWorkspace);
                 workspace = protectedWorkspace;
             }
-            await using var guard = await restore.EnterFinalGuardAsync(token).ConfigureAwait(false);
+            await using var guard = await restore.EnterFinalGuardAsync(token, operation).ConfigureAwait(false);
             await using var lease = await history.MutationGate.EnterAsync(token).ConfigureAwait(false);
             await restore.RequireExpectedWorkspaceAsync(workspace, token).ConfigureAwait(false);
             var current = reload is null ? (session.Plan.ConfigRevision, (IReadOnlyList<HistoryRestoreSourceBinding>)session.Plan.Bindings)
@@ -66,8 +101,10 @@ public sealed class HistoryMergeApplyService(HistoryRuntime history, HistoryRest
                 session = history.MergeSessions.Update(session, MergeSessionState.Stale);
                 throw new InvalidOperationException("Merge tips changed; recompute the plan.");
             }
-            if (!await IsCleanAsync(workspace, current.Item2, token).ConfigureAwait(false))
-                throw new InvalidOperationException("Working files changed after protection; Merge was blocked.");
+            var finalScope = await PlanCoordinationAsync(prepared, workspace, current.Item2, token).ConfigureAwait(false);
+            if (finalScope.NeedsProtection || finalScope.Writes.Count != scope.Writes.Count
+                || finalScope.Writes.Any(pair => !scope.Writes.TryGetValue(pair.Key, out var digest) || digest != pair.Value))
+                throw new HistoryMergeBlockedException(new(MergeDiagnosticCode.CoordinationScopeChanged));
             ValidateMapping(prepared, current.Item2);
             using var payloadLocks = await builder.ValidateAndLockAsync(prepared, token).ConfigureAwait(false);
             foreach (var source in prepared.Sources)
@@ -89,22 +126,10 @@ public sealed class HistoryMergeApplyService(HistoryRuntime history, HistoryRest
                 workspace.SourceBaselines.Where(b => !restored.Contains(b.SourceId)).Concat(prepared.Sources.Select(s =>
                     new WorkspaceSourceBaseline(s.Version.SourceId, s.Version.VersionId, WorkspaceBaselineRelation.Exact))),
                 prepared.Checkpoint.CheckpointId);
-            var originalDigests = new Dictionary<SourceId, string>();
-            foreach (var source in prepared.Sources)
-            {
-                var binding = current.Item2.Single(b => b.SourceId == source.Version.SourceId);
-                var baseline = workspace.SourceBaselines.Single(b => b.SourceId == source.Version.SourceId);
-                var version = await history.Query.GetVersionAsync(baseline.BaseVersionId!.Value, token).ConfigureAwait(false)
-                    ?? throw new InvalidDataException("Protected baseline Version is missing.");
-                var original = await restore.PrepareSourceAsync(version, binding, MaterializationFidelity.Exact, HistoryRestoreApplyMode.Clean, token).ConfigureAwait(false);
-                try { originalDigests.Add(binding.SourceId, (await MergeTreeManifest.ReadAsync(original.StagingDirectory,
-                    FileSystemHistoryRestoreMutationBackend.CreateBoundaryMatcher(binding), token).ConfigureAwait(false)).Digest); }
-                finally { HistoryRestoreTransactionJournalStore.CleanupStaging([original.StagingDirectory]); }
-            }
             session = history.MergeSessions.Update(session, MergeSessionState.Applying, pack.TransactionId, pack.PackId);
-            var result = mutationResult = await restore.ExecuteMutationAsync(prepared.Sources.Select(s =>
+            var result = mutationResult = await restore.ExecuteMutationAsync(prepared.Sources.Where(s => scope.Writes.ContainsKey(s.Version.SourceId)).Select(s =>
                 new HistoryRestoreService.PreparedRestoreSource(current.Item2.Single(b => b.SourceId == s.Version.SourceId),
-                    s.Version, MaterializationFidelity.Exact, HistoryRestoreApplyMode.Clean, s.StagingDirectory, originalDigests[s.Version.SourceId], s.TreeDigest)).ToArray(),
+                    s.Version, MaterializationFidelity.Exact, HistoryRestoreApplyMode.Clean, s.StagingDirectory, scope.Writes[s.Version.SourceId], s.TreeDigest)).ToArray(),
                 workspace, desired, token, pack, desiredCatalog, catalog.CatalogRevision).ConfigureAwait(false);
             if (result.TargetCommitted && result.Status != HistoryRestoreStatus.CommittedRecoveryRequired)
             {

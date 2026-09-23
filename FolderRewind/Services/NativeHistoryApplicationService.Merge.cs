@@ -1,6 +1,7 @@
 using FolderRewind.History.Application;
 using FolderRewind.History.Domain;
 using FolderRewind.History.LocalState;
+using FolderRewind.History.Merge;
 using FolderRewind.Models;
 using FolderRewind.Plugin.Abstractions;
 using FolderRewind.Services.Plugins.V3;
@@ -32,26 +33,43 @@ internal static partial class NativeHistoryApplicationService
             NativeHistoryConfigLease.Signature(config), await BindingsAsync(config, config.SourceFolders, token).ConfigureAwait(false), token).ConfigureAwait(false);
     }
 
-    internal static Task<HistoryRestoreResult> ApplyMergeAsync(BackupConfig config, MergeSession session, CancellationToken token)
-        => new NativeHistoryRestoreOrchestrator().ExecuteAsync(config, config.SourceFolders.ToArray(), session.Id.ToString(),
-            async ct =>
-            {
-                var runtime = await NativeHistoryCoreGateway.EnsureReadyAsync(config, ct).ConfigureAwait(false);
-                var restore = CreateRestoreService(config, runtime);
-                var archives = new SevenZipHistoryArchiveBackend(config);
-                var builder = new HistoryMergeCommitBuilder(runtime, restore, archives, archives,
-                    (version, staging, cancellation) => CaptureMergeMetadataAsync(config, version, staging, cancellation));
-                var result = await new HistoryMergeApplyService(runtime, restore, builder,
-                    new SafetySnapshotWorkingStateProtector(config, runtime, SafetySnapshotReason.BeforeMerge),
-                    async cancellation => (NativeHistoryConfigLease.Signature(config),
-                        await BindingsAsync(config, config.SourceFolders, cancellation).ConfigureAwait(false)))
-                    .ApplyAsync(session, ct).ConfigureAwait(false);
+    internal static async Task<HistoryRestoreResult> ApplyMergeAsync(BackupConfig config, MergeSession session, CancellationToken token)
+    {
+        var runtime = await NativeHistoryCoreGateway.EnsureReadyAsync(config, token).ConfigureAwait(false);
+        var restore = CreateRestoreService(config, runtime);
+        var archives = new SevenZipHistoryArchiveBackend(config);
+        var builder = new HistoryMergeCommitBuilder(runtime, restore, archives, archives,
+            (version, staging, cancellation) => CaptureMergeMetadataAsync(config, version, staging, cancellation));
+        var apply = new HistoryMergeApplyService(runtime, restore, builder,
+            new SafetySnapshotWorkingStateProtector(config, runtime, SafetySnapshotReason.BeforeMerge),
+            async cancellation => (NativeHistoryConfigLease.Signature(config),
+                await BindingsAsync(config, config.SourceFolders, cancellation).ConfigureAwait(false)));
+        PreparedMerge prepared;
+        HistoryMergeApplyService.CoordinationPlan scope;
+        try
+        {
+            await restore.RecoverIncompleteAsync(token).ConfigureAwait(false);
+            prepared = await builder.BuildAsync(session, token).ConfigureAwait(false);
+            using var validation = await builder.ValidateAndLockAsync(prepared, token).ConfigureAwait(false);
+            scope = await apply.PlanCoordinationAsync(prepared, session.ProtectedWorkspace ?? session.Plan.ExpectedWorkspace,
+                session.Plan.Bindings, token).ConfigureAwait(false);
+        }
+        catch (Exception ex)
+        {
+            var diagnostic = (ex as HistoryMergeBlockedException)?.Diagnostic
+                ?? new HistoryMergeDiagnostic(MergeDiagnosticCode.PreparationFailed, Detail: ex.Message);
+            return new(diagnostic.Code == MergeDiagnosticCode.PreparationRequired ? HistoryRestoreStatus.PreparationRequired
+                : HistoryRestoreStatus.BlockedBeforeMutation, ex.Message, false, [], MergeDiagnostic: diagnostic);
+        }
+        async Task<HistoryRestoreResult> ExecuteAsync(CancellationToken ct)
+        {
+                var result = await apply.ApplyAsync(session, ct, prepared, scope).ConfigureAwait(false);
                 if (result.Succeeded)
                 {
-                    try { await BackupService.SynchronizeCaptureBaselinesWithWorkspaceAsync(config, result.AppliedSources, CancellationToken.None).ConfigureAwait(false); }
+                    try { await BackupService.SynchronizeCaptureBaselinesWithWorkspaceAsync(config, prepared.Sources.Select(s => s.Version.SourceId).ToArray(), CancellationToken.None).ConfigureAwait(false); }
                     catch (Exception ex)
                     {
-                        foreach (var source in result.AppliedSources)
+                        foreach (var source in prepared.Sources.Select(s => s.Version.SourceId))
                         {
                             try
                             {
@@ -65,7 +83,12 @@ internal static partial class NativeHistoryApplicationService
                     }
                 }
                 return result;
-            }, token, WorkspaceOperationKind.Merge);
+        }
+        if (scope.Writes.Count == 0) return await ExecuteAsync(token).ConfigureAwait(false);
+        var affected = config.SourceFolders.Where(f => scope.NeedsProtection || scope.Writes.ContainsKey(Source(f))).ToArray();
+        return await new NativeHistoryRestoreOrchestrator().ExecuteAsync(config, affected, session.Id.ToString(),
+            ExecuteAsync, token, WorkspaceOperationKind.Merge).ConfigureAwait(false);
+    }
 
     private static async Task<IReadOnlyList<VersionMetadataSnapshot>> CaptureMergeMetadataAsync(BackupConfig config,
         SourceVersion version, string staging, CancellationToken token)

@@ -201,7 +201,8 @@ namespace FolderRewind.Services
         internal static async Task<SafetySnapshot> CreateSafetySnapshotAsync(
             BackupConfig config,
             SafetySnapshotReason reason,
-            CancellationToken cancellationToken = default)
+            CancellationToken cancellationToken = default,
+            NativeHistoryConfigurationOperationGate.Lease? existingOperation = null)
         {
             ArgumentNullException.ThrowIfNull(config);
             var options = BackupInvocationOptions.ForInternal();
@@ -211,7 +212,7 @@ namespace FolderRewind.Services
                 options,
                 HistoryCommitIntent.IndependentRecoveryPoint,
                 new HistorySafetySnapshotIntent(reason),
-                cancellationToken).ConfigureAwait(false);
+                cancellationToken, existingOperation).ConfigureAwait(false);
 
             return result.SafetySnapshot
                 ?? result.CommittedBatch?.NewSafetySnapshot

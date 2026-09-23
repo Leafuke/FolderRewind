@@ -19,8 +19,12 @@ public sealed class HistoryMergeApplyTests
 
     [TestMethod]
     [DataRow("success")]
+    [DataRow("zero-write")]
+    [DataRow("one-write")]
+    [DataRow("scope-drift")]
     [DataRow("second-source")]
     [DataRow("dirty")]
+    [DataRow("dirty-protected")]
     [DataRow("config")]
     [DataRow("stale-session")]
     [DataRow("session-completion")]
@@ -80,7 +84,7 @@ public sealed class HistoryMergeApplyTests
         Assert.AreEqual(MergeSessionState.Ready, session.State);
         Assert.HasCount(failure == "ff-unavailable" ? 4 : 6, history.MergeSessions.ActiveRoots());
         if (failure.EndsWith("unavailable", StringComparison.Ordinal)) handler.Unavailable.UnionWith(t.Select(v => v.VersionId));
-        if (failure == "dirty") File.WriteAllText(Path.Combine(bindings[0].TargetDirectory, "a.txt"), "dirty!");
+        if (failure is "dirty" or "dirty-protected") File.WriteAllText(Path.Combine(bindings[0].TargetDirectory, "a.txt"), "dirty!");
         if (failure == "stale-session") history.MergeSessions.Update(session, MergeSessionState.Abandoned);
         if (failure == "session-completion")
         {
@@ -100,9 +104,39 @@ public sealed class HistoryMergeApplyTests
             Assert.IsTrue(first.NewReplicas.All(r => r.Locator.AbsolutePath.StartsWith(Path.Combine(history.Repository.Paths.RepositoryRoot, "payloads"), StringComparison.OrdinalIgnoreCase)));
             Assert.HasCount(0, (await history.Query.GetAllBranchUpdatesAsync()).Where(u => u.Reason == BranchUpdateReason.Merged).ToArray());
         }
+        var applyBuilder = new HistoryMergeCommitBuilder(history, restore, archive, archive);
+        HistoryMergeApplyService.CoordinationPlan? coordinated = null;
+        PreparedMerge? prepared = null;
+        if (failure is "zero-write" or "one-write" or "scope-drift")
+        {
+            prepared = await applyBuilder.BuildAsync(session);
+            if (failure != "scope-drift")
+                foreach (var binding in bindings.Take(failure == "zero-write" ? 2 : 1))
+                    File.WriteAllText(Path.Combine(binding.TargetDirectory, "b.txt"), "theirs-b");
+            coordinated = await new HistoryMergeApplyService(history, restore, applyBuilder)
+                .PlanCoordinationAsync(prepared, workspace, bindings);
+            Assert.HasCount(failure == "zero-write" ? 0 : failure == "one-write" ? 1 : 2, coordinated.Writes);
+            Assert.IsFalse(coordinated.NeedsProtection);
+            if (failure == "scope-drift") File.WriteAllText(Path.Combine(bindings[0].TargetDirectory, "a.txt"), "became-dirty");
+        }
+        var protection = new InsideProtector(async () =>
+        {
+            var start = facts.Count;
+            var snapshotVersion = Version(sourceIds[0], "snapshot", o[0], ("a.txt", "dirty!"), ("b.txt", "base-b"));
+            await using var mutation = await history.MutationGate.EnterAsync();
+            await history.Repository.CommitAsync(new(PackId.New(), HistoryTransactionId.New(), DateTimeOffset.UtcNow,
+                facts.Skip(start).Select(f => codec.CreateObject(f))));
+            await history.EnsureIndexCurrentAsync();
+            var next = new HistoryWorkspace(config, workspace.StateRevision + 1, workspace.ActiveBranchId,
+                workspace.ActiveBranchUpdateId, workspace.SourceBaselines.Select(b => b.SourceId == sourceIds[0]
+                    ? new WorkspaceSourceBaseline(b.SourceId, snapshotVersion.VersionId, WorkspaceBaselineRelation.Exact) : b), workspace.CheckpointAncestryAnchorId);
+            await history.WorkspaceStore.SaveAsync(next, workspace.StateRevision);
+            return next;
+        });
         var result = await new HistoryMergeApplyService(history, restore, new(history, restore, archive, archive),
+            protector: failure == "dirty-protected" ? protection : null,
             reload: _ => Task.FromResult((failure == "config" ? "config-2" : "config-1", (IReadOnlyList<HistoryRestoreSourceBinding>)bindings)),
-            provider: failure == "provider-changed" ? provider.Descriptor with { SchemaVersion = 2 } : provider.Descriptor).ApplyAsync(session);
+            provider: failure == "provider-changed" ? provider.Descriptor with { SchemaVersion = 2 } : provider.Descriptor).ApplyAsync(session, ready: prepared, coordinated: coordinated);
         var current = (await history.WorkspaceStore.LoadAsync()).Value!;
         Assert.AreEqual(theirs.UpdateId, HistoryBranchProjection.Build(await history.Query.GetAllBranchUpdatesAsync()).Single(p => p.BranchId == theirs.BranchId).Tips.Single().UpdateId);
         if (failure == "session-completion")
@@ -120,9 +154,10 @@ public sealed class HistoryMergeApplyTests
             Assert.AreEqual(MergeSessionState.Committed, history.MergeSessions.Load(session.Id).State);
             Assert.HasCount(1, (await history.Query.GetAllBranchUpdatesAsync()).Where(u => u.Reason == BranchUpdateReason.Merged).ToArray());
         }
-        else if (failure is "success" or "provider")
+        else if (failure is "success" or "provider" or "zero-write" or "one-write" or "dirty-protected")
         {
             Assert.AreEqual(HistoryRestoreStatus.Committed, result.Status, result.Diagnostic);
+            Assert.HasCount(failure == "zero-write" ? 0 : failure == "one-write" ? 1 : 2, result.AppliedSources);
             Assert.AreNotEqual(workspace.ActiveBranchUpdateId, current.ActiveBranchUpdateId);
             var merged = (await history.Query.GetAllBranchUpdatesAsync()).Single(u => u.Reason == BranchUpdateReason.Merged);
             Assert.AreEqual(bc.CheckpointId, merged.MergeProvenance!.BaseCheckpointId);
@@ -148,6 +183,7 @@ public sealed class HistoryMergeApplyTests
         else
         {
             Assert.AreEqual(failure == "second-source" ? HistoryRestoreStatus.MutationFailedRolledBack : HistoryRestoreStatus.BlockedBeforeMutation, result.Status, result.Diagnostic);
+            if (failure == "scope-drift") Assert.AreEqual(MergeDiagnosticCode.CoordinationScopeChanged, result.MergeDiagnostic!.Code);
             if (failure == "config") Assert.AreEqual(MergeSessionState.Stale, history.MergeSessions.Load(session.Id).State);
             Assert.IsTrue(HistoryRestoreTransactionJournalStore.WorkspaceEquals(workspace, current));
             Assert.HasCount(0, (await history.Query.GetAllBranchUpdatesAsync()).Where(u => u.Reason == BranchUpdateReason.Merged).ToArray());
@@ -155,6 +191,18 @@ public sealed class HistoryMergeApplyTests
         }
     }
 
+    private sealed class InsideProtector(Func<Task<HistoryWorkspace>> protect)
+        : IHistoryWorkingStateProtector, IHistoryWorkingStateProtectorInsideOperation
+    {
+        public Task<HistoryWorkspace> ProtectAsync(HistoryWorkspace expected, CancellationToken token)
+            => throw new AssertFailedException("Merge must use the operation lease.");
+        public Task<HistoryWorkspace> ProtectInsideOperationAsync(HistoryWorkspace expected,
+            FolderRewind.Services.NativeHistoryConfigurationOperationGate.Lease operation, CancellationToken token)
+        {
+            operation.Require(expected.ConfigId);
+            return protect();
+        }
+    }
     private sealed class TreeHandler : IRepresentationHandler
     {
         public HashSet<VersionId> Unavailable { get; } = [];

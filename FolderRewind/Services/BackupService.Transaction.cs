@@ -96,7 +96,8 @@ public static partial class BackupService
         BackupInvocationOptions invocationOptions,
         HistoryCommitIntent intent = HistoryCommitIntent.AdvanceBranch,
         HistorySafetySnapshotIntent? safetySnapshotIntent = null,
-        CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken = default,
+        NativeHistoryConfigurationOperationGate.Lease? existingOperation = null)
     {
         if (NativeHostMutationContext.IsNestedMutationBlocked)
         {
@@ -110,9 +111,11 @@ public static partial class BackupService
 
         invocationOptions ??= BackupInvocationOptions.Default;
 
-        _ = await NativeHistoryCoreGateway.EnsureReadyAsync(config, cancellationToken).ConfigureAwait(false);
-        await using var operationLease = await NativeHistoryConfigurationOperationGate
-            .EnterAsync(config.Id, cancellationToken).ConfigureAwait(false);
+        if (existingOperation is null) _ = await NativeHistoryCoreGateway.EnsureReadyAsync(config, cancellationToken).ConfigureAwait(false);
+        else existingOperation.Require(new(config.Id));
+        await using var ownedOperation = existingOperation is null ? await NativeHistoryConfigurationOperationGate
+            .EnterAsync(config.Id, cancellationToken).ConfigureAwait(false) : null;
+        var operationLease = existingOperation ?? ownedOperation!;
         var recovery = await NativeHistoryApplicationService.CreateRestoreServiceAsync(config, cancellationToken).ConfigureAwait(false);
         await recovery.RecoverInsideConfigurationAsync(operationLease, cancellationToken).ConfigureAwait(false);
 

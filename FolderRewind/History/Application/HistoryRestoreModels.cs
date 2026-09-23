@@ -84,6 +84,12 @@ public interface IHistoryWorkingStateProbe
         CancellationToken cancellationToken);
 }
 
+internal interface IHistoryWorkingStateProtectorInsideOperation
+{
+    Task<HistoryWorkspace> ProtectInsideOperationAsync(HistoryWorkspace expected,
+        Services.NativeHistoryConfigurationOperationGate.Lease operation, CancellationToken token);
+}
+
 public interface IHistoryRestoreMutationBackend
 {
     HistoryRestoreRollbackSnapshot PlanRollback(

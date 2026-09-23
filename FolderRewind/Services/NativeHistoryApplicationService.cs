@@ -539,7 +539,8 @@ internal static partial class NativeHistoryApplicationService
             ordinaryRestore ? (binding, staging, token) => Plugins.V3.PluginV3RestoreStagingPreparation.PrepareAsync(
                 config, NativeHistoryRestoreOrchestrator.Current?.Id ?? Guid.NewGuid(),
                 NativeHistoryRestoreOrchestrator.Current?.PreservePlayerData == true, binding, staging, token) : null,
-            token => NativeHistoryConfigLease.EnterAsync(config, configSignature, token));
+            token => NativeHistoryConfigLease.EnterAsync(config, configSignature, token))
+        { FinalGuardInsideOperation = (operation, token) => NativeHistoryConfigLease.EnterInsideOperationAsync(config, configSignature, operation, token) };
     }
 
     private static async Task<IRepresentationEnvironment> BuildEnvironmentAsync(
@@ -669,8 +670,17 @@ internal static partial class NativeHistoryApplicationService
 
     private sealed class SafetySnapshotWorkingStateProtector(
         BackupConfig config,
-        HistoryRuntime runtime, SafetySnapshotReason reason = SafetySnapshotReason.BeforeCheckout) : IHistoryWorkingStateProtector
+        HistoryRuntime runtime, SafetySnapshotReason reason = SafetySnapshotReason.BeforeCheckout) : IHistoryWorkingStateProtector, IHistoryWorkingStateProtectorInsideOperation
     {
+        public async Task<HistoryWorkspace> ProtectInsideOperationAsync(HistoryWorkspace expected,
+            NativeHistoryConfigurationOperationGate.Lease operation, CancellationToken token)
+        {
+            operation.Require(runtime.ConfigId);
+            if (!HistoryRestoreTransactionJournalStore.WorkspaceEquals(await RequireWorkspaceAsync(runtime, token).ConfigureAwait(false), expected))
+                throw new DeviceLocalStateConflictException("Workspace changed before SafetySnapshot.");
+            await BackupService.CreateSafetySnapshotAsync(config, reason, token, operation).ConfigureAwait(false);
+            return await RequireWorkspaceAsync(runtime, token).ConfigureAwait(false);
+        }
         public async Task<HistoryWorkspace> ProtectAsync(
             HistoryWorkspace expectedWorkspace,
             CancellationToken cancellationToken)

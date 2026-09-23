@@ -21,6 +21,7 @@ public sealed class HistoryRestoreService
     private readonly HistoryRestoreTransactionJournalStore _journals;
     private readonly Func<HistoryRestoreSourceBinding, string, CancellationToken, Task<bool>>? _prepareRestore;
     private readonly Func<CancellationToken, ValueTask<IAsyncDisposable>>? _finalGuard;
+    internal Func<Services.NativeHistoryConfigurationOperationGate.Lease, CancellationToken, ValueTask<IAsyncDisposable>>? FinalGuardInsideOperation { get; init; }
 
     public HistoryRestoreService(
         HistoryRuntime history,
@@ -266,8 +267,9 @@ public sealed class HistoryRestoreService
         => _prepareRestore is not null
             && await _prepareRestore(source.Binding, source.StagingDirectory, token).ConfigureAwait(false)
                 ? source with { Fidelity = MaterializationFidelity.Partial } : source;
-    internal async ValueTask<IAsyncDisposable?> EnterFinalGuardAsync(CancellationToken token)
-        => _finalGuard is null ? null : await _finalGuard(token).ConfigureAwait(false);
+    internal async ValueTask<IAsyncDisposable?> EnterFinalGuardAsync(CancellationToken token, Services.NativeHistoryConfigurationOperationGate.Lease? operation = null)
+        => operation is not null && FinalGuardInsideOperation is not null ? await FinalGuardInsideOperation(operation, token).ConfigureAwait(false)
+            : _finalGuard is null ? null : await _finalGuard(token).ConfigureAwait(false);
 
     internal async Task EnsureReadyAsync(
         VersionId versionId,

@@ -19,6 +19,17 @@ internal static class NativeHistoryConfigLease
     internal static async ValueTask<IAsyncDisposable> EnterAsync(BackupConfig expected, string signature, CancellationToken token)
     {
         var operation = await NativeHistoryConfigurationOperationGate.EnterAsync(expected.Id, token).ConfigureAwait(false);
+        try { return Freeze(expected, signature, operation); }
+        catch { await operation.DisposeAsync().ConfigureAwait(false); throw; }
+    }
+    internal static ValueTask<IAsyncDisposable> EnterInsideOperationAsync(BackupConfig expected, string signature,
+        NativeHistoryConfigurationOperationGate.Lease operation, CancellationToken token)
+    {
+        token.ThrowIfCancellationRequested(); operation.Require(new(expected.Id));
+        return ValueTask.FromResult(Freeze(expected, signature, null));
+    }
+    private static IAsyncDisposable Freeze(BackupConfig expected, string signature, IAsyncDisposable? operation)
+    {
         IDisposable? frozen = null;
         try
         {
@@ -40,10 +51,10 @@ internal static class NativeHistoryConfigLease
             }
             return new Lease(operation, frozen);
         }
-        catch { frozen?.Dispose(); await operation.DisposeAsync().ConfigureAwait(false); throw; }
+        catch { frozen?.Dispose(); throw; }
     }
-    private sealed class Lease(IAsyncDisposable operation, IDisposable frozen) : IAsyncDisposable
+    private sealed class Lease(IAsyncDisposable? operation, IDisposable frozen) : IAsyncDisposable
     {
-        public async ValueTask DisposeAsync() { frozen.Dispose(); await operation.DisposeAsync().ConfigureAwait(false); }
+        public async ValueTask DisposeAsync() { frozen.Dispose(); if (operation is not null) await operation.DisposeAsync().ConfigureAwait(false); }
     }
 }
