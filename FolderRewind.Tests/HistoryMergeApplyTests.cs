@@ -164,6 +164,8 @@ public sealed class HistoryMergeApplyTests
             Assert.HasCount(2, (await history.Query.GetCheckpointAsync(merged.TargetCheckpointId!.Value))!.ParentCheckpointIds);
             Assert.HasCount(2, (await history.LocalReplicaCatalogStore.LoadAsync()).Value!.Entries);
             Assert.HasCount(0, history.MergeSessions.ActiveRoots());
+            var timeline = await new HistoryPresentationQueryService(history).QueryAsync();
+            Assert.HasCount(2, timeline.Timeline.Where(v => v.CreationKind == SourceVersionCreationKind.Merge));
             Assert.IsFalse(Directory.Exists(history.MergeSessions.SessionDirectory(session.Id)));
             foreach (var replica in (await history.LocalReplicaCatalogStore.LoadAsync()).Value!.Entries)
             {

@@ -5247,4 +5247,35 @@ Pull Request：{1}</value>
   <data name="Merge_Result_NoChanges" xml:space="preserve"><value>无需修改。</value></data>
   <data name="Merge_Result_CommittedRecoveryRequired" xml:space="preserve"><value>合并提交已落盘，需要完成本机恢复。</value></data>
   <data name="Merge_PrepareReplicas" xml:space="preserve"><value>准备所需副本（显式下载）</value></data>
+  <data name="Merge_Result_PreparationRequired" xml:space="preserve"><value>需要先准备 Exact 副本。</value></data>
+  <data name="Merge_Working" xml:space="preserve"><value>正在执行：</value></data>
+  <data name="Merge_Cancelled" xml:space="preserve"><value>操作已取消；会话和已保存处理结果仍保留。</value></data>
+  <data name="Merge_Diagnostic_PreparationRequired" xml:space="preserve"><value>所需 Exact 副本尚未在本机准备好。</value></data>
+  <data name="Merge_Diagnostic_ExactUnavailable" xml:space="preserve"><value>Exact 副本或其依赖不可用，合并已阻断。</value></data>
+  <data name="Merge_Diagnostic_Stale" xml:space="preserve"><value>配置、工作区、分支或合并实现已变化。</value></data>
+  <data name="Merge_Diagnostic_MappingRequired" xml:space="preserve"><value>结果 Source 缺少有效目录映射。</value></data>
+  <data name="Merge_Diagnostic_CoordinationScopeChanged" xml:space="preserve"><value>所需协调范围已变化；尚未执行目标修改。</value></data>
+  <data name="Merge_Diagnostic_RecoveryRequired" xml:space="preserve"><value>事务需要完成恢复；请保留会话与事务文件。</value></data>
+  <data name="Merge_Diagnostic_PostActionWarning" xml:space="preserve"><value>提交已完成；缓存或清理维护需要重试。</value></data>
+  <data name="Merge_Diagnostic_PreparationFailed" xml:space="preserve"><value>准备未完成；已保存的人工成果仍保留。详情见日志。</value></data>
+  <data name="Merge_Action_Prepare" xml:space="preserve"><value>修复凭据、插件或副本后，点击“准备所需副本”；不会自动应用。</value></data>
+  <data name="Merge_Action_Recompute" xml:space="preserve"><value>修复映射或配置后显式重新计算；匹配的处理结果会保留。</value></data>
+  <data name="Merge_Action_Recover" xml:space="preserve"><value>使用“继续 / 恢复”完成原事务，勿删除 pack 或回滚目录。</value></data>
+  <data name="Merge_Action_Maintenance" xml:space="preserve"><value>下次启动或维护会重试清理；无需重复应用合并。</value></data>
+  <data name="Merge_Action_Retry" xml:space="preserve"><value>确认环境后重试；必要时重新计算计划。</value></data>
+  <data name="Merge_Mode_NoOp" xml:space="preserve"><value>无需合并</value></data>
+  <data name="Merge_Mode_FastForwardLike" xml:space="preserve"><value>快进合并</value></data>
+  <data name="Merge_Mode_ThreeWay" xml:space="preserve"><value>三方合并</value></data>
+  <data name="Merge_Mode_NoCommonBase" xml:space="preserve"><value>没有共同基点</value></data>
+  <data name="Merge_Mode_MultipleMergeBases" xml:space="preserve"><value>存在多个最佳共同基点</value></data>
+  <data name="Merge_Conflict_ModifyModify" xml:space="preserve"><value>双方修改</value></data>
+  <data name="Merge_Conflict_ModifyDelete" xml:space="preserve"><value>修改与删除</value></data>
+  <data name="Merge_Conflict_AddAdd" xml:space="preserve"><value>双方新增</value></data>
+  <data name="Merge_Conflict_PathStructure" xml:space="preserve"><value>路径结构冲突</value></data>
+  <data name="Merge_Conflict_SourceRoster" xml:space="preserve"><value>Source 清单冲突</value></data>
+  <data name="Merge_Conflict_SourceBoundary" xml:space="preserve"><value>Source 边界冲突</value></data>
+  <data name="History_Creation_Capture" xml:space="preserve"><value>备份捕获</value></data>
+  <data name="History_Creation_Merge" xml:space="preserve"><value>合并版本</value></data>
+  <data name="History_Creation_Recovery" xml:space="preserve"><value>恢复版本</value></data>
+  <data name="History_Creation_Import" xml:space="preserve"><value>导入版本</value></data>
 </root>

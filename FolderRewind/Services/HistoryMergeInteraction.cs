@@ -18,7 +18,7 @@ internal static class HistoryMergeInteraction
 {
     private sealed record Row(MergeConflict Conflict, MergeResolution? Resolution)
     {
-        public string Label => $"{(Resolution is null ? "□" : "✓")} {Conflict.Subject.SourceId} · {Conflict.Kind}\n"
+        public string Label => $"{(Resolution is null ? "□" : "✓")} {Conflict.Subject.SourceId} · {I18n.GetString("Merge_Conflict_" + Conflict.Kind)}\n"
             + (Conflict.Subject.Paths.IsEmpty ? I18n.GetString("Merge_WholeSource") : string.Join("\n", Conflict.Subject.Paths))
             + (Resolution is null ? "" : $" · {I18n.GetString("Merge_" + Resolution.Choice)}");
     }
@@ -43,6 +43,11 @@ internal static class HistoryMergeInteraction
         content.Children.Add(sessions); content.Children.Add(actions); content.Children.Add(status);
         content.Children.Add(list); content.Children.Add(choices); content.Children.Add(pages); content.Children.Add(preview);
         var dialog = new ContentDialog { Title = I18n.GetString("Merge_Title"), Content = content, CloseButtonText = I18n.GetString("Merge_Close") };
+        bool busy = false;
+        void UpdateControls() => controls.ForEach(b => b.IsEnabled = !busy && MergeSessionActions.Allowed((string)b.Tag, session?.State, source is not null));
+        string DiagnosticText(HistoryMergeDiagnostic diagnostic) => I18n.GetString("Merge_Diagnostic_" + diagnostic.Code)
+            + "\n" + I18n.GetString(diagnostic.NextActionKey)
+            + (diagnostic.SourceId is null ? "" : $"\nSource: {diagnostic.SourceId} · Version: {diagnostic.VersionId} · Representation: {diagnostic.RepresentationId}");
         void RefreshSessions()
         {
             sessions.ItemsSource = runtime.MergeSessions.List().Select(s => new ComboBoxItem
@@ -50,27 +55,36 @@ internal static class HistoryMergeInteraction
         }
         void Refresh()
         {
-            if (session is null) { list.ItemsSource = null; return; }
+            if (session is null) { list.ItemsSource = null; UpdateControls(); return; }
             session = runtime.MergeSessions.Load(session.Id);
             list.ItemsSource = runtime.MergeSessions.Conflicts(session, offset, 100).Select(c => new Row(c.Conflict, c.Resolution)).ToArray();
-            status.Text = $"{session.Plan.Theirs.Name} → {session.Plan.Ours.Name} · {session.Plan.Mode}\n"
+            status.Text = $"{session.Plan.Theirs.Name} → {session.Plan.Ours.Name} · {I18n.GetString("Merge_Mode_" + session.Plan.Mode)}\n"
                 + $"{I18n.GetString("Merge_State_" + session.State)} · {I18n.GetString("Merge_Page")} {offset / 100 + 1}\n"
                 + $"{I18n.GetString("Merge_Base")}: {session.Plan.BaseCheckpointId?.ToString() ?? "—"}";
+            if (session.Diagnostic is not null) status.Text += "\n" + DiagnosticText(session.Diagnostic);
+            if (runtime.MaintenanceDiagnostic is not null) status.Text += "\n" + I18n.GetString("Merge_Diagnostic_PostActionWarning");
+            UpdateControls();
         }
-        bool busy = false;
         async Task Execute(Func<Task> action)
         {
             if (busy) return;
             busy = true; controls.ForEach(b => b.IsEnabled = false); sessions.IsEnabled = false;
             dialog.CloseButtonText = "";
             try { await action(); }
-            catch (Exception ex) { status.Text = ex.Message; }
-            finally { busy = false; controls.ForEach(b => b.IsEnabled = true); sessions.IsEnabled = true; dialog.CloseButtonText = I18n.GetString("Merge_Close"); }
+            catch (Exception ex)
+            {
+                LogService.LogWarning($"Merge Session {session?.Id}: {ex.Message}", "Merge");
+                RefreshSessions();
+                if (session is not null) Refresh();
+                status.Text = ex is HistoryMergeBlockedException blocked ? DiagnosticText(blocked.Diagnostic)
+                    : I18n.GetString(ex is OperationCanceledException ? "Merge_Cancelled" : "Merge_Diagnostic_PreparationFailed");
+            }
+            finally { busy = false; UpdateControls(); sessions.IsEnabled = true; dialog.CloseButtonText = I18n.GetString("Merge_Close"); }
         }
         void Button(StackPanel panel, string key, Func<Task> action)
         {
-            var button = new Button { Content = I18n.GetString(key) };
-            button.Click += async (_, _) => await Execute(action);
+            var button = new Button { Content = I18n.GetString(key), Tag = key };
+            button.Click += async (_, _) => await Execute(async () => { status.Text = I18n.GetString("Merge_Working") + " " + I18n.GetString(key); await action(); });
             controls.Add(button); panel.Children.Add(button);
         }
         Button(actions, "Merge_New", async () =>
@@ -113,7 +127,7 @@ internal static class HistoryMergeInteraction
             if (session is null) return;
             var result = await NativeHistoryApplicationService.ApplyMergeAsync(config, session, token);
             RefreshSessions(); Refresh();
-            status.Text += "\n" + I18n.GetString("Merge_Result_" + result.Status) + "\n" + result.Diagnostic;
+            status.Text += "\n" + I18n.GetString("Merge_Result_" + result.Status) + (result.MergeDiagnostic is null ? "" : "\n" + DiagnosticText(result.MergeDiagnostic));
         });
         foreach (var choice in new[] { MergeResolutionChoice.Ours, MergeResolutionChoice.Theirs })
             Button(choices, "Merge_" + choice, () =>
@@ -154,7 +168,7 @@ internal static class HistoryMergeInteraction
         {
             if (sessions.SelectedItem is ComboBoxItem { Tag: Guid id }) { session = runtime.MergeSessions.Load(id); offset = 0; Refresh(); }
         };
-        RefreshSessions();
+        RefreshSessions(); UpdateControls();
         await AppDialogService.Default.ShowCustomAsync(dialog, MainWindowService.GetXamlRoot(), token);
     }
 }

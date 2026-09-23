@@ -5247,4 +5247,35 @@ Pull request: {1}</value>
   <data name="Merge_Result_NoChanges" xml:space="preserve"><value>No changes needed.</value></data>
   <data name="Merge_Result_CommittedRecoveryRequired" xml:space="preserve"><value>Merge commit is durable; local recovery must complete.</value></data>
   <data name="Merge_PrepareReplicas" xml:space="preserve"><value>Prepare required replicas (download)</value></data>
+  <data name="Merge_Result_PreparationRequired" xml:space="preserve"><value>Exact replicas require preparation.</value></data>
+  <data name="Merge_Working" xml:space="preserve"><value>Working:</value></data>
+  <data name="Merge_Cancelled" xml:space="preserve"><value>Cancelled; the session and saved decisions are retained.</value></data>
+  <data name="Merge_Diagnostic_PreparationRequired" xml:space="preserve"><value>Required Exact replicas are not ready locally.</value></data>
+  <data name="Merge_Diagnostic_ExactUnavailable" xml:space="preserve"><value>An Exact replica or dependency is unavailable; merge is blocked.</value></data>
+  <data name="Merge_Diagnostic_Stale" xml:space="preserve"><value>Configuration, workspace, branch or merge implementation changed.</value></data>
+  <data name="Merge_Diagnostic_MappingRequired" xml:space="preserve"><value>A result source needs a valid directory mapping.</value></data>
+  <data name="Merge_Diagnostic_CoordinationScopeChanged" xml:space="preserve"><value>The coordination scope changed; target mutation has not started.</value></data>
+  <data name="Merge_Diagnostic_RecoveryRequired" xml:space="preserve"><value>Transaction recovery is required; preserve session and transaction files.</value></data>
+  <data name="Merge_Diagnostic_PostActionWarning" xml:space="preserve"><value>Commit completed; cache or cleanup maintenance needs retry.</value></data>
+  <data name="Merge_Diagnostic_PreparationFailed" xml:space="preserve"><value>Preparation did not complete; saved manual work is retained. See logs for details.</value></data>
+  <data name="Merge_Action_Prepare" xml:space="preserve"><value>Repair credentials, plugins or replicas, then select Prepare required replicas. This will not apply the merge.</value></data>
+  <data name="Merge_Action_Recompute" xml:space="preserve"><value>Fix mappings or configuration, then explicitly recompute. Matching decisions will be retained.</value></data>
+  <data name="Merge_Action_Recover" xml:space="preserve"><value>Use Resume / Recover to finish the original transaction; preserve packs and rollback directories.</value></data>
+  <data name="Merge_Action_Maintenance" xml:space="preserve"><value>Startup or maintenance will retry cleanup; do not apply the merge again.</value></data>
+  <data name="Merge_Action_Retry" xml:space="preserve"><value>Check the environment and retry; recompute the plan if needed.</value></data>
+  <data name="Merge_Mode_NoOp" xml:space="preserve"><value>No merge needed</value></data>
+  <data name="Merge_Mode_FastForwardLike" xml:space="preserve"><value>Fast-forward merge</value></data>
+  <data name="Merge_Mode_ThreeWay" xml:space="preserve"><value>Three-way merge</value></data>
+  <data name="Merge_Mode_NoCommonBase" xml:space="preserve"><value>No common base</value></data>
+  <data name="Merge_Mode_MultipleMergeBases" xml:space="preserve"><value>Multiple best common bases</value></data>
+  <data name="Merge_Conflict_ModifyModify" xml:space="preserve"><value>Both modified</value></data>
+  <data name="Merge_Conflict_ModifyDelete" xml:space="preserve"><value>Modify versus delete</value></data>
+  <data name="Merge_Conflict_AddAdd" xml:space="preserve"><value>Both added</value></data>
+  <data name="Merge_Conflict_PathStructure" xml:space="preserve"><value>Path structure conflict</value></data>
+  <data name="Merge_Conflict_SourceRoster" xml:space="preserve"><value>Source roster conflict</value></data>
+  <data name="Merge_Conflict_SourceBoundary" xml:space="preserve"><value>Source boundary conflict</value></data>
+  <data name="History_Creation_Capture" xml:space="preserve"><value>Capture</value></data>
+  <data name="History_Creation_Merge" xml:space="preserve"><value>Merge</value></data>
+  <data name="History_Creation_Recovery" xml:space="preserve"><value>Recovery</value></data>
+  <data name="History_Creation_Import" xml:space="preserve"><value>Import</value></data>
 </root>

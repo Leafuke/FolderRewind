@@ -91,7 +91,7 @@ public sealed class HistoryMergeApplyService(HistoryRuntime history, HistoryRest
             if (current.Item1 != session.Plan.ConfigRevision || !BindingsEqual(current.Item2, session.Plan.Bindings))
             {
                 session = history.MergeSessions.Update(session, MergeSessionState.Stale);
-                throw new InvalidOperationException("Configuration changed; recompute the Merge plan.");
+                throw new HistoryMergeBlockedException(new(MergeDiagnosticCode.Stale));
             }
             var plan = await new HistoryMergePlanner(history).BuildAsync(session.Plan.Theirs.BranchId, workspace,
                 current.Item1, current.Item2, token, selectedProvider).ConfigureAwait(false);
@@ -99,7 +99,7 @@ public sealed class HistoryMergeApplyService(HistoryRuntime history, HistoryRest
                 || plan.Mode != session.Plan.Mode || plan.BaseCheckpointId != session.Plan.BaseCheckpointId)
             {
                 session = history.MergeSessions.Update(session, MergeSessionState.Stale);
-                throw new InvalidOperationException("Merge tips changed; recompute the plan.");
+                throw new HistoryMergeBlockedException(new(MergeDiagnosticCode.Stale));
             }
             var finalScope = await PlanCoordinationAsync(prepared, workspace, current.Item2, token).ConfigureAwait(false);
             if (finalScope.NeedsProtection || finalScope.Writes.Count != scope.Writes.Count
@@ -136,7 +136,7 @@ public sealed class HistoryMergeApplyService(HistoryRuntime history, HistoryRest
                 history.MergeSessions.Update(session, MergeSessionState.Committed);
                 if (!await history.CleanupMergeArtifactsAsync().ConfigureAwait(false))
                     return result with { Status = HistoryRestoreStatus.CommittedWithPostActionWarning,
-                        Diagnostic = history.MaintenanceDiagnostic ?? "Merge cleanup is deferred." };
+                        Diagnostic = history.MaintenanceDiagnostic ?? "Merge cleanup is deferred.", MergeDiagnostic = new(MergeDiagnosticCode.PostActionWarning) };
             }
             else if (result.Status == HistoryRestoreStatus.MutationFailedRolledBack)
                 history.MergeSessions.Update(session, MergeSessionState.Ready);
@@ -146,7 +146,7 @@ public sealed class HistoryMergeApplyService(HistoryRuntime history, HistoryRest
         {
             if (mutationResult?.TargetCommitted == true)
                 return mutationResult with { Status = HistoryRestoreStatus.CommittedRecoveryRequired,
-                    Diagnostic = $"Merge committed; Session completion requires recovery: {ex.Message}" };
+                    Diagnostic = $"Merge committed; Session completion requires recovery: {ex.Message}", MergeDiagnostic = new(MergeDiagnosticCode.RecoveryRequired) };
             if (mutationResult is not null) return mutationResult with { Diagnostic = mutationResult.Diagnostic + " " + ex.Message };
             // 不依赖可能已经不可读的 Session DB 判断 durable 事实。
             if (session.State == MergeSessionState.Applying)

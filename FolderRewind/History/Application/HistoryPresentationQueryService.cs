@@ -41,7 +41,8 @@ public sealed record TimelineEntrySummary(
     ImmutableArray<VersionId> ChildVersionIds,
     ImmutableArray<BranchId> BranchIds,
     CheckpointId? BranchableCheckpointId,
-    int BranchableCheckpointCount);
+    int BranchableCheckpointCount,
+    SourceVersionCreationKind CreationKind = SourceVersionCreationKind.Capture);
 
 public sealed record CheckpointSummary(
     CheckpointId CheckpointId,
@@ -158,7 +159,7 @@ public sealed class HistoryPresentationQueryService
                 children.GetValueOrDefault(version.VersionId, []),
                 memberships.VersionBranches.GetValueOrDefault(version.VersionId, []),
                 branchableCheckpoints.Length == 1 ? branchableCheckpoints[0] : null,
-                branchableCheckpoints.Length));
+                branchableCheckpoints.Length, version.CreationKind));
         }
 
         var checkpointSummaries = new List<CheckpointSummary>();

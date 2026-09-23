@@ -298,6 +298,7 @@
                                 </Grid.ColumnDefinitions>
                                 <StackPanel>
                                     <TextBlock Text="{x:Bind Message, Mode=OneTime}" Style="{StaticResource BodyStrongTextBlockStyle}"/>
+                                    <TextBlock Text="{x:Bind CreationKindText, Mode=OneTime}" Style="{StaticResource CaptionTextBlockStyle}"/>
                                     <StackPanel Orientation="Horizontal" Spacing="6">
                                         <TextBlock Text="{x:Bind FileSizeDisplay, Mode=OneTime}" Style="{StaticResource CaptionTextBlockStyle}" Foreground="{ThemeResource TextFillColorSecondaryBrush}"/>
                                         <controls:SemanticStatusPresenter Text="{x:Bind ReadinessText, Mode=OneTime}"

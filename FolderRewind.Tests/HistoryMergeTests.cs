@@ -10,6 +10,34 @@ namespace FolderRewind.Tests;
 public sealed class HistoryMergeTests
 {
     [TestMethod]
+    public void SessionActionsAndDiagnosticsHaveLocalizedStateContracts()
+    {
+        foreach (var state in Enum.GetValues<MergeSessionState>())
+        {
+            Assert.AreEqual(state == MergeSessionState.Ready, MergeSessionActions.Allowed("Merge_Apply", state, true));
+            Assert.AreEqual(state is MergeSessionState.Resolving or MergeSessionState.Ready, MergeSessionActions.Allowed("Merge_Manual", state, true));
+            if (state is MergeSessionState.Committed or MergeSessionState.Abandoned)
+                foreach (var key in new[] { "Merge_Apply", "Merge_Abandon", "Merge_Recompute", "Merge_Resume", "Merge_PreviewBase" })
+                    Assert.IsFalse(MergeSessionActions.Allowed(key, state, true));
+        }
+        Assert.IsFalse(MergeSessionActions.Allowed("Merge_New", null, false));
+        var directory = new DirectoryInfo(AppContext.BaseDirectory);
+        while (directory is not null && !Directory.Exists(Path.Combine(directory.FullName, "FolderRewind", "Strings"))) directory = directory.Parent;
+        Assert.IsNotNull(directory);
+        foreach (var locale in new[] { "zh-CN", "en-US" })
+        {
+            var data = System.Xml.Linq.XDocument.Load(Path.Combine(directory.FullName, "FolderRewind", "Strings", locale, "Resources.resw"))
+                .Root!.Elements("data").ToDictionary(e => (string)e.Attribute("name")!, e => (string)e.Element("value")!);
+            foreach (var code in Enum.GetValues<MergeDiagnosticCode>())
+            {
+                Assert.IsFalse(string.IsNullOrWhiteSpace(data["Merge_Diagnostic_" + code]));
+                Assert.IsFalse(string.IsNullOrWhiteSpace(data[new HistoryMergeDiagnostic(code).NextActionKey]));
+            }
+            foreach (var kind in Enum.GetValues<SourceVersionCreationKind>()) Assert.IsTrue(data.ContainsKey("History_Creation_" + kind));
+        }
+    }
+
+    [TestMethod]
     public void ProviderCannotEscapeOrDoubleClaimInputPaths()
     {
         var id = SourceId.New();

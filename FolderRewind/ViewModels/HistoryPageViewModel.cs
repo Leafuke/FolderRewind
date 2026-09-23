@@ -1018,6 +1018,7 @@ public sealed class NativeHistoryVersionViewItem(
     public RepresentationId? RepresentationId => summary.RepresentationId;
     public string TimeDisplay => UserDisplayFormatter.LongTime(summary.CreatedAtUtc.ToLocalTime());
     public string DateDisplay => UserDisplayFormatter.Date(summary.CreatedAtUtc.ToLocalTime());
+    public string CreationKindText => I18n.GetString("History_Creation_" + summary.CreationKind);
     public string Comment => summary.Comment;
     public string Message => string.IsNullOrWhiteSpace(Comment) ? summary.DisplayName : Comment;
     public string FileName => summary.FileName ?? summary.VersionId.ToString();
