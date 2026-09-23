@@ -264,6 +264,23 @@ public sealed class HistoryMergeApplyTests
                 Assert.AreEqual("ours-a", File.ReadAllText(Path.Combine(binding.TargetDirectory, "a.txt")));
                 Assert.AreEqual("theirs-b", File.ReadAllText(Path.Combine(binding.TargetDirectory, "b.txt")));
             }
+            if (failure == "success")
+            {
+                await using var reopened = new HistoryRuntime(new FileHistoryRepository(config, history.Repository.Paths));
+                await reopened.InitializeAsync();
+                var exactRestore = new HistoryRestoreService(reopened, new RepresentationRuntime([new CoreArchiveRepresentationHandler(archive)]),
+                    async ct => new RepresentationEnvironment((await reopened.LocalReplicaCatalogStore.LoadAsync(ct)).Value!.Entries, [], []),
+                    new FileSystemHistoryRestoreMutationBackend());
+                foreach (var binding in bindings) File.WriteAllText(Path.Combine(binding.TargetDirectory, "a.txt"), "later-local-edit");
+                var restoredResult = await exactRestore.RestoreCheckpointAsync(merged.TargetCheckpointId!.Value, bindings,
+                    (await reopened.WorkspaceStore.LoadAsync()).Value!, HistoryCheckpointRestoreScope.CompleteCheckpoint, HistoryRestoreApplyMode.Clean);
+                Assert.AreEqual(HistoryRestoreStatus.Committed, restoredResult.Status, restoredResult.Diagnostic);
+                foreach (var binding in bindings)
+                {
+                    Assert.AreEqual("ours-a", File.ReadAllText(Path.Combine(binding.TargetDirectory, "a.txt")));
+                    Assert.AreEqual("theirs-b", File.ReadAllText(Path.Combine(binding.TargetDirectory, "b.txt")));
+                }
+            }
             var retry = await new HistoryMergeApplyService(history, restore, new(history, restore, archive, archive)).ApplyAsync(session);
             Assert.AreEqual(HistoryRestoreStatus.BlockedBeforeMutation, retry.Status);
         }

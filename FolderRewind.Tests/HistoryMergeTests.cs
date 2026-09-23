@@ -243,8 +243,23 @@ public sealed class HistoryMergeTests
                 Assert.AreEqual("new-conflict", resolution.ConflictId);
                 Assert.AreEqual(MergeSessionState.Ready, session.State);
             }
-            store.Update(session, MergeSessionState.Abandoned);
+            session = store.Update(session, MergeSessionState.Abandoned);
             Assert.IsEmpty(store.ActiveRoots());
+            var sessionDirectory = store.SessionDirectory(session.Id); Directory.CreateDirectory(sessionDirectory);
+            var retained = Path.Combine(sessionDirectory, "legacy-payload.zip"); File.WriteAllText(retained, "catalog-owned");
+            File.WriteAllText(Path.Combine(sessionDirectory, "temporary"), "temporary");
+            var catalog = new LocalReplicaCatalog(Config, 0, [new LocalReplicaCatalogEntry(RepresentationId.New(), LocalReplicaId.New(),
+                LocalReplicaLocator.ControlledAbsolute(retained), DateTimeOffset.UtcNow)]);
+            store.CleanupTerminalArtifacts(catalog);
+            store.CleanupTerminalArtifacts(catalog);
+            Assert.IsTrue(File.Exists(retained)); Assert.IsFalse(File.Exists(Path.Combine(sessionDirectory, "temporary")));
+            using (var db = new Microsoft.Data.Sqlite.SqliteConnection("Pooling=False;Data Source=" + Path.Combine(store.Root, "sessions.db")))
+            {
+                db.Open(); using var command = db.CreateCommand(); command.CommandText = "PRAGMA user_version=999"; command.ExecuteNonQuery();
+            }
+            Assert.ThrowsExactly<InvalidDataException>(() => store.ActiveRoots());
+            Assert.ThrowsExactly<InvalidDataException>(() => store.Load(session.Id));
+            Assert.IsTrue(File.Exists(retained));
         }
         finally { if (Directory.Exists(root)) Directory.Delete(root, true); }
     }
