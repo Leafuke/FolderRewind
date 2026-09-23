@@ -37,8 +37,11 @@ public sealed class HistoryCheckpointGraph
         if (visited != _nodes.Count) throw new InvalidOperationException("Checkpoint graph contains a cycle.");
     }
 
+    internal long LastTraversalCount { get; private set; }
+
     public HistoryMergeBase FindBase(CheckpointId ours, CheckpointId theirs)
     {
+        LastTraversalCount = 0;
         var o = Ancestors(ours); var t = Ancestors(theirs);
         if (o.Contains(theirs)) return new(HistoryMergeMode.NoOp, null);
         if (t.Contains(ours)) return new(HistoryMergeMode.FastForwardLike, null);
@@ -47,7 +50,8 @@ public sealed class HistoryCheckpointGraph
         var best = new HashSet<CheckpointId>(o);
         foreach (var candidate in o)
         {
-            var ancestors = Ancestors(candidate); ancestors.Remove(candidate); best.ExceptWith(ancestors);
+            LastTraversalCount++;
+            foreach (var parent in _nodes[candidate].ParentCheckpointIds) { LastTraversalCount++; best.Remove(parent); }
         }
         return best.Count == 1 ? new(HistoryMergeMode.ThreeWay, best.Single())
             : new(HistoryMergeMode.MultipleMergeBases, null);
@@ -59,8 +63,9 @@ public sealed class HistoryCheckpointGraph
         while (pending.TryPop(out var current))
         {
             if (!result.Add(current)) continue;
+            LastTraversalCount++;
             if (!_nodes.TryGetValue(current, out var node)) throw new InvalidOperationException("Checkpoint is missing.");
-            foreach (var parent in node.ParentCheckpointIds) pending.Push(parent);
+            foreach (var parent in node.ParentCheckpointIds) { LastTraversalCount++; pending.Push(parent); }
         }
         return result;
     }

@@ -170,13 +170,15 @@ public sealed class HistoryMergeService(HistoryRuntime history, HistoryRestoreSe
             MergeResolutionChoice.Manual, manifest.Files["content"]));
     }
 
-    public IEnumerable<(MergeConflict Conflict, MergeResolution? Resolution)> AllConflicts(MergeSession session)
+    public IEnumerable<(MergeConflict Conflict, MergeResolution? Resolution)> AllConflicts(MergeSession session, SourceId? source = null)
     {
-        for (int offset = 0; ; offset += 500)
+        string after = "";
+        while (true)
         {
-            var page = history.MergeSessions.Conflicts(session, offset, 500);
+            var page = history.MergeSessions.ConflictPage(session, after, source);
             foreach (var item in page) yield return item;
             if (page.Count < 500) yield break;
+            after = page[^1].Conflict.Id;
         }
     }
 

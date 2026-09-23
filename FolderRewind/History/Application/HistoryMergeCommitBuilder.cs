@@ -72,9 +72,8 @@ public sealed class HistoryMergeCommitBuilder(HistoryRuntime history, HistoryRes
         if (session.State != MergeSessionState.Ready) throw new InvalidOperationException("Merge Session has unresolved conflicts.");
         if (history.MergeSessions.LoadPrepared(session) is { } stored) return stored.Restore(session);
         var service = new HistoryMergeService(history, restore);
-        var conflicts = service.AllConflicts(session).ToLookup(c => c.Conflict.Subject.SourceId);
         var sources = history.MergeSessions.Sources(session);
-        if (sources.Count != session.Plan.Sources.Length) throw new InvalidDataException("Merge preparation is incomplete.");
+        if (history.MergeSessions.SourceCount(session) != session.Plan.Sources.Length) throw new InvalidDataException("Merge preparation is incomplete.");
         var root = Path.Combine(history.MergeSessions.SessionDirectory(session.Id), "results", Guid.NewGuid().ToString("N"));
         history.MergeSessions.RegisterArtifact(session, root);
         Directory.CreateDirectory(root);
@@ -89,7 +88,7 @@ public sealed class HistoryMergeCommitBuilder(HistoryRuntime history, HistoryRes
                 selected = plan.Ours?.VersionId == plan.ReuseVersionId ? plan.Ours : plan.Theirs;
             else if (plan.Action != HistoryMergeSourceAction.MergeFiles)
             {
-                var resolution = conflicts[plan.SourceId].Single().Resolution ?? throw new InvalidOperationException("Source conflict is unresolved.");
+                var resolution = service.AllConflicts(session, plan.SourceId).Single().Resolution ?? throw new InvalidOperationException("Source conflict is unresolved.");
                 selected = resolution.Choice == MergeResolutionChoice.Ours ? plan.Ours
                     : resolution.Choice == MergeResolutionChoice.Theirs ? plan.Theirs : throw new InvalidOperationException("Manual Source creation is not supported.");
                 if (selected is null) continue;
@@ -98,7 +97,7 @@ public sealed class HistoryMergeCommitBuilder(HistoryRuntime history, HistoryRes
             else
             {
                 var files = tree.Files.ToBuilder();
-                foreach (var (conflict, resolution) in conflicts[plan.SourceId])
+                foreach (var (conflict, resolution) in service.AllConflicts(session, plan.SourceId))
                 {
                     if (resolution is null || resolution.PlanRevision != session.Plan.Revision || resolution.InputSignature != conflict.InputSignature)
                         throw new InvalidOperationException("Conflict resolution is missing or stale.");
@@ -185,8 +184,15 @@ public sealed class HistoryMergeCommitBuilder(HistoryRuntime history, HistoryRes
                 [session.Plan.Ours.TargetCheckpointId!.Value, session.Plan.Theirs.TargetCheckpointId!.Value], CheckpointCreationKind.Merge);
             facts.Add(checkpoint);
         }
-        var resolutionDigest = Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(string.Join('\n',
-            service.AllConflicts(session).Select(c => $"{c.Conflict.InputSignature}:{c.Resolution?.Choice}:{c.Resolution?.Manual?.Digest}")))));
+        using var resolutionHash = IncrementalHash.CreateHash(HashAlgorithmName.SHA256);
+        bool firstResolution = true;
+        foreach (var c in service.AllConflicts(session))
+        {
+            if (!firstResolution) resolutionHash.AppendData([(byte)'\n']);
+            firstResolution = false;
+            resolutionHash.AppendData(Encoding.UTF8.GetBytes($"{c.Conflict.InputSignature}:{c.Resolution?.Choice}:{c.Resolution?.Manual?.Digest}"));
+        }
+        var resolutionDigest = Convert.ToHexString(resolutionHash.GetHashAndReset());
         var provenance = new BranchMergeProvenance(session.Plan.Mode == HistoryMergeMode.FastForwardLike ? BranchMergeMode.FastForwardLike : BranchMergeMode.ThreeWay,
             session.Plan.Ours.BranchId, session.Plan.Theirs.BranchId, session.Plan.Ours.UpdateId, session.Plan.Theirs.UpdateId,
             session.Plan.Ours.TargetCheckpointId!.Value, session.Plan.Theirs.TargetCheckpointId!.Value, session.Plan.BaseCheckpointId,

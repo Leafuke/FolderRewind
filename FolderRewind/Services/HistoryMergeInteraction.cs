@@ -119,8 +119,8 @@ internal static class HistoryMergeInteraction
             Button(choices, "Merge_" + choice, () =>
             {
                 if (session is null) return Task.CompletedTask;
-                foreach (var row in list.SelectedItems.Cast<Row>().ToArray())
-                    session = runtime.MergeSessions.Resolve(session, new(session.Plan.Revision, row.Conflict.Id, row.Conflict.InputSignature, choice));
+                session = runtime.MergeSessions.ResolveBatch(session, list.SelectedItems.Cast<Row>().Select(row =>
+                    new MergeResolution(session.Plan.Revision, row.Conflict.Id, row.Conflict.InputSignature, choice)).ToArray());
                 Refresh(); return Task.CompletedTask;
             });
         Button(choices, "Merge_Manual", async () =>

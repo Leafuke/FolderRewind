@@ -59,20 +59,28 @@ public sealed class MergeSessionStore
             db.Open();
             using var version = db.CreateCommand(); version.CommandText = "PRAGMA user_version";
             var schema = Convert.ToInt32(version.ExecuteScalar());
-            if (schema is < 0 or > 1) throw new InvalidDataException("Unsupported Merge Session schema; preserve artifacts.");
+            if (schema is < 0 or > 2) throw new InvalidDataException("Unsupported Merge Session schema; preserve artifacts.");
             if (existed)
             {
                 using var check = db.CreateCommand();
                 check.CommandText = "SELECT COUNT(*) FROM sqlite_master WHERE type='table' AND name IN ('sessions','plans','sources','conflicts','roots')";
                 if (Convert.ToInt64(check.ExecuteScalar()) != 5) throw new InvalidDataException("Merge Session schema is incomplete; recovery is required.");
-                if (schema == 1)
+                if (schema >= 1)
                 {
                     check.CommandText = "SELECT COUNT(*) FROM sqlite_master WHERE type='table' AND name IN ('prepared','artifacts')";
                     if (Convert.ToInt64(check.ExecuteScalar()) != 2) throw new InvalidDataException("Prepared Merge schema is incomplete.");
                 }
             }
+            if (existed && schema == 2)
+            {
+                using var indexes = db.CreateCommand(); indexes.CommandText = "SELECT COUNT(*) FROM sqlite_master WHERE type='index' AND name IN ('conflicts_source','conflicts_signature')";
+                if (Convert.ToInt64(indexes.ExecuteScalar()) != 2) throw new InvalidDataException("Merge conflict indexes are missing.");
+                using var settings = db.CreateCommand(); settings.CommandText = "PRAGMA synchronous=FULL; PRAGMA busy_timeout=30000"; settings.ExecuteNonQuery();
+                return db;
+            }
             using var command = db.CreateCommand(); command.CommandText = """
                 PRAGMA journal_mode=WAL; PRAGMA synchronous=FULL; PRAGMA busy_timeout=30000;
+                BEGIN IMMEDIATE;
                 CREATE TABLE IF NOT EXISTS sessions(id TEXT PRIMARY KEY, revision INTEGER NOT NULL, state INTEGER NOT NULL, data TEXT NOT NULL);
                 CREATE TABLE IF NOT EXISTS plans(session TEXT NOT NULL, revision TEXT NOT NULL, data TEXT NOT NULL, PRIMARY KEY(session,revision));
                 CREATE TABLE IF NOT EXISTS sources(session TEXT NOT NULL, revision TEXT NOT NULL, source TEXT NOT NULL, data TEXT NOT NULL, PRIMARY KEY(session,revision,source));
@@ -80,7 +88,10 @@ public sealed class MergeSessionStore
                 CREATE TABLE IF NOT EXISTS roots(session TEXT NOT NULL, version TEXT NOT NULL, PRIMARY KEY(session,version));
                 CREATE TABLE IF NOT EXISTS prepared(session TEXT NOT NULL, revision INTEGER NOT NULL, data TEXT NOT NULL, PRIMARY KEY(session,revision));
                 CREATE TABLE IF NOT EXISTS artifacts(session TEXT NOT NULL, path TEXT NOT NULL PRIMARY KEY);
-                PRAGMA user_version=1;
+                CREATE INDEX IF NOT EXISTS conflicts_source ON conflicts(session,revision,json_extract(data,'$.subject.sourceId'),id);
+                CREATE INDEX IF NOT EXISTS conflicts_signature ON conflicts(session,json_extract(data,'$.inputSignature'));
+                PRAGMA user_version=2;
+                COMMIT;
                 """; command.ExecuteNonQuery(); return db;
         }
         catch { db.Dispose(); throw; }
@@ -271,12 +282,17 @@ public sealed class MergeSessionStore
         }
         tx.Commit();
     }
-    public IReadOnlyList<MergeSessionSource> Sources(MergeSession session)
+    public int SourceCount(MergeSession session)
+    {
+        using var db = Open(); using var cmd = Command(db, "SELECT COUNT(*) FROM sources WHERE session=$s AND revision=$r",
+            ("$s", session.Id.ToString()), ("$r", session.Plan.Revision.ToString())); return Convert.ToInt32(cmd.ExecuteScalar());
+    }
+    public IEnumerable<MergeSessionSource> Sources(MergeSession session)
     {
         using var db = Open(); using var cmd = Command(db, "SELECT data FROM sources WHERE session=$s AND revision=$r ORDER BY source",
             ("$s", session.Id.ToString()), ("$r", session.Plan.Revision.ToString()));
-        using var reader = cmd.ExecuteReader(); var result = new List<MergeSessionSource>();
-        while (reader.Read()) result.Add(Decode<MergeSessionSource>(reader.GetString(0))); return result;
+        using var reader = cmd.ExecuteReader();
+        while (reader.Read()) yield return Decode<MergeSessionSource>(reader.GetString(0));
     }
     public IReadOnlyList<(MergeConflict Conflict, MergeResolution? Resolution)> Conflicts(MergeSession session, int offset = 0, int count = 100)
     {
@@ -286,12 +302,34 @@ public sealed class MergeSessionStore
         using var reader = cmd.ExecuteReader(); var result = new List<(MergeConflict, MergeResolution?)>();
         while (reader.Read()) result.Add((Decode<MergeConflict>(reader.GetString(0)), reader.IsDBNull(1) ? null : Decode<MergeResolution>(reader.GetString(1)))); return result;
     }
-    public MergeSession Resolve(MergeSession session, MergeResolution resolution)
+    internal int ConflictReadCount { get; private set; }
+    internal int MaxConflictPageSize { get; private set; }
+    internal int ResolutionTransactionCount { get; private set; }
+    public IReadOnlyList<(MergeConflict Conflict, MergeResolution? Resolution)> ConflictPage(MergeSession session, string after = "", SourceId? source = null)
     {
+        const int count = 500;
+        using var db = Open(); using var cmd = Command(db,
+            "SELECT data,resolution FROM conflicts WHERE session=$s AND revision=$r AND id>$after "
+                + (source is null ? "" : "AND json_extract(data,'$.subject.sourceId')=$source ") + "ORDER BY id LIMIT $n",
+            ("$s", session.Id.ToString()), ("$r", session.Plan.Revision.ToString()), ("$after", after), ("$n", count));
+        if (source is not null) cmd.Parameters.AddWithValue("$source", source.Value.ToString());
+        using var reader = cmd.ExecuteReader(); var result = new List<(MergeConflict, MergeResolution?)>();
+        while (reader.Read()) result.Add((Decode<MergeConflict>(reader.GetString(0)), reader.IsDBNull(1) ? null : Decode<MergeResolution>(reader.GetString(1))));
+        ConflictReadCount++; MaxConflictPageSize = Math.Max(MaxConflictPageSize, result.Count); return result;
+    }
+
+    public MergeSession Resolve(MergeSession session, MergeResolution resolution)
+        => ResolveBatch(session, [resolution]);
+
+    public MergeSession ResolveBatch(MergeSession session, IEnumerable<MergeResolution> resolutions)
+    {
+        if (session.State is not (MergeSessionState.Resolving or MergeSessionState.Ready)) throw new InvalidOperationException("Session cannot accept resolutions.");
+        using var db = Open(); using var tx = db.BeginTransaction();
+        foreach (var resolution in resolutions)
+        {
         if (!Enum.IsDefined(resolution.Choice)) throw new InvalidOperationException("Unknown resolution choice.");
         if (session.State is not (MergeSessionState.Resolving or MergeSessionState.Ready) || resolution.PlanRevision != session.Plan.Revision)
             throw new InvalidOperationException("Resolution belongs to another plan or Session state.");
-        using var db = Open(); using var tx = db.BeginTransaction();
         using var read = Command(db, "SELECT data FROM conflicts WHERE session=$s AND revision=$r AND id=$id",
             ("$s", session.Id.ToString()), ("$r", session.Plan.Revision.ToString()), ("$id", resolution.ConflictId));
         var conflict = Decode<MergeConflict>(read.ExecuteScalar() as string ?? throw new InvalidDataException("Conflict is missing."));
@@ -303,10 +341,11 @@ public sealed class MergeSessionStore
         if (conflict.InputSignature != resolution.InputSignature) throw new InvalidOperationException("Conflict inputs changed.");
         using (var update = Command(db, "UPDATE conflicts SET resolution=$d WHERE session=$s AND revision=$r AND id=$id",
             ("$d", Encode(resolution)), ("$s", session.Id.ToString()), ("$r", session.Plan.Revision.ToString()), ("$id", resolution.ConflictId))) update.ExecuteNonQuery();
+        }
         using var unresolved = Command(db, "SELECT COUNT(*) FROM conflicts WHERE session=$s AND revision=$r AND resolution IS NULL",
             ("$s", session.Id.ToString()), ("$r", session.Plan.Revision.ToString()));
         var next = session with { Revision = session.Revision + 1, State = (long)unresolved.ExecuteScalar()! == 0 ? MergeSessionState.Ready : MergeSessionState.Resolving };
-        Cas(db, session, next); tx.Commit(); return next;
+        Cas(db, session, next); tx.Commit(); ResolutionTransactionCount++; return next;
     }
     // Caller holds the Runtime gate. Keep every published payload, even for completed sessions.
     public void CleanupTerminalArtifacts(LocalReplicaCatalog catalog)
