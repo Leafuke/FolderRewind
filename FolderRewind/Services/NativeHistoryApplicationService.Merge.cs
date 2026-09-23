@@ -33,6 +33,35 @@ internal static partial class NativeHistoryApplicationService
             NativeHistoryConfigLease.Signature(config), await BindingsAsync(config, config.SourceFolders, token).ConfigureAwait(false), token).ConfigureAwait(false);
     }
 
+    internal static async Task<MergeSession> PrepareMergeReplicasAsync(BackupConfig config, MergeSession session, CancellationToken token)
+    {
+        if (session.State is not (MergeSessionState.Preparing or MergeSessionState.Resolving or MergeSessionState.Ready))
+            throw new HistoryMergeBlockedException(new(MergeDiagnosticCode.Stale));
+        var runtime = await NativeHistoryCoreGateway.EnsureReadyAsync(config, token).ConfigureAwait(false);
+        var restore = CreateRestoreService(config, runtime);
+        try
+        {
+            var inputs = session.Plan.Sources.SelectMany(s => s.Action == HistoryMergeSourceAction.Reuse
+                ? new[] { s.Ours?.VersionId == s.ReuseVersionId ? s.Ours : s.Theirs }
+                : s.Action == HistoryMergeSourceAction.Remove ? [] : new[] { s.Base, s.Ours, s.Theirs })
+                .Where(s => s?.VersionId is not null).Select(s => (s!.SourceId, s.VersionId!.Value));
+            await PrepareExactVersionsAsync(config, runtime, restore, inputs, token).ConfigureAwait(false);
+            await using (var gate = await runtime.MutationGate.EnterAsync(token).ConfigureAwait(false))
+            {
+                var current = await new HistoryMergePlanner(runtime).BuildAsync(session.Plan.Theirs.BranchId,
+                    await RequireWorkspaceAsync(runtime, token).ConfigureAwait(false), NativeHistoryConfigLease.Signature(config),
+                    await BindingsAsync(config, config.SourceFolders, token).ConfigureAwait(false), token).ConfigureAwait(false);
+                if (current.Ours.UpdateId != session.Plan.Ours.UpdateId || current.Theirs.UpdateId != session.Plan.Theirs.UpdateId
+                    || current.ConfigRevision != session.Plan.ConfigRevision || !HistoryRestoreTransactionJournalStore.WorkspaceEquals(
+                        current.ExpectedWorkspace, session.ProtectedWorkspace ?? session.Plan.ExpectedWorkspace))
+                    return runtime.MergeSessions.Update(session, MergeSessionState.Stale);
+            }
+            return session.State == MergeSessionState.Preparing
+                ? await new HistoryMergeService(runtime, restore).PrepareAsync(session, token).ConfigureAwait(false) : session;
+        }
+        catch (HistoryMergeBlockedException ex) { return runtime.MergeSessions.SetDiagnostic(session, ex.Diagnostic); }
+    }
+
     internal static async Task<HistoryRestoreResult> ApplyMergeAsync(BackupConfig config, MergeSession session, CancellationToken token)
     {
         var runtime = await NativeHistoryCoreGateway.EnsureReadyAsync(config, token).ConfigureAwait(false);

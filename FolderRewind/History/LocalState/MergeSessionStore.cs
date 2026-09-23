@@ -19,7 +19,7 @@ public enum MergeResolutionChoice { Ours, Theirs, Manual }
 public sealed record MergeResolution(Guid PlanRevision, string ConflictId, string InputSignature,
     MergeResolutionChoice Choice, MergeFileValue? Manual = null);
 public sealed record MergeSession(Guid Id, long Revision, MergeSessionState State, HistoryMergePlan Plan,
-    HistoryTransactionId? ApplyTransactionId = null, PackId? IntendedPackId = null, HistoryWorkspace? ProtectedWorkspace = null);
+    HistoryTransactionId? ApplyTransactionId = null, PackId? IntendedPackId = null, HistoryWorkspace? ProtectedWorkspace = null, HistoryMergeDiagnostic? Diagnostic = null);
 public sealed record MergeSessionSource(HistoryMergeSourcePlan Plan, MergeTreeManifest Automatic,
     MergeTreeManifest Base, MergeTreeManifest Ours, MergeTreeManifest Theirs);
 public sealed record PreparedMergeDescriptor(Guid SessionId, Guid PlanRevision, long ResolutionRevision,
@@ -163,7 +163,7 @@ public sealed class MergeSessionStore
         using var missing = Command(db, "SELECT COUNT(*) FROM conflicts WHERE session=$s AND revision=$r AND resolution IS NULL",
             ("$s", expected.Id.ToString()), ("$r", expected.Plan.Revision.ToString()));
         var next = expected with { Revision = checked(expected.Revision + 1),
-            State = Convert.ToInt64(missing.ExecuteScalar()) == 0 ? MergeSessionState.Ready : MergeSessionState.Resolving };
+            Diagnostic = null, State = Convert.ToInt64(missing.ExecuteScalar()) == 0 ? MergeSessionState.Ready : MergeSessionState.Resolving };
         Cas(db, expected, next);
         using (var clear = Command(db, "DELETE FROM roots WHERE session=$s", ("$s", expected.Id.ToString()))) clear.ExecuteNonQuery();
         foreach (var root in roots.Distinct())
@@ -199,11 +199,16 @@ public sealed class MergeSessionStore
         using var reader = cmd.ExecuteReader(); var result = new List<MergeSession>();
         while (reader.Read()) result.Add(Decode<MergeSession>(reader.GetString(0))); return result;
     }
+    public MergeSession SetDiagnostic(MergeSession expected, HistoryMergeDiagnostic diagnostic)
+    {
+        var next = expected with { Revision = checked(expected.Revision + 1), Diagnostic = diagnostic };
+        using var db = Open(); using var tx = db.BeginTransaction(); Cas(db, expected, next); CarryPreparation(db, expected, next); tx.Commit(); return next;
+    }
     public MergeSession RecordProtection(MergeSession expected, HistoryWorkspace workspace)
     {
         if (expected.State != MergeSessionState.Ready) throw new InvalidOperationException("Session is not ready.");
         var next = expected with { Revision = checked(expected.Revision + 1), ProtectedWorkspace = workspace };
-        using var db = Open(); using var tx = db.BeginTransaction(); Cas(db, expected, next); tx.Commit(); return next;
+        using var db = Open(); using var tx = db.BeginTransaction(); Cas(db, expected, next); CarryPreparation(db, expected, next); tx.Commit(); return next;
     }
     public MergeSession Update(MergeSession expected, MergeSessionState state, HistoryTransactionId? transaction = null, PackId? pack = null)
     {
@@ -222,6 +227,14 @@ public sealed class MergeSessionStore
         var next = expected with { Revision = checked(expected.Revision + 1), State = state,
             ApplyTransactionId = transaction ?? expected.ApplyTransactionId, IntendedPackId = pack ?? expected.IntendedPackId };
         using var db = Open(); using var tx = db.BeginTransaction(); Cas(db, expected, next); tx.Commit(); return next;
+    }
+    private static void CarryPreparation(SqliteConnection db, MergeSession expected, MergeSession next)
+    {
+        using var read = Command(db, "SELECT data FROM prepared WHERE session=$s AND revision=$r", ("$s", expected.Id.ToString()), ("$r", expected.Revision));
+        if (read.ExecuteScalar() is not string data) return;
+        var descriptor = Decode<PreparedMergeDescriptor>(data) with { ResolutionRevision = next.Revision };
+        using var write = Command(db, "INSERT INTO prepared VALUES($s,$r,$d)", ("$s", next.Id.ToString()), ("$r", next.Revision), ("$d", Encode(descriptor)));
+        write.ExecuteNonQuery();
     }
     private static void Cas(SqliteConnection db, MergeSession expected, MergeSession next)
     {

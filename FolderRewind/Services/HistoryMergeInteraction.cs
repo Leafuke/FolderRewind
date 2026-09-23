@@ -86,6 +86,12 @@ internal static class HistoryMergeInteraction
             session = await NativeHistoryApplicationService.RecomputeMergeAsync(config, session, token);
             offset = 0; RefreshSessions(); Refresh();
         });
+        Button(actions, "Merge_PrepareReplicas", async () =>
+        {
+            if (session is null) return;
+            session = await NativeHistoryApplicationService.PrepareMergeReplicasAsync(config, session, token);
+            RefreshSessions(); Refresh();
+        });
         Button(actions, "Merge_Resume", async () =>
         {
             if (session is null) return;

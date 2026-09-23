@@ -1,3 +1,4 @@
+using FolderRewind.History.Representation;
 using FolderRewind.History.Domain;
 using FolderRewind.History.LocalState;
 using FolderRewind.History.Merge;
@@ -53,6 +54,12 @@ public sealed class HistoryMergeService(HistoryRuntime history, HistoryRestoreSe
 
     public async Task<MergeSession> PrepareAsync(MergeSession session, CancellationToken token = default)
     {
+        try { return await PrepareCoreAsync(session, token).ConfigureAwait(false); }
+        catch (HistoryMergeBlockedException ex) { return history.MergeSessions.SetDiagnostic(session, ex.Diagnostic); }
+    }
+
+    private async Task<MergeSession> PrepareCoreAsync(MergeSession session, CancellationToken token)
+    {
         if (session.State != MergeSessionState.Preparing || session.Plan.ProviderVersion != _provider.Descriptor.Identity
             || session.Plan.PolicyVersion != _provider.Descriptor.PolicyIdentity)
             throw new InvalidOperationException("Merge preparation requires its fixed provider and Preparing state.");
@@ -64,6 +71,10 @@ public sealed class HistoryMergeService(HistoryRuntime history, HistoryRestoreSe
             if (source?.VersionId is not { } id) return MergeTreeManifest.Empty;
             if (cache.TryGetValue(id, out var cached)) return cached;
             var version = await history.Query.GetVersionAsync(id, token).ConfigureAwait(false) ?? throw new InvalidDataException("Merge Version is missing.");
+            var assessment = await restore.AssessVersionAsync(id, MaterializationFidelity.Exact, AssessmentDepth.Deep, token).ConfigureAwait(false);
+            if (assessment.Readiness != HistoryReadiness.Ready)
+                throw new HistoryMergeBlockedException(new(assessment.Readiness == HistoryReadiness.PreparationRequired
+                    ? MergeDiagnosticCode.PreparationRequired : MergeDiagnosticCode.ExactUnavailable, source.SourceId, id, assessment.Selected?.RepresentationId));
             var destination = Path.Combine(root, "inputs", id.ToString());
             var binding = new HistoryRestoreSourceBinding(source.SourceId, destination, source.EffectiveSourceBoundary);
             var prepared = await restore.PrepareSourceAsync(version, binding, MaterializationFidelity.Exact, HistoryRestoreApplyMode.Clean, token).ConfigureAwait(false);

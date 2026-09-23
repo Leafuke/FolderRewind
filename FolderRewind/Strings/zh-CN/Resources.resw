@@ -5246,4 +5246,5 @@ Pull Request：{1}</value>
   <data name="Merge_Result_CommittedWithPostActionWarning" xml:space="preserve"><value>已提交，但后续操作有警告。</value></data>
   <data name="Merge_Result_NoChanges" xml:space="preserve"><value>无需修改。</value></data>
   <data name="Merge_Result_CommittedRecoveryRequired" xml:space="preserve"><value>合并提交已落盘，需要完成本机恢复。</value></data>
+  <data name="Merge_PrepareReplicas" xml:space="preserve"><value>准备所需副本（显式下载）</value></data>
 </root>

@@ -5246,4 +5246,5 @@ Pull request: {1}</value>
   <data name="Merge_Result_CommittedWithPostActionWarning" xml:space="preserve"><value>Committed with a post-action warning.</value></data>
   <data name="Merge_Result_NoChanges" xml:space="preserve"><value>No changes needed.</value></data>
   <data name="Merge_Result_CommittedRecoveryRequired" xml:space="preserve"><value>Merge commit is durable; local recovery must complete.</value></data>
+  <data name="Merge_PrepareReplicas" xml:space="preserve"><value>Prepare required replicas (download)</value></data>
 </root>
