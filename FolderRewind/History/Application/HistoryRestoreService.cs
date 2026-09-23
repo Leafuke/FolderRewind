@@ -18,6 +18,7 @@ public sealed class HistoryRestoreService
     private readonly RepresentationRuntime _representations;
     private readonly Func<CancellationToken, Task<IRepresentationEnvironment>> _environmentFactory;
     private readonly IHistoryRestoreMutationBackend _mutation;
+    internal Func<HistoryCommitPack, CancellationToken, Task>? PackPublisher { get; init; }
     private readonly HistoryRestoreTransactionJournalStore _journals;
     private readonly Func<HistoryRestoreSourceBinding, string, CancellationToken, Task<bool>>? _prepareRestore;
     private readonly Func<CancellationToken, ValueTask<IAsyncDisposable>>? _finalGuard;
@@ -52,6 +53,7 @@ public sealed class HistoryRestoreService
         await using var lease = await _history.MutationGate.EnterForRecoveryAsync(cancellationToken).ConfigureAwait(false);
         if (await _journals.RecoverIncompleteAsync(cancellationToken).ConfigureAwait(false))
         {
+            await _history.EnsureIndexCurrentAsync(cancellationToken).ConfigureAwait(false);
             await _history.RefreshLocalStateHealthAsync(cancellationToken).ConfigureAwait(false);
             _history.ChangeFeed.Publish(_history.ConfigId, HistoryChangeKind.LocalStateChanged);
         }
@@ -430,7 +432,10 @@ public sealed class HistoryRestoreService
                     throw new IOException("Applied Merge state differs from the verified result.");
             }
             if (commitPack is not null)
-                await _history.Repository.CommitAsync(commitPack, cancellationToken: cancellationToken).ConfigureAwait(false);
+            {
+                if (PackPublisher is { } publish) await publish(commitPack, cancellationToken).ConfigureAwait(false);
+                else await _history.Repository.CommitAsync(commitPack, cancellationToken: cancellationToken).ConfigureAwait(false);
+            }
             journal = journal with { Phase = HistoryRestoreTransactionPhase.WorkspaceApplying };
             _journals.Save(journal);
             await _journals.CompleteLocalStateAsync(journal, commitPack is null ? cancellationToken : CancellationToken.None).ConfigureAwait(false);

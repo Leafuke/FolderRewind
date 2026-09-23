@@ -10,6 +10,28 @@ namespace FolderRewind.Tests;
 public sealed class HistoryMergeTests
 {
     [TestMethod]
+    [DataRow(false)]
+    [DataRow(true)]
+    public async Task CachePostActionFailurePreservesCommittedFacts(bool invalidationFails)
+    {
+        var source = SourceId.New(); var invalidated = false;
+        var original = new HistoryRestoreResult(HistoryRestoreStatus.Committed, "", true, [source]);
+        var result = await MergePostActions.CompleteAsync(original, token =>
+        {
+            Assert.IsFalse(token.CanBeCanceled); throw new OperationCanceledException("late cancellation");
+        }, token =>
+        {
+            Assert.IsFalse(token.CanBeCanceled); invalidated = true;
+            if (invalidationFails) throw new IOException("cache inaccessible");
+            return Task.CompletedTask;
+        });
+        Assert.IsTrue(invalidated); Assert.IsTrue(result.TargetCommitted); Assert.IsTrue(result.WorkspaceUpdated);
+        CollectionAssert.AreEqual(original.AppliedSources.ToArray(), result.AppliedSources.ToArray());
+        Assert.AreEqual(HistoryRestoreStatus.CommittedWithPostActionWarning, result.Status);
+        Assert.AreEqual(MergeDiagnosticCode.PostActionWarning, result.MergeDiagnostic!.Code);
+    }
+
+    [TestMethod]
     public void SessionActionsAndDiagnosticsHaveLocalizedStateContracts()
     {
         foreach (var state in Enum.GetValues<MergeSessionState>())

@@ -19,6 +19,10 @@ public sealed class HistoryMergeApplyTests
 
     [TestMethod]
     [DataRow("success")]
+    [DataRow("pack-throw")]
+    [DataRow("session-db-locked")]
+    [DataRow("post-commit-cancel")]
+    [DataRow("cleanup-failure")]
     [DataRow("physical-ff-missing")]
     [DataRow("physical-reuse-hash")]
     [DataRow("physical-reuse-nohash")]
@@ -101,9 +105,26 @@ public sealed class HistoryMergeApplyTests
             File.WriteAllText(Path.Combine(binding.TargetDirectory, "a.txt"), oursText);
             File.WriteAllText(Path.Combine(binding.TargetDirectory, "b.txt"), "base-b");
         }
-        var backend = new FailingBackend(failure == "second-source");
+        using var applyCancellation = new CancellationTokenSource();
+        FileStream? sessionDbLock = null;
+        var backend = new FailingBackend(failure == "second-source", async ct =>
+        {
+            Assert.IsFalse(ct.IsCancellationRequested);
+            if (failure == "session-db-locked" && sessionDbLock is null)
+                sessionDbLock = new FileStream(Path.Combine(history.MergeSessions.Root, "sessions.db"), FileMode.Open, FileAccess.Read, FileShare.None);
+            if (failure == "post-commit-cancel") applyCancellation.Cancel();
+            if (failure == "cleanup-failure") throw new IOException("Injected cleanup failure.");
+            await Task.CompletedTask;
+        });
         var restore = new HistoryRestoreService(history, new RepresentationRuntime(physical ? [new CoreArchiveRepresentationHandler(new ZipBackend())] : [handler]),
-            async ct => new RepresentationEnvironment((await history.LocalReplicaCatalogStore.LoadAsync(ct)).Value!.Entries, [], []), backend);
+            async ct => new RepresentationEnvironment((await history.LocalReplicaCatalogStore.LoadAsync(ct)).Value!.Entries, [], []), backend)
+        {
+            PackPublisher = async (pack, ct) =>
+            {
+                await history.Repository.CommitAsync(pack, cancellationToken: ct);
+                if (failure == "pack-throw") throw new IOException("Injected exception after durable pack install.");
+            }
+        };
         IHistoryMergeProvider provider = failure.StartsWith("provider", StringComparison.Ordinal) ? new ReplacementProvider() : new GenericFileMergeProvider();
         var session = (await new HistoryMergeService(history, restore, provider).StartAsync(theirs.BranchId, "config-1", bindings))!;
         Assert.AreEqual(provider.Descriptor.Identity, session.Plan.ProviderVersion);
@@ -184,17 +205,18 @@ public sealed class HistoryMergeApplyTests
         var result = await new HistoryMergeApplyService(history, restore, new(history, restore, archive, archive),
             protector: failure == "dirty-protected" ? protection : null,
             reload: _ => Task.FromResult((failure == "config" ? "config-2" : "config-1", (IReadOnlyList<HistoryRestoreSourceBinding>)bindings)),
-            provider: failure == "provider-changed" ? provider.Descriptor with { SchemaVersion = 2 } : provider.Descriptor).ApplyAsync(session, ready: prepared, coordinated: coordinated);
+            provider: failure == "provider-changed" ? provider.Descriptor with { SchemaVersion = 2 } : provider.Descriptor).ApplyAsync(session, applyCancellation.Token, ready: prepared, coordinated: coordinated);
+        sessionDbLock?.Dispose();
         var current = (await history.WorkspaceStore.LoadAsync()).Value!;
         Assert.AreEqual(theirs.UpdateId, HistoryBranchProjection.Build(await history.Query.GetAllBranchUpdatesAsync()).Single(p => p.BranchId == theirs.BranchId).Tips.Single().UpdateId);
-        if (failure == "session-completion")
+        if (failure is "session-completion" or "session-db-locked")
         {
             Assert.AreEqual(HistoryRestoreStatus.CommittedRecoveryRequired, result.Status, result.Diagnostic);
             Assert.IsTrue(result.TargetCommitted);
             Assert.IsTrue(result.WorkspaceUpdated);
             Assert.HasCount(2, result.AppliedSources);
             Assert.HasCount(1, (await history.Query.GetAllBranchUpdatesAsync()).Where(u => u.Reason == BranchUpdateReason.Merged).ToArray());
-            using (var db = new Microsoft.Data.Sqlite.SqliteConnection("Pooling=False;Data Source=" + Path.Combine(history.MergeSessions.Root, "sessions.db")))
+            if (failure == "session-completion") using (var db = new Microsoft.Data.Sqlite.SqliteConnection("Pooling=False;Data Source=" + Path.Combine(history.MergeSessions.Root, "sessions.db")))
             {
                 db.Open(); using var command = db.CreateCommand(); command.CommandText = "DROP TRIGGER fail_completion"; command.ExecuteNonQuery();
             }
@@ -202,13 +224,22 @@ public sealed class HistoryMergeApplyTests
             Assert.AreEqual(MergeSessionState.Committed, history.MergeSessions.Load(session.Id).State);
             Assert.HasCount(1, (await history.Query.GetAllBranchUpdatesAsync()).Where(u => u.Reason == BranchUpdateReason.Merged).ToArray());
         }
+        else if (failure == "cleanup-failure")
+        {
+            Assert.AreEqual(HistoryRestoreStatus.CommittedWithPostActionWarning, result.Status, result.Diagnostic);
+            Assert.IsTrue(result.TargetCommitted); Assert.IsTrue(result.WorkspaceUpdated); Assert.HasCount(2, result.AppliedSources);
+            var recovery = new HistoryRestoreService(history, new RepresentationRuntime([handler]),
+                _ => Task.FromResult<IRepresentationEnvironment>(new RepresentationEnvironment([], [], [])), new FileSystemHistoryRestoreMutationBackend());
+            await recovery.RecoverIncompleteAsync();
+            Assert.HasCount(1, (await history.Query.GetAllBranchUpdatesAsync()).Where(u => u.Reason == BranchUpdateReason.Merged));
+        }
         else if (failure is "physical-reuse-alternate" or "physical-alternate-corrupt")
         {
             Assert.AreEqual(HistoryRestoreStatus.Committed, result.Status, result.Diagnostic);
             Assert.HasCount(1, (await history.Query.GetAllBranchUpdatesAsync()).Where(u => u.Reason == BranchUpdateReason.Merged));
             foreach (var binding in bindings) Assert.AreEqual("theirs-b", File.ReadAllText(Path.Combine(binding.TargetDirectory, "b.txt")));
         }
-        else if (failure is "success" or "provider" or "zero-write" or "one-write" or "dirty-protected")
+        else if (failure is "success" or "provider" or "zero-write" or "one-write" or "dirty-protected" or "pack-throw" or "post-commit-cancel")
         {
             Assert.AreEqual(HistoryRestoreStatus.Committed, result.Status, result.Diagnostic);
             Assert.HasCount(failure == "zero-write" ? 0 : failure == "one-write" ? 1 : 2, result.AppliedSources);
@@ -294,7 +325,7 @@ public sealed class HistoryMergeApplyTests
         public ValueTask MaterializeAsync(IReadOnlyList<ArchiveMaterializationInput> inputs, string staging, CancellationToken token)
         { foreach (var input in inputs) ZipFile.ExtractToDirectory(input.LocalPath, staging); return ValueTask.CompletedTask; }
     }
-    private sealed class FailingBackend(bool fail) : IHistoryRestoreMutationBackend
+    private sealed class FailingBackend(bool fail, Func<CancellationToken, Task>? postCommit = null) : IHistoryRestoreMutationBackend
     {
         private readonly FileSystemHistoryRestoreMutationBackend _inner = new(); private int _count;
         public HistoryRestoreRollbackSnapshot PlanRollback(HistoryRestoreSourceBinding source, HistoryTransactionId transaction) => _inner.PlanRollback(source, transaction);
@@ -302,6 +333,7 @@ public sealed class HistoryMergeApplyTests
         public Task ApplyAsync(HistoryRestoreSourceBinding source, string staging, HistoryRestoreApplyMode mode, HistoryRestoreRollbackSnapshot snapshot, CancellationToken token)
         { if (fail && ++_count == 2) throw new IOException("Injected second Source failure."); return _inner.ApplyAsync(source, staging, mode, snapshot, token); }
         public Task RollbackAsync(HistoryRestoreRollbackSnapshot snapshot, CancellationToken token) => _inner.RollbackAsync(snapshot, token);
-        public Task CommitAsync(HistoryRestoreRollbackSnapshot snapshot, CancellationToken token) => _inner.CommitAsync(snapshot, token);
+        public async Task CommitAsync(HistoryRestoreRollbackSnapshot snapshot, CancellationToken token)
+        { await _inner.CommitAsync(snapshot, token); if (postCommit is not null) await postCommit(token); }
     }
 }

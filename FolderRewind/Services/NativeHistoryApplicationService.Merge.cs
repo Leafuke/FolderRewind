@@ -93,25 +93,22 @@ internal static partial class NativeHistoryApplicationService
         async Task<HistoryRestoreResult> ExecuteAsync(CancellationToken ct)
         {
                 var result = await apply.ApplyAsync(session, ct, prepared, scope).ConfigureAwait(false);
-                if (result.Succeeded)
-                {
-                    try { await BackupService.SynchronizeCaptureBaselinesWithWorkspaceAsync(config, prepared.Sources.Select(s => s.Version.SourceId).ToArray(), CancellationToken.None).ConfigureAwait(false); }
-                    catch (Exception ex)
+                return await MergePostActions.CompleteAsync(result,
+                    ct => BackupService.SynchronizeCaptureBaselinesWithWorkspaceAsync(config, prepared.Sources.Select(s => s.Version.SourceId).ToArray(), ct),
+                    async ct =>
                     {
+                        var failures = new List<Exception>();
                         foreach (var source in prepared.Sources.Select(s => s.Version.SourceId))
                         {
                             try
                             {
-                                var baseline = await runtime.CaptureBaselines.LoadAsync(source, CancellationToken.None).ConfigureAwait(false);
-                                if (baseline is not null) await runtime.CaptureBaselines.RemoveAsync(source, baseline.Revision, CancellationToken.None).ConfigureAwait(false);
+                                var baseline = await runtime.CaptureBaselines.LoadAsync(source, ct).ConfigureAwait(false);
+                                if (baseline is not null) await runtime.CaptureBaselines.RemoveAsync(source, baseline.Revision, ct).ConfigureAwait(false);
                             }
-                            catch (Exception cleanup) { LogService.LogWarning(cleanup.Message, "Merge capture cache"); }
+                            catch (Exception ex) { failures.Add(ex); }
                         }
-                        return result with { Status = HistoryRestoreStatus.CommittedWithPostActionWarning,
-                            Diagnostic = $"Merge committed; capture cache synchronization failed: {ex.Message}" };
-                    }
-                }
-                return result;
+                        if (failures.Count > 0) throw new AggregateException(failures);
+                    }).ConfigureAwait(false);
         }
         if (scope.Writes.Count == 0) return await ExecuteAsync(token).ConfigureAwait(false);
         var affected = config.SourceFolders.Where(f => scope.NeedsProtection || scope.Writes.ContainsKey(Source(f))).ToArray();
