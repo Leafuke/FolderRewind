@@ -151,15 +151,20 @@ public sealed class HistoryRuntime : IAsyncDisposable
         return ValueTask.CompletedTask;
     }
 
+    internal void ObservePendingRecovery()
+    {
+        try { HistoryRestoreTransactionJournalStore.RequireRecovered(Repository.Paths.TransactionsRoot); }
+        catch (Exception ex) when (ex is IOException or InvalidOperationException or System.Text.Json.JsonException or UnauthorizedAccessException)
+        { Health |= HistoryRuntimeHealth.WorkspaceRecoveryRequired; }
+    }
+
     internal async Task RefreshLocalStateHealthAsync(CancellationToken cancellationToken = default)
     {
         var workspace = await WorkspaceStore.LoadAsync(cancellationToken).ConfigureAwait(false);
         var catalog = await LocalReplicaCatalogStore.LoadAsync(cancellationToken).ConfigureAwait(false);
         var packCount = (await Repository.ReadAllPacksAsync(cancellationToken).ConfigureAwait(false)).Count;
         Health = HistoryRuntimeHealth.Ready;
-        try { HistoryRestoreTransactionJournalStore.RequireRecovered(Repository.Paths.TransactionsRoot); }
-        catch (Exception ex) when (ex is IOException or InvalidOperationException or System.Text.Json.JsonException or UnauthorizedAccessException)
-        { Health |= HistoryRuntimeHealth.WorkspaceRecoveryRequired; }
+        ObservePendingRecovery();
         if (workspace.Status is DeviceLocalStateStatus.Corrupt or DeviceLocalStateStatus.Inaccessible
             || (workspace.Status == DeviceLocalStateStatus.Missing && packCount > 0))
         {

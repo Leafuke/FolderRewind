@@ -271,6 +271,9 @@ public static class NativeHistoryCoreGateway
                 configId,
                 (_, token) => OpenRepositoryAsync(config, configDirectory, legacy, token),
                 cancellationToken).ConfigureAwait(false);
+            // Cached Runtime instances can acquire a pending journal after initialization.
+            // Report readiness now; the caller's config-operation recovery entry owns repair.
+            runtime.ObservePendingRecovery();
             Failed.TryRemove(configId.Value, out _);
             return runtime;
         }

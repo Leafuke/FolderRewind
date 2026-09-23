@@ -48,6 +48,18 @@ public sealed class HistoryJointTransactionRecoveryTests
         finally { Directory.Delete(root, true); }
     }
 
+    private sealed class RecoveryBarrierBackend(IHistoryRestoreMutationBackend inner) : IHistoryRestoreMutationBackend
+    {
+        public TaskCompletionSource Entered { get; } = new(TaskCreationOptions.RunContinuationsAsynchronously);
+        public TaskCompletionSource Release { get; } = new(TaskCreationOptions.RunContinuationsAsynchronously);
+        public HistoryRestoreRollbackSnapshot PlanRollback(HistoryRestoreSourceBinding source, HistoryTransactionId transaction) => inner.PlanRollback(source, transaction);
+        public Task PrepareRollbackAsync(HistoryRestoreRollbackSnapshot snapshot, CancellationToken token) => inner.PrepareRollbackAsync(snapshot, token);
+        public Task ApplyAsync(HistoryRestoreSourceBinding source, string staging, HistoryRestoreApplyMode mode, HistoryRestoreRollbackSnapshot snapshot, CancellationToken token) => inner.ApplyAsync(source, staging, mode, snapshot, token);
+        public async Task RollbackAsync(HistoryRestoreRollbackSnapshot snapshot, CancellationToken token)
+        { Entered.TrySetResult(); await Release.Task.WaitAsync(token); await inner.RollbackAsync(snapshot, token); }
+        public Task CommitAsync(HistoryRestoreRollbackSnapshot snapshot, CancellationToken token) => inner.CommitAsync(snapshot, token);
+    }
+
     private sealed class UnusedRepresentationHandler : IRepresentationHandler
     {
         public bool CanHandle(VersionRepresentation representation) => false;
@@ -96,12 +108,30 @@ public sealed class HistoryJointTransactionRecoveryTests
                 var journal = new HistoryRestoreTransactionJournal(pack.TransactionId, HistoryRestoreTransactionPhase.Mutating,
                     original, desired, [staging], [snapshot, unstarted], [source], [source], codec.Encode(pack), desiredCatalog, 0);
                 new HistoryRestoreTransactionJournalStore(history, backend).Save(journal);
+                history.ObservePendingRecovery();
+                Assert.IsTrue(history.Health.HasFlag(HistoryRuntimeHealth.WorkspaceRecoveryRequired));
                 await Assert.ThrowsExactlyAsync<HistoryCommitConflictException>(async () =>
                     await history.Commit.FindRequiredBoundaryRecapturesAsync(new HistoryConfigSnapshot(config,
                         [new HistoryConfigSourceSnapshot(source, version.SourceDescriptorSnapshot)]), [source]));
                 await Assert.ThrowsExactlyAsync<InvalidOperationException>(async () => { await using var lease = await history.MutationGate.EnterAsync(); });
                 if (packCommitted) await history.Repository.CommitAsync(pack);
                 if (catalogSaved) await history.LocalReplicaCatalogStore.SaveAsync(desiredCatalog, 0);
+                if (!packCommitted)
+                {
+                    var barrier = new RecoveryBarrierBackend(backend);
+                    var restore = new HistoryRestoreService(history, new RepresentationRuntime([new UnusedRepresentationHandler()]),
+                        _ => Task.FromResult<IRepresentationEnvironment>(new RepresentationEnvironment([], [], [])), barrier);
+                    var recovering = restore.RecoverIncompleteAsync();
+                    await barrier.Entered.Task.WaitAsync(TimeSpan.FromSeconds(10));
+                    var capture = FolderRewind.Services.NativeHistoryConfigurationOperationGate.EnterHistoryAsync(config).AsTask();
+                    Assert.IsFalse(capture.IsCompleted, "Capture must wait until recovery releases this configuration.");
+                    await using (var independent = await FolderRewind.Services.NativeHistoryConfigurationOperationGate.EnterHistoryAsync(new("another-config"))) { }
+                    barrier.Release.SetResult();
+                    await recovering.WaitAsync(TimeSpan.FromSeconds(10));
+                    await using var captureLease = await capture.WaitAsync(TimeSpan.FromSeconds(10));
+                    Assert.AreEqual("old", File.ReadAllText(Path.Combine(target, "value")));
+                    Assert.AreEqual(HistoryRuntimeHealth.Ready, history.Health);
+                }
             }
             await using (var recovered = new HistoryRuntime(new FileHistoryRepository(config, paths)))
             {
