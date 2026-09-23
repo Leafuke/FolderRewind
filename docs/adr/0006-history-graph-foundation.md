@@ -18,6 +18,9 @@ FolderRewind models history as immutable logical facts instead of a mutable list
 - A Version Representation identifies a materialization strategy; a Storage Replica identifies one physical copy. Missing or retired payloads do not delete the Source Version.
 - Plugin Artifact reachability starts from `VersionRepresentation.ArtifactRootId`. The Artifact ledger owns immutable payload nodes and dependency integrity, but no History roots.
 - Pins, Branch tips, Workspace baselines, active operations, and unfinished durable Merge Sessions protect materialization. Presentation suppression is not deletion, and Released materialization policy is not logical Version deletion.
+- Result-level Exact admission precedes filesystem mutation: all result Versions (FastForward, ThreeWay reused, and newly constructed Merge Versions) must satisfy verified physical Exact materializability in the final runtime gate. Controlled payloads hold read-only file handles during publication.
+- Operation lock hierarchy is strictly ordered: Configuration operation gate → Runtime mutation/recovery gate → local-state storage lock. An internal recovery primitive takes a typed configuration operation lease to prevent re-entrant deadlocks.
+- A durable Commit Pack establishes committed history: once the intended pack is written, subsequent local failures (Session state persistence, capture baseline sync, cleanup) cannot retract or deny the commit.
 
 ## Persistence boundaries and data layout
 
@@ -27,6 +30,7 @@ Each configuration has one repository under `history/<encoded-config-id>/` in th
 repository.json
 packs/<prefix>/<PackId>.frpack
 index/history-index.db
+payloads/<RepresentationId>/
 local-state/workspace.json
 local-state/replicas.json
 local-state/capture-baselines/<SourceId>.json
@@ -36,7 +40,7 @@ transactions/<HistoryTransactionId>/restore-journal.json
 quarantine/
 ```
 
-`packs/` and `repository.json` are shared authority. The SQLite index is rebuildable; `local-state/` is durable only for this device; capture baselines are disposable. Backup payload paths remain physical realizations referenced through Representations and the Local Replica Catalog rather than identities derived from filenames.
+`packs/`, `payloads/` and `repository.json` are shared authority. Candidate payloads register durable ownership and are sealed into `payloads/<RepresentationId>/` before pack publication. Unfinished candidate payloads are protected by prepared merge intents; committed payloads are protected by the catalog and history roots. The SQLite index is rebuildable; `local-state/` is durable only for this device; capture baselines are disposable. Backup payload paths remain physical realizations referenced through Representations and the Local Replica Catalog rather than identities derived from filenames.
 
 Cloud keeps metadata and payload transport separate:
 
@@ -58,5 +62,7 @@ The shared workspace-mutation journal owns filesystem rollback, optional Commit 
 ## Scope
 
 FolderRewind 1.9 adds Configuration Checkpoint merge-base discovery, no-op/fast-forward-like classification, a conservative generic file-level three-way provider, durable conflict Sessions, manual whole-side/file resolutions, and one configuration-level atomic Apply. Merge provenance records explicit target/source roles; parent order is never used to infer them.
+
+The merge workflow separates preparation from coordination and execution: inputs, resolutions, payload compression, hash verification, round-trip checks, and the `PreparedMergeDescriptor` are completed outside the coordination window. Environment coordination targets only actually mutated Sources, bypassing game exit coordination when there are zero filesystem mutations, and expands scope only when a configuration-level safety snapshot requires broader protection. Recomputation migrates resolutions matching canonical input signatures, and Best Common Ancestor search uses linear topological pruning.
 
 The first release deliberately has no recursive/virtual merge base, rename detection, automatic text diff3, or Minecraft region/chunk/NBT semantics. MineRewind uses the same file-level provider as ordinary folders and only contributes environment coordination. Reconciliation remains a same-Branch convergence operation and must not be used to encode a true Branch Merge.

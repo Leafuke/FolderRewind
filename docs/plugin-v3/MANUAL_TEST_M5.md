@@ -51,7 +51,7 @@
 - Selected Regions 或 `Require consistency`：provider/consistency 不可用时 Block。
 - Restore：owner Disabled/Failed/missing 一律 Block；活跃世界的 KnotLink/兼容模组不可用时 Block，冷世界仍走 Host 安全还原而不要求无意义的退出握手。
 - Hot restore：Save & Exit → Host `BackupBeforeRestore` → 只读 current/target 准备玩家数据 proposal → Safe Restore/mutation once-only → Rejoin。proposal 改变目标 Version 时 Workspace 必须标记 Derived；准备失败以 warning 降级且不得在 mutation 后补写 live world。安全备份失败/取消时不得进入 mutation。
-- Branch Merge：一个配置包含两个世界时，coordinator 必须一次接收全部受影响 Source；第二个世界活跃也必须被发现。多个活动世界无法唯一协调时整次 Block。Merge/Checkout 不启用 PreservePlayerData；`.mca` 双改显示普通文件冲突，不得宣称区块级自动合并。
+- Branch Merge：一个配置包含两个世界时，coordinator 接收实际发生文件写入的受影响 Source；零写入合并直接跳过游戏退出协调；需要配置级安全快照时正确扩大到快照覆盖的所有相关 Source；进入 continuation 后探测到范围变化整次阻断重试。多个活动世界无法唯一协调时整次 Block。Merge/Checkout 不启用 PreservePlayerData；`.mca` 双改显示普通文件冲突，不得宣称区块级自动合并。
 - 分别故障注入 Host `RecoveryRequired` 与 `CommittedRecoveryRequired`：两者都不得自动 rejoin；后者重启后必须完成本机 Workspace/catalog，且不得创建第二个 Merge Update。
 - 删除中间 semantic Artifact History 时，确认 Host 按 graph retention/GC 处理，不能形成断链；Cloud queue 只观察 committed graph root。用 rclone 在第二个空环境下载 semantic History，确认先校验 manifest root/revision 和 reachable hashes，再允许 Save & Exit。
 - 命令 ID 验证：`com.folderrewind.minerewind/hotbackup.active-world` 与 `.../hotrestore.active-world`；默认 `Alt+Ctrl+S` / `Alt+Ctrl+Z`，修改用户 override 后重启仍保持 override。

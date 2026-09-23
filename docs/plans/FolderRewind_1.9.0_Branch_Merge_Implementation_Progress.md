@@ -1,53 +1,135 @@
-# Branch Merge 实施进度（2026-09-18）
+# Branch Merge 完整整改实施进度（2026-09-23）
 
-本文件记录已落地结果；设计范围和验收 invariant 仍以 [实施计划](FolderRewind_1.9.0_Branch_Merge_Implementation_Plan.md) 为准。
+本文件记录依据 [完整整改计划](FolderRewind_1.9.0_Branch_Merge_Hardening_Plan.md) 与 [实现质量评估报告](../reviews/FolderRewind_1.9.0_Branch_Merge_Implementation_Review_2026-09-22.md) 完成的 R1–R6 安全修复、性能优化、体验完善与端到端自动化验证结果。
 
-## 当前状态
+## 1. 当前状态与发布 Gate
 
-计划步骤 1–14 的代码与文档实现已经接通。自动化验证覆盖核心图、文件算法、持久 Session、配置冻结、精确产物、联合事务恢复、插件 continuation/staging preparation 和 MineRewind 玩家数据 proposal。尚未执行计划第 13 节的破坏性手工验收，因此发布 Gate 仍保持关闭；不得把“自动化实现完成”表述为真实 Minecraft 世界验收通过。
+**发布 Gate 状态：当前关闭（CLOSED）**
 
-## 已落地能力
+整改计划步骤 C00–C13 的代码实现、定向测试、性能优化、跨架构编译以及长期端到端故障注入已全部完成并纳入版本控制。所有 815 项自动化测试通过，4 种架构（Debug x64、Release x64、Debug ARM64、Debug x86）构建 0 警告 0 错误。
 
-### 基础与插件恢复边界（步骤 1–5）
+由于尚未在复制目录与测试 Minecraft 世界中完成真实破坏性人工验收，本阶段**明确保持发布阻塞，不声称具备发布条件**。待人工验收全部通过后，再单独提交验收记录并关闭发布阻塞项。
 
-- Configuration Checkpoint semantic parents、Workspace ancestry anchor、SourceVersion creation kind、Exact checkpoint admission、权威 Source boundary 和可靠 working-state 探测均已接入。
-- Checkout/Restore/Merge 的最终阶段使用同一配置级 operation gate，并冻结影响路径和 boundary 的可变配置对象；gate 内重新读取 Workspace、Config signature 和 resolved bindings。
-- Plugin API 为 3.4 / NuGet 3.4.0。配置级 coordinator 携带全部 affected folders、operation identity 和 Restore/Checkout/Merge kind；continuation once-only、drain 及 RecoveryRequired/CommittedRecoveryRequired 语义完整。
-- 普通 Restore 在 Host gate 内调用 staging preparation。插件只读取锁定的 current/target view 并返回受限 proposal；Host 验证路径/容量/冲突后写入 staging。proposal 改变目标时 Workspace baseline 为 Derived。
-- MineRewind 不再在 continuation 返回后写 live NBT，也不再用 VersionId/FolderId 全局字典传递一次性意图。`RestoreRequestOptions` 以 operation identity 传递保留玩家数据请求；准备失败降级为 warning。Checkout/Merge 不启用此策略。
+## 2. 实施进度对照（四列表）
 
-### Merge 规划、文件算法与 Session（步骤 6–10）
+| 阶段 / 任务项 | 代码接通 | 自动测试 | 故障注入 | 人工验收 |
+| --- | :---: | :---: | :---: | :---: |
+| **C00：计划与验收基线固化**（R1–R6 边界、提交顺序、门槛） | 已完成 | 已完成 | 不适用 | 不适用 |
+| **R1 · C03/补丁：最终 Exact 准入**（实际可恢复性、FF/ThreeWay 闭包、有效替代副本） | 已完成 | 已完成 | 已完成 | 待执行 |
+| **R2 · C02/补丁：提交事实持久化**（durable commit 隔离后续异常、5 态区分、缓存同步） | 已完成 | 已完成 | 已完成 | 待执行 |
+| **R3 · C01/补丁：统一配置操作门**（Config→Runtime→Store 锁序、lease 恢复、Capture 阻断） | 已完成 | 已完成 | 已完成 | 待执行 |
+| **R4 · C06：产物生命周期与清理**（持久 payload 独立封存、终态自动清理、审计保留） | 已完成 | 已完成 | 已完成 | 待执行 |
+| **R5 · C07：准备与协调解耦**（提前准备、零写入不退出、按需扩大快照、scope 漂移阻断） | 已完成 | 已完成 | 已完成 | 待执行 |
+| **R6 · C04：Provider / Policy 规范身份**（`id@version;schema=n`、Host 校验、多 provider） | 已完成 | 已完成 | 已完成 | 待执行 |
+| **C08：MineRewind 恢复边界与范围**（多世界活跃阻断、非涉及世界不干扰、Recovery 不 rejoin） | 已完成 | 已完成 | 已完成 | 待执行 |
+| **C09：按规范签名保留重算成果**（输入/边界/摘要签名匹配迁移、manual 校验、新旧 roots 交接） | 已完成 | 已完成 | 已完成 | 待执行 |
+| **C10：显式按需准备云端副本**（依赖优先下载 helper、去重、gate 外网络、tip 漂移重算提示） | 已完成 | 已完成 | 已完成 | 待执行 |
+| **C11：算法与交互性能优化**（线性 BCA、按 Source/500 keyset 分页、单 CAS 批量 resolution） | 已完成 | 已完成 | 已完成 | 待执行 |
+| **C12：UI 状态与操作反馈完善**（Typed Diagnostic、本地化文案、creation kind 区分 Merge） | 已完成 | 已完成 | 已完成 | 待执行 |
+| **C13：端到端生命周期与故障回归**（真实 ZIP/catalog、重启恢复单条 Update、合并后 Exact 还原） | 已完成 | 已完成 | 已完成 | 待执行 |
+| **C14：实现结果与自动化证据归档**（更新 ADR、插件说明、进度表、构建与测试结果） | 已完成 | 已完成 | 不适用 | 待执行 |
 
-- Checkpoint DAG 支持 No-op、FastForwardLike、唯一 best base、NoCommonBase 和 MultipleMergeBases；损坏 parent/cycle fail closed，不借用 Branch control DAG 或 representation dependency。
-- roster 规则区分 absent 与 unknown，覆盖 add/add、delete/modify、boundary conflict、删除和复用。参与细粒度合并的输入必须满足 Exact admission。
-- 通用 provider 使用内容摘要执行保守三方文件合并，覆盖单侧增改删、同结果、modify/delete、add/add、零字节、文件/目录前缀和 Windows 大小写结构冲突。首发无 Minecraft 特判。
-- SQLite Merge Session 保存不可变 plan revisions、分页冲突、输入签名、resolution、人工导入产物、Apply intent 和 CAS revision。重算不会误复用旧 resolution；数据库/产物损坏时阻止 GC。
-- 未完成 Session 的 Version roots 和 representation closure 已接入 retention、release、local-replica 删除；Committed/Abandoned 后才释放。
-- 结果构建会固定完整结果树、复用可证明相等的现有 Version，否则生成无 BackupRun 的双 parent Merge Version和 self-contained Exact archive，并执行真实 materialization round-trip。metadata 从 merged staging 获取，普通 metadata provider 失败仅记录 warning。
+## 3. Git 提交列表与哈希对照
 
-### 联合事务、Apply 与 UI（步骤 11–14）
+| 编号 | 仓库 | Commit Hash | 提交标题与摘要 |
+| --- | --- | --- | --- |
+| C00 | Host | `9f831c1` | `docs(merge): 记录完整整改计划与发布验收门槛` |
+| C01 | Host | `99cc10b` | `fix(history): 在配置操作门内协调恢复与备份准入` |
+| C02 | Host | `65ad13e` | `fix(merge): 保留持久提交结果并隔离提交后失败` |
+| C03 | Host | `9b21ea0` | `fix(merge): 在提交前验证实际 Exact 表示闭包` |
+| C04 | Host | `b18a465` | `fix(merge): 固定 provider 与 policy 身份` |
+| C05 | Host | `568158c` | `refactor(merge): 持久化准备结果并独立封存合并产物` |
+| C06 | Host | `bb719b3` | `fix(merge): 自动清理终态会话并保护已发布产物` |
+| C07 | Host | `ef8095f` | `fix(merge): 在环境协调前完成准备并缩小协调范围` |
+| C08 | MineRewind | `6708d6d` | `test(restore): 覆盖合并协调范围与恢复结果边界` |
+| C09 | Host | `4d264d7` | `feat(merge): 按完整输入签名保留重算成果` |
+| C10 | Host | `dfd471a` | `feat(merge): 支持显式准备所需云端副本` |
+| C11 | Host | `34b7c35` | `perf(merge): 优化共同祖先查询与冲突读取` |
+| C12 | Host | `fd2e6cc` | `fix(ui): 完善合并状态与操作反馈` |
+| 补丁 | Host | `457ab50` | `fix(history): Deep 校验跳过损坏副本并选择有效 Exact 副本`（R1 补充） |
+| 补丁 | Host | `c151d96` | `fix(history): 刷新缓存 Runtime 的运行期恢复状态`（R3 补充） |
+| 补丁 | Host | `0863bfa` | `fix(merge): 完成恢复索引刷新并验证提交后故障边界`（R2 补充） |
+| C13 | Host | `acca7b5` | `test(merge): 补齐端到端故障与生命周期回归` |
+| C14 | Host | *当前 HEAD* | `docs(merge): 更新实现结果与自动化验收证据` |
 
-- Restore filesystem executor 与可选 History Pack intent 共用一个 journal。每个 Source 分别记录 planned/started/applied；pack 前失败只回滚已开始 Source，pack durable 后只完成 Workspace/catalog，不撤销 immutable facts。
-- 启动恢复先于普通 mutation/GC。Session 在 Applying 状态保存 transaction/pack identity；恢复和重试不会生成第二个 Merge Update。
-- Apply 顺序为：恢复检查 → 固定产物 → Dirty protection/SafetySnapshot → Config + Runtime gate → tips/config/bindings/worktree revalidation → filesystem apply → pack → catalog/workspace → cleanup。source Branch tip 不移动。
-- 新目录使用事务所有权标记避免恢复误删外部创建的路径；逻辑结果校验显式排除该临时标记，提交后删除。
-- 历史页已有配置级 Merge 入口、Session 新建/选择/恢复/重算/放弃、100 条分页、批量 ours/theirs、单文件人工导入、Base/Ours/Theirs 预览和 Apply 状态。Config/tip 漂移会把 Session 标为 Stale 并要求重算。
-- ADR、Plugin v3 文档、M5 手工清单和 MineRewind README 已对齐首发边界。内置 MineRewind 1.9.2 包 SHA-256 为 `dbdffdeb8c67dbb9100c17c03758c4433500d95b6f9bfe41a5ee48aa47033cd8`。
+## 4. R1–R6 关闭证据对照
 
-## 仍需发布前人工验收
+### R1：最终 Exact 准入（验证实际可恢复性）
+- **实现机制**：通过 `RepresentationRuntime.AssessRepresentationExactAsync` 建立结果级 Exact assessment 入口。在 `HistoryMergeCommitBuilder` 中对 FF 复用 Version、ThreeWay 复用 Version、新 Merge Version 做深度评估；存在 storage hash 时比对 digest 与大小，否则执行物理解包与 manifest round-trip 校验。最终受控本机 payload 在提交期间保持只读文件句柄保护。
+- **降级与替代**：当首选副本缺失或损坏时，自动探测并选择同 Version 的其他有效 Exact 副本；只有当无可恢复副本时才阻断提交并返回结构化诊断，不推进 Branch，不生成不完整 Merge Update。
+- **回归与故障注入**：`HistoryExactCheckpointAdmissionTests`、`HistoryMergeTests`（准备后删除副本、首选副本哈希损坏跳至替代副本、所有副本失效时阻断提交）。
 
-1. 按实施计划第 13 节在复制的通用目录和测试 Minecraft 世界执行最小手工验收；不得使用维护者正在运行的真实世界做故障注入。
-2. 验证应用关闭重启后继续冲突 Session、旧 Session stale 拒绝、Dirty SafetySnapshot 可恢复、current-only Source 不丢失。
-3. 验证第二个 Minecraft 世界活跃时仍进入配置级协调；多个活动世界整体阻断；`.mca` 双改只显示文件冲突。
-4. 验证普通 Restore 玩家数据保留产生 Derived baseline，Merge/Checkout 没有 post-commit NBT 写回；RecoveryRequired 和 CommittedRecoveryRequired 都不自动 rejoin。
+### R2：提交结果持久化（durable 事实不可被后续异常覆盖）
+- **实现机制**：分离 pack durable 事实与后续动作结果。在 filesystem executor 返回成功后，立即固定 `TargetCommitted = true`、`WorkspaceUpdated = true` 和 `AppliedSources`。后续 Session DB 保存失败、读异常或取消 token 无法撤销提交事实。明确划分 5 种状态：`BlockedBeforeMutation`、`MutationFailedRolledBack`、`MutationFailedRecoveryRequired`、`CommittedRecoveryRequired`、`CommittedWithPostActionWarning`。
+- **恢复与重试**：Session 更新失败时返回 `CommittedRecoveryRequired`；重启恢复使用原 transaction/pack identity，不生成第二条 Merge Update。capture baseline 同步成为独立 post-action，失败安全失效缓存并不影响提交。
+- **回归与故障注入**：`HistoryMergeApplyTests`、`NativeHistoryApplicationServiceMergeTests`（pack durable 后 Session SQLite 写入抛异常、Session DB 无法读取、提交后取消 token、缓存失效故障注入）。
 
-## 本轮自动验证
+### R3：统一配置操作门与恢复准入
+- **实现机制**：锁顺序固定为 `Config operation gate → Runtime mutation/recovery gate → 本机状态存储锁`。公开恢复入口获取配置操作门；内部恢复入口接收 `ConfigurationOperationLease`，避免重复获取非重入锁造成死锁。
+- **准入阻断**：未完成联合事务 journal 纳入 readiness 计算与 `EnsureReadyAsync` 检查（即使返回缓存的 Runtime 也会发现未完成 journal）。Backup 在读取 live tree 及获取 capture consistency lease 前检查并恢复 pending journal。
+- **回归与故障注入**：`HistoryCommitCoordinatorTests`、`HistoryRestoreServiceTests`、`BackupServiceTests`（pending journal 阻断 Backup、恢复与 Capture barrier 互斥、跨配置并发独立、Safety Snapshot 内部入口无死锁）。
 
-- Host 定向 Merge/联合事务测试通过 32 个。
-- Host 普通 Restore preparation 与配置写入/operation gate 定向测试通过 14 个。
-- Plugin Abstractions 契约测试通过 15 个；内置包固定 hash 与 Runtime 黑盒激活/协调测试通过 2 个。
-- MineRewind Manifest 与玩家数据 staging preparation 定向测试通过 3 个。
-- Host `FolderRewind.slnx` Debug 构建通过，0 warning / 0 error。
-- MineRewind 1.9.2 Release `.frplugin` 已重新打包并同步到 Host 固定 hash 资产。
+### R4：产物生命周期与自动清理
+- **实现机制**：引入 `PreparedMergeDescriptor`，记录 session/plan/resolution/provider 身份、候选 facts、manifest 摘要和产物 ownership。最终候选归档直接封存到 repository `payloads/<RepresentationId>/`，不再向 Session 临时目录写入持久产物。
+- **清理与保留**：Session 提交或放弃后，自动清理解包输入、manual 导入和旧 revision 临时文件；catalog 引用文件与 pending intent 保护的 payload 严禁误删；SQLite 数据库或 schema 损坏时 fail closed，不删除 immutable facts。
+- **回归与故障注入**：`MergeSessionStoreTests`、`HistoryMergeLifecycleTests`（成功清理、放弃清理、重启清理、catalog 引用文件保留、损坏 schema 安全 fail closed）。
 
-未运行无关测试工程或重复全量矩阵；最终提交前只再执行一次受影响契约/包校验和解决方案构建。
+### R5：准备与协调解耦及协调范围最小化
+- **实现机制**：将合并拆分为 `PrepareMergeAsync`（输入解包、冲突解决、结果复制、压缩、hash、解包 round-trip 和元数据计算全部在 coordinator 外完成）与 Apply 执行两阶段。
+- **协调范围**：根据实际变更 Source 计算最小协调范围。零写入变更跳过游戏退出协调；仅协调实际写入的 Source；仅当配置级 Safety Snapshot 明确需要时才扩大 scope；进入 continuation 后若探测到范围变化，阻断并提示重试。
+- **回归与故障注入**：`HistoryMergeApplyTests`、`MineRewind.Tests.RestoreCoordinationTests`（零写入不退出游戏、PreserveCurrent Source 过滤、Snapshot 扩大 scope 协调、scope 漂移阻断）。
+
+### R6：Provider 与 Policy 规范身份
+- **实现机制**：引入 Host 内部 `MergeProviderDescriptor`，规范化 `id@version;schema=n` 与 policy `id@version`；由 Host 选择后传入 planner，写入 plan、PreparedMergeDescriptor 和 Merge provenance。版本或 schema 变更使旧处理结果失效；Host 严格校验 provider 输出路径、输入签名与冲突归属。
+- **回归与故障注入**：`HistoryMergeProviderTests`、`HistoryMergeServiceTests`（非默认假 provider Prepare 与执行、provider 版本/schema 变更失效旧决策、越界路径与重复认领拒绝）。
+
+## 5. 性能与算法优化记录
+
+- **线性 Best Common Ancestor (BCA)**：
+  - 算法：获取全部共同祖先集合后，单次拓扑剔除共同祖先集合中各节点的直接 parents，获得最佳共同祖先 candidates，消除平方级回溯。
+  - 规模验证：50,000 节点长链/分叉/criss-cross 图，访问节点与边共 300,015 次，算法具备严格线性复杂度；小图与朴素图遍历 oracle 比对结果一致。
+- **流式与分页冲突读取**：
+  - 构建器按 Source 流式处理，移除全会话 `ToLookup` 内存全量加载。
+  - 数据库采用固定 500 条 keyset 分页，UI 采用 100 条分页。
+  - 100,000 条冲突测试中，数据库仅执行 204 次 keyset 读取，批量 resolution 仅消耗单个 CAS 事务，实测耗时约 6.3s，进程峰值 Working Set 约 120MiB（机器观测记录，不设依赖机器性能的时间硬断言）。
+
+## 6. 全量自动化验证与多架构构建结果
+
+### 自动化测试工程矩阵
+
+| 测试工程 | 测试数量 | 失败 | 通过 | 跳过 | 耗时 |
+| --- | :---: | :---: | :---: | :---: | :---: |
+| `FolderRewind.Tests` (Host) | 609 | 0 | 609 | 0 | 19s |
+| `FolderRewind.Plugin.Runtime.Tests` (Plugin Runtime) | 144 | 0 | 144 | 0 | 4s |
+| `FolderRewind.Plugin.Abstractions.Tests` (Abstractions) | 15 | 0 | 15 | 0 | 39ms |
+| `MineRewind.Tests` (Minecraft 插件) | 47 | 0 | 47 | 0 | 9s |
+| **总计** | **815** | **0** | **815** | **0** | **32s** |
+
+### 跨架构编译与构建矩阵
+
+| 架构 / 配置 | 目标工程 / 解决方案 | 警告 | 错误 | 状态 |
+| --- | --- | :---: | :---: | :---: |
+| Debug x64 | `FolderRewind.slnx` | 0 | 0 | **PASS** |
+| Release x64 | `FolderRewind.slnx` | 0 | 0 | **PASS** |
+| Debug ARM64 | `FolderRewind.slnx` | 0 | 0 | **PASS** |
+| Debug x86 | `FolderRewind.slnx` | 0 | 0 | **PASS** |
+| Debug x64 | `FolderRewind-Plugin-Minecraft.slnx` | 0 | 0 | **PASS** |
+
+## 7. 待执行人工验收清单与尚未完成事项
+
+人工验收必须在复制的测试目录与测试 Minecraft 世界上执行，不得在正在运行的真实生产环境做故障注入。
+
+### 人工验收清单（8 项）
+
+1. **双 Source 自动合并与 Manual 导入**：两个 Source 自动合并、文件冲突选择、manual 导入文件，确认提交后 source tip 保持原位。
+2. **重启恢复与 Stale 拒绝**：Session 中断后关闭应用，重启后继续该 Session；若推进 source 分支，确认旧 Session 明确标记为 Stale 并拒绝直接 Apply。
+3. **Dirty 工作安全快照**：未保存工作目录触发独立 Safety Snapshot，合并后实际从该 Snapshot 还原，验证未提交内容完好。
+4. **Binding 修复与成果保留**：缺失 binding 导致阻断；修复 binding 后重算，确认完整签名一致的 resolution 被完整复用，current-only Source 不丢失。
+5. **.mca 双改与多世界协调**：`.mca` 双改正确显示为普通文件冲突；双世界配置下，第二个世界活跃正确触发退出协调；两个世界均活跃无法唯一退出时整次阻断。
+6. **零写入跳过退出**：仅元数据/无变更的合并操作不调用游戏退出握手；需要快照时按需扩大协调范围。
+7. **普通 Restore 玩家数据与 Merge/Checkout 隔离**：普通 Restore 保留玩家数据产生 Derived baseline；Merge 与 Checkout 严禁触发任何 post-commit NBT 写回。
+8. **清理后 Exact 还原**：合并成功且自动清理 Session 后，重启应用，从正式 merged tip 执行 Exact Restore，验证内容字节级一致。
+
+### 尚未完成事项
+- 执行上述 8 项破坏性人工验收并收集实机操作截图与日志证据。
+- 人工验收通过后，提交 `docs(merge): 记录人工验收结果并关闭发布阻塞项` 并解除发布 Gate。
