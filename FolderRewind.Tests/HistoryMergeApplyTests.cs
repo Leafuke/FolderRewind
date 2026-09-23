@@ -19,6 +19,13 @@ public sealed class HistoryMergeApplyTests
 
     [TestMethod]
     [DataRow("success")]
+    [DataRow("physical-ff-missing")]
+    [DataRow("physical-reuse-hash")]
+    [DataRow("physical-reuse-nohash")]
+    [DataRow("physical-reuse-alternate")]
+    [DataRow("physical-alternate-corrupt")]
+    [DataRow("candidate-corrupt")]
+    [DataRow("candidate-locked")]
     [DataRow("zero-write")]
     [DataRow("one-write")]
     [DataRow("scope-drift")]
@@ -38,6 +45,9 @@ public sealed class HistoryMergeApplyTests
         await using var history = new HistoryRuntime(new FileHistoryRepository(config, new HistoryRepositoryPaths(Path.Combine(_root, "repo"))));
         await history.InitializeAsync();
         var handler = new TreeHandler(); var facts = new List<object>();
+        var physical = failure.StartsWith("physical", StringComparison.Ordinal);
+        var originalReplicas = new List<LocalReplicaCatalogEntry>();
+        var payloads = new Dictionary<VersionId, string>();
         var sourceIds = new[] { SourceId.New(), SourceId.New() };
         SourceVersion Version(SourceId source, string name, SourceVersion? parent, params (string Path, string Text)[] files)
         {
@@ -45,10 +55,26 @@ public sealed class HistoryMergeApplyTests
                 null, CaptureScope.FullSource, CaptureOutcome.Captured, [], new SourceDescriptorSnapshot(name, name), null, HistoryProvenance.Native("test"));
             var rep = new VersionRepresentation(RepresentationId.New(), version.VersionId, RepresentationKind.CoreFull, "tree", [], MaterializationFidelity.Exact, null, null, null);
             handler.Trees[rep.RepresentationId] = files.ToDictionary(f => f.Path, f => f.Text);
+            if (physical)
+            {
+                var content = Path.Combine(_root, "input-" + version.VersionId); Directory.CreateDirectory(content);
+                foreach (var file in files) File.WriteAllText(Path.Combine(content, file.Path), file.Text);
+                var path = Path.Combine(_root, version.VersionId + ".zip"); ZipFile.CreateFromDirectory(content, path);
+                payloads.Add(version.VersionId, path);
+                rep = new(rep.RepresentationId, version.VersionId, RepresentationKind.CoreFull, "zip", [], MaterializationFidelity.Exact, null, null,
+                    failure == "physical-reuse-nohash" ? null : ImmutableDictionary<string, string>.Empty.Add("storageSha256",
+                        Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(File.ReadAllBytes(path)))));
+                originalReplicas.Add(new(rep.RepresentationId, LocalReplicaId.New(), LocalReplicaLocator.ControlledAbsolute(path), DateTimeOffset.UtcNow));
+                if ((failure is "physical-reuse-alternate" or "physical-alternate-corrupt") && name == "theirs")
+                {
+                    var alternate = path + ".alternate"; File.Copy(path, alternate);
+                    originalReplicas.Add(new(rep.RepresentationId, LocalReplicaId.New(), LocalReplicaLocator.ControlledAbsolute(alternate), DateTimeOffset.UtcNow));
+                }
+            }
             facts.Add(version); facts.Add(rep); return version;
         }
         var b = sourceIds.Select(id => Version(id, "base", null, ("a.txt", "base-a"), ("b.txt", "base-b"))).ToArray();
-        var oursText = failure == "reuse-unavailable" ? "base-a" : "ours-a";
+        var oursText = (failure == "reuse-unavailable" || physical) ? "base-a" : "ours-a";
         var o = b.Select(v => Version(v.SourceId, "ours", v, ("a.txt", oursText), ("b.txt", "base-b"))).ToArray();
         var t = b.Select(v => Version(v.SourceId, "theirs", v, ("a.txt", "base-a"), ("b.txt", "theirs-b"))).ToArray();
         ConfigurationCheckpoint Checkpoint(SourceVersion[] versions, ConfigurationCheckpoint? parent)
@@ -58,7 +84,7 @@ public sealed class HistoryMergeApplyTests
                 parent is null ? [] : [parent.CheckpointId]);
             facts.Add(cp); return cp;
         }
-        var bc = Checkpoint(b, null); var oc = Checkpoint(o, bc); var tc = Checkpoint(t, failure == "ff-unavailable" ? oc : bc);
+        var bc = Checkpoint(b, null); var oc = Checkpoint(o, bc); var tc = Checkpoint(t, (failure is "ff-unavailable" or "physical-ff-missing") ? oc : bc);
         var ours = new BranchUpdate(BranchUpdateId.New(), BranchId.New(), [], "ours", oc.CheckpointId, false, DateTimeOffset.UtcNow, BranchUpdateReason.Created);
         var theirs = new BranchUpdate(BranchUpdateId.New(), BranchId.New(), [], "theirs", tc.CheckpointId, false, DateTimeOffset.UtcNow, BranchUpdateReason.Created);
         facts.AddRange([ours, theirs]); var codec = new HistoryPackCodec();
@@ -67,7 +93,7 @@ public sealed class HistoryMergeApplyTests
         var workspace = new HistoryWorkspace(config, 0, ours.BranchId, ours.UpdateId,
             o.Select(v => new WorkspaceSourceBaseline(v.SourceId, v.VersionId, WorkspaceBaselineRelation.Exact)), oc.CheckpointId);
         await history.WorkspaceStore.SaveAsync(workspace, -1);
-        await history.LocalReplicaCatalogStore.SaveAsync(new(config, 0, []), -1);
+        await history.LocalReplicaCatalogStore.SaveAsync(new(config, 0, originalReplicas), -1);
         var bindings = sourceIds.Select(id => new HistoryRestoreSourceBinding(id, Path.Combine(_root, id.ToString()), EffectiveSourceBoundarySnapshot.All)).ToArray();
         foreach (var binding in bindings)
         {
@@ -76,13 +102,13 @@ public sealed class HistoryMergeApplyTests
             File.WriteAllText(Path.Combine(binding.TargetDirectory, "b.txt"), "base-b");
         }
         var backend = new FailingBackend(failure == "second-source");
-        var restore = new HistoryRestoreService(history, new RepresentationRuntime([handler]),
-            _ => Task.FromResult<IRepresentationEnvironment>(new RepresentationEnvironment([], [], [])), backend);
+        var restore = new HistoryRestoreService(history, new RepresentationRuntime(physical ? [new CoreArchiveRepresentationHandler(new ZipBackend())] : [handler]),
+            async ct => new RepresentationEnvironment((await history.LocalReplicaCatalogStore.LoadAsync(ct)).Value!.Entries, [], []), backend);
         IHistoryMergeProvider provider = failure.StartsWith("provider", StringComparison.Ordinal) ? new ReplacementProvider() : new GenericFileMergeProvider();
         var session = (await new HistoryMergeService(history, restore, provider).StartAsync(theirs.BranchId, "config-1", bindings))!;
         Assert.AreEqual(provider.Descriptor.Identity, session.Plan.ProviderVersion);
         Assert.AreEqual(MergeSessionState.Ready, session.State);
-        Assert.HasCount(failure == "ff-unavailable" ? 4 : 6, history.MergeSessions.ActiveRoots());
+        Assert.HasCount((failure is "ff-unavailable" or "physical-ff-missing") ? 4 : 6, history.MergeSessions.ActiveRoots());
         if (failure.EndsWith("unavailable", StringComparison.Ordinal)) handler.Unavailable.UnionWith(t.Select(v => v.VersionId));
         if (failure is "dirty" or "dirty-protected") File.WriteAllText(Path.Combine(bindings[0].TargetDirectory, "a.txt"), "dirty!");
         if (failure == "stale-session") history.MergeSessions.Update(session, MergeSessionState.Abandoned);
@@ -104,6 +130,19 @@ public sealed class HistoryMergeApplyTests
             Assert.IsTrue(first.NewReplicas.All(r => r.Locator.AbsolutePath.StartsWith(Path.Combine(history.Repository.Paths.RepositoryRoot, "payloads"), StringComparison.OrdinalIgnoreCase)));
             Assert.HasCount(0, (await history.Query.GetAllBranchUpdatesAsync()).Where(u => u.Reason == BranchUpdateReason.Merged).ToArray());
         }
+        if (physical)
+        {
+            foreach (var version in t)
+            {
+                var path = payloads[version.VersionId]; File.Delete(path);
+                if (failure is "physical-reuse-hash" or "physical-reuse-nohash" or "physical-alternate-corrupt")
+                {
+                    var changed = Path.Combine(_root, "changed-" + version.VersionId); Directory.CreateDirectory(changed);
+                    File.WriteAllText(Path.Combine(changed, "a.txt"), "changed"); File.WriteAllText(Path.Combine(changed, "b.txt"), "theirs-b");
+                    ZipFile.CreateFromDirectory(changed, path);
+                }
+            }
+        }
         var applyBuilder = new HistoryMergeCommitBuilder(history, restore, archive, archive);
         HistoryMergeApplyService.CoordinationPlan? coordinated = null;
         PreparedMerge? prepared = null;
@@ -119,6 +158,15 @@ public sealed class HistoryMergeApplyTests
             Assert.IsFalse(coordinated.NeedsProtection);
             if (failure == "scope-drift") File.WriteAllText(Path.Combine(bindings[0].TargetDirectory, "a.txt"), "became-dirty");
         }
+        FileStream? heldCandidate = null;
+        if (failure is "candidate-corrupt" or "candidate-locked")
+        {
+            prepared = await applyBuilder.BuildAsync(session);
+            var path = prepared.NewReplicas[0].Locator.AbsolutePath;
+            if (failure == "candidate-corrupt") File.WriteAllText(path, "corrupted");
+            else heldCandidate = new FileStream(path, FileMode.Open, FileAccess.Write, FileShare.None);
+        }
+        using var candidateGuard = heldCandidate;
         var protection = new InsideProtector(async () =>
         {
             var start = facts.Count;
@@ -153,6 +201,12 @@ public sealed class HistoryMergeApplyTests
             await restore.RecoverIncompleteAsync();
             Assert.AreEqual(MergeSessionState.Committed, history.MergeSessions.Load(session.Id).State);
             Assert.HasCount(1, (await history.Query.GetAllBranchUpdatesAsync()).Where(u => u.Reason == BranchUpdateReason.Merged).ToArray());
+        }
+        else if (failure is "physical-reuse-alternate" or "physical-alternate-corrupt")
+        {
+            Assert.AreEqual(HistoryRestoreStatus.Committed, result.Status, result.Diagnostic);
+            Assert.HasCount(1, (await history.Query.GetAllBranchUpdatesAsync()).Where(u => u.Reason == BranchUpdateReason.Merged));
+            foreach (var binding in bindings) Assert.AreEqual("theirs-b", File.ReadAllText(Path.Combine(binding.TargetDirectory, "b.txt")));
         }
         else if (failure is "success" or "provider" or "zero-write" or "one-write" or "dirty-protected")
         {

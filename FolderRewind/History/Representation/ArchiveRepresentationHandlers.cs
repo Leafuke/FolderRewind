@@ -4,6 +4,8 @@ using System;
 using System.Collections.Generic;
 using System.Collections.Immutable;
 using System.Linq;
+using System.IO;
+using System.Security.Cryptography;
 using System.Threading;
 using System.Threading.Tasks;
 
@@ -68,14 +70,21 @@ public class CoreArchiveRepresentationHandler : IRepresentationHandler
                 return Ready(context.Representation, fidelity, local.ResolvedPath!, ReplicaIntegrityObservation.Unknown, "Local payload exists.");
             }
 
-            var verification = await _backend.VerifyAsync(
-                context.Representation,
-                local.ResolvedPath!,
-                cancellationToken).ConfigureAwait(false);
-            if (verification.Success)
+            try
             {
-                return Ready(context.Representation, fidelity, local.ResolvedPath!, ReplicaIntegrityObservation.Verified, verification.Evidence);
+                if (context.Representation.RepresentationSpecificMetadata.TryGetValue("storageSha256", out var expected))
+                {
+                    await using var input = new FileStream(local.ResolvedPath!, FileMode.Open, FileAccess.Read, FileShare.Read, 65536, true);
+                    var digest = Convert.ToHexString(await SHA256.HashDataAsync(input, cancellationToken).ConfigureAwait(false));
+                    if (!StringComparer.OrdinalIgnoreCase.Equals(expected, digest)) continue;
+                }
+                var verification = await _backend.VerifyAsync(context.Representation, local.ResolvedPath!, cancellationToken).ConfigureAwait(false);
+                if (verification.Success)
+                    return Ready(context.Representation, fidelity, local.ResolvedPath!, ReplicaIntegrityObservation.Verified, verification.Evidence);
             }
+            catch (IOException) { /* A different registered replica may still prove Exact. */ }
+            catch (UnauthorizedAccessException) { }
+
         }
 
         var shared = context.Environment.GetActiveSharedReplicas(context.Representation.RepresentationId)
