@@ -47,6 +47,7 @@ internal static class HistoryMergeInteraction
         void UpdateControls() => controls.ForEach(b => b.IsEnabled = !busy && MergeSessionActions.Allowed((string)b.Tag, session?.State, source is not null));
         string DiagnosticText(HistoryMergeDiagnostic diagnostic) => I18n.GetString("Merge_Diagnostic_" + diagnostic.Code)
             + "\n" + I18n.GetString(diagnostic.NextActionKey)
+            + (string.IsNullOrWhiteSpace(diagnostic.Detail) ? "" : "\n" + diagnostic.Detail)
             + (diagnostic.SourceId is null ? "" : $"\nSource: {diagnostic.SourceId} · Version: {diagnostic.VersionId} · Representation: {diagnostic.RepresentationId}");
         void RefreshSessions()
         {
@@ -71,13 +72,17 @@ internal static class HistoryMergeInteraction
             busy = true; controls.ForEach(b => b.IsEnabled = false); sessions.IsEnabled = false;
             dialog.CloseButtonText = "";
             try { await action(); }
+            catch (OperationCanceledException) when (token.IsCancellationRequested)
+            {
+                status.Text = I18n.GetString("Merge_Cancelled");
+            }
             catch (Exception ex)
             {
-                LogService.LogWarning($"Merge Session {session?.Id}: {ex.Message}", "Merge");
+                LogService.LogError($"Merge config={config.Id} session={session?.Id} revision={session?.Revision}", "Merge", ex);
                 RefreshSessions();
                 if (session is not null) Refresh();
                 status.Text = ex is HistoryMergeBlockedException blocked ? DiagnosticText(blocked.Diagnostic)
-                    : I18n.GetString(ex is OperationCanceledException ? "Merge_Cancelled" : "Merge_Diagnostic_PreparationFailed");
+                    : I18n.GetString("Merge_Diagnostic_PreparationFailed") + "\n" + ex.Message;
             }
             finally { busy = false; UpdateControls(); sessions.IsEnabled = true; dialog.CloseButtonText = I18n.GetString("Merge_Close"); }
         }
@@ -127,7 +132,7 @@ internal static class HistoryMergeInteraction
             if (session is null) return;
             var result = await NativeHistoryApplicationService.ApplyMergeAsync(config, session, token);
             RefreshSessions(); Refresh();
-            status.Text += "\n" + I18n.GetString("Merge_Result_" + result.Status) + (result.MergeDiagnostic is null ? "" : "\n" + DiagnosticText(result.MergeDiagnostic));
+            status.Text += "\n" + I18n.GetString("Merge_Result_" + result.Status) + (result.MergeDiagnostic is null ? "\n" + result.Diagnostic : "\n" + DiagnosticText(result.MergeDiagnostic) + "\n" + result.Diagnostic);
         });
         foreach (var choice in new[] { MergeResolutionChoice.Ours, MergeResolutionChoice.Theirs })
             Button(choices, "Merge_" + choice, () =>

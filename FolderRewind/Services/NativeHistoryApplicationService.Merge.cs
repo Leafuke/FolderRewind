@@ -67,33 +67,42 @@ internal static partial class NativeHistoryApplicationService
         var runtime = await NativeHistoryCoreGateway.EnsureReadyAsync(config, token).ConfigureAwait(false);
         var restore = CreateRestoreService(config, runtime);
         var archives = new SevenZipHistoryArchiveBackend(config);
+        void ReportFailure(string stage, Exception ex) => LogService.LogError(
+            $"Merge config={config.Id} session={session.Id} revision={session.Revision} stage={stage}", "Merge", ex);
         var builder = new HistoryMergeCommitBuilder(runtime, restore, archives, archives,
             (version, staging, cancellation) => CaptureMergeMetadataAsync(config, version, staging, cancellation));
         var apply = new HistoryMergeApplyService(runtime, restore, builder,
             new SafetySnapshotWorkingStateProtector(config, runtime, SafetySnapshotReason.BeforeMerge),
             async cancellation => (NativeHistoryConfigLease.Signature(config),
-                await BindingsAsync(config, config.SourceFolders, cancellation).ConfigureAwait(false)));
+                await BindingsAsync(config, config.SourceFolders, cancellation).ConfigureAwait(false)), reportFailure: ReportFailure);
         PreparedMerge prepared;
         HistoryMergeApplyService.CoordinationPlan scope;
+        var stage = "recover";
         try
         {
             await restore.RecoverIncompleteAsync(token).ConfigureAwait(false);
+            stage = "build-result";
             prepared = await builder.BuildAsync(session, token).ConfigureAwait(false);
+            stage = "payload-validation";
             using var validation = await builder.ValidateAndLockAsync(prepared, token).ConfigureAwait(false);
+            stage = "coordination";
             scope = await apply.PlanCoordinationAsync(prepared, session.ProtectedWorkspace ?? session.Plan.ExpectedWorkspace,
                 session.Plan.Bindings, token).ConfigureAwait(false);
         }
+        catch (OperationCanceledException) when (token.IsCancellationRequested) { throw; }
         catch (Exception ex)
         {
+            stage = ex.Data["MergeStage"] as string ?? stage;
+            ReportFailure(stage, ex);
             var diagnostic = (ex as HistoryMergeBlockedException)?.Diagnostic
-                ?? new HistoryMergeDiagnostic(MergeDiagnosticCode.PreparationFailed, Detail: ex.Message);
+                ?? new HistoryMergeDiagnostic(MergeDiagnosticCode.PreparationFailed, Detail: $"{stage}: {ex.Message}");
             return new(diagnostic.Code == MergeDiagnosticCode.PreparationRequired ? HistoryRestoreStatus.PreparationRequired
                 : HistoryRestoreStatus.BlockedBeforeMutation, ex.Message, false, [], MergeDiagnostic: diagnostic);
         }
         async Task<HistoryRestoreResult> ExecuteAsync(CancellationToken ct)
         {
                 var result = await apply.ApplyAsync(session, ct, prepared, scope).ConfigureAwait(false);
-                return await MergePostActions.CompleteAsync(result,
+                var completed = await MergePostActions.CompleteAsync(result,
                     ct => BackupService.SynchronizeCaptureBaselinesWithWorkspaceAsync(config, prepared.Sources.Select(s => s.Version.SourceId).ToArray(), ct),
                     async ct =>
                     {
@@ -108,7 +117,10 @@ internal static partial class NativeHistoryApplicationService
                             catch (Exception ex) { failures.Add(ex); }
                         }
                         if (failures.Count > 0) throw new AggregateException(failures);
-                    }).ConfigureAwait(false);
+                    }, ReportFailure).ConfigureAwait(false);
+                if (!string.IsNullOrWhiteSpace(completed.Diagnostic) && completed.Status != HistoryRestoreStatus.Committed)
+                    LogService.LogWarning($"Merge config={config.Id} session={session.Id} revision={session.Revision} status={completed.Status}: {completed.Diagnostic}", "Merge");
+                return completed;
         }
         if (scope.Writes.Count == 0) return await ExecuteAsync(token).ConfigureAwait(false);
         var affected = config.SourceFolders.Where(f => scope.NeedsProtection || scope.Writes.ContainsKey(Source(f))).ToArray();

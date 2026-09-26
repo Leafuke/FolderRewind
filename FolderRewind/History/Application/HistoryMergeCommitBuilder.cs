@@ -69,139 +69,153 @@ public sealed class HistoryMergeCommitBuilder(HistoryRuntime history, HistoryRes
 
     public async Task<PreparedMerge> BuildAsync(MergeSession session, CancellationToken token = default)
     {
-        if (session.State != MergeSessionState.Ready) throw new InvalidOperationException("Merge Session has unresolved conflicts.");
-        if (history.MergeSessions.LoadPrepared(session) is { } stored) return stored.Restore(session);
-        var service = new HistoryMergeService(history, restore);
-        var sources = history.MergeSessions.Sources(session);
-        if (history.MergeSessions.SourceCount(session) != session.Plan.Sources.Length) throw new InvalidDataException("Merge preparation is incomplete.");
-        var root = Path.Combine(history.MergeSessions.SessionDirectory(session.Id), "results", Guid.NewGuid().ToString("N"));
-        history.MergeSessions.RegisterArtifact(session, root);
-        Directory.CreateDirectory(root);
-        var facts = new List<object>(); var replicas = new List<LocalReplicaCatalogEntry>(); var prepared = new List<PreparedMergeSource>();
-        var roster = new List<CheckpointSource>();
-        foreach (var source in sources)
+        var stage = "load-prepared";
+        try
         {
-            token.ThrowIfCancellationRequested();
-            var plan = source.Plan; var tree = source.Automatic; CheckpointSource? selected = null;
-            if (plan.Action == HistoryMergeSourceAction.Remove) continue;
-            if (plan.Action == HistoryMergeSourceAction.Reuse)
-                selected = plan.Ours?.VersionId == plan.ReuseVersionId ? plan.Ours : plan.Theirs;
-            else if (plan.Action != HistoryMergeSourceAction.MergeFiles)
+            if (session.State != MergeSessionState.Ready) throw new InvalidOperationException("Merge Session has unresolved conflicts.");
+            if (history.MergeSessions.LoadPrepared(session) is { } stored) return stored.Restore(session);
+            var service = new HistoryMergeService(history, restore);
+            stage = "assemble-result";
+            var sources = history.MergeSessions.Sources(session);
+            if (history.MergeSessions.SourceCount(session) != session.Plan.Sources.Length) throw new InvalidDataException("Merge preparation is incomplete.");
+            var root = Path.Combine(history.MergeSessions.SessionDirectory(session.Id), "results", Guid.NewGuid().ToString("N"));
+            history.MergeSessions.RegisterArtifact(session, root);
+            Directory.CreateDirectory(root);
+            var facts = new List<object>(); var replicas = new List<LocalReplicaCatalogEntry>(); var prepared = new List<PreparedMergeSource>();
+            var roster = new List<CheckpointSource>();
+            foreach (var source in sources)
             {
-                var resolution = service.AllConflicts(session, plan.SourceId).Single().Resolution ?? throw new InvalidOperationException("Source conflict is unresolved.");
-                selected = resolution.Choice == MergeResolutionChoice.Ours ? plan.Ours
-                    : resolution.Choice == MergeResolutionChoice.Theirs ? plan.Theirs : throw new InvalidOperationException("Manual Source creation is not supported.");
-                if (selected is null) continue;
-                tree = resolution.Choice == MergeResolutionChoice.Ours ? source.Ours : source.Theirs;
-            }
-            else
-            {
-                var files = tree.Files.ToBuilder();
-                foreach (var (conflict, resolution) in service.AllConflicts(session, plan.SourceId))
+                token.ThrowIfCancellationRequested();
+                var plan = source.Plan; var tree = source.Automatic; CheckpointSource? selected = null;
+                if (plan.Action == HistoryMergeSourceAction.Remove) continue;
+                if (plan.Action == HistoryMergeSourceAction.Reuse)
+                    selected = plan.Ours?.VersionId == plan.ReuseVersionId ? plan.Ours : plan.Theirs;
+                else if (plan.Action != HistoryMergeSourceAction.MergeFiles)
                 {
-                    if (resolution is null || resolution.PlanRevision != session.Plan.Revision || resolution.InputSignature != conflict.InputSignature)
-                        throw new InvalidOperationException("Conflict resolution is missing or stale.");
-                    foreach (var path in conflict.Subject.Paths) files.Remove(path);
-                    if (resolution.Choice == MergeResolutionChoice.Manual)
+                    var resolution = service.AllConflicts(session, plan.SourceId).Single().Resolution ?? throw new InvalidOperationException("Source conflict is unresolved.");
+                    selected = resolution.Choice == MergeResolutionChoice.Ours ? plan.Ours
+                        : resolution.Choice == MergeResolutionChoice.Theirs ? plan.Theirs : throw new InvalidOperationException("Manual Source creation is not supported.");
+                    if (selected is null) continue;
+                    tree = resolution.Choice == MergeResolutionChoice.Ours ? source.Ours : source.Theirs;
+                }
+                else
+                {
+                    var files = tree.Files.ToBuilder();
+                    foreach (var (conflict, resolution) in service.AllConflicts(session, plan.SourceId))
                     {
-                        if (conflict.Subject.Paths.Length != 1 || resolution.Manual is null || conflict.Kind == MergeConflictKind.PathStructure)
-                            throw new InvalidOperationException("Invalid manual file resolution.");
-                        files.Add(conflict.Subject.Paths[0], resolution.Manual);
+                        if (resolution is null || resolution.PlanRevision != session.Plan.Revision || resolution.InputSignature != conflict.InputSignature)
+                            throw new InvalidOperationException("Conflict resolution is missing or stale.");
+                        foreach (var path in conflict.Subject.Paths) files.Remove(path);
+                        if (resolution.Choice == MergeResolutionChoice.Manual)
+                        {
+                            if (conflict.Subject.Paths.Length != 1 || resolution.Manual is null || conflict.Kind == MergeConflictKind.PathStructure)
+                                throw new InvalidOperationException("Invalid manual file resolution.");
+                            files.Add(conflict.Subject.Paths[0], resolution.Manual);
+                        }
+                        else foreach (var pair in resolution.Choice == MergeResolutionChoice.Ours ? conflict.Ours : conflict.Theirs) files.Add(pair.Key, pair.Value);
                     }
-                    else foreach (var pair in resolution.Choice == MergeResolutionChoice.Ours ? conflict.Ours : conflict.Theirs) files.Add(pair.Key, pair.Value);
+                    tree = MergeTreeManifest.Create(files);
+                    if (tree.Digest == source.Ours.Digest) selected = plan.Ours;
+                    else if (tree.Digest == source.Theirs.Digest) selected = plan.Theirs;
                 }
-                tree = MergeTreeManifest.Create(files);
-                if (tree.Digest == source.Ours.Digest) selected = plan.Ours;
-                else if (tree.Digest == source.Theirs.Digest) selected = plan.Theirs;
-            }
-            if (GenericFileMergeProvider.StructuralGroups(tree.Files.Keys).Count != 0) throw new InvalidOperationException("Resolved tree contains path conflicts.");
-            var descriptor = selected ?? plan.Ours ?? plan.Theirs ?? throw new InvalidOperationException("Merge cannot create a Source without parents.");
-            var staging = Path.Combine(root, plan.SourceId.ToString()); Directory.CreateDirectory(staging);
-            var include = FileSystemHistoryRestoreMutationBackend.CreateBoundaryMatcher(new(plan.SourceId, staging, descriptor.EffectiveSourceBoundary));
-            foreach (var pair in tree.Files)
-            {
-                if (!include(pair.Key)) throw new InvalidOperationException("Merge proposal escapes its boundary.");
-                var handle = Path.GetFullPath(pair.Value.Handle);
-                var ownedRoot = Path.GetFullPath(history.MergeSessions.SessionDirectory(session.Id)) + Path.DirectorySeparatorChar;
-                if (!handle.StartsWith(ownedRoot, StringComparison.OrdinalIgnoreCase)) throw new InvalidDataException("Merge content handle is not Session-owned.");
-                for (var entry = handle; entry.Length >= ownedRoot.TrimEnd(Path.DirectorySeparatorChar).Length; entry = Path.GetDirectoryName(entry)!)
+                if (GenericFileMergeProvider.StructuralGroups(tree.Files.Keys).Count != 0) throw new InvalidOperationException("Resolved tree contains path conflicts.");
+                var descriptor = selected ?? plan.Ours ?? plan.Theirs ?? throw new InvalidOperationException("Merge cannot create a Source without parents.");
+                var staging = Path.Combine(root, plan.SourceId.ToString()); Directory.CreateDirectory(staging);
+                var include = FileSystemHistoryRestoreMutationBackend.CreateBoundaryMatcher(new(plan.SourceId, staging, descriptor.EffectiveSourceBoundary));
+                foreach (var pair in tree.Files)
                 {
-                    if ((File.GetAttributes(entry) & FileAttributes.ReparsePoint) != 0) throw new InvalidDataException("Merge handle traverses a link.");
-                    if (entry.Equals(ownedRoot.TrimEnd(Path.DirectorySeparatorChar), StringComparison.OrdinalIgnoreCase)) break;
+                    if (!include(pair.Key)) throw new InvalidOperationException("Merge proposal escapes its boundary.");
+                    var handle = Path.GetFullPath(pair.Value.Handle);
+                    var ownedRoot = Path.GetFullPath(history.MergeSessions.SessionDirectory(session.Id)) + Path.DirectorySeparatorChar;
+                    if (!handle.StartsWith(ownedRoot, StringComparison.OrdinalIgnoreCase)) throw new InvalidDataException("Merge content handle is not Session-owned.");
+                    for (var entry = handle; entry.Length >= ownedRoot.TrimEnd(Path.DirectorySeparatorChar).Length; entry = Path.GetDirectoryName(entry)!)
+                    {
+                        if ((File.GetAttributes(entry) & FileAttributes.ReparsePoint) != 0) throw new InvalidDataException("Merge handle traverses a link.");
+                        if (entry.Equals(ownedRoot.TrimEnd(Path.DirectorySeparatorChar), StringComparison.OrdinalIgnoreCase)) break;
+                    }
+                    var output = Plugin.Runtime.Artifacts.ArtifactPathRules.ResolveUnderRoot(staging, pair.Key);
+                    Directory.CreateDirectory(Path.GetDirectoryName(output)!); File.Copy(handle, output, overwrite: false);
                 }
-                var output = Plugin.Runtime.Artifacts.ArtifactPathRules.ResolveUnderRoot(staging, pair.Key);
-                Directory.CreateDirectory(Path.GetDirectoryName(output)!); File.Copy(handle, output, overwrite: false);
+                var actual = await MergeTreeManifest.ReadAsync(staging, include, token).ConfigureAwait(false);
+                if (actual.Digest != tree.Digest) throw new InvalidDataException("Merge content changed after analysis.");
+                SourceVersion version;
+                if (selected?.VersionId is { } existingId)
+                    version = await history.Query.GetVersionAsync(existingId, token).ConfigureAwait(false) ?? throw new InvalidDataException("Selected Version disappeared.");
+                else
+                {
+                    version = new(VersionId.New(), history.ConfigId, plan.SourceId,
+                        new[] { plan.Ours?.VersionId, plan.Theirs?.VersionId }.OfType<VersionId>().Distinct(), DateTimeOffset.UtcNow, null,
+                        CaptureScope.FullSource, CaptureOutcome.Captured, [], descriptor.SourceDescriptorSnapshot, tree.Digest,
+                        HistoryProvenance.Native("branch-merge"), descriptor.EffectiveSourceBoundary, SourceVersionCreationKind.Merge);
+                    var representationId = RepresentationId.New();
+                    var output = Path.Combine(history.Repository.Paths.RepositoryRoot, "payloads", representationId.ToString());
+                    history.MergeSessions.RegisterArtifact(session, output);
+                    stage = "archive-create";
+                    var payload = await archives.CreateFullAsync(version, staging, representationId, output, token).ConfigureAwait(false);
+                    var fullPayload = Path.GetFullPath(payload.PayloadPath);
+                    if (!fullPayload.StartsWith(Path.GetFullPath(output) + Path.DirectorySeparatorChar, StringComparison.OrdinalIgnoreCase)
+                        || (File.GetAttributes(fullPayload) & FileAttributes.ReparsePoint) != 0)
+                        throw new InvalidDataException("Merge archive escapes its owned payload directory.");
+                    using (var seal = new FileStream(fullPayload, FileMode.Open, FileAccess.ReadWrite, FileShare.Read)) seal.Flush(true);
+                    await using var payloadStream = File.OpenRead(payload.PayloadPath);
+                    var storageHash = Convert.ToHexString(await SHA256.HashDataAsync(payloadStream, token).ConfigureAwait(false));
+                    var representation = new VersionRepresentation(representationId, version.VersionId, RepresentationKind.CoreFull,
+                        payload.Format, [], MaterializationFidelity.Exact, tree.Digest, tree.Digest,
+                        payload.Metadata.SetItem("fileName", Path.GetFileName(payload.PayloadPath)).SetItem("storageSha256", storageHash)
+                            .SetItem("storageLength", payloadStream.Length.ToString(System.Globalization.CultureInfo.InvariantCulture)));
+                    stage = "archive-verify";
+                    var verification = await archives.DeepVerifyAsync(representation, payload.PayloadPath, token).ConfigureAwait(false);
+                    if (!verification.Success) throw new InvalidDataException("Merge archive verification failed: " + verification.Diagnostic);
+                    var verifyRoot = Path.Combine(root, "verify-" + representationId);
+                    try
+                    {
+                        stage = "archive-roundtrip";
+                    await materializer.MaterializeAsync([new(representation, payload.PayloadPath)], verifyRoot, token).ConfigureAwait(false);
+                        if ((await MergeTreeManifest.ReadAsync(verifyRoot, _ => true, token).ConfigureAwait(false)).Digest != tree.Digest)
+                            throw new InvalidDataException("Merge archive round-trip changed its logical state.");
+                    }
+                    finally { HistoryRestoreTransactionJournalStore.CleanupStaging([verifyRoot]); }
+                    facts.Add(version); facts.Add(representation);
+                    if (metadata is not null) facts.AddRange(await metadata(version, staging, token).ConfigureAwait(false));
+                    replicas.Add(new(representationId, LocalReplicaId.New(), LocalReplicaLocator.ControlledAbsolute(payload.PayloadPath), DateTimeOffset.UtcNow));
+                }
+                roster.Add(new(plan.SourceId, descriptor.SourceDescriptorSnapshot, version.VersionId, CheckpointSourceDisposition.CarriedForward, version.EffectiveSourceBoundary));
+                prepared.Add(new(version, staging, tree.Digest));
             }
-            var actual = await MergeTreeManifest.ReadAsync(staging, include, token).ConfigureAwait(false);
-            if (actual.Digest != tree.Digest) throw new InvalidDataException("Merge content changed after analysis.");
-            SourceVersion version;
-            if (selected?.VersionId is { } existingId)
-                version = await history.Query.GetVersionAsync(existingId, token).ConfigureAwait(false) ?? throw new InvalidDataException("Selected Version disappeared.");
+            ConfigurationCheckpoint checkpoint;
+            if (session.Plan.Mode == HistoryMergeMode.FastForwardLike)
+                checkpoint = await history.Query.GetCheckpointAsync(session.Plan.Theirs.TargetCheckpointId!.Value, token).ConfigureAwait(false) ?? throw new InvalidDataException("Fast-forward checkpoint is missing.");
             else
             {
-                version = new(VersionId.New(), history.ConfigId, plan.SourceId,
-                    new[] { plan.Ours?.VersionId, plan.Theirs?.VersionId }.OfType<VersionId>().Distinct(), DateTimeOffset.UtcNow, null,
-                    CaptureScope.FullSource, CaptureOutcome.Captured, [], descriptor.SourceDescriptorSnapshot, tree.Digest,
-                    HistoryProvenance.Native("branch-merge"), descriptor.EffectiveSourceBoundary, SourceVersionCreationKind.Merge);
-                var representationId = RepresentationId.New();
-                var output = Path.Combine(history.Repository.Paths.RepositoryRoot, "payloads", representationId.ToString());
-                history.MergeSessions.RegisterArtifact(session, output);
-                var payload = await archives.CreateFullAsync(version, staging, representationId, output, token).ConfigureAwait(false);
-                var fullPayload = Path.GetFullPath(payload.PayloadPath);
-                if (!fullPayload.StartsWith(Path.GetFullPath(output) + Path.DirectorySeparatorChar, StringComparison.OrdinalIgnoreCase)
-                    || (File.GetAttributes(fullPayload) & FileAttributes.ReparsePoint) != 0)
-                    throw new InvalidDataException("Merge archive escapes its owned payload directory.");
-                using (var seal = new FileStream(fullPayload, FileMode.Open, FileAccess.ReadWrite, FileShare.Read)) seal.Flush(true);
-                await using var payloadStream = File.OpenRead(payload.PayloadPath);
-                var storageHash = Convert.ToHexString(await SHA256.HashDataAsync(payloadStream, token).ConfigureAwait(false));
-                var representation = new VersionRepresentation(representationId, version.VersionId, RepresentationKind.CoreFull,
-                    payload.Format, [], MaterializationFidelity.Exact, tree.Digest, tree.Digest,
-                    payload.Metadata.SetItem("fileName", Path.GetFileName(payload.PayloadPath)).SetItem("storageSha256", storageHash)
-                        .SetItem("storageLength", payloadStream.Length.ToString(System.Globalization.CultureInfo.InvariantCulture)));
-                var verification = await archives.DeepVerifyAsync(representation, payload.PayloadPath, token).ConfigureAwait(false);
-                if (!verification.Success) throw new InvalidDataException("Merge archive verification failed.");
-                var verifyRoot = Path.Combine(root, "verify-" + representationId);
-                try
-                {
-                    await materializer.MaterializeAsync([new(representation, payload.PayloadPath)], verifyRoot, token).ConfigureAwait(false);
-                    if ((await MergeTreeManifest.ReadAsync(verifyRoot, _ => true, token).ConfigureAwait(false)).Digest != tree.Digest)
-                        throw new InvalidDataException("Merge archive round-trip changed its logical state.");
-                }
-                finally { HistoryRestoreTransactionJournalStore.CleanupStaging([verifyRoot]); }
-                facts.Add(version); facts.Add(representation);
-                if (metadata is not null) facts.AddRange(await metadata(version, staging, token).ConfigureAwait(false));
-                replicas.Add(new(representationId, LocalReplicaId.New(), LocalReplicaLocator.ControlledAbsolute(payload.PayloadPath), DateTimeOffset.UtcNow));
+                checkpoint = new(CheckpointId.New(), history.ConfigId, DateTimeOffset.UtcNow, null, HistoryProvenance.Native("branch-merge"), roster,
+                    [session.Plan.Ours.TargetCheckpointId!.Value, session.Plan.Theirs.TargetCheckpointId!.Value], CheckpointCreationKind.Merge);
+                facts.Add(checkpoint);
             }
-            roster.Add(new(plan.SourceId, descriptor.SourceDescriptorSnapshot, version.VersionId, CheckpointSourceDisposition.CarriedForward, version.EffectiveSourceBoundary));
-            prepared.Add(new(version, staging, tree.Digest));
+            using var resolutionHash = IncrementalHash.CreateHash(HashAlgorithmName.SHA256);
+            bool firstResolution = true;
+            foreach (var c in service.AllConflicts(session))
+            {
+                if (!firstResolution) resolutionHash.AppendData([(byte)'\n']);
+                firstResolution = false;
+                resolutionHash.AppendData(Encoding.UTF8.GetBytes($"{c.Conflict.InputSignature}:{c.Resolution?.Choice}:{c.Resolution?.Manual?.Digest}"));
+            }
+            var resolutionDigest = Convert.ToHexString(resolutionHash.GetHashAndReset());
+            var provenance = new BranchMergeProvenance(session.Plan.Mode == HistoryMergeMode.FastForwardLike ? BranchMergeMode.FastForwardLike : BranchMergeMode.ThreeWay,
+                session.Plan.Ours.BranchId, session.Plan.Theirs.BranchId, session.Plan.Ours.UpdateId, session.Plan.Theirs.UpdateId,
+                session.Plan.Ours.TargetCheckpointId!.Value, session.Plan.Theirs.TargetCheckpointId!.Value, session.Plan.BaseCheckpointId,
+                session.Plan.ProviderVersion, session.Plan.PolicyVersion, resolutionDigest);
+            var update = new BranchUpdate(BranchUpdateId.New(), session.Plan.Ours.BranchId,
+                new[] { session.Plan.Ours.UpdateId, session.Plan.Theirs.UpdateId }, session.Plan.Ours.Name, checkpoint.CheckpointId,
+                false, DateTimeOffset.UtcNow, BranchUpdateReason.Merged, provenance);
+            facts.Add(update);
+            var result = new PreparedMerge(session, prepared.ToImmutableArray(), facts.ToImmutableArray(), checkpoint, update, replicas.ToImmutableArray(), PackId.New(), HistoryTransactionId.New());
+            stage = "persist-prepared";
+            return history.MergeSessions.SavePrepared(session, result).Restore(session);
         }
-        ConfigurationCheckpoint checkpoint;
-        if (session.Plan.Mode == HistoryMergeMode.FastForwardLike)
-            checkpoint = await history.Query.GetCheckpointAsync(session.Plan.Theirs.TargetCheckpointId!.Value, token).ConfigureAwait(false) ?? throw new InvalidDataException("Fast-forward checkpoint is missing.");
-        else
+        catch (Exception ex)
         {
-            checkpoint = new(CheckpointId.New(), history.ConfigId, DateTimeOffset.UtcNow, null, HistoryProvenance.Native("branch-merge"), roster,
-                [session.Plan.Ours.TargetCheckpointId!.Value, session.Plan.Theirs.TargetCheckpointId!.Value], CheckpointCreationKind.Merge);
-            facts.Add(checkpoint);
+            ex.Data["MergeStage"] = stage;
+            throw;
         }
-        using var resolutionHash = IncrementalHash.CreateHash(HashAlgorithmName.SHA256);
-        bool firstResolution = true;
-        foreach (var c in service.AllConflicts(session))
-        {
-            if (!firstResolution) resolutionHash.AppendData([(byte)'\n']);
-            firstResolution = false;
-            resolutionHash.AppendData(Encoding.UTF8.GetBytes($"{c.Conflict.InputSignature}:{c.Resolution?.Choice}:{c.Resolution?.Manual?.Digest}"));
-        }
-        var resolutionDigest = Convert.ToHexString(resolutionHash.GetHashAndReset());
-        var provenance = new BranchMergeProvenance(session.Plan.Mode == HistoryMergeMode.FastForwardLike ? BranchMergeMode.FastForwardLike : BranchMergeMode.ThreeWay,
-            session.Plan.Ours.BranchId, session.Plan.Theirs.BranchId, session.Plan.Ours.UpdateId, session.Plan.Theirs.UpdateId,
-            session.Plan.Ours.TargetCheckpointId!.Value, session.Plan.Theirs.TargetCheckpointId!.Value, session.Plan.BaseCheckpointId,
-            session.Plan.ProviderVersion, session.Plan.PolicyVersion, resolutionDigest);
-        var update = new BranchUpdate(BranchUpdateId.New(), session.Plan.Ours.BranchId,
-            new[] { session.Plan.Ours.UpdateId, session.Plan.Theirs.UpdateId }, session.Plan.Ours.Name, checkpoint.CheckpointId,
-            false, DateTimeOffset.UtcNow, BranchUpdateReason.Merged, provenance);
-        facts.Add(update);
-        var result = new PreparedMerge(session, prepared.ToImmutableArray(), facts.ToImmutableArray(), checkpoint, update, replicas.ToImmutableArray(), PackId.New(), HistoryTransactionId.New());
-        return history.MergeSessions.SavePrepared(session, result).Restore(session);
     }
 }

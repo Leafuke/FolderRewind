@@ -15,6 +15,7 @@ public sealed class HistoryMergeTests
     public async Task CachePostActionFailurePreservesCommittedFacts(bool invalidationFails)
     {
         var source = SourceId.New(); var invalidated = false;
+        var failures = new List<(string Stage, Exception Error)>();
         var original = new HistoryRestoreResult(HistoryRestoreStatus.Committed, "", true, [source]);
         var result = await MergePostActions.CompleteAsync(original, token =>
         {
@@ -24,7 +25,12 @@ public sealed class HistoryMergeTests
             Assert.IsFalse(token.CanBeCanceled); invalidated = true;
             if (invalidationFails) throw new IOException("cache inaccessible");
             return Task.CompletedTask;
-        });
+        }, (stage, error) => failures.Add((stage, error)));
+        Assert.HasCount(invalidationFails ? 2 : 1, failures);
+        Assert.AreEqual("capture-cache-synchronize", failures[0].Stage);
+        Assert.IsInstanceOfType<OperationCanceledException>(failures[0].Error);
+        Assert.IsNotNull(failures[0].Error.StackTrace);
+        if (invalidationFails) Assert.AreEqual("capture-cache-invalidate", failures[1].Stage);
         Assert.IsTrue(invalidated); Assert.IsTrue(result.TargetCommitted); Assert.IsTrue(result.WorkspaceUpdated);
         CollectionAssert.AreEqual(original.AppliedSources.ToArray(), result.AppliedSources.ToArray());
         Assert.AreEqual(HistoryRestoreStatus.CommittedWithPostActionWarning, result.Status);

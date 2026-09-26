@@ -15,7 +15,7 @@ namespace FolderRewind.History.Application;
 public sealed class HistoryMergeApplyService(HistoryRuntime history, HistoryRestoreService restore,
     HistoryMergeCommitBuilder builder, IHistoryWorkingStateProtector? protector = null,
     Func<CancellationToken, Task<(string Revision, IReadOnlyList<HistoryRestoreSourceBinding> Bindings)>>? reload = null,
-    MergeProviderDescriptor? provider = null)
+    MergeProviderDescriptor? provider = null, Action<string, Exception>? reportFailure = null)
 {
     public sealed record CoordinationPlan(IReadOnlyDictionary<SourceId, string> Writes, bool NeedsProtection);
 
@@ -45,9 +45,11 @@ public sealed class HistoryMergeApplyService(HistoryRuntime history, HistoryRest
         PreparedMerge? prepared = null;
         HistoryRestoreResult? mutationResult = null;
         var session = expected;
+        var stage = "recover";
         try
         {
             await restore.RecoverIncompleteAsync(token).ConfigureAwait(false);
+            stage = "session-validation";
             var stored = history.MergeSessions.Load(session.Id);
             var selectedProvider = provider ?? MergeProviderDescriptor.Generic;
             if (session.Plan.ProviderVersion != selectedProvider.Identity || session.Plan.PolicyVersion != selectedProvider.PolicyIdentity)
@@ -60,10 +62,12 @@ public sealed class HistoryMergeApplyService(HistoryRuntime history, HistoryRest
                 throw new InvalidOperationException("Merge Session is not ready at the expected revision.");
             var workspace = session.ProtectedWorkspace ?? session.Plan.ExpectedWorkspace;
             await restore.RequireExpectedWorkspaceAsync(workspace, token).ConfigureAwait(false);
+            stage = "build-result";
             prepared = ready ?? await builder.BuildAsync(session, token).ConfigureAwait(false);
             var persisted = history.MergeSessions.LoadPrepared(session)?.Restore(session);
             if (persisted is null || persisted.PackId != prepared.PackId || persisted.TransactionId != prepared.TransactionId)
                 throw new HistoryMergeBlockedException(new(MergeDiagnosticCode.Stale));
+            stage = "coordination";
             coordinated ??= await PlanCoordinationAsync(prepared, workspace, session.Plan.Bindings, token).ConfigureAwait(false);
             await using var operation = await NativeHistoryConfigurationOperationGate.EnterHistoryAsync(history.ConfigId, token).ConfigureAwait(false);
             await restore.RecoverInsideConfigurationAsync(operation, token).ConfigureAwait(false);
@@ -83,6 +87,7 @@ public sealed class HistoryMergeApplyService(HistoryRuntime history, HistoryRest
                 session = history.MergeSessions.RecordProtection(session, protectedWorkspace);
                 workspace = protectedWorkspace;
             }
+            stage = "final-guard";
             await using var guard = await restore.EnterFinalGuardAsync(token, operation).ConfigureAwait(false);
             await using var lease = await history.MutationGate.EnterAsync(token).ConfigureAwait(false);
             await restore.RequireExpectedWorkspaceAsync(workspace, token).ConfigureAwait(false);
@@ -106,6 +111,7 @@ public sealed class HistoryMergeApplyService(HistoryRuntime history, HistoryRest
                 || finalScope.Writes.Any(pair => !scope.Writes.TryGetValue(pair.Key, out var digest) || digest != pair.Value))
                 throw new HistoryMergeBlockedException(new(MergeDiagnosticCode.CoordinationScopeChanged));
             ValidateMapping(prepared, current.Item2);
+            stage = "payload-validation";
             using var payloadLocks = await builder.ValidateAndLockAsync(prepared, token).ConfigureAwait(false);
             foreach (var source in prepared.Sources)
                 if ((await MergeTreeManifest.ReadAsync(source.StagingDirectory, _ => true, token).ConfigureAwait(false)).Digest != source.TreeDigest)
@@ -126,11 +132,13 @@ public sealed class HistoryMergeApplyService(HistoryRuntime history, HistoryRest
                 workspace.SourceBaselines.Where(b => !restored.Contains(b.SourceId)).Concat(prepared.Sources.Select(s =>
                     new WorkspaceSourceBaseline(s.Version.SourceId, s.Version.VersionId, WorkspaceBaselineRelation.Exact))),
                 prepared.Checkpoint.CheckpointId);
+            stage = "commit";
             session = history.MergeSessions.Update(session, MergeSessionState.Applying, pack.TransactionId, pack.PackId);
             var result = mutationResult = await restore.ExecuteMutationAsync(prepared.Sources.Where(s => scope.Writes.ContainsKey(s.Version.SourceId)).Select(s =>
                 new HistoryRestoreService.PreparedRestoreSource(current.Item2.Single(b => b.SourceId == s.Version.SourceId),
                     s.Version, MaterializationFidelity.Exact, HistoryRestoreApplyMode.Clean, s.StagingDirectory, scope.Writes[s.Version.SourceId], s.TreeDigest)).ToArray(),
                 workspace, desired, token, pack, desiredCatalog, catalog.CatalogRevision).ConfigureAwait(false);
+            stage = "post-commit";
             if (result.TargetCommitted && result.Status != HistoryRestoreStatus.CommittedRecoveryRequired)
             {
                 history.MergeSessions.Update(session, MergeSessionState.Committed);
@@ -142,8 +150,13 @@ public sealed class HistoryMergeApplyService(HistoryRuntime history, HistoryRest
                 history.MergeSessions.Update(session, MergeSessionState.Ready);
             return result;
         }
+        catch (OperationCanceledException) when (token.IsCancellationRequested && session.State != MergeSessionState.Applying && mutationResult is null)
+        {
+            throw;
+        }
         catch (Exception ex)
         {
+            reportFailure?.Invoke(ex.Data["MergeStage"] as string ?? stage, ex);
             if (mutationResult?.TargetCommitted == true)
                 return mutationResult with { Status = HistoryRestoreStatus.CommittedRecoveryRequired,
                     Diagnostic = $"Merge committed; Session completion requires recovery: {ex.Message}", MergeDiagnostic = new(MergeDiagnosticCode.RecoveryRequired) };
@@ -169,7 +182,7 @@ public sealed class HistoryMergeApplyService(HistoryRuntime history, HistoryRest
             }
             // 已发布准备结果由 Session 拥有；阻断/取消后仍可显式重试。
             var diagnostic = (ex as HistoryMergeBlockedException)?.Diagnostic
-                ?? new HistoryMergeDiagnostic(MergeDiagnosticCode.PreparationFailed, Detail: ex.Message);
+                ?? new HistoryMergeDiagnostic(MergeDiagnosticCode.PreparationFailed, Detail: $"{ex.Data["MergeStage"] as string ?? stage}: {ex.Message}");
             return new(diagnostic.Code == MergeDiagnosticCode.PreparationRequired ? HistoryRestoreStatus.PreparationRequired
                 : HistoryRestoreStatus.BlockedBeforeMutation, ex.Message, false, [], MergeDiagnostic: diagnostic);
         }
