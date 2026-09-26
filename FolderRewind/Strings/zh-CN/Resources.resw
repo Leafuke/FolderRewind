@@ -5212,7 +5212,7 @@ Pull Request：{1}</value>
   <data name="HistoryPage_BranchMergeItem.Text" xml:space="preserve"><value>合并分支…</value></data>
   <data name="Merge_Title" xml:space="preserve"><value>分支合并</value></data>
   <data name="Merge_Sessions" xml:space="preserve"><value>已保存的合并会话</value></data>
-  <data name="Merge_Explanation" xml:space="preserve"><value>将所选来源分支合入当前活动分支。先创建或选择会话，审查冲突后应用；当前工作有改动时会先创建保护快照。来源分支不移动。关闭窗口会保留会话。</value></data>
+  <data name="Merge_Explanation" xml:space="preserve"><value>将所选来源分支合入当前活动分支。先创建或选择会话，审查冲突后应用；当前工作有改动时会先创建保护快照。来源分支不移动。关闭窗口会保留会话。 准备所需副本只处理输入副本，应用时还会生成并验证合并结果。</value></data>
   <data name="Merge_New" xml:space="preserve"><value>创建会话</value></data>
   <data name="Merge_Recompute" xml:space="preserve"><value>重新计算</value></data>
   <data name="Merge_Resume" xml:space="preserve"><value>继续 / 恢复</value></data>
@@ -5234,7 +5234,7 @@ Pull Request：{1}</value>
   <data name="Merge_PreviewTheirs" xml:space="preserve"><value>预览来源</value></data>
   <data name="Merge_State_Preparing" xml:space="preserve"><value>准备输入</value></data>
   <data name="Merge_State_Resolving" xml:space="preserve"><value>等待解决冲突</value></data>
-  <data name="Merge_State_Ready" xml:space="preserve"><value>可应用</value></data>
+  <data name="Merge_State_Ready" xml:space="preserve"><value>冲突已解决，应用时将验证结果</value></data>
   <data name="Merge_State_Stale" xml:space="preserve"><value>计划已过期</value></data>
   <data name="Merge_State_Applying" xml:space="preserve"><value>应用中 / 需要恢复</value></data>
   <data name="Merge_State_Committed" xml:space="preserve"><value>已提交</value></data>
@@ -5278,4 +5278,5 @@ Pull Request：{1}</value>
   <data name="History_Creation_Merge" xml:space="preserve"><value>合并版本</value></data>
   <data name="History_Creation_Recovery" xml:space="preserve"><value>恢复版本</value></data>
   <data name="History_Creation_Import" xml:space="preserve"><value>导入版本</value></data>
+  <data name="Merge_Details" xml:space="preserve"><value>详情与预览</value></data>
 </root>

@@ -5212,7 +5212,7 @@ Pull request: {1}</value>
   <data name="HistoryPage_BranchMergeItem.Text" xml:space="preserve"><value>Merge branches…</value></data>
   <data name="Merge_Title" xml:space="preserve"><value>Branch merge</value></data>
   <data name="Merge_Sessions" xml:space="preserve"><value>Saved merge sessions</value></data>
-  <data name="Merge_Explanation" xml:space="preserve"><value>Merge the selected source branch into the active branch. Create or select a session, review conflicts, then apply. Changed work is protected by a safety snapshot first. The source branch stays at its tip. Closing saves the session.</value></data>
+  <data name="Merge_Explanation" xml:space="preserve"><value>Merge the selected source branch into the active branch. Create or select a session, review conflicts, then apply. Changed work is protected by a safety snapshot first. The source branch stays at its tip. Closing saves the session. Preparing replicas only prepares inputs. Applying also builds and verifies the merged result.</value></data>
   <data name="Merge_New" xml:space="preserve"><value>New session</value></data>
   <data name="Merge_Recompute" xml:space="preserve"><value>Recompute</value></data>
   <data name="Merge_Resume" xml:space="preserve"><value>Resume / recover</value></data>
@@ -5234,7 +5234,7 @@ Pull request: {1}</value>
   <data name="Merge_PreviewTheirs" xml:space="preserve"><value>Preview source</value></data>
   <data name="Merge_State_Preparing" xml:space="preserve"><value>Preparing inputs</value></data>
   <data name="Merge_State_Resolving" xml:space="preserve"><value>Resolve conflicts</value></data>
-  <data name="Merge_State_Ready" xml:space="preserve"><value>Ready to apply</value></data>
+  <data name="Merge_State_Ready" xml:space="preserve"><value>Conflicts resolved; results will be verified on apply</value></data>
   <data name="Merge_State_Stale" xml:space="preserve"><value>Plan is stale</value></data>
   <data name="Merge_State_Applying" xml:space="preserve"><value>Applying / recovery required</value></data>
   <data name="Merge_State_Committed" xml:space="preserve"><value>Committed</value></data>
@@ -5278,4 +5278,5 @@ Pull request: {1}</value>
   <data name="History_Creation_Merge" xml:space="preserve"><value>Merge</value></data>
   <data name="History_Creation_Recovery" xml:space="preserve"><value>Recovery</value></data>
   <data name="History_Creation_Import" xml:space="preserve"><value>Import</value></data>
+  <data name="Merge_Details" xml:space="preserve"><value>Details and preview</value></data>
 </root>
