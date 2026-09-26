@@ -66,6 +66,7 @@ public sealed class HistoryRuntime : IAsyncDisposable
     public MaterializationPolicyService MaterializationPolicies { get; }
     public HistoryRuntimeHealth Health { get; private set; }
     public string? MaintenanceDiagnostic { get; private set; }
+    public string? HealthDiagnostic { get; private set; }
 
     internal async Task<bool> CleanupMergeArtifactsAsync()
     {
@@ -155,7 +156,10 @@ public sealed class HistoryRuntime : IAsyncDisposable
     {
         try { HistoryRestoreTransactionJournalStore.RequireRecovered(Repository.Paths.TransactionsRoot); }
         catch (Exception ex) when (ex is IOException or InvalidOperationException or System.Text.Json.JsonException or UnauthorizedAccessException)
-        { Health |= HistoryRuntimeHealth.WorkspaceRecoveryRequired; }
+        {
+            Health |= HistoryRuntimeHealth.WorkspaceRecoveryRequired;
+            HealthDiagnostic = $"Config {ConfigId}: transactions ({Repository.Paths.TransactionsRoot}): {ex.Message}";
+        }
     }
 
     internal async Task RefreshLocalStateHealthAsync(CancellationToken cancellationToken = default)
@@ -164,18 +168,24 @@ public sealed class HistoryRuntime : IAsyncDisposable
         var catalog = await LocalReplicaCatalogStore.LoadAsync(cancellationToken).ConfigureAwait(false);
         var packCount = (await Repository.ReadAllPacksAsync(cancellationToken).ConfigureAwait(false)).Count;
         Health = HistoryRuntimeHealth.Ready;
+        HealthDiagnostic = null;
         ObservePendingRecovery();
         if (workspace.Status is DeviceLocalStateStatus.Corrupt or DeviceLocalStateStatus.Inaccessible
             || (workspace.Status == DeviceLocalStateStatus.Missing && packCount > 0))
         {
             Health |= HistoryRuntimeHealth.WorkspaceRecoveryRequired;
+            HealthDiagnostic = AppendDiagnostic(HealthDiagnostic, $"Config {ConfigId}: workspace.json: {workspace.Status}. {workspace.Diagnostic}");
         }
         if (catalog.Status is DeviceLocalStateStatus.Corrupt or DeviceLocalStateStatus.Inaccessible
             || (catalog.Status == DeviceLocalStateStatus.Missing && packCount > 0))
         {
             Health |= HistoryRuntimeHealth.LocalReplicaCatalogRecoveryRequired;
+            HealthDiagnostic = AppendDiagnostic(HealthDiagnostic, $"Config {ConfigId}: replicas.json: {catalog.Status}. {catalog.Diagnostic}");
         }
     }
+
+    private static string AppendDiagnostic(string? previous, string next)
+        => string.IsNullOrWhiteSpace(previous) ? next : previous + "\n" + next;
 
     internal async Task EnsureIndexCurrentAsync(CancellationToken cancellationToken = default)
     {

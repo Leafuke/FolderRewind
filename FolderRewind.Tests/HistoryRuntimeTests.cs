@@ -1,5 +1,6 @@
 using FolderRewind.History.Application;
 using FolderRewind.History.Domain;
+using FolderRewind.History.LocalState;
 using FolderRewind.History.Storage;
 
 namespace FolderRewind.Tests;
@@ -21,6 +22,48 @@ public sealed class HistoryRuntimeTests
     public void Cleanup()
     {
         if (Directory.Exists(_root)) Directory.Delete(_root, recursive: true);
+    }
+
+    [TestMethod]
+    public async Task EmptyRepositoryMissingStateIsHealthyButCorruptionAndTransactionsAreNot()
+    {
+        await using var runtime = new HistoryRuntime(await CreateRepositoryAsync(_configId, "empty"));
+        await runtime.InitializeAsync();
+        Assert.AreEqual(HistoryRuntimeHealth.Ready, runtime.Health);
+        Assert.IsNull(runtime.HealthDiagnostic);
+        var local = runtime.Repository.Paths.LocalStateRoot;
+        Directory.CreateDirectory(local);
+        var workspace = Path.Combine(local, "workspace.json");
+        File.WriteAllText(workspace, "invalid json");
+        await runtime.RefreshLocalStateHealthAsync();
+        Assert.IsTrue(runtime.Health.HasFlag(HistoryRuntimeHealth.WorkspaceRecoveryRequired));
+        StringAssert.Contains(runtime.HealthDiagnostic!, "workspace.json: Corrupt");
+        StringAssert.Contains(runtime.HealthDiagnostic!, _configId.ToString());
+        using (var held = new FileStream(workspace, FileMode.Open, FileAccess.ReadWrite, FileShare.None))
+        {
+            await runtime.RefreshLocalStateHealthAsync();
+            StringAssert.Contains(runtime.HealthDiagnostic!, "workspace.json: Inaccessible");
+        }
+        File.Delete(workspace);
+        File.WriteAllText(Path.Combine(local, "replicas.json"), "invalid json");
+        await runtime.RefreshLocalStateHealthAsync();
+        Assert.IsTrue(runtime.Health.HasFlag(HistoryRuntimeHealth.LocalReplicaCatalogRecoveryRequired));
+        StringAssert.Contains(runtime.HealthDiagnostic!, "replicas.json: Corrupt");
+        File.Delete(Path.Combine(local, "replicas.json"));
+        Directory.CreateDirectory(runtime.Repository.Paths.TransactionsRoot);
+        var journal = Path.Combine(runtime.Repository.Paths.TransactionsRoot, "restore-journal.json");
+        File.WriteAllText(journal, "null");
+        await runtime.RefreshLocalStateHealthAsync();
+        Assert.AreNotEqual(HistoryRuntimeHealth.Ready, runtime.Health);
+        StringAssert.Contains(runtime.HealthDiagnostic!, "transactions");
+        File.Delete(journal);
+        await runtime.RefreshLocalStateHealthAsync();
+        Assert.AreEqual(HistoryRuntimeHealth.Ready, runtime.Health);
+        Assert.IsNull(runtime.HealthDiagnostic);
+        await runtime.WorkspaceStore.SaveAsync(new(_configId, 0, null, null, []), -1);
+        await runtime.LocalReplicaCatalogStore.SaveAsync(new(_configId, 0, []), -1);
+        await runtime.RefreshLocalStateHealthAsync();
+        Assert.AreEqual(HistoryRuntimeHealth.Ready, runtime.Health);
     }
 
     [TestMethod]
@@ -57,6 +100,8 @@ public sealed class HistoryRuntimeTests
 
         Assert.IsTrue(runtime.Health.HasFlag(HistoryRuntimeHealth.WorkspaceRecoveryRequired));
         Assert.IsTrue(runtime.Health.HasFlag(HistoryRuntimeHealth.LocalReplicaCatalogRecoveryRequired));
+        StringAssert.Contains(runtime.HealthDiagnostic!, "workspace.json: Missing");
+        StringAssert.Contains(runtime.HealthDiagnostic!, "replicas.json: Missing");
         Assert.HasCount(1, await runtime.Query.GetVersionsForSourceAsync(sourceId));
         Assert.AreEqual(checkpoint.CheckpointId, (await runtime.Query.GetCheckpointAsync(checkpoint.CheckpointId))!.CheckpointId);
         Assert.HasCount(1, await runtime.Query.GetBranchTipsAsync(branch.BranchId));

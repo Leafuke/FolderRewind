@@ -133,11 +133,9 @@ public static class CoreFeatureValidationService
                 var packs = await runtime.Repository.ReadAllPacksAsync().ConfigureAwait(false);
                 new HistoryRepositoryValidator(new HistoryPackCodec()).Validate(runtime.ConfigId, packs);
                 await runtime.EnsureIndexCurrentAsync().ConfigureAwait(false);
-                var workspace = await runtime.WorkspaceStore.LoadAsync().ConfigureAwait(false);
-                var replicas = await runtime.LocalReplicaCatalogStore.LoadAsync().ConfigureAwait(false);
-                if (workspace.Status != DeviceLocalStateStatus.Valid
-                    || replicas.Status != DeviceLocalStateStatus.Valid)
-                    throw new InvalidOperationException("Native device-local History state requires recovery.");
+                await runtime.RefreshLocalStateHealthAsync().ConfigureAwait(false);
+                if (runtime.Health != HistoryRuntimeHealth.Ready)
+                    throw new InvalidOperationException(runtime.HealthDiagnostic ?? $"Config {config.Id}: {runtime.Health}");
                 steps.Add(new()
                 {
                     Name = config.Name,
@@ -152,7 +150,7 @@ public static class CoreFeatureValidationService
                 {
                     Name = config.Name,
                     Success = false,
-                    Details = ex.Message,
+                    Details = $"{config.Name} ({config.Id}): {ex.Message}",
                     Duration = timer.Elapsed
                 });
             }
