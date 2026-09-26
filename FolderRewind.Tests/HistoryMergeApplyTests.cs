@@ -19,6 +19,9 @@ public sealed class HistoryMergeApplyTests
 
     [TestMethod]
     [DataRow("success")]
+    [DataRow("real-7z")]
+    [DataRow("cancel-before-apply")]
+    [DataRow("archive-verify-failure")]
     [DataRow("pack-throw")]
     [DataRow("session-db-locked")]
     [DataRow("post-commit-cancel")]
@@ -46,7 +49,7 @@ public sealed class HistoryMergeApplyTests
     public async Task ThreeWayApplyIsAtomicAndLeavesSourceTipUnchanged(string failure)
     {
         var config = new HistoryConfigId(Guid.NewGuid().ToString("N"));
-        await using var history = new HistoryRuntime(new FileHistoryRepository(config, new HistoryRepositoryPaths(Path.Combine(_root, "repo"))));
+        await using var history = new HistoryRuntime(new FileHistoryRepository(config, new HistoryRepositoryPaths(Path.Combine(_root, failure == "real-7z" ? new string('x', 100) : "short", "repo"))));
         await history.InitializeAsync();
         var handler = new TreeHandler(); var facts = new List<object>();
         var physical = failure.StartsWith("physical", StringComparison.Ordinal);
@@ -140,10 +143,16 @@ public sealed class HistoryMergeApplyTests
             command.CommandText = "CREATE TRIGGER fail_completion BEFORE UPDATE ON sessions WHEN NEW.state=5 BEGIN SELECT RAISE(ABORT, 'injected completion failure'); END;";
             command.ExecuteNonQuery();
         }
-        var archive = new ZipBackend();
+        var real7z = failure == "real-7z";
+        var executable = FolderRewind.Services.SevenZipExecutableLocator.Resolve(Environment.GetEnvironmentVariable("FOLDERREWIND_TEST_7Z"));
+        if (real7z && executable is null) Assert.Inconclusive("Set FOLDERREWIND_TEST_7Z to run real 7-Zip integration.");
+        IHistoryCompactionBackend archive = real7z
+            ? new FolderRewind.Services.SevenZipArchiveProcessBackend(() => executable, () => null, false, ".folderrewind")
+            : new ZipBackend(failure == "archive-verify-failure");
+        var materializer = (IArchiveRepresentationBackend)archive;
         if (failure is "success" or "provider")
         {
-            var builder = new HistoryMergeCommitBuilder(history, restore, archive, archive);
+            var builder = new HistoryMergeCommitBuilder(history, restore, archive, materializer);
             var first = await builder.BuildAsync(session);
             var reopened = new MergeSessionStore(history.Repository.Paths.LocalStateRoot).LoadPrepared(session)!.Restore(session);
             Assert.AreEqual(first.PackId, reopened.PackId);
@@ -164,7 +173,7 @@ public sealed class HistoryMergeApplyTests
                 }
             }
         }
-        var applyBuilder = new HistoryMergeCommitBuilder(history, restore, archive, archive);
+        var applyBuilder = new HistoryMergeCommitBuilder(history, restore, archive, materializer);
         HistoryMergeApplyService.CoordinationPlan? coordinated = null;
         PreparedMerge? prepared = null;
         if (failure is "zero-write" or "one-write" or "scope-drift")
@@ -202,10 +211,29 @@ public sealed class HistoryMergeApplyTests
             await history.WorkspaceStore.SaveAsync(next, workspace.StateRevision);
             return next;
         });
-        var result = await new HistoryMergeApplyService(history, restore, new(history, restore, archive, archive),
+        var failures = new List<(string Stage, Exception Error)>();
+        var applyService = new HistoryMergeApplyService(history, restore, new(history, restore, archive, materializer),
             protector: failure == "dirty-protected" ? protection : null,
             reload: _ => Task.FromResult((failure == "config" ? "config-2" : "config-1", (IReadOnlyList<HistoryRestoreSourceBinding>)bindings)),
-            provider: failure == "provider-changed" ? provider.Descriptor with { SchemaVersion = 2 } : provider.Descriptor).ApplyAsync(session, applyCancellation.Token, ready: prepared, coordinated: coordinated);
+            provider: failure == "provider-changed" ? provider.Descriptor with { SchemaVersion = 2 } : provider.Descriptor,
+            reportFailure: (stage, error) => failures.Add((stage, error)));
+        if (failure == "cancel-before-apply")
+        {
+            applyCancellation.Cancel();
+            await Assert.ThrowsAsync<OperationCanceledException>(() => applyService.ApplyAsync(session, applyCancellation.Token));
+            Assert.IsEmpty(failures);
+            Assert.HasCount(0, (await history.Query.GetAllBranchUpdatesAsync()).Where(u => u.Reason == BranchUpdateReason.Merged));
+            foreach (var binding in bindings) Assert.AreEqual("base-b", File.ReadAllText(Path.Combine(binding.TargetDirectory, "b.txt")));
+            return;
+        }
+        var result = await applyService.ApplyAsync(session, applyCancellation.Token, ready: prepared, coordinated: coordinated);
+        if (failure == "archive-verify-failure")
+        {
+            Assert.HasCount(1, failures);
+            Assert.AreEqual("archive-verify", failures[0].Stage);
+            StringAssert.Contains(result.MergeDiagnostic!.Detail!, "injected verifier evidence");
+            Assert.IsNotNull(failures[0].Error.StackTrace);
+        }
         sessionDbLock?.Dispose();
         var current = (await history.WorkspaceStore.LoadAsync()).Value!;
         Assert.AreEqual(theirs.UpdateId, HistoryBranchProjection.Build(await history.Query.GetAllBranchUpdatesAsync()).Single(p => p.BranchId == theirs.BranchId).Tips.Single().UpdateId);
@@ -239,7 +267,7 @@ public sealed class HistoryMergeApplyTests
             Assert.HasCount(1, (await history.Query.GetAllBranchUpdatesAsync()).Where(u => u.Reason == BranchUpdateReason.Merged));
             foreach (var binding in bindings) Assert.AreEqual("theirs-b", File.ReadAllText(Path.Combine(binding.TargetDirectory, "b.txt")));
         }
-        else if (failure is "success" or "provider" or "zero-write" or "one-write" or "dirty-protected" or "pack-throw" or "post-commit-cancel")
+        else if (failure is "real-7z" or "success" or "provider" or "zero-write" or "one-write" or "dirty-protected" or "pack-throw" or "post-commit-cancel")
         {
             Assert.AreEqual(HistoryRestoreStatus.Committed, result.Status, result.Diagnostic);
             Assert.HasCount(failure == "zero-write" ? 0 : failure == "one-write" ? 1 : 2, result.AppliedSources);
@@ -256,7 +284,10 @@ public sealed class HistoryMergeApplyTests
             {
                 Assert.IsTrue(File.Exists(replica.Locator.AbsolutePath));
                 var verification = Path.Combine(_root, "verify-" + replica.RepresentationId);
-                ZipFile.ExtractToDirectory(replica.Locator.AbsolutePath, verification);
+                if (real7z)
+                    await materializer.MaterializeAsync([new(new(replica.RepresentationId, VersionId.New(), RepresentationKind.CoreFull,
+                        "7z", [], MaterializationFidelity.Exact, null, null, null), replica.Locator.AbsolutePath)], verification, default);
+                else ZipFile.ExtractToDirectory(replica.Locator.AbsolutePath, verification);
                 Assert.AreEqual("theirs-b", File.ReadAllText(Path.Combine(verification, "b.txt")));
             }
             foreach (var binding in bindings)
@@ -264,11 +295,11 @@ public sealed class HistoryMergeApplyTests
                 Assert.AreEqual("ours-a", File.ReadAllText(Path.Combine(binding.TargetDirectory, "a.txt")));
                 Assert.AreEqual("theirs-b", File.ReadAllText(Path.Combine(binding.TargetDirectory, "b.txt")));
             }
-            if (failure == "success")
+            if (failure is "success" or "real-7z")
             {
                 await using var reopened = new HistoryRuntime(new FileHistoryRepository(config, history.Repository.Paths));
                 await reopened.InitializeAsync();
-                var exactRestore = new HistoryRestoreService(reopened, new RepresentationRuntime([new CoreArchiveRepresentationHandler(archive)]),
+                var exactRestore = new HistoryRestoreService(reopened, new RepresentationRuntime([new CoreArchiveRepresentationHandler(materializer)]),
                     async ct => new RepresentationEnvironment((await reopened.LocalReplicaCatalogStore.LoadAsync(ct)).Value!.Entries, [], []),
                     new FileSystemHistoryRestoreMutationBackend());
                 foreach (var binding in bindings) File.WriteAllText(Path.Combine(binding.TargetDirectory, "a.txt"), "later-local-edit");
@@ -281,7 +312,7 @@ public sealed class HistoryMergeApplyTests
                     Assert.AreEqual("theirs-b", File.ReadAllText(Path.Combine(binding.TargetDirectory, "b.txt")));
                 }
             }
-            var retry = await new HistoryMergeApplyService(history, restore, new(history, restore, archive, archive)).ApplyAsync(session);
+            var retry = await new HistoryMergeApplyService(history, restore, new(history, restore, archive, materializer)).ApplyAsync(session);
             Assert.AreEqual(HistoryRestoreStatus.BlockedBeforeMutation, retry.Status);
         }
         else
@@ -329,14 +360,14 @@ public sealed class HistoryMergeApplyTests
         public MergeFileProposal Analyze(SourceId source, MergeTreeManifest b, MergeTreeManifest o, MergeTreeManifest t)
             => new GenericFileMergeProvider().Analyze(source, b, o, t);
     }
-    private sealed class ZipBackend : IHistoryCompactionBackend, IArchiveRepresentationBackend
+    private sealed class ZipBackend(bool failVerification = false) : IHistoryCompactionBackend, IArchiveRepresentationBackend
     {
         public Task<HistoryCompactionPayload> CreateFullAsync(SourceVersion version, string source, RepresentationId id, string output, CancellationToken token)
         {
             Directory.CreateDirectory(output); var path = Path.Combine(output, "full.zip"); ZipFile.CreateFromDirectory(source, path);
             return Task.FromResult(new HistoryCompactionPayload("zip", path, new FileInfo(path).Length, null, null, ImmutableDictionary<string, string>.Empty));
         }
-        public ValueTask<PayloadVerificationResult> DeepVerifyAsync(VersionRepresentation representation, string path, CancellationToken token) => VerifyAsync(representation, path, token);
+        public ValueTask<PayloadVerificationResult> DeepVerifyAsync(VersionRepresentation representation, string path, CancellationToken token) => failVerification ? ValueTask.FromResult(new PayloadVerificationResult(false, "", "injected verifier evidence")) : VerifyAsync(representation, path, token);
         public ValueTask<PayloadVerificationResult> VerifyAsync(VersionRepresentation representation, string path, CancellationToken token)
         { using var zip = ZipFile.OpenRead(path); foreach (var entry in zip.Entries) { using var s = entry.Open(); s.CopyTo(Stream.Null); } return ValueTask.FromResult(new PayloadVerificationResult(true, "zip", "")); }
         public ValueTask MaterializeAsync(IReadOnlyList<ArchiveMaterializationInput> inputs, string staging, CancellationToken token)
