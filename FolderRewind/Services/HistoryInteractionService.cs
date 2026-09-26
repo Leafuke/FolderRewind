@@ -17,20 +17,21 @@ internal sealed class HistoryInteractionService(Func<XamlRoot?> xamlRootProvider
         string primaryButtonText,
         bool isDestructive = false,
         CancellationToken cancellationToken = default)
-        => AppDialogService.Default.ConfirmAsync(
+        => UiDispatcherService.RunOnUiAsync(() => AppDialogService.Default.ConfirmAsync(
             title,
             message,
             primaryButtonText,
             GetXamlRoot(),
             isDestructive,
-            cancellationToken: cancellationToken);
+            cancellationToken: cancellationToken));
 
-    public async Task<string?> RequestTextAsync(
+    public Task<string?> RequestTextAsync(
         string title,
         string message,
         string initialValue = "",
         bool isPassword = false,
         CancellationToken cancellationToken = default)
+        => UiDispatcherService.RunOnUiAsync(async () =>
     {
         if (!isPassword)
         {
@@ -59,11 +60,12 @@ internal sealed class HistoryInteractionService(Func<XamlRoot?> xamlRootProvider
             GetXamlRoot(),
             cancellationToken);
         return result == ContentDialogResult.Primary ? passwordBox.Password : null;
-    }
+    });
 
-    public async Task<HistoryInteractionResult> ChooseAsync(
+    public Task<HistoryInteractionResult> ChooseAsync(
         HistoryChoiceRequest request,
         CancellationToken cancellationToken = default)
+        => UiDispatcherService.RunOnUiAsync(async () =>
     {
         ArgumentNullException.ThrowIfNull(request);
         var choices = new ComboBox
@@ -110,7 +112,7 @@ internal sealed class HistoryInteractionService(Func<XamlRoot?> xamlRootProvider
             dialog,
             GetXamlRoot(),
             cancellationToken);
-        return new(
+        return new HistoryInteractionResult(
             result switch
             {
                 ContentDialogResult.Primary => HistoryInteractionOutcome.Primary,
@@ -118,9 +120,10 @@ internal sealed class HistoryInteractionService(Func<XamlRoot?> xamlRootProvider
                 _ => HistoryInteractionOutcome.Cancelled
             },
             choices.SelectedValue as string);
-    }
+    });
 
-    public async Task<string?> PickFolderAsync(CancellationToken cancellationToken = default)
+    public Task<string?> PickFolderAsync(CancellationToken cancellationToken = default)
+        => UiDispatcherService.RunOnUiAsync(async () =>
     {
         cancellationToken.ThrowIfCancellationRequested();
         var path = await MainWindowService.PickFolderPathAsync(
@@ -129,9 +132,10 @@ internal sealed class HistoryInteractionService(Func<XamlRoot?> xamlRootProvider
             MainWindowService.SuggestedPickerLocation.DocumentsLibrary);
         cancellationToken.ThrowIfCancellationRequested();
         return path;
-    }
+    });
 
-    public async Task OpenCloudSyncAsync(string configId, CancellationToken cancellationToken = default)
+    public Task OpenCloudSyncAsync(string configId, CancellationToken cancellationToken = default)
+        => UiDispatcherService.RunOnUiAsync(async () =>
     {
         var config = ConfigService.CurrentConfig?.BackupConfigs
             .FirstOrDefault(item => string.Equals(item.Id, configId, StringComparison.OrdinalIgnoreCase));
@@ -142,7 +146,7 @@ internal sealed class HistoryInteractionService(Func<XamlRoot?> xamlRootProvider
 
         var dialog = new ConfigCloudSyncDialog(config);
         await AppDialogService.Default.ShowCustomAsync(dialog, GetXamlRoot(), cancellationToken);
-    }
+    });
 
     public void Notify(HistoryNotificationKind kind, string message)
     {

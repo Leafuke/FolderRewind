@@ -50,7 +50,7 @@ internal sealed class AppDialogService : IAppDialogService
     public static IAppDialogService Default { get; } = new AppDialogService();
 
     public Task<ContentDialogResult> ShowRequestAsync(AppDialogRequest request, XamlRoot? xamlRoot = null, CancellationToken cancellationToken = default)
-        => ShowCustomAsync(new ContentDialog
+        => UiDispatcherService.RunOnUiAsync(() => ShowCustomAsync(new ContentDialog
         {
             Title = request.Title,
             Content = request.Content,
@@ -58,14 +58,15 @@ internal sealed class AppDialogService : IAppDialogService
             SecondaryButtonText = request.SecondaryButtonText,
             CloseButtonText = request.CloseButtonText,
             DefaultButton = request.DefaultButton
-        }, xamlRoot, cancellationToken);
+        }, xamlRoot, cancellationToken));
 
-    public async Task ShowMessageAsync(
+    public Task ShowMessageAsync(
         string title,
         string message,
         XamlRoot? xamlRoot = null,
         string? closeButtonText = null,
         CancellationToken cancellationToken = default)
+        => UiDispatcherService.RunOnUiAsync(async () =>
     {
         var dialog = new ContentDialog
         {
@@ -75,16 +76,17 @@ internal sealed class AppDialogService : IAppDialogService
             DefaultButton = ContentDialogButton.Close
         };
 
-        await ShowCustomAsync(dialog, xamlRoot, cancellationToken).ConfigureAwait(false);
-    }
+        await ShowCustomAsync(dialog, xamlRoot, cancellationToken);
+    });
 
-    public async Task<bool> ConfirmAsync(
+    public Task<bool> ConfirmAsync(
         string title,
         string message,
         string primaryButtonText,
         XamlRoot? xamlRoot = null,
         bool isDestructive = false,
         CancellationToken cancellationToken = default)
+        => UiDispatcherService.RunOnUiAsync(async () =>
     {
         var dialog = new ContentDialog
         {
@@ -95,10 +97,10 @@ internal sealed class AppDialogService : IAppDialogService
             DefaultButton = isDestructive ? ContentDialogButton.Close : ContentDialogButton.Primary
         };
 
-        return await ShowCustomAsync(dialog, xamlRoot, cancellationToken).ConfigureAwait(false) == ContentDialogResult.Primary;
-    }
+        return await ShowCustomAsync(dialog, xamlRoot, cancellationToken) == ContentDialogResult.Primary;
+    });
 
-    public async Task<string?> RequestTextAsync(
+    public Task<string?> RequestTextAsync(
         string title,
         string inputName,
         string? initialValue = null,
@@ -107,6 +109,7 @@ internal sealed class AppDialogService : IAppDialogService
         bool acceptsReturn = false,
         XamlRoot? xamlRoot = null,
         CancellationToken cancellationToken = default)
+        => UiDispatcherService.RunOnUiAsync(async () =>
     {
         var input = new TextBox
         {
@@ -117,6 +120,7 @@ internal sealed class AppDialogService : IAppDialogService
             MinWidth = 320
         };
         AutomationProperties.SetName(input, inputName);
+        AutomationProperties.SetAutomationId(input, "AppDialogTextInput");
 
         var dialog = new ContentDialog
         {
@@ -127,9 +131,9 @@ internal sealed class AppDialogService : IAppDialogService
             DefaultButton = ContentDialogButton.Primary
         };
 
-        var result = await ShowCustomAsync(dialog, xamlRoot, cancellationToken).ConfigureAwait(false);
+        var result = await ShowCustomAsync(dialog, xamlRoot, cancellationToken);
         return result == ContentDialogResult.Primary ? input.Text.Trim() : null;
-    }
+    });
 
     public Task<ContentDialogResult> ShowCustomAsync(
         ContentDialog dialog,
