@@ -59,6 +59,8 @@ internal static class HistoryMergeInteraction
             PrimaryButtonText = I18n.GetString("Merge_Apply"), CloseButtonText = I18n.GetString("Merge_Close"),
             DefaultButton = ContentDialogButton.Close
         };
+        // Match the dialog template's width cap to the bounded content plus its padding.
+        dialog.Resources["ContentDialogMaxWidth"] = 768d;
         AutomationProperties.SetAutomationId(dialog, "HistoryMergeDialog");
         AutomationProperties.SetAutomationId(sessions, "MergeSessions");
         AutomationProperties.SetAutomationId(list, "MergeConflicts");
@@ -138,10 +140,22 @@ internal static class HistoryMergeInteraction
             catch (Exception ex)
             {
                 LogService.LogError($"Merge config={config.Id} session={session?.Id} revision={session?.Revision}", "Merge", ex);
-                RefreshSessions();
-                if (session is not null) Refresh();
+                var diagnostic = ex is HistoryMergeBlockedException blocked ? DiagnosticText(blocked.Diagnostic) : ex.Message;
+                try
+                {
+                    RefreshSessions();
+                    if (session is not null) Refresh();
+                }
+                catch (Exception refreshError)
+                {
+                    // A damaged Session DB must not throw a second exception out of the UI error handler.
+                    LogService.LogError($"Merge config={config.Id} session={session?.Id} stage=refresh-after-failure", "Merge", refreshError);
+                    diagnostic += "\n" + refreshError.Message;
+                    session = null;
+                    list.ItemsSource = null;
+                }
                 status.Text = I18n.GetString("Merge_Diagnostic_PreparationFailed");
-                ShowDetails(ex is HistoryMergeBlockedException blocked ? DiagnosticText(blocked.Diagnostic) : ex.Message);
+                ShowDetails(diagnostic);
             }
             finally { busy = false; UpdateControls(); sessions.IsEnabled = true; dialog.CloseButtonText = I18n.GetString("Merge_Close"); }
         }
@@ -237,9 +251,10 @@ internal static class HistoryMergeInteraction
                 preview.Text = file.Key + $" ({stream.Length} bytes)\n" + (bytes.Take(count).Contains((byte)0)
                     ? Convert.ToHexString(bytes.AsSpan(0, Math.Min(count, 512))) : System.Text.Encoding.UTF8.GetString(bytes, 0, count));
             });
-        sessions.SelectionChanged += (_, _) =>
+        sessions.SelectionChanged += async (_, _) =>
         {
-            if (sessions.SelectedItem is ComboBoxItem { Tag: Guid id }) { session = runtime.MergeSessions.Load(id); offset = 0; Refresh(); }
+            if (sessions.SelectedItem is ComboBoxItem { Tag: Guid id })
+                await Execute(() => { session = runtime.MergeSessions.Load(id); offset = 0; Refresh(); return Task.CompletedTask; });
         };
         RefreshSessions(); UpdateControls();
         Resize();

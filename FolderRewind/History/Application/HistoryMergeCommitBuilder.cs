@@ -86,6 +86,7 @@ public sealed class HistoryMergeCommitBuilder(HistoryRuntime history, HistoryRes
             foreach (var source in sources)
             {
                 token.ThrowIfCancellationRequested();
+                stage = "assemble-result";
                 var plan = source.Plan; var tree = source.Automatic; CheckpointSource? selected = null;
                 if (plan.Action == HistoryMergeSourceAction.Remove) continue;
                 if (plan.Action == HistoryMergeSourceAction.Reuse)
@@ -170,12 +171,13 @@ public sealed class HistoryMergeCommitBuilder(HistoryRuntime history, HistoryRes
                     try
                     {
                         stage = "archive-roundtrip";
-                    await materializer.MaterializeAsync([new(representation, payload.PayloadPath)], verifyRoot, token).ConfigureAwait(false);
+                        await materializer.MaterializeAsync([new(representation, payload.PayloadPath)], verifyRoot, token).ConfigureAwait(false);
                         if ((await MergeTreeManifest.ReadAsync(verifyRoot, _ => true, token).ConfigureAwait(false)).Digest != tree.Digest)
                             throw new InvalidDataException("Merge archive round-trip changed its logical state.");
                     }
                     finally { HistoryRestoreTransactionJournalStore.CleanupStaging([verifyRoot]); }
                     facts.Add(version); facts.Add(representation);
+                    stage = "capture-metadata";
                     if (metadata is not null) facts.AddRange(await metadata(version, staging, token).ConfigureAwait(false));
                     replicas.Add(new(representationId, LocalReplicaId.New(), LocalReplicaLocator.ControlledAbsolute(payload.PayloadPath), DateTimeOffset.UtcNow));
                 }
