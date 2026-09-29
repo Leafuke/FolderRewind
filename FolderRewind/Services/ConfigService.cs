@@ -73,7 +73,7 @@ namespace FolderRewind.Services
             bool createdDefault;
             var config = LoadConfig(out createdDefault);
             var originalLanguage = config.GlobalSettings.Language;
-            NormalizeConfig(config);
+            var sourceIdentityAssigned = NormalizeConfig(config);
             var languageNormalized = !string.Equals(
                 originalLanguage,
                 config.GlobalSettings.Language,
@@ -83,7 +83,9 @@ namespace FolderRewind.Services
             ApplyLogSettings(config.GlobalSettings);
             _initialized = true;
 
-            if (createdDefault || languageNormalized)
+            // 回填的 SourceId 必须立刻落盘：它若每次启动都重新生成，Native History 记录的历史
+            // 会与当前文件夹对不上，等于每次都换一个来源。
+            if (createdDefault || languageNormalized || sourceIdentityAssigned)
             {
                 var saveResult = SaveWithResult(publishSavedEvent: false);
                 if (!saveResult.Success)
@@ -167,10 +169,15 @@ namespace FolderRewind.Services
             return config;
         }
 
-        private static void NormalizeConfig(AppConfig config)
+        /// <summary>
+        /// 规范化配置。
+        /// </summary>
+        /// <returns>是否给源文件夹补上了稳定标识 —— 补上就必须立刻落盘，调用方据此决定要不要保存。</returns>
+        private static bool NormalizeConfig(AppConfig config)
         {
             NormalizeGlobalSettings(config.GlobalSettings);
             string defaultRemoteBasePath = config.GlobalSettings.DefaultCloudRemoteBasePath;
+            bool sourceIdentityAssigned = false;
 
             foreach (var backupConfig in config.BackupConfigs)
             {
@@ -179,6 +186,20 @@ namespace FolderRewind.Services
                 backupConfig.Automation.Normalize(backupConfig.SourceFolders);
                 NormalizeBackupScope(backupConfig.BackupScope);
                 NormalizeCloudSettings(backupConfig.Cloud, defaultRemoteBasePath);
+
+                foreach (var folder in backupConfig.SourceFolders)
+                {
+                    if (folder == null) continue;
+
+                    // 旧配置没有 Id。无法解析成 Guid 的值一律当作缺失重发，避免下游 Guid.Parse 抛异常。
+                    if (!Guid.TryParse(folder.Id, out _))
+                    {
+                        folder.Id = Guid.NewGuid().ToString();
+                        sourceIdentityAssigned = true;
+                    }
+
+                    folder.SourceScope ??= new BackupSourceScope();
+                }
             }
 
             foreach (var template in config.Templates)
@@ -205,6 +226,8 @@ namespace FolderRewind.Services
                         rule.Id = Guid.NewGuid().ToString("N");
                 }
             }
+
+            return sourceIdentityAssigned;
         }
 
         private static (double Width, double Height) GetRecommendedStartupWindowSize()
@@ -412,7 +435,7 @@ namespace FolderRewind.Services
                 string backupPath = ConfigPath + ".bak";
                 try { File.Copy(ConfigPath, backupPath, true); } catch { }
 
-                NormalizeConfig(imported);
+                _ = NormalizeConfig(imported);
                 AtomicFileService.Write(
                     ConfigPath,
                     stream => JsonSerializer.Serialize(

@@ -1,0 +1,55 @@
+<?xml version="1.0" encoding="utf-8"?>
+<ContentDialog
+    x:Class="FolderRewind.Views.CreateBranchDialog"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:vm="using:FolderRewind.ViewModels"
+    Style="{StaticResource DefaultContentDialogStyle}">
+
+    <ContentDialog.Resources>
+        <x:Double x:Key="ContentDialogMinWidth">520</x:Double>
+    </ContentDialog.Resources>
+
+    <StackPanel Spacing="16">
+        <StackPanel x:Name="BackupSection" Spacing="8">
+            <TextBlock x:Uid="BackupBranchPage_CreateDialog_BackupHeader" FontWeight="SemiBold"/>
+            <ListView x:Name="RunList"
+                      MaxHeight="240"
+                      SelectionMode="Single"
+                      SelectionChanged="OnRunSelectionChanged">
+                <ListView.ItemTemplate>
+                    <DataTemplate x:DataType="vm:BackupRunItem">
+                        <StackPanel Margin="0,4" Spacing="2">
+                            <TextBlock Text="{x:Bind CompletedDisplay}"/>
+                            <TextBlock Text="{x:Bind SourcesDisplay}"
+                                       Style="{StaticResource CaptionTextBlockStyle}"
+                                       Foreground="{ThemeResource TextFillColorSecondaryBrush}"/>
+                            <TextBlock Text="{x:Bind Comment}"
+                                       Style="{StaticResource CaptionTextBlockStyle}"
+                                       Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                                       TextWrapping="Wrap"/>
+                        </StackPanel>
+                    </DataTemplate>
+                </ListView.ItemTemplate>
+            </ListView>
+        </StackPanel>
+
+        <TextBlock x:Name="NoBackupHint"
+                   x:Uid="BackupBranchPage_CreateDialog_NoBackup"
+                   Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                   TextWrapping="Wrap"
+                   Visibility="Collapsed"/>
+
+        <StackPanel Spacing="8">
+            <TextBlock x:Uid="BackupBranchPage_CreateDialog_NameHeader" FontWeight="SemiBold"/>
+            <TextBox x:Name="BranchNameBox"
+                     x:Uid="BackupBranchPage_CreateDialog_NameBox"
+                     TextChanged="OnNameChanged"/>
+        </StackPanel>
+
+        <TextBlock x:Uid="BackupBranchPage_CreateDialog_Hint"
+                   Style="{StaticResource CaptionTextBlockStyle}"
+                   Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                   TextWrapping="Wrap"/>
+    </StackPanel>
+</ContentDialog>

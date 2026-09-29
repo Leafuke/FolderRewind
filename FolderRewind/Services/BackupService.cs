@@ -18,7 +18,8 @@ namespace FolderRewind.Services
         public static ObservableCollection<BackupTask> ActiveTasks { get; } = new();
 
         // 还原阶段会用内部标记目录记录“仅删除”动作，完成后必须清理避免污染用户目录。
-        private const string InternalRestoreMarkerDirectoryName = "__FolderRewind_Internal";
+        // 历史图谱的归档落地在另一个类里做，同样要把这个目录从暂存区剔掉，因此不加 private。
+        internal const string InternalRestoreMarkerDirectoryName = "__FolderRewind_Internal";
         private const string InternalRestoreMarkerFileName = "__DeletedOnly.marker";
         private const string MissingEncryptionPasswordMessage = "Encrypted backup password is missing for this configuration.";
 
@@ -168,9 +169,18 @@ namespace FolderRewind.Services
             bool anyChanges = false;
             foreach (var folder in config.SourceFolders)
             {
-                var hadChanges = await BackupFolderAsync(config, folder, invocationOptions: invocationOptions);
+                var hadChanges = await BackupFolderCoreAsync(
+                    config,
+                    folder,
+                    comment: null,
+                    invocationOptions: invocationOptions,
+                    captureHistoryGraph: false);
                 if (hadChanges) anyChanges = true;
             }
+
+            // 图谱提交通路：一次配置备份只提交一条配置级历史，因此按来源逐个捕获完再统一提交。
+            // 与上面的旧记录写入并行，互不影响；失败只记日志，不改变本次备份的结果。
+            await TryCaptureHistoryAsync(config, config.SourceFolders, invocationOptions, comment: null);
 
             Log(I18n.Format("BackupService_Log_TaskEnd"), LogLevel.Info);
             return anyChanges;
@@ -180,11 +190,26 @@ namespace FolderRewind.Services
         /// 备份单个文件夹
         /// </summary>
         /// <returns>true 表示产生了新的备份文件；false 表示未检测到变更或备份失败。</returns>
-        public static async Task<bool> BackupFolderAsync(
+        public static Task<bool> BackupFolderAsync(
             BackupConfig config,
             ManagedFolder folder,
             string? comment = "",
             BackupInvocationOptions? invocationOptions = null)
+            => BackupFolderCoreAsync(config, folder, comment, invocationOptions, captureHistoryGraph: true);
+
+        /// <summary>
+        /// 备份单个文件夹的实际实现。
+        /// </summary>
+        /// <param name="captureHistoryGraph">
+        /// 是否在成功后提交图谱历史。<see cref="BackupConfigAsync"/> 传 false —— 它自己按配置级
+        /// 统一提交一次，否则一次配置备份会被拆成每个来源一条历史，且边界漂移预检只看得到当前这一个来源。
+        /// </param>
+        private static async Task<bool> BackupFolderCoreAsync(
+            BackupConfig config,
+            ManagedFolder folder,
+            string? comment,
+            BackupInvocationOptions? invocationOptions,
+            bool captureHistoryGraph)
         {
             if (config == null || folder == null) return false;
             comment ??= string.Empty;
@@ -544,6 +569,12 @@ namespace FolderRewind.Services
             }
             catch
             {
+            }
+
+            // 图谱提交通路。捕获自己有基线、自己判有无变化，因此即便主流程判定「无变更」也照样走一遍。
+            if (success && captureHistoryGraph)
+            {
+                await TryCaptureHistoryAsync(config, [folder], invocationOptions, comment);
             }
 
             // 注意：这里返回“是否真的产出新归档”，会影响自动化里的无变更计数策略。

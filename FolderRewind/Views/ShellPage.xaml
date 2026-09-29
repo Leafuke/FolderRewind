@@ -100,6 +100,13 @@
                     </NavigationViewItem.Icon>
                 </NavigationViewItem>
 
+                <NavigationViewItem x:Uid="ShellPage_NavBranches" Tag="Branches"
+                                    AutomationProperties.AutomationId="NavBranches">
+                    <NavigationViewItem.Icon>
+                        <SymbolIcon Symbol="Switch"/>
+                    </NavigationViewItem.Icon>
+                </NavigationViewItem>
+
                 <NavigationViewItem x:Uid="ShellPage_NavLogs" Tag="Logs"
                                     AutomationProperties.AutomationId="NavLogs">
                     <NavigationViewItem.Icon>

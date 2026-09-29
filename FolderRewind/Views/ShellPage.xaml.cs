@@ -673,6 +673,7 @@ namespace FolderRewind.Views
                 "Manager" => typeof(FolderManagerPage),
                 "Tasks" => typeof(BackupTasksPage),
                 "History" => typeof(HistoryPage),
+                "Branches" => typeof(BackupBranchPage),
                 "Logs" => typeof(LogPage),
                 "Settings" => typeof(SettingsPage),
                 _ => null
@@ -827,6 +828,7 @@ namespace FolderRewind.Views
             if (sourcePageType == typeof(FolderManagerPage)) return "Manager";
             if (sourcePageType == typeof(BackupTasksPage)) return "Tasks";
             if (sourcePageType == typeof(HistoryPage)) return "History";
+            if (sourcePageType == typeof(BackupBranchPage)) return "Branches";
             if (sourcePageType == typeof(LogPage)) return "Logs";
             if (sourcePageType == typeof(SettingsPage)) return "Settings";
             return null;

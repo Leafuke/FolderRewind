@@ -1137,6 +1137,9 @@ Duplicate folder names are blocked within the same configuration so different di
   <data name="BackupService_Log_SmartChainLimitReached" xml:space="preserve">
     <value>Incremental chain limit reached ({0}), forcing full backup</value>
   </data>
+  <data name="BackupService_HistoryCaptureVerificationFailed" xml:space="preserve">
+    <value>Archive verification failed, so Native History was not committed.</value>
+  </data>
   <data name="BackupService_Log_SmartChainCheckFailed" xml:space="preserve">
     <value>Smart chain length check failed: {0}</value>
   </data>
@@ -4902,5 +4905,133 @@ Pull request: {1}</value>
   </data>
   <data name="History_SaveFailed" xml:space="preserve">
     <value>Failed to save backup history: {0}</value>
+  </data>
+
+  <!-- Backup branches page -->
+  <data name="ShellPage_NavBranches.Content" xml:space="preserve">
+    <value>Backup Branches</value>
+  </data>
+  <data name="BackupBranchPage_Title.Text" xml:space="preserve">
+    <value>Backup Branches</value>
+  </data>
+  <data name="BackupBranchPage_Description.Text" xml:space="preserve">
+    <value>Independent backup lines within one configuration. Every backup writes into the current branch.</value>
+  </data>
+  <data name="BackupBranchPage_ConfigFilter.Header" xml:space="preserve">
+    <value>Configuration</value>
+  </data>
+  <data name="BackupBranchPage_Refresh.Content" xml:space="preserve">
+    <value>Refresh</value>
+  </data>
+  <data name="BackupBranchPage_CurrentBranch.Text" xml:space="preserve">
+    <value>Current branch</value>
+  </data>
+  <data name="BackupBranchPage_CurrentBranchNone.Text" xml:space="preserve">
+    <value>Not established</value>
+  </data>
+  <data name="BackupBranchPage_NoConfig.Text" xml:space="preserve">
+    <value>No backup configuration exists yet. Create one on the Configuration page first.</value>
+  </data>
+  <data name="BackupBranchPage_Empty.Text" xml:space="preserve">
+    <value>This configuration has no branch records yet. Run one backup to establish the main line.</value>
+  </data>
+  <data name="BackupBranchPage_MultiTip.Text" xml:space="preserve">
+    <value>multiple tips</value>
+  </data>
+  <data name="BackupBranchPage_CurrentBadge.Text" xml:space="preserve">
+    <value>Current</value>
+  </data>
+  <data name="BackupBranchPage_NameCollisionBadge.Text" xml:space="preserve">
+    <value>Duplicate name</value>
+  </data>
+  <data name="BackupBranchPage_Column_Name.Text" xml:space="preserve">
+    <value>Branch</value>
+  </data>
+  <data name="BackupBranchPage_Column_Tips.Text" xml:space="preserve">
+    <value>Tips</value>
+  </data>
+  <data name="BackupBranchPage_Column_Created.Text" xml:space="preserve">
+    <value>Created</value>
+  </data>
+  <data name="BackupBranchPage_LoadFailed.Text" xml:space="preserve">
+    <value>Failed to load branches: {0}</value>
+  </data>
+  <data name="BackupBranchPage_CreateFromRun.Content" xml:space="preserve">
+    <value>Create from backup…</value>
+  </data>
+  <data name="BackupBranchPage_Rename.Content" xml:space="preserve">
+    <value>Rename…</value>
+  </data>
+  <data name="BackupBranchPage_Delete.Content" xml:space="preserve">
+    <value>Delete…</value>
+  </data>
+  <data name="BackupBranchPage_Checkout.Content" xml:space="preserve">
+    <value>Check out</value>
+  </data>
+  <data name="BackupBranchPage_CheckoutConfirmTitle" xml:space="preserve">
+    <value>Check out branch</value>
+  </data>
+  <data name="BackupBranchPage_CheckoutConfirmContent" xml:space="preserve">
+    <value>Check out branch "{0}"? Source folders of this configuration are replaced with the state captured by this branch's latest backup.</value>
+  </data>
+  <data name="BackupBranchPage_CheckoutProtectionNotice" xml:space="preserve">
+    <value>The current files differ from the latest backup, so they are captured into a protection point first (it joins no branch) and can be restored afterwards.</value>
+  </data>
+  <data name="BackupBranchPage_CheckoutSucceeded" xml:space="preserve">
+    <value>Checked out branch "{0}".</value>
+  </data>
+  <data name="BackupBranchPage_CheckoutRecoveryRequired" xml:space="preserve">
+    <value>Checked out, but local derived state needs recovery: {0}</value>
+  </data>
+  <data name="BackupBranchPage_CheckoutBlockedTitle" xml:space="preserve">
+    <value>Cannot check out</value>
+  </data>
+  <data name="BackupBranchPage_CommandFailedTitle" xml:space="preserve">
+    <value>Action not completed</value>
+  </data>
+  <data name="BackupBranchPage_BranchCreated" xml:space="preserve">
+    <value>Branch "{0}" created. The new branch is not checked out automatically.</value>
+  </data>
+  <data name="BackupBranchPage_BranchRenamed" xml:space="preserve">
+    <value>Branch renamed to "{0}".</value>
+  </data>
+  <data name="BackupBranchPage_BranchDeleted" xml:space="preserve">
+    <value>Branch "{0}" deleted.</value>
+  </data>
+  <data name="BackupBranchPage_DeleteConfirmTitle" xml:space="preserve">
+    <value>Delete branch</value>
+  </data>
+  <data name="BackupBranchPage_DeleteConfirmContent" xml:space="preserve">
+    <value>Delete branch "{0}"? Its backup records stay in history and only disappear from the branch list.</value>
+  </data>
+  <data name="BackupBranchPage_RunSources" xml:space="preserve">
+    <value>{0} source(s)</value>
+  </data>
+  <data name="BackupBranchPage_CreateDialog_Title" xml:space="preserve">
+    <value>Create branch from a backup</value>
+  </data>
+  <data name="BackupBranchPage_CreateDialog_BackupHeader" xml:space="preserve">
+    <value>Select a backup</value>
+  </data>
+  <data name="BackupBranchPage_CreateDialog_NoBackup" xml:space="preserve">
+    <value>No backup can seed a branch yet. Run one full backup first.</value>
+  </data>
+  <data name="BackupBranchPage_CreateDialog_NameHeader" xml:space="preserve">
+    <value>Branch name</value>
+  </data>
+  <data name="BackupBranchPage_CreateDialog_NameBox.PlaceholderText" xml:space="preserve">
+    <value>e.g. Main line, Experiment</value>
+  </data>
+  <data name="BackupBranchPage_CreateDialog_Hint" xml:space="preserve">
+    <value>The new branch is created on the selected backup's complete checkpoint and is not checked out automatically.</value>
+  </data>
+  <data name="BackupBranchPage_RenameDialog_Title" xml:space="preserve">
+    <value>Rename branch</value>
+  </data>
+  <data name="BackupBranchPage_RenameDialog_NameHeader" xml:space="preserve">
+    <value>New branch name</value>
+  </data>
+  <data name="BackupBranchPage_RenameDialog_NameBox.PlaceholderText" xml:space="preserve">
+    <value>Enter the new branch name</value>
   </data>
 </root>

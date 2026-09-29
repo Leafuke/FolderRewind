@@ -1137,6 +1137,9 @@
   <data name="BackupService_Log_SmartChainLimitReached" xml:space="preserve">
     <value>增量备份链长度已达上限 ({0})，强制执行全量备份</value>
   </data>
+  <data name="BackupService_HistoryCaptureVerificationFailed" xml:space="preserve">
+    <value>归档验证失败，未写入原生历史记录。</value>
+  </data>
   <data name="BackupService_Log_SmartChainCheckFailed" xml:space="preserve">
     <value>智能备份链长度检查失败：{0}</value>
   </data>
@@ -4902,5 +4905,133 @@ Pull Request：{1}</value>
   </data>
   <data name="History_SaveFailed" xml:space="preserve">
     <value>保存备份历史失败：{0}</value>
+  </data>
+
+  <!-- 备份分支页 -->
+  <data name="ShellPage_NavBranches.Content" xml:space="preserve">
+    <value>备份分支</value>
+  </data>
+  <data name="BackupBranchPage_Title.Text" xml:space="preserve">
+    <value>备份分支</value>
+  </data>
+  <data name="BackupBranchPage_Description.Text" xml:space="preserve">
+    <value>同一个配置下的多条互相独立的备份线。每次备份都写入当前分支。</value>
+  </data>
+  <data name="BackupBranchPage_ConfigFilter.Header" xml:space="preserve">
+    <value>所属配置</value>
+  </data>
+  <data name="BackupBranchPage_Refresh.Content" xml:space="preserve">
+    <value>刷新</value>
+  </data>
+  <data name="BackupBranchPage_CurrentBranch.Text" xml:space="preserve">
+    <value>当前分支</value>
+  </data>
+  <data name="BackupBranchPage_CurrentBranchNone.Text" xml:space="preserve">
+    <value>尚未确定</value>
+  </data>
+  <data name="BackupBranchPage_NoConfig.Text" xml:space="preserve">
+    <value>还没有任何备份配置，请先在「配置」页创建一个。</value>
+  </data>
+  <data name="BackupBranchPage_Empty.Text" xml:space="preserve">
+    <value>该配置还没有任何分支记录，执行一次备份即可建立主线。</value>
+  </data>
+  <data name="BackupBranchPage_MultiTip.Text" xml:space="preserve">
+    <value>多个端点</value>
+  </data>
+  <data name="BackupBranchPage_CurrentBadge.Text" xml:space="preserve">
+    <value>当前</value>
+  </data>
+  <data name="BackupBranchPage_NameCollisionBadge.Text" xml:space="preserve">
+    <value>重名</value>
+  </data>
+  <data name="BackupBranchPage_Column_Name.Text" xml:space="preserve">
+    <value>分支名称</value>
+  </data>
+  <data name="BackupBranchPage_Column_Tips.Text" xml:space="preserve">
+    <value>端点</value>
+  </data>
+  <data name="BackupBranchPage_Column_Created.Text" xml:space="preserve">
+    <value>创建时间</value>
+  </data>
+  <data name="BackupBranchPage_LoadFailed.Text" xml:space="preserve">
+    <value>读取分支失败：{0}</value>
+  </data>
+  <data name="BackupBranchPage_CreateFromRun.Content" xml:space="preserve">
+    <value>从备份创建分支…</value>
+  </data>
+  <data name="BackupBranchPage_Rename.Content" xml:space="preserve">
+    <value>重命名…</value>
+  </data>
+  <data name="BackupBranchPage_Delete.Content" xml:space="preserve">
+    <value>删除…</value>
+  </data>
+  <data name="BackupBranchPage_Checkout.Content" xml:space="preserve">
+    <value>切换到此分支</value>
+  </data>
+  <data name="BackupBranchPage_CheckoutConfirmTitle" xml:space="preserve">
+    <value>切换分支</value>
+  </data>
+  <data name="BackupBranchPage_CheckoutConfirmContent" xml:space="preserve">
+    <value>切换到分支「{0}」？该配置下的源目录内容会被替换成这条分支最近一次备份时的状态。</value>
+  </data>
+  <data name="BackupBranchPage_CheckoutProtectionNotice" xml:space="preserve">
+    <value>当前内容相对最近的备份有改动，切换前会先把它们收成一个保护点（不进入任何分支），之后可以退回来。</value>
+  </data>
+  <data name="BackupBranchPage_CheckoutSucceeded" xml:space="preserve">
+    <value>已切换到分支「{0}」。</value>
+  </data>
+  <data name="BackupBranchPage_CheckoutRecoveryRequired" xml:space="preserve">
+    <value>已切换，但本机派生状态需要恢复：{0}</value>
+  </data>
+  <data name="BackupBranchPage_CheckoutBlockedTitle" xml:space="preserve">
+    <value>无法切换分支</value>
+  </data>
+  <data name="BackupBranchPage_CommandFailedTitle" xml:space="preserve">
+    <value>操作未完成</value>
+  </data>
+  <data name="BackupBranchPage_BranchCreated" xml:space="preserve">
+    <value>已创建分支「{0}」。新分支不会自动切换过去。</value>
+  </data>
+  <data name="BackupBranchPage_BranchRenamed" xml:space="preserve">
+    <value>已把分支重命名为「{0}」。</value>
+  </data>
+  <data name="BackupBranchPage_BranchDeleted" xml:space="preserve">
+    <value>已删除分支「{0}」。</value>
+  </data>
+  <data name="BackupBranchPage_DeleteConfirmTitle" xml:space="preserve">
+    <value>删除分支</value>
+  </data>
+  <data name="BackupBranchPage_DeleteConfirmContent" xml:space="preserve">
+    <value>删除分支「{0}」？该分支的备份记录仍留在历史中，只是不再出现在分支列表里。</value>
+  </data>
+  <data name="BackupBranchPage_RunSources" xml:space="preserve">
+    <value>共 {0} 个来源</value>
+  </data>
+  <data name="BackupBranchPage_CreateDialog_Title" xml:space="preserve">
+    <value>从备份创建分支</value>
+  </data>
+  <data name="BackupBranchPage_CreateDialog_BackupHeader" xml:space="preserve">
+    <value>选择备份</value>
+  </data>
+  <data name="BackupBranchPage_CreateDialog_NoBackup" xml:space="preserve">
+    <value>没有可用于创建分支的备份。请先执行一次完整备份。</value>
+  </data>
+  <data name="BackupBranchPage_CreateDialog_NameHeader" xml:space="preserve">
+    <value>分支名称</value>
+  </data>
+  <data name="BackupBranchPage_CreateDialog_NameBox.PlaceholderText" xml:space="preserve">
+    <value>例如：主线、实验分支</value>
+  </data>
+  <data name="BackupBranchPage_CreateDialog_Hint" xml:space="preserve">
+    <value>新分支建立在所选备份的完整检查点上，建立后不会自动切换过去。</value>
+  </data>
+  <data name="BackupBranchPage_RenameDialog_Title" xml:space="preserve">
+    <value>重命名分支</value>
+  </data>
+  <data name="BackupBranchPage_RenameDialog_NameHeader" xml:space="preserve">
+    <value>新的分支名称</value>
+  </data>
+  <data name="BackupBranchPage_RenameDialog_NameBox.PlaceholderText" xml:space="preserve">
+    <value>输入新的分支名称</value>
   </data>
 </root>

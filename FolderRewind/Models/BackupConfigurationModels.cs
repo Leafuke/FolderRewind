@@ -71,8 +71,22 @@ namespace FolderRewind.Models
         // 云上传设置（通过外部工具执行）
         public CloudSettings Cloud { get; set; } = new();
 
+        /// <summary>
+        /// 只记录配置已与哪一版 Native History 格式绑定；repository path 由 ConfigId 编码推导，
+        /// 不允许把设备路径持久化进配置。
+        /// </summary>
+        public HistoryRepositoryBinding? HistoryRepositoryBinding { get; set; }
+
         // 扩展属性 (用于插件，如 Minecraft 插件存储 rcon 端口等)
         public Dictionary<string, string> ExtendedProperties { get; set; } = new();
+    }
+
+    /// <summary>
+    /// 配置与 Native History 仓库格式的绑定记录。
+    /// </summary>
+    public sealed class HistoryRepositoryBinding
+    {
+        public int FormatVersion { get; set; }
     }
 
     /// <summary>
@@ -113,6 +127,7 @@ namespace FolderRewind.Models
     /// </summary>
     public class ManagedFolder : ObservableObject
     {
+        private string _id = Guid.NewGuid().ToString();
         private string _path = "";
         private string _displayName = "";
         private string _description = "";
@@ -120,6 +135,17 @@ namespace FolderRewind.Models
         private string _lastBackupTime = I18n.Format("FolderManager_NeverBackedUp");
         private bool _isFavorite;
         private string _coverImagePath = ""; // 对应封面图片路径
+        private BackupSourceScope _sourceScope = new();
+
+        /// <summary>
+        /// 源文件夹的稳定标识。Native History 以它为 SourceId，改名或换路径都不影响已记录的历史。
+        /// 旧配置里没有这个字段，由 ConfigService 在加载时回填。
+        /// </summary>
+        public string Id
+        {
+            get => _id;
+            set => SetProperty(ref _id, value ?? string.Empty);
+        }
 
         // 核心路径
         public string Path
@@ -145,6 +171,15 @@ namespace FolderRewind.Models
         public string StatusText { get => _statusText; set => SetProperty(ref _statusText, value ?? string.Empty); }
 
         public string CoverImagePath { get => _coverImagePath; set => SetProperty(ref _coverImagePath, value ?? string.Empty); }
+
+        /// <summary>
+        /// 该来源允许进入备份的最大文件集合。配置过滤器和插件范围只能继续缩小它。
+        /// </summary>
+        public BackupSourceScope SourceScope
+        {
+            get => _sourceScope;
+            set => SetProperty(ref _sourceScope, value ?? new BackupSourceScope());
+        }
     }
 
     public enum BackupMode
