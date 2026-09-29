@@ -106,18 +106,111 @@
                 <ListView Grid.Row="1"
                           ItemsSource="{x:Bind ViewModel.Branches, Mode=OneWay}"
                           SelectedItem="{x:Bind ViewModel.SelectedBranch, Mode=TwoWay}">
+                    <!-- 自定义选中样式：仅显示左侧强调色条，不显示整行灰色背景（与文件夹管理页同一手法）。
+                         但本页卡片是整行宽且不透明的，会连悬停/按下的底色一起盖住，
+                         所以卡片表面改由模板画，选中条则画在内容之上。 -->
                     <ListView.ItemContainerStyle>
                         <Style TargetType="ListViewItem">
                             <Setter Property="HorizontalContentAlignment" Value="Stretch"/>
                             <Setter Property="Padding" Value="0"/>
                             <Setter Property="Margin" Value="0,0,0,4"/>
+                            <Setter Property="Template">
+                                <Setter.Value>
+                                    <ControlTemplate TargetType="ListViewItem">
+                                        <Grid x:Name="Root" Background="Transparent">
+                                            <Border x:Name="CardSurface"
+                                                    Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
+                                                    CornerRadius="{StaticResource ControlCornerRadius}"/>
+
+                                            <ContentPresenter x:Name="ContentPresenter"
+                                                              Content="{TemplateBinding Content}"
+                                                              ContentTemplate="{TemplateBinding ContentTemplate}"
+                                                              ContentTransitions="{TemplateBinding ContentTransitions}"
+                                                              HorizontalAlignment="Stretch"
+                                                              VerticalAlignment="Stretch"/>
+
+                                            <!-- 落在卡片自身的 12px 内边距里，文字仍与表头左对齐。 -->
+                                            <Border x:Name="SelectionIndicator"
+                                                    Width="3"
+                                                    Height="28"
+                                                    Margin="6,0,0,0"
+                                                    HorizontalAlignment="Left"
+                                                    VerticalAlignment="Center"
+                                                    CornerRadius="1.5"
+                                                    Background="{ThemeResource AccentFillColorDefaultBrush}"
+                                                    Opacity="0"/>
+
+                                            <VisualStateManager.VisualStateGroups>
+                                                <VisualStateGroup x:Name="CommonStates">
+                                                    <!-- 每个状态都显式写回底色：状态之间只应用新状态的 storyboard，
+                                                         不重置旧状态设过的属性，漏写会残留上一次的悬停色。 -->
+                                                    <VisualState x:Name="Normal">
+                                                        <Storyboard>
+                                                            <ObjectAnimationUsingKeyFrames Storyboard.TargetName="CardSurface" Storyboard.TargetProperty="Background">
+                                                                <DiscreteObjectKeyFrame KeyTime="0" Value="{ThemeResource CardBackgroundFillColorDefaultBrush}"/>
+                                                            </ObjectAnimationUsingKeyFrames>
+                                                        </Storyboard>
+                                                    </VisualState>
+                                                    <VisualState x:Name="PointerOver">
+                                                        <Storyboard>
+                                                            <ObjectAnimationUsingKeyFrames Storyboard.TargetName="CardSurface" Storyboard.TargetProperty="Background">
+                                                                <DiscreteObjectKeyFrame KeyTime="0" Value="{ThemeResource SubtleFillColorSecondaryBrush}"/>
+                                                            </ObjectAnimationUsingKeyFrames>
+                                                        </Storyboard>
+                                                    </VisualState>
+                                                    <VisualState x:Name="Pressed">
+                                                        <Storyboard>
+                                                            <ObjectAnimationUsingKeyFrames Storyboard.TargetName="CardSurface" Storyboard.TargetProperty="Background">
+                                                                <DiscreteObjectKeyFrame KeyTime="0" Value="{ThemeResource SubtleFillColorTertiaryBrush}"/>
+                                                            </ObjectAnimationUsingKeyFrames>
+                                                        </Storyboard>
+                                                    </VisualState>
+                                                    <VisualState x:Name="Selected">
+                                                        <Storyboard>
+                                                            <DoubleAnimation Storyboard.TargetName="SelectionIndicator"
+                                                                             Storyboard.TargetProperty="Opacity"
+                                                                             To="1" Duration="0:0:0.2">
+                                                                <DoubleAnimation.EasingFunction>
+                                                                    <CubicEase EasingMode="EaseOut"/>
+                                                                </DoubleAnimation.EasingFunction>
+                                                            </DoubleAnimation>
+                                                            <ObjectAnimationUsingKeyFrames Storyboard.TargetName="CardSurface" Storyboard.TargetProperty="Background">
+                                                                <DiscreteObjectKeyFrame KeyTime="0" Value="{ThemeResource CardBackgroundFillColorDefaultBrush}"/>
+                                                            </ObjectAnimationUsingKeyFrames>
+                                                        </Storyboard>
+                                                    </VisualState>
+                                                    <VisualState x:Name="PointerOverSelected">
+                                                        <Storyboard>
+                                                            <DoubleAnimation Storyboard.TargetName="SelectionIndicator"
+                                                                             Storyboard.TargetProperty="Opacity"
+                                                                             To="1" Duration="0:0:0.15"/>
+                                                            <ObjectAnimationUsingKeyFrames Storyboard.TargetName="CardSurface" Storyboard.TargetProperty="Background">
+                                                                <DiscreteObjectKeyFrame KeyTime="0" Value="{ThemeResource SubtleFillColorSecondaryBrush}"/>
+                                                            </ObjectAnimationUsingKeyFrames>
+                                                        </Storyboard>
+                                                    </VisualState>
+                                                    <VisualState x:Name="PressedSelected">
+                                                        <Storyboard>
+                                                            <DoubleAnimation Storyboard.TargetName="SelectionIndicator"
+                                                                             Storyboard.TargetProperty="Opacity"
+                                                                             To="1" Duration="0:0:0.15"/>
+                                                            <ObjectAnimationUsingKeyFrames Storyboard.TargetName="CardSurface" Storyboard.TargetProperty="Background">
+                                                                <DiscreteObjectKeyFrame KeyTime="0" Value="{ThemeResource SubtleFillColorTertiaryBrush}"/>
+                                                            </ObjectAnimationUsingKeyFrames>
+                                                        </Storyboard>
+                                                    </VisualState>
+                                                </VisualStateGroup>
+                                            </VisualStateManager.VisualStateGroups>
+                                        </Grid>
+                                    </ControlTemplate>
+                                </Setter.Value>
+                            </Setter>
                         </Style>
                     </ListView.ItemContainerStyle>
                     <ListView.ItemTemplate>
                         <DataTemplate x:DataType="vm:BackupBranchItem">
-                            <Border Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
-                                    CornerRadius="{StaticResource ControlCornerRadius}"
-                                    Padding="12">
+                            <!-- 卡片表面与圆角由列表项模板提供，这里只留内边距。 -->
+                            <Border Padding="12">
                                 <Grid ColumnSpacing="16">
                                     <Grid.ColumnDefinitions>
                                         <ColumnDefinition Width="*"/>
