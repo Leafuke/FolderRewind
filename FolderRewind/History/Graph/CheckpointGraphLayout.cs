@@ -25,7 +25,9 @@ public readonly record struct CheckpointGraphNode(
 /// <param name="ColorIndex"><c>Lane % paletteSize</c> —— 颜色只用来区分线条，没有业务含义。</param>
 /// <param name="IncomingLanes">上边界上汇聚进本节点的泳道（从 y=0 弯到圆心）；含本行泳道自身那条直入线。</param>
 /// <param name="OutgoingLanes">本节点伸向各父节点的泳道（从圆心弯到下边界），按父的顺序排列，第一父就是本行泳道。</param>
-/// <param name="PassThroughLanes">与本节点无关、只是路过的泳道（y=0 直通 y=H）。</param>
+/// <param name="PassThroughLanes">本行上下贯通、中间不弯折的泳道（y=0 直通 y=H）。多数与本节点无关；
+/// 例外是被 <see cref="OutgoingLanes"/> 复用的那条 —— 线本来就从上面接着，本行只是再连一次，
+/// 所以它既贯穿本行、又出现在出线里。</param>
 public sealed record CheckpointGraphRow(
     int Index,
     CheckpointId Id,
@@ -132,6 +134,7 @@ public static class CheckpointGraphLayoutBuilder
             }
 
             var outgoing = new List<int>();
+            var reused = new List<int>();
             var inSetParents = parents[order[position]];
             for (var p = 0; p < inSetParents.Count; p++)
             {
@@ -140,6 +143,11 @@ public static class CheckpointGraphLayoutBuilder
                 if (target < 0)
                 {
                     target = LowestFreeLane(lanes);
+                }
+                else if (target != lane)
+                {
+                    // 复用了一条已经在等同一个父节点的列：那条线早从上面接着了，本行不新占列。
+                    reused.Add(target);
                 }
 
                 lanes[target] = parentId;
@@ -161,7 +169,15 @@ public static class CheckpointGraphLayoutBuilder
                     continue;
                 }
 
-                if (incoming.Contains(i) || outgoing.Contains(i))
+                if (incoming.Contains(i))
+                {
+                    continue;
+                }
+
+                // 出线占的列要跳过，但「复用等它的那条列」不能跳：那条线本来就从上面往下穿，
+                // 不画贯穿段，它会在本行的上半段凭空断开（合并点常见的断口就是这么来的）。
+                // 新占的空列上方本无来线，上面那条 occupiedAbove 已经把它挡在外面了。
+                if (outgoing.Contains(i) && !reused.Contains(i))
                 {
                     continue;
                 }

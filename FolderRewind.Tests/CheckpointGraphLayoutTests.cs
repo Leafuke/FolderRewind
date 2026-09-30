@@ -174,8 +174,54 @@ public sealed class CheckpointGraphLayoutTests
     [TestMethod]
     public void RowsAreInternallyConsistent()
     {
-        var layout = Build(Node(1, 6, 2, 3), Node(2, 5, 4), Node(3, 4, 4), Node(4, 3));
+        AssertIsInternallyConsistent(Build(Node(1, 6, 2, 3), Node(2, 5, 4), Node(3, 4, 4), Node(4, 3)));
+    }
 
+    [TestMethod]
+    public void RowsJoinAtEveryBoundary()
+    {
+        AssertRowsJoin(Build(Node(1, 5, 3), Node(2, 4, 3), Node(3, 1)));
+        AssertRowsJoin(Build(Node(1, 5, 2, 4), Node(2, 4, 3), Node(3, 3, 5, 4), Node(4, 2), Node(5, 1)));
+    }
+
+    [TestMethod]
+    public void MergeIntoALaneThatAlreadyWaitsForThatParentKeepsItUnbroken()
+    {
+        // 1(父 2、4) → 2(父 3) → 3(父 5、4)：父 4 的线在第 0 行就被 1 拉到第 1 泳道，
+        // 一路等到第 3 行。第 2 行的 3 只是再连它一次，不能把那条贯穿线在本行的上半段掐掉
+        // —— 曾经如此：贯穿线判成「出线占的列就跳过」，于是本行 y=0 到 y=40 空着，肉眼就是断口。
+        var layout = Build(Node(1, 5, 2, 4), Node(2, 4, 3), Node(3, 3, 5, 4), Node(4, 2), Node(5, 1));
+
+        var row = layout.Rows[2];
+        Assert.AreEqual(Id(3), row.Id);
+        Assert.AreEqual(0, row.Lane);
+        AssertLanes([0], row.IncomingLanes);
+        AssertLanes([0, 1], row.OutgoingLanes);
+        AssertLanes([1], row.PassThroughLanes);
+        AssertRowsJoin(layout);
+    }
+
+    [TestMethod]
+    public void RowsJoinOnRandomGraphs()
+    {
+        // 断口是「某些形状才出现」的：靠手写的几个用例盖不全，扫一批随机 DAG。
+        var random = new Random(20260930);
+
+        for (var attempt = 0; attempt < 300; attempt++)
+        {
+            var layout = Build([.. RandomNodes(random)]);
+
+            AssertIsInternallyConsistent(layout);
+            AssertRowsJoin(layout);
+        }
+    }
+
+    /// <summary>
+    /// 行内不变式：行序连续、泳道不越界、配色取模，同一条泳道在一行里最多出现一次
+    /// （只有本行泳道例外 —— 它在圆点上方是入线、下方是出线，本来就是同一列的上下两半）。
+    /// </summary>
+    private static void AssertIsInternallyConsistent(CheckpointGraphLayout layout)
+    {
         for (var position = 0; position < layout.Rows.Length; position++)
         {
             var row = layout.Rows[position];
@@ -183,8 +229,6 @@ public sealed class CheckpointGraphLayoutTests
             Assert.AreEqual(row.Lane % CheckpointGraphLayout.PaletteSize, row.ColorIndex);
             Assert.IsLessThan(layout.LaneCount, row.Lane);
 
-            // 同一条泳道在一行里最多被用一次 —— 只有本行泳道例外：
-            // 它在圆点上方是直入线、下方是直出线，本来就是同一列的上下两半。
             foreach (var lanes in new[] { row.IncomingLanes, row.OutgoingLanes, row.PassThroughLanes })
             {
                 Assert.AreEqual(lanes.Length, lanes.Distinct().Count(), $"第 {position} 行的泳道重复占用了");
@@ -194,14 +238,53 @@ public sealed class CheckpointGraphLayoutTests
             {
                 Assert.AreNotEqual(row.Lane, lane, "贯穿线不该画在本行的节点泳道上");
                 Assert.DoesNotContain(lane, row.IncomingLanes, "贯穿线与汇入线不能占用同一条泳道");
-                Assert.DoesNotContain(lane, row.OutgoingLanes, "贯穿线与伸出线不能占用同一条泳道");
-            }
-
-            foreach (var lane in row.IncomingLanes.Intersect(row.OutgoingLanes))
-            {
-                Assert.AreEqual(row.Lane, lane, "汇入与伸出只有本行泳道那条直线可以共用");
             }
         }
+    }
+
+    /// <summary>
+    /// 行与行之间必须首尾相接：本行顶部画到的泳道，正好是上一行底部画到的泳道。
+    /// 每行只画自己那一段（y=0 到 y=RowHeight），对不上就是界面上看得见的断缝。
+    /// </summary>
+    private static void AssertRowsJoin(CheckpointGraphLayout layout)
+    {
+        var previous = new HashSet<int>();
+        foreach (var row in layout.Rows)
+        {
+            var top = row.IncomingLanes.Concat(row.PassThroughLanes).ToHashSet();
+            Assert.IsTrue(previous.SetEquals(top),
+                $"第 {row.Index} 行顶部 [{string.Join(",", top.Order())}] 与上一行底部 "
+                + $"[{string.Join(",", previous.Order())}] 接不上。");
+
+            previous = row.OutgoingLanes.Concat(row.PassThroughLanes).ToHashSet();
+        }
+
+        Assert.IsEmpty(previous, "最下面一行不能有悬在半空的线。");
+    }
+
+    /// <summary>随机造一张无环图：父只连「更旧」的节点，天然排得出拓扑序。</summary>
+    private static List<CheckpointGraphNode> RandomNodes(Random random)
+    {
+        var count = random.Next(0, 24);
+        var ids = Enumerable.Range(1, count).Select(Id).ToArray();
+
+        var nodes = new List<CheckpointGraphNode>(count);
+        for (var i = 0; i < count; i++)
+        {
+            var parents = new List<CheckpointId>();
+            for (var j = i + 1; j < count && parents.Count < 2; j++)
+            {
+                if (random.Next(4) == 0)
+                {
+                    parents.Add(ids[j]);
+                }
+            }
+
+            nodes.Add(new CheckpointGraphNode(ids[i], Origin.AddDays(count - i), [.. parents]));
+        }
+
+        // 输入顺序不该影响布局结论。
+        return [.. nodes.OrderBy(_ => random.Next())];
     }
 
     [TestMethod]
