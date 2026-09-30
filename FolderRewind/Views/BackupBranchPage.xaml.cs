@@ -121,6 +121,39 @@ namespace FolderRewind.Views
             await ViewModel.CheckoutAsync(branch);
         }
 
+        private async void OnMergeClick(object sender, RoutedEventArgs e)
+        {
+            if (ViewModel.SelectedBranch is not { } branch || ViewModel.SelectedConfig is not { } config)
+            {
+                return;
+            }
+
+            // 合并本身不动源目录，但会建出会话、物化三份输入，而且后续落地会覆盖源目录 ——
+            // 先把方向说明白再动手，免得点错按钮才发现合反了。
+            var confirm = new ContentDialog
+            {
+                Title = I18n.GetString("BackupBranchPage_MergeConfirmTitle"),
+                Content = I18n.Format("BackupBranchPage_MergeConfirmContent", branch.Name, ViewModel.CurrentBranchName),
+                PrimaryButtonText = I18n.GetString("Common_Ok"),
+                CloseButtonText = I18n.GetString("Common_Cancel"),
+                DefaultButton = ContentDialogButton.Primary,
+                XamlRoot = XamlRoot
+            };
+            ThemeService.ApplyThemeToDialog(confirm);
+            if (await confirm.ShowAsync() != ContentDialogResult.Primary)
+            {
+                return;
+            }
+
+            var session = await ViewModel.StartMergeAsync(branch);
+            if (session is null)
+            {
+                return;
+            }
+
+            MainWindowService.OpenMergeWindow(config, session);
+        }
+
         private async void OnRenameClick(object sender, RoutedEventArgs e)
         {
             if (ViewModel.SelectedBranch is not { } branch)

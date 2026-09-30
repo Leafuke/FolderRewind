@@ -5034,4 +5034,227 @@ Pull request: {1}</value>
   <data name="BackupBranchPage_RenameDialog_NameBox.PlaceholderText" xml:space="preserve">
     <value>Enter the new branch name</value>
   </data>
+  <!-- Merge branch / merge window -->
+  <data name="BackupBranchPage_Merge.Content" xml:space="preserve">
+    <value>Merge branch…</value>
+  </data>
+  <data name="BackupBranchPage_MergeConfirmTitle" xml:space="preserve">
+    <value>Merge branch</value>
+  </data>
+  <data name="BackupBranchPage_MergeConfirmContent" xml:space="preserve">
+    <value>Branch "{0}" will be merged into the current branch "{1}". This does not touch the source folders; everything is applied at once after all conflicts are resolved.</value>
+  </data>
+  <data name="BackupBranchPage_MergeNoChanges" xml:space="preserve">
+    <value>There is nothing to merge between these two branches.</value>
+  </data>
+  <data name="Merge_Title.Text" xml:space="preserve">
+    <value>Merge branches</value>
+  </data>
+  <data name="Merge_Previous.Content" xml:space="preserve">
+    <value>Previous</value>
+  </data>
+  <data name="Merge_Next.Content" xml:space="preserve">
+    <value>Next</value>
+  </data>
+  <data name="Merge_ShowBase.Content" xml:space="preserve">
+    <value>Show common ancestor</value>
+  </data>
+  <data name="Merge_TakeOurs.Content" xml:space="preserve">
+    <value>Take current branch for all</value>
+  </data>
+  <data name="Merge_TakeTheirs.Content" xml:space="preserve">
+    <value>Take source branch for all</value>
+  </data>
+  <data name="Merge_Pane_Ours.Text" xml:space="preserve">
+    <value>Current branch</value>
+  </data>
+  <data name="Merge_Pane_Result.Text" xml:space="preserve">
+    <value>Merge result</value>
+  </data>
+  <data name="Merge_Pane_Theirs.Text" xml:space="preserve">
+    <value>Source branch</value>
+  </data>
+  <data name="Merge_Pane_Base.Text" xml:space="preserve">
+    <value>Common ancestor</value>
+  </data>
+  <data name="Merge_NoSelection.Text" xml:space="preserve">
+    <value>Select a conflict on the left to review it.</value>
+  </data>
+  <data name="Merge_AcceptOurs.Content" xml:space="preserve">
+    <value>Take current</value>
+  </data>
+  <data name="Merge_AcceptTheirs.Content" xml:space="preserve">
+    <value>Take source</value>
+  </data>
+  <data name="Merge_AcceptBoth.Content" xml:space="preserve">
+    <value>Take both</value>
+  </data>
+  <data name="Merge_ResultHeader.Text" xml:space="preserve">
+    <value>Result (editable)</value>
+  </data>
+  <data name="Merge_HandEdited.Text" xml:space="preserve">
+    <value>Hand-edited</value>
+  </data>
+  <data name="Merge_ResetEdit.Content" xml:space="preserve">
+    <value>Reset to per-hunk result</value>
+  </data>
+  <data name="Merge_SaveManual.Content" xml:space="preserve">
+    <value>Save hand-edited result</value>
+  </data>
+  <data name="Merge_Abandon.Content" xml:space="preserve">
+    <value>Abandon session</value>
+  </data>
+  <data name="Merge_Recompute.Content" xml:space="preserve">
+    <value>Recompute</value>
+  </data>
+  <data name="Merge_Apply.Content" xml:space="preserve">
+    <value>Apply to workspace</value>
+  </data>
+  <data name="Merge_Direction" xml:space="preserve">
+    <value>Merging "{1}" into "{0}"</value>
+  </data>
+  <data name="Merge_Progress" xml:space="preserve">
+    <value>{0} of {1} conflicts resolved</value>
+  </data>
+  <data name="Merge_ProgressAutoMerged" xml:space="preserve">
+    <value>0 conflicts · {0} source(s) merged automatically</value>
+  </data>
+  <data name="Merge_AutoMerge_Title.Text" xml:space="preserve">
+    <value>There is nothing that needs to be resolved by hand between these two branches.</value>
+  </data>
+  <data name="Merge_AutoMerge_Summary" xml:space="preserve">
+    <value>The contents of {0} file(s) were merged automatically; the result is shown below. Apply it to the workspace once it looks right.</value>
+  </data>
+  <data name="Merge_AutoMerge_Unviewable" xml:space="preserve">
+    <value>{0} of them cannot be previewed line by line (not text, or one side is missing); their merged result has been written as well.</value>
+  </data>
+  <data name="Merge_AutoMerge_FileHeader" xml:space="preserve">
+    <value>{0} · {1}</value>
+  </data>
+  <data name="Merge_SideOnlyGeneric" xml:space="preserve">
+    <value>This conflict can only be resolved by taking one side whole; per-hunk editing is not available.</value>
+  </data>
+  <data name="Merge_Kind_ModifyModify" xml:space="preserve">
+    <value>Both sides changed the same file</value>
+  </data>
+  <data name="Merge_Kind_ModifyDelete" xml:space="preserve">
+    <value>One side changed it, the other deleted it</value>
+  </data>
+  <data name="Merge_Kind_AddAdd" xml:space="preserve">
+    <value>Both sides added a file with the same name</value>
+  </data>
+  <data name="Merge_Kind_PathStructure" xml:space="preserve">
+    <value>Directory structure conflict</value>
+  </data>
+  <data name="Merge_Kind_SourceRoster" xml:space="preserve">
+    <value>Source list conflict</value>
+  </data>
+  <data name="Merge_Kind_SourceBoundary" xml:space="preserve">
+    <value>Source boundary conflict</value>
+  </data>
+  <data name="Merge_ConflictPathsMore" xml:space="preserve">
+    <value>{0} and {1} files</value>
+  </data>
+  <data name="Merge_ConflictSubtitleMany" xml:space="preserve">
+    <value>{0} ({1} files)</value>
+  </data>
+  <data name="Merge_State_Ours" xml:space="preserve">
+    <value>Current branch taken</value>
+  </data>
+  <data name="Merge_State_Theirs" xml:space="preserve">
+    <value>Source branch taken</value>
+  </data>
+  <data name="Merge_State_Manual" xml:space="preserve">
+    <value>Resolved by hand</value>
+  </data>
+  <data name="Merge_State_Unresolved" xml:space="preserve">
+    <value>Unresolved</value>
+  </data>
+  <data name="Merge_Hunk_Unchanged" xml:space="preserve">
+    <value>Unchanged</value>
+  </data>
+  <data name="Merge_Hunk_OursOnly" xml:space="preserve">
+    <value>Changed on the current branch</value>
+  </data>
+  <data name="Merge_Hunk_TheirsOnly" xml:space="preserve">
+    <value>Changed on the source branch</value>
+  </data>
+  <data name="Merge_Hunk_BothSame" xml:space="preserve">
+    <value>Both sides made the same change</value>
+  </data>
+  <data name="Merge_Hunk_Conflict" xml:space="preserve">
+    <value>Conflict</value>
+  </data>
+  <data name="Merge_Hunk_Expand" xml:space="preserve">
+    <value>Expand</value>
+  </data>
+  <data name="Merge_Hunk_Collapse" xml:space="preserve">
+    <value>Collapse</value>
+  </data>
+  <data name="Merge_Hunk_CollapsedSame" xml:space="preserve">
+    <value>{0} unchanged lines</value>
+  </data>
+  <data name="Merge_Hunk_CollapsedChanged" xml:space="preserve">
+    <value>{0} unchanged lines; current branch has {1}, source branch has {2}</value>
+  </data>
+  <data name="Merge_Choice_Ours" xml:space="preserve">
+    <value>Chosen: current branch</value>
+  </data>
+  <data name="Merge_Choice_Theirs" xml:space="preserve">
+    <value>Chosen: source branch</value>
+  </data>
+  <data name="Merge_Choice_Both" xml:space="preserve">
+    <value>Chosen: both</value>
+  </data>
+  <data name="Merge_Choice_Pending" xml:space="preserve">
+    <value>Not chosen yet</value>
+  </data>
+  <data name="Merge_Refusal_NotWhitelisted" xml:space="preserve">
+    <value>This file type cannot be merged hunk by hunk; take one side whole.</value>
+  </data>
+  <data name="Merge_Refusal_Missing" xml:space="preserve">
+    <value>The file is missing on one side; take one side whole.</value>
+  </data>
+  <data name="Merge_Refusal_TooLarge" xml:space="preserve">
+    <value>The file is too large to merge hunk by hunk; take one side whole.</value>
+  </data>
+  <data name="Merge_Refusal_Undecodable" xml:space="preserve">
+    <value>The file encoding could not be determined; take one side whole.</value>
+  </data>
+  <data name="Merge_Refusal_Binary" xml:space="preserve">
+    <value>This is a binary file; take one side whole.</value>
+  </data>
+  <data name="Merge_Refusal_UnresolvedConflict" xml:space="preserve">
+    <value>This file still has unresolved conflicts.</value>
+  </data>
+  <data name="Merge_ApplySucceeded" xml:space="preserve">
+    <value>Merged "{1}" into "{0}".</value>
+  </data>
+  <data name="Merge_ApplyBlockedTitle" xml:space="preserve">
+    <value>Cannot apply</value>
+  </data>
+  <data name="Merge_CloseConfirmTitle" xml:space="preserve">
+    <value>Abandon this merge?</value>
+  </data>
+  <data name="Merge_CloseConfirmContent" xml:space="preserve">
+    <value>The session is not finished. Closing the window abandons it, and the per-hunk choices you made will be lost.</value>
+  </data>
+  <data name="Merge_CloseConfirmPrimary" xml:space="preserve">
+    <value>Abandon and close</value>
+  </data>
+  <data name="Merge_AbandonConfirmTitle" xml:space="preserve">
+    <value>Abandon this merge?</value>
+  </data>
+  <data name="Merge_AbandonConfirmContent" xml:space="preserve">
+    <value>Abandoning discards this merge session; you will need to start it again.</value>
+  </data>
+  <data name="Merge_AbandonConfirmPrimary" xml:space="preserve">
+    <value>Abandon</value>
+  </data>
+  <data name="Merge_OpenWindowFailed" xml:space="preserve">
+    <value>Failed to open the merge window: {0}</value>
+  </data>
+  <data name="Merge_Log_OpenWindowFailed" xml:space="preserve">
+    <value>Failed to open the merge window: {0}</value>
+  </data>
 </root>

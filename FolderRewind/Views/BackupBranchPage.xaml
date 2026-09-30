@@ -71,6 +71,10 @@
                     x:Uid="BackupBranchPage_Checkout"
                     Click="OnCheckoutClick"
                     IsEnabled="{x:Bind ViewModel.CanCheckoutSelected, Mode=OneWay}"/>
+            <Button x:Name="MergeButton"
+                    x:Uid="BackupBranchPage_Merge"
+                    Click="OnMergeClick"
+                    IsEnabled="{x:Bind ViewModel.CanMergeSelected, Mode=OneWay}"/>
             <Button x:Name="RenameButton"
                     x:Uid="BackupBranchPage_Rename"
                     Click="OnRenameClick"

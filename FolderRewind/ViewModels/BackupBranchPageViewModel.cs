@@ -1,5 +1,6 @@
 using FolderRewind.History.Application;
 using FolderRewind.History.Domain;
+using FolderRewind.History.LocalState;
 using FolderRewind.History.Representation;
 using FolderRewind.Models;
 using FolderRewind.Services;
@@ -63,6 +64,12 @@ namespace FolderRewind.ViewModels
         public bool CanDeleteSelected => !_isBusy && _selectedBranch?.CanDelete == true;
 
         public bool CanCheckoutSelected => !_isBusy && _selectedBranch?.CanCheckout == true;
+
+        /// <summary>
+        /// 能不能拿选中分支发起合并：合并的方向是「选中分支 → 当前分支」，
+        /// 所以站在自己头上（或根本没有活动分支）时没有可合的东西。
+        /// </summary>
+        public bool CanMergeSelected => !_isBusy && _selectedBranch?.CanCheckout == true;
 
         /// <summary>与选中项无关的命令（刷新、从备份创建分支）只受进行中状态约束。</summary>
         public bool CanStartCommand => !_isBusy;
@@ -209,6 +216,57 @@ namespace FolderRewind.ViewModels
         }
 
         /// <summary>
+        /// 发起一次合并：把选中分支合进当前活动分支，并建出一个待解决的会话。
+        /// <para>
+        /// 这一步<b>不动</b>任何源目录 —— 它只把三份输入物化到会话目录并算出冲突。
+        /// 真正落地在合并窗口里按下「应用到工作区」时，那一步平台会先做保护点。
+        /// </para>
+        /// <para>
+        /// 返回 <c>null</c> 表示没有可合并的内容（已经给过提示），调用方不必再问一次。
+        /// </para>
+        /// </summary>
+        public async Task<MergeSession?> StartMergeAsync(BackupBranchItem branch)
+        {
+            var config = SelectedConfig;
+            if (config is null)
+            {
+                return null;
+            }
+
+            var (entered, session) = await RunBusyAsync<MergeSession?>(async () =>
+            {
+                try
+                {
+                    return await NativeHistoryApplicationService
+                        .StartMergeAsync(config, branch.BranchId, CancellationToken.None)
+                        .ConfigureAwait(true);
+                }
+                catch (Exception ex)
+                {
+                    // 合并的前置条件（两边都得有唯一且可用的端点、工作区得指向当前分支）由平台判，
+                    // 原因原样说出来，别让用户对着灰按钮猜。
+                    NotificationService.ShowWarning(
+                        ex.Message, I18n.GetString("BackupBranchPage_CommandFailedTitle"));
+                    return null;
+                }
+            }).ConfigureAwait(true);
+
+            if (!entered || session is null)
+            {
+                if (entered)
+                {
+                    NotificationService.ShowSuccess(
+                        I18n.GetString("BackupBranchPage_MergeNoChanges"),
+                        I18n.GetString("BackupBranchPage_Title"));
+                }
+
+                return null;
+            }
+
+            return session;
+        }
+
+        /// <summary>
         /// 切换分支：把配置下的源目录替换成目标分支端点那次备份时的状态。
         /// 当前内容若有未收进历史的改动，服务会先做保护点，因此这里不需要页面另行备份。
         /// </summary>
@@ -337,6 +395,7 @@ namespace FolderRewind.ViewModels
             OnPropertyChanged(nameof(CanRenameSelected));
             OnPropertyChanged(nameof(CanDeleteSelected));
             OnPropertyChanged(nameof(CanCheckoutSelected));
+            OnPropertyChanged(nameof(CanMergeSelected));
             OnPropertyChanged(nameof(CanStartCommand));
         }
 

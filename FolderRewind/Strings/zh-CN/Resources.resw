@@ -5034,4 +5034,227 @@ Pull Request：{1}</value>
   <data name="BackupBranchPage_RenameDialog_NameBox.PlaceholderText" xml:space="preserve">
     <value>输入新的分支名称</value>
   </data>
+  <!-- 合并分支 / 合并窗口 -->
+  <data name="BackupBranchPage_Merge.Content" xml:space="preserve">
+    <value>合并分支…</value>
+  </data>
+  <data name="BackupBranchPage_MergeConfirmTitle" xml:space="preserve">
+    <value>合并分支</value>
+  </data>
+  <data name="BackupBranchPage_MergeConfirmContent" xml:space="preserve">
+    <value>会把分支「{0}」合并到当前分支「{1}」。这一步不动源目录，全部冲突解决后才一次性应用。</value>
+  </data>
+  <data name="BackupBranchPage_MergeNoChanges" xml:space="preserve">
+    <value>这两个分支之间没有需要合并的内容。</value>
+  </data>
+  <data name="Merge_Title.Text" xml:space="preserve">
+    <value>合并分支</value>
+  </data>
+  <data name="Merge_Previous.Content" xml:space="preserve">
+    <value>上一个</value>
+  </data>
+  <data name="Merge_Next.Content" xml:space="preserve">
+    <value>下一个</value>
+  </data>
+  <data name="Merge_ShowBase.Content" xml:space="preserve">
+    <value>显示共同祖先</value>
+  </data>
+  <data name="Merge_TakeOurs.Content" xml:space="preserve">
+    <value>整份用当前分支</value>
+  </data>
+  <data name="Merge_TakeTheirs.Content" xml:space="preserve">
+    <value>整份用来源分支</value>
+  </data>
+  <data name="Merge_Pane_Ours.Text" xml:space="preserve">
+    <value>当前分支</value>
+  </data>
+  <data name="Merge_Pane_Result.Text" xml:space="preserve">
+    <value>合并结果</value>
+  </data>
+  <data name="Merge_Pane_Theirs.Text" xml:space="preserve">
+    <value>来源分支</value>
+  </data>
+  <data name="Merge_Pane_Base.Text" xml:space="preserve">
+    <value>共同祖先</value>
+  </data>
+  <data name="Merge_NoSelection.Text" xml:space="preserve">
+    <value>从左侧选一条冲突查看。</value>
+  </data>
+  <data name="Merge_AcceptOurs.Content" xml:space="preserve">
+    <value>用当前分支</value>
+  </data>
+  <data name="Merge_AcceptTheirs.Content" xml:space="preserve">
+    <value>用来源分支</value>
+  </data>
+  <data name="Merge_AcceptBoth.Content" xml:space="preserve">
+    <value>两个都要</value>
+  </data>
+  <data name="Merge_ResultHeader.Text" xml:space="preserve">
+    <value>结果（可直接编辑）</value>
+  </data>
+  <data name="Merge_HandEdited.Text" xml:space="preserve">
+    <value>已手改</value>
+  </data>
+  <data name="Merge_ResetEdit.Content" xml:space="preserve">
+    <value>按逐块结果重置</value>
+  </data>
+  <data name="Merge_SaveManual.Content" xml:space="preserve">
+    <value>保存手改结果</value>
+  </data>
+  <data name="Merge_Abandon.Content" xml:space="preserve">
+    <value>放弃会话</value>
+  </data>
+  <data name="Merge_Recompute.Content" xml:space="preserve">
+    <value>重新计算</value>
+  </data>
+  <data name="Merge_Apply.Content" xml:space="preserve">
+    <value>应用到工作区</value>
+  </data>
+  <data name="Merge_Direction" xml:space="preserve">
+    <value>把「{1}」合并到「{0}」</value>
+  </data>
+  <data name="Merge_Progress" xml:space="preserve">
+    <value>冲突 {0} / {1} 已解决</value>
+  </data>
+  <data name="Merge_ProgressAutoMerged" xml:space="preserve">
+    <value>0 个冲突 · {0} 个来源已自动合并</value>
+  </data>
+  <data name="Merge_AutoMerge_Title.Text" xml:space="preserve">
+    <value>两个分支之间没有需要人工处理的冲突。</value>
+  </data>
+  <data name="Merge_AutoMerge_Summary" xml:space="preserve">
+    <value>已自动合掉 {0} 个文件的内容，下面是合并后的结果。确认无误后点「应用到工作区」即可。</value>
+  </data>
+  <data name="Merge_AutoMerge_Unviewable" xml:space="preserve">
+    <value>其中 {0} 个文件没法逐行预览（不是文本，或缺一侧内容），它们合好的结果已经一并写进去了。</value>
+  </data>
+  <data name="Merge_AutoMerge_FileHeader" xml:space="preserve">
+    <value>{0} · {1}</value>
+  </data>
+  <data name="Merge_SideOnlyGeneric" xml:space="preserve">
+    <value>这条冲突只能整份取一边，不能逐块处理。</value>
+  </data>
+  <data name="Merge_Kind_ModifyModify" xml:space="preserve">
+    <value>两侧都改了同一份文件</value>
+  </data>
+  <data name="Merge_Kind_ModifyDelete" xml:space="preserve">
+    <value>一侧改了、另一侧删了</value>
+  </data>
+  <data name="Merge_Kind_AddAdd" xml:space="preserve">
+    <value>两侧新增了同名文件</value>
+  </data>
+  <data name="Merge_Kind_PathStructure" xml:space="preserve">
+    <value>目录结构冲突</value>
+  </data>
+  <data name="Merge_Kind_SourceRoster" xml:space="preserve">
+    <value>来源清单冲突</value>
+  </data>
+  <data name="Merge_Kind_SourceBoundary" xml:space="preserve">
+    <value>来源边界冲突</value>
+  </data>
+  <data name="Merge_ConflictPathsMore" xml:space="preserve">
+    <value>{0} 等 {1} 个文件</value>
+  </data>
+  <data name="Merge_ConflictSubtitleMany" xml:space="preserve">
+    <value>{0}（{1} 个文件）</value>
+  </data>
+  <data name="Merge_State_Ours" xml:space="preserve">
+    <value>已取当前分支</value>
+  </data>
+  <data name="Merge_State_Theirs" xml:space="preserve">
+    <value>已取来源分支</value>
+  </data>
+  <data name="Merge_State_Manual" xml:space="preserve">
+    <value>已手动解决</value>
+  </data>
+  <data name="Merge_State_Unresolved" xml:space="preserve">
+    <value>未解决</value>
+  </data>
+  <data name="Merge_Hunk_Unchanged" xml:space="preserve">
+    <value>未改动</value>
+  </data>
+  <data name="Merge_Hunk_OursOnly" xml:space="preserve">
+    <value>仅当前分支改动</value>
+  </data>
+  <data name="Merge_Hunk_TheirsOnly" xml:space="preserve">
+    <value>仅来源分支改动</value>
+  </data>
+  <data name="Merge_Hunk_BothSame" xml:space="preserve">
+    <value>两侧改成了一样</value>
+  </data>
+  <data name="Merge_Hunk_Conflict" xml:space="preserve">
+    <value>两侧冲突</value>
+  </data>
+  <data name="Merge_Hunk_Expand" xml:space="preserve">
+    <value>展开</value>
+  </data>
+  <data name="Merge_Hunk_Collapse" xml:space="preserve">
+    <value>折叠</value>
+  </data>
+  <data name="Merge_Hunk_CollapsedSame" xml:space="preserve">
+    <value>{0} 行未改动</value>
+  </data>
+  <data name="Merge_Hunk_CollapsedChanged" xml:space="preserve">
+    <value>{0} 行未改动；当前分支 {1} 行、来源分支 {2} 行</value>
+  </data>
+  <data name="Merge_Choice_Ours" xml:space="preserve">
+    <value>已选：用当前分支</value>
+  </data>
+  <data name="Merge_Choice_Theirs" xml:space="preserve">
+    <value>已选：用来源分支</value>
+  </data>
+  <data name="Merge_Choice_Both" xml:space="preserve">
+    <value>已选：两个都要</value>
+  </data>
+  <data name="Merge_Choice_Pending" xml:space="preserve">
+    <value>待选择</value>
+  </data>
+  <data name="Merge_Refusal_NotWhitelisted" xml:space="preserve">
+    <value>这个文件类型不支持逐块合并，只能整份取一边。</value>
+  </data>
+  <data name="Merge_Refusal_Missing" xml:space="preserve">
+    <value>一侧缺少这份文件，只能整份取一边。</value>
+  </data>
+  <data name="Merge_Refusal_TooLarge" xml:space="preserve">
+    <value>文件太大，不适合逐块处理，只能整份取一边。</value>
+  </data>
+  <data name="Merge_Refusal_Undecodable" xml:space="preserve">
+    <value>文件编码无法识别，只能整份取一边。</value>
+  </data>
+  <data name="Merge_Refusal_Binary" xml:space="preserve">
+    <value>这是二进制文件，只能整份取一边。</value>
+  </data>
+  <data name="Merge_Refusal_UnresolvedConflict" xml:space="preserve">
+    <value>这份文件里还有未选择的冲突。</value>
+  </data>
+  <data name="Merge_ApplySucceeded" xml:space="preserve">
+    <value>已把「{1}」合并到「{0}」。</value>
+  </data>
+  <data name="Merge_ApplyBlockedTitle" xml:space="preserve">
+    <value>无法应用</value>
+  </data>
+  <data name="Merge_CloseConfirmTitle" xml:space="preserve">
+    <value>放弃这次合并？</value>
+  </data>
+  <data name="Merge_CloseConfirmContent" xml:space="preserve">
+    <value>会话还没结束，关掉窗口会放弃它，已经做过的逐块选择不会保留。</value>
+  </data>
+  <data name="Merge_CloseConfirmPrimary" xml:space="preserve">
+    <value>放弃并关闭</value>
+  </data>
+  <data name="Merge_AbandonConfirmTitle" xml:space="preserve">
+    <value>放弃这次合并？</value>
+  </data>
+  <data name="Merge_AbandonConfirmContent" xml:space="preserve">
+    <value>放弃后这个会话会作废，需要重新发起。</value>
+  </data>
+  <data name="Merge_AbandonConfirmPrimary" xml:space="preserve">
+    <value>放弃</value>
+  </data>
+  <data name="Merge_OpenWindowFailed" xml:space="preserve">
+    <value>打开合并窗口失败：{0}</value>
+  </data>
+  <data name="Merge_Log_OpenWindowFailed" xml:space="preserve">
+    <value>打开合并窗口失败：{0}</value>
+  </data>
 </root>

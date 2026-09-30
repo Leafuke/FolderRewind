@@ -22,6 +22,7 @@
             <converters:BoolToColorConverter x:Key="BoolToColorConverter"/>
             <converters:CountToStringConverter x:Key="CountToStringConverter"/>
             <converters:StringNullOrEmptyToVisibilityConverter x:Key="StringNullOrEmptyToVisConverter"/>
+            <converters:LineMergeKindToBrushConverter x:Key="LineMergeKindToBrushConverter"/>
 
             <!-- ==================== 全局共享样式 ==================== -->
             

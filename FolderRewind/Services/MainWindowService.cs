@@ -1,3 +1,5 @@
+using FolderRewind.History.LocalState;
+using FolderRewind.Models;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Windowing;
 using System;
@@ -25,6 +27,7 @@ namespace FolderRewind.Services
         // 由 App.OnLaunched 注入主窗口，供非视图层按需访问窗口能力。
         private static Window? _window;
         private static Views.SponsorWindow? _sponsorWindow;
+        private static Views.MergeWindow? _mergeWindow;
 
         public static void Initialize(Window? window)
         {
@@ -133,6 +136,65 @@ namespace FolderRewind.Services
                     _sponsorWindow = null;
                 }
             });
+        }
+
+        /// <summary>
+        /// 打开合并窗口。同一时刻只允许一个 —— 会话本身是独立的，但两个窗口同时解决同一次合并
+        /// 会让两边的按钮都基于自己手里那份修订号，先解决的那边成功、后边那边报「会话已被改动」，
+        /// 用户看到的是随机的失败。已经开着就把它调到前面来。
+        /// </summary>
+        public static void OpenMergeWindow(BackupConfig config, MergeSession session)
+        {
+            UiDispatcherService.Enqueue(() =>
+            {
+                try
+                {
+                    if (_mergeWindow != null)
+                    {
+                        _mergeWindow.Activate();
+                        return;
+                    }
+
+                    var mergeWindow = new Views.MergeWindow(config, session);
+                    _mergeWindow = mergeWindow;
+                    mergeWindow.Closed += (_, _) => _mergeWindow = null;
+
+                    ConfigureMergeWindow(mergeWindow);
+                    mergeWindow.Activate();
+                }
+                catch (Exception ex)
+                {
+                    LogService.LogError(I18n.Format("Merge_Log_OpenWindowFailed", ex.Message), nameof(MainWindowService), ex);
+                    NotificationService.ShowError(I18n.Format("Merge_OpenWindowFailed", ex.Message), I18n.GetString("Merge_Title.Text"));
+                }
+            });
+        }
+
+        /// <summary>
+        /// 合并窗口要能改大小：一次合并可能留下几十条冲突，也有整份文件的文本要在里面读。
+        /// 尺寸只给个起步值，位置仍居中于主窗口。
+        /// </summary>
+        private static void ConfigureMergeWindow(Window mergeWindow)
+        {
+            var appWindow = mergeWindow.AppWindow;
+            if (appWindow == null)
+            {
+                return;
+            }
+
+            const int width = 1180;
+            const int height = 800;
+            var size = new SizeInt32(width, height);
+            appWindow.Resize(size);
+            appWindow.Title = I18n.GetString("Merge_Title.Text");
+
+            var owner = GetMainWindow()?.AppWindow;
+            if (owner != null)
+            {
+                var x = owner.Position.X + Math.Max(0, (owner.Size.Width - width) / 2);
+                var y = owner.Position.Y + Math.Max(0, (owner.Size.Height - height) / 2);
+                appWindow.Move(new PointInt32(x, y));
+            }
         }
 
         public static XamlRoot? GetXamlRoot()
