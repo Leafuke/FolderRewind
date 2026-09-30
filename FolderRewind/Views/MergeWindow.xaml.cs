@@ -3,7 +3,6 @@ using FolderRewind.History.Merge;
 using FolderRewind.Models;
 using FolderRewind.Services;
 using FolderRewind.ViewModels;
-using Microsoft.UI;
 using Microsoft.UI.Windowing;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
@@ -46,7 +45,7 @@ namespace FolderRewind.Views
             // 模板内的 DataContext 会被列表项覆盖，所以这一行只管窗口层的那几处。
             RootGrid.DataContext = ViewModel;
 
-            ConfigureSystemTitleBar();
+            WindowChromeHelper.ApplySystemTitleBar(this, TitleBarDragRegion);
             ThemeService.ApplyThemeToWindow(this);
             ThemeService.ApplyPersonalizationToWindow(this);
             _ = WindowIconHelper.TryApplyAsync(this);
@@ -67,39 +66,6 @@ namespace FolderRewind.Views
         {
             await ViewModel.InitializeAsync();
             PushResultText();
-        }
-
-        private void ConfigureSystemTitleBar()
-        {
-            try
-            {
-                ExtendsContentIntoTitleBar = true;
-                SetTitleBar(TitleBarDragRegion);
-            }
-            catch
-            {
-            }
-
-            try
-            {
-                if (AppWindow?.TitleBar == null)
-                {
-                    return;
-                }
-
-                var titleBar = AppWindow.TitleBar;
-                titleBar.ExtendsContentIntoTitleBar = true;
-                titleBar.PreferredHeightOption = TitleBarHeightOption.Standard;
-                titleBar.BackgroundColor = Colors.Transparent;
-                titleBar.InactiveBackgroundColor = Colors.Transparent;
-                titleBar.ButtonBackgroundColor = Colors.Transparent;
-                titleBar.ButtonInactiveBackgroundColor = Colors.Transparent;
-                titleBar.ButtonHoverBackgroundColor = Windows.UI.Color.FromArgb(32, 128, 128, 128);
-                titleBar.ButtonPressedBackgroundColor = Windows.UI.Color.FromArgb(48, 128, 128, 128);
-            }
-            catch
-            {
-            }
         }
 
         /// <summary>
