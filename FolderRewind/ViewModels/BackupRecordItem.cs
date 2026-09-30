@@ -17,16 +17,12 @@ namespace FolderRewind.ViewModels
     /// </summary>
     public sealed class BackupRecordItem
     {
-        public BackupRecordItem(CheckpointSummary summary, CheckpointGraphRow row, double railWidth, bool isDimmed)
+        public BackupRecordItem(CheckpointSummary summary, CheckpointGraphRow row, double railWidth)
         {
             ArgumentNullException.ThrowIfNull(summary);
             ArgumentNullException.ThrowIfNull(row);
             Row = row;
             RailWidth = railWidth;
-
-            // 选了具体分支时，不在该分支上的记录降透明度而不是被滤掉：
-            // 合并点把两条线连成一张连通图，滤掉任何一边都会让曲线断成半截。
-            Opacity = isDimmed ? 0.35 : 1.0;
 
             KindBadge = KindLabel(summary.CreationKind);
             HasRunComment = summary.RunComment.Length > 0;
@@ -43,8 +39,6 @@ namespace FolderRewind.ViewModels
 
         /// <summary>行高也交给布局定：行高与泳道列距是一对契约，不能一处写死一处另算。</summary>
         public double RowHeight => CheckpointGraphLayout.RowHeight;
-
-        public double Opacity { get; }
 
         public string Title { get; }
 

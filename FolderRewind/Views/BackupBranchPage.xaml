@@ -169,7 +169,7 @@
                     </ListView.ItemContainerStyle>
                     <ListView.ItemTemplate>
                         <DataTemplate x:DataType="vm:BackupRecordItem">
-                            <Grid Height="{x:Bind RowHeight}" Opacity="{x:Bind Opacity}">
+                            <Grid Height="{x:Bind RowHeight}">
                                 <Grid.ColumnDefinitions>
                                     <ColumnDefinition Width="Auto"/>
                                     <ColumnDefinition Width="*"/>

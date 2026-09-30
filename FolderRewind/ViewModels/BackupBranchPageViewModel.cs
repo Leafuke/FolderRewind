@@ -73,6 +73,10 @@ namespace FolderRewind.ViewModels
         /// <summary>
         /// 「所属分支」的当前选择。选中具体分支时同时交给 <see cref="SelectedBranch"/>，
         /// 5 个分支命令的可用性跟着它亮灭；选「全部分支」等于没有选中分支，按钮整体置灰。
+        /// <para>
+        /// 只影响命令可用性，<b>不影响</b>备份记录的展示：记录是选中配置的完整检查点图，
+        /// 与「所属分支」无关，切换时既不重算也不筛选。
+        /// </para>
         /// </summary>
         public BranchFilterOption? SelectedBranchFilter
         {
@@ -85,7 +89,6 @@ namespace FolderRewind.ViewModels
                 }
 
                 SelectedBranch = value?.Branch;
-                RebuildRecords();
             }
         }
 
@@ -203,6 +206,7 @@ namespace FolderRewind.ViewModels
                 }
 
                 _snapshot = snapshot;
+                RebuildRecords();
                 BranchFilterOptions.Add(BranchFilterOption.AllBranches);
                 foreach (var branch in Branches)
                 {
@@ -231,12 +235,7 @@ namespace FolderRewind.ViewModels
         }
 
         /// <summary>
-        /// 按当前「所属分支」的选择重算记录列表。数据全部来自刷新时留下的快照，不读库、不 await。
-        /// <para>
-        /// 刻意<b>不</b>走 <see cref="RunBusyAsync"/>：本页的忙碌是<b>拒绝门控</b>
-        /// （<see cref="TryEnterBusy"/> 忙时直接返回 false，整段逻辑被跳过），
-        /// 而切下拉是瞬时的本地重算 —— 套上去只会在忙碌中被静默吞掉，表现为「点了没反应」。
-        /// </para>
+        /// 按刷新时留下的快照重算记录列表。只读快照，不读库、不 await，也不看「所属分支」的选择。
         /// </summary>
         private void RebuildRecords()
         {
@@ -255,16 +254,12 @@ namespace FolderRewind.ViewModels
                 .ToImmutableArray();
             var layout = CheckpointGraphLayoutBuilder.Build(nodes, CheckpointGraphLayout.PaletteSize);
             var summaries = snapshot.Checkpoints.ToDictionary(checkpoint => checkpoint.CheckpointId);
-            var selectedBranchId = SelectedBranchFilter?.BranchId;
 
-            // 宽度取整张图的泳道数：只按筛选结果排会算出逐行不同的宽度，竖线当场错位。
             RailWidth = layout.LaneCount * CheckpointGraphLayout.LaneWidth;
 
             foreach (var row in layout.Rows)
             {
-                var summary = summaries[row.Id];
-                var isDimmed = selectedBranchId is { } branchId && !summary.BranchIds.Contains(branchId);
-                Records.Add(new BackupRecordItem(summary, row, RailWidth, isDimmed));
+                Records.Add(new BackupRecordItem(summaries[row.Id], row, RailWidth));
             }
 
             OnPropertyChanged(nameof(HasRecords));
