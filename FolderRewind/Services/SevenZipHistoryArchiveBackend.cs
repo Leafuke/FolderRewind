@@ -1,9 +1,11 @@
 using FolderRewind.History.Domain;
 using FolderRewind.History.Representation;
+using FolderRewind.History.Retention;
 using FolderRewind.History.Storage;
 using FolderRewind.Models;
 using System;
 using System.Collections.Generic;
+using System.Collections.Immutable;
 using System.Diagnostics;
 using System.IO;
 using System.Threading;
@@ -17,8 +19,12 @@ namespace FolderRewind.Services
     /// 「落地」是按依赖顺序把闭包里的归档依次解到暂存目录，再按归档自带的删除清单删掉本轮不再存在的文件 ——
     /// 差量归档只带变化，只有照这个顺序叠上去才等于被捕获时的目录状态。
     /// </para>
+    /// <para>
+    /// 同时实现 <see cref="IHistoryCompactionBackend"/>：合并要为一个全新的合并版本现场压出一份完整归档
+    /// （<see cref="CreateFullAsync"/>），不能复用任何既有表示形态。
+    /// </para>
     /// </summary>
-    internal sealed class SevenZipHistoryArchiveBackend : IArchiveRepresentationBackend
+    internal sealed class SevenZipHistoryArchiveBackend : IArchiveRepresentationBackend, IHistoryCompactionBackend
     {
         private readonly BackupConfig _config;
 
@@ -32,7 +38,7 @@ namespace FolderRewind.Services
         {
             if (!File.Exists(localPath))
                 return new(false, string.Empty, "Archive payload is missing.");
-            var result = await RunAsync("t", localPath, outputDirectory: null, workingDirectory: null, cancellationToken)
+            var result = await RunAsync("t", localPath, outputDirectory: null, sourceDirectory: null, cancellationToken)
                 .ConfigureAwait(false);
             return result.Success
                 ? new(true, $"7z-test:{new FileInfo(localPath).Length}", string.Empty)
@@ -52,7 +58,7 @@ namespace FolderRewind.Services
                     "x",
                     input.LocalPath,
                     stagingDirectory,
-                    workingDirectory: null,
+                    sourceDirectory: null,
                     cancellationToken).ConfigureAwait(false);
                 if (!result.Success)
                     throw new InvalidDataException(result.Diagnostic);
@@ -64,11 +70,48 @@ namespace FolderRewind.Services
             if (Directory.Exists(marker)) Directory.Delete(marker, recursive: true);
         }
 
+        /// <summary>
+        /// 把一份已物化的目录压成一份全新的完整归档。合并出来的版本没有任何既有表示形态可以复用，
+        /// 所以只能现场压一份；压缩后由调用方做往返校验，确认解回来与逻辑状态一致。
+        /// </summary>
+        public async Task<HistoryCompactionPayload> CreateFullAsync(
+            SourceVersion version,
+            string materializedDirectory,
+            RepresentationId replacementRepresentationId,
+            string durableOutputDirectory,
+            CancellationToken cancellationToken)
+        {
+            Directory.CreateDirectory(durableOutputDirectory);
+            var path = Path.Combine(durableOutputDirectory, "payload.7z");
+            var result = await RunAsync(
+                "a",
+                path,
+                outputDirectory: null,
+                sourceDirectory: materializedDirectory,
+                cancellationToken).ConfigureAwait(false);
+            if (!result.Success)
+                throw new InvalidDataException(result.Diagnostic);
+            return new(
+                "7z",
+                path,
+                new FileInfo(path).Length,
+                null,
+                version.StateFingerprint,
+                ImmutableDictionary<string, string>.Empty);
+        }
+
+        /// <summary>压缩包只做完整性校验，因此与 <see cref="VerifyAsync"/> 同义。</summary>
+        public ValueTask<PayloadVerificationResult> DeepVerifyAsync(
+            VersionRepresentation representation,
+            string payloadPath,
+            CancellationToken cancellationToken)
+            => VerifyAsync(representation, payloadPath, cancellationToken);
+
         private async Task<(bool Success, string Diagnostic)> RunAsync(
             string operation,
             string archivePath,
             string? outputDirectory,
-            string? workingDirectory,
+            string? sourceDirectory,
             CancellationToken cancellationToken)
         {
             var executable = SevenZipExecutableLocator.Resolve(
@@ -86,13 +129,18 @@ namespace FolderRewind.Services
                 RedirectStandardOutput = true,
                 RedirectStandardError = true,
                 CreateNoWindow = true,
-                WorkingDirectory = string.IsNullOrWhiteSpace(workingDirectory)
-                    ? Path.GetDirectoryName(archivePath) ?? Environment.CurrentDirectory
-                    : workingDirectory
+                // 工作目录与三个操作都不相干：打包的输入、解包的去向、校验的对象都写在参数里。
+                // 但绝不能拿业务目录来当它 —— 合并会话的物化目录在打包版里就有 272 个字符，
+                // 一旦超过 MAX_PATH，CreateProcess 会连进程都起不来（报「目录名称无效」），
+                // 而 7z 自己的文件操作支持长路径，唯一过不去的就是这一格。
+                WorkingDirectory = Path.GetTempPath()
             };
             start.ArgumentList.Add(operation);
             start.ArgumentList.Add(archivePath);
             if (operation == "x") start.ArgumentList.Add("-o" + outputDirectory);
+            // 打包要显式给出「加什么」：给「目录\*」。归档里存的名字相对的是通配符所在目录，
+            // 与从前「工作目录 + *」的写法完全一致，只是不再依赖工作目录。
+            if (operation == "a") start.ArgumentList.Add(Path.Combine(sourceDirectory!, "*"));
             start.ArgumentList.Add("-y");
             if (!string.IsNullOrEmpty(password)) start.ArgumentList.Add("-p" + password);
 

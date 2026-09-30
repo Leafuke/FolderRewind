@@ -30,8 +30,9 @@ namespace FolderRewind.Services
     /// 而切换真正危险的那一维（覆盖哪些目录、各自边界）本层重载后由
     /// <see cref="HistoryCheckoutService"/> 结构化比对绑定来守，与修订号无关。</item>
     /// </list>
+    /// 合并相关的方法在 <c>NativeHistoryApplicationService.Merge.cs</c>。
     /// </summary>
-    internal static class NativeHistoryApplicationService
+    internal static partial class NativeHistoryApplicationService
     {
         /// <summary>
         /// 切换分支前先算一遍计划，让调用方能在真正动手之前把「会覆盖哪些目录」「是否需要先做保护点」讲给用户。
@@ -90,7 +91,7 @@ namespace FolderRewind.Services
             return await new HistoryCheckoutService(
                 runtime,
                 restore,
-                new SafetySnapshotWorkingStateProtector(config, runtime),
+                new SafetySnapshotWorkingStateProtector(config, runtime, SafetySnapshotReason.BeforeCheckout),
                 new NativeWorkingStateProbe(config),
                 token => ReloadBindingsAsync(config, token))
                 .CheckoutAsync(
@@ -209,10 +210,13 @@ namespace FolderRewind.Services
                 .ToArray();
 
         /// <summary>
-        /// 切换分支会覆盖工作区，所以覆盖之前先把当前磁盘状态整体收成一次独立提交。
-        /// 它不进任何分支，只是「后悔药」。
+        /// 切换分支/合并都会覆盖工作区，所以覆盖之前先把当前磁盘状态整体收成一次独立提交。
+        /// 它不进任何分支，只是「后悔药」。用哪种原因由调用方给，落进快照里便于事后分辨。
         /// </summary>
-        private sealed class SafetySnapshotWorkingStateProtector(BackupConfig config, HistoryRuntime runtime)
+        private sealed class SafetySnapshotWorkingStateProtector(
+            BackupConfig config,
+            HistoryRuntime runtime,
+            SafetySnapshotReason reason)
             : IHistoryWorkingStateProtector
         {
             public async Task<HistoryWorkspace> ProtectAsync(
@@ -224,7 +228,7 @@ namespace FolderRewind.Services
                     throw new DeviceLocalStateConflictException("Workspace changed before SafetySnapshot capture.");
                 _ = await BackupService.CreateSafetySnapshotAsync(
                     config,
-                    SafetySnapshotReason.BeforeCheckout,
+                    reason,
                     cancellationToken).ConfigureAwait(false);
                 return await RequireWorkspaceAsync(runtime, cancellationToken).ConfigureAwait(false);
             }
