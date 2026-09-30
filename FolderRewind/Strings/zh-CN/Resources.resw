@@ -4929,29 +4929,47 @@ Pull Request：{1}</value>
   <data name="BackupBranchPage_CurrentBranchNone.Text" xml:space="preserve">
     <value>尚未确定</value>
   </data>
-  <data name="BackupBranchPage_NoConfig.Text" xml:space="preserve">
+  <data name="BackupBranchPage_NoConfig" xml:space="preserve">
     <value>还没有任何备份配置，请先在「配置」页创建一个。</value>
   </data>
-  <data name="BackupBranchPage_Empty.Text" xml:space="preserve">
+  <data name="BackupBranchPage_Empty" xml:space="preserve">
     <value>该配置还没有任何分支记录，执行一次备份即可建立主线。</value>
   </data>
-  <data name="BackupBranchPage_MultiTip.Text" xml:space="preserve">
+  <data name="BackupBranchPage_MultiTip" xml:space="preserve">
     <value>多个端点</value>
   </data>
-  <data name="BackupBranchPage_CurrentBadge.Text" xml:space="preserve">
+  <data name="BackupBranchPage_CurrentBadge" xml:space="preserve">
     <value>当前</value>
   </data>
-  <data name="BackupBranchPage_NameCollisionBadge.Text" xml:space="preserve">
+  <data name="BackupBranchPage_NameCollisionBadge" xml:space="preserve">
     <value>重名</value>
   </data>
-  <data name="BackupBranchPage_Column_Name.Text" xml:space="preserve">
-    <value>分支名称</value>
+  <data name="BackupBranchPage_BranchFilter.Header" xml:space="preserve">
+    <value>所属分支</value>
   </data>
-  <data name="BackupBranchPage_Column_Tips.Text" xml:space="preserve">
-    <value>端点</value>
+  <data name="BackupBranchPage_AllBranches" xml:space="preserve">
+    <value>全部分支</value>
   </data>
-  <data name="BackupBranchPage_Column_Created.Text" xml:space="preserve">
-    <value>创建时间</value>
+  <data name="BackupBranchPage_Records.Text" xml:space="preserve">
+    <value>备份记录</value>
+  </data>
+  <data name="BackupBranchPage_RecordsEmpty" xml:space="preserve">
+    <value>该配置下还没有可展示的备份记录。</value>
+  </data>
+  <data name="BackupBranchPage_RecordKind_Capture" xml:space="preserve">
+    <value>备份</value>
+  </data>
+  <data name="BackupBranchPage_RecordKind_Merge" xml:space="preserve">
+    <value>合并</value>
+  </data>
+  <data name="BackupBranchPage_RecordKind_SafetySnapshot" xml:space="preserve">
+    <value>安全快照</value>
+  </data>
+  <data name="BackupBranchPage_RecordKind_Aggregate" xml:space="preserve">
+    <value>聚合</value>
+  </data>
+  <data name="BackupBranchPage_RecordKind_Import" xml:space="preserve">
+    <value>导入</value>
   </data>
   <data name="BackupBranchPage_LoadFailed.Text" xml:space="preserve">
     <value>读取分支失败：{0}</value>

@@ -48,7 +48,13 @@ public sealed record CheckpointSummary(
     DateTimeOffset CreatedAtUtc,
     bool IsStructurallyComplete,
     bool IsPinned,
-    ImmutableArray<CheckpointSource> Sources);
+    ImmutableArray<CheckpointSource> Sources,
+    ImmutableArray<CheckpointId> ParentCheckpointIds,
+    ImmutableArray<BranchId> BranchIds,
+    CheckpointCreationKind CreationKind,
+    RunId? CreatedByRunId,
+    string Comment,
+    string RunComment);
 
 public sealed record RunSummary(
     RunId RunId,
@@ -161,14 +167,7 @@ public sealed class HistoryPresentationQueryService
                 branchableCheckpoints.Length));
         }
 
-        var checkpointSummaries = new List<CheckpointSummary>();
-        foreach (var checkpoint in checkpoints)
-        {
-            var target = new HistoryAnnotationTarget(HistoryAnnotationTargetKind.Checkpoint, checkpoint.CheckpointId.Value);
-            var projection = HistoryAnnotationProjection.Project(target, annotationGroups.GetValueOrDefault(target) ?? []);
-            checkpointSummaries.Add(new(checkpoint.CheckpointId, checkpoint.CreatedAtUtc, checkpoint.IsStructurallyComplete,
-                projection.IsPinned, checkpoint.Sources));
-        }
+        // 运行摘要刻意排在检查点摘要之前：记录卡的标题取的就是运行备注，检查点循环要查得到它。
         var runSummaries = runs.Select(run =>
         {
             var target = new HistoryAnnotationTarget(HistoryAnnotationTargetKind.Run, run.RunId.Value);
@@ -185,6 +184,18 @@ public sealed class HistoryPresentationQueryService
                 projection.IsRunImportant, projection.EffectiveComment ?? string.Empty,
                 hasPartialCapture, isBranchableCheckpoint, run.SourceResults, branchIds);
         }).ToImmutableArray();
+        var runComments = runSummaries.ToDictionary(run => run.RunId, run => run.Comment);
+        var checkpointSummaries = new List<CheckpointSummary>();
+        foreach (var checkpoint in checkpoints)
+        {
+            var target = new HistoryAnnotationTarget(HistoryAnnotationTargetKind.Checkpoint, checkpoint.CheckpointId.Value);
+            var projection = HistoryAnnotationProjection.Project(target, annotationGroups.GetValueOrDefault(target) ?? []);
+            checkpointSummaries.Add(new(checkpoint.CheckpointId, checkpoint.CreatedAtUtc, checkpoint.IsStructurallyComplete,
+                projection.IsPinned, checkpoint.Sources, checkpoint.ParentCheckpointIds,
+                memberships.CheckpointBranches.GetValueOrDefault(checkpoint.CheckpointId, []),
+                checkpoint.CreationKind, checkpoint.CreatedByRunId, projection.EffectiveComment ?? string.Empty,
+                checkpoint.CreatedByRunId is { } runId ? runComments.GetValueOrDefault(runId, string.Empty) : string.Empty));
+        }
         var branchSummaries = branchProjection.Branches.Where(branch => !branch.IsDeleted).Select(branch =>
         {
             var name = branch.Tips.Where(item => !item.IsDeleted).Select(item => item.Name)

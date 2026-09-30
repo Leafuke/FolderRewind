@@ -56,5 +56,6 @@
     <Compile Include="..\FolderRewind\History\Merge\MergeStagingPathRules.cs" Link="Source\MergeStagingPathRules.cs" />
     <Compile Include="..\FolderRewind\History\Merge\GenericFileMergeProvider.cs" Link="Source\GenericFileMergeProvider.cs" />
     <Compile Include="..\FolderRewind\History\Merge\TextAwareMergeProvider.cs" Link="Source\TextAwareMergeProvider.cs" />
+    <Compile Include="..\FolderRewind\History\Graph\CheckpointGraphLayout.cs" Link="Source\CheckpointGraphLayout.cs" />
   </ItemGroup>
 </Project>

@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<UserControl
+    x:Class="FolderRewind.Views.Graph.CheckpointRail"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    IsHitTestVisible="False">
+
+    <!-- 线一律现算现挂（见 CheckpointRail.xaml.cs）：每行要画的段取决于相邻行的泳道，
+         用 XAML 声明就得复制一整套模板，而这里只要一个画布。 -->
+    <Canvas x:Name="Surface"/>
+</UserControl>

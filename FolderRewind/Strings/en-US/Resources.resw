@@ -4929,29 +4929,47 @@ Pull request: {1}</value>
   <data name="BackupBranchPage_CurrentBranchNone.Text" xml:space="preserve">
     <value>Not established</value>
   </data>
-  <data name="BackupBranchPage_NoConfig.Text" xml:space="preserve">
+  <data name="BackupBranchPage_NoConfig" xml:space="preserve">
     <value>No backup configuration exists yet. Create one on the Configuration page first.</value>
   </data>
-  <data name="BackupBranchPage_Empty.Text" xml:space="preserve">
+  <data name="BackupBranchPage_Empty" xml:space="preserve">
     <value>This configuration has no branch records yet. Run one backup to establish the main line.</value>
   </data>
-  <data name="BackupBranchPage_MultiTip.Text" xml:space="preserve">
+  <data name="BackupBranchPage_MultiTip" xml:space="preserve">
     <value>multiple tips</value>
   </data>
-  <data name="BackupBranchPage_CurrentBadge.Text" xml:space="preserve">
+  <data name="BackupBranchPage_CurrentBadge" xml:space="preserve">
     <value>Current</value>
   </data>
-  <data name="BackupBranchPage_NameCollisionBadge.Text" xml:space="preserve">
+  <data name="BackupBranchPage_NameCollisionBadge" xml:space="preserve">
     <value>Duplicate name</value>
   </data>
-  <data name="BackupBranchPage_Column_Name.Text" xml:space="preserve">
+  <data name="BackupBranchPage_BranchFilter.Header" xml:space="preserve">
     <value>Branch</value>
   </data>
-  <data name="BackupBranchPage_Column_Tips.Text" xml:space="preserve">
-    <value>Tips</value>
+  <data name="BackupBranchPage_AllBranches" xml:space="preserve">
+    <value>All branches</value>
   </data>
-  <data name="BackupBranchPage_Column_Created.Text" xml:space="preserve">
-    <value>Created</value>
+  <data name="BackupBranchPage_Records.Text" xml:space="preserve">
+    <value>Backup records</value>
+  </data>
+  <data name="BackupBranchPage_RecordsEmpty" xml:space="preserve">
+    <value>This configuration has no backup records to show yet.</value>
+  </data>
+  <data name="BackupBranchPage_RecordKind_Capture" xml:space="preserve">
+    <value>Backup</value>
+  </data>
+  <data name="BackupBranchPage_RecordKind_Merge" xml:space="preserve">
+    <value>Merge</value>
+  </data>
+  <data name="BackupBranchPage_RecordKind_SafetySnapshot" xml:space="preserve">
+    <value>Safety snapshot</value>
+  </data>
+  <data name="BackupBranchPage_RecordKind_Aggregate" xml:space="preserve">
+    <value>Aggregate</value>
+  </data>
+  <data name="BackupBranchPage_RecordKind_Import" xml:space="preserve">
+    <value>Import</value>
   </data>
   <data name="BackupBranchPage_LoadFailed.Text" xml:space="preserve">
     <value>Failed to load branches: {0}</value>

@@ -48,8 +48,6 @@ namespace FolderRewind.ViewModels
 
         public bool HasNameCollision => Summary.HasNameCollision;
 
-        public int TipCount => Summary.Tips.Length;
-
         /// <summary>分支端点所在的那次提交。切换分支切到的就是它。</summary>
         public BranchUpdateId? TipUpdateId { get; }
 
@@ -61,13 +59,6 @@ namespace FolderRewind.ViewModels
 
         /// <summary>已经站在这个分支上时不需要再切换。</summary>
         public bool CanCheckout => Summary.HasCheckoutTarget && !Summary.IsActive;
-
-        /// <summary>
-        /// 单一端点时只显示数量；多端点必须显式说明，因为此时重命名与删除都会被拒绝。
-        /// </summary>
-        public string TipsDisplay => IsMultiTip
-            ? $"{TipCount} ({MultiTipBadgeText})"
-            : TipCount.ToString(CultureInfo.CurrentCulture);
 
         public string CurrentBadge => CurrentBadgeText;
 

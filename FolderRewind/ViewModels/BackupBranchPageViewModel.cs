@@ -1,10 +1,12 @@
 using FolderRewind.History.Application;
 using FolderRewind.History.Domain;
+using FolderRewind.History.Graph;
 using FolderRewind.History.LocalState;
 using FolderRewind.History.Representation;
 using FolderRewind.Models;
 using FolderRewind.Services;
 using System;
+using System.Collections.Immutable;
 using System.Collections.ObjectModel;
 using System.Linq;
 using System.Threading;
@@ -28,6 +30,9 @@ namespace FolderRewind.ViewModels
     {
         private BackupConfig? _selectedConfig;
         private BackupBranchItem? _selectedBranch;
+        private BranchFilterOption? _selectedBranchFilter;
+        private HistoryPresentationSnapshot? _snapshot;
+        private double _railWidth;
         private string _currentBranchName = string.Empty;
         private string _statusMessage = string.Empty;
         private bool _hasStatus;
@@ -40,6 +45,12 @@ namespace FolderRewind.ViewModels
 
         /// <summary>可以拿来建分支的备份。仅在「从某次备份创建分支」对话框里使用。</summary>
         public ObservableCollection<BackupRunItem> BranchableRuns { get; } = new();
+
+        /// <summary>「所属分支」下拉的选项。首项是「全部分支」哨兵。</summary>
+        public ObservableCollection<BranchFilterOption> BranchFilterOptions { get; } = new();
+
+        /// <summary>备份记录，一行一个检查点。顺序就是图谱的拓扑序：新到旧、子先于父。</summary>
+        public ObservableCollection<BackupRecordItem> Records { get; } = new();
 
         public BackupConfig? SelectedConfig
         {
@@ -57,6 +68,32 @@ namespace FolderRewind.ViewModels
                     RaiseCommandState();
                 }
             }
+        }
+
+        /// <summary>
+        /// 「所属分支」的当前选择。选中具体分支时同时交给 <see cref="SelectedBranch"/>，
+        /// 5 个分支命令的可用性跟着它亮灭；选「全部分支」等于没有选中分支，按钮整体置灰。
+        /// </summary>
+        public BranchFilterOption? SelectedBranchFilter
+        {
+            get => _selectedBranchFilter;
+            set
+            {
+                if (!SetProperty(ref _selectedBranchFilter, value))
+                {
+                    return;
+                }
+
+                SelectedBranch = value?.Branch;
+                RebuildRecords();
+            }
+        }
+
+        /// <summary>泳道图宽度。全图一个值 —— 每行同宽，竖线才能在行与行之间对齐。</summary>
+        public double RailWidth
+        {
+            get => _railWidth;
+            private set => SetProperty(ref _railWidth, value);
         }
 
         public bool CanRenameSelected => !_isBusy && _selectedBranch?.CanRename == true;
@@ -109,7 +146,7 @@ namespace FolderRewind.ViewModels
             private set => SetProperty(ref _isBusy, value);
         }
 
-        public bool HasBranches => Branches.Count > 0;
+        public bool HasRecords => Records.Count > 0;
 
         public bool HasBranchableRuns => BranchableRuns.Count > 0;
 
@@ -126,11 +163,18 @@ namespace FolderRewind.ViewModels
 
         private async Task RefreshCoreAsync()
         {
+            // 刷新前记下选中的分支：重建选项必然会先把选中项清空，结尾再把它接回来。
+            var previousBranchId = SelectedBranchFilter?.BranchId;
+
             Branches.Clear();
             BranchableRuns.Clear();
-            SelectedBranch = null;
-            OnPropertyChanged(nameof(HasBranches));
+            BranchFilterOptions.Clear();
+            Records.Clear();
+            _snapshot = null;
+            SelectedBranchFilter = null;
+            OnPropertyChanged(nameof(HasRecords));
             OnPropertyChanged(nameof(HasBranchableRuns));
+            RailWidth = 0;
             CurrentBranchName = string.Empty;
 
             if (ConfigService.CurrentConfig is null || Configs.Count == 0 || SelectedConfig is null)
@@ -158,16 +202,72 @@ namespace FolderRewind.ViewModels
                     BranchableRuns.Add(new BackupRunItem(run));
                 }
 
+                _snapshot = snapshot;
+                BranchFilterOptions.Add(BranchFilterOption.AllBranches);
+                foreach (var branch in Branches)
+                {
+                    BranchFilterOptions.Add(new BranchFilterOption(branch));
+                }
+
                 CurrentBranchName = snapshot.Branches.FirstOrDefault(branch => branch.IsActive)?.Name
                     ?? string.Empty;
-                OnPropertyChanged(nameof(HasBranches));
                 OnPropertyChanged(nameof(HasBranchableRuns));
-                SetStatus(Branches.Count == 0 ? I18n.GetString("BackupBranchPage_Empty") : null);
+
+                // 恢复选择必须放在最后：重置选项集合会让下拉把选中项报成 null 再写回来，
+                // 先恢复就会被那一下冲掉。哨兵总在，所以这里不会落空。
+                SelectedBranchFilter = BranchFilterOptions
+                    .FirstOrDefault(option => option.BranchId == previousBranchId) ?? BranchFilterOptions[0];
+
+                SetStatus(Branches.Count == 0
+                    ? I18n.GetString("BackupBranchPage_Empty")
+                    : Records.Count == 0
+                        ? I18n.GetString("BackupBranchPage_RecordsEmpty")
+                        : null);
             }
             catch (Exception ex)
             {
                 SetStatus(I18n.Format("BackupBranchPage_LoadFailed", ex.Message));
             }
+        }
+
+        /// <summary>
+        /// 按当前「所属分支」的选择重算记录列表。数据全部来自刷新时留下的快照，不读库、不 await。
+        /// <para>
+        /// 刻意<b>不</b>走 <see cref="RunBusyAsync"/>：本页的忙碌是<b>拒绝门控</b>
+        /// （<see cref="TryEnterBusy"/> 忙时直接返回 false，整段逻辑被跳过），
+        /// 而切下拉是瞬时的本地重算 —— 套上去只会在忙碌中被静默吞掉，表现为「点了没反应」。
+        /// </para>
+        /// </summary>
+        private void RebuildRecords()
+        {
+            Records.Clear();
+
+            if (_snapshot is not { } snapshot)
+            {
+                RailWidth = 0;
+                OnPropertyChanged(nameof(HasRecords));
+                return;
+            }
+
+            var nodes = snapshot.Checkpoints
+                .Select(checkpoint => new CheckpointGraphNode(
+                    checkpoint.CheckpointId, checkpoint.CreatedAtUtc, checkpoint.ParentCheckpointIds))
+                .ToImmutableArray();
+            var layout = CheckpointGraphLayoutBuilder.Build(nodes, CheckpointGraphLayout.PaletteSize);
+            var summaries = snapshot.Checkpoints.ToDictionary(checkpoint => checkpoint.CheckpointId);
+            var selectedBranchId = SelectedBranchFilter?.BranchId;
+
+            // 宽度取整张图的泳道数：只按筛选结果排会算出逐行不同的宽度，竖线当场错位。
+            RailWidth = layout.LaneCount * CheckpointGraphLayout.LaneWidth;
+
+            foreach (var row in layout.Rows)
+            {
+                var summary = summaries[row.Id];
+                var isDimmed = selectedBranchId is { } branchId && !summary.BranchIds.Contains(branchId);
+                Records.Add(new BackupRecordItem(summary, row, RailWidth, isDimmed));
+            }
+
+            OnPropertyChanged(nameof(HasRecords));
         }
 
         /// <summary>在指定备份的检查点上新建一条分支。新分支是休眠的，不会自动切换过去。</summary>
@@ -259,7 +359,7 @@ namespace FolderRewind.ViewModels
                 {
                     NotificationService.ShowSuccess(
                         I18n.GetString("BackupBranchPage_MergeNoChanges"),
-                        I18n.GetString("BackupBranchPage_Title"));
+                        I18n.GetString("BackupBranchPage_Title.Text"));
                 }
 
                 return null;
@@ -312,7 +412,7 @@ namespace FolderRewind.ViewModels
             {
                 NotificationService.ShowSuccess(
                     I18n.Format("BackupBranchPage_CheckoutSucceeded", branch.Name),
-                    I18n.GetString("BackupBranchPage_Title"));
+                    I18n.GetString("BackupBranchPage_Title.Text"));
             }
             else
             {
@@ -367,7 +467,7 @@ namespace FolderRewind.ViewModels
             {
                 NotificationService.ShowSuccess(
                     I18n.Format(successMessageKey, successSubject),
-                    I18n.GetString("BackupBranchPage_Title"));
+                    I18n.GetString("BackupBranchPage_Title.Text"));
                 await RefreshAsync().ConfigureAwait(true);
             }
 
