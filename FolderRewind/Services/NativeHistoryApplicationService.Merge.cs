@@ -109,7 +109,7 @@ namespace FolderRewind.Services
                     restore,
                     builder,
                     new SafetySnapshotWorkingStateProtector(config, runtime, SafetySnapshotReason.BeforeMerge),
-                    _ => ReloadMergeBindingsAsync(config))
+                    token => ReloadMergeBindingsAsync(config, token))
                 .ApplyAsync(session, cancellationToken).ConfigureAwait(false);
         }
 
@@ -246,7 +246,8 @@ namespace FolderRewind.Services
         /// 与切换分支那条链路用的是同一个重载器，语义保持一致。
         /// </summary>
         private static async Task<(string Revision, IReadOnlyList<HistoryRestoreSourceBinding> Bindings)>
-            ReloadMergeBindingsAsync(BackupConfig config)
-            => (MergeConfigRevision, await ReloadBindingsAsync(config, CancellationToken.None).ConfigureAwait(false));
+            ReloadMergeBindingsAsync(BackupConfig config, CancellationToken cancellationToken)
+            => (MergeConfigRevision,
+                await ReloadBindingsAsync(config, cancellationToken).ConfigureAwait(false));
     }
 }

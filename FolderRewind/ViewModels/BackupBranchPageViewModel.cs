@@ -222,7 +222,8 @@ namespace FolderRewind.ViewModels
         /// 真正落地在合并窗口里按下「应用到工作区」时，那一步平台会先做保护点。
         /// </para>
         /// <para>
-        /// 返回 <c>null</c> 表示没有可合并的内容（已经给过提示），调用方不必再问一次。
+        /// 返回 <c>null</c> 有两种情形，都已经给过用户提示，调用方不必再问一次：
+        /// <b>没有可合并的内容</b>（提示「没有变化」），以及<b>前置条件不满足而失败</b>（提示失败原因）。
         /// </para>
         /// </summary>
         public async Task<MergeSession?> StartMergeAsync(BackupBranchItem branch)
@@ -233,13 +234,14 @@ namespace FolderRewind.ViewModels
                 return null;
             }
 
-            var (entered, session) = await RunBusyAsync<MergeSession?>(async () =>
+            // 失败与否要跟着结果一起带出来：两者都是 null 会话，但只该给「没有变化」道贺。
+            var (entered, (failed, session)) = await RunBusyAsync<(bool Failed, MergeSession? Session)>(async () =>
             {
                 try
                 {
-                    return await NativeHistoryApplicationService
+                    return (false, await NativeHistoryApplicationService
                         .StartMergeAsync(config, branch.BranchId, CancellationToken.None)
-                        .ConfigureAwait(true);
+                        .ConfigureAwait(true));
                 }
                 catch (Exception ex)
                 {
@@ -247,13 +249,13 @@ namespace FolderRewind.ViewModels
                     // 原因原样说出来，别让用户对着灰按钮猜。
                     NotificationService.ShowWarning(
                         ex.Message, I18n.GetString("BackupBranchPage_CommandFailedTitle"));
-                    return null;
+                    return (true, null);
                 }
             }).ConfigureAwait(true);
 
             if (!entered || session is null)
             {
-                if (entered)
+                if (entered && !failed)
                 {
                     NotificationService.ShowSuccess(
                         I18n.GetString("BackupBranchPage_MergeNoChanges"),
