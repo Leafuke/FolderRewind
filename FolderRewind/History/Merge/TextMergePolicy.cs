@@ -8,25 +8,6 @@ using System.Text;
 namespace FolderRewind.History.Merge;
 
 /// <summary>
-/// 什么算「可以自动合并的文本文件」，以及怎么把它读成行、写完再原样写回去。
-/// <para>
-/// 判定口径是<b>扩展名白名单</b>（"文档 + 配置 + 源码"），不做内容嗅探 —— 这是与用户定下的口径，
-/// 扩白名单属于改契约，要回去问。
-/// </para>
-/// <para>
-/// 拒绝一律给英文诊断串，与历史引擎其余部分的写法一致；这些串会进日志，不进界面。
-/// </para>
-/// <para>
-/// 三处保守取舍，都是「宁可报冲突也不猜」：
-/// </para>
-/// <list type="bullet">
-/// <item>无 BOM 且不是合法 UTF-8 的一律不碰（GBK/ANSI 中文文件就在此列）——
-/// 猜错编码会把内容写成乱码，比让用户手动选一边代价大得多。</item>
-/// <item>解出来含 NUL 字符的当作二进制拒绝，挡住「叫 .txt 的二进制」。</item>
-/// <item>超过 <see cref="MaxFileBytes"/> 的不做行级合并。</item>
-/// </list>
-/// </summary>
-/// <summary>
 /// 「不能按行合并」的原因。界面据此给用户一句可读的话，所以每一种都对应一句不同的提示，
 /// 不要为了省事把它们合并成「无法合并」。
 /// <para>
@@ -65,6 +46,25 @@ public sealed record TextMergeDocuments(
     TextFileContent Theirs,
     LineMergeOutcome Outcome);
 
+/// <summary>
+/// 什么算「可以自动合并的文本文件」，以及怎么把它读成行、写完再原样写回去。
+/// <para>
+/// 判定口径是<b>扩展名白名单</b>（"文档 + 配置 + 源码"），不做内容嗅探 —— 这是与用户定下的口径，
+/// 扩白名单属于改契约，要回去问。
+/// </para>
+/// <para>
+/// 拒绝一律给英文诊断串，与历史引擎其余部分的写法一致；这些串会进日志，不进界面。
+/// </para>
+/// <para>
+/// 三处保守取舍，都是「宁可报冲突也不猜」：
+/// </para>
+/// <list type="bullet">
+/// <item>无 BOM 且不是合法 UTF-8 的一律不碰（GBK/ANSI 中文文件就在此列）——
+/// 猜错编码会把内容写成乱码，比让用户手动选一边代价大得多。</item>
+/// <item>解出来含 NUL 字符的当作二进制拒绝，挡住「叫 .txt 的二进制」。</item>
+/// <item>超过 <see cref="MaxFileBytes"/> 的不做行级合并。</item>
+/// </list>
+/// </summary>
 public static class TextMergePolicy
 {
     /// <summary>单个文件做行级合并的大小上限。超过就走整文件语义。</summary>

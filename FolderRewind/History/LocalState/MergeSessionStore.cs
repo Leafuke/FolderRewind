@@ -164,6 +164,22 @@ public sealed class MergeSessionStore
         using var reader = cmd.ExecuteReader(); var result = new List<(MergeConflict, MergeResolution?)>();
         while (reader.Read()) result.Add((Decode<MergeConflict>(reader.GetString(0)), reader.IsDBNull(1) ? null : Decode<MergeResolution>(reader.GetString(1)))); return result;
     }
+
+    /// <summary>
+    /// 一次取全部冲突。分页只是存储侧的实现细节 —— 调用方要的向来是全集（总数、进度、按 id 找一条都在其上），
+    /// 循环收在这里，别让每个调用方各写一遍。一页 500 是上面 <see cref="Conflicts"/> 允许的上限内取值。
+    /// </summary>
+    public IReadOnlyList<(MergeConflict Conflict, MergeResolution? Resolution)> AllConflicts(MergeSession session)
+    {
+        const int pageSize = 500;
+        var result = new List<(MergeConflict, MergeResolution?)>();
+        for (var offset = 0; ; offset += pageSize)
+        {
+            var page = Conflicts(session, offset, pageSize);
+            result.AddRange(page);
+            if (page.Count < pageSize) return result;
+        }
+    }
     public MergeSession Resolve(MergeSession session, MergeResolution resolution)
     {
         if (!Enum.IsDefined(resolution.Choice)) throw new InvalidOperationException("Unknown resolution choice.");

@@ -95,7 +95,7 @@ public sealed class HistoryMergeQueryService
         ArgumentNullException.ThrowIfNull(session);
         await _runtime.EnsureIndexCurrentAsync(cancellationToken).ConfigureAwait(false);
         var names = await SourceNamesAsync(cancellationToken).ConfigureAwait(false);
-        return AllConflicts(session).Select(item => new MergeConflictView(
+        return _runtime.MergeSessions.AllConflicts(session).Select(item => new MergeConflictView(
             item.Conflict.Id,
             item.Conflict.InputSignature,
             item.Conflict.Kind,
@@ -196,21 +196,9 @@ public sealed class HistoryMergeQueryService
             .Where(item => !source.Ours.Files.TryGetValue(item.Key, out var ours) || ours.Digest != item.Value.Digest)
             .Select(item => item.Key);
 
-    /// <summary>分页取全部冲突；页大小与 <see cref="HistoryMergeService.AllConflicts"/> 对齐。</summary>
-    private IReadOnlyList<(MergeConflict Conflict, MergeResolution? Resolution)> AllConflicts(MergeSession session)
-    {
-        var result = new List<(MergeConflict, MergeResolution?)>();
-        for (var offset = 0; ; offset += 500)
-        {
-            var page = _runtime.MergeSessions.Conflicts(session, offset, 500);
-            result.AddRange(page);
-            if (page.Count < 500) return result;
-        }
-    }
-
     private MergeConflict FindConflict(MergeSession session, string conflictId)
     {
-        var conflict = AllConflicts(session).Where(item => item.Conflict.Id == conflictId)
+        var conflict = _runtime.MergeSessions.AllConflicts(session).Where(item => item.Conflict.Id == conflictId)
             .Select(item => item.Conflict).FirstOrDefault();
         return conflict ?? throw new InvalidDataException("Merge conflict is missing.");
     }

@@ -59,7 +59,11 @@ public sealed class HistoryMergeService(HistoryRuntime history, HistoryRestoreSe
 
     public async Task<MergeSession> PrepareAsync(MergeSession session, CancellationToken token = default)
     {
-        if (session.State != MergeSessionState.Preparing || session.Plan.ProviderVersion != _provider.Version)
+        // 两个版本串都盯住：只比 provider 的话，换了策略（白名单、大小上限）而 provider 没换时，
+        // 存量会话会拿着旧策略算出来的计划继续准备，谁都不报错。
+        if (session.State != MergeSessionState.Preparing
+            || session.Plan.ProviderVersion != _provider.Version
+            || session.Plan.PolicyVersion != _provider.PolicyVersion)
             throw new InvalidOperationException("Merge preparation requires its fixed provider and Preparing state.");
         var root = Path.Combine(history.MergeSessions.SessionDirectory(session.Id), session.Plan.Revision.ToString("N"));
         Directory.CreateDirectory(root);
@@ -185,13 +189,7 @@ public sealed class HistoryMergeService(HistoryRuntime history, HistoryRestoreSe
     /// </summary>
     public MergeSession Abandon(MergeSession session) => history.MergeSessions.Update(session, MergeSessionState.Abandoned);
 
-    public IEnumerable<(MergeConflict Conflict, MergeResolution? Resolution)> AllConflicts(MergeSession session)
-    {
-        for (int offset = 0; ; offset += 500)
-        {
-            var page = history.MergeSessions.Conflicts(session, offset, 500);
-            foreach (var item in page) yield return item;
-            if (page.Count < 500) yield break;
-        }
-    }
+    /// <summary>本次会话的全部冲突及其解决状态。分页细则在存储层，这里只是一层转出。</summary>
+    public IReadOnlyList<(MergeConflict Conflict, MergeResolution? Resolution)> AllConflicts(MergeSession session)
+        => history.MergeSessions.AllConflicts(session);
 }

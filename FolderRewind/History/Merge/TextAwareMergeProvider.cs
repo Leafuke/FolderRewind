@@ -65,6 +65,9 @@ public sealed class TextAwareMergeProvider : IHistoryMergeProvider
     /// 合并策略给的诊断串在这里被丢掉：它只说明「为什么没自动合」，而这个后果本身就表现为
     /// 冲突照常出现在界面上、由人来选，没有额外信息要传给谁（History 层也没有日志设施）。
     /// </para>
+    /// <para>
+    /// 「结果写不进会话目录」也归到同一个后果里，见下面的 catch。
+    /// </para>
     /// </summary>
     private static (string Path, MergeFileValue Value)? TryAutoMerge(MergeConflict conflict, string workingRoot)
     {
@@ -81,7 +84,16 @@ public sealed class TextAwareMergeProvider : IHistoryMergeProvider
         if (!TextMergePolicy.TryMerge(relative, baseValue.Handle, ourValue.Handle, theirValue.Handle, out var merged, out _))
             return null;
 
-        return (relative, Write(workingRoot, merged!));
+        // 落盘失败（盘满、会话目录不可写）不该把整次准备掀掉：这条文件退回「有冲突、等人选」，
+        // 与「策略判它合不了」是同一个后果，用户在窗口里照样处理得了。
+        try
+        {
+            return (relative, Write(workingRoot, merged!));
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            return null;
+        }
     }
 
     /// <summary>
