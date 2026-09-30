@@ -209,7 +209,7 @@
                                                     <TextBlock Text="{x:Bind KindText}"
                                                                FontSize="12"
                                                                Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
-                                                    <TextBlock Text="{x:Bind ChoiceText}"
+                                                    <TextBlock Text="{x:Bind ChoiceText, Mode=OneWay}"
                                                                FontSize="12"
                                                                Foreground="{ThemeResource TextFillColorSecondaryBrush}"
                                                                Visibility="{Binding IsConflict, Converter={StaticResource BoolToVisConverter}}" />

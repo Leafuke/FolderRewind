@@ -51,6 +51,7 @@ namespace FolderRewind.ViewModels
         private bool _isHandEdited;
         private bool _showBase;
         private bool _isBusy;
+        private int _busyDepth;
         private string _statusMessage = string.Empty;
 
         // 「载入详情」可能被两条路径同时触发（选中变化、解决完刷新），用令牌让后一次作数、
@@ -209,8 +210,20 @@ namespace FolderRewind.ViewModels
         /// </summary>
         public bool CanApply => !_isBusy && _session.State == MergeSessionState.Ready && !HasUnsubmittedChanges;
 
-        /// <summary>窗口里是否有尚未交给平台的改动。</summary>
-        public bool HasUnsubmittedChanges => Hunks.Any(hunk => hunk.IsPending) || HasUnsubmittedEdit;
+        /// <summary>
+        /// 窗口里是否有尚未交给平台的改动。
+        /// <para>
+        /// <b>只看手改。</b>这里曾经还看过「有冲突块没选」（<c>Hunks.Any(hunk => hunk.IsPending)</c>），那是错的：
+        /// 直接手改整份结果、以及「整份取一边」这两种解决方式，用户根本不需要碰逐块按钮，
+        /// 那几块就永远停在「待选择」，把这一格钉死成 <c>true</c> —— 会话早已 <c>Ready</c>，
+        /// 「应用到工作区」却再也不亮（阶段四实测到的就是这个）。
+        /// </para>
+        /// <para>
+        /// 「逐块只选了一半」不需要在这里管：那时冲突还没解决，<see cref="CanApply"/> 的
+        /// <c>State == Ready</c> 一项已经拦住了。
+        /// </para>
+        /// </summary>
+        public bool HasUnsubmittedChanges => HasUnsubmittedEdit;
 
         /// <summary>
         /// 手上是否捏着一份还没交出去的手改。
@@ -243,6 +256,10 @@ namespace FolderRewind.ViewModels
             }
         }
 
+        /// <summary>
+        /// 有没有动作正在跑。驱动界面的禁用与忙指示，是<b>界面锁，不是互斥锁</b> ——
+        /// 真正拦住并发写的还是平台那条会话修订号 CAS。
+        /// </summary>
         public bool IsBusy
         {
             get => _isBusy;
@@ -257,6 +274,32 @@ namespace FolderRewind.ViewModels
                 OnPropertyChanged(nameof(CanResolveSelection));
                 OnPropertyChanged(nameof(CanStartCommand));
                 UpdateHunkAvailability();
+            }
+        }
+
+        /// <summary>
+        /// 进忙。<b>只累加计数，不在这里拒绝</b>：本视图模型的动作本来是嵌套的
+        /// （<see cref="RunResolveAsync"/> 里一次解决之后还要 <see cref="RefreshConflictsAsync"/>
+        /// 与 <see cref="LoadSelectedAsync"/>，三层都走 <c>RunBusyAsync</c>），
+        /// 若在外层已经忙时拒绝内层，内层的刷新与载入会被<b>静默跳过</b>
+        /// （<c>RunBusyAsync</c> 返回 <c>false</c> 加一个默认值，列表看着纹丝不动），比不锁更难查。
+        /// 界面状态只在最外层进出时翻转 —— 基类把进出配成对（<c>try/finally</c>），计数不会失衡。
+        /// </summary>
+        protected override bool TryEnterBusy()
+        {
+            if (++_busyDepth == 1)
+            {
+                IsBusy = true;
+            }
+
+            return true;
+        }
+
+        protected override void ExitBusy()
+        {
+            if (--_busyDepth == 0)
+            {
+                IsBusy = false;
             }
         }
 
@@ -543,9 +586,13 @@ namespace FolderRewind.ViewModels
         /// <summary>
         /// 结果被用户改动。此后逐块选择不再改写它，见 <see cref="IsHandEdited"/>。
         /// <para>
-        /// 只该由「用户真的敲了键盘」触发。视图把它推到文本框时会同步引发一次变更通知，
-        /// 那一次由视图自己屏蔽掉（窗口代码里那个布尔），这里不做文本比对来猜 ——
-        /// 靠比对猜的话，「改回原样」这个真实的编辑会被当成回声丢掉。
+        /// 只该由「用户真的敲了键盘」触发。视图把结果推进文本框时也会引发一次变更通知，
+        /// 那一次由视图自己认出来：推进的文本记在 <c>MergeWindow._pushedText</c> 上，
+        /// TextChanged 到达时内容一致就当回声跳过。
+        /// </para>
+        /// <para>
+        /// 这里不拿 <see cref="ResultText"/> 去比对来猜 —— 判据是「调用方说是人改的」。
+        /// 靠比对猜的话，「改回原样」这种真实编辑会被当成回声丢掉。
         /// </para>
         /// </summary>
         public void MarkResultEdited(string text)
