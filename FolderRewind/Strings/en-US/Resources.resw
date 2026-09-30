@@ -5010,25 +5010,25 @@ Pull request: {1}</value>
   <data name="BackupBranchPage_CreateDialog_Title" xml:space="preserve">
     <value>Create branch from a backup</value>
   </data>
-  <data name="BackupBranchPage_CreateDialog_BackupHeader" xml:space="preserve">
+  <data name="BackupBranchPage_CreateDialog_BackupHeader.Text" xml:space="preserve">
     <value>Select a backup</value>
   </data>
-  <data name="BackupBranchPage_CreateDialog_NoBackup" xml:space="preserve">
+  <data name="BackupBranchPage_CreateDialog_NoBackup.Text" xml:space="preserve">
     <value>No backup can seed a branch yet. Run one full backup first.</value>
   </data>
-  <data name="BackupBranchPage_CreateDialog_NameHeader" xml:space="preserve">
+  <data name="BackupBranchPage_CreateDialog_NameHeader.Text" xml:space="preserve">
     <value>Branch name</value>
   </data>
   <data name="BackupBranchPage_CreateDialog_NameBox.PlaceholderText" xml:space="preserve">
     <value>e.g. Main line, Experiment</value>
   </data>
-  <data name="BackupBranchPage_CreateDialog_Hint" xml:space="preserve">
+  <data name="BackupBranchPage_CreateDialog_Hint.Text" xml:space="preserve">
     <value>The new branch is created on the selected backup's complete checkpoint and is not checked out automatically.</value>
   </data>
   <data name="BackupBranchPage_RenameDialog_Title" xml:space="preserve">
     <value>Rename branch</value>
   </data>
-  <data name="BackupBranchPage_RenameDialog_NameHeader" xml:space="preserve">
+  <data name="BackupBranchPage_RenameDialog_NameHeader.Text" xml:space="preserve">
     <value>New branch name</value>
   </data>
   <data name="BackupBranchPage_RenameDialog_NameBox.PlaceholderText" xml:space="preserve">
@@ -5255,6 +5255,6 @@ Pull request: {1}</value>
     <value>Failed to open the merge window: {0}</value>
   </data>
   <data name="Merge_Log_OpenWindowFailed" xml:space="preserve">
-    <value>Failed to open the merge window: {0}</value>
+    <value>[Merge] Failed to open the merge window: {0}</value>
   </data>
 </root>

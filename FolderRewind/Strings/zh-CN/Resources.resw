@@ -5010,25 +5010,25 @@ Pull Request：{1}</value>
   <data name="BackupBranchPage_CreateDialog_Title" xml:space="preserve">
     <value>从备份创建分支</value>
   </data>
-  <data name="BackupBranchPage_CreateDialog_BackupHeader" xml:space="preserve">
+  <data name="BackupBranchPage_CreateDialog_BackupHeader.Text" xml:space="preserve">
     <value>选择备份</value>
   </data>
-  <data name="BackupBranchPage_CreateDialog_NoBackup" xml:space="preserve">
+  <data name="BackupBranchPage_CreateDialog_NoBackup.Text" xml:space="preserve">
     <value>没有可用于创建分支的备份。请先执行一次完整备份。</value>
   </data>
-  <data name="BackupBranchPage_CreateDialog_NameHeader" xml:space="preserve">
+  <data name="BackupBranchPage_CreateDialog_NameHeader.Text" xml:space="preserve">
     <value>分支名称</value>
   </data>
   <data name="BackupBranchPage_CreateDialog_NameBox.PlaceholderText" xml:space="preserve">
     <value>例如：主线、实验分支</value>
   </data>
-  <data name="BackupBranchPage_CreateDialog_Hint" xml:space="preserve">
+  <data name="BackupBranchPage_CreateDialog_Hint.Text" xml:space="preserve">
     <value>新分支建立在所选备份的完整检查点上，建立后不会自动切换过去。</value>
   </data>
   <data name="BackupBranchPage_RenameDialog_Title" xml:space="preserve">
     <value>重命名分支</value>
   </data>
-  <data name="BackupBranchPage_RenameDialog_NameHeader" xml:space="preserve">
+  <data name="BackupBranchPage_RenameDialog_NameHeader.Text" xml:space="preserve">
     <value>新的分支名称</value>
   </data>
   <data name="BackupBranchPage_RenameDialog_NameBox.PlaceholderText" xml:space="preserve">
@@ -5255,6 +5255,6 @@ Pull Request：{1}</value>
     <value>打开合并窗口失败：{0}</value>
   </data>
   <data name="Merge_Log_OpenWindowFailed" xml:space="preserve">
-    <value>打开合并窗口失败：{0}</value>
+    <value>[Merge] 打开合并窗口失败：{0}</value>
   </data>
 </root>
