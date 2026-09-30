@@ -132,12 +132,11 @@ public static class LineMergeAlgorithm
         var ourOffset = 0;
         var theirOffset = 0;
 
-        // 缝 0 在第一个行区段之前；缝 n 由循环最后一轮的 hi == n 收掉。
+        // 缝 0 在第一个行区段之前；缝 n 由最后一个切点收掉。
         EmitGap(ours, theirs, 0, ref ourOffset, ref theirOffset, hunks);
         var lo = 0;
-        for (var hi = 1; hi <= baseLines.Count; hi++)
+        foreach (var hi in CutPoints(ourChanges, theirChanges, blocked, baseLines.Count))
         {
-            if (hi < baseLines.Count && blocked[hi]) continue;
             EmitLines(baseLines, ours, theirs, lo, hi, ref ourOffset, ref theirOffset, hunks);
             EmitGap(ours, theirs, hi, ref ourOffset, ref theirOffset, hunks);
             lo = hi;
@@ -246,6 +245,57 @@ public static class LineMergeAlgorithm
         }
     }
 
+    /// <summary>
+    /// 允许切的位置，升序且不重复：两侧改动区间的端点，去掉被 <see cref="BuildBlocked"/> 挡住的，
+    /// 也不含两端的 0 与 n —— 缝 0 由调用方在循环前 emit，缝 n 在这里补上。
+    /// <para>
+    /// <b>不在改动端点上的位置一律不切</b> —— 哪怕它两侧都没改动。这一条决定复杂度：
+    /// 逐位置切会把一段没改动的行碎成 O(行数) 个单行区段，<see cref="Coalesce"/> 再原样并回去就是 O(行数²)，
+    /// 而这一段本来只要一个区段 —— 切了再并，结果分毫不差，白烧一遍内存。
+    /// </para>
+    /// <para>
+    /// 纯插入（<c>BaseCount == 0</c>）的区间两端重合，端点天然覆盖它所在的那道缝。
+    /// </para>
+    /// </summary>
+    private static List<int> CutPoints(
+        List<Change> ourChanges,
+        List<Change> theirChanges,
+        bool[] blocked,
+        int baseCount)
+    {
+        var cuts = new List<int>();
+        CollectCuts(ourChanges, blocked, baseCount, cuts);
+        CollectCuts(theirChanges, blocked, baseCount, cuts);
+        cuts.Sort();
+
+        // 去重：同一个位置上 emit 两次缝区段，缝里的插入会被算两遍。两侧的端点重合是常态（相邻改动、纯插入）。
+        var result = new List<int>(cuts.Count + 1);
+        foreach (var cut in cuts)
+        {
+            if (result.Count == 0 || result[^1] != cut) result.Add(cut);
+        }
+
+        // 补上末尾那道缝。空 base（baseCount == 0）不补：那时它就是缝 0，而它已经由调用方在循环前 emit 过，
+        // 再补一次会让缝里的插入发两遍。
+        if (baseCount > 0) result.Add(baseCount);
+        return result;
+    }
+
+    private static void CollectCuts(List<Change> changes, bool[] blocked, int baseCount, List<int> cuts)
+    {
+        foreach (var change in changes)
+        {
+            AddCut(change.BaseStart, blocked, baseCount, cuts);
+            AddCut(change.BaseStart + change.BaseCount, blocked, baseCount, cuts);
+        }
+    }
+
+    private static void AddCut(int position, bool[] blocked, int baseCount, List<int> cuts)
+    {
+        if (position <= 0 || position >= baseCount || blocked[position]) return;
+        cuts.Add(position);
+    }
+
     private static void EmitLines(
         IReadOnlyList<string> baseLines,
         SideChanges ours,
@@ -341,26 +391,44 @@ public static class LineMergeAlgorithm
         for (var i = 1; i < hunks.Length; i++)
         {
             var next = hunks[i];
-            if (next.Kind == current.Kind)
+            if (next.Kind != current.Kind)
             {
-                current = current with
-                {
-                    BaseCount = current.BaseCount + next.BaseCount,
-                    OursCount = current.OursCount + next.OursCount,
-                    TheirsCount = current.TheirsCount + next.TheirsCount,
-                    BaseLines = current.BaseLines.AddRange(next.BaseLines),
-                    OursLines = current.OursLines.AddRange(next.OursLines),
-                    TheirsLines = current.TheirsLines.AddRange(next.TheirsLines)
-                };
+                result.Add(current);
+                current = next;
                 continue;
             }
 
-            result.Add(current);
-            current = next;
+            current = Join(current, next);
         }
 
         result.Add(current);
         return result.ToImmutable();
+    }
+
+    /// <summary>把前后两段同类型的区段接成一段：行数相加、内容相接，起点沿用前一段。</summary>
+    private static LineMergeHunk Join(LineMergeHunk first, LineMergeHunk second)
+        => first with
+        {
+            BaseCount = first.BaseCount + second.BaseCount,
+            OursCount = first.OursCount + second.OursCount,
+            TheirsCount = first.TheirsCount + second.TheirsCount,
+            BaseLines = Concat(first.BaseLines, second.BaseLines),
+            OursLines = Concat(first.OursLines, second.OursLines),
+            TheirsLines = Concat(first.TheirsLines, second.TheirsLines)
+        };
+
+    /// <summary>
+    /// 接两段行。用 builder 一次装订，不用 <c>ImmutableArray.AddRange</c> ——
+    /// 后者每次都把整段重新分配一遍，连续接 n 段就是 O(n²)（<see cref="CutPoints"/> 里说明了为什么盯这条）。
+    /// </summary>
+    private static ImmutableArray<string> Concat(ImmutableArray<string> first, ImmutableArray<string> second)
+    {
+        if (first.IsEmpty) return second;
+        if (second.IsEmpty) return first;
+        var builder = ImmutableArray.CreateBuilder<string>(first.Length + second.Length);
+        builder.AddRange(first);
+        builder.AddRange(second);
+        return builder.ToImmutable();
     }
 
     /// <summary>

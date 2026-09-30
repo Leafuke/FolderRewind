@@ -283,6 +283,51 @@ public sealed class LineMergeAlgorithmTests
         Assert.AreEqual("a\nB\nc\nD\ne\ng", Compose(outcome, LineMergeChoice.Ours));
     }
 
+    /// <summary>
+    /// 大文件上两侧各改一行：合并的开销只该与改动数同阶，不能跟着行数一起长。
+    /// <para>
+    /// 这一条钉的是切段规则。逐位置切会把没改动的长段碎成单行区段、再逐段并回去，
+    /// 并回去的结果<b>看上去完全正确</b>（区段数一样是 5，所以只断言形状抓不到它），
+    /// 代价全烧在重复分配上：改之前 3.2 万行要 4400 MB / 467 ms，改之后 7 MB / 4 ms。
+    /// 文件一大就是假死，而结果分毫不差 —— 没有任何一处会报错，只有用户感到卡。
+    /// 所以这里盯的是<b>分配量</b>，留足两个数量级的余量免得抖。
+    /// </para>
+    /// </summary>
+    [TestMethod]
+    public void MergeCostGrowsWithEditsNotWithUnchangedLength()
+    {
+        const int lines = 20000;
+        var baseLines = new string[lines];
+        var ourLines = new string[lines];
+        var theirLines = new string[lines];
+        for (var i = 0; i < lines; i++)
+        {
+            var text = $"line {i}";
+            baseLines[i] = text;
+            ourLines[i] = text;
+            theirLines[i] = text;
+        }
+
+        ourLines[lines / 4] = "ours changed";
+        theirLines[lines / 4 * 3] = "theirs changed";
+
+        // 只量 Merge 本身：造输入与拼结果的分配不算进去。
+        var before = GC.GetTotalAllocatedBytes(precise: true);
+        var outcome = Merge(baseLines, ourLines, theirLines);
+        var allocated = GC.GetTotalAllocatedBytes(precise: true) - before;
+        var composed = Compose(outcome, LineMergeChoice.Ours).Split('\n');
+
+        Assert.IsFalse(outcome.HasConflicts);
+        Assert.IsLessThan(10, outcome.Hunks.Length, $"区段数应与改动数同阶，实际 {outcome.Hunks.Length}");
+        Assert.IsLessThan(
+            128L * 1024 * 1024,
+            allocated,
+            $"分配量应随改动数而不是行数增长，实际 {allocated / 1024 / 1024} MB");
+        Assert.HasCount(lines, composed);
+        Assert.AreEqual("ours changed", composed[lines / 4]);
+        Assert.AreEqual("theirs changed", composed[lines / 4 * 3]);
+    }
+
     private static LineMergeOutcome Merge(string[] baseLines, string[] ourLines, string[] theirLines)
         => LineMergeAlgorithm.Merge(baseLines, ourLines, theirLines);
 
