@@ -12,12 +12,21 @@ namespace FolderRewind.History.Application;
 public enum HistoryMergeSourceAction { Reuse, Remove, MergeFiles, SourceAddAdd, SourceDeleteModify, SourceModifyDelete, SourceBoundaryConflict }
 public sealed record HistoryMergeSourcePlan(SourceId SourceId, CheckpointSource? Base, CheckpointSource? Ours,
     CheckpointSource? Theirs, HistoryMergeSourceAction Action, VersionId? ReuseVersionId);
+/// <summary>
+/// 一次合并的完整计划。
+/// <para>
+/// <see cref="ProviderVersion"/> 与 <see cref="PolicyVersion"/> <b>没有默认值</b>，必须由建计划的人显式给出，
+/// 且来源只能是 provider 自己的两个版本属性。这是刻意的：它们带上默认值的时候，
+/// 换了 provider 却忘了同步版本串，<see cref="HistoryMergeService.PrepareAsync"/> 开头那句版本比对
+/// 会让每一个新会话立刻抛异常，而编译器不会有任何提示。去掉默认值后这种失配在编译期就过不去。
+/// </para>
+/// </summary>
 public sealed record HistoryMergePlan(Guid Revision, HistoryMergeMode Mode, BranchUpdate Ours, BranchUpdate Theirs,
     CheckpointId? BaseCheckpointId, HistoryWorkspace ExpectedWorkspace, string ConfigRevision,
     ImmutableArray<HistoryRestoreSourceBinding> Bindings, ImmutableArray<HistoryMergeSourcePlan> Sources,
-    string ProviderVersion = "generic-file/1", string PolicyVersion = "conservative/1");
+    string ProviderVersion, string PolicyVersion);
 
-public sealed class HistoryMergePlanner(HistoryRuntime history)
+public sealed class HistoryMergePlanner(HistoryRuntime history, string providerVersion, string policyVersion)
 {
     public async Task<HistoryMergePlan> BuildAsync(BranchId sourceBranch, HistoryWorkspace workspace,
         string configRevision, IReadOnlyList<HistoryRestoreSourceBinding> bindings, CancellationToken token = default)
@@ -45,7 +54,8 @@ public sealed class HistoryMergePlanner(HistoryRuntime history)
             if (!admission.IsReady) throw new InvalidOperationException(admission.Diagnostic);
         }
         if (found.Mode is HistoryMergeMode.NoCommonBase or HistoryMergeMode.MultipleMergeBases or HistoryMergeMode.NoOp)
-            return new(Guid.NewGuid(), found.Mode, ours, theirs, found.BaseCheckpointId, workspace, configRevision, bindings.ToImmutableArray(), []);
+            return new(Guid.NewGuid(), found.Mode, ours, theirs, found.BaseCheckpointId, workspace, configRevision,
+                bindings.ToImmutableArray(), [], providerVersion, policyVersion);
         var b = found.BaseCheckpointId is { } baseId ? map[baseId] : null;
         if (b is not null && !b.IsStructurallyComplete) throw new InvalidOperationException("Merge base roster is incomplete.");
         if (b is not null)
@@ -63,7 +73,7 @@ public sealed class HistoryMergePlanner(HistoryRuntime history)
                 : PlanSource(id, bs, os, ts));
         }
         return new(Guid.NewGuid(), found.Mode, ours, theirs, found.BaseCheckpointId, workspace, configRevision,
-            bindings.ToImmutableArray(), sources.ToImmutableArray());
+            bindings.ToImmutableArray(), sources.ToImmutableArray(), providerVersion, policyVersion);
     }
 
     internal static HistoryMergeSourcePlan PlanSource(SourceId id, CheckpointSource? b, CheckpointSource? o, CheckpointSource? t)

@@ -28,6 +28,8 @@ public sealed class HistoryMergeCommitBuilder(HistoryRuntime history, HistoryRes
     public async Task<PreparedMerge> BuildAsync(MergeSession session, CancellationToken token = default)
     {
         if (session.State != MergeSessionState.Ready) throw new InvalidOperationException("Merge Session has unresolved conflicts.");
+        // 这里只为取会话里已存下的冲突（AllConflicts 只读存储，不碰 provider），
+        // 所以用默认 provider 无所谓 —— 真正的冲突集合是 Prepare 那一步按会话自己的 provider 算出来并存下的。
         var service = new HistoryMergeService(history, restore);
         var conflicts = service.AllConflicts(session).ToLookup(c => c.Conflict.Subject.SourceId);
         var sources = history.MergeSessions.Sources(session);

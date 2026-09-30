@@ -50,5 +50,11 @@
     <Compile Include="..\FolderRewind\Services\FolderRenameService.Planning.cs" Link="Source\FolderRenameService.Planning.cs" />
     <Compile Include="..\FolderRewind\Services\FolderRenameService.Transaction.cs" Link="Source\FolderRenameService.Transaction.cs" />
     <Compile Include="..\FolderRewind\Services\FolderRenameService.Moves.cs" Link="Source\FolderRenameService.Moves.cs" />
+    <Compile Include="..\FolderRewind\History\Domain\HistoryIds.cs" Link="Source\HistoryIds.cs" />
+    <Compile Include="..\FolderRewind\History\Merge\LineMergeAlgorithm.cs" Link="Source\LineMergeAlgorithm.cs" />
+    <Compile Include="..\FolderRewind\History\Merge\TextMergePolicy.cs" Link="Source\TextMergePolicy.cs" />
+    <Compile Include="..\FolderRewind\History\Merge\MergeStagingPathRules.cs" Link="Source\MergeStagingPathRules.cs" />
+    <Compile Include="..\FolderRewind\History\Merge\GenericFileMergeProvider.cs" Link="Source\GenericFileMergeProvider.cs" />
+    <Compile Include="..\FolderRewind\History\Merge\TextAwareMergeProvider.cs" Link="Source\TextAwareMergeProvider.cs" />
   </ItemGroup>
 </Project>

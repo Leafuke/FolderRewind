@@ -41,7 +41,7 @@ public sealed record MergeTreeManifest(ImmutableSortedDictionary<string, MergeFi
                 MergeStagingPathRules.ValidateStagingRelativePath(relative);
                 await using var input = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.Read, 65536, true);
                 using var hash = IncrementalHash.CreateHash(HashAlgorithmName.SHA256);
-                hash.AppendData(Encoding.UTF8.GetBytes("folderrewind/file/1\0"));
+                hash.AppendData(Encoding.UTF8.GetBytes(FileDigestDomain));
                 var buffer = new byte[65536]; long size = 0; int read;
                 while ((read = await input.ReadAsync(buffer, token).ConfigureAwait(false)) != 0) { hash.AppendData(buffer, 0, read); size += read; }
                 files.Add(relative, new(path, Convert.ToHexString(hash.GetHashAndReset()), size));
@@ -52,6 +52,39 @@ public sealed record MergeTreeManifest(ImmutableSortedDictionary<string, MergeFi
             throw new IOException("Input tree contains case or file/directory collisions.");
         return result;
     }
+
+    /// <summary>
+    /// 单个文件的摘要，<see cref="ReadAsync"/> 逐文件那一步的同步版。
+    /// <para>
+    /// 给同步的 provider 用：它要把自动合并出的文件交给 <see cref="MergeFileValue"/>，
+    /// 而摘要算法必须与 <see cref="ReadAsync"/> 完全一致 ——
+    /// <c>HistoryMergeCommitBuilder</c> 会重扫暂存树比对摘要，两者一旦不同就提交不了。
+    /// 两份实现共用 <see cref="FileDigestDomain"/> 这个域前缀，改摘要口径时两处都要改，
+    /// <c>FolderRewind.Tests</c> 里有一条测试钉住它们的输出一致。
+    /// </para>
+    /// <para>
+    /// <paramref name="path"/> 会被原样存进 <see cref="MergeFileValue.Handle"/>。
+    /// </para>
+    /// </summary>
+    internal static MergeFileValue ReadFileValue(string path)
+    {
+        using var input = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.Read, 65536);
+        using var hash = IncrementalHash.CreateHash(HashAlgorithmName.SHA256);
+        hash.AppendData(Encoding.UTF8.GetBytes(FileDigestDomain));
+        var buffer = new byte[65536];
+        long size = 0;
+        int read;
+        while ((read = input.Read(buffer, 0, buffer.Length)) != 0)
+        {
+            hash.AppendData(buffer, 0, read);
+            size += read;
+        }
+
+        return new(path, Convert.ToHexString(hash.GetHashAndReset()), size);
+    }
+
+    /// <summary>单文件摘要的域分隔前缀。任何改动都等于换摘要口径，见 <see cref="ReadFileValue"/>。</summary>
+    internal const string FileDigestDomain = "folderrewind/file/1\0";
 }
 
 public enum MergeConflictKind { ModifyModify, ModifyDelete, AddAdd, PathStructure, SourceRoster, SourceBoundary }
@@ -62,14 +95,47 @@ public sealed record MergeConflict(string Id, MergeConflictSubject Subject, Merg
 public sealed record MergeFileProposal(MergeTreeManifest Automatic, ImmutableArray<MergeConflict> Conflicts);
 public interface IHistoryMergeProvider
 {
+    /// <summary>
+    /// 「怎么合」这一套实现的身份。会进合并计划与冲突签名 ——
+    /// 换实现而不同步它，<see cref="History.Application.HistoryMergeService.PrepareAsync"/> 的版本比对会让每个新会话直接抛异常。
+    /// </summary>
     string Version { get; }
-    MergeFileProposal Analyze(SourceId source, MergeTreeManifest @base, MergeTreeManifest ours, MergeTreeManifest theirs);
+
+    /// <summary>
+    /// 合并策略的版本。与 <see cref="Version"/> 成对使用，一起进计划与冲突签名。
+    /// 放在 provider 上而不是别处，就是为了让两者无法被单独改动。
+    /// </summary>
+    string PolicyVersion { get; }
+
+    /// <summary>
+    /// 分析三份树，给出「能自动合的结果」与「需要人解决的冲突」。
+    /// <para>
+    /// <paramref name="workingRoot"/> 是本次会话可写的目录（会话目录下按修订号分出的那一层），
+    /// 需要落盘的中间结果（例如文本自动合并出的整份文件）放到它下面。
+    /// 这一点是必需的：消费自动合并结果的 <c>HistoryMergeCommitBuilder</c> 强制要求
+    /// <c>MergeFileValue.Handle</c> 指向会话目录内的真实文件，只留内存里的字节是不行的。
+    /// 用不到它的实现可以忽略。实现是同步的 —— 调用方只给得起这三份清单和这个目录。
+    /// </para>
+    /// </summary>
+    MergeFileProposal Analyze(
+        SourceId source,
+        MergeTreeManifest @base,
+        MergeTreeManifest ours,
+        MergeTreeManifest theirs,
+        string workingRoot);
 }
 
-public sealed class GenericFileMergeProvider : IHistoryMergeProvider
+public sealed class GenericFileMergeProvider(string version = "generic-file/1", string policyVersion = "conservative/1")
+    : IHistoryMergeProvider
 {
-    public string Version => "generic-file/1";
-    public MergeFileProposal Analyze(SourceId source, MergeTreeManifest b, MergeTreeManifest o, MergeTreeManifest t)
+    public string Version => version;
+    public string PolicyVersion => policyVersion;
+
+    /// <summary>
+    /// 只看文件之间「内容是否相同」，不看文件类型。
+    /// <paramref name="workingRoot"/> 用不上 —— 本实现从不落盘，所有结果都直接取自三份输入里的现成文件。
+    /// </summary>
+    public MergeFileProposal Analyze(SourceId source, MergeTreeManifest b, MergeTreeManifest o, MergeTreeManifest t, string workingRoot)
     {
         var paths = b.Files.Keys.Concat(o.Files.Keys).Concat(t.Files.Keys).Distinct(StringComparer.Ordinal).ToArray();
         var structural = StructuralGroups(paths);

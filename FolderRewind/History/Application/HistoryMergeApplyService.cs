@@ -49,8 +49,10 @@ public sealed class HistoryMergeApplyService(HistoryRuntime history, HistoryRest
                 session = history.MergeSessions.Update(session, MergeSessionState.Stale);
                 throw new InvalidOperationException("Configuration changed; recompute the Merge plan.");
             }
-            var plan = await new HistoryMergePlanner(history).BuildAsync(session.Plan.Theirs.BranchId, workspace,
-                current.Item1, current.Item2, token).ConfigureAwait(false);
+            // 这一次重算只用来比对端点与模式（见下面的判据），版本串取自本会话的计划、不是重新认定 ——
+            // 计划是必填参数，这里给的正是被应用的那一份。
+            var plan = await new HistoryMergePlanner(history, session.Plan.ProviderVersion, session.Plan.PolicyVersion)
+                .BuildAsync(session.Plan.Theirs.BranchId, workspace, current.Item1, current.Item2, token).ConfigureAwait(false);
             if (plan.Ours.UpdateId != session.Plan.Ours.UpdateId || plan.Theirs.UpdateId != session.Plan.Theirs.UpdateId
                 || plan.Mode != session.Plan.Mode || plan.BaseCheckpointId != session.Plan.BaseCheckpointId)
             {
