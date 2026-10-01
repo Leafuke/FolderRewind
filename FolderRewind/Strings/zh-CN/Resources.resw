@@ -5468,6 +5468,7 @@ Pull Request：{1}</value>
   <data name="CloudSetup_WorkingDirectory.Header" xml:space="preserve"><value>rclone 工作目录（空值使用程序目录）</value></data>
   <data name="CloudSetup_Insecure.Content" xml:space="preserve"><value>允许 HTTP（凭据可能明文传输）</value></data>
   <data name="OpenList_Environment.Header" xml:space="preserve"><value>OpenList 本机环境与地址</value></data>
+  <data name="OpenList_Environment.Description" xml:space="preserve"><value>保存程序路径与服务地址，OpenList 需手动启动。</value></data>
   <data name="OpenList_ManualOnlyHelp.Text" xml:space="preserve"><value>手动启动 OpenList 后，在此保存路径与服务地址。</value></data>
   <data name="OpenList_Executable.Header" xml:space="preserve"><value>OpenList 程序路径</value></data>
   <data name="OpenList_PickExecutable.Content" xml:space="preserve"><value>选择 OpenList 程序（不会执行）</value></data>
@@ -5478,7 +5479,7 @@ Pull Request：{1}</value>
   <data name="OpenList_Config.Header" xml:space="preserve"><value>可选自定义配置文件</value></data>
   <data name="OpenList_Save.Content" xml:space="preserve"><value>保存环境</value></data>
   <data name="OpenList_Check.Content" xml:space="preserve"><value>只读检查服务地址</value></data>
-  <data name="OpenList_ManualGuide.Content" xml:space="preserve"><value>查看官方手动安装 / 启动指导</value></data>
+  <data name="OpenList_ManualGuide.Content" xml:space="preserve"><value>安装与启动指南</value></data>
   <data name="OpenList_AbsolutePaths" xml:space="preserve"><value>程序、工作、数据与配置文件必须使用明确的绝对路径。</value></data>
   <data name="OpenList_DataOverlap" xml:space="preserve"><value>OpenList 数据目录不能与备份源或仓库互相包含。</value></data>
   <data name="OpenList_EndpointObserved" xml:space="preserve"><value>服务地址返回 HTTP {0}。服务身份、WebDAV 账户与挂载读写仍需分别验证；没有启动任何程序。</value></data>

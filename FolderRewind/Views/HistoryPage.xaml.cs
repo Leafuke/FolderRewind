@@ -56,10 +56,25 @@ public sealed partial class HistoryPage : Page
         FiltersGrid.ColumnDefinitions[3].Width = new GridLength(0, GridUnitType.Auto);
         Grid.SetColumn(PresentationSelector, narrow ? 0 : 1);
         Grid.SetRow(PresentationSelector, narrow ? 1 : 0);
-        Grid.SetColumn(BranchStatus, narrow ? 0 : 1);
-        Grid.SetRow(BranchStatus, narrow ? 1 : 0);
-        if (narrow) Grid.SetColumnSpan(BranchStatus, 2);
-        else Grid.SetColumnSpan(BranchStatus, 1);
+    }
+
+    private void OnBranchToolbarSizeChanged(object sender, SizeChangedEventArgs e)
+    {
+        if (BranchActionsPanel is null || BranchStatus is null) return;
+        var narrow = e.NewSize.Width < 880;
+        BranchSelectionGrid.RowSpacing = narrow ? 8 : 0;
+        Grid.SetColumn(BranchActionsPanel, narrow ? 0 : 2);
+        Grid.SetRow(BranchActionsPanel, narrow ? 1 : 0);
+        Grid.SetColumnSpan(BranchActionsPanel, narrow ? 4 : 1);
+        Grid.SetColumn(BranchStatus, narrow ? 0 : 3);
+        Grid.SetRow(BranchStatus, narrow ? 2 : 0);
+        Grid.SetColumnSpan(BranchStatus, narrow ? 4 : 1);
+        BranchSelectionGrid.ColumnDefinitions[1].Width = narrow
+            ? new GridLength(1, GridUnitType.Star)
+            : new GridLength(200);
+        BranchSelectionGrid.ColumnDefinitions[3].Width = narrow
+            ? new GridLength(0)
+            : new GridLength(1, GridUnitType.Star);
     }
 
     private void OnHistoryCardSizeChanged(object sender, SizeChangedEventArgs e)

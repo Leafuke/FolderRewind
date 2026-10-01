@@ -9,12 +9,11 @@
     mc:Ignorable="d">
 
     <StackPanel Spacing="8">
-        <local:OpenListEnvironmentControl x:Name="OpenListEnvironment"/>
         <!-- 工具与依赖 -->
         <TextBlock x:Uid="SettingsPage_Section_Tools" Style="{StaticResource SettingsSectionHeaderTextBlockStyle}" />
 
         <!-- 运行环境 -->
-        <toolkit:SettingsExpander IsExpanded="False">
+        <toolkit:SettingsExpander x:Name="RuntimeEnvironmentExpander" IsExpanded="False" AutomationProperties.AutomationId="RuntimeEnvironmentExpander">
             <toolkit:SettingsExpander.Header>
                 <TextBlock x:Uid="SettingsPage_Environment" AutomationProperties.AutomationId="SettingsEnvironmentHeader" Style="{StaticResource SettingsHeaderTextStyle}" />
             </toolkit:SettingsExpander.Header>
@@ -25,6 +24,7 @@
                 <FontIcon Glyph="&#xE7B8;" />
             </toolkit:SettingsExpander.HeaderIcon>
             <toolkit:SettingsExpander.Items>
+                <local:OpenListEnvironmentControl x:Name="OpenListEnvironment" HorizontalAlignment="Stretch"/>
                 <toolkit:SettingsCard>
                     <toolkit:SettingsCard.Header>
                         <TextBlock x:Name="SevenZipPathLabel" x:Uid="SettingsPage_7zPath" Style="{StaticResource SettingsHeaderTextStyle}" />

@@ -83,101 +83,102 @@
                 </InfoBar>
                 <StackPanel Spacing="12" Visibility="{x:Bind ViewModel.IsAdvancedHistory, Mode=OneWay, Converter={StaticResource BoolToVisConverter}}" AutomationProperties.AutomationId="HistoryAdvancedTools">
                     <Border Height="1" Background="{ThemeResource DividerStrokeColorDefaultBrush}"/>
-                    <Grid x:Name="BranchSelectionGrid" ColumnSpacing="12" RowSpacing="8">
-                        <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
-                        <Grid.ColumnDefinitions><ColumnDefinition Width="240"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
-                        <ComboBox x:Name="BranchFilter" x:Uid="HistoryPage_BranchDropdown" Header="{x:Bind ViewModel.CurrentBranchDisplay, Mode=OneWay}" AutomationProperties.AutomationId="HistoryBranchFilter"
-                            HorizontalAlignment="Stretch" ItemsSource="{x:Bind ViewModel.Branches, Mode=OneWay}" SelectedItem="{x:Bind ViewModel.SelectedBranch, Mode=TwoWay}" DisplayMemberPath="DisplayName"/>
-                        <TextBlock x:Name="BranchStatus" Grid.Column="1" Text="{x:Bind ViewModel.SelectedBranchCheckoutStatusText, Mode=OneWay}" TextWrapping="Wrap" VerticalAlignment="Bottom" Margin="0,0,0,6" Foreground="{ThemeResource TextFillColorSecondaryBrush}"/>
+                    <Grid x:Name="BranchSelectionGrid" ColumnSpacing="12" SizeChanged="OnBranchToolbarSizeChanged">
+                        <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
+                        <Grid.ColumnDefinitions><ColumnDefinition Width="Auto"/><ColumnDefinition Width="200"/><ColumnDefinition Width="Auto"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
+                        <TextBlock x:Name="CurrentBranchLabel" Text="{x:Bind ViewModel.CurrentBranchDisplay, Mode=OneWay}" MaxWidth="180" TextTrimming="CharacterEllipsis" VerticalAlignment="Center" ToolTipService.ToolTip="{x:Bind ViewModel.CurrentBranchDisplay, Mode=OneWay}"/>
+                        <ComboBox x:Name="BranchFilter" Grid.Column="1" x:Uid="HistoryPage_BranchDropdown" AutomationProperties.LabeledBy="{x:Bind CurrentBranchLabel, Mode=OneTime}" AutomationProperties.AutomationId="HistoryBranchFilter"
+                            HorizontalAlignment="Stretch" MinHeight="32" ItemsSource="{x:Bind ViewModel.Branches, Mode=OneWay}" SelectedItem="{x:Bind ViewModel.SelectedBranch, Mode=TwoWay}" DisplayMemberPath="DisplayName"/>
+                        <StackPanel x:Name="BranchActionsPanel" Grid.Column="2" Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
+                            <Button x:Name="BranchCheckoutButton" x:Uid="HistoryPage_BranchCheckoutButton" MinHeight="32" VerticalAlignment="Stretch" AutomationProperties.AutomationId="HistoryBranchCheckout" IsEnabled="{x:Bind ViewModel.CanStartCheckoutSelectedBranch, Mode=OneWay}" Command="{x:Bind ViewModel.CheckoutBranchCommand}">
+                                <TextBlock x:Uid="HistoryPage_BranchCheckoutText"/>
+                            </Button>
+                            <DropDownButton x:Name="BranchMoreActionsButton"
+                                            x:Uid="HistoryPage_BranchMoreActions"
+                                            AutomationProperties.AutomationId="HistoryBranchMoreActions"
+                                            MinHeight="32" VerticalAlignment="Stretch">
+                                <FontIcon Glyph="&#xE712;" FontSize="12"/>
+                                <DropDownButton.Flyout>
+                                    <MenuFlyout>
+                                        <MenuFlyoutItem x:Uid="HistoryPage_BranchMergeItem" AutomationProperties.AutomationId="HistoryBranchMerge" Command="{x:Bind ViewModel.MergeBranchCommand}"/>
+                                        <MenuFlyoutItem x:Name="BranchReconcileItem"
+                                                        x:Uid="HistoryPage_BranchReconcileItem"
+                                                        AutomationProperties.AutomationId="HistoryBranchReconcile"
+                                                        IsEnabled="{x:Bind ViewModel.CanReconcileSelectedBranch, Mode=OneWay}"
+                                                        Command="{x:Bind ViewModel.ReconcileBranchCommand}">
+                                            <MenuFlyoutItem.Icon><FontIcon Glyph="&#xE895;"/></MenuFlyoutItem.Icon>
+                                        </MenuFlyoutItem>
+                                        <MenuFlyoutSeparator/>
+                                        <MenuFlyoutItem x:Name="BranchRenameItem"
+                                                        x:Uid="HistoryPage_BranchRenameItem"
+                                                        AutomationProperties.AutomationId="HistoryBranchRename"
+                                                        IsEnabled="{x:Bind ViewModel.CanRenameSelectedBranch, Mode=OneWay}"
+                                                        Command="{x:Bind ViewModel.RenameBranchCommand}">
+                                            <MenuFlyoutItem.Icon><FontIcon Glyph="&#xE70F;"/></MenuFlyoutItem.Icon>
+                                        </MenuFlyoutItem>
+                                        <MenuFlyoutSeparator/>
+                                        <MenuFlyoutItem x:Name="BranchDeleteItem"
+                                                        x:Uid="HistoryPage_BranchDeleteItem"
+                                                        AutomationProperties.AutomationId="HistoryBranchDelete"
+                                                        Foreground="{ThemeResource SystemFillColorCriticalBrush}"
+                                                        IsEnabled="{x:Bind ViewModel.CanDeleteSelectedBranch, Mode=OneWay}"
+                                                        Command="{x:Bind ViewModel.DeleteBranchCommand}">
+                                            <MenuFlyoutItem.Icon><FontIcon Glyph="&#xE74D;" Foreground="{ThemeResource SystemFillColorCriticalBrush}"/></MenuFlyoutItem.Icon>
+                                        </MenuFlyoutItem>
+                                    </MenuFlyout>
+                                </DropDownButton.Flyout>
+                            </DropDownButton>
+                            <Button x:Uid="HistoryPage_OpenCloudSyncButton"
+                                    AutomationProperties.AutomationId="HistoryOpenCloudSync"
+                                    MinHeight="32" VerticalAlignment="Stretch"
+                                    IsEnabled="{x:Bind ViewModel.CanOpenConfigCloudSync, Mode=OneWay}"
+                                    Command="{x:Bind ViewModel.OpenCloudSyncCommand}">
+                                <StackPanel Orientation="Horizontal" Spacing="6" VerticalAlignment="Center">
+                                    <FontIcon Glyph="&#xE753;" FontSize="13"/>
+                                    <TextBlock x:Uid="HistoryPage_OpenCloudSyncText"/>
+                                </StackPanel>
+                            </Button>
+                            <DropDownButton x:Name="MaintenanceDropDownButton"
+                                            x:Uid="HistoryPage_MaintenanceDropDown"
+                                            AutomationProperties.AutomationId="HistoryMaintenanceDropDown"
+                                            MinHeight="32" VerticalAlignment="Stretch">
+                                <StackPanel Orientation="Horizontal" Spacing="6" VerticalAlignment="Center">
+                                    <FontIcon Glyph="&#xE90F;" FontSize="13"/>
+                                    <TextBlock x:Uid="HistoryPage_MaintenanceDropDownText"/>
+                                </StackPanel>
+                                <DropDownButton.Flyout>
+                                    <MenuFlyout>
+                                        <MenuFlyoutItem x:Name="ScanRecoverMenuItem"
+                                                        x:Uid="HistoryPage_ScanRecoverMenuItem"
+                                                        AutomationProperties.AutomationId="HistoryScanRecover"
+                                                        IsEnabled="{x:Bind ViewModel.CanUsePerSourceActions, Mode=OneWay}"
+                                                        Command="{x:Bind ViewModel.ScanRecoverCommand}">
+                                            <MenuFlyoutItem.Icon><FontIcon Glyph="&#xE71C;"/></MenuFlyoutItem.Icon>
+                                        </MenuFlyoutItem>
+                                        <MenuFlyoutItem x:Name="ClearMissingMenuItem"
+                                                        x:Uid="HistoryPage_ClearMissingMenuItem"
+                                                        AutomationProperties.AutomationId="HistoryClearMissing"
+                                                        IsEnabled="{x:Bind ViewModel.HasMissing, Mode=OneWay}"
+                                                        Command="{x:Bind ViewModel.ClearMissingCommand}">
+                                            <MenuFlyoutItem.Icon><FontIcon Glyph="&#xE74D;"/></MenuFlyoutItem.Icon>
+                                        </MenuFlyoutItem>
+                                        <MenuFlyoutItem x:Name="SafetySnapshotsMenuItem"
+                                                        x:Uid="HistoryPage_SafetySnapshotsMenuItem"
+                                                        AutomationProperties.AutomationId="HistorySafetySnapshots"
+                                                        Command="{x:Bind ViewModel.ManageSafetySnapshotsCommand}">
+                                            <MenuFlyoutItem.Icon><FontIcon Glyph="&#xE72E;"/></MenuFlyoutItem.Icon>
+                                        </MenuFlyoutItem>
+                                        <MenuFlyoutSeparator/>
+                                        <ToggleMenuFlyoutItem x:Name="UseColorsToggleMenuItem"
+                                                              x:Uid="HistoryPage_UseColorsMenuItem"
+                                                              AutomationProperties.AutomationId="HistoryUseStatusColors"
+                                                              IsChecked="{x:Bind ViewModel.UseHistoryStatusColors, Mode=TwoWay}"/>
+                                    </MenuFlyout>
+                                </DropDownButton.Flyout>
+                            </DropDownButton>
+                        </StackPanel>
+                        <TextBlock x:Name="BranchStatus" Grid.Column="3" Text="{x:Bind ViewModel.SelectedBranchCheckoutStatusText, Mode=OneWay}" TextTrimming="CharacterEllipsis" VerticalAlignment="Center" Foreground="{ThemeResource TextFillColorSecondaryBrush}" ToolTipService.ToolTip="{x:Bind ViewModel.SelectedBranchCheckoutStatusText, Mode=OneWay}"/>
                     </Grid>
-                    <StackPanel Orientation="Horizontal" Spacing="8">
-                        <Button x:Name="BranchCheckoutButton" x:Uid="HistoryPage_BranchCheckoutButton" AutomationProperties.AutomationId="HistoryBranchCheckout" IsEnabled="{x:Bind ViewModel.CanStartCheckoutSelectedBranch, Mode=OneWay}" Command="{x:Bind ViewModel.CheckoutBranchCommand}">
-                            <TextBlock x:Uid="HistoryPage_BranchCheckoutText"/>
-                        </Button>
-                        <DropDownButton x:Name="BranchMoreActionsButton"
-                                        x:Uid="HistoryPage_BranchMoreActions"
-                                        AutomationProperties.AutomationId="HistoryBranchMoreActions"
-                                        VerticalAlignment="Center">
-                            <FontIcon Glyph="&#xE712;" FontSize="12"/>
-                            <DropDownButton.Flyout>
-                                <MenuFlyout>
-                                    <MenuFlyoutItem x:Uid="HistoryPage_BranchMergeItem" AutomationProperties.AutomationId="HistoryBranchMerge" Command="{x:Bind ViewModel.MergeBranchCommand}"/>
-                                    <MenuFlyoutItem x:Name="BranchReconcileItem"
-                                                    x:Uid="HistoryPage_BranchReconcileItem"
-                                                    AutomationProperties.AutomationId="HistoryBranchReconcile"
-                                                    IsEnabled="{x:Bind ViewModel.CanReconcileSelectedBranch, Mode=OneWay}"
-                                                    Command="{x:Bind ViewModel.ReconcileBranchCommand}">
-                                        <MenuFlyoutItem.Icon><FontIcon Glyph="&#xE895;"/></MenuFlyoutItem.Icon>
-                                    </MenuFlyoutItem>
-                                    <MenuFlyoutSeparator/>
-                                    <MenuFlyoutItem x:Name="BranchRenameItem"
-                                                    x:Uid="HistoryPage_BranchRenameItem"
-                                                    AutomationProperties.AutomationId="HistoryBranchRename"
-                                                    IsEnabled="{x:Bind ViewModel.CanRenameSelectedBranch, Mode=OneWay}"
-                                                    Command="{x:Bind ViewModel.RenameBranchCommand}">
-                                        <MenuFlyoutItem.Icon><FontIcon Glyph="&#xE70F;"/></MenuFlyoutItem.Icon>
-                                    </MenuFlyoutItem>
-                                    <MenuFlyoutSeparator/>
-                                    <MenuFlyoutItem x:Name="BranchDeleteItem"
-                                                    x:Uid="HistoryPage_BranchDeleteItem"
-                                                    AutomationProperties.AutomationId="HistoryBranchDelete"
-                                                    Foreground="{ThemeResource SystemFillColorCriticalBrush}"
-                                                    IsEnabled="{x:Bind ViewModel.CanDeleteSelectedBranch, Mode=OneWay}"
-                                                    Command="{x:Bind ViewModel.DeleteBranchCommand}">
-                                        <MenuFlyoutItem.Icon><FontIcon Glyph="&#xE74D;" Foreground="{ThemeResource SystemFillColorCriticalBrush}"/></MenuFlyoutItem.Icon>
-                                    </MenuFlyoutItem>
-                                </MenuFlyout>
-                            </DropDownButton.Flyout>
-                        </DropDownButton>
-                        <Button x:Uid="HistoryPage_OpenCloudSyncButton"
-                                AutomationProperties.AutomationId="HistoryOpenCloudSync"
-                                VerticalAlignment="Center"
-                                IsEnabled="{x:Bind ViewModel.CanOpenConfigCloudSync, Mode=OneWay}"
-                                Command="{x:Bind ViewModel.OpenCloudSyncCommand}">
-                            <StackPanel Orientation="Horizontal" Spacing="6" VerticalAlignment="Center">
-                                <FontIcon Glyph="&#xE753;" FontSize="13"/>
-                                <TextBlock x:Uid="HistoryPage_OpenCloudSyncText"/>
-                            </StackPanel>
-                        </Button>
-                        <DropDownButton x:Name="MaintenanceDropDownButton"
-                                        x:Uid="HistoryPage_MaintenanceDropDown"
-                                        AutomationProperties.AutomationId="HistoryMaintenanceDropDown"
-                                        VerticalAlignment="Center">
-                            <StackPanel Orientation="Horizontal" Spacing="6" VerticalAlignment="Center">
-                                <FontIcon Glyph="&#xE90F;" FontSize="13"/>
-                                <TextBlock x:Uid="HistoryPage_MaintenanceDropDownText"/>
-                            </StackPanel>
-                            <DropDownButton.Flyout>
-                                <MenuFlyout>
-                                    <MenuFlyoutItem x:Name="ScanRecoverMenuItem"
-                                                    x:Uid="HistoryPage_ScanRecoverMenuItem"
-                                                    AutomationProperties.AutomationId="HistoryScanRecover"
-                                                    IsEnabled="{x:Bind ViewModel.CanUsePerSourceActions, Mode=OneWay}"
-                                                    Command="{x:Bind ViewModel.ScanRecoverCommand}">
-                                        <MenuFlyoutItem.Icon><FontIcon Glyph="&#xE71C;"/></MenuFlyoutItem.Icon>
-                                    </MenuFlyoutItem>
-                                    <MenuFlyoutItem x:Name="ClearMissingMenuItem"
-                                                    x:Uid="HistoryPage_ClearMissingMenuItem"
-                                                    AutomationProperties.AutomationId="HistoryClearMissing"
-                                                    IsEnabled="{x:Bind ViewModel.HasMissing, Mode=OneWay}"
-                                                    Command="{x:Bind ViewModel.ClearMissingCommand}">
-                                        <MenuFlyoutItem.Icon><FontIcon Glyph="&#xE74D;"/></MenuFlyoutItem.Icon>
-                                    </MenuFlyoutItem>
-                                    <MenuFlyoutItem x:Name="SafetySnapshotsMenuItem"
-                                                    x:Uid="HistoryPage_SafetySnapshotsMenuItem"
-                                                    AutomationProperties.AutomationId="HistorySafetySnapshots"
-                                                    Command="{x:Bind ViewModel.ManageSafetySnapshotsCommand}">
-                                        <MenuFlyoutItem.Icon><FontIcon Glyph="&#xE72E;"/></MenuFlyoutItem.Icon>
-                                    </MenuFlyoutItem>
-                                    <MenuFlyoutSeparator/>
-                                    <ToggleMenuFlyoutItem x:Name="UseColorsToggleMenuItem"
-                                                          x:Uid="HistoryPage_UseColorsMenuItem"
-                                                          AutomationProperties.AutomationId="HistoryUseStatusColors"
-                                                          IsChecked="{x:Bind ViewModel.UseHistoryStatusColors, Mode=TwoWay}"/>
-                                </MenuFlyout>
-                            </DropDownButton.Flyout>
-                        </DropDownButton>
-                    </StackPanel>
                 </StackPanel>
             </StackPanel>
         </Border>

@@ -1,11 +1,9 @@
 using FolderRewind.Models;
 using FolderRewind.Services;
-using FolderRewind.ViewModels;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using System;
 using System.Threading;
-using System.Collections.ObjectModel;
 
 namespace FolderRewind.Views.Settings;
 
@@ -13,73 +11,94 @@ public sealed partial class OpenListEnvironmentControl : UserControl
 {
     private CancellationTokenSource _lifetime = new();
     private bool _busy;
-    public ObservableCollection<OnboardingDiagnosticItem> Diagnostics { get; } = [];
-    private static string Signature(OpenListRuntimeSettings settings) => string.Join("\0", settings.ExecutablePath,
-        settings.WorkingDirectory, settings.DataDirectory, settings.ConfigFilePath, settings.ServiceBaseUri);
-    private void OnEnvironmentCardSizeChanged(object sender, SizeChangedEventArgs e) => SettingsCardLayout.Apply(sender, e);
-    private void OnDraftChanged(object sender, TextChangedEventArgs e) => Diagnostics.Clear();
-    public void ShowRepairTarget() { EnvironmentExpander.IsExpanded = true; EnvironmentExpander.StartBringIntoView(); }
+    private bool _bringIntoViewPending;
+    private OpenListRuntimeSettings _savedSettings = new();
+
     public OpenListEnvironmentControl()
     {
-        InitializeComponent(); Loaded += OnLoaded; Unloaded += (_, _) => _lifetime.Cancel();
+        InitializeComponent();
+        Loaded += OnLoaded;
+        Unloaded += (_, _) => _lifetime.Cancel();
     }
+
+    public void ShowRepairTarget()
+    {
+        EnvironmentExpander.IsExpanded = true;
+        if (IsLoaded) EnvironmentExpander.StartBringIntoView();
+        else _bringIntoViewPending = true;
+    }
+
     private void OnLoaded(object sender, RoutedEventArgs e)
     {
         if (_lifetime.IsCancellationRequested) { _lifetime.Dispose(); _lifetime = new(); }
-        var settings = ConfigService.CurrentConfig.GlobalSettings.OpenListRuntime ?? new();
-        Executable.Text = settings.ExecutablePath; Working.Text = settings.WorkingDirectory; Data.Text = settings.DataDirectory;
-        Config.Text = settings.ConfigFilePath; ServiceUri.Text = settings.ServiceBaseUri;
+        _savedSettings = ConfigService.CurrentConfig.GlobalSettings.OpenListRuntime ?? new();
+        Executable.Text = _savedSettings.ExecutablePath;
+        ServiceUri.Text = _savedSettings.ServiceBaseUri;
+        if (_bringIntoViewPending)
+        {
+            _bringIntoViewPending = false;
+            DispatcherQueue.TryEnqueue(() => { if (IsLoaded) EnvironmentExpander.StartBringIntoView(); });
+        }
     }
-    private OpenListRuntimeSettings Draft() => new() { ExecutablePath = Executable.Text.Trim(), WorkingDirectory = Working.Text.Trim(), DataDirectory = Data.Text.Trim(), ConfigFilePath = Config.Text.Trim(), ServiceBaseUri = ServiceUri.Text.Trim() };
+
+    private void OnEnvironmentCardSizeChanged(object sender, SizeChangedEventArgs e) => SettingsCardLayout.Apply(sender, e);
+
+    private void OnActionsSizeChanged(object sender, SizeChangedEventArgs e)
+    {
+        if (ManualGuide is null || sender is not Grid grid) return;
+        var narrow = e.NewSize.Width < 520;
+        Grid.SetColumn(ManualGuide, narrow ? 0 : 1);
+        Grid.SetRow(ManualGuide, narrow ? 1 : 0);
+        Grid.SetColumnSpan(ManualGuide, narrow ? 3 : 1);
+        grid.RowSpacing = narrow ? 8 : 0;
+    }
+
+    private void OnDraftChanged(object sender, TextChangedEventArgs e)
+    {
+        if (Result is not null) Result.Visibility = Visibility.Collapsed;
+    }
+
+    // 移除尚未用于启动的高级字段入口，但保留已经保存的目录配置。
+    private OpenListRuntimeSettings Draft() => new()
+    {
+        ExecutablePath = Executable.Text.Trim(),
+        ServiceBaseUri = ServiceUri.Text.Trim(),
+        WorkingDirectory = _savedSettings.WorkingDirectory,
+        DataDirectory = _savedSettings.DataDirectory,
+        ConfigFilePath = _savedSettings.ConfigFilePath
+    };
+
+    private void ShowResult(string message)
+    {
+        Result.Text = message;
+        Result.Visibility = Visibility.Visible;
+    }
+
     private async void OnSave(object sender, RoutedEventArgs e)
     {
-        if (_busy) return; _busy = true; IsEnabled = false;
-        try { await OpenListRuntimeService.SaveAsync(Draft()); if (!_lifetime.IsCancellationRequested) Result.Text = I18n.GetString("OpenList_SavedManualOnly"); }
-        catch (Exception ex) { if (!_lifetime.IsCancellationRequested) Result.Text = ex.Message; }
-        finally { _busy = false; IsEnabled = true; }
-    }
-    private async void OnCheck(object sender, RoutedEventArgs e)
-    {
-        if (_busy) return; _busy = true; IsEnabled = false;
+        if (_busy) return;
+        _busy = true;
+        IsEnabled = false;
         try
         {
             var draft = Draft();
-            var result = await OpenListRuntimeService.CheckAsync(draft, _lifetime.Token);
-            if (!_lifetime.IsCancellationRequested && Signature(draft) == Signature(Draft()))
-            {
-                Result.Text = result.Message;
-                Diagnostics.Clear(); Diagnostics.Add(new(result, new("", "", Signature(draft), result.CheckedAtUtc)));
-            }
+            await OpenListRuntimeService.SaveAsync(draft);
+            _savedSettings = draft;
+            if (!_lifetime.IsCancellationRequested) ShowResult(I18n.GetString("OpenList_SavedManualOnly"));
         }
-        catch (OperationCanceledException) { }
-        catch (Exception ex) { if (!_lifetime.IsCancellationRequested) Result.Text = ex.Message; }
+        catch (Exception ex) { if (!_lifetime.IsCancellationRequested) ShowResult(CloudCommandSecurity.Redact(ex.Message)); }
         finally { _busy = false; IsEnabled = true; }
     }
+
     private async void OnPickExecutable(object sender, RoutedEventArgs e)
     {
         var path = await MainWindowService.PickFilePathAsync("", "FolderRewind.OpenList.Executable", [".exe"], MainWindowService.SuggestedPickerLocation.ComputerFolder);
         if (!_lifetime.IsCancellationRequested && path is not null) Executable.Text = path;
     }
+
     private void OnOpenManagement(object sender, RoutedEventArgs e)
     {
-        try { var uri = OpenListRuntimeService.Validate(Draft()); ShellPathService.TryOpenPath(uri.AbsoluteUri, out _); }
-        catch (Exception ex) { Result.Text = ex.Message; }
-    }
-    private void OnRepair(object sender, RoutedEventArgs e)
-    {
-        if (_busy || sender is not Button { Tag: OnboardingDiagnosticItem item }) return;
-        if (!Diagnostics.Contains(item) || !OnboardingRepairPolicy.IsCurrent(item.Context, "", "", Signature(Draft())))
-        { Result.Text = I18n.GetString("SettingsProject_Stale"); Diagnostics.Clear(); return; }
-        switch (item.Target)
-        {
-            case OnboardingRepairTarget.OpenListEnvironment: Executable.Focus(FocusState.Programmatic); break;
-            case OnboardingRepairTarget.CloudConnection: NavigationService.NavigateTo("CloudSetup"); break;
-        }
-    }
-    private async void OnExportDiagnostics(object sender, RoutedEventArgs e)
-    {
-        try { await OnboardingDiagnosticsInteraction.ExportAsync(Diagnostics, XamlRoot, _lifetime.Token); }
-        catch (OperationCanceledException) { }
-        catch (Exception ex) { if (!_lifetime.IsCancellationRequested) Result.Text = CloudCommandSecurity.Redact(ex.Message); }
+        try { var uri = RcloneConnectionService.ValidateWebDavUrl(ServiceUri.Text.Trim()); ShellPathService.TryOpenPath(uri.AbsoluteUri, out _); }
+        catch (Exception ex) { ShowResult(CloudCommandSecurity.Redact(ex.Message)); }
     }
 }
