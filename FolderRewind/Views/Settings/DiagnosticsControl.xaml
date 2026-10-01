@@ -80,7 +80,7 @@
                         <TextBlock x:Uid="SettingsPage_LogEnabledDesc" Style="{StaticResource SettingsDescriptionStyle}" />
                     </toolkit:SettingsCard.Description>
                     <ToggleSwitch AutomationProperties.AutomationId="SettingsFileLogging"
-                                  AutomationProperties.LabeledBy="{x:Bind FileLoggingLabel}"
+                                  AutomationProperties.LabeledBy="{x:Bind FileLoggingLabel, Mode=OneTime}"
                                   IsOn="{x:Bind ViewModel.EnableFileLogging, Mode=TwoWay}"
                                   Toggled="OnLoggingChanged" />
                 </toolkit:SettingsCard>
@@ -93,7 +93,7 @@
                         <TextBlock x:Uid="SettingsPage_MaxLogSizeDesc" Style="{StaticResource SettingsDescriptionStyle}" />
                     </toolkit:SettingsCard.Description>
                     <NumberBox AutomationProperties.AutomationId="SettingsMaxLogFileSize"
-                               AutomationProperties.LabeledBy="{x:Bind MaxLogSizeLabel}"
+                               AutomationProperties.LabeledBy="{x:Bind MaxLogSizeLabel, Mode=OneTime}"
                                Style="{StaticResource SettingsNumberBoxStyle}"
                                Minimum="1"
                                Maximum="50"
@@ -109,7 +109,7 @@
                         <TextBlock x:Uid="SettingsPage_LogRetentionDesc" Style="{StaticResource SettingsDescriptionStyle}" />
                     </toolkit:SettingsCard.Description>
                     <NumberBox AutomationProperties.AutomationId="SettingsLogRetentionDays"
-                               AutomationProperties.LabeledBy="{x:Bind LogRetentionLabel}"
+                               AutomationProperties.LabeledBy="{x:Bind LogRetentionLabel, Mode=OneTime}"
                                Style="{StaticResource SettingsNumberBoxStyle}"
                                Minimum="1"
                                Maximum="60"

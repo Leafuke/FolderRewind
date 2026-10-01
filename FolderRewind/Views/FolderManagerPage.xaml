@@ -39,7 +39,7 @@
                     <TextBlock x:Name="CurrentConfigLabel" x:Uid="FolderManager_CurrentConfig" VerticalAlignment="Center" Foreground="{ThemeResource TextFillColorSecondaryBrush}"/>
                     <ComboBox x:Name="ConfigSelector" Width="220" 
                               AutomationProperties.AutomationId="FolderManagerConfigSelector"
-                              AutomationProperties.LabeledBy="{x:Bind CurrentConfigLabel}"
+                              AutomationProperties.LabeledBy="{x:Bind CurrentConfigLabel, Mode=OneTime}"
                               ItemsSource="{x:Bind ViewModel.ConfigsView, Mode=OneWay}"
                               SelectedItem="{x:Bind ViewModel.CurrentConfig, Mode=TwoWay}"
                               DisplayMemberPath="Name"
@@ -113,7 +113,7 @@
                     <TextBlock x:Name="BackupCommentLabel" x:Uid="FolderManager_BackupComment" VerticalAlignment="Center" Margin="0,0,8,0" Foreground="{ThemeResource TextFillColorSecondaryBrush}"/>
                     <TextBox x:Name="CommentBox" Grid.Column="1" x:Uid="FolderManager_CommentPlaceholder"
                              AutomationProperties.AutomationId="FolderManagerBackupComment"
-                             AutomationProperties.LabeledBy="{x:Bind BackupCommentLabel}"
+                             AutomationProperties.LabeledBy="{x:Bind BackupCommentLabel, Mode=OneTime}"
                              Text="{x:Bind ViewModel.BackupComment, Mode=TwoWay}"
                              IsEnabled="{x:Bind ViewModel.HasCurrentConfig, Mode=OneWay}"/>
                 </Grid>

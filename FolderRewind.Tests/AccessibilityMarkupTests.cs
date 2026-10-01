@@ -166,7 +166,7 @@ public sealed class AccessibilityMarkupTests
             {
                 var toggle = xaml.Descendants().Single(e => (string?)e.Attribute(x + "Name") == association.name);
                 Assert.AreEqual(association.id, (string?)toggle.Attribute("AutomationProperties.AutomationId"));
-                Assert.AreEqual($"{{x:Bind {association.label}}}", (string?)toggle.Attribute("AutomationProperties.LabeledBy"));
+                Assert.AreEqual($"{{x:Bind {association.label}, Mode=OneTime}}", (string?)toggle.Attribute("AutomationProperties.LabeledBy"));
                 var label = xaml.Descendants().Single(e => (string?)e.Attribute(x + "Name") == association.label);
                 var text = resources[$"{label.Attribute(x + "Uid")!.Value}.Text"];
                 Assert.IsFalse(string.IsNullOrWhiteSpace(text));

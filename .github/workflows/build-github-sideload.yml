@@ -167,6 +167,8 @@ jobs:
             -p:Platform=${{ matrix.platform }} `
             -p:FolderRewindDistributionChannel=Msi `
             -p:CETCompat=false `
+            -p:DebugType=None `
+            -p:DebugSymbols=false `
             -p:Version=${{ steps.version.outputs.manifest_version }} `
             -p:AssemblyVersion=${{ steps.version.outputs.manifest_version }} `
             -p:FileVersion=${{ steps.version.outputs.manifest_version }} `

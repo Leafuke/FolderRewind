@@ -173,7 +173,7 @@
                         <TextBlock x:Name="SortLabel" x:Uid="HomePage_SortLabel" Foreground="{ThemeResource TextFillColorSecondaryBrush}"/>
                         <ComboBox x:Name="SortCombo" MinWidth="160"
                                   AutomationProperties.AutomationId="HomeConfigSort"
-                                  AutomationProperties.LabeledBy="{x:Bind SortLabel}"
+                                  AutomationProperties.LabeledBy="{x:Bind SortLabel, Mode=OneTime}"
                                   SelectionChanged="OnSortModeChanged">
                             <ComboBoxItem Tag="NameAsc" x:Uid="HomePage_Sort_NameAsc"/>
                             <ComboBoxItem Tag="NameDesc" x:Uid="HomePage_Sort_NameDesc"/>

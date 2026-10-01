@@ -82,7 +82,7 @@
                             <TextBlock x:Uid="SettingsPage_CloudPresetSteps" Style="{StaticResource SettingsDescriptionStyle}" />
                             <ComboBox Width="260"
                                       AutomationProperties.AutomationId="SettingsCloudPresetProvider"
-                                      AutomationProperties.LabeledBy="{x:Bind CloudPresetLabel}"
+                                      AutomationProperties.LabeledBy="{x:Bind CloudPresetLabel, Mode=OneTime}"
                                       HorizontalAlignment="Left"
                                       ItemsSource="{x:Bind ViewModel.CloudPresetOptions, Mode=OneWay}"
                                       SelectedItem="{x:Bind ViewModel.SelectedCloudPresetOption, Mode=TwoWay}"

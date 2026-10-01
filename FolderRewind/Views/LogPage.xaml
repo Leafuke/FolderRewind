@@ -44,12 +44,12 @@
 
                 <StackPanel Orientation="Horizontal" Spacing="4" VerticalAlignment="Center">
                     <TextBlock x:Name="LiveRefreshLabel" x:Uid="LogPage_LiveRefresh" VerticalAlignment="Center" Style="{StaticResource BodyTextBlockStyle}" Foreground="{ThemeResource TextFillColorSecondaryBrush}"/>
-                    <ToggleSwitch x:Name="LiveToggle" AutomationProperties.AutomationId="LogLiveRefresh" AutomationProperties.LabeledBy="{x:Bind LiveRefreshLabel}" IsOn="True" Toggled="OnLiveToggled" OnContent="" OffContent="" VerticalAlignment="Center" Margin="4,0,0,0"/>
+                    <ToggleSwitch x:Name="LiveToggle" AutomationProperties.AutomationId="LogLiveRefresh" AutomationProperties.LabeledBy="{x:Bind LiveRefreshLabel, Mode=OneTime}" IsOn="True" Toggled="OnLiveToggled" OnContent="" OffContent="" VerticalAlignment="Center" Margin="4,0,0,0"/>
                 </StackPanel>
 
                 <StackPanel Orientation="Horizontal" Spacing="4" VerticalAlignment="Center">
                     <TextBlock x:Name="AutoScrollLabel" x:Uid="LogPage_AutoScroll" VerticalAlignment="Center" Style="{StaticResource BodyTextBlockStyle}" Foreground="{ThemeResource TextFillColorSecondaryBrush}"/>
-                    <ToggleSwitch x:Name="AutoScrollToggle" AutomationProperties.AutomationId="LogAutoScroll" AutomationProperties.LabeledBy="{x:Bind AutoScrollLabel}" IsOn="True" OnContent="" OffContent="" VerticalAlignment="Center" Margin="4,0,0,0"/>
+                    <ToggleSwitch x:Name="AutoScrollToggle" AutomationProperties.AutomationId="LogAutoScroll" AutomationProperties.LabeledBy="{x:Bind AutoScrollLabel, Mode=OneTime}" IsOn="True" OnContent="" OffContent="" VerticalAlignment="Center" Margin="4,0,0,0"/>
                 </StackPanel>
             </StackPanel>
 
