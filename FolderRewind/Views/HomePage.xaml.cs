@@ -1,4 +1,4 @@
-﻿using FolderRewind.Models;
+using FolderRewind.Models;
 using FolderRewind.Services;
 using FolderRewind.ViewModels;
 using Microsoft.UI.Xaml;
@@ -116,24 +116,6 @@ public sealed partial class HomePage : Page
 
     private static void NavigateToConfig(BackupConfig config)
         => _ = NavigationService.NavigateTo("Manager", ManagerNavigationParameter.ForConfig(config.Id));
-
-    private void OnSourceIssueClick(object sender, ItemClickEventArgs e)
-    {
-        if (e.ClickedItem is not ProjectSourceAttention issue) return;
-        var config = ViewModel.Configs?.FirstOrDefault(c => c.Id == issue.ConfigId);
-        var source = config?.SourceFolders.FirstOrDefault(s => Guid.TryParse(s.Id, out var id) && Guid.TryParse(issue.SourceId, out var expected) && id == expected);
-        if (source is not null) NavigationService.NavigateTo("Manager", ManagerNavigationParameter.ForFolder(config!.Id, source.Path));
-        else if (config is not null) NavigateToConfig(config);
-    }
-    private void OnSourceIssueContainerContentChanging(ListViewBase sender, ContainerContentChangingEventArgs args)
-    {
-        if (args.InRecycleQueue) { ClearContainerAutomationMetadata(args); return; }
-        if (args.Item is ProjectSourceAttention item)
-        {
-            AutomationProperties.SetName(args.ItemContainer, item.Label);
-            AutomationProperties.SetAutomationId(args.ItemContainer, $"HomeSourceIssue_{item.ConfigId}_{item.SourceId}");
-        }
-    }
 
     private async void OnSortModeChanged(object sender, SelectionChangedEventArgs e)
     {
@@ -409,7 +391,8 @@ public sealed partial class HomePage : Page
 
     private void OnAutoDiscoverGamesClick(object sender, RoutedEventArgs e)
         => ViewModel.AutoDiscoverGamesCommand.Execute(null);
-    private void OnStartSetup(object sender, RoutedEventArgs e) => NavigationService.NavigateTo("BackupSetup");
+    private void OnScenarioChosen(object? sender, BackupSetupScenario scenario)
+        => NavigationService.NavigateTo("BackupSetup", new BackupSetupNavigationParameter(Scenario: scenario));
     private void OnOpenHistory(object sender, RoutedEventArgs e) => NavigationService.NavigateTo("History");
     private void OnOpenCloudRecovery(object sender, RoutedEventArgs e) => NavigationService.NavigateTo("CloudSetup");
 

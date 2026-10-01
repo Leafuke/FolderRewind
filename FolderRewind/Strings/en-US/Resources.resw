@@ -1,4 +1,4 @@
-﻿<?xml version="1.0" encoding="utf-8"?>
+<?xml version="1.0" encoding="utf-8"?>
 <root>
   <!-- 
     Microsoft ResX Schema 
@@ -1135,7 +1135,7 @@ Duplicate folder names are blocked within the same backup project so different d
     <value>Smart backup chain length (0 = unlimited)</value>
   </data>
   <data name="ConfigSettingsDialog_MaxSmartChainDesc.Text" xml:space="preserve">
-    <value>After this many consecutive incremental backups, a full backup is forced to truncate the chain and improve restore efficiency. Only effective in incremental mode.</value>
+    <value>Start a new full backup after this many increments; applies to smart backups.</value>
   </data>
   <data name="BackupService_Log_SmartChainLimitReached" xml:space="preserve">
     <value>Incremental chain limit reached ({0}), forcing full backup</value>
@@ -2940,7 +2940,7 @@ Status: {3}</value>
     <value>For example: remote:FolderRewind</value>
   </data>
   <data name="ConfigSettingsDialog_CloudRemoteBasePathDesc.Text" xml:space="preserve">
-    <value>Set up rclone with rclone config first. Enter the remote name and base path here, for example remote:FolderRewind.</value>
+    <value>Enter an rclone connection and folder, such as remote:FolderRewind.</value>
   </data>
   <data name="ConfigSettingsDialog_CloudTemplate.Header" xml:space="preserve">
     <value>Template</value>
@@ -4385,7 +4385,7 @@ Pull request: {1}</value>
     <value>Pull this backup project's archived backups and metadata back into the local backup library, then try to recover the matching history records.</value>
   </data>
   <data name="ConfigSettingsDialog_CloudExecutableDesc" xml:space="preserve">
-    <value>Effective path: {0}. This overrides the executable for the current backup project. If you keep the default, the global rclone path from Settings is used first.</value>
+    <value>Using {0}. Leave blank to use the app default.</value>
   </data>
   <data name="SettingsPage_RclonePath.Text" xml:space="preserve">
     <value>rclone path</value>
@@ -4502,7 +4502,7 @@ Pull request: {1}</value>
     <value>This backup project still uses the legacy custom command mode. Auto upload remains available, but manual sync and history cloud actions only support rclone mode.</value>
   </data>
   <data name="ConfigSettingsDialog_CloudSyncHint" xml:space="preserve">
-    <value>Analyze the remote Commit Pack set first, then synchronize immutable history metadata and any selected backup payloads.</value>
+    <value>Upload selected versions or download backups from the cloud.</value>
   </data>
   <data name="ConfigSettingsDialog_CloudLegacyModeHint" xml:space="preserve">
     <value>This configuration uses the legacy custom cloud command. Manual sync is unavailable until it is moved to an rclone-based setup.</value>
@@ -5279,11 +5279,11 @@ Pull request: {1}</value>
   <data name="History_Creation_Recovery" xml:space="preserve"><value>Recovery</value></data>
   <data name="History_Creation_Import" xml:space="preserve"><value>Import</value></data>
   <data name="Merge_Details" xml:space="preserve"><value>Details and preview</value></data>
-  <data name="Setup_StageContent" xml:space="preserve"><value>Choose backup content</value></data>
-  <data name="Setup_StageLocation" xml:space="preserve"><value>Choose a backup location</value></data>
-  <data name="Setup_StageReview" xml:space="preserve"><value>Review and create the project</value></data>
-  <data name="Setup_StageResult" xml:space="preserve"><value>Project and first backup results</value></data>
-  <data name="Setup_ContentHelp.Text" xml:space="preserve"><value>Select specific folders. Nothing is created or backed up before confirmation.</value></data>
+  <data name="Setup_StageContent" xml:space="preserve"><value>Select content</value></data>
+  <data name="Setup_StageLocation" xml:space="preserve"><value>Set up project</value></data>
+  <data name="Setup_StageReview" xml:space="preserve"><value>Review and create</value></data>
+  <data name="Setup_StageResult" xml:space="preserve"><value>Setup result</value></data>
+  <data name="Setup_ContentHelp.Text" xml:space="preserve"><value>Select the folders to back up. You can add more than one.</value></data>
   <data name="Setup_AddFolder.Content" xml:space="preserve"><value>Choose a folder</value></data>
   <data name="Setup_RemoveSource.Content" xml:space="preserve"><value>Remove selected content</value></data>
   <data name="Setup_OtherScenarios.Header" xml:space="preserve"><value>Games and discovery</value></data>
@@ -5297,14 +5297,14 @@ Pull request: {1}</value>
   <data name="Setup_BrowseDestination.Content" xml:space="preserve"><value>Choose destination</value></data>
   <data name="Setup_LocationHelp.Text" xml:space="preserve"><value>The project uses its current rules. New folder projects use standard resource and retention settings without scheduled backup or cloud upload. A copy on the same device cannot guarantee protection against device failure.</value></data>
   <data name="Setup_ConfirmHelp.Text" xml:space="preserve"><value>Review the selected content and destination. Back up now or create the project for later.</value></data>
-  <data name="Setup_ViewProject.Content" xml:space="preserve"><value>Open project and further settings</value></data>
-  <data name="Setup_ViewVersions.Content" xml:space="preserve"><value>View versions and restore to a new location</value></data>
-  <data name="Setup_Retry.Content" xml:space="preserve"><value>Back up / retry the first backup</value></data>
+  <data name="Setup_ViewProject.Content" xml:space="preserve"><value>Open project</value></data>
+  <data name="Setup_ViewVersions.Content" xml:space="preserve"><value>View versions</value></data>
+  <data name="Setup_Retry.Content" xml:space="preserve"><value>Retry unfinished backups</value></data>
   <data name="Setup_Back.Content" xml:space="preserve"><value>Back</value></data>
   <data name="Setup_Next.Content" xml:space="preserve"><value>Next</value></data>
   <data name="Setup_CreateBackup.Content" xml:space="preserve"><value>Create and back up now</value></data>
-  <data name="Setup_CreateOnly.Content" xml:space="preserve"><value>Create for later</value></data>
-  <data name="Setup_Later.Content" xml:space="preserve"><value>Save draft for later</value></data>
+  <data name="Setup_CreateOnly.Content" xml:space="preserve"><value>Create only</value></data>
+  <data name="Setup_Later.Content" xml:space="preserve"><value>Save draft</value></data>
   <data name="Setup_InvalidName" xml:space="preserve"><value>Enter a unique project name.</value></data>
   <data name="Setup_InvalidDestination" xml:space="preserve"><value>Choose an absolute destination not used by another project.</value></data>
   <data name="Setup_NoSources" xml:space="preserve"><value>Select at least one backup source.</value></data>
@@ -5315,10 +5315,10 @@ Pull request: {1}</value>
   <data name="Setup_DraftInvalid" xml:space="preserve"><value>The draft version or size is unsupported. Discard it and select again.</value></data>
   <data name="Setup_Created" xml:space="preserve"><value>Project created. The first backup has not run yet.</value></data>
   <data name="Setup_FirstBackupFailed" xml:space="preserve"><value>Project created; first backup incomplete. You can retry.</value></data>
-  <data name="Setup_BackupRunning" xml:space="preserve"><value>Backup is running. View progress on the Tasks page. Leaving this page does not stop it.</value></data>
+  <data name="Setup_BackupRunning" xml:space="preserve"><value>Backing up…</value></data>
   <data name="Setup_BackupSummary" xml:space="preserve"><value>This run: {0} new versions, {1} unchanged, {2} failed, {3} canceled or not executed.</value></data>
-  <data name="Setup_OutcomeCaptured" xml:space="preserve"><value>New version committed</value></data>
-  <data name="Setup_OutcomeNoChange" xml:space="preserve"><value>Unchanged; no new version</value></data>
+  <data name="Setup_OutcomeCaptured" xml:space="preserve"><value>Backed up</value></data>
+  <data name="Setup_OutcomeNoChange" xml:space="preserve"><value>No changes</value></data>
   <data name="Setup_OutcomeFailed" xml:space="preserve"><value>Incomplete</value></data>
   <data name="Setup_OutcomeCanceled" xml:space="preserve"><value>Canceled</value></data>
   <data name="Setup_OutcomeNotExecuted" xml:space="preserve"><value>Not executed</value></data>
@@ -5351,10 +5351,10 @@ Dependencies have been checked without applying a restore and will be checked ag
 Diagnostics: {4}</value></data>
   <data name="Export_Completed" xml:space="preserve"><value>Restored to {0}. The original directory and workspace are unchanged.</value></data>
   <data name="Setup_NoRetryNeeded" xml:space="preserve"><value>There are no failed or canceled sources to retry. View the existing versions.</value></data>
-  <data name="SettingsProject_Save.Content" xml:space="preserve"><value>Save project settings</value></data>
+  <data name="SettingsProject_Save.Content" xml:space="preserve"><value>Save</value></data>
   <data name="SettingsProject_Delete.Content" xml:space="preserve"><value>Delete project</value></data>
   <data name="SettingsProject_Stale" xml:space="preserve"><value>The project changed while you were editing. Return to the project and reopen settings. This draft has not overwritten the newer configuration.</value></data>
-  <data name="SettingsProject_DraftHelp" xml:space="preserve"><value>You are editing a separate draft. Changes apply only after saving. Save, discard, or continue editing when leaving.</value></data>
+  <data name="SettingsProject_DraftHelp" xml:space="preserve"><value>Changes take effect after saving.</value></data>
   <data name="SettingsProject_Unsaved" xml:space="preserve"><value>Unsaved project settings</value></data>
   <data name="SettingsProject_Discard" xml:space="preserve"><value>Discard changes</value></data>
   <data name="SettingsProject_Saved" xml:space="preserve"><value>Project settings saved.</value></data>
@@ -5368,9 +5368,9 @@ Diagnostics: {4}</value></data>
   <data name="SettingsProject_SearchCloud" xml:space="preserve"><value>cloud|connection|rclone|WebDAV|OpenList</value></data>
   <data name="SettingsProject_SearchFilter" xml:space="preserve"><value>exclude|filter|whitelist|blacklist|scope</value></data>
   <data name="SettingsProject_SearchResult" xml:space="preserve"><value>Located settings group: {0}</value></data>
-  <data name="Performance_Preview" xml:space="preserve"><value>Only change threads: {0} → {1}, low priority: {2} → {3}. Zero means compressor default, without game-load detection. Scope, consistency, encryption, and retention remain unchanged.</value></data>
-  <data name="Performance_Apply.Content" xml:space="preserve"><value>Apply previewed resource settings</value></data>
-  <data name="Performance_Undo.Content" xml:space="preserve"><value>Undo this preset</value></data>
+  <data name="Performance_Preview" xml:space="preserve"><value>Threads: {0} → {1} · Background priority: {2} → {3}</value></data>
+  <data name="Performance_Apply.Content" xml:space="preserve"><value>Apply preset</value></data>
+  <data name="Performance_Undo.Content" xml:space="preserve"><value>Undo</value></data>
   <data name="Onboarding_ToolChecksumUnavailable" xml:space="preserve"><value>A valid SHA256 from official release metadata is unavailable, or the package exceeds its size limit. Download from the official page and select the executable manually. An unverified download will not be applied.</value></data>
   <data name="CloudSetup_Title.Text" xml:space="preserve"><value>Connect cloud storage and add a cloud copy</value></data>
   <data name="CloudSetup_Open.Content" xml:space="preserve"><value>Connect cloud storage / add a cloud copy</value></data>
@@ -5545,13 +5545,13 @@ Clean restore replaces current content within this source boundary. Overwrite wr
   <data name="HomeProtection_RunFailed" xml:space="preserve"><value>Failed; previous versions are retained</value></data>
   <data name="HomeProtection_RunNoChange" xml:space="preserve"><value>No change; existing versions reused</value></data>
   <data name="HomeProtection_SourceFailures" xml:space="preserve"><value>Content needing attention: {0}. Open the project to inspect these sources.</value></data>
-  <data name="SettingsProject_TabGeneral.Text" xml:space="preserve"><value>Project and location</value></data>
-  <data name="SettingsProject_TabBackup.Text" xml:space="preserve"><value>Content and scope</value></data>
-  <data name="SettingsProject_TabResource.Text" xml:space="preserve"><value>Resources and retention</value></data>
+  <data name="SettingsProject_TabGeneral.Text" xml:space="preserve"><value>General</value></data>
+  <data name="SettingsProject_TabBackup.Text" xml:space="preserve"><value>Backup</value></data>
+  <data name="SettingsProject_TabResource.Text" xml:space="preserve"><value>Resources</value></data>
   <data name="SettingsProject_TabRestore.Text" xml:space="preserve"><value>Restore</value></data>
-  <data name="SettingsProject_TabAutomation.Text" xml:space="preserve"><value>When to back up</value></data>
-  <data name="SettingsProject_TabCloud.Text" xml:space="preserve"><value>Cloud connection</value></data>
-  <data name="SettingsProject_TabFilter.Text" xml:space="preserve"><value>File filters</value></data>
+  <data name="SettingsProject_TabAutomation.Text" xml:space="preserve"><value>Automation</value></data>
+  <data name="SettingsProject_TabCloud.Text" xml:space="preserve"><value>Cloud storage</value></data>
+  <data name="SettingsProject_TabFilter.Text" xml:space="preserve"><value>Filters</value></data>
   <data name="SettingsProject_SearchResource" xml:space="preserve"><value>performance|compression|threads|retention|resources|space|cpu</value></data>
   <data name="SettingsProject_AdvancedResources.Header" xml:space="preserve"><value>Advanced: compression and file type rules</value></data>
   <data name="SettingsProject_AdvancedIdentity.Header" xml:space="preserve"><value>Advanced: kind, icon, and configuration file</value></data>
@@ -5615,4 +5615,131 @@ Remote locations come from history records and have not been checked online. Dow
   <data name="HomeProtection_Summary.Header" xml:space="preserve"><value>Local backup, latest run, and cloud copy status</value></data>
   <data name="CloudSetup_RepairOpenList.Content" xml:space="preserve"><value>Check OpenList environment</value></data>
   <data name="Setup_SaveUncertain" xml:space="preserve"><value>Project persistence and the compensating write could not be confirmed. No backup was started. Check configuration-file access or locks, then inspect the project list before retrying. Temporary credentials that may still be referenced are retained.</value></data>
+  <data name="SettingsProject_Title.Text" xml:space="preserve"><value>Project settings</value></data>
+  <data name="SettingsProject_SearchCompact.PlaceholderText" xml:space="preserve"><value>Search settings</value></data>
+  <data name="SettingsProject_SearchCompact.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve"><value>Search project settings</value></data>
+  <data name="SettingsCard_ConfigSettingsDialog_ConfigName.Header" xml:space="preserve"><value>Name</value></data>
+  <data name="SettingsCard_ConfigSettingsDialog_ConfigKind.Header" xml:space="preserve"><value>Type</value></data>
+  <data name="SettingsCard_ConfigSettingsDialog_Icon.Header" xml:space="preserve"><value>Icon</value></data>
+  <data name="SettingsCard_ConfigSettingsDialog_DestPath.Header" xml:space="preserve"><value>Backup location</value></data>
+  <data name="SettingsCard_ConfigSettingsDialog_ConfigFilePath.Header" xml:space="preserve"><value>Configuration file</value></data>
+  <data name="SettingsCard_ConfigSettingsDialog_SaveAsTemplateText.Header" xml:space="preserve"><value>Save as template</value></data>
+  <data name="SettingsCard_ConfigSettingsDialog_BackupMode.Header" xml:space="preserve"><value>Backup mode</value></data>
+  <data name="SettingsCard_ConfigSettingsDialog_BackupScope.Header" xml:space="preserve"><value>Backup scope</value></data>
+  <data name="SettingsCard_ConfigSettingsDialog_SkipIfUnchanged.Header" xml:space="preserve"><value>Skip backup when unchanged</value></data>
+  <data name="ConfigSettingsDialog_SkipIfUnchanged_CardInput.OnContent" xml:space="preserve"><value>On</value></data>
+  <data name="ConfigSettingsDialog_SkipIfUnchanged_CardInput.OffContent" xml:space="preserve"><value>Off</value></data>
+  <data name="SettingsCard_ConfigSettingsDialog_KeepCount.Header" xml:space="preserve"><value>Keep recent backups (0 for unlimited)</value></data>
+  <data name="SettingsCard_ConfigSettingsDialog_MaxSmartChain.Header" xml:space="preserve"><value>Smart backup chain length (0 = unlimited)</value></data>
+  <data name="SettingsCard_ConfigSettingsDialog_PerformancePreset.Header" xml:space="preserve"><value>Performance impact</value></data>
+  <data name="SettingsCard_ConfigSettingsDialog_Format.Header" xml:space="preserve"><value>Archive format</value></data>
+  <data name="SettingsCard_ConfigSettingsDialog_CompressionLevel.Header" xml:space="preserve"><value>Compression level (0-9)</value></data>
+  <data name="SettingsCard_ConfigSettingsDialog_CpuThreads.Header" xml:space="preserve"><value>CPU threads</value></data>
+  <data name="SettingsCard_ConfigSettingsDialog_LowPriority.Header" xml:space="preserve"><value>Run compression tasks at low process priority</value></data>
+  <data name="SettingsCard_ConfigSettingsDialog_Additional7zArgs.Header" xml:space="preserve"><value>Additional 7-Zip arguments</value></data>
+  <data name="SettingsCard_ConfigSettingsDialog_FileTypeHandling.Header" xml:space="preserve"><value>Custom file type handling</value></data>
+  <data name="SettingsCard_ConfigSettingsDialog_BackupBeforeRestore.Header" xml:space="preserve"><value>Backup before restore</value></data>
+  <data name="ConfigSettingsDialog_BackupBeforeRestore_CardInput.OnContent" xml:space="preserve"><value>On</value></data>
+  <data name="ConfigSettingsDialog_BackupBeforeRestore_CardInput.OffContent" xml:space="preserve"><value>Off</value></data>
+  <data name="SettingsCard_ConfigSettingsDialog_SafeRestore.Header" xml:space="preserve"><value>Safe restore</value></data>
+  <data name="ConfigSettingsDialog_SafeRestore_CardInput.OnContent" xml:space="preserve"><value>On</value></data>
+  <data name="ConfigSettingsDialog_SafeRestore_CardInput.OffContent" xml:space="preserve"><value>Off</value></data>
+  <data name="SettingsCard_ConfigSettingsDialog_VerifyArchiveBeforeRestore.Header" xml:space="preserve"><value>Verify backup integrity before restore</value></data>
+  <data name="ConfigSettingsDialog_VerifyArchiveBeforeRestore_CardInput.OnContent" xml:space="preserve"><value>On</value></data>
+  <data name="ConfigSettingsDialog_VerifyArchiveBeforeRestore_CardInput.OffContent" xml:space="preserve"><value>Off</value></data>
+  <data name="SettingsCard_ConfigSettingsDialog_RestoreWhitelist.Header" xml:space="preserve"><value>Restore whitelist</value></data>
+  <data name="SettingsCard_ConfigSettingsDialog_AutoBackup.Header" xml:space="preserve"><value>Enable auto backup</value></data>
+  <data name="SettingsCard_ConfigSettingsDialog_AutomationScope.Header" xml:space="preserve"><value>Automation scope</value></data>
+  <data name="SettingsCard_ConfigSettingsDialog_AutomationTargetFolder.Header" xml:space="preserve"><value>Target folder</value></data>
+  <data name="SettingsCard_Automation_ConfigSettingsDialog_RunOnAppStart.Header" xml:space="preserve"><value>Run when app starts</value></data>
+  <data name="SettingsCard_Automation_ConfigSettingsDialog_IntervalMode.Header" xml:space="preserve"><value>Interval backup mode</value></data>
+  <data name="SettingsCard_ConfigSettingsDialog_IntervalMinutes.Header" xml:space="preserve"><value>Run every</value></data>
+  <data name="SettingsCard_Automation_ConfigSettingsDialog_ScheduledMode.Header" xml:space="preserve"><value>Scheduled backup</value></data>
+  <data name="SettingsCard_Schedule_MonthLabel.Header" xml:space="preserve"><value>Month:</value></data>
+  <data name="SettingsCard_Automation_ConfigSettingsDialog_ConditionalMode.Header" xml:space="preserve"><value>Conditional backup mode</value></data>
+  <data name="SettingsCard_ConfigSettingsDialog_ConditionalModeDesc.Header" xml:space="preserve"><value>Checks the specified relative-path file every 10 seconds. When the file changes from locked to unlocked, a backup is triggered, which works well for backing up saves after the game exits.</value></data>
+  <data name="SettingsCard_ConfigSettingsDialog_StopAfterNoChange.Header" xml:space="preserve"><value>Stop auto task after repeated no changes</value></data>
+  <data name="ConfigSettingsDialog_StopAfterNoChange_CardInput.OnContent" xml:space="preserve"><value>On</value></data>
+  <data name="ConfigSettingsDialog_StopAfterNoChange_CardInput.OffContent" xml:space="preserve"><value>Off</value></data>
+  <data name="SettingsCard_ConfigSettingsDialog_StopAfterNoChangePrefix.Header" xml:space="preserve"><value>Stop after</value></data>
+  <data name="SettingsCard_ConfigSettingsDialog_CloudEnvironmentSection.Header" xml:space="preserve"><value>Environment</value></data>
+  <data name="SettingsCard_ConfigSettingsDialog_CloudWorkingDirectory.Header" xml:space="preserve"><value>Working directory (optional)</value></data>
+  <data name="SettingsCard_ConfigSettingsDialog_CloudRemoteBasePath.Header" xml:space="preserve"><value>Remote base path</value></data>
+  <data name="SettingsCard_ConfigSettingsDialog_CloudSyncSection.Header" xml:space="preserve"><value>Cloud sync</value></data>
+  <data name="SettingsCard_ConfigSettingsDialog_BackupFilterMode.Header" xml:space="preserve"><value>Backup filter mode</value></data>
+  <data name="SettingsCard_ConfigSettingsDialog_UseRegex.Header" xml:space="preserve"><value>Treat blacklist entries as regex</value></data>
+  <data name="SettingsCard_ConfigSettingsDialog_Blacklist.Header" xml:space="preserve"><value>Exclusion list</value></data>
+  <data name="SettingsCard_ConfigSettingsDialog_BackupWhitelist.Header" xml:space="preserve"><value>Inclusion list (only back up these files/folders)</value></data>
+  <data name="Scenario_Folder.Text" xml:space="preserve"><value>Folder</value></data>
+  <data name="Scenario_FolderHelp.Text" xml:space="preserve"><value>Back up documents, work, or other folders.</value></data>
+  <data name="Scenario_Minecraft.Text" xml:space="preserve"><value>Minecraft</value></data>
+  <data name="Scenario_MinecraftHelp.Text" xml:space="preserve"><value>Find instances and worlds to back up.</value></data>
+  <data name="Scenario_OtherGame.Text" xml:space="preserve"><value>Other games</value></data>
+  <data name="Scenario_OtherGameHelp.Text" xml:space="preserve"><value>Find supported game saves and create a project.</value></data>
+  <data name="Setup_ChooseTitle" xml:space="preserve"><value>Create a backup project</value></data>
+  <data name="Setup_SelectScenario" xml:space="preserve"><value>Choose what to back up</value></data>
+  <data name="Setup_StepNumber" xml:space="preserve"><value>Step {0} of 3</value></data>
+  <data name="Setup_NameCard.Header" xml:space="preserve"><value>Project name</value></data>
+  <data name="Setup_LocationCard.Header" xml:space="preserve"><value>Backup location</value></data>
+  <data name="Setup_KindCard.Header" xml:space="preserve"><value>Project type</value></data>
+  <data name="Setup_IconCard.Header" xml:space="preserve"><value>Icon</value></data>
+  <data name="Setup_ReviewContent.Header" xml:space="preserve"><value>Content</value></data>
+  <data name="Setup_EncryptionCard.Header" xml:space="preserve"><value>Encryption</value></data>
+  <data name="Setup_Encrypted" xml:space="preserve"><value>Enabled; set a password when creating</value></data>
+  <data name="Setup_NotEncrypted" xml:space="preserve"><value>Not enabled</value></data>
+  <data name="Setup_RemoveRow.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve"><value>Remove this folder</value></data>
+  <data name="Setup_RemoveRow.[using:Microsoft.UI.Xaml.Controls]ToolTipService.ToolTip" xml:space="preserve"><value>Remove this folder</value></data>
+  <data name="Setup_ResultCreated" xml:space="preserve"><value>Project created</value></data>
+  <data name="Setup_ResultMixed" xml:space="preserve"><value>Some backups need attention</value></data>
+  <data name="Setup_ResultComplete" xml:space="preserve"><value>Backup complete</value></data>
+  <data name="Setup_ResultWaiting" xml:space="preserve"><value>Not backed up yet</value></data>
+  <data name="Setup_PartialResult" xml:space="preserve"><value>Selected content only</value></data>
+  <data name="Setup_BackupNow.Content" xml:space="preserve"><value>Back up now</value></data>
+  <data name="Setup_DraftSavedShort" xml:space="preserve"><value>Draft saved on this device. Continue later.</value></data>
+  <data name="Setup_SourcePickerTitle" xml:space="preserve"><value>Select a folder to back up</value></data>
+  <data name="Setup_DestinationPickerTitle" xml:space="preserve"><value>Select a backup location</value></data>
+  <data name="Setup_MinecraftTitle" xml:space="preserve"><value>Minecraft backup</value></data>
+  <data name="Setup_DiscardDraftTitle" xml:space="preserve"><value>Discard setup draft</value></data>
+  <data name="Setup_DiscardDraftBody" xml:space="preserve"><value>Discard the saved setup choices? Existing projects are unchanged.</value></data>
+  <data name="SettingsCard_CloudAdvanced.Header" xml:space="preserve"><value>Advanced execution settings</value></data>
+  <data name="ConfigSettingsDialog_ConfigName_CardInput.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve"><value>Config name</value></data>
+  <data name="ConfigSettingsDialog_BackupMode_CardInput.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve"><value>Backup mode</value></data>
+  <data name="ConfigSettingsDialog_SkipIfUnchanged_CardInput.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve"><value>Skip backup when unchanged</value></data>
+  <data name="ConfigSettingsDialog_KeepCount_CardInput.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve"><value>Keep recent backups (0 for unlimited)</value></data>
+  <data name="ConfigSettingsDialog_BackupBeforeRestore_CardInput.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve"><value>Backup before restore</value></data>
+  <data name="ConfigSettingsDialog_SafeRestore_CardInput.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve"><value>Safe restore</value></data>
+  <data name="ConfigSettingsDialog_VerifyArchiveBeforeRestore_CardInput.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve"><value>Verify backup integrity before restore</value></data>
+  <data name="ConfigSettingsDialog_AutoBackup_CardInput.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve"><value>Enable auto backup</value></data>
+  <data name="ConfigSettingsDialog_StopAfterNoChange_CardInput.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve"><value>Stop auto task after repeated no changes</value></data>
+  <data name="ConfigSettingsDialog_BackupFilterMode_CardInput.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve"><value>Backup filter mode</value></data>
+  <data name="ConfigSettingsDialog_BackupScope_CardInput.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve"><value>Backup scope</value></data>
+  <data name="ConfigSettingsDialog_MaxSmartChain_CardInput.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve"><value>Smart backup chain length (0 = unlimited)</value></data>
+  <data name="ConfigSettingsDialog_PerformancePreset_CardInput.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve"><value>Performance impact</value></data>
+  <data name="ConfigSettingsDialog_Format_CardInput.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve"><value>Archive format</value></data>
+  <data name="ConfigSettingsDialog_LowPriority_CardInput.OnContent" xml:space="preserve"><value>On</value></data>
+  <data name="ConfigSettingsDialog_LowPriority_CardInput.OffContent" xml:space="preserve"><value>Off</value></data>
+  <data name="ConfigSettingsDialog_LowPriority_CardInput.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve"><value>Run compression tasks at low process priority</value></data>
+  <data name="ConfigSettingsDialog_FileTypeHandling_CardInput.OnContent" xml:space="preserve"><value>On</value></data>
+  <data name="ConfigSettingsDialog_FileTypeHandling_CardInput.OffContent" xml:space="preserve"><value>Off</value></data>
+  <data name="ConfigSettingsDialog_FileTypeHandling_CardInput.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve"><value>Custom file type handling</value></data>
+  <data name="SettingsProject_UnsavedBody" xml:space="preserve"><value>Save your project settings before leaving?</value></data>
+  <data name="Performance_DefaultThreads" xml:space="preserve"><value>Default</value></data>
+  <data name="Performance_Enabled" xml:space="preserve"><value>On</value></data>
+  <data name="Performance_Disabled" xml:space="preserve"><value>Off</value></data>
+  <data name="SettingsProject_SaveAction" xml:space="preserve"><value>Save</value></data>
+  <data name="SettingsProject_GroupGeneral" xml:space="preserve"><value>General</value></data>
+  <data name="SettingsProject_GroupBackup" xml:space="preserve"><value>Backup</value></data>
+  <data name="SettingsProject_GroupResource" xml:space="preserve"><value>Resources</value></data>
+  <data name="SettingsProject_GroupRestore" xml:space="preserve"><value>Restore</value></data>
+  <data name="SettingsProject_GroupAutomation" xml:space="preserve"><value>Automation</value></data>
+  <data name="SettingsProject_GroupCloud" xml:space="preserve"><value>Cloud storage</value></data>
+  <data name="SettingsProject_GroupFilter" xml:space="preserve"><value>Filters</value></data>
+  <data name="SettingsCard_ConfigSettingsDialog_BackupBeforeRestore.Description" xml:space="preserve"><value>Back up current files before restoring.</value></data>
+  <data name="SettingsCard_ConfigSettingsDialog_SafeRestore.Description" xml:space="preserve"><value>Roll back on failure; turning this off may cause loss of current files.</value></data>
+  <data name="SettingsCard_ConfigSettingsDialog_VerifyArchiveBeforeRestore.Description" xml:space="preserve"><value>Check backups during restoration and stop if damaged.</value></data>
+  <data name="SettingsCard_ConfigSettingsDialog_CloudEnabled.Header" xml:space="preserve"><value>Upload after backup</value></data>
+  <data name="SettingsCard_ConfigSettingsDialog_CloudEnabled.Description" xml:space="preserve"><value>Upload new versions to the connected cloud storage.</value></data>
+  <data name="ConfigSettingsDialog_CloudEnabled_CardInput.OnContent" xml:space="preserve"><value>On</value></data>
+  <data name="ConfigSettingsDialog_CloudEnabled_CardInput.OffContent" xml:space="preserve"><value>Off</value></data>
+  <data name="ConfigSettingsDialog_CloudEnabled_CardInput.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve"><value>Upload after backup</value></data>
 </root>

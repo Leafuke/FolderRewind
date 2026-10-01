@@ -25,14 +25,6 @@
         <StackPanel Background="{ThemeResource LayerFillColorAltBrush}" 
                     BorderBrush="{ThemeResource SurfaceStrokeColorDefaultBrush}" 
                     BorderThickness="0,0,0,1" Spacing="0">
-
-            <Expander x:Uid="HomeProtection_Summary" HorizontalAlignment="Stretch" Margin="16,8"
-                      Visibility="{x:Bind ViewModel.HasCurrentConfig, Mode=OneWay, Converter={StaticResource BoolToVisConverter}}"
-                      AutomationProperties.AutomationId="FolderManagerProtectionSummary">
-                <ScrollViewer MaxHeight="240">
-                    <TextBlock Text="{x:Bind ViewModel.ProtectionSummary, Mode=OneWay}" TextWrapping="Wrap"/>
-                </ScrollViewer>
-            </Expander>
             <!-- 第一行：配置选择与全局操作 -->
             <Grid Padding="24,16,24,12">
                 <Grid.ColumnDefinitions>

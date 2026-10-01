@@ -1,4 +1,5 @@
 using FolderRewind.Services;
+using System.Globalization;
 
 namespace FolderRewind.ViewModels;
 
@@ -18,10 +19,12 @@ public sealed partial class ConfigSettingsDialogViewModel
         get
         {
             var target = BackupPerformancePolicy.Get(PerformanceChoice, _cpuThreadMax, CurrentPerformance);
-            return I18n.Format("Performance_Preview", _archive.CpuThreads, target.CpuThreads,
-                _archive.RunCompressionAtLowPriority, target.LowPriority);
+            return I18n.Format("Performance_Preview", DisplayThreads(_archive.CpuThreads), DisplayThreads(target.CpuThreads),
+                I18n.GetString(_archive.RunCompressionAtLowPriority ? "Performance_Enabled" : "Performance_Disabled"),
+                I18n.GetString(target.LowPriority ? "Performance_Enabled" : "Performance_Disabled"));
         }
     }
+    private static string DisplayThreads(int threads) => threads == 0 ? I18n.GetString("Performance_DefaultThreads") : threads.ToString(CultureInfo.CurrentCulture);
     public void ApplyPendingPerformance()
     {
         _undoPerformance = CurrentPerformance;

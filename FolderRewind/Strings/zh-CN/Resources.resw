@@ -1,4 +1,4 @@
-﻿<?xml version="1.0" encoding="utf-8"?>
+<?xml version="1.0" encoding="utf-8"?>
 <root>
   <!-- 
     Microsoft ResX Schema 
@@ -1135,7 +1135,7 @@
     <value>智能备份链长度 (0 为不限制)</value>
   </data>
   <data name="ConfigSettingsDialog_MaxSmartChainDesc.Text" xml:space="preserve">
-    <value>连续智能增量备份达到此次数后，将自动执行一次全量备份以截断备份链，提高还原效率。仅在智能增量模式下有效。</value>
+    <value>达到此数量后重新生成完整备份，仅智能备份有效。</value>
   </data>
   <data name="BackupService_Log_SmartChainLimitReached" xml:space="preserve">
     <value>增量备份链长度已达上限 ({0})，强制执行全量备份</value>
@@ -2940,7 +2940,7 @@ cmd=RESTORE;from=minebackup.mod;request_id=req-mr-restore-002;current_save=true;
     <value>例如 remote:FolderRewind</value>
   </data>
   <data name="ConfigSettingsDialog_CloudRemoteBasePathDesc.Text" xml:space="preserve">
-    <value>建议先在系统中完成 rclone config。这里填写 remote 名称与远端基目录，例如 remote:FolderRewind。</value>
+    <value>填写 rclone 中的连接名称和目录，例如 remote:FolderRewind。</value>
   </data>
   <data name="ConfigSettingsDialog_CloudTemplate.Header" xml:space="preserve">
     <value>预设模板</value>
@@ -4385,7 +4385,7 @@ Pull Request：{1}</value>
     <value>将当前备份项目在云端保存的备份文件和元数据拉回本地备份库，并尝试恢复历史记录。</value>
   </data>
   <data name="ConfigSettingsDialog_CloudExecutableDesc" xml:space="preserve">
-    <value>当前生效路径：{0}。这里可填写当前备份项目专用的程序路径；保留默认值时，会优先回退到软件设置里的全局 rclone 路径。</value>
+    <value>当前使用：{0}。留空使用软件的默认路径。</value>
   </data>
   <data name="SettingsPage_RclonePath.Text" xml:space="preserve">
     <value>rclone 路径</value>
@@ -4502,7 +4502,7 @@ Pull Request：{1}</value>
     <value>此备份项目保留了旧版“自定义命令”模式。自动上传仍可用，但手动同步与历史页云操作仅支持 rclone 模式。</value>
   </data>
   <data name="ConfigSettingsDialog_CloudSyncHint" xml:space="preserve">
-    <value>先分析远端 Commit Pack 集合，再同步不可变历史元数据和选中的备份 payload。</value>
+    <value>选择版本上传云副本，或从云端下载备份。</value>
   </data>
   <data name="ConfigSettingsDialog_CloudLegacyModeHint" xml:space="preserve">
     <value>当前配置使用旧版自定义云命令，手动同步界面不可用；如需该能力，请切换到 rclone 配置。</value>
@@ -5279,11 +5279,11 @@ Pull Request：{1}</value>
   <data name="History_Creation_Recovery" xml:space="preserve"><value>恢复版本</value></data>
   <data name="History_Creation_Import" xml:space="preserve"><value>导入版本</value></data>
   <data name="Merge_Details" xml:space="preserve"><value>详情与预览</value></data>
-  <data name="Setup_StageContent" xml:space="preserve"><value>选择要备份的内容</value></data>
-  <data name="Setup_StageLocation" xml:space="preserve"><value>确认保存位置</value></data>
-  <data name="Setup_StageReview" xml:space="preserve"><value>确认并创建备份项目</value></data>
-  <data name="Setup_StageResult" xml:space="preserve"><value>项目与首次备份结果</value></data>
-  <data name="Setup_ContentHelp.Text" xml:space="preserve"><value>选择具体目录。确认前不会创建项目或执行备份。</value></data>
+  <data name="Setup_StageContent" xml:space="preserve"><value>选择备份内容</value></data>
+  <data name="Setup_StageLocation" xml:space="preserve"><value>设置项目</value></data>
+  <data name="Setup_StageReview" xml:space="preserve"><value>确认创建</value></data>
+  <data name="Setup_StageResult" xml:space="preserve"><value>创建结果</value></data>
+  <data name="Setup_ContentHelp.Text" xml:space="preserve"><value>选择要备份的目录，可添加多个。</value></data>
   <data name="Setup_AddFolder.Content" xml:space="preserve"><value>选择文件夹</value></data>
   <data name="Setup_RemoveSource.Content" xml:space="preserve"><value>移除选中内容</value></data>
   <data name="Setup_OtherScenarios.Header" xml:space="preserve"><value>游戏与发现入口</value></data>
@@ -5297,14 +5297,14 @@ Pull Request：{1}</value>
   <data name="Setup_BrowseDestination.Content" xml:space="preserve"><value>选择保存目录</value></data>
   <data name="Setup_LocationHelp.Text" xml:space="preserve"><value>使用项目当前规则。新建普通项目沿用标准资源与保留策略，不自动开启周期备份或云上传。同一设备的副本不能保证应对设备损坏。</value></data>
   <data name="Setup_ConfirmHelp.Text" xml:space="preserve"><value>请核对本次保护范围与保存位置。可以创建后立即备份，也可以稍后手动备份。</value></data>
-  <data name="Setup_ViewProject.Content" xml:space="preserve"><value>打开项目与后续设置</value></data>
-  <data name="Setup_ViewVersions.Content" xml:space="preserve"><value>查看版本与恢复到新位置</value></data>
-  <data name="Setup_Retry.Content" xml:space="preserve"><value>执行备份 / 重试未完成的首次备份</value></data>
+  <data name="Setup_ViewProject.Content" xml:space="preserve"><value>打开项目</value></data>
+  <data name="Setup_ViewVersions.Content" xml:space="preserve"><value>查看版本</value></data>
+  <data name="Setup_Retry.Content" xml:space="preserve"><value>重试未完成项</value></data>
   <data name="Setup_Back.Content" xml:space="preserve"><value>上一步</value></data>
   <data name="Setup_Next.Content" xml:space="preserve"><value>下一步</value></data>
   <data name="Setup_CreateBackup.Content" xml:space="preserve"><value>创建并立即备份</value></data>
-  <data name="Setup_CreateOnly.Content" xml:space="preserve"><value>仅创建，稍后备份</value></data>
-  <data name="Setup_Later.Content" xml:space="preserve"><value>保存草稿，稍后继续</value></data>
+  <data name="Setup_CreateOnly.Content" xml:space="preserve"><value>仅创建</value></data>
+  <data name="Setup_Later.Content" xml:space="preserve"><value>保存草稿</value></data>
   <data name="Setup_InvalidName" xml:space="preserve"><value>请输入唯一的项目名称。</value></data>
   <data name="Setup_InvalidDestination" xml:space="preserve"><value>请选择明确且未被其他项目使用的绝对保存路径。</value></data>
   <data name="Setup_NoSources" xml:space="preserve"><value>至少选择一个备份源。</value></data>
@@ -5315,10 +5315,10 @@ Pull Request：{1}</value>
   <data name="Setup_DraftInvalid" xml:space="preserve"><value>草稿版本或大小不受支持，请丢弃后重新选择。</value></data>
   <data name="Setup_Created" xml:space="preserve"><value>项目已创建，尚未执行首次备份。</value></data>
   <data name="Setup_FirstBackupFailed" xml:space="preserve"><value>项目已创建，首次备份未完成。可以重试。</value></data>
-  <data name="Setup_BackupRunning" xml:space="preserve"><value>备份正在执行。可在任务页查看真实进度；离开本页不会终止任务。</value></data>
+  <data name="Setup_BackupRunning" xml:space="preserve"><value>正在备份…</value></data>
   <data name="Setup_BackupSummary" xml:space="preserve"><value>本次：{0} 项生成版本，{1} 项无变化，{2} 项失败，{3} 项取消或未执行。</value></data>
-  <data name="Setup_OutcomeCaptured" xml:space="preserve"><value>已提交新版本</value></data>
-  <data name="Setup_OutcomeNoChange" xml:space="preserve"><value>无变化，未生成新版本</value></data>
+  <data name="Setup_OutcomeCaptured" xml:space="preserve"><value>已备份</value></data>
+  <data name="Setup_OutcomeNoChange" xml:space="preserve"><value>无变化</value></data>
   <data name="Setup_OutcomeFailed" xml:space="preserve"><value>未完成</value></data>
   <data name="Setup_OutcomeCanceled" xml:space="preserve"><value>已取消</value></data>
   <data name="Setup_OutcomeNotExecuted" xml:space="preserve"><value>未执行</value></data>
@@ -5351,10 +5351,10 @@ Pull Request：{1}</value>
 诊断：{4}</value></data>
   <data name="Export_Completed" xml:space="preserve"><value>已恢复到新位置：{0}。原目录与工作区未改变。</value></data>
   <data name="Setup_NoRetryNeeded" xml:space="preserve"><value>本次没有失败或取消项，无需重复备份。请查看已有版本。</value></data>
-  <data name="SettingsProject_Save.Content" xml:space="preserve"><value>保存项目设置</value></data>
+  <data name="SettingsProject_Save.Content" xml:space="preserve"><value>保存</value></data>
   <data name="SettingsProject_Delete.Content" xml:space="preserve"><value>删除项目</value></data>
   <data name="SettingsProject_Stale" xml:space="preserve"><value>项目在编辑期间已改变，请返回项目后重新打开设置。当前草稿未覆盖新配置。</value></data>
-  <data name="SettingsProject_DraftHelp" xml:space="preserve"><value>正在编辑独立草稿，保存前不会改变项目。离开时可以保存、放弃或继续编辑。</value></data>
+  <data name="SettingsProject_DraftHelp" xml:space="preserve"><value>保存后生效。</value></data>
   <data name="SettingsProject_Unsaved" xml:space="preserve"><value>项目设置尚未保存</value></data>
   <data name="SettingsProject_Discard" xml:space="preserve"><value>放弃修改</value></data>
   <data name="SettingsProject_Saved" xml:space="preserve"><value>项目设置已保存。</value></data>
@@ -5368,9 +5368,9 @@ Pull Request：{1}</value>
   <data name="SettingsProject_SearchCloud" xml:space="preserve"><value>云|网盘|连接|rclone|WebDAV|OpenList</value></data>
   <data name="SettingsProject_SearchFilter" xml:space="preserve"><value>排除|过滤|白名单|黑名单|范围</value></data>
   <data name="SettingsProject_SearchResult" xml:space="preserve"><value>已定位到设置分组：{0}</value></data>
-  <data name="Performance_Preview" xml:space="preserve"><value>将仅修改线程数：{0} → {1}，低优先级：{2} → {3}。0 表示压缩器默认，不代表自动检测游戏负载。范围、一致性、加密与保留不变。</value></data>
-  <data name="Performance_Apply.Content" xml:space="preserve"><value>应用预览的资源参数</value></data>
-  <data name="Performance_Undo.Content" xml:space="preserve"><value>撤销本次预设</value></data>
+  <data name="Performance_Preview" xml:space="preserve"><value>线程数：{0} → {1} · 后台低优先级：{2} → {3}</value></data>
+  <data name="Performance_Apply.Content" xml:space="preserve"><value>应用预设</value></data>
+  <data name="Performance_Undo.Content" xml:space="preserve"><value>撤销</value></data>
   <data name="Onboarding_ToolChecksumUnavailable" xml:space="preserve"><value>未获得官方发布资产的有效 SHA256 或包超过限制。请从官方页面手动获取并选择程序，不会应用未验证的下载。</value></data>
   <data name="CloudSetup_Title.Text" xml:space="preserve"><value>连接云存储与添加云副本</value></data>
   <data name="CloudSetup_Open.Content" xml:space="preserve"><value>连接云存储 / 添加云副本</value></data>
@@ -5545,13 +5545,13 @@ Pull Request：{1}</value>
   <data name="HomeProtection_RunFailed" xml:space="preserve"><value>失败，已有版本仍保留</value></data>
   <data name="HomeProtection_RunNoChange" xml:space="preserve"><value>无变化，沿用已有版本</value></data>
   <data name="HomeProtection_SourceFailures" xml:space="preserve"><value>待处理内容：{0}。请打开项目查看对应源。</value></data>
-  <data name="SettingsProject_TabGeneral.Text" xml:space="preserve"><value>项目与保存位置</value></data>
-  <data name="SettingsProject_TabBackup.Text" xml:space="preserve"><value>内容与范围</value></data>
-  <data name="SettingsProject_TabResource.Text" xml:space="preserve"><value>资源与保留</value></data>
-  <data name="SettingsProject_TabRestore.Text" xml:space="preserve"><value>恢复</value></data>
-  <data name="SettingsProject_TabAutomation.Text" xml:space="preserve"><value>何时备份</value></data>
-  <data name="SettingsProject_TabCloud.Text" xml:space="preserve"><value>云连接</value></data>
-  <data name="SettingsProject_TabFilter.Text" xml:space="preserve"><value>文件筛选</value></data>
+  <data name="SettingsProject_TabGeneral.Text" xml:space="preserve"><value>常规</value></data>
+  <data name="SettingsProject_TabBackup.Text" xml:space="preserve"><value>备份</value></data>
+  <data name="SettingsProject_TabResource.Text" xml:space="preserve"><value>资源</value></data>
+  <data name="SettingsProject_TabRestore.Text" xml:space="preserve"><value>还原</value></data>
+  <data name="SettingsProject_TabAutomation.Text" xml:space="preserve"><value>自动化</value></data>
+  <data name="SettingsProject_TabCloud.Text" xml:space="preserve"><value>云存储</value></data>
+  <data name="SettingsProject_TabFilter.Text" xml:space="preserve"><value>筛选</value></data>
   <data name="SettingsProject_SearchResource" xml:space="preserve"><value>卡顿|性能|资源|空间|压缩|线程|保留|cpu|compression|threads|retention|performance</value></data>
   <data name="SettingsProject_AdvancedResources.Header" xml:space="preserve"><value>高级：压缩参数与文件类型规则</value></data>
   <data name="SettingsProject_AdvancedIdentity.Header" xml:space="preserve"><value>高级：类型、图标与配置文件</value></data>
@@ -5615,4 +5615,131 @@ Pull Request：{1}</value>
   <data name="HomeProtection_Summary.Header" xml:space="preserve"><value>本地备份、最近任务与云副本状态</value></data>
   <data name="CloudSetup_RepairOpenList.Content" xml:space="preserve"><value>检查 OpenList 环境</value></data>
   <data name="Setup_SaveUncertain" xml:space="preserve"><value>保存项目及补偿写入未能确认完成，本次未开始备份。请检查配置文件的访问权限或占用情况，解除问题后重新检查项目列表，再重试。可能仍被引用的临时凭据会保留。</value></data>
+  <data name="SettingsProject_Title.Text" xml:space="preserve"><value>项目设置</value></data>
+  <data name="SettingsProject_SearchCompact.PlaceholderText" xml:space="preserve"><value>搜索设置</value></data>
+  <data name="SettingsProject_SearchCompact.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve"><value>搜索项目设置</value></data>
+  <data name="SettingsCard_ConfigSettingsDialog_ConfigName.Header" xml:space="preserve"><value>名称</value></data>
+  <data name="SettingsCard_ConfigSettingsDialog_ConfigKind.Header" xml:space="preserve"><value>类型</value></data>
+  <data name="SettingsCard_ConfigSettingsDialog_Icon.Header" xml:space="preserve"><value>图标</value></data>
+  <data name="SettingsCard_ConfigSettingsDialog_DestPath.Header" xml:space="preserve"><value>保存位置</value></data>
+  <data name="SettingsCard_ConfigSettingsDialog_ConfigFilePath.Header" xml:space="preserve"><value>配置文件</value></data>
+  <data name="SettingsCard_ConfigSettingsDialog_SaveAsTemplateText.Header" xml:space="preserve"><value>保存为模板</value></data>
+  <data name="SettingsCard_ConfigSettingsDialog_BackupMode.Header" xml:space="preserve"><value>备份模式</value></data>
+  <data name="SettingsCard_ConfigSettingsDialog_BackupScope.Header" xml:space="preserve"><value>备份范围</value></data>
+  <data name="SettingsCard_ConfigSettingsDialog_SkipIfUnchanged.Header" xml:space="preserve"><value>无变更时跳过备份</value></data>
+  <data name="ConfigSettingsDialog_SkipIfUnchanged_CardInput.OnContent" xml:space="preserve"><value>开启</value></data>
+  <data name="ConfigSettingsDialog_SkipIfUnchanged_CardInput.OffContent" xml:space="preserve"><value>关闭</value></data>
+  <data name="SettingsCard_ConfigSettingsDialog_KeepCount.Header" xml:space="preserve"><value>保留最近备份数（0 为不限制）</value></data>
+  <data name="SettingsCard_ConfigSettingsDialog_MaxSmartChain.Header" xml:space="preserve"><value>智能备份链长度 (0 为不限制)</value></data>
+  <data name="SettingsCard_ConfigSettingsDialog_PerformancePreset.Header" xml:space="preserve"><value>性能影响</value></data>
+  <data name="SettingsCard_ConfigSettingsDialog_Format.Header" xml:space="preserve"><value>压缩格式</value></data>
+  <data name="SettingsCard_ConfigSettingsDialog_CompressionLevel.Header" xml:space="preserve"><value>压缩等级（0-9）</value></data>
+  <data name="SettingsCard_ConfigSettingsDialog_CpuThreads.Header" xml:space="preserve"><value>CPU 线程数</value></data>
+  <data name="SettingsCard_ConfigSettingsDialog_LowPriority.Header" xml:space="preserve"><value>以低进程优先级运行压缩任务</value></data>
+  <data name="SettingsCard_ConfigSettingsDialog_Additional7zArgs.Header" xml:space="preserve"><value>额外 7-Zip 参数</value></data>
+  <data name="SettingsCard_ConfigSettingsDialog_FileTypeHandling.Header" xml:space="preserve"><value>自定义文件类型处理</value></data>
+  <data name="SettingsCard_ConfigSettingsDialog_BackupBeforeRestore.Header" xml:space="preserve"><value>还原前自动备份</value></data>
+  <data name="ConfigSettingsDialog_BackupBeforeRestore_CardInput.OnContent" xml:space="preserve"><value>开启</value></data>
+  <data name="ConfigSettingsDialog_BackupBeforeRestore_CardInput.OffContent" xml:space="preserve"><value>关闭</value></data>
+  <data name="SettingsCard_ConfigSettingsDialog_SafeRestore.Header" xml:space="preserve"><value>安全还原</value></data>
+  <data name="ConfigSettingsDialog_SafeRestore_CardInput.OnContent" xml:space="preserve"><value>开启</value></data>
+  <data name="ConfigSettingsDialog_SafeRestore_CardInput.OffContent" xml:space="preserve"><value>关闭</value></data>
+  <data name="SettingsCard_ConfigSettingsDialog_VerifyArchiveBeforeRestore.Header" xml:space="preserve"><value>还原前校验备份完整性</value></data>
+  <data name="ConfigSettingsDialog_VerifyArchiveBeforeRestore_CardInput.OnContent" xml:space="preserve"><value>开启</value></data>
+  <data name="ConfigSettingsDialog_VerifyArchiveBeforeRestore_CardInput.OffContent" xml:space="preserve"><value>关闭</value></data>
+  <data name="SettingsCard_ConfigSettingsDialog_RestoreWhitelist.Header" xml:space="preserve"><value>还原白名单</value></data>
+  <data name="SettingsCard_ConfigSettingsDialog_AutoBackup.Header" xml:space="preserve"><value>启用自动备份</value></data>
+  <data name="SettingsCard_ConfigSettingsDialog_AutomationScope.Header" xml:space="preserve"><value>自动化作用范围</value></data>
+  <data name="SettingsCard_ConfigSettingsDialog_AutomationTargetFolder.Header" xml:space="preserve"><value>目标文件夹</value></data>
+  <data name="SettingsCard_Automation_ConfigSettingsDialog_RunOnAppStart.Header" xml:space="preserve"><value>应用启动时运行</value></data>
+  <data name="SettingsCard_Automation_ConfigSettingsDialog_IntervalMode.Header" xml:space="preserve"><value>间隔备份模式</value></data>
+  <data name="SettingsCard_ConfigSettingsDialog_IntervalMinutes.Header" xml:space="preserve"><value>周期运行间隔</value></data>
+  <data name="SettingsCard_Automation_ConfigSettingsDialog_ScheduledMode.Header" xml:space="preserve"><value>计划备份模式</value></data>
+  <data name="SettingsCard_Schedule_MonthLabel.Header" xml:space="preserve"><value>月：</value></data>
+  <data name="SettingsCard_Automation_ConfigSettingsDialog_ConditionalMode.Header" xml:space="preserve"><value>条件备份模式</value></data>
+  <data name="SettingsCard_ConfigSettingsDialog_ConditionalModeDesc.Header" xml:space="preserve"><value>固定每 10 秒检查一次指定相对路径文件。当文件从“被占用”变为“解除占用”时触发备份，适合在游戏存档退出后自动备份。</value></data>
+  <data name="SettingsCard_ConfigSettingsDialog_StopAfterNoChange.Header" xml:space="preserve"><value>重复未发现变更后停止自动任务</value></data>
+  <data name="ConfigSettingsDialog_StopAfterNoChange_CardInput.OnContent" xml:space="preserve"><value>开启</value></data>
+  <data name="ConfigSettingsDialog_StopAfterNoChange_CardInput.OffContent" xml:space="preserve"><value>关闭</value></data>
+  <data name="SettingsCard_ConfigSettingsDialog_StopAfterNoChangePrefix.Header" xml:space="preserve"><value>连续</value></data>
+  <data name="SettingsCard_ConfigSettingsDialog_CloudEnvironmentSection.Header" xml:space="preserve"><value>环境配置</value></data>
+  <data name="SettingsCard_ConfigSettingsDialog_CloudWorkingDirectory.Header" xml:space="preserve"><value>工作目录（可选）</value></data>
+  <data name="SettingsCard_ConfigSettingsDialog_CloudRemoteBasePath.Header" xml:space="preserve"><value>远端基路径</value></data>
+  <data name="SettingsCard_ConfigSettingsDialog_CloudSyncSection.Header" xml:space="preserve"><value>云同步</value></data>
+  <data name="SettingsCard_ConfigSettingsDialog_BackupFilterMode.Header" xml:space="preserve"><value>备份过滤模式</value></data>
+  <data name="SettingsCard_ConfigSettingsDialog_UseRegex.Header" xml:space="preserve"><value>将黑名单项作为正则表达式</value></data>
+  <data name="SettingsCard_ConfigSettingsDialog_Blacklist.Header" xml:space="preserve"><value>排除列表（不备份的文件/文件夹）</value></data>
+  <data name="SettingsCard_ConfigSettingsDialog_BackupWhitelist.Header" xml:space="preserve"><value>仅备份列表（只备份指定的文件/文件夹）</value></data>
+  <data name="Scenario_Folder.Text" xml:space="preserve"><value>普通文件夹</value></data>
+  <data name="Scenario_FolderHelp.Text" xml:space="preserve"><value>备份文档、工作目录或其他文件夹。</value></data>
+  <data name="Scenario_Minecraft.Text" xml:space="preserve"><value>Minecraft</value></data>
+  <data name="Scenario_MinecraftHelp.Text" xml:space="preserve"><value>发现实例和世界，创建存档备份。</value></data>
+  <data name="Scenario_OtherGame.Text" xml:space="preserve"><value>其他游戏</value></data>
+  <data name="Scenario_OtherGameHelp.Text" xml:space="preserve"><value>发现支持的游戏存档并创建项目。</value></data>
+  <data name="Setup_ChooseTitle" xml:space="preserve"><value>创建备份项目</value></data>
+  <data name="Setup_SelectScenario" xml:space="preserve"><value>选择备份场景</value></data>
+  <data name="Setup_StepNumber" xml:space="preserve"><value>步骤 {0} / 3</value></data>
+  <data name="Setup_NameCard.Header" xml:space="preserve"><value>项目名称</value></data>
+  <data name="Setup_LocationCard.Header" xml:space="preserve"><value>保存位置</value></data>
+  <data name="Setup_KindCard.Header" xml:space="preserve"><value>项目类型</value></data>
+  <data name="Setup_IconCard.Header" xml:space="preserve"><value>图标</value></data>
+  <data name="Setup_ReviewContent.Header" xml:space="preserve"><value>备份内容</value></data>
+  <data name="Setup_EncryptionCard.Header" xml:space="preserve"><value>加密</value></data>
+  <data name="Setup_Encrypted" xml:space="preserve"><value>已启用，创建时设置密码</value></data>
+  <data name="Setup_NotEncrypted" xml:space="preserve"><value>未启用</value></data>
+  <data name="Setup_RemoveRow.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve"><value>移除此目录</value></data>
+  <data name="Setup_RemoveRow.[using:Microsoft.UI.Xaml.Controls]ToolTipService.ToolTip" xml:space="preserve"><value>移除此目录</value></data>
+  <data name="Setup_ResultCreated" xml:space="preserve"><value>项目已创建</value></data>
+  <data name="Setup_ResultMixed" xml:space="preserve"><value>部分备份未完成</value></data>
+  <data name="Setup_ResultComplete" xml:space="preserve"><value>备份已完成</value></data>
+  <data name="Setup_ResultWaiting" xml:space="preserve"><value>尚未备份</value></data>
+  <data name="Setup_PartialResult" xml:space="preserve"><value>仅备份选定范围</value></data>
+  <data name="Setup_BackupNow.Content" xml:space="preserve"><value>立即备份</value></data>
+  <data name="Setup_DraftSavedShort" xml:space="preserve"><value>草稿已保存在本机，可稍后继续。</value></data>
+  <data name="Setup_SourcePickerTitle" xml:space="preserve"><value>选择备份文件夹</value></data>
+  <data name="Setup_DestinationPickerTitle" xml:space="preserve"><value>选择备份保存位置</value></data>
+  <data name="Setup_MinecraftTitle" xml:space="preserve"><value>Minecraft 备份</value></data>
+  <data name="Setup_DiscardDraftTitle" xml:space="preserve"><value>丢弃创建草稿</value></data>
+  <data name="Setup_DiscardDraftBody" xml:space="preserve"><value>丢弃已保存的创建选择？现有项目不会受影响。</value></data>
+  <data name="SettingsCard_CloudAdvanced.Header" xml:space="preserve"><value>高级执行设置</value></data>
+  <data name="ConfigSettingsDialog_ConfigName_CardInput.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve"><value>备份项目名称</value></data>
+  <data name="ConfigSettingsDialog_BackupMode_CardInput.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve"><value>备份模式</value></data>
+  <data name="ConfigSettingsDialog_SkipIfUnchanged_CardInput.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve"><value>无变更时跳过备份</value></data>
+  <data name="ConfigSettingsDialog_KeepCount_CardInput.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve"><value>保留最近备份数（0 为不限制）</value></data>
+  <data name="ConfigSettingsDialog_BackupBeforeRestore_CardInput.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve"><value>还原前自动备份</value></data>
+  <data name="ConfigSettingsDialog_SafeRestore_CardInput.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve"><value>安全还原</value></data>
+  <data name="ConfigSettingsDialog_VerifyArchiveBeforeRestore_CardInput.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve"><value>还原前校验备份完整性</value></data>
+  <data name="ConfigSettingsDialog_AutoBackup_CardInput.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve"><value>启用自动备份</value></data>
+  <data name="ConfigSettingsDialog_StopAfterNoChange_CardInput.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve"><value>重复未发现变更后停止自动任务</value></data>
+  <data name="ConfigSettingsDialog_BackupFilterMode_CardInput.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve"><value>备份过滤模式</value></data>
+  <data name="ConfigSettingsDialog_BackupScope_CardInput.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve"><value>备份范围</value></data>
+  <data name="ConfigSettingsDialog_MaxSmartChain_CardInput.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve"><value>智能备份链长度 (0 为不限制)</value></data>
+  <data name="ConfigSettingsDialog_PerformancePreset_CardInput.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve"><value>性能影响</value></data>
+  <data name="ConfigSettingsDialog_Format_CardInput.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve"><value>压缩格式</value></data>
+  <data name="ConfigSettingsDialog_LowPriority_CardInput.OnContent" xml:space="preserve"><value>开启</value></data>
+  <data name="ConfigSettingsDialog_LowPriority_CardInput.OffContent" xml:space="preserve"><value>关闭</value></data>
+  <data name="ConfigSettingsDialog_LowPriority_CardInput.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve"><value>以低进程优先级运行压缩任务</value></data>
+  <data name="ConfigSettingsDialog_FileTypeHandling_CardInput.OnContent" xml:space="preserve"><value>开启</value></data>
+  <data name="ConfigSettingsDialog_FileTypeHandling_CardInput.OffContent" xml:space="preserve"><value>关闭</value></data>
+  <data name="ConfigSettingsDialog_FileTypeHandling_CardInput.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve"><value>自定义文件类型处理</value></data>
+  <data name="SettingsProject_UnsavedBody" xml:space="preserve"><value>项目设置尚未保存，是否保存后离开？</value></data>
+  <data name="Performance_DefaultThreads" xml:space="preserve"><value>默认</value></data>
+  <data name="Performance_Enabled" xml:space="preserve"><value>开启</value></data>
+  <data name="Performance_Disabled" xml:space="preserve"><value>关闭</value></data>
+  <data name="SettingsProject_SaveAction" xml:space="preserve"><value>保存</value></data>
+  <data name="SettingsProject_GroupGeneral" xml:space="preserve"><value>常规</value></data>
+  <data name="SettingsProject_GroupBackup" xml:space="preserve"><value>备份</value></data>
+  <data name="SettingsProject_GroupResource" xml:space="preserve"><value>资源</value></data>
+  <data name="SettingsProject_GroupRestore" xml:space="preserve"><value>还原</value></data>
+  <data name="SettingsProject_GroupAutomation" xml:space="preserve"><value>自动化</value></data>
+  <data name="SettingsProject_GroupCloud" xml:space="preserve"><value>云存储</value></data>
+  <data name="SettingsProject_GroupFilter" xml:space="preserve"><value>筛选</value></data>
+  <data name="SettingsCard_ConfigSettingsDialog_BackupBeforeRestore.Description" xml:space="preserve"><value>还原前为当前文件创建备份。</value></data>
+  <data name="SettingsCard_ConfigSettingsDialog_SafeRestore.Description" xml:space="preserve"><value>失败时自动回滚；关闭后可能丢失原文件。</value></data>
+  <data name="SettingsCard_ConfigSettingsDialog_VerifyArchiveBeforeRestore.Description" xml:space="preserve"><value>执行还原时检查备份，损坏时停止操作。</value></data>
+  <data name="SettingsCard_ConfigSettingsDialog_CloudEnabled.Header" xml:space="preserve"><value>备份后自动上传</value></data>
+  <data name="SettingsCard_ConfigSettingsDialog_CloudEnabled.Description" xml:space="preserve"><value>将新版本上传到已连接的云存储。</value></data>
+  <data name="ConfigSettingsDialog_CloudEnabled_CardInput.OnContent" xml:space="preserve"><value>开启</value></data>
+  <data name="ConfigSettingsDialog_CloudEnabled_CardInput.OffContent" xml:space="preserve"><value>关闭</value></data>
+  <data name="ConfigSettingsDialog_CloudEnabled_CardInput.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve"><value>备份后自动上传</value></data>
 </root>

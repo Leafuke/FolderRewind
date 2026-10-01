@@ -69,8 +69,8 @@ namespace FolderRewind.ViewModels
             HookConfigsChanged();
             RefreshFavorites();
             RefreshConfigsView();
-            ConfigService.Saved += OnProtectionSaved;
-            TaskObserver.Observe(RefreshProtectionAsync(), nameof(HomePageViewModel));
+            ConfigService.Saved += OnConfigurationSaved;
+
         }
 
         public void Deactivate()
@@ -84,7 +84,7 @@ namespace FolderRewind.ViewModels
             _isActive = false;
             _pageLifetime.Cancel();
             UnhookConfigsChanged();
-            DetachProtection();
+            ConfigService.Saved -= OnConfigurationSaved;
         }
 
         public void Dispose()
@@ -210,9 +210,16 @@ namespace FolderRewind.ViewModels
                 // 配置列表变化后，这两个视图都要同步，否则会出现首页卡片和收藏不同步。
                 RefreshConfigsView();
                 RefreshFavorites();
-                TaskObserver.Observe(RefreshProtectionAsync(), nameof(HomePageViewModel));
+
             });
         }
+
+        private void OnConfigurationSaved() => EnqueueOnUiThread(() =>
+        {
+            if (!_isActive) return;
+            RefreshFavorites();
+            RefreshConfigsView();
+        });
 
         private void SyncFavoritesView()
         {

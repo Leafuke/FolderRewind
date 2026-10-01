@@ -1,74 +1,104 @@
 <?xml version="1.0" encoding="utf-8"?>
 <Page x:Class="FolderRewind.Views.BackupSetupPage"
  xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
- xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
- <Grid Padding="24" RowSpacing="16">
+ xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+ xmlns:controls="using:FolderRewind.Controls"
+ xmlns:settings="using:CommunityToolkit.WinUI.Controls"
+ xmlns:vm="using:FolderRewind.ViewModels" SizeChanged="OnPageSizeChanged">
+ <Grid x:Name="ContentLayout" Margin="24" HorizontalAlignment="Left" RowSpacing="20">
   <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="*"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
-  <TextBlock Text="{x:Bind ViewModel.StageTitle, Mode=OneWay}" Style="{StaticResource TitleTextBlockStyle}" TextWrapping="Wrap" AutomationProperties.LiveSetting="Polite"/>
-  <ScrollViewer Grid.Row="1">
-   <StackPanel Spacing="16" MaxWidth="820" HorizontalAlignment="Stretch">
+  <StackPanel Spacing="8">
+   <TextBlock Text="{x:Bind ViewModel.StageTitle, Mode=OneWay}" Style="{StaticResource TitleTextBlockStyle}" TextWrapping="Wrap" AutomationProperties.LiveSetting="Polite"/>
+   <TextBlock Text="{x:Bind ViewModel.StepDisplay, Mode=OneWay}" Foreground="{ThemeResource TextFillColorSecondaryBrush}"/>
+  </StackPanel>
+  <ScrollViewer Grid.Row="1" HorizontalScrollBarVisibility="Disabled" Padding="0,0,12,0">
+   <StackPanel Spacing="16" HorizontalAlignment="Stretch">
+    <controls:BackupScenarioPicker ScenarioChosen="OnScenarioChosen" Visibility="{x:Bind Show(ViewModel.IsChoosingScenario), Mode=OneWay}"/>
     <StackPanel Spacing="8" Visibility="{x:Bind Show(ViewModel.IsBatch), Mode=OneWay}">
-     <TextBlock x:Uid="Setup_BatchHelp" TextWrapping="Wrap"/>
      <ComboBox x:Uid="Setup_ProjectSelector" ItemsSource="{x:Bind ViewModel.ProjectNames, Mode=OneWay}" SelectedIndex="{x:Bind ViewModel.SelectedProjectIndex, Mode=TwoWay}" IsEnabled="{x:Bind ViewModel.CanEdit, Mode=OneWay}" HorizontalAlignment="Stretch" AutomationProperties.AutomationId="SetupProjectSelector"/>
     </StackPanel>
-    <StackPanel Spacing="12" Visibility="{x:Bind Show(ViewModel.IsContent), Mode=OneWay}">
-     <TextBlock x:Uid="Setup_ContentHelp" TextWrapping="Wrap"/>
-     <Button IsEnabled="{x:Bind ViewModel.CanEdit, Mode=OneWay}" x:Uid="Setup_AddFolder" Click="OnAddFolder" AutomationProperties.AutomationId="SetupAddFolder"/>
-     <ListView IsEnabled="{x:Bind ViewModel.CanEdit, Mode=OneWay}" x:Name="SourceList" ItemsSource="{x:Bind ViewModel.SourcePaths, Mode=OneWay}" SelectionMode="Single" MaxHeight="360" AutomationProperties.AutomationId="SetupSources"/>
-     <Button IsEnabled="{x:Bind ViewModel.CanEdit, Mode=OneWay}" x:Uid="Setup_RemoveSource" Click="OnRemove" AutomationProperties.AutomationId="SetupRemoveSource"/>
-     <Expander IsEnabled="{x:Bind ViewModel.CanEdit, Mode=OneWay}" x:Uid="Setup_OtherScenarios" HorizontalAlignment="Stretch">
-      <StackPanel Spacing="12">
-       <Button IsEnabled="{x:Bind ViewModel.CanEdit, Mode=OneWay}" x:Uid="Setup_Minecraft" Click="OnMinecraft" AutomationProperties.AutomationId="SetupMinecraft"/>
-       <TextBlock x:Uid="Setup_MinecraftHelp" TextWrapping="Wrap"/>
-       <Button IsEnabled="{x:Bind ViewModel.CanEdit, Mode=OneWay}" x:Uid="Setup_Discovery" Click="OnDiscovery" AutomationProperties.AutomationId="SetupDiscovery"/>
-      </StackPanel>
-     </Expander>
-     <StackPanel Orientation="Horizontal" Spacing="8">
-      <Button IsEnabled="{x:Bind ViewModel.CanEdit, Mode=OneWay}" x:Uid="Setup_Resume" Click="OnResume" AutomationProperties.AutomationId="SetupResume"/>
-      <Button IsEnabled="{x:Bind ViewModel.CanEdit, Mode=OneWay}" x:Uid="Setup_Discard" Click="OnDiscard" AutomationProperties.AutomationId="SetupDiscard"/>
+    <StackPanel Spacing="12" Visibility="{x:Bind Show(ViewModel.IsFolderContent), Mode=OneWay}">
+     <TextBlock x:Uid="Setup_ContentHelp" Foreground="{ThemeResource TextFillColorSecondaryBrush}" TextWrapping="Wrap"/>
+     <Button IsEnabled="{x:Bind ViewModel.CanEdit, Mode=OneWay}" x:Uid="Setup_AddFolder" Click="OnAddFolder" Visibility="{x:Bind Show(ViewModel.IsManualContent), Mode=OneWay}" AutomationProperties.AutomationId="SetupAddFolder"/>
+     <Button IsEnabled="{x:Bind ViewModel.CanEdit, Mode=OneWay}" x:Uid="Setup_Minecraft" Click="OnMinecraft" Visibility="{x:Bind Show(ViewModel.IsMinecraftContent), Mode=OneWay}" AutomationProperties.AutomationId="SetupMinecraft"/>
+     <Button IsEnabled="{x:Bind ViewModel.CanEdit, Mode=OneWay}" x:Uid="Setup_Discovery" Click="OnDiscovery" Visibility="{x:Bind Show(ViewModel.IsOtherGameContent), Mode=OneWay}" AutomationProperties.AutomationId="SetupDiscovery"/>
+     <ItemsControl ItemsSource="{x:Bind ViewModel.SourceRows, Mode=OneWay}" AutomationProperties.AutomationId="SetupSources">
+      <ItemsControl.ItemTemplate><DataTemplate x:DataType="vm:SetupSourceRow">
+       <Grid Padding="16,12" Margin="0,0,0,4" ColumnSpacing="12" Background="{ThemeResource CardBackgroundFillColorDefaultBrush}" BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}" BorderThickness="1" CornerRadius="{StaticResource OverlayCornerRadius}">
+        <Grid.ColumnDefinitions><ColumnDefinition Width="Auto"/><ColumnDefinition/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+        <FontIcon Glyph="&#xE8B7;" VerticalAlignment="Center"/>
+        <StackPanel Grid.Column="1" Spacing="4"><TextBlock Text="{x:Bind Name, Mode=OneTime}" Style="{StaticResource BodyStrongTextBlockStyle}" TextWrapping="Wrap"/><TextBlock Text="{x:Bind Path, Mode=OneTime}" Foreground="{ThemeResource TextFillColorSecondaryBrush}" TextWrapping="Wrap"/></StackPanel>
+        <Button Grid.Column="2" x:Uid="Setup_RemoveRow" Click="OnRemove" Tag="{x:Bind Path, Mode=OneTime}" VerticalAlignment="Center" AutomationProperties.AutomationId="SetupRemoveSource"><FontIcon Glyph="&#xE711;"/></Button>
+       </Grid>
+      </DataTemplate></ItemsControl.ItemTemplate>
+     </ItemsControl>
+    </StackPanel>
+    <StackPanel Spacing="4" Visibility="{x:Bind Show(ViewModel.IsLocation), Mode=OneWay}">
+     <settings:SettingsCard x:Uid="Setup_NameCard" ContentAlignment="Vertical" HorizontalContentAlignment="Stretch">
+      <TextBox IsEnabled="{x:Bind ViewModel.CanEdit, Mode=OneWay}" Text="{x:Bind ViewModel.Name, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" AutomationProperties.AutomationId="SetupName"/>
+     </settings:SettingsCard>
+     <settings:SettingsCard x:Uid="Setup_LocationCard" ContentAlignment="Vertical" HorizontalContentAlignment="Stretch">
+      <Grid ColumnSpacing="8"><Grid.ColumnDefinitions><ColumnDefinition/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+       <TextBox IsEnabled="{x:Bind ViewModel.CanEdit, Mode=OneWay}" Text="{x:Bind ViewModel.Destination, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" AutomationProperties.AutomationId="SetupDestination"/>
+       <Button Grid.Column="1" IsEnabled="{x:Bind ViewModel.CanEdit, Mode=OneWay}" x:Uid="Setup_BrowseDestination" Click="OnDestination" AutomationProperties.AutomationId="SetupBrowseDestination"/>
+      </Grid>
+     </settings:SettingsCard>
+     <settings:SettingsCard x:Uid="Setup_KindCard" ContentAlignment="Vertical" HorizontalContentAlignment="Stretch">
+      <ComboBox ItemsSource="{x:Bind ViewModel.KindNames, Mode=OneWay}" SelectedIndex="{x:Bind ViewModel.SelectedKindIndex, Mode=TwoWay}" IsEnabled="{x:Bind ViewModel.CanEdit, Mode=OneWay}" HorizontalAlignment="Stretch" AutomationProperties.AutomationId="SetupKind"/>
+     </settings:SettingsCard>
+     <settings:SettingsCard x:Uid="Setup_IconCard">
+      <ComboBox ItemsSource="{x:Bind ViewModel.IconOptions, Mode=OneWay}" SelectedItem="{x:Bind ViewModel.IconGlyph, Mode=TwoWay}" IsEnabled="{x:Bind ViewModel.CanEdit, Mode=OneWay}" AutomationProperties.AutomationId="SetupIcon">
+       <ComboBox.ItemTemplate><DataTemplate x:DataType="x:String"><FontIcon Glyph="{x:Bind}"/></DataTemplate></ComboBox.ItemTemplate>
+      </ComboBox>
+     </settings:SettingsCard>
+    </StackPanel>
+    <StackPanel Spacing="4" Visibility="{x:Bind Show(ViewModel.IsReview), Mode=OneWay}">
+     <settings:SettingsCard x:Uid="Setup_ReviewContent" ContentAlignment="Vertical" HorizontalContentAlignment="Stretch">
+      <ItemsControl ItemsSource="{x:Bind ViewModel.SourceRows, Mode=OneWay}"><ItemsControl.ItemTemplate><DataTemplate x:DataType="vm:SetupSourceRow">
+       <StackPanel Spacing="4" Margin="0,0,0,8"><TextBlock Text="{x:Bind Name, Mode=OneTime}" Style="{StaticResource BodyStrongTextBlockStyle}" TextWrapping="Wrap"/><TextBlock Text="{x:Bind Path, Mode=OneTime}" TextWrapping="Wrap" Foreground="{ThemeResource TextFillColorSecondaryBrush}"/></StackPanel>
+      </DataTemplate></ItemsControl.ItemTemplate></ItemsControl>
+     </settings:SettingsCard>
+     <settings:SettingsCard x:Uid="Setup_NameCard" ContentAlignment="Vertical" HorizontalContentAlignment="Stretch"><TextBlock HorizontalAlignment="Left" Text="{x:Bind ViewModel.Name, Mode=OneWay}" TextWrapping="Wrap"/></settings:SettingsCard>
+     <settings:SettingsCard x:Uid="Setup_LocationCard" ContentAlignment="Vertical" HorizontalContentAlignment="Stretch"><TextBlock HorizontalAlignment="Left" Text="{x:Bind ViewModel.Destination, Mode=OneWay}" TextWrapping="Wrap"/></settings:SettingsCard>
+     <settings:SettingsCard x:Uid="Setup_KindCard" ContentAlignment="Vertical" HorizontalContentAlignment="Stretch"><TextBlock HorizontalAlignment="Left" Text="{x:Bind ViewModel.KindDisplay, Mode=OneWay}" TextWrapping="Wrap"/></settings:SettingsCard>
+     <settings:SettingsCard x:Uid="Setup_EncryptionCard"><TextBlock Text="{x:Bind ViewModel.EncryptionDisplay, Mode=OneWay}"/></settings:SettingsCard>
+    </StackPanel>
+    <InfoBar Message="{x:Bind ViewModel.Message, Mode=OneWay}" IsOpen="{x:Bind ViewModel.HasMessage, Mode=OneWay}" IsClosable="False" Severity="{x:Bind Severity(ViewModel.MessageSeverity), Mode=OneWay}" AutomationProperties.AutomationId="SetupStatus" AutomationProperties.LiveSetting="Polite"/>
+    <StackPanel Spacing="16" Visibility="{x:Bind Show(ViewModel.IsResult), Mode=OneWay}">
+     <TextBlock Text="{x:Bind ViewModel.ResultTitle, Mode=OneWay}" Style="{StaticResource SubtitleTextBlockStyle}" TextWrapping="Wrap"/>
+     <ItemsControl ItemsSource="{x:Bind ViewModel.ResultRows, Mode=OneWay}" AutomationProperties.AutomationId="SetupResultRows">
+      <ItemsControl.ItemTemplate><DataTemplate x:DataType="vm:SetupResultRow">
+       <Grid Padding="16" Margin="0,0,0,4" ColumnSpacing="16" Background="{ThemeResource CardBackgroundFillColorDefaultBrush}" BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}" BorderThickness="1" CornerRadius="{StaticResource OverlayCornerRadius}">
+        <Grid.ColumnDefinitions><ColumnDefinition/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+        <StackPanel Spacing="4"><TextBlock Text="{x:Bind Name, Mode=OneTime}" Style="{StaticResource BodyStrongTextBlockStyle}" TextWrapping="Wrap"/><TextBlock Text="{x:Bind Path, Mode=OneTime}" TextWrapping="Wrap" Foreground="{ThemeResource TextFillColorSecondaryBrush}"/><TextBlock Text="{x:Bind Warning, Mode=OneTime}" TextWrapping="Wrap"/></StackPanel>
+        <TextBlock Grid.Column="1" Text="{x:Bind Status, Mode=OneTime}" VerticalAlignment="Center" TextWrapping="Wrap" MaxWidth="180"/>
+       </Grid>
+      </DataTemplate></ItemsControl.ItemTemplate>
+     </ItemsControl>
+     <ComboBox x:Name="ResultSourcePicker" x:Uid="Setup_ResultSource" ItemsSource="{x:Bind ViewModel.SourcePaths, Mode=OneWay}" Visibility="{x:Bind Show(ViewModel.ShowResultSourcePicker), Mode=OneWay}" HorizontalAlignment="Stretch" AutomationProperties.AutomationId="SetupResultSource"/>
+     <StackPanel x:Name="ResultButtons" Orientation="Horizontal" Spacing="8">
+      <Button Margin="0,0,8,8" IsEnabled="{x:Bind ViewModel.CanEdit, Mode=OneWay}" x:Uid="Setup_BackupNow" Click="OnRetry" Style="{StaticResource AccentButtonStyle}" Visibility="{x:Bind Show(ViewModel.CanStartBackup), Mode=OneWay}" AutomationProperties.AutomationId="SetupBackupNow"/>
+      <Button Margin="0,0,8,8" IsEnabled="{x:Bind ViewModel.CanEdit, Mode=OneWay}" x:Uid="Setup_ViewProject" Click="OnProject" AutomationProperties.AutomationId="SetupViewProject"/>
+      <Button Margin="0,0,8,8" IsEnabled="{x:Bind ViewModel.CanEdit, Mode=OneWay}" x:Uid="Setup_ViewVersions" Click="OnVersions" Visibility="{x:Bind Show(ViewModel.HasVersions), Mode=OneWay}" AutomationProperties.AutomationId="SetupViewVersions"/>
+      <Button Margin="0,0,8,8" IsEnabled="{x:Bind ViewModel.CanEdit, Mode=OneWay}" x:Uid="Setup_Retry" Click="OnRetry" Visibility="{x:Bind Show(ViewModel.CanRetry), Mode=OneWay}" AutomationProperties.AutomationId="SetupRetry"/>
      </StackPanel>
     </StackPanel>
-    <StackPanel Spacing="12" Visibility="{x:Bind Show(ViewModel.IsLocation), Mode=OneWay}">
-     <TextBox IsEnabled="{x:Bind ViewModel.CanEdit, Mode=OneWay}" x:Uid="Setup_Name" Text="{x:Bind ViewModel.Name, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" AutomationProperties.AutomationId="SetupName"/>
-     <TextBox IsEnabled="{x:Bind ViewModel.CanEdit, Mode=OneWay}" x:Uid="Setup_Destination" Text="{x:Bind ViewModel.Destination, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" AutomationProperties.AutomationId="SetupDestination"/>
-     <Button IsEnabled="{x:Bind ViewModel.CanEdit, Mode=OneWay}" x:Uid="Setup_BrowseDestination" Click="OnDestination" AutomationProperties.AutomationId="SetupBrowseDestination"/>
-     <TextBlock x:Uid="Setup_LocationHelp" TextWrapping="Wrap"/>
-     <TextBlock Text="{x:Bind ViewModel.RuleSummary, Mode=OneWay}" TextWrapping="Wrap"/>
-     <Expander x:Uid="Setup_Advanced" HorizontalAlignment="Stretch">
-      <StackPanel Spacing="12">
-      <ComboBox x:Uid="Setup_Kind" ItemsSource="{x:Bind ViewModel.KindNames, Mode=OneWay}" SelectedIndex="{x:Bind ViewModel.SelectedKindIndex, Mode=TwoWay}" IsEnabled="{x:Bind ViewModel.CanEdit, Mode=OneWay}" HorizontalAlignment="Stretch" AutomationProperties.AutomationId="SetupKind"/>
-      <ComboBox x:Uid="Setup_Icon" ItemsSource="{x:Bind ViewModel.IconOptions, Mode=OneWay}" SelectedItem="{x:Bind ViewModel.IconGlyph, Mode=TwoWay}" IsEnabled="{x:Bind ViewModel.CanEdit, Mode=OneWay}" HorizontalAlignment="Stretch" AutomationProperties.AutomationId="SetupIcon">
-       <ComboBox.ItemTemplate><DataTemplate x:DataType="x:String"><FontIcon Glyph="{x:Bind Mode=OneTime}"/></DataTemplate></ComboBox.ItemTemplate>
-      </ComboBox>
-      </StackPanel>
-     </Expander>
-    </StackPanel>
-    <StackPanel Spacing="12" Visibility="{x:Bind Show(ViewModel.IsReview), Mode=OneWay}">
-     <TextBlock x:Uid="Setup_ConfirmHelp" TextWrapping="Wrap"/>
-     <TextBlock Text="{x:Bind ViewModel.Review, Mode=OneWay}" TextWrapping="Wrap" IsTextSelectionEnabled="True"/>
-     <TextBlock Text="{x:Bind ViewModel.RuleSummary, Mode=OneWay}" TextWrapping="Wrap"/>
-    </StackPanel>
-    <InfoBar Message="{x:Bind ViewModel.Message, Mode=OneWay}" IsOpen="True" IsClosable="False" Severity="Informational" AutomationProperties.AutomationId="SetupStatus" AutomationProperties.LiveSetting="Polite"/>
-    <StackPanel Spacing="12" Visibility="{x:Bind Show(ViewModel.IsResult), Mode=OneWay}">
-     <ComboBox x:Name="ResultSourcePicker" x:Uid="Setup_ResultSource" ItemsSource="{x:Bind ViewModel.SourcePaths, Mode=OneWay}" Visibility="{x:Bind Show(ViewModel.HasMultipleSources), Mode=OneWay}" HorizontalAlignment="Stretch" AutomationProperties.AutomationId="SetupResultSource"/>
-     <Button IsEnabled="{x:Bind ViewModel.CanEdit, Mode=OneWay}" x:Uid="Setup_ViewProject" Click="OnProject" AutomationProperties.AutomationId="SetupViewProject"/>
-     <Button IsEnabled="{x:Bind ViewModel.CanEdit, Mode=OneWay}" x:Uid="Setup_ViewVersions" Click="OnVersions" AutomationProperties.AutomationId="SetupViewVersions"/>
-     <Button IsEnabled="{x:Bind ViewModel.CanEdit, Mode=OneWay}" x:Uid="Setup_Retry" Click="OnRetry" AutomationProperties.AutomationId="SetupRetry"/>
+    <StackPanel Orientation="Horizontal" Spacing="8" Visibility="{x:Bind Show(ViewModel.ShowDraftActions), Mode=OneWay}">
+     <Button IsEnabled="{x:Bind ViewModel.CanEdit, Mode=OneWay}" x:Uid="Setup_Resume" Click="OnResume" AutomationProperties.AutomationId="SetupResume"/>
+     <Button IsEnabled="{x:Bind ViewModel.CanEdit, Mode=OneWay}" x:Uid="Setup_Discard" Click="OnDiscard" AutomationProperties.AutomationId="SetupDiscard"/>
     </StackPanel>
    </StackPanel>
   </ScrollViewer>
-  <StackPanel Grid.Row="2" Spacing="8">
+  <StackPanel Grid.Row="2" Spacing="12">
    <ProgressBar IsIndeterminate="True" Visibility="{x:Bind Show(ViewModel.IsBusy), Mode=OneWay}"/>
-   <StackPanel Orientation="Horizontal" Spacing="8">
-    <Button IsEnabled="{x:Bind ViewModel.CanEdit, Mode=OneWay}" x:Uid="Setup_Back" Click="OnBack" Visibility="{x:Bind ShowNot(ViewModel.IsResult), Mode=OneWay}" AutomationProperties.AutomationId="SetupBack"/>
-    <Button IsEnabled="{x:Bind ViewModel.CanEdit, Mode=OneWay}" x:Uid="Setup_Next" Click="OnNext" Visibility="{x:Bind Show(ViewModel.IsContent), Mode=OneWay}" AutomationProperties.AutomationId="SetupNextContent"/>
-    <Button IsEnabled="{x:Bind ViewModel.CanEdit, Mode=OneWay}" x:Uid="Setup_Next" Click="OnNext" Visibility="{x:Bind Show(ViewModel.IsLocation), Mode=OneWay}" AutomationProperties.AutomationId="SetupNextLocation"/>
-    <Button IsEnabled="{x:Bind ViewModel.CanEdit, Mode=OneWay}" x:Uid="Setup_CreateBackup" Click="OnCreateBackup" Style="{StaticResource AccentButtonStyle}" Visibility="{x:Bind Show(ViewModel.IsReview), Mode=OneWay}" AutomationProperties.AutomationId="SetupCreateBackup"/>
-    <Button IsEnabled="{x:Bind ViewModel.CanEdit, Mode=OneWay}" x:Uid="Setup_CreateOnly" Click="OnCreateOnly" Visibility="{x:Bind Show(ViewModel.IsReview), Mode=OneWay}" AutomationProperties.AutomationId="SetupCreateOnly"/>
-   </StackPanel>
-   <StackPanel Orientation="Horizontal" Spacing="8" Visibility="{x:Bind ShowNot(ViewModel.IsResult), Mode=OneWay}">
-    <Button IsEnabled="{x:Bind ViewModel.CanEdit, Mode=OneWay}" x:Uid="Setup_Later" Click="OnLater" AutomationProperties.AutomationId="SetupLater"/>
-    <Button IsEnabled="{x:Bind ViewModel.CanEdit, Mode=OneWay}" x:Uid="Setup_Cancel" Click="OnCancel" AutomationProperties.AutomationId="SetupCancel"/>
+   <StackPanel x:Name="FooterButtons" Orientation="Horizontal" Spacing="8" Visibility="{x:Bind ShowNot(ViewModel.IsResult), Mode=OneWay}">
+    <Button Margin="0,0,8,4" IsEnabled="{x:Bind ViewModel.CanEdit, Mode=OneWay}" x:Uid="Setup_Back" Click="OnBack" Visibility="{x:Bind Show(ViewModel.ShowBack), Mode=OneWay}" AutomationProperties.AutomationId="SetupBack"/>
+    <Button Margin="0,0,8,4" IsEnabled="{x:Bind ViewModel.CanEdit, Mode=OneWay}" x:Uid="Setup_Next" Click="OnNext" Style="{StaticResource AccentButtonStyle}" Visibility="{x:Bind Show(ViewModel.IsFolderContent), Mode=OneWay}" AutomationProperties.AutomationId="SetupNextContent"/>
+    <Button Margin="0,0,8,4" IsEnabled="{x:Bind ViewModel.CanEdit, Mode=OneWay}" x:Uid="Setup_Next" Click="OnNext" Style="{StaticResource AccentButtonStyle}" Visibility="{x:Bind Show(ViewModel.IsLocation), Mode=OneWay}" AutomationProperties.AutomationId="SetupNextLocation"/>
+    <Button Margin="0,0,8,4" IsEnabled="{x:Bind ViewModel.CanEdit, Mode=OneWay}" x:Uid="Setup_CreateBackup" Click="OnCreateBackup" Style="{StaticResource AccentButtonStyle}" Visibility="{x:Bind Show(ViewModel.IsReview), Mode=OneWay}" AutomationProperties.AutomationId="SetupCreateBackup"/>
+    <Button Margin="0,0,8,4" IsEnabled="{x:Bind ViewModel.CanEdit, Mode=OneWay}" x:Uid="Setup_CreateOnly" Click="OnCreateOnly" Visibility="{x:Bind Show(ViewModel.IsReview), Mode=OneWay}" AutomationProperties.AutomationId="SetupCreateOnly"/>
+    <Button Margin="0,0,8,4" IsEnabled="{x:Bind ViewModel.CanEdit, Mode=OneWay}" x:Uid="Setup_Later" Click="OnLater" Visibility="{x:Bind Show(ViewModel.CanSaveDraft), Mode=OneWay}" AutomationProperties.AutomationId="SetupLater"/>
+    <Button Margin="0,0,8,4" IsEnabled="{x:Bind ViewModel.CanEdit, Mode=OneWay}" x:Uid="Setup_Cancel" Click="OnCancel" AutomationProperties.AutomationId="SetupCancel"/>
    </StackPanel>
   </StackPanel>
  </Grid>

@@ -24,7 +24,7 @@ public sealed partial class ConfigSettingsPage
             .FirstOrDefault(g => I18n.GetString("SettingsProject_Search" + g).Split('|').Any(word => word.Contains(query, StringComparison.CurrentCultureIgnoreCase)));
         if (group is null) return;
         ConfigSelectorBar.SelectedItem = ConfigSelectorBar.Items.FirstOrDefault(i => i.Tag as string == group);
-        DraftStatus.Text = I18n.Format("SettingsProject_SearchResult", I18n.GetString("SettingsProject_Tab" + group + ".Text"));
+        DraftStatus.Text = I18n.Format("SettingsProject_SearchResult", I18n.GetString("SettingsProject_Group" + group));
     }
     protected override void OnNavigatedTo(NavigationEventArgs e)
     {
@@ -51,8 +51,8 @@ public sealed partial class ConfigSettingsPage
     {
         try
         {
-            var dialog = new ContentDialog { Title = I18n.GetString("SettingsProject_Unsaved"), Content = I18n.GetString("SettingsProject_DraftHelp"),
-                PrimaryButtonText = I18n.GetString("SettingsProject_Save.Content"), SecondaryButtonText = I18n.GetString("SettingsProject_Discard"), CloseButtonText = I18n.GetString("Common_Cancel") };
+            var dialog = new ContentDialog { Title = I18n.GetString("SettingsProject_Unsaved"), Content = I18n.GetString("SettingsProject_UnsavedBody"),
+                PrimaryButtonText = I18n.GetString("SettingsProject_SaveAction"), SecondaryButtonText = I18n.GetString("SettingsProject_Discard"), CloseButtonText = I18n.GetString("Common_Cancel") };
             var answer = await AppDialogService.Default.ShowCustomAsync(dialog, XamlRoot);
             if (answer == ContentDialogResult.None) return;
             if (answer == ContentDialogResult.Primary)

@@ -9,6 +9,7 @@ namespace FolderRewind.Services;
 public static class BackupSetupSessionStore
 {
     public static string DraftPath => Path.Combine(ConfigService.ConfigDirectory, "onboarding", "backup-setup.v1.json");
+    public static bool HasDraft => File.Exists(DraftPath);
     public static async Task SaveAsync(BackupSetupSession session)
     {
         Directory.CreateDirectory(Path.GetDirectoryName(DraftPath)!);

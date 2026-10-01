@@ -19,6 +19,8 @@ public sealed class BackupSetupViewModel : ViewModelBase
     private readonly Dictionary<string, string> _errors = [];
     private readonly Dictionary<string, string> _confirmedSignatures = [];
     private bool _created;
+    private bool _backupAttempted;
+    private BackupSetupScenario _scenario;
     private int _selectedProject;
     public ObservableCollection<string> ProjectNames { get; } = [];
     public bool IsBatch => _projects.Count > 1;
@@ -33,25 +35,53 @@ public sealed class BackupSetupViewModel : ViewModelBase
         }
     }
     public ObservableCollection<string> SourcePaths { get; } = [];
+    public ObservableCollection<SetupSourceRow> SourceRows { get; } = [];
+    public ObservableCollection<SetupResultRow> ResultRows { get; } = [];
+    public bool IsChoosingScenario => _scenario == BackupSetupScenario.None && IsContent;
+    public bool IsFolderContent => IsContent && !IsChoosingScenario;
+    public bool IsManualContent => IsContent && _scenario == BackupSetupScenario.Folder;
+    public bool IsMinecraftContent => IsContent && _scenario == BackupSetupScenario.Minecraft;
+    public bool IsOtherGameContent => IsContent && _scenario == BackupSetupScenario.OtherGame;
+    public bool ShowDraftActions => IsContent && HasSavedDraft;
+    public bool ShowBack => IsLocation || IsReview;
+    public bool CanSaveDraft => !IsChoosingScenario && !IsResult;
+    public bool ShowResultSourcePicker => IsResult && HasMultipleSources && HasVersions;
+    public bool HasSources => SourceRows.Count > 0;
+    public bool HasSavedDraft => BackupSetupSessionStore.HasDraft;
+    public bool CanStartBackup => IsResult && !_backupAttempted;
+    public bool CanRetry => IsResult && (_errors.Count > 0 || _results.Values.Any(r => r.Sources.Any(s => s.Outcome is SetupSourceOutcome.Failed or SetupSourceOutcome.Canceled or SetupSourceOutcome.NotExecuted)));
+    public bool HasVersions => BackupResult?.Sources.Any(s => s.VersionId is not null) == true;
+    public string KindDisplay => _selectedKind >= 0 && _selectedKind < KindNames.Count ? KindNames[_selectedKind] : string.Empty;
+    public string EncryptionDisplay => I18n.GetString(Draft.IsEncrypted ? "Setup_Encrypted" : "Setup_NotEncrypted");
+    public string StepDisplay => IsChoosingScenario ? I18n.GetString("Setup_SelectScenario") : IsResult ? string.Empty : I18n.Format("Setup_StepNumber", (int)Stage + 1);
+    public string ResultTitle => I18n.GetString(!_backupAttempted ? "Setup_ResultCreated" : CanRetry ? "Setup_ResultMixed" : "Setup_ResultComplete");
     private BackupSetupStage _stage;
     private bool _busy;
     private string _message = string.Empty;
     public BackupSetupStage Stage { get => _stage; private set { SetProperty(ref _stage, value); Refresh(); } }
     public bool IsBusy { get => _busy; private set { SetProperty(ref _busy, value); OnPropertyChanged(nameof(CanEdit)); } }
     public bool CanEdit => !IsBusy;
-    public string Message { get => _message; set => SetProperty(ref _message, value); }
-    public string Name { get => Draft.Name; set { Draft.Name = value; if (_selectedProject < ProjectNames.Count) ProjectNames[_selectedProject] = value; OnPropertyChanged(); Refresh(); } }
-    public string Destination { get => Draft.DestinationPath; set { Draft.DestinationPath = value; OnPropertyChanged(); } }
+    private SetupMessageSeverity _messageSeverity;
+    public SetupMessageSeverity MessageSeverity { get => _messageSeverity; private set => SetProperty(ref _messageSeverity, value); }
+    public string Message { get => _message; set { SetProperty(ref _message, value); OnPropertyChanged(nameof(HasMessage)); } }
+    public bool HasMessage => !string.IsNullOrWhiteSpace(Message);
+    public void ShowError(string message) { MessageSeverity = SetupMessageSeverity.Error; Message = message; }
+    public string Name { get => Draft.Name; set { if (Draft.Name == value) return; Draft.Name = value; if (_selectedProject < ProjectNames.Count) ProjectNames[_selectedProject] = value; OnPropertyChanged(); Refresh(); } }
+    public string Destination { get => Draft.DestinationPath; set { if (Draft.DestinationPath == value) return; Draft.DestinationPath = value; OnPropertyChanged(); } }
     public IReadOnlyList<string> IconOptions => IconCatalog.ConfigIconGlyphs;
-    public string IconGlyph { get => Draft.IconGlyph; set { Draft.IconGlyph = value; OnPropertyChanged(); } }
+    // SelectedItem must use the collection's string instance. Restored JSON creates a
+    // different instance; echoing the same glyph back into x:Bind can recurse in WinUI.
+    public string IconGlyph
+    {
+        get => IconOptions.FirstOrDefault(glyph => string.Equals(glyph, Draft.IconGlyph, StringComparison.Ordinal)) ?? Draft.IconGlyph;
+        set { if (value is null || string.Equals(Draft.IconGlyph, value, StringComparison.Ordinal)) return; Draft.IconGlyph = value; OnPropertyChanged(); }
+    }
     public bool IsContent => Stage == BackupSetupStage.Content;
     public bool IsLocation => Stage == BackupSetupStage.Location;
     public bool IsReview => Stage == BackupSetupStage.Review;
     public bool IsResult => Stage == BackupSetupStage.Result;
     public bool HasMultipleSources => Draft.SourceFolders.Count > 1;
-    public string StageTitle => I18n.GetString("Setup_Stage" + Stage);
-    public string Review => string.Join("\n\n", _projects.Select(p => p.Name + "\n" + string.Join("\n", p.SourceFolders.Select(s => s.DisplayName + " · " + s.Path + "\n" +
-        I18n.Format("Setup_SourceBoundary", s.SourceScope.Mode, string.Join(", ", s.SourceScope.IncludePatterns)))) + "\n→ " + p.DestinationPath));
+    public string StageTitle => I18n.GetString(IsChoosingScenario ? "Setup_ChooseTitle" : "Setup_Stage" + Stage);
     public string? CreatedConfigId => _created ? Draft.Id : null;
     public SetupBackupResult? BackupResult => _results.GetValueOrDefault(Draft.Id);
     private string _presetId = string.Empty;
@@ -69,14 +99,15 @@ public sealed class BackupSetupViewModel : ViewModelBase
             Refresh();
         }
     }
-    public string RuleSummary => I18n.Format("Setup_RuleSummary", Draft.Archive.KeepCount, Draft.Archive.Mode,
-        Draft.Archive.CpuThreads, Draft.Archive.RunCompressionAtLowPriority, Draft.BackupScope.ScopeId);
-
     public void Initialize(BackupSetupNavigationParameter? input)
     {
         _projects.Clear(); _results.Clear(); _errors.Clear(); _confirmedSignatures.Clear(); _created = false; _selectedProject = 0;
         _projects.AddRange(input?.Drafts is { Count: > 0 } drafts ? drafts : [input?.Draft ?? new BackupConfig { Name = string.Empty }]);
         Draft = _projects[0];
+        _backupAttempted = false;
+        _scenario = input?.Scenario ?? (input?.Draft is not null || input?.Drafts is { Count: > 0 } ? BackupSetupScenario.Folder : BackupSetupScenario.None);
+        Message = string.Empty;
+        MessageSeverity = SetupMessageSeverity.Informational;
         ProjectNames.Clear(); foreach (var project in _projects) ProjectNames.Add(project.Name);
         _presetId = input?.PresetShareId ?? string.Empty;
         _discoveryReentry = input?.DiscoveryReentry;
@@ -115,16 +146,18 @@ public sealed class BackupSetupViewModel : ViewModelBase
     public void Next()
     {
         if (IsBusy) return;
-        if (IsContent && SourcePaths.Count == 0) { Message = I18n.GetString("Setup_NoSources"); return; }
+        if (IsContent && SourcePaths.Count == 0) { ShowError(I18n.GetString("Setup_NoSources")); return; }
         if (IsLocation)
         {
             var error = BackupSetupCoordinator.ValidateNewProjects(_projects);
-            if (error.Length != 0) { Message = error; return; }
+            if (error.Length != 0) { ShowError(error); return; }
         }
         if (IsContent || IsLocation) Stage++;
         Message = string.Empty;
     }
     public void Back() { if (!IsBusy && Stage is BackupSetupStage.Location or BackupSetupStage.Review) Stage--; }
+    public void SelectScenario(BackupSetupScenario scenario) { _scenario = scenario; Refresh(); }
+    public void RefreshSavedDraft() => OnPropertyChanged(nameof(ShowDraftActions));
 
     public async Task SubmitAsync(bool immediatelyBackup, Func<Task<string?>> requestPassword, CancellationToken token = default)
     {
@@ -145,23 +178,27 @@ public sealed class BackupSetupViewModel : ViewModelBase
             foreach (var project in _projects) _confirmedSignatures[project.Id] = NativeHistoryConfigLease.Signature(project);
             _created = true;
             Stage = BackupSetupStage.Result;
-            Message = I18n.GetString("Setup_Created");
+            MessageSeverity = SetupMessageSeverity.Success;
+            Message = string.Empty;
             if (immediatelyBackup) await RunBackupsAsync(retry: false);
         }
-        catch (ConfigEditRollbackException) { Message = I18n.GetString("Setup_SaveUncertain"); }
-        catch (Exception ex) { Message = (CreatedConfigId is null ? "" : I18n.GetString("Setup_FirstBackupFailed") + Environment.NewLine) + ex.Message; }
+        catch (ConfigEditRollbackException) { ShowError(I18n.GetString("Setup_SaveUncertain")); }
+        catch (Exception ex) { ShowError((CreatedConfigId is null ? "" : I18n.GetString("Setup_FirstBackupFailed") + Environment.NewLine) + ex.Message); }
         finally { passwords.Clear(); IsBusy = false; Refresh(); }
     }
     public async Task RetryAsync()
     {
         if (IsBusy || CreatedConfigId is null) return;
         IsBusy = true;
-        try { await RunBackupsAsync(retry: true); } catch (Exception ex) { Message = I18n.GetString("Setup_FirstBackupFailed") + Environment.NewLine + ex.Message; }
-        finally { IsBusy = false; }
+        try { await RunBackupsAsync(retry: _backupAttempted); } catch (Exception ex) { ShowError(I18n.GetString("Setup_FirstBackupFailed") + Environment.NewLine + ex.Message); }
+        finally { IsBusy = false; Refresh(); }
     }
     private async Task RunBackupsAsync(bool retry)
     {
+        _backupAttempted = true;
+        MessageSeverity = SetupMessageSeverity.Informational;
         Message = I18n.GetString("Setup_BackupRunning");
+        Refresh();
         foreach (var project in _projects)
         {
             var previous = _results.GetValueOrDefault(project.Id);
@@ -177,8 +214,9 @@ public sealed class BackupSetupViewModel : ViewModelBase
             }
             catch (Exception ex) { _errors[project.Id] = ex.Message; }
         }
-        Message = I18n.GetString("Setup_SessionResults") + "\n" + string.Join("\n\n", _projects.Select(project => project.Name + "\n" +
-            (_results.TryGetValue(project.Id, out var result) ? FormatResult(result) : I18n.GetString("Setup_FirstBackupFailed") + "\n" + _errors.GetValueOrDefault(project.Id))));
+        MessageSeverity = _results.Values.Any(r => r.HasWarnings || r.RecoveryRequired) || _errors.Count > 0 || CanRetry ? SetupMessageSeverity.Warning : SetupMessageSeverity.Success;
+        Message = _results.Values.Any(r => r.RecoveryRequired) ? I18n.GetString("Onboarding_ConsistencyWarning") : string.Empty;
+        Refresh();
     }
     public void RequireCreatedContextCurrent() => RequireCreatedContextCurrent(Draft);
     private void RequireCreatedContextCurrent(BackupConfig project)
@@ -186,14 +224,6 @@ public sealed class BackupSetupViewModel : ViewModelBase
         if (!_created || !ConfigService.CurrentConfig.BackupConfigs.Contains(project)
             || !_confirmedSignatures.TryGetValue(project.Id, out var expected) || NativeHistoryConfigLease.Signature(project) != expected)
             throw new InvalidOperationException(I18n.GetString("SettingsProject_Stale"));
-    }
-    private static string FormatResult(SetupBackupResult result)
-    {
-        var text = I18n.Format("Setup_BackupSummary", result.CreatedVersionCount, result.UnchangedCount, result.FailedCount, result.CanceledCount)
-            + Environment.NewLine + string.Join(Environment.NewLine, result.Sources.Select(s =>
-                $"{s.Name}: {I18n.GetString("Setup_Outcome" + s.Outcome)} {s.VersionId}\n{string.Join("; ", s.Diagnostics)}"));
-        if (result.HasWarnings) text += Environment.NewLine + I18n.GetString("Onboarding_ConsistencyWarning");
-        return text;
     }
     public async Task SaveForLaterAsync()
     {
@@ -214,7 +244,9 @@ public sealed class BackupSetupViewModel : ViewModelBase
         await BackupSetupSessionStore.SaveAsync(new() { Name = Name, DestinationPath = Destination,
             Stage = Stage, SourcePaths = SourcePaths.ToList(), PresetShareId = _presetId,
             Kind = new() { OwnerId = Draft.Kind.OwnerId, KindId = Draft.Kind.KindId }, IsEncrypted = Draft.IsEncrypted, IconGlyph = Draft.IconGlyph });
-        Message = I18n.Format("Setup_DraftSaved", BackupSetupSessionStore.DraftPath);
+        MessageSeverity = SetupMessageSeverity.Success;
+        Message = I18n.GetString("Setup_DraftSavedShort");
+        OnPropertyChanged(nameof(HasSavedDraft));
     }
     public void Resume()
     {
@@ -245,6 +277,7 @@ public sealed class BackupSetupViewModel : ViewModelBase
         _presetId = session.PresetShareId;
         Draft.Automation.AutoBackupEnabled = false; Draft.Cloud.Enabled = false;
         _projects.Clear(); _projects.Add(Draft); _selectedProject = 0;
+        _scenario = BackupSetupScenario.Folder;
         ProjectNames.Clear(); ProjectNames.Add(Draft.Name);
         SourcePaths.Clear();
         foreach (var path in session.SourcePaths) AddSource(path);
@@ -257,6 +290,22 @@ public sealed class BackupSetupViewModel : ViewModelBase
     }
     private void Refresh()
     {
-        foreach (var property in new[] { nameof(IsContent), nameof(IsLocation), nameof(IsReview), nameof(IsResult), nameof(HasMultipleSources), nameof(StageTitle), nameof(Review), nameof(RuleSummary) }) OnPropertyChanged(property);
+        SourceRows.Clear();
+        foreach (var source in Draft.SourceFolders) SourceRows.Add(new(source.DisplayName, source.Path));
+        ResultRows.Clear();
+        foreach (var project in _projects)
+            foreach (var source in project.SourceFolders)
+            {
+                var result = _results.GetValueOrDefault(project.Id)?.Sources.FirstOrDefault(s => s.SourceId == source.Id);
+                var outcome = result?.Outcome;
+                var status = !_backupAttempted ? "Setup_ResultWaiting" : outcome is null ? "Setup_OutcomeFailed" : "Setup_Outcome" + outcome;
+                ResultRows.Add(new(IsBatch ? project.Name + " · " + source.DisplayName : source.DisplayName, source.Path, I18n.GetString(status), result?.IsPartial == true ? I18n.GetString("Setup_PartialResult") : string.Empty));
+            }
+        foreach (var property in new[] { nameof(IsContent), nameof(IsLocation), nameof(IsReview), nameof(IsResult), nameof(HasMultipleSources), nameof(StageTitle), nameof(IsChoosingScenario), nameof(IsFolderContent), nameof(IsManualContent), nameof(IsMinecraftContent), nameof(IsOtherGameContent), nameof(ShowDraftActions), nameof(ShowBack), nameof(CanSaveDraft), nameof(ShowResultSourcePicker), nameof(HasSources), nameof(HasSavedDraft), nameof(CanStartBackup), nameof(CanRetry), nameof(HasVersions), nameof(KindDisplay), nameof(EncryptionDisplay), nameof(StepDisplay), nameof(ResultTitle) }) OnPropertyChanged(property);
     }
 }
+
+public sealed record SetupSourceRow(string Name, string Path);
+public sealed record SetupResultRow(string Name, string Path, string Status, string Warning);
+
+public enum SetupMessageSeverity { Informational, Success, Warning, Error }

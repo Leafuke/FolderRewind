@@ -3,6 +3,7 @@ using System.Collections.Generic;
 namespace FolderRewind.Models;
 
 public enum BackupSetupStage { Content, Location, Review, Result }
+public enum BackupSetupScenario { None, Folder, Minecraft, OtherGame }
 public sealed class BackupSetupSession
 {
     public int SchemaVersion { get; set; } = 1;
@@ -31,4 +32,5 @@ public sealed class BackupSetupDraftSelection
 
 // 非持久输入可携带预设已生成的完整草稿，不伪造发现身份。
 public sealed record BackupSetupNavigationParameter(BackupConfig? Draft = null, string? PresetShareId = null,
-    IReadOnlyList<BackupConfig>? Drafts = null, GameDiscoveryNavigationParameter? DiscoveryReentry = null);
+    IReadOnlyList<BackupConfig>? Drafts = null, GameDiscoveryNavigationParameter? DiscoveryReentry = null,
+    BackupSetupScenario Scenario = BackupSetupScenario.None);
