@@ -4,7 +4,6 @@ using System;
 using System.Collections.ObjectModel;
 using System.IO;
 using System.Linq;
-using System.Threading;
 using System.Threading.Tasks;
 
 namespace FolderRewind.ViewModels;
@@ -33,7 +32,8 @@ public sealed class SourceScopeRuleItem : FolderRewind.Models.ObservableObject
 public sealed class SourceScopeEditorDialogViewModel : ViewModelBase, IDisposable
 {
     private readonly ManagedFolder _folder;
-    private CancellationTokenSource? _previewCts;
+    private readonly SourceScopePreviewController _preview = new();
+    private bool _disposed;
     private int _modeSelectedIndex;
     private string _previewText = string.Empty;
     private bool _isPreviewing;
@@ -42,10 +42,11 @@ public sealed class SourceScopeEditorDialogViewModel : ViewModelBase, IDisposabl
     {
         ArgumentNullException.ThrowIfNull(config);
         _folder = folder ?? throw new ArgumentNullException(nameof(folder));
+        _preview.StateChanged += OnPreviewStateChanged;
         _modeSelectedIndex = folder.SourceScope?.Mode == BackupSourceScopeMode.Include ? 1 : 0;
         foreach (var pattern in folder.SourceScope?.IncludePatterns ?? new ObservableCollection<string>())
         {
-            AddRule(pattern);
+            AddRuleCore(pattern);
         }
         ValidateRules();
     }
@@ -72,11 +73,17 @@ public sealed class SourceScopeEditorDialogViewModel : ViewModelBase, IDisposabl
 
     public void AddRule(string pattern = "**/*.sav")
     {
+        if (_disposed) return;
+        AddRuleCore(pattern);
+        ValidateRules();
+        _ = RefreshPreviewAsync();
+    }
+
+    private void AddRuleCore(string pattern)
+    {
         var item = new SourceScopeRuleItem { Pattern = pattern };
         item.Changed += OnRuleChanged;
         Rules.Add(item);
-        ValidateRules();
-        _ = RefreshPreviewAsync();
     }
 
     public void RemoveRule(SourceScopeRuleItem item)
@@ -88,57 +95,29 @@ public sealed class SourceScopeEditorDialogViewModel : ViewModelBase, IDisposabl
         _ = RefreshPreviewAsync();
     }
 
-    public async Task RefreshPreviewAsync()
+    public Task RefreshPreviewAsync()
     {
-        _previewCts?.Cancel();
-        _previewCts?.Dispose();
-        _previewCts = new CancellationTokenSource();
-        var previewSource = _previewCts;
-        var token = previewSource.Token;
-        if (!TryCreateScope(out var scope, out var error))
-        {
-            PreviewText = error;
-            return;
-        }
-        if (scope.Mode == BackupSourceScopeMode.All
-            && BackupSourceRootSafetyPolicy.IsBroadRoot(_folder.Path))
-        {
-            PreviewText = I18n.GetString("SourceScopeEditor_PreviewBroadRootSkipped");
-            return;
-        }
-
-        IsPreviewing = true;
-        PreviewText = I18n.GetString("SourceScopeEditor_PreviewRunning");
-        try
-        {
-            var files = await Task.Run(() => BackupSourceFileEnumerator.Enumerate(
-                _folder.Path,
-                scope,
-                additionalFilter: null,
-                token), token).ConfigureAwait(true);
-            var bytes = files.Sum(file => file.Size);
-            PreviewText = I18n.Format(
-                "SourceScopeEditor_PreviewResult",
-                files.Count,
-                FormatBytes(bytes));
-        }
-        catch (OperationCanceledException) when (token.IsCancellationRequested)
-        {
-        }
-        catch (Exception ex)
-        {
-            PreviewText = I18n.Format("SourceScopeEditor_PreviewFailed", ex.Message);
-        }
-        finally
-        {
-            if (ReferenceEquals(_previewCts, previewSource))
-            {
-                IsPreviewing = false;
-            }
-        }
+        if (_disposed) return Task.CompletedTask;
+        var valid = TryCreateScope(out var scope, out var error);
+        return _preview.RefreshAsync(_folder.Path, valid ? scope : null, error);
     }
 
-    public void CancelPreview() => _previewCts?.Cancel();
+    public void CancelPreview() => _preview.Cancel();
+
+    private void OnPreviewStateChanged()
+    {
+        IsPreviewing = _preview.IsPreviewing;
+        PreviewText = _preview.State switch
+        {
+            SourceScopePreviewState.Running => I18n.GetString("SourceScopeEditor_PreviewRunning"),
+            SourceScopePreviewState.Invalid => _preview.Error,
+            SourceScopePreviewState.Skipped => I18n.GetString("SourceScopeEditor_PreviewBroadRootSkipped"),
+            SourceScopePreviewState.Completed => I18n.Format("SourceScopeEditor_PreviewResult", _preview.Result!.FileCount, FormatBytes(_preview.Result.Bytes)),
+            SourceScopePreviewState.Failed => I18n.Format("SourceScopeEditor_PreviewFailed", _preview.Error),
+            SourceScopePreviewState.Canceled => I18n.GetString("Common_Canceled"),
+            _ => string.Empty
+        };
+    }
 
     public bool TryCreateScope(out BackupSourceScope scope, out string errorMessage)
     {
@@ -163,8 +142,10 @@ public sealed class SourceScopeEditorDialogViewModel : ViewModelBase, IDisposabl
 
     public void Dispose()
     {
-        _previewCts?.Cancel();
-        _previewCts?.Dispose();
+        if (_disposed) return;
+        _disposed = true;
+        _preview.StateChanged -= OnPreviewStateChanged;
+        _preview.Dispose();
         foreach (var item in Rules)
         {
             item.Changed -= OnRuleChanged;
