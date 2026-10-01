@@ -16,6 +16,7 @@ namespace FolderRewind.Services
     {
         private static readonly object _lock = new();
         private static readonly List<LogEntry> _buffer = new();
+        private static long _publicationSequence;
         private static LogOptions _options = new();
         private static string _currentLogDate = string.Empty;
         private static readonly Channel<LogEntry> _logChannel = Channel.CreateUnbounded<LogEntry>();
@@ -72,6 +73,7 @@ namespace FolderRewind.Services
 
             lock (_lock)
             {
+                entry.Sequence = ++_publicationSequence;
                 _buffer.Add(entry);
                 TrimBufferIfNeeded();
             }

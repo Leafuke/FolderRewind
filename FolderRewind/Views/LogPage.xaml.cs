@@ -16,11 +16,9 @@ namespace FolderRewind.Views
 {
     public sealed partial class LogPage : Page
     {
-        // _allEntries is a plain List — never bound to UI.
-        // ObservableCollection would fire CollectionChanged for every Add/Remove/Clear
-        // even though no view listens to it, wasting CPU on event dispatch.
-        private readonly System.Collections.Generic.List<LogEntry> _allEntries = new();
-        public ObservableCollection<LogEntry> FilteredEntries { get; } = new();
+        private readonly LogPresentationController _presentation = new();
+        public ObservableCollection<LogEntry> FilteredEntries => _presentation.FilteredEntries;
+        private Action<LogEntry>? _entryPublishedHandler;
 
         // 该页面启用了 NavigationCacheMode=Required。
         // 仅在构造函数里订阅事件 + 在 Unloaded 里退订，会导致：
@@ -30,7 +28,6 @@ namespace FolderRewind.Views
         // 因此这里改为在 OnNavigatedTo/OnNavigatedFrom 进行订阅管理。
         private bool _isSubscribed;
 
-        private bool _isLive = true;
         private string _keyword = string.Empty;
         private LogLevel? _filterLevel;
 
@@ -60,90 +57,42 @@ namespace FolderRewind.Views
         private void EnsureSubscribed()
         {
             if (_isSubscribed) return;
-            LogService.EntryPublished += OnEntryPublished;
+            var generation = _presentation.BeginSession();
+            _entryPublishedHandler = entry => OnEntryPublished(entry, generation);
+            LogService.EntryPublished += _entryPublishedHandler;
             _isSubscribed = true;
         }
 
         private void Unsubscribe()
         {
             if (!_isSubscribed) return;
-            LogService.EntryPublished -= OnEntryPublished;
+            LogService.EntryPublished -= _entryPublishedHandler;
+            _entryPublishedHandler = null;
+            _presentation.EndSession();
             _isSubscribed = false;
         }
 
         private void ReloadSnapshot()
         {
-            _allEntries.Clear();
-            foreach (var entry in LogService.GetEntriesSnapshot())
-            {
-                _allEntries.Add(entry);
-            }
-
-            RefreshFiltered();
+            _presentation.LoadSnapshot(LogService.GetEntriesSnapshot());
             ScrollToEnd();
         }
 
-        private void OnEntryPublished(LogEntry entry)
+        private void OnEntryPublished(LogEntry entry, long generation)
         {
             _ = DispatcherQueue.TryEnqueue(() =>
             {
-                _allEntries.Add(entry);
-                TrimLocalBuffer();
-
-                if (!_isLive) return;
-                if (!Passes(entry)) return;
-
-                FilteredEntries.Add(entry);
-                ScrollToEnd();
+                if (_presentation.Append(entry, generation)) ScrollToEnd();
             });
-        }
-
-        private void TrimLocalBuffer()
-        {
-            const int localMax = 5000;
-            if (_allEntries.Count <= localMax) return;
-
-            var remove = _allEntries.Count - localMax;
-            // RemoveRange(0, remove) is O(n) — looped RemoveAt(0) on a List would
-            // shift elements N times, making it O(n^2). On ObservableCollection it
-            // would also fire CollectionChanged for every single removal.
-            _allEntries.RemoveRange(0, remove);
-
-            RefreshFiltered();
         }
 
         private void RefreshFiltered()
         {
-            FilteredEntries.Clear();
-
-            foreach (var entry in _allEntries)
-            {
-                if (Passes(entry))
-                {
-                    FilteredEntries.Add(entry);
-                }
-            }
-
-            if (_isLive)
+            _presentation.SetFilter(_filterLevel, _keyword);
+            if (_presentation.IsLive)
             {
                 ScrollToEnd();
             }
-        }
-
-        private bool Passes(LogEntry entry)
-        {
-            if (_filterLevel.HasValue && entry.Level != _filterLevel.Value)
-            {
-                return false;
-            }
-
-            if (!string.IsNullOrWhiteSpace(_keyword))
-            {
-                var text = $"{entry.Message} {entry.Exception} {entry.Source}";
-                if (text.IndexOf(_keyword, StringComparison.OrdinalIgnoreCase) < 0) return false;
-            }
-
-            return true;
         }
 
         private void ScrollToEnd()
@@ -177,18 +126,16 @@ namespace FolderRewind.Views
 
         private void OnLiveToggled(object sender, RoutedEventArgs e)
         {
-            _isLive = LiveToggle.IsOn;
-            if (_isLive)
-            {
-                RefreshFiltered();
-            }
+            _presentation.SetLive(LiveToggle.IsOn);
+            if (_presentation.IsLive) ScrollToEnd();
         }
 
         private void OnClearClick(object sender, RoutedEventArgs e)
         {
+            Unsubscribe();
             LogService.Clear();
-            _allEntries.Clear();
-            FilteredEntries.Clear();
+            EnsureSubscribed();
+            ReloadSnapshot();
         }
 
         private void OnCopyClick(object sender, RoutedEventArgs e)

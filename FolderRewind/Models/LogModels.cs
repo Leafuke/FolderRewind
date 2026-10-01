@@ -12,6 +12,8 @@ namespace FolderRewind.Models
 
     public class LogEntry
     {
+        // In-memory publication order only; not part of persisted logs or plugin APIs.
+        internal long Sequence { get; set; }
         public DateTime Timestamp { get; set; }
         public LogLevel Level { get; set; }
         public string Message { get; set; } = string.Empty;
