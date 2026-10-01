@@ -33,7 +33,7 @@
             </Grid.RowDefinitions>
 
             <StackPanel Grid.Row="0" Grid.Column="0" Orientation="Horizontal" Spacing="12" MinWidth="240" VerticalAlignment="Center">
-                <ComboBox x:Name="LevelFilter" Width="120" Margin="0,4,0,0" SelectionChanged="OnLevelChanged" SelectedIndex="0">
+                <ComboBox x:Name="LevelFilter" AutomationProperties.AutomationId="LogLevelFilter" Width="120" Margin="0,4,0,0" SelectionChanged="OnLevelChanged" SelectedIndex="0">
                     <ComboBoxItem x:Uid="LogPage_Level_All" Tag="All" />
                     <ComboBoxItem x:Uid="LogPage_Level_Info" Tag="Info" />
                     <ComboBoxItem x:Uid="LogPage_Level_Warning" Tag="Warning" />
@@ -41,28 +41,29 @@
                     <ComboBoxItem x:Uid="LogPage_Level_Debug" Tag="Debug" />
                 </ComboBox>
 
-                <TextBox x:Name="SearchBox" x:Uid="LogPage_SearchBox" Width="200" Height="32" TextChanged="OnKeywordChanged" />
+                <TextBox x:Name="SearchBox" x:Uid="LogPage_SearchBox" AutomationProperties.AutomationId="LogSearch" Width="200" Height="32" TextChanged="OnKeywordChanged" />
 
                 <StackPanel Orientation="Horizontal" Spacing="4" VerticalAlignment="Center">
-                    <TextBlock x:Uid="LogPage_LiveRefresh" VerticalAlignment="Center" Style="{StaticResource BodyTextBlockStyle}" Foreground="{ThemeResource TextFillColorSecondaryBrush}"/>
-                    <ToggleSwitch x:Name="LiveToggle" IsOn="True" Toggled="OnLiveToggled" OnContent="" OffContent="" VerticalAlignment="Center" Margin="4,0,0,0"/>
+                    <TextBlock x:Name="LiveRefreshLabel" x:Uid="LogPage_LiveRefresh" VerticalAlignment="Center" Style="{StaticResource BodyTextBlockStyle}" Foreground="{ThemeResource TextFillColorSecondaryBrush}"/>
+                    <ToggleSwitch x:Name="LiveToggle" AutomationProperties.AutomationId="LogLiveRefresh" AutomationProperties.LabeledBy="{x:Bind LiveRefreshLabel}" IsOn="True" Toggled="OnLiveToggled" OnContent="" OffContent="" VerticalAlignment="Center" Margin="4,0,0,0"/>
                 </StackPanel>
 
                 <StackPanel Orientation="Horizontal" Spacing="4" VerticalAlignment="Center">
-                    <TextBlock x:Uid="LogPage_AutoScroll" VerticalAlignment="Center" Style="{StaticResource BodyTextBlockStyle}" Foreground="{ThemeResource TextFillColorSecondaryBrush}"/>
-                    <ToggleSwitch x:Name="AutoScrollToggle" IsOn="True" OnContent="" OffContent="" VerticalAlignment="Center" Margin="4,0,0,0"/>
+                    <TextBlock x:Name="AutoScrollLabel" x:Uid="LogPage_AutoScroll" VerticalAlignment="Center" Style="{StaticResource BodyTextBlockStyle}" Foreground="{ThemeResource TextFillColorSecondaryBrush}"/>
+                    <ToggleSwitch x:Name="AutoScrollToggle" AutomationProperties.AutomationId="LogAutoScroll" AutomationProperties.LabeledBy="{x:Bind AutoScrollLabel}" IsOn="True" OnContent="" OffContent="" VerticalAlignment="Center" Margin="4,0,0,0"/>
                 </StackPanel>
             </StackPanel>
 
             <StackPanel Grid.Row="0" Grid.Column="1" Orientation="Horizontal" Spacing="8" HorizontalAlignment="Right" VerticalAlignment="Center">
-                <Button x:Uid="LogPage_CopySelected" Click="OnCopyClick" />
-                <Button x:Uid="LogPage_Clear" Click="OnClearClick" />
-                <Button x:Uid="LogPage_OpenLogFolder" Click="OnOpenFolderClick" />
+                <Button x:Uid="LogPage_CopySelected" AutomationProperties.AutomationId="LogCopySelected" Click="OnCopyClick" />
+                <Button x:Uid="LogPage_Clear" AutomationProperties.AutomationId="LogClear" Click="OnClearClick" />
+                <Button x:Uid="LogPage_OpenLogFolder" AutomationProperties.AutomationId="LogOpenFolder" Click="OnOpenFolderClick" />
             </StackPanel>
         </Grid>
 
         <Grid Grid.Row="2" Padding="36,8,36,0">
             <ListView x:Name="LogList"
+                      AutomationProperties.AutomationId="LogEntries"
                       ItemsSource="{x:Bind FilteredEntries, Mode=OneWay}"
                       SelectionMode="Extended"
                       IsMultiSelectCheckBoxEnabled="True"
@@ -110,7 +111,7 @@
 
         <Grid Grid.Row="3" Padding="36,8,36,16" ColumnDefinitions="*,Auto" VerticalAlignment="Center">
             <TextBlock x:Uid="LogPage_BottomHint" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
-            <Button Grid.Column="1" x:Uid="LogPage_OpenCurrentLogFile" Click="OnOpenFileClick" />
+            <Button Grid.Column="1" x:Uid="LogPage_OpenCurrentLogFile" AutomationProperties.AutomationId="LogOpenCurrentFile" Click="OnOpenFileClick" />
         </Grid>
     </Grid>
 </Page>

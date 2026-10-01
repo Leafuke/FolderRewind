@@ -32,6 +32,7 @@ public sealed class AccessibilityMarkupTests
         "Views/HomePage.xaml",
         "Views/FolderManagerPage.xaml",
         "Views/MiniWindow.xaml",
+        "Views/LogPage.xaml",
         "Views/Settings/AboutControl.xaml",
         "Views/Settings/AppearanceLayoutControl.xaml",
         "Views/Settings/CoreBehaviorControl.xaml",
@@ -142,6 +143,36 @@ public sealed class AccessibilityMarkupTests
                     resources.TryGetValue(key, out var value) && !string.IsNullOrWhiteSpace(value),
                     $"Missing localized accessibility metadata '{key}' in {resourcePath}.");
             }
+        }
+    }
+
+    [TestMethod]
+    public void LogTogglesAreLinkedToDistinctLocalizedLabels()
+    {
+        var projectRoot = Path.Combine(FindRepositoryRoot(), "FolderRewind");
+        var xaml = XDocument.Load(Path.Combine(projectRoot, "Views", "LogPage.xaml"));
+        var x = XNamespace.Get("http://schemas.microsoft.com/winfx/2006/xaml");
+        var associations = new[]
+        {
+            (name: "LiveToggle", id: "LogLiveRefresh", label: "LiveRefreshLabel"),
+            (name: "AutoScrollToggle", id: "LogAutoScroll", label: "AutoScrollLabel")
+        };
+        foreach (var language in new[] { "en-US", "zh-CN" })
+        {
+            var resources = XDocument.Load(Path.Combine(projectRoot, "Strings", language, "Resources.resw"))
+                .Root!.Elements("data").ToDictionary(e => (string)e.Attribute("name")!, e => e.Element("value")!.Value);
+            var names = new List<string>();
+            foreach (var association in associations)
+            {
+                var toggle = xaml.Descendants().Single(e => (string?)e.Attribute(x + "Name") == association.name);
+                Assert.AreEqual(association.id, (string?)toggle.Attribute("AutomationProperties.AutomationId"));
+                Assert.AreEqual($"{{x:Bind {association.label}}}", (string?)toggle.Attribute("AutomationProperties.LabeledBy"));
+                var label = xaml.Descendants().Single(e => (string?)e.Attribute(x + "Name") == association.label);
+                var text = resources[$"{label.Attribute(x + "Uid")!.Value}.Text"];
+                Assert.IsFalse(string.IsNullOrWhiteSpace(text));
+                names.Add(text);
+            }
+            Assert.AreNotEqual(names[0], names[1]);
         }
     }
 
