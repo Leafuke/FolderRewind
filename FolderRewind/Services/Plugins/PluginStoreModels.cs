@@ -13,6 +13,7 @@ namespace FolderRewind.Services.Plugins
         private bool _isInstalled;
         private bool _canEnableNow;
         private bool _requiresRestart;
+        private bool _isOperationAllowed = true;
 
         public string Name { get; set; } = string.Empty;
         public string PluginId { get; set; } = string.Empty;
@@ -41,7 +42,16 @@ namespace FolderRewind.Services.Plugins
             }
         }
 
-        public bool CanInstall => !IsBusy;
+        public bool IsOperationAllowed
+        {
+            get => _isOperationAllowed;
+            set
+            {
+                if (SetProperty(ref _isOperationAllowed, value)) OnPropertyChanged(nameof(CanInstall));
+            }
+        }
+
+        public bool CanInstall => !IsBusy && IsOperationAllowed;
 
         public bool IsInstalled
         {
