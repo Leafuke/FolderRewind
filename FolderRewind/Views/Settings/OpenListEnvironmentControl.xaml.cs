@@ -16,6 +16,7 @@ public sealed partial class OpenListEnvironmentControl : UserControl
     public ObservableCollection<OnboardingDiagnosticItem> Diagnostics { get; } = [];
     private static string Signature(OpenListRuntimeSettings settings) => string.Join("\0", settings.ExecutablePath,
         settings.WorkingDirectory, settings.DataDirectory, settings.ConfigFilePath, settings.ServiceBaseUri);
+    private void OnEnvironmentCardSizeChanged(object sender, SizeChangedEventArgs e) => SettingsCardLayout.Apply(sender, e);
     private void OnDraftChanged(object sender, TextChangedEventArgs e) => Diagnostics.Clear();
     public void ShowRepairTarget() { EnvironmentExpander.IsExpanded = true; EnvironmentExpander.StartBringIntoView(); }
     public OpenListEnvironmentControl()

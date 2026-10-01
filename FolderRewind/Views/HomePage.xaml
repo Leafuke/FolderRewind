@@ -193,6 +193,7 @@
                         </SplitButton.Content>
                         <SplitButton.Flyout>
                             <MenuFlyout>
+                                <MenuFlyoutItem x:Uid="Home_CloudRecoveryMenu" Click="OnOpenCloudRecovery" AutomationProperties.AutomationId="HomeCloudRecoveryMenu"/>
                                 <MenuFlyoutItem x:Uid="Home_PluginBatch" Click="OnPluginBatchCreateClick" AutomationProperties.AutomationId="HomePluginBatchCreate"/>
                                 <MenuFlyoutItem x:Uid="HomePage_AutoDiscoverGames"
                                                 AutomationProperties.AutomationId="HomeAutoDiscoverGames"

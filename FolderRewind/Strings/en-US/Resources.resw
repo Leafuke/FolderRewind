@@ -5397,7 +5397,7 @@ Diagnostics: {4}</value></data>
   <data name="CloudSetup_VerifyWrite.Content" xml:space="preserve"><value>Verify read and write access here</value></data>
   <data name="CloudSetup_Save.Content" xml:space="preserve"><value>Save connection without uploading</value></data>
   <data name="CloudSetup_LoadVersions.Content" xml:space="preserve"><value>Load local versions for upload</value></data>
-  <data name="CloudSetup_Version.Header" xml:space="preserve"><value>Select the version to upload</value></data>
+  <data name="CloudSetup_Version.Header" xml:space="preserve"><value>Backup version</value></data>
   <data name="CloudSetup_Upload.Content" xml:space="preserve"><value>Upload this version and its dependencies</value></data>
   <data name="CloudSetup_UploadConfirm" xml:space="preserve"><value>Upload the selected version to:
 {0}
@@ -5476,30 +5476,30 @@ A cloud copy will be available when the task completes.</value></data>
   <data name="OpenList_Working.Header" xml:space="preserve"><value>Working directory</value></data>
   <data name="OpenList_Data.Header" xml:space="preserve"><value>Data directory (separate from the executable version directory)</value></data>
   <data name="OpenList_Config.Header" xml:space="preserve"><value>Optional custom config file</value></data>
-  <data name="OpenList_Save.Content" xml:space="preserve"><value>Save environment without startup authorization</value></data>
+  <data name="OpenList_Save.Content" xml:space="preserve"><value>Save environment</value></data>
   <data name="OpenList_Check.Content" xml:space="preserve"><value>Check service endpoint without starting it</value></data>
   <data name="OpenList_ManualGuide.Content" xml:space="preserve"><value>View official manual installation / startup instructions</value></data>
   <data name="OpenList_AbsolutePaths" xml:space="preserve"><value>Use explicit absolute executable, working, data, and config paths.</value></data>
   <data name="OpenList_DataOverlap" xml:space="preserve"><value>OpenList data must not overlap backup sources or repositories.</value></data>
   <data name="OpenList_EndpointObserved" xml:space="preserve"><value>The endpoint returned HTTP {0}. Service identity, WebDAV access, and mounted-drive permissions still require separate verification. No executable was started.</value></data>
   <data name="OpenList_EndpointUnavailable" xml:space="preserve"><value>The endpoint is unreachable or unconfirmed. Start the known environment manually and check again. A second process will not be created automatically.</value></data>
-  <data name="OpenList_SavedManualOnly" xml:space="preserve"><value>Environment saved without on-demand startup authorization. Existing services and data are unchanged.</value></data>
+  <data name="OpenList_SavedManualOnly" xml:space="preserve"><value>Environment saved. Start OpenList manually when needed.</value></data>
   <data name="CloudRecovery_Open.Content" xml:space="preserve"><value>Restore a cloud backup to a new location</value></data>
   <data name="CloudRecovery_Help.Text" xml:space="preserve"><value>Use a temporary connection to list Native History repositories under the selected root. Analysis and recovery do not create an empty project, upload history, run write probes, or delete remote objects. The original directory and workspace remain unchanged.</value></data>
-  <data name="CloudRecovery_Discover.Content" xml:space="preserve"><value>Discover history repositories under this root (read only)</value></data>
-  <data name="CloudRecovery_Repository.Header" xml:space="preserve"><value>Choose a repository directory, then verify its identity and content</value></data>
-  <data name="CloudRecovery_Analyze.Content" xml:space="preserve"><value>Pull history only and view recoverable versions</value></data>
-  <data name="CloudRecovery_Password.Header" xml:space="preserve"><value>Archive password (only if required; not saved)</value></data>
-  <data name="CloudRecovery_Restore.Content" xml:space="preserve"><value>Read required cloud data and restore to a new location</value></data>
+  <data name="CloudRecovery_Discover.Content" xml:space="preserve"><value>Find cloud backup projects</value></data>
+  <data name="CloudRecovery_Repository.Header" xml:space="preserve"><value>Backup project</value></data>
+  <data name="CloudRecovery_Analyze.Content" xml:space="preserve"><value>Load backup history</value></data>
+  <data name="CloudRecovery_Password.Header" xml:space="preserve"><value>Backup password (if encrypted)</value></data>
+  <data name="CloudRecovery_Restore.Content" xml:space="preserve"><value>Restore to a new location</value></data>
   <data name="CloudRecovery_TemporaryContext" xml:space="preserve"><value>This connection is used only for this read-only analysis and recovery. No other project’s account or working directory is used.</value></data>
-  <data name="CloudRecovery_SelectRepository" xml:space="preserve"><value>Select a repository directory. Its Config ID will be validated from the descriptor, without name matching.</value></data>
+  <data name="CloudRecovery_SelectRepository" xml:space="preserve"><value>Select the backup project to analyze.</value></data>
   <data name="CloudRecovery_HistoryLoaded" xml:space="preserve"><value>Pulled {1} history packs from repository {0} without remote writes. Existing projects and source files are unchanged. Select a version and review the new destination.</value></data>
   <data name="CloudRecovery_Confirm" xml:space="preserve"><value>Version: {0}
 New destination: {1}
 Cloud root: {2}
 Read and verify required data, then materialize it into a new directory. Do not overwrite sources, change the original workspace/branch, or save/exit a game. Unsupported formats or missing dependencies block recovery.</value></data>
   <data name="CloudRecovery_Task" xml:space="preserve"><value>Restore cloud data to a new location</value></data>
-  <data name="CloudRecovery_Downloading" xml:space="preserve"><value>Reading and verifying dependencies, then materializing a new directory</value></data>
+  <data name="CloudRecovery_Downloading" xml:space="preserve"><value>Downloading backup files…</value></data>
   <data name="CloudRecovery_Completed" xml:space="preserve"><value>Read-only cloud recovery complete</value></data>
   <data name="Timing_Open.Text" xml:space="preserve"><value>View backup phase timings</value></data>
   <data name="Timing_Title" xml:space="preserve"><value>Backup phase timings</value></data>
@@ -5831,12 +5831,12 @@ Only the new folder will be written.</value></data>
   <data name="CloudSetup_ConfigPath_Input.AutomationProperties.Name" xml:space="preserve"><value>rclone config file (owned or existing connection)</value></data>
   <data name="CloudSetup_Remote_Input.AutomationProperties.Name" xml:space="preserve"><value>Choose an existing remote</value></data>
   <data name="CloudSetup_RemoteRoot_Input.AutomationProperties.Name" xml:space="preserve"><value>Remote destination (remote:path)</value></data>
-  <data name="CloudSetup_Version_Input.AutomationProperties.Name" xml:space="preserve"><value>Select the version to upload</value></data>
+  <data name="CloudSetup_Version_Input.AutomationProperties.Name" xml:space="preserve"><value>Backup version</value></data>
   <data name="CloudSetup_OpenList_Input.AutomationProperties.Name" xml:space="preserve"><value>Use OpenList to bridge cloud drives</value></data>
   <data name="CloudSetup_ManagementUrl_Input.AutomationProperties.Name" xml:space="preserve"><value>OpenList management URL</value></data>
   <data name="CloudSetup_WorkingDirectory_Input.AutomationProperties.Name" xml:space="preserve"><value>rclone working directory (blank uses the executable directory)</value></data>
-  <data name="CloudRecovery_Repository_Input.AutomationProperties.Name" xml:space="preserve"><value>Choose a repository directory, then verify its identity and content</value></data>
-  <data name="CloudRecovery_Password_Input.AutomationProperties.Name" xml:space="preserve"><value>Archive password (only if required; not saved)</value></data>
+  <data name="CloudRecovery_Repository_Input.AutomationProperties.Name" xml:space="preserve"><value>Backup project</value></data>
+  <data name="CloudRecovery_Password_Input.AutomationProperties.Name" xml:space="preserve"><value>Backup password (if encrypted)</value></data>
   <data name="OpenList_Environment_Input.AutomationProperties.Name" xml:space="preserve"><value>OpenList local environment and endpoint</value></data>
   <data name="OpenList_Executable_Input.AutomationProperties.Name" xml:space="preserve"><value>OpenList executable path</value></data>
   <data name="OpenList_ServiceUri_Input.AutomationProperties.Name" xml:space="preserve"><value>Service website base URL</value></data>

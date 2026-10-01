@@ -5397,7 +5397,7 @@ Pull Request：{1}</value>
   <data name="CloudSetup_VerifyWrite.Content" xml:space="preserve"><value>验证此目录读写权限</value></data>
   <data name="CloudSetup_Save.Content" xml:space="preserve"><value>保存连接，暂不上传</value></data>
   <data name="CloudSetup_LoadVersions.Content" xml:space="preserve"><value>读取可上传的本地版本</value></data>
-  <data name="CloudSetup_Version.Header" xml:space="preserve"><value>明确选择要上传的版本</value></data>
+  <data name="CloudSetup_Version.Header" xml:space="preserve"><value>备份版本</value></data>
   <data name="CloudSetup_Upload.Content" xml:space="preserve"><value>上传此版本与必要依赖</value></data>
   <data name="CloudSetup_UploadConfirm" xml:space="preserve"><value>将选定版本上传到：
 {0}
@@ -5476,30 +5476,30 @@ Pull Request：{1}</value>
   <data name="OpenList_Working.Header" xml:space="preserve"><value>工作目录</value></data>
   <data name="OpenList_Data.Header" xml:space="preserve"><value>数据目录（与程序版本目录分开）</value></data>
   <data name="OpenList_Config.Header" xml:space="preserve"><value>可选自定义配置文件</value></data>
-  <data name="OpenList_Save.Content" xml:space="preserve"><value>保存环境，不授权启动</value></data>
+  <data name="OpenList_Save.Content" xml:space="preserve"><value>保存环境</value></data>
   <data name="OpenList_Check.Content" xml:space="preserve"><value>只读检查服务地址</value></data>
   <data name="OpenList_ManualGuide.Content" xml:space="preserve"><value>查看官方手动安装 / 启动指导</value></data>
   <data name="OpenList_AbsolutePaths" xml:space="preserve"><value>程序、工作、数据与配置文件必须使用明确的绝对路径。</value></data>
   <data name="OpenList_DataOverlap" xml:space="preserve"><value>OpenList 数据目录不能与备份源或仓库互相包含。</value></data>
   <data name="OpenList_EndpointObserved" xml:space="preserve"><value>服务地址返回 HTTP {0}。服务身份、WebDAV 账户与挂载读写仍需分别验证；没有启动任何程序。</value></data>
   <data name="OpenList_EndpointUnavailable" xml:space="preserve"><value>服务地址尚不可达或未确认。请使用已知环境手动启动并重新检查，不会自动创建第二个进程。</value></data>
-  <data name="OpenList_SavedManualOnly" xml:space="preserve"><value>环境已保存，按需启动未授权。已有服务与数据保持不变。</value></data>
+  <data name="OpenList_SavedManualOnly" xml:space="preserve"><value>环境已保存。需要时请手动启动 OpenList。</value></data>
   <data name="CloudRecovery_Open.Content" xml:space="preserve"><value>从云端备份恢复到新位置</value></data>
   <data name="CloudRecovery_Help.Text" xml:space="preserve"><value>使用临时连接，只列举所选目录下的 Native History 项目。分析和恢复不创建正式空项目，不上传历史、不写入探测或删除远端对象。原目录与 Workspace 保持不变。</value></data>
-  <data name="CloudRecovery_Discover.Content" xml:space="preserve"><value>只读发现所选根目录的历史仓库</value></data>
-  <data name="CloudRecovery_Repository.Header" xml:space="preserve"><value>选择仓库目录，随后核对内部身份与内容</value></data>
-  <data name="CloudRecovery_Analyze.Content" xml:space="preserve"><value>只拉取历史，查看可恢复版本</value></data>
-  <data name="CloudRecovery_Password.Header" xml:space="preserve"><value>归档密码（仅在加密备份需要时填写，不持久保存）</value></data>
-  <data name="CloudRecovery_Restore.Content" xml:space="preserve"><value>读取必要云数据并恢复到新位置</value></data>
+  <data name="CloudRecovery_Discover.Content" xml:space="preserve"><value>查找云端备份项目</value></data>
+  <data name="CloudRecovery_Repository.Header" xml:space="preserve"><value>备份项目</value></data>
+  <data name="CloudRecovery_Analyze.Content" xml:space="preserve"><value>读取历史版本</value></data>
+  <data name="CloudRecovery_Password.Header" xml:space="preserve"><value>备份密码（如已加密）</value></data>
+  <data name="CloudRecovery_Restore.Content" xml:space="preserve"><value>还原到新位置</value></data>
   <data name="CloudRecovery_TemporaryContext" xml:space="preserve"><value>此连接仅用于本次只读分析与恢复，不借用其他项目的账户或工作目录。</value></data>
-  <data name="CloudRecovery_SelectRepository" xml:space="preserve"><value>请选择具体仓库目录，内部 Config ID 将由描述文件校验，不能按名称匹配。</value></data>
+  <data name="CloudRecovery_SelectRepository" xml:space="preserve"><value>请选择要分析的备份项目。</value></data>
   <data name="CloudRecovery_HistoryLoaded" xml:space="preserve"><value>已只读拉取仓库 {0} 的 {1} 个历史包。正式项目与原始文件未改变；请选择版本并核对新目标。</value></data>
   <data name="CloudRecovery_Confirm" xml:space="preserve"><value>版本：{0}
 新目标：{1}
 云根目录：{2}
 仅下载必要数据并校验后物化到全新目录，不覆盖原始源，不修改原 Workspace/分支，不触发游戏保存或退出。不支持的格式或缺失依赖将阻止恢复。</value></data>
   <data name="CloudRecovery_Task" xml:space="preserve"><value>从云端恢复到新位置</value></data>
-  <data name="CloudRecovery_Downloading" xml:space="preserve"><value>读取并校验依赖，然后物化到新目录</value></data>
+  <data name="CloudRecovery_Downloading" xml:space="preserve"><value>正在下载备份文件…</value></data>
   <data name="CloudRecovery_Completed" xml:space="preserve"><value>只读云恢复已完成</value></data>
   <data name="Timing_Open.Text" xml:space="preserve"><value>查看本次备份阶段耗时</value></data>
   <data name="Timing_Title" xml:space="preserve"><value>备份阶段耗时</value></data>
@@ -5831,12 +5831,12 @@ Pull Request：{1}</value>
   <data name="CloudSetup_ConfigPath_Input.AutomationProperties.Name" xml:space="preserve"><value>rclone 配置文件（自有或已有连接）</value></data>
   <data name="CloudSetup_Remote_Input.AutomationProperties.Name" xml:space="preserve"><value>选择已有 remote</value></data>
   <data name="CloudSetup_RemoteRoot_Input.AutomationProperties.Name" xml:space="preserve"><value>远端目标目录（remote:path）</value></data>
-  <data name="CloudSetup_Version_Input.AutomationProperties.Name" xml:space="preserve"><value>明确选择要上传的版本</value></data>
+  <data name="CloudSetup_Version_Input.AutomationProperties.Name" xml:space="preserve"><value>备份版本</value></data>
   <data name="CloudSetup_OpenList_Input.AutomationProperties.Name" xml:space="preserve"><value>使用 OpenList 桥接百度网盘等</value></data>
   <data name="CloudSetup_ManagementUrl_Input.AutomationProperties.Name" xml:space="preserve"><value>OpenList 管理网页地址</value></data>
   <data name="CloudSetup_WorkingDirectory_Input.AutomationProperties.Name" xml:space="preserve"><value>rclone 工作目录（空值使用程序目录）</value></data>
-  <data name="CloudRecovery_Repository_Input.AutomationProperties.Name" xml:space="preserve"><value>选择仓库目录，随后核对内部身份与内容</value></data>
-  <data name="CloudRecovery_Password_Input.AutomationProperties.Name" xml:space="preserve"><value>归档密码（仅在加密备份需要时填写，不持久保存）</value></data>
+  <data name="CloudRecovery_Repository_Input.AutomationProperties.Name" xml:space="preserve"><value>备份项目</value></data>
+  <data name="CloudRecovery_Password_Input.AutomationProperties.Name" xml:space="preserve"><value>备份密码（如已加密）</value></data>
   <data name="OpenList_Environment_Input.AutomationProperties.Name" xml:space="preserve"><value>OpenList 本机环境与地址</value></data>
   <data name="OpenList_Executable_Input.AutomationProperties.Name" xml:space="preserve"><value>OpenList 程序路径</value></data>
   <data name="OpenList_ServiceUri_Input.AutomationProperties.Name" xml:space="preserve"><value>服务网页基地址</value></data>

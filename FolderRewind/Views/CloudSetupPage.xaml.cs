@@ -1,4 +1,5 @@
 using FolderRewind.Models;
+using CommunityToolkit.WinUI.Controls;
 using FolderRewind.Services;
 using FolderRewind.ViewModels;
 using Microsoft.UI.Xaml;
@@ -14,14 +15,40 @@ public sealed partial class CloudSetupPage : Page
     public CloudSetupViewModel ViewModel { get; } = new();
     private bool _active;
     private readonly System.Threading.CancellationTokenSource _pageLifetime = new();
-    public CloudSetupPage() { InitializeComponent(); }
+    public CloudSetupPage()
+    {
+        InitializeComponent();
+        Loaded += (_, _) => ConnectionSelector.SelectedItem = string.IsNullOrWhiteSpace(ViewModel.ConfigPath)
+            ? WebDavConnectionItem : ExistingConnectionItem;
+    }
     protected override void OnNavigatedTo(NavigationEventArgs e)
     {
         base.OnNavigatedTo(e); _active = true;
-        try { ViewModel.Initialize((e.Parameter as ConfigSettingsNavigationParameter)?.ConfigId ?? ""); }
+        try { ViewModel.Initialize((e.Parameter as ConfigSettingsNavigationParameter)?.ConfigId ?? ""); if (!string.IsNullOrWhiteSpace(ViewModel.ConfigPath)) ConnectionSelector.SelectedItem = ExistingConnectionItem; }
         catch (Exception ex) { ViewModel.Message = ex.Message; }
     }
     protected override void OnNavigatedFrom(NavigationEventArgs e) { _active = false; _pageLifetime.Cancel(); ViewModel.Dispose(); base.OnNavigatedFrom(e); }
+    public InfoBarSeverity GetMessageSeverity(OnboardingCheckState state) => state switch
+    {
+        OnboardingCheckState.Ready => InfoBarSeverity.Success,
+        OnboardingCheckState.Blocked => InfoBarSeverity.Error,
+        OnboardingCheckState.NeedsInput => InfoBarSeverity.Warning,
+        _ => InfoBarSeverity.Informational
+    };
+    private void OnConnectionMethodChanged(SelectorBar sender, SelectorBarSelectionChangedEventArgs args)
+    {
+        if (WebDavPanel is null || ExistingPanel is null) return;
+        var existing = sender.SelectedItem == ExistingConnectionItem;
+        WebDavPanel.Visibility = existing ? Visibility.Collapsed : Visibility.Visible;
+        ExistingPanel.Visibility = existing ? Visibility.Visible : Visibility.Collapsed;
+    }
+    private void OnCloudPageSizeChanged(object sender, SizeChangedEventArgs e)
+    {
+        if (ConnectionLayout is not null) ConnectionLayout.Width = Math.Min(960, Math.Max(0, e.NewSize.Width - 48));
+    }
+    private void OnConnectionCardSizeChanged(object sender, SizeChangedEventArgs e)
+        => SettingsCardLayout.Apply(sender, e);
+
     private void OnOpenListEnvironment(object sender, RoutedEventArgs e) => NavigationService.NavigateTo("Settings", NavigationService.SettingsOpenListTarget);
     private void OnRepair(object sender, RoutedEventArgs e)
     {
@@ -29,7 +56,7 @@ public sealed partial class CloudSetupPage : Page
         if (!ViewModel.IsDiagnosticCurrent(item)) { ViewModel.Message = I18n.GetString("SettingsProject_Stale"); return; }
         switch (item.Target)
         {
-            case OnboardingRepairTarget.CloudConnection: ConfigPathBox.StartBringIntoView(); ConfigPathBox.Focus(FocusState.Programmatic); break;
+            case OnboardingRepairTarget.CloudConnection: ConnectionSelector.SelectedItem = ExistingConnectionItem; ConfigPathBox.StartBringIntoView(); ConfigPathBox.Focus(FocusState.Programmatic); break;
             case OnboardingRepairTarget.OpenListEnvironment: OnOpenListEnvironment(sender, e); break;
         }
     }
@@ -65,7 +92,7 @@ public sealed partial class CloudSetupPage : Page
     private async void OnLoadVersions(object sender, RoutedEventArgs e) => await ViewModel.RunCheckAsync(ViewModel.LoadVersionsAsync);
     private async void OnUpload(object sender, RoutedEventArgs e)
     {
-        if (await AppDialogService.Default.ConfirmAsync(I18n.GetString("CloudSetup_Title.Text"), I18n.Format("CloudSetup_UploadConfirm", ViewModel.RemoteRoot), I18n.GetString("Common_Confirm"), XamlRoot))
+        if (await AppDialogService.Default.ConfirmAsync(I18n.GetString("CloudSetup_DialogTitle"), I18n.Format("CloudSetup_UploadConfirm", ViewModel.RemoteRoot), I18n.GetString("Common_Confirm"), XamlRoot))
             await ViewModel.UploadAsync();
     }
     private void OnOpenManagement(object sender, RoutedEventArgs e)
@@ -94,7 +121,7 @@ public sealed partial class CloudSetupPage : Page
             if (!_active || string.IsNullOrEmpty(parent)) return;
             var target = System.IO.Path.Combine(parent, "FolderRewind-restored-" + Guid.NewGuid().ToString("N"));
             if (!await AppDialogService.Default.ConfirmAsync(I18n.GetString("Export_Title"),
-                previewText + "\n\n" + I18n.Format("CloudRecovery_Confirm", confirmation.Preview.Version.VersionId, target, ViewModel.RemoteRoot), I18n.GetString("Common_Confirm"), XamlRoot)) return;
+                previewText + "\n\n" + I18n.Format("CloudRecovery_DestinationConfirm", target), I18n.GetString("Common_Confirm"), XamlRoot)) return;
             var password = RecoveryPassword.Password; RecoveryPassword.Password = "";
             if (_active) await ViewModel.RestoreAnalyzedAsync(target, string.IsNullOrEmpty(password) ? null : password, confirmation);
         }
