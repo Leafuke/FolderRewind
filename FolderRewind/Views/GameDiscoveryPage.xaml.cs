@@ -141,6 +141,16 @@ public sealed partial class GameDiscoveryPage : Page
 
     private async void OnCommitClick(object sender, RoutedEventArgs e)
     {
+        if (ViewModel.ReturnDraftToSetup)
+        {
+            try
+            {
+                var drafts = ViewModel.TakeSelectedSetupDrafts();
+                NavigationService.NavigateTo("BackupSetup", new BackupSetupNavigationParameter(Drafts: drafts, DiscoveryReentry: ViewModel.SetupReentry));
+            }
+            catch (Exception ex) { await ShowMessageAsync(I18n.GetString("Common_Failed"), ex.Message); }
+            return;
+        }
         var result = ViewModel.CommitDrafts();
         if (!result.Success)
         {
@@ -155,6 +165,16 @@ public sealed partial class GameDiscoveryPage : Page
 
     private async void OnPluginBatchCommitClick(object sender, RoutedEventArgs e)
     {
+        if (ViewModel.ReturnDraftToSetup)
+        {
+            try
+            {
+                var drafts = ViewModel.TakeSelectedSetupDrafts();
+                NavigationService.NavigateTo("BackupSetup", new BackupSetupNavigationParameter(Drafts: drafts, DiscoveryReentry: ViewModel.SetupReentry));
+            }
+            catch (Exception ex) { await ShowMessageAsync(I18n.GetString("Common_Failed"), ex.Message); }
+            return;
+        }
         var skippedCount = ViewModel.PluginBatchSkippedCount;
         var result = ViewModel.CommitPluginBatch();
         if (!result.Success)

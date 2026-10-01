@@ -22,9 +22,16 @@
 
     <ScrollViewer Padding="36,24,36,36">
         <StackPanel Spacing="0">
+            <StackPanel Spacing="12" Visibility="{x:Bind ViewModel.HasProjects, Mode=OneWay, Converter={StaticResource BoolToVisInvertConverter}}">
+                <TextBlock x:Uid="Setup_HomeTitle" Style="{StaticResource TitleTextBlockStyle}" TextWrapping="Wrap"/>
+                <TextBlock x:Uid="Setup_ContentHelp" TextWrapping="Wrap"/>
+                <Button x:Uid="Setup_HomeStart" Click="OnStartSetup" Style="{StaticResource AccentButtonStyle}" AutomationProperties.AutomationId="HomeStartSetup"/>
+                <Button x:Uid="Setup_HomeHistory" Click="OnOpenHistory" AutomationProperties.AutomationId="HomeOpenHistory"/>
+                <Button x:Uid="CloudRecovery_Open" Click="OnOpenCloudRecovery" AutomationProperties.AutomationId="HomeOpenCloudRecovery"/>
+            </StackPanel>
 
             <!-- 第一部分：收藏的文件夹 -->
-            <StackPanel Spacing="12">
+            <StackPanel Spacing="12" Visibility="{x:Bind ViewModel.HasFavorites, Mode=OneWay, Converter={StaticResource BoolToVisConverter}}">
                 <StackPanel Orientation="Horizontal" Spacing="8">
                     <FontIcon Glyph="&#xE735;" Foreground="{ThemeResource SystemControlForegroundAccentBrush}"/>
                     <TextBlock x:Uid="HomePage_FavoriteFolders" Style="{StaticResource SubtitleTextBlockStyle}"/>
@@ -144,6 +151,7 @@
                     </GridView.ItemTemplate>
                 </GridView>
 
+
                 <!-- 空状态提示 -->
                 <TextBlock x:Uid="HomePage_NoFavoriteFolders" Margin="0,0,0,15" Foreground="{ThemeResource TextFillColorSecondaryBrush}" FontStyle="Italic"
                            Visibility="{x:Bind ViewModel.IsFavoritesEmpty, Mode=OneWay, Converter={StaticResource BoolToVisConverter}}"/>
@@ -162,7 +170,7 @@
                         <TextBlock x:Uid="HomePage_ConfigOverview" Style="{StaticResource SubtitleTextBlockStyle}"/>
                     </StackPanel>
 
-                    <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="6" VerticalAlignment="Center">
+                    <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="6" VerticalAlignment="Center" Visibility="{x:Bind ViewModel.HasProjects, Mode=OneWay, Converter={StaticResource BoolToVisConverter}}">
                         <TextBlock x:Name="SortLabel" x:Uid="HomePage_SortLabel" Foreground="{ThemeResource TextFillColorSecondaryBrush}"/>
                         <ComboBox x:Name="SortCombo" MinWidth="160"
                                   AutomationProperties.AutomationId="HomeConfigSort"
@@ -186,6 +194,7 @@
                         </SplitButton.Content>
                         <SplitButton.Flyout>
                             <MenuFlyout>
+                                <MenuFlyoutItem x:Uid="Home_PluginBatch" Click="OnPluginBatchCreateClick" AutomationProperties.AutomationId="HomePluginBatchCreate"/>
                                 <MenuFlyoutItem x:Uid="HomePage_AutoDiscoverGames"
                                                 AutomationProperties.AutomationId="HomeAutoDiscoverGames"
                                                 Click="OnAutoDiscoverGamesClick">
@@ -229,13 +238,13 @@
                     </GridView.ItemContainerStyle>
                     <GridView.ItemsPanel>
                         <ItemsPanelTemplate>
-                            <ItemsWrapGrid ItemWidth="340" ItemHeight="130" Orientation="Horizontal"/>
+                            <ItemsWrapGrid ItemWidth="340" ItemHeight="260" Orientation="Horizontal"/>
                         </ItemsPanelTemplate>
                     </GridView.ItemsPanel>
                     <GridView.ItemTemplate>
                         <DataTemplate x:DataType="models:BackupConfig">
                             <!-- 配置卡片：带左侧强调色条和圆形图标 -->
-                            <Border Width="320" Height="115" Margin="0,0,12,12"
+                            <Border Width="320" Height="244" Margin="0,0,12,12"
                                     Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
                                     BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
                                     BorderThickness="1"
@@ -255,7 +264,7 @@
                                         HorizontalAlignment="Stretch"
                                         VerticalAlignment="Stretch"
                                         Width="320"
-                                        Height="115"
+                                        Height="244"
                                         Click="OnConfigCardClick">
                                     <Button.ContextFlyout>
                                         <MenuFlyout>
@@ -328,6 +337,8 @@
                                                            MaxLines="1" TextAlignment="Left"
                                                            services:AutoToolTipService.IsEnabled="True"/>
 
+                                                <TextBlock Text="{x:Bind SummaryText, Mode=OneWay}" TextWrapping="Wrap" MaxLines="6"
+                                                           Style="{StaticResource CaptionTextBlockStyle}" services:AutoToolTipService.IsEnabled="True"/>
                                                 <!-- 信息标签行 -->
                                                 <StackPanel Orientation="Horizontal" Spacing="12" Margin="0,4,0,0">
                                                     <StackPanel Orientation="Horizontal" Spacing="4">
@@ -367,6 +378,18 @@
                         </DataTemplate>
                     </GridView.ItemTemplate>
                 </GridView>
+                <TextBlock x:Uid="HomeProtection_Issues" Style="{StaticResource SubtitleTextBlockStyle}" TextWrapping="Wrap"
+                           Visibility="{x:Bind ViewModel.HasSourceIssues, Mode=OneWay, Converter={StaticResource BoolToVisConverter}}"/>
+                <ListView ItemsSource="{x:Bind ViewModel.SourceIssues, Mode=OneWay}" MaxHeight="240"
+                          IsItemClickEnabled="True" ItemClick="OnSourceIssueClick" ContainerContentChanging="OnSourceIssueContainerContentChanging" SelectionMode="None"
+                          Visibility="{x:Bind ViewModel.HasSourceIssues, Mode=OneWay, Converter={StaticResource BoolToVisConverter}}"
+                          AutomationProperties.AutomationId="HomeProtectionIssues">
+                    <ListView.ItemTemplate>
+                        <DataTemplate x:DataType="services:ProjectSourceAttention">
+                            <TextBlock Text="{x:Bind Label, Mode=OneTime}" TextWrapping="Wrap"/>
+                        </DataTemplate>
+                    </ListView.ItemTemplate>
+                </ListView>
             </StackPanel>
         </StackPanel>
     </ScrollViewer>

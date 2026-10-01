@@ -130,10 +130,16 @@ public sealed class RepresentationRuntime
             cancellationToken).ConfigureAwait(false);
     }
 
-    internal async Task<RepresentationReadLease> LockExactVersionAsync(VersionId versionId,
+    internal Task<RepresentationReadLease> LockExactVersionAsync(VersionId versionId,
         IReadOnlyList<VersionRepresentation> representations, IRepresentationEnvironment environment, CancellationToken token)
+        => LockVersionAsync(versionId, representations, environment, MaterializationFidelity.Exact, token);
+
+    internal async Task<RepresentationReadLease> LockVersionAsync(VersionId versionId,
+        IReadOnlyList<VersionRepresentation> representations, IRepresentationEnvironment environment,
+        MaterializationFidelity requiredFidelity, CancellationToken token)
     {
-        var assessment = await AssessVersionAsync(versionId, representations, environment, AssessmentDepth.Deep, MaterializationFidelity.Exact, token).ConfigureAwait(false);
+        if (requiredFidelity == MaterializationFidelity.Unknown) throw new ArgumentOutOfRangeException(nameof(requiredFidelity));
+        var assessment = await AssessVersionAsync(versionId, representations, environment, AssessmentDepth.Deep, requiredFidelity, token).ConfigureAwait(false);
         if (assessment.Readiness != HistoryReadiness.Ready || assessment.Selected is null)
             throw new Merge.HistoryMergeBlockedException(new(assessment.Readiness == HistoryReadiness.PreparationRequired
                 ? Merge.MergeDiagnosticCode.PreparationRequired : Merge.MergeDiagnosticCode.ExactUnavailable, VersionId: versionId));

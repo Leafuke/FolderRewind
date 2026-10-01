@@ -84,6 +84,7 @@ namespace FolderRewind.ViewModels
                 UnhookCurrentFoldersChanged(old);
 
                 _currentConfig = value;
+                RefreshProtection();
                 OnPropertyChanged(nameof(CurrentConfig));
                 OnPropertyChanged(nameof(HasCurrentConfig));
 
@@ -124,6 +125,8 @@ namespace FolderRewind.ViewModels
 
             // 页面走缓存时会重复进入，订阅放在激活阶段更安全。
             _isActive = true;
+            ConfigService.Saved += OnProtectionSaved;
+            RefreshProtection();
             _commands.Activate();
             HookCurrentFoldersChanged(_currentConfig);
             HookConfigsChanged();
@@ -139,6 +142,7 @@ namespace FolderRewind.ViewModels
 
             // 与 Activate 成对解绑，防止重复回调与内存滞留。
             _isActive = false;
+            DetachProtection();
             _commands.Deactivate();
             UnhookConfigsChanged();
             UnhookCurrentFoldersChanged(_currentConfig);
@@ -146,6 +150,7 @@ namespace FolderRewind.ViewModels
 
         public void Dispose()
         {
+            DetachProtection();
             _commands.Dispose();
             UnhookConfigsChanged();
             UnhookCurrentFoldersChanged(_currentConfig);
@@ -535,17 +540,12 @@ namespace FolderRewind.ViewModels
             var resourceLoader = ResourceLoader.GetForViewIndependentUse();
             var displayName = FolderNameConflictService.ResolveDisplayName(name ?? template?.DisplayName, path);
 
-            var folder = new ManagedFolder
-            {
-                Path = path,
-                DisplayName = displayName,
-                Description = template?.Description ?? string.Empty,
-                IsFavorite = template?.IsFavorite ?? false,
-                CoverImagePath = template?.CoverImagePath ?? string.Empty,
-                LastBackupTime = string.IsNullOrWhiteSpace(template?.LastBackupTime)
-                    ? resourceLoader.GetString("FolderManager_NeverBackedUp")
-                    : template!.LastBackupTime
-            };
+            var folder = template is null ? new ManagedFolder()
+                : JsonCloneService.Clone(template, AppJsonContext.Default.ManagedFolder, I18n.GetString("Common_Failed"));
+            folder.Id = Guid.NewGuid().ToString("N");
+            folder.Path = path;
+            folder.DisplayName = displayName;
+            folder.LastBackupTime = resourceLoader.GetString("FolderManager_NeverBackedUp");
 
             if (string.IsNullOrWhiteSpace(folder.CoverImagePath))
             {

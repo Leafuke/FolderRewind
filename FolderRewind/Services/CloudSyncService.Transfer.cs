@@ -20,10 +20,10 @@ namespace FolderRewind.Services
             string taskName,
             string successMessage,
             string failureMessage,
-            Func<string, bool> importAction)
+            Func<string, bool> importAction,
+            CloudSettings settings)
         {
             string tempFilePath = Path.Combine(Path.GetTempPath(), $"FolderRewind_cloud_import_{Guid.NewGuid():N}.json");
-            var settings = ConfigService.CurrentConfig?.BackupConfigs?.FirstOrDefault()?.Cloud ?? new CloudSettings();
 
             var downloadResult = await DownloadJsonToTempAsync(remoteFilePath, taskName, failureMessage, tempFilePath, settings).ConfigureAwait(false);
             if (!downloadResult.Success)
@@ -59,10 +59,10 @@ namespace FolderRewind.Services
             string taskName,
             string successMessage,
             string failureMessage,
-            Func<string, bool> exportAction)
+            Func<string, bool> exportAction,
+            CloudSettings settings)
         {
             string tempFilePath = Path.Combine(Path.GetTempPath(), $"FolderRewind_cloud_export_{Guid.NewGuid():N}.json");
-            var settings = ConfigService.CurrentConfig?.BackupConfigs?.FirstOrDefault()?.Cloud ?? new CloudSettings();
 
             try
             {
@@ -212,6 +212,13 @@ namespace FolderRewind.Services
             out string workingDirectory,
             out string errorMessage)
         {
+            if (!string.IsNullOrWhiteSpace(fallbackSettings?.RcloneConfigPath))
+            {
+                // 新连接只解析本次选择和主机工具缺省，不借用其他项目的程序或工作目录。
+                executablePath = ResolveRcloneExecutable(fallbackSettings);
+                workingDirectory = fallbackSettings.WorkingDirectory.Trim();
+                return ValidateExecutableAndWorkingDirectory(executablePath, workingDirectory, out errorMessage);
+            }
             // 运行时优先级：全局设置 -> 已配置任务中可复用值 -> 当前回退设置。
             executablePath = ConfigService.CurrentConfig?.GlobalSettings?.RcloneExecutablePath?.Trim() ?? string.Empty;
             workingDirectory = string.Empty;
@@ -276,7 +283,7 @@ namespace FolderRewind.Services
             return lines;
         }
 
-        private static async Task<(bool Success, int ExitCode, string Output, string ErrorMessage)> RunSilentCommandAsync(ResolvedCommand command, int timeoutSeconds)
+        private static async Task<(bool Success, int ExitCode, string Output, string ErrorMessage)> RunSilentCommandAsync(ResolvedCommand command, int timeoutSeconds, CancellationToken cancellationToken = default)
         {
             try
             {
@@ -295,7 +302,9 @@ namespace FolderRewind.Services
                     startInfo.WorkingDirectory = command.WorkingDirectory;
                 }
 
+                if (command.Execution is { } connection) startInfo = connection.CreateStartInfo(ProcessArgumentTokenizer.Parse(command.Arguments));
                 using var process = new Process { StartInfo = startInfo };
+                command.Execution?.RequireUnchanged();
                 if (!process.Start())
                 {
                     return (false, -1, string.Empty, I18n.GetString("CloudSync_Error_StartFailed"));
@@ -304,7 +313,8 @@ namespace FolderRewind.Services
                 Task<string> outputTask = process.StandardOutput.ReadToEndAsync();
                 Task<string> errorTask = process.StandardError.ReadToEndAsync();
 
-                using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(timeoutSeconds));
+                using var cts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+                cts.CancelAfter(TimeSpan.FromSeconds(timeoutSeconds));
                 try
                 {
                     await process.WaitForExitAsync(cts.Token).ConfigureAwait(false);

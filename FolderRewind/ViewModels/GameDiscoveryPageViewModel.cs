@@ -154,6 +154,8 @@ public sealed class GameDiscoveryPageViewModel : ViewModelBase, IDisposable
 
     public async Task InitializeAsync(GameDiscoveryNavigationParameter? parameter = null)
     {
+        ReturnDraftToSetup = parameter?.ReturnDraftToSetup == true;
+        SetupReentry = ReturnDraftToSetup ? parameter : null;
         var requestedMode = parameter?.Mode ?? GameDiscoveryNavigationMode.FullMachine;
         if (!_initialized)
         {
@@ -416,6 +418,38 @@ public sealed class GameDiscoveryPageViewModel : ViewModelBase, IDisposable
         return result;
     }
 
+    public bool ReturnDraftToSetup { get; private set; }
+    public GameDiscoveryNavigationParameter? SetupReentry { get; private set; }
+    private BackupConfig PrepareSetupDraft(BackupConfigDraft draft)
+    {
+        var config = DiscoveryDraftService.PrepareNewSetupDraft(draft);
+        var saved = SetupReentry?.ResumingSelections.SingleOrDefault(s => s.Identity.HasSameStableIdentity(config.DiscoveryOrigin?.Identity));
+        if (saved is not null)
+        {
+            config.Name = saved.Name; config.DestinationPath = saved.DestinationPath;
+            config.IconGlyph = saved.IconGlyph; config.Kind = new() { OwnerId = saved.Kind.OwnerId, KindId = saved.Kind.KindId };
+            config.IsEncrypted = saved.IsEncrypted;
+        }
+        return config;
+    }
+    public IReadOnlyList<BackupConfig> TakeSelectedSetupDrafts()
+    {
+        if (!IsPluginBatchMode)
+        {
+            var drafts = Drafts.Where(item => item.IsSelected).ToArray();
+            if (drafts.Length == 0) throw new InvalidOperationException(I18n.GetString("GameDiscovery_SelectDraft"));
+            foreach (var item in drafts)
+            {
+                item.Draft.ProposedConfig.Name = item.ConfigName.Trim();
+                item.Draft.ProposedConfig.DestinationPath = item.DestinationPath.Trim();
+            }
+            return drafts.Select(item => PrepareSetupDraft(item.Draft)).ToArray();
+        }
+        var selected = PluginBatchItems.Where(i => i.IsSelected).ToArray();
+        if (selected.Length == 0) throw new InvalidOperationException(I18n.GetString("GameDiscovery_SelectDraft"));
+        return selected.Select(item => PrepareSetupDraft(item.Draft)).ToArray();
+    }
+
     public void Dispose()
     {
         _settings.PropertyChanged -= OnSettingsPropertyChanged;
@@ -475,7 +509,9 @@ public sealed class GameDiscoveryPageViewModel : ViewModelBase, IDisposable
         var composition = GameDiscoveryProviderFactory.Create(_cacheService);
         var discoveryService = new GameDiscoveryService(composition.Providers, composition.Diagnostics);
         var stopwatch = Stopwatch.StartNew();
-        var result = await discoveryService.DiscoverAsync(BuildRequest(), CreateProgress(), token);
+        var result = await discoveryService.DiscoverAsync(BuildRequest(), CreateProgress(), token,
+            OnboardingOperationBudgets.Discovery, OnboardingOperationBudgets.DiscoveryCandidates);
+        token.ThrowIfCancellationRequested();
         ApplyResult(result, stopwatch, lockedPreset: null);
     }
 
@@ -520,7 +556,7 @@ public sealed class GameDiscoveryPageViewModel : ViewModelBase, IDisposable
                 UserRoots = [_pluginBatchRoot]
             },
             CreateProgress(),
-            token);
+            token, OnboardingOperationBudgets.Discovery, OnboardingOperationBudgets.DiscoveryCandidates);
         token.ThrowIfCancellationRequested();
 
         _pluginBatchPlan = PluginBatchCreationPlanner.Build(
@@ -531,6 +567,7 @@ public sealed class GameDiscoveryPageViewModel : ViewModelBase, IDisposable
             ConfigService.CurrentConfig.BackupConfigs);
         foreach (var item in _pluginBatchPlan.Items)
         {
+            if (ReturnDraftToSetup) item.IsSelected = false;
             item.PropertyChanged += (_, args) =>
             {
                 if (args.PropertyName == nameof(PluginBatchCreationSummaryItem.IsSelected))
@@ -598,6 +635,9 @@ public sealed class GameDiscoveryPageViewModel : ViewModelBase, IDisposable
                     : [lockedPreset],
                 ConfigService.CurrentConfig.BackupConfigs,
                 lockedPreset);
+            if (ReturnDraftToSetup)
+                foreach (var set in item.BackupSets)
+                    foreach (var resource in set.Resources) resource.IsSelected = false;
             item.PropertyChanged += (_, args) =>
             {
                 if (args.PropertyName == nameof(GameDiscoveryCandidateItem.IsSelected))
@@ -615,8 +655,14 @@ public sealed class GameDiscoveryPageViewModel : ViewModelBase, IDisposable
             Games.Sum(game => game.BackupSets.Sum(set => set.Resources.Count)),
             result.Diagnostics.Count(diagnostic => diagnostic.Severity == DiscoveryDiagnosticSeverity.Warning),
             stopwatch.Elapsed.TotalSeconds.ToString("F1", CultureInfo.CurrentCulture));
-        ProgressText = result.Diagnostics.FirstOrDefault(diagnostic => diagnostic.Severity == DiscoveryDiagnosticSeverity.Error)?.Message
-            ?? I18n.GetString("GameDiscovery_Status_Complete");
+        var diagnostic = result.Diagnostics.FirstOrDefault(value => value.Severity == DiscoveryDiagnosticSeverity.Error)
+            ?? result.Diagnostics.FirstOrDefault(value => value.Code is "discovery-time-budget" or "discovery-result-budget");
+        ProgressText = diagnostic?.Code switch
+        {
+            "discovery-time-budget" => I18n.GetString("Setup_DiscoveryTimeout"),
+            "discovery-result-budget" => I18n.GetString("Setup_DiscoveryLimit"),
+            _ => diagnostic?.Message ?? I18n.GetString("GameDiscovery_Status_Complete")
+        };
         var revisions = result.Candidates
             .SelectMany(candidate => candidate.BackupSets)
             .Select(set => set.DiscoveryRevision)
@@ -648,8 +694,10 @@ public sealed class GameDiscoveryPageViewModel : ViewModelBase, IDisposable
 
     private IProgress<DiscoveryProgress> CreateProgress()
     {
+        var request = _operationCts;
         return new Progress<DiscoveryProgress>(progress =>
         {
+            if (!IsBusy || request != _operationCts || request?.IsCancellationRequested != false) return;
             var total = progress.Total is > 0 ? $" ({progress.Completed}/{progress.Total})" : string.Empty;
             ProgressText = $"{progress.Message}{total}";
         });

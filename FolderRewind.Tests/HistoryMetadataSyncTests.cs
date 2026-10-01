@@ -25,6 +25,38 @@ public sealed class HistoryMetadataSyncTests
     }
 
     [TestMethod]
+    public async Task ReadOnlyPullImportsRemoteHistoryWithoutUploadingLocalOnlyPackOrChangingWorkspace()
+    {
+        var id = new HistoryConfigId(Guid.NewGuid().ToString("N"));
+        await using var remote = await Runtime("remote", id);
+        await using var local = await Runtime("local", id);
+        await CommitVersion(remote, "remote");
+        await CommitVersion(local, "local only");
+        var workspace = new HistoryWorkspace(id, 0, null, null, []);
+        await local.WorkspaceStore.SaveAsync(workspace, HistoryWorkspaceStore.MissingRevision);
+        var transport = new MemoryTransport();
+        await new HistoryMetadataSyncService(remote, transport).SyncAsync();
+        transport.WriteRequests = 0;
+        transport.ReadOnly = true;
+        var result = await new HistoryMetadataSyncService(local, transport).PullAsync();
+        Assert.IsTrue(result.Succeeded);
+        Assert.AreEqual(0, result.UploadedPacks);
+        Assert.AreEqual(0, transport.WriteRequests);
+        Assert.HasCount(2, await local.Repository.ReadAllPacksAsync());
+        Assert.IsTrue(HistoryRestoreTransactionJournalStore.WorkspaceEquals(workspace, (await local.WorkspaceStore.LoadAsync()).Value!));
+    }
+
+    [TestMethod]
+    public async Task ReadOnlyPullMissingDescriptorFailsWithoutCreatingIt()
+    {
+        await using var local = await Runtime("missing", new(Guid.NewGuid().ToString("N")));
+        var transport = new MemoryTransport { ReadOnly = true };
+        var result = await new HistoryMetadataSyncService(local, transport).PullAsync();
+        Assert.AreEqual(HistoryMetadataSyncStatus.RemoteRepositoryIncomplete, result.Status);
+        Assert.AreEqual(0, transport.WriteRequests);
+    }
+
+    [TestMethod]
     public async Task TwoDevicesConvergeByPackSetUnionWithoutChangingWorkspace()
     {
         var configId = new HistoryConfigId(Guid.NewGuid().ToString("N"));
@@ -70,6 +102,8 @@ public sealed class HistoryMetadataSyncTests
 
     private sealed class MemoryTransport : IHistoryMetadataTransport
     {
+        public bool ReadOnly { get; set; }
+        public int WriteRequests { get; set; }
         private byte[]? _descriptor;
         private readonly Dictionary<PackId, byte[]> _packs = [];
 
@@ -79,6 +113,8 @@ public sealed class HistoryMetadataSyncTests
         public Task CreateDescriptorOnceAsync(
             HistoryConfigId configId, byte[] canonicalBytes, CancellationToken cancellationToken)
         {
+            WriteRequests++;
+            if (ReadOnly) throw new UnauthorizedAccessException();
             if (_descriptor is not null && !_descriptor.AsSpan().SequenceEqual(canonicalBytes))
                 throw new IOException("descriptor conflict");
             _descriptor ??= canonicalBytes.ToArray();
@@ -96,6 +132,8 @@ public sealed class HistoryMetadataSyncTests
         public Task UploadPackOnceAsync(
             HistoryConfigId configId, PackId packId, byte[] bytes, CancellationToken cancellationToken)
         {
+            WriteRequests++;
+            if (ReadOnly) throw new UnauthorizedAccessException();
             if (_packs.TryGetValue(packId, out var existing) && !existing.AsSpan().SequenceEqual(bytes))
                 throw new IOException("pack conflict");
             _packs[packId] = bytes.ToArray();

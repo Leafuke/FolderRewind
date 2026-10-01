@@ -97,6 +97,18 @@
     <Compile Include="..\FolderRewind\Services\NativeHistoryConfigurationOperationGate.cs" Link="Source\NativeHistoryConfigurationOperationGate.cs" />
     <Compile Include="..\FolderRewind\Services\NativeHostMutationContext.cs" Link="Source\NativeHostMutationContext.cs" />
     <Compile Include="..\FolderRewind\Services\BackupPathOverlapPolicy.cs" Link="Source\BackupPathOverlapPolicy.cs" />
+    <Compile Include="..\FolderRewind\Services\BackupPerformancePolicy.cs" Link="Source\BackupPerformancePolicy.cs" />
+    <Compile Include="..\FolderRewind\Services\BackupTimingService.cs" Link="Source\BackupTimingService.cs" />
+    <Compile Include="..\FolderRewind\Services\RcloneExecutionContext.cs" Link="Source\RcloneExecutionContext.cs" />
+    <Compile Include="..\FolderRewind\Services\RcloneConnectionService.cs" Link="Source\RcloneConnectionService.cs" />
+    <Compile Include="..\FolderRewind\Services\RcloneNativeHistoryTransport.cs" Link="Source\RcloneNativeHistoryTransport.cs" />
+    <Compile Include="..\FolderRewind\Services\ProcessArgumentTokenizer.cs" Link="Source\ProcessArgumentTokenizer.cs" />
+    <Compile Include="..\FolderRewind\Services\ToolArchiveInstaller.cs" Link="Source\ToolArchiveInstaller.cs" />
+    <Compile Include="..\FolderRewind\Services\ToolExecutableVerifier.cs" Link="Source\ToolExecutableVerifier.cs" />
+    <Compile Include="..\FolderRewind\Services\OnboardingRepairPolicy.cs" Link="Source\OnboardingRepairPolicy.cs" />
+    <Compile Include="..\FolderRewind\Services\OnboardingOperationBudgets.cs" Link="Source\OnboardingOperationBudgets.cs" />
+    <Compile Include="..\FolderRewind\Models\OnboardingModels.cs" Link="Source\OnboardingModels.cs" />
+    <Compile Include="..\FolderRewind\History\Application\HistoryVersionExportService.cs" Link="Source\History\Application\HistoryVersionExportService.cs" />
     <Compile Include="..\FolderRewind\Services\SevenZipExecutableLocator.cs" Link="Source\SevenZipExecutableLocator.cs" />
     <Compile Include="..\FolderRewind\Models\FolderRenameModels.cs" Link="Source\FolderRenameModels.cs" />
     <Compile Include="..\FolderRewind\Models\PersistenceModels.cs" Link="Source\PersistenceModels.cs" />

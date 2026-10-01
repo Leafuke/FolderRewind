@@ -125,6 +125,38 @@ public sealed class HistoryMetadataSyncService
         }
     }
 
+    // 只拉取意图：描述缺失不能创建；本地独有 pack 永不回传。
+    public async Task<HistoryMetadataSyncResult> PullAsync(CancellationToken cancellationToken = default)
+    {
+        int downloaded = 0;
+        try
+        {
+            var descriptor = await _transport.ReadDescriptorAsync(_history.ConfigId, cancellationToken).ConfigureAwait(false);
+            if (descriptor is null) return Result(HistoryMetadataSyncStatus.RemoteRepositoryIncomplete, 0, 0, "Remote history descriptor is missing.");
+            var remote = HistoryRepositoryDescriptor.Parse(descriptor);
+            if (remote.ConfigId != _history.ConfigId || !descriptor.AsSpan().SequenceEqual(HistoryRepositoryDescriptor.Create(_history.ConfigId).ToCanonicalBytes()))
+                return Result(HistoryMetadataSyncStatus.IntegrityConflict, 0, 0, "Remote history identity differs.");
+            var pull = await PullRemoteOnlyAsync(cancellationToken).ConfigureAwait(false);
+            downloaded += pull.Downloaded;
+            if (pull.Status == HistoryMetadataSyncStatus.RemoteRepositoryIncomplete)
+            {
+                pull = await PullRemoteOnlyAsync(cancellationToken).ConfigureAwait(false);
+                downloaded += pull.Downloaded;
+            }
+            if (pull.Status != HistoryMetadataSyncStatus.Succeeded) return Result(pull.Status, downloaded, 0, pull.Diagnostic);
+            await _history.EnsureIndexCurrentAsync(cancellationToken).ConfigureAwait(false);
+            var branches = await _history.Query.GetBranchesAsync(cancellationToken).ConfigureAwait(false);
+            _history.ChangeFeed.Publish(_history.ConfigId, HistoryChangeKind.CloudUnionChanged);
+            return new(HistoryMetadataSyncStatus.Succeeded, downloaded, 0,
+                branches.Branches.Where(b => b.IsMultiTip).Select(b => b.BranchId).ToImmutableArray(),
+                branches.BranchNameCollisions.Select(b => b.Name).ToImmutableArray(), string.Empty);
+        }
+        catch (HistoryPackCompatibilityException ex) { return Result(HistoryMetadataSyncStatus.CompatibilityBlocked, downloaded, 0, ex.Message); }
+        catch (HistoryIntegrityConflictException ex) { return Result(HistoryMetadataSyncStatus.IntegrityConflict, downloaded, 0, ex.Message); }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested) { throw; }
+        catch (Exception ex) { return Result(HistoryMetadataSyncStatus.Failed, downloaded, 0, ex.Message); }
+    }
+
     private async Task<PullResult> PullRemoteOnlyAsync(CancellationToken cancellationToken)
     {
         var local = (await _history.Repository.ReadAllPacksAsync(cancellationToken).ConfigureAwait(false))

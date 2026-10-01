@@ -26,6 +26,13 @@
                     BorderBrush="{ThemeResource SurfaceStrokeColorDefaultBrush}" 
                     BorderThickness="0,0,0,1" Spacing="0">
 
+            <Expander x:Uid="HomeProtection_Summary" HorizontalAlignment="Stretch" Margin="16,8"
+                      Visibility="{x:Bind ViewModel.HasCurrentConfig, Mode=OneWay, Converter={StaticResource BoolToVisConverter}}"
+                      AutomationProperties.AutomationId="FolderManagerProtectionSummary">
+                <ScrollViewer MaxHeight="240">
+                    <TextBlock Text="{x:Bind ViewModel.ProtectionSummary, Mode=OneWay}" TextWrapping="Wrap"/>
+                </ScrollViewer>
+            </Expander>
             <!-- 第一行：配置选择与全局操作 -->
             <Grid Padding="24,16,24,12">
                 <Grid.ColumnDefinitions>
@@ -46,6 +53,14 @@
                               DisplayMemberPath="Name"
                               SelectionChanged="ConfigSelector_SelectionChanged"/>
                     <!-- 配置设置按钮 -->
+                    <Button x:Uid="Onboarding_ProjectActions" AutomationProperties.AutomationId="ProjectOnboardingActions">
+                        <FontIcon Glyph="&#xE712;"/>
+                        <Button.Flyout><MenuFlyout>
+                            <MenuFlyoutItem x:Uid="CloudSetup_Menu" Click="OnCloudSetup" AutomationProperties.AutomationId="ProjectCloudSetup"/>
+                            <MenuFlyoutItem x:Uid="MinecraftCheck_Open" Click="OnMinecraftIntegration" AutomationProperties.AutomationId="ProjectMinecraftIntegration"/>
+                            <MenuFlyoutItem x:Uid="Timing_Open" Click="OnViewTimings" AutomationProperties.AutomationId="ProjectViewTimings"/>
+                        </MenuFlyout></Button.Flyout>
+                    </Button>
                     <Button Click="OnConfigSettingsClick" Style="{StaticResource TransparentIconButtonStyle}" Padding="6"
                             AutomationProperties.AutomationId="FolderManagerConfigSettings"
                             x:Uid="FolderManager_ConfigSettingsButton">

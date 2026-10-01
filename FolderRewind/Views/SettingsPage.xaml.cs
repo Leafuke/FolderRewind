@@ -1,5 +1,6 @@
 using CommunityToolkit.WinUI.Controls;
 using FolderRewind.ViewModels;
+using FolderRewind.Services;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Media;
@@ -16,6 +17,7 @@ namespace FolderRewind.Views
         private readonly HashSet<SettingsExpander> _expanderContentCreated = new();
         private readonly Dictionary<SettingsExpander, long> _expanderCallbackTokens = new();
         private bool _expanderLazyLoadInitialized;
+        private string? _pendingRepairTarget;
 
         public SettingsPage()
         {
@@ -40,6 +42,7 @@ namespace FolderRewind.Views
 
                 await _viewModel.InitializeAsync();
                 InitializeExpanderLazyLoading();
+                ApplyPendingRepairTarget();
             };
         }
 
@@ -117,6 +120,20 @@ namespace FolderRewind.Views
         {
             base.OnNavigatedTo(e);
             _viewModel.OnNavigatedTo();
+            _pendingRepairTarget = e.Parameter as string;
+            if (IsLoaded) DispatcherQueue.TryEnqueue(ApplyPendingRepairTarget);
+        }
+
+        private void ApplyPendingRepairTarget()
+        {
+            var target = _pendingRepairTarget; _pendingRepairTarget = null;
+            switch (target)
+            {
+                case NavigationService.SettingsOpenListTarget: RuntimeEnvControl.ShowOpenList(); break;
+                case NavigationService.SettingsPluginsTarget: PluginsKnotLinkControl.ShowRepairTarget(false); break;
+                case NavigationService.SettingsKnotLinkTarget: PluginsKnotLinkControl.ShowRepairTarget(true); break;
+                case NavigationService.SettingsMinecraftPresetTarget: PresetControl.StartBringIntoView(); break;
+            }
         }
     }
 }

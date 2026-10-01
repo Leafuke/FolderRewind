@@ -120,10 +120,12 @@ namespace FolderRewind.Services
                     startInfo.WorkingDirectory = command.WorkingDirectory;
                 }
 
+                if (command.Execution is { } connection) startInfo = connection.CreateStartInfo(ProcessArgumentTokenizer.Parse(command.Arguments));
                 using var process = new Process { StartInfo = startInfo, EnableRaisingEvents = true };
                 process.OutputDataReceived += (_, args) => AppendLogLine(args.Data, outputBuilder, task, false);
                 process.ErrorDataReceived += (_, args) => AppendLogLine(args.Data, errorBuilder, task, true);
 
+                command.Execution?.RequireUnchanged();
                 if (!process.Start())
                 {
                     return (false, -1, I18n.GetString("CloudSync_Error_StartFailed"));

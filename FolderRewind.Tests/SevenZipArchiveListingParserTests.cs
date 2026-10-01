@@ -23,6 +23,15 @@ public sealed class SevenZipArchiveListingParserTests
         """;
 
     [TestMethod]
+    [DataRow("../outside", "D", "")]
+    [DataRow("C:/outside", "D", "")]
+    [DataRow("valid", "A", "Symbolic Link = ../outside")]
+    [DataRow("valid", "A", "Hard Link = other")]
+    [DataRow("valid", "A", "Alternate Stream = +")]
+    public void ExtractionSafetyRejectsUnsafeDirectoriesLinksAndStreams(string path, string attributes, string extra)
+        => Assert.IsFalse(SevenZipArchiveListingParser.TryParse($"----------\nPath = {path}\nSize = 1\nAttributes = {attributes}\n{extra}\n", out _));
+
+    [TestMethod]
     public void ExactLogicalStateAcceptsFilesAndIgnoresDirectories()
     {
         Assert.IsTrue(SevenZipArchiveListingParser.TryParse(Listing, out var entries));

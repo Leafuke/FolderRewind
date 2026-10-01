@@ -265,6 +265,11 @@ public sealed class HistoryIndex : IDisposable
             [],
             cancellationToken);
 
+    public async Task<BackupRun?> GetLatestRunAsync(CancellationToken cancellationToken = default)
+        => (await ReadPayloadsAsync<BackupRun>(
+            "SELECT PayloadJson FROM Runs ORDER BY CompletedAtUtc DESC, RunId DESC LIMIT 1", [],
+            cancellationToken).ConfigureAwait(false)).FirstOrDefault();
+
     public async Task<BackupRun?> GetRunAsync(
         RunId runId,
         CancellationToken cancellationToken = default)

@@ -1,6 +1,7 @@
 using CommunityToolkit.Mvvm.Input;
 using FolderRewind.History.Application;
 using FolderRewind.History.Domain;
+using FolderRewind.History.Representation;
 using FolderRewind.Models;
 using FolderRewind.Services;
 using System;
@@ -42,6 +43,8 @@ public sealed partial class HistoryPageViewModel
         UploadVersionCommand = new AsyncRelayCommand<NativeHistoryVersionViewItem>(UploadVersionCommandAsync, CanExecuteItemOperation);
         DownloadVersionCommand = new AsyncRelayCommand<NativeHistoryVersionViewItem>(DownloadVersionCommandAsync, CanExecuteItemOperation);
         RestoreVersionCommand = new AsyncRelayCommand<NativeHistoryVersionViewItem>(RestoreVersionCommandAsync, CanExecuteItemOperation);
+        ExportVersionCommand = new AsyncRelayCommand<NativeHistoryVersionViewItem>((item, token) => item is null ? Task.CompletedTask
+            : ExecuteOperationAsync("version export", ct => ExportVersionCoreAsync(item, ct), token), CanExecuteItemOperation);
         DeleteVersionCommand = new AsyncRelayCommand<NativeHistoryVersionViewItem>(DeleteVersionCommandAsync, CanExecuteItemOperation);
 
         EditRunCommentCommand = new AsyncRelayCommand<BackupRunViewItem>(EditRunCommentCommandAsync, CanExecuteItemOperation);
@@ -77,6 +80,7 @@ public sealed partial class HistoryPageViewModel
     public IAsyncRelayCommand<NativeHistoryVersionViewItem> UploadVersionCommand { get; }
     public IAsyncRelayCommand<NativeHistoryVersionViewItem> DownloadVersionCommand { get; }
     public IAsyncRelayCommand<NativeHistoryVersionViewItem> RestoreVersionCommand { get; }
+    public IAsyncRelayCommand<NativeHistoryVersionViewItem> ExportVersionCommand { get; }
     public IAsyncRelayCommand<NativeHistoryVersionViewItem> DeleteVersionCommand { get; }
     public IAsyncRelayCommand<BackupRunViewItem> EditRunCommentCommand { get; }
     public IAsyncRelayCommand<BackupRunViewItem> ToggleRunImportantCommand { get; }
@@ -520,6 +524,38 @@ public sealed partial class HistoryPageViewModel
             ? Task.CompletedTask
             : ExecuteOperationAsync("version restore", token => RestoreVersionCoreAsync(item, token), cancellationToken);
 
+    private async Task ExportVersionCoreAsync(NativeHistoryVersionViewItem item, CancellationToken token)
+    {
+        var config = _currentConfig;
+        var folder = _currentFolder;
+        if (config is null || folder is null || !await VerifyPasswordIfRequiredAsync(config, token)) return;
+        var assessment = await NativeHistoryApplicationService.PreviewExportAsync(config, item.VersionId, token);
+        if (assessment.Readiness == HistoryReadiness.PreparationRequired)
+        {
+            var preparation = await CloudSyncService.PreviewVersionForExportPreparationAsync(config, folder, item.VersionId, token);
+            var text = CloudSetupViewModel.DescribeRecovery(preparation);
+            if (!preparation.CanPrepare) { _interactions.Notify(HistoryNotificationKind.Warning, text); return; }
+            if (!await _interactions.ConfirmAsync(I18n.GetString("Export_Title"), text, I18n.GetString("Common_Confirm"), cancellationToken: token)) return;
+            await CloudSyncService.PrepareVersionForExportAsync(config, folder, item.VersionId, token, preparation.Assessment.Selected!.RepresentationId);
+            assessment = await NativeHistoryApplicationService.PreviewExportAsync(config, item.VersionId, token);
+        }
+        if (assessment.Readiness != HistoryReadiness.Ready || assessment.Selected is null)
+        {
+            _interactions.Notify(HistoryNotificationKind.Warning, I18n.Format("Export_NotReady", assessment.Readiness));
+            return;
+        }
+        var parent = await _interactions.PickFolderAsync(token);
+        if (string.IsNullOrWhiteSpace(parent)) return;
+        var destination = System.IO.Path.Combine(parent, "FolderRewind-restored-" + Guid.NewGuid().ToString("N"));
+        var summary = I18n.Format("Export_Preview", folder.DisplayName, item.VersionId, item.TimeDisplay,
+            destination, string.Join("; ", assessment.Selected.Diagnostics));
+        if (assessment.Selected.Fidelity == MaterializationFidelity.Partial) summary += "\n\n" + I18n.GetString("Export_PartialNotice");
+        if (!await _interactions.ConfirmAsync(I18n.GetString("Export_Title"), summary, I18n.GetString("Common_Confirm"), cancellationToken: token)) return;
+        token.ThrowIfCancellationRequested();
+        await NativeHistoryApplicationService.ExportVersionAsync(config, folder, item.VersionId, destination, token);
+        _interactions.Notify(HistoryNotificationKind.Success, I18n.Format("Export_Completed", destination));
+    }
+
     private async Task RestoreVersionCoreAsync(
         NativeHistoryVersionViewItem item,
         CancellationToken cancellationToken)
@@ -532,10 +568,21 @@ public sealed partial class HistoryPageViewModel
             return;
         }
 
+        var preview = await NativeHistoryApplicationService.PreviewVersionRestoreAsync(config, folder, item.VersionId, cancellationToken);
+        if (preview.Assessment.Readiness != HistoryReadiness.Ready || preview.Assessment.Selected is null)
+        {
+            _interactions.Notify(HistoryNotificationKind.Warning, I18n.Format("Export_NotReady", preview.Assessment.Readiness));
+            return;
+        }
+        var consequences = I18n.Format("Restore_VersionPreview", config.Name, folder.DisplayName, folder.Id, folder.Path,
+            item.VersionId, item.TimeDisplay, preview.Version.SourceDescriptorSnapshot.PathHint,
+            preview.Version.EffectiveSourceBoundary is { } boundary ? FormatBoundary(boundary) : I18n.GetString("Restore_BoundaryUnknown"),
+            preview.Assessment.Selected.Fidelity, string.Join("; ", preview.Assessment.Selected.Diagnostics),
+            I18n.GetString(config.Archive.BackupBeforeRestore ? "Restore_SafetyEnabled" : "Restore_SafetyDisabled"));
         var mode = await ChooseRestoreModeAsync(
             item.IsPartialBackup,
             isRun: false,
-            I18n.Format("History_RestoreConfirm_Content", item.TimeDisplay, item.Comment),
+            consequences,
             cancellationToken);
         if (mode is null)
         {
@@ -546,7 +593,9 @@ public sealed partial class HistoryPageViewModel
             config,
             folder,
             item.VersionId,
-            mode.Value);
+            mode.Value,
+            cancellationToken,
+            expectedConfigSignature: preview.ConfigSignature);
         _interactions.NotifyRestoreCompleted(
             folder.DisplayName,
             result?.Succeeded == true,
@@ -612,7 +661,7 @@ public sealed partial class HistoryPageViewModel
                     : I18n.GetString(isRun
                         ? "History_Run_RestoreTitle"
                         : "History_RestoreConfirm_Title"),
-                partial ? I18n.GetString("History_PartialRestore_Content") : message,
+                partial ? message + "\n\n" + I18n.GetString("History_PartialRestore_Content") : message,
                 [],
                 partial
                     ? I18n.GetString("History_PartialRestore_Primary")
@@ -959,6 +1008,7 @@ public sealed partial class HistoryPageViewModel
         UploadVersionCommand.NotifyCanExecuteChanged();
         DownloadVersionCommand.NotifyCanExecuteChanged();
         RestoreVersionCommand.NotifyCanExecuteChanged();
+        ExportVersionCommand.NotifyCanExecuteChanged();
         DeleteVersionCommand.NotifyCanExecuteChanged();
         EditRunCommentCommand.NotifyCanExecuteChanged();
         ToggleRunImportantCommand.NotifyCanExecuteChanged();
@@ -992,6 +1042,7 @@ public sealed partial class HistoryPageViewModel
         UploadVersionCommand.Cancel();
         DownloadVersionCommand.Cancel();
         RestoreVersionCommand.Cancel();
+        ExportVersionCommand.Cancel();
         DeleteVersionCommand.Cancel();
         EditRunCommentCommand.Cancel();
         ToggleRunImportantCommand.Cancel();

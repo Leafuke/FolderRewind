@@ -65,11 +65,11 @@ internal sealed class FolderManagerInteractionService(Func<XamlRoot?> root) : IF
         await AppDialogService.Default.ShowCustomAsync(dialog, root(), token);
         await loading;
     }
-    public async Task ShowConfigSettingsAsync(BackupConfig config, CancellationToken token)
+    public Task ShowConfigSettingsAsync(BackupConfig config, CancellationToken token)
     {
-        var dialog = ConfigSettingsDialog.Instance;
-        dialog.Rebind(config);
-        await AppDialogService.Default.ShowCustomAsync(dialog, root(), token);
+        token.ThrowIfCancellationRequested();
+        NavigationService.NavigateTo("ConfigSettings", new ConfigSettingsNavigationParameter(config.Id));
+        return Task.CompletedTask;
     }
     public void Notify(string message, bool error = false)
     {

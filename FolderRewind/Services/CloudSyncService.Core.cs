@@ -47,6 +47,7 @@ namespace FolderRewind.Services
 
         private sealed class ResolvedCommand
         {
+            public RcloneExecutionContext? Execution { get; init; } = RcloneExecutionScope.Current;
             public required string ExecutablePath { get; init; }
             public required string Arguments { get; init; }
             public required string WorkingDirectory { get; init; }

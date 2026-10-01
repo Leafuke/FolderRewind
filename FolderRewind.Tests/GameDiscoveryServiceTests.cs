@@ -129,6 +129,50 @@ public sealed class GameDiscoveryServiceTests
     }
 
     private static DiscoveryProviderResult CreateResult(string providerId)
+        => CreateSingleResult(providerId);
+
+    [TestMethod]
+    public async Task TimeoutRetainsCompletedResultsWithoutWaitingForUncooperativeProvider()
+    {
+        var slow = new PendingProvider();
+        var service = new GameDiscoveryService([new FakeProvider("fast", 1, CreateResult("fast")), slow]);
+        var result = await service.DiscoverAsync(new(), null, CancellationToken.None, TimeSpan.FromMilliseconds(50));
+        Assert.HasCount(1, result.Candidates);
+        Assert.IsTrue(result.Diagnostics.Any(item => item.Code == "discovery-time-budget"));
+        slow.Completion.SetException(new IOException("late failure"));
+    }
+
+    [TestMethod]
+    public async Task CandidateBudgetReportsTruncation()
+    {
+        var service = new GameDiscoveryService([
+            new FakeProvider("first", 1, CreateResult("first")),
+            new FakeProvider("second", 1, CreateResult("second"))]);
+        var result = await service.DiscoverAsync(new(), null, CancellationToken.None, maxCandidates: 1);
+        Assert.HasCount(1, result.Candidates);
+        Assert.IsTrue(result.Diagnostics.Any(item => item.Code == "discovery-result-budget"));
+    }
+
+    [TestMethod]
+    public async Task UserCancellationDoesNotBecomeSuccessfulPartialScan()
+    {
+        var slow = new PendingProvider();
+        var service = new GameDiscoveryService([slow]);
+        using var cancellation = new CancellationTokenSource();
+        var request = service.DiscoverAsync(new(), null, cancellation.Token, TimeSpan.FromSeconds(5));
+        cancellation.Cancel();
+        await Assert.ThrowsAsync<OperationCanceledException>(async () => await request);
+        slow.Completion.SetResult(new DiscoveryProviderResult { ProviderId = "slow" });
+    }
+
+    private sealed class PendingProvider : IGameDiscoveryProvider
+    {
+        public TaskCompletionSource<DiscoveryProviderResult> Completion { get; } = new(TaskCreationOptions.RunContinuationsAsynchronously);
+        public DiscoveryProviderDescriptor Descriptor { get; } = new() { Id = "slow", DisplayName = "Slow" };
+        public Task<DiscoveryProviderResult> DiscoverAsync(DiscoveryRequest request, IProgress<DiscoveryProgress>? progress, CancellationToken token) => Completion.Task;
+    }
+
+    private static DiscoveryProviderResult CreateSingleResult(string providerId)
     {
         return new DiscoveryProviderResult
         {

@@ -30,9 +30,15 @@ public sealed class GameDiscoveryService
     public async Task<GameDiscoveryResult> DiscoverAsync(
         DiscoveryRequest request,
         IProgress<DiscoveryProgress>? progress,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken,
+        TimeSpan? timeout = null,
+        int? maxCandidates = null)
     {
         ArgumentNullException.ThrowIfNull(request);
+        if (timeout is { } duration && duration <= TimeSpan.Zero) throw new ArgumentOutOfRangeException(nameof(timeout));
+        if (maxCandidates is <= 0) throw new ArgumentOutOfRangeException(nameof(maxCandidates));
+        using var budget = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+        if (timeout is { } limit) budget.CancelAfter(limit);
 
         var providers = _providers.AsEnumerable();
         if (request.Mode == DiscoveryRequestMode.PresetTargeted)
@@ -42,12 +48,31 @@ public sealed class GameDiscoveryService
             providers = providers.Where(provider => requestedProviderIds.Contains(provider.Descriptor.Id));
         }
         var tasks = providers.Select(provider =>
-            RunProviderAsync(provider, request, progress, cancellationToken));
-        var results = await Task.WhenAll(tasks).ConfigureAwait(false);
+            RunProviderAsync(provider, request, progress, budget.Token)).ToArray();
+        var all = Task.WhenAll(tasks);
+        DiscoveryProviderResult[] results;
+        var timedOut = false;
+        try { results = await all.WaitAsync(budget.Token).ConfigureAwait(false); }
+        catch (OperationCanceledException) when (!cancellationToken.IsCancellationRequested && budget.IsCancellationRequested)
+        {
+            timedOut = true;
+            results = tasks.Where(task => task.IsCompletedSuccessfully).Select(task => task.Result).ToArray();
+        }
+        finally
+        {
+            // Providers may ignore cancellation. Observe late failures without waiting for them.
+            _ = all.ContinueWith(task => { _ = task.Exception; }, CancellationToken.None,
+                TaskContinuationOptions.OnlyOnFaulted | TaskContinuationOptions.ExecuteSynchronously, TaskScheduler.Default);
+        }
         cancellationToken.ThrowIfCancellationRequested();
 
         var diagnostics = RelevantCompositionDiagnostics(request).ToList();
         diagnostics.AddRange(results.SelectMany(result => result.Diagnostics));
+        if (timedOut) diagnostics.Add(new DiscoveryDiagnostic
+        {
+            Severity = DiscoveryDiagnosticSeverity.Warning, Code = "discovery-time-budget",
+            Message = "Discovery reached its time limit. Completed provider results are retained; choose a narrower root to continue."
+        });
         if (request.Mode == DiscoveryRequestMode.PresetTargeted)
         {
             var availableProviders = _providers.Select(provider => provider.Descriptor.Id)
@@ -71,9 +96,19 @@ public sealed class GameDiscoveryService
             }
         }
 
+        var candidates = DiscoveryCandidateMerger.Merge(results);
+        if (maxCandidates is { } maximum && candidates.Count > maximum)
+        {
+            diagnostics.Add(new DiscoveryDiagnostic
+            {
+                Severity = DiscoveryDiagnosticSeverity.Warning, Code = "discovery-result-budget",
+                Message = "Discovery reached its result limit. Choose a narrower root to find additional content."
+            });
+            candidates = candidates.Take(maximum).ToList();
+        }
         return new GameDiscoveryResult
         {
-            Candidates = DiscoveryCandidateMerger.Merge(results),
+            Candidates = candidates,
             Diagnostics = diagnostics
         };
     }

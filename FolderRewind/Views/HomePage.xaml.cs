@@ -1,4 +1,4 @@
-using FolderRewind.Models;
+﻿using FolderRewind.Models;
 using FolderRewind.Services;
 using FolderRewind.ViewModels;
 using Microsoft.UI.Xaml;
@@ -116,6 +116,24 @@ public sealed partial class HomePage : Page
 
     private static void NavigateToConfig(BackupConfig config)
         => _ = NavigationService.NavigateTo("Manager", ManagerNavigationParameter.ForConfig(config.Id));
+
+    private void OnSourceIssueClick(object sender, ItemClickEventArgs e)
+    {
+        if (e.ClickedItem is not ProjectSourceAttention issue) return;
+        var config = ViewModel.Configs?.FirstOrDefault(c => c.Id == issue.ConfigId);
+        var source = config?.SourceFolders.FirstOrDefault(s => Guid.TryParse(s.Id, out var id) && Guid.TryParse(issue.SourceId, out var expected) && id == expected);
+        if (source is not null) NavigationService.NavigateTo("Manager", ManagerNavigationParameter.ForFolder(config!.Id, source.Path));
+        else if (config is not null) NavigateToConfig(config);
+    }
+    private void OnSourceIssueContainerContentChanging(ListViewBase sender, ContainerContentChangingEventArgs args)
+    {
+        if (args.InRecycleQueue) { ClearContainerAutomationMetadata(args); return; }
+        if (args.Item is ProjectSourceAttention item)
+        {
+            AutomationProperties.SetName(args.ItemContainer, item.Label);
+            AutomationProperties.SetAutomationId(args.ItemContainer, $"HomeSourceIssue_{item.ConfigId}_{item.SourceId}");
+        }
+    }
 
     private async void OnSortModeChanged(object sender, SelectionChangedEventArgs e)
     {
@@ -391,104 +409,32 @@ public sealed partial class HomePage : Page
 
     private void OnAutoDiscoverGamesClick(object sender, RoutedEventArgs e)
         => ViewModel.AutoDiscoverGamesCommand.Execute(null);
+    private void OnStartSetup(object sender, RoutedEventArgs e) => NavigationService.NavigateTo("BackupSetup");
+    private void OnOpenHistory(object sender, RoutedEventArgs e) => NavigationService.NavigateTo("History");
+    private void OnOpenCloudRecovery(object sender, RoutedEventArgs e) => NavigationService.NavigateTo("CloudSetup");
 
-    private async void OnAddConfigClick(SplitButton sender, SplitButtonClickEventArgs args)
-        => await ViewModel.RunFormInteractionAsync(ShowNewConfigFormAsync);
+    private void OnAddConfigClick(SplitButton sender, SplitButtonClickEventArgs args)
+        => NavigationService.NavigateTo("BackupSetup");
 
-    private async Task ShowNewConfigFormAsync(CancellationToken cancellationToken)
+    private async void OnPluginBatchCreateClick(object sender, RoutedEventArgs e)
+        => await ViewModel.RunFormInteractionAsync(ShowPluginBatchFormAsync);
+
+    private async Task ShowPluginBatchFormAsync(CancellationToken cancellationToken)
     {
         var resources = ResourceLoader.GetForViewIndependentUse();
-        var configKinds = ViewModel.GetConfigKinds();
-        if (configKinds.Count == 0)
+        var kinds = ViewModel.GetConfigKinds().Where(k => ViewModel.GetPluginBatchAvailability(k.RequiredPluginId).IsAvailable).ToArray();
+        if (kinds.Length == 0)
         {
+            await AppDialogService.Default.ShowMessageAsync(I18n.GetString("Home_PluginBatch.Text"), I18n.GetString("Setup_PluginUnavailable"), XamlRoot, cancellationToken: cancellationToken);
             return;
         }
-
-        var nameBox = new TextBox
-        {
-            Header = resources.GetString("HomePage_ConfigNameHeader"),
-            PlaceholderText = resources.GetString("HomePage_ConfigNamePlaceholder")
-        };
-        AutomationProperties.SetAutomationId(nameBox, "HomeNewConfigName");
-        var typeCombo = CreateConfigKindCombo(configKinds, "NewConfigKindPicker", resources);
-        typeCombo.SelectedIndex = 0;
-        var typeDescription = new TextBlock
-        {
-            Text = resources.GetString("HomePage_ConfigKindDesc"),
-            Style = (Style)Application.Current.Resources["CaptionTextBlockStyle"],
-            TextWrapping = TextWrapping.Wrap
-        };
-        var iconGrid = CreateIconPicker();
-        var batchToggle = new ToggleSwitch
-        {
-            Header = resources.GetString("HomePage_PluginBatchCreateHeader"),
-            OffContent = resources.GetString("HomePage_PluginBatchCreateOff"),
-            OnContent = resources.GetString("HomePage_PluginBatchCreateOn")
-        };
-        AutomationProperties.SetAutomationId(batchToggle, "PluginBatchCreateToggle");
-        var batchStatus = new TextBlock
-        {
-            Style = (Style)Application.Current.Resources["CaptionTextBlockStyle"],
-            TextWrapping = TextWrapping.Wrap
-        };
-
-        var panel = new StackPanel { Spacing = 16 };
-        panel.Children.Add(nameBox);
-        panel.Children.Add(typeCombo);
-        panel.Children.Add(typeDescription);
-        panel.Children.Add(batchToggle);
-        panel.Children.Add(batchStatus);
-        panel.Children.Add(new TextBlock
-        {
-            Text = resources.GetString("HomePage_SelectIcon"),
-            Style = (Style)Application.Current.Resources["BaseTextBlockStyle"],
-            Margin = new Thickness(0, 8, 0, 0)
-        });
-        panel.Children.Add(iconGrid);
-
-        var dialog = new ContentDialog
-        {
-            Title = resources.GetString("HomePage_NewConfigDialogTitle"),
-            Content = panel,
-            PrimaryButtonText = resources.GetString("HomePage_CreateButton"),
-            CloseButtonText = resources.GetString("Common_Cancel"),
-            DefaultButton = ContentDialogButton.Primary
-        };
-
-        void RefreshDialogState()
-        {
-            var kind = typeCombo.SelectedItem as PluginConfigKindOption;
-            typeDescription.Text = kind?.Description ?? resources.GetString("HomePage_ConfigKindDesc");
-            var availability = ViewModel.GetPluginBatchAvailability(kind?.RequiredPluginId);
-            batchToggle.IsEnabled = availability.IsAvailable;
-            if (!availability.IsAvailable)
-            {
-                batchToggle.IsOn = false;
-            }
-            batchStatus.Text = availability.Message;
-            var isBatch = batchToggle.IsOn && availability.IsAvailable;
-            nameBox.IsEnabled = !isBatch;
-            iconGrid.IsEnabled = !isBatch;
-            dialog.PrimaryButtonText = resources.GetString(
-                isBatch ? "HomePage_PluginBatchCreateContinue" : "HomePage_CreateButton");
-        }
-        typeCombo.SelectionChanged += (_, _) => RefreshDialogState();
-        batchToggle.Toggled += (_, _) => RefreshDialogState();
-        RefreshDialogState();
-
-        if (await AppDialogService.Default.ShowCustomAsync(dialog, XamlRoot, cancellationToken)
-            != ContentDialogResult.Primary
-            || typeCombo.SelectedItem is not PluginConfigKindOption selectedKind)
-        {
-            return;
-        }
-
-        cancellationToken.ThrowIfCancellationRequested();
-        await ViewModel.CreateConfigCommand.ExecuteAsync(new HomePageViewModel.CreateConfigRequest(
-            nameBox.Text,
-            iconGrid.SelectedItem as string ?? IconCatalog.DefaultConfigIconGlyph,
-            selectedKind,
-            batchToggle.IsOn));
+        var picker = CreateConfigKindCombo(kinds, "HomePluginBatchKind", resources);
+        var dialog = new ContentDialog { Title = I18n.GetString("Home_PluginBatch.Text"), Content = picker,
+            PrimaryButtonText = I18n.GetString("Common_Confirm"), CloseButtonText = I18n.GetString("Common_Cancel"), IsPrimaryButtonEnabled = false };
+        picker.SelectionChanged += (_, _) => dialog.IsPrimaryButtonEnabled = picker.SelectedItem is PluginConfigKindOption;
+        if (await AppDialogService.Default.ShowCustomAsync(dialog, XamlRoot, cancellationToken) != ContentDialogResult.Primary
+            || picker.SelectedItem is not PluginConfigKindOption selected) return;
+        await ViewModel.CreateConfigCommand.ExecuteAsync(new HomePageViewModel.CreateConfigRequest("", IconCatalog.DefaultConfigIconGlyph, selected, true));
     }
 
     private static ComboBox CreateConfigKindCombo(
@@ -508,21 +454,4 @@ public sealed partial class HomePage : Page
         return combo;
     }
 
-    private GridView CreateIconPicker()
-    {
-        var picker = new GridView
-        {
-            SelectionMode = ListViewSelectionMode.Single,
-            Height = 180
-        };
-        foreach (var glyph in IconCatalog.ConfigIconGlyphs)
-        {
-            picker.Items.Add(glyph);
-        }
-        picker.SelectedIndex = 0;
-        picker.ItemTemplate = (DataTemplate)Resources["ConfigIconTemplate"];
-        AutomationProperties.SetAutomationId(picker, "NewConfigIconPicker");
-        AutomationProperties.SetName(picker, ResourceLoader.GetForViewIndependentUse().GetString("HomePage_SelectIcon"));
-        return picker;
-    }
 }

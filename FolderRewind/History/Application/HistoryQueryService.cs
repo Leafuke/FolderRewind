@@ -75,6 +75,9 @@ public sealed class HistoryQueryService
         CancellationToken cancellationToken = default)
         => _index.GetRunsAsync(cancellationToken);
 
+    public Task<BackupRun?> GetLatestRunAsync(CancellationToken cancellationToken = default)
+        => _index.GetLatestRunAsync(cancellationToken);
+
     public Task<BackupRun?> GetRunAsync(
         RunId runId,
         CancellationToken cancellationToken = default)

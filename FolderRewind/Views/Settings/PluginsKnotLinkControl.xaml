@@ -130,7 +130,7 @@
         </toolkit:SettingsExpander>
 
         <!-- KnotLink 互联 -->
-        <toolkit:SettingsExpander AutomationProperties.AutomationId="SettingsKnotLinkExpander" IsExpanded="False">
+        <toolkit:SettingsExpander x:Name="KnotLinkExpander" AutomationProperties.AutomationId="SettingsKnotLinkExpander" IsExpanded="False">
             <toolkit:SettingsExpander.Header>
                 <TextBlock x:Uid="SettingsPage_KnotLink" AutomationProperties.AutomationId="SettingsKnotLinkHeader" Style="{StaticResource SettingsHeaderTextStyle}" />
             </toolkit:SettingsExpander.Header>

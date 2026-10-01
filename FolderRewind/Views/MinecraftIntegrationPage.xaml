@@ -1,0 +1,28 @@
+<Page x:Class="FolderRewind.Views.MinecraftIntegrationPage" xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml" xmlns:vm="using:FolderRewind.ViewModels">
+ <ScrollViewer Padding="24">
+  <StackPanel Spacing="16">
+   <TextBlock x:Uid="MinecraftCheck_Title" Style="{StaticResource TitleTextBlockStyle}"/>
+   <TextBlock x:Name="SourceContext" TextWrapping="Wrap"/>
+   <ComboBox x:Name="WorldPicker" x:Uid="MinecraftCheck_WorldPicker" SelectionChanged="OnWorldChanged" HorizontalAlignment="Stretch" AutomationProperties.AutomationId="MinecraftWorldPicker"/>
+   <TextBlock x:Uid="MinecraftCheck_Help" TextWrapping="Wrap"/>
+   <Button x:Uid="MinecraftCheck_Check" Click="OnCheck" AutomationProperties.AutomationId="MinecraftIntegrationCheck"/>
+   <TextBlock x:Name="CheckResults" TextWrapping="Wrap" IsTextSelectionEnabled="True" AutomationProperties.LiveSetting="Polite"/>
+   <ListView ItemsSource="{x:Bind Diagnostics, Mode=OneWay}" MaxHeight="440" SelectionMode="None" AutomationProperties.AutomationId="MinecraftDiagnostics">
+    <ListView.ItemTemplate>
+     <DataTemplate x:DataType="vm:OnboardingDiagnosticItem">
+      <StackPanel Spacing="8" Padding="8">
+       <TextBlock Text="{x:Bind Display, Mode=OneTime}" TextWrapping="Wrap" IsTextSelectionEnabled="True"/>
+       <Button Content="{x:Bind RepairLabel, Mode=OneTime}" IsEnabled="{x:Bind CanRepair, Mode=OneTime}" Tag="{x:Bind Mode=OneTime}" Click="OnRepair" AutomationProperties.AutomationId="{x:Bind AutomationId, Mode=OneTime}"/>
+      </StackPanel>
+     </DataTemplate>
+    </ListView.ItemTemplate>
+   </ListView>
+   <Button x:Uid="Diagnostics_Export" Click="OnExportDiagnostics" AutomationProperties.AutomationId="MinecraftDiagnosticsExport"/>
+   <Button x:Uid="MinecraftCheck_Settings" Click="OnSettings" AutomationProperties.AutomationId="MinecraftIntegrationSettings"/>
+   <HyperlinkButton x:Uid="MinecraftCheck_ModDownload" NavigateUri="https://github.com/Leafuke/MineBackup-Mod" AutomationProperties.AutomationId="MinecraftModDownload"/>
+   <TextBlock x:Uid="MinecraftCheck_ManualHelp" TextWrapping="Wrap"/>
+   <Button x:Uid="MinecraftCheck_ModsDirectory" Click="OnModsDirectory" AutomationProperties.AutomationId="MinecraftModsDirectory"/>
+   <Button x:Uid="MinecraftCheck_InstallAndRecheck" Click="OnCheck" AutomationProperties.AutomationId="MinecraftInstallRecheck"/>
+  </StackPanel>
+ </ScrollViewer>
+</Page>

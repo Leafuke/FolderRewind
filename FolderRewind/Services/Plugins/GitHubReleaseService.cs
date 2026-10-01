@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Net.Http;
 using System.Net.Http.Headers;
 using System.Text.Json;
@@ -44,6 +45,7 @@ namespace FolderRewind.Services.Plugins
                     var root = doc.RootElement;
                     var result = new GitHubLatestReleaseResult
                     {
+                        OfficialMetadata = Uri.TryCreate(candidate.Url, UriKind.Absolute, out var metadataUri) && metadataUri.Host == "api.github.com",
                         ReleaseName = root.TryGetProperty("name", out var releaseNameEl) ? releaseNameEl.GetString() : null,
                         TagName = root.TryGetProperty("tag_name", out var tagEl) ? tagEl.GetString() : null,
                         Body = root.TryGetProperty("body", out var bodyEl) ? bodyEl.GetString() : null,
@@ -81,6 +83,7 @@ namespace FolderRewind.Services.Plugins
                             Name = name!,
                             DownloadUrl = dl!,
                             SizeBytes = size,
+                            Digest = asset.TryGetProperty("digest", out var digest) ? digest.GetString() ?? string.Empty : string.Empty,
                             DownloadCount = downloadCount,
                             UpdatedAt = updatedAt
                         });
@@ -112,6 +115,7 @@ namespace FolderRewind.Services.Plugins
 
         public sealed class GitHubLatestReleaseResult
         {
+            public bool OfficialMetadata { get; set; }
             public string? ReleaseName { get; set; }
             public string? TagName { get; set; }
             public string? Body { get; set; }
@@ -125,6 +129,7 @@ namespace FolderRewind.Services.Plugins
 
         public sealed class GitHubReleaseAsset
         {
+            public string Digest { get; set; } = string.Empty;
             public string Name { get; set; } = string.Empty;
             public string DownloadUrl { get; set; } = string.Empty;
             public long SizeBytes { get; set; }
@@ -132,7 +137,7 @@ namespace FolderRewind.Services.Plugins
             public DateTimeOffset? UpdatedAt { get; set; }
         }
 
-        public static async Task<byte[]> DownloadAssetAsync(string url, CancellationToken ct)
+        public static async Task<byte[]> DownloadAssetAsync(string url, CancellationToken ct, long maximumBytes = long.MaxValue)
         {
             Exception? lastError = null;
 
@@ -143,7 +148,16 @@ namespace FolderRewind.Services.Plugins
                     using var req = new HttpRequestMessage(HttpMethod.Get, candidate.Url);
                     using var resp = await Http.SendAsync(req, HttpCompletionOption.ResponseHeadersRead, ct);
                     resp.EnsureSuccessStatusCode();
-                    return await resp.Content.ReadAsByteArrayAsync(ct);
+                    if (resp.Content.Headers.ContentLength > maximumBytes) throw new IOException("Download exceeds its size bound.");
+                    await using var input = await resp.Content.ReadAsStreamAsync(ct);
+                    using var output = new MemoryStream();
+                    var buffer = new byte[65536]; int count;
+                    while ((count = await input.ReadAsync(buffer, ct)) != 0)
+                    {
+                        if (output.Length + count > maximumBytes) throw new IOException("Download exceeds its size bound.");
+                        output.Write(buffer, 0, count);
+                    }
+                    return output.ToArray();
                 }
                 catch (OperationCanceledException)
                 {

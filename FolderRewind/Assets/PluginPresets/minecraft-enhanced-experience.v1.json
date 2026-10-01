@@ -12,11 +12,13 @@
     },
     {
       "id": "enable-minerewind",
+      "dependsOn": ["install-minerewind"],
       "type": "enablePlugin",
       "pluginId": "com.folderrewind.minerewind"
     },
     {
       "id": "enable-knotlink-host",
+      "dependsOn": ["enable-minerewind"],
       "type": "setHostFeature",
       "feature": "knotLink",
       "enabled": true

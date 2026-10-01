@@ -240,7 +240,7 @@ public static class DiscoveryDraftService
                 Definitions = definitions
             },
             progress,
-            cancellationToken).ConfigureAwait(false);
+            cancellationToken, OnboardingOperationBudgets.Discovery, OnboardingOperationBudgets.DiscoveryCandidates).ConfigureAwait(false);
         if (result.Candidates.Count != 0
             || result.Diagnostics.Any(value => value.Severity == DiscoveryDiagnosticSeverity.Error))
         {
@@ -319,6 +319,7 @@ public static class DiscoveryDraftService
             .Select(draft => draft.ProposedConfig)
             .ToList();
         var validationError = ValidateCommit(selected, newConfigs);
+        if (string.IsNullOrWhiteSpace(validationError)) validationError = BackupSetupCoordinator.ValidateNewProjects(newConfigs);
         if (!string.IsNullOrWhiteSpace(validationError))
         {
             return new BackupConfigDraftCommitResult { ErrorMessage = validationError };
@@ -378,6 +379,14 @@ public static class DiscoveryDraftService
             AddedSourceCount = addedFolders.Count + addedConfigs.Sum(config => config.SourceFolders.Count),
             AddedConfigurationIds = addedConfigs.Select(config => config.Id).ToArray()
         };
+    }
+
+    public static BackupConfig PrepareNewSetupDraft(BackupConfigDraft draft)
+    {
+        if (draft.Reconciliation != BackupConfigDraftReconciliation.NewConfiguration || draft.Issues.Any(i => i.IsBlocking && i.Code != "encryption-password-required"))
+            throw new InvalidOperationException(I18n.GetString("Setup_DraftInvalid"));
+        CompleteProposedOriginReview(draft.ProposedConfig, draft.ProposedConfig.DiscoveryOrigin, Array.Empty<string>());
+        return draft.ProposedConfig;
     }
 
     private static IReadOnlyList<ManagedFolder> CreateManagedFolders(

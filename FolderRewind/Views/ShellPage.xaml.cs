@@ -131,6 +131,10 @@ namespace FolderRewind.Views
                 "Logs" => typeof(LogPage),
                 "Settings" => typeof(SettingsPage),
                 "GameDiscovery" => typeof(GameDiscoveryPage),
+                "BackupSetup" => typeof(BackupSetupPage),
+                "ConfigSettings" => typeof(ConfigSettingsPage),
+                "CloudSetup" => typeof(CloudSetupPage),
+                "MinecraftIntegration" => typeof(MinecraftIntegrationPage),
                 _ => null
             };
 
@@ -145,7 +149,11 @@ namespace FolderRewind.Views
                 }
 
                 // 1. 执行跳转
-                ContentFrame.Navigate(pageType, parameter, new SuppressNavigationTransitionInfo());
+                if (!ContentFrame.Navigate(pageType, parameter, new SuppressNavigationTransitionInfo()))
+                {
+                    UpdateNavSelection(GetPageTagFromType(ContentFrame.SourcePageType) ?? "");
+                    return;
+                }
 
                 // 2. 同步左侧导航栏的选中状态 (解决你提到的不同步问题)
                 UpdateNavSelection(pageTag);
@@ -167,7 +175,7 @@ namespace FolderRewind.Views
                 ? NavView.SettingsItem
                 : NavView.MenuItems.OfType<NavigationViewItem>().FirstOrDefault(i => i.Tag?.ToString() == pageTag);
 
-            if (targetItem == null || ReferenceEquals(NavView.SelectedItem, targetItem))
+            if (ReferenceEquals(NavView.SelectedItem, targetItem))
             {
                 return;
             }
@@ -275,6 +283,10 @@ namespace FolderRewind.Views
             if (sourcePageType == typeof(LogPage)) return "Logs";
             if (sourcePageType == typeof(SettingsPage)) return "Settings";
             if (sourcePageType == typeof(GameDiscoveryPage)) return "GameDiscovery";
+            if (sourcePageType == typeof(BackupSetupPage)) return "BackupSetup";
+            if (sourcePageType == typeof(ConfigSettingsPage)) return "ConfigSettings";
+            if (sourcePageType == typeof(CloudSetupPage)) return "CloudSetup";
+            if (sourcePageType == typeof(MinecraftIntegrationPage)) return "MinecraftIntegration";
             return null;
         }
     }

@@ -153,8 +153,8 @@ public sealed class SettingsOrchestrationTests
     public void SettingsCodeBehindDoesNotOwnPersistenceProcessOrPluginBusiness()
     {
         var root = FolderManagerMvvmArchitectureTests.FindRoot();
-        var files = new[] { "Views/ConfigSettingsDialog.xaml.cs", "Views/ConfigSettingsDialog.Actions.cs",
-            "Views/ConfigSettingsDialog.Filters.cs", "Views/Settings/PluginsKnotLinkControl.xaml.cs" };
+        var files = new[] { "Views/ConfigSettingsPage.xaml.cs", "Views/ConfigSettingsPage.Actions.cs",
+            "Views/ConfigSettingsPage.Filters.cs", "Views/ConfigSettingsPage.Lifecycle.cs", "Views/Settings/PluginsKnotLinkControl.xaml.cs" };
         foreach (var file in files)
         {
             var source = File.ReadAllText(Path.Combine(root, "FolderRewind", file));

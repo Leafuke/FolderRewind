@@ -73,6 +73,8 @@
                 <Border Height="1" Background="{ThemeResource DividerStrokeColorDefaultBrush}" Margin="0,2"/>
 
                 <!-- 第 2 行：分支上下文与操作组（严格单行，所有控件垂直居中对齐） -->
+                <Expander x:Uid="History_Advanced" IsExpanded="{x:Bind ViewModel.ShowAdvancedHistoryByDefault, Mode=OneWay}" HorizontalAlignment="Stretch" AutomationProperties.AutomationId="HistoryAdvanced">
+                <ScrollViewer HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Disabled">
                 <Grid>
                     <Grid.ColumnDefinitions>
                         <ColumnDefinition Width="*"/>
@@ -225,6 +227,8 @@
                         </DropDownButton>
                     </StackPanel>
                 </Grid>
+                </ScrollViewer>
+                </Expander>
             </StackPanel>
         </Border>
 
@@ -361,6 +365,10 @@
                                     <Button x:Uid="HistoryPage_RestoreButton" Click="OnRestoreClick"
                                             AutomationProperties.AutomationId="{x:Bind VersionId, Converter={StaticResource AutomationIdConverter}, ConverterParameter=HistoryVersionRestore}">
                                         <FontIcon Glyph="&#xE777;" FontSize="14"/>
+                                    </Button>
+                                    <Button x:Uid="Export_Button" Click="OnExportClick"
+                                            AutomationProperties.AutomationId="{x:Bind VersionId, Converter={StaticResource AutomationIdConverter}, ConverterParameter=HistoryExportVersion}">
+                                        <FontIcon Glyph="&#xE8B7;" FontSize="14"/>
                                     </Button>
                                     <Button x:Uid="HistoryPage_DeleteButton" Click="OnDeleteClick"
                                             AutomationProperties.AutomationId="{x:Bind VersionId, Converter={StaticResource AutomationIdConverter}, ConverterParameter=HistoryVersionDelete}">

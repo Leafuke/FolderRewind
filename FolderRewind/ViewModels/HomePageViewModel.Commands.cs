@@ -1,4 +1,4 @@
-using CommunityToolkit.Mvvm.Input;
+﻿using CommunityToolkit.Mvvm.Input;
 using FolderRewind.History.Application;
 using FolderRewind.Models;
 using FolderRewind.Services;
@@ -250,20 +250,12 @@ public sealed partial class HomePageViewModel
                     GameDiscoveryNavigationParameter.ForPluginBatch(
                         request.ConfigKind.RequiredPluginId,
                         request.ConfigKind.CreateReference(),
-                        root));
+                        root, returnDraftToSetup: true));
             }
             return;
         }
 
         if (string.IsNullOrWhiteSpace(request.Name))
-        {
-            return;
-        }
-
-        var password = request.ConfigKind.IsEncrypted
-            ? await _interactions.RequestEncryptionPasswordAsync(cancellationToken)
-            : null;
-        if (request.ConfigKind.IsEncrypted && password is null)
         {
             return;
         }
@@ -282,7 +274,7 @@ public sealed partial class HomePageViewModel
             }
         };
         PluginService.ApplyConfigKind(config, request.ConfigKind);
-        await AddConfigAsync(config, password, cancellationToken);
+        NavigationService.NavigateTo("BackupSetup", new BackupSetupNavigationParameter(config));
     }
 
     private Task CreateConfigFromTemplateCommandAsync(
@@ -303,7 +295,7 @@ public sealed partial class HomePageViewModel
         if (mode == BackupPresetApplicationMode.ProviderTargeted)
         {
             _interactions.NavigateToGameDiscovery(
-                GameDiscoveryNavigationParameter.ForPreset(request.Template.ShareId, request.ConfigName));
+                GameDiscoveryNavigationParameter.ForPreset(request.Template.ShareId, request.ConfigName, returnDraftToSetup: true));
             return;
         }
         if (mode == BackupPresetApplicationMode.Invalid)
@@ -345,89 +337,10 @@ public sealed partial class HomePageViewModel
             result.Config.SourceFolders.Add(folder);
         }
 
-        var password = result.Config.IsEncrypted
-            ? await _interactions.RequestEncryptionPasswordAsync(cancellationToken)
-            : null;
-        if (result.Config.IsEncrypted && password is null)
-        {
-            return;
-        }
-
         result.Config.SummaryText = ResourceLoader.GetForViewIndependentUse()
             .GetString("HomePage_NewConfigSummary");
-        await AddConfigAsync(result.Config, password, cancellationToken, navigate: false);
-        cancellationToken.ThrowIfCancellationRequested();
-
-        var message = BuildTemplateCreationMessage(result, result.Config.SourceFolders.Count);
-        if (!string.IsNullOrWhiteSpace(message))
-        {
-            await _interactions.ShowMessageAsync(string.Empty, message, cancellationToken);
-        }
-        cancellationToken.ThrowIfCancellationRequested();
-        _interactions.NavigateToManager(result.Config.Id);
+        NavigationService.NavigateTo("BackupSetup", new BackupSetupNavigationParameter(result.Config, request.Template.ShareId));
     }
-
-    private async Task AddConfigAsync(
-        BackupConfig config,
-        string? password,
-        CancellationToken cancellationToken,
-        bool navigate = true)
-    {
-        cancellationToken.ThrowIfCancellationRequested();
-        var configs = ConfigService.CurrentConfig.BackupConfigs;
-        // Store credentials before exposing an encrypted config; history initialization may be slow.
-        if (config.IsEncrypted && !string.IsNullOrEmpty(password))
-        {
-            EncryptionService.StorePassword(config.Id, password);
-            if (!EncryptionService.VerifyPassword(config.Id, password))
-                throw new InvalidOperationException(I18n.GetString("Common_Failed"));
-        }
-        try
-        {
-            await ConfigEditTransaction.ApplyAsync(
-                () => configs.Add(config),
-                () => configs.Remove(config),
-                () => ConfigService.SaveAsync(),
-                I18n.GetString("Common_Failed"));
-        }
-        catch (Exception ex)
-        {
-            // If compensation also failed, a background snapshot may still reference the
-            // encrypted config. Retain its credential rather than make that config unreadable.
-            if (config.IsEncrypted && ex is not ConfigEditRollbackException)
-                EncryptionService.RemovePassword(config.Id);
-            throw;
-        }
-        try
-        {
-            _ = await NativeHistoryCoreGateway.EnsureReadyAsync(config, cancellationToken);
-        }
-        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
-        {
-            return; // The config is durable; leaving the page only cancels the UI continuation.
-        }
-        catch (Exception ex)
-        {
-            var message = I18n.Format("History_NativeInitializationFailed", config.Name, ex.Message);
-            LogService.LogError(message, nameof(HomePageViewModel), ex);
-            _interactions.NotifyError(message);
-        }
-
-        if (navigate && !cancellationToken.IsCancellationRequested)
-        {
-            _interactions.NavigateToManager(config.Id);
-        }
-    }
-
-    private static string BuildTemplateCreationMessage(
-        BackupPresetService.CreateConfigFromTemplateResult result,
-        int selectedFolderCount)
-        => result.FolderCandidates.Count == 0
-            ? result.Message
-            : I18n.Format(
-                "Template_CreateFrom_Home_SelectionSummary",
-                selectedFolderCount.ToString(CultureInfo.CurrentCulture),
-                result.FolderCandidates.Count.ToString(CultureInfo.CurrentCulture));
 
     private bool CanExecuteItem<T>(T? item) where T : class
         => item is not null && !IsOperationBusy;

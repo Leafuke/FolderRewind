@@ -146,9 +146,9 @@ namespace FolderRewind.ViewModels
             I18n.GetString("ConfigSettingsDialog_PerformancePreset_Custom")
         ];
 
-        public int LightPerformanceThreadCount => Math.Max(1, _cpuThreadMax / 2);
+        public int LightPerformanceThreadCount => BackupPerformancePolicy.LightThreads(_cpuThreadMax);
 
-        public int VeryLightPerformanceThreadCount => Math.Min(2, Math.Max(1, _cpuThreadMax));
+        public int VeryLightPerformanceThreadCount => BackupPerformancePolicy.VeryLightThreads(_cpuThreadMax);
 
         public int PerformancePresetSelectedIndex
         {

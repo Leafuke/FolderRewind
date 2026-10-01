@@ -45,9 +45,13 @@ public sealed class HistoryReplicaSyncService
         {
             if (await _history.Query.GetRepresentationAsync(representationId, cancellationToken).ConfigureAwait(false) is null)
                 throw new InvalidOperationException("Representation does not exist.");
+            await using var source = new FileStream(localPath, FileMode.Open, FileAccess.Read, FileShare.Read, 65536, true);
+            var expectedSize = source.Length;
+            var expectedHash = Convert.ToHexString(await SHA256.HashDataAsync(source, cancellationToken).ConfigureAwait(false));
             await _transport.UploadAsync(replicaId, localPath, cancellationToken).ConfigureAwait(false);
             var verification = await _transport.VerifyRemoteAsync(replicaId, cancellationToken).ConfigureAwait(false);
-            if (!verification.Success) throw new InvalidDataException(verification.Diagnostic);
+            if (!verification.Success || verification.Size != expectedSize || !StringComparer.OrdinalIgnoreCase.Equals(verification.StorageSha256, expectedHash))
+                throw new InvalidDataException("Uploaded replica does not match the local payload: " + verification.Diagnostic);
             var objectKey = HistoryRepositoryPaths.CreateReplicaObjectKey(replicaId);
             var manifest = new HistoryReplicaManifest(
                 representationId, replicaId, artifactRootId, objectKey,

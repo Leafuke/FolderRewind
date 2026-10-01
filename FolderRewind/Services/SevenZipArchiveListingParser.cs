@@ -36,9 +36,11 @@ internal static class SevenZipArchiveListingParser
             }
 
             if (!isFolder.HasValue) return false;
+            // 目录项也会被解压，不能因为不参与文件集合比较就忽略越界路径。
+            if (!TryNormalizeRelativePath(path, out var normalized)) return false;
             if (isFolder == false)
             {
-                if (!size.HasValue || !TryNormalizeRelativePath(path, out var normalized)) return false;
+                if (!size.HasValue) return false;
                 if (!parsed.TryAdd(normalized, new ArchiveFileListingEntry(normalized, size.Value))) return false;
             }
 
@@ -76,6 +78,11 @@ internal static class SevenZipArchiveListingParser
             string value = line[(separator + 3)..];
             switch (key)
             {
+                case "Symbolic Link":
+                case "Hard Link":
+                    return false;
+                case "Alternate Stream" when value == "+":
+                    return false;
                 case "Path":
                     if (!Flush()) return false;
                     path = value;

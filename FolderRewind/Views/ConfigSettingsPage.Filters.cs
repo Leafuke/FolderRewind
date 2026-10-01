@@ -1,11 +1,11 @@
-using FolderRewind.Models;
+﻿using FolderRewind.Models;
 using FolderRewind.ViewModels;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 
 namespace FolderRewind.Views;
 
-public sealed partial class ConfigSettingsDialog
+public sealed partial class ConfigSettingsPage
 {
     private void OnAddBlacklistClick(object sender, RoutedEventArgs e)
     {

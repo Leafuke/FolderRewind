@@ -198,32 +198,31 @@ public sealed partial class FolderManagerPageViewModel
 
     private async Task AddSingleFolderCoreAsync(CancellationToken token)
     {
+        var config = CurrentConfig!;
+        var signature = NativeHistoryConfigLease.Signature(config);
         var path = await PickFolderAsync("FolderManager_AddSingleFolderPickerTitle", "AddSingle", token);
         if (string.IsNullOrWhiteSpace(path)) return;
-        var status = AddFolderResult.Invalid;
-        ManagedFolder? added = null;
-        await EditFoldersAsync(() => status = AddFolder(path, FolderNameConflictService.ResolveDisplayName(null, path), out added), token);
-        if (status == AddFolderResult.DuplicateDisplayName)
-            await _interaction.MessageAsync(I18n.GetString("FolderManager_DuplicateDisplayName_Title"),
-                I18n.Format("FolderManager_DuplicateDisplayName_Content", FolderNameConflictService.ResolveDisplayName(null, path), CurrentConfig?.Name ?? string.Empty), token);
-        if (status == AddFolderResult.UnsafePathOverlap) await ShowUnsafeAsync(new[] { path }, token);
-        if (added is not null) await SuggestPluginAsync(new[] { added }, token);
+        var candidates = BuildPluginDiscoverCandidates([new ManagedFolder { Path = path, DisplayName = FolderNameConflictService.ResolveDisplayName(null, path) }]);
+        await ImportCandidatesAsync(candidates, token, config, signature);
     }
 
     private async Task AddSubFoldersCoreAsync(CancellationToken token)
     {
+        var config = CurrentConfig!;
+        var signature = NativeHistoryConfigLease.Signature(config);
         var path = await PickFolderAsync("FolderManager_AddSubFoldersPickerTitle", "AddSubFolders", token);
         if (string.IsNullOrWhiteSpace(path)) return;
         // Directory enumeration can block on removable/network volumes.
         var paths = await Task.Run(() => Directory.GetDirectories(path), token);
         token.ThrowIfCancellationRequested();
         var candidates = BuildPluginDiscoverCandidates(paths.Select(p => new ManagedFolder { Path = p, DisplayName = Path.GetFileName(p) }));
-        await ImportCandidatesAsync(candidates, token);
+        await ImportCandidatesAsync(candidates, token, config, signature);
     }
 
     private async Task PluginDiscoverCoreAsync(CancellationToken token)
     {
         var config = CurrentConfig!;
+        var signature = NativeHistoryConfigLease.Signature(config);
         PluginService.Initialize();
         var path = await PickFolderAsync("FolderManager_PluginDiscoverPickerTitle", "PluginDiscover", token);
         if (string.IsNullOrWhiteSpace(path)) return;
@@ -241,13 +240,14 @@ public sealed partial class FolderManagerPageViewModel
         token.ThrowIfCancellationRequested();
         if (candidates.ToAdd.Count == 0 && candidates.UnsafePaths.Count == 0 && candidates.DuplicateDisplayNames.Count == 0)
             await MessageAsync("FolderManager_PluginDiscover_NoNewTitle", "FolderManager_PluginDiscover_NoNewContent", token);
-        await ImportCandidatesAsync(candidates, token);
+        await ImportCandidatesAsync(candidates, token, config, signature);
     }
 
-    private async Task ImportCandidatesAsync(PluginDiscoverCandidatesResult candidates, CancellationToken token)
+    private async Task ImportCandidatesAsync(PluginDiscoverCandidatesResult candidates, CancellationToken token,
+        BackupConfig config, string signature)
     {
         if (candidates.ToAdd.Count > 0)
-            await EditFoldersAsync(() => AddDiscoveredFolders(candidates.ToAdd), token);
+            await BackupSetupCoordinator.AddSourcesAsync(config, signature, candidates.ToAdd, token);
         token.ThrowIfCancellationRequested();
         await SuggestPluginAsync(candidates.ToAdd, token);
         if (candidates.DuplicateDisplayNames.Count > 0)

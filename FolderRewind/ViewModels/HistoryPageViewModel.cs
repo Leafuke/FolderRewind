@@ -41,6 +41,7 @@ public sealed partial class HistoryPageViewModel : ViewModelBase
     public BatchObservableCollection<NativeHistoryVersionViewItem> FilteredHistory { get; } = [];
     public BatchObservableCollection<BackupRunViewItem> FilteredRuns { get; } = [];
     public BatchObservableCollection<BranchViewItem> Branches { get; } = [];
+    public bool ShowAdvancedHistoryByDefault => Branches.Count > 1 || Branches.Any(branch => branch.IsMultiTip || branch.Name != "main");
     public BatchObservableCollection<SafetySnapshotViewItem> ActiveSafetySnapshots { get; } = [];
     public ObservableCollection<BackupConfig> Configs => ConfigService.CurrentConfig?.BackupConfigs ?? [];
     private GlobalSettings? Settings => ConfigService.CurrentConfig?.GlobalSettings;
@@ -816,6 +817,7 @@ public sealed partial class HistoryPageViewModel : ViewModelBase
         }
 
         OnPropertyChanged(nameof(CurrentBranchDisplay));
+        OnPropertyChanged(nameof(ShowAdvancedHistoryByDefault));
         NotifyBranchSelectionChanged();
         ApplyFilter();
     }
@@ -841,6 +843,7 @@ public sealed partial class HistoryPageViewModel : ViewModelBase
         IsEmpty = true;
         OnPropertyChanged(nameof(HasMissing));
         OnPropertyChanged(nameof(CurrentBranchDisplay));
+        OnPropertyChanged(nameof(ShowAdvancedHistoryByDefault));
         NotifyBranchSelectionChanged();
     }
 

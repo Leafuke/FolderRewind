@@ -45,16 +45,20 @@ namespace FolderRewind.Views.Settings
 
             if (location == DataTransferLocation.Cloud)
             {
-                var remoteBasePath = await PromptCloudRemoteBasePathAsync(
+                var connection = await PromptCloudConnectionAsync(
                     I18n.GetString("Settings_ExportConfigToCloud_Title"),
                     I18n.GetString("Settings_ExportConfigToCloud_Description"));
-                if (string.IsNullOrWhiteSpace(remoteBasePath))
+                if (connection is null)
                 {
                     return;
                 }
 
-                var cloudResult = await CloudSyncService.ExportConfigToCloudAsync(remoteBasePath);
-                ShowInfoBar(cloudResult.Message, cloudResult.Success ? InfoBarSeverity.Success : InfoBarSeverity.Error);
+                try
+                {
+                    var cloudResult = await CloudSyncService.ExportConfigToCloudAsync(connection);
+                    ShowInfoBar(cloudResult.Message, cloudResult.Success ? InfoBarSeverity.Success : InfoBarSeverity.Error);
+                }
+                catch (Exception ex) { ShowInfoBar(CloudCommandSecurity.Redact(ex.Message), InfoBarSeverity.Error); }
                 return;
             }
 
@@ -95,16 +99,20 @@ namespace FolderRewind.Views.Settings
 
             if (location == DataTransferLocation.Cloud)
             {
-                var remoteBasePath = await PromptCloudRemoteBasePathAsync(
+                var connection = await PromptCloudConnectionAsync(
                     I18n.GetString("Settings_ImportConfigFromCloud_Title"),
                     I18n.GetString("Settings_ImportConfigFromCloud_Description"));
-                if (string.IsNullOrWhiteSpace(remoteBasePath))
+                if (connection is null)
                 {
                     return;
                 }
 
-                var cloudResult = await CloudSyncService.ImportConfigFromCloudAsync(remoteBasePath);
-                ShowInfoBar(cloudResult.Message, cloudResult.Success ? InfoBarSeverity.Success : InfoBarSeverity.Error);
+                try
+                {
+                    var cloudResult = await CloudSyncService.ImportConfigFromCloudAsync(connection);
+                    ShowInfoBar(cloudResult.Message, cloudResult.Success ? InfoBarSeverity.Success : InfoBarSeverity.Error);
+                }
+                catch (Exception ex) { ShowInfoBar(CloudCommandSecurity.Redact(ex.Message), InfoBarSeverity.Error); }
                 return;
             }
 
@@ -416,8 +424,11 @@ namespace FolderRewind.Views.Settings
             return cloudRadio.IsChecked == true ? DataTransferLocation.Cloud : DataTransferLocation.Local;
         }
 
-        private async Task<string?> PromptCloudRemoteBasePathAsync(string title, string description)
+        private async Task<CloudSettings?> PromptCloudConnectionAsync(string title, string description)
         {
+            var configPath = await MainWindowService.PickFilePathAsync(
+                I18n.GetString("CloudSetup_ExplicitConfigRequired"), "FolderRewind.Cloud.ConfigTransfer", new[] { ".conf" });
+            if (string.IsNullOrWhiteSpace(configPath)) return null;
             var input = new TextBox
             {
                 Header = I18n.GetString("Settings_CloudRemoteBasePath_Label"),
@@ -450,7 +461,7 @@ namespace FolderRewind.Views.Settings
                 return null;
             }
 
-            return input.Text?.Trim();
+            return new CloudSettings { RcloneConfigPath = configPath, RemoteBasePath = input.Text?.Trim() ?? string.Empty };
         }
 
         private static string SanitizeFileName(string? name)

@@ -3,7 +3,6 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
 using System.Linq;
-using System.Net.Http;
 using System.Security.Cryptography;
 using System.Text.Json;
 using System.Threading;
@@ -30,20 +29,25 @@ public interface IPluginPresetConsentBroker
 
 public static class PluginPresetService
 {
-    private static readonly HttpClient Client = new() { Timeout = TimeSpan.FromMinutes(2) };
-
     public static async ValueTask<PluginPresetRunResult> ExecuteAsync(
         string presetPath,
         IPluginPresetConsentBroker consent,
         IProgress<string>? progress = null,
-        CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken = default,
+        IReadOnlySet<string>? selectedActions = null)
     {
         ArgumentNullException.ThrowIfNull(consent);
         var preset = Parse(presetPath);
         var results = new List<PluginPresetStepResult>();
         foreach (var action in preset.Actions)
         {
+            if (selectedActions is not null && !selectedActions.Contains(action.Id)) continue;
             cancellationToken.ThrowIfCancellationRequested();
+            if (action.DependsOn.Any(id => !results.Any(r => r.ActionId == id && r.Outcome == PluginPresetStepOutcome.Success)))
+            {
+                results.Add(new(action.Id, PluginPresetStepOutcome.Blocked, I18n.GetString("Onboarding_DependencyBlocked")));
+                continue;
+            }
             progress?.Report(GetProgressMessage(action.Id));
             try
             {
@@ -98,6 +102,8 @@ public static class PluginPresetService
         switch (action.Type)
         {
             case "installBundledPlugin":
+                if (await PluginV3PackageService.IsInstalledAsync(new PluginId(action.PluginId!), cancellationToken).ConfigureAwait(false))
+                    return Success(action, I18n.GetString("Onboarding_ComponentReused"));
                 var packagePath = ResolveBundledPath(action.PackagePath!);
                 var install = await PluginV3PackageService.InstallAsync(
                     packagePath,
@@ -113,7 +119,7 @@ public static class PluginPresetService
                 }
                 if (!StringComparer.Ordinal.Equals(install.InstalledPackage.State.PluginId.Value, action.PluginId))
                     throw new InvalidDataException("Preset PluginId does not match bundled package.");
-                return Success(action, I18n.Format(
+                return new(action.Id, install.RequiresRestart ? PluginPresetStepOutcome.SuccessWithWarnings : PluginPresetStepOutcome.Success, I18n.Format(
                     "PluginPreset_Installed",
                     install.InstalledPackage.State.PluginId,
                     install.InstalledPackage.State.CurrentVersion));
@@ -121,12 +127,19 @@ public static class PluginPresetService
                 var transition = await PluginV3PackageService.SetEnabledAsync(
                     new PluginId(action.PluginId!), true, cancellationToken).ConfigureAwait(false);
                 return transition.Success
-                    ? Success(action, I18n.Format("PluginPreset_Enabled", action.PluginId!))
+                    ? new(action.Id, transition.RequiresRestart ? PluginPresetStepOutcome.SuccessWithWarnings : PluginPresetStepOutcome.Success,
+                        I18n.Format("PluginPreset_Enabled", action.PluginId!) + (transition.RequiresRestart ? "\n" + I18n.GetString("Onboarding_RestartRequired") : ""))
                     : new PluginPresetStepResult(action.Id, PluginPresetStepOutcome.Failed,
                         PluginV3PackageService.FormatRuntimeDiagnostics(transition.Diagnostics));
             case "setHostFeature" when action.Feature == "knotLink":
-                ConfigService.CurrentConfig.GlobalSettings.EnableKnotLink = action.Enabled;
-                ConfigService.Save();
+                await UiDispatcherService.RunOnUiAsync(async () =>
+                {
+                    var settings = ConfigService.CurrentConfig.GlobalSettings;
+                    var previous = settings.EnableKnotLink;
+                    await ConfigEditTransaction.ApplyAsync(() => settings.EnableKnotLink = action.Enabled,
+                        () => settings.EnableKnotLink = previous, () => ConfigService.SaveAsync(),
+                        I18n.GetString("Common_Failed"), cancellationToken);
+                }).ConfigureAwait(false);
                 if (action.Enabled) await KnotLinkService.InitializeAsync(cancellationToken).ConfigureAwait(false);
                 return Success(action, I18n.GetString("PluginPreset_KnotLinkConfigured"));
             case "setupExternalIntegration":
@@ -152,10 +165,10 @@ public static class PluginPresetService
                 action.Id,
                 PluginPresetStepOutcome.Blocked,
                 I18n.GetString("PluginPreset_ExternalDownloadDeclined"));
-        var directory = Path.Combine(Path.GetTempPath(), "FolderRewind", "preset-downloads");
+        var directory = Path.Combine(Path.GetTempPath(), "FolderRewind", "preset-downloads", Guid.NewGuid().ToString("N"));
         Directory.CreateDirectory(directory);
         var path = Path.Combine(directory, action.FileName!);
-        var bytes = await Client.GetByteArrayAsync(action.Url!, cancellationToken).ConfigureAwait(false);
+        var bytes = await GitHubReleaseService.DownloadAssetAsync(action.Url!, cancellationToken, ToolArchiveInstaller.MaximumArchiveBytes).ConfigureAwait(false);
         var hash = Convert.ToHexString(SHA256.HashData(bytes)).ToLowerInvariant();
         if (!StringComparer.OrdinalIgnoreCase.Equals(hash, action.Sha256))
             throw new InvalidDataException(I18n.GetString("PluginPreset_ExternalHashMismatch"));
@@ -165,8 +178,12 @@ public static class PluginPresetService
                 action.Id,
                 PluginPresetStepOutcome.Blocked,
                 I18n.GetString("PluginPreset_ExternalLaunchDeclined"));
-        Process.Start(new ProcessStartInfo { FileName = path, UseShellExecute = true, Verb = "open" });
-        return Success(action, I18n.Format("PluginPreset_ExternalStarted", action.Name!));
+        using var process = Process.Start(new ProcessStartInfo { FileName = path, UseShellExecute = true, Verb = "open" })
+            ?? throw new IOException(I18n.GetString("Onboarding_InstallerNotStarted"));
+        try { await process.WaitForExitAsync(cancellationToken).WaitAsync(OnboardingOperationBudgets.ServiceWait, cancellationToken).ConfigureAwait(false); }
+        catch (TimeoutException) { /* The user-owned installer keeps running; installation still requires a post-check. */ }
+        return new(action.Id, PluginPresetStepOutcome.SuccessWithWarnings,
+            I18n.Format("PluginPreset_ExternalStarted", action.Name!) + "\n" + I18n.GetString("Onboarding_InstallerNeedsCheck"));
     }
 
     private static PresetDocument Parse(string path)
@@ -185,6 +202,12 @@ public static class PluginPresetService
             actions.Add(action);
         }
         if (actions.Count is 0 or > 32) throw new InvalidDataException("Preset action count is outside its bound.");
+        var preceding = new HashSet<string>(StringComparer.Ordinal);
+        foreach (var action in actions)
+        {
+            if (action.DependsOn.Any(id => !preceding.Contains(id))) throw new InvalidDataException("Preset dependencies must refer to preceding actions.");
+            preceding.Add(action.Id);
+        }
         return new PresetDocument(actions);
     }
 
@@ -242,5 +265,6 @@ public static class PluginPresetService
         public string? FileName { get; set; }
         public string? Severity { get; set; }
         public string? MessageResourceKey { get; set; }
+        public string[] DependsOn { get; set; } = [];
     }
 }

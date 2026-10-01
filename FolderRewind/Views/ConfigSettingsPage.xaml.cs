@@ -1,4 +1,4 @@
-using FolderRewind.Models;
+﻿using FolderRewind.Models;
 using FolderRewind.History.Application;
 using FolderRewind.Services;
 using FolderRewind.Services.Plugins;
@@ -15,40 +15,11 @@ using Windows.System;
 
 namespace FolderRewind.Views
 {
-    public sealed partial class ConfigSettingsDialog : ContentDialog
+    public sealed partial class ConfigSettingsPage : Page
     {
-        private static ConfigSettingsDialog? _instance;
-
-        public static ConfigSettingsDialog Instance
-        {
-            get
-            {
-                if (_instance == null)
-                {
-                    _instance = new ConfigSettingsDialog(new BackupConfig
-                    {
-                        Name = string.Empty,
-                        Cloud = new CloudSettings(),
-                        BackupScope = new BackupScopeSettings(),
-                        Archive = new ArchiveSettings
-                        {
-                            CompressionLevel = 5,
-                            Format = "7z",
-                            Method = "LZMA2",
-                            KeepCount = 5,
-                            Mode = BackupMode.Full
-                        },
-                        Automation = new AutomationSettings()
-                    });
-                }
-                return _instance;
-            }
-        }
-
         public BackupConfig Config { get; private set; }
         public ConfigSettingsDialogViewModel ViewModel { get; }
         private bool _isDialogReady;
-        private bool _subscriptionsAttached = true;
         private bool _showingChild;
         private Microsoft.UI.Xaml.UIElement? _currentTabContent;
         private readonly Dictionary<string, bool> _tabLoaded = new();
@@ -136,7 +107,9 @@ namespace FolderRewind.Views
             }
         }
 
-        public ConfigSettingsDialog(BackupConfig config)
+        public ConfigSettingsPage() : this(new BackupConfig()) { }
+
+        public ConfigSettingsPage(BackupConfig config)
         {
             this.InitializeComponent();
 
@@ -148,12 +121,10 @@ namespace FolderRewind.Views
             this.Config.BackupScope ??= new BackupScopeSettings();
             this.ViewModel = new ConfigSettingsDialogViewModel(this.Config,
                 viewModel => new ConfigSettingsActions(viewModel, () => XamlRoot));
-            Opened += OnDialogOpened;
-            Closed += OnDialogClosed;
-            this.XamlRoot = MainWindowService.GetXamlRoot();
+
 
             // 应用当前主题到对话框
-            ThemeService.ApplyThemeToDialog(this);
+
 
             RefreshConfigKindOptions();
 
@@ -238,6 +209,7 @@ namespace FolderRewind.Views
         {
             "General" => "GeneralTabScrollViewer",
             "Backup" => "BackupTabScrollViewer",
+            "Resource" => "ResourceTabScrollViewer",
             "Restore" => "RestoreTabScrollViewer",
             "Automation" => "AutomationTabScrollViewer",
             "Cloud" => "CloudTabScrollViewer",
@@ -270,6 +242,7 @@ namespace FolderRewind.Views
             // 重置所有 tab ScrollViewer 的可见性，防止重影
             GeneralTabScrollViewer?.Visibility = Microsoft.UI.Xaml.Visibility.Collapsed;
             BackupTabScrollViewer?.Visibility = Microsoft.UI.Xaml.Visibility.Collapsed;
+            ResourceTabScrollViewer?.Visibility = Microsoft.UI.Xaml.Visibility.Collapsed;
             RestoreTabScrollViewer?.Visibility = Microsoft.UI.Xaml.Visibility.Collapsed;
             AutomationTabScrollViewer?.Visibility = Microsoft.UI.Xaml.Visibility.Collapsed;
             CloudTabScrollViewer?.Visibility = Microsoft.UI.Xaml.Visibility.Collapsed;
@@ -284,7 +257,6 @@ namespace FolderRewind.Views
             // Re-register config events
             Config.PropertyChanged += OnDialogConfigPropertyChanged;
             Config.Cloud.PropertyChanged += OnDialogCloudPropertyChanged;
-            _subscriptionsAttached = true;
 
             // 重新打开时 SelectionChanged 可能不会触发，或者控件仍保留关闭前的选中项；
             // 这里以当前实际选中的页签为准显式恢复内容，避免标签和正文不同步。
@@ -350,64 +322,6 @@ namespace FolderRewind.Views
         {
             ViewModel.RefreshCloudUi();
             _ = DispatcherQueue.TryEnqueue(() => Bindings.Update());
-        }
-
-        private async void OnSaveClick(ContentDialog sender, ContentDialogButtonClickEventArgs args)
-        {
-            var deferral = args.GetDeferral();
-            args.Cancel = true;
-            try
-            {
-                if (!ViewModel.SaveCommand.CanExecute(null)) return;
-                IsEnabled = false;
-                await ViewModel.SaveCommand.ExecuteAsync(null);
-                args.Cancel = !ViewModel.LastSaveSucceeded;
-            }
-            finally { IsEnabled = true; deferral.Complete(); }
-        }
-
-
-
-        private void OnDeleteClick(ContentDialog sender, ContentDialogButtonClickEventArgs args)
-        {
-            args.Cancel = true;
-            if (!ViewModel.DeleteCommand.CanExecute(null) || _showingChild) return;
-            _showingChild = true;
-            sender.Hide();
-            TaskObserver.Observe(DeleteAndRestoreAsync(), nameof(ConfigSettingsDialog));
-        }
-
-        private async Task DeleteAndRestoreAsync()
-        {
-            await Task.Yield();
-            try
-            {
-                await ViewModel.DeleteCommand.ExecuteAsync(null);
-                if (!ViewModel.LastDeleteSucceeded)
-                    await AppDialogService.Default.ShowCustomAsync(this, XamlRoot);
-            }
-            finally { _showingChild = false; }
-        }
-
-        private void OnDialogOpened(ContentDialog sender, ContentDialogOpenedEventArgs args)
-        {
-            ViewModel.ActivateActions();
-            if (_subscriptionsAttached) return;
-            ViewModel.Rebind(Config);
-            ViewModel.SelectedPageIndex = Math.Max(0, ConfigSelectorBar.Items.IndexOf(ConfigSelectorBar.SelectedItem));
-            Config.PropertyChanged += OnDialogConfigPropertyChanged;
-            Config.Cloud.PropertyChanged += OnDialogCloudPropertyChanged;
-            _subscriptionsAttached = true;
-            Bindings.Update();
-        }
-
-        private void OnDialogClosed(ContentDialog sender, ContentDialogClosedEventArgs args)
-        {
-            ViewModel.Unbind();
-            Config.PropertyChanged -= OnDialogConfigPropertyChanged;
-            Config.Cloud.PropertyChanged -= OnDialogCloudPropertyChanged;
-            _subscriptionsAttached = false;
-            if (!_showingChild) ViewModel.CancelActions();
         }
 
 

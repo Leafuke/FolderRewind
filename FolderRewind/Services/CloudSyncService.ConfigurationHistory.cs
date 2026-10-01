@@ -14,6 +14,13 @@ namespace FolderRewind.Services
 {
     public static partial class CloudSyncService
     {
+        public static async Task<HistoryMetadataSyncResult> PullConfigurationHistoryAsync(BackupConfig config, CancellationToken token = default)
+        {
+            config = BackupConfigCloneService.CloneForRuntimeMutation(config, I18n.GetString("Common_Failed"));
+            using var connection = CaptureConnection(config);
+            var runtime = await NativeHistoryCoreGateway.EnsureReadyAsync(config, token).ConfigureAwait(false);
+            return await new HistoryMetadataSyncService(runtime, CreateHistoryTransport(config)).PullAsync(token).ConfigureAwait(false);
+        }
         public static async Task<(bool Success, int RecoveredCount, string Message)> DownloadConfigurationHistoryAsync(
             BackupConfig? config)
         {
@@ -28,6 +35,8 @@ namespace FolderRewind.Services
                 return new() { Success = false, Message = I18n.GetString("CloudSync_Notification_HistoryImportFailed") };
             try
             {
+                config = BackupConfigCloneService.CloneForRuntimeMutation(config, I18n.GetString("Common_Failed"));
+                using var connection = CaptureConnection(config);
                 var runtime = await NativeHistoryCoreGateway.EnsureReadyAsync(config).ConfigureAwait(false);
                 var transport = CreateHistoryTransport(config);
                 var local = (await runtime.Repository.ReadAllPacksAsync().ConfigureAwait(false))
@@ -67,26 +76,43 @@ namespace FolderRewind.Services
             };
         }
 
-        public static async Task<(bool Success, string Message)> ImportConfigFromCloudAsync(string remoteBasePath)
+        public static async Task<(bool Success, string Message)> ImportConfigFromCloudAsync(CloudSettings connectionSettings)
         {
-            var remoteConfigPath = AppendRemotePath(remoteBasePath, "config.json");
+            var settings = FreezeGlobalTransferConnection(connectionSettings);
+            using var connection = CaptureConnection(settings);
+            var remoteConfigPath = AppendRemotePath(settings.RemoteBasePath, "config.json");
             return await ImportJsonFromCloudAsync(
                 remoteConfigPath,
                 I18n.GetString("CloudSync_Task_ConfigImportName"),
                 I18n.GetString("CloudSync_Notification_ConfigImportSucceeded"),
                 I18n.GetString("CloudSync_Notification_ConfigImportFailed"),
-                ConfigService.ImportConfig).ConfigureAwait(false);
+                ConfigService.ImportConfig, settings).ConfigureAwait(false);
         }
 
-        public static async Task<(bool Success, string Message)> ExportConfigToCloudAsync(string remoteBasePath)
+        public static async Task<(bool Success, string Message)> ExportConfigToCloudAsync(CloudSettings connectionSettings)
         {
-            var remoteConfigPath = AppendRemotePath(remoteBasePath, "config.json");
+            var settings = FreezeGlobalTransferConnection(connectionSettings);
+            using var connection = CaptureConnection(settings);
+            var remoteConfigPath = AppendRemotePath(settings.RemoteBasePath, "config.json");
             return await ExportJsonToCloudAsync(
                 remoteConfigPath,
                 I18n.GetString("CloudSync_Task_ConfigExportName"),
                 I18n.GetString("CloudSync_Notification_ConfigExportSucceeded"),
                 I18n.GetString("CloudSync_Notification_ConfigExportFailed"),
-                ConfigService.ExportConfig).ConfigureAwait(false);
+                ConfigService.ExportConfig, settings).ConfigureAwait(false);
+        }
+
+        private static CloudSettings FreezeGlobalTransferConnection(CloudSettings input)
+        {
+            ArgumentNullException.ThrowIfNull(input);
+            if (input.CommandMode != CloudCommandMode.Rclone || string.IsNullOrWhiteSpace(input.RcloneConfigPath))
+                throw new InvalidOperationException(I18n.GetString("CloudSetup_ExplicitConfigRequired"));
+            return new CloudSettings
+            {
+                CommandMode = CloudCommandMode.Rclone, ExecutablePath = input.ExecutablePath,
+                WorkingDirectory = input.WorkingDirectory, RcloneConfigPath = input.RcloneConfigPath,
+                RemoteBasePath = input.RemoteBasePath, TimeoutSeconds = input.TimeoutSeconds, RetryCount = input.RetryCount
+            };
         }
 
         public static async Task<ConfigCloudHistoryUploadResult> UploadConfigurationHistoryAsync(
@@ -113,6 +139,8 @@ namespace FolderRewind.Services
         {
             if (config is null || !CanUseManualCloudActions(config))
                 return (false, 0, 0, I18n.GetString("CloudSync_Notification_HistoryImportFailed"));
+            config = BackupConfigCloneService.CloneForRuntimeMutation(config, I18n.GetString("Common_Failed"));
+            using var connection = CaptureConnection(config);
             var runtime = await NativeHistoryCoreGateway.EnsureReadyAsync(config).ConfigureAwait(false);
             var result = await new HistoryMetadataSyncService(runtime, CreateHistoryTransport(config))
                 .SyncAsync().ConfigureAwait(false);
@@ -122,15 +150,16 @@ namespace FolderRewind.Services
             return (result.Succeeded, result.DownloadedPacks, result.UploadedPacks, message);
         }
 
-        private static RcloneHistoryMetadataTransport CreateHistoryTransport(BackupConfig config)
+        private static IHistoryMetadataTransport CreateHistoryTransport(BackupConfig config)
         {
+            if (RcloneExecutionScope.Current is { } context) return new RcloneNativeHistoryTransport(context, config.Cloud.TimeoutSeconds);
             if (!TryResolveSharedRcloneRuntime(
                     config.Cloud,
                     out var executable,
                     out var workingDirectory,
                     out var error))
                 throw new InvalidOperationException(error);
-            return new(
+            return new RcloneHistoryMetadataTransport(
                 executable,
                 workingDirectory,
                 config.Cloud ?? new CloudSettings(),
@@ -189,7 +218,7 @@ namespace FolderRewind.Services
                     $"lsf {Quote(root)} --files-only --recursive");
                 var result = await RunSilentCommandAsync(
                     command,
-                    Math.Clamp(_settings.TimeoutSeconds, 10, MaxTimeoutSeconds)).ConfigureAwait(false);
+                    Math.Clamp(_settings.TimeoutSeconds, 10, MaxTimeoutSeconds), cancellationToken).ConfigureAwait(false);
                 if (!result.Success) throw new IOException(result.ErrorMessage);
                 var ids = new List<PackId>();
                 foreach (var line in result.Output.Split(['\r', '\n'], StringSplitOptions.RemoveEmptyEntries))
@@ -243,7 +272,7 @@ namespace FolderRewind.Services
                     BuildRcloneListFileArguments(parent));
                 var result = await RunSilentCommandAsync(
                     command,
-                    Math.Clamp(_settings.TimeoutSeconds, 10, MaxTimeoutSeconds)).ConfigureAwait(false);
+                    Math.Clamp(_settings.TimeoutSeconds, 10, MaxTimeoutSeconds), cancellationToken).ConfigureAwait(false);
                 return result.Success && result.Output.Split(['\r', '\n'], StringSplitOptions.RemoveEmptyEntries)
                     .Any(item => StringComparer.Ordinal.Equals(item.Trim(), name));
             }
@@ -259,7 +288,7 @@ namespace FolderRewind.Services
                         BuildRcloneCopyToArguments(remotePath, temporary));
                     var result = await RunSilentCommandAsync(
                         command,
-                        Math.Clamp(_settings.TimeoutSeconds, 10, MaxTimeoutSeconds)).ConfigureAwait(false);
+                        Math.Clamp(_settings.TimeoutSeconds, 10, MaxTimeoutSeconds), cancellationToken).ConfigureAwait(false);
                     cancellationToken.ThrowIfCancellationRequested();
                     if (!result.Success || !File.Exists(temporary))
                         throw new IOException(result.ErrorMessage);
@@ -286,7 +315,7 @@ namespace FolderRewind.Services
                         BuildRcloneCopyToArguments(temporary, remotePath) + " --immutable");
                     var result = await RunSilentCommandAsync(
                         command,
-                        Math.Clamp(_settings.TimeoutSeconds, 10, MaxTimeoutSeconds)).ConfigureAwait(false);
+                        Math.Clamp(_settings.TimeoutSeconds, 10, MaxTimeoutSeconds), cancellationToken).ConfigureAwait(false);
                     if (result.Success) return;
                     var existing = await DownloadAsync(remotePath, cancellationToken).ConfigureAwait(false);
                     if (!existing.AsSpan().SequenceEqual(bytes))

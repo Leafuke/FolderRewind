@@ -15,6 +15,13 @@ namespace FolderRewind.Services
 
     public static class MinecraftOnboardingService
     {
+        public static async Task PrepareBasicPluginAsync(CancellationToken ct = default)
+        {
+            var result = await PluginPresetService.ExecuteAsync(PluginPresetService.MinecraftEnhancedExperiencePath,
+                new InteractiveExternalInstallerConsent(), cancellationToken: ct,
+                selectedActions: new System.Collections.Generic.HashSet<string> { "install-minerewind", "enable-minerewind" });
+            if (!result.Success) throw new InvalidOperationException(string.Join(Environment.NewLine, result.Steps.Select(s => s.Message)));
+        }
         public static async Task<MinecraftOnboardingResult> InstallPresetAsync(
             IProgress<string>? progress = null,
             CancellationToken ct = default)
@@ -32,7 +39,8 @@ namespace FolderRewind.Services
                         "PluginPreset_StepResult",
                         PluginPresetService.GetActionDisplayName(value.ActionId),
                         value.Message)));
-                if (result.Success) NotificationService.ShowSuccess(message, I18n.GetString("MinecraftOnboarding_Title"), 8000);
+                message += Environment.NewLine + I18n.GetString("Onboarding_GameVerificationPending");
+                if (result.Success) NotificationService.ShowInfo(message, I18n.GetString("MinecraftOnboarding_Title"), 8000);
                 else NotificationService.ShowError(message, I18n.GetString("MinecraftOnboarding_Title"));
                 return new MinecraftOnboardingResult
                 {

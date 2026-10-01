@@ -17,7 +17,6 @@ internal sealed class ShellStartupService : IDisposable
     public Task StartAsync() => _sequence.RunAsync(new Func<CancellationToken, Task>[]
     {
         token => Task.Delay(300, token),
-        _ => ShowFirstLaunchGuideAsync(),
         _ => ShowKnotLinkCompatibilityDialogAsync(),
         _ => CheckAndNotifyConflictsAsync(),
         _ => Task.WhenAll(CheckAndNotifyNoticeAsync(), CheckAndNotifyUpdateAsync()),

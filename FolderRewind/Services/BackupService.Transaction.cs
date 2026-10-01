@@ -99,6 +99,7 @@ public static partial class BackupService
         CancellationToken cancellationToken = default,
         NativeHistoryConfigurationOperationGate.Lease? existingOperation = null)
     {
+        using var timing = BackupTimingService.Begin(config?.Id ?? "");
         if (NativeHostMutationContext.IsNestedMutationBlocked)
         {
             return BackupTransactionExecutionResult.Blocked("Nested mutation is blocked.");
@@ -116,6 +117,7 @@ public static partial class BackupService
         await using var ownedOperation = existingOperation is null ? await NativeHistoryConfigurationOperationGate
             .EnterAsync(config.Id, cancellationToken).ConfigureAwait(false) : null;
         var operationLease = existingOperation ?? ownedOperation!;
+        timing.MarkPhase("preflight");
         var recovery = await NativeHistoryApplicationService.CreateRestoreServiceAsync(config, cancellationToken).ConfigureAwait(false);
         await recovery.RecoverInsideConfigurationAsync(operationLease, cancellationToken).ConfigureAwait(false);
 
@@ -273,6 +275,7 @@ public static partial class BackupService
         // 默认值仅用于防御未预期异常；所有正常返回路径都会先设置更具体的终态。
         // 5. Capture / pre-durable phase。只有这一阶段的失败允许补偿删除本次 Capture 产物。
         var sourceOutcomes = new List<BackupSourceExecutionOutcome>(requestedFolders.Count);
+        timing.MarkPhase("capture-coordination-scan-archive");
         HistoryCommitBatch committedBatch;
         try
         {
@@ -305,6 +308,7 @@ public static partial class BackupService
 
             try
             {
+                timing.MarkPhase("history-commit");
                 committedBatch = await NativeHistoryCoreGateway.CommitBackupAsync(
                     historySnapshot,
                     results,
@@ -379,6 +383,7 @@ public static partial class BackupService
         var committedOutcome = PluginBackupRequestResult.Aggregate(sourceOutcomes.Select(item => item.ToPluginResult()));
         terminalLifecycle.Set(CreateCommittedTerminal(committedOutcome, sourceOutcomes, hasPostCommitWarnings: false));
         bool hasPostCommitWarnings = false;
+        timing.MarkPhase("post-commit");
         try
         {
             hasPostCommitWarnings = await FinalizeCommittedBackupAsync(

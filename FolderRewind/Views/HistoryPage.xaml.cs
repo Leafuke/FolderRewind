@@ -249,6 +249,8 @@ public sealed partial class HistoryPage : Page
 
     private void OnRestoreClick(object sender, Microsoft.UI.Xaml.RoutedEventArgs e)
         => ExecuteItemCommand<NativeHistoryVersionViewItem>(sender, ViewModel.RestoreVersionCommand);
+    private void OnExportClick(object sender, Microsoft.UI.Xaml.RoutedEventArgs e)
+        => ExecuteItemCommand<NativeHistoryVersionViewItem>(sender, ViewModel.ExportVersionCommand);
 
     private void OnDeleteClick(object sender, Microsoft.UI.Xaml.RoutedEventArgs e)
         => ExecuteItemCommand<NativeHistoryVersionViewItem>(sender, ViewModel.DeleteVersionCommand);

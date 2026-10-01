@@ -36,6 +36,8 @@ namespace FolderRewind.ViewModels
         }
 
         public string CurrentSortMode => Settings?.HomeSortMode ?? "NameAsc";
+        public bool HasProjects => ConfigsView.Count != 0;
+        public bool HasFavorites => FavoriteFoldersView.Count != 0;
 
         public HomePageViewModel()
             : this(new HomeInteractionService(MainWindowService.GetXamlRoot))
@@ -67,6 +69,8 @@ namespace FolderRewind.ViewModels
             HookConfigsChanged();
             RefreshFavorites();
             RefreshConfigsView();
+            ConfigService.Saved += OnProtectionSaved;
+            TaskObserver.Observe(RefreshProtectionAsync(), nameof(HomePageViewModel));
         }
 
         public void Deactivate()
@@ -80,6 +84,7 @@ namespace FolderRewind.ViewModels
             _isActive = false;
             _pageLifetime.Cancel();
             UnhookConfigsChanged();
+            DetachProtection();
         }
 
         public void Dispose()
@@ -114,6 +119,7 @@ namespace FolderRewind.ViewModels
             {
                 ConfigsView.Add(cfg);
             }
+            OnPropertyChanged(nameof(HasProjects));
         }
 
         public BackupConfig? FindParentConfig(ManagedFolder folder)
@@ -204,6 +210,7 @@ namespace FolderRewind.ViewModels
                 // 配置列表变化后，这两个视图都要同步，否则会出现首页卡片和收藏不同步。
                 RefreshConfigsView();
                 RefreshFavorites();
+                TaskObserver.Observe(RefreshProtectionAsync(), nameof(HomePageViewModel));
             });
         }
 
@@ -217,6 +224,7 @@ namespace FolderRewind.ViewModels
             }
 
             IsFavoritesEmpty = FavoriteFoldersView.Count == 0;
+            OnPropertyChanged(nameof(HasFavorites));
         }
 
         private System.Collections.Generic.IEnumerable<BackupConfig> GetSortedConfigs()

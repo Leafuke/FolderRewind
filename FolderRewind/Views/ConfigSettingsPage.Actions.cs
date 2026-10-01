@@ -1,11 +1,11 @@
-using FolderRewind.Services;
+﻿using FolderRewind.Services;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using System.Threading.Tasks;
 
 namespace FolderRewind.Views;
 
-public sealed partial class ConfigSettingsDialog
+public sealed partial class ConfigSettingsPage
 {
     private void ExecuteAction(ConfigSettingsAction action)
     {
@@ -16,14 +16,13 @@ public sealed partial class ConfigSettingsDialog
     {
         if (_showingChild || !ViewModel.ActionCommand.CanExecute(action)) return;
         _showingChild = true;
-        Hide();
         await Task.Yield();
         try { await ViewModel.ActionCommand.ExecuteAsync(action); }
         finally
         {
             _showingChild = false;
             ViewModel.RefreshCloudUi();
-            await AppDialogService.Default.ShowCustomAsync(this, XamlRoot);
+            Bindings.Update();
         }
     }
 
@@ -40,7 +39,7 @@ public sealed partial class ConfigSettingsDialog
         => ExecuteAction(ConfigSettingsAction.OpenConfigFile);
 
     private void OnSaveAsTemplateClick(object sender, RoutedEventArgs e)
-        => TaskObserver.Observe(ShowChildAndRestoreAsync(ConfigSettingsAction.SaveAsTemplate), nameof(ConfigSettingsDialog));
+        => TaskObserver.Observe(ShowChildAndRestoreAsync(ConfigSettingsAction.SaveAsTemplate), nameof(ConfigSettingsPage));
 
     private void OnBrowseCloudExecutableClick(object sender, RoutedEventArgs e)
         => ExecuteAction(ConfigSettingsAction.BrowseCloudExecutable);
@@ -49,7 +48,7 @@ public sealed partial class ConfigSettingsDialog
         => ExecuteAction(ConfigSettingsAction.BrowseCloudWorkingDirectory);
 
     private void OnOpenCloudSyncClick(object sender, RoutedEventArgs e)
-        => TaskObserver.Observe(ShowChildAndRestoreAsync(ConfigSettingsAction.OpenCloudSync), nameof(ConfigSettingsDialog));
+        => TaskObserver.Observe(ShowChildAndRestoreAsync(ConfigSettingsAction.OpenCloudSync), nameof(ConfigSettingsPage));
 
     private void OnApplyCloudTemplateClick(object sender, RoutedEventArgs e)
     {

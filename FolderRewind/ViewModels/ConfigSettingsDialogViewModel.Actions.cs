@@ -21,6 +21,7 @@ public sealed partial class ConfigSettingsDialogViewModel
     public IAsyncRelayCommand SaveCommand { get; private set; } = null!;
     public IAsyncRelayCommand DeleteCommand { get; private set; } = null!;
     public bool LastSaveSucceeded { get; private set; }
+    internal Func<Task<ConfigSaveResult>>? SaveDraft { get; set; }
     public bool LastDeleteSucceeded { get; private set; }
     private void InitializeActions(IConfigSettingsActions actions)
     {
@@ -31,7 +32,7 @@ public sealed partial class ConfigSettingsDialogViewModel
             _ => _actionLifetime.CanExecute && !_saveController.IsSaving);
         SaveCommand = new AsyncRelayCommand(async () =>
         {
-            LastSaveSucceeded = await _saveController.SaveAsync(ValidateForSave, () => ConfigService.SaveAsync(), ReportSettingsError);
+            LastSaveSucceeded = await _saveController.SaveAsync(ValidateForSave, SaveDraft ?? (() => ConfigService.SaveAsync()), ReportSettingsError);
         }, () => _actionLifetime.CanExecute);
         DeleteCommand = new AsyncRelayCommand(token => _actionLifetime.RunAsync(async ct =>
         {

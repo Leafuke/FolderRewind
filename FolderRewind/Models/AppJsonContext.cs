@@ -6,6 +6,7 @@ namespace FolderRewind.Models
 {
     [JsonSerializable(typeof(AppConfig))]
     [JsonSerializable(typeof(BackupConfig))]
+    [JsonSerializable(typeof(BackupSetupSession))]
     [JsonSerializable(typeof(HistoryRepositoryBinding))]
     [JsonSerializable(typeof(BackupPreset))]
     [JsonSerializable(typeof(BackupPresetDiscoverySource))]
@@ -19,6 +20,7 @@ namespace FolderRewind.Models
     [JsonSerializable(typeof(RemoteBackupPresetIndexDocument))]
     [JsonSerializable(typeof(RemoteBackupPresetMatchKey))]
     [JsonSerializable(typeof(GlobalSettings))]
+    [JsonSerializable(typeof(OpenListRuntimeSettings))]
     [JsonSerializable(typeof(BackupSourceScope))]
     [JsonSerializable(typeof(DiscoveryOrigin))]
     [JsonSerializable(typeof(GameDiscoverySettings))]

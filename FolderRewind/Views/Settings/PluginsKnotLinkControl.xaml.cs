@@ -11,6 +11,12 @@ public sealed partial class PluginsKnotLinkControl : UserControl
     public SettingsPageViewModel ViewModel { get; private set; } = null!;
     private PluginsKnotLinkViewModel? _commands;
     private bool _bindingsApplied;
+    public void ShowRepairTarget(bool knotLink)
+    {
+        var target = knotLink ? KnotLinkExpander : PluginsExpander;
+        target.IsExpanded = true;
+        target.StartBringIntoView();
+    }
 
     public PluginsKnotLinkControl()
     {

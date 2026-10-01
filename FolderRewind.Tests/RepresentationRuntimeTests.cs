@@ -1,4 +1,5 @@
 using FolderRewind.History.Domain;
+using FolderRewind.History.Application;
 using FolderRewind.History.Index;
 using FolderRewind.History.LocalState;
 using FolderRewind.History.Representation;
@@ -34,6 +35,56 @@ public sealed class RepresentationRuntimeTests
     public void Cleanup()
     {
         if (Directory.Exists(_root)) Directory.Delete(_root, recursive: true);
+    }
+
+    [TestMethod]
+    public async Task ExportPublishesNewDirectoryWithoutChangingOriginalPayload()
+    {
+        var full = CreateRepresentation(RepresentationKind.CoreFull, MaterializationFidelity.Exact);
+        var path = CreateFile("original.7z", "original");
+        var target = Path.Combine(_root, "exported");
+        await new HistoryVersionExportService(_runtime).ExportAsync(_versionId, [full], Environment(Local(full.RepresentationId, path)), target, [path]);
+        Assert.AreEqual("restored", File.ReadAllText(Path.Combine(target, "content.txt")));
+        Assert.AreEqual("original", File.ReadAllText(path));
+        Assert.AreEqual(0, Directory.GetDirectories(_root, ".folderrewind-export-*").Length);
+    }
+
+    [TestMethod]
+    public async Task ExportRefusesOccupiedTargetWithoutOverwriting()
+    {
+        var target = Path.Combine(_root, "occupied");
+        Directory.CreateDirectory(target);
+        File.WriteAllText(Path.Combine(target, "keep.txt"), "keep");
+        await Assert.ThrowsExactlyAsync<IOException>(() => new HistoryVersionExportService(_runtime).ExportAsync(_versionId, [], Environment(), target, []));
+        Assert.AreEqual("keep", File.ReadAllText(Path.Combine(target, "keep.txt")));
+        Assert.AreEqual(0, _archive.LastMaterialization.Count);
+    }
+
+    [TestMethod]
+    public async Task PartialExportRequiresExplicitFidelityAndNeverChangesOriginal()
+    {
+        var partial = CreateRepresentation(RepresentationKind.CoreFull, MaterializationFidelity.Partial);
+        var path = CreateFile("partial.7z", "partial");
+        var target = Path.Combine(_root, "partial-export");
+        var service = new HistoryVersionExportService(_runtime);
+        await Assert.ThrowsExactlyAsync<FolderRewind.History.Merge.HistoryMergeBlockedException>(() =>
+            service.ExportAsync(_versionId, [partial], Environment(Local(partial.RepresentationId, path)), target, [path]));
+        Assert.IsFalse(Directory.Exists(target));
+        await service.ExportAsync(_versionId, [partial], Environment(Local(partial.RepresentationId, path)), target, [path],
+            requiredFidelity: MaterializationFidelity.Partial);
+        Assert.IsTrue(File.Exists(Path.Combine(target, "content.txt")));
+        Assert.AreEqual("partial", File.ReadAllText(path));
+    }
+
+    [TestMethod]
+    public async Task ExportMissingDependencyDoesNotPublishTarget()
+    {
+        var delta = new VersionRepresentation(RepresentationId.New(), _versionId, RepresentationKind.CoreSmartDelta, "smart-v1",
+            [RepresentationId.New()], MaterializationFidelity.Exact, null, null, null);
+        var target = Path.Combine(_root, "missing");
+        await Assert.ThrowsAsync<Exception>(() => new HistoryVersionExportService(_runtime).ExportAsync(_versionId, [delta], Environment(), target, []));
+        Assert.IsFalse(Directory.Exists(target));
+        Assert.AreEqual(0, Directory.GetDirectories(_root, ".folderrewind-export-*").Length);
     }
 
     [TestMethod]
@@ -231,6 +282,8 @@ public sealed class RepresentationRuntimeTests
             CancellationToken cancellationToken)
         {
             LastMaterialization = dependencyFirstInputs.ToArray();
+            Directory.CreateDirectory(stagingDirectory);
+            File.WriteAllText(Path.Combine(stagingDirectory, "content.txt"), "restored");
             return ValueTask.CompletedTask;
         }
     }

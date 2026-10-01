@@ -23,11 +23,18 @@ public sealed class HomePageMvvmArchitectureTests
     }
 
     [TestMethod]
-    public void CreationDeletionAndSortUseTheCheckedSaveTransaction()
+    public void CreationUsesSetupBoundaryWhileDeletionAndSortUseCheckedTransactions()
     {
         var root = FindRepositoryRoot();
         var source = File.ReadAllText(Path.Combine(root, "FolderRewind", "ViewModels", "HomePageViewModel.Commands.cs"));
-        Assert.AreEqual(3, source.Split("ConfigEditTransaction.ApplyAsync", StringSplitOptions.None).Length - 1);
+        Assert.AreEqual(2, source.Split("ConfigEditTransaction.ApplyAsync", StringSplitOptions.None).Length - 1);
+        StringAssert.Contains(source, "NavigateTo(\"BackupSetup\"");
+        Assert.IsFalse(source.Contains("configs.Add(config)", StringComparison.Ordinal));
+        Assert.IsFalse(source.Contains("EncryptionService.StorePassword", StringComparison.Ordinal));
+        var coordinator = File.ReadAllText(Path.Combine(root, "FolderRewind", "Services", "BackupSetupCoordinator.cs"));
+        StringAssert.Contains(coordinator, "ConfigEditTransaction.ApplyAsync");
+        StringAssert.Contains(coordinator, "ValidateNewProjects(projects)");
+        StringAssert.Contains(coordinator, "ConfigService.SaveAsync()");
         Assert.IsFalse(source.Contains("ConfigService.Save(", StringComparison.Ordinal));
         Assert.IsFalse(source.Contains("async void", StringComparison.Ordinal));
         Assert.IsFalse(source.Contains("GetAwaiter().GetResult()", StringComparison.Ordinal));

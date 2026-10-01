@@ -22,8 +22,13 @@ namespace FolderRewind.Services
         {
             var ids = representationIds?.Distinct().ToArray() ?? [];
             if (config?.Cloud?.Enabled != true || ids.Length == 0 || !CanUseManualCloudActions(config)) return;
+            config = BackupConfigCloneService.CloneForRuntimeMutation(config, I18n.GetString("Common_Failed"));
+            RcloneExecutionContext? captured;
+            try { captured = CreateBoundConnection(config); }
+            catch (Exception ex) { LogService.LogWarning(CloudCommandSecurity.Redact(ex.Message), nameof(CloudSyncService)); return; }
             _ = Task.Run(async () =>
             {
+                using var connection = new RcloneExecutionScope(captured);
                 try
                 {
                     var runtime = await NativeHistoryCoreGateway.EnsureReadyAsync(config).ConfigureAwait(false);
@@ -69,6 +74,8 @@ namespace FolderRewind.Services
         {
             try
             {
+                config = BackupConfigCloneService.CloneForRuntimeMutation(config, I18n.GetString("Common_Failed"));
+                using var connection = CaptureConnection(config);
                 var runtime = await NativeHistoryCoreGateway.EnsureReadyAsync(config, cancellationToken).ConfigureAwait(false);
                 var metadata = new HistoryMetadataSyncService(runtime, CreateHistoryTransport(config));
                 var service = new HistoryReplicaSyncService(
@@ -100,6 +107,8 @@ namespace FolderRewind.Services
         {
             try
             {
+                config = BackupConfigCloneService.CloneForRuntimeMutation(config, I18n.GetString("Common_Failed"));
+                using var connection = CaptureConnection(config);
                 var runtime = await NativeHistoryCoreGateway.EnsureReadyAsync(config, cancellationToken).ConfigureAwait(false);
                 var replicas = await runtime.Query.GetStorageReplicasAsync(representationId, cancellationToken)
                     .ConfigureAwait(false);
@@ -163,15 +172,16 @@ namespace FolderRewind.Services
             }
         }
 
-        private static RcloneHistoryReplicaTransport CreateReplicaTransport(BackupConfig config)
+        private static IHistoryReplicaTransport CreateReplicaTransport(BackupConfig config)
         {
+            if (RcloneExecutionScope.Current is { } context) return new RcloneNativeHistoryTransport(context, config.Cloud.TimeoutSeconds);
             if (!TryResolveSharedRcloneRuntime(
                     config.Cloud,
                     out var executable,
                     out var workingDirectory,
                     out var error))
                 throw new InvalidOperationException(error);
-            return new(
+            return new RcloneHistoryReplicaTransport(
                 executable,
                 workingDirectory,
                 config.Cloud ?? new CloudSettings(),
@@ -294,7 +304,7 @@ namespace FolderRewind.Services
                     + (immutable ? " --immutable" : string.Empty);
                 var result = await RunSilentCommandAsync(
                     CreateDirectCommand(_executable, _workingDirectory, arguments),
-                    Math.Clamp(_settings.TimeoutSeconds, 10, MaxTimeoutSeconds)).ConfigureAwait(false);
+                    Math.Clamp(_settings.TimeoutSeconds, 10, MaxTimeoutSeconds), cancellationToken).ConfigureAwait(false);
                 cancellationToken.ThrowIfCancellationRequested();
                 if (!result.Success) throw new IOException(result.ErrorMessage);
             }
@@ -304,7 +314,7 @@ namespace FolderRewind.Services
                 cancellationToken.ThrowIfCancellationRequested();
                 var result = await RunSilentCommandAsync(
                     CreateDirectCommand(_executable, _workingDirectory, $"deletefile {Quote(remotePath)}"),
-                    Math.Clamp(_settings.TimeoutSeconds, 10, MaxTimeoutSeconds)).ConfigureAwait(false);
+                    Math.Clamp(_settings.TimeoutSeconds, 10, MaxTimeoutSeconds), cancellationToken).ConfigureAwait(false);
                 if (!result.Success) throw new IOException(result.ErrorMessage);
             }
 

@@ -108,11 +108,14 @@ internal static partial class NativeHistoryApplicationService
         VersionId versionId,
         BackupService.RestoreMode requestedMode,
         CancellationToken cancellationToken = default,
-        RestoreRequestOptions? options = null)
+        RestoreRequestOptions? options = null,
+        string? expectedConfigSignature = null)
     {
         NativeHostMutationContext.ThrowIfNestedMutation();
+        var signature = expectedConfigSignature ?? NativeHistoryConfigLease.Signature(config);
+        if (NativeHistoryConfigLease.Signature(config) != signature) return Blocked(I18n.GetString("SettingsProject_Stale"));
         var runtime = await NativeHistoryCoreGateway.EnsureReadyAsync(config, cancellationToken).ConfigureAwait(false);
-        var restore = CreateRestoreService(config, runtime);
+        var restore = CreateRestoreService(config, runtime, expectedSignature: signature);
         var requiredFidelity = requestedMode == BackupService.RestoreMode.Clean
             ? MaterializationFidelity.Exact
             : MaterializationFidelity.Partial;
@@ -124,7 +127,7 @@ internal static partial class NativeHistoryApplicationService
             config,
             [folder],
             versionId.ToString(),
-            token => RestoreVersionCoreAsync(config, folder, versionId, requestedMode, token),
+            token => RestoreVersionCoreAsync(config, folder, versionId, requestedMode, token, expectedSignature: signature),
             cancellationToken, options: options).ConfigureAwait(false);
     }
 
@@ -134,7 +137,8 @@ internal static partial class NativeHistoryApplicationService
         VersionId versionId,
         BackupService.RestoreMode requestedMode,
         CancellationToken cancellationToken = default,
-        bool requireSafetySnapshot = false)
+        bool requireSafetySnapshot = false,
+        string? expectedSignature = null)
     {
         var runtime = await NativeHistoryCoreGateway.EnsureReadyAsync(config, cancellationToken).ConfigureAwait(false);
         var workspace = await RequireWorkspaceAsync(runtime, cancellationToken).ConfigureAwait(false);
@@ -144,7 +148,7 @@ internal static partial class NativeHistoryApplicationService
             if (protection.Result is not null) return protection.Result;
             workspace = protection.Workspace!;
         }
-        var result = await CreateRestoreService(config, runtime, ordinaryRestore: true).RestoreVersionAsync(
+        var result = await CreateRestoreService(config, runtime, ordinaryRestore: true, expectedSignature: expectedSignature).RestoreVersionAsync(
             versionId,
             await BindingAsync(config, folder, cancellationToken).ConfigureAwait(false),
             workspace,
@@ -486,9 +490,10 @@ internal static partial class NativeHistoryApplicationService
         return CreateRestoreService(config, runtime);
     }
 
-    private static HistoryRestoreService CreateRestoreService(BackupConfig config, HistoryRuntime runtime, bool ordinaryRestore = false)
+    private static HistoryRestoreService CreateRestoreService(BackupConfig config, HistoryRuntime runtime, bool ordinaryRestore = false,
+        string? expectedSignature = null)
     {
-        var configSignature = NativeHistoryConfigLease.Signature(config);
+        var configSignature = expectedSignature ?? NativeHistoryConfigLease.Signature(config);
         var archive = new SevenZipHistoryArchiveBackend(config);
         var representations = new RepresentationRuntime(
         [
@@ -507,7 +512,7 @@ internal static partial class NativeHistoryApplicationService
         { FinalGuardInsideOperation = (operation, token) => NativeHistoryConfigLease.EnterInsideOperationAsync(config, configSignature, operation, token) };
     }
 
-    private static async Task<IRepresentationEnvironment> BuildEnvironmentAsync(
+    internal static async Task<IRepresentationEnvironment> BuildEnvironmentAsync(
         HistoryRuntime runtime,
         CancellationToken cancellationToken)
     {
@@ -613,13 +618,17 @@ internal static partial class NativeHistoryApplicationService
         return result;
     }
 
-    private static async Task PrepareExactVersionsAsync(BackupConfig config, HistoryRuntime runtime, HistoryRestoreService restore,
+    internal static Task PrepareExactVersionsAsync(BackupConfig config, HistoryRuntime runtime, HistoryRestoreService restore,
         IEnumerable<(SourceId Source, VersionId Version)> inputs, CancellationToken token)
+        => PrepareVersionsAsync(config, runtime, restore, inputs, MaterializationFidelity.Exact, token);
+
+    internal static async Task PrepareVersionsAsync(BackupConfig config, HistoryRuntime runtime, HistoryRestoreService restore,
+        IEnumerable<(SourceId Source, VersionId Version)> inputs, MaterializationFidelity fidelity, CancellationToken token)
     {
         var representations = (await runtime.Query.GetAllRepresentationsAsync(token).ConfigureAwait(false)).ToDictionary(r => r.RepresentationId);
         var catalog = (await runtime.LocalReplicaCatalogStore.LoadAsync(token).ConfigureAwait(false)).Value;
         await ExactReplicaPreparation.PrepareAsync(inputs, representations,
-            (version, depth, ct) => restore.AssessVersionAsync(version, MaterializationFidelity.Exact, depth, ct),
+            (version, depth, ct) => restore.AssessVersionAsync(version, fidelity, depth, ct),
             id => (catalog?.Entries ?? []).Any(e => e.RepresentationId == id && e.Locator.Kind == LocalReplicaLocatorKind.ControlledAbsolutePath && File.Exists(e.Locator.AbsolutePath)),
             (source, representation, ct) => CloudSyncService.DownloadRepresentationAsync(config,
                 config.SourceFolders.Single(f => Source(f) == source), representation.RepresentationId,

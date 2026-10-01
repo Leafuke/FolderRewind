@@ -1,4 +1,4 @@
-using FolderRewind.Models;
+﻿using FolderRewind.Models;
 using FolderRewind.Services;
 using FolderRewind.Services.Plugins;
 using FolderRewind.ViewModels;
@@ -14,7 +14,7 @@ using Windows.System;
 
 namespace FolderRewind.Views
 {
-    public sealed partial class ConfigSettingsDialog : ContentDialog
+    public sealed partial class ConfigSettingsPage : Page
     {
         private readonly List<string> _monthOptions = new();
         private readonly List<string> _dayOptions = new();

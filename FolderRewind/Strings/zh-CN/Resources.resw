@@ -1,4 +1,4 @@
-<?xml version="1.0" encoding="utf-8"?>
+﻿<?xml version="1.0" encoding="utf-8"?>
 <root>
   <!-- 
     Microsoft ResX Schema 
@@ -127,7 +127,7 @@
     <value>选择图标</value>
   </data>
   <data name="HomePage_NewConfigDialogTitle" xml:space="preserve">
-    <value>新建备份配置</value>
+    <value>新建备份备份项目</value>
   </data>
   <data name="HomePage_CreateButton" xml:space="preserve">
     <value>创建</value>
@@ -142,31 +142,31 @@
     <value>打开目标文件夹</value>
   </data>
   <data name="HomePage_ContextMenu_EditConfig.Text" xml:space="preserve">
-    <value>编辑配置</value>
+    <value>编辑备份项目</value>
   </data>
   <data name="HomePage_ContextMenu_DeleteConfig.Text" xml:space="preserve">
-    <value>删除配置</value>
+    <value>删除备份项目</value>
   </data>
   <data name="HomePage_ContextMenu_NoFolders_Title" xml:space="preserve">
     <value>无文件夹</value>
   </data>
   <data name="HomePage_ContextMenu_NoFolders_Content" xml:space="preserve">
-    <value>该配置中没有需要备份的文件夹。</value>
+    <value>该备份项目中没有需要备份的文件夹。</value>
   </data>
   <data name="HomePage_ContextMenu_DeleteConfirm_Title" xml:space="preserve">
     <value>确认删除</value>
   </data>
   <data name="HomePage_ContextMenu_DeleteConfirm_Content" xml:space="preserve">
-    <value>确定要删除配置"{0}"吗？此操作不可撤销。</value>
+    <value>确定要删除备份项目"{0}"吗？此操作不可撤销。</value>
   </data>
   <data name="HomePage_ContextMenu_DeleteConfirm_Delete" xml:space="preserve">
     <value>删除</value>
   </data>
   <data name="HomePage_ConfigKindHeader" xml:space="preserve">
-    <value>配置种类</value>
+    <value>备份项目种类</value>
   </data>
   <data name="HomePage_ConfigKindDesc" xml:space="preserve">
-    <value>稳定的配置种类决定由哪个插件提供该领域的能力。</value>
+    <value>稳定的备份项目种类决定由哪个插件提供该领域的能力。</value>
   </data>
   <data name="HomePage_PluginBatchCreateHeader" xml:space="preserve">
     <value>批量创建（插件）</value>
@@ -175,7 +175,7 @@
     <value>关闭</value>
   </data>
   <data name="HomePage_PluginBatchCreateOn" xml:space="preserve">
-    <value>开启：扫描并自动生成多个配置</value>
+    <value>开启：扫描并自动生成多个备份项目</value>
   </data>
   <data name="HomePage_PluginBatchCreatePickRootTitle" xml:space="preserve">
     <value>选择要扫描的目录（例如 .minecraft / versions / saves）</value>
@@ -196,16 +196,16 @@
     <value>(未选择)</value>
   </data>
   <data name="FolderManager_DuplicateDisplayName_Title" xml:space="preserve">
-    <value>当前配置中已存在同名文件夹</value>
+    <value>当前备份项目中已存在同名文件夹</value>
   </data>
   <data name="FolderManager_DuplicateDisplayName_Content" xml:space="preserve">
-    <value>配置“{1}”中已经存在名为“{0}”的文件夹。为避免不同目录共用同一个备份槽位，不能再添加同名项。</value>
+    <value>备份项目“{1}”中已经存在名为“{0}”的文件夹。为避免不同目录共用同一个备份槽位，不能再添加同名项。</value>
   </data>
   <data name="FolderManager_DuplicateDisplayName_BatchContent" xml:space="preserve">
-    <value>以下文件夹没有被添加到配置“{0}”，因为它们会与现有显示名冲突：
+    <value>以下文件夹没有被添加到备份项目“{0}”，因为它们会与现有显示名冲突：
 {1}
 
-为避免不同目录共用同一个备份槽位，同一配置中不能存在同名文件夹。</value>
+为避免不同目录共用同一个备份槽位，同一备份项目中不能存在同名文件夹。</value>
   </data>
   <data name="ShellPage_Header.Header" xml:space="preserve">
     <value>FolderRewind</value>
@@ -721,10 +721,10 @@
     <value>暂无收藏的文件夹</value>
   </data>
   <data name="HomePage_ConfigOverview.Text" xml:space="preserve">
-    <value>配置概览</value>
+    <value>备份项目概览</value>
   </data>
   <data name="HomePage_NewConfig.Text" xml:space="preserve">
-    <value>新建配置</value>
+    <value>新建备份项目</value>
   </data>
   <data name="HomePage_SortLabel.Text" xml:space="preserve">
     <value>排序</value>
@@ -748,13 +748,13 @@
     <value>备份历史与还原</value>
   </data>
   <data name="HistoryPage_ConfigFilter.Header" xml:space="preserve">
-    <value>所属配置</value>
+    <value>所属备份项目</value>
   </data>
   <data name="HistoryPage_FolderFilter.Header" xml:space="preserve">
     <value>文件夹</value>
   </data>
   <data name="HistoryPage_FolderFilter.PlaceholderText" xml:space="preserve">
-    <value>请先选择配置</value>
+    <value>请先选择备份项目</value>
   </data>
   <data name="HistoryPage_CommentFilter.Header" xml:space="preserve">
     <value>搜索过滤</value>
@@ -790,10 +790,10 @@
     <value>重试</value>
   </data>
   <data name="FolderManager_CurrentConfig.Text" xml:space="preserve">
-    <value>当前配置：</value>
+    <value>当前备份项目：</value>
   </data>
   <data name="FolderManager_ConfigSettingsButton.ToolTipService.ToolTip" xml:space="preserve">
-    <value>配置设置</value>
+    <value>备份项目设置</value>
   </data>
   <data name="FolderManager_AddFolder.Text" xml:space="preserve">
     <value>添加文件夹</value>
@@ -817,13 +817,13 @@
     <value>没有新项目</value>
   </data>
   <data name="FolderManager_PluginDiscover_NoNewContent" xml:space="preserve">
-    <value>发现的文件夹已全部存在于当前配置中，无需重复添加。</value>
+    <value>发现的文件夹已全部存在于当前备份项目中，无需重复添加。</value>
   </data>
   <data name="FolderManager_PluginDiscover_ConfirmTitle" xml:space="preserve">
     <value>确认添加</value>
   </data>
   <data name="FolderManager_PluginDiscover_ConfirmContent" xml:space="preserve">
-    <value>插件发现了 {0} 个文件夹，是否全部添加到当前配置？</value>
+    <value>插件发现了 {0} 个文件夹，是否全部添加到当前备份项目？</value>
   </data>
   <data name="FolderManager_BackupAll.Text" xml:space="preserve">
     <value>备份全部文件夹</value>
@@ -859,7 +859,7 @@
     <value>强制重新扫描</value>
   </data>
   <data name="FolderManager_RemoveFolder.Text" xml:space="preserve">
-    <value>从配置中移除</value>
+    <value>从备份项目中移除</value>
   </data>
   <data name="ConfigSettingsDialog.Title" xml:space="preserve">
     <value>配置详情设置</value>
@@ -874,10 +874,10 @@
     <value>删除配置</value>
   </data>
   <data name="ConfigSettingsDialog_DeleteConfirmTitle" xml:space="preserve">
-    <value>删除配置</value>
+    <value>删除备份项目</value>
   </data>
   <data name="ConfigSettingsDialog_DeleteConfirmContent" xml:space="preserve">
-    <value>确定删除该配置吗？此操作不可撤销。</value>
+    <value>确定删除该备份项目吗？此操作不可撤销。</value>
   </data>
   <data name="Config_OpenDestination_Empty" xml:space="preserve">
     <value>目标路径为空</value>
@@ -895,13 +895,13 @@
     <value>打开路径失败：{0}</value>
   </data>
   <data name="ConfigSettingsDialog_ConfigName.Header" xml:space="preserve">
-    <value>配置名称</value>
+    <value>备份项目名称</value>
   </data>
   <data name="ConfigSettingsDialog_ConfigKind.Text" xml:space="preserve">
-    <value>配置种类</value>
+    <value>备份项目种类</value>
   </data>
   <data name="ConfigSettingsDialog_ConfigKindDesc.Text" xml:space="preserve">
-    <value>配置种类用于标识此配置使用的插件领域能力。</value>
+    <value>备份项目种类用于标识此备份项目使用的插件领域能力。</value>
   </data>
   <data name="ConfigSettingsDialog_DestPath.Text" xml:space="preserve">
     <value>备份存储位置</value>
@@ -1948,7 +1948,7 @@ cmd=RESTORE;from=minebackup.mod;request_id=req-mr-restore-002;current_save=true;
     <value>来源与备份存储路径重叠，已阻止备份：{0} ↔ {1}</value>
   </data>
   <data name="FolderManager_SourceDestinationOverlap_Content" xml:space="preserve">
-    <value>以下来源与当前配置的备份目录或元数据目录重叠，因此未添加：\n{0}</value>
+    <value>以下来源与当前备份项目的备份目录或元数据目录重叠，因此未添加：\n{0}</value>
   </data>
   <data name="BackupService_Log_ProcessingFolder" xml:space="preserve">
     <value>处理中: {0}</value>
@@ -2691,7 +2691,7 @@ cmd=RESTORE;from=minebackup.mod;request_id=req-mr-restore-002;current_save=true;
     <value>单独文件夹</value>
   </data>
   <data name="ConfigSettingsDialog_AutomationScopeAllDesc" xml:space="preserve">
-    <value>启动、间隔、计划和条件自动化默认作用于当前配置下的全部文件夹。</value>
+    <value>启动、间隔、计划和条件自动化默认作用于当前备份项目下的全部文件夹。</value>
   </data>
   <data name="ConfigSettingsDialog_AutomationScopeSingleDesc" xml:space="preserve">
     <value>启动、间隔、计划和条件自动化仅作用于下方选中的单个文件夹。</value>
@@ -2700,7 +2700,7 @@ cmd=RESTORE;from=minebackup.mod;request_id=req-mr-restore-002;current_save=true;
     <value>当自动化作用范围为单独文件夹时，所有自动化触发器都只会处理这里选择的文件夹。</value>
   </data>
   <data name="ConfigSettingsDialog_AutomationTargetFolderEmpty" xml:space="preserve">
-    <value>当前配置下还没有可供选择的源文件夹。</value>
+    <value>当前备份项目下还没有可供选择的源文件夹。</value>
   </data>
   <data name="ConfigSettingsDialog_ConditionRelativePathDesc" xml:space="preserve">
     <value>按源文件夹相对路径解释。例如填写 session.lock 后，会检查“源文件夹\\session.lock”的占用状态变化。</value>
@@ -3246,10 +3246,10 @@ cmd=RESTORE;from=minebackup.mod;request_id=req-mr-restore-002;current_save=true;
     <value>正在保存云备份工具路径...</value>
   </data>
   <data name="CloudOnboarding_Success_RcloneOnly" xml:space="preserve">
-    <value>{0} 云备份预设已准备好。rclone 路径：{1}。建议远端基路径：{2}。请在打开的命令行中运行 rclone config 完成账号授权。</value>
+    <value>{0} 的 rclone 工具已准备并检查版本：{1}。请打开备份项目的“云连接”，配置 WebDAV 或使用已有 remote，选择真实目录后检查访问。</value>
   </data>
   <data name="CloudOnboarding_Success_WithOpenList" xml:space="preserve">
-    <value>{0} 云备份预设已准备好。rclone 路径：{1}。OpenList 路径：{2}。建议远端基路径：{3}。请先运行 openlist server 配好网盘，再在 rclone config 中用 WebDAV 连接 OpenList。</value>
+    <value>{0} 的工具已准备：rclone {1}；OpenList {2}。OpenList 尚未启动、挂载或验证。请在环境设置中确认自己的程序、数据目录和服务地址；在 OpenList 网页完成授权和挂载，再通过项目的“云连接”选择实际可见目录。</value>
   </data>
   <data name="CloudOnboarding_Failed" xml:space="preserve">
     <value>云备份入门预设失败：{0}</value>
@@ -3488,7 +3488,7 @@ cmd=RESTORE;from=minebackup.mod;request_id=req-mr-restore-002;current_save=true;
     <value>重建历史</value>
   </data>
   <data name="History_ScanRecover_SelectFirst" xml:space="preserve">
-    <value>请先选择一个配置和文件夹</value>
+    <value>请先选择一个备份项目和文件夹</value>
   </data>
   <data name="History_ScanRecover_ResultSuccess" xml:space="preserve">
     <value>成功恢复了 {0} 条历史记录</value>
@@ -3512,7 +3512,7 @@ cmd=RESTORE;from=minebackup.mod;request_id=req-mr-restore-002;current_save=true;
     <value>保存为模板</value>
   </data>
   <data name="ConfigSettingsDialog_SaveAsTemplateDesc.Text" xml:space="preserve">
-    <value>将当前配置保存为可复用模板（含策略、过滤器与路径规则）。</value>
+    <value>将当前备份项目保存为可复用模板（含策略、过滤器与路径规则）。</value>
   </data>
   <data name="HomePage_AddFromTemplate.Text" xml:space="preserve">
     <value>从模板创建</value>
@@ -4298,10 +4298,10 @@ Pull Request：{1}</value>
     <value>当前没有可下载的云端副本。</value>
   </data>
   <data name="History_CloudAction_NotEnabled" xml:space="preserve">
-    <value>当前配置未启用云存档。</value>
+    <value>当前备份项目未启用云存档。</value>
   </data>
   <data name="History_CloudAction_CustomModeOnly" xml:space="preserve">
-    <value>当前配置使用自定义云命令，历史页上传/下载仅支持 rclone 模式。</value>
+    <value>当前备份项目使用自定义云命令，历史页上传/下载仅支持 rclone 模式。</value>
   </data>
   <data name="History_DeleteMode_RecordOnly" xml:space="preserve">
     <value>仅删除历史记录</value>
@@ -4379,13 +4379,13 @@ Pull Request：{1}</value>
     <value>”{0}”的元数据未完整同步，归档文件已优先完成处理。</value>
   </data>
   <data name="ConfigSettingsDialog_CloudDownloadAllText.Text" xml:space="preserve">
-    <value>从云获取此配置的备份</value>
+    <value>从云获取此备份项目的备份</value>
   </data>
   <data name="ConfigSettingsDialog_CloudDownloadAllDesc.Text" xml:space="preserve">
-    <value>将当前配置在云端保存的备份文件和元数据拉回本地备份库，并尝试恢复历史记录。</value>
+    <value>将当前备份项目在云端保存的备份文件和元数据拉回本地备份库，并尝试恢复历史记录。</value>
   </data>
   <data name="ConfigSettingsDialog_CloudExecutableDesc" xml:space="preserve">
-    <value>当前生效路径：{0}。这里可填写当前配置专用的程序路径；保留默认值时，会优先回退到软件设置里的全局 rclone 路径。</value>
+    <value>当前生效路径：{0}。这里可填写当前备份项目专用的程序路径；保留默认值时，会优先回退到软件设置里的全局 rclone 路径。</value>
   </data>
   <data name="SettingsPage_RclonePath.Text" xml:space="preserve">
     <value>rclone 路径</value>
@@ -4496,10 +4496,10 @@ Pull Request：{1}</value>
     <value>云同步</value>
   </data>
   <data name="ConfigSettingsDialog_CloudSyncOpenText.Text" xml:space="preserve">
-    <value>从云同步此配置</value>
+    <value>从云同步此备份项目</value>
   </data>
   <data name="ConfigSettingsDialog_CloudLegacyModeDesc.Text" xml:space="preserve">
-    <value>此配置保留了旧版“自定义命令”模式。自动上传仍可用，但手动同步与历史页云操作仅支持 rclone 模式。</value>
+    <value>此备份项目保留了旧版“自定义命令”模式。自动上传仍可用，但手动同步与历史页云操作仅支持 rclone 模式。</value>
   </data>
   <data name="ConfigSettingsDialog_CloudSyncHint" xml:space="preserve">
     <value>先分析远端 Commit Pack 集合，再同步不可变历史元数据和选中的备份 payload。</value>
@@ -4984,24 +4984,24 @@ Pull Request：{1}</value>
   <data name="GameDiscoveryPage_CommitComplete" xml:space="preserve"><value>配置已保存</value></data>
   <data name="GameDiscoveryPage_CommitSummary" xml:space="preserve"><value>新增 {0} 个配置和 {1} 个来源。</value></data>
   <data name="History_Run_AllSources" xml:space="preserve"><value>全部来源</value></data>
-  <data name="History_Run_StatusCompleted" xml:space="preserve"><value>完整配置备份已完成</value></data>
-  <data name="History_Run_StatusPartial" xml:space="preserve"><value>完整配置备份部分完成</value></data>
+  <data name="History_Run_StatusCompleted" xml:space="preserve"><value>完整备份项目备份已完成</value></data>
+  <data name="History_Run_StatusPartial" xml:space="preserve"><value>完整备份项目备份部分完成</value></data>
   <data name="History_Run_SourceSummary" xml:space="preserve"><value>{0} 个来源 · {1} 个新归档 · {2} 个复用 · {3} 个失败/不可用</value></data>
   <data name="History_Run_SourceNewArchive" xml:space="preserve"><value>新归档</value></data>
   <data name="History_Run_SourceReused" xml:space="preserve"><value>复用上次归档</value></data>
   <data name="History_Run_SourceFailed" xml:space="preserve"><value>失败</value></data>
   <data name="History_Run_SourceUnavailable" xml:space="preserve"><value>不可用</value></data>
-  <data name="History_Run_RestoreTitle" xml:space="preserve"><value>还原完整配置运行</value></data>
+  <data name="History_Run_RestoreTitle" xml:space="preserve"><value>还原完整备份项目运行</value></data>
   <data name="History_Run_RestoreContent" xml:space="preserve"><value>将依次安全还原此运行中的所有可用来源；单个来源失败后仍会继续，不提供跨来源原子回滚。</value></data>
   <data name="History_Run_RestoreSummary" xml:space="preserve"><value>运行还原完成：{0} 个来源成功，{1} 个来源失败或跳过。</value></data>
-  <data name="History_Run_DeleteTitle" xml:space="preserve"><value>删除配置运行</value></data>
+  <data name="History_Run_DeleteTitle" xml:space="preserve"><value>删除备份项目运行</value></data>
   <data name="History_Run_DeleteContent" xml:space="preserve"><value>这只会删除批次分组记录，不会直接删除仍处于来源保留范围内、被其他批次引用或被增量链依赖的归档。</value></data>
   <data name="HistoryPage_ViewBySource.Text" xml:space="preserve"><value>按来源</value></data>
   <data name="HistoryPage_ViewByRun.Text" xml:space="preserve"><value>按批次</value></data>
   <data name="History_Run_SourceMissing" xml:space="preserve"><value>引用缺失</value></data>
   <data name="History_Run_SourceMissingDetail" xml:space="preserve"><value>引用的来源历史不存在，无法完整还原。</value></data>
   <data name="History_Run_MissingSummary" xml:space="preserve"><value> · {0} 个引用缺失</value></data>
-  <data name="History_Run_DeleteFailed" xml:space="preserve"><value>无法删除此配置运行。</value></data>
+  <data name="History_Run_DeleteFailed" xml:space="preserve"><value>无法删除此备份项目运行。</value></data>
   <data name="GameDiscoveryPage_Attribution.Text" xml:space="preserve"><value>路径数据来自 Ludusavi manifest（主要汇编自 PCGamingWiki）；当前 Beta 仅在用户操作后直连上游并缓存，不随应用再分发。</value></data>
   <data name="GameDiscoveryPage_LudusaviSource.Content" xml:space="preserve"><value>Ludusavi 来源</value></data>
   <data name="GameDiscoveryPage_PcgwNotice.Content" xml:space="preserve"><value>PCGamingWiki 许可说明</value></data>
@@ -5033,12 +5033,12 @@ Pull Request：{1}</value>
   <data name="RecoveryCenter_ActionSuccessRestart" xml:space="preserve"><value>配置已恢复有效。请关闭并重新打开 FolderRewind 以退出受限模式。</value></data>
   <data name="RecoveryCenter_ActionFailed" xml:space="preserve"><value>恢复操作失败。未经校验的文档没有替换当前配置。</value></data>
   <data name="HomePage_PluginBatchCreateContinue" xml:space="preserve"><value>继续</value></data>
-  <data name="HomePage_PluginBatchCreateUnavailableCore" xml:space="preserve"><value>请选择由插件提供的配置种类以使用批量创建。</value></data>
+  <data name="HomePage_PluginBatchCreateUnavailableCore" xml:space="preserve"><value>请选择由插件提供的备份项目种类以使用批量创建。</value></data>
   <data name="HomePage_PluginBatchCreateUnavailableInactive" xml:space="preserve"><value>插件“{0}”未启用或尚未激活。</value></data>
   <data name="HomePage_PluginBatchCreateUnavailableDiscovery" xml:space="preserve"><value>插件“{0}”没有提供存档发现能力。</value></data>
   <data name="HomePage_PluginBatchCreateUnavailableCatalog" xml:space="preserve"><value>插件“{0}”不支持当前批量发现协议，请先升级插件。</value></data>
   <data name="HomePage_PluginBatchCreateUnavailable" xml:space="preserve"><value>当前插件无法用于批量创建。</value></data>
-  <data name="HomePage_PluginBatchCreateAvailable" xml:space="preserve"><value>将使用插件“{0}”扫描所选目录，并在确认摘要后创建缺失配置。</value></data>
+  <data name="HomePage_PluginBatchCreateAvailable" xml:space="preserve"><value>将使用插件“{0}”扫描所选目录，并在确认摘要后创建缺失备份项目。</value></data>
   <data name="GameDiscovery_PluginBatch_ProviderUnavailable" xml:space="preserve"><value>无法启动所选插件的发现能力：{0}</value></data>
   <data name="GameDiscovery_PluginBatch_SkippedNoResources" xml:space="preserve"><value>“{0}”没有安全且受支持的默认来源，已跳过。</value></data>
   <data name="GameDiscovery_PluginBatch_SkippedBlocking" xml:space="preserve"><value>“{0}”无法创建：{1}</value></data>
@@ -5071,7 +5071,7 @@ Pull Request：{1}</value>
   <data name="History_Branch_SelectTipTitle" xml:space="preserve"><value>选择要切换的分支进展</value></data>
   <data name="History_Branch_NoCheckpoint" xml:space="preserve"><value>尚无可用于创建分支的检查点。</value></data>
   <data name="History_Branch_CheckoutTitle" xml:space="preserve"><value>切换分支</value></data>
-  <data name="History_Branch_CheckoutContent" xml:space="preserve"><value>这会用所选分支检查点精确替换当前配置中的所有源目录内容。请确认当前未提交的更改可以丢弃。</value></data>
+  <data name="History_Branch_CheckoutContent" xml:space="preserve"><value>这会用所选分支检查点精确替换当前备份项目中的所有源目录内容。请确认当前未提交的更改可以丢弃。</value></data>
   <data name="History_Branch_CheckoutPrimary" xml:space="preserve"><value>丢弃当前更改并切换</value></data>
   <data name="BackupService_HistoryCaptureVerificationFailed" xml:space="preserve"><value>归档验证失败，未写入原生历史记录。</value></data>
   <data name="BackupService_ArtifactTransformNativeHistoryNotSupported" xml:space="preserve"><value>当前版本尚未完成插件产物转换与原生历史记录的集成。请先关闭此配置的产物转换策略。</value></data>
@@ -5095,7 +5095,7 @@ Pull Request：{1}</value>
   <data name="HistoryPage_MaintenanceDropDown.ToolTipService.ToolTip" xml:space="preserve"><value>历史记录维护与偏好设置</value></data>
   <data name="HistoryPage_MaintenanceDropDownText.Text" xml:space="preserve"><value>维护与设置</value></data>
   <data name="HistoryPage_UseColorsMenuItem.Text" xml:space="preserve"><value>显示时间轴状态颜色</value></data>
-  <data name="HistoryPage_OpenCloudSyncButton.ToolTipService.ToolTip" xml:space="preserve"><value>配置云存储同步与版本备份</value></data>
+  <data name="HistoryPage_OpenCloudSyncButton.ToolTipService.ToolTip" xml:space="preserve"><value>设置云存储连接与版本副本</value></data>
   <data name="HistoryPage_ScanRecoverMenuItem.Text" xml:space="preserve"><value>扫描并重建历史记录...</value></data>
   <data name="HistoryPage_ScanRecoverMenuItem.ToolTipService.ToolTip" xml:space="preserve"><value>从已有备份归档目录中扫描并恢复历史记录索引</value></data>
   <data name="HistoryPage_ClearMissingMenuItem.Text" xml:space="preserve"><value>清除失效历史副本</value></data>
@@ -5105,9 +5105,9 @@ Pull Request：{1}</value>
   <data name="HistoryPage_BranchReconcileItem.Text" xml:space="preserve"><value>收敛分支尖端</value></data>
   <data name="HistoryPage_SafetySnapshotsMenuItem.Text" xml:space="preserve"><value>安全恢复点</value></data>
   <data name="History_Branch_CreateFromHereTitle" xml:space="preserve"><value>从此处创建分支</value></data>
-  <data name="History_Branch_CreateFromHereHint" xml:space="preserve"><value>从此配置检查点创建休眠分支</value></data>
-  <data name="History_Branch_CreateUnavailableNoCheckpoint" xml:space="preserve"><value>此版本不属于可创建分支的完整配置检查点</value></data>
-  <data name="History_Branch_CreateUnavailableAmbiguousCheckpoint" xml:space="preserve"><value>此版本属于多个配置检查点，请改从一次备份运行创建分支</value></data>
+  <data name="History_Branch_CreateFromHereHint" xml:space="preserve"><value>从此备份项目检查点创建休眠分支</value></data>
+  <data name="History_Branch_CreateUnavailableNoCheckpoint" xml:space="preserve"><value>此版本不属于可创建分支的完整备份项目检查点</value></data>
+  <data name="History_Branch_CreateUnavailableAmbiguousCheckpoint" xml:space="preserve"><value>此版本属于多个备份项目检查点，请改从一次备份运行创建分支</value></data>
   <data name="History_Branch_CheckoutProtectionContent" xml:space="preserve"><value>当前工作状态尚未由精确基线表示。切换前将先创建并保留一个安全恢复点，然后按所选分支检查点恢复。</value></data>
   <data name="History_CheckoutReadiness_Ready" xml:space="preserve"><value>可以切换</value></data>
   <data name="History_CheckoutReadiness_PreparationRequired" xml:space="preserve"><value>需要准备精确表示</value></data>
@@ -5123,10 +5123,10 @@ Pull Request：{1}</value>
   <data name="History_Checkout_PrepareContent" xml:space="preserve"><value>切换所需的精确表示尚未在本机可用。是否现在显式下载并验证所需内容？刷新历史列表不会自动下载。</value></data>
   <data name="History_Checkout_PreparePrimary" xml:space="preserve"><value>准备内容</value></data>
   <data name="History_Checkout_MissingSourceTitle" xml:space="preserve"><value>恢复历史来源绑定</value></data>
-  <data name="History_Checkout_MissingSourceDescription" xml:space="preserve"><value>历史来源“{0}”（SourceId: {1}）已不在当前配置中。请确认其目录；系统将以原 SourceId 恢复配置绑定。</value></data>
+  <data name="History_Checkout_MissingSourceDescription" xml:space="preserve"><value>历史来源“{0}”（SourceId: {1}）已不在当前备份项目中。请确认其目录；系统将以原 SourceId 恢复备份项目绑定。</value></data>
   <data name="History_Checkout_RepairBindingPrimary" xml:space="preserve"><value>恢复绑定</value></data>
   <data name="History_Checkout_BoundaryTitle" xml:space="preserve"><value>确认来源边界变更</value></data>
-  <data name="History_Checkout_BoundaryDescription" xml:space="preserve"><value>来源 {0} 的当前边界（{1}）与历史边界（{2}）不同。继续会把配置级来源范围和过滤规则恢复为历史值，可能影响该配置的其他来源。</value></data>
+  <data name="History_Checkout_BoundaryDescription" xml:space="preserve"><value>来源 {0} 的当前边界（{1}）与历史边界（{2}）不同。继续会把备份项目级来源范围和过滤规则恢复为历史值，可能影响该备份项目的其他来源。</value></data>
   <data name="History_Checkout_RepairBoundaryPrimary" xml:space="preserve"><value>应用历史边界</value></data>
   <data name="History_SafetySnapshot_None" xml:space="preserve"><value>当前没有活动的安全恢复点。</value></data>
   <data name="History_SafetySnapshot_Title" xml:space="preserve"><value>安全恢复点</value></data>
@@ -5145,14 +5145,14 @@ Pull Request：{1}</value>
   <data name="PluginStore_SummaryOnline" xml:space="preserve"><value>官方目录 · {0:N0} 个插件</value></data>
   <data name="PluginStore_SummaryOffline" xml:space="preserve"><value>官方目录（离线缓存）· {0:N0} 个插件</value></data>
   <data name="PluginStore_CatalogUnavailable" xml:space="preserve"><value>官方目录不可用：{0}</value></data>
-  <data name="History_NoActiveConfiguration" xml:space="preserve"><value>尚未选择活动配置。</value></data>
+  <data name="History_NoActiveConfiguration" xml:space="preserve"><value>尚未选择活动备份项目。</value></data>
   <data name="History_Run_SourceCount" xml:space="preserve"><value>{0:N0} 个来源</value></data>
   <data name="History_Run_OutcomeCompleted" xml:space="preserve"><value>已完成</value></data>
   <data name="History_Run_OutcomePartial" xml:space="preserve"><value>部分完成</value></data>
   <data name="History_Run_OutcomeFailed" xml:space="preserve"><value>失败</value></data>
   <data name="History_Run_OutcomeNoChange" xml:space="preserve"><value>无变更</value></data>
   <data name="History_Run_SourceCarriedForward" xml:space="preserve"><value>沿用上次结果</value></data>
-  <data name="FolderManager_InvalidContext" xml:space="preserve"><value>未提供活动配置或有效文件夹。</value></data>
+  <data name="FolderManager_InvalidContext" xml:space="preserve"><value>未提供活动备份项目或有效文件夹。</value></data>
   <data name="FolderManager_InvalidIconSource" xml:space="preserve"><value>图标来源或目标文件夹无效。</value></data>
   <data name="Hotkeys_BackupCommentMarker" xml:space="preserve"><value>[快捷键]</value></data>
   <data name="GameDiscovery_TargetedPresetUnavailable" xml:space="preserve"><value>所选的提供者定向预设已不可用。</value></data>
@@ -5166,7 +5166,7 @@ Pull Request：{1}</value>
   <data name="BackupService_MissingEncryptionPassword" xml:space="preserve"><value>此配置缺少加密密码。</value></data>
   <data name="BackupService_InvalidConfigurationOrSource" xml:space="preserve"><value>备份配置或来源无效。</value></data>
   <data name="HomePage_QuickBackupButton.AutomationProperties.Name" xml:space="preserve"><value>快速备份文件夹</value></data>
-  <data name="HomePage_ContextMenu_DeleteConfig.AutomationProperties.HelpText" xml:space="preserve"><value>确认后删除此配置。</value></data>
+  <data name="HomePage_ContextMenu_DeleteConfig.AutomationProperties.HelpText" xml:space="preserve"><value>确认后删除此备份项目。</value></data>
   <data name="HistoryPage_ToggleImportantButton.AutomationProperties.Name" xml:space="preserve"><value>切换重要状态</value></data>
   <data name="HistoryPage_ViewButton.AutomationProperties.Name" xml:space="preserve"><value>查看版本</value></data>
   <data name="HistoryPage_EditCommentButton.AutomationProperties.Name" xml:space="preserve"><value>编辑注释</value></data>
@@ -5177,13 +5177,13 @@ Pull Request：{1}</value>
   <data name="HistoryPage_RestoreButton.AutomationProperties.HelpText" xml:space="preserve"><value>确认后使用此版本替换所选来源。</value></data>
   <data name="HistoryPage_DeleteButton.AutomationProperties.Name" xml:space="preserve"><value>删除历史项目</value></data>
   <data name="HistoryPage_DeleteButton.AutomationProperties.HelpText" xml:space="preserve"><value>确认后永久删除此历史项目。</value></data>
-  <data name="FolderManager_ConfigSettingsButton.AutomationProperties.Name" xml:space="preserve"><value>打开配置设置</value></data>
+  <data name="FolderManager_ConfigSettingsButton.AutomationProperties.Name" xml:space="preserve"><value>打开备份项目设置</value></data>
   <data name="FolderManager_ChangeCover.AutomationProperties.Name" xml:space="preserve"><value>更改文件夹封面</value></data>
   <data name="FolderManager_FavoriteToggle.AutomationProperties.Name" xml:space="preserve"><value>切换收藏文件夹</value></data>
   <data name="FolderManager_AddDescription.AutomationProperties.Name" xml:space="preserve"><value>文件夹描述</value></data>
   <data name="FolderManager_MoreActions.AutomationProperties.Name" xml:space="preserve"><value>更多文件夹操作</value></data>
   <data name="FolderManager_MoreActions.ToolTipService.ToolTip" xml:space="preserve"><value>更多文件夹操作</value></data>
-  <data name="FolderManager_RemoveFolder.AutomationProperties.HelpText" xml:space="preserve"><value>确认后从配置中移除此文件夹。</value></data>
+  <data name="FolderManager_RemoveFolder.AutomationProperties.HelpText" xml:space="preserve"><value>确认后从备份项目中移除此文件夹。</value></data>
   <data name="SettingsPage_PluginsAutoCheckUpdatesToggle.AutomationProperties.Name" xml:space="preserve"><value>自动检查插件更新</value></data>
   <data name="SettingsPage_PluginEnabledToggle.AutomationProperties.Name" xml:space="preserve"><value>启用或禁用插件</value></data>
   <data name="SettingsPage_PluginUninstall.AutomationProperties.HelpText" xml:space="preserve"><value>确认后卸载此插件。</value></data>
@@ -5194,7 +5194,7 @@ Pull Request：{1}</value>
   <data name="MiniWindow_CommentBox.AutomationProperties.Name" xml:space="preserve"><value>备份注释</value></data>
   <data name="MiniWindow_OpenCommentPanel" xml:space="preserve"><value>打开备份注释面板</value></data>
   <data name="MiniWindow_CloseCommentPanel" xml:space="preserve"><value>关闭备份注释面板</value></data>
-  <data name="HomePage_NewConfigButton.AutomationProperties.Name" xml:space="preserve"><value>新建配置</value></data>
+  <data name="HomePage_NewConfigButton.AutomationProperties.Name" xml:space="preserve"><value>新建备份项目</value></data>
   <data name="HistoryPage_BranchCheckoutButton.AutomationProperties.Name" xml:space="preserve"><value>切换到所选分支</value></data>
   <data name="HistoryPage_BranchMoreActions.AutomationProperties.Name" xml:space="preserve"><value>更多分支操作</value></data>
   <data name="HistoryPage_OpenCloudSyncButton.AutomationProperties.Name" xml:space="preserve"><value>打开云同步设置</value></data>
@@ -5279,4 +5279,340 @@ Pull Request：{1}</value>
   <data name="History_Creation_Recovery" xml:space="preserve"><value>恢复版本</value></data>
   <data name="History_Creation_Import" xml:space="preserve"><value>导入版本</value></data>
   <data name="Merge_Details" xml:space="preserve"><value>详情与预览</value></data>
+  <data name="Setup_StageContent" xml:space="preserve"><value>选择要备份的内容</value></data>
+  <data name="Setup_StageLocation" xml:space="preserve"><value>确认保存位置</value></data>
+  <data name="Setup_StageReview" xml:space="preserve"><value>确认并创建备份项目</value></data>
+  <data name="Setup_StageResult" xml:space="preserve"><value>项目与首次备份结果</value></data>
+  <data name="Setup_ContentHelp.Text" xml:space="preserve"><value>选择具体目录。确认前不会创建项目或执行备份。</value></data>
+  <data name="Setup_AddFolder.Content" xml:space="preserve"><value>选择文件夹</value></data>
+  <data name="Setup_RemoveSource.Content" xml:space="preserve"><value>移除选中内容</value></data>
+  <data name="Setup_OtherScenarios.Header" xml:space="preserve"><value>游戏与发现入口</value></data>
+  <data name="Setup_Minecraft.Content" xml:space="preserve"><value>Minecraft 世界</value></data>
+  <data name="Setup_MinecraftHelp.Text" xml:space="preserve"><value>选择实例后由 MineRewind 发现世界。基础备份请先退出世界；游戏联动可在首次备份后设置。</value></data>
+  <data name="Setup_Discovery.Content" xml:space="preserve"><value>发现其他游戏</value></data>
+  <data name="Setup_Resume.Content" xml:space="preserve"><value>继续上次草稿</value></data>
+  <data name="Setup_Discard.Content" xml:space="preserve"><value>丢弃已保存草稿</value></data>
+  <data name="Setup_Name.Header" xml:space="preserve"><value>备份项目名称</value></data>
+  <data name="Setup_Destination.Header" xml:space="preserve"><value>备份保存位置</value></data>
+  <data name="Setup_BrowseDestination.Content" xml:space="preserve"><value>选择保存目录</value></data>
+  <data name="Setup_LocationHelp.Text" xml:space="preserve"><value>使用项目当前规则。新建普通项目沿用标准资源与保留策略，不自动开启周期备份或云上传。同一设备的副本不能保证应对设备损坏。</value></data>
+  <data name="Setup_ConfirmHelp.Text" xml:space="preserve"><value>请核对本次保护范围与保存位置。可以创建后立即备份，也可以稍后手动备份。</value></data>
+  <data name="Setup_ViewProject.Content" xml:space="preserve"><value>打开项目与后续设置</value></data>
+  <data name="Setup_ViewVersions.Content" xml:space="preserve"><value>查看版本与恢复到新位置</value></data>
+  <data name="Setup_Retry.Content" xml:space="preserve"><value>执行备份 / 重试未完成的首次备份</value></data>
+  <data name="Setup_Back.Content" xml:space="preserve"><value>上一步</value></data>
+  <data name="Setup_Next.Content" xml:space="preserve"><value>下一步</value></data>
+  <data name="Setup_CreateBackup.Content" xml:space="preserve"><value>创建并立即备份</value></data>
+  <data name="Setup_CreateOnly.Content" xml:space="preserve"><value>仅创建，稍后备份</value></data>
+  <data name="Setup_Later.Content" xml:space="preserve"><value>保存草稿，稍后继续</value></data>
+  <data name="Setup_InvalidName" xml:space="preserve"><value>请输入唯一的项目名称。</value></data>
+  <data name="Setup_InvalidDestination" xml:space="preserve"><value>请选择明确且未被其他项目使用的绝对保存路径。</value></data>
+  <data name="Setup_NoSources" xml:space="preserve"><value>至少选择一个备份源。</value></data>
+  <data name="Setup_SourceUnavailable" xml:space="preserve"><value>源目录不可访问，请重新选择。</value></data>
+  <data name="Setup_BroadRoot" xml:space="preserve"><value>请缩小目录范围，不能将整个盘或用户根目录作为完整源。</value></data>
+  <data name="Setup_DuplicateSource" xml:space="preserve"><value>备份源或归档目录名称重复，请调整选择。</value></data>
+  <data name="Setup_PathOverlap" xml:space="preserve"><value>源目录与备份保存位置必须互不包含。</value></data>
+  <data name="Setup_DraftInvalid" xml:space="preserve"><value>草稿版本或大小不受支持，请丢弃后重新选择。</value></data>
+  <data name="Setup_Created" xml:space="preserve"><value>项目已创建，尚未执行首次备份。</value></data>
+  <data name="Setup_FirstBackupFailed" xml:space="preserve"><value>项目已创建，首次备份未完成。可以重试。</value></data>
+  <data name="Setup_BackupRunning" xml:space="preserve"><value>备份正在执行。可在任务页查看真实进度；离开本页不会终止任务。</value></data>
+  <data name="Setup_BackupSummary" xml:space="preserve"><value>本次：{0} 项生成版本，{1} 项无变化，{2} 项失败，{3} 项取消或未执行。</value></data>
+  <data name="Setup_OutcomeCaptured" xml:space="preserve"><value>已提交新版本</value></data>
+  <data name="Setup_OutcomeNoChange" xml:space="preserve"><value>无变化，未生成新版本</value></data>
+  <data name="Setup_OutcomeFailed" xml:space="preserve"><value>未完成</value></data>
+  <data name="Setup_OutcomeCanceled" xml:space="preserve"><value>已取消</value></data>
+  <data name="Setup_OutcomeNotExecuted" xml:space="preserve"><value>未执行</value></data>
+  <data name="Setup_DraftSaved" xml:space="preserve"><value>选择已保存在本机：{0}。继续时将重新检查。可随时丢弃草稿。</value></data>
+  <data name="Setup_ResumePreset" xml:space="preserve"><value>该草稿来自规则预设，请从原预设重新进入并核对，不能改用标准规则恢复。</value></data>
+  <data name="Setup_DraftDiscarded" xml:space="preserve"><value>已丢弃保存的草稿。</value></data>
+  <data name="Setup_MinecraftConsent" xml:space="preserve"><value>安装并启用应用内置 MineRewind 适配插件，仅用于发现与基础备份。不会安装模组、开启 KnotLink 或启动游戏。</value></data>
+  <data name="Setup_InstanceRoot" xml:space="preserve"><value>选择 Minecraft 实例或世界发现根目录</value></data>
+  <data name="Setup_PluginUnavailable" xml:space="preserve"><value>MineRewind 不可用，请检查插件状态或重启要求。</value></data>
+  <data name="Onboarding_ToolsPrepared" xml:space="preserve"><value>工具已准备。仍需配置连接、选择目录、验证访问并完成真实上传；尚未创建云副本。</value></data>
+  <data name="Onboarding_ConsistencyWarning" xml:space="preserve"><value>存在一致性、范围或提交恢复提示，请查看各内容的任务与版本详情。</value></data>
+  <data name="Onboarding_DependencyBlocked" xml:space="preserve"><value>前置步骤未验证完成，请处理后重新检查。</value></data>
+  <data name="Onboarding_ComponentReused" xml:space="preserve"><value>复用已安装组件，不覆盖现有版本。</value></data>
+  <data name="Onboarding_RestartRequired" xml:space="preserve"><value>需要重启宿主后继续验证。</value></data>
+  <data name="Onboarding_GameVerificationPending" xml:space="preserve"><value>上述结果仅表示准备动作。请按实例进入世界后验证备份与热恢复能力。</value></data>
+  <data name="Setup_SelectOneWorld" xml:space="preserve"><value>请选择一个世界继续首次备份。批量保护可使用原高级批量入口。</value></data>
+  <data name="Setup_HomeTitle.Text" xml:space="preserve"><value>添加要备份的内容</value></data>
+  <data name="Setup_HomeStart.Content" xml:space="preserve"><value>开始：文件夹、Minecraft 或其他游戏</value></data>
+  <data name="Setup_HomeHistory.Content" xml:space="preserve"><value>查看已有备份历史</value></data>
+  <data name="Export_Button.AutomationProperties.Name" xml:space="preserve"><value>恢复到新位置</value></data>
+  <data name="Export_Button.ToolTipService.ToolTip" xml:space="preserve"><value>恢复到新位置，保持原目录与工作区不变</value></data>
+  <data name="Export_Title" xml:space="preserve"><value>恢复到新位置</value></data>
+  <data name="Export_IdentityChanged" xml:space="preserve"><value>版本不属于当前内容，请重新选择。</value></data>
+  <data name="Export_NotReady" xml:space="preserve"><value>新位置恢复尚不可用：{0}。需要完整且可读取的表示及依赖；不会改动原目录。</value></data>
+  <data name="Export_Preview" xml:space="preserve"><value>内容：{0}
+版本：{1}（{2}）
+目标：{3}
+将完整内容物化到新的独立目录；不覆盖原目录，不修改源路径、活动分支或工作区，不触发游戏保存/退出。
+必要依赖已经只读检查；确认后重新校验。
+诊断：{4}</value></data>
+  <data name="Export_Completed" xml:space="preserve"><value>已恢复到新位置：{0}。原目录与工作区未改变。</value></data>
+  <data name="Setup_NoRetryNeeded" xml:space="preserve"><value>本次没有失败或取消项，无需重复备份。请查看已有版本。</value></data>
+  <data name="SettingsProject_Save.Content" xml:space="preserve"><value>保存项目设置</value></data>
+  <data name="SettingsProject_Delete.Content" xml:space="preserve"><value>删除项目</value></data>
+  <data name="SettingsProject_Stale" xml:space="preserve"><value>项目在编辑期间已改变，请返回项目后重新打开设置。当前草稿未覆盖新配置。</value></data>
+  <data name="SettingsProject_DraftHelp" xml:space="preserve"><value>正在编辑独立草稿，保存前不会改变项目。离开时可以保存、放弃或继续编辑。</value></data>
+  <data name="SettingsProject_Unsaved" xml:space="preserve"><value>项目设置尚未保存</value></data>
+  <data name="SettingsProject_Discard" xml:space="preserve"><value>放弃修改</value></data>
+  <data name="SettingsProject_Saved" xml:space="preserve"><value>项目设置已保存。</value></data>
+  <data name="SettingsProject_SaveFailed" xml:space="preserve"><value>保存未完成，草稿仍保留。请处理错误后重试。</value></data>
+  <data name="SettingsProject_Search.Header" xml:space="preserve"><value>查找项目设置</value></data>
+  <data name="SettingsProject_Search.PlaceholderText" xml:space="preserve"><value>例如：卡顿、自动备份、空间、云、排除</value></data>
+  <data name="SettingsProject_SearchGeneral" xml:space="preserve"><value>内容|名称|位置|目录</value></data>
+  <data name="SettingsProject_SearchBackup" xml:space="preserve"><value>卡顿|性能|资源|空间|压缩|线程|保留</value></data>
+  <data name="SettingsProject_SearchRestore" xml:space="preserve"><value>恢复|安全|覆盖|校验</value></data>
+  <data name="SettingsProject_SearchAutomation" xml:space="preserve"><value>自动备份|自动化|定时|周期|计划</value></data>
+  <data name="SettingsProject_SearchCloud" xml:space="preserve"><value>云|网盘|连接|rclone|WebDAV|OpenList</value></data>
+  <data name="SettingsProject_SearchFilter" xml:space="preserve"><value>排除|过滤|白名单|黑名单|范围</value></data>
+  <data name="SettingsProject_SearchResult" xml:space="preserve"><value>已定位到设置分组：{0}</value></data>
+  <data name="Performance_Preview" xml:space="preserve"><value>将仅修改线程数：{0} → {1}，低优先级：{2} → {3}。0 表示压缩器默认，不代表自动检测游戏负载。范围、一致性、加密与保留不变。</value></data>
+  <data name="Performance_Apply.Content" xml:space="preserve"><value>应用预览的资源参数</value></data>
+  <data name="Performance_Undo.Content" xml:space="preserve"><value>撤销本次预设</value></data>
+  <data name="Onboarding_ToolChecksumUnavailable" xml:space="preserve"><value>未获得官方发布资产的有效 SHA256 或包超过限制。请从官方页面手动获取并选择程序，不会应用未验证的下载。</value></data>
+  <data name="CloudSetup_Title.Text" xml:space="preserve"><value>连接云存储与添加云副本</value></data>
+  <data name="CloudSetup_Open.Content" xml:space="preserve"><value>连接云存储 / 添加云副本</value></data>
+  <data name="CloudSetup_ScopeHelp.Text" xml:space="preserve"><value>新建连接支持 WebDAV；OneDrive、S3 等使用已有 rclone remote。连接、访问验证与真实备份上传分别完成，不自动开启云上传。</value></data>
+  <data name="CloudSetup_Executable.Header" xml:space="preserve"><value>rclone 程序路径</value></data>
+  <data name="CloudSetup_PickExecutable.Content" xml:space="preserve"><value>选择 rclone 程序</value></data>
+  <data name="CloudSetup_NewWebDav.Header" xml:space="preserve"><value>新建 WebDAV 连接</value></data>
+  <data name="CloudSetup_Url.Header" xml:space="preserve"><value>WebDAV 服务 URL</value></data>
+  <data name="CloudSetup_User.Header" xml:space="preserve"><value>WebDAV 用户名</value></data>
+  <data name="CloudSetup_Password.Header" xml:space="preserve"><value>WebDAV 密码</value></data>
+  <data name="CloudSetup_PasswordHelp.Text" xml:space="preserve"><value>凭据保存在当前用户权限保护的独立 rclone 文件中。rclone obscure 是可还原混淆，不是强加密。密码不进入项目 JSON 或命令行。</value></data>
+  <data name="CloudSetup_CreateWebDav.Content" xml:space="preserve"><value>创建本次连接草稿</value></data>
+  <data name="CloudSetup_ConfigPath.Header" xml:space="preserve"><value>rclone 配置文件（自有或已有连接）</value></data>
+  <data name="CloudSetup_PickConfig.Content" xml:space="preserve"><value>选择已有配置文件</value></data>
+  <data name="CloudSetup_ListRemotes.Content" xml:space="preserve"><value>读取此文件中的连接</value></data>
+  <data name="CloudSetup_Remote.Header" xml:space="preserve"><value>选择已有 remote</value></data>
+  <data name="CloudSetup_RemoteRoot.Header" xml:space="preserve"><value>远端目标目录（remote:path）</value></data>
+  <data name="CloudSetup_Browse.Content" xml:space="preserve"><value>浏览 / 重新检查当前目录</value></data>
+  <data name="CloudSetup_ProbeHelp.Text" xml:space="preserve"><value>浏览只检查读取权限。选择写入验证时，在此目录上传约 8 KiB 的专属随机对象，读回核对后只删除该对象。只读恢复无需写入验证。</value></data>
+  <data name="CloudSetup_VerifyWrite.Content" xml:space="preserve"><value>验证此目录读写权限</value></data>
+  <data name="CloudSetup_Save.Content" xml:space="preserve"><value>保存连接，暂不上传</value></data>
+  <data name="CloudSetup_LoadVersions.Content" xml:space="preserve"><value>读取可上传的本地版本</value></data>
+  <data name="CloudSetup_Version.Header" xml:space="preserve"><value>明确选择要上传的版本</value></data>
+  <data name="CloudSetup_Upload.Content" xml:space="preserve"><value>上传此版本与必要依赖</value></data>
+  <data name="CloudSetup_UploadConfirm" xml:space="preserve"><value>将上传选定版本的完整表示与依赖，并发布必要历史元数据。
+远端：{0}
+不会重复执行本地备份。OpenList 桥接的读回成功不证明上游网盘永久持久化。</value></data>
+  <data name="CloudSetup_OpenList.Header" xml:space="preserve"><value>使用 OpenList 桥接百度网盘等</value></data>
+  <data name="CloudSetup_OpenListHelp.Text" xml:space="preserve"><value>已有 NAS / 远程 OpenList 可直接作为 WebDAV 使用，无需安装第二份本机服务。请在 OpenList 网页自行登录和挂载网盘，回来填写 OpenList 的 WebDAV 账户，浏览并选择实际挂载目录。保存程序路径不授权启动。</value></data>
+  <data name="CloudSetup_OpenListGuide.Content" xml:space="preserve"><value>OpenList WebDAV 官方指导</value></data>
+  <data name="CloudSetup_ManagementUrl.Header" xml:space="preserve"><value>OpenList 管理网页地址</value></data>
+  <data name="CloudSetup_OpenManagement.Content" xml:space="preserve"><value>打开管理网页</value></data>
+  <data name="CloudSetup_CancelCheck.Content" xml:space="preserve"><value>取消扫描或连接检查</value></data>
+  <data name="CloudSetup_InvalidUrl" xml:space="preserve"><value>请输入 HTTPS WebDAV 地址；仅回环地址默认允许 HTTP。不能包含账户、查询或片段。</value></data>
+  <data name="CloudSetup_ConfigTooLarge" xml:space="preserve"><value>rclone 配置超过读取上限，请缩小文件。</value></data>
+  <data name="CloudSetup_UnlockRequired" xml:space="preserve"><value>配置已加密，请在前台使用 rclone 解锁并选择可稳定读取的配置。后台不会等待密码输入。</value></data>
+  <data name="CloudSetup_InvalidCredential" xml:space="preserve"><value>用户名和密码不能包含换行或 NUL；不会截断后继续。</value></data>
+  <data name="CloudSetup_ObscureFailed" xml:space="preserve"><value>rclone 密码混淆未完成，请检查工具；秘密输出未记录。</value></data>
+  <data name="CloudSetup_BrowseFailed" xml:space="preserve"><value>远端目录结果无法解析，请重新检查连接。</value></data>
+  <data name="CloudSetup_ReadWriteVerified" xml:space="preserve"><value>已完成此远端目录的非空写入与读回核对；尚未上传业务备份。</value></data>
+  <data name="CloudSetup_ProbeMismatch" xml:space="preserve"><value>探测文件读回内容不一致，不能判定读写验证通过。</value></data>
+  <data name="CloudSetup_OutputTruncated" xml:space="preserve"><value>远端响应超过读取上限，请缩小查询范围。结果不完整。</value></data>
+  <data name="CloudSetup_InitialState" xml:space="preserve"><value>连接尚未检查。保存连接不表示云副本已完成。</value></data>
+  <data name="CloudSetup_ConnectionChanged" xml:space="preserve"><value>连接选择已改变，请重新检查；旧检查结果失效。</value></data>
+  <data name="CloudSetup_CredentialsCreated" xml:space="preserve"><value>连接草稿已创建。浏览并确认目标后保存；取消只清理本次未保存的凭据文件。</value></data>
+  <data name="CloudSetup_DirectoriesTruncated" xml:space="preserve"><value>目录展示已截断为 200 项，请输入更具体的子目录后重新检查。</value></data>
+  <data name="CloudSetup_ReadVerified" xml:space="preserve"><value>当前目录可列举；读取检查不证明可上传，也不证明存在可恢复备份。</value></data>
+  <data name="CloudSetup_ProbeRetained" xml:space="preserve"><value>本次测试对象未能确认清理：{0}。仅手动处理这个确切对象。</value></data>
+  <data name="CloudSetup_SavedNoCopy" xml:space="preserve"><value>连接已保存，尚未创建云副本。请选择已有版本完成真实上传。</value></data>
+  <data name="CloudSetup_SaveFirst" xml:space="preserve"><value>请先保存已确认的连接。</value></data>
+  <data name="CloudSetup_SelectVersion" xml:space="preserve"><value>请选择具体备份版本；没有版本时请先完成本地备份。</value></data>
+  <data name="CloudSetup_VersionNotReady" xml:space="preserve"><value>选定版本的完整本地表示或依赖不可用，请在历史中查看原因。</value></data>
+  <data name="CloudSetup_UploadRunning" xml:space="preserve"><value>正在上传必要数据与历史元数据</value></data>
+  <data name="CloudSetup_UploadComplete" xml:space="preserve"><value>选定版本的必要数据与元数据均已传输。OpenList 桥接不额外证明上游物理持久化。</value></data>
+  <data name="CloudSetup_UploadIncomplete" xml:space="preserve"><value>云副本尚未完成。保留本地备份，可重试缺失数据或元数据。</value></data>
+  <data name="Export_DownloadNeeded" xml:space="preserve"><value>此版本有缺失的本地数据。确认后仅从云读取必要依赖并验证完整性；不会上传历史、写入探测或覆盖原目录。</value></data>
+  <data name="Onboarding_ProjectActions.AutomationProperties.Name" xml:space="preserve"><value>项目后续设置</value></data>
+  <data name="MinecraftCheck_Open.Text" xml:space="preserve"><value>检查 Minecraft 联动</value></data>
+  <data name="MinecraftCheck_Title.Text" xml:space="preserve"><value>按世界检查 Minecraft 联动</value></data>
+  <data name="MinecraftCheck_WorldPicker.Header" xml:space="preserve"><value>明确选择世界 / 内容</value></data>
+  <data name="MinecraftCheck_Help.Text" xml:space="preserve"><value>此检查不会保存、冻结、退出或恢复世界。基础备份与游戏运行联动分开；操作前仍需由插件重新检查。</value></data>
+  <data name="MinecraftCheck_Check.Content" xml:space="preserve"><value>重新检查当前世界</value></data>
+  <data name="MinecraftCheck_Settings.Content" xml:space="preserve"><value>打开插件与 KnotLink 设置</value></data>
+  <data name="MinecraftCheck_ModDownload.Content" xml:space="preserve"><value>获取 MineBackup 模组与兼容说明</value></data>
+  <data name="MinecraftCheck_ManualHelp.Text" xml:space="preserve"><value>尚无已实测的游戏/加载器自动安装矩阵。请从官方页面获取匹配版本，确认正确实例的 mods 目录。已有 JAR 不会被覆盖；文件存在不证明模组已加载。安装后进入目标世界再检查。</value></data>
+  <data name="MinecraftCheck_ModsDirectory.Content" xml:space="preserve"><value>选择并打开正确实例的 mods 目录</value></data>
+  <data name="MinecraftCheck_ModsPicker" xml:space="preserve"><value>请确认此目录属于目标实例的 mods</value></data>
+  <data name="MinecraftCheck_InstallAndRecheck.Content" xml:space="preserve"><value>安装后继续检查</value></data>
+  <data name="MinecraftCheck_SelectSource" xml:space="preserve"><value>请明确选择一个世界，不能用全局状态代替实例检查。</value></data>
+  <data name="MinecraftCheck_SelectionChanged" xml:space="preserve"><value>对象已改变，之前的检查结果失效。请重新检查。</value></data>
+  <data name="MinecraftCheck_PluginMissing" xml:space="preserve"><value>MineRewind 未安装，请安装可信内置包。</value></data>
+  <data name="MinecraftCheck_PluginAvailable" xml:space="preserve"><value>宿主插件已启用且未报告加载错误。这不代表游戏侧已响应。</value></data>
+  <data name="MinecraftCheck_PluginInactive" xml:space="preserve"><value>宿主插件被禁用或加载失败，请查看插件诊断。</value></data>
+  <data name="MinecraftCheck_ServerUpdate" xml:space="preserve"><value>KnotLink 服务端缺失、版本未知或需要更新，请在环境设置查看。</value></data>
+  <data name="MinecraftCheck_ServerUnknown" xml:space="preserve"><value>服务端版本检查没有阻碍；服务是否正在运行仍未单独确认。</value></data>
+  <data name="MinecraftCheck_HostInitialized" xml:space="preserve"><value>宿主发送器/响应器已初始化；这不等于指定世界的模组连接正常。</value></data>
+  <data name="MinecraftCheck_HostNotInitialized" xml:space="preserve"><value>宿主连接未初始化，请检查开关、地址和服务。</value></data>
+  <data name="MinecraftCheck_SourceAssociation" xml:space="preserve"><value>检查当前项目的来源身份与目录；不会自动关联另一个世界。</value></data>
+  <data name="MinecraftCheck_GameUnknown" xml:space="preserve"><value>当前插件没有独立的只读实例响应接口，无法区分未进入世界、未加载和握手版本不符。请在目标世界验证；不能把超时当作未安装。</value></data>
+  <data name="MinecraftCheck_HotRestoreUnknown" xml:space="preserve"><value>热恢复能力尚未确认。真实恢复仍由现有插件 coordinator 判断，检查不调用恢复作探测。</value></data>
+  <data name="MinecraftCheck_ScheduleUnknown" xml:space="preserve"><value>游戏侧自动计划无法查询。启用桌面计划前，请确认不会与游戏内计划重复。</value></data>
+  <data name="CheckState_NotApplicable" xml:space="preserve"><value>不适用</value></data>
+  <data name="CheckState_Unknown" xml:space="preserve"><value>无法确认</value></data>
+  <data name="CheckState_Checking" xml:space="preserve"><value>检查中</value></data>
+  <data name="CheckState_NeedsInput" xml:space="preserve"><value>需要处理</value></data>
+  <data name="CheckState_Ready" xml:space="preserve"><value>此项就绪</value></data>
+  <data name="CheckState_Blocked" xml:space="preserve"><value>被阻止</value></data>
+  <data name="CheckState_Failed" xml:space="preserve"><value>失败</value></data>
+  <data name="Setup_Cancel.Content" xml:space="preserve"><value>取消</value></data>
+  <data name="CloudSetup_Menu.Text" xml:space="preserve"><value>连接云存储 / 添加云副本</value></data>
+  <data name="CloudSetup_WorkingDirectory.Header" xml:space="preserve"><value>rclone 工作目录（空值使用程序目录）</value></data>
+  <data name="CloudSetup_Insecure.Content" xml:space="preserve"><value>仅对此连接接受非回环 HTTP 传输凭据的风险（不关闭证书验证）</value></data>
+  <data name="OpenList_Environment.Header" xml:space="preserve"><value>OpenList 本机环境与地址</value></data>
+  <data name="OpenList_ManualOnlyHelp.Text" xml:space="preserve"><value>程序与数据目录分别保存。保存或检查不会启动 OpenList，不会修改已有配置、重置密码或结束进程。目录占用与安全启动机制尚未验证，暂仅提供手动启动路线；退出 FolderRewind 不停止用户的 OpenList。</value></data>
+  <data name="OpenList_Executable.Header" xml:space="preserve"><value>OpenList 程序路径</value></data>
+  <data name="OpenList_PickExecutable.Content" xml:space="preserve"><value>选择 OpenList 程序（不会执行）</value></data>
+  <data name="OpenList_ServiceUri.Header" xml:space="preserve"><value>服务网页基地址</value></data>
+  <data name="OpenList_Advanced.Header" xml:space="preserve"><value>高级：稳定运行目录与数据</value></data>
+  <data name="OpenList_Working.Header" xml:space="preserve"><value>工作目录</value></data>
+  <data name="OpenList_Data.Header" xml:space="preserve"><value>数据目录（与程序版本目录分开）</value></data>
+  <data name="OpenList_Config.Header" xml:space="preserve"><value>可选自定义配置文件</value></data>
+  <data name="OpenList_Save.Content" xml:space="preserve"><value>保存环境，不授权启动</value></data>
+  <data name="OpenList_Check.Content" xml:space="preserve"><value>只读检查服务地址</value></data>
+  <data name="OpenList_ManualGuide.Content" xml:space="preserve"><value>查看官方手动安装 / 启动指导</value></data>
+  <data name="OpenList_AbsolutePaths" xml:space="preserve"><value>程序、工作、数据与配置文件必须使用明确的绝对路径。</value></data>
+  <data name="OpenList_DataOverlap" xml:space="preserve"><value>OpenList 数据目录不能与备份源或仓库互相包含。</value></data>
+  <data name="OpenList_EndpointObserved" xml:space="preserve"><value>服务地址返回 HTTP {0}。服务身份、WebDAV 账户与挂载读写仍需分别验证；没有启动任何程序。</value></data>
+  <data name="OpenList_EndpointUnavailable" xml:space="preserve"><value>服务地址尚不可达或未确认。请使用已知环境手动启动并重新检查，不会自动创建第二个进程。</value></data>
+  <data name="OpenList_SavedManualOnly" xml:space="preserve"><value>环境已保存，按需启动未授权。已有服务与数据保持不变。</value></data>
+  <data name="CloudRecovery_Open.Content" xml:space="preserve"><value>从云端备份恢复到新位置</value></data>
+  <data name="CloudRecovery_Help.Text" xml:space="preserve"><value>使用临时连接，只列举所选目录下的 Native History 项目。分析和恢复不创建正式空项目，不上传历史、不写入探测或删除远端对象。原目录与 Workspace 保持不变。</value></data>
+  <data name="CloudRecovery_Discover.Content" xml:space="preserve"><value>只读发现所选根目录的历史仓库</value></data>
+  <data name="CloudRecovery_Repository.Header" xml:space="preserve"><value>选择仓库目录，随后核对内部身份与内容</value></data>
+  <data name="CloudRecovery_Analyze.Content" xml:space="preserve"><value>只拉取历史，查看可恢复版本</value></data>
+  <data name="CloudRecovery_Password.Header" xml:space="preserve"><value>归档密码（仅在加密备份需要时填写，不持久保存）</value></data>
+  <data name="CloudRecovery_Restore.Content" xml:space="preserve"><value>读取必要云数据并恢复到新位置</value></data>
+  <data name="CloudRecovery_TemporaryContext" xml:space="preserve"><value>此连接仅用于本次只读分析与恢复，不借用其他项目的账户或工作目录。</value></data>
+  <data name="CloudRecovery_SelectRepository" xml:space="preserve"><value>请选择具体仓库目录，内部 Config ID 将由描述文件校验，不能按名称匹配。</value></data>
+  <data name="CloudRecovery_HistoryLoaded" xml:space="preserve"><value>已只读拉取仓库 {0} 的 {1} 个历史包。正式项目与原始文件未改变；请选择版本并核对新目标。</value></data>
+  <data name="CloudRecovery_Confirm" xml:space="preserve"><value>版本：{0}
+新目标：{1}
+云根目录：{2}
+仅下载必要数据并校验后物化到全新目录，不覆盖原始源，不修改原 Workspace/分支，不触发游戏保存或退出。不支持的格式或缺失依赖将阻止恢复。</value></data>
+  <data name="CloudRecovery_Task" xml:space="preserve"><value>从云端恢复到新位置</value></data>
+  <data name="CloudRecovery_Downloading" xml:space="preserve"><value>读取并校验依赖，然后物化到新目录</value></data>
+  <data name="CloudRecovery_Completed" xml:space="preserve"><value>只读云恢复已完成</value></data>
+  <data name="Timing_Open.Text" xml:space="preserve"><value>查看本次备份阶段耗时</value></data>
+  <data name="Timing_Title" xml:space="preserve"><value>备份阶段耗时</value></data>
+  <data name="Timing_NoSummary" xml:space="preserve"><value>本会话还没有此项目的任务摘要。只保留最近 20 次，不执行额外扫描或基准测试。</value></data>
+  <data name="Timing_Summary" xml:space="preserve"><value>总耗时 {0} 秒。以下为串行粗粒度阶段，不确定的协调、扫描与压缩合并呈现，不能据此断言 CPU、磁盘或模组故障。</value></data>
+  <data name="Timing_queue-initialize" xml:space="preserve"><value>排队与历史初始化（秒）</value></data>
+  <data name="Timing_preflight" xml:space="preserve"><value>策略与安全预检（秒）</value></data>
+  <data name="Timing_capture-coordination-scan-archive" xml:space="preserve"><value>协调、扫描、压缩与本地写入（秒）</value></data>
+  <data name="Timing_history-commit" xml:space="preserve"><value>历史提交（秒）</value></data>
+  <data name="Timing_post-commit" xml:space="preserve"><value>提交后处理与云排队（秒）</value></data>
+  <data name="Setup_Advanced.Header" xml:space="preserve"><value>高级：项目类型与加密</value></data>
+  <data name="Setup_Kind.Header" xml:space="preserve"><value>项目类型（保留插件与加密能力）</value></data>
+  <data name="Setup_RuleSummary" xml:space="preserve"><value>保留数量：{0}；备份模式：{1}；线程：{2}（0 为压缩器默认）；低优先级：{3}；插件范围：{4}。周期备份与云上传未自动启用。</value></data>
+  <data name="Setup_OutcomeNeedsRecovery" xml:space="preserve"><value>归档已提交，但历史本机状态需要恢复后确认版本身份</value></data>
+  <data name="HomeProtection_NoSources" xml:space="preserve"><value>尚未选择备份内容，请打开项目添加。</value></data>
+  <data name="HomeProtection_Unconfirmed" xml:space="preserve"><value>本地历史状态尚未确认，请查看项目或历史。</value></data>
+  <data name="HomeProtection_RecoveryNeeded" xml:space="preserve"><value>历史本机状态需要处理，请查看历史诊断。</value></data>
+  <data name="HomeProtection_NoVersion" xml:space="preserve"><value>尚无已提交备份版本。</value></data>
+  <data name="HomeProtection_Committed" xml:space="preserve"><value>已记录 {0} 个备份版本；最近提交：{1}。可恢复性请在版本中查看。</value></data>
+  <data name="HomeProtection_Warnings" xml:space="preserve"><value>最近版本有范围或诊断提示</value></data>
+  <data name="HomeProtection_DesktopScheduleOn" xml:space="preserve"><value>桌面端自动备份已启用；游戏端计划需另行确认。</value></data>
+  <data name="HomeProtection_DesktopScheduleOff" xml:space="preserve"><value>桌面端自动备份未启用；应用需要保持运行才能执行桌面计划。</value></data>
+  <data name="HomeProtection_CloudUnconfirmed" xml:space="preserve"><value>云操作已配置，云副本状态需单独核验；不以元数据同步证明数据已上传。</value></data>
+  <data name="HomeProtection_CloudNotConfigured" xml:space="preserve"><value>尚未配置云副本。</value></data>
+  <data name="Setup_DraftRequiresReentry" xml:space="preserve"><value>批量、发现或预设草稿需要重新核对上游规则与身份。请从原入口继续；本次不保存一个会丢失规则或身份的路径草稿。</value></data>
+  <data name="CloudSetup_ExplicitConfigRequired" xml:space="preserve"><value>请选择本次传输使用的 rclone 配置文件。不会借用其他项目的账户。</value></data>
+  <data name="Setup_DiscoveryTimeout" xml:space="preserve"><value>扫描已达到 30 秒上限，保留已完成的发现结果。可选择更具体的目录继续。</value></data>
+  <data name="Setup_DiscoveryLimit" xml:space="preserve"><value>本次最多显示 500 个候选。可选择更具体的目录继续查找。</value></data>
+  <data name="Export_PartialNotice" xml:space="preserve"><value>此版本只有部分备份内容。新位置中仅会包含归档实际保存的内容，不能视为完整世界或完整源的恢复；原目录和历史分支不会改变。</value></data>
+  <data name="Restore_VersionPreview" xml:space="preserve"><value>备份项目：{0}
+备份内容：{1}（Source {2}）
+将修改当前目录：{3}
+版本：{4}，时间：{5}
+历史目录提示：{6}
+历史有效范围：{7}
+物化完整性：{8}
+诊断：{9}
+安全快照：{10}
+
+清空恢复会替换此源有效范围中的当前内容；覆盖恢复会写入版本中的文件、保留其他文件。恢复成功会更新本机 Workspace 基线；不会移动分支 tip。游戏协调仍由现有插件检查。可取消并先使用“恢复到新位置”验证。</value></data>
+  <data name="Restore_BoundaryUnknown" xml:space="preserve"><value>历史未记录明确范围；执行时按原安全规则复核。</value></data>
+  <data name="Restore_SafetyEnabled" xml:space="preserve"><value>已启用恢复前备份；失败会阻止恢复继续。</value></data>
+  <data name="Restore_SafetyDisabled" xml:space="preserve"><value>未启用恢复前备份；本机事务回滚暂存不能代替长期安全备份。</value></data>
+  <data name="HomeProtection_LastRun" xml:space="preserve"><value>最近运行：{0}（{1}）；记录 {2} 个源结果。</value></data>
+  <data name="HomeProtection_RunCompleted" xml:space="preserve"><value>已完成，请查看各源范围与警告</value></data>
+  <data name="HomeProtection_RunPartial" xml:space="preserve"><value>部分完成</value></data>
+  <data name="HomeProtection_RunFailed" xml:space="preserve"><value>失败，已有版本仍保留</value></data>
+  <data name="HomeProtection_RunNoChange" xml:space="preserve"><value>无变化，沿用已有版本</value></data>
+  <data name="HomeProtection_SourceFailures" xml:space="preserve"><value>待处理内容：{0}。请打开项目查看对应源。</value></data>
+  <data name="SettingsProject_TabGeneral.Text" xml:space="preserve"><value>项目与保存位置</value></data>
+  <data name="SettingsProject_TabBackup.Text" xml:space="preserve"><value>内容与范围</value></data>
+  <data name="SettingsProject_TabResource.Text" xml:space="preserve"><value>资源与保留</value></data>
+  <data name="SettingsProject_TabRestore.Text" xml:space="preserve"><value>恢复</value></data>
+  <data name="SettingsProject_TabAutomation.Text" xml:space="preserve"><value>何时备份</value></data>
+  <data name="SettingsProject_TabCloud.Text" xml:space="preserve"><value>云连接</value></data>
+  <data name="SettingsProject_TabFilter.Text" xml:space="preserve"><value>文件筛选</value></data>
+  <data name="SettingsProject_SearchResource" xml:space="preserve"><value>卡顿|性能|资源|空间|压缩|线程|保留|cpu|compression|threads|retention|performance</value></data>
+  <data name="SettingsProject_AdvancedResources.Header" xml:space="preserve"><value>高级：压缩参数与文件类型规则</value></data>
+  <data name="SettingsProject_AdvancedIdentity.Header" xml:space="preserve"><value>高级：类型、图标与配置文件</value></data>
+  <data name="SettingsProject_RemoveRule.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve"><value>移除此文件类型规则</value></data>
+  <data name="Onboarding_ToolExecutableInvalid" xml:space="preserve"><value>程序路径无效、不可访问或是重解析文件，请重新选择。</value></data>
+  <data name="Onboarding_ToolVersionUnconfirmed" xml:space="preserve"><value>程序版本检查未获得预期输出；未应用此工具路径。请检查程序与支持版本。</value></data>
+  <data name="Onboarding_ToolCacheChanged" xml:space="preserve"><value>工具缓存与原校验记录不一致，未运行或覆盖缓存。请检查后手动选择可信程序。</value></data>
+  <data name="Onboarding_ToolCacheUnverified" xml:space="preserve"><value>已有工具目录缺少完整校验记录，未覆盖。可手动选择并检查已有程序。</value></data>
+  <data name="Onboarding_InstallerNotStarted" xml:space="preserve"><value>安装器未能启动，请从组件设置继续处理。</value></data>
+  <data name="Onboarding_InstallerNeedsCheck" xml:space="preserve"><value>安装器已交给用户处理，最多等待 30 秒；尚未验证安装或运行能力。完成后请返回重新检查，不要重复启动仍在运行的安装器。</value></data>
+  <data name="MinecraftCheck_ResultsReady" xml:space="preserve"><value>检查已完成。以下状态只对应当前选择的内容；按需处理后重新检查。</value></data>
+  <data name="Repair_None" xml:space="preserve"><value>查看诊断</value></data>
+  <data name="Repair_Plugins" xml:space="preserve"><value>检查插件设置</value></data>
+  <data name="Repair_KnotLink" xml:space="preserve"><value>检查 KnotLink 设置</value></data>
+  <data name="Repair_ProjectContent" xml:space="preserve"><value>打开对应备份内容</value></data>
+  <data name="Repair_ProjectResources" xml:space="preserve"><value>打开资源设置</value></data>
+  <data name="Repair_CloudConnection" xml:space="preserve"><value>重新检查云连接</value></data>
+  <data name="Repair_OpenListEnvironment" xml:space="preserve"><value>检查 OpenList 环境</value></data>
+  <data name="Repair_MinecraftManualCheck" xml:space="preserve"><value>查看实例手动验证步骤</value></data>
+  <data name="Diagnostics_Export.Content" xml:space="preserve"><value>导出本次检查摘要</value></data>
+  <data name="Diagnostics_ExportTitle" xml:space="preserve"><value>导出检查摘要</value></data>
+  <data name="Diagnostics_ExportFields" xml:space="preserve"><value>仅导出下列故障代码、状态、检查时间和固定修复动作。不包含目录、账户、凭据、服务输出或原始配置。</value></data>
+  <data name="Diagnostics_Exported" xml:space="preserve"><value>检查摘要已导出。</value></data>
+  <data name="Setup_BatchHelp.Text" xml:space="preserve"><value>已选择多个新项目。可逐个检查名称、内容和位置；确认时一次提交全部项目，随后逐项目备份，各项目的结果独立呈现。</value></data>
+  <data name="Setup_ProjectSelector.Header" xml:space="preserve"><value>当前查看的备份项目</value></data>
+  <data name="Setup_PasswordForProject" xml:space="preserve"><value>请为“{0}”提供加密密码。本次草稿不会保存密码。</value></data>
+  <data name="Setup_SessionResults" xml:space="preserve"><value>此创建会话的累计结果（重试保留已完成内容及原版本身份）：</value></data>
+  <data name="History_Advanced.Header" xml:space="preserve"><value>高级历史：分支、云元数据与维护</value></data>
+  <data name="Home_PluginBatch.Text" xml:space="preserve"><value>从插件批量发现内容</value></data>
+  <data name="Setup_DiscoveryDraftSaved" xml:space="preserve"><value>已保存发现入口、项目名称、位置与加密意图；未保存插件私有状态或密码。继续时重新扫描并明确选择资源，匹配相同来源身份后恢复项目选择，不自动重放安装或备份。</value></data>
+  <data name="Setup_Icon.Header" xml:space="preserve"><value>项目图标</value></data>
+  <data name="Setup_SourceBoundary" xml:space="preserve"><value>源范围：{0}；包含规则：{1}。插件范围和筛选规则在提交与备份时继续校验。</value></data>
+  <data name="Setup_ResultSource.Header" xml:space="preserve"><value>查看哪个备份内容的版本</value></data>
+  <data name="Setup_SelectResultSource" xml:space="preserve"><value>请选择要查看版本的备份内容。</value></data>
+  <data name="MinecraftCheck_PluginInstalled" xml:space="preserve"><value>宿主适配插件包已安装；运行状态需单独查看。</value></data>
+  <data name="MinecraftCheck_HotBackupUnknown" xml:space="preserve"><value>游戏运行中的备份能力尚未按此实例验证。退出世界后的基础备份不要求完整联动；原始读取降级会保留警告。</value></data>
+  <data name="CloudSetup_BrowseMore.Content" xml:space="preserve"><value>继续查看下一批目录</value></data>
+  <data name="CloudSetup_DirectoryPage" xml:space="preserve"><value>本批最多 200 个目录，可继续查看下一批。服务目录可能变化，进入目录后会重新检查。</value></data>
+  <data name="CloudSetup_DirectoryBudgetReached" xml:space="preserve"><value>已达到本次 1000 个目录上限。请选择更具体的路径继续浏览；未递归搜索整个网盘。</value></data>
+  <data name="CloudRecovery_PayloadPreview" xml:space="preserve"><value>内容：{0}
+版本：{1}（{2}）
+恢复范围：{3}
+缺少 {4} 份数据，预计下载 {5} 字节
+缺失数据：{6}
+历史包含规则（空表示全部）：{7}
+历史过滤规则：{8}
+远端位置仅由历史记录提供，尚未证明当前在线；下载后校验大小、哈希和归档。加密归档需要密码，缺失处理插件或依赖会阻止恢复。</value></data>
+  <data name="CloudRecovery_Exact" xml:space="preserve"><value>完整备份内容</value></data>
+  <data name="CloudRecovery_Partial" xml:space="preserve"><value>部分备份内容</value></data>
+  <data name="CloudRecovery_PreviewBlocked" xml:space="preserve"><value>当前缺少可用处理能力或必要的已登记云副本，无法继续。请检查备份范围、插件和云数据；本次未下载或修改源目录。</value></data>
+  <data name="CloudRecovery_PayloadDownloading" xml:space="preserve"><value>正在下载依赖：{0}</value></data>
+  <data name="CloudRecovery_PayloadVerified" xml:space="preserve"><value>依赖已下载并通过校验：{0}</value></data>
+  <data name="HomeProtection_Issues.Text" xml:space="preserve"><value>上次任务需要处理的备份内容</value></data>
+  <data name="HomeProtection_IssueLabel" xml:space="preserve"><value>{0} · {1}：{2}</value></data>
+  <data name="HomeProtection_SourceRemoved" xml:space="preserve"><value>此备份内容已被移除或改变，请打开项目检查当前内容。</value></data>
+  <data name="HomeProtection_SourceCaptured" xml:space="preserve"><value>本次已提交版本</value></data>
+  <data name="HomeProtection_SourceReused" xml:space="preserve"><value>无变化，沿用已有版本</value></data>
+  <data name="HomeProtection_SourceCarriedForward" xml:space="preserve"><value>沿用旧版本，本次未备份</value></data>
+  <data name="HomeProtection_SourceFailed" xml:space="preserve"><value>本次备份失败</value></data>
+  <data name="HomeProtection_SourceUnavailable" xml:space="preserve"><value>内容不可用，本次未备份</value></data>
+  <data name="HomeProtection_Summary.Header" xml:space="preserve"><value>本地备份、最近任务与云副本状态</value></data>
+  <data name="CloudSetup_RepairOpenList.Content" xml:space="preserve"><value>检查 OpenList 环境</value></data>
+  <data name="Setup_SaveUncertain" xml:space="preserve"><value>保存项目及补偿写入未能确认完成，本次未开始备份。请检查配置文件的访问权限或占用情况，解除问题后重新检查项目列表，再重试。可能仍被引用的临时凭据会保留。</value></data>
 </root>

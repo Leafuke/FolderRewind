@@ -224,18 +224,8 @@ namespace FolderRewind.Services
                 LogService.Log($"Default config initialization fallback: {ex.Message}");
             }
 
-            var defaultName = I18n.Format("Config_DefaultBackupName");
-            var defaultConfig = new BackupConfig
-            {
-                Name = defaultName,
-                DestinationPath = Path.Combine(settings.DefaultBackupRootPath, MakeSafeFolderName(defaultName)),
-                SummaryText = ""
-            };
-            defaultConfig.Archive.Format = "7z";
-            defaultConfig.Archive.CompressionLevel = 5;
-            defaultConfig.Cloud.RemoteBasePath = settings.DefaultCloudRemoteBasePath;
-
-            config.BackupConfigs.Add(defaultConfig);
+            // Fresh installations begin with the scene chooser; do not create an empty sample project.
+            // Existing projects, including older empty samples, are kept by normal loading/migration.
             return config;
         }
 
@@ -446,6 +436,8 @@ namespace FolderRewind.Services
 
         private static void NormalizeCloudSettings(CloudSettings cloud, string defaultRemoteBasePath)
         {
+            cloud.RcloneConfigPath = cloud.RcloneConfigPath?.Trim() ?? string.Empty;
+            cloud.LocalOpenListServiceUri = cloud.LocalOpenListServiceUri?.Trim() ?? string.Empty;
             if (string.IsNullOrWhiteSpace(cloud.ExecutablePath))
                 cloud.ExecutablePath = "rclone.exe";
 
@@ -686,13 +678,15 @@ namespace FolderRewind.Services
 
             try
             {
-                NormalizeConfig(CurrentConfig);
-                PrepareSchemaOnePersistence(CurrentConfig);
+                var portable = JsonCloneService.Clone(CurrentConfig, AppJsonContext.Default.AppConfig, I18n.GetString("Common_Failed"));
+                RemoveOnboardingMachineBindings(portable);
+                NormalizeConfig(portable);
+                PrepareSchemaOnePersistence(portable);
                 AtomicFileService.Write(
                     destPath,
                     stream => JsonSerializer.Serialize(
                         stream,
-                        CurrentConfig,
+                        portable,
                         AppJsonContext.Default.AppConfig));
                 LogService.Log(I18n.Format("Config_ExportSuccess", destPath));
                 return true;
@@ -733,6 +727,7 @@ namespace FolderRewind.Services
                 }
 
                 var imported = DeserializeConfig(gateResult.Utf8Json);
+                RemoveOnboardingMachineBindings(imported);
                 NormalizeConfig(imported);
                 PrepareSchemaOnePersistence(imported);
                 var importedBytes = SerializeConfig(imported);
@@ -837,6 +832,8 @@ namespace FolderRewind.Services
                 var prepared = new ConfigDocumentGate().Prepare(File.ReadAllBytes(requested));
                 if (!prepared.IsReady || prepared.Utf8Json is null) return false;
                 var restored = DeserializeConfig(prepared.Utf8Json);
+                // 恢复应用配置也不能恢复另一台机器的程序执行资格或凭据路径。
+                RemoveOnboardingMachineBindings(restored);
                 NormalizeConfig(restored);
                 PrepareSchemaOnePersistence(restored);
                 return ReplaceFromRecoveryAction(SerializeConfig(restored), "before-restore-copy");
@@ -954,6 +951,23 @@ namespace FolderRewind.Services
 
         #region 规范化与内部工具
 
+        private static void RemoveOnboardingMachineBindings(AppConfig config)
+        {
+            config.GlobalSettings.OpenListRuntime = new();
+            foreach (var project in config.BackupConfigs)
+            {
+                if (project.Cloud is not { } cloud) continue;
+                if (!string.IsNullOrWhiteSpace(cloud.RcloneConfigPath) || !string.IsNullOrWhiteSpace(cloud.LocalOpenListServiceUri))
+                {
+                    cloud.Enabled = false;
+                    cloud.ExecutablePath = "rclone.exe";
+                    cloud.WorkingDirectory = string.Empty;
+                }
+                cloud.RcloneConfigPath = string.Empty;
+                cloud.LocalOpenListServiceUri = string.Empty;
+            }
+        }
+
         private static void NormalizeGlobalSettings(GlobalSettings settings)
         {
             settings.Language = LanguageSettingPolicy.Normalize(settings.Language);
@@ -976,6 +990,8 @@ namespace FolderRewind.Services
             }
 
             settings.RcloneExecutablePath = settings.RcloneExecutablePath?.Trim() ?? string.Empty;
+            settings.OpenListRuntime ??= new();
+            settings.OpenListRuntime.AllowStartOnDemand = false;
             settings.DefaultCloudRemoteBasePath = string.IsNullOrWhiteSpace(settings.DefaultCloudRemoteBasePath)
                 ? "remote:FolderRewind"
                 : settings.DefaultCloudRemoteBasePath.Trim();

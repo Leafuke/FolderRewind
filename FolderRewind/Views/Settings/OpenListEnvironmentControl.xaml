@@ -1,0 +1,33 @@
+<UserControl x:Class="FolderRewind.Views.Settings.OpenListEnvironmentControl" xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml" xmlns:vm="using:FolderRewind.ViewModels">
+ <Expander x:Name="EnvironmentExpander" x:Uid="OpenList_Environment" HorizontalAlignment="Stretch">
+  <StackPanel Spacing="12">
+   <TextBlock x:Uid="OpenList_ManualOnlyHelp" TextWrapping="Wrap"/>
+   <TextBox x:Name="Executable" x:Uid="OpenList_Executable" TextChanged="OnDraftChanged" AutomationProperties.AutomationId="OpenListExecutable"/>
+   <Button x:Uid="OpenList_PickExecutable" Click="OnPickExecutable" AutomationProperties.AutomationId="OpenListPickExecutable"/>
+   <TextBox x:Name="ServiceUri" x:Uid="OpenList_ServiceUri" TextChanged="OnDraftChanged" AutomationProperties.AutomationId="OpenListServiceUri"/>
+   <Expander x:Uid="OpenList_Advanced" HorizontalAlignment="Stretch">
+    <StackPanel Spacing="12">
+     <TextBox x:Name="Working" x:Uid="OpenList_Working" TextChanged="OnDraftChanged" AutomationProperties.AutomationId="OpenListWorkingDirectory"/>
+     <TextBox x:Name="Data" x:Uid="OpenList_Data" TextChanged="OnDraftChanged" AutomationProperties.AutomationId="OpenListDataDirectory"/>
+     <TextBox x:Name="Config" x:Uid="OpenList_Config" TextChanged="OnDraftChanged" AutomationProperties.AutomationId="OpenListConfigFile"/>
+    </StackPanel>
+   </Expander>
+   <Button x:Uid="OpenList_Save" Click="OnSave" AutomationProperties.AutomationId="OpenListSave"/>
+   <Button x:Uid="OpenList_Check" Click="OnCheck" AutomationProperties.AutomationId="OpenListCheck"/>
+   <Button x:Uid="CloudSetup_OpenManagement" Click="OnOpenManagement" AutomationProperties.AutomationId="OpenListOpenManagement"/>
+   <HyperlinkButton x:Uid="OpenList_ManualGuide" NavigateUri="https://doc.oplist.org/guide/installation/manual" AutomationProperties.AutomationId="OpenListManualGuide"/>
+   <TextBlock x:Name="Result" TextWrapping="Wrap" AutomationProperties.LiveSetting="Polite"/>
+   <ListView ItemsSource="{x:Bind Diagnostics, Mode=OneWay}" MaxHeight="240" SelectionMode="None" AutomationProperties.AutomationId="OpenListDiagnostics">
+    <ListView.ItemTemplate>
+     <DataTemplate x:DataType="vm:OnboardingDiagnosticItem">
+      <StackPanel Spacing="8" Padding="8">
+       <TextBlock Text="{x:Bind Display, Mode=OneTime}" TextWrapping="Wrap"/>
+       <Button Content="{x:Bind RepairLabel, Mode=OneTime}" IsEnabled="{x:Bind CanRepair, Mode=OneTime}" Tag="{x:Bind Mode=OneTime}" Click="OnRepair" AutomationProperties.AutomationId="{x:Bind AutomationId, Mode=OneTime}"/>
+      </StackPanel>
+     </DataTemplate>
+    </ListView.ItemTemplate>
+   </ListView>
+   <Button x:Uid="Diagnostics_Export" Click="OnExportDiagnostics" AutomationProperties.AutomationId="OpenListExportDiagnostics"/>
+  </StackPanel>
+ </Expander>
+</UserControl>
