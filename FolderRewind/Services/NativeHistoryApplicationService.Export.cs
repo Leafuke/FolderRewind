@@ -33,7 +33,7 @@ internal static partial class NativeHistoryApplicationService
         var engine = CreateExportRuntime(config);
         return await engine.AssessVersionAsync(versionId,
             await runtime.Query.GetAllRepresentationsAsync(token).ConfigureAwait(false),
-            await BuildEnvironmentAsync(runtime, token).ConfigureAwait(false), AssessmentDepth.Deep,
+            await BuildEnvironmentAsync(runtime, token).ConfigureAwait(false), AssessmentDepth.Fast,
             version.CaptureScope == CaptureScope.PartialSource ? MaterializationFidelity.Partial : MaterializationFidelity.Exact, token).ConfigureAwait(false);
     }
 

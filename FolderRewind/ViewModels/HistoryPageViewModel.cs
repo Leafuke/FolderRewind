@@ -8,6 +8,7 @@ using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.IO;
+using System.Diagnostics;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
@@ -35,13 +36,40 @@ public sealed partial class HistoryPageViewModel : ViewModelBase
     private string _commentFilterText = string.Empty;
     private HistoryViewMode _viewMode = HistoryViewMode.PerSource;
     private BranchViewItem? _selectedBranch;
+    private HistoryPresentationMode _presentationMode = HistoryPresentationMode.Normal;
+    private readonly LatestRequestCoordinator _branchAssessmentRequests = new();
+    private HistoryRuntime? _presentationRuntime;
+    private long _presentationSequence = -1;
+    private SourceId? _presentationSource;
+    private HistoryPresentationResult? _cachedPresentation;
     private bool _refreshingBranches;
     private volatile bool _isActive;
 
     public BatchObservableCollection<NativeHistoryVersionViewItem> FilteredHistory { get; } = [];
     public BatchObservableCollection<BackupRunViewItem> FilteredRuns { get; } = [];
     public BatchObservableCollection<BranchViewItem> Branches { get; } = [];
-    public bool ShowAdvancedHistoryByDefault => Branches.Count > 1 || Branches.Any(branch => branch.IsMultiTip || branch.Name != "main");
+    public bool IsAdvancedHistory => _presentationMode == HistoryPresentationMode.Advanced;
+    public bool HasBranchDivergence => !IsAdvancedHistory && Branches.Any(branch => branch.IsMultiTip);
+    public bool IsAssessingBranch { get; private set; }
+
+    public async Task SetPresentationModeAsync(HistoryPresentationMode mode, CancellationToken cancellationToken = default)
+    {
+        if (_presentationMode == mode) return;
+        _presentationMode = mode;
+        _branchAssessmentRequests.CancelCurrent();
+        if (!IsAdvancedHistory) SelectedBranch = Branches.FirstOrDefault(branch => branch.IsActive);
+        OnPropertyChanged(nameof(IsAdvancedHistory));
+        OnPropertyChanged(nameof(HasBranchDivergence));
+        foreach (var item in _allVersions) item.IsAdvanced = IsAdvancedHistory;
+        foreach (var item in _allRuns) item.IsAdvanced = IsAdvancedHistory;
+        ApplyFilter();
+        if (IsAdvancedHistory) _ = AssessSelectedBranchAsync();
+        if (Settings is not null)
+        {
+            Settings.LastHistoryPresentationMode = mode;
+            _ = await ConfigService.SaveAsync(cancellationToken: cancellationToken);
+        }
+    }
     public BatchObservableCollection<SafetySnapshotViewItem> ActiveSafetySnapshots { get; } = [];
     public ObservableCollection<BackupConfig> Configs => ConfigService.CurrentConfig?.BackupConfigs ?? [];
     private GlobalSettings? Settings => ConfigService.CurrentConfig?.GlobalSettings;
@@ -81,7 +109,11 @@ public sealed partial class HistoryPageViewModel : ViewModelBase
         {
             if (!SetProperty(ref _selectedBranch, value)) return;
             NotifyBranchSelectionChanged();
-            if (!_refreshingBranches) ApplyFilter();
+            if (!_refreshingBranches)
+            {
+                ApplyFilter();
+                _ = AssessSelectedBranchAsync();
+            }
         }
     }
     public string CurrentBranchDisplay
@@ -133,7 +165,14 @@ public sealed partial class HistoryPageViewModel : ViewModelBase
             TaskScheduler.Default);
     }
 
-    public void Initialize() { _viewMode = Settings?.LastHistoryViewMode ?? HistoryViewMode.PerSource; NotifyViewModeChanged(); }
+    public void Initialize()
+    {
+        _viewMode = Settings?.LastHistoryViewMode ?? HistoryViewMode.PerSource;
+        _presentationMode = Settings?.LastHistoryPresentationMode == HistoryPresentationMode.Advanced
+            ? HistoryPresentationMode.Advanced : HistoryPresentationMode.Normal;
+        NotifyViewModeChanged();
+        OnPropertyChanged(nameof(IsAdvancedHistory));
+    }
 
     public async Task SetCurrentSelectionAsync(
         BackupConfig? config,
@@ -145,6 +184,7 @@ public sealed partial class HistoryPageViewModel : ViewModelBase
         using var request = _selectionRequests.Begin(cancellationToken);
         _isActive = true;
         _refreshRequests.CancelCurrent();
+        _branchAssessmentRequests.CancelCurrent();
         CancelScheduledChangeRefresh();
         DisposeChangeSubscription();
         ErrorMessage = string.Empty;
@@ -156,7 +196,9 @@ public sealed partial class HistoryPageViewModel : ViewModelBase
         _currentFolder = folder;
         if (config is not null)
         {
+            var initialization = Stopwatch.StartNew();
             var runtime = await NativeHistoryCoreGateway.EnsureReadyAsync(config, request.Token);
+            LogService.LogInfo($"[HistoryLoad] runtime={initialization.Elapsed.TotalMilliseconds:F2}ms", nameof(HistoryPageViewModel));
             if (!request.IsCurrent) return;
             _changeSubscription = runtime.ChangeFeed.Subscribe(_ => ScheduleChangeRefresh());
         }
@@ -189,6 +231,7 @@ public sealed partial class HistoryPageViewModel : ViewModelBase
         CancelHistoryCommands();
         _selectionRequests.CancelCurrent();
         _refreshRequests.CancelCurrent();
+        _branchAssessmentRequests.CancelCurrent();
         CancelScheduledChangeRefresh();
         DisposeChangeSubscription();
         IsLoading = false;
@@ -230,10 +273,10 @@ public sealed partial class HistoryPageViewModel : ViewModelBase
     public Task RefreshCurrentHistoryAsync(CancellationToken cancellationToken = default)
     {
         CancelScheduledChangeRefresh();
-        return RefreshCurrentHistoryCoreAsync(cancellationToken);
+        return RefreshCurrentHistoryCoreAsync(cancellationToken, force: true);
     }
 
-    private async Task RefreshCurrentHistoryCoreAsync(CancellationToken cancellationToken)
+    private async Task RefreshCurrentHistoryCoreAsync(CancellationToken cancellationToken, bool force = false)
     {
         if (!_isActive) return;
         using var request = _refreshRequests.Begin(cancellationToken);
@@ -243,6 +286,8 @@ public sealed partial class HistoryPageViewModel : ViewModelBase
         var folder = _currentFolder;
         IsLoading = true;
         ErrorMessage = string.Empty;
+        _branchAssessmentRequests.CancelCurrent();
+        var timer = Stopwatch.StartNew();
         try
         {
             if (config is null)
@@ -257,13 +302,27 @@ public sealed partial class HistoryPageViewModel : ViewModelBase
                 && id != Guid.Empty
                     ? new SourceId(id)
                     : null;
-            var snapshot = await new HistoryPresentationQueryService(runtime)
+            if (!force && ReferenceEquals(runtime, _presentationRuntime) && sourceId == _presentationSource
+                && runtime.ChangeFeed.CurrentSequence == _presentationSequence && _cachedPresentation is not null)
+            {
+                ApplyPresentation(_cachedPresentation, selectedBranchId);
+                return;
+            }
+            var sequence = runtime.ChangeFeed.CurrentSequence;
+            var snapshot = await new HistoryPresentationQueryService(runtime,
+                (stage, elapsed) => LogService.LogInfo($"[HistoryLoad] {stage}={elapsed.TotalMilliseconds:F2}ms", nameof(HistoryPageViewModel)))
                 .QueryAsync(sourceId, cancellationToken: token);
+            var projectionTimer = Stopwatch.StartNew();
             var presentation = await BuildPresentationAsync(config, snapshot, token);
+            LogService.LogInfo($"[HistoryLoad] list-projection={projectionTimer.Elapsed.TotalMilliseconds:F2}ms", nameof(HistoryPageViewModel));
             token.ThrowIfCancellationRequested();
             if (!request.IsCurrent || !_isActive) return;
-
+            _cachedPresentation = presentation;
+            _presentationRuntime = runtime;
+            _presentationSequence = sequence;
+            _presentationSource = sourceId;
             ApplyPresentation(presentation, selectedBranchId);
+            LogService.LogInfo($"[HistoryLoad] first-screen={timer.Elapsed.TotalMilliseconds:F2}ms; mode={_presentationMode}", nameof(HistoryPageViewModel));
         }
         catch (OperationCanceledException) when (token.IsCancellationRequested)
         {
@@ -285,6 +344,7 @@ public sealed partial class HistoryPageViewModel : ViewModelBase
 
     public async Task SetHistoryViewModeAsync(HistoryViewMode mode, CancellationToken cancellationToken = default)
     {
+        if (_viewMode == mode) return;
         _viewMode = mode;
         if (Settings is not null)
         {
@@ -292,7 +352,8 @@ public sealed partial class HistoryPageViewModel : ViewModelBase
             _ = await ConfigService.SaveAsync(cancellationToken: cancellationToken);
         }
         NotifyViewModeChanged();
-        await RefreshCurrentHistoryAsync(cancellationToken);
+        if (_cachedPresentation is not null) ApplyFilter();
+        else await RefreshCurrentHistoryAsync(cancellationToken);
     }
 
     public int GetMissingCount() => _missingCount;
@@ -744,52 +805,16 @@ public sealed partial class HistoryPageViewModel : ViewModelBase
         BackupConfig config,
         HistoryPresentationSnapshot snapshot,
         CancellationToken cancellationToken)
-        => Task.Run(async () =>
+        => Task.Run(() =>
         {
+            cancellationToken.ThrowIfCancellationRequested();
             var branchNames = snapshot.Branches.ToDictionary(branch => branch.BranchId, branch => branch.Name);
-            var versions = snapshot.Timeline
-                .Select(item => new NativeHistoryVersionViewItem(item, branchNames))
-                .ToArray();
-            var runs = snapshot.Runs.Select(item => new BackupRunViewItem(item)).ToArray();
-            var branches = new BranchViewItem[snapshot.Branches.Length];
-            await Parallel.ForEachAsync(
-                Enumerable.Range(0, snapshot.Branches.Length),
-                new ParallelOptions
-                {
-                    CancellationToken = cancellationToken,
-                    MaxDegreeOfParallelism = 4
-                },
-                async (index, token) =>
-                {
-                    var branch = snapshot.Branches[index];
-                    HistoryCheckoutPlan? checkoutPlan = null;
-                    if (!branch.IsMultiTip && branch.HasCheckoutTarget && branch.Tips.Length == 1)
-                    {
-                        try
-                        {
-                            checkoutPlan = await NativeHistoryApplicationService.PlanCheckoutAsync(
-                                    config,
-                                    branch.Tips[0].UpdateId,
-                                    AssessmentDepth.Fast,
-                                    token)
-                                .ConfigureAwait(false);
-                        }
-                        catch (Exception ex) when (ex is not OperationCanceledException)
-                        {
-                            checkoutPlan = new HistoryCheckoutPlan(
-                                HistoryCheckoutReadiness.Blocked,
-                                branch.Tips[0],
-                                null,
-                                -1,
-                                [],
-                                [],
-                                [],
-                                ex.Message);
-                        }
-                    }
-
-                    branches[index] = new BranchViewItem(branch, checkoutPlan);
-                }).ConfigureAwait(false);
+            var sourceNames = config.SourceFolders.Where(folder => Guid.TryParse(folder.Id, out _))
+                .ToDictionary(folder => new SourceId(Guid.Parse(folder.Id)), folder => folder.DisplayName);
+            foreach (var entry in snapshot.Timeline) sourceNames.TryAdd(entry.SourceId, entry.DisplayName);
+            var versions = snapshot.Timeline.Select(item => new NativeHistoryVersionViewItem(item, branchNames)).ToArray();
+            var runs = snapshot.Runs.Select(item => new BackupRunViewItem(item, sourceNames)).ToArray();
+            var branches = snapshot.Branches.Select(branch => new BranchViewItem(branch, null)).ToArray();
             var safetySnapshots = snapshot.ActiveSafetySnapshots
                 .Select(item => new SafetySnapshotViewItem(item))
                 .ToArray();
@@ -807,9 +832,8 @@ public sealed partial class HistoryPageViewModel : ViewModelBase
         {
             Branches.ReplaceAll(presentation.Branches);
             ActiveSafetySnapshots.ReplaceAll(presentation.SafetySnapshots);
-            SelectedBranch = Branches.FirstOrDefault(branch => branch.BranchId == selectedBranchId)
-                ?? Branches.FirstOrDefault(branch => branch.IsActive)
-                ?? Branches.FirstOrDefault(branch => !branch.IsDeleted);
+            var branchId = HistoryPresentationPolicy.ResolveBranch(_presentationMode, presentation.Branches.Select(branch => branch.Summary), selectedBranchId);
+            SelectedBranch = Branches.FirstOrDefault(branch => branch.BranchId == branchId);
         }
         finally
         {
@@ -817,13 +841,53 @@ public sealed partial class HistoryPageViewModel : ViewModelBase
         }
 
         OnPropertyChanged(nameof(CurrentBranchDisplay));
-        OnPropertyChanged(nameof(ShowAdvancedHistoryByDefault));
+        OnPropertyChanged(nameof(HasBranchDivergence));
+        foreach (var item in _allVersions) item.IsAdvanced = IsAdvancedHistory;
+        foreach (var item in _allRuns) item.IsAdvanced = IsAdvancedHistory;
         NotifyBranchSelectionChanged();
         ApplyFilter();
+        _ = AssessSelectedBranchAsync();
+    }
+
+    private async Task AssessSelectedBranchAsync()
+    {
+        using var request = _branchAssessmentRequests.Begin();
+        var branch = SelectedBranch;
+        var config = _currentConfig;
+        if (!_isActive || !IsAdvancedHistory || config is null || branch is null || branch.IsAssessed
+            || branch.IsMultiTip || !branch.HasCheckoutTarget || branch.Tips.Count != 1)
+        {
+            IsAssessingBranch = false;
+            OnPropertyChanged(nameof(IsAssessingBranch));
+            return;
+        }
+        var timer = Stopwatch.StartNew();
+        try
+        {
+            IsAssessingBranch = true;
+            OnPropertyChanged(nameof(IsAssessingBranch));
+            var plan = await NativeHistoryApplicationService.PlanCheckoutAsync(config, branch.Tips[0].UpdateId, AssessmentDepth.Fast, request.Token);
+            if (!request.IsCurrent || !IsAdvancedHistory || !ReferenceEquals(SelectedBranch, branch)) return;
+            branch.SetAssessment(plan);
+            NotifyBranchSelectionChanged();
+            LogService.LogInfo($"[HistoryLoad] selected-branch={timer.Elapsed.TotalMilliseconds:F2}ms", nameof(HistoryPageViewModel));
+        }
+        catch (OperationCanceledException) when (request.Token.IsCancellationRequested) { }
+        catch (Exception ex)
+        {
+            if (request.IsCurrent) { branch.SetAssessment(null); ReportOperationFailure("branch assessment", ex); }
+        }
+        finally
+        {
+            if (request.IsCurrent) { IsAssessingBranch = false; OnPropertyChanged(nameof(IsAssessingBranch)); }
+        }
     }
 
     private void ClearPresentation()
     {
+        _cachedPresentation = null;
+        _presentationRuntime = null;
+        _presentationSequence = -1;
         _allVersions.Clear();
         _allRuns.Clear();
         FilteredHistory.ReplaceAll([]);
@@ -843,14 +907,14 @@ public sealed partial class HistoryPageViewModel : ViewModelBase
         IsEmpty = true;
         OnPropertyChanged(nameof(HasMissing));
         OnPropertyChanged(nameof(CurrentBranchDisplay));
-        OnPropertyChanged(nameof(ShowAdvancedHistoryByDefault));
+        OnPropertyChanged(nameof(HasBranchDivergence));
         NotifyBranchSelectionChanged();
     }
 
     private void ApplyFilter()
     {
         var needle = CommentFilterText.Trim();
-        var branchId = SelectedBranch?.BranchId;
+        var branchId = (IsAdvancedHistory ? SelectedBranch : Branches.FirstOrDefault(branch => branch.IsActive))?.BranchId;
         if (IsGroupedRunView)
         {
             var runs = _allRuns.Where(item => (branchId is null || item.BranchIds.Contains(branchId.Value))
@@ -1017,6 +1081,9 @@ public sealed class NativeHistoryVersionViewItem(
     private readonly string _fileSizeDisplay = GetFileSizeDisplay(summary.LocalPath);
     private SemanticStatus _readinessStatus = MapReadiness(summary.Readiness);
 
+    private bool _isAdvanced;
+    public bool IsAdvanced { get => _isAdvanced; set { if (SetProperty(ref _isAdvanced, value)) OnPropertyChanged(nameof(ShowBranchDisplay)); } }
+    public bool ShowBranchDisplay => IsAdvanced && HasBranchDisplay;
     public VersionId VersionId => summary.VersionId;
     public RepresentationId? RepresentationId => summary.RepresentationId;
     public string TimeDisplay => UserDisplayFormatter.LongTime(summary.CreatedAtUtc.ToLocalTime());
@@ -1024,7 +1091,7 @@ public sealed class NativeHistoryVersionViewItem(
     public string CreationKindText => I18n.GetString("History_Creation_" + summary.CreationKind);
     public string Comment => summary.Comment;
     public string Message => string.IsNullOrWhiteSpace(Comment) ? summary.DisplayName : Comment;
-    public string FileName => summary.FileName ?? summary.VersionId.ToString();
+    public string FileName => summary.FileName ?? summary.DisplayName;
     public string? LocalPath => summary.LocalPath;
     public bool IsImportant => summary.IsPinned;
     public bool IsPartialBackup => summary.CaptureScope == CaptureScope.PartialSource || summary.Fidelity == MaterializationFidelity.Partial;
@@ -1101,8 +1168,10 @@ public sealed class NativeHistoryVersionViewItem(
     }
 }
 
-public sealed class BackupRunViewItem(RunSummary summary)
+public sealed class BackupRunViewItem(RunSummary summary, IReadOnlyDictionary<SourceId, string>? sourceNames = null) : CommunityToolkit.Mvvm.ComponentModel.ObservableObject
 {
+    private bool _isAdvanced;
+    public bool IsAdvanced { get => _isAdvanced; set => SetProperty(ref _isAdvanced, value); }
     public RunId RunId => summary.RunId;
     public CheckpointId? ResultCheckpointId => summary.ResultCheckpointId;
     public string Comment => summary.Comment;
@@ -1118,7 +1187,7 @@ public sealed class BackupRunViewItem(RunSummary summary)
         : I18n.GetString("History_Branch_CreateUnavailableNoCheckpoint");
     public bool HasPartialBackup => summary.HasPartialCapture;
     public IReadOnlyList<BranchId> BranchIds => summary.BranchIds;
-    public IReadOnlyList<BackupRunSourceViewItem> Sources { get; } = summary.Sources.Select(item => new BackupRunSourceViewItem(item)).ToArray();
+    public IReadOnlyList<BackupRunSourceViewItem> Sources { get; } = summary.Sources.Select(item => new BackupRunSourceViewItem(item, sourceNames?.GetValueOrDefault(item.SourceId))).ToArray();
 
     private static string GetRunOutcomeText(BackupRunOutcome outcome) => outcome switch
     {
@@ -1130,9 +1199,9 @@ public sealed class BackupRunViewItem(RunSummary summary)
     };
 }
 
-public sealed class BackupRunSourceViewItem(BackupRunSourceResult result)
+public sealed class BackupRunSourceViewItem(BackupRunSourceResult result, string? sourceName = null)
 {
-    public string Name => result.SourceId.ToString();
+    public string Name => sourceName ?? I18n.GetString("History_SourceUnavailable");
     public string StatusText => result.Outcome switch
     {
         BackupRunSourceOutcome.Captured => I18n.GetString("History_Run_SourceNewArchive"),
@@ -1142,11 +1211,17 @@ public sealed class BackupRunSourceViewItem(BackupRunSourceResult result)
         BackupRunSourceOutcome.CarriedForward => I18n.GetString("History_Run_SourceCarriedForward"),
         _ => result.Outcome.ToString()
     };
-    public string Detail => result.VersionId?.ToString() ?? result.Diagnostics.FirstOrDefault()?.Message ?? string.Empty;
+    public string Detail => result.Outcome is BackupRunSourceOutcome.Failed or BackupRunSourceOutcome.Unavailable
+        ? I18n.GetString("History_SourceNeedsAttention") : string.Empty;
 }
 
 public sealed class BranchViewItem(BranchSummary summary, HistoryCheckoutPlan? checkoutPlan)
 {
+    public BranchSummary Summary => summary;
+    private HistoryCheckoutPlan? _checkoutPlan = checkoutPlan;
+    public bool IsAssessed { get; private set; } = checkoutPlan is not null;
+    public bool HasCheckoutTarget => summary.HasCheckoutTarget;
+    public void SetAssessment(HistoryCheckoutPlan? plan) { _checkoutPlan = plan; IsAssessed = true; }
     public BranchId BranchId => summary.BranchId;
     public string Name => summary.Name;
     public string DisplayName => summary.IsActive
@@ -1158,8 +1233,8 @@ public sealed class BranchViewItem(BranchSummary summary, HistoryCheckoutPlan? c
     public bool IsUnborn => summary.IsUnborn;
     public HistoryCheckoutReadiness CheckoutReadiness => summary.IsMultiTip
         ? HistoryCheckoutReadiness.BranchReconciliationRequired
-        : checkoutPlan?.Readiness ?? HistoryCheckoutReadiness.Blocked;
-    public string CheckoutStatusText => CheckoutReadiness switch
+        : _checkoutPlan?.Readiness ?? HistoryCheckoutReadiness.Blocked;
+    public string CheckoutStatusText => !HasCheckoutTarget ? I18n.GetString("History_BranchEmpty") : !IsAssessed && !IsMultiTip ? I18n.GetString("History_BranchAssessing") : CheckoutReadiness switch
     {
         HistoryCheckoutReadiness.Ready => I18n.GetString("History_CheckoutReadiness_Ready"),
         HistoryCheckoutReadiness.PreparationRequired => I18n.GetString("History_CheckoutReadiness_PreparationRequired"),
@@ -1172,8 +1247,8 @@ public sealed class BranchViewItem(BranchSummary summary, HistoryCheckoutPlan? c
         HistoryCheckoutReadiness.CoordinatorUnavailable => I18n.GetString("History_CheckoutReadiness_CoordinatorUnavailable"),
         _ => I18n.GetString("History_CheckoutReadiness_Blocked")
     };
-    public string CheckoutDiagnostic => checkoutPlan?.Diagnostic ?? CheckoutStatusText;
-    public bool CanStartCheckout => !(summary.IsActive && summary.IsWorkspaceAnchoredAtTip)
+    public string CheckoutDiagnostic => _checkoutPlan?.Diagnostic ?? CheckoutStatusText;
+    public bool CanStartCheckout => IsAssessed && !(summary.IsActive && summary.IsWorkspaceAnchoredAtTip)
         && summary.HasCheckoutTarget
         && CheckoutReadiness is HistoryCheckoutReadiness.Ready
             or HistoryCheckoutReadiness.PreparationRequired
@@ -1191,5 +1266,5 @@ public sealed class SafetySnapshotViewItem(SafetySnapshotProjection projection)
 {
     public SafetySnapshotId SnapshotId => projection.Snapshot.SnapshotId;
     public CheckpointId CheckpointId => projection.Snapshot.CheckpointId;
-    public string DisplayName => $"{UserDisplayFormatter.LongDateTime(projection.Snapshot.CreatedAtUtc.ToLocalTime())} · {projection.Snapshot.Reason}";
+    public string DisplayName => $"{UserDisplayFormatter.LongDateTime(projection.Snapshot.CreatedAtUtc.ToLocalTime())} · {I18n.GetString("History_SafetyReason_" + projection.Snapshot.Reason)}";
 }

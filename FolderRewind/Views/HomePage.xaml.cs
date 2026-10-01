@@ -408,11 +408,11 @@ public sealed partial class HomePage : Page
         var kinds = ViewModel.GetConfigKinds().Where(k => ViewModel.GetPluginBatchAvailability(k.RequiredPluginId).IsAvailable).ToArray();
         if (kinds.Length == 0)
         {
-            await AppDialogService.Default.ShowMessageAsync(I18n.GetString("Home_PluginBatch.Text"), I18n.GetString("Setup_PluginUnavailable"), XamlRoot, cancellationToken: cancellationToken);
+            await AppDialogService.Default.ShowMessageAsync(I18n.GetString("Home_PluginBatchTitle"), I18n.GetString("Setup_PluginUnavailable"), XamlRoot, cancellationToken: cancellationToken);
             return;
         }
         var picker = CreateConfigKindCombo(kinds, "HomePluginBatchKind", resources);
-        var dialog = new ContentDialog { Title = I18n.GetString("Home_PluginBatch.Text"), Content = picker,
+        var dialog = new ContentDialog { Title = I18n.GetString("Home_PluginBatchTitle"), Content = picker,
             PrimaryButtonText = I18n.GetString("Common_Confirm"), CloseButtonText = I18n.GetString("Common_Cancel"), IsPrimaryButtonEnabled = false };
         picker.SelectionChanged += (_, _) => dialog.IsPrimaryButtonEnabled = picker.SelectedItem is PluginConfigKindOption;
         if (await AppDialogService.Default.ShowCustomAsync(dialog, XamlRoot, cancellationToken) != ContentDialogResult.Primary

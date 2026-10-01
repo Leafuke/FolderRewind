@@ -3,6 +3,7 @@ using FolderRewind.Models;
 using FolderRewind.Services;
 using FolderRewind.ViewModels;
 using Microsoft.UI.Xaml.Automation;
+using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Navigation;
 using System;
@@ -21,6 +22,7 @@ public sealed partial class HistoryPage : Page
         ViewModel = new HistoryPageViewModel(new HistoryInteractionService(() => XamlRoot));
         InitializeComponent();
         ViewModel.Initialize();
+        Loaded += (_, _) => HistoryViewSelector.SelectedItem = ViewModel.IsGroupedRunView ? RunHistoryViewItem : SourceHistoryViewItem;
 
         // 首次导航时显式设置集合，避免早期 WinUI 版本在缓存页面上延后建立绑定。
         ConfigFilter.ItemsSource = ViewModel.Configs;
@@ -28,9 +30,47 @@ public sealed partial class HistoryPage : Page
         RunHistoryList.ItemsSource = ViewModel.FilteredRuns;
         BranchFilter.ItemsSource = ViewModel.Branches;
         UseColorsToggleMenuItem.IsChecked = ViewModel.UseHistoryStatusColors;
+        PresentationSelector.SelectedItem = ViewModel.IsAdvancedHistory ? AdvancedHistoryItem : NormalHistoryItem;
         HistoryViewSelector.SelectedItem = ViewModel.IsGroupedRunView
             ? RunHistoryViewItem
             : SourceHistoryViewItem;
+    }
+
+    private async void OnPresentationSelectionChanged(SelectorBar sender, SelectorBarSelectionChangedEventArgs args)
+    {
+        try { await ViewModel.SetPresentationModeAsync(sender.SelectedItem == AdvancedHistoryItem ? HistoryPresentationMode.Advanced : HistoryPresentationMode.Normal); }
+        catch (Exception ex) { ViewModel.ReportLoadFailure(ex.Message); }
+    }
+
+    private void OnOpenAdvancedClick(object sender, RoutedEventArgs e) => PresentationSelector.SelectedItem = AdvancedHistoryItem;
+
+    private void OnHistoryPageSizeChanged(object sender, SizeChangedEventArgs e)
+    {
+        if (FiltersGrid is null) return;
+        var narrow = e.NewSize.Width < 860;
+        Grid.SetColumn(CommentFilterBox, narrow ? 0 : 2);
+        Grid.SetRow(CommentFilterBox, narrow ? 1 : 0);
+        Grid.SetColumn(GroupingPanel, narrow ? 1 : 3);
+        Grid.SetRow(GroupingPanel, narrow ? 1 : 0);
+        FiltersGrid.ColumnDefinitions[2].Width = new GridLength(narrow ? 0 : 1, GridUnitType.Star);
+        FiltersGrid.ColumnDefinitions[3].Width = new GridLength(0, GridUnitType.Auto);
+        Grid.SetColumn(PresentationSelector, narrow ? 0 : 1);
+        Grid.SetRow(PresentationSelector, narrow ? 1 : 0);
+        Grid.SetColumn(BranchStatus, narrow ? 0 : 1);
+        Grid.SetRow(BranchStatus, narrow ? 1 : 0);
+        if (narrow) Grid.SetColumnSpan(BranchStatus, 2);
+        else Grid.SetColumnSpan(BranchStatus, 1);
+    }
+
+    private void OnHistoryCardSizeChanged(object sender, SizeChangedEventArgs e)
+    {
+        if (sender is not Grid grid || grid.Children.Count < 2) return;
+        var narrow = e.NewSize.Width < 520;
+        if (grid.Children[1] is not FrameworkElement actions) return;
+        Grid.SetColumn(actions, narrow ? 0 : 1);
+        Grid.SetRow(actions, narrow ? 1 : 0);
+        Grid.SetColumnSpan(actions, narrow ? 2 : 1);
+        grid.ColumnDefinitions[1].Width = new GridLength(0, GridUnitType.Auto);
     }
 
     private void OnHistoryContainerContentChanging(
@@ -273,7 +313,9 @@ public sealed partial class HistoryPage : Page
     private static void ExecuteItemCommand<T>(object sender, System.Windows.Input.ICommand command)
         where T : class
     {
-        if (sender is Button { DataContext: T item } && command.CanExecute(item))
+        if (sender is FrameworkElement control
+            && (control.Tag as T ?? control.DataContext as T) is { } item
+            && command.CanExecute(item))
         {
             command.Execute(item);
         }

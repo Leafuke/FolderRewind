@@ -396,7 +396,7 @@ public sealed partial class HistoryPageViewModel
                 I18n.Format(
                     "History_Checkout_MissingSourceDescription",
                     missing.Descriptor.DisplayName,
-                    missing.SourceId),
+                    missing.SuggestedPath),
                 missing.SuggestedPath,
                 cancellationToken: cancellationToken);
             if (string.IsNullOrWhiteSpace(path))
@@ -431,7 +431,7 @@ public sealed partial class HistoryPageViewModel
             I18n.GetString("History_Checkout_BoundaryTitle"),
             I18n.Format(
                 "History_Checkout_BoundaryDescription",
-                mismatch.SourceId,
+                _currentConfig?.SourceFolders.FirstOrDefault(folder => Guid.TryParse(folder.Id, out var source) && source == mismatch.SourceId.Value)?.DisplayName ?? I18n.GetString("History_SourceUnavailable"),
                 FormatBoundary(mismatch.CurrentBoundary),
                 FormatBoundary(mismatch.HistoricalBoundary)),
             I18n.GetString("History_Checkout_RepairBoundaryPrimary"),
@@ -467,7 +467,7 @@ public sealed partial class HistoryPageViewModel
                             I18n.GetString("History_Branch_SelectTipTitle"),
                             string.Empty,
                             branch.Tips
-                                .Select(tip => new HistoryChoiceOption(tip.UpdateId.ToString(), tip.UpdateId.ToString()))
+                                .Select(tip => new HistoryChoiceOption(tip.UpdateId.ToString(), I18n.Format("History_BranchTipName", tip.Name, UserDisplayFormatter.LongDateTime(tip.CreatedAtUtc.ToLocalTime()))))
                                 .ToArray(),
                             I18n.GetString("Common_Ok")),
                         token);
@@ -541,16 +541,18 @@ public sealed partial class HistoryPageViewModel
         }
         if (assessment.Readiness != HistoryReadiness.Ready || assessment.Selected is null)
         {
-            _interactions.Notify(HistoryNotificationKind.Warning, I18n.Format("Export_NotReady", assessment.Readiness));
+            _interactions.Notify(HistoryNotificationKind.Warning, GetReadinessMessage(assessment.Readiness));
             return;
         }
         var parent = await _interactions.PickFolderAsync(token);
         if (string.IsNullOrWhiteSpace(parent)) return;
         var destination = System.IO.Path.Combine(parent, "FolderRewind-restored-" + Guid.NewGuid().ToString("N"));
-        var summary = I18n.Format("Export_Preview", folder.DisplayName, item.VersionId, item.TimeDisplay,
-            destination, string.Join("; ", assessment.Selected.Diagnostics));
-        if (assessment.Selected.Fidelity == MaterializationFidelity.Partial) summary += "\n\n" + I18n.GetString("Export_PartialNotice");
-        if (!await _interactions.ConfirmAsync(I18n.GetString("Export_Title"), summary, I18n.GetString("Common_Confirm"), cancellationToken: token)) return;
+        var choice = await _interactions.ChooseAsync(new HistoryChoiceRequest(
+            I18n.GetString("Export_Title"),
+            item.IsPartialBackup ? I18n.GetString("Export_PartialNotice") : I18n.GetString("Restore_NewLocationHelp"), [],
+            I18n.GetString("Common_Confirm"), Fields: ReviewFields(folder.DisplayName, item.DateDisplay + " " + item.TimeDisplay, item.Comment, destination)), token);
+        if (choice.Outcome != HistoryInteractionOutcome.Primary) return;
+        SetOperationStatus("Restore_Progress");
         token.ThrowIfCancellationRequested();
         await NativeHistoryApplicationService.ExportVersionAsync(config, folder, item.VersionId, destination, token);
         _interactions.Notify(HistoryNotificationKind.Success, I18n.Format("Export_Completed", destination));
@@ -571,24 +573,22 @@ public sealed partial class HistoryPageViewModel
         var preview = await NativeHistoryApplicationService.PreviewVersionRestoreAsync(config, folder, item.VersionId, cancellationToken);
         if (preview.Assessment.Readiness != HistoryReadiness.Ready || preview.Assessment.Selected is null)
         {
-            _interactions.Notify(HistoryNotificationKind.Warning, I18n.Format("Export_NotReady", preview.Assessment.Readiness));
+            _interactions.Notify(HistoryNotificationKind.Warning, GetReadinessMessage(preview.Assessment.Readiness));
             return;
         }
-        var consequences = I18n.Format("Restore_VersionPreview", config.Name, folder.DisplayName, folder.Id, folder.Path,
-            item.VersionId, item.TimeDisplay, preview.Version.SourceDescriptorSnapshot.PathHint,
-            preview.Version.EffectiveSourceBoundary is { } boundary ? FormatBoundary(boundary) : I18n.GetString("Restore_BoundaryUnknown"),
-            preview.Assessment.Selected.Fidelity, string.Join("; ", preview.Assessment.Selected.Diagnostics),
-            I18n.GetString(config.Archive.BackupBeforeRestore ? "Restore_SafetyEnabled" : "Restore_SafetyDisabled"));
-        var mode = await ChooseRestoreModeAsync(
-            item.IsPartialBackup,
-            isRun: false,
-            consequences,
-            cancellationToken);
+        var boundary = preview.Version.EffectiveSourceBoundary;
+        var currentBoundary = EffectiveSourceBoundaryFactory.Create(folder.Path, folder.SourceScope, config.Filters);
+        var risk = I18n.GetString(config.Archive.BackupBeforeRestore ? "Restore_SafetyEnabled" : "Restore_SafetyDisabled");
+        if (boundary.Fingerprint != currentBoundary.Fingerprint) risk += "\n" + I18n.GetString("Restore_BoundaryDifference");
+        var fields = ReviewFields(folder.DisplayName, item.DateDisplay + " " + item.TimeDisplay, item.Comment, folder.Path).ToList();
+        fields.Add(new(I18n.GetString("Restore_FieldScope"), FormatBoundary(boundary)));
+        var mode = await ChooseRestoreModeAsync(item.IsPartialBackup, false, risk, cancellationToken, fields);
         if (mode is null)
         {
             return;
         }
 
+        SetOperationStatus("Restore_Progress");
         var result = await NativeHistoryApplicationService.RestoreVersionAsync(
             config,
             folder,
@@ -618,8 +618,10 @@ public sealed partial class HistoryPageViewModel
         var mode = await ChooseRestoreModeAsync(
             item.HasPartialBackup,
             isRun: true,
-            I18n.GetString("History_Run_RestoreContent"),
-            cancellationToken);
+            I18n.GetString(config.Archive.BackupBeforeRestore ? "Restore_SafetyEnabled" : "Restore_SafetyDisabled"),
+            cancellationToken,
+            ReviewFields(config.Name, item.DateDisplay + " " + item.TimeDisplay, item.Comment,
+                string.Join("\n", config.SourceFolders.Select(folder => folder.Path))));
         if (mode is null)
         {
             return;
@@ -629,6 +631,7 @@ public sealed partial class HistoryPageViewModel
         {
             return;
         }
+        SetOperationStatus("Restore_Progress");
         var result = await NativeHistoryApplicationService.RestoreCheckpointAsync(
             config,
             checkpointId,
@@ -649,34 +652,39 @@ public sealed partial class HistoryPageViewModel
     }
 
     private async Task<BackupService.RestoreMode?> ChooseRestoreModeAsync(
-        bool partial,
-        bool isRun,
-        string message,
-        CancellationToken cancellationToken)
+        bool partial, bool isRun, string risk, CancellationToken cancellationToken,
+        IReadOnlyList<HistoryReviewField>? fields = null)
     {
-        var result = await _interactions.ChooseAsync(
-            new HistoryChoiceRequest(
-                partial
-                    ? I18n.GetString("History_PartialRestore_Title")
-                    : I18n.GetString(isRun
-                        ? "History_Run_RestoreTitle"
-                        : "History_RestoreConfirm_Title"),
-                partial ? message + "\n\n" + I18n.GetString("History_PartialRestore_Content") : message,
-                [],
-                partial
-                    ? I18n.GetString("History_PartialRestore_Primary")
-                    : I18n.GetString("History_RestoreConfirm_Primary"),
-                partial ? null : I18n.GetString("History_RestoreConfirm_Secondary")),
-            cancellationToken);
+        var message = I18n.GetString(partial ? "Restore_PartialHelp" : "Restore_ModesHelp") + "\n\n" + risk;
+        var result = await _interactions.ChooseAsync(new HistoryChoiceRequest(
+            I18n.GetString(partial ? "History_PartialRestore_Title" : isRun ? "History_Run_RestoreTitle" : "History_RestoreConfirm_Title"),
+            message, [], I18n.GetString(partial ? "Restore_Overwrite" : "History_RestoreConfirm_Primary"),
+            partial ? null : I18n.GetString("Restore_Overwrite"), IsDestructive: true, Fields: fields), cancellationToken);
         return result.Outcome switch
         {
-            HistoryInteractionOutcome.Primary => partial
-                ? BackupService.RestoreMode.Overwrite
-                : BackupService.RestoreMode.Clean,
+            HistoryInteractionOutcome.Primary => partial ? BackupService.RestoreMode.Overwrite : BackupService.RestoreMode.Clean,
             HistoryInteractionOutcome.Secondary => BackupService.RestoreMode.Overwrite,
             _ => null
         };
     }
+
+    private static IReadOnlyList<HistoryReviewField> ReviewFields(string content, string time, string note, string target)
+    {
+        var fields = new List<HistoryReviewField> { new(I18n.GetString("Restore_FieldContent"), content), new(I18n.GetString("Restore_FieldTime"), time) };
+        if (!string.IsNullOrWhiteSpace(note)) fields.Add(new(I18n.GetString("Restore_FieldNote"), note));
+        fields.Add(new(I18n.GetString("Restore_FieldTarget"), target));
+        return fields;
+    }
+
+    private static string GetReadinessMessage(HistoryReadiness readiness) => I18n.GetString(readiness switch
+    {
+        HistoryReadiness.PreparationRequired => "History_NativeReadiness_PreparationRequired",
+        _ => "Restore_NotReady"
+    });
+
+    private string _operationStatus = string.Empty;
+    public string OperationStatus => _operationStatus;
+    private void SetOperationStatus(string key) { _operationStatus = I18n.GetString(key); OnPropertyChanged(nameof(OperationStatus)); }
 
     private async Task<bool> VerifyPasswordIfRequiredAsync(
         BackupConfig config,
@@ -976,6 +984,7 @@ public sealed partial class HistoryPageViewModel
             return;
         }
 
+        SetOperationStatus("History_OperationProgress");
         NotifyCommandStateChanged();
         OnPropertyChanged(nameof(IsOperationBusy));
         try
@@ -1061,9 +1070,9 @@ public sealed partial class HistoryPageViewModel
     }
 
     private static string FormatBoundary(EffectiveSourceBoundarySnapshot boundary)
-        => $"Scope={boundary.ScopeMode} [{string.Join(", ", boundary.ScopeRules)}]; "
-           + $"Filter={boundary.FilterMode} [{string.Join(", ", boundary.FilterRules)}]; "
-           + $"Regex={boundary.UseRegex}; Fingerprint={boundary.Fingerprint}";
+        => boundary.ScopeMode == EffectiveBoundaryScopeMode.All && boundary.FilterRules.IsEmpty
+            ? I18n.GetString("Restore_ScopeAll")
+            : I18n.Format("Restore_ScopeRules", boundary.ScopeRules.Length, boundary.FilterRules.Length);
 
     private void ShowInteractionWarning(string? diagnostic)
         => _interactions.Notify(

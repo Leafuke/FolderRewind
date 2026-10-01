@@ -760,7 +760,7 @@ Duplicate folder names are blocked within the same backup project so different d
     <value>Search &amp; Filter</value>
   </data>
   <data name="HistoryPage_CommentFilter.PlaceholderText" xml:space="preserve">
-    <value>Search comments, versions, branches...</value>
+    <value>Search notes or filenames…</value>
   </data>
   <data name="HistoryPage_UseStatusColors.Header" xml:space="preserve">
     <value>Status colors</value>
@@ -5108,25 +5108,29 @@ Pull request: {1}</value>
   <data name="History_Branch_CreateFromHereHint" xml:space="preserve"><value>Create a dormant branch from this backup project checkpoint</value></data>
   <data name="History_Branch_CreateUnavailableNoCheckpoint" xml:space="preserve"><value>This version is not part of a complete branchable backup project checkpoint</value></data>
   <data name="History_Branch_CreateUnavailableAmbiguousCheckpoint" xml:space="preserve"><value>This version belongs to multiple checkpoints; create the branch from a backup run instead</value></data>
-  <data name="History_Branch_CheckoutProtectionContent" xml:space="preserve"><value>The current working state is not represented by an Exact baseline. A durable safety recovery point will be created and kept before restoring the selected branch checkpoint.</value></data>
+  <data name="History_Branch_CheckoutProtectionContent" xml:space="preserve"><value>Current content will be backed up before restoring the selected branch.</value></data>
   <data name="History_CheckoutReadiness_Ready" xml:space="preserve"><value>Ready to switch</value></data>
-  <data name="History_CheckoutReadiness_PreparationRequired" xml:space="preserve"><value>Exact content preparation required</value></data>
+  <data name="History_CheckoutReadiness_PreparationRequired" xml:space="preserve"><value>Backup download needed</value></data>
   <data name="History_CheckoutReadiness_ProtectionRequired" xml:space="preserve"><value>Current work will be protected first</value></data>
   <data name="History_CheckoutReadiness_ConfigurationMappingRequired" xml:space="preserve"><value>Historical source binding repair required</value></data>
   <data name="History_CheckoutReadiness_ConfigurationBoundaryChangeRequired" xml:space="preserve"><value>Source boundary change confirmation required</value></data>
-  <data name="History_CheckoutReadiness_ExactRepresentationUnavailable" xml:space="preserve"><value>Exact representation unavailable</value></data>
+  <data name="History_CheckoutReadiness_ExactRepresentationUnavailable" xml:space="preserve"><value>Complete backup unavailable</value></data>
   <data name="History_CheckoutReadiness_BranchReconciliationRequired" xml:space="preserve"><value>Multiple tips must be reconciled first</value></data>
   <data name="History_CheckoutReadiness_StalePlan" xml:space="preserve"><value>State changed; revalidation required</value></data>
   <data name="History_CheckoutReadiness_CoordinatorUnavailable" xml:space="preserve"><value>Required restore coordinator unavailable</value></data>
   <data name="History_CheckoutReadiness_Blocked" xml:space="preserve"><value>Switch is currently blocked</value></data>
   <data name="History_Checkout_PrepareTitle" xml:space="preserve"><value>Prepare history content</value></data>
-  <data name="History_Checkout_PrepareContent" xml:space="preserve"><value>Exact representations required for this switch are not available locally. Download and verify them now? Refreshing history never downloads content implicitly.</value></data>
+  <data name="History_Checkout_PrepareContent" xml:space="preserve"><value>The backup needed for this branch is not local. Download and verify it to continue?</value></data>
   <data name="History_Checkout_PreparePrimary" xml:space="preserve"><value>Prepare content</value></data>
   <data name="History_Checkout_MissingSourceTitle" xml:space="preserve"><value>Restore historical source binding</value></data>
-  <data name="History_Checkout_MissingSourceDescription" xml:space="preserve"><value>Historical source “{0}” (SourceId: {1}) is missing from the current backup project. Confirm its directory to restore the binding with the original SourceId.</value></data>
+  <data name="History_Checkout_MissingSourceDescription" xml:space="preserve"><value>The historical folder “{0}” is no longer in this project. Confirm its destination.
+Historical path: {1}</value></data>
   <data name="History_Checkout_RepairBindingPrimary" xml:space="preserve"><value>Restore binding</value></data>
   <data name="History_Checkout_BoundaryTitle" xml:space="preserve"><value>Confirm source boundary change</value></data>
-  <data name="History_Checkout_BoundaryDescription" xml:space="preserve"><value>Source {0} has current boundary {1} and historical boundary {2}. Continuing restores the historical source scope and config-wide filters and may affect other sources in this backup project.</value></data>
+  <data name="History_Checkout_BoundaryDescription" xml:space="preserve"><value>Folder: {0}
+Current scope: {1}
+Historical scope: {2}
+Confirm to use the historical scope.</value></data>
   <data name="History_Checkout_RepairBoundaryPrimary" xml:space="preserve"><value>Apply historical boundary</value></data>
   <data name="History_SafetySnapshot_None" xml:space="preserve"><value>There are no active safety recovery points.</value></data>
   <data name="History_SafetySnapshot_Title" xml:space="preserve"><value>Safety recovery points</value></data>
@@ -5381,13 +5385,13 @@ Diagnostics: {4}</value></data>
   <data name="CloudSetup_Url.Header" xml:space="preserve"><value>WebDAV service URL</value></data>
   <data name="CloudSetup_User.Header" xml:space="preserve"><value>WebDAV username</value></data>
   <data name="CloudSetup_Password.Header" xml:space="preserve"><value>WebDAV password</value></data>
-  <data name="CloudSetup_PasswordHelp.Text" xml:space="preserve"><value>Credentials are stored in a separate rclone file protected by current-user permissions. rclone obscure is reversible obfuscation. Passwords are excluded from project JSON and process arguments.</value></data>
-  <data name="CloudSetup_CreateWebDav.Content" xml:space="preserve"><value>Create this connection draft</value></data>
-  <data name="CloudSetup_ConfigPath.Header" xml:space="preserve"><value>rclone config file (owned or existing connection)</value></data>
+  <data name="CloudSetup_PasswordHelp.Text" xml:space="preserve"><value>Credentials are saved in a separate file accessible only to the current user.</value></data>
+  <data name="CloudSetup_CreateWebDav.Content" xml:space="preserve"><value>Create connection</value></data>
+  <data name="CloudSetup_ConfigPath.Header" xml:space="preserve"><value>Connection config file</value></data>
   <data name="CloudSetup_PickConfig.Content" xml:space="preserve"><value>Choose an existing config file</value></data>
   <data name="CloudSetup_ListRemotes.Content" xml:space="preserve"><value>Read connections from this file</value></data>
-  <data name="CloudSetup_Remote.Header" xml:space="preserve"><value>Choose an existing remote</value></data>
-  <data name="CloudSetup_RemoteRoot.Header" xml:space="preserve"><value>Remote destination (remote:path)</value></data>
+  <data name="CloudSetup_Remote.Header" xml:space="preserve"><value>Existing connection</value></data>
+  <data name="CloudSetup_RemoteRoot.Header" xml:space="preserve"><value>Cloud folder</value></data>
   <data name="CloudSetup_Browse.Content" xml:space="preserve"><value>Browse / recheck current directory</value></data>
   <data name="CloudSetup_ProbeHelp.Text" xml:space="preserve"><value>Browsing checks read access only. Write verification uploads an exclusive random object of about 8 KiB, reads it back, and deletes only that object. Read-only recovery does not require this check.</value></data>
   <data name="CloudSetup_VerifyWrite.Content" xml:space="preserve"><value>Verify read and write access here</value></data>
@@ -5395,9 +5399,9 @@ Diagnostics: {4}</value></data>
   <data name="CloudSetup_LoadVersions.Content" xml:space="preserve"><value>Load local versions for upload</value></data>
   <data name="CloudSetup_Version.Header" xml:space="preserve"><value>Select the version to upload</value></data>
   <data name="CloudSetup_Upload.Content" xml:space="preserve"><value>Upload this version and its dependencies</value></data>
-  <data name="CloudSetup_UploadConfirm" xml:space="preserve"><value>Upload the selected version representation and all required dependencies, then publish history metadata.
-Destination: {0}
-The local backup will not run again. A successful read-back through OpenList does not prove permanent upstream persistence.</value></data>
+  <data name="CloudSetup_UploadConfirm" xml:space="preserve"><value>Upload the selected version to:
+{0}
+A cloud copy will be available when the task completes.</value></data>
   <data name="CloudSetup_OpenList.Header" xml:space="preserve"><value>Use OpenList to bridge cloud drives</value></data>
   <data name="CloudSetup_OpenListHelp.Text" xml:space="preserve"><value>Use an existing NAS or remote OpenList as WebDAV without a second local installation. Log in and mount the drive in the OpenList website, then return with its WebDAV account and select an actual mounted directory. Saving an executable path does not authorize starting it.</value></data>
   <data name="CloudSetup_OpenListGuide.Content" xml:space="preserve"><value>Official OpenList WebDAV guide</value></data>
@@ -5419,23 +5423,23 @@ The local backup will not run again. A successful read-back through OpenList doe
   <data name="CloudSetup_DirectoriesTruncated" xml:space="preserve"><value>Directory display is limited to 200 entries. Enter a narrower subdirectory and check again.</value></data>
   <data name="CloudSetup_ReadVerified" xml:space="preserve"><value>The directory can be listed. This does not prove write access or the existence of restorable backup data.</value></data>
   <data name="CloudSetup_ProbeRetained" xml:space="preserve"><value>Cleanup of this test object could not be confirmed: {0}. Manually handle only this exact object.</value></data>
-  <data name="CloudSetup_SavedNoCopy" xml:space="preserve"><value>Connection saved; no cloud copy created. Select an existing version and upload its data.</value></data>
+  <data name="CloudSetup_SavedNoCopy" xml:space="preserve"><value>Connection saved. Choose a version to upload.</value></data>
   <data name="CloudSetup_SaveFirst" xml:space="preserve"><value>Save the confirmed connection first.</value></data>
   <data name="CloudSetup_SelectVersion" xml:space="preserve"><value>Select a specific version. If none exist, complete a local backup first.</value></data>
   <data name="CloudSetup_VersionNotReady" xml:space="preserve"><value>The selected version lacks a complete local representation or dependency. Check its history details.</value></data>
   <data name="CloudSetup_UploadRunning" xml:space="preserve"><value>Uploading required data and history metadata</value></data>
-  <data name="CloudSetup_UploadComplete" xml:space="preserve"><value>Required data and metadata for the selected version have been transferred. OpenList bridging does not provide additional proof of upstream physical persistence.</value></data>
-  <data name="CloudSetup_UploadIncomplete" xml:space="preserve"><value>Cloud copy incomplete. The local backup is retained. Retry missing data or metadata.</value></data>
+  <data name="CloudSetup_UploadComplete" xml:space="preserve"><value>Cloud copy complete. Local backups are retained.</value></data>
+  <data name="CloudSetup_UploadIncomplete" xml:space="preserve"><value>Cloud copy incomplete. Review diagnostics and retry.</value></data>
   <data name="Export_DownloadNeeded" xml:space="preserve"><value>This version is missing local data. Read its required dependencies from the cloud and verify integrity. History will not be uploaded, no write probe will run, and the original directory will remain unchanged.</value></data>
   <data name="Onboarding_ProjectActions.AutomationProperties.Name" xml:space="preserve"><value>Further project setup</value></data>
   <data name="MinecraftCheck_Open.Text" xml:space="preserve"><value>Check Minecraft integration</value></data>
-  <data name="MinecraftCheck_Title.Text" xml:space="preserve"><value>Check Minecraft integration for a world</value></data>
-  <data name="MinecraftCheck_WorldPicker.Header" xml:space="preserve"><value>Select a specific world / source</value></data>
-  <data name="MinecraftCheck_Help.Text" xml:space="preserve"><value>This check will not save, freeze, exit, or restore a world. Basic backup and runtime integration are separate. The plugin still checks again before each operation.</value></data>
+  <data name="MinecraftCheck_Title.Text" xml:space="preserve"><value>Minecraft integration</value></data>
+  <data name="MinecraftCheck_WorldPicker.Header" xml:space="preserve"><value>World</value></data>
+  <data name="MinecraftCheck_Help.Text" xml:space="preserve"><value>Check the plugin, host connection and game integration without changing the world.</value></data>
   <data name="MinecraftCheck_Check.Content" xml:space="preserve"><value>Recheck this world</value></data>
   <data name="MinecraftCheck_Settings.Content" xml:space="preserve"><value>Open plugin and KnotLink settings</value></data>
   <data name="MinecraftCheck_ModDownload.Content" xml:space="preserve"><value>Get the MineBackup mod and compatibility instructions</value></data>
-  <data name="MinecraftCheck_ManualHelp.Text" xml:space="preserve"><value>No tested game/loader matrix is available for automatic installation. Get the matching version from the official page and confirm the instance’s mods folder. Existing JARs will not be replaced. A file does not prove the mod is loaded. Enter the selected world and check again after installation.</value></data>
+  <data name="MinecraftCheck_ManualHelp.Text" xml:space="preserve"><value>Download a compatible mod into this instance’s mods folder, enter the world, then check again.</value></data>
   <data name="MinecraftCheck_ModsDirectory.Content" xml:space="preserve"><value>Choose and open the correct instance’s mods folder</value></data>
   <data name="MinecraftCheck_ModsPicker" xml:space="preserve"><value>Confirm the mods folder belongs to the selected instance</value></data>
   <data name="MinecraftCheck_InstallAndRecheck.Content" xml:space="preserve"><value>Continue checking after installation</value></data>
@@ -5462,9 +5466,9 @@ The local backup will not run again. A successful read-back through OpenList doe
   <data name="Setup_Cancel.Content" xml:space="preserve"><value>Cancel</value></data>
   <data name="CloudSetup_Menu.Text" xml:space="preserve"><value>Connect cloud storage / add a cloud copy</value></data>
   <data name="CloudSetup_WorkingDirectory.Header" xml:space="preserve"><value>rclone working directory (blank uses the executable directory)</value></data>
-  <data name="CloudSetup_Insecure.Content" xml:space="preserve"><value>Accept the risk of sending credentials over non-loopback HTTP for this connection (certificate verification remains enabled)</value></data>
+  <data name="CloudSetup_Insecure.Content" xml:space="preserve"><value>Allow HTTP (credentials may be sent in plain text)</value></data>
   <data name="OpenList_Environment.Header" xml:space="preserve"><value>OpenList local environment and endpoint</value></data>
-  <data name="OpenList_ManualOnlyHelp.Text" xml:space="preserve"><value>Executable and data directories are saved separately. Saving or checking does not start OpenList, modify existing configuration, reset passwords, or stop processes. Directory occupancy and safe startup are unverified, so only manual startup is supported. Exiting FolderRewind does not stop your OpenList.</value></data>
+  <data name="OpenList_ManualOnlyHelp.Text" xml:space="preserve"><value>Start OpenList manually, then save its path and service address here.</value></data>
   <data name="OpenList_Executable.Header" xml:space="preserve"><value>OpenList executable path</value></data>
   <data name="OpenList_PickExecutable.Content" xml:space="preserve"><value>Choose OpenList executable (does not run it)</value></data>
   <data name="OpenList_ServiceUri.Header" xml:space="preserve"><value>Service website base URL</value></data>
@@ -5537,8 +5541,8 @@ Safety snapshot: {10}
 
 Clean restore replaces current content within this source boundary. Overwrite writes version files and retains other files. A successful restore updates the local Workspace baseline without moving the branch tip. Existing plugin coordination checks still apply. Cancel to verify with Restore to a new location first.</value></data>
   <data name="Restore_BoundaryUnknown" xml:space="preserve"><value>History has no explicit boundary; existing safety rules are rechecked at execution.</value></data>
-  <data name="Restore_SafetyEnabled" xml:space="preserve"><value>Pre-restore backup is enabled; failure blocks restore.</value></data>
-  <data name="Restore_SafetyDisabled" xml:space="preserve"><value>Pre-restore backup is disabled. Transaction rollback staging is not a durable safety backup.</value></data>
+  <data name="Restore_SafetyEnabled" xml:space="preserve"><value>Current content will be backed up first. Restore stops if that backup fails.</value></data>
+  <data name="Restore_SafetyDisabled" xml:space="preserve"><value>Backup before restore is disabled. Current changes may be lost.</value></data>
   <data name="HomeProtection_LastRun" xml:space="preserve"><value>Latest run: {0} ({1}); {2} source results recorded.</value></data>
   <data name="HomeProtection_RunCompleted" xml:space="preserve"><value>Completed; review each source scope and warnings</value></data>
   <data name="HomeProtection_RunPartial" xml:space="preserve"><value>Partially completed</value></data>
@@ -5562,7 +5566,7 @@ Clean restore replaces current content within this source boundary. Overwrite wr
   <data name="Onboarding_ToolCacheUnverified" xml:space="preserve"><value>The existing tool directory has no complete verification record and was not replaced. Select and check the existing executable manually.</value></data>
   <data name="Onboarding_InstallerNotStarted" xml:space="preserve"><value>The installer could not start. Continue from component settings.</value></data>
   <data name="Onboarding_InstallerNeedsCheck" xml:space="preserve"><value>The installer is under user control; waiting is limited to 30 seconds. Installation and runtime capability are unverified. Return to check afterward; do not relaunch an installer that is still running.</value></data>
-  <data name="MinecraftCheck_ResultsReady" xml:space="preserve"><value>Checks finished for the selected content. Resolve applicable items, then check again.</value></data>
+  <data name="MinecraftCheck_ResultsReady" xml:space="preserve"><value>Check complete. Resolve any issues and check again.</value></data>
   <data name="Repair_None" xml:space="preserve"><value>View diagnostic</value></data>
   <data name="Repair_Plugins" xml:space="preserve"><value>Check plugin settings</value></data>
   <data name="Repair_KnotLink" xml:space="preserve"><value>Check KnotLink settings</value></data>
@@ -5742,4 +5746,117 @@ Remote locations come from history records and have not been checked online. Dow
   <data name="ConfigSettingsDialog_CloudEnabled_CardInput.OnContent" xml:space="preserve"><value>On</value></data>
   <data name="ConfigSettingsDialog_CloudEnabled_CardInput.OffContent" xml:space="preserve"><value>Off</value></data>
   <data name="ConfigSettingsDialog_CloudEnabled_CardInput.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve"><value>Upload after backup</value></data>
+  <data name="History_Normal.Text" xml:space="preserve"><value>Normal</value></data>
+  <data name="History_AdvancedMode.Text" xml:space="preserve"><value>Advanced</value></data>
+  <data name="History_Divergence.Message" xml:space="preserve"><value>History branches have diverged. Resolve them in advanced view.</value></data>
+  <data name="History_OpenAdvanced.Content" xml:space="preserve"><value>Resolve divergence</value></data>
+  <data name="History_More.AutomationProperties.Name" xml:space="preserve"><value>More actions</value></data>
+  <data name="History_MenuExport.Text" xml:space="preserve"><value>Restore to a new location</value></data>
+  <data name="History_MenuComment.Text" xml:space="preserve"><value>Edit note</value></data>
+  <data name="History_MenuUpload.Text" xml:space="preserve"><value>Upload cloud copy</value></data>
+  <data name="History_MenuDownload.Text" xml:space="preserve"><value>Download cloud copy</value></data>
+  <data name="History_MenuBranch.Text" xml:space="preserve"><value>Create branch here</value></data>
+  <data name="History_MenuDelete.Text" xml:space="preserve"><value>Delete</value></data>
+  <data name="History_SourceUnavailable" xml:space="preserve"><value>Unlinked folder</value></data>
+  <data name="History_SourceNeedsAttention" xml:space="preserve"><value>Check the source folder or task log.</value></data>
+  <data name="History_BranchAssessing" xml:space="preserve"><value>Assessing this branch…</value></data>
+  <data name="Restore_FieldContent" xml:space="preserve"><value>Content</value></data>
+  <data name="Restore_FieldTime" xml:space="preserve"><value>Backup time</value></data>
+  <data name="Restore_FieldNote" xml:space="preserve"><value>Note</value></data>
+  <data name="Restore_FieldTarget" xml:space="preserve"><value>Destination</value></data>
+  <data name="Restore_FieldScope" xml:space="preserve"><value>Restore scope</value></data>
+  <data name="Restore_ModesHelp" xml:space="preserve"><value>Safe restore removes extra files within the backup scope.
+Overwrite restore keeps extra files and replaces backed-up content.</value></data>
+  <data name="Restore_PartialHelp" xml:space="preserve"><value>This version contains a partial backup. Overwrite restore keeps files outside its scope.</value></data>
+  <data name="Restore_Overwrite" xml:space="preserve"><value>Overwrite restore</value></data>
+  <data name="Restore_BoundaryDifference" xml:space="preserve"><value>The current scope differs from this backup. Restore will verify the scope and may be blocked.</value></data>
+  <data name="Restore_NewLocationHelp" xml:space="preserve"><value>Restore into a new directory; existing source folders are unchanged.</value></data>
+  <data name="Restore_Progress" xml:space="preserve"><value>Verifying and restoring…</value></data>
+  <data name="History_OperationProgress" xml:space="preserve"><value>Working…</value></data>
+  <data name="Restore_NotReady" xml:space="preserve"><value>This version cannot be restored yet. Check local files or download its cloud copy.</value></data>
+  <data name="Restore_ScopeAll" xml:space="preserve"><value>Entire folder</value></data>
+  <data name="Restore_ScopeRules" xml:space="preserve"><value>Backup scope ({0} scope rules, {1} filter rules)</value></data>
+  <data name="CloudSetup_DialogTitle" xml:space="preserve"><value>Cloud connection</value></data>
+  <data name="CloudSetup_UploadScope.Text" xml:space="preserve"><value>Connect cloud storage and upload local backups. Saving the connection does not upload a copy.</value></data>
+  <data name="CloudSetup_RecoveryScope.Text" xml:space="preserve"><value>Read cloud backups and restore into a new folder. Use an account with read access.</value></data>
+  <data name="CloudSetup_ConnectionGroup.Text" xml:space="preserve"><value>Connection method</value></data>
+  <data name="CloudSetup_WebDavMethod.Text" xml:space="preserve"><value>WebDAV</value></data>
+  <data name="CloudSetup_ExistingMethod.Text" xml:space="preserve"><value>Existing config</value></data>
+  <data name="CloudSetup_ExecutionAdvanced.Header" xml:space="preserve"><value>Advanced execution settings</value></data>
+  <data name="CloudSetup_LocationGroup.Text" xml:space="preserve"><value>Backup location</value></data>
+  <data name="CloudSetup_VerificationGroup.Text" xml:space="preserve"><value>Verify connection</value></data>
+  <data name="CloudSetup_VerificationCard.Header" xml:space="preserve"><value>Read and write access</value></data>
+  <data name="CloudSetup_VerificationCard.Description" xml:space="preserve"><value>Write and remove a test file to verify upload access.</value></data>
+  <data name="CloudSetup_ExecutionGroup.Text" xml:space="preserve"><value>Choose a version and run</value></data>
+  <data name="Diagnostics_Details.Header" xml:space="preserve"><value>Diagnostic details</value></data>
+  <data name="MinecraftCheck_HostGroup.Text" xml:space="preserve"><value>Host components</value></data>
+  <data name="MinecraftCheck_GameGroup.Text" xml:space="preserve"><value>Game integration</value></data>
+  <data name="MinecraftCheck_ManualGroup.Text" xml:space="preserve"><value>Installation and manual checks</value></data>
+  <data name="Check_CloudReady" xml:space="preserve"><value>Check passed.</value></data>
+  <data name="Check_CloudRepair" xml:space="preserve"><value>Check incomplete. Review connection settings and retry.</value></data>
+  <data name="CloudSetup_CheckFailedShort" xml:space="preserve"><value>Connection check failed. Review the address, credentials or config file; details are in diagnostics.</value></data>
+  <data name="CloudSetup_WriteVerifiedShort" xml:space="preserve"><value>Read and write verification passed.</value></data>
+  <data name="CloudSetup_WriteFailedShort" xml:space="preserve"><value>Read and write verification failed. Check folder permissions.</value></data>
+  <data name="CloudSetup_ProbeCleanup" xml:space="preserve"><value>The test file could not be removed. Delete it manually; see diagnostics for its path.</value></data>
+  <data name="CloudRecovery_HistorySummary" xml:space="preserve"><value>Loaded {0} versions. Choose content to restore.</value></data>
+  <data name="CloudRecovery_ReadablePreview" xml:space="preserve"><value>Content: {0}
+Backup time: {1}
+{2} backup files need downloading.</value></data>
+  <data name="CloudRecovery_DestinationConfirm" xml:space="preserve"><value>Destination: {0}
+Only the new folder will be written.</value></data>
+  <data name="CloudRecovery_Verifying" xml:space="preserve"><value>Verifying backup files…</value></data>
+  <data name="CheckComponent_minecraft_host_plugin" xml:space="preserve"><value>Minecraft backup plugin</value></data>
+  <data name="CheckComponent_minecraft_host_plugin_runtime" xml:space="preserve"><value>Plugin runtime</value></data>
+  <data name="CheckComponent_minecraft_knotlink_server" xml:space="preserve"><value>KnotLink server</value></data>
+  <data name="CheckComponent_minecraft_host_connection" xml:space="preserve"><value>App connection</value></data>
+  <data name="CheckComponent_minecraft_source_association" xml:space="preserve"><value>World folder</value></data>
+  <data name="CheckComponent_minecraft_game_response" xml:space="preserve"><value>Game response</value></data>
+  <data name="CheckComponent_minecraft_hot_backup" xml:space="preserve"><value>In-game backup</value></data>
+  <data name="CheckComponent_minecraft_hot_restore" xml:space="preserve"><value>In-game restore</value></data>
+  <data name="CheckComponent_minecraft_game_schedule" xml:space="preserve"><value>Game schedule</value></data>
+  <data name="CheckComponent_openlist_endpoint_unconfirmed" xml:space="preserve"><value>OpenList connection</value></data>
+  <data name="CheckComponent_openlist_endpoint_observed" xml:space="preserve"><value>OpenList connection</value></data>
+  <data name="CheckComponent_cloud_connection_changed" xml:space="preserve"><value>Connection settings</value></data>
+  <data name="CheckComponent_cloud_access_unconfirmed" xml:space="preserve"><value>Cloud access</value></data>
+  <data name="CheckComponent_cloud_access_verified" xml:space="preserve"><value>Cloud access</value></data>
+  <data name="CheckComponent_cloud_copy_incomplete" xml:space="preserve"><value>Cloud copy</value></data>
+  <data name="CheckComponent_cloud_copy_complete" xml:space="preserve"><value>Cloud copy</value></data>
+  <data name="CheckComponent_backup_resource_settings" xml:space="preserve"><value>Resource settings</value></data>
+  <data name="MinecraftCheck_ManualInstructions" xml:space="preserve"><value>Download a compatible mod into this instance’s mods folder, enter the world, then check again.</value></data>
+  <data name="CloudSetup_Executable_Input.AutomationProperties.Name" xml:space="preserve"><value>rclone executable path</value></data>
+  <data name="CloudSetup_NewWebDav_Input.AutomationProperties.Name" xml:space="preserve"><value>Create a WebDAV connection</value></data>
+  <data name="CloudSetup_Url_Input.AutomationProperties.Name" xml:space="preserve"><value>WebDAV service URL</value></data>
+  <data name="CloudSetup_User_Input.AutomationProperties.Name" xml:space="preserve"><value>WebDAV username</value></data>
+  <data name="CloudSetup_Password_Input.AutomationProperties.Name" xml:space="preserve"><value>WebDAV password</value></data>
+  <data name="CloudSetup_ConfigPath_Input.AutomationProperties.Name" xml:space="preserve"><value>rclone config file (owned or existing connection)</value></data>
+  <data name="CloudSetup_Remote_Input.AutomationProperties.Name" xml:space="preserve"><value>Choose an existing remote</value></data>
+  <data name="CloudSetup_RemoteRoot_Input.AutomationProperties.Name" xml:space="preserve"><value>Remote destination (remote:path)</value></data>
+  <data name="CloudSetup_Version_Input.AutomationProperties.Name" xml:space="preserve"><value>Select the version to upload</value></data>
+  <data name="CloudSetup_OpenList_Input.AutomationProperties.Name" xml:space="preserve"><value>Use OpenList to bridge cloud drives</value></data>
+  <data name="CloudSetup_ManagementUrl_Input.AutomationProperties.Name" xml:space="preserve"><value>OpenList management URL</value></data>
+  <data name="CloudSetup_WorkingDirectory_Input.AutomationProperties.Name" xml:space="preserve"><value>rclone working directory (blank uses the executable directory)</value></data>
+  <data name="CloudRecovery_Repository_Input.AutomationProperties.Name" xml:space="preserve"><value>Choose a repository directory, then verify its identity and content</value></data>
+  <data name="CloudRecovery_Password_Input.AutomationProperties.Name" xml:space="preserve"><value>Archive password (only if required; not saved)</value></data>
+  <data name="OpenList_Environment_Input.AutomationProperties.Name" xml:space="preserve"><value>OpenList local environment and endpoint</value></data>
+  <data name="OpenList_Executable_Input.AutomationProperties.Name" xml:space="preserve"><value>OpenList executable path</value></data>
+  <data name="OpenList_ServiceUri_Input.AutomationProperties.Name" xml:space="preserve"><value>Service website base URL</value></data>
+  <data name="OpenList_Advanced_Input.AutomationProperties.Name" xml:space="preserve"><value>Advanced: stable working directory and data</value></data>
+  <data name="OpenList_Working_Input.AutomationProperties.Name" xml:space="preserve"><value>Working directory</value></data>
+  <data name="OpenList_Data_Input.AutomationProperties.Name" xml:space="preserve"><value>Data directory (separate from the executable version directory)</value></data>
+  <data name="OpenList_Config_Input.AutomationProperties.Name" xml:space="preserve"><value>Optional custom config file</value></data>
+  <data name="MinecraftCheck_WorldPicker_Input.AutomationProperties.Name" xml:space="preserve"><value>Select a specific world / source</value></data>
+  <data name="Home_PluginBatchTitle" xml:space="preserve"><value>Discover content with a plugin</value></data>
+  <data name="FolderManager_DetailsTitle" xml:space="preserve"><value>Details</value></data>
+  <data name="History_BranchTipName" xml:space="preserve"><value>{0} · {1}</value></data>
+  <data name="History_SafetyReason_BeforeCheckout" xml:space="preserve"><value>Before switching branches</value></data>
+  <data name="History_SafetyReason_BeforeRestore" xml:space="preserve"><value>Before restore</value></data>
+  <data name="History_SafetyReason_BeforeMerge" xml:space="preserve"><value>Before merge</value></data>
+  <data name="CheckSummary_minecraft_game_response" xml:space="preserve"><value>Enter the target world and confirm that the mod is loaded and responding.</value></data>
+  <data name="CheckSummary_minecraft_hot_backup" xml:space="preserve"><value>In-game backup is unverified. Confirm it in the target world.</value></data>
+  <data name="CheckSummary_minecraft_hot_restore" xml:space="preserve"><value>In-game restore is unverified. Confirm it in the target world.</value></data>
+  <data name="CheckSummary_minecraft_game_schedule" xml:space="preserve"><value>Check for overlapping game and desktop backup schedules.</value></data>
+  <data name="History_BranchEmpty" xml:space="preserve"><value>This branch has no backups yet.</value></data>
+  <data name="CloudRecovery_RepositoryOption" xml:space="preserve"><value>Backup project {0}</value></data>
+  <data name="CloudRecovery_DownloadSize" xml:space="preserve"><value>Download size: about {0} MB</value></data>
+  <data name="Home_CloudRecoveryMenu.Text" xml:space="preserve"><value>Restore a cloud copy to a new location</value></data>
 </root>

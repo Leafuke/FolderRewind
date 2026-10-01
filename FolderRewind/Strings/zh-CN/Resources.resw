@@ -760,7 +760,7 @@
     <value>搜索过滤</value>
   </data>
   <data name="HistoryPage_CommentFilter.PlaceholderText" xml:space="preserve">
-    <value>搜索备注、版本号或分支...</value>
+    <value>搜索备注或文件名…</value>
   </data>
   <data name="HistoryPage_UseStatusColors.Header" xml:space="preserve">
     <value>状态颜色</value>
@@ -5108,25 +5108,29 @@ Pull Request：{1}</value>
   <data name="History_Branch_CreateFromHereHint" xml:space="preserve"><value>从此备份项目检查点创建休眠分支</value></data>
   <data name="History_Branch_CreateUnavailableNoCheckpoint" xml:space="preserve"><value>此版本不属于可创建分支的完整备份项目检查点</value></data>
   <data name="History_Branch_CreateUnavailableAmbiguousCheckpoint" xml:space="preserve"><value>此版本属于多个备份项目检查点，请改从一次备份运行创建分支</value></data>
-  <data name="History_Branch_CheckoutProtectionContent" xml:space="preserve"><value>当前工作状态尚未由精确基线表示。切换前将先创建并保留一个安全恢复点，然后按所选分支检查点恢复。</value></data>
+  <data name="History_Branch_CheckoutProtectionContent" xml:space="preserve"><value>切换分支前会先备份当前内容，再还原所选分支。</value></data>
   <data name="History_CheckoutReadiness_Ready" xml:space="preserve"><value>可以切换</value></data>
-  <data name="History_CheckoutReadiness_PreparationRequired" xml:space="preserve"><value>需要准备精确表示</value></data>
+  <data name="History_CheckoutReadiness_PreparationRequired" xml:space="preserve"><value>需要下载备份</value></data>
   <data name="History_CheckoutReadiness_ProtectionRequired" xml:space="preserve"><value>切换前将保护当前工作</value></data>
   <data name="History_CheckoutReadiness_ConfigurationMappingRequired" xml:space="preserve"><value>需要恢复历史来源绑定</value></data>
   <data name="History_CheckoutReadiness_ConfigurationBoundaryChangeRequired" xml:space="preserve"><value>需要确认来源边界变更</value></data>
-  <data name="History_CheckoutReadiness_ExactRepresentationUnavailable" xml:space="preserve"><value>精确表示不可用</value></data>
+  <data name="History_CheckoutReadiness_ExactRepresentationUnavailable" xml:space="preserve"><value>完整备份不可用</value></data>
   <data name="History_CheckoutReadiness_BranchReconciliationRequired" xml:space="preserve"><value>存在多个尖端，需要先收敛</value></data>
   <data name="History_CheckoutReadiness_StalePlan" xml:space="preserve"><value>状态已变化，需要重新验证</value></data>
   <data name="History_CheckoutReadiness_CoordinatorUnavailable" xml:space="preserve"><value>所需恢复协调器不可用</value></data>
   <data name="History_CheckoutReadiness_Blocked" xml:space="preserve"><value>当前无法切换</value></data>
   <data name="History_Checkout_PrepareTitle" xml:space="preserve"><value>准备历史内容</value></data>
-  <data name="History_Checkout_PrepareContent" xml:space="preserve"><value>切换所需的精确表示尚未在本机可用。是否现在显式下载并验证所需内容？刷新历史列表不会自动下载。</value></data>
+  <data name="History_Checkout_PrepareContent" xml:space="preserve"><value>切换所需的备份不在本机。是否下载并验证后继续？</value></data>
   <data name="History_Checkout_PreparePrimary" xml:space="preserve"><value>准备内容</value></data>
   <data name="History_Checkout_MissingSourceTitle" xml:space="preserve"><value>恢复历史来源绑定</value></data>
-  <data name="History_Checkout_MissingSourceDescription" xml:space="preserve"><value>历史来源“{0}”（SourceId: {1}）已不在当前备份项目中。请确认其目录；系统将以原 SourceId 恢复备份项目绑定。</value></data>
+  <data name="History_Checkout_MissingSourceDescription" xml:space="preserve"><value>历史目录“{0}”不在当前项目中。请确认其目标目录。
+历史位置：{1}</value></data>
   <data name="History_Checkout_RepairBindingPrimary" xml:space="preserve"><value>恢复绑定</value></data>
   <data name="History_Checkout_BoundaryTitle" xml:space="preserve"><value>确认来源边界变更</value></data>
-  <data name="History_Checkout_BoundaryDescription" xml:space="preserve"><value>来源 {0} 的当前边界（{1}）与历史边界（{2}）不同。继续会把备份项目级来源范围和过滤规则恢复为历史值，可能影响该备份项目的其他来源。</value></data>
+  <data name="History_Checkout_BoundaryDescription" xml:space="preserve"><value>目录：{0}
+当前范围：{1}
+历史范围：{2}
+确认后使用历史范围。</value></data>
   <data name="History_Checkout_RepairBoundaryPrimary" xml:space="preserve"><value>应用历史边界</value></data>
   <data name="History_SafetySnapshot_None" xml:space="preserve"><value>当前没有活动的安全恢复点。</value></data>
   <data name="History_SafetySnapshot_Title" xml:space="preserve"><value>安全恢复点</value></data>
@@ -5381,13 +5385,13 @@ Pull Request：{1}</value>
   <data name="CloudSetup_Url.Header" xml:space="preserve"><value>WebDAV 服务 URL</value></data>
   <data name="CloudSetup_User.Header" xml:space="preserve"><value>WebDAV 用户名</value></data>
   <data name="CloudSetup_Password.Header" xml:space="preserve"><value>WebDAV 密码</value></data>
-  <data name="CloudSetup_PasswordHelp.Text" xml:space="preserve"><value>凭据保存在当前用户权限保护的独立 rclone 文件中。rclone obscure 是可还原混淆，不是强加密。密码不进入项目 JSON 或命令行。</value></data>
-  <data name="CloudSetup_CreateWebDav.Content" xml:space="preserve"><value>创建本次连接草稿</value></data>
-  <data name="CloudSetup_ConfigPath.Header" xml:space="preserve"><value>rclone 配置文件（自有或已有连接）</value></data>
+  <data name="CloudSetup_PasswordHelp.Text" xml:space="preserve"><value>凭据保存在仅当前用户可访问的独立文件中。</value></data>
+  <data name="CloudSetup_CreateWebDav.Content" xml:space="preserve"><value>创建连接</value></data>
+  <data name="CloudSetup_ConfigPath.Header" xml:space="preserve"><value>连接配置文件</value></data>
   <data name="CloudSetup_PickConfig.Content" xml:space="preserve"><value>选择已有配置文件</value></data>
   <data name="CloudSetup_ListRemotes.Content" xml:space="preserve"><value>读取此文件中的连接</value></data>
-  <data name="CloudSetup_Remote.Header" xml:space="preserve"><value>选择已有 remote</value></data>
-  <data name="CloudSetup_RemoteRoot.Header" xml:space="preserve"><value>远端目标目录（remote:path）</value></data>
+  <data name="CloudSetup_Remote.Header" xml:space="preserve"><value>已有连接</value></data>
+  <data name="CloudSetup_RemoteRoot.Header" xml:space="preserve"><value>云端目录</value></data>
   <data name="CloudSetup_Browse.Content" xml:space="preserve"><value>浏览 / 重新检查当前目录</value></data>
   <data name="CloudSetup_ProbeHelp.Text" xml:space="preserve"><value>浏览只检查读取权限。选择写入验证时，在此目录上传约 8 KiB 的专属随机对象，读回核对后只删除该对象。只读恢复无需写入验证。</value></data>
   <data name="CloudSetup_VerifyWrite.Content" xml:space="preserve"><value>验证此目录读写权限</value></data>
@@ -5395,9 +5399,9 @@ Pull Request：{1}</value>
   <data name="CloudSetup_LoadVersions.Content" xml:space="preserve"><value>读取可上传的本地版本</value></data>
   <data name="CloudSetup_Version.Header" xml:space="preserve"><value>明确选择要上传的版本</value></data>
   <data name="CloudSetup_Upload.Content" xml:space="preserve"><value>上传此版本与必要依赖</value></data>
-  <data name="CloudSetup_UploadConfirm" xml:space="preserve"><value>将上传选定版本的完整表示与依赖，并发布必要历史元数据。
-远端：{0}
-不会重复执行本地备份。OpenList 桥接的读回成功不证明上游网盘永久持久化。</value></data>
+  <data name="CloudSetup_UploadConfirm" xml:space="preserve"><value>将选定版本上传到：
+{0}
+完成后可在云端保留副本。</value></data>
   <data name="CloudSetup_OpenList.Header" xml:space="preserve"><value>使用 OpenList 桥接百度网盘等</value></data>
   <data name="CloudSetup_OpenListHelp.Text" xml:space="preserve"><value>已有 NAS / 远程 OpenList 可直接作为 WebDAV 使用，无需安装第二份本机服务。请在 OpenList 网页自行登录和挂载网盘，回来填写 OpenList 的 WebDAV 账户，浏览并选择实际挂载目录。保存程序路径不授权启动。</value></data>
   <data name="CloudSetup_OpenListGuide.Content" xml:space="preserve"><value>OpenList WebDAV 官方指导</value></data>
@@ -5419,23 +5423,23 @@ Pull Request：{1}</value>
   <data name="CloudSetup_DirectoriesTruncated" xml:space="preserve"><value>目录展示已截断为 200 项，请输入更具体的子目录后重新检查。</value></data>
   <data name="CloudSetup_ReadVerified" xml:space="preserve"><value>当前目录可列举；读取检查不证明可上传，也不证明存在可恢复备份。</value></data>
   <data name="CloudSetup_ProbeRetained" xml:space="preserve"><value>本次测试对象未能确认清理：{0}。仅手动处理这个确切对象。</value></data>
-  <data name="CloudSetup_SavedNoCopy" xml:space="preserve"><value>连接已保存，尚未创建云副本。请选择已有版本完成真实上传。</value></data>
+  <data name="CloudSetup_SavedNoCopy" xml:space="preserve"><value>连接已保存，请选择版本上传。</value></data>
   <data name="CloudSetup_SaveFirst" xml:space="preserve"><value>请先保存已确认的连接。</value></data>
   <data name="CloudSetup_SelectVersion" xml:space="preserve"><value>请选择具体备份版本；没有版本时请先完成本地备份。</value></data>
   <data name="CloudSetup_VersionNotReady" xml:space="preserve"><value>选定版本的完整本地表示或依赖不可用，请在历史中查看原因。</value></data>
   <data name="CloudSetup_UploadRunning" xml:space="preserve"><value>正在上传必要数据与历史元数据</value></data>
-  <data name="CloudSetup_UploadComplete" xml:space="preserve"><value>选定版本的必要数据与元数据均已传输。OpenList 桥接不额外证明上游物理持久化。</value></data>
-  <data name="CloudSetup_UploadIncomplete" xml:space="preserve"><value>云副本尚未完成。保留本地备份，可重试缺失数据或元数据。</value></data>
+  <data name="CloudSetup_UploadComplete" xml:space="preserve"><value>云副本已完成，本地备份保留。</value></data>
+  <data name="CloudSetup_UploadIncomplete" xml:space="preserve"><value>云副本未完成，请查看诊断后重试。</value></data>
   <data name="Export_DownloadNeeded" xml:space="preserve"><value>此版本有缺失的本地数据。确认后仅从云读取必要依赖并验证完整性；不会上传历史、写入探测或覆盖原目录。</value></data>
   <data name="Onboarding_ProjectActions.AutomationProperties.Name" xml:space="preserve"><value>项目后续设置</value></data>
   <data name="MinecraftCheck_Open.Text" xml:space="preserve"><value>检查 Minecraft 联动</value></data>
-  <data name="MinecraftCheck_Title.Text" xml:space="preserve"><value>按世界检查 Minecraft 联动</value></data>
-  <data name="MinecraftCheck_WorldPicker.Header" xml:space="preserve"><value>明确选择世界 / 内容</value></data>
-  <data name="MinecraftCheck_Help.Text" xml:space="preserve"><value>此检查不会保存、冻结、退出或恢复世界。基础备份与游戏运行联动分开；操作前仍需由插件重新检查。</value></data>
+  <data name="MinecraftCheck_Title.Text" xml:space="preserve"><value>Minecraft 联动检查</value></data>
+  <data name="MinecraftCheck_WorldPicker.Header" xml:space="preserve"><value>选择世界</value></data>
+  <data name="MinecraftCheck_Help.Text" xml:space="preserve"><value>检查插件、主机连接与游戏联动，不会修改世界。</value></data>
   <data name="MinecraftCheck_Check.Content" xml:space="preserve"><value>重新检查当前世界</value></data>
   <data name="MinecraftCheck_Settings.Content" xml:space="preserve"><value>打开插件与 KnotLink 设置</value></data>
   <data name="MinecraftCheck_ModDownload.Content" xml:space="preserve"><value>获取 MineBackup 模组与兼容说明</value></data>
-  <data name="MinecraftCheck_ManualHelp.Text" xml:space="preserve"><value>尚无已实测的游戏/加载器自动安装矩阵。请从官方页面获取匹配版本，确认正确实例的 mods 目录。已有 JAR 不会被覆盖；文件存在不证明模组已加载。安装后进入目标世界再检查。</value></data>
+  <data name="MinecraftCheck_ManualHelp.Text" xml:space="preserve"><value>下载兼容的模组并放入对应实例的 mods 目录，进入世界后重新检查。</value></data>
   <data name="MinecraftCheck_ModsDirectory.Content" xml:space="preserve"><value>选择并打开正确实例的 mods 目录</value></data>
   <data name="MinecraftCheck_ModsPicker" xml:space="preserve"><value>请确认此目录属于目标实例的 mods</value></data>
   <data name="MinecraftCheck_InstallAndRecheck.Content" xml:space="preserve"><value>安装后继续检查</value></data>
@@ -5462,9 +5466,9 @@ Pull Request：{1}</value>
   <data name="Setup_Cancel.Content" xml:space="preserve"><value>取消</value></data>
   <data name="CloudSetup_Menu.Text" xml:space="preserve"><value>连接云存储 / 添加云副本</value></data>
   <data name="CloudSetup_WorkingDirectory.Header" xml:space="preserve"><value>rclone 工作目录（空值使用程序目录）</value></data>
-  <data name="CloudSetup_Insecure.Content" xml:space="preserve"><value>仅对此连接接受非回环 HTTP 传输凭据的风险（不关闭证书验证）</value></data>
+  <data name="CloudSetup_Insecure.Content" xml:space="preserve"><value>允许 HTTP（凭据可能明文传输）</value></data>
   <data name="OpenList_Environment.Header" xml:space="preserve"><value>OpenList 本机环境与地址</value></data>
-  <data name="OpenList_ManualOnlyHelp.Text" xml:space="preserve"><value>程序与数据目录分别保存。保存或检查不会启动 OpenList，不会修改已有配置、重置密码或结束进程。目录占用与安全启动机制尚未验证，暂仅提供手动启动路线；退出 FolderRewind 不停止用户的 OpenList。</value></data>
+  <data name="OpenList_ManualOnlyHelp.Text" xml:space="preserve"><value>手动启动 OpenList 后，在此保存路径与服务地址。</value></data>
   <data name="OpenList_Executable.Header" xml:space="preserve"><value>OpenList 程序路径</value></data>
   <data name="OpenList_PickExecutable.Content" xml:space="preserve"><value>选择 OpenList 程序（不会执行）</value></data>
   <data name="OpenList_ServiceUri.Header" xml:space="preserve"><value>服务网页基地址</value></data>
@@ -5537,8 +5541,8 @@ Pull Request：{1}</value>
 
 清空恢复会替换此源有效范围中的当前内容；覆盖恢复会写入版本中的文件、保留其他文件。恢复成功会更新本机 Workspace 基线；不会移动分支 tip。游戏协调仍由现有插件检查。可取消并先使用“恢复到新位置”验证。</value></data>
   <data name="Restore_BoundaryUnknown" xml:space="preserve"><value>历史未记录明确范围；执行时按原安全规则复核。</value></data>
-  <data name="Restore_SafetyEnabled" xml:space="preserve"><value>已启用恢复前备份；失败会阻止恢复继续。</value></data>
-  <data name="Restore_SafetyDisabled" xml:space="preserve"><value>未启用恢复前备份；本机事务回滚暂存不能代替长期安全备份。</value></data>
+  <data name="Restore_SafetyEnabled" xml:space="preserve"><value>还原前会先备份当前内容；备份失败时停止还原。</value></data>
+  <data name="Restore_SafetyDisabled" xml:space="preserve"><value>未启用还原前备份，当前文件的更改可能无法找回。</value></data>
   <data name="HomeProtection_LastRun" xml:space="preserve"><value>最近运行：{0}（{1}）；记录 {2} 个源结果。</value></data>
   <data name="HomeProtection_RunCompleted" xml:space="preserve"><value>已完成，请查看各源范围与警告</value></data>
   <data name="HomeProtection_RunPartial" xml:space="preserve"><value>部分完成</value></data>
@@ -5562,7 +5566,7 @@ Pull Request：{1}</value>
   <data name="Onboarding_ToolCacheUnverified" xml:space="preserve"><value>已有工具目录缺少完整校验记录，未覆盖。可手动选择并检查已有程序。</value></data>
   <data name="Onboarding_InstallerNotStarted" xml:space="preserve"><value>安装器未能启动，请从组件设置继续处理。</value></data>
   <data name="Onboarding_InstallerNeedsCheck" xml:space="preserve"><value>安装器已交给用户处理，最多等待 30 秒；尚未验证安装或运行能力。完成后请返回重新检查，不要重复启动仍在运行的安装器。</value></data>
-  <data name="MinecraftCheck_ResultsReady" xml:space="preserve"><value>检查已完成。以下状态只对应当前选择的内容；按需处理后重新检查。</value></data>
+  <data name="MinecraftCheck_ResultsReady" xml:space="preserve"><value>检查完成，请按需处理后重新检查。</value></data>
   <data name="Repair_None" xml:space="preserve"><value>查看诊断</value></data>
   <data name="Repair_Plugins" xml:space="preserve"><value>检查插件设置</value></data>
   <data name="Repair_KnotLink" xml:space="preserve"><value>检查 KnotLink 设置</value></data>
@@ -5742,4 +5746,117 @@ Pull Request：{1}</value>
   <data name="ConfigSettingsDialog_CloudEnabled_CardInput.OnContent" xml:space="preserve"><value>开启</value></data>
   <data name="ConfigSettingsDialog_CloudEnabled_CardInput.OffContent" xml:space="preserve"><value>关闭</value></data>
   <data name="ConfigSettingsDialog_CloudEnabled_CardInput.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve"><value>备份后自动上传</value></data>
+  <data name="History_Normal.Text" xml:space="preserve"><value>普通</value></data>
+  <data name="History_AdvancedMode.Text" xml:space="preserve"><value>高级</value></data>
+  <data name="History_Divergence.Message" xml:space="preserve"><value>历史分支存在分歧，请在高级视图中处理。</value></data>
+  <data name="History_OpenAdvanced.Content" xml:space="preserve"><value>处理分歧</value></data>
+  <data name="History_More.AutomationProperties.Name" xml:space="preserve"><value>更多操作</value></data>
+  <data name="History_MenuExport.Text" xml:space="preserve"><value>还原到新位置</value></data>
+  <data name="History_MenuComment.Text" xml:space="preserve"><value>编辑备注</value></data>
+  <data name="History_MenuUpload.Text" xml:space="preserve"><value>上传云副本</value></data>
+  <data name="History_MenuDownload.Text" xml:space="preserve"><value>下载云副本</value></data>
+  <data name="History_MenuBranch.Text" xml:space="preserve"><value>从此处创建分支</value></data>
+  <data name="History_MenuDelete.Text" xml:space="preserve"><value>删除</value></data>
+  <data name="History_SourceUnavailable" xml:space="preserve"><value>未关联目录</value></data>
+  <data name="History_SourceNeedsAttention" xml:space="preserve"><value>请检查源目录或查看任务日志。</value></data>
+  <data name="History_BranchAssessing" xml:space="preserve"><value>正在评估此分支…</value></data>
+  <data name="Restore_FieldContent" xml:space="preserve"><value>内容</value></data>
+  <data name="Restore_FieldTime" xml:space="preserve"><value>备份时间</value></data>
+  <data name="Restore_FieldNote" xml:space="preserve"><value>备注</value></data>
+  <data name="Restore_FieldTarget" xml:space="preserve"><value>目标目录</value></data>
+  <data name="Restore_FieldScope" xml:space="preserve"><value>还原范围</value></data>
+  <data name="Restore_ModesHelp" xml:space="preserve"><value>安全还原：清理备份范围内的额外文件。
+覆盖还原：保留额外文件，仅覆盖备份中已有内容。</value></data>
+  <data name="Restore_PartialHelp" xml:space="preserve"><value>此版本仅备份部分内容，使用覆盖还原；范围外的文件会保留。</value></data>
+  <data name="Restore_Overwrite" xml:space="preserve"><value>覆盖还原</value></data>
+  <data name="Restore_BoundaryDifference" xml:space="preserve"><value>当前筛选范围与备份不同；执行前会复核，必要时会阻止还原。</value></data>
+  <data name="Restore_NewLocationHelp" xml:space="preserve"><value>还原到新目录，不影响现有源目录。</value></data>
+  <data name="Restore_Progress" xml:space="preserve"><value>正在校验并还原，请稍候…</value></data>
+  <data name="History_OperationProgress" xml:space="preserve"><value>正在处理…</value></data>
+  <data name="Restore_NotReady" xml:space="preserve"><value>此版本暂时无法还原，请检查本地文件或下载云副本。</value></data>
+  <data name="Restore_ScopeAll" xml:space="preserve"><value>整个目录</value></data>
+  <data name="Restore_ScopeRules" xml:space="preserve"><value>按备份时的范围（{0} 条范围规则，{1} 条筛选规则）</value></data>
+  <data name="CloudSetup_DialogTitle" xml:space="preserve"><value>云连接</value></data>
+  <data name="CloudSetup_UploadScope.Text" xml:space="preserve"><value>连接云存储并上传本地备份。保存连接不会自动上传。</value></data>
+  <data name="CloudSetup_RecoveryScope.Text" xml:space="preserve"><value>只读访问云端，还原到新目录。请使用有读取权限的账户。</value></data>
+  <data name="CloudSetup_ConnectionGroup.Text" xml:space="preserve"><value>连接方式</value></data>
+  <data name="CloudSetup_WebDavMethod.Text" xml:space="preserve"><value>WebDAV</value></data>
+  <data name="CloudSetup_ExistingMethod.Text" xml:space="preserve"><value>已有配置</value></data>
+  <data name="CloudSetup_ExecutionAdvanced.Header" xml:space="preserve"><value>高级执行设置</value></data>
+  <data name="CloudSetup_LocationGroup.Text" xml:space="preserve"><value>备份位置</value></data>
+  <data name="CloudSetup_VerificationGroup.Text" xml:space="preserve"><value>验证连接</value></data>
+  <data name="CloudSetup_VerificationCard.Header" xml:space="preserve"><value>读写权限</value></data>
+  <data name="CloudSetup_VerificationCard.Description" xml:space="preserve"><value>写入并清理一个测试文件，验证上传权限。</value></data>
+  <data name="CloudSetup_ExecutionGroup.Text" xml:space="preserve"><value>选择版本与执行</value></data>
+  <data name="Diagnostics_Details.Header" xml:space="preserve"><value>诊断详情</value></data>
+  <data name="MinecraftCheck_HostGroup.Text" xml:space="preserve"><value>主机组件</value></data>
+  <data name="MinecraftCheck_GameGroup.Text" xml:space="preserve"><value>游戏联动</value></data>
+  <data name="MinecraftCheck_ManualGroup.Text" xml:space="preserve"><value>安装与手动检查</value></data>
+  <data name="Check_CloudReady" xml:space="preserve"><value>检查已通过。</value></data>
+  <data name="Check_CloudRepair" xml:space="preserve"><value>检查未完成，请核对连接设置后重试。</value></data>
+  <data name="CloudSetup_CheckFailedShort" xml:space="preserve"><value>连接检查失败，请核对地址、凭据或配置文件；详情见诊断。</value></data>
+  <data name="CloudSetup_WriteVerifiedShort" xml:space="preserve"><value>读写验证通过。</value></data>
+  <data name="CloudSetup_WriteFailedShort" xml:space="preserve"><value>读写验证失败，请检查云目录权限。</value></data>
+  <data name="CloudSetup_ProbeCleanup" xml:space="preserve"><value>测试文件未能清理，请在云目录中手动删除；路径见诊断。</value></data>
+  <data name="CloudRecovery_HistorySummary" xml:space="preserve"><value>已载入 {0} 个版本，请选择要还原的内容。</value></data>
+  <data name="CloudRecovery_ReadablePreview" xml:space="preserve"><value>内容：{0}
+备份时间：{1}
+需要下载 {2} 个备份文件。</value></data>
+  <data name="CloudRecovery_DestinationConfirm" xml:space="preserve"><value>目标目录：{0}
+仅写入新目录。</value></data>
+  <data name="CloudRecovery_Verifying" xml:space="preserve"><value>正在校验备份文件…</value></data>
+  <data name="CheckComponent_minecraft_host_plugin" xml:space="preserve"><value>Minecraft 备份插件</value></data>
+  <data name="CheckComponent_minecraft_host_plugin_runtime" xml:space="preserve"><value>插件运行状态</value></data>
+  <data name="CheckComponent_minecraft_knotlink_server" xml:space="preserve"><value>KnotLink 服务端</value></data>
+  <data name="CheckComponent_minecraft_host_connection" xml:space="preserve"><value>应用连接</value></data>
+  <data name="CheckComponent_minecraft_source_association" xml:space="preserve"><value>世界目录</value></data>
+  <data name="CheckComponent_minecraft_game_response" xml:space="preserve"><value>游戏响应</value></data>
+  <data name="CheckComponent_minecraft_hot_backup" xml:space="preserve"><value>游戏内备份</value></data>
+  <data name="CheckComponent_minecraft_hot_restore" xml:space="preserve"><value>游戏内还原</value></data>
+  <data name="CheckComponent_minecraft_game_schedule" xml:space="preserve"><value>游戏定时任务</value></data>
+  <data name="CheckComponent_openlist_endpoint_unconfirmed" xml:space="preserve"><value>OpenList 连接</value></data>
+  <data name="CheckComponent_openlist_endpoint_observed" xml:space="preserve"><value>OpenList 连接</value></data>
+  <data name="CheckComponent_cloud_connection_changed" xml:space="preserve"><value>连接设置</value></data>
+  <data name="CheckComponent_cloud_access_unconfirmed" xml:space="preserve"><value>云存储访问</value></data>
+  <data name="CheckComponent_cloud_access_verified" xml:space="preserve"><value>云存储访问</value></data>
+  <data name="CheckComponent_cloud_copy_incomplete" xml:space="preserve"><value>云副本</value></data>
+  <data name="CheckComponent_cloud_copy_complete" xml:space="preserve"><value>云副本</value></data>
+  <data name="CheckComponent_backup_resource_settings" xml:space="preserve"><value>资源设置</value></data>
+  <data name="MinecraftCheck_ManualInstructions" xml:space="preserve"><value>下载兼容的模组并放入对应实例的 mods 目录，进入世界后重新检查。</value></data>
+  <data name="CloudSetup_Executable_Input.AutomationProperties.Name" xml:space="preserve"><value>rclone 程序路径</value></data>
+  <data name="CloudSetup_NewWebDav_Input.AutomationProperties.Name" xml:space="preserve"><value>新建 WebDAV 连接</value></data>
+  <data name="CloudSetup_Url_Input.AutomationProperties.Name" xml:space="preserve"><value>WebDAV 服务 URL</value></data>
+  <data name="CloudSetup_User_Input.AutomationProperties.Name" xml:space="preserve"><value>WebDAV 用户名</value></data>
+  <data name="CloudSetup_Password_Input.AutomationProperties.Name" xml:space="preserve"><value>WebDAV 密码</value></data>
+  <data name="CloudSetup_ConfigPath_Input.AutomationProperties.Name" xml:space="preserve"><value>rclone 配置文件（自有或已有连接）</value></data>
+  <data name="CloudSetup_Remote_Input.AutomationProperties.Name" xml:space="preserve"><value>选择已有 remote</value></data>
+  <data name="CloudSetup_RemoteRoot_Input.AutomationProperties.Name" xml:space="preserve"><value>远端目标目录（remote:path）</value></data>
+  <data name="CloudSetup_Version_Input.AutomationProperties.Name" xml:space="preserve"><value>明确选择要上传的版本</value></data>
+  <data name="CloudSetup_OpenList_Input.AutomationProperties.Name" xml:space="preserve"><value>使用 OpenList 桥接百度网盘等</value></data>
+  <data name="CloudSetup_ManagementUrl_Input.AutomationProperties.Name" xml:space="preserve"><value>OpenList 管理网页地址</value></data>
+  <data name="CloudSetup_WorkingDirectory_Input.AutomationProperties.Name" xml:space="preserve"><value>rclone 工作目录（空值使用程序目录）</value></data>
+  <data name="CloudRecovery_Repository_Input.AutomationProperties.Name" xml:space="preserve"><value>选择仓库目录，随后核对内部身份与内容</value></data>
+  <data name="CloudRecovery_Password_Input.AutomationProperties.Name" xml:space="preserve"><value>归档密码（仅在加密备份需要时填写，不持久保存）</value></data>
+  <data name="OpenList_Environment_Input.AutomationProperties.Name" xml:space="preserve"><value>OpenList 本机环境与地址</value></data>
+  <data name="OpenList_Executable_Input.AutomationProperties.Name" xml:space="preserve"><value>OpenList 程序路径</value></data>
+  <data name="OpenList_ServiceUri_Input.AutomationProperties.Name" xml:space="preserve"><value>服务网页基地址</value></data>
+  <data name="OpenList_Advanced_Input.AutomationProperties.Name" xml:space="preserve"><value>高级：稳定运行目录与数据</value></data>
+  <data name="OpenList_Working_Input.AutomationProperties.Name" xml:space="preserve"><value>工作目录</value></data>
+  <data name="OpenList_Data_Input.AutomationProperties.Name" xml:space="preserve"><value>数据目录（与程序版本目录分开）</value></data>
+  <data name="OpenList_Config_Input.AutomationProperties.Name" xml:space="preserve"><value>可选自定义配置文件</value></data>
+  <data name="MinecraftCheck_WorldPicker_Input.AutomationProperties.Name" xml:space="preserve"><value>明确选择世界 / 内容</value></data>
+  <data name="Home_PluginBatchTitle" xml:space="preserve"><value>从插件批量发现内容</value></data>
+  <data name="FolderManager_DetailsTitle" xml:space="preserve"><value>详细信息</value></data>
+  <data name="History_BranchTipName" xml:space="preserve"><value>{0} · {1}</value></data>
+  <data name="History_SafetyReason_BeforeCheckout" xml:space="preserve"><value>切换分支前备份</value></data>
+  <data name="History_SafetyReason_BeforeRestore" xml:space="preserve"><value>还原前备份</value></data>
+  <data name="History_SafetyReason_BeforeMerge" xml:space="preserve"><value>合并前备份</value></data>
+  <data name="CheckSummary_minecraft_game_response" xml:space="preserve"><value>进入目标世界后，确认模组已加载并正常响应。</value></data>
+  <data name="CheckSummary_minecraft_hot_backup" xml:space="preserve"><value>尚未验证游戏运行中的备份，请在目标世界手动确认。</value></data>
+  <data name="CheckSummary_minecraft_hot_restore" xml:space="preserve"><value>尚未验证游戏内还原，请在目标世界手动确认。</value></data>
+  <data name="CheckSummary_minecraft_game_schedule" xml:space="preserve"><value>请检查游戏与桌面备份计划是否重复。</value></data>
+  <data name="History_BranchEmpty" xml:space="preserve"><value>此分支尚无备份。</value></data>
+  <data name="CloudRecovery_RepositoryOption" xml:space="preserve"><value>备份项目 {0}</value></data>
+  <data name="CloudRecovery_DownloadSize" xml:space="preserve"><value>下载大小：约 {0} MB</value></data>
+  <data name="Home_CloudRecoveryMenu.Text" xml:space="preserve"><value>从云副本还原到新位置</value></data>
 </root>

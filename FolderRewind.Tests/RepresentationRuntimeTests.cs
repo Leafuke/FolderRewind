@@ -38,6 +38,24 @@ public sealed class RepresentationRuntimeTests
     }
 
     [TestMethod]
+    public async Task LightweightPreviewDoesNotVerifyPayloadButExportRejectsCorruption()
+    {
+        var full = CreateRepresentation(RepresentationKind.CoreFull, MaterializationFidelity.Exact);
+        var path = CreateFile("corrupt-preview.7z", "invalid archive");
+        _archive.CorruptPaths.Add(path);
+        var environment = Environment(Local(full.RepresentationId, path));
+        var preview = await _runtime.AssessVersionAsync(_versionId, [full], environment, AssessmentDepth.Fast, MaterializationFidelity.Exact, CancellationToken.None);
+        Assert.AreEqual(HistoryReadiness.Ready, preview.Readiness);
+        Assert.AreEqual(0, _archive.VerificationCount);
+        var target = Path.Combine(_root, "rejected-export");
+        await Assert.ThrowsAsync<Exception>(() => new HistoryVersionExportService(_runtime)
+            .ExportAsync(_versionId, [full], environment, target, [path]));
+        Assert.IsGreaterThan(0, _archive.VerificationCount);
+        Assert.IsFalse(Directory.Exists(target));
+        Assert.IsEmpty(_archive.LastMaterialization);
+    }
+
+    [TestMethod]
     public async Task ExportPublishesNewDirectoryWithoutChangingOriginalPayload()
     {
         var full = CreateRepresentation(RepresentationKind.CoreFull, MaterializationFidelity.Exact);
@@ -265,6 +283,7 @@ public sealed class RepresentationRuntimeTests
 
     private sealed class FakeArchiveBackend : IArchiveRepresentationBackend
     {
+        public int VerificationCount { get; private set; }
         public HashSet<string> CorruptPaths { get; } = new(StringComparer.OrdinalIgnoreCase);
         public IReadOnlyList<ArchiveMaterializationInput> LastMaterialization { get; private set; } = [];
 
@@ -272,9 +291,12 @@ public sealed class RepresentationRuntimeTests
             VersionRepresentation representation,
             string localPath,
             CancellationToken cancellationToken)
-            => ValueTask.FromResult(CorruptPaths.Contains(localPath)
+        {
+            VerificationCount++;
+            return ValueTask.FromResult(CorruptPaths.Contains(localPath)
                 ? new PayloadVerificationResult(false, string.Empty, "corrupt")
                 : new PayloadVerificationResult(true, "verified", string.Empty));
+        }
 
         public ValueTask MaterializeAsync(
             IReadOnlyList<ArchiveMaterializationInput> dependencyFirstInputs,

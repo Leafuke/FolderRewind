@@ -22,6 +22,8 @@ internal enum HistoryNotificationKind
 
 internal sealed record HistoryChoiceOption(string Value, string DisplayName);
 
+internal sealed record HistoryReviewField(string Label, string Value);
+
 internal sealed record HistoryChoiceRequest(
     string Title,
     string Message,
@@ -29,7 +31,8 @@ internal sealed record HistoryChoiceRequest(
     string PrimaryButtonText,
     string? SecondaryButtonText = null,
     string? InitialValue = null,
-    bool IsDestructive = false);
+    bool IsDestructive = false,
+    IReadOnlyList<HistoryReviewField>? Fields = null);
 
 internal sealed record HistoryInteractionResult(
     HistoryInteractionOutcome Outcome,

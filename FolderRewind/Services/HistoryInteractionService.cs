@@ -83,7 +83,18 @@ internal sealed class HistoryInteractionService(Func<XamlRoot?> xamlRootProvider
             choices.SelectedIndex = 0;
         }
 
-        var content = new StackPanel { Spacing = 8 };
+        var content = new StackPanel { Spacing = 12, MaxWidth = 480 };
+        foreach (var field in request.Fields ?? [])
+        {
+            var row = new StackPanel { Spacing = 4 };
+            row.Children.Add(new TextBlock
+            {
+                Text = field.Label,
+                Style = (Style)Application.Current.Resources["CaptionTextBlockStyle"]
+            });
+            row.Children.Add(new TextBlock { Text = field.Value, TextWrapping = TextWrapping.Wrap, IsTextSelectionEnabled = true });
+            content.Children.Add(row);
+        }
         if (!string.IsNullOrWhiteSpace(request.Message))
         {
             content.Children.Add(new TextBlock
