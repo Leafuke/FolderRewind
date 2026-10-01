@@ -190,6 +190,43 @@ public sealed class HistoryPresentationQueryTests
             .IsWorkspaceAnchoredAtTip);
     }
 
+    [TestMethod]
+    public async Task BatchProjectionKeepsReplicaLifecycleAndReleasePolicyIsolatedByVersion()
+    {
+        var configId = new HistoryConfigId(Guid.NewGuid().ToString("N"));
+        await using var runtime = new HistoryRuntime(new FileHistoryRepository(configId,
+            new HistoryRepositoryPaths(Path.Combine(_root, "replica-projections"))));
+        await runtime.InitializeAsync();
+        var sourceId = SourceId.New();
+        var available = Version(configId, sourceId, "available");
+        var released = Version(configId, sourceId, "released");
+        var activeRep = new VersionRepresentation(RepresentationId.New(), available.VersionId, RepresentationKind.CoreFull,
+            "7z", [], MaterializationFidelity.Exact, null, null, []);
+        var retiredRep = new VersionRepresentation(RepresentationId.New(), released.VersionId, RepresentationKind.CoreFull,
+            "7z", [], MaterializationFidelity.Exact, null, null, []);
+        var activeReplica = new StorageReplica(ReplicaId.New(), activeRep.RepresentationId, ReplicaProviderKind.Cloud,
+            "not-a-network-endpoint", null, null, HistoryProvenance.Native("test"));
+        var retiredReplica = activeReplica with { ReplicaId = ReplicaId.New(), RepresentationId = retiredRep.RepresentationId };
+        var oldActive = new ReplicaLifecycleUpdate(ReplicaLifecycleUpdateId.New(), retiredReplica.ReplicaId, [],
+            ReplicaLifecycleState.Active, DateTimeOffset.UtcNow, "active");
+        var facts = new object[]
+        {
+            available, released, activeRep, retiredRep, activeReplica, retiredReplica, oldActive,
+            new ReplicaLifecycleUpdate(ReplicaLifecycleUpdateId.New(), retiredReplica.ReplicaId, [oldActive.UpdateId],
+                ReplicaLifecycleState.Retired, DateTimeOffset.UtcNow, "retired"),
+            new ReplicaLifecycleUpdate(ReplicaLifecycleUpdateId.New(), activeReplica.ReplicaId, [],
+                ReplicaLifecycleState.Active, DateTimeOffset.UtcNow, "active"),
+            new MaterializationPolicyUpdate(MaterializationPolicyUpdateId.New(), released.VersionId, [],
+                MaterializationPolicyState.Released, DateTimeOffset.UtcNow, "released")
+        };
+        var codec = new HistoryPackCodec();
+        await runtime.Repository.CommitAsync(new(PackId.New(), HistoryTransactionId.New(), DateTimeOffset.UtcNow,
+            facts.Select(item => codec.CreateObject(item))));
+        var snapshot = await new HistoryPresentationQueryService(runtime).QueryAsync(sourceId);
+        Assert.AreEqual(HistoryPresentationReadiness.PreparationRequired, snapshot.Timeline.Single(item => item.VersionId == available.VersionId).Readiness);
+        Assert.AreEqual(HistoryPresentationReadiness.PayloadReleased, snapshot.Timeline.Single(item => item.VersionId == released.VersionId).Readiness);
+    }
+
     private static SourceVersion Version(HistoryConfigId configId, SourceId sourceId, string name)
         => new(
             VersionId.New(), configId, sourceId, [], DateTimeOffset.UtcNow, null,

@@ -5,6 +5,7 @@ using FolderRewind.History.Representation;
 using System;
 using System.Collections.Generic;
 using System.Collections.Immutable;
+using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using System.Threading;
@@ -89,16 +90,23 @@ public sealed record HistoryPresentationSnapshot(
 public sealed class HistoryPresentationQueryService
 {
     private readonly HistoryRuntime _runtime;
+    private readonly Action<string, TimeSpan>? _measure;
 
-    public HistoryPresentationQueryService(HistoryRuntime runtime)
-        => _runtime = runtime ?? throw new ArgumentNullException(nameof(runtime));
+    public HistoryPresentationQueryService(HistoryRuntime runtime, Action<string, TimeSpan>? measure = null)
+    {
+        _runtime = runtime ?? throw new ArgumentNullException(nameof(runtime));
+        _measure = measure;
+    }
 
     public async Task<HistoryPresentationSnapshot> QueryAsync(
         SourceId? sourceId = null,
         bool includeSuppressed = false,
         CancellationToken cancellationToken = default)
     {
+        var timer = Stopwatch.StartNew();
         await _runtime.EnsureIndexCurrentAsync(cancellationToken).ConfigureAwait(false);
+        _measure?.Invoke("index-current", timer.Elapsed);
+        timer.Restart();
         var versions = await _runtime.Query.GetAllVersionsAsync(cancellationToken).ConfigureAwait(false);
         var allRepresentations = await _runtime.Query.GetAllRepresentationsAsync(cancellationToken).ConfigureAwait(false);
         var checkpoints = await _runtime.Query.GetAllCheckpointsAsync(cancellationToken).ConfigureAwait(false);
@@ -106,11 +114,26 @@ public sealed class HistoryPresentationQueryService
         var annotations = await _runtime.Query.GetAllAnnotationUpdatesAsync(cancellationToken).ConfigureAwait(false);
         var branchUpdates = await _runtime.Query.GetAllBranchUpdatesAsync(cancellationToken).ConfigureAwait(false);
         var migrations = await _runtime.Query.GetMigrationRecordsAsync(cancellationToken).ConfigureAwait(false);
+        var policies = await _runtime.Query.GetAllMaterializationPolicyUpdatesAsync(cancellationToken).ConfigureAwait(false);
+        var replicas = await _runtime.Query.GetAllStorageReplicasAsync(cancellationToken).ConfigureAwait(false);
+        var lifecycle = await _runtime.Query.GetAllReplicaLifecycleUpdatesAsync(cancellationToken).ConfigureAwait(false);
         var catalog = (await _runtime.LocalReplicaCatalogStore.LoadAsync(cancellationToken).ConfigureAwait(false)).Value;
         var workspace = (await _runtime.WorkspaceStore.LoadAsync(cancellationToken).ConfigureAwait(false)).Value;
         var safetySnapshots = await _runtime.Query.GetSafetySnapshotProjectionsAsync(
             activeOnly: true,
             cancellationToken).ConfigureAwait(false);
+        _measure?.Invoke("index-query", timer.Elapsed);
+        timer.Restart();
+        var policyGroups = policies.ToLookup(item => item.VersionId);
+        var replicaGroups = replicas.ToLookup(item => item.RepresentationId);
+        var activeReplicas = lifecycle.GroupBy(item => item.ReplicaId).Where(group =>
+        {
+            var parents = group.SelectMany(item => item.ParentUpdateIds).ToHashSet();
+            return group.Any(item => !parents.Contains(item.UpdateId) && item.State == ReplicaLifecycleState.Active);
+        }).Select(group => group.Key).ToHashSet();
+        var localPaths = (catalog?.Entries ?? []).Where(item => item.Locator.Kind == LocalReplicaLocatorKind.ControlledAbsolutePath)
+            .ToLookup(item => item.RepresentationId, item => item.Locator.AbsolutePath);
+        var completeCheckpointIds = checkpoints.Where(item => item.IsStructurallyComplete).Select(item => item.CheckpointId).ToHashSet();
         var branchProjection = HistoryBranchProjection.Query(branchUpdates);
         var memberships = HistoryBranchMembershipProjection.Build(branchUpdates, checkpoints);
         var supportIds = migrations.Where(item => item.Visibility == LegacyMigrationVisibility.SupportOnly)
@@ -139,10 +162,10 @@ public sealed class HistoryPresentationQueryService
                 target,
                 annotationGroups.GetValueOrDefault(target) ?? []);
             if (annotation.IsSuppressed && !includeSuppressed) continue;
-            var policy = await _runtime.Query.GetMaterializationPolicyProjectionAsync(version.VersionId, cancellationToken)
-                .ConfigureAwait(false);
+            cancellationToken.ThrowIfCancellationRequested();
+            var policy = MaterializationPolicyProjection.Project(version.VersionId, policyGroups[version.VersionId]);
             var reps = representationGroups.GetValueOrDefault(version.VersionId) ?? [];
-            var state = await AssessAsync(reps, catalog, policy, cancellationToken).ConfigureAwait(false);
+            var state = Assess(reps, localPaths, replicaGroups, activeReplicas, policy);
             var selected = state.Representation;
             var localPath = state.LocalPath;
             var fileName = selected?.RepresentationSpecificMetadata.GetValueOrDefault("fileName")
@@ -181,7 +204,7 @@ public sealed class HistoryPresentationQueryService
                 ? memberships.CheckpointBranches.GetValueOrDefault(checkpointId, [])
                 : [];
             var isBranchableCheckpoint = run.ResultCheckpointId is { } resultCheckpointId
-                && checkpoints.Any(item => item.CheckpointId == resultCheckpointId && item.IsStructurallyComplete);
+                && completeCheckpointIds.Contains(resultCheckpointId);
             return new RunSummary(run.RunId, run.CompletedAtUtc, run.Outcome, run.ResultCheckpointId,
                 projection.IsRunImportant, projection.EffectiveComment ?? string.Empty,
                 hasPartialCapture, isBranchableCheckpoint, run.SourceResults, branchIds);
@@ -207,7 +230,7 @@ public sealed class HistoryPresentationQueryService
             .ThenBy(branch => branch.Name, StringComparer.CurrentCultureIgnoreCase)
             .ThenBy(branch => branch.BranchId.ToString(), StringComparer.Ordinal)
             .ToImmutableArray();
-        return new(
+        var snapshot = new HistoryPresentationSnapshot(
             timeline.OrderByDescending(item => item.CreatedAtUtc)
                 .ThenByDescending(item => item.VersionId.ToString(), StringComparer.Ordinal).ToImmutableArray(),
             checkpointSummaries.OrderByDescending(item => item.CreatedAtUtc).ToImmutableArray(),
@@ -216,17 +239,20 @@ public sealed class HistoryPresentationQueryService
             safetySnapshots.ToImmutableArray(),
             workspace?.ActiveBranchId,
             workspace?.ActiveBranchUpdateId);
+        _measure?.Invoke("metadata-projection", timer.Elapsed);
+        return snapshot;
     }
 
-    private async Task<(
+    private static (
         HistoryPresentationReadiness Readiness,
         MaterializationFidelity Fidelity,
         VersionRepresentation? Representation,
-        string? LocalPath)> AssessAsync(
+        string? LocalPath) Assess(
         IReadOnlyList<VersionRepresentation> representations,
-        LocalReplicaCatalog? catalog,
-        MaterializationPolicyProjectionResult policy,
-        CancellationToken cancellationToken)
+        ILookup<RepresentationId, string> localPaths,
+        ILookup<RepresentationId, StorageReplica> replicas,
+        IReadOnlySet<ReplicaId> activeReplicas,
+        MaterializationPolicyProjectionResult policy)
     {
         if (representations.Count == 0)
             return (HistoryPresentationReadiness.MetadataOnly, MaterializationFidelity.Unknown, null, null);
@@ -236,24 +262,14 @@ public sealed class HistoryPresentationQueryService
             .ToArray();
         foreach (var representation in ordered)
         {
-            var localPath = catalog?.Entries.Where(item => item.RepresentationId == representation.RepresentationId)
-                .Select(item => item.Locator.Kind == LocalReplicaLocatorKind.ControlledAbsolutePath ? item.Locator.AbsolutePath : null)
-                .FirstOrDefault(path => path is not null && (File.Exists(path) || Directory.Exists(path)));
+            var localPath = localPaths[representation.RepresentationId].FirstOrDefault(path => File.Exists(path) || Directory.Exists(path));
             if (localPath is not null)
                 return (HistoryPresentationReadiness.Ready, Fidelity(representation), representation, localPath);
         }
         foreach (var representation in ordered)
         {
-            var replicas = await _runtime.Query.GetStorageReplicasAsync(representation.RepresentationId, cancellationToken)
-                .ConfigureAwait(false);
-            foreach (var replica in replicas)
-            {
-                var lifecycle = await _runtime.Query.GetReplicaLifecycleUpdatesAsync(replica.ReplicaId, cancellationToken)
-                    .ConfigureAwait(false);
-                var parentIds = lifecycle.SelectMany(item => item.ParentUpdateIds).ToHashSet();
-                if (lifecycle.Where(item => !parentIds.Contains(item.UpdateId)).Any(item => item.State == ReplicaLifecycleState.Active))
-                    return (HistoryPresentationReadiness.PreparationRequired, Fidelity(representation), representation, null);
-            }
+            if (replicas[representation.RepresentationId].Any(replica => activeReplicas.Contains(replica.ReplicaId)))
+                return (HistoryPresentationReadiness.PreparationRequired, Fidelity(representation), representation, null);
         }
         var fallback = ordered[0];
         if (ordered.Any(item => item.Kind == RepresentationKind.PluginArtifact))

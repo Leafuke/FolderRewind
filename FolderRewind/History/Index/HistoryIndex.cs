@@ -313,6 +313,15 @@ public sealed class HistoryIndex : IDisposable
         return updates.Where(update => !parentIds.Contains(update.UpdateId)).ToImmutableArray();
     }
 
+    public Task<IReadOnlyList<MaterializationPolicyUpdate>> GetAllMaterializationPolicyUpdatesAsync(CancellationToken cancellationToken = default)
+        => ReadPayloadsAsync<MaterializationPolicyUpdate>("SELECT PayloadJson FROM MaterializationPolicies ORDER BY VersionId, CreatedAtUtc, UpdateId", [], cancellationToken);
+
+    public Task<IReadOnlyList<StorageReplica>> GetAllStorageReplicasAsync(CancellationToken cancellationToken = default)
+        => ReadPayloadsAsync<StorageReplica>("SELECT PayloadJson FROM SharedReplicas ORDER BY RepresentationId, ReplicaId", [], cancellationToken);
+
+    public Task<IReadOnlyList<ReplicaLifecycleUpdate>> GetAllReplicaLifecycleUpdatesAsync(CancellationToken cancellationToken = default)
+        => ReadPayloadsAsync<ReplicaLifecycleUpdate>("SELECT PayloadJson FROM ReplicaLifecycle ORDER BY ReplicaId, CreatedAtUtc, UpdateId", [], cancellationToken);
+
     public Task<IReadOnlyList<HistoryAnnotationUpdate>> GetAnnotationUpdatesAsync(
         HistoryAnnotationTarget target,
         HistoryAnnotationKind? kind = null,

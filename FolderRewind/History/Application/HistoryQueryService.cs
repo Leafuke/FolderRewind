@@ -102,6 +102,15 @@ public sealed class HistoryQueryService
         CancellationToken cancellationToken = default)
         => _index.GetMaterializationPolicyTipsAsync(versionId, cancellationToken);
 
+    public Task<IReadOnlyList<MaterializationPolicyUpdate>> GetAllMaterializationPolicyUpdatesAsync(CancellationToken cancellationToken = default)
+        => _index.GetAllMaterializationPolicyUpdatesAsync(cancellationToken);
+
+    public Task<IReadOnlyList<StorageReplica>> GetAllStorageReplicasAsync(CancellationToken cancellationToken = default)
+        => _index.GetAllStorageReplicasAsync(cancellationToken);
+
+    public Task<IReadOnlyList<ReplicaLifecycleUpdate>> GetAllReplicaLifecycleUpdatesAsync(CancellationToken cancellationToken = default)
+        => _index.GetAllReplicaLifecycleUpdatesAsync(cancellationToken);
+
     public Task<IReadOnlyList<HistoryAnnotationUpdate>> GetAnnotationUpdatesAsync(
         HistoryAnnotationTarget target,
         HistoryAnnotationKind? kind = null,

@@ -10,6 +10,7 @@ using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.IO;
+using System.Diagnostics;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
@@ -314,6 +315,7 @@ public static class NativeHistoryCoreGateway
                 ResolveSource(config, item), item.FolderPath, item.FolderName, item.FileName,
                 item.Timestamp, item.BackupType, item.Comment, item.IsImportant, item.IsPartialBackup,
                 item.IsCloudArchived, SafeLegacyCloudLocator(item))).ToArray();
+            var migrationTimer = Stopwatch.StartNew();
             var migration = await new LegacyHistoryMigrationService().MigrateAsync(
                 new LegacyHistoryMigrationInput(
                     configDirectory,
@@ -323,6 +325,7 @@ public static class NativeHistoryCoreGateway
                     LegacySmartMetadataReader.Read(config)),
                 (version, _) => PersistBinding(config, version),
                 cancellationToken).ConfigureAwait(false);
+            LogService.LogInfo($"[HistoryLoad] legacy-migration={migrationTimer.Elapsed.TotalMilliseconds:F2}ms", nameof(NativeHistoryCoreGateway));
             if (!migration.IsReady || migration.Repository is null)
                 throw new InvalidOperationException(migration.Diagnostic);
             return migration.Repository;
