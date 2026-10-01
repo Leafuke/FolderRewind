@@ -1,7 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <Application
     x:Class="FolderRewind.App"
-    HighContrastAdjustment="None"
     xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
     xmlns:local="using:FolderRewind"
@@ -13,13 +12,13 @@
                 <XamlControlsResources xmlns="using:Microsoft.UI.Xaml.Controls" />
                 <ResourceDictionary Source="ms-appx:///Styles/TrayResources.xaml" />
                 <ResourceDictionary Source="ms-appx:///Styles/SettingsStyles.xaml" />
+                <ResourceDictionary Source="ms-appx:///Styles/StatusResources.xaml" />
             </ResourceDictionary.MergedDictionaries>
 
             <!-- 注册全局转换器 -->
             <converters:BoolToVisibilityConverter x:Key="BoolToVisConverter"/>
             <converters:BoolToVisibilityInvertConverter x:Key="BoolToVisInvertConverter"/>
             <converters:BoolToStarIconConverter x:Key="BoolToStarIconConverter"/>
-            <converters:BoolToColorConverter x:Key="BoolToColorConverter"/>
             <converters:CountToStringConverter x:Key="CountToStringConverter"/>
             <converters:StringNullOrEmptyToVisibilityConverter x:Key="StringNullOrEmptyToVisConverter"/>
             <converters:StringToBitmapConverter x:Key="StringToBitmapConverter"/>

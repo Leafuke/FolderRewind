@@ -5,6 +5,7 @@
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
     xmlns:models="using:FolderRewind.Models"
     xmlns:local="using:FolderRewind.Views"
+    xmlns:controls="using:FolderRewind.Controls"
     xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
     xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
     x:Uid="LogPage"
@@ -12,8 +13,6 @@
     mc:Ignorable="d">
 
     <Page.Resources>
-        <local:LogLevelToBrushConverter x:Key="LogLevelBrushConverter" />
-        <local:LogLevelToStringConverter x:Key="LogLevelStringConverter" />
         <Thickness x:Key="LogCardPadding">12,12,12,12</Thickness>
     </Page.Resources>
 
@@ -86,15 +85,8 @@
                                 Padding="{StaticResource LogCardPadding}">
                             <Grid RowDefinitions="Auto,Auto,Auto" ColumnDefinitions="Auto,*" ColumnSpacing="12" RowSpacing="6">
                                 <StackPanel Orientation="Horizontal" Spacing="8" Grid.ColumnSpan="2">
-                                    <Rectangle Width="8" Height="24" RadiusX="4" RadiusY="4"
-                                               Fill="{x:Bind Level, Converter={StaticResource LogLevelBrushConverter}, Mode=OneTime}" />
                                     <TextBlock Text="{x:Bind Timestamp, Mode=OneTime}" FontFamily="Consolas" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
-                                    <Border CornerRadius="8" Padding="8,4"
-                                            Background="{x:Bind Level, Converter={StaticResource LogLevelBrushConverter}, ConverterParameter=background, Mode=OneTime}"
-                                            BorderBrush="{x:Bind Level, Converter={StaticResource LogLevelBrushConverter}, Mode=OneTime}"
-                                            BorderThickness="1">
-                                        <TextBlock Text="{x:Bind Level, Converter={StaticResource LogLevelStringConverter}, Mode=OneTime}" Style="{StaticResource BodyStrongTextBlockStyle}" />
-                                    </Border>
+                                    <controls:LogLevelPresenter Level="{x:Bind Level, Mode=OneTime}" />
                                     <TextBlock Text="{x:Bind Source, Mode=OneTime}" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
                                 </StackPanel>
 

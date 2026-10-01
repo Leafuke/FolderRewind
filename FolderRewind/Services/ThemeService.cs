@@ -39,7 +39,9 @@ namespace FolderRewind.Services
             var settings = ConfigService.CurrentConfig?.GlobalSettings;
             var unlocked = SponsorService.IsUnlocked;
 
-            ApplyAccentPreset(unlocked ? settings?.SponsorAccentColorIndex ?? 0 : 0);
+            var appearance = PersonalizationThemePolicy.Resolve(settings?.SponsorAccentColorIndex ?? 0,
+                settings?.SponsorBackgroundEnabled == true, unlocked, AccessibilityThemeService.IsHighContrast);
+            ApplyAccentPreset(appearance.AccentIndex);
             ApplyBackdrop(window, unlocked ? settings?.SponsorBackdropIndex ?? 0 : 0);
         }
 
@@ -84,6 +86,10 @@ namespace FolderRewind.Services
 
         public static void NotifyThemeChanged()
         {
+            var settings = ConfigService.CurrentConfig?.GlobalSettings;
+            var appearance = PersonalizationThemePolicy.Resolve(settings?.SponsorAccentColorIndex ?? 0,
+                settings?.SponsorBackgroundEnabled == true, SponsorService.IsUnlocked, AccessibilityThemeService.IsHighContrast);
+            ApplyAccentPreset(appearance.AccentIndex);
             ThemeChanged?.Invoke(GetCurrentTheme());
         }
 

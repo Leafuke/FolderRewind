@@ -12,6 +12,7 @@
     <Compile Include="..\FolderRewind\Services\ThemeSettingPolicy.cs" Link="Source\ThemeSettingPolicy.cs" />
     <Compile Include="..\FolderRewind\Services\PluginStoreOperationController.cs" Link="Source\PluginStoreOperationController.cs" />
     <Compile Include="..\FolderRewind\Services\LogPresentationController.cs" Link="Source\LogPresentationController.cs" />
+    <Compile Include="..\FolderRewind\Services\PersonalizationThemePolicy.cs" Link="Source\PersonalizationThemePolicy.cs" />
     <Compile Include="..\FolderRewind\Services\SourceScopePreviewController.cs" Link="Source\SourceScopePreviewController.cs" />
     <Compile Include="..\FolderRewind\Models\LogModels.cs" Link="Source\LogModels.cs" />
     <Compile Include="..\FolderRewind\Services\SevenZipArchiveProcessBackend.cs" Link="Source\SevenZipArchiveProcessBackend.cs" />

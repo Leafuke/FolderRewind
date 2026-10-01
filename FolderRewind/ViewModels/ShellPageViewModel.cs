@@ -52,6 +52,7 @@ namespace FolderRewind.ViewModels
         {
             ConfigService.Saved += OnStateChanged;
             SponsorService.StateChanged += OnStateChanged;
+            ThemeService.ThemeChanged += OnThemeChanged;
         }
 
         public async Task RefreshVisualsAsync(bool forceBackgroundImageReload = false)
@@ -82,6 +83,12 @@ namespace FolderRewind.ViewModels
             _backgroundLoadVersion++;
             ConfigService.Saved -= OnStateChanged;
             SponsorService.StateChanged -= OnStateChanged;
+            ThemeService.ThemeChanged -= OnThemeChanged;
+        }
+
+        private void OnThemeChanged(Microsoft.UI.Xaml.ElementTheme theme)
+        {
+            TaskObserver.Observe(RefreshVisualsAsync(), nameof(ShellPageViewModel));
         }
 
         private void OnStateChanged()
@@ -182,10 +189,12 @@ namespace FolderRewind.ViewModels
             var settings = ConfigService.CurrentConfig?.GlobalSettings;
             var path = settings?.SponsorBackgroundImagePath?.Trim() ?? string.Empty;
             var fileExists = !string.IsNullOrWhiteSpace(path) && File.Exists(path);
+            var appearance = PersonalizationThemePolicy.Resolve(settings?.SponsorAccentColorIndex ?? 0,
+                settings?.SponsorBackgroundEnabled == true, SponsorService.IsUnlocked, AccessibilityThemeService.IsHighContrast);
 
             return new SponsorBackgroundImageState(
                 path,
-                settings?.SponsorBackgroundEnabled == true,
+                appearance.BackgroundEnabled,
                 SponsorService.IsUnlocked,
                 fileExists);
         }

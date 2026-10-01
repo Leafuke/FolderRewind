@@ -5,6 +5,7 @@
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
     xmlns:models="using:FolderRewind.Models"
     xmlns:converters="using:FolderRewind.Converters"
+    xmlns:controls="using:FolderRewind.Controls"
     xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
     xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
     mc:Ignorable="d"
@@ -258,8 +259,7 @@
                                 <Button x:Uid="FolderManager_FavoriteToggle"
                                         AutomationProperties.AutomationId="{x:Bind Id, Converter={StaticResource AutomationIdConverter}, ConverterParameter=FolderManagerToggleFavorite}"
                                         Style="{StaticResource TransparentIconButtonStyle}" Padding="4" Click="OnFavoriteToggleClick">
-                                    <FontIcon Glyph="{x:Bind IsFavorite, Mode=OneWay, Converter={StaticResource BoolToStarIconConverter}}"
-                                              Foreground="{x:Bind IsFavorite, Mode=OneWay, Converter={StaticResource BoolToColorConverter}}"/>
+                                    <controls:FavoriteStatusPresenter IsFavorite="{x:Bind IsFavorite, Mode=OneWay}" />
                                 </Button>
                             </StackPanel>
 

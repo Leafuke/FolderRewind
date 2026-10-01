@@ -6,6 +6,7 @@ using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using System;
 using Windows.UI;
+using Windows.UI.ViewManagement;
 
 namespace FolderRewind
 {
@@ -165,7 +166,6 @@ namespace FolderRewind
         {
             ThemeService.ApplyThemeToWindow(this);
             ThemeService.ApplyPersonalizationToWindow(this);
-            RefreshShellVisuals();
             UpdateTitleBar();
         }
 
@@ -216,6 +216,29 @@ namespace FolderRewind
             if (AppWindow.TitleBar != null)
             {
                 var titleBar = AppWindow.TitleBar;
+
+                if (AccessibilityThemeService.IsHighContrast)
+                {
+                    var colors = new UISettings();
+                    var text = colors.UIElementColor(UIElementType.WindowText);
+                    var background = colors.UIElementColor(UIElementType.Window);
+                    var inactive = colors.UIElementColor(UIElementType.GrayText);
+                    var highlight = colors.UIElementColor(UIElementType.Highlight);
+                    var highlightText = colors.UIElementColor(UIElementType.HighlightText);
+                    titleBar.BackgroundColor = background;
+                    titleBar.ForegroundColor = text;
+                    titleBar.InactiveBackgroundColor = background;
+                    titleBar.InactiveForegroundColor = inactive;
+                    titleBar.ButtonBackgroundColor = background;
+                    titleBar.ButtonForegroundColor = text;
+                    titleBar.ButtonInactiveBackgroundColor = background;
+                    titleBar.ButtonInactiveForegroundColor = inactive;
+                    titleBar.ButtonHoverBackgroundColor = highlight;
+                    titleBar.ButtonHoverForegroundColor = highlightText;
+                    titleBar.ButtonPressedBackgroundColor = highlight;
+                    titleBar.ButtonPressedForegroundColor = highlightText;
+                    return;
+                }
 
                 // 背景保持透明，让 Mica 透出来，只调整前景与按钮态颜色。
                 bool isDark = _themeRoot?.ActualTheme == ElementTheme.Dark;

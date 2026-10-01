@@ -144,6 +144,7 @@ namespace FolderRewind
                 // 两个服务在启动时只注入一次，后续页面统一从这里取窗口与 UI 调度入口。
                 MainWindowService.Initialize(_window);
                 UiDispatcherService.Initialize(_window.DispatcherQueue);
+                AccessibilityThemeService.Initialize();
                 _window.Closed += OnMainWindowClosed;
                 ApplyWindowPreferences(_window);
                 Services.ThemeService.ApplyThemeToWindow(_window);
@@ -499,6 +500,7 @@ namespace FolderRewind
             _window = new Views.RecoveryCenterWindow();
             MainWindowService.Initialize(_window);
             UiDispatcherService.Initialize(_window.DispatcherQueue);
+            AccessibilityThemeService.Initialize();
             _window.Closed += OnMainWindowClosed;
             Services.ThemeService.ApplyThemeToWindow(_window);
             _window.Title = I18n.GetString("RecoveryCenter_WindowTitle");
@@ -577,6 +579,7 @@ namespace FolderRewind
 
         private async void OnMainWindowClosed(object sender, WindowEventArgs args)
         {
+            AccessibilityThemeService.Shutdown();
             await StopAutomationAsync();
             await StopHistoryWarmupAsync();
             try { Services.MainWindowService.CloseSponsorWindow(); } catch { }
