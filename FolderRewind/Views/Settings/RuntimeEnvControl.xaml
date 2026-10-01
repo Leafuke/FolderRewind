@@ -24,7 +24,6 @@
                 <FontIcon Glyph="&#xE7B8;" />
             </toolkit:SettingsExpander.HeaderIcon>
             <toolkit:SettingsExpander.Items>
-                <local:OpenListEnvironmentControl x:Name="OpenListEnvironment" HorizontalAlignment="Stretch"/>
                 <toolkit:SettingsCard>
                     <toolkit:SettingsCard.Header>
                         <TextBlock x:Name="SevenZipPathLabel" x:Uid="SettingsPage_7zPath" Style="{StaticResource SettingsHeaderTextStyle}" />
@@ -138,6 +137,9 @@
                              TextChanged="OnAppUpdateCustomMirrorTextChanged" />
                 </toolkit:SettingsCard>
             </toolkit:SettingsExpander.Items>
+            <toolkit:SettingsExpander.ItemsFooter>
+                <local:OpenListEnvironmentControl x:Name="OpenListEnvironment" HorizontalAlignment="Stretch" Margin="0,8,0,0"/>
+            </toolkit:SettingsExpander.ItemsFooter>
         </toolkit:SettingsExpander>
     </StackPanel>
 </UserControl>
