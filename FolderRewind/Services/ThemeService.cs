@@ -16,7 +16,7 @@ namespace FolderRewind.Services
 
         public static ElementTheme GetCurrentTheme()
         {
-            var idx = ConfigService.CurrentConfig?.GlobalSettings?.ThemeIndex ?? 0;
+            var idx = ThemeSettingPolicy.Normalize(ConfigService.CurrentConfig?.GlobalSettings?.ThemeIndex);
             return idx switch
             {
                 0 => ElementTheme.Dark,

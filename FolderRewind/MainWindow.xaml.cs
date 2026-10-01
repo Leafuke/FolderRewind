@@ -24,6 +24,7 @@ namespace FolderRewind
         #region 构造与初始化
 
         private WindowCloseController? _closeController;
+        private FrameworkElement? _themeRoot;
 
         private void AppWindow_Closing(AppWindow sender, AppWindowClosingEventArgs args)
         {
@@ -47,14 +48,18 @@ namespace FolderRewind
             }
 
             ThemeService.ThemeChanged += ThemeService_ThemeChanged;
+            _themeRoot = Content as FrameworkElement;
+            if (_themeRoot is not null)
+            {
+                _themeRoot.ActualThemeChanged += Root_ActualThemeChanged;
+            }
 
             // 先应用当前主题，再刷标题栏按钮色，避免首次显示时色彩闪一下。
-            var currentTheme = ThemeService.GetCurrentTheme();
             ThemeService.ApplyThemeToWindow(this);
             ThemeService.ApplyPersonalizationToWindow(this);
 
             InitializeIntegratedTitleBar();
-            UpdateTitleBar(currentTheme);
+            UpdateTitleBar();
 
             // 窗口关闭时清理 KnotLink 服务
             Closed += MainWindow_Closed;
@@ -112,6 +117,13 @@ namespace FolderRewind
 
         private void MainWindow_Closed(object sender, WindowEventArgs args)
         {
+            ThemeService.ThemeChanged -= ThemeService_ThemeChanged;
+            Activated -= MainWindow_Activated;
+            if (_themeRoot is not null)
+            {
+                _themeRoot.ActualThemeChanged -= Root_ActualThemeChanged;
+                _themeRoot = null;
+            }
             // 关闭 KnotLink 服务，释放网络资源。
             // 异步关停且不等待：若此刻后台正在连接不可达主机，同步等待会把窗口关闭卡住；
             // 进程退出前来不及释放的连接由操作系统统一回收。
@@ -154,7 +166,13 @@ namespace FolderRewind
             ThemeService.ApplyThemeToWindow(this);
             ThemeService.ApplyPersonalizationToWindow(this);
             RefreshShellVisuals();
-            UpdateTitleBar(theme);
+            UpdateTitleBar();
+        }
+
+        private void Root_ActualThemeChanged(FrameworkElement sender, object args)
+        {
+            UpdateTitleBar();
+            RefreshShellVisuals();
         }
 
         private void InitializeIntegratedTitleBar()
@@ -193,18 +211,18 @@ namespace FolderRewind
             return Color.FromArgb(alpha, color.R, color.G, color.B);
         }
 
-        private void UpdateTitleBar(ElementTheme theme)
+        private void UpdateTitleBar()
         {
             if (AppWindow.TitleBar != null)
             {
                 var titleBar = AppWindow.TitleBar;
 
                 // 背景保持透明，让 Mica 透出来，只调整前景与按钮态颜色。
-                bool isDark = theme == ElementTheme.Dark;
+                bool isDark = _themeRoot?.ActualTheme == ElementTheme.Dark;
 
                 // 显式指定亮/暗主题配色，保证 Win10/Win11 下表现一致。
                 var foreground = isDark ? Colors.White : Colors.Black;
-                var inactiveForeground = (Color)Application.Current.Resources["TextFillColorSecondary"];
+                var inactiveForeground = WithAlpha(foreground, 153);
 
                 // 悬停/按下采用轻量叠色，避免破坏 Mica 的通透感。
                 var hoverBackground = isDark

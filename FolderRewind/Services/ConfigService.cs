@@ -958,10 +958,7 @@ namespace FolderRewind.Services
         {
             settings.Language = LanguageSettingPolicy.Normalize(settings.Language);
 
-            if (settings.ThemeIndex < 0 || settings.ThemeIndex > 2)
-            {
-                settings.ThemeIndex = 1;
-            }
+            settings.ThemeIndex = ThemeSettingPolicy.Normalize(settings.ThemeIndex);
 
             if (!settings.RunOnStartup)
             {

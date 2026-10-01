@@ -89,7 +89,7 @@ namespace FolderRewind.Models
     public class GlobalSettings : ObservableObject
     {
         private string _language = "system";
-        private int _themeIndex = 1; // 0: Dark, 1: Light, 2: System
+        private int _themeIndex = ThemeSettingPolicy.DefaultIndex; // 0: Dark, 1: Light, 2: System
         private string _sevenZipPath = "7za.exe"; // 全局 7z 路径（内置 7za.exe）
         private string _rcloneExecutablePath = "";
         private string _defaultCloudRemoteBasePath = "remote:FolderRewind";

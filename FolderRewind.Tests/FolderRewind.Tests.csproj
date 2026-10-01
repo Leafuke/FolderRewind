@@ -9,6 +9,7 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <Compile Include="..\FolderRewind\Services\ThemeSettingPolicy.cs" Link="Source\ThemeSettingPolicy.cs" />
     <Compile Include="..\FolderRewind\Services\SevenZipArchiveProcessBackend.cs" Link="Source\SevenZipArchiveProcessBackend.cs" />
     <Compile Include="..\FolderRewind\Services\ConfigMutationProtection.cs" Link="Source\ConfigMutationProtection.cs" />
     <Compile Include="..\FolderRewind\History\Application\HistoryMergeService.cs" Link="Source\HistoryMergeService.cs" />
