@@ -80,4 +80,3 @@ public sealed record SourceCheckpoint
     [JsonIgnore] public ImmutableArray<CheckpointSource> Sources =>
         [new(SourceId, SourceDescriptorSnapshot, VersionId, CheckpointSourceDisposition.CarriedForward, EffectiveSourceBoundary)];
 }
-
