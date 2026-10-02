@@ -235,7 +235,7 @@ public static partial class BackupService
             }));
 
         // 3. History Boundary Preflight
-        // 在真正创建归档或获取 Minecraft 快照之前，检查是否存在未参与本次捕获但管理边界发生变更的 Source。
+        // 在创建归档或获取快照之前检查工作区健康及请求来源的基线；未参与来源不阻断独立备份。
         var plannedSourceIds = requestedFolders
             .Where(f => Guid.TryParse(f.Id, out var id) && id != Guid.Empty)
             .Select(f => new SourceId(Guid.Parse(f.Id)))

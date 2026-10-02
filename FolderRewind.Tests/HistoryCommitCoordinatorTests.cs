@@ -886,7 +886,53 @@ public sealed class HistoryCommitCoordinatorTests
         await runtime.WorkspaceStore.SaveAsync(workspace, HistoryWorkspaceStore.MissingRevision);
 
         await Assert.ThrowsExactlyAsync<HistoryCommitConflictException>(() =>
-            runtime.Commit.FindRequiredBoundaryRecapturesAsync(snapshot, plannedCaptureSources: []));
+            runtime.Commit.FindRequiredBoundaryRecapturesAsync(snapshot, plannedCaptureSources: [sourceId]));
+        Assert.IsEmpty(await runtime.Commit.FindRequiredBoundaryRecapturesAsync(snapshot, []));
+        var other = SourceId.New();
+        Assert.IsEmpty(await runtime.Commit.FindRequiredBoundaryRecapturesAsync(
+            Snapshot(Source(sourceId, "source-a"), Source(other, "source-b")), [other]));
+        Assert.IsEmpty(await runtime.Repository.ReadAllPacksAsync());
+    }
+
+    [TestMethod]
+    public async Task PreflightAndCommitRejectBaselineOwnedByAnotherSource()
+    {
+        await using var runtime = await CreateRuntimeAsync();
+        var owner = SourceId.New(); var requested = SourceId.New();
+        var first = await runtime.Commit.CommitAsync(Request(Snapshot(Source(owner, "owner")), null,
+            CreateCapture(owner, "first", -1, null)));
+        var before = (await runtime.WorkspaceStore.LoadAsync()).Value!;
+        var invalid = before.WithSourceStates([new(requested, first.NewVersions.Single().VersionId,
+            WorkspaceBaselineRelation.Unknown)]);
+        await runtime.WorkspaceStore.SaveAsync(invalid, before.StateRevision);
+        var snapshot = Snapshot(Source(requested, "requested"));
+        await Assert.ThrowsExactlyAsync<HistoryCommitConflictException>(() =>
+            runtime.Commit.FindRequiredBoundaryRecapturesAsync(snapshot, [requested]));
+        var cleanup = new DeleteFileCleanup(Path.Combine(_root, "cross-source.bin"));
+        var capture = CreateCapture(requested, "captured", invalid.StateRevision,
+            first.NewVersions.Single().VersionId, Path.Combine(_root, "cross-source.bin"), cleanup);
+        await Assert.ThrowsExactlyAsync<HistoryCommitConflictException>(() =>
+            runtime.Commit.CommitAsync(Request(snapshot, invalid, capture)));
+        Assert.IsTrue(cleanup.WasCalled);
+        Assert.HasCount(1, await runtime.Repository.ReadAllPacksAsync());
+    }
+
+    [TestMethod]
+    public async Task CommitRechecksBaselineAfterSuccessfulPreflight()
+    {
+        await using var runtime = await CreateRuntimeAsync();
+        var source = SourceId.New(); var snapshot = Snapshot(Source(source, "source"));
+        Assert.IsEmpty(await runtime.Commit.FindRequiredBoundaryRecapturesAsync(snapshot, [source]));
+        var workspace = new HistoryWorkspace(_configId, 0,
+            [new(source, VersionId.New(), WorkspaceBaselineRelation.Unknown)]);
+        await runtime.WorkspaceStore.SaveAsync(workspace, -1);
+        var path = Path.Combine(_root, "missing-baseline.bin");
+        var cleanup = new DeleteFileCleanup(path);
+        await Assert.ThrowsExactlyAsync<HistoryCommitConflictException>(() => runtime.Commit.CommitAsync(
+            Request(snapshot, workspace, CreateCapture(source, "new", 0,
+                workspace.GetSourceState(source).BaseVersionId, path, cleanup))));
+        Assert.IsTrue(cleanup.WasCalled);
+        Assert.IsEmpty(await runtime.Repository.ReadAllPacksAsync());
     }
 
     [TestMethod]

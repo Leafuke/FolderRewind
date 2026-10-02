@@ -187,7 +187,7 @@ public sealed class HistoryCommitCoordinator
     }
 
     /// <summary>
-    /// 检查工作区健康。独立来源备份不沿用未请求来源，因此它们的边界变化不阻断本次捕获。
+    /// 检查工作区健康及请求来源的基线引用。未请求来源不阻断独立来源捕获。
     /// </summary>
     public async Task<IReadOnlyList<HistoryBoundaryRecaptureRequirement>> FindRequiredBoundaryRecapturesAsync(
         HistoryConfigSnapshot snapshot,
@@ -220,6 +220,12 @@ public sealed class HistoryCommitCoordinator
         if (workspace is null)
         {
             return Array.Empty<HistoryBoundaryRecaptureRequirement>();
+        }
+
+        foreach (var sourceId in plannedCaptureSources.Distinct())
+        {
+            if (workspace.GetSourceState(sourceId).BaseVersionId is { } versionId)
+                await RequireVersionForSourceAsync(versionId, sourceId, cancellationToken).ConfigureAwait(false);
         }
 
         return Array.Empty<HistoryBoundaryRecaptureRequirement>();
@@ -722,6 +728,7 @@ public sealed class HistoryCommitCoordinator
 
             if (result.ExpectedBaseVersionId is { } baseVersionId)
             {
+                await RequireVersionForSourceAsync(baseVersionId, result.SourceId, cancellationToken).ConfigureAwait(false);
                 var currentTips = await _runtime.Query.GetMaterializationPolicyTipsAsync(
                     baseVersionId,
                     cancellationToken).ConfigureAwait(false);
