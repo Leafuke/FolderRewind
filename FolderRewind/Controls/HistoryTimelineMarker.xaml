@@ -1,0 +1,23 @@
+<UserControl
+    x:Class="FolderRewind.Controls.HistoryTimelineMarker"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    IsTabStop="False" UseLayoutRounding="True" AutomationProperties.AccessibilityView="Raw">
+    <!-- Share the logical center; separately rounding a 2-DIP line and a 16-DIP node shifts their centers at fractional DPI. -->
+    <Grid Width="16" HorizontalAlignment="Center" UseLayoutRounding="False">
+        <VisualStateManager.VisualStateGroups>
+            <VisualStateGroup x:Name="SemanticStates">
+                <VisualState x:Name="Neutral"><VisualState.Setters><Setter Target="Node.Stroke" Value="{ThemeResource TextFillColorSecondaryBrush}"/></VisualState.Setters></VisualState>
+                <VisualState x:Name="Info"><VisualState.Setters><Setter Target="Node.Stroke" Value="{ThemeResource SystemControlForegroundAccentBrush}"/></VisualState.Setters></VisualState>
+                <VisualState x:Name="Success"><VisualState.Setters><Setter Target="Node.Stroke" Value="{ThemeResource SystemFillColorSuccessBrush}"/></VisualState.Setters></VisualState>
+                <VisualState x:Name="Warning"><VisualState.Setters><Setter Target="Node.Stroke" Value="{ThemeResource SystemFillColorCautionBrush}"/></VisualState.Setters></VisualState>
+                <VisualState x:Name="Error"><VisualState.Setters><Setter Target="Node.Stroke" Value="{ThemeResource SystemFillColorCriticalBrush}"/></VisualState.Setters></VisualState>
+            </VisualStateGroup>
+        </VisualStateManager.VisualStateGroups>
+        <Rectangle Width="2" UseLayoutRounding="False" Fill="{ThemeResource TextFillColorTertiaryBrush}" HorizontalAlignment="Center" VerticalAlignment="Stretch"/>
+        <Ellipse x:Name="Node" Width="16" Height="16" StrokeThickness="2" UseLayoutRounding="False"
+                 Fill="{ThemeResource CardBackgroundFillColorDefaultBrush}"
+                 Stroke="{ThemeResource TextFillColorSecondaryBrush}"
+                 HorizontalAlignment="Center" VerticalAlignment="Center"/>
+    </Grid>
+</UserControl>

@@ -236,14 +236,7 @@
                             <TextBlock Text="{x:Bind TimeDisplay, Mode=OneTime}" Style="{StaticResource BodyStrongTextBlockStyle}" HorizontalAlignment="Right"/>
                             <TextBlock Text="{x:Bind DateDisplay, Mode=OneTime}" Style="{StaticResource CaptionTextBlockStyle}" Foreground="{ThemeResource TextFillColorSecondaryBrush}" HorizontalAlignment="Right"/>
                         </StackPanel>
-                        <Grid Grid.Column="1">
-                            <Rectangle Width="2" Fill="{ThemeResource TextFillColorTertiaryBrush}" VerticalAlignment="Stretch" HorizontalAlignment="Center"/>
-                            <Border Width="16" Height="16" CornerRadius="8"
-                                    Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
-                                    BorderBrush="{ThemeResource TextFillColorSecondaryBrush}"
-                                    BorderThickness="2"
-                                    VerticalAlignment="Center" HorizontalAlignment="Center"/>
-                        </Grid>
+                        <controls:HistoryTimelineMarker Grid.Column="1" Status="{x:Bind ReadinessStatus, Mode=OneWay}"/>
                         <Border Grid.Column="2"
                                 Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
                                 BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"

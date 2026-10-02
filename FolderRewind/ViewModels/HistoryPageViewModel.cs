@@ -74,6 +74,7 @@ public sealed partial class HistoryPageViewModel : ViewModelBase
     }
     public BatchObservableCollection<SafetySnapshotViewItem> ActiveSafetySnapshots { get; } = [];
     public ObservableCollection<BackupConfig> Configs => ConfigService.CurrentConfig?.BackupConfigs ?? [];
+    private GlobalSettings? _observedSettings;
     private GlobalSettings? Settings => ConfigService.CurrentConfig?.GlobalSettings;
     public bool IsEmpty { get => _isEmpty; private set => SetProperty(ref _isEmpty, value); }
     public bool IsLoading
@@ -186,6 +187,7 @@ public sealed partial class HistoryPageViewModel : ViewModelBase
     {
         using var request = _selectionRequests.Begin(cancellationToken);
         _isActive = true;
+        ObserveSettings();
         _refreshRequests.CancelCurrent();
         _branchAssessmentRequests.CancelCurrent();
         CancelScheduledChangeRefresh();
@@ -231,6 +233,8 @@ public sealed partial class HistoryPageViewModel : ViewModelBase
     public void Suspend()
     {
         _isActive = false;
+        if (_observedSettings is not null) _observedSettings.PropertyChanged -= OnSettingsChanged;
+        _observedSettings = null;
         CancelHistoryCommands();
         _selectionRequests.CancelCurrent();
         _refreshRequests.CancelCurrent();
@@ -1053,6 +1057,24 @@ public sealed partial class HistoryPageViewModel : ViewModelBase
         IReadOnlyList<BackupRunViewItem> Runs,
         IReadOnlyList<BranchViewItem> Branches,
         IReadOnlyList<SafetySnapshotViewItem> SafetySnapshots);
+
+    private void ObserveSettings()
+    {
+        if (_observedSettings is not null) _observedSettings.PropertyChanged -= OnSettingsChanged;
+        _observedSettings = Settings;
+        if (_observedSettings is not null) _observedSettings.PropertyChanged += OnSettingsChanged;
+        UpdateSemanticStatusPreferences(_allVersions);
+        OnPropertyChanged(nameof(UseHistoryStatusColors));
+    }
+
+    private void OnSettingsChanged(object? sender, System.ComponentModel.PropertyChangedEventArgs args)
+    {
+        if (args.PropertyName != nameof(GlobalSettings.UseHistoryStatusColors)) return;
+        UiDispatcherService.Enqueue(() => {
+            UpdateSemanticStatusPreferences(_allVersions);
+            OnPropertyChanged(nameof(UseHistoryStatusColors));
+        });
+    }
 
     private void UpdateSemanticStatusPreferences(IEnumerable<NativeHistoryVersionViewItem> items)
     {
