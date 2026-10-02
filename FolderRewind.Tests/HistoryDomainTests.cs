@@ -120,22 +120,29 @@ public sealed class HistoryDomainTests
     public void MergeCheckpoint_RequiresTwoDistinctParents()
     {
         var parent = CheckpointId.New();
+        var version = CreateVersion([]);
+        CheckpointSource[] sources = [new(version.SourceId, version.SourceDescriptorSnapshot,
+            version.VersionId, CheckpointSourceDisposition.Captured)];
         var invalid = new SourceCheckpoint(
             CheckpointId.New(), new HistoryConfigId("config"), DateTimeOffset.UtcNow, null,
-            HistoryProvenance.Native("merge"), [], [parent], CheckpointCreationKind.Merge);
+            HistoryProvenance.Native("merge"), sources, [parent, parent], CheckpointCreationKind.Merge);
         var valid = new SourceCheckpoint(
             CheckpointId.New(), new HistoryConfigId("config"), DateTimeOffset.UtcNow, null,
-            HistoryProvenance.Native("merge"), [], [parent, CheckpointId.New()], CheckpointCreationKind.Merge);
+            HistoryProvenance.Native("merge"), sources, [parent, CheckpointId.New()], CheckpointCreationKind.Merge);
 
         Assert.ThrowsExactly<HistoryDomainValidationException>(
             () => HistoryDomainValidator.ValidateNative(invalid));
+        var singleParent = new SourceCheckpoint(CheckpointId.New(), version.ConfigId, DateTimeOffset.UtcNow,
+            null, HistoryProvenance.Native("merge"), sources, [parent], CheckpointCreationKind.Merge);
+        Assert.ThrowsExactly<HistoryDomainValidationException>(
+            () => HistoryDomainValidator.ValidateNative(singleParent));
         HistoryDomainValidator.ValidateNative(valid);
     }
 
     [TestMethod]
-    public void Checkpoint_AllowsUnavailableSourceWithoutVersion()
+    public void Checkpoint_RejectsUnavailableSourceWithoutVersion()
     {
-        var checkpoint = new SourceCheckpoint(
+        Assert.ThrowsExactly<ArgumentException>(() => new SourceCheckpoint(
             CheckpointId.New(),
             new HistoryConfigId("legacy"),
             DateTimeOffset.UtcNow,
@@ -145,9 +152,7 @@ public sealed class HistoryDomainTests
                 SourceId.New(),
                 new SourceDescriptorSnapshot("source", "C:\\source"),
                 null,
-                CheckpointSourceDisposition.Unavailable)]);
-
-        Assert.IsFalse(checkpoint.IsStructurallyComplete);
+                CheckpointSourceDisposition.Unavailable)]));
     }
 
     [TestMethod]

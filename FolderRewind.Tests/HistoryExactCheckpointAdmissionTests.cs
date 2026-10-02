@@ -8,35 +8,32 @@ namespace FolderRewind.Tests;
 public sealed class HistoryExactCheckpointAdmissionTests
 {
     [TestMethod]
-    public void KnownEmptyRoster_IsAnExactCheckpoint()
+    public void EmptyFileTreeWithVersion_IsAnExactCheckpoint()
     {
-        var checkpoint = Checkpoint([]);
+        var version = Version(SourceId.New(), CaptureScope.FullSource, [], SourceVersionCreationKind.Capture);
+        var representation = Representation(version.VersionId, MaterializationFidelity.Exact, []);
+        var checkpoint = Checkpoint([new(version.SourceId, version.SourceDescriptorSnapshot,
+            version.VersionId, CheckpointSourceDisposition.Captured)]);
 
         var result = HistoryExactCheckpointAdmission.Evaluate(
             checkpoint,
-            new Dictionary<VersionId, SourceVersion>(),
-            new Dictionary<RepresentationId, VersionRepresentation>());
+            new Dictionary<VersionId, SourceVersion> { [version.VersionId] = version },
+            new Dictionary<RepresentationId, VersionRepresentation> { [representation.RepresentationId] = representation });
 
         Assert.AreEqual(HistoryExactCheckpointAdmissionStatus.Ready, result.Status);
+        Assert.ThrowsExactly<InvalidOperationException>(() => Checkpoint([]));
     }
 
     [TestMethod]
     public void NullVersion_IsNotDeletionOrExactState()
     {
-        var checkpoint = Checkpoint([
+        Assert.ThrowsExactly<ArgumentException>(() => Checkpoint([
             new CheckpointSource(
                 SourceId.New(),
                 new SourceDescriptorSnapshot("source", "source"),
                 null,
                 CheckpointSourceDisposition.Unavailable)
-        ]);
-
-        var result = HistoryExactCheckpointAdmission.Evaluate(
-            checkpoint,
-            new Dictionary<VersionId, SourceVersion>(),
-            new Dictionary<RepresentationId, VersionRepresentation>());
-
-        Assert.AreEqual(HistoryExactCheckpointAdmissionStatus.StructurallyIncomplete, result.Status);
+        ]));
     }
 
     [TestMethod]

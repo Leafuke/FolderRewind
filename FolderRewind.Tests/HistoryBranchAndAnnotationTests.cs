@@ -52,7 +52,7 @@ public sealed class HistoryBranchAndAnnotationTests
     {
         await using var runtime = await CreateRuntimeAsync("incomplete-branch");
         var sourceId = SourceId.New();
-        var incomplete = new SourceCheckpoint(
+        Assert.ThrowsExactly<ArgumentException>(() => new SourceCheckpoint(
             CheckpointId.New(),
             _configId,
             DateTimeOffset.UtcNow,
@@ -62,8 +62,14 @@ public sealed class HistoryBranchAndAnnotationTests
                 sourceId,
                 new SourceDescriptorSnapshot("missing", "C:\\missing"),
                 null,
-                CheckpointSourceDisposition.Unavailable)]);
-        await CommitFactsAsync(runtime, incomplete);
+                CheckpointSourceDisposition.Unavailable)]));
+        var version = new SourceVersion(VersionId.New(), _configId, sourceId, [], DateTimeOffset.UtcNow,
+            null, CaptureScope.FullSource, CaptureOutcome.Captured, [], new("missing", "C:\\missing"),
+            null, HistoryProvenance.Native("test"));
+        var incomplete = new SourceCheckpoint(CheckpointId.New(), _configId, DateTimeOffset.UtcNow,
+            null, HistoryProvenance.Native("test"), [new(sourceId, version.SourceDescriptorSnapshot,
+                version.VersionId, CheckpointSourceDisposition.Captured)]);
+        await CommitFactsAsync(runtime, version, incomplete);
 
         await Assert.ThrowsExactlyAsync<HistoryBranchCommandException>(() =>
             runtime.Branches.CreateFromCheckpointAsync(incomplete.CheckpointId, "invalid"));
@@ -251,14 +257,14 @@ public sealed class HistoryBranchAndAnnotationTests
         await using var runtime = await CreateRuntimeAsync("reconcile-non-equivalent");
         var firstCheckpoint = CheckpointId.New();
         var secondCheckpoint = CheckpointId.New();
+        var source = SourceId.New();
         var branchId = BranchId.New();
         var first = new BranchUpdate(
             BranchUpdateId.New(), branchId, [], "main", firstCheckpoint, false,
-            DateTimeOffset.UtcNow.AddSeconds(-1), BranchUpdateReason.Backup, sourceId: HistoryFixture.DefaultSource);
+            DateTimeOffset.UtcNow.AddSeconds(-1), BranchUpdateReason.Backup, sourceId: source);
         var second = new BranchUpdate(
             BranchUpdateId.New(), branchId, [], "main", secondCheckpoint, false,
-            DateTimeOffset.UtcNow, BranchUpdateReason.Backup, sourceId: HistoryFixture.DefaultSource);
-        var source = SourceId.New();
+            DateTimeOffset.UtcNow, BranchUpdateReason.Backup, sourceId: source);
         var version = new SourceVersion(
             VersionId.New(), _configId, source, [], DateTimeOffset.UtcNow, null,
             CaptureScope.FullSource, CaptureOutcome.Captured, [],
@@ -283,7 +289,7 @@ public sealed class HistoryBranchAndAnnotationTests
             () => service.ReconcileAsync(branchId, [first.UpdateId, second.UpdateId]));
         var third = new BranchUpdate(
             BranchUpdateId.New(), branchId, [], "main", firstCheckpoint, false,
-            DateTimeOffset.UtcNow.AddSeconds(1), BranchUpdateReason.Backup, sourceId: HistoryFixture.DefaultSource);
+            DateTimeOffset.UtcNow.AddSeconds(1), BranchUpdateReason.Backup, sourceId: source);
         await CommitFactsAsync(runtime, third);
         await Assert.ThrowsExactlyAsync<HistoryBranchCommandException>(
             () => service.ReconcileAsync(

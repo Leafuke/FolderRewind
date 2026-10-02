@@ -27,7 +27,7 @@ public sealed class HistoryCheckoutServiceTests
     [TestMethod]
     [DataRow(false)]
     [DataRow(true)]
-    public async Task MultiSourceCheckoutFailureRestoresEverySourceAndLeavesWorkspaceUnchanged(bool bindingChanged)
+    public async Task SourceCheckoutFailurePreservesEverySourceAndWorkspace(bool bindingChanged)
     {
         var configId = new HistoryConfigId(Guid.NewGuid().ToString("N"));
         var repository = new FileHistoryRepository(
@@ -51,9 +51,6 @@ public sealed class HistoryCheckoutServiceTests
             [
                 new CheckpointSource(
                     sourceOne, versionOne.SourceDescriptorSnapshot, versionOne.VersionId,
-                    CheckpointSourceDisposition.Captured),
-                new CheckpointSource(
-                    sourceTwo, versionTwo.SourceDescriptorSnapshot, versionTwo.VersionId,
                     CheckpointSourceDisposition.Captured)
             ]);
         var branch = new BranchUpdate(
@@ -73,12 +70,13 @@ public sealed class HistoryCheckoutServiceTests
             new object[] { versionOne, versionTwo, representationOne, representationTwo, checkpoint, branch }
                 .Select(fact => codec.CreateObject(fact))));
 
-        var expectedWorkspace = new HistoryWorkspace(configId, 0, HistoryFixture.SourceStates([], null, null, null));
+        var expectedWorkspace = new HistoryWorkspace(configId, 0,
+            [new(sourceTwo, versionTwo.VersionId, WorkspaceBaselineRelation.Exact)]);
         await history.WorkspaceStore.SaveAsync(expectedWorkspace, HistoryWorkspaceStore.MissingRevision);
         var targetOne = CreateTarget("source-one", "old-one");
         var targetTwo = CreateTarget("source-two", "old-two");
         var representationRuntime = new RepresentationRuntime([new ExactTestRepresentationHandler()]);
-        var mutation = new FailSecondApplyBackend(new FileSystemHistoryRestoreMutationBackend());
+        var mutation = new FailFirstApplyBackend(new FileSystemHistoryRestoreMutationBackend());
         var restore = new HistoryRestoreService(
             history,
             representationRuntime,
@@ -508,7 +506,7 @@ public sealed class HistoryCheckoutServiceTests
             => Task.FromResult(false);
     }
 
-    private sealed class FailSecondApplyBackend(IHistoryRestoreMutationBackend inner)
+    private sealed class FailFirstApplyBackend(IHistoryRestoreMutationBackend inner)
         : IHistoryRestoreMutationBackend
     {
         private int _applyCount;
@@ -530,8 +528,8 @@ public sealed class HistoryCheckoutServiceTests
             HistoryRestoreRollbackSnapshot rollbackSnapshot,
             CancellationToken cancellationToken)
         {
-            if (Interlocked.Increment(ref _applyCount) == 2)
-                throw new IOException("Injected second-source apply failure.");
+            if (Interlocked.Increment(ref _applyCount) == 1)
+                throw new IOException("Injected selected-source apply failure.");
             return inner.ApplyAsync(source, stagingDirectory, applyMode, rollbackSnapshot, cancellationToken);
         }
 
