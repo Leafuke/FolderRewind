@@ -2,6 +2,8 @@
 status: accepted
 ---
 
+> Configuration-wide branch/checkpoint ownership is superseded by [ADR 0007](0007-source-owned-history-branches.md). Immutable facts, replica semantics, transaction recovery and Commit Pack union remain in force.
+
 # History is an immutable graph synchronized by Commit Pack union
 
 FolderRewind models history as immutable logical facts instead of a mutable list of archive records. One atomic Commit Pack may publish a Backup Run, new Source Versions and Representations, a Configuration Checkpoint, a Branch Update, and related annotations; devices converge by set union so concurrent history is preserved instead of resolved by last-writer-wins replacement.

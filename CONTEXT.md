@@ -78,12 +78,12 @@ An immutable logical state of one Backup Source, with explicit source ancestry b
 _Avoid_: History item, archive, replica
 
 **Backup Run**:
-A durable operation fact describing one backup invocation, its per-source outcomes, and its resulting Configuration Checkpoint when one exists.
+A durable operation fact describing one backup invocation and the outcomes, Versions, Checkpoints, and historical Branch context of its participating Sources. Unrequested Sources do not belong to the Run.
 _Avoid_: Mutable run record, restore point, archive owner
 
-**Configuration Checkpoint**:
-A configuration-wide state vector that associates each configured Source with its reliable Source Version when available and the capture disposition for that checkpoint.
-_Avoid_: Backup run, archive set, branch
+**Source Checkpoint**:
+An immutable history position for one Backup Source that references its Version and managed boundary. Checkpoint parents describe history continuation; Version parents describe content ancestry.
+_Avoid_: Configuration-wide state vector, backup run, archive set, branch
 
 **Version Representation**:
 An immutable way to materialize one Source Version, including its physical dependency Representations and restore fidelity.
@@ -106,19 +106,19 @@ An immutable, create-once unit that makes all shared facts from one History tran
 _Avoid_: History snapshot, mutable manifest, database transaction log
 
 **Branch**:
-A stable user-facing history line whose current state is derived from its Branch Update tips; more than one tip means divergence, not an implicit winner.
-_Avoid_: Workspace, folder branch, mutable pointer
+A stable user-facing history line owned by one Backup Source whose current state is derived from its Branch Update tips; more than one tip means divergence, not an implicit winner. Names are unique within a Source.
+_Avoid_: Project-wide branch, workspace, mutable pointer
 
 **Branch Update**:
-An immutable fact that advances, creates, renames, or deletes a Branch by referencing a Configuration Checkpoint and prior update identities.
+An immutable fact that advances, creates, renames, or deletes a Source-owned Branch by referencing a Source Checkpoint and prior update identities.
 _Avoid_: Source Version parent, checkout state, mutable branch row
 
 **Workspace**:
-The device-local record of the active Branch Update and per-Source baselines from which the next backup derives lineage.
+The device-local record of each Source's active Branch Update, history continuation anchor, and content baseline from which the next backup derives lineage. Ordinary restore changes the baseline; checkout changes the active Branch.
 _Avoid_: Restore staging directory, shared branch state, cloud metadata
 
 **Safety Snapshot**:
-An exact, Branch-independent recovery point created before a destructive History apply; it remains retained until explicitly released and never advances the active Branch.
+An exact, Branch-independent recovery point containing the affected Sources' Checkpoints before a destructive History apply; it remains retained until explicitly released and never advances their Branch pointers.
 _Avoid_: Hidden branch, temporary rollback copy, ordinary backup
 
 **Historical Source Binding**:
