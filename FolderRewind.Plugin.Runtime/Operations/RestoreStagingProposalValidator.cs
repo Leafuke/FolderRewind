@@ -9,7 +9,7 @@ public static class RestoreStagingProposalValidator
     public static IReadOnlyList<RestoreStagedFileProposal> ValidateAndFreeze(
         RestoreStagingPreparationResult result,
         Func<string, bool> isManagedPath,
-        int maximumFiles = 256,
+        int maximumFiles = 4096,
         long maximumBytes = 64 * 1024 * 1024)
     {
         ArgumentNullException.ThrowIfNull(result);

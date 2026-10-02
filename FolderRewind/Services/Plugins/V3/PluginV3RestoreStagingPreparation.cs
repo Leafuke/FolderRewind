@@ -15,28 +15,41 @@ namespace FolderRewind.Services.Plugins.V3;
 internal static class PluginV3RestoreStagingPreparation
 {
     public static async Task<bool> PrepareAsync(BackupConfig config, Guid operationId, bool preservePlayerData,
-        HistoryRestoreSourceBinding binding, string staging, CancellationToken token)
+        HistoryRestoreSourceBinding binding, string staging, CancellationToken token,
+        bool? preservePlayerDataOverride = null, IReadOnlyList<string>? additionalRestoreWhitelist = null)
     {
         var kind = PluginV3ModelMapper.ToKind(config);
-        if (kind.OwnerId.Value == "folderrewind.core") return false;
-        using var lease = PluginV3RuntimeService.Runtime.TryAcquire<IRestoreStagingPreparationCapability>(
-            new PluginId(kind.OwnerId.Value), capability => capability.Kind == kind, token);
-        if (lease is null)
-        {
-            if (preservePlayerData) throw new InvalidOperationException("Restore staging preparation is unavailable.");
-            return false;
-        }
+        using var lease = kind.OwnerId.Value == "folderrewind.core" ? null
+            : PluginV3RuntimeService.Runtime.TryAcquire<IRestoreStagingPreparationCapability>(
+                new PluginId(kind.OwnerId.Value), capability => capability.Kind == kind, token);
+        if (lease is null && (preservePlayerData || preservePlayerDataOverride.HasValue))
+            throw new InvalidOperationException("Restore staging preparation is unavailable.");
+        if (preservePlayerDataOverride.HasValue && lease?.Capability.SupportsPlayerDataOverride != true)
+            throw new InvalidOperationException("Plugin does not support explicit player-data overrides.");
         var include = FileSystemHistoryRestoreMutationBackend.CreateBoundaryMatcher(binding);
+        var proposed = new Dictionary<string, RestoreStagedFileProposal>(StringComparer.OrdinalIgnoreCase);
         IReadOnlyList<RestoreStagedFileProposal> proposals;
         using (var current = new LockedView(binding.TargetDirectory, include))
         using (var target = new LockedView(staging, include))
-        using (NativeHostMutationContext.EnterCoordinatorCallback())
         {
-            var result = await lease.Capability.PrepareAsync(new(operationId,
-                PluginV3ModelMapper.ToSnapshot(config), binding.SourceId.Value, current, target, preservePlayerData),
-                lease.Context).ConfigureAwait(false);
-            proposals = RestoreStagingProposalValidator.ValidateAndFreeze(result, include);
-            foreach (var diagnostic in result.Diagnostics) LogService.LogWarning(diagnostic.Code, "Restore preparation");
+            foreach (var proposal in await RestoreWhitelistPreparation.PrepareAsync(current, target,
+                config.Filters.RestoreWhitelist.Concat(additionalRestoreWhitelist ?? []), binding.TargetDirectory, token).ConfigureAwait(false))
+                proposed.Add(proposal.RelativePath, proposal);
+            if (lease is not null)
+            {
+                using var callback = NativeHostMutationContext.EnterCoordinatorCallback();
+                var result = await lease.Capability.PrepareAsync(new(operationId,
+                    PluginV3ModelMapper.ToSnapshot(config), binding.SourceId.Value, current, target, preservePlayerData)
+                    { PreservePlayerDataOverride = preservePlayerDataOverride }, lease.Context).ConfigureAwait(false);
+                var error = result.Diagnostics.FirstOrDefault(diagnostic => diagnostic.Severity == DiagnosticSeverity.Error);
+                if (error is not null) throw new InvalidDataException(error.Code +
+                    (error.Arguments.TryGetValue("message", out var message) ? ": " + message : string.Empty));
+                // Freeze and validate plugin output before combining it with host-owned whitelist output.
+                foreach (var proposal in RestoreStagingProposalValidator.ValidateAndFreeze(result, include))
+                    proposed[proposal.RelativePath] = proposal;
+                foreach (var diagnostic in result.Diagnostics) LogService.LogWarning(diagnostic.Code, "Restore preparation");
+            }
+            proposals = RestoreStagingProposalValidator.ValidateAndFreeze(new(proposed.Values.ToArray(), []), include);
         }
         bool changed = false;
         foreach (var proposal in proposals)
@@ -52,7 +65,7 @@ internal static class PluginV3RestoreStagingPreparation
     }
 
     // 插件只能读取复制出的流；文件锁在整个 preparation 回调期间保留。
-    private sealed class LockedView : IVersionMetadataSourceView, IDisposable
+    private sealed class LockedView : IRestoreSourceView, IDisposable
     {
         private readonly Dictionary<string, FileStream> _files = new(StringComparer.Ordinal);
         public LockedView(string root, Func<string, bool> include)
@@ -78,6 +91,7 @@ internal static class PluginV3RestoreStagingPreparation
             }
             catch { Dispose(); throw; }
         }
+        public IReadOnlyList<string> RelativePaths => Array.AsReadOnly(_files.Keys.OrderBy(path => path, StringComparer.Ordinal).ToArray());
         public ValueTask<Stream> OpenReadAsync(string relativePath, CancellationToken cancellationToken)
         {
             cancellationToken.ThrowIfCancellationRequested();

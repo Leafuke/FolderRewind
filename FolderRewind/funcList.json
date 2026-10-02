@@ -1,103 +1,51 @@
 {
   "specVersion": "1.0",
-  "manifestVersion": "2.0.0",
+  "manifestVersion": "3.0.0",
   "appName": "FolderRewind",
   "openSocket": {
     "auto_backup": {
       "appID": "0x00000020",
       "openSocketID": "0x00000010",
-      "description": "Start periodic backup for one managed folder.",
-      "args": {
-        "cmd": {
-          "type": "static",
-          "value": "AUTO_BACKUP",
-          "description": "Operation command."
-        },
-        "config_id": {
-          "type": "input",
-          "description": "Backup configuration ID.",
-          "defaultVal": "config-id"
-        },
-        "folder": {
-          "type": "input",
-          "description": "Folder name or index.",
-          "defaultVal": "0"
-        },
-        "from": {
-          "type": "input",
-          "description": "Required caller identifier.",
-          "defaultVal": "example.client"
-        },
-        "interval_minutes": {
-          "type": "input",
-          "description": "Backup interval in minutes.",
-          "defaultVal": "10"
-        },
-        "request_id": {
-          "type": "input",
-          "description": "Required unique request correlation ID.",
-          "defaultVal": "request-001"
-        }
-      },
-      "returns": [
-        [
-          "Operation status.",
-          "status"
-        ],
-        [
-          "Response message.",
-          "message"
-        ]
-      ]
-    },
-    "backup": {
-      "appID": "0x00000020",
-      "openSocketID": "0x00000010",
-      "description": "Start a backup for one managed folder.",
+      "description": "Start periodic backup bound to this folder and these operation options.",
       "args": {
         "backup_blacklist": {
           "type": "input",
-          "description": "Comma-separated one-shot blacklist rules.",
-          "defaultVal": ""
+          "description": "Optional comma-separated rules appended and deduplicated against local rules; empty does not clear."
         },
         "backup_mode": {
           "type": "optional",
           "options": [
             [
-              "Full",
+              "full",
               "full"
             ],
             [
-              "Smart",
+              "smart",
               "smart"
             ]
           ],
-          "description": "Optional one-shot backup mode."
+          "description": "Omit to inherit local mode; supplied value overrides this operation only."
         },
         "backup_scope": {
           "type": "input",
-          "description": "Optional plugin backup scope ID.",
-          "defaultVal": ""
+          "description": "Optional scope override. full/all/default/none disables the local plugin scope for this operation."
         },
         "backup_whitelist": {
           "type": "input",
-          "description": "Comma-separated one-shot whitelist rules.",
-          "defaultVal": ""
+          "description": "Optional comma-separated rules appended and deduplicated against local rules; nonempty selects whitelist mode."
         },
         "cmd": {
           "type": "static",
-          "value": "BACKUP",
+          "value": "AUTO_BACKUP",
           "description": "Operation command."
         },
         "comment": {
           "type": "input",
-          "description": "Optional backup comment.",
-          "defaultVal": ""
+          "description": "Optional comment for this operation only."
         },
         "compression_level": {
           "type": "input",
-          "description": "Optional one-shot compression level.",
-          "defaultVal": ""
+          "description": "Optional integer; omit to inherit local level. Must be valid for the effective compression method."
         },
         "compression_method": {
           "type": "optional",
@@ -119,37 +67,138 @@
               "zstd"
             ]
           ],
-          "description": "Optional one-shot compression method."
+          "description": "Omit to inherit local compression; supplied value overrides this operation only."
         },
         "config_id": {
           "type": "input",
-          "description": "Backup configuration ID.",
-          "defaultVal": "config-id"
+          "description": "Required backup configuration ID; also accepts name or zero-based index."
         },
         "folder": {
           "type": "input",
-          "description": "Folder name or index.",
-          "defaultVal": "0"
+          "description": "Required folder name, path, stable ID or zero-based index."
         },
         "from": {
           "type": "input",
-          "description": "Required caller identifier.",
-          "defaultVal": "example.client"
+          "description": "Required caller identifier."
+        },
+        "interval_minutes": {
+          "type": "input",
+          "description": "Required integer interval, at least 1 minute.",
+          "defaultVal": "10"
         },
         "request_id": {
           "type": "input",
-          "description": "Required unique request correlation ID.",
-          "defaultVal": "request-001"
+          "description": "Required request correlation ID."
         },
         "scope_areas": {
           "type": "input",
-          "description": "Example plugin scope parameter.",
-          "defaultVal": ""
+          "description": "Optional scope override: x1,z1,x2,z2 block-coordinate rectangles, one per line; requires selected-regions scope."
         },
         "scope_dimensions": {
           "type": "input",
-          "description": "Example plugin scope parameter.",
-          "defaultVal": ""
+          "description": "Optional scope override: comma-separated overworld, nether, end (including their vanilla Minecraft aliases)."
+        }
+      },
+      "returns": [
+        [
+          "Operation status.",
+          "status"
+        ],
+        [
+          "Response message.",
+          "message"
+        ]
+      ]
+    },
+    "backup": {
+      "appID": "0x00000020",
+      "openSocketID": "0x00000010",
+      "description": "Start a backup for one managed folder.",
+      "args": {
+        "backup_blacklist": {
+          "type": "input",
+          "description": "Optional comma-separated rules appended and deduplicated against local rules; empty does not clear."
+        },
+        "backup_mode": {
+          "type": "optional",
+          "options": [
+            [
+              "full",
+              "full"
+            ],
+            [
+              "smart",
+              "smart"
+            ]
+          ],
+          "description": "Omit to inherit local mode; supplied value overrides this operation only."
+        },
+        "backup_scope": {
+          "type": "input",
+          "description": "Optional scope override. full/all/default/none disables the local plugin scope for this operation."
+        },
+        "backup_whitelist": {
+          "type": "input",
+          "description": "Optional comma-separated rules appended and deduplicated against local rules; nonempty selects whitelist mode."
+        },
+        "cmd": {
+          "type": "static",
+          "value": "BACKUP",
+          "description": "Operation command."
+        },
+        "comment": {
+          "type": "input",
+          "description": "Optional comment for this operation only."
+        },
+        "compression_level": {
+          "type": "input",
+          "description": "Optional integer; omit to inherit local level. Must be valid for the effective compression method."
+        },
+        "compression_method": {
+          "type": "optional",
+          "options": [
+            [
+              "LZMA2",
+              "LZMA2"
+            ],
+            [
+              "Deflate",
+              "Deflate"
+            ],
+            [
+              "BZip2",
+              "BZip2"
+            ],
+            [
+              "zstd",
+              "zstd"
+            ]
+          ],
+          "description": "Omit to inherit local compression; supplied value overrides this operation only."
+        },
+        "config_id": {
+          "type": "input",
+          "description": "Required backup configuration ID; also accepts name or zero-based index."
+        },
+        "folder": {
+          "type": "input",
+          "description": "Required folder name, path, stable ID or zero-based index."
+        },
+        "from": {
+          "type": "input",
+          "description": "Required caller identifier."
+        },
+        "request_id": {
+          "type": "input",
+          "description": "Required request correlation ID."
+        },
+        "scope_areas": {
+          "type": "input",
+          "description": "Optional scope override: x1,z1,x2,z2 block-coordinate rectangles, one per line; requires selected-regions scope."
+        },
+        "scope_dimensions": {
+          "type": "input",
+          "description": "Optional scope override: comma-separated overworld, nether, end (including their vanilla Minecraft aliases)."
         }
       },
       "returns": [
@@ -170,18 +219,29 @@
       "args": {
         "backup_blacklist": {
           "type": "input",
-          "description": "Comma-separated one-shot blacklist rules.",
-          "defaultVal": ""
+          "description": "Optional comma-separated rules appended and deduplicated against local rules; empty does not clear."
+        },
+        "backup_mode": {
+          "type": "optional",
+          "options": [
+            [
+              "full",
+              "full"
+            ],
+            [
+              "smart",
+              "smart"
+            ]
+          ],
+          "description": "Omit to inherit local mode; supplied value overrides this operation only."
         },
         "backup_scope": {
           "type": "input",
-          "description": "Optional plugin backup scope ID.",
-          "defaultVal": ""
+          "description": "Optional scope override. full/all/default/none disables the local plugin scope for this operation."
         },
         "backup_whitelist": {
           "type": "input",
-          "description": "Comma-separated one-shot whitelist rules.",
-          "defaultVal": ""
+          "description": "Optional comma-separated rules appended and deduplicated against local rules; nonempty selects whitelist mode."
         },
         "cmd": {
           "type": "static",
@@ -190,23 +250,53 @@
         },
         "comment": {
           "type": "input",
-          "description": "Optional backup comment.",
-          "defaultVal": ""
+          "description": "Optional comment for this operation only."
+        },
+        "compression_level": {
+          "type": "input",
+          "description": "Optional integer; omit to inherit local level. Must be valid for the effective compression method."
+        },
+        "compression_method": {
+          "type": "optional",
+          "options": [
+            [
+              "LZMA2",
+              "LZMA2"
+            ],
+            [
+              "Deflate",
+              "Deflate"
+            ],
+            [
+              "BZip2",
+              "BZip2"
+            ],
+            [
+              "zstd",
+              "zstd"
+            ]
+          ],
+          "description": "Omit to inherit local compression; supplied value overrides this operation only."
         },
         "config_id": {
           "type": "input",
-          "description": "Backup configuration ID.",
-          "defaultVal": "config-id"
+          "description": "Required backup configuration ID; also accepts name or zero-based index."
         },
         "from": {
           "type": "input",
-          "description": "Required caller identifier.",
-          "defaultVal": "example.client"
+          "description": "Required caller identifier."
         },
         "request_id": {
           "type": "input",
-          "description": "Required unique request correlation ID.",
-          "defaultVal": "request-001"
+          "description": "Required request correlation ID."
+        },
+        "scope_areas": {
+          "type": "input",
+          "description": "Optional scope override: x1,z1,x2,z2 block-coordinate rectangles, one per line; requires selected-regions scope."
+        },
+        "scope_dimensions": {
+          "type": "input",
+          "description": "Optional scope override: comma-separated overworld, nether, end (including their vanilla Minecraft aliases)."
         }
       },
       "returns": [
@@ -266,8 +356,7 @@
         },
         "config_id": {
           "type": "input",
-          "description": "Backup configuration ID.",
-          "defaultVal": "config-id"
+          "description": "Required backup configuration ID; also accepts name or zero-based index."
         }
       },
       "returns": [
@@ -315,13 +404,11 @@
         },
         "config_id": {
           "type": "input",
-          "description": "Backup configuration ID.",
-          "defaultVal": "config-id"
+          "description": "Required backup configuration ID; also accepts name or zero-based index."
         },
         "folder": {
           "type": "input",
-          "description": "Folder name or index.",
-          "defaultVal": "0"
+          "description": "Required folder name, path, stable ID or zero-based index."
         }
       },
       "returns": [
@@ -369,8 +456,7 @@
         },
         "config_id": {
           "type": "input",
-          "description": "Backup configuration ID.",
-          "defaultVal": "config-id"
+          "description": "Required backup configuration ID; also accepts name or zero-based index."
         }
       },
       "returns": [
@@ -396,42 +482,38 @@
         },
         "config_id": {
           "type": "input",
-          "description": "Backup configuration ID.",
-          "defaultVal": "config-id"
+          "description": "Required backup configuration ID; also accepts name or zero-based index."
         },
         "file": {
           "type": "input",
-          "description": "Backup archive file name.",
-          "defaultVal": "backup.7z"
+          "description": "Required backup archive file name."
         },
         "folder": {
           "type": "input",
-          "description": "Folder name or index.",
-          "defaultVal": "0"
+          "description": "Required folder name, path, stable ID or zero-based index."
         },
         "from": {
           "type": "input",
-          "description": "Required caller identifier.",
-          "defaultVal": "example.client"
+          "description": "Required caller identifier."
         },
         "important": {
           "type": "optional",
           "options": [
             [
-              "True",
+              "true",
               "true"
             ],
             [
-              "False",
+              "false",
               "false"
             ]
           ],
-          "description": "Whether the archive is important."
+          "description": "Optional importance flag; defaults to true.",
+          "defaultVal": "true"
         },
         "request_id": {
           "type": "input",
-          "description": "Required unique request correlation ID.",
-          "defaultVal": "request-001"
+          "description": "Required request correlation ID."
         }
       },
       "returns": [
@@ -470,7 +552,7 @@
     "restore": {
       "appID": "0x00000020",
       "openSocketID": "0x00000010",
-      "description": "Start restoring a managed folder from an archive.",
+      "description": "Restore a managed folder; default clean, partial backups always overwrite.",
       "args": {
         "cmd": {
           "type": "static",
@@ -479,47 +561,56 @@
         },
         "config_id": {
           "type": "input",
-          "description": "Backup configuration ID.",
-          "defaultVal": "config-id"
+          "description": "Required backup configuration ID; also accepts name or zero-based index."
         },
         "file": {
           "type": "input",
-          "description": "Backup archive file name.",
-          "defaultVal": "backup.7z"
+          "description": "Optional archive name; omit for the active Workspace\u0027s unique local branch tip."
         },
         "folder": {
           "type": "input",
-          "description": "Folder name or index.",
-          "defaultVal": "0"
+          "description": "Required folder name, path, stable ID or zero-based index."
         },
         "from": {
           "type": "input",
-          "description": "Required caller identifier.",
-          "defaultVal": "example.client"
+          "description": "Required caller identifier."
         },
         "mode": {
           "type": "optional",
           "options": [
             [
-              "Overwrite",
+              "overwrite",
               "overwrite"
             ],
             [
-              "Clean",
+              "clean",
               "clean"
             ]
           ],
-          "description": "Restore mode. Partial backups are always restored in overwrite mode."
+          "description": "Optional restore mode; default clean. Partial backups always overwrite.",
+          "defaultVal": "clean"
+        },
+        "preserve_player_data": {
+          "type": "optional",
+          "options": [
+            [
+              "true",
+              "true"
+            ],
+            [
+              "false",
+              "false"
+            ]
+          ],
+          "description": "Minecraft only: omit to inherit local setting; true/false overrides it. Preserve selected NBT fields for ALL players; players absent from the backup retain their entire current NBT. Advancements/statistics still restore. Cross-26.1-layout preservation is blocked."
         },
         "request_id": {
           "type": "input",
-          "description": "Required unique request correlation ID.",
-          "defaultVal": "request-001"
+          "description": "Required request correlation ID."
         },
         "restore_whitelist": {
           "type": "input",
-          "description": "Comma-separated one-shot restore whitelist rules.",
-          "defaultVal": ""
+          "description": "Optional rules appended to local rules: retain matching current paths during clean unless the archive supplies the same path."
         }
       },
       "returns": [
@@ -545,23 +636,19 @@
         },
         "config_id": {
           "type": "input",
-          "description": "Backup configuration ID.",
-          "defaultVal": "config-id"
+          "description": "Required backup configuration ID; also accepts name or zero-based index."
         },
         "folder": {
           "type": "input",
-          "description": "Folder name or index.",
-          "defaultVal": "0"
+          "description": "Required folder name, path, stable ID or zero-based index."
         },
         "from": {
           "type": "input",
-          "description": "Required caller identifier.",
-          "defaultVal": "example.client"
+          "description": "Required caller identifier."
         },
         "request_id": {
           "type": "input",
-          "description": "Required unique request correlation ID.",
-          "defaultVal": "request-001"
+          "description": "Required request correlation ID."
         }
       },
       "returns": [
@@ -586,6 +673,12 @@
           "description": "Signal event name.",
           "verification": "app_startup"
         },
+        "from": {
+          "description": "Caller identifier when emitted in a command conversation."
+        },
+        "request_id": {
+          "description": "Request correlation ID when emitted in a command conversation."
+        },
         "version": {
           "description": "Application version."
         }
@@ -605,6 +698,12 @@
         },
         "folder": {
           "description": "Folder name."
+        },
+        "from": {
+          "description": "Caller identifier when emitted in a command conversation."
+        },
+        "request_id": {
+          "description": "Request correlation ID when emitted in a command conversation."
         }
       }
     },
@@ -622,6 +721,12 @@
         },
         "folder": {
           "description": "Folder name."
+        },
+        "from": {
+          "description": "Caller identifier when emitted in a command conversation."
+        },
+        "request_id": {
+          "description": "Request correlation ID when emitted in a command conversation."
         }
       }
     },
@@ -639,6 +744,12 @@
         },
         "folder": {
           "description": "Folder name."
+        },
+        "from": {
+          "description": "Caller identifier when emitted in a command conversation."
+        },
+        "request_id": {
+          "description": "Request correlation ID when emitted in a command conversation."
         }
       }
     },
@@ -656,6 +767,12 @@
         },
         "folder": {
           "description": "Folder name."
+        },
+        "from": {
+          "description": "Caller identifier when emitted in a command conversation."
+        },
+        "request_id": {
+          "description": "Request correlation ID when emitted in a command conversation."
         }
       }
     },
@@ -670,6 +787,12 @@
         "event": {
           "description": "Signal event name.",
           "verification": "backup_all_completed"
+        },
+        "from": {
+          "description": "Caller identifier when emitted in a command conversation."
+        },
+        "request_id": {
+          "description": "Request correlation ID when emitted in a command conversation."
         }
       }
     },
@@ -684,6 +807,12 @@
         "event": {
           "description": "Signal event name.",
           "verification": "backup_all_failed"
+        },
+        "from": {
+          "description": "Caller identifier when emitted in a command conversation."
+        },
+        "request_id": {
+          "description": "Request correlation ID when emitted in a command conversation."
         }
       }
     },
@@ -698,6 +827,12 @@
         "event": {
           "description": "Signal event name.",
           "verification": "backup_all_started"
+        },
+        "from": {
+          "description": "Caller identifier when emitted in a command conversation."
+        },
+        "request_id": {
+          "description": "Request correlation ID when emitted in a command conversation."
         }
       }
     },
@@ -715,6 +850,12 @@
         },
         "folder": {
           "description": "Folder name."
+        },
+        "from": {
+          "description": "Caller identifier when emitted in a command conversation."
+        },
+        "request_id": {
+          "description": "Request correlation ID when emitted in a command conversation."
         }
       }
     },
@@ -732,6 +873,12 @@
         },
         "folder": {
           "description": "Folder name."
+        },
+        "from": {
+          "description": "Caller identifier when emitted in a command conversation."
+        },
+        "request_id": {
+          "description": "Request correlation ID when emitted in a command conversation."
         }
       }
     },
@@ -749,6 +896,12 @@
         },
         "folder": {
           "description": "Folder name."
+        },
+        "from": {
+          "description": "Caller identifier when emitted in a command conversation."
+        },
+        "request_id": {
+          "description": "Request correlation ID when emitted in a command conversation."
         }
       }
     },
@@ -766,6 +919,12 @@
         },
         "folder": {
           "description": "Folder name."
+        },
+        "from": {
+          "description": "Caller identifier when emitted in a command conversation."
+        },
+        "request_id": {
+          "description": "Request correlation ID when emitted in a command conversation."
         }
       }
     },
@@ -777,12 +936,27 @@
         "command": {
           "description": "Command name."
         },
+        "error": {
+          "description": "Optional error detail."
+        },
         "event": {
           "description": "Signal event name.",
           "verification": "command_accepted"
         },
+        "from": {
+          "description": "Caller identifier when emitted in a command conversation."
+        },
+        "progress": {
+          "description": "Optional progress percentage."
+        },
+        "reason": {
+          "description": "Optional failure reason."
+        },
         "request_id": {
-          "description": "Request correlation ID."
+          "description": "Request correlation ID when emitted in a command conversation."
+        },
+        "result": {
+          "description": "Optional completion result."
         }
       }
     },
@@ -794,12 +968,27 @@
         "command": {
           "description": "Command name."
         },
+        "error": {
+          "description": "Optional error detail."
+        },
         "event": {
           "description": "Signal event name.",
           "verification": "command_completed"
         },
+        "from": {
+          "description": "Caller identifier when emitted in a command conversation."
+        },
+        "progress": {
+          "description": "Optional progress percentage."
+        },
+        "reason": {
+          "description": "Optional failure reason."
+        },
         "request_id": {
-          "description": "Request correlation ID."
+          "description": "Request correlation ID when emitted in a command conversation."
+        },
+        "result": {
+          "description": "Optional completion result."
         }
       }
     },
@@ -811,12 +1000,27 @@
         "command": {
           "description": "Command name."
         },
+        "error": {
+          "description": "Optional error detail."
+        },
         "event": {
           "description": "Signal event name.",
           "verification": "command_error"
         },
+        "from": {
+          "description": "Caller identifier when emitted in a command conversation."
+        },
+        "progress": {
+          "description": "Optional progress percentage."
+        },
+        "reason": {
+          "description": "Optional failure reason."
+        },
         "request_id": {
-          "description": "Request correlation ID."
+          "description": "Request correlation ID when emitted in a command conversation."
+        },
+        "result": {
+          "description": "Optional completion result."
         }
       }
     },
@@ -828,12 +1032,27 @@
         "command": {
           "description": "Command name."
         },
+        "error": {
+          "description": "Optional error detail."
+        },
         "event": {
           "description": "Signal event name.",
           "verification": "command_failed"
         },
+        "from": {
+          "description": "Caller identifier when emitted in a command conversation."
+        },
+        "progress": {
+          "description": "Optional progress percentage."
+        },
+        "reason": {
+          "description": "Optional failure reason."
+        },
         "request_id": {
-          "description": "Request correlation ID."
+          "description": "Request correlation ID when emitted in a command conversation."
+        },
+        "result": {
+          "description": "Optional completion result."
         }
       }
     },
@@ -845,12 +1064,27 @@
         "command": {
           "description": "Command name."
         },
+        "error": {
+          "description": "Optional error detail."
+        },
         "event": {
           "description": "Signal event name.",
           "verification": "command_progress"
         },
+        "from": {
+          "description": "Caller identifier when emitted in a command conversation."
+        },
+        "progress": {
+          "description": "Optional progress percentage."
+        },
+        "reason": {
+          "description": "Optional failure reason."
+        },
         "request_id": {
-          "description": "Request correlation ID."
+          "description": "Request correlation ID when emitted in a command conversation."
+        },
+        "result": {
+          "description": "Optional completion result."
         }
       }
     },
@@ -862,12 +1096,27 @@
         "command": {
           "description": "Command name."
         },
+        "error": {
+          "description": "Optional error detail."
+        },
         "event": {
           "description": "Signal event name.",
           "verification": "command_started"
         },
+        "from": {
+          "description": "Caller identifier when emitted in a command conversation."
+        },
+        "progress": {
+          "description": "Optional progress percentage."
+        },
+        "reason": {
+          "description": "Optional failure reason."
+        },
         "request_id": {
-          "description": "Request correlation ID."
+          "description": "Request correlation ID when emitted in a command conversation."
+        },
+        "result": {
+          "description": "Optional completion result."
         }
       }
     },
@@ -882,6 +1131,12 @@
         "event": {
           "description": "Signal event name.",
           "verification": "get_config"
+        },
+        "from": {
+          "description": "Caller identifier when emitted in a command conversation."
+        },
+        "request_id": {
+          "description": "Request correlation ID when emitted in a command conversation."
         }
       }
     },
@@ -902,6 +1157,12 @@
         },
         "folder": {
           "description": "Folder name."
+        },
+        "from": {
+          "description": "Caller identifier when emitted in a command conversation."
+        },
+        "request_id": {
+          "description": "Request correlation ID when emitted in a command conversation."
         }
       }
     },
@@ -916,6 +1177,12 @@
         "event": {
           "description": "Signal event name.",
           "verification": "list_configs"
+        },
+        "from": {
+          "description": "Caller identifier when emitted in a command conversation."
+        },
+        "request_id": {
+          "description": "Request correlation ID when emitted in a command conversation."
         }
       }
     },
@@ -933,6 +1200,12 @@
         "event": {
           "description": "Signal event name.",
           "verification": "list_folders"
+        },
+        "from": {
+          "description": "Caller identifier when emitted in a command conversation."
+        },
+        "request_id": {
+          "description": "Request correlation ID when emitted in a command conversation."
         }
       }
     },
@@ -954,8 +1227,14 @@
         "folder": {
           "description": "Folder name."
         },
+        "from": {
+          "description": "Caller identifier when emitted in a command conversation."
+        },
         "important": {
           "description": "New importance value."
+        },
+        "request_id": {
+          "description": "Request correlation ID when emitted in a command conversation."
         }
       }
     },
@@ -973,6 +1252,12 @@
         },
         "folder": {
           "description": "Folder name."
+        },
+        "from": {
+          "description": "Caller identifier when emitted in a command conversation."
+        },
+        "request_id": {
+          "description": "Request correlation ID when emitted in a command conversation."
         }
       }
     },
@@ -990,6 +1275,12 @@
         },
         "folder": {
           "description": "Folder name."
+        },
+        "from": {
+          "description": "Caller identifier when emitted in a command conversation."
+        },
+        "request_id": {
+          "description": "Request correlation ID when emitted in a command conversation."
         }
       }
     },
@@ -1007,6 +1298,12 @@
         },
         "folder": {
           "description": "Folder name."
+        },
+        "from": {
+          "description": "Caller identifier when emitted in a command conversation."
+        },
+        "request_id": {
+          "description": "Request correlation ID when emitted in a command conversation."
         }
       }
     },
@@ -1024,6 +1321,12 @@
         },
         "folder": {
           "description": "Folder name."
+        },
+        "from": {
+          "description": "Caller identifier when emitted in a command conversation."
+        },
+        "request_id": {
+          "description": "Request correlation ID when emitted in a command conversation."
         }
       }
     },
@@ -1035,6 +1338,12 @@
         "event": {
           "description": "Signal event name.",
           "verification": "status"
+        },
+        "from": {
+          "description": "Caller identifier when emitted in a command conversation."
+        },
+        "request_id": {
+          "description": "Request correlation ID when emitted in a command conversation."
         }
       }
     }

@@ -60,12 +60,21 @@ namespace FolderRewind.Services
                     return FormatValidationError(context, validation);
                 }
 
-                if (KnotLinkCommandValidator.RequiresConversationMetadata(context.Command))
+                var optionError = KnotLinkCommandValidator.ValidateOptions(request);
+                if (optionError is not null) return KnotLinkProtocolFormatter.FormatError(context, optionError);
+                if (request.GetBool("current_save") == true)
                 {
-                    BroadcastCommandLifecycle(context, "command_accepted");
+                    var target = await PluginV3CommandService.ResolveKnotLinkTargetAsync(command, request.Options).ConfigureAwait(false);
+                    request = request.WithResolvedTarget(target);
+                    context = new KnotLinkCommandContext(request);
+                    if (!TryResolveConfig(request, out var resolvedConfig, out var targetError)
+                        || !TryResolveFolder(request, resolvedConfig!, out _, out targetError))
+                        return KnotLinkProtocolFormatter.FormatError(context, targetError);
                 }
+                if (KnotLinkCommandValidator.RequiresConversationMetadata(context.Command))
+                    BroadcastCommandLifecycle(context, "command_accepted");
 
-                if (!string.Equals(command, "GET_CAPABILITIES", StringComparison.OrdinalIgnoreCase)
+                if (request.ResolvedTarget is null && !string.Equals(command, "GET_CAPABILITIES", StringComparison.OrdinalIgnoreCase)
                     && !string.Equals(command, "PING", StringComparison.OrdinalIgnoreCase))
                 {
                     var (v3Handled, v3Response) = await PluginV3CommandService.TryExecuteKnotLinkAsync(
@@ -312,38 +321,10 @@ namespace FolderRewind.Services
                 return Task.FromResult(error);
             }
 
-            if (!KnotLinkBackupOverrideService.TryCreateEffectiveConfig(
-                    request,
-                    config!,
-                    out var overrideConfig,
-                    out var overrideError))
-            {
-                return Task.FromResult("ERROR:" + overrideError);
-            }
-
+            if (!TryCreateBackupOperationConfig(request, config!, out var effectiveConfig, out error))
+                return Task.FromResult("ERROR:" + error);
             var comment = request.GetStringOrDefault("comment");
-            var backupBlacklist = request.GetList("backup_blacklist");
-            var backupWhitelist = GetBackupWhitelistOptions(request);
-            var backupScopeId = request.GetString("backup_scope");
-            var backupScopeParameters = GetScopeParameters(request);
-            var effectiveConfig = CreateConfigWithOneShotOverrides(
-                overrideConfig,
-                backupBlacklist,
-                backupWhitelist,
-                Array.Empty<string>(),
-                backupScopeId,
-                backupScopeParameters);
             var effectiveFolder = ResolveEquivalentFolder(effectiveConfig, folder!);
-            var scopeValidation = PluginService.ValidateBackupScope(effectiveConfig);
-            if (!scopeValidation.Success)
-            {
-                return Task.FromResult(
-                    $"ERROR:{scopeValidation.ErrorCode}:{scopeValidation.ErrorMessage}");
-            }
-            if (!BackupService.TryValidateBackupFilterRules(effectiveConfig.Filters, out string filterError))
-            {
-                return Task.FromResult($"ERROR:invalid_filter_rule:{filterError}");
-            }
 
             _ = Task.Run(async () =>
             {
@@ -390,48 +371,47 @@ namespace FolderRewind.Services
             }
 
             var backupFile = request.GetString("file");
-            if (string.IsNullOrWhiteSpace(backupFile))
-            {
-                return "ERROR:" + I18n.GetString("KnotLink_Error_MissingBackupFile");
-            }
-
-            if (!TryResolveRestoreMode(request, out var mode, out error))
-            {
-                return error;
-            }
-
+            if (!TryResolveRestoreMode(request, out var mode, out error)) return error;
             var restoreWhitelist = request.GetList("restore_whitelist");
-            var effectiveConfig = CreateConfigWithOneShotOverrides(config!, Array.Empty<string>(), Array.Empty<string>(), restoreWhitelist);
-            var effectiveFolder = ResolveEquivalentFolder(effectiveConfig, folder!);
-            if (!BackupService.TryValidateFilterRules(effectiveConfig.Filters, out string filterError))
+            try { PathRuleMatcher.ValidateRestoreRules(config!.Filters.RestoreWhitelist.Concat(restoreWhitelist)); }
+            catch (Exception ex) { return $"ERROR:invalid_filter_rule:{ex.Message}"; }
+            var options = new FolderRewind.Plugin.Abstractions.RestoreRequestOptions
             {
-                return $"ERROR:invalid_filter_rule:{filterError}";
-            }
-
+                PreservePlayerDataOverride = request.HasOption("preserve_player_data") ? request.GetBool("preserve_player_data") : null,
+                Mode = mode.ToString().ToLowerInvariant(),
+                RestoreWhitelist = restoreWhitelist.ToArray()
+            };
             if (!Guid.TryParse(folder!.Id, out var sourceGuid) || sourceGuid == Guid.Empty)
                 return "ERROR:invalid_source_identity";
-            var version = await NativeHistoryCoreGateway.FindVersionByFileAsync(
-                config!.Id,
-                new FolderRewind.History.Domain.SourceId(sourceGuid),
-                backupFile!).ConfigureAwait(false);
-            if (version is null) return "ERROR:history_version_not_found";
-            bool isPartialBackup = version.CaptureScope == FolderRewind.History.Domain.CaptureScope.PartialSource;
-            var effectiveMode = isPartialBackup
-                ? BackupService.RestoreMode.Overwrite
-                : mode;
+            VersionId? versionId = null;
+            var effectiveMode = mode;
+            if (!string.IsNullOrWhiteSpace(backupFile))
+            {
+                var version = await NativeHistoryCoreGateway.FindVersionByFileAsync(
+                    config!.Id, new SourceId(sourceGuid), backupFile).ConfigureAwait(false);
+                if (version is null) return "ERROR:history_version_not_found";
+                versionId = version.VersionId;
+                if (version.CaptureScope == CaptureScope.PartialSource) effectiveMode = BackupService.RestoreMode.Overwrite;
+            }
 
             _ = Task.Run(async () =>
             {
                 using var scope = PushCommandContext(context);
                 try
                 {
-                    var restored = await NativeHistoryApplicationService.RestoreVersionAsync(
-                        effectiveConfig,
-                        effectiveFolder,
-                        version.VersionId,
-                        mode).ConfigureAwait(false);
+                    BroadcastCommandLifecycle(context, "command_started");
+                    BroadcastEvent(context, "restore_started", new Dictionary<string, string?>
+                        { ["config"] = config!.Id, ["folder"] = folder!.DisplayName });
+                    var restored = versionId.HasValue
+                        ? await NativeHistoryApplicationService.RestoreVersionAsync(config!, folder!, versionId.Value,
+                            mode, options: options).ConfigureAwait(false)
+                        : await NativeHistoryApplicationService.QuickRestoreAsync(config!, folder!, options: options).ConfigureAwait(false);
                     if (!restored.Succeeded)
                         throw new InvalidOperationException(restored.Diagnostic);
+                    BroadcastEvent(context, "restore_success", new Dictionary<string, string?>
+                        { ["config"] = config!.Id, ["folder"] = folder!.DisplayName, ["result"] = restored.Status.ToString() });
+                    BroadcastCommandLifecycle(context, "command_completed", new Dictionary<string, string?>
+                        { ["result"] = restored.Status.ToString() });
                 }
                 catch (Exception ex)
                 {
@@ -466,27 +446,8 @@ namespace FolderRewind.Services
             }
 
             var comment = request.GetStringOrDefault("comment");
-            var backupBlacklist = request.GetList("backup_blacklist");
-            var backupWhitelist = GetBackupWhitelistOptions(request);
-            var backupScopeId = request.GetString("backup_scope");
-            var backupScopeParameters = GetScopeParameters(request);
-            var effectiveConfig = CreateConfigWithOneShotOverrides(
-                config!,
-                backupBlacklist,
-                backupWhitelist,
-                Array.Empty<string>(),
-                backupScopeId,
-                backupScopeParameters);
-            var scopeValidation = PluginService.ValidateBackupScope(effectiveConfig);
-            if (!scopeValidation.Success)
-            {
-                return Task.FromResult(
-                    $"ERROR:{scopeValidation.ErrorCode}:{scopeValidation.ErrorMessage}");
-            }
-            if (!BackupService.TryValidateBackupFilterRules(effectiveConfig.Filters, out string filterError))
-            {
-                return Task.FromResult($"ERROR:invalid_filter_rule:{filterError}");
-            }
+            if (!TryCreateBackupOperationConfig(request, config!, out var effectiveConfig, out error))
+                return Task.FromResult("ERROR:" + error);
 
             BroadcastEvent(context, "backup_all_started", new Dictionary<string, string?>
             {
@@ -547,7 +508,15 @@ namespace FolderRewind.Services
                 return Task.FromResult("ERROR:" + I18n.GetString("KnotLink_Error_InvalidInterval"));
             }
 
-            var taskKey = (config!.Id, folder!.Path);
+            if (!TryCreateBackupOperationConfig(request, config!, out var effectiveConfig, out error))
+                return Task.FromResult("ERROR:" + error);
+            // Freeze the one-shot options, not the user's mutable configuration instance.
+            effectiveConfig = BackupConfigCloneService.CloneForRuntimeMutation(effectiveConfig, "Could not snapshot automatic backup options.");
+            var effectiveFolder = ResolveEquivalentFolder(effectiveConfig, folder!);
+            var comment = request.GetStringOrDefault("comment", "Auto backup via KnotLink");
+            var expectedSignature = NativeHistoryConfigLease.Signature(config!);
+
+            var taskKey = (config!.Id, folder!.Id);
             var cts = new CancellationTokenSource();
             if (!_activeAutoBackups.TryAdd(taskKey, cts))
             {
@@ -572,10 +541,14 @@ namespace FolderRewind.Services
                             LogService.Log(I18n.Format("KnotLink_AutoBackupExecute", folder.DisplayName));
                             using (PushCommandContext(context))
                             {
-                                await BackupService.BackupFolderAsync(
-                                    config,
-                                    folder,
-                                    BackupInvocationOptions.ForAutomatic().WithComment("Auto backup via KnotLink"));
+                                var registered = ConfigService.CurrentConfig.BackupConfigs.FirstOrDefault(value => value.Id == config!.Id);
+                                if (registered is null || NativeHistoryConfigLease.Signature(registered) != expectedSignature)
+                                {
+                                    cts.Cancel();
+                                    throw new InvalidOperationException("Automatic backup target configuration changed; restart the task.");
+                                }
+                                await BackupService.BackupFolderAsync(effectiveConfig, effectiveFolder,
+                                    BackupInvocationOptions.ForAutomatic().WithComment(comment));
                             }
                             BroadcastEvent(context, "auto_backup_executed", new Dictionary<string, string?>
                             {
@@ -602,7 +575,7 @@ namespace FolderRewind.Services
                 }
                 finally
                 {
-                    _activeAutoBackups.TryRemove(taskKey, out _);
+                    _activeAutoBackups.TryRemove(new KeyValuePair<(string configId, string folderId), CancellationTokenSource>(taskKey, cts));
                     LogService.Log(I18n.Format("KnotLink_AutoBackupStopped", folder.DisplayName));
                     BroadcastCommandLifecycle(context, "command_completed");
                 }
@@ -623,7 +596,7 @@ namespace FolderRewind.Services
             if (!TryResolveConfig(request, out var config, out var error)) return Task.FromResult(error);
             if (!TryResolveFolder(request, config!, out var folder, out error)) return Task.FromResult(error);
 
-            var taskKey = (config!.Id, folder!.Path);
+            var taskKey = (config!.Id, folder!.Id);
             if (!_activeAutoBackups.TryRemove(taskKey, out var cts))
             {
                 return Task.FromResult("ERROR:No active auto-backup task found for this folder.");

@@ -151,6 +151,12 @@ public interface IVersionMetadataSourceView
     ValueTask<Stream> OpenReadAsync(string relativePath, CancellationToken cancellationToken);
 }
 
+/// <summary>Host-owned, locked file inventory for ordinary Restore preparation only.</summary>
+public interface IRestoreSourceView : IVersionMetadataSourceView
+{
+    IReadOnlyList<string> RelativePaths { get; }
+}
+
 public sealed record VersionMetadataCaptureRequest(
     ConfigSnapshot Config,
     FolderSnapshot Folder,
@@ -187,6 +193,7 @@ public sealed record RestoreCoordinatorResult(OperationOutcome Outcome, IReadOnl
 public interface IRestoreStagingPreparationCapability : IPluginCapability
 {
     ConfigKindRef Kind { get; }
+    bool SupportsPlayerDataOverride => false;
     ValueTask<RestoreStagingPreparationResult> PrepareAsync(
         RestoreStagingPreparationRequest request, PluginInvocationContext context);
 }
@@ -197,7 +204,10 @@ public sealed record RestoreStagingPreparationRequest(
     Guid FolderId,
     IVersionMetadataSourceView Current,
     IVersionMetadataSourceView Target,
-    bool PreservePlayerData);
+    bool PreservePlayerData)
+{
+    public bool? PreservePlayerDataOverride { get; init; }
+}
 
 public sealed record RestoreStagedFileProposal(string RelativePath, ReadOnlyMemory<byte> Content);
 public sealed record RestoreStagingPreparationResult(
@@ -221,11 +231,35 @@ public sealed record PluginCommandResult(OperationOutcome Outcome, IReadOnlyDict
 public interface IKnotLinkIntegrationCapability : IPluginCapability
 {
     IReadOnlyList<KnotLinkCommandDescriptor> Commands { get; }
+    IReadOnlyList<KnotLinkSignalDescriptor> Signals => Array.Empty<KnotLinkSignalDescriptor>();
     ValueTask<PluginCommandResult> ExecuteAsync(string command, IReadOnlyDictionary<string, string> arguments, PluginInvocationContext context);
 }
 
+/// <summary>Optional extension on an integration capability, not a separately registered capability.</summary>
+public interface IKnotLinkTargetResolver
+{
+    ValueTask<KnotLinkTargetResolution> ResolveTargetAsync(string command,
+        IReadOnlyDictionary<string, string> arguments, PluginInvocationContext context);
+}
+
+public sealed record KnotLinkTarget(string ConfigId, Guid FolderId);
+public sealed record KnotLinkTargetResolution(KnotLinkTarget? Target, IReadOnlyList<PluginDiagnostic> Diagnostics);
+public sealed record KnotLinkArgumentOption(string Description, string Value);
+public sealed record KnotLinkArgumentDescriptor(string Name, string Description)
+{
+    public string Type { get; init; } = "input";
+    public string? DefaultValue { get; init; }
+    public string? Value { get; init; }
+    public IReadOnlyList<KnotLinkArgumentOption> Options { get; init; } = Array.Empty<KnotLinkArgumentOption>();
+}
+public sealed record KnotLinkSignalDescriptor(string Name, string Description, IReadOnlyDictionary<string, string> Fields);
+
 public sealed record KnotLinkCommandDescriptor(string Command, string Description)
 {
+    public string? FunctionName { get; init; }
+    public bool IsTargetSelector { get; init; }
+    public IReadOnlyList<KnotLinkArgumentDescriptor> Arguments { get; init; } = Array.Empty<KnotLinkArgumentDescriptor>();
+    public IReadOnlyList<string> Returns { get; init; } = new[] { "message", "data" };
     /// <summary>
     /// Only route the command when every declared argument matches. This lets a plugin
     /// extend a Core command such as BACKUP for a semantic selector without taking over

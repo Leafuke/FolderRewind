@@ -86,15 +86,16 @@ public sealed class PluginPackageInstallerTests
     public async Task BundledMineRewindPackageMatchesFrozenIdentityAndHash()
     {
         var root = FindRepositoryRoot();
-        var packagePath = Path.Combine(root, "FolderRewind", "Assets", "Plugins", "MineRewind-1.9.2.frplugin");
+        var packagePath = Path.Combine(root, "FolderRewind", "Assets", "Plugins", "MineRewind-1.9.3.frplugin");
         var package = await PluginPackageValidator.ValidateAsync(
             packagePath,
-            "dbdffdeb8c67dbb9100c17c03758c4433500d95b6f9bfe41a5ee48aa47033cd8");
+            "9cf45bc4be235ec2c95beb4b4dcbf7d14184d66b2cd6c8e6d55206ae5fc35de5");
 
         Assert.AreEqual("com.folderrewind.minerewind", package.Manifest.Contract.PluginId.Value);
-        Assert.AreEqual("1.9.2", package.Manifest.Contract.Version);
+        Assert.AreEqual("1.9.3", package.Manifest.Contract.Version);
         Assert.AreEqual(3, package.Manifest.Contract.RequiredApi.Major);
-        Assert.AreEqual(4, package.Manifest.Contract.RequiredApi.Minor);
+        Assert.AreEqual(5, package.Manifest.Contract.RequiredApi.Minor);
+        Assert.IsFalse(package.Manifest.Contract.RequiredApi.IsSatisfiedBy(new FolderRewind.Plugin.Abstractions.PluginApiVersion(3, 4)));
         Assert.Contains(PluginCapabilityKind.VersionMetadataProvider, package.Manifest.Contract.Capabilities);
         Assert.IsFalse(package.Entries.Any(value =>
             value.CanonicalPath.EndsWith("FolderRewind.Plugin.Abstractions.dll", StringComparison.OrdinalIgnoreCase)));

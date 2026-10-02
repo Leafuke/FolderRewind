@@ -1,5 +1,5 @@
-# Generated and reviewed public API baseline for Plugin API 3.4.0.
-# sha256:68fddc974ba4200ca72c636065860ad34551fbc7ceac1eacae987b942d6a9948
+# Generated and reviewed public API baseline for Plugin API 3.5.0.
+# sha256:d2bbf78981ebfc7fa337c4014505bfbbf0ca38f739fd0ac5615c505553ca53c5
 T FolderRewind.Plugin.Abstractions.AddFolderChange
 T FolderRewind.Plugin.Abstractions.ArtifactCompleteness
 T FolderRewind.Plugin.Abstractions.ArtifactContentHandle
@@ -73,6 +73,7 @@ T FolderRewind.Plugin.Abstractions.IFolderRewindPlugin
 T FolderRewind.Plugin.Abstractions.IHistoryQueryService
 T FolderRewind.Plugin.Abstractions.IKnotLinkHostService
 T FolderRewind.Plugin.Abstractions.IKnotLinkIntegrationCapability
+T FolderRewind.Plugin.Abstractions.IKnotLinkTargetResolver
 T FolderRewind.Plugin.Abstractions.IPluginActivationContext
 T FolderRewind.Plugin.Abstractions.IPluginCapability
 T FolderRewind.Plugin.Abstractions.IPluginCommandCapability
@@ -88,10 +89,17 @@ T FolderRewind.Plugin.Abstractions.IRestoreCoordinatorCapability
 T FolderRewind.Plugin.Abstractions.IRestoreMaterializationWorkspace
 T FolderRewind.Plugin.Abstractions.IRestoreMaterializerCapability
 T FolderRewind.Plugin.Abstractions.IRestoreRequestService
+T FolderRewind.Plugin.Abstractions.IRestoreSourceView
 T FolderRewind.Plugin.Abstractions.IRestoreStagingPreparationCapability
 T FolderRewind.Plugin.Abstractions.IVersionMetadataProviderCapability
 T FolderRewind.Plugin.Abstractions.IVersionMetadataSourceView
+T FolderRewind.Plugin.Abstractions.KnotLinkArgumentDescriptor
+T FolderRewind.Plugin.Abstractions.KnotLinkArgumentOption
 T FolderRewind.Plugin.Abstractions.KnotLinkCommandDescriptor
+T FolderRewind.Plugin.Abstractions.KnotLinkCoreCommands
+T FolderRewind.Plugin.Abstractions.KnotLinkSignalDescriptor
+T FolderRewind.Plugin.Abstractions.KnotLinkTarget
+T FolderRewind.Plugin.Abstractions.KnotLinkTargetResolution
 T FolderRewind.Plugin.Abstractions.LocalizedText
 T FolderRewind.Plugin.Abstractions.OperationOutcome
 T FolderRewind.Plugin.Abstractions.OperationReadiness

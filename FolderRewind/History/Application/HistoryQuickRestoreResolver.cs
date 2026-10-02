@@ -61,9 +61,12 @@ public sealed class HistoryQuickRestoreResolver
         var versionId = checkpoint?.Sources.SingleOrDefault(item => item.SourceId == sourceId)?.VersionId;
         if (versionId is null)
             return Missing("Active Branch checkpoint has no Version for this Source.", anchorId);
+        var version = await _history.Query.GetVersionAsync(versionId.Value, cancellationToken).ConfigureAwait(false);
+        var fidelity = version?.CaptureScope == CaptureScope.PartialSource
+            ? MaterializationFidelity.Partial : MaterializationFidelity.Exact;
         var assessment = await _restore.AssessVersionAsync(
             versionId.Value,
-            MaterializationFidelity.Exact,
+            fidelity,
             assessmentDepth,
             cancellationToken).ConfigureAwait(false);
         if (assessment.Readiness != HistoryReadiness.Ready || assessment.Selected is null)
@@ -72,7 +75,7 @@ public sealed class HistoryQuickRestoreResolver
                 versionId,
                 anchorId,
                 assessment.Readiness,
-                "Active Branch candidate is not Ready with Exact fidelity.");
+                $"Active Branch candidate is not Ready with {fidelity} fidelity.");
         return new(
             HistoryQuickRestoreResolutionStatus.Ready,
             versionId,

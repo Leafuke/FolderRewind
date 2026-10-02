@@ -43,7 +43,7 @@ namespace FolderRewind.Services
         private static bool _isEnabled;
 
         // 自动备份任务管理（对应 MineBackup 的 g_active_auto_backups）
-        private static readonly ConcurrentDictionary<(string configId, string folderPath), CancellationTokenSource> _activeAutoBackups = new();
+        private static readonly ConcurrentDictionary<(string configId, string folderId), CancellationTokenSource> _activeAutoBackups = new();
         private static readonly AsyncLocal<KnotLinkCommandContext?> _currentCommandContext = new();
 
         #endregion

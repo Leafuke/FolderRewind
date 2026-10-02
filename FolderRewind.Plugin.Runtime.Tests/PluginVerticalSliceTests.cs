@@ -12,7 +12,7 @@ namespace FolderRewind.Plugin.Runtime.Tests;
 public sealed class PluginVerticalSliceTests
 {
     private static readonly PluginId FakePluginId = new("com.folderrewind.vertical-fake");
-    private const string MineRewindSha256 = "dbdffdeb8c67dbb9100c17c03758c4433500d95b6f9bfe41a5ee48aa47033cd8";
+    private const string MineRewindSha256 = "9cf45bc4be235ec2c95beb4b4dcbf7d14184d66b2cd6c8e6d55206ae5fc35de5";
     private static readonly PluginId MineRewindPluginId = new("com.folderrewind.minerewind");
     private static readonly ConfigKindRef FakeKind = new(new OwnerId(FakePluginId.Value), "test-data");
     private static readonly ConfigKindRef MinecraftKind = new(
@@ -423,13 +423,13 @@ public sealed class PluginVerticalSliceTests
             "FolderRewind",
             "Assets",
             "Plugins",
-            "MineRewind-1.9.2.frplugin");
+            "MineRewind-1.9.3.frplugin");
         var sidecarSha256 = (await File.ReadAllTextAsync(packagePath + ".sha256"))
             .Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries)[0];
         Assert.AreEqual(MineRewindSha256, sidecarSha256);
         var package = await PluginPackageValidator.ValidateAsync(packagePath, sidecarSha256);
         Assert.AreEqual(MineRewindPluginId, package.Manifest.Contract.PluginId);
-        Assert.AreEqual("1.9.2", package.Manifest.Contract.Version);
+        Assert.AreEqual("1.9.3", package.Manifest.Contract.Version);
         CollectionAssert.AreEquivalent(
             new[]
             {
@@ -613,7 +613,7 @@ public sealed class PluginVerticalSliceTests
                     "FolderRewind",
                     "Assets",
                     "Plugins",
-                    "MineRewind-1.9.2.frplugin")))
+                    "MineRewind-1.9.3.frplugin")))
                 return directory.FullName;
             directory = directory.Parent;
         }

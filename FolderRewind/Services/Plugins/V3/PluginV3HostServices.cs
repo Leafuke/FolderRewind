@@ -152,7 +152,7 @@ internal sealed class PluginV3HostServices : IPluginHostServices
                 config,
                 folder,
                 parsed,
-                BackupService.RestoreMode.Clean,
+                options.Mode == "overwrite" ? BackupService.RestoreMode.Overwrite : BackupService.RestoreMode.Clean,
                 cancellationToken, options).ConfigureAwait(false);
             return result.Status switch
             {

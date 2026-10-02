@@ -96,7 +96,7 @@ internal static partial class NativeHistoryApplicationService
                 config,
                 folder,
                 resolution.VersionId.Value,
-                BackupService.RestoreMode.Clean,
+                options?.Mode == "overwrite" ? BackupService.RestoreMode.Overwrite : BackupService.RestoreMode.Clean,
                 token,
                 requireSafetySnapshot: true),
             cancellationToken, options: options).ConfigureAwait(false);
@@ -116,6 +116,8 @@ internal static partial class NativeHistoryApplicationService
         if (NativeHistoryConfigLease.Signature(config) != signature) return Blocked(I18n.GetString("SettingsProject_Stale"));
         var runtime = await NativeHistoryCoreGateway.EnsureReadyAsync(config, cancellationToken).ConfigureAwait(false);
         var restore = CreateRestoreService(config, runtime, expectedSignature: signature);
+        var selectedVersion = await runtime.Query.GetVersionAsync(versionId, cancellationToken).ConfigureAwait(false);
+        if (selectedVersion?.CaptureScope == CaptureScope.PartialSource) requestedMode = BackupService.RestoreMode.Overwrite;
         var requiredFidelity = requestedMode == BackupService.RestoreMode.Clean
             ? MaterializationFidelity.Exact
             : MaterializationFidelity.Partial;
@@ -507,7 +509,9 @@ internal static partial class NativeHistoryApplicationService
             new FileSystemHistoryRestoreMutationBackend(),
             ordinaryRestore ? (binding, staging, token) => Plugins.V3.PluginV3RestoreStagingPreparation.PrepareAsync(
                 config, NativeHistoryRestoreOrchestrator.Current?.Id ?? Guid.NewGuid(),
-                NativeHistoryRestoreOrchestrator.Current?.PreservePlayerData == true, binding, staging, token) : null,
+                NativeHistoryRestoreOrchestrator.Current?.PreservePlayerData == true, binding, staging, token,
+                NativeHistoryRestoreOrchestrator.Current?.PreservePlayerDataOverride,
+                NativeHistoryRestoreOrchestrator.Current?.RestoreWhitelist) : null,
             token => NativeHistoryConfigLease.EnterAsync(config, configSignature, token))
         { FinalGuardInsideOperation = (operation, token) => NativeHistoryConfigLease.EnterInsideOperationAsync(config, configSignature, operation, token) };
     }

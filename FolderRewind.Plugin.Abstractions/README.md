@@ -43,3 +43,6 @@ Manifest declarations and settings schemas are static package data. Requested
 Host services are compatibility and user-consent declarations, not a security
 sandbox. Plugins execute in the FolderRewind process and must therefore be
 trusted before installation.
+
+
+API 3.5 adds optional KnotLink target resolution, shared command/argument metadata and plugin signal descriptions, nullable per-operation player-preservation overrides, and locked enumerable ordinary-Restore views. Existing positional constructors and service methods remain available. New option-bearing calls cannot silently fall back to legacy services that do not support their options. MineRewind 1.9.3 requires API 3.5; Host assembly identity remains 3.0.0.0.

@@ -176,7 +176,8 @@ public sealed class HistoryRestoreService
         PreparedRestoreSource prepared;
         try
         {
-            var effectiveMode = requestedMode;
+            var effectiveMode = version.CaptureScope == CaptureScope.PartialSource
+                ? HistoryRestoreApplyMode.Overwrite : requestedMode;
             prepared = await PrepareSourceAsync(
                 version,
                 source,

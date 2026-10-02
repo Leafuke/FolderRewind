@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Collections.ObjectModel;
 
 namespace FolderRewind.Services.KnotLink
 {
@@ -16,13 +17,18 @@ namespace FolderRewind.Services.KnotLink
         {
             Command = (command ?? string.Empty).ToUpperInvariant();
             RawPayload = rawPayload ?? string.Empty;
-            Options = options;
-            _encodedOptions = encodedOptions;
+            Options = new ReadOnlyDictionary<string, string>(new Dictionary<string, string>(options, StringComparer.OrdinalIgnoreCase));
+            _encodedOptions = new ReadOnlyDictionary<string, string>(new Dictionary<string, string>(encodedOptions, StringComparer.OrdinalIgnoreCase));
         }
 
         public string Command { get; }
 
         public string RawPayload { get; }
+
+        public FolderRewind.Plugin.Abstractions.KnotLinkTarget? ResolvedTarget { get; private init; }
+
+        public KnotLinkCommandRequest WithResolvedTarget(FolderRewind.Plugin.Abstractions.KnotLinkTarget target)
+            => new(Command, RawPayload, Options, _encodedOptions) { ResolvedTarget = target };
 
         public IReadOnlyDictionary<string, string> Options { get; }
 

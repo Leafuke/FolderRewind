@@ -79,6 +79,45 @@ public sealed class KnotLinkProtocolTests
     }
 
     [TestMethod]
+    [DataRow("cmd=RESTORE;preserve_player_data=maybe")]
+    [DataRow("cmd=RESTORE;preserve_player_data=")]
+    [DataRow("cmd=BACKUP;current_save=maybe")]
+    [DataRow("cmd=BACKUP;current_save=true;config_id=config")]
+    [DataRow("cmd=RESTORE;current_save=true;folder=0")]
+    [DataRow("cmd=BACKUP_ALL;current_save=true")]
+    [DataRow("cmd=RESTORE;mode=")]
+    [DataRow("cmd=RESTORE;mode=invalid")]
+    [DataRow("cmd=RESTORE;compression_level=5")]
+    [DataRow("cmd=LIST_BACKUPS;scope_areas=0,0,1,1")]
+    public void ValidatorRejectsAmbiguousSelectorsAndInvalidOverrides(string payload)
+        => Assert.IsNotNull(KnotLinkCommandValidator.ValidateOptions(KnotLinkCommandParser.Parse(payload)));
+
+    [TestMethod]
+    [DataRow("true", true)]
+    [DataRow("false", false)]
+    [DataRow("on", true)]
+    [DataRow("off", false)]
+    public void PlayerOverridePreservesExplicitFalse(string value, bool expected)
+    {
+        var request = KnotLinkCommandParser.Parse("cmd=RESTORE;preserve_player_data=" + value);
+        Assert.IsNull(KnotLinkCommandValidator.ValidateOptions(request));
+        Assert.AreEqual(expected, request.GetBool("preserve_player_data"));
+        Assert.IsNull(KnotLinkCommandParser.Parse("cmd=RESTORE").GetBool("preserve_player_data"));
+    }
+
+    [TestMethod]
+    public void StableTargetResolutionDoesNotReencodeListValuesOrDropConversation()
+    {
+        var request = KnotLinkCommandParser.Parse("cmd=BACKUP;current_save=true;backup_blacklist=a%2Cb,c;from=client;request_id=001");
+        var target = new FolderRewind.Plugin.Abstractions.KnotLinkTarget("config", Guid.NewGuid());
+        var resolved = request.WithResolvedTarget(target);
+        CollectionAssert.AreEqual(new[] { "a,b", "c" }, resolved.GetList("backup_blacklist").ToArray());
+        Assert.AreEqual(target, resolved.ResolvedTarget);
+        var context = new KnotLinkCommandContext(resolved);
+        Assert.AreEqual("client", context.Metadata.From); Assert.AreEqual("001", context.Metadata.RequestId);
+    }
+
+    [TestMethod]
     public void BackupOverrides_NormalizeValidValues()
     {
         var request = KnotLinkCommandParser.Parse(

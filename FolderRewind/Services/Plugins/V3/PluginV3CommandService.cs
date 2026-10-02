@@ -87,6 +87,24 @@ public static class PluginV3CommandService
         return (false, string.Empty);
     }
 
+    public static async ValueTask<KnotLinkTarget> ResolveKnotLinkTargetAsync(string command,
+        IReadOnlyDictionary<string, string> arguments, CancellationToken cancellationToken = default)
+    {
+        KnotLinkTarget? target = null;
+        foreach (var pluginId in PluginV3RuntimeService.GetActivePlugins())
+        {
+            using var lease = PluginV3RuntimeService.Runtime.TryAcquire<IKnotLinkIntegrationCapability>(pluginId, cancellationToken);
+            if (lease?.Capability is not IKnotLinkTargetResolver resolver || !lease.Capability.Commands.Any(
+                descriptor => descriptor.IsTargetSelector && KnotLinkCommandMatcher.Matches(descriptor, command, arguments))) continue;
+            var result = await resolver.ResolveTargetAsync(command, arguments, lease.Context).ConfigureAwait(false);
+            if (result.Target is null) throw new InvalidOperationException(
+                result.Diagnostics.FirstOrDefault()?.Code ?? "knotlink.active_world_not_found");
+            if (target is not null) throw new InvalidOperationException("knotlink.ambiguous_target_resolver");
+            target = result.Target;
+        }
+        return target ?? throw new InvalidOperationException("knotlink.current_save_unavailable");
+    }
+
     private static bool TryString(
         IReadOnlyDictionary<string, JsonElement> values,
         string key,
