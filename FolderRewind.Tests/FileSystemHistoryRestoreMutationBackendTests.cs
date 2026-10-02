@@ -99,6 +99,30 @@ public sealed class FileSystemHistoryRestoreMutationBackendTests
         await backend.CommitAsync(snapshot, CancellationToken.None);
     }
 
+    [TestMethod]
+    [DataRow(HistoryRestoreApplyMode.Clean)]
+    [DataRow(HistoryRestoreApplyMode.Overwrite)]
+    public async Task PreparedCurrentSubtreeDoesNotResurrectHistoricalDeletedFiles(HistoryRestoreApplyMode mode)
+    {
+        var target = Path.Combine(_root, "preserve-target");
+        var staging = Path.Combine(_root, "preserve-staging");
+        Directory.CreateDirectory(Path.Combine(target, "ftbteams"));
+        Directory.CreateDirectory(Path.Combine(staging, "ftbteams"));
+        await File.WriteAllTextAsync(Path.Combine(target, "ftbteams", "current.snbt"), "current");
+        // The preparation output contains the exact current subtree; historical deleted.snbt is absent.
+        await File.WriteAllTextAsync(Path.Combine(staging, "ftbteams", "current.snbt"), "current");
+        await File.WriteAllTextAsync(Path.Combine(staging, "level.dat"), "historical world");
+        var binding = new HistoryRestoreSourceBinding(SourceId.New(), target);
+        var backend = new FileSystemHistoryRestoreMutationBackend();
+        var snapshot = backend.PlanRollback(binding, HistoryTransactionId.New());
+        await backend.PrepareRollbackAsync(snapshot, default);
+        await backend.ApplyAsync(binding, staging, mode, snapshot, default);
+        Assert.IsFalse(File.Exists(Path.Combine(target, "ftbteams", "deleted.snbt")));
+        Assert.AreEqual("current", await File.ReadAllTextAsync(Path.Combine(target, "ftbteams", "current.snbt")));
+        Assert.AreEqual("historical world", await File.ReadAllTextAsync(Path.Combine(target, "level.dat")));
+        await backend.CommitAsync(snapshot, default);
+    }
+
     private async Task<(FileSystemHistoryRestoreMutationBackend Backend,
         HistoryRestoreRollbackSnapshot Snapshot, string File, string Subdirectory)> PrepareSnapshotAsync()
     {

@@ -16,7 +16,8 @@ internal static class PluginV3RestoreStagingPreparation
 {
     public static async Task<bool> PrepareAsync(BackupConfig config, Guid operationId, bool preservePlayerData,
         HistoryRestoreSourceBinding binding, string staging, CancellationToken token,
-        bool? preservePlayerDataOverride = null, IReadOnlyList<string>? additionalRestoreWhitelist = null)
+        bool? preservePlayerDataOverride = null, IReadOnlyList<string>? additionalRestoreWhitelist = null,
+        IReadOnlyList<string>? preservePaths = null)
     {
         var kind = PluginV3ModelMapper.ToKind(config);
         using var lease = kind.OwnerId.Value == "folderrewind.core" ? null
@@ -29,6 +30,7 @@ internal static class PluginV3RestoreStagingPreparation
         var include = FileSystemHistoryRestoreMutationBackend.CreateBoundaryMatcher(binding);
         var proposed = new Dictionary<string, RestoreStagedFileProposal>(StringComparer.OrdinalIgnoreCase);
         IReadOnlyList<RestoreStagedFileProposal> proposals;
+        IReadOnlyList<string> deletes = [];
         using (var current = new LockedView(binding.TargetDirectory, include))
         using (var target = new LockedView(staging, include))
         {
@@ -49,9 +51,22 @@ internal static class PluginV3RestoreStagingPreparation
                     proposed[proposal.RelativePath] = proposal;
                 foreach (var diagnostic in result.Diagnostics) LogService.LogWarning(diagnostic.Code, "Restore preparation");
             }
+            var preserve = await RestorePreservePreparation.PrepareAsync(current, target, preservePaths ?? [],
+                kind.OwnerId.Value == "com.folderrewind.minerewind", include, token,
+                proposed.Keys.Concat(current.AllRelativePaths).Concat(target.AllRelativePaths)).ConfigureAwait(false);
+            deletes = preserve.Deletes;
+            foreach (var path in deletes) proposed.Remove(path);
+            foreach (var proposal in preserve.Files) proposed[proposal.RelativePath] = proposal;
+            if (proposed.Count + deletes.Count > 4096) throw new InvalidDataException("Restore preparation exceeds file limit.");
             proposals = RestoreStagingProposalValidator.ValidateAndFreeze(new(proposed.Values.ToArray(), []), include);
         }
         bool changed = false;
+        foreach (var relative in deletes)
+        {
+            token.ThrowIfCancellationRequested();
+            var path = ArtifactPathRules.ResolveUnderRoot(staging, relative);
+            if (File.Exists(path)) { File.Delete(path); changed = true; }
+        }
         foreach (var proposal in proposals)
         {
             var path = ArtifactPathRules.ResolveUnderRoot(staging, proposal.RelativePath);
@@ -68,6 +83,8 @@ internal static class PluginV3RestoreStagingPreparation
     private sealed class LockedView : IRestoreSourceView, IDisposable
     {
         private readonly Dictionary<string, FileStream> _files = new(StringComparer.Ordinal);
+        private readonly List<string> _allRelativePaths = [];
+        public IReadOnlyList<string> AllRelativePaths => _allRelativePaths.AsReadOnly();
         public LockedView(string root, Func<string, bool> include)
         {
             try
@@ -85,6 +102,7 @@ internal static class PluginV3RestoreStagingPreparation
                             throw new IOException("Restore preparation cannot follow links.");
                         if ((attributes & FileAttributes.Directory) != 0) { pending.Push(path); continue; }
                         var relative = Path.GetRelativePath(root, path).Replace('\\', '/');
+                        _allRelativePaths.Add(relative);
                         if (include(relative)) _files.Add(relative, new(path, FileMode.Open, FileAccess.Read, FileShare.Read));
                     }
                 }

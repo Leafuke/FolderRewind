@@ -565,7 +565,7 @@
         },
         "file": {
           "type": "input",
-          "description": "Optional archive name; omit for the active Workspace\u0027s unique local branch tip."
+          "description": "Optional archive name; omit for the active Workspace's unique local branch tip."
         },
         "folder": {
           "type": "input",
@@ -607,6 +607,10 @@
         "request_id": {
           "type": "input",
           "description": "Required request correlation ID."
+        },
+        "restore_preserve_paths": {
+          "type": "input",
+          "description": "One-shot comma-separated relative files or directories (trailing /). Exact current state wins, including deletions; no glob, root or traversal. Minecraft paths are relative to the unique managed world root."
         },
         "restore_whitelist": {
           "type": "input",

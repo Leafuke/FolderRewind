@@ -521,7 +521,8 @@ internal static partial class NativeHistoryApplicationService
                 config, NativeHistoryRestoreOrchestrator.Current?.Id ?? Guid.NewGuid(),
                 NativeHistoryRestoreOrchestrator.Current?.PreservePlayerData == true, binding, staging, token,
                 NativeHistoryRestoreOrchestrator.Current?.PreservePlayerDataOverride,
-                NativeHistoryRestoreOrchestrator.Current?.RestoreWhitelist) : null,
+                NativeHistoryRestoreOrchestrator.Current?.RestoreWhitelist,
+                NativeHistoryRestoreOrchestrator.Current?.RestorePreservePaths) : null,
             token => NativeHistoryConfigLease.EnterAsync(config, configSignature, token))
         { FinalGuardInsideOperation = (operation, token) => NativeHistoryConfigLease.EnterInsideOperationAsync(config, configSignature, operation, token) };
     }
