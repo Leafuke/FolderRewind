@@ -51,19 +51,58 @@ public sealed class HistoryCloudBackupTests
     }
 
     [TestMethod]
-    public async Task CancellationDuringUploadDoesNotLockOutTheNextTask()
+    [DataRow(1)]
+    [DataRow(2)]
+    [DataRow(3)]
+    public async Task CancellationDuringUploadDoesNotLockOutTheNextTask(int cancellationPoint)
     {
         var fixture = await FixtureAsync(); await using var runtime = fixture.Runtime;
         using var cancellation = new CancellationTokenSource();
-        var transport = new MemoryReplicaTransport { AfterUpload = () => cancellation.Cancel() };
-        var service = new HistoryCloudBackupService(runtime, transport, _ => Task.FromResult(Metadata(true)));
+        var barrier = new CancellationBarrier();
+        var transport = new MemoryReplicaTransport { CancellationPoint = cancellationPoint, Barrier = barrier };
+        var service = new HistoryCloudBackupService(runtime, transport, async token =>
+        {
+            if (transport.CancellationPoint == 3) await barrier.WaitAsync(token);
+            return Metadata(true);
+        });
         Task<string?> Local(RepresentationId id, CancellationToken token) => Task.FromResult<string?>(fixture.Paths.GetValueOrDefault(id));
-        var canceled = await service.UploadClosureAsync([fixture.Delta], Local, cancellation.Token);
+        var operation = service.UploadClosureAsync([fixture.Delta], Local, cancellation.Token);
+        HistoryCloudBackupResult canceled;
+        try
+        {
+            await barrier.Entered.Task.WaitAsync(TimeSpan.FromSeconds(5));
+            cancellation.Cancel();
+            canceled = await operation.WaitAsync(TimeSpan.FromSeconds(5));
+        }
+        finally
+        {
+            cancellation.Cancel();
+            barrier.Release.TrySetResult();
+            // Drain before disposing Runtime or deleting payloads, including on assertion timeout.
+            await operation;
+        }
         Assert.IsTrue(canceled.Canceled);
         Assert.IsFalse(canceled.Complete);
-        transport.AfterUpload = null;
-        var retry = await service.UploadClosureAsync([fixture.Delta], Local).WaitAsync(TimeSpan.FromSeconds(5));
+        var durable = await runtime.Query.GetStorageReplicasAsync(fixture.Base);
+        Assert.HasCount(cancellationPoint == 3 ? 1 : 0, durable);
+        foreach (var path in fixture.Paths.Values)
+        {
+            using var exclusive = new FileStream(path, FileMode.Open, FileAccess.ReadWrite, FileShare.None);
+        }
+        using (var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(5)))
+        {
+            await using var lease = await runtime.MutationGate.EnterAsync(timeout.Token);
+        }
+        transport.CancellationPoint = 0;
+        using var retryCancellation = new CancellationTokenSource();
+        var retryTask = service.UploadClosureAsync([fixture.Delta], Local, retryCancellation.Token);
+        HistoryCloudBackupResult retry;
+        try { retry = await retryTask.WaitAsync(TimeSpan.FromSeconds(5)); }
+        finally { retryCancellation.Cancel(); await retryTask; }
         Assert.IsTrue(retry.Complete);
+        var after = await runtime.Query.GetStorageReplicasAsync(fixture.Base);
+        Assert.HasCount(1, after);
+        if (cancellationPoint == 3) Assert.AreEqual(durable.Single().ReplicaId, after.Single().ReplicaId);
     }
 
     [TestMethod]
@@ -116,15 +155,33 @@ public sealed class HistoryCloudBackupTests
         public int UploadCount { get; private set; }
         public int ManifestCount { get; private set; }
         public bool Corrupt { get; set; }
-        public Action? AfterUpload { get; set; }
-        public Task UploadAsync(ReplicaId id, string path, CancellationToken token) { UploadCount++; _payloads[id] = Corrupt ? [0] : File.ReadAllBytes(path); AfterUpload?.Invoke(); return Task.CompletedTask; }
-        public Task<HistoryReplicaVerification> VerifyRemoteAsync(ReplicaId id, CancellationToken token)
+        public int CancellationPoint { get; set; }
+        public CancellationBarrier? Barrier { get; init; }
+        public async Task UploadAsync(ReplicaId id, string path, CancellationToken token)
         {
+            UploadCount++;
+            if (CancellationPoint == 1) await Barrier!.WaitAsync(token);
+            _payloads[id] = Corrupt ? [0] : File.ReadAllBytes(path);
+        }
+        public async Task<HistoryReplicaVerification> VerifyRemoteAsync(ReplicaId id, CancellationToken token)
+        {
+            if (CancellationPoint == 2) await Barrier!.WaitAsync(token);
             var bytes = _payloads[id];
-            return Task.FromResult(new HistoryReplicaVerification(true, bytes.Length, Convert.ToHexString(SHA256.HashData(bytes)), ""));
+            return new HistoryReplicaVerification(true, bytes.Length, Convert.ToHexString(SHA256.HashData(bytes)), "");
         }
         public Task CommitManifestOnceAsync(HistoryReplicaManifest manifest, CancellationToken token) { ManifestCount++; return Task.CompletedTask; }
         public Task DownloadAsync(HistoryReplicaManifest manifest, string path, CancellationToken token) => throw new InvalidOperationException();
         public Task DeletePhysicalAsync(HistoryReplicaManifest manifest, CancellationToken token) => throw new InvalidOperationException();
+    }
+
+    private sealed class CancellationBarrier
+    {
+        public TaskCompletionSource Entered { get; } = new(TaskCreationOptions.RunContinuationsAsynchronously);
+        public TaskCompletionSource Release { get; } = new(TaskCreationOptions.RunContinuationsAsynchronously);
+        public async Task WaitAsync(CancellationToken token)
+        {
+            Entered.TrySetResult();
+            await Release.Task.WaitAsync(token);
+        }
     }
 }
